@@ -7,6 +7,7 @@ from apps.launchers.app_launcher_if import AppLauncherIf
 from apps.launchers.process_manager import (
     close_matching_display_apps,
     is_process_running,
+    kill_process_pattern,
 )
 
 class BrowserKioskLauncher(AppLauncherIf):
@@ -78,23 +79,15 @@ class BrowserKioskLauncher(AppLauncherIf):
         if set_status:
             set_status(f"Browser launched on {remote_display}")
 
-    def stop(
-        self,
-        set_status: Optional[Callable[[str], None]] = None,
-    ) -> None:
-        
-        close_matching_display_apps(
-            display=remote_display,
-            patterns=[
-                "chromium-browser",
-                "chromium",
-                "google-chrome",
-            ],
-        )
+    def stop(self, set_status=None) -> None:
+        kill_process_pattern(self.process_pattern)
         self._process = None
 
         if set_status:
             set_status("Browser stopped")
+
+            if set_status:
+                set_status("Browser stopped")
 
     def toggle(
         self,

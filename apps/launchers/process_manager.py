@@ -121,3 +121,11 @@ def close_matching_display_apps(
         patterns=patterns,
         delay_seconds=delay_seconds,
     )
+
+def kill_process_pattern(pattern: str) -> None:
+    subprocess.run(
+        ["pkill", "-f", pattern],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        check=False,
+    )

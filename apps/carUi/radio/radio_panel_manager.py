@@ -52,11 +52,14 @@ class RadioPanelManager:
             remote_display=remote_display,
             set_status=set_status,
             on_preset_pressed=on_preset_pressed,
-            on_frequency_changed=on_frequency_changed,
             update_radio_status=self._update_radio_status,
+            on_frequency_tuned=self._handle_frequency_tuned,
         )
 
         self.set_status = set_status
+
+        self.preset_tiles: dict[int, tk.Frame] = {}
+        self.active_preset_frequency_hz: Optional[int] = None
 
     def show(self) -> tk.Frame:
         self.destroy()
@@ -181,13 +184,31 @@ class RadioPanelManager:
             row = index // cols
             col = index % cols
 
+            preset_number = index + 1
+
+            precision = (3
+                if self.panel_config.key in {
+                    "airband",
+                    "ham",
+                    "weather_radio",
+                }
+                else 1
+            )
             tile = self.create_tile(
                 parent,
                 f"{self.panel_config.key}_preset_{preset.frequency_hz}",
-                compact_preset_label(preset),
-                preset.mode.name,
-                format_frequency(preset.frequency_hz),
+                compact_preset_label(preset, precision=precision),
+                f"Preset {preset_number}",
+                format_frequency(
+                    preset.frequency_hz,
+                    precision=3 if self.panel_config.key in {
+                        "airband",
+                        "ham",
+                        "weather_radio",
+                    } else 1,
+                ),
             )
+            self.preset_tiles[preset.frequency_hz] = tile
             tile.grid(row=row, column=col, sticky="nsew", padx=6, pady=6)
             self._bind_click_recursive(tile, lambda p=preset: self.controller.tune_preset(p))
 
@@ -273,6 +294,62 @@ class RadioPanelManager:
         if self.set_status:
             self.set_status(message)
 
+    def _set_active_preset_tile(self, preset: RadioPreset) -> None:
+        self.active_preset_frequency_hz = preset.frequency_hz
+
+        for frequency_hz, tile in self.preset_tiles.items():
+            active = frequency_hz == preset.frequency_hz
+            self._set_tile_active(tile, active)
+
+
+    def _set_tile_active(self, tile: tk.Widget, active: bool) -> None:
+        bg = self._status_fg() if active else self._tile_bg()
+        fg = self._status_bg() if active else self._tile_fg()
+
+        self._apply_widget_colors(tile, bg=bg, fg=fg)
+
+
+    def _apply_widget_colors(self, widget: tk.Widget, bg: str, fg: str) -> None:
+        try:
+            widget.configure(bg=bg)
+        except tk.TclError:
+            pass
+
+        if isinstance(widget, tk.Label):
+            try:
+                widget.configure(bg=bg, fg=fg)
+            except tk.TclError:
+                pass
+
+        for child in widget.winfo_children():
+            self._apply_widget_colors(child, bg, fg)
+
+    def _handle_frequency_tuned(
+        self,
+        frequency_hz: int,
+        preset: Optional[RadioPreset] = None,
+    ) -> None:
+        matched_preset = preset or self._find_preset_by_frequency(frequency_hz)
+
+        if matched_preset is not None:
+            self._set_active_preset_tile(matched_preset)
+        else:
+            self._clear_active_preset_tile()
+
+
+    def _find_preset_by_frequency(self, frequency_hz: int) -> Optional[RadioPreset]:
+        for preset in self.radio_controller.presets:
+            if preset.frequency_hz == frequency_hz:
+                return preset
+        return None
+
+
+    def _clear_active_preset_tile(self) -> None:
+        self.active_preset_frequency_hz = None
+
+        for tile in self.preset_tiles.values():
+            self._set_tile_active(tile, False)
+
     @staticmethod
     def _app_bg() -> str:
         try:
@@ -304,3 +381,20 @@ class RadioPanelManager:
             return FONTS["status"]
         except Exception:
             return ("Arial", 10)
+        
+    @staticmethod
+    def _tile_bg() -> str:
+        try:
+            from apps.carUi.uiTheme import COLORS
+            return COLORS["tile_bg"]
+        except Exception:
+            return "#20252b"
+
+
+    @staticmethod
+    def _tile_fg() -> str:
+        try:
+            from apps.carUi.uiTheme import COLORS
+            return COLORS["tile_title"]
+        except Exception:
+            return "#ffffff"

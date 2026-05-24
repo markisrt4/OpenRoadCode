@@ -3,22 +3,25 @@ from __future__ import annotations
 from modules.radio.radio_types import RadioPreset
 
 
-def format_frequency(frequency_hz: int) -> str:
+def format_frequency(frequency_hz: int, precision: int = 1,) -> str:
     if frequency_hz >= 1_000_000:
-        value = f"{frequency_hz / 1_000_000:.3f}".rstrip("0").rstrip(".")
-        return f"{value} MHz"
+        value = frequency_hz / 1_000_000
+        return f"{value:.{precision}f} MHz"
 
     if frequency_hz >= 1_000:
-        value = f"{frequency_hz / 1_000:.3f}".rstrip("0").rstrip(".")
-        return f"{value} kHz"
+        value = frequency_hz / 1_000
+        return f"{value:.1f} kHz"
 
     return f"{frequency_hz} Hz"
 
 
-def compact_preset_label(preset: RadioPreset) -> str:
+def compact_preset_label(
+    preset: RadioPreset,
+    precision: int = 1,
+) -> str:
     if preset.frequency_hz >= 1_000_000:
         value = preset.frequency_hz / 1_000_000
-        return f"{value:.1f}".rstrip("0").rstrip(".")
+        return f"{value:.{precision}f}"
 
     return preset.label
 

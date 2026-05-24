@@ -351,30 +351,37 @@ class SDRControlPanel(tk.Tk):
         )
         title.pack(fill="x", anchor="center" if is_preset else "w")
 
-        if not is_preset:
-            subtitle_label = tk.Label(
-                body,
-                text=subtitle,
-                font=subtitle_font,
-                bg=COLORS["tile_bg"],
-                fg=COLORS["tile_subtitle"],
-                anchor="w",
-                justify="left",
-                wraplength=220 if small else 300,
-            )
-            subtitle_label.pack(fill="x", anchor="w", pady=(4, 0))
+        subtitle_label = tk.Label(
+            body,
+            text=subtitle,
+            font=subtitle_font,
+            bg=COLORS["tile_bg"],
+            fg=COLORS["tile_subtitle"],
+            anchor="center" if is_preset else "w",
+            justify="center" if is_preset else "left",
+            wraplength=220 if small else 300,
+        )
+        subtitle_label.pack(
+            fill="x",
+            anchor="center" if is_preset else "w",
+            pady=(3, 0),
+        )
 
-            detail_label = tk.Label(
-                body,
-                text=detail,
-                font=detail_font,
-                bg=COLORS["tile_bg"],
-                fg=COLORS["tile_detail"],
-                anchor="w",
-                justify="left",
-                wraplength=220 if small else 300,
-            )
-            detail_label.pack(fill="x", anchor="w", pady=(6, 0))
+        detail_label = tk.Label(
+            body,
+            text=detail,
+            font=detail_font,
+            bg=COLORS["tile_bg"],
+            fg=COLORS["tile_detail"],
+            anchor="center" if is_preset else "w",
+            justify="center" if is_preset else "left",
+            wraplength=220 if small else 300,
+        )
+        detail_label.pack(
+            fill="x",
+            anchor="center" if is_preset else "w",
+            pady=(2, 0),
+        )
 
         self._bind_click_recursive(tile, spec)
         return tile

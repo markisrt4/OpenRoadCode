@@ -6,10 +6,8 @@ from modules.radio.radio_controller import RadioController
 from modules.radio.radio_types import RadioPreset
 
 from apps.launchers.app_launcher_if import AppLauncherIf
-
 from apps.carUi.radio.radio_panel_config import RadioPanelConfig
 from apps.carUi.radio.radio_status_formatter import format_frequency
-
 
 
 class RadioPanelController:
@@ -21,9 +19,11 @@ class RadioPanelController:
         remote_display: str = ":2",
         set_status: Optional[Callable[[str], None]] = None,
         on_preset_pressed: Optional[Callable[[RadioPreset], None]] = None,
-        on_frequency_changed: Optional[Callable[[int], None]] = None,
         update_radio_status: Optional[
             Callable[[Optional[int], Optional[RadioPreset]], None]
+        ] = None,
+        on_frequency_tuned: Optional[
+            Callable[[int, Optional[RadioPreset]], None]
         ] = None,
     ) -> None:
         self.radio_controller = radio_controller
@@ -32,8 +32,8 @@ class RadioPanelController:
         self.remote_display = remote_display
         self.set_status = set_status
         self.on_preset_pressed = on_preset_pressed
-        self.on_frequency_changed = on_frequency_changed
         self.update_radio_status = update_radio_status
+        self.on_frequency_tuned = on_frequency_tuned
 
         self.radio_running = False
 
@@ -70,7 +70,12 @@ class RadioPanelController:
             self.radio_running = True
 
             frequency = getattr(self.radio_controller, "current_frequency_hz", None)
+
             self._update_status(frequency_hz=frequency)
+
+            if frequency is not None:
+                self._notify_frequency_tuned(frequency_hz=frequency, preset=None)
+
             self._status(f"{self.panel_config.title} radio started")
 
         except OSError as exc:
@@ -86,6 +91,11 @@ class RadioPanelController:
     def tune_preset(self, preset: RadioPreset) -> None:
         try:
             self.radio_controller.tune_preset(preset)
+
+            self._notify_frequency_tuned(
+                frequency_hz=preset.frequency_hz,
+                preset=preset,
+            )
 
             if self.on_preset_pressed:
                 self.on_preset_pressed(preset)
@@ -107,6 +117,12 @@ class RadioPanelController:
     def frequency_up(self) -> None:
         try:
             frequency = self.radio_controller.frequency_up()
+
+            self._notify_frequency_tuned(
+                frequency_hz=frequency,
+                preset=None,
+            )
+
             self._update_status(frequency_hz=frequency)
             self._status(f"{self.panel_config.title}: {format_frequency(frequency)}")
 
@@ -117,6 +133,12 @@ class RadioPanelController:
     def frequency_down(self) -> None:
         try:
             frequency = self.radio_controller.frequency_down()
+
+            self._notify_frequency_tuned(
+                frequency_hz=frequency,
+                preset=None,
+            )
+
             self._update_status(frequency_hz=frequency)
             self._status(f"{self.panel_config.title}: {format_frequency(frequency)}")
 
@@ -127,6 +149,12 @@ class RadioPanelController:
     def next_preset(self) -> None:
         try:
             preset = self.radio_controller.next_preset()
+
+            self._notify_frequency_tuned(
+                frequency_hz=preset.frequency_hz,
+                preset=preset,
+            )
+
             self._update_status(
                 frequency_hz=preset.frequency_hz,
                 preset=preset,
@@ -140,6 +168,12 @@ class RadioPanelController:
     def previous_preset(self) -> None:
         try:
             preset = self.radio_controller.previous_preset()
+
+            self._notify_frequency_tuned(
+                frequency_hz=preset.frequency_hz,
+                preset=preset,
+            )
+
             self._update_status(
                 frequency_hz=preset.frequency_hz,
                 preset=preset,
@@ -157,6 +191,14 @@ class RadioPanelController:
     ) -> None:
         if self.update_radio_status:
             self.update_radio_status(frequency_hz, preset)
+
+    def _notify_frequency_tuned(
+        self,
+        frequency_hz: int,
+        preset: Optional[RadioPreset] = None,
+    ) -> None:
+        if self.on_frequency_tuned:
+            self.on_frequency_tuned(frequency_hz, preset)
 
     def _status(self, message: str) -> None:
         if self.set_status:

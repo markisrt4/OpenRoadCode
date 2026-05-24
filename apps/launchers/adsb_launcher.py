@@ -39,6 +39,8 @@ class ADSBLauncher(AppLauncherIf):
         return self.browser.is_running()
 
     def launch(self, remote_display=":2", set_status=None) -> None:
+        if set_status:
+            set_status("Launching ADS-B dashboard...")
 
         if self.resource_manager:
             self.resource_manager.acquire(
@@ -54,22 +56,12 @@ class ADSBLauncher(AppLauncherIf):
                 "sdr\\+\\+",
             ],
         )
+
         subprocess.run(["sudo", "systemctl", "start", "readsb"], check=False)
 
-        self.browser.launch(
-            remote_display=remote_display,
-            set_status=set_status,
-        )
-
-        if set_status:
-            set_status("Launching ADS-B dashboard...")
-
-        if self.close_existing_display_apps:
-            close_display_apps(display=remote_display)
-
-        if not is_process_running("readsb"):
+        if not self.wait_for_readsb():
             if set_status:
-                set_status("readsb is not running. Start readsb service first.")
+                set_status("readsb failed to start")
             return
 
         self.browser.launch(
@@ -78,7 +70,7 @@ class ADSBLauncher(AppLauncherIf):
         )
 
         if set_status:
-            set_status("ADS-B dashboard launched")
+            set_status("ADS-B dashboard launched")  
 
     def stop(self, set_status=None) -> None:
         self.browser.stop(set_status=None)

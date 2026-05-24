@@ -6,9 +6,10 @@ from typing import Callable, Optional
 from apps.launchers.app_launcher_if import AppLauncherIf
 from apps.launchers.browser_launcher import BrowserKioskLauncher
 from apps.launchers.process_manager import (
-    close_matching_display_apps,
     is_process_running,
+    kill_process_pattern,
 )
+
 
 class StreamlitLauncher(AppLauncherIf):
     def __init__(
@@ -21,14 +22,16 @@ class StreamlitLauncher(AppLauncherIf):
         self.app_path = app_path
         self.port = port
         self.log_file = log_file
+
         self.browser = BrowserKioskLauncher(
             url=f"http://127.0.0.1:{port}",
+            process_pattern=f"127.0.0.1:{port}",
             log_file=browser_log_file,
         )
 
     @property
     def process_pattern(self) -> str:
-        return f"streamlit run {self.app_path.name}"
+        return str(self.app_path)
 
     def is_running(self) -> bool:
         return is_process_running(self.process_pattern)
@@ -71,16 +74,10 @@ class StreamlitLauncher(AppLauncherIf):
 
     def stop(
         self,
+        remote_display: str = ":2",
         set_status: Optional[Callable[[str], None]] = None,
     ) -> None:
-
-        close_matching_display_apps(
-            display=remote_display,
-            patterns=[
-                "streamlit",
-            ],
-        )
-
+        kill_process_pattern(str(self.app_path))
         self.browser.stop(set_status=None)
 
         if set_status:
@@ -92,9 +89,14 @@ class StreamlitLauncher(AppLauncherIf):
         set_status: Optional[Callable[[str], None]] = None,
     ) -> bool:
         if self.is_running() or self.browser.is_running():
-            self.stop(set_status=set_status)
+            self.stop(
+                remote_display=remote_display,
+                set_status=set_status,
+            )
             return False
 
-        self.launch(remote_display=remote_display, set_status=set_status)
+        self.launch(
+            remote_display=remote_display,
+            set_status=set_status,
+        )
         return True
-
