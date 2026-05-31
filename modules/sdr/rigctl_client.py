@@ -1,5 +1,11 @@
 import socket
 
+SDRPP_MODE_MAP = {
+    "NFM": "FM",
+    "FM": "FM",
+    "WFM": "WFM",
+    "AM": "AM",
+}
 
 class RigctlClient:
     def __init__(self, host="127.0.0.1", port=4532, timeout=1.0):
@@ -26,10 +32,24 @@ class RigctlClient:
         return self.send("f")
 
     def set_mode(self, mode: str, bandwidth: int) -> str:
-        return self.send(f"M {mode} {bandwidth}")
+        rigctl_mode = self.normalize_sdrpp_mode(mode)
+        return self.send(f"M {rigctl_mode} {bandwidth}")
 
     def start(self) -> str:
         return self.send(r"\start")
 
     def stop(self) -> str:
         return self.send(r"\stop")
+
+    def get_signal_strength(self) -> str:
+        return self.send("l STRENGTH")
+
+    def get_snr(self) -> str:
+        return self.send("l SNR")
+
+    def get_rds(self) -> str:
+        return self.send("l RDS")
+
+    @staticmethod
+    def normalize_sdrpp_mode(mode: str) -> str:
+        return SDRPP_MODE_MAP.get(mode.upper(), mode.upper())

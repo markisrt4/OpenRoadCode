@@ -48,3 +48,4 @@ class HamRadioPanelManager(PanelManagerIf):
 
         manager.show()
         self.ham_panel_manager = manager
+        self.app.set_panel_title("Ham Radio")

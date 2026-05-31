@@ -1,7 +1,7 @@
-import subprocess
 import tkinter as tk
 import os
 from dataclasses import dataclass
+from turtle import title
 from typing import Callable, Dict, Optional
 from pathlib import Path
 
@@ -20,9 +20,15 @@ from apps.carUi.radio.radio_panel_config import (
     RadioPanelTileConfig,
 )
 
-from .uiTheme import COLORS, FONTS  # <- theme integrated
+from apps.common.uiTheme import COLORS, FONTS, FONT_FAMILY
+
+from modules.audio.audio_controller import AudioController
+from modules.audio.pipewire_audio_controller import PipewireAudioController
 
 from apps.launchers.process_manager import close_display_apps
+
+from apps.carUi.top_bar import CarTopBar
+from apps.carUi.gps_ui_monitor import GPSUIMonitor
 
 @dataclass(frozen=True)
 class TileSpec:
@@ -63,8 +69,15 @@ class SDRControlPanel(tk.Tk):
 
         self.status_var = tk.StringVar(value="Ready")
         self.content_frame: Optional[tk.Frame] = None
-        self.current_freq_var = tk.StringVar(value="Freq: --")
-        self.location_var = tk.StringVar(value="🌎 lat.--, lon.--")
+
+        self.audio_controller = AudioController(PipewireAudioController(steps=8))
+        self.volume_level = self.audio_controller.get_volume_level()
+
+        self.gps_ui_monitor = GPSUIMonitor(
+            root=self,
+            get_gps_device=lambda: getattr(self, "gps_device", None),
+            set_location_text=lambda text: self.top_bar.set_location_text(text),
+        )
 
         self._build_ui()
         self.show_main_menu()
@@ -75,6 +88,7 @@ class SDRControlPanel(tk.Tk):
         self.ham_radio_panel_manager = HamRadioPanelManager(self)
         self.weather_panel_manager   = WeatherPanelManager (self)
         self.settings_panel_manager  = SettingsPanelManager(self)
+
 
     @staticmethod
     def _geometry_is_compact(geometry: str) -> bool:
@@ -110,134 +124,17 @@ class SDRControlPanel(tk.Tk):
         container = tk.Frame(self, bg=COLORS["app_bg"])
         container.pack(fill="both", expand=True)
 
-        top_bar_height = 50 if small_display else 68
-
-        self.top_bar = tk.Frame(
+        self.top_bar = CarTopBar(
             container,
-            bg=COLORS["top_bar_bg"],
-            height=top_bar_height,
+            compact_ui=self.compact_ui,
+            on_back=self.show_main_menu,
+            on_volume_down=self.volume_down,
+            on_volume_up=self.volume_up,
+            on_power=self.power_off,
+            volume_level=self.volume_level,
+            volume_steps=8,
         )
         self.top_bar.pack(fill="x", side="top")
-        self.top_bar.pack_propagate(False)
-
-        self.top_bar.columnconfigure(0, weight=1)
-        self.top_bar.columnconfigure(1, weight=1)
-        self.top_bar.columnconfigure(2, weight=1)
-
-        left_group = tk.Frame(self.top_bar, bg=COLORS["top_bar_bg"])
-        left_group.grid(row=0, column=0, sticky="w", padx=(8, 0), pady=6 if small_display else 8)
-
-        center_group = tk.Frame(self.top_bar, bg=COLORS["top_bar_bg"])
-        center_group.grid(row=0, column=1, sticky="nsew", pady=6 if small_display else 8)
-
-        right_group = tk.Frame(self.top_bar, bg=COLORS["top_bar_bg"])
-        right_group.grid(row=0, column=2, sticky="e", padx=(0, 10 if small_display else 16), pady=6 if small_display else 8)
-
-        self.left_button = tk.Button(
-            left_group,
-            text="",
-            font=(("Arial", 12, "bold") if small_display else FONTS["back"]),
-            bg=COLORS["top_bar_bg"],
-            fg=COLORS["top_bar_fg"],
-            activebackground=COLORS["top_bar_active"],
-            activeforeground=COLORS["top_bar_fg"],
-            bd=1,
-            padx=10 if small_display else 16,
-            pady=4  if small_display else 6,
-            cursor="hand2",
-            command=self.show_main_menu,
-        )
-        self.left_button.pack(side="left", padx=(0, 8 if small_display else 12))
-        self.left_button.pack_forget()
-
-        self.title_label = tk.Label(
-            left_group,
-            text=(
-                "Mark's CarSDR"
-                if small_display
-                else "Mark's CarSDR Control Panel"
-            ),
-            font=(
-                ("Arial", 16, "bold")
-                if small_display
-                else FONTS["title"]
-            ),
-            bg=COLORS["top_bar_bg"],
-            fg=COLORS["top_bar_fg"],
-        )
-        self.title_label.pack(side="left")
-
-        self.freq_label = tk.Label(
-            center_group,
-            textvariable=self.current_freq_var,
-            font=(("Arial", 13, "bold") if small_display else ("Arial", 18, "bold")),
-            bg=COLORS["top_bar_bg"],
-            fg=COLORS["top_bar_fg"],
-            anchor="center",
-        )
-        self.freq_label.pack(expand=True)
-
-        self.location_label = tk.Label(
-            right_group,
-            textvariable=self.location_var,
-            font=(("Arial", 9) if small_display else FONTS["status"]),
-            bg=COLORS["top_bar_bg"],
-            fg=COLORS["top_bar_fg"],
-            padx=6 if small_display else 10,
-        )
-        self.location_label.pack(side="left", padx=(0, 8 if small_display else 12))
-
-        self.vol_down_button = tk.Button(
-            right_group,
-            text="−",
-            font=(("Arial", 12, "bold") if self.compact_ui else ("Arial", 14, "bold")),
-            bg=COLORS["tile_bg"],
-            fg=COLORS["top_bar_fg"],
-            activebackground=COLORS["tile_accent"],
-            activeforeground=COLORS["top_bar_fg"],
-            bd=0,
-            width=3,
-            height=1,
-            command=self.volume_down,
-            cursor="hand2",
-        )
-        self.vol_down_button.pack(side="left", padx=(0, 4))
-
-        self.vol_up_button = tk.Button(
-            right_group,
-            text="+",
-            font=(("Arial", 12, "bold") if self.compact_ui else ("Arial", 14, "bold")),
-            bg=COLORS["tile_bg"],
-            fg=COLORS["top_bar_fg"],
-            activebackground=COLORS["tile_accent"],
-            activeforeground=COLORS["top_bar_fg"],
-            bd=0,
-            width=3,
-            height=1,
-            command=self.volume_up,
-            cursor="hand2",
-        )
-        self.vol_up_button.pack(side="left", padx=(0, 8))
-
-        self.power_button = tk.Button(
-            right_group,
-            text="⏻",
-            font=(
-                ("Arial", 14, "bold")
-                if small_display
-                else ("Arial", 18, "bold")
-            ),
-            width=3 if small_display else 4,
-            height=1,
-            bg=COLORS["power_bg"],
-            fg=COLORS["power_fg"],
-            activebackground=COLORS["power_active"],
-            activeforeground=COLORS["power_fg"],
-            bd=0,
-            command=self.power_off,
-            cursor="hand2",
-        )
-        self.power_button.pack(side="right")
 
         self.content_frame = tk.Frame(container, bg=COLORS["app_bg"])
         self.content_frame.pack(fill="both", expand=True, padx=8 if small_display else 18, pady=8 if small_display else 18)
@@ -466,8 +363,8 @@ class SDRControlPanel(tk.Tk):
             else "Mark's CarSDR Control Panel"
         )
 
-        self.title_label.config(text=title_text)
-        self.left_button.pack_forget()
+        self.top_bar.set_title(title_text)
+        self.top_bar.hide_back_button()
         self._build_main_tile_grid()
         self.status_var.set("Ready")
 
@@ -481,10 +378,14 @@ class SDRControlPanel(tk.Tk):
         self.fm_radio_panel_manager.show()
 
     def volume_up(self) -> None:
-        self._adjust_system_volume("+5%")
+        self.volume_level = self.audio_controller.volume_up()
+        self.top_bar.set_volume_level(self.volume_level)
+        self.status_var.set("Volume up")
 
     def volume_down(self) -> None:
-        self._adjust_system_volume("-5%")
+        self.volume_level = self.audio_controller.volume_down()
+        self.top_bar.set_volume_level(self.volume_level)
+        self.status_var.set("Volume down")
 
     def _adjust_system_volume(self, amount: str) -> None:
         try:
@@ -521,38 +422,27 @@ class SDRControlPanel(tk.Tk):
 
     def set_current_frequency(self, frequency_hz: int | None) -> None:
         if frequency_hz is None:
-            self.current_freq_var.set("Freq: --")
+            self.top_bar.set_frequency_text("--")
             return
 
-        self.current_freq_var.set(f"Freq: {self._format_frequency(frequency_hz)}")
-
+        self.top_bar.set_frequency_text(self._format_frequency(frequency_hz))
 
     def set_location(self, lat: float | None, lon: float | None) -> None:
         if lat is None or lon is None:
-            self.location_var.set("🌎 lat.--, lon.--")
+            self.top_bar.set_location_text("🌎 lat.--, lon.--")
             return
 
-        self.location_var.set(f"🌎 lat.{lat:.4f}, lon.{lon:.4f}")
+        self.top_bar.set_location_text(f"🌎 lat.{lat:.4f}, lon.{lon:.4f}")
 
     def start_gps_ui_updates(self, interval_ms: int = 1000) -> None:
-        self._update_gps_ui(interval_ms)
+        self.gps_ui_monitor.start(interval_ms)
 
+    def stop_gps_ui_updates(self) -> None:
+        self.gps_ui_monitor.stop()
 
-    def _update_gps_ui(self, interval_ms: int = 1000) -> None:
-        gps_device = getattr(self, "gps_device", None)
+    def set_panel_title(self, title: str) -> None:
+        self.top_bar.set_title(title)
 
-        if gps_device is not None:
-            pos = gps_device.position()
-
-            if pos.get("fix") and pos.get("lat") is not None and pos.get("lon") is not None:
-                self.set_location(
-                    float(pos["lat"]),
-                    float(pos["lon"]),
-                )
-            else:
-                self.location_var.set("🌎 GPS searching...")
-
-        self.after(interval_ms, lambda: self._update_gps_ui(interval_ms))
 
     @staticmethod
     def _format_frequency(frequency_hz: int) -> str:

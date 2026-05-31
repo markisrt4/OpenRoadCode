@@ -80,3 +80,4 @@ class WeatherPanelManager(PanelManagerIf):
 
         manager.show()
         self.noaa_panel_manager = manager
+        self.app.set_panel_title("NOAA Weather Radio")

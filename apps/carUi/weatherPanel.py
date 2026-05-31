@@ -1,7 +1,7 @@
 import tkinter as tk
 from typing import Callable
 
-from .uiTheme import COLORS
+from apps.common.uiTheme import COLORS
 
 class WeatherPanel(tk.Frame):
     def __init__(

@@ -124,6 +124,38 @@ def attach_radio_stacks(app) -> None:
                                            owner_name="sdrpp_ham", 
     )
 
+    app.start_fm_radio = lambda: ensure_radio_profile(
+        app,
+        app.fm_radio_launcher,
+        app.fm_radio_controller,
+        FM_BROADCAST_PROFILE,
+        app.remote_display,
+    )
+
+    app.start_airband_radio = lambda: ensure_radio_profile(
+        app,
+        app.airband_radio_launcher,
+        app.airband_radio_controller,
+        AIRBAND_AM_PROFILE,
+        app.remote_display,
+    )
+
+    app.start_weather_radio = lambda: ensure_radio_profile(
+        app,
+        app.weather_radio_launcher,
+        app.weather_radio_controller,
+        WEATHER_NOAA_PROFILE,
+        app.remote_display,
+    )
+
+    app.start_ham_radio = lambda: ensure_radio_profile(
+        app,
+        app.ham_radio_launcher,
+        app.ham_radio_controller,
+        HAM_RADIO_PROFILE,
+        app.remote_display,
+    )
+
 def ensure_radio_profile(
     app,
     launcher,
@@ -154,6 +186,7 @@ def ensure_radio_profile(
         app.set_current_frequency(frequency_hz)
 
     controller.start()
+    controller.set_mode(mode)
 
     set_status(
         f"{profile.name} ready: {mode.name}, "

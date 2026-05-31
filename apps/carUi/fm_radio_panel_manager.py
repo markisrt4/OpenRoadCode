@@ -48,4 +48,5 @@ class FMRadioPanelManager(PanelManagerIf):
 
         manager.show()
         self.fm_panel_manager = manager
+        self.app.set_panel_title("FM Broadcast Radio")
   

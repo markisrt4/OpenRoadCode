@@ -10,9 +10,11 @@ from apps.carUi.radio.radio_status_formatter import (
     format_frequency,
     format_step,
 )
+from apps.common.uiTheme import COLORS, FONTS, FONT_FAMILY
 from apps.launchers.app_launcher_if import AppLauncherIf
 from modules.radio.radio_controller import RadioController
 from modules.radio.radio_types import RadioPreset
+from modules.sdr.sdr_telemetry_monitor import SDRTelemetryMonitor
 
 
 class RadioPanelManager:
@@ -34,9 +36,11 @@ class RadioPanelManager:
         self.radio_controller = radio_controller
         self.panel_config = panel_config
         self.on_frequency_changed = on_frequency_changed
+        self.compact_ui = bool(
+            getattr(parent.winfo_toplevel(), "compact_ui", False)
+        )
 
         self.frame: Optional[tk.Frame] = None
-        self.radio_status_var = tk.StringVar(value="Radio status: --")
 
         self.controller = RadioPanelController(
             radio_controller=radio_controller,
@@ -59,6 +63,12 @@ class RadioPanelManager:
         self.preset_grid: Optional[tk.Frame] = None
         self.preset_bank_label_var = tk.StringVar(value="Bank 1/1")
 
+        self.radio_status_widgets: dict[str, tk.Label] = {}
+        self.last_preset: Optional[RadioPreset] = None
+
+        self.telemetry_monitor = SDRTelemetryMonitor(radio_controller)
+        self._status_poll_after_id: Optional[str] = None
+
     def show(self) -> tk.Frame:
         self.destroy()
 
@@ -67,11 +77,14 @@ class RadioPanelManager:
 
         self._build_panel(self.frame)
         self._update_radio_status()
+        self.start_radio_status_polling()
         self._status(f"{self.panel_config.title} ready")
 
         return self.frame
 
     def destroy(self) -> None:
+        self.stop_radio_status_polling()
+
         if self.frame is not None:
             self.frame.destroy()
             self.frame = None
@@ -84,8 +97,12 @@ class RadioPanelManager:
         main = tk.Frame(root, bg=self._app_bg())
         main.grid(row=0, column=0, sticky="nsew")
 
-        main.columnconfigure(0, weight=2)
-        main.columnconfigure(1, weight=3)
+        # Keep a stable left/right split on the 800x480 Pi display.
+        # Without a uniform group, oversized control labels can force the
+        # preset column into useless slivers. Because apparently widgets
+        # demand territory now.
+        main.columnconfigure(0, weight=3, uniform=f"{self.panel_config.key}_main")
+        main.columnconfigure(1, weight=2, uniform=f"{self.panel_config.key}_main")
         main.rowconfigure(0, weight=1)
 
         control_col = tk.Frame(main, bg=self._app_bg())
@@ -117,6 +134,7 @@ class RadioPanelManager:
         controls = [
             (
                 "toggle_app",
+                "▶",
                 self.panel_config.launch_tile.label,
                 self.panel_config.launch_tile.subtitle,
                 self.panel_config.launch_tile.detail,
@@ -124,6 +142,7 @@ class RadioPanelManager:
             ),
             (
                 "toggle_radio",
+                "⏼",
                 self.panel_config.radio_toggle_tile.label,
                 self.panel_config.radio_toggle_tile.subtitle,
                 self.panel_config.radio_toggle_tile.detail,
@@ -131,27 +150,31 @@ class RadioPanelManager:
             ),
             (
                 "freq_down",
-                "Tune −",
+                "-",
+                "Tune",
                 "Down",
                 f"Step: {step_label}",
                 self.controller.frequency_down,
             ),
             (
                 "freq_up",
-                "Tune +",
+                "+",
+                "Tune",
                 "Up",
                 f"Step: {step_label}",
                 self.controller.frequency_up,
             ),
             (
                 "previous_preset",
-                "Preset ←",
+                "←",
+                "Preset",
                 "Previous",
                 "Cycle back",
                 self.controller.previous_preset,
             ),
             (
                 "next_preset",
+                "→",
                 "Preset →",
                 "Next",
                 "Cycle forward",
@@ -159,7 +182,7 @@ class RadioPanelManager:
             ),
         ]
 
-        for index, (key, label, subtitle, detail, callback) in enumerate(controls):
+        for index, (key, icon, label, subtitle, detail, callback) in enumerate(controls):
             row = index // 2
             col = index % 2
 
@@ -168,6 +191,7 @@ class RadioPanelManager:
                 row=row,
                 col=col,
                 key=key,
+                icon=icon,
                 label=label,
                 subtitle=subtitle,
                 detail=detail,
@@ -204,19 +228,95 @@ class RadioPanelManager:
             col = index % cols
             preset_number = start + index + 1
 
-            tile = self.create_tile(
-                parent,
-                f"{self.panel_config.key}_preset_{preset.frequency_hz}",
-                compact_preset_label(preset, precision=precision),
-                f"Preset {preset_number}",
-                format_frequency(preset.frequency_hz, precision=precision),
+            tile = self._create_preset_tile(
+                parent=parent,
+                key=f"{self.panel_config.key}_preset_{preset.frequency_hz}",
+                number=preset_number,
+                frequency_text=compact_preset_label(preset, precision=precision),
+                detail=preset.label,
             )
             self.preset_tiles[preset.frequency_hz] = tile
-            tile.grid(row=row, column=col, sticky="nsew", padx=6, pady=6)
+            preset_pad = 4 if self.compact_ui else 6
+            tile.grid(row=row, column=col, sticky="nsew", padx=preset_pad, pady=preset_pad)
             self._bind_click_recursive(tile, lambda p=preset: self.controller.tune_preset(p))
 
         self._refresh_active_preset_tile()
         self._update_preset_bank_label()
+
+    def _create_preset_tile(
+        self,
+        parent: tk.Widget,
+        key: str,
+        number: int,
+        frequency_text: str,
+        detail: str,
+    ) -> tk.Frame:
+        tile = tk.Frame(
+            parent,
+            bg=self._tile_bg(),
+            highlightthickness=2,
+            highlightbackground=self._tile_border(),
+            highlightcolor=self._primary_value_fg(),
+            bd=0,
+            cursor="hand2",
+        )
+        tile.car_tile_kind = "preset"  # type: ignore[attr-defined]
+        tile.car_tile_key = key  # type: ignore[attr-defined]
+
+        tile.columnconfigure(0, weight=1)
+        tile.rowconfigure(0, weight=0)
+        tile.rowconfigure(1, weight=1)
+        tile.rowconfigure(2, weight=0)
+
+        number_label = tk.Label(
+            tile,
+            text=f"#{number}",
+            font=self._preset_number_font(),
+            bg=self._tile_bg(),
+            fg=self._primary_value_fg(),
+            anchor="w",
+        )
+        number_label.grid(
+            row=0,
+            column=0,
+            sticky="nw",
+            padx=8 if self.compact_ui else 10,
+            pady=(5 if self.compact_ui else 7, 0),
+        )
+
+        freq_label = tk.Label(
+            tile,
+            text=frequency_text,
+            font=self._preset_frequency_font(),
+            bg=self._tile_bg(),
+            fg=self._tile_fg(),
+            anchor="center",
+        )
+        freq_label.grid(
+            row=1,
+            column=0,
+            sticky="nsew",
+            padx=6 if self.compact_ui else 8,
+            pady=(0, 0),
+        )
+
+        detail_label = tk.Label(
+            tile,
+            text=detail,
+            font=self._preset_detail_font(),
+            bg=self._tile_bg(),
+            fg=self._tile_subtitle_fg(),
+            anchor="center",
+        )
+        detail_label.grid(
+            row=2,
+            column=0,
+            sticky="ew",
+            padx=6 if self.compact_ui else 8,
+            pady=(0, 5 if self.compact_ui else 9),
+        )
+
+        return tile
 
     def _build_preset_bank_nav(self, parent: tk.Frame) -> None:
         nav = tk.Frame(parent, bg=self._app_bg())
@@ -232,7 +332,7 @@ class RadioPanelManager:
             font=self._small_button_font(),
             bg=self._button_bg(),
             fg=self._button_fg(),
-            activebackground=self._status_fg(),
+            activebackground=self._primary_value_fg(),
             activeforeground=self._status_bg(),
             bd=0,
             padx=8,
@@ -247,7 +347,7 @@ class RadioPanelManager:
             textvariable=self.preset_bank_label_var,
             font=self._small_button_font(),
             bg=self._app_bg(),
-            fg=self._status_fg(),
+            fg=self._primary_value_fg(),
             anchor="center",
             padx=4,
         )
@@ -259,7 +359,7 @@ class RadioPanelManager:
             font=self._small_button_font(),
             bg=self._button_bg(),
             fg=self._button_fg(),
-            activebackground=self._status_fg(),
+            activebackground=self._primary_value_fg(),
             activeforeground=self._status_bg(),
             bd=0,
             padx=8,
@@ -304,33 +404,157 @@ class RadioPanelManager:
         row: int,
         col: int,
         key: str,
+        icon: str,
         label: str,
         subtitle: str,
         detail: str,
         callback: Callable[[], None],
     ) -> None:
-        tile = self.create_tile(
-            parent,
-            f"{self.panel_config.key}_{key}",
-            label,
-            subtitle,
-            detail,
+        tile = self._create_control_tile(
+            parent=parent,
+            key=f"{self.panel_config.key}_{key}",
+            icon=icon,
+            label=label,
+            subtitle=subtitle,
+            detail=detail,
         )
-        tile.grid(row=row, column=col, sticky="nsew", padx=6, pady=6)
+        control_pad = 4 if self.compact_ui else 6
+        tile.grid(row=row, column=col, sticky="nsew", padx=control_pad, pady=control_pad)
         self._bind_click_recursive(tile, callback)
 
-    def _build_status_row(self, parent: tk.Frame) -> None:
-        status = tk.Label(
+    def _create_control_tile(
+        self,
+        parent: tk.Widget,
+        key: str,
+        icon: str,
+        label: str,
+        subtitle: str,
+        detail: str,
+    ) -> tk.Frame:
+        tile = tk.Frame(
             parent,
-            textvariable=self.radio_status_var,
-            anchor="w",
-            bg=self._status_bg(),
-            fg=self._status_fg(),
-            font=self._status_font(),
-            padx=10,
-            pady=3,
+            bg=self._tile_bg(),
+            highlightthickness=2,
+            highlightbackground=self._tile_border(),
+            highlightcolor=self._primary_value_fg(),
+            bd=0,
+            cursor="hand2",
         )
-        status.grid(row=1, column=0, sticky="ew", pady=(6, 0))
+        tile.car_tile_kind = "control"  # type: ignore[attr-defined]
+        tile.car_tile_key = key  # type: ignore[attr-defined]
+
+        accent = tk.Frame(tile, bg=self._primary_value_fg(), height=4)
+        accent.pack(fill="x", side="top")
+
+        body = tk.Frame(tile, bg=self._tile_bg())
+        body.pack(
+            fill="both",
+            expand=True,
+            padx=8 if self.compact_ui else 14,
+            pady=7 if self.compact_ui else 10,
+        )
+
+        body.columnconfigure(0, weight=0)
+        body.columnconfigure(1, weight=1)
+        body.rowconfigure(0, weight=1)
+
+        icon_label = tk.Label(
+            body,
+            text=icon,
+            font=self._control_icon_font(),
+            bg=self._tile_bg(),
+            fg=self._primary_value_fg(),
+            width=1 if self.compact_ui else 2,
+            anchor="center",
+        )
+        icon_label.grid(
+            row=0,
+            column=0,
+            sticky="n",
+            padx=(0, 6 if self.compact_ui else 12),
+            pady=(1 if self.compact_ui else 2, 0),
+        )
+
+        text_area = tk.Frame(body, bg=self._tile_bg())
+        text_area.grid(row=0, column=1, sticky="nsew")
+
+        title = tk.Label(
+            text_area,
+            text=label,
+            font=self._control_title_font(),
+            bg=self._tile_bg(),
+            fg=self._tile_fg(),
+            anchor="w",
+            justify="left",
+            wraplength=120 if self.compact_ui else 260,
+        )
+        title.pack(fill="x", anchor="w")
+
+        subtitle_label = tk.Label(
+            text_area,
+            text=subtitle,
+            font=self._control_subtitle_font(),
+            bg=self._tile_bg(),
+            fg=self._tile_subtitle_fg(),
+            anchor="w",
+            justify="left",
+            wraplength=120 if self.compact_ui else 260,
+        )
+        subtitle_label.pack(fill="x", anchor="w", pady=(4 if self.compact_ui else 7, 0))
+
+        detail_label = tk.Label(
+            text_area,
+            text=detail,
+            font=self._control_detail_font(),
+            bg=self._tile_bg(),
+            fg=self._tile_detail_fg(),
+            anchor="w",
+            justify="left",
+            wraplength=120 if self.compact_ui else 260,
+        )
+        detail_label.pack(fill="x", anchor="w", pady=(2 if self.compact_ui else 3, 0))
+
+        return tile
+
+    def _build_status_row(self, parent: tk.Frame) -> None:
+        status = tk.Frame(parent, bg=self._status_bg())
+        status.grid(row=1, column=0, sticky="ew", pady=(6, 0), ipady=3)
+
+        for col in range(6):
+            status.columnconfigure(col, weight=1)
+
+        fields = [
+            ("frequency", "Freq:", "--", self._primary_value_fg()),
+            ("preset", "Preset:", "--", self._primary_value_fg()),
+            ("mode", "Mode:", "--", self._primary_value_fg()),
+            ("signal", "Signal:", "--", self._telemetry_value_fg()),
+            ("snr", "SNR:", "--", self._telemetry_value_fg()),
+            ("rds", "RDS:", "--", self._telemetry_value_fg()),
+        ]
+
+        for col, (key, label_text, value_text, value_fg) in enumerate(fields):
+            group = tk.Frame(status, bg=self._status_bg())
+            group.grid(row=0, column=col, sticky="nsew", padx=4)
+
+            label = tk.Label(
+                group,
+                text=label_text,
+                bg=self._status_bg(),
+                fg=self._status_label_fg(),
+                font=self._status_font(),
+            )
+            label.pack(side="left")
+
+            value = tk.Label(
+                group,
+                text=value_text,
+                bg=self._status_bg(),
+                fg=value_fg,
+                font=self._status_font(),
+            )
+            value.pack(side="left", padx=(4, 0))
+
+            self.radio_status_widgets[key] = value
 
     def _update_radio_status(
         self,
@@ -340,35 +564,29 @@ class RadioPanelManager:
         if frequency_hz is None:
             frequency_hz = getattr(self.radio_controller, "current_frequency_hz", None)
 
-        parts = []
+        if preset is not None:
+            self.last_preset = preset
+
+        active_preset = preset or self.last_preset
 
         if frequency_hz is not None:
-            parts.append(f"Freq: {format_frequency(frequency_hz)}")
+            self._set_radio_status_value("frequency", format_frequency(frequency_hz))
             if self.on_frequency_changed:
                 self.on_frequency_changed(frequency_hz)
-
-        if preset is not None:
-            try:
-                index = self.radio_controller.presets.index(preset) + 1
-                count = len(self.radio_controller.presets)
-                parts.append(f"Preset: {index}/{count} {preset.label}")
-            except ValueError:
-                parts.append(f"Preset: {preset.label}")
         else:
-            parts.append("Preset: --")
+            self._set_radio_status_value("frequency", "--")
 
-        mode_name = None
-        if preset is not None:
-            mode_name = preset.mode.name
-        elif hasattr(self.radio_controller, "default_mode"):
-            mode_name = self.radio_controller.default_mode.name
+        if active_preset is not None:
+            try:
+                index = self.radio_controller.presets.index(active_preset) + 1
+                count = len(self.radio_controller.presets)
+                self._set_radio_status_value("preset", f"{index}/{count}")
+            except ValueError:
+                self._set_radio_status_value("preset", "--")
+        else:
+            self._set_radio_status_value("preset", "--")
 
-        parts.append(f"Mode: {mode_name or '--'}")
-        parts.append("Signal: --")
-        parts.append("SNR: --")
-        parts.append("RDS: --")
-
-        self.radio_status_var.set("   |   ".join(parts))
+        self._set_radio_status_value("mode", self._current_mode_name())
 
     def _bind_click_recursive(self, widget: tk.Widget, callback: Callable[[], None]) -> None:
         widget.bind("<Button-1>", lambda event: callback())
@@ -390,25 +608,40 @@ class RadioPanelManager:
             self._set_tile_active(tile, active)
 
     def _set_tile_active(self, tile: tk.Widget, active: bool) -> None:
-        bg = self._status_fg() if active else self._tile_bg()
-        fg = self._status_bg() if active else self._tile_fg()
+        kind = getattr(tile, "car_tile_kind", "")
+        if kind != "preset":
+            return
 
-        self._apply_widget_colors(tile, bg=bg, fg=fg)
+        bg = self._active_preset_bg() if active else self._tile_bg()
+        border = self._primary_value_fg() if active else self._tile_border()
+        freq_fg = self._status_bg() if active else self._tile_fg()
+        detail_fg = self._status_bg() if active else self._tile_subtitle_fg()
 
-    def _apply_widget_colors(self, widget: tk.Widget, bg: str, fg: str) -> None:
         try:
-            widget.configure(bg=bg)
+            tile.configure(bg=bg, highlightbackground=border, highlightcolor=border)
         except tk.TclError:
             pass
 
-        if isinstance(widget, tk.Label):
+        for child in tile.winfo_children():
+            if not isinstance(child, tk.Label):
+                continue
+
+            text = str(child.cget("text"))
             try:
-                widget.configure(bg=bg, fg=fg)
+                if text.startswith("#"):
+                    child.configure(bg=bg, fg=self._primary_value_fg())
+                elif text == "" or text is None:
+                    child.configure(bg=bg)
+                elif self._looks_like_frequency_label(text):
+                    child.configure(bg=bg, fg=freq_fg)
+                else:
+                    child.configure(bg=bg, fg=detail_fg)
             except tk.TclError:
                 pass
 
-        for child in widget.winfo_children():
-            self._apply_widget_colors(child, bg, fg)
+    @staticmethod
+    def _looks_like_frequency_label(text: str) -> bool:
+        return any(ch.isdigit() for ch in text) and not text.startswith("#")
 
     def _handle_frequency_tuned(
         self,
@@ -418,10 +651,13 @@ class RadioPanelManager:
         matched_preset = preset or self._find_preset_by_frequency(frequency_hz)
 
         if matched_preset is not None:
+            self.last_preset = matched_preset
             self._set_active_preset_tile(matched_preset)
             self._ensure_preset_bank_visible(matched_preset)
         else:
             self._clear_active_preset_tile()
+
+        self._update_radio_status(frequency_hz=frequency_hz, preset=matched_preset)
 
     def _ensure_preset_bank_visible(self, preset: RadioPreset) -> None:
         try:
@@ -448,74 +684,150 @@ class RadioPanelManager:
         for tile in self.preset_tiles.values():
             self._set_tile_active(tile, False)
 
+    def _set_radio_status_value(self, key: str, value: str) -> None:
+        widget = self.radio_status_widgets.get(key)
+        if widget is not None:
+            widget.config(text=value)
+
+    def start_radio_status_polling(self, interval_ms: int = 2000) -> None:
+        self.stop_radio_status_polling()
+        self._poll_radio_status(interval_ms)
+
+    def stop_radio_status_polling(self) -> None:
+        if self._status_poll_after_id is None:
+            return
+
+        try:
+            self.parent.after_cancel(self._status_poll_after_id)
+        except Exception:
+            pass
+
+        self._status_poll_after_id = None
+
+    def _poll_radio_status(self, interval_ms: int) -> None:
+        if self.frame is None:
+            return
+
+        mode_name = self._current_mode_name()
+        telemetry = self.telemetry_monitor.read(include_rds=(mode_name == "WFM"))
+
+        self._update_radio_status(
+            frequency_hz=telemetry.frequency_hz,
+            preset=self.last_preset,
+        )
+
+        self._set_radio_status_value("signal", telemetry.signal)
+        self._set_radio_status_value("snr", telemetry.snr)
+        self._set_radio_status_value("rds", telemetry.rds)
+
+        self._status_poll_after_id = self.parent.after(
+            interval_ms,
+            lambda: self._poll_radio_status(interval_ms),
+        )
+
+    def _current_mode_name(self) -> str:
+        if self.last_preset is not None:
+            return self.last_preset.mode.name
+
+        mode = getattr(self.radio_controller, "default_mode", None)
+        return getattr(mode, "name", "--")
+
     @staticmethod
     def _app_bg() -> str:
-        try:
-            from apps.carUi.uiTheme import COLORS
-            return COLORS["app_bg"]
-        except Exception:
-            return "#111418"
+        return COLORS.get("app_bg", "#111418")
 
     @staticmethod
     def _status_bg() -> str:
-        try:
-            from apps.carUi.uiTheme import COLORS
-            return COLORS["status_bg"]
-        except Exception:
-            return "#1b1f26"
+        return COLORS.get("status_bg", "#0b0d10")
 
     @staticmethod
     def _status_fg() -> str:
-        try:
-            from apps.carUi.uiTheme import COLORS
-            return COLORS["status_fg"]
-        except Exception:
-            return "#d8dee9"
+        return COLORS.get("status_fg", "#d8dee9")
 
     @staticmethod
     def _status_font():
-        try:
-            from apps.carUi.uiTheme import FONTS
-            return FONTS["status"]
-        except Exception:
-            return ("Arial", 10)
+        return FONTS.get("status", (FONT_FAMILY, 10))
 
     @staticmethod
     def _tile_bg() -> str:
-        try:
-            from apps.carUi.uiTheme import COLORS
-            return COLORS["tile_bg"]
-        except Exception:
-            return "#20252b"
+        return COLORS.get("tile_bg", "#20252b")
+
+    @staticmethod
+    def _tile_border() -> str:
+        return COLORS.get("tile_border", "#384653")
 
     @staticmethod
     def _tile_fg() -> str:
-        try:
-            from apps.carUi.uiTheme import COLORS
-            return COLORS["tile_title"]
-        except Exception:
-            return "#ffffff"
+        return COLORS.get("tile_title", "#ffffff")
+
+    @staticmethod
+    def _tile_subtitle_fg() -> str:
+        return COLORS.get("tile_subtitle", "#b8c7d3")
+
+    @staticmethod
+    def _tile_detail_fg() -> str:
+        return COLORS.get("tile_detail", "#7f8d99")
 
     @staticmethod
     def _button_bg() -> str:
-        try:
-            from apps.carUi.uiTheme import COLORS
-            return COLORS["tile_bg"]
-        except Exception:
-            return "#20252b"
+        return COLORS.get("tile_bg", "#20252b")
 
     @staticmethod
     def _button_fg() -> str:
-        try:
-            from apps.carUi.uiTheme import COLORS
-            return COLORS["tile_title"]
-        except Exception:
-            return "#ffffff"
+        return COLORS.get("tile_title", "#ffffff")
+
+    def _small_button_font(self):
+        if self.compact_ui:
+            return (FONT_FAMILY, 8)
+        return FONTS.get("status", (FONT_FAMILY, 10))
+
+    def _control_icon_font(self):
+        if self.compact_ui:
+            return (FONT_FAMILY, 20, "bold")
+        return (FONT_FAMILY, 28, "bold")
+
+    def _control_title_font(self):
+        if self.compact_ui:
+            return (FONT_FAMILY, 18, "bold")
+        return FONTS.get("tile_title", (FONT_FAMILY, 24, "bold"))
+
+    def _control_subtitle_font(self):
+        if self.compact_ui:
+            return (FONT_FAMILY, 10)
+        return FONTS.get("tile_subtitle", (FONT_FAMILY, 14))
+
+    def _control_detail_font(self):
+        if self.compact_ui:
+            return (FONT_FAMILY, 8)
+        return FONTS.get("tile_detail", (FONT_FAMILY, 11))
+
+    def _preset_number_font(self):
+        if self.compact_ui:
+            return (FONT_FAMILY, 10, "bold")
+        return (FONT_FAMILY, 13, "bold")
+
+    def _preset_frequency_font(self):
+        if self.compact_ui:
+            return (FONT_FAMILY, 17, "bold")
+        return (FONT_FAMILY, 24, "bold")
+
+    def _preset_detail_font(self):
+        if self.compact_ui:
+            return (FONT_FAMILY, 8)
+        return FONTS.get("tile_subtitle", (FONT_FAMILY, 13))
 
     @staticmethod
-    def _small_button_font():
-        try:
-            from apps.carUi.uiTheme import FONTS
-            return FONTS.get("status", ("Arial", 10))
-        except Exception:
-            return ("Arial", 10)
+    def _primary_value_fg() -> str:
+        return COLORS.get("status_primary_value", "#1f7cff")
+
+    @staticmethod
+    def _telemetry_value_fg() -> str:
+        return COLORS.get("status_telemetry_value", "#48d11f")
+
+    @staticmethod
+    def _status_label_fg() -> str:
+        return COLORS.get("status_label", "#9aa4b2")
+
+    @staticmethod
+    def _active_preset_bg() -> str:
+        return COLORS.get("preset_active_bg", "#d8e0eb")

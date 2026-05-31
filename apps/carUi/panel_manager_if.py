@@ -12,14 +12,9 @@ class PanelManagerIf(ABC):
         pass
 
     def prepare_panel(self, title: str) -> bool:
-        if self.app.content_frame is None:
-            return False
-
-        self.app.title_label.config(text=title)
-        self.app.left_button.config(text="←")
-        self.app.left_button.pack(side="left", padx=(10, 0), pady=10)
         self.app._clear_content()
-
+        self.app.set_panel_title(title)
+        self.app.top_bar.show_back_button()
         return True
 
     def set_status(self, message: str) -> None:

@@ -2,7 +2,7 @@ import tkinter as tk
 from dataclasses import dataclass
 from typing import Callable, List, Optional, Protocol
 
-from .uiTheme import COLORS
+from apps.common.uiTheme import COLORS
 
 
 

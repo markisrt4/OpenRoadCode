@@ -78,3 +78,4 @@ class AircraftPanelManager(PanelManagerIf):
 
         manager.show()
         self.airband_panel_manager = manager
+        self.app.set_panel_title("Airband AM Radio")

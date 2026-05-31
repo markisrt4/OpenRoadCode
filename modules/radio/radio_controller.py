@@ -24,6 +24,8 @@ class RadioController:
         )
 
     def start(self) -> int:
+        self.backend.start()
+
         self.backend.set_mode(
             self.default_mode.name,
             self.default_mode.bandwidth,
