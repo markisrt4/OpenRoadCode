@@ -79,6 +79,7 @@ python -m pip install \
   requests \
   geocoder \
   streamlit-autorefresh \
+  gps \
   gpsd-py3
 
 deactivate

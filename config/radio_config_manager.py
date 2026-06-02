@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
 
 @dataclass(frozen=True)
@@ -11,6 +11,13 @@ class RadioModeConfig:
     name: str
     bandwidth: int
     step_hz: int
+
+
+@dataclass(frozen=True)
+class RadioRangeConfig:
+    min_frequency_hz: int
+    max_frequency_hz: int
+    start_frequency_hz: int
 
 
 @dataclass(frozen=True)
@@ -40,6 +47,7 @@ class RadioConfig:
     presets: list[RadioPresetConfig]
     launch: RadioTileConfig
     radio: RadioTileConfig
+    radio_range: RadioRangeConfig | None = None
 
 
 CONFIG_ROOT = Path(__file__).resolve().parent
@@ -66,6 +74,16 @@ def _parse_mode(data: dict[str, Any]) -> RadioModeConfig:
         step_hz=int(data["step_hz"]),
     )
 
+
+def _parse_range(data: dict[str, Any] | None) -> RadioRangeConfig | None:
+    if not data:
+        return None
+
+    return RadioRangeConfig(
+        min_frequency_hz=int(data["min_frequency_hz"]),
+        max_frequency_hz=int(data["max_frequency_hz"]),
+        start_frequency_hz=int(data["start_frequency_hz"]),
+    )
 
 def _parse_tile(data: dict[str, Any]) -> RadioTileConfig:
     return RadioTileConfig(
@@ -103,6 +121,7 @@ def load_radio_config(path: str | Path) -> RadioConfig:
         presets=presets,
         launch=_parse_tile(raw["launch"]),
         radio=_parse_tile(raw["radio"]),
+        radio_range=_parse_range(raw.get("range")),
     )
 
 

@@ -139,6 +139,9 @@ class SDRPPLauncher(AppLauncherIf):
 
         subprocess.run(["sudo", "systemctl", "stop", "readsb"], check=False)
 
+        if self._process is not None and self._process.poll() is not None:
+            self._process = None
+            
         if self.is_running():
             if self.is_rigctl_ready():
                 if set_status:
@@ -237,6 +240,8 @@ class SDRPPLauncher(AppLauncherIf):
         )
 
         self._process = None
+
+        time.sleep(0.25)
 
         if set_status:
             set_status("SDR++ stopped")

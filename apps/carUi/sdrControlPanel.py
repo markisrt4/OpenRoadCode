@@ -6,19 +6,10 @@ from typing import Callable, Dict, Optional
 from pathlib import Path
 
 from apps.carUi.aircraft_panel_manager  import AircraftPanelManager
-from apps.carUi.ham_radio_panel_manager import HamRadioPanelManager
+from apps.carUi.scanner_panel_manager   import ScannerPanelManager
 from apps.carUi.weather_panel_manager   import WeatherPanelManager
 from apps.carUi.fm_radio_panel_manager  import FMRadioPanelManager
 from apps.carUi.settings_panel_manager  import SettingsPanelManager
-
-from apps.carUi.radio.radio_panel_manager import (
-    RadioPanelManager,
-)
-
-from apps.carUi.radio.radio_panel_config import (
-    RadioPanelConfig,
-    RadioPanelTileConfig,
-)
 
 from apps.common.uiTheme import COLORS, FONTS, FONT_FAMILY
 
@@ -83,11 +74,11 @@ class SDRControlPanel(tk.Tk):
         self.show_main_menu()
         self.bind("<Escape>", self._toggle_fullscreen)
 
-        self.aircraft_panel_manager  = AircraftPanelManager(self)
-        self.fm_radio_panel_manager  = FMRadioPanelManager (self)
-        self.ham_radio_panel_manager = HamRadioPanelManager(self)
-        self.weather_panel_manager   = WeatherPanelManager (self)
-        self.settings_panel_manager  = SettingsPanelManager(self)
+        self.aircraft_panel_manager = AircraftPanelManager(self)
+        self.fm_radio_panel_manager = FMRadioPanelManager (self)
+        self.scanner_panel_manager  = ScannerPanelManager (self)
+        self.weather_panel_manager  = WeatherPanelManager (self)
+        self.settings_panel_manager = SettingsPanelManager(self)
 
 
     @staticmethod
@@ -173,12 +164,12 @@ class SDRControlPanel(tk.Tk):
             dashboard.rowconfigure(row, weight=1, uniform="dash_row")
 
         tile_map = [
-            ("fm_radio", "FM RADIO", "Broadcast radio", "Launch SDR++ / presets", 0, 0),
-            ("weather", "WEATHER", "Forecast + WX band", "Radar / NOAA", 0, 1),
-            ("aircraft", "AIRCRAFT", "ADS-B + Airband", "Traffic / chatter", 0, 2),
-            ("ham_radio", "HAM", "Amateur radio", "VHF / UHF", 1, 0),
-            ("lighting", "LIGHTING", "Cabin / accent", "Controls", 1, 1),
-            ("settings", "SETTINGS", "System", "Display / radio config", 1, 2),
+            ("fm_radio",      "FM RADIO", "FM Broadcast radio", "Tune FM stations",           0, 0),
+            ("weather",       "WEATHER",  "Forecast + WX band", "Radar / NOAA",               0, 1),
+            ("aircraft",      "AIRCRAFT", "ADS-B + Airband",    "Traffic / chatter",          0, 2),
+            ("scanner_radio", "SCANNER",  "Radio Monitoring",   "Police / Fire / HAM / GMRS", 1, 0),
+            ("lighting",      "LIGHTING", "Cabin / accent",     "Lighting Controls",          1, 1),
+            ("settings",      "SETTINGS", "System",             "Display / radio config",     1, 2),
         ]
 
         for key, title, subtitle, detail, row, col in tile_map:
@@ -221,7 +212,7 @@ class SDRControlPanel(tk.Tk):
             "fm_radio",
             "weather",
             "aircraft",
-            "ham_radio",
+            "scanner_radio",
             "lighting",
             "settings",
         }
@@ -364,6 +355,7 @@ class SDRControlPanel(tk.Tk):
         )
 
         self.top_bar.set_title(title_text)
+        self.top_bar.set_back_command(self.show_main_menu)
         self.top_bar.hide_back_button()
         self._build_main_tile_grid()
         self.status_var.set("Ready")
@@ -371,11 +363,14 @@ class SDRControlPanel(tk.Tk):
     def show_aircraft_menu(self) -> None:
         self.aircraft_panel_manager.show()
 
-    def show_ham_radio_menu(self) -> None:
-        self.ham_radio_panel_manager.show()
+    def show_scanner_radio_menu(self) -> None:
+        self.scanner_panel_manager.show()
 
     def show_fm_radio_menu(self) -> None:
         self.fm_radio_panel_manager.show()
+
+    def show_settings_menu(self) -> None:
+        self.settings_panel_manager.show()
 
     def volume_up(self) -> None:
         self.volume_level = self.audio_controller.volume_up()

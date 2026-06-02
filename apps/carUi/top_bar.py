@@ -171,6 +171,9 @@ class CarTopBar(tk.Frame):
     def hide_back_button(self) -> None:
         self.back_button.pack_forget()
 
+    def set_back_command(self, command) -> None:
+        self.back_button.config(command=command)
+        
     def set_title(self, title: str) -> None:
         compact_titles = {
             "NOAA Weather Radio": "NOAA WX",

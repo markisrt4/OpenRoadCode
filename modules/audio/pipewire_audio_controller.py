@@ -13,13 +13,13 @@ class PipewireAudioController(AudioControllerIf):
         self.step_percent = step_percent
 
     def volume_up(self) -> int:
-        self._run_wpctl(["set-volume", "@DEFAULT_AUDIO_SINK@", f"+{self.step_percent}%"])
+        self._run_wpctl(["set-volume", "@DEFAULT_AUDIO_SINK@", f"{self.step_percent}%+"])
         return self.get_volume_level()
 
     def volume_down(self) -> int:
-        self._run_wpctl(["set-volume", "@DEFAULT_AUDIO_SINK@", f"-{self.step_percent}%"])
+        self._run_wpctl(["set-volume", "@DEFAULT_AUDIO_SINK@", f"{self.step_percent}%-"])
         return self.get_volume_level()
-
+    
     def get_volume_level(self) -> int:
         try:
             result = self._run_wpctl(

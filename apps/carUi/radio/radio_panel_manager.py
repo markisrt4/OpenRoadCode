@@ -221,8 +221,8 @@ class RadioPanelManager:
         for col in range(cols):
             parent.columnconfigure(col, weight=1, uniform=f"{self.panel_config.key}_preset_col")
 
-        precision = 3 if self.panel_config.key in {"airband", "ham", "weather_radio"} else 1
-
+        precision = 1 if self.panel_config.key == "fm_radio" else 3
+        
         for index, preset in enumerate(presets):
             row = index // cols
             col = index % cols
@@ -450,8 +450,8 @@ class RadioPanelManager:
         body.pack(
             fill="both",
             expand=True,
-            padx=8 if self.compact_ui else 14,
-            pady=7 if self.compact_ui else 10,
+            padx=5 if self.compact_ui else 14,
+            pady=6 if self.compact_ui else 10,
         )
 
         body.columnconfigure(0, weight=0)
@@ -471,7 +471,7 @@ class RadioPanelManager:
             row=0,
             column=0,
             sticky="n",
-            padx=(0, 6 if self.compact_ui else 12),
+            padx=(0, 4 if self.compact_ui else 12),
             pady=(1 if self.compact_ui else 2, 0),
         )
 
@@ -486,7 +486,7 @@ class RadioPanelManager:
             fg=self._tile_fg(),
             anchor="w",
             justify="left",
-            wraplength=120 if self.compact_ui else 260,
+            wraplength=145 if self.compact_ui else 260,
         )
         title.pack(fill="x", anchor="w")
 
@@ -498,7 +498,7 @@ class RadioPanelManager:
             fg=self._tile_subtitle_fg(),
             anchor="w",
             justify="left",
-            wraplength=120 if self.compact_ui else 260,
+            wraplength=145 if self.compact_ui else 260,
         )
         subtitle_label.pack(fill="x", anchor="w", pady=(4 if self.compact_ui else 7, 0))
 
@@ -510,7 +510,7 @@ class RadioPanelManager:
             fg=self._tile_detail_fg(),
             anchor="w",
             justify="left",
-            wraplength=120 if self.compact_ui else 260,
+            wraplength=145 if self.compact_ui else 260,
         )
         detail_label.pack(fill="x", anchor="w", pady=(2 if self.compact_ui else 3, 0))
 
@@ -788,7 +788,7 @@ class RadioPanelManager:
 
     def _control_title_font(self):
         if self.compact_ui:
-            return (FONT_FAMILY, 18, "bold")
+            return (FONT_FAMILY, 16, "bold")
         return FONTS.get("tile_title", (FONT_FAMILY, 24, "bold"))
 
     def _control_subtitle_font(self):

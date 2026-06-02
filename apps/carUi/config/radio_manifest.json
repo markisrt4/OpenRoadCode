@@ -1,0 +1,18 @@
+{
+  "radio_configs": {
+    "fm_radio": "fm_radio.json",
+    "airband_radio": "airband_am.json",
+    "weather_radio": "weather_band.json"
+  },
+
+  "scanner_bands": {
+    "police_fire": "police_fire.json",
+    "railroad": "railroad.json",
+    "ham_2m": "ham_2m.json",
+    "ham_70cm": "ham_70cm.json",
+    "gmrs": "gmrs.json",
+    "frs": "frs.json",
+    "marine": "marine.json",
+    "cb": "cb.json"
+  }
+}
