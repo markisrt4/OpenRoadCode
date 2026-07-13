@@ -92,3 +92,4 @@ class BleScanner:
         )
 
         return devices
+    
