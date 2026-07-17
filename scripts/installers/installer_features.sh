@@ -107,8 +107,7 @@ get_feature_python_packages() {
     bluetooth)
       printf '%s
 ' \
-        bleak \
-        pybluez
+        bleak
       ;;
     automotive)
       printf '%s

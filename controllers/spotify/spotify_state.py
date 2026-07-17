@@ -4,6 +4,7 @@ from dataclasses import dataclass
 @dataclass(frozen=True, slots=True)
 class SpotifyState:
     is_available: bool = False
+    configuration_required: bool = False
     is_playing: bool = False
 
     track_name: str | None = None

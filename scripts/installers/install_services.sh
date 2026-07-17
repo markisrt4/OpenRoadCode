@@ -2,7 +2,6 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(cd -- "$SCRIPT_DIR/.." && pwd)"
 PROJECT_DIR="${PROJECT_DIR:-$PROJECT_ROOT}"
 GPS_DEVICE="${GPS_DEVICE:-/dev/ttyACM0}"
 
@@ -38,5 +37,5 @@ fi
 
 if [[ "$RUN_GPSD_SERVICE" != "0" ]]; then
   echo "[*] Installing GPS systemd service..."
-  sudo bash "$PROJECT_ROOT/scripts/installers/install_gpsd_systemd.sh" "$GPS_DEVICE"
+  sudo bash "$PROJECT_ROOT/scripts/systemd/install_gpsd_systemd.sh" "$GPS_DEVICE"
 fi

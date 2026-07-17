@@ -3,7 +3,7 @@ from __future__ import annotations
 from controllers.spotify import (
     SpotifyControllerIf,
     SpotifyWebApiController,
-    UnavailableSpotifyController,
+    UnconfiguredControllerStub,
 )
 from protocols.spotify import (
     SpotifyAuth,
@@ -19,7 +19,7 @@ def create_spotify_controller() -> SpotifyControllerIf:
     try:
         config = load_spotify_config()
     except FileNotFoundError:
-        return UnavailableSpotifyController()
+        return UnconfiguredControllerStub()
 
     token_store = SpotifyTokenStore()
     auth = SpotifyAuth(

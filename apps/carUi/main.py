@@ -4,6 +4,9 @@ import os
 from pathlib import Path
 
 from apps.carUi.runtime.radio_runtime_factory import create_car_ui_runtime
+from apps.carUi.runtime.lighting_runtime_factory import (
+    create_lighting_controller,
+)
 from apps.carUi.runtime.spotify_runtime_factory import (
     create_spotify_controller,
 )
@@ -12,8 +15,6 @@ from apps.common.uiTheme.uiTheme import CAR_UI_THEME
 from controllers.audio.pipewire_audio_controller import (
     PipewireAudioController,
 )
-from controllers.lighting.adapters.leddmx_bluetooth_controller import LedDmxBluetoothController
-from controllers.lighting.parsers.leddmx_config_parser import load_leddmx_config
 from hardware_io.gps.gps_reader import GpsReader
 
 
@@ -38,9 +39,9 @@ def main() -> None:
         steps=CAR_UI_THEME["layout"]["volume_steps"],
     )
     spotify_controller = create_spotify_controller()
-    lighting_controller = LedDmxBluetoothController(
+    lighting_controller = create_lighting_controller(
+        project_root=PROJECT_ROOT,
         address=os.getenv("CARUI_LIGHTING_ADDRESS"),
-        config=load_leddmx_config(project_root=PROJECT_ROOT),
     )
 
     app = UiControlPanel(

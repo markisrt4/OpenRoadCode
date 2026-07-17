@@ -5,7 +5,7 @@ SERVICE_NAME="gpsd-start"
 SERVICE_FILE="/etc/systemd/system/${SERVICE_NAME}.service"
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd -- "$SCRIPT_DIR/../.." && pwd)"
-WRAPPER_SCRIPT="$PROJECT_ROOT/scripts/start_gpsd.sh"
+WRAPPER_SCRIPT="$PROJECT_ROOT/scripts/runtime/start_gpsd.sh"
 GPS_DEVICE="${1:-/dev/ttyACM0}"
 
 if [[ ! -f "$WRAPPER_SCRIPT" ]]; then

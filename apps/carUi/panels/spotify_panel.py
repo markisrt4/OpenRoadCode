@@ -340,6 +340,23 @@ class SpotifyPanel(tk.Frame):
     def _apply_state(self, state: SpotifyState) -> None:
         empty = self._layout["empty_value"]
 
+        if state.configuration_required:
+            self._status_var.set(
+                self._layout["configuration_required_status"]
+            )
+            self._track_var.set(
+                self._layout["configuration_required_title"]
+            )
+            self._artist_var.set(
+                self._layout["configuration_required_detail"]
+            )
+            self._album_var.set(empty)
+            self._device_var.set(self._layout["empty_device_text"])
+            self._volume_var.set(self._layout["empty_volume_text"])
+            self._progress_var.set(self._layout["empty_progress_text"])
+            self._draw_progress(None)
+            return
+
         self._status_var.set(state.status_message)
         self._track_var.set(state.track_name or empty)
         self._artist_var.set(state.artist_name or empty)

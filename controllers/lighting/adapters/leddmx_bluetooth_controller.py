@@ -27,6 +27,10 @@ except ImportError:  # pragma: no cover - lets the package import without BLE de
     BLEDevice = None  # type: ignore[assignment,misc]
 
 
+class BleakUnavailableError(RuntimeError):
+    """Raised when Bluetooth lighting is requested without bleak installed."""
+
+
 class LedDmxBluetoothController(LightingControllerIf):
     """Persistent LEDDMX BLE controller with its own asyncio event loop.
 
@@ -43,7 +47,9 @@ class LedDmxBluetoothController(LightingControllerIf):
         config: LedDmxBluetoothConfig | None = None,
     ) -> None:
         if BleakClient is None or BleakScanner is None:
-            raise RuntimeError("bleak is not installed. Install with: pip install bleak")
+            raise BleakUnavailableError(
+                "bleak is not installed. Install with: pip install bleak"
+            )
 
         adapter_config = config or load_leddmx_config()
 

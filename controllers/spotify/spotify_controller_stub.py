@@ -2,17 +2,11 @@ from controllers.spotify.spotify_controller_if import SpotifyControllerIf
 from controllers.spotify.spotify_state import SpotifyState
 
 
-class UnavailableSpotifyController(SpotifyControllerIf):
-    """Represent an optional Spotify integration that is not configured."""
-
-    def __init__(self, status_message: str = "Spotify is not configured") -> None:
-        self._state = SpotifyState(
-            is_available=False,
-            status_message=status_message,
-        )
+class SpotifyControllerStub(SpotifyControllerIf):
+    """Minimal no-op Spotify controller."""
 
     def current_state(self) -> SpotifyState:
-        return self._state
+        return SpotifyState()
 
     def play_pause(self) -> None:
         pass

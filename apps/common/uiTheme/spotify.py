@@ -19,6 +19,11 @@ SPOTIFY_PANEL_THEME = {
     "layout": {
         "title": "SPOTIFY",
         "initial_status": "Spotify",
+        "configuration_required_status": "Spotify setup required",
+        "configuration_required_title": "Spotify is not configured",
+        "configuration_required_detail": (
+            "Run scripts/installers/install_spotify.sh"
+        ),
         "empty_value": "--",
         "empty_device_text": "Device: --",
         "empty_progress_text": "--:-- / --:--",

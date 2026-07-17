@@ -5,7 +5,7 @@ PROJECT_DIR="${PROJECT_DIR:-$PWD}"
 DISPLAY_NUM="${DISPLAY_NUM:-2}"
 GEOMETRY="${GEOMETRY:-1280x720}"
 DEPTH="${DEPTH:-24}"
-RUNTIME_SCRIPT="$PROJECT_DIR/scripts/start_vnc_server.sh"
+RUNTIME_SCRIPT="$PROJECT_DIR/scripts/runtime/start_vnc_server.sh"
 
 echo "[*] Setting up VNC..."
 

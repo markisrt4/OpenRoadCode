@@ -11,7 +11,7 @@ from controllers.lighting.lighting_types import (
 
 
 class LightingControllerStub(LightingControllerIf):
-    """Silent deterministic stub for consumers that require lighting support."""
+    """Minimal no-op lighting controller."""
 
     def __init__(
         self,
@@ -27,7 +27,7 @@ class LightingControllerStub(LightingControllerIf):
         return self._state
 
     def connect(self) -> Future[None]:
-        return self._completed()
+        return self._result()
 
     def disconnect(self) -> Future[None]:
         return self._completed()
@@ -36,33 +36,36 @@ class LightingControllerStub(LightingControllerIf):
         pass
 
     def set_power(self, enabled: bool) -> Future[None]:
-        return self._completed()
+        return self._result()
 
     def set_color(self, color: RgbColor) -> Future[None]:
-        return self._completed()
+        return self._result()
 
     def set_brightness(self, percent: int) -> Future[None]:
-        return self._completed()
+        return self._result()
 
     def set_color_temperature(self, percent: int) -> Future[None]:
-        return self._completed()
+        return self._result()
 
     def set_pattern(self, pattern_index: int) -> Future[None]:
-        return self._completed()
+        return self._result()
 
     def set_music_mode(self, eq_mode: int) -> Future[None]:
-        return self._completed()
+        return self._result()
 
     def set_custom_pattern_mode(
         self,
         mode: CustomPatternMode,
     ) -> Future[None]:
-        return self._completed()
+        return self._result()
 
     def set_custom_pattern_direction(
         self,
         is_forward: bool,
     ) -> Future[None]:
+        return self._result()
+
+    def _result(self) -> Future[None]:
         return self._completed()
 
     @staticmethod
