@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 
 from apps.carUi.runtime.radio_runtime_factory import create_car_ui_runtime
+from apps.carUi.runtime.display_runtime import configure_display
 from apps.carUi.runtime.lighting_runtime_factory import (
     create_lighting_controller,
 )
@@ -33,6 +34,10 @@ def main() -> None:
         RUNTIME_CONFIG_PATH,
         project_root=PROJECT_ROOT,
     )
+    try:
+        configure_display()
+    except RuntimeError as exc:
+        raise SystemExit(f"[CarUI] {exc}") from exc
 
     gps_reader = GpsReader()
     audio_controller = PipewireAudioController(

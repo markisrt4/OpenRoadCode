@@ -24,7 +24,7 @@ get_feature_packages() {
   local feature="$1"
   case "$feature" in
     base)
-      echo "git curl wget ca-certificates lighttpd bluez python3 python3-venv python3-tk python3-pip dbus-x11 xterm x11-apps wmctrl openbox xfce4 xfce4-goodies tigervnc-standalone-server tigervnc-common rtl-sdr gpsd gpsd-clients python3-gps i2c-tools"
+      echo "git curl wget ca-certificates lighttpd bluez python3 python3-venv python3-tk python3-pip dbus-x11 xauth xterm x11-apps wmctrl openbox xfce4 xfce4-goodies tigervnc-standalone-server tigervnc-common rtl-sdr gpsd gpsd-clients python3-gps i2c-tools"
       ;;
     core-ui)
       echo "chromium"
