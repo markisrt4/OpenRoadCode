@@ -261,6 +261,23 @@ CARUI_FULLSCREEN=0 \
 python3 -m apps.carUi.main
 ```
 
+For per-application X11 forwarding, connect to the host with `ssh -X` or
+`ssh -Y`. SSH assigns and exports `DISPLAY`; CarUI preserves that value. The
+VNC display configured by `remote_display` is separate and is not used for the
+CarUI window. From a workstation with an X server, launch it with:
+
+```bash
+ssh -X username@your-openroad-host
+echo "$DISPLAY"
+CARUI_GEOMETRY=1024x600 \
+CARUI_FULLSCREEN=0 \
+venv/bin/python -m apps.carUi.main
+```
+
+Use `ssh -Y` instead if your workstation and security policy require trusted
+X11 forwarding. `CARUI_DISPLAY` remains available as an explicit advanced
+override, but it is not populated from the VNC configuration.
+
 ---
 
 # Project Goals
@@ -291,4 +308,3 @@ Vehicle integrations should be performed carefully and at the user's own risk.
 Copyright (c) 2026
 
 This project is released under the MIT License.
-
