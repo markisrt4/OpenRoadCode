@@ -181,7 +181,7 @@ if (( RUN_VNC )) || (( RUN_GPSD_SERVICE )); then
 fi
 
 echo
-echo "[+] $HOST_ARCH_NOTE setup complete."
+echo "[+] $INSTALL_FLOW setup complete."
 echo "    Project dir: $PROJECT_DIR"
 echo "    Arch:        $HOST_ARCH_LABEL"
 echo "    Venv:        $VENV_DIR"
