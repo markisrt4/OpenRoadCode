@@ -8,10 +8,14 @@ from controllers.spotify.spotify_state import SpotifyState
 from controllers.spotify.spotify_web_api_controller import (
     SpotifyWebApiController,
 )
+from controllers.spotify.unavailable_spotify_controller import (
+    UnavailableSpotifyController,
+)
 
 __all__ = [
     "MockSpotifyController",
     "SpotifyControllerIf",
     "SpotifyState",
+    "UnavailableSpotifyController",
     "SpotifyWebApiController",
 ]

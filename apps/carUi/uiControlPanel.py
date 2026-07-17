@@ -34,7 +34,7 @@ from apps.common.uiTheme.uiTheme import (
 )
 from controllers.audio.audio_controller_if import AudioControllerIf
 from hardware_io.gps.gps_reader import GpsReader
-from controllers.spotify.spotify_web_api_controller import SpotifyWebApiController
+from controllers.spotify import SpotifyControllerIf
 from controllers.lighting.lighting_controller_if import LightingControllerIf
 
 class UiControlPanel(tk.Tk):
@@ -44,7 +44,7 @@ class UiControlPanel(tk.Tk):
         gps_device: GpsReader,
         lighting_controller: LightingControllerIf,
         audio_controller: AudioControllerIf,
-        spotify_controller: SpotifyWebApiController,
+        spotify_controller: SpotifyControllerIf,
         callbacks: Optional[Dict[str, Callable[[str], None]]] = None,
         title: str = "Ui Control Panel",
     ) -> None:

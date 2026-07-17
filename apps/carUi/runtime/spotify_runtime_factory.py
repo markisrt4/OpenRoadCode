@@ -1,6 +1,10 @@
 from __future__ import annotations
 
-from controllers.spotify import SpotifyWebApiController
+from controllers.spotify import (
+    SpotifyControllerIf,
+    SpotifyWebApiController,
+    UnavailableSpotifyController,
+)
 from protocols.spotify import (
     SpotifyAuth,
     SpotifyTokenStore,
@@ -9,10 +13,14 @@ from protocols.spotify import (
 )
 
 
-def create_spotify_controller() -> SpotifyWebApiController:
+def create_spotify_controller() -> SpotifyControllerIf:
     """Assemble the Spotify controller used by the Car UI."""
 
-    config = load_spotify_config()
+    try:
+        config = load_spotify_config()
+    except FileNotFoundError:
+        return UnavailableSpotifyController()
+
     token_store = SpotifyTokenStore()
     auth = SpotifyAuth(
         config=config,

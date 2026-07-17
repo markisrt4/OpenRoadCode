@@ -5,7 +5,7 @@ from typing import Optional
 from apps.carUi.panels.panel_manager_if import PanelManagerIf
 from apps.carUi.panels.spotify_panel import SpotifyPanel
 from apps.common.uiTheme.spotify import SPOTIFY_PANEL_THEME
-from controllers.spotify import SpotifyWebApiController
+from controllers.spotify import SpotifyControllerIf
 
 
 class SpotifyPanelManager(PanelManagerIf):
@@ -14,7 +14,7 @@ class SpotifyPanelManager(PanelManagerIf):
     def __init__(
         self,
         app,
-        spotify_controller: SpotifyWebApiController,
+        spotify_controller: SpotifyControllerIf,
     ) -> None:
         super().__init__(app)
         self._spotify_controller = spotify_controller

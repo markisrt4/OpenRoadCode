@@ -4,7 +4,7 @@ import tkinter as tk
 from tkinter import TclError
 from typing import Any
 
-from controllers.spotify.spotify_web_api_controller import SpotifyWebApiController
+from controllers.spotify import SpotifyControllerIf
 from controllers.spotify.spotify_state import SpotifyState
 
 
@@ -27,7 +27,7 @@ class SpotifyPanel(tk.Frame):
         self,
         parent: tk.Widget,
         *,
-        controller: SpotifyWebApiController,
+        controller: SpotifyControllerIf,
         theme: dict[str, Any],
     ) -> None:
         self._controller = controller
