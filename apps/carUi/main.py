@@ -11,6 +11,7 @@ from apps.carUi.runtime.lighting_runtime_factory import (
 from apps.carUi.runtime.spotify_runtime_factory import (
     create_spotify_controller,
 )
+from apps.carUi.splash_screen import show_startup_splash
 from apps.carUi.uiControlPanel import UiControlPanel
 from apps.common.uiTheme.uiTheme import CAR_UI_THEME
 from controllers.audio.pipewire_audio_controller import (
@@ -30,14 +31,17 @@ RUNTIME_CONFIG_PATH = (
 
 
 def main() -> None:
-    runtime = create_car_ui_runtime(
-        RUNTIME_CONFIG_PATH,
-        project_root=PROJECT_ROOT,
-    )
     try:
         configure_display()
     except RuntimeError as exc:
         raise SystemExit(f"[CarUI] {exc}") from exc
+
+    show_startup_splash()
+
+    runtime = create_car_ui_runtime(
+        RUNTIME_CONFIG_PATH,
+        project_root=PROJECT_ROOT,
+    )
 
     gps_reader = GpsReader()
     audio_controller = PipewireAudioController(

@@ -258,8 +258,23 @@ Run the UI:
 ```bash
 CARUI_GEOMETRY=1024x600 \
 CARUI_FULLSCREEN=0 \
-python3 -m apps.carUi.main
+venv/bin/python -m apps.carUi.main
 ```
+
+CarUI shows an OpenRoadCode startup splash by default. It fades in for 700 ms,
+holds for 1.5 seconds, and fades out for 700 ms before constructing the main
+application. The sequence can be adjusted or disabled with:
+
+```bash
+CARUI_SPLASH=0                         # disable the splash
+CARUI_SPLASH_FADE_MS=400              # fade duration
+CARUI_SPLASH_HOLD_MS=1000             # fully-visible duration
+CARUI_SPLASH_FULLSCREEN=1             # override splash fullscreen behavior
+```
+
+If `CARUI_SPLASH_FULLSCREEN` is not set, the splash follows
+`CARUI_FULLSCREEN`. In windowed development it uses `CARUI_GEOMETRY` and is
+centered on the active X11/WSLg display.
 
 For per-application X11 forwarding, connect to the host with `ssh -X` or
 `ssh -Y`. SSH assigns and exports `DISPLAY`; CarUI preserves that value. 
