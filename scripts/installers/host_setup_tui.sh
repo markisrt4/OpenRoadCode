@@ -16,61 +16,105 @@ else
   exit 0
 fi
 
-FEATURES=(
-  "base|Core system dependencies"
-  "core-ui|Browser/UI support"
-  "gps|GPS daemon and Python support"
-  "radio|RTL-SDR and radio support"
-  "streamlit|Streamlit dashboard support"
-  "adsb|ADS-B/readsb support"
-  "bluetooth|Bluetooth support"
-  "automotive|Automotive/OBD support"
-  "spotify|Spotify integration extras"
-  "sdrpp|SDR++ support"
-)
+SELECTED_GENERAL="base"
+SELECTED_STREAMING="streamlit"
+SELECTED_NAVIGATION="gps"
+SELECTED_RADIO=""
+SELECTED_AUTOMOTIVE="elm327"
+SELECTED_BLUETOOTH="bluetooth"
 
-OPTIONS=()
-for entry in "${FEATURES[@]}"; do
-  feature="${entry%%|*}"
-  description="${entry#*|}"
-  case "$feature" in
-    base|gps|streamlit|bluetooth|automotive)
-      OPTIONS+=("$feature" "$description" ON)
+choose_features() {
+  local title="$1"
+  local prompt="$2"
+  local selected="$3"
+  shift 3
+
+  local options=()
+  local entry feature description state selection
+  for entry in "$@"; do
+    feature="${entry%%|*}"
+    description="${entry#*|}"
+    state=OFF
+    if [[ " $selected " == *" $feature "* ]]; then
+      state=ON
+    fi
+    options+=("$feature" "$description" "$state")
+  done
+
+  selection=$(whiptail --title "$title" --checklist \
+    "$prompt" 20 90 10 \
+    "${options[@]}" 3>&1 1>&2 2>&3) || return 1
+  SELECTED_RESULT="${selection//\"/}"
+}
+
+while true; do
+  section=$(whiptail --title "OpenRoadCode installer" --menu \
+    "Choose a section to configure, then select Install:" 18 76 8 \
+    "general" "General features" \
+    "streaming" "Streaming" \
+    "navigation" "Navigation" \
+    "radio" "Radio" \
+    "automotive" "Automotive devices" \
+    "bluetooth" "Bluetooth" \
+    "install" "Install the selected features" \
+    "cancel" "Exit without installing" \
+    3>&1 1>&2 2>&3) || exit 0
+
+  case "$section" in
+    general)
+      choose_features "General features" "Select general features:" "$SELECTED_GENERAL" \
+        "base|Core system dependencies" \
+        "core-ui|Browser/UI support" && SELECTED_GENERAL="$SELECTED_RESULT"
       ;;
-    *)
-      OPTIONS+=("$feature" "$description" OFF)
+    streaming)
+      choose_features "Streaming" "Select streaming features:" "$SELECTED_STREAMING" \
+        "streamlit|Streamlit dashboard support" \
+        "spotify|Spotify integration" && SELECTED_STREAMING="$SELECTED_RESULT"
+      ;;
+    navigation)
+      choose_features "Navigation" "Select GPS support and navigation hardware:" "$SELECTED_NAVIGATION" \
+        "gps|GPS daemon and Python support" \
+        "mpu6050|MPU6050 accelerometer/gyroscope" && SELECTED_NAVIGATION="$SELECTED_RESULT"
+      ;;
+    radio)
+      choose_features "Radio" "Select radio features:" "$SELECTED_RADIO" \
+        "adsb|ADS-B/readsb support" \
+        "sdrpp|SDR++ support" && SELECTED_RADIO="$SELECTED_RESULT"
+      ;;
+    automotive)
+      choose_features "Automotive" "Select automotive devices:" "$SELECTED_AUTOMOTIVE" \
+        "elm327|ELM327 OBD-II adapter" && SELECTED_AUTOMOTIVE="$SELECTED_RESULT"
+      ;;
+    bluetooth)
+      choose_features "Bluetooth" "Select Bluetooth features:" "$SELECTED_BLUETOOTH" \
+        "bluetooth|Bluetooth device support" && SELECTED_BLUETOOTH="$SELECTED_RESULT"
+      ;;
+    install)
+      break
+      ;;
+    cancel)
+      exit 0
       ;;
   esac
 done
 
-SELECTED=$(whiptail --title "Choose feature bundles" --checklist \
-  "Select the feature bundles to install:" 24 90 12 \
-  "${OPTIONS[@]}" 3>&1 1>&2 2>&3)
-
-status=$?
-if [[ $status -ne 0 ]]; then
-  exit 0
-fi
-
 ARGS=()
-for feature in ${SELECTED}; do
+for feature in \
+  ${SELECTED_GENERAL} \
+  ${SELECTED_STREAMING} \
+  ${SELECTED_NAVIGATION} \
+  ${SELECTED_RADIO} \
+  ${SELECTED_AUTOMOTIVE} \
+  ${SELECTED_BLUETOOTH}; do
   ARGS+=(--feature "$feature")
 done
 
-if [[ " $SELECTED " != *" base "* ]]; then
+if [[ " $SELECTED_GENERAL " != *" base "* ]]; then
   ARGS+=(--feature base)
 fi
 
-if [[ -z "${SELECTED}" ]]; then
-  ARGS+=(--feature base)
-fi
-
-if [[ " $SELECTED " == *" sdrpp "* ]]; then
+if [[ " $SELECTED_RADIO " == *" sdrpp "* ]]; then
   ARGS+=(--install-sdrpp)
-fi
-
-if [[ " $SELECTED " == *" radio "* ]]; then
-  ARGS+=(--install-radio)
 fi
 
 bash "$PROJECT_DIR/scripts/installers/host_setup.sh" "${ARGS[@]}"
