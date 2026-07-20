@@ -10,6 +10,7 @@ from .network_interface import (
 )
 from .router_config import RouterConfig, RouterConfigError
 from .router_if import RouterIf
+from .router_manager import RouterManager, RouterManagerError
 from .router_status import RouterStatus
 
 __all__ = [
@@ -22,5 +23,7 @@ __all__ = [
     "RouterConfig",
     "RouterConfigError",
     "RouterIf",
+    "RouterManager",
+    "RouterManagerError",
     "RouterStatus",
 ]
