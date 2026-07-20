@@ -112,7 +112,7 @@ while (( $# > 0 )); do
       echo "  --no-gpsd-service      Skip GPS systemd service setup"
       echo "  --install-sdrpp        Install SDR++ if available"
       echo "  --install-radio        Install or update the radio stack"
-      echo "  --feature NAME         Add a feature bundle (base, core-ui, gps, radio, spotify, sdrpp)"
+      echo "  --feature NAME         Add a feature bundle (see installer_features.sh)"
       exit 0
       ;;
     *)

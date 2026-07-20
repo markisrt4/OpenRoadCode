@@ -47,6 +47,12 @@ get_feature_packages() {
     automotive)
       echo "python3-serial libserial-dev can-utils"
       ;;
+    elm327)
+      echo "python3-serial"
+      ;;
+    mpu6050)
+      echo "i2c-tools"
+      ;;
     spotify)
       echo ""
       ;;
@@ -112,6 +118,17 @@ get_feature_python_packages() {
 ' \
         pyserial
       ;;
+    elm327)
+      printf '%s
+' \
+        pyserial
+      ;;
+    mpu6050)
+      printf '%s
+' \
+        adafruit-blinka \
+        adafruit-circuitpython-mpu6050
+      ;;
     spotify)
       echo ""
       ;;
@@ -135,6 +152,8 @@ Available features:
   adsb        ADS-B/readsb support packages
   bluetooth   Bluetooth support packages
   automotive  Automotive/OBD-related support
+  elm327      ELM327 OBD-II adapter support
+  mpu6050     MPU6050 I2C accelerometer/gyroscope hardware module
   spotify     Spotify integration extras
   sdrpp       SDR++ package support
 EOF
