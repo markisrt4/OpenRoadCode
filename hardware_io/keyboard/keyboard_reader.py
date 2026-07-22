@@ -206,6 +206,17 @@ class KeyboardReader:
             LOGGER.exception("Unexpected keyboard reader failure")
 
     @staticmethod
+    def _normalize_keycode(keycode: str | list[str]) -> str:
+        """Returns one key name when evdev reports aliases for a keycode."""
+        if isinstance(keycode, str):
+            return keycode
+
+        if not keycode:
+            raise ValueError("Keyboard event did not contain a keycode")
+
+        return keycode[0]
+
+    @staticmethod
     def find_keyboard_device() -> str:
         """
         Returns the first keyboard-like Linux input device.
@@ -244,4 +255,4 @@ class KeyboardReader:
                 except OSError:
                     pass
 
-        raise
+        raise RuntimeError("No keyboard-like input device was found")
