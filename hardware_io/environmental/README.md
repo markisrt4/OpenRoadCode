@@ -17,11 +17,11 @@ The goal of this package is to expose **raw environmental measurements** from ph
 
 | Device | Interface | Measurements |
 |---------|-----------|--------------|
+| BMP388 | I²C | Atmospheric pressure, temperature |
 | BMP390 | I²C | Atmospheric pressure, temperature |
 
 Future implementations may include:
 
-- BMP388
 - BMP280
 - BME280
 - BME680
@@ -34,6 +34,7 @@ Future implementations may include:
 environmental/
 ├── __init__.py
 ├── barometric_sensor_if.py
+├── bmp388.py
 ├── bmp390.py
 ├── component_test/
 └── README.md
@@ -75,9 +76,9 @@ Returning consistent units allows higher-level software to perform calculations 
 ## Example
 
 ```python
-from hardware_io.environmental import Bmp390
+from hardware_io.environmental import Bmp388
 
-sensor = Bmp390()
+sensor = Bmp388()
 
 try:
     sensor.start()
@@ -94,7 +95,7 @@ finally:
 
 ## Raspberry Pi Dependencies
 
-The BMP390 implementation uses Adafruit's CircuitPython driver.
+The BMP388 and BMP390 implementations use Adafruit's CircuitPython driver.
 
 ```bash
 python3 -m pip install \
@@ -102,18 +103,88 @@ python3 -m pip install \
     adafruit-circuitpython-bmp3xx
 ```
 
+The project installer can install the same system and Python dependencies.
+Choose exactly one driver:
+
+```bash
+scripts/installers/host_setup.sh --feature bmp388
+```
+
+or:
+
+```bash
+scripts/installers/host_setup.sh --feature bmp390
+```
+
+The interactive `host_setup_tui.sh` installer provides the same choice under
+**Environmental sensors**.
+
+## Hardware Setup
+
+Connect the BMP388 or BMP390 breakout to the Raspberry Pi I²C bus:
+
+| Sensor | Raspberry Pi |
+|--------|--------------|
+| VIN/VCC | 3.3 V |
+| GND | Ground |
+| SCL | I²C SCL |
+| SDA | I²C SDA |
+
+Check the voltage requirements of the specific breakout board before wiring
+it. Enable I²C through `sudo raspi-config`, then verify that the sensor is
+visible:
+
+```bash
+i2cdetect -y 1
+```
+
+The default address is `0x77`. A board configured with SDO low commonly
+appears at `0x76`.
+
 ## Component Testing
 
-Concrete sensor implementations should provide a command-line application under `component_test/` that allows hardware verification without requiring higher-level software.
+Run the live BMP388 hardware test from the project root:
 
-Typical information displayed by a component test includes:
+```bash
+python3 -m hardware_io.environmental.component_test.barometric_cli
+```
 
-- Device detection
-- I²C address
-- Pressure
-- Temperature
-- Update rate
-- Error reporting
+The CLI reports pressure in pascals and temperature in degrees Celsius once
+per second. Press `Ctrl+C` to stop it.
+
+Read one sample and exit:
+
+```bash
+python3 -m hardware_io.environmental.component_test.barometric_cli --once
+```
+
+Use address `0x76` or change the sampling interval:
+
+```bash
+python3 -m hardware_io.environmental.component_test.barometric_cli \
+    --address 0x76 \
+    --interval 0.5
+```
+
+The same component test can exercise a BMP390:
+
+```bash
+python3 -m hardware_io.environmental.component_test.barometric_cli \
+    --sensor bmp390
+```
+
+Run the CLI with `--help` to see all options.
+
+## Troubleshooting
+
+- If `i2cdetect` does not show `76` or `77`, check power, ground, SDA, SCL,
+  and whether I²C is enabled.
+- If initialization fails at `0x77`, scan the bus and pass `--address 0x76`
+  when that is the reported address.
+- If Python reports a missing `board` or `adafruit_bmp3xx` module, install the
+  dependencies above in the same Python environment used to run the test.
+- If access to `/dev/i2c-*` is denied, check the device permissions and the
+  current user's group membership.
 
 ## Future Expansion
 

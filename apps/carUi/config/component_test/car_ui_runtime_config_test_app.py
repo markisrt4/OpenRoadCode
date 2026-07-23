@@ -61,6 +61,16 @@ def format_config_summary(config: CarUiRuntimeConfig) -> str:
         f"  Devices: {len(config.input.rotary_encoders.devices)}",
         f"  Volume index: {config.input.rotary_encoders.volume_index}",
         "",
+        "Barometric sensor:",
+        (
+            "  Driver: "
+            f"{config.environmental.barometric_sensor.driver}"
+        ),
+        (
+            "  I2C address: "
+            f"{config.environmental.barometric_sensor.address:#04x}"
+        ),
+        "",
         f"Radio stacks: {len(config.radios)} configured",
     ]
 

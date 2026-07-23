@@ -53,6 +53,9 @@ get_feature_packages() {
     mpu6050)
       echo "i2c-tools"
       ;;
+    bmp388|bmp390)
+      echo "i2c-tools"
+      ;;
     spotify)
       echo ""
       ;;
@@ -130,6 +133,12 @@ get_feature_python_packages() {
         adafruit-blinka \
         adafruit-circuitpython-mpu6050
       ;;
+    bmp388|bmp390)
+      printf '%s
+' \
+        adafruit-blinka \
+        adafruit-circuitpython-bmp3xx
+      ;;
     spotify)
       echo ""
       ;;
@@ -155,6 +164,8 @@ Available features:
   automotive  Common automotive and CAN-bus support
   elm327      ELM327 serial-device support (hardware_io/automotive/elm327)
   mpu6050     MPU6050 I2C accelerometer/gyroscope hardware module
+  bmp388      BMP388 I2C barometric pressure sensor
+  bmp390      BMP390 I2C barometric pressure sensor
   spotify     Spotify integration extras
   sdrpp       SDR++ package support
 EOF

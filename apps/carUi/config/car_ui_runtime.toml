@@ -13,6 +13,10 @@ remote_display = ":2"
 host = "127.0.0.1"
 port = 4532
 
+[environmental.barometric_sensor]
+driver = "bmp388"
+address = 0x77
+
 [input.rotary_encoders]
 volume_index = 0
 

@@ -72,6 +72,19 @@ class InputConfig:
 
 
 @dataclass(frozen=True, slots=True)
+class BarometricSensorConfig:
+    """Configure the barometric sensor used by the Car UI."""
+    driver: str = "bmp388"
+    address: int = 0x77
+
+
+@dataclass(frozen=True, slots=True)
+class EnvironmentalConfig:
+    """Contain runtime configuration for environmental sensors."""
+    barometric_sensor: BarometricSensorConfig = BarometricSensorConfig()
+
+
+@dataclass(frozen=True, slots=True)
 class RadioStackConfig:
     """Configure one radio backend, profile, and optional launcher."""
     key: str
@@ -110,6 +123,7 @@ class CarUiRuntimeConfig:
     input: InputConfig
     radios: tuple[RadioStackConfig, ...]
     auxiliary: AuxiliaryConfig
+    environmental: EnvironmentalConfig = EnvironmentalConfig()
 
     def enabled_radios(self) -> tuple[RadioStackConfig, ...]:
         """Return radio stacks enabled in this configuration."""
@@ -173,6 +187,9 @@ class CarUiRuntimeConfigParser:
         runtime = self._parse_runtime(data.get("runtime", {}))
         rigctl = self._parse_rigctl(data.get("rigctl", {}))
         input_config = self._parse_input(data.get("input", {}))
+        environmental = self._parse_environmental(
+            data.get("environmental", {})
+        )
         radios = self._parse_radios(data.get("radios", []))
         auxiliary = self._parse_auxiliary(data.get("auxiliary", {}))
 
@@ -182,6 +199,7 @@ class CarUiRuntimeConfigParser:
             input=input_config,
             radios=radios,
             auxiliary=auxiliary,
+            environmental=environmental,
         )
 
     def _parse_runtime(self, data: Any) -> RuntimeDisplayConfig:
@@ -241,6 +259,35 @@ class CarUiRuntimeConfigParser:
             rotary_encoders=RotaryEncoderConfig(
                 devices=devices,
                 volume_index=volume_index,
+            )
+        )
+
+    def _parse_environmental(self, data: Any) -> EnvironmentalConfig:
+        section = self._expect_table(data, "environmental")
+        sensor_data = self._expect_table(
+            section.get("barometric_sensor", {}),
+            "environmental.barometric_sensor",
+        )
+        driver = self._optional_string(
+            sensor_data,
+            "driver",
+            default="bmp388",
+            section_name="environmental.barometric_sensor",
+        ).lower()
+        if driver not in {"bmp388", "bmp390"}:
+            raise CarUiRuntimeConfigError(
+                "environmental.barometric_sensor.driver must be "
+                "'bmp388' or 'bmp390'"
+            )
+
+        address = self._i2c_address(
+            sensor_data.get("address", 0x77),
+            "environmental.barometric_sensor.address",
+        )
+        return EnvironmentalConfig(
+            barometric_sensor=BarometricSensorConfig(
+                driver=driver,
+                address=address,
             )
         )
 

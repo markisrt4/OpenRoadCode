@@ -22,6 +22,7 @@ SELECTED_NAVIGATION="gps"
 SELECTED_RADIO=""
 SELECTED_AUTOMOTIVE="elm327"
 SELECTED_BLUETOOTH="bluetooth"
+SELECTED_BAROMETRIC=""
 ELM327_ADDRESS=""
 
 choose_features() {
@@ -48,12 +49,32 @@ choose_features() {
   SELECTED_RESULT="${selection//\"/}"
 }
 
+choose_barometric_sensor() {
+  local selection
+  selection=$(whiptail --title "Barometric sensor" --radiolist \
+    "Select one barometric sensor driver:" 14 76 4 \
+    "none" "Do not install a barometric sensor driver" \
+      "$([[ -z "$SELECTED_BAROMETRIC" ]] && echo ON || echo OFF)" \
+    "bmp388" "Bosch BMP388" \
+      "$([[ "$SELECTED_BAROMETRIC" == "bmp388" ]] && echo ON || echo OFF)" \
+    "bmp390" "Bosch BMP390" \
+      "$([[ "$SELECTED_BAROMETRIC" == "bmp390" ]] && echo ON || echo OFF)" \
+    3>&1 1>&2 2>&3) || return 1
+
+  if [[ "$selection" == "none" ]]; then
+    SELECTED_BAROMETRIC=""
+  else
+    SELECTED_BAROMETRIC="$selection"
+  fi
+}
+
 while true; do
   section=$(whiptail --title "OpenRoadCode installer" --menu \
-    "Choose a section to configure, then select Install:" 18 76 8 \
+    "Choose a section to configure, then select Install:" 20 76 9 \
     "general" "General features" \
     "streaming" "Streaming" \
     "navigation" "Navigation" \
+    "environmental" "Environmental sensors" \
     "radio" "Radio" \
     "automotive" "Automotive devices" \
     "bluetooth" "Bluetooth" \
@@ -76,6 +97,9 @@ while true; do
       choose_features "Navigation" "Select GPS support and navigation hardware:" "$SELECTED_NAVIGATION" \
         "gps|GPS daemon and Python support" \
         "mpu6050|MPU6050 accelerometer/gyroscope" && SELECTED_NAVIGATION="$SELECTED_RESULT"
+      ;;
+    environmental)
+      choose_barometric_sensor
       ;;
     radio)
       choose_features "Radio" "Select radio features:" "$SELECTED_RADIO" \
@@ -115,6 +139,7 @@ for feature in \
   ${SELECTED_GENERAL} \
   ${SELECTED_STREAMING} \
   ${SELECTED_NAVIGATION} \
+  ${SELECTED_BAROMETRIC} \
   ${SELECTED_RADIO} \
   ${SELECTED_AUTOMOTIVE} \
   ${SELECTED_BLUETOOTH}; do
