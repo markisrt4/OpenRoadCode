@@ -1,7 +1,7 @@
-"""Environmental sensor hardware interfaces and implementations."""
+"""Barometric sensor hardware interfaces and implementations."""
 
-from .environmental_sensor_if import EnvironmentalSensorIf
+from .barometric_sensor_if import BarometricSensorIf
 
 __all__ = [
-    "EnvironmentalSensorIf",
+    "BarometricSensorIf",
 ]
