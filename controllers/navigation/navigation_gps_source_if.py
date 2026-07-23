@@ -14,7 +14,10 @@ class NavigationGpsSourceIf(ABC):
 
     @abstractmethod
     def start(self, callback: GpsStateCallback) -> None:
-        """Start publishing GPS updates."""
+        """Start publishing GPS updates.
+
+        @param callback Function invoked with each normalized GPS snapshot.
+        """
 
     @abstractmethod
     def stop(self) -> None:

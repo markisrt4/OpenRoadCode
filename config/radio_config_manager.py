@@ -8,6 +8,7 @@ from typing import Any, Optional
 
 @dataclass(frozen=True)
 class RadioModeConfig:
+    """Describe a demodulation mode loaded from radio configuration."""
     name: str
     bandwidth: int
     step_hz: int
@@ -15,6 +16,7 @@ class RadioModeConfig:
 
 @dataclass(frozen=True)
 class RadioRangeConfig:
+    """Define the valid and initial frequencies for a configured radio."""
     min_frequency_hz: int
     max_frequency_hz: int
     start_frequency_hz: int
@@ -22,17 +24,23 @@ class RadioRangeConfig:
 
 @dataclass(frozen=True)
 class RadioPresetConfig:
+    """Describe a named preset and its demodulation mode."""
     label: str
     frequency_hz: int
     mode: RadioModeConfig
 
     @property
     def frequency_mhz(self) -> float:
+        """Return the preset frequency in megahertz.
+
+        @return Frequency converted from hertz to megahertz.
+        """
         return self.frequency_hz / 1_000_000
 
 
 @dataclass(frozen=True)
 class RadioTileConfig:
+    """Define the text displayed by a radio navigation tile."""
     label: str
     subtitle: str
     detail: str
@@ -40,6 +48,7 @@ class RadioTileConfig:
 
 @dataclass(frozen=True)
 class RadioConfig:
+    """Contain the complete configuration for one radio profile."""
     key: str
     label: str
     description: str
@@ -104,6 +113,13 @@ def _parse_preset(data: dict[str, Any], default_mode: RadioModeConfig) -> RadioP
 
 
 def load_radio_config(path: str | Path) -> RadioConfig:
+    """Load and validate a radio profile.
+
+    @param path JSON configuration file to load.
+    @return Parsed radio configuration.
+    @raises FileNotFoundError if ``path`` does not exist.
+    @raises ValueError if the file does not contain a JSON object.
+    """
     path = Path(path)
     raw = _read_json(path)
 
@@ -126,30 +142,61 @@ def load_radio_config(path: str | Path) -> RadioConfig:
 
 
 def load_radio_config_by_name(name: str) -> RadioConfig:
+    """Load a radio profile by its filename stem.
+
+    @param name Filename without the ``.json`` suffix.
+    @return Parsed radio configuration.
+    """
     return load_radio_config(RADIO_CONFIG_DIR / f"{name}.json")
 
 
 def load_fm_radio_config() -> RadioConfig:
+    """Return the common FM broadcast radio configuration.
+
+    @return Parsed ``fm_radio`` profile.
+    """
     return load_radio_config_by_name("fm_radio")
 
 
 def load_airband_am_config() -> RadioConfig:
+    """Return the common AM airband radio configuration.
+
+    @return Parsed ``airband_am`` profile.
+    """
     return load_radio_config_by_name("airband_am")
 
 
 def load_weather_band_config() -> RadioConfig:
+    """Return the common NOAA weather-band configuration.
+
+    @return Parsed ``weather_band`` profile.
+    """
     return load_radio_config_by_name("weather_band")
 
 
 def load_ham_radio_config() -> RadioConfig:
+    """Return the common amateur-radio configuration.
+
+    @return Parsed ``ham_radio`` profile.
+    """
     return load_radio_config_by_name("ham_radio")
 
 
 def load_radio_presets(name: str) -> list[RadioPresetConfig]:
+    """Return presets from a named radio profile.
+
+    @param name Radio configuration filename stem.
+    @return Presets in configuration-file order.
+    """
     return load_radio_config_by_name(name).presets
 
 
 def list_radio_configs() -> list[str]:
+    """Return the available radio profiles.
+
+    @return Sorted configuration filename stems, or an empty list if the
+        configuration directory does not exist.
+    """
     if not RADIO_CONFIG_DIR.exists():
         return []
 

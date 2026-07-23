@@ -13,6 +13,11 @@ LOGGER = logging.getLogger(__name__)
 
 @dataclass(frozen=True)
 class GpsData:
+    """Represent one normalized gpsd report.
+
+    Position and altitude are expressed in degrees and meters; speed is in
+    meters per second and track is in degrees.
+    """
     latitude: float | None = None
     longitude: float | None = None
     altitude: float | None = None
@@ -24,7 +29,11 @@ class GpsData:
 
     @property
     def has_fix(self) -> bool:
-        """Returns True when gpsd reports a 2D or 3D position fix."""
+        """Return whether gpsd reports a positional fix.
+
+        @retval True gpsd reports a 2D or 3D fix.
+        @retval False gpsd reports no fix or an unknown mode.
+        """
         return self.mode is not None and self.mode >= 2
 
 
@@ -61,6 +70,7 @@ class GpsReader:
 
     @property
     def is_running(self) -> bool:
+        """Return whether the background gpsd reader thread is active."""
         return self._thread is not None and self._thread.is_alive()
 
     def open(self) -> None:

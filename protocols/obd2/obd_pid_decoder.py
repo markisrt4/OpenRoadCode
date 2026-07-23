@@ -15,21 +15,35 @@ class ObdPidDecoder(Protocol[T_co]):
 
     @property
     def mode(self) -> int:
+        """Return the SAE J1979 service mode."""
         ...
 
     @property
     def pid(self) -> int:
+        """Return the parameter identifier."""
         ...
 
     @property
     def unit(self) -> str:
+        """Return the canonical unit of the decoded value."""
         ...
 
     def decode(self, data: bytes) -> T_co | None:
+        """Decode response payload bytes.
+
+        @param data PID payload excluding mode and PID bytes.
+        @return Decoded value, or ``None`` when payload bytes are insufficient.
+        """
         ...
 
 
 def byte_at(data: bytes, index: int) -> int:
+    """Return a required response byte.
+
+    @param data OBD-II payload bytes.
+    @param index Zero-based byte index.
+    @raises ValueError if the requested byte is absent.
+    """
     try:
         return data[index]
     except IndexError:

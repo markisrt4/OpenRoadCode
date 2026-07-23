@@ -16,6 +16,7 @@ from controllers.radio.radio_types import RadioPreset
 
 
 class RadioPanel(tk.Frame):
+    """Render radio controls and telemetry for a radio session."""
     def __init__(
         self,
         parent: tk.Widget,
@@ -58,11 +59,13 @@ class RadioPanel(tk.Frame):
         self._build_panel(self)
 
     def start(self) -> None:
+        """Begin rendering controller state and polling radio telemetry."""
         self.controller.refresh_state(include_telemetry=False)
         self.controller.report_ready()
         self.start_radio_status_polling()
 
     def destroy(self) -> None:
+        """Stop polling and destroy the Tk panel."""
         self.stop_radio_status_polling()
         self.controller.set_state_listener(None)
         super().destroy()
@@ -348,11 +351,13 @@ class RadioPanel(tk.Frame):
         next_button.grid(row=self.layout["nav_row"], column=self.layout["bank_next_column"], sticky=self.layout["horizontal_sticky"], padx=(self.style["bank_button_gap"], self.layout["zero"]))
 
     def previous_preset_bank(self) -> None:
+        """Display the previous page of presets."""
         bank_count = self._preset_bank_count()
         self.preset_bank_index = (self.preset_bank_index - 1) % bank_count
         self._refresh_preset_bank()
 
     def next_preset_bank(self) -> None:
+        """Display the next page of presets."""
         bank_count = self._preset_bank_count()
         self.preset_bank_index = (self.preset_bank_index + 1) % bank_count
         self._refresh_preset_bank()
@@ -550,6 +555,7 @@ class RadioPanel(tk.Frame):
             self.radio_status_widgets[key] = value
 
     def render_state(self, state: RadioPanelState) -> None:
+        """Render a complete radio-panel state snapshot."""
         empty = self.layout["empty_value"]
 
         if state.frequency_hz is None:
@@ -684,10 +690,12 @@ class RadioPanel(tk.Frame):
             widget.config(text=value)
 
     def start_radio_status_polling(self, interval_ms: int = RADIO_PANEL_THEME["layout"]["poll_interval_ms"]) -> None:
+        """Begin periodic state refreshes at ``interval_ms``."""
         self.stop_radio_status_polling()
         self._poll_radio_status(interval_ms)
 
     def stop_radio_status_polling(self) -> None:
+        """Cancel periodic radio-state refreshes."""
         if self._status_poll_after_id is None:
             return
 

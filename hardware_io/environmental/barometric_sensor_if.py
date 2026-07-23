@@ -25,12 +25,22 @@ class BarometricSensorIf(ABC):
     @property
     @abstractmethod
     def is_started(self) -> bool:
-        """Return whether the sensor has been initialized."""
+        """Return whether the sensor has been initialized.
+
+        @retval True The sensor is initialized and readable.
+        @retval False The sensor has not been started.
+        """
 
     @abstractmethod
     def get_pressure_pa(self) -> float:
-        """Return atmospheric pressure in pascals."""
+        """Read atmospheric pressure.
+
+        @return Atmospheric pressure in pascals.
+        """
 
     @abstractmethod
     def get_temperature_c(self) -> float:
-        """Return the sensor temperature in degrees Celsius."""
+        """Read sensor temperature.
+
+        @return Temperature in degrees Celsius.
+        """

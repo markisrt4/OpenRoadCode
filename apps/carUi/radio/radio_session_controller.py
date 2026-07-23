@@ -12,6 +12,7 @@ from controllers.sdr.sdr_telemetry_monitor import SDRTelemetryMonitor
 
 
 class RadioSessionController:
+    """Coordinate a radio domain controller, launcher, and panel state."""
     def __init__(
         self,
         radio_controller: RadioController,
@@ -35,22 +36,27 @@ class RadioSessionController:
 
     @property
     def presets(self) -> tuple[RadioPreset, ...]:
+        """Return configured presets as an immutable tuple."""
         return tuple(self._radio.presets)
 
     @property
     def panel_config(self) -> RadioPanelConfig:
+        """Return presentation configuration for the bound panel."""
         return self._panel_config
 
     def set_state_listener(
         self,
         listener: Optional[Callable[[RadioPanelState], None]],
     ) -> None:
+        """Set or clear the callback receiving refreshed panel state."""
         self._on_state_changed = listener
 
     def report_ready(self) -> None:
+        """Publish a ready status message for this radio session."""
         self._status(f"{self._panel_config.title} ready")
 
     def toggle_radio_app(self) -> None:
+        """Toggle the external radio application."""
         try:
             running = self._launcher.toggle(
                 remote_display=self._remote_display,
@@ -68,6 +74,7 @@ class RadioSessionController:
             self._report_failure("app toggle", exc)
 
     def toggle_radio(self) -> RadioPanelState:
+        """Start or stop the receiver and return its resulting state."""
         try:
             if self._receiver_started:
                 self._radio.stop()
@@ -91,6 +98,7 @@ class RadioSessionController:
             return self.refresh_state(include_telemetry=False)
 
     def tune_preset(self, preset: RadioPreset) -> RadioPanelState:
+        """Tune a preset and return the resulting panel state."""
         try:
             tuned = self._radio.tune_preset(preset)
             self._active_preset = tuned
@@ -108,15 +116,19 @@ class RadioSessionController:
             return self.refresh_state(include_telemetry=False)
 
     def frequency_up(self) -> RadioPanelState:
+        """Step frequency upward and return the resulting state."""
         return self._adjust_frequency("tune up", self._radio.frequency_up)
 
     def frequency_down(self) -> RadioPanelState:
+        """Step frequency downward and return the resulting state."""
         return self._adjust_frequency("tune down", self._radio.frequency_down)
 
     def next_preset(self) -> RadioPanelState:
+        """Tune the next preset and return the resulting state."""
         return self._cycle_preset("next preset", self._radio.next_preset)
 
     def previous_preset(self) -> RadioPanelState:
+        """Tune the previous preset and return the resulting state."""
         return self._cycle_preset("previous preset", self._radio.previous_preset)
 
     def refresh_state(
@@ -124,6 +136,7 @@ class RadioSessionController:
         include_telemetry: bool = True,
         publish: bool = True,
     ) -> RadioPanelState:
+        """Read receiver telemetry, notify the listener, and return state."""
         frequency_hz = self._current_frequency()
         matched_preset = self._match_preset(frequency_hz)
         if matched_preset is not None:

@@ -5,8 +5,7 @@ from pathlib import Path
 
 
 def logging_tmp_dir(app_name: str) -> Path:
-    """
-    Return the temporary logging directory for an application.
+    """Return the temporary logging directory for an application.
 
     The directory is resolved in the following order:
 
@@ -15,6 +14,11 @@ def logging_tmp_dir(app_name: str) -> Path:
     3. ~/.cache/<app_name>/tmp
 
     The directory is created if it does not already exist.
+
+    @param app_name Non-empty application name used by the fallback path.
+    @return Existing, writable logging directory.
+    @raises ValueError if ``app_name`` is empty.
+    @raises OSError if the directory cannot be created.
     """
     if not app_name:
         raise ValueError("app_name cannot be empty")
@@ -46,8 +50,12 @@ def logging_file_path(
     app_name: str,
     name: str,
 ) -> Path:
-    """
-    Return a path within an application's temporary logging directory.
+    """Return a path within an application's temporary logging directory.
+
+    @param app_name Non-empty application name used to select the directory.
+    @param name Non-empty log filename.
+    @return Path below `logging_tmp_dir(app_name)`; the file is not created.
+    @raises ValueError if ``app_name`` or ``name`` is empty.
     """
     if not name:
         raise ValueError("name cannot be empty")

@@ -27,6 +27,7 @@ T = TypeVar("T")
 
 
 class Obd2Manager:
+    """Poll OBD-II PIDs and assemble normalized vehicle-state snapshots."""
     def __init__(
         self,
         adapter: Obd2AdapterIf,
@@ -61,14 +62,22 @@ class Obd2Manager:
         self._control_voltage: float | None = None
 
     def connect(self) -> None:
+        """Connect the diagnostic adapter and discover supported PIDs."""
         self._adapter.connect()
         self._last_slow_poll = None
         self._supported_pids = self._discover_supported_pids()
 
     def disconnect(self) -> None:
+        """Disconnect the diagnostic adapter."""
         self._adapter.disconnect()
 
     def read_state(self) -> VehicleState:
+        """Poll available PIDs and return a vehicle-state snapshot.
+
+        @return Timestamped snapshot; unavailable or unsupported values are
+            represented by ``None``.
+        @raises RuntimeError if the adapter is not connected.
+        """
         # Fast-changing values are refreshed on every call.
         rpm = self._read(self._rpm_pid)
         speed_kph = self._read(self._speed_pid)

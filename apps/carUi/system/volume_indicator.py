@@ -6,6 +6,7 @@ import tkinter as tk
 
 @dataclass(frozen=True, slots=True)
 class VolumeIndicatorStyle:
+    """Define dimensions and colors for the system volume indicator."""
     background: str
     active: str
     inactive: str
@@ -19,6 +20,7 @@ class VolumeIndicatorStyle:
 
 
 class VolumeIndicator(tk.Frame):
+    """Render volume level and mute state as a vertical bar graph."""
     def __init__(
         self,
         parent: tk.Widget,

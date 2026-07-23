@@ -7,12 +7,14 @@ from apps.common.uiTheme import COLORS
 
 
 class RadioModeLike(Protocol):
+    """Structural radio-mode type accepted by the legacy FM panel."""
     name: str
     bandwidth: int
     step_hz: int
 
 
 class RadioControllerLike(Protocol):
+    """Radio operations required by the legacy FM panel."""
     def start(self): ...
     def stop(self): ...
     def set_frequency(self, frequency_hz: int): ...
@@ -26,6 +28,7 @@ class RadioControllerLike(Protocol):
 
 @dataclass(frozen=True)
 class FMRadioMode:
+    """Legacy FM demodulation mode and tuning-step value."""
     name: str = "WFM"
     bandwidth: int = 180_000
     step_hz: int = 100_000
@@ -33,12 +36,14 @@ class FMRadioMode:
 
 @dataclass(frozen=True)
 class FMPreset:
+    """Legacy FM preset expressed in megahertz."""
     label: str
     frequency_mhz: float
     mode: FMRadioMode = FMRadioMode()
 
     @property
     def frequency_hz(self) -> int:
+        """Return the preset frequency in hertz."""
         return int(self.frequency_mhz * 1_000_000)
 
 

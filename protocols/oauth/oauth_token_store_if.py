@@ -12,14 +12,16 @@ class OAuthTokenStoreIf(ABC):
 
     @abstractmethod
     def load(self) -> OAuthTokens | None:
-        """
-        Load stored OAuth tokens.
+        """Load stored OAuth tokens.
+
+        @return Stored tokens, or ``None`` when no token record exists.
         """
 
     @abstractmethod
     def save(self, tokens: OAuthTokens) -> None:
-        """
-        Store OAuth tokens.
+        """Store OAuth tokens.
+
+        @param tokens Access and refresh tokens to persist.
         """
 
     @abstractmethod

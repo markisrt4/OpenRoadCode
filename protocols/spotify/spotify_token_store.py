@@ -30,6 +30,10 @@ class SpotifyTokenStore(OAuthTokenStoreIf):
 
     @property
     def path(self) -> Path:
+        """Return the token-store file path.
+
+        @return Absolute or configured path used for token persistence.
+        """
         return self._path
 
     def load(self) -> OAuthTokens | None:

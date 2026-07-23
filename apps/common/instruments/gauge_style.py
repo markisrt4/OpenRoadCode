@@ -3,6 +3,7 @@ from dataclasses import dataclass
 
 @dataclass(frozen=True, slots=True)
 class GaugeStyle:
+    """Define the color palette used to render an instrument gauge."""
     background: str = "#08111a"
     face: str = "#101820"
     arc: str = "#24445c"

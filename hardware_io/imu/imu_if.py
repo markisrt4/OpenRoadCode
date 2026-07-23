@@ -18,12 +18,22 @@ class ImuIf(ABC):
 
     @abstractmethod
     def is_connected(self) -> bool:
-        """Return whether the IMU is initialized and available."""
+        """Return whether the IMU is initialized and available.
+
+        @retval True The IMU is initialized and readable.
+        @retval False The IMU is disconnected.
+        """
 
     @abstractmethod
     def get_acceleration_mps2(self) -> Vector3:
-        """Return acceleration in meters per second squared."""
+        """Read acceleration.
+
+        @return X/y/z acceleration vector in meters per second squared.
+        """
 
     @abstractmethod
     def get_angular_velocity_rad_s(self) -> Vector3:
-        """Return angular velocity in radians per second."""
+        """Read angular velocity.
+
+        @return X/y/z angular-velocity vector in radians per second.
+        """

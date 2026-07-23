@@ -32,6 +32,10 @@ class PipewireAudioController(AudioControllerIf):
 
     @property
     def steps(self) -> int:
+        """Return the number of discrete volume steps.
+
+        @return Count of selectable volume levels.
+        """
         return self._steps
 
     @property

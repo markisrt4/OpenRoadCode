@@ -20,6 +20,11 @@ class NavigationSensorIf(ABC):
     @property
     @abstractmethod
     def is_connected(self) -> bool:
+        """Return whether the motion sensor is connected and ready.
+
+        @retval True The sensor can provide motion samples.
+        @retval False The sensor is disconnected.
+        """
         ...
 
     @abstractmethod
@@ -32,4 +37,7 @@ class NavigationSensorIf(ABC):
 
     @abstractmethod
     def read_motion(self) -> MotionSample:
-        """Return one normalized motion sample."""
+        """Read one normalized motion sample.
+
+        @return Acceleration in m/s² and angular velocity in rad/s.
+        """

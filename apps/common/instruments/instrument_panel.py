@@ -7,6 +7,7 @@ from apps.common.instruments.gauge_widget import GaugeWidget
 
 
 class InstrumentPanel(tk.Frame):
+    """Arrange and update a named collection of telemetry gauges."""
     def __init__(
         self,
         parent,
@@ -28,6 +29,12 @@ class InstrumentPanel(tk.Frame):
             self._gauges[name] = gauge
 
     def set_value(self, name: str, value: float | None) -> None:
+        """Update one gauge.
+
+        @param name Gauge key supplied at construction.
+        @param value New reading, or ``None`` when unavailable.
+        @raises KeyError if ``name`` is not configured.
+        """
         gauge = self._gauges.get(name)
 
         if gauge is None:
@@ -36,5 +43,6 @@ class InstrumentPanel(tk.Frame):
         gauge.set_value(value)
 
     def set_values(self, values: Mapping[str, float | None]) -> None:
+        """Update each configured gauge present in ``values``."""
         for name, value in values.items():
             self.set_value(name, value)

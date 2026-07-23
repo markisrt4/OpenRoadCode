@@ -19,23 +19,27 @@ class CarUiRuntimeConfigError(ValueError):
 
 @dataclass(frozen=True, slots=True)
 class RuntimeDisplayConfig:
+    """Configure the X display used by externally launched applications."""
     remote_display: str = ":2"
 
 
 @dataclass(frozen=True, slots=True)
 class RigctlConfig:
+    """Configure the host and TCP port of the rigctl service."""
     host: str = "127.0.0.1"
     port: int = 4532
 
 
 @dataclass(frozen=True, slots=True)
 class SeesawEncoderConfig:
+    """Configure one I2C Seesaw rotary encoder."""
     address: int
     reverse_direction: bool = False
 
 
 @dataclass(frozen=True, slots=True)
 class GpioEncoderConfig:
+    """Configure one GPIO rotary encoder and its optional button."""
     pin_a: int
     pin_b: int
     button: int | None = None
@@ -47,6 +51,7 @@ EncoderDeviceConfig = SeesawEncoderConfig | GpioEncoderConfig
 
 @dataclass(frozen=True, slots=True)
 class RotaryEncoderConfig:
+    """Configure the ordered encoder devices and designated volume encoder."""
     devices: tuple[EncoderDeviceConfig, ...] = (
         SeesawEncoderConfig(address=0x36),
         SeesawEncoderConfig(address=0x37),
@@ -56,16 +61,19 @@ class RotaryEncoderConfig:
 
     @property
     def panel_count(self) -> int:
+        """Return the number of encoders available for panel-specific input."""
         return len(self.devices) - 1
 
 
 @dataclass(frozen=True, slots=True)
 class InputConfig:
+    """Contain runtime configuration for Car UI input devices."""
     rotary_encoders: RotaryEncoderConfig
 
 
 @dataclass(frozen=True, slots=True)
 class RadioStackConfig:
+    """Configure one radio backend, profile, and optional launcher."""
     key: str
     config_path: Path
     backend: str
@@ -75,6 +83,7 @@ class RadioStackConfig:
 
 @dataclass(frozen=True, slots=True)
 class AdsbConfig:
+    """Configure the auxiliary ADS-B browser application."""
     enabled: bool = True
     url: str = "http://127.0.0.1/tar1090"
     close_existing_display_apps: bool = True
@@ -82,17 +91,20 @@ class AdsbConfig:
 
 @dataclass(frozen=True, slots=True)
 class WeatherDashboardConfig:
+    """Configure availability of the auxiliary weather dashboard."""
     enabled: bool = True
 
 
 @dataclass(frozen=True, slots=True)
 class AuxiliaryConfig:
+    """Contain optional applications launched by the Car UI."""
     adsb: AdsbConfig
     weather_dashboard: WeatherDashboardConfig
 
 
 @dataclass(frozen=True, slots=True)
 class CarUiRuntimeConfig:
+    """Contain the validated runtime composition of the Car UI."""
     runtime: RuntimeDisplayConfig
     rigctl: RigctlConfig
     input: InputConfig
@@ -100,9 +112,15 @@ class CarUiRuntimeConfig:
     auxiliary: AuxiliaryConfig
 
     def enabled_radios(self) -> tuple[RadioStackConfig, ...]:
+        """Return radio stacks enabled in this configuration."""
         return tuple(radio for radio in self.radios if radio.enabled)
 
     def radio(self, key: str) -> RadioStackConfig:
+        """Return a radio stack by key.
+
+        @param key Stable radio-stack identifier.
+        @raises KeyError if the key is not configured.
+        """
         for radio in self.radios:
             if radio.key == key:
                 return radio
@@ -135,6 +153,11 @@ class CarUiRuntimeConfigParser:
         self.require_radio_files = require_radio_files
 
     def load(self) -> CarUiRuntimeConfig:
+        """Load and validate the configured TOML file.
+
+        @return Validated Car UI runtime configuration.
+        @raises CarUiRuntimeConfigError if the file is missing or invalid.
+        """
         try:
             with self.config_path.open("rb") as file:
                 data = tomllib.load(file)

@@ -73,14 +73,20 @@ class EnvironmentalController:
 
     @property
     def sea_level_pressure_pa(self) -> float:
-        """Return the current sea-level pressure reference."""
+        """Return the current sea-level pressure reference.
+
+        @return Reference pressure in pascals.
+        """
 
         with self._lock:
             return self._sea_level_pressure_pa
 
     @property
     def latest_state(self) -> EnvironmentalState | None:
-        """Return the most recently calculated state."""
+        """Return the most recently calculated state.
+
+        @return Latest snapshot, or ``None`` before the first successful read.
+        """
 
         with self._lock:
             return self._latest_state
@@ -112,7 +118,11 @@ class EnvironmentalController:
                 self._altitude_history.clear()
 
     def read_state(self) -> EnvironmentalState:
-        """Read the sensor and return processed environmental state."""
+        """Read the sensor and calculate environmental state.
+
+        @return Pressure, temperature, altitude, and vertical-speed snapshot.
+        @raises RuntimeError if the controller has not been started.
+        """
 
         with self._lock:
             self._require_started()
@@ -149,7 +159,11 @@ class EnvironmentalController:
             return state
 
     def set_sea_level_pressure_pa(self, pressure_pa: float) -> None:
-        """Set the reference pressure used for absolute altitude."""
+        """Set the reference pressure used for absolute altitude.
+
+        @param pressure_pa Positive sea-level reference pressure in pascals.
+        @raises ValueError if ``pressure_pa`` is not positive.
+        """
 
         if pressure_pa <= 0.0:
             raise ValueError("pressure_pa must be greater than zero")
@@ -167,12 +181,12 @@ class EnvironmentalController:
     ) -> float:
         """Calibrate sea-level pressure using a known current altitude.
 
-        Args:
-            known_altitude_m: Known altitude above mean sea level.
-            pressure_pa: Current pressure. When omitted, the sensor is read.
-
-        Returns:
-            The calculated sea-level pressure reference in pascals.
+        @param known_altitude_m Known altitude above mean sea level in meters.
+        @param pressure_pa Current pressure in pascals; when ``None``, read it
+            from the configured sensor.
+        @return Calculated sea-level pressure reference in pascals.
+        @raises RuntimeError if the controller has not been started.
+        @raises ValueError if the selected pressure is not positive.
         """
 
         with self._lock:
@@ -226,6 +240,11 @@ class EnvironmentalController:
 
         This uses the standard atmosphere approximation and assumes a
         tropospheric temperature lapse rate.
+
+        @param pressure_pa Measured atmospheric pressure in pascals.
+        @param sea_level_pressure_pa Sea-level reference pressure in pascals.
+        @return Estimated altitude above mean sea level in meters.
+        @raises ValueError if either pressure is not positive.
         """
 
         if pressure_pa <= 0.0:

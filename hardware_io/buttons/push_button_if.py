@@ -19,11 +19,17 @@ class PushButtonIf(ABC):
 
     @abstractmethod
     def get_state(self) -> PushButtonState:
-        """Return the current pushbutton state."""
+        """Return the current pushbutton state.
+
+        @return Current pressed or released state.
+        """
 
     @abstractmethod
     def set_callback(
         self,
         callback: PushButtonCallbackIf | None,
     ) -> None:
-        """Set or clear the callback object."""
+        """Set or clear the callback object.
+
+        @param callback Event receiver, or ``None`` to disable notifications.
+        """

@@ -10,24 +10,29 @@ class AudioBackendIf(ABC):
 
     @abstractmethod
     def volume_up(self) -> int:
-        """
-        Increase volume and return the resulting level.
+        """Increase volume by one step.
+
+        @return Resulting discrete volume level.
         """
 
     @abstractmethod
     def volume_down(self) -> int:
-        """
-        Decrease volume and return the resulting level.
+        """Decrease volume by one step.
+
+        @return Resulting discrete volume level.
         """
 
     @abstractmethod
     def get_volume_level(self) -> int:
-        """
-        Return the current discrete volume level.
+        """Return the current volume level.
+
+        @return Current discrete volume level.
         """
 
     @abstractmethod
     def set_volume_level(self, level: int) -> int:
-        """
-        Set and return the resulting discrete volume level.
+        """Set the discrete volume level.
+
+        @param level Requested level; implementations clamp it to their range.
+        @return Resulting discrete volume level after clamping.
         """

@@ -21,6 +21,7 @@ Edge = tuple[int, int]
 
 @dataclass(frozen=True, slots=True)
 class WireframeModel:
+    """Define vertices and edges for the dashboard's vehicle wireframe."""
     points: tuple[Point3, ...]
     body_edges: tuple[Edge, ...]
     wheel_edges: tuple[Edge, ...]

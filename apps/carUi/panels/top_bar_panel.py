@@ -12,6 +12,7 @@ LOGO_PATH = Path(__file__).resolve().parents[1] / "assets" / "openroadcode.png"
 
 
 class TopBarPanel(tk.Frame):
+    """Render shared navigation, title, frequency, location, and volume UI."""
     def __init__(
         self,
         parent: tk.Widget,

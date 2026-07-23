@@ -9,6 +9,7 @@ from apps.common.uiTheme import COLORS, MENU_TILE_STYLE
 
 @dataclass(frozen=True)
 class ScannerBandTileSpec:
+    """Define the content of one scanner-band selection tile."""
     key: str
     icon: str
     label: str
@@ -17,6 +18,7 @@ class ScannerBandTileSpec:
 
 
 class ScannerRadioPanel(tk.Frame):
+    """Render the grid of selectable scanner bands."""
     def __init__(
         self,
         parent: tk.Widget,

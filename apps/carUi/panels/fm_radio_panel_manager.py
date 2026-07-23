@@ -10,6 +10,7 @@ from apps.carUi.radio.radio_session_controller import RadioSessionController
 
 
 class FMRadioPanelManager(PanelManagerIf):
+    """Manage the FM radio panel and its radio session."""
     def __init__(self, app) -> None:
         super().__init__(app)
         self.fm_panel: Optional[RadioPanel] = None

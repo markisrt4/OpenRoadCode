@@ -19,6 +19,10 @@ class DownloadedImage:
 
     @property
     def size_bytes(self) -> int:
+        """Return the downloaded payload size.
+
+        @return Length of `data` in bytes.
+        """
         return len(self.data)
 
 
@@ -54,8 +58,13 @@ class ImageDownloader:
         self._user_agent = user_agent
 
     def download(self, url: str) -> DownloadedImage:
-        """
-        Download raw image data from a URL.
+        """Download raw image data from a URL.
+
+        @param url Non-empty HTTP or HTTPS URL.
+        @return Final response URL, raw bytes, and reported content type.
+        @raises ValueError if the URL is empty or uses another scheme.
+        @raises ImageDownloadError if the request fails, the response is not
+            an image, or the payload exceeds the configured size limit.
         """
         normalized_url = url.strip()
 

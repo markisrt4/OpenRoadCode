@@ -6,6 +6,7 @@ from apps.common.instruments.gauge_style  import GaugeStyle
 
 
 class GaugeWidget(tk.Canvas):
+    """Render a single analog-style telemetry gauge on a Tk canvas."""
     def __init__(
         self,
         parent,
@@ -27,10 +28,12 @@ class GaugeWidget(tk.Canvas):
         self.draw()
 
     def set_value(self, value: float | None) -> None:
+        """Set the displayed value and redraw the gauge."""
         self._value = value
         self.draw()
 
     def draw(self) -> None:
+        """Redraw the complete gauge using its current value and style."""
         self.delete("all")
 
         width = self._config.width

@@ -56,10 +56,18 @@ class KeyboardReader:
 
     @property
     def device_path(self) -> str | None:
+        """Return the selected input-device path.
+
+        @return Linux input path, or ``None`` if no device is selected.
+        """
         return self._device_path
 
     @property
     def device_name(self) -> str | None:
+        """Return the selected input-device name.
+
+        @return Kernel-reported device name, or ``None`` if disconnected.
+        """
         if self._device is None:
             return None
 

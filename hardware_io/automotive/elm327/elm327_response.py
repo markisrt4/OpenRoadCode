@@ -13,5 +13,9 @@ class Elm327Response:
 
     @property
     def is_empty(self) -> bool:
-        return not self.lines
+        """Return whether the response contains no data lines.
 
+        @retval True No normalized response lines were received.
+        @retval False At least one response line is present.
+        """
+        return not self.lines

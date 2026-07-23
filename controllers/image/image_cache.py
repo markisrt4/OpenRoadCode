@@ -52,10 +52,18 @@ class ImageCache:
 
     @property
     def max_entries(self) -> int:
+        """Return the maximum number of decoded images retained.
+
+        @return Positive cache-entry limit.
+        """
         return self._max_entries
 
     @property
     def entry_count(self) -> int:
+        """Return the number of images currently cached.
+
+        @return Current count of URL/dimension variants.
+        """
         with self._lock:
             return len(self._images)
 
@@ -66,14 +74,20 @@ class ImageCache:
         width: int | None = None,
         height: int | None = None,
     ) -> Image.Image:
-        """
-        Return an image from the cache or download it.
+        """Return an image from the cache or download it.
 
         When width or height is supplied, the image is resized while
         preserving its aspect ratio.
 
         A copy of the cached image is returned so callers cannot mutate the
         cached instance.
+
+        @param url Non-empty HTTP or HTTPS image URL.
+        @param width Optional positive bounding width in pixels.
+        @param height Optional positive bounding height in pixels.
+        @return Caller-owned copy of the decoded image.
+        @raises ValueError if the URL or dimensions are invalid.
+        @raises ImageDownloadError if downloading or decoding fails.
         """
         normalized_url = url.strip()
 
@@ -120,6 +134,14 @@ class ImageCache:
         width: int | None = None,
         height: int | None = None,
     ) -> bool:
+        """Return whether a matching decoded image is cached.
+
+        @param url Image URL used as part of the cache key.
+        @param width Optional bounding width used as part of the cache key.
+        @param height Optional bounding height used as part of the cache key.
+        @retval True An exact URL/dimension variant is cached.
+        @retval False No exact variant is cached.
+        """
         key = ImageCacheKey(
             url=url.strip(),
             width=width,
@@ -130,10 +152,10 @@ class ImageCache:
             return key in self._images
 
     def remove(self, url: str) -> int:
-        """
-        Remove every cached image variant for a URL.
+        """Remove every cached image variant for a URL.
 
-        Returns the number of removed entries.
+        @param url URL whose dimension variants should be removed.
+        @return Number of removed cache entries.
         """
         normalized_url = url.strip()
 

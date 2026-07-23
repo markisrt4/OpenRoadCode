@@ -41,6 +41,7 @@ from controllers.spotify import SpotifyControllerIf
 from controllers.lighting.lighting_controller_if import LightingControllerIf
 
 class UiControlPanel(tk.Tk):
+    """Top-level Car UI window coordinating panels and hardware input."""
     def __init__(
         self,
         runtime: CarUiRuntime,

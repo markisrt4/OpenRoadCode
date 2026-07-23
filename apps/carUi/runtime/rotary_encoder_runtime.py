@@ -20,6 +20,7 @@ from hardware_io.rotary_encoder import (
 
 @dataclass(frozen=True, slots=True)
 class RotaryEncoderRuntime:
+    """Contain instantiated encoder devices and the volume-device index."""
     encoders: tuple[RotaryEncoderIf, ...]
     volume_index: int
 
@@ -27,6 +28,7 @@ class RotaryEncoderRuntime:
 def create_rotary_encoder_runtime(
     config: RotaryEncoderConfig,
 ) -> RotaryEncoderRuntime:
+    """Instantiate rotary-encoder drivers from validated configuration."""
     i2c: Any | None = None
     encoders: list[RotaryEncoderIf] = []
 

@@ -4,6 +4,11 @@ from datetime import datetime
 
 @dataclass(frozen=True, slots=True)
 class VehicleState:
+    """Immutable snapshot of decoded vehicle telemetry.
+
+    Values that were unsupported or unavailable during the latest poll are
+    ``None``. Field names include their units where applicable.
+    """
     timestamp: datetime
 
     rpm: float | None = None

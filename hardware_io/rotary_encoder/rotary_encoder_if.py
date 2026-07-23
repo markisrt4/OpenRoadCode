@@ -19,8 +19,10 @@ class RotaryEncoderIf(ABC):
     @property
     @abstractmethod
     def is_running(self) -> bool:
-        """
-        Return whether the encoder is currently being monitored.
+        """Return whether the encoder is currently being monitored.
+
+        @retval True Encoder monitoring is active.
+        @retval False Encoder monitoring is stopped.
         """
 
     @abstractmethod
@@ -30,21 +32,12 @@ class RotaryEncoderIf(ABC):
         button_pressed: ButtonCallback | None = None,
         button_released: ButtonCallback | None = None,
     ) -> None:
-        """
-        Start monitoring the rotary encoder.
+        """Start monitoring the rotary encoder.
 
-        Args:
-            rotated:
-                Called when the encoder rotates.
-
-                The callback receives the number of encoder steps since the
-                previous event.
-
-            button_pressed:
-                Called when the encoder button is pressed.
-
-            button_released:
-                Called when the encoder button is released.
+        @param rotated Callback receiving signed steps since the prior event;
+            positive values indicate clockwise rotation.
+        @param button_pressed Optional callback invoked on button press.
+        @param button_released Optional callback invoked on button release.
         """
 
     @abstractmethod

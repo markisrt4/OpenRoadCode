@@ -17,16 +17,28 @@ class Obd2AdapterIf(ABC):
     @property
     @abstractmethod
     def is_connected(self) -> bool:
+        """Return whether the diagnostic transport is connected.
+
+        @retval True The transport is connected and ready.
+        @retval False The transport is disconnected.
+        """
         ...
 
     @abstractmethod
     def connect(self) -> None:
+        """Connect and initialize the diagnostic transport."""
         ...
 
     @abstractmethod
     def disconnect(self) -> None:
+        """Disconnect from the diagnostic transport."""
         ...
 
     @abstractmethod
     def request(self, request: Obd2Request) -> tuple[Obd2Response, ...]:
+        """Send a diagnostic request and return all ECU responses.
+
+        @param request Normalized SAE J1979 request.
+        @return Responses received from ECUs, or an empty tuple on no response.
+        """
         ...

@@ -29,12 +29,18 @@ PROTECTED_PROCESS_PATTERNS = (
 
 @dataclass(frozen=True, slots=True)
 class ProcessInfo:
+    """Describe a matching operating-system process."""
     pid: int
     command_line: str
     display: str | None
 
 
 def find_matching_processes(pattern: str) -> tuple[ProcessInfo, ...]:
+    """Find processes whose command line matches a ``pgrep`` pattern.
+
+    @param pattern Extended regular expression matched against command lines.
+    @return Matching process metadata.
+    """
     result = subprocess.run(
         ["pgrep", "-f", pattern],
         stdout=subprocess.PIPE,
@@ -65,6 +71,7 @@ def find_matching_processes(pattern: str) -> tuple[ProcessInfo, ...]:
 
 
 def is_process_running(pattern: str) -> bool:
+    """Return whether any process command line matches ``pattern``."""
     return bool(find_matching_processes(pattern))
 
 
@@ -73,6 +80,11 @@ def terminate_process(
     *,
     timeout_seconds: float = 5.0,
 ) -> None:
+    """Terminate a child process group, escalating to SIGKILL on timeout.
+
+    @param process Child process whose process group should be terminated.
+    @param timeout_seconds Grace period before forced termination.
+    """
     if process.poll() is not None:
         return
 
@@ -92,6 +104,14 @@ def close_display_apps(
     *,
     delay_seconds: float = 0.0,
 ) -> None:
+    """Terminate matching applications running on a specific X display.
+
+    Protected desktop and VNC processes are never terminated.
+
+    @param display Exact ``DISPLAY`` environment value to match.
+    @param patterns Command-line patterns identifying applications.
+    @param delay_seconds Optional delay after sending termination signals.
+    """
     for pattern in patterns:
         for process in find_matching_processes(pattern):
             if _is_protected_process(process.command_line):
@@ -114,6 +134,12 @@ def close_matching_display_apps(
     *,
     delay_seconds: float = 0.0,
 ) -> None:
+    """Close display applications using an explicit set of patterns.
+
+    @param display Exact ``DISPLAY`` environment value to match.
+    @param patterns Command-line patterns identifying applications.
+    @param delay_seconds Optional delay after sending termination signals.
+    """
     close_display_apps(
         display=display,
         patterns=patterns,

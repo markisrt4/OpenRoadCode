@@ -13,6 +13,7 @@ from apps.carUi.radio.radio_session_controller import RadioSessionController
 
 @dataclass(frozen=True)
 class ScannerBandSpec:
+    """Describe one scanner band shown in the scanner menu."""
     key: str
     icon: str
     title: str
@@ -21,6 +22,7 @@ class ScannerBandSpec:
 
 
 class ScannerPanelManager(PanelManagerIf):
+    """Build scanner-band menus and manage the selected radio session."""
     def __init__(self, app) -> None:
         super().__init__(app)
         self.active_radio_panel: Optional[RadioPanel] = None
@@ -37,6 +39,7 @@ class ScannerPanelManager(PanelManagerIf):
         )
 
     def show(self) -> None:
+        """Display the configured scanner-band menu."""
         if not self.prepare_panel("Scanner"):
             return
 
@@ -65,6 +68,7 @@ class ScannerPanelManager(PanelManagerIf):
         self.set_status("Scanner ready")
 
     def show_band_by_key(self, key: str) -> None:
+        """Open a scanner band identified by its stable key."""
         band = self._find_band(key)
         if band is None:
             self.set_status(f"Unknown scanner band: {key}")
@@ -73,6 +77,7 @@ class ScannerPanelManager(PanelManagerIf):
         self.show_band(band)
 
     def show_band(self, band: ScannerBandSpec) -> None:
+        """Open and start the radio panel for ``band``."""
         runtime = self.app.runtime.radios.get(band.key)
 
         self._clear_content()

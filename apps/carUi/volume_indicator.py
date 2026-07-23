@@ -2,6 +2,7 @@ import tkinter as tk
 
 
 class VolumeIndicator(tk.Frame):
+    """Render a compact segmented volume-level indicator."""
     def __init__(
         self,
         parent: tk.Widget,

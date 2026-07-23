@@ -93,6 +93,10 @@ class GpioRotaryEncoder(RotaryEncoderIf):
 
     @property
     def pins(self) -> GpioRotaryEncoderPins:
+        """Return the GPIO pin assignment used by the encoder.
+
+        @return Immutable A/B/button BCM pin assignment.
+        """
         return self._pins
 
     @property

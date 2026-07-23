@@ -21,6 +21,7 @@ class LedDmxConfigError(ValueError):
 
 @dataclass(frozen=True, slots=True)
 class LedDmxBluetoothConfig:
+    """Contain validated Bluetooth discovery and command timing settings."""
     service_uuid: str
     characteristic_uuid: str
     excluded_service_uuids: tuple[str, ...]
@@ -37,6 +38,13 @@ def load_leddmx_config(
     *,
     project_root: str | Path | None = None,
 ) -> LedDmxBluetoothConfig:
+    """Load and validate LED-DMX Bluetooth configuration.
+
+    @param config_path TOML file or directory containing ``leddmx.toml``.
+    @param project_root Base path for relative configuration paths.
+    @return Validated Bluetooth configuration.
+    @raises LedDmxConfigError if the file is missing or invalid.
+    """
     root = (
         Path(project_root).expanduser().resolve()
         if project_root is not None

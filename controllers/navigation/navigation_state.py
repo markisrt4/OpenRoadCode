@@ -22,6 +22,11 @@ class GpsState:
 
     @property
     def has_fix(self) -> bool:
+        """Return whether the GPS state contains a positional fix.
+
+        @retval True Latitude and longitude are available.
+        @retval False The state has no usable position.
+        """
         return self.fix_mode is not None and self.fix_mode >= 2
 
 
