@@ -26,6 +26,7 @@ The TOML file describes **which components are assembled**:
 - RigCTL connection settings
 - remote display
 - rotary encoder drivers/settings and the system-volume encoder assignment
+- barometric sensor driver and I2C address
 - auxiliary applications such as ADS-B and the weather dashboard
 
 Radio-domain data remains in the existing JSON files under:
@@ -55,6 +56,10 @@ remote_display = ":2"
 [rigctl]
 host = "127.0.0.1"
 port = 4532
+
+[environmental.barometric_sensor]
+driver = "bmp388"
+address = 0x77
 
 [input.rotary_encoders]
 volume_index = 0
@@ -111,6 +116,8 @@ config = parser.load()
 
 print(config.runtime.remote_display)
 print(config.rigctl.host)
+print(config.environmental.barometric_sensor.driver)
+print(config.environmental.barometric_sensor.address)
 print(config.input.rotary_encoders.devices)
 print(config.input.rotary_encoders.volume_index)
 print(config.radio("fm_radio").config_path)
@@ -133,6 +140,7 @@ The parser rejects:
 - duplicate radio keys
 - empty or unsupported rotary encoder device definitions
 - duplicate or invalid Seesaw I2C addresses
+- unsupported barometric sensor drivers or invalid I2C addresses
 - invalid or shared GPIO physical pins
 - a volume encoder index outside the configured device list
 - invalid RigCTL ports

@@ -15,6 +15,10 @@ remote_display = ":2"
 host = "127.0.0.1"
 port = 4532
 
+[environmental.barometric_sensor]
+driver = "bmp388"
+address = 0x77
+
 [input.rotary_encoders]
 volume_index = 0
 
@@ -91,6 +95,75 @@ class CarUiRuntimeConfigTestAppTest(unittest.TestCase):
             2,
             config.input.rotary_encoders.panel_count,
         )
+
+    def test_barometric_sensor_config_is_parsed(self) -> None:
+        from apps.carUi.config.component_test.car_ui_runtime_config_test_app import (
+            validate_config,
+        )
+
+        config = validate_config(
+            self.config_path,
+            project_root=self.project_root,
+        )
+
+        sensor = config.environmental.barometric_sensor
+        self.assertEqual("bmp388", sensor.driver)
+        self.assertEqual(0x77, sensor.address)
+
+    def test_bmp390_and_alternate_address_are_supported(self) -> None:
+        from apps.carUi.config.component_test.car_ui_runtime_config_test_app import (
+            validate_config,
+        )
+
+        self.config_path.write_text(
+            VALID_TOML.replace(
+                'driver = "bmp388"\naddress = 0x77',
+                'driver = "bmp390"\naddress = 0x76',
+            ),
+            encoding="utf-8",
+        )
+        config = validate_config(
+            self.config_path,
+            project_root=self.project_root,
+        )
+
+        sensor = config.environmental.barometric_sensor
+        self.assertEqual("bmp390", sensor.driver)
+        self.assertEqual(0x76, sensor.address)
+
+    def test_invalid_barometric_sensor_driver_is_rejected(self) -> None:
+        self.config_path.write_text(
+            VALID_TOML.replace('driver = "bmp388"', 'driver = "bmp280"'),
+            encoding="utf-8",
+        )
+
+        result = main(
+            [
+                str(self.config_path),
+                "--project-root",
+                str(self.project_root),
+                "--quiet",
+            ]
+        )
+
+        self.assertEqual(1, result)
+
+    def test_invalid_barometric_sensor_address_is_rejected(self) -> None:
+        self.config_path.write_text(
+            VALID_TOML.replace("address = 0x77", "address = 0x80"),
+            encoding="utf-8",
+        )
+
+        result = main(
+            [
+                str(self.config_path),
+                "--project-root",
+                str(self.project_root),
+                "--quiet",
+            ]
+        )
+
+        self.assertEqual(1, result)
 
     def test_mixed_seesaw_and_gpio_encoders_are_parsed(self) -> None:
         from apps.carUi.config.car_ui_runtime_config_parser import (
