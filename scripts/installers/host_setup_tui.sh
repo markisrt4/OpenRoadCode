@@ -22,6 +22,7 @@ SELECTED_NAVIGATION="gps"
 SELECTED_RADIO=""
 SELECTED_AUTOMOTIVE="elm327"
 SELECTED_BLUETOOTH="bluetooth"
+ELM327_ADDRESS=""
 
 choose_features() {
   local title="$1"
@@ -83,7 +84,7 @@ while true; do
       ;;
     automotive)
       choose_features "Automotive" "Select automotive devices:" "$SELECTED_AUTOMOTIVE" \
-        "elm327|ELM327 OBD-II adapter" && SELECTED_AUTOMOTIVE="$SELECTED_RESULT"
+        "elm327|ELM327 serial device (hardware_io/automotive/elm327)" && SELECTED_AUTOMOTIVE="$SELECTED_RESULT"
       ;;
     bluetooth)
       choose_features "Bluetooth" "Select Bluetooth features:" "$SELECTED_BLUETOOTH" \
@@ -97,6 +98,17 @@ while true; do
       ;;
   esac
 done
+
+if [[ " $SELECTED_AUTOMOTIVE " == *" elm327 "* ]]; then
+  if whiptail --title "ELM327 RFCOMM" --yesno \
+    "Discover, pair, and configure a Bluetooth ELM327 device now?" 10 68; then
+    ELM327_ADDRESS="$(
+      whiptail --title "ELM327 RFCOMM" --inputbox \
+        "Enter the ELM327 Bluetooth MAC address:" 10 68 \
+        3>&1 1>&2 2>&3
+    )" || ELM327_ADDRESS=""
+  fi
+fi
 
 ARGS=()
 for feature in \
@@ -115,6 +127,10 @@ fi
 
 if [[ " $SELECTED_RADIO " == *" sdrpp "* ]]; then
   ARGS+=(--install-sdrpp)
+fi
+
+if [[ -n "$ELM327_ADDRESS" ]]; then
+  ARGS+=(--elm327-address "$ELM327_ADDRESS")
 fi
 
 bash "$PROJECT_DIR/scripts/installers/host_setup.sh" "${ARGS[@]}"

@@ -11,6 +11,9 @@ DISPLAY_NUM="${DISPLAY_NUM:-2}"
 GEOMETRY="${GEOMETRY:-1280x720}"
 DEPTH="${DEPTH:-24}"
 GPS_DEVICE="${GPS_DEVICE:-/dev/ttyACM0}"
+ELM327_ADDRESS="${ELM327_ADDRESS:-}"
+ELM327_CHANNEL="${ELM327_CHANNEL:-}"
+ELM327_RFCOMM_ID="${ELM327_RFCOMM_ID:-0}"
 
 detect_host_arch() {
   local arch=""
@@ -95,6 +98,30 @@ while (( $# > 0 )); do
     --install-radio)
       RUN_RADIO=1
       ;;
+    --elm327-address)
+      shift
+      if (( $# == 0 )); then
+        echo "[!] --elm327-address requires a Bluetooth MAC address" >&2
+        exit 1
+      fi
+      ELM327_ADDRESS="$1"
+      ;;
+    --elm327-channel)
+      shift
+      if (( $# == 0 )); then
+        echo "[!] --elm327-channel requires a channel number" >&2
+        exit 1
+      fi
+      ELM327_CHANNEL="$1"
+      ;;
+    --elm327-rfcomm-id)
+      shift
+      if (( $# == 0 )); then
+        echo "[!] --elm327-rfcomm-id requires a device number" >&2
+        exit 1
+      fi
+      ELM327_RFCOMM_ID="$1"
+      ;;
     --feature)
       shift
       if (( $# == 0 )); then
@@ -113,6 +140,9 @@ while (( $# > 0 )); do
       echo "  --install-sdrpp        Install SDR++ if available"
       echo "  --install-radio        Install or update the radio stack"
       echo "  --feature NAME         Add a feature bundle (see installer_features.sh)"
+      echo "  --elm327-address MAC   Pair and bind an ELM327 Bluetooth SPP device"
+      echo "  --elm327-channel N     RFCOMM channel (auto-detected by default)"
+      echo "  --elm327-rfcomm-id N   RFCOMM device number (default: 0)"
       exit 0
       ;;
     *)
@@ -144,12 +174,17 @@ else
   FEATURES+=(streamlit)
   FEATURES+=(bluetooth)
   FEATURES+=(automotive)
+  FEATURES+=(elm327)
   if (( RUN_SDRPP )); then
     FEATURES+=(sdrpp)
   fi
   if (( RUN_RADIO )); then
     FEATURES+=(radio)
   fi
+fi
+
+if [[ -n "$ELM327_ADDRESS" ]]; then
+  FEATURES+=(bluetooth automotive elm327)
 fi
 
 if (( RUN_SYSTEM_PACKAGES )) && (( ! SKIP_INSTALLS )); then
@@ -174,6 +209,17 @@ fi
 if (( RUN_RADIO )); then
   echo "[*] Running radio stack installer..."
   bash "$PROJECT_DIR/scripts/installers/install_radio.sh"
+fi
+
+if [[ -n "$ELM327_ADDRESS" ]]; then
+  rfcomm_args=(--address "$ELM327_ADDRESS" --rfcomm-id "$ELM327_RFCOMM_ID")
+  if [[ -n "$ELM327_CHANNEL" ]]; then
+    rfcomm_args+=(--channel "$ELM327_CHANNEL")
+  fi
+  bash "$PROJECT_DIR/scripts/installers/setup_rfcomm0.sh" "${rfcomm_args[@]}"
+elif [[ " ${FEATURES[*]} " == *" elm327 "* ]]; then
+  echo "[*] ELM327 packages installed. To configure Bluetooth RFCOMM, run:"
+  echo "    scripts/installers/setup_rfcomm0.sh --address AA:BB:CC:DD:EE:FF"
 fi
 
 if (( RUN_VNC )) || (( RUN_GPSD_SERVICE )); then

@@ -1,0 +1,2 @@
+"""CAN protocol component tests."""
+

@@ -6,7 +6,7 @@ from datetime import datetime
 class VehicleState:
     timestamp: datetime
 
-    rpm: int | None = None
+    rpm: float | None = None
     speed_mph: float | None = None
 
     throttle_pct: float | None = None

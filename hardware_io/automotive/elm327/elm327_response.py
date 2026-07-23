@@ -3,11 +3,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 
-@dataclass(frozen=True)
-class Obd2Response:
-    """
-    Response returned by an OBD-II adapter.
-    """
+@dataclass(frozen=True, slots=True)
+class Elm327Response:
+    """Raw response returned by an ELM327-compatible device."""
 
     command: str
     raw: str
@@ -16,3 +14,4 @@ class Obd2Response:
     @property
     def is_empty(self) -> bool:
         return not self.lines
+

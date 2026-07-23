@@ -13,3 +13,4 @@ __all__ = [
     "Elm327Error",
     "Elm327Response",
 ]
+

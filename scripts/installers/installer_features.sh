@@ -48,7 +48,7 @@ get_feature_packages() {
       echo "python3-serial libserial-dev can-utils"
       ;;
     elm327)
-      echo "python3-serial"
+      echo "bluez python3-serial"
       ;;
     mpu6050)
       echo "i2c-tools"
@@ -78,6 +78,7 @@ get_feature_python_packages() {
         gpsd-py3 \
         pyserial \
         bleak \
+        tomli \
         evdev \
         RPi.GPIO \
         adafruit-blinka \
@@ -151,8 +152,8 @@ Available features:
   streamlit   Streamlit dashboard support
   adsb        ADS-B/readsb support packages
   bluetooth   Bluetooth support packages
-  automotive  Automotive/OBD-related support
-  elm327      ELM327 OBD-II adapter support
+  automotive  Common automotive and CAN-bus support
+  elm327      ELM327 serial-device support (hardware_io/automotive/elm327)
   mpu6050     MPU6050 I2C accelerometer/gyroscope hardware module
   spotify     Spotify integration extras
   sdrpp       SDR++ package support

@@ -2,9 +2,9 @@ import argparse
 import sys
 import time
 
-from modules.automotive.obd2.elm327_client import Elm327Client
-from modules.automotive.obd2.obd2_errors import Obd2CommandError, Obd2ConnectionError
-from modules.automotive.obd2.obd2_manager import Obd2Manager
+from controllers.automotive.obd2 import Elm327ObdAdapter, Obd2Manager
+from hardware_io.automotive.elm327 import Elm327Device
+from protocols.obd2 import Obd2CommandError, Obd2ConnectionError
 
 
 def fmt_float(value: float | None, precision: int = 1) -> str:
@@ -18,15 +18,21 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Read live OBD-II telemetry.")
     parser.add_argument("--port", default="/dev/rfcomm0")
     parser.add_argument("--baud", type=int, default=38400)
-    parser.add_argument("--rate", type=float, default=0.5)
+    parser.add_argument(
+        "--rate",
+        type=float,
+        default=0.5,
+        help="Delay in seconds between complete vehicle-state polls",
+    )
     return parser.parse_args()
 
 
 def main() -> int:
     args = parse_args()
 
-    client = Elm327Client(port=args.port, baud=args.baud)
-    manager = Obd2Manager(client)
+    device = Elm327Device(port=args.port, baud=args.baud)
+    adapter = Elm327ObdAdapter(device)
+    manager = Obd2Manager(adapter)
 
     try:
         manager.connect()

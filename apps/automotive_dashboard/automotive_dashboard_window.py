@@ -1,9 +1,9 @@
 import tkinter as tk
 
-from modules.automotive.obd2.vehicle_state import VehicleState
 from apps.common.instruments.gauge_config  import GaugeConfig
 from apps.common.instruments.gauge_style   import GaugeStyle
 from apps.common.instruments.instrument_panel import InstrumentPanel
+from controllers.automotive import VehicleState
 
 
 class AutomotiveDashboardWindow(tk.Frame):

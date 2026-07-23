@@ -1,0 +1,2 @@
+"""Automotive hardware interfaces."""
+
