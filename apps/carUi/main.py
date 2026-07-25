@@ -11,9 +11,11 @@ from apps.carUi.runtime.lighting_runtime_factory import (
 from apps.carUi.runtime.spotify_runtime_factory import (
     create_spotify_controller,
 )
+from apps.carUi.runtime.rotary_encoder_runtime import (
+    create_rotary_encoder_runtime,
+)
 from apps.carUi.splash_screen import show_startup_splash
 from apps.carUi.uiControlPanel import UiControlPanel
-from apps.common.uiTheme.uiTheme import CAR_UI_THEME
 from controllers.audio.pipewire_audio_controller import (
     PipewireAudioController,
 )
@@ -44,13 +46,14 @@ def main() -> None:
     )
 
     gps_reader = GpsReader()
-    audio_controller = PipewireAudioController(
-        steps=CAR_UI_THEME["layout"]["volume_steps"],
-    )
+    audio_controller = PipewireAudioController()
     spotify_controller = create_spotify_controller()
     lighting_controller = create_lighting_controller(
         project_root=PROJECT_ROOT,
         address=os.getenv("CARUI_LIGHTING_ADDRESS"),
+    )
+    encoder_runtime = create_rotary_encoder_runtime(
+        runtime.rotary_encoders
     )
 
     app = UiControlPanel(
@@ -59,13 +62,17 @@ def main() -> None:
         lighting_controller=lighting_controller,
         audio_controller=audio_controller,
         spotify_controller=spotify_controller,
+        rotary_encoders=encoder_runtime.encoders,
+        volume_encoder_index=encoder_runtime.volume_index,
     )
 
     try:
         app.register_default_callbacks()
+        app.start_encoder_events()
         app.start_gps_ui_updates()
         app.mainloop()
     finally:
+        app.stop_encoder_events()
         gps_reader.close()
         lighting_controller.close()
 

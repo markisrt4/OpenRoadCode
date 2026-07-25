@@ -47,6 +47,15 @@ get_feature_packages() {
     automotive)
       echo "python3-serial libserial-dev can-utils"
       ;;
+    elm327)
+      echo "bluez python3-serial"
+      ;;
+    mpu6050)
+      echo "i2c-tools"
+      ;;
+    bmp388|bmp390)
+      echo "i2c-tools"
+      ;;
     spotify)
       echo ""
       ;;
@@ -72,6 +81,7 @@ get_feature_python_packages() {
         gpsd-py3 \
         pyserial \
         bleak \
+        tomli \
         evdev \
         RPi.GPIO \
         adafruit-blinka \
@@ -112,6 +122,23 @@ get_feature_python_packages() {
 ' \
         pyserial
       ;;
+    elm327)
+      printf '%s
+' \
+        pyserial
+      ;;
+    mpu6050)
+      printf '%s
+' \
+        adafruit-blinka \
+        adafruit-circuitpython-mpu6050
+      ;;
+    bmp388|bmp390)
+      printf '%s
+' \
+        adafruit-blinka \
+        adafruit-circuitpython-bmp3xx
+      ;;
     spotify)
       echo ""
       ;;
@@ -134,7 +161,11 @@ Available features:
   streamlit   Streamlit dashboard support
   adsb        ADS-B/readsb support packages
   bluetooth   Bluetooth support packages
-  automotive  Automotive/OBD-related support
+  automotive  Common automotive and CAN-bus support
+  elm327      ELM327 serial-device support (hardware_io/automotive/elm327)
+  mpu6050     MPU6050 I2C accelerometer/gyroscope hardware module
+  bmp388      BMP388 I2C barometric pressure sensor
+  bmp390      BMP390 I2C barometric pressure sensor
   spotify     Spotify integration extras
   sdrpp       SDR++ package support
 EOF

@@ -5,6 +5,10 @@ from dataclasses import dataclass
 
 @dataclass(frozen=True, slots=True)
 class RadioRange:
+    """Define an inclusive tuning range and its initial frequency.
+
+    All frequency values are expressed in hertz.
+    """
     min_frequency_hz: int
     max_frequency_hz: int
     start_frequency_hz: int
@@ -22,6 +26,7 @@ class RadioRange:
 
 @dataclass(frozen=True, slots=True)
 class RadioMode:
+    """Define a normalized demodulation mode and tuning step."""
     name: str
     bandwidth: int
     step_hz: int
@@ -39,6 +44,7 @@ class RadioMode:
 
 @dataclass(frozen=True, slots=True)
 class RadioPreset:
+    """Associate a user-visible label with a frequency and mode."""
     label: str
     frequency_hz: int
     mode: RadioMode
@@ -51,4 +57,8 @@ class RadioPreset:
 
     @property
     def frequency_mhz(self) -> float:
+        """Return the preset frequency in megahertz.
+
+        @return Frequency converted from hertz to megahertz.
+        """
         return self.frequency_hz / 1_000_000

@@ -1,12 +1,13 @@
 import tkinter as tk
 
-from modules.automotive.obd2.vehicle_state import VehicleState
 from apps.common.instruments.gauge_config  import GaugeConfig
 from apps.common.instruments.gauge_style   import GaugeStyle
 from apps.common.instruments.instrument_panel import InstrumentPanel
+from controllers.automotive import VehicleState
 
 
 class AutomotiveDashboardWindow(tk.Frame):
+    """Display vehicle telemetry as a grid of instrument gauges."""
     def __init__(self, parent) -> None:
         self._style = GaugeStyle()
 
@@ -25,6 +26,7 @@ class AutomotiveDashboardWindow(tk.Frame):
         self._panel.pack(fill=tk.BOTH, expand=True)
 
     def update_vehicle_state(self, state: VehicleState) -> None:
+        """Render values from the latest vehicle-state snapshot."""
         self._panel.set_values(
             {
                 "boost": state.boost_psi,

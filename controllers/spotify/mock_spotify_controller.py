@@ -5,6 +5,7 @@ from controllers.spotify.spotify_state import SpotifyState
 
 
 class MockSpotifyController(SpotifyControllerIf):
+    """Deterministic in-memory Spotify controller for demos and development."""
     def __init__(self) -> None:
         self._tracks = [
             ("Tom Sawyer", "Rush", "Moving Pictures", 276_000),

@@ -18,6 +18,8 @@ from hardware_io.rotary_encoder.rotary_encoder_if import (
 
 LOGGER = logging.getLogger(__name__)
 
+ENCODER_POSITION_HALF_RANGE = 1 << 31
+
 
 class SeesawRotaryEncoder(RotaryEncoderIf):
     """
@@ -167,6 +169,8 @@ class SeesawRotaryEncoder(RotaryEncoderIf):
         )
 
         self._encoder = rotaryio.IncrementalEncoder(self._seesaw)
+        self._encoder.position = 0
+        self._seesaw.encoder_delta()
 
         self._seesaw.pin_mode(
             self._button_pin,
@@ -179,10 +183,8 @@ class SeesawRotaryEncoder(RotaryEncoderIf):
         )
 
     def _run(self) -> None:
-        if self._encoder is None or self._button is None:
+        if self._seesaw is None or self._button is None:
             raise RuntimeError("Rotary encoder is not initialized")
-
-        previous_position = self._encoder.position
 
         stable_button_state = self._read_button_pressed()
         pending_button_state = stable_button_state
@@ -190,12 +192,9 @@ class SeesawRotaryEncoder(RotaryEncoderIf):
 
         try:
             while not self._stop_event.is_set():
-                current_position = self._encoder.position
-                steps = current_position - previous_position
+                steps = self._read_rotation_steps()
 
                 if steps != 0:
-                    previous_position = current_position
-
                     if self._reverse_direction:
                         steps = -steps
 
@@ -222,6 +221,21 @@ class SeesawRotaryEncoder(RotaryEncoderIf):
                     "Seesaw rotary encoder failed at address %#04x",
                     self._address,
                 )
+
+    def _read_rotation_steps(self) -> int:
+        if self._seesaw is None:
+            raise RuntimeError("Rotary encoder is not initialized")
+
+        steps = self._seesaw.encoder_delta()
+
+        if steps == -ENCODER_POSITION_HALF_RANGE:
+            LOGGER.debug(
+                "Ignoring invalid encoder delta at address %#04x",
+                self._address,
+            )
+            return 0
+
+        return steps
 
     def _read_button_pressed(self) -> bool:
         if self._button is None:

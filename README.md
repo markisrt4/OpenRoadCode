@@ -239,6 +239,21 @@ These dependencies and setup steps are implemented in the included `host_setup.s
 
 ---
 
+# Development checks
+
+Public methods declared in `*_if.py` modules must document every argument with
+`@param` and every non-`None` result with `@return` or `@retval`.
+
+Run the same check used by CI:
+
+```bash
+python3 scripts/check_doxygen_contracts.py
+```
+
+The check exits with a nonzero status and identifies the source location when
+a public interface contract is incomplete. GitHub Actions runs it for every
+pull request and for pushes to `master`.
+
 # Running
 
 Create the Python environment:

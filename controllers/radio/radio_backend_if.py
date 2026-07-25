@@ -5,27 +5,46 @@ from .radio_types import RadioMode
 
 
 class RadioBackendIf(ABC):
+    """Hardware-independent contract for controlling a radio receiver."""
 
     @abstractmethod
     def get_frequency(self) -> int:
-        pass
+        """Return the current tuned frequency.
+
+        @return Tuned frequency in hertz.
+        """
 
     @abstractmethod
     def set_frequency(self, frequency_hz: int) -> None:
-        pass
+        """Tune to a frequency.
+
+        @param frequency_hz Target frequency in hertz.
+        """
 
     @abstractmethod
     def set_mode(self, mode: RadioMode) -> None:
-        pass
+        """Set the receiver demodulation mode.
+
+        @param mode Demodulation mode and tuning-step definition.
+        """
 
     @abstractmethod
     def get_signal_strength(self) -> Optional[float]:
-        pass
+        """Return receiver signal strength.
+
+        @return Signal strength in dBFS, or ``None`` when unavailable.
+        """
 
     @abstractmethod
     def get_snr(self) -> Optional[float]:
-        pass
+        """Return the signal-to-noise ratio.
+
+        @return Ratio in decibels, or ``None`` when unavailable.
+        """
 
     @abstractmethod
     def get_rds(self) -> Optional[str]:
-        pass
+        """Return decoded Radio Data System text.
+
+        @return RDS text, or ``None`` when unavailable.
+        """

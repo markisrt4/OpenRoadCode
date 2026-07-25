@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import os
 import tkinter as tk
+from collections.abc import Sequence
 from typing import Callable, Dict, Optional
 
 from apps.carUi.gps_ui_monitor import GPSUIMonitor
+from apps.carUi.input import EncoderEventRouter, PanelEncoderCallbacks
 from apps.carUi.panels.aircraft_panel_manager import AircraftPanelManager
 from apps.carUi.panels.fm_radio_panel_manager import FMRadioPanelManager
 from apps.carUi.panels.lighting_panel_manager import LightingPanelManager
@@ -34,10 +36,12 @@ from apps.common.uiTheme.uiTheme import (
 )
 from controllers.audio.audio_controller_if import AudioControllerIf
 from hardware_io.gps.gps_reader import GpsReader
+from hardware_io.rotary_encoder import RotaryEncoderIf
 from controllers.spotify import SpotifyControllerIf
 from controllers.lighting.lighting_controller_if import LightingControllerIf
 
 class UiControlPanel(tk.Tk):
+    """Top-level Car UI window coordinating panels and hardware input."""
     def __init__(
         self,
         runtime: CarUiRuntime,
@@ -45,6 +49,8 @@ class UiControlPanel(tk.Tk):
         lighting_controller: LightingControllerIf,
         audio_controller: AudioControllerIf,
         spotify_controller: SpotifyControllerIf,
+        rotary_encoders: Sequence[RotaryEncoderIf],
+        volume_encoder_index: int,
         callbacks: Optional[Dict[str, Callable[[str], None]]] = None,
         title: str = "Ui Control Panel",
     ) -> None:
@@ -84,6 +90,7 @@ class UiControlPanel(tk.Tk):
             remote_display=self.remote_display,
         )
         self.volume_level = self._initial_volume_level()
+        self.volume_muted = self._initial_volume_muted()
 
         self._build_ui()
 
@@ -127,8 +134,18 @@ class UiControlPanel(tk.Tk):
 
         self.volume_manager = VolumeManager(
             audio_controller=self.audio_controller,
+            indicator_steps=self.layout["volume_steps"],
             set_volume_level=self.top_bar.set_volume_level,
+            set_muted=self.top_bar.set_volume_muted,
             set_status=self.status_bar.set_status,
+        )
+        self.encoder_event_router = EncoderEventRouter(
+            root=self,
+            encoders=rotary_encoders,
+            volume_encoder_index=volume_encoder_index,
+            volume_up=self.volume_manager.volume_up,
+            volume_down=self.volume_manager.volume_down,
+            volume_button_pressed=self.volume_manager.toggle_mute,
         )
 
         self.system_control_manager = SystemControlManager(
@@ -139,6 +156,7 @@ class UiControlPanel(tk.Tk):
 
         self.panel_router = PanelRouter()
         self._register_panel_routes()
+        self.protocol("WM_DELETE_WINDOW", self._close_window)
 
     def register_default_callbacks(self) -> None:
         self.callbacks.clear()
@@ -197,10 +215,21 @@ class UiControlPanel(tk.Tk):
 
     def _initial_volume_level(self) -> int:
         try:
-            return self.audio_controller.get_volume_level()
+            return VolumeManager.indicator_level(
+                self.audio_controller.get_volume_level(),
+                maximum_level=self.audio_controller.maximum_level,
+                indicator_steps=self.layout["volume_steps"],
+            )
         except Exception as exc:
             print(f"[UI] Unable to read initial volume: {exc}")
             return 0
+
+    def _initial_volume_muted(self) -> bool:
+        try:
+            return self.audio_controller.is_muted()
+        except Exception as exc:
+            print(f"[UI] Unable to read initial mute state: {exc}")
+            return False
 
     def _build_ui(self) -> None:
         print(f"[UI] Loaded UiControlPanel from: {__file__}")
@@ -224,6 +253,7 @@ class UiControlPanel(tk.Tk):
             on_power=self._handle_power_off,
             volume_level=self.volume_level,
             volume_steps=self.layout["volume_steps"],
+            volume_muted=self.volume_muted,
         )
         self.top_bar.pack(fill=self.layout["fill_horizontal"], side=self.layout["side_top"])
 
@@ -338,6 +368,7 @@ class UiControlPanel(tk.Tk):
             print(f"[UI] Navigation error for {key}: {exc}")
 
     def show_main_menu(self) -> None:
+        self.clear_panel_encoder_callbacks()
         title_text = (
             "OpenRoadCode"
             if self.compact_ui
@@ -351,6 +382,7 @@ class UiControlPanel(tk.Tk):
         )
 
     def show_menu(self, menu_key: str) -> None:
+        self.clear_panel_encoder_callbacks()
         titles = {
             "radio": "Radio",
             "media": "Media",
@@ -386,7 +418,25 @@ class UiControlPanel(tk.Tk):
 
         self.status_bar.set_status("Settings panel is not available")
 
+    def set_panel_encoder_callbacks(
+        self,
+        callbacks: PanelEncoderCallbacks,
+    ) -> None:
+        self.encoder_event_router.set_panel_callbacks(callbacks)
+
+    def clear_panel_encoder_callbacks(self) -> None:
+        router = getattr(self, "encoder_event_router", None)
+        if router is not None:
+            router.clear_panel_callbacks()
+
+    def start_encoder_events(self) -> None:
+        self.encoder_event_router.start()
+
+    def stop_encoder_events(self) -> None:
+        self.encoder_event_router.stop()
+
     def _close_window(self) -> None:
+        self.stop_encoder_events()
         self.gps_ui_monitor.stop()
         self.quit()
         self.destroy()

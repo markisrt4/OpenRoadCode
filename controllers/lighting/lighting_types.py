@@ -6,6 +6,7 @@ from enum import Enum
 
 @dataclass(frozen=True, slots=True)
 class RgbColor:
+    """Represent an RGB color using channels in the range 0 through 255."""
     red: int
     green: int
     blue: int
@@ -23,6 +24,7 @@ class RgbColor:
 
 
 class CustomPatternMode(Enum):
+    """Animation modes supported by LED-DMX custom patterns."""
     GRADUAL = 0
     FADE = 1
     FORWARD = 2
@@ -35,6 +37,7 @@ class CustomPatternMode(Enum):
 
 @dataclass(frozen=True, slots=True)
 class LightingState:
+    """Immutable snapshot of lighting connection and output settings."""
     connected: bool = False
     power_enabled: bool = False
     color: RgbColor = RgbColor(255, 255, 255)
@@ -62,6 +65,11 @@ class LightingState:
         _validate_range("music_mode", self.music_mode, 0, 255)
 
     def updated(self, **changes: object) -> "LightingState":
+        """Return a copy with selected fields replaced.
+
+        @param changes Field names and replacement values.
+        @return Updated, validated lighting state.
+        """
         return replace(self, **changes)
 
 

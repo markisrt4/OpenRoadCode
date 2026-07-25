@@ -1,0 +1,42 @@
+PROJECT_NAME           = "OpenRoadCode"
+PROJECT_BRIEF          = "Public API reference for OpenRoadCode"
+
+OUTPUT_DIRECTORY       = build/doxygen
+INPUT                  = apps controllers hardware_io protocols config common
+FILE_PATTERNS          = *.py
+RECURSIVE              = YES
+
+EXCLUDE_PATTERNS       = */test/* */component_test/* */apps/qtUi/* \
+                         */__pycache__/*
+EXTRACT_ALL            = NO
+EXTRACT_PRIVATE        = NO
+EXTRACT_STATIC         = NO
+HIDE_UNDOC_MEMBERS     = YES
+HIDE_UNDOC_CLASSES     = YES
+
+JAVADOC_AUTOBRIEF      = YES
+MULTILINE_CPP_IS_BRIEF = YES
+# Parse Doxygen commands inside Python docstrings instead of rendering the
+# entire docstring as a preformatted literal block.
+PYTHON_DOCSTRING        = NO
+OPTIMIZE_OUTPUT_JAVA   = YES
+MARKDOWN_SUPPORT       = YES
+
+# Graphviz is optional. Keep documentation generation dependency-free; users
+# can enable these settings locally when `dot` is installed.
+HAVE_DOT               = NO
+CALL_GRAPH              = NO
+CALLER_GRAPH            = NO
+DIRECTORY_GRAPH         = NO
+INCLUDE_GRAPH           = NO
+INCLUDED_BY_GRAPH       = NO
+GRAPHICAL_HIERARCHY     = NO
+
+GENERATE_HTML          = YES
+HTML_OUTPUT            = html
+GENERATE_LATEX         = NO
+QUIET                  = YES
+WARN_IF_UNDOCUMENTED   = YES
+WARN_IF_DOC_ERROR      = YES
+WARN_AS_ERROR          = YES
+WARN_LOGFILE            = build/doxygen-warnings.log

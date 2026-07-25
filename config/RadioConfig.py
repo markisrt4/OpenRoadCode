@@ -19,4 +19,5 @@ class RadioConfig:
         return self.datastore
 
     def numRecords(self):
+        """Return the number of loaded radio records."""
         return len(self.datastore["radio_config"]["stations"])

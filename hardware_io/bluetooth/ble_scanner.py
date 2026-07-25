@@ -48,6 +48,10 @@ class BleScanner:
 
     @property
     def timeout_seconds(self) -> float:
+        """Return the configured discovery timeout.
+
+        @return Discovery timeout in seconds.
+        """
         return self._timeout_seconds
 
     async def scan(self) -> list[BleDeviceInfo]:
@@ -92,4 +96,3 @@ class BleScanner:
         )
 
         return devices
-    

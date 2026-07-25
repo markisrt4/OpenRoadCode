@@ -13,6 +13,25 @@ remote_display = ":2"
 host = "127.0.0.1"
 port = 4532
 
+[environmental.barometric_sensor]
+driver = "bmp388"
+address = 0x77
+
+[input.rotary_encoders]
+volume_index = 0
+
+[[input.rotary_encoders.devices]]
+driver = "seesaw"
+address = 0x36
+
+[[input.rotary_encoders.devices]]
+driver = "seesaw"
+address = 0x37
+
+[[input.rotary_encoders.devices]]
+driver = "seesaw"
+address = 0x38
+
 [[radios]]
 key = "fm_radio"
 config = "fm_radio.json"

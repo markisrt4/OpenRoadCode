@@ -69,6 +69,7 @@ def build_car_ui_runtime(config: CarUiRuntimeConfig) -> CarUiRuntime:
 
     return CarUiRuntime(
         remote_display=config.runtime.remote_display,
+        rotary_encoders=config.input.rotary_encoders,
         radios=RadioRuntimeRegistry(runtimes),
         adsb_launcher=adsb_launcher,
         weather_dash_launcher=weather_dash_launcher,

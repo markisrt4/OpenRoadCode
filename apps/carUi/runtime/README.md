@@ -10,7 +10,8 @@ apps/carUi/runtime/
 ├── __init__.py
 ├── radio_runtime.py
 ├── radio_runtime_registry.py
-└── radio_runtime_factory.py
+├── radio_runtime_factory.py
+└── rotary_encoder_runtime.py
 ```
 
 The corresponding component test belongs at:
@@ -32,6 +33,13 @@ CarUiRuntimeFactory
         |
         v
 CarUiRuntime
+        |
+        +-- RotaryEncoderConfig
+        |       |
+        |       v
+        |   RotaryEncoderRuntime
+        |       +-- tuple[RotaryEncoderIf, ...]
+        |       +-- volume_index
         |
         +-- RadioRuntimeRegistry
         |       +-- fm_radio
@@ -75,6 +83,25 @@ The factory maps those names to known constructors. The TOML file does not
 contain Python class paths and cannot instantiate arbitrary application
 objects.
 
+Rotary encoder devices use a separate tagged configuration:
+
+```toml
+[[input.rotary_encoders.devices]]
+driver = "seesaw"
+address = 0x36
+
+[[input.rotary_encoders.devices]]
+driver = "gpio"
+pin_a = 11
+pin_b = 13
+button = 15
+```
+
+`rotary_encoder_runtime.py` is the hardware composition boundary. It converts
+these driver-specific records into an ordered tuple of `RotaryEncoderIf`
+objects. The event router and panels receive only that generic interface and
+logical indexes.
+
 ## Migration
 
 Once `main.py` uses `create_car_ui_runtime()`, the following legacy files are
@@ -104,4 +131,5 @@ self.app.fm_radio_config
 
 ```bash
 python3 -m unittest apps.carUi.runtime.component_test.test_radio_runtime_factory
+python3 -m unittest apps.carUi.runtime.component_test.test_rotary_encoder_runtime
 ```

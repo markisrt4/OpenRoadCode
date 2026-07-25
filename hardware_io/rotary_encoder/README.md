@@ -120,7 +120,7 @@ encoder.start(
 
 try:
     while True:
-        encoder.tick()
+        encoder.poll()
         time.sleep(0.01)
 
 except KeyboardInterrupt:
@@ -130,7 +130,8 @@ finally:
     encoder.cleanup()
 ```
 
-The `tick()` method dispatches accumulated rotation events and should be called periodically.
+The `poll()` method dispatches accumulated rotation events and should be called
+periodically. `tick()` remains as a backward-compatible alias.
 
 ## Seesaw Rotary Encoder
 
@@ -189,7 +190,8 @@ encoder.start(
 
 The Seesaw encoder monitors rotation and button events in a background thread.
 
-The `tick()` method is not required for the Seesaw implementation.
+The Seesaw implementation inherits the no-op `poll()` behavior because it
+monitors events in its own background thread.
 
 ### Using Multiple Seesaw Encoders
 
@@ -359,9 +361,11 @@ Press `Ctrl+C` to stop the component test.
 
 ## Seesaw Encoder Component Test
 
-The Seesaw component test monitors three rotary encoders on a shared I2C bus.
+The Seesaw component test can monitor one or more rotary encoders on a shared
+I2C bus. Pass the addresses of all connected encoders to `--addresses`. Each
+address must be unique.
 
-The default addresses are:
+When `--addresses` is omitted, the test uses three encoders at:
 
 ```text
 0x36
@@ -374,6 +378,31 @@ Run the component test from the project root:
 ```bash
 python3 -m hardware_io.rotary_encoder.component_test.seesaw_rotary_encoder_cli
 ```
+
+To test a single encoder:
+
+```bash
+python3 -m hardware_io.rotary_encoder.component_test.seesaw_rotary_encoder_cli \
+    --addresses 0x36
+```
+
+To test two encoders:
+
+```bash
+python3 -m hardware_io.rotary_encoder.component_test.seesaw_rotary_encoder_cli \
+    --addresses 0x36 0x37
+```
+
+Additional addresses can be supplied in the same way to test any number of
+encoders:
+
+```bash
+python3 -m hardware_io.rotary_encoder.component_test.seesaw_rotary_encoder_cli \
+    --addresses 0x36 0x37 0x38 0x39
+```
+
+Encoders are named `encoder-1` through `encoder-N` in the order their addresses
+appear on the command line.
 
 Example output:
 
@@ -395,23 +424,135 @@ Press Ctrl+C to stop.
 [encoder-3 0x38] rotated counterclockwise: -1
 ```
 
-Custom I2C addresses can be specified using command-line arguments:
-
-```bash
-python3 -m hardware_io.rotary_encoder.component_test.seesaw_rotary_encoder_cli \
-    --encoder-1-address 0x36 \
-    --encoder-2-address 0x37 \
-    --encoder-3-address 0x38
-```
-
 Use the `--reverse` option to reverse the reported rotation direction for all encoders:
 
 ```bash
 python3 -m hardware_io.rotary_encoder.component_test.seesaw_rotary_encoder_cli \
+    --addresses 0x36 0x37 \
     --reverse
 ```
 
+Each Seesaw position counter is zeroed when its encoder is initialized. Position
+changes are then read from the device's incremental-delta register instead of
+being calculated from its signed 32-bit absolute position. Invalid half-range
+deltas are ignored, so a normal encoder step is not reported as a large
+`-2147483648` change.
+
 Press `Ctrl+C` to stop the component test.
+
+## Car UI Event Routing
+
+The Car UI uses encoder `0x36` as the system-volume encoder by default.
+Clockwise and counterclockwise steps from that encoder are routed to global
+volume up and volume down operations regardless of which panel is displayed.
+Pressing that encoder toggles system mute.
+
+All other configured encoders are contextual. They are exposed to panels as
+zero-based slots in configured device order, with the volume encoder omitted.
+A panel manager can register generic callbacks after calling `prepare_panel()`:
+
+```python
+def show(self) -> None:
+    if not self.prepare_panel("Example"):
+        return
+
+    self.set_encoder_callbacks(
+        rotated=self._encoder_rotated,
+        button_pressed=self._encoder_button_pressed,
+        button_released=self._encoder_button_released,
+    )
+
+def _encoder_rotated(self, slot: int, steps: int) -> None:
+    if slot == 0:
+        self.adjust_primary_control(steps)
+    elif slot == 1:
+        self.adjust_secondary_control(steps)
+
+def _encoder_button_pressed(self, slot: int) -> None:
+    if slot == 0:
+        self.activate_primary_control()
+
+def _encoder_button_released(self, slot: int) -> None:
+    pass
+```
+
+Rotation callbacks receive the contextual slot and signed step count. Button
+callbacks receive the contextual slot. For example, devices at indexes
+`[0, 1, 2]` with index `0` assigned to volume expose device index `1` as
+contextual slot `0` and device index `2` as contextual slot `1`. Opening
+another panel or menu clears the previous panel's callbacks. The volume encoder
+is reserved for system volume and is never forwarded to panel callbacks. Its
+button press toggles mute; its button release is ignored.
+
+The configured encoder list and volume role are set in
+`apps/carUi/config/car_ui_runtime.toml`:
+
+```toml
+[input.rotary_encoders]
+volume_index = 0
+
+[[input.rotary_encoders.devices]]
+driver = "seesaw"
+address = 0x36
+
+[[input.rotary_encoders.devices]]
+driver = "seesaw"
+address = 0x37
+
+[[input.rotary_encoders.devices]]
+driver = "gpio"
+pin_a = 11
+pin_b = 13
+button = 15
+```
+
+The `driver` may be `seesaw` or `gpio`. Seesaw devices require a unique 7-bit
+`address`; GPIO devices require unique physical header pins. `volume_index`
+selects one entry in device order and is independent of the hardware driver.
+
+The Car UI event router receives only `RotaryEncoderIf` instances and logical
+indexes. Seesaw addresses and GPIO pins remain confined to configuration and
+runtime hardware construction.
+
+### System Volume Encoder Component Test
+
+Run the configuration-driven volume test from the project root:
+
+```bash
+python3 -m apps.carUi.input.component_test.volume_encoder_cli
+```
+
+The test loads `apps/carUi/config/car_ui_runtime.toml`, constructs and starts
+only the device selected by `volume_index` through `RotaryEncoderIf`, and
+routes it to the real PipeWire system-volume controller. Contextual encoders
+are intentionally not started, so a missing panel encoder cannot block this
+test. Each detected step prints the resulting volume:
+
+```text
+Car UI volume encoder component test
+Volume encoder device index: 0
+Initial system volume: 10/20
+Initial mute state: unmuted
+Rotate the configured volume encoder or press it to toggle mute.
+Press Ctrl+C to stop.
+
+Volume up   -> level 11/20
+Audio muted
+Audio unmuted
+Volume down -> level 10/20
+```
+
+The test changes the actual default audio sink volume. It requires `wpctl` and
+the configured encoder hardware. Use `--config` for another runtime TOML,
+`--volume-steps` to change the reported range, or `--step-percent` to change
+the PipeWire adjustment made per encoder step. The default is 20 reported
+levels because the default 5% PipeWire increment divides the full range into
+20 steps. The Car UI's eight-bar volume indicator is a separate visual scale.
+Positive adjustments are limited to 100% to prevent PipeWire amplification.
+In the full application, `VolumeManager` maps audio levels `0..20`
+proportionally onto indicator bars `0..8`.
+When muted, all eight bars use the red muted color while preserving the
+underlying level for unmute.
 
 ## Design
 
@@ -419,6 +560,7 @@ The rotary encoder interface reports rotation and button events using callbacks.
 
 Hardware-specific behavior is contained within each rotary encoder implementation.
 
-The GPIO implementation uses Raspberry Pi GPIO interrupts and dispatches accumulated rotation through `tick()`.
+The GPIO implementation uses Raspberry Pi GPIO interrupts and dispatches
+accumulated rotation through the interface's `poll()` method.
 
 The Seesaw implementation reads encoder state over I2C and monitors the devices using background threads.

@@ -22,6 +22,7 @@ from common.logging.logging_paths import logging_file_path
 
 @dataclass(frozen=True, slots=True)
 class SDRPPProfile:
+    """Define SDR++ startup mode, tuning step, and optional frequency."""
     name: str
     mode: str
     step_hz: int

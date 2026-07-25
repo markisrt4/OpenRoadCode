@@ -1,0 +1,30 @@
+name: Rebuild documentation website
+
+on:
+  push:
+    branches:
+      - master
+
+permissions:
+  contents: read
+
+jobs:
+  notify-website:
+    name: Notify website repository
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Trigger website deployment
+        env:
+          GH_TOKEN: ${{ secrets.SITE_DISPATCH_TOKEN }}
+        run: |
+          if [ -z "$GH_TOKEN" ]; then
+            echo "::error::SITE_DISPATCH_TOKEN is not configured"
+            exit 1
+          fi
+
+          gh api \
+            --method POST \
+            repos/markisrt4/openroadcode-site/dispatches \
+            -f event_type=openroadcode-updated \
+            -f "client_payload[sha]=${GITHUB_SHA}"

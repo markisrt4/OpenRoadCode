@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Optional
 
 from protocols.oauth import OAuthClientConfig
 
@@ -62,19 +63,28 @@ class SpotifyConfig:
 
 def load_spotify_config(
     path: Path = DEFAULT_CONFIG_PATH,
-) -> SpotifyConfig:
+) -> Optional[SpotifyConfig]:
     """
     Load Spotify configuration from a JSON file.
-    """
-    with path.open("r", encoding="utf-8") as file:
-        data = json.load(file)
 
-    return SpotifyConfig(
-        client_id=str(data["client_id"]),
-        redirect_uri=str(
-            data.get(
-                "redirect_uri",
-                DEFAULT_REDIRECT_URI,
-            )
-        ),
-    )
+    Returns ``None`` when the file is missing or malformed so callers can
+    disable Spotify support without crashing the app.
+    """
+    try:
+        with path.open("r", encoding="utf-8") as file:
+            data = json.load(file)
+    except (FileNotFoundError, json.JSONDecodeError, OSError):
+        return None
+
+    try:
+        return SpotifyConfig(
+            client_id=str(data["client_id"]),
+            redirect_uri=str(
+                data.get(
+                    "redirect_uri",
+                    DEFAULT_REDIRECT_URI,
+                )
+            ),
+        )
+    except (KeyError, TypeError, ValueError):
+        return None

@@ -3,8 +3,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
-import tomllib
 import uuid
+
+try:
+    import tomllib
+except ModuleNotFoundError:  # Python 3.10
+    import tomli as tomllib
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
@@ -17,6 +21,7 @@ class LedDmxConfigError(ValueError):
 
 @dataclass(frozen=True, slots=True)
 class LedDmxBluetoothConfig:
+    """Contain validated Bluetooth discovery and command timing settings."""
     service_uuid: str
     characteristic_uuid: str
     excluded_service_uuids: tuple[str, ...]
@@ -33,6 +38,13 @@ def load_leddmx_config(
     *,
     project_root: str | Path | None = None,
 ) -> LedDmxBluetoothConfig:
+    """Load and validate LED-DMX Bluetooth configuration.
+
+    @param config_path TOML file or directory containing ``leddmx.toml``.
+    @param project_root Base path for relative configuration paths.
+    @return Validated Bluetooth configuration.
+    @exception LedDmxConfigError if the file is missing or invalid.
+    """
     root = (
         Path(project_root).expanduser().resolve()
         if project_root is not None

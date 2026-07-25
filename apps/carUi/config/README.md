@@ -25,6 +25,8 @@ The TOML file describes **which components are assembled**:
 - launcher selection
 - RigCTL connection settings
 - remote display
+- rotary encoder drivers/settings and the system-volume encoder assignment
+- barometric sensor driver and I2C address
 - auxiliary applications such as ADS-B and the weather dashboard
 
 Radio-domain data remains in the existing JSON files under:
@@ -54,6 +56,27 @@ remote_display = ":2"
 [rigctl]
 host = "127.0.0.1"
 port = 4532
+
+[environmental.barometric_sensor]
+driver = "bmp388"
+address = 0x77
+
+[input.rotary_encoders]
+volume_index = 0
+
+[[input.rotary_encoders.devices]]
+driver = "seesaw"
+address = 0x36
+
+[[input.rotary_encoders.devices]]
+driver = "seesaw"
+address = 0x37
+
+[[input.rotary_encoders.devices]]
+driver = "gpio"
+pin_a = 11
+pin_b = 13
+button = 15
 
 [[radios]]
 key = "fm_radio"
@@ -93,6 +116,10 @@ config = parser.load()
 
 print(config.runtime.remote_display)
 print(config.rigctl.host)
+print(config.environmental.barometric_sensor.driver)
+print(config.environmental.barometric_sensor.address)
+print(config.input.rotary_encoders.devices)
+print(config.input.rotary_encoders.volume_index)
 print(config.radio("fm_radio").config_path)
 ```
 
@@ -111,9 +138,30 @@ The parser rejects:
 - missing or empty radio keys
 - missing radio configuration names
 - duplicate radio keys
+- empty or unsupported rotary encoder device definitions
+- duplicate or invalid Seesaw I2C addresses
+- unsupported barometric sensor drivers or invalid I2C addresses
+- invalid or shared GPIO physical pins
+- a volume encoder index outside the configured device list
 - invalid RigCTL ports
 - non-boolean `enabled` values
 - missing radio JSON files
+
+## Testing the configured volume encoder
+
+The configured `volume_index`, encoder driver, and system audio integration can
+be tested without launching the Car UI:
+
+```bash
+python3 -m apps.carUi.input.component_test.volume_encoder_cli
+```
+
+Rotating the selected encoder changes the actual default PipeWire sink volume
+and prints the resulting level. The test starts only the device selected by
+`volume_index`; disconnected contextual encoders do not affect this test.
+The default reported range is 20 levels, matching the default 5% PipeWire
+increment. This is independent of the Car UI's eight-bar visual indicator.
+Pressing the selected encoder toggles system mute.
 
 For tests that intentionally use nonexistent radio files, construct the parser
 with `require_radio_files=False`.

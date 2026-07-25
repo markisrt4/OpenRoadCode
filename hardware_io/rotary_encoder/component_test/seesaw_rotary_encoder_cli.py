@@ -35,28 +35,19 @@ def parse_i2c_address(value: str) -> int:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Three-encoder Seesaw component test"
+        description="One-or-more encoder Seesaw component test"
     )
 
     parser.add_argument(
-        "--encoder-1-address",
+        "--addresses",
+        nargs="+",
         type=parse_i2c_address,
-        default=0x36,
-        help="I2C address for encoder 1, default: 0x36",
-    )
-
-    parser.add_argument(
-        "--encoder-2-address",
-        type=parse_i2c_address,
-        default=0x37,
-        help="I2C address for encoder 2, default: 0x37",
-    )
-
-    parser.add_argument(
-        "--encoder-3-address",
-        type=parse_i2c_address,
-        default=0x38,
-        help="I2C address for encoder 3, default: 0x38",
+        default=[0x36, 0x37, 0x38],
+        metavar="ADDRESS",
+        help=(
+            "I2C addresses to test, for example: "
+            "--addresses 0x36 0x37 (default: 0x36 0x37 0x38)"
+        ),
     )
 
     parser.add_argument(
@@ -99,10 +90,9 @@ def create_callbacks(
 def main() -> None:
     args = parse_args()
 
-    configs = (
-        EncoderConfig("encoder-1", args.encoder_1_address),
-        EncoderConfig("encoder-2", args.encoder_2_address),
-        EncoderConfig("encoder-3", args.encoder_3_address),
+    configs = tuple(
+        EncoderConfig(f"encoder-{number}", address)
+        for number, address in enumerate(args.addresses, start=1)
     )
 
     addresses = [config.address for config in configs]
