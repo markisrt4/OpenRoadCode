@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Optional
 from apps.launchers.adsb_launcher import ADSBLauncher
 from apps.launchers.app_launcher_if import AppLauncherIf
 from apps.launchers.weather_dash_launcher import WeatherDashLauncher
-from controllers.radio.radio_controller import RadioController
+from controllers.radio.radio_controller_if import RadioControllerIf
 from apps.carUi.config.car_ui_runtime_config_parser import RotaryEncoderConfig
 
 if TYPE_CHECKING:
@@ -19,7 +19,7 @@ class RadioRuntime:
 
     key: str
     config: object
-    controller: RadioController
+    controller: RadioControllerIf
     launcher: AppLauncherIf
 
 
