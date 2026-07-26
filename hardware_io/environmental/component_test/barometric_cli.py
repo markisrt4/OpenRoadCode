@@ -116,18 +116,23 @@ def run(
         if not sensor.is_started:
             raise RuntimeError("sensor did not report a started state")
 
-        print(f"{model.upper()} connected at {address:#04x}")
-        if not once:
-            print("Press Ctrl+C to stop")
+        print(
+            f"{model.upper()} initialized at {address:#04x}; "
+            "reading first sample...",
+            flush=True,
+        )
+        print_sample(sensor)
+        print(f"{model.upper()} is returning data", flush=True)
+
+        if once:
+            return
+
+        print("Press Ctrl+C to stop")
         print()
 
         while True:
-            print_sample(sensor)
-
-            if once:
-                return
-
             time.sleep(interval_s)
+            print_sample(sensor)
     finally:
         sensor.stop()
 

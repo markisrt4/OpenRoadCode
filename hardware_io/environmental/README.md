@@ -34,11 +34,16 @@ Future implementations may include:
 environmental/
 ├── __init__.py
 ├── barometric_sensor_if.py
+├── bmp3xx.py
 ├── bmp388.py
 ├── bmp390.py
 ├── component_test/
 └── README.md
 ```
+
+`Bmp3xx` contains the shared BMP388/BMP390 implementation. `Bmp388` and
+`Bmp390` remain available as compatibility names for existing configuration
+and imports.
 
 ## Responsibilities
 
