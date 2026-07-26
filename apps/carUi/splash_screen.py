@@ -1,9 +1,14 @@
 from __future__ import annotations
 
 import os
+import queue
+import threading
 import tkinter as tk
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
+from dataclasses import dataclass
+from enum import Enum, auto
 from pathlib import Path
+from typing import Generic, TypeVar
 
 
 SPLASH_IMAGE_PATH = (
@@ -13,42 +18,57 @@ SPLASH_IMAGE_PATH = (
 )
 SPLASH_BACKGROUND = "#0b0d10"
 
-
-def show_startup_splash() -> None:
-    """Show the optional CarUI startup splash and wait for it to finish."""
-
-    if not _env_bool("CARUI_SPLASH", True):
-        return
-
-    splash = StartupSplash(
-        image_path=SPLASH_IMAGE_PATH,
-        fade_ms=_env_int("CARUI_SPLASH_FADE_MS", 700),
-        hold_ms=_env_int("CARUI_SPLASH_HOLD_MS", 1500),
-        fullscreen=_env_bool(
-            "CARUI_SPLASH_FULLSCREEN",
-            _env_bool("CARUI_FULLSCREEN", False),
-        ),
-        geometry=os.getenv("CARUI_GEOMETRY", "1024x600"),
-    )
-    splash.show()
+T = TypeVar("T")
 
 
-class StartupSplash:
-    """Tk splash window with a fade-in, hold, and fade-out sequence."""
+class StartupState(Enum):
+    PENDING = auto()
+    STARTING = auto()
+    READY = auto()
+    DEGRADED = auto()
+    FAILED = auto()
+
+
+@dataclass(frozen=True)
+class StartupItem:
+    key: str
+    label: str
+
+
+StartupStatusCallback = Callable[
+    [str, StartupState, str],
+    None,
+]
+
+
+class StartupSplash(Generic[T]):
+    """Display startup progress while application dependencies initialize."""
 
     def __init__(
         self,
         *,
-        image_path: Path,
-        fade_ms: int,
-        hold_ms: int,
-        fullscreen: bool,
-        geometry: str,
+        items: Sequence[StartupItem],
+        image_path: Path = SPLASH_IMAGE_PATH,
+        fade_ms: int = 500,
+        completion_hold_ms: int = 350,
+        failure_hold_ms: int = 2500,
+        fullscreen: bool = False,
+        geometry: str = "1024x600",
     ) -> None:
         self._root = tk.Tk(className="OpenRoadCodeSplash")
+        self._items = tuple(items)
         self._fade_ms = max(0, fade_ms)
-        self._hold_ms = max(0, hold_ms)
+        self._completion_hold_ms = max(0, completion_hold_ms)
+        self._failure_hold_ms = max(0, failure_hold_ms)
+
         self._image: tk.PhotoImage | None = None
+        self._status_labels: dict[str, tk.Label] = {}
+        self._detail_labels: dict[str, tk.Label] = {}
+        self._messages: queue.Queue[tuple] = queue.Queue()
+
+        self._result: T | None = None
+        self._error: BaseException | None = None
+        self._finished = False
 
         self._root.title("OpenRoadCode")
         self._root.configure(bg=SPLASH_BACKGROUND)
@@ -61,16 +81,95 @@ class StartupSplash:
 
         self._build(image_path)
 
-    def show(self) -> None:
+    def run(
+        self,
+        initializer: Callable[[StartupStatusCallback], T],
+    ) -> T:
+        """Run initializer in a worker thread while the splash remains responsive."""
+
         self._set_opacity(0.0)
         self._root.update_idletasks()
+
         self._animate_opacity(
             start=0.0,
             end=1.0,
             duration_ms=self._fade_ms,
-            on_complete=self._hold,
+            on_complete=lambda: self._start_initializer(initializer),
         )
+
+        self._root.after(40, self._poll_messages)
         self._root.mainloop()
+
+        if self._error is not None:
+            raise self._error
+
+        if not self._finished:
+            raise RuntimeError("Startup splash closed before initialization completed")
+
+        return self._result  # type: ignore[return-value]
+
+    def _start_initializer(
+        self,
+        initializer: Callable[[StartupStatusCallback], T],
+    ) -> None:
+        thread = threading.Thread(
+            target=self._run_initializer,
+            args=(initializer,),
+            name="openroadcode-initializer",
+            daemon=True,
+        )
+        thread.start()
+
+    def _run_initializer(
+        self,
+        initializer: Callable[[StartupStatusCallback], T],
+    ) -> None:
+        try:
+            result = initializer(self._post_status)
+        except BaseException as exc:
+            self._messages.put(("error", exc))
+            return
+
+        self._messages.put(("complete", result))
+
+    def _post_status(
+        self,
+        key: str,
+        state: StartupState,
+        detail: str = "",
+    ) -> None:
+        self._messages.put(("status", key, state, detail))
+
+    def _poll_messages(self) -> None:
+        try:
+            while True:
+                message = self._messages.get_nowait()
+                kind = message[0]
+
+                if kind == "status":
+                    _, key, state, detail = message
+                    self._apply_status(key, state, detail)
+                elif kind == "complete":
+                    _, result = message
+                    self._result = result
+                    self._finished = True
+                    self._root.after(
+                        self._completion_hold_ms,
+                        self._fade_out,
+                    )
+                elif kind == "error":
+                    _, error = message
+                    self._error = error
+                    self._apply_global_failure(str(error))
+                    self._root.after(
+                        self._failure_hold_ms,
+                        self._fade_out,
+                    )
+        except queue.Empty:
+            pass
+
+        if self._root.winfo_exists() and not self._finished and self._error is None:
+            self._root.after(40, self._poll_messages)
 
     def _build(self, image_path: Path) -> None:
         try:
@@ -87,26 +186,104 @@ class StartupSplash:
                 image=self._image,
                 bg=SPLASH_BACKGROUND,
                 bd=0,
-            ).place(relx=0.5, rely=0.46, anchor="center")
+            ).place(relx=0.5, rely=0.27, anchor="center")
 
         tk.Label(
             content,
             text="OPEN ROAD CODE",
-            font=("DejaVu Sans", 28, "bold"),
+            font=("DejaVu Sans", 26, "bold"),
             bg=SPLASH_BACKGROUND,
             fg="#f4f7f9",
-        ).place(relx=0.5, rely=0.82, anchor="center")
+        ).place(relx=0.5, rely=0.53, anchor="center")
 
         tk.Label(
             content,
-            text="OPEN SOURCE SOFTWARE FOR THE ROAD",
+            text="INITIALIZING VEHICLE SYSTEMS",
             font=("DejaVu Sans", 11),
             bg=SPLASH_BACKGROUND,
             fg="#aeb8c0",
-        ).place(relx=0.5, rely=0.89, anchor="center")
+        ).place(relx=0.5, rely=0.59, anchor="center")
 
-    def _hold(self) -> None:
-        self._root.after(self._hold_ms, self._fade_out)
+        checklist = tk.Frame(content, bg=SPLASH_BACKGROUND)
+        checklist.place(relx=0.5, rely=0.73, anchor="center")
+
+        for row, item in enumerate(self._items):
+            status_label = tk.Label(
+                checklist,
+                text="○",
+                width=2,
+                anchor="center",
+                font=("DejaVu Sans", 14, "bold"),
+                bg=SPLASH_BACKGROUND,
+                fg="#6f7a82",
+            )
+            status_label.grid(row=row, column=0, padx=(0, 8), pady=3)
+
+            tk.Label(
+                checklist,
+                text=item.label,
+                width=22,
+                anchor="w",
+                font=("DejaVu Sans", 12, "bold"),
+                bg=SPLASH_BACKGROUND,
+                fg="#f4f7f9",
+            ).grid(row=row, column=1, sticky="w", pady=3)
+
+            detail_label = tk.Label(
+                checklist,
+                text="Pending",
+                width=30,
+                anchor="w",
+                font=("DejaVu Sans", 10),
+                bg=SPLASH_BACKGROUND,
+                fg="#87939c",
+            )
+            detail_label.grid(row=row, column=2, sticky="w", pady=3)
+
+            self._status_labels[item.key] = status_label
+            self._detail_labels[item.key] = detail_label
+
+        self._footer = tk.Label(
+            content,
+            text="OPEN SOURCE SOFTWARE FOR THE ROAD",
+            font=("DejaVu Sans", 10),
+            bg=SPLASH_BACKGROUND,
+            fg="#77828a",
+        )
+        self._footer.place(relx=0.5, rely=0.94, anchor="center")
+
+    def _apply_status(
+        self,
+        key: str,
+        state: StartupState,
+        detail: str,
+    ) -> None:
+        status_label = self._status_labels.get(key)
+        detail_label = self._detail_labels.get(key)
+        if status_label is None or detail_label is None:
+            print(f"[UI] Unknown startup item: {key}")
+            return
+
+        symbol, color, default_detail = {
+            StartupState.PENDING: ("○", "#6f7a82", "Pending"),
+            StartupState.STARTING: ("⟳", "#4db6ff", "Starting"),
+            StartupState.READY: ("✓", "#77d353", "Ready"),
+            StartupState.DEGRADED: ("!", "#ffb347", "Limited"),
+            StartupState.FAILED: ("✕", "#ff5f56", "Failed"),
+        }[state]
+
+        status_label.configure(text=symbol, fg=color)
+        detail_label.configure(
+            text=detail or default_detail,
+            fg=color if state in {StartupState.DEGRADED, StartupState.FAILED} else "#aeb8c0",
+        )
+        self._root.update_idletasks()
+
+    def _apply_global_failure(self, detail: str) -> None:
+        self._footer.configure(
+            text=f"STARTUP FAILED: {detail}",
+            fg="#ff5f56",
+        )
 
     def _fade_out(self) -> None:
         self._animate_opacity(
@@ -166,6 +343,32 @@ class StartupSplash:
         x = max(0, (screen_width - width) // 2)
         y = max(0, (screen_height - height) // 2)
         self._root.geometry(f"{width}x{height}+{x}+{y}")
+
+
+def create_startup_splash(
+    items: Sequence[StartupItem],
+) -> StartupSplash:
+    return StartupSplash(
+        items=items,
+        fade_ms=_env_int("CARUI_SPLASH_FADE_MS", 500),
+        completion_hold_ms=_env_int(
+            "CARUI_SPLASH_COMPLETION_HOLD_MS",
+            350,
+        ),
+        failure_hold_ms=_env_int(
+            "CARUI_SPLASH_FAILURE_HOLD_MS",
+            2500,
+        ),
+        fullscreen=_env_bool(
+            "CARUI_SPLASH_FULLSCREEN",
+            _env_bool("CARUI_FULLSCREEN", False),
+        ),
+        geometry=os.getenv("CARUI_GEOMETRY", "1024x600"),
+    )
+
+
+def splash_enabled() -> bool:
+    return _env_bool("CARUI_SPLASH", True)
 
 
 def _env_bool(name: str, default: bool) -> bool:
