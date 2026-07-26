@@ -78,6 +78,7 @@ def main() -> None:
     except RuntimeError as exc:
         raise SystemExit(f"[CarUI] {exc}") from exc
 
+    app: UiControlPanel | None = None
     dependencies: ApplicationDependencies | None = None
 
     try:
@@ -100,9 +101,15 @@ def main() -> None:
         app.start_encoder_events()
         app.start_gps_ui_updates()
         app.mainloop()
+    except KeyboardInterrupt:
+        print("\n[CarUI] Stopped")
     finally:
-        app.stop_encoder_events()
-        dependencies.close()
+        try:
+            if app is not None:
+                app.close()
+        finally:
+            if dependencies is not None:
+                dependencies.close()
 
 
 def _initialize_dependencies(

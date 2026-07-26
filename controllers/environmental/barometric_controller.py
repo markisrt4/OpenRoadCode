@@ -1,4 +1,4 @@
-"""Controller for environmental sensor measurements."""
+"""Controller for barometric sensor measurements."""
 
 from __future__ import annotations
 
@@ -8,13 +8,13 @@ from collections import deque
 from threading import Lock
 from typing import Callable
 
-from hardware_io.environmental import BarometricSensorIf
+from .barometric_controller_if import BarometricControllerIf
+from .barometric_source_if import BarometricSourceIf
+from .barometric_state import BarometricState
 
-from .environmental_state import EnvironmentalState
 
-
-class EnvironmentalController:
-    """Read and process measurements from a barometric sensor.
+class BarometricController(BarometricControllerIf):
+    """Read and process measurements from a barometric source.
 
     The controller calculates barometric altitude, relative altitude, and
     filtered vertical speed from pressure measurements.
@@ -27,16 +27,16 @@ class EnvironmentalController:
 
     def __init__(
         self,
-        sensor: BarometricSensorIf,
+        sensor: BarometricSourceIf,
         *,
         sea_level_pressure_pa: float = STANDARD_SEA_LEVEL_PRESSURE_PA,
         vertical_speed_window_size: int = 8,
         monotonic_clock: Callable[[], float] = time.monotonic,
     ) -> None:
-        """Create an environmental controller.
+        """Create a barometric controller.
 
         Args:
-            sensor: Barometric pressure sensor implementation.
+            sensor: Controller-facing environmental sensor adapter.
             sea_level_pressure_pa: Reference sea-level pressure used for
                 absolute altitude calculations.
             vertical_speed_window_size: Number of altitude samples used to
@@ -61,7 +61,7 @@ class EnvironmentalController:
         self._altitude_history: deque[tuple[float, float]] = deque(
             maxlen=vertical_speed_window_size
         )
-        self._latest_state: EnvironmentalState | None = None
+        self._latest_state: BarometricState | None = None
         self._lock = Lock()
 
     @property
@@ -70,6 +70,16 @@ class EnvironmentalController:
 
         with self._lock:
             return self._started
+
+    @property
+    def is_available(self) -> bool:
+        """Return whether the configured barometric source is available."""
+        return True
+
+    @property
+    def status_message(self) -> str | None:
+        """Return an availability status message."""
+        return None
 
     @property
     def sea_level_pressure_pa(self) -> float:
@@ -82,7 +92,7 @@ class EnvironmentalController:
             return self._sea_level_pressure_pa
 
     @property
-    def latest_state(self) -> EnvironmentalState | None:
+    def latest_state(self) -> BarometricState | None:
         """Return the most recently calculated state.
 
         @return Latest snapshot, or ``None`` before the first successful read.
@@ -92,33 +102,33 @@ class EnvironmentalController:
             return self._latest_state
 
     def start(self) -> None:
-        """Start the environmental sensor and reset calculated state."""
+        """Start the barometric source and reset calculated state."""
 
         with self._lock:
             if self._started:
                 return
 
-            self._sensor.start()
+            self._sensor.connect()
             self._started = True
             self._relative_altitude_reference_m = None
             self._altitude_history.clear()
             self._latest_state = None
 
     def stop(self) -> None:
-        """Stop the environmental sensor."""
+        """Stop the barometric source."""
 
         with self._lock:
             if not self._started:
                 return
 
             try:
-                self._sensor.stop()
+                self._sensor.disconnect()
             finally:
                 self._started = False
                 self._altitude_history.clear()
 
-    def read_state(self) -> EnvironmentalState:
-        """Read the sensor and calculate environmental state.
+    def read_state(self) -> BarometricState:
+        """Read the source and calculate barometric state.
 
         @return Pressure, temperature, altitude, and vertical-speed snapshot.
         @exception RuntimeError if the controller has not been started.
@@ -127,8 +137,9 @@ class EnvironmentalController:
         with self._lock:
             self._require_started()
 
-            pressure_pa = self._sensor.get_pressure_pa()
-            temperature_c = self._sensor.get_temperature_c()
+            sample = self._sensor.read_barometric()
+            pressure_pa = sample.pressure_pa
+            temperature_c = sample.temperature_c
 
             altitude_m = self.calculate_altitude_m(
                 pressure_pa=pressure_pa,
@@ -147,7 +158,7 @@ class EnvironmentalController:
 
             vertical_speed_mps = self._calculate_vertical_speed_mps()
 
-            state = EnvironmentalState.create(
+            state = BarometricState.create(
                 pressure_pa=pressure_pa,
                 temperature_c=temperature_c,
                 altitude_m=altitude_m,
@@ -193,7 +204,7 @@ class EnvironmentalController:
             self._require_started()
 
             current_pressure_pa = (
-                self._sensor.get_pressure_pa()
+                self._sensor.read_barometric().pressure_pa
                 if pressure_pa is None
                 else pressure_pa
             )
@@ -221,7 +232,7 @@ class EnvironmentalController:
         with self._lock:
             self._require_started()
 
-            pressure_pa = self._sensor.get_pressure_pa()
+            pressure_pa = self._sensor.read_barometric().pressure_pa
             altitude_m = self.calculate_altitude_m(
                 pressure_pa=pressure_pa,
                 sea_level_pressure_pa=self._sea_level_pressure_pa,
@@ -277,10 +288,10 @@ class EnvironmentalController:
     def _require_started(self) -> None:
         if not self._started:
             raise RuntimeError(
-                "Environmental controller has not been started"
+                "Barometric controller has not been started"
             )
 
-    def __enter__(self) -> EnvironmentalController:
+    def __enter__(self) -> BarometricController:
         self.start()
         return self
 
@@ -291,3 +302,4 @@ class EnvironmentalController:
         _traceback: object,
     ) -> None:
         self.stop()
+

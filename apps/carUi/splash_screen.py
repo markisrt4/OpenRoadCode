@@ -10,6 +10,8 @@ from enum import Enum, auto
 from pathlib import Path
 from typing import Generic, TypeVar
 
+from apps.carUi.runtime.window_runtime import apply_fullscreen
+
 
 SPLASH_IMAGE_PATH = (
     Path(__file__).resolve().parent
@@ -72,14 +74,20 @@ class StartupSplash(Generic[T]):
 
         self._root.title("OpenRoadCode")
         self._root.configure(bg=SPLASH_BACKGROUND)
-        self._root.overrideredirect(True)
 
         if fullscreen:
-            self._root.attributes("-fullscreen", True)
+            # Fullscreen already removes normal window decoration. Combining
+            # it with override-redirect prevents some Pi window managers from
+            # mapping the splash at all.
+            self._root.overrideredirect(False)
         else:
+            self._root.overrideredirect(True)
             self._center_window(geometry)
 
         self._build(image_path)
+
+        if fullscreen:
+            apply_fullscreen(self._root)
 
     def run(
         self,

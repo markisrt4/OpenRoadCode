@@ -12,8 +12,11 @@ controllers/radio/
 ├── __init__.py
 ├── radio_backend_if.py
 ├── radio_controller.py
+├── radio_controller_if.py
+├── radio_controller_stub.py
 ├── radio_input_adapter_if.py
 ├── radio_types.py
+├── unconfigured_radio_controller.py
 ├── README.md
 ├── adapters/
 │   ├── __init__.py
@@ -39,6 +42,17 @@ The package owns:
 - Adaptation of a rigctl client to the radio backend contract
 
 Protocol packages own command formatting, socket communication, and protocol response parsing. Higher-level code owns configuration loading, process lifecycle, UI behavior, and runtime assembly.
+
+## Controller Implementations
+
+Applications and input adapters should depend on `RadioControllerIf`.
+
+- `RadioController` coordinates a configured receiver backend.
+- `RadioControllerStub` provides deterministic in-memory tuning and telemetry
+  for demos and UI development.
+- `UnconfiguredRadioController` reports `is_available == False`, exposes a
+  reason through `status_message`, and raises for radio operations rather than
+  fabricating receiver state.
 
 ## System Dependencies
 

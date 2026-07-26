@@ -16,6 +16,9 @@ from controllers.navigation.complementary_orientation_estimator import (
 from controllers.navigation.navigation_gps_source_if import (
     NavigationGpsSourceIf,
 )
+from controllers.navigation.navigation_controller_if import (
+    NavigationControllerIf,
+)
 from controllers.navigation.motion_calibration import MotionCalibration
 from controllers.navigation.navigation_sensor_if import (
     MotionSample,
@@ -30,7 +33,7 @@ from controllers.navigation.orientation_estimator_if import (
 )
 
 
-class NavigationController:
+class NavigationController(NavigationControllerIf):
     """Coordinate normalized navigation inputs into current vehicle state."""
 
     STANDARD_GRAVITY_MPS2 = 9.80665
@@ -66,6 +69,14 @@ class NavigationController:
     @property
     def is_started(self) -> bool:
         return self._started
+
+    @property
+    def is_available(self) -> bool:
+        return True
+
+    @property
+    def status_message(self) -> str | None:
+        return None
 
     @property
     def calibration(self) -> MotionCalibration | None:

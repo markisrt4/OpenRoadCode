@@ -8,7 +8,7 @@ from apps.carUi.radio.radio_panel import RadioPanel
 from apps.carUi.radio.radio_panel_config import RadioPanelConfig
 from apps.carUi.radio.radio_session_controller import RadioSessionController
 from apps.launchers.app_launcher_if import AppLauncherIf
-from controllers.radio.radio_controller import RadioController
+from controllers.radio.radio_controller_if import RadioControllerIf
 from controllers.radio.radio_types import RadioPreset
 
 
@@ -22,7 +22,7 @@ class RadioPanelBinding:
 def create_radio_panel_binding(
     *,
     parent: tk.Widget,
-    radio_controller: RadioController,
+    radio_controller: RadioControllerIf,
     radio_app_launcher: AppLauncherIf,
     panel_config: RadioPanelConfig,
     remote_display: str,

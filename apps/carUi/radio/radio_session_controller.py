@@ -6,7 +6,7 @@ from apps.carUi.radio.radio_panel_config import RadioPanelConfig
 from apps.carUi.radio.radio_panel_state import RadioPanelState
 from apps.carUi.radio.radio_status_formatter import format_frequency
 from apps.launchers.app_launcher_if import AppLauncherIf
-from controllers.radio.radio_controller import RadioController
+from controllers.radio.radio_controller_if import RadioControllerIf
 from controllers.radio.radio_types import RadioPreset
 from controllers.sdr.sdr_telemetry_monitor import SDRTelemetryMonitor
 
@@ -15,7 +15,7 @@ class RadioSessionController:
     """Coordinate a radio domain controller, launcher, and panel state."""
     def __init__(
         self,
-        radio_controller: RadioController,
+        radio_controller: RadioControllerIf,
         radio_app_launcher: AppLauncherIf,
         panel_config: RadioPanelConfig,
         remote_display: str = ":2",

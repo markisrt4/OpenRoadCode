@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from controllers.radio.radio_controller import RadioController
+from controllers.radio.radio_controller_if import RadioControllerIf
 from controllers.radio.radio_input_adapter_if import RadioInputAdapterIf
 from hardware_io.keyboard import KeyboardReader
 
@@ -11,7 +11,7 @@ class KeyboardRadioAdapter(RadioInputAdapterIf):
     def __init__(
         self,
         keyboard: KeyboardReader,
-        radio: RadioController,
+        radio: RadioControllerIf,
     ) -> None:
         self._keyboard = keyboard
         self._radio = radio
