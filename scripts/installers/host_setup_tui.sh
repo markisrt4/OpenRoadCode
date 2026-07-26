@@ -4,6 +4,10 @@ set -euo pipefail
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd -- "$SCRIPT_DIR/../.." && pwd)"
 PROJECT_DIR="${PROJECT_DIR:-$PROJECT_ROOT}"
+FEATURES_FILE="$SCRIPT_DIR/installer_features.sh"
+
+# shellcheck disable=SC1091
+source "$FEATURES_FILE"
 
 if ! command -v whiptail >/dev/null 2>&1; then
   echo "[!] whiptail is not installed. Install it with: sudo apt install -y whiptail"
@@ -17,11 +21,11 @@ else
 fi
 
 SELECTED_GENERAL="base"
-SELECTED_STREAMING="streamlit"
-SELECTED_NAVIGATION="gps"
+SELECTED_STREAMING=""
+SELECTED_NAVIGATION=""
 SELECTED_RADIO=""
-SELECTED_AUTOMOTIVE="elm327"
-SELECTED_BLUETOOTH="bluetooth"
+SELECTED_AUTOMOTIVE=""
+SELECTED_BLUETOOTH=""
 SELECTED_BAROMETRIC=""
 ELM327_ADDRESS=""
 
@@ -123,6 +127,40 @@ while true; do
   esac
 done
 
+selected_features=()
+for feature in \
+  ${SELECTED_GENERAL} \
+  ${SELECTED_STREAMING} \
+  ${SELECTED_NAVIGATION} \
+  ${SELECTED_BAROMETRIC} \
+  ${SELECTED_RADIO} \
+  ${SELECTED_AUTOMOTIVE} \
+  ${SELECTED_BLUETOOTH}; do
+  selected_features+=("$feature")
+done
+if [[ " ${selected_features[*]} " != *" base "* ]]; then
+  selected_features+=(base)
+fi
+
+declare -A system_package_set=()
+declare -A python_package_set=()
+for feature in "${selected_features[@]}"; do
+  while read -r package; do
+    [[ -n "$package" ]] && system_package_set["$package"]=1
+  done < <(get_feature_packages "$feature" | tr '[:space:]' '\n')
+  while read -r package; do
+    [[ -n "$package" ]] && python_package_set["$package"]=1
+  done < <(get_feature_python_packages "$feature")
+done
+
+preview="Features: ${selected_features[*]}\n\n"
+preview+="System packages: ${#system_package_set[@]}\n"
+preview+="Python packages: ${#python_package_set[@]}\n\n"
+preview+="Only missing packages will be installed. Continue?"
+if ! whiptail --title "Confirm installation" --yesno "$preview" 14 72; then
+  exit 0
+fi
+
 if [[ " $SELECTED_AUTOMOTIVE " == *" elm327 "* ]]; then
   if whiptail --title "ELM327 RFCOMM" --yesno \
     "Discover, pair, and configure a Bluetooth ELM327 device now?" 10 68; then
@@ -148,6 +186,18 @@ done
 
 if [[ " $SELECTED_GENERAL " != *" base "* ]]; then
   ARGS+=(--feature base)
+fi
+
+if [[ " $SELECTED_GENERAL " == *" core-ui "* ]]; then
+  ARGS+=(--vnc)
+else
+  ARGS+=(--no-vnc)
+fi
+
+if [[ " $SELECTED_NAVIGATION " == *" gps "* ]]; then
+  ARGS+=(--gpsd-service)
+else
+  ARGS+=(--no-gpsd-service)
 fi
 
 if [[ " $SELECTED_RADIO " == *" sdrpp "* ]]; then

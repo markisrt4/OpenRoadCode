@@ -29,8 +29,11 @@ select_raspberry_pi_gpio_backend() {
     *"Raspberry Pi 5"*|*"Raspberry Pi 500"*|*"Compute Module 5"*)
       echo "rpi-lgpio"
       ;;
-    *)
+    *"Raspberry Pi"*|*"Compute Module"*)
       echo "RPi.GPIO"
+      ;;
+    *)
+      echo ""
       ;;
   esac
 }
@@ -42,7 +45,12 @@ else
 fi
 
 echo "[*] Creating Python virtual environment..."
-python3 -m venv --system-site-packages "$VENV_DIR"
+if ! python3 -m venv --system-site-packages "$VENV_DIR"; then
+  python_version="$(python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')"
+  echo "[!] Failed to create the virtual environment with Python $python_version." >&2
+  echo "[!] Re-run the installer with system-package installation enabled so it can install python${python_version}-venv." >&2
+  exit 1
+fi
 
 echo "[*] Installing Python packages..."
 # shellcheck disable=SC1091
@@ -76,6 +84,7 @@ for feature in "${FEATURES[@]}"; do
 
     if [[ "$pkg" == "raspberry-pi-gpio-backend" ]]; then
       pkg="$rpi_gpio_backend"
+      [[ -z "$pkg" ]] && continue
     fi
 
     python_packages+=("$pkg")
@@ -89,7 +98,7 @@ for pkg in "${python_packages[@]}"; do
   fi
 done
 
-if [[ " ${unique_packages[*]} " == *" $rpi_gpio_backend "* ]]; then
+if [[ -n "$rpi_gpio_backend" && " ${unique_packages[*]} " == *" $rpi_gpio_backend "* ]]; then
   if [[ "$rpi_gpio_backend" == "rpi-lgpio" ]]; then
     conflicting_gpio_backend="RPi.GPIO"
   else

@@ -69,8 +69,8 @@ esac
 SKIP_INSTALLS=0
 RUN_SYSTEM_PACKAGES=1
 RUN_PYTHON_ENV=1
-RUN_VNC=1
-RUN_GPSD_SERVICE=1
+RUN_VNC=-1
+RUN_GPSD_SERVICE=-1
 RUN_SDRPP=0
 RUN_RADIO=0
 REQUESTED_FEATURES=()
@@ -89,8 +89,14 @@ while (( $# > 0 )); do
     --no-vnc)
       RUN_VNC=0
       ;;
+    --vnc)
+      RUN_VNC=1
+      ;;
     --no-gpsd-service)
       RUN_GPSD_SERVICE=0
+      ;;
+    --gpsd-service)
+      RUN_GPSD_SERVICE=1
       ;;
     --install-sdrpp)
       RUN_SDRPP=1
@@ -136,7 +142,9 @@ while (( $# > 0 )); do
       echo "  --no-system-packages   Skip system package installation"
       echo "  --no-python-env        Skip Python virtualenv/package setup"
       echo "  --no-vnc               Skip VNC setup"
+      echo "  --vnc                  Set up the VNC user service"
       echo "  --no-gpsd-service      Skip GPS systemd service setup"
+      echo "  --gpsd-service         Set up the GPS system service"
       echo "  --install-sdrpp        Install SDR++ if available"
       echo "  --install-radio        Install or update the radio stack"
       echo "  --feature NAME         Add a feature bundle (see installer_features.sh)"
@@ -167,14 +175,6 @@ if (( ${#REQUESTED_FEATURES[@]} > 0 )); then
   FEATURES=("${REQUESTED_FEATURES[@]}")
 else
   FEATURES=(base)
-  if [[ "$HOST_ARCH" == "amd64" ]]; then
-    FEATURES+=(core-ui)
-  fi
-  FEATURES+=(gps)
-  FEATURES+=(streamlit)
-  FEATURES+=(bluetooth)
-  FEATURES+=(automotive)
-  FEATURES+=(elm327)
   if (( RUN_SDRPP )); then
     FEATURES+=(sdrpp)
   fi
@@ -185,6 +185,20 @@ fi
 
 if [[ -n "$ELM327_ADDRESS" ]]; then
   FEATURES+=(bluetooth automotive elm327)
+fi
+
+if (( RUN_VNC < 0 )); then
+  RUN_VNC=0
+  if [[ " ${FEATURES[*]} " == *" core-ui "* ]]; then
+    RUN_VNC=1
+  fi
+fi
+
+if (( RUN_GPSD_SERVICE < 0 )); then
+  RUN_GPSD_SERVICE=0
+  if [[ " ${FEATURES[*]} " == *" gps "* ]]; then
+    RUN_GPSD_SERVICE=1
+  fi
 fi
 
 if (( RUN_SYSTEM_PACKAGES )) && (( ! SKIP_INSTALLS )); then
