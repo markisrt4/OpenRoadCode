@@ -14,6 +14,20 @@ The controller owns sampling, timing, lifecycle, and state creation. Orientation
 math is delegated to an `OrientationEstimatorIf`, allowing different sensor
 combinations and estimation algorithms without changing the controller.
 
+## Controller Implementations
+
+Applications should depend on `NavigationControllerIf`.
+
+- `NavigationController` processes live motion and optional GPS sources.
+- `NavigationControllerStub` provides deterministic in-memory state for demos
+  and UI development.
+- `UnconfiguredNavigationController` reports `is_available == False`, exposes
+  a reason through `status_message`, and raises for navigation operations
+  rather than fabricating position or motion.
+
+All implementations expose the same lifecycle, heading reset, stationary
+calibration, GPS update, and state-reading contract.
+
 ## Adapters
 
 `NavigationController` depends on navigation-facing interfaces rather than
