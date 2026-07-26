@@ -163,6 +163,12 @@ Read one sample and exit:
 python3 -m hardware_io.environmental.component_test.barometric_cli --once
 ```
 
+Display pressure in inches of mercury and temperature in Fahrenheit:
+
+```bash
+python3 -m hardware_io.environmental.component_test.barometric_cli --imperial
+```
+
 Use address `0x76` or change the sampling interval:
 
 ```bash
