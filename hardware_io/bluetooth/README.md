@@ -19,6 +19,29 @@ Each device may contain:
 
 The scanner returns all discovered BLE devices and does not filter them by protocol or device type.
 
+## BLE GATT transport
+
+`BleGattTransportIf` is a device-agnostic async characteristic transport.
+`BleakGattTransport` implements scanning, per-device connection state,
+disconnect detection, command serialization, and one reconnect/write retry.
+Protocol controllers inject this interface and therefore do not depend on
+Bleak.
+
+Each transport owns only its `BleakClient`. Disconnecting a BLE lighting
+transport does not reset the Bluetooth adapter, invoke `bluetoothctl`, or
+disconnect Bluetooth Classic/RFCOMM devices.
+
+## Coexistence with ELM327
+
+LEDDMX uses BLE/GATT through BlueZ D-Bus. A Bluetooth ELM327 uses Classic
+Bluetooth SPP exposed as `/dev/rfcomm0`, then communicates through `pyserial`.
+They have independent connection ownership and can run concurrently on an
+adapter that supports simultaneous BLE and Classic Bluetooth.
+
+The one-time `setup_rfcomm0.sh` helper disconnects only the configured ELM327
+address before establishing RFCOMM. Do not run that setup helper while active
+vehicle or lighting sessions are in progress.
+
 ## Dependencies
 
 There are two independent requirements:

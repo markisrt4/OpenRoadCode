@@ -9,6 +9,9 @@
 [runtime]
 remote_display = ":2"
 
+[lighting]
+backend = "leddmx"
+
 [rigctl]
 host = "127.0.0.1"
 port = 4532

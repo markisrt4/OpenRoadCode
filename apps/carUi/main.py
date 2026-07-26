@@ -50,6 +50,7 @@ def main() -> None:
     spotify_controller = create_spotify_controller()
     lighting_controller = create_lighting_controller(
         project_root=PROJECT_ROOT,
+        backend=runtime.lighting.backend,
         address=os.getenv("CARUI_LIGHTING_ADDRESS"),
     )
     encoder_runtime = create_rotary_encoder_runtime(

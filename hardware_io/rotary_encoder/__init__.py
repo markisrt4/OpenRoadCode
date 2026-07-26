@@ -1,14 +1,7 @@
-from hardware_io.rotary_encoder.gpio_rotary_encoder import (
-    GpioRotaryEncoder,
-    GpioRotaryEncoderPins,
-)
 from hardware_io.rotary_encoder.rotary_encoder_if import (
     ButtonCallback,
     RotaryEncoderIf,
     RotationCallback,
-)
-from hardware_io.rotary_encoder.seesaw_rotary_encoder import (
-    SeesawRotaryEncoder,
 )
 
 __all__ = [
@@ -19,3 +12,24 @@ __all__ = [
     "RotationCallback",
     "SeesawRotaryEncoder",
 ]
+
+
+def __getattr__(name: str):
+    """Load hardware-specific drivers only when explicitly requested."""
+    if name in {"GpioRotaryEncoder", "GpioRotaryEncoderPins"}:
+        from hardware_io.rotary_encoder.gpio_rotary_encoder import (
+            GpioRotaryEncoder,
+            GpioRotaryEncoderPins,
+        )
+
+        return {
+            "GpioRotaryEncoder": GpioRotaryEncoder,
+            "GpioRotaryEncoderPins": GpioRotaryEncoderPins,
+        }[name]
+    if name == "SeesawRotaryEncoder":
+        from hardware_io.rotary_encoder.seesaw_rotary_encoder import (
+            SeesawRotaryEncoder,
+        )
+
+        return SeesawRotaryEncoder
+    raise AttributeError(name)

@@ -1,6 +1,10 @@
 # LEDDMX Bluetooth adapter configuration
 
 [bluetooth]
+# This controller uses a rotating private BLE address, so it must be identified
+# by its GATT characteristic. Set an address only for hardware with a stable
+# public/static address.
+# address = "AA:BB:CC:DD:EE:FF"
 service_uuid = "0000ffe0-0000-1000-8000-00805f9b34fb"
 characteristic_uuid = "0000ffe1-0000-1000-8000-00805f9b34fb"
 

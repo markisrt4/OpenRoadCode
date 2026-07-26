@@ -85,6 +85,12 @@ class EnvironmentalConfig:
 
 
 @dataclass(frozen=True, slots=True)
+class LightingRuntimeConfig:
+    """Select the lighting-controller implementation at composition time."""
+    backend: str = "leddmx"
+
+
+@dataclass(frozen=True, slots=True)
 class RadioStackConfig:
     """Configure one radio backend, profile, and optional launcher."""
     key: str
@@ -124,6 +130,7 @@ class CarUiRuntimeConfig:
     radios: tuple[RadioStackConfig, ...]
     auxiliary: AuxiliaryConfig
     environmental: EnvironmentalConfig = EnvironmentalConfig()
+    lighting: LightingRuntimeConfig = LightingRuntimeConfig()
 
     def enabled_radios(self) -> tuple[RadioStackConfig, ...]:
         """Return radio stacks enabled in this configuration."""
@@ -190,6 +197,7 @@ class CarUiRuntimeConfigParser:
         environmental = self._parse_environmental(
             data.get("environmental", {})
         )
+        lighting = self._parse_lighting(data.get("lighting", {}))
         radios = self._parse_radios(data.get("radios", []))
         auxiliary = self._parse_auxiliary(data.get("auxiliary", {}))
 
@@ -200,6 +208,7 @@ class CarUiRuntimeConfigParser:
             radios=radios,
             auxiliary=auxiliary,
             environmental=environmental,
+            lighting=lighting,
         )
 
     def _parse_runtime(self, data: Any) -> RuntimeDisplayConfig:
@@ -211,6 +220,20 @@ class CarUiRuntimeConfigParser:
             section_name="runtime",
         )
         return RuntimeDisplayConfig(remote_display=remote_display)
+
+    def _parse_lighting(self, data: Any) -> LightingRuntimeConfig:
+        section = self._expect_table(data, "lighting")
+        backend = self._optional_string(
+            section,
+            "backend",
+            default="leddmx",
+            section_name="lighting",
+        ).lower()
+        if backend not in {"leddmx", "dummy", "disabled"}:
+            raise CarUiRuntimeConfigError(
+                "lighting.backend must be 'leddmx', 'dummy', or 'disabled'"
+            )
+        return LightingRuntimeConfig(backend=backend)
 
     def _parse_rigctl(self, data: Any) -> RigctlConfig:
         section = self._expect_table(data, "rigctl")

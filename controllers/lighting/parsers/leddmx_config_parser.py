@@ -22,6 +22,7 @@ class LedDmxConfigError(ValueError):
 @dataclass(frozen=True, slots=True)
 class LedDmxBluetoothConfig:
     """Contain validated Bluetooth discovery and command timing settings."""
+    address: str | None
     service_uuid: str
     characteristic_uuid: str
     excluded_service_uuids: tuple[str, ...]
@@ -77,6 +78,11 @@ def load_leddmx_config(
     discovery = _table(data.get("discovery", {}), "discovery")
 
     return LedDmxBluetoothConfig(
+        address=_optional_string(
+            bluetooth,
+            "address",
+            section_name="bluetooth",
+        ),
         service_uuid=_uuid(
             bluetooth,
             "service_uuid",
@@ -136,6 +142,22 @@ def load_leddmx_config(
             section_name="bluetooth",
         ),
     )
+
+
+def _optional_string(
+    section: dict[str, Any],
+    key: str,
+    *,
+    section_name: str,
+) -> str | None:
+    value = section.get(key)
+    if value is None:
+        return None
+    if not isinstance(value, str) or not value.strip():
+        raise LedDmxConfigError(
+            f"{section_name}.{key} must be a non-empty string"
+        )
+    return value.strip()
 
 
 def _table(value: Any, name: str) -> dict[str, Any]:

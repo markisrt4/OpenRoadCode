@@ -11,6 +11,7 @@ from controllers.lighting.lighting_controller_stub import (
 )
 from controllers.lighting.lighting_types import (
     CustomPatternMode,
+    LightingConnectionStatus,
     LightingState,
     RgbColor,
 )
@@ -18,17 +19,13 @@ from controllers.lighting.unconfigured_controller_stub import (
     UnconfiguredControllerStub,
 )
 
-from controllers.lighting.adapters.leddmx_bluetooth_controller import (
-    LedDmxBluetoothController,
-)
-
 __all__ = [
     "CustomPatternMode",
     "DummyLightingController",
     "LightingControllerIf",
+    "LightingConnectionStatus",
     "LightingControllerStub",
     "LightingState",
     "RgbColor",
     "UnconfiguredControllerStub",
-    "LedDmxBluetoothController",
 ]

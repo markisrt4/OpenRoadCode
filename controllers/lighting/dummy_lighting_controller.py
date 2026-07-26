@@ -6,6 +6,7 @@ from threading import Lock
 from controllers.lighting.lighting_controller_if import LightingControllerIf
 from controllers.lighting.lighting_types import (
     CustomPatternMode,
+    LightingConnectionStatus,
     LightingState,
     RgbColor,
 )
@@ -31,16 +32,23 @@ class DummyLightingController(LightingControllerIf):
             return self._state
 
     def connect(self) -> Future[None]:
-        return self._update(connected=True)
+        return self._update(
+            connection_status=LightingConnectionStatus.CONNECTED,
+            last_connection_error=None,
+        )
 
     def disconnect(self) -> Future[None]:
         if self._closed:
             return self._failed(RuntimeError("lighting controller is closed"))
-        return self._update(connected=False)
+        return self._update(
+            connection_status=LightingConnectionStatus.DISCONNECTED,
+        )
 
     def close(self) -> None:
         with self._lock:
-            self._state = self._state.updated(connected=False)
+            self._state = self._state.updated(
+                connection_status=LightingConnectionStatus.DISCONNECTED,
+            )
             self._closed = True
 
     def set_power(self, enabled: bool) -> Future[None]:

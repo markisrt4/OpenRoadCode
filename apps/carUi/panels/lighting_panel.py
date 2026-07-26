@@ -7,7 +7,10 @@ from tkinter import ttk
 from typing import Any
 
 from controllers.lighting.lighting_controller_if import LightingControllerIf
-from controllers.lighting.lighting_types import RgbColor
+from controllers.lighting.lighting_types import (
+    LightingConnectionStatus,
+    RgbColor,
+)
 
 
 class LightingPanel(tk.Frame):
@@ -40,13 +43,19 @@ class LightingPanel(tk.Frame):
         self._pattern_name = tk.StringVar(value=self._patterns[0][0])
         self._music_name = tk.StringVar(value=self._music_modes[0][0])
         self._brightness_after_id: str | None = None
+        self._connection_after_id: str | None = None
+        self._connect_retry_after_id: str | None = None
+        self._last_connection_status: LightingConnectionStatus | None = None
         self._status_label: tk.Label | None = None
+        self._control_widgets: list[
+            tuple[tk.Widget, str, str | None]
+        ] = []
+        self._controls_enabled = False
 
         self._build_ui()
-        self._submit(
-            self._lighting.connect(),
-            success_message=self._layout["connected_text"],
-        )
+        self._set_controls_enabled(False, force=True)
+        self._connect_controller()
+        self._refresh_connection_state()
 
     def _build_ui(self) -> None:
         self.columnconfigure(
@@ -244,6 +253,7 @@ class LightingPanel(tk.Frame):
             sticky=self._layout["horizontal_sticky"],
             pady=self._style["brightness_scale_pady"],
         )
+        self._register_control(scale)
         return frame
 
     def _build_colors(self, parent: tk.Misc) -> tk.Frame:
@@ -265,7 +275,7 @@ class LightingPanel(tk.Frame):
                 else self._colors["text"]
             )
 
-            tk.Button(
+            button = tk.Button(
                 frame,
                 text=name,
                 bg=color_hex,
@@ -280,7 +290,12 @@ class LightingPanel(tk.Frame):
                     self._lighting.set_color(c),
                     success_message=f"Color: {n}",
                 ),
-            ).grid(
+            )
+            self._register_control(
+                button,
+                normal_background=color_hex,
+            )
+            button.grid(
                 row=row,
                 column=column,
                 sticky=self._layout["horizontal_sticky"],
@@ -322,6 +337,10 @@ class LightingPanel(tk.Frame):
             self._layout["combobox_event"],
             lambda _event: self._on_pattern_selected(),
         )
+        self._register_control(
+            pattern,
+            enabled_state=self._layout["readonly_state"],
+        )
 
         self._mode_label(
             frame,
@@ -346,6 +365,10 @@ class LightingPanel(tk.Frame):
         music.bind(
             self._layout["combobox_event"],
             lambda _event: self._on_music_selected(),
+        )
+        self._register_control(
+            music,
+            enabled_state=self._layout["readonly_state"],
         )
 
         quick = tk.Frame(frame, bg=self._colors["card_background"])
@@ -439,7 +462,7 @@ class LightingPanel(tk.Frame):
         text: str,
         command: Callable[[], None],
     ) -> tk.Button:
-        return tk.Button(
+        button = tk.Button(
             parent,
             text=text,
             command=command,
@@ -452,6 +475,49 @@ class LightingPanel(tk.Frame):
             font=self._style["button_font"],
             cursor=self._layout["cursor"],
         )
+        self._register_control(
+            button,
+            normal_background=self._colors["accent_dark"],
+        )
+        return button
+
+    def _register_control(
+        self,
+        widget: tk.Widget,
+        *,
+        enabled_state: str = "normal",
+        normal_background: str | None = None,
+    ) -> None:
+        self._control_widgets.append(
+            (widget, enabled_state, normal_background)
+        )
+
+    def _set_controls_enabled(
+        self,
+        enabled: bool,
+        *,
+        force: bool = False,
+    ) -> None:
+        if not force and enabled == self._controls_enabled:
+            return
+        self._controls_enabled = enabled
+        if not enabled and self._brightness_after_id is not None:
+            try:
+                self.after_cancel(self._brightness_after_id)
+            except tk.TclError:
+                pass
+            self._brightness_after_id = None
+        for widget, enabled_state, normal_background in self._control_widgets:
+            options: dict[str, Any] = {
+                "state": enabled_state if enabled else "disabled",
+            }
+            if normal_background is not None:
+                options["background"] = (
+                    normal_background
+                    if enabled
+                    else self._colors["disabled_control"]
+                )
+            widget.configure(**options)
 
     def _on_brightness_changed(self, value: str) -> None:
         brightness = int(float(value))
@@ -540,6 +606,70 @@ class LightingPanel(tk.Frame):
         if self._status_label is not None:
             self._status_label.configure(fg=color)
 
+    def _connect_controller(self) -> None:
+        self._connect_retry_after_id = None
+        future = self._lighting.connect()
+        future.add_done_callback(self._schedule_connect_done)
+
+    def _schedule_connect_done(self, future: Future[None]) -> None:
+        try:
+            self.after(
+                self._layout["callback_delay_ms"],
+                lambda: self._on_connect_done(future),
+            )
+        except tk.TclError:
+            return
+
+    def _on_connect_done(self, future: Future[None]) -> None:
+        try:
+            future.result()
+        except Exception:
+            if self.winfo_exists():
+                self._connect_retry_after_id = self.after(
+                    self._layout["connection_retry_ms"],
+                    self._connect_controller,
+                )
+        else:
+            self._set_status(
+                self._layout["connected_text"],
+                self._colors["ok"],
+            )
+
+    def _refresh_connection_state(self) -> None:
+        state = self._lighting.current_state()
+        status = state.connection_status
+        self._set_controls_enabled(
+            status is LightingConnectionStatus.CONNECTED
+        )
+        if status is not self._last_connection_status:
+            self._last_connection_status = status
+            if status is LightingConnectionStatus.CONNECTING:
+                self._set_status("Connecting…", self._colors["muted_text"])
+            elif status is LightingConnectionStatus.RECONNECTING:
+                self._set_status("Reconnecting…", self._colors["muted_text"])
+            elif status is LightingConnectionStatus.DISCONNECTED:
+                self._set_status("Disconnected", self._colors["error"])
+            elif status is LightingConnectionStatus.ERROR:
+                self._set_status(
+                    "Bluetooth unavailable · retrying…",
+                    self._colors["error"],
+                )
+            elif status is LightingConnectionStatus.CONNECTED:
+                address = (
+                    f" · {state.device_address}"
+                    if state.device_address
+                    else ""
+                )
+                self._set_status(
+                    f"Connected{address}",
+                    self._colors["ok"],
+                )
+
+        self._connection_after_id = self.after(
+            self._layout["connection_refresh_ms"],
+            self._refresh_connection_state,
+        )
+
     def destroy(self) -> None:
         if self._brightness_after_id is not None:
             try:
@@ -548,9 +678,18 @@ class LightingPanel(tk.Frame):
                 pass
             self._brightness_after_id = None
 
-        try:
-            self._lighting.close()
-        except Exception:
-            pass
+        if self._connection_after_id is not None:
+            try:
+                self.after_cancel(self._connection_after_id)
+            except tk.TclError:
+                pass
+            self._connection_after_id = None
+
+        if self._connect_retry_after_id is not None:
+            try:
+                self.after_cancel(self._connect_retry_after_id)
+            except tk.TclError:
+                pass
+            self._connect_retry_after_id = None
 
         super().destroy()

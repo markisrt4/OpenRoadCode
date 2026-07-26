@@ -35,10 +35,27 @@ class CustomPatternMode(Enum):
     HOP = 7
 
 
+class LightingConnectionStatus(Enum):
+    """Describe the real BLE transport lifecycle."""
+    DISCONNECTED = "disconnected"
+    CONNECTING = "connecting"
+    CONNECTED = "connected"
+    RECONNECTING = "reconnecting"
+    ERROR = "error"
+
+
 @dataclass(frozen=True, slots=True)
 class LightingState:
-    """Immutable snapshot of lighting connection and output settings."""
-    connected: bool = False
+    """BLE transport state and the most recently requested output settings.
+
+    LEDDMX output fields are optimistic: the device accepts write commands but
+    provides no authoritative readback confirming its physical output.
+    """
+    connection_status: LightingConnectionStatus = (
+        LightingConnectionStatus.DISCONNECTED
+    )
+    device_address: str | None = None
+    last_connection_error: str | None = None
     power_enabled: bool = False
     color: RgbColor = RgbColor(255, 255, 255)
     brightness_percent: int = 100
@@ -47,6 +64,11 @@ class LightingState:
     music_mode: int = 0
     custom_pattern_mode: CustomPatternMode = CustomPatternMode.OFF
     custom_pattern_forward: bool = True
+
+    @property
+    def connected(self) -> bool:
+        """Return whether the BLE transport is currently connected."""
+        return self.connection_status is LightingConnectionStatus.CONNECTED
 
     def __post_init__(self) -> None:
         _validate_range(

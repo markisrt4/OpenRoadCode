@@ -5,6 +5,7 @@ from concurrent.futures import Future
 from controllers.lighting.lighting_controller_if import LightingControllerIf
 from controllers.lighting.lighting_types import (
     CustomPatternMode,
+    LightingConnectionStatus,
     LightingState,
     RgbColor,
 )
@@ -27,9 +28,18 @@ class LightingControllerStub(LightingControllerIf):
         return self._state
 
     def connect(self) -> Future[None]:
-        return self._result()
+        future = self._result()
+        if future.done() and future.exception() is None:
+            self._state = self._state.updated(
+                connection_status=LightingConnectionStatus.CONNECTED,
+                last_connection_error=None,
+            )
+        return future
 
     def disconnect(self) -> Future[None]:
+        self._state = self._state.updated(
+            connection_status=LightingConnectionStatus.DISCONNECTED,
+        )
         return self._completed()
 
     def close(self) -> None:

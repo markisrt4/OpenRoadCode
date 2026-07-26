@@ -13,7 +13,7 @@ controllers/lighting/
 ├── lighting_controller_stub.py
 ├── dummy_lighting_controller.py
 ├── adapters/
-│   └── leddmx_bluetooth_controller.py
+│   └── leddmx_controller.py
 ├── parsers/
 │   └── leddmx_config_parser.py
 └── component_test/
@@ -21,6 +21,10 @@ controllers/lighting/
 
 protocols/leddmx/
 └── leddmx_protocol.py
+
+hardware_io/bluetooth/
+├── ble_gatt_transport_if.py
+└── bleak_gatt_transport.py
 
 config/lighting/
 └── leddmx.toml
@@ -43,11 +47,21 @@ A stateful in-memory emulator.
 Use it for UI development, component tests, and demonstrations where callers
 need to inspect `LightingState` after commands are issued.
 
-### `LedDmxBluetoothController`
+### `LedDmxController`
 
-The hardware adapter for LEDDMX-compatible Bluetooth Low Energy controllers.
-It owns a background asyncio event loop and exposes thread-friendly
+The protocol controller for LEDDMX-compatible lights. It owns a background
+asyncio event loop and exposes thread-friendly
 `concurrent.futures.Future` objects to synchronous callers such as Tkinter.
+It receives a generic `BleGattTransportIf`; it does not import Bleak, perform
+discovery, or manage GATT clients itself.
+
+`LightingState.connection_status`, `device_address`, and
+`last_connection_error` describe the real BLE transport. LEDDMX does not
+provide authoritative output readback, so power, color, brightness, pattern,
+and music fields are only the most recently requested settings.
+
+The application owns the controller for its full lifetime. Individual panels
+must not close it when navigating between screens.
 
 ## Python dependency
 
@@ -57,7 +71,7 @@ Install Bleak:
 python3 -m pip install bleak
 ```
 
-Bleak is the Bluetooth Low Energy GATT client used by the LEDDMX adapter.
+Bleak is used only by the `hardware_io.bluetooth` GATT transport.
 
 ## Linux system dependencies
 
@@ -94,6 +108,8 @@ Example:
 
 ```toml
 [bluetooth]
+# Optional, but recommended after identifying the controller:
+# address = "AA:BB:CC:DD:EE:FF"
 service_uuid = "0000ffe0-0000-1000-8000-00805f9b34fb"
 characteristic_uuid = "0000ffe1-0000-1000-8000-00805f9b34fb"
 excluded_service_uuids = [
@@ -113,14 +129,15 @@ Load it explicitly:
 
 ```python
 from controllers.lighting.parsers.leddmx_config_parser import load_leddmx_config
-from controllers.lighting.adapters import LedDmxBluetoothController
+from controllers.lighting.adapters.leddmx_controller import LedDmxController
+from hardware_io.bluetooth.bleak_gatt_transport import BleakGattTransport
 
 config = load_leddmx_config()
-
-controller = LedDmxBluetoothController(
-    address=None,
-    config=config,
+transport = BleakGattTransport(
+    address=config.address,
+    characteristic_uuid=config.characteristic_uuid,
 )
+controller = LedDmxController(transport)
 ```
 
 When `address` is omitted, the adapter scans nearby BLE devices and checks for
@@ -130,9 +147,11 @@ the configured write characteristic.
 
 ```python
 from controllers.lighting import RgbColor
-from controllers.lighting.adapters import LedDmxBluetoothController
+from apps.carUi.runtime.lighting_runtime_factory import (
+    create_lighting_controller,
+)
 
-controller = LedDmxBluetoothController()
+controller = create_lighting_controller(project_root=PROJECT_ROOT)
 
 try:
     controller.connect().result(timeout=20)
@@ -152,5 +171,32 @@ finally:
 python3 -m unittest     controllers.lighting.component_test.test_dummy_lighting_controller
 ```
 
-The protocol and configuration parser should also have independent tests as
-the package grows.
+Scan first, then directly probe a likely device:
+
+```bash
+python3 -m hardware_io.bluetooth.component_test.ble_scan_cli --timeout 15
+python3 -m controllers.lighting.component_test.leddmx_cli \
+    --address AA:BB:CC:DD:EE:FF
+```
+
+Once connection succeeds, safely verify a command:
+
+```bash
+python3 -m controllers.lighting.component_test.leddmx_cli \
+    --address AA:BB:CC:DD:EE:FF \
+    --power on
+```
+
+For testing several commands, keep one connection open. Some LEDDMX
+controllers take longer than 15 seconds to advertise again after a disconnect:
+
+```bash
+python3 -m controllers.lighting.component_test.leddmx_cli --interactive
+```
+
+At the prompt, use `on`, `off`, `color FF0000`, `color 00FF00`, `state`, and
+`quit`.
+
+Put the confirmed address in `config/lighting/leddmx.toml` so Car UI connects
+directly. If no address is configured, characteristic-based discovery remains
+available as a fallback.
