@@ -23,6 +23,13 @@ class FakeAudioController:
         self.level = max(0, self.level - 1)
         return self.level
 
+    def adjust_volume(self, steps: int) -> int:
+        self.level = max(
+            0,
+            min(self.maximum_level, self.level + steps),
+        )
+        return self.level
+
     def is_muted(self) -> bool:
         return self.muted
 
@@ -81,6 +88,22 @@ class VolumeManagerTest(unittest.TestCase):
         )
 
         self.assertEqual(8, manager.get_indicator_level())
+
+    def test_adjust_volume_batches_signed_steps(self) -> None:
+        audio = FakeAudioController(level=8)
+        displayed: list[int] = []
+        manager = VolumeManager(
+            audio_controller=audio,
+            indicator_steps=8,
+            set_volume_level=displayed.append,
+            set_muted=lambda _muted: None,
+            set_status=lambda _status: None,
+        )
+
+        manager.adjust_volume(4)
+
+        self.assertEqual(12, audio.level)
+        self.assertEqual([5], displayed)
 
     def test_toggle_mute_publishes_state_and_status(self) -> None:
         audio = FakeAudioController()

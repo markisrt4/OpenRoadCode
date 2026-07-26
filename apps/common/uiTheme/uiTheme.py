@@ -154,6 +154,8 @@ CAR_UI_THEME = {
             "text_wrap": MENU_TILE_STYLE["compact"]["text_wrap"],
             "subtitle_top_pad": 3,
             "detail_top_pad": 2,
+            "menu_icon_size": 30,
+            "menu_icon_gap": 7,
         },
         "normal": {
             "content_padx": 18,
@@ -175,6 +177,8 @@ CAR_UI_THEME = {
             "text_wrap": MENU_TILE_STYLE["normal"]["text_wrap"],
             "subtitle_top_pad": 3,
             "detail_top_pad": 2,
+            "menu_icon_size": 42,
+            "menu_icon_gap": 12,
         },
     },
 }

@@ -9,6 +9,11 @@
 [runtime]
 remote_display = ":2"
 
+[image_cache]
+# Album artwork is persisted here and reused across app launches.
+directory = "~/.cache/openroadcode/images"
+max_entries = 24
+
 [rigctl]
 host = "127.0.0.1"
 port = 4532

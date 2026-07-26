@@ -29,6 +29,7 @@ class PipewireAudioController(AudioControllerIf):
 
         self._steps = steps
         self._step_percent = step_percent
+        self._current_level: int | None = None
 
     @property
     def steps(self) -> int:
@@ -43,28 +44,33 @@ class PipewireAudioController(AudioControllerIf):
         return self._steps
 
     def volume_up(self) -> int:
-        self._run_wpctl(
-            [
-                "set-volume",
-                self.DEFAULT_SINK,
-                f"{self._step_percent}%+",
-                "--limit",
-                str(self.MAX_VOLUME),
-            ]
-        )
-
-        return self.get_volume_level()
+        return self.adjust_volume(1)
 
     def volume_down(self) -> int:
-        self._run_wpctl(
-            [
-                "set-volume",
-                self.DEFAULT_SINK,
-                f"{self._step_percent}%-",
-            ]
-        )
+        return self.adjust_volume(-1)
 
-        return self.get_volume_level()
+    def adjust_volume(self, steps: int) -> int:
+        """Adjust multiple volume steps with one PipeWire command."""
+        if steps == 0:
+            return self.get_volume_level()
+
+        percent = abs(steps) * self._step_percent
+        adjustment = f"{percent}%{'+' if steps > 0 else '-'}"
+        args = [
+            "set-volume",
+            self.DEFAULT_SINK,
+            adjustment,
+        ]
+        if steps > 0:
+            args.extend(["--limit", str(self.MAX_VOLUME)])
+        self._run_wpctl(args)
+
+        if self._current_level is None:
+            return self.get_volume_level()
+        self._current_level = self._clamp_level(
+            self._current_level + steps
+        )
+        return self._current_level
 
     def get_volume_level(self) -> int:
         output = self._run_wpctl(
@@ -92,9 +98,10 @@ class PipewireAudioController(AudioControllerIf):
                 f"Invalid wpctl volume response: {output!r}"
             ) from exc
 
-        return self._clamp_level(
+        self._current_level = self._clamp_level(
             round(volume * self._steps)
         )
+        return self._current_level
 
     def set_volume_level(self, level: int) -> int:
         clamped_level = self._clamp_level(level)
@@ -107,8 +114,8 @@ class PipewireAudioController(AudioControllerIf):
                 str(volume),
             ]
         )
-
-        return self.get_volume_level()
+        self._current_level = clamped_level
+        return clamped_level
 
     def is_muted(self) -> bool:
         output = self._run_wpctl(

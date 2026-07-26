@@ -1,14 +1,20 @@
 from __future__ import annotations
 
 import io
+import hashlib
+import os
+import tempfile
 import threading
 from collections import OrderedDict
 from dataclasses import dataclass
+from pathlib import Path
 
 from PIL import Image
 
 from controllers.image.image_downloader import ImageDownloader
 from controllers.image.image_errors import ImageDecodeError
+
+_LANCZOS = getattr(Image, "Resampling", Image).LANCZOS
 
 
 @dataclass(frozen=True, slots=True)
@@ -34,6 +40,7 @@ class ImageCache:
         downloader: ImageDownloader | None = None,
         *,
         max_entries: int = 64,
+        cache_directory: str | Path | None = None,
     ) -> None:
         if max_entries <= 0:
             raise ValueError(
@@ -42,6 +49,11 @@ class ImageCache:
 
         self._downloader = downloader or ImageDownloader()
         self._max_entries = max_entries
+        self._cache_directory = (
+            Path(cache_directory).expanduser()
+            if cache_directory is not None
+            else None
+        )
 
         self._images: OrderedDict[
             ImageCacheKey,
@@ -57,6 +69,11 @@ class ImageCache:
         @return Positive cache-entry limit.
         """
         return self._max_entries
+
+    @property
+    def cache_directory(self) -> Path | None:
+        """Return the persistent source-image cache directory, if enabled."""
+        return self._cache_directory
 
     @property
     def entry_count(self) -> int:
@@ -170,7 +187,14 @@ class ImageCache:
                 image = self._images.pop(key)
                 image.close()
 
-            return len(matching_keys)
+        disk_path = self._disk_path(normalized_url)
+        if disk_path is not None:
+            try:
+                disk_path.unlink()
+            except FileNotFoundError:
+                pass
+
+        return len(matching_keys)
 
     def clear(self) -> None:
         """
@@ -189,20 +213,29 @@ class ImageCache:
         width: int | None,
         height: int | None,
     ) -> Image.Image:
-        downloaded = self._downloader.download(url)
+        data, from_disk = self._source_data(url)
 
         try:
-            with Image.open(
-                io.BytesIO(downloaded.data)
-            ) as source:
-                source.load()
-
-                image = source.convert("RGBA")
-
+            image = self._decode(data)
         except (OSError, ValueError) as exc:
-            raise ImageDecodeError(
-                f"Unable to decode image from {url}"
-            ) from exc
+            if not from_disk:
+                raise ImageDecodeError(
+                    f"Unable to decode image from {url}"
+                ) from exc
+            disk_path = self._disk_path(url)
+            if disk_path is not None:
+                try:
+                    disk_path.unlink()
+                except FileNotFoundError:
+                    pass
+            downloaded = self._downloader.download(url)
+            self._persist(url, downloaded.data)
+            try:
+                image = self._decode(downloaded.data)
+            except (OSError, ValueError) as retry_exc:
+                raise ImageDecodeError(
+                    f"Unable to decode image from {url}"
+                ) from retry_exc
 
         if width is not None or height is not None:
             target_width = (
@@ -214,10 +247,59 @@ class ImageCache:
 
             image.thumbnail(
                 (target_width, target_height),
-                Image.Resampling.LANCZOS,
+                _LANCZOS,
             )
 
         return image
+
+    @staticmethod
+    def _decode(data: bytes) -> Image.Image:
+        with Image.open(io.BytesIO(data)) as source:
+            source.load()
+            return source.convert("RGBA")
+
+    def _source_data(self, url: str) -> tuple[bytes, bool]:
+        disk_path = self._disk_path(url)
+        if disk_path is not None:
+            try:
+                return disk_path.read_bytes(), True
+            except FileNotFoundError:
+                pass
+            except OSError:
+                pass
+
+        downloaded = self._downloader.download(url)
+        self._persist(url, downloaded.data)
+        return downloaded.data, False
+
+    def _disk_path(self, url: str) -> Path | None:
+        if self._cache_directory is None:
+            return None
+        digest = hashlib.sha256(url.encode("utf-8")).hexdigest()
+        return self._cache_directory / f"{digest}.image"
+
+    def _persist(self, url: str, data: bytes) -> None:
+        disk_path = self._disk_path(url)
+        if disk_path is None:
+            return
+        try:
+            disk_path.parent.mkdir(parents=True, exist_ok=True)
+            descriptor, temporary_name = tempfile.mkstemp(
+                prefix=f".{disk_path.name}.",
+                dir=disk_path.parent,
+            )
+            try:
+                with os.fdopen(descriptor, "wb") as output:
+                    output.write(data)
+                os.replace(temporary_name, disk_path)
+            finally:
+                try:
+                    Path(temporary_name).unlink()
+                except FileNotFoundError:
+                    pass
+        except OSError:
+            # A read-only or unavailable disk cache must not stop playback.
+            return
 
     def _evict_if_needed(self) -> None:
         while len(self._images) > self._max_entries:

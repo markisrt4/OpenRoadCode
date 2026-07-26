@@ -53,14 +53,14 @@ Run the installation script:
 The installer will:
 
 - Prompt for the Spotify Client ID
-- Create the local configuration file
+- Store configuration in the shared OpenRoadCode secrets file
 - Launch the Spotify authorization flow
 - Store OAuth tokens locally
 
 Configuration is stored in:
 
 ```text
-~/.config/spotify/config.json
+/etc/openroadcode/secrets.env
 ```
 
 OAuth tokens are stored in:
@@ -69,7 +69,8 @@ OAuth tokens are stored in:
 ~/.config/spotify/tokens.json
 ```
 
-Neither file should be committed to source control.
+Neither file should be committed to source control. Process environment
+variables override values from the secrets file when needed for testing.
 
 ## Authentication
 

@@ -74,6 +74,33 @@ class PipewireAudioControllerTest(unittest.TestCase):
             run_wpctl.call_args_list,
         )
 
+    def test_adjusts_multiple_cached_steps_with_one_command(self) -> None:
+        controller = PipewireAudioController(
+            steps=20,
+            step_percent=5,
+        )
+
+        with patch.object(
+            controller,
+            "_run_wpctl",
+            return_value="Volume: 0.50",
+        ) as run_wpctl:
+            self.assertEqual(10, controller.get_volume_level())
+            run_wpctl.reset_mock()
+
+            level = controller.adjust_volume(3)
+
+        self.assertEqual(13, level)
+        run_wpctl.assert_called_once_with(
+            [
+                "set-volume",
+                controller.DEFAULT_SINK,
+                "15%+",
+                "--limit",
+                str(controller.MAX_VOLUME),
+            ]
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -10,9 +10,11 @@ from apps.carUi.input import EncoderEventRouter, PanelEncoderCallbacks
 from apps.carUi.panels.aircraft_panel_manager import AircraftPanelManager
 from apps.carUi.panels.fm_radio_panel_manager import FMRadioPanelManager
 from apps.carUi.panels.lighting_panel_manager import LightingPanelManager
+from apps.carUi.panels.netflix_panel_manager import NetflixPanelManager
 from apps.carUi.panels.scanner_panel_manager import ScannerPanelManager
 from apps.carUi.panels.spotify_panel_manager import SpotifyPanelManager
 from apps.carUi.panels.weather_panel_manager import WeatherPanelManager
+from apps.carUi.panels.youtube_panel_manager import YouTubePanelManager
 from apps.carUi.navigation import (
     MenuPage,
     MenuRenderer,
@@ -35,10 +37,14 @@ from apps.common.uiTheme.uiTheme import (
     TOP_BAR_THEME,
 )
 from controllers.audio.audio_controller_if import AudioControllerIf
+from controllers.image import ImageCache
 from hardware_io.gps.gps_reader import GpsReader
 from hardware_io.rotary_encoder import RotaryEncoderIf
 from controllers.spotify import SpotifyControllerIf
 from controllers.lighting.lighting_controller_if import LightingControllerIf
+from controllers.video.music_video_controller import MusicVideoController
+from controllers.video.netflix_player import NetflixPlayer
+from controllers.video.youtube_player import YouTubePlayer
 
 class UiControlPanel(tk.Tk):
     """Top-level Car UI window coordinating panels and hardware input."""
@@ -49,6 +55,9 @@ class UiControlPanel(tk.Tk):
         lighting_controller: LightingControllerIf,
         audio_controller: AudioControllerIf,
         spotify_controller: SpotifyControllerIf,
+        music_video_controller: MusicVideoController,
+        netflix_player: NetflixPlayer,
+        youtube_player: YouTubePlayer,
         rotary_encoders: Sequence[RotaryEncoderIf],
         volume_encoder_index: int,
         callbacks: Optional[Dict[str, Callable[[str], None]]] = None,
@@ -61,6 +70,9 @@ class UiControlPanel(tk.Tk):
         self.lighting_controller = lighting_controller
         self.audio_controller = audio_controller
         self.spotify_controller = spotify_controller
+        self.music_video_controller = music_video_controller
+        self.netflix_player = netflix_player
+        self.youtube_player = youtube_player
         self.remote_display = runtime.remote_display
         self.callbacks: Dict[str, Callable[[str], None]] = callbacks or {}
 
@@ -130,6 +142,19 @@ class UiControlPanel(tk.Tk):
         self.spotify_panel_manager = SpotifyPanelManager(
             self,
             spotify_controller=self.spotify_controller,
+            music_video_controller=self.music_video_controller,
+            image_cache=ImageCache(
+                max_entries=runtime.image_cache.max_entries,
+                cache_directory=runtime.image_cache.directory,
+            ),
+        )
+        self.netflix_panel_manager = NetflixPanelManager(
+            self,
+            player=self.netflix_player,
+        )
+        self.youtube_panel_manager = YouTubePanelManager(
+            self,
+            player=self.youtube_player,
         )
 
         self.volume_manager = VolumeManager(
@@ -145,6 +170,7 @@ class UiControlPanel(tk.Tk):
             volume_encoder_index=volume_encoder_index,
             volume_up=self.volume_manager.volume_up,
             volume_down=self.volume_manager.volume_down,
+            volume_adjust=self.volume_manager.adjust_volume,
             volume_button_pressed=self.volume_manager.toggle_mute,
         )
 
@@ -181,6 +207,8 @@ class UiControlPanel(tk.Tk):
                 "fm_radio": self.fm_radio_panel_manager.show,
                 "scanner_radio": self.scanner_panel_manager.show,
                 "spotify": self.spotify_panel_manager.show,
+                "netflix": self.netflix_panel_manager.show,
+                "youtube": self.youtube_panel_manager.show,
             }
         )
 
@@ -287,7 +315,7 @@ class UiControlPanel(tk.Tk):
                     MenuTile("gauges", "GAUGES", "OBD-II / telemetry", "Vehicle dashboard"),
                     MenuTile("weather", "WEATHER", "Forecast + alerts", "Conditions and warnings"),
                     MenuTile("lighting", "LIGHTING", "Cabin / accent", "Lighting controls"),
-                    MenuTile("media", "MEDIA", "Spotify / audio", "Music and playback"),
+                    MenuTile("media", "MEDIA", "Spotify / video", "Music and video playback"),
                 ),
                 columns=3,
             ),
@@ -304,6 +332,8 @@ class UiControlPanel(tk.Tk):
                 title="Media",
                 tiles=(
                     MenuTile("spotify", "SPOTIFY", "Streaming control", "Spotify app integration"),
+                    MenuTile("youtube", "YOUTUBE", "Video streaming", "Search and watch YouTube"),
+                    MenuTile("netflix", "NETFLIX", "Video streaming", "Open a Netflix title"),
                 ),
                 columns=3,
             ),
@@ -438,6 +468,17 @@ class UiControlPanel(tk.Tk):
     def _close_window(self) -> None:
         self.stop_encoder_events()
         self.gps_ui_monitor.stop()
+        self.netflix_player.stop()
+        for launcher in (
+            self.runtime.weather_dash_launcher,
+            self.runtime.adsb_launcher,
+        ):
+            if launcher is None:
+                continue
+            try:
+                launcher.stop(self.winfo_screen())
+            except Exception as exc:
+                print(f"[UI] Dashboard shutdown error: {exc}")
         self.quit()
         self.destroy()
 

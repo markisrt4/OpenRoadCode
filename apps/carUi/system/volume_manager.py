@@ -64,6 +64,20 @@ class VolumeManager:
             self._set_status(f"Volume down failed: {exc}")
             print(f"[VOLUME] Volume down failed: {exc}")
 
+    def adjust_volume(self, steps: int) -> None:
+        """Apply signed volume steps as one controller operation."""
+        if steps == 0:
+            return
+        try:
+            level = self._audio_controller.adjust_volume(steps)
+            self._publish_indicator_level(level)
+            self._set_status(
+                "Volume up" if steps > 0 else "Volume down"
+            )
+        except Exception as exc:
+            self._set_status(f"Volume adjustment failed: {exc}")
+            print(f"[VOLUME] Volume adjustment failed: {exc}")
+
     def _publish_indicator_level(self, audio_level: int) -> None:
         self._set_volume_level(
             self.indicator_level(

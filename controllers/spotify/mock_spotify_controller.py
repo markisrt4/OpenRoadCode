@@ -38,15 +38,28 @@ class MockSpotifyController(SpotifyControllerIf):
             status_message="Playing" if self._is_playing else "Paused",
         )
 
-    def play_pause(self) -> None:
+    def play(self) -> None:
         if self._is_playing:
-            _, _, _, duration_ms = self._tracks[self._track_index]
-            self._paused_progress_ms = self._current_progress_ms(duration_ms)
-            self._is_playing = False
             return
 
-        self._track_started_at = time.monotonic() - (self._paused_progress_ms / 1000.0)
+        self._track_started_at = (
+            time.monotonic() - (self._paused_progress_ms / 1000.0)
+        )
         self._is_playing = True
+
+    def pause(self) -> None:
+        if not self._is_playing:
+            return
+
+        _, _, _, duration_ms = self._tracks[self._track_index]
+        self._paused_progress_ms = self._current_progress_ms(duration_ms)
+        self._is_playing = False
+
+    def play_pause(self) -> None:
+        if self._is_playing:
+            self.pause()
+        else:
+            self.play()
 
     def next_track(self) -> None:
         self._track_index = (self._track_index + 1) % len(self._tracks)

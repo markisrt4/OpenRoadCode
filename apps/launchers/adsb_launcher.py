@@ -39,6 +39,14 @@ class ADSBLauncher(AppLauncherIf):
         self.browser = BrowserKioskLauncher(
             url=url,
             process_pattern="127.0.0.1/tar1090",
+            profile_path=(
+                Path.home()
+                / "snap"
+                / "chromium"
+                / "common"
+                / "openroadcode-adsb"
+            ),
+            window_class="OpenRoadCodeADSB",
             log_file=(
                 browser_log_file
                 or logging_file_path(
@@ -50,6 +58,18 @@ class ADSBLauncher(AppLauncherIf):
 
     def is_running(self) -> bool:
         return self.browser.is_running()
+
+    def configure_browser_window(
+        self,
+        *,
+        position: tuple[int, int],
+        size: tuple[int, int],
+    ) -> None:
+        """Align the tar1090 browser to a Car UI panel."""
+        self.browser.configure_app_window(
+            position=position,
+            size=size,
+        )
 
     def launch(
         self,

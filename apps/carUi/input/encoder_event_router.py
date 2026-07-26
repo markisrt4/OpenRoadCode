@@ -58,6 +58,7 @@ class EncoderEventRouter:
         volume_encoder_index: int,
         volume_up: Callable[[], None],
         volume_down: Callable[[], None],
+        volume_adjust: Callable[[int], None] | None = None,
         volume_button_pressed: Callable[[], None] | None = None,
         poll_interval_ms: int = DEFAULT_POLL_INTERVAL_MS,
     ) -> None:
@@ -83,6 +84,7 @@ class EncoderEventRouter:
         }
         self._volume_up = volume_up
         self._volume_down = volume_down
+        self._volume_adjust = volume_adjust
         self._volume_button_pressed = volume_button_pressed
         self._poll_interval_ms = poll_interval_ms
 
@@ -245,6 +247,9 @@ class EncoderEventRouter:
     def _dispatch(self, event: _EncoderEvent) -> None:
         if event.encoder_index == self._volume_encoder_index:
             if event.kind is _EventKind.ROTATED:
+                if self._volume_adjust is not None:
+                    self._volume_adjust(event.steps)
+                    return
                 callback = (
                     self._volume_up
                     if event.steps > 0

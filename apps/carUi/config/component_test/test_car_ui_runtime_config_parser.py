@@ -70,6 +70,27 @@ class CarUiRuntimeConfigTestAppTest(unittest.TestCase):
         )
         self.assertEqual(0, result)
 
+    def test_image_cache_config_is_parsed(self) -> None:
+        from apps.carUi.config.component_test.car_ui_runtime_config_test_app import (
+            validate_config,
+        )
+
+        self.config_path.write_text(
+            VALID_TOML
+            + '\n[image_cache]\ndirectory = "var/artwork"\nmax_entries = 12\n',
+            encoding="utf-8",
+        )
+        config = validate_config(
+            self.config_path,
+            project_root=self.project_root,
+        )
+
+        self.assertEqual(
+            (self.project_root / "var" / "artwork").resolve(),
+            config.image_cache.directory,
+        )
+        self.assertEqual(12, config.image_cache.max_entries)
+
     def test_rotary_encoder_config_is_parsed(self) -> None:
         from apps.carUi.config.component_test.car_ui_runtime_config_test_app import (
             validate_config,

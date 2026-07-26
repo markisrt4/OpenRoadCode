@@ -42,6 +42,14 @@ class StreamlitLauncher(AppLauncherIf):
         self.browser = BrowserKioskLauncher(
             url=f"http://127.0.0.1:{port}",
             process_pattern=f"127.0.0.1:{port}",
+            profile_path=(
+                Path.home()
+                / "snap"
+                / "chromium"
+                / "common"
+                / f"openroadcode-streamlit-{port}"
+            ),
+            window_class=f"OpenRoadCodeStreamlit{port}",
             log_file=(
                 browser_log_file
                 or logging_file_path(
@@ -55,6 +63,18 @@ class StreamlitLauncher(AppLauncherIf):
     @property
     def process_pattern(self) -> str:
         return str(self.app_path)
+
+    def configure_browser_window(
+        self,
+        *,
+        position: tuple[int, int],
+        size: tuple[int, int],
+    ) -> None:
+        """Align the dashboard browser to a Car UI panel."""
+        self.browser.configure_app_window(
+            position=position,
+            size=size,
+        )
 
     def is_running(self) -> bool:
         if self._process is not None:

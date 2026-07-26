@@ -1,8 +1,12 @@
 from __future__ import annotations
 
+import tkinter as tk
 from typing import Optional
 
 from apps.carUi.panels.panel_manager_if import PanelManagerIf
+from apps.carUi.panels.browser_return_overlay import (
+    BrowserReturnOverlay,
+)
 from apps.carUi.panels.weather_panel import WeatherPanel
 from apps.carUi.radio.radio_panel import RadioPanel
 from apps.carUi.radio.radio_panel_config import (
@@ -25,6 +29,13 @@ class WeatherPanelManager(PanelManagerIf):
         super().__init__(app)
         self.noaa_panel: Optional[RadioPanel] = None
         self.noaa_session: Optional[RadioSessionController] = None
+        self._dashboard_overlay = BrowserReturnOverlay(
+            app,
+            command=self.close_weather_dashboard,
+            background=app.colors["tile_accent"],
+            foreground=app.colors["tile_title"],
+            active_background=app.colors["tile_border"],
+        )
 
     def show(self) -> None:
         if not self.prepare_panel("Weather"):
@@ -34,7 +45,7 @@ class WeatherPanelManager(PanelManagerIf):
 
         weather_view = WeatherPanel(
             parent=self.content_frame,
-            on_weather_dashboard_pressed=self.toggle_weather_dashboard,
+            on_weather_dashboard_pressed=self.show_weather_dashboard,
             on_noaa_radio_pressed=self.show_noaa_weather_radio,
             create_tile=self.create_tile,
             theme=WEATHER_PANEL_THEME,
@@ -43,27 +54,77 @@ class WeatherPanelManager(PanelManagerIf):
 
         self.set_status("Weather menu ready")
 
-    def toggle_weather_dashboard(self) -> None:
+    def show_weather_dashboard(self) -> None:
         launcher = self.app.runtime.weather_dash_launcher
         if launcher is None:
             self.set_status("Weather dashboard is disabled")
             return
 
+        if not self.prepare_panel("Weather Dashboard"):
+            return
+        self.app.top_bar.set_back_command(
+            self.close_weather_dashboard
+        )
+        host = self._create_dashboard_host("Loading weather dashboard...")
+
         try:
-            running = launcher.toggle(
-                remote_display=self.remote_display,
+            position, size = self._host_geometry(host)
+            launcher.configure_browser_window(
+                position=position,
+                size=size,
+            )
+            launcher.launch(
+                remote_display=self.app.winfo_screen(),
                 set_status=self.set_status,
             )
-            self.set_status(
-                "Weather dashboard launched"
-                if running
-                else "Weather dashboard stopped"
+            self._dashboard_overlay.show(
+                x=position[0] + 12,
+                y=position[1] + 12,
             )
+            self.set_status("Weather dashboard opened")
         except Exception as exc:
             self.set_status(
-                f"Weather dashboard toggle failed: {exc}"
+                f"Weather dashboard launch failed: {exc}"
             )
-            print(f"[UI] Weather dashboard toggle error: {exc}")
+            print(f"[UI] Weather dashboard launch error: {exc}")
+
+    def close_weather_dashboard(self) -> None:
+        self._dashboard_overlay.hide()
+        launcher = self.app.runtime.weather_dash_launcher
+        if launcher is not None:
+            try:
+                launcher.stop(
+                    remote_display=self.app.winfo_screen(),
+                    set_status=self.set_status,
+                )
+            except Exception as exc:
+                print(f"[UI] Weather dashboard stop error: {exc}")
+        self.show()
+
+    def _create_dashboard_host(self, message: str) -> tk.Frame:
+        host = tk.Frame(
+            self.content_frame,
+            bg=self.app.colors["app_bg"],
+        )
+        host.pack(fill="both", expand=True)
+        tk.Label(
+            host,
+            text=message,
+            bg=self.app.colors["app_bg"],
+            fg=self.app.colors["tile_subtitle"],
+            font=("DejaVu Sans", 16),
+        ).pack(expand=True)
+        host.update_idletasks()
+        return host
+
+    @staticmethod
+    def _host_geometry(
+        host: tk.Frame,
+    ) -> tuple[tuple[int, int], tuple[int, int]]:
+        return (
+            (host.winfo_rootx(), host.winfo_rooty()),
+            (max(1, host.winfo_width()), max(1, host.winfo_height())),
+        )
 
     def show_noaa_weather_radio(self) -> None:
         if not self.prepare_panel("NOAA Weather Radio"):

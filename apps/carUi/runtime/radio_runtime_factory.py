@@ -74,6 +74,7 @@ def build_car_ui_runtime(config: CarUiRuntimeConfig) -> CarUiRuntime:
         adsb_launcher=adsb_launcher,
         weather_dash_launcher=weather_dash_launcher,
         sdr_resource_manager=resource_manager,
+        image_cache=config.image_cache,
     )
 
 

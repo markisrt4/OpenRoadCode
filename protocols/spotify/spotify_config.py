@@ -1,19 +1,11 @@
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Optional
 
 from protocols.oauth import OAuthClientConfig
+from security.secret_manager_if import SecretManagerIf
 
-
-DEFAULT_CONFIG_PATH = (
-    Path.home()
-    / ".config"
-    / "spotify"
-    / "config.json"
-)
 
 DEFAULT_REDIRECT_URI = "http://127.0.0.1:8888/callback"
 
@@ -30,6 +22,9 @@ SPOTIFY_SCOPES = (
     "user-read-currently-playing",
     "user-modify-playback-state",
 )
+
+SPOTIFY_CLIENT_ID_SECRET_NAME = "SPOTIFY_CLIENT_ID"
+SPOTIFY_REDIRECT_URI_SECRET_NAME = "SPOTIFY_REDIRECT_URI"
 
 
 @dataclass(frozen=True, slots=True)
@@ -61,30 +56,26 @@ class SpotifyConfig:
         )
 
 
-def load_spotify_config(
-    path: Path = DEFAULT_CONFIG_PATH,
+def load_spotify_config_from_secrets(
+    secret_manager: SecretManagerIf,
+    *,
+    client_id_secret_name: str = SPOTIFY_CLIENT_ID_SECRET_NAME,
+    redirect_uri_secret_name: str = SPOTIFY_REDIRECT_URI_SECRET_NAME,
 ) -> Optional[SpotifyConfig]:
-    """
-    Load Spotify configuration from a JSON file.
+    """Load Spotify configuration from a secret manager.
 
-    Returns ``None`` when the file is missing or malformed so callers can
-    disable Spotify support without crashing the app.
+    Returns ``None`` when the required client ID is unavailable. Spotify uses
+    OAuth PKCE, so no client secret is required.
     """
-    try:
-        with path.open("r", encoding="utf-8") as file:
-            data = json.load(file)
-    except (FileNotFoundError, json.JSONDecodeError, OSError):
+    client_id = secret_manager.get_secret(client_id_secret_name)
+    if client_id is None:
         return None
 
-    try:
-        return SpotifyConfig(
-            client_id=str(data["client_id"]),
-            redirect_uri=str(
-                data.get(
-                    "redirect_uri",
-                    DEFAULT_REDIRECT_URI,
-                )
-            ),
-        )
-    except (KeyError, TypeError, ValueError):
-        return None
+    redirect_uri = (
+        secret_manager.get_secret(redirect_uri_secret_name)
+        or DEFAULT_REDIRECT_URI
+    )
+    return SpotifyConfig(
+        client_id=client_id,
+        redirect_uri=redirect_uri,
+    )

@@ -1,21 +1,21 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import logging
 from typing import Any
-
-import board
 
 from apps.carUi.config.car_ui_runtime_config_parser import (
     GpioEncoderConfig,
     RotaryEncoderConfig,
     SeesawEncoderConfig,
 )
-from hardware_io.rotary_encoder import (
-    GpioRotaryEncoder,
-    GpioRotaryEncoderPins,
+from hardware_io.rotary_encoder.rotary_encoder_if import (
+    ButtonCallback,
     RotaryEncoderIf,
-    SeesawRotaryEncoder,
+    RotationCallback,
 )
+
+LOGGER = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True, slots=True)
@@ -25,35 +25,94 @@ class RotaryEncoderRuntime:
     volume_index: int
 
 
+class DisabledRotaryEncoder(RotaryEncoderIf):
+    """No-op encoder used when hardware input is disabled."""
+
+    @property
+    def is_running(self) -> bool:
+        return False
+
+    def start(
+        self,
+        rotated: RotationCallback,
+        button_pressed: ButtonCallback | None = None,
+        button_released: ButtonCallback | None = None,
+    ) -> None:
+        return None
+
+    def stop(self) -> None:
+        return None
+
+    def poll(self) -> None:
+        return None
+
+
+def _create_i2c() -> Any:
+    import board
+
+    return board.I2C()
+
+
+def _create_seesaw_encoder(
+    device: SeesawEncoderConfig,
+    i2c: Any,
+) -> RotaryEncoderIf:
+    from hardware_io.rotary_encoder.seesaw_rotary_encoder import (
+        SeesawRotaryEncoder,
+    )
+
+    return SeesawRotaryEncoder(
+        address=device.address,
+        i2c=i2c,
+        reverse_direction=device.reverse_direction,
+    )
+
+
+def _create_gpio_encoder(
+    device: GpioEncoderConfig,
+) -> RotaryEncoderIf:
+    from hardware_io.rotary_encoder.gpio_rotary_encoder import (
+        GpioRotaryEncoder,
+        GpioRotaryEncoderPins,
+    )
+
+    return GpioRotaryEncoder(
+        pins=GpioRotaryEncoderPins(
+            pin_a=device.pin_a,
+            pin_b=device.pin_b,
+            button=device.button,
+        ),
+        reverse_direction=device.reverse_direction,
+    )
+
+
 def create_rotary_encoder_runtime(
     config: RotaryEncoderConfig,
 ) -> RotaryEncoderRuntime:
-    """Instantiate rotary-encoder drivers from validated configuration."""
-    i2c: Any | None = None
+    """Instantiate available encoder drivers and stub unavailable hardware."""
+    i2c = None
     encoders: list[RotaryEncoderIf] = []
 
     for device in config.devices:
-        if isinstance(device, SeesawEncoderConfig):
-            if i2c is None:
-                i2c = board.I2C()
-            encoder: RotaryEncoderIf = SeesawRotaryEncoder(
-                address=device.address,
-                i2c=i2c,
-                reverse_direction=device.reverse_direction,
+        try:
+            if isinstance(device, SeesawEncoderConfig):
+                if i2c is None:
+                    i2c = _create_i2c()
+                encoder = _create_seesaw_encoder(device, i2c)
+            elif isinstance(device, GpioEncoderConfig):
+                encoder = _create_gpio_encoder(device)
+            else:
+                raise TypeError(
+                    "Unsupported rotary encoder config: "
+                    f"{type(device).__name__}"
+                )
+        except ModuleNotFoundError as exc:
+            LOGGER.warning(
+                "Rotary encoder disabled because an optional hardware "
+                "dependency is unavailable: %s",
+                exc,
             )
-        elif isinstance(device, GpioEncoderConfig):
-            encoder = GpioRotaryEncoder(
-                pins=GpioRotaryEncoderPins(
-                    pin_a=device.pin_a,
-                    pin_b=device.pin_b,
-                    button=device.button,
-                ),
-                reverse_direction=device.reverse_direction,
-            )
-        else:
-            raise TypeError(
-                f"Unsupported rotary encoder config: {type(device).__name__}"
-            )
+            encoder = DisabledRotaryEncoder()
 
         encoders.append(encoder)
 

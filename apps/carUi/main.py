@@ -19,6 +19,10 @@ from apps.carUi.uiControlPanel import UiControlPanel
 from controllers.audio.pipewire_audio_controller import (
     PipewireAudioController,
 )
+from controllers.video.music_video_controller import MusicVideoController
+from controllers.video.netflix_player import NetflixPlayer
+from controllers.video.youtube_music_video import YouTubeMusicVideo
+from controllers.video.youtube_player import YouTubePlayer
 from hardware_io.gps.gps_reader import GpsReader
 
 
@@ -48,12 +52,19 @@ def main() -> None:
     gps_reader = GpsReader()
     audio_controller = PipewireAudioController()
     spotify_controller = create_spotify_controller()
+    youtube_music_video = YouTubeMusicVideo(fullscreen=True)
+    music_video_controller = MusicVideoController(
+        spotify_controller=spotify_controller,
+        music_video=youtube_music_video,
+    )
+    netflix_player = NetflixPlayer()
+    youtube_player = YouTubePlayer()
     lighting_controller = create_lighting_controller(
         project_root=PROJECT_ROOT,
         address=os.getenv("CARUI_LIGHTING_ADDRESS"),
     )
     encoder_runtime = create_rotary_encoder_runtime(
-        runtime.rotary_encoders
+        runtime.rotary_encoders,
     )
 
     app = UiControlPanel(
@@ -62,6 +73,9 @@ def main() -> None:
         lighting_controller=lighting_controller,
         audio_controller=audio_controller,
         spotify_controller=spotify_controller,
+        music_video_controller=music_video_controller,
+        netflix_player=netflix_player,
+        youtube_player=youtube_player,
         rotary_encoders=encoder_runtime.encoders,
         volume_encoder_index=encoder_runtime.volume_index,
     )
@@ -75,6 +89,9 @@ def main() -> None:
         app.stop_encoder_events()
         gps_reader.close()
         lighting_controller.close()
+        youtube_music_video.stop_video()
+        netflix_player.stop()
+        youtube_player.stop()
 
 
 if __name__ == "__main__":

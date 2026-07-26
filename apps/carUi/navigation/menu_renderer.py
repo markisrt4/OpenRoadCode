@@ -5,6 +5,7 @@ from collections.abc import Callable
 from typing import Any
 
 from apps.carUi.navigation.menu_page import MenuPage
+from apps.carUi.navigation.menu_icons import create_menu_icon
 from apps.carUi.navigation.menu_tile import MenuTile
 
 
@@ -125,8 +126,31 @@ class MenuRenderer:
             pady=self._style["body_pady"],
         )
 
+        title_parent = body
+        title_icon = None
+        if not is_preset:
+            title_parent = tk.Frame(body, bg=self._colors["tile_bg"])
+            title_parent.pack(
+                fill=self._layout["fill_horizontal"],
+                anchor=anchor,
+            )
+            title_icon = create_menu_icon(
+                title_parent,
+                key=tile.key,
+                size=self._style.get("menu_icon_size", 36),
+                background=self._colors["tile_bg"],
+            )
+            if title_icon is not None:
+                title_icon.pack(
+                    side="left",
+                    padx=(
+                        0,
+                        self._style.get("menu_icon_gap", 10),
+                    ),
+                )
+
         self._create_label(
-            body,
+            title_parent,
             text=tile.title,
             font=title_font,
             foreground=self._colors["tile_title"],
@@ -136,6 +160,8 @@ class MenuRenderer:
         ).pack(
             fill=self._layout["fill_horizontal"],
             anchor=anchor,
+            side=("left" if title_icon is not None else "top"),
+            expand=title_icon is not None,
         )
 
         self._create_label(

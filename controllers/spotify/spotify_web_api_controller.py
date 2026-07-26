@@ -49,22 +49,28 @@ class SpotifyWebApiController(SpotifyControllerIf):
             )
             return self._last_state
 
+    def play(self) -> None:
+        """Start or resume playback."""
+        self._client.request(
+            "PUT",
+            "/me/player/play",
+        )
+
+    def pause(self) -> None:
+        """Pause playback."""
+        self._client.request(
+            "PUT",
+            "/me/player/pause",
+        )
+
     def play_pause(self) -> None:
-        """
-        Toggle between playing and paused.
-        """
+        """Toggle between playing and paused."""
         state = self.current_state()
 
         if state.is_playing:
-            self._client.request(
-                "PUT",
-                "/me/player/pause",
-            )
+            self.pause()
         else:
-            self._client.request(
-                "PUT",
-                "/me/player/play",
-            )
+            self.play()
 
     def next_track(self) -> None:
         """

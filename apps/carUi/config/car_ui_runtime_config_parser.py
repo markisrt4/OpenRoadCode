@@ -24,6 +24,13 @@ class RuntimeDisplayConfig:
 
 
 @dataclass(frozen=True, slots=True)
+class ImageCacheConfig:
+    """Configure decoded-image memory and optional persistent source storage."""
+    directory: Path | None = None
+    max_entries: int = 24
+
+
+@dataclass(frozen=True, slots=True)
 class RigctlConfig:
     """Configure the host and TCP port of the rigctl service."""
     host: str = "127.0.0.1"
@@ -124,6 +131,7 @@ class CarUiRuntimeConfig:
     radios: tuple[RadioStackConfig, ...]
     auxiliary: AuxiliaryConfig
     environmental: EnvironmentalConfig = EnvironmentalConfig()
+    image_cache: ImageCacheConfig = ImageCacheConfig()
 
     def enabled_radios(self) -> tuple[RadioStackConfig, ...]:
         """Return radio stacks enabled in this configuration."""
@@ -185,6 +193,7 @@ class CarUiRuntimeConfigParser:
             ) from exc
 
         runtime = self._parse_runtime(data.get("runtime", {}))
+        image_cache = self._parse_image_cache(data.get("image_cache", {}))
         rigctl = self._parse_rigctl(data.get("rigctl", {}))
         input_config = self._parse_input(data.get("input", {}))
         environmental = self._parse_environmental(
@@ -200,6 +209,7 @@ class CarUiRuntimeConfigParser:
             radios=radios,
             auxiliary=auxiliary,
             environmental=environmental,
+            image_cache=image_cache,
         )
 
     def _parse_runtime(self, data: Any) -> RuntimeDisplayConfig:
@@ -211,6 +221,35 @@ class CarUiRuntimeConfigParser:
             section_name="runtime",
         )
         return RuntimeDisplayConfig(remote_display=remote_display)
+
+    def _parse_image_cache(self, data: Any) -> ImageCacheConfig:
+        section = self._expect_table(data, "image_cache")
+        directory_value = section.get("directory")
+        if directory_value is None:
+            directory = None
+        elif not isinstance(directory_value, str) or not directory_value.strip():
+            raise CarUiRuntimeConfigError(
+                "image_cache.directory must be a non-empty path"
+            )
+        else:
+            directory = Path(directory_value.strip()).expanduser()
+            if not directory.is_absolute():
+                directory = self.project_root / directory
+            directory = directory.resolve()
+
+        max_entries = section.get("max_entries", 24)
+        if (
+            not isinstance(max_entries, int)
+            or isinstance(max_entries, bool)
+            or max_entries <= 0
+        ):
+            raise CarUiRuntimeConfigError(
+                "image_cache.max_entries must be a positive integer"
+            )
+        return ImageCacheConfig(
+            directory=directory,
+            max_entries=max_entries,
+        )
 
     def _parse_rigctl(self, data: Any) -> RigctlConfig:
         section = self._expect_table(data, "rigctl")
