@@ -21,6 +21,7 @@ from apps.carUi.navigation import (
     PanelRouter,
 )
 from apps.carUi.runtime.radio_runtime import CarUiRuntime
+from apps.carUi.runtime.window_runtime import apply_fullscreen
 from apps.carUi.system import (
     SystemControlManager,
     SystemController,
@@ -81,7 +82,8 @@ class UiControlPanel(tk.Tk):
 
         self.geometry(ui_geometry)
         self.minsize(*self.theme["window"]["minimum_size"])
-        self.attributes("-fullscreen", fullscreen)
+        if fullscreen:
+            apply_fullscreen(self)
         self.configure(bg=self.colors["app_bg"])
 
         self.content_frame: Optional[tk.Frame] = None
