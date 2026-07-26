@@ -38,43 +38,55 @@ def main() -> None:
     except RuntimeError as exc:
         raise SystemExit(f"[CarUI] {exc}") from exc
 
-    show_startup_splash()
-
-    runtime = create_car_ui_runtime(
-        RUNTIME_CONFIG_PATH,
-        project_root=PROJECT_ROOT,
-    )
-
-    gps_reader = GpsReader()
-    audio_controller = PipewireAudioController()
-    spotify_controller = create_spotify_controller()
-    lighting_controller = create_lighting_controller(
-        project_root=PROJECT_ROOT,
-        address=os.getenv("CARUI_LIGHTING_ADDRESS"),
-    )
-    encoder_runtime = create_rotary_encoder_runtime(
-        runtime.rotary_encoders
-    )
-
-    app = UiControlPanel(
-        runtime=runtime,
-        gps_device=gps_reader,
-        lighting_controller=lighting_controller,
-        audio_controller=audio_controller,
-        spotify_controller=spotify_controller,
-        rotary_encoders=encoder_runtime.encoders,
-        volume_encoder_index=encoder_runtime.volume_index,
-    )
-
+    app: UiControlPanel | None = None
+    gps_reader: GpsReader | None = None
+    lighting_controller = None
     try:
+        show_startup_splash()
+
+        runtime = create_car_ui_runtime(
+            RUNTIME_CONFIG_PATH,
+            project_root=PROJECT_ROOT,
+        )
+
+        gps_reader = GpsReader()
+        audio_controller = PipewireAudioController()
+        spotify_controller = create_spotify_controller()
+        lighting_controller = create_lighting_controller(
+            project_root=PROJECT_ROOT,
+            address=os.getenv("CARUI_LIGHTING_ADDRESS"),
+        )
+        encoder_runtime = create_rotary_encoder_runtime(
+            runtime.rotary_encoders
+        )
+
+        app = UiControlPanel(
+            runtime=runtime,
+            gps_device=gps_reader,
+            lighting_controller=lighting_controller,
+            audio_controller=audio_controller,
+            spotify_controller=spotify_controller,
+            rotary_encoders=encoder_runtime.encoders,
+            volume_encoder_index=encoder_runtime.volume_index,
+        )
+
         app.register_default_callbacks()
         app.start_encoder_events()
         app.start_gps_ui_updates()
         app.mainloop()
+    except KeyboardInterrupt:
+        print("\n[CarUI] Stopped")
     finally:
-        app.stop_encoder_events()
-        gps_reader.close()
-        lighting_controller.close()
+        try:
+            if app is not None:
+                app.close()
+        finally:
+            try:
+                if gps_reader is not None:
+                    gps_reader.close()
+            finally:
+                if lighting_controller is not None:
+                    lighting_controller.close()
 
 
 if __name__ == "__main__":

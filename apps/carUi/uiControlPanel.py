@@ -56,6 +56,7 @@ class UiControlPanel(tk.Tk):
         title: str = "Ui Control Panel",
     ) -> None:
         super().__init__()
+        self._closed = False
 
         self.runtime = runtime
         self.gps_device = gps_device
@@ -438,10 +439,29 @@ class UiControlPanel(tk.Tk):
         self.encoder_event_router.stop()
 
     def _close_window(self) -> None:
-        self.stop_encoder_events()
-        self.gps_ui_monitor.stop()
-        self.quit()
-        self.destroy()
+        self.close()
+
+    def close(self) -> None:
+        """Stop UI activity and destroy the Tk window safely."""
+        if self._closed:
+            return
+
+        self._closed = True
+        try:
+            self.stop_encoder_events()
+        finally:
+            try:
+                self.stop_gps_ui_updates()
+            finally:
+                try:
+                    self.quit()
+                finally:
+                    try:
+                        self.destroy()
+                    except tk.TclError:
+                        # The window may already have been destroyed by its
+                        # window manager before mainloop returns.
+                        pass
 
     def start_gps_ui_updates(self) -> None:
         self.gps_ui_monitor.start()
