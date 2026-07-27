@@ -9,25 +9,24 @@ from apps.carUi.config.car_ui_runtime_config_parser import (
     SeesawEncoderConfig,
 )
 from apps.carUi.runtime.rotary_encoder_runtime import (
-    UnavailableRotaryEncoder,
     create_rotary_encoder_runtime,
 )
 
 
 class RotaryEncoderRuntimeTest(unittest.TestCase):
-    @patch("apps.carUi.runtime.rotary_encoder_runtime._create_gpio_encoder")
-    @patch("apps.carUi.runtime.rotary_encoder_runtime._create_seesaw_encoder")
-    @patch("apps.carUi.runtime.rotary_encoder_runtime._create_i2c_bus")
+    @patch("apps.carUi.runtime.rotary_encoder_runtime._is_raspberry_pi")
+    @patch("apps.carUi.runtime.rotary_encoder_runtime._create_hardware_encoder")
     def test_builds_heterogeneous_encoders(
         self,
-        i2c_factory,
         encoder_factory,
-        gpio_encoder_factory,
+        is_raspberry_pi,
     ) -> None:
         i2c = MagicMock()
-        i2c_factory.return_value = i2c
-        encoder_factory.return_value = "seesaw-encoder"
-        gpio_encoder_factory.return_value = "gpio-encoder"
+        is_raspberry_pi.return_value = True
+        encoder_factory.side_effect = (
+            ("seesaw-encoder", i2c),
+            ("gpio-encoder", i2c),
+        )
 
         runtime = create_rotary_encoder_runtime(
             RotaryEncoderConfig(
@@ -44,52 +43,38 @@ class RotaryEncoderRuntimeTest(unittest.TestCase):
             runtime.encoders,
         )
         self.assertEqual(1, runtime.volume_index)
-        encoder_factory.assert_called_once_with(
-            RotaryEncoderConfig(
-                devices=(
-                    SeesawEncoderConfig(address=0x36),
-                    GpioEncoderConfig(pin_a=11, pin_b=13, button=15),
-                ),
-                volume_index=1,
-            ).devices[0],
+        self.assertEqual(2, encoder_factory.call_count)
+        encoder_factory.assert_any_call(
+            SeesawEncoderConfig(address=0x36),
+            None,
+        )
+        encoder_factory.assert_any_call(
+            GpioEncoderConfig(pin_a=11, pin_b=13, button=15),
             i2c,
         )
-        gpio_encoder_factory.assert_called_once_with(
-            RotaryEncoderConfig(
-                devices=(
-                    SeesawEncoderConfig(address=0x36),
-                    GpioEncoderConfig(pin_a=11, pin_b=13, button=15),
-                ),
-                volume_index=1,
-            ).devices[1],
-        )
-        i2c_factory.assert_called_once_with()
 
-    @patch(
-        "apps.carUi.runtime.rotary_encoder_runtime._create_i2c_bus",
-        side_effect=ModuleNotFoundError("No module named 'board'"),
-    )
-    def test_missing_pi_dependencies_use_inert_encoders(
+    @patch("apps.carUi.runtime.rotary_encoder_runtime._is_raspberry_pi")
+    def test_uses_no_op_encoders_off_raspberry_pi(
         self,
-        _i2c_factory,
+        is_raspberry_pi,
     ) -> None:
+        is_raspberry_pi.return_value = False
         runtime = create_rotary_encoder_runtime(
             RotaryEncoderConfig(
                 devices=(
                     SeesawEncoderConfig(address=0x36),
-                    SeesawEncoderConfig(address=0x37),
+                    GpioEncoderConfig(pin_a=11, pin_b=13),
                 ),
                 volume_index=0,
             )
         )
 
         self.assertEqual(2, len(runtime.encoders))
-        self.assertTrue(
-            all(
-                isinstance(encoder, UnavailableRotaryEncoder)
-                for encoder in runtime.encoders
-            )
-        )
+        for encoder in runtime.encoders:
+            self.assertFalse(encoder.is_running)
+            encoder.start(lambda _steps: None)
+            self.assertTrue(encoder.is_running)
+            encoder.stop()
 
 
 if __name__ == "__main__":

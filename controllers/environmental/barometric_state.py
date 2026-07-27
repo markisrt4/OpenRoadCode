@@ -1,4 +1,4 @@
-"""Environmental controller state types."""
+"""Barometric controller state types."""
 
 from __future__ import annotations
 
@@ -7,8 +7,8 @@ from datetime import datetime, timezone
 
 
 @dataclass(frozen=True, slots=True)
-class EnvironmentalState:
-    """Processed environmental measurements."""
+class BarometricState:
+    """Processed barometric measurements."""
 
     pressure_pa: float
     temperature_c: float
@@ -25,10 +25,10 @@ class EnvironmentalState:
         altitude_m: float,
         relative_altitude_m: float,
         vertical_speed_mps: float,
-    ) -> EnvironmentalState:
+    ) -> BarometricState:
         """Create a state using the current UTC timestamp."""
 
-        return EnvironmentalState(
+        return BarometricState(
             pressure_pa=pressure_pa,
             temperature_c=temperature_c,
             altitude_m=altitude_m,
@@ -36,3 +36,4 @@ class EnvironmentalState:
             vertical_speed_mps=vertical_speed_mps,
             timestamp=datetime.now(timezone.utc),
         )
+
