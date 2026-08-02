@@ -3,7 +3,7 @@ import sys
 
 
 class GqrxCtrl():
-    # Class to control qgrx via TCP
+    """Control a Gqrx receiver through its TCP remote-control protocol."""
 
     def __init__(self, gqrxHostIp, debugOn):
         self.ip = gqrxHostIp

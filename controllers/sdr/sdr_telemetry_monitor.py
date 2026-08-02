@@ -6,6 +6,7 @@ from typing import Optional
 
 @dataclass(frozen=True)
 class SDRTelemetry:
+    """Best-effort frequency and signal telemetry for an SDR receiver."""
     frequency_hz: Optional[int] = None
     signal: str = "--"
     snr: str = "--"
@@ -23,6 +24,11 @@ class SDRTelemetryMonitor:
         self.radio_controller = radio_controller
 
     def read(self, include_rds: bool = False) -> SDRTelemetry:
+        """Read a telemetry snapshot without propagating backend failures.
+
+        @param include_rds Query RDS text when ``True``.
+        @return Available telemetry with ``"--"`` placeholders for failures.
+        """
         frequency_hz = self._safe_get_frequency()
         signal = self._safe_client_call("get_signal_strength")
         snr = self._safe_client_call("get_snr")

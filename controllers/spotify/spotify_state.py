@@ -3,6 +3,7 @@ from dataclasses import dataclass
 
 @dataclass(frozen=True, slots=True)
 class SpotifyState:
+    """Immutable snapshot of Spotify availability and playback metadata."""
     is_available: bool = False
     configuration_required: bool = False
     is_playing: bool = False
@@ -28,6 +29,11 @@ class SpotifyState:
 
     @property
     def progress_percent(self) -> float | None:
+        """Return clamped track progress.
+
+        @return Percentage in the inclusive range 0 through 100, or ``None``
+            when progress or a positive duration is unavailable.
+        """
         if self.progress_ms is None or self.duration_ms is None:
             return None
 

@@ -32,6 +32,7 @@ COLORS = {
     "volume_button_fg":          "#ffffff",
     "volume_indicator_active":   "#0d6fd8",
     "volume_indicator_inactive": "#6f7a86",
+    "volume_indicator_muted":    "#c62828",
 
     "power_bg":     "#c62828",
     "power_active": "#a91f1f",
@@ -187,6 +188,7 @@ TOP_BAR_THEME = {
         "volume_button_fg": COLORS["volume_button_fg"],
         "volume_indicator_active": COLORS["volume_indicator_active"],
         "volume_indicator_inactive": COLORS["volume_indicator_inactive"],
+        "volume_indicator_muted": COLORS["volume_indicator_muted"],
         "power_bg": COLORS["power_bg"],
         "power_fg": COLORS["power_fg"],
         "power_active": COLORS["power_active"],

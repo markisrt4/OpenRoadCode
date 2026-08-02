@@ -14,11 +14,16 @@ mkdir -p "$PROJECT_DIR/scripts"
 
 if [[ ! -f "$HOME/.vnc/passwd" ]]; then
   echo "[*] Setting VNC password..."
-  if command -v vncpasswd >/dev/null 2>&1; then
+  if command -v tigervncpasswd >/dev/null 2>&1; then
+    printf 'changeme\nchangeme\nn\n' | tigervncpasswd >/dev/null 2>&1 || \
+      echo "[!] TigerVNC password setup failed; continuing."
+  elif command -v vncpasswd >/dev/null 2>&1; then
     printf 'changeme\nchangeme\n' | vncpasswd -user >/dev/null 2>&1 || \
       echo "[!] VNC password setup failed; continuing."
   else
-    echo "[!] vncpasswd not found; skipping VNC password setup."
+    echo "[!] No VNC password tool found." >&2
+    echo "    Install tigervnc-tools before configuring VNC." >&2
+    exit 1
   fi
 else
   echo "[*] Existing VNC password found."

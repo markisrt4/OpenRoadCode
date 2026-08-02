@@ -93,6 +93,10 @@ class GpioRotaryEncoder(RotaryEncoderIf):
 
     @property
     def pins(self) -> GpioRotaryEncoderPins:
+        """Return the GPIO pin assignment used by the encoder.
+
+        @return Immutable A/B/button BCM pin assignment.
+        """
         return self._pins
 
     @property
@@ -209,7 +213,7 @@ class GpioRotaryEncoder(RotaryEncoderIf):
 
         GPIO.cleanup(channels)
 
-    def tick(self) -> None:
+    def poll(self) -> None:
         """
         Dispatch accumulated rotary movement.
 
@@ -235,6 +239,10 @@ class GpioRotaryEncoder(RotaryEncoderIf):
             callback(steps)
         except Exception:
             LOGGER.exception("GPIO rotary encoder callback failed")
+
+    def tick(self) -> None:
+        """Backward-compatible alias for poll()."""
+        self.poll()
 
     def _rotary_interrupt(self, channel: int) -> None:
         current_a = GPIO.input(self._bcm_pin_a)

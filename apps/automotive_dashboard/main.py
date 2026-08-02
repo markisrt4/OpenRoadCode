@@ -1,12 +1,12 @@
 import argparse
 import tkinter as tk
 
-from modules.automotive.obd2.elm327_client import Elm327Client
-from modules.automotive.obd2.obd2_errors import Obd2CommandError, Obd2ConnectionError
-from modules.automotive.obd2.obd2_manager import Obd2Manager
 from apps.automotive_dashboard.automotive_dashboard_window import (
     AutomotiveDashboardWindow,
 )
+from controllers.automotive.obd2 import Elm327ObdAdapter, Obd2Manager
+from hardware_io.automotive.elm327 import Elm327Device
+from protocols.obd2 import Obd2CommandError, Obd2ConnectionError
 
 
 class AutomotiveDashboardApp:
@@ -21,8 +21,8 @@ class AutomotiveDashboardApp:
 
         self._update_ms = update_ms
 
-        client = Elm327Client(port=port, baud=baud)
-        self._manager = Obd2Manager(client)
+        device = Elm327Device(port=port, baud=baud)
+        self._manager = Obd2Manager(Elm327ObdAdapter(device))
         self._connected = False
 
     def run(self) -> None:

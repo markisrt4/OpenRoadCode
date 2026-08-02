@@ -11,8 +11,8 @@ from controllers.spotify.spotify_web_api_controller import (
 from controllers.spotify.spotify_controller_stub import (
     SpotifyControllerStub,
 )
-from controllers.spotify.unconfigured_controller_stub import (
-    UnconfiguredControllerStub,
+from controllers.spotify.unconfigured_controller import (
+    UnconfiguredController,
 )
 
 __all__ = [
@@ -21,5 +21,5 @@ __all__ = [
     "SpotifyState",
     "SpotifyControllerStub",
     "SpotifyWebApiController",
-    "UnconfiguredControllerStub",
+    "UnconfiguredController",
 ]

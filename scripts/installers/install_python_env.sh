@@ -14,6 +14,30 @@ fi
 # shellcheck disable=SC1091
 source "$FEATURES_FILE"
 
+detect_raspberry_pi_model() {
+  local model_file="${OPENROAD_RPI_MODEL_FILE:-/proc/device-tree/model}"
+
+  if [[ -r "$model_file" ]]; then
+    tr -d '\0' < "$model_file"
+  fi
+}
+
+select_raspberry_pi_gpio_backend() {
+  local model="$1"
+
+  case "$model" in
+    *"Raspberry Pi 5"*|*"Raspberry Pi 500"*|*"Compute Module 5"*)
+      echo "rpi-lgpio"
+      ;;
+    *"Raspberry Pi"*|*"Compute Module"*)
+      echo "RPi.GPIO"
+      ;;
+    *)
+      echo ""
+      ;;
+  esac
+}
+
 if (( $# > 0 )); then
   FEATURES=("$@")
 else
@@ -21,7 +45,12 @@ else
 fi
 
 echo "[*] Creating Python virtual environment..."
-python3 -m venv --system-site-packages "$VENV_DIR"
+if ! python3 -m venv --system-site-packages "$VENV_DIR"; then
+  python_version="$(python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')"
+  echo "[!] Failed to create the virtual environment with Python $python_version." >&2
+  echo "[!] Re-run the installer with system-package installation enabled so it can install python${python_version}-venv." >&2
+  exit 1
+fi
 
 echo "[*] Installing Python packages..."
 # shellcheck disable=SC1091
@@ -41,9 +70,23 @@ if [[ " ${FEATURES[*]} " == *" base "* || " ${FEATURES[*]} " == *" gps "* ]]; th
 fi
 
 python_packages=()
+rpi_model="$(detect_raspberry_pi_model)"
+rpi_gpio_backend="$(select_raspberry_pi_gpio_backend "$rpi_model")"
+
+if [[ -n "$rpi_model" ]]; then
+  echo "[*] Detected Raspberry Pi model: $rpi_model"
+  echo "[*] Selected GPIO backend: $rpi_gpio_backend"
+fi
+
 for feature in "${FEATURES[@]}"; do
   while read -r pkg; do
     [[ -z "$pkg" ]] && continue
+
+    if [[ "$pkg" == "raspberry-pi-gpio-backend" ]]; then
+      pkg="$rpi_gpio_backend"
+      [[ -z "$pkg" ]] && continue
+    fi
+
     python_packages+=("$pkg")
   done < <(get_feature_python_packages "$feature")
 done
@@ -54,6 +97,19 @@ for pkg in "${python_packages[@]}"; do
     unique_packages+=("$pkg")
   fi
 done
+
+if [[ -n "$rpi_gpio_backend" && " ${unique_packages[*]} " == *" $rpi_gpio_backend "* ]]; then
+  if [[ "$rpi_gpio_backend" == "rpi-lgpio" ]]; then
+    conflicting_gpio_backend="RPi.GPIO"
+  else
+    conflicting_gpio_backend="rpi-lgpio"
+  fi
+
+  if python -m pip show "$conflicting_gpio_backend" >/dev/null 2>&1; then
+    echo "[*] Removing conflicting GPIO backend: $conflicting_gpio_backend"
+    python -m pip uninstall -y "$conflicting_gpio_backend"
+  fi
+fi
 
 missing_python_packages=()
 for pkg in "${unique_packages[@]}"; do

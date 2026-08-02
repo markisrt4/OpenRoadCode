@@ -68,8 +68,20 @@ for feature in "${FEATURES[@]}"; do
   while read -r pkg; do
     [[ -z "$pkg" ]] && continue
     base_packages+=("$pkg")
-  done < <(get_feature_packages "$feature")
+  done < <(get_feature_packages "$feature" | tr '[:space:]' '\n')
 done
+
+# A manually installed or newer python3 may not match the distro's generic
+# python3-venv package. Install the package matching the interpreter that will
+# actually create the virtual environment when the repository supports it.
+if [[ " ${FEATURES[*]} " == *" base "* ]] && command -v python3 >/dev/null 2>&1; then
+  python_version="$(python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')"
+  versioned_venv_package="python${python_version}-venv"
+
+  if apt-cache show "$versioned_venv_package" >/dev/null 2>&1; then
+    base_packages+=("$versioned_venv_package")
+  fi
+fi
 
 # Deduplicate while preserving order
 unique_packages=()

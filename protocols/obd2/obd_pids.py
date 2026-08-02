@@ -7,6 +7,7 @@ class _Mode01Pid:
 
 
 class EngineLoadPid(_Mode01Pid):
+    """Decode calculated engine load as a percentage."""
     pid = 0x04
     unit = "%"
 
@@ -15,6 +16,7 @@ class EngineLoadPid(_Mode01Pid):
 
 
 class EngineRpmPid(_Mode01Pid):
+    """Decode engine speed in revolutions per minute."""
     pid = 0x0C
     unit = "rpm"
 
@@ -23,6 +25,7 @@ class EngineRpmPid(_Mode01Pid):
 
 
 class VehicleSpeedPid(_Mode01Pid):
+    """Decode vehicle speed in kilometers per hour."""
     pid = 0x0D
     unit = "km/h"
 
@@ -31,6 +34,7 @@ class VehicleSpeedPid(_Mode01Pid):
 
 
 class IntakeManifoldPressurePid(_Mode01Pid):
+    """Decode absolute intake-manifold pressure in kilopascals."""
     pid = 0x0B
     unit = "kPa"
 
@@ -39,6 +43,7 @@ class IntakeManifoldPressurePid(_Mode01Pid):
 
 
 class BarometricPressurePid(_Mode01Pid):
+    """Decode barometric pressure in kilopascals."""
     pid = 0x33
     unit = "kPa"
 
@@ -47,6 +52,7 @@ class BarometricPressurePid(_Mode01Pid):
 
 
 class ThrottlePositionPid(_Mode01Pid):
+    """Decode absolute throttle position as a percentage."""
     pid = 0x11
     unit = "%"
 
@@ -65,6 +71,7 @@ class AcceleratorPedalPositionPid(_Mode01Pid):
 
 
 class CoolantTempPid(_Mode01Pid):
+    """Decode engine coolant temperature in degrees Celsius."""
     pid = 0x05
     unit = "°C"
 
@@ -73,6 +80,7 @@ class CoolantTempPid(_Mode01Pid):
 
 
 class IntakeAirTempPid(_Mode01Pid):
+    """Decode intake-air temperature in degrees Celsius."""
     pid = 0x0F
     unit = "°C"
 
@@ -81,6 +89,7 @@ class IntakeAirTempPid(_Mode01Pid):
 
 
 class MassAirFlowPid(_Mode01Pid):
+    """Decode mass-air flow in grams per second."""
     pid = 0x10
     unit = "g/s"
 
@@ -89,6 +98,7 @@ class MassAirFlowPid(_Mode01Pid):
 
 
 class FuelLevelPid(_Mode01Pid):
+    """Decode fuel-tank level input as a percentage."""
     pid = 0x2F
     unit = "%"
 
@@ -97,6 +107,7 @@ class FuelLevelPid(_Mode01Pid):
 
 
 class ControlModuleVoltagePid(_Mode01Pid):
+    """Decode control-module supply voltage in volts."""
     pid = 0x42
     unit = "V"
 

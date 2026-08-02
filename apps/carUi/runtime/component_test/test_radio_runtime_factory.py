@@ -9,8 +9,11 @@ from apps.carUi.config.car_ui_runtime_config_parser import (
     AdsbConfig,
     AuxiliaryConfig,
     CarUiRuntimeConfig,
+    InputConfig,
     RadioStackConfig,
     RigctlConfig,
+    RotaryEncoderConfig,
+    SeesawEncoderConfig,
     RuntimeDisplayConfig,
     WeatherDashboardConfig,
 )
@@ -54,6 +57,16 @@ class RadioRuntimeFactoryTest(unittest.TestCase):
         return CarUiRuntimeConfig(
             runtime=RuntimeDisplayConfig(remote_display=":9"),
             rigctl=RigctlConfig(host="127.0.0.1", port=4532),
+            input=InputConfig(
+                rotary_encoders=RotaryEncoderConfig(
+                    devices=(
+                        SeesawEncoderConfig(address=0x36),
+                        SeesawEncoderConfig(address=0x37),
+                        SeesawEncoderConfig(address=0x38),
+                    ),
+                    volume_index=0,
+                )
+            ),
             radios=(
                 RadioStackConfig(
                     key="fm_radio",
@@ -95,6 +108,7 @@ class RadioRuntimeFactoryTest(unittest.TestCase):
         runtime = build_car_ui_runtime(self._config())
 
         self.assertEqual(":9", runtime.remote_display)
+        self.assertEqual(2, runtime.rotary_encoders.panel_count)
         self.assertIn("fm_radio", runtime.radios)
         self.assertEqual(1, len(runtime.radios))
         rigctl_client.assert_called_once_with(

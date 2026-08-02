@@ -42,12 +42,21 @@ class Mpu6050Imu(ImuIf):
 
         try:
             import adafruit_mpu6050
-            import board
         except ImportError as exc:
             raise RuntimeError(
                 "MPU-6050 support requires the "
-                "'adafruit-circuitpython-mpu6050' package."
+                "'adafruit-circuitpython-mpu6050' package "
+                f"({exc})."
             ) from exc
+
+        if self._i2c_bus is None:
+            try:
+                import board
+            except ImportError as exc:
+                raise RuntimeError(
+                    "Unable to load the Adafruit Blinka board support "
+                    f"for this system ({exc})."
+                ) from exc
 
         try:
             if self._i2c_bus is None:
@@ -65,7 +74,7 @@ class Mpu6050Imu(ImuIf):
 
             raise RuntimeError(
                 f"Unable to initialize MPU-6050 at address "
-                f"0x{self._address:02X}"
+                f"0x{self._address:02X}: {exc}"
             ) from exc
 
     def stop(self) -> None:

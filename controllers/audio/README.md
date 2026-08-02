@@ -42,11 +42,14 @@ The audio controller provides:
 Implementations provide:
 
 ```python
+maximum_level
 volume_up()
 volume_down()
 get_volume_level()
 set_volume_level(level)
 adjust_volume(steps)
+is_muted()
+toggle_mute()
 ```
 
 Higher-level components should depend on `AudioControllerIf` rather than a specific audio implementation.
@@ -75,6 +78,8 @@ The controller operates on:
 ```
 
 This allows the operating system to determine the active audio output device.
+Relative volume increases pass a `1.0` limit to `wpctl`, preventing software
+amplification above 100%.
 
 Example:
 
@@ -118,6 +123,12 @@ where:
 ...
 20 = 100%
 ```
+
+Volume-up operations clamp at 100%; further clockwise encoder steps leave the
+system at level `20` rather than enabling PipeWire amplification.
+
+Mute is controlled with `wpctl set-mute ... toggle`. `toggle_mute()` returns the
+resulting state so application widgets can update immediately.
 
 The number of levels can be configured:
 
@@ -219,6 +230,59 @@ Volume level: 12
 audio> -
 Volume level: 11
 ```
+
+## Car UI Volume Encoder Integration
+
+The Car UI reserves one configured rotary encoder for global system volume.
+The input router depends on `RotaryEncoderIf` and invokes the audio controller's
+`volume_up()` or `volume_down()` operation for each signed encoder step:
+
+```text
+RotaryEncoderIf
+        |
+        v
+EncoderEventRouter
+        |
+        v
+AudioControllerIf
+        |
+        v
+PipewireAudioController
+```
+
+The encoder driver and volume device index are configured in
+`apps/carUi/config/car_ui_runtime.toml`. Neither `AudioControllerIf` nor
+`PipewireAudioController` depends on Seesaw addresses or GPIO pins.
+
+Test the real configured volume knob and default PipeWire sink with:
+
+```bash
+python3 -m apps.carUi.input.component_test.volume_encoder_cli
+```
+
+This test starts only the configured volume device. Other configured encoders
+may be disconnected without preventing the volume test from running.
+It reports 20 levels by default, matching the controller's 5% PipeWire step.
+The Car UI theme's eight volume bars are a visual scale rather than the audio
+controller's native resolution.
+
+`VolumeManager` maps the controller range proportionally onto that visual
+scale:
+
+```text
+Audio level  0/20  -> 0 bars
+Audio level  5/20  -> 2 bars
+Audio level 10/20  -> 4 bars
+Audio level 15/20  -> 6 bars
+Audio level 20/20  -> 8 bars
+```
+
+Positive nonzero audio levels display at least one bar. Encoder events and
+top-bar volume buttons use the same mapping.
+
+Pressing the configured volume encoder calls `AudioControllerIf.toggle_mute()`.
+While muted, the top bar renders all eight bars in red. The underlying volume
+level is retained and displayed again when the encoder is pressed to unmute.
 
 ## Design
 

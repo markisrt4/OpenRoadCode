@@ -6,6 +6,7 @@ from controllers.radio.radio_types import RadioPreset
 
 @dataclass(frozen=True, slots=True)
 class RadioPanelState:
+    """Immutable state rendered by a Car UI radio panel."""
     receiver_started: bool = False
     frequency_hz: int | None = None
     mode_name: str | None = None

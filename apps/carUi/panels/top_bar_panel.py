@@ -12,6 +12,7 @@ LOGO_PATH = Path(__file__).resolve().parents[1] / "assets" / "openroadcode.png"
 
 
 class TopBarPanel(tk.Frame):
+    """Render shared navigation, title, frequency, location, and volume UI."""
     def __init__(
         self,
         parent: tk.Widget,
@@ -25,6 +26,7 @@ class TopBarPanel(tk.Frame):
         on_power: Callable[[], None],
         volume_level: int,
         volume_steps: int,
+        volume_muted: bool,
     ) -> None:
         self._theme = theme
         self._colors = theme["colors"]
@@ -55,6 +57,7 @@ class TopBarPanel(tk.Frame):
             on_power=on_power,
             volume_level=volume_level,
             volume_steps=volume_steps,
+            volume_muted=volume_muted,
         )
 
     def show_back_button(self, text: str | None = None) -> None:
@@ -84,6 +87,9 @@ class TopBarPanel(tk.Frame):
     def set_volume_level(self, level: int) -> None:
         self.volume_indicator.set_level(level)
 
+    def set_volume_muted(self, muted: bool) -> None:
+        self.volume_indicator.set_muted(muted)
+
     def _build(
         self,
         *,
@@ -94,6 +100,7 @@ class TopBarPanel(tk.Frame):
         on_power: Callable[[], None],
         volume_level: int,
         volume_steps: int,
+        volume_muted: bool,
     ) -> None:
         left_group = tk.Frame(self, bg=self._colors["background"])
         left_group.grid(
@@ -215,10 +222,12 @@ class TopBarPanel(tk.Frame):
             right_group,
             steps=volume_steps,
             initial_level=volume_level,
+            initial_muted=volume_muted,
             style=VolumeIndicatorStyle(
                 background=self._colors["background"],
                 active=self._colors["volume_indicator_active"],
                 inactive=self._colors["volume_indicator_inactive"],
+                muted=self._colors["volume_indicator_muted"],
                 bar_width=self._style["volume_bar_width"],
                 base_height=self._style["volume_bar_base_height"],
                 height_step=self._style["volume_bar_height_step"],

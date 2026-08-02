@@ -8,15 +8,6 @@ set -euo pipefail
 get_feature_defaults() {
   cat <<'EOF'
 base
-core-ui
-gps
-radio
-streamlit
-adsb
-bluetooth
-automotive
-spotify
-sdrpp
 EOF
 }
 
@@ -24,10 +15,10 @@ get_feature_packages() {
   local feature="$1"
   case "$feature" in
     base)
-      echo "git curl wget ca-certificates lighttpd bluez python3 python3-venv python3-tk python3-pip dbus-x11 xauth xterm x11-apps wmctrl openbox xfce4 xfce4-goodies tigervnc-standalone-server tigervnc-common rtl-sdr gpsd gpsd-clients python3-gps i2c-tools"
+      echo "git curl wget ca-certificates python3 python3-venv python3-pip python3-evdev"
       ;;
     core-ui)
-      echo "chromium"
+      echo "python3-tk dbus-x11 xauth xterm x11-apps wmctrl openbox tigervnc-standalone-server tigervnc-common tigervnc-tools chromium"
       ;;
     gps)
       echo "gpsd gpsd-clients python3-gps"
@@ -39,7 +30,7 @@ get_feature_packages() {
       echo ""
       ;;
     adsb)
-      echo "readsb"
+      echo "readsb lighttpd"
       ;;
     bluetooth)
       echo "bluez libbluetooth-dev python3-bluez"
@@ -48,9 +39,12 @@ get_feature_packages() {
       echo "python3-serial libserial-dev can-utils"
       ;;
     elm327)
-      echo "python3-serial"
+      echo "bluez python3-serial"
       ;;
     mpu6050)
+      echo "i2c-tools"
+      ;;
+    bmp388|bmp390)
       echo "i2c-tools"
       ;;
     spotify)
@@ -71,17 +65,9 @@ get_feature_python_packages() {
     base)
       printf '%s
 ' \
-        streamlit \
         requests \
-        geocoder \
-        streamlit-autorefresh \
-        gpsd-py3 \
-        pyserial \
-        bleak \
+        tomli \
         evdev \
-        RPi.GPIO \
-        adafruit-blinka \
-        adafruit-circuitpython-seesaw \
         Pillow
       ;;
     core-ui)
@@ -90,6 +76,7 @@ get_feature_python_packages() {
     gps)
       printf '%s
 ' \
+        geocoder \
         gpsd-py3
       ;;
     radio)
@@ -129,6 +116,12 @@ get_feature_python_packages() {
         adafruit-blinka \
         adafruit-circuitpython-mpu6050
       ;;
+    bmp388|bmp390)
+      printf '%s
+' \
+        adafruit-blinka \
+        adafruit-circuitpython-bmp3xx
+      ;;
     spotify)
       echo ""
       ;;
@@ -144,16 +137,18 @@ get_feature_python_packages() {
 get_feature_help() {
   cat <<'EOF'
 Available features:
-  base        Core system and Python dependencies
-  core-ui     Browser/UI support packages
+  base        Minimal Python runtime and common dependencies
+  core-ui     Chromium, Openbox, X11, and TigerVNC support
   gps         GPS daemon and Python GPS support
   radio       RTL-SDR and radio-related packages
   streamlit   Streamlit dashboard support
   adsb        ADS-B/readsb support packages
   bluetooth   Bluetooth support packages
-  automotive  Automotive/OBD-related support
-  elm327      ELM327 OBD-II adapter support
+  automotive  Common automotive and CAN-bus support
+  elm327      ELM327 serial-device support (hardware_io/automotive/elm327)
   mpu6050     MPU6050 I2C accelerometer/gyroscope hardware module
+  bmp388      BMP388 I2C barometric pressure sensor
+  bmp390      BMP390 I2C barometric pressure sensor
   spotify     Spotify integration extras
   sdrpp       SDR++ package support
 EOF

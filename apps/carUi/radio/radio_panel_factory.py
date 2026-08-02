@@ -14,6 +14,7 @@ from controllers.radio.radio_types import RadioPreset
 
 @dataclass(frozen=True)
 class RadioPanelBinding:
+    """Bind a radio session controller to its passive Tk panel."""
     session: RadioSessionController
     panel: RadioPanel
 
@@ -30,7 +31,19 @@ def create_radio_panel_binding(
     on_preset_pressed: Optional[Callable[[RadioPreset], None]] = None,
     presets_per_bank: int = 6,
 ) -> RadioPanelBinding:
-    """Create one radio session controller and its passive Tk panel."""
+    """Create one radio session controller and its passive Tk panel.
+
+    @param parent Parent widget for the panel.
+    @param radio_controller Domain controller used for tuning.
+    @param radio_app_launcher Launcher for the external radio application.
+    @param panel_config Labels and tuning defaults for the panel.
+    @param remote_display Display used by the external application.
+    @param set_status Optional status-message callback.
+    @param on_frequency_changed Optional frequency-change callback.
+    @param on_preset_pressed Optional preset-selection callback.
+    @param presets_per_bank Number of presets displayed per page.
+    @return Newly connected session and panel.
+    """
 
     session = RadioSessionController(
         radio_controller=radio_controller,

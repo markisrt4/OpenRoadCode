@@ -58,6 +58,10 @@ class OAuthClient:
 
     @property
     def config(self) -> OAuthClientConfig:
+        """Return the OAuth client configuration.
+
+        @return Immutable authorization/token endpoint configuration.
+        """
         return self._config
 
     def build_authorization_url(

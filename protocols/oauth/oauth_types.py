@@ -69,4 +69,9 @@ class OAuthCallbackResult:
 
     @property
     def is_successful(self) -> bool:
+        """Return whether the callback completed successfully.
+
+        @retval True An authorization code is present and no error was reported.
+        @retval False The callback contains an error or lacks a code.
+        """
         return self.code is not None and self.error is None
