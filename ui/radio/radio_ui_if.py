@@ -78,7 +78,7 @@ class TunedSignal:
 class RadioUiIf(UiIf, ABC):
     """! @brief Display radio telemetry, controls, and presets.
 
-    ``None`` passed to :meth:`set_signal` means the receiver has no currently
+    ``None`` passed to set_signal() means the receiver has no currently
     available tuning state. Presets appear in the order they are added.
     """
 

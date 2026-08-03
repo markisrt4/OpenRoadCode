@@ -57,13 +57,16 @@ class SatelliteInfo:
 class PositionUiIf(UiIf, ABC):
     """Display receiver position and the current complete satellite snapshot.
 
-    ``None`` passed to :meth:`set_position` means no position fix is available.
+    ``None`` passed to set_position() means no position fix is available.
     An empty satellite sequence means no satellites are currently visible.
     """
     
     @abstractmethod
     def set_position(self, position_fix: PositionFix | None) -> None:
-        """Replace the current receiver position fix."""
+        """Replace the current receiver position fix.
+
+        @param position_fix Current position fix, or None when unavailable.
+        """
         ...
     
     @abstractmethod
@@ -71,5 +74,8 @@ class PositionUiIf(UiIf, ABC):
         self,
         satellites: Sequence[SatelliteInfo],
     ) -> None:
-        """Replace all currently displayed satellite information."""
+        """Replace all currently displayed satellite information.
+
+        @param satellites Complete current satellite collection.
+        """
         ...
