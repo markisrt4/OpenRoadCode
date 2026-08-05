@@ -12,4 +12,3 @@ gqrx = GqrxCtrl(ip_addr, True)
 
 gqrx.gqrxSetDemodMode("WFM_ST")
 gqrx.gqrxTuneFreq(97100000)
-

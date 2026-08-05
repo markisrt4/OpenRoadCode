@@ -1,22 +1,16 @@
 #!/usr/bin/env python3
-"""End-to-end component tests for RigctlClient over a real TCP socket."""
+"""Integration tests for RigctlClient over a real TCP socket."""
 
 from __future__ import annotations
 
-import sys
 import threading
 import unittest
-from pathlib import Path
 
-PACKAGE_DIR = Path(__file__).resolve().parents[1]
-if str(PACKAGE_DIR) not in sys.path:
-    sys.path.insert(0, str(PACKAGE_DIR))
-
-from emulator.example_rigctl_server import ExampleRigctlServer  
-from rigctl_client import RigctlClient
+from protocols.rigctl import RigctlClient
+from protocols.rigctl.emulator.example_rigctl_server import ExampleRigctlServer
 
 
-class RigctlClientComponentTest(unittest.TestCase):
+class RigctlClientIntegrationTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         cls.server = ExampleRigctlServer(("127.0.0.1", 0))

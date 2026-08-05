@@ -6,14 +6,9 @@ from __future__ import annotations
 import argparse
 import socket
 import sys
-from pathlib import Path
 
-PACKAGE_DIR = Path(__file__).resolve().parents[1]
-if str(PACKAGE_DIR) not in sys.path:
-    sys.path.insert(0, str(PACKAGE_DIR))
-
-from emulator.example_rigctl_server import ExampleRigctlServer  
-from rigctl_client import RigctlClient
+from protocols.rigctl import RigctlClient
+from protocols.rigctl.emulator.example_rigctl_server import ExampleRigctlServer
 
 
 def build_argument_parser() -> argparse.ArgumentParser:

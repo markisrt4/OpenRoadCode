@@ -4,11 +4,17 @@ class RadioBackendIf(ABC):
 
     @abstractmethod
     def start(self) -> object:
-        """Start the receiver backend."""
+        """Start the receiver backend.
+
+        @return Backend-specific start result.
+        """
 
     @abstractmethod
     def stop(self) -> object:
-        """Stop the receiver backend."""
+        """Stop the receiver backend.
+
+        @return Backend-specific stop result.
+        """
 
     @abstractmethod
     def get_frequency(self) -> int:
@@ -22,6 +28,7 @@ class RadioBackendIf(ABC):
         """Tune to a frequency.
 
         @param frequency_hz Target frequency in hertz.
+        @return Backend-specific tuning result.
         """
 
     @abstractmethod
@@ -30,6 +37,7 @@ class RadioBackendIf(ABC):
 
         @param mode Backend demodulation mode name.
         @param bandwidth Receiver bandwidth in hertz.
+        @return Backend-specific mode-setting result.
         """
 
     @abstractmethod

@@ -20,7 +20,11 @@ class BarometricSourceIf(ABC):
     @property
     @abstractmethod
     def is_connected(self) -> bool:
-        """Return whether the sensor is connected and ready."""
+        """Return whether the sensor is connected and ready.
+
+        @retval True The sensor is connected and ready.
+        @retval False The sensor is disconnected or unavailable.
+        """
 
     @abstractmethod
     def connect(self) -> None:
@@ -32,9 +36,14 @@ class BarometricSourceIf(ABC):
 
     @abstractmethod
     def read_barometric(self) -> BarometricSample:
-        """Read pressure in pascals and temperature in degrees Celsius."""
+        """Read pressure in pascals and temperature in degrees Celsius.
+
+        @return Normalized barometric sample in SI units.
+        """
 
     def read_environment(self) -> BarometricSample:
-        """Compatibility alias for the original generic source API."""
-        return self.read_barometric()
+        """Compatibility alias for the original generic source API.
 
+        @return Normalized barometric sample in SI units.
+        """
+        return self.read_barometric()

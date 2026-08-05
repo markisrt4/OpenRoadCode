@@ -1,4 +1,4 @@
-"""Command-line integration test for SDR++ and the rigctl backend."""
+"""Command-line component test for SDR++ and the rigctl backend."""
 
 from __future__ import annotations
 
@@ -91,7 +91,7 @@ def main(argv: Optional[Sequence[str]] = None) -> None:
     process: Optional[subprocess.Popen[bytes]] = None
     launched_process = False
 
-    print("SDR++ rigctl integration test\n")
+    print("SDR++ rigctl component test\n")
 
     try:
         if not port_is_open(config.host, config.port):
@@ -160,7 +160,7 @@ def main(argv: Optional[Sequence[str]] = None) -> None:
                     )
                 print(f"[PASS] Restored original frequency: {original_frequency} Hz")
 
-        print("\nSDR++ rigctl integration test: PASS")
+        print("\nSDR++ rigctl component test: PASS")
     finally:
         if launched_process and process is not None:
             process.terminate()
