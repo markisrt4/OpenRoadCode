@@ -10,6 +10,9 @@ The project is intended for developers, makers, radio enthusiasts, and embedded 
 
 OpenRoadCode does not replace factory safety or vehicle-control systems. It complements them with an independent platform for experimentation, visualization, communications, entertainment, and custom applications.
 
+Explore the project at [openroadcode.org](https://www.openroadcode.org/) or
+visit the [OpenRoadCode repository](https://github.com/markisrt4/OpenRoadCode).
+
 ---
 
 ## Project Status
@@ -290,18 +293,9 @@ Do not commit credentials, API keys, OAuth tokens, or other secrets to the repos
 
 ## Installation
 
-Installation support is still evolving.
-
-The repository contains installer and setup utilities under:
-
-```text
-scripts/
-scripts/installers/
-```
-
-Platform-specific scripts are available for supported ARM64 and AMD64 development environments.
-
-Review an installer before running it, particularly on an existing workstation. The scripts may install system packages, configure services, create Python environments, and modify user-level Linux configuration.
+Installation currently supports Raspberry Pi OS and Debian/Ubuntu development
+hosts. Review the installer before running it on an existing system: it may
+install packages, configure services, and create a Python environment.
 
 A typical development setup begins with:
 
@@ -310,7 +304,62 @@ git clone https://github.com/markisrt4/OpenRoadCode.git
 cd OpenRoadCode
 ```
 
-Then use the appropriate installer from `scripts/installers/` for the target platform.
+Run the installer with an explicit target profile:
+
+```bash
+./scripts/installers/host_setup.sh --target rpi4
+./scripts/installers/host_setup.sh --target rpi5
+./scripts/installers/host_setup.sh --target linux-dev
+```
+
+Targets install only their platform fundamentals. Add the capabilities needed
+for a particular machine explicitly:
+
+```bash
+./scripts/installers/host_setup.sh --target rpi5 \
+  --feature desktop-ui \
+  --feature input \
+  --feature gps \
+  --feature bluetooth \
+  --feature automotive
+```
+
+Concrete devices are configured separately. For example, after installing the
+`bluetooth` capability, configure a Bluetooth Serial Port Profile device with:
+
+```bash
+./scripts/installers/setup_bluetooth_spp.sh --address AA:BB:CC:DD:EE:FF
+```
+
+Run the setup utility without an address for an interactive scan and device
+selection. The interactive host installer also offers compatible device and
+service setup as an optional post-install phase.
+
+Use `--with-vnc` or `--with-gpsd-service` only when those services should be
+configured. VNC password initialization is interactive and never creates a
+default password.
+
+Install every capability compatible with a target without spelling out the
+complete feature list:
+
+```bash
+./scripts/installers/host_setup.sh --target rpi5 --all-features
+```
+
+`--all-features` installs software support but does not pair concrete devices,
+create credentials, or enable optional services. Combine it with
+`--with-vnc` or `--with-gpsd-service` when desired, and add `--show-plan` to
+preview the complete expansion.
+
+Inspect the resolved features and services without changing the system:
+
+```bash
+./scripts/installers/host_setup.sh --target linux-dev --show-plan
+```
+
+The installer compares the selected target with the detected machine and asks
+for confirmation when they differ. Noninteractive mismatches fail safely;
+`--force-target` is available for deliberate automated overrides.
 
 After installation, activate the Python environment if the installer created one:
 
@@ -318,7 +367,8 @@ After installation, activate the Python environment if the installer created one
 source venv/bin/activate
 ```
 
-The exact installation flow may change while the installer scripts are consolidated.
+Run `./scripts/installers/host_setup.sh --help` for optional feature and service
+arguments.
 
 ---
 
@@ -600,7 +650,10 @@ Before submitting a major architectural change, open an issue describing:
 
 Changes should preserve separation between applications, controllers, protocols, and hardware-specific code.
 
-A dedicated `CONTRIBUTING.md` will provide more detailed contribution guidance.
+Ready to get involved? Read the friendly
+[contributor guide](https://github.com/markisrt4/OpenRoadCode/blob/master/CONTRIBUTING.md)
+for development setup, architecture, testing conventions, hardware guidance,
+and the pull-request checklist.
 
 ---
 

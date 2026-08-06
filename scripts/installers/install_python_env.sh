@@ -23,14 +23,30 @@ detect_raspberry_pi_model() {
 }
 
 select_raspberry_pi_gpio_backend() {
-  local model="$1"
+  local target="$1"
+  local model="$2"
 
-  case "$model" in
-    *"Raspberry Pi 5"*|*"Raspberry Pi 500"*|*"Compute Module 5"*)
+  if [[ -n "${OPENROAD_RPI_GPIO_BACKEND:-}" ]]; then
+    echo "$OPENROAD_RPI_GPIO_BACKEND"
+    return
+  fi
+
+  case "$target" in
+    rpi5)
       echo "rpi-lgpio"
       ;;
-    *)
+    rpi4)
       echo "RPi.GPIO"
+      ;;
+    *)
+      case "$model" in
+        *"Raspberry Pi 5"*|*"Raspberry Pi 500"*|*"Compute Module 5"*)
+          echo "rpi-lgpio"
+          ;;
+        *)
+          echo "RPi.GPIO"
+          ;;
+      esac
       ;;
   esac
 }
@@ -38,8 +54,15 @@ select_raspberry_pi_gpio_backend() {
 if (( $# > 0 )); then
   FEATURES=("$@")
 else
-  mapfile -t FEATURES < <(get_feature_defaults)
+  FEATURES=(base)
 fi
+
+for feature in "${FEATURES[@]}"; do
+  if ! is_known_feature "$feature"; then
+    echo "[!] Unknown feature: $feature" >&2
+    exit 1
+  fi
+done
 
 echo "[*] Creating Python virtual environment..."
 python3 -m venv --system-site-packages "$VENV_DIR"
@@ -50,7 +73,7 @@ source "$VENV_DIR/bin/activate"
 
 python -m pip install --upgrade pip wheel setuptools
 
-if [[ " ${FEATURES[*]} " == *" base "* || " ${FEATURES[*]} " == *" gps "* ]]; then
+if [[ " ${FEATURES[*]} " == *" gps "* ]]; then
   gps_location="$(
     python -m pip show gps 2>/dev/null \
       | awk -F': ' '$1 == "Location" { print $2; exit }'
@@ -63,10 +86,17 @@ fi
 
 python_packages=()
 rpi_model="$(detect_raspberry_pi_model)"
-rpi_gpio_backend="$(select_raspberry_pi_gpio_backend "$rpi_model")"
+rpi_gpio_backend="$(
+  select_raspberry_pi_gpio_backend \
+    "${OPENROAD_INSTALL_TARGET:-}" \
+    "$rpi_model"
+)"
 
-if [[ -n "$rpi_model" ]]; then
-  echo "[*] Detected Raspberry Pi model: $rpi_model"
+if [[ " ${FEATURES[*]} " == *" raspberry-pi "* ]]; then
+  echo "[*] Raspberry Pi install target: ${OPENROAD_INSTALL_TARGET:-auto-detected}"
+  if [[ -n "$rpi_model" ]]; then
+    echo "[*] Detected Raspberry Pi model: $rpi_model"
+  fi
   echo "[*] Selected GPIO backend: $rpi_gpio_backend"
 fi
 

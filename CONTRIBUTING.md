@@ -58,13 +58,29 @@ Copy the clone URL from the GitHub repository, then enter the project
 directory:
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/markisrt4/OpenRoadCode.git
 cd OpenRoadCode
 ```
 
-The installer scripts under `scripts/installers/` cover the supported Linux
-setups. Read a script before running it: installers may add system packages,
-configure services, or create a Python environment.
+The installer supports Raspberry Pi 4, Raspberry Pi 5, and Debian/Ubuntu
+development hosts. Preview the development setup before changing your system:
+
+```bash
+./scripts/installers/host_setup.sh --target linux-dev --show-plan
+```
+
+Remove `--show-plan` when you are ready to install. Read the plan first:
+installers may add system packages, configure services, or create a Python
+environment.
+
+Installation targets describe platforms, features describe optional
+capabilities, and concrete devices are configured separately. Avoid adding a
+specific sensor, adapter, radio, or service to every target merely because it
+is present in one reference vehicle.
+
+Use `--all-features` when a development or reference system needs every
+capability compatible with its selected target. Optional services and concrete
+device configuration remain separate by design.
 
 When an installer has created the project environment, activate it with:
 

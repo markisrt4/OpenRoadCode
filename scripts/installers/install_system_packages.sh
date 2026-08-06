@@ -16,7 +16,7 @@ source "$FEATURES_FILE"
 if (( $# > 0 )); then
   FEATURES=("$@")
 else
-  mapfile -t FEATURES < <(get_feature_defaults)
+  FEATURES=(base)
 fi
 
 detect_host_arch() {
@@ -52,7 +52,7 @@ case "$HOST_ARCH" in
     echo "[*] Detected x86_64/amd64 host; using desktop-oriented package flow."
     ;;
   arm64|armhf)
-    echo "[*] Detected ARM host; using Raspberry Pi-friendly package flow."
+    echo "[*] Detected ARM host; using the Debian ARM package flow."
     ;;
   *)
     echo "[*] Detected host architecture: $HOST_ARCH"
@@ -65,6 +65,10 @@ sudo apt update
 echo "[*] Installing feature-based packages..."
 base_packages=()
 for feature in "${FEATURES[@]}"; do
+  if ! is_known_feature "$feature"; then
+    echo "[!] Unknown feature: $feature" >&2
+    exit 1
+  fi
   while read -r pkg; do
     [[ -z "$pkg" ]] && continue
     base_packages+=("$pkg")
@@ -98,7 +102,7 @@ if (( ${#available_packages[@]} > 0 )); then
   sudo apt install -y --no-install-recommends "${available_packages[@]}"
 fi
 
-if [[ " ${FEATURES[*]} " == *" core-ui "* ]]; then
+if [[ " ${FEATURES[*]} " == *" browser "* ]]; then
   echo "[*] Installing Chromium..."
   if dpkg -s chromium >/dev/null 2>&1; then
     echo "[*] Already installed: chromium"
