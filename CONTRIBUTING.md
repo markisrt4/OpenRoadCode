@@ -27,6 +27,8 @@ services, and physical hardware. Please experiment thoughtfully.
   and the applicable regulations.
 - Do not commit credentials, OAuth tokens, API keys, device identifiers, or
   private vehicle data.
+- Report sensitive vulnerabilities privately by following
+  [SECURITY.md](SECURITY.md), rather than opening a public issue.
 - Describe any hardware, permissions, or system services needed to reproduce
   your work.
 

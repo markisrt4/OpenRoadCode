@@ -687,13 +687,11 @@ For hardware-related issues, also include:
 
 OpenRoadCode is released under the MIT License.
 
-See:
+See [LICENSE](LICENSE) for the complete license text.
 
-```text
-LICENSE
-```
-
-for the complete license text.
+Security concerns should be reported according to the
+[security policy](SECURITY.md). Please do not disclose sensitive findings in
+a public issue.
 
 ---
 
