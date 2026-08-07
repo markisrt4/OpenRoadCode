@@ -1,20 +1,11 @@
 from importlib import import_module
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from hardware_io.rotary_encoder.rotary_encoder_if import (
     ButtonCallback,
     RotaryEncoderIf,
     RotationCallback,
 )
-
-if TYPE_CHECKING:
-    from hardware_io.rotary_encoder.gpio_rotary_encoder import (
-        GpioRotaryEncoder,
-        GpioRotaryEncoderPins,
-    )
-    from hardware_io.rotary_encoder.seesaw_rotary_encoder import (
-        SeesawRotaryEncoder,
-    )
 
 __all__ = [
     "ButtonCallback",
@@ -27,9 +18,9 @@ __all__ = [
 
 
 def __getattr__(name: str) -> Any:
-    """Load optional hardware implementations only when explicitly requested."""
+    """Load hardware-specific drivers only when explicitly requested."""
 
-    implementation_modules = {
+    modules = {
         "GpioRotaryEncoder": (
             "hardware_io.rotary_encoder.gpio_rotary_encoder"
         ),
@@ -40,7 +31,7 @@ def __getattr__(name: str) -> Any:
             "hardware_io.rotary_encoder.seesaw_rotary_encoder"
         ),
     }
-    module_name = implementation_modules.get(name)
+    module_name = modules.get(name)
     if module_name is None:
         raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 

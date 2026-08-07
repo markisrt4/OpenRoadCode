@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from .radio_backend_if import RadioBackendIf
+from .radio_controller_if import RadioControllerIf
 from .radio_types import RadioMode, RadioPreset, RadioRange
 
 
@@ -17,7 +18,7 @@ def format_frequency(frequency_hz: int) -> str:
 
     return f"{frequency_hz} Hz"
 
-class RadioController:
+class RadioController(RadioControllerIf):
     """Coordinate radio tuning, modes, presets, and receiver telemetry."""
 
     def __init__(
@@ -31,7 +32,7 @@ class RadioController:
             raise ValueError("a radio range or at least one preset is required")
 
         self.backend = backend
-        self.presets = list(presets)
+        self._presets = list(presets)
         self.default_mode = default_mode
         self.radio_range = radio_range
 
@@ -40,25 +41,59 @@ class RadioController:
         self.current_frequency_hz = (
             radio_range.start_frequency_hz
             if radio_range is not None
-            else self.presets[0].frequency_hz
+            else self._presets[0].frequency_hz
         )
+        self._started = False
+
+    @property
+    def is_started(self) -> bool:
+        return self._started
+
+    @property
+    def is_available(self) -> bool:
+        return True
+
+    @property
+    def status_message(self) -> str | None:
+        return None
+
+    @property
+    def presets(self) -> list[RadioPreset]:
+        return self._presets
 
     def start(self) -> int:
         """Start the backend and tune the configured initial frequency."""
+        if self._started:
+            return self.current_frequency_hz
+
         self.backend.start()
-        self.set_mode(self.default_mode)
+        try:
+            self.set_mode(self.default_mode)
 
-        if self.radio_range is not None:
-            self.current_frequency_hz = self.radio_range.start_frequency_hz
+            if self.radio_range is not None:
+                self.current_frequency_hz = (
+                    self.radio_range.start_frequency_hz
+                )
 
-        return self.set_frequency(self.current_frequency_hz)
+            frequency_hz = self.set_frequency(self.current_frequency_hz)
+        except Exception:
+            self.backend.stop()
+            raise
+
+        self._started = True
+        return frequency_hz
 
     def stop(self) -> None:
         """Stop the radio backend."""
-        self.backend.stop()
+        if not self._started:
+            return
+
+        try:
+            self.backend.stop()
+        finally:
+            self._started = False
 
     def get_frequency(self) -> int:
-        """Return the controller's current frequency in hertz."""
         """Return the controller's current frequency without transport I/O."""
         return self.current_frequency_hz
 
@@ -80,7 +115,7 @@ class RadioController:
         self.set_frequency(preset.frequency_hz)
 
         try:
-            self.current_preset_index = self.presets.index(preset)
+            self.current_preset_index = self._presets.index(preset)
         except ValueError:
             pass
 
@@ -88,12 +123,12 @@ class RadioController:
 
     def tune_preset_index(self, index: int) -> RadioPreset:
         """Tune a preset by zero-based index, wrapping at either end."""
-        if not self.presets:
+        if not self._presets:
             raise ValueError("No radio presets configured")
 
-        wrapped_index = index % len(self.presets)
+        wrapped_index = index % len(self._presets)
         self.current_preset_index = wrapped_index
-        return self.tune_preset(self.presets[wrapped_index])
+        return self.tune_preset(self._presets[wrapped_index])
 
     def next_preset(self) -> RadioPreset:
         """Tune and return the next configured preset."""
@@ -104,12 +139,10 @@ class RadioController:
         return self.tune_preset_index(self.current_preset_index - 1)
 
     def next_station(self) -> RadioPreset:
-        """Compatibility alias for `next_preset`."""
         """Compatibility alias used by existing radio panels and adapters."""
         return self.next_preset()
 
     def previous_station(self) -> RadioPreset:
-        """Compatibility alias for `previous_preset`."""
         """Compatibility alias used by existing radio panels and adapters."""
         return self.previous_preset()
 

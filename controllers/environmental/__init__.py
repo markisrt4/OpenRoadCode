@@ -1,9 +1,25 @@
-"""Environmental measurement controllers."""
+"""Barometric measurement controllers."""
 
-from .environmental_controller import EnvironmentalController
-from .environmental_state import EnvironmentalState
+from .barometric_controller import BarometricController
+from .barometric_controller_if import BarometricControllerIf
+from .barometric_controller_stub import BarometricControllerStub
+from .barometric_source_if import (
+    BarometricSample,
+    BarometricSourceIf,
+)
+from .barometric_state import BarometricState
+from .bmp3xx_barometric_adapter import Bmp3xxBarometricAdapter
+from .unconfigured_barometric_controller import (
+    UnconfiguredBarometricController,
+)
 
 __all__ = [
-    "EnvironmentalController",
-    "EnvironmentalState",
+    "BarometricController",
+    "BarometricControllerIf",
+    "BarometricControllerStub",
+    "BarometricSample",
+    "BarometricSourceIf",
+    "BarometricState",
+    "Bmp3xxBarometricAdapter",
+    "UnconfiguredBarometricController",
 ]

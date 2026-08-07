@@ -4,21 +4,26 @@ set -euo pipefail
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd -- "$SCRIPT_DIR/../.." && pwd)"
 PROJECT_DIR="${PROJECT_DIR:-$PROJECT_ROOT}"
-FEATURES_FILE="$SCRIPT_DIR/installer_features.sh"
-
-# shellcheck disable=SC1091
-source "$FEATURES_FILE"
 
 if ! command -v whiptail >/dev/null 2>&1; then
   echo "[!] whiptail is not installed. Install it with: sudo apt install -y whiptail"
   exit 1
 fi
 
-if whiptail --title "OpenRoadCode Raspberry Pi installer" --yesno "Would you like to run the interactive installer?" 10 60; then
+if whiptail --title "OpenRoadCode installer" --yesno "Would you like to run the interactive installer?" 10 60; then
   :
 else
   exit 0
 fi
+
+SELECTED_TARGET="$(
+  whiptail --title "Installation target" --radiolist \
+    "Choose the system profile to install:" 15 78 5 \
+    "rpi4" "Raspberry Pi 4 or Compute Module 4" OFF \
+    "rpi5" "Raspberry Pi 5, Pi 500, or Compute Module 5" OFF \
+    "linux-dev" "Debian/Ubuntu development workstation or VM" ON \
+    3>&1 1>&2 2>&3
+)" || exit 0
 
 SELECTED_GENERAL="base"
 SELECTED_STREAMING=""
@@ -26,8 +31,8 @@ SELECTED_NAVIGATION=""
 SELECTED_RADIO=""
 SELECTED_AUTOMOTIVE=""
 SELECTED_BLUETOOTH=""
-SELECTED_BAROMETRIC=""
-ELM327_ADDRESS=""
+SELECTED_ENVIRONMENTAL=""
+INSTALL_ALL_FEATURES=0
 
 choose_features() {
   local title="$1"
@@ -53,28 +58,9 @@ choose_features() {
   SELECTED_RESULT="${selection//\"/}"
 }
 
-choose_barometric_sensor() {
-  local selection
-  selection=$(whiptail --title "Barometric sensor" --radiolist \
-    "Select one barometric sensor driver:" 14 76 4 \
-    "none" "Do not install a barometric sensor driver" \
-      "$([[ -z "$SELECTED_BAROMETRIC" ]] && echo ON || echo OFF)" \
-    "bmp388" "Bosch BMP388" \
-      "$([[ "$SELECTED_BAROMETRIC" == "bmp388" ]] && echo ON || echo OFF)" \
-    "bmp390" "Bosch BMP390" \
-      "$([[ "$SELECTED_BAROMETRIC" == "bmp390" ]] && echo ON || echo OFF)" \
-    3>&1 1>&2 2>&3) || return 1
-
-  if [[ "$selection" == "none" ]]; then
-    SELECTED_BAROMETRIC=""
-  else
-    SELECTED_BAROMETRIC="$selection"
-  fi
-}
-
 while true; do
   section=$(whiptail --title "OpenRoadCode installer" --menu \
-    "Choose a section to configure, then select Install:" 20 76 9 \
+    "Choose a section to configure, then select Install:" 21 76 10 \
     "general" "General features" \
     "streaming" "Streaming" \
     "navigation" "Navigation" \
@@ -82,6 +68,7 @@ while true; do
     "radio" "Radio" \
     "automotive" "Automotive devices" \
     "bluetooth" "Bluetooth" \
+    "all" "Install every capability compatible with the target" \
     "install" "Install the selected features" \
     "cancel" "Exit without installing" \
     3>&1 1>&2 2>&3) || exit 0
@@ -89,8 +76,11 @@ while true; do
   case "$section" in
     general)
       choose_features "General features" "Select general features:" "$SELECTED_GENERAL" \
-        "base|Core system dependencies" \
-        "core-ui|Browser/UI support" && SELECTED_GENERAL="$SELECTED_RESULT"
+        "base|Portable command-line runtime" \
+        "desktop-ui|Tk, X11, Openbox, and XFCE support" \
+        "browser|Chromium browser support" \
+        "vnc|TigerVNC server support" \
+        "input|Linux input/evdev support" && SELECTED_GENERAL="$SELECTED_RESULT"
       ;;
     streaming)
       choose_features "Streaming" "Select streaming features:" "$SELECTED_STREAMING" \
@@ -100,23 +90,32 @@ while true; do
     navigation)
       choose_features "Navigation" "Select GPS support and navigation hardware:" "$SELECTED_NAVIGATION" \
         "gps|GPS daemon and Python support" \
-        "mpu6050|MPU6050 accelerometer/gyroscope" && SELECTED_NAVIGATION="$SELECTED_RESULT"
+        "imu|Generic inertial-sensor tooling" && SELECTED_NAVIGATION="$SELECTED_RESULT"
       ;;
     environmental)
-      choose_barometric_sensor
+      choose_features "Environmental" "Select environmental capabilities:" "$SELECTED_ENVIRONMENTAL" \
+        "environmental|Generic environmental-sensor tooling" && SELECTED_ENVIRONMENTAL="$SELECTED_RESULT"
       ;;
     radio)
       choose_features "Radio" "Select radio features:" "$SELECTED_RADIO" \
+        "rtl-sdr|RTL-SDR and SoapySDR support" \
         "adsb|ADS-B/readsb support" \
         "sdrpp|SDR++ support" && SELECTED_RADIO="$SELECTED_RESULT"
       ;;
     automotive)
       choose_features "Automotive" "Select automotive devices:" "$SELECTED_AUTOMOTIVE" \
-        "elm327|ELM327 serial device (hardware_io/automotive/elm327)" && SELECTED_AUTOMOTIVE="$SELECTED_RESULT"
+        "automotive|Generic serial and CAN-bus support" && SELECTED_AUTOMOTIVE="$SELECTED_RESULT"
       ;;
     bluetooth)
       choose_features "Bluetooth" "Select Bluetooth features:" "$SELECTED_BLUETOOTH" \
         "bluetooth|Bluetooth device support" && SELECTED_BLUETOOTH="$SELECTED_RESULT"
+      ;;
+    all)
+      INSTALL_ALL_FEATURES=1
+      SELECTED_GENERAL="vnc"
+      SELECTED_NAVIGATION="gps"
+      SELECTED_BLUETOOTH="bluetooth"
+      break
       ;;
     install)
       break
@@ -127,85 +126,45 @@ while true; do
   esac
 done
 
-selected_features=()
-for feature in \
-  ${SELECTED_GENERAL} \
-  ${SELECTED_STREAMING} \
-  ${SELECTED_NAVIGATION} \
-  ${SELECTED_BAROMETRIC} \
-  ${SELECTED_RADIO} \
-  ${SELECTED_AUTOMOTIVE} \
-  ${SELECTED_BLUETOOTH}; do
-  selected_features+=("$feature")
-done
-if [[ " ${selected_features[*]} " != *" base "* ]]; then
-  selected_features+=(base)
-fi
+ARGS=(--target "$SELECTED_TARGET" --no-default-features)
+if (( INSTALL_ALL_FEATURES )); then
+  ARGS+=(--all-features)
+else
+  for feature in \
+    ${SELECTED_GENERAL} \
+    ${SELECTED_STREAMING} \
+    ${SELECTED_NAVIGATION} \
+    ${SELECTED_ENVIRONMENTAL} \
+    ${SELECTED_RADIO} \
+    ${SELECTED_AUTOMOTIVE} \
+    ${SELECTED_BLUETOOTH}; do
+    ARGS+=(--feature "$feature")
+  done
 
-declare -A system_package_set=()
-declare -A python_package_set=()
-for feature in "${selected_features[@]}"; do
-  while read -r package; do
-    [[ -n "$package" ]] && system_package_set["$package"]=1
-  done < <(get_feature_packages "$feature" | tr '[:space:]' '\n')
-  while read -r package; do
-    [[ -n "$package" ]] && python_package_set["$package"]=1
-  done < <(get_feature_python_packages "$feature")
-done
-
-preview="Features: ${selected_features[*]}\n\n"
-preview+="System packages: ${#system_package_set[@]}\n"
-preview+="Python packages: ${#python_package_set[@]}\n\n"
-preview+="Only missing packages will be installed. Continue?"
-if ! whiptail --title "Confirm installation" --yesno "$preview" 14 72; then
-  exit 0
-fi
-
-if [[ " $SELECTED_AUTOMOTIVE " == *" elm327 "* ]]; then
-  if whiptail --title "ELM327 RFCOMM" --yesno \
-    "Discover, pair, and configure a Bluetooth ELM327 device now?" 10 68; then
-    ELM327_ADDRESS="$(
-      whiptail --title "ELM327 RFCOMM" --inputbox \
-        "Enter the ELM327 Bluetooth MAC address:" 10 68 \
-        3>&1 1>&2 2>&3
-    )" || ELM327_ADDRESS=""
+  if [[ " $SELECTED_GENERAL " != *" base "* ]]; then
+    ARGS+=(--feature base)
   fi
 fi
 
-ARGS=()
-for feature in \
-  ${SELECTED_GENERAL} \
-  ${SELECTED_STREAMING} \
-  ${SELECTED_NAVIGATION} \
-  ${SELECTED_BAROMETRIC} \
-  ${SELECTED_RADIO} \
-  ${SELECTED_AUTOMOTIVE} \
-  ${SELECTED_BLUETOOTH}; do
-  ARGS+=(--feature "$feature")
-done
-
-if [[ " $SELECTED_GENERAL " != *" base "* ]]; then
-  ARGS+=(--feature base)
-fi
-
-if [[ " $SELECTED_GENERAL " == *" core-ui "* ]]; then
-  ARGS+=(--vnc)
-else
-  ARGS+=(--no-vnc)
+if [[ " $SELECTED_GENERAL " == *" vnc "* ]]; then
+  if whiptail --title "VNC service" --yesno \
+    "Configure and enable the VNC service after installing it?" 10 68; then
+    ARGS+=(--with-vnc)
+  fi
 fi
 
 if [[ " $SELECTED_NAVIGATION " == *" gps "* ]]; then
-  ARGS+=(--gpsd-service)
-else
-  ARGS+=(--no-gpsd-service)
-fi
-
-if [[ " $SELECTED_RADIO " == *" sdrpp "* ]]; then
-  ARGS+=(--install-sdrpp)
-fi
-
-if [[ -n "$ELM327_ADDRESS" ]]; then
-  ARGS+=(--elm327-address "$ELM327_ADDRESS")
+  if whiptail --title "GPSD service" --yesno \
+    "Configure the default GPSD service after installing GPS support?" 10 72; then
+    ARGS+=(--with-gpsd-service)
+  fi
 fi
 
 bash "$PROJECT_DIR/scripts/installers/host_setup.sh" "${ARGS[@]}"
+
+if [[ " $SELECTED_BLUETOOTH " == *" bluetooth "* ]]; then
+  if whiptail --title "Post-install configuration" --yesno \
+    "Configure a Bluetooth Serial Port Profile device now?" 10 72; then
+    bash "$PROJECT_DIR/scripts/installers/setup_bluetooth_spp.sh"
+  fi
+fi

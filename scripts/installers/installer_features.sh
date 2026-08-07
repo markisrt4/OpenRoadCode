@@ -1,36 +1,110 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Feature definitions for the OpenRoadCode installer.
-# Each feature can be enabled or disabled independently and maps to
-# a named set of system packages, Python packages, and optional scripts.
+# Capabilities are intentionally independent from installation targets.
+# Targets describe the host platform; features describe optional software and
+# hardware support installed on that platform.
 
-get_feature_defaults() {
+get_known_features() {
   cat <<'EOF'
 base
+desktop-ui
+browser
+vnc
+input
+gps
+rtl-sdr
+streamlit
+adsb
+bluetooth
+automotive
+imu
+environmental
+spotify
+sdrpp
+raspberry-pi
 EOF
+}
+
+get_all_features_for_target() {
+  local target="$1"
+  case "$target" in
+    rpi4|rpi5)
+      get_known_features
+      ;;
+    linux-dev)
+      cat <<'EOF'
+base
+desktop-ui
+browser
+vnc
+input
+gps
+rtl-sdr
+streamlit
+adsb
+bluetooth
+automotive
+imu
+environmental
+spotify
+sdrpp
+EOF
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
+is_known_feature() {
+  local requested="$1"
+  local feature
+  while read -r feature; do
+    [[ "$requested" == "$feature" ]] && return 0
+  done < <(get_known_features)
+  return 1
+}
+
+get_feature_dependencies() {
+  local feature="$1"
+  case "$feature" in
+    vnc) echo "desktop-ui" ;;
+    sdrpp) echo "rtl-sdr desktop-ui" ;;
+    adsb) echo "rtl-sdr" ;;
+    *) echo "" ;;
+  esac
 }
 
 get_feature_packages() {
   local feature="$1"
   case "$feature" in
     base)
-      echo "git curl wget ca-certificates python3 python3-venv python3-pip python3-evdev"
+      echo "git curl wget ca-certificates python3 python3-venv python3-pip"
       ;;
-    core-ui)
-      echo "python3-tk dbus-x11 xauth xterm x11-apps wmctrl openbox tigervnc-standalone-server tigervnc-common tigervnc-tools chromium"
+    desktop-ui)
+      echo "python3-tk dbus-x11 xauth xterm x11-apps wmctrl openbox xfce4 xfce4-goodies"
+      ;;
+    browser)
+      echo ""
+      ;;
+    vnc)
+      echo "tigervnc-standalone-server tigervnc-common"
+      ;;
+    input)
+      echo ""
       ;;
     gps)
       echo "gpsd gpsd-clients python3-gps"
       ;;
-    radio)
+    rtl-sdr)
       echo "rtl-sdr soapysdr-tools soapysdr-module-rtlsdr"
       ;;
     streamlit)
       echo ""
       ;;
     adsb)
-      echo "readsb lighttpd"
+      echo "readsb"
       ;;
     bluetooth)
       echo "bluez libbluetooth-dev python3-bluez"
@@ -38,13 +112,7 @@ get_feature_packages() {
     automotive)
       echo "python3-serial libserial-dev can-utils"
       ;;
-    elm327)
-      echo "bluez python3-serial"
-      ;;
-    mpu6050)
-      echo "i2c-tools"
-      ;;
-    bmp388|bmp390)
+    imu|environmental|raspberry-pi)
       echo "i2c-tools"
       ;;
     spotify)
@@ -63,70 +131,40 @@ get_feature_python_packages() {
   local feature="$1"
   case "$feature" in
     base)
-      printf '%s
-' \
-        requests \
-        tomli \
-        evdev \
-        Pillow
+      printf '%s\n' requests tomli
       ;;
-    core-ui)
+    desktop-ui)
+      printf '%s\n' Pillow
+      ;;
+    browser|vnc|adsb|spotify|sdrpp)
       echo ""
+      ;;
+    input)
+      printf '%s\n' evdev
       ;;
     gps)
-      printf '%s
-' \
-        geocoder \
-        gpsd-py3
+      printf '%s\n' gpsd-py3 geocoder
       ;;
-    radio)
-      printf '%s
-' \
-        pyserial \
-        bleak \
-        evdev
+    rtl-sdr)
+      echo ""
       ;;
     streamlit)
-      printf '%s
-' \
-        streamlit \
-        streamlit-autorefresh
-      ;;
-    adsb)
-      echo ""
+      printf '%s\n' streamlit streamlit-autorefresh
       ;;
     bluetooth)
-      printf '%s
-' \
-        bleak
+      printf '%s\n' bleak
       ;;
     automotive)
-      printf '%s
-' \
-        pyserial
+      printf '%s\n' pyserial
       ;;
-    elm327)
-      printf '%s
-' \
-        pyserial
-      ;;
-    mpu6050)
-      printf '%s
-' \
-        adafruit-blinka \
-        adafruit-circuitpython-mpu6050
-      ;;
-    bmp388|bmp390)
-      printf '%s
-' \
-        adafruit-blinka \
-        adafruit-circuitpython-bmp3xx
-      ;;
-    spotify)
+    imu|environmental)
       echo ""
       ;;
-    sdrpp)
-      echo ""
+    raspberry-pi)
+      printf '%s\n' \
+        raspberry-pi-gpio-backend \
+        adafruit-blinka \
+        adafruit-circuitpython-seesaw
       ;;
     *)
       echo ""
@@ -137,19 +175,21 @@ get_feature_python_packages() {
 get_feature_help() {
   cat <<'EOF'
 Available features:
-  base        Minimal Python runtime and common dependencies
-  core-ui     Chromium, Openbox, X11, and TigerVNC support
-  gps         GPS daemon and Python GPS support
-  radio       RTL-SDR and radio-related packages
-  streamlit   Streamlit dashboard support
-  adsb        ADS-B/readsb support packages
-  bluetooth   Bluetooth support packages
-  automotive  Common automotive and CAN-bus support
-  elm327      ELM327 serial-device support (hardware_io/automotive/elm327)
-  mpu6050     MPU6050 I2C accelerometer/gyroscope hardware module
-  bmp388      BMP388 I2C barometric pressure sensor
-  bmp390      BMP390 I2C barometric pressure sensor
-  spotify     Spotify integration extras
-  sdrpp       SDR++ package support
+  base          Portable command-line runtime and Python environment
+  desktop-ui    Tk, X11, Openbox, and XFCE desktop support
+  browser       Chromium browser support
+  vnc           TigerVNC server support (includes desktop-ui)
+  input         Linux input/evdev support
+  gps           GPSD and Python GPS/navigation support
+  rtl-sdr       RTL-SDR device and SoapySDR support
+  streamlit     Streamlit dashboard support
+  adsb          readsb ADS-B support (includes rtl-sdr)
+  bluetooth     Bluetooth system and Python support
+  automotive    Serial and CAN-bus support
+  imu           Generic I2C inertial-sensor tooling
+  environmental Generic I2C environmental-sensor tooling
+  spotify       Spotify integration extras
+  sdrpp         SDR++ support (includes RTL-SDR and desktop-ui)
+  raspberry-pi  Raspberry Pi GPIO, I2C, Blinka, and Seesaw support
 EOF
 }

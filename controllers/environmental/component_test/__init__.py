@@ -1,0 +1,1 @@
+"""Barometric controller component tests."""

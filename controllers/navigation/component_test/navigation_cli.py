@@ -10,6 +10,7 @@ from controllers.navigation import (
     GpsdNavigationAdapter,
     Mpu6050NavigationAdapter,
     NavigationController,
+    NavigationControllerIf,
     NavigationState,
 )
 from hardware_io.imu import Mpu6050Imu
@@ -123,7 +124,7 @@ def format_state(state: NavigationState) -> str:
 
 
 def run(
-    controller: NavigationController,
+    controller: NavigationControllerIf,
     interval_s: float,
     once: bool,
 ) -> None:

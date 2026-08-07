@@ -16,7 +16,7 @@ source "$FEATURES_FILE"
 if (( $# > 0 )); then
   FEATURES=("$@")
 else
-  mapfile -t FEATURES < <(get_feature_defaults)
+  FEATURES=(base)
 fi
 
 detect_host_arch() {
@@ -52,7 +52,7 @@ case "$HOST_ARCH" in
     echo "[*] Detected x86_64/amd64 host; using desktop-oriented package flow."
     ;;
   arm64|armhf)
-    echo "[*] Detected ARM host; using Raspberry Pi-friendly package flow."
+    echo "[*] Detected ARM host; using the Debian ARM package flow."
     ;;
   *)
     echo "[*] Detected host architecture: $HOST_ARCH"
@@ -65,23 +65,15 @@ sudo apt update
 echo "[*] Installing feature-based packages..."
 base_packages=()
 for feature in "${FEATURES[@]}"; do
+  if ! is_known_feature "$feature"; then
+    echo "[!] Unknown feature: $feature" >&2
+    exit 1
+  fi
   while read -r pkg; do
     [[ -z "$pkg" ]] && continue
     base_packages+=("$pkg")
-  done < <(get_feature_packages "$feature" | tr '[:space:]' '\n')
+  done < <(get_feature_packages "$feature")
 done
-
-# A manually installed or newer python3 may not match the distro's generic
-# python3-venv package. Install the package matching the interpreter that will
-# actually create the virtual environment when the repository supports it.
-if [[ " ${FEATURES[*]} " == *" base "* ]] && command -v python3 >/dev/null 2>&1; then
-  python_version="$(python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')"
-  versioned_venv_package="python${python_version}-venv"
-
-  if apt-cache show "$versioned_venv_package" >/dev/null 2>&1; then
-    base_packages+=("$versioned_venv_package")
-  fi
-fi
 
 # Deduplicate while preserving order
 unique_packages=()
@@ -110,7 +102,7 @@ if (( ${#available_packages[@]} > 0 )); then
   sudo apt install -y --no-install-recommends "${available_packages[@]}"
 fi
 
-if [[ " ${FEATURES[*]} " == *" core-ui "* ]]; then
+if [[ " ${FEATURES[*]} " == *" browser "* ]]; then
   echo "[*] Installing Chromium..."
   if dpkg -s chromium >/dev/null 2>&1; then
     echo "[*] Already installed: chromium"
