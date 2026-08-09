@@ -3,9 +3,6 @@
 from abc import ABC, abstractmethod
 from enum import Enum, auto
 
-from ..ui_if import UiIf
-
-
 class VehicleConnectionState(Enum):
     """! @brief Connection state of the vehicle telemetry source."""
 
@@ -15,7 +12,7 @@ class VehicleConnectionState(Enum):
     ERROR = auto()
 
 
-class VehicleConnectionUiIf(UiIf, ABC):
+class VehicleConnectionUiIf(ABC):
     """! @brief Display vehicle telemetry-source availability."""
 
     @abstractmethod

@@ -2,11 +2,21 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from datetime import datetime
+from typing import Protocol
 
-from controllers.lighting.lighting_types import (
-    CustomPatternMode,
-    RgbColor,
-)
+
+class RgbColorValue(Protocol):
+    """Structural RGB value accepted by the LEDDMX encoder."""
+
+    red: int
+    green: int
+    blue: int
+
+
+class PatternModeValue(Protocol):
+    """Structural pattern mode exposing its protocol byte value."""
+
+    value: int
 
 
 class LedDmxProtocol:
@@ -20,7 +30,7 @@ class LedDmxProtocol:
         )
 
     @staticmethod
-    def color(color: RgbColor) -> bytes:
+    def color(color: RgbColorValue) -> bytes:
         return bytes(
             [0x7B, 0xFF, 0x07, color.red, color.green,
              color.blue, 0x00, 0xFF, 0xBF]
@@ -62,7 +72,7 @@ class LedDmxProtocol:
 
     @staticmethod
     def custom_pattern_color(
-        color: RgbColor,
+        color: RgbColorValue,
         list_position: int,
         list_size: int,
     ) -> bytes:
@@ -74,7 +84,7 @@ class LedDmxProtocol:
         )
 
     @staticmethod
-    def custom_pattern_mode(mode: CustomPatternMode) -> bytes:
+    def custom_pattern_mode(mode: PatternModeValue) -> bytes:
         return bytes(
             [0x7B, 0xFF, 0x13, mode.value,
              0xFF, 0xFF, 0xFF, 0xFF, 0xBF]

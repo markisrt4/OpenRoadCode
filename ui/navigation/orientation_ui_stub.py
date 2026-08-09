@@ -1,10 +1,9 @@
 """Concrete no-op orientation UI implementation."""
 
 from ui.navigation.orientation_ui_if import HeadingReference, OrientationUiIf
-from ui.ui_stub import UiStub
 
 
-class OrientationUiStub(UiStub, OrientationUiIf):
+class OrientationUiStub(OrientationUiIf):
     """Ignore orientation display updates."""
 
     def set_heading(

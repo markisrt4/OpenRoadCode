@@ -3,9 +3,6 @@
 from abc import ABC, abstractmethod
 from enum import Enum, auto
 
-from ..ui_if import UiIf
-
-
 class VehicleOpening(Enum):
     """! @brief Door or panel that may be open or closed."""
 
@@ -37,7 +34,7 @@ class ExteriorLight(Enum):
     HAZARD_LIGHTS = auto()
 
 
-class VehicleBodyUiIf(UiIf, ABC):
+class VehicleBodyUiIf(ABC):
     """! @brief Display independently updated body and occupant state."""
 
     @abstractmethod

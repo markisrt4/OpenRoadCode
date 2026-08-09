@@ -9,10 +9,9 @@ from ui.automotive.vehicle_diagnostics_ui_if import (
     DiagnosticTroubleCode,
     VehicleDiagnosticsUiIf,
 )
-from ui.ui_stub import UiStub
 
 
-class VehicleDiagnosticsUiStub(UiStub, VehicleDiagnosticsUiIf):
+class VehicleDiagnosticsUiStub(VehicleDiagnosticsUiIf):
     """Ignore vehicle diagnostic updates and request-handler registration."""
 
     def set_malfunction_indicator(self, active: bool | None) -> None:

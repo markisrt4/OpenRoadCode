@@ -2,12 +2,12 @@ PROJECT_NAME           = "OpenRoadCode"
 PROJECT_BRIEF          = "Public API reference for OpenRoadCode"
 
 OUTPUT_DIRECTORY       = build/doxygen
-INPUT                  = apps controllers hardware_io protocols config common ui
+INPUT                  = apps controllers hardware_io protocols config common ui frontends input_events
 FILE_PATTERNS          = *.py
 RECURSIVE              = YES
 
-EXCLUDE_PATTERNS       = */test/* */component_test/* */apps/qtUi/* \
-                         */__pycache__/*
+EXCLUDE_PATTERNS       = */test/* */unit_test/* */component_test/* \
+                         */integration_test/* */apps/qtUi/* */__pycache__/*
 EXTRACT_ALL            = NO
 EXTRACT_PRIVATE        = NO
 EXTRACT_STATIC         = NO

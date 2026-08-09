@@ -5,6 +5,7 @@ from datetime import datetime
 from typing import TypeVar
 
 from controllers.automotive.vehicle_state import VehicleState
+from controllers.automotive.vehicle_state_source_if import VehicleStateSourceIf
 from protocols.obd2 import Obd2AdapterIf, Obd2Error, Obd2Request
 from protocols.obd2.obd_pid_decoder import ObdPidDecoder
 from protocols.obd2.obd_pids import (
@@ -26,7 +27,7 @@ from protocols.obd2.obd_pids import (
 T = TypeVar("T")
 
 
-class Obd2Manager:
+class Obd2Manager(VehicleStateSourceIf):
     """Poll OBD-II PIDs and assemble normalized vehicle-state snapshots."""
     def __init__(
         self,

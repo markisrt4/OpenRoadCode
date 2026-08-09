@@ -4,14 +4,14 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from controllers.input.input_manager import InputManager
-from controllers.input.input_mapper import InputMapper
-from controllers.input.input_types import (
+from input_events import (
     InputDeviceId,
     InputDeviceType,
     InputEvent,
     InputEventType,
 )
+from controllers.input.input_manager import InputManager
+from controllers.input.input_mapper import InputMapper
 from ui.ui_action import UiAction
 from ui.ui_event_handler_if import UiEventHandlerIf
 
@@ -132,6 +132,7 @@ def main() -> int:
         UiAction.SELECT,
         UiAction.VOLUME_UP,
         UiAction.VOLUME_DOWN,
+        UiAction.VOLUME_MUTE,
     ]
 
     assert ui_handler.actions == expected_actions

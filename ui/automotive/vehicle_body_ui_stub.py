@@ -6,10 +6,9 @@ from ui.automotive.vehicle_body_ui_if import (
     VehicleBodyUiIf,
     VehicleOpening,
 )
-from ui.ui_stub import UiStub
 
 
-class VehicleBodyUiStub(UiStub, VehicleBodyUiIf):
+class VehicleBodyUiStub(VehicleBodyUiIf):
     """Ignore vehicle body and occupant updates."""
 
     def set_opening_state(

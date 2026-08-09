@@ -1,11 +1,5 @@
-from abc import ABC, abstractmethod
+"""Compatibility export for the handler owned by :mod:`input_events`."""
 
-from controllers.input.input_types import InputEvent
+from input_events.input_handler_if import InputHandlerIf
 
-
-class InputHandlerIf(ABC):
-
-    @abstractmethod
-    def handle_input_event(self, event: InputEvent) -> None:
-        """Handle one generic physical input event."""
-        ...
+__all__ = ["InputHandlerIf"]

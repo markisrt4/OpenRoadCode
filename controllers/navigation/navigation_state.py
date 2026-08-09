@@ -7,8 +7,8 @@ from hardware_io.imu import Vector3
 
 
 @dataclass(frozen=True, slots=True)
-class GpsState:
-    """Represent the latest normalized GPS report."""
+class PositionState:
+    """Represent the latest normalized geographic position report."""
 
     received_at: datetime = field(default_factory=datetime.now)
     latitude_deg: float | None = None
@@ -19,15 +19,21 @@ class GpsState:
     fix_mode: int | None = None
     satellites_visible: int | None = None
     satellites_used: int | None = None
+    accuracy_m: float | None = None
+    source: str = "unknown"
 
     @property
     def has_fix(self) -> bool:
-        """Return whether the GPS state contains a positional fix.
+        """Return whether the position state contains a usable fix.
 
         @retval True Latitude and longitude are available.
         @retval False The state has no usable position.
         """
         return self.fix_mode is not None and self.fix_mode >= 2
+
+
+# Compatibility name for existing navigation consumers.
+GpsState = PositionState
 
 
 @dataclass(frozen=True, slots=True)
@@ -41,4 +47,4 @@ class NavigationState:
     acceleration_mps2: Vector3
     linear_acceleration_mps2: Vector3
     angular_velocity_rad_s: Vector3
-    gps: GpsState | None = None
+    gps: PositionState | None = None

@@ -2,13 +2,15 @@
 
 from __future__ import annotations
 
-from controllers.input.input_mapper_if import InputMapperIf
-from controllers.input.input_types import (
+from collections.abc import Iterable, Mapping
+
+from input_events import (
     InputDeviceId,
     InputDeviceType,
     InputEvent,
     InputEventType,
-)               
+)
+from controllers.input.input_mapper_if import InputMapperIf
 from ui.ui_action import UiAction
 
 
@@ -17,11 +19,16 @@ class InputMapper(InputMapperIf):
 
     def __init__(
         self,
-        user_encoder_id: InputDeviceId,
+        user_encoder_id: InputDeviceId | Iterable[InputDeviceId],
         volume_encoder_id: InputDeviceId,
+        push_button_actions: Mapping[InputDeviceId, UiAction] | None = None,
     ) -> None:
-        self._user_encoder_id = user_encoder_id
+        if isinstance(user_encoder_id, InputDeviceId):
+            self._user_encoder_ids = frozenset((user_encoder_id,))
+        else:
+            self._user_encoder_ids = frozenset(user_encoder_id)
         self._volume_encoder_id = volume_encoder_id
+        self._push_button_actions = dict(push_button_actions or {})
 
     def map_input(
         self,
@@ -29,7 +36,7 @@ class InputMapper(InputMapperIf):
     ) -> UiAction | None:
         """Map one physical input event into a semantic UI action."""
 
-        if event.device_id == self._user_encoder_id:
+        if event.device_id in self._user_encoder_ids:
             return self._map_user_encoder(event)
 
         if event.device_id == self._volume_encoder_id:
@@ -37,6 +44,11 @@ class InputMapper(InputMapperIf):
 
         if event.device_id.device_type is InputDeviceType.KEYBOARD:
             return self._map_keyboard(event)
+
+        if event.device_id.device_type is InputDeviceType.PUSHBUTTON:
+            if event.event_type is InputEventType.BUTTON_PRESSED:
+                return self._push_button_actions.get(event.device_id)
+            return None
 
         return None
 
@@ -62,6 +74,9 @@ class InputMapper(InputMapperIf):
         self,
         event: InputEvent,
     ) -> UiAction | None:
+        if event.event_type is InputEventType.BUTTON_PRESSED:
+            return UiAction.VOLUME_MUTE
+
         if event.event_type is not InputEventType.ROTATED:
             return None
 

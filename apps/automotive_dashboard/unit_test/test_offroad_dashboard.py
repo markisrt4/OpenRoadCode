@@ -1,15 +1,33 @@
 import unittest
 
-from apps.automotive_dashboard.offroad_dashboard import (
+from frontends.tk.automotive.offroad_dashboard_panel import (
+    OffroadDashboardPanel,
     _cardinal_direction,
     _is_capsized,
     _normalize_heading,
     _rotate_screen_point,
     _tilt_severity,
 )
+from ui.navigation import (
+    GroundTrackUiIf,
+    OrientationUiIf,
+    PositionUiIf,
+    TranslationUiIf,
+)
+from ui.system import StatusUiIf
 
 
 class OffroadDashboardTests(unittest.TestCase):
+    def test_panel_implements_only_required_data_contracts(self) -> None:
+        for contract in (
+            OrientationUiIf,
+            TranslationUiIf,
+            PositionUiIf,
+            GroundTrackUiIf,
+            StatusUiIf,
+        ):
+            self.assertTrue(issubclass(OffroadDashboardPanel, contract))
+
     def test_normalizes_heading(self) -> None:
         self.assertEqual(_normalize_heading(370.0), 10.0)
         self.assertEqual(_normalize_heading(-10.0), 350.0)

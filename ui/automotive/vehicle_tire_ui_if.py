@@ -3,9 +3,6 @@
 from abc import ABC, abstractmethod
 from enum import Enum, auto
 
-from ..ui_if import UiIf
-
-
 class TirePosition(Enum):
     """! @brief Position of a tire on a four-wheel vehicle."""
 
@@ -15,7 +12,7 @@ class TirePosition(Enum):
     REAR_RIGHT = auto()
 
 
-class VehicleTireUiIf(UiIf, ABC):
+class VehicleTireUiIf(ABC):
     """! @brief Display tire measurements in SI units."""
 
     @abstractmethod

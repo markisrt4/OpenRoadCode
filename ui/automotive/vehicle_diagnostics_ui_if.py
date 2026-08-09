@@ -8,7 +8,6 @@ from enum import Enum, auto
 from ui.automotive.diagnostics_request_handler_if import (
     DiagnosticsRequestHandlerIf,
 )
-from ui.ui_if import UiIf
 
 
 class DiagnosticSeverity(Enum):
@@ -43,7 +42,7 @@ class DiagnosticTroubleCode:
     description: str | None = None
 
 
-class VehicleDiagnosticsUiIf(UiIf, ABC):
+class VehicleDiagnosticsUiIf(ABC):
     """! @brief Display diagnostics and connect diagnostic request handling."""
 
     @abstractmethod

@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 
-from controllers.input.input_types import InputEvent
+from input_events import InputEvent
 from ui.ui_action import UiAction
 
 
@@ -11,5 +11,9 @@ class InputMapperIf(ABC):
         self,
         event: InputEvent,
     ) -> UiAction | None:
-        """Map an InputEvent into a UiAction."""
+        """Map a physical input event into a semantic UI action.
+
+        @param event Normalized physical input event to map.
+        @return Mapped UI action, or None when the event has no mapping.
+        """
         ...

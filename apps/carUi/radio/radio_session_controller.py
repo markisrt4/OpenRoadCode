@@ -2,17 +2,24 @@ from __future__ import annotations
 
 from typing import Callable, Optional
 
-from apps.carUi.radio.radio_panel_config import RadioPanelConfig
-from apps.carUi.radio.radio_panel_state import RadioPanelState
-from apps.carUi.radio.radio_status_formatter import format_frequency
+from apps.carUi.radio.radio_session_config import RadioSessionConfig
+from apps.carUi.radio.radio_session_state import RadioSessionState
+from ui.radio.radio_formatter import format_frequency
 from apps.launchers.app_launcher_if import AppLauncherIf
 from controllers.radio.radio_controller_if import RadioControllerIf
 from controllers.radio.radio_types import RadioPreset
 from controllers.sdr.sdr_telemetry_monitor import SDRTelemetryMonitor
 from ui.radio import (
+    ModulationType,
     PlaybackRequestHandlerIf,
     PresetRequestHandlerIf,
+    RadioApplicationRequestHandlerIf,
+    RadioMode as UiRadioMode,
+    RadioPreset as UiRadioPreset,
+    RadioRefreshRequestHandlerIf,
+    RadioUiIf,
     StationRequestHandlerIf,
+    TunedSignal,
     TuningRequestHandlerIf,
 )
 
@@ -22,24 +29,26 @@ class RadioSessionController(
     PlaybackRequestHandlerIf,
     StationRequestHandlerIf,
     TuningRequestHandlerIf,
+    RadioApplicationRequestHandlerIf,
+    RadioRefreshRequestHandlerIf,
 ):
     """Coordinate a radio domain controller, launcher, and panel state."""
     def __init__(
         self,
         radio_controller: RadioControllerIf,
         radio_app_launcher: AppLauncherIf,
-        panel_config: RadioPanelConfig,
+        session_config: RadioSessionConfig,
         remote_display: str = ":2",
         set_status: Optional[Callable[[str], None]] = None,
         on_preset_pressed: Optional[Callable[[RadioPreset], None]] = None,
     ) -> None:
         self._radio = radio_controller
         self._launcher = radio_app_launcher
-        self._panel_config = panel_config
+        self._config = session_config
         self._remote_display = remote_display
         self._set_status = set_status
         self._on_preset_pressed = on_preset_pressed
-        self._on_state_changed: Optional[Callable[[RadioPanelState], None]] = None
+        self._radio_ui: RadioUiIf | None = None
         self._telemetry_monitor = SDRTelemetryMonitor(radio_controller)
 
         self._receiver_started = False
@@ -50,21 +59,24 @@ class RadioSessionController(
         """Return configured presets as an immutable tuple."""
         return tuple(self._radio.presets)
 
-    @property
-    def panel_config(self) -> RadioPanelConfig:
-        """Return presentation configuration for the bound panel."""
-        return self._panel_config
-
-    def set_state_listener(
-        self,
-        listener: Optional[Callable[[RadioPanelState], None]],
-    ) -> None:
-        """Set or clear the callback receiving refreshed panel state."""
-        self._on_state_changed = listener
+    def set_radio_ui(self, radio_ui: RadioUiIf | None) -> None:
+        """Attach a radio UI and wire all of its semantic requests."""
+        self._radio_ui = radio_ui
+        if radio_ui is None:
+            return
+        radio_ui.set_preset_request_handler(self)
+        radio_ui.set_playback_request_handler(self)
+        radio_ui.set_station_request_handler(self)
+        radio_ui.set_tuning_request_handler(self)
+        radio_ui.set_application_request_handler(self)
+        radio_ui.set_refresh_request_handler(self)
+        radio_ui.clear_presets()
+        for preset in self.presets:
+            radio_ui.add_preset(self._to_ui_preset(preset))
 
     def report_ready(self) -> None:
         """Publish a ready status message for this radio session."""
-        self._status(f"{self._panel_config.title} ready")
+        self._status(f"{self._config.title} ready")
 
     def toggle_radio_app(self) -> None:
         """Toggle the external radio application."""
@@ -75,40 +87,46 @@ class RadioSessionController(
             )
 
             if running:
-                self._status(f"{self._panel_config.title} app launched")
+                self._status(f"{self._config.title} app launched")
             else:
                 self._receiver_started = False
-                self._status(f"{self._panel_config.title} app stopped")
+                self._status(f"{self._config.title} app stopped")
 
             self.refresh_state(include_telemetry=False)
         except Exception as exc:
             self._report_failure("app toggle", exc)
 
-    def toggle_radio(self) -> RadioPanelState:
+    def request_toggle_radio_application(self) -> None:
+        self.toggle_radio_app()
+
+    def request_radio_refresh(self) -> None:
+        self.refresh_state(include_telemetry=True)
+
+    def toggle_radio(self) -> RadioSessionState:
         """Start or stop the receiver and return its resulting state."""
         try:
             if self._receiver_started:
                 self._radio.stop()
                 self._receiver_started = False
-                self._status(f"{self._panel_config.title} radio stopped")
+                self._status(f"{self._config.title} radio stopped")
                 return self.refresh_state(include_telemetry=False)
 
             wait_for_rigctl = getattr(self._launcher, "wait_for_rigctl", None)
             if callable(wait_for_rigctl):
-                self._status(f"{self._panel_config.title} waiting for SDR++ rigctl...")
+                self._status(f"{self._config.title} waiting for SDR++ rigctl...")
                 wait_for_rigctl(set_status=self._set_status)
 
             self._radio.start()
             self._receiver_started = True
             self._active_preset = self._match_preset(self._current_frequency())
-            self._status(f"{self._panel_config.title} radio started")
+            self._status(f"{self._config.title} radio started")
             return self.refresh_state(include_telemetry=False)
         except Exception as exc:
             self._receiver_started = False
             self._report_failure("radio start", exc)
             return self.refresh_state(include_telemetry=False)
 
-    def tune_preset(self, preset: RadioPreset) -> RadioPanelState:
+    def tune_preset(self, preset: RadioPreset) -> RadioSessionState:
         """Tune a preset and return the resulting panel state."""
         try:
             tuned = self._radio.tune_preset(preset)
@@ -118,7 +136,7 @@ class RadioSessionController(
                 self._on_preset_pressed(tuned)
 
             self._status(
-                f"{self._panel_config.title}: {tuned.label} "
+                f"{self._config.title}: {tuned.label} "
                 f"({format_frequency(tuned.frequency_hz)})"
             )
             return self.refresh_state(include_telemetry=False)
@@ -126,19 +144,19 @@ class RadioSessionController(
             self._report_failure("preset", exc)
             return self.refresh_state(include_telemetry=False)
 
-    def frequency_up(self) -> RadioPanelState:
+    def frequency_up(self) -> RadioSessionState:
         """Step frequency upward and return the resulting state."""
         return self._adjust_frequency("tune up", self._radio.frequency_up)
 
-    def frequency_down(self) -> RadioPanelState:
+    def frequency_down(self) -> RadioSessionState:
         """Step frequency downward and return the resulting state."""
         return self._adjust_frequency("tune down", self._radio.frequency_down)
 
-    def next_preset(self) -> RadioPanelState:
+    def next_preset(self) -> RadioSessionState:
         """Tune the next preset and return the resulting state."""
         return self._cycle_preset("next preset", self._radio.next_preset)
 
-    def previous_preset(self) -> RadioPanelState:
+    def previous_preset(self) -> RadioSessionState:
         """Tune the previous preset and return the resulting state."""
         return self._cycle_preset("previous preset", self._radio.previous_preset)
 
@@ -178,7 +196,7 @@ class RadioSessionController(
         self,
         include_telemetry: bool = True,
         publish: bool = True,
-    ) -> RadioPanelState:
+    ) -> RadioSessionState:
         """Read receiver telemetry, notify the listener, and return state."""
         frequency_hz = self._current_frequency()
         matched_preset = self._match_preset(frequency_hz)
@@ -207,7 +225,7 @@ class RadioSessionController(
                 pass
 
         preset_index = self._preset_index(self._active_preset)
-        state = RadioPanelState(
+        state = RadioSessionState(
             receiver_started=self._receiver_started,
             frequency_hz=frequency_hz,
             mode_name=self._current_mode_name(),
@@ -219,21 +237,80 @@ class RadioSessionController(
             rds=rds,
         )
 
-        if publish and self._on_state_changed is not None:
-            self._on_state_changed(state)
+        if publish:
+            self._publish_ui_state(state)
 
         return state
+
+    def _publish_ui_state(self, state: RadioSessionState) -> None:
+        radio_ui = self._radio_ui
+        if radio_ui is None:
+            return
+        radio_ui.set_receiver_active(state.receiver_started)
+        radio_ui.set_active_preset(state.preset_index)
+        if state.frequency_hz is None:
+            radio_ui.set_signal(None)
+            return
+
+        mode = self._current_ui_mode()
+        radio_ui.set_signal(
+            TunedSignal(
+                frequency_hz=state.frequency_hz,
+                mode=mode,
+                snr_db=self._numeric(state.snr),
+                signal_strength_dbfs=self._numeric(state.signal_strength),
+                rds_text=state.rds,
+            )
+        )
+
+    def _current_ui_mode(self) -> UiRadioMode:
+        source = (
+            self._active_preset.mode
+            if self._active_preset is not None
+            else getattr(self._radio, "current_mode", None)
+            or getattr(self._radio, "default_mode", None)
+        )
+        name = str(getattr(source, "name", "FM")).upper()
+        modulation = ModulationType.__members__.get(name, ModulationType.FM)
+        return UiRadioMode(
+            modulation=modulation,
+            bandwidth_hz=int(getattr(source, "bandwidth", 0)),
+            step_hz=int(getattr(source, "step_hz", self._config.default_step_hz)),
+        )
+
+    @staticmethod
+    def _to_ui_preset(preset: RadioPreset) -> UiRadioPreset:
+        name = preset.mode.name.upper()
+        modulation = ModulationType.__members__.get(name, ModulationType.FM)
+        return UiRadioPreset(
+            label=preset.label,
+            frequency_hz=preset.frequency_hz,
+            mode=UiRadioMode(
+                modulation=modulation,
+                bandwidth_hz=preset.mode.bandwidth,
+                step_hz=preset.mode.step_hz,
+            ),
+        )
+
+    @staticmethod
+    def _numeric(value: float | str | None) -> float | None:
+        if value is None:
+            return None
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return None
 
     def _adjust_frequency(
         self,
         operation: str,
         action: Callable[[], int],
-    ) -> RadioPanelState:
+    ) -> RadioSessionState:
         try:
             frequency_hz = action()
             self._active_preset = self._match_preset(frequency_hz)
             self._status(
-                f"{self._panel_config.title}: {format_frequency(frequency_hz)}"
+                f"{self._config.title}: {format_frequency(frequency_hz)}"
             )
             return self.refresh_state(include_telemetry=False)
         except Exception as exc:
@@ -244,7 +321,7 @@ class RadioSessionController(
         self,
         operation: str,
         action: Callable[[], RadioPreset],
-    ) -> RadioPanelState:
+    ) -> RadioSessionState:
         try:
             preset = action()
             self._active_preset = preset
@@ -252,7 +329,7 @@ class RadioSessionController(
             if self._on_preset_pressed is not None:
                 self._on_preset_pressed(preset)
 
-            self._status(f"{self._panel_config.title}: {preset.label}")
+            self._status(f"{self._config.title}: {preset.label}")
             return self.refresh_state(include_telemetry=False)
 
         except Exception as exc:
@@ -304,8 +381,8 @@ class RadioSessionController(
             return None
 
     def _report_failure(self, operation: str, exc: Exception) -> None:
-        self._status(f"{self._panel_config.title} {operation} failed: {exc}")
-        print(f"[{self._panel_config.key}] {operation} failed: {exc}")
+        self._status(f"{self._config.title} {operation} failed: {exc}")
+        print(f"[{self._config.key}] {operation} failed: {exc}")
 
     def _status(self, message: str) -> None:
         if self._set_status is not None:

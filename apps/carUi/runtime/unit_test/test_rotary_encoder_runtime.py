@@ -3,7 +3,7 @@ from __future__ import annotations
 import unittest
 from unittest.mock import MagicMock, patch
 
-from apps.carUi.config.car_ui_runtime_config_parser import (
+from config.runtime_config import (
     GpioEncoderConfig,
     RotaryEncoderConfig,
     SeesawEncoderConfig,

@@ -1,6 +1,5 @@
-from controllers.input.input_handler_if import InputHandlerIf
+from input_events import InputEvent, InputHandlerIf
 from controllers.input.input_mapper_if import InputMapperIf
-from controllers.input.input_types import InputEvent
 from ui.ui_event_handler_if import UiEventHandlerIf
 
 

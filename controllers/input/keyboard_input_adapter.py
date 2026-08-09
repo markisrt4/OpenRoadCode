@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
-from controllers.input.input_handler_if import InputHandlerIf
-from controllers.input.input_types import (
+from input_events import (
     InputDeviceId,
     InputDeviceType,
     InputEvent,
     InputEventType,
+    InputHandlerIf,
 )
-from hardware_io.keyboard.keyboard_reader import KeyboardReader
+from hardware_io.keyboard import KeyboardReaderIf
 
 
 class KeyboardInputAdapter:
@@ -17,7 +17,7 @@ class KeyboardInputAdapter:
 
     def __init__(
         self,
-        keyboard: KeyboardReader,
+        keyboard: KeyboardReaderIf,
         device_id: InputDeviceId,
         input_handler: InputHandlerIf,
     ) -> None:

@@ -1,10 +1,9 @@
 """Concrete no-op translation UI implementation."""
 
 from ui.navigation.translation_ui_if import TranslationUiIf
-from ui.ui_stub import UiStub
 
 
-class TranslationUiStub(UiStub, TranslationUiIf):
+class TranslationUiStub(TranslationUiIf):
     """Ignore translational-motion display updates."""
 
     def set_rate_of_climb(self, rate_mps: float | None) -> None:

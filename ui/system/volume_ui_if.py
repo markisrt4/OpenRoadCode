@@ -3,10 +3,9 @@
 from abc import ABC, abstractmethod
 
 from ui.system.volume_request_handler_if import VolumeRequestHandlerIf
-from ui.ui_if import UiIf
 
 
-class VolumeUiIf(UiIf, ABC):
+class VolumeUiIf(ABC):
     """! @brief Display normalized system volume and mute state.
 
     This contract does not prescribe discrete steps, visual indicators, audio

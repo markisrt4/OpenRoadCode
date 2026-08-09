@@ -264,7 +264,7 @@ PipewireAudioController
 ```
 
 The encoder driver and volume device index are configured in
-`apps/carUi/config/car_ui_runtime.toml`. Neither `AudioControllerIf` nor
+`config/runtime.toml`. Neither `AudioControllerIf` nor
 `PipewireAudioController` depends on Seesaw addresses or GPIO pins.
 
 Test the real configured volume knob and default PipeWire sink with:

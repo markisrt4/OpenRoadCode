@@ -4,7 +4,7 @@ from dataclasses import dataclass
 import logging
 from pathlib import Path
 
-from apps.carUi.config.car_ui_runtime_config_parser import (
+from config.runtime_config import (
     GpioEncoderConfig,
     RotaryEncoderConfig,
     SeesawEncoderConfig,

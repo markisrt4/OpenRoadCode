@@ -3,10 +3,9 @@
 from collections.abc import Sequence
 
 from ui.navigation.position_ui_if import PositionFix, PositionUiIf, SatelliteInfo
-from ui.ui_stub import UiStub
 
 
-class PositionUiStub(UiStub, PositionUiIf):
+class PositionUiStub(PositionUiIf):
     """Ignore position and satellite display updates."""
 
     def set_position(self, position_fix: PositionFix | None) -> None:

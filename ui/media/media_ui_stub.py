@@ -5,10 +5,9 @@ from ui.media.playback_request_handler_if import PlaybackRequestHandlerIf
 from ui.media.seek_request_handler_if import SeekRequestHandlerIf
 from ui.media.track_request_handler_if import TrackRequestHandlerIf
 from ui.media.volume_request_handler_if import VolumeRequestHandlerIf
-from ui.ui_stub import UiStub
 
 
-class MediaUiStub(UiStub, MediaUiIf):
+class MediaUiStub(MediaUiIf):
     """Ignore media display updates and callback registration."""
 
     def set_media_state(self, state: MediaState | None) -> None:

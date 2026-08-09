@@ -8,7 +8,7 @@ This package translates physical input into semantic UI actions.
 hardware_io driver
     -> device-specific callback
 input adapter
-    -> generic InputEvent
+    -> input_events.InputEvent
 InputManager + InputMapperIf
     -> UiAction
 UiEventHandlerIf
@@ -17,8 +17,8 @@ UiEventHandlerIf
 
 ## Responsibilities
 
-- `InputDeviceId` identifies a physical input without using string IDs.
-- `InputEvent` describes what physically happened.
+- `input_events` owns `InputDeviceId`, `InputEvent`, and `InputHandlerIf` as
+  neutral cross-layer contracts.
 - Input adapters translate device callbacks into `InputEvent`.
 - `ConfigurableInputMapper` maps events to `UiAction`.
 - `InputManager` delivers mapped actions to `UiEventHandlerIf`.
@@ -44,3 +44,6 @@ input_manager.dispatch_ui_action(UiAction.HOME)
 
 Raw gestures or pointer events that require mapping can instead be represented as
 generic `InputEvent` values and handled through the mapper.
+
+New code should import physical-input contracts from `input_events`.
+`controllers.input` retains compatibility exports for existing callers.

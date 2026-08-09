@@ -4,9 +4,12 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import Enum, auto
 
-from ..ui_if import UiIf
 from .playback_request_handler_if import PlaybackRequestHandlerIf
 from .preset_request_handler_if import PresetRequestHandlerIf
+from .radio_application_request_handler_if import (
+    RadioApplicationRequestHandlerIf,
+)
+from .radio_refresh_request_handler_if import RadioRefreshRequestHandlerIf
 from .station_request_handler_if import StationRequestHandlerIf
 from .tuning_request_handler_if import TuningRequestHandlerIf
 
@@ -75,7 +78,7 @@ class TunedSignal:
     rds_text: str | None = None
 
 
-class RadioUiIf(UiIf, ABC):
+class RadioUiIf(ABC):
     """! @brief Display radio telemetry, controls, and presets.
 
     ``None`` passed to set_signal() means the receiver has no currently
@@ -95,6 +98,27 @@ class RadioUiIf(UiIf, ABC):
         """! @brief Add one preset to the radio UI.
 
         @param preset Preset to add.
+        """
+        ...
+
+    @abstractmethod
+    def clear_presets(self) -> None:
+        """! @brief Remove all presets from the radio UI."""
+        ...
+
+    @abstractmethod
+    def set_receiver_active(self, active: bool) -> None:
+        """! @brief Set whether the receiver is currently active.
+
+        @param active True while the receiver is active.
+        """
+        ...
+
+    @abstractmethod
+    def set_active_preset(self, preset_index: int | None) -> None:
+        """! @brief Select the active zero-based preset, if any.
+
+        @param preset_index Zero-based preset index, or None for no selection.
         """
         ...
 
@@ -139,5 +163,27 @@ class RadioUiIf(UiIf, ABC):
         """! @brief Set or clear the frequency-tuning request handler.
 
         @param handler Tuning request handler, or None to disconnect it.
+        """
+        ...
+
+    @abstractmethod
+    def set_application_request_handler(
+        self,
+        handler: RadioApplicationRequestHandlerIf | None,
+    ) -> None:
+        """! @brief Set or clear companion-application requests.
+
+        @param handler Application request handler, or None to disconnect it.
+        """
+        ...
+
+    @abstractmethod
+    def set_refresh_request_handler(
+        self,
+        handler: RadioRefreshRequestHandlerIf | None,
+    ) -> None:
+        """! @brief Set or clear periodic refresh requests.
+
+        @param handler Refresh request handler, or None to disconnect it.
         """
         ...

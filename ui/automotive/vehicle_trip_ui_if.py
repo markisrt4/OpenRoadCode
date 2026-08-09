@@ -2,10 +2,7 @@
 
 from abc import ABC, abstractmethod
 
-from ..ui_if import UiIf
-
-
-class VehicleTripUiIf(UiIf, ABC):
+class VehicleTripUiIf(ABC):
     """! @brief Display independently updated trip measurements in SI units."""
 
     @abstractmethod

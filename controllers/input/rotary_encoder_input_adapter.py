@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-from controllers.input.input_handler_if import InputHandlerIf
-from controllers.input.input_types import (
+from input_events import (
     InputDeviceId,
     InputDeviceType,
     InputEvent,
     InputEventType,
+    InputHandlerIf,
 )
 from hardware_io.rotary_encoder.rotary_encoder_if import RotaryEncoderIf
 

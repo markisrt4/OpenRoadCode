@@ -1,16 +1,17 @@
 from importlib import import_module
 from typing import TYPE_CHECKING, Any
 
-from controllers.input.input_mapper import (
-    InputMapper,
-)
-from controllers.input.input_manager import InputManager
-from controllers.input.input_types import (
+from input_events import (
     InputDeviceId,
     InputDeviceType,
     InputEvent,
     InputEventType,
 )
+from controllers.input.input_mapper import (
+    InputMapper,
+)
+from controllers.input.input_manager import InputManager
+from controllers.input.push_button_input_adapter import PushButtonInputAdapter
 
 if TYPE_CHECKING:
     from controllers.input.keyboard_input_adapter import KeyboardInputAdapter
@@ -26,6 +27,7 @@ __all__ = [
     "InputEventType",
     "InputManager",
     "KeyboardInputAdapter",
+    "PushButtonInputAdapter",
     "RotaryEncoderInputAdapter",
 ]
 

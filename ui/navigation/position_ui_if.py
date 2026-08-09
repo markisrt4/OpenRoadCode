@@ -2,9 +2,6 @@ from abc import ABC, abstractmethod
 from collections.abc import Sequence
 from dataclasses import dataclass
 
-from ..ui_if import UiIf
-
-
 @dataclass(frozen=True, slots=True)
 class PositionFix:
     """
@@ -54,7 +51,7 @@ class SatelliteInfo:
     is_used_in_fix: bool = False  
 
 
-class PositionUiIf(UiIf, ABC):
+class PositionUiIf(ABC):
     """Display receiver position and the current complete satellite snapshot.
 
     ``None`` passed to set_position() means no position fix is available.

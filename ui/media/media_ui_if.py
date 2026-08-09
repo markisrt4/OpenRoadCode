@@ -8,7 +8,6 @@ from ui.media.playback_request_handler_if import PlaybackRequestHandlerIf
 from ui.media.seek_request_handler_if import SeekRequestHandlerIf
 from ui.media.track_request_handler_if import TrackRequestHandlerIf
 from ui.media.volume_request_handler_if import VolumeRequestHandlerIf
-from ui.ui_if import UiIf
 
 
 class PlaybackState(Enum):
@@ -19,12 +18,22 @@ class PlaybackState(Enum):
     PAUSED = auto()
 
 
+class MediaAvailability(Enum):
+    """! @brief Availability of the configured media service."""
+
+    AVAILABLE = auto()
+    UNAVAILABLE = auto()
+    CONFIGURATION_REQUIRED = auto()
+    ERROR = auto()
+
+
 @dataclass(frozen=True, slots=True)
 class MediaState:
     """! @brief Represent the currently selected media and playback state.
 
     Optional fields are ``None`` when the media service cannot provide them.
 
+    @param availability Availability of the media service.
     @param playback Current playback state.
     @param title Media title, or None when unavailable.
     @param artist Artist or creator name, or None when unavailable.
@@ -35,8 +44,10 @@ class MediaState:
     @param duration_s Total media duration in seconds.
     @param volume_percent Media playback volume from 0 through 100.
     @param device_name Active playback device name, or None when unavailable.
+    @param status_message Human-readable service or playback status.
     """
 
+    availability: MediaAvailability = MediaAvailability.UNAVAILABLE
     playback: PlaybackState = PlaybackState.STOPPED
     title: str | None = None
     artist: str | None = None
@@ -47,9 +58,10 @@ class MediaState:
     duration_s: float | None = None
     volume_percent: int | None = None
     device_name: str | None = None
+    status_message: str | None = None
 
 
-class MediaUiIf(UiIf, ABC):
+class MediaUiIf(ABC):
     """! @brief Display media state and connect media request handlers.
 
     ``None`` passed to set_media_state() means no media service or state

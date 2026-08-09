@@ -3,9 +3,6 @@
 from abc import ABC, abstractmethod
 from enum import Enum, auto
 
-from ..ui_if import UiIf
-
-
 class Gear(Enum):
     """! @brief Gear currently engaged by the vehicle."""
 
@@ -19,7 +16,7 @@ class Gear(Enum):
     SIXTH = auto()
 
 
-class VehicleUiIf(UiIf, ABC):
+class VehicleUiIf(ABC):
     """! @brief Display independently updated vehicle measurements.
 
     Physical measurements use SI units. Dimensionless ratios use the inclusive

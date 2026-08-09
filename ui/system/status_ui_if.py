@@ -4,8 +4,6 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import Enum, auto
 
-from ui.ui_if import UiIf
-
 
 class StatusSeverity(Enum):
     """! @brief Semantic importance of an application status."""
@@ -32,7 +30,10 @@ class StatusMessage:
     source: str | None = None
 
 
-class StatusUiIf(UiIf, ABC):
+StatusValue = StatusMessage | str | None
+
+
+class StatusUiIf(ABC):
     """! @brief Present semantic application status information.
 
     Implementations may use a bar, notification area, log, overlay, speech, or
@@ -41,9 +42,12 @@ class StatusUiIf(UiIf, ABC):
     """
 
     @abstractmethod
-    def set_status(self, status: StatusMessage | None) -> None:
+    def set_status(self, status: StatusValue) -> None:
         """! @brief Set or clear the current application status.
 
-        @param status Status to present, or None to clear it.
+        A string represents a concise informational status. Use
+        ``StatusMessage`` when severity, detail, or source metadata matters.
+
+        @param status Structured status, concise text, or None to clear it.
         """
         ...

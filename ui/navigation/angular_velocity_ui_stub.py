@@ -1,10 +1,9 @@
 """Concrete no-op angular-velocity UI implementation."""
 
 from ui.navigation.angular_velocity_ui_if import AngularVelocityUiIf
-from ui.ui_stub import UiStub
 
 
-class AngularVelocityUiStub(UiStub, AngularVelocityUiIf):
+class AngularVelocityUiStub(AngularVelocityUiIf):
     """Ignore angular-velocity display updates."""
 
     def set_angular_velocity_x(self, angular_velocity_x_rad_s: float | None) -> None:

@@ -1,10 +1,9 @@
 """Concrete no-op vehicle telemetry UI implementation."""
 
 from ui.automotive.vehicle_ui_if import Gear, VehicleUiIf
-from ui.ui_stub import UiStub
 
 
-class VehicleUiStub(UiStub, VehicleUiIf):
+class VehicleUiStub(VehicleUiIf):
     """Ignore independently updated vehicle measurements."""
 
     def set_gear(self, gear: Gear | None) -> None:

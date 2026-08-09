@@ -1,29 +1,28 @@
 from abc import ABC, abstractmethod
 
-class UiIf(ABC):
-    """Lifecycle contract implemented by a complete user interface.
 
-    Lifecycle operations are idempotent. Implementations return ``True`` when
-    the requested final state has been reached, including when it was already
-    reached, and ``False`` when the transition could not be completed.
+class UiIf(ABC):
+    """Lifecycle contract implemented by a complete frontend.
+
+    A frontend owns its toolkit application, top-level windows, event loop,
+    and composed screens. Domain-specific UI contracts intentionally do not
+    inherit this lifecycle.
     """
-    
+
     @abstractmethod
     def initialize(self) -> bool:
-        """Create resources and leave the UI ready to receive updates."""
-        ...
-    
-    @abstractmethod
-    def shutdown(self) -> bool:
-        """Release resources; repeated calls must be safe."""
+        """Create resources and leave the frontend ready to run.
+
+        @return True when initialization succeeds.
+        """
         ...
 
-    @abstractmethod        
-    def _create_window(self) -> bool:
-        """Create the implementation-specific window resources."""
-        ...
-        
     @abstractmethod
-    def _destroy_window(self) -> bool:
-        """Destroy window resources; repeated calls must be safe."""
+    def run(self) -> None:
+        """Run the frontend event loop until it is asked to exit."""
+        ...
+
+    @abstractmethod
+    def shutdown(self) -> None:
+        """Release frontend resources; repeated calls must be safe."""
         ...

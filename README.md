@@ -53,7 +53,7 @@ Current and partially integrated capabilities include:
 * Multi-band radio scanning
 * RTL-SDR integration
 * ADS-B aircraft tracking
-* GPS positioning through GPSD
+* Provider-independent positioning through GPSD or browser geolocation
 * Bluetooth OBD-II communication
 * Vehicle telemetry and gauge support
 * Bluetooth cabin-lighting control
@@ -91,7 +91,6 @@ Potential future work includes:
 * Digital radio modes
 * Additional SDR applications
 * Trip recording and telemetry history
-* Plugin-style application discovery
 * Additional embedded Linux targets
 * Custom OpenRoadCode operating-system images
 
@@ -109,7 +108,7 @@ The current reference system is based primarily on:
 | Raspberry Pi 4               | Secondary and development target     |
 | Raspberry Pi Touch Display 2 | Primary touchscreen                  |
 | RTL-SDR receivers            | Radio reception                      |
-| USB GPS receiver             | Position and time data               |
+| USB GPS receiver or browser  | Position and time data               |
 | Bluetooth OBD-II adapter     | Vehicle telemetry                    |
 | Bluetooth LED controller     | Cabin-lighting control               |
 | Rotary encoders              | Physical user input                  |
@@ -136,6 +135,7 @@ The primary repository areas are:
 OpenRoadCode/
 ├── apps/
 │   ├── carUi/
+│   ├── carTui/
 │   └── other applications
 │
 ├── controllers/
@@ -147,6 +147,16 @@ OpenRoadCode/
 │   ├── radio/
 │   ├── spotify/
 │   └── other application-facing controllers
+│
+├── frontends/
+│   ├── common/input/
+│   └── tk/
+│
+├── ui/
+│   └── toolkit-independent presentation contracts
+│
+├── input_events/
+│   └── normalized physical-input contracts and values
 │
 ├── hardware_io/
 │   ├── automotive/
@@ -191,6 +201,10 @@ Linux devices, services, and external hardware
 ```
 
 Higher-level application modules should not depend directly on hardware-specific implementations.
+
+Cross-layer physical-input values live in `input_events`. Hardware adapters,
+controllers, frontend event queues, and applications may depend on these
+neutral contracts without depending on one another's implementations.
 
 ---
 
@@ -467,7 +481,7 @@ These are intended to verify one subsystem at a time without launching the compl
 
 Examples may include tests for:
 
-* GPS input
+* GPSD and browser position input
 * OBD-II communication
 * Rotary encoders
 * Environmental sensors

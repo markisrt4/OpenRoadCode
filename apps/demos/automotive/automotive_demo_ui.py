@@ -22,9 +22,11 @@ from ui.automotive import (
     VehicleTripUiIf,
     VehicleUiIf,
 )
+from ui.ui_if import UiIf
 
 
 class AutomotiveDemoUi(
+    UiIf,
     VehicleUiIf,
     VehicleTripUiIf,
     VehicleTireUiIf,
@@ -45,18 +47,11 @@ class AutomotiveDemoUi(
         self._diagnostics_handler: DiagnosticsRequestHandlerIf | None = None
 
     def initialize(self) -> bool:
-        return self._create_window()
-
-    def shutdown(self) -> bool:
-        return self._destroy_window()
-
-    def _create_window(self) -> bool:
         self._running = True
         return True
 
-    def _destroy_window(self) -> bool:
+    def shutdown(self) -> None:
         self._running = False
-        return True
 
     def _set(self, name: str, value: object) -> None:
         with self._lock:

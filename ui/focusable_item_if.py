@@ -10,7 +10,10 @@ class FocusableItemIf(ABC):
 
     @abstractmethod
     def set_focused(self, focused: bool) -> None:
-        """Update the item's focused state and visual presentation."""
+        """Update the item's focused state and visual presentation.
+
+        @param focused True when the item should present keyboard focus.
+        """
         ...
 
     @abstractmethod
@@ -19,5 +22,8 @@ class FocusableItemIf(ABC):
         ...
 
     def is_enabled(self) -> bool:
-        """Return whether the item can currently receive focus."""
+        """Return whether the item can currently receive focus.
+
+        @return True when focus traversal may select this item.
+        """
         return True
