@@ -32,6 +32,14 @@ class PipewireAudioController(AudioControllerIf):
         self._current_level: int | None = None
 
     @property
+    def is_available(self) -> bool:
+        return True
+
+    @property
+    def status_message(self) -> str | None:
+        return None
+
+    @property
     def steps(self) -> int:
         """Return the number of discrete volume steps.
 

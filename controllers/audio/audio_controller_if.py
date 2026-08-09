@@ -10,6 +10,23 @@ class AudioControllerIf(ABC):
 
     @property
     @abstractmethod
+    def is_available(self) -> bool:
+        """Return whether audio control is configured and available.
+
+        @retval True Audio control is available.
+        @retval False Audio control is unavailable.
+        """
+
+    @property
+    @abstractmethod
+    def status_message(self) -> str | None:
+        """Return an availability message, if one applies.
+
+        @return Human-readable status, or ``None`` when no message applies.
+        """
+
+    @property
+    @abstractmethod
     def maximum_level(self) -> int:
         """Return the maximum discrete volume level.
 

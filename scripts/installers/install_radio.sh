@@ -115,9 +115,9 @@ fi
 
 echo "[*] Writing RTL-SDR udev rules..."
 sudo tee /etc/udev/rules.d/20-rtlsdr.rules >/dev/null <<'EOF'
-SUBSYSTEM=="usb", ATTRS{idVendor}=="0bda", ATTRS{idProduct}=="2832", GROUP="plugdev", MODE="0666"
-SUBSYSTEM=="usb", ATTRS{idVendor}=="0bda", ATTRS{idProduct}=="2838", GROUP="plugdev", MODE="0666"
-SUBSYSTEM=="usb", ATTRS{idVendor}=="0bda", ATTRS{idProduct}=="2830", GROUP="plugdev", MODE="0666"
+SUBSYSTEM=="usb", ATTRS{idVendor}=="0bda", ATTRS{idProduct}=="2832", GROUP="plugdev", MODE="0660"
+SUBSYSTEM=="usb", ATTRS{idVendor}=="0bda", ATTRS{idProduct}=="2838", GROUP="plugdev", MODE="0660"
+SUBSYSTEM=="usb", ATTRS{idVendor}=="0bda", ATTRS{idProduct}=="2830", GROUP="plugdev", MODE="0660"
 EOF
 
 sudo usermod -aG plugdev "$USER" || true
@@ -127,4 +127,4 @@ sudo udevadm trigger >/dev/null 2>&1 || true
 echo
 echo "[+] Radio stack update complete."
 echo "[*] Test RTL-SDR with: rtl_test -t"
-echo "[*] Launch SDR++ with: DISPLAY=:2 sdrpp &"
+echo "[*] Launch SDR++ with: sdrpp"

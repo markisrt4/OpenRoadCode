@@ -13,6 +13,8 @@ from hardware_io.environmental import (
     Bmp390,
 )
 
+PASCALS_PER_INCH_OF_MERCURY = 3386.389
+
 
 def parse_i2c_address(value: str) -> int:
     """Parse and validate a decimal or hexadecimal I2C address."""
@@ -79,6 +81,11 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         action="store_true",
         help="Read one sample and exit.",
     )
+    parser.add_argument(
+        "--imperial",
+        action="store_true",
+        help="Display pressure in inHg and temperature in °F.",
+    )
     return parser.parse_args(argv)
 
 
@@ -91,10 +98,22 @@ def create_sensor(model: str, address: int) -> BarometricSensorIf:
     return sensor_types[model](address=address)
 
 
-def print_sample(sensor: BarometricSensorIf) -> None:
+def print_sample(
+    sensor: BarometricSensorIf,
+    imperial: bool = False,
+) -> None:
     """Read and display one pressure and temperature sample."""
     pressure_pa = sensor.get_pressure_pa()
     temperature_c = sensor.get_temperature_c()
+
+    if imperial:
+        pressure_inhg = pressure_pa / PASCALS_PER_INCH_OF_MERCURY
+        temperature_f = temperature_c * 9.0 / 5.0 + 32.0
+        print(
+            f"Pressure: {pressure_inhg:7.3f} inHg  "
+            f"Temperature: {temperature_f:6.2f} °F"
+        )
+        return
 
     print(
         f"Pressure: {pressure_pa:10.1f} Pa  "
@@ -108,6 +127,7 @@ def run(
     address: int,
     interval_s: float,
     once: bool,
+    imperial: bool = False,
 ) -> None:
     """Run the live component test."""
     sensor.start()
@@ -116,18 +136,23 @@ def run(
         if not sensor.is_started:
             raise RuntimeError("sensor did not report a started state")
 
-        print(f"{model.upper()} connected at {address:#04x}")
-        if not once:
-            print("Press Ctrl+C to stop")
+        print(
+            f"{model.upper()} initialized at {address:#04x}; "
+            "reading first sample...",
+            flush=True,
+        )
+        print_sample(sensor, imperial=imperial)
+        print(f"{model.upper()} is returning data", flush=True)
+
+        if once:
+            return
+
+        print("Press Ctrl+C to stop")
         print()
 
         while True:
-            print_sample(sensor)
-
-            if once:
-                return
-
             time.sleep(interval_s)
+            print_sample(sensor, imperial=imperial)
     finally:
         sensor.stop()
 
@@ -144,6 +169,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             address=args.address,
             interval_s=args.interval,
             once=args.once,
+            imperial=args.imperial,
         )
     except KeyboardInterrupt:
         print("\nStopped")

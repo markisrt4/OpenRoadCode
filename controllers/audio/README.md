@@ -10,6 +10,8 @@ Audio applications and input components can use the audio controller without dep
 |-----------|-------------|
 | `AudioControllerIf` | Defines the common audio control interface. |
 | `PipewireAudioController` | Controls PipeWire audio output using `wpctl`. |
+| `AudioControllerStub` | Provides deterministic in-memory audio state. |
+| `UnconfiguredAudioController` | Reports unavailable audio configuration. |
 
 ## Directory Layout
 
@@ -17,7 +19,9 @@ Audio applications and input components can use the audio controller without dep
 audio/
 ├── __init__.py
 ├── audio_controller_if.py
+├── audio_controller_stub.py
 ├── pipewire_audio_controller.py
+├── unconfigured_audio_controller.py
 ├── README.md
 └── component_test/
     ├── __init__.py
@@ -42,6 +46,8 @@ The audio controller provides:
 Implementations provide:
 
 ```python
+is_available
+status_message
 maximum_level
 volume_up()
 volume_down()
@@ -53,6 +59,13 @@ toggle_mute()
 ```
 
 Higher-level components should depend on `AudioControllerIf` rather than a specific audio implementation.
+
+`AudioControllerStub` is intended for demos and UI development. It keeps
+volume and mute state in memory without accessing host audio.
+
+`UnconfiguredAudioController` reports `is_available == False`, exposes a
+configuration reason through `status_message`, and raises `RuntimeError` for
+audio operations rather than returning fabricated system state.
 
 Example:
 
@@ -251,7 +264,7 @@ PipewireAudioController
 ```
 
 The encoder driver and volume device index are configured in
-`apps/carUi/config/car_ui_runtime.toml`. Neither `AudioControllerIf` nor
+`config/runtime.toml`. Neither `AudioControllerIf` nor
 `PipewireAudioController` depends on Seesaw addresses or GPIO pins.
 
 Test the real configured volume knob and default PipeWire sink with:

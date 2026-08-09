@@ -447,45 +447,25 @@ Clockwise and counterclockwise steps from that encoder are routed to global
 volume up and volume down operations regardless of which panel is displayed.
 Pressing that encoder toggles system mute.
 
-All other configured encoders are contextual. They are exposed to panels as
-zero-based slots in configured device order, with the volume encoder omitted.
-A panel manager can register generic callbacks after calling `prepare_panel()`:
+All configured encoders are wrapped by `RotaryEncoderInputAdapter`, which
+publishes normalized `InputEvent` values through the frontend-thread queue.
+`InputMapper` assigns semantic `UiAction` values, and `CarUiFrontend` offers
+those actions to the active `ScreenUiIf` before applying shell-level behavior.
+Screens never receive physical encoder addresses, pins, callbacks, or device
+objects. The volume encoder remains globally mapped to volume and mute actions.
 
-```python
-def show(self) -> None:
-    if not self.prepare_panel("Example"):
-        return
-
-    self.set_encoder_callbacks(
-        rotated=self._encoder_rotated,
-        button_pressed=self._encoder_button_pressed,
-        button_released=self._encoder_button_released,
-    )
-
-def _encoder_rotated(self, slot: int, steps: int) -> None:
-    if slot == 0:
-        self.adjust_primary_control(steps)
-    elif slot == 1:
-        self.adjust_secondary_control(steps)
-
-def _encoder_button_pressed(self, slot: int) -> None:
-    if slot == 0:
-        self.activate_primary_control()
-
-def _encoder_button_released(self, slot: int) -> None:
-    pass
+```text
+RotaryEncoderIf
+    -> RotaryEncoderInputAdapter
+    -> InputEvent
+    -> UiInputEventDispatcher
+    -> InputMapper
+    -> UiAction
+    -> active ScreenUiIf / CarUiFrontend
 ```
 
-Rotation callbacks receive the contextual slot and signed step count. Button
-callbacks receive the contextual slot. For example, devices at indexes
-`[0, 1, 2]` with index `0` assigned to volume expose device index `1` as
-contextual slot `0` and device index `2` as contextual slot `1`. Opening
-another panel or menu clears the previous panel's callbacks. The volume encoder
-is reserved for system volume and is never forwarded to panel callbacks. Its
-button press toggles mute; its button release is ignored.
-
 The configured encoder list and volume role are set in
-`apps/carUi/config/car_ui_runtime.toml`:
+`config/runtime.toml`:
 
 ```toml
 [input.rotary_encoders]
@@ -510,9 +490,9 @@ The `driver` may be `seesaw` or `gpio`. Seesaw devices require a unique 7-bit
 `address`; GPIO devices require unique physical header pins. `volume_index`
 selects one entry in device order and is independent of the hardware driver.
 
-The Car UI event router receives only `RotaryEncoderIf` instances and logical
-indexes. Seesaw addresses and GPIO pins remain confined to configuration and
-runtime hardware construction.
+The Car UI input runtime receives only `RotaryEncoderIf` instances and logical
+device identifiers. Seesaw addresses and GPIO pins remain confined to
+configuration and runtime hardware construction.
 
 ### System Volume Encoder Component Test
 
@@ -522,7 +502,7 @@ Run the configuration-driven volume test from the project root:
 python3 -m apps.carUi.input.component_test.volume_encoder_cli
 ```
 
-The test loads `apps/carUi/config/car_ui_runtime.toml`, constructs and starts
+The test loads `config/runtime.toml`, constructs and starts
 only the device selected by `volume_index` through `RotaryEncoderIf`, and
 routes it to the real PipeWire system-volume controller. Contextual encoders
 are intentionally not started, so a missing panel encoder cannot block this

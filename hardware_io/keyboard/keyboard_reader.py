@@ -2,18 +2,16 @@ from __future__ import annotations
 
 import logging
 import threading
-from collections.abc import Callable, Iterator
+from collections.abc import Iterator
 from pathlib import Path
 
 from evdev import InputDevice, categorize, ecodes, list_devices
+from hardware_io.keyboard.keyboard_reader_if import KeyboardReaderIf, KeyCallback
 
 
 LOGGER = logging.getLogger(__name__)
 
-KeyCallback = Callable[[str], None]
-
-
-class KeyboardReader:
+class KeyboardReader(KeyboardReaderIf):
     """
     Reads key-press events from a Linux input device.
 

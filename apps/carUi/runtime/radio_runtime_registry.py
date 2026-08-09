@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Iterator, Mapping
 
-from apps.carUi.runtime.radio_runtime import RadioRuntime
+from apps.carUi.runtime.car_ui_runtime import RadioRuntime
 
 
 class RadioRuntimeRegistry:

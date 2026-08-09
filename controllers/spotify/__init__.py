@@ -5,6 +5,7 @@ from controllers.spotify.spotify_controller_if import (
     SpotifyControllerIf,
 )
 from controllers.spotify.spotify_state import SpotifyState
+from controllers.spotify.spotify_media_presenter import SpotifyMediaPresenter
 from controllers.spotify.spotify_web_api_controller import (
     SpotifyWebApiController,
 )
@@ -18,6 +19,7 @@ from controllers.spotify.unconfigured_controller import (
 __all__ = [
     "MockSpotifyController",
     "SpotifyControllerIf",
+    "SpotifyMediaPresenter",
     "SpotifyState",
     "SpotifyControllerStub",
     "SpotifyWebApiController",

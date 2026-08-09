@@ -13,20 +13,24 @@ mkdir -p "$HOME/.vnc"
 mkdir -p "$PROJECT_DIR/scripts"
 
 if [[ ! -f "$HOME/.vnc/passwd" ]]; then
-  echo "[*] Setting VNC password..."
-  if command -v vncpasswd >/dev/null 2>&1; then
-    printf 'changeme\nchangeme\n' | vncpasswd -user >/dev/null 2>&1 || \
-      echo "[!] VNC password setup failed; continuing."
-  else
-    echo "[!] vncpasswd not found; skipping VNC password setup."
+  if ! command -v vncpasswd >/dev/null 2>&1; then
+    echo "[!] vncpasswd is required to initialize VNC securely." >&2
+    exit 1
   fi
+  if [[ ! -t 0 ]]; then
+    echo "[!] VNC has no password and cannot prompt in a noninteractive session." >&2
+    echo "[!] Run setup_vnc.sh interactively before enabling the service." >&2
+    exit 1
+  fi
+  echo "[*] Choose a VNC password. No default password will be created."
+  vncpasswd -user
 else
   echo "[*] Existing VNC password found."
 fi
 
-echo "[*] Writing ~/.vnc/xstartup..."
-
-cat > "$HOME/.vnc/xstartup" <<'EOF'
+if [[ ! -f "$HOME/.vnc/xstartup" ]]; then
+  echo "[*] Writing ~/.vnc/xstartup..."
+  cat > "$HOME/.vnc/xstartup" <<'EOF'
 #!/bin/sh
 
 unset SESSION_MANAGER
@@ -42,8 +46,10 @@ xterm -geometry 100x30+20+20 &
 
 exec /usr/bin/openbox
 EOF
-
-chmod +x "$HOME/.vnc/xstartup"
+  chmod +x "$HOME/.vnc/xstartup"
+else
+  echo "[*] Preserving existing ~/.vnc/xstartup."
+fi
 
 echo "[*] Installing VNC runtime script..."
 chmod +x "$RUNTIME_SCRIPT"

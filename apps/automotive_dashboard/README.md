@@ -4,6 +4,23 @@ The automotive dashboard displays live vehicle state decoded through an
 ELM327-compatible OBD-II adapter. Both interfaces use the same
 `Elm327ObdAdapter` and `Obd2Manager` controller path.
 
+## Package role
+
+`apps/automotive_dashboard` remains the home of standalone automotive
+compositions: command-line parsing, controller and hardware construction,
+top-level windows, polling, and process lifecycle. Reusable Tk presentation
+belongs under `frontends/tk/automotive`, and toolkit-independent data/request
+contracts belong under `ui/automotive` and `ui/navigation`.
+
+The off-road panel is therefore usable both by this standalone application and
+as the Car UI `Gauges -> Off-Road` destination without either application
+importing the other.
+
+The standalone navigation and vehicle terminal commands compose the reusable
+`NavigationDashboardView` and `VehicleDashboardView` from
+`frontends/tui/automotive`. The same views are used by the navigable
+`apps/carTui` application.
+
 ## Terminal Dashboard
 
 The terminal dashboard uses Python's built-in curses support and requires no
@@ -202,3 +219,16 @@ If the estimated attitude indicates that the vehicle is substantially
 inverted, the dashboard displays a suitably dramatic **CAPSIZED** warning and
 suggests calling the winch crew. It does not contact emergency services or
 anyone else automatically.
+
+### UI contract boundary
+
+The reusable Tk view lives in
+`frontends/tk/automotive/offroad_dashboard_panel.py`. It implements
+`OrientationUiIf`, `TranslationUiIf`, `PositionUiIf`, `GroundTrackUiIf`, and
+`StatusUiIf`. This application module retains navigation-controller creation,
+polling, calibration and heading-reset requests, unit conversion, and resource
+lifecycle.
+
+GPS course over ground is represented by `GroundTrackUiIf`, not as vehicle
+heading. The two values can differ when a vehicle slides, reverses, or is
+affected by estimation error.

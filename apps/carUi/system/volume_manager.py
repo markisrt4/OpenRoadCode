@@ -1,107 +1,102 @@
+"""Connect system audio control to toolkit-independent volume UI contracts."""
+
 from __future__ import annotations
 
 from collections.abc import Callable
 
+from ui.system import VolumeRequestHandlerIf, VolumeUiIf
 
-class VolumeManager:
-    """Coordinate audio volume operations with UI state updates."""
+
+class VolumeManager(VolumeRequestHandlerIf):
+    """Handle volume requests and publish normalized system volume state."""
 
     def __init__(
         self,
         *,
         audio_controller,
-        indicator_steps: int,
-        set_volume_level: Callable[[int], None],
-        set_muted: Callable[[bool], None],
+        volume_ui: VolumeUiIf,
         set_status: Callable[[str], None],
     ) -> None:
-        if indicator_steps <= 0:
-            raise ValueError("indicator_steps must be greater than zero")
-
         self._audio_controller = audio_controller
-        self._indicator_steps = indicator_steps
-        self._set_volume_level = set_volume_level
-        self._set_muted = set_muted
+        self._volume_ui = volume_ui
         self._set_status = set_status
 
-    def get_level(self) -> int:
-        return self._audio_controller.get_volume_level()
-
-    def get_indicator_level(self) -> int:
-        return self.indicator_level(
-            self.get_level(),
-            maximum_level=self._audio_controller.maximum_level,
-            indicator_steps=self._indicator_steps,
-        )
-
-    def is_muted(self) -> bool:
-        return self._audio_controller.is_muted()
-
-    def toggle_mute(self) -> None:
+    def refresh(self) -> None:
+        """Read and publish the current system volume and mute state."""
         try:
-            muted = self._audio_controller.toggle_mute()
-            self._set_muted(muted)
-            self._set_status("Volume muted" if muted else "Volume unmuted")
+            self._publish_level(self._audio_controller.get_volume_level())
+            self._volume_ui.set_muted(self._audio_controller.is_muted())
         except Exception as exc:
-            self._set_status(f"Mute toggle failed: {exc}")
-            print(f"[VOLUME] Mute toggle failed: {exc}")
+            self._volume_ui.set_volume(None)
+            self._volume_ui.set_muted(None)
+            self._set_status(f"Volume unavailable: {exc}")
 
-    def volume_up(self) -> None:
+    def request_volume(self, volume_percent: float) -> None:
+        """Apply a requested normalized volume percentage.
+
+        @param volume_percent Requested volume clamped to 0 through 100.
+        """
+        maximum = self._audio_controller.maximum_level
+        level = round(max(0.0, min(100.0, volume_percent)) * maximum / 100.0)
         try:
-            level = self._audio_controller.volume_up()
-            self._publish_indicator_level(level)
+            self._publish_level(self._audio_controller.set_volume_level(level))
+            self._set_status("Volume changed")
+        except Exception as exc:
+            self._set_status(f"Volume change failed: {exc}")
+
+    def request_volume_up(self) -> None:
+        """Increase system volume by the controller-defined increment."""
+        try:
+            self._publish_level(self._audio_controller.volume_up())
             self._set_status("Volume up")
         except Exception as exc:
             self._set_status(f"Volume up failed: {exc}")
-            print(f"[VOLUME] Volume up failed: {exc}")
 
-    def volume_down(self) -> None:
+    def request_volume_down(self) -> None:
+        """Decrease system volume by the controller-defined increment."""
         try:
-            level = self._audio_controller.volume_down()
-            self._publish_indicator_level(level)
+            self._publish_level(self._audio_controller.volume_down())
             self._set_status("Volume down")
         except Exception as exc:
             self._set_status(f"Volume down failed: {exc}")
-            print(f"[VOLUME] Volume down failed: {exc}")
 
-    def adjust_volume(self, steps: int) -> None:
-        """Apply signed volume steps as one controller operation."""
-        if steps == 0:
-            return
+    def request_mute(self, muted: bool) -> None:
+        """Apply a requested mute state.
+
+        @param muted True to mute system audio.
+        """
         try:
-            level = self._audio_controller.adjust_volume(steps)
-            self._publish_indicator_level(level)
-            self._set_status(
-                "Volume up" if steps > 0 else "Volume down"
+            current = self._audio_controller.is_muted()
+            resulting = (
+                self._audio_controller.toggle_mute()
+                if current != muted
+                else current
             )
+            self._volume_ui.set_muted(resulting)
+            self._set_status("Volume muted" if resulting else "Volume unmuted")
         except Exception as exc:
-            self._set_status(f"Volume adjustment failed: {exc}")
-            print(f"[VOLUME] Volume adjustment failed: {exc}")
+            self._set_status(f"Mute request failed: {exc}")
 
-    def _publish_indicator_level(self, audio_level: int) -> None:
-        self._set_volume_level(
-            self.indicator_level(
-                audio_level,
-                maximum_level=self._audio_controller.maximum_level,
-                indicator_steps=self._indicator_steps,
-            )
+    def volume_up(self) -> None:
+        """Increase system volume for legacy action bindings."""
+        self.request_volume_up()
+
+    def volume_down(self) -> None:
+        """Decrease system volume for legacy action bindings."""
+        self.request_volume_down()
+
+    def toggle_mute(self) -> None:
+        """Invert the current system mute state."""
+        try:
+            self.request_mute(not self._audio_controller.is_muted())
+        except Exception as exc:
+            self._set_status(f"Mute toggle failed: {exc}")
+
+    def _publish_level(self, level: int) -> None:
+        maximum = self._audio_controller.maximum_level
+        if maximum <= 0:
+            self._volume_ui.set_volume(None)
+            return
+        self._volume_ui.set_volume(
+            max(0.0, min(100.0, level * 100.0 / maximum))
         )
-
-    @staticmethod
-    def indicator_level(
-        audio_level: int,
-        *,
-        maximum_level: int,
-        indicator_steps: int,
-    ) -> int:
-        if maximum_level <= 0:
-            raise ValueError("maximum_level must be greater than zero")
-        if indicator_steps <= 0:
-            raise ValueError("indicator_steps must be greater than zero")
-
-        clamped_level = max(0, min(audio_level, maximum_level))
-        return (
-            clamped_level * indicator_steps
-            + maximum_level
-            - 1
-        ) // maximum_level

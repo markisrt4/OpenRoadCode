@@ -1,14 +1,32 @@
 from __future__ import annotations
 
+import json
 import logging
 import threading
 from collections.abc import Callable
 from dataclasses import dataclass
 
 import gps
+from gps.client import dictwrapper
 
 
 LOGGER = logging.getLogger(__name__)
+
+
+class _Python3GpsSession(gps.gps):
+    """Adapt older gpsd Python bindings to Python 3's JSON API."""
+
+    def unpack(self, buffer: str) -> None:
+        try:
+            self.data = dictwrapper(json.loads(buffer.strip()))
+        except ValueError as exc:
+            raise ValueError(f"Invalid gpsd JSON report: {buffer!r}") from exc
+
+        if hasattr(self.data, "satellites"):
+            self.data.satellites = [
+                dictwrapper(satellite)
+                for satellite in self.data.satellites
+            ]
 
 
 @dataclass(frozen=True)
@@ -78,7 +96,7 @@ class GpsReader:
         if self._session is not None:
             return
 
-        self._session = gps.gps(
+        self._session = _Python3GpsSession(
             host=self._host,
             port=self._port,
             mode=gps.WATCH_ENABLE | gps.WATCH_NEWSTYLE,

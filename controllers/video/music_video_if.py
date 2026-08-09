@@ -11,7 +11,11 @@ class MusicVideoIf(ABC):
         self,
         query: MusicVideoQuery,
     ) -> MusicVideo | None:
-        """Find the best matching music video."""
+        """Find the best matching music video.
+
+        @param query Track metadata used to search for a video.
+        @return Best matching video, or `None` when no match is available.
+        """
 
     @abstractmethod
     def play_video(
@@ -19,7 +23,12 @@ class MusicVideoIf(ABC):
         video: MusicVideo,
         position_ms: int = 0,
     ) -> bool:
-        """Present the selected music video."""
+        """Present the selected music video.
+
+        @param video Video selected for presentation.
+        @param position_ms Initial playback position in milliseconds.
+        @return `True` when video playback was started.
+        """
 
     @abstractmethod
     def stop_video(self) -> None:
@@ -27,4 +36,7 @@ class MusicVideoIf(ABC):
 
     @abstractmethod
     def is_video_active(self) -> bool:
-        """Return whether video presentation is active."""
+        """Return whether video presentation is active.
+
+        @return `True` while a video presentation is active.
+        """

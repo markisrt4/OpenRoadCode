@@ -34,11 +34,16 @@ Future implementations may include:
 environmental/
 ├── __init__.py
 ├── barometric_sensor_if.py
+├── bmp3xx.py
 ├── bmp388.py
 ├── bmp390.py
 ├── component_test/
 └── README.md
 ```
+
+`Bmp3xx` contains the shared BMP388/BMP390 implementation. `Bmp388` and
+`Bmp390` remain available as compatibility names for existing configuration
+and imports.
 
 ## Responsibilities
 
@@ -156,6 +161,12 @@ Read one sample and exit:
 
 ```bash
 python3 -m hardware_io.environmental.component_test.barometric_cli --once
+```
+
+Display pressure in inches of mercury and temperature in Fahrenheit:
+
+```bash
+python3 -m hardware_io.environmental.component_test.barometric_cli --imperial
 ```
 
 Use address `0x76` or change the sampling interval:

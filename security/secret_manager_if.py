@@ -8,10 +8,19 @@ class SecretManagerIf(ABC):
 
     @abstractmethod
     def get_secret(self, name: str) -> str | None:
-        """Return a secret value, or ``None`` when it is unavailable."""
+        """Return a secret value, or ``None`` when it is unavailable.
+
+        @param name Stable secret name.
+        @return Secret value, or `None` when it is unavailable.
+        """
 
     def require_secret(self, name: str) -> str:
-        """Return a required secret or raise a descriptive error."""
+        """Return a required secret or raise a descriptive error.
+
+        @param name Stable secret name.
+        @return Required secret value.
+        @exception RuntimeError if the secret is unavailable.
+        """
         value = self.get_secret(name)
 
         if value is None:

@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import logging
-from typing import Any
+from pathlib import Path
 
-from apps.carUi.config.car_ui_runtime_config_parser import (
+from config.runtime_config import (
     GpioEncoderConfig,
     RotaryEncoderConfig,
     SeesawEncoderConfig,
@@ -15,22 +15,27 @@ from hardware_io.rotary_encoder.rotary_encoder_if import (
     RotationCallback,
 )
 
+
 LOGGER = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True, slots=True)
 class RotaryEncoderRuntime:
     """Contain instantiated encoder devices and the volume-device index."""
+
     encoders: tuple[RotaryEncoderIf, ...]
     volume_index: int
 
 
-class DisabledRotaryEncoder(RotaryEncoderIf):
-    """No-op encoder used when hardware input is disabled."""
+class _NoOpRotaryEncoder(RotaryEncoderIf):
+    """Preserve configured input slots on hosts without Pi hardware."""
+
+    def __init__(self) -> None:
+        self._is_running = False
 
     @property
     def is_running(self) -> bool:
-        return False
+        return self._is_running
 
     def start(
         self,
@@ -38,82 +43,82 @@ class DisabledRotaryEncoder(RotaryEncoderIf):
         button_pressed: ButtonCallback | None = None,
         button_released: ButtonCallback | None = None,
     ) -> None:
-        return None
+        self._is_running = True
 
     def stop(self) -> None:
-        return None
-
-    def poll(self) -> None:
-        return None
+        self._is_running = False
 
 
-def _create_i2c() -> Any:
-    import board
-
-    return board.I2C()
-
-
-def _create_seesaw_encoder(
-    device: SeesawEncoderConfig,
-    i2c: Any,
-) -> RotaryEncoderIf:
-    from hardware_io.rotary_encoder.seesaw_rotary_encoder import (
-        SeesawRotaryEncoder,
-    )
-
-    return SeesawRotaryEncoder(
-        address=device.address,
-        i2c=i2c,
-        reverse_direction=device.reverse_direction,
-    )
+def _is_raspberry_pi() -> bool:
+    model_path = Path("/proc/device-tree/model")
+    try:
+        return "Raspberry Pi" in model_path.read_text(errors="ignore")
+    except OSError:
+        return False
 
 
-def _create_gpio_encoder(
-    device: GpioEncoderConfig,
-) -> RotaryEncoderIf:
-    from hardware_io.rotary_encoder.gpio_rotary_encoder import (
-        GpioRotaryEncoder,
-        GpioRotaryEncoderPins,
-    )
+def _create_hardware_encoder(
+    device: SeesawEncoderConfig | GpioEncoderConfig,
+    i2c: object | None,
+) -> tuple[RotaryEncoderIf, object | None]:
+    if isinstance(device, SeesawEncoderConfig):
+        import board
+        from hardware_io.rotary_encoder.seesaw_rotary_encoder import (
+            SeesawRotaryEncoder,
+        )
 
-    return GpioRotaryEncoder(
-        pins=GpioRotaryEncoderPins(
-            pin_a=device.pin_a,
-            pin_b=device.pin_b,
-            button=device.button,
-        ),
-        reverse_direction=device.reverse_direction,
+        if i2c is None:
+            i2c = board.I2C()
+        return (
+            SeesawRotaryEncoder(
+                address=device.address,
+                i2c=i2c,
+                reverse_direction=device.reverse_direction,
+            ),
+            i2c,
+        )
+
+    if isinstance(device, GpioEncoderConfig):
+        from hardware_io.rotary_encoder.gpio_rotary_encoder import (
+            GpioRotaryEncoder,
+            GpioRotaryEncoderPins,
+        )
+
+        return (
+            GpioRotaryEncoder(
+                pins=GpioRotaryEncoderPins(
+                    pin_a=device.pin_a,
+                    pin_b=device.pin_b,
+                    button=device.button,
+                ),
+                reverse_direction=device.reverse_direction,
+            ),
+            i2c,
+        )
+
+    raise TypeError(
+        f"Unsupported rotary encoder config: {type(device).__name__}"
     )
 
 
 def create_rotary_encoder_runtime(
     config: RotaryEncoderConfig,
 ) -> RotaryEncoderRuntime:
-    """Instantiate available encoder drivers and stub unavailable hardware."""
-    i2c = None
+    """Instantiate configured encoders, using no-ops away from Raspberry Pi."""
+
+    i2c: object | None = None
     encoders: list[RotaryEncoderIf] = []
+    raspberry_pi = _is_raspberry_pi()
 
     for device in config.devices:
-        try:
-            if isinstance(device, SeesawEncoderConfig):
-                if i2c is None:
-                    i2c = _create_i2c()
-                encoder = _create_seesaw_encoder(device, i2c)
-            elif isinstance(device, GpioEncoderConfig):
-                encoder = _create_gpio_encoder(device)
-            else:
-                raise TypeError(
-                    "Unsupported rotary encoder config: "
-                    f"{type(device).__name__}"
-                )
-        except ModuleNotFoundError as exc:
-            LOGGER.warning(
-                "Rotary encoder disabled because an optional hardware "
-                "dependency is unavailable: %s",
-                exc,
+        if raspberry_pi:
+            encoder, i2c = _create_hardware_encoder(device, i2c)
+        else:
+            LOGGER.info(
+                "Using a no-op %s encoder on a non-Raspberry Pi host",
+                type(device).__name__,
             )
-            encoder = DisabledRotaryEncoder()
-
+            encoder = _NoOpRotaryEncoder()
         encoders.append(encoder)
 
     return RotaryEncoderRuntime(
