@@ -19,6 +19,7 @@ def register_car_ui_routes(
     netflix: ScreenUiIf,
     youtube: ScreenUiIf,
     offroad_dashboard: ScreenUiIf,
+    vehicle_gauges: ScreenUiIf,
 ) -> None:
     """Register the destinations available in the standard Car UI."""
     router.register_many(
@@ -35,5 +36,6 @@ def register_car_ui_routes(
             "netflix": netflix.show,
             "youtube": youtube.show,
             "offroad_dashboard": offroad_dashboard.show,
+            "vehicle_gauges": vehicle_gauges.show,
         }
     )

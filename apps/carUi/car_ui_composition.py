@@ -55,6 +55,7 @@ class CarUiComposition:
             netflix=self.netflix_screen,
             youtube=self.youtube_screen,
             offroad_dashboard=self.offroad_dashboard_screen,
+            vehicle_gauges=self.vehicle_gauges_screen,
         )
 
     def _assemble_system_services(self) -> None:
@@ -103,6 +104,7 @@ class CarUiComposition:
         self.netflix_screen = screens.netflix
         self.youtube_screen = screens.youtube
         self.offroad_dashboard_screen = screens.offroad_dashboard
+        self.vehicle_gauges_screen = screens.vehicle_gauges
 
     def _assemble_input(self) -> None:
         encoders = self.dependencies.rotary_encoders

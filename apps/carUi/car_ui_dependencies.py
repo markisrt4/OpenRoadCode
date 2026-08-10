@@ -8,6 +8,7 @@ import logging
 
 from apps.carUi.runtime.car_ui_runtime import CarUiRuntime
 from controllers.audio.audio_controller_if import AudioControllerIf
+from controllers.automotive import VehicleStateSourceIf
 from controllers.image import ImageCache
 from controllers.lighting.lighting_controller_if import LightingControllerIf
 from controllers.lyrics import LrclibLyricsClient
@@ -49,6 +50,7 @@ class CarUiDependencies:
     keyboards: Sequence[KeyboardReaderIf] = ()
     push_buttons: Sequence[PushButtonIf] = ()
     push_button_actions: Sequence[str] = ()
+    vehicle_state_source: VehicleStateSourceIf | None = None
     _closed: bool = field(default=False, init=False, repr=False, compare=False)
 
     def close(self) -> None:
@@ -73,6 +75,11 @@ class CarUiDependencies:
         self._close_resource("navigation controller", self.navigation_controller.stop)
         self._close_resource("lighting controller", self.lighting_controller.close)
         self._close_resource("position source", self.position_source.stop)
+        if self.vehicle_state_source is not None:
+            self._close_resource(
+                "vehicle telemetry source",
+                self.vehicle_state_source.disconnect,
+            )
 
     @staticmethod
     def _close_resource(name: str, close: Callable[[], object]) -> None:

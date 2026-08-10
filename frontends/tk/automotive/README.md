@@ -31,3 +31,28 @@ mislabeling it as a true-north bearing.
 that exposes only an aggregate satellite count cannot populate it without
 inventing satellite identities, so the standalone app leaves that display
 unavailable until its navigation source provides detailed records.
+
+## Vehicle gauges
+
+`VehicleGaugePanel` provides the reusable performance instrument cluster.
+It accepts the narrow `VehicleGaugeSnapshot` presentation shape but does not
+import, construct, or poll an OBD-II adapter. `VehicleState` and synthetic
+demo values both satisfy that shape. Gauge visibility and ordering persist in
+`~/.config/openroadcode/vehicle_gauges.json`.
+
+For independently presented values it implements `VehicleUiIf`,
+`VehicleConnectionUiIf`, `VehicleTripUiIf`, `VehicleTireUiIf`, and
+`VehicleDiagnosticsUiIf`. Contract measurements remain SI; conversions to the
+panel's current imperial display units happen only inside the Tk frontend.
+Complete snapshots remain a convenience adapter for the existing OBD-II source
+and standalone example.
+
+The same panel is hosted by Car UI's `vehicle_gauges` destination and the
+standalone synthetic example:
+
+```bash
+python3 -m apps.automotive_dashboard.vehicle_gauge_demo
+```
+
+See `README_vehicle_gauges.md` for the available instruments, theme values,
+and layout API.

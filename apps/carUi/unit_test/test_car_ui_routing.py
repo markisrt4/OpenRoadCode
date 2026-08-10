@@ -53,6 +53,9 @@ class CarUiRoutingTest(unittest.TestCase):
             offroad_dashboard=RecordingScreen(  # type: ignore[arg-type]
                 "offroad_dashboard", opened
             ),
+            vehicle_gauges=RecordingScreen(  # type: ignore[arg-type]
+                "vehicle_gauges", opened
+            ),
         )
         return router, opened
 

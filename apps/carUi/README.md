@@ -60,6 +60,9 @@ implementations. Its input queue uses only neutral contracts from
 - `screens/offroad_dashboard_screen.py` hosts the reusable automotive panel,
   starts IMU navigation only while visible, and uses Car UI's existing position
   source rather than opening a second GPS connection.
+- `screens/vehicle_gauges_screen.py` hosts the reusable vehicle gauge panel. It
+  accepts an optional `VehicleStateSourceIf` and owns connection and polling
+  only while that destination is visible.
 
 Composition uses `UiDispatcherIf` for immediate and delayed event-loop work.
 It does not call Tk's `after()` or access Tk widgets directly. The current
@@ -178,15 +181,17 @@ venv/bin/python -m apps.carUi.test.screen_test_runner spotify
 ```
 
 Supported destination arguments are `spotify`, `netflix`, `youtube`,
-`lighting`, `weather`, `fm_radio`, `scanner`, `aircraft`, and
-`offroad_dashboard`.
+`lighting`, `weather`, `fm_radio`, `scanner`, `aircraft`,
+`offroad_dashboard`, and `vehicle_gauges`.
 
 The Spotify destination retains album-art backgrounds and accents, cached
 artwork, synchronized lyrics, seek and volume controls, and optional YouTube
 music-video playback. Netflix and YouTube remain separate browser-backed media
 destinations on the Media menu.
 
-The main-menu `Gauges` page includes the embedded off-road dashboard. Its IMU
+The main-menu `Gauges` page includes the configurable vehicle cluster and
+the embedded off-road dashboard. The vehicle screen displays disconnected
+gauges until a `VehicleStateSourceIf` is supplied in Car UI dependencies. Its IMU
 defaults can be overridden before launch:
 
 ```bash

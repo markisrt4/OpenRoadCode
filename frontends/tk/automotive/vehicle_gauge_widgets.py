@@ -1,32 +1,27 @@
-"""SRT-era inspired automotive gauges for Tkinter."""
+"""Configurable automotive gauges for Tkinter."""
 
 from __future__ import annotations
 
 import math
 import tkinter as tk
-from dataclasses import dataclass
-
-
-@dataclass(frozen=True, slots=True)
-class GaugeStyle:
-    """Shared colours for the instrument cluster."""
-
-    face_color: str = "#f2efe5"
-    face_shadow: str = "#9b9c99"
-    background_color: str = "#090a0b"
-    foreground_color: str = "#17191b"
-    accent_color: str = "#d51f2b"
-    muted_color: str = "#686b6d"
-    bezel_dark: str = "#202326"
-    bezel_mid: str = "#9da1a2"
-    display_color: str = "#181b1c"
-    display_text: str = "#ff694f"
+from apps.common.uiTheme import (
+    VEHICLE_GAUGE_REDLINE_THEME,
+    VEHICLE_GAUGE_THEME,
+    VehicleGaugeRedlineTheme,
+    VehicleGaugeTheme,
+)
 
 
 class _ValueGauge(tk.Canvas):
     """Common value and connection handling for canvas gauges."""
 
-    def __init__(self, master: tk.Misc, *, style: GaugeStyle, **kwargs: object) -> None:
+    def __init__(
+        self,
+        master: tk.Misc,
+        *,
+        style: VehicleGaugeTheme,
+        **kwargs: object,
+    ) -> None:
         self._style = style
         self._value: float | None = None
         self._connected = True
@@ -72,10 +67,12 @@ class RoundGauge(_ValueGauge):
         major_step: float,
         caution_start: float | None = None,
         danger_start: float | None = None,
+        intense_redline: bool = False,
+        redline_style: VehicleGaugeRedlineTheme | None = None,
         start_angle: float = 135.0,
         sweep_angle: float = 270.0,
         precision: int = 0,
-        style: GaugeStyle | None = None,
+        style: VehicleGaugeTheme | None = None,
         size: int = 220,
         **kwargs: object,
     ) -> None:
@@ -92,12 +89,14 @@ class RoundGauge(_ValueGauge):
             raise ValueError("sweep_angle must be between 0 and 360")
         self._caution_start = caution_start
         self._danger_start = danger_start
+        self._intense_redline = intense_redline
+        self._redline_style = redline_style or VEHICLE_GAUGE_REDLINE_THEME
         self._start_angle = start_angle
         self._sweep_angle = sweep_angle
         self._precision = precision
         super().__init__(
             master,
-            style=style or GaugeStyle(),
+            style=style or VEHICLE_GAUGE_THEME,
             width=size,
             height=size,
             **kwargs,
@@ -112,12 +111,12 @@ class RoundGauge(_ValueGauge):
 
         # Concentric rings fake the depth and highlight of a metal instrument bezel.
         rings = (
-            (1.00, "#08090a"),
-            (0.975, "#282b2d"),
-            (0.935, "#707476"),
-            (0.905, "#e3e4e1"),
-            (0.875, "#767a7c"),
-            (0.845, "#151719"),
+            (1.00, self._style.bezel_outer),
+            (0.975, self._style.bezel_shadow),
+            (0.935, self._style.bezel_metal_dark),
+            (0.905, self._style.bezel_metal_light),
+            (0.875, self._style.bezel_midlight),
+            (0.845, self._style.bezel_inner),
             (0.815, self._style.face_shadow),
             (0.792, self._style.face_color),
         )
@@ -135,7 +134,7 @@ class RoundGauge(_ValueGauge):
             start=25,
             extent=130,
             style=tk.ARC,
-            outline="#ffffff",
+            outline=self._style.face_highlight,
             width=max(2, int(size * 0.008)),
         )
         self._draw_operating_bands(cx, cy, radius)
@@ -148,7 +147,11 @@ class RoundGauge(_ValueGauge):
         """Draw only configured caution and danger bands on the outer scale."""
         r = radius * 0.705
         bands = (
-            (self._caution_start, self._danger_start or self._maximum, "#e4a514"),
+            (
+                self._caution_start,
+                self._danger_start or self._maximum,
+                self._style.caution_color,
+            ),
             (self._danger_start, self._maximum, self._style.accent_color),
         )
         for start_value, end_value, color in bands:
@@ -169,6 +172,55 @@ class RoundGauge(_ValueGauge):
                 outline=color,
                 width=max(5, int(radius * 0.070)),
             )
+            if (
+                self._intense_redline
+                and self._danger_start is not None
+                and start_value >= self._danger_start
+            ):
+                self._draw_intense_redline(
+                    cx, cy, radius, start_angle, end_angle
+                )
+
+    def _draw_intense_redline(
+        self,
+        cx: float,
+        cy: float,
+        radius: float,
+        start_angle: float,
+        end_angle: float,
+    ) -> None:
+        """Layer a deep shadow and hot highlight over the danger band."""
+        extent = -(end_angle - start_angle)
+        redline = self._redline_style
+        for radius_scale, color, width_scale in (
+            (
+                redline.shadow_radius_scale,
+                redline.shadow_color,
+                redline.shadow_width_scale,
+            ),
+            (
+                redline.danger_radius_scale,
+                redline.danger_color,
+                redline.danger_width_scale,
+            ),
+            (
+                redline.highlight_radius_scale,
+                redline.highlight_color,
+                redline.highlight_width_scale,
+            ),
+        ):
+            band_radius = radius * radius_scale
+            self.create_arc(
+                cx - band_radius,
+                cy - band_radius,
+                cx + band_radius,
+                cy + band_radius,
+                start=-start_angle,
+                extent=extent,
+                style=tk.ARC,
+                outline=color,
+                width=max(2, int(radius * width_scale)),
+            )
 
     def _draw_ticks(self, cx: float, cy: float, radius: float) -> None:
         minor_step = self._major_step / 5.0
@@ -180,13 +232,32 @@ class RoundGauge(_ValueGauge):
             outer = radius * 0.715
             inner = radius * (0.555 if is_major else 0.625)
             tick_color = self._tick_color(value)
+            danger_tick = (
+                self._intense_redline
+                and self._danger_start is not None
+                and value >= self._danger_start
+            )
             self.create_line(
                 cx + inner * math.cos(angle),
                 cy + inner * math.sin(angle),
                 cx + outer * math.cos(angle),
                 cy + outer * math.sin(angle),
                 fill=tick_color,
-                width=max(1, int(radius * (0.031 if is_major else 0.013))),
+                width=max(
+                    1,
+                    int(
+                        radius
+                        * (
+                            self._redline_style.major_tick_width_scale
+                            if is_major and danger_tick
+                            else self._redline_style.minor_tick_width_scale
+                            if danger_tick
+                            else 0.031
+                            if is_major
+                            else 0.013
+                        )
+                    ),
+                ),
             )
             if is_major:
                 label_radius = radius * 0.455
@@ -194,8 +265,16 @@ class RoundGauge(_ValueGauge):
                     cx + label_radius * math.cos(angle),
                     cy + label_radius * math.sin(angle),
                     text=self._format_tick(value),
-                    fill=self._style.foreground_color,
-                    font=("DejaVu Sans Condensed", max(8, int(radius * 0.115)), "bold"),
+                    fill=(
+                        self._redline_style.numeral_color
+                        if danger_tick
+                        else self._style.foreground_color
+                    ),
+                    font=(
+                        self._style.condensed_font_family,
+                        max(8, int(radius * 0.115)),
+                        "bold",
+                    ),
                 )
 
     def _draw_labels(self, cx: float, cy: float, radius: float) -> None:
@@ -204,14 +283,22 @@ class RoundGauge(_ValueGauge):
             cy - radius * 0.22,
             text=self._title.upper(),
             fill=self._style.foreground_color,
-            font=("DejaVu Sans Condensed", max(9, int(radius * 0.12)), "bold"),
+            font=(
+                self._style.condensed_font_family,
+                max(9, int(radius * 0.12)),
+                "bold",
+            ),
         )
         self.create_text(
             cx,
             cy - radius * 0.055,
             text=self._unit.upper(),
             fill=self._style.muted_color,
-            font=("DejaVu Sans", max(6, int(radius * 0.075)), "bold"),
+            font=(
+                self._style.font_family,
+                max(6, int(radius * 0.075)),
+                "bold",
+            ),
         )
         value_text = "--" if self._value is None else f"{self._value:.{self._precision}f}"
         if not self._connected:
@@ -220,8 +307,12 @@ class RoundGauge(_ValueGauge):
             cx,
             cy + radius * 0.13,
             text="PERFORMANCE",
-            fill="#8a8881",
-            font=("DejaVu Sans Condensed", max(5, int(radius * 0.055)), "bold"),
+            fill=self._style.performance_label,
+            font=(
+                self._style.condensed_font_family,
+                max(5, int(radius * 0.055)),
+                "bold",
+            ),
         )
         box_w, box_h = radius * 0.58, radius * 0.18
         box_y = cy + radius * 0.61
@@ -231,7 +322,7 @@ class RoundGauge(_ValueGauge):
             cx + box_w / 2,
             box_y + box_h / 2,
             fill=self._style.display_color,
-            outline="#6f7373",
+            outline=self._style.display_border,
             width=max(2, int(radius * 0.016)),
         )
         self.create_text(
@@ -239,7 +330,11 @@ class RoundGauge(_ValueGauge):
             box_y,
             text=value_text,
             fill=self._style.display_text if self._connected else self._style.muted_color,
-            font=("DejaVu Sans Mono", max(8, int(radius * 0.12)), "bold"),
+            font=(
+                self._style.mono_font_family,
+                max(8, int(radius * 0.12)),
+                "bold",
+            ),
         )
 
     def _draw_needle(self, cx: float, cy: float, radius: float) -> None:
@@ -259,7 +354,12 @@ class RoundGauge(_ValueGauge):
             cx - tail * math.cos(angle) - half_width * math.cos(perp),
             cy - tail * math.sin(angle) - half_width * math.sin(perp),
         )
-        self.create_polygon(*points, fill="#760d14", outline="#f26a70", width=1)
+        self.create_polygon(
+            *points,
+            fill=self._style.needle_body,
+            outline=self._style.needle_outline,
+            width=1,
+        )
         shorter = radius * 0.56
         self.create_line(
             cx,
@@ -272,10 +372,10 @@ class RoundGauge(_ValueGauge):
 
     def _draw_center(self, cx: float, cy: float, radius: float) -> None:
         for scale, color in (
-            (0.125, "#202326"),
-            (0.105, "#c7c9c7"),
-            (0.080, "#2c2e2f"),
-            (0.040, "#dedfda"),
+            (0.125, self._style.hub_outer),
+            (0.105, self._style.hub_metal),
+            (0.080, self._style.hub_inner),
+            (0.040, self._style.hub_center),
         ):
             hub = radius * scale
             self.create_oval(cx - hub, cy - hub, cx + hub, cy + hub, fill=color, outline=color)
@@ -288,7 +388,7 @@ class RoundGauge(_ValueGauge):
         if self._danger_start is not None and value >= self._danger_start:
             return self._style.accent_color
         if self._caution_start is not None and value >= self._caution_start:
-            return "#c88b0d"
+            return self._style.caution_tick_color
         return self._style.foreground_color
 
     @staticmethod
@@ -313,7 +413,7 @@ class LinearGauge(_ValueGauge):
         danger_high: float | None = None,
         icon: str | None = None,
         precision: int = 0,
-        style: GaugeStyle | None = None,
+        style: VehicleGaugeTheme | None = None,
         width: int = 220,
         height: int = 110,
         **kwargs: object,
@@ -327,7 +427,7 @@ class LinearGauge(_ValueGauge):
         self._icon, self._precision = icon, precision
         super().__init__(
             master,
-            style=style or GaugeStyle(),
+            style=style or VEHICLE_GAUGE_THEME,
             width=width,
             height=height,
             **kwargs,
@@ -342,8 +442,8 @@ class LinearGauge(_ValueGauge):
             pad,
             w - pad,
             h - pad,
-            fill="#08090a",
-            outline="#626668",
+            fill=self._style.bezel_outer,
+            outline=self._style.panel_border,
             width=2,
         )
         self.create_rectangle(
@@ -351,8 +451,8 @@ class LinearGauge(_ValueGauge):
             pad * 1.35,
             w - pad * 1.35,
             h - pad * 1.35,
-            fill="#111315",
-            outline="#2e3133",
+            fill=self._style.panel_inner,
+            outline=self._style.panel_inner_border,
         )
 
         icon_x = pad * 2
@@ -364,8 +464,8 @@ class LinearGauge(_ValueGauge):
             h * 0.30,
             anchor="w",
             text=self._title.upper(),
-            fill="#f0f0ed",
-            font=("DejaVu Sans Condensed", max(8, int(h * 0.12)), "bold"),
+            fill=self._style.primary_text,
+            font=(self._style.condensed_font_family, max(8, int(h * 0.12)), "bold"),
         )
         value_text = "--" if self._value is None else f"{self._value:.{self._precision}f}"
         if not self._connected:
@@ -376,7 +476,7 @@ class LinearGauge(_ValueGauge):
             anchor="e",
             text=f"{value_text} {self._unit}",
             fill=self._value_color(),
-            font=("DejaVu Sans Mono", max(8, int(h * 0.13)), "bold"),
+            font=(self._style.mono_font_family, max(8, int(h * 0.13)), "bold"),
         )
 
         x1, x2, y = pad * 2, w - pad * 2, h * 0.64
@@ -398,9 +498,9 @@ class LinearGauge(_ValueGauge):
             )
             segment_color = self._range_color(segment_value)
             inactive_color = {
-                "#ffffff": "#303234",
-                "#f0b323": "#4e3d12",
-                "#ff3446": "#57131b",
+                self._style.normal_value: self._style.disabled_normal_value,
+                self._style.caution_value: self._style.disabled_caution_value,
+                self._style.danger_value: self._style.disabled_danger_value,
             }[segment_color]
             color = segment_color if is_active else inactive_color
             self.create_rectangle(
@@ -418,14 +518,15 @@ class LinearGauge(_ValueGauge):
                 marker_x - bar_h * 0.45, y - bar_h * 1.65,
                 marker_x + bar_h * 0.45, y - bar_h * 1.65,
                 fill=self._style.accent_color,
-                outline="#7b1017",
+                outline=self._style.marker_border,
             )
-            self.create_line(marker_x, y - bar_h / 2, marker_x, y + bar_h / 2, fill="#ffffff", width=2)
+            self.create_line(marker_x, y - bar_h / 2, marker_x, y + bar_h / 2, fill=self._style.normal_value, width=2)
         for index in range(6):
             x = x1 + (x2 - x1) * index / 5
-            self.create_line(x, y + bar_h / 2, x, y + bar_h, fill="#a92b34")
-        self.create_text(x1, h * 0.84, anchor="w", text=self._format_end(self._minimum), fill="#a9acad", font=("DejaVu Sans", max(7, int(h * 0.08))))
-        self.create_text(x2, h * 0.84, anchor="e", text=self._format_end(self._maximum), fill="#a9acad", font=("DejaVu Sans", max(7, int(h * 0.08))))
+            self.create_line(x, y + bar_h / 2, x, y + bar_h, fill=self._style.threshold_marker)
+        endpoint_font = (self._style.font_family, max(7, int(h * 0.08)))
+        self.create_text(x1, h * 0.84, anchor="w", text=self._format_end(self._minimum), fill=self._style.endpoint_text, font=endpoint_font)
+        self.create_text(x2, h * 0.84, anchor="e", text=self._format_end(self._maximum), fill=self._style.endpoint_text, font=endpoint_font)
 
     def _value_x(self, value: float, x1: float, x2: float) -> float:
         clamped = max(self._minimum, min(self._maximum, value))
@@ -441,13 +542,13 @@ class LinearGauge(_ValueGauge):
             (self._danger_low is not None and value <= self._danger_low)
             or (self._danger_high is not None and value >= self._danger_high)
         ):
-            return "#ff3446"
+            return self._style.danger_value
         if (
             (self._caution_low is not None and value <= self._caution_low)
             or (self._caution_high is not None and value >= self._caution_high)
         ):
-            return "#f0b323"
-        return "#ffffff"
+            return self._style.caution_value
+        return self._style.normal_value
 
     @staticmethod
     def _format_end(value: float) -> str:
@@ -455,7 +556,7 @@ class LinearGauge(_ValueGauge):
 
     def _draw_icon(self, x: float, y: float, size: float) -> None:
         """Draw small dashboard-style symbols without external image assets."""
-        color = "#f0f0ed"
+        color = self._style.primary_text
         width = max(1, int(size * 0.12))
         if self._icon == "coolant":
             bulb = size * 0.22
@@ -493,8 +594,9 @@ class LinearGauge(_ValueGauge):
             )
             self.create_line(x - size * 0.30, y - half_h, x - size * 0.30, y - size * 0.52, fill=color, width=width)
             self.create_line(x + size * 0.30, y - half_h, x + size * 0.30, y - size * 0.52, fill=color, width=width)
-            self.create_text(x - size * 0.28, y, text="+", fill=color, font=("DejaVu Sans", max(7, int(size * 0.45)), "bold"))
-            self.create_text(x + size * 0.28, y, text="−", fill=color, font=("DejaVu Sans", max(7, int(size * 0.45)), "bold"))
+            icon_font = (self._style.font_family, max(7, int(size * 0.45)), "bold")
+            self.create_text(x - size * 0.28, y, text="+", fill=color, font=icon_font)
+            self.create_text(x + size * 0.28, y, text="−", fill=color, font=icon_font)
         elif self._icon == "fuel":
             half_w, half_h = size * 0.42, size * 0.48
             self.create_rectangle(
@@ -535,7 +637,7 @@ class MetricTile(_ValueGauge):
         title: str,
         unit: str,
         precision: int = 0,
-        style: GaugeStyle | None = None,
+        style: VehicleGaugeTheme | None = None,
         width: int = 210,
         height: int = 105,
         **kwargs: object,
@@ -543,7 +645,7 @@ class MetricTile(_ValueGauge):
         self._title, self._unit, self._precision = title, unit, precision
         super().__init__(
             master,
-            style=style or GaugeStyle(),
+            style=style or VEHICLE_GAUGE_THEME,
             width=width,
             height=height,
             **kwargs,
@@ -558,8 +660,8 @@ class MetricTile(_ValueGauge):
             pad,
             w - pad,
             h - pad,
-            fill="#0a0c0d",
-            outline="#5e6263",
+            fill=self._style.metric_background,
+            outline=self._style.metric_border,
             width=2,
         )
         self.create_text(
@@ -567,8 +669,8 @@ class MetricTile(_ValueGauge):
             h * 0.30,
             anchor="w",
             text=self._title.upper(),
-            fill="#c8cbca",
-            font=("DejaVu Sans Condensed", max(8, int(h * 0.105)), "bold"),
+            fill=self._style.metric_title,
+            font=(self._style.condensed_font_family, max(8, int(h * 0.105)), "bold"),
         )
         value = "--" if self._value is None else f"{self._value:.{self._precision}f}"
         if not self._connected:
@@ -579,15 +681,15 @@ class MetricTile(_ValueGauge):
             anchor="w",
             text=value,
             fill=self._style.display_text if self._connected else self._style.muted_color,
-            font=("DejaVu Sans Mono", max(11, int(h * 0.19)), "bold"),
+            font=(self._style.mono_font_family, max(11, int(h * 0.19)), "bold"),
         )
         self.create_text(
             w - pad * 1.8,
             h * 0.64,
             anchor="e",
             text=self._unit,
-            fill="#85898a",
-            font=("DejaVu Sans Condensed", max(7, int(h * 0.09)), "bold"),
+            fill=self._style.metric_unit,
+            font=(self._style.condensed_font_family, max(7, int(h * 0.09)), "bold"),
         )
 
 
@@ -604,7 +706,7 @@ class TirePressurePanel(_ValueGauge):
         danger_low: float = 26.0,
         caution_high: float = 40.0,
         danger_high: float = 44.0,
-        style: GaugeStyle | None = None,
+        style: VehicleGaugeTheme | None = None,
         width: int = 440,
         height: int = 170,
         **kwargs: object,
@@ -614,7 +716,7 @@ class TirePressurePanel(_ValueGauge):
         self._caution_high, self._danger_high = caution_high, danger_high
         super().__init__(
             master,
-            style=style or GaugeStyle(),
+            style=style or VEHICLE_GAUGE_THEME,
             width=width,
             height=height,
             **kwargs,
@@ -639,18 +741,22 @@ class TirePressurePanel(_ValueGauge):
         pad = max(8, min(w, h) * 0.06)
         self.create_rectangle(
             pad, pad, w - pad, h - pad,
-            fill="#090b0c", outline="#626668", width=2,
+            fill=self._style.tire_background,
+            outline=self._style.panel_border,
+            width=2,
         )
         self.create_text(
             w / 2, h * 0.16, text="TIRE PRESSURE  •  PSI",
-            fill="#d8dad9",
-            font=("DejaVu Sans Condensed", max(8, int(h * 0.075)), "bold"),
+            fill=self._style.tire_title,
+            font=(self._style.condensed_font_family, max(8, int(h * 0.075)), "bold"),
         )
         # Simplified top view of the car locates each pressure spatially.
         self.create_polygon(
             w * 0.43, h * 0.28, w * 0.57, h * 0.28,
             w * 0.61, h * 0.78, w * 0.39, h * 0.78,
-            fill="#1e2123", outline="#747879", width=2,
+            fill=self._style.vehicle_silhouette,
+            outline=self._style.vehicle_silhouette_outline,
+            width=2,
         )
         positions = {
             "front_left": (w * 0.25, h * 0.38, "LF"),
@@ -664,17 +770,17 @@ class TirePressurePanel(_ValueGauge):
             color = self._pressure_color(pressure)
             self.create_text(
                 x, y, text=f"{label}  {text}", fill=color,
-                font=("DejaVu Sans Mono", max(9, int(h * 0.105)), "bold"),
+                font=(self._style.mono_font_family, max(9, int(h * 0.105)), "bold"),
             )
 
     def _pressure_color(self, pressure: float | None) -> str:
         if not self._connected or pressure is None:
             return self._style.muted_color
         if pressure <= self._danger_low or pressure >= self._danger_high:
-            return "#ff3446"
+            return self._style.danger_value
         if pressure <= self._caution_low or pressure >= self._caution_high:
-            return "#f0b323"
-        return "#ffffff"
+            return self._style.caution_value
+        return self._style.normal_value
 
 class GearIndicator(_ValueGauge):
     """Large, glanceable manual-transmission gear indicator."""
@@ -685,7 +791,7 @@ class GearIndicator(_ValueGauge):
         self,
         master: tk.Misc,
         *,
-        style: GaugeStyle | None = None,
+        style: VehicleGaugeTheme | None = None,
         width: int = 150,
         height: int = 220,
         **kwargs: object,
@@ -693,7 +799,7 @@ class GearIndicator(_ValueGauge):
         self._gear = "N"
         super().__init__(
             master,
-            style=style or GaugeStyle(),
+            style=style or VEHICLE_GAUGE_THEME,
             width=width,
             height=height,
             **kwargs,
@@ -716,31 +822,31 @@ class GearIndicator(_ValueGauge):
             pad,
             w - pad,
             h - pad,
-            fill="#08090a",
-            outline="#85898a",
+            fill=self._style.gear_background,
+            outline=self._style.gear_border,
             width=3,
         )
         self.create_text(
             w / 2,
             h * 0.19,
             text="GEAR",
-            fill="#d9dbd9",
-            font=("DejaVu Sans Condensed", max(9, int(h * 0.075)), "bold"),
+            fill=self._style.gear_title,
+            font=(self._style.condensed_font_family, max(9, int(h * 0.075)), "bold"),
         )
-        gear_color = "#ff3143" if self._connected else self._style.muted_color
+        gear_color = self._style.gear_active if self._connected else self._style.muted_color
         self.create_text(
             w / 2,
             h * 0.53,
             text=self._gear if self._connected else "—",
             fill=gear_color,
-            font=("DejaVu Sans", max(30, int(h * 0.34)), "bold"),
+            font=(self._style.font_family, max(30, int(h * 0.34)), "bold"),
         )
         self.create_text(
             w / 2,
             h * 0.86,
             text="R  •  1  2  3  4  5  6",
-            fill="#747879",
-            font=("DejaVu Sans Condensed", max(6, int(h * 0.042)), "bold"),
+            fill=self._style.muted_detail,
+            font=(self._style.condensed_font_family, max(6, int(h * 0.042)), "bold"),
         )
 
 
@@ -751,7 +857,7 @@ class DiagnosticsPanel(_ValueGauge):
         self,
         master: tk.Misc,
         *,
-        style: GaugeStyle | None = None,
+        style: VehicleGaugeTheme | None = None,
         width: int = 440,
         height: int = 118,
         **kwargs: object,
@@ -760,7 +866,7 @@ class DiagnosticsPanel(_ValueGauge):
         self._mil_on: bool | None = None
         super().__init__(
             master,
-            style=style or GaugeStyle(),
+            style=style or VEHICLE_GAUGE_THEME,
             width=width,
             height=height,
             **kwargs,
@@ -791,21 +897,33 @@ class DiagnosticsPanel(_ValueGauge):
             pad,
             w - pad,
             h - pad,
-            fill="#0b0d0e",
-            outline="#626668",
+            fill=self._style.diagnostics_background,
+            outline=self._style.panel_border,
             width=2,
         )
         self._draw_engine_icon(pad * 2.2, h * 0.47, h * 0.22)
 
         if not self._connected:
-            status, color, detail = "DIAGNOSTICS OFFLINE", "#777b7c", "OBD-II adapter unavailable"
+            status, color, detail = (
+                "DIAGNOSTICS OFFLINE",
+                self._style.diagnostics_offline,
+                "OBD-II adapter unavailable",
+            )
         elif self._codes is None and self._mil_on is None:
-            status, color, detail = "DIAGNOSTICS UNAVAILABLE", "#f0b323", "Awaiting Mode 03 / MIL status"
+            status, color, detail = (
+                "DIAGNOSTICS UNAVAILABLE",
+                self._style.caution_value,
+                "Awaiting Mode 03 / MIL status",
+            )
         elif self._mil_on or self._codes:
-            status, color = "CHECK ENGINE", "#ff3446"
+            status, color = "CHECK ENGINE", self._style.danger_value
             detail = "  ".join(self._codes or ("MIL ACTIVE",))
         else:
-            status, color, detail = "ENGINE SYSTEMS OK", "#ffffff", "No stored trouble codes"
+            status, color, detail = (
+                "ENGINE SYSTEMS OK",
+                self._style.normal_value,
+                "No stored trouble codes",
+            )
 
         self.create_text(
             pad * 4.6,
@@ -813,19 +931,23 @@ class DiagnosticsPanel(_ValueGauge):
             anchor="w",
             text=status,
             fill=color,
-            font=("DejaVu Sans Condensed", max(9, int(h * 0.12)), "bold"),
+            font=(self._style.condensed_font_family, max(9, int(h * 0.12)), "bold"),
         )
         self.create_text(
             pad * 4.6,
             h * 0.62,
             anchor="w",
             text=detail,
-            fill="#aeb1b1",
-            font=("DejaVu Sans Mono", max(7, int(h * 0.085))),
+            fill=self._style.diagnostics_detail,
+            font=(self._style.mono_font_family, max(7, int(h * 0.085))),
         )
 
     def _draw_engine_icon(self, x: float, y: float, size: float) -> None:
-        color = "#ffb21a" if self._mil_on else "#b7b9b8"
+        color = (
+            self._style.diagnostics_icon_active
+            if self._mil_on
+            else self._style.diagnostics_icon_inactive
+        )
         width = max(2, int(size * 0.10))
         points = (
             x - size * 0.65, y - size * 0.35,

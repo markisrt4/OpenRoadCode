@@ -21,6 +21,19 @@ The standalone navigation and vehicle terminal commands compose the reusable
 `frontends/tui/automotive`. The same views are used by the navigable
 `apps/carTui` application.
 
+## Vehicle Gauge Example
+
+The configurable performance-style Tk panel can be exercised without an ELM327
+adapter. The example generates synthetic telemetry while using the exact same
+`VehicleGaugePanel` hosted by Car UI:
+
+```bash
+python3 -m apps.automotive_dashboard.vehicle_gauge_demo
+```
+
+Use **Arrange gauges** to change visibility and order. The layout is stored in
+`~/.config/openroadcode/vehicle_gauges.json`.
+
 ## Terminal Dashboard
 
 The terminal dashboard uses Python's built-in curses support and requires no

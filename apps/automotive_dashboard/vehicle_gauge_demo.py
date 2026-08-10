@@ -1,4 +1,4 @@
-"""Standalone demo for VehicleGaugeSubpanel without an OBD-II connection."""
+"""Standalone demo for VehicleGaugePanel without an OBD-II connection."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ import tkinter as tk
 from datetime import datetime
 from types import SimpleNamespace
 
-from vehicle_gauge_subpanel import VehicleGaugeSubpanel
+from frontends.tk.automotive import VehicleGaugePanel
 
 
 def main() -> None:
@@ -17,7 +17,7 @@ def main() -> None:
     root.geometry("1024x600")
     root.configure(background="#000000")
 
-    panel = VehicleGaugeSubpanel(
+    panel = VehicleGaugePanel(
         root,
         config_path="~/.config/openroadcode/vehicle_gauges.json",
         columns=4,

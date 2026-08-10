@@ -1,26 +1,55 @@
-"""Configurable OpenRoadCode vehicle gauge subpanel."""
+"""Configurable OpenRoadCode vehicle gauge panel."""
 
 from __future__ import annotations
 
 import json
 import tkinter as tk
+from collections.abc import Sequence
 from dataclasses import asdict, dataclass
+import math
 from pathlib import Path
 from tkinter import ttk
-from typing import TYPE_CHECKING, Callable, Protocol
+from types import SimpleNamespace
+from typing import Callable, Protocol
 
-from round_gauge import (
+from apps.common.uiTheme import (
+    VEHICLE_GAUGE_REDLINE_THEME,
+    VEHICLE_GAUGE_THEME,
+    VehicleGaugeRedlineTheme,
+)
+from frontends.tk.automotive.vehicle_gauge_widgets import (
     DiagnosticsPanel,
-    GaugeStyle,
     GearIndicator,
     LinearGauge,
     MetricTile,
     RoundGauge,
     TirePressurePanel,
 )
+from ui.automotive import (
+    DiagnosticTroubleCode,
+    DiagnosticsRequestHandlerIf,
+    Gear,
+    TirePosition,
+    VehicleConnectionState,
+    VehicleConnectionUiIf,
+    VehicleDiagnosticsUiIf,
+    VehicleTireUiIf,
+    VehicleTripUiIf,
+    VehicleUiIf,
+)
 
-if TYPE_CHECKING:
-    from controllers.automotive import VehicleState
+class VehicleGaugeSnapshot(Protocol):
+    """Minimum telemetry shape consumed directly by the gauge panel."""
+
+    rpm: float | None
+    speed_mph: float | None
+    boost_psi: float | None
+    throttle_pct: float | None
+    coolant_temp_f: float | None
+    intake_temp_f: float | None
+    engine_load_pct: float | None
+    control_voltage: float | None
+    fuel_level_pct: float | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -45,6 +74,8 @@ class GaugeDefinition:
     sweep_angle: float = 270.0
     icon: str | None = None
     default_visible: bool = True
+    intense_redline: bool = False
+    redline_style: VehicleGaugeRedlineTheme = VEHICLE_GAUGE_REDLINE_THEME
 
 
 class GaugeWidget(Protocol):
@@ -67,16 +98,17 @@ DEFAULT_GAUGES: tuple[GaugeDefinition, ...] = (
     GaugeDefinition(
         "rpm", "RPM", "x1000", "rpm", 0, 8, 1,
         precision=1, value_scale=0.001, caution_high=6.0, danger_high=6.5,
-        start_angle=140, sweep_angle=260,
+        start_angle=140, sweep_angle=260, intense_redline=True,
     ),
     GaugeDefinition(
         "boost", "Boost", "psi", "boost_psi", -15, 25, 5,
         precision=1, caution_high=15, danger_high=18,
-        start_angle=140, sweep_angle=260,
+        start_angle=140, sweep_angle=260, intense_redline=True,
     ),
     GaugeDefinition(
         "speed", "mp/h", "", "speed_mph", 0, 160, 20,
-        start_angle=140, sweep_angle=260,
+        caution_high=120, danger_high=140,
+        start_angle=140, sweep_angle=260, intense_redline=True,
     ),
     GaugeDefinition(
         "gear", "Gear", "", "gear", 0, 6, 1, shape="gear",
@@ -138,8 +170,19 @@ DEFAULT_GAUGES: tuple[GaugeDefinition, ...] = (
 )
 
 
-class VehicleGaugeSubpanel(ttk.Frame):
-    """Displays configurable gauges and accepts VehicleState updates."""
+class VehicleGaugePanel(
+    ttk.Frame,
+    VehicleUiIf,
+    VehicleConnectionUiIf,
+    VehicleTripUiIf,
+    VehicleTireUiIf,
+    VehicleDiagnosticsUiIf,
+):
+    """Display vehicle state through explicit automotive UI contracts."""
+
+    METERS_PER_MILE = 1609.344
+    PASCALS_PER_PSI = 6894.757293168
+    CUBIC_METERS_PER_US_GALLON = 0.003785411784
 
     def __init__(
         self,
@@ -159,9 +202,16 @@ class VehicleGaugeSubpanel(ttk.Frame):
         self._preferred_columns = columns
         self._layout = self._load_layout(definitions)
         self._gauges: dict[str, GaugeWidget] = {}
-        self._last_state: VehicleState | None = None
+        self._last_state: VehicleGaugeSnapshot | None = None
         self._connected = False
-        self._style = GaugeStyle()
+        self._connection_state = VehicleConnectionState.DISCONNECTED
+        self._diagnostics_request_handler: DiagnosticsRequestHandlerIf | None = None
+        self._contract_state = SimpleNamespace(
+            tire_pressures_psi={},
+            diagnostic_trouble_codes=(),
+            mil_on=None,
+        )
+        self._style = VEHICLE_GAUGE_THEME
 
         self.configure(style="VehicleGauge.TFrame")
         self._configure_styles()
@@ -192,8 +242,13 @@ class VehicleGaugeSubpanel(ttk.Frame):
 
         self._rebuild_gauges()
 
-    def update_state(self, state: VehicleState | None, *, connected: bool = True) -> None:
-        """Update all gauges from a VehicleState snapshot."""
+    def update_state(
+        self,
+        state: VehicleGaugeSnapshot | None,
+        *,
+        connected: bool = True,
+    ) -> None:
+        """Update all gauges from a vehicle telemetry snapshot."""
         self._last_state = state
         self._connected = connected
         self._status.configure(
@@ -223,6 +278,333 @@ class VehicleGaugeSubpanel(ttk.Frame):
             gauge.set_connected(connected)
             gauge.set_value(value)
 
+    def set_connection_state(
+        self,
+        state: VehicleConnectionState | None,
+    ) -> None:
+        """Set the displayed vehicle telemetry connection state."""
+        self._connection_state = state or VehicleConnectionState.DISCONNECTED
+        connected = state is VehicleConnectionState.CONNECTED
+        labels = {
+            VehicleConnectionState.CONNECTING: "VEHICLE CONNECTING",
+            VehicleConnectionState.CONNECTED: "VEHICLE CONNECTED",
+            VehicleConnectionState.ERROR: "VEHICLE ERROR",
+            VehicleConnectionState.DISCONNECTED: "VEHICLE DISCONNECTED",
+        }
+        self.update_state(self._last_state, connected=connected)
+        self._status.configure(text=labels[self._connection_state])
+
+    def set_gear(self, gear: Gear | None) -> None:
+        """Set the displayed transmission gear."""
+        values = {
+            Gear.REVERSE: "R",
+            Gear.NEUTRAL: "N",
+            Gear.FIRST: "1",
+            Gear.SECOND: "2",
+            Gear.THIRD: "3",
+            Gear.FOURTH: "4",
+            Gear.FIFTH: "5",
+            Gear.SIXTH: "6",
+        }
+        self._set_contract_value("gear", values.get(gear))
+
+    def set_vehicle_speed(self, speed_mps: float | None) -> None:
+        """Set speed after converting metres per second to miles per hour."""
+        self._set_contract_value(
+            "speed_mph",
+            None if speed_mps is None else speed_mps * 2.2369362920544,
+        )
+
+    def set_engine_speed(self, engine_speed_rad_s: float | None) -> None:
+        """Set engine speed after converting radians per second to RPM."""
+        self._set_contract_value(
+            "rpm",
+            None
+            if engine_speed_rad_s is None
+            else engine_speed_rad_s * 60.0 / (2.0 * math.pi),
+        )
+
+    def set_fuel_level(self, fuel_level_ratio: float | None) -> None:
+        """Set fuel level after converting its ratio to percent."""
+        self._set_contract_value(
+            "fuel_level_pct",
+            None if fuel_level_ratio is None else fuel_level_ratio * 100.0,
+        )
+
+    def set_throttle_position(
+        self,
+        throttle_position_ratio: float | None,
+    ) -> None:
+        """Set throttle position after converting its ratio to percent."""
+        self._set_contract_value(
+            "throttle_pct",
+            None
+            if throttle_position_ratio is None
+            else throttle_position_ratio * 100.0,
+        )
+
+    def set_accelerator_position(
+        self,
+        accelerator_position_ratio: float | None,
+    ) -> None:
+        """Store accelerator position for compatible custom definitions."""
+        self._set_contract_value(
+            "accelerator_pedal_pct",
+            None
+            if accelerator_position_ratio is None
+            else accelerator_position_ratio * 100.0,
+        )
+
+    def set_engine_load(self, engine_load_ratio: float | None) -> None:
+        """Set engine load after converting its ratio to percent."""
+        self._set_contract_value(
+            "engine_load_pct",
+            None if engine_load_ratio is None else engine_load_ratio * 100.0,
+        )
+
+    def set_coolant_temperature(
+        self,
+        coolant_temperature_k: float | None,
+    ) -> None:
+        """Set coolant temperature after converting kelvin to Fahrenheit."""
+        self._set_contract_value(
+            "coolant_temp_f",
+            self._kelvin_to_fahrenheit(coolant_temperature_k),
+        )
+
+    def set_intake_air_temperature(
+        self,
+        intake_air_temperature_k: float | None,
+    ) -> None:
+        """Set intake temperature after converting kelvin to Fahrenheit."""
+        self._set_contract_value(
+            "intake_temp_f",
+            self._kelvin_to_fahrenheit(intake_air_temperature_k),
+        )
+
+    def set_manifold_pressure(
+        self,
+        manifold_pressure_pa: float | None,
+    ) -> None:
+        """Store manifold pressure in kilopascals."""
+        self._set_contract_value(
+            "map_kpa",
+            None if manifold_pressure_pa is None else manifold_pressure_pa / 1000.0,
+        )
+
+    def set_barometric_pressure(
+        self,
+        barometric_pressure_pa: float | None,
+    ) -> None:
+        """Store barometric pressure in kilopascals."""
+        self._set_contract_value(
+            "baro_kpa",
+            None if barometric_pressure_pa is None else barometric_pressure_pa / 1000.0,
+        )
+
+    def set_boost_pressure(self, boost_pressure_pa: float | None) -> None:
+        """Set boost pressure after converting pascals to PSI."""
+        self._set_contract_value(
+            "boost_psi",
+            None
+            if boost_pressure_pa is None
+            else boost_pressure_pa / self.PASCALS_PER_PSI,
+        )
+
+    def set_mass_air_flow(self, mass_air_flow_kg_s: float | None) -> None:
+        """Store mass airflow in grams per second."""
+        self._set_contract_value(
+            "maf_gps",
+            None if mass_air_flow_kg_s is None else mass_air_flow_kg_s * 1000.0,
+        )
+
+    def set_control_voltage(self, control_voltage_v: float | None) -> None:
+        """Set control-module voltage."""
+        self._set_contract_value("control_voltage", control_voltage_v)
+
+    def set_ambient_temperature(
+        self,
+        ambient_temperature_k: float | None,
+    ) -> None:
+        """Set ambient temperature after converting kelvin to Fahrenheit."""
+        self._set_contract_value(
+            "ambient_temp_f",
+            self._kelvin_to_fahrenheit(ambient_temperature_k),
+        )
+
+    def set_engine_oil_temperature(
+        self,
+        engine_oil_temperature_k: float | None,
+    ) -> None:
+        """Store engine-oil temperature for compatible custom definitions."""
+        self._set_contract_value(
+            "engine_oil_temp_f",
+            self._kelvin_to_fahrenheit(engine_oil_temperature_k),
+        )
+
+    def set_engine_oil_pressure(
+        self,
+        engine_oil_pressure_pa: float | None,
+    ) -> None:
+        """Store engine-oil pressure for compatible custom definitions."""
+        self._set_contract_value(
+            "engine_oil_pressure_psi",
+            None
+            if engine_oil_pressure_pa is None
+            else engine_oil_pressure_pa / self.PASCALS_PER_PSI,
+        )
+
+    def set_transmission_temperature(
+        self,
+        transmission_temperature_k: float | None,
+    ) -> None:
+        """Store transmission temperature for custom gauge definitions."""
+        self._set_contract_value(
+            "transmission_temp_f",
+            self._kelvin_to_fahrenheit(transmission_temperature_k),
+        )
+
+    def set_odometer(self, distance_m: float | None) -> None:
+        """Set odometer distance after converting metres to miles."""
+        self._set_contract_value("odometer_miles", self._meters_to_miles(distance_m))
+
+    def set_trip_distance(self, distance_m: float | None) -> None:
+        """Set trip distance after converting metres to miles."""
+        self._set_contract_value("trip_miles", self._meters_to_miles(distance_m))
+
+    def set_estimated_range(self, distance_m: float | None) -> None:
+        """Set estimated range after converting metres to miles."""
+        self._set_contract_value(
+            "estimated_range_miles",
+            self._meters_to_miles(distance_m),
+        )
+
+    def set_instantaneous_fuel_consumption(
+        self,
+        fuel_consumption_m3_per_m: float | None,
+    ) -> None:
+        """Set instantaneous fuel economy after converting to MPG."""
+        self._set_contract_value(
+            "instantaneous_fuel_economy_mpg",
+            self._fuel_consumption_to_mpg(fuel_consumption_m3_per_m),
+        )
+
+    def set_average_fuel_consumption(
+        self,
+        fuel_consumption_m3_per_m: float | None,
+    ) -> None:
+        """Set average fuel economy after converting to MPG."""
+        self._set_contract_value(
+            "fuel_economy_mpg",
+            self._fuel_consumption_to_mpg(fuel_consumption_m3_per_m),
+        )
+
+    def set_fuel_used(self, fuel_volume_m3: float | None) -> None:
+        """Store trip fuel volume after converting cubic metres to gallons."""
+        self._set_contract_value(
+            "fuel_used_gallons",
+            None
+            if fuel_volume_m3 is None
+            else fuel_volume_m3 / self.CUBIC_METERS_PER_US_GALLON,
+        )
+
+    def set_tire_pressure(
+        self,
+        position: TirePosition,
+        pressure_pa: float | None,
+    ) -> None:
+        """Set one tire pressure after converting pascals to PSI."""
+        pressures = dict(self._contract_state.tire_pressures_psi)
+        key = self._tire_key(position)
+        if pressure_pa is None:
+            pressures.pop(key, None)
+        else:
+            pressures[key] = pressure_pa / self.PASCALS_PER_PSI
+        self._set_contract_value("tire_pressures_psi", pressures)
+
+    def set_tire_temperature(
+        self,
+        position: TirePosition,
+        temperature_k: float | None,
+    ) -> None:
+        """Store one tire temperature for compatible custom definitions."""
+        temperatures = dict(
+            getattr(self._contract_state, "tire_temperatures_f", {})
+        )
+        temperatures[self._tire_key(position)] = self._kelvin_to_fahrenheit(
+            temperature_k
+        )
+        self._set_contract_value("tire_temperatures_f", temperatures)
+
+    def set_tire_pressure_warning(
+        self,
+        position: TirePosition,
+        active: bool | None,
+    ) -> None:
+        """Store one tire pressure-warning state."""
+        warnings = dict(getattr(self._contract_state, "tire_warnings", {}))
+        warnings[self._tire_key(position)] = active
+        self._set_contract_value("tire_warnings", warnings)
+
+    def set_malfunction_indicator(self, active: bool | None) -> None:
+        """Set the malfunction indicator state."""
+        self._set_contract_value("mil_on", active)
+
+    def set_trouble_codes(
+        self,
+        trouble_codes: Sequence[DiagnosticTroubleCode],
+    ) -> None:
+        """Replace the displayed diagnostic trouble codes."""
+        self._set_contract_value(
+            "diagnostic_trouble_codes",
+            tuple(item.code for item in trouble_codes),
+        )
+
+    def set_emissions_readiness(self, ready: bool | None) -> None:
+        """Store emissions-readiness state for diagnostics presentation."""
+        self._set_contract_value("emissions_ready", ready)
+
+    def set_diagnostics_request_handler(
+        self,
+        handler: DiagnosticsRequestHandlerIf | None,
+    ) -> None:
+        """Set the handler for future diagnostic actions."""
+        self._diagnostics_request_handler = handler
+
+    def _set_contract_value(self, name: str, value: object) -> None:
+        setattr(self._contract_state, name, value)
+        self.update_state(
+            self._contract_state,
+            connected=(
+                self._connection_state is VehicleConnectionState.CONNECTED
+            ),
+        )
+
+    @staticmethod
+    def _kelvin_to_fahrenheit(value: float | None) -> float | None:
+        return None if value is None else (value - 273.15) * 9.0 / 5.0 + 32.0
+
+    def _meters_to_miles(self, value: float | None) -> float | None:
+        return None if value is None else value / self.METERS_PER_MILE
+
+    def _fuel_consumption_to_mpg(self, value: float | None) -> float | None:
+        if value is None or value <= 0.0:
+            return None
+        return (
+            self.CUBIC_METERS_PER_US_GALLON
+            / value
+            / self.METERS_PER_MILE
+        )
+
+    @staticmethod
+    def _tire_key(position: TirePosition) -> str:
+        return {
+            TirePosition.FRONT_LEFT: "front_left",
+            TirePosition.FRONT_RIGHT: "front_right",
+            TirePosition.REAR_LEFT: "rear_left",
+            TirePosition.REAR_RIGHT: "rear_right",
+        }[position]
+
     def set_gauge_visible(self, gauge_id: str, visible: bool) -> None:
         """Show or hide a gauge by its stable identifier."""
         item = self._layout_item(gauge_id)
@@ -248,7 +630,7 @@ class VehicleGaugeSubpanel(ttk.Frame):
         """Open a modal-ish editor for visibility and gauge order."""
         editor = tk.Toplevel(self)
         editor.title("Arrange Vehicle Gauges")
-        editor.configure(background="#000000")
+        editor.configure(background=self._style.panel_background)
         editor.transient(self.winfo_toplevel())
         editor.geometry("470x520")
 
@@ -329,25 +711,32 @@ class VehicleGaugeSubpanel(ttk.Frame):
 
     def _configure_styles(self) -> None:
         style = ttk.Style(self)
-        style.configure("VehicleGauge.TFrame", background="#000000")
-        style.configure("VehicleGauge.TLabel", background="#000000", foreground="#ffffff")
+        style.configure(
+            "VehicleGauge.TFrame",
+            background=self._style.panel_background,
+        )
+        style.configure(
+            "VehicleGauge.TLabel",
+            background=self._style.panel_background,
+            foreground=self._style.panel_foreground,
+        )
         style.configure(
             "VehicleGaugeHeading.TLabel",
-            background="#000000",
-            foreground="#ffffff",
-            font=("DejaVu Sans", 16, "bold"),
+            background=self._style.panel_background,
+            foreground=self._style.panel_foreground,
+            font=(self._style.font_family, 16, "bold"),
         )
         style.configure(
             "VehicleGaugeStatus.TLabel",
-            background="#000000",
-            foreground="#777777",
-            font=("DejaVu Sans", 11, "bold"),
+            background=self._style.panel_background,
+            foreground=self._style.panel_status_disconnected,
+            font=(self._style.font_family, 11, "bold"),
         )
         style.configure(
             "VehicleGaugeConnected.TLabel",
-            background="#000000",
-            foreground="#d71920",
-            font=("DejaVu Sans", 11, "bold"),
+            background=self._style.panel_background,
+            foreground=self._style.panel_status_connected,
+            font=(self._style.font_family, 11, "bold"),
         )
 
     def _load_layout(
@@ -450,6 +839,8 @@ class VehicleGaugeSubpanel(ttk.Frame):
                     major_step=definition.major_step,
                     caution_start=definition.caution_high,
                     danger_start=definition.danger_high,
+                    intense_redline=definition.intense_redline,
+                    redline_style=definition.redline_style,
                     start_angle=definition.start_angle,
                     sweep_angle=definition.sweep_angle,
                     size=220,

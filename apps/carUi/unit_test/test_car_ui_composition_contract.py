@@ -30,6 +30,7 @@ class FakeScreenFactory:
             for key in (
                 "aircraft", "weather", "lighting", "fm_radio", "scanner",
                 "spotify", "netflix", "youtube", "offroad_dashboard",
+                "vehicle_gauges",
             )
         }
 

@@ -20,6 +20,7 @@ class CarUiScreens:
     netflix: ScreenUiIf
     youtube: ScreenUiIf
     offroad_dashboard: ScreenUiIf
+    vehicle_gauges: ScreenUiIf
 
 
 class CarUiScreenFactoryIf(Protocol):

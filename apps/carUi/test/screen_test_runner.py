@@ -33,6 +33,7 @@ def parse_args() -> argparse.Namespace:
             "scanner",
             "aircraft",
             "offroad_dashboard",
+            "vehicle_gauges",
         ),
     )
     parser.add_argument("--geometry", default="800x480")

@@ -76,6 +76,10 @@ def create_car_ui_menu_pages() -> dict[str, MenuPage]:
             title="Gauges",
             tiles=(
                 MenuTile(
+                    "vehicle_gauges", "VEHICLE", "Performance gauges",
+                    "Configurable OBD-II instruments",
+                ),
+                MenuTile(
                     "offroad_dashboard", "OFF-ROAD", "Pitch / roll / trail",
                     "Inclinometer and navigation",
                 ),

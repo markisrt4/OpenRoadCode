@@ -12,6 +12,7 @@ from apps.carUi.screens.offroad_dashboard_screen import OffroadDashboardScreen
 from apps.carUi.screens.scanner_screen import ScannerScreen
 from apps.carUi.screens.weather_screen import WeatherScreen
 from apps.carUi.screens.youtube_screen import YouTubeScreen
+from apps.carUi.screens.vehicle_gauges_screen import VehicleGaugesScreen
 from apps.common.uiTheme import LIGHTING_PANEL_THEME
 from apps.common.uiTheme.uiTheme import CAR_UI_THEME
 from apps.common.uiTheme.spotify import SPOTIFY_PANEL_THEME
@@ -143,6 +144,12 @@ class TkCarUiScreenFactory:
             create_menu_tile=self._create_menu_tile,
             back_action=lambda: self._show_menu("gauges"),
         )
+        vehicle_gauges = VehicleGaugesScreen(
+            self._host,
+            source=getattr(dependencies, "vehicle_state_source", None),
+            create_menu_tile=self._create_menu_tile,
+            back_action=lambda: self._show_menu("gauges"),
+        )
 
         return CarUiScreens(
             aircraft=aircraft,
@@ -154,4 +161,5 @@ class TkCarUiScreenFactory:
             netflix=netflix,
             youtube=youtube,
             offroad_dashboard=offroad_dashboard,
+            vehicle_gauges=vehicle_gauges,
         )
