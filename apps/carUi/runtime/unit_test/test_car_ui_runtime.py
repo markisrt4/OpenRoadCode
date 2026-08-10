@@ -53,10 +53,12 @@ class CarUiRuntimeTest(unittest.TestCase):
         }
         return CarUiRuntime(
             remote_display=":2",
+            auxiliary_display=":0",
             rotary_encoders=object(),  # type: ignore[arg-type]
             radios=RadioRuntimeRegistry(radio_runtimes),
             adsb_launcher=None,
             weather_dash_launcher=None,
+            weather_controller=None,
             sdr_resource_manager=object(),
         )
 

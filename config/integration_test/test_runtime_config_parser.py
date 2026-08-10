@@ -5,6 +5,7 @@ from tempfile import TemporaryDirectory
 import unittest
 
 from config.component_test.runtime_config_test_app import main
+from config.runtime_config import RuntimeConfigParser
 
 
 VALID_TOML = """
@@ -90,6 +91,99 @@ class RuntimeConfigTestAppTest(unittest.TestCase):
             config.image_cache.directory,
         )
         self.assertEqual(12, config.image_cache.max_entries)
+
+    def test_audio_output_config_is_parsed(self) -> None:
+        from config.component_test.runtime_config_test_app import validate_config
+
+        self.config_path.write_text(
+            VALID_TOML
+            + '\n[audio]\noutput = "usb"\ndevice_match = "C-Media"\n',
+            encoding="utf-8",
+        )
+        config = validate_config(
+            self.config_path,
+            project_root=self.project_root,
+        )
+
+        self.assertEqual("usb", config.audio.output)
+        self.assertEqual("C-Media", config.audio.device_match)
+
+    def test_media_display_is_parsed_independently(self) -> None:
+        self.config_path.write_text(
+            VALID_TOML.replace(
+                'remote_display = ":2"',
+                'remote_display = ":2"\nmedia_display = ":0"',
+            ),
+            encoding="utf-8",
+        )
+        config = RuntimeConfigParser(
+            self.config_path,
+            project_root=self.project_root,
+        ).load()
+
+        self.assertEqual(":2", config.runtime.remote_display)
+        self.assertEqual(":0", config.runtime.media_display)
+
+    def test_auxiliary_display_defaults_to_local_desktop(self) -> None:
+        config = RuntimeConfigParser(
+            self.config_path,
+            project_root=self.project_root,
+        ).load()
+
+        self.assertEqual(":0", config.runtime.auxiliary_display)
+
+    def test_auxiliary_display_is_configurable(self) -> None:
+        self.config_path.write_text(
+            VALID_TOML.replace(
+                'remote_display = ":2"',
+                'remote_display = ":2"\nauxiliary_display = ":4"',
+            ),
+            encoding="utf-8",
+        )
+        config = RuntimeConfigParser(
+            self.config_path,
+            project_root=self.project_root,
+        ).load()
+
+        self.assertEqual(":4", config.runtime.auxiliary_display)
+
+    def test_weather_dashboard_preload_defaults_to_enabled(self) -> None:
+        config = RuntimeConfigParser(
+            self.config_path,
+            project_root=self.project_root,
+        ).load()
+
+        self.assertTrue(config.auxiliary.weather_dashboard.preload)
+
+    def test_position_cache_defaults_are_loaded(self) -> None:
+        config = RuntimeConfigParser(
+            self.config_path,
+            project_root=self.project_root,
+        ).load()
+
+        self.assertTrue(config.position_cache.enabled)
+        self.assertEqual(604800.0, config.position_cache.max_age_seconds)
+
+    def test_position_cache_configuration_is_parsed(self) -> None:
+        self.config_path.write_text(
+            VALID_TOML
+            + "\n[position_cache]\n"
+            + "enabled = false\n"
+            + 'directory = "var/position"\n'
+            + "max_age_seconds = 3600\n",
+            encoding="utf-8",
+        )
+        config = RuntimeConfigParser(
+            self.config_path,
+            project_root=self.project_root,
+        ).load()
+
+        self.assertFalse(config.position_cache.enabled)
+        self.assertEqual(
+            (self.project_root / "var" / "position").resolve(),
+            config.position_cache.directory,
+        )
+        self.assertEqual(3600.0, config.position_cache.max_age_seconds)
 
     def test_rotary_encoder_config_is_parsed(self) -> None:
         from config.component_test.runtime_config_test_app import (

@@ -56,6 +56,23 @@ provide their own `NavigationSensorIf` adapters.
 Geolocation API through a local HTTP relay and produces the same state type.
 Position input is optional.
 
+CarUi decorates either provider with `PersistentPositionSource`. It publishes
+a recent last-known fix immediately at startup, then replaces it with live
+updates. Only valid live 2D/3D fixes are stored through `PositionSnapshotCache`
+and the generic `controllers.cache` storage layer. Restored states have
+`is_cached == True`; speed, course, and satellite counts are not restored.
+
+The default snapshot path and maximum age are:
+
+```text
+~/.cache/openroadcode/position
+604800 seconds (7 days)
+```
+
+Override them with `CARUI_POSITION_CACHE_DIRECTORY` and
+`CARUI_POSITION_CACHE_MAX_AGE_SECONDS`, or disable persistence with
+`CARUI_POSITION_CACHE=0`.
+
 ## Orientation Estimators
 
 `ComplementaryOrientationEstimator` is the current default. It supports

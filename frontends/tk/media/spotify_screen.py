@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import queue
+import threading
 from collections.abc import Callable
 from typing import Any
 
@@ -49,7 +51,11 @@ class SpotifyScreen(TkScreen, MediaUiIf):
         self._track_handler: TrackRequestHandlerIf | None = None
         self._seek_handler: SeekRequestHandlerIf | None = None
         self._volume_handler: VolumeRequestHandlerIf | None = None
-        self._refresh_callback: Callable[[], object] | None = None
+        self._state_loader: Callable[[], MediaState] | None = None
+        self._state_results: queue.SimpleQueue[tuple[int, MediaState]] = (
+            queue.SimpleQueue()
+        )
+        self._refresh_generation = 0
         self._refresh_job: object | None = None
         self.spotify_panel: SpotifyPlaybackPanel | None = None
 
@@ -90,14 +96,19 @@ class SpotifyScreen(TkScreen, MediaUiIf):
         if self.spotify_panel is not None:
             self.spotify_panel.set_volume_request_handler(handler)
 
-    def set_refresh_callback(
+    def set_state_loader(
         self,
-        callback: Callable[[], object] | None,
+        loader: Callable[[], MediaState] | None,
     ) -> None:
-        """Set the application callback used to request fresh media state."""
-        self._refresh_callback = callback
+        """Set the backend loader used by asynchronous refreshes.
+
+        @param loader Callable that reads and returns the latest media state
+            without touching Tk widgets.
+        """
+        self._state_loader = loader
 
     def hide(self) -> None:
+        self._refresh_generation += 1
         if self._refresh_job is not None:
             try:
                 self._host.cancel_ui_callback(self._refresh_job)
@@ -123,21 +134,73 @@ class SpotifyScreen(TkScreen, MediaUiIf):
         panel.set_track_request_handler(self._track_handler)
         panel.set_seek_request_handler(self._seek_handler)
         panel.set_volume_request_handler(self._volume_handler)
-        panel.set_media_state(self._state)
         panel.pack(fill="both", expand=True)
 
         self.spotify_panel = panel
-        self._refresh()
-        self._host.set_screen_status("Spotify controls ready")
+        self._host.set_screen_status("Loading Spotify…")
+        generation = self._refresh_generation
+        self._refresh_job = self._host.schedule_ui_callback(
+            1,
+            lambda: self._start_refresh(panel, generation),
+        )
 
-    def _refresh(self) -> None:
+    def _start_refresh(
+        self,
+        panel: SpotifyPlaybackPanel,
+        generation: int,
+    ) -> None:
+        """Read Spotify state off the Tk event-loop thread."""
         self._refresh_job = None
-        callback = self._refresh_callback
-        if callback is not None:
-            callback()
+        loader = self._state_loader
+        if (
+            panel is not self.spotify_panel
+            or generation != self._refresh_generation
+            or loader is None
+        ):
+            return
+        threading.Thread(
+            target=self._load_state_worker,
+            args=(loader, generation),
+            name="spotify-state",
+            daemon=True,
+        ).start()
+        self._refresh_job = self._host.schedule_ui_callback(
+            25,
+            lambda: self._poll_state(panel, generation),
+        )
 
-        if self.spotify_panel is not None:
-            self._refresh_job = self._host.schedule_ui_callback(
-                self._theme["layout"]["refresh_interval_ms"],
-                self._refresh,
-            )
+    def _load_state_worker(
+        self,
+        loader: Callable[[], MediaState],
+        generation: int,
+    ) -> None:
+        self._state_results.put((generation, loader()))
+
+    def _poll_state(
+        self,
+        panel: SpotifyPlaybackPanel,
+        generation: int,
+    ) -> None:
+        self._refresh_job = None
+        if (
+            panel is not self.spotify_panel
+            or generation != self._refresh_generation
+        ):
+            return
+        while True:
+            try:
+                result_generation, state = self._state_results.get_nowait()
+            except queue.Empty:
+                self._refresh_job = self._host.schedule_ui_callback(
+                    25,
+                    lambda: self._poll_state(panel, generation),
+                )
+                return
+            if result_generation == generation:
+                break
+        self.set_media_state(state)
+        self._host.set_screen_status("Spotify controls ready")
+        self._refresh_job = self._host.schedule_ui_callback(
+            self._theme["layout"]["refresh_interval_ms"],
+            lambda: self._start_refresh(panel, generation),
+        )

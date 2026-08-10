@@ -10,6 +10,7 @@ from apps.carUi.screens.car_ui_screen_services import (
 )
 from apps.launchers.app_launcher_if import AppLauncherIf
 from frontends.tk.aircraft import AircraftMenuPanel
+from frontends.tk.media.browser_return_overlay import BrowserReturnOverlay
 from apps.carUi.screens.car_ui_screen import CarUiScreen
 from frontends.tk.radio import RadioPanel
 from frontends.tk.radio.radio_panel_config import (
@@ -32,6 +33,7 @@ class AircraftScreen(CarUiScreen):
         airband_runtime: Callable[[], RadioRuntime],
         adsb_launcher: AppLauncherIf | None,
         remote_display: str,
+        auxiliary_display: str,
         on_frequency_changed: Callable[[int], None],
         create_menu_tile: MenuTileFactory,
         binding_factory: RadioScreenBindingFactoryIf,
@@ -41,9 +43,17 @@ class AircraftScreen(CarUiScreen):
         self._airband_runtime = airband_runtime
         self._adsb_launcher = adsb_launcher
         self._remote_display = remote_display
+        self._auxiliary_display = auxiliary_display
         self._on_frequency_changed = on_frequency_changed
         self._binding_factory = binding_factory
         self._home_action = home_action
+        self._return_overlay = BrowserReturnOverlay(
+            self.content_frame,
+            command=self._return_from_adsb,
+            background="#C62828",
+            foreground="#FFFFFF",
+            active_background="#8E0000",
+        )
         self.airband_panel: Optional[RadioPanel] = None
         self.airband_session: Optional[RadioSessionController] = None
 
@@ -73,18 +83,26 @@ class AircraftScreen(CarUiScreen):
             return
 
         try:
-            running = launcher.toggle(
-                remote_display=self._remote_display,
+            launcher.launch(
+                remote_display=self._auxiliary_display,
                 set_status=self.set_status,
             )
-            self.set_status(
-                "ADS-B dashboard launched"
-                if running
-                else "ADS-B dashboard stopped"
+            self.set_status("ADS-B dashboard launched")
+            self._return_overlay.show(
+                x=12,
+                y=12,
+                display=self._auxiliary_display,
             )
         except Exception as exc:
             self.set_status(f"ADS-B toggle failed: {exc}")
             print(f"[UI] ADS-B toggle error: {exc}")
+
+    def _return_from_adsb(self) -> None:
+        launcher = self._adsb_launcher
+        self._return_overlay.hide()
+        if launcher is not None:
+            launcher.stop(self._auxiliary_display, self.set_status)
+        self._home_action()
 
     def show_airband_am(self) -> None:
         if not self.prepare_screen("Airband AM", self.show):

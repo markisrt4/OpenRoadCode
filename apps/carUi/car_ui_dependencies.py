@@ -42,6 +42,7 @@ class CarUiDependencies:
     lighting_controller: LightingControllerIf
     rotary_encoders: Sequence[RotaryEncoderIf]
     volume_encoder_index: int
+    media_display: str | None = None
     navigation_controller: NavigationControllerIf = field(
         default_factory=UnconfiguredNavigationController
     )

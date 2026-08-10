@@ -10,6 +10,7 @@ Audio applications and input components can use the audio controller without dep
 |-----------|-------------|
 | `AudioControllerIf` | Defines the common audio control interface. |
 | `PipewireAudioController` | Controls PipeWire audio output using `wpctl`. |
+| `PactlAudioController` | Controls a Linux development host through `pactl`. |
 | `AudioControllerStub` | Provides deterministic in-memory audio state. |
 | `UnconfiguredAudioController` | Reports unavailable audio configuration. |
 
@@ -83,6 +84,14 @@ def adjust_output_volume(
 ## PipeWire Audio Controller
 
 `PipewireAudioController` controls the default PipeWire audio sink using `wpctl`.
+
+Car UI selects the implementation at runtime. Native Raspberry Pi 4 and Pi 5
+targets use `PipewireAudioController`; `linux-dev` hosts use
+`PactlAudioController`. Set `OPENROAD_RUNTIME_TARGET` to `linux-dev`, `rpi4`, or
+`rpi5` only when an explicit override is needed for testing or deployment.
+With `audio.output = "auto"`, Pi 4 prefers its onboard analog sink and Pi 5
+prefers a USB audio sink. Set `audio.device_match` in `config/runtime.toml` to
+select a particular adapter by a stable portion of its PipeWire description.
 
 The controller operates on:
 

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import subprocess
 
 from controllers.audio.audio_controller_if import AudioControllerIf
@@ -18,6 +19,7 @@ class PipewireAudioController(AudioControllerIf):
         *,
         steps: int = 20,
         step_percent: int = 5,
+        sink: str = DEFAULT_SINK,
     ) -> None:
         if steps <= 0:
             raise ValueError("steps must be greater than zero")
@@ -29,6 +31,7 @@ class PipewireAudioController(AudioControllerIf):
 
         self._steps = steps
         self._step_percent = step_percent
+        self._sink = sink
         self._current_level: int | None = None
 
     @property
@@ -66,7 +69,7 @@ class PipewireAudioController(AudioControllerIf):
         adjustment = f"{percent}%{'+' if steps > 0 else '-'}"
         args = [
             "set-volume",
-            self.DEFAULT_SINK,
+            self._sink,
             adjustment,
         ]
         if steps > 0:
@@ -84,7 +87,7 @@ class PipewireAudioController(AudioControllerIf):
         output = self._run_wpctl(
             [
                 "get-volume",
-                self.DEFAULT_SINK,
+                self._sink,
             ],
             capture=True,
         )
@@ -118,7 +121,7 @@ class PipewireAudioController(AudioControllerIf):
         self._run_wpctl(
             [
                 "set-volume",
-                self.DEFAULT_SINK,
+                self._sink,
                 str(volume),
             ]
         )
@@ -129,7 +132,7 @@ class PipewireAudioController(AudioControllerIf):
         output = self._run_wpctl(
             [
                 "get-volume",
-                self.DEFAULT_SINK,
+                self._sink,
             ],
             capture=True,
         )
@@ -139,7 +142,7 @@ class PipewireAudioController(AudioControllerIf):
         self._run_wpctl(
             [
                 "set-mute",
-                self.DEFAULT_SINK,
+                self._sink,
                 "toggle",
             ]
         )
@@ -163,9 +166,11 @@ class PipewireAudioController(AudioControllerIf):
             )
 
         except FileNotFoundError as exc:
-            raise RuntimeError(
-                "wpctl was not found"
-            ) from exc
+            return PipewireAudioController._run_pactl_for_wpctl(
+                args,
+                capture=capture,
+                wpctl_error=exc,
+            )
 
         except subprocess.CalledProcessError as exc:
             message = (
@@ -178,4 +183,81 @@ class PipewireAudioController(AudioControllerIf):
                 f"wpctl failed: {message}"
             ) from exc
 
+        return result.stdout if capture else ""
+
+    @staticmethod
+    def _run_pactl_for_wpctl(
+        args: list[str],
+        *,
+        capture: bool,
+        wpctl_error: FileNotFoundError,
+    ) -> str:
+        """Translate supported wpctl operations to pactl commands."""
+        operation = args[0]
+        sink = "@DEFAULT_SINK@"
+        if operation == "get-volume":
+            volume_output = PipewireAudioController._run_pactl(
+                ["get-sink-volume", sink],
+                capture=True,
+                wpctl_error=wpctl_error,
+            )
+            match = re.search(r"/\s*(\d+)%", volume_output)
+            if match is None:
+                raise RuntimeError(
+                    f"Unexpected pactl volume response: {volume_output!r}"
+                )
+            mute_output = PipewireAudioController._run_pactl(
+                ["get-sink-mute", sink],
+                capture=True,
+                wpctl_error=wpctl_error,
+            )
+            muted = mute_output.strip().lower().endswith("yes")
+            suffix = " [MUTED]" if muted else ""
+            return f"Volume: {int(match.group(1)) / 100:.2f}{suffix}"
+
+        if operation == "set-mute":
+            pactl_args = ["set-sink-mute", sink, args[2]]
+        elif operation == "set-volume":
+            value = args[2]
+            if value.endswith("+"):
+                value = f"+{value[:-1]}"
+            elif value.endswith("-"):
+                value = f"-{value[:-1]}"
+            elif "%" not in value:
+                value = f"{round(float(value) * 100)}%"
+            pactl_args = ["set-sink-volume", sink, value]
+        else:
+            raise RuntimeError(f"Unsupported pactl audio operation: {operation}")
+
+        return PipewireAudioController._run_pactl(
+            pactl_args,
+            capture=capture,
+            wpctl_error=wpctl_error,
+        )
+
+    @staticmethod
+    def _run_pactl(
+        args: list[str],
+        *,
+        capture: bool,
+        wpctl_error: FileNotFoundError,
+    ) -> str:
+        try:
+            result = subprocess.run(
+                ["pactl", *args],
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+        except FileNotFoundError as exc:
+            raise RuntimeError(
+                "Neither wpctl nor pactl was found"
+            ) from wpctl_error
+        except subprocess.CalledProcessError as exc:
+            message = (
+                exc.stderr.strip()
+                or exc.stdout.strip()
+                or "unknown pactl error"
+            )
+            raise RuntimeError(f"pactl failed: {message}") from exc
         return result.stdout if capture else ""

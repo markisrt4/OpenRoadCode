@@ -21,6 +21,11 @@ from common.logging.logging_paths import logging_file_path
 class BrowserKioskLauncher(AppLauncherIf):
     """Launch a browser in kiosk mode on a selected X display."""
 
+    _exclusive_launchers: dict[
+        tuple[str, str],
+        "BrowserKioskLauncher",
+    ] = {}
+
     def __init__(
         self,
         *,
@@ -40,6 +45,7 @@ class BrowserKioskLauncher(AppLauncherIf):
         startup_grace_seconds: float = 0.0,
         extra_arguments: tuple[str, ...] = (),
         window_class: str | None = None,
+        exclusive_group: str | None = None,
     ) -> None:
         if kiosk and app_mode:
             raise ValueError("kiosk and app_mode cannot both be enabled")
@@ -67,7 +73,9 @@ class BrowserKioskLauncher(AppLauncherIf):
         self.startup_grace_seconds = startup_grace_seconds
         self.extra_arguments = extra_arguments
         self.window_class = window_class
+        self.exclusive_group = exclusive_group
         self._process: subprocess.Popen[str] | None = None
+        self._window_id: str | None = None
 
     def is_running(self) -> bool:
         if self._process is not None:
@@ -102,8 +110,14 @@ class BrowserKioskLauncher(AppLauncherIf):
         set_status: StatusCallback = None,
     ) -> None:
         if self.is_running():
-            _status(set_status, "Browser already running")
+            self._activate_existing_window(
+                _x11_environment(remote_display)
+            )
+            _status(set_status, "Browser already running; window activated")
             return
+
+        self._close_exclusive_peer(remote_display)
+        self._window_id = None
 
         browser_path = self._find_browser()
         environment = _x11_environment(remote_display)
@@ -161,6 +175,10 @@ class BrowserKioskLauncher(AppLauncherIf):
                 )
 
         self._fit_app_window(environment)
+        if self.exclusive_group is not None:
+            self._exclusive_launchers[
+                (self.exclusive_group, remote_display)
+            ] = self
         _status(set_status, f"Browser launched on {remote_display}")
 
     def stop(
@@ -168,15 +186,65 @@ class BrowserKioskLauncher(AppLauncherIf):
         remote_display: str,
         set_status: StatusCallback = None,
     ) -> None:
-        if self._process is not None:
-            terminate_process(self._process)
-            self._process = None
+        process = self._process
+        closed_normally = False
+        if process is not None:
+            close_requested = self._close_app_window(
+                _x11_environment(remote_display)
+            )
+            if close_requested:
+                self._wait_for_process_exit(process)
+                closed_normally = process.poll() is not None
 
-        close_matching_display_apps(
-            display=remote_display,
-            patterns=(self.process_pattern,),
-        )
+        if process is not None and not closed_normally:
+            terminate_process(process)
+
+        self._process = None
+        self._window_id = None
+        if self.exclusive_group is not None:
+            key = (self.exclusive_group, remote_display)
+            if self._exclusive_launchers.get(key) is self:
+                self._exclusive_launchers.pop(key, None)
+
+        if not closed_normally:
+            close_matching_display_apps(
+                display=remote_display,
+                patterns=(self.process_pattern,),
+            )
         _status(set_status, "Browser stopped")
+
+    def _close_exclusive_peer(self, display: str) -> None:
+        group = self.exclusive_group
+        if group is None:
+            return
+        peer = self._exclusive_launchers.get((group, display))
+        if peer is not None and peer is not self:
+            peer.stop(display)
+
+    def _close_app_window(self, environment: dict[str, str]) -> bool:
+        """Ask the window manager to close Chromium so it can save its profile."""
+        if self._window_id is None or shutil.which("wmctrl") is None:
+            return False
+
+        subprocess.run(
+            ["wmctrl", "-ic", self._window_id],
+            env=environment,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            check=False,
+        )
+        return True
+
+    @staticmethod
+    def _wait_for_process_exit(
+        process: subprocess.Popen[str],
+        timeout_seconds: float = 3.0,
+    ) -> None:
+        """Allow a normally closed browser time to flush cookies and state."""
+        try:
+            process.wait(timeout=timeout_seconds)
+        except subprocess.TimeoutExpired:
+            pass
 
     def toggle(
         self,
@@ -215,6 +283,7 @@ class BrowserKioskLauncher(AppLauncherIf):
         window_id = self._wait_for_window_id(environment)
         if window_id is None:
             return
+        self._window_id = window_id
 
         subprocess.run(
             [
@@ -272,6 +341,25 @@ class BrowserKioskLauncher(AppLauncherIf):
                 "-e",
                 f"0,{x},{y},{width},{height}",
             ],
+            env=environment,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            check=False,
+        )
+
+    def _activate_existing_window(
+        self,
+        environment: dict[str, str],
+    ) -> None:
+        """Raise an existing owned browser window when it is reopened."""
+        if self.window_class is None or shutil.which("wmctrl") is None:
+            return
+        window_id = self._wait_for_window_id(environment)
+        if window_id is None:
+            return
+        self._window_id = window_id
+        subprocess.run(
+            ["wmctrl", "-ia", window_id],
             env=environment,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,

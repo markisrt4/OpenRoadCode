@@ -21,6 +21,7 @@ class PositionState:
     satellites_used: int | None = None
     accuracy_m: float | None = None
     source: str = "unknown"
+    is_cached: bool = False
 
     @property
     def has_fix(self) -> bool:

@@ -26,13 +26,29 @@ class SpotifyMediaPresenter(
 ):
     """Bridge a Spotify backend to a toolkit-independent media UI."""
 
-    def __init__(self, backend: SpotifyControllerIf, media_ui: MediaUiIf) -> None:
+    def __init__(
+        self,
+        backend: SpotifyControllerIf,
+        media_ui: MediaUiIf,
+        fallback_volume_handler: VolumeRequestHandlerIf | None = None,
+    ) -> None:
         self._backend = backend
         self._media_ui = media_ui
+        self._fallback_volume_handler = fallback_volume_handler
         self._latest_state: MediaState | None = None
 
     def refresh(self) -> MediaState:
         """Read and publish the latest Spotify playback state."""
+        state = self.read_state()
+        self._media_ui.set_media_state(state)
+        return state
+
+    def read_state(self) -> MediaState:
+        """Read Spotify state without publishing it to the UI.
+
+        @return Latest generic media state, including an error state when the
+            Spotify backend cannot be read.
+        """
         try:
             state = self._to_media_state(self._backend.current_state())
         except Exception as exc:
@@ -42,7 +58,6 @@ class SpotifyMediaPresenter(
             )
 
         self._latest_state = state
-        self._media_ui.set_media_state(state)
         return state
 
     def request_play(self) -> None:
@@ -75,9 +90,15 @@ class SpotifyMediaPresenter(
 
     def request_volume(self, volume_percent: int) -> None:
         clamped_volume = max(0, min(100, volume_percent))
-        self._run_request(
-            lambda: self._backend.set_volume_percent(clamped_volume)
-        )
+        try:
+            self._backend.set_volume_percent(clamped_volume)
+        except Exception as exc:
+            fallback = self._fallback_volume_handler
+            if fallback is None or "VOLUME_CONTROL_DISALLOW" not in str(exc):
+                self._publish_request_error(exc)
+                raise
+            fallback.request_volume(clamped_volume)
+        self.refresh()
 
     def _state_with_position(self) -> MediaState:
         state = self._latest_state
@@ -89,15 +110,18 @@ class SpotifyMediaPresenter(
         try:
             request()
         except Exception as exc:
-            error_state = MediaState(
-                availability=MediaAvailability.ERROR,
-                status_message=f"Spotify request failed: {exc}",
-            )
-            self._latest_state = error_state
-            self._media_ui.set_media_state(error_state)
+            self._publish_request_error(exc)
             raise
         else:
             self.refresh()
+
+    def _publish_request_error(self, error: Exception) -> None:
+        error_state = MediaState(
+            availability=MediaAvailability.ERROR,
+            status_message=f"Spotify request failed: {error}",
+        )
+        self._latest_state = error_state
+        self._media_ui.set_media_state(error_state)
 
     @staticmethod
     def _to_media_state(state: SpotifyState) -> MediaState:

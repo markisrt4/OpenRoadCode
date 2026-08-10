@@ -80,6 +80,7 @@ runtime = create_car_ui_runtime(
 fm_runtime = runtime.radios.get("fm_radio")
 
 print(runtime.remote_display)
+print(runtime.auxiliary_display)
 print(fm_runtime.config)
 print(fm_runtime.controller)
 print(fm_runtime.launcher)

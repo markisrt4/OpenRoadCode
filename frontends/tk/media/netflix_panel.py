@@ -38,6 +38,10 @@ class NetflixPanel(tk.Frame):
         )
         self._build_ui()
 
+    def open_home(self) -> None:
+        """Open the Netflix browse page immediately."""
+        self._open()
+
     def destroy(self) -> None:
         self._return_overlay.hide()
         super().destroy()

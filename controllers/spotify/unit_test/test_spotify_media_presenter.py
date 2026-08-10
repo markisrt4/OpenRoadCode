@@ -1,6 +1,7 @@
 """Tests for adapting Spotify behavior to generic media UI contracts."""
 
 import unittest
+from unittest.mock import Mock
 
 from controllers.spotify import MockSpotifyController, SpotifyMediaPresenter
 from ui.media import MediaAvailability, MediaState, MediaUiStub, PlaybackState
@@ -47,6 +48,23 @@ class SpotifyMediaPresenterTest(unittest.TestCase):
         self.assertEqual(state.title, "Go For Soda")
         self.assertEqual(state.volume_percent, 100)
         self.assertGreaterEqual(state.position_s or 0.0, 12.5)
+
+    def test_disallowed_spotify_volume_uses_system_fallback(self) -> None:
+        fallback = Mock()
+        presenter = SpotifyMediaPresenter(
+            self.backend,
+            self.media_ui,
+            fallback_volume_handler=fallback,
+        )
+        self.backend.set_volume_percent = Mock(
+            side_effect=RuntimeError(
+                "Spotify HTTP 403: VOLUME_CONTROL_DISALLOW"
+            )
+        )
+
+        presenter.request_volume(65)
+
+        fallback.request_volume.assert_called_once_with(65)
 
 
 if __name__ == "__main__":

@@ -29,9 +29,11 @@ class YouTubePlayer:
             "chromium",
             "chromium-browser",
         ),
+        software_rendering: bool = False,
     ) -> None:
         self._profile_path = Path(profile_path).expanduser()
         self._browser_candidates = browser_candidates
+        self._software_rendering = software_rendering
         self._launcher: BrowserKioskLauncher | None = None
         self._display = ""
 
@@ -58,15 +60,27 @@ class YouTubePlayer:
             window_size=window_size,
             startup_grace_seconds=0.2,
             window_class="OpenRoadCodeYouTube",
-            extra_arguments=(
-                "--autoplay-policy=no-user-gesture-required",
-                "--no-first-run",
-            ),
+            extra_arguments=self._browser_arguments(),
         )
         launcher.launch(display)
         self._launcher = launcher
         self._display = display
         return True
+
+    def _browser_arguments(self) -> tuple[str, ...]:
+        arguments = [
+            "--autoplay-policy=no-user-gesture-required",
+            "--no-first-run",
+        ]
+        if self._software_rendering:
+            arguments.extend(
+                (
+                    "--disable-gpu",
+                    "--disable-gpu-compositing",
+                    "--disable-features=VaapiVideoDecoder,VaapiVideoEncoder",
+                )
+            )
+        return tuple(arguments)
 
     def stop(self) -> None:
         launcher = self._launcher
@@ -104,4 +118,3 @@ class YouTubePlayer:
         ):
             raise ValueError("URL must point to youtube.com or youtu.be")
         return normalized
-

@@ -21,6 +21,8 @@ class RuntimeConfigError(ValueError):
 class RuntimeDisplayConfig:
     """Configure the X display used by externally launched applications."""
     remote_display: str = ":2"
+    auxiliary_display: str = ":0"
+    media_display: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -28,6 +30,23 @@ class ImageCacheConfig:
     """Configure decoded-image memory and optional persistent source storage."""
     directory: Path | None = None
     max_entries: int = 24
+
+
+@dataclass(frozen=True, slots=True)
+class PositionCacheConfig:
+    """Configure persistence of the last valid geographic fix."""
+
+    enabled: bool = True
+    directory: Path = Path.home() / ".cache" / "openroadcode" / "position"
+    max_age_seconds: float = 604800.0
+
+
+@dataclass(frozen=True, slots=True)
+class AudioConfig:
+    """Configure the preferred system audio output."""
+
+    output: str = "auto"
+    device_match: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -123,6 +142,7 @@ class AdsbConfig:
 class WeatherDashboardConfig:
     """Configure availability of the auxiliary weather dashboard."""
     enabled: bool = True
+    preload: bool = True
 
 
 @dataclass(frozen=True, slots=True)
@@ -142,6 +162,8 @@ class RuntimeConfig:
     auxiliary: AuxiliaryConfig
     environmental: EnvironmentalConfig = EnvironmentalConfig()
     image_cache: ImageCacheConfig = ImageCacheConfig()
+    position_cache: PositionCacheConfig = PositionCacheConfig()
+    audio: AudioConfig = AudioConfig()
 
     def enabled_radios(self) -> tuple[RadioStackConfig, ...]:
         """Return radio stacks enabled in this configuration."""
@@ -204,6 +226,10 @@ class RuntimeConfigParser:
 
         runtime = self._parse_runtime(data.get("runtime", {}))
         image_cache = self._parse_image_cache(data.get("image_cache", {}))
+        position_cache = self._parse_position_cache(
+            data.get("position_cache", {})
+        )
+        audio = self._parse_audio(data.get("audio", {}))
         rigctl = self._parse_rigctl(data.get("rigctl", {}))
         input_config = self._parse_input(data.get("input", {}))
         environmental = self._parse_environmental(
@@ -220,6 +246,33 @@ class RuntimeConfigParser:
             auxiliary=auxiliary,
             environmental=environmental,
             image_cache=image_cache,
+            position_cache=position_cache,
+            audio=audio,
+        )
+
+    def _parse_audio(self, data: Any) -> AudioConfig:
+        section = self._expect_table(data, "audio")
+        output = self._optional_string(
+            section,
+            "output",
+            default="auto",
+            section_name="audio",
+        ).lower()
+        supported = {"auto", "default", "onboard-analog", "usb"}
+        if output not in supported:
+            raise RuntimeConfigError(
+                "audio.output must be auto, default, onboard-analog, or usb"
+            )
+        device_match = section.get("device_match")
+        if device_match is not None and (
+            not isinstance(device_match, str) or not device_match.strip()
+        ):
+            raise RuntimeConfigError(
+                "audio.device_match must be a non-empty string"
+            )
+        return AudioConfig(
+            output=output,
+            device_match=device_match.strip() if device_match else None,
         )
 
     def _parse_runtime(self, data: Any) -> RuntimeDisplayConfig:
@@ -230,7 +283,29 @@ class RuntimeConfigParser:
             default=":2",
             section_name="runtime",
         )
-        return RuntimeDisplayConfig(remote_display=remote_display)
+        auxiliary_display = self._optional_string(
+            section,
+            "auxiliary_display",
+            default=":0",
+            section_name="runtime",
+        )
+        media_display_value = section.get("media_display")
+        if media_display_value is None:
+            media_display = None
+        elif (
+            not isinstance(media_display_value, str)
+            or not media_display_value.strip()
+        ):
+            raise RuntimeConfigError(
+                "runtime.media_display must be a non-empty string"
+            )
+        else:
+            media_display = media_display_value.strip()
+        return RuntimeDisplayConfig(
+            remote_display=remote_display,
+            auxiliary_display=auxiliary_display,
+            media_display=media_display,
+        )
 
     def _parse_image_cache(self, data: Any) -> ImageCacheConfig:
         section = self._expect_table(data, "image_cache")
@@ -259,6 +334,40 @@ class RuntimeConfigParser:
         return ImageCacheConfig(
             directory=directory,
             max_entries=max_entries,
+        )
+
+    def _parse_position_cache(self, data: Any) -> PositionCacheConfig:
+        section = self._expect_table(data, "position_cache")
+        enabled = self._optional_bool(
+            section,
+            "enabled",
+            default=True,
+            section_name="position_cache",
+        )
+        directory_value = section.get(
+            "directory",
+            "~/.cache/openroadcode/position",
+        )
+        if not isinstance(directory_value, str) or not directory_value.strip():
+            raise RuntimeConfigError(
+                "position_cache.directory must be a non-empty path"
+            )
+        directory = Path(directory_value.strip()).expanduser()
+        if not directory.is_absolute():
+            directory = self.project_root / directory
+        max_age = section.get("max_age_seconds", 604800.0)
+        if (
+            isinstance(max_age, bool)
+            or not isinstance(max_age, (int, float))
+            or max_age < 0
+        ):
+            raise RuntimeConfigError(
+                "position_cache.max_age_seconds must be non-negative"
+            )
+        return PositionCacheConfig(
+            enabled=enabled,
+            directory=directory.resolve(),
+            max_age_seconds=float(max_age),
         )
 
     def _parse_rigctl(self, data: Any) -> RigctlConfig:
@@ -600,7 +709,13 @@ class RuntimeConfigParser:
                 "enabled",
                 default=True,
                 section_name="auxiliary.weather_dashboard",
-            )
+            ),
+            preload=self._optional_bool(
+                weather_data,
+                "preload",
+                default=True,
+                section_name="auxiliary.weather_dashboard",
+            ),
         )
 
         return AuxiliaryConfig(

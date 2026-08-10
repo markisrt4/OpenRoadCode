@@ -59,3 +59,19 @@ class AppLauncherIf(Protocol):
         @retval False No matching application is running.
         """
         ...
+
+
+class BrowserDashboardLauncherIf(AppLauncherIf, Protocol):
+    """Launcher whose browser view can close without stopping its server."""
+
+    def close_browser(
+        self,
+        remote_display: str,
+        set_status: StatusCallback = None,
+    ) -> None:
+        """Close only the dashboard browser and keep its backend warm.
+
+        @param remote_display Display hosting the browser window.
+        @param set_status Optional callback for user-visible status messages.
+        """
+        ...

@@ -57,7 +57,10 @@ class RadioRuntimeFactoryTest(unittest.TestCase):
         enabled: bool = True,
     ) -> RuntimeConfig:
         return RuntimeConfig(
-            runtime=RuntimeDisplayConfig(remote_display=":9"),
+            runtime=RuntimeDisplayConfig(
+                remote_display=":9",
+                auxiliary_display=":4",
+            ),
             rigctl=RigctlConfig(host="127.0.0.1", port=4532),
             input=InputConfig(
                 rotary_encoders=RotaryEncoderConfig(
@@ -110,6 +113,7 @@ class RadioRuntimeFactoryTest(unittest.TestCase):
         runtime = build_car_ui_runtime(self._config())
 
         self.assertEqual(":9", runtime.remote_display)
+        self.assertEqual(":4", runtime.auxiliary_display)
         self.assertEqual(3, len(runtime.rotary_encoders.devices))
         self.assertIn("fm_radio", runtime.radios)
         self.assertEqual(1, len(runtime.radios))

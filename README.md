@@ -329,6 +329,11 @@ Run the installer with an explicit target profile:
 Targets install only their platform fundamentals. Add the capabilities needed
 for a particular machine explicitly:
 
+When the `spotify` feature is selected, `linux-dev` installs the `pactl`
+client through `pulseaudio-utils`; Raspberry Pi 4 and Pi 5 targets install
+PipeWire/WirePlumber support for `wpctl`. Runtime composition performs the same
+target detection and may be overridden with `OPENROAD_RUNTIME_TARGET`.
+
 ```bash
 ./scripts/installers/host_setup.sh --target rpi5 \
   --feature desktop-ui \

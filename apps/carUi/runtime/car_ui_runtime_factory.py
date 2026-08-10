@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from typing import Callable
 
@@ -10,9 +11,20 @@ from config.runtime_config import (
 )
 from apps.carUi.runtime.car_ui_runtime import CarUiRuntime, RadioRuntime
 from apps.carUi.runtime.radio_runtime_registry import RadioRuntimeRegistry
+from apps.carUi.runtime.weather_location_provider import (
+    CarUiWeatherLocationProvider,
+)
 from apps.launchers.adsb_launcher import ADSBLauncher
 from apps.launchers.sdrpp_launcher import SDRPPLauncher, SDRPPProfile
 from apps.launchers.weather_dash_launcher import WeatherDashLauncher
+from controllers.cache import PersistentCache
+from controllers.weather import (
+    DEFAULT_WEATHER_CACHE_DIRECTORY,
+    GpsdWeatherLocationProvider,
+    OpenMeteoWeatherController,
+    WeatherSnapshotCache,
+)
+from controllers.navigation import PositionSnapshotCache
 from config.radio_config_manager import load_radio_config
 from controllers.radio.radio_controller import RadioController
 from controllers.radio.radio_types import RadioMode, RadioPreset, RadioRange
@@ -64,18 +76,46 @@ def build_car_ui_runtime(config: RuntimeConfig) -> CarUiRuntime:
         )
 
     weather_dash_launcher = None
+    weather_controller = None
     if config.auxiliary.weather_dashboard.enabled:
-        weather_dash_launcher = WeatherDashLauncher()
+        weather_cache = WeatherSnapshotCache(
+            PersistentCache(DEFAULT_WEATHER_CACHE_DIRECTORY)
+        )
+        weather_location_provider = GpsdWeatherLocationProvider()
+        if config.position_cache.enabled:
+            weather_location_provider = CarUiWeatherLocationProvider(
+                weather_location_provider,
+                PositionSnapshotCache(
+                    PersistentCache(config.position_cache.directory)
+                ),
+                max_age_seconds=config.position_cache.max_age_seconds,
+            )
+        weather_controller = OpenMeteoWeatherController(
+            weather_cache,
+            location_provider=weather_location_provider,
+        )
+        weather_dash_launcher = WeatherDashLauncher(
+            preload=config.auxiliary.weather_dashboard.preload,
+            cache_directory=DEFAULT_WEATHER_CACHE_DIRECTORY,
+        )
 
     return CarUiRuntime(
         remote_display=config.runtime.remote_display,
+        auxiliary_display=(
+            os.getenv("CARUI_AUXILIARY_DISPLAY")
+            or config.runtime.auxiliary_display
+        ),
+        media_display=config.runtime.media_display,
         rotary_encoders=config.input.rotary_encoders,
         radios=RadioRuntimeRegistry(runtimes),
         adsb_launcher=adsb_launcher,
         weather_dash_launcher=weather_dash_launcher,
+        weather_controller=weather_controller,
         sdr_resource_manager=resource_manager,
         input_config=config.input,
         image_cache=config.image_cache,
+        position_cache=config.position_cache,
+        audio=config.audio,
     )
 
 

@@ -31,6 +31,7 @@ The TOML file describes **which components are assembled**:
 - optional standalone GPIO pushbuttons and their semantic UI actions
 - barometric sensor driver and I2C address
 - decoded artwork cache capacity and optional persistent source directory
+- target-aware audio output selection and optional device-name matching
 - auxiliary applications such as ADS-B and the weather dashboard
 
 Radio-domain data remains in the existing JSON files under:
@@ -59,10 +60,29 @@ should use that parser rather than reading the JSON files directly.
 ```toml
 [runtime]
 remote_display = ":2"
+# Display used by the Weather and ADS-B browser dashboards.
+auxiliary_display = ":0"
+# Optional display used specifically by Netflix and YouTube browser windows.
+# media_display = ":0"
+
+[audio]
+# auto selects desktop default, Pi 4 onboard analog, or Pi 5 USB audio.
+output = "auto"
+# device_match = "C-Media USB Audio"
 
 [image_cache]
 directory = "var/cache/artwork"
 max_entries = 24
+
+[position_cache]
+enabled = true
+directory = "~/.cache/openroadcode/position"
+max_age_seconds = 604800
+
+[auxiliary.weather_dashboard]
+enabled = true
+# Warm Streamlit after CarUi is ready so the first browser launch is faster.
+preload = true
 
 [rigctl]
 host = "127.0.0.1"

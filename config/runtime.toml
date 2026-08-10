@@ -8,11 +8,26 @@
 
 [runtime]
 remote_display = ":2"
+# Browser dashboards such as Weather and ADS-B default to the local desktop.
+auxiliary_display = ":0"
+# Optional browser-media display. Leave unset for target-aware defaults.
+# media_display = ":0"
+
+[audio]
+# auto: linux-dev default, Pi 4 onboard analog, Pi 5 USB audio
+output = "auto"
+# device_match = "USB Audio"
 
 [image_cache]
 # Album artwork is persisted here and reused across app launches.
 directory = "~/.cache/openroadcode/images"
 max_entries = 24
+
+[position_cache]
+enabled = true
+directory = "~/.cache/openroadcode/position"
+# Cached coordinates are useful for initial display, weather, and map centering.
+max_age_seconds = 604800
 
 [rigctl]
 host = "127.0.0.1"
@@ -131,3 +146,5 @@ close_existing_display_apps = true
 
 [auxiliary.weather_dashboard]
 enabled = true
+# Start Streamlit in the background after CarUi becomes ready.
+preload = true

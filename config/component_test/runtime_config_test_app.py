@@ -52,6 +52,14 @@ def format_config_summary(config: RuntimeConfig) -> str:
     lines = [
         "Runtime:",
         f"  Remote display: {config.runtime.remote_display}",
+        f"  Auxiliary display: {config.runtime.auxiliary_display}",
+        (
+            "  Position cache: enabled"
+            if config.position_cache.enabled
+            else "  Position cache: disabled"
+        ),
+        f"    Directory: {config.position_cache.directory}",
+        f"    Max age: {config.position_cache.max_age_seconds:g} seconds",
         "",
         "RigCTL:",
         f"  Host: {config.rigctl.host}",

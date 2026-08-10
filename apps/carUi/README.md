@@ -108,6 +108,45 @@ venv/bin/python -m apps.carUi.main
 
 An X11 display must be available through `DISPLAY` or `CARUI_DISPLAY`.
 
+Car UI detects `linux-dev`, Raspberry Pi 4, and Raspberry Pi 5 deployments to
+select platform services such as audio control. Override detection when needed:
+
+```bash
+OPENROAD_RUNTIME_TARGET=linux-dev venv/bin/python -m apps.carUi.main
+```
+
+The installer target should normally match this runtime target. Linux
+development hosts use `pactl`; native Pi targets use PipeWire/WirePlumber and
+`wpctl`. Spotify consumes the resulting media-volume contract and contains no
+platform-specific command selection.
+
+Browser-hosted media can use a different X display from radio and auxiliary
+applications. Set `runtime.media_display` in `config/runtime.toml`, or override
+it for one launch with `CARUI_MEDIA_DISPLAY`. When neither is set,
+`linux-dev` follows the active `$DISPLAY` and Pi targets use
+`runtime.remote_display`.
+
+```bash
+CARUI_MEDIA_DISPLAY=:2 venv/bin/python -m apps.carUi.main
+```
+
+Weather and ADS-B browser dashboards use `runtime.auxiliary_display`, which
+defaults to `:0`. Override it for one launch when the dashboard belongs on a
+different desktop:
+
+```bash
+CARUI_AUXILIARY_DISPLAY=:2 venv/bin/python -m apps.carUi.main
+```
+
+Only one auxiliary dashboard occupies a display at a time. Launching Weather
+closes an open ADS-B browser window, and vice versa. Each kiosk provides a
+Return control that closes the dashboard and restores the Car UI main menu.
+When `auxiliary.weather_dashboard.preload` is enabled, CarUi starts the
+Streamlit server and refreshes a persistent Open-Meteo snapshot in background
+workers after normal startup completes. Streamlit reads the snapshot from
+`~/.cache/openroadcode/weather`, renders cached data immediately, and falls
+back to stale data if a later refresh fails.
+
 ### Position provider
 
 Car UI uses gpsd by default. To use a browser on the same computer as the
@@ -123,6 +162,14 @@ When initialization completes, the terminal prints the browser page URL. Open
 `http://localhost:8765/`, select **Share location**, and grant location
 permission. See [runtime/README.md](runtime/README.md#browser-position-source)
 for configuration, a simulated-position test, and remote-browser limitations.
+
+The last valid fix is persisted by default and restored immediately on the
+next startup. Restored coordinates are labeled as last-known data and are used
+for initial display, weather lookup, and map centering—not live speed, course,
+or movement. Configure this through `[position_cache]` in
+`config/runtime.toml`; deployment overrides are available through
+`CARUI_POSITION_CACHE`, `CARUI_POSITION_CACHE_DIRECTORY`, and
+`CARUI_POSITION_CACHE_MAX_AGE_SECONDS`.
 
 To launch one destination in the real Car UI shell:
 

@@ -69,6 +69,8 @@ class PositionStatusPresenter:
 
     @staticmethod
     def _format_fix_status(state: PositionState) -> str:
+        if state.is_cached:
+            return "Last known position restored; waiting for a live fix"
         provider = "GPS" if state.source == "gpsd" else "Position"
         if state.satellites_used is None:
             if state.accuracy_m is not None:

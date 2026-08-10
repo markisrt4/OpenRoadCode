@@ -69,6 +69,24 @@ class PositionStatusPresenterTest(unittest.TestCase):
         self.assertEqual(self.positions, [(None, None)])
         self.assertEqual(self.statuses[-1], "Position unavailable")
 
+    def test_cached_fix_is_visibly_identified(self) -> None:
+        self.presenter.start()
+        self.source.publish(
+            PositionState(
+                latitude_deg=42.1,
+                longitude_deg=-83.2,
+                fix_mode=3,
+                source="gpsd",
+                is_cached=True,
+            )
+        )
+
+        self.assertEqual(self.positions[-1], (42.1, -83.2))
+        self.assertEqual(
+            self.statuses[-1],
+            "Last known position restored; waiting for a live fix",
+        )
+
     def test_start_and_stop_are_idempotent(self) -> None:
         self.presenter.start()
         self.presenter.start()

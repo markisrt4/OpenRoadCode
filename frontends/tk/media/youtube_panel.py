@@ -26,6 +26,7 @@ class YouTubePanel(tk.Frame):
         self._display = display
         self._set_status = set_status
         self._colors = colors
+        self._default_url = default_url
         self._target = tk.StringVar(value=default_url)
         self._return_overlay = BrowserReturnOverlay(
             self,
@@ -35,6 +36,11 @@ class YouTubePanel(tk.Frame):
             active_background=colors["tile_border"],
         )
         self._build_ui()
+
+    def open_home(self) -> None:
+        """Open the YouTube home page immediately."""
+        self._target.set(self._default_url)
+        self._open()
 
     def destroy(self) -> None:
         self._return_overlay.hide()

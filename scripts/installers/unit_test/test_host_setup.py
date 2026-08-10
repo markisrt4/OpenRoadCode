@@ -261,6 +261,36 @@ class HostSetupPlanTests(unittest.TestCase):
         self.assertNotIn("RPi.GPIO", result.stdout)
         self.assertNotIn("adafruit", result.stdout)
 
+    def test_spotify_audio_packages_follow_install_target(self) -> None:
+        linux = subprocess.run(
+            [
+                "bash", "-c",
+                'source "$1"; OPENROAD_INSTALL_TARGET=linux-dev '
+                'get_feature_packages spotify',
+                "feature-test", str(FEATURES),
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        raspberry_pi = subprocess.run(
+            [
+                "bash", "-c",
+                'source "$1"; OPENROAD_INSTALL_TARGET=rpi5 '
+                'get_feature_packages spotify',
+                "feature-test", str(FEATURES),
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+        self.assertIn("pulseaudio-utils", linux.stdout)
+        self.assertIn("wireplumber", raspberry_pi.stdout)
+        self.assertIn("pipewire-pulse", raspberry_pi.stdout)
+        self.assertIn("alsa-utils", raspberry_pi.stdout)
+        self.assertIn("usbutils", raspberry_pi.stdout)
+
     def test_raspberry_pi_feature_uses_target_selected_gpio_package(self) -> None:
         result = subprocess.run(
             [

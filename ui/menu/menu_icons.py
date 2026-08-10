@@ -41,6 +41,8 @@ def create_menu_icon(
         _draw_spotify(canvas, size)
     elif key == "netflix":
         _draw_netflix(canvas, size)
+    elif key == "youtube":
+        _draw_youtube(canvas, size)
     elif key in _GLYPH_ICONS:
         glyph, color = _GLYPH_ICONS[key]
         _draw_glyph(canvas, size, glyph, color)
@@ -84,6 +86,28 @@ def _draw_netflix(canvas: tk.Canvas, size: int) -> None:
         text="N",
         fill="#E50914",
         font=("DejaVu Sans", max(18, int(size * 0.8)), "bold"),
+    )
+
+
+def _draw_youtube(canvas: tk.Canvas, size: int) -> None:
+    padding = max(1, size // 12)
+    canvas.create_rectangle(
+        padding,
+        size * 0.20,
+        size - padding,
+        size * 0.80,
+        fill="#FF0000",
+        outline="",
+    )
+    canvas.create_polygon(
+        size * 0.42,
+        size * 0.34,
+        size * 0.42,
+        size * 0.66,
+        size * 0.68,
+        size * 0.50,
+        fill="#FFFFFF",
+        outline="",
     )
 
 

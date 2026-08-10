@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 from contextlib import ExitStack
 from pathlib import Path
+from config.runtime_target import RuntimeTarget, detect_runtime_target
 
 from apps.carUi.car_ui_dependencies import CarUiDependencies
 from apps.carUi.runtime.car_ui_runtime_factory import create_car_ui_runtime
@@ -20,9 +21,7 @@ from apps.carUi.runtime.spotify_runtime_factory import (
     create_spotify_controller,
 )
 from apps.common.uiTheme.uiTheme import CAR_UI_THEME
-from controllers.audio.pipewire_audio_controller import (
-    PipewireAudioController,
-)
+from apps.carUi.runtime.audio_runtime_factory import create_audio_controller
 from controllers.image import ImageCache
 from controllers.lyrics import LrclibLyricsClient
 from controllers.navigation import Mpu6050NavigationAdapter, NavigationController
@@ -122,7 +121,9 @@ def build_car_ui_dependencies(
         )
 
         report("position", StartupState.STARTING, "Opening position source")
-        position_source = create_position_source()
+        position_source = create_position_source(
+            cache_config=runtime.position_cache,
+        )
         cleanup.callback(position_source.stop)
         report("position", StartupState.READY, "Position source available")
 
@@ -144,8 +145,11 @@ def build_car_ui_dependencies(
         report("navigation", StartupState.READY, "Motion navigation prepared")
 
         report("audio", StartupState.STARTING, "Connecting to PipeWire")
-        audio_controller = PipewireAudioController(
+        runtime_target = detect_runtime_target()
+        audio_controller = create_audio_controller(
             steps=CAR_UI_THEME["layout"]["volume_steps"],
+            config=runtime.audio,
+            target=runtime_target,
         )
         report("audio", StartupState.READY, "Audio controller ready")
 
@@ -158,11 +162,15 @@ def build_car_ui_dependencies(
         spotify_lyrics_client = LrclibLyricsClient()
         spotify_music_video_controller = MusicVideoController(
             spotify_controller=spotify_controller,
-            music_video=YouTubeMusicVideo(fullscreen=True),
+            music_video=YouTubeMusicVideo(
+                fullscreen=True,
+                software_rendering=runtime_target is RuntimeTarget.LINUX_DEV,
+            ),
         )
         cleanup.callback(spotify_music_video_controller.stop_video)
-        netflix_player = NetflixPlayer()
-        youtube_player = YouTubePlayer()
+        software_rendering = runtime_target is RuntimeTarget.LINUX_DEV
+        netflix_player = NetflixPlayer(software_rendering=software_rendering)
+        youtube_player = YouTubePlayer(software_rendering=software_rendering)
         cleanup.callback(netflix_player.stop)
         cleanup.callback(youtube_player.stop)
         report("spotify", StartupState.READY, "Controller ready")
@@ -188,6 +196,11 @@ def build_car_ui_dependencies(
             lighting_controller=lighting_controller,
             rotary_encoders=encoder_runtime.encoders,
             volume_encoder_index=encoder_runtime.volume_index,
+            media_display=resolve_media_display(
+                runtime_target,
+                runtime.remote_display,
+                runtime.media_display,
+            ),
             navigation_controller=navigation_controller,
             keyboards=input_devices.keyboards,
             push_buttons=input_devices.push_buttons,
@@ -195,6 +208,20 @@ def build_car_ui_dependencies(
         )
         cleanup.pop_all()
         return dependencies
+
+
+def resolve_media_display(
+    target: RuntimeTarget,
+    configured_display: str,
+    media_display: str | None = None,
+) -> str:
+    """Resolve the X display used by browser-hosted media."""
+    explicit_display = os.getenv("CARUI_MEDIA_DISPLAY") or media_display
+    if explicit_display:
+        return explicit_display
+    if target is RuntimeTarget.LINUX_DEV:
+        return os.getenv("DISPLAY") or configured_display
+    return configured_display
 
 
 def log_startup_status(

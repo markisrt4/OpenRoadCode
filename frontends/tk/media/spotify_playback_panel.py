@@ -3,6 +3,7 @@ from __future__ import annotations
 import colorsys
 import threading
 import tkinter as tk
+import tkinter.font as tkfont
 from tkinter import TclError
 from typing import Any
 
@@ -30,6 +31,7 @@ _LANCZOS = getattr(Image, "Resampling", Image).LANCZOS
 _WATCH_VIDEO_TEXT = "Watch Video"
 _RETURN_TO_SPOTIFY_TEXT = "Return to Spotify"
 _FINDING_VIDEO_TEXT = "Finding video..."
+_CHECKING_VIDEO_TEXT = "Checking video..."
 
 
 def prepare_album_background(
@@ -128,6 +130,9 @@ class SpotifyPlaybackPanel(tk.Frame):
         self._seek_handler: SeekRequestHandlerIf | None = None
         self._volume_handler: VolumeRequestHandlerIf | None = None
         self._video_operation_active = False
+        self._video_available: bool | None = None
+        self._video_track_key: tuple[str, str, str] | None = None
+        self._video_availability_request = 0
         self._destroyed = False
         self._album_art_url: str | None = None
         self._album_art_request = 0
@@ -141,17 +146,16 @@ class SpotifyPlaybackPanel(tk.Frame):
         self._lyrics_key: tuple[str, str, str, int] | None = None
         self._lyrics_request = 0
         self._lyrics_result: LyricsResultIf | None = None
-        self._lyrics_previous_var = tk.StringVar(value="")
         self._lyrics_current_var = tk.StringVar(value="")
         self._lyrics_next_var = tk.StringVar(value="")
-        self._track_var = tk.StringVar(value=self._layout["empty_value"])
+        self._track_var = tk.StringVar(value=self._layout["loading_value"])
         self._artist_var = tk.StringVar(value=self._layout["empty_value"])
         self._album_var = tk.StringVar(value=self._layout["empty_value"])
         self._device_var = tk.StringVar(
             value=self._layout["empty_device_text"]
         )
         self._status_var = tk.StringVar(
-            value=self._layout["initial_status"]
+            value=self._layout["loading_status"]
         )
         self._progress_var = tk.StringVar(
             value=self._layout["empty_progress_text"]
@@ -221,6 +225,7 @@ class SpotifyPlaybackPanel(tk.Frame):
         )
 
         hero = tk.Frame(card, bg=self._colors["card_background"])
+        self._hero = hero
         hero.pack(
             fill=self._layout["fill_both"],
             expand=True,
@@ -256,6 +261,10 @@ class SpotifyPlaybackPanel(tk.Frame):
             fill=self._layout["fill_both"],
             expand=True,
         )
+        content.bind(
+            self._layout["configure_event"],
+            self._on_content_configure,
+        )
 
         self._track_label = self._label(
             content,
@@ -264,28 +273,18 @@ class SpotifyPlaybackPanel(tk.Frame):
             font=self._style["track_font"],
             anchor=self._layout["left_anchor"],
         )
+        self._track_label.configure(height=1)
         self._track_label.pack(
             fill=self._layout["fill_horizontal"],
             pady=self._style["track_pady"],
         )
 
-        details = tk.Frame(
+        metadata = tk.Frame(
             content,
             bg=self._colors["card_background"],
         )
-        details.pack(
-            fill=self._layout["fill_both"],
-            expand=True,
-        )
-
-        metadata = tk.Frame(
-            details,
-            bg=self._colors["card_background"],
-        )
         metadata.pack(
-            side=self._layout["left_side"],
-            fill=self._layout["fill_both"],
-            expand=True,
+            fill=self._layout["fill_horizontal"],
         )
 
         self._label(
@@ -312,31 +311,21 @@ class SpotifyPlaybackPanel(tk.Frame):
         )
 
         lyrics = tk.Frame(
-            details,
+            content,
             bg=self._colors["card_background"],
-            width=self._style["lyrics_width"],
         )
         lyrics.pack(
-            side=self._layout["right_side"],
-            fill=self._layout["fill_both"],
-            expand=False,
-            padx=(self._style["cover_gap"], 0),
+            fill=self._layout["fill_horizontal"],
+            expand=True,
+            pady=self._style["lyrics_pady"],
         )
 
-        self._label(
-            lyrics,
-            variable=self._lyrics_previous_var,
-            foreground=self._colors["detail"],
-            font=self._style["lyrics_font"],
-            anchor=self._layout["right_anchor"],
-            wraplength=self._style["lyrics_wrap"],
-        ).pack(fill=self._layout["fill_horizontal"])
         self._label(
             lyrics,
             variable=self._lyrics_current_var,
             foreground=self._colors["status"],
             font=self._style["lyrics_current_font"],
-            anchor=self._layout["right_anchor"],
+            anchor=self._layout["left_anchor"],
             wraplength=self._style["lyrics_wrap"],
         ).pack(fill=self._layout["fill_horizontal"])
         self._label(
@@ -344,7 +333,7 @@ class SpotifyPlaybackPanel(tk.Frame):
             variable=self._lyrics_next_var,
             foreground=self._colors["subtitle"],
             font=self._style["lyrics_font"],
-            anchor=self._layout["right_anchor"],
+            anchor=self._layout["left_anchor"],
             wraplength=self._style["lyrics_wrap"],
         ).pack(fill=self._layout["fill_horizontal"])
 
@@ -353,6 +342,7 @@ class SpotifyPlaybackPanel(tk.Frame):
             height=self._style["progress_canvas_height"],
             bg=self._colors["card_background"],
             highlightthickness=self._layout["zero"],
+            cursor=self._layout["cursor"],
         )
         self._progress_canvas.pack(
             fill=self._layout["fill_horizontal"],
@@ -372,18 +362,20 @@ class SpotifyPlaybackPanel(tk.Frame):
             lambda _event: self._redraw_current_progress(),
         )
 
-        self._label(
+        self._progress_label = self._label(
             card,
             variable=self._progress_var,
             foreground=self._colors["detail"],
             font=self._style["detail_font"],
-        ).pack(
+        )
+        self._progress_label.pack(
             fill=self._layout["fill_horizontal"],
             padx=self._style["text_padx"],
             pady=self._style["progress_text_pady"],
         )
 
         controls = tk.Frame(card, bg=self._colors["card_background"])
+        self._controls = controls
         controls.pack(
             side="top",
             pady=self._style["controls_pady"],
@@ -433,8 +425,10 @@ class SpotifyPlaybackPanel(tk.Frame):
             side="top",
             pady=self._style["controls_pady"],
         )
+        self._video_button.configure(state=tk.DISABLED)
 
         bottom = tk.Frame(card, bg=self._colors["card_background"])
+        self._bottom = bottom
         bottom.pack(
             side="bottom",
             fill=self._layout["fill_horizontal"],
@@ -465,6 +459,7 @@ class SpotifyPlaybackPanel(tk.Frame):
             self._layout["volume_down_text"],
             self._volume_down,
             width=self._style["volume_button_width"],
+            vertical_padding=self._style["volume_button_pady"],
         ).pack(
             side=self._layout["left_side"],
             padx=self._style["volume_button_gap"],
@@ -486,9 +481,59 @@ class SpotifyPlaybackPanel(tk.Frame):
             self._layout["volume_up_text"],
             self._volume_up,
             width=self._style["volume_button_width"],
+            vertical_padding=self._style["volume_button_pady"],
         ).pack(
             side=self._layout["left_side"],
             padx=self._style["volume_button_gap"],
+        )
+
+        self._pack_priority_sections()
+
+    def _pack_priority_sections(self) -> None:
+        """Reserve space for controls before expanding the media hero."""
+        sections = (
+            self._hero,
+            self._progress_canvas,
+            self._progress_label,
+            self._controls,
+            self._video_button,
+            self._bottom,
+        )
+        for section in sections:
+            section.pack_forget()
+
+        self._bottom.pack(
+            side="bottom",
+            fill=self._layout["fill_horizontal"],
+            padx=self._style["bottom_padx"],
+            pady=self._style["bottom_pady"],
+        )
+        self._video_button.pack(
+            side="bottom",
+            pady=self._style["controls_pady"],
+        )
+        self._controls.pack(
+            side="bottom",
+            pady=self._style["controls_pady"],
+        )
+        self._progress_label.pack(
+            side="bottom",
+            fill=self._layout["fill_horizontal"],
+            padx=self._style["text_padx"],
+            pady=self._style["progress_text_pady"],
+        )
+        self._progress_canvas.pack(
+            side="bottom",
+            fill=self._layout["fill_horizontal"],
+            padx=self._style["progress_padx"],
+            pady=self._style["progress_canvas_pady"],
+        )
+        self._hero.pack(
+            side="top",
+            fill=self._layout["fill_both"],
+            expand=True,
+            padx=self._style["hero_padx"],
+            pady=self._style["hero_pady"],
         )
 
     def _label(
@@ -524,26 +569,51 @@ class SpotifyPlaybackPanel(tk.Frame):
         command,
         *,
         width: int,
+        vertical_padding: int = 0,
     ) -> tk.Button:
         return tk.Button(
             parent,
             text=text,
             command=command,
             width=width,
+            pady=vertical_padding,
             bg=self._colors["button_background"],
             fg=self._colors["button_foreground"],
             activebackground=self._colors["button_active_background"],
             activeforeground=self._colors["button_active_foreground"],
+            disabledforeground=self._colors["button_disabled_foreground"],
             font=self._style["button_font"],
             bd=self._layout["zero"],
             relief=self._layout["flat_relief"],
             cursor=self._layout["cursor"],
         )
 
+    def _on_content_configure(self, event: tk.Event) -> None:
+        self._fit_track_title(max(1, event.width))
+
+    def _fit_track_title(self, available_width: int | None = None) -> None:
+        width = available_width or self._track_label.winfo_width()
+        width = max(self._style["minimum_title_wrap"], width)
+        family, base_size, weight = self._style["track_font"]
+        title = self._track_var.get()
+        selected_size = self._style["minimum_track_font_size"]
+        for size in range(base_size, selected_size - 1, -1):
+            candidate = tkfont.Font(family=family, size=size, weight=weight)
+            if candidate.measure(title) <= width:
+                selected_size = size
+                break
+        self._track_label.configure(
+            font=(family, selected_size, weight),
+            wraplength=0,
+        )
+
     def _apply_state(self, state: MediaState | None) -> None:
         empty = self._layout["empty_value"]
 
         if state is None:
+            self._video_track_key = None
+            self._video_available = False
+            self._video_availability_request += 1
             self._status_var.set(self._layout["initial_status"])
             self._track_var.set(empty)
             self._artist_var.set(empty)
@@ -558,6 +628,9 @@ class SpotifyPlaybackPanel(tk.Frame):
             return
 
         if state.availability is MediaAvailability.CONFIGURATION_REQUIRED:
+            self._video_track_key = None
+            self._video_available = False
+            self._video_availability_request += 1
             self._status_var.set(
                 self._layout["configuration_required_status"]
             )
@@ -574,10 +647,14 @@ class SpotifyPlaybackPanel(tk.Frame):
             self._draw_progress(None)
             self._update_album_art(None)
             self._update_lyrics(None)
+            self._update_video_button()
             return
 
         self._status_var.set(state.status_message)
-        self._track_var.set(state.title or empty)
+        title = state.title or empty
+        if title != self._track_var.get():
+            self._track_var.set(title)
+            self.after_idle(self._fit_track_title)
         self._artist_var.set(state.artist or empty)
         self._album_var.set(state.album or empty)
         self._device_var.set(
@@ -622,6 +699,69 @@ class SpotifyPlaybackPanel(tk.Frame):
         self._draw_progress(progress_percent)
         self._update_album_art(state.artwork_uri)
         self._update_lyrics(state)
+        self._update_video_availability(state)
+        self._update_video_button()
+
+    def _update_video_availability(self, state: MediaState) -> None:
+        track_key = (
+            state.media_uri or "",
+            state.artist or "",
+            state.title or "",
+        )
+        if not track_key[1] or not track_key[2]:
+            self._video_track_key = None
+            self._video_available = False
+            self._video_availability_request += 1
+            return
+        if track_key == self._video_track_key:
+            return
+
+        self._video_track_key = track_key
+        self._video_available = None
+        self._video_availability_request += 1
+        request = self._video_availability_request
+        self._update_video_button()
+        threading.Thread(
+            target=self._check_video_availability_worker,
+            args=(track_key, request),
+            name="spotify-video-availability",
+            daemon=True,
+        ).start()
+
+    def _check_video_availability_worker(
+        self,
+        track_key: tuple[str, str, str],
+        request: int,
+    ) -> None:
+        try:
+            available = self._music_video_controller.current_track_has_video()
+        except Exception as error:
+            print(f"[SpotifyPanel] Video lookup unavailable: {error}")
+            available = False
+        if self._destroyed:
+            return
+        try:
+            self.after(
+                0,
+                lambda: self._apply_video_availability(
+                    track_key, request, available
+                ),
+            )
+        except TclError:
+            pass
+
+    def _apply_video_availability(
+        self,
+        track_key: tuple[str, str, str],
+        request: int,
+        available: bool,
+    ) -> None:
+        if (
+            request != self._video_availability_request
+            or track_key != self._video_track_key
+        ):
+            return
+        self._video_available = available
         self._update_video_button()
 
     def _update_lyrics(self, state: MediaState | None) -> None:
@@ -632,7 +772,7 @@ class SpotifyPlaybackPanel(tk.Frame):
         ):
             self._lyrics_key = None
             self._lyrics_result = None
-            self._set_lyric_lines("", "", "")
+            self._set_lyric_lines("", "")
             return
 
         key = (
@@ -646,7 +786,7 @@ class SpotifyPlaybackPanel(tk.Frame):
             self._lyrics_result = None
             self._lyrics_request += 1
             request = self._lyrics_request
-            self._set_lyric_lines("", "Finding lyrics…", "")
+            self._set_lyric_lines("Finding lyrics…", "")
             threading.Thread(
                 target=self._load_lyrics_worker,
                 args=(key, request),
@@ -700,7 +840,7 @@ class SpotifyPlaybackPanel(tk.Frame):
             return
         self._lyrics_result = result
         if result is None:
-            self._set_lyric_lines("", "Lyrics unavailable", "")
+            self._set_lyric_lines("Lyrics unavailable", "")
             return
         self._render_lyrics(
             progress_ms=0,
@@ -722,23 +862,18 @@ class SpotifyPlaybackPanel(tk.Frame):
                 if line.time_ms > progress_ms:
                     break
                 current_index = index
-            previous = (
-                result.synced_lines[current_index - 1].text
-                if current_index > 0
-                else ""
-            )
             current = result.synced_lines[current_index].text
             following = (
                 result.synced_lines[current_index + 1].text
                 if current_index + 1 < len(result.synced_lines)
                 else ""
             )
-            self._set_lyric_lines(previous, current, following)
+            self._set_lyric_lines(current, following)
             return
 
         lines = result.plain_lines
         if not lines:
-            self._set_lyric_lines("", "Lyrics unavailable", "")
+            self._set_lyric_lines("Lyrics unavailable", "")
             return
         ratio = (
             min(1.0, max(0.0, progress_ms / duration_ms))
@@ -747,18 +882,15 @@ class SpotifyPlaybackPanel(tk.Frame):
         )
         index = min(len(lines) - 1, int(ratio * len(lines)))
         self._set_lyric_lines(
-            lines[index - 1] if index > 0 else "",
             lines[index],
             lines[index + 1] if index + 1 < len(lines) else "",
         )
 
     def _set_lyric_lines(
         self,
-        previous: str,
         current: str,
         following: str,
     ) -> None:
-        self._lyrics_previous_var.set(previous)
         self._lyrics_current_var.set(current)
         self._lyrics_next_var.set(following)
 
@@ -939,6 +1071,9 @@ class SpotifyPlaybackPanel(tk.Frame):
             self._return_to_spotify()
             return
 
+        if not self._video_available:
+            return
+
         self._video_operation_active = True
         self._status_var.set(_FINDING_VIDEO_TEXT)
         self._update_video_button()
@@ -1023,14 +1158,21 @@ class SpotifyPlaybackPanel(tk.Frame):
             )
             return
 
-        video_active = self._music_video_controller.is_video_active()
+        if self._music_video_controller.is_video_active():
+            self._video_button.configure(
+                text=_RETURN_TO_SPOTIFY_TEXT,
+                state=tk.NORMAL,
+            )
+            return
+        if self._video_available is None:
+            self._video_button.configure(
+                text=_CHECKING_VIDEO_TEXT,
+                state=tk.DISABLED,
+            )
+            return
         self._video_button.configure(
-            text=(
-                _RETURN_TO_SPOTIFY_TEXT
-                if video_active
-                else _WATCH_VIDEO_TEXT
-            ),
-            state=tk.NORMAL,
+            text=_WATCH_VIDEO_TEXT,
+            state=(tk.NORMAL if self._video_available else tk.DISABLED),
         )
 
     def _play_pause(self) -> None:
@@ -1113,9 +1255,11 @@ class SpotifyPlaybackPanel(tk.Frame):
                 try:
                     self.after(
                         0,
-                        lambda: self._finish_volume_adjustment(
-                            request=request,
-                            error=error,
+                        lambda error=error, request=request: (
+                            self._finish_volume_adjustment(
+                                request=request,
+                                error=error,
+                            )
                         ),
                     )
                 except TclError:

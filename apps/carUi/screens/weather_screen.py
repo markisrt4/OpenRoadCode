@@ -9,8 +9,9 @@ from apps.carUi.screens.car_ui_screen_services import (
     MenuTileFactory,
     RadioScreenBindingFactoryIf,
 )
-from apps.launchers.app_launcher_if import AppLauncherIf
+from apps.launchers.app_launcher_if import BrowserDashboardLauncherIf
 from frontends.tk.weather import WeatherMenuPanel
+from frontends.tk.media.browser_return_overlay import BrowserReturnOverlay
 from frontends.tk.radio import RadioPanel
 from frontends.tk.radio.radio_panel_config import (
     RadioPanelConfig,
@@ -32,8 +33,9 @@ class WeatherScreen(CarUiScreen):
         host: TkScreenHostIf,
         *,
         weather_radio_runtime: Callable[[], RadioRuntime],
-        dashboard_launcher: AppLauncherIf | None,
+        dashboard_launcher: BrowserDashboardLauncherIf | None,
         remote_display: str,
+        auxiliary_display: str,
         on_frequency_changed: Callable[[int], None],
         create_menu_tile: MenuTileFactory,
         binding_factory: RadioScreenBindingFactoryIf,
@@ -43,9 +45,17 @@ class WeatherScreen(CarUiScreen):
         self._weather_radio_runtime = weather_radio_runtime
         self._dashboard_launcher = dashboard_launcher
         self._remote_display = remote_display
+        self._auxiliary_display = auxiliary_display
         self._on_frequency_changed = on_frequency_changed
         self._binding_factory = binding_factory
         self._home_action = home_action
+        self._return_overlay = BrowserReturnOverlay(
+            self.content_frame,
+            command=self._return_from_dashboard,
+            background="#C62828",
+            foreground="#FFFFFF",
+            active_background="#8E0000",
+        )
         self.noaa_panel: Optional[RadioPanel] = None
         self.noaa_session: Optional[RadioSessionController] = None
 
@@ -75,20 +85,31 @@ class WeatherScreen(CarUiScreen):
             return
 
         try:
-            running = launcher.toggle(
-                remote_display=self._remote_display,
+            launcher.launch(
+                remote_display=self._auxiliary_display,
                 set_status=self.set_status,
             )
-            self.set_status(
-                "Weather dashboard launched"
-                if running
-                else "Weather dashboard stopped"
+            self.set_status("Weather dashboard launched")
+            self._return_overlay.show(
+                x=12,
+                y=12,
+                display=self._auxiliary_display,
             )
         except Exception as exc:
             self.set_status(
                 f"Weather dashboard toggle failed: {exc}"
             )
             print(f"[UI] Weather dashboard toggle error: {exc}")
+
+    def _return_from_dashboard(self) -> None:
+        launcher = self._dashboard_launcher
+        self._return_overlay.hide()
+        if launcher is not None:
+            launcher.close_browser(
+                self._auxiliary_display,
+                self.set_status,
+            )
+        self._home_action()
 
     def show_noaa_weather_radio(self) -> None:
         if not self.prepare_screen("NOAA Weather Radio", self.show):

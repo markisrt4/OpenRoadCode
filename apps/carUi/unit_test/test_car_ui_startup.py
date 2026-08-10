@@ -11,10 +11,47 @@ from apps.carUi.car_ui_startup import (
     _env_int,
     build_car_ui_dependencies,
     car_ui_splash_enabled,
+    resolve_media_display,
 )
+from config.runtime_target import RuntimeTarget
 
 
 class CarUiStartupTest(unittest.TestCase):
+    def test_linux_media_uses_active_desktop_display(self) -> None:
+        with patch.dict(os.environ, {"DISPLAY": ":0"}, clear=True):
+            self.assertEqual(
+                ":0",
+                resolve_media_display(RuntimeTarget.LINUX_DEV, ":2"),
+            )
+
+    def test_pi_media_uses_configured_vehicle_display(self) -> None:
+        with patch.dict(os.environ, {"DISPLAY": ":0"}, clear=True):
+            self.assertEqual(
+                ":2",
+                resolve_media_display(RuntimeTarget.RPI5, ":2"),
+            )
+
+    def test_media_display_override_takes_precedence(self) -> None:
+        with patch.dict(
+            os.environ, {"DISPLAY": ":0", "CARUI_MEDIA_DISPLAY": ":2"},
+            clear=True,
+        ):
+            self.assertEqual(
+                ":2",
+                resolve_media_display(
+                    RuntimeTarget.LINUX_DEV, ":9", ":1"
+                ),
+            )
+
+    def test_toml_media_display_precedes_target_default(self) -> None:
+        with patch.dict(os.environ, {"DISPLAY": ":0"}, clear=True):
+            self.assertEqual(
+                ":2",
+                resolve_media_display(
+                    RuntimeTarget.LINUX_DEV, ":9", ":2"
+                ),
+            )
+
     def test_startup_items_have_unique_keys(self) -> None:
         keys = [item.key for item in STARTUP_ITEMS]
 
@@ -42,7 +79,7 @@ class CarUiStartupTest(unittest.TestCase):
         "apps.carUi.car_ui_startup.create_spotify_controller",
         side_effect=RuntimeError("spotify failed"),
     )
-    @patch("apps.carUi.car_ui_startup.PipewireAudioController")
+    @patch("apps.carUi.car_ui_startup.create_audio_controller")
     @patch("apps.carUi.car_ui_startup.create_position_source")
     @patch("apps.carUi.car_ui_startup.create_rotary_encoder_runtime")
     @patch("apps.carUi.car_ui_startup.create_car_ui_runtime")
@@ -57,6 +94,9 @@ class CarUiStartupTest(unittest.TestCase):
         events: list[str] = []
         runtime = SimpleNamespace(
             rotary_encoders=object(),
+            audio=object(),
+            media_display=None,
+            position_cache=object(),
             close=lambda: events.append("runtime"),
         )
         encoder = SimpleNamespace(stop=lambda: events.append("encoder"))

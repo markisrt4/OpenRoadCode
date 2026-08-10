@@ -43,7 +43,9 @@ class NetflixScreen(TkScreen):
             colors=self._colors,
         )
         panel.pack(fill="both", expand=True)
-        self._host.set_screen_status("Netflix ready")
+        self._host.set_screen_status("Opening Netflix")
+        panel.update_idletasks()
+        panel.open_home()
 
     def close(self) -> None:
         self._player.stop()

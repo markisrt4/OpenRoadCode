@@ -1,12 +1,64 @@
 from __future__ import annotations
 
 import unittest
+import subprocess
 from unittest.mock import call, patch
 
 from controllers.audio import PipewireAudioController
 
 
 class PipewireAudioControllerTest(unittest.TestCase):
+    def test_set_volume_falls_back_to_pactl_when_wpctl_is_missing(self) -> None:
+        controller = PipewireAudioController(steps=20)
+        completed = subprocess.CompletedProcess(
+            args=[], returncode=0, stdout="", stderr=""
+        )
+
+        with patch(
+            "controllers.audio.pipewire_audio_controller.subprocess.run",
+            side_effect=[FileNotFoundError(), completed],
+        ) as run:
+            level = controller.set_volume_level(13)
+
+        self.assertEqual(13, level)
+        self.assertEqual(
+            [
+                call(
+                    ["wpctl", "set-volume", "@DEFAULT_AUDIO_SINK@", "0.65"],
+                    capture_output=True,
+                    text=True,
+                    check=True,
+                ),
+                call(
+                    ["pactl", "set-sink-volume", "@DEFAULT_SINK@", "65%"],
+                    capture_output=True,
+                    text=True,
+                    check=True,
+                ),
+            ],
+            run.call_args_list,
+        )
+
+    def test_get_volume_normalizes_pactl_output(self) -> None:
+        controller = PipewireAudioController(steps=20)
+        volume = subprocess.CompletedProcess(
+            args=[],
+            returncode=0,
+            stdout="Volume: front-left: 42598 / 65% / -11.00 dB\n",
+            stderr="",
+        )
+        mute = subprocess.CompletedProcess(
+            args=[], returncode=0, stdout="Mute: no\n", stderr=""
+        )
+
+        with patch(
+            "controllers.audio.pipewire_audio_controller.subprocess.run",
+            side_effect=[FileNotFoundError(), volume, mute],
+        ):
+            level = controller.get_volume_level()
+
+        self.assertEqual(13, level)
+
     def test_volume_up_limits_pipewire_to_one_hundred_percent(self) -> None:
         controller = PipewireAudioController(
             steps=20,

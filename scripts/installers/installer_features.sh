@@ -116,7 +116,12 @@ get_feature_packages() {
       echo "i2c-tools"
       ;;
     spotify)
-      echo ""
+      case "${OPENROAD_INSTALL_TARGET:-linux-dev}" in
+        rpi4) echo "wireplumber pipewire-pulse alsa-utils" ;;
+        rpi5) echo "wireplumber pipewire-pulse alsa-utils usbutils" ;;
+        linux-dev) echo "pulseaudio-utils" ;;
+        *) echo "" ;;
+      esac
       ;;
     sdrpp)
       echo "sdrpp"

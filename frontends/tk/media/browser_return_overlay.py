@@ -23,9 +23,21 @@ class BrowserReturnOverlay:
         self._active_background = active_background
         self._window: tk.Toplevel | None = None
 
-    def show(self, *, x: int, y: int) -> None:
+    def show(
+        self,
+        *,
+        x: int,
+        y: int,
+        display: str | None = None,
+    ) -> None:
+        """Show the return control, optionally on another X display.
+
+        @param x Horizontal screen coordinate.
+        @param y Vertical screen coordinate.
+        @param display Optional X display hosting the browser window.
+        """
         self.hide()
-        window = tk.Toplevel(self._owner)
+        window = tk.Toplevel(self._owner, screen=display)
         window.overrideredirect(True)
         window.attributes("-topmost", True)
         window.configure(bg=self._background)

@@ -30,6 +30,8 @@ from controllers.navigation.navigation_state import GpsState, NavigationState
 from controllers.navigation.navigation_state import PositionState
 from controllers.navigation.navigation_state_presenter import NavigationStatePresenter
 from controllers.navigation.position_source_if import PositionSourceIf
+from controllers.navigation.position_snapshot_cache import PositionSnapshotCache
+from controllers.navigation.persistent_position_source import PersistentPositionSource
 from controllers.navigation.orientation_estimator_if import (
     Orientation,
     OrientationEstimatorIf,
@@ -60,7 +62,9 @@ __all__ = [
     "Orientation",
     "OrientationEstimatorIf",
     "PositionSourceIf",
+    "PositionSnapshotCache",
     "PositionState",
+    "PersistentPositionSource",
     "SimulatedNavigationController",
     "UnconfiguredNavigationController",
 ]

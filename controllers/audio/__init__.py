@@ -7,6 +7,8 @@ from controllers.audio.audio_controller_stub import (
 from controllers.audio.pipewire_audio_controller import (
     PipewireAudioController,
 )
+from controllers.audio.pactl_audio_controller import PactlAudioController
+from controllers.audio.media_volume_handler import MediaVolumeHandler
 from controllers.audio.unconfigured_audio_controller import (
     UnconfiguredAudioController,
 )
@@ -14,6 +16,8 @@ from controllers.audio.unconfigured_audio_controller import (
 __all__ = [
     "AudioControllerIf",
     "AudioControllerStub",
+    "MediaVolumeHandler",
+    "PactlAudioController",
     "PipewireAudioController",
     "UnconfiguredAudioController",
 ]

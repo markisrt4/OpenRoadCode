@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import os
+import logging
+import threading
 import tkinter as tk
 from collections.abc import Callable
 from pathlib import Path
@@ -28,6 +30,7 @@ from ui.ui_if import UiIf
 
 
 CAR_UI_LOGO_PATH = Path(__file__).parent / "assets" / "openroadcode.png"
+LOGGER = logging.getLogger(__name__)
 
 
 class CarUiFrontend(tk.Tk, UiIf, UiEventHandlerIf, ScreenNavigatorIf):
@@ -43,7 +46,13 @@ class CarUiFrontend(tk.Tk, UiIf, UiEventHandlerIf, ScreenNavigatorIf):
         self._initialized = False
         self._active_route_id: ScreenId | None = None
         self._navigation_history: list[ScreenId] = []
+        self._weather_dashboard_launcher = (
+            dependencies.runtime.weather_dash_launcher
+        )
+        self._weather_controller = dependencies.runtime.weather_controller
         self.title(title)
+        self._app_icon: tk.PhotoImage | None = None
+        self._apply_app_icon()
 
         self.theme = CAR_UI_THEME
         self.colors = self.theme["colors"]
@@ -84,6 +93,15 @@ class CarUiFrontend(tk.Tk, UiIf, UiEventHandlerIf, ScreenNavigatorIf):
         self.bind("<Escape>", self._toggle_fullscreen)
         self.protocol("WM_DELETE_WINDOW", self.close)
 
+    def _apply_app_icon(self) -> None:
+        """Apply the OpenRoadCode logo to the Tk window and desktop shell."""
+        try:
+            icon = tk.PhotoImage(file=str(CAR_UI_LOGO_PATH))
+            self.iconphoto(True, icon)
+            self._app_icon = icon
+        except (OSError, tk.TclError):
+            self._app_icon = None
+
     def initialize(self) -> bool:
         """Start composed services and make the frontend ready to run.
 
@@ -94,7 +112,42 @@ class CarUiFrontend(tk.Tk, UiIf, UiEventHandlerIf, ScreenNavigatorIf):
         if not self._initialized:
             self.composition.lifecycle.start()
             self._initialized = True
+            self.after_idle(self._preload_weather_dashboard)
         return True
+
+    def _preload_weather_dashboard(self) -> None:
+        launcher = self._weather_dashboard_launcher
+        if launcher is None or not launcher.preload:
+            return
+        threading.Thread(
+            target=self._prepare_weather_dashboard,
+            name="weather-dashboard-preload",
+            daemon=True,
+        ).start()
+        if self._weather_controller is not None:
+            threading.Thread(
+                target=self._refresh_weather_data,
+                name="weather-data-preload",
+                daemon=True,
+            ).start()
+
+    def _prepare_weather_dashboard(self) -> None:
+        launcher = self._weather_dashboard_launcher
+        if launcher is None:
+            return
+        try:
+            launcher.prepare()
+        except Exception:
+            LOGGER.exception("Weather dashboard background preload failed")
+
+    def _refresh_weather_data(self) -> None:
+        controller = self._weather_controller
+        if controller is None:
+            return
+        try:
+            controller.refresh_if_stale(120)
+        except Exception:
+            LOGGER.exception("Weather data background refresh failed")
 
     def run(self) -> None:
         """Run the Tk event loop until shutdown."""

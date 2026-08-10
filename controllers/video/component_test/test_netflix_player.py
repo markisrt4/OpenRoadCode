@@ -52,6 +52,21 @@ class NetflixPlayerComponentTest(unittest.TestCase):
         player.stop()
         launcher.stop.assert_called_once_with(":2")
 
+    @patch("controllers.video.netflix_player.BrowserKioskLauncher")
+    def test_linux_dev_disables_gpu_acceleration(
+        self, launcher_type: MagicMock
+    ) -> None:
+        player = NetflixPlayer(software_rendering=True)
+        player.play("https://www.netflix.com/browse", display=":0")
+
+        arguments = launcher_type.call_args.kwargs["extra_arguments"]
+        self.assertIn("--disable-gpu", arguments)
+        self.assertIn("--disable-gpu-compositing", arguments)
+        self.assertIn(
+            "--disable-features=VaapiVideoDecoder,VaapiVideoEncoder",
+            arguments,
+        )
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

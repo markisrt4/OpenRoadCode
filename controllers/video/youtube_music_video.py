@@ -53,6 +53,7 @@ class YouTubeMusicVideo(MusicVideoIf):
         port: int = 8766,
         fullscreen: bool = False,
         chromium_executable: str | None = None,
+        software_rendering: bool = False,
     ) -> None:
         if not 1 <= max_search_results <= 50:
             raise ValueError("max_search_results must be between 1 and 50")
@@ -72,6 +73,7 @@ class YouTubeMusicVideo(MusicVideoIf):
         self._port = port
         self._fullscreen = fullscreen
         self._chromium_executable = chromium_executable
+        self._software_rendering = software_rendering
 
         self._server: ThreadingHTTPServer | None = None
         self._server_thread: threading.Thread | None = None
@@ -215,6 +217,14 @@ class YouTubeMusicVideo(MusicVideoIf):
             "--no-first-run",
             "--disable-session-crashed-bubble",
         ]
+        if self._software_rendering:
+            command.extend(
+                (
+                    "--disable-gpu",
+                    "--disable-gpu-compositing",
+                    "--disable-features=VaapiVideoDecoder,VaapiVideoEncoder",
+                )
+            )
         if self._fullscreen:
             command.append("--start-fullscreen")
 

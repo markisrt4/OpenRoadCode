@@ -60,6 +60,13 @@ class ArtworkProviderIf(Protocol):
 class MusicVideoRequestHandlerIf(Protocol):
     """Coordinate the optional music-video transition from Spotify."""
 
+    def current_track_has_video(self) -> bool:
+        """Return whether the current track has a matching video.
+
+        @return `True` when a matching video is available.
+        """
+        ...
+
     def watch_current_track(self) -> bool:
         """Start a video for the current track when one can be found.
 
