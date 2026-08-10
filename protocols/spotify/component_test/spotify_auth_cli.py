@@ -6,11 +6,14 @@ import argparse
 from pathlib import Path
 
 from protocols.spotify import (
-    DEFAULT_CONFIG_PATH,
     DEFAULT_TOKEN_PATH,
     SpotifyAuth,
     SpotifyTokenStore,
-    load_spotify_config,
+    load_spotify_config_from_secrets,
+)
+from security.environment_variable_secret_manager import (
+    DEFAULT_SECRETS_FILE,
+    EnvironmentVariableSecretManager,
 )
 
 
@@ -20,10 +23,10 @@ def parse_args() -> argparse.Namespace:
     )
 
     parser.add_argument(
-        "--config",
+        "--secrets-file",
         type=Path,
-        default=DEFAULT_CONFIG_PATH,
-        help="Path to the Spotify configuration file",
+        default=DEFAULT_SECRETS_FILE,
+        help="Path to the OpenRoadCode environment secrets file",
     )
 
     parser.add_argument(
@@ -52,7 +55,15 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     args = parse_args()
 
-    config = load_spotify_config(args.config)
+    config = load_spotify_config_from_secrets(
+        EnvironmentVariableSecretManager(
+            secrets_file=args.secrets_file,
+        )
+    )
+    if config is None:
+        raise SystemExit(
+            f"SPOTIFY_CLIENT_ID is not configured in {args.secrets_file}"
+        )
 
     token_store = SpotifyTokenStore(
         path=args.tokens

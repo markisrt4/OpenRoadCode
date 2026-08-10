@@ -37,6 +37,7 @@ The image controller provides:
 - In-memory image caching
 - Least Recently Used (LRU) cache eviction
 - Thread-safe cache access
+- Atomic persistent source storage through `controllers.cache`
 
 ## Dependencies
 
@@ -166,3 +167,7 @@ Responsibilities that belong outside this component include:
 - Map tile management
 
 Keeping these responsibilities separate allows the image controller to be reused by any higher-level component requiring image support.
+
+Persistent filesystem mechanics are delegated to `PersistentCache` rather
+than generalized inside the image package. Image decoding, resizing, and
+decoded-image LRU policy remain image-specific.

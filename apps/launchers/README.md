@@ -49,6 +49,10 @@ previous application run.
 Avoid global `pkill -f` cleanup because it can terminate unrelated user
 processes.
 
+ADS-B and Weather belong to the same exclusive auxiliary-dashboard browser
+group. Launching either dashboard closes the other browser window on that X
+display, while leaving independently managed backend services available.
+
 ## Runtime dependencies
 
 Browser kiosk support requires one of:
@@ -71,8 +75,18 @@ Streamlit launchers require the Python package:
 python3 -m pip install streamlit
 ```
 
+`StreamlitLauncher.prepare()` starts the server and waits for HTTP readiness
+without opening a browser, allowing frontends to warm dashboards in a daemon
+worker after their primary startup path completes. `close_browser()` hides the
+dashboard without discarding that warmed server; `stop()` releases both.
+
 ADS-B launch requires a systemd-managed `readsb` service and a reachable
 tar1090 installation.
+
+On hardware-free development hosts, ADS-B may still open a reachable tar1090
+dashboard without live receiver data. Reopening a dashboard tile raises its
+existing browser window instead of interpreting the action as a request to
+stop a hidden kiosk; the Return overlay owns dashboard shutdown.
 
 ## Testing
 

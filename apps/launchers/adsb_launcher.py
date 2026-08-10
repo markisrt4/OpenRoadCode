@@ -3,6 +3,8 @@ from __future__ import annotations
 import subprocess
 import time
 from pathlib import Path
+from urllib.error import URLError
+from urllib.request import urlopen
 
 from apps.launchers.app_launcher_if import (
     AppLauncherIf,
@@ -39,6 +41,15 @@ class ADSBLauncher(AppLauncherIf):
         self.browser = BrowserKioskLauncher(
             url=url,
             process_pattern="127.0.0.1/tar1090",
+            profile_path=(
+                Path.home()
+                / "snap"
+                / "chromium"
+                / "common"
+                / "openroadcode-adsb"
+            ),
+            window_class="OpenRoadCodeADSB",
+            exclusive_group="openroadcode-auxiliary-dashboard",
             log_file=(
                 browser_log_file
                 or logging_file_path(
@@ -50,6 +61,18 @@ class ADSBLauncher(AppLauncherIf):
 
     def is_running(self) -> bool:
         return self.browser.is_running()
+
+    def configure_browser_window(
+        self,
+        *,
+        position: tuple[int, int],
+        size: tuple[int, int],
+    ) -> None:
+        """Align the tar1090 browser to a Car UI panel."""
+        self.browser.configure_app_window(
+            position=position,
+            size=size,
+        )
 
     def launch(
         self,
@@ -76,9 +99,20 @@ class ADSBLauncher(AppLauncherIf):
             check=False,
         )
 
-        if not self._wait_for_readsb():
+        receiver_ready = self._readsb_is_running()
+        dashboard_ready = self._dashboard_is_reachable()
+        if not dashboard_ready:
+            receiver_ready = self._wait_for_readsb()
+            dashboard_ready = self._dashboard_is_reachable()
+        if not dashboard_ready:
             raise RuntimeError(
-                f"{self.readsb_service} failed to start"
+                f"{self.readsb_service} failed to start and the "
+                "tar1090 dashboard is unavailable"
+            )
+        if not receiver_ready:
+            _status(
+                set_status,
+                "ADS-B receiver unavailable; opening dashboard without live data",
             )
 
         self.browser.launch(remote_display, set_status)
@@ -107,10 +141,22 @@ class ADSBLauncher(AppLauncherIf):
     def _wait_for_readsb(self) -> bool:
         deadline = time.monotonic() + self.startup_timeout_seconds
         while time.monotonic() < deadline:
-            if is_process_running(self.readsb_service):
+            if self._readsb_is_running():
                 return True
             time.sleep(0.25)
         return False
+
+    def _readsb_is_running(self) -> bool:
+        return is_process_running(
+            rf"(^|/){self.readsb_service}( |$)"
+        )
+
+    def _dashboard_is_reachable(self) -> bool:
+        try:
+            with urlopen(self.url, timeout=2.0) as response:
+                return 200 <= response.status < 400
+        except (OSError, URLError, ValueError):
+            return False
 
 
 def _status(callback: StatusCallback, message: str) -> None:

@@ -1,8 +1,13 @@
 # Keyboard Reader
 
-The `KeyboardReader` provides a simple interface for reading keyboard input from Linux input devices.
+`KeyboardReaderIf` defines the hardware contract for normalized keyboard input.
+`KeyboardReader` is the Linux `evdev` implementation.
 
 It uses `evdev` to monitor keyboard events and reports the Linux key name when a key is pressed.
+
+```text
+Linux input device -> KeyboardReader -> KeyboardReaderIf -> KeyboardInputAdapter
+```
 
 ## Keyboard Input
 
@@ -22,14 +27,14 @@ Application-specific key mappings and behavior should be handled by higher-level
 ## Example
 
 ```python
-from hardware_io.keyboard import KeyboardReader
+from hardware_io.keyboard import KeyboardReader, KeyboardReaderIf
 
 
 def key_pressed(key: str) -> None:
     print(f"Pressed: {key}")
 
 
-reader = KeyboardReader(callback=key_pressed)
+reader: KeyboardReaderIf = KeyboardReader(callback=key_pressed)
 reader.start()
 ```
 
@@ -95,8 +100,23 @@ Log out and back in after changing group membership.
 
 ## Design
 
-The `KeyboardReader` is responsible only for reading Linux keyboard events and reporting which key was pressed.
+`KeyboardReaderIf` exposes device identity, synchronous iteration, background
+monitoring, and idempotent resource cleanup without depending on `evdev`.
+Importing the interface does not load the optional Linux implementation.
+
+`KeyboardReader` is responsible only for reading Linux keyboard events and
+reporting which key was pressed. `KeyboardInputAdapter` converts those key
+names into generic `InputEvent` values; `InputMapper` assigns semantic
+`UiAction` values.
 
 It does not assign application-specific commands or behavior to keyboard input.
 
 Higher-level components are responsible for interpreting keyboard events.
+
+Run the keyboard unit tests with:
+
+```bash
+python3 -m unittest discover \
+  -s hardware_io/keyboard/unit_test \
+  -p 'test_*.py'
+```

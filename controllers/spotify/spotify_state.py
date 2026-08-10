@@ -12,8 +12,6 @@ class SpotifyState:
     artist_name: str | None = None
     album_name: str | None = None
 
-    album_art_url: str | None = None
-    
     track_uri: str | None = None
     album_art_url: str | None = None
     spotify_url: str | None = None

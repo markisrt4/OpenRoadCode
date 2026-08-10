@@ -36,4 +36,3 @@ class BarometricState:
             vertical_speed_mps=vertical_speed_mps,
             timestamp=datetime.now(timezone.utc),
         )
-

@@ -31,4 +31,3 @@ class Bmp3xxBarometricAdapter(BarometricSourceIf):
             pressure_pa=self._device.get_pressure_pa(),
             temperature_c=self._device.get_temperature_c(),
         )
-

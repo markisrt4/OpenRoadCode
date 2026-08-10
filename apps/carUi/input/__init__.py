@@ -1,9 +1,1 @@
-from apps.carUi.input.encoder_event_router import (
-    EncoderEventRouter,
-    PanelEncoderCallbacks,
-)
-
-__all__ = [
-    "EncoderEventRouter",
-    "PanelEncoderCallbacks",
-]
+"""Car UI-specific input documentation and component tests."""

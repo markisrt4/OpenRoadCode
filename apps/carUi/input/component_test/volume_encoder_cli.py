@@ -7,30 +7,31 @@ import time
 from collections.abc import Callable
 from pathlib import Path
 
-from apps.carUi.config.car_ui_runtime_config_parser import (
-    CarUiRuntimeConfigParser,
+from config.runtime_config import (
+    RuntimeConfigParser,
     RotaryEncoderConfig,
 )
-from apps.carUi.input import EncoderEventRouter
+from apps.carUi.runtime.car_ui_input_runtime import CarUiInputRuntime
 from apps.carUi.runtime.rotary_encoder_runtime import (
     create_rotary_encoder_runtime,
 )
+from input_events import InputDeviceId, InputDeviceType
 from controllers.audio import PipewireAudioController
+from controllers.input import (
+    InputManager,
+    InputMapper,
+)
+from ui.ui_action import UiAction
+from ui.ui_event_handler_if import UiEventHandlerIf
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[4]
-DEFAULT_CONFIG_PATH = (
-    PROJECT_ROOT
-    / "apps"
-    / "carUi"
-    / "config"
-    / "car_ui_runtime.toml"
-)
+DEFAULT_CONFIG_PATH = PROJECT_ROOT / "config" / "runtime.toml"
 DEFAULT_VOLUME_STEPS = 20
 
 
 class CliScheduler:
-    """Small Tk-compatible scheduler used to drive the event router."""
+    """Small toolkit-neutral scheduler used to drive the input runtime."""
 
     def __init__(self) -> None:
         self._next_id = 0
@@ -39,7 +40,10 @@ class CliScheduler:
             tuple[float, Callable[[], None]],
         ] = {}
 
-    def after(
+    def dispatch_ui(self, callback: Callable[[], None]) -> None:
+        callback()
+
+    def schedule_ui_callback(
         self,
         delay_ms: int,
         callback: Callable[[], None],
@@ -50,7 +54,7 @@ class CliScheduler:
         self._callbacks[callback_id] = (deadline, callback)
         return callback_id
 
-    def after_cancel(self, callback_id: str) -> None:
+    def cancel_ui_callback(self, callback_id: object) -> None:
         self._callbacks.pop(callback_id, None)
 
     def run_pending(self) -> None:
@@ -118,7 +122,7 @@ def select_volume_encoder(
 
 def main() -> None:
     args = parse_args()
-    config = CarUiRuntimeConfigParser(
+    config = RuntimeConfigParser(
         args.config,
         project_root=args.project_root,
     ).load()
@@ -145,13 +149,34 @@ def main() -> None:
         muted = audio_controller.toggle_mute()
         print("Audio muted" if muted else "Audio unmuted")
 
-    router = EncoderEventRouter(
-        root=scheduler,
+    class VolumeActionHandler(UiEventHandlerIf):
+        def handle_ui_action(self, action: UiAction) -> None:
+            actions = {
+                UiAction.VOLUME_UP: volume_up,
+                UiAction.VOLUME_DOWN: volume_down,
+                UiAction.VOLUME_MUTE: toggle_mute,
+            }
+            callback = actions.get(action)
+            if callback is not None:
+                callback()
+
+    volume_encoder_id = InputDeviceId(
+        InputDeviceType.ROTARY_ENCODER,
+        encoder_runtime.volume_index,
+    )
+    input_manager = InputManager(
+        mapper=InputMapper(
+            user_encoder_id=(),
+            volume_encoder_id=volume_encoder_id,
+        ),
+        ui_handler=VolumeActionHandler(),
+    )
+
+    input_runtime = CarUiInputRuntime(
+        dispatcher=scheduler,
         encoders=encoder_runtime.encoders,
-        volume_encoder_index=encoder_runtime.volume_index,
-        volume_up=volume_up,
-        volume_down=volume_down,
-        volume_button_pressed=toggle_mute,
+        device_ids=(volume_encoder_id,),
+        input_handler=input_manager,
     )
 
     initial_level = audio_controller.get_volume_level()
@@ -172,7 +197,7 @@ def main() -> None:
     print("Rotate the configured volume encoder or press it to toggle mute.")
     print("Press Ctrl+C to stop.\n")
 
-    router.start()
+    input_runtime.start()
 
     try:
         while True:
@@ -181,7 +206,7 @@ def main() -> None:
     except KeyboardInterrupt:
         print("\nStopping volume encoder component test...")
     finally:
-        router.stop()
+        input_runtime.stop()
 
 
 if __name__ == "__main__":

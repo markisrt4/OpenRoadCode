@@ -302,4 +302,3 @@ class BarometricController(BarometricControllerIf):
         _traceback: object,
     ) -> None:
         self.stop()
-

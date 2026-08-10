@@ -13,7 +13,10 @@ from protocols.spotify import (
     SpotifyAuth,
     SpotifyTokenStore,
     SpotifyWebApiClient,
-    load_spotify_config,
+    load_spotify_config_from_secrets,
+)
+from security.environment_variable_secret_manager import (
+    EnvironmentVariableSecretManager,
 )
 
 
@@ -75,7 +78,14 @@ def print_state(state: SpotifyState) -> None:
 
 
 def create_controller() -> SpotifyWebApiController:
-    config = load_spotify_config()
+    config = load_spotify_config_from_secrets(
+        EnvironmentVariableSecretManager()
+    )
+    if config is None:
+        raise RuntimeError(
+            "Spotify is not configured. Expected secret: "
+            "SPOTIFY_CLIENT_ID"
+        )
     token_store = SpotifyTokenStore()
 
     auth = SpotifyAuth(

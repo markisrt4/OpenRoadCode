@@ -1,274 +1,399 @@
 # OpenRoadCode
 
-> A Raspberry Pi powered automotive software-defined radio, vehicle information center, and embedded experimentation platform.
+> An open-source automotive computing, software-defined radio, vehicle telemetry, and embedded experimentation platform.
 
-## Philosophy
+OpenRoadCode is a modular in-vehicle computing platform designed for Raspberry Pi and Linux-based embedded systems.
 
-Modern vehicles contain dozens of computers, yet very few are open to customization.
+It combines software-defined radio, GPS, vehicle telemetry, media controls, environmental sensors, physical controls, and a touchscreen interface into one extensible platform.
 
-OpenRoadCode embraces the opposite philosophy.
+The project is intended for developers, makers, radio enthusiasts, and embedded Linux engineers who want a vehicle computing system they can inspect, modify, extend, and fully control.
 
-The project is designed to be:
+OpenRoadCode does not replace factory safety or vehicle-control systems. It complements them with an independent platform for experimentation, visualization, communications, entertainment, and custom applications.
 
-- Open
-- Modular
-- Hardware agnostic
-- Extensible
-- Educational
-- Developer friendly
-
-Rather than replacing factory vehicle systems, OpenRoadCode complements them by providing a platform for experimentation, visualization, software-defined radio, and custom applications.
-CarSDR is a custom in-vehicle infotainment and software-defined radio platform designed around a Raspberry Pi 4, RTL-SDR, GPS receiver, rotary encoder controls, and a touchscreen display.
-
-The project combines multiple technologies into a single dashboard capable of monitoring radio communications, displaying vehicle information, controlling vehicle lighting, interacting with Bluetooth devices, and serving as a flexible embedded Linux development platform.
-
-Unlike commercial infotainment systems, CarSDR is intended to be completely hackable, modular, and open for experimentation.
+Explore the project at [openroadcode.org](https://www.openroadcode.org/) or
+visit the [OpenRoadCode repository](https://github.com/markisrt4/OpenRoadCode).
 
 ---
 
-# Features
+## Project Status
 
-Current capabilities include:
+OpenRoadCode is under active development.
 
-* FM Broadcast Radio
-* Airband Receiver (AM)
-* NOAA Weather Radio
-* Multi-band Scanner
-* ADS-B Aircraft Tracking
-* GPS Positioning
-* Bluetooth OBD-II Integration
-* Bluetooth Cabin Lighting Control
-* Spotify Integration
-* Touchscreen User Interface
-* Rotary Encoder Hardware Controls
-* Remote VNC Display
-* Modular Python application framework
+The project currently operates as an advanced experimental platform rather than a finished commercial infotainment system.
 
-Future ideas include:
+Some components are functional and actively used in the reference vehicle. Others are experimental, hardware-dependent, or still being integrated.
 
-* APRS
-* Digital radio modes
-* CAN bus monitoring
-* Vehicle gauges
+Interfaces, configuration formats, and directory structures may continue to evolve before the first stable release.
+
+---
+
+## Project Goals
+
+OpenRoadCode is designed around several core goals:
+
+* Provide an open and customizable automotive computing platform
+* Support multiple hardware implementations through reusable interfaces
+* Keep hardware-specific code isolated from application logic
+* Allow applications and controllers to be tested without physical hardware
+* Support Raspberry Pi and other Linux-based embedded computers
+* Encourage experimentation with radio, vehicle telemetry, sensors, and embedded Linux
+* Provide educational examples of modular Python and embedded-system architecture
+* Avoid unnecessary dependence on cloud services
+
+---
+
+## Current Capabilities
+
+Current and partially integrated capabilities include:
+
+* Touchscreen automotive user interface
+* FM broadcast radio
+* AM airband reception
+* NOAA weather radio
+* Multi-band radio scanning
+* RTL-SDR integration
+* ADS-B aircraft tracking
+* Provider-independent positioning through GPSD or browser geolocation
+* Bluetooth OBD-II communication
+* Vehicle telemetry and gauge support
+* Bluetooth cabin-lighting control
+* Spotify integration
+* Music-video lookup and playback
+* PipeWire audio control
+* Rotary encoder input
+* Keyboard input
+* GPIO pushbuttons
+* Environmental sensing
+* Barometric pressure sensing
+* IMU and vehicle-orientation experiments
+* Remote display through VNC
+* Configurable startup and splash-screen behavior
+* Mock and stub controllers for development without hardware
+
+Not every feature is supported on every hardware configuration.
+
+---
+
+## Planned and Experimental Features
+
+Potential future work includes:
+
 * Offline navigation
-* Dashcam integration
-* Backup camera
-* Reverse engineering proprietary vehicle CAN messages
-
----
-
-# System Overview
-
-This custom vehicle system is built around a Raspberry Pi 4 installed inside a custom 3D printed enclosure mounted in the dashboard.
-
-The Raspberry Pi interfaces with:
-
-* RTL-SDR receiver
-* USB GPS receiver
-* Raspberry Pi Touch Display 2
-* Rotary encoders
-* Bluetooth OBD-II adapter
-* Bluetooth LED controller
-* External travel router
-* Remote tablet running VNC
-
-The current hardware architecture is illustrated in the included 1-Wire system diagram. :contentReference[oaicite:0]{index=0}
-
----
-
-# Hardware
-
-## Core Components
-
-| Component | Purpose |
-|------------|---------|
-| Raspberry Pi 4 | Main computer |
-| Raspberry Pi Touch Display 2 (7") | Primary user interface |
-| RTL-SDR | Software defined radio receiver |
-| USB GPS Receiver | GPS location |
-| Wideband antenna | RF reception |
-| GPS antenna | Positioning |
-| Bluetooth OBD-II Adapter | Vehicle telemetry |
-| Bluetooth LED Controller | Cabin lighting |
-| Rotary Encoders | Physical controls |
-| USB Keyboard | Development/debugging |
-| Ethernet Travel Router | Local network |
-| Samsung Tablet | Remote VNC display |
-| Custom 3D Printed Enclosure | Dashboard installation |
-
----
-
-# Software Architecture
-
-The software is primarily written in Python and organized into independent applications and reusable modules.
-
-Major components include:
-
-```
-apps/
-    carUi/
-    adsb/
-    weather/
-    scanner/
-
-modules/
-    gps/
-    media/
-    obd/
-    lighting/
-    radio/
-    ui/
-```
-
-The goal is to keep hardware-specific code isolated behind reusable interfaces while allowing new applications to share common services.
-
----
-
-# Radio Features
-
-Supported radio modes currently include:
-
-* Wide FM
-* Narrow FM
-* AM
-
-Current applications:
-
-* FM Broadcast
-* Airband
-* NOAA Weather
-* Scanner
-
-Future radio applications may include:
-
-* ADS-B
-* APRS
-* AIS
-* P25 monitoring
-* DMR monitoring
-* HF (with additional hardware)
-
----
-
-# Vehicle Features
-
-Current integrations:
-
-* Bluetooth OBD-II
-* GPS
-* Cabin LED control
-
-Planned integrations:
-
+* Downloadable maps
+* Dashcam support
+* Backup-camera integration
+* Additional vehicle gauges
 * CAN bus monitoring
-* Vehicle gauges
-* Engine telemetry
-* TPMS
-* Steering wheel controls
-* HVAC status
+* TPMS integration
+* Steering-wheel control integration
+* APRS
+* AIS reception
+* Digital radio modes
+* Additional SDR applications
+* Trip recording and telemetry history
+* Additional embedded Linux targets
+* Custom OpenRoadCode operating-system images
+
+These items represent areas of interest rather than release commitments.
 
 ---
 
-# Networking
+## Reference Hardware
 
-The networked components are designed to operate independently of Internet connectivity.
+The current reference system is based primarily on:
 
-Networking options include:
+| Component                    | Purpose                              |
+| ---------------------------- | ------------------------------------ |
+| Raspberry Pi 5               | Primary embedded computer            |
+| Raspberry Pi 4               | Secondary and development target     |
+| Raspberry Pi Touch Display 2 | Primary touchscreen                  |
+| RTL-SDR receivers            | Radio reception                      |
+| USB GPS receiver or browser  | Position and time data               |
+| Bluetooth OBD-II adapter     | Vehicle telemetry                    |
+| Bluetooth LED controller     | Cabin-lighting control               |
+| Rotary encoders              | Physical user input                  |
+| GPIO pushbuttons             | Physical controls and shutdown input |
+| Environmental sensors        | Temperature and barometric data      |
+| IMU sensors                  | Pitch, roll, and motion data         |
+| USB audio hardware           | Audio input and output               |
+| Ethernet travel router       | Local in-vehicle network             |
+| Linux workstation or VM      | Development environment              |
 
-* Ethernet
-* Wi-Fi
-* Mobile hotspot
-* Bluetooth
-* Local VNC access
+OpenRoadCode is designed to support additional hardware through adapter and controller interfaces.
 
-A travel router provides an isolated in-vehicle network for remote displays and development.
-
----
-
-# User Interface
-
-The UI is designed specifically for automotive use.
-
-Current design goals include:
-
-* Large touch targets
-* Rotary encoder navigation
-* Minimal driver distraction
-* Consistent panel layout
-* Dark theme
-* Responsive scaling
+Hardware compatibility varies by Linux distribution, kernel, device permissions, and available drivers.
 
 ---
 
-# Host Setup
+## Software Architecture
 
-A host setup script is provided to install the required Linux packages, create a Python virtual environment, configure VNC, and install all software dependencies.
+OpenRoadCode separates application logic from hardware-specific implementations.
 
-The setup script currently installs support for:
+The primary repository areas are:
 
-* Python
-* Tkinter
-* BlueZ
-* GPSD
-* RTL-SDR
-* SDR++
-* Chromium
-* VNC Server
-* Openbox
-* XFCE
-* Streamlit
-* Bleak
-* GPS Python libraries
-* Serial communication libraries
-
-See:
-
+```text
+OpenRoadCode/
+├── apps/
+│   ├── carUi/
+│   ├── carTui/
+│   └── other applications
+│
+├── controllers/
+│   ├── audio/
+│   ├── environmental/
+│   ├── image/
+│   ├── lighting/
+│   ├── navigation/
+│   ├── radio/
+│   ├── spotify/
+│   └── other application-facing controllers
+│
+├── frontends/
+│   ├── common/input/
+│   └── tk/
+│
+├── ui/
+│   └── toolkit-independent presentation contracts
+│
+├── input_events/
+│   └── normalized physical-input contracts and values
+│
+├── hardware_io/
+│   ├── automotive/
+│   ├── bluetooth/
+│   ├── environmental/
+│   ├── gpio/
+│   ├── gps/
+│   ├── imu/
+│   ├── keyboard/
+│   ├── pushbutton/
+│   ├── rotary_encoder/
+│   └── other hardware adapters
+│
+├── protocols/
+│   ├── oauth/
+│   ├── obd2/
+│   ├── rigctl/
+│   ├── spotify/
+│   └── other protocol implementations
+│
+├── config/
+├── scripts/
+└── tests and component-test utilities
 ```
-host_setup.sh
+
+The intended dependency direction is:
+
+```text
+Applications and UI
+        │
+        ▼
+Controller interfaces
+        │
+        ▼
+Concrete controllers
+        │
+        ▼
+Hardware adapters and protocols
+        │
+        ▼
+Linux devices, services, and external hardware
 ```
 
-The script also:
+Higher-level application modules should not depend directly on hardware-specific implementations.
 
-* Creates the Python virtual environment
-* Installs Python dependencies
-* Configures TigerVNC
-* Creates a systemd user service
-* Enables automatic startup
-
-These dependencies and setup steps are implemented in the included `host_setup.sh` script. :contentReference[oaicite:1]{index=1}
+Cross-layer physical-input values live in `input_events`. Hardware adapters,
+controllers, frontend event queues, and applications may depend on these
+neutral contracts without depending on one another's implementations.
 
 ---
 
-# Development checks
+## Controllers
 
-Public methods declared in `*_if.py` modules must document every argument with
-`@param` and every non-`None` result with `@return` or `@retval`.
+Controllers expose application-facing behavior.
 
-Run the same check used by CI:
+Examples include:
+
+* Radio control
+* Audio control
+* Spotify playback
+* Navigation
+* Lighting
+* Environmental data
+* Vehicle information
+
+A controller may have several implementations:
+
+```text
+AudioControllerIf
+├── PipeWireAudioController
+├── AudioControllerStub
+└── UnconfiguredAudioController
+```
+
+This pattern allows the application to run with:
+
+* Real hardware
+* Mock data
+* Stub implementations
+* Unsupported or unconfigured features
+
+Controllers should avoid exposing unnecessary implementation details to the user interface.
+
+---
+
+## Hardware Adapters
+
+Hardware adapters isolate device-specific behavior.
+
+Examples include:
+
+* USB GPS receivers
+* Bluetooth OBD-II devices
+* Raspberry Pi GPIO
+* I2C rotary encoders
+* Environmental sensors
+* IMUs
+* Pushbuttons
+* Linux keyboard input
+
+Application code should interact with interfaces and domain objects rather than directly accessing device files, GPIO libraries, serial ports, or Bluetooth libraries.
+
+This makes it easier to support additional implementations without rewriting higher-level code.
+
+---
+
+## Protocol Modules
+
+Protocol modules implement communication formats independently of the user interface.
+
+Examples include:
+
+* OBD-II and ELM327 commands
+* Spotify Web API requests
+* OAuth authorization
+* `rigctl` radio control
+* Bluetooth lighting protocols
+
+Protocol code should not contain user-interface behavior.
+
+---
+
+## Configuration
+
+OpenRoadCode uses configuration files for hardware selection, radio profiles, device settings, runtime behavior, and application options.
+
+Configuration files are stored primarily under:
+
+```text
+config/
+```
+
+The goal is to avoid hard-coding:
+
+* Device addresses
+* Bluetooth UUIDs
+* Serial-device paths
+* Radio frequencies
+* Scanner ranges
+* Runtime implementations
+* Application-specific hardware selections
+
+Example configurations should be copied and customized rather than edited in place when possible.
+
+Do not commit credentials, API keys, OAuth tokens, or other secrets to the repository.
+
+---
+
+## Installation
+
+Installation currently supports Raspberry Pi OS and Debian/Ubuntu development
+hosts. Review the installer before running it on an existing system: it may
+install packages, configure services, and create a Python environment.
+
+A typical development setup begins with:
 
 ```bash
-python3 scripts/check_doxygen_contracts.py
+git clone https://github.com/markisrt4/OpenRoadCode.git
+cd OpenRoadCode
 ```
 
-The check exits with a nonzero status and identifies the source location when
-a public interface contract is incomplete. GitHub Actions runs it for every
-pull request and for pushes to `master`.
-
-# Running
-
-Create the Python environment:
+Run the installer with an explicit target profile:
 
 ```bash
-./host_setup.sh
+./scripts/installers/host_setup.sh --target rpi4
+./scripts/installers/host_setup.sh --target rpi5
+./scripts/installers/host_setup.sh --target linux-dev
 ```
 
-Activate:
+Targets install only their platform fundamentals. Add the capabilities needed
+for a particular machine explicitly:
+
+When the `spotify` feature is selected, `linux-dev` installs the `pactl`
+client through `pulseaudio-utils`; Raspberry Pi 4 and Pi 5 targets install
+PipeWire/WirePlumber support for `wpctl`. Runtime composition performs the same
+target detection and may be overridden with `OPENROAD_RUNTIME_TARGET`.
+
+```bash
+./scripts/installers/host_setup.sh --target rpi5 \
+  --feature desktop-ui \
+  --feature input \
+  --feature gps \
+  --feature bluetooth \
+  --feature automotive
+```
+
+Concrete devices are configured separately. For example, after installing the
+`bluetooth` capability, configure a Bluetooth Serial Port Profile device with:
+
+```bash
+./scripts/installers/setup_bluetooth_spp.sh --address AA:BB:CC:DD:EE:FF
+```
+
+Run the setup utility without an address for an interactive scan and device
+selection. The interactive host installer also offers compatible device and
+service setup as an optional post-install phase.
+
+Use `--with-vnc` or `--with-gpsd-service` only when those services should be
+configured. VNC password initialization is interactive and never creates a
+default password.
+
+Install every capability compatible with a target without spelling out the
+complete feature list:
+
+```bash
+./scripts/installers/host_setup.sh --target rpi5 --all-features
+```
+
+`--all-features` installs software support but does not pair concrete devices,
+create credentials, or enable optional services. Combine it with
+`--with-vnc` or `--with-gpsd-service` when desired, and add `--show-plan` to
+preview the complete expansion.
+
+Inspect the resolved features and services without changing the system:
+
+```bash
+./scripts/installers/host_setup.sh --target linux-dev --show-plan
+```
+
+The installer compares the selected target with the detected machine and asks
+for confirmation when they differ. Noninteractive mismatches fail safely;
+`--force-target` is available for deliberate automated overrides.
+
+After installation, activate the Python environment if the installer created one:
 
 ```bash
 source venv/bin/activate
 ```
 
-Run the UI:
+Run `./scripts/installers/host_setup.sh --help` for optional feature and service
+arguments.
+
+---
+
+## Running the Car UI
+
+From the repository root:
 
 ```bash
 CARUI_GEOMETRY=1024x600 \
@@ -276,64 +401,321 @@ CARUI_FULLSCREEN=0 \
 venv/bin/python -m apps.carUi.main
 ```
 
-CarUI shows an OpenRoadCode startup splash by default. It fades in for 700 ms,
-holds for 1.5 seconds, and fades out for 700 ms before constructing the main
-application. The sequence can be adjusted or disabled with:
+For fullscreen operation:
 
 ```bash
-CARUI_SPLASH=0                         # disable the splash
-CARUI_SPLASH_FADE_MS=400              # fade duration
-CARUI_SPLASH_HOLD_MS=1000             # fully-visible duration
-CARUI_SPLASH_FULLSCREEN=1             # override splash fullscreen behavior
+CARUI_FULLSCREEN=1 \
+venv/bin/python -m apps.carUi.main
 ```
 
-If `CARUI_SPLASH_FULLSCREEN` is not set, the splash follows
-`CARUI_FULLSCREEN`. In windowed development it uses `CARUI_GEOMETRY` and is
-centered on the active X11/WSLg display.
+Environment variables currently used by the application include:
 
-For per-application X11 forwarding, connect to the host with `ssh -X` or
-`ssh -Y`. SSH assigns and exports `DISPLAY`; CarUI preserves that value. 
-From a workstation with an X server, launch it with:
+| Variable                  | Purpose                               |
+| ------------------------- | ------------------------------------- |
+| `CARUI_GEOMETRY`          | Window size in `WIDTHxHEIGHT` format  |
+| `CARUI_FULLSCREEN`        | Enable or disable fullscreen mode     |
+| `CARUI_SPLASH`            | Enable or disable the startup splash  |
+| `CARUI_SPLASH_FADE_MS`    | Splash fade duration                  |
+| `CARUI_SPLASH_HOLD_MS`    | Time the splash remains fully visible |
+| `CARUI_SPLASH_FULLSCREEN` | Override splash fullscreen behavior   |
+| `CARUI_DISPLAY`           | Explicit X11 display override         |
+
+Example without the startup splash:
 
 ```bash
-ssh -X username@your-openroad-host
+CARUI_SPLASH=0 \
+CARUI_GEOMETRY=1024x600 \
+CARUI_FULLSCREEN=0 \
+venv/bin/python -m apps.carUi.main
+```
+
+---
+
+## Remote X11 Development
+
+OpenRoadCode can be launched through X11 forwarding for development.
+
+Connect to the target system with:
+
+```bash
+ssh -X username@openroad-host
+```
+
+Then run:
+
+```bash
 echo "$DISPLAY"
+
 CARUI_GEOMETRY=1024x600 \
 CARUI_FULLSCREEN=0 \
 venv/bin/python -m apps.carUi.main
 ```
 
-Use `ssh -Y` instead if your workstation and security policy require trusted
-X11 forwarding. `CARUI_DISPLAY` remains available as an explicit advanced
-override, but it is not populated from the VNC configuration.
+Trusted X11 forwarding may be used where appropriate:
+
+```bash
+ssh -Y username@openroad-host
+```
+
+The application normally preserves the `DISPLAY` value assigned by SSH.
 
 ---
 
-# Project Goals
+## Development Without Hardware
 
-This project serves several purposes:
+Many OpenRoadCode components provide mocks, stubs, or unconfigured implementations.
 
-* Build a customizable in-vehicle SDR platform
-* Explore embedded Linux development
-* Experiment with automotive integration
-* Develop reusable hardware abstraction layers
-* Learn reverse engineering techniques for vehicle networks
-* Provide a platform for future experimentation
+These allow developers to:
 
----
+* Test application logic on a workstation
+* Develop panels without connecting physical devices
+* Simulate controller state
+* Verify dependency assembly
+* Test failure and unconfigured states
+* Build new hardware adapters independently
 
-# Safety Notice
-
-This is an experimental project intended for hobbyist and educational purposes.
-
-Never operate or interact with the system in a way that distracts from safe vehicle operation. Any features intended for driver interaction should be used only when it is safe to do so.
-
-Vehicle integrations should be performed carefully and at the user's own risk.
+New controllers should provide a mock or stub implementation when practical.
 
 ---
 
-# License
+## Component Tests
 
-Copyright (c) 2026
+Many hardware and controller modules include command-line component tests.
 
-This project is released under the MIT License.
+These are intended to verify one subsystem at a time without launching the complete application.
+
+Examples may include tests for:
+
+* GPSD and browser position input
+* OBD-II communication
+* Rotary encoders
+* Environmental sensors
+* Spotify
+* Music-video lookup
+* Audio control
+* Bluetooth devices
+
+Component tests may require hardware, Linux permissions, system services, or environment variables.
+
+They supplement automated tests but should not be treated as a replacement for them.
+
+---
+
+## Automated Checks
+
+Public methods declared in `*_if.py` modules must document:
+
+* Every argument with `@param`
+* Every non-`None` return value with `@return` or `@retval`
+
+Run the interface-contract check with:
+
+```bash
+python3 scripts/check_doxygen_contracts.py
+```
+
+The command exits with a nonzero status when a public interface contract is incomplete.
+
+GitHub Actions may run this and other checks for pull requests and changes to the default branch.
+
+Additional automated behavioral tests are being added as the project matures.
+
+---
+
+## Coding Guidelines
+
+General project conventions include:
+
+* Use `snake_case` for Python modules, methods, functions, and variables
+* Use clear interface names ending in `If`
+* Prefer dependency injection over global state
+* Keep hardware-specific behavior in `hardware_io`
+* Keep protocol parsing in `protocols`
+* Keep application-facing behavior in `controllers`
+* Avoid importing application modules from lower-level packages
+* Provide type annotations for public APIs
+* Document public interfaces
+* Keep configuration outside application logic
+* Provide mocks or stubs for hardware-dependent components when practical
+* Handle unavailable hardware as a normal runtime condition
+* Prefer small, focused modules over large multipurpose classes
+
+---
+
+## Adding New Hardware
+
+A typical hardware integration should follow this pattern:
+
+1. Define or reuse a hardware interface.
+2. Create a concrete adapter for the device.
+3. Add a component test for direct hardware verification.
+4. Create or update the corresponding controller.
+5. Add configuration for selecting the implementation.
+6. Inject the implementation during runtime assembly.
+7. Keep device-specific imports out of the UI.
+
+Example:
+
+```text
+EnvironmentalSensorIf
+        │
+        ├── Bmp390Adapter
+        ├── MockEnvironmentalSensor
+        └── FutureSensorAdapter
+```
+
+The rest of the application should not need to know which physical sensor is active.
+
+---
+
+## Adding a New Application Feature
+
+A new user-facing feature will typically include:
+
+```text
+apps/
+    User-interface panel or application
+
+controllers/
+    Application-facing behavior
+
+hardware_io/
+    Optional device implementation
+
+protocols/
+    Optional communication protocol
+
+config/
+    Runtime and device settings
+```
+
+Not every feature requires every layer.
+
+Avoid creating abstractions unless they provide a real boundary, test seam, or interchangeable implementation. Software has enough ceremonial architecture already.
+
+---
+
+## Supported Platforms
+
+Primary development targets include:
+
+* Raspberry Pi OS
+* Debian-based ARM64 systems
+* Debian-based AMD64 development systems
+
+Other Linux distributions may work but are not currently guaranteed.
+
+The user interface currently relies on Linux desktop and display technologies including Tkinter, X11, VNC, and related services.
+
+Some integrations also rely on:
+
+* GPSD
+* BlueZ
+* PipeWire
+* RTL-SDR
+* SDR++
+* Chromium
+* Streamlit
+* Linux GPIO and I2C support
+
+---
+
+## Safety
+
+OpenRoadCode is an experimental hobbyist and educational platform.
+
+It must not be relied upon for:
+
+* Steering
+* Braking
+* Throttle control
+* Airbag control
+* Stability control
+* Other safety-critical vehicle functions
+
+Do not interact with the system while driving unless the interaction is legal, safe, and designed to minimize distraction.
+
+Radio operation must comply with applicable laws and regulations.
+
+Vehicle wiring, power integration, CAN bus access, GPIO connections, and external hardware modifications should be performed carefully.
+
+The project maintainers and contributors are not responsible for vehicle damage, data loss, distraction, regulatory violations, or injury resulting from use of the software or associated hardware.
+
+---
+
+## Contributing
+
+Contributions are welcome, particularly in the following areas:
+
+* Automated tests
+* Documentation
+* Hardware adapters
+* Configuration validation
+* Installation improvements
+* User-interface accessibility
+* Radio applications
+* Vehicle telemetry
+* Embedded Linux support
+* Failure handling
+* Platform portability
+
+Before submitting a major architectural change, open an issue describing:
+
+* The problem being solved
+* The proposed design
+* The affected layers
+* Hardware or platform dependencies
+* Testing considerations
+
+Changes should preserve separation between applications, controllers, protocols, and hardware-specific code.
+
+Ready to get involved? Read the friendly
+[contributor guide](https://github.com/markisrt4/OpenRoadCode/blob/master/CONTRIBUTING.md)
+for development setup, architecture, testing conventions, hardware guidance,
+and the pull-request checklist.
+
+---
+
+## Reporting Problems
+
+When reporting a problem, include:
+
+* Linux distribution and version
+* CPU architecture
+* Raspberry Pi or computer model
+* Python version
+* Relevant hardware
+* Configuration files with secrets removed
+* Steps to reproduce
+* Expected behavior
+* Actual behavior
+* Relevant logs or terminal output
+
+For hardware-related issues, also include:
+
+* Device model
+* Connection type
+* Device path
+* USB or I2C detection output
+* Required Linux services
+* Whether the component test succeeds
+
+---
+
+## License
+
+OpenRoadCode is released under the MIT License.
+
+See [LICENSE](LICENSE) for the complete license text.
+
+Security concerns should be reported according to the
+[security policy](SECURITY.md). Please do not disclose sensitive findings in
+a public issue.
+
+---
+
+## Acknowledgments
+
+OpenRoadCode builds upon the work of many open-source projects and communities, including Linux, Python, Raspberry Pi, RTL-SDR, GPSD, BlueZ, PipeWire, SDR++, Spotify integration libraries, and numerous hardware-driver projects.
+
+The project would not be possible without the maintainers who document obscure hardware behavior so the rest of us can eventually discover that one missing `udev` rule.

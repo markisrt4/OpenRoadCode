@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
+import tempfile
 
 from protocols.oauth import (
     OAuthTokens,
@@ -75,6 +77,7 @@ class SpotifyTokenStore(OAuthTokenStoreIf):
             parents=True,
             exist_ok=True,
         )
+        self._path.parent.chmod(0o700)
 
         data = {
             "access_token": tokens.access_token,
@@ -84,15 +87,31 @@ class SpotifyTokenStore(OAuthTokenStoreIf):
             "scope": tokens.scope,
         }
 
-        with self._path.open(
-            "w",
-            encoding="utf-8",
-        ) as file:
-            json.dump(
-                data,
-                file,
-                indent=2,
-            )
+        temporary_path: Path | None = None
+
+        try:
+            with tempfile.NamedTemporaryFile(
+                mode="w",
+                encoding="utf-8",
+                dir=self._path.parent,
+                prefix=f".{self._path.name}.",
+                delete=False,
+            ) as file:
+                temporary_path = Path(file.name)
+                os.chmod(file.fileno(), 0o600)
+                json.dump(data, file, indent=2)
+                file.write("\n")
+                file.flush()
+                os.fsync(file.fileno())
+
+            temporary_path.replace(self._path)
+            self._path.chmod(0o600)
+        finally:
+            if (
+                temporary_path is not None
+                and temporary_path.exists()
+            ):
+                temporary_path.unlink()
 
     def clear(self) -> None:
         if self._path.exists():

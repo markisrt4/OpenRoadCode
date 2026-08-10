@@ -18,15 +18,24 @@ combinations and estimation algorithms without changing the controller.
 
 Applications should depend on `NavigationControllerIf`.
 
-- `NavigationController` processes live motion and optional GPS sources.
+- `NavigationController` processes live motion and an optional position source.
 - `NavigationControllerStub` provides deterministic in-memory state for demos
   and UI development.
+- `SimulatedNavigationController` provides changing attitude, acceleration,
+  angular velocity, and GPS data for interactive development without hardware.
 - `UnconfiguredNavigationController` reports `is_available == False`, exposes
   a reason through `status_message`, and raises for navigation operations
   rather than fabricating position or motion.
 
 All implementations expose the same lifecycle, heading reset, stationary
-calibration, GPS update, and state-reading contract.
+calibration, position update, and state-reading contract.
+
+The multi-screen terminal frontend selects the simulator with no sensor,
+gpsd, or serial dependencies:
+
+```bash
+venv/bin/python -m apps.carTui.main --demo
+```
 
 ## Adapters
 
@@ -35,15 +44,34 @@ hardware drivers:
 
 ```text
 Mpu6050Imu -> Mpu6050NavigationAdapter -> NavigationSensorIf
-GpsReader  -> GpsdNavigationAdapter    -> NavigationGpsSourceIf
+GpsReader  -> GpsdPositionSource       -> PositionSourceIf
 ```
 
 `Mpu6050NavigationAdapter` converts the MPU-6050 acceleration and angular
 velocity readings into a normalized `MotionSample`. Future motion sensors can
 provide their own `NavigationSensorIf` adapters.
 
-`GpsdNavigationAdapter` converts asynchronous `GpsData` reports into normalized
-`GpsState` updates. GPS is optional.
+`GpsdPositionSource` converts asynchronous `GpsData` reports into normalized
+`PositionState` updates. `BrowserPositionSource` receives the browser
+Geolocation API through a local HTTP relay and produces the same state type.
+Position input is optional.
+
+CarUi decorates either provider with `PersistentPositionSource`. It publishes
+a recent last-known fix immediately at startup, then replaces it with live
+updates. Only valid live 2D/3D fixes are stored through `PositionSnapshotCache`
+and the generic `controllers.cache` storage layer. Restored states have
+`is_cached == True`; speed, course, and satellite counts are not restored.
+
+The default snapshot path and maximum age are:
+
+```text
+~/.cache/openroadcode/position
+604800 seconds (7 days)
+```
+
+Override them with `CARUI_POSITION_CACHE_DIRECTORY` and
+`CARUI_POSITION_CACHE_MAX_AGE_SECONDS`, or disable persistence with
+`CARUI_POSITION_CACHE=0`.
 
 ## Orientation Estimators
 
@@ -111,7 +139,7 @@ To include the existing gpsd source:
 
 ```python
 from controllers.navigation import (
-    GpsdNavigationAdapter,
+    GpsdPositionSource,
     Mpu6050NavigationAdapter,
     NavigationController,
 )
@@ -121,7 +149,7 @@ from hardware_io.imu import Mpu6050Imu
 
 navigation = NavigationController(
     sensor=Mpu6050NavigationAdapter(Mpu6050Imu()),
-    gps_source=GpsdNavigationAdapter(GpsReader()),
+    gps_source=GpsdPositionSource(GpsReader()),
 )
 ```
 
@@ -137,6 +165,9 @@ if state.gps is not None and state.gps.has_fix:
 
 `GpsState.received_at` identifies when the navigation adapter received the
 report, allowing consumers to reject stale GPS data.
+
+`PositionState` is the provider-neutral name. `GpsState` remains available as
+a compatibility alias for existing consumers.
 
 Call `read_state()` at a steady interval. The filter accounts for elapsed
 time, but consistent sampling produces better results.
@@ -221,11 +252,12 @@ python3 -m controllers.navigation.component_test.navigation_cli --gps
 
 Use `--gps-host` and `--gps-port` for a non-default gpsd endpoint.
 
-## GPS Integration
+## Position Integration
 
-GPS is a useful navigation input, but the `gpsd` connection should remain in
-`hardware_io.gps`. The navigation layer can consume normalized GPS updates
-without owning USB devices or depending directly on the gpsd protocol.
+Applications and controllers consume `PositionSourceIf`, independently of how
+the position was obtained. The `gpsd` connection remains in `hardware_io.gps`,
+while `GpsdPositionSource` adapts its reports. `BrowserPositionSource` provides
+the same contract from browser geolocation.
 
 GPS can contribute:
 
@@ -240,7 +272,7 @@ vehicle heading during reversing or sideways motion. For that reason, GPS
 course should be treated as a conditional fusion input rather than replacing
 the orientation estimator.
 
-`GpsdNavigationAdapter` now adds normalized position/course state to
+`GpsdPositionSource` adds normalized position/course state to
 `NavigationState`. A later GPS-aware `OrientationEstimatorIf` can use valid,
 sufficiently fast course updates for drift correction; the current default
 estimator intentionally does not fuse GPS course into heading yet.

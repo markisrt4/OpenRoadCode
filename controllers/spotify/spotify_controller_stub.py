@@ -8,6 +8,12 @@ class SpotifyControllerStub(SpotifyControllerIf):
     def current_state(self) -> SpotifyState:
         return SpotifyState()
 
+    def play(self) -> None:
+        pass
+
+    def pause(self) -> None:
+        pass
+
     def play_pause(self) -> None:
         pass
 

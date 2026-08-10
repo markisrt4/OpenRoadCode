@@ -4,11 +4,15 @@ import io
 import threading
 from collections import OrderedDict
 from dataclasses import dataclass
+from pathlib import Path
 
 from PIL import Image
 
+from controllers.cache import PersistentCache, PersistentCacheIf
 from controllers.image.image_downloader import ImageDownloader
 from controllers.image.image_errors import ImageDecodeError
+
+_LANCZOS = getattr(Image, "Resampling", Image).LANCZOS
 
 
 @dataclass(frozen=True, slots=True)
@@ -34,6 +38,7 @@ class ImageCache:
         downloader: ImageDownloader | None = None,
         *,
         max_entries: int = 64,
+        cache_directory: str | Path | None = None,
     ) -> None:
         if max_entries <= 0:
             raise ValueError(
@@ -42,6 +47,16 @@ class ImageCache:
 
         self._downloader = downloader or ImageDownloader()
         self._max_entries = max_entries
+        self._cache_directory = (
+            Path(cache_directory).expanduser()
+            if cache_directory is not None
+            else None
+        )
+        self._persistent_cache: PersistentCacheIf | None = (
+            PersistentCache(self._cache_directory, suffix=".image")
+            if self._cache_directory is not None
+            else None
+        )
 
         self._images: OrderedDict[
             ImageCacheKey,
@@ -57,6 +72,11 @@ class ImageCache:
         @return Positive cache-entry limit.
         """
         return self._max_entries
+
+    @property
+    def cache_directory(self) -> Path | None:
+        """Return the persistent source-image cache directory, if enabled."""
+        return self._cache_directory
 
     @property
     def entry_count(self) -> int:
@@ -170,7 +190,10 @@ class ImageCache:
                 image = self._images.pop(key)
                 image.close()
 
-            return len(matching_keys)
+        if self._persistent_cache is not None:
+            self._persistent_cache.remove(normalized_url)
+
+        return len(matching_keys)
 
     def clear(self) -> None:
         """
@@ -189,20 +212,25 @@ class ImageCache:
         width: int | None,
         height: int | None,
     ) -> Image.Image:
-        downloaded = self._downloader.download(url)
+        data, from_disk = self._source_data(url)
 
         try:
-            with Image.open(
-                io.BytesIO(downloaded.data)
-            ) as source:
-                source.load()
-
-                image = source.convert("RGBA")
-
+            image = self._decode(data)
         except (OSError, ValueError) as exc:
-            raise ImageDecodeError(
-                f"Unable to decode image from {url}"
-            ) from exc
+            if not from_disk:
+                raise ImageDecodeError(
+                    f"Unable to decode image from {url}"
+                ) from exc
+            if self._persistent_cache is not None:
+                self._persistent_cache.remove(url)
+            downloaded = self._downloader.download(url)
+            self._persist(url, downloaded.data)
+            try:
+                image = self._decode(downloaded.data)
+            except (OSError, ValueError) as retry_exc:
+                raise ImageDecodeError(
+                    f"Unable to decode image from {url}"
+                ) from retry_exc
 
         if width is not None or height is not None:
             target_width = (
@@ -214,10 +242,35 @@ class ImageCache:
 
             image.thumbnail(
                 (target_width, target_height),
-                Image.Resampling.LANCZOS,
+                _LANCZOS,
             )
 
         return image
+
+    @staticmethod
+    def _decode(data: bytes) -> Image.Image:
+        with Image.open(io.BytesIO(data)) as source:
+            source.load()
+            return source.convert("RGBA")
+
+    def _source_data(self, url: str) -> tuple[bytes, bool]:
+        if self._persistent_cache is not None:
+            cached = self._persistent_cache.get(url)
+            if cached is not None:
+                return cached, True
+
+        downloaded = self._downloader.download(url)
+        self._persist(url, downloaded.data)
+        return downloaded.data, False
+
+    def _persist(self, url: str, data: bytes) -> None:
+        if self._persistent_cache is None:
+            return
+        try:
+            self._persistent_cache.put(url, data)
+        except OSError:
+            # A read-only or unavailable disk cache must not stop playback.
+            return
 
     def _evict_if_needed(self) -> None:
         while len(self._images) > self._max_entries:

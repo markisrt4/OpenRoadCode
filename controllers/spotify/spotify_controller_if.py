@@ -14,6 +14,14 @@ class SpotifyControllerIf(ABC):
         """
 
     @abstractmethod
+    def play(self) -> None:
+        """Start or resume playback."""
+
+    @abstractmethod
+    def pause(self) -> None:
+        """Pause playback."""
+
+    @abstractmethod
     def play_pause(self) -> None:
         """Toggle between playing and paused states."""
 

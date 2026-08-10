@@ -63,9 +63,9 @@ sudo apt install -y "$DEB_FILE"
 
 echo "[*] Installing RTL-SDR udev rule..."
 sudo tee /etc/udev/rules.d/20-rtlsdr.rules >/dev/null <<'EOF'
-SUBSYSTEM=="usb", ATTRS{idVendor}=="0bda", ATTRS{idProduct}=="2832", GROUP="plugdev", MODE="0666"
-SUBSYSTEM=="usb", ATTRS{idVendor}=="0bda", ATTRS{idProduct}=="2838", GROUP="plugdev", MODE="0666"
-SUBSYSTEM=="usb", ATTRS{idVendor}=="0bda", ATTRS{idProduct}=="2830", GROUP="plugdev", MODE="0666"
+SUBSYSTEM=="usb", ATTRS{idVendor}=="0bda", ATTRS{idProduct}=="2832", GROUP="plugdev", MODE="0660"
+SUBSYSTEM=="usb", ATTRS{idVendor}=="0bda", ATTRS{idProduct}=="2838", GROUP="plugdev", MODE="0660"
+SUBSYSTEM=="usb", ATTRS{idVendor}=="0bda", ATTRS{idProduct}=="2830", GROUP="plugdev", MODE="0660"
 EOF
 
 sudo usermod -aG plugdev "$USER" || true
@@ -78,7 +78,7 @@ echo
 echo "Test SDR:"
 echo "    rtl_test -t"
 echo
-echo "Launch SDR++ on VNC display :2:"
-echo "    DISPLAY=:2 sdrpp &"
+echo "Launch SDR++:"
+echo "    sdrpp"
 echo
 echo "[!] Replug the SDR dongle or log out/in if permissions are weird."

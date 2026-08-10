@@ -1,27 +1,30 @@
 import math
+import os
 from datetime import datetime
-from typing import Optional, Dict, Any
+from pathlib import Path
+from typing import Optional
 
-import requests
 import streamlit as st
-import geocoder
 from streamlit_autorefresh import st_autorefresh
 
-try:
-    import gpsd
-    GPSD_AVAILABLE = True
-except ImportError:
-    GPSD_AVAILABLE = False
+from controllers.cache import PersistentCache
+from controllers.weather import (
+    DEFAULT_WEATHER_CACHE_DIRECTORY,
+    OpenMeteoWeatherController,
+    WeatherSnapshotCache,
+)
 
 
 REFRESH_SECONDS = 60
-USE_GPSD = True
-GPSD_HOST = "127.0.0.1"
-GPSD_PORT = 2947
-
-DEFAULT_LAT = 42.6709
-DEFAULT_LON = -83.0330
-DEFAULT_LOCATION_NAME = "Fallback Location"
+CACHE_DIRECTORY = Path(
+    os.getenv(
+        "OPENROAD_WEATHER_CACHE_DIRECTORY",
+        str(DEFAULT_WEATHER_CACHE_DIRECTORY),
+    )
+).expanduser()
+REFRESH_MAX_AGE_SECONDS = int(
+    os.getenv("OPENROAD_WEATHER_REFRESH_SECONDS", "120")
+)
 
 st.set_page_config(
     page_title="OpenRoadCode Weather",
@@ -157,98 +160,17 @@ def kmh_to_mph(kmh: Optional[float]) -> str:
     return f"{kmh * 0.621371:.1f} mph"
 
 
-@st.cache_data(ttl=45)
-def get_ip_location() -> Dict[str, Any]:
-    g = geocoder.ip("me")
-    if g.ok and g.latlng:
-        name = ", ".join(part for part in [g.city or "", g.state or "", g.country or ""] if part)
-        return {"lat": g.latlng[0], "lon": g.latlng[1], "name": name or "IP location", "source": "IP geolocation"}
-    raise RuntimeError("IP geolocation failed")
-
-
-def get_gpsd_location() -> Dict[str, Any]:
-    if not GPSD_AVAILABLE:
-        raise RuntimeError("gpsd-py3 not installed")
-
-    gpsd.connect(host=GPSD_HOST, port=GPSD_PORT)
-    packet = gpsd.get_current()
-
-    if packet.mode < 2:
-        raise RuntimeError("GPS fix not available")
-
-    if packet.lat is None or packet.lon is None:
-        raise RuntimeError("GPS returned no coordinates")
-
-    return {"lat": packet.lat, "lon": packet.lon, "name": f"{packet.lat:.5f}, {packet.lon:.5f}", "source": "GPSD"}
-
-
-def get_location() -> Dict[str, Any]:
-    if USE_GPSD:
-        try:
-            return get_gpsd_location()
-        except Exception:
-            pass
-
-    try:
-        return get_ip_location()
-    except Exception:
-        return {
-            "lat": DEFAULT_LAT,
-            "lon": DEFAULT_LON,
-            "name": DEFAULT_LOCATION_NAME,
-            "source": "Static fallback",
-        }
-
-
-@st.cache_data(ttl=300)
-def reverse_geocode(lat: float, lon: float) -> str:
-    try:
-        g = geocoder.osm([lat, lon], method="reverse")
-        if g.ok:
-            city = g.city or g.town or g.village or ""
-            state = g.state or ""
-            country = g.country or ""
-            return ", ".join(part for part in [city, state, country] if part) or f"{lat:.5f}, {lon:.5f}"
-    except Exception:
-        pass
-    return f"{lat:.5f}, {lon:.5f}"
-
-
-@st.cache_data(ttl=120)
-def fetch_weather(lat: float, lon: float) -> Dict[str, Any]:
-    url = "https://api.open-meteo.com/v1/forecast"
-    params = {
-        "latitude": lat,
-        "longitude": lon,
-        "timezone": "auto",
-        "current": ",".join([
-            "temperature_2m", "apparent_temperature", "relative_humidity_2m",
-            "precipitation", "rain", "showers", "snowfall", "weather_code",
-            "cloud_cover", "pressure_msl", "surface_pressure",
-            "wind_speed_10m", "wind_direction_10m", "wind_gusts_10m",
-        ]),
-        "hourly": ",".join([
-            "temperature_2m", "apparent_temperature", "precipitation_probability",
-            "precipitation", "weather_code", "cloud_cover", "wind_speed_10m",
-        ]),
-        "daily": ",".join([
-            "weather_code", "temperature_2m_max", "temperature_2m_min",
-            "sunrise", "sunset", "precipitation_probability_max",
-            "wind_speed_10m_max",
-        ]),
-        "forecast_days": 7,
-    }
-    r = requests.get(url, params=params, timeout=10)
-    r.raise_for_status()
-    return r.json()
-
-
 try:
-    loc = get_location()
-    lat = float(loc["lat"])
-    lon = float(loc["lon"])
-    pretty_location = reverse_geocode(lat, lon)
-    weather = fetch_weather(lat, lon)
+    weather_controller = OpenMeteoWeatherController(
+        WeatherSnapshotCache(PersistentCache(CACHE_DIRECTORY))
+    )
+    snapshot = weather_controller.refresh_if_stale(
+        REFRESH_MAX_AGE_SECONDS
+    )
+    lat = snapshot.latitude
+    lon = snapshot.longitude
+    pretty_location = snapshot.location_name
+    weather = snapshot.forecast
 
     current = weather["current"]
     hourly = weather["hourly"]
@@ -256,14 +178,16 @@ try:
 
     condition = WMO_CODES.get(current.get("weather_code"), f"Code {current.get('weather_code')}")
     wind_dir = wind_dir_from_degrees(current.get("wind_direction_10m"))
-    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    now_str = datetime.fromtimestamp(snapshot.fetched_at).strftime(
+        "%Y-%m-%d %H:%M:%S"
+    )
 
     st.markdown(
         f"""
         <div class="weather-hero">
             <div class="weather-title">OpenRoadCode Weather</div>
             <div class="weather-subtitle">
-                📍 {pretty_location} · {lat:.5f}, {lon:.5f} · {loc["source"]} · Updated {now_str}
+                📍 {pretty_location} · {lat:.5f}, {lon:.5f} · {snapshot.source} · Updated {now_str}
             </div>
         </div>
         """,
