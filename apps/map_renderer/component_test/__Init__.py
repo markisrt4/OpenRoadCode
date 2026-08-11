@@ -1,0 +1,1 @@
+# Map Renderer Component Test
