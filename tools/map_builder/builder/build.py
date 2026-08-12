@@ -1,7 +1,10 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 """Build OpenRoadCode offline map and routing data."""
 from __future__ import annotations
 from dataclasses import asdict
-import hashlib, json, os, shutil, subprocess, time
+import hashlib, json, os, re, shutil, subprocess, time
 from pathlib import Path
 from urllib.request import Request, urlopen
 from .geofabrik import Region
@@ -40,13 +43,38 @@ def _install_sources(regions,cached_pbfs):
  for region,cached in zip(regions,cached_pbfs,strict=True):
   destination=OUTPUT_ROOT/"maps/source"/f"{region.safe_id}.osm.pbf"; shutil.copy2(cached,destination); installed.append(destination)
  return installed
+BBOX_NUMBER = re.compile(r"[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?")
+
+
+def _parse_bbox(value: str) -> str:
+ numbers = [float(match) for match in BBOX_NUMBER.findall(value)]
+ if len(numbers) != 4:
+  raise BuildError(f"Could not parse merged map bounding box: {value!r}")
+ west, south, east, north = numbers
+ if not (-180 <= west <= east <= 180 and -90 <= south <= north <= 90):
+  raise BuildError(f"Invalid merged map bounding box: {value!r}")
+ return ",".join(format(number, ".12g") for number in numbers)
+
+
+def _pbf_bbox(pbf: Path) -> str:
+ result = subprocess.run(
+  ["osmium", "fileinfo", "-e", "-g", "data.bbox", str(pbf)],
+  check=True,
+  capture_output=True,
+  text=True,
+ )
+ return _parse_bbox(result.stdout.strip())
+
+
 def _merge_for_tilemaker(pbfs):
- if len(pbfs)==1:return pbfs[0]
- merged=SCRATCH_ROOT/"selected-regions.osm.pbf"; merged.unlink(missing_ok=True); run(["osmium","merge","--overwrite","-o",str(merged),*(str(p) for p in pbfs)]); run(["osmium","fileinfo","-e",str(merged)]); return merged
-def _build_maplibre_data(tilemaker_input):
+ if len(pbfs)==1:return pbfs[0],None
+ merged=SCRATCH_ROOT/"selected-regions.osm.pbf"; merged.unlink(missing_ok=True); run(["osmium","merge","--overwrite","-o",str(merged),*(str(p) for p in pbfs)]); return merged,_pbf_bbox(merged)
+def _build_maplibre_data(tilemaker_input,bbox=None):
  output=OUTPUT_ROOT/"maps/vector/openroadcode.mbtiles"; output.unlink(missing_ok=True); store=SCRATCH_ROOT/"tilemaker-store"
  if store.exists():shutil.rmtree(store)
- store.mkdir(parents=True); run(["tilemaker","--input",str(tilemaker_input),"--output",str(output),"--config",str(TILEMAKER_CONFIG),"--process",str(TILEMAKER_PROCESS),"--store",str(store)]); install_style(STYLE_TEMPLATE,OUTPUT_ROOT/"maps/styles/openroadcode.json"); glyph_dest=OUTPUT_ROOT/"maps/glyphs/KlokanTech Noto Sans CJK Regular"
+ store.mkdir(parents=True); command=["tilemaker","--input",str(tilemaker_input),"--output",str(output),"--config",str(TILEMAKER_CONFIG),"--process",str(TILEMAKER_PROCESS),"--store",str(store)]
+ if bbox: command.extend(["--bbox",bbox])
+ run(command); install_style(STYLE_TEMPLATE,OUTPUT_ROOT/"maps/styles/openroadcode.json"); glyph_dest=OUTPUT_ROOT/"maps/glyphs/KlokanTech Noto Sans CJK Regular"
  if glyph_dest.exists():shutil.rmtree(glyph_dest)
  shutil.copytree(GLYPH_SOURCE,glyph_dest)
 def _build_valhalla(pbfs):
@@ -65,4 +93,4 @@ def _write_manifest(regions,validation):
  (OUTPUT_ROOT/"build-manifest.json").write_text(json.dumps(manifest,indent=2)+"\n",encoding="utf-8")
 def build_regions(regions:list[Region],*,clean:bool=True,service_smoke:bool=True)->dict:
  if not regions:raise BuildError("No regions selected")
- _prepare_output_dirs(clean=clean); cached=[_download_and_verify(r) for r in regions]; installed=_install_sources(regions,cached); _build_maplibre_data(_merge_for_tilemaker(installed)); _build_valhalla(installed); validation=validate_output(OUTPUT_ROOT,service_smoke=service_smoke); _write_manifest(regions,validation); return validation
+ _prepare_output_dirs(clean=clean); cached=[_download_and_verify(r) for r in regions]; installed=_install_sources(regions,cached); tilemaker_input,bbox=_merge_for_tilemaker(installed); _build_maplibre_data(tilemaker_input,bbox); _build_valhalla(installed); validation=validate_output(OUTPUT_ROOT,service_smoke=service_smoke); _write_manifest(regions,validation); return validation

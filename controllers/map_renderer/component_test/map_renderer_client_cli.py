@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 """Exercise the native map renderer client."""
 
 from controllers.map_renderer.map_renderer_client import (

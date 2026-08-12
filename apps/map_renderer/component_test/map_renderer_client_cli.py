@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 """Component test for the native map renderer client."""
 
 from protocols.map_renderer.map_renderer_client import (

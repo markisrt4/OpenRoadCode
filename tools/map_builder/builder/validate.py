@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 """Validate generated OpenRoadCode map artifacts."""
 from __future__ import annotations
 import hashlib,json,sqlite3,subprocess

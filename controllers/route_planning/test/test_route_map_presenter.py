@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 from unittest.mock import Mock
 
 from controllers.route_planning.route_map_presenter import (

@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 """Convert route-planning types to GeoJSON."""
 
 from __future__ import annotations

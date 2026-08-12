@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 set -euo pipefail
 
 VALHALLA_CONFIG="${VALHALLA_CONFIG:-/opt/valhalla/valhalla.json}"

@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 FROM debian:trixie
 
 ENV DEBIAN_FRONTEND=noninteractive

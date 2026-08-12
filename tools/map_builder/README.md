@@ -6,7 +6,12 @@ It automates the previously manual chain: discover Geofabrik regions, download a
 
 ## Toolchain
 
-The toolchain is pinned in `toolchain.lock` to specific tilemaker, Valhalla, glyph, and Debian versions. Docker is a build/data-compilation environment only. The OpenRoadCode runtime does not require Docker.
+The toolchain is pinned in `toolchain.lock` to specific tilemaker, Valhalla, glyph, and Debian versions. A container engine is used only as a build/data-compilation environment; the OpenRoadCode runtime does not require one. The scripts use Docker by default. To use Podman, set `CONTAINER_ENGINE=podman`:
+
+```bash
+CONTAINER_ENGINE=podman ./scripts/build-image.sh
+CONTAINER_ENGINE=podman ./scripts/run-builder.sh tui
+```
 
 ## Build image
 
@@ -21,7 +26,21 @@ cd tools/map_builder
 ./scripts/run-builder.sh tui
 ```
 
-Controls: Up/Down and PageUp/PageDown navigate, Space selects, `/` searches, `c` clears the search, Enter accepts the selected regions, and `q` quits. Parent/child region combinations are rejected to prevent duplicate map data.
+The runner bind-mounts the local `builder/` and `templates/` directories into
+the container, so Python, TUI, and style-template edits are available
+immediately. Rebuild the image only after changing the Dockerfile, toolchain
+versions, or container-installed dependencies.
+
+Controls: Up/Down and PageUp/PageDown navigate, Right expands or collapses a
+region group, Left collapses or moves to its parent, Space selects, `/` searches,
+`c` clears the search, Enter accepts the selected regions, and `q` quits. `b`
+also accepts the selection. Parent/child region combinations are rejected to
+prevent duplicate map data.
+
+The last accepted selection is stored in `.cache/selected-regions.json`. On the
+next run, regions that still exist in the current Geofabrik index are selected
+with `[x]`, and their parent groups are expanded so they are visible. Quitting
+with `q` leaves the previous accepted selection unchanged.
 
 ## Non-interactive build
 
@@ -34,6 +53,10 @@ Multiple regions are comma separated:
 ```bash
 ./scripts/run-builder.sh build --regions north-america/us/michigan,north-america/us/ohio
 ```
+
+After a successful interactive or non-interactive build, the builder reports
+the selected region names, their combined source PBF size, total deployable
+output size, elapsed build time, and output path.
 
 List known Geofabrik IDs with:
 
@@ -81,6 +104,20 @@ Run validation again with:
 ```
 
 The deployment script refuses to install an output tree without a validated `build-manifest.json`. It synchronizes generated data into `/srv/openroadcode` while preserving `maps/routes/` as runtime/debug space.
+
+To deploy to the same directory on a networked device over SSH:
+
+```bash
+./scripts/deploy-to-srv.sh --remote openroad@192.168.1.50
+# Or through Make:
+make deploy REMOTE=openroad@192.168.1.50
+```
+
+The remote device must have `rsync` installed. Because `/srv/openroadcode` is
+normally root-owned, the remote account must also have passwordless `sudo`
+permission to run `mkdir` and `rsync`. SSH key authentication is recommended.
+Remote rsync uses block-level delta transfer, although rebuilt MBTiles, SQLite,
+PBF, and compressed tile archives may still contain substantial changes.
 
 ## Cache and scratch data
 

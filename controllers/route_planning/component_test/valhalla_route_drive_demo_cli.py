@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 """Animate a simulated vehicle along a Valhalla route."""
 
 from __future__ import annotations
