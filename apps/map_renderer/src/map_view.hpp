@@ -17,33 +17,58 @@ class RendererBackend;
 }
 }
 
+/**
+ * @brief GLFW window, input adapter, and event loop for a MapLibre map.
+ *
+ * The view owns the graphics backend and translates window resize, mouse,
+ * scroll, and frame events into MapLibre operations.
+ */
 class MapView : public mbgl::MapObserver {
 public:
+    /**
+     * @brief Create the renderer window and graphics backend.
+     * @param resourceOptions MapLibre resource configuration.
+     * @param clientOptions MapLibre client configuration.
+     */
     MapView(
         const mbgl::ResourceOptions& resourceOptions,
         const mbgl::ClientOptions& clientOptions
     );
 
+    /** @brief Destroy the window and terminate GLFW. */
     ~MapView() override;
 
+    /** @brief Return the framebuffer-to-window pixel ratio. */
     float getPixelRatio() const;
 
+    /** @brief Return the current logical window size. */
     mbgl::Size getSize() const;
 
+    /** @brief Return the graphics backend used by the renderer. */
     mbgl::gfx::RendererBackend& getRendererBackend();
 
+    /** @brief Attach the MapLibre map controlled by this view. */
     void setMap(mbgl::Map* map);
 
+    /** @brief Attach the frontend that renders invalidated frames. */
     void setRendererFrontend(MapRendererFrontend* rendererFrontend);
 
+    /** @brief Run the window event loop until the window closes. */
     void run();
 
+    /** @brief Mark the view dirty and wake the event loop. */
     void invalidate();
 
+    /** @brief Request that the window and event loop close. */
     void setShouldClose();
 
+    /** @brief Receive notification that MapLibre will render a frame. */
     void onWillStartRenderingFrame() override;
 
+    /**
+     * @brief Set work to execute on every event-loop tick.
+     * @param callback Callback used to poll external map commands.
+     */
     void setUpdateCallback(std::function<void()> callback);
 
 private:

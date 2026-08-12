@@ -1,6 +1,8 @@
 #include "map_command_server.hpp"
 
 #include <rapidjson/document.h>
+#include <rapidjson/stringbuffer.h>
+#include <rapidjson/writer.h>
 
 #include <sys/socket.h>
 #include <sys/un.h>
@@ -115,7 +117,7 @@ MapCommandServer::~MapCommandServer()
 }
 
 
-std::optional<SetCenterCommand>
+std::optional<MapCommand>
 MapCommandServer::poll()
 {
     sockaddr_un clientAddress{};
@@ -148,30 +150,58 @@ MapCommandServer::poll()
         return std::nullopt;
     }
 
+    std::string payload;
+
     char buffer[4096];
 
-    const ssize_t count =
-        ::read(
-            clientFd,
-            buffer,
-            sizeof(buffer) - 1
-        );
+    while (true) {
+        const ssize_t count =
+            ::read(
+                clientFd,
+                buffer,
+                sizeof(buffer)
+            );
 
-    ::close(clientFd);
+        if (count > 0) {
+            payload.append(
+                buffer,
+                static_cast<std::size_t>(count)
+            );
 
-    if (count <= 0) {
+            continue;
+        }
+
+        if (count == 0) {
+            break;
+        }
+
+        if (errno == EINTR) {
+            continue;
+        }
+
+        std::cerr
+            << "Map command read failed: "
+            << std::strerror(errno)
+            << '\n';
+
+        ::close(clientFd);
+
         return std::nullopt;
     }
 
-    buffer[count] = '\0';
+    ::close(clientFd);
+
+    if (payload.empty()) {
+        return std::nullopt;
+    }
 
     return parseCommand(
-        std::string(buffer)
+        payload
     );
 }
 
 
-std::optional<SetCenterCommand>
+std::optional<MapCommand>
 MapCommandServer::parseCommand(
     const std::string& payload
 ) const
@@ -197,33 +227,143 @@ MapCommandServer::parseCommand(
         return std::nullopt;
     }
 
-    const std::string command =
+    MapCommand command;
+
+    command.command =
         document["command"].GetString();
 
-    if (command != "set_center") {
-        std::cerr
-            << "Unknown map command: "
-            << command
-            << '\n';
+    if (
+        command.command == "set_route"
+    ) {
+        if (
+            !document.HasMember("geojson") ||
+            !document["geojson"].IsObject()
+        ) {
+            return std::nullopt;
+        }
 
-        return std::nullopt;
+        rapidjson::StringBuffer buffer;
+
+        rapidjson::Writer<
+            rapidjson::StringBuffer
+        > writer(buffer);
+
+        document["geojson"].Accept(writer);
+
+        command.geojson =
+            buffer.GetString();
+
+        return command;
     }
 
     if (
-        !document.HasMember("latitude") ||
-        !document["latitude"].IsNumber() ||
-        !document.HasMember("longitude") ||
-        !document["longitude"].IsNumber()
+        command.command == "set_center"
     ) {
-        std::cerr
-            << "set_center missing latitude "
-               "or longitude\n";
+        if (
+            !document.HasMember("latitude") ||
+            !document["latitude"].IsNumber() ||
+            !document.HasMember("longitude") ||
+            !document["longitude"].IsNumber()
+        ) {
+            return std::nullopt;
+        }
 
-        return std::nullopt;
+        command.latitude =
+            document["latitude"].GetDouble();
+
+        command.longitude =
+            document["longitude"].GetDouble();
+
+        return command;
     }
 
-    return SetCenterCommand{
-        document["latitude"].GetDouble(),
-        document["longitude"].GetDouble()
-    };
+    if (
+        command.command == "set_camera"
+    ) {
+        if (
+            !document.HasMember("latitude") ||
+            !document["latitude"].IsNumber() ||
+            !document.HasMember("longitude") ||
+            !document["longitude"].IsNumber() ||
+            !document.HasMember("zoom") ||
+            !document["zoom"].IsNumber() ||
+            !document.HasMember("bearing") ||
+            !document["bearing"].IsNumber() ||
+            !document.HasMember("pitch") ||
+            !document["pitch"].IsNumber()
+        ) {
+            return std::nullopt;
+        }
+
+        command.latitude =
+            document["latitude"].GetDouble();
+
+        command.longitude =
+            document["longitude"].GetDouble();
+
+        command.zoom =
+            document["zoom"].GetDouble();
+
+        command.bearing =
+            document["bearing"].GetDouble();
+
+        command.pitch =
+            document["pitch"].GetDouble();
+
+        return command;
+    }
+
+    if (command.command == "fit_bounds") {
+        if (
+            !document.HasMember("south") ||
+            !document["south"].IsNumber() ||
+            !document.HasMember("west") ||
+            !document["west"].IsNumber() ||
+            !document.HasMember("north") ||
+            !document["north"].IsNumber() ||
+            !document.HasMember("east") ||
+            !document["east"].IsNumber()
+        ) {
+            std::cerr
+                << "fit_bounds missing required bounds\n";
+            return std::nullopt;
+        }
+
+        command.south = document["south"].GetDouble();
+        command.north = document["north"].GetDouble();
+        command.west  = document["west"].GetDouble();
+        command.east =  document["east"].GetDouble();
+
+        if (document.HasMember("padding") && document["padding"].IsNumber())
+        {
+            command.padding = document["padding"].GetDouble();
+        }
+
+        return command;
+    }
+
+    if (command.command == "set_position") {
+        if (
+            !document.HasMember("latitude") ||
+            !document["latitude"].IsNumber() ||
+            !document.HasMember("longitude") ||
+            !document["longitude"].IsNumber()
+        ) {
+            std::cerr << "set_position missing latitude or longitude\n";
+
+            return std::nullopt;
+        }
+
+        command.latitude  = document["latitude"].GetDouble();
+        command.longitude = document["longitude"].GetDouble();
+
+        return command;
+    }
+
+    std::cerr
+        << "Unknown map command: "
+        << command.command
+        << '\n';
+
+    return std::nullopt;
 }

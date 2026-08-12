@@ -13,13 +13,20 @@ class RoutingControllerIf(ABC):
     @property
     @abstractmethod
     def is_available(self) -> bool:
-        """Return whether route calculation is available."""
+        """Return whether route calculation is available.
+
+        @retval True Route calculation is available.
+        @retval False Route calculation is unavailable.
+        """
         ...
 
     @property
     @abstractmethod
     def status_message(self) -> str | None:
-        """Return an availability or error message, if applicable."""
+        """Return an availability or error message, if applicable.
+
+        @return Human-readable status, or ``None`` when no message applies.
+        """
         ...
 
     @abstractmethod
@@ -27,5 +34,9 @@ class RoutingControllerIf(ABC):
         self,
         request: RouteRequest,
     ) -> RouteResult:
-        """Calculate and return a route."""
+        """Calculate and return a route.
+
+        @param request Origin, destination, and travel mode.
+        @return Calculated route.
+        """
         ...

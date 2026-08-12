@@ -22,6 +22,40 @@ class MapRendererClient:
     ) -> None:
         self._socket_path = Path(socket_path)
 
+    def set_camera(
+        self,
+        latitude: float,
+        longitude: float,
+        zoom: float,
+        bearing: float = 0.0,
+        pitch: float = 0.0,
+    ) -> None:
+        """Set the complete map camera state."""
+
+        self._send_command(
+            {
+                "command": MapRendererCommand.SET_CAMERA,
+                "latitude": latitude,
+                "longitude": longitude,
+                "zoom": zoom,
+                "bearing": bearing,
+                "pitch": pitch,
+            }
+        )
+
+    def set_route(
+        self,
+        geojson: dict[str, object],
+    ) -> None:
+        """Set the route displayed by the map renderer."""
+
+        self._send_command(
+            {
+                "command": MapRendererCommand.SET_ROUTE,
+                "geojson": geojson,
+            }
+        )
+
     def set_center(
         self,
         latitude: float,
@@ -34,6 +68,42 @@ class MapRendererClient:
                 "command": MapRendererCommand.SET_CENTER,
                 "latitude": latitude,
                 "longitude": longitude,
+            }
+        )
+
+    def set_position(
+        self,
+        latitude: float,
+        longitude: float,
+    ) -> None:
+        """Set the current vehicle position."""
+
+        self._send_command(
+            {
+                "command": MapRendererCommand.SET_POSITION,
+                "latitude": latitude,
+                "longitude": longitude,
+            }
+        )
+
+    def fit_bounds(
+        self,
+        south: float,
+        west: float,
+        north: float,
+        east: float,
+        padding: float = 40.0,
+    ) -> None:
+        """Fit the map camera to geographic bounds."""
+
+        self._send_command(
+            {
+                "command": MapRendererCommand.FIT_BOUNDS,
+                "south": south,
+                "west": west,
+                "north": north,
+                "east": east,
+                "padding": padding,
             }
         )
 

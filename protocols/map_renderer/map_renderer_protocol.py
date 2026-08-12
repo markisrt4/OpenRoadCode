@@ -8,3 +8,6 @@ class MapRendererCommand(StrEnum):
 
     SET_CENTER = "set_center"
     SET_CAMERA = "set_camera"
+    SET_ROUTE = "set_route"
+    FIT_BOUNDS = "fit_bounds"
+    SET_POSITION = "set_position"

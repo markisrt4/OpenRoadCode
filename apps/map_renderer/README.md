@@ -1,0 +1,88 @@
+# Native Map Renderer
+
+`apps/map_renderer` is the C++ MapLibre Native display process used by
+OpenRoadCode navigation. It opens a GLFW window, loads the configured local
+map style, accepts commands over a Unix-domain socket, and renders camera or
+route updates without coupling Python controllers to MapLibre.
+
+## Runtime contract
+
+The renderer listens at:
+
+```text
+/tmp/openroadcode-map-renderer.sock
+```
+
+Clients normally use
+`protocols.map_renderer.map_renderer_client.MapRendererClient`. The JSON
+protocol supports:
+
+- `set_center` with `latitude` and `longitude`
+- `set_camera` with `latitude`, `longitude`, `zoom`, `bearing`, and `pitch`
+- `fit_bounds` with `south`, `west`, `north`, `east`, and optional `padding`
+- `set_route` with a GeoJSON object
+- `set_position` with `latitude` and `longitude`
+
+`set_route` updates the GeoJSON source named `route`, while `set_position`
+updates the point source named `vehicle`. The MapLibre style must define those
+sources and the layers that display them. The current executable loads
+`/srv/openroadcode/maps/styles/michigan-test.json` and caches resources in
+`/tmp/openroadcode-map-cache.db`.
+
+## Build
+
+MapLibre Native must first be built with its Linux OpenGL preset. The
+[MapLibre build-container guide](../../development/containers/maplibre/README.md)
+provides the recommended isolated workflow. It pins the tested MapLibre
+commit, mounts the host source directory into the container, and includes
+scripts for building both MapLibre and this executable.
+
+The container workflow is source-repeatable but not yet bit-for-bit hermetic:
+its Debian base image and APT packages still float. The guide records this
+limitation and the remaining work needed for a fully reproducible build.
+
+Inside the build container, the expected source and build trees are:
+
+```text
+/src/maplibre-native
+/src/maplibre-native/build-linux-opengl
+```
+
+Override those paths when configuring if needed:
+
+```bash
+cmake -S apps/map_renderer -B apps/map_renderer/build \
+  -DMAPLIBRE_ROOT=/path/to/maplibre-native \
+  -DMAPLIBRE_BUILD=/path/to/maplibre-native/build-linux-opengl
+cmake --build apps/map_renderer/build
+```
+
+For a host build, always supply those two CMake options because the defaults
+are container paths.
+
+Run a host-built renderer from the repository root:
+
+```bash
+apps/map_renderer/build/openroadcode-map-renderer
+```
+
+The container workflow instead writes the executable to
+`apps/map_renderer/build-container/openroadcode-map-renderer` by default.
+
+With the renderer running, send a sample camera command:
+
+```bash
+python3 -m protocols.map_renderer.component_test.map_renderer_client_cli
+```
+
+The window also supports mouse dragging, scroll-wheel zoom, and double-click
+zoom.
+
+## Offline map assets
+
+The executable currently expects the style at
+`/srv/openroadcode/maps/styles/michigan-test.json`. That style is deployment
+data and is not created by the C++ build. It must reference the locally
+generated MBTiles archive and define `route` and `vehicle` GeoJSON sources.
+See the [offline tile guide](../../development/containers/maplibre/scripts/README.md)
+for the separate tilemaker workflow.

@@ -26,6 +26,7 @@ RUN apt-get update && apt-get install -y \
     rapidjson-dev \
     libshp-dev \
     xvfb \
+    vim \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /src

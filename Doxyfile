@@ -3,7 +3,7 @@ PROJECT_BRIEF          = "Public API reference for OpenRoadCode"
 
 OUTPUT_DIRECTORY       = build/doxygen
 INPUT                  = apps controllers hardware_io protocols config common ui frontends input_events
-FILE_PATTERNS          = *.py
+FILE_PATTERNS          = *.py *.hpp *.cpp
 RECURSIVE              = YES
 
 EXCLUDE_PATTERNS       = */test/* */unit_test/* */component_test/* \

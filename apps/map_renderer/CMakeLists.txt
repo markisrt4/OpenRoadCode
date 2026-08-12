@@ -9,7 +9,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # MapLibre Native checkout
 #
 set(MAPLIBRE_ROOT
-    "$ENV{HOME}/src/maplibre-native"
+    "/src/maplibre-native"
     CACHE PATH
     "Path to MapLibre Native source tree"
 )

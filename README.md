@@ -69,6 +69,7 @@ Current and partially integrated capabilities include:
 * Remote display through VNC
 * Configurable startup and splash-screen behavior
 * Mock and stub controllers for development without hardware
+* Offline Valhalla route planning and MapLibre Native map rendering
 
 Not every feature is supported on every hardware configuration.
 
@@ -78,7 +79,6 @@ Not every feature is supported on every hardware configuration.
 
 Potential future work includes:
 
-* Offline navigation
 * Downloadable maps
 * Dashcam support
 * Backup-camera integration
@@ -136,6 +136,7 @@ OpenRoadCode/
 ├── apps/
 │   ├── carUi/
 │   ├── carTui/
+│   ├── map_renderer/
 │   └── other applications
 │
 ├── controllers/
@@ -145,6 +146,7 @@ OpenRoadCode/
 │   ├── lighting/
 │   ├── navigation/
 │   ├── radio/
+│   ├── route_planning/
 │   ├── spotify/
 │   └── other application-facing controllers
 │
@@ -173,8 +175,10 @@ OpenRoadCode/
 ├── protocols/
 │   ├── oauth/
 │   ├── obd2/
+│   ├── map_renderer/
 │   ├── rigctl/
 │   ├── spotify/
+│   ├── valhalla/
 │   └── other protocol implementations
 │
 ├── config/

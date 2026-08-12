@@ -2,6 +2,18 @@
 from __future__ import annotations
 from pathlib import Path
 
+from controllers.route_planning.route_geojson_mapper import (
+    route_to_geojson,
+)
+
+from controllers.route_planning.route_map_presenter import (
+    present_route,
+)
+from protocols.map_renderer.map_renderer_client import (
+    MapRendererClient,
+    MapRendererUnavailableError,
+)
+
 import json
 import argparse
 
@@ -63,29 +75,12 @@ def parse_args() -> argparse.Namespace:
 
     return parser.parse_args()
 
+
 def write_route_geojson(
     route,
     output_path: Path,
 ) -> None:
-    coordinates = [
-        [
-            point.longitude,
-            point.latitude,
-        ]
-        for point in route.shape
-    ]
-
-    geojson = {
-        "type": "Feature",
-        "properties": {
-            "distance_miles": route.distance_miles,
-            "duration_seconds": route.duration_seconds,
-        },
-        "geometry": {
-            "type": "LineString",
-            "coordinates": coordinates,
-        },
-    }
+    geojson = route_to_geojson(route)
 
     output_path.parent.mkdir(
         parents=True,
@@ -103,6 +98,7 @@ def write_route_geojson(
         )
 
         file.write("\n")
+
 
 def main() -> int:
     args = parse_args()
@@ -133,6 +129,33 @@ def main() -> int:
             ),
         )
     )
+
+    try:
+        map_renderer = MapRendererClient()
+
+        try:
+            present_route(
+                route=route,
+                map_renderer=MapRendererClient(),
+            )
+
+            print()
+            print("Route presented on map.")
+
+        except MapRendererUnavailableError as exc:
+            print()
+            print(
+                f"Map renderer unavailable: {exc}"
+            )
+
+        print()
+        print("Route sent to map renderer.")
+
+    except MapRendererUnavailableError as exc:
+        print()
+        print(
+            f"Map renderer unavailable: {exc}"
+        )
 
     if args.geojson_output is not None:
         write_route_geojson(
@@ -185,4 +208,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-
