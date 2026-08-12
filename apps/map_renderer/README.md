@@ -78,6 +78,87 @@ python3 -m protocols.map_renderer.component_test.map_renderer_client_cli
 The window also supports mouse dragging, scroll-wheel zoom, and double-click
 zoom.
 
+## Follow a live GPS receiver
+
+With the renderer and gpsd running, send live 2D/3D fixes to the vehicle
+marker and follow camera:
+
+```bash
+python3 -m controllers.navigation.component_test.gpsd_map_follow_cli
+```
+
+The camera is updated at most four times per second by default. GPS course
+rotates the map only above 1 m/s, which prevents an unreliable stationary
+course from making the map spin. Use `--no-follow` to update only the vehicle
+marker, or run with `--help` for GPSD endpoint, camera, and socket options.
+
+### Parked checkout
+
+Do this outside with the vehicle parked before beginning a road test:
+
+1. Connect the USB receiver and identify its device:
+
+   ```bash
+   ls -l /dev/ttyACM* /dev/ttyUSB*
+   ```
+
+2. If the deployed system gpsd service is already configured, verify it with
+   `systemctl status gpsd gpsd.socket`. Otherwise, start the repository's
+   foreground test instance in its own terminal:
+
+   ```bash
+   hardware_io/gps/start_gpsd.sh /dev/ttyACM0
+   ```
+
+3. Confirm that gpsd reaches a 2D or 3D fix:
+
+   ```bash
+   gpspipe -w
+   python3 -m hardware_io.gps.component_test.gps_cli
+   ```
+
+4. Start `openroadcode-map-renderer` using the normal host or container build
+   described above. Confirm that its socket exists:
+
+   ```bash
+   ls -l /tmp/openroadcode-map-renderer.sock
+   ```
+
+5. Start live map following from the repository root:
+
+   ```bash
+   python3 -m controllers.navigation.component_test.gpsd_map_follow_cli
+   ```
+
+The vehicle marker should appear at the live fix. At walking or driving speed,
+the camera should follow it and rotate to the GPS course. A stationary receiver
+will retain the last reliable bearing.
+
+### In-car test
+
+Secure the computer, display, receiver, and cables; begin logging while parked;
+and have a passenger observe the display and terminal output. The driver should
+not operate the test UI. Start with a short, familiar, low-speed loop and check:
+
+- time from startup to the first fix;
+- marker lag and camera smoothness during acceleration and turns;
+- unwanted camera rotation while stopped;
+- recovery after tunnels, parking structures, or receiver obstruction;
+- GPSD and renderer behavior after unplugging and reconnecting the receiver.
+
+If the camera feels too busy, reduce its update rate, for example:
+
+```bash
+python3 -m controllers.navigation.component_test.gpsd_map_follow_cli \
+  --camera-interval 0.5 \
+  --course-speed 2.0
+```
+
+Use `--no-follow` to isolate marker accuracy from camera behavior. Press
+`Ctrl+C` to stop the bridge; stop the foreground gpsd helper separately if it
+was used. A production vehicle install should use the operating system's gpsd
+service rather than the foreground helper.
+
 ## Offline map assets
 
 The executable currently expects the style at
