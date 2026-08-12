@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 """Public interface for route-planning controllers."""
 
 from __future__ import annotations

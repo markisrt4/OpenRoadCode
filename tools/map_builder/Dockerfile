@@ -1,4 +1,7 @@
 # syntax=docker/dockerfile:1.7
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 ARG DEBIAN_BASE=debian:trixie-slim
 FROM ${DEBIAN_BASE}
 ARG TILEMAKER_COMMIT=bf89810199519d3e89bd4ace323aec4d41d2d8a6

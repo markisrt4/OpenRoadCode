@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 from apps.launchers.google_earth_launcher import GoogleEarthLauncher
 
 

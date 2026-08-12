@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Mark G. Russell
+// SPDX-License-Identifier: MIT
+
 #include "map_view.hpp"
 
 #include "map_renderer_frontend.hpp"

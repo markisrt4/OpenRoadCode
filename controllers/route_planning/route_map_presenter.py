@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 """Present calculated routes on the native map renderer."""
 
 from __future__ import annotations

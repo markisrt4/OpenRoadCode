@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 """Valhalla implementation of the route-planning controller."""
 
 from __future__ import annotations

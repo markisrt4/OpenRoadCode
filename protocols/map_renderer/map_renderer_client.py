@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 """Client for controlling the native OpenRoadCode map renderer."""
 
 from __future__ import annotations

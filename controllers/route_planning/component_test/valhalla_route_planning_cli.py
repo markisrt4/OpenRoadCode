@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 """Physical component test for Valhalla route planning."""
 from __future__ import annotations
 from pathlib import Path

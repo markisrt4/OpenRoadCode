@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 from apps.launchers.app_launcher_if import AppLauncherIf, StatusCallback
 from apps.launchers.browser_launcher import BrowserKioskLauncher
 

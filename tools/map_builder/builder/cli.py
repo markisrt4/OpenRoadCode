@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 """CLI/TUI entrypoint for OpenRoadCode map-data generation."""
 
 from __future__ import annotations
@@ -7,13 +10,60 @@ import json
 import os
 from pathlib import Path
 import sys
+import time
 
 from .build import OUTPUT_ROOT, build_regions
 from .geofabrik import fetch_index, resolve_region_ids
+from .selection import load_region_ids, save_region_ids
 from .tui import select_regions
 from .validate import ValidationError, validate_output
 
 INDEX_PATH = Path(os.environ.get("OPENROAD_GEOFABRIK_INDEX", "/cache/geofabrik-index-v1-nogeom.json"))
+SELECTION_PATH = Path(os.environ.get("OPENROAD_SELECTION_PATH", "/cache/selected-regions.json"))
+
+
+def format_duration(seconds: float) -> str:
+    total_seconds = max(0, round(seconds))
+    hours, remainder = divmod(total_seconds, 3600)
+    minutes, seconds = divmod(remainder, 60)
+    if hours:
+        return f"{hours}h {minutes}m {seconds}s"
+    if minutes:
+        return f"{minutes}m {seconds}s"
+    return f"{seconds}s"
+
+
+def format_size(size_bytes: int) -> str:
+    value = float(size_bytes)
+    for unit in ("B", "KiB", "MiB", "GiB", "TiB"):
+        if value < 1024 or unit == "TiB":
+            return f"{value:.0f} {unit}" if unit == "B" else f"{value:.2f} {unit}"
+        value /= 1024
+    raise AssertionError("unreachable")
+
+
+def directory_size(path: Path) -> int:
+    return sum(item.stat().st_size for item in path.rglob("*") if item.is_file())
+
+
+def print_build_summary(selected, elapsed_seconds: float) -> None:
+    source_size = sum(
+        (OUTPUT_ROOT / "maps/source" / f"{region.safe_id}.osm.pbf").stat().st_size
+        for region in selected
+    )
+    print("\nBuild complete")
+    print("  Regions: " + ", ".join(region.name for region in selected))
+    print(f"  Region source data: {format_size(source_size)} ({source_size:,} bytes)")
+    output_size = directory_size(OUTPUT_ROOT)
+    print(f"  Deployable output: {format_size(output_size)} ({output_size:,} bytes)")
+    print(f"  Build time: {format_duration(elapsed_seconds)}")
+    print(f"  Output: {OUTPUT_ROOT}")
+
+
+def run_build(selected, *, clean: bool, service_smoke: bool) -> tuple[dict, float]:
+    started = time.monotonic()
+    result = build_regions(selected, clean=clean, service_smoke=service_smoke)
+    return result, time.monotonic() - started
 
 
 def parse_args() -> argparse.Namespace:
@@ -46,13 +96,27 @@ def main() -> int:
             return 0
         if command == "build":
             selected = resolve_region_ids(regions, [x.strip() for x in args.regions.split(",") if x.strip()])
-            result = build_regions(selected, clean=not args.no_clean, service_smoke=not args.no_service_smoke)
+            result, elapsed = run_build(
+                selected,
+                clean=not args.no_clean,
+                service_smoke=not args.no_service_smoke,
+            )
             print(json.dumps(result, indent=2))
+            print_build_summary(selected, elapsed)
             return 0
-        selected = select_regions(regions)
+        try:
+            saved_region_ids = load_region_ids(SELECTION_PATH)
+        except (OSError, ValueError) as exc:
+            print(f"Warning: ignoring saved region selection: {exc}", file=sys.stderr)
+            saved_region_ids = set()
+        selected = select_regions(regions, saved_region_ids)
         if selected is None:
             print("Cancelled")
             return 0
+        try:
+            save_region_ids(SELECTION_PATH, (region.id for region in selected))
+        except OSError as exc:
+            print(f"Warning: could not save region selection: {exc}", file=sys.stderr)
         print("Selected:")
         for region in selected:
             print(f"  {region.id}: {region.name}")
@@ -60,8 +124,9 @@ def main() -> int:
         if answer != "y":
             print("Cancelled")
             return 0
-        result = build_regions(selected, clean=True, service_smoke=True)
+        result, elapsed = run_build(selected, clean=True, service_smoke=True)
         print(json.dumps(result, indent=2))
+        print_build_summary(selected, elapsed)
         return 0
     except (ValueError, ValidationError, RuntimeError) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
