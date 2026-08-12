@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 """Interfaces and values used by navigation orientation estimators."""
 
 from abc import ABC, abstractmethod

@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 sudo apt-get install -y libusb-1.0-0-dev git cmake pkg-config build-essential
 git clone https://github.com/osmocom/rtl-sdr.git
 cd rtl-sdr

@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 # Configure a Debian/Raspberry Pi OS system as a Wi-Fi access point using
 # NetworkManager's shared IPv4 mode.
 #

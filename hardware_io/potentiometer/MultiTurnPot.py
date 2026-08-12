@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 # Import the ADS1x15 module.
 import Adafruit_ADS1x15
 

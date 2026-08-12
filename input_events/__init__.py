@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 """Neutral contracts and value objects for physical input events."""
 
 from input_events.input_event import (

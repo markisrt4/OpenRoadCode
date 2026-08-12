@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 """Tests for resources owned by the assembled Car UI runtime."""
 
 import unittest

@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 """Explicit UI contracts for radio displays."""
 
 from ui.radio.playback_request_handler_if import PlaybackRequestHandlerIf

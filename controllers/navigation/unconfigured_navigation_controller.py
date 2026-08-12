@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 """Unavailable implementation for systems without navigation sensors."""
 
 from __future__ import annotations

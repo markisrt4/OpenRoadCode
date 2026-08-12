@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 """Navigation-facing motion sensor interface."""
 
 from abc import ABC, abstractmethod

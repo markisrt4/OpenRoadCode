@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 """Tests for the Car UI off-road dashboard destination lifecycle."""
 
 import unittest

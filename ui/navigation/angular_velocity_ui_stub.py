@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 """Concrete no-op angular-velocity UI implementation."""
 
 from ui.navigation.angular_velocity_ui_if import AngularVelocityUiIf

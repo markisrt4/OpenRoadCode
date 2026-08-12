@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 """UI Theme module providing color schemes and fonts for the application."""
 
 from .uiTheme import (

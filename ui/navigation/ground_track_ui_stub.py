@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 """Concrete no-op ground-track UI implementation."""
 
 from ui.navigation.ground_track_ui_if import GroundTrackUiIf

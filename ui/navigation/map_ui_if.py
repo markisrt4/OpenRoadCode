@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 """Toolkit-independent map presentation contract and value objects."""
 
 from abc import ABC, abstractmethod

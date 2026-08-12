@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 """Tests for ownership and cleanup of assembled Car UI dependencies."""
 
 import unittest

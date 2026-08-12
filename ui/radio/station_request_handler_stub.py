@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 """Concrete no-op station request handler."""
 
 from ui.radio.station_request_handler_if import StationRequestHandlerIf

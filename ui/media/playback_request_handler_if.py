@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 """! @brief Callback contract for media playback requests."""
 
 from abc import ABC, abstractmethod

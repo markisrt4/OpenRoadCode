@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 """Theme values for the configurable vehicle instrument panel."""
 
 from dataclasses import dataclass

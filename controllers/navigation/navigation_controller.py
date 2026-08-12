@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 """Coordinate vehicle motion, orientation, and optional GPS state."""
 
 from __future__ import annotations

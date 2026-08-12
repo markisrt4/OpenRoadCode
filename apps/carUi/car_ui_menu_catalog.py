@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 """Static menu definitions assembled by the Car UI application."""
 
 from ui.menu import MenuPage, MenuTile

@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 """! @brief UI contract for vehicle distance and fuel-use information."""
 
 from abc import ABC, abstractmethod

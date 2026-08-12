@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 """Narrow host contract required by reusable Tk screens."""
 
 from __future__ import annotations

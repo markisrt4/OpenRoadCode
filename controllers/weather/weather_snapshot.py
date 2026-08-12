@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 """Typed weather snapshot shared by applications and frontends."""
 
 from dataclasses import dataclass

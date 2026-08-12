@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 """Verify composition depends only on frontend and screen-factory contracts."""
 
 import unittest

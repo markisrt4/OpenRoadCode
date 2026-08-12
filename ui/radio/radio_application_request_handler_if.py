@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 """Requests emitted by a radio UI for its companion application."""
 
 from abc import ABC, abstractmethod

@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 """External application launcher interfaces and implementations."""
 
 from apps.launchers.adsb_launcher import ADSBLauncher

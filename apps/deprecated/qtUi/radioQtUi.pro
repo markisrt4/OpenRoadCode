@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 #-------------------------------------------------
 #
 # Project created by QtCreator 2018-07-27T10:02:40

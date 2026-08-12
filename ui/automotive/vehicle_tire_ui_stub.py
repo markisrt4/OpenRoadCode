@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 """Concrete no-op vehicle tire UI implementation."""
 
 from ui.automotive.vehicle_tire_ui_if import TirePosition, VehicleTireUiIf

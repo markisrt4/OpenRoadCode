@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 # LEDDMX pattern names. Index in this list is the value sent to the controller.
 # Full list copied from the reverse-engineered LEDDMX-00 Kotlin reference.
 

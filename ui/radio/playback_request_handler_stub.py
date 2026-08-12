@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 """Concrete no-op playback request handler."""
 
 from ui.radio.playback_request_handler_if import PlaybackRequestHandlerIf

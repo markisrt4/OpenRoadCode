@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 """Concrete no-op lighting request handler."""
 
 from ui.lighting.lighting_request_handler_if import LightingRequestHandlerIf

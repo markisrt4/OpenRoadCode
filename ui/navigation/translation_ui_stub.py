@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 """Concrete no-op translation UI implementation."""
 
 from ui.navigation.translation_ui_if import TranslationUiIf

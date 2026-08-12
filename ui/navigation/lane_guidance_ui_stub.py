@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 """Concrete no-op lane-guidance UI implementation."""
 
 from ui.navigation.lane_guidance_ui_if import LaneGuidance, LaneGuidanceUiIf

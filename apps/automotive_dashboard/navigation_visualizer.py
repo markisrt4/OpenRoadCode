@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 """Tkinter wireframe vehicle visualizer for navigation state."""
 
 from __future__ import annotations

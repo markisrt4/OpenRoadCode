@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 """Tests for adapting lighting controllers to generic lighting UI contracts."""
 
 import unittest

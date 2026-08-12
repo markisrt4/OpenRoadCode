@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 """Concrete no-op system volume request handler."""
 
 from ui.system.volume_request_handler_if import VolumeRequestHandlerIf

@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 """Toolkit-independent UI contracts and reusable interaction logic."""
 
 from ui.screen_navigator_if import ScreenNavigatorIf

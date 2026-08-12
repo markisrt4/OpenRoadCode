@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 """Command-line bootstrap for the OpenRoadCode Car TUI."""
 
 from __future__ import annotations

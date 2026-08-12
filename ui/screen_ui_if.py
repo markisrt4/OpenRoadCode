@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 """Toolkit-independent contract for a navigable UI screen."""
 
 from abc import ABC, abstractmethod

@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 """Concrete no-op media seek request handler."""
 
 from ui.media.seek_request_handler_if import SeekRequestHandlerIf

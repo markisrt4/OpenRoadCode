@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 """Deprecated standalone Tk FM radio panel."""
 
 import tkinter as tk

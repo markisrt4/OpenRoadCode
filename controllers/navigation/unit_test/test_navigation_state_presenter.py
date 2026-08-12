@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 """Tests for navigation-state presentation through narrow UI contracts."""
 
 from datetime import datetime

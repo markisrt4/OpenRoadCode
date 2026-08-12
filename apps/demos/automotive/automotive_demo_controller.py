@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 """Simulated SI data source for the automotive UI demonstration."""
 
 from __future__ import annotations

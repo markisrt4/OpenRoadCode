@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 """Application-facing contract for a Car UI frontend implementation."""
 
 from typing import Protocol

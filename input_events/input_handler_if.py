@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 """Consumer contract for normalized physical input events."""
 
 from abc import ABC, abstractmethod

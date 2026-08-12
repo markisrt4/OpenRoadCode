@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 from __future__ import annotations
 
 from hardware_io.automotive.elm327 import (

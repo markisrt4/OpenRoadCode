@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 """Concrete no-op route-guidance UI implementation."""
 
 from ui.navigation.route_guidance_ui_if import (

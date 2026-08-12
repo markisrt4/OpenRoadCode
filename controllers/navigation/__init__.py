@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 """Vehicle orientation and motion controller."""
 
 from controllers.navigation.complementary_orientation_estimator import (

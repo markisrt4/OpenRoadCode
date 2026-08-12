@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 """Toolkit-independent contract for navigation between UI screens."""
 
 from abc import ABC, abstractmethod

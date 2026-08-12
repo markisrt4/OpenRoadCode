@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 """Command-line client for exercising a rigctl or SDR++ rigctl server."""
 
 from __future__ import annotations

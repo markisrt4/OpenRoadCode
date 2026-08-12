@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 set -euo pipefail
 
 DEFAULT_REDIRECT_URI="http://127.0.0.1:8888/callback"

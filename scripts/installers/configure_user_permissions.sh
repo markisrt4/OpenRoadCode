@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 set -euo pipefail
 
 target_user="${SUDO_USER:-${USER:-$(id -un)}}"

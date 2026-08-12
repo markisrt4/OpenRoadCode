@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 """Tests for the barometric controller and BMP3XX adapter."""
 
 from __future__ import annotations

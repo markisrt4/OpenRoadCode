@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 """Concrete no-op map request handler."""
 
 from ui.navigation.map_request_handler_if import MapRequestHandlerIf

@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 """Concrete no-op media UI implementation."""
 
 from ui.media.media_ui_if import MediaState, MediaUiIf

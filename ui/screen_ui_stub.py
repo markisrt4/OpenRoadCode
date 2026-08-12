@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 """Concrete no-op navigable screen implementation."""
 
 from ui.screen_ui_if import ScreenId, ScreenUiIf

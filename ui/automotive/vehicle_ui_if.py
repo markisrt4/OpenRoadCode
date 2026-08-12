@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 """! @brief Explicit UI contract for independently updated vehicle telemetry."""
 
 from abc import ABC, abstractmethod

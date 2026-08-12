@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 """Reusable no-op implementation of the common UI lifecycle."""
 
 from ui.ui_if import UiIf

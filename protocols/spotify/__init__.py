@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 from protocols.spotify.spotify_auth import (
     SpotifyAuth,
     SpotifyAuthError,

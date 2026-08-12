@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 """! @brief UI contract and values for host system diagnostics."""
 
 from abc import ABC, abstractmethod

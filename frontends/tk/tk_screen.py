@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 from abc import abstractmethod
 
 from ui.screen_ui_if import ScreenId, ScreenUiIf

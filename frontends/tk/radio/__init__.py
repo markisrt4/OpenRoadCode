@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 """Reusable Tk radio presentation components."""
 
 from frontends.tk.radio.radio_panel import RadioPanel

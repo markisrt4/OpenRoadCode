@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 from hardware_io.automotive.elm327.elm327_device import Elm327Device
 from hardware_io.automotive.elm327.elm327_errors import (
     Elm327CommandError,

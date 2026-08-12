@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 """! @brief UI contract for independently updated tire information."""
 
 from abc import ABC, abstractmethod

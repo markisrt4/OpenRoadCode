@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 from abc import ABC, abstractmethod
 
 from ui.ui_action import UiAction

@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 """Toolkit-independent lighting UI contracts and values."""
 
 from ui.lighting.lighting_request_handler_if import LightingRequestHandlerIf

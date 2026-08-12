@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 """OBD-II vehicle telemetry destination for Car TUI."""
 
 from controllers.automotive import VehicleStateSourceIf

@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 """Concrete no-op media volume request handler."""
 
 from ui.media.volume_request_handler_if import VolumeRequestHandlerIf

@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 """Run the interactive automotive UI contract demonstration."""
 
 from apps.demos.automotive.automotive_demo_controller import (

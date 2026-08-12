@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 """Build Car TUI radio controllers from shared runtime configuration."""
 
 from dataclasses import dataclass

@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 from controllers.video.music_video_controller import MusicVideoController
 from controllers.video.music_video_if import MusicVideoIf
 from controllers.video.music_video_types import MusicVideo, MusicVideoQuery

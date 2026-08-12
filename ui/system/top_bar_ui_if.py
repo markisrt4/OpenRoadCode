@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 """Toolkit-independent UI contract for a persistent top bar."""
 
 from abc import ABC, abstractmethod

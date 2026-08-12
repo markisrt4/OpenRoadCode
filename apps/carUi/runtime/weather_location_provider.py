@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 """Compose live GPSD and cached-position weather location selection."""
 
 from datetime import datetime

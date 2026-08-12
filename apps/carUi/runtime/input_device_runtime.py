@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 """Construct optional keyboard and standalone pushbutton devices."""
 
 from dataclasses import dataclass

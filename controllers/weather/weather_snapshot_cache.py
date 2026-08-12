@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 """JSON serialization for persisted weather snapshots."""
 
 from __future__ import annotations

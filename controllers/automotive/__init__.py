@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 from controllers.automotive.obd2 import Elm327ObdAdapter, Obd2Manager
 from controllers.automotive.simulated_vehicle_state_source import (
     SimulatedVehicleStateSource,

@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 from concurrent.futures import Future
 
 from controllers.lighting.lighting_controller_stub import (

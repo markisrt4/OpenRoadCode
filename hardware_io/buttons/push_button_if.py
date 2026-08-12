@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 """Pushbutton hardware interface."""
 
 from abc import ABC, abstractmethod

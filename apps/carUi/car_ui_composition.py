@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 """Application-specific assembly for the Car UI frontend."""
 
 from __future__ import annotations

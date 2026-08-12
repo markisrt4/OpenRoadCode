@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 """Concrete no-op orientation UI implementation."""
 
 from ui.navigation.orientation_ui_if import HeadingReference, OrientationUiIf

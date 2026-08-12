@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 """Reusable Tk panels for persistent system presentation."""
 
 from frontends.tk.system.status_bar_panel import StatusBarPanel

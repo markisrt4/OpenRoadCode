@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 """Application-agnostic lighting controller interfaces and models."""
 
 from controllers.lighting.dummy_lighting_controller import (

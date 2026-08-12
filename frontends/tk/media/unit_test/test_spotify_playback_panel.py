@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 """Non-visual regression tests for Spotify panel callbacks."""
 
 import unittest

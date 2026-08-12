@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 # Remove the NetworkManager Wi-Fi access-point profile created by
 # install_pi3_router.sh.
 #

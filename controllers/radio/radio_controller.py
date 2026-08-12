@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 from __future__ import annotations
 
 from .radio_backend_if import RadioBackendIf

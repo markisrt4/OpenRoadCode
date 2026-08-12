@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 """Small TCP client for Hamlib-style rigctl servers and SDR++ extensions."""
 
 from __future__ import annotations

@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 """GPSD-backed weather location selection."""
 
 from controllers.weather.weather_snapshot import WeatherLocation

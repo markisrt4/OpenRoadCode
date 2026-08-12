@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 """Concrete no-op media track request handler."""
 
 from ui.media.track_request_handler_if import TrackRequestHandlerIf

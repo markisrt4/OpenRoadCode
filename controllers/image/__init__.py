@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 from controllers.image.image_cache import (
     ImageCache,
     ImageCacheKey,

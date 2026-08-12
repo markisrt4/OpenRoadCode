@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 """Toolkit-neutral boundary for constructing Car UI destinations."""
 
 from collections.abc import Callable

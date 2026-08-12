@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 """UI contract and values for lighting state."""
 
 from abc import ABC, abstractmethod

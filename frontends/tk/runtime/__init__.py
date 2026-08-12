@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 """Tk display and window runtime helpers."""
 
 from frontends.tk.runtime.display_runtime import configure_display

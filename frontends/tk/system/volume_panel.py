@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 """Reusable Tk system-volume controls and indicator."""
 
 from __future__ import annotations

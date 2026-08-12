@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 """Concrete no-op radio refresh request handler."""
 
 from ui.radio.radio_refresh_request_handler_if import RadioRefreshRequestHandlerIf

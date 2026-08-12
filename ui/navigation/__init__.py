@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 """Explicit UI contracts for navigation displays."""
 
 from ui.navigation.angular_velocity_ui_if import AngularVelocityUiIf

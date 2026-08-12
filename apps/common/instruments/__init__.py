@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 from apps.common.instruments.gauge_config import GaugeConfig
 from apps.common.instruments.gauge_style import GaugeStyle
 from apps.common.instruments.gauge_widget import GaugeWidget

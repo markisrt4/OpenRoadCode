@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 """Present provider-independent position updates in the Car UI shell."""
 
 from __future__ import annotations

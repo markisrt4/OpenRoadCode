@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 """Explicit UI contracts and stubs for shared system state."""
 
 from ui.system.diagnostics_ui_if import SystemDiagnostics, SystemDiagnosticsUiIf

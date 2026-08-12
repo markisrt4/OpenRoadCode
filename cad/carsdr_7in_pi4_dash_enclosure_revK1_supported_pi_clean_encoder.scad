@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Mark G. Russell
+// SPDX-License-Identifier: MIT
+
 
 // REV K.1 NOTES
 // - Move rear lid screw blocks out of encoder bay.

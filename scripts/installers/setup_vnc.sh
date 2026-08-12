@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 set -euo pipefail
 
 PROJECT_DIR="${PROJECT_DIR:-$PWD}"

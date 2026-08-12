@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 """Requests emitted by a lighting control UI."""
 
 from abc import ABC, abstractmethod

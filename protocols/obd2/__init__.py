@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 from protocols.obd2.obd2_adapter_if import Obd2AdapterIf
 from protocols.obd2.obd2_errors import (
     Obd2CommandError,

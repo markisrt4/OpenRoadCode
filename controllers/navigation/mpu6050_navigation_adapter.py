@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 """MPU-6050 adapter for the navigation controller."""
 
 from hardware_io.imu import Mpu6050Imu

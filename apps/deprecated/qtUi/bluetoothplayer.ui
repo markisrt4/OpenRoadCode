@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!-- SPDX-FileCopyrightText: 2026 Mark G. Russell -->
+<!-- SPDX-License-Identifier: MIT -->
 <ui version="4.0">
  <class>bluetoothplayer</class>
  <widget class="QDialog" name="bluetoothplayer">

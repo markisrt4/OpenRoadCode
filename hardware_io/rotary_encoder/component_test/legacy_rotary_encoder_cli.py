@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 from time import sleep
 
 from modules.hardware.gpio.rpi_gpio import RpiGpio

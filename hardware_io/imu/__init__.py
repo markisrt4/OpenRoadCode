@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 """Inertial measurement unit interfaces and implementations."""
 
 from hardware_io.imu.imu_if import ImuIf

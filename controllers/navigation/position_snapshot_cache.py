@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 """Persistent serialization for the last valid geographic fix."""
 
 from __future__ import annotations

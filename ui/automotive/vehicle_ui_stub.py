@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 """Concrete no-op vehicle telemetry UI implementation."""
 
 from ui.automotive.vehicle_ui_if import Gear, VehicleUiIf

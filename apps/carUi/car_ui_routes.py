@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 """Route registration for the screens assembled by Car UI."""
 
 from collections.abc import Callable

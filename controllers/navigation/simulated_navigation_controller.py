@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 """Deterministic navigation simulation for development without hardware."""
 
 from dataclasses import replace

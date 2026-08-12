@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 """Adapt physical rotary encoder events into generic input events."""
 
 from __future__ import annotations

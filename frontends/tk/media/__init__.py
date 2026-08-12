@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 """Reusable Tk media screens and panels."""
 
 from frontends.tk.media.spotify_playback_panel import SpotifyPlaybackPanel

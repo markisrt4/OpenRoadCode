@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 """Car UI-specific helpers shared by its Tk screens."""
 
 import tkinter as tk

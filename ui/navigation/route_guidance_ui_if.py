@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 """Provider-neutral turn-by-turn route presentation contract."""
 
 from abc import ABC, abstractmethod

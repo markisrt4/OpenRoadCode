@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 """Narrow services consumed by the rich Spotify Tk frontend."""
 
 from __future__ import annotations

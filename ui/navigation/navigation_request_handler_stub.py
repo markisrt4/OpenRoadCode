@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 """Concrete no-op navigation request handler."""
 
 from ui.navigation.navigation_request_handler_if import NavigationRequestHandlerIf

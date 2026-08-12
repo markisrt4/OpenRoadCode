@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 """UI contract for movement measured relative to the ground."""
 
 from abc import ABC, abstractmethod

@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 """Runtime lifecycle coordination for the Car UI."""
 
 from __future__ import annotations

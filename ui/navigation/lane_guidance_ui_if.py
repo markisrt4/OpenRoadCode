@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 """Lane-level route-guidance presentation contract."""
 
 from abc import ABC, abstractmethod

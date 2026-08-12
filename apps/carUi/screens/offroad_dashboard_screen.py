@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 """Car UI destination hosting the reusable Tk off-road dashboard."""
 
 from __future__ import annotations

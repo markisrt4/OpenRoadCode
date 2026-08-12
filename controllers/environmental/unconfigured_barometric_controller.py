@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 """Unavailable implementation for systems without a barometric sensor."""
 
 from __future__ import annotations

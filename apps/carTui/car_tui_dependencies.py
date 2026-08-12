@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 """Owned controller dependencies for the Car TUI application."""
 
 from dataclasses import dataclass

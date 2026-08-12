@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 from controllers.spotify.spotify_controller_if import SpotifyControllerIf
 from controllers.spotify.spotify_state import SpotifyState
 

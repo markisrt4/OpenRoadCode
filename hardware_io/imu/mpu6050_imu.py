@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 """Adafruit MPU-6050 inertial measurement unit implementation."""
 
 from __future__ import annotations

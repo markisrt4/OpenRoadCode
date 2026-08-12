@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 """Keyboard hardware contracts and optional Linux implementation."""
 
 from importlib import import_module

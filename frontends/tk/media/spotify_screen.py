@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 """Tkinter screen for generic media playback presented by Spotify."""
 
 from __future__ import annotations

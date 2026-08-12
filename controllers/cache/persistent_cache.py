@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 """Filesystem-backed implementation of persistent byte caching."""
 
 from __future__ import annotations

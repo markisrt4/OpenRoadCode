@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 """Narrow services injected into Car UI-specific screens."""
 
 from __future__ import annotations

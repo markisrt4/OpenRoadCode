@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 """Adapt Spotify controller state and commands to generic media UI contracts."""
 
 from __future__ import annotations

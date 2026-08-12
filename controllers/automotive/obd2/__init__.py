@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 from controllers.automotive.obd2.elm327_obd_adapter import Elm327ObdAdapter
 from controllers.automotive.obd2.obd2_manager import Obd2Manager
 

@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 """Position-source decorator that restores and records valid fixes."""
 
 from __future__ import annotations

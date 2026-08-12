@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 """Reusable terminal automotive dashboard views."""
 
 from frontends.tui.automotive.navigation_dashboard_view import (

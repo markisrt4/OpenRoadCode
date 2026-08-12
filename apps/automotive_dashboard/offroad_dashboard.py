@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 """Standalone composition for the reusable Tk off-road dashboard panel."""
 
 from __future__ import annotations

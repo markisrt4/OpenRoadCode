@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 from __future__ import annotations
 
 from protocols.can import CanFrame, parse_compact_can_frame

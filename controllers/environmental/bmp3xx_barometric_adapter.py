@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 """BMP3XX adapter for the environmental controller."""
 
 from __future__ import annotations

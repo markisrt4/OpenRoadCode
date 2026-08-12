@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 """Component test for mapping and dispatching mocked input events."""
 
 from __future__ import annotations

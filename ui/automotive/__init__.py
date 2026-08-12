@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 """Explicit UI contracts and stubs for automotive displays."""
 
 from ui.automotive.diagnostics_request_handler_if import (

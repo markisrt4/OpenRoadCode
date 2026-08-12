@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 """! @brief Explicit UI contract and values for application status reporting."""
 
 from abc import ABC, abstractmethod

@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 import time
 
 from controllers.spotify.spotify_controller_if import SpotifyControllerIf

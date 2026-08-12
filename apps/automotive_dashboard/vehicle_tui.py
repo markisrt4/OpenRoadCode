@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 """Standalone terminal composition for live OBD-II vehicle telemetry."""
 
 from __future__ import annotations

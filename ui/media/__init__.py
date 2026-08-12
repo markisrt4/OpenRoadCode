@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 """Explicit UI contracts and stubs for media playback."""
 
 from ui.media.media_ui_if import (

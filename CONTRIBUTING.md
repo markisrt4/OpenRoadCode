@@ -198,6 +198,25 @@ behavior. They do not need to narrate obvious Python one line at a time.
 Match the surrounding code where the project does not yet enforce a rule
 automatically. Consistency beats introducing a second excellent convention.
 
+### License headers and attribution
+
+Repository-owned source files use SPDX headers to record their license and
+copyright holders. New Python and shell files should begin with:
+
+```text
+# SPDX-FileCopyrightText: YEAR Your Name
+# SPDX-License-Identifier: MIT
+```
+
+Use the comment syntax appropriate for other languages. Keep a shebang first,
+and keep a Python encoding declaration on its required first or second line.
+
+When making a copyrightable contribution to an existing file, add your own
+`SPDX-FileCopyrightText` line without removing the existing notices. Trivial
+changes such as typo fixes or formatting do not normally require an additional
+copyright line. Preserve notices in third-party or adapted code, and identify
+its license accurately rather than applying the project's header automatically.
+
 ## Hardware contributions
 
 A useful hardware contribution usually includes:
