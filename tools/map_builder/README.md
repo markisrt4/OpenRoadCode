@@ -6,7 +6,12 @@ It automates the previously manual chain: discover Geofabrik regions, download a
 
 ## Toolchain
 
-The toolchain is pinned in `toolchain.lock` to specific tilemaker, Valhalla, glyph, and Debian versions. Docker is a build/data-compilation environment only. The OpenRoadCode runtime does not require Docker.
+The toolchain is pinned in `toolchain.lock` to specific tilemaker, Valhalla, glyph, and Debian versions. A container engine is used only as a build/data-compilation environment; the OpenRoadCode runtime does not require one. The scripts use Docker by default. To use Podman, set `CONTAINER_ENGINE=podman`:
+
+```bash
+CONTAINER_ENGINE=podman ./scripts/build-image.sh
+CONTAINER_ENGINE=podman ./scripts/run-builder.sh tui
+```
 
 ## Build image
 
