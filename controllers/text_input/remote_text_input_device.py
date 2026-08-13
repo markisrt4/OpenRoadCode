@@ -1,13 +1,15 @@
-from controllers.text_input.text_input_device_if import (
+"""Text-input device whose completed strings arrive from a remote transport."""
+
+from .text_input_device_if import (
     TextCancelledCallback,
     TextInputDeviceIf,
     TextSubmittedCallback,
 )
-from controllers.text_input.text_input_request import TextInputRequest
+from .text_input_request import TextInputRequest
 
 
 class RemoteTextInputDevice(TextInputDeviceIf):
-    """Receive completed text from a remote client."""
+    """Hold a text request until a remote client submits or cancels it."""
 
     def __init__(self) -> None:
         self._request: TextInputRequest | None = None
@@ -24,6 +26,7 @@ class RemoteTextInputDevice(TextInputDeviceIf):
 
     @property
     def request(self) -> TextInputRequest | None:
+        """Return the active request for presentation by a remote transport."""
         return self._request
 
     def request_text(
@@ -33,24 +36,23 @@ class RemoteTextInputDevice(TextInputDeviceIf):
         on_cancel: TextCancelledCallback | None = None,
     ) -> None:
         if self.is_active:
-            raise RuntimeError("Remote text input request already active")
+            raise RuntimeError("A remote text-input request is already active")
 
         self._request = request
         self._on_submit = on_submit
         self._on_cancel = on_cancel
 
     def submit(self, text: str) -> None:
+        """Complete the active request with text received remotely."""
         if self._request is None or self._on_submit is None:
-            raise RuntimeError("No remote text input request is active")
+            raise RuntimeError("No remote text-input request is active")
 
         text = text.strip()
-
         if not text and not self._request.allow_empty:
             raise ValueError("Empty text is not allowed")
 
         callback = self._on_submit
         self._clear()
-
         callback(text)
 
     def cancel(self) -> None:
@@ -59,7 +61,6 @@ class RemoteTextInputDevice(TextInputDeviceIf):
 
         callback = self._on_cancel
         self._clear()
-
         if callback is not None:
             callback()
 

@@ -1,7 +1,9 @@
+"""Interface for user text-input devices."""
+
 from abc import ABC, abstractmethod
 from collections.abc import Callable
 
-from controllers.text_input.text_input_request import TextInputRequest
+from .text_input_request import TextInputRequest
 
 
 TextSubmittedCallback = Callable[[str], None]
@@ -9,18 +11,18 @@ TextCancelledCallback = Callable[[], None]
 
 
 class TextInputDeviceIf(ABC):
-    """Interface for devices capable of collecting a string from the user."""
+    """Contract for a device that can satisfy a text-input request."""
 
     @property
     @abstractmethod
     def is_available(self) -> bool:
-        """Return whether this text input device is currently available."""
+        """Return whether this text-input device is available for use."""
         ...
 
     @property
     @abstractmethod
     def is_active(self) -> bool:
-        """Return whether this device currently has an active request."""
+        """Return whether this device currently owns an active request."""
         ...
 
     @abstractmethod
@@ -30,10 +32,10 @@ class TextInputDeviceIf(ABC):
         on_submit: TextSubmittedCallback,
         on_cancel: TextCancelledCallback | None = None,
     ) -> None:
-        """Begin collecting text from the user."""
+        """Begin collecting text for the supplied request."""
         ...
 
     @abstractmethod
     def cancel(self) -> None:
-        """Cancel the current request, if any."""
+        """Cancel the active request, if one exists."""
         ...
