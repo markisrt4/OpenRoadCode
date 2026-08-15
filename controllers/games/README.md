@@ -6,16 +6,26 @@ Games are described in `config/games.toml`. Commands are stored as argument arra
 
 ## Component test
 
-List configured games:
+Run the interactive component test from the repository root:
 
 ```bash
-python -m controllers.games.component_test.game_launcher_cli --list
+python3 -m controllers.games.component_test.game_launcher_cli
 ```
 
-Launch Extreme Tux Racer after installing it on the target:
+The menu can list configured games, launch an enabled game, report the running game, and stop it. Quitting the component test also stops a game that it launched.
+
+List configured games without entering the interactive menu:
 
 ```bash
-python -m controllers.games.component_test.game_launcher_cli --game "Extreme Tux Racer"
+python3 -m controllers.games.component_test.game_launcher_cli --list
 ```
 
-The initial controller intentionally does not contain vehicle-motion policy or UI behavior. Those concerns can be layered above the launcher so the process-management code remains reusable.
+Launch Extreme Tux Racer directly after installing it on the target:
+
+```bash
+python3 -m controllers.games.component_test.game_launcher_cli --game "Extreme Tux Racer"
+```
+
+Games must be installed separately on the target system. A game also must have `enabled = true` in `config/games.toml` before the interactive launcher will start it.
+
+The controller intentionally does not contain vehicle-motion policy or UI behavior. Those concerns can be layered above the launcher so the process-management code remains reusable.
