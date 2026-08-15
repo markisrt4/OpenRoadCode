@@ -1,0 +1,14 @@
+# Native Linux games exposed by OpenRoadCode.
+# Commands are argv arrays so arguments do not require shell parsing.
+
+[[games]]
+name = "Extreme Tux Racer"
+description = "Race Tux down snowy courses."
+command = ["extremetuxracer"]
+enabled = true
+
+[[games]]
+name = "SuperTuxKart"
+description = "Native open-source kart racing."
+command = ["supertuxkart"]
+enabled = false
