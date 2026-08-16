@@ -31,6 +31,7 @@ RUN apt-get update && apt-get install -y \
     libzmq3-dev \
     libczmq-dev \
     libgeotiff-dev \
+    libluajit-5.1-dev luajit \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /src

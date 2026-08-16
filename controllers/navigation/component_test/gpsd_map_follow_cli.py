@@ -24,10 +24,14 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--zoom", type=float, default=16.5)
     parser.add_argument("--pitch", type=float, default=45.0)
+    parser.add_argument("--frame-rate", type=float, default=30.0)
+    parser.add_argument("--correction-time", type=float, default=0.5)
+    parser.add_argument("--prediction-age", type=float, default=1.5)
+    parser.add_argument("--snap-distance", type=float, default=75.0)
     parser.add_argument(
         "--camera-interval",
         type=float,
-        default=0.25,
+        default=0.05,
         help="Minimum seconds between follow-camera updates.",
     )
     parser.add_argument(
@@ -61,6 +65,10 @@ def main() -> int:
         follow=not args.no_follow,
         zoom=args.zoom,
         pitch=args.pitch,
+        frame_rate_hz=args.frame_rate,
+        correction_time_s=args.correction_time,
+        maximum_prediction_age_s=args.prediction_age,
+        snap_distance_m=args.snap_distance,
         minimum_camera_interval_s=args.camera_interval,
         minimum_course_speed_mps=args.course_speed,
     )
@@ -70,6 +78,7 @@ def main() -> int:
     print("Waiting for a 2D/3D fix. Press Ctrl+C to stop.")
 
     try:
+        adapter.start()
         source.start(adapter.update)
         while True:
             time.sleep(1.0)
@@ -80,6 +89,7 @@ def main() -> int:
         print("\nStopping live map following...")
     finally:
         source.stop()
+        adapter.stop()
 
     return 0
 

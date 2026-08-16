@@ -87,10 +87,14 @@ marker and follow camera:
 python3 -m controllers.navigation.component_test.gpsd_map_follow_cli
 ```
 
-The camera is updated at most four times per second by default. GPS course
-rotates the map only above 1 m/s, which prevents an unreliable stationary
-course from making the map spin. Use `--no-follow` to update only the vehicle
-marker, or run with `--help` for GPSD endpoint, camera, and socket options.
+The adapter renders at 30 frames per second. Between GPS fixes it predicts a
+short distance from GPS speed and course, then smoothly corrects toward each
+new fix. Prediction stops after 1.5 seconds without a report, and a correction
+of 75 meters or more snaps immediately rather than sliding across the map.
+GPS course rotates the map only above 1 m/s, which prevents an unreliable
+stationary course from making the map spin. Use `--no-follow` to update only
+the vehicle marker, or run with `--help` for GPSD endpoint, smoothing, camera,
+and socket options.
 
 ### Parked checkout
 
@@ -150,7 +154,8 @@ If the camera feels too busy, reduce its update rate, for example:
 
 ```bash
 python3 -m controllers.navigation.component_test.gpsd_map_follow_cli \
-  --camera-interval 0.5 \
+  --correction-time 0.8 \
+  --camera-interval 0.1 \
   --course-speed 2.0
 ```
 

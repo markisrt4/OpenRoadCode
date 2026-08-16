@@ -1,4 +1,5 @@
 import unittest
+import time
 
 from controllers.map_renderer.map_position_adapter import MapPositionAdapter
 from controllers.navigation.navigation_state import PositionState
@@ -27,6 +28,19 @@ class RecordingMapRenderer:
 
 
 class MapPositionAdapterTest(unittest.TestCase):
+    def test_starts_and_stops_render_loop(self) -> None:
+        adapter = MapPositionAdapter(
+            RecordingMapRenderer(),  # type: ignore[arg-type]
+            frame_rate_hz=100.0,
+        )
+
+        adapter.start()
+        self.assertTrue(adapter.is_running)
+        time.sleep(0.02)
+        adapter.stop()
+
+        self.assertFalse(adapter.is_running)
+
     def test_ignores_report_without_fix(self) -> None:
         renderer = RecordingMapRenderer()
         adapter = MapPositionAdapter(renderer)  # type: ignore[arg-type]
@@ -57,26 +71,78 @@ class MapPositionAdapterTest(unittest.TestCase):
             renderer.cameras,
         )
 
-    def test_throttles_camera_but_not_vehicle_marker(self) -> None:
+    def test_interpolates_marker_between_gps_fixes(self) -> None:
         renderer = RecordingMapRenderer()
-        now = [10.0]
+        now = [0.0]
         adapter = MapPositionAdapter(
             renderer,  # type: ignore[arg-type]
-            minimum_camera_interval_s=1.0,
+            correction_time_s=0.5,
+            snap_distance_m=1000.0,
             clock=lambda: now[0],
         )
-        state = PositionState(
-            latitude_deg=42.1,
-            longitude_deg=-83.2,
-            fix_mode=2,
+        adapter.update(
+            PositionState(latitude_deg=42.0, longitude_deg=-83.0, fix_mode=2)
         )
+        now[0] = 1.0
+        adapter.update(
+            PositionState(latitude_deg=42.001, longitude_deg=-83.0, fix_mode=2)
+        )
+        now[0] = 1.1
+        adapter.render_once()
 
-        adapter.update(state)
-        now[0] = 10.5
-        adapter.update(state)
+        displayed_latitude = renderer.positions[-1][0]
+        self.assertGreater(displayed_latitude, 42.0)
+        self.assertLess(displayed_latitude, 42.001)
 
-        self.assertEqual(2, len(renderer.positions))
-        self.assertEqual(1, len(renderer.cameras))
+    def test_predicts_using_speed_and_course_then_stops(self) -> None:
+        renderer = RecordingMapRenderer()
+        now = [0.0]
+        adapter = MapPositionAdapter(
+            renderer,  # type: ignore[arg-type]
+            correction_time_s=0.01,
+            maximum_prediction_age_s=1.5,
+            clock=lambda: now[0],
+        )
+        adapter.update(
+            PositionState(
+                latitude_deg=42.0,
+                longitude_deg=-83.0,
+                speed_mps=10.0,
+                course_deg=0.0,
+                fix_mode=3,
+            )
+        )
+        now[0] = 1.0
+        adapter.render_once()
+        first_prediction = renderer.positions[-1][0]
+        now[0] = 3.0
+        adapter.render_once()
+        final_prediction = renderer.positions[-1][0]
+        now[0] = 4.0
+        adapter.render_once()
+
+        self.assertGreater(first_prediction, 42.0)
+        self.assertGreater(final_prediction, first_prediction)
+        self.assertAlmostEqual(final_prediction, renderer.positions[-1][0])
+
+    def test_snaps_when_fix_is_far_away(self) -> None:
+        renderer = RecordingMapRenderer()
+        now = [0.0]
+        adapter = MapPositionAdapter(
+            renderer,  # type: ignore[arg-type]
+            snap_distance_m=75.0,
+            clock=lambda: now[0],
+        )
+        adapter.update(
+            PositionState(latitude_deg=42.0, longitude_deg=-83.0, fix_mode=2)
+        )
+        now[0] = 1.0
+        adapter.update(
+            PositionState(latitude_deg=42.01, longitude_deg=-83.0, fix_mode=2)
+        )
+        adapter.render_once()
+
+        self.assertEqual((42.01, -83.0), renderer.positions[-1])
 
     def test_keeps_bearing_when_below_course_speed(self) -> None:
         renderer = RecordingMapRenderer()
@@ -95,6 +161,8 @@ class MapPositionAdapterTest(unittest.TestCase):
                 fix_mode=3,
             )
         )
+        now[0] = 1.0
+        adapter.render_once()
         adapter.update(
             PositionState(
                 latitude_deg=42.2,
@@ -104,6 +172,8 @@ class MapPositionAdapterTest(unittest.TestCase):
                 fix_mode=3,
             )
         )
+        now[0] = 2.0
+        adapter.render_once()
 
         self.assertEqual(90.0, renderer.cameras[-1][3])
 
