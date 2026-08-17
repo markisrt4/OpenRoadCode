@@ -1,77 +1,200 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 
-from flask import Flask, redirect, render_template_string, url_for
+import os
 from types import SimpleNamespace
 
-from apps.stack.radioStack import attach_radio_stacks
+from flask import Flask, jsonify, redirect, render_template_string, url_for
 
 app = Flask(__name__)
 
 ctx = SimpleNamespace()
-attach_radio_stacks(ctx)
+_radio_stacks_attached = False
+status = "Ready"
+
 
 HTML = """
 <!doctype html>
-<html>
+<html lang="en">
 <head>
-  <title>CarSDR Web</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0b0d10">
+  <title>OpenRoadCode</title>
   <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0b0d10;
+      --panel: #151a20;
+      --panel-hover: #1d252d;
+      --border: #34424f;
+      --accent: #5aa9e6;
+      --text: #f5f7f8;
+      --muted: #aebac4;
+    }
+
+    * { box-sizing: border-box; }
+
     body {
       margin: 0;
-      background: #111418;
-      color: #fff;
-      font-family: Arial, sans-serif;
-    }s
+      min-height: 100vh;
+      min-height: 100dvh;
+      background: var(--bg);
+      color: var(--text);
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      -webkit-tap-highlight-color: transparent;
+    }
+
     header {
-      background: #dfe7eb;
-      color: #1d2429;
-      padding: 1rem;
-      font-size: 1.4rem;
-      font-weight: bold;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      padding: calc(14px + env(safe-area-inset-top)) 18px 14px;
+      background: rgba(15, 19, 23, 0.94);
+      border-bottom: 1px solid #242d35;
+      backdrop-filter: blur(12px);
     }
+
+    .brand {
+      max-width: 900px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .brand-title {
+      font-size: clamp(1.25rem, 5vw, 1.7rem);
+      font-weight: 800;
+      letter-spacing: 0.02em;
+    }
+
+    .brand-subtitle {
+      color: var(--muted);
+      font-size: 0.82rem;
+      margin-top: 2px;
+    }
+
+    .online-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #64d37f;
+      box-shadow: 0 0 12px rgba(100, 211, 127, 0.65);
+      flex: 0 0 auto;
+    }
+
     main {
-      padding: 1rem;
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-      gap: 1rem;
+      width: min(100%, 900px);
+      margin: 0 auto;
+      padding: 18px 14px calc(24px + env(safe-area-inset-bottom));
     }
+
+    .section-title {
+      color: var(--muted);
+      margin: 2px 4px 12px;
+      font-size: 0.8rem;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    .launcher-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    form { margin: 0; }
+
     button {
       width: 100%;
-      min-height: 100px;
-      background: #20252b;
-      color: white;
-      border: 2px solid #384653;
-      border-top: 5px solid #5aa9e6;
-      border-radius: 14px;
-      font-size: 1.2rem;
-      font-weight: bold;
+      min-height: 118px;
+      padding: 16px 12px;
+      border: 1px solid var(--border);
+      border-top: 4px solid var(--accent);
+      border-radius: 16px;
+      background: linear-gradient(180deg, #1b2229 0%, var(--panel) 100%);
+      color: var(--text);
+      font: inherit;
+      font-size: 1.05rem;
+      font-weight: 750;
+      cursor: pointer;
+      touch-action: manipulation;
     }
+
+    button:active {
+      transform: scale(0.98);
+      background: var(--panel-hover);
+    }
+
     .status {
-      padding: 1rem;
-      color: #b8c7d3;
-      background: #0b0d10;
+      margin-top: 16px;
+      padding: 14px 16px;
+      border: 1px solid #27313a;
+      border-radius: 14px;
+      background: #101419;
+      color: var(--muted);
+      font-size: 0.92rem;
+    }
+
+    @media (min-width: 700px) {
+      .launcher-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      button { min-height: 135px; }
     }
   </style>
 </head>
 <body>
-  <header>Mark's CarSDR Web</header>
+  <header>
+    <div class="brand">
+      <div>
+        <div class="brand-title">OpenRoadCode</div>
+        <div class="brand-subtitle">Mobile Web UI</div>
+      </div>
+      <div class="online-dot" title="Web UI online"></div>
+    </div>
+  </header>
 
   <main>
-    <form action="/fm" method="post"><button>FM Radio</button></form>
-    <form action="/weather" method="post"><button>Weather Radio</button></form>
-    <form action="/ham" method="post"><button>HAM Radio</button></form>
-    <form action="/aircraft" method="post"><button>Aircraft</button></form>
-    <form action="/adsb" method="post"><button>ADS-B</button></form>
-    <form action="/weather_dash" method="post"><button>Weather Dash</button></form>
-  </main>
+    <div class="section-title">Radio & Data</div>
+    <div class="launcher-grid">
+      <form action="/action/fm" method="post"><button type="submit">FM Radio</button></form>
+      <form action="/action/weather" method="post"><button type="submit">Weather Radio</button></form>
+      <form action="/action/ham" method="post"><button type="submit">HAM Radio</button></form>
+      <form action="/action/aircraft" method="post"><button type="submit">Aircraft</button></form>
+      <form action="/action/adsb" method="post"><button type="submit">ADS-B</button></form>
+      <form action="/action/weather_dash" method="post"><button type="submit">Weather Dash</button></form>
+    </div>
 
-  <div class="status">{{ status }}</div>
+    <div class="status">{{ status }}</div>
+  </main>
 </body>
 </html>
 """
 
-status = "Ready"
+
+def _attach_radio_stacks() -> None:
+    """Attach hardware-backed launchers only when an action actually needs them."""
+    global _radio_stacks_attached
+
+    if _radio_stacks_attached:
+        return
+
+    from apps.stack.radioStack import attach_radio_stacks
+
+    attach_radio_stacks(ctx)
+    _radio_stacks_attached = True
+
+
+ACTIONS = {
+    "fm": ("fm_radio_launcher", "FM Radio toggled"),
+    "weather": ("weather_radio_launcher", "Weather Radio toggled"),
+    "ham": ("ham_radio_launcher", "HAM Radio toggled"),
+    "aircraft": ("airband_radio_launcher", "Airband toggled"),
+    "adsb": ("adsb_launcher", "ADS-B toggled"),
+    "weather_dash": ("weather_dash_launcher", "Weather dashboard toggled"),
+}
 
 
 @app.get("/")
@@ -79,53 +202,35 @@ def index():
     return render_template_string(HTML, status=status)
 
 
-@app.post("/fm")
-def fm():
+@app.get("/healthz")
+def healthz():
+    return jsonify(status="ok", app="OpenRoadCode Web UI")
+
+
+@app.post("/action/<action_name>")
+def run_action(action_name: str):
     global status
-    ctx.fm_radio_launcher.toggle()
-    status = "FM Radio toggled"
-    return redirect(url_for("index"))
 
+    action = ACTIONS.get(action_name)
+    if action is None:
+        status = f"Unknown action: {action_name}"
+        return redirect(url_for("index"))
 
-@app.post("/weather")
-def weather():
-    global status
-    ctx.weather_radio_launcher.toggle()
-    status = "Weather Radio toggled"
-    return redirect(url_for("index"))
+    launcher_name, success_status = action
 
+    try:
+        _attach_radio_stacks()
+        getattr(ctx, launcher_name).toggle()
+        status = success_status
+    except Exception as exc:  # Keep the web UI usable even when Pi hardware is unavailable.
+        app.logger.exception("OpenRoadCode action failed: %s", action_name)
+        status = f"{action_name} unavailable: {exc}"
 
-@app.post("/ham")
-def ham():
-    global status
-    ctx.ham_radio_launcher.toggle()
-    status = "HAM Radio toggled"
-    return redirect(url_for("index"))
-
-
-@app.post("/aircraft")
-def aircraft():
-    global status
-    ctx.airband_radio_launcher.toggle()
-    status = "Airband toggled"
-    return redirect(url_for("index"))
-
-
-@app.post("/adsb")
-def adsb():
-    global status
-    ctx.adsb_launcher.toggle()
-    status = "ADS-B toggled"
-    return redirect(url_for("index"))
-
-
-@app.post("/weather_dash")
-def weather_dash():
-    global status
-    ctx.weather_dash_launcher.toggle()
-    status = "Weather dashboard toggled"
     return redirect(url_for("index"))
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    host = os.environ.get("OPENROADCODE_WEB_HOST", "0.0.0.0")
+    port = int(os.environ.get("OPENROADCODE_WEB_PORT", "5000"))
+    debug = os.environ.get("OPENROADCODE_WEB_DEBUG", "0") == "1"
+    app.run(host=host, port=port, debug=debug)
