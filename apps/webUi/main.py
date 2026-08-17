@@ -2,14 +2,18 @@
 # SPDX-License-Identifier: MIT
 
 import os
-from types import SimpleNamespace
+from pathlib import Path
 
 from flask import Flask, jsonify, redirect, render_template_string, url_for
 
+from apps.carUi.runtime.car_ui_runtime_factory import create_car_ui_runtime
+
 app = Flask(__name__)
 
-ctx = SimpleNamespace()
-_radio_stacks_attached = False
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+RUNTIME_CONFIG_PATH = PROJECT_ROOT / "config" / "runtime.toml"
+
+_runtime = None
 status = "Ready"
 
 
@@ -174,27 +178,48 @@ HTML = """
 """
 
 
-def _attach_radio_stacks() -> None:
-    """Attach hardware-backed launchers only when an action actually needs them."""
-    global _radio_stacks_attached
-
-    if _radio_stacks_attached:
-        return
-
-    from apps.stack.radioStack import attach_radio_stacks
-
-    attach_radio_stacks(ctx)
-    _radio_stacks_attached = True
-
-
-ACTIONS = {
-    "fm": ("fm_radio_launcher", "FM Radio toggled"),
-    "weather": ("weather_radio_launcher", "Weather Radio toggled"),
-    "ham": ("ham_radio_launcher", "HAM Radio toggled"),
-    "aircraft": ("airband_radio_launcher", "Airband toggled"),
-    "adsb": ("adsb_launcher", "ADS-B toggled"),
-    "weather_dash": ("weather_dash_launcher", "Weather dashboard toggled"),
+RADIO_ACTIONS = {
+    "fm": ("fm_radio", "FM Radio"),
+    "weather": ("weather_band", "Weather Radio"),
+    "ham": ("ham_2m", "HAM 2m Radio"),
+    "aircraft": ("airband", "Airband"),
 }
+
+
+def _get_runtime():
+    global _runtime
+
+    if _runtime is None:
+        _runtime = create_car_ui_runtime(
+            RUNTIME_CONFIG_PATH,
+            project_root=PROJECT_ROOT,
+        )
+
+    return _runtime
+
+
+def _toggle_radio(action_name: str) -> str:
+    runtime = _get_runtime()
+    radio_key, label = RADIO_ACTIONS[action_name]
+    radio_runtime = runtime.radios.get(radio_key)
+    running = radio_runtime.launcher.toggle(runtime.remote_display)
+    return f"{label} {'running' if running else 'stopped'}"
+
+
+def _toggle_adsb() -> str:
+    runtime = _get_runtime()
+    if runtime.adsb_launcher is None:
+        return "ADS-B is disabled in runtime.toml"
+    running = runtime.adsb_launcher.toggle(runtime.auxiliary_display)
+    return f"ADS-B {'running' if running else 'stopped'}"
+
+
+def _toggle_weather_dash() -> str:
+    runtime = _get_runtime()
+    if runtime.weather_dash_launcher is None:
+        return "Weather dashboard is disabled in runtime.toml"
+    running = runtime.weather_dash_launcher.toggle(runtime.auxiliary_display)
+    return f"Weather dashboard {'running' if running else 'stopped'}"
 
 
 @app.get("/")
@@ -211,18 +236,16 @@ def healthz():
 def run_action(action_name: str):
     global status
 
-    action = ACTIONS.get(action_name)
-    if action is None:
-        status = f"Unknown action: {action_name}"
-        return redirect(url_for("index"))
-
-    launcher_name, success_status = action
-
     try:
-        _attach_radio_stacks()
-        getattr(ctx, launcher_name).toggle()
-        status = success_status
-    except Exception as exc:  # Keep the web UI usable even when Pi hardware is unavailable.
+        if action_name in RADIO_ACTIONS:
+            status = _toggle_radio(action_name)
+        elif action_name == "adsb":
+            status = _toggle_adsb()
+        elif action_name == "weather_dash":
+            status = _toggle_weather_dash()
+        else:
+            status = f"Unknown action: {action_name}"
+    except Exception as exc:  # Keep the web UI alive if an external app is unavailable.
         app.logger.exception("OpenRoadCode action failed: %s", action_name)
         status = f"{action_name} unavailable: {exc}"
 
