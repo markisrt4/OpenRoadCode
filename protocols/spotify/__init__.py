@@ -4,6 +4,7 @@
 from protocols.spotify.spotify_auth import (
     SpotifyAuth,
     SpotifyAuthError,
+    SpotifyAuthorizationRequest,
 )
 from protocols.spotify.spotify_config import (
     DEFAULT_REDIRECT_URI,
@@ -36,6 +37,7 @@ __all__ = [
     "SPOTIFY_TOKEN_URL",
     "SpotifyAuth",
     "SpotifyAuthError",
+    "SpotifyAuthorizationRequest",
     "SpotifyConfig",
     "SpotifyTokenStore",
     "SpotifyWebApiClient",
