@@ -5,8 +5,11 @@
   "use strict";
 
   class DeviceOrientationSensorAdapter {
-    constructor() {
+    constructor(endpoint = "/api/navigation/orientation", publishIntervalMs = 150) {
       this._listener = null;
+      this._endpoint = endpoint;
+      this._publishIntervalMs = publishIntervalMs;
+      this._lastPublishedMs = 0;
     }
 
     get supported() {
@@ -22,6 +25,18 @@
       return (await requestPermission.call(window.DeviceOrientationEvent)) === "granted";
     }
 
+    async _publish(sample) {
+      const response = await fetch(this._endpoint, {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify(sample),
+      });
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(text || `orientation update failed (${response.status})`);
+      }
+    }
+
     start(onSample, onError) {
       if (!this.supported) {
         onError?.(new Error("Device orientation is not supported by this browser."));
@@ -29,12 +44,20 @@
       }
       if (this._listener !== null) return true;
 
-      this._listener = (event) => onSample?.({
-        heading: event.alpha,
-        pitch: event.beta,
-        roll: event.gamma,
-        absolute: event.absolute === true,
-      });
+      this._listener = (event) => {
+        const sample = {
+          heading: event.alpha,
+          pitch: event.beta,
+          roll: event.gamma,
+          absolute: event.absolute === true,
+        };
+        onSample?.(sample);
+
+        const now = Date.now();
+        if (now - this._lastPublishedMs < this._publishIntervalMs) return;
+        this._lastPublishedMs = now;
+        this._publish(sample).catch((error) => onError?.(error));
+      };
       window.addEventListener("deviceorientation", this._listener, true);
       return true;
     }
