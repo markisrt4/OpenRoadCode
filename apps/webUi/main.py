@@ -6,9 +6,14 @@
 import os
 
 from apps.webUi.menu_catalog import create_web_ui_menu_pages
+from apps.webUi.navigation_session import WebNavigationSession
 from frontends.web import create_web_frontend
 
-app = create_web_frontend(create_web_ui_menu_pages())
+navigation_session = WebNavigationSession()
+app = create_web_frontend(
+    create_web_ui_menu_pages(),
+    navigation_session=navigation_session,
+)
 
 if __name__ == "__main__":
     host = os.environ.get("OPENROADCODE_WEB_HOST", "0.0.0.0")
