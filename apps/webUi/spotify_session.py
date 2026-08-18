@@ -11,18 +11,64 @@ from threading import RLock
 from apps.common.spotify_controller_factory import create_spotify_controller
 from controllers.lyrics import LrclibLyricsClient
 from controllers.spotify import SpotifyMediaPresenter
+from protocols.spotify import (
+    SpotifyAuth,
+    SpotifyAuthorizationRequest,
+    SpotifyTokenStore,
+    SpotifyWebApiClient,
+    load_spotify_config_from_secrets,
+)
+from security.environment_variable_secret_manager import EnvironmentVariableSecretManager
 from ui.media import MediaState, MediaUiStub
 
 
 class WebSpotifySession:
-    """Expose shared Spotify controller behavior to WebUi routes."""
+    """Expose shared Spotify behavior and Web OAuth state to WebUi routes."""
 
     def __init__(self) -> None:
         self._lock = RLock()
+        self._lyrics = LrclibLyricsClient()
+        self._authorization: SpotifyAuthorizationRequest | None = None
+        self._auth: SpotifyAuth | None = None
+        self._configure_backend()
+
+    def _configure_backend(self) -> None:
         self._backend = create_spotify_controller()
         self._ui = MediaUiStub()
         self._presenter = SpotifyMediaPresenter(self._backend, self._ui)
-        self._lyrics = LrclibLyricsClient()
+
+    def begin_authorization(self) -> str:
+        """Begin Spotify OAuth and return the external authorization URL."""
+        with self._lock:
+            config = load_spotify_config_from_secrets(EnvironmentVariableSecretManager())
+            if config is None:
+                raise RuntimeError("Spotify is not configured. Expected SPOTIFY_CLIENT_ID.")
+            self._auth = SpotifyAuth(config=config, token_store=SpotifyTokenStore(), open_browser=False)
+            self._authorization = self._auth.begin_authorization()
+            return self._authorization.authorization_url
+
+    def complete_authorization(
+        self,
+        *,
+        code: str | None,
+        state: str | None,
+        error: str | None = None,
+        error_description: str | None = None,
+    ) -> None:
+        """Complete the pending Web OAuth flow and rebuild the media backend."""
+        with self._lock:
+            if self._auth is None or self._authorization is None:
+                raise RuntimeError("No Spotify authorization is pending.")
+            self._auth.complete_authorization(
+                self._authorization,
+                code=code,
+                state=state,
+                error=error,
+                error_description=error_description,
+            )
+            self._authorization = None
+            self._auth = None
+            self._configure_backend()
 
     def state(self) -> dict[str, object]:
         with self._lock:
