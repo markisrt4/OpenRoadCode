@@ -17,14 +17,9 @@
       if (!this.supported) {
         throw new Error("Device orientation is not supported by this browser.");
       }
-
       const requestPermission = window.DeviceOrientationEvent.requestPermission;
-      if (typeof requestPermission !== "function") {
-        return true;
-      }
-
-      const result = await requestPermission.call(window.DeviceOrientationEvent);
-      return result === "granted";
+      if (typeof requestPermission !== "function") return true;
+      return (await requestPermission.call(window.DeviceOrientationEvent)) === "granted";
     }
 
     start(onSample, onError) {
@@ -32,29 +27,20 @@
         onError?.(new Error("Device orientation is not supported by this browser."));
         return false;
       }
+      if (this._listener !== null) return true;
 
-      if (this._listener !== null) {
-        return true;
-      }
-
-      this._listener = (event) => {
-        onSample?.({
-          headingDeg: event.alpha,
-          pitchDeg: event.beta,
-          rollDeg: event.gamma,
-          absolute: event.absolute === true,
-          timestampMs: Date.now(),
-        });
-      };
-
+      this._listener = (event) => onSample?.({
+        heading: event.alpha,
+        pitch: event.beta,
+        roll: event.gamma,
+        absolute: event.absolute === true,
+      });
       window.addEventListener("deviceorientation", this._listener, true);
       return true;
     }
 
     stop() {
-      if (this._listener === null) {
-        return;
-      }
+      if (this._listener === null) return;
       window.removeEventListener("deviceorientation", this._listener, true);
       this._listener = null;
     }
