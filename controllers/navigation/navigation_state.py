@@ -28,16 +28,24 @@ class PositionState:
 
     @property
     def has_fix(self) -> bool:
-        """Return whether the position state contains a usable fix.
-
-        @retval True Latitude and longitude are available.
-        @retval False The state has no usable position.
-        """
+        """Return whether the position state contains a usable fix."""
         return self.fix_mode is not None and self.fix_mode >= 2
 
 
 # Compatibility name for existing navigation consumers.
 GpsState = PositionState
+
+
+@dataclass(frozen=True, slots=True)
+class OrientationState:
+    """Represent a normalized orientation report from any orientation source."""
+
+    received_at: datetime = field(default_factory=datetime.now)
+    heading_deg: float | None = None
+    pitch_deg: float | None = None
+    roll_deg: float | None = None
+    absolute: bool | None = None
+    source: str = "unknown"
 
 
 @dataclass(frozen=True, slots=True)
