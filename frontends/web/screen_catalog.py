@@ -51,7 +51,59 @@ def create_web_screens() -> dict[str, WebScreen]:
         "weather_radio": WebScreen("NOAA Weather Radio", "Weather band", '''<div class="hero-value">162.550<small>MHz</small></div><div class="controls"><button>CH −</button><button class="primary">PLAY</button><button>CH +</button></div>'''),
         "adsb": WebScreen("ADS-B", "Nearby aircraft", '''<div class="card"><b>No ADS-B source attached</b><p>The web view is ready for aircraft data from the OpenRoadCode backend.</p></div>'''),
         "airband": WebScreen("Airband", "AM aviation radio", '''<div class="hero-value">118.000<small>MHz AM</small></div><div class="controls"><button>−</button><button class="primary">MONITOR</button><button>+</button></div>'''),
-        "offroad_dashboard": WebScreen("Off-Road", "Mock orientation", '''<div class="stat-grid"><div class="stat"><b>+2.4°</b><small>PITCH</small></div><div class="stat"><b>−1.1°</b><small>ROLL</small></div><div class="stat"><b>312°</b><small>HEADING</small></div></div>'''),
+        "offroad_dashboard": WebScreen(
+            "Off-Road", "Phone GPS + orientation",
+            '''<div class="stat-grid">
+              <div class="stat"><b id="pitch" class="sensor-value">--</b><small>PITCH</small></div>
+              <div class="stat"><b id="roll" class="sensor-value">--</b><small>ROLL</small></div>
+              <div class="stat"><b id="heading" class="sensor-value">--</b><small>HEADING</small></div>
+              <div class="stat"><b id="speed" class="sensor-value">--</b><small>GPS MPH</small></div>
+            </div>
+            <div class="card">
+              <b>Phone sensors</b>
+              <p id="sensor-status" class="sensor-status">Tap START SENSORS to request browser access.</p>
+              <div id="location" class="sensor-status">GPS: --</div>
+              <button id="start-sensors" class="primary wide">START SENSORS</button>
+            </div>
+            <script src="/web-assets/sensors/device_orientation.js"></script>
+            <script src="/web-assets/sensors/geolocation.js"></script>
+            <script>
+            (() => {
+              const status=document.getElementById('sensor-status');
+              const orientation=new OpenRoadCodeWeb.DeviceOrientationSensorAdapter();
+              const geolocation=new OpenRoadCodeWeb.GeolocationSensorAdapter();
+              const value=(id,v,digits=1,suffix='°') => {
+                document.getElementById(id).textContent = Number.isFinite(v) ? `${v.toFixed(digits)}${suffix}` : '--';
+              };
+              document.getElementById('start-sensors').addEventListener('click', async () => {
+                const messages=[];
+                try {
+                  const granted=await orientation.requestPermission();
+                  if (granted) {
+                    orientation.start((sample) => {
+                      value('pitch',sample.pitchDeg);
+                      value('roll',sample.rollDeg);
+                      value('heading',sample.headingDeg,0);
+                    },(error)=>{status.textContent=`Orientation: ${error.message}`;});
+                    messages.push('orientation active');
+                  } else messages.push('orientation permission denied');
+                } catch(error) { messages.push(`orientation unavailable: ${error.message}`); }
+
+                geolocation.start((sample) => {
+                  const mph=Number.isFinite(sample.speedMps) ? sample.speedMps*2.236936 : null;
+                  value('speed',mph,1,' mph');
+                  document.getElementById('location').textContent =
+                    `GPS: ${sample.latitude.toFixed(6)}, ${sample.longitude.toFixed(6)} ±${Math.round(sample.accuracyM)} m`;
+                  if (!Number.isFinite(document.getElementById('heading').textContent.replace('°','')) && Number.isFinite(sample.headingDeg)) {
+                    value('heading',sample.headingDeg,0);
+                  }
+                },(error)=>{status.textContent=`GPS: ${error.message}`;});
+                if (geolocation.supported) messages.push('GPS requested');
+                status.textContent=messages.join(' · ') || 'No browser sensors available.';
+              });
+            })();
+            </script>''',
+        ),
         "cabin_lighting": WebScreen("Cabin Lighting", "Frontend controls", '''<div class="card"><label>Brightness</label><input type="range" min="0" max="100" value="65"><label>Color</label><input type="color" value="#ff3030"></div>'''),
         "accent_lighting": WebScreen("Accent Lighting", "Frontend controls", '''<div class="card"><label>Brightness</label><input type="range" min="0" max="100" value="50"><label>Color</label><input type="color" value="#307cff"></div>'''),
         "spotify": WebScreen("Spotify", "Playback shell", '''<div class="album">♫</div><div class="card center"><b>Nothing playing</b><p>Spotify service not attached in standalone mode.</p></div><div class="controls"><button>◀</button><button class="primary">▶</button><button>▶▶</button></div>'''),
