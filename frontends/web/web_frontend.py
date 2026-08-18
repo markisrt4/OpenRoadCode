@@ -61,6 +61,26 @@ def create_web_frontend(pages: Mapping[str, MenuPage], *, root_page: str="main",
         if navigation_session is None: abort(503)
         return jsonify(navigation_session.as_dict())
 
+    @app.get("/api/media/spotify/auth/start")
+    def spotify_auth_start():
+        if spotify_session is None: abort(503)
+        try: return redirect(spotify_session.begin_authorization())
+        except Exception as exc: return jsonify(error=str(exc)),400
+
+    @app.get("/api/media/spotify/auth/callback")
+    def spotify_auth_callback():
+        if spotify_session is None: abort(503)
+        try:
+            spotify_session.complete_authorization(
+                code=request.args.get("code"),
+                state=request.args.get("state"),
+                error=request.args.get("error"),
+                error_description=request.args.get("error_description"),
+            )
+        except Exception as exc:
+            return jsonify(error=str(exc)),400
+        return redirect(url_for("select_tile",page_key="media",tile_key="spotify"))
+
     @app.get("/api/media/spotify/state")
     def spotify_state():
         if spotify_session is None: abort(503)
