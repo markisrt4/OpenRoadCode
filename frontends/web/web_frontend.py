@@ -22,7 +22,9 @@ SCREEN = """<!doctype html><meta name=viewport content='width=device-width,initi
 def create_web_frontend(pages: Mapping[str, MenuPage], *, root_page: str="main", screens: Mapping[str, WebScreen]|None=None, navigation_session: Any|None=None, spotify_session: Any|None=None) -> Flask:
     if root_page not in pages: raise ValueError(f"Unknown root page: {root_page}")
     screen_map=dict(screens or create_web_screens())
-    sensor_dir=Path(__file__).resolve().parent / "sensors"
+    web_dir=Path(__file__).resolve().parent
+    sensor_dir=web_dir / "sensors"
+    media_dir=web_dir / "media"
     app=Flask(__name__)
 
     @app.get("/")
@@ -47,6 +49,8 @@ def create_web_frontend(pages: Mapping[str, MenuPage], *, root_page: str="main",
         return render_template_string(SCREEN,screen=screen,body=Markup(screen.body_html),back=back,style=STYLE)
     @app.get("/web-assets/sensors/<path:filename>")
     def web_sensor_asset(filename:str): return send_from_directory(sensor_dir,filename)
+    @app.get("/web-assets/media/<path:filename>")
+    def web_media_asset(filename:str): return send_from_directory(media_dir,filename)
 
     @app.post("/api/navigation/position")
     def navigation_position():
@@ -69,27 +73,18 @@ def create_web_frontend(pages: Mapping[str, MenuPage], *, root_page: str="main",
     def spotify_auth_config():
         if spotify_session is None: abort(503)
         return jsonify(spotify_session.auth_config())
-
     @app.get("/api/media/spotify/auth/start")
     def spotify_auth_start():
         if spotify_session is None: abort(503)
         try: return redirect(spotify_session.begin_authorization())
         except Exception as exc: return jsonify(error=str(exc)),400
-
     @app.get("/api/media/spotify/auth/callback")
     def spotify_auth_callback():
         if spotify_session is None: abort(503)
         try:
-            spotify_session.complete_authorization(
-                code=request.args.get("code"),
-                state=request.args.get("state"),
-                error=request.args.get("error"),
-                error_description=request.args.get("error_description"),
-            )
-        except Exception as exc:
-            return jsonify(error=str(exc)),400
+            spotify_session.complete_authorization(code=request.args.get("code"),state=request.args.get("state"),error=request.args.get("error"),error_description=request.args.get("error_description"))
+        except Exception as exc: return jsonify(error=str(exc)),400
         return redirect(url_for("select_tile",page_key="media",tile_key="spotify"))
-
     @app.get("/api/media/spotify/state")
     def spotify_state():
         if spotify_session is None: abort(503)
