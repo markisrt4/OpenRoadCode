@@ -9,6 +9,7 @@ from typing import Any
 from flask import Flask, abort, jsonify, redirect, render_template_string, request, send_from_directory, url_for
 from markupsafe import Markup
 from frontends.web.screen_catalog import WebScreen, create_web_screens
+from frontends.web.spotify_screen import render_spotify_screen
 from ui.menu import MenuPage
 
 STYLE = """
@@ -40,7 +41,10 @@ def create_web_frontend(pages: Mapping[str, MenuPage], *, root_page: str="main",
         if tile.key in pages: return redirect(url_for("menu_page",page_key=tile.key))
         screen=screen_map.get(tile.key)
         if screen is None: abort(404)
-        return render_template_string(SCREEN,screen=screen,body=Markup(screen.body_html),back=url_for("menu_page",page_key=page_key),style=STYLE)
+        back=url_for("menu_page",page_key=page_key)
+        if tile.key == "spotify" and spotify_session is not None:
+            return render_spotify_screen(style=STYLE,back=back,state=spotify_session.state())
+        return render_template_string(SCREEN,screen=screen,body=Markup(screen.body_html),back=back,style=STYLE)
     @app.get("/web-assets/sensors/<path:filename>")
     def web_sensor_asset(filename:str): return send_from_directory(sensor_dir,filename)
 
