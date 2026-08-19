@@ -61,7 +61,13 @@ LIGHTING_HTML = '''
   <input id="lighting-brightness" class="wide" type="range" min="0" max="100" value="100">
   <button id="lighting-power" class="primary wide" data-enabled="0">TURN ON</button>
 </div>
+<div class="card">
+  <b>Phone Torch <small style="color:#aebac4">EXPERIMENTAL</small></b>
+  <p id="phone-torch-status">Uses this phone's rear camera torch when the browser permits it.</p>
+  <button id="phone-torch" class="wide" data-enabled="0">TORCH ON</button>
+</div>
 <script src="/web-assets/lighting/lighting.js"></script>
+<script src="/web-assets/lighting/torch.js"></script>
 '''
 
 
@@ -77,8 +83,8 @@ def create_web_screens() -> dict[str, WebScreen]:
         "adsb": WebScreen("ADS-B", "Nearby aircraft", '''<div class="card">No ADS-B source attached</div>'''),
         "airband": WebScreen("Airband", "AM aviation radio", '''<div class="hero-value">118.000<small>MHz AM</small></div>'''),
         "offroad_dashboard": WebScreen("Off-Road", "Phone GPS + orientation", '''<div class="stat-grid"><div class="stat"><b id="pitch">--</b><small>PITCH</small></div><div class="stat"><b id="roll">--</b><small>ROLL</small></div><div class="stat"><b id="heading">--</b><small>HEADING</small></div><div class="stat"><b id="speed">--</b><small>GPS MPH</small></div></div><div class="card"><p id="sensor-status">Tap START SENSORS.</p><div id="location">GPS: --</div><button id="start-sensors" class="primary wide">START SENSORS</button></div><script src="/web-assets/sensors/device_orientation.js"></script><script src="/web-assets/sensors/geolocation.js"></script><script>(()=>{const o=new OpenRoadCodeWeb.DeviceOrientationSensorAdapter(),g=new OpenRoadCodeWeb.GeolocationSensorAdapter(),v=(id,x,d=1,s='°')=>document.getElementById(id).textContent=Number.isFinite(x)?`${x.toFixed(d)}${s}`:'--';start_sensors=document.getElementById('start-sensors');start_sensors.onclick=async()=>{if(await o.requestPermission())o.start(x=>{v('pitch',x.pitch);v('roll',x.roll);v('heading',x.heading,0)});g.start(x=>{v('speed',Number.isFinite(x.speed)?x.speed*2.236936:null,1,' mph');location.textContent=`GPS: ${x.latitude.toFixed(6)}, ${x.longitude.toFixed(6)}`});sensor_status.textContent='Sensors active';};})();</script>'''),
-        "cabin_lighting": WebScreen("Cabin Lighting", "Emulator or physical BLE", LIGHTING_HTML),
-        "accent_lighting": WebScreen("Accent Lighting", "Emulator or physical BLE", LIGHTING_HTML),
+        "cabin_lighting": WebScreen("Cabin Lighting", "Shared lighting zone", LIGHTING_HTML),
+        "accent_lighting": WebScreen("Accent Lighting", "Shared lighting zone (future independent zone)", LIGHTING_HTML),
         "netflix": WebScreen("Netflix", "Browser-native launcher", NETFLIX_HTML),
         "youtube": WebScreen("YouTube", "Browser-native search and video", YOUTUBE_HTML),
     }
