@@ -61,6 +61,11 @@ def create_web_frontend(pages: Mapping[str, MenuPage], *, root_page: str="main",
         if navigation_session is None: abort(503)
         return jsonify(navigation_session.as_dict())
 
+    @app.get("/api/media/spotify/auth/config")
+    def spotify_auth_config():
+        if spotify_session is None: abort(503)
+        return jsonify(spotify_session.auth_config())
+
     @app.get("/api/media/spotify/auth/start")
     def spotify_auth_start():
         if spotify_session is None: abort(503)
