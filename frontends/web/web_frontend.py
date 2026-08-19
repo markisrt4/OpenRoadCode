@@ -19,12 +19,13 @@ PAGE = """<!doctype html><meta name=viewport content='width=device-width,initial
 SCREEN = """<!doctype html><meta name=viewport content='width=device-width,initial-scale=1'><style>{{style}}</style><header><div class=bar><a class=back href='{{back}}'>‹</a><div class=heading><div class=title>{{screen.title}}</div><div class=subtitle>{{screen.subtitle}}</div></div></div></header><main>{{body}}</main>"""
 
 
-def create_web_frontend(pages: Mapping[str, MenuPage], *, root_page: str="main", screens: Mapping[str, WebScreen]|None=None, navigation_session: Any|None=None, spotify_session: Any|None=None) -> Flask:
+def create_web_frontend(pages: Mapping[str, MenuPage], *, root_page: str="main", screens: Mapping[str, WebScreen]|None=None, navigation_session: Any|None=None, spotify_session: Any|None=None, lighting_session: Any|None=None) -> Flask:
     if root_page not in pages: raise ValueError(f"Unknown root page: {root_page}")
     screen_map=dict(screens or create_web_screens())
     web_dir=Path(__file__).resolve().parent
     sensor_dir=web_dir / "sensors"
     media_dir=web_dir / "media"
+    lighting_dir=web_dir / "lighting"
     app=Flask(__name__)
 
     @app.get("/")
@@ -51,6 +52,8 @@ def create_web_frontend(pages: Mapping[str, MenuPage], *, root_page: str="main",
     def web_sensor_asset(filename:str): return send_from_directory(sensor_dir,filename)
     @app.get("/web-assets/media/<path:filename>")
     def web_media_asset(filename:str): return send_from_directory(media_dir,filename)
+    @app.get("/web-assets/lighting/<path:filename>")
+    def web_lighting_asset(filename:str): return send_from_directory(lighting_dir,filename)
 
     @app.post("/api/navigation/position")
     def navigation_position():
@@ -68,6 +71,25 @@ def create_web_frontend(pages: Mapping[str, MenuPage], *, root_page: str="main",
     def navigation_state():
         if navigation_session is None: abort(503)
         return jsonify(navigation_session.as_dict())
+
+    @app.get("/api/lighting/state")
+    def lighting_state():
+        if lighting_session is None: abort(503)
+        return jsonify(lighting_session.state())
+    @app.post("/api/lighting/bind")
+    def lighting_bind():
+        if lighting_session is None: abort(503)
+        payload=request.get_json(silent=False)
+        try: return jsonify(lighting_session.bind(str(payload.get("backend",""))))
+        except (TypeError,ValueError) as exc: return jsonify(error=str(exc)),400
+        except Exception as exc: return jsonify(error=str(exc)),502
+    @app.post("/api/lighting/command")
+    def lighting_command():
+        if lighting_session is None: abort(503)
+        payload=request.get_json(silent=False)
+        try: return jsonify(lighting_session.command(str(payload.get("command","")),payload.get("value")))
+        except (TypeError,ValueError) as exc: return jsonify(error=str(exc)),400
+        except Exception as exc: return jsonify(error=str(exc)),502
 
     @app.get("/api/media/spotify/auth/config")
     def spotify_auth_config():
