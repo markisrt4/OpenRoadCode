@@ -21,57 +21,33 @@ from ui.media import (
 )
 
 
-class SpotifyMediaPresenter(
-    PlaybackRequestHandlerIf,
-    TrackRequestHandlerIf,
-    SeekRequestHandlerIf,
-    VolumeRequestHandlerIf,
-):
+class SpotifyMediaPresenter(PlaybackRequestHandlerIf, TrackRequestHandlerIf, SeekRequestHandlerIf, VolumeRequestHandlerIf):
     """Bridge a Spotify backend to a toolkit-independent media UI."""
 
-    def __init__(
-        self,
-        backend: SpotifyControllerIf,
-        media_ui: MediaUiIf,
-        fallback_volume_handler: VolumeRequestHandlerIf | None = None,
-    ) -> None:
+    def __init__(self, backend: SpotifyControllerIf, media_ui: MediaUiIf, fallback_volume_handler: VolumeRequestHandlerIf | None = None) -> None:
         self._backend = backend
         self._media_ui = media_ui
         self._fallback_volume_handler = fallback_volume_handler
         self._latest_state: MediaState | None = None
 
     def refresh(self) -> MediaState:
-        """Read and publish the latest Spotify playback state."""
         state = self.read_state()
         self._media_ui.set_media_state(state)
         return state
 
     def read_state(self) -> MediaState:
-        """Read Spotify state without publishing it to the UI.
-
-        @return Latest generic media state, including an error state when the
-            Spotify backend cannot be read.
-        """
         try:
             state = self._to_media_state(self._backend.current_state())
         except Exception as exc:
-            state = MediaState(
-                availability=MediaAvailability.ERROR,
-                status_message=f"Spotify error: {exc}",
-            )
-
+            state = MediaState(availability=MediaAvailability.ERROR, status_message=f"Spotify error: {exc}")
         self._latest_state = state
         return state
 
     def request_play(self) -> None:
-        state = self.refresh()
-        if state.playback is not PlaybackState.PLAYING:
-            self._run_request(self._backend.play_pause)
+        self._run_request(self._backend.play)
 
     def request_pause(self) -> None:
-        state = self.refresh()
-        if state.playback is PlaybackState.PLAYING:
-            self._run_request(self._backend.play_pause)
+        self._run_request(self._backend.pause)
 
     def request_previous_track(self) -> None:
         self._run_request(self._backend.previous_track)
@@ -101,7 +77,6 @@ class SpotifyMediaPresenter(
                 self._publish_request_error(exc)
                 raise
             fallback.request_volume(clamped_volume)
-        self.refresh()
 
     def _state_with_position(self) -> MediaState:
         state = self._latest_state
@@ -115,14 +90,9 @@ class SpotifyMediaPresenter(
         except Exception as exc:
             self._publish_request_error(exc)
             raise
-        else:
-            self.refresh()
 
     def _publish_request_error(self, error: Exception) -> None:
-        error_state = MediaState(
-            availability=MediaAvailability.ERROR,
-            status_message=f"Spotify request failed: {error}",
-        )
+        error_state = MediaState(availability=MediaAvailability.ERROR, status_message=f"Spotify request failed: {error}")
         self._latest_state = error_state
         self._media_ui.set_media_state(error_state)
 
@@ -134,10 +104,7 @@ class SpotifyMediaPresenter(
             availability = MediaAvailability.AVAILABLE
         else:
             availability = MediaAvailability.UNAVAILABLE
-
-        playback = (
-            PlaybackState.PLAYING if state.is_playing else PlaybackState.PAUSED
-        )
+        playback = PlaybackState.PLAYING if state.is_playing else PlaybackState.PAUSED
         return MediaState(
             availability=availability,
             playback=playback,
@@ -146,17 +113,10 @@ class SpotifyMediaPresenter(
             album=state.album_name,
             artwork_uri=state.album_art_url,
             media_uri=state.track_uri,
-            position_s=(
-                state.progress_ms / 1000.0
-                if state.progress_ms is not None
-                else None
-            ),
-            duration_s=(
-                state.duration_ms / 1000.0
-                if state.duration_ms is not None
-                else None
-            ),
+            position_s=state.progress_ms / 1000.0 if state.progress_ms is not None else None,
+            duration_s=state.duration_ms / 1000.0 if state.duration_ms is not None else None,
             volume_percent=state.volume_percent,
+            supports_volume=state.supports_volume,
             device_name=state.device_name,
             status_message=state.status_message,
         )

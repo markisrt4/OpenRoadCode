@@ -22,6 +22,7 @@ class SpotifyState:
 
     device_name: str | None = None
     volume_percent: int | None = None
+    supports_volume: bool | None = None
 
     progress_ms: int | None = None
     duration_ms: int | None = None
