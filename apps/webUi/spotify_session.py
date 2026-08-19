@@ -37,6 +37,19 @@ class WebSpotifySession:
         self._ui = MediaUiStub()
         self._presenter = SpotifyMediaPresenter(self._backend, self._ui)
 
+    def auth_config(self) -> dict[str, object]:
+        """Return non-secret effective OAuth configuration for diagnostics."""
+        config = load_spotify_config_from_secrets(EnvironmentVariableSecretManager())
+        if config is None:
+            return {
+                "configured": False,
+                "redirect_uri": None,
+            }
+        return {
+            "configured": True,
+            "redirect_uri": config.redirect_uri,
+        }
+
     def begin_authorization(self) -> str:
         """Begin Spotify OAuth and return the external authorization URL."""
         with self._lock:
