@@ -13,12 +13,7 @@ if TYPE_CHECKING:
 
 @dataclass(frozen=True, slots=True)
 class LightingColor:
-    """Represent an RGB color with channels in the range 0..255.
-
-    @param red Red channel value.
-    @param green Green channel value.
-    @param blue Blue channel value.
-    """
+    """Represent an RGB color with channels in the range 0..255."""
 
     red: int
     green: int
@@ -35,20 +30,32 @@ class LightingColor:
             if not 0 <= value <= 255:
                 raise ValueError(f"{name} must be in range 0..255")
 
+    @classmethod
+    def from_hex(cls, value: str) -> "LightingColor":
+        """Create a color from ``#RRGGBB`` or ``RRGGBB`` text."""
+        if not isinstance(value, str):
+            raise TypeError("hex color must be a string")
+        normalized = value.strip().removeprefix("#")
+        if len(normalized) != 6:
+            raise ValueError("hex color must contain exactly 6 hexadecimal digits")
+        try:
+            packed = int(normalized, 16)
+        except ValueError as exc:
+            raise ValueError("hex color contains non-hexadecimal characters") from exc
+        return cls(
+            red=(packed >> 16) & 0xFF,
+            green=(packed >> 8) & 0xFF,
+            blue=packed & 0xFF,
+        )
+
+    def to_hex(self) -> str:
+        """Return the canonical upper-case ``#RRGGBB`` representation."""
+        return f"#{self.red:02X}{self.green:02X}{self.blue:02X}"
+
 
 @dataclass(frozen=True, slots=True)
 class LightingState:
-    """Contain one complete lighting presentation snapshot.
-
-    @param connected Whether a lighting controller is connected.
-    @param power_enabled Whether lighting output is enabled.
-    @param color Selected RGB color.
-    @param brightness_percent Selected brightness from 0 through 100.
-    @param pattern_index Selected controller pattern.
-    @param music_mode Selected music-reactive mode.
-    @param status_message Optional user-visible status.
-    @param error_message Optional user-visible error.
-    """
+    """Contain one complete lighting presentation snapshot."""
 
     connected: bool = False
     power_enabled: bool = False
@@ -65,10 +72,6 @@ class LightingUiIf(ABC):
 
     @abstractmethod
     def set_lighting_state(self, state: LightingState | None) -> None:
-        """Set the displayed lighting snapshot, or clear unavailable state.
-
-        @param state Complete state snapshot, or None when unavailable.
-        """
         ...
 
     @abstractmethod
@@ -76,8 +79,4 @@ class LightingUiIf(ABC):
         self,
         handler: "LightingRequestHandlerIf | None",
     ) -> None:
-        """Connect or clear the handler for user lighting requests.
-
-        @param handler Request consumer, or None to disconnect it.
-        """
         ...
