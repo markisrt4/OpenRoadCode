@@ -53,9 +53,11 @@ LIGHTING_HTML = '''
   <canvas id="lighting-wheel" width="280" height="280" style="width:min(78vw,280px);height:min(78vw,280px);touch-action:none"></canvas>
 </div>
 <div class="card">
-  <b>Color Preview</b>
-  <div id="lighting-swatch" style="height:150px;border-radius:18px;border:1px solid #34424f;margin-top:12px;background:#ffffff;box-shadow:inset 0 0 0 1px rgba(255,255,255,.08)"></div>
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px">
+  <b>Light Bar Preview</b>
+  <div id="lighting-preview-stage" style="height:150px;display:flex;align-items:center;justify-content:center;overflow:visible;margin-top:10px">
+    <div id="lighting-swatch" style="width:min(86%,560px);height:30px;border-radius:999px;background:#ffffff;box-shadow:0 0 10px rgba(255,255,255,.8),0 0 28px rgba(255,255,255,.7),0 0 55px rgba(255,255,255,.45);transition:background-color .08s linear,box-shadow .08s linear,opacity .08s linear"></div>
+  </div>
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px">
     <span style="color:#aebac4">Selected color</span>
     <b id="lighting-hex">#FFFFFF</b>
   </div>
