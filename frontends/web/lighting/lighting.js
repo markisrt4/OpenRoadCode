@@ -17,6 +17,9 @@
   const backend = document.getElementById("lighting-backend");
   let dragging = false;
   let brightnessTimer = null;
+  let selectedColor = "#FFFFFF";
+  let selectedBrightness = 100;
+  let powerEnabled = false;
 
   function hsvToRgb(h, s, v) {
     const c = v * s;
@@ -35,6 +38,29 @@
 
   function toHex(rgb) {
     return "#" + rgb.map(v => v.toString(16).padStart(2, "0")).join("").toUpperCase();
+  }
+
+  function hexToRgb(hex) {
+    const value = hex.replace("#", "");
+    return [0, 2, 4].map(i => parseInt(value.slice(i, i + 2), 16));
+  }
+
+  function renderLightBar() {
+    const [r, g, b] = hexToRgb(selectedColor);
+    const intensity = powerEnabled ? selectedBrightness / 100 : 0;
+    const coreAlpha = 0.35 + 0.65 * intensity;
+    const nearAlpha = 0.15 + 0.70 * intensity;
+    const midAlpha = 0.10 + 0.52 * intensity;
+    const farAlpha = 0.05 + 0.32 * intensity;
+    const core = `rgba(${r},${g},${b},${coreAlpha})`;
+    swatch.style.backgroundColor = core;
+    swatch.style.opacity = powerEnabled ? String(0.45 + 0.55 * intensity) : "0.18";
+    swatch.style.boxShadow = powerEnabled
+      ? `0 0 ${8 + 8 * intensity}px rgba(${r},${g},${b},${nearAlpha}),` +
+        `0 0 ${22 + 24 * intensity}px rgba(${r},${g},${b},${midAlpha}),` +
+        `0 0 ${42 + 42 * intensity}px rgba(${r},${g},${b},${farAlpha})`
+      : "0 0 4px rgba(255,255,255,.08)";
+    hexText.textContent = selectedColor;
   }
 
   function drawWheel() {
@@ -77,12 +103,14 @@
 
   function applyState(state) {
     backend.value = state.backend || "emulator";
-    power.textContent = state.power_enabled ? "TURN OFF" : "TURN ON";
-    power.dataset.enabled = state.power_enabled ? "1" : "0";
-    brightness.value = state.brightness_percent;
-    brightnessText.textContent = `${state.brightness_percent}%`;
-    swatch.style.background = state.color;
-    hexText.textContent = state.color;
+    powerEnabled = Boolean(state.power_enabled);
+    selectedBrightness = Number(state.brightness_percent);
+    selectedColor = state.color || "#FFFFFF";
+    power.textContent = powerEnabled ? "TURN OFF" : "TURN ON";
+    power.dataset.enabled = powerEnabled ? "1" : "0";
+    brightness.value = selectedBrightness;
+    brightnessText.textContent = `${selectedBrightness}%`;
+    renderLightBar();
     status.textContent = `${state.backend === "ble" ? "Physical BLE" : "Emulator"} · ${state.connection_status}` + (state.device_address ? ` · ${state.device_address}` : "");
   }
 
@@ -96,8 +124,8 @@
   async function sendColor(event) {
     const color = colorAt(event.clientX, event.clientY);
     if (!color) return;
-    swatch.style.background = color;
-    hexText.textContent = color;
+    selectedColor = color;
+    renderLightBar();
     try { await post("/api/lighting/command", {command:"color", value:color}); }
     catch (err) { status.textContent = err.message; }
   }
@@ -108,16 +136,21 @@
   wheel.addEventListener("pointercancel", () => { dragging = false; });
 
   brightness.addEventListener("input", () => {
-    brightnessText.textContent = `${brightness.value}%`;
+    selectedBrightness = Number(brightness.value);
+    brightnessText.textContent = `${selectedBrightness}%`;
+    renderLightBar();
     clearTimeout(brightnessTimer);
     brightnessTimer = setTimeout(async () => {
-      try { await post("/api/lighting/command", {command:"brightness", value:Number(brightness.value)}); }
+      try { await post("/api/lighting/command", {command:"brightness", value:selectedBrightness}); }
       catch (err) { status.textContent = err.message; }
     }, 100);
   });
 
   power.addEventListener("click", async () => {
-    try { await post("/api/lighting/command", {command:"power", value:power.dataset.enabled !== "1"}); }
+    const requested = power.dataset.enabled !== "1";
+    powerEnabled = requested;
+    renderLightBar();
+    try { await post("/api/lighting/command", {command:"power", value:requested}); }
     catch (err) { status.textContent = err.message; }
   });
 
@@ -128,6 +161,7 @@
   });
 
   drawWheel();
+  renderLightBar();
   refresh();
   setInterval(refresh, 2000);
 })();
