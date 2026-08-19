@@ -9,6 +9,7 @@ from threading import Lock
 from controllers.lighting.lighting_controller_if import LightingControllerIf
 from controllers.lighting.lighting_types import (
     CustomPatternMode,
+    LightingConnectionStatus,
     LightingState,
     RgbColor,
 )
@@ -34,16 +35,18 @@ class DummyLightingController(LightingControllerIf):
             return self._state
 
     def connect(self) -> Future[None]:
-        return self._update(connected=True)
+        return self._update(connection_status=LightingConnectionStatus.CONNECTED)
 
     def disconnect(self) -> Future[None]:
         if self._closed:
             return self._failed(RuntimeError("lighting controller is closed"))
-        return self._update(connected=False)
+        return self._update(connection_status=LightingConnectionStatus.DISCONNECTED)
 
     def close(self) -> None:
         with self._lock:
-            self._state = self._state.updated(connected=False)
+            self._state = self._state.updated(
+                connection_status=LightingConnectionStatus.DISCONNECTED
+            )
             self._closed = True
 
     def set_power(self, enabled: bool) -> Future[None]:
@@ -68,24 +71,16 @@ class DummyLightingController(LightingControllerIf):
         _validate_range("eq_mode", eq_mode, 0, 255)
         return self._update(music_mode=eq_mode)
 
-    def set_custom_pattern_mode(
-        self,
-        mode: CustomPatternMode,
-    ) -> Future[None]:
+    def set_custom_pattern_mode(self, mode: CustomPatternMode) -> Future[None]:
         return self._update(custom_pattern_mode=mode)
 
-    def set_custom_pattern_direction(
-        self,
-        is_forward: bool,
-    ) -> Future[None]:
+    def set_custom_pattern_direction(self, is_forward: bool) -> Future[None]:
         return self._update(custom_pattern_forward=bool(is_forward))
 
     def _update(self, **changes: object) -> Future[None]:
         with self._lock:
             if self._closed:
-                return self._failed(
-                    RuntimeError("lighting controller is closed")
-                )
+                return self._failed(RuntimeError("lighting controller is closed"))
             self._state = self._state.updated(**changes)
         return self._done()
 
@@ -102,15 +97,8 @@ class DummyLightingController(LightingControllerIf):
         return future
 
 
-def _validate_range(
-    name: str,
-    value: int,
-    minimum: int,
-    maximum: int,
-) -> None:
+def _validate_range(name: str, value: int, minimum: int, maximum: int) -> None:
     if not isinstance(value, int) or isinstance(value, bool):
         raise TypeError(f"{name} must be an integer")
     if not minimum <= value <= maximum:
-        raise ValueError(
-            f"{name} must be in range {minimum}..{maximum}"
-        )
+        raise ValueError(f"{name} must be in range {minimum}..{maximum}")
