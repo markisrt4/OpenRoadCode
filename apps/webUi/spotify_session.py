@@ -11,20 +11,12 @@ from threading import RLock
 from apps.common.spotify_controller_factory import create_spotify_controller
 from controllers.lyrics import LrclibLyricsClient
 from controllers.spotify import SpotifyMediaPresenter
-from protocols.spotify import (
-    SpotifyAuth,
-    SpotifyAuthorizationRequest,
-    SpotifyTokenStore,
-    SpotifyWebApiClient,
-    load_spotify_config_from_secrets,
-)
+from protocols.spotify import SpotifyAuth, SpotifyAuthorizationRequest, SpotifyTokenStore, load_spotify_config_from_secrets
 from security.environment_variable_secret_manager import EnvironmentVariableSecretManager
 from ui.media import MediaState, MediaUiStub
 
 
 class WebSpotifySession:
-    """Expose shared Spotify behavior and Web OAuth state to WebUi routes."""
-
     def __init__(self) -> None:
         self._lock = RLock()
         self._lyrics = LrclibLyricsClient()
@@ -38,20 +30,10 @@ class WebSpotifySession:
         self._presenter = SpotifyMediaPresenter(self._backend, self._ui)
 
     def auth_config(self) -> dict[str, object]:
-        """Return non-secret effective OAuth configuration for diagnostics."""
         config = load_spotify_config_from_secrets(EnvironmentVariableSecretManager())
-        if config is None:
-            return {
-                "configured": False,
-                "redirect_uri": None,
-            }
-        return {
-            "configured": True,
-            "redirect_uri": config.redirect_uri,
-        }
+        return {"configured": config is not None, "redirect_uri": config.redirect_uri if config else None}
 
     def begin_authorization(self) -> str:
-        """Begin Spotify OAuth and return the external authorization URL."""
         with self._lock:
             config = load_spotify_config_from_secrets(EnvironmentVariableSecretManager())
             if config is None:
@@ -60,33 +42,18 @@ class WebSpotifySession:
             self._authorization = self._auth.begin_authorization()
             return self._authorization.authorization_url
 
-    def complete_authorization(
-        self,
-        *,
-        code: str | None,
-        state: str | None,
-        error: str | None = None,
-        error_description: str | None = None,
-    ) -> None:
-        """Complete the pending Web OAuth flow and rebuild the media backend."""
+    def complete_authorization(self, *, code: str | None, state: str | None, error: str | None = None, error_description: str | None = None) -> None:
         with self._lock:
             if self._auth is None or self._authorization is None:
                 raise RuntimeError("No Spotify authorization is pending.")
-            self._auth.complete_authorization(
-                self._authorization,
-                code=code,
-                state=state,
-                error=error,
-                error_description=error_description,
-            )
+            self._auth.complete_authorization(self._authorization, code=code, state=state, error=error, error_description=error_description)
             self._authorization = None
             self._auth = None
             self._configure_backend()
 
     def state(self) -> dict[str, object]:
         with self._lock:
-            state = self._presenter.read_state()
-            return self._serialize_state(state)
+            return self._serialize_state(self._presenter.read_state())
 
     def command(self, command: str, value: object | None = None) -> dict[str, object]:
         with self._lock:
@@ -104,7 +71,9 @@ class WebSpotifySession:
                 self._presenter.request_seek(float(value))
             else:
                 raise ValueError(f"Unknown Spotify command: {command}")
-            return self._serialize_state(self._presenter.read_state())
+            # Do not immediately make another Spotify GET. The browser applies
+            # optimistic state and the normal poll reconciles authoritative state.
+            return {"accepted": True}
 
     def lyrics(self) -> dict[str, object]:
         with self._lock:
@@ -119,10 +88,7 @@ class WebSpotifySession:
             )
             if result is None:
                 return {"synced_lines": [], "plain_lines": []}
-            return {
-                "synced_lines": [asdict(line) for line in result.synced_lines],
-                "plain_lines": list(result.plain_lines),
-            }
+            return {"synced_lines": [asdict(line) for line in result.synced_lines], "plain_lines": list(result.plain_lines)}
 
     @staticmethod
     def _serialize_state(state: MediaState) -> dict[str, object]:
@@ -137,6 +103,7 @@ class WebSpotifySession:
             "position_s": state.position_s,
             "duration_s": state.duration_s,
             "volume_percent": state.volume_percent,
+            "supports_volume": state.supports_volume,
             "device_name": state.device_name,
             "status_message": state.status_message,
         }
