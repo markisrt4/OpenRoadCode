@@ -23,18 +23,11 @@
 
     async start(onState) {
       if (this.running) return;
-      if (!navigator.mediaDevices?.getUserMedia) {
-        throw new Error('Microphone capture is not available in this browser.');
-      }
+      if (!navigator.mediaDevices?.getUserMedia) throw new Error('Microphone capture is not available in this browser.');
 
       this.onState = onState;
       this.stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: false,
-          noiseSuppression: false,
-          autoGainControl: false,
-          channelCount: 1,
-        },
+        audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false, channelCount: 1 },
         video: false,
       });
 
@@ -44,13 +37,11 @@
 
       this.analyser = this.audioContext.createAnalyser();
       this.analyser.fftSize = this.fftSize;
-      this.analyser.smoothingTimeConstant = 0.08;
+      this.analyser.smoothingTimeConstant = 0.03;
       this.analyser.minDecibels = -100;
       this.analyser.maxDecibels = -20;
-
       this.source = this.audioContext.createMediaStreamSource(this.stream);
       this.source.connect(this.analyser);
-
       this.frequencyData = new Float32Array(this.analyser.frequencyBinCount);
       this.timeData = new Float32Array(this.analyser.fftSize);
       this.previousFluxBins = null;
@@ -67,23 +58,17 @@
       this.source?.disconnect();
       this.stream?.getTracks().forEach((track) => track.stop());
       if (this.audioContext) await this.audioContext.close();
-      this.source = null;
-      this.stream = null;
-      this.audioContext = null;
-      this.analyser = null;
+      this.source = this.stream = this.audioContext = this.analyser = null;
       this.previousFluxBins = null;
       this.fluxHistory = [];
     }
 
     _normalizedBand(lowHz, highHz, peakKey = null, index = null) {
-      const sampleRate = this.audioContext.sampleRate;
-      const binHz = sampleRate / this.fftSize;
+      const binHz = this.audioContext.sampleRate / this.fftSize;
       const lowBin = Math.max(1, Math.floor(lowHz / binHz));
       const highBin = Math.min(this.frequencyData.length, Math.ceil(highHz / binHz));
       if (highBin <= lowBin) return 0;
-
-      let sumPower = 0;
-      let count = 0;
+      let sumPower = 0, count = 0;
       for (let i = lowBin; i < highBin; i += 1) {
         const db = this.frequencyData[i];
         if (!Number.isFinite(db)) continue;
@@ -92,7 +77,6 @@
         count += 1;
       }
       if (!count) return 0;
-
       const raw = Math.sqrt(sumPower / count);
       if (peakKey) {
         this.summaryPeaks[peakKey] = Math.max(raw, this.summaryPeaks[peakKey] * 0.992, 1e-6);
@@ -121,77 +105,54 @@
 
     _detectBeat() {
       const binHz = this.audioContext.sampleRate / this.fftSize;
-      const lowBin = Math.max(1, Math.floor(40 / binHz));
-      const highBin = Math.min(this.frequencyData.length, Math.ceil(350 / binHz));
+      const lowBin = Math.max(1, Math.floor(45 / binHz));
+      const highBin = Math.min(this.frequencyData.length, Math.ceil(220 / binHz));
       const current = new Float32Array(highBin - lowBin);
       let flux = 0;
-
       for (let i = lowBin; i < highBin; i += 1) {
         const linear = Math.pow(10, this.frequencyData[i] / 20);
         const j = i - lowBin;
         current[j] = linear;
-        if (this.previousFluxBins) {
-          const rise = linear - this.previousFluxBins[j];
-          if (rise > 0) flux += rise;
-        }
+        if (this.previousFluxBins) flux += Math.max(0, linear - this.previousFluxBins[j]);
       }
       this.previousFluxBins = current;
 
-      if (this.fluxHistory.length < 12) {
+      if (this.fluxHistory.length < 10) {
         this.fluxHistory.push(flux);
         return { beat: false, strength: 0, flux };
       }
 
-      const mean = this.fluxHistory.reduce((sum, value) => sum + value, 0) / this.fluxHistory.length;
-      const variance = this.fluxHistory.reduce((sum, value) => sum + (value - mean) ** 2, 0) / this.fluxHistory.length;
-      const deviation = Math.sqrt(variance);
-      const threshold = mean + Math.max(deviation * 1.7, mean * 0.35, 1e-5);
+      const sorted = [...this.fluxHistory].sort((a,b) => a-b);
+      const median = sorted[Math.floor(sorted.length / 2)];
+      const deviations = sorted.map(v => Math.abs(v - median)).sort((a,b) => a-b);
+      const mad = deviations[Math.floor(deviations.length / 2)] || 1e-6;
+      const threshold = median + Math.max(mad * 3.2, median * 0.45, 1e-5);
       const now = performance.now();
-      const refractoryMs = 190;
-      const beat = flux > threshold && now - this.lastBeatAt >= refractoryMs;
+      const beat = flux > threshold && now - this.lastBeatAt >= 150;
 
       this.fluxHistory.push(flux);
-      if (this.fluxHistory.length > 36) this.fluxHistory.shift();
-
+      if (this.fluxHistory.length > 30) this.fluxHistory.shift();
       if (!beat) return { beat: false, strength: 0, flux };
       this.lastBeatAt = now;
-      const strength = Math.min(1, (flux - threshold) / Math.max(threshold, 1e-5));
-      return { beat: true, strength, flux };
+      return { beat: true, strength: Math.min(1, (flux - threshold) / Math.max(threshold, 1e-5)), flux };
     }
 
     _tick() {
       if (!this.running || !this.analyser) return;
-
       this.analyser.getFloatFrequencyData(this.frequencyData);
       this.analyser.getFloatTimeDomainData(this.timeData);
-
-      let sumSquares = 0;
-      let peak = 0;
-      for (const sample of this.timeData) {
-        sumSquares += sample * sample;
-        peak = Math.max(peak, Math.abs(sample));
-      }
+      let sumSquares = 0, peak = 0;
+      for (const sample of this.timeData) { sumSquares += sample * sample; peak = Math.max(peak, Math.abs(sample)); }
       const rms = Math.sqrt(sumSquares / this.timeData.length);
       const bass = this._normalizedBand(20, 250, 'bass');
       const mid = this._normalizedBand(250, 4000, 'mid');
       const treble = this._normalizedBand(4000, 16000, 'treble');
       const beatResult = this._detectBeat();
-
-      const state = {
-        level: Math.min(1, rms * 4),
-        peak: Math.min(1, peak),
-        bass,
-        mid,
-        treble,
-        beat: beatResult.beat,
-        beatStrength: beatResult.strength,
-        beatFlux: beatResult.flux,
-        spectrum: this._spectrum(),
-        sampleRateHz: this.audioContext.sampleRate,
-        fftSize: this.fftSize,
-      };
-
-      this.onState?.(state);
+      this.onState?.({
+        level: Math.min(1, rms * 4), peak: Math.min(1, peak), bass, mid, treble,
+        beat: beatResult.beat, beatStrength: beatResult.strength, beatFlux: beatResult.flux,
+        spectrum: this._spectrum(), sampleRateHz: this.audioContext.sampleRate, fftSize: this.fftSize,
+      });
       this.animationFrame = requestAnimationFrame(() => this._tick());
     }
   }
