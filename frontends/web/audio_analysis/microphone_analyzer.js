@@ -16,6 +16,9 @@
       this.onState = null;
       this.bandPeaks = new Float32Array(bandCount).fill(1);
       this.summaryPeaks = { bass: 1, mid: 1, treble: 1 };
+      this.energyAverage = 0;
+      this.energyDeviation = 0;
+      this.lastBeatAt = -Infinity;
     }
 
     async start(onState) {
@@ -50,6 +53,9 @@
 
       this.frequencyData = new Float32Array(this.analyser.frequencyBinCount);
       this.timeData = new Float32Array(this.analyser.fftSize);
+      this.energyAverage = 0;
+      this.energyDeviation = 0;
+      this.lastBeatAt = -Infinity;
       this.running = true;
       this._tick();
     }
@@ -111,6 +117,27 @@
       return bands;
     }
 
+    _detectBeat(energy) {
+      if (this.energyAverage === 0) {
+        this.energyAverage = energy;
+        return { beat: false, strength: 0 };
+      }
+
+      const delta = energy - this.energyAverage;
+      this.energyAverage = this.energyAverage * 0.94 + energy * 0.06;
+      this.energyDeviation = this.energyDeviation * 0.94 + Math.abs(delta) * 0.06;
+
+      const threshold = this.energyAverage + Math.max(0.012, this.energyDeviation * 2.6);
+      const now = performance.now();
+      const refractoryMs = 180;
+      const beat = energy > threshold && now - this.lastBeatAt >= refractoryMs;
+
+      if (!beat) return { beat: false, strength: 0 };
+      this.lastBeatAt = now;
+      const strength = Math.min(1, (energy - threshold) / Math.max(0.02, threshold) + 0.35);
+      return { beat: true, strength };
+    }
+
     _tick() {
       if (!this.running || !this.analyser) return;
 
@@ -124,13 +151,19 @@
         peak = Math.max(peak, Math.abs(sample));
       }
       const rms = Math.sqrt(sumSquares / this.timeData.length);
+      const bass = this._normalizedBand(20, 250, 'bass');
+      const mid = this._normalizedBand(250, 4000, 'mid');
+      const treble = this._normalizedBand(4000, 16000, 'treble');
+      const beatResult = this._detectBeat(rms * 0.55 + bass * 0.45);
 
       const state = {
         level: Math.min(1, rms * 4),
         peak: Math.min(1, peak),
-        bass: this._normalizedBand(20, 250, 'bass'),
-        mid: this._normalizedBand(250, 4000, 'mid'),
-        treble: this._normalizedBand(4000, 16000, 'treble'),
+        bass,
+        mid,
+        treble,
+        beat: beatResult.beat,
+        beatStrength: beatResult.strength,
         spectrum: this._spectrum(),
         sampleRateHz: this.audioContext.sampleRate,
         fftSize: this.fftSize,
