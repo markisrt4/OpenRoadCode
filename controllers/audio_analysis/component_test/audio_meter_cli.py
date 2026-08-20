@@ -12,6 +12,11 @@ def meter(value: float, width: int = 36) -> str:
     return "#" * filled + "-" * (width - filled)
 
 
+def spectrum_line(values: tuple[float, ...]) -> str:
+    levels = " ▁▂▃▄▅▆▇█"
+    return "".join(levels[min(8, round(value * 8))] for value in values)
+
+
 def main() -> None:
     capture = PipeWireAudioCapture()
     analyzer = AudioAnalyzer()
@@ -22,12 +27,13 @@ def main() -> None:
         while True:
             state = analyzer.analyze(capture.read())
             print(
-                "\033[5A"
+                "\033[6A"
                 f"LEVEL   [{meter(state.level)}] {state.level:0.2f}\n"
                 f"PEAK    [{meter(state.peak)}] {state.peak:0.2f}\n"
                 f"BASS    [{meter(state.bass)}] {state.bass:0.2f}\n"
                 f"MID     [{meter(state.mid)}] {state.mid:0.2f}\n"
-                f"TREBLE  [{meter(state.treble)}] {state.treble:0.2f}",
+                f"TREBLE  [{meter(state.treble)}] {state.treble:0.2f}\n"
+                f"SPECTRUM 31Hz {spectrum_line(state.spectrum)} 16kHz",
                 flush=True,
             )
     except KeyboardInterrupt:
@@ -37,6 +43,5 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    # Reserve five terminal rows before the cursor-up redraw loop starts.
-    print("\n" * 5, end="")
+    print("\n" * 6, end="")
     main()
