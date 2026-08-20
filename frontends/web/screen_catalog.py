@@ -56,24 +56,19 @@ MUSIC_VISUALIZER_HTML = '''
   const beatCard=document.getElementById('music-beat');
   const beatStrength=document.getElementById('music-beat-strength');
   const analyzer=new OpenRoadCodeWeb.MicrophoneMusicAnalyzer();
-  const bars=Array.from({length:24},()=>{const x=document.createElement('div');x.style.cssText='flex:1;min-width:3px;height:2%;background:#21c55d;border-radius:4px 4px 0 0;transition:height .035s linear,background-color .06s linear';spectrum.appendChild(x);return x;});
-  const heatColor=(value)=>{
-    const v=Math.max(0,Math.min(1,value));
-    if(v<0.33){const t=v/0.33;return `rgb(${Math.round(33+222*t)},${Math.round(197+24*t)},${Math.round(93-93*t)})`;}
-    if(v<0.66){const t=(v-0.33)/0.33;return `rgb(255,${Math.round(221-86*t)},0)`;}
-    const t=(v-0.66)/0.34;return `rgb(255,${Math.round(135-87*t)},0)`;
-  };
+  const meterGradient='linear-gradient(to top,#21c55d 0%,#21c55d 48%,#e6d928 64%,#ff9f1c 80%,#ef3b2d 100%)';
+  const bars=Array.from({length:24},()=>{const x=document.createElement('div');x.style.cssText='flex:1;min-width:3px;height:2%;border-radius:4px 4px 0 0;transition:height .035s linear;background:'+meterGradient+';background-size:100% 180px;background-position:bottom';spectrum.appendChild(x);return x;});
   let beatFlashUntil=0;
   const render=(state)=>{
     document.getElementById('music-level').value=state.level;
     document.getElementById('music-bass').value=state.bass;
     document.getElementById('music-mid').value=state.mid;
     document.getElementById('music-treble').value=state.treble;
-    state.spectrum.forEach((value,i)=>{bars[i].style.height=`${Math.max(2,value*100)}%`;bars[i].style.backgroundColor=heatColor(value);});
+    state.spectrum.forEach((value,i)=>bars[i].style.height=`${Math.max(2,value*100)}%`);
     if(state.beat){beatFlashUntil=performance.now()+105;beatStrength.textContent=`HIT · strength ${state.beatStrength.toFixed(2)}`;}
     if(performance.now()<beatFlashUntil){beatCard.style.background='#7f1d1d';beatCard.style.boxShadow='0 0 28px rgba(255,72,32,.75)';}
     else{beatCard.style.background='#151a20';beatCard.style.boxShadow='none';if(!state.beat)beatStrength.textContent='listening';}
-    debug.textContent=`${state.sampleRateHz} Hz · FFT ${state.fftSize} · browser-local analysis`;
+    debug.textContent=`${state.sampleRateHz} Hz · FFT ${state.fftSize} · flux ${state.beatFlux.toFixed(4)} · browser-local analysis`;
   };
   button.onclick=async()=>{
     const enabled=button.dataset.enabled==='1';
