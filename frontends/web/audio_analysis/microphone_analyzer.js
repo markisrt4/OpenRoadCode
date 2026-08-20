@@ -1,192 +1,53 @@
 (() => {
   const root = (window.OpenRoadCodeWeb = window.OpenRoadCodeWeb || {});
 
-  class MicrophoneMusicAnalyzer {
-    constructor({ fftSize = 2048, bandCount = 24 } = {}) {
-      this.fftSize = fftSize;
-      this.bandCount = bandCount;
-      this.audioContext = null;
-      this.analyser = null;
-      this.stream = null;
-      this.source = null;
-      this.frequencyData = null;
-      this.timeData = null;
-      this.running = false;
-      this.animationFrame = null;
-      this.onState = null;
-      this.bandPeaks = new Float32Array(bandCount).fill(1);
-      this.summaryPeaks = { bass: 1, mid: 1, treble: 1 };
-      this.activityPeaks = { kick: 1e-6, bass: 1e-6, snare: 1e-6, cymbal: 1e-6 };
-      this.previousActivity = { kick: 0, bass: 0, snare: 0, cymbal: 0 };
-      this.previousFluxBins = null;
-      this.fluxHistory = [];
-      this.lastBeatAt = -Infinity;
-    }
+  const clamp01 = (v) => Math.max(0, Math.min(1, v));
+  const hex = (r,g,b) => '#'+[r,g,b].map(v=>Math.round(Math.max(0,Math.min(255,v))).toString(16).padStart(2,'0')).join('').toUpperCase();
+  const mixColor = (pairs) => { let r=0,g=0,b=0,w=0; for(const [c,x] of pairs){r+=c[0]*x;g+=c[1]*x;b+=c[2]*x;w+=x;} return w?hex(r/w,g/w,b/w):'#202830'; };
 
-    async start(onState) {
-      if (this.running) return;
-      if (!navigator.mediaDevices?.getUserMedia) throw new Error('Microphone capture is not available in this browser.');
-
-      this.onState = onState;
-      this.stream = await navigator.mediaDevices.getUserMedia({
-        audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false, channelCount: 1 },
-        video: false,
-      });
-
-      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-      this.audioContext = new AudioContextClass({ latencyHint: 'interactive' });
-      await this.audioContext.resume();
-
-      this.analyser = this.audioContext.createAnalyser();
-      this.analyser.fftSize = this.fftSize;
-      this.analyser.smoothingTimeConstant = 0.03;
-      this.analyser.minDecibels = -100;
-      this.analyser.maxDecibels = -20;
-      this.source = this.audioContext.createMediaStreamSource(this.stream);
-      this.source.connect(this.analyser);
-      this.frequencyData = new Float32Array(this.analyser.frequencyBinCount);
-      this.timeData = new Float32Array(this.analyser.fftSize);
-      this.previousFluxBins = null;
-      this.fluxHistory = [];
-      this.lastBeatAt = -Infinity;
-      this.previousActivity = { kick: 0, bass: 0, snare: 0, cymbal: 0 };
-      this.running = true;
-      this._tick();
-    }
-
-    async stop() {
-      this.running = false;
-      if (this.animationFrame !== null) cancelAnimationFrame(this.animationFrame);
-      this.animationFrame = null;
-      this.source?.disconnect();
-      this.stream?.getTracks().forEach((track) => track.stop());
-      if (this.audioContext) await this.audioContext.close();
-      this.source = this.stream = this.audioContext = this.analyser = null;
-      this.previousFluxBins = null;
-      this.fluxHistory = [];
-    }
-
-    _rawBand(lowHz, highHz) {
-      const binHz = this.audioContext.sampleRate / this.fftSize;
-      const lowBin = Math.max(1, Math.floor(lowHz / binHz));
-      const highBin = Math.min(this.frequencyData.length, Math.ceil(highHz / binHz));
-      if (highBin <= lowBin) return 0;
-      let sumPower = 0, count = 0;
-      for (let i = lowBin; i < highBin; i += 1) {
-        const db = this.frequencyData[i];
-        if (!Number.isFinite(db)) continue;
-        const linear = Math.pow(10, db / 20);
-        sumPower += linear * linear;
-        count += 1;
-      }
-      return count ? Math.sqrt(sumPower / count) : 0;
-    }
-
-    _normalizedBand(lowHz, highHz, peakKey = null, index = null) {
-      const raw = this._rawBand(lowHz, highHz);
-      if (peakKey) {
-        this.summaryPeaks[peakKey] = Math.max(raw, this.summaryPeaks[peakKey] * 0.992, 1e-6);
-        return Math.min(1, raw / this.summaryPeaks[peakKey]);
-      }
-      if (index !== null) {
-        this.bandPeaks[index] = Math.max(raw, this.bandPeaks[index] * 0.992, 1e-6);
-        return Math.min(1, raw / this.bandPeaks[index]);
-      }
-      return raw;
-    }
-
-    _spectrum() {
-      const minHz = 31.25;
-      const maxHz = Math.min(16000, this.audioContext.sampleRate / 2);
-      const ratio = Math.pow(maxHz / minHz, 1 / this.bandCount);
-      const bands = [];
-      let low = minHz;
-      for (let i = 0; i < this.bandCount; i += 1) {
-        const high = low * ratio;
-        bands.push(this._normalizedBand(low, high, null, i));
-        low = high;
-      }
-      return bands;
-    }
-
-    _activityValue(name, raw, transientWeight = 0.5) {
-      this.activityPeaks[name] = Math.max(raw, this.activityPeaks[name] * 0.994, 1e-6);
-      const normalized = Math.min(1, raw / this.activityPeaks[name]);
-      const rise = Math.max(0, normalized - this.previousActivity[name]);
-      this.previousActivity[name] = normalized;
-      return Math.min(1, normalized * (1 - transientWeight) + rise * 2.2 * transientWeight);
-    }
-
-    _musicalActivity() {
-      // Heuristics only. These are broad activity channels, not instrument recognition.
-      const kickRaw = this._rawBand(45, 115);
-      const bassRaw = this._rawBand(55, 260);
-      const snareBody = this._rawBand(140, 280);
-      const snareCrack = this._rawBand(1200, 4200);
-      const cymbalRaw = this._rawBand(5000, 14000);
-
-      return {
-        kick: this._activityValue('kick', kickRaw, 0.72),
-        bass: this._activityValue('bass', bassRaw, 0.18),
-        snare: this._activityValue('snare', snareBody * 0.38 + snareCrack * 0.62, 0.78),
-        cymbal: this._activityValue('cymbal', cymbalRaw, 0.58),
-      };
-    }
-
-    _detectBeat() {
-      const binHz = this.audioContext.sampleRate / this.fftSize;
-      const lowBin = Math.max(1, Math.floor(45 / binHz));
-      const highBin = Math.min(this.frequencyData.length, Math.ceil(220 / binHz));
-      const current = new Float32Array(highBin - lowBin);
-      let flux = 0;
-      for (let i = lowBin; i < highBin; i += 1) {
-        const linear = Math.pow(10, this.frequencyData[i] / 20);
-        const j = i - lowBin;
-        current[j] = linear;
-        if (this.previousFluxBins) flux += Math.max(0, linear - this.previousFluxBins[j]);
-      }
-      this.previousFluxBins = current;
-
-      if (this.fluxHistory.length < 10) {
-        this.fluxHistory.push(flux);
-        return { beat: false, strength: 0, flux };
-      }
-
-      const sorted = [...this.fluxHistory].sort((a,b) => a-b);
-      const median = sorted[Math.floor(sorted.length / 2)];
-      const deviations = sorted.map(v => Math.abs(v - median)).sort((a,b) => a-b);
-      const mad = deviations[Math.floor(deviations.length / 2)] || 1e-6;
-      const threshold = median + Math.max(mad * 3.2, median * 0.45, 1e-5);
-      const now = performance.now();
-      const beat = flux > threshold && now - this.lastBeatAt >= 150;
-
-      this.fluxHistory.push(flux);
-      if (this.fluxHistory.length > 30) this.fluxHistory.shift();
-      if (!beat) return { beat: false, strength: 0, flux };
-      this.lastBeatAt = now;
-      return { beat: true, strength: Math.min(1, (flux - threshold) / Math.max(threshold, 1e-5)), flux };
-    }
-
-    _tick() {
-      if (!this.running || !this.analyser) return;
-      this.analyser.getFloatFrequencyData(this.frequencyData);
-      this.analyser.getFloatTimeDomainData(this.timeData);
-      let sumSquares = 0, peak = 0;
-      for (const sample of this.timeData) { sumSquares += sample * sample; peak = Math.max(peak, Math.abs(sample)); }
-      const rms = Math.sqrt(sumSquares / this.timeData.length);
-      const bass = this._normalizedBand(20, 250, 'bass');
-      const mid = this._normalizedBand(250, 4000, 'mid');
-      const treble = this._normalizedBand(4000, 16000, 'treble');
-      const beatResult = this._detectBeat();
-      const activity = this._musicalActivity();
-      this.onState?.({
-        level: Math.min(1, rms * 4), peak: Math.min(1, peak), bass, mid, treble,
-        beat: beatResult.beat, beatStrength: beatResult.strength, beatFlux: beatResult.flux,
-        activity, spectrum: this._spectrum(), sampleRateHz: this.audioContext.sampleRate, fftSize: this.fftSize,
-      });
-      this.animationFrame = requestAnimationFrame(() => this._tick());
+  class MusicLightingEffects {
+    constructor() { this.hue=0; this.peak=0; }
+    render(mode,s,intensity=0.75,response=0.55) {
+      const a=s.activity||{}; const k=a.kick||0, ba=a.bass||0, sn=a.snare||0, cy=a.cymbal||0;
+      const energy=clamp01(s.level*.25+s.bass*.40+s.mid*.20+s.treble*.15);
+      this.hue=(this.hue+0.35)%360; this.peak=Math.max(energy,this.peak*(0.94+response*.045));
+      let color='#9B5CFF', brightness=energy, pulse=0;
+      if(mode==='bass-pulse'){color='#FF5A24';brightness=.20+s.bass*.52;pulse=k*.42;}
+      else if(mode==='instrument-mix'){color=mixColor([[[255,55,25],k],[[150,55,255],ba],[[255,205,70],sn],[[40,210,255],cy]]);brightness=.18+Math.max(k,ba,sn,cy)*.68;pulse=Math.max(k,sn)*.18;}
+      else if(mode==='frequency-color'){color=mixColor([[[255,70,25],s.bass],[[80,225,80],s.mid],[[80,120,255],s.treble]]);brightness=.18+energy*.76;}
+      else if(mode==='beat-flash'){color='#FFB22E';brightness=.18+energy*.35;pulse=s.beat?.55:0;}
+      else if(mode==='cycle'){color=`hsl(${this.hue},90%,55%)`;brightness=.18+energy*.72;}
+      else if(mode==='bass-treble'){color=mixColor([[[255,55,20],s.bass],[[75,90,255],s.treble*.8],[[255,180,35],s.mid*.35]]);brightness=.16+s.treble*.32+s.mid*.18+s.bass*.25;}
+      else if(mode==='peak-hold'){color='#FF3D81';brightness=.12+this.peak*.82;}
+      else if(mode==='breathe'){color=mixColor([[[120,65,255],s.bass],[[25,190,220],s.mid+s.treble]]);brightness=.20+energy*.50;}
+      else if(mode==='raw'){color=mixColor([[[255,30,20],s.bass],[[35,255,70],s.mid],[[30,90,255],s.treble]]);brightness=energy;pulse=s.beat?.30:0;}
+      else {color=mixColor([[[255,70,30],s.bass],[[180,65,255],s.mid],[[40,180,255],s.treble]]);brightness=.16+energy*.72;pulse=k*.15;}
+      brightness=clamp01((brightness+pulse)*(0.45+intensity*.85));
+      return {color,brightness};
     }
   }
 
-  root.MicrophoneMusicAnalyzer = MicrophoneMusicAnalyzer;
+  function installLightingLab() {
+    const bar=document.getElementById('music-lightbar'); if(!bar||document.getElementById('music-effect-mode')) return;
+    const card=bar.closest('.card'); const controls=document.createElement('div');
+    controls.innerHTML=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:8px 0 12px"><label>Mode<select id="music-effect-mode" class="search"><option value="energy">Energy Glow</option><option value="bass-pulse">Bass Pulse</option><option value="instrument-mix">Instrument Mix</option><option value="frequency-color">Frequency Color</option><option value="beat-flash">Beat Flash</option><option value="cycle">Color Cycle + Energy</option><option value="bass-treble">Bass Color / Treble Brightness</option><option value="peak-hold">Peak Hold</option><option value="breathe">Breathing Music</option><option value="raw">Raw / Chaos Lab</option></select></label><label>Intensity <span id="music-intensity-value">75%</span><input id="music-intensity" type="range" min="0" max="100" value="75" style="width:100%"></label><label style="grid-column:1/-1">Response: smooth ↔ punchy <span id="music-response-value">55%</span><input id="music-response" type="range" min="0" max="100" value="55" style="width:100%"></label></div>`;
+    card.insertBefore(controls,bar.parentElement);
+    const style=document.createElement('style'); style.textContent=`#activity-kick{accent-color:#ff4a24}#activity-bass{accent-color:#9b4dff}#activity-snare{accent-color:#ffc83d}#activity-cymbal{accent-color:#25cfff}`;document.head.appendChild(style);
+    const I=document.getElementById('music-intensity'),R=document.getElementById('music-response');
+    I.oninput=()=>document.getElementById('music-intensity-value').textContent=I.value+'%'; R.oninput=()=>document.getElementById('music-response-value').textContent=R.value+'%';
+  }
+
+  class MicrophoneMusicAnalyzer {
+    constructor({ fftSize = 2048, bandCount = 24 } = {}) { this.fftSize=fftSize;this.bandCount=bandCount;this.audioContext=null;this.analyser=null;this.stream=null;this.source=null;this.frequencyData=null;this.timeData=null;this.running=false;this.animationFrame=null;this.onState=null;this.bandPeaks=new Float32Array(bandCount).fill(1);this.summaryPeaks={bass:1,mid:1,treble:1};this.activityPeaks={kick:1e-6,bass:1e-6,snare:1e-6,cymbal:1e-6};this.previousActivity={kick:0,bass:0,snare:0,cymbal:0};this.previousFluxBins=null;this.fluxHistory=[];this.lastBeatAt=-Infinity;this.effects=new MusicLightingEffects();setTimeout(installLightingLab,0); }
+    async start(onState){if(this.running)return;if(!navigator.mediaDevices?.getUserMedia)throw new Error('Microphone capture is not available in this browser.');this.onState=onState;this.stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false,channelCount:1},video:false});const A=window.AudioContext||window.webkitAudioContext;this.audioContext=new A({latencyHint:'interactive'});await this.audioContext.resume();this.analyser=this.audioContext.createAnalyser();this.analyser.fftSize=this.fftSize;this.analyser.smoothingTimeConstant=.03;this.analyser.minDecibels=-100;this.analyser.maxDecibels=-20;this.source=this.audioContext.createMediaStreamSource(this.stream);this.source.connect(this.analyser);this.frequencyData=new Float32Array(this.analyser.frequencyBinCount);this.timeData=new Float32Array(this.analyser.fftSize);this.running=true;this._tick();}
+    async stop(){this.running=false;if(this.animationFrame!==null)cancelAnimationFrame(this.animationFrame);this.source?.disconnect();this.stream?.getTracks().forEach(t=>t.stop());if(this.audioContext)await this.audioContext.close();this.source=this.stream=this.audioContext=this.analyser=null;}
+    _rawBand(lo,hi){const hz=this.audioContext.sampleRate/this.fftSize,l=Math.max(1,Math.floor(lo/hz)),h=Math.min(this.frequencyData.length,Math.ceil(hi/hz));let p=0,n=0;for(let i=l;i<h;i++){const d=this.frequencyData[i];if(!Number.isFinite(d))continue;const x=Math.pow(10,d/20);p+=x*x;n++;}return n?Math.sqrt(p/n):0;}
+    _normalizedBand(lo,hi,key=null,index=null){const raw=this._rawBand(lo,hi);if(key){this.summaryPeaks[key]=Math.max(raw,this.summaryPeaks[key]*.992,1e-6);return Math.min(1,raw/this.summaryPeaks[key]);}if(index!==null){this.bandPeaks[index]=Math.max(raw,this.bandPeaks[index]*.992,1e-6);return Math.min(1,raw/this.bandPeaks[index]);}return raw;}
+    _spectrum(){const min=31.25,max=Math.min(16000,this.audioContext.sampleRate/2),ratio=Math.pow(max/min,1/this.bandCount),out=[];let lo=min;for(let i=0;i<this.bandCount;i++){const hi=lo*ratio;out.push(this._normalizedBand(lo,hi,null,i));lo=hi;}return out;}
+    _activityValue(name,raw,tw=.5){this.activityPeaks[name]=Math.max(raw,this.activityPeaks[name]*.994,1e-6);const norm=Math.min(1,raw/this.activityPeaks[name]),rise=Math.max(0,norm-this.previousActivity[name]);this.previousActivity[name]=norm;return Math.min(1,norm*(1-tw)+rise*2.2*tw);}
+    _musicalActivity(){const kick=this._rawBand(45,115),bass=this._rawBand(55,260),body=this._rawBand(140,280),crack=this._rawBand(1200,4200),cym=this._rawBand(5000,14000);return{kick:this._activityValue('kick',kick,.72),bass:this._activityValue('bass',bass,.18),snare:this._activityValue('snare',body*.38+crack*.62,.78),cymbal:this._activityValue('cymbal',cym,.58)};}
+    _detectBeat(){const hz=this.audioContext.sampleRate/this.fftSize,l=Math.max(1,Math.floor(45/hz)),h=Math.min(this.frequencyData.length,Math.ceil(220/hz)),cur=new Float32Array(h-l);let flux=0;for(let i=l;i<h;i++){const x=Math.pow(10,this.frequencyData[i]/20),j=i-l;cur[j]=x;if(this.previousFluxBins)flux+=Math.max(0,x-this.previousFluxBins[j]);}this.previousFluxBins=cur;if(this.fluxHistory.length<10){this.fluxHistory.push(flux);return{beat:false,strength:0,flux};}const sorted=[...this.fluxHistory].sort((a,b)=>a-b),median=sorted[Math.floor(sorted.length/2)],dev=sorted.map(v=>Math.abs(v-median)).sort((a,b)=>a-b),mad=dev[Math.floor(dev.length/2)]||1e-6,threshold=median+Math.max(mad*3.2,median*.45,1e-5),now=performance.now(),beat=flux>threshold&&now-this.lastBeatAt>=150;this.fluxHistory.push(flux);if(this.fluxHistory.length>30)this.fluxHistory.shift();if(!beat)return{beat:false,strength:0,flux};this.lastBeatAt=now;return{beat:true,strength:Math.min(1,(flux-threshold)/Math.max(threshold,1e-5)),flux};}
+    _tick(){if(!this.running||!this.analyser)return;this.analyser.getFloatFrequencyData(this.frequencyData);this.analyser.getFloatTimeDomainData(this.timeData);let ss=0,peak=0;for(const x of this.timeData){ss+=x*x;peak=Math.max(peak,Math.abs(x));}const rms=Math.sqrt(ss/this.timeData.length),bass=this._normalizedBand(20,250,'bass'),mid=this._normalizedBand(250,4000,'mid'),treble=this._normalizedBand(4000,16000,'treble'),br=this._detectBeat(),activity=this._musicalActivity();const state={level:Math.min(1,rms*4),peak:Math.min(1,peak),bass,mid,treble,beat:br.beat,beatStrength:br.strength,beatFlux:br.flux,activity,spectrum:this._spectrum(),sampleRateHz:this.audioContext.sampleRate,fftSize:this.fftSize};const mode=document.getElementById('music-effect-mode')?.value||'energy',intensity=(+document.getElementById('music-intensity')?.value||75)/100,response=(+document.getElementById('music-response')?.value||55)/100;state.lightingEffect=this.effects.render(mode,state,intensity,response);this.onState?.(state);this.animationFrame=requestAnimationFrame(()=>this._tick());}
+  }
+  root.MicrophoneMusicAnalyzer=MicrophoneMusicAnalyzer;
 })();
