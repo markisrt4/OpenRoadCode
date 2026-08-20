@@ -31,6 +31,10 @@ MUSIC_VISUALIZER_HTML = '''
   <p id="music-mic-status">Listen to nearby music with this phone's microphone. No audio is uploaded.</p>
   <button id="music-mic-toggle" class="primary wide" data-enabled="0">START MICROPHONE</button>
 </div>
+<div id="music-beat" class="card" style="text-align:center;transition:background .06s linear,box-shadow .06s linear">
+  <b style="font-size:28px">BEAT</b>
+  <div id="music-beat-strength" style="color:#aebac4;margin-top:5px">waiting…</div>
+</div>
 <div class="card">
   <div><b>LEVEL</b><progress id="music-level" max="1" value="0" style="width:100%;height:24px"></progress></div>
   <div><b>BASS</b><progress id="music-bass" max="1" value="0" style="width:100%;height:24px"></progress></div>
@@ -49,20 +53,32 @@ MUSIC_VISUALIZER_HTML = '''
   const status=document.getElementById('music-mic-status');
   const spectrum=document.getElementById('music-spectrum');
   const debug=document.getElementById('music-debug');
+  const beatCard=document.getElementById('music-beat');
+  const beatStrength=document.getElementById('music-beat-strength');
   const analyzer=new OpenRoadCodeWeb.MicrophoneMusicAnalyzer();
-  const bars=Array.from({length:24},()=>{const x=document.createElement('div');x.style.cssText='flex:1;min-width:3px;height:2%;background:#5aa9e6;border-radius:4px 4px 0 0;transition:height .035s linear';spectrum.appendChild(x);return x;});
+  const bars=Array.from({length:24},()=>{const x=document.createElement('div');x.style.cssText='flex:1;min-width:3px;height:2%;background:#21c55d;border-radius:4px 4px 0 0;transition:height .035s linear,background-color .06s linear';spectrum.appendChild(x);return x;});
+  const heatColor=(value)=>{
+    const v=Math.max(0,Math.min(1,value));
+    if(v<0.33){const t=v/0.33;return `rgb(${Math.round(33+222*t)},${Math.round(197+24*t)},${Math.round(93-93*t)})`;}
+    if(v<0.66){const t=(v-0.33)/0.33;return `rgb(255,${Math.round(221-86*t)},0)`;}
+    const t=(v-0.66)/0.34;return `rgb(255,${Math.round(135-87*t)},0)`;
+  };
+  let beatFlashUntil=0;
   const render=(state)=>{
     document.getElementById('music-level').value=state.level;
     document.getElementById('music-bass').value=state.bass;
     document.getElementById('music-mid').value=state.mid;
     document.getElementById('music-treble').value=state.treble;
-    state.spectrum.forEach((value,i)=>bars[i].style.height=`${Math.max(2,value*100)}%`);
+    state.spectrum.forEach((value,i)=>{bars[i].style.height=`${Math.max(2,value*100)}%`;bars[i].style.backgroundColor=heatColor(value);});
+    if(state.beat){beatFlashUntil=performance.now()+105;beatStrength.textContent=`HIT · strength ${state.beatStrength.toFixed(2)}`;}
+    if(performance.now()<beatFlashUntil){beatCard.style.background='#7f1d1d';beatCard.style.boxShadow='0 0 28px rgba(255,72,32,.75)';}
+    else{beatCard.style.background='#151a20';beatCard.style.boxShadow='none';if(!state.beat)beatStrength.textContent='listening';}
     debug.textContent=`${state.sampleRateHz} Hz · FFT ${state.fftSize} · browser-local analysis`;
   };
   button.onclick=async()=>{
     const enabled=button.dataset.enabled==='1';
     try {
-      if(enabled){await analyzer.stop();button.dataset.enabled='0';button.textContent='START MICROPHONE';status.textContent='Microphone stopped.';}
+      if(enabled){await analyzer.stop();button.dataset.enabled='0';button.textContent='START MICROPHONE';status.textContent='Microphone stopped.';beatStrength.textContent='waiting…';}
       else{await analyzer.start(render);button.dataset.enabled='1';button.textContent='STOP MICROPHONE';status.textContent='Microphone active. Play some music nearby.';}
     } catch(error){status.textContent=`Microphone error: ${error.message}`;}
   };
