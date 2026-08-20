@@ -39,6 +39,14 @@ MUSIC_VISUALIZER_HTML = '''
   <p id="music-light-status" style="color:#aebac4">Preview only.</p>
 </div>
 <div class="card">
+  <b>Musical Activity <small style="color:#aebac4">heuristic DSP</small></b>
+  <div style="margin-top:12px"><b>KICK</b><progress id="activity-kick" max="1" value="0" style="width:100%;height:22px"></progress></div>
+  <div><b>BASS</b><progress id="activity-bass" max="1" value="0" style="width:100%;height:22px"></progress></div>
+  <div><b>SNARE</b><progress id="activity-snare" max="1" value="0" style="width:100%;height:22px"></progress></div>
+  <div><b>CYMBAL</b><progress id="activity-cymbal" max="1" value="0" style="width:100%;height:22px"></progress></div>
+  <p style="color:#aebac4">Broad activity estimates, not instrument recognition.</p>
+</div>
+<div class="card">
   <div><b>LEVEL</b><progress id="music-level" max="1" value="0" style="width:100%;height:24px"></progress></div>
   <div><b>BASS</b><progress id="music-bass" max="1" value="0" style="width:100%;height:24px"></progress></div>
   <div><b>MID</b><progress id="music-mid" max="1" value="0" style="width:100%;height:24px"></progress></div>
@@ -79,6 +87,7 @@ MUSIC_VISUALIZER_HTML = '''
   driveLights.onchange=async()=>{if(driveLights.checked){try{await post({command:'power',value:true});lightStatus.textContent='Lighting output enabled.';}catch(e){lightStatus.textContent=`Lighting error: ${e.message}`;}}else lightStatus.textContent='Preview only.';};
   const render=(state)=>{
     document.getElementById('music-level').value=state.level;document.getElementById('music-bass').value=state.bass;document.getElementById('music-mid').value=state.mid;document.getElementById('music-treble').value=state.treble;
+    document.getElementById('activity-kick').value=state.activity?.kick??0;document.getElementById('activity-bass').value=state.activity?.bass??0;document.getElementById('activity-snare').value=state.activity?.snare??0;document.getElementById('activity-cymbal').value=state.activity?.cymbal??0;
     state.spectrum.forEach((value,i)=>bars[i].style.height=`${Math.max(2,value*100)}%`);
     smoothBass=smooth(smoothBass,state.bass,.34,.11);smoothMid=smooth(smoothMid,state.mid,.30,.10);smoothTreble=smooth(smoothTreble,state.treble,.27,.09);
     const targetEnergy=Math.min(1,state.level*.30+state.bass*.42+state.mid*.18+state.treble*.10);
