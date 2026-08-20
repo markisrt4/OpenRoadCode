@@ -16,6 +16,8 @@
       this.onState = null;
       this.bandPeaks = new Float32Array(bandCount).fill(1);
       this.summaryPeaks = { bass: 1, mid: 1, treble: 1 };
+      this.activityPeaks = { kick: 1e-6, bass: 1e-6, snare: 1e-6, cymbal: 1e-6 };
+      this.previousActivity = { kick: 0, bass: 0, snare: 0, cymbal: 0 };
       this.previousFluxBins = null;
       this.fluxHistory = [];
       this.lastBeatAt = -Infinity;
@@ -47,6 +49,7 @@
       this.previousFluxBins = null;
       this.fluxHistory = [];
       this.lastBeatAt = -Infinity;
+      this.previousActivity = { kick: 0, bass: 0, snare: 0, cymbal: 0 };
       this.running = true;
       this._tick();
     }
@@ -63,7 +66,7 @@
       this.fluxHistory = [];
     }
 
-    _normalizedBand(lowHz, highHz, peakKey = null, index = null) {
+    _rawBand(lowHz, highHz) {
       const binHz = this.audioContext.sampleRate / this.fftSize;
       const lowBin = Math.max(1, Math.floor(lowHz / binHz));
       const highBin = Math.min(this.frequencyData.length, Math.ceil(highHz / binHz));
@@ -76,8 +79,11 @@
         sumPower += linear * linear;
         count += 1;
       }
-      if (!count) return 0;
-      const raw = Math.sqrt(sumPower / count);
+      return count ? Math.sqrt(sumPower / count) : 0;
+    }
+
+    _normalizedBand(lowHz, highHz, peakKey = null, index = null) {
+      const raw = this._rawBand(lowHz, highHz);
       if (peakKey) {
         this.summaryPeaks[peakKey] = Math.max(raw, this.summaryPeaks[peakKey] * 0.992, 1e-6);
         return Math.min(1, raw / this.summaryPeaks[peakKey]);
@@ -101,6 +107,30 @@
         low = high;
       }
       return bands;
+    }
+
+    _activityValue(name, raw, transientWeight = 0.5) {
+      this.activityPeaks[name] = Math.max(raw, this.activityPeaks[name] * 0.994, 1e-6);
+      const normalized = Math.min(1, raw / this.activityPeaks[name]);
+      const rise = Math.max(0, normalized - this.previousActivity[name]);
+      this.previousActivity[name] = normalized;
+      return Math.min(1, normalized * (1 - transientWeight) + rise * 2.2 * transientWeight);
+    }
+
+    _musicalActivity() {
+      // Heuristics only. These are broad activity channels, not instrument recognition.
+      const kickRaw = this._rawBand(45, 115);
+      const bassRaw = this._rawBand(55, 260);
+      const snareBody = this._rawBand(140, 280);
+      const snareCrack = this._rawBand(1200, 4200);
+      const cymbalRaw = this._rawBand(5000, 14000);
+
+      return {
+        kick: this._activityValue('kick', kickRaw, 0.72),
+        bass: this._activityValue('bass', bassRaw, 0.18),
+        snare: this._activityValue('snare', snareBody * 0.38 + snareCrack * 0.62, 0.78),
+        cymbal: this._activityValue('cymbal', cymbalRaw, 0.58),
+      };
     }
 
     _detectBeat() {
@@ -148,10 +178,11 @@
       const mid = this._normalizedBand(250, 4000, 'mid');
       const treble = this._normalizedBand(4000, 16000, 'treble');
       const beatResult = this._detectBeat();
+      const activity = this._musicalActivity();
       this.onState?.({
         level: Math.min(1, rms * 4), peak: Math.min(1, peak), bass, mid, treble,
         beat: beatResult.beat, beatStrength: beatResult.strength, beatFlux: beatResult.flux,
-        spectrum: this._spectrum(), sampleRateHz: this.audioContext.sampleRate, fftSize: this.fftSize,
+        activity, spectrum: this._spectrum(), sampleRateHz: this.audioContext.sampleRate, fftSize: this.fftSize,
       });
       this.animationFrame = requestAnimationFrame(() => this._tick());
     }
