@@ -26,6 +26,7 @@ def create_web_frontend(pages: Mapping[str, MenuPage], *, root_page: str="main",
     sensor_dir=web_dir / "sensors"
     media_dir=web_dir / "media"
     lighting_dir=web_dir / "lighting"
+    audio_analysis_dir=web_dir / "audio_analysis"
     app=Flask(__name__)
 
     @app.get("/")
@@ -54,6 +55,8 @@ def create_web_frontend(pages: Mapping[str, MenuPage], *, root_page: str="main",
     def web_media_asset(filename:str): return send_from_directory(media_dir,filename)
     @app.get("/web-assets/lighting/<path:filename>")
     def web_lighting_asset(filename:str): return send_from_directory(lighting_dir,filename)
+    @app.get("/web-assets/audio-analysis/<path:filename>")
+    def web_audio_analysis_asset(filename:str): return send_from_directory(audio_analysis_dir,filename)
 
     @app.post("/api/navigation/position")
     def navigation_position():
