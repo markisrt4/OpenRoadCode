@@ -31,9 +31,12 @@ MUSIC_VISUALIZER_HTML = '''
   <p id="music-mic-status">Listen to nearby music with this phone's microphone. No audio is uploaded.</p>
   <button id="music-mic-toggle" class="primary wide" data-enabled="0">START MICROPHONE</button>
 </div>
-<div id="music-beat" class="card" style="text-align:center;transition:background .06s linear,box-shadow .06s linear">
-  <b style="font-size:28px">BEAT</b>
-  <div id="music-beat-strength" style="color:#aebac4;margin-top:5px">waiting…</div>
+<div id="music-beat" class="card" style="text-align:center;transition:background .04s linear,box-shadow .04s linear"><b style="font-size:28px">BEAT</b><div id="music-beat-strength" style="color:#aebac4;margin-top:5px">waiting…</div></div>
+<div class="card">
+  <b>Music Light Bar</b>
+  <div style="height:105px;display:flex;align-items:center;justify-content:center"><div id="music-lightbar" style="width:92%;height:26px;border-radius:999px;background:#17351f;transition:filter .04s linear,box-shadow .04s linear"></div></div>
+  <label style="display:flex;gap:10px;align-items:center"><input id="music-drive-lights" type="checkbox"> Drive lighting backend <small style="color:#aebac4">(whole-zone RGB)</small></label>
+  <p id="music-light-status" style="color:#aebac4">Preview only.</p>
 </div>
 <div class="card">
   <div><b>LEVEL</b><progress id="music-level" max="1" value="0" style="width:100%;height:24px"></progress></div>
@@ -41,42 +44,42 @@ MUSIC_VISUALIZER_HTML = '''
   <div><b>MID</b><progress id="music-mid" max="1" value="0" style="width:100%;height:24px"></progress></div>
   <div><b>TREBLE</b><progress id="music-treble" max="1" value="0" style="width:100%;height:24px"></progress></div>
 </div>
-<div class="card">
-  <b>Spectrum <small style="color:#aebac4">31 Hz → 16 kHz</small></b>
-  <div id="music-spectrum" style="height:180px;display:flex;align-items:flex-end;gap:3px;margin-top:16px"></div>
-  <p id="music-debug">Waiting for microphone…</p>
-</div>
+<div class="card"><b>Spectrum <small style="color:#aebac4">31 Hz → 16 kHz</small></b><div id="music-spectrum" style="height:180px;display:flex;align-items:flex-end;gap:3px;margin-top:16px"></div><p id="music-debug">Waiting for microphone…</p></div>
 <script src="/web-assets/audio-analysis/microphone_analyzer.js"></script>
 <script>
 (() => {
-  const button=document.getElementById('music-mic-toggle');
-  const status=document.getElementById('music-mic-status');
-  const spectrum=document.getElementById('music-spectrum');
-  const debug=document.getElementById('music-debug');
-  const beatCard=document.getElementById('music-beat');
-  const beatStrength=document.getElementById('music-beat-strength');
+  const button=document.getElementById('music-mic-toggle'),status=document.getElementById('music-mic-status');
+  const spectrum=document.getElementById('music-spectrum'),debug=document.getElementById('music-debug');
+  const beatCard=document.getElementById('music-beat'),beatStrength=document.getElementById('music-beat-strength');
+  const lightbar=document.getElementById('music-lightbar'),driveLights=document.getElementById('music-drive-lights'),lightStatus=document.getElementById('music-light-status');
   const analyzer=new OpenRoadCodeWeb.MicrophoneMusicAnalyzer();
-  const meterGradient='linear-gradient(to top,#21c55d 0%,#21c55d 48%,#e6d928 64%,#ff9f1c 80%,#ef3b2d 100%)';
-  const bars=Array.from({length:24},()=>{const x=document.createElement('div');x.style.cssText='flex:1;min-width:3px;height:2%;border-radius:4px 4px 0 0;transition:height .035s linear;background:'+meterGradient+';background-size:100% 180px;background-position:bottom';spectrum.appendChild(x);return x;});
-  let beatFlashUntil=0;
+  const bars=Array.from({length:24},()=>{const x=document.createElement('div');x.style.cssText='flex:1;min-width:3px;height:2%;background:linear-gradient(to top,#20c85a 0%,#42d84f 24%,#e6e532 40%,#ffd21c 56%,#ff8a18 74%,#ef3b24 100%);border-radius:4px 4px 0 0;transition:height .025s linear';spectrum.appendChild(x);return x;});
+  let beatFlashUntil=0,lastLightSend=0,lastColor='',lastBrightness=-1;
+  const rgbHex=(r,g,b)=>'#'+[r,g,b].map(v=>Math.round(Math.max(0,Math.min(255,v))).toString(16).padStart(2,'0')).join('').toUpperCase();
+  const lightColor=(state)=>{const total=state.bass+state.mid+state.treble+0.001;return rgbHex(255*(state.bass+state.mid*.45)/total,255*(state.mid+state.treble*.35)/total,255*(state.treble+state.mid*.18)/total);};
+  const post=async(payload)=>{const r=await fetch('/api/lighting/command',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});if(!r.ok)throw new Error(`lighting HTTP ${r.status}`);};
+  const drivePhysical=async(state,color,brightness)=>{
+    if(!driveLights.checked||performance.now()-lastLightSend<110)return;
+    lastLightSend=performance.now();
+    try{
+      if(color!==lastColor){await post({command:'color',value:color});lastColor=color;}
+      if(Math.abs(brightness-lastBrightness)>=5){await post({command:'brightness',value:brightness});lastBrightness=brightness;}
+      lightStatus.textContent='Driving lighting backend · ~9 updates/sec max';
+    }catch(e){lightStatus.textContent=`Lighting error: ${e.message}`;}
+  };
+  driveLights.onchange=async()=>{if(driveLights.checked){try{await post({command:'power',value:true});lightStatus.textContent='Lighting output enabled.';}catch(e){lightStatus.textContent=`Lighting error: ${e.message}`;}}else lightStatus.textContent='Preview only.';};
   const render=(state)=>{
-    document.getElementById('music-level').value=state.level;
-    document.getElementById('music-bass').value=state.bass;
-    document.getElementById('music-mid').value=state.mid;
-    document.getElementById('music-treble').value=state.treble;
+    document.getElementById('music-level').value=state.level;document.getElementById('music-bass').value=state.bass;document.getElementById('music-mid').value=state.mid;document.getElementById('music-treble').value=state.treble;
     state.spectrum.forEach((value,i)=>bars[i].style.height=`${Math.max(2,value*100)}%`);
-    if(state.beat){beatFlashUntil=performance.now()+105;beatStrength.textContent=`HIT · strength ${state.beatStrength.toFixed(2)}`;}
-    if(performance.now()<beatFlashUntil){beatCard.style.background='#7f1d1d';beatCard.style.boxShadow='0 0 28px rgba(255,72,32,.75)';}
+    const color=lightColor(state),energy=Math.min(1,state.level*.35+state.bass*.4+state.mid*.15+state.treble*.1),brightness=Math.round(18+82*energy);
+    lightbar.style.background=color;lightbar.style.filter=`brightness(${.65+energy*.8})`;lightbar.style.boxShadow=`0 0 ${8+energy*12}px ${color},0 0 ${20+energy*38}px ${color}`;
+    drivePhysical(state,color,brightness);
+    if(state.beat){beatFlashUntil=performance.now()+90;beatStrength.textContent=`HIT · ${state.beatStrength.toFixed(2)}`;}
+    if(performance.now()<beatFlashUntil){beatCard.style.background='#7f1d1d';beatCard.style.boxShadow='0 0 28px rgba(255,72,32,.75)';lightbar.style.filter='brightness(1.75)';}
     else{beatCard.style.background='#151a20';beatCard.style.boxShadow='none';if(!state.beat)beatStrength.textContent='listening';}
-    debug.textContent=`${state.sampleRateHz} Hz · FFT ${state.fftSize} · flux ${state.beatFlux.toFixed(4)} · browser-local analysis`;
+    debug.textContent=`${state.sampleRateHz} Hz · FFT ${state.fftSize} · flux ${state.beatFlux.toFixed(4)}`;
   };
-  button.onclick=async()=>{
-    const enabled=button.dataset.enabled==='1';
-    try {
-      if(enabled){await analyzer.stop();button.dataset.enabled='0';button.textContent='START MICROPHONE';status.textContent='Microphone stopped.';beatStrength.textContent='waiting…';}
-      else{await analyzer.start(render);button.dataset.enabled='1';button.textContent='STOP MICROPHONE';status.textContent='Microphone active. Play some music nearby.';}
-    } catch(error){status.textContent=`Microphone error: ${error.message}`;}
-  };
+  button.onclick=async()=>{const enabled=button.dataset.enabled==='1';try{if(enabled){await analyzer.stop();button.dataset.enabled='0';button.textContent='START MICROPHONE';status.textContent='Microphone stopped.';beatStrength.textContent='waiting…';}else{await analyzer.start(render);button.dataset.enabled='1';button.textContent='STOP MICROPHONE';status.textContent='Microphone active. Play some music nearby.';}}catch(error){status.textContent=`Microphone error: ${error.message}`;}};
 })();
 </script>
 '''
