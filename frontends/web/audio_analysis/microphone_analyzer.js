@@ -16,8 +16,8 @@
       this.onState = null;
       this.bandPeaks = new Float32Array(bandCount).fill(1);
       this.summaryPeaks = { bass: 1, mid: 1, treble: 1 };
-      this.energyAverage = 0;
-      this.energyDeviation = 0;
+      this.previousFluxBins = null;
+      this.fluxHistory = [];
       this.lastBeatAt = -Infinity;
     }
 
@@ -44,7 +44,7 @@
 
       this.analyser = this.audioContext.createAnalyser();
       this.analyser.fftSize = this.fftSize;
-      this.analyser.smoothingTimeConstant = 0.18;
+      this.analyser.smoothingTimeConstant = 0.08;
       this.analyser.minDecibels = -100;
       this.analyser.maxDecibels = -20;
 
@@ -53,8 +53,8 @@
 
       this.frequencyData = new Float32Array(this.analyser.frequencyBinCount);
       this.timeData = new Float32Array(this.analyser.fftSize);
-      this.energyAverage = 0;
-      this.energyDeviation = 0;
+      this.previousFluxBins = null;
+      this.fluxHistory = [];
       this.lastBeatAt = -Infinity;
       this.running = true;
       this._tick();
@@ -71,6 +71,8 @@
       this.stream = null;
       this.audioContext = null;
       this.analyser = null;
+      this.previousFluxBins = null;
+      this.fluxHistory = [];
     }
 
     _normalizedBand(lowHz, highHz, peakKey = null, index = null) {
@@ -117,25 +119,44 @@
       return bands;
     }
 
-    _detectBeat(energy) {
-      if (this.energyAverage === 0) {
-        this.energyAverage = energy;
-        return { beat: false, strength: 0 };
+    _detectBeat() {
+      const binHz = this.audioContext.sampleRate / this.fftSize;
+      const lowBin = Math.max(1, Math.floor(40 / binHz));
+      const highBin = Math.min(this.frequencyData.length, Math.ceil(350 / binHz));
+      const current = new Float32Array(highBin - lowBin);
+      let flux = 0;
+
+      for (let i = lowBin; i < highBin; i += 1) {
+        const linear = Math.pow(10, this.frequencyData[i] / 20);
+        const j = i - lowBin;
+        current[j] = linear;
+        if (this.previousFluxBins) {
+          const rise = linear - this.previousFluxBins[j];
+          if (rise > 0) flux += rise;
+        }
+      }
+      this.previousFluxBins = current;
+
+      if (this.fluxHistory.length < 12) {
+        this.fluxHistory.push(flux);
+        return { beat: false, strength: 0, flux };
       }
 
-      const delta = energy - this.energyAverage;
-      this.energyAverage = this.energyAverage * 0.94 + energy * 0.06;
-      this.energyDeviation = this.energyDeviation * 0.94 + Math.abs(delta) * 0.06;
-
-      const threshold = this.energyAverage + Math.max(0.012, this.energyDeviation * 2.6);
+      const mean = this.fluxHistory.reduce((sum, value) => sum + value, 0) / this.fluxHistory.length;
+      const variance = this.fluxHistory.reduce((sum, value) => sum + (value - mean) ** 2, 0) / this.fluxHistory.length;
+      const deviation = Math.sqrt(variance);
+      const threshold = mean + Math.max(deviation * 1.7, mean * 0.35, 1e-5);
       const now = performance.now();
-      const refractoryMs = 180;
-      const beat = energy > threshold && now - this.lastBeatAt >= refractoryMs;
+      const refractoryMs = 190;
+      const beat = flux > threshold && now - this.lastBeatAt >= refractoryMs;
 
-      if (!beat) return { beat: false, strength: 0 };
+      this.fluxHistory.push(flux);
+      if (this.fluxHistory.length > 36) this.fluxHistory.shift();
+
+      if (!beat) return { beat: false, strength: 0, flux };
       this.lastBeatAt = now;
-      const strength = Math.min(1, (energy - threshold) / Math.max(0.02, threshold) + 0.35);
-      return { beat: true, strength };
+      const strength = Math.min(1, (flux - threshold) / Math.max(threshold, 1e-5));
+      return { beat: true, strength, flux };
     }
 
     _tick() {
@@ -154,7 +175,7 @@
       const bass = this._normalizedBand(20, 250, 'bass');
       const mid = this._normalizedBand(250, 4000, 'mid');
       const treble = this._normalizedBand(4000, 16000, 'treble');
-      const beatResult = this._detectBeat(rms * 0.55 + bass * 0.45);
+      const beatResult = this._detectBeat();
 
       const state = {
         level: Math.min(1, rms * 4),
@@ -164,6 +185,7 @@
         treble,
         beat: beatResult.beat,
         beatStrength: beatResult.strength,
+        beatFlux: beatResult.flux,
         spectrum: this._spectrum(),
         sampleRateHz: this.audioContext.sampleRate,
         fftSize: this.fftSize,
