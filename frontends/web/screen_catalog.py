@@ -34,7 +34,7 @@ MUSIC_VISUALIZER_HTML = '''
 <div id="music-beat" class="card" style="text-align:center;transition:background .04s linear,box-shadow .04s linear"><b style="font-size:28px">BEAT</b><div id="music-beat-strength" style="color:#aebac4;margin-top:5px">waiting…</div></div>
 <div class="card">
   <b>Music Light Bar</b>
-  <div style="height:105px;display:flex;align-items:center;justify-content:center"><div id="music-lightbar" style="width:92%;height:26px;border-radius:999px;background:#17351f;transition:background .14s linear,filter .14s linear,box-shadow .14s linear"></div></div>
+  <div style="height:105px;display:flex;align-items:center;justify-content:center"><div id="music-lightbar" style="width:92%;height:26px;border-radius:999px;background:#17351f;transition:background .085s linear,filter .085s linear,box-shadow .085s linear"></div></div>
   <label style="display:flex;gap:10px;align-items:center"><input id="music-drive-lights" type="checkbox"> Drive lighting backend <small style="color:#aebac4">(whole-zone RGB)</small></label>
   <p id="music-light-status" style="color:#aebac4">Preview only.</p>
 </div>
@@ -63,28 +63,30 @@ MUSIC_VISUALIZER_HTML = '''
   bandLabels.forEach((label,i)=>{const x=document.createElement('div');x.textContent=(i%2===0||i===23)?label:'';labels.appendChild(x);});
   let beatFlashUntil=0,lastLightSend=0,lastColor='',lastBrightness=-1;
   let smoothBass=0,smoothMid=0,smoothTreble=0,smoothEnergy=0;
-  const smooth=(oldValue,newValue,attack=.22,release=.08)=>oldValue+(newValue-oldValue)*(newValue>oldValue?attack:release);
+  const smooth=(oldValue,newValue,attack=.34,release=.11)=>oldValue+(newValue-oldValue)*(newValue>oldValue?attack:release);
   const rgbHex=(r,g,b)=>'#'+[r,g,b].map(v=>Math.round(Math.max(0,Math.min(255,v))).toString(16).padStart(2,'0')).join('').toUpperCase();
   const lightColor=(bass,mid,treble)=>{const total=bass+mid+treble+0.001;return rgbHex(255*(bass+mid*.45)/total,255*(mid+treble*.35)/total,255*(treble+mid*.18)/total);};
   const post=async(payload)=>{const r=await fetch('/api/lighting/command',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});if(!r.ok)throw new Error(`lighting HTTP ${r.status}`);};
   const drivePhysical=async(color,brightness)=>{
-    if(!driveLights.checked||performance.now()-lastLightSend<140)return;
+    if(!driveLights.checked||performance.now()-lastLightSend<120)return;
     lastLightSend=performance.now();
     try{
       if(color!==lastColor){await post({command:'color',value:color});lastColor=color;}
-      if(Math.abs(brightness-lastBrightness)>=6){await post({command:'brightness',value:brightness});lastBrightness=brightness;}
-      lightStatus.textContent='Driving lighting backend · smoothed output';
+      if(Math.abs(brightness-lastBrightness)>=5){await post({command:'brightness',value:brightness});lastBrightness=brightness;}
+      lightStatus.textContent='Driving lighting backend · responsive smoothed output';
     }catch(e){lightStatus.textContent=`Lighting error: ${e.message}`;}
   };
   driveLights.onchange=async()=>{if(driveLights.checked){try{await post({command:'power',value:true});lightStatus.textContent='Lighting output enabled.';}catch(e){lightStatus.textContent=`Lighting error: ${e.message}`;}}else lightStatus.textContent='Preview only.';};
   const render=(state)=>{
     document.getElementById('music-level').value=state.level;document.getElementById('music-bass').value=state.bass;document.getElementById('music-mid').value=state.mid;document.getElementById('music-treble').value=state.treble;
     state.spectrum.forEach((value,i)=>bars[i].style.height=`${Math.max(2,value*100)}%`);
-    smoothBass=smooth(smoothBass,state.bass,.18,.055);smoothMid=smooth(smoothMid,state.mid,.16,.05);smoothTreble=smooth(smoothTreble,state.treble,.14,.045);
-    const targetEnergy=Math.min(1,state.level*.32+state.bass*.36+state.mid*.2+state.treble*.12);
-    smoothEnergy=smooth(smoothEnergy,targetEnergy,.16,.045);
-    const color=lightColor(smoothBass,smoothMid,smoothTreble),brightness=Math.round(16+72*smoothEnergy);
-    lightbar.style.background=color;lightbar.style.filter=`brightness(${.72+smoothEnergy*.55})`;lightbar.style.boxShadow=`0 0 ${7+smoothEnergy*9}px ${color},0 0 ${18+smoothEnergy*24}px ${color}`;
+    smoothBass=smooth(smoothBass,state.bass,.34,.11);smoothMid=smooth(smoothMid,state.mid,.30,.10);smoothTreble=smooth(smoothTreble,state.treble,.27,.09);
+    const targetEnergy=Math.min(1,state.level*.30+state.bass*.42+state.mid*.18+state.treble*.10);
+    smoothEnergy=smooth(smoothEnergy,targetEnergy,.36,.10);
+    const pulse=state.beat?Math.min(.18,.07+state.beatStrength*.11):0;
+    const visualEnergy=Math.min(1,smoothEnergy+pulse);
+    const color=lightColor(smoothBass,smoothMid,smoothTreble),brightness=Math.round(14+80*visualEnergy);
+    lightbar.style.background=color;lightbar.style.filter=`brightness(${.70+visualEnergy*.82})`;lightbar.style.boxShadow=`0 0 ${8+visualEnergy*13}px ${color},0 0 ${20+visualEnergy*36}px ${color}`;
     drivePhysical(color,brightness);
     if(state.beat){beatFlashUntil=performance.now()+70;beatStrength.textContent=`HIT · ${state.beatStrength.toFixed(2)}`;}
     if(performance.now()<beatFlashUntil){beatCard.style.background='#5b2020';beatCard.style.boxShadow='0 0 18px rgba(255,72,32,.45)';}
