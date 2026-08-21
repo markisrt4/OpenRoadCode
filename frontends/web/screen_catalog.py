@@ -49,7 +49,8 @@ MUSIC_VISUALIZER_HTML = '''
 <script src="/web-assets/audio-analysis/spectrum_controls.js?v=4"></script>
 <script src="/web-assets/audio-analysis/percussion_classifier.js?v=4"></script>
 <script src="/web-assets/audio-analysis/kick_mode.js?v=2"></script>
-<script src="/web-assets/audio-analysis/music_visualizer_page.js?v=15"></script>
+<script src="/web-assets/audio-analysis/webgl_music_visualizer.js?v=1"></script>
+<script src="/web-assets/audio-analysis/music_visualizer_page.js?v=16"></script>
 '''
 
 LIGHTING_HTML = '''
