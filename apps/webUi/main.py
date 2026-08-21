@@ -11,13 +11,18 @@ from apps.webUi.menu_catalog import create_web_ui_menu_pages
 from apps.webUi.navigation_session import WebNavigationSession
 from apps.webUi.song_recognition_session import WebSongRecognitionSession
 from apps.webUi.spotify_session import WebSpotifySession
+from controllers.cache import PersistentCache
+from controllers.song_recognition import SongMetadataCache
 from frontends.web import create_web_frontend
 
 project_root = Path(__file__).resolve().parents[2]
 navigation_session = WebNavigationSession()
 spotify_session = WebSpotifySession()
 lighting_session = WebLightingSession(project_root)
-song_recognition_session = WebSongRecognitionSession()
+song_metadata_cache = SongMetadataCache(
+    PersistentCache("~/.cache/openroadcode/song_recognition", suffix=".json")
+)
+song_recognition_session = WebSongRecognitionSession(metadata_cache=song_metadata_cache)
 app = create_web_frontend(
     create_web_ui_menu_pages(),
     navigation_session=navigation_session,
