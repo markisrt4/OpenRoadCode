@@ -38,7 +38,8 @@ MUSIC_VISUALIZER_HTML = '''
 <div class="card"><b>Spectrum <small style="color:#aebac4">31 Hz → 16 kHz</small></b><div id="music-spectrum" style="height:180px;display:flex;align-items:flex-end;gap:3px;margin-top:16px"></div><div id="music-spectrum-labels" style="display:grid;grid-template-columns:repeat(24,1fr);gap:3px;margin-top:6px;color:#8fa0ad;font-size:9px;line-height:1.1;text-align:center"></div><p id="music-debug">Waiting for microphone…</p></div>
 <script src="/web-assets/audio-analysis/microphone_analyzer.js?v=6"></script>
 <script src="/web-assets/audio-analysis/spectrum_controls.js?v=2"></script>
-<script src="/web-assets/audio-analysis/music_visualizer_page.js?v=1"></script>
+<script src="/web-assets/audio-analysis/lead_activity.js?v=1"></script>
+<script src="/web-assets/audio-analysis/music_visualizer_page.js?v=6"></script>
 '''
 
 LIGHTING_HTML = '''
@@ -59,7 +60,7 @@ def create_web_screens() -> dict[str, WebScreen]:
         "weather_alerts": WebScreen("Weather Alerts", "Warnings and watches", '''<div class="card"><b>No demo alerts</b></div>'''),
         "fm_radio": WebScreen("FM Radio", "Frontend controls", '''<div class="hero-value">101.1<small>MHz</small></div>'''),
         "scanner_radio": WebScreen("Scanner", "Monitoring controls", '''<div class="card">Scanner idle</div>'''),
-        "weather_radio": WebScreen("NOAA Weather Radio", "Weather band", '''<div class="hero-value">162.550<small>MHz</small></div>'''),
+        "weather_radio": WebScreen("NOAA Weather Radio", "Weather band", '''<div class="hero-value">162.550<small>MHz AM</small></div>'''),
         "adsb": WebScreen("ADS-B", "Nearby aircraft", '''<div class="card">No ADS-B source attached</div>'''),
         "airband": WebScreen("Airband", "AM aviation radio", '''<div class="hero-value">118.000<small>MHz AM</small></div>'''),
         "offroad_dashboard": WebScreen("Off-Road", "Phone GPS + orientation", '''<div class="card">Use the existing browser sensor adapters.</div>'''),
