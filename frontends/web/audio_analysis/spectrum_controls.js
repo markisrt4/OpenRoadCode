@@ -3,7 +3,7 @@
   const clamp=v=>Math.max(0,Math.min(1,v));
   let mode='adaptive',sensitivity=1;
   let zeroBaselineDb=null,zeroSamples=null,zeroizeUntil=0;
-  const ZEROIZE_MS=1500,ZERO_MARGIN_DB=3.0;
+  const ZEROIZE_MS=1500,ZERO_MARGIN_DB=4.5;
 
   function install(){
     const spectrum=document.getElementById('music-spectrum');
@@ -21,21 +21,24 @@
     updateHint();return true;
   }
   function setCaptureActive(active){const b=document.getElementById('spectrum-zeroize');if(!b)return;b.style.display=active?'block':'none';if(!active){b.disabled=false;b.textContent=zeroBaselineDb?'RE-ZEROIZE ROOM NOISE':'ZEROIZE ROOM NOISE'}}
-  function startZeroize(){const a=window.__openRoadMusicAnalyzer,b=document.getElementById('spectrum-zeroize');if(!a?.frequencyData||!a?.audioContext)return;zeroSamples=[];zeroizeUntil=performance.now()+ZEROIZE_MS;if(b){b.disabled=true;b.textContent='ZEROIZING… KEEP MUSIC OFF'}const h=document.getElementById('spectrum-mode-hint');if(h)h.textContent='Listening to ambient room noise for 1.5 seconds…'}
-  function finishZeroize(){if(!zeroSamples?.length)return;const bands=zeroSamples[0].length;zeroBaselineDb=Array.from({length:bands},(_,i)=>{const v=zeroSamples.map(r=>r[i]).filter(Number.isFinite).sort((a,b)=>a-b);return v.length?v[Math.min(v.length-1,Math.floor(v.length*.75))]:-100});zeroSamples=null;zeroizeUntil=0;const b=document.getElementById('spectrum-zeroize');if(b){b.disabled=false;b.textContent='RE-ZEROIZE ROOM NOISE'}updateHint()}
-  function updateHint(){const h=document.getElementById('spectrum-mode-hint');if(!h)return;const base=mode==='fixed'?'Fixed: stable dB scale; quiet stays quiet.':mode==='hybrid'?'Hybrid: fixed noise floor with limited adaptive lift.':'Adaptive: each band follows its recent peak.';h.textContent=zeroBaselineDb?`${base} Room noise calibration active.`:base}
+  function startZeroize(){const a=window.__openRoadMusicAnalyzer,b=document.getElementById('spectrum-zeroize');if(!a?.frequencyData||!a?.audioContext)return;zeroSamples=[];zeroizeUntil=performance.now()+ZEROIZE_MS;if(b){b.disabled=true;b.textContent='ZEROIZING… KEEP MUSIC OFF'}const h=document.getElementById('spectrum-mode-hint');if(h)h.textContent='Listening to ambient room / vehicle noise for 1.5 seconds…'}
+  function finishZeroize(){if(!zeroSamples?.length)return;const bands=zeroSamples[0].length;zeroBaselineDb=Array.from({length:bands},(_,i)=>{const v=zeroSamples.map(r=>r[i]).filter(Number.isFinite).sort((a,b)=>a-b);return v.length?v[Math.min(v.length-1,Math.floor(v.length*.80))]:-100});zeroSamples=null;zeroizeUntil=0;const b=document.getElementById('spectrum-zeroize');if(b){b.disabled=false;b.textContent='RE-ZEROIZE ROOM NOISE'}updateHint()}
+  function updateHint(){const h=document.getElementById('spectrum-mode-hint');if(!h)return;const base=mode==='fixed'?'Fixed: stable dB scale; quiet stays quiet.':mode==='hybrid'?'Hybrid: fixed noise floor with limited adaptive lift.':'Adaptive: each band follows its recent peak.';h.textContent=zeroBaselineDb?`${base} Room/vehicle noise calibration active.`:base}
   function bandDb(data,loHz,hiHz,sr,fftSize){const hz=sr/fftSize,lo=Math.max(1,Math.floor(loHz/hz)),hi=Math.min(data.length,Math.ceil(hiHz/hz));let p=0,n=0;for(let i=lo;i<hi;i++){const db=data[i];if(!Number.isFinite(db))continue;const x=Math.pow(10,db/20);p+=x*x;n++}return n?20*Math.log10(Math.max(Math.sqrt(p/n),1e-8)):-100}
   function spectrumDbValues(a,count){if(!a?.frequencyData||!a?.audioContext)return[];const out=[],min=31.25,max=Math.min(16000,a.audioContext.sampleRate/2),ratio=Math.pow(max/min,1/count);let lo=min;for(let i=0;i<count;i++){const hi=lo*ratio;out.push(bandDb(a.frequencyData,lo,hi,a.audioContext.sampleRate,a.fftSize));lo=hi}return out}
   function fixedValue(db,i){let floor=-82-(sensitivity-1)*18;if(zeroBaselineDb?.[i]!==undefined)floor=Math.max(floor,zeroBaselineDb[i]+ZERO_MARGIN_DB);if(db<=floor)return 0;return clamp((db-floor)/(-24-floor))}
   function zeroizedAdaptive(value,db,i){if(!zeroBaselineDb||zeroBaselineDb[i]===undefined)return clamp(value*sensitivity);const excess=db-zeroBaselineDb[i]-ZERO_MARGIN_DB;return excess<=0?0:clamp(value*sensitivity*clamp(excess/12))}
   function baselineForRange(low,high,a){if(!zeroBaselineDb||!a?.audioContext)return null;const count=zeroBaselineDb.length,min=31.25,max=Math.min(16000,a.audioContext.sampleRate/2),ratio=Math.pow(max/min,1/count),m=[];let lo=min;for(let i=0;i<count;i++){const hi=lo*ratio;if(hi>low&&lo<high)m.push(zeroBaselineDb[i]);lo=hi}return m.length?Math.max(...m):null}
-  function rangeGate(low,high,a){if(!zeroBaselineDb||!a?.frequencyData||!a?.audioContext)return 1;const base=baselineForRange(low,high,a);if(base===null)return 1;const cur=bandDb(a.frequencyData,low,high,a.audioContext.sampleRate,a.fftSize),excess=cur-base-ZERO_MARGIN_DB;return excess<=0?0:clamp(excess/10)}
+  function rangeGate(low,high,a){if(!zeroBaselineDb||!a?.frequencyData||!a?.audioContext)return 1;const base=baselineForRange(low,high,a);if(base===null)return 1;const cur=bandDb(a.frequencyData,low,high,a.audioContext.sampleRate,a.fftSize),excess=cur-base-ZERO_MARGIN_DB;return excess<=0?0:clamp(excess/12)}
   function filterActivity(activity,a){
     if(!activity)return activity;
-    if(zeroizeUntil)return{...activity,kick:0,bass:0,snare:0,cymbal:0,tomHigh:0,tomMid:0,tomLow:0,hit:null};
+    if(zeroizeUntil)return{...activity,kick:0,bass:0,snare:0,cymbal:0,tomHigh:0,tomMid:0,tomLow:0,hit:null,secondaryHit:null};
     if(!zeroBaselineDb)return activity;
-    const snareGate=Math.max(rangeGate(160,300,a),rangeGate(1500,5200,a));
-    return{...activity,kick:(activity.kick||0)*rangeGate(45,105,a),bass:(activity.bass||0)*rangeGate(55,260,a),snare:(activity.snare||0)*snareGate,cymbal:(activity.cymbal||0)*rangeGate(6000,15000,a),tomHigh:(activity.tomHigh||0)*rangeGate(145,260,a),tomMid:(activity.tomMid||0)*rangeGate(105,195,a),tomLow:(activity.tomLow||0)*rangeGate(70,135,a)};
+    const gates={kick:rangeGate(45,105,a),bass:rangeGate(55,260,a),snare:Math.max(rangeGate(160,300,a),rangeGate(1500,5200,a)),cymbal:rangeGate(6000,15000,a),tomHigh:rangeGate(145,260,a),tomMid:rangeGate(105,195,a),tomLow:rangeGate(70,135,a)};
+    const out={...activity,kick:(activity.kick||0)*gates.kick,bass:(activity.bass||0)*gates.bass,snare:(activity.snare||0)*gates.snare,cymbal:(activity.cymbal||0)*gates.cymbal,tomHigh:(activity.tomHigh||0)*gates.tomHigh,tomMid:(activity.tomMid||0)*gates.tomMid,tomLow:(activity.tomLow||0)*gates.tomLow};
+    const keepHit=hit=>hit&&((gates[hit.type]??0)>=.22)?hit:null;
+    out.hit=keepHit(activity.hit);out.secondaryHit=keepHit(activity.secondaryHit);
+    return out;
   }
   function render(state,a,bars){if(!state||!bars?.length)return;const db=spectrumDbValues(a,bars.length);if(db.length&&zeroizeUntil){zeroSamples.push(db.slice());if(performance.now()>=zeroizeUntil)finishZeroize()}if(mode==='adaptive'){state.spectrum.forEach((v,i)=>{if(bars[i])bars[i].style.height=`${Math.max(2,(zeroBaselineDb&&db.length?zeroizedAdaptive(v,db[i],i):clamp(v*sensitivity))*100)}%`});return}if(!db.length)return;for(let i=0;i<bars.length;i++){const fixed=fixedValue(db[i],i);let value=fixed;if(mode==='hybrid'){const adaptive=zeroBaselineDb?zeroizedAdaptive(state.spectrum[i]||0,db[i],i):clamp((state.spectrum[i]||0)*sensitivity);value=clamp(fixed+(fixed<=.02?0:Math.min(.28,Math.max(0,adaptive-fixed)*.45)))}bars[i].style.height=`${Math.max(2,value*100)}%`}}
   root.SpectrumDisplay={install,render,startZeroize,setCaptureActive,filterActivity};
