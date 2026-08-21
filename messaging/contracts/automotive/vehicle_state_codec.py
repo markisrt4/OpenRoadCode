@@ -12,7 +12,7 @@ def _convert(value, fn):
 
 
 def encode_vehicle_state(state: VehicleState, *, source: str = "obd2") -> dict[str, Any]:
-    return {
+    payload = {
         "version": SCHEMA_VERSION,
         "timestamp": encode_timestamp(state.timestamp),
         "source": source,
@@ -32,3 +32,10 @@ def encode_vehicle_state(state: VehicleState, *, source: str = "obd2") -> dict[s
             "control_voltage_v": state.control_voltage,
         },
     }
+
+    # Encoders are contract boundaries too: never emit a payload that our own
+    # decoder would reject.
+    from .vehicle_state_validator import validate_vehicle_state
+
+    validate_vehicle_state(payload)
+    return payload
