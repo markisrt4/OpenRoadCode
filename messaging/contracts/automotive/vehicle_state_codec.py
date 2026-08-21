@@ -1,16 +1,20 @@
 import math
 from typing import Any
+
 from controllers.automotive.vehicle_state import VehicleState
+from messaging.contracts.common import encode_timestamp
 
 SCHEMA_VERSION = 1
+
 
 def _convert(value, fn):
     return None if value is None else fn(value)
 
+
 def encode_vehicle_state(state: VehicleState, *, source: str = "obd2") -> dict[str, Any]:
     return {
         "version": SCHEMA_VERSION,
-        "timestamp": state.timestamp.isoformat(),
+        "timestamp": encode_timestamp(state.timestamp),
         "source": source,
         "data": {
             "engine_speed_rad_s": _convert(state.rpm, lambda v: v * 2.0 * math.pi / 60.0),
