@@ -19,14 +19,11 @@ PAGE = """<!doctype html><meta name=viewport content='width=device-width,initial
 SCREEN = """<!doctype html><meta name=viewport content='width=device-width,initial-scale=1'><style>{{style}}</style><header><div class=bar><a class=back href='{{back}}'>‹</a><div class=heading><div class=title>{{screen.title}}</div><div class=subtitle>{{screen.subtitle}}</div></div></div></header><main>{{body}}</main>"""
 
 
-def create_web_frontend(pages: Mapping[str, MenuPage], *, root_page: str="main", screens: Mapping[str, WebScreen]|None=None, navigation_session: Any|None=None, spotify_session: Any|None=None, lighting_session: Any|None=None) -> Flask:
+def create_web_frontend(pages: Mapping[str, MenuPage], *, root_page: str="main", screens: Mapping[str, WebScreen]|None=None, navigation_session: Any|None=None, spotify_session: Any|None=None, lighting_session: Any|None=None, song_recognition_session: Any|None=None) -> Flask:
     if root_page not in pages: raise ValueError(f"Unknown root page: {root_page}")
     screen_map=dict(screens or create_web_screens())
     web_dir=Path(__file__).resolve().parent
-    sensor_dir=web_dir / "sensors"
-    media_dir=web_dir / "media"
-    lighting_dir=web_dir / "lighting"
-    audio_analysis_dir=web_dir / "audio_analysis"
+    sensor_dir=web_dir / "sensors";media_dir=web_dir / "media";lighting_dir=web_dir / "lighting";audio_analysis_dir=web_dir / "audio_analysis"
     app=Flask(__name__)
 
     @app.get("/")
@@ -46,8 +43,7 @@ def create_web_frontend(pages: Mapping[str, MenuPage], *, root_page: str="main",
         screen=screen_map.get(tile.key)
         if screen is None: abort(404)
         back=url_for("menu_page",page_key=page_key)
-        if tile.key == "spotify" and spotify_session is not None:
-            return render_spotify_screen(style=STYLE,back=back,state=spotify_session.state())
+        if tile.key == "spotify" and spotify_session is not None:return render_spotify_screen(style=STYLE,back=back,state=spotify_session.state())
         return render_template_string(SCREEN,screen=screen,body=Markup(screen.body_html),back=back,style=STYLE)
     @app.get("/web-assets/sensors/<path:filename>")
     def web_sensor_asset(filename:str): return send_from_directory(sensor_dir,filename)
@@ -62,13 +58,13 @@ def create_web_frontend(pages: Mapping[str, MenuPage], *, root_page: str="main",
     def navigation_position():
         if navigation_session is None: abort(503)
         try: state=navigation_session.update_position(request.get_json(silent=False))
-        except (TypeError,ValueError) as exc: return jsonify(error=str(exc)),400
+        except (TypeError,ValueError) as exc:return jsonify(error=str(exc)),400
         return jsonify(ok=True,source=state.source)
     @app.post("/api/navigation/orientation")
     def navigation_orientation():
         if navigation_session is None: abort(503)
         try: state=navigation_session.update_orientation(request.get_json(silent=False))
-        except (TypeError,ValueError) as exc: return jsonify(error=str(exc)),400
+        except (TypeError,ValueError) as exc:return jsonify(error=str(exc)),400
         return jsonify(ok=True,source=state.source)
     @app.get("/api/navigation/state")
     def navigation_state():
@@ -83,16 +79,28 @@ def create_web_frontend(pages: Mapping[str, MenuPage], *, root_page: str="main",
     def lighting_bind():
         if lighting_session is None: abort(503)
         payload=request.get_json(silent=False)
-        try: return jsonify(lighting_session.bind(str(payload.get("backend",""))))
-        except (TypeError,ValueError) as exc: return jsonify(error=str(exc)),400
-        except Exception as exc: return jsonify(error=str(exc)),502
+        try:return jsonify(lighting_session.bind(str(payload.get("backend",""))))
+        except (TypeError,ValueError) as exc:return jsonify(error=str(exc)),400
+        except Exception as exc:return jsonify(error=str(exc)),502
     @app.post("/api/lighting/command")
     def lighting_command():
         if lighting_session is None: abort(503)
         payload=request.get_json(silent=False)
-        try: return jsonify(lighting_session.command(str(payload.get("command","")),payload.get("value")))
-        except (TypeError,ValueError) as exc: return jsonify(error=str(exc)),400
-        except Exception as exc: return jsonify(error=str(exc)),502
+        try:return jsonify(lighting_session.command(str(payload.get("command","")),payload.get("value")))
+        except (TypeError,ValueError) as exc:return jsonify(error=str(exc)),400
+        except Exception as exc:return jsonify(error=str(exc)),502
+
+    @app.get("/api/song-recognition/config")
+    def song_recognition_config():return jsonify(configured=bool(song_recognition_session and song_recognition_session.configured()),provider="acrcloud")
+    @app.post("/api/song-recognition/identify")
+    def song_recognition_identify():
+        if song_recognition_session is None: abort(503)
+        audio=request.get_data(cache=False)
+        if not audio:return jsonify(error="Empty audio sample"),400
+        if len(audio)>4_000_000:return jsonify(error="Audio sample is too large"),413
+        try:return jsonify(song_recognition_session.recognize(audio))
+        except RuntimeError as exc:return jsonify(error=str(exc)),503
+        except Exception as exc:return jsonify(error=str(exc)),502
 
     @app.get("/api/media/spotify/auth/config")
     def spotify_auth_config():
@@ -101,14 +109,13 @@ def create_web_frontend(pages: Mapping[str, MenuPage], *, root_page: str="main",
     @app.get("/api/media/spotify/auth/start")
     def spotify_auth_start():
         if spotify_session is None: abort(503)
-        try: return redirect(spotify_session.begin_authorization())
-        except Exception as exc: return jsonify(error=str(exc)),400
+        try:return redirect(spotify_session.begin_authorization())
+        except Exception as exc:return jsonify(error=str(exc)),400
     @app.get("/api/media/spotify/auth/callback")
     def spotify_auth_callback():
         if spotify_session is None: abort(503)
-        try:
-            spotify_session.complete_authorization(code=request.args.get("code"),state=request.args.get("state"),error=request.args.get("error"),error_description=request.args.get("error_description"))
-        except Exception as exc: return jsonify(error=str(exc)),400
+        try:spotify_session.complete_authorization(code=request.args.get("code"),state=request.args.get("state"),error=request.args.get("error"),error_description=request.args.get("error_description"))
+        except Exception as exc:return jsonify(error=str(exc)),400
         return redirect(url_for("select_tile",page_key="media",tile_key="spotify"))
     @app.get("/api/media/spotify/state")
     def spotify_state():
@@ -118,15 +125,15 @@ def create_web_frontend(pages: Mapping[str, MenuPage], *, root_page: str="main",
     def spotify_command():
         if spotify_session is None: abort(503)
         payload=request.get_json(silent=False)
-        try: return jsonify(spotify_session.command(str(payload.get("command","")),payload.get("value")))
-        except (TypeError,ValueError) as exc: return jsonify(error=str(exc)),400
-        except Exception as exc: return jsonify(error=str(exc)),502
+        try:return jsonify(spotify_session.command(str(payload.get("command","")),payload.get("value")))
+        except (TypeError,ValueError) as exc:return jsonify(error=str(exc)),400
+        except Exception as exc:return jsonify(error=str(exc)),502
     @app.get("/api/media/spotify/lyrics")
     def spotify_lyrics():
         if spotify_session is None: abort(503)
-        try: return jsonify(spotify_session.lyrics())
-        except Exception as exc: return jsonify(error=str(exc)),502
+        try:return jsonify(spotify_session.lyrics())
+        except Exception as exc:return jsonify(error=str(exc)),502
 
     @app.get("/healthz")
-    def healthz(): return jsonify(status="ok",frontend="web",screens=len(screen_map))
+    def healthz():return jsonify(status="ok",frontend="web",screens=len(screen_map))
     return app
