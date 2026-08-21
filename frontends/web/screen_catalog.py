@@ -36,8 +36,8 @@ MUSIC_VISUALIZER_HTML = '''
 <div class="card"><b>Musical Activity <small style="color:#aebac4">heuristic DSP</small></b><div style="margin-top:12px"><b>KICK</b><progress id="activity-kick" max="1" value="0" style="width:100%;height:22px"></progress></div><div><b>BASS</b><progress id="activity-bass" max="1" value="0" style="width:100%;height:22px"></progress></div><div><b>SNARE</b><progress id="activity-snare" max="1" value="0" style="width:100%;height:22px"></progress></div><div><b>CYMBAL</b><progress id="activity-cymbal" max="1" value="0" style="width:100%;height:22px"></progress></div><p style="color:#aebac4">Broad activity estimates, not instrument recognition.</p></div>
 <div class="card"><div><b>LEVEL</b><progress id="music-level" max="1" value="0" style="width:100%;height:24px"></progress></div><div><b>BASS</b><progress id="music-bass" max="1" value="0" style="width:100%;height:24px"></progress></div><div><b>MID</b><progress id="music-mid" max="1" value="0" style="width:100%;height:24px"></progress></div><div><b>TREBLE</b><progress id="music-treble" max="1" value="0" style="width:100%;height:24px"></progress></div></div>
 <div class="card"><b>Spectrum <small style="color:#aebac4">31 Hz → 16 kHz</small></b><div id="music-spectrum" style="height:180px;display:flex;align-items:flex-end;gap:3px;margin-top:16px"></div><div id="music-spectrum-labels" style="display:grid;grid-template-columns:repeat(24,1fr);gap:3px;margin-top:6px;color:#8fa0ad;font-size:9px;line-height:1.1;text-align:center"></div><p id="music-debug">Waiting for microphone…</p></div>
-<script src="/web-assets/audio-analysis/pitch_tracker.js?v=1"></script>
-<script src="/web-assets/audio-analysis/microphone_analyzer.js?v=5"></script>
+<script src="/web-assets/audio-analysis/pitch_tracker.js?v=2"></script>
+<script src="/web-assets/audio-analysis/microphone_analyzer.js?v=6"></script>
 <script>
 (() => {
   const button=document.getElementById('music-mic-toggle'),status=document.getElementById('music-mic-status'),spectrum=document.getElementById('music-spectrum'),labels=document.getElementById('music-spectrum-labels'),debug=document.getElementById('music-debug');
@@ -52,7 +52,7 @@ MUSIC_VISUALIZER_HTML = '''
   const drivePhysical=async(color,brightness)=>{if(!driveLights.checked||performance.now()-lastLightSend<120)return;lastLightSend=performance.now();try{if(color!==lastColor){await post({command:'color',value:color});lastColor=color}if(Math.abs(brightness-lastBrightness)>=5){await post({command:'brightness',value:brightness});lastBrightness=brightness}lightStatus.textContent='Driving lighting backend · responsive smoothed output'}catch(e){lightStatus.textContent=`Lighting error: ${e.message}`}};
   driveLights.onchange=async()=>{if(driveLights.checked){try{await post({command:'power',value:true});lightStatus.textContent='Lighting output enabled.'}catch(e){lightStatus.textContent=`Lighting error: ${e.message}`}}else lightStatus.textContent='Preview only.'};
   const render=state=>{document.getElementById('music-level').value=state.level;document.getElementById('music-bass').value=state.bass;document.getElementById('music-mid').value=state.mid;document.getElementById('music-treble').value=state.treble;document.getElementById('activity-kick').value=state.activity?.kick??0;document.getElementById('activity-bass').value=state.activity?.bass??0;document.getElementById('activity-snare').value=state.activity?.snare??0;document.getElementById('activity-cymbal').value=state.activity?.cymbal??0;state.spectrum.forEach((v,i)=>bars[i].style.height=`${Math.max(2,v*100)}%`);
-    if(state.frequencyData){const pitch=pitchTracker.track(state.frequencyData,state.sampleRateHz,state.fftSize);OpenRoadCodeWeb.PitchVisualizer?.render(pitch)}
+    if(analyzer.frequencyData){const pitch=pitchTracker.track(analyzer.frequencyData,state.sampleRateHz,state.fftSize);OpenRoadCodeWeb.PitchVisualizer?.render(pitch)}
     smoothBass=smooth(smoothBass,state.bass,.34,.11);smoothMid=smooth(smoothMid,state.mid,.30,.10);smoothTreble=smooth(smoothTreble,state.treble,.27,.09);smoothEnergy=smooth(smoothEnergy,Math.min(1,state.level*.30+state.bass*.42+state.mid*.18+state.treble*.10),.36,.10);const pulse=state.beat?Math.min(.18,.07+state.beatStrength*.11):0,visualEnergy=Math.min(1,smoothEnergy+pulse),color=lightColor(smoothBass,smoothMid,smoothTreble),brightness=Math.round(14+80*visualEnergy);lightbar.style.background=color;lightbar.style.filter=`brightness(${.70+visualEnergy*.82})`;lightbar.style.boxShadow=`0 0 ${8+visualEnergy*13}px ${color},0 0 ${20+visualEnergy*36}px ${color}`;drivePhysical(color,brightness);if(state.beat){beatFlashUntil=performance.now()+70;beatStrength.textContent=`HIT · ${state.beatStrength.toFixed(2)}`}if(performance.now()<beatFlashUntil){beatCard.style.background='#5b2020';beatCard.style.boxShadow='0 0 18px rgba(255,72,32,.45)'}else{beatCard.style.background='#151a20';beatCard.style.boxShadow='none';if(!state.beat)beatStrength.textContent='listening'}debug.textContent=`${state.sampleRateHz} Hz · FFT ${state.fftSize} · flux ${state.beatFlux.toFixed(4)}`};
   button.onclick=async()=>{const enabled=button.dataset.enabled==='1';try{if(enabled){await analyzer.stop();button.dataset.enabled='0';button.textContent='START MICROPHONE';status.textContent='Microphone stopped.';beatStrength.textContent='waiting…'}else{await analyzer.start(render);button.dataset.enabled='1';button.textContent='STOP MICROPHONE';status.textContent='Microphone active. Play some music nearby.'}}catch(error){status.textContent=`Microphone error: ${error.message}`}};
 })();
@@ -71,8 +71,19 @@ LIGHTING_HTML = '''
 
 def create_web_screens() -> dict[str, WebScreen]:
     return {
-        "netflix": WebScreen("Netflix", "Browser launcher", NETFLIX_HTML),
-        "youtube": WebScreen("YouTube", "Browser launcher", YOUTUBE_HTML),
-        "music-visualizer": WebScreen("Music Visualizer", "Phone microphone FFT experiment", MUSIC_VISUALIZER_HTML),
-        "lighting": WebScreen("Lighting", "Color + brightness control", LIGHTING_HTML),
+        "vehicle_gauges": WebScreen("Vehicle Gauges", "Mock telemetry mode", '''<div class="gauges"><div class="gauge"><span id="rpm">2450</span><small>RPM</small></div><div class="gauge"><span id="speed">42</span><small>MPH</small></div><div class="gauge"><span id="boost">4.2</span><small>BOOST PSI</small></div><div class="gauge"><span id="throttle">31</span><small>THROTTLE %</small></div></div>'''),
+        "weather_overview": WebScreen("Weather", "Frontend provider shell", '''<div class="hero-value">72°<small>F</small></div><div class="card"><b>Current Conditions</b><p>Partly cloudy</p></div>'''),
+        "weather_forecast": WebScreen("Forecast", "Demo forecast", '''<div class="forecast"><div><b>MON</b><span>72°</span><small>Partly cloudy</small></div><div><b>TUE</b><span>76°</span><small>Sunny</small></div></div>'''),
+        "weather_alerts": WebScreen("Weather Alerts", "Warnings and watches", '''<div class="card"><b>No demo alerts</b></div>'''),
+        "fm_radio": WebScreen("FM Radio", "Frontend controls", '''<div class="hero-value">101.1<small>MHz</small></div>'''),
+        "scanner_radio": WebScreen("Scanner", "Monitoring controls", '''<div class="card">Scanner idle</div>'''),
+        "weather_radio": WebScreen("NOAA Weather Radio", "Weather band", '''<div class="hero-value">162.550<small>MHz</small></div>'''),
+        "adsb": WebScreen("ADS-B", "Nearby aircraft", '''<div class="card">No ADS-B source attached</div>'''),
+        "airband": WebScreen("Airband", "AM aviation radio", '''<div class="hero-value">118.000<small>MHz AM</small></div>'''),
+        "offroad_dashboard": WebScreen("Off-Road", "Phone GPS + orientation", '''<div class="card">Use the existing browser sensor adapters.</div>'''),
+        "cabin_lighting": WebScreen("Cabin Lighting", "Shared lighting zone", LIGHTING_HTML),
+        "accent_lighting": WebScreen("Accent Lighting", "Shared lighting zone (future independent zone)", LIGHTING_HTML),
+        "music_visualizer": WebScreen("Music Visualizer", "Phone microphone FFT experiment", MUSIC_VISUALIZER_HTML),
+        "netflix": WebScreen("Netflix", "Browser-native launcher", NETFLIX_HTML),
+        "youtube": WebScreen("YouTube", "Browser-native search and video", YOUTUBE_HTML),
     }
