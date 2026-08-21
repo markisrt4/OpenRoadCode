@@ -3,6 +3,11 @@
 
 """Common public messaging contract types."""
 
-from .timestamp import encode_timestamp
+from .timestamp import Timestamp, decode_timestamp, encode_timestamp, validate_timestamp
 
-__all__ = ["encode_timestamp"]
+__all__ = [
+    "Timestamp",
+    "decode_timestamp",
+    "encode_timestamp",
+    "validate_timestamp",
+]
