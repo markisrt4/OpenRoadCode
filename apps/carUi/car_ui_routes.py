@@ -21,6 +21,7 @@ def register_car_ui_routes(
     spotify: ScreenUiIf,
     netflix: ScreenUiIf,
     youtube: ScreenUiIf,
+    music_visualizer: ScreenUiIf,
     offroad_dashboard: ScreenUiIf,
     vehicle_gauges: ScreenUiIf,
 ) -> None:
@@ -38,6 +39,7 @@ def register_car_ui_routes(
             "spotify": spotify.show,
             "netflix": netflix.show,
             "youtube": youtube.show,
+            "music_visualizer": music_visualizer.show,
             "offroad_dashboard": offroad_dashboard.show,
             "vehicle_gauges": vehicle_gauges.show,
         }
