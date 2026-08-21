@@ -7,14 +7,30 @@ from __future__ import annotations
 import os
 from dataclasses import asdict
 
-from controllers.song_recognition import AcrCloudConfig, AcrCloudSongRecognizer, SongRecognitionIf
+from controllers.song_recognition import (
+    AcrCloudConfig,
+    AcrCloudSongRecognizer,
+    SongMetadataCache,
+    SongRecognitionIf,
+    UnconfiguredSongRecognizer,
+)
 
 
 class WebSongRecognitionSession:
-    """Own the configured recognizer and expose JSON-friendly results to Flask."""
+    """Expose a song recognizer to the web frontend."""
 
-    def __init__(self, recognizer: SongRecognitionIf | None = None) -> None:
-        self._recognizer = recognizer or self._from_environment()
+    def __init__(
+        self,
+        recognizer: SongRecognitionIf | None = None,
+        metadata_cache: SongMetadataCache | None = None,
+    ) -> None:
+        configured = recognizer is not None
+        if recognizer is None:
+            recognizer = self._from_environment()
+            configured = recognizer is not None
+        self._recognizer = recognizer or UnconfiguredSongRecognizer()
+        self._configured = configured
+        self._metadata_cache = metadata_cache
 
     @staticmethod
     def _from_environment() -> SongRecognitionIf | None:
@@ -26,14 +42,14 @@ class WebSongRecognitionSession:
         return AcrCloudSongRecognizer(AcrCloudConfig(host=host, access_key=key, access_secret=secret))
 
     def configured(self) -> bool:
-        return self._recognizer is not None
+        return self._configured
 
     def recognize(self, audio: bytes) -> dict[str, object]:
-        if self._recognizer is None:
-            raise RuntimeError("Song recognition is not configured. Set ACRCLOUD_HOST, ACRCLOUD_ACCESS_KEY, and ACRCLOUD_ACCESS_SECRET.")
         result = self._recognizer.recognize(audio, sample_bytes=len(audio))
         if result is None:
-            return {"matched": False}
+            return {"matched": False, "configured": self._configured}
+        if self._metadata_cache is not None:
+            self._metadata_cache.put_result_ids(result)
         payload = asdict(result)
         payload["artists"] = list(result.artists)
-        return {"matched": True, "song": payload}
+        return {"matched": True, "configured": self._configured, "song": payload}
