@@ -52,11 +52,12 @@
     const sb=avg(recent,'snareBody'),cr=avg(recent,'crack'),air=avg(recent,'air');
     const rSub=maxRise(recent,'sub'),rKb=maxRise(recent,'kickBody'),rLo=maxRise(recent,'low'),rMid=maxRise(recent,'mid'),rHi=maxRise(recent,'high'),rSb=maxRise(recent,'snareBody'),rCr=maxRise(recent,'crack'),rAir=maxRise(recent,'air');
 
-    // Spectral shape + short temporal evolution. Mid tom is deliberately
-    // penalized hard when true sub/kick-body energy is present.
+    // Spectral shape + short temporal evolution. Keep enough low-frequency
+    // rejection to separate mid tom from kick, without suppressing mid tom
+    // whenever the recording has ordinary bass bleed.
     let kick = sub*.78 + kb*.58 + rSub*1.15 + rKb*.82 + rCr*.08 - mid*.28 - hi*.14;
     let tomLow = lo*.70 + rLo*1.02 + mid*.16 - sub*.62 - rSub*.48 - kb*.18;
-    let tomMid = mid*.67 + rMid*.98 + hi*.12 - sub*.82 - rSub*.70 - kb*.32 - rKb*.18;
+    let tomMid = mid*.74 + rMid*1.08 + hi*.14 - sub*.48 - rSub*.35 - kb*.20 - rKb*.10;
     let tomHigh = hi*.74 + rHi*1.02 + sb*.18 + rCr*.08 - sub*.48 - lo*.20;
     let snare = sb*.46 + cr*.72 + rSb*.62 + rCr*1.05 + rAir*.28 - sub*.24 - kb*.12;
 
