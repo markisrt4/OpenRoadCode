@@ -22,6 +22,7 @@ class CarUiScreens:
     spotify: ScreenUiIf
     netflix: ScreenUiIf
     youtube: ScreenUiIf
+    music_visualizer: ScreenUiIf
     offroad_dashboard: ScreenUiIf
     vehicle_gauges: ScreenUiIf
 
@@ -35,7 +36,7 @@ class CarUiScreenFactoryIf(Protocol):
         on_frequency_changed: Callable[[int], None],
         dispatch: Callable[[Callable[[], None]], None],
     ) -> CarUiScreens:
-        """Create, connect, and return all standard screen destinations.
+        """Create, connect, and return all standard Car UI destinations.
 
         @param dependencies Runtime services and controllers used by screens.
         @param on_frequency_changed Callback for displayed frequency changes.
