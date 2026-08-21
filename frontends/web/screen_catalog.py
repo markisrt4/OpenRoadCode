@@ -37,11 +37,10 @@ MUSIC_VISUALIZER_HTML = '''
 <div class="card"><div><b>LEVEL</b><progress id="music-level" max="1" value="0" style="width:100%;height:24px"></progress></div><div><b>BASS</b><progress id="music-bass" max="1" value="0" style="width:100%;height:24px"></progress></div><div><b>MID</b><progress id="music-mid" max="1" value="0" style="width:100%;height:24px"></progress></div><div><b>TREBLE</b><progress id="music-treble" max="1" value="0" style="width:100%;height:24px"></progress></div></div>
 <div class="card"><b>Spectrum <small style="color:#aebac4">31 Hz → 16 kHz</small></b><div id="music-spectrum" style="height:180px;display:flex;align-items:flex-end;gap:3px;margin-top:16px"></div><div id="music-spectrum-labels" style="display:grid;grid-template-columns:repeat(24,1fr);gap:3px;margin-top:6px;color:#8fa0ad;font-size:9px;line-height:1.1;text-align:center"></div><p id="music-debug">Waiting for microphone…</p></div>
 <script src="/web-assets/audio-analysis/microphone_analyzer.js?v=6"></script>
-<script src="/web-assets/audio-analysis/spectrum_controls.js?v=2"></script>
+<script src="/web-assets/audio-analysis/spectrum_controls.js?v=3"></script>
 <script src="/web-assets/audio-analysis/percussion_classifier.js?v=4"></script>
-<script src="/web-assets/audio-analysis/lead_activity.js?v=3"></script>
 <script src="/web-assets/audio-analysis/kick_mode.js?v=2"></script>
-<script src="/web-assets/audio-analysis/music_visualizer_page.js?v=10"></script>
+<script src="/web-assets/audio-analysis/music_visualizer_page.js?v=11"></script>
 '''
 
 LIGHTING_HTML = '''
