@@ -40,10 +40,30 @@ YOUTUBE_HTML = '''
 <script src="/web-assets/media/browser_media.js"></script>
 '''
 
+VEHICLE_GAUGES_HTML = '''
+<div class="gauges">
+  <div class="gauge"><span id="vehicle-speed">--</span><small>GPS MPH</small></div>
+  <div class="gauge"><span id="vehicle-heading">--</span><small>HEADING</small></div>
+  <div class="gauge"><span id="vehicle-altitude">--</span><small>ALTITUDE</small></div>
+  <div class="gauge"><span id="vehicle-accuracy">--</span><small>GPS ACCURACY</small></div>
+</div>
+<div class="card">
+  <b>Phone sensors</b>
+  <p id="vehicle-sensor-status">Tap START PHONE GPS to use this device as the position sensor.</p>
+  <button id="start-vehicle-sensors" class="primary wide">START PHONE GPS</button>
+</div>
+<div class="card">
+  <b>Automotive data</b>
+  <p>RPM, boost, throttle, and other OBD values are unavailable until an automotive state source is connected. Fake telemetry has been removed.</p>
+</div>
+<script src="/web-assets/sensors/geolocation.js"></script>
+<script src="/web-assets/sensors/vehicle_gauges.js"></script>
+'''
+
 
 def create_web_screens() -> dict[str, WebScreen]:
     return {
-        "vehicle_gauges": WebScreen("Vehicle Gauges", "Mock telemetry mode", '''<div class="gauges"><div class="gauge"><span id="rpm">2450</span><small>RPM</small></div><div class="gauge"><span id="speed">42</span><small>MPH</small></div><div class="gauge"><span id="boost">4.2</span><small>BOOST PSI</small></div><div class="gauge"><span id="throttle">31</span><small>THROTTLE %</small></div></div><script>setInterval(()=>{const t=Date.now()/1000;rpm.textContent=Math.round(2200+700*Math.sin(t));speed.textContent=Math.round(43+5*Math.sin(t/2));boost.textContent=(4+3*Math.max(0,Math.sin(t))).toFixed(1);throttle.textContent=Math.round(30+15*Math.sin(t/1.7));},250)</script>'''),
+        "vehicle_gauges": WebScreen("Vehicle Gauges", "Phone GPS + automotive data", VEHICLE_GAUGES_HTML),
         "weather_overview": WebScreen("Weather", "Frontend provider shell", '''<div class="hero-value">72°<small>F</small></div><div class="card"><b>Current Conditions</b><p>Partly cloudy</p></div>'''),
         "weather_forecast": WebScreen("Forecast", "Demo forecast", '''<div class="forecast"><div><b>MON</b><span>72°</span><small>Partly cloudy</small></div><div><b>TUE</b><span>76°</span><small>Sunny</small></div></div>'''),
         "weather_alerts": WebScreen("Weather Alerts", "Warnings and watches", '''<div class="card"><b>No demo alerts</b></div>'''),
