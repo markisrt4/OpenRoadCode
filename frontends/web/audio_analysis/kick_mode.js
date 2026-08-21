@@ -1,6 +1,6 @@
 (()=>{
   const root=window.OpenRoadCodeWeb=window.OpenRoadCodeWeb||{};
-  let mode='double',nextLeft=true,lastKick=0,lastOnsetAt=-Infinity;
+  let mode='single',nextLeft=true,lastKick=0,lastOnsetAt=-Infinity;
   const pulse={single:{until:0,duration:115},left:{until:0,duration:115},right:{until:0,duration:115}};
   const ONSET_GAP_MS=48;
 
@@ -10,18 +10,19 @@
     if(!card||!kit||document.getElementById('mv-kick-mode'))return !!card;
     const controls=document.createElement('div');
     controls.id='mv-kick-mode';
-    controls.style.cssText='display:flex;align-items:center;justify-content:flex-end;gap:8px;margin:-24px 0 8px;position:relative;z-index:10';
-    controls.innerHTML='<span style="font-size:10px;color:#8fa0ad;font-weight:800">KICK MODE</span><button type="button" data-kick-mode="single" style="min-height:30px;padding:4px 10px">SINGLE</button><button type="button" data-kick-mode="double" style="min-height:30px;padding:4px 10px">DOUBLE</button>';
-    card.querySelector('.mv-section-title')?.after(controls);
+    controls.style.cssText='display:flex;align-items:center;justify-content:center;gap:8px;margin:14px 0 2px;position:relative;z-index:10;flex-wrap:wrap';
+    controls.innerHTML='<span style="font-size:10px;color:#8fa0ad;font-weight:800;margin-right:2px">KICK MODE</span><button type="button" data-kick-mode="single" style="min-height:34px;padding:5px 12px">SINGLE</button><button type="button" data-kick-mode="double" style="min-height:34px;padding:5px 12px">DOUBLE</button>';
+    kit.after(controls);
     controls.addEventListener('click',e=>{const b=e.target.closest('[data-kick-mode]');if(!b)return;setMode(b.dataset.kickMode)});
     setMode(mode);
     return true;
   }
 
   function setMode(next){
-    mode=next==='single'?'single':'double';nextLeft=true;lastKick=0;
+    mode=next==='double'?'double':'single';nextLeft=true;lastKick=0;lastOnsetAt=-Infinity;
+    pulse.single.until=pulse.left.until=pulse.right.until=0;
     const left=document.getElementById('drum-kick-left'),right=document.getElementById('drum-kick-right');
-    if(left){left.style.display='block';left.style.left=mode==='single'?'58%':'';left.querySelector('.mv-drum-label').textContent=mode==='single'?'KICK':'LEFT KICK'}
+    if(left){left.style.display='block';left.style.left=mode==='single'?'50%':'';left.querySelector('.mv-drum-label').textContent=mode==='single'?'KICK':'LEFT KICK'}
     if(right)right.style.display=mode==='single'?'none':'block';
     document.querySelectorAll('[data-kick-mode]').forEach(b=>{const active=b.dataset.kickMode===mode;b.classList.toggle('primary',active);b.style.opacity=active?'1':'.62'});
   }
