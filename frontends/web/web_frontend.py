@@ -19,13 +19,12 @@ PAGE = """<!doctype html><meta name=viewport content='width=device-width,initial
 SCREEN = """<!doctype html><meta name=viewport content='width=device-width,initial-scale=1'><style>{{style}}</style><header><div class=bar><a class=back href='{{back}}'>‹</a><div class=heading><div class=title>{{screen.title}}</div><div class=subtitle>{{screen.subtitle}}</div></div></div></header><main>{{body}}</main>"""
 
 
-def create_web_frontend(pages: Mapping[str, MenuPage], *, root_page: str="main", screens: Mapping[str, WebScreen]|None=None, navigation_session: Any|None=None, spotify_session: Any|None=None, lighting_session: Any|None=None, song_recognition_session: Any|None=None) -> Flask:
+def create_web_frontend(pages: Mapping[str, MenuPage], *, root_page: str="main", screens: Mapping[str, WebScreen]|None=None, navigation_session: Any|None=None, spotify_session: Any|None=None, lighting_session: Any|None=None, song_recognition_session: Any|None=None, linux_audio_analysis_session: Any|None=None) -> Flask:
     if root_page not in pages: raise ValueError(f"Unknown root page: {root_page}")
     screen_map=dict(screens or create_web_screens())
     web_dir=Path(__file__).resolve().parent
     sensor_dir=web_dir / "sensors";media_dir=web_dir / "media";lighting_dir=web_dir / "lighting";audio_analysis_dir=web_dir / "audio_analysis"
     app=Flask(__name__)
-
     @app.get("/")
     def index(): return redirect(url_for("menu_page",page_key=root_page))
     @app.get("/menu/<page_key>")
@@ -53,7 +52,20 @@ def create_web_frontend(pages: Mapping[str, MenuPage], *, root_page: str="main",
     def web_lighting_asset(filename:str): return send_from_directory(lighting_dir,filename)
     @app.get("/web-assets/audio-analysis/<path:filename>")
     def web_audio_analysis_asset(filename:str): return send_from_directory(audio_analysis_dir,filename)
-
+    @app.get("/api/audio-analysis/linux/state")
+    def linux_audio_state():
+        if linux_audio_analysis_session is None: abort(503)
+        return jsonify(linux_audio_analysis_session.state())
+    @app.post("/api/audio-analysis/linux/start")
+    def linux_audio_start():
+        if linux_audio_analysis_session is None: abort(503)
+        try:return jsonify(linux_audio_analysis_session.start())
+        except Exception as exc:return jsonify(error=str(exc)),502
+    @app.post("/api/audio-analysis/linux/stop")
+    def linux_audio_stop():
+        if linux_audio_analysis_session is None: abort(503)
+        try:return jsonify(linux_audio_analysis_session.stop())
+        except Exception as exc:return jsonify(error=str(exc)),502
     @app.post("/api/navigation/position")
     def navigation_position():
         if navigation_session is None: abort(503)
@@ -70,7 +82,6 @@ def create_web_frontend(pages: Mapping[str, MenuPage], *, root_page: str="main",
     def navigation_state():
         if navigation_session is None: abort(503)
         return jsonify(navigation_session.as_dict())
-
     @app.get("/api/lighting/state")
     def lighting_state():
         if lighting_session is None: abort(503)
@@ -89,7 +100,6 @@ def create_web_frontend(pages: Mapping[str, MenuPage], *, root_page: str="main",
         try:return jsonify(lighting_session.command(str(payload.get("command","")),payload.get("value")))
         except (TypeError,ValueError) as exc:return jsonify(error=str(exc)),400
         except Exception as exc:return jsonify(error=str(exc)),502
-
     @app.get("/api/song-recognition/config")
     def song_recognition_config():return jsonify(configured=bool(song_recognition_session and song_recognition_session.configured()),provider="acrcloud")
     @app.post("/api/song-recognition/identify")
@@ -101,7 +111,6 @@ def create_web_frontend(pages: Mapping[str, MenuPage], *, root_page: str="main",
         try:return jsonify(song_recognition_session.recognize(audio))
         except RuntimeError as exc:return jsonify(error=str(exc)),503
         except Exception as exc:return jsonify(error=str(exc)),502
-
     @app.get("/api/media/spotify/auth/config")
     def spotify_auth_config():
         if spotify_session is None: abort(503)
@@ -133,7 +142,6 @@ def create_web_frontend(pages: Mapping[str, MenuPage], *, root_page: str="main",
         if spotify_session is None: abort(503)
         try:return jsonify(spotify_session.lyrics())
         except Exception as exc:return jsonify(error=str(exc)),502
-
     @app.get("/healthz")
     def healthz():return jsonify(status="ok",frontend="web",screens=len(screen_map))
     return app
