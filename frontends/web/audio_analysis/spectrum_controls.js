@@ -28,15 +28,25 @@
   function spectrumDbValues(a,count){if(!a?.frequencyData||!a?.audioContext)return[];const out=[],min=31.25,max=Math.min(16000,a.audioContext.sampleRate/2),ratio=Math.pow(max/min,1/count);let lo=min;for(let i=0;i<count;i++){const hi=lo*ratio;out.push(bandDb(a.frequencyData,lo,hi,a.audioContext.sampleRate,a.fftSize));lo=hi}return out}
   function fixedValue(db,i){let floor=-82-(sensitivity-1)*18;if(zeroBaselineDb?.[i]!==undefined)floor=Math.max(floor,zeroBaselineDb[i]+ZERO_MARGIN_DB);if(db<=floor)return 0;return clamp((db-floor)/(-24-floor))}
   function zeroizedAdaptive(value,db,i){if(!zeroBaselineDb||zeroBaselineDb[i]===undefined)return clamp(value*sensitivity);const excess=db-zeroBaselineDb[i]-ZERO_MARGIN_DB;return excess<=0?0:clamp(value*sensitivity*clamp(excess/12))}
-  function baselineForRange(low,high,a){if(!zeroBaselineDb||!a?.audioContext)return null;const count=zeroBaselineDb.length,min=31.25,max=Math.min(16000,a.audioContext.sampleRate/2),ratio=Math.pow(max/min,1/count),m=[];let lo=min;for(let i=0;i<count;i++){const hi=lo*ratio;if(hi>low&&lo<high)m.push(zeroBaselineDb[i]);lo=hi}return m.length?Math.max(...m):null}
-  function rangeGate(low,high,a){if(!zeroBaselineDb||!a?.frequencyData||!a?.audioContext)return 1;const base=baselineForRange(low,high,a);if(base===null)return 1;const cur=bandDb(a.frequencyData,low,high,a.audioContext.sampleRate,a.fftSize),excess=cur-base-ZERO_MARGIN_DB;return excess<=0?0:clamp(excess/12)}
+  function baselineForRange(low,high,a){if(!zeroBaselineDb||!a?.audioContext)return null;const count=zeroBaselineDb.length,min=31.25,max=Math.min(16000,a.audioContext.sampleRate/2),ratio=Math.pow(max/min,1/count),m=[];let lo=min;for(let i=0;i<count;i++){const hi=lo*ratio;if(hi>low&&lo<high)m.push(zeroBaselineDb[i]);lo=hi}if(!m.length)return null;m.sort((x,y)=>x-y);return m[Math.min(m.length-1,Math.floor(m.length*.70))]}
+  function rangeGate(low,high,a,margin=ZERO_MARGIN_DB,span=12){if(!zeroBaselineDb||!a?.frequencyData||!a?.audioContext)return 1;const base=baselineForRange(low,high,a);if(base===null)return 1;const cur=bandDb(a.frequencyData,low,high,a.audioContext.sampleRate,a.fftSize),excess=cur-base-margin;return excess<=0?0:clamp(excess/span)}
   function filterActivity(activity,a){
     if(!activity)return activity;
     if(zeroizeUntil)return{...activity,kick:0,bass:0,snare:0,cymbal:0,tomHigh:0,tomMid:0,tomLow:0,hit:null,secondaryHit:null};
     if(!zeroBaselineDb)return activity;
-    const gates={kick:rangeGate(45,105,a),bass:rangeGate(55,260,a),snare:Math.max(rangeGate(160,300,a),rangeGate(1500,5200,a)),cymbal:rangeGate(6000,15000,a),tomHigh:rangeGate(145,260,a),tomMid:rangeGate(105,195,a),tomLow:rangeGate(70,135,a)};
+    // Low percussion shares the cabin's noisiest spectrum, so require a real
+    // rise above calibration without applying the same margin used for cymbals.
+    const gates={
+      kick:rangeGate(45,105,a,2.8,9),
+      bass:rangeGate(55,260,a,3.4,10),
+      snare:Math.max(rangeGate(160,300,a,3.8,10),rangeGate(1500,5200,a,4.5,12)),
+      cymbal:rangeGate(6000,15000,a,4.5,12),
+      tomHigh:rangeGate(145,260,a,3.2,9),
+      tomMid:rangeGate(105,195,a,2.9,9),
+      tomLow:rangeGate(70,135,a,2.7,9)
+    };
     const out={...activity,kick:(activity.kick||0)*gates.kick,bass:(activity.bass||0)*gates.bass,snare:(activity.snare||0)*gates.snare,cymbal:(activity.cymbal||0)*gates.cymbal,tomHigh:(activity.tomHigh||0)*gates.tomHigh,tomMid:(activity.tomMid||0)*gates.tomMid,tomLow:(activity.tomLow||0)*gates.tomLow};
-    const keepHit=hit=>hit&&((gates[hit.type]??0)>=.22)?hit:null;
+    const keepHit=hit=>hit&&((gates[hit.type]??0)>=.16)?hit:null;
     out.hit=keepHit(activity.hit);out.secondaryHit=keepHit(activity.secondaryHit);
     return out;
   }
