@@ -10,7 +10,6 @@ analysis state.
 from __future__ import annotations
 
 from collections.abc import Sequence
-import math
 
 import numpy as np
 
@@ -20,6 +19,9 @@ from .music_analyzer_if import MusicAnalyzerIf
 
 class MusicAnalyzer(MusicAnalyzerIf):
     """Analyze normalized mono PCM using a Hann-windowed real FFT."""
+
+    _ZEROIZE_PERCENTILE = 75.0
+    _ZEROIZE_MARGIN_DB = 3.0
 
     def __init__(self, *, fft_size: int = 2048, band_count: int = 24) -> None:
         if fft_size < 256 or fft_size & (fft_size - 1):
@@ -33,6 +35,33 @@ class MusicAnalyzer(MusicAnalyzerIf):
         self._summary_peaks = {"bass": 1e-6, "mid": 1e-6, "treble": 1e-6}
         self._activity_peaks = {name: 1e-6 for name in ("kick", "bass", "snare", "tom_high", "tom_low", "cymbal")}
         self._previous_activity = {name: 0.0 for name in self._activity_peaks}
+        self._zeroize_collecting = False
+        self._zeroize_frames: list[np.ndarray] = []
+        self._noise_floor: np.ndarray | None = None
+
+    @property
+    def is_zeroized(self) -> bool:
+        return self._noise_floor is not None
+
+    def start_zeroize(self) -> None:
+        self._zeroize_frames.clear()
+        self._zeroize_collecting = True
+
+    def finish_zeroize(self) -> None:
+        if not self._zeroize_frames:
+            self._zeroize_collecting = False
+            raise RuntimeError("zeroize requires at least one analyzed audio block")
+        frames = np.stack(self._zeroize_frames)
+        self._noise_floor = np.percentile(frames, self._ZEROIZE_PERCENTILE, axis=0).astype(np.float32)
+        self._zeroize_frames.clear()
+        self._zeroize_collecting = False
+        self._reset_adaptive_state()
+
+    def clear_zeroize(self) -> None:
+        self._zeroize_frames.clear()
+        self._zeroize_collecting = False
+        self._noise_floor = None
+        self._reset_adaptive_state()
 
     def analyze(self, samples: Sequence[float], sample_rate_hz: int) -> MusicAnalysisState:
         if sample_rate_hz <= 0:
@@ -44,17 +73,21 @@ class MusicAnalyzer(MusicAnalyzerIf):
             pcm = pcm[-self.fft_size :]
 
         pcm = np.clip(pcm, -1.0, 1.0)
-        pcm = pcm - float(np.mean(pcm))  # remove DC before windowing
+        pcm = pcm - float(np.mean(pcm))
         windowed = pcm * self._window
         magnitude = np.abs(np.fft.rfft(windowed)) / max(float(np.sum(self._window)) / 2.0, 1e-9)
         frequencies = np.fft.rfftfreq(self.fft_size, d=1.0 / sample_rate_hz)
 
+        if self._zeroize_collecting:
+            self._zeroize_frames.append(magnitude.copy())
+
+        gated_magnitude = self._gate_ambient(magnitude)
         level = min(1.0, float(np.sqrt(np.mean(pcm * pcm))) * 4.0)
-        bass = self._normalized_band(magnitude, frequencies, 20, 250, "bass")
-        mid = self._normalized_band(magnitude, frequencies, 250, 4000, "mid")
-        treble = self._normalized_band(magnitude, frequencies, 4000, 16000, "treble")
-        spectrum = self._spectrum(magnitude, frequencies, sample_rate_hz)
-        percussion = self._percussion(magnitude, frequencies)
+        bass = self._normalized_band(gated_magnitude, frequencies, 20, 250, "bass")
+        mid = self._normalized_band(gated_magnitude, frequencies, 250, 4000, "mid")
+        treble = self._normalized_band(gated_magnitude, frequencies, 4000, 16000, "treble")
+        spectrum = self._spectrum(gated_magnitude, frequencies, sample_rate_hz)
+        percussion = self._percussion(gated_magnitude, frequencies)
 
         return MusicAnalysisState(
             level=level,
@@ -66,6 +99,24 @@ class MusicAnalyzer(MusicAnalyzerIf):
             sample_rate_hz=sample_rate_hz,
             fft_size=self.fft_size,
         )
+
+    def _gate_ambient(self, magnitude: np.ndarray) -> np.ndarray:
+        if self._noise_floor is None or self._noise_floor.shape != magnitude.shape:
+            return magnitude
+        margin = 10.0 ** (self._ZEROIZE_MARGIN_DB / 20.0)
+        threshold = self._noise_floor * margin
+        # Subtract the learned floor instead of merely clipping below it. This
+        # preserves transient excess energy while steady fan/motor hum tends to
+        # collapse toward zero.
+        return np.maximum(magnitude - threshold, 0.0)
+
+    def _reset_adaptive_state(self) -> None:
+        self._band_peaks.fill(1e-6)
+        for key in self._summary_peaks:
+            self._summary_peaks[key] = 1e-6
+        for key in self._activity_peaks:
+            self._activity_peaks[key] = 1e-6
+            self._previous_activity[key] = 0.0
 
     @staticmethod
     def _band_rms(magnitude: np.ndarray, frequencies: np.ndarray, low_hz: float, high_hz: float) -> float:
@@ -94,6 +145,12 @@ class MusicAnalyzer(MusicAnalyzerIf):
         return tuple(output)
 
     def _activity(self, name: str, raw: float, transient_weight: float) -> float:
+        # No excess energy means no percussion activity. Without this explicit
+        # gate, adaptive normalization can turn microscopic residual noise into
+        # a convincing-looking drum hit. Charming, but wrong.
+        if raw <= 1e-8:
+            self._previous_activity[name] = 0.0
+            return 0.0
         peak = max(raw, self._activity_peaks[name] * 0.994, 1e-6)
         self._activity_peaks[name] = peak
         normalized = min(1.0, raw / peak)
