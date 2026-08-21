@@ -1,0 +1,67 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
+"""End-to-end ZeroMQ round-trip test for the public vehicle-state contract."""
+
+from datetime import datetime, timezone
+import socket
+import time
+
+import pytest
+
+pytest.importorskip("zmq")
+
+from controllers.automotive.vehicle_state import VehicleState
+from messaging.contracts.automotive import (
+    VEHICLE_STATE_TOPIC,
+    VehicleStatePublisher,
+    decode_vehicle_state,
+)
+from messaging.zeromq import ZeroMqPublisher, ZeroMqSubscriber
+
+
+def _free_tcp_endpoint() -> str:
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        sock.bind(("127.0.0.1", 0))
+        port = sock.getsockname()[1]
+    return f"tcp://127.0.0.1:{port}"
+
+
+def test_vehicle_state_round_trip_over_zeromq() -> None:
+    endpoint = _free_tcp_endpoint()
+    publisher = ZeroMqPublisher(endpoint)
+    subscriber = ZeroMqSubscriber(endpoint)
+    subscriber.subscribe(VEHICLE_STATE_TOPIC)
+
+    state = VehicleState(
+        timestamp=datetime(2026, 8, 21, 12, 34, 56, 123456, tzinfo=timezone.utc),
+        rpm=3000.0,
+        speed_mph=60.0,
+        throttle_pct=25.0,
+        boost_psi=5.0,
+        coolant_temp_f=194.0,
+    )
+    vehicle_publisher = VehicleStatePublisher(publisher, source="simulator")
+
+    try:
+        # ZeroMQ PUB/SUB subscriptions propagate asynchronously. Give the
+        # subscription a moment to reach the publisher before the first send.
+        time.sleep(0.1)
+        vehicle_publisher.publish(state)
+        topic, payload = subscriber.receive()
+        message = decode_vehicle_state(payload)
+
+        assert topic == VEHICLE_STATE_TOPIC
+        assert message.version == 1
+        assert message.source == "simulator"
+        assert message.timestamp.seconds > 0
+        assert message.timestamp.nanoseconds == 123_456_000
+        assert message.data.engine_speed_rad_s == pytest.approx(314.1592653589793)
+        assert message.data.vehicle_speed_m_s == pytest.approx(26.8224)
+        assert message.data.throttle_position == pytest.approx(0.25)
+        assert message.data.boost_pressure_pa == pytest.approx(34_473.78646584)
+        assert message.data.coolant_temperature_k == pytest.approx(363.15)
+        assert message.data.fuel_level is None
+    finally:
+        subscriber.close()
+        publisher.close()
