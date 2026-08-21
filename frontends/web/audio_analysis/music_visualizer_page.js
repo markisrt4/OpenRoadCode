@@ -17,22 +17,22 @@
   driveLights.onchange=async()=>{if(driveLights.checked){try{await post({command:'power',value:true});lightStatus.textContent='Lighting output enabled.'}catch(e){lightStatus.textContent=`Lighting error: ${e.message}`}}else lightStatus.textContent='Preview only.'};
 
   const drumVisual={
-    kick:{previous:0,envelope:0,decay:.84,threshold:.10,boost:1.00},
-    snare:{previous:0,envelope:0,decay:.76,threshold:.085,boost:1.00},
-    tomHigh:{previous:0,envelope:0,decay:.82,threshold:.09,boost:.92},
-    tomLow:{previous:0,envelope:0,decay:.83,threshold:.09,boost:.95},
-    cymbal:{previous:0,envelope:0,decay:.91,threshold:.075,boost:.72}
+    kick:{previous:0,envelope:0,decay:.78,threshold:.10,boost:1.00},
+    snare:{previous:0,envelope:0,decay:.66,threshold:.085,boost:1.00},
+    tomHigh:{previous:0,envelope:0,decay:.72,threshold:.09,boost:.95},
+    tomLow:{previous:0,envelope:0,decay:.73,threshold:.09,boost:.98},
+    cymbal:{previous:0,envelope:0,decay:.88,threshold:.075,boost:.72}
   };
-  const updateEnvelope=(name,value)=>{const d=drumVisual[name],rise=Math.max(0,value-d.previous);d.previous=value;if(rise>d.threshold)d.envelope=Math.max(d.envelope,Math.min(1,(rise-d.threshold)*5.5*d.boost+.35));d.envelope*=d.decay;return Math.max(value,d.envelope)};
-  const setPunch=(id,value,color,base='')=>{const el=document.getElementById(id);if(!el)return;const scale=1+value*.16;el.style.transform=`${base} scale(${scale})`;el.style.filter=`brightness(${1+value*.42}) saturate(${1+value*.30})`;el.style.boxShadow=`inset 0 0 ${10+value*34}px ${color},0 0 ${5+value*34}px ${color}`;};
+  const updateEnvelope=(name,value)=>{const d=drumVisual[name],rise=Math.max(0,value-d.previous);d.previous=value;if(rise>d.threshold)d.envelope=Math.max(d.envelope,Math.min(1,(rise-d.threshold)*6.2*d.boost+.42));d.envelope*=d.decay;return Math.max(value*.72,d.envelope)};
+  const setPunch=(id,value,color,base='')=>{const el=document.getElementById(id);if(!el)return;const scale=1+value*.24;el.style.transform=`${base} scale(${scale})`;el.style.filter=`brightness(${1+value*.24}) saturate(${1+value*.38})`;el.style.boxShadow=`inset 0 0 ${6+value*13}px ${color},0 0 ${8+value*46}px ${color},0 0 ${18+value*38}px ${color}`;};
   const emphasizeDrums=activity=>{
     if(!activity)return;
     const kick=updateEnvelope('kick',activity.kick||0),snare=updateEnvelope('snare',activity.snare||0),tomHigh=updateEnvelope('tomHigh',activity.tomHigh||0),tomLow=updateEnvelope('tomLow',activity.tomLow||0),cymbal=updateEnvelope('cymbal',activity.cymbal||0);
-    setPunch('drum-kick',kick,'rgba(255,73,57,.72)','translateX(-50%)');
-    setPunch('drum-snare',snare,'rgba(255,198,46,.72)','translateX(-50%)');
-    setPunch('drum-tom-high',tomHigh,'rgba(168,76,255,.68)');
-    setPunch('drum-tom-low',tomLow,'rgba(40,182,255,.68)');
-    for(const [id,dir] of [['drum-cymbal-left',-1],['drum-cymbal-right',1]]){const el=document.getElementById(id);if(!el)continue;el.style.transform=`scaleX(${1+cymbal*.12}) rotate(${dir*cymbal*7}deg)`;el.style.filter=`brightness(${1+cymbal*.55}) saturate(${1+cymbal*.25})`;el.style.boxShadow=`0 0 ${10+cymbal*42}px rgba(255,210,45,${.18+cymbal*.62})`;}
+    setPunch('drum-kick',kick,'rgba(255,73,57,.58)','translateX(-50%)');
+    setPunch('drum-snare',snare,'rgba(255,198,46,.62)','translateX(-50%)');
+    setPunch('drum-tom-high',tomHigh,'rgba(168,76,255,.62)');
+    setPunch('drum-tom-low',tomLow,'rgba(40,182,255,.62)');
+    for(const [id,dir] of [['drum-cymbal-left',-1],['drum-cymbal-right',1]]){const el=document.getElementById(id);if(!el)continue;el.style.transform=`scaleX(${1+cymbal*.15}) scaleY(${1+cymbal*.08}) rotate(${dir*cymbal*8}deg)`;el.style.filter=`brightness(${1+cymbal*.48}) saturate(${1+cymbal*.30})`;el.style.boxShadow=`0 0 ${12+cymbal*48}px rgba(255,210,45,${.18+cymbal*.62})`;}
   };
 
   const render=state=>{
