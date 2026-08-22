@@ -7,6 +7,7 @@ from __future__ import annotations
 from collections.abc import Callable
 
 from controllers.audio_analysis.music_analysis_source_if import MusicAnalysisSourceIf
+from controllers.music_lighting import MusicLightingController
 from controllers.song_recognition import SongRecognitionController, SongRecognitionResult
 from ui.music_visualizer import (
     KickMode,
@@ -25,16 +26,16 @@ class MusicVisualizerPresenter(MusicVisualizerRequestHandlerIf):
         source: MusicAnalysisSourceIf,
         song_recognition: SongRecognitionController,
         *,
+        music_lighting: MusicLightingController | None = None,
         dispatch: Callable[[Callable[[], None]], None] | None = None,
     ) -> None:
         self._source = source
         self._song_recognition = song_recognition
+        self._music_lighting = music_lighting
         self._dispatch = dispatch or (lambda callback: callback())
         self._ui: MusicVisualizerUiIf | None = None
         self._kick_mode = KickMode.SINGLE
         self._visualization_mode = MusicVisualizationMode.SPECTRUM
-        self._lighting_enabled = False
-        self.on_lighting_enabled_requested = None
 
     @property
     def source(self) -> MusicAnalysisSourceIf:
@@ -44,7 +45,6 @@ class MusicVisualizerPresenter(MusicVisualizerRequestHandlerIf):
         self._ui = ui
         ui.set_sensitivity(self._source.sensitivity)
         ui.set_zeroize_state(self._source.calibrated, False)
-        ui.set_lighting_enabled(self._lighting_enabled)
         ui.set_visualization_mode(self._visualization_mode)
         ui.set_song_recognition_state(
             SongRecognitionUiState(
@@ -60,6 +60,8 @@ class MusicVisualizerPresenter(MusicVisualizerRequestHandlerIf):
         self._source.stop()
 
     def present_analysis(self, state) -> None:
+        if self._music_lighting:
+            self._music_lighting.update_analysis(state)
         if self._ui:
             self._ui.set_analysis_state(state)
             if state.calibrated:
@@ -86,17 +88,10 @@ class MusicVisualizerPresenter(MusicVisualizerRequestHandlerIf):
                     provider=self._song_recognition.provider_name,
                 )
             )
-        started = self._song_recognition.identify_async(
-            self._recognition_result,
-            self._recognition_error,
-        )
+        started = self._song_recognition.identify_async(self._recognition_result, self._recognition_error)
         if not started and self._ui:
             self._ui.set_song_recognition_state(
-                SongRecognitionUiState(
-                    configured=True,
-                    recognizing=False,
-                    provider=self._song_recognition.provider_name,
-                )
+                SongRecognitionUiState(configured=True, recognizing=False, provider=self._song_recognition.provider_name)
             )
 
     def _recognition_result(self, result: SongRecognitionResult | None) -> None:
@@ -106,10 +101,7 @@ class MusicVisualizerPresenter(MusicVisualizerRequestHandlerIf):
         if self._ui:
             self._ui.set_song(result)
             self._ui.set_song_recognition_state(
-                SongRecognitionUiState(
-                    configured=self._song_recognition.is_configured,
-                    provider=self._song_recognition.provider_name,
-                )
+                SongRecognitionUiState(configured=self._song_recognition.is_configured, provider=self._song_recognition.provider_name)
             )
 
     def _recognition_error(self, message: str) -> None:
@@ -119,16 +111,13 @@ class MusicVisualizerPresenter(MusicVisualizerRequestHandlerIf):
         if self._ui:
             self._ui.set_status(f"Recognition failed: {message}")
             self._ui.set_song_recognition_state(
-                SongRecognitionUiState(
-                    configured=self._song_recognition.is_configured,
-                    provider=self._song_recognition.provider_name,
-                )
+                SongRecognitionUiState(configured=self._song_recognition.is_configured, provider=self._song_recognition.provider_name)
             )
 
     def request_lighting_enabled(self, enabled: bool) -> None:
-        self._lighting_enabled = bool(enabled)
-        if self.on_lighting_enabled_requested:
-            self.on_lighting_enabled_requested(self._lighting_enabled)
+        """Compatibility bridge; lighting owns its own contract/state."""
+        if self._music_lighting:
+            self._music_lighting.request_enabled(enabled)
 
     def request_kick_mode(self, mode: KickMode) -> None:
         self._kick_mode = mode
