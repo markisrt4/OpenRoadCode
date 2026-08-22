@@ -54,18 +54,22 @@ Terminal 1, start the broker:
 python3 -m messaging.zeromq.broker_cli
 ```
 
-Terminal 2, publish simulated navigation telemetry:
+Terminal 2, start the navigation service with simulated hardware:
 
 ```bash
-python3 -m messaging.component_test.navigation_state_publisher_cli
+python3 -m services.navigation.navigation_service_cli --simulate
 ```
 
-That producer emits:
+The service emits:
 
 - `openroad.navigation.position`
 - `openroad.navigation.motion`
 - `openroad.navigation.attitude`
 - `openroad.navigation.imu`
+
+It also serves acknowledged navigation commands such as stationary calibration and
+heading reset. See `services/navigation/README.md` for the command interface and physical
+hardware startup options.
 
 Terminal 3 can run an existing consumer, for example:
 
@@ -79,8 +83,8 @@ or the CarTUI:
 python3 -m apps.carTui.main --demo
 ```
 
-The same subscriber code works when the simulated producer is replaced by real
-navigation hardware.
+The same subscriber code works when the simulated navigation controller is replaced by
+real hardware in the service.
 
 ## Broker endpoints
 
@@ -188,6 +192,10 @@ finally:
 A single `MessageDispatcher` per application is normally preferable to one subscriber
 thread per topic.
 
+For a latest-value application cache, use the shared thread-safe consumers in
+`common.telemetry`: `NavigationBusState` and `VehicleBusState`. This keeps message
+callbacks independent of Tk, curses, or another application package.
+
 ## Current public telemetry topics
 
 | Topic | Contract | Purpose |
@@ -206,32 +214,28 @@ math.
 ## Publish telemetry
 
 Domain publishers accept normalized state and hide wire encoding from producers. For
-example, the complete navigation publisher fans one `NavigationState` sample out to
-position, motion, attitude and IMU topics:
-
-```python
-from controllers.navigation import SimulatedNavigationController
-from messaging.contracts.navigation import NavigationStatePublisher
-from messaging.zeromq import ZeroMqPublisher
-from messaging.zeromq.endpoints import LOCAL_PUBLISHER_ENDPOINT
-
-controller = SimulatedNavigationController()
-publisher = ZeroMqPublisher(LOCAL_PUBLISHER_ENDPOINT)
-telemetry = NavigationStatePublisher(publisher, source="my-navigation-source")
-
-controller.start()
-try:
-    telemetry.publish(controller.read_state())
-finally:
-    controller.stop()
-    publisher.close()
-```
-
-For a live simulated source:
+navigation, normal runtime ownership belongs to the navigation service:
 
 ```bash
-python3 -m messaging.component_test.navigation_state_publisher_cli
+python3 -m services.navigation.navigation_service_cli --simulate
 ```
+
+The service owns one `NavigationControllerIf` and fans each state sample out to position,
+motion, attitude, and IMU contracts. The same controller instance handles acknowledged
+navigation commands, so applications never need a second hardware-owning controller.
+
+The lower-level `NavigationStatePublisher` remains available to producers and component
+tests that intentionally own a controller.
+
+## Commands are not telemetry
+
+PUB/SUB is intended for continuously changing state. Commands that require acknowledgement
+use an explicit request/reply service instead of being disguised as telemetry messages.
+Navigation currently follows this pattern for stationary calibration and heading reset.
+Applications depend on `ui.navigation.NavigationRequestHandlerIf`; the current process
+transport is `ZeroMqNavigationRequestHandler` talking to the navigation service.
+
+See `services/navigation/README.md` for examples.
 
 ## UI threading rule
 
@@ -239,8 +243,8 @@ python3 -m messaging.component_test.navigation_state_publisher_cli
 or another toolkit's UI objects from a handler. Update a thread-safe state/cache in the
 handler, then render or marshal that state from the UI thread.
 
-The CarTUI `VehicleBusState` and `NavigationBusState` classes are examples of this
-pattern.
+`common.telemetry.VehicleBusState` and `common.telemetry.NavigationBusState` implement
+this pattern for the current vehicle and navigation contracts.
 
 ## PUB/SUB startup behavior
 
@@ -250,7 +254,7 @@ manual tests use this startup order:
 
 1. broker
 2. subscriber/application
-3. publisher
+3. producer service
 
 Continuous telemetry publishers naturally tolerate late subscribers because another
 sample will arrive shortly.
