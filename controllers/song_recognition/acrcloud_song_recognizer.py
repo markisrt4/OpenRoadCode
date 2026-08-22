@@ -31,6 +31,14 @@ class AcrCloudSongRecognizer(SongRecognitionIf):
     def __init__(self, config: AcrCloudConfig) -> None:
         self._config = config
 
+    @property
+    def is_configured(self) -> bool:
+        return bool(self._config.host and self._config.access_key and self._config.access_secret)
+
+    @property
+    def provider_name(self) -> str | None:
+        return "ACRCloud" if self.is_configured else None
+
     def recognize(self, audio: bytes, *, sample_bytes: int | None = None) -> SongRecognitionResult | None:
         if not audio:
             return None
@@ -75,7 +83,7 @@ class AcrCloudSongRecognizer(SongRecognitionIf):
 
         status = payload.get("status", {})
         if status.get("code") != 0:
-            if status.get("code") == 1001:  # No result.
+            if status.get("code") == 1001:
                 return None
             raise RuntimeError(f"ACRCloud error {status.get('code')}: {status.get('msg', 'unknown error')}")
 
