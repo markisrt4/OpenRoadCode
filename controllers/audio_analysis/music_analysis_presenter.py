@@ -14,6 +14,7 @@ from ui.music_analysis import (
     MusicAnalysisUiState,
 )
 
+from .audio_analysis import SpectrumAnalysisMode
 from .music_analysis import MusicAnalysisState
 from .music_analysis_source_if import MusicAnalysisSourceIf
 
@@ -21,13 +22,7 @@ from .music_analysis_source_if import MusicAnalysisSourceIf
 class MusicAnalysisPresenter(MusicAnalysisRequestHandlerIf):
     """Own music-analysis lifecycle and expose semantic UI state."""
 
-    def __init__(
-        self,
-        source: MusicAnalysisSourceIf,
-        *,
-        music_lighting: MusicLightingController | None = None,
-        dispatch: Callable[[Callable[[], None]], None] | None = None,
-    ) -> None:
+    def __init__(self, source: MusicAnalysisSourceIf, *, music_lighting: MusicLightingController | None = None, dispatch: Callable[[Callable[[], None]], None] | None = None) -> None:
         self._source = source
         self._music_lighting = music_lighting
         self._dispatch = dispatch or (lambda callback: callback())
@@ -71,6 +66,10 @@ class MusicAnalysisPresenter(MusicAnalysisRequestHandlerIf):
         self._source.set_sensitivity(value)
         self._publish_ui_state()
 
+    def request_spectrum_mode(self, mode: SpectrumAnalysisMode) -> None:
+        self._source.set_spectrum_mode(mode)
+        self._publish_ui_state()
+
     def _on_analysis(self, state: MusicAnalysisState) -> None:
         if self._music_lighting is not None:
             self._music_lighting.update_analysis(state)
@@ -89,6 +88,7 @@ class MusicAnalysisPresenter(MusicAnalysisRequestHandlerIf):
             status=self._status,
             calibrated=self._source.calibrated,
             sensitivity=self._source.sensitivity,
+            spectrum_mode=self._source.spectrum_mode,
             error=error if self._status is MusicAnalysisStatus.ERROR else None,
         )
         ui.set_analysis_ui_state(state)
