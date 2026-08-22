@@ -30,9 +30,6 @@ class MusicVisualizerUiIf(ABC):
     def set_sensitivity(self, sensitivity: float) -> None: ...
 
     @abstractmethod
-    def set_lighting_enabled(self, enabled: bool) -> None: ...
-
-    @abstractmethod
     def set_visualization_mode(self, mode: MusicVisualizationMode) -> None: ...
 
     @abstractmethod
