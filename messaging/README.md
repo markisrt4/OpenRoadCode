@@ -5,6 +5,10 @@ versioned domain contracts, message dispatch, and the current ZeroMQ transport.
 Applications should consume public domain messages rather than reaching directly into
 hardware-owning controllers when telemetry is available on the bus.
 
+If you only want to consume telemetry, start with **Subscribe to one topic** below. A
+new consumer should not need to understand ZeroMQ socket internals, hardware adapters,
+or the producer implementation.
+
 ## Architecture
 
 ```text
@@ -30,21 +34,64 @@ hardware / simulator
 The broker is intentionally dumb. Topic ownership, schema validation, units, and typed
 decoding belong to `messaging/contracts`.
 
-## Start the local broker
+The intended boundary is:
 
-From the repository root:
+```text
+producer implementation  -> SI domain state -> public contract -> bus
+bus -> public contract decoder -> application state -> presentation units/UI
+```
+
+A subscriber therefore does not need to know whether a message came from physical
+hardware, a simulator, a replay tool, or another process.
+
+## Five-minute simulated setup
+
+From the repository root, use three terminals.
+
+Terminal 1, start the broker:
 
 ```bash
 python3 -m messaging.zeromq.broker_cli
 ```
+
+Terminal 2, publish simulated navigation telemetry:
+
+```bash
+python3 -m messaging.component_test.navigation_state_publisher_cli
+```
+
+That producer emits:
+
+- `openroad.navigation.position`
+- `openroad.navigation.motion`
+- `openroad.navigation.attitude`
+- `openroad.navigation.imu`
+
+Terminal 3 can run an existing consumer, for example:
+
+```bash
+python3 -m messaging.component_test.navigation_state_dispatcher_cli
+```
+
+or the CarTUI:
+
+```bash
+python3 -m apps.carTui.main --demo
+```
+
+The same subscriber code works when the simulated producer is replaced by real
+navigation hardware.
+
+## Broker endpoints
 
 Default local connections are:
 
 - publishers: `tcp://127.0.0.1:5556`
 - subscribers: `tcp://127.0.0.1:5557`
 
-Use constants from `messaging.zeromq.endpoints` in application code instead of copying
-port numbers.
+The broker is the process that binds the TCP ports. Publishers and subscribers connect
+to it. Use constants from `messaging.zeromq.endpoints` in application code instead of
+copying port numbers.
 
 ## Subscribe to one topic
 
@@ -81,6 +128,12 @@ finally:
     dispatcher.close()
 ```
 
+The three pieces a normal subscriber supplies are simply:
+
+```text
+topic constant + decoder + handler
+```
+
 Register every topic before calling `start()`.
 
 ## Subscribe to multiple topics
@@ -91,9 +144,11 @@ One dispatcher can subscribe to many topics over one subscriber connection:
 from messaging.contracts.navigation import (
     ATTITUDE_STATE_TOPIC,
     IMU_STATE_TOPIC,
+    MOTION_STATE_TOPIC,
     POSITION_STATE_TOPIC,
     decode_attitude_state,
     decode_imu_state,
+    decode_motion_state,
     decode_position_state,
 )
 from messaging.message_dispatcher import MessageDispatcher
@@ -103,6 +158,10 @@ from messaging.zeromq.endpoints import LOCAL_SUBSCRIBER_ENDPOINT
 
 def on_position(message):
     print("position", message.data)
+
+
+def on_motion(message):
+    print("motion", message.data)
 
 
 def on_attitude(message):
@@ -115,10 +174,19 @@ def on_imu(message):
 
 dispatcher = MessageDispatcher(ZeroMqSubscriber(LOCAL_SUBSCRIBER_ENDPOINT))
 dispatcher.register(POSITION_STATE_TOPIC, decode_position_state, on_position)
+dispatcher.register(MOTION_STATE_TOPIC, decode_motion_state, on_motion)
 dispatcher.register(ATTITUDE_STATE_TOPIC, decode_attitude_state, on_attitude)
 dispatcher.register(IMU_STATE_TOPIC, decode_imu_state, on_imu)
 dispatcher.start()
+
+try:
+    input("Receiving navigation telemetry. Press Enter to stop.\n")
+finally:
+    dispatcher.close()
 ```
+
+A single `MessageDispatcher` per application is normally preferable to one subscriber
+thread per topic.
 
 ## Current public telemetry topics
 
@@ -131,7 +199,9 @@ dispatcher.start()
 | `openroad.navigation.imu` | navigation IMU | Acceleration, linear acceleration and angular velocity vectors |
 
 Public telemetry contracts use SI units unless explicitly documented otherwise.
-Presentation layers should perform conversions such as m/s to mph or Pa to PSI.
+Presentation layers should perform conversions such as m/s to mph or Pa to PSI. Shared
+presentation conversions live in `common.units` so applications do not duplicate unit
+math.
 
 ## Publish telemetry
 
@@ -185,6 +255,29 @@ manual tests use this startup order:
 Continuous telemetry publishers naturally tolerate late subscribers because another
 sample will arrive shortly.
 
+The bus is intended for continuously changing telemetry. Do not assume PUB/SUB provides
+queue durability or replay semantics. If a future domain requires guaranteed delivery,
+history, or command acknowledgement, that requirement should be designed explicitly
+rather than quietly inferred from telemetry behavior.
+
+## Error handling
+
+`MessageDispatcher` can receive an application error callback:
+
+```python
+def on_error(topic: str, error: Exception) -> None:
+    print(f"{topic}: {error}")
+
+
+dispatcher = MessageDispatcher(
+    ZeroMqSubscriber(LOCAL_SUBSCRIBER_ENDPOINT),
+    error_handler=on_error,
+)
+```
+
+Decode errors and handler failures are reported with the associated topic. Transport
+receive failures use the synthetic topic name `receive`.
+
 ## Adding a new topic
 
 A public contract should normally contain:
@@ -198,9 +291,26 @@ A public contract should normally contain:
 7. a publisher helper when a domain state exists
 8. an integration test through the broker when practical
 9. an update to `docs/messaging/message_bus_idd.md`
+10. an update to this topic catalog and subscriber documentation
 
 Keep hardware parsing out of messaging contracts and keep UI formatting out of them.
 The bus carries domain data, not implementation details or presentation choices.
+
+## Testing the messaging layer
+
+Useful checks from the repository root include:
+
+```bash
+python3 scripts/check_doxygen_contracts.py
+
+python3 -m pytest \
+  messaging/contracts \
+  messaging/unit_test \
+  messaging/integration_test -v
+```
+
+Component-test CLIs under `messaging/component_test` are useful for live diagnostics but
+supplement rather than replace automated tests.
 
 ## Detailed interface document
 
