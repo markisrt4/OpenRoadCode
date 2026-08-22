@@ -34,7 +34,7 @@ MUSIC_VISUALIZER_HTML = '''
 <div class="card mv-spectrum-card"><div class="mv-section-title">SPECTRUM <span class="mv-subtle">31 Hz → 16 kHz</span></div><div id="music-spectrum" style="display:flex;align-items:flex-end;gap:3px;margin-top:16px"></div><div id="music-spectrum-labels" style="display:grid;grid-template-columns:repeat(24,1fr);gap:3px;margin-top:6px;color:#8fa0ad;font-size:9px;line-height:1.1;text-align:center"></div><p id="music-debug" class="mv-subtle">Waiting for audio…</p></div>
 <script>(async()=>{const state=document.getElementById('music-song-state'),provider=document.getElementById('music-song-provider'),status=document.getElementById('music-song-status'),button=document.getElementById('music-song-identify');try{const r=await fetch('/api/song-recognition/config'),c=await r.json();if(c.configured){state.textContent='READY';provider.textContent=(c.provider||'song recognition').toUpperCase();status.textContent='Recognition provider ready.';button.disabled=false}else{state.textContent='UNCONFIGURED';provider.textContent='Song recognition controller';status.textContent='No recognition provider configured.';button.disabled=true}}catch(e){state.textContent='OFFLINE';status.textContent=e.message;button.disabled=true}})();</script>
 <script src="/web-assets/audio-analysis/microphone_analyzer.js?v=8"></script>
-<script src="/web-assets/audio-analysis/spectrum_controls.js?v=10"></script>
+<script src="/web-assets/audio-analysis/spectrum_controls.js?v=11"></script>
 <script src="/web-assets/audio-analysis/kick_mode.js?v=3"></script>
 <script src="/web-assets/audio-analysis/webgl_music_visualizer.js?v=6"></script>
 <script src="/web-assets/audio-analysis/music_visualizer_page.js?v=22"></script>
