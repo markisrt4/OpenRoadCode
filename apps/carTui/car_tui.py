@@ -30,7 +30,7 @@ class CarTui:
                 dependencies.navigation_controller,
                 gps_enabled=gps_enabled,
             ),
-            "vehicle": VehicleScreen(dependencies.vehicle_manager),
+            "vehicle": VehicleScreen(dependencies.vehicle_state),
             "radio": RadioScreen(dependencies.radios),
         }
 
