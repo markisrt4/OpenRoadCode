@@ -63,17 +63,16 @@ class MusicAnalyzer:
 
     @property
     def calibrated(self) -> bool:
-        # A previous floor must not make a new zeroize look complete.  While a
-        # calibration window is open, consumers should see us as uncalibrated
-        # until the replacement floor has actually been measured.
-        return self._zero_samples is None and bool(self._noise_floor)
+        return self._zero_samples is None and bool(self._noise_floor) and self._base.calibrated
 
     def set_sensitivity(self, value: float) -> None:
         self._sensitivity = max(0.25, min(2.0, float(value)))
 
     def begin_zeroize(self, duration_seconds: float = 1.5) -> None:
+        duration = max(0.5, float(duration_seconds))
         self._zero_samples = []
-        self._zero_deadline = time.monotonic() + max(0.5, duration_seconds)
+        self._zero_deadline = time.monotonic() + duration
+        self._base.begin_zeroize(duration)
 
     def analyze(self, frame: AudioFrame) -> MusicAnalysisState:
         audio = self._base.analyze(frame)
@@ -106,6 +105,8 @@ class MusicAnalyzer:
             floor[name] = values[min(len(values) - 1, int(len(values) * 0.80))] if values else 0.0
         self._noise_floor = floor
         self._zero_samples = None
+        self._peaks = {name: 1e-9 for name in self._BANDS}
+        self._previous = {name: 0.0 for name in self._BANDS}
 
     def _band_energies(self, frame: AudioFrame) -> dict[str, float]:
         samples = np.asarray(frame.samples, dtype=np.float64)
