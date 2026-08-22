@@ -48,6 +48,7 @@ def main() -> None:
     sample_count = 0
     try:
         while True:
+            adapter.advance()
             state = source.read_state()
             vehicle_publisher.publish(state)
             sample_count += 1
