@@ -56,11 +56,11 @@
     if (state?.error) {
       setText("vehicle-sensor-status", `Navigation bus error: ${state.error}`);
     } else if (position || motion) {
-      setText("vehicle-sensor-status", "Live OpenRoadCode navigation bus");
+      setText("vehicle-sensor-status", "Live OpenRoadCode navigation bus · SSE");
     }
   }
 
-  async function refreshNavigationState() {
+  async function loadInitialNavigationState() {
     try {
       const response = await fetch("/api/navigation/state", { cache: "no-store" });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -71,6 +71,28 @@
         `Navigation state unavailable: ${error.message || error}`,
       );
     }
+  }
+
+  function startNavigationEventStream() {
+    if (!("EventSource" in window)) {
+      setText("vehicle-sensor-status", "SSE is not supported by this browser.");
+      return;
+    }
+
+    const events = new EventSource("/api/navigation/events");
+    events.addEventListener("navigation", (event) => {
+      try {
+        renderNavigationState(JSON.parse(event.data));
+      } catch (error) {
+        setText(
+          "vehicle-sensor-status",
+          `Navigation event error: ${error.message || error}`,
+        );
+      }
+    });
+    events.onerror = () => {
+      setText("vehicle-sensor-status", "Navigation stream reconnecting…");
+    };
   }
 
   function startVehiclePhoneSensors() {
@@ -113,7 +135,7 @@
   document.addEventListener("DOMContentLoaded", () => {
     const button = document.getElementById("start-vehicle-sensors");
     button?.addEventListener("click", startVehiclePhoneSensors);
-    refreshNavigationState();
-    window.setInterval(refreshNavigationState, 200);
+    loadInitialNavigationState();
+    startNavigationEventStream();
   });
 })();
