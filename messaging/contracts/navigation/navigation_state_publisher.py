@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 
-"""Publish attitude and IMU contracts from one NavigationState sample."""
+"""Publish public navigation contracts from one NavigationState sample."""
 
 from __future__ import annotations
 
@@ -13,11 +13,23 @@ from messaging.publisher_if import PublisherIf
 
 from .attitude_state_codec import encode_attitude_state
 from .imu_state_codec import encode_imu_state
-from .topics import ATTITUDE_STATE_TOPIC, IMU_STATE_TOPIC
+from .motion_state_codec import encode_motion_state
+from .position_state_codec import encode_position_state
+from .topics import (
+    ATTITUDE_STATE_TOPIC,
+    IMU_STATE_TOPIC,
+    MOTION_STATE_TOPIC,
+    POSITION_STATE_TOPIC,
+)
 
 
 class NavigationStatePublisher:
-    """Fan one normalized navigation sample out to public telemetry topics."""
+    """Fan one normalized navigation sample out to public telemetry topics.
+
+    Attitude, IMU, and motion messages share the NavigationState timestamp.
+    Position retains the position source timestamp because GPS fixes may update at
+    a different cadence from the inertial sample.
+    """
 
     def __init__(
         self,
@@ -29,9 +41,31 @@ class NavigationStatePublisher:
         self._source = source
 
     def publish(self, state: NavigationState) -> None:
-        """Publish attitude and IMU messages with one shared sample timestamp."""
-        timestamp = encode_timestamp(state.timestamp)
+        """Publish position, motion, attitude, and IMU telemetry.
 
+        @param state One normalized navigation sample to fan out.
+        """
+        timestamp = encode_timestamp(state.timestamp)
+        gps = state.gps
+
+        if gps is not None:
+            self._publisher.publish(
+                POSITION_STATE_TOPIC,
+                encode_position_state(gps),
+            )
+
+        self._publisher.publish(
+            MOTION_STATE_TOPIC,
+            encode_motion_state(
+                timestamp=timestamp,
+                source=self._source,
+                heading_rad=math.radians(state.heading_deg),
+                ground_speed_m_s=None if gps is None else gps.speed_mps,
+                vertical_speed_m_s=None,
+                turn_rate_rad_s=state.angular_velocity_rad_s.z,
+                is_cached=False if gps is None else gps.is_cached,
+            ),
+        )
         self._publisher.publish(
             ATTITUDE_STATE_TOPIC,
             encode_attitude_state(
