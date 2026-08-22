@@ -15,7 +15,7 @@ from messaging.zeromq import ZeroMqPublisher
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--endpoint", default="tcp://0.0.0.0:5557")
+    parser.add_argument("--endpoint", default="tcp://127.0.0.1:5556")
     parser.add_argument("--rate-hz", type=float, default=5.0)
     parser.add_argument("--fresh-hz", type=float, default=1.0)
     return parser.parse_args()
