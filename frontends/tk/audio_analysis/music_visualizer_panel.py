@@ -13,26 +13,36 @@ from controllers.audio_analysis.music_analysis import MusicAnalysisState
 from controllers.song_recognition.song_recognition_if import SongRecognitionResult
 from ui.music_visualizer import (
     KickMode,
+    MusicVisualizationMode,
     MusicVisualizerRequestHandlerIf,
     MusicVisualizerUiIf,
     SongRecognitionUiState,
 )
 
 
+_MODE_LABELS = {
+    MusicVisualizationMode.SPECTRUM: "Spectrum",
+    MusicVisualizationMode.ORBITING_PLANETS: "Orbiting Planets",
+    MusicVisualizationMode.ELECTRIC_FREEWAY: "Electric Freeway",
+    MusicVisualizationMode.EXPLOSION_FIELD: "Explosion Field",
+    MusicVisualizationMode.STAR_DANCE: "Star Dance",
+    MusicVisualizationMode.ELECTRIC_RINGS: "Electric Rings",
+    MusicVisualizationMode.NEON_RIBBON: "Neon Ribbon",
+    MusicVisualizationMode.KALEIDOSCOPE: "Kaleidoscope",
+}
+_LABEL_MODES = {label: mode for mode, label in _MODE_LABELS.items()}
+
+
 class MusicVisualizerPanel(tk.Frame, MusicVisualizerUiIf):
     """Native renderer. Business behavior is emitted through semantic requests."""
-
-    MODES = (
-        "Spectrum", "Orbiting Planets", "Electric Freeway", "Explosion Field",
-        "Star Dance", "Electric Rings", "Neon Ribbon", "Kaleidoscope",
-    )
 
     def __init__(self, parent: tk.Misc) -> None:
         super().__init__(parent, bg="#0b0d10")
         self._handler: MusicVisualizerRequestHandlerIf | None = None
         self._state: MusicAnalysisState | None = None
         self._phase = 0.0
-        self._mode = tk.StringVar(value=self.MODES[0])
+        self._visualization_mode = MusicVisualizationMode.SPECTRUM
+        self._mode = tk.StringVar(value=_MODE_LABELS[self._visualization_mode])
         self._sensitivity = tk.DoubleVar(value=100.0)
         self._lighting = tk.BooleanVar(value=False)
         self._kick_mode = tk.StringVar(value=KickMode.SINGLE.value)
@@ -47,7 +57,7 @@ class MusicVisualizerPanel(tk.Frame, MusicVisualizerUiIf):
     def _build(self) -> None:
         controls=tk.Frame(self,bg="#0b0d10");controls.pack(fill="x",padx=8,pady=(4,6))
         tk.Label(controls,text="VISUALIZER",bg="#0b0d10",fg="white",font=("TkDefaultFont",14,"bold")).pack(side="left")
-        ttk.Combobox(controls,textvariable=self._mode,values=self.MODES,state="readonly",width=18).pack(side="right")
+        combo=ttk.Combobox(controls,textvariable=self._mode,values=tuple(_MODE_LABELS.values()),state="readonly",width=18);combo.pack(side="right");combo.bind("<<ComboboxSelected>>",self._mode_changed)
         tk.Button(controls,text="ZEROIZE",command=lambda:self._handler and self._handler.request_zeroize(),bg="#18222e",fg="white").pack(side="right",padx=5)
         self._identify=tk.Button(controls,text="IDENTIFY",command=lambda:self._handler and self._handler.request_song_recognition(),bg="#18222e",fg="white");self._identify.pack(side="right",padx=5)
         sens=tk.Scale(controls,from_=25,to=200,orient="horizontal",showvalue=False,length=120,bg="#0b0d10",fg="white",highlightthickness=0,variable=self._sensitivity,command=lambda v:self._handler and self._handler.request_sensitivity(float(v)/100.0));sens.pack(side="right")
@@ -63,6 +73,10 @@ class MusicVisualizerPanel(tk.Frame, MusicVisualizerUiIf):
         meters=tk.Frame(self,bg="#0b0d10");meters.pack(fill="x",padx=8,pady=6);self._meter_labels={}
         for name in ("LEVEL","BASS","MID","TREBLE"):
             label=tk.Label(meters,text=f"{name}  0%",bg="#0b0d10",fg="#aebac4",font=("TkDefaultFont",9,"bold"));label.pack(side="left",expand=True);self._meter_labels[name.lower()]=label
+
+    def _mode_changed(self,_event=None)->None:
+        mode=_LABEL_MODES.get(self._mode.get(),MusicVisualizationMode.SPECTRUM)
+        if self._handler:self._handler.request_visualization_mode(mode)
 
     def _kick_changed(self)->None:
         if self._handler:self._handler.request_kick_mode(KickMode(self._kick_mode.get()))
@@ -93,12 +107,13 @@ class MusicVisualizerPanel(tk.Frame, MusicVisualizerUiIf):
 
     def set_sensitivity(self,sensitivity:float)->None:self._sensitivity.set(round(sensitivity*100))
     def set_lighting_enabled(self,enabled:bool)->None:self._lighting.set(enabled)
+    def set_visualization_mode(self,mode:MusicVisualizationMode)->None:self._visualization_mode=mode;self._mode.set(_MODE_LABELS[mode])
     def set_status(self,message:str)->None:self._status.configure(text=message)
 
     def _draw(self)->None:
         if self._state is None:return
-        c=self._canvas;c.delete("all");w,h=max(2,c.winfo_width()),max(2,c.winfo_height());m=self._mode.get()
-        {"Orbiting Planets":self._draw_planets,"Electric Freeway":self._draw_freeway,"Explosion Field":self._draw_explosion,"Star Dance":self._draw_stars,"Electric Rings":self._draw_rings,"Neon Ribbon":self._draw_ribbon,"Kaleidoscope":self._draw_kaleidoscope}.get(m,self._draw_spectrum)(w,h)
+        c=self._canvas;c.delete("all");w,h=max(2,c.winfo_width()),max(2,c.winfo_height())
+        {MusicVisualizationMode.ORBITING_PLANETS:self._draw_planets,MusicVisualizationMode.ELECTRIC_FREEWAY:self._draw_freeway,MusicVisualizationMode.EXPLOSION_FIELD:self._draw_explosion,MusicVisualizationMode.STAR_DANCE:self._draw_stars,MusicVisualizationMode.ELECTRIC_RINGS:self._draw_rings,MusicVisualizationMode.NEON_RIBBON:self._draw_ribbon,MusicVisualizationMode.KALEIDOSCOPE:self._draw_kaleidoscope}.get(self._visualization_mode,self._draw_spectrum)(w,h)
 
     def _draw_drums(self)->None:
         c=self._drums;c.delete("all");w=max(2,c.winfo_width());h=max(2,c.winfo_height())
