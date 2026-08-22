@@ -32,7 +32,7 @@ def _create_navigation_session() -> tuple[
     rate_hz = float(os.environ.get("OPENROADCODE_ZMQ_POSITION_RATE_HZ", "5.0"))
 
     publisher = ZeroMqPublisher(endpoint)
-    position_publisher = PositionStatePublisher(publisher, source="browser")
+    position_publisher = PositionStatePublisher(publisher)
     republisher = PositionRepublisher(position_publisher.publish, rate_hz=rate_hz)
     republisher.start()
 
