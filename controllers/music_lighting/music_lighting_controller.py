@@ -8,21 +8,23 @@ from dataclasses import replace
 from threading import RLock
 
 from controllers.audio_analysis.music_analysis import MusicAnalysisState
+from ui.music_lighting.music_lighting_request_handler_if import MusicLightingRequestHandlerIf
+from ui.music_lighting.music_lighting_ui_if import MusicLightingUiIf
 from .music_lighting_types import MusicLightingPatternId, MusicLightingState
 
 
-class MusicLightingController:
+class MusicLightingController(MusicLightingRequestHandlerIf):
     """Own music-lighting configuration independently of any UI panel.
 
-    Pattern-to-device rendering is intentionally kept behind this controller;
-    both Lighting and Music Visualizer frontends may observe and modify the
-    same state without owning the effect engine.
+    Both Lighting and Music Visualizer frontends may observe and modify the
+    same state. Pattern-to-device rendering remains a separate concern so UI
+    surfaces never own lighting effect math or transport details.
     """
 
     def __init__(self) -> None:
         self._state = MusicLightingState()
         self._lock = RLock()
-        self._uis: list[object] = []
+        self._uis: list[MusicLightingUiIf] = []
         self._last_analysis: MusicAnalysisState | None = None
 
     @property
@@ -30,14 +32,19 @@ class MusicLightingController:
         with self._lock:
             return self._state
 
-    def attach_ui(self, ui: object) -> None:
+    @property
+    def last_analysis(self) -> MusicAnalysisState | None:
+        with self._lock:
+            return self._last_analysis
+
+    def attach_ui(self, ui: MusicLightingUiIf) -> None:
         with self._lock:
             if ui not in self._uis:
                 self._uis.append(ui)
             state = self._state
         ui.set_music_lighting_state(state)
 
-    def detach_ui(self, ui: object) -> None:
+    def detach_ui(self, ui: MusicLightingUiIf) -> None:
         with self._lock:
             if ui in self._uis:
                 self._uis.remove(ui)
@@ -55,7 +62,7 @@ class MusicLightingController:
         self._update(brightness_limit=max(0, min(100, int(percent))))
 
     def update_analysis(self, state: MusicAnalysisState) -> None:
-        """Accept shared music state for the forthcoming effect engine."""
+        """Accept shared music state for the effect engine."""
         with self._lock:
             self._last_analysis = state
 
