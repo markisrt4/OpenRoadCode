@@ -80,7 +80,11 @@ class CarTuiTest(unittest.TestCase):
     def test_demo_enables_simulated_gps_display(
         self, build_dependencies_mock, parse_args_mock, wrapper_mock
     ) -> None:
-        parse_args_mock.return_value = Namespace(simulate=True, gps=False)
+        parse_args_mock.return_value = Namespace(
+            simulate=True,
+            gps=False,
+            units="imperial",
+        )
         dependencies = build_dependencies_mock.return_value
 
         self.assertEqual(main(), 0)
