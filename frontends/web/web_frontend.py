@@ -6,172 +6,158 @@ from __future__ import annotations
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
-from flask import Flask, abort, jsonify, redirect, render_template_string, request, send_from_directory, url_for
+from flask import Flask,abort,jsonify,redirect,render_template_string,request,send_from_directory,url_for
 from markupsafe import Markup
-from frontends.web.screen_catalog import WebScreen, create_web_screens
+from frontends.web.screen_catalog import WebScreen,create_web_screens
 from frontends.web.spotify_screen import render_spotify_screen
 from ui.menu import MenuPage
 
-STYLE = """
-body{margin:0;background:#0b0d10;color:#f5f7f8;font-family:system-ui,sans-serif}header{position:sticky;top:0;padding:14px;background:#0f1317;border-bottom:1px solid #242d35}.bar,main{max-width:900px;margin:auto}.bar{display:flex;align-items:center;gap:12px}.back{font-size:28px;color:white;text-decoration:none;border:1px solid #34424f;border-radius:10px;padding:2px 14px}.heading{flex:1}.title{font-size:24px;font-weight:800}.subtitle{color:#aebac4;font-size:13px}.grid,.gauges,.stat-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}.tile,.card,.stat{padding:18px;border:1px solid #34424f;border-radius:16px;background:#151a20;color:white;text-decoration:none}.tile{min-height:100px;display:flex;flex-direction:column;justify-content:center;border-top:4px solid #5aa9e6}.tile-title{font-weight:800}.tile-subtitle,.tile-detail,.card p,.notice{color:#aebac4;margin-top:7px}.tile-detail{font-size:12px}main{padding:18px 14px}.hero-value{text-align:center;font-size:64px;font-weight:900;padding:30px 0}.hero-value small{font-size:14px;color:#aebac4}.controls{display:flex;justify-content:center;gap:12px;margin:18px 0}button{min-height:50px;padding:0 20px;border:1px solid #34424f;border-radius:14px;background:#1b2229;color:white;font-weight:800}.primary{background:#24679b}.gauges{display:grid}.gauge{aspect-ratio:1;border:7px solid #303b45;border-top-color:#c83232;border-radius:50%;background:#f5f5f5;color:#111;display:flex;flex-direction:column;align-items:center;justify-content:center}.gauge span{font-size:32px;font-weight:900}.gauge small,.stat small{font-size:11px}.stat{text-align:center}.stat b{display:block;font-size:22px}.forecast{display:grid;gap:10px}.forecast div{display:grid;grid-template-columns:60px 70px 1fr;padding:16px;border:1px solid #34424f;border-radius:14px;background:#151a20}.forecast span{font-size:22px;font-weight:800}.forecast small{color:#aebac4}.card{margin-bottom:14px}.card label{display:block;margin:10px 0;font-weight:700}input[type=range],.search{width:100%;box-sizing:border-box}.search{min-height:48px;padding:10px;background:#0b0d10;color:white;border:1px solid #34424f;border-radius:10px}.wide{width:100%;margin-top:12px}.album{width:150px;aspect-ratio:1;margin:20px auto;background:#222b34;border-radius:20px;display:grid;place-items:center;font-size:60px}.center{text-align:center}.sensor-status{font-size:13px;color:#aebac4}.sensor-value{font-variant-numeric:tabular-nums}.spotify-art{display:block;width:min(72vw,360px);aspect-ratio:1;object-fit:cover;margin:8px auto 20px;border-radius:18px;background:#222b34}.spotify-track{text-align:center;font-size:25px;font-weight:900}.spotify-artist{text-align:center;color:#aebac4;margin:5px 0 18px}.spotify-progress{width:100%}.spotify-meta{display:flex;justify-content:space-between;color:#aebac4;font-size:12px}.lyrics{max-height:250px;overflow:auto;white-space:pre-line;line-height:1.6;color:#d7dee4}@media(min-width:700px){.grid{grid-template-columns:repeat(3,1fr)}.gauges{grid-template-columns:repeat(4,1fr)}}
-"""
-PAGE = """<!doctype html><meta name=viewport content='width=device-width,initial-scale=1'><style>{{style}}</style><header><div class=bar>{% if page_key != root %}<a class=back href='{{url_for("menu_page",page_key=root)}}'>‹</a>{% endif %}<div class=heading><div class=title>{{page.title}}</div><div class=subtitle>OpenRoadCode Web</div></div></div></header><main><div class=grid>{% for t in page.tiles %}<a class=tile href='{{url_for("select_tile",page_key=page_key,tile_key=t.key)}}'><div class=tile-title>{{t.title}}</div><div class=tile-subtitle>{{t.subtitle}}</div><div class=tile-detail>{{t.detail}}</div></a>{% endfor %}</div></main>"""
-SCREEN = """<!doctype html><meta name=viewport content='width=device-width,initial-scale=1'><style>{{style}}</style><header><div class=bar><a class=back href='{{back}}'>‹</a><div class=heading><div class=title>{{screen.title}}</div><div class=subtitle>{{screen.subtitle}}</div></div></div></header><main>{{body}}</main>"""
+STYLE="""body{margin:0;background:#0b0d10;color:#f5f7f8;font-family:system-ui,sans-serif}header{position:sticky;top:0;padding:14px;background:#0f1317;border-bottom:1px solid #242d35}.bar,main{max-width:900px;margin:auto}.bar{display:flex;align-items:center;gap:12px}.back{font-size:28px;color:white;text-decoration:none;border:1px solid #34424f;border-radius:10px;padding:2px 14px}.heading{flex:1}.title{font-size:24px;font-weight:800}.subtitle{color:#aebac4;font-size:13px}.grid,.gauges,.stat-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}.tile,.card,.stat{padding:18px;border:1px solid #34424f;border-radius:16px;background:#151a20;color:white;text-decoration:none}.tile{min-height:100px;display:flex;flex-direction:column;justify-content:center;border-top:4px solid #5aa9e6}.tile-title{font-weight:800}.tile-subtitle,.tile-detail,.card p,.notice{color:#aebac4;margin-top:7px}.tile-detail{font-size:12px}main{padding:18px 14px}.hero-value{text-align:center;font-size:64px;font-weight:900;padding:30px 0}.hero-value small{font-size:14px;color:#aebac4}.controls{display:flex;justify-content:center;gap:12px;margin:18px 0}button{min-height:50px;padding:0 20px;border:1px solid #34424f;border-radius:14px;background:#1b2229;color:white;font-weight:800}.primary{background:#24679b}.gauges{display:grid}.gauge{aspect-ratio:1;border:7px solid #303b45;border-top-color:#c83232;border-radius:50%;background:#f5f5f5;color:#111;display:flex;flex-direction:column;align-items:center;justify-content:center}.gauge span{font-size:32px;font-weight:900}.gauge small,.stat small{font-size:11px}.stat{text-align:center}.stat b{display:block;font-size:22px}.forecast{display:grid;gap:10px}.forecast div{display:grid;grid-template-columns:60px 70px 1fr;padding:16px;border:1px solid #34424f;border-radius:14px;background:#151a20}.forecast span{font-size:22px;font-weight:800}.forecast small{color:#aebac4}.card{margin-bottom:14px}.card label{display:block;margin:10px 0;font-weight:700}input[type=range],.search{width:100%;box-sizing:border-box}.search{min-height:48px;padding:10px;background:#0b0d10;color:white;border:1px solid #34424f;border-radius:10px}.wide{width:100%;margin-top:12px}.album{width:150px;aspect-ratio:1;margin:20px auto;background:#222b34;border-radius:20px;display:grid;place-items:center;font-size:60px}.center{text-align:center}.sensor-status{font-size:13px;color:#aebac4}.sensor-value{font-variant-numeric:tabular-nums}.spotify-art{display:block;width:min(72vw,360px);aspect-ratio:1;object-fit:cover;margin:8px auto 20px;border-radius:18px;background:#222b34}.spotify-track{text-align:center;font-size:25px;font-weight:900}.spotify-artist{text-align:center;color:#aebac4;margin:5px 0 18px}.spotify-progress{width:100%}.spotify-meta{display:flex;justify-content:space-between;color:#aebac4;font-size:12px}.lyrics{max-height:250px;overflow:auto;white-space:pre-line;line-height:1.6;color:#d7dee4}@media(min-width:700px){.grid{grid-template-columns:repeat(3,1fr)}.gauges{grid-template-columns:repeat(4,1fr)}}"""
+PAGE="""<!doctype html><meta name=viewport content='width=device-width,initial-scale=1'><style>{{style}}</style><header><div class=bar>{% if page_key != root %}<a class=back href='{{url_for("menu_page",page_key=root)}}'>‹</a>{% endif %}<div class=heading><div class=title>{{page.title}}</div><div class=subtitle>OpenRoadCode Web</div></div></div></header><main><div class=grid>{% for t in page.tiles %}<a class=tile href='{{url_for("select_tile",page_key=page_key,tile_key=t.key)}}'><div class=tile-title>{{t.title}}</div><div class=tile-subtitle>{{t.subtitle}}</div><div class=tile-detail>{{t.detail}}</div></a>{% endfor %}</div></main>"""
+SCREEN="""<!doctype html><meta name=viewport content='width=device-width,initial-scale=1'><style>{{style}}</style><header><div class=bar><a class=back href='{{back}}'>‹</a><div class=heading><div class=title>{{screen.title}}</div><div class=subtitle>{{screen.subtitle}}</div></div></div></header><main>{{body}}</main>"""
 
-
-def create_web_frontend(pages: Mapping[str, MenuPage], *, root_page: str="main", screens: Mapping[str, WebScreen]|None=None, navigation_session: Any|None=None, spotify_session: Any|None=None, lighting_session: Any|None=None, song_recognition_session: Any|None=None, linux_audio_analysis_session: Any|None=None, browser_music_analysis_session: Any|None=None) -> Flask:
-    if root_page not in pages: raise ValueError(f"Unknown root page: {root_page}")
-    screen_map=dict(screens or create_web_screens())
-    web_dir=Path(__file__).resolve().parent
-    sensor_dir=web_dir / "sensors";media_dir=web_dir / "media";lighting_dir=web_dir / "lighting";audio_analysis_dir=web_dir / "audio_analysis"
-    app=Flask(__name__)
-    @app.get("/")
-    def index(): return redirect(url_for("menu_page",page_key=root_page))
-    @app.get("/menu/<page_key>")
-    def menu_page(page_key:str):
-        page=pages.get(page_key)
-        if page is None: abort(404)
-        return render_template_string(PAGE,page=page,page_key=page_key,root=root_page,style=STYLE)
-    @app.get("/menu/<page_key>/<tile_key>")
-    def select_tile(page_key:str,tile_key:str):
-        page=pages.get(page_key)
-        if page is None: abort(404)
-        tile=next((x for x in page.tiles if x.key==tile_key),None)
-        if tile is None: abort(404)
-        if tile.key in pages: return redirect(url_for("menu_page",page_key=tile.key))
-        screen=screen_map.get(tile.key)
-        if screen is None: abort(404)
-        back=url_for("menu_page",page_key=page_key)
-        if tile.key == "spotify" and spotify_session is not None:return render_spotify_screen(style=STYLE,back=back,state=spotify_session.state())
-        return render_template_string(SCREEN,screen=screen,body=Markup(screen.body_html),back=back,style=STYLE)
-    @app.get("/web-assets/sensors/<path:filename>")
-    def web_sensor_asset(filename:str): return send_from_directory(sensor_dir,filename)
-    @app.get("/web-assets/media/<path:filename>")
-    def web_media_asset(filename:str): return send_from_directory(media_dir,filename)
-    @app.get("/web-assets/lighting/<path:filename>")
-    def web_lighting_asset(filename:str): return send_from_directory(lighting_dir,filename)
-    @app.get("/web-assets/audio-analysis/<path:filename>")
-    def web_audio_analysis_asset(filename:str): return send_from_directory(audio_analysis_dir,filename)
-    @app.post("/api/audio-analysis/browser/frame")
-    def browser_audio_frame():
-        if browser_music_analysis_session is None: abort(503)
-        try:return jsonify(browser_music_analysis_session.push_pcm16(request.get_data(cache=False),int(request.headers.get("X-Sample-Rate","0"))))
-        except (TypeError,ValueError) as exc:return jsonify(error=str(exc)),400
-        except Exception as exc:return jsonify(error=str(exc)),502
-    @app.get("/api/audio-analysis/browser/state")
-    def browser_audio_state():
-        if browser_music_analysis_session is None: abort(503)
-        return jsonify(browser_music_analysis_session.state())
-    @app.post("/api/audio-analysis/browser/zeroize")
-    def browser_audio_zeroize():
-        if browser_music_analysis_session is None: abort(503)
-        return jsonify(browser_music_analysis_session.zeroize())
-    @app.post("/api/audio-analysis/browser/sensitivity")
-    def browser_audio_sensitivity():
-        if browser_music_analysis_session is None: abort(503)
-        payload=request.get_json(silent=False)
-        try:return jsonify(browser_music_analysis_session.set_sensitivity(float(payload.get("value"))))
-        except (TypeError,ValueError) as exc:return jsonify(error=str(exc)),400
-    @app.get("/api/audio-analysis/linux/state")
-    def linux_audio_state():
-        if linux_audio_analysis_session is None: abort(503)
-        return jsonify(linux_audio_analysis_session.state())
-    @app.post("/api/audio-analysis/linux/start")
-    def linux_audio_start():
-        if linux_audio_analysis_session is None: abort(503)
-        try:return jsonify(linux_audio_analysis_session.start())
-        except Exception as exc:return jsonify(error=str(exc)),502
-    @app.post("/api/audio-analysis/linux/stop")
-    def linux_audio_stop():
-        if linux_audio_analysis_session is None: abort(503)
-        try:return jsonify(linux_audio_analysis_session.stop())
-        except Exception as exc:return jsonify(error=str(exc)),502
-    @app.post("/api/audio-analysis/linux/zeroize")
-    def linux_audio_zeroize():
-        if linux_audio_analysis_session is None: abort(503)
-        return jsonify(linux_audio_analysis_session.zeroize())
-    @app.post("/api/audio-analysis/linux/sensitivity")
-    def linux_audio_sensitivity():
-        if linux_audio_analysis_session is None: abort(503)
-        payload=request.get_json(silent=False)
-        try:return jsonify(linux_audio_analysis_session.set_sensitivity(float(payload.get("value"))))
-        except (TypeError,ValueError) as exc:return jsonify(error=str(exc)),400
-    @app.post("/api/navigation/position")
-    def navigation_position():
-        if navigation_session is None: abort(503)
-        try: state=navigation_session.update_position(request.get_json(silent=False))
-        except (TypeError,ValueError) as exc:return jsonify(error=str(exc)),400
-        return jsonify(ok=True,source=state.source)
-    @app.post("/api/navigation/orientation")
-    def navigation_orientation():
-        if navigation_session is None: abort(503)
-        try: state=navigation_session.update_orientation(request.get_json(silent=False))
-        except (TypeError,ValueError) as exc:return jsonify(error=str(exc)),400
-        return jsonify(ok=True,source=state.source)
-    @app.get("/api/navigation/state")
-    def navigation_state():
-        if navigation_session is None: abort(503)
-        return jsonify(navigation_session.as_dict())
-    @app.get("/api/lighting/state")
-    def lighting_state():
-        if lighting_session is None: abort(503)
-        return jsonify(lighting_session.state())
-    @app.post("/api/lighting/bind")
-    def lighting_bind():
-        if lighting_session is None: abort(503)
-        payload=request.get_json(silent=False)
-        try:return jsonify(lighting_session.bind(str(payload.get("backend",""))))
-        except (TypeError,ValueError) as exc:return jsonify(error=str(exc)),400
-        except Exception as exc:return jsonify(error=str(exc)),502
-    @app.post("/api/lighting/command")
-    def lighting_command():
-        if lighting_session is None: abort(503)
-        payload=request.get_json(silent=False)
-        try:return jsonify(lighting_session.command(str(payload.get("command","")),payload.get("value")))
-        except (TypeError,ValueError) as exc:return jsonify(error=str(exc)),400
-        except Exception as exc:return jsonify(error=str(exc)),502
-    @app.get("/api/song-recognition/config")
-    def song_recognition_config():return jsonify(configured=bool(song_recognition_session and song_recognition_session.configured()),provider="acrcloud")
-    @app.post("/api/song-recognition/identify")
-    def song_recognition_identify():
-        if song_recognition_session is None: abort(503)
-        audio=request.get_data(cache=False)
-        if not audio:return jsonify(error="Empty audio sample"),400
-        if len(audio)>4_000_000:return jsonify(error="Audio sample is too large"),413
-        try:return jsonify(song_recognition_session.recognize(audio))
-        except RuntimeError as exc:return jsonify(error=str(exc)),503
-        except Exception as exc:return jsonify(error=str(exc)),502
-    @app.get("/api/media/spotify/auth/config")
-    def spotify_auth_config():
-        if spotify_session is None: abort(503)
-        return jsonify(spotify_session.auth_config())
-    @app.get("/api/media/spotify/auth/start")
-    def spotify_auth_start():
-        if spotify_session is None: abort(503)
-        try:return redirect(spotify_session.begin_authorization())
-        except Exception as exc:return jsonify(error=str(exc)),400
-    @app.get("/api/media/spotify/auth/callback")
-    def spotify_auth_callback():
-        if spotify_session is None: abort(503)
-        try:spotify_session.complete_authorization(code=request.args.get("code"),state=request.args.get("state"),error=request.args.get("error"),error_description=request.args.get("error_description"))
-        except Exception as exc:return jsonify(error=str(exc)),400
-        return redirect(url_for("select_tile",page_key="media",tile_key="spotify"))
-    @app.get("/api/media/spotify/state")
-    def spotify_state():
-        if spotify_session is None: abort(503)
-        return jsonify(spotify_session.state())
-    @app.post("/api/media/spotify/command")
-    def spotify_command():
-        if spotify_session is None: abort(503)
-        payload=request.get_json(silent=False)
-        try:return jsonify(spotify_session.command(str(payload.get("command","")),payload.get("value")))
-        except (TypeError,ValueError) as exc:return jsonify(error=str(exc)),400
-        except Exception as exc:return jsonify(error=str(exc)),502
-    @app.get("/api/media/spotify/lyrics")
-    def spotify_lyrics():
-        if spotify_session is None: abort(503)
-        try:return jsonify(spotify_session.lyrics())
-        except Exception as exc:return jsonify(error=str(exc)),502
-    @app.get("/healthz")
-    def healthz():return jsonify(status="ok",frontend="web",screens=len(screen_map))
-    return app
+def create_web_frontend(pages:Mapping[str,MenuPage],*,root_page:str="main",screens:Mapping[str,WebScreen]|None=None,navigation_session:Any|None=None,spotify_session:Any|None=None,lighting_session:Any|None=None,song_recognition_session:Any|None=None,linux_audio_analysis_session:Any|None=None,browser_music_analysis_session:Any|None=None)->Flask:
+ if root_page not in pages:raise ValueError(f"Unknown root page: {root_page}")
+ screen_map=dict(screens or create_web_screens());web_dir=Path(__file__).resolve().parent;sensor_dir=web_dir/"sensors";media_dir=web_dir/"media";lighting_dir=web_dir/"lighting";audio_analysis_dir=web_dir/"audio_analysis";app=Flask(__name__)
+ @app.get("/")
+ def index():return redirect(url_for("menu_page",page_key=root_page))
+ @app.get("/menu/<page_key>")
+ def menu_page(page_key:str):
+  page=pages.get(page_key)
+  if page is None:abort(404)
+  return render_template_string(PAGE,page=page,page_key=page_key,root=root_page,style=STYLE)
+ @app.get("/menu/<page_key>/<tile_key>")
+ def select_tile(page_key:str,tile_key:str):
+  page=pages.get(page_key)
+  if page is None:abort(404)
+  tile=next((x for x in page.tiles if x.key==tile_key),None)
+  if tile is None:abort(404)
+  if tile.key in pages:return redirect(url_for("menu_page",page_key=tile.key))
+  screen=screen_map.get(tile.key)
+  if screen is None:abort(404)
+  back=url_for("menu_page",page_key=page_key)
+  if tile.key=="spotify" and spotify_session is not None:return render_spotify_screen(style=STYLE,back=back,state=spotify_session.state())
+  return render_template_string(SCREEN,screen=screen,body=Markup(screen.body_html),back=back,style=STYLE)
+ @app.get("/web-assets/sensors/<path:filename>")
+ def web_sensor_asset(filename:str):return send_from_directory(sensor_dir,filename)
+ @app.get("/web-assets/media/<path:filename>")
+ def web_media_asset(filename:str):return send_from_directory(media_dir,filename)
+ @app.get("/web-assets/lighting/<path:filename>")
+ def web_lighting_asset(filename:str):return send_from_directory(lighting_dir,filename)
+ @app.get("/web-assets/audio-analysis/<path:filename>")
+ def web_audio_analysis_asset(filename:str):return send_from_directory(audio_analysis_dir,filename)
+ @app.post("/api/audio-analysis/browser/frame")
+ def browser_audio_frame():
+  if browser_music_analysis_session is None:abort(503)
+  try:return jsonify(browser_music_analysis_session.push_pcm16(request.get_data(cache=False),int(request.headers.get("X-Sample-Rate","0"))))
+  except (TypeError,ValueError) as exc:return jsonify(error=str(exc)),400
+  except Exception as exc:return jsonify(error=str(exc)),502
+ @app.get("/api/audio-analysis/browser/state")
+ def browser_audio_state():return jsonify(browser_music_analysis_session.state()) if browser_music_analysis_session is not None else abort(503)
+ @app.post("/api/audio-analysis/browser/zeroize")
+ def browser_audio_zeroize():return jsonify(browser_music_analysis_session.zeroize()) if browser_music_analysis_session is not None else abort(503)
+ @app.post("/api/audio-analysis/browser/sensitivity")
+ def browser_audio_sensitivity():
+  if browser_music_analysis_session is None:abort(503)
+  try:return jsonify(browser_music_analysis_session.set_sensitivity(float(request.get_json(silent=False).get("value"))))
+  except (TypeError,ValueError) as exc:return jsonify(error=str(exc)),400
+ @app.post("/api/audio-analysis/browser/spectrum-mode")
+ def browser_spectrum_mode():
+  if browser_music_analysis_session is None:abort(503)
+  try:return jsonify(browser_music_analysis_session.set_spectrum_mode(str(request.get_json(silent=False).get("value",""))))
+  except (TypeError,ValueError) as exc:return jsonify(error=str(exc)),400
+ @app.get("/api/audio-analysis/linux/state")
+ def linux_audio_state():return jsonify(linux_audio_analysis_session.state()) if linux_audio_analysis_session is not None else abort(503)
+ @app.post("/api/audio-analysis/linux/start")
+ def linux_audio_start():
+  if linux_audio_analysis_session is None:abort(503)
+  try:return jsonify(linux_audio_analysis_session.start())
+  except Exception as exc:return jsonify(error=str(exc)),502
+ @app.post("/api/audio-analysis/linux/stop")
+ def linux_audio_stop():
+  if linux_audio_analysis_session is None:abort(503)
+  try:return jsonify(linux_audio_analysis_session.stop())
+  except Exception as exc:return jsonify(error=str(exc)),502
+ @app.post("/api/audio-analysis/linux/zeroize")
+ def linux_audio_zeroize():return jsonify(linux_audio_analysis_session.zeroize()) if linux_audio_analysis_session is not None else abort(503)
+ @app.post("/api/audio-analysis/linux/sensitivity")
+ def linux_audio_sensitivity():
+  if linux_audio_analysis_session is None:abort(503)
+  try:return jsonify(linux_audio_analysis_session.set_sensitivity(float(request.get_json(silent=False).get("value"))))
+  except (TypeError,ValueError) as exc:return jsonify(error=str(exc)),400
+ @app.post("/api/audio-analysis/linux/spectrum-mode")
+ def linux_spectrum_mode():
+  if linux_audio_analysis_session is None:abort(503)
+  try:return jsonify(linux_audio_analysis_session.set_spectrum_mode(str(request.get_json(silent=False).get("value",""))))
+  except (TypeError,ValueError) as exc:return jsonify(error=str(exc)),400
+ @app.post("/api/navigation/position")
+ def navigation_position():
+  if navigation_session is None:abort(503)
+  try:state=navigation_session.update_position(request.get_json(silent=False))
+  except (TypeError,ValueError) as exc:return jsonify(error=str(exc)),400
+  return jsonify(ok=True,source=state.source)
+ @app.post("/api/navigation/orientation")
+ def navigation_orientation():
+  if navigation_session is None:abort(503)
+  try:state=navigation_session.update_orientation(request.get_json(silent=False))
+  except (TypeError,ValueError) as exc:return jsonify(error=str(exc)),400
+  return jsonify(ok=True,source=state.source)
+ @app.get("/api/navigation/state")
+ def navigation_state():return jsonify(navigation_session.as_dict()) if navigation_session is not None else abort(503)
+ @app.get("/api/lighting/state")
+ def lighting_state():return jsonify(lighting_session.state()) if lighting_session is not None else abort(503)
+ @app.post("/api/lighting/bind")
+ def lighting_bind():
+  if lighting_session is None:abort(503)
+  payload=request.get_json(silent=False)
+  try:return jsonify(lighting_session.bind(str(payload.get("backend",""))))
+  except (TypeError,ValueError) as exc:return jsonify(error=str(exc)),400
+  except Exception as exc:return jsonify(error=str(exc)),502
+ @app.post("/api/lighting/command")
+ def lighting_command():
+  if lighting_session is None:abort(503)
+  payload=request.get_json(silent=False)
+  try:return jsonify(lighting_session.command(str(payload.get("command","")),payload.get("value")))
+  except (TypeError,ValueError) as exc:return jsonify(error=str(exc)),400
+  except Exception as exc:return jsonify(error=str(exc)),502
+ @app.get("/api/song-recognition/config")
+ def song_recognition_config():return jsonify(configured=bool(song_recognition_session and song_recognition_session.configured()),provider="acrcloud")
+ @app.post("/api/song-recognition/identify")
+ def song_recognition_identify():
+  if song_recognition_session is None:abort(503)
+  audio=request.get_data(cache=False)
+  if not audio:return jsonify(error="Empty audio sample"),400
+  if len(audio)>4_000_000:return jsonify(error="Audio sample is too large"),413
+  try:return jsonify(song_recognition_session.recognize(audio))
+  except RuntimeError as exc:return jsonify(error=str(exc)),503
+  except Exception as exc:return jsonify(error=str(exc)),502
+ @app.get("/api/media/spotify/auth/config")
+ def spotify_auth_config():return jsonify(spotify_session.auth_config()) if spotify_session is not None else abort(503)
+ @app.get("/api/media/spotify/auth/start")
+ def spotify_auth_start():
+  if spotify_session is None:abort(503)
+  try:return redirect(spotify_session.begin_authorization())
+  except Exception as exc:return jsonify(error=str(exc)),400
+ @app.get("/api/media/spotify/auth/callback")
+ def spotify_auth_callback():
+  if spotify_session is None:abort(503)
+  try:spotify_session.complete_authorization(code=request.args.get("code"),state=request.args.get("state"),error=request.args.get("error"),error_description=request.args.get("error_description"))
+  except Exception as exc:return jsonify(error=str(exc)),400
+  return redirect(url_for("select_tile",page_key="media",tile_key="spotify"))
+ @app.get("/api/media/spotify/state")
+ def spotify_state():return jsonify(spotify_session.state()) if spotify_session is not None else abort(503)
+ @app.post("/api/media/spotify/command")
+ def spotify_command():
+  if spotify_session is None:abort(503)
+  payload=request.get_json(silent=False)
+  try:return jsonify(spotify_session.command(str(payload.get("command","")),payload.get("value")))
+  except (TypeError,ValueError) as exc:return jsonify(error=str(exc)),400
+  except Exception as exc:return jsonify(error=str(exc)),502
+ @app.get("/api/media/spotify/lyrics")
+ def spotify_lyrics():
+  if spotify_session is None:abort(503)
+  try:return jsonify(spotify_session.lyrics())
+  except Exception as exc:return jsonify(error=str(exc)),502
+ @app.get("/healthz")
+ def healthz():return jsonify(status="ok",frontend="web",screens=len(screen_map))
+ return app
