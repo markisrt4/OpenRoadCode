@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 
-from .music_visualizer_types import KickMode
+from .music_visualizer_types import KickMode, MusicVisualizationMode
 
 
 class MusicVisualizerRequestHandlerIf(ABC):
@@ -24,3 +24,6 @@ class MusicVisualizerRequestHandlerIf(ABC):
 
     @abstractmethod
     def request_kick_mode(self, mode: KickMode) -> None: ...
+
+    @abstractmethod
+    def request_visualization_mode(self, mode: MusicVisualizationMode) -> None: ...
