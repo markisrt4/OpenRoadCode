@@ -14,26 +14,10 @@ from messaging.zeromq import ZeroMqPublisher
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description="Publish mock openroad.navigation.position messages."
-    )
-    parser.add_argument(
-        "--endpoint",
-        default="tcp://0.0.0.0:5557",
-        help="ZeroMQ bind endpoint (default: tcp://0.0.0.0:5557)",
-    )
-    parser.add_argument(
-        "--rate-hz",
-        type=float,
-        default=5.0,
-        help="Publication rate in Hz (default: 5)",
-    )
-    parser.add_argument(
-        "--fresh-hz",
-        type=float,
-        default=1.0,
-        help="Rate at which the simulated sensor produces a new fix (default: 1)",
-    )
+    parser = argparse.ArgumentParser(description="Publish mock openroad.navigation.position messages.")
+    parser.add_argument("--endpoint", default="tcp://0.0.0.0:5557")
+    parser.add_argument("--rate-hz", type=float, default=5.0)
+    parser.add_argument("--fresh-hz", type=float, default=1.0)
     args = parser.parse_args()
     if args.rate_hz <= 0.0:
         parser.error("--rate-hz must be greater than zero")
@@ -48,30 +32,28 @@ def main() -> None:
     args = parse_args()
     publisher = ZeroMqPublisher(args.endpoint)
     position_publisher = PositionStatePublisher(publisher)
-
     publication_period_s = 1.0 / args.rate_hz
     fresh_every = max(1, round(args.rate_hz / args.fresh_hz))
     phase = 0.0
     sample_index = 0
     state: PositionState | None = None
 
-    print(
-        f"Publishing mock {position_publisher.__class__.__name__} data on "
-        f"{args.endpoint} at {args.rate_hz:g} Hz "
-        f"({args.fresh_hz:g} Hz fresh fixes)"
-    )
-
+    print(f"Publishing mock position data on {args.endpoint} at {args.rate_hz:g} Hz ({args.fresh_hz:g} Hz fresh fixes)")
     try:
         while True:
             is_fresh = state is None or sample_index % fresh_every == 0
             if is_fresh:
+                # altitude = 250 + 20*sin(phase/2); phase advances 0.08 per fresh fix.
+                # Its derivative gives a believable signed vertical velocity.
+                vertical_speed_mps = 0.8 * args.fresh_hz * math.cos(phase / 2.0)
                 state = PositionState(
                     received_at=datetime.now(timezone.utc),
                     latitude_deg=42.8028 + 0.001 * math.sin(phase),
                     longitude_deg=-83.0127 + 0.001 * math.cos(phase),
-                    altitude_m=250.0 + 2.0 * math.sin(phase / 2.0),
-                    speed_mps=13.4 + 1.5 * math.sin(phase),
+                    altitude_m=250.0 + 20.0 * math.sin(phase / 2.0),
+                    speed_mps=13.4 + 5.0 * math.sin(phase),
                     course_deg=(90.0 + math.degrees(phase)) % 360.0,
+                    vertical_speed_mps=vertical_speed_mps,
                     fix_mode=3,
                     satellites_visible=14,
                     satellites_used=10,
@@ -88,6 +70,7 @@ def main() -> None:
                     altitude_m=state.altitude_m,
                     speed_mps=state.speed_mps,
                     course_deg=state.course_deg,
+                    vertical_speed_mps=state.vertical_speed_mps,
                     fix_mode=state.fix_mode,
                     satellites_visible=state.satellites_visible,
                     satellites_used=state.satellites_used,
