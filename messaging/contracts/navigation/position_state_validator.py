@@ -18,6 +18,7 @@ DATA_FIELDS = {
     "altitude_m",
     "speed_m_s",
     "course_rad",
+    "vertical_speed_m_s",
     "fix_mode",
     "satellites_visible",
     "satellites_used",
@@ -69,6 +70,7 @@ def validate_position_state(payload: Mapping[str, Any]) -> None:
     altitude = _optional_finite(data, "altitude_m")
     speed = _optional_finite(data, "speed_m_s")
     course = _optional_finite(data, "course_rad")
+    vertical_speed = _optional_finite(data, "vertical_speed_m_s")
     accuracy = _optional_finite(data, "accuracy_m")
 
     if latitude is not None and not -math.pi / 2 <= latitude <= math.pi / 2:
@@ -81,8 +83,8 @@ def validate_position_state(payload: Mapping[str, Any]) -> None:
         raise ValueError("course_rad must be in range 0..2*pi")
     if accuracy is not None and accuracy < 0:
         raise ValueError("accuracy_m cannot be negative")
-    # Altitude is intentionally signed: positions below the reference datum exist.
-    _ = altitude
+    # Altitude and vertical speed are intentionally signed.
+    _ = altitude, vertical_speed
 
     fix_mode = _optional_nonnegative_int(data, "fix_mode")
     visible = _optional_nonnegative_int(data, "satellites_visible")
