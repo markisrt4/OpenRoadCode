@@ -12,9 +12,9 @@ from pathlib import Path
 
 from apps.carTui.car_tui import CarTui
 from apps.carTui.car_tui_dependencies import CarTuiDependencies
-from apps.carTui.navigation_bus_state import NavigationBusState
 from apps.carTui.radio_catalog import build_car_tui_radios
-from apps.carTui.vehicle_bus_state import VehicleBusState
+from common.telemetry.navigation_bus_state import NavigationBusState
+from common.telemetry.vehicle_bus_state import VehicleBusState
 from config.runtime_config import RuntimeConfigParser
 from frontends.tui.automotive import UnitSystem
 from messaging.contracts.automotive import VEHICLE_STATE_TOPIC, decode_vehicle_state
