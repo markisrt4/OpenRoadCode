@@ -11,7 +11,8 @@ from messaging.zeromq import ZeroMqSubscriber
 
 MPH_PER_MPS=2.2369362920544; FEET_PER_METER=3.2808398950131; FPM_PER_MPS=196.8503937007874; CTRL_X=24
 
-class Latest:
+class NavigationUiState:
+    """Thread-safe latest navigation state consumed by the TUI renderer."""
     def __init__(self): self.lock=threading.Lock(); self.position=None; self.motion=None; self.error=None
     def set_position(self,message):
         with self.lock:self.position=message;self.error=None
@@ -65,10 +66,10 @@ def draw_motion(w,row,col,motion,metric):
     label="VERTICAL" if climb is None else "CLIMB" if climb>.01 else "DESCENT" if climb<-.01 else "LEVEL";arrow="-" if climb is None or abs(climb)<=.01 else "^" if climb>0 else "v"
     safe(w,row+6,col,f"{label:8} {arrow} {ct}");safe(w,row+7,col,bar(climb,cm));safe(w,row+8,col,f"Motion cached: {'YES' if d.is_cached else 'NO - fresh estimate'}")
 
-def run(w,endpoint,latest):
+def run(w,endpoint,ui_state):
     curses.curs_set(0);w.timeout(200);metric=False
     while True:
-        p,m,e=latest.snapshot();w.erase();safe(w,0,0,"OpenRoadCode Navigation Bus Demo");safe(w,1,0,f"Endpoint: {endpoint}");safe(w,2,0,"Topics: position + motion");safe(w,4,0,f"q/Ctrl+X: quit   u: units   {'METRIC' if metric else 'IMPERIAL'}")
+        p,m,e=ui_state.snapshot();w.erase();safe(w,0,0,"OpenRoadCode Navigation Bus Demo");safe(w,1,0,f"Endpoint: {endpoint}");safe(w,2,0,"Topics: position + motion");safe(w,4,0,f"q/Ctrl+X: quit   u: units   {'METRIC' if metric else 'IMPERIAL'}")
         if e:safe(w,6,0,e)
         elif p is None:safe(w,6,0,"Waiting for position messages...")
         else:
@@ -80,13 +81,13 @@ def run(w,endpoint,latest):
         if k in (ord('u'),ord('U')):metric=not metric
 
 def main():
-    ap=argparse.ArgumentParser();ap.add_argument("--endpoint",default="tcp://127.0.0.1:5557");a=ap.parse_args();latest=Latest()
-    dispatcher=MessageDispatcher(ZeroMqSubscriber(a.endpoint),error_handler=latest.set_error)
-    dispatcher.register(POSITION_STATE_TOPIC,decode_position_state,latest.set_position)
-    dispatcher.register(MOTION_STATE_TOPIC,decode_motion_state,latest.set_motion)
+    ap=argparse.ArgumentParser();ap.add_argument("--endpoint",default="tcp://127.0.0.1:5557");a=ap.parse_args();ui_state=NavigationUiState()
+    dispatcher=MessageDispatcher(ZeroMqSubscriber(a.endpoint),error_handler=ui_state.set_error)
+    dispatcher.register(POSITION_STATE_TOPIC,decode_position_state,ui_state.set_position)
+    dispatcher.register(MOTION_STATE_TOPIC,decode_motion_state,ui_state.set_motion)
     dispatcher.start()
     try:
-        curses.wrapper(run,a.endpoint,latest)
+        curses.wrapper(run,a.endpoint,ui_state)
     except KeyboardInterrupt:pass
     finally:dispatcher.close()
     return 0
