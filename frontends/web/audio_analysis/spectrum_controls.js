@@ -17,10 +17,11 @@
     return true;
   }
   function endpoint(action){return `/api/audio-analysis/${activeSource}/${action}`}
-  async function startZeroize(){const b=document.getElementById('spectrum-zeroize');if(b){b.disabled=true;b.textContent='ZEROIZING… KEEP MUSIC OFF'}try{const r=await fetch(endpoint('zeroize'),{method:'POST'});const j=await r.json();if(!r.ok)throw Error(j.error||`HTTP ${r.status}`);setTimeout(()=>{if(b){b.disabled=false;b.textContent='RE-ZEROIZE ROOM NOISE'}},1700)}catch(e){if(b){b.disabled=false;b.textContent='ZEROIZE FAILED'}console.warn(e)}}
-  async function setSensitivity(value){try{const r=await fetch(endpoint('sensitivity'),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({value})});if(!r.ok)throw Error(`HTTP ${r.status}`)}catch(e){console.warn('Sensitivity update failed',e)}}
+  async function startZeroize(){const b=document.getElementById('spectrum-zeroize');if(b){b.disabled=true;b.textContent='ZEROIZING… KEEP MUSIC OFF'}try{const r=await fetch(endpoint('zeroize'),{method:'POST'});const j=await r.json();if(!r.ok)throw Error(j.error||`HTTP ${r.status}`);syncState(j)}catch(e){if(b){b.disabled=false;b.textContent='ZEROIZE FAILED'}console.warn(e)}}
+  async function setSensitivity(value){try{const r=await fetch(endpoint('sensitivity'),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({value})});const j=await r.json();if(!r.ok)throw Error(j.error||`HTTP ${r.status}`);syncState(j)}catch(e){console.warn('Sensitivity update failed',e)}}
+  function syncState(payload){const ui=payload?.ui||{},state=ui.status||'';const calibrated=ui.calibrated??payload?.calibrated??false;const sensitivity=ui.sensitivity??payload?.sensitivity;const b=document.getElementById('spectrum-zeroize');if(b){if(state==='zeroizing'){b.disabled=true;b.textContent='ZEROIZING… KEEP MUSIC OFF'}else{b.disabled=false;b.textContent=calibrated?'RE-ZEROIZE ROOM NOISE':'ZEROIZE ROOM NOISE'}}if(Number.isFinite(sensitivity)){const slider=document.getElementById('spectrum-sensitivity'),label=document.getElementById('spectrum-sensitivity-value'),pct=Math.round(sensitivity*100);if(slider&&document.activeElement!==slider)slider.value=String(pct);if(label)label.textContent=pct+'%'}}
   function setCaptureActive(active){const b=document.getElementById('spectrum-zeroize');if(b)b.style.display=active?'block':'none'}
   function setSource(source){activeSource=source==='linux'?'linux':'browser'}
-  function render(state,bars){const spectrum=state?.audio?.spectrum||state?.spectrum||[];spectrum.forEach((v,i)=>{if(bars[i])bars[i].style.height=`${Math.max(2,Math.max(0,Math.min(1,v))*100)}%`})}
-  root.SpectrumDisplay={install,render,startZeroize,setCaptureActive,setSource};
+  function render(state,bars){const spectrum=state?.audio?.spectrum||state?.spectrum||[];spectrum.forEach((v,i)=>{if(bars[i])bars[i].style.height=`${Math.max(2,Math.max(0,Math.min(1,v))*100)}%`});syncState(state)}
+  root.SpectrumDisplay={install,render,startZeroize,setCaptureActive,setSource,syncState};
 })();
