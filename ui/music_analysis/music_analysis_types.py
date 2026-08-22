@@ -7,6 +7,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import Enum
 
+from controllers.audio_analysis.audio_analysis import SpectrumAnalysisMode
+
 
 class MusicAnalysisStatus(Enum):
     STOPPED = "stopped"
@@ -21,6 +23,7 @@ class MusicAnalysisUiState:
     status: MusicAnalysisStatus = MusicAnalysisStatus.STOPPED
     calibrated: bool = False
     sensitivity: float = 1.0
+    spectrum_mode: SpectrumAnalysisMode = SpectrumAnalysisMode.HYBRID
     error: str | None = None
 
     def __post_init__(self) -> None:
