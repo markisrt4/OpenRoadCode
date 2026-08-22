@@ -8,122 +8,120 @@ import math
 import random
 import tkinter as tk
 from tkinter import ttk
+from collections.abc import Callable
 
-from controllers.audio_analysis.audio_analysis import AudioAnalysisState
+from controllers.audio_analysis.music_analysis import MusicAnalysisState
 
 
 class MusicVisualizerPanel(tk.Frame):
-    """Render analyzed audio without coupling the controller to Tk."""
+    """Native Linux music visualizer with controls and percussion display."""
 
-    MODES = ("Spectrum", "Orbiting Planets", "Electric Freeway", "Explosion Field")
+    MODES = (
+        "Spectrum", "Orbiting Planets", "Electric Freeway", "Explosion Field",
+        "Star Dance", "Electric Rings", "Neon Ribbon", "Kaleidoscope",
+    )
 
-    def __init__(self, parent: tk.Misc) -> None:
+    def __init__(self, parent: tk.Misc, *, on_zeroize: Callable[[], None] | None = None,
+                 on_sensitivity: Callable[[float], None] | None = None,
+                 on_identify: Callable[[], None] | None = None) -> None:
         super().__init__(parent, bg="#0b0d10")
-        self._state = AudioAnalysisState(0, 0, 0, 0, 0, ())
+        self._state: MusicAnalysisState | None = None
         self._phase = 0.0
         self._mode = tk.StringVar(value=self.MODES[0])
-        self._stars = [(random.random(), random.random(), random.uniform(.5, 1.5)) for _ in range(55)]
+        self._sensitivity = tk.DoubleVar(value=1.0)
+        self._on_zeroize, self._on_sensitivity, self._on_identify = on_zeroize, on_sensitivity, on_identify
+        self._stars = [(random.random(), random.random(), random.uniform(.5, 1.5)) for _ in range(70)]
         self._particles: list[tuple[float, float, float]] = []
+        self._pulse = {name: 0.0 for name in ("kick", "snare", "tom_low", "tom_mid", "tom_high", "cymbal")}
         self._build()
 
     def _build(self) -> None:
-        controls = tk.Frame(self, bg="#0b0d10")
-        controls.pack(fill="x", padx=8, pady=(4, 8))
-        tk.Label(controls, text="VISUALIZER", bg="#0b0d10", fg="white", font=("TkDefaultFont", 14, "bold")).pack(side="left")
-        combo = ttk.Combobox(controls, textvariable=self._mode, values=self.MODES, state="readonly", width=20)
-        combo.pack(side="right")
-        self._canvas = tk.Canvas(self, bg="#030509", highlightthickness=0)
-        self._canvas.pack(fill="both", expand=True, padx=8)
-        meters = tk.Frame(self, bg="#0b0d10")
-        meters.pack(fill="x", padx=8, pady=8)
-        self._meter_labels: dict[str, tk.Label] = {}
-        for name in ("LEVEL", "BASS", "MID", "TREBLE"):
-            label = tk.Label(meters, text=f"{name}  0%", bg="#0b0d10", fg="#aebac4", font=("TkDefaultFont", 10, "bold"))
-            label.pack(side="left", expand=True)
-            self._meter_labels[name.lower()] = label
+        controls=tk.Frame(self,bg="#0b0d10");controls.pack(fill="x",padx=8,pady=(4,6))
+        tk.Label(controls,text="VISUALIZER",bg="#0b0d10",fg="white",font=("TkDefaultFont",14,"bold")).pack(side="left")
+        ttk.Combobox(controls,textvariable=self._mode,values=self.MODES,state="readonly",width=18).pack(side="right")
+        tk.Button(controls,text="ZEROIZE",command=self._zeroize,bg="#18222e",fg="white").pack(side="right",padx=5)
+        tk.Button(controls,text="IDENTIFY",command=self._identify,bg="#18222e",fg="white").pack(side="right",padx=5)
+        sens=tk.Scale(controls,from_=25,to=200,orient="horizontal",showvalue=False,length=120,bg="#0b0d10",fg="white",highlightthickness=0,variable=self._sensitivity,command=self._sensitivity_changed);sens.set(100);sens.pack(side="right")
+        tk.Label(controls,text="SENS",bg="#0b0d10",fg="#8fa0ad").pack(side="right")
+        self._now=tk.Label(self,text="NOW HEARING  ·  Song recognition unconfigured",anchor="w",bg="#10151b",fg="#b9c8d3",padx=10,pady=5);self._now.pack(fill="x",padx=8,pady=(0,5))
+        self._canvas=tk.Canvas(self,bg="#030509",highlightthickness=0,height=230);self._canvas.pack(fill="both",expand=True,padx=8)
+        self._drums=tk.Canvas(self,bg="#080c10",highlightthickness=0,height=145);self._drums.pack(fill="x",padx=8,pady=(5,0))
+        meters=tk.Frame(self,bg="#0b0d10");meters.pack(fill="x",padx=8,pady=6);self._meter_labels={}
+        for name in ("LEVEL","BASS","MID","TREBLE"):
+            label=tk.Label(meters,text=f"{name}  0%",bg="#0b0d10",fg="#aebac4",font=("TkDefaultFont",9,"bold"));label.pack(side="left",expand=True);self._meter_labels[name.lower()]=label
 
-    def update_state(self, state: AudioAnalysisState) -> None:
-        self._state = state
-        self._phase += .07 + state.level * .12
-        for name in ("level", "bass", "mid", "treble"):
-            self._meter_labels[name].configure(text=f"{name.upper()}  {int(getattr(state, name) * 100):02d}%")
-        self._draw()
+    def _zeroize(self)->None:
+        if self._on_zeroize:self._on_zeroize()
+    def _identify(self)->None:
+        if self._on_identify:self._on_identify()
+    def _sensitivity_changed(self,value:str)->None:
+        if self._on_sensitivity:self._on_sensitivity(float(value)/100.0)
+    def set_song_metadata(self,title:str,artist:str="",album:str="",provider:str="")->None:
+        parts=[title];
+        if artist:parts.append(artist)
+        if album:parts.append(album)
+        suffix=f"  [{provider}]" if provider else ""
+        self._now.configure(text="NOW HEARING  ·  "+" · ".join(parts)+suffix)
+    def set_recognition_status(self,text:str)->None:self._now.configure(text="NOW HEARING  ·  "+text)
 
-    def _draw(self) -> None:
-        c = self._canvas
-        c.delete("all")
-        w, h = max(2, c.winfo_width()), max(2, c.winfo_height())
-        mode = self._mode.get()
-        if mode == "Orbiting Planets": self._draw_planets(w, h)
-        elif mode == "Electric Freeway": self._draw_freeway(w, h)
-        elif mode == "Explosion Field": self._draw_explosion(w, h)
-        else: self._draw_spectrum(w, h)
+    def update_state(self,state:MusicAnalysisState)->None:
+        self._state=state;self._phase+=.07+state.audio.level*.12
+        for name in ("level","bass","mid","treble"):self._meter_labels[name].configure(text=f"{name.upper()}  {int(getattr(state.audio,name)*100):02d}%")
+        p=state.percussion
+        for name in self._pulse:self._pulse[name]=max(getattr(p,name),self._pulse[name]*.72)
+        self._draw();self._draw_drums()
 
-    def _draw_spectrum(self, w: int, h: int) -> None:
-        values = self._state.spectrum or (0.0,) * 24
-        gap = 3
-        bw = max(2, (w - gap * (len(values) + 1)) / len(values))
-        for i, value in enumerate(values):
-            x0 = gap + i * (bw + gap); y0 = h - 8; y1 = y0 - value * (h - 20)
-            hue = i / max(1, len(values) - 1)
-            color = self._gradient(hue)
-            self._canvas.create_rectangle(x0, y1, x0 + bw, y0, fill=color, outline="")
+    def _draw(self)->None:
+        if self._state is None:return
+        c=self._canvas;c.delete("all");w,h=max(2,c.winfo_width()),max(2,c.winfo_height());m=self._mode.get()
+        {"Orbiting Planets":self._draw_planets,"Electric Freeway":self._draw_freeway,"Explosion Field":self._draw_explosion,"Star Dance":self._draw_stars,"Electric Rings":self._draw_rings,"Neon Ribbon":self._draw_ribbon,"Kaleidoscope":self._draw_kaleidoscope}.get(m,self._draw_spectrum)(w,h)
 
-    def _draw_planets(self, w: int, h: int) -> None:
-        cx, cy = w / 2, h / 2
-        for sx, sy, size in self._stars:
-            glow = int(120 + 135 * self._state.treble)
-            color = f"#{glow:02x}{glow:02x}{min(255,glow+20):02x}"
-            self._canvas.create_oval(sx*w, sy*h, sx*w+size, sy*h+size, fill=color, outline="")
-        sun = 18 + 18 * self._state.level
-        self._canvas.create_oval(cx-sun, cy-sun, cx+sun, cy+sun, fill="#ffc24b", outline="#fff1a8", width=2)
-        planets = ((.24, .85, self._state.bass, "#55aaff"), (.36, -1.25, self._state.mid, "#ff5d91"), (.46, .42, self._state.treble, "#76ef78"))
-        for radius, speed, energy, color in planets:
-            rr = min(w, h) * radius
-            self._canvas.create_oval(cx-rr, cy-rr*.55, cx+rr, cy+rr*.55, outline="#182936")
-            a = self._phase * speed
-            px, py = cx + math.cos(a)*rr, cy + math.sin(a)*rr*.55
-            pr = 7 + energy*13
-            self._canvas.create_oval(px-pr*1.7, py-pr*1.7, px+pr*1.7, py+pr*1.7, fill="", outline=color, width=2)
-            self._canvas.create_oval(px-pr, py-pr, px+pr, py+pr, fill=color, outline="white")
+    def _draw_drums(self)->None:
+        c=self._drums;c.delete("all");w=max(2,c.winfo_width());h=max(2,c.winfo_height())
+        items=((.15,.54,28,"HIGH TOM","tom_high","#a84cff"),(.34,.54,30,"MID TOM","tom_mid","#38d6b4"),(.54,.54,31,"LOW TOM","tom_low","#28b6ff"),(.73,.62,30,"SNARE","snare","#ffc62e"),(.89,.63,35,"KICK","kick","#ff6238"))
+        for xf,yf,r,label,key,color in items:
+            pulse=self._pulse[key];rr=r*(1+.35*pulse);x,y=w*xf,h*yf
+            c.create_text(x,y-r-19,text=label,fill="#aebac4",font=("TkDefaultFont",8,"bold"))
+            if pulse>.05:c.create_oval(x-rr-7,y-rr-7,x+rr+7,y+rr+7,outline=color,width=max(1,int(1+pulse*4)))
+            c.create_oval(x-rr,y-rr,x+rr,y+rr,fill="#111820",outline=color,width=3)
+        cym=self._pulse["cymbal"];cy=25;c.create_text(w*.08,8,text="HI-HAT",fill="#aebac4",font=("TkDefaultFont",8,"bold"));c.create_line(w*.04,cy,w*.12,cy,fill="#ffd33d",width=int(3+cym*5));c.create_text(w*.91,8,text="CRASH",fill="#aebac4",font=("TkDefaultFont",8,"bold"));c.create_oval(w*.86-28,cy-5,w*.96+8,cy+7,outline="#ffd33d",width=int(2+cym*5))
 
-    def _draw_freeway(self, w: int, h: int) -> None:
-        horizon = h*.28; center = w*.5
-        self._canvas.create_polygon(center-w*.08,horizon,center+w*.08,horizon,w*.93,h,w*.07,h,fill="#08141a",outline="#2189b7")
-        for lane in (-.5, 0, .5):
-            self._canvas.create_line(center+lane*w*.08,horizon,center+lane*w*.62,h,fill="#45c9ff",width=2)
-        offset = (self._phase*.12) % 1
-        for i in range(9):
-            z = (i/9 + offset) % 1
-            y = horizon + (z*z)*(h-horizon); spread = z*w*.36
-            self._canvas.create_line(center-spread,y,center+spread,y,fill="#174457")
-        for i in range(5):
-            z = ((i*.19 + self._phase*.018) % 1); y=horizon+z*z*(h-horizon); x=center+(i-2)*w*.07*z
-            cw=7+z*20+self._state.bass*8; ch=cw*.45
-            color=self._gradient((i*.2+self._phase*.01)%1)
-            self._canvas.create_rectangle(x-cw,y-ch,x+cw,y+ch,outline=color,width=2)
-            self._canvas.create_oval(x-cw*.7,y,x-cw*.35,y+ch*.7,fill="#ff3c28",outline="")
-            self._canvas.create_oval(x+cw*.35,y,x+cw*.7,y+ch*.7,fill="#ff3c28",outline="")
-
-    def _draw_explosion(self, w: int, h: int) -> None:
-        cx, cy=w/2,h/2
-        if self._state.bass > .68 and len(self._particles) < 90:
-            self._particles.extend((random.random()*math.tau, random.uniform(.7,2.4), 0.0) for _ in range(14))
-        next_particles=[]
-        for angle,speed,age in self._particles:
-            age += .025; r=age*min(w,h)*speed
-            if age < 1:
-                x=cx+math.cos(angle)*r; y=cy+math.sin(angle)*r
-                size=max(1,5*(1-age)); color="#fff09a" if age<.35 else "#ff642f"
-                self._canvas.create_oval(x-size,y-size,x+size,y+size,fill=color,outline="")
-                next_particles.append((angle,speed,age))
-        self._particles=next_particles
-        pulse=18+self._state.bass*55
-        self._canvas.create_oval(cx-pulse*1.6,cy-pulse*1.6,cx+pulse*1.6,cy+pulse*1.6,outline="#ff3b19",width=3)
-        self._canvas.create_oval(cx-pulse,cy-pulse,cx+pulse,cy+pulse,fill="#ffb02e",outline="#fff4b0",width=2)
-
+    @property
+    def a(self):return self._state.audio
+    def _draw_spectrum(self,w,h):
+        vals=self.a.spectrum or (0.,)*24;gap=3;bw=max(2,(w-gap*(len(vals)+1))/len(vals))
+        for i,v in enumerate(vals):x=gap+i*(bw+gap);self._canvas.create_rectangle(x,h-8-v*(h-20),x+bw,h-8,fill=self._gradient(i/max(1,len(vals)-1)),outline="")
+    def _draw_planets(self,w,h):
+        cx,cy=w/2,h/2
+        for sx,sy,size in self._stars:self._canvas.create_oval(sx*w,sy*h,sx*w+size,sy*h+size,fill="#b9d8ff",outline="")
+        sun=15+20*self.a.level;self._canvas.create_oval(cx-sun,cy-sun,cx+sun,cy+sun,fill="#ffc24b",outline="#fff1a8")
+        for radius,speed,e,color in ((.22,.85,self.a.bass,"#55aaff"),(.34,-1.25,self.a.mid,"#ff5d91"),(.45,.42,self.a.treble,"#76ef78")):
+            rr=min(w,h)*radius;a=self._phase*speed;x=cx+math.cos(a)*rr;y=cy+math.sin(a)*rr*.55;pr=6+e*12;self._canvas.create_oval(x-pr,y-pr,x+pr,y+pr,fill=color,outline="white")
+    def _draw_freeway(self,w,h):
+        horizon=h*.27;cx=w*.5;self._canvas.create_polygon(cx-w*.07,horizon,cx+w*.07,horizon,w*.94,h,w*.06,h,fill="#07141b",outline="#21a8df")
+        for lane in (-.5,0,.5):self._canvas.create_line(cx+lane*w*.07,horizon,cx+lane*w*.62,h,fill="#45c9ff",width=2)
+        for i in range(7):z=(i*.17+self._phase*.018)%1;y=horizon+z*z*(h-horizon);x=cx+(i-3)*w*.055*z;cw=5+z*17+self.a.bass*7;self._canvas.create_rectangle(x-cw,y-cw*.25,x+cw,y+cw*.25,outline=self._gradient(i*.14+self._phase*.01),width=2)
+    def _draw_explosion(self,w,h):
+        cx,cy=w/2,h/2
+        if self.a.bass>.65 and len(self._particles)<100:self._particles.extend((random.random()*math.tau,random.uniform(.7,2.5),0.) for _ in range(15))
+        nxt=[]
+        for ang,speed,age in self._particles:
+            age+=.03;r=age*min(w,h)*speed
+            if age<1:x=cx+math.cos(ang)*r;y=cy+math.sin(ang)*r;s=max(1,5*(1-age));self._canvas.create_oval(x-s,y-s,x+s,y+s,fill="#ffb02e",outline="");nxt.append((ang,speed,age))
+        self._particles=nxt;p=15+self.a.bass*50;self._canvas.create_oval(cx-p,cy-p,cx+p,cy+p,outline="#ff5528",width=4)
+    def _draw_stars(self,w,h):
+        for sx,sy,size in self._stars:
+            x=((sx-.5)*(1+self.a.level*.7)+.5)*w;y=((sy-.5)*(1+self.a.level*.7)+.5)*h;r=size*(1+self.a.treble*3);self._canvas.create_oval(x-r,y-r,x+r,y+r,fill=self._gradient(sx+self._phase*.01),outline="")
+    def _draw_rings(self,w,h):
+        cx,cy=w/2,h/2
+        for i,v in enumerate(self.a.spectrum[::3] or (0,)*8):r=(i+1)*min(w,h)/18+v*28;self._canvas.create_oval(cx-r,cy-r,cx+r,cy+r,outline=self._gradient(i/8+self._phase*.01),width=2+int(v*4))
+    def _draw_ribbon(self,w,h):
+        vals=self.a.spectrum or (0,)*24;pts=[]
+        for i,v in enumerate(vals):x=i*w/max(1,len(vals)-1);y=h*.5-math.sin(i*.65+self._phase)*25-v*h*.28;pts.extend((x,y))
+        if len(pts)>=4:self._canvas.create_line(*pts,fill="#44ddff",width=4,smooth=True);self._canvas.create_line(*[p+(8 if i%2 else 0) for i,p in enumerate(pts)],fill="#ff55c8",width=2,smooth=True)
+    def _draw_kaleidoscope(self,w,h):
+        cx,cy=w/2,h/2;vals=self.a.spectrum or (0,)*24
+        for i in range(18):a=i*math.tau/18+self._phase*.03;v=vals[i%len(vals)];r=min(w,h)*(.15+.38*v);x=cx+math.cos(a)*r;y=cy+math.sin(a)*r;self._canvas.create_line(cx,cy,x,y,fill=self._gradient(i/18+self._phase*.01),width=2+int(v*5));self._canvas.create_oval(x-5-v*8,y-5-v*8,x+5+v*8,y+5+v*8,outline=self._gradient(i/18),width=2)
     @staticmethod
-    def _gradient(x: float) -> str:
-        x %= 1.0
-        r=int(128+127*math.sin(math.tau*(x+.00)));g=int(128+127*math.sin(math.tau*(x+.33)));b=int(128+127*math.sin(math.tau*(x+.66)))
-        return f"#{r:02x}{g:02x}{b:02x}"
+    def _gradient(x):
+        x%=1.;r=int(128+127*math.sin(math.tau*x));g=int(128+127*math.sin(math.tau*(x+.33)));b=int(128+127*math.sin(math.tau*(x+.66)));return f"#{r:02x}{g:02x}{b:02x}"
