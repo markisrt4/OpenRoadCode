@@ -7,7 +7,7 @@ import tkinter as tk
 from apps.common.instruments.gauge_config import GaugeConfig
 from apps.common.instruments.gauge_style import GaugeStyle
 from apps.common.instruments.instrument_panel import InstrumentPanel
-from controllers.automotive import VehicleState
+from messaging.contracts.automotive import VehicleStateData
 
 
 RPM_PER_RAD_S = 60.0 / (2.0 * math.pi)
@@ -39,8 +39,8 @@ class AutomotiveDashboardWindow(tk.Frame):
         )
         self._panel.pack(fill=tk.BOTH, expand=True)
 
-    def update_vehicle_state(self, state: VehicleState) -> None:
-        """Render an SI-normalized vehicle snapshot using dashboard units."""
+    def update_vehicle_state(self, state: VehicleStateData) -> None:
+        """Render SI contract data using dashboard presentation units."""
         self._panel.set_values(
             {
                 "boost": (
