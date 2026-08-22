@@ -26,6 +26,18 @@ class SongRecognitionResult:
 class SongRecognitionIf(ABC):
     """Recognize a short encoded audio sample and return normalized metadata."""
 
+    @property
+    @abstractmethod
+    def is_configured(self) -> bool:
+        """Return whether this recognizer is ready to make requests."""
+        raise NotImplementedError
+
+    @property
+    @abstractmethod
+    def provider_name(self) -> str | None:
+        """Return a human-readable provider name, if configured."""
+        raise NotImplementedError
+
     @abstractmethod
     def recognize(self, audio: bytes, *, sample_bytes: int | None = None) -> SongRecognitionResult | None:
         """Return the best matching song, or ``None`` when no match is found."""
