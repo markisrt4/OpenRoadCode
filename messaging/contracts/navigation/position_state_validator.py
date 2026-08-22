@@ -13,17 +13,8 @@ from messaging.contracts.common.timestamp import validate_timestamp
 
 SCHEMA_VERSION = 1
 DATA_FIELDS = {
-    "latitude_rad",
-    "longitude_rad",
-    "altitude_m",
-    "speed_m_s",
-    "course_rad",
-    "vertical_speed_m_s",
-    "fix_mode",
-    "satellites_visible",
-    "satellites_used",
-    "accuracy_m",
-    "is_cached",
+    "latitude_rad", "longitude_rad", "altitude_m", "speed_m_s", "course_rad",
+    "fix_mode", "satellites_visible", "satellites_used", "accuracy_m", "is_cached",
 }
 
 
@@ -60,19 +51,15 @@ def validate_position_state(payload: Mapping[str, Any]) -> None:
         raise ValueError("source must be a non-empty string")
     if not isinstance(payload["data"], Mapping):
         raise ValueError("data must be an object")
-
     data = payload["data"]
     if set(data) != DATA_FIELDS:
         raise ValueError("position data has missing or unknown fields")
-
     latitude = _optional_finite(data, "latitude_rad")
     longitude = _optional_finite(data, "longitude_rad")
-    altitude = _optional_finite(data, "altitude_m")
+    _optional_finite(data, "altitude_m")
     speed = _optional_finite(data, "speed_m_s")
     course = _optional_finite(data, "course_rad")
-    vertical_speed = _optional_finite(data, "vertical_speed_m_s")
     accuracy = _optional_finite(data, "accuracy_m")
-
     if latitude is not None and not -math.pi / 2 <= latitude <= math.pi / 2:
         raise ValueError("latitude_rad must be in range -pi/2..pi/2")
     if longitude is not None and not -math.pi <= longitude <= math.pi:
@@ -83,9 +70,6 @@ def validate_position_state(payload: Mapping[str, Any]) -> None:
         raise ValueError("course_rad must be in range 0..2*pi")
     if accuracy is not None and accuracy < 0:
         raise ValueError("accuracy_m cannot be negative")
-    # Altitude and vertical speed are intentionally signed.
-    _ = altitude, vertical_speed
-
     fix_mode = _optional_nonnegative_int(data, "fix_mode")
     visible = _optional_nonnegative_int(data, "satellites_visible")
     used = _optional_nonnegative_int(data, "satellites_used")
