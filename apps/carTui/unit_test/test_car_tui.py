@@ -9,8 +9,9 @@ from unittest.mock import Mock, patch
 
 from apps.carTui.car_tui import CarTui
 from apps.carTui.main import build_dependencies, main
-from controllers.automotive import SimulatedVehicleStateSource
+from apps.carTui.vehicle_bus_state import VehicleBusState
 from controllers.navigation import SimulatedNavigationController
+from messaging.message_dispatcher import MessageDispatcher
 
 
 class FakeWindow:
@@ -58,17 +59,20 @@ class CarTuiTest(unittest.TestCase):
         app = CarTui(Mock())
         app.run(FakeWindow([ord("q")]))
 
-    def test_demo_builds_only_software_simulators(self) -> None:
+    def test_demo_uses_simulated_navigation_and_bus_vehicle_state(self) -> None:
         dependencies = build_dependencies(Namespace(simulate=True))
-
-        self.assertIsInstance(
-            dependencies.navigation_controller,
-            SimulatedNavigationController,
-        )
-        self.assertIsInstance(
-            dependencies.vehicle_manager,
-            SimulatedVehicleStateSource,
-        )
+        try:
+            self.assertIsInstance(
+                dependencies.navigation_controller,
+                SimulatedNavigationController,
+            )
+            self.assertIsInstance(dependencies.vehicle_state, VehicleBusState)
+            self.assertIsInstance(
+                dependencies.vehicle_dispatcher,
+                MessageDispatcher,
+            )
+        finally:
+            dependencies.close()
 
     @patch("apps.carTui.main.curses.wrapper")
     @patch("apps.carTui.main.parse_args")
