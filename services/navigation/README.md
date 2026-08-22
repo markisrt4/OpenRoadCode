@@ -44,6 +44,32 @@ python3 -m services.navigation.navigation_service_cli --gps
 
 The default telemetry publisher endpoint is supplied by `messaging.zeromq.endpoints`. The navigation command endpoint defaults to `tcp://127.0.0.1:5560`.
 
+## System startup
+
+A runtime wrapper and systemd installer are provided for Linux deployments:
+
+```bash
+sudo scripts/systemd/install_navigation_service_systemd.sh
+```
+
+The installer creates and enables `openroadcode-navigation.service` under the user account that invoked `sudo`. Inspect it with:
+
+```bash
+sudo systemctl status openroadcode-navigation.service
+journalctl -u openroadcode-navigation.service -f
+```
+
+The wrapper `scripts/runtime/start_navigation_service.sh` accepts normal CLI arguments and also recognizes these optional environment variables:
+
+- `OPENROADCODE_PYTHON` - Python executable, default `python3`
+- `OPENROADCODE_NAV_SIMULATE=1` - use the simulated navigation controller
+- `OPENROADCODE_NAV_GPS=1` - enable GPS input
+- `OPENROADCODE_NAV_RATE_HZ` - telemetry publication rate
+- `OPENROADCODE_NAV_COMMAND_ENDPOINT` - command REQ/REP endpoint
+- `OPENROADCODE_NAV_PUBLISHER_ENDPOINT` - telemetry publisher endpoint
+
+The message broker must also be running for telemetry publication. The command server can still bind independently, but normal OpenRoadCode deployment should start the broker before telemetry-producing services.
+
 ## Public telemetry
 
 The service publishes one controller snapshot across the navigation contracts:
