@@ -3,6 +3,7 @@
 
 from .acrcloud_song_recognizer import AcrCloudConfig, AcrCloudSongRecognizer
 from .song_metadata_cache import SongId, SongMetadataCache
+from .song_recognition_controller import SongRecognitionController
 from .song_recognition_if import SongRecognitionIf, SongRecognitionResult
 from .unconfigured_song_recognizer import UnconfiguredSongRecognizer
 
@@ -11,6 +12,7 @@ __all__ = [
     "AcrCloudSongRecognizer",
     "SongId",
     "SongMetadataCache",
+    "SongRecognitionController",
     "SongRecognitionIf",
     "SongRecognitionResult",
     "UnconfiguredSongRecognizer",
