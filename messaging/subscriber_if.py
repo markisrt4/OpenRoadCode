@@ -13,12 +13,18 @@ class SubscriberIf(ABC):
 
     @abstractmethod
     def subscribe(self, topic: str) -> None:
-        """Subscribe to a topic or transport-specific topic prefix."""
+        """Subscribe to a topic or transport-specific topic prefix.
+
+        @param topic Public topic name or supported transport-specific prefix.
+        """
         ...
 
     @abstractmethod
     def receive(self) -> tuple[str, Mapping[str, Any]]:
-        """Block until one message is received and return topic plus payload."""
+        """Block until one encoded message is received.
+
+        @return Pair containing the received topic and JSON-compatible payload.
+        """
         ...
 
     def close(self) -> None:
