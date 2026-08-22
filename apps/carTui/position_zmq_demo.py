@@ -16,21 +16,7 @@ from messaging.zeromq import ZeroMqSubscriber
 
 MPH_PER_MPS = 2.2369362920544
 FEET_PER_METER = 3.2808398950131
-
-WORLD_MAP = (
-    "             .-''''-.                       ",
-    "        _.-''  _   _ ``-._                  ",
-    "     .-'     .' '.   '.   '-.               ",
-    "   .'      _/     \\    \\     '.             ",
-    "  /      .'        '.   '.      \\            ",
-    " ;      /   AMERICAS  \\   EUROPE ;           ",
-    " |     ;              ;       /  |           ",
-    " ;      \\            /  AFRICA   ;           ",
-    "  \\      '.        .'      _.-'             ",
-    "   '.       `-.__.-'    ASIA               ",
-    "     '-._             _.-'                  ",
-    "          `--.....--'                       ",
-)
+CTRL_X = 24
 
 
 class LatestPosition:
@@ -61,28 +47,88 @@ def _format(value, digits: int = 2) -> str:
     return "--" if value is None else f"{value:.{digits}f}"
 
 
-def _world_marker(latitude_rad: float | None, longitude_rad: float | None) -> tuple[int, int] | None:
-    if latitude_rad is None or longitude_rad is None:
-        return None
-    latitude_deg = math.degrees(latitude_rad)
-    longitude_deg = math.degrees(longitude_rad)
-    width = max(len(line) for line in WORLD_MAP)
-    height = len(WORLD_MAP)
-    x = round((longitude_deg + 180.0) / 360.0 * (width - 1))
-    y = round((90.0 - latitude_deg) / 180.0 * (height - 1))
-    return max(0, min(height - 1, y)), max(0, min(width - 1, x))
+def _init_colors() -> int:
+    """Return the curses attribute used for the position marker."""
+    if not curses.has_colors():
+        return curses.A_BOLD
+    curses.start_color()
+    try:
+        curses.use_default_colors()
+    except curses.error:
+        pass
+    curses.init_pair(1, curses.COLOR_BLUE, -1)
+    return curses.color_pair(1) | curses.A_BOLD
 
 
-def _draw_world(window, start_row: int, start_col: int, latitude_rad, longitude_rad) -> None:
-    marker = _world_marker(latitude_rad, longitude_rad)
-    for row_index, line in enumerate(WORLD_MAP):
-        chars = list(line)
-        if marker is not None and row_index == marker[0] and marker[1] < len(chars):
-            chars[marker[1]] = "X"
+def _draw_coordinate_grid(
+    window,
+    start_row: int,
+    start_col: int,
+    latitude_rad: float | None,
+    longitude_rad: float | None,
+    marker_attr: int,
+) -> None:
+    """Draw a global latitude/longitude grid with the current fix highlighted."""
+    width = 39
+    height = 13
+
+    try:
+        window.addstr(start_row, start_col + 2, "W")
+        window.addstr(start_row, start_col + width - 1, "E")
+        window.addstr(start_row + 1, start_col, "N")
+        window.addstr(start_row + height, start_col, "S")
+
+        for x in range(width):
+            char = "+" if x % 9 == 0 else "-"
+            window.addch(start_row + 1, start_col + 2 + x, char)
+            window.addch(start_row + height - 1, start_col + 2 + x, char)
+
+        for y in range(2, height - 1):
+            window.addch(start_row + y, start_col + 2, "|")
+            window.addch(start_row + y, start_col + width + 1, "|")
+
+        for x in range(9, width, 9):
+            for y in range(2, height - 1):
+                window.addch(start_row + y, start_col + 2 + x, ":")
+
+        for y in range(4, height - 1, 3):
+            for x in range(3, width):
+                if x % 9 != 0:
+                    window.addch(start_row + y, start_col + 2 + x, ".")
+
+        if latitude_rad is None or longitude_rad is None:
+            window.addstr(start_row + height + 1, start_col + 2, "No geographic fix")
+            return
+
+        latitude_deg = math.degrees(latitude_rad)
+        longitude_deg = math.degrees(longitude_rad)
+        marker_x = round((longitude_deg + 180.0) / 360.0 * (width - 1))
+        marker_y = round((90.0 - latitude_deg) / 180.0 * (height - 3))
+        marker_x = max(0, min(width - 1, marker_x))
+        marker_y = max(0, min(height - 3, marker_y))
+
+        grid_row = start_row + 2 + marker_y
+        grid_col = start_col + 2 + marker_x
+
+        for x in range(1, width - 1):
+            window.addch(grid_row, start_col + 2 + x, "-")
+        for y in range(2, height - 1):
+            window.addch(start_row + y, grid_col, "|")
+
+        marker = "●"
         try:
-            window.addstr(start_row + row_index, start_col, "".join(chars))
-        except curses.error:
-            pass
+            window.addstr(grid_row, grid_col, marker, marker_attr)
+        except (curses.error, UnicodeEncodeError):
+            window.addch(grid_row, grid_col, "O", marker_attr)
+
+        window.addstr(
+            start_row + height + 1,
+            start_col + 2,
+            f"{abs(latitude_deg):.4f}°{'N' if latitude_deg >= 0 else 'S'}  "
+            f"{abs(longitude_deg):.4f}°{'E' if longitude_deg >= 0 else 'W'}",
+        )
+    except curses.error:
+        pass
 
 
 def _receiver(endpoint: str, latest: LatestPosition) -> None:
@@ -100,6 +146,7 @@ def _receiver(endpoint: str, latest: LatestPosition) -> None:
 
 def _run(window, endpoint: str, latest: LatestPosition) -> None:
     curses.curs_set(0)
+    marker_attr = _init_colors()
     window.timeout(200)
     metric = False
 
@@ -109,7 +156,11 @@ def _run(window, endpoint: str, latest: LatestPosition) -> None:
         window.addstr(0, 0, "OpenRoadCode ZMQ Position Demo")
         window.addstr(1, 0, f"Endpoint: {endpoint}")
         window.addstr(2, 0, f"Topic:    {POSITION_STATE_TOPIC}")
-        window.addstr(4, 0, f"q: quit   u: units   Units: {'METRIC' if metric else 'IMPERIAL'}")
+        window.addstr(
+            4,
+            0,
+            f"q/Ctrl+X: quit   u: units   Units: {'METRIC' if metric else 'IMPERIAL'}",
+        )
 
         if error:
             window.addstr(6, 0, f"Subscriber error: {error}")
@@ -156,14 +207,20 @@ def _run(window, endpoint: str, latest: LatestPosition) -> None:
             for index, (label, value) in enumerate(rows, start=6):
                 window.addstr(index, 0, f"{label:10}: {value}")
 
-            world_col = 32
-            window.addstr(6, world_col, "Your highly scientific world location:")
-            _draw_world(window, 8, world_col, data.latitude_rad, data.longitude_rad)
-            window.addstr(21, world_col, "X = you, approximately. Earth survived.")
+            grid_col = 32
+            window.addstr(6, grid_col, "Global latitude / longitude")
+            _draw_coordinate_grid(
+                window,
+                7,
+                grid_col,
+                data.latitude_rad,
+                data.longitude_rad,
+                marker_attr,
+            )
 
         window.refresh()
         key = window.getch()
-        if key in (ord("q"), ord("Q")):
+        if key in (ord("q"), ord("Q"), CTRL_X):
             return
         if key in (ord("u"), ord("U")):
             metric = not metric
@@ -186,7 +243,11 @@ def main() -> int:
         daemon=True,
     )
     thread.start()
-    curses.wrapper(_run, args.endpoint, latest)
+
+    try:
+        curses.wrapper(_run, args.endpoint, latest)
+    except KeyboardInterrupt:
+        pass
     return 0
 
 
