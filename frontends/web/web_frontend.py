@@ -3,10 +3,11 @@
 
 """Flask renderer for toolkit-independent OpenRoadCode menu models."""
 from __future__ import annotations
+import json
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
-from flask import Flask, abort, jsonify, redirect, render_template_string, request, send_from_directory, url_for
+from flask import Flask, Response, abort, jsonify, redirect, render_template_string, request, send_from_directory, stream_with_context, url_for
 from markupsafe import Markup
 from frontends.web.screen_catalog import WebScreen, create_web_screens
 from frontends.web.spotify_screen import render_spotify_screen
@@ -70,6 +71,26 @@ def create_web_frontend(pages: Mapping[str, MenuPage], *, root_page: str="main",
     def navigation_state():
         if navigation_ui_state is None: abort(503)
         return jsonify(navigation_ui_state.as_dict())
+    @app.get("/api/navigation/events")
+    def navigation_events():
+        if navigation_ui_state is None: abort(503)
+
+        @stream_with_context
+        def stream():
+            generation, snapshot = navigation_ui_state.versioned_snapshot()
+            yield _sse_event("navigation", snapshot.as_dict(), event_id=generation)
+            while True:
+                update = navigation_ui_state.wait_for_update(generation, timeout_s=15.0)
+                if update is None:
+                    yield ": keep-alive\n\n"
+                    continue
+                generation, snapshot = update
+                yield _sse_event("navigation", snapshot.as_dict(), event_id=generation)
+
+        response = Response(stream(), mimetype="text/event-stream")
+        response.headers["Cache-Control"] = "no-cache"
+        response.headers["X-Accel-Buffering"] = "no"
+        return response
 
     @app.get("/api/media/spotify/auth/config")
     def spotify_auth_config():
@@ -107,3 +128,8 @@ def create_web_frontend(pages: Mapping[str, MenuPage], *, root_page: str="main",
     @app.get("/healthz")
     def healthz(): return jsonify(status="ok",frontend="web",screens=len(screen_map))
     return app
+
+
+def _sse_event(event: str, payload: Mapping[str, Any], *, event_id: int) -> str:
+    """Encode one JSON payload as a Server-Sent Event."""
+    return f"id: {event_id}\nevent: {event}\ndata: {json.dumps(payload, separators=(',', ':'))}\n\n"
