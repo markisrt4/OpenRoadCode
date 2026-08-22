@@ -35,7 +35,7 @@ def _create_navigation_session() -> tuple[
 
     endpoint = os.environ.get(
         "OPENROADCODE_ZMQ_POSITION_ENDPOINT",
-        "tcp://0.0.0.0:5557",
+        "tcp://127.0.0.1:5556",
     )
     rate_hz = float(os.environ.get("OPENROADCODE_ZMQ_POSITION_RATE_HZ", "5.0"))
 
