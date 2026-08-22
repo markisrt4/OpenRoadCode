@@ -127,85 +127,26 @@ Hardware compatibility varies by Linux distribution, kernel, device permissions,
 
 ## Software Architecture
 
-OpenRoadCode separates application logic from hardware-specific implementations.
+OpenRoadCode separates application behavior from public telemetry.
 
-The primary repository areas are:
+### Commands and behavior
 
-```text
-OpenRoadCode/
-├── apps/
-│   ├── carUi/
-│   ├── carTui/
-│   └── other applications
-│
-├── controllers/
-│   ├── audio/
-│   ├── environmental/
-│   ├── image/
-│   ├── lighting/
-│   ├── navigation/
-│   ├── radio/
-│   ├── spotify/
-│   └── other application-facing controllers
-│
-├── frontends/
-│   ├── common/input/
-│   └── tk/
-│
-├── ui/
-│   └── toolkit-independent presentation contracts
-│
-├── input_events/
-│   └── normalized physical-input contracts and values
-│
-├── hardware_io/
-│   ├── automotive/
-│   ├── bluetooth/
-│   ├── environmental/
-│   ├── gpio/
-│   ├── gps/
-│   ├── imu/
-│   ├── keyboard/
-│   ├── pushbutton/
-│   ├── rotary_encoder/
-│   └── other hardware adapters
-│
-├── protocols/
-│   ├── oauth/
-│   ├── obd2/
-│   ├── rigctl/
-│   ├── spotify/
-│   └── other protocol implementations
-│
-├── config/
-├── scripts/
-└── tests and component-test utilities
-```
-
-The intended dependency direction is:
+Applications use controller interfaces when they need to request behavior:
 
 ```text
-Applications and UI
-        │
-        ▼
-Controller interfaces
-        │
-        ▼
-Concrete controllers
-        │
-        ▼
-Hardware adapters and protocols
-        │
-        ▼
-Linux devices, services, and external hardware
-```
-
-Higher-level application modules should not depend directly on hardware-specific implementations.
-
-Cross-layer physical-input values live in `input_events`. Hardware adapters,
-controllers, frontend event queues, and applications may depend on these
-neutral contracts without depending on one another's implementations.
-
+Application / UI
+      |
+      v
+Controller interface
+      |
+      v
+Concrete controller
+      |
+      v
+Hardware adapter / protocol
+      |
+      v
+Physical hardware
 ---
 
 ## Controllers
