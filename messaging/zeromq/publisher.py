@@ -7,12 +7,13 @@ from typing import Any
 import zmq
 
 from messaging.publisher_if import PublisherIf
+from messaging.zeromq.endpoints import LOCAL_PUBLISHER_ENDPOINT
 
 
 class ZeroMqPublisher(PublisherIf):
     """ZeroMQ publisher that connects to the OpenRoadCode broker ingress."""
 
-    def __init__(self, endpoint: str = "tcp://127.0.0.1:5556") -> None:
+    def __init__(self, endpoint: str = LOCAL_PUBLISHER_ENDPOINT) -> None:
         self._context = zmq.Context()
         self._socket = self._context.socket(zmq.PUB)
         self._socket.connect(endpoint)
