@@ -39,6 +39,11 @@ def test_simulated_obd_vehicle_state_crosses_message_bus():
     broker_thread = threading.Thread(target=broker.run, daemon=True)
     broker_thread.start()
 
+    broker_deadline = time.monotonic() + 1.0
+    while not broker.is_running and time.monotonic() < broker_deadline:
+        time.sleep(0.01)
+    assert broker.is_running, "ZeroMQ broker did not start"
+
     received = []
     delivered = threading.Event()
     dispatcher = MessageDispatcher(ZeroMqSubscriber(egress))
@@ -80,3 +85,4 @@ def test_simulated_obd_vehicle_state_crosses_message_bus():
         dispatcher.close()
         broker.close()
         broker_thread.join(timeout=1.0)
+        assert not broker_thread.is_alive(), "ZeroMQ broker did not stop"
