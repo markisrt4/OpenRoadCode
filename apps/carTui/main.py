@@ -20,8 +20,12 @@ from messaging.contracts.automotive import VEHICLE_STATE_TOPIC, decode_vehicle_s
 from messaging.contracts.navigation import (
     ATTITUDE_STATE_TOPIC,
     IMU_STATE_TOPIC,
+    MOTION_STATE_TOPIC,
+    POSITION_STATE_TOPIC,
     decode_attitude_state,
     decode_imu_state,
+    decode_motion_state,
+    decode_position_state,
 )
 from messaging.message_dispatcher import MessageDispatcher
 from messaging.zeromq import ZeroMqSubscriber
@@ -75,21 +79,11 @@ def _create_telemetry_consumer() -> tuple[
         ZeroMqSubscriber(endpoint),
         error_handler=handle_error,
     )
-    dispatcher.register(
-        VEHICLE_STATE_TOPIC,
-        decode_vehicle_state,
-        vehicle_state.set_vehicle,
-    )
-    dispatcher.register(
-        ATTITUDE_STATE_TOPIC,
-        decode_attitude_state,
-        navigation_state.set_attitude,
-    )
-    dispatcher.register(
-        IMU_STATE_TOPIC,
-        decode_imu_state,
-        navigation_state.set_imu,
-    )
+    dispatcher.register(VEHICLE_STATE_TOPIC, decode_vehicle_state, vehicle_state.set_vehicle)
+    dispatcher.register(ATTITUDE_STATE_TOPIC, decode_attitude_state, navigation_state.set_attitude)
+    dispatcher.register(IMU_STATE_TOPIC, decode_imu_state, navigation_state.set_imu)
+    dispatcher.register(POSITION_STATE_TOPIC, decode_position_state, navigation_state.set_position)
+    dispatcher.register(MOTION_STATE_TOPIC, decode_motion_state, navigation_state.set_motion)
     dispatcher.start()
     return navigation_state, vehicle_state, dispatcher
 
