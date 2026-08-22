@@ -8,68 +8,92 @@ import math
 import random
 import tkinter as tk
 from tkinter import ttk
-from collections.abc import Callable
 
 from controllers.audio_analysis.music_analysis import MusicAnalysisState
+from controllers.song_recognition.song_recognition_if import SongRecognitionResult
+from ui.music_visualizer import (
+    KickMode,
+    MusicVisualizerRequestHandlerIf,
+    MusicVisualizerUiIf,
+    SongRecognitionUiState,
+)
 
 
-class MusicVisualizerPanel(tk.Frame):
-    """Native Linux music visualizer with controls and percussion display."""
+class MusicVisualizerPanel(tk.Frame, MusicVisualizerUiIf):
+    """Native renderer. Business behavior is emitted through semantic requests."""
 
     MODES = (
         "Spectrum", "Orbiting Planets", "Electric Freeway", "Explosion Field",
         "Star Dance", "Electric Rings", "Neon Ribbon", "Kaleidoscope",
     )
 
-    def __init__(self, parent: tk.Misc, *, on_zeroize: Callable[[], None] | None = None,
-                 on_sensitivity: Callable[[float], None] | None = None,
-                 on_identify: Callable[[], None] | None = None) -> None:
+    def __init__(self, parent: tk.Misc) -> None:
         super().__init__(parent, bg="#0b0d10")
+        self._handler: MusicVisualizerRequestHandlerIf | None = None
         self._state: MusicAnalysisState | None = None
         self._phase = 0.0
         self._mode = tk.StringVar(value=self.MODES[0])
-        self._sensitivity = tk.DoubleVar(value=1.0)
-        self._on_zeroize, self._on_sensitivity, self._on_identify = on_zeroize, on_sensitivity, on_identify
+        self._sensitivity = tk.DoubleVar(value=100.0)
+        self._lighting = tk.BooleanVar(value=False)
+        self._kick_mode = tk.StringVar(value=KickMode.SINGLE.value)
         self._stars = [(random.random(), random.random(), random.uniform(.5, 1.5)) for _ in range(70)]
         self._particles: list[tuple[float, float, float]] = []
         self._pulse = {name: 0.0 for name in ("kick", "snare", "tom_low", "tom_mid", "tom_high", "cymbal")}
         self._build()
 
+    def set_request_handler(self, handler: MusicVisualizerRequestHandlerIf) -> None:
+        self._handler = handler
+
     def _build(self) -> None:
         controls=tk.Frame(self,bg="#0b0d10");controls.pack(fill="x",padx=8,pady=(4,6))
         tk.Label(controls,text="VISUALIZER",bg="#0b0d10",fg="white",font=("TkDefaultFont",14,"bold")).pack(side="left")
         ttk.Combobox(controls,textvariable=self._mode,values=self.MODES,state="readonly",width=18).pack(side="right")
-        tk.Button(controls,text="ZEROIZE",command=self._zeroize,bg="#18222e",fg="white").pack(side="right",padx=5)
-        tk.Button(controls,text="IDENTIFY",command=self._identify,bg="#18222e",fg="white").pack(side="right",padx=5)
-        sens=tk.Scale(controls,from_=25,to=200,orient="horizontal",showvalue=False,length=120,bg="#0b0d10",fg="white",highlightthickness=0,variable=self._sensitivity,command=self._sensitivity_changed);sens.set(100);sens.pack(side="right")
+        tk.Button(controls,text="ZEROIZE",command=lambda:self._handler and self._handler.request_zeroize(),bg="#18222e",fg="white").pack(side="right",padx=5)
+        self._identify=tk.Button(controls,text="IDENTIFY",command=lambda:self._handler and self._handler.request_song_recognition(),bg="#18222e",fg="white");self._identify.pack(side="right",padx=5)
+        sens=tk.Scale(controls,from_=25,to=200,orient="horizontal",showvalue=False,length=120,bg="#0b0d10",fg="white",highlightthickness=0,variable=self._sensitivity,command=lambda v:self._handler and self._handler.request_sensitivity(float(v)/100.0));sens.pack(side="right")
         tk.Label(controls,text="SENS",bg="#0b0d10",fg="#8fa0ad").pack(side="right")
+        options=tk.Frame(self,bg="#0b0d10");options.pack(fill="x",padx=8,pady=(0,5))
+        tk.Checkbutton(options,text="DRIVE LIGHTING",variable=self._lighting,command=lambda:self._handler and self._handler.request_lighting_enabled(self._lighting.get()),bg="#0b0d10",fg="#aebac4",selectcolor="#18222e",activebackground="#0b0d10").pack(side="right")
+        for text,value in (("DOUBLE KICK",KickMode.DOUBLE.value),("SINGLE KICK",KickMode.SINGLE.value)):
+            tk.Radiobutton(options,text=text,value=value,variable=self._kick_mode,command=self._kick_changed,bg="#0b0d10",fg="#aebac4",selectcolor="#18222e",activebackground="#0b0d10").pack(side="right")
         self._now=tk.Label(self,text="NOW HEARING  ·  Song recognition unconfigured",anchor="w",bg="#10151b",fg="#b9c8d3",padx=10,pady=5);self._now.pack(fill="x",padx=8,pady=(0,5))
+        self._status=tk.Label(self,text="",anchor="w",bg="#0b0d10",fg="#82909d",padx=8);self._status.pack(fill="x")
         self._canvas=tk.Canvas(self,bg="#030509",highlightthickness=0,height=230);self._canvas.pack(fill="both",expand=True,padx=8)
         self._drums=tk.Canvas(self,bg="#080c10",highlightthickness=0,height=145);self._drums.pack(fill="x",padx=8,pady=(5,0))
         meters=tk.Frame(self,bg="#0b0d10");meters.pack(fill="x",padx=8,pady=6);self._meter_labels={}
         for name in ("LEVEL","BASS","MID","TREBLE"):
             label=tk.Label(meters,text=f"{name}  0%",bg="#0b0d10",fg="#aebac4",font=("TkDefaultFont",9,"bold"));label.pack(side="left",expand=True);self._meter_labels[name.lower()]=label
 
-    def _zeroize(self)->None:
-        if self._on_zeroize:self._on_zeroize()
-    def _identify(self)->None:
-        if self._on_identify:self._on_identify()
-    def _sensitivity_changed(self,value:str)->None:
-        if self._on_sensitivity:self._on_sensitivity(float(value)/100.0)
-    def set_song_metadata(self,title:str,artist:str="",album:str="",provider:str="")->None:
-        parts=[title];
-        if artist:parts.append(artist)
-        if album:parts.append(album)
-        suffix=f"  [{provider}]" if provider else ""
-        self._now.configure(text="NOW HEARING  ·  "+" · ".join(parts)+suffix)
-    def set_recognition_status(self,text:str)->None:self._now.configure(text="NOW HEARING  ·  "+text)
+    def _kick_changed(self)->None:
+        if self._handler:self._handler.request_kick_mode(KickMode(self._kick_mode.get()))
 
-    def update_state(self,state:MusicAnalysisState)->None:
+    def set_analysis_state(self,state:MusicAnalysisState)->None:
         self._state=state;self._phase+=.07+state.audio.level*.12
         for name in ("level","bass","mid","treble"):self._meter_labels[name].configure(text=f"{name.upper()}  {int(getattr(state.audio,name)*100):02d}%")
         p=state.percussion
         for name in self._pulse:self._pulse[name]=max(getattr(p,name),self._pulse[name]*.72)
         self._draw();self._draw_drums()
+
+    def set_song(self,song:SongRecognitionResult|None)->None:
+        if song is None:self._now.configure(text="NOW HEARING  ·  No song identified");return
+        parts=[song.title,*song.artists]
+        if song.album:parts.append(song.album)
+        suffix=f"  [{song.provider}]" if song.provider else ""
+        self._now.configure(text="NOW HEARING  ·  "+" · ".join(parts)+suffix)
+
+    def set_song_recognition_state(self,state:SongRecognitionUiState)->None:
+        self._identify.configure(state="normal" if state.configured and not state.recognizing else "disabled")
+        if state.recognizing:self._now.configure(text="NOW HEARING  ·  Listening for song…")
+        elif not state.configured:self._now.configure(text="NOW HEARING  ·  Song recognition unconfigured")
+        elif state.provider:self._now.configure(text=f"NOW HEARING  ·  {state.provider} ready · press IDENTIFY")
+
+    def set_zeroize_state(self,calibrated:bool,calibrating:bool)->None:
+        if calibrating:self.set_status("Zeroizing vehicle / room noise · keep music off")
+        elif calibrated:self.set_status("Noise calibration active")
+
+    def set_sensitivity(self,sensitivity:float)->None:self._sensitivity.set(round(sensitivity*100))
+    def set_lighting_enabled(self,enabled:bool)->None:self._lighting.set(enabled)
+    def set_status(self,message:str)->None:self._status.configure(text=message)
 
     def _draw(self)->None:
         if self._state is None:return
@@ -78,12 +102,15 @@ class MusicVisualizerPanel(tk.Frame):
 
     def _draw_drums(self)->None:
         c=self._drums;c.delete("all");w=max(2,c.winfo_width());h=max(2,c.winfo_height())
-        items=((.15,.54,28,"HIGH TOM","tom_high","#a84cff"),(.34,.54,30,"MID TOM","tom_mid","#38d6b4"),(.54,.54,31,"LOW TOM","tom_low","#28b6ff"),(.73,.62,30,"SNARE","snare","#ffc62e"),(.89,.63,35,"KICK","kick","#ff6238"))
+        items=((.15,.54,28,"HIGH TOM","tom_high","#a84cff"),(.34,.54,30,"MID TOM","tom_mid","#38d6b4"),(.54,.54,31,"LOW TOM","tom_low","#28b6ff"),(.73,.62,30,"SNARE","snare","#ffc62e"))
         for xf,yf,r,label,key,color in items:
-            pulse=self._pulse[key];rr=r*(1+.35*pulse);x,y=w*xf,h*yf
-            c.create_text(x,y-r-19,text=label,fill="#aebac4",font=("TkDefaultFont",8,"bold"))
-            if pulse>.05:c.create_oval(x-rr-7,y-rr-7,x+rr+7,y+rr+7,outline=color,width=max(1,int(1+pulse*4)))
-            c.create_oval(x-rr,y-rr,x+rr,y+rr,fill="#111820",outline=color,width=3)
+            pulse=self._pulse[key];rr=r*(1+.35*pulse);x,y=w*xf,h*yf;c.create_text(x,y-r-19,text=label,fill="#aebac4",font=("TkDefaultFont",8,"bold"));c.create_oval(x-rr,y-rr,x+rr,y+rr,fill="#111820",outline=color,width=3+int(pulse*3))
+        kick=self._pulse["kick"]
+        if self._kick_mode.get()==KickMode.DOUBLE.value:
+            for x,label in ((w*.84,"L KICK"),(w*.94,"R KICK")):
+                rr=27*(1+.32*kick);c.create_text(x,35,text=label,fill="#aebac4",font=("TkDefaultFont",8,"bold"));c.create_oval(x-rr,45,x+rr,45+rr*2,fill="#111820",outline="#ff6238",width=3)
+        else:
+            x=w*.89;rr=35*(1+.32*kick);c.create_text(x,26,text="KICK",fill="#aebac4",font=("TkDefaultFont",8,"bold"));c.create_oval(x-rr,38,x+rr,38+rr*2,fill="#111820",outline="#ff6238",width=3)
         cym=self._pulse["cymbal"];cy=25;c.create_text(w*.08,8,text="HI-HAT",fill="#aebac4",font=("TkDefaultFont",8,"bold"));c.create_line(w*.04,cy,w*.12,cy,fill="#ffd33d",width=int(3+cym*5));c.create_text(w*.91,8,text="CRASH",fill="#aebac4",font=("TkDefaultFont",8,"bold"));c.create_oval(w*.86-28,cy-5,w*.96+8,cy+7,outline="#ffd33d",width=int(2+cym*5))
 
     @property
