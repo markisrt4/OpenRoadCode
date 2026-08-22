@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 
-"""Tkinter wireframe vehicle visualizer for navigation state."""
+"""Tk wireframe vehicle visualizer for public navigation telemetry."""
 
 from __future__ import annotations
 
@@ -10,13 +10,22 @@ import math
 import tkinter as tk
 from dataclasses import dataclass
 
-from controllers.navigation import (
-    Mpu6050NavigationAdapter,
-    NavigationController,
-    NavigationState,
+from apps.automotive_dashboard.navigation_bus_state import NavigationBusState
+from messaging.contracts.navigation import (
+    ATTITUDE_STATE_TOPIC,
+    IMU_STATE_TOPIC,
+    decode_attitude_state,
+    decode_imu_state,
 )
-from hardware_io.imu import Mpu6050Imu
-
+from messaging.message_dispatcher import MessageDispatcher
+from messaging.zeromq import ZeroMqSubscriber
+from messaging.zeromq.endpoints import LOCAL_SUBSCRIBER_ENDPOINT
+from services.navigation.zeromq_navigation_command_server import (
+    DEFAULT_NAVIGATION_COMMAND_ENDPOINT,
+)
+from services.navigation.zeromq_navigation_request_handler import (
+    ZeroMqNavigationRequestHandler,
+)
 
 Point3 = tuple[float, float, float]
 Edge = tuple[int, int]
@@ -24,7 +33,8 @@ Edge = tuple[int, int]
 
 @dataclass(frozen=True, slots=True)
 class WireframeModel:
-    """Define vertices and edges for the dashboard's vehicle wireframe."""
+    """Define vertices and edges for the dashboard vehicle wireframe."""
+
     points: tuple[Point3, ...]
     body_edges: tuple[Edge, ...]
     wheel_edges: tuple[Edge, ...]
@@ -62,15 +72,13 @@ def _build_jeep_model() -> WireframeModel:
             (0, 4), (1, 5), (2, 6), (3, 7),
         )
         body_edges.extend(
-            (start + left, start + right)
-            for left, right in local_edges
+            (start + left, start + right) for left, right in local_edges
         )
 
     add_box(-2.15, 2.15, -0.88, 0.88, 0.42, 0.82)
     add_box(0.72, 2.28, -0.82, 0.82, 0.82, 1.08)
     add_box(-1.45, 0.62, -0.78, 0.78, 0.82, 1.72)
 
-    # Sloped windshield and rear pillars give the cabin a Jeep-like profile.
     for y in (-0.78, 0.78):
         start = len(points)
         points.extend(
@@ -89,15 +97,14 @@ def _build_jeep_model() -> WireframeModel:
             )
         )
 
-    # Front grille bars and bumpers.
     for y in (-0.6, -0.3, 0.0, 0.3, 0.6):
         start = len(points)
         points.extend(((2.29, y, 0.55), (2.29, y, 0.95)))
         body_edges.append((start, start + 1))
+
     add_box(2.12, 2.42, -1.0, 1.0, 0.32, 0.45)
     add_box(-2.38, -2.1, -0.98, 0.98, 0.34, 0.47)
 
-    # Four wheels, represented as circles in the X/Z plane.
     wheel_segments = 12
     for wheel_x in (-1.4, 1.42):
         for wheel_y in (-0.98, 0.98):
@@ -133,18 +140,15 @@ def _rotate_point(
     roll_deg: float,
 ) -> Point3:
     """Rotate a body-frame point by roll, pitch, then heading."""
-
     x, y, z = point
     roll = math.radians(roll_deg)
     pitch = math.radians(pitch_deg)
     heading = math.radians(heading_deg)
 
-    # Positive vehicle roll lowers the right side (positive Y).
     y, z = (
         y * math.cos(roll) + z * math.sin(roll),
         -y * math.sin(roll) + z * math.cos(roll),
     )
-    # Positive vehicle pitch raises the front (positive X).
     x, z = (
         x * math.cos(pitch) - z * math.sin(pitch),
         x * math.sin(pitch) + z * math.cos(pitch),
@@ -163,13 +167,11 @@ def _project_point(
     scale: float,
 ) -> tuple[float, float]:
     """Project a world point using a fixed isometric camera."""
-
     x, y, z = point
     camera_heading = math.radians(-35.0)
     view_x = x * math.cos(camera_heading) - y * math.sin(camera_heading)
     view_depth = x * math.sin(camera_heading) + y * math.cos(camera_heading)
     view_y = z - 0.42 * view_depth
-
     return (
         width / 2.0 + view_x * scale,
         height / 2.0 - view_y * scale + 35.0,
@@ -177,21 +179,20 @@ def _project_point(
 
 
 class NavigationVisualizerApp:
-    """Display live orientation using a rotating wireframe Jeep."""
+    """Display bus-fed orientation using a rotating wireframe Jeep."""
 
     def __init__(
         self,
-        controller: NavigationController,
+        state: NavigationBusState,
+        commands: ZeroMqNavigationRequestHandler,
         update_ms: int,
         calibrate_on_start: bool,
-        calibration_samples: int,
-        calibration_interval_s: float,
     ) -> None:
-        self._controller = controller
+        self._state = state
+        self._commands = commands
         self._update_ms = update_ms
         self._calibrate_on_start = calibrate_on_start
-        self._calibration_samples = calibration_samples
-        self._calibration_interval_s = calibration_interval_s
+        self._calibration_requested = False
         self._model = _build_jeep_model()
         self._closed = False
 
@@ -210,16 +211,12 @@ class NavigationVisualizerApp:
 
         controls = tk.Frame(self._root, bg="#0c1924")
         controls.pack(fill=tk.X)
-        tk.Button(
-            controls,
-            text="Calibrate",
-            command=self._calibrate,
-        ).pack(side=tk.LEFT, padx=8, pady=7)
-        tk.Button(
-            controls,
-            text="Reset Heading",
-            command=self._reset_heading,
-        ).pack(side=tk.LEFT, padx=4, pady=7)
+        tk.Button(controls, text="Calibrate", command=self._calibrate).pack(
+            side=tk.LEFT, padx=8, pady=7
+        )
+        tk.Button(controls, text="Reset Heading", command=self._reset_heading).pack(
+            side=tk.LEFT, padx=4, pady=7
+        )
 
         self._orientation_text = tk.StringVar(
             value="Heading --   Pitch --   Roll --"
@@ -232,7 +229,7 @@ class NavigationVisualizerApp:
             font=("TkFixedFont", 11, "bold"),
         ).pack(side=tk.LEFT, padx=18)
 
-        self._status_text = tk.StringVar(value="Starting...")
+        self._status_text = tk.StringVar(value="Waiting for navigation telemetry")
         tk.Label(
             controls,
             textvariable=self._status_text,
@@ -247,42 +244,30 @@ class NavigationVisualizerApp:
         self._root.bind("c", lambda _event: self._calibrate())
 
     def run(self) -> None:
-        try:
-            self._controller.start()
-        except Exception as exc:
-            self._status_text.set(f"Connection error: {exc}")
-        else:
-            self._status_text.set("Live navigation data")
-            if self._calibrate_on_start:
-                self._root.after(150, self._calibrate)
-            self._root.after(0, self._poll)
-
+        """Run the Tk event loop; telemetry arrives through the shared cache."""
+        self._root.after(0, self._poll)
         self._root.mainloop()
 
     def _poll(self) -> None:
-        if self._closed or not self._controller.is_started:
+        if self._closed:
             return
 
-        try:
-            state = self._controller.read_state()
-            self._draw_state(state)
-            calibration = (
-                "calibrated"
-                if self._controller.calibration is not None
-                else "uncalibrated"
-            )
-            self._status_text.set(f"Live navigation data · {calibration}")
-        except Exception as exc:
-            self._status_text.set(f"Navigation error: {exc}")
-            return
+        snapshot = self._state.snapshot()
+        self._status_text.set(snapshot.status)
+        if snapshot.connected:
+            self._draw_snapshot(snapshot)
+            if self._calibrate_on_start and not self._calibration_requested:
+                self._calibration_requested = True
+                self._root.after(0, self._calibrate)
 
         self._root.after(self._update_ms, self._poll)
 
-    def _draw_state(self, state: NavigationState) -> None:
+    def _draw_snapshot(self, state) -> None:
+        heading = state.heading_deg or 0.0
+        pitch = state.pitch_deg or 0.0
+        roll = state.roll_deg or 0.0
         self._orientation_text.set(
-            f"Heading {state.heading_deg:7.2f}°   "
-            f"Pitch {state.pitch_deg:7.2f}°   "
-            f"Roll {state.roll_deg:7.2f}°"
+            f"Heading {heading:7.2f}°   Pitch {pitch:7.2f}°   Roll {roll:7.2f}°"
         )
 
         self._canvas.delete("all")
@@ -291,12 +276,7 @@ class NavigationVisualizerApp:
         scale = min(width / 7.5, height / 5.0)
 
         rotated = tuple(
-            _rotate_point(
-                point,
-                state.heading_deg,
-                state.pitch_deg,
-                state.roll_deg,
-            )
+            _rotate_point(point, heading, pitch, roll)
             for point in self._model.points
         )
         projected = tuple(
@@ -305,34 +285,23 @@ class NavigationVisualizerApp:
         )
 
         self._draw_reference(width, height)
-        self._draw_edges(
-            projected,
-            self._model.body_edges,
-            color="#67d8ff",
-            width=2,
-        )
-        self._draw_edges(
-            projected,
-            self._model.wheel_edges,
-            color="#ffb347",
-            width=3,
-        )
+        self._draw_edges(projected, self._model.body_edges, "#67d8ff", 2)
+        self._draw_edges(projected, self._model.wheel_edges, "#ffb347", 3)
 
         linear = state.linear_acceleration_mps2
-        self._canvas.create_text(
-            18,
-            18,
-            anchor=tk.NW,
-            fill="#9db7c7",
-            font=("TkFixedFont", 10),
-            text=(
-                "X forward · Y right · Z up\n"
-                f"Linear acceleration  "
-                f"X {linear.x:+.2f}  "
-                f"Y {linear.y:+.2f}  "
-                f"Z {linear.z:+.2f} m/s²"
-            ),
-        )
+        if linear is not None:
+            self._canvas.create_text(
+                18,
+                18,
+                anchor=tk.NW,
+                fill="#9db7c7",
+                font=("TkFixedFont", 10),
+                text=(
+                    "X forward · Y right · Z up\n"
+                    f"Linear acceleration  X {linear.x:+.2f}  "
+                    f"Y {linear.y:+.2f}  Z {linear.z:+.2f} m/s²"
+                ),
+            )
 
     def _draw_edges(
         self,
@@ -371,47 +340,36 @@ class NavigationVisualizerApp:
         )
 
     def _calibrate(self) -> None:
-        if not self._controller.is_started:
-            self._status_text.set("Navigation sensor is not connected")
-            return
-
         self._status_text.set("Calibrating · keep the vehicle still...")
         self._root.update_idletasks()
         try:
-            result = self._controller.calibrate_stationary(
-                sample_count=self._calibration_samples,
-                sample_interval_s=self._calibration_interval_s,
-            )
+            self._commands.request_stationary_calibration()
         except Exception as exc:
             self._status_text.set(f"Calibration error: {exc}")
         else:
-            self._status_text.set(
-                f"Calibrated from {result.sample_count} samples"
-            )
+            self._status_text.set("Stationary calibration complete")
 
     def _reset_heading(self) -> None:
-        if self._controller.is_started:
-            self._controller.reset_heading()
+        try:
+            self._commands.request_heading_reset()
+        except Exception as exc:
+            self._status_text.set(f"Heading reset error: {exc}")
+        else:
             self._status_text.set("Relative heading reset")
 
     def _close(self) -> None:
         if self._closed:
             return
         self._closed = True
-        self._controller.stop()
         self._root.destroy()
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Display a wireframe Jeep using live navigation state."
+        description="Display a wireframe Jeep using navigation bus telemetry."
     )
-    parser.add_argument(
-        "--address",
-        type=lambda value: int(value, 0),
-        default=Mpu6050Imu.DEFAULT_ADDRESS,
-        help="MPU-6050 I2C address. Default: 0x68",
-    )
+    parser.add_argument("--endpoint", default=LOCAL_SUBSCRIBER_ENDPOINT)
+    parser.add_argument("--command-endpoint", default=DEFAULT_NAVIGATION_COMMAND_ENDPOINT)
     parser.add_argument(
         "--update-ms",
         type=int,
@@ -419,46 +377,40 @@ def parse_args() -> argparse.Namespace:
         help="Milliseconds between display updates. Default: 50",
     )
     parser.add_argument(
-        "--filter-time-constant",
-        type=float,
-        default=0.5,
-    )
-    parser.add_argument(
         "--calibrate",
         action="store_true",
-        help="Run stationary calibration after connecting",
+        help="Request stationary calibration after telemetry connects",
     )
-    parser.add_argument("--calibration-samples", type=int, default=100)
-    parser.add_argument("--calibration-interval", type=float, default=0.01)
     args = parser.parse_args()
-
     if args.update_ms <= 0:
         parser.error("--update-ms must be greater than zero")
-    if args.filter_time_constant < 0:
-        parser.error("--filter-time-constant must be zero or greater")
-    if args.calibration_samples <= 0:
-        parser.error("--calibration-samples must be greater than zero")
-    if args.calibration_interval < 0:
-        parser.error("--calibration-interval must be zero or greater")
     return args
+
+
+def _build_dispatcher(endpoint: str, state: NavigationBusState) -> MessageDispatcher:
+    dispatcher = MessageDispatcher(ZeroMqSubscriber(endpoint), error_handler=state.set_error)
+    dispatcher.register(ATTITUDE_STATE_TOPIC, decode_attitude_state, state.set_attitude)
+    dispatcher.register(IMU_STATE_TOPIC, decode_imu_state, state.set_imu)
+    return dispatcher
 
 
 def main() -> int:
     args = parse_args()
-    controller = NavigationController(
-        sensor=Mpu6050NavigationAdapter(
-            Mpu6050Imu(address=args.address)
-        ),
-        filter_time_constant_s=args.filter_time_constant,
-    )
+    state = NavigationBusState()
+    dispatcher = _build_dispatcher(args.endpoint, state)
+    commands = ZeroMqNavigationRequestHandler(args.command_endpoint)
     app = NavigationVisualizerApp(
-        controller=controller,
+        state=state,
+        commands=commands,
         update_ms=args.update_ms,
         calibrate_on_start=args.calibrate,
-        calibration_samples=args.calibration_samples,
-        calibration_interval_s=args.calibration_interval,
     )
-    app.run()
+    dispatcher.start()
+    try:
+        app.run()
+    finally:
+        commands.close()
+        dispatcher.close()
     return 0
 
 
