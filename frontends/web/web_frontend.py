@@ -20,7 +20,7 @@ PAGE = """<!doctype html><meta name=viewport content='width=device-width,initial
 SCREEN = """<!doctype html><meta name=viewport content='width=device-width,initial-scale=1'><style>{{style}}</style><header><div class=bar><a class=back href='{{back}}'>‹</a><div class=heading><div class=title>{{screen.title}}</div><div class=subtitle>{{screen.subtitle}}</div></div></div></header><main>{{body}}</main>"""
 
 
-def create_web_frontend(pages: Mapping[str, MenuPage], *, root_page: str="main", screens: Mapping[str, WebScreen]|None=None, navigation_session: Any|None=None, navigation_ui_state: Any|None=None, spotify_session: Any|None=None) -> Flask:
+def create_web_frontend(pages: Mapping[str, MenuPage], *, root_page: str="main", screens: Mapping[str, WebScreen]|None=None, navigation_session: Any|None=None, navigation_ui_state: Any|None=None, vehicle_ui_state: Any|None=None, spotify_session: Any|None=None) -> Flask:
     if root_page not in pages: raise ValueError(f"Unknown root page: {root_page}")
     screen_map=dict(screens or create_web_screens())
     web_dir=Path(__file__).resolve().parent
@@ -53,8 +53,6 @@ def create_web_frontend(pages: Mapping[str, MenuPage], *, root_page: str="main",
     @app.get("/web-assets/media/<path:filename>")
     def web_media_asset(filename:str): return send_from_directory(media_dir,filename)
 
-    # Browser sensors are producers. They feed normalized navigation state toward
-    # the public bus, but the browser display consumes the bus-facing UiState.
     @app.post("/api/navigation/position")
     def navigation_position():
         if navigation_session is None: abort(503)
@@ -74,23 +72,16 @@ def create_web_frontend(pages: Mapping[str, MenuPage], *, root_page: str="main",
     @app.get("/api/navigation/events")
     def navigation_events():
         if navigation_ui_state is None: abort(503)
+        return _state_event_response(navigation_ui_state, "navigation")
 
-        @stream_with_context
-        def stream():
-            generation, snapshot = navigation_ui_state.versioned_snapshot()
-            yield _sse_event("navigation", snapshot.as_dict(), event_id=generation)
-            while True:
-                update = navigation_ui_state.wait_for_update(generation, timeout_s=15.0)
-                if update is None:
-                    yield ": keep-alive\n\n"
-                    continue
-                generation, snapshot = update
-                yield _sse_event("navigation", snapshot.as_dict(), event_id=generation)
-
-        response = Response(stream(), mimetype="text/event-stream")
-        response.headers["Cache-Control"] = "no-cache"
-        response.headers["X-Accel-Buffering"] = "no"
-        return response
+    @app.get("/api/vehicle/state")
+    def vehicle_state():
+        if vehicle_ui_state is None: abort(503)
+        return jsonify(vehicle_ui_state.as_dict())
+    @app.get("/api/vehicle/events")
+    def vehicle_events():
+        if vehicle_ui_state is None: abort(503)
+        return _state_event_response(vehicle_ui_state, "vehicle")
 
     @app.get("/api/media/spotify/auth/config")
     def spotify_auth_config():
@@ -130,6 +121,24 @@ def create_web_frontend(pages: Mapping[str, MenuPage], *, root_page: str="main",
     return app
 
 
+def _state_event_response(state: Any, event_name: str) -> Response:
+    @stream_with_context
+    def stream():
+        generation, snapshot = state.versioned_snapshot()
+        yield _sse_event(event_name, snapshot.as_dict(), event_id=generation)
+        while True:
+            update = state.wait_for_update(generation, timeout_s=15.0)
+            if update is None:
+                yield ": keep-alive\n\n"
+                continue
+            generation, snapshot = update
+            yield _sse_event(event_name, snapshot.as_dict(), event_id=generation)
+
+    response = Response(stream(), mimetype="text/event-stream")
+    response.headers["Cache-Control"] = "no-cache"
+    response.headers["X-Accel-Buffering"] = "no"
+    return response
+
+
 def _sse_event(event: str, payload: Mapping[str, Any], *, event_id: int) -> str:
-    """Encode one JSON payload as a Server-Sent Event."""
     return f"id: {event_id}\nevent: {event}\ndata: {json.dumps(payload, separators=(',', ':'))}\n\n"
