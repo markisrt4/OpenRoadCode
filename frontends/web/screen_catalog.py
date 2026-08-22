@@ -26,7 +26,7 @@ YOUTUBE_HTML = '''
 '''
 
 MUSIC_VISUALIZER_HTML = '''
-<link rel="stylesheet" href="/web-assets/audio-analysis/music_visualizer.css?v=4">
+<link rel="stylesheet" href="/web-assets/audio-analysis/music_visualizer.css?v=5">
 <div class="card"><b>Music Analyzer <small style="color:#aebac4">SHARED DSP</small></b><p id="music-mic-status">Analyze a browser microphone or the Linux host's actual system audio output.</p><button id="music-mic-toggle" class="primary wide" data-enabled="0">START MICROPHONE</button></div>
 <div id="music-song-card" class="card"><b>NOW HEARING</b><div id="music-song-provider" style="color:#8fa0ad;font-size:12px;margin-top:3px">Checking song recognition…</div><div id="music-song-title" style="font-size:22px;font-weight:900;margin-top:14px">No song identified</div><div id="music-song-artist" style="color:#c0cad4;margin-top:4px">Waiting for recognition</div><div id="music-song-album" style="color:#81909e;font-size:13px;margin-top:4px">Album metadata will appear here</div><button id="music-song-identify" class="wide" type="button" disabled>IDENTIFY SONG</button><div id="music-song-status" style="color:#8fa0ad;font-size:12px;margin-top:9px">Loading recognition controller state…</div><span id="music-song-state" style="display:none">CHECKING</span></div>
 <div id="music-beat" class="card" style="text-align:center"><b style="font-size:28px">PERCUSSION</b><div id="music-beat-strength" style="color:#aebac4;margin-top:5px">Shared analyzer</div></div>
@@ -36,17 +36,17 @@ MUSIC_VISUALIZER_HTML = '''
 <div class="card"><b>Spectrum <small style="color:#aebac4">31 Hz → 16 kHz</small></b><div id="music-spectrum" style="height:180px;display:flex;align-items:flex-end;gap:3px;margin-top:16px"></div><div id="music-spectrum-labels" style="display:grid;grid-template-columns:repeat(24,1fr);gap:3px;margin-top:6px;color:#8fa0ad;font-size:9px;line-height:1.1;text-align:center"></div><p id="music-debug">Waiting for audio…</p></div>
 <script>(async()=>{const state=document.getElementById('music-song-state'),provider=document.getElementById('music-song-provider'),status=document.getElementById('music-song-status'),button=document.getElementById('music-song-identify');try{const r=await fetch('/api/song-recognition/config'),c=await r.json();if(c.configured){state.textContent='READY';provider.textContent=(c.provider||'song recognition').toUpperCase();status.textContent='Recognition provider ready.';button.disabled=false}else{state.textContent='UNCONFIGURED';provider.textContent='Song recognition controller';status.textContent='No recognition provider configured.';button.disabled=true}}catch(e){state.textContent='OFFLINE';status.textContent=e.message;button.disabled=true}})();</script>
 <script src="/web-assets/audio-analysis/microphone_analyzer.js?v=8"></script>
-<script src="/web-assets/audio-analysis/spectrum_controls.js?v=7"></script>
+<script src="/web-assets/audio-analysis/spectrum_controls.js?v=8"></script>
 <script src="/web-assets/audio-analysis/kick_mode.js?v=3"></script>
-<script src="/web-assets/audio-analysis/webgl_music_visualizer.js?v=5"></script>
-<script src="/web-assets/audio-analysis/music_visualizer_page.js?v=20"></script>
+<script src="/web-assets/audio-analysis/webgl_music_visualizer.js?v=6"></script>
+<script src="/web-assets/audio-analysis/music_visualizer_page.js?v=21"></script>
 <script src="/web-assets/audio-analysis/linux_audio_source.js?v=3"></script>
 '''
 
 LIGHTING_HTML = '''
 <div class="card"><label for="lighting-backend"><b>Lighting device</b></label><select id="lighting-backend" class="search"><option value="emulator">Emulator</option><option value="ble">Physical BLE</option></select><p id="lighting-status">Loading lighting state…</p></div>
 <div class="card" style="text-align:center"><canvas id="lighting-wheel" width="280" height="280" style="width:min(78vw,280px);height:min(78vw,280px);touch-action:none"></canvas></div>
-<div class="card"><b>Light Bar Preview</b><div id="lighting-preview-stage" style="height:150px;display:flex;align-items:center;justify-content:center;overflow:visible;margin-top:10px"><div id="lighting-swatch" style="width:min(86%,560px);height:30px;border-radius:999px;background:#ffffff;box-shadow:0 0 10px rgba(255,255,255,.8),0 0 28px rgba(255,255,255,.7),0 0 55px rgba(255,255,255,.45);transition:background-color .08s linear,box-shadow .08s linear,opacity .08s linear"></div></div><div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px"><span style="color:#aebac4">Selected color</span><b id="lighting-hex">#FFFFFF</b></div></div>
+<div class="card"><b>Light Bar Preview</b><div style="height:150px;display:flex;align-items:center;justify-content:center;overflow:visible;margin-top:10px"><div id="lighting-swatch" style="width:min(86%,560px);height:30px;border-radius:999px;background:#ffffff;box-shadow:0 0 10px rgba(255,255,255,.8),0 0 28px rgba(255,255,255,.7),0 0 55px rgba(255,255,255,.45);transition:background-color .08s linear,box-shadow .08s linear,opacity .08s linear"></div></div><div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px"><span style="color:#aebac4">Selected color</span><b id="lighting-hex">#FFFFFF</b></div></div>
 <div class="card"><div style="display:flex;justify-content:space-between"><b>Brightness</b><span id="lighting-brightness-value">100%</span></div><input id="lighting-brightness" class="wide" type="range" min="0" max="100" value="100"><button id="lighting-power" class="primary wide" data-enabled="0">TURN ON</button></div>
 <div class="card"><b>Phone Torch <small style="color:#aebac4">EXPERIMENTAL</small></b><p id="phone-torch-status">Uses this phone's rear camera torch when the browser permits it.</p><button id="phone-torch" class="wide" data-enabled="0">TORCH ON</button></div>
 <script src="/web-assets/lighting/lighting.js"></script><script src="/web-assets/lighting/torch.js"></script>
