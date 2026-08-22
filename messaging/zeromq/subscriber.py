@@ -9,12 +9,13 @@ from typing import Any
 import zmq
 
 from messaging.subscriber_if import SubscriberIf
+from messaging.zeromq.endpoints import LOCAL_SUBSCRIBER_ENDPOINT
 
 
 class ZeroMqSubscriber(SubscriberIf):
     """Receive topic-prefixed JSON messages using a ZeroMQ SUB socket."""
 
-    def __init__(self, endpoint: str = "tcp://127.0.0.1:5556") -> None:
+    def __init__(self, endpoint: str = LOCAL_SUBSCRIBER_ENDPOINT) -> None:
         self._context = zmq.Context()
         self._socket = self._context.socket(zmq.SUB)
         self._socket.connect(endpoint)
