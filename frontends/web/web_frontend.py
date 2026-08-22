@@ -52,14 +52,11 @@ def create_web_frontend(pages: Mapping[str, MenuPage], *, root_page: str="main",
     def web_lighting_asset(filename:str): return send_from_directory(lighting_dir,filename)
     @app.get("/web-assets/audio-analysis/<path:filename>")
     def web_audio_analysis_asset(filename:str): return send_from_directory(audio_analysis_dir,filename)
-
     @app.post("/api/audio-analysis/browser/frame")
     def browser_audio_frame():
         if browser_music_analysis_session is None: abort(503)
-        try:
-            sample_rate=int(request.headers.get("X-Sample-Rate", "0"))
-            return jsonify(browser_music_analysis_session.push_pcm16(request.get_data(cache=False), sample_rate))
-        except (TypeError, ValueError) as exc:return jsonify(error=str(exc)),400
+        try:return jsonify(browser_music_analysis_session.push_pcm16(request.get_data(cache=False),int(request.headers.get("X-Sample-Rate","0"))))
+        except (TypeError,ValueError) as exc:return jsonify(error=str(exc)),400
         except Exception as exc:return jsonify(error=str(exc)),502
     @app.get("/api/audio-analysis/browser/state")
     def browser_audio_state():
@@ -75,7 +72,6 @@ def create_web_frontend(pages: Mapping[str, MenuPage], *, root_page: str="main",
         payload=request.get_json(silent=False)
         try:return jsonify(browser_music_analysis_session.set_sensitivity(float(payload.get("value"))))
         except (TypeError,ValueError) as exc:return jsonify(error=str(exc)),400
-
     @app.get("/api/audio-analysis/linux/state")
     def linux_audio_state():
         if linux_audio_analysis_session is None: abort(503)
@@ -90,6 +86,16 @@ def create_web_frontend(pages: Mapping[str, MenuPage], *, root_page: str="main",
         if linux_audio_analysis_session is None: abort(503)
         try:return jsonify(linux_audio_analysis_session.stop())
         except Exception as exc:return jsonify(error=str(exc)),502
+    @app.post("/api/audio-analysis/linux/zeroize")
+    def linux_audio_zeroize():
+        if linux_audio_analysis_session is None: abort(503)
+        return jsonify(linux_audio_analysis_session.zeroize())
+    @app.post("/api/audio-analysis/linux/sensitivity")
+    def linux_audio_sensitivity():
+        if linux_audio_analysis_session is None: abort(503)
+        payload=request.get_json(silent=False)
+        try:return jsonify(linux_audio_analysis_session.set_sensitivity(float(payload.get("value"))))
+        except (TypeError,ValueError) as exc:return jsonify(error=str(exc)),400
     @app.post("/api/navigation/position")
     def navigation_position():
         if navigation_session is None: abort(503)
