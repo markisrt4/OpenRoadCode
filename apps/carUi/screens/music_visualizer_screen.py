@@ -20,14 +20,7 @@ LOGGER = logging.getLogger(__name__)
 class MusicVisualizerScreen(CarUiScreen):
     """Bind injected music services to the native Tk visualizer."""
 
-    def __init__(
-        self,
-        host: TkScreenHostIf,
-        *,
-        runtime: MusicVisualizerRuntime,
-        create_menu_tile: MenuTileFactory,
-        back_action,
-    ) -> None:
+    def __init__(self, host: TkScreenHostIf, *, runtime: MusicVisualizerRuntime, create_menu_tile: MenuTileFactory, back_action) -> None:
         super().__init__(host, ScreenId("music_visualizer"), create_menu_tile)
         self._back_action = back_action
         self._runtime = runtime
@@ -40,10 +33,13 @@ class MusicVisualizerScreen(CarUiScreen):
         self._presenter = MusicVisualizerPresenter(
             self._runtime.analysis_source,
             self._runtime.song_recognition,
+            music_lighting=self._runtime.music_lighting,
             dispatch=lambda callback: self.host.schedule_ui_callback(0, callback),
         )
         self._panel.set_request_handler(self._presenter)
         self._presenter.attach_ui(self._panel)
+        if hasattr(self._panel, "set_music_lighting_state"):
+            self._runtime.music_lighting.attach_ui(self._panel)
         self._panel.pack(fill="both", expand=True)
         self._panel.set_status("Listening to configured music source")
         try:
@@ -54,8 +50,11 @@ class MusicVisualizerScreen(CarUiScreen):
 
     def hide(self) -> None:
         presenter = self._presenter
+        panel = self._panel
         self._presenter = None
         self._panel = None
+        if panel is not None and hasattr(panel, "set_music_lighting_state"):
+            self._runtime.music_lighting.detach_ui(panel)
         if presenter is not None:
             try:
                 presenter.stop()
