@@ -12,6 +12,7 @@ from controllers.audio_analysis.music_analysis import MusicAnalyzer
 from controllers.audio_analysis.music_analysis_source_if import MusicAnalysisSourceIf
 from controllers.audio_analysis.pcm_music_analysis_source import PcmMusicAnalysisSource
 from controllers.cache.persistent_cache import PersistentCache
+from controllers.music_lighting import MusicLightingController
 from controllers.song_recognition import (
     AcrCloudConfig,
     AcrCloudSongRecognizer,
@@ -27,6 +28,7 @@ from hardware_io.audio.pipewire_audio_capture import PipeWireAudioCapture
 class MusicVisualizerRuntime:
     analysis_source: MusicAnalysisSourceIf
     song_recognition: SongRecognitionController
+    music_lighting: MusicLightingController
 
     def close(self) -> None:
         self.analysis_source.stop()
@@ -55,4 +57,5 @@ def create_music_visualizer_runtime() -> MusicVisualizerRuntime:
     return MusicVisualizerRuntime(
         analysis_source=source,
         song_recognition=SongRecognitionController(source, recognizer, metadata_cache),
+        music_lighting=MusicLightingController(),
     )
