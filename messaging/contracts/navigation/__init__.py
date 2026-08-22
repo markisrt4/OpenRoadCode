@@ -10,6 +10,7 @@ from .imu_state_validator import validate_imu_state
 from .motion_state_codec import decode_motion_state, encode_motion_state
 from .motion_state_message import MotionStateData, MotionStateMessage
 from .motion_state_validator import validate_motion_state
+from .navigation_state_publisher import NavigationStatePublisher
 from .position_state_codec import decode_position_state, encode_position_state
 from .position_state_message import PositionStateData, PositionStateMessage
 from .position_state_publisher import PositionStatePublisher
@@ -24,6 +25,7 @@ from .topics import (
 __all__ = [
     "ATTITUDE_STATE_TOPIC", "AttitudeStateData", "AttitudeStateMessage", "decode_attitude_state", "encode_attitude_state", "validate_attitude_state",
     "IMU_STATE_TOPIC", "ImuStateData", "ImuStateMessage", "Vector3Data", "decode_imu_state", "encode_imu_state", "validate_imu_state",
+    "NavigationStatePublisher",
     "MOTION_STATE_TOPIC", "MotionStateData", "MotionStateMessage", "decode_motion_state", "encode_motion_state", "validate_motion_state",
     "POSITION_STATE_TOPIC", "PositionStateData", "PositionStateMessage", "PositionStatePublisher", "decode_position_state", "encode_position_state", "validate_position_state",
 ]
