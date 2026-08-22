@@ -48,20 +48,25 @@ class MediaState:
 class MediaUiIf(ABC):
     @abstractmethod
     def set_media_state(self, state: MediaState | None) -> None:
+        """! @brief Display the latest media playback state."""
         ...
 
     @abstractmethod
     def set_playback_request_handler(self, handler: PlaybackRequestHandlerIf | None) -> None:
+        """! @brief Set the handler for playback control requests."""
         ...
 
     @abstractmethod
     def set_track_request_handler(self, handler: TrackRequestHandlerIf | None) -> None:
+        """! @brief Set the handler for track navigation requests."""
         ...
 
     @abstractmethod
     def set_seek_request_handler(self, handler: SeekRequestHandlerIf | None) -> None:
+        """! @brief Set the handler for playback seek requests."""
         ...
 
     @abstractmethod
     def set_volume_request_handler(self, handler: VolumeRequestHandlerIf | None) -> None:
+        """! @brief Set the handler for media volume requests."""
         ...
