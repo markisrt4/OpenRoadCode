@@ -4,19 +4,15 @@
 """Frontend-neutral coordination for music visualizer behavior."""
 from __future__ import annotations
 
-from controllers.audio_analysis.music_analysis import MusicAnalyzer
-from ui.music_visualizer import (
-    KickMode,
-    MusicVisualizerRequestHandlerIf,
-    MusicVisualizerUiIf,
-)
+from controllers.audio_analysis.music_analysis_source_if import MusicAnalysisSourceIf
+from ui.music_visualizer import KickMode, MusicVisualizerRequestHandlerIf, MusicVisualizerUiIf
 
 
 class MusicVisualizerPresenter(MusicVisualizerRequestHandlerIf):
-    """Own semantic UI behavior without depending on Tk or WebUI."""
+    """Coordinate an abstract music-analysis source with any frontend."""
 
-    def __init__(self, analyzer: MusicAnalyzer) -> None:
-        self._analyzer = analyzer
+    def __init__(self, source: MusicAnalysisSourceIf) -> None:
+        self._source = source
         self._ui: MusicVisualizerUiIf | None = None
         self._kick_mode = KickMode.SINGLE
         self._lighting_enabled = False
@@ -24,14 +20,24 @@ class MusicVisualizerPresenter(MusicVisualizerRequestHandlerIf):
         self.on_lighting_enabled_requested = None
 
     @property
+    def source(self) -> MusicAnalysisSourceIf:
+        return self._source
+
+    @property
     def kick_mode(self) -> KickMode:
         return self._kick_mode
 
     def attach_ui(self, ui: MusicVisualizerUiIf) -> None:
         self._ui = ui
-        ui.set_sensitivity(self._analyzer.sensitivity)
-        ui.set_zeroize_state(self._analyzer.calibrated, False)
+        ui.set_sensitivity(self._source.sensitivity)
+        ui.set_zeroize_state(self._source.calibrated, False)
         ui.set_lighting_enabled(self._lighting_enabled)
+
+    def start(self) -> None:
+        self._source.start(self.present_analysis)
+
+    def stop(self) -> None:
+        self._source.stop()
 
     def present_analysis(self, state) -> None:
         if self._ui:
@@ -40,12 +46,12 @@ class MusicVisualizerPresenter(MusicVisualizerRequestHandlerIf):
                 self._ui.set_zeroize_state(True, False)
 
     def request_zeroize(self) -> None:
-        self._analyzer.begin_zeroize()
+        self._source.zeroize()
         if self._ui:
-            self._ui.set_zeroize_state(self._analyzer.calibrated, True)
+            self._ui.set_zeroize_state(self._source.calibrated, True)
 
     def request_sensitivity(self, value: float) -> None:
-        self._analyzer.set_sensitivity(value)
+        self._source.set_sensitivity(value)
 
     def request_song_recognition(self) -> None:
         if self.on_song_recognition_requested:
