@@ -12,6 +12,19 @@ class KickMode(Enum):
     DOUBLE = "double"
 
 
+class MusicVisualizationMode(Enum):
+    """Semantic visualization choices shared by frontend implementations."""
+
+    SPECTRUM = "spectrum"
+    ORBITING_PLANETS = "orbiting_planets"
+    ELECTRIC_FREEWAY = "electric_freeway"
+    EXPLOSION_FIELD = "explosion_field"
+    STAR_DANCE = "star_dance"
+    ELECTRIC_RINGS = "electric_rings"
+    NEON_RIBBON = "neon_ribbon"
+    KALEIDOSCOPE = "kaleidoscope"
+
+
 @dataclass(frozen=True, slots=True)
 class SongRecognitionUiState:
     configured: bool
