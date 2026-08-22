@@ -10,6 +10,14 @@ from .song_recognition_if import SongRecognitionIf, SongRecognitionResult
 class UnconfiguredSongRecognizer(SongRecognitionIf):
     """Concrete recognizer that intentionally never returns a match."""
 
+    @property
+    def is_configured(self) -> bool:
+        return False
+
+    @property
+    def provider_name(self) -> str | None:
+        return None
+
     def recognize(
         self,
         audio: bytes,
