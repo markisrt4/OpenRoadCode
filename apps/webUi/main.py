@@ -6,6 +6,7 @@
 import os
 from pathlib import Path
 
+from apps.webUi.browser_music_analysis_session import WebBrowserMusicAnalysisSession
 from apps.webUi.lighting_session import WebLightingSession
 from apps.webUi.linux_audio_analysis_session import WebLinuxAudioAnalysisSession
 from apps.webUi.menu_catalog import create_web_ui_menu_pages
@@ -21,6 +22,7 @@ navigation_session = WebNavigationSession()
 spotify_session = WebSpotifySession()
 lighting_session = WebLightingSession(project_root)
 linux_audio_analysis_session = WebLinuxAudioAnalysisSession()
+browser_music_analysis_session = WebBrowserMusicAnalysisSession()
 song_metadata_cache = SongMetadataCache(
     PersistentCache("~/.cache/openroadcode/song_recognition", suffix=".json")
 )
@@ -32,6 +34,7 @@ app = create_web_frontend(
     lighting_session=lighting_session,
     song_recognition_session=song_recognition_session,
     linux_audio_analysis_session=linux_audio_analysis_session,
+    browser_music_analysis_session=browser_music_analysis_session,
 )
 
 if __name__ == "__main__":
