@@ -1,13 +1,21 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
 from collections.abc import Mapping
 from typing import Any
+
 import zmq
+
 from messaging.publisher_if import PublisherIf
 
+
 class ZeroMqPublisher(PublisherIf):
+    """ZeroMQ publisher that connects to the OpenRoadCode broker ingress."""
+
     def __init__(self, endpoint: str = "tcp://127.0.0.1:5556") -> None:
         self._context = zmq.Context()
         self._socket = self._context.socket(zmq.PUB)
-        self._socket.bind(endpoint)
+        self._socket.connect(endpoint)
         self._closed = False
 
     def publish(self, topic: str, payload: Mapping[str, Any]) -> None:
