@@ -19,14 +19,14 @@ from apps.carUi.system import (
     VehicleStatusManager,
     VolumeManager,
 )
+from controllers.input import InputManager, InputMapper
 from input_events import InputDeviceId, InputDeviceType
-from controllers.input import (
-    InputManager,
-    InputMapper,
-)
-from ui.screen_ui_if import ScreenUiIf
-from ui.screen_ui_if import ScreenId
+from messaging.contracts.automotive import VEHICLE_STATE_TOPIC, decode_vehicle_state
+from messaging.message_dispatcher import MessageDispatcher
+from messaging.zeromq import ZeroMqSubscriber
+from ui.screen_ui_if import ScreenId, ScreenUiIf
 from ui.ui_action import UiAction
+
 
 class CarUiComposition:
     """Construct and connect screens, presenters, managers, and routes."""
@@ -45,6 +45,7 @@ class CarUiComposition:
 
         self._assemble_system_services()
         self._assemble_screens()
+        self._assemble_message_bus()
         self._assemble_input()
         register_car_ui_routes(
             self.screen_router,
@@ -109,6 +110,22 @@ class CarUiComposition:
         self.offroad_dashboard_screen = screens.offroad_dashboard
         self.vehicle_gauges_screen = screens.vehicle_gauges
 
+    def _assemble_message_bus(self) -> None:
+        """Route public telemetry contracts into Tk screens on the UI thread."""
+        self.message_dispatcher = MessageDispatcher(
+            ZeroMqSubscriber(),
+            error_handler=lambda topic, error: self.frontend.dispatch_ui(
+                lambda: self.vehicle_gauges_screen.set_vehicle_error(topic, error)
+            ),
+        )
+        self.message_dispatcher.register(
+            VEHICLE_STATE_TOPIC,
+            decode_vehicle_state,
+            lambda message: self.frontend.dispatch_ui(
+                lambda: self.vehicle_gauges_screen.set_vehicle_message(message)
+            ),
+        )
+
     def _assemble_input(self) -> None:
         encoders = self.dependencies.rotary_encoders
         encoder_ids = tuple(
@@ -149,6 +166,7 @@ class CarUiComposition:
         self.lifecycle = CarUiLifecycle(
             position_presenter=self.position_status_presenter,
             input_runtime=self.input_runtime,
+            message_dispatcher=self.message_dispatcher,
         )
 
     def activate_screen(self, screen: ScreenUiIf | None) -> None:
