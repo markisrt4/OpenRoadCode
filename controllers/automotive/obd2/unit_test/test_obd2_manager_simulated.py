@@ -34,6 +34,48 @@ def test_simulated_obd_responses_produce_si_vehicle_state():
     assert not adapter.is_connected
 
 
+def test_advance_changes_raw_pid_data_and_decoded_state():
+    adapter = SimulatedObd2Adapter()
+    manager = Obd2Manager(adapter)
+    manager.connect()
+
+    before = manager.read_state()
+    rpm_bytes_before = adapter._responses[0x0C]
+    speed_bytes_before = adapter._responses[0x0D]
+
+    adapter.advance()
+    after = manager.read_state()
+
+    assert adapter._responses[0x0C] != rpm_bytes_before
+    assert adapter._responses[0x0D] != speed_bytes_before
+    assert after.engine_speed_rad_s != before.engine_speed_rad_s
+    assert after.vehicle_speed_m_s != before.vehicle_speed_m_s
+    assert after.throttle_position != before.throttle_position
+    assert after.intake_manifold_pressure_pa != before.intake_manifold_pressure_pa
+    assert after.boost_pressure_pa == pytest.approx(
+        after.intake_manifold_pressure_pa - after.barometric_pressure_pa
+    )
+
+
+def test_dynamic_simulator_stays_inside_vehicle_ranges():
+    adapter = SimulatedObd2Adapter()
+    manager = Obd2Manager(adapter)
+    manager.connect()
+
+    for _ in range(200):
+        adapter.advance()
+        state = manager.read_state()
+
+        assert 0.0 <= state.vehicle_speed_m_s <= 255.0 / 3.6
+        assert 0.0 <= state.throttle_position <= 1.0
+        assert 0.0 <= state.accelerator_pedal_position <= 1.0
+        assert 0.0 <= state.engine_load <= 1.0
+        assert 0.0 <= state.fuel_level <= 1.0
+        assert state.intake_manifold_pressure_pa >= 0.0
+        assert state.barometric_pressure_pa == 101000.0
+        assert state.control_voltage_v > 0.0
+
+
 def test_unsupported_pid_is_none():
     responses = SimulatedObd2Adapter.default_responses()
     responses[0x00] = bytes.fromhex("001A8013")  # clear PID 04 support
