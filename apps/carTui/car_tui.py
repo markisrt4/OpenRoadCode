@@ -27,7 +27,7 @@ class CarTui:
     ) -> None:
         self._routes = {
             "navigation": NavigationScreen(
-                dependencies.navigation_controller,
+                dependencies.navigation_state,
                 gps_enabled=gps_enabled,
             ),
             "vehicle": VehicleScreen(dependencies.vehicle_state),
