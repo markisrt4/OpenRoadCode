@@ -29,6 +29,8 @@ class MessageDispatcher:
 
     Exactly one receiver thread owns the SubscriberIf. Handler execution is
     delegated to a shared Executor so slow consumers do not block reception.
+    Register all topics before calling start(). Handlers run on executor worker
+    threads and therefore must not directly mutate thread-affine UI toolkits.
     """
 
     def __init__(
@@ -39,6 +41,13 @@ class MessageDispatcher:
         max_workers: int = 4,
         error_handler: ErrorHandler | None = None,
     ) -> None:
+        """Create a dispatcher around one transport subscriber.
+
+        @param subscriber Transport-independent subscriber owned by the receive loop.
+        @param executor Optional executor used for decoded message handlers.
+        @param max_workers Worker count used when the dispatcher creates its executor.
+        @param error_handler Optional callback receiving topic and dispatch exceptions.
+        """
         if max_workers <= 0:
             raise ValueError("max_workers must be greater than zero")
         self._subscriber = subscriber
@@ -59,7 +68,12 @@ class MessageDispatcher:
         self._started = False
 
     def register(self, topic: str, decoder: Decoder, handler: Handler) -> None:
-        """Subscribe and register one decoder/handler pair for a topic."""
+        """Subscribe and register one decoder/handler pair for a topic.
+
+        @param topic Public topic name to subscribe to and dispatch.
+        @param decoder Contract decoder that converts the wire payload to a typed message.
+        @param handler Application callback invoked with each decoded message.
+        """
         if not topic:
             raise ValueError("topic must not be empty")
         with self._lock:
@@ -71,6 +85,7 @@ class MessageDispatcher:
         self._subscriber.subscribe(topic)
 
     def start(self) -> None:
+        """Start the single subscriber receive thread after registration is complete."""
         with self._lock:
             if self._started:
                 return
