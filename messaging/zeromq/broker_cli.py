@@ -8,18 +8,22 @@ from __future__ import annotations
 import argparse
 
 from messaging.zeromq.broker import ZeroMqBroker
+from messaging.zeromq.endpoints import (
+    BROKER_PUBLISHER_BIND_ENDPOINT,
+    BROKER_SUBSCRIBER_BIND_ENDPOINT,
+)
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Run the OpenRoadCode ZeroMQ broker")
     parser.add_argument(
         "--publisher-endpoint",
-        default="tcp://0.0.0.0:5556",
+        default=BROKER_PUBLISHER_BIND_ENDPOINT,
         help="endpoint publishers connect to",
     )
     parser.add_argument(
         "--subscriber-endpoint",
-        default="tcp://0.0.0.0:5557",
+        default=BROKER_SUBSCRIBER_BIND_ENDPOINT,
         help="endpoint subscribers connect to",
     )
     args = parser.parse_args()
