@@ -4,6 +4,8 @@
 
 This document defines the application-facing messaging interface used by OpenRoadCode producers and consumers. The bus is intentionally transport-light: domain contracts own schema and validation, while ZeroMQ only carries topic-prefixed JSON messages.
 
+For copy/paste producer and subscriber examples, see `messaging/README.md`.
+
 ## Topology
 
 ```text
@@ -53,11 +55,19 @@ Encoders validate their own output before publication. Decoders validate before 
 
 ### `openroad.navigation.position`
 
-Owns absolute position/fix information such as latitude, longitude, altitude, accuracy, source and fix metadata.
+Owns absolute position/fix information: latitude and longitude in radians, altitude and accuracy in meters, speed in m/s, course in radians, fix/satellite metadata, source, and cache state.
 
 ### `openroad.navigation.motion`
 
-Owns motion information that is independent of the absolute position contract, including heading, ground speed, vertical speed and turn rate where available or derived.
+Owns motion information independent of the absolute position contract: heading in radians, ground and vertical speed in m/s, turn rate in rad/s, and cache state.
+
+### `openroad.navigation.attitude`
+
+Owns fused vehicle orientation: heading, pitch, and roll in radians. These are angular coordinates, not an XYZ vector.
+
+### `openroad.navigation.imu`
+
+Owns inertial motion vectors: acceleration and linear acceleration in m/s², plus angular velocity in rad/s. Each quantity is represented as an XYZ vector.
 
 ### `openroad.vehicle.state`
 
@@ -85,10 +95,10 @@ Applications should normally create one `MessageDispatcher` for one subscriber c
 ZeroMqSubscriber
       |
 MessageDispatcher
-   |       |       |
-position motion vehicle
-   |       |       |
- UI/state handlers
+   |       |       |       |       |
+position motion attitude  imu   vehicle
+   |       |       |       |       |
+       application state handlers
 ```
 
 The dispatcher owns one receiver thread. Decoding occurs after receipt and handlers are submitted to an executor so slow handlers do not block bus reception.
@@ -112,6 +122,22 @@ ELM327 transport or simulated adapter
               |
       ZeroMqPublisher
 ```
+
+The navigation path fans one normalized `NavigationState` sample into public domain topics:
+
+```text
+NavigationController / simulator
+              |
+       NavigationState
+              |
+   NavigationStatePublisher
+       |      |      |      |
+ position  motion attitude  imu
+              |
+      ZeroMqPublisher
+```
+
+Attitude, IMU, and motion use the navigation sample timestamp. Position retains its GPS/source timestamp because fixes may update at a different cadence from inertial sampling.
 
 Consumers must not know whether the source is simulated or physical hardware.
 
@@ -151,6 +177,7 @@ A new public message type should include, at minimum:
 5. decoder
 6. unit tests for valid and invalid payloads
 7. publisher helper when a domain state object exists
-8. IDD update documenting topic ownership and units
+8. broker integration coverage when practical
+9. IDD and `messaging/README.md` updates documenting topic ownership and units
 
 Do not place hardware-specific parsing or UI-specific presentation logic in a public messaging contract.
