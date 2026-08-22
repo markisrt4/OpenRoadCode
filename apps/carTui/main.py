@@ -7,22 +7,24 @@ from __future__ import annotations
 
 import argparse
 import curses
+import os
 from pathlib import Path
 
 from apps.carTui.car_tui import CarTui
 from apps.carTui.car_tui_dependencies import CarTuiDependencies
 from apps.carTui.radio_catalog import build_car_tui_radios
-from controllers.automotive import SimulatedVehicleStateSource
-from controllers.automotive.obd2 import Elm327ObdAdapter, Obd2Manager
+from apps.carTui.vehicle_bus_state import VehicleBusState
 from controllers.navigation import (
     GpsdNavigationAdapter,
     Mpu6050NavigationAdapter,
     NavigationController,
     SimulatedNavigationController,
 )
-from hardware_io.automotive.elm327 import Elm327Device
 from hardware_io.imu import Mpu6050Imu
 from config.runtime_config import RuntimeConfigParser
+from messaging.contracts.automotive import VEHICLE_STATE_TOPIC, decode_vehicle_state
+from messaging.message_dispatcher import MessageDispatcher
+from messaging.zeromq import ZeroMqSubscriber
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -39,9 +41,6 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--gps", action="store_true")
     parser.add_argument("--gps-host", default="127.0.0.1")
     parser.add_argument("--gps-port", default="2947")
-    parser.add_argument("--obd-port", default="/dev/rfcomm0")
-    parser.add_argument("--obd-baud", type=int, default=38400)
-    parser.add_argument("--slow-refresh", type=float, default=5.0)
     parser.add_argument(
         "--config",
         type=Path,
@@ -53,50 +52,67 @@ def parse_args() -> argparse.Namespace:
         "--simulate",
         dest="simulate",
         action="store_true",
-        help="Use software-simulated navigation, vehicle, and radio data",
+        help="Use software-simulated navigation and radio data; vehicle data comes from the shared bus",
     )
     args = parser.parse_args()
     if args.filter_time_constant < 0:
         parser.error("--filter-time-constant must be zero or greater")
-    if args.slow_refresh <= 0:
-        parser.error("--slow-refresh must be greater than zero")
     return args
 
 
+def _create_vehicle_consumer() -> tuple[VehicleBusState, MessageDispatcher]:
+    endpoint = os.environ.get(
+        "OPENROADCODE_ZMQ_SUBSCRIBE_ENDPOINT",
+        "tcp://127.0.0.1:5557",
+    )
+    vehicle_state = VehicleBusState()
+    dispatcher = MessageDispatcher(
+        ZeroMqSubscriber(endpoint),
+        error_handler=vehicle_state.set_error,
+    )
+    dispatcher.register(
+        VEHICLE_STATE_TOPIC,
+        decode_vehicle_state,
+        vehicle_state.set_vehicle,
+    )
+    dispatcher.start()
+    return vehicle_state, dispatcher
+
+
 def build_dependencies(args: argparse.Namespace) -> CarTuiDependencies:
-    """Construct the statically configured Car TUI controller stacks."""
+    """Construct Car TUI controllers and its shared vehicle bus consumer."""
     runtime_config = RuntimeConfigParser(
         getattr(args, "config", DEFAULT_CONFIG_PATH),
         project_root=PROJECT_ROOT,
     ).load()
-    if args.simulate:
+    vehicle_state, vehicle_dispatcher = _create_vehicle_consumer()
+
+    try:
+        if args.simulate:
+            navigation = SimulatedNavigationController()
+        else:
+            gps_source = None
+            if args.gps:
+                from hardware_io.gps import GpsReader
+
+                gps_source = GpsdNavigationAdapter(
+                    GpsReader(host=args.gps_host, port=args.gps_port)
+                )
+            navigation = NavigationController(
+                sensor=Mpu6050NavigationAdapter(Mpu6050Imu(address=args.imu_address)),
+                filter_time_constant_s=args.filter_time_constant,
+                gps_source=gps_source,
+            )
+
         return CarTuiDependencies(
-            SimulatedNavigationController(),
-            SimulatedVehicleStateSource(),
-            build_car_tui_radios(runtime_config, simulate=True),
+            navigation_controller=navigation,
+            vehicle_state=vehicle_state,
+            vehicle_dispatcher=vehicle_dispatcher,
+            radios=build_car_tui_radios(runtime_config, simulate=args.simulate),
         )
-
-    gps_source = None
-    if args.gps:
-        from hardware_io.gps import GpsReader
-
-        gps_source = GpsdNavigationAdapter(
-            GpsReader(host=args.gps_host, port=args.gps_port)
-        )
-    navigation = NavigationController(
-        sensor=Mpu6050NavigationAdapter(Mpu6050Imu(address=args.imu_address)),
-        filter_time_constant_s=args.filter_time_constant,
-        gps_source=gps_source,
-    )
-    vehicle = Obd2Manager(
-        Elm327ObdAdapter(Elm327Device(port=args.obd_port, baud=args.obd_baud)),
-        slow_poll_interval_seconds=args.slow_refresh,
-    )
-    return CarTuiDependencies(
-        navigation,
-        vehicle,
-        build_car_tui_radios(runtime_config, simulate=False),
-    )
+    except Exception:
+        vehicle_dispatcher.close()
+        raise
 
 
 def main() -> int:
