@@ -19,6 +19,7 @@ class PositionState:
     altitude_m: float | None = None
     speed_mps: float | None = None
     course_deg: float | None = None
+    vertical_speed_mps: float | None = None
     fix_mode: int | None = None
     satellites_visible: int | None = None
     satellites_used: int | None = None
