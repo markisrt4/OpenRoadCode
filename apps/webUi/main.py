@@ -11,7 +11,9 @@ from apps.webUi.navigation_session import WebNavigationSession
 from apps.webUi.periodic_position_publisher import PeriodicPositionPublisher
 from apps.webUi.spotify_session import WebSpotifySession
 from apps.webUi.web_navigation_ui_state import WebNavigationUiState
+from apps.webUi.web_vehicle_ui_state import WebVehicleUiState
 from frontends.web import create_web_frontend
+from messaging.contracts.automotive import VEHICLE_STATE_TOPIC, decode_vehicle_state
 from messaging.contracts.navigation import (
     MOTION_STATE_TOPIC,
     POSITION_STATE_TOPIC,
@@ -54,44 +56,65 @@ def _create_navigation_session() -> tuple[
     )
 
 
-def _create_navigation_consumer() -> tuple[WebNavigationUiState, MessageDispatcher]:
-    """Consume public navigation contracts for the WebUI presentation model."""
+def _create_bus_consumer() -> tuple[
+    WebNavigationUiState,
+    WebVehicleUiState,
+    MessageDispatcher,
+]:
+    """Consume public navigation and automotive contracts for WebUI models."""
     endpoint = os.environ.get(
-        "OPENROADCODE_ZMQ_NAVIGATION_SUBSCRIBE_ENDPOINT",
-        "tcp://127.0.0.1:5557",
+        "OPENROADCODE_ZMQ_SUBSCRIBE_ENDPOINT",
+        os.environ.get(
+            "OPENROADCODE_ZMQ_NAVIGATION_SUBSCRIBE_ENDPOINT",
+            "tcp://127.0.0.1:5557",
+        ),
     )
-    ui_state = WebNavigationUiState()
+    navigation_state = WebNavigationUiState()
+    vehicle_state = WebVehicleUiState()
+
+    def handle_error(topic: str, error: Exception) -> None:
+        if topic == VEHICLE_STATE_TOPIC:
+            vehicle_state.set_error(topic, error)
+        else:
+            navigation_state.set_error(topic, error)
+
     dispatcher = MessageDispatcher(
         ZeroMqSubscriber(endpoint),
-        error_handler=ui_state.set_error,
+        error_handler=handle_error,
     )
     dispatcher.register(
         POSITION_STATE_TOPIC,
         decode_position_state,
-        ui_state.set_position,
+        navigation_state.set_position,
     )
     dispatcher.register(
         MOTION_STATE_TOPIC,
         decode_motion_state,
-        ui_state.set_motion,
+        navigation_state.set_motion,
+    )
+    dispatcher.register(
+        VEHICLE_STATE_TOPIC,
+        decode_vehicle_state,
+        vehicle_state.set_vehicle,
     )
     dispatcher.start()
-    return ui_state, dispatcher
+    return navigation_state, vehicle_state, dispatcher
 
 
 navigation_session, position_zmq_publisher, periodic_position_publisher = _create_navigation_session()
-navigation_ui_state, navigation_dispatcher = _create_navigation_consumer()
+navigation_ui_state, vehicle_ui_state, bus_dispatcher = _create_bus_consumer()
 spotify_session = WebSpotifySession()
 app = create_web_frontend(
     create_web_ui_menu_pages(),
     navigation_session=navigation_session,
     navigation_ui_state=navigation_ui_state,
+    vehicle_ui_state=vehicle_ui_state,
     spotify_session=spotify_session,
 )
 
 
 def _close_messaging() -> None:
-    navigation_dispatcher.close()
+    bus_dispatcher.close()
     if periodic_position_publisher is not None:
         periodic_position_publisher.close()
     if position_zmq_publisher is not None:
