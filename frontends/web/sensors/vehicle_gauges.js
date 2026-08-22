@@ -54,8 +54,16 @@
     setValue("vehicle-fuel", Number.isFinite(data?.fuel_level) ? data.fuel_level * 100 : null, 0);
     setValue("vehicle-voltage", data?.control_voltage_v, 1);
 
-    if (state?.error) setText("vehicle-obd-status", `Automotive bus error: ${state.error}`);
-    else if (vehicle) setText("vehicle-obd-status", `Live ${vehicle.source} vehicle state · SSE`);
+    if (state?.error) {
+      setText("vehicle-obd-status", `Automotive bus error: ${state.error}`);
+    } else if (vehicle) {
+      const count = Number.isFinite(state?.received_count) ? state.received_count : 0;
+      const timestamp = vehicle.timestamp ? new Date(vehicle.timestamp).toLocaleTimeString() : "--";
+      setText(
+        "vehicle-obd-status",
+        `Live ${vehicle.source} · messages ${count} · latest ${timestamp} · SSE`,
+      );
+    }
   }
 
   async function loadState(url, renderer, statusId, label) {
