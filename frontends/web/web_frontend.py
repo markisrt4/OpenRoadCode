@@ -19,7 +19,7 @@ PAGE = """<!doctype html><meta name=viewport content='width=device-width,initial
 SCREEN = """<!doctype html><meta name=viewport content='width=device-width,initial-scale=1'><style>{{style}}</style><header><div class=bar><a class=back href='{{back}}'>‹</a><div class=heading><div class=title>{{screen.title}}</div><div class=subtitle>{{screen.subtitle}}</div></div></div></header><main>{{body}}</main>"""
 
 
-def create_web_frontend(pages: Mapping[str, MenuPage], *, root_page: str="main", screens: Mapping[str, WebScreen]|None=None, navigation_session: Any|None=None, spotify_session: Any|None=None) -> Flask:
+def create_web_frontend(pages: Mapping[str, MenuPage], *, root_page: str="main", screens: Mapping[str, WebScreen]|None=None, navigation_session: Any|None=None, navigation_ui_state: Any|None=None, spotify_session: Any|None=None) -> Flask:
     if root_page not in pages: raise ValueError(f"Unknown root page: {root_page}")
     screen_map=dict(screens or create_web_screens())
     web_dir=Path(__file__).resolve().parent
@@ -52,6 +52,8 @@ def create_web_frontend(pages: Mapping[str, MenuPage], *, root_page: str="main",
     @app.get("/web-assets/media/<path:filename>")
     def web_media_asset(filename:str): return send_from_directory(media_dir,filename)
 
+    # Browser sensors are producers. They feed normalized navigation state toward
+    # the public bus, but the browser display consumes the bus-facing UiState.
     @app.post("/api/navigation/position")
     def navigation_position():
         if navigation_session is None: abort(503)
@@ -66,8 +68,8 @@ def create_web_frontend(pages: Mapping[str, MenuPage], *, root_page: str="main",
         return jsonify(ok=True,source=state.source)
     @app.get("/api/navigation/state")
     def navigation_state():
-        if navigation_session is None: abort(503)
-        return jsonify(navigation_session.as_dict())
+        if navigation_ui_state is None: abort(503)
+        return jsonify(navigation_ui_state.as_dict())
 
     @app.get("/api/media/spotify/auth/config")
     def spotify_auth_config():
