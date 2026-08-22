@@ -11,7 +11,9 @@ from apps.carTui.navigation_bus_state import NavigationBusState
 from messaging.contracts.navigation import decode_attitude_state, decode_imu_state
 from messaging.contracts.navigation.attitude_state_codec import encode_attitude_state
 from messaging.contracts.navigation.imu_state_codec import encode_imu_state
-from messaging.contracts.common import Timestamp
+
+
+TIMESTAMP = {"seconds": 10, "nanoseconds": 0}
 
 
 def test_waits_until_both_attitude_and_imu_arrive():
@@ -21,7 +23,7 @@ def test_waits_until_both_attitude_and_imu_arrive():
     assert initial.status == "Waiting for navigation telemetry"
 
     state.set_attitude(decode_attitude_state(encode_attitude_state(
-        timestamp=Timestamp(seconds=10, nanoseconds=0),
+        timestamp=TIMESTAMP,
         source="test-navigation",
         heading_rad=math.pi / 2,
         pitch_rad=math.pi / 12,
@@ -30,7 +32,7 @@ def test_waits_until_both_attitude_and_imu_arrive():
     assert not state.snapshot().connected
 
     state.set_imu(decode_imu_state(encode_imu_state(
-        timestamp=Timestamp(seconds=10, nanoseconds=0),
+        timestamp=TIMESTAMP,
         source="test-navigation",
         acceleration_m_s2={"x": 1.0, "y": 2.0, "z": 9.8},
         linear_acceleration_m_s2={"x": 1.0, "y": 2.0, "z": 0.0},
