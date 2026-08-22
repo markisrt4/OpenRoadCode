@@ -44,8 +44,8 @@ class SimulatedObd2Adapter(Obd2AdapterIf):
         """Return a realistic deterministic Mode 01 response set."""
         # Supported-PID bitmaps include the next range marker where required.
         return {
-            0x00: bytes.fromhex("183A8013"),  # 04,05,0B,0C,0D,0F,10,11,20
-            0x20: bytes.fromhex("00020001"),  # 2F,40
+            0x00: bytes.fromhex("183B8001"),  # 04,05,0B,0C,0D,0F,10,11,20
+            0x20: bytes.fromhex("00022001"),  # 2F,33,40
             0x40: bytes.fromhex("40800000"),  # 42,49
             0x04: bytes([128]),               # ~50.2 % load
             0x05: bytes([130]),               # 90 C
