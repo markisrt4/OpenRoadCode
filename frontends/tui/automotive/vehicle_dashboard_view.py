@@ -6,18 +6,20 @@
 from __future__ import annotations
 
 import curses
-import math
 from typing import Protocol
 
-from frontends.tui.automotive.unit_system import UnitSystem
+from common.units import (
+    UnitSystem,
+    kelvin_to_celsius,
+    kelvin_to_fahrenheit,
+    kilograms_per_second_to_grams_per_second,
+    meters_per_second_to_kilometers_per_hour,
+    meters_per_second_to_miles_per_hour,
+    pascals_to_kilopascals,
+    pascals_to_psi,
+    radians_per_second_to_rpm,
+)
 from frontends.tui.curses_helpers import addstr, format_value
-
-RPM_PER_RAD_S = 60.0 / (2.0 * math.pi)
-MPH_PER_MPS = 2.2369362920544
-KMH_PER_MPS = 3.6
-PSI_PER_PA = 0.00014503773773020923
-KPA_PER_PA = 0.001
-GPS_PER_KGPS = 1000.0
 
 
 class VehicleSnapshot(Protocol):
@@ -37,15 +39,6 @@ class VehicleSnapshot(Protocol):
     control_voltage_v: float | None
 
 
-def _celsius(kelvin: float | None) -> float | None:
-    return None if kelvin is None else kelvin - 273.15
-
-
-def _fahrenheit(kelvin: float | None) -> float | None:
-    celsius = _celsius(kelvin)
-    return None if celsius is None else celsius * 9.0 / 5.0 + 32.0
-
-
 def _percent(fraction: float | None) -> float | None:
     return None if fraction is None else fraction * 100.0
 
@@ -63,27 +56,27 @@ def vehicle_fields(
     if state is None:
         return tuple((label, "--") for label in labels)
 
-    rpm = None if state.engine_speed_rad_s is None else state.engine_speed_rad_s * RPM_PER_RAD_S
+    rpm = radians_per_second_to_rpm(state.engine_speed_rad_s)
     if unit_system == UnitSystem.IMPERIAL:
-        speed = None if state.vehicle_speed_m_s is None else state.vehicle_speed_m_s * MPH_PER_MPS
+        speed = meters_per_second_to_miles_per_hour(state.vehicle_speed_m_s)
         speed_unit = "mph"
-        boost = None if state.boost_pressure_pa is None else state.boost_pressure_pa * PSI_PER_PA
+        boost = pascals_to_psi(state.boost_pressure_pa)
         boost_unit = "psi"
-        coolant = _fahrenheit(state.coolant_temperature_k)
-        intake_air = _fahrenheit(state.intake_air_temperature_k)
+        coolant = kelvin_to_fahrenheit(state.coolant_temperature_k)
+        intake_air = kelvin_to_fahrenheit(state.intake_air_temperature_k)
         temperature_unit = "°F"
     else:
-        speed = None if state.vehicle_speed_m_s is None else state.vehicle_speed_m_s * KMH_PER_MPS
+        speed = meters_per_second_to_kilometers_per_hour(state.vehicle_speed_m_s)
         speed_unit = "km/h"
-        boost = None if state.boost_pressure_pa is None else state.boost_pressure_pa * KPA_PER_PA
+        boost = pascals_to_kilopascals(state.boost_pressure_pa)
         boost_unit = "kPa"
-        coolant = _celsius(state.coolant_temperature_k)
-        intake_air = _celsius(state.intake_air_temperature_k)
+        coolant = kelvin_to_celsius(state.coolant_temperature_k)
+        intake_air = kelvin_to_celsius(state.intake_air_temperature_k)
         temperature_unit = "°C"
 
-    map_kpa = None if state.intake_manifold_pressure_pa is None else state.intake_manifold_pressure_pa * KPA_PER_PA
-    baro_kpa = None if state.barometric_pressure_pa is None else state.barometric_pressure_pa * KPA_PER_PA
-    maf_gps = None if state.mass_air_flow_kg_s is None else state.mass_air_flow_kg_s * GPS_PER_KGPS
+    map_kpa = pascals_to_kilopascals(state.intake_manifold_pressure_pa)
+    baro_kpa = pascals_to_kilopascals(state.barometric_pressure_pa)
+    maf_gps = kilograms_per_second_to_grams_per_second(state.mass_air_flow_kg_s)
 
     return (
         ("Engine RPM", format_value(rpm, "rpm", 0)),
