@@ -4,7 +4,7 @@
 """Message-bus vehicle telemetry destination for Car TUI."""
 
 from apps.carTui.vehicle_bus_state import VehicleBusState
-from frontends.tui.automotive import VehicleDashboardView
+from frontends.tui.automotive import UnitSystem, VehicleDashboardView
 
 
 class VehicleScreen:
@@ -15,10 +15,11 @@ class VehicleScreen:
         vehicle_state: VehicleBusState,
         *,
         refresh_seconds: float = 0.5,
+        unit_system: UnitSystem = UnitSystem.IMPERIAL,
     ) -> None:
         self._vehicle_state = vehicle_state
         self._refresh_seconds = refresh_seconds
-        self._view = VehicleDashboardView()
+        self._view = VehicleDashboardView(unit_system)
 
     def run(self, window) -> bool:
         """Run until back or quit; return False when the app should quit."""
@@ -27,13 +28,7 @@ class VehicleScreen:
             while True:
                 snapshot = self._vehicle_state.snapshot()
                 controls = "b/Esc: back   q: quit"
-                self._view.render(
-                    window,
-                    snapshot.state,
-                    snapshot.status,
-                    snapshot.connected,
-                    controls,
-                )
+                self._view.render(window, snapshot.state, snapshot.status, snapshot.connected, controls)
                 key = window.getch()
                 if key in (ord("q"), ord("Q")):
                     return False
