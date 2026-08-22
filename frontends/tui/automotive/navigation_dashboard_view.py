@@ -36,12 +36,12 @@ class PositionSnapshot(Protocol):
 
 class NavigationSnapshot(Protocol):
     timestamp: object
-    heading_deg: float
-    pitch_deg: float
-    roll_deg: float
-    acceleration_mps2: VectorSnapshot
-    linear_acceleration_mps2: VectorSnapshot
-    angular_velocity_rad_s: VectorSnapshot
+    heading_deg: float | None
+    pitch_deg: float | None
+    roll_deg: float | None
+    acceleration_mps2: VectorSnapshot | None
+    linear_acceleration_mps2: VectorSnapshot | None
+    angular_velocity_rad_s: VectorSnapshot | None
     gps: PositionSnapshot | None
 
 
@@ -129,7 +129,7 @@ class NavigationDashboardView:
             curses.color_pair(2 if connected else 3) if curses.has_colors() else 0
         )
         addstr(screen, 2, 2, connection, connection_attr)
-        if state is not None:
+        if state is not None and state.timestamp is not None:
             timestamp = getattr(state.timestamp, "strftime", lambda _fmt: "--:--:--")
             addstr(screen, 2, max(24, width - 24), f"Updated {timestamp('%H:%M:%S')}")
         fields = navigation_fields(state, gps_enabled, acceleration_mode)
@@ -145,6 +145,6 @@ class NavigationDashboardView:
         footer_row = min(height - 3, 5 + rows_per_column)
         addstr(screen, footer_row, 0, "─" * max(0, width - 1))
         addstr(screen, footer_row + 1, 2, status)
-        controls = controls or f"q: quit   h: reset   c: calibrate   a: acceleration ({acceleration_mode})"
+        controls = controls or f"q: quit   a: acceleration ({acceleration_mode})"
         addstr(screen, height - 1, max(2, width - len(controls) - 2), controls)
         screen.refresh()
