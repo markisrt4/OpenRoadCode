@@ -8,7 +8,7 @@ import os
 
 from apps.webUi.menu_catalog import create_web_ui_menu_pages
 from apps.webUi.navigation_session import WebNavigationSession
-from apps.webUi.position_republisher import PositionRepublisher
+from apps.webUi.periodic_position_publisher import PeriodicPositionPublisher
 from apps.webUi.spotify_session import WebSpotifySession
 from frontends.web import create_web_frontend
 from messaging.contracts.navigation import PositionStatePublisher
@@ -18,7 +18,7 @@ from messaging.zeromq import ZeroMqPublisher
 def _create_navigation_session() -> tuple[
     WebNavigationSession,
     ZeroMqPublisher | None,
-    PositionRepublisher | None,
+    PeriodicPositionPublisher | None,
 ]:
     """Create WebUi navigation state and optional steady ZeroMQ publication."""
     enabled = os.environ.get("OPENROADCODE_ZMQ_POSITION_PUBLISH", "0") == "1"
@@ -33,17 +33,20 @@ def _create_navigation_session() -> tuple[
 
     publisher = ZeroMqPublisher(endpoint)
     position_publisher = PositionStatePublisher(publisher)
-    republisher = PositionRepublisher(position_publisher.publish, rate_hz=rate_hz)
-    republisher.start()
+    periodic_publisher = PeriodicPositionPublisher(
+        position_publisher.publish,
+        rate_hz=rate_hz,
+    )
+    periodic_publisher.start()
 
     return (
-        WebNavigationSession(position_sink=republisher.update),
+        WebNavigationSession(position_sink=periodic_publisher.update),
         publisher,
-        republisher,
+        periodic_publisher,
     )
 
 
-navigation_session, position_zmq_publisher, position_republisher = _create_navigation_session()
+navigation_session, position_zmq_publisher, periodic_position_publisher = _create_navigation_session()
 spotify_session = WebSpotifySession()
 app = create_web_frontend(
     create_web_ui_menu_pages(),
@@ -53,8 +56,8 @@ app = create_web_frontend(
 
 
 def _close_position_messaging() -> None:
-    if position_republisher is not None:
-        position_republisher.close()
+    if periodic_position_publisher is not None:
+        periodic_position_publisher.close()
     if position_zmq_publisher is not None:
         position_zmq_publisher.close()
 
