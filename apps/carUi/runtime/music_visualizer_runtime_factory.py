@@ -16,6 +16,7 @@ from controllers.song_recognition import (
     AcrCloudConfig,
     AcrCloudSongRecognizer,
     SongMetadataCache,
+    SongRecognitionController,
     SongRecognitionIf,
     UnconfiguredSongRecognizer,
 )
@@ -25,8 +26,7 @@ from hardware_io.audio.pipewire_audio_capture import PipeWireAudioCapture
 @dataclass(frozen=True, slots=True)
 class MusicVisualizerRuntime:
     analysis_source: MusicAnalysisSourceIf
-    recognizer: SongRecognitionIf
-    metadata_cache: SongMetadataCache
+    song_recognition: SongRecognitionController
 
     def close(self) -> None:
         self.analysis_source.stop()
@@ -46,10 +46,13 @@ def create_music_visualizer_runtime() -> MusicVisualizerRuntime:
         if host and key and secret
         else UnconfiguredSongRecognizer()
     )
-    cache = SongMetadataCache(
+    metadata_cache = SongMetadataCache(
         PersistentCache(
             Path("~/.cache/openroadcode/song_recognition").expanduser(),
             suffix=".json",
         )
     )
-    return MusicVisualizerRuntime(source, recognizer, cache)
+    return MusicVisualizerRuntime(
+        analysis_source=source,
+        song_recognition=SongRecognitionController(source, recognizer, metadata_cache),
+    )
