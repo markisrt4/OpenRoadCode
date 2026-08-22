@@ -1,37 +1,54 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 
-"""Reusable curses presentation for vehicle telemetry snapshots."""
+"""Reusable curses presentation for SI-normalized vehicle telemetry."""
 
 from __future__ import annotations
 
 import curses
+import math
 from typing import Protocol
 
 from frontends.tui.curses_helpers import addstr, format_value
 
+RPM_PER_RAD_S = 60.0 / (2.0 * math.pi)
+MPH_PER_MPS = 2.2369362920544
+PSI_PER_PA = 0.00014503773773020923
+KPA_PER_PA = 0.001
+GPS_PER_KGPS = 1000.0
+
 
 class VehicleSnapshot(Protocol):
     timestamp: object
-    rpm: float | None
-    speed_mph: float | None
-    boost_psi: float | None
-    coolant_temp_f: float | None
-    intake_temp_f: float | None
-    throttle_pct: float | None
-    accelerator_pedal_pct: float | None
-    engine_load_pct: float | None
-    map_kpa: int | None
-    baro_kpa: int | None
-    maf_gps: float | None
-    fuel_level_pct: float | None
-    control_voltage: float | None
+    engine_speed_rad_s: float | None
+    vehicle_speed_m_s: float | None
+    boost_pressure_pa: float | None
+    coolant_temperature_k: float | None
+    intake_air_temperature_k: float | None
+    throttle_position: float | None
+    accelerator_pedal_position: float | None
+    engine_load: float | None
+    intake_manifold_pressure_pa: float | None
+    barometric_pressure_pa: float | None
+    mass_air_flow_kg_s: float | None
+    fuel_level: float | None
+    control_voltage_v: float | None
+
+
+def _fahrenheit(kelvin: float | None) -> float | None:
+    if kelvin is None:
+        return None
+    return (kelvin - 273.15) * 9.0 / 5.0 + 32.0
+
+
+def _percent(fraction: float | None) -> float | None:
+    return None if fraction is None else fraction * 100.0
 
 
 def vehicle_fields(
     state: VehicleSnapshot | None,
 ) -> tuple[tuple[str, str], ...]:
-    """Return formatted labels and values for a vehicle snapshot."""
+    """Return presentation-unit labels and values for an SI snapshot."""
     labels = (
         "Engine RPM", "Vehicle speed", "Boost", "Coolant", "Intake air",
         "Throttle", "Accelerator", "Engine load", "MAP", "Barometric",
@@ -39,20 +56,52 @@ def vehicle_fields(
     )
     if state is None:
         return tuple((label, "--") for label in labels)
+
+    rpm = (
+        None
+        if state.engine_speed_rad_s is None
+        else state.engine_speed_rad_s * RPM_PER_RAD_S
+    )
+    speed_mph = (
+        None
+        if state.vehicle_speed_m_s is None
+        else state.vehicle_speed_m_s * MPH_PER_MPS
+    )
+    boost_psi = (
+        None
+        if state.boost_pressure_pa is None
+        else state.boost_pressure_pa * PSI_PER_PA
+    )
+    map_kpa = (
+        None
+        if state.intake_manifold_pressure_pa is None
+        else state.intake_manifold_pressure_pa * KPA_PER_PA
+    )
+    baro_kpa = (
+        None
+        if state.barometric_pressure_pa is None
+        else state.barometric_pressure_pa * KPA_PER_PA
+    )
+    maf_gps = (
+        None
+        if state.mass_air_flow_kg_s is None
+        else state.mass_air_flow_kg_s * GPS_PER_KGPS
+    )
+
     return (
-        ("Engine RPM", format_value(state.rpm, "rpm", 0)),
-        ("Vehicle speed", format_value(state.speed_mph, "mph")),
-        ("Boost", format_value(state.boost_psi, "psi")),
-        ("Coolant", format_value(state.coolant_temp_f, "°F")),
-        ("Intake air", format_value(state.intake_temp_f, "°F")),
-        ("Throttle", format_value(state.throttle_pct, "%")),
-        ("Accelerator", format_value(state.accelerator_pedal_pct, "%")),
-        ("Engine load", format_value(state.engine_load_pct, "%")),
-        ("MAP", format_value(state.map_kpa, "kPa")),
-        ("Barometric", format_value(state.baro_kpa, "kPa")),
-        ("Mass airflow", format_value(state.maf_gps, "g/s", 2)),
-        ("Fuel level", format_value(state.fuel_level_pct, "%")),
-        ("Module voltage", format_value(state.control_voltage, "V", 2)),
+        ("Engine RPM", format_value(rpm, "rpm", 0)),
+        ("Vehicle speed", format_value(speed_mph, "mph")),
+        ("Boost", format_value(boost_psi, "psi")),
+        ("Coolant", format_value(_fahrenheit(state.coolant_temperature_k), "°F")),
+        ("Intake air", format_value(_fahrenheit(state.intake_air_temperature_k), "°F")),
+        ("Throttle", format_value(_percent(state.throttle_position), "%")),
+        ("Accelerator", format_value(_percent(state.accelerator_pedal_position), "%")),
+        ("Engine load", format_value(_percent(state.engine_load), "%")),
+        ("MAP", format_value(map_kpa, "kPa")),
+        ("Barometric", format_value(baro_kpa, "kPa")),
+        ("Mass airflow", format_value(maf_gps, "g/s", 2)),
+        ("Fuel level", format_value(_percent(state.fuel_level), "%")),
+        ("Module voltage", format_value(state.control_voltage_v, "V", 2)),
     )
 
 
