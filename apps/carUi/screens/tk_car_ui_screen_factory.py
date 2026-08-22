@@ -6,7 +6,6 @@
 from collections.abc import Callable
 
 from apps.carUi.car_ui_dependencies import CarUiDependencies
-from apps.carUi.navigation_request_handler import NavigationRequestHandler
 from apps.carUi.radio.radio_screen_binding import create_radio_screen_binding
 from apps.carUi.screens.aircraft_screen import AircraftScreen
 from apps.carUi.screens.car_ui_screen_factory_if import CarUiScreens
@@ -66,7 +65,9 @@ class TkCarUiScreenFactory:
             self._host,
             create_menu_tile=self._create_menu_tile,
             back_action=lambda: self._show_menu("gauges"),
-            request_handler=NavigationRequestHandler(dependencies.navigation_controller),
+            # Telemetry is bus-owned. A remote command client can be supplied
+            # here once the navigation service exposes its command endpoint.
+            request_handler=None,
         )
         vehicle_gauges = VehicleGaugesScreen(self._host, create_menu_tile=self._create_menu_tile, back_action=lambda: self._show_menu("gauges"))
 
