@@ -17,11 +17,13 @@ class WebVehicleSnapshot:
 
     vehicle: VehicleStateMessage | None
     error: str | None
+    received_count: int
 
     def as_dict(self) -> dict[str, object]:
         return {
             "vehicle": None if self.vehicle is None else asdict(self.vehicle),
             "error": self.error,
+            "received_count": self.received_count,
         }
 
 
@@ -33,16 +35,18 @@ class WebVehicleUiState:
         self._vehicle: VehicleStateMessage | None = None
         self._error: str | None = None
         self._generation = 0
+        self._received_count = 0
 
     def set_vehicle(self, message: VehicleStateMessage) -> None:
         with self._condition:
             self._vehicle = message
             self._error = None
+            self._received_count += 1
             self._changed()
 
     def set_error(self, topic: str, error: Exception) -> None:
         with self._condition:
-            self._error = f"{topic}: {error}"
+            self._error = f"{topic}: {type(error).__name__}: {error}"
             self._changed()
 
     def snapshot(self) -> WebVehicleSnapshot:
@@ -76,4 +80,8 @@ class WebVehicleUiState:
         self._condition.notify_all()
 
     def _snapshot_unlocked(self) -> WebVehicleSnapshot:
-        return WebVehicleSnapshot(vehicle=self._vehicle, error=self._error)
+        return WebVehicleSnapshot(
+            vehicle=self._vehicle,
+            error=self._error,
+            received_count=self._received_count,
+        )
