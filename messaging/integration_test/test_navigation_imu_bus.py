@@ -63,6 +63,7 @@ def test_one_navigation_sample_delivers_attitude_and_imu():
     dispatcher.start()
 
     controller = SimulatedNavigationController()
+    controller.start()
     publisher = ZeroMqPublisher(ingress)
     navigation_publisher = NavigationStatePublisher(
         publisher,
@@ -93,6 +94,7 @@ def test_one_navigation_sample_delivers_attitude_and_imu():
         )
         assert imu.data.angular_velocity_rad_s.z == pytest.approx(0.04)
     finally:
+        controller.stop()
         publisher.close()
         dispatcher.close()
         broker.close()
