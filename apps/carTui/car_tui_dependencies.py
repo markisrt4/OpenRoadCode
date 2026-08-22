@@ -5,28 +5,25 @@
 
 from dataclasses import dataclass
 
+from apps.carTui.navigation_bus_state import NavigationBusState
 from apps.carTui.radio_catalog import CarTuiRadio
 from apps.carTui.vehicle_bus_state import VehicleBusState
-from controllers.navigation import NavigationControllerIf
 from messaging.message_dispatcher import MessageDispatcher
 
 
 @dataclass(frozen=True, slots=True)
 class CarTuiDependencies:
-    """Controllers and shared bus consumers constructed by Car TUI bootstrap."""
+    """Shared bus consumers and remaining direct radio controllers."""
 
-    navigation_controller: NavigationControllerIf
+    navigation_state: NavigationBusState
     vehicle_state: VehicleBusState
-    vehicle_dispatcher: MessageDispatcher
+    telemetry_dispatcher: MessageDispatcher
     radios: tuple[CarTuiRadio, ...]
 
     def close(self) -> None:
-        """Release controller, message-bus, and radio resources safely."""
+        """Release message-bus and radio resources safely."""
         try:
-            self.navigation_controller.stop()
+            self.telemetry_dispatcher.close()
         finally:
-            try:
-                self.vehicle_dispatcher.close()
-            finally:
-                for radio in self.radios:
-                    radio.controller.stop()
+            for radio in self.radios:
+                radio.controller.stop()
