@@ -32,19 +32,21 @@ class VehicleUiState:
         self._lock = threading.Lock()
         self._vehicle = None
         self._error = None
+        self._received_count = 0
 
     def set_vehicle(self, message) -> None:
         with self._lock:
             self._vehicle = message
             self._error = None
+            self._received_count += 1
 
     def set_error(self, topic, error) -> None:
         with self._lock:
-            self._error = f"{topic}: {error}"
+            self._error = f"{topic}: {type(error).__name__}: {error}"
 
     def snapshot(self):
         with self._lock:
-            return self._vehicle, self._error
+            return self._vehicle, self._error, self._received_count
 
 
 def safe(window, row, col, text) -> None:
@@ -81,11 +83,12 @@ def draw(window, endpoint, ui_state) -> None:
     metric = False
 
     while True:
-        message, error = ui_state.snapshot()
+        message, error, received_count = ui_state.snapshot()
         window.erase()
         safe(window, 0, 0, "OpenRoadCode Vehicle Bus Demo")
         safe(window, 1, 0, f"Endpoint: {endpoint}")
         safe(window, 2, 0, f"Topic: {VEHICLE_STATE_TOPIC}")
+        safe(window, 3, 0, f"Messages received: {received_count}")
         safe(window, 4, 0, f"q/Ctrl+X: quit   u: units   {'METRIC/SI' if metric else 'IMPERIAL'}")
 
         if error:
