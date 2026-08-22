@@ -12,7 +12,8 @@ from controllers.audio_analysis.music_analysis import MusicAnalyzer
 from controllers.audio_analysis.music_analysis_source_if import MusicAnalysisSourceIf
 from controllers.audio_analysis.pcm_music_analysis_source import PcmMusicAnalysisSource
 from controllers.cache.persistent_cache import PersistentCache
-from controllers.music_lighting import MusicLightingController
+from controllers.lighting.lighting_controller_if import LightingControllerIf
+from controllers.music_lighting import MusicLightingController, MusicLightingOutputAdapter
 from controllers.song_recognition import (
     AcrCloudConfig,
     AcrCloudSongRecognizer,
@@ -29,12 +30,17 @@ class MusicVisualizerRuntime:
     analysis_source: MusicAnalysisSourceIf
     song_recognition: SongRecognitionController
     music_lighting: MusicLightingController
+    lighting_output: MusicLightingOutputAdapter | None = None
 
     def close(self) -> None:
         self.analysis_source.stop()
+        if self.lighting_output is not None:
+            self.lighting_output.close()
 
 
-def create_music_visualizer_runtime() -> MusicVisualizerRuntime:
+def create_music_visualizer_runtime(
+    lighting_controller: LightingControllerIf | None = None,
+) -> MusicVisualizerRuntime:
     """Build the platform/provider-specific services used by Car UI."""
     source = PcmMusicAnalysisSource(
         capture=PipeWireAudioCapture(),
@@ -54,8 +60,18 @@ def create_music_visualizer_runtime() -> MusicVisualizerRuntime:
             suffix=".json",
         )
     )
+    output = (
+        MusicLightingOutputAdapter(lighting_controller)
+        if lighting_controller is not None
+        else None
+    )
+    music_lighting = MusicLightingController(
+        output_callback=output.submit if output is not None else None,
+        enabled_callback=output.set_enabled if output is not None else None,
+    )
     return MusicVisualizerRuntime(
         analysis_source=source,
         song_recognition=SongRecognitionController(source, recognizer, metadata_cache),
-        music_lighting=MusicLightingController(),
+        music_lighting=music_lighting,
+        lighting_output=output,
     )
