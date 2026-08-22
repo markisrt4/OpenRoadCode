@@ -9,6 +9,7 @@ import random
 import tkinter as tk
 from tkinter import ttk
 
+from controllers.audio_analysis.audio_analysis import SpectrumAnalysisMode
 from controllers.audio_analysis.music_analysis import MusicAnalysisState
 from controllers.music_lighting import MusicLightingPatternId, MusicLightingState
 from ui.music_analysis import MusicAnalysisRequestHandlerIf, MusicAnalysisStatus, MusicAnalysisUiIf, MusicAnalysisUiState
@@ -17,17 +18,19 @@ from ui.music_visualizer import KickMode, MusicVisualizationMode, MusicVisualize
 
 _MODE_LABELS={MusicVisualizationMode.SPECTRUM:"Spectrum",MusicVisualizationMode.ORBITING_PLANETS:"Orbiting Planets",MusicVisualizationMode.ELECTRIC_FREEWAY:"Electric Freeway",MusicVisualizationMode.EXPLOSION_FIELD:"Explosion Field",MusicVisualizationMode.STAR_DANCE:"Star Dance",MusicVisualizationMode.ELECTRIC_RINGS:"Electric Rings",MusicVisualizationMode.NEON_RIBBON:"Neon Ribbon",MusicVisualizationMode.KALEIDOSCOPE:"Kaleidoscope"}
 _LABEL_MODES={label:mode for mode,label in _MODE_LABELS.items()}
+_ANALYSIS_LABELS={SpectrumAnalysisMode.NATIVE:"Native",SpectrumAnalysisMode.NORMALIZED:"Normalized",SpectrumAnalysisMode.HYBRID:"Hybrid"}
+_LABEL_ANALYSIS={label:mode for mode,label in _ANALYSIS_LABELS.items()}
 _PATTERN_LABELS={MusicLightingPatternId.SPECTRUM_FLOW:"Spectrum Flow",MusicLightingPatternId.BEAT_PULSE:"Beat Pulse",MusicLightingPatternId.PERCUSSION:"Percussion",MusicLightingPatternId.COLOR_WAVE:"Color Wave",MusicLightingPatternId.AMBIENT:"Ambient"}
 _LABEL_PATTERNS={label:pattern for pattern,label in _PATTERN_LABELS.items()}
 
 class MusicVisualizerPanel(tk.Frame,MusicAnalysisUiIf,MusicVisualizerUiIf,MusicLightingUiIf):
     def __init__(self,parent:tk.Misc)->None:
-        super().__init__(parent,bg="#0b0d10");self._handler:MusicVisualizerRequestHandlerIf|None=None;self._analysis_handler:MusicAnalysisRequestHandlerIf|None=None;self._lighting_handler:MusicLightingRequestHandlerIf|None=None;self._state:MusicAnalysisState|None=None;self._phase=0.;self._visualization_mode=MusicVisualizationMode.SPECTRUM;self._mode=tk.StringVar(value=_MODE_LABELS[self._visualization_mode]);self._sensitivity=tk.DoubleVar(value=100.);self._lighting=tk.BooleanVar(value=False);self._lighting_pattern=tk.StringVar(value=_PATTERN_LABELS[MusicLightingPatternId.SPECTRUM_FLOW]);self._lighting_intensity=tk.DoubleVar(value=75.);self._kick_mode=tk.StringVar(value=KickMode.SINGLE.value);self._stars=[(random.random(),random.random(),random.uniform(.5,1.5)) for _ in range(70)];self._particles=[];self._pulse={name:0. for name in ("kick","snare","tom_low","tom_mid","tom_high","cymbal")};self._build()
+        super().__init__(parent,bg="#0b0d10");self._handler:MusicVisualizerRequestHandlerIf|None=None;self._analysis_handler:MusicAnalysisRequestHandlerIf|None=None;self._lighting_handler:MusicLightingRequestHandlerIf|None=None;self._state:MusicAnalysisState|None=None;self._phase=0.;self._visualization_mode=MusicVisualizationMode.SPECTRUM;self._mode=tk.StringVar(value=_MODE_LABELS[self._visualization_mode]);self._analysis_mode=tk.StringVar(value=_ANALYSIS_LABELS[SpectrumAnalysisMode.HYBRID]);self._sensitivity=tk.DoubleVar(value=100.);self._lighting=tk.BooleanVar(value=False);self._lighting_pattern=tk.StringVar(value=_PATTERN_LABELS[MusicLightingPatternId.SPECTRUM_FLOW]);self._lighting_intensity=tk.DoubleVar(value=75.);self._kick_mode=tk.StringVar(value=KickMode.SINGLE.value);self._stars=[(random.random(),random.random(),random.uniform(.5,1.5)) for _ in range(70)];self._particles=[];self._pulse={name:0. for name in ("kick","snare","tom_low","tom_mid","tom_high","cymbal")};self._build()
     def set_request_handler(self,handler):self._handler=handler
     def set_music_analysis_request_handler(self,handler):self._analysis_handler=handler
     def set_music_lighting_request_handler(self,handler):self._lighting_handler=handler
     def _build(self):
-        controls=tk.Frame(self,bg="#0b0d10");controls.pack(fill="x",padx=8,pady=(4,6));tk.Label(controls,text="VISUALIZER",bg="#0b0d10",fg="white",font=("TkDefaultFont",14,"bold")).pack(side="left");combo=ttk.Combobox(controls,textvariable=self._mode,values=tuple(_MODE_LABELS.values()),state="readonly",width=18);combo.pack(side="right");combo.bind("<<ComboboxSelected>>",self._mode_changed);tk.Button(controls,text="ZEROIZE",command=lambda:self._analysis_handler and self._analysis_handler.request_zeroize(),bg="#18222e",fg="white").pack(side="right",padx=5);self._identify=tk.Button(controls,text="IDENTIFY",command=lambda:self._handler and self._handler.request_song_recognition(),bg="#18222e",fg="white");self._identify.pack(side="right",padx=5);sens=tk.Scale(controls,from_=25,to=200,orient="horizontal",showvalue=False,length=120,bg="#0b0d10",highlightthickness=0,variable=self._sensitivity,command=lambda v:self._analysis_handler and self._analysis_handler.request_sensitivity(float(v)/100.));sens.pack(side="right");tk.Label(controls,text="SENS",bg="#0b0d10",fg="#8fa0ad").pack(side="right")
+        controls=tk.Frame(self,bg="#0b0d10");controls.pack(fill="x",padx=8,pady=(4,6));tk.Label(controls,text="VISUALIZER",bg="#0b0d10",fg="white",font=("TkDefaultFont",14,"bold")).pack(side="left");combo=ttk.Combobox(controls,textvariable=self._mode,values=tuple(_MODE_LABELS.values()),state="readonly",width=18);combo.pack(side="right");combo.bind("<<ComboboxSelected>>",self._mode_changed);tk.Button(controls,text="ZEROIZE",command=lambda:self._analysis_handler and self._analysis_handler.request_zeroize(),bg="#18222e",fg="white").pack(side="right",padx=5);self._identify=tk.Button(controls,text="IDENTIFY",command=lambda:self._handler and self._handler.request_song_recognition(),bg="#18222e",fg="white");self._identify.pack(side="right",padx=5);sens=tk.Scale(controls,from_=25,to=200,orient="horizontal",showvalue=False,length=120,bg="#0b0d10",highlightthickness=0,variable=self._sensitivity,command=lambda v:self._analysis_handler and self._analysis_handler.request_sensitivity(float(v)/100.));sens.pack(side="right");tk.Label(controls,text="SENS",bg="#0b0d10",fg="#8fa0ad").pack(side="right");analysis=ttk.Combobox(controls,textvariable=self._analysis_mode,values=tuple(_ANALYSIS_LABELS.values()),state="readonly",width=11);analysis.pack(side="right",padx=(5,8));analysis.bind("<<ComboboxSelected>>",self._analysis_mode_changed);tk.Label(controls,text="ANALYSIS",bg="#0b0d10",fg="#8fa0ad").pack(side="right")
         options=tk.Frame(self,bg="#0b0d10");options.pack(fill="x",padx=8,pady=(0,5));lighting=tk.Frame(options,bg="#10151b",padx=6,pady=3);lighting.pack(side="left");tk.Checkbutton(lighting,text="MUSIC LIGHTING",variable=self._lighting,command=self._lighting_enabled_changed,bg="#10151b",fg="#aebac4",selectcolor="#18222e",activebackground="#10151b").pack(side="left");pattern=ttk.Combobox(lighting,textvariable=self._lighting_pattern,values=tuple(_PATTERN_LABELS.values()),state="readonly",width=13);pattern.pack(side="left",padx=5);pattern.bind("<<ComboboxSelected>>",self._lighting_pattern_changed);tk.Label(lighting,text="INT",bg="#10151b",fg="#8fa0ad").pack(side="left");tk.Scale(lighting,from_=0,to=100,orient="horizontal",showvalue=False,length=80,bg="#10151b",highlightthickness=0,variable=self._lighting_intensity,command=self._lighting_intensity_changed).pack(side="left");tk.Button(lighting,text="CONFIGURE →",command=self._configure_lighting,bg="#18222e",fg="white").pack(side="left",padx=(5,0));
         for text,value in (("DOUBLE KICK",KickMode.DOUBLE.value),("SINGLE KICK",KickMode.SINGLE.value)):tk.Radiobutton(options,text=text,value=value,variable=self._kick_mode,command=self._kick_changed,bg="#0b0d10",fg="#aebac4",selectcolor="#18222e",activebackground="#0b0d10").pack(side="right")
         self._now=tk.Label(self,text="NOW HEARING  ·  Song recognition unconfigured",anchor="w",bg="#10151b",fg="#b9c8d3",padx=10,pady=5);self._now.pack(fill="x",padx=8,pady=(0,5));self._status=tk.Label(self,text="STOPPED",anchor="w",bg="#0b0d10",fg="#82909d",padx=8);self._status.pack(fill="x");self._canvas=tk.Canvas(self,bg="#030509",highlightthickness=0,height=230);self._canvas.pack(fill="both",expand=True,padx=8);self._drums=tk.Canvas(self,bg="#080c10",highlightthickness=0,height=145);self._drums.pack(fill="x",padx=8,pady=(5,0));meters=tk.Frame(self,bg="#0b0d10");meters.pack(fill="x",padx=8,pady=6);self._meter_labels={}
@@ -45,6 +48,8 @@ class MusicVisualizerPanel(tk.Frame,MusicAnalysisUiIf,MusicVisualizerUiIf,MusicL
     def set_music_lighting_state(self,state:MusicLightingState)->None:self._lighting.set(state.enabled);self._lighting_pattern.set(_PATTERN_LABELS[state.pattern]);self._lighting_intensity.set(round(state.intensity*100))
     def _mode_changed(self,_event=None):
         if self._handler:self._handler.request_visualization_mode(_LABEL_MODES.get(self._mode.get(),MusicVisualizationMode.SPECTRUM))
+    def _analysis_mode_changed(self,_event=None):
+        if self._analysis_handler:self._analysis_handler.request_spectrum_mode(_LABEL_ANALYSIS.get(self._analysis_mode.get(),SpectrumAnalysisMode.HYBRID))
     def _kick_changed(self):
         if self._handler:self._handler.request_kick_mode(KickMode(self._kick_mode.get()))
     def set_analysis_state(self,state):
@@ -53,7 +58,7 @@ class MusicVisualizerPanel(tk.Frame,MusicAnalysisUiIf,MusicVisualizerUiIf,MusicL
         for name in self._pulse:self._pulse[name]=max(getattr(state.percussion,name),self._pulse[name]*.72)
         self._draw();self._draw_drums()
     def set_analysis_ui_state(self,state:MusicAnalysisUiState)->None:
-        self._sensitivity.set(round(state.sensitivity*100));parts=[state.status.value.upper()]
+        self._sensitivity.set(round(state.sensitivity*100));self._analysis_mode.set(_ANALYSIS_LABELS[state.spectrum_mode]);parts=[state.status.value.upper()]
         if state.calibrated:parts.append("ZEROIZED")
         if state.status is MusicAnalysisStatus.ZEROIZING:parts.append("KEEP MUSIC OFF")
         if state.error:parts.append(state.error)
@@ -96,19 +101,19 @@ class MusicVisualizerPanel(tk.Frame,MusicAnalysisUiIf,MusicVisualizerUiIf,MusicL
         for sx,sy,size in self._stars:x=((sx-.5)*(1+self.a.level*.7)+.5)*w;y=((sy-.5)*(1+self.a.level*.7)+.5)*h;r=size*(1+self.a.treble*3);self._canvas.create_oval(x-r,y-r,x+r,y+r,fill=self._gradient(sx+self._phase*.01),outline="")
     def _draw_rings(self,w,h):
         cx,cy=w/2,h/2
-        for i,v in enumerate(self.a.spectrum[::3] or (0,)*8):r=(i+1)*min(w,h)/18+v*28;self._canvas.create_oval(cx-r,cy-r,cx+r,cy+r,outline=self._gradient(i/8+self._phase*.01),width=2+int(v*4))
+        for i,v in enumerate((self.a.bass,self.a.mid,self.a.treble)):r=min(w,h)*(.16+i*.13)*(1+v*.25);self._canvas.create_oval(cx-r,cy-r,cx+r,cy+r,outline=self._gradient(i*.3+self._phase*.01),width=2+int(v*5))
     def _draw_ribbon(self,w,h):
-        vals=self.a.spectrum or (0,)*24;pts=[]
-        for i,v in enumerate(vals):pts.extend((i*w/max(1,len(vals)-1),h*.5-math.sin(i*.65+self._phase)*25-v*h*.28))
-        if len(pts)>=4:self._canvas.create_line(*pts,fill="#44ddff",width=4,smooth=True)
+        vals=self.a.spectrum or (0.,)*24;pts=[]
+        for i,v in enumerate(vals):pts.extend((i*w/max(1,len(vals)-1),h*.5+math.sin(self._phase+i*.55)*h*.08-v*h*.34))
+        if len(pts)>=4:self._canvas.create_line(*pts,fill="#4ef4ff",width=3,smooth=True)
     def _draw_kaleidoscope(self,w,h):
-        cx,cy=w/2,h/2;vals=self.a.spectrum or (0,)*24
-        for spoke in range(12):
-            a=spoke*math.tau/12+self._phase*.15
-            for i,v in enumerate(vals[::3]):r=(i+1)*min(w,h)/20+v*35;x=cx+math.cos(a)*r;y=cy+math.sin(a)*r;self._canvas.create_line(cx,cy,x,y,fill=self._gradient(i/8+spoke/12),width=1+int(v*4))
+        vals=self.a.spectrum or (0.,)*24;cx,cy=w/2,h/2
+        for arm in range(10):
+            ang=arm*math.tau/10+self._phase*.15
+            for i,v in enumerate(vals[::3]):r=(i+1)*min(w,h)/18*(1+v*.7);x=cx+math.cos(ang)*r;y=cy+math.sin(ang)*r;self._canvas.create_line(cx,cy,x,y,fill=self._gradient(i/8+self._phase*.01),width=1+int(v*4))
     @staticmethod
-    def _gradient(x):
-        x=x%1
-        if x<.33:return "#37df78"
-        if x<.66:return "#ffd33d"
-        return "#ff5b45"
+    def _gradient(t):
+        t=t%1.;stops=((0.,(39,232,88)),(.25,(244,230,52)),(.5,(255,145,36)),(.72,(255,61,61)),(1.,(174,62,255)))
+        for (a,c1),(b,c2) in zip(stops,stops[1:]):
+            if a<=t<=b:q=(t-a)/(b-a);return "#%02x%02x%02x"%tuple(int(x+(y-x)*q) for x,y in zip(c1,c2))
+        return "#ae3eff"
