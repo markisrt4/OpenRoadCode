@@ -5,6 +5,8 @@
 
 from __future__ import annotations
 
+from threading import Event
+
 import zmq
 
 from messaging.zeromq.endpoints import (
@@ -16,35 +18,63 @@ from messaging.zeromq.endpoints import (
 class ZeroMqBroker:
     """Fan messages from many publishers out to many subscribers."""
 
+    _POLL_TIMEOUT_MS = 100
+
     def __init__(
         self,
         publisher_endpoint: str = BROKER_PUBLISHER_BIND_ENDPOINT,
         subscriber_endpoint: str = BROKER_SUBSCRIBER_BIND_ENDPOINT,
     ) -> None:
-        self._context = zmq.Context()
-        self._xsub = self._context.socket(zmq.XSUB)
-        self._xpub = self._context.socket(zmq.XPUB)
-        self._closed = False
-        try:
-            self._xsub.bind(publisher_endpoint)
-            self._xpub.bind(subscriber_endpoint)
-        except Exception:
-            self.close()
-            raise
+        self._publisher_endpoint = publisher_endpoint
+        self._subscriber_endpoint = subscriber_endpoint
+        self._stop_event = Event()
+        self._running = Event()
+
+    @property
+    def is_running(self) -> bool:
+        return self._running.is_set()
 
     def run(self) -> None:
-        """Run the forwarding proxy until interrupted or the context stops."""
-        if self._closed:
+        """Run the forwarding broker until :meth:`close` requests shutdown.
+
+        The ZeroMQ context and sockets are created and destroyed on this thread
+        so callers may safely run the broker in either the foreground or a
+        dedicated Python thread.
+        """
+        if self._stop_event.is_set():
             raise RuntimeError("broker is closed")
+        if self._running.is_set():
+            raise RuntimeError("broker is already running")
+
+        context = zmq.Context()
+        xsub = context.socket(zmq.XSUB)
+        xpub = context.socket(zmq.XPUB)
         try:
-            zmq.proxy(self._xsub, self._xpub)
-        except zmq.ContextTerminated:
-            pass
+            xsub.bind(self._publisher_endpoint)
+            xpub.bind(self._subscriber_endpoint)
+            self._running.set()
+
+            poller = zmq.Poller()
+            poller.register(xsub, zmq.POLLIN)
+            poller.register(xpub, zmq.POLLIN)
+
+            while not self._stop_event.is_set():
+                events = dict(poller.poll(self._POLL_TIMEOUT_MS))
+
+                if xsub in events:
+                    # Publisher traffic is multipart: topic + JSON payload.
+                    xpub.send_multipart(xsub.recv_multipart())
+
+                if xpub in events:
+                    # XPUB emits subscription/unsubscription frames which must
+                    # travel back to XSUB so upstream publishers receive them.
+                    xsub.send(xpub.recv())
+        finally:
+            self._running.clear()
+            xsub.close(linger=0)
+            xpub.close(linger=0)
+            context.term()
 
     def close(self) -> None:
-        if self._closed:
-            return
-        self._closed = True
-        self._xsub.close(linger=0)
-        self._xpub.close(linger=0)
-        self._context.term()
+        """Request broker shutdown without touching another thread's sockets."""
+        self._stop_event.set()
