@@ -96,22 +96,46 @@ at a desk. Your laptop should not need to believe it is a Jeep.
 
 ## A quick architecture tour
 
-The main dependency direction is:
+OpenRoadCode has two important dependency paths.
+
+Commands and requested behavior use controller interfaces:
 
 ```text
-Applications and UI
-        ↓
-Controllers
-        ↓
-Hardware adapters and protocols
-        ↓
-Linux devices, services, and physical hardware
+Application / UI
+      ↓
+Controller interface
+      ↓
+Concrete controller
+      ↓
+Hardware adapter / protocol
+      ↓
+Linux service / physical hardware
+```
+
+Continuously changing public telemetry is distributed through the message bus:
+
+```text
+Hardware / simulator
+      ↓
+SI domain state
+      ↓
+Contract publisher
+      ↓
+Message bus
+      ↓
+Application state
+      ↓
+Frontend / UI
 ```
 
 In practical terms:
 
-- `apps/` owns user-facing applications and runtime assembly.
-- `controllers/` exposes behavior applications can use.
+- `apps/` owns user-facing applications, runtime assembly, and app-specific state.
+- `controllers/` exposes behavior applications can request.
+- `messaging/` owns public telemetry contracts, dispatch, and transports.
+- `frontends/` owns toolkit-specific reusable presentation.
+- `ui/` owns toolkit-independent presentation contracts.
+- `common/` owns neutral cross-cutting helpers such as unit conversion.
 - `hardware_io/` isolates device-specific access.
 - `protocols/` handles communication formats and remote APIs.
 - `config/` holds runtime and hardware configuration.
@@ -119,6 +143,19 @@ In practical terms:
 Keep hardware-specific imports out of application and UI code. When adding a
 device, place its implementation behind an interface so the rest of the
 project can run with a real adapter, a test fake, or no hardware at all.
+
+For public telemetry, keep contracts in SI units and perform imperial/metric
+conversion only at the presentation boundary. Shared conversions live in
+`common.units`; do not duplicate conversion constants in each frontend.
+
+A useful rule when choosing a boundary is:
+
+- "Do this" normally belongs behind a controller interface.
+- "This is the current state" is a candidate for a public telemetry contract.
+
+See [docs/architecture.md](docs/architecture.md) for the fuller architecture
+model and [messaging/README.md](messaging/README.md) for a copy/paste subscriber
+quick start.
 
 Avoid abstractions that do not provide a useful boundary, test seam, or
 interchangeable implementation. Software already has enough ceremonial
@@ -183,6 +220,11 @@ python scripts/check_doxygen_contracts.py
 
 Docstrings and comments should explain intent, constraints, or surprising
 behavior. They do not need to narrate obvious Python one line at a time.
+
+When adding or changing public telemetry, update both
+`messaging/README.md` and `docs/messaging/message_bus_idd.md`. A new developer
+should be able to discover the topic, decoder, units, and subscription pattern
+without reverse-engineering the producer.
 
 ## Code style
 
@@ -254,6 +296,7 @@ Before opening a pull request:
 - Run `python scripts/check_doxygen_contracts.py` after changing interfaces.
 - Exercise relevant component CLIs when changing hardware integrations.
 - Update configuration examples and documentation when behavior changes.
+- Update messaging documentation when adding or changing public telemetry.
 - Remove secrets, generated files, debug output, and machine-specific paths.
 
 In the pull request description, tell us:
