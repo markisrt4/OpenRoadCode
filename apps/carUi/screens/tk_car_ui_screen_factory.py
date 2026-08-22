@@ -149,7 +149,6 @@ class TkCarUiScreenFactory:
         )
         vehicle_gauges = VehicleGaugesScreen(
             self._host,
-            source=getattr(dependencies, "vehicle_state_source", None),
             create_menu_tile=self._create_menu_tile,
             back_action=lambda: self._show_menu("gauges"),
         )
