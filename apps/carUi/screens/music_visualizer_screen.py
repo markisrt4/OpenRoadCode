@@ -9,6 +9,7 @@ import logging
 from apps.carUi.runtime.music_visualizer_runtime_factory import MusicVisualizerRuntime
 from apps.carUi.screens.car_ui_screen import CarUiScreen
 from apps.carUi.screens.car_ui_screen_services import MenuTileFactory
+from controllers.audio_analysis.music_analysis_presenter import MusicAnalysisPresenter
 from controllers.audio_analysis.music_visualizer_presenter import MusicVisualizerPresenter
 from frontends.tk.audio_analysis import MusicVisualizerPanel
 from frontends.tk.tk_screen_host_if import TkScreenHostIf
@@ -21,16 +22,55 @@ class MusicVisualizerScreen(CarUiScreen):
     """Bind injected music services to the native Tk visualizer."""
 
     def __init__(self,host:TkScreenHostIf,*,runtime:MusicVisualizerRuntime,create_menu_tile:MenuTileFactory,back_action,configure_lighting_action=None)->None:
-        super().__init__(host,ScreenId("music_visualizer"),create_menu_tile);self._back_action=back_action;self._runtime=runtime;self._configure_lighting_action=configure_lighting_action;self._presenter=None;self._panel=None
+        super().__init__(host,ScreenId("music_visualizer"),create_menu_tile)
+        self._back_action=back_action
+        self._runtime=runtime
+        self._configure_lighting_action=configure_lighting_action
+        self._analysis_presenter=None
+        self._visualizer_presenter=None
+        self._panel=None
 
     def show(self)->None:
-        self.prepare_screen("Music Visualizer",self._back_action);self._panel=MusicVisualizerPanel(self.content_frame);self._presenter=MusicVisualizerPresenter(self._runtime.analysis_source,self._runtime.song_recognition,music_lighting=self._runtime.music_lighting,dispatch=lambda callback:self.host.schedule_ui_callback(0,callback));self._panel.set_request_handler(self._presenter);self._presenter.attach_ui(self._panel);self._panel.set_music_lighting_request_handler(self._runtime.music_lighting);self._runtime.music_lighting.attach_ui(self._panel);self._panel.set_configure_lighting_action(self._configure_lighting_action);self._panel.pack(fill="both",expand=True);self._panel.set_status("Listening to configured music source")
-        try:self._presenter.start()
-        except Exception as exc:LOGGER.warning("Music source unavailable: %s",exc);self._panel.set_status(f"Audio source unavailable: {exc}")
+        self.prepare_screen("Music Visualizer",self._back_action)
+        panel=MusicVisualizerPanel(self.content_frame)
+        dispatch=lambda callback:self.host.schedule_ui_callback(0,callback)
+        analysis=MusicAnalysisPresenter(
+            self._runtime.analysis_source,
+            music_lighting=self._runtime.music_lighting,
+            dispatch=dispatch,
+        )
+        visualizer=MusicVisualizerPresenter(
+            self._runtime.song_recognition,
+            dispatch=dispatch,
+        )
+        panel.set_music_analysis_request_handler(analysis)
+        panel.set_request_handler(visualizer)
+        panel.set_music_lighting_request_handler(self._runtime.music_lighting)
+        panel.set_configure_lighting_action(self._configure_lighting_action)
+        analysis.attach_ui(panel)
+        visualizer.attach_ui(panel)
+        self._runtime.music_lighting.attach_ui(panel)
+        panel.pack(fill="both",expand=True)
+        self._panel=panel
+        self._analysis_presenter=analysis
+        self._visualizer_presenter=visualizer
+        try:
+            analysis.start()
+        except Exception as exc:
+            LOGGER.warning("Music source unavailable: %s",exc)
 
     def hide(self)->None:
-        presenter,panel=self._presenter,self._panel;self._presenter=None;self._panel=None
-        if panel is not None:self._runtime.music_lighting.detach_ui(panel)
-        if presenter is not None:
-            try:presenter.stop()
-            except Exception:LOGGER.exception("Failed to stop music analysis source")
+        analysis,visualizer,panel=self._analysis_presenter,self._visualizer_presenter,self._panel
+        self._analysis_presenter=None
+        self._visualizer_presenter=None
+        self._panel=None
+        if panel is not None:
+            self._runtime.music_lighting.detach_ui(panel)
+        if visualizer is not None:
+            visualizer.detach_ui()
+        if analysis is not None:
+            try:
+                analysis.stop()
+            except Exception:
+                LOGGER.exception("Failed to stop music analysis source")
+            analysis.detach_ui()
