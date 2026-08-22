@@ -34,7 +34,6 @@ class BrowserPositionAdapter:
             altitude_m=_number(payload.get("altitude"), "altitude"),
             speed_mps=_number(payload.get("speed"), "speed"),
             course_deg=_number(payload.get("heading"), "heading"),
-            vertical_speed_mps=_number(payload.get("verticalSpeed"), "verticalSpeed"),
             accuracy_m=_number(payload.get("accuracy"), "accuracy"),
             fix_mode=3,
             source="browser",
