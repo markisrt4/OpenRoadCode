@@ -1,12 +1,11 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 
-"""Continuously publish simulated navigation attitude and IMU telemetry."""
+"""Continuously publish complete simulated navigation telemetry."""
 
 from __future__ import annotations
 
 import argparse
-import math
 import time
 
 from controllers.navigation import SimulatedNavigationController
@@ -17,7 +16,7 @@ from messaging.zeromq.endpoints import LOCAL_PUBLISHER_ENDPOINT
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Publish simulated navigation attitude and IMU state"
+        description="Publish simulated position, motion, attitude, and IMU state"
     )
     parser.add_argument("--endpoint", default=LOCAL_PUBLISHER_ENDPOINT)
     parser.add_argument("--rate-hz", type=float, default=10.0)
@@ -40,7 +39,7 @@ def main() -> None:
     print("OpenRoadCode simulated navigation publisher")
     print(f"  broker ingress: {args.endpoint}")
     print(f"  publish rate:   {args.rate_hz:g} Hz")
-    print("  topics:         attitude + imu")
+    print("  topics:         position + motion + attitude + imu")
     print("  source:         simulated-navigation")
     print("Ctrl+C to stop")
 
@@ -53,8 +52,13 @@ def main() -> None:
 
             if not args.quiet and sample_count % max(1, round(args.rate_hz)) == 0:
                 linear = state.linear_acceleration_mps2
+                gps = state.gps
+                position = "no-fix" if gps is None else (
+                    f"{gps.latitude_deg:.5f},{gps.longitude_deg:.5f}"
+                )
                 print(
                     f"published #{sample_count}: "
+                    f"position={position} "
                     f"heading={state.heading_deg:6.1f}° "
                     f"pitch={state.pitch_deg:6.1f}° "
                     f"roll={state.roll_deg:6.1f}° "
