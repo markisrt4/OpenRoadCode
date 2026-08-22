@@ -41,6 +41,18 @@ YOUTUBE_HTML = '''
 '''
 
 VEHICLE_GAUGES_HTML = '''
+<div class="card"><b>Automotive bus</b><p id="vehicle-obd-status">Waiting for openroad.vehicle.state…</p></div>
+<div class="gauges">
+  <div class="gauge"><span id="vehicle-rpm">--</span><small>RPM</small></div>
+  <div class="gauge"><span id="vehicle-obd-speed">--</span><small>OBD MPH</small></div>
+  <div class="gauge"><span id="vehicle-throttle">--</span><small>THROTTLE %</small></div>
+  <div class="gauge"><span id="vehicle-boost">--</span><small>BOOST PSI</small></div>
+  <div class="gauge"><span id="vehicle-coolant">--</span><small>COOLANT °F</small></div>
+  <div class="gauge"><span id="vehicle-load">--</span><small>ENGINE LOAD %</small></div>
+  <div class="gauge"><span id="vehicle-fuel">--</span><small>FUEL %</small></div>
+  <div class="gauge"><span id="vehicle-voltage">--</span><small>CONTROL V</small></div>
+</div>
+<div class="card"><b>Navigation bus</b><p id="vehicle-sensor-status">Waiting for navigation data, or start phone GPS.</p></div>
 <div class="gauges">
   <div class="gauge"><span id="vehicle-speed">--</span><small>GPS MPH</small></div>
   <div class="gauge"><span id="vehicle-heading">--</span><small>HEADING</small></div>
@@ -49,12 +61,8 @@ VEHICLE_GAUGES_HTML = '''
 </div>
 <div class="card">
   <b>Phone sensors</b>
-  <p id="vehicle-sensor-status">Tap START PHONE GPS to use this device as the position sensor.</p>
+  <p>Use this device as a navigation.position producer.</p>
   <button id="start-vehicle-sensors" class="primary wide">START PHONE GPS</button>
-</div>
-<div class="card">
-  <b>Automotive data</b>
-  <p>RPM, boost, throttle, and other OBD values are unavailable until an automotive state source is connected. Fake telemetry has been removed.</p>
 </div>
 <script src="/web-assets/sensors/geolocation.js"></script>
 <script src="/web-assets/sensors/vehicle_gauges.js"></script>
@@ -63,7 +71,7 @@ VEHICLE_GAUGES_HTML = '''
 
 def create_web_screens() -> dict[str, WebScreen]:
     return {
-        "vehicle_gauges": WebScreen("Vehicle Gauges", "Phone GPS + automotive data", VEHICLE_GAUGES_HTML),
+        "vehicle_gauges": WebScreen("Vehicle Gauges", "Navigation + automotive bus", VEHICLE_GAUGES_HTML),
         "weather_overview": WebScreen("Weather", "Frontend provider shell", '''<div class="hero-value">72°<small>F</small></div><div class="card"><b>Current Conditions</b><p>Partly cloudy</p></div>'''),
         "weather_forecast": WebScreen("Forecast", "Demo forecast", '''<div class="forecast"><div><b>MON</b><span>72°</span><small>Partly cloudy</small></div><div><b>TUE</b><span>76°</span><small>Sunny</small></div></div>'''),
         "weather_alerts": WebScreen("Weather Alerts", "Warnings and watches", '''<div class="card"><b>No demo alerts</b></div>'''),
