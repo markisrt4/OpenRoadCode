@@ -49,6 +49,23 @@ class PeriodicPositionPublisher:
             self._latest = replace(state, is_cached=False)
             self._generation += 1
 
+    def publish_once(self) -> bool:
+        """Publish the latest state once; return False when no state exists."""
+        with self._lock:
+            state = self._latest
+            generation = self._generation
+            is_cached = generation == self._published_generation
+
+        if state is None:
+            return False
+
+        self._sink(replace(state, is_cached=is_cached))
+
+        with self._lock:
+            if self._generation == generation:
+                self._published_generation = generation
+        return True
+
     def close(self) -> None:
         self._stop_event.set()
         if self._thread.is_alive():
@@ -56,16 +73,4 @@ class PeriodicPositionPublisher:
 
     def _run(self) -> None:
         while not self._stop_event.wait(self._period_s):
-            with self._lock:
-                state = self._latest
-                generation = self._generation
-                is_cached = generation == self._published_generation
-
-            if state is None:
-                continue
-
-            self._sink(replace(state, is_cached=is_cached))
-
-            with self._lock:
-                if self._generation == generation:
-                    self._published_generation = generation
+            self.publish_once()
