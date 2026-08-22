@@ -9,23 +9,32 @@ import threading
 import time
 
 from controllers.audio_analysis.music_analysis import MusicAnalysisState
+from controllers.audio_analysis.music_analysis_presenter import MusicAnalysisPresenter
 from controllers.audio_analysis.pcm_music_analysis_source import PcmMusicAnalysisSource
 from hardware_io.audio.pipewire_audio_capture import PipeWireAudioCapture
+from ui.music_analysis import MusicAnalysisUiIf, MusicAnalysisUiState
 
 
-class WebLinuxAudioAnalysisSession:
-    """Expose PipeWire through the same shared analyzer used by other frontends."""
+class WebLinuxAudioAnalysisSession(MusicAnalysisUiIf):
+    """Expose PipeWire through the shared analysis presenter and UI contract."""
 
     def __init__(self, source: PcmMusicAnalysisSource | None = None) -> None:
         self.source = source or PcmMusicAnalysisSource(PipeWireAudioCapture())
         self._lock = threading.RLock()
         self._state: MusicAnalysisState | None = None
+        self._ui_state: MusicAnalysisUiState | None = None
         self._running = False
         self._error: str | None = None
+        self.presenter = MusicAnalysisPresenter(self.source)
+        self.presenter.attach_ui(self)
 
-    def _on_state(self, state: MusicAnalysisState) -> None:
+    def set_analysis_state(self, state: MusicAnalysisState) -> None:
         with self._lock:
             self._state = state
+
+    def set_analysis_ui_state(self, state: MusicAnalysisUiState) -> None:
+        with self._lock:
+            self._ui_state = state
 
     def start(self) -> dict[str, object]:
         with self._lock:
@@ -33,7 +42,7 @@ class WebLinuxAudioAnalysisSession:
                 return self.state()
             self._error = None
         try:
-            self.source.start(self._on_state)
+            self.presenter.start()
             with self._lock:
                 self._running = True
         except Exception as exc:
@@ -43,22 +52,23 @@ class WebLinuxAudioAnalysisSession:
         return self.state()
 
     def stop(self) -> dict[str, object]:
-        self.source.stop()
+        self.presenter.stop()
         with self._lock:
             self._running = False
         return self.state()
 
     def zeroize(self) -> dict[str, object]:
-        self.source.zeroize()
+        self.presenter.request_zeroize()
         return self.state()
 
     def set_sensitivity(self, value: float) -> dict[str, object]:
-        self.source.set_sensitivity(value)
+        self.presenter.request_sensitivity(value)
         return self.state()
 
     def state(self) -> dict[str, object]:
         with self._lock:
             state = self._state
+            ui_state = self._ui_state
             running = self._running
             error = self._error
         if state is None:
@@ -71,5 +81,12 @@ class WebLinuxAudioAnalysisSession:
         else:
             data = asdict(state)
             data["audio"]["spectrum"] = list(state.audio.spectrum)
+        if ui_state is not None:
+            data["ui"] = {
+                "status": ui_state.status.value,
+                "calibrated": ui_state.calibrated,
+                "sensitivity": ui_state.sensitivity,
+                "error": ui_state.error,
+            }
         data.update(running=running, source="linux-pipewire", error=error, timestamp=time.time())
         return data
