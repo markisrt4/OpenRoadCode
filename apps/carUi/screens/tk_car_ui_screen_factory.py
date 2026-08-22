@@ -25,6 +25,9 @@ from controllers.spotify import SpotifyMediaPresenter
 from frontends.tk.lighting import LightingScreen
 from frontends.tk.media import SpotifyScreen
 from frontends.tk.tk_screen_host_if import TkScreenHostIf
+from services.navigation.zeromq_navigation_request_handler import (
+    ZeroMqNavigationRequestHandler,
+)
 
 
 class TkCarUiScreenFactory:
@@ -65,9 +68,7 @@ class TkCarUiScreenFactory:
             self._host,
             create_menu_tile=self._create_menu_tile,
             back_action=lambda: self._show_menu("gauges"),
-            # Telemetry is bus-owned. A remote command client can be supplied
-            # here once the navigation service exposes its command endpoint.
-            request_handler=None,
+            request_handler=ZeroMqNavigationRequestHandler(),
         )
         vehicle_gauges = VehicleGaugesScreen(self._host, create_menu_tile=self._create_menu_tile, back_action=lambda: self._show_menu("gauges"))
 
