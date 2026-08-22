@@ -20,9 +20,6 @@ class MusicVisualizerRequestHandlerIf(ABC):
     def request_song_recognition(self) -> None: ...
 
     @abstractmethod
-    def request_lighting_enabled(self, enabled: bool) -> None: ...
-
-    @abstractmethod
     def request_kick_mode(self, mode: KickMode) -> None: ...
 
     @abstractmethod
