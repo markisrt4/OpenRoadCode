@@ -9,8 +9,8 @@ from unittest.mock import Mock, patch
 
 from apps.carTui.car_tui import CarTui
 from apps.carTui.main import build_dependencies, main
+from apps.carTui.navigation_bus_state import NavigationBusState
 from apps.carTui.vehicle_bus_state import VehicleBusState
-from controllers.navigation import SimulatedNavigationController
 from messaging.message_dispatcher import MessageDispatcher
 
 
@@ -59,16 +59,16 @@ class CarTuiTest(unittest.TestCase):
         app = CarTui(Mock())
         app.run(FakeWindow([ord("q")]))
 
-    def test_demo_uses_simulated_navigation_and_bus_vehicle_state(self) -> None:
+    def test_demo_uses_bus_navigation_and_vehicle_state(self) -> None:
         dependencies = build_dependencies(Namespace(simulate=True))
         try:
             self.assertIsInstance(
-                dependencies.navigation_controller,
-                SimulatedNavigationController,
+                dependencies.navigation_state,
+                NavigationBusState,
             )
             self.assertIsInstance(dependencies.vehicle_state, VehicleBusState)
             self.assertIsInstance(
-                dependencies.vehicle_dispatcher,
+                dependencies.dispatcher,
                 MessageDispatcher,
             )
         finally:
