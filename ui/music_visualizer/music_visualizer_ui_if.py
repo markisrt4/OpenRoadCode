@@ -8,7 +8,7 @@ from abc import ABC, abstractmethod
 
 from controllers.audio_analysis.music_analysis import MusicAnalysisState
 from controllers.song_recognition.song_recognition_if import SongRecognitionResult
-from .music_visualizer_types import SongRecognitionUiState
+from .music_visualizer_types import MusicVisualizationMode, SongRecognitionUiState
 
 
 class MusicVisualizerUiIf(ABC):
@@ -31,6 +31,9 @@ class MusicVisualizerUiIf(ABC):
 
     @abstractmethod
     def set_lighting_enabled(self, enabled: bool) -> None: ...
+
+    @abstractmethod
+    def set_visualization_mode(self, mode: MusicVisualizationMode) -> None: ...
 
     @abstractmethod
     def set_status(self, message: str) -> None: ...
