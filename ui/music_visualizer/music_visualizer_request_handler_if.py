@@ -11,12 +11,6 @@ from .music_visualizer_types import KickMode, MusicVisualizationMode
 
 class MusicVisualizerRequestHandlerIf(ABC):
     @abstractmethod
-    def request_zeroize(self) -> None: ...
-
-    @abstractmethod
-    def request_sensitivity(self, value: float) -> None: ...
-
-    @abstractmethod
     def request_song_recognition(self) -> None: ...
 
     @abstractmethod
