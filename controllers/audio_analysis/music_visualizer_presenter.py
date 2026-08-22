@@ -114,11 +114,6 @@ class MusicVisualizerPresenter(MusicVisualizerRequestHandlerIf):
                 SongRecognitionUiState(configured=self._song_recognition.is_configured, provider=self._song_recognition.provider_name)
             )
 
-    def request_lighting_enabled(self, enabled: bool) -> None:
-        """Compatibility bridge; lighting owns its own contract/state."""
-        if self._music_lighting:
-            self._music_lighting.request_enabled(enabled)
-
     def request_kick_mode(self, mode: KickMode) -> None:
         self._kick_mode = mode
 
