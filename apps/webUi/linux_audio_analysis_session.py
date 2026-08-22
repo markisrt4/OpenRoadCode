@@ -1,80 +1,75 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 
-"""Background Linux system-audio analysis for the Web visualizer."""
+"""Linux system-audio adapter for the shared music-analysis subsystem."""
 from __future__ import annotations
 
 from dataclasses import asdict
 import threading
 import time
 
-from controllers.audio_analysis.audio_analysis import AudioAnalyzer, AudioAnalysisState
+from controllers.audio_analysis.music_analysis import MusicAnalysisState
+from controllers.audio_analysis.pcm_music_analysis_source import PcmMusicAnalysisSource
 from hardware_io.audio.pipewire_audio_capture import PipeWireAudioCapture
 
 
 class WebLinuxAudioAnalysisSession:
-    """Continuously analyze the default Linux PipeWire monitor source."""
+    """Expose PipeWire through the same shared analyzer used by other frontends."""
 
-    def __init__(self) -> None:
-        self._capture = PipeWireAudioCapture()
-        self._analyzer = AudioAnalyzer(spectrum_band_count=24)
+    def __init__(self, source: PcmMusicAnalysisSource | None = None) -> None:
+        self.source = source or PcmMusicAnalysisSource(PipeWireAudioCapture())
         self._lock = threading.RLock()
-        self._state = AudioAnalysisState(0.0, 0.0, 0.0, 0.0, 0.0, ())
+        self._state: MusicAnalysisState | None = None
         self._running = False
-        self._thread: threading.Thread | None = None
         self._error: str | None = None
 
-    @property
-    def running(self) -> bool:
+    def _on_state(self, state: MusicAnalysisState) -> None:
         with self._lock:
-            return self._running
+            self._state = state
 
     def start(self) -> dict[str, object]:
         with self._lock:
             if self._running:
                 return self.state()
-            self._capture.start()
-            self._running = True
             self._error = None
-            self._thread = threading.Thread(
-                target=self._run,
-                name="openroadcode-linux-audio-analysis",
-                daemon=True,
-            )
-            self._thread.start()
-        return self.state()
-
-    def stop(self) -> dict[str, object]:
-        with self._lock:
-            self._running = False
-        self._capture.stop()
-        thread = self._thread
-        if thread and thread.is_alive() and thread is not threading.current_thread():
-            thread.join(timeout=1.0)
-        self._thread = None
-        return self.state()
-
-    def _run(self) -> None:
         try:
-            while self.running:
-                frame = self._capture.read()
-                state = self._analyzer.analyze(frame)
-                with self._lock:
-                    self._state = state
+            self.source.start(self._on_state)
+            with self._lock:
+                self._running = True
         except Exception as exc:
             with self._lock:
                 self._error = str(exc)
-                self._running = False
-            self._capture.stop()
+            raise
+        return self.state()
+
+    def stop(self) -> dict[str, object]:
+        self.source.stop()
+        with self._lock:
+            self._running = False
+        return self.state()
+
+    def zeroize(self) -> dict[str, object]:
+        self.source.zeroize()
+        return self.state()
+
+    def set_sensitivity(self, value: float) -> dict[str, object]:
+        self.source.set_sensitivity(value)
+        return self.state()
 
     def state(self) -> dict[str, object]:
         with self._lock:
-            state = asdict(self._state)
-            state["spectrum"] = list(self._state.spectrum)
-            state.update(
-                running=self._running,
-                source="linux-pipewire",
-                error=self._error,
-                timestamp=time.time(),
-            )
-            return state
+            state = self._state
+            running = self._running
+            error = self._error
+        if state is None:
+            data: dict[str, object] = {
+                "audio": {"level": 0.0, "peak": 0.0, "bass": 0.0, "mid": 0.0, "treble": 0.0, "spectrum": []},
+                "percussion": {"kick": 0.0, "snare": 0.0, "tom_low": 0.0, "tom_mid": 0.0, "tom_high": 0.0, "cymbal": 0.0},
+                "calibrated": self.source.calibrated,
+                "sensitivity": self.source.sensitivity,
+            }
+        else:
+            data = asdict(state)
+            data["audio"]["spectrum"] = list(state.audio.spectrum)
+        data.update(running=running, source="linux-pipewire", error=error, timestamp=time.time())
+        return data
