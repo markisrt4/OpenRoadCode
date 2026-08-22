@@ -63,7 +63,10 @@ class MusicAnalyzer:
 
     @property
     def calibrated(self) -> bool:
-        return bool(self._noise_floor)
+        # A previous floor must not make a new zeroize look complete.  While a
+        # calibration window is open, consumers should see us as uncalibrated
+        # until the replacement floor has actually been measured.
+        return self._zero_samples is None and bool(self._noise_floor)
 
     def set_sensitivity(self, value: float) -> None:
         self._sensitivity = max(0.25, min(2.0, float(value)))
