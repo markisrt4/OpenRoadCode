@@ -5,6 +5,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import math
+import time
 
 import numpy as np
 
@@ -35,9 +36,17 @@ class _AdaptiveNormalizer:
         self._peak = max(value, self._peak * self._decay, self._floor)
         return max(0.0, min(1.0, value / self._peak))
 
+    def reset(self) -> None:
+        self._peak = self._floor
+
 
 class AudioAnalyzer:
-    """Analyze time-domain PCM samples in both time and frequency domains."""
+    """Analyze time-domain PCM samples in both time and frequency domains.
+
+    Ambient zeroization is intentionally owned here so every consumer of the
+    shared analyzer, including carUi and webUi, receives the same calibrated
+    spectrum and broad-band measurements.
+    """
 
     def __init__(self, spectrum_band_count: int = 24) -> None:
         self._bass_normalizer = _AdaptiveNormalizer()
@@ -47,6 +56,22 @@ class AudioAnalyzer:
             _AdaptiveNormalizer() for _ in range(spectrum_band_count)
         )
         self._spectrum_band_count = spectrum_band_count
+        self._has_calibration = False
+        self._rms_floor = 0.0
+        self._bass_floor = 0.0
+        self._mid_floor = 0.0
+        self._treble_floor = 0.0
+        self._spectrum_floor = tuple(0.0 for _ in range(spectrum_band_count))
+        self._zero_samples: list[tuple[float, float, float, float, tuple[float, ...]]] | None = None
+        self._zero_deadline = 0.0
+
+    @property
+    def calibrated(self) -> bool:
+        return self._zero_samples is None and self._has_calibration
+
+    def begin_zeroize(self, duration_seconds: float = 1.5) -> None:
+        self._zero_samples = []
+        self._zero_deadline = time.monotonic() + max(0.5, float(duration_seconds))
 
     def analyze(self, frame: AudioFrame) -> AudioAnalysisState:
         samples = np.asarray(frame.samples, dtype=np.float64)
@@ -57,35 +82,82 @@ class AudioAnalyzer:
         rms = float(np.sqrt(np.mean(samples * samples)))
 
         windowed = samples * np.hanning(samples.size)
-        spectrum = np.abs(np.fft.rfft(windowed))
+        fft = np.abs(np.fft.rfft(windowed))
         frequencies = np.fft.rfftfreq(samples.size, d=1.0 / frame.sample_rate_hz)
 
         def band_energy(low_hz: float, high_hz: float) -> float:
             mask = (frequencies >= low_hz) & (frequencies < high_hz)
             if not np.any(mask):
                 return 0.0
-            return float(math.sqrt(np.mean(spectrum[mask] ** 2)))
+            return float(math.sqrt(np.mean(fft[mask] ** 2)))
 
         bass_raw = band_energy(20.0, 250.0)
         mid_raw = band_energy(250.0, 4000.0)
         treble_raw = band_energy(4000.0, 16000.0)
-
-        # Logarithmic bands better match musical pitch and human hearing than
-        # equal-Hz buckets. They also become the useful input for a graphical
-        # spectrum visualizer later.
         edges = np.geomspace(31.25, 16000.0, self._spectrum_band_count + 1)
+        spectrum_raw = tuple(
+            band_energy(float(low), float(high))
+            for low, high in zip(edges[:-1], edges[1:])
+        )
+
+        if self._zero_samples is not None:
+            self._zero_samples.append((rms, bass_raw, mid_raw, treble_raw, spectrum_raw))
+            if time.monotonic() >= self._zero_deadline:
+                self._finish_zeroize()
+            return AudioAnalysisState(
+                level=0.0,
+                peak=max(0.0, min(1.0, peak)),
+                bass=0.0,
+                mid=0.0,
+                treble=0.0,
+                spectrum=tuple(0.0 for _ in range(self._spectrum_band_count)),
+            )
+
+        rms_excess = max(0.0, rms - self._rms_floor * 1.15)
+        bass_excess = max(0.0, bass_raw - self._bass_floor * 1.18)
+        mid_excess = max(0.0, mid_raw - self._mid_floor * 1.18)
+        treble_excess = max(0.0, treble_raw - self._treble_floor * 1.18)
         spectrum_values = tuple(
-            normalizer.normalize(band_energy(float(low), float(high)))
-            for low, high, normalizer in zip(
-                edges[:-1], edges[1:], self._spectrum_normalizers
+            normalizer.normalize(max(0.0, raw - floor * 1.18))
+            for raw, floor, normalizer in zip(
+                spectrum_raw,
+                self._spectrum_floor,
+                self._spectrum_normalizers,
             )
         )
 
         return AudioAnalysisState(
-            level=max(0.0, min(1.0, rms * 4.0)),
+            level=max(0.0, min(1.0, rms_excess * 4.0)),
             peak=max(0.0, min(1.0, peak)),
-            bass=self._bass_normalizer.normalize(bass_raw),
-            mid=self._mid_normalizer.normalize(mid_raw),
-            treble=self._treble_normalizer.normalize(treble_raw),
+            bass=self._bass_normalizer.normalize(bass_excess),
+            mid=self._mid_normalizer.normalize(mid_excess),
+            treble=self._treble_normalizer.normalize(treble_excess),
             spectrum=spectrum_values,
         )
+
+    def _finish_zeroize(self) -> None:
+        samples = self._zero_samples or []
+        if not samples:
+            self._zero_samples = None
+            return
+        index = min(len(samples) - 1, int(len(samples) * 0.80))
+
+        def percentile(values: list[float]) -> float:
+            ordered = sorted(values)
+            return ordered[index] if ordered else 0.0
+
+        self._rms_floor = percentile([sample[0] for sample in samples])
+        self._bass_floor = percentile([sample[1] for sample in samples])
+        self._mid_floor = percentile([sample[2] for sample in samples])
+        self._treble_floor = percentile([sample[3] for sample in samples])
+        self._spectrum_floor = tuple(
+            percentile([sample[4][band] for sample in samples])
+            for band in range(self._spectrum_band_count)
+        )
+        self._has_calibration = True
+        self._zero_samples = None
+        self._bass_normalizer.reset()
+        self._mid_normalizer.reset()
+        self._treble_normalizer.reset()
+        for normalizer in self._spectrum_normalizers:
+            normalizer.reset()
