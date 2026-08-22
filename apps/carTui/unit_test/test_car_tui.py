@@ -68,7 +68,7 @@ class CarTuiTest(unittest.TestCase):
             )
             self.assertIsInstance(dependencies.vehicle_state, VehicleBusState)
             self.assertIsInstance(
-                dependencies.dispatcher,
+                dependencies.telemetry_dispatcher,
                 MessageDispatcher,
             )
         finally:
