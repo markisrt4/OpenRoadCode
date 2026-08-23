@@ -3,7 +3,7 @@
 
 """Message-bus vehicle telemetry destination for Car TUI."""
 
-from apps.carTui.vehicle_bus_state import VehicleBusState
+from common.telemetry.vehicle_bus_state import VehicleBusState
 from frontends.tui.automotive import UnitSystem, VehicleDashboardView
 
 
