@@ -5,20 +5,16 @@
 
 from __future__ import annotations
 
+from apps.carUi.bus_position_presenter import BusPositionPresenter
 from apps.carUi.car_ui_dependencies import CarUiDependencies
 from apps.carUi.car_ui_frontend_if import CarUiFrontendIf
 from apps.carUi.car_ui_lifecycle import CarUiLifecycle
 from apps.carUi.car_ui_router import CarUiRouter
 from apps.carUi.car_ui_routes import register_car_ui_routes
-from apps.carUi.position_status_presenter import PositionStatusPresenter
 from apps.carUi.runtime.car_ui_input_runtime import CarUiInputRuntime
 from apps.carUi.screens.car_ui_screen_factory_if import CarUiScreenFactoryIf
-from apps.carUi.system import (
-    SystemControlManager,
-    SystemController,
-    VehicleStatusManager,
-    VolumeManager,
-)
+from apps.carUi.system import SystemControlManager, SystemController, VehicleStatusManager, VolumeManager
+from config.service_runtime_config import ServiceRuntimeConfigParser
 from controllers.input import InputManager, InputMapper
 from input_events import InputDeviceId, InputDeviceType
 from messaging.contracts.automotive import VEHICLE_STATE_TOPIC, decode_vehicle_state
@@ -58,7 +54,10 @@ class CarUiComposition:
         dependencies = self.dependencies
         self.system_controller = SystemController(remote_display=dependencies.runtime.remote_display)
         self.vehicle_status_manager = VehicleStatusManager(top_bar_ui=frontend.top_bar, empty_value=frontend.empty_value)
-        self.position_status_presenter = PositionStatusPresenter(source=dependencies.position_source, dispatch=frontend.dispatch_ui, set_position=self.vehicle_status_manager.set_location, set_status=frontend.status_bar.set_status)
+        self.bus_position_presenter = BusPositionPresenter(
+            set_position=self.vehicle_status_manager.set_location,
+            set_status=frontend.status_bar.set_status,
+        )
         self.volume_manager = VolumeManager(audio_controller=dependencies.audio_controller, volume_ui=frontend.volume_panel, set_status=frontend.status_bar.set_status)
         frontend.volume_panel.set_volume_request_handler(self.volume_manager)
         self.volume_manager.refresh()
@@ -82,21 +81,31 @@ class CarUiComposition:
         def bus_error(topic: str, error: Exception) -> None:
             self.frontend.dispatch_ui(lambda: self._apply_bus_error(topic, error))
 
-        self.message_dispatcher = MessageDispatcher(ZeroMqSubscriber(), error_handler=bus_error)
+        config = ServiceRuntimeConfigParser(self.dependencies.runtime.config_path).load()
+        self.message_dispatcher = MessageDispatcher(
+            ZeroMqSubscriber(config.messaging.subscriber_endpoint),
+            error_handler=bus_error,
+        )
         registrations = (
             (VEHICLE_STATE_TOPIC, decode_vehicle_state, self.vehicle_gauges_screen.set_vehicle_message),
             (ATTITUDE_STATE_TOPIC, decode_attitude_state, self.offroad_dashboard_screen.set_attitude_message),
             (IMU_STATE_TOPIC, decode_imu_state, self.offroad_dashboard_screen.set_imu_message),
-            (POSITION_STATE_TOPIC, decode_position_state, self.offroad_dashboard_screen.set_position_message),
+            (POSITION_STATE_TOPIC, decode_position_state, self._set_position_message),
             (MOTION_STATE_TOPIC, decode_motion_state, self.offroad_dashboard_screen.set_motion_message),
         )
         for topic, decoder, handler in registrations:
             self.message_dispatcher.register(topic, decoder, lambda message, callback=handler: self.frontend.dispatch_ui(lambda: callback(message)))
 
+    def _set_position_message(self, message) -> None:
+        self.bus_position_presenter.set_position_message(message)
+        self.offroad_dashboard_screen.set_position_message(message)
+
     def _apply_bus_error(self, topic: str, error: Exception) -> None:
         if topic == VEHICLE_STATE_TOPIC:
             self.vehicle_gauges_screen.set_vehicle_error(topic, error)
         else:
+            if topic == POSITION_STATE_TOPIC or topic == "receive":
+                self.bus_position_presenter.set_error()
             self.offroad_dashboard_screen.set_navigation_error(topic, error)
 
     def _assemble_input(self) -> None:
@@ -109,7 +118,7 @@ class CarUiComposition:
         user_encoder_ids = tuple(device_id for index, device_id in enumerate(encoder_ids) if index != volume_index)
         self.input_manager = InputManager(mapper=InputMapper(user_encoder_id=user_encoder_ids, volume_encoder_id=volume_encoder_id, push_button_actions={InputDeviceId(InputDeviceType.PUSHBUTTON, index): UiAction[action.upper()] for index, action in enumerate(self.dependencies.push_button_actions)}), ui_handler=self.frontend)
         self.input_runtime = CarUiInputRuntime(dispatcher=self.frontend, encoders=encoders, device_ids=encoder_ids, input_handler=self.input_manager, keyboards=self.dependencies.keyboards, push_buttons=self.dependencies.push_buttons)
-        self.lifecycle = CarUiLifecycle(position_presenter=self.position_status_presenter, input_runtime=self.input_runtime, message_dispatcher=self.message_dispatcher)
+        self.lifecycle = CarUiLifecycle(input_runtime=self.input_runtime, message_dispatcher=self.message_dispatcher)
 
     def activate_screen(self, screen: ScreenUiIf | None) -> None:
         if screen is self._active_screen:
