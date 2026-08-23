@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import socket
 import threading
+import time
 from unittest.mock import Mock
 
 from services.navigation.navigation_command_service import NavigationCommandService
@@ -27,8 +28,13 @@ def test_request_handler_commands_same_controller_owned_by_service():
     )
     thread = threading.Thread(target=server.run, daemon=True)
     thread.start()
-    client = ZeroMqNavigationRequestHandler(endpoint, timeout_ms=1000)
 
+    deadline = time.monotonic() + 1.0
+    while not server.is_running and time.monotonic() < deadline:
+        time.sleep(0.01)
+    assert server.is_running, "navigation command server did not start"
+
+    client = ZeroMqNavigationRequestHandler(endpoint, timeout_ms=1000)
     try:
         client.request_stationary_calibration()
         client.request_heading_reset()
@@ -37,6 +43,7 @@ def test_request_handler_commands_same_controller_owned_by_service():
         server.close()
         thread.join(timeout=1.0)
 
+    assert not thread.is_alive(), "navigation command server did not stop"
     controller.calibrate_stationary.assert_called_once_with(
         sample_count=100,
         sample_interval_s=0.01,
