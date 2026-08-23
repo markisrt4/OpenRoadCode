@@ -3,6 +3,8 @@
 
 from controllers.audio_analysis.audio_analysis import SpectrumAnalysisMode
 from controllers.audio_analysis.music_analysis_presenter import MusicAnalysisPresenter
+from controllers.audio_analysis.audio_analysis import AudioAnalysisState
+from controllers.audio_analysis.music_analysis import MusicAnalysisState, PercussionState
 
 
 class FakeSource:
@@ -41,3 +43,21 @@ def test_zeroize_enters_semantic_zeroizing_state():
     presenter.request_zeroize()
     assert ui.states[-1].status.value == 'zeroizing'
     assert ui.states[-1].calibrated is False
+
+
+def test_audio_frames_are_coalesced_while_ui_update_is_pending():
+    source=FakeSource();ui=FakeUi();pending=[];presenter=MusicAnalysisPresenter(source,dispatch=pending.append);presenter.attach_ui(ui);presenter.start()
+    first=MusicAnalysisState(AudioAnalysisState(.1,.1,.1,.1,.1),PercussionState(),False,1.)
+    latest=MusicAnalysisState(AudioAnalysisState(.8,.8,.8,.8,.8),PercussionState(),False,1.)
+    source.callback(first);source.callback(latest)
+    assert len(pending) == 1
+    pending.pop()()
+    assert ui.analysis == [latest]
+
+
+def test_zeroize_completion_survives_coalesced_frames():
+    source=FakeSource();ui=FakeUi();pending=[];presenter=MusicAnalysisPresenter(source,dispatch=pending.append);presenter.attach_ui(ui);presenter.start();presenter.request_zeroize()
+    before=MusicAnalysisState(AudioAnalysisState(.1,.1,.1,.1,.1),PercussionState(),False,1.)
+    calibrated=MusicAnalysisState(AudioAnalysisState(.1,.1,.1,.1,.1),PercussionState(),True,1.)
+    source.callback(before);source.callback(calibrated);pending.pop()()
+    assert ui.states[-1].status.value == "active"

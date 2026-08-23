@@ -17,6 +17,12 @@ The parser lives at the root configuration boundary because multiple
 applications and tools consume the same deployment choices. Each consumer
 still owns its own dependency assembly and lifecycle.
 
+Provider credentials are deliberately outside `runtime.toml`. User-level
+secrets are read from `~/.config/openroadcode/secrets.env`, then overridden by
+process environment variables. `/etc/openroadcode/secrets.env` remains a
+legacy fallback. Use `scripts/setup_acrcloud_credentials.py` to update the
+ACRCloud entries without overwriting Spotify or other settings.
+
 ## Configuration boundaries
 
 The TOML file describes **which components are assembled**:

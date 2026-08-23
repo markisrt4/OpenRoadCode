@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import os
+from dataclasses import replace
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -22,7 +23,9 @@ from controllers.song_recognition import (
     SongRecognitionIf,
     UnconfiguredSongRecognizer,
 )
+from controllers.spotify import SpotifyControllerIf
 from hardware_io.audio.pipewire_audio_capture import PipeWireAudioCapture
+from security.environment_variable_secret_manager import EnvironmentVariableSecretManager
 
 
 @dataclass(frozen=True, slots=True)
@@ -40,15 +43,22 @@ class MusicVisualizerRuntime:
 
 def create_music_visualizer_runtime(
     lighting_controller: LightingControllerIf | None = None,
+    spotify_controller: SpotifyControllerIf | None = None,
 ) -> MusicVisualizerRuntime:
     """Build the platform/provider-specific services used by Car UI."""
     source = PcmMusicAnalysisSource(
-        capture=PipeWireAudioCapture(),
+        capture=PipeWireAudioCapture(
+            device=os.environ.get(
+                "CARUI_VISUALIZER_AUDIO_DEVICE",
+                "@DEFAULT_MONITOR@",
+            )
+        ),
         analyzer=MusicAnalyzer(spectrum_band_count=24),
     )
-    host = os.environ.get("ACRCLOUD_HOST", "").strip()
-    key = os.environ.get("ACRCLOUD_ACCESS_KEY", "").strip()
-    secret = os.environ.get("ACRCLOUD_ACCESS_SECRET", "").strip()
+    secrets = EnvironmentVariableSecretManager()
+    host = secrets.get_secret("ACRCLOUD_HOST") or ""
+    key = secrets.get_secret("ACRCLOUD_ACCESS_KEY") or ""
+    secret = secrets.get_secret("ACRCLOUD_ACCESS_SECRET") or ""
     recognizer: SongRecognitionIf = (
         AcrCloudSongRecognizer(AcrCloudConfig(host, key, secret))
         if host and key and secret
@@ -71,7 +81,26 @@ def create_music_visualizer_runtime(
     )
     return MusicVisualizerRuntime(
         analysis_source=source,
-        song_recognition=SongRecognitionController(source, recognizer, metadata_cache),
+        song_recognition=SongRecognitionController(
+            source,
+            recognizer,
+            metadata_cache,
+            metadata_enricher=(lambda result: _enrich_from_spotify(result, spotify_controller)) if spotify_controller is not None else None,
+        ),
         music_lighting=music_lighting,
         lighting_output=output,
+    )
+
+
+def _enrich_from_spotify(result, spotify_controller: SpotifyControllerIf):
+    if not result.spotify_track_id:
+        return result
+    metadata = spotify_controller.track_metadata(result.spotify_track_id)
+    if metadata is None:
+        return result
+    return replace(
+        result,
+        artwork_url=metadata.artwork_url,
+        spotify_uri=metadata.uri,
+        spotify_url=metadata.url or result.spotify_url,
     )

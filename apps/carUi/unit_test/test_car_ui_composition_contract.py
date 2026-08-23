@@ -32,8 +32,8 @@ class FakeScreenFactory:
             key: RecordingScreen(key)
             for key in (
                 "aircraft", "weather", "lighting", "fm_radio", "scanner",
-                "spotify", "netflix", "youtube", "offroad_dashboard",
-                "vehicle_gauges",
+                "spotify", "netflix", "youtube", "music_visualizer",
+                "offroad_dashboard", "vehicle_gauges",
             )
         }
 

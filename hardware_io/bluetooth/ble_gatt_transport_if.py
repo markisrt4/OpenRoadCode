@@ -28,6 +28,10 @@ class BleGattState:
 
     @property
     def connected(self) -> bool:
+        """Return whether the transport is connected.
+
+        @return True only for the connected state.
+        """
         return self.status is BleGattStatus.CONNECTED
 
 
@@ -36,7 +40,10 @@ class BleGattTransportIf(Protocol):
     """Async, device-agnostic BLE characteristic transport."""
 
     def current_state(self) -> BleGattState:
-        """Return this transport instance's current connection state."""
+        """Return this transport instance's current connection state.
+
+        @return Immutable GATT transport state.
+        """
         ...
 
     async def connect(self) -> None:
@@ -48,5 +55,8 @@ class BleGattTransportIf(Protocol):
         ...
 
     async def write(self, data: bytes) -> None:
-        """Write one payload to the configured characteristic."""
+        """Write one payload to the configured characteristic.
+
+        @param data Raw characteristic payload.
+        """
         ...

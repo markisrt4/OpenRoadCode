@@ -53,6 +53,9 @@ class CarUiDependenciesTest(unittest.TestCase):
                 RecordingResource("encoder-1", events),  # type: ignore[arg-type]
             ),
             volume_encoder_index=0,
+            music_visualizer=RecordingResource(
+                "music-visualizer", events
+            ),  # type: ignore[arg-type]
         )
 
         dependencies.close()
@@ -63,6 +66,7 @@ class CarUiDependenciesTest(unittest.TestCase):
             [
                 "stop:encoder-0",
                 "stop:encoder-1",
+                "close:music-visualizer",
                 "close:runtime",
                 "stop:music-video",
                 "stop:netflix",
@@ -95,6 +99,9 @@ class CarUiDependenciesTest(unittest.TestCase):
                 RecordingResource("encoder", events, fail=True),  # type: ignore[arg-type]
             ),
             volume_encoder_index=0,
+            music_visualizer=RecordingResource(
+                "music-visualizer", events
+            ),  # type: ignore[arg-type]
         )
 
         with self.assertLogs(

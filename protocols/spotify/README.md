@@ -60,7 +60,7 @@ The installer will:
 Configuration is stored in:
 
 ```text
-/etc/openroadcode/secrets.env
+~/.config/openroadcode/secrets.env
 ```
 
 OAuth tokens are stored in:
@@ -70,7 +70,9 @@ OAuth tokens are stored in:
 ```
 
 Neither file should be committed to source control. Process environment
-variables override values from the secrets file when needed for testing.
+variables override values from the secrets file when needed for testing. The
+legacy `/etc/openroadcode/secrets.env` remains a lower-priority compatibility
+fallback.
 
 ## Authentication
 
@@ -109,6 +111,8 @@ The client provides access to Spotify resources including:
 - Volume
 - Track position
 - Playback control
+- Playback of a specific recognized track URI
+- Track metadata lookup for song-recognition artwork enrichment
 
 The Web API client returns Spotify data only.
 

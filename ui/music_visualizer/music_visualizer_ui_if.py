@@ -14,10 +14,25 @@ class MusicVisualizerUiIf(ABC):
     """Visualizer-specific state pushed into a frontend."""
 
     @abstractmethod
-    def set_song(self, song: SongRecognitionResult | None) -> None: ...
+    def set_song(self, song: SongRecognitionResult | None) -> None:
+        """Display recognized song metadata.
+
+        @param song Recognized song or None when unavailable.
+        """
+        ...
 
     @abstractmethod
-    def set_song_recognition_state(self, state: SongRecognitionUiState) -> None: ...
+    def set_song_recognition_state(self, state: SongRecognitionUiState) -> None:
+        """Display recognition readiness and request status.
+
+        @param state Current recognition UI state.
+        """
+        ...
 
     @abstractmethod
-    def set_visualization_mode(self, mode: MusicVisualizationMode) -> None: ...
+    def set_visualization_mode(self, mode: MusicVisualizationMode) -> None:
+        """Display the selected visualization mode.
+
+        @param mode Active visualization mode.
+        """
+        ...

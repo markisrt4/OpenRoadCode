@@ -36,6 +36,7 @@ class SpotifyMediaPresenterTest(unittest.TestCase):
 
     def test_pause_request_updates_backend_and_ui(self) -> None:
         self.presenter.request_pause()
+        self.presenter.refresh()
 
         self.assertEqual(
             self.media_ui.states[-1].playback,  # type: ignore[union-attr]

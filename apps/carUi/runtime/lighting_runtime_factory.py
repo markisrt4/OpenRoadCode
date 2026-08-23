@@ -38,7 +38,7 @@ def create_lighting_controller(
 
     try:
         transport = BleakGattTransport(
-            address=address or config.address,
+            address=address,
             characteristic_uuid=config.characteristic_uuid,
             excluded_service_uuids=config.excluded_service_uuids,
             excluded_name_fragments=config.excluded_name_fragments,

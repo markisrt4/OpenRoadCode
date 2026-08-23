@@ -15,22 +15,78 @@ class MusicAnalysisSourceIf(Protocol):
     """Produce normalized music-analysis state independent of audio backend."""
 
     @property
-    def sensitivity(self) -> float: ...
+    def sensitivity(self) -> float:
+        """Return the current normalized analysis sensitivity.
+
+        @return Sensitivity multiplier.
+        """
+        ...
 
     @property
-    def calibrated(self) -> bool: ...
+    def calibrated(self) -> bool:
+        """Return whether ambient-noise calibration is active.
+
+        @return True when calibrated.
+        """
+        ...
 
     @property
-    def spectrum_mode(self) -> SpectrumAnalysisMode: ...
+    def spectrum_mode(self) -> SpectrumAnalysisMode:
+        """Return the selected spectrum analysis mode.
 
-    def start(self, callback: Callable[[MusicAnalysisState], None]) -> None: ...
+        @return Current spectrum mode.
+        """
+        ...
 
-    def stop(self) -> None: ...
+    @property
+    def buffered_audio_seconds(self) -> float:
+        """Return the duration of fresh PCM retained for recognition.
 
-    def zeroize(self) -> None: ...
+        @return Buffered duration in seconds.
+        """
+        ...
 
-    def set_sensitivity(self, value: float) -> None: ...
+    def start(self, callback: Callable[[MusicAnalysisState], None]) -> None:
+        """Start analysis delivery.
 
-    def set_spectrum_mode(self, mode: SpectrumAnalysisMode | str) -> None: ...
+        @param callback Consumer for analysis states.
+        """
+        ...
 
-    def recent_audio_pcm16(self, seconds: float = 6.0) -> bytes: ...
+    def stop(self) -> None:
+        """Stop analysis and release capture resources."""
+        ...
+
+    def zeroize(self) -> None:
+        """Begin ambient-noise calibration."""
+        ...
+
+    def set_sensitivity(self, value: float) -> None:
+        """Set normalized analysis sensitivity.
+
+        @param value Sensitivity multiplier.
+        """
+        ...
+
+    def set_spectrum_mode(self, mode: SpectrumAnalysisMode | str) -> None:
+        """Select the spectrum calculation mode.
+
+        @param mode Spectrum mode or its serialized value.
+        """
+        ...
+
+    def recent_audio_pcm16(self, seconds: float = 6.0) -> bytes:
+        """Return recent fresh audio as signed 16-bit PCM.
+
+        @param seconds Maximum requested duration.
+        @return Little-endian mono PCM bytes.
+        """
+        ...
+
+    def recent_audio_wav(self, seconds: float = 6.0) -> bytes:
+        """Return recent fresh audio in a WAV container.
+
+        @param seconds Maximum requested duration.
+        @return Mono 16-bit PCM WAV bytes.
+        """
+        ...

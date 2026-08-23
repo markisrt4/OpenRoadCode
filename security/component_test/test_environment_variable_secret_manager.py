@@ -14,6 +14,10 @@ from security.environment_variable_secret_manager import (
 
 
 class EnvironmentVariableSecretManagerTest(unittest.TestCase):
+    def test_default_secrets_file_is_user_configuration(self) -> None:
+        from security.environment_variable_secret_manager import DEFAULT_SECRETS_FILE
+        self.assertEqual(Path.home()/".config"/"openroadcode"/"secrets.env",DEFAULT_SECRETS_FILE)
+
     def test_loads_environment_style_secrets_file(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             secrets_file = Path(directory) / "secrets.env"

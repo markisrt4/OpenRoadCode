@@ -46,22 +46,44 @@ class MediaState:
 
 
 class MediaUiIf(ABC):
+    """Display media state and accept semantic request handlers."""
+
     @abstractmethod
     def set_media_state(self, state: MediaState | None) -> None:
+        """Display the latest media state.
+
+        @param state Complete media snapshot or None when unavailable.
+        """
         ...
 
     @abstractmethod
     def set_playback_request_handler(self, handler: PlaybackRequestHandlerIf | None) -> None:
+        """Attach playback controls.
+
+        @param handler Playback handler or None to detach it.
+        """
         ...
 
     @abstractmethod
     def set_track_request_handler(self, handler: TrackRequestHandlerIf | None) -> None:
+        """Attach track-navigation controls.
+
+        @param handler Track handler or None to detach it.
+        """
         ...
 
     @abstractmethod
     def set_seek_request_handler(self, handler: SeekRequestHandlerIf | None) -> None:
+        """Attach seeking controls.
+
+        @param handler Seek handler or None to detach it.
+        """
         ...
 
     @abstractmethod
     def set_volume_request_handler(self, handler: VolumeRequestHandlerIf | None) -> None:
+        """Attach volume controls.
+
+        @param handler Volume handler or None to detach it.
+        """
         ...

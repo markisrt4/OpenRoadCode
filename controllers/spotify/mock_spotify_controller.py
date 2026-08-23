@@ -50,6 +50,12 @@ class MockSpotifyController(SpotifyControllerIf):
         )
         self._is_playing = True
 
+    def play_uri(self, uri: str) -> None:
+        self.play()
+
+    def track_metadata(self, track_id: str):
+        return None
+
     def pause(self) -> None:
         if not self._is_playing:
             return

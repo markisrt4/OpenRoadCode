@@ -46,6 +46,7 @@ class MusicAnalyzer:
         self._base = AudioAnalyzer(spectrum_band_count=spectrum_band_count)
         self._sensitivity = 1.0
         self._noise_floor: dict[str, float] = {}
+        self._noise_gate: dict[str, float] = {}
         self._zero_samples: list[dict[str, float]] | None = None
         self._zero_deadline = 0.0
         self._peaks = {name: 1e-9 for name in self._BANDS}
@@ -67,25 +68,31 @@ class MusicAnalyzer:
         duration = max(0.5, float(duration_seconds)); self._zero_samples = []; self._zero_deadline = time.monotonic() + duration; self._base.begin_zeroize(duration)
 
     def analyze(self, frame: AudioFrame) -> MusicAnalysisState:
-        audio = self._base.analyze(frame); energies = self._band_energies(frame)
+        audio = self._apply_sensitivity(self._base.analyze(frame)); energies = self._band_energies(frame)
         if self._zero_samples is not None:
             self._zero_samples.append(energies)
             if time.monotonic() >= self._zero_deadline: self._finish_zeroize()
             return MusicAnalysisState(audio, PercussionState(), self.calibrated, self._sensitivity)
         normalized: dict[str, float] = {}; rises: dict[str, float] = {}
         for name, raw in energies.items():
-            floor = self._noise_floor.get(name, 0.0); excess = max(0.0, raw - floor * 1.18)
+            gate = self._noise_gate.get(name, 1e-5); excess = max(0.0, raw - gate)
             self._peaks[name] = max(excess, self._peaks[name] * 0.994, 1e-9)
             value = min(1.0, excess / self._peaks[name]) * self._sensitivity; value = min(1.0, value)
             normalized[name] = value; rises[name] = max(0.0, value - self._previous[name]); self._previous[name] = value
         self._recent.append((normalized, rises))
         return MusicAnalysisState(audio, self._classify(normalized, rises), self.calibrated, self._sensitivity)
 
+    def _apply_sensitivity(self, audio: AudioAnalysisState) -> AudioAnalysisState:
+        scale=self._sensitivity
+        adjust=lambda value:min(1.0,max(0.0,value*scale))
+        return AudioAnalysisState(level=adjust(audio.level),peak=adjust(audio.peak),bass=adjust(audio.bass),mid=adjust(audio.mid),treble=adjust(audio.treble),spectrum=tuple(adjust(value) for value in audio.spectrum))
+
     def _finish_zeroize(self) -> None:
         samples = self._zero_samples or []; floor: dict[str, float] = {}
+        gates: dict[str, float] = {}
         for name in self._BANDS:
-            values = sorted(sample[name] for sample in samples); floor[name] = values[min(len(values) - 1, int(len(values) * 0.80))] if values else 0.0
-        self._noise_floor = floor; self._zero_samples = None
+            values = sorted(sample[name] for sample in samples); floor[name] = values[min(len(values) - 1, int(len(values) * 0.80))] if values else 0.0;high=values[min(len(values)-1,int(len(values)*.95))] if values else 0.0;gates[name]=max(1e-5,high*1.35)
+        self._noise_floor = floor; self._noise_gate=gates;self._zero_samples = None
         self._peaks = {name: 1e-9 for name in self._BANDS}; self._previous = {name: 0.0 for name in self._BANDS}
 
     def _band_energies(self, frame: AudioFrame) -> dict[str, float]:

@@ -18,7 +18,10 @@ cache.remove("latest")
 
 Domain controllers layer their own policy on top. `ImageCache` stores source
 image bytes with an `.image` suffix, while `WeatherSnapshotCache` serializes a
-typed forecast snapshot as JSON.
+typed forecast snapshot as JSON. `SongMetadataCache` stores normalized song
+recognition results under ISRC and provider IDs. That metadata cache can avoid
+repeat enrichment requests after recognition, but cannot replace recognition
+until a local acoustic fingerprint supplies a lookup key.
 
 Run its tests from the repository root:
 

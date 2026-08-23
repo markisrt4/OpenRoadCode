@@ -14,7 +14,17 @@ class MusicAnalysisUiIf(ABC):
     """State pushed from music-analysis logic into a frontend."""
 
     @abstractmethod
-    def set_analysis_state(self, state: MusicAnalysisState) -> None: ...
+    def set_analysis_state(self, state: MusicAnalysisState) -> None:
+        """Display one live music-analysis frame.
+
+        @param state Normalized audio, spectrum, and percussion state.
+        """
+        ...
 
     @abstractmethod
-    def set_analysis_ui_state(self, state: MusicAnalysisUiState) -> None: ...
+    def set_analysis_ui_state(self, state: MusicAnalysisUiState) -> None:
+        """Display analysis lifecycle and configuration state.
+
+        @param state Current analysis UI state.
+        """
+        ...

@@ -29,4 +29,7 @@ class MusicVisualizationMode(Enum):
 class SongRecognitionUiState:
     configured: bool
     recognizing: bool = False
+    ready: bool = False
+    buffered_seconds: float = 0.0
     provider: str | None = None
+    message: str | None = None

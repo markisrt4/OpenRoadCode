@@ -37,6 +37,10 @@ class LightingUiIf(ABC):
 
     @abstractmethod
     def set_lighting_state(self, state: LightingState | None) -> None:
+        """Display the latest lighting state.
+
+        @param state Complete lighting snapshot or None when unavailable.
+        """
         ...
 
     @abstractmethod
@@ -44,4 +48,8 @@ class LightingUiIf(ABC):
         self,
         handler: "LightingRequestHandlerIf | None",
     ) -> None:
+        """Attach the handler for semantic lighting requests.
+
+        @param handler Request handler or None to detach it.
+        """
         ...

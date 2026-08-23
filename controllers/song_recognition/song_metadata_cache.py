@@ -51,11 +51,26 @@ class SongMetadataCache:
 
     def put_result_ids(self, result: SongRecognitionResult) -> tuple[SongId, ...]:
         """Cache a result under every stable identifier it currently exposes."""
+        ids = list(self.result_ids(result))
+        for song_id in ids:
+            self.put(song_id, result)
+        return tuple(ids)
+
+    def get_result(self, result: SongRecognitionResult) -> SongRecognitionResult | None:
+        """Return cached metadata matching any stable ID on a fresh result."""
+        for song_id in self.result_ids(result):
+            cached = self.get(song_id)
+            if cached is not None:
+                return cached
+        return None
+
+    @staticmethod
+    def result_ids(result: SongRecognitionResult) -> tuple[SongId, ...]:
         ids: list[SongId] = []
         if result.isrc:
             ids.append(SongId("isrc", result.isrc))
         if result.provider and result.provider_track_id:
             ids.append(SongId(result.provider, result.provider_track_id))
-        for song_id in ids:
-            self.put(song_id, result)
+        if result.spotify_track_id:
+            ids.append(SongId("spotify", result.spotify_track_id))
         return tuple(ids)

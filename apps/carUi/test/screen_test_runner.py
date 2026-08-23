@@ -37,6 +37,7 @@ def parse_args() -> argparse.Namespace:
             "aircraft",
             "offroad_dashboard",
             "vehicle_gauges",
+            "music_visualizer",
         ),
     )
     parser.add_argument("--geometry", default="800x480")

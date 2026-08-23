@@ -59,6 +59,9 @@ Current and partially integrated capabilities include:
 * Bluetooth cabin-lighting control
 * Spotify integration
 * Music-video lookup and playback
+* PipeWire music visualization and percussion analysis
+* ACRCloud song recognition with Spotify artwork and playback handoff
+* Music-reactive Bluetooth lighting patterns
 * PipeWire audio control
 * Rotary encoder input
 * Keyboard input
@@ -158,6 +161,8 @@ Examples include:
 * Radio control
 * Audio control
 * Spotify playback
+* Song recognition and metadata caching
+* Music-reactive lighting
 * Navigation
 * Lighting
 * Environmental data
@@ -432,6 +437,8 @@ Examples may include tests for:
 * Rotary encoders
 * Environmental sensors
 * Spotify
+* ACRCloud song recognition
+* PipeWire music analysis
 * Music-video lookup
 * Audio control
 * Bluetooth devices

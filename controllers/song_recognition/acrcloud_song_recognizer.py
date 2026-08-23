@@ -8,6 +8,7 @@ import base64
 import hashlib
 import hmac
 import json
+import logging
 import time
 import urllib.error
 import urllib.parse
@@ -15,6 +16,8 @@ import urllib.request
 from dataclasses import dataclass
 
 from .song_recognition_if import SongRecognitionIf, SongRecognitionResult
+
+LOGGER=logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -84,16 +87,22 @@ class AcrCloudSongRecognizer(SongRecognitionIf):
         status = payload.get("status", {})
         if status.get("code") != 0:
             if status.get("code") == 1001:
+                LOGGER.warning("ACRCloud returned no match: code=%s message=%s",status.get("code"),status.get("msg","No result"))
                 return None
             raise RuntimeError(f"ACRCloud error {status.get('code')}: {status.get('msg', 'unknown error')}")
 
         matches = payload.get("metadata", {}).get("music", [])
         if not matches:
+            LOGGER.warning("ACRCloud returned success without music matches")
             return None
         match = matches[0]
         artists = tuple(a.get("name", "") for a in match.get("artists", []) if a.get("name"))
         album = match.get("album") or {}
         external_ids = match.get("external_ids") or {}
+        external_metadata = match.get("external_metadata") or {}
+        spotify = external_metadata.get("spotify") or {}
+        spotify_track = spotify.get("track") or {}
+        spotify_track_id = spotify_track.get("id")
         return SongRecognitionResult(
             title=match.get("title", "Unknown title"),
             artists=artists,
@@ -104,6 +113,9 @@ class AcrCloudSongRecognizer(SongRecognitionIf):
             score=match.get("score"),
             provider="acrcloud",
             provider_track_id=match.get("acrid"),
+            spotify_track_id=spotify_track_id,
+            spotify_uri=f"spotify:track:{spotify_track_id}" if spotify_track_id else None,
+            spotify_url=(spotify_track.get("external_urls") or {}).get("spotify") or (f"https://open.spotify.com/track/{spotify_track_id}" if spotify_track_id else None),
         )
 
     @staticmethod
@@ -117,8 +129,8 @@ class AcrCloudSongRecognizer(SongRecognitionIf):
             ))
         chunks.extend((
             f"--{boundary}\r\n".encode(),
-            b'Content-Disposition: form-data; name="sample"; filename="sample.bin"\r\n',
-            b"Content-Type: application/octet-stream\r\n\r\n",
+            b'Content-Disposition: form-data; name="sample"; filename="sample.wav"\r\n',
+            b"Content-Type: audio/wav\r\n\r\n",
             audio, b"\r\n",
             f"--{boundary}--\r\n".encode(),
         ))

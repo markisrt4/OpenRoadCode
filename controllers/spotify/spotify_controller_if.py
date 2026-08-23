@@ -3,7 +3,7 @@
 
 from abc import ABC, abstractmethod
 
-from controllers.spotify.spotify_state import SpotifyState
+from controllers.spotify.spotify_state import SpotifyState, SpotifyTrackMetadata
 
 
 class SpotifyControllerIf(ABC):
@@ -19,6 +19,21 @@ class SpotifyControllerIf(ABC):
     @abstractmethod
     def play(self) -> None:
         """Start or resume playback."""
+
+    @abstractmethod
+    def play_uri(self, uri: str) -> None:
+        """Start playback of one Spotify track URI.
+
+        @param uri Spotify track URI to play.
+        """
+
+    @abstractmethod
+    def track_metadata(self, track_id: str) -> SpotifyTrackMetadata | None:
+        """Load artwork and link metadata for one Spotify track.
+
+        @param track_id Spotify catalog track identifier.
+        @return Track metadata or None when unavailable.
+        """
 
     @abstractmethod
     def pause(self) -> None:

@@ -19,7 +19,12 @@ class MusicAnalyzerIf(ABC):
         samples: Sequence[float],
         sample_rate_hz: int,
     ) -> MusicAnalysisState:
-        """Analyze one block of normalized mono PCM samples."""
+        """Analyze one block of normalized mono PCM samples.
+
+        @param samples Normalized mono PCM samples.
+        @param sample_rate_hz Source sample rate in hertz.
+        @return Complete analysis state for the block.
+        """
         raise NotImplementedError
 
     @abstractmethod
@@ -40,5 +45,8 @@ class MusicAnalyzerIf(ABC):
     @property
     @abstractmethod
     def is_zeroized(self) -> bool:
-        """Return whether an ambient-noise calibration is active."""
+        """Return whether an ambient-noise calibration is active.
+
+        @return True when zeroization has been committed.
+        """
         raise NotImplementedError

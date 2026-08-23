@@ -10,11 +10,25 @@ from .music_visualizer_types import KickMode, MusicVisualizationMode
 
 
 class MusicVisualizerRequestHandlerIf(ABC):
-    @abstractmethod
-    def request_song_recognition(self) -> None: ...
+    """Handle semantic requests from music-visualizer frontends."""
 
     @abstractmethod
-    def request_kick_mode(self, mode: KickMode) -> None: ...
+    def request_song_recognition(self) -> None:
+        """Identify the currently buffered audio."""
+        ...
 
     @abstractmethod
-    def request_visualization_mode(self, mode: MusicVisualizationMode) -> None: ...
+    def request_kick_mode(self, mode: KickMode) -> None:
+        """Select the rendered kick-drum layout.
+
+        @param mode Single- or double-kick presentation.
+        """
+        ...
+
+    @abstractmethod
+    def request_visualization_mode(self, mode: MusicVisualizationMode) -> None:
+        """Select the visualizer renderer.
+
+        @param mode Selected visualization mode.
+        """
+        ...

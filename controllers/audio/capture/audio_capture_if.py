@@ -16,11 +16,18 @@ class AudioCaptureIf(ABC):
     @property
     @abstractmethod
     def is_running(self) -> bool:
+        """Return whether this capture backend is currently running.
+
+        @return True while capture is active.
+        """
         raise NotImplementedError
 
     @abstractmethod
     def start(self, callback: AudioSamplesCallback) -> None:
-        """Begin capture and invoke callback(samples, sample_rate_hz)."""
+        """Begin capture and invoke callback(samples, sample_rate_hz).
+
+        @param callback Consumer for normalized samples and their sample rate.
+        """
         raise NotImplementedError
 
     @abstractmethod

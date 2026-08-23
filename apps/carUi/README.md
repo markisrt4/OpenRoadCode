@@ -182,12 +182,33 @@ venv/bin/python -m apps.carUi.test.screen_test_runner spotify
 
 Supported destination arguments are `spotify`, `netflix`, `youtube`,
 `lighting`, `weather`, `fm_radio`, `scanner`, `aircraft`,
-`offroad_dashboard`, and `vehicle_gauges`.
+`music_visualizer`, `offroad_dashboard`, and `vehicle_gauges`.
 
 The Spotify destination retains album-art backgrounds and accents, cached
 artwork, synchronized lyrics, seek and volume controls, and optional YouTube
 music-video playback. Netflix and YouTube remain separate browser-backed media
 destinations on the Media menu.
+
+### Music visualizer and song recognition
+
+The Music Visualizer captures the default PipeWire monitor, analyzes spectrum
+and percussion activity, renders the native drum/spectrum panel, and launches
+the shared WebGL renderer in browser kiosk mode for fullscreen effects. The
+fullscreen page is visualizer-only and provides an exit action that restores
+Car UI.
+
+Song recognition becomes available after ten seconds of fresh audio. ACRCloud
+results may be enriched with Spotify artwork and a **Play in Spotify** action.
+Configure ACRCloud with:
+
+```bash
+scripts/setup_acrcloud_credentials.py
+```
+
+See [`controllers/song_recognition/README.md`](../../controllers/song_recognition/README.md)
+for provider setup, cache behavior, and diagnostics. See
+[`controllers/music_lighting/README.md`](../../controllers/music_lighting/README.md)
+for the reactive LED pipeline and its BLE rate limits.
 
 The main-menu `Gauges` page includes the configurable vehicle cluster and
 the embedded off-road dashboard. The vehicle screen displays disconnected

@@ -53,6 +53,9 @@ class CarUiRoutingTest(unittest.TestCase):
             spotify=RecordingScreen("spotify", opened),  # type: ignore[arg-type]
             netflix=RecordingScreen("netflix", opened),  # type: ignore[arg-type]
             youtube=RecordingScreen("youtube", opened),  # type: ignore[arg-type]
+            music_visualizer=RecordingScreen(  # type: ignore[arg-type]
+                "music_visualizer", opened
+            ),
             offroad_dashboard=RecordingScreen(  # type: ignore[arg-type]
                 "offroad_dashboard", opened
             ),

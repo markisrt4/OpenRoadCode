@@ -21,6 +21,7 @@ apps/carUi/runtime/
 ├── car_ui_input_runtime.py
 ├── input_device_runtime.py
 ├── lighting_runtime_factory.py
+├── music_visualizer_runtime_factory.py
 ├── position_source_factory.py
 ├── radio_runtime_registry.py
 ├── rotary_encoder_runtime.py
@@ -99,6 +100,24 @@ The factory maps those names to known constructors. The TOML file does not
 contain Python class paths and cannot instantiate arbitrary application
 objects.
 
+## Music visualizer runtime
+
+`music_visualizer_runtime_factory.py` assembles one shared PipeWire analysis
+source, ACRCloud recognition controller, metadata cache, Spotify metadata
+enricher, and music-lighting output adapter. The default capture device is
+PipeWire/PulseAudio's `@DEFAULT_MONITOR@`, so visualization and recognition use
+system playback rather than a microphone. Override it only when explicitly
+testing another source:
+
+```bash
+CARUI_VISUALIZER_AUDIO_DEVICE=@DEFAULT_SOURCE@ \
+venv/bin/python -m apps.carUi.main
+```
+
+The source retains twelve seconds of fresh PCM and exposes recognition only
+after ten seconds have accumulated. Overlapping FFT samples are excluded from
+the recognition buffer.
+
 ## Browser position source
 
 Car UI can receive location from the browser on the same computer instead of
@@ -136,8 +155,8 @@ curl --fail-with-body \
   http://localhost:8765/position
 ```
 
-The response should be `{"ok":true}`, and the Car UI location display should
-update. Invalid or out-of-range coordinates return HTTP 400.
+The response should be HTTP 204 with no body, and the Car UI location display
+should update. Invalid or out-of-range coordinates return HTTP 400.
 
 Browsers treat `localhost` as a secure context. Access from a phone or another
 computer generally requires HTTPS; binding the development relay to

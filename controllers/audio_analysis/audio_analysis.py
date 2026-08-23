@@ -64,6 +64,11 @@ class AudioAnalyzer:
         self._mid_floor = 0.0
         self._treble_floor = 0.0
         self._spectrum_floor = tuple(0.0 for _ in range(spectrum_band_count))
+        self._rms_gate = 0.0
+        self._bass_gate = 0.0
+        self._mid_gate = 0.0
+        self._treble_gate = 0.0
+        self._spectrum_gate = tuple(0.0 for _ in range(spectrum_band_count))
         self._zero_samples: list[tuple[float, float, float, float, tuple[float, ...]]] | None = None
         self._zero_deadline = 0.0
 
@@ -109,11 +114,11 @@ class AudioAnalyzer:
                 self._finish_zeroize()
             return AudioAnalysisState(0.0, max(0.0, min(1.0, peak)), 0.0, 0.0, 0.0, tuple(0.0 for _ in range(self._spectrum_band_count)))
 
-        rms_excess = max(0.0, rms - self._rms_floor * 1.15)
-        bass_excess = max(0.0, bass_raw - self._bass_floor * 1.18)
-        mid_excess = max(0.0, mid_raw - self._mid_floor * 1.18)
-        treble_excess = max(0.0, treble_raw - self._treble_floor * 1.18)
-        excess = tuple(max(0.0, raw - floor * 1.18) for raw, floor in zip(spectrum_raw, self._spectrum_floor))
+        rms_excess = max(0.0, rms - self._rms_gate)
+        bass_excess = max(0.0, bass_raw - self._bass_gate)
+        mid_excess = max(0.0, mid_raw - self._mid_gate)
+        treble_excess = max(0.0, treble_raw - self._treble_gate)
+        excess = tuple(max(0.0, raw - gate) for raw, gate in zip(spectrum_raw, self._spectrum_gate))
 
         normalized = tuple(n.normalize(value) for value, n in zip(excess, self._spectrum_normalizers))
         global_peak = max(excess, default=0.0)
@@ -148,11 +153,23 @@ class AudioAnalyzer:
             ordered = sorted(values)
             return ordered[index] if ordered else 0.0
 
+        def gate(values: list[float], absolute_minimum: float = 0.0) -> float:
+            ordered = sorted(values)
+            if not ordered:
+                return absolute_minimum
+            high = ordered[min(len(ordered) - 1, int(len(ordered) * 0.95))]
+            return max(absolute_minimum, high * 1.35)
+
         self._rms_floor = percentile([sample[0] for sample in samples])
         self._bass_floor = percentile([sample[1] for sample in samples])
         self._mid_floor = percentile([sample[2] for sample in samples])
         self._treble_floor = percentile([sample[3] for sample in samples])
         self._spectrum_floor = tuple(percentile([sample[4][band] for sample in samples]) for band in range(self._spectrum_band_count))
+        self._rms_gate = gate([sample[0] for sample in samples], 1e-5)
+        self._bass_gate = gate([sample[1] for sample in samples], 1e-5)
+        self._mid_gate = gate([sample[2] for sample in samples], 1e-5)
+        self._treble_gate = gate([sample[3] for sample in samples], 1e-5)
+        self._spectrum_gate = tuple(gate([sample[4][band] for sample in samples], 1e-5) for band in range(self._spectrum_band_count))
         self._has_calibration = True
         self._zero_samples = None
         self._bass_normalizer.reset()

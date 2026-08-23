@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any
 from flask import Flask,abort,jsonify,redirect,render_template_string,request,send_from_directory,url_for
 from markupsafe import Markup
-from frontends.web.screen_catalog import WebScreen,create_web_screens
+from frontends.web.screen_catalog import FULLSCREEN_MUSIC_VISUALIZER_HTML,WebScreen,create_web_screens
 from frontends.web.spotify_screen import render_spotify_screen
 from ui.menu import MenuPage
 
@@ -21,6 +21,12 @@ def create_web_frontend(pages:Mapping[str,MenuPage],*,root_page:str="main",scree
  screen_map=dict(screens or create_web_screens());web_dir=Path(__file__).resolve().parent;sensor_dir=web_dir/"sensors";media_dir=web_dir/"media";lighting_dir=web_dir/"lighting";audio_analysis_dir=web_dir/"audio_analysis";app=Flask(__name__)
  @app.get("/")
  def index():return redirect(url_for("menu_page",page_key=root_page))
+ @app.get("/visualizer/fullscreen")
+ def fullscreen_music_visualizer():return FULLSCREEN_MUSIC_VISUALIZER_HTML
+ @app.post("/api/visualizer/exit")
+ def exit_fullscreen_music_visualizer():
+  Path("/tmp/openroadcode-visualizer-exit").touch()
+  return jsonify(ok=True)
  @app.get("/menu/<page_key>")
  def menu_page(page_key:str):
   page=pages.get(page_key)

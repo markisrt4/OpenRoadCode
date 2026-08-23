@@ -5,6 +5,14 @@ from dataclasses import dataclass
 
 
 @dataclass(frozen=True, slots=True)
+class SpotifyTrackMetadata:
+    track_id: str
+    uri: str
+    url: str | None = None
+    artwork_url: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
 class SpotifyState:
     """Immutable snapshot of Spotify availability and playback metadata."""
     is_available: bool = False

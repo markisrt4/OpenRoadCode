@@ -14,6 +14,12 @@ class SpotifyControllerStub(SpotifyControllerIf):
     def play(self) -> None:
         pass
 
+    def play_uri(self, uri: str) -> None:
+        pass
+
+    def track_metadata(self, track_id: str):
+        return None
+
     def pause(self) -> None:
         pass
 

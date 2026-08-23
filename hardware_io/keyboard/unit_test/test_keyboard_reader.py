@@ -3,11 +3,17 @@
 
 from __future__ import annotations
 
+import importlib.util
 import unittest
 
-from hardware_io.keyboard import KeyboardReader
+EVDEV_AVAILABLE = importlib.util.find_spec("evdev") is not None
+if EVDEV_AVAILABLE:
+    from hardware_io.keyboard import KeyboardReader
+else:
+    KeyboardReader = None  # type: ignore[assignment,misc]
 
 
+@unittest.skipUnless(EVDEV_AVAILABLE, "optional evdev dependency is not installed")
 class KeyboardReaderTest(unittest.TestCase):
     def test_normalize_keycode_preserves_a_key_name(self) -> None:
         self.assertEqual(

@@ -6,7 +6,7 @@ from __future__ import annotations
 from typing import Any
 
 from controllers.spotify.spotify_controller_if import SpotifyControllerIf
-from controllers.spotify.spotify_state import SpotifyState
+from controllers.spotify.spotify_state import SpotifyState, SpotifyTrackMetadata
 from protocols.spotify import SpotifyWebApiClient
 
 
@@ -31,6 +31,21 @@ class SpotifyWebApiController(SpotifyControllerIf):
 
     def play(self) -> None:
         self._client.request("PUT", "/me/player/play")
+
+    def play_uri(self, uri: str) -> None:
+        self._client.request("PUT", "/me/player/play", body={"uris": [uri]})
+
+    def track_metadata(self, track_id: str) -> SpotifyTrackMetadata | None:
+        item = self._client.request_json("GET", f"/tracks/{track_id}")
+        if not item:
+            return None
+        album = item.get("album") or {}
+        return SpotifyTrackMetadata(
+            track_id=str(item.get("id") or track_id),
+            uri=str(item.get("uri") or f"spotify:track:{track_id}"),
+            url=(item.get("external_urls") or {}).get("spotify"),
+            artwork_url=self._extract_album_art_url(album),
+        )
 
     def pause(self) -> None:
         self._client.request("PUT", "/me/player/pause")

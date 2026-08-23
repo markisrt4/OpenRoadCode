@@ -9,7 +9,8 @@ from pathlib import Path
 
 from .secret_manager_if import SecretManagerIf
 
-DEFAULT_SECRETS_FILE = Path("/etc/openroadcode/secrets.env")
+DEFAULT_SECRETS_FILE = Path.home() / ".config" / "openroadcode" / "secrets.env"
+LEGACY_SECRETS_FILE = Path("/etc/openroadcode/secrets.env")
 
 
 class EnvironmentVariableSecretManager(SecretManagerIf):
@@ -37,7 +38,9 @@ class EnvironmentVariableSecretManager(SecretManagerIf):
         secrets_file: str | Path = DEFAULT_SECRETS_FILE,
     ) -> None:
         if environment is None:
-            loaded_environment = self._load_file(Path(secrets_file))
+            configured_path = Path(secrets_file).expanduser()
+            loaded_environment = self._load_file(LEGACY_SECRETS_FILE) if configured_path == DEFAULT_SECRETS_FILE else {}
+            loaded_environment.update(self._load_file(configured_path))
             loaded_environment.update(os.environ)
             self._environment: Mapping[str, str] = loaded_environment
         else:

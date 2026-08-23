@@ -10,11 +10,35 @@ from controllers.audio_analysis.audio_analysis import SpectrumAnalysisMode
 
 
 class MusicAnalysisRequestHandlerIf(ABC):
-    @abstractmethod
-    def request_zeroize(self) -> None: ...
+    """Handle semantic requests from a music-analysis frontend."""
 
     @abstractmethod
-    def request_sensitivity(self, value: float) -> None: ...
+    def start(self) -> None:
+        """Start audio capture and music analysis."""
+        ...
 
     @abstractmethod
-    def request_spectrum_mode(self, mode: SpectrumAnalysisMode) -> None: ...
+    def stop(self) -> None:
+        """Stop audio capture and music analysis."""
+        ...
+
+    @abstractmethod
+    def request_zeroize(self) -> None:
+        """Request ambient-noise calibration."""
+        ...
+
+    @abstractmethod
+    def request_sensitivity(self, value: float) -> None:
+        """Request a sensitivity change.
+
+        @param value Normalized sensitivity multiplier.
+        """
+        ...
+
+    @abstractmethod
+    def request_spectrum_mode(self, mode: SpectrumAnalysisMode) -> None:
+        """Request a spectrum-analysis mode.
+
+        @param mode Selected spectrum mode.
+        """
+        ...

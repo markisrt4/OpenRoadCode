@@ -15,6 +15,7 @@ from controllers.lighting.lighting_controller_stub import (
 from controllers.lighting.lighting_presenter import LightingPresenter
 from controllers.lighting.lighting_types import (
     CustomPatternMode,
+    LightingConnectionStatus,
     LightingState,
     RgbColor,
 )
@@ -28,6 +29,7 @@ from controllers.lighting.adapters.leddmx_bluetooth_controller import (
 
 __all__ = [
     "LightingPresenter",
+    "LightingConnectionStatus",
     "CustomPatternMode",
     "DummyLightingController",
     "LightingControllerIf",

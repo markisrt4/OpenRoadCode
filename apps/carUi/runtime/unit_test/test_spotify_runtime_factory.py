@@ -2,7 +2,6 @@
 # SPDX-License-Identifier: MIT
 
 import unittest
-from unittest.mock import patch
 
 from apps.carUi.runtime.spotify_runtime_factory import create_spotify_controller
 from controllers.spotify import UnconfiguredController
@@ -24,12 +23,7 @@ class SpotifyRuntimeFactoryTests(unittest.TestCase):
         )
 
     def test_create_spotify_controller_returns_unconfigured_controller(self) -> None:
-        with patch(
-            "apps.carUi.runtime.spotify_runtime_factory."
-            "load_spotify_config_from_secrets",
-            return_value=None,
-        ):
-            controller = create_spotify_controller()
+        controller = create_spotify_controller(SecretManagerStub())
 
         self.assertIsInstance(controller, UnconfiguredController)
         state = controller.current_state()

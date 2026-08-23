@@ -10,4 +10,9 @@ class MusicLightingUiIf(ABC):
     """State pushed into any frontend surface exposing music lighting."""
 
     @abstractmethod
-    def set_music_lighting_state(self, state: MusicLightingState) -> None: ...
+    def set_music_lighting_state(self, state: MusicLightingState) -> None:
+        """Display current music-lighting configuration.
+
+        @param state Complete music-lighting state.
+        """
+        ...

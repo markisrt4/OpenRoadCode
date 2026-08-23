@@ -28,6 +28,7 @@ class PipeWireAudioCapture(AudioCaptureIf):
         frame_size: int = 2048,
         hop_size: int = 1024,
         latency_msec: int = 10,
+        device: str = "@DEFAULT_MONITOR@",
     ) -> None:
         if hop_size <= 0 or hop_size > frame_size:
             raise ValueError("hop_size must be in the range 1..frame_size")
@@ -36,6 +37,7 @@ class PipeWireAudioCapture(AudioCaptureIf):
         self._frame_size = frame_size
         self._hop_size = hop_size
         self._latency_msec = latency_msec
+        self._device = device.strip() or "@DEFAULT_MONITOR@"
         self._process: subprocess.Popen[bytes] | None = None
         self._frame_buffer: np.ndarray | None = None
 
@@ -52,7 +54,7 @@ class PipeWireAudioCapture(AudioCaptureIf):
                 "--channels=1",
                 f"--rate={self._sample_rate_hz}",
                 f"--latency-msec={self._latency_msec}",
-                "--device=@DEFAULT_MONITOR@",
+                f"--device={self._device}",
             ],
             stdout=subprocess.PIPE,
             stderr=subprocess.DEVNULL,
@@ -73,6 +75,7 @@ class PipeWireAudioCapture(AudioCaptureIf):
         if self._frame_buffer is None:
             # Prime the first complete FFT window.
             self._frame_buffer = self._read_samples(self._frame_size)
+            new_sample_count = self._frame_size
         else:
             # Keep the newest samples from the previous window and append only
             # one hop of fresh audio. With the defaults this gives 50% overlap:
@@ -80,10 +83,12 @@ class PipeWireAudioCapture(AudioCaptureIf):
             new_samples = self._read_samples(self._hop_size)
             retained = self._frame_buffer[self._hop_size :]
             self._frame_buffer = np.concatenate((retained, new_samples))
+            new_sample_count = self._hop_size
 
         return AudioFrame(
             tuple(float(value) for value in self._frame_buffer),
             self._sample_rate_hz,
+            new_sample_count,
         )
 
     def stop(self) -> None:
