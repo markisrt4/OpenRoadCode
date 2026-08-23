@@ -26,37 +26,53 @@ class ZeroMqNavigationCommandServer:
         self._service = service
         self._endpoint = endpoint
         self._stop_event = Event()
-        self._context = zmq.Context()
-        self._socket = self._context.socket(zmq.REP)
-        self._socket.setsockopt(zmq.LINGER, 0)
-        self._socket.setsockopt(zmq.RCVTIMEO, 100)
-        self._socket.bind(endpoint)
+        self._running = Event()
 
     @property
     def endpoint(self) -> str:
         """Return the endpoint bound by this server."""
         return self._endpoint
 
-    def run(self) -> None:
-        """Serve requests until close() is called."""
-        while not self._stop_event.is_set():
-            try:
-                request = self._socket.recv_json()
-            except zmq.Again:
-                continue
-            except zmq.ZMQError:
-                if self._stop_event.is_set():
-                    return
-                raise
+    @property
+    def is_running(self) -> bool:
+        """Return whether the command loop has created and bound its socket."""
+        return self._running.is_set()
 
-            response = self._handle_request(request)
-            self._socket.send_json(response)
+    def run(self) -> None:
+        """Serve requests until close() is called.
+
+        ZeroMQ sockets are thread-affine. Create, use, and close the REP socket
+        entirely inside the server thread rather than closing it concurrently
+        from the caller thread.
+        """
+        context = zmq.Context()
+        socket = context.socket(zmq.REP)
+        socket.setsockopt(zmq.LINGER, 0)
+        socket.setsockopt(zmq.RCVTIMEO, 100)
+        socket.bind(self._endpoint)
+        self._running.set()
+        try:
+            while not self._stop_event.is_set():
+                try:
+                    request = socket.recv_json()
+                except zmq.Again:
+                    continue
+
+                response = self._handle_request(request)
+                socket.send_json(response)
+        finally:
+            self._running.clear()
+            socket.close(linger=0)
+            context.term()
 
     def close(self) -> None:
-        """Stop the service and release its ZeroMQ resources."""
+        """Request command-loop shutdown.
+
+        The server thread observes this event through the short receive timeout
+        and releases its own ZeroMQ resources. This avoids cross-thread socket
+        destruction, which can abort libzmq on some platforms.
+        """
         self._stop_event.set()
-        self._socket.close(linger=0)
-        self._context.term()
 
     def _handle_request(self, request: Any) -> dict[str, Any]:
         if not isinstance(request, Mapping):
