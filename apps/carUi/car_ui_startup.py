@@ -13,7 +13,6 @@ from config.runtime_target import RuntimeTarget, detect_runtime_target
 from apps.carUi.car_ui_dependencies import CarUiDependencies
 from apps.carUi.runtime.car_ui_runtime_factory import create_car_ui_runtime
 from apps.carUi.runtime.lighting_runtime_factory import create_lighting_controller
-from apps.carUi.runtime.position_source_factory import create_position_source
 from apps.carUi.runtime.input_device_runtime import InputDeviceRuntime, create_input_device_runtime
 from apps.carUi.runtime.rotary_encoder_runtime import create_rotary_encoder_runtime
 from apps.carUi.runtime.spotify_runtime_factory import create_spotify_controller
@@ -32,7 +31,7 @@ SPLASH_IMAGE_PATH = Path(__file__).parent / "assets" / "openroadcode-splash.png"
 STARTUP_ITEMS = (
     StartupItem("display", "Display"),
     StartupItem("runtime", "Runtime configuration"),
-    StartupItem("position", "Position source"),
+    StartupItem("telemetry", "Telemetry bus"),
     StartupItem("audio", "Audio"),
     StartupItem("spotify", "Spotify"),
     StartupItem("lighting", "Lighting"),
@@ -74,6 +73,7 @@ def build_car_ui_dependencies(report: StartupStatusCallback) -> CarUiDependencie
         runtime = create_car_ui_runtime(RUNTIME_CONFIG_PATH, project_root=PROJECT_ROOT)
         cleanup.callback(runtime.close)
         report("runtime", StartupState.READY, "Configuration loaded")
+        report("telemetry", StartupState.READY, "Vehicle and navigation state provided by message bus")
 
         report("input", StartupState.STARTING, "Loading input devices")
         encoder_runtime = create_rotary_encoder_runtime(runtime.rotary_encoders)
@@ -82,11 +82,6 @@ def build_car_ui_dependencies(report: StartupStatusCallback) -> CarUiDependencie
         for encoder in encoder_runtime.encoders:
             cleanup.callback(encoder.stop)
         report("input", StartupState.READY, f"{len(encoder_runtime.encoders)} rotary controls ready")
-
-        report("position", StartupState.STARTING, "Opening position source")
-        position_source = create_position_source(cache_config=runtime.position_cache)
-        cleanup.callback(position_source.stop)
-        report("position", StartupState.READY, "Position source available")
 
         report("audio", StartupState.STARTING, "Connecting to PipeWire")
         runtime_target = detect_runtime_target()
@@ -116,7 +111,6 @@ def build_car_ui_dependencies(report: StartupStatusCallback) -> CarUiDependencie
 
         dependencies = CarUiDependencies(
             runtime=runtime,
-            position_source=position_source,
             audio_controller=audio_controller,
             spotify_controller=spotify_controller,
             spotify_image_cache=spotify_image_cache,
