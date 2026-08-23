@@ -21,6 +21,12 @@ class WebLightingSession:
         self._controller: LightingControllerIf = DummyLightingController()
         self._controller.connect().result()
 
+    @property
+    def controller(self) -> LightingControllerIf:
+        """Current bound controller; callers must re-read after a backend bind."""
+        with self._lock:
+            return self._controller
+
     def state(self) -> dict[str, object]:
         with self._lock:
             state = self._controller.current_state()
@@ -39,34 +45,21 @@ class WebLightingSession:
         normalized = backend.strip().lower()
         if normalized not in {"emulator", "ble"}:
             raise ValueError("backend must be 'emulator' or 'ble'")
-
         with self._lock:
             previous = self._controller
-            if normalized == "emulator":
-                controller: LightingControllerIf = DummyLightingController()
-            else:
-                controller = create_lighting_controller(
-                    project_root=self._project_root,
-                    backend="leddmx",
-                )
+            controller: LightingControllerIf = DummyLightingController() if normalized == "emulator" else create_lighting_controller(project_root=self._project_root, backend="leddmx")
             controller.connect().result()
             self._controller = controller
             self._backend_name = normalized
-            try:
-                previous.close()
-            except Exception:
-                pass
+            try: previous.close()
+            except Exception: pass
         return self.state()
 
     def command(self, command: str, value: object = None) -> dict[str, object]:
         normalized = command.strip().lower()
         with self._lock:
-            if normalized == "power":
-                self._controller.set_power(bool(value)).result()
-            elif normalized == "color":
-                self._controller.set_color(hex_to_rgb(str(value))).result()
-            elif normalized == "brightness":
-                self._controller.set_brightness(int(value)).result()
-            else:
-                raise ValueError(f"Unknown lighting command: {command}")
+            if normalized == "power": self._controller.set_power(bool(value)).result()
+            elif normalized == "color": self._controller.set_color(hex_to_rgb(str(value))).result()
+            elif normalized == "brightness": self._controller.set_brightness(int(value)).result()
+            else: raise ValueError(f"Unknown lighting command: {command}")
         return self.state()
