@@ -48,25 +48,35 @@ class MediaState:
 class MediaUiIf(ABC):
     @abstractmethod
     def set_media_state(self, state: MediaState | None) -> None:
-        """! @brief Display the latest media playback state."""
+        """! @brief Display the latest media playback state.
+        @param state Latest playback state, or None when no state is available.
+        """
         ...
 
     @abstractmethod
     def set_playback_request_handler(self, handler: PlaybackRequestHandlerIf | None) -> None:
-        """! @brief Set the handler for playback control requests."""
+        """! @brief Set the handler for playback control requests.
+        @param handler Playback request handler, or None to disconnect controls.
+        """
         ...
 
     @abstractmethod
     def set_track_request_handler(self, handler: TrackRequestHandlerIf | None) -> None:
-        """! @brief Set the handler for track navigation requests."""
+        """! @brief Set the handler for track navigation requests.
+        @param handler Track request handler, or None to disconnect controls.
+        """
         ...
 
     @abstractmethod
     def set_seek_request_handler(self, handler: SeekRequestHandlerIf | None) -> None:
-        """! @brief Set the handler for playback seek requests."""
+        """! @brief Set the handler for playback seek requests.
+        @param handler Seek request handler, or None to disconnect controls.
+        """
         ...
 
     @abstractmethod
     def set_volume_request_handler(self, handler: VolumeRequestHandlerIf | None) -> None:
-        """! @brief Set the handler for media volume requests."""
+        """! @brief Set the handler for media volume requests.
+        @param handler Volume request handler, or None to disconnect controls.
+        """
         ...
