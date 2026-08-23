@@ -7,6 +7,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 
 from controllers.audio_analysis.audio_analysis import SpectrumAnalysisMode
+from controllers.audio_analysis.selectable_music_analysis_source import MusicAudioInput
 
 
 class MusicAnalysisRequestHandlerIf(ABC):
@@ -41,4 +42,9 @@ class MusicAnalysisRequestHandlerIf(ABC):
 
         @param mode Selected spectrum mode.
         """
+        ...
+
+    @abstractmethod
+    def request_audio_input(self, selected: MusicAudioInput) -> None:
+        """Select the audio stream used for analysis."""
         ...

@@ -15,6 +15,7 @@ from PIL import Image, ImageTk
 
 from controllers.audio_analysis.audio_analysis import SpectrumAnalysisMode
 from controllers.audio_analysis.music_analysis import MusicAnalysisState
+from controllers.audio_analysis.selectable_music_analysis_source import MusicAudioInput
 from controllers.music_lighting import MusicLightingPatternId, MusicLightingState
 from ui.music_analysis import MusicAnalysisRequestHandlerIf, MusicAnalysisStatus, MusicAnalysisUiIf, MusicAnalysisUiState
 from ui.music_lighting import MusicLightingRequestHandlerIf, MusicLightingUiIf
@@ -26,6 +27,8 @@ _ANALYSIS_LABELS={SpectrumAnalysisMode.NATIVE:"Native",SpectrumAnalysisMode.NORM
 _LABEL_ANALYSIS={label:mode for mode,label in _ANALYSIS_LABELS.items()}
 _PATTERN_LABELS={MusicLightingPatternId.SPECTRUM_FLOW:"Spectrum Flow",MusicLightingPatternId.BEAT_PULSE:"Beat Pulse",MusicLightingPatternId.PERCUSSION:"Percussion",MusicLightingPatternId.COLOR_WAVE:"Color Wave",MusicLightingPatternId.AMBIENT:"Ambient"}
 _LABEL_PATTERNS={label:pattern for pattern,label in _PATTERN_LABELS.items()}
+_INPUT_LABELS={MusicAudioInput.SYSTEM_AUDIO:"System Audio",MusicAudioInput.EXTERNAL_INPUT:"External Input"}
+_LABEL_INPUTS={label:value for value,label in _INPUT_LABELS.items()}
 
 class MusicVisualizerPanel(tk.Frame,MusicAnalysisUiIf,MusicVisualizerUiIf,MusicLightingUiIf):
     def __init__(self,parent:tk.Misc,artwork_provider=None)->None:
@@ -37,11 +40,13 @@ class MusicVisualizerPanel(tk.Frame,MusicAnalysisUiIf,MusicVisualizerUiIf,MusicL
     def set_play_song_action(self,callback):self._play_song_action=callback
     def set_fullscreen_status(self,status):self._fullscreen_button.configure(text="↗  VIEW FULLSCREEN" if status is None else status)
     def _build(self):
+        self._audio_input=tk.StringVar(value=_INPUT_LABELS[MusicAudioInput.SYSTEM_AUDIO])
         bg="#070b0f";card="#0d141b";border="#263746";muted="#91a0ad";green="#6ee444"
         self.configure(bg=bg);self.grid_columnconfigure(0,weight=1);self.grid_rowconfigure(2,weight=1)
         controls=tk.Frame(self,bg=card,highlightbackground=border,highlightthickness=1,padx=10,pady=7);controls.grid(row=0,column=0,sticky="ew",padx=6,pady=(4,6))
         self._audio_button=tk.Button(controls,text="■  STOP AUDIO",command=self._toggle_capture,bg="#251014",fg="#ff4c54",activebackground="#35151a",activeforeground="#ff747a",relief="flat",padx=12,pady=7,font=("TkDefaultFont",10,"bold"));self._audio_button.pack(side="left")
         self._status=tk.Label(controls,text="● SYSTEM AUDIO · STARTING",bg=card,fg=green,font=("TkDefaultFont",10,"bold"));self._status.pack(side="left",padx=8)
+        input_picker=ttk.Combobox(controls,textvariable=self._audio_input,values=tuple(_INPUT_LABELS.values()),state="readonly",width=14);input_picker.pack(side="left",padx=(2,8));input_picker.bind("<<ComboboxSelected>>",self._audio_input_changed)
         sens=tk.Scale(controls,from_=25,to=200,orient="horizontal",showvalue=True,length=125,bg=card,fg="white",troughcolor="#26323d",activebackground=green,highlightthickness=0,variable=self._sensitivity,command=lambda v:self._analysis_handler and self._analysis_handler.request_sensitivity(float(v)/100.));sens.pack(side="right");tk.Label(controls,text="SENSITIVITY",bg=card,fg=muted,font=("TkDefaultFont",8,"bold")).pack(side="right")
         hero=tk.Frame(self,bg=card,highlightbackground=border,highlightthickness=1,padx=8,pady=7);hero.grid(row=1,column=0,sticky="ew",padx=6,pady=(0,6));hero.grid_columnconfigure(0,weight=1)
         hero_head=tk.Frame(hero,bg=card);hero_head.grid(row=0,column=0,sticky="ew");tk.Label(hero_head,text="VISUALIZER TYPE",bg=card,fg="white",font=("TkDefaultFont",9,"bold")).pack(side="left")
@@ -95,6 +100,8 @@ class MusicVisualizerPanel(tk.Frame,MusicAnalysisUiIf,MusicVisualizerUiIf,MusicL
         if self._handler:self._handler.request_visualization_mode(_LABEL_MODES.get(self._mode.get(),MusicVisualizationMode.SPECTRUM))
     def _analysis_mode_changed(self,_event=None):
         if self._analysis_handler:self._analysis_handler.request_spectrum_mode(_LABEL_ANALYSIS.get(self._analysis_mode.get(),SpectrumAnalysisMode.HYBRID))
+    def _audio_input_changed(self,_event=None):
+        if self._analysis_handler:self._analysis_handler.request_audio_input(_LABEL_INPUTS.get(self._audio_input.get(),MusicAudioInput.SYSTEM_AUDIO))
     def _kick_changed(self):
         if self._handler:self._handler.request_kick_mode(KickMode(self._kick_mode.get()))
     def set_analysis_state(self,state):
@@ -102,11 +109,11 @@ class MusicVisualizerPanel(tk.Frame,MusicAnalysisUiIf,MusicVisualizerUiIf,MusicL
         for name in self._pulse:self._pulse[name]=max(getattr(state.percussion,name),self._pulse[name]*.72)
         self._draw();self._draw_drums();self._draw_spectrum_panel()
     def set_analysis_ui_state(self,state:MusicAnalysisUiState)->None:
-        self._sensitivity.set(round(state.sensitivity*100));self._analysis_mode.set(_ANALYSIS_LABELS[state.spectrum_mode]);parts=[state.status.value.upper()]
+        self._sensitivity.set(round(state.sensitivity*100));self._analysis_mode.set(_ANALYSIS_LABELS[state.spectrum_mode]);self._audio_input.set(_INPUT_LABELS[state.audio_input]);parts=[state.status.value.upper()]
         if state.calibrated:parts.append("ZEROIZED")
         if state.status is MusicAnalysisStatus.ZEROIZING:parts.append("KEEP MUSIC OFF")
         if state.error:parts.append(state.error)
-        active=state.status in (MusicAnalysisStatus.ACTIVE,MusicAnalysisStatus.ZEROIZING);self._audio_button.configure(text="■  STOP AUDIO" if active else "▶  START AUDIO",fg="#ff4c54" if active else "#75e34c");self._status.configure(text=("● SYSTEM AUDIO · " if active else "○ SYSTEM AUDIO · ")+"  ·  ".join(parts),fg="#75e34c" if active else "#ff5964" if state.error else "#91a0ad")
+        active=state.status in (MusicAnalysisStatus.ACTIVE,MusicAnalysisStatus.ZEROIZING);self._audio_button.configure(text="■  STOP AUDIO" if active else "▶  START AUDIO",fg="#ff4c54" if active else "#75e34c");source=_INPUT_LABELS[state.audio_input].upper();self._status.configure(text=(f"● {source} · " if active else f"○ {source} · ")+"  ·  ".join(parts),fg="#75e34c" if active else "#ff5964" if state.error else "#91a0ad")
     def set_song(self,song):
         self._song=song;self._song_art.configure(image="");self._song_art_photo=None
         if song is None:self._song_title.configure(text="No song identified");self._song_artist.configure(text="");self._song_album.configure(text="");self._spotify_play.grid_remove();return

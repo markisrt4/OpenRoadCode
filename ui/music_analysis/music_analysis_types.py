@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from enum import Enum
 
 from controllers.audio_analysis.audio_analysis import SpectrumAnalysisMode
+from controllers.audio_analysis.selectable_music_analysis_source import MusicAudioInput
 
 
 class MusicAnalysisStatus(Enum):
@@ -25,6 +26,7 @@ class MusicAnalysisUiState:
     sensitivity: float = 1.0
     spectrum_mode: SpectrumAnalysisMode = SpectrumAnalysisMode.HYBRID
     error: str | None = None
+    audio_input: MusicAudioInput = MusicAudioInput.SYSTEM_AUDIO
 
     def __post_init__(self) -> None:
         if not 0.25 <= self.sensitivity <= 2.0:

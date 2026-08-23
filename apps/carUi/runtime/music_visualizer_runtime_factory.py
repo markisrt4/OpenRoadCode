@@ -9,9 +9,8 @@ from dataclasses import replace
 from dataclasses import dataclass
 from pathlib import Path
 
-from controllers.audio_analysis.music_analysis import MusicAnalyzer
 from controllers.audio_analysis.music_analysis_source_if import MusicAnalysisSourceIf
-from controllers.audio_analysis.pcm_music_analysis_source import PcmMusicAnalysisSource
+from controllers.audio_analysis.selectable_music_analysis_source import MusicAudioInput, SelectableMusicAnalysisSource
 from controllers.cache.persistent_cache import PersistentCache
 from controllers.lighting.lighting_controller_if import LightingControllerIf
 from controllers.music_lighting import MusicLightingController, MusicLightingOutputAdapter
@@ -46,15 +45,13 @@ def create_music_visualizer_runtime(
     spotify_controller: SpotifyControllerIf | None = None,
 ) -> MusicVisualizerRuntime:
     """Build the platform/provider-specific services used by Car UI."""
-    source = PcmMusicAnalysisSource(
-        capture=PipeWireAudioCapture(
-            device=os.environ.get(
-                "CARUI_VISUALIZER_AUDIO_DEVICE",
-                "@DEFAULT_MONITOR@",
-            )
-        ),
-        analyzer=MusicAnalyzer(spectrum_band_count=24),
-    )
+    system_device=os.environ.get("CARUI_VISUALIZER_AUDIO_DEVICE","@DEFAULT_MONITOR@")
+    external_device=os.environ.get("CARUI_VISUALIZER_EXTERNAL_DEVICE","@DEFAULT_SOURCE@")
+    initial_input=MusicAudioInput(os.environ.get("CARUI_VISUALIZER_INPUT",MusicAudioInput.SYSTEM_AUDIO.value))
+    source=SelectableMusicAnalysisSource({
+        MusicAudioInput.SYSTEM_AUDIO:lambda:PipeWireAudioCapture(device=system_device),
+        MusicAudioInput.EXTERNAL_INPUT:lambda:PipeWireAudioCapture(device=external_device),
+    },initial_input=initial_input)
     secrets = EnvironmentVariableSecretManager()
     host = secrets.get_secret("ACRCLOUD_HOST") or ""
     key = secrets.get_secret("ACRCLOUD_ACCESS_KEY") or ""

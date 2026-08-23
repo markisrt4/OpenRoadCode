@@ -18,6 +18,7 @@ from ui.music_analysis import (
 from .audio_analysis import SpectrumAnalysisMode
 from .music_analysis import MusicAnalysisState
 from .music_analysis_source_if import MusicAnalysisSourceIf
+from .selectable_music_analysis_source import MusicAudioInput
 
 
 class MusicAnalysisPresenter(MusicAnalysisRequestHandlerIf):
@@ -75,6 +76,18 @@ class MusicAnalysisPresenter(MusicAnalysisRequestHandlerIf):
         self._source.set_spectrum_mode(mode)
         self._publish_ui_state()
 
+    def request_audio_input(self, selected: MusicAudioInput) -> None:
+        self._status = MusicAnalysisStatus.STARTING
+        self._publish_ui_state()
+        try:
+            self._source.select_input(selected)
+        except Exception as exc:
+            self._status = MusicAnalysisStatus.ERROR
+            self._publish_ui_state(error=str(exc))
+            return
+        self._status = MusicAnalysisStatus.ACTIVE
+        self._publish_ui_state()
+
     def _on_analysis(self, state: MusicAnalysisState) -> None:
         if self._music_lighting is not None:
             self._music_lighting.update_analysis(state)
@@ -113,5 +126,6 @@ class MusicAnalysisPresenter(MusicAnalysisRequestHandlerIf):
             sensitivity=self._source.sensitivity,
             spectrum_mode=self._source.spectrum_mode,
             error=error if self._status is MusicAnalysisStatus.ERROR else None,
+            audio_input=getattr(self._source, "input", MusicAudioInput.SYSTEM_AUDIO),
         )
         ui.set_analysis_ui_state(state)

@@ -9,6 +9,7 @@ from typing import Protocol
 
 from .audio_analysis import SpectrumAnalysisMode
 from .music_analysis import MusicAnalysisState
+from .selectable_music_analysis_source import MusicAudioInput
 
 
 class MusicAnalysisSourceIf(Protocol):
@@ -55,6 +56,15 @@ class MusicAnalysisSourceIf(Protocol):
 
     def stop(self) -> None:
         """Stop analysis and release capture resources."""
+        ...
+
+    @property
+    def input(self) -> MusicAudioInput:
+        """Return the currently selected capture input."""
+        ...
+
+    def select_input(self, selected: MusicAudioInput | str) -> None:
+        """Switch to another configured capture input."""
         ...
 
     def zeroize(self) -> None:

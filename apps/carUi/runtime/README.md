@@ -102,15 +102,16 @@ objects.
 
 ## Music visualizer runtime
 
-`music_visualizer_runtime_factory.py` assembles one shared PipeWire analysis
+`music_visualizer_runtime_factory.py` assembles one selectable PipeWire analysis
 source, ACRCloud recognition controller, metadata cache, Spotify metadata
 enricher, and music-lighting output adapter. The default capture device is
 PipeWire/PulseAudio's `@DEFAULT_MONITOR@`, so visualization and recognition use
-system playback rather than a microphone. Override it only when explicitly
-testing another source:
+system playback rather than a microphone. The external-input choice defaults
+to `@DEFAULT_SOURCE@`; both devices can be overridden independently:
 
 ```bash
-CARUI_VISUALIZER_AUDIO_DEVICE=@DEFAULT_SOURCE@ \
+CARUI_VISUALIZER_EXTERNAL_DEVICE=alsa_input.usb-C-Media_USB_Audio_Device-00.mono-fallback \
+CARUI_VISUALIZER_INPUT=external_input \
 venv/bin/python -m apps.carUi.main
 ```
 

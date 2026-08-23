@@ -191,8 +191,9 @@ destinations on the Media menu.
 
 ### Music visualizer and song recognition
 
-The Music Visualizer captures the default PipeWire monitor, analyzes spectrum
-and percussion activity, renders the native drum/spectrum panel, and launches
+The Music Visualizer can capture either the default PipeWire output monitor or
+the default external capture input. Its source picker switches the live stream
+used by spectrum, percussion, song recognition, and music lighting. It launches
 the shared WebGL renderer in browser kiosk mode for fullscreen effects. The
 fullscreen page is visualizer-only and provides an exit action that restores
 Car UI.
@@ -215,6 +216,10 @@ user's `XDG_RUNTIME_DIR` and explicit `PULSE_SERVER` socket so PipeWire monitor
 capture does not depend on Pulse client auto-discovery. It also uses the
 project virtual environment and the shared user secrets file under
 `~/.config/openroadcode`.
+
+Set `CARUI_VISUALIZER_EXTERNAL_DEVICE` to a PipeWire/Pulse source name when the
+USB adapter is not the system default. `CARUI_VISUALIZER_INPUT=external_input`
+starts Car UI with that input selected.
 
 The main-menu `Gauges` page includes the configurable vehicle cluster and
 the embedded off-road dashboard. The vehicle screen displays disconnected
