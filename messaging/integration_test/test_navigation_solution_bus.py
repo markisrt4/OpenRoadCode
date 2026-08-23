@@ -116,7 +116,9 @@ def test_simulated_inputs_produce_complete_navigation_solution_over_bus():
         attitude = received[ATTITUDE_STATE_TOPIC]
         imu = received[IMU_STATE_TOPIC]
 
-        assert position.source == "simulated-gps"
+        # Position retains the source of the configured GPS input, while the
+        # converged solution topics carry the navigation publisher's source.
+        assert position.source == "simulation"
         assert motion.source == "integration-test-solution"
         assert attitude.source == motion.source == imu.source
         assert attitude.timestamp == motion.timestamp == imu.timestamp
