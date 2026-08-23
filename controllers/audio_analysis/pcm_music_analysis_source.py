@@ -6,12 +6,15 @@ from __future__ import annotations
 from collections import deque
 from collections.abc import Callable
 import io
+import logging
 import threading
 import wave
 import numpy as np
 from hardware_io.audio.audio_capture_if import AudioCaptureIf, AudioFrame
 from .audio_analysis import SpectrumAnalysisMode
 from .music_analysis import MusicAnalyzer, MusicAnalysisState
+
+LOGGER=logging.getLogger(__name__)
 
 class PcmMusicAnalysisSource:
     def __init__(self,capture:AudioCaptureIf,analyzer:MusicAnalyzer|None=None)->None:
@@ -53,7 +56,13 @@ class PcmMusicAnalysisSource:
                 with self._lock:
                     if not self._running:return
                     callback=self._callback
-                frame=self._capture.read();self._buffer_audio_frame(frame)
+                try:frame=self._capture.read()
+                except Exception:
+                    with self._lock:stopping=not self._running
+                    if stopping:return
+                    LOGGER.exception("Music audio capture failed")
+                    return
+                self._buffer_audio_frame(frame)
                 state=self._analyzer.analyze(frame)
                 if callback is not None:callback(state)
         finally:

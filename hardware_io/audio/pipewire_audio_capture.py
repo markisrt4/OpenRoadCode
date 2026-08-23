@@ -57,7 +57,7 @@ class PipeWireAudioCapture(AudioCaptureIf):
                 f"--device={self._device}",
             ],
             stdout=subprocess.PIPE,
-            stderr=subprocess.DEVNULL,
+            stderr=subprocess.PIPE,
         )
         self._frame_buffer = None
 
@@ -68,7 +68,11 @@ class PipeWireAudioCapture(AudioCaptureIf):
         byte_count = sample_count * 4
         data = self._process.stdout.read(byte_count)
         if len(data) != byte_count:
-            raise RuntimeError("audio capture ended unexpectedly")
+            details=""
+            if self._process.poll() is not None and self._process.stderr is not None:
+                details=self._process.stderr.read().decode("utf-8",errors="replace").strip()
+            suffix=f": {details}" if details else ""
+            raise RuntimeError(f"audio capture ended unexpectedly{suffix}")
         return np.frombuffer(data, dtype="<f4").astype(np.float64)
 
     def read(self) -> AudioFrame:

@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: MIT
 
 import io
+import threading
 import wave
 import numpy as np
 
@@ -20,6 +21,15 @@ class _OverlappingCapture(AudioCaptureIf):
     def start(self) -> None: pass
     def read(self) -> AudioFrame: return next(self.frames)
     def stop(self) -> None: pass
+
+
+class _BlockingCapture(AudioCaptureIf):
+    def __init__(self) -> None:self.stopped=threading.Event()
+    def start(self) -> None:pass
+    def read(self) -> AudioFrame:
+        self.stopped.wait(1)
+        raise RuntimeError("capture stopped")
+    def stop(self) -> None:self.stopped.set()
 
 
 def test_recent_audio_wav_wraps_pcm_with_format_metadata() -> None:
@@ -59,3 +69,14 @@ def test_pcm_source_buffers_only_fresh_samples_from_overlapping_windows() -> Non
     pcm=np.frombuffer(source.recent_audio_pcm16(10),dtype="<i2")
     assert source.buffered_audio_seconds == 1.5
     assert pcm.size == 6
+
+
+def test_stopping_pcm_source_suppresses_expected_capture_eof(monkeypatch) -> None:
+    uncaught=[]
+    monkeypatch.setattr(threading,"excepthook",uncaught.append)
+    source=PcmMusicAnalysisSource(_BlockingCapture())
+    source.start(lambda _state:None)
+
+    source.stop()
+
+    assert uncaught == []
