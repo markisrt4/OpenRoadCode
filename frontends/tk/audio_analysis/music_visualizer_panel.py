@@ -64,10 +64,10 @@ class MusicVisualizerPanel(tk.Frame,MusicAnalysisUiIf,MusicVisualizerUiIf,MusicL
         drums_card=tk.Frame(lower,bg=card,highlightbackground=border,highlightthickness=1,padx=7,pady=6);drums_card.grid(row=0,column=0,sticky="nsew",padx=(0,3));drums_card.grid_rowconfigure(1,weight=1);drums_card.grid_columnconfigure(0,weight=1)
         drum_head=tk.Frame(drums_card,bg=card);drum_head.grid(row=0,column=0,sticky="ew");tk.Label(drum_head,text="PERCUSSION  (Drum Kit)",bg=card,fg="white",font=("TkDefaultFont",10,"bold")).pack(side="left")
         for text,value in (("DOUBLE KICK",KickMode.DOUBLE.value),("SINGLE KICK",KickMode.SINGLE.value)):tk.Radiobutton(drum_head,text=text,value=value,variable=self._kick_mode,command=self._kick_changed,bg=card,fg="#b8c4ce",selectcolor="#29461f",activebackground=card,activeforeground="white",indicatoron=False,relief="flat",padx=7,pady=3,font=("TkDefaultFont",7,"bold")).pack(side="right",padx=2)
-        self._drums=tk.Canvas(drums_card,bg="#080c10",highlightthickness=0,height=115);self._drums.grid(row=1,column=0,sticky="nsew")
+        self._drums=tk.Canvas(drums_card,bg="#080c10",highlightthickness=0,height=115);self._drums.grid(row=1,column=0,sticky="nsew");self._drums.bind("<Configure>",self._draw_drums)
         spectrum_card=tk.Frame(lower,bg=card,highlightbackground=border,highlightthickness=1,padx=7,pady=6);spectrum_card.grid(row=0,column=1,sticky="nsew",padx=(3,0));spectrum_card.grid_rowconfigure(1,weight=1);spectrum_card.grid_columnconfigure(0,weight=1)
         spectrum_head=tk.Frame(spectrum_card,bg=card);spectrum_head.grid(row=0,column=0,sticky="ew");tk.Label(spectrum_head,text="SPECTRUM",bg=card,fg="white",font=("TkDefaultFont",10,"bold")).pack(side="left");analysis=ttk.Combobox(spectrum_head,textvariable=self._analysis_mode,values=tuple(_ANALYSIS_LABELS.values()),state="readonly",width=10);analysis.pack(side="right");analysis.bind("<<ComboboxSelected>>",self._analysis_mode_changed);ttk.Combobox(spectrum_head,textvariable=self._spectrum_style,values=("Classic Analyzer","Prismatic Ridge","Neon Bars","Mirrored Wave"),state="readonly",width=15).pack(side="right",padx=5)
-        self._spectrum_canvas=tk.Canvas(spectrum_card,bg="#050a0e",highlightthickness=0,height=135);self._spectrum_canvas.grid(row=1,column=0,sticky="nsew",pady=(5,0))
+        self._spectrum_canvas=tk.Canvas(spectrum_card,bg="#050a0e",highlightthickness=0,height=135);self._spectrum_canvas.grid(row=1,column=0,sticky="nsew",pady=(5,0));self._spectrum_canvas.bind("<Configure>",self._draw_spectrum_panel)
         song_card=tk.Frame(lower,bg=card,highlightbackground=border,highlightthickness=1,padx=10,pady=8);song_card.grid(row=0,column=2,sticky="nsew",padx=(6,0));song_card.grid_columnconfigure(0,weight=1);self._song_card=song_card
         self._song_heading=tk.Label(song_card,text="SONG RECOGNITION",bg=card,fg="white",font=("TkDefaultFont",10,"bold"));self._song_heading.grid(row=0,column=0,sticky="w")
         self._song_art=tk.Label(song_card,bg=card);self._song_art.grid(row=1,column=0,pady=(5,2))
@@ -77,7 +77,9 @@ class MusicVisualizerPanel(tk.Frame,MusicAnalysisUiIf,MusicVisualizerUiIf,MusicL
         self._now=tk.Label(song_card,text="Checking provider…",bg=card,fg=muted,anchor="w",justify="left",wraplength=190);self._now.grid(row=5,column=0,sticky="sew",pady=(8,6));song_card.grid_rowconfigure(5,weight=1)
         self._identify=tk.Button(song_card,text="IDENTIFY SONG",command=lambda:self._handler and self._handler.request_song_recognition(),bg="#19232d",fg="white",activebackground="#263746",relief="flat",pady=8,font=("TkDefaultFont",9,"bold"));self._identify.grid(row=6,column=0,sticky="ew")
         self._spotify_play=tk.Button(song_card,text="▶  PLAY IN SPOTIFY",command=self._play_recognized_song,bg="#1db954",fg="white",activebackground="#159643",relief="flat",pady=6,font=("TkDefaultFont",8,"bold"));self._spotify_play.grid(row=7,column=0,sticky="ew",pady=(6,0));self._spotify_play.grid_remove()
-        footer=tk.Frame(self,bg=card,highlightbackground=border,highlightthickness=1,padx=9,pady=5);footer.grid(row=3,column=0,sticky="ew",padx=6,pady=(0,4));tk.Checkbutton(footer,text="MUSIC LIGHTING",variable=self._lighting,command=self._lighting_enabled_changed,bg=card,fg="white",selectcolor="#25431e",activebackground=card).pack(side="left");pattern=ttk.Combobox(footer,textvariable=self._lighting_pattern,values=tuple(_PATTERN_LABELS.values()),state="readonly",width=15);pattern.pack(side="left",padx=7);pattern.bind("<<ComboboxSelected>>",self._lighting_pattern_changed);tk.Label(footer,text="INTENSITY",bg=card,fg=muted).pack(side="left");tk.Scale(footer,from_=0,to=100,orient="horizontal",showvalue=False,length=100,bg=card,highlightthickness=0,variable=self._lighting_intensity,command=self._lighting_intensity_changed).pack(side="left");tk.Button(footer,text="CONFIGURE →",command=self._configure_lighting,bg="#19232d",fg="white",relief="flat").pack(side="right")
+        footer=tk.Frame(self,bg=card,highlightbackground=border,highlightthickness=1,padx=9,pady=5);footer.grid(row=3,column=0,sticky="ew",padx=6,pady=(0,4));tk.Checkbutton(footer,text="MUSIC LIGHTING",variable=self._lighting,command=self._lighting_enabled_changed,bg=card,fg="white",selectcolor="#25431e",activebackground=card).pack(side="left");pattern=ttk.Combobox(footer,textvariable=self._lighting_pattern,values=tuple(_PATTERN_LABELS.values()),state="readonly",width=15);pattern.pack(side="left",padx=7);pattern.bind("<<ComboboxSelected>>",self._lighting_pattern_changed);tk.Label(footer,text="INTENSITY",bg=card,fg=muted).pack(side="left");tk.Scale(footer,from_=0,to=100,orient="horizontal",showvalue=False,length=100,bg=card,highlightthickness=0,variable=self._lighting_intensity,command=self._lighting_intensity_changed).pack(side="left");tk.Button(footer,text="CONFIGURE →",command=self._configure_lighting,bg="#19232d",fg="white",relief="flat").pack(side="right");self.after_idle(self._draw_static_panels)
+    def _draw_static_panels(self):
+        self._draw_drums();self._draw_spectrum_panel()
     def _open_fullscreen(self):
         if self._fullscreen_action is not None:
             self._fullscreen_action();return
@@ -152,7 +154,7 @@ class MusicVisualizerPanel(tk.Frame,MusicAnalysisUiIf,MusicVisualizerUiIf,MusicL
     def _draw(self):
         if not self._state:return
         c=self._canvas;c.delete("all");w,h=max(2,c.winfo_width()),max(2,c.winfo_height());{MusicVisualizationMode.ORBITING_PLANETS:self._draw_planets,MusicVisualizationMode.ELECTRIC_FREEWAY:self._draw_freeway,MusicVisualizationMode.EXPLOSION_FIELD:self._draw_explosion,MusicVisualizationMode.STAR_DANCE:self._draw_stars,MusicVisualizationMode.ELECTRIC_RINGS:self._draw_rings,MusicVisualizationMode.NEON_RIBBON:self._draw_ribbon,MusicVisualizationMode.KALEIDOSCOPE:self._draw_kaleidoscope}.get(self._visualization_mode,self._draw_spectrum)(w,h)
-    def _draw_drums(self):
+    def _draw_drums(self,_event=None):
         c=self._drums;c.delete("all");w=max(2,c.winfo_width());h=max(2,c.winfo_height());cym=self._pulse["cymbal"]
         target_w,target_h=_fit_image_size(w,h,self._drum_source.width,self._drum_source.height)
         if self._drum_image_size!=(target_w,target_h):self._drum_image=ImageTk.PhotoImage(self._drum_source.resize((target_w,target_h),Image.Resampling.LANCZOS));self._drum_image_size=(target_w,target_h);self._drum_sprite_cache.clear()
@@ -183,8 +185,8 @@ class MusicVisualizerPanel(tk.Frame,MusicAnalysisUiIf,MusicVisualizerUiIf,MusicL
         vals=self.a.spectrum or (0.,)*24;gap=max(2,w/420);bw=max(2,(w-gap*(len(vals)+1))/len(vals));base=h*.88
         for i,v in enumerate(vals):x=gap+i*(bw+gap);top=base-v*(h*.72);color=self._gradient(i/max(1,len(vals)-1));self._canvas.create_rectangle(x-2,top-3,x+bw+2,base+3,fill=self._darken(color,.32),outline="");self._canvas.create_rectangle(x,top,x+bw,base,fill=color,outline="");self._canvas.create_oval(x,top-2,x+bw,top+3,fill="#e9ffff",outline="")
         self._canvas.create_line(0,base,w,base,fill="#2b4254",width=2)
-    def _draw_spectrum_panel(self):
-        c=self._spectrum_canvas;c.delete("all");w,h=max(2,c.winfo_width()),max(2,c.winfo_height());vals=self.a.spectrum or (0.,)*24;base=h-22;chart_h=max(20,base-5)
+    def _draw_spectrum_panel(self,_event=None):
+        c=self._spectrum_canvas;c.delete("all");w,h=max(2,c.winfo_width()),max(2,c.winfo_height());vals=(self.a.spectrum if self._state is not None else ()) or (0.,)*24;base=h-22;chart_h=max(20,base-5)
         for i in range(1,6):y=base-i*chart_h/5;c.create_line(0,y,w,y,fill="#142431")
         style=self._spectrum_style.get();points=[]
         for i,v in enumerate(vals):points.extend((i*w/max(1,len(vals)-1),base-v*chart_h))
