@@ -30,6 +30,13 @@ _LABEL_PATTERNS={label:pattern for pattern,label in _PATTERN_LABELS.items()}
 _INPUT_LABELS={MusicAudioInput.SYSTEM_AUDIO:"System Audio",MusicAudioInput.EXTERNAL_INPUT:"External Input"}
 _LABEL_INPUTS={label:value for value,label in _INPUT_LABELS.items()}
 
+
+def _fit_image_size(container_width:int,container_height:int,image_width:int,image_height:int)->tuple[int,int]:
+    """Fit an image inside a canvas while always returning valid dimensions."""
+    available_width=max(1,int(container_width*.92));available_height=max(1,int(container_height*.94))
+    scale=min(available_width/max(1,image_width),available_height/max(1,image_height))
+    return max(1,int(image_width*scale)),max(1,int(image_height*scale))
+
 class MusicVisualizerPanel(tk.Frame,MusicAnalysisUiIf,MusicVisualizerUiIf,MusicLightingUiIf):
     def __init__(self,parent:tk.Misc,artwork_provider=None)->None:
         super().__init__(parent,bg="#0b0d10");self._handler:MusicVisualizerRequestHandlerIf|None=None;self._analysis_handler:MusicAnalysisRequestHandlerIf|None=None;self._lighting_handler:MusicLightingRequestHandlerIf|None=None;self._fullscreen_action=None;self._play_song_action=None;self._artwork_provider=artwork_provider;self._song=None;self._song_art_photo=None;self._state:MusicAnalysisState|None=None;self._phase=0.;self._visualization_mode=MusicVisualizationMode.SPECTRUM;self._mode=tk.StringVar(value=_MODE_LABELS[self._visualization_mode]);self._spectrum_style=tk.StringVar(value="Classic Analyzer");self._analysis_mode=tk.StringVar(value=_ANALYSIS_LABELS[SpectrumAnalysisMode.HYBRID]);self._sensitivity=tk.DoubleVar(value=100.);self._lighting=tk.BooleanVar(value=False);self._lighting_pattern=tk.StringVar(value=_PATTERN_LABELS[MusicLightingPatternId.SPECTRUM_FLOW]);self._lighting_intensity=tk.DoubleVar(value=75.);self._kick_mode=tk.StringVar(value=KickMode.SINGLE.value);self._stars=[(random.random(),random.random(),random.uniform(.5,1.5)) for _ in range(70)];self._particles=[];self._pulse={name:0. for name in ("kick","snare","tom_low","tom_mid","tom_high","cymbal")};self._drum_source=Image.open(Path(__file__).resolve().parents[3]/"apps/carUi/assets/drum-set-no-numbers.png").convert("RGBA");self._drum_image=None;self._drum_image_size=(0,0);self._drum_sprites=[];self._drum_sprite_cache={};self._build()
@@ -147,7 +154,7 @@ class MusicVisualizerPanel(tk.Frame,MusicAnalysisUiIf,MusicVisualizerUiIf,MusicL
         c=self._canvas;c.delete("all");w,h=max(2,c.winfo_width()),max(2,c.winfo_height());{MusicVisualizationMode.ORBITING_PLANETS:self._draw_planets,MusicVisualizationMode.ELECTRIC_FREEWAY:self._draw_freeway,MusicVisualizationMode.EXPLOSION_FIELD:self._draw_explosion,MusicVisualizationMode.STAR_DANCE:self._draw_stars,MusicVisualizationMode.ELECTRIC_RINGS:self._draw_rings,MusicVisualizationMode.NEON_RIBBON:self._draw_ribbon,MusicVisualizationMode.KALEIDOSCOPE:self._draw_kaleidoscope}.get(self._visualization_mode,self._draw_spectrum)(w,h)
     def _draw_drums(self):
         c=self._drums;c.delete("all");w=max(2,c.winfo_width());h=max(2,c.winfo_height());cym=self._pulse["cymbal"]
-        target_h=max(2,int(h*.94));target_w=min(int(w*.92),int(target_h*self._drum_source.width/self._drum_source.height));target_h=int(target_w*self._drum_source.height/self._drum_source.width)
+        target_w,target_h=_fit_image_size(w,h,self._drum_source.width,self._drum_source.height)
         if self._drum_image_size!=(target_w,target_h):self._drum_image=ImageTk.PhotoImage(self._drum_source.resize((target_w,target_h),Image.Resampling.LANCZOS));self._drum_image_size=(target_w,target_h);self._drum_sprite_cache.clear()
         left=(w-target_w)/2;top=(h-target_h)/2;c.create_image(w/2,h/2,image=self._drum_image)
         self._drum_sprites=[]
