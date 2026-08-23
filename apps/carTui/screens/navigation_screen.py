@@ -3,7 +3,7 @@
 
 """Navigation and off-road destination for Car TUI."""
 
-from apps.carTui.navigation_bus_state import NavigationBusState
+from common.telemetry.navigation_bus_state import NavigationBusState
 from frontends.tui.automotive import NavigationDashboardView
 
 
