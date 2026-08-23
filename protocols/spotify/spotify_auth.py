@@ -118,17 +118,21 @@ class SpotifyAuth:
     def login(self) -> OAuthTokens:
         """Run the existing desktop-style interactive OAuth flow."""
         authorization = self.begin_authorization()
-
-        print("Opening Spotify authorization URL...")
-        print(authorization.authorization_url)
-        if self._open_browser:
-            webbrowser.open(authorization.authorization_url)
-
         callback_server = OAuthRedirectServer(
             self._config.redirect_uri,
             timeout_seconds=self._callback_timeout_seconds,
         )
-        callback = callback_server.wait_for_callback()
+        callback_server.start()
+        try:
+            print("Opening Spotify authorization URL...")
+            print(authorization.authorization_url)
+            if self._open_browser:
+                webbrowser.open(authorization.authorization_url)
+
+            callback = callback_server.wait_for_callback()
+        except Exception:
+            callback_server.close()
+            raise
 
         return self.complete_authorization(
             authorization,
