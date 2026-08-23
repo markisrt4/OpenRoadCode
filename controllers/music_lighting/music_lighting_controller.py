@@ -18,6 +18,7 @@ from .music_lighting_types import MusicLightingPatternId, MusicLightingState
 
 
 MusicLightingOutputCallback = Callable[[MusicLightingOutput], None]
+MusicLightingEnabledCallback = Callable[[bool], None]
 
 
 class MusicLightingController(MusicLightingRequestHandlerIf):
@@ -28,6 +29,7 @@ class MusicLightingController(MusicLightingRequestHandlerIf):
         *,
         patterns: dict[MusicLightingPatternId, MusicLightingPatternIf] | None = None,
         output_callback: MusicLightingOutputCallback | None = None,
+        enabled_callback: MusicLightingEnabledCallback | None = None,
     ) -> None:
         self._state = MusicLightingState()
         self._lock = RLock()
@@ -35,6 +37,7 @@ class MusicLightingController(MusicLightingRequestHandlerIf):
         self._last_analysis: MusicAnalysisState | None = None
         self._patterns = patterns or create_default_music_lighting_patterns()
         self._output_callback = output_callback
+        self._enabled_callback = enabled_callback
 
     @property
     def state(self) -> MusicLightingState:
@@ -50,6 +53,10 @@ class MusicLightingController(MusicLightingRequestHandlerIf):
         with self._lock:
             self._output_callback = callback
 
+    def set_enabled_callback(self, callback: MusicLightingEnabledCallback | None) -> None:
+        with self._lock:
+            self._enabled_callback = callback
+
     def attach_ui(self, ui: MusicLightingUiIf) -> None:
         with self._lock:
             if ui not in self._uis:
@@ -63,7 +70,12 @@ class MusicLightingController(MusicLightingRequestHandlerIf):
                 self._uis.remove(ui)
 
     def request_enabled(self, enabled: bool) -> None:
-        self._update(enabled=bool(enabled))
+        enabled = bool(enabled)
+        with self._lock:
+            callback = self._enabled_callback
+        if callback is not None:
+            callback(enabled)
+        self._update(enabled=enabled)
 
     def request_pattern(self, pattern: MusicLightingPatternId) -> None:
         if pattern not in self._patterns:
