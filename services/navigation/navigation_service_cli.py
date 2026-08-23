@@ -6,7 +6,12 @@
 from __future__ import annotations
 
 import argparse
+from pathlib import Path
 
+from config.service_runtime_config import (
+    NavigationServiceRuntimeConfig,
+    ServiceRuntimeConfigParser,
+)
 from controllers.navigation import (
     GpsdNavigationAdapter,
     Mpu6050NavigationAdapter,
@@ -15,70 +20,79 @@ from controllers.navigation import (
 )
 from hardware_io.imu import Mpu6050Imu
 from messaging.zeromq import ZeroMqPublisher
-from messaging.zeromq.endpoints import LOCAL_PUBLISHER_ENDPOINT
 from services.navigation.navigation_runtime import NavigationRuntime
-from services.navigation.zeromq_navigation_command_server import (
-    DEFAULT_NAVIGATION_COMMAND_ENDPOINT,
-)
+
+DEFAULT_RUNTIME_CONFIG = Path(__file__).resolve().parents[2] / "config" / "runtime.toml"
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Publish navigation telemetry and serve navigation commands."
     )
-    parser.add_argument("--simulate", action="store_true")
-    parser.add_argument("--publisher-endpoint", default=LOCAL_PUBLISHER_ENDPOINT)
-    parser.add_argument("--command-endpoint", default=DEFAULT_NAVIGATION_COMMAND_ENDPOINT)
-    parser.add_argument("--rate-hz", type=float, default=10.0)
+    parser.add_argument("--config", default=str(DEFAULT_RUNTIME_CONFIG))
     parser.add_argument(
-        "--address", type=lambda value: int(value, 0), default=Mpu6050Imu.DEFAULT_ADDRESS
+        "--simulate",
+        action="store_true",
+        help="Override services.navigation.backend with the simulated controller",
     )
-    parser.add_argument("--filter-time-constant", type=float, default=0.5)
-    parser.add_argument("--gps", action="store_true")
-    parser.add_argument("--gps-host", default="127.0.0.1")
-    parser.add_argument("--gps-port", default="2947")
-    args = parser.parse_args()
-    if args.rate_hz <= 0.0:
-        parser.error("--rate-hz must be greater than zero")
-    if args.filter_time_constant < 0.0:
-        parser.error("--filter-time-constant must be zero or greater")
-    return args
+    return parser.parse_args()
 
 
-def build_controller(args: argparse.Namespace):
-    """Build the single controller owned by this service process."""
-    if args.simulate:
+def build_controller(config: NavigationServiceRuntimeConfig):
+    """Build the single navigation solution generator owned by this service."""
+    if config.backend == "simulated":
         return SimulatedNavigationController()
 
     gps_source = None
-    if args.gps:
+    if config.gps_enabled:
         from hardware_io.gps import GpsReader
 
         gps_source = GpsdNavigationAdapter(
-            GpsReader(host=args.gps_host, port=args.gps_port)
+            GpsReader(host=config.gps_host, port=config.gps_port)
         )
     return NavigationController(
-        sensor=Mpu6050NavigationAdapter(Mpu6050Imu(address=args.address)),
-        filter_time_constant_s=args.filter_time_constant,
+        sensor=Mpu6050NavigationAdapter(Mpu6050Imu(address=config.imu_address)),
+        filter_time_constant_s=config.filter_time_constant_s,
         gps_source=gps_source,
     )
 
 
 def main() -> int:
     args = parse_args()
-    publisher = ZeroMqPublisher(args.publisher_endpoint)
+    system = ServiceRuntimeConfigParser(args.config).load()
+    config = system.navigation
+    if args.simulate:
+        config = NavigationServiceRuntimeConfig(
+            enabled=config.enabled,
+            backend="simulated",
+            source="simulated-navigation",
+            rate_hz=config.rate_hz,
+            command_endpoint=config.command_endpoint,
+            imu_address=config.imu_address,
+            filter_time_constant_s=config.filter_time_constant_s,
+            gps_enabled=config.gps_enabled,
+            gps_host=config.gps_host,
+            gps_port=config.gps_port,
+        )
+    if not config.enabled:
+        print("Navigation service disabled by runtime configuration")
+        return 0
+
+    publisher = ZeroMqPublisher(system.messaging.publisher_endpoint)
     runtime = NavigationRuntime(
-        build_controller(args),
+        build_controller(config),
         publisher,
-        source="simulated-navigation" if args.simulate else "navigation-service",
-        rate_hz=args.rate_hz,
-        command_endpoint=args.command_endpoint,
+        source=config.source,
+        rate_hz=config.rate_hz,
+        command_endpoint=config.command_endpoint,
     )
     print("OpenRoadCode navigation service")
-    print(f"  telemetry ingress: {args.publisher_endpoint}")
-    print(f"  command endpoint:  {args.command_endpoint}")
-    print(f"  publish rate:      {args.rate_hz:g} Hz")
-    print(f"  source:            {'simulated-navigation' if args.simulate else 'navigation-service'}")
+    print(f"  backend:           {config.backend}")
+    print(f"  telemetry ingress: {system.messaging.publisher_endpoint}")
+    print(f"  command endpoint:  {config.command_endpoint}")
+    print(f"  publish rate:      {config.rate_hz:g} Hz")
+    print(f"  source:            {config.source}")
+    print(f"  GPS:               {'enabled' if config.gps_enabled else 'disabled'}")
     print("Ctrl+C to stop")
     try:
         runtime.run()
