@@ -16,19 +16,53 @@ auxiliary_display = ":0"
 publisher_endpoint = "tcp://127.0.0.1:5556"
 subscriber_endpoint = "tcp://127.0.0.1:5557"
 
+# -----------------------------------------------------------------------------
+# Navigation service pipeline
+#
+#   configured inputs -> navigation solution -> published navigation contracts
+#
+# Each input can independently come from a physical device or simulation. The
+# solution algorithm runs before publication, so every downstream application
+# sees the same converged navigation state.
+# -----------------------------------------------------------------------------
 [services.navigation]
-# Navigation solution generation now happens before publication. This service
-# owns the IMU/GPS, filtering, calibration and derived navigation solution.
 enabled = true
-backend = "mpu6050" # "mpu6050" or "simulated"
-source = "navigation-service"
 rate_hz = 10.0
 command_endpoint = "tcp://127.0.0.1:5560"
-imu_address = 0x68
-filter_time_constant_s = 0.5
-gps_enabled = true
-gps_host = "127.0.0.1"
-gps_port = "2947"
+
+[services.navigation.inputs.imu]
+source = "device" # "device" or "simulation"
+device = "mpu6050"
+address = 0x68
+
+# Used when source = "simulation".
+[services.navigation.inputs.imu.simulation]
+profile = "driving"
+
+[services.navigation.inputs.gps]
+source = "device" # "device" or "simulation"
+device = "gpsd"
+host = "127.0.0.1"
+port = "2947"
+
+# Used when source = "simulation".
+[services.navigation.inputs.gps.simulation]
+profile = "driving"
+latitude_deg = 42.8028
+longitude_deg = -83.0127
+speed_mps = 13.4
+course_deg = 180.0
+
+[services.navigation.solution]
+algorithm = "complementary_filter"
+
+[services.navigation.solution.complementary_filter]
+time_constant_s = 0.5
+heading_reference = "relative"
+
+[services.navigation.publish]
+enabled = true
+source = "navigation-service"
 
 [audio]
 output = "auto"
