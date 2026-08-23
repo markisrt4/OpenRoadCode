@@ -44,10 +44,10 @@ http://127.0.0.1:8888/callback
 
 4. Copy the application's Client ID.
 
-Run the installation script:
+Run the project installer wrapper from the repository root:
 
 ```bash
-./install_spotify.sh
+scripts/installers/install_spotify.sh
 ```
 
 The installer will:
@@ -55,7 +55,8 @@ The installer will:
 - Prompt for the Spotify Client ID
 - Store configuration in the shared OpenRoadCode secrets file
 - Launch the Spotify authorization flow
-- Store OAuth tokens locally
+- Bind the loopback callback before opening the authorization browser
+- Store OAuth tokens locally using the project virtual environment
 
 Configuration is stored in:
 

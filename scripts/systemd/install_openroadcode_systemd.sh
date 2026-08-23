@@ -6,12 +6,15 @@ set -euo pipefail
 
 SERVICE_NAME="${SERVICE_NAME:-openroadcode}"
 SERVICE_FILE="/etc/systemd/system/${SERVICE_NAME}.service"
-SECRETS_DIR="${SECRETS_DIR:-/etc/openroadcode}"
-SECRETS_FILE="${SECRETS_FILE:-${SECRETS_DIR}/secrets.env}"
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd -- "$SCRIPT_DIR/../.." && pwd)"
 SERVICE_USER="${SERVICE_USER:-${SUDO_USER:-$USER}}"
-PYTHON_BIN="${PYTHON_BIN:-/usr/bin/python3}"
+SERVICE_UID="$(id -u "$SERVICE_USER")"
+SERVICE_GROUP="$(id -gn "$SERVICE_USER")"
+SERVICE_HOME="$(getent passwd "$SERVICE_USER" | cut -d: -f6)"
+SECRETS_DIR="${SECRETS_DIR:-${SERVICE_HOME}/.config/openroadcode}"
+SECRETS_FILE="${SECRETS_FILE:-${SECRETS_DIR}/secrets.env}"
+PYTHON_BIN="${PYTHON_BIN:-$PROJECT_ROOT/venv/bin/python}"
 
 if [[ $EUID -ne 0 ]]; then
     echo "This script needs root privileges to install a system service." >&2
@@ -39,10 +42,10 @@ if [[ ! -f "$PROJECT_ROOT/apps/carUi/main.py" ]]; then
     exit 1
 fi
 
-install -d -m 0750 -o root -g "$SERVICE_USER" "$SECRETS_DIR"
+install -d -m 0700 -o "$SERVICE_USER" -g "$SERVICE_GROUP" "$SECRETS_DIR"
 
 if [[ ! -e "$SECRETS_FILE" ]]; then
-    install -m 0640 -o root -g "$SERVICE_USER" /dev/null "$SECRETS_FILE"
+    install -m 0600 -o "$SERVICE_USER" -g "$SERVICE_GROUP" /dev/null "$SECRETS_FILE"
     echo "Created empty secrets file: $SECRETS_FILE"
 else
     echo "Keeping existing secrets file: $SECRETS_FILE"
@@ -59,6 +62,8 @@ Type=simple
 User=$SERVICE_USER
 WorkingDirectory=$PROJECT_ROOT
 EnvironmentFile=$SECRETS_FILE
+Environment=XDG_RUNTIME_DIR=/run/user/$SERVICE_UID
+Environment=PULSE_SERVER=unix:/run/user/$SERVICE_UID/pulse/native
 ExecStart=$PYTHON_BIN -m apps.carUi.main
 Restart=on-failure
 RestartSec=3

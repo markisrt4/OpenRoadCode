@@ -210,6 +210,12 @@ for provider setup, cache behavior, and diagnostics. See
 [`controllers/music_lighting/README.md`](../../controllers/music_lighting/README.md)
 for the reactive LED pipeline and its BLE rate limits.
 
+On Raspberry Pi, the systemd installer configures Car UI with the service
+user's `XDG_RUNTIME_DIR` and explicit `PULSE_SERVER` socket so PipeWire monitor
+capture does not depend on Pulse client auto-discovery. It also uses the
+project virtual environment and the shared user secrets file under
+`~/.config/openroadcode`.
+
 The main-menu `Gauges` page includes the configurable vehicle cluster and
 the embedded off-road dashboard. The vehicle screen displays disconnected
 gauges until a `VehicleStateSourceIf` is supplied in Car UI dependencies. Its IMU

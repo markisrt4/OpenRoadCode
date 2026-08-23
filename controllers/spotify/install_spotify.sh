@@ -5,7 +5,7 @@
 set -euo pipefail
 
 DEFAULT_REDIRECT_URI="http://127.0.0.1:8888/callback"
-SECRETS_FILE="${SECRETS_FILE:-/etc/openroadcode/secrets.env}"
+SECRETS_FILE="${SECRETS_FILE:-${HOME}/.config/openroadcode/secrets.env}"
 
 usage() {
     cat <<EOF
@@ -115,7 +115,7 @@ if [[ ! -d "$secrets_dir" ]]; then
     if [[ $EUID -eq 0 ]]; then
         install -d -m 0750 -o root -g "$service_group" "$secrets_dir"
     else
-        install -d -m 0750 "$secrets_dir"
+        install -d -m 0700 "$secrets_dir"
     fi
 elif [[ $EUID -eq 0 && "$secrets_dir" == "/etc/openroadcode" ]]; then
     chown "root:$service_group" "$secrets_dir"
@@ -127,7 +127,7 @@ if [[ ! -e "$SECRETS_FILE" ]]; then
         install -m 0640 -o root -g "$service_group" \
             /dev/null "$SECRETS_FILE"
     else
-        install -m 0640 /dev/null "$SECRETS_FILE"
+        install -m 0600 /dev/null "$SECRETS_FILE"
     fi
 elif [[ $EUID -eq 0 ]]; then
     chown "root:$service_group" "$SECRETS_FILE"
@@ -153,6 +153,7 @@ group="$(stat -c '%g' "$SECRETS_FILE")"
 chown "$owner:$group" "$temporary_file"
 chmod 0640 "$temporary_file"
 mv -f -- "$temporary_file" "$SECRETS_FILE"
+chmod 0600 "$SECRETS_FILE"
 trap - EXIT
 
 echo
