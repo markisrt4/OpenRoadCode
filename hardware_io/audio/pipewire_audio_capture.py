@@ -3,12 +3,26 @@
 
 from __future__ import annotations
 
+import os
+from pathlib import Path
 import shutil
 import subprocess
 
 import numpy as np
 
 from .audio_capture_if import AudioCaptureIf, AudioFrame
+
+
+def _pulse_environment() -> dict[str, str]:
+    """Resolve the per-user Pulse socket when libpulse discovery is broken."""
+    environment=dict(os.environ)
+    if environment.get("PULSE_SERVER"):
+        return environment
+    runtime_dir=environment.get("XDG_RUNTIME_DIR") or f"/run/user/{os.getuid()}"
+    pulse_socket=Path(runtime_dir)/"pulse"/"native"
+    if pulse_socket.exists():
+        environment["PULSE_SERVER"]=f"unix:{pulse_socket}"
+    return environment
 
 
 class PipeWireAudioCapture(AudioCaptureIf):
@@ -58,6 +72,7 @@ class PipeWireAudioCapture(AudioCaptureIf):
             ],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
+            env=_pulse_environment(),
         )
         self._frame_buffer = None
 

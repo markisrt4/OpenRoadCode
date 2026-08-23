@@ -109,6 +109,10 @@ PipeWire/PulseAudio's `@DEFAULT_MONITOR@`, so visualization and recognition use
 system playback rather than a microphone. The external-input choice defaults
 to `@DEFAULT_SOURCE@`; both devices can be overridden independently:
 
+The capture adapter honors an explicit `PULSE_SERVER`. When it is unset, it
+automatically uses the native socket under `$XDG_RUNTIME_DIR/pulse/native` (or
+`/run/user/<uid>/pulse/native`) when that socket exists.
+
 ```bash
 CARUI_VISUALIZER_EXTERNAL_DEVICE=alsa_input.usb-C-Media_USB_Audio_Device-00.mono-fallback \
 CARUI_VISUALIZER_INPUT=external_input \
