@@ -5,9 +5,9 @@
 
 from dataclasses import dataclass
 
-from apps.carTui.navigation_bus_state import NavigationBusState
 from apps.carTui.radio_catalog import CarTuiRadio
-from apps.carTui.vehicle_bus_state import VehicleBusState
+from common.telemetry.navigation_bus_state import NavigationBusState
+from common.telemetry.vehicle_bus_state import VehicleBusState
 from messaging.message_dispatcher import MessageDispatcher
 
 
