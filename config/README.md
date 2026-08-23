@@ -20,7 +20,8 @@ still owns its own dependency assembly and lifecycle.
 Provider credentials are deliberately outside `runtime.toml`. User-level
 secrets are read from `~/.config/openroadcode/secrets.env`, then overridden by
 process environment variables. `/etc/openroadcode/secrets.env` remains a
-legacy fallback. Use `scripts/setup_acrcloud_credentials.py` to update the
+legacy fallback. Use `scripts/setup_acrcloud_credentials.py` or
+`scripts/setup_youtube_credentials.py` to update the
 ACRCloud entries without overwriting Spotify or other settings.
 
 ## Configuration boundaries

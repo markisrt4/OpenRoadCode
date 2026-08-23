@@ -206,6 +206,13 @@ Configure ACRCloud with:
 scripts/setup_acrcloud_credentials.py
 ```
 
+Spotify-panel YouTube video lookup uses the YouTube Data API v3. Configure its
+API key with:
+
+```bash
+scripts/setup_youtube_credentials.py
+```
+
 See [`controllers/song_recognition/README.md`](../../controllers/song_recognition/README.md)
 for provider setup, cache behavior, and diagnostics. See
 [`controllers/music_lighting/README.md`](../../controllers/music_lighting/README.md)
