@@ -34,10 +34,7 @@ navigation_session = WebNavigationSession()
 spotify_session = WebSpotifySession()
 lighting_session = WebLightingSession(project_root)
 music_lighting_output = MusicLightingOutputAdapter(_CurrentWebLightingTarget(lighting_session))
-music_lighting_controller = MusicLightingController(
-    output_callback=music_lighting_output.submit,
-    enabled_callback=music_lighting_output.set_enabled,
-)
+music_lighting_controller = MusicLightingController(output_callback=music_lighting_output.submit, enabled_callback=music_lighting_output.set_enabled)
 music_lighting_session = WebMusicLightingSession(music_lighting_controller)
 linux_audio_analysis_session = WebLinuxAudioAnalysisSession(music_lighting=music_lighting_controller)
 browser_music_analysis_session = WebBrowserMusicAnalysisSession(music_lighting=music_lighting_controller)
@@ -48,7 +45,6 @@ app = create_web_frontend(
     navigation_session=navigation_session,
     spotify_session=spotify_session,
     lighting_session=lighting_session,
-    music_lighting_session=music_lighting_session,
     song_recognition_session=song_recognition_session,
     linux_audio_analysis_session=linux_audio_analysis_session,
     browser_music_analysis_session=browser_music_analysis_session,
