@@ -1,32 +1,48 @@
 # Shared OpenRoadCode runtime composition
 #
+# Hardware ownership and domain processing belong to producer services. Apps
+# consume their public telemetry rather than rebuilding navigation/vehicle state.
 # Radio domain configuration files are resolved relative to:
 #   PROJECT_ROOT/config/radio
-#
-# This file selects which runtime components are assembled. Individual radio
-# frequencies, modes, ranges, and presets remain in their existing JSON files.
 
 [runtime]
 remote_display = ":2"
-# Browser dashboards such as Weather and ADS-B default to the local desktop.
 auxiliary_display = ":0"
-# Optional browser-media display. Leave unset for target-aware defaults.
 # media_display = ":0"
 
+[messaging]
+# The broker binds the corresponding XSUB/XPUB endpoints. Producer services
+# publish to publisher_endpoint; CarUi/CarTui/WebUi subscribe downstream.
+publisher_endpoint = "tcp://127.0.0.1:5556"
+subscriber_endpoint = "tcp://127.0.0.1:5557"
+
+[services.navigation]
+# Navigation solution generation now happens before publication. This service
+# owns the IMU/GPS, filtering, calibration and derived navigation solution.
+enabled = true
+backend = "mpu6050" # "mpu6050" or "simulated"
+source = "navigation-service"
+rate_hz = 10.0
+command_endpoint = "tcp://127.0.0.1:5560"
+imu_address = 0x68
+filter_time_constant_s = 0.5
+gps_enabled = true
+gps_host = "127.0.0.1"
+gps_port = "2947"
+
 [audio]
-# auto: linux-dev default, Pi 4 onboard analog, Pi 5 USB audio
 output = "auto"
 # device_match = "USB Audio"
 
 [image_cache]
-# Album artwork is persisted here and reused across app launches.
 directory = "~/.cache/openroadcode/images"
 max_entries = 24
 
 [position_cache]
+# This is a consumer-side last-known-position cache, not a GPS source. Live
+# position is produced by services.navigation and distributed on the bus.
 enabled = true
 directory = "~/.cache/openroadcode/position"
-# Cached coordinates are useful for initial display, weather, and map centering.
 max_age_seconds = 604800
 
 [rigctl]
@@ -44,7 +60,6 @@ volume_index = 0
 enabled = false
 # device_path = "/dev/input/event3"
 
-# Standalone GPIO buttons are optional and use physical header pin numbers.
 # [[input.push_buttons]]
 # pin = 11
 # action = "home"
@@ -146,5 +161,4 @@ close_existing_display_apps = true
 
 [auxiliary.weather_dashboard]
 enabled = true
-# Start Streamlit in the background after CarUi becomes ready.
 preload = true
