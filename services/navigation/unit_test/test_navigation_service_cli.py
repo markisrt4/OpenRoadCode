@@ -3,8 +3,6 @@
 
 """Tests for navigation service pipeline composition."""
 
-from dataclasses import replace
-
 from config.service_runtime_config import (
     GpsInputConfig,
     GpsSimulationConfig,
@@ -15,6 +13,7 @@ from config.service_runtime_config import (
 from controllers.navigation import NavigationController
 from controllers.navigation.simulated_navigation_sensor import SimulatedNavigationSensor
 from controllers.navigation.simulated_position_source import SimulatedPositionSource
+from services.navigation import navigation_service_cli
 from services.navigation.navigation_service_cli import build_controller
 
 
@@ -43,9 +42,11 @@ def test_build_controller_supports_simulated_imu_with_device_gps(monkeypatch) ->
             self.host = host
             self.port = port
 
-    import hardware_io.gps
-
-    monkeypatch.setattr(hardware_io.gps, "GpsReader", FakeGpsReader)
+    monkeypatch.setattr(
+        navigation_service_cli,
+        "_create_gps_reader",
+        lambda host, port: FakeGpsReader(host, port),
+    )
     config = NavigationServiceRuntimeConfig(
         imu=ImuInputConfig(source="simulation"),
         gps=GpsInputConfig(source="device", device="gpsd"),
@@ -62,7 +63,7 @@ def test_build_controller_supports_device_imu_with_simulated_gps(monkeypatch) ->
         def __init__(self, address: int) -> None:
             self.address = address
 
-    monkeypatch.setattr("services.navigation.navigation_service_cli.Mpu6050Imu", FakeImu)
+    monkeypatch.setattr(navigation_service_cli, "Mpu6050Imu", FakeImu)
     config = NavigationServiceRuntimeConfig(
         imu=ImuInputConfig(source="device", device="mpu6050"),
         gps=GpsInputConfig(source="simulation"),
