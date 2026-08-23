@@ -21,6 +21,13 @@ from ui.music_analysis import MusicAnalysisRequestHandlerIf, MusicAnalysisStatus
 from ui.music_lighting import MusicLightingRequestHandlerIf, MusicLightingUiIf
 from ui.music_visualizer import KickMode, MusicVisualizationMode, MusicVisualizerRequestHandlerIf, MusicVisualizerUiIf, SongRecognitionUiState
 
+try:
+    _LANCZOS=Image.Resampling.LANCZOS
+    _BILINEAR=Image.Resampling.BILINEAR
+except AttributeError:  # Pillow < 9.1, including the Raspberry Pi system package.
+    _LANCZOS=Image.LANCZOS
+    _BILINEAR=Image.BILINEAR
+
 _MODE_LABELS={MusicVisualizationMode.SPECTRUM:"Spectrum",MusicVisualizationMode.ORBITING_PLANETS:"Orbiting Planets",MusicVisualizationMode.ELECTRIC_FREEWAY:"Electric Freeway",MusicVisualizationMode.EXPLOSION_FIELD:"Explosion Field",MusicVisualizationMode.STAR_DANCE:"Star Dance",MusicVisualizationMode.ELECTRIC_RINGS:"Electric Rings",MusicVisualizationMode.NEON_RIBBON:"Neon Ribbon",MusicVisualizationMode.KALEIDOSCOPE:"Kaleidoscope"}
 _LABEL_MODES={label:mode for mode,label in _MODE_LABELS.items()}
 _ANALYSIS_LABELS={SpectrumAnalysisMode.NATIVE:"Native",SpectrumAnalysisMode.NORMALIZED:"Normalized",SpectrumAnalysisMode.HYBRID:"Hybrid"}
@@ -157,7 +164,7 @@ class MusicVisualizerPanel(tk.Frame,MusicAnalysisUiIf,MusicVisualizerUiIf,MusicL
     def _draw_drums(self,_event=None):
         c=self._drums;c.delete("all");w=max(2,c.winfo_width());h=max(2,c.winfo_height());cym=self._pulse["cymbal"]
         target_w,target_h=_fit_image_size(w,h,self._drum_source.width,self._drum_source.height)
-        if self._drum_image_size!=(target_w,target_h):self._drum_image=ImageTk.PhotoImage(self._drum_source.resize((target_w,target_h),Image.Resampling.LANCZOS));self._drum_image_size=(target_w,target_h);self._drum_sprite_cache.clear()
+        if self._drum_image_size!=(target_w,target_h):self._drum_image=ImageTk.PhotoImage(self._drum_source.resize((target_w,target_h),_LANCZOS));self._drum_image_size=(target_w,target_h);self._drum_sprite_cache.clear()
         left=(w-target_w)/2;top=(h-target_h)/2;c.create_image(w/2,h/2,image=self._drum_image)
         self._drum_sprites=[]
         def pulse_sprite(box,key,amount=.34):
@@ -165,7 +172,7 @@ class MusicVisualizerPanel(tk.Frame,MusicAnalysisUiIf,MusicVisualizerUiIf,MusicL
             if p<.015:return
             x0,y0,x1,y1=box;base_w=(x1-x0)*target_w/self._drum_source.width;base_h=(y1-y0)*target_h/self._drum_source.height;step=max(1,min(6,round(p*6)));cache_key=(target_w,target_h,box,step,amount);sprite=self._drum_sprite_cache.get(cache_key)
             if sprite is None:
-                grow=1+(step/6)*amount;crop=self._drum_source.crop((x0,y0,x1,y1));sprite=ImageTk.PhotoImage(crop.resize((max(2,int(base_w*grow)),max(2,int(base_h*grow))),Image.Resampling.BILINEAR));self._drum_sprite_cache[cache_key]=sprite
+                grow=1+(step/6)*amount;crop=self._drum_source.crop((x0,y0,x1,y1));sprite=ImageTk.PhotoImage(crop.resize((max(2,int(base_w*grow)),max(2,int(base_h*grow))),_BILINEAR));self._drum_sprite_cache[cache_key]=sprite
             self._drum_sprites.append(sprite)
             cx=left+(x0+x1)*.5*target_w/self._drum_source.width;cy=top+(y0+y1)*.5*target_h/self._drum_source.height;c.create_image(cx,cy,image=sprite)
         pulse_sprite((300,330,660,725),"kick",.24);pulse_sprite((105,300,365,590),"tom_low",.28);pulse_sprite((220,145,475,385),"tom_high",.32);pulse_sprite((490,150,730,380),"tom_mid",.32);pulse_sprite((555,315,800,515),"snare",.34);pulse_sprite((20,45,420,190),"cymbal",.25);pulse_sprite((650,250,920,365),"cymbal",.25)
