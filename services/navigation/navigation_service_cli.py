@@ -10,6 +10,8 @@ from pathlib import Path
 
 from config.service_runtime_config import NavigationServiceRuntimeConfig, ServiceRuntimeConfigParser
 from controllers.navigation import GpsdNavigationAdapter, Mpu6050NavigationAdapter, NavigationController, SimulatedNavigationController
+from controllers.navigation.simulated_navigation_sensor import SimulatedNavigationSensor
+from controllers.navigation.simulated_position_source import SimulatedPositionSource
 from hardware_io.imu import Mpu6050Imu
 from messaging.zeromq import ZeroMqPublisher
 from services.navigation.navigation_runtime import NavigationRuntime
@@ -28,32 +30,41 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def build_controller(config: NavigationServiceRuntimeConfig):
-    """Build the configured pre-publication navigation solution pipeline."""
-    # Until the split simulated IMU/GPS adapters are implemented, a configuration
-    # requesting both simulated inputs maps cleanly to the existing full simulator.
-    if config.imu.source == "simulation" and config.gps.source == "simulation":
-        return SimulatedNavigationController()
-    if config.imu.source == "simulation" or config.gps.source == "simulation":
-        raise ValueError(
-            "Mixed device/simulation navigation inputs are configured correctly but "
-            "their individual simulation adapters are not implemented yet"
-        )
-
+def _build_motion_sensor(config: NavigationServiceRuntimeConfig):
+    if config.imu.source == "simulation":
+        return SimulatedNavigationSensor(profile=config.imu.simulation.profile)
     if config.imu.device != "mpu6050":
         raise ValueError(f"Unsupported IMU device: {config.imu.device}")
+    return Mpu6050NavigationAdapter(Mpu6050Imu(address=config.imu.address))
+
+
+def _build_position_source(config: NavigationServiceRuntimeConfig):
+    if config.gps.source == "simulation":
+        simulation = config.gps.simulation
+        return SimulatedPositionSource(
+            profile=simulation.profile,
+            latitude_deg=simulation.latitude_deg,
+            longitude_deg=simulation.longitude_deg,
+            speed_mps=simulation.speed_mps,
+            course_deg=simulation.course_deg,
+        )
     if config.gps.device != "gpsd":
         raise ValueError(f"Unsupported GPS device: {config.gps.device}")
-    if config.solution.algorithm != "complementary_filter":
-        raise ValueError(f"Unsupported navigation solution algorithm: {config.solution.algorithm}")
 
     from hardware_io.gps import GpsReader
 
-    gps_source = GpsdNavigationAdapter(GpsReader(host=config.gps.host, port=config.gps.port))
+    return GpsdNavigationAdapter(GpsReader(host=config.gps.host, port=config.gps.port))
+
+
+def build_controller(config: NavigationServiceRuntimeConfig):
+    """Build the configured pre-publication navigation solution pipeline."""
+    if config.solution.algorithm != "complementary_filter":
+        raise ValueError(f"Unsupported navigation solution algorithm: {config.solution.algorithm}")
+
     return NavigationController(
-        sensor=Mpu6050NavigationAdapter(Mpu6050Imu(address=config.imu.address)),
+        sensor=_build_motion_sensor(config),
         filter_time_constant_s=config.solution.complementary_filter.time_constant_s,
-        gps_source=gps_source,
+        gps_source=_build_position_source(config),
     )
 
 
