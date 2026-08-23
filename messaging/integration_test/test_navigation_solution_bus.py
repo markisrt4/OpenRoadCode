@@ -125,8 +125,14 @@ def test_simulated_inputs_produce_complete_navigation_solution_over_bus():
 
         assert abs(position.data.latitude_rad) > 0.1
         assert abs(position.data.longitude_rad) > 0.1
-        assert position.data.speed_m_s == 13.4
-        assert motion.data.ground_speed_m_s == 13.4
+
+        # The driving profile intentionally varies around its configured base
+        # speed by +/- 1.5 m/s, so validate the profile envelope rather than a
+        # single initial value. PUB/SUB handlers may also observe adjacent
+        # solution samples while the loop is publishing continuously.
+        assert 11.9 <= position.data.speed_m_s <= 14.9
+        assert 11.9 <= motion.data.ground_speed_m_s <= 14.9
+
         assert imu.data.acceleration_m_s2.z > 9.0
         assert imu.data.angular_velocity_rad_s.z == 0.04
         assert -1.5707963267948966 <= attitude.data.pitch_rad <= 1.5707963267948966
