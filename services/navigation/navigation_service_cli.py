@@ -30,6 +30,13 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+def _create_gps_reader(host: str, port: str):
+    """Create the physical GPS reader without leaking it into composition tests."""
+    from hardware_io.gps import GpsReader
+
+    return GpsReader(host=host, port=port)
+
+
 def _build_motion_sensor(config: NavigationServiceRuntimeConfig):
     if config.imu.source == "simulation":
         return SimulatedNavigationSensor(profile=config.imu.simulation.profile)
@@ -50,10 +57,9 @@ def _build_position_source(config: NavigationServiceRuntimeConfig):
         )
     if config.gps.device != "gpsd":
         raise ValueError(f"Unsupported GPS device: {config.gps.device}")
-
-    from hardware_io.gps import GpsReader
-
-    return GpsdNavigationAdapter(GpsReader(host=config.gps.host, port=config.gps.port))
+    return GpsdNavigationAdapter(
+        _create_gps_reader(config.gps.host, config.gps.port)
+    )
 
 
 def build_controller(config: NavigationServiceRuntimeConfig):
