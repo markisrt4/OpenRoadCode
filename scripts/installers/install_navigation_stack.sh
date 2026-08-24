@@ -119,6 +119,18 @@ checkout_repo() {
   git -C "$dir" submodule update --init --recursive
 }
 
+check_runtime_libraries() {
+  local label="$1" executable="$2" missing_libs
+  missing_libs="$(ldd "$executable" | awk '/not found/{print $1}')"
+  if [[ -n "$missing_libs" ]]; then
+    echo "$label runtime dependency check failed." >&2
+    echo "Missing shared libraries:" >&2
+    while IFS= read -r library; do [[ -n "$library" ]] && echo "  $library" >&2; done <<< "$missing_libs"
+    exit 1
+  fi
+  echo "[+] $label runtime dependency check passed"
+}
+
 if (( ! SKIP_HOST_PACKAGES )); then
   echo "[*] Installing navigation host dependencies"
   bash "$PROJECT_ROOT/scripts/installers/host_setup.sh" --target "$TARGET" --feature desktop-ui --feature gps --no-vnc --no-gpsd-service
@@ -144,6 +156,7 @@ if (( ! SKIP_MAPLIBRE )); then
   [[ -x "$renderer" ]] || { echo "Renderer build missing: $renderer" >&2; exit 1; }
   sudo install -d "$INSTALL_ROOT/bin"
   sudo install -m 0755 "$renderer" "$INSTALL_ROOT/bin/openroadcode-map-renderer"
+  check_runtime_libraries "MapLibre renderer" "$INSTALL_ROOT/bin/openroadcode-map-renderer"
 fi
 
 if (( ! SKIP_VALHALLA )); then
@@ -161,14 +174,7 @@ if (( ! SKIP_VALHALLA )); then
   sudo install -d /etc/ld.so.conf.d
   printf '%s\n' "$INSTALL_ROOT/valhalla/lib" | sudo tee /etc/ld.so.conf.d/openroadcode-navigation.conf >/dev/null
   sudo ldconfig
-  missing_libs="$(ldd "$INSTALL_ROOT/valhalla/bin/valhalla_service" | awk '/not found/{print $1}')"
-  if [[ -n "$missing_libs" ]]; then
-    echo "Valhalla runtime dependency check failed." >&2
-    echo "Missing shared libraries:" >&2
-    while IFS= read -r library; do [[ -n "$library" ]] && echo "  $library" >&2; done <<< "$missing_libs"
-    exit 1
-  fi
-  echo "[+] Valhalla runtime dependency check passed"
+  check_runtime_libraries "Valhalla" "$INSTALL_ROOT/valhalla/bin/valhalla_service"
 fi
 
 if (( ! SKIP_SERVICES )) && (( ! SKIP_VALHALLA )); then
