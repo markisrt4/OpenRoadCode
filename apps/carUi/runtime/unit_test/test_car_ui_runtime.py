@@ -60,7 +60,6 @@ class CarUiRuntimeTest(unittest.TestCase):
             rotary_encoders=object(),  # type: ignore[arg-type]
             radios=RadioRuntimeRegistry(radio_runtimes),
             adsb_launcher=None,
-            weather_dash_launcher=None,
             weather_controller=None,
             sdr_resource_manager=object(),
         )
