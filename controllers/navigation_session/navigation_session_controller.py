@@ -56,29 +56,21 @@ class NavigationSessionController:
             travel_mode=request.travel_mode,
             route=active_route,
         )
-        self._reroute_policy.reset()
+        self._reroute_policy.reroute_completed()
         return active_route
 
     def cancel(self) -> None:
         """End the active navigation session."""
         self._state = None
-        self._reroute_policy.reset()
+        self._reroute_policy.reroute_completed()
 
     def update(
         self,
         position: GeoPoint,
         guidance: RouteGuidanceState,
-        *,
-        now: float | None = None,
     ) -> RouteResult | None:
         """Evaluate rerouting and return a replacement route when triggered."""
-        if self._state is None:
-            return None
-        if not self._reroute_policy.update(
-            guidance.off_route,
-            route_complete=guidance.route_complete,
-            now=now,
-        ):
+        if self._state is None or not self._reroute_policy.update(guidance):
             return None
 
         request = RouteRequest(
@@ -89,7 +81,7 @@ class NavigationSessionController:
         try:
             route = self._route_calculator(request)
         except Exception:
-            self._reroute_policy.reroute_finished(success=False, now=now)
+            self._reroute_policy.reroute_failed()
             raise
 
         self._activate_route(
@@ -97,7 +89,7 @@ class NavigationSessionController:
             travel_mode=self._state.travel_mode,
             route=route,
         )
-        self._reroute_policy.reroute_finished(success=True, now=now)
+        self._reroute_policy.reroute_completed()
         return route
 
     def _activate_route(
