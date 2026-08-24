@@ -90,6 +90,11 @@ class NavigationServiceRuntimeConfig:
 @dataclass(frozen=True, slots=True)
 class AutomotiveInputConfig:
     source: str = "simulation"
+    device: str = "elm327"
+    port: str = "/dev/rfcomm0"
+    baud: int = 38400
+    timeout_s: float = 1.0
+    slow_poll_interval_s: float = 5.0
 
 
 @dataclass(frozen=True, slots=True)
@@ -158,11 +163,23 @@ class ServiceRuntimeConfigParser:
         data = self._table(value, "services.automotive")
         input_data = self._table(data.get("input", {}), "services.automotive.input")
         publish_data = self._table(data.get("publish", {}), "services.automotive.publish")
+        source = self._source(input_data.get("source", "simulation"), "services.automotive.input.source")
+        device = self._string(input_data.get("device", "elm327"), "services.automotive.input.device").lower()
+        if source == "device" and device != "elm327":
+            raise ServiceRuntimeConfigError("services.automotive.input.device must be elm327")
+        baud = input_data.get("baud", 38400)
+        if not isinstance(baud, int) or isinstance(baud, bool) or baud <= 0:
+            raise ServiceRuntimeConfigError("services.automotive.input.baud must be a positive integer")
         return AutomotiveServiceRuntimeConfig(
             enabled=self._bool(data.get("enabled", True), "services.automotive.enabled"),
             rate_hz=self._positive(data.get("rate_hz", 10.0), "services.automotive.rate_hz"),
             input=AutomotiveInputConfig(
-                source=self._source(input_data.get("source", "simulation"), "services.automotive.input.source")
+                source=source,
+                device=device,
+                port=self._string(input_data.get("port", "/dev/rfcomm0"), "services.automotive.input.port"),
+                baud=baud,
+                timeout_s=self._positive(input_data.get("timeout_s", 1.0), "services.automotive.input.timeout_s"),
+                slow_poll_interval_s=self._positive(input_data.get("slow_poll_interval_s", 5.0), "services.automotive.input.slow_poll_interval_s"),
             ),
             publish=AutomotivePublishConfig(
                 enabled=self._bool(publish_data.get("enabled", True), "services.automotive.publish.enabled"),
