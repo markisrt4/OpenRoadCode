@@ -11,6 +11,7 @@ from threading import Lock, Thread
 from apps.launchers.app_launcher_if import (
     AppLauncherIf,
     BrowserDashboardLauncherIf,
+    HideableAppLauncherIf,
     PreloadableAppLauncherIf,
     StatusCallback,
 )
@@ -36,7 +37,6 @@ class AppRuntimeManager:
         self._preload_thread: Thread | None = None
 
     def register(self, key: str, launcher: AppLauncherIf) -> None:
-        """Register the launcher for one enabled configured application."""
         app = self._config.app(key)
         if not app.enabled:
             raise ValueError(f"Application {key!r} is disabled")
@@ -46,7 +46,6 @@ class AppRuntimeManager:
             self._apps[key] = ManagedApplication(config=app, launcher=launcher)
 
     def start_background_apps(self, set_status: StatusCallback = None) -> None:
-        """Start preload and persistent applications without blocking UI startup."""
         with self._lock:
             if self._preload_thread is not None and self._preload_thread.is_alive():
                 return
@@ -59,16 +58,19 @@ class AppRuntimeManager:
             self._preload_thread.start()
 
     def launch(self, key: str, set_status: StatusCallback = None) -> None:
-        """Present an application to the user, closing conflicting managed apps."""
+        """Present an application after yielding conflicting managed windows."""
         managed = self._managed(key)
         self._close_exclusive_peers(managed, set_status)
         managed.launcher.launch(self._remote_display, set_status)
 
     def close(self, key: str, set_status: StatusCallback = None) -> None:
-        """Close or hide an app according to its configured lifecycle policy."""
         managed = self._managed(key)
         if managed.config.startup in (StartupPolicy.PRELOAD, StartupPolicy.PERSISTENT):
             launcher = managed.launcher
+            if isinstance(launcher, HideableAppLauncherIf) and launcher.hide(
+                self._remote_display, set_status
+            ):
+                return
             if isinstance(launcher, BrowserDashboardLauncherIf):
                 launcher.close_browser(self._remote_display, set_status)
                 return
@@ -77,7 +79,6 @@ class AppRuntimeManager:
         managed.launcher.stop(self._remote_display, set_status)
 
     def stop_all(self, set_status: StatusCallback = None) -> None:
-        """Stop all registered applications during OpenRoadCode shutdown."""
         with self._lock:
             apps = tuple(self._apps.values())
         for managed in apps:
@@ -87,7 +88,6 @@ class AppRuntimeManager:
                 continue
 
     def is_running(self, key: str) -> bool:
-        """Return whether a registered application's launcher is running."""
         return self._managed(key).launcher.is_running()
 
     def _close_exclusive_peers(self, target: ManagedApplication, set_status: StatusCallback) -> None:
@@ -115,9 +115,7 @@ class AppRuntimeManager:
             if policy is StartupPolicy.LAZY:
                 continue
             try:
-                if policy is StartupPolicy.PRELOAD and isinstance(
-                    managed.launcher, PreloadableAppLauncherIf
-                ):
+                if policy is StartupPolicy.PRELOAD and isinstance(managed.launcher, PreloadableAppLauncherIf):
                     managed.launcher.prepare()
                 else:
                     self.launch(managed.config.key, set_status)
