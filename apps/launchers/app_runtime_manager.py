@@ -14,6 +14,7 @@ from apps.launchers.app_launcher_if import (
     HideableAppLauncherIf,
     PreloadableAppLauncherIf,
     StatusCallback,
+    WindowedAppLauncherIf,
 )
 from config.application_config import ApplicationConfig, ApplicationsConfig, StartupPolicy
 
@@ -27,12 +28,13 @@ class ManagedApplication:
 
 
 class AppRuntimeManager:
-    """Apply lifecycle and mutual-exclusion policy to applications."""
+    """Apply lifecycle, visibility, and mutual-exclusion policy to applications."""
 
     def __init__(self, config: ApplicationsConfig, *, remote_display: str) -> None:
         self._config = config
         self._remote_display = remote_display
         self._apps: dict[str, ManagedApplication] = {}
+        self._visible: set[str] = set()
         self._lock = Lock()
         self._preload_thread: Thread | None = None
 
@@ -58,37 +60,73 @@ class AppRuntimeManager:
             self._preload_thread.start()
 
     def launch(self, key: str, set_status: StatusCallback = None) -> None:
+        """Compatibility entry point for presenting an application."""
+        self.show(key, set_status)
+
+    def show(self, key: str, set_status: StatusCallback = None) -> None:
         """Present an application after yielding conflicting managed windows."""
         managed = self._managed(key)
         self._close_exclusive_peers(managed, set_status)
-        managed.launcher.launch(self._remote_display, set_status)
+        launcher = managed.launcher
+        shown = False
+        if launcher.is_running() and isinstance(launcher, WindowedAppLauncherIf):
+            shown = launcher.show(self._remote_display, set_status)
+        if not shown:
+            launcher.launch(self._remote_display, set_status)
+        with self._lock:
+            self._visible.add(key)
+
+    def hide(self, key: str, set_status: StatusCallback = None) -> bool:
+        """Hide a managed window while preserving its running process when possible."""
+        managed = self._managed(key)
+        launcher = managed.launcher
+        if not isinstance(launcher, HideableAppLauncherIf):
+            return False
+        hidden = launcher.hide(self._remote_display, set_status)
+        if hidden:
+            with self._lock:
+                self._visible.discard(key)
+        return hidden
 
     def close(self, key: str, set_status: StatusCallback = None) -> None:
         managed = self._managed(key)
         if managed.config.startup in (StartupPolicy.PRELOAD, StartupPolicy.PERSISTENT):
-            launcher = managed.launcher
-            if isinstance(launcher, HideableAppLauncherIf) and launcher.hide(
-                self._remote_display, set_status
-            ):
+            if self.hide(key, set_status):
                 return
+            launcher = managed.launcher
             if isinstance(launcher, BrowserDashboardLauncherIf):
                 launcher.close_browser(self._remote_display, set_status)
+                with self._lock:
+                    self._visible.discard(key)
                 return
             if managed.config.startup is StartupPolicy.PERSISTENT:
+                with self._lock:
+                    self._visible.discard(key)
                 return
         managed.launcher.stop(self._remote_display, set_status)
+        with self._lock:
+            self._visible.discard(key)
 
     def stop_all(self, set_status: StatusCallback = None) -> None:
         with self._lock:
-            apps = tuple(self._apps.values())
-        for managed in apps:
+            apps = tuple(self._apps.items())
+        for key, managed in apps:
             try:
                 managed.launcher.stop(self._remote_display, set_status)
             except Exception:
                 continue
+            finally:
+                with self._lock:
+                    self._visible.discard(key)
 
     def is_running(self, key: str) -> bool:
         return self._managed(key).launcher.is_running()
+
+    def is_visible(self, key: str) -> bool:
+        """Return whether the manager currently considers an app presented."""
+        self._managed(key)
+        with self._lock:
+            return key in self._visible
 
     def _close_exclusive_peers(self, target: ManagedApplication, set_status: StatusCallback) -> None:
         group = target.config.exclusive_group
@@ -118,7 +156,7 @@ class AppRuntimeManager:
                 if policy is StartupPolicy.PRELOAD and isinstance(managed.launcher, PreloadableAppLauncherIf):
                     managed.launcher.prepare()
                 else:
-                    self.launch(managed.config.key, set_status)
+                    self.show(managed.config.key, set_status)
             except Exception as exc:
                 if set_status is not None:
                     set_status(f"Unable to start {managed.config.key}: {exc}")
