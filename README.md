@@ -127,7 +127,7 @@ Hardware compatibility varies by Linux distribution, kernel, device permissions,
 
 ## Software Architecture
 
-OpenRoadCode separates application logic from hardware-specific implementations.
+OpenRoadCode separates application logic from hardware-specific implementations and uses two complementary communication paths.
 
 The primary repository areas are:
 
@@ -138,8 +138,17 @@ OpenRoadCode/
 │   ├── carTui/
 │   └── other applications
 │
+├── services/
+│   ├── navigation/
+│   └── automotive/
+│
+├── messaging/
+│   ├── contracts/
+│   └── zeromq/
+│
 ├── controllers/
 │   ├── audio/
+│   ├── automotive/
 │   ├── environmental/
 │   ├── image/
 │   ├── lighting/
@@ -148,63 +157,79 @@ OpenRoadCode/
 │   ├── spotify/
 │   └── other application-facing controllers
 │
+├── common/
+│   ├── telemetry/
+│   └── units/
+│
 ├── frontends/
-│   ├── common/input/
-│   └── tk/
-│
 ├── ui/
-│   └── toolkit-independent presentation contracts
-│
 ├── input_events/
-│   └── normalized physical-input contracts and values
-│
 ├── hardware_io/
-│   ├── automotive/
-│   ├── bluetooth/
-│   ├── environmental/
-│   ├── gpio/
-│   ├── gps/
-│   ├── imu/
-│   ├── keyboard/
-│   ├── pushbutton/
-│   ├── rotary_encoder/
-│   └── other hardware adapters
-│
 ├── protocols/
-│   ├── oauth/
-│   ├── obd2/
-│   ├── rigctl/
-│   ├── spotify/
-│   └── other protocol implementations
-│
 ├── config/
 ├── scripts/
 └── tests and component-test utilities
 ```
 
-The intended dependency direction is:
+Commands and requested behavior use controller or request-handler interfaces:
 
 ```text
-Applications and UI
+Application / UI
         │
         ▼
-Controller interfaces
+Controller or request interface
         │
         ▼
-Concrete controllers
+Concrete implementation / service command endpoint
         │
         ▼
-Hardware adapters and protocols
+Hardware adapter / protocol
         │
         ▼
-Linux devices, services, and external hardware
+Linux service / physical hardware
 ```
 
-Higher-level application modules should not depend directly on hardware-specific implementations.
+Continuously changing public telemetry is distributed through producer services and the ZeroMQ message bus:
 
-Cross-layer physical-input values live in `input_events`. Hardware adapters,
-controllers, frontend event queues, and applications may depend on these
-neutral contracts without depending on one another's implementations.
+```text
+Hardware / simulation
+        │
+        ▼
+Domain producer service
+  ├── navigation
+  └── automotive
+        │
+        ▼
+SI-normalized public contracts
+        │
+        ▼
+ZeroMQ XSUB/XPUB broker
+        │
+        ▼
+Shared application telemetry state
+        │
+        ▼
+carUi / carTui / webUi / demos
+```
+
+Producer services own the physical device or simulation source, domain processing, and publication lifecycle. Applications should consume public telemetry rather than constructing competing GPS, IMU, or OBD-II hardware/controller instances merely to display state.
+
+OpenRoadCode keeps public telemetry SI-normalized on the wire. Imperial or metric conversion happens at the presentation boundary through helpers in `common.units`, so all consumers receive the same canonical values.
+
+PUB/SUB is used for continuously changing telemetry. Operations that require acknowledgement or error reporting use request/reply messaging where appropriate; navigation calibration and heading reset are examples of ZeroMQ REQ/REP commands.
+
+Runtime service composition is selected through `config/runtime.toml`. Simulation can be selected at the producer-service input without changing downstream applications.
+
+Messaging and service documentation:
+
+* [Messaging overview and subscriber quick start](messaging/README.md)
+* [Message Bus Interface Design Description (IDD)](docs/messaging/message_bus_idd.md)
+* [Navigation producer service](services/navigation/README.md)
+* [Automotive producer service](services/automotive/README.md)
+* [Car TUI telemetry consumer](apps/carTui/README.md)
+* [Contributor architecture and testing rules](CONTRIBUTING.md)
+
+Higher-level application modules should not depend directly on hardware-specific implementations. Cross-layer physical-input values live in `input_events`; shared telemetry caches and unit conversions live under `common`.
 
 ---
 
