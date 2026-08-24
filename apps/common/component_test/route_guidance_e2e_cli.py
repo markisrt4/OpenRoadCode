@@ -44,30 +44,9 @@ def _route() -> RouteResult:
         duration_seconds=180.0,
         shape=shape,
         maneuvers=(
-            RouteManeuver(
-                instruction="Head east",
-                verbal_instruction="Head east",
-                distance_miles=0.31,
-                duration_seconds=45.0,
-                begin_shape_index=0,
-                end_shape_index=1,
-            ),
-            RouteManeuver(
-                instruction="Turn left",
-                verbal_instruction="Turn left",
-                distance_miles=0.41,
-                duration_seconds=60.0,
-                begin_shape_index=1,
-                end_shape_index=2,
-            ),
-            RouteManeuver(
-                instruction="Turn right",
-                verbal_instruction="Turn right",
-                distance_miles=0.31,
-                duration_seconds=45.0,
-                begin_shape_index=2,
-                end_shape_index=3,
-            ),
+            RouteManeuver("Head east", "Head east", 0.31, 45.0, 0, 1),
+            RouteManeuver("Turn left", "Turn left", 0.41, 60.0, 1, 2),
+            RouteManeuver("Turn right", "Turn right", 0.31, 45.0, 2, 3),
         ),
     )
 
@@ -78,6 +57,12 @@ def _positions() -> tuple[GeoPoint, ...]:
         GeoPoint(42.8028, -83.0097),
         GeoPoint(42.8028, -83.0067),
         GeoPoint(42.8058, -83.0067),
+        # Leave the route far enough to trip the 0.05-mile threshold.
+        GeoPoint(42.8058, -83.0054),
+        # Move closer, but remain inside the hysteresis band (> 0.03 mile).
+        GeoPoint(42.8058, -83.0059),
+        # Rejoin inside the 0.03-mile recovery threshold.
+        GeoPoint(42.8058, -83.0064),
         GeoPoint(42.8088, -83.0067),
         GeoPoint(42.8088, -83.0037),
         GeoPoint(42.8088, -83.0007),
@@ -104,7 +89,11 @@ def main() -> int:
     guidance_publisher = RouteGuidanceStatePublisher(guidance_transport)
     runtime = RouteGuidanceRuntime(
         ZeroMqSubscriber(BROKER_SUBSCRIBER_ENDPOINT),
-        RouteGuidanceController(_route()),
+        RouteGuidanceController(
+            _route(),
+            off_route_threshold_miles=0.05,
+            on_route_threshold_miles=0.03,
+        ),
         guidance_publisher,
     )
     received = []
@@ -118,7 +107,8 @@ def main() -> int:
             else f"{data.distance_to_maneuver_m:6.1f} m"
         )
         status = "ARRIVED" if data.route_complete else (data.instruction or "--")
-        print(f"{status:12}  next={distance}  off_route={data.off_route}")
+        route_status = "OFF" if data.off_route else "ON "
+        print(f"{route_status} ROUTE  {status:12}  next={distance}")
 
     observer = MessageDispatcher(ZeroMqSubscriber(BROKER_SUBSCRIBER_ENDPOINT))
     observer.register(
@@ -127,12 +117,14 @@ def main() -> int:
         on_guidance,
     )
 
+    positions = _positions()
+
     try:
         runtime.start()
         observer.start()
         time.sleep(0.3)
 
-        for point in _positions():
+        for point in positions:
             position_publisher.publish(
                 PositionState(
                     received_at=datetime.now(timezone.utc),
@@ -147,26 +139,37 @@ def main() -> int:
             time.sleep(0.2)
 
         deadline = time.monotonic() + 2.0
-        while len(received) < len(_positions()) and time.monotonic() < deadline:
+        while len(received) < len(positions) and time.monotonic() < deadline:
             time.sleep(0.02)
 
-        if len(received) < len(_positions()):
+        if len(received) < len(positions):
             raise RuntimeError(
-                f"Expected {len(_positions())} guidance states, received {len(received)}"
+                f"Expected {len(positions)} guidance states, received {len(received)}"
             )
-        if received[0].data.instruction != "Head east":
+
+        states = [item.data for item in received]
+        if states[0].instruction != "Head east":
             raise RuntimeError("Initial maneuver was not Head east")
-        if not any(item.data.instruction == "Turn left" for item in received):
+        if not any(item.instruction == "Turn left" for item in states):
             raise RuntimeError("Guidance never advanced to Turn left")
-        if not any(item.data.instruction == "Turn right" for item in received):
+        if not any(item.instruction == "Turn right" for item in states):
             raise RuntimeError("Guidance never advanced to Turn right")
-        if not received[-1].data.route_complete:
+
+        excursion = states[4:7]
+        if [item.off_route for item in excursion] != [True, True, False]:
+            raise RuntimeError(
+                "Expected off-route excursion True -> True -> False, got "
+                f"{[item.off_route for item in excursion]!r}"
+            )
+
+        if not states[-1].route_complete:
             raise RuntimeError("Final guidance state did not report arrival")
 
         print("Route guidance component test passed")
-        print(f"  position fixes:   {len(_positions())}")
+        print(f"  position fixes:   {len(positions)}")
         print(f"  guidance states:  {len(received)}")
-        print("  transitions:      Head east -> Turn left -> Turn right -> ARRIVED")
+        print("  maneuvers:        Head east -> Turn left -> Turn right -> ARRIVED")
+        print("  off-route:        ON -> OFF -> hysteresis hold -> ON")
         return 0
     finally:
         runtime.close()
