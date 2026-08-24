@@ -2,7 +2,7 @@ PROJECT_NAME           = "OpenRoadCode"
 PROJECT_BRIEF          = "Public API reference for OpenRoadCode"
 
 OUTPUT_DIRECTORY       = build/doxygen
-INPUT                  = apps controllers hardware_io protocols config common ui frontends input_events
+INPUT                  = apps controllers services messaging hardware_io protocols config common ui frontends input_events
 FILE_PATTERNS          = *.py
 RECURSIVE              = YES
 
@@ -39,4 +39,4 @@ QUIET                  = YES
 WARN_IF_UNDOCUMENTED   = YES
 WARN_IF_DOC_ERROR      = YES
 WARN_AS_ERROR          = YES
-WARN_LOGFILE            = build/doxygen-warnings.log
+WARN_LOGFILE           = build/doxygen-warnings.log
