@@ -15,6 +15,7 @@ from apps.carUi.runtime.weather_location_provider import CarUiWeatherLocationPro
 from apps.launchers.adsb_launcher import ADSBLauncher
 from apps.launchers.app_runtime_manager import AppRuntimeManager
 from apps.launchers.browser_app_factory import BrowserApplicationFactory
+from apps.launchers.google_earth_launcher import GoogleEarthLauncher
 from apps.launchers.sdrpp_launcher import SDRPPLauncher, SDRPPProfile
 from apps.launchers.weather_dash_launcher import WeatherDashLauncher
 from controllers.cache import PersistentCache
@@ -87,11 +88,23 @@ def build_car_ui_runtime(config: RuntimeConfig, *, applications_config: Applicat
             )
             app_runtime_manager.register("weather", weather_launcher)
 
+        google_earth_app = applications_config.app("google_earth")
+        if google_earth_app.enabled:
+            app_runtime_manager.register(
+                "google_earth",
+                GoogleEarthLauncher(
+                    browser=browser_factory.create_from_config(google_earth_app),
+                ),
+            )
+
         # Generic browser applications need no Car UI-specific launcher wiring.
         # Special browser-backed applications above remain responsible for any
         # backend process or domain-specific lifecycle they own.
         for app in applications_config.enabled_apps():
-            if app.type is ApplicationType.BROWSER and app.key != "weather":
+            if (
+                app.type is ApplicationType.BROWSER
+                and app.key not in ("weather", "google_earth")
+            ):
                 app_runtime_manager.register(
                     app.key,
                     browser_factory.create_from_config(app),
