@@ -34,8 +34,6 @@ class RouteGuidanceController:
         on_route_threshold_miles: float | None = None,
         arrival_threshold_miles: float = 0.03,
     ) -> None:
-        if len(route.shape) < 2:
-            raise ValueError("route shape must contain at least two points")
         if off_route_threshold_miles <= 0.0:
             raise ValueError("off_route_threshold_miles must be positive")
         if arrival_threshold_miles <= 0.0:
@@ -50,10 +48,22 @@ class RouteGuidanceController:
                 "on_route_threshold_miles must not exceed off_route_threshold_miles"
             )
 
-        self._route = route
         self._off_route_threshold_miles = off_route_threshold_miles
         self._on_route_threshold_miles = on_route_threshold_miles
         self._arrival_threshold_miles = arrival_threshold_miles
+        self._route: RouteResult
+        self._cumulative: tuple[float, ...]
+        self._shape_distance_miles: float
+        self._furthest_progress_miles: float
+        self._off_route: bool
+        self.replace_route(route)
+
+    def replace_route(self, route: RouteResult) -> None:
+        """Replace the active route and reset route-relative guidance state."""
+        if len(route.shape) < 2:
+            raise ValueError("route shape must contain at least two points")
+
+        self._route = route
         self._cumulative = self._build_cumulative_distances(route.shape)
         self._shape_distance_miles = self._cumulative[-1]
         self._furthest_progress_miles = 0.0
@@ -115,12 +125,7 @@ class RouteGuidanceController:
         return distance_from_route_miles > self._off_route_threshold_miles
 
     def _maneuver_index_for_progress(self, progress: float) -> int | None:
-        """Return the maneuver whose shape interval contains progress.
-
-        A maneuver is considered complete when progress reaches its end shape
-        point. This makes the instruction transition at the intersection rather
-        than one GPS update after it.
-        """
+        """Return the maneuver whose shape interval contains progress."""
         if not self._route.maneuvers:
             return None
 
