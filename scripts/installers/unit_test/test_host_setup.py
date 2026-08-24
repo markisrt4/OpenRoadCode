@@ -145,7 +145,7 @@ class HostSetupPlanTests(unittest.TestCase):
         )
 
         self.assertEqual(0, result.returncode, result.stderr)
-        self.assertIn("Features:              base spotify", result.stdout)
+        self.assertIn("Features:              base spotify audio", result.stdout)
 
     def test_default_features_can_be_replaced_by_an_explicit_selection(self) -> None:
         result = self.run_installer(
@@ -160,7 +160,7 @@ class HostSetupPlanTests(unittest.TestCase):
         )
 
         self.assertEqual(0, result.returncode, result.stderr)
-        self.assertIn("Features:              base spotify", result.stdout)
+        self.assertIn("Features:              base spotify audio", result.stdout)
         self.assertNotIn("streamlit", result.stdout)
 
     def test_vnc_service_adds_vnc_and_desktop_capabilities(self) -> None:
@@ -264,12 +264,12 @@ class HostSetupPlanTests(unittest.TestCase):
         self.assertNotIn("RPi.GPIO", result.stdout)
         self.assertNotIn("adafruit", result.stdout)
 
-    def test_spotify_audio_packages_follow_install_target(self) -> None:
+    def test_audio_packages_follow_install_target(self) -> None:
         linux = subprocess.run(
             [
                 "bash", "-c",
                 'source "$1"; OPENROAD_INSTALL_TARGET=linux-dev '
-                'get_feature_packages spotify',
+                'get_feature_packages audio',
                 "feature-test", str(FEATURES),
             ],
             capture_output=True,
@@ -280,7 +280,7 @@ class HostSetupPlanTests(unittest.TestCase):
             [
                 "bash", "-c",
                 'source "$1"; OPENROAD_INSTALL_TARGET=rpi5 '
-                'get_feature_packages spotify',
+                'get_feature_packages audio',
                 "feature-test", str(FEATURES),
             ],
             capture_output=True,
@@ -292,7 +292,21 @@ class HostSetupPlanTests(unittest.TestCase):
         self.assertIn("wireplumber", raspberry_pi.stdout)
         self.assertIn("pipewire-pulse", raspberry_pi.stdout)
         self.assertIn("alsa-utils", raspberry_pi.stdout)
-        self.assertIn("usbutils", raspberry_pi.stdout)
+
+    def test_spotify_depends_on_audio(self) -> None:
+        result = subprocess.run(
+            [
+                "bash", "-c",
+                'source "$1"; get_feature_dependencies spotify',
+                "feature-test", str(FEATURES),
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+        self.assertEqual(0, result.returncode, result.stderr)
+        self.assertIn("audio", result.stdout.split())
 
     def test_raspberry_pi_feature_uses_target_selected_gpio_package(self) -> None:
         result = subprocess.run(
