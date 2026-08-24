@@ -4,11 +4,12 @@
 
 set -euo pipefail
 
-VALHALLA_CONFIG="${VALHALLA_CONFIG:-/opt/valhalla/valhalla.json}"
+VALHALLA_CONFIG="${VALHALLA_CONFIG:-/srv/openroadcode/valhalla/valhalla.json}"
 VALHALLA_WORKERS="${VALHALLA_WORKERS:-1}"
+VALHALLA_BIN="${VALHALLA_BIN:-/opt/openroadcode/navigation/valhalla/bin/valhalla_service}"
 
-if ! command -v valhalla_service >/dev/null 2>&1; then
-    echo "valhalla_service is not available in PATH." >&2
+if [[ ! -x "$VALHALLA_BIN" ]]; then
+    echo "Valhalla service executable not found: $VALHALLA_BIN" >&2
     exit 1
 fi
 
@@ -17,7 +18,6 @@ if [[ ! -f "$VALHALLA_CONFIG" ]]; then
     exit 1
 fi
 
-exec valhalla_service \
+exec "$VALHALLA_BIN" \
     "$VALHALLA_CONFIG" \
     "$VALHALLA_WORKERS"
-
