@@ -4,7 +4,7 @@
 from pathlib import Path
 import unittest
 
-from builder.geofabrik import load_index, region_map, resolve_region_ids, validate_selection
+from tools.map_builder.builder.geofabrik import load_index, region_map, resolve_region_ids, validate_selection
 
 FIXTURE = Path(__file__).parent / "fixtures/geofabrik-index.json"
 
