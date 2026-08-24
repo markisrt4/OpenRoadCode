@@ -7,7 +7,8 @@ import curses
 
 from apps.carTui.car_tui_dependencies import CarTuiDependencies
 from apps.carTui.screens import NavigationScreen, RadioScreen, VehicleScreen
-from frontends.tui.automotive import UnitSystem
+from apps.carTui.unit_preferences import CarTuiUnitPreferences
+from common.units import UnitSystem
 from frontends.tui.curses_helpers import addstr
 
 
@@ -27,9 +28,17 @@ class CarTui:
         gps_enabled: bool = False,
         unit_system: UnitSystem = UnitSystem.IMPERIAL,
     ) -> None:
+        unit_preferences = CarTuiUnitPreferences(unit_system)
         self._routes = {
-            "navigation": NavigationScreen(dependencies.navigation_state, gps_enabled=gps_enabled),
-            "vehicle": VehicleScreen(dependencies.vehicle_state, unit_system=unit_system),
+            "navigation": NavigationScreen(
+                dependencies.navigation_state,
+                gps_enabled=gps_enabled,
+                unit_preferences=unit_preferences,
+            ),
+            "vehicle": VehicleScreen(
+                dependencies.vehicle_state,
+                unit_preferences=unit_preferences,
+            ),
             "radio": RadioScreen(dependencies.radios),
         }
 
