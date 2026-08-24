@@ -9,6 +9,7 @@ import threading
 import time
 
 from controllers.navigation.navigation_controller_if import NavigationControllerIf
+from controllers.route_planning.route_planning_controller_if import RoutePlanningControllerIf
 from messaging.contracts.navigation import NavigationStatePublisher
 from services.navigation.navigation_command_service import NavigationCommandService
 from services.navigation.zeromq_navigation_command_server import (
@@ -28,6 +29,7 @@ class NavigationRuntime:
         source: str,
         rate_hz: float = 10.0,
         command_endpoint: str = DEFAULT_NAVIGATION_COMMAND_ENDPOINT,
+        route_planning_controller: RoutePlanningControllerIf | None = None,
     ) -> None:
         if rate_hz <= 0.0:
             raise ValueError("rate_hz must be greater than zero")
@@ -35,7 +37,11 @@ class NavigationRuntime:
         self._state_publisher = NavigationStatePublisher(publisher, source=source)
         self._period_s = 1.0 / rate_hz
         self._command_server = ZeroMqNavigationCommandServer(
-            NavigationCommandService(controller), command_endpoint
+            NavigationCommandService(
+                controller,
+                route_planning_controller=route_planning_controller,
+            ),
+            command_endpoint,
         )
         self._command_thread: threading.Thread | None = None
         self._stop_event = threading.Event()
