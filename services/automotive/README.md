@@ -7,23 +7,24 @@ Applications such as Car TUI consume the public vehicle-state topic. They do not
 ## Data flow
 
 ```text
-VehicleStateSourceIf
-        |
-        | read_state()
-        v
-AutomotiveRuntime
-        |
-VehicleStatePublisher
-        |
-ZeroMqPublisher
-        |
-ZeroMQ broker
-        |
-MessageDispatcher
-        |
-VehicleBusState
-        |
-Car TUI / other applications
+simulation ------------------------------\
+                                         > VehicleStateSourceIf
+ELM327 -> Elm327ObdAdapter -> Obd2Manager /
+                    |
+                    v
+             AutomotiveRuntime
+                    |
+           VehicleStatePublisher
+                    |
+              ZeroMqPublisher
+                    |
+               ZeroMQ broker
+                    |
+            MessageDispatcher
+                    |
+             VehicleBusState
+                    |
+          Car TUI / other apps
 ```
 
 The telemetry contract remains SI regardless of how a UI displays values. Metric/imperial conversion belongs at the presentation layer and uses `common.units`.
@@ -47,9 +48,29 @@ enabled = true
 source = "simulated-vehicle"
 ```
 
-The simulation source produces changing RPM, speed, throttle, accelerator position, engine load, manifold pressure, boost, airflow, coolant and intake temperatures, fuel level, and control-module voltage.
+Physical ELM327 example:
 
-`source = "device"` is reserved for the physical automotive source. The service currently rejects it explicitly until the existing ELM327/OBD-II stack is composed into the producer service.
+```toml
+[services.automotive]
+enabled = true
+rate_hz = 10.0
+
+[services.automotive.input]
+source = "device"
+device = "elm327"
+port = "/dev/rfcomm0"
+baud = 38400
+timeout_s = 1.0
+slow_poll_interval_s = 5.0
+
+[services.automotive.publish]
+enabled = true
+source = "obd2"
+```
+
+`Elm327Device` owns the serial connection, `Elm327ObdAdapter` translates between ELM327 responses and OBD-II models, and `Obd2Manager` polls supported PIDs and assembles the SI-normalized `VehicleState`.
+
+The manager polls RPM, vehicle speed, throttle, accelerator position, engine load, and manifold pressure on each snapshot. Slower-changing values such as barometric pressure, airflow, coolant/intake temperature, fuel level, and module voltage use `slow_poll_interval_s`.
 
 ## Start locally
 
@@ -59,12 +80,21 @@ Start the ZeroMQ broker first:
 python3 -m messaging.zeromq.broker_cli
 ```
 
-Then start the automotive service:
+Simulation:
 
 ```bash
 python3 -m services.automotive.automotive_service_cli \
   --config config/runtime_simulation.toml
 ```
+
+Physical vehicle:
+
+```bash
+python3 -m services.automotive.automotive_service_cli \
+  --config config/runtime.toml
+```
+
+For Bluetooth serial ELM327 adapters, `/dev/rfcomm0` must already exist and be connected before starting the service. Change `port` in the runtime TOML when using another serial device.
 
 The service publishes to `[messaging].publisher_endpoint` at the configured `rate_hz`.
 
@@ -76,7 +106,7 @@ Car TUI already subscribes to vehicle telemetry through its shared `VehicleBusSt
 python3 -m apps.carTui.main
 ```
 
-The Vehicle screen should update as new `VehicleState` messages arrive. No automotive simulation or OBD-II object is constructed inside Car TUI.
+The Vehicle screen updates as new `VehicleState` messages arrive. No automotive simulation or OBD-II object is constructed inside Car TUI.
 
 ## Design rule
 
