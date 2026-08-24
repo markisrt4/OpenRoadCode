@@ -15,28 +15,11 @@ from common.logging.logging_paths import logging_file_path
 
 
 class BrowserKioskLauncher(AppLauncherIf):
-    """Launch a browser in kiosk mode on a selected X display."""
+    """Launch and orchestrate a browser window on a selected X display."""
 
     _exclusive_launchers: dict[tuple[str, str], "BrowserKioskLauncher"] = {}
 
-    def __init__(
-        self,
-        *,
-        url: str,
-        process_pattern: str | None = None,
-        log_file: str | Path | None = None,
-        browser_candidates: tuple[str, ...] = ("chromium-browser", "chromium", "google-chrome"),
-        kiosk: bool = True,
-        app_mode: bool = False,
-        profile_path: str | Path | None = None,
-        window_position: tuple[int, int] | None = None,
-        window_size: tuple[int, int] | None = None,
-        startup_grace_seconds: float = 0.0,
-        extra_arguments: tuple[str, ...] = (),
-        window_class: str | None = None,
-        exclusive_group: str | None = None,
-        window_manager: ExternalWindowManager | None = None,
-    ) -> None:
+    def __init__(self, *, url: str, process_pattern: str | None = None, log_file: str | Path | None = None, browser_candidates: tuple[str, ...] = ("chromium-browser", "chromium", "google-chrome"), kiosk: bool = True, app_mode: bool = False, profile_path: str | Path | None = None, window_position: tuple[int, int] | None = None, window_size: tuple[int, int] | None = None, startup_grace_seconds: float = 0.0, extra_arguments: tuple[str, ...] = (), window_class: str | None = None, exclusive_group: str | None = None, window_manager: ExternalWindowManager | None = None) -> None:
         if kiosk and app_mode:
             raise ValueError("kiosk and app_mode cannot both be enabled")
         if startup_grace_seconds < 0:
@@ -57,16 +40,18 @@ class BrowserKioskLauncher(AppLauncherIf):
         self._window_manager = window_manager or ExternalWindowManager()
         self._process: subprocess.Popen[str] | None = None
         self._window_id: str | None = None
+        self._hidden = False
 
     def is_running(self) -> bool:
         if self._process is not None:
             if self._process.poll() is None:
                 return True
             self._process = None
+            self._window_id = None
+            self._hidden = False
         return is_process_running(self.process_pattern)
 
     def configure_app_window(self, *, position: tuple[int, int], size: tuple[int, int]) -> None:
-        """Configure a browser app window aligned to a UI panel."""
         width, height = size
         if width <= 0 or height <= 0:
             raise ValueError("size values must be positive")
@@ -79,11 +64,12 @@ class BrowserKioskLauncher(AppLauncherIf):
     def launch(self, remote_display: str, set_status: StatusCallback = None) -> None:
         if self.is_running():
             self._activate_existing_window(remote_display)
+            self._hidden = False
             _status(set_status, "Browser already running; window activated")
             return
-
         self._close_exclusive_peer(remote_display)
         self._window_id = None
+        self._hidden = False
         browser_path = self._find_browser()
         environment = x11_environment(remote_display)
         command = [browser_path, "--noerrdialogs", "--disable-infobars", "--disable-session-crashed-bubble", "--disable-restore-session-state"]
@@ -108,25 +94,33 @@ class BrowserKioskLauncher(AppLauncherIf):
             command.append(f"--class={self.window_class}")
         if not self.app_mode:
             command.append(self.url)
-
         self.log_file.parent.mkdir(parents=True, exist_ok=True)
         log_handle = self.log_file.open("a", encoding="utf-8")
         try:
             self._process = subprocess.Popen(command, env=environment, stdout=log_handle, stderr=subprocess.STDOUT, start_new_session=True, text=True)
         finally:
             log_handle.close()
-
         if self.startup_grace_seconds:
             time.sleep(self.startup_grace_seconds)
             return_code = self._process.poll()
             if return_code is not None:
                 self._process = None
                 raise RuntimeError(f"Browser exited during startup (status {return_code}); see {self.log_file}")
-
         self._fit_app_window(remote_display)
         if self.exclusive_group is not None:
             self._exclusive_launchers[(self.exclusive_group, remote_display)] = self
         _status(set_status, f"Browser launched on {remote_display}")
+
+    def hide(self, remote_display: str, set_status: StatusCallback = None) -> bool:
+        """Hide the browser window while keeping Chromium and page state warm."""
+        if not self.is_running():
+            return False
+        self._ensure_window_id(remote_display)
+        hidden = self._window_manager.hide(display=remote_display, window_id=self._window_id)
+        if hidden:
+            self._hidden = True
+            _status(set_status, "Browser hidden")
+        return hidden
 
     def stop(self, remote_display: str, set_status: StatusCallback = None) -> None:
         process = self._process
@@ -138,9 +132,9 @@ class BrowserKioskLauncher(AppLauncherIf):
                 closed_normally = process.poll() is not None
         if process is not None and not closed_normally:
             terminate_process(process)
-
         self._process = None
         self._window_id = None
+        self._hidden = False
         if self.exclusive_group is not None:
             key = (self.exclusive_group, remote_display)
             if self._exclusive_launchers.get(key) is self:
@@ -155,10 +149,10 @@ class BrowserKioskLauncher(AppLauncherIf):
             return
         peer = self._exclusive_launchers.get((group, display))
         if peer is not None and peer is not self:
-            peer.stop(display)
+            if not peer.hide(display):
+                peer.stop(display)
 
     def _close_app_window(self, display: str) -> bool:
-        """Ask the window manager to close Chromium so it can save its profile."""
         return self._window_manager.close(display=display, window_id=self._window_id)
 
     @staticmethod
@@ -169,7 +163,9 @@ class BrowserKioskLauncher(AppLauncherIf):
             pass
 
     def toggle(self, remote_display: str, set_status: StatusCallback = None) -> bool:
-        if self.is_running():
+        if self.is_running() and not self._hidden:
+            if self.hide(remote_display, set_status):
+                return False
             self.stop(remote_display, set_status)
             return False
         self.launch(remote_display, set_status)
@@ -186,12 +182,11 @@ class BrowserKioskLauncher(AppLauncherIf):
     def _fit_app_window(self, display: str) -> None:
         if not (self.app_mode or self.kiosk) or self.window_class is None or self.window_position is None or self.window_size is None:
             return
-        self._window_id = self._window_manager.fit(
-            display=display,
-            window_class=self.window_class,
-            position=self.window_position,
-            size=self.window_size,
-        )
+        self._window_id = self._window_manager.fit(display=display, window_class=self.window_class, position=self.window_position, size=self.window_size)
+
+    def _ensure_window_id(self, display: str) -> None:
+        if self._window_id is None and self.window_class is not None:
+            self._window_id = self._window_manager.wait_for_window_id(display=display, window_class=self.window_class)
 
     def _activate_existing_window(self, display: str) -> None:
         if self.window_class is None:
