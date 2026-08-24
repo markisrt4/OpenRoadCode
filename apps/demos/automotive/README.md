@@ -1,19 +1,28 @@
-# Automotive UI contract demo
+# Automotive UI Demo
 
-This standard-library `curses` application demonstrates the automotive UI
-contracts with simulated SI data arriving at different update rates.
+This curses demo is a consumer of the same public automotive telemetry contract used by CarUi and CarTui. It does not create an OBD-II controller, ELM327 device, or simulated vehicle locally.
 
-Run it from the repository root:
+## Architecture
 
-```sh
+```text
+Automotive service -> ZeroMQ broker -> vehicle.state -> AutomotiveDemoUi
+```
+
+The automotive service owns hardware or simulation and publishes normalized SI `VehicleState` telemetry. The demo subscribes to `VEHICLE_STATE_TOPIC`, decodes `VehicleStateMessage`, and presents those values through the existing automotive UI contracts.
+
+## Run
+
+Start the ZeroMQ broker and automotive producer service first. Then run:
+
+```bash
 python3 -m apps.demos.automotive.main
 ```
 
-Keys:
+The subscriber endpoint comes from `config/runtime.toml`.
 
-- `q` or Escape: quit
-- `u`: toggle metric and imperial presentation
-- `c`: request that the simulated diagnostic codes be cleared
+Controls:
 
-The simulator supplies only canonical SI values. Unit conversion is performed
-inside the UI implementation.
+- `q` or Esc: quit
+- `u`: toggle SI/imperial display units
+
+The legacy demo controller is no longer part of the runtime path. Diagnostics commands are not currently transported by the public automotive service, so the old local clear-diagnostics action is intentionally not wired to the telemetry consumer.
