@@ -100,6 +100,7 @@ class CarUiStartupTest(unittest.TestCase):
             audio=object(),
             media_display=None,
             input_config=object(),
+            start_background_apps=lambda: events.append("background"),
             close=lambda: events.append("runtime"),
         )
         encoder = SimpleNamespace(stop=lambda: events.append("encoder"))
@@ -116,7 +117,7 @@ class CarUiStartupTest(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "spotify failed"):
             build_car_ui_dependencies(lambda *_args: None)
 
-        self.assertEqual(events, ["encoder", "runtime"])
+        self.assertEqual(events, ["background", "encoder", "runtime"])
 
 
 if __name__ == "__main__":
