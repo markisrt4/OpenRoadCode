@@ -23,6 +23,7 @@ from messaging.contracts.route_guidance import (
     RouteGuidanceStatePublisher,
     decode_route_guidance_state,
 )
+from messaging.message_dispatcher import MessageDispatcher
 from messaging.zeromq.broker import ZeroMqBroker
 from messaging.zeromq.publisher import ZeroMqPublisher
 from messaging.zeromq.subscriber import ZeroMqSubscriber
@@ -106,11 +107,9 @@ def main() -> int:
         RouteGuidanceController(_route()),
         guidance_publisher,
     )
-    observer = ZeroMqSubscriber(BROKER_SUBSCRIBER_ENDPOINT)
     received = []
 
-    def on_guidance(_topic: str, payload: dict[str, object]) -> None:
-        message = decode_route_guidance_state(payload)
+    def on_guidance(message) -> None:
         received.append(message)
         data = message.data
         distance = (
@@ -121,7 +120,12 @@ def main() -> int:
         status = "ARRIVED" if data.route_complete else (data.instruction or "--")
         print(f"{status:12}  next={distance}  off_route={data.off_route}")
 
-    observer.subscribe(ROUTE_GUIDANCE_STATE_TOPIC, on_guidance)
+    observer = MessageDispatcher(ZeroMqSubscriber(BROKER_SUBSCRIBER_ENDPOINT))
+    observer.register(
+        ROUTE_GUIDANCE_STATE_TOPIC,
+        decode_route_guidance_state,
+        on_guidance,
+    )
 
     try:
         runtime.start()
