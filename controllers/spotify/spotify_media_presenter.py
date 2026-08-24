@@ -87,6 +87,7 @@ class SpotifyMediaPresenter(PlaybackRequestHandlerIf, TrackRequestHandlerIf, See
     def _run_request(self, request: Callable[[], None]) -> None:
         try:
             request()
+            self.refresh()
         except Exception as exc:
             self._publish_request_error(exc)
             raise
