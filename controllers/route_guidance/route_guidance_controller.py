@@ -31,6 +31,7 @@ class RouteGuidanceController:
         route: RouteResult,
         *,
         off_route_threshold_miles: float = 0.05,
+        on_route_threshold_miles: float | None = None,
         arrival_threshold_miles: float = 0.03,
     ) -> None:
         if len(route.shape) < 2:
@@ -40,12 +41,23 @@ class RouteGuidanceController:
         if arrival_threshold_miles <= 0.0:
             raise ValueError("arrival_threshold_miles must be positive")
 
+        if on_route_threshold_miles is None:
+            on_route_threshold_miles = off_route_threshold_miles * 0.6
+        if on_route_threshold_miles <= 0.0:
+            raise ValueError("on_route_threshold_miles must be positive")
+        if on_route_threshold_miles > off_route_threshold_miles:
+            raise ValueError(
+                "on_route_threshold_miles must not exceed off_route_threshold_miles"
+            )
+
         self._route = route
         self._off_route_threshold_miles = off_route_threshold_miles
+        self._on_route_threshold_miles = on_route_threshold_miles
         self._arrival_threshold_miles = arrival_threshold_miles
         self._cumulative = self._build_cumulative_distances(route.shape)
         self._shape_distance_miles = self._cumulative[-1]
         self._furthest_progress_miles = 0.0
+        self._off_route = False
 
     def update(self, position: GeoPoint) -> RouteGuidanceState:
         """Update guidance using the latest geographic position."""
@@ -59,9 +71,10 @@ class RouteGuidanceController:
         remaining = max(0.0, self._shape_distance_miles - progress)
         destination_distance = self._distance_miles(position, self._route.shape[-1])
         route_complete = destination_distance <= self._arrival_threshold_miles
-        off_route = (
-            projection.distance_from_route_miles > self._off_route_threshold_miles
-        ) and not route_complete
+        self._off_route = self._update_off_route_state(
+            projection.distance_from_route_miles,
+            route_complete=route_complete,
+        )
 
         maneuver_index = self._maneuver_index_for_progress(progress)
         maneuver = (
@@ -85,9 +98,21 @@ class RouteGuidanceController:
             current_maneuver_index=maneuver_index,
             current_maneuver=maneuver,
             distance_to_maneuver_miles=distance_to_maneuver,
-            off_route=off_route,
+            off_route=self._off_route,
             route_complete=route_complete,
         )
+
+    def _update_off_route_state(
+        self,
+        distance_from_route_miles: float,
+        *,
+        route_complete: bool,
+    ) -> bool:
+        if route_complete:
+            return False
+        if self._off_route:
+            return distance_from_route_miles > self._on_route_threshold_miles
+        return distance_from_route_miles > self._off_route_threshold_miles
 
     def _maneuver_index_for_progress(self, progress: float) -> int | None:
         """Return the maneuver whose shape interval contains progress.
