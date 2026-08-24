@@ -213,6 +213,18 @@ API key with:
 scripts/setup_youtube_credentials.py
 ```
 
+To make the Pi a local Spotify Connect playback device whose PCM is visible to
+the visualizer and music lighting, install librespot with:
+
+```bash
+scripts/installers/install_librespot.sh
+```
+
+Run the installer as the desktop user, not through `sudo`; it uses `sudo` only
+for Debian packages. Select **CarUI** in Spotify and use **System Audio** in the
+visualizer. The existing `install_spotify.sh` remains responsible for Spotify
+Web API credentials used by the controller panel.
+
 See [`controllers/song_recognition/README.md`](../../controllers/song_recognition/README.md)
 for provider setup, cache behavior, and diagnostics. See
 [`controllers/music_lighting/README.md`](../../controllers/music_lighting/README.md)
