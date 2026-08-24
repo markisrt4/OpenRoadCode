@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Optional
 
 from apps.launchers.adsb_launcher import ADSBLauncher
 from apps.launchers.app_launcher_if import AppLauncherIf
+from apps.launchers.app_runtime_manager import AppRuntimeManager
 from apps.launchers.weather_dash_launcher import WeatherDashLauncher
 from controllers.radio.radio_controller_if import RadioControllerIf
 from controllers.weather import OpenMeteoWeatherController
@@ -49,15 +50,24 @@ class CarUiRuntime:
     weather_dash_launcher: Optional[WeatherDashLauncher]
     weather_controller: Optional[OpenMeteoWeatherController]
     sdr_resource_manager: object
+    app_runtime_manager: AppRuntimeManager | None = None
     input_config: InputConfig | None = None
     image_cache: ImageCacheConfig = ImageCacheConfig()
     position_cache: PositionCacheConfig = PositionCacheConfig()
     audio: AudioConfig = AudioConfig()
     media_display: str | None = None
 
+    def start_background_apps(self) -> None:
+        """Start configured preload and persistent applications asynchronously."""
+        if self.app_runtime_manager is not None:
+            self.app_runtime_manager.start_background_apps()
+
     def close(self) -> None:
         """Stop launchers and radio controllers owned by this runtime."""
-        if self.weather_dash_launcher is not None:
+        if self.app_runtime_manager is not None:
+            self.app_runtime_manager.stop_all()
+        elif self.weather_dash_launcher is not None:
+            # Compatibility for runtimes assembled without applications.toml.
             try:
                 self.weather_dash_launcher.stop(self.auxiliary_display)
             except Exception:
