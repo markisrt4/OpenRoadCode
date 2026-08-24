@@ -235,6 +235,14 @@ if (( RUN_VNC )) || (( RUN_GPSD_SERVICE )) || (( RUN_TELEMETRY_SERVICES )); then
   bash "$PROJECT_DIR/scripts/installers/install_services.sh" "${service_args[@]}"
 fi
 
+if (( ! SKIP_INSTALLS )); then
+  echo
+  echo "[*] Verifying installed dependencies..."
+  VERIFY_PYTHON="python3"
+  [[ -x "$VENV_DIR/bin/python" ]] && VERIFY_PYTHON="$VENV_DIR/bin/python"
+  "$VERIFY_PYTHON" "$SCRIPT_DIR/verify_installation.py" "${FEATURES[@]}"
+fi
+
 echo
 echo "[+] $TARGET setup complete."
 echo "    Project dir: $PROJECT_DIR"
