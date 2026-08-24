@@ -47,8 +47,8 @@ choose_features() {
 while true; do
   section=$(whiptail --title "OpenRoadCode installer" --menu \
     "Choose a section to configure, then select Install:" 21 76 10 \
-    "general" "General features" \
-    "streaming" "Streaming" \
+    "general" "General features and user interfaces" \
+    "streaming" "Streaming and audio" \
     "navigation" "Navigation" \
     "environmental" "Environmental sensors" \
     "radio" "Radio" \
@@ -58,15 +58,31 @@ while true; do
     "install" "Install the selected features" \
     "cancel" "Exit without installing" 3>&1 1>&2 2>&3) || exit 0
   case "$section" in
-    general) choose_features "General features" "Select general features:" "$SELECTED_GENERAL" \
-      "base|Portable command-line runtime" "desktop-ui|Tk, X11, Openbox, and XFCE support" "browser|Chromium browser support" "vnc|TigerVNC server support" "input|Linux input/evdev support" && SELECTED_GENERAL="$SELECTED_RESULT" ;;
-    streaming) choose_features "Streaming" "Select streaming features:" "$SELECTED_STREAMING" "streamlit|Streamlit dashboard support" "spotify|Spotify integration" && SELECTED_STREAMING="$SELECTED_RESULT" ;;
-    navigation) choose_features "Navigation" "Select GPS support and navigation hardware:" "$SELECTED_NAVIGATION" "gps|GPS daemon and Python support" "imu|Generic inertial-sensor tooling" && SELECTED_NAVIGATION="$SELECTED_RESULT" ;;
-    environmental) choose_features "Environmental" "Select environmental capabilities:" "$SELECTED_ENVIRONMENTAL" "environmental|Generic environmental-sensor tooling" && SELECTED_ENVIRONMENTAL="$SELECTED_RESULT" ;;
-    radio) choose_features "Radio" "Select radio features:" "$SELECTED_RADIO" "rtl-sdr|RTL-SDR and SoapySDR support" "adsb|ADS-B/readsb support" "sdrpp|SDR++ support" && SELECTED_RADIO="$SELECTED_RESULT" ;;
-    automotive) choose_features "Automotive" "Select automotive devices:" "$SELECTED_AUTOMOTIVE" "automotive|Generic serial and CAN-bus support" && SELECTED_AUTOMOTIVE="$SELECTED_RESULT" ;;
-    bluetooth) choose_features "Bluetooth" "Select Bluetooth features:" "$SELECTED_BLUETOOTH" "bluetooth|Bluetooth device support" && SELECTED_BLUETOOTH="$SELECTED_RESULT" ;;
-    all) INSTALL_ALL_FEATURES=1; SELECTED_GENERAL="vnc"; SELECTED_NAVIGATION="gps"; SELECTED_BLUETOOTH="bluetooth"; break ;;
+    general) choose_features "General features" "Select general features and user interfaces:" "$SELECTED_GENERAL" \
+      "base|Portable command-line runtime and ZeroMQ messaging" \
+      "desktop-ui|Tk, X11, Openbox, and XFCE support" \
+      "web-ui|Flask-based OpenRoadCode web UI" \
+      "browser|Chromium browser support" \
+      "vnc|TigerVNC server support" \
+      "input|Linux input/evdev support" && SELECTED_GENERAL="$SELECTED_RESULT" ;;
+    streaming) choose_features "Streaming and audio" "Select media features:" "$SELECTED_STREAMING" \
+      "audio|PipeWire/PulseAudio command-line audio control" \
+      "streamlit|Streamlit dashboard support" \
+      "spotify|Spotify integration" && SELECTED_STREAMING="$SELECTED_RESULT" ;;
+    navigation) choose_features "Navigation" "Select GPS support and navigation hardware:" "$SELECTED_NAVIGATION" \
+      "gps|GPS daemon and Python support" \
+      "imu|MPU-6050 inertial sensor support" && SELECTED_NAVIGATION="$SELECTED_RESULT" ;;
+    environmental) choose_features "Environmental" "Select environmental capabilities:" "$SELECTED_ENVIRONMENTAL" \
+      "environmental|BMP388/BMP390 pressure and temperature support" && SELECTED_ENVIRONMENTAL="$SELECTED_RESULT" ;;
+    radio) choose_features "Radio" "Select radio features:" "$SELECTED_RADIO" \
+      "rtl-sdr|RTL-SDR and SoapySDR support" \
+      "adsb|ADS-B/readsb support" \
+      "sdrpp|SDR++ support" && SELECTED_RADIO="$SELECTED_RESULT" ;;
+    automotive) choose_features "Automotive" "Select automotive devices:" "$SELECTED_AUTOMOTIVE" \
+      "automotive|Generic serial and CAN-bus support" && SELECTED_AUTOMOTIVE="$SELECTED_RESULT" ;;
+    bluetooth) choose_features "Bluetooth" "Select Bluetooth features:" "$SELECTED_BLUETOOTH" \
+      "bluetooth|Bluetooth device support" && SELECTED_BLUETOOTH="$SELECTED_RESULT" ;;
+    all) INSTALL_ALL_FEATURES=1; break ;;
     install) break ;;
     cancel) exit 0 ;;
   esac
@@ -76,14 +92,16 @@ ARGS=(--target "$SELECTED_TARGET" --no-default-features)
 if (( INSTALL_ALL_FEATURES )); then
   ARGS+=(--all-features)
 else
-  for feature in ${SELECTED_GENERAL} ${SELECTED_STREAMING} ${SELECTED_NAVIGATION} ${SELECTED_ENVIRONMENTAL} ${SELECTED_RADIO} ${SELECTED_AUTOMOTIVE} ${SELECTED_BLUETOOTH}; do ARGS+=(--feature "$feature"); done
+  for feature in ${SELECTED_GENERAL} ${SELECTED_STREAMING} ${SELECTED_NAVIGATION} ${SELECTED_ENVIRONMENTAL} ${SELECTED_RADIO} ${SELECTED_AUTOMOTIVE} ${SELECTED_BLUETOOTH}; do
+    ARGS+=(--feature "$feature")
+  done
   [[ " $SELECTED_GENERAL " == *" base "* ]] || ARGS+=(--feature base)
 fi
 
-if [[ " $SELECTED_GENERAL " == *" vnc "* ]]; then
+if [[ " $SELECTED_GENERAL " == *" vnc "* ]] || (( INSTALL_ALL_FEATURES )); then
   whiptail --title "VNC service" --yesno "Configure and enable the VNC service after installing it?" 10 68 && ARGS+=(--with-vnc)
 fi
-if [[ " $SELECTED_NAVIGATION " == *" gps "* ]]; then
+if [[ " $SELECTED_NAVIGATION " == *" gps "* ]] || (( INSTALL_ALL_FEATURES )); then
   whiptail --title "GPSD service" --yesno "Configure the default GPSD service after installing GPS support?" 10 72 && ARGS+=(--with-gpsd-service)
 fi
 
@@ -94,7 +112,7 @@ fi
 
 bash "$PROJECT_DIR/scripts/installers/host_setup.sh" "${ARGS[@]}"
 
-if [[ " $SELECTED_BLUETOOTH " == *" bluetooth "* ]]; then
+if [[ " $SELECTED_BLUETOOTH " == *" bluetooth "* ]] || (( INSTALL_ALL_FEATURES )); then
   if whiptail --title "Post-install configuration" --yesno "Configure a Bluetooth Serial Port Profile device now?" 10 72; then
     bash "$PROJECT_DIR/scripts/installers/setup_bluetooth_spp.sh"
   fi
