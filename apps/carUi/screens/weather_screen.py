@@ -12,7 +12,7 @@ from apps.carUi.screens.car_ui_screen_services import (
     MenuTileFactory,
     RadioScreenBindingFactoryIf,
 )
-from apps.launchers.app_launcher_if import BrowserDashboardLauncherIf
+from apps.launchers.app_runtime_manager import AppRuntimeManager
 from frontends.tk.weather import WeatherMenuPanel
 from frontends.tk.media.browser_return_overlay import BrowserReturnOverlay
 from frontends.tk.radio import RadioPanel
@@ -20,23 +20,24 @@ from frontends.tk.radio.radio_panel_config import (
     RadioPanelConfig,
     RadioPanelTileConfig,
 )
-from apps.carUi.radio.radio_session_controller import (
-    RadioSessionController,
-)
+from apps.carUi.radio.radio_session_controller import RadioSessionController
 from apps.common.uiTheme import WEATHER_PANEL_THEME
 from ui.screen_ui_if import ScreenId
 from frontends.tk.tk_screen_host_if import TkScreenHostIf
 
 
+WEATHER_APP_KEY = "weather"
+
+
 class WeatherScreen(CarUiScreen):
-    """Coordinate the weather dashboard and NOAA radio panel."""
+    """Coordinate the weather application and NOAA radio panel."""
 
     def __init__(
         self,
         host: TkScreenHostIf,
         *,
         weather_radio_runtime: Callable[[], RadioRuntime],
-        dashboard_launcher: BrowserDashboardLauncherIf | None,
+        app_runtime_manager: AppRuntimeManager | None,
         remote_display: str,
         auxiliary_display: str,
         on_frequency_changed: Callable[[int], None],
@@ -46,7 +47,7 @@ class WeatherScreen(CarUiScreen):
     ) -> None:
         super().__init__(host, ScreenId("weather"), create_menu_tile)
         self._weather_radio_runtime = weather_radio_runtime
-        self._dashboard_launcher = dashboard_launcher
+        self._app_runtime_manager = app_runtime_manager
         self._remote_display = remote_display
         self._auxiliary_display = auxiliary_display
         self._on_frequency_changed = on_frequency_changed
@@ -78,20 +79,16 @@ class WeatherScreen(CarUiScreen):
             theme=WEATHER_PANEL_THEME,
         )
         weather_view.pack(fill="both", expand=True)
-
         self.set_status("Weather menu ready")
 
     def toggle_weather_dashboard(self) -> None:
-        launcher = self._dashboard_launcher
-        if launcher is None:
+        manager = self._app_runtime_manager
+        if manager is None:
             self.set_status("Weather dashboard is disabled")
             return
 
         try:
-            launcher.launch(
-                remote_display=self._auxiliary_display,
-                set_status=self.set_status,
-            )
+            manager.launch(WEATHER_APP_KEY, self.set_status)
             self.set_status("Weather dashboard launched")
             self._return_overlay.show(
                 x=12,
@@ -99,19 +96,14 @@ class WeatherScreen(CarUiScreen):
                 display=self._auxiliary_display,
             )
         except Exception as exc:
-            self.set_status(
-                f"Weather dashboard toggle failed: {exc}"
-            )
+            self.set_status(f"Weather dashboard toggle failed: {exc}")
             print(f"[UI] Weather dashboard toggle error: {exc}")
 
     def _return_from_dashboard(self) -> None:
-        launcher = self._dashboard_launcher
         self._return_overlay.hide()
-        if launcher is not None:
-            launcher.close_browser(
-                self._auxiliary_display,
-                self.set_status,
-            )
+        manager = self._app_runtime_manager
+        if manager is not None:
+            manager.close(WEATHER_APP_KEY, self.set_status)
         self._home_action()
 
     def show_noaa_weather_radio(self) -> None:
@@ -152,5 +144,4 @@ class WeatherScreen(CarUiScreen):
         self.noaa_panel.pack(fill="both", expand=True)
         self.noaa_panel.start()
         self.noaa_session.report_ready()
-
         self.set_title("NOAA Weather Radio")
