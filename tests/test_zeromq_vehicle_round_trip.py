@@ -35,11 +35,11 @@ def test_vehicle_state_round_trip_over_zeromq() -> None:
 
     state = VehicleState(
         timestamp=datetime(2026, 8, 21, 12, 34, 56, 123456, tzinfo=timezone.utc),
-        rpm=3000.0,
-        speed_mph=60.0,
-        throttle_pct=25.0,
-        boost_psi=5.0,
-        coolant_temp_f=194.0,
+        engine_speed_rad_s=314.1592653589793,
+        vehicle_speed_m_s=26.8224,
+        throttle_position=0.25,
+        boost_pressure_pa=34_473.78646584,
+        coolant_temperature_k=363.15,
     )
     vehicle_publisher = VehicleStatePublisher(publisher, source="simulator")
 
