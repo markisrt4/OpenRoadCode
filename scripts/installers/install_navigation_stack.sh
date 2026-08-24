@@ -29,35 +29,35 @@ SHOW_PLAN=0
 SKIP_HOST_PACKAGES=0
 SKIP_MAPLIBRE=0
 SKIP_VALHALLA=0
-SKIP_DATA=0
 SKIP_SERVICES=0
 SKIP_SMOKE=0
-REGIONS=""
 TARGET="rpi5"
 
 usage() {
   cat <<EOF
 Usage: $0 [options]
 
-Build and install the OpenRoadCode navigation stack.
+Build and install the OpenRoadCode navigation software stack.
 
 Software is installed beneath:
   $INSTALL_ROOT
 
-Mutable/generated navigation data is installed beneath:
+Map and routing data are managed separately beneath:
   $DATA_ROOT
 
 Options:
   --target TARGET         host_setup target (rpi4, rpi5, linux-dev; default: rpi5)
-  --regions IDS           comma-separated Geofabrik region IDs to build/deploy
   --show-plan             print the resolved plan without changing the system
   --skip-host-packages    do not invoke host package setup
   --skip-maplibre         skip MapLibre Native and renderer build/install
   --skip-valhalla         skip Valhalla build/install
-  --skip-data             skip map/routing data build/deploy
   --skip-services         skip systemd service installation
-  --skip-smoke            skip final smoke checks
+  --skip-smoke            skip final software smoke checks
   -h, --help              show this help
+
+Map/routing data are intentionally NOT built here. Use tools/map_builder on the
+map-build machine, then pull validated data onto the vehicle with:
+  scripts/runtime/pull_navigation_data.sh
 
 Environment overrides include CONTAINER_ENGINE, HOST_SRC, INSTALL_ROOT,
 DATA_ROOT, BUILD_ROOT, MAPLIBRE_REF, VALHALLA_REF, PRIME_SERVER_REF, and
@@ -69,13 +69,10 @@ while (( $# > 0 )); do
   case "$1" in
     --target)
       shift; TARGET="${1:?--target requires a value}" ;;
-    --regions)
-      shift; REGIONS="${1:?--regions requires a value}" ;;
     --show-plan) SHOW_PLAN=1 ;;
     --skip-host-packages) SKIP_HOST_PACKAGES=1 ;;
     --skip-maplibre) SKIP_MAPLIBRE=1 ;;
     --skip-valhalla) SKIP_VALHALLA=1 ;;
-    --skip-data) SKIP_DATA=1 ;;
     --skip-services) SKIP_SERVICES=1 ;;
     --skip-smoke) SKIP_SMOKE=1 ;;
     -h|--help) usage; exit 0 ;;
@@ -89,23 +86,18 @@ case "$TARGET" in
   *) echo "Unsupported target: $TARGET" >&2; exit 2 ;;
 esac
 
-if (( ! SKIP_DATA )) && [[ -z "$REGIONS" ]]; then
-  echo "--regions is required unless --skip-data is supplied." >&2
-  exit 2
-fi
-
 cat <<EOF
-OpenRoadCode navigation stack plan
+OpenRoadCode navigation software plan
   target:             $TARGET
   container engine:   $CONTAINER_ENGINE
   host source root:   $HOST_SRC
   software install:   $INSTALL_ROOT
-  runtime data:       $DATA_ROOT
+  runtime data root:  $DATA_ROOT
   staging/build root: $BUILD_ROOT
   MapLibre ref:       $MAPLIBRE_REF
   Valhalla ref:       ${VALHALLA_REF:-UNPINNED}
   prime_server ref:   ${PRIME_SERVER_REF:-UNPINNED}
-  regions:            ${REGIONS:-<skipped>}
+  map-data build:     external / not performed here
 EOF
 
 if [[ -z "$PRIME_SERVER_REF" ]] && (( ! SKIP_VALHALLA )); then
@@ -209,27 +201,7 @@ if (( ! SKIP_VALHALLA )); then
 
   sudo install -d "$INSTALL_ROOT"
   sudo rsync -a --delete "$valhalla_stage/" "$INSTALL_ROOT/valhalla/"
-fi
 
-if (( ! SKIP_DATA )); then
-  echo "[*] Building map and routing data for: $REGIONS"
-  bash "$PROJECT_ROOT/tools/map_builder/scripts/build-image.sh"
-  bash "$PROJECT_ROOT/tools/map_builder/scripts/run-builder.sh" \
-    build --regions "$REGIONS"
-
-  echo "[*] Deploying validated navigation data to $DATA_ROOT"
-  if [[ "$DATA_ROOT" == "/srv/openroadcode" ]]; then
-    bash "$PROJECT_ROOT/tools/map_builder/scripts/deploy-to-srv.sh"
-  else
-    sudo mkdir -p "$DATA_ROOT/maps/routes"
-    sudo rsync -a --delete-delay \
-      --exclude=maps/routes/ \
-      "$PROJECT_ROOT/tools/map_builder/build-output/" \
-      "$DATA_ROOT/"
-  fi
-fi
-
-if (( ! SKIP_VALHALLA )); then
   sudo install -d /etc/ld.so.conf.d
   printf '%s\n' "$INSTALL_ROOT/valhalla/lib" \
     | sudo tee /etc/ld.so.conf.d/openroadcode-navigation.conf >/dev/null
@@ -239,31 +211,29 @@ fi
 if (( ! SKIP_SERVICES )) && (( ! SKIP_VALHALLA )); then
   valhalla_config="$DATA_ROOT/valhalla/valhalla.json"
   echo "[*] Installing Valhalla systemd service"
-  sudo env \
-    PATH="$INSTALL_ROOT/valhalla/bin:$PATH" \
-    bash "$PROJECT_ROOT/scripts/systemd/install_valhalla_systemd.sh" \
-      "$valhalla_config" 1
+  if [[ ! -f "$valhalla_config" ]]; then
+    echo "[!] Map/routing data are not installed yet: $valhalla_config" >&2
+    echo "[!] Installing the service is deferred until pull_navigation_data.sh provides data." >&2
+  else
+    sudo env \
+      PATH="$INSTALL_ROOT/valhalla/bin:$PATH" \
+      bash "$PROJECT_ROOT/scripts/systemd/install_valhalla_systemd.sh" \
+        "$valhalla_config" 1
+  fi
 fi
 
 if (( ! SKIP_SMOKE )); then
-  echo "[*] Running smoke checks"
+  echo "[*] Running software smoke checks"
   if (( ! SKIP_MAPLIBRE )); then
-    "$INSTALL_ROOT/bin/openroadcode-map-renderer" --help >/dev/null 2>&1 || true
     test -x "$INSTALL_ROOT/bin/openroadcode-map-renderer"
   fi
   if (( ! SKIP_VALHALLA )); then
     test -x "$INSTALL_ROOT/valhalla/bin/valhalla_service"
-    if command -v curl >/dev/null 2>&1 && systemctl is-active --quiet valhalla.service; then
-      curl --fail --silent --show-error http://127.0.0.1:8002/status >/dev/null
-    fi
-  fi
-  if (( ! SKIP_DATA )); then
-    test -f "$DATA_ROOT/build-manifest.json"
-    test -f "$DATA_ROOT/valhalla/valhalla.json"
   fi
 fi
 
 echo
-echo "[+] Navigation stack installation complete"
+echo "[+] Navigation software installation complete"
 echo "    software: $INSTALL_ROOT"
-echo "    data:     $DATA_ROOT"
+echo "    data:     $DATA_ROOT (managed separately)"
+echo "    updater:  $PROJECT_ROOT/scripts/runtime/pull_navigation_data.sh"
