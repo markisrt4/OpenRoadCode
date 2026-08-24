@@ -25,6 +25,12 @@ if [[ ! -d "$VALHALLA_SRC/.git" ]]; then
     exit 1
 fi
 
+# These repositories are bind-mounted from the host and therefore commonly
+# have host UID/GID ownership that differs from the container user. Git 2.35+
+# rejects such repositories unless explicitly marked safe.
+git config --global --add safe.directory "$PRIME_SERVER_SRC"
+git config --global --add safe.directory "$VALHALLA_SRC"
+
 mkdir -p "$INSTALL_PREFIX"
 
 if [[ "$CLEAN_BUILD" == "1" ]]; then
