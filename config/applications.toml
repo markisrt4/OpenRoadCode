@@ -42,6 +42,14 @@ url = "https://www.youtube.com"
 profile = "youtube"
 startup = "lazy"
 
+[apps.google_earth]
+type = "browser"
+enabled = true
+url = "https://earth.google.com/web"
+profile = "google-earth"
+startup = "lazy"
+exclusive_group = "auxiliary"
+
 [apps.sdrpp]
 type = "native"
 enabled = true
