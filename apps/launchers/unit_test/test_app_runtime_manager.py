@@ -73,6 +73,46 @@ class AppRuntimeManagerTest(unittest.TestCase):
         manager.launch("weather")
         self.assertEqual(1, launcher.launches)
 
+    def test_launch_closes_running_peer_in_same_exclusive_group(self) -> None:
+        config = ApplicationsConfig(
+            browser=BrowserConfig(),
+            apps=(
+                ApplicationConfig(key="weather", type=ApplicationType.BROWSER, url="http://weather", profile="weather", exclusive_group="auxiliary"),
+                ApplicationConfig(key="web_ui", type=ApplicationType.BROWSER, url="http://web-ui", profile="web-ui", exclusive_group="auxiliary"),
+            ),
+        )
+        weather = FakeLauncher()
+        web_ui = FakeLauncher()
+        manager = AppRuntimeManager(config, remote_display=":2")
+        manager.register("weather", weather)
+        manager.register("web_ui", web_ui)
+        weather.running = True
+
+        manager.launch("web_ui")
+
+        self.assertEqual(1, weather.stops)
+        self.assertEqual(1, web_ui.launches)
+
+    def test_launch_does_not_close_app_in_different_exclusive_group(self) -> None:
+        config = ApplicationsConfig(
+            browser=BrowserConfig(),
+            apps=(
+                ApplicationConfig(key="weather", type=ApplicationType.BROWSER, url="http://weather", profile="weather", exclusive_group="auxiliary"),
+                ApplicationConfig(key="web_ui", type=ApplicationType.BROWSER, url="http://web-ui", profile="web-ui", exclusive_group="primary"),
+            ),
+        )
+        weather = FakeLauncher()
+        web_ui = FakeLauncher()
+        manager = AppRuntimeManager(config, remote_display=":2")
+        manager.register("weather", weather)
+        manager.register("web_ui", web_ui)
+        weather.running = True
+
+        manager.launch("web_ui")
+
+        self.assertEqual(0, weather.stops)
+        self.assertEqual(1, web_ui.launches)
+
     def test_stop_all_stops_preloaded_app(self) -> None:
         launcher = FakeLauncher()
         manager = AppRuntimeManager(self._config(StartupPolicy.PRELOAD), remote_display=":2")
