@@ -1,74 +1,90 @@
 # Navigation Service
 
-The navigation service is the single owner of the active navigation controller. It publishes navigation telemetry and accepts acknowledged navigation commands without requiring applications to know which IMU or GPS hardware is installed.
+The navigation service is the single owner of the active navigation pipeline. It publishes navigation telemetry and accepts acknowledged navigation commands without requiring applications to know which IMU or GPS hardware is installed.
 
 ## Runtime ownership
 
 ```text
-IMU / GPS / simulator
-        |
-NavigationControllerIf
-        |
-        +--> NavigationStatePublisher --> ZeroMQ telemetry bus
-        |
-        +--> NavigationCommandService <-- ZeroMQ REQ/REP client
+configured IMU + GPS sources
+          |
+NavigationController
+          |
+          +--> NavigationStatePublisher --> ZeroMQ telemetry bus
+          |
+          +--> NavigationCommandService <-- ZeroMQ REQ/REP client
 ```
 
 Applications should subscribe to public navigation topics for state and use `NavigationRequestHandlerIf` for commands. They should not construct navigation hardware merely to display telemetry or request calibration.
 
+## Configuration
+
+Navigation composition is selected entirely through runtime TOML. There is no separate simulation code path in the service CLI.
+
+Physical example:
+
+```toml
+[services.navigation]
+enabled = true
+rate_hz = 10.0
+command_endpoint = "tcp://127.0.0.1:5560"
+
+[services.navigation.inputs.imu]
+source = "device"
+device = "mpu6050"
+address = 0x68
+
+[services.navigation.inputs.gps]
+source = "device"
+device = "gpsd"
+host = "127.0.0.1"
+port = "2947"
+```
+
+Simulation example:
+
+```toml
+[services.navigation.inputs.imu]
+source = "simulation"
+
+[services.navigation.inputs.imu.simulation]
+profile = "driving"
+
+[services.navigation.inputs.gps]
+source = "simulation"
+
+[services.navigation.inputs.gps.simulation]
+profile = "driving"
+latitude_deg = 42.8028
+longitude_deg = -83.0127
+speed_mps = 13.4
+course_deg = 180.0
+```
+
+Both configurations run the same `NavigationController` and publication path. Only the concrete input sources change.
+
 ## Start locally
 
-Start the message broker first:
+Start the ZeroMQ broker first:
 
 ```bash
 python3 -m messaging.zeromq.broker_cli
 ```
 
-Then start the navigation service with simulated hardware:
+Then start the navigation service with the desired runtime file:
 
 ```bash
-python3 -m services.navigation.navigation_service_cli --simulate
+python3 -m services.navigation.navigation_service_cli \
+  --config config/runtime.toml
 ```
 
-For physical MPU-6050 navigation:
+For a simulation runtime:
 
 ```bash
-python3 -m services.navigation.navigation_service_cli
+python3 -m services.navigation.navigation_service_cli \
+  --config config/runtime_simulation.toml
 ```
 
-Enable GPS owned by the same service with:
-
-```bash
-python3 -m services.navigation.navigation_service_cli --gps
-```
-
-The default telemetry publisher endpoint is supplied by `messaging.zeromq.endpoints`. The navigation command endpoint defaults to `tcp://127.0.0.1:5560`.
-
-## System startup
-
-A runtime wrapper and systemd installer are provided for Linux deployments:
-
-```bash
-sudo scripts/systemd/install_navigation_service_systemd.sh
-```
-
-The installer creates and enables `openroadcode-navigation.service` under the user account that invoked `sudo`. Inspect it with:
-
-```bash
-sudo systemctl status openroadcode-navigation.service
-journalctl -u openroadcode-navigation.service -f
-```
-
-The wrapper `scripts/runtime/start_navigation_service.sh` accepts normal CLI arguments and also recognizes these optional environment variables:
-
-- `OPENROADCODE_PYTHON` - Python executable, default `python3`
-- `OPENROADCODE_NAV_SIMULATE=1` - use the simulated navigation controller
-- `OPENROADCODE_NAV_GPS=1` - enable GPS input
-- `OPENROADCODE_NAV_RATE_HZ` - telemetry publication rate
-- `OPENROADCODE_NAV_COMMAND_ENDPOINT` - command REQ/REP endpoint
-- `OPENROADCODE_NAV_PUBLISHER_ENDPOINT` - telemetry publisher endpoint
-
-The message broker must also be running for telemetry publication. The command server can still bind independently, but normal OpenRoadCode deployment should start the broker before telemetry-producing services.
+The telemetry publisher endpoint comes from `[messaging].publisher_endpoint`. The navigation command endpoint defaults to `tcp://127.0.0.1:5560` unless overridden in the runtime TOML.
 
 ## Public telemetry
 
@@ -119,7 +135,7 @@ finally:
     handler.close()
 ```
 
-The service executes both operations against the same `NavigationControllerIf` instance used for telemetry publication. This prevents UI processes from creating competing hardware/controller instances.
+The service executes both operations against the same navigation controller instance used for telemetry publication. This prevents UI processes from creating competing hardware/controller instances.
 
 ## Shared consumer state
 
@@ -133,4 +149,4 @@ Register its setters with `MessageDispatcher`, then read `snapshot()` from the U
 
 ## Testing
 
-Navigation service unit tests cover command semantics, REQ/REP transport, and shared controller ownership. Messaging integration tests cover navigation telemetry through the broker.
+Navigation service unit tests cover command semantics, REQ/REP transport, shared controller ownership, runtime composition, and configuration parsing. Messaging integration tests cover navigation telemetry through the broker.
