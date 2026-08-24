@@ -94,4 +94,7 @@ class ZeroMqNavigationCommandServer:
                 "message": f"{type(error).__name__}: {error}",
             }
 
-        return {"ok": result.ok, "message": result.message}
+        response: dict[str, Any] = {"ok": result.ok, "message": result.message}
+        if result.data is not None:
+            response["data"] = dict(result.data)
+        return response
