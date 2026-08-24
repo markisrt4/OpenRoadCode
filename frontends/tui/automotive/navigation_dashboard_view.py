@@ -9,6 +9,13 @@ import curses
 import math
 from typing import Protocol
 
+from common.units import (
+    UnitSystem,
+    meters_per_second_squared_to_feet_per_second_squared,
+    meters_per_second_to_miles_per_hour,
+    meters_to_feet,
+    radians_per_second_to_degrees_per_second,
+)
 from frontends.tui.curses_helpers import addstr, format_value
 
 
@@ -36,12 +43,12 @@ class PositionSnapshot(Protocol):
 
 class NavigationSnapshot(Protocol):
     timestamp: object
-    heading_deg: float
-    pitch_deg: float
-    roll_deg: float
-    acceleration_mps2: VectorSnapshot
-    linear_acceleration_mps2: VectorSnapshot
-    angular_velocity_rad_s: VectorSnapshot
+    heading_deg: float | None
+    pitch_deg: float | None
+    roll_deg: float | None
+    acceleration_mps2: VectorSnapshot | None
+    linear_acceleration_mps2: VectorSnapshot | None
+    angular_velocity_rad_s: VectorSnapshot | None
     gps: PositionSnapshot | None
 
 
@@ -49,8 +56,9 @@ def navigation_fields(
     state: NavigationSnapshot | None,
     gps_enabled: bool,
     acceleration_mode: str = "both",
+    unit_system: UnitSystem = UnitSystem.IMPERIAL,
 ) -> tuple[tuple[str, str], ...]:
-    """Return formatted labels and values for a navigation snapshot."""
+    """Return formatted labels and values in the requested presentation units."""
     if acceleration_mode not in ACCELERATION_MODES:
         raise ValueError(f"invalid acceleration mode: {acceleration_mode}")
     fields: list[tuple[str, str]] = []
@@ -66,25 +74,42 @@ def navigation_fields(
         fields.extend(_acceleration_fields(
             state.acceleration_mps2 if state is not None else None,
             "Raw accel",
+            unit_system,
         ))
     if acceleration_mode in ("linear", "both"):
         fields.extend(_acceleration_fields(
             state.linear_acceleration_mps2 if state is not None else None,
             "Linear accel",
+            unit_system,
         ))
     angular = state.angular_velocity_rad_s if state is not None else None
     for axis in ("X", "Y", "Z"):
         value = getattr(angular, axis.lower()) if angular is not None else None
-        fields.append((f"Angular velocity {axis}", format_value(value, "rad/s", 4)))
+        if unit_system == UnitSystem.IMPERIAL:
+            value = radians_per_second_to_degrees_per_second(value)
+            angular_unit = "°/s"
+        else:
+            angular_unit = "rad/s"
+        fields.append((f"Angular velocity {axis}", format_value(value, angular_unit, 4)))
     if not gps_enabled:
         return tuple(fields)
     gps = state.gps if state is not None else None
+    altitude = gps.altitude_m if gps else None
+    speed = gps.speed_mps if gps else None
+    if unit_system == UnitSystem.IMPERIAL:
+        altitude = meters_to_feet(altitude)
+        altitude_unit = "ft"
+        speed = meters_per_second_to_miles_per_hour(speed)
+        speed_unit = "mph"
+    else:
+        altitude_unit = "m"
+        speed_unit = "m/s"
     fields.extend((
         ("GPS fix", f"{gps.fix_mode}D" if gps is not None and gps.has_fix else "Waiting"),
         ("Latitude", format_value(gps.latitude_deg if gps else None, "°", 6)),
         ("Longitude", format_value(gps.longitude_deg if gps else None, "°", 6)),
-        ("Altitude", format_value(gps.altitude_m if gps else None, "m", 1)),
-        ("Ground speed", format_value(gps.speed_mps if gps else None, "m/s", 2)),
+        ("Altitude", format_value(altitude, altitude_unit, 1)),
+        ("Ground speed", format_value(speed, speed_unit, 2)),
         ("Course over ground", format_value(gps.course_deg if gps else None, "°", 1)),
         ("Satellites", str(gps.satellites_used) if gps and gps.satellites_used is not None else "--"),
     ))
@@ -94,20 +119,31 @@ def navigation_fields(
 def _acceleration_fields(
     acceleration: VectorSnapshot | None,
     label_prefix: str,
+    unit_system: UnitSystem,
 ) -> tuple[tuple[str, str], ...]:
     if acceleration is None:
         return tuple((f"{label_prefix} {axis}", "--") for axis in ("X", "Y", "Z", "total"))
-    total = math.sqrt(acceleration.x**2 + acceleration.y**2 + acceleration.z**2)
+    values = (acceleration.x, acceleration.y, acceleration.z)
+    total = math.sqrt(sum(value**2 for value in values))
+    if unit_system == UnitSystem.IMPERIAL:
+        values = tuple(meters_per_second_squared_to_feet_per_second_squared(value) for value in values)
+        total = meters_per_second_squared_to_feet_per_second_squared(total)
+        unit = "ft/s²"
+    else:
+        unit = "m/s²"
     return (
-        (f"{label_prefix} X", format_value(acceleration.x, "m/s²", 3)),
-        (f"{label_prefix} Y", format_value(acceleration.y, "m/s²", 3)),
-        (f"{label_prefix} Z", format_value(acceleration.z, "m/s²", 3)),
-        (f"{label_prefix} total", format_value(total, "m/s²", 3)),
+        (f"{label_prefix} X", format_value(values[0], unit, 3)),
+        (f"{label_prefix} Y", format_value(values[1], unit, 3)),
+        (f"{label_prefix} Z", format_value(values[2], unit, 3)),
+        (f"{label_prefix} total", format_value(total, unit, 3)),
     )
 
 
 class NavigationDashboardView:
     """Render navigation snapshots into a curses window."""
+
+    def __init__(self, unit_system: UnitSystem = UnitSystem.IMPERIAL) -> None:
+        self._unit_system = unit_system
 
     def render(
         self,
@@ -122,17 +158,17 @@ class NavigationDashboardView:
         screen.erase()
         height, width = screen.getmaxyx()
         title_attr = curses.A_BOLD | (curses.color_pair(1) if curses.has_colors() else 0)
-        addstr(screen, 0, 2, "OpenRoadCode Navigation", title_attr)
+        addstr(screen, 0, 2, f"OpenRoadCode Navigation [{self._unit_system.value}]", title_attr)
         addstr(screen, 1, 0, "─" * max(0, width - 1))
         connection = "CONNECTED" if connected else "DISCONNECTED"
         connection_attr = curses.A_BOLD | (
             curses.color_pair(2 if connected else 3) if curses.has_colors() else 0
         )
         addstr(screen, 2, 2, connection, connection_attr)
-        if state is not None:
+        if state is not None and state.timestamp is not None:
             timestamp = getattr(state.timestamp, "strftime", lambda _fmt: "--:--:--")
             addstr(screen, 2, max(24, width - 24), f"Updated {timestamp('%H:%M:%S')}")
-        fields = navigation_fields(state, gps_enabled, acceleration_mode)
+        fields = navigation_fields(state, gps_enabled, acceleration_mode, self._unit_system)
         two_columns = width >= 84
         rows_per_column = (len(fields) + 1) // 2 if two_columns else len(fields)
         column_width = width // 2 if two_columns else width
@@ -145,6 +181,6 @@ class NavigationDashboardView:
         footer_row = min(height - 3, 5 + rows_per_column)
         addstr(screen, footer_row, 0, "─" * max(0, width - 1))
         addstr(screen, footer_row + 1, 2, status)
-        controls = controls or f"q: quit   h: reset   c: calibrate   a: acceleration ({acceleration_mode})"
+        controls = controls or f"q: quit   a: acceleration ({acceleration_mode})"
         addstr(screen, height - 1, max(2, width - len(controls) - 2), controls)
         screen.refresh()

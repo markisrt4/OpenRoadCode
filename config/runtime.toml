@@ -1,32 +1,103 @@
 # Shared OpenRoadCode runtime composition
 #
+# Hardware ownership and domain processing belong to producer services. Apps
+# consume their public telemetry rather than rebuilding navigation/vehicle state.
 # Radio domain configuration files are resolved relative to:
 #   PROJECT_ROOT/config/radio
-#
-# This file selects which runtime components are assembled. Individual radio
-# frequencies, modes, ranges, and presets remain in their existing JSON files.
 
 [runtime]
 remote_display = ":2"
-# Browser dashboards such as Weather and ADS-B default to the local desktop.
 auxiliary_display = ":0"
-# Optional browser-media display. Leave unset for target-aware defaults.
 # media_display = ":0"
 
+[messaging]
+# The broker binds the corresponding XSUB/XPUB endpoints. Producer services
+# publish to publisher_endpoint; CarUi/CarTui/WebUi subscribe downstream.
+publisher_endpoint = "tcp://127.0.0.1:5556"
+subscriber_endpoint = "tcp://127.0.0.1:5557"
+
+# -----------------------------------------------------------------------------
+# Navigation service pipeline
+#
+#   configured inputs -> navigation solution -> published navigation contracts
+#
+# Each input can independently come from a physical device or simulation. The
+# solution algorithm runs before publication, so every downstream application
+# sees the same converged navigation state.
+# -----------------------------------------------------------------------------
+[services.navigation]
+enabled = true
+rate_hz = 10.0
+command_endpoint = "tcp://127.0.0.1:5560"
+
+[services.navigation.inputs.imu]
+source = "device" # "device" or "simulation"
+device = "mpu6050"
+address = 0x68
+
+# Used when source = "simulation".
+[services.navigation.inputs.imu.simulation]
+profile = "driving"
+
+[services.navigation.inputs.gps]
+source = "device" # "device" or "simulation"
+device = "gpsd"
+host = "127.0.0.1"
+port = "2947"
+
+# Used when source = "simulation".
+[services.navigation.inputs.gps.simulation]
+profile = "driving"
+latitude_deg = 42.8028
+longitude_deg = -83.0127
+speed_mps = 13.4
+course_deg = 180.0
+
+[services.navigation.solution]
+algorithm = "complementary_filter"
+
+[services.navigation.solution.complementary_filter]
+time_constant_s = 0.5
+heading_reference = "relative"
+
+[services.navigation.publish]
+enabled = true
+source = "navigation-service"
+
+# -----------------------------------------------------------------------------
+# Automotive service pipeline
+#
+#   ELM327 -> OBD-II manager -> SI VehicleState -> published vehicle contract
+# -----------------------------------------------------------------------------
+[services.automotive]
+enabled = true
+rate_hz = 10.0
+
+[services.automotive.input]
+source = "device" # "device" or "simulation"
+device = "elm327"
+port = "/dev/rfcomm0"
+baud = 38400
+timeout_s = 1.0
+slow_poll_interval_s = 5.0
+
+[services.automotive.publish]
+enabled = true
+source = "obd2"
+
 [audio]
-# auto: linux-dev default, Pi 4 onboard analog, Pi 5 USB audio
 output = "auto"
 # device_match = "USB Audio"
 
 [image_cache]
-# Album artwork is persisted here and reused across app launches.
 directory = "~/.cache/openroadcode/images"
 max_entries = 24
 
 [position_cache]
+# This is a consumer-side last-known-position cache, not a GPS source. Live
+# position is produced by services.navigation and distributed on the bus.
 enabled = true
 directory = "~/.cache/openroadcode/position"
-# Cached coordinates are useful for initial display, weather, and map centering.
 max_age_seconds = 604800
 
 [rigctl]
@@ -44,7 +115,6 @@ volume_index = 0
 enabled = false
 # device_path = "/dev/input/event3"
 
-# Standalone GPIO buttons are optional and use physical header pin numbers.
 # [[input.push_buttons]]
 # pin = 11
 # action = "home"
@@ -146,5 +216,4 @@ close_existing_display_apps = true
 
 [auxiliary.weather_dashboard]
 enabled = true
-# Start Streamlit in the background after CarUi becomes ready.
 preload = true

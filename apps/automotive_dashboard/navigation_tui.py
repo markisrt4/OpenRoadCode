@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 
-"""Standalone terminal composition for live vehicle navigation state."""
+"""Standalone terminal client for public navigation telemetry and commands."""
 
 from __future__ import annotations
 
@@ -9,14 +9,28 @@ import argparse
 import curses
 import time
 
-from controllers.navigation import (
-    GpsdNavigationAdapter,
-    Mpu6050NavigationAdapter,
-    NavigationController,
-)
+from apps.automotive_dashboard.navigation_bus_state import NavigationBusState
 from frontends.tui.automotive import ACCELERATION_MODES, NavigationDashboardView
 from frontends.tui.automotive.navigation_dashboard_view import navigation_fields
-from hardware_io.imu import Mpu6050Imu
+from messaging.contracts.navigation import (
+    ATTITUDE_STATE_TOPIC,
+    IMU_STATE_TOPIC,
+    MOTION_STATE_TOPIC,
+    POSITION_STATE_TOPIC,
+    decode_attitude_state,
+    decode_imu_state,
+    decode_motion_state,
+    decode_position_state,
+)
+from messaging.message_dispatcher import MessageDispatcher
+from messaging.zeromq import ZeroMqSubscriber
+from messaging.zeromq.endpoints import LOCAL_SUBSCRIBER_ENDPOINT
+from services.navigation.zeromq_navigation_request_handler import (
+    ZeroMqNavigationRequestHandler,
+)
+from services.navigation.zeromq_navigation_command_server import (
+    DEFAULT_NAVIGATION_COMMAND_ENDPOINT,
+)
 
 
 _fields = navigation_fields
@@ -39,92 +53,65 @@ def _next_acceleration_mode(current: str) -> str:
 
 def _run(
     screen,
-    controller: NavigationController,
+    state_cache: NavigationBusState,
+    commands: ZeroMqNavigationRequestHandler,
     refresh_seconds: float,
     gps_enabled: bool,
     acceleration_mode: str,
-    calibration_samples: int,
-    calibration_interval_s: float,
     calibrate_on_start: bool,
 ) -> None:
     _configure_curses(screen)
     view = NavigationDashboardView()
-    state = None
-    connected = False
-    status = "Starting..."
     current_mode = acceleration_mode
+    command_status: str | None = None
+    calibration_requested = False
 
-    def render() -> None:
+    while True:
+        snapshot = state_cache.snapshot()
+        connected = snapshot.connected
+        status = command_status or snapshot.status
         controls = (
             "q: quit   h: reset heading   c: calibrate   "
             f"a: acceleration ({current_mode})"
         )
-        if not connected:
-            controls += "   r: reconnect"
         view.render(
-            screen, state, status, connected, gps_enabled, current_mode, controls
+            screen,
+            snapshot,
+            status,
+            connected,
+            gps_enabled,
+            current_mode,
+            controls,
         )
 
-    def calibrate() -> str:
-        nonlocal status
-        status = "Calibrating; keep the vehicle completely still..."
-        render()
-        try:
-            result = controller.calibrate_stationary(
-                sample_count=calibration_samples,
-                sample_interval_s=calibration_interval_s,
-            )
-        except Exception as exc:
-            return f"Calibration error: {exc}"
-        return f"Calibrated from {result.sample_count} stationary samples"
+        if calibrate_on_start and connected and not calibration_requested:
+            calibration_requested = True
+            try:
+                commands.request_stationary_calibration()
+                command_status = "Stationary calibration complete"
+            except Exception as exc:
+                command_status = f"Calibration error: {exc}"
 
-    while True:
-        key = screen.getch()
+        key = _wait_for_key(screen, refresh_seconds)
         if key in (ord("q"), ord("Q")):
             return
         if key in (ord("a"), ord("A")):
             current_mode = _next_acceleration_mode(current_mode)
-        if key in (ord("h"), ord("H")) and connected:
-            controller.reset_heading()
-            status = "Relative heading reset to 0°"
-        if key in (ord("c"), ord("C")) and connected:
-            status = calibrate()
-
-        if not connected:
-            status = "Connecting to navigation sensors..."
-            render()
+            command_status = None
+        elif key in (ord("h"), ord("H")) and connected:
             try:
-                controller.start()
-                connected = True
-                status = calibrate() if calibrate_on_start else "Live navigation data"
+                commands.request_heading_reset()
+                command_status = "Relative heading reset to 0°"
             except Exception as exc:
-                status = f"Connection error: {exc}"
-            render()
-            if not connected:
-                key = _wait_for_key(screen, 0.1)
-                if key in (ord("q"), ord("Q")):
-                    return
-                if key not in (ord("r"), ord("R")):
-                    continue
-                continue
-
-        try:
-            state = controller.read_state()
-            status = "Live navigation data"
-            if gps_enabled and state.gps is None:
-                status = "Live IMU data; waiting for gpsd report"
-            elif gps_enabled and not state.gps.has_fix:
-                status = "Live IMU data; waiting for GPS fix"
-            if controller.calibration is not None:
-                status += "; stationary calibration active"
-        except Exception as exc:
-            connected = False
-            status = f"Navigation error: {exc}"
-            controller.stop()
-        render()
-        key = _wait_for_key(screen, refresh_seconds)
-        if key != -1:
-            curses.ungetch(key)
+                command_status = f"Heading reset error: {exc}"
+        elif key in (ord("c"), ord("C")) and connected:
+            try:
+                commands.request_stationary_calibration()
+                command_status = "Stationary calibration complete"
+            except Exception as exc:
+                command_status = f"Calibration error: {exc}"
+        elif key != -1:
+            command_status = None
 
 
 def _configure_curses(screen) -> None:
@@ -143,52 +130,48 @@ def _configure_curses(screen) -> None:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Display live vehicle navigation state in a terminal."
+        description="Display public navigation bus telemetry in a terminal."
     )
-    parser.add_argument("--address", type=lambda value: int(value, 0), default=Mpu6050Imu.DEFAULT_ADDRESS)
+    parser.add_argument("--endpoint", default=LOCAL_SUBSCRIBER_ENDPOINT)
+    parser.add_argument("--command-endpoint", default=DEFAULT_NAVIGATION_COMMAND_ENDPOINT)
     parser.add_argument("--refresh", type=float, default=0.1)
-    parser.add_argument("--filter-time-constant", type=float, default=0.5)
     parser.add_argument("--gps", action="store_true")
-    parser.add_argument("--gps-host", default="127.0.0.1")
-    parser.add_argument("--gps-port", default="2947")
     parser.add_argument("--acceleration-mode", choices=ACCELERATION_MODES, default="both")
     parser.add_argument("--calibrate", action="store_true")
-    parser.add_argument("--calibration-samples", type=int, default=100)
-    parser.add_argument("--calibration-interval", type=float, default=0.01)
     args = parser.parse_args()
     if args.refresh <= 0:
         parser.error("--refresh must be greater than zero")
-    if args.filter_time_constant < 0:
-        parser.error("--filter-time-constant must be zero or greater")
-    if args.calibration_samples <= 0:
-        parser.error("--calibration-samples must be greater than zero")
-    if args.calibration_interval < 0:
-        parser.error("--calibration-interval must be zero or greater")
     return args
 
 
-def _build_controller(args: argparse.Namespace) -> NavigationController:
-    gps_source = None
-    if args.gps:
-        from hardware_io.gps import GpsReader
-        gps_source = GpsdNavigationAdapter(GpsReader(host=args.gps_host, port=args.gps_port))
-    return NavigationController(
-        sensor=Mpu6050NavigationAdapter(Mpu6050Imu(address=args.address)),
-        filter_time_constant_s=args.filter_time_constant,
-        gps_source=gps_source,
-    )
+def _build_dispatcher(endpoint: str, state: NavigationBusState) -> MessageDispatcher:
+    dispatcher = MessageDispatcher(ZeroMqSubscriber(endpoint), error_handler=state.set_error)
+    dispatcher.register(ATTITUDE_STATE_TOPIC, decode_attitude_state, state.set_attitude)
+    dispatcher.register(IMU_STATE_TOPIC, decode_imu_state, state.set_imu)
+    dispatcher.register(POSITION_STATE_TOPIC, decode_position_state, state.set_position)
+    dispatcher.register(MOTION_STATE_TOPIC, decode_motion_state, state.set_motion)
+    return dispatcher
 
 
 def main() -> int:
     args = parse_args()
-    controller = _build_controller(args)
+    state = NavigationBusState()
+    dispatcher = _build_dispatcher(args.endpoint, state)
+    commands = ZeroMqNavigationRequestHandler(args.command_endpoint)
+    dispatcher.start()
     try:
         curses.wrapper(
-            _run, controller, args.refresh, args.gps, args.acceleration_mode,
-            args.calibration_samples, args.calibration_interval, args.calibrate,
+            _run,
+            state,
+            commands,
+            args.refresh,
+            args.gps,
+            args.acceleration_mode,
+            args.calibrate,
         )
     finally:
-        controller.stop()
+        commands.close()
+        dispatcher.close()
     return 0
 
 

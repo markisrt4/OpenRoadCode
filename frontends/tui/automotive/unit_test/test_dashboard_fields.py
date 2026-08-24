@@ -4,9 +4,11 @@
 """Tests for terminal dashboard value formatting."""
 
 from datetime import datetime
+import math
 from types import SimpleNamespace
 import unittest
 
+from common.units import UnitSystem
 from frontends.tui.automotive.navigation_dashboard_view import navigation_fields
 from frontends.tui.automotive.vehicle_dashboard_view import vehicle_fields
 
@@ -25,18 +27,33 @@ class DashboardFieldsTest(unittest.TestCase):
             gps=None,
         )
 
-        fields = dict(navigation_fields(state, gps_enabled=False))
+        fields = dict(
+            navigation_fields(
+                state,
+                gps_enabled=False,
+                unit_system=UnitSystem.METRIC,
+            )
+        )
 
         self.assertEqual(fields["Heading"], "90.00 °")
         self.assertEqual(fields["Raw accel total"], "3.000 m/s²")
 
     def test_vehicle_fields_accept_structural_snapshot(self) -> None:
         state = SimpleNamespace(
-            timestamp=datetime.now(), rpm=2200.0, speed_mph=35.5,
-            boost_psi=2.0, coolant_temp_f=190.0, intake_temp_f=70.0,
-            throttle_pct=20.0, accelerator_pedal_pct=18.0,
-            engine_load_pct=30.0, map_kpa=105, baro_kpa=100,
-            maf_gps=8.25, fuel_level_pct=75.0, control_voltage=13.8,
+            timestamp=datetime.now(),
+            engine_speed_rad_s=2200.0 * 2.0 * math.pi / 60.0,
+            vehicle_speed_m_s=35.5 * 0.44704,
+            boost_pressure_pa=2.0 * 6894.757293168,
+            coolant_temperature_k=(190.0 - 32.0) * 5.0 / 9.0 + 273.15,
+            intake_air_temperature_k=(70.0 - 32.0) * 5.0 / 9.0 + 273.15,
+            throttle_position=0.20,
+            accelerator_pedal_position=0.18,
+            engine_load=0.30,
+            intake_manifold_pressure_pa=105_000.0,
+            barometric_pressure_pa=100_000.0,
+            mass_air_flow_kg_s=0.00825,
+            fuel_level=0.75,
+            control_voltage_v=13.8,
         )
 
         fields = dict(vehicle_fields(state))

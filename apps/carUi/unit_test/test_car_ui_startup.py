@@ -83,14 +83,14 @@ class CarUiStartupTest(unittest.TestCase):
         side_effect=RuntimeError("spotify failed"),
     )
     @patch("apps.carUi.car_ui_startup.create_audio_controller")
-    @patch("apps.carUi.car_ui_startup.create_position_source")
+    @patch("apps.carUi.car_ui_startup.create_input_device_runtime")
     @patch("apps.carUi.car_ui_startup.create_rotary_encoder_runtime")
     @patch("apps.carUi.car_ui_startup.create_car_ui_runtime")
     def test_partial_initialization_releases_created_resources(
         self,
         create_runtime,
         create_encoders,
-        create_position_source,
+        create_input_devices,
         _create_audio,
         _create_spotify,
     ) -> None:
@@ -99,21 +99,24 @@ class CarUiStartupTest(unittest.TestCase):
             rotary_encoders=object(),
             audio=object(),
             media_display=None,
-            position_cache=object(),
+            input_config=object(),
             close=lambda: events.append("runtime"),
         )
         encoder = SimpleNamespace(stop=lambda: events.append("encoder"))
-        position = SimpleNamespace(stop=lambda: events.append("position"))
         create_runtime.return_value = runtime
         create_encoders.return_value = SimpleNamespace(
             encoders=(encoder,), volume_index=0
         )
-        create_position_source.return_value = position
+        create_input_devices.return_value = SimpleNamespace(
+            keyboards=(),
+            push_buttons=(),
+            push_button_actions=(),
+        )
 
         with self.assertRaisesRegex(RuntimeError, "spotify failed"):
             build_car_ui_dependencies(lambda *_args: None)
 
-        self.assertEqual(events, ["position", "encoder", "runtime"])
+        self.assertEqual(events, ["encoder", "runtime"])
 
 
 if __name__ == "__main__":

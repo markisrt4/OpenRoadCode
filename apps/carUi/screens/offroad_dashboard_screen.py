@@ -5,145 +5,140 @@
 
 from __future__ import annotations
 
-import logging
+import math
 
-from controllers.navigation import NavigationControllerIf, NavigationStatePresenter
 from frontends.tk.automotive import OffroadDashboardPanel
-from ui.navigation import NavigationRequestHandlerIf
+from frontends.tk.tk_screen_host_if import TkScreenHostIf
+from messaging.contracts.navigation import (
+    AttitudeStateMessage,
+    ImuStateMessage,
+    MotionStateMessage,
+    PositionStateMessage,
+)
+from ui.navigation import HeadingReference, NavigationRequestHandlerIf, PositionFix
 from ui.screen_ui_if import ScreenId
 from ui.system import StatusMessage, StatusSeverity
 
 from apps.carUi.screens.car_ui_screen import CarUiScreen
 from apps.carUi.screens.car_ui_screen_services import MenuTileFactory
-from frontends.tk.tk_screen_host_if import TkScreenHostIf
 
 
-LOGGER = logging.getLogger(__name__)
-
-
-class OffroadDashboardScreen(CarUiScreen, NavigationRequestHandlerIf):
-    """Host and refresh the off-road dashboard within Car UI navigation."""
-
-    POLL_INTERVAL_MS = 75
+class OffroadDashboardScreen(CarUiScreen):
+    """Render public navigation telemetry without owning navigation hardware."""
 
     def __init__(
         self,
         host: TkScreenHostIf,
         *,
-        controller: NavigationControllerIf,
         create_menu_tile: MenuTileFactory,
         back_action,
+        request_handler: NavigationRequestHandlerIf | None = None,
         pitch_warning_deg: float = 30.0,
         roll_warning_deg: float = 25.0,
     ) -> None:
         super().__init__(host, ScreenId("offroad_dashboard"), create_menu_tile)
-        self._controller = controller
         self._back_action = back_action
+        self._request_handler = request_handler
         self._pitch_warning_deg = pitch_warning_deg
         self._roll_warning_deg = roll_warning_deg
         self._panel: OffroadDashboardPanel | None = None
-        self._presenter: NavigationStatePresenter | None = None
-        self._callback_id: object | None = None
-        self._visible = False
+        self._attitude_count = 0
+        self._imu_count = 0
+        self._position_count = 0
+        self._motion_count = 0
 
     def show(self) -> None:
-        """Build the panel and begin navigation updates."""
+        """Build the panel and display the latest bus-fed state."""
         self.prepare_screen("Off-Road", self._back_action)
-        self._visible = True
         self._panel = OffroadDashboardPanel(
             self.content_frame,
             pitch_warning_deg=self._pitch_warning_deg,
             roll_warning_deg=self._roll_warning_deg,
-            request_handler=self,
+            request_handler=self._request_handler,
         )
         self._panel.pack(fill="both", expand=True)
-        self._presenter = NavigationStatePresenter(
-            orientation_ui=self._panel,
-            translation_ui=self._panel,
-            position_ui=self._panel,
-            ground_track_ui=self._panel,
-        )
-        try:
-            self._controller.start()
-        except Exception as exc:
-            LOGGER.warning("Motion sensor unavailable: %s", exc)
-            self._panel.set_status(
-                StatusMessage(
-                    "Motion sensor unavailable",
-                    StatusSeverity.ERROR,
-                    source="navigation",
-                )
-            )
-            self.set_status("Motion sensor unavailable")
-            return
-        self._panel.set_status("Navigation online")
-        self.set_status("Off-road dashboard active")
-        self._poll()
+        self._set_live_status()
 
     def hide(self) -> None:
-        """Stop polling and release the navigation sensor."""
-        self._visible = False
-        if self._callback_id is not None:
-            try:
-                self.host.cancel_ui_callback(self._callback_id)
-            except Exception:
-                pass
-            self._callback_id = None
-        try:
-            self._controller.stop()
-        except Exception:
-            pass
+        """Release only the view; telemetry ownership remains outside the screen."""
         self._panel = None
-        self._presenter = None
 
-    def request_stationary_calibration(self) -> None:
-        """Calibrate the active navigation controller."""
-        if self._panel is None or not self._controller.is_started:
+    def set_attitude_message(self, message: AttitudeStateMessage) -> None:
+        """Apply one decoded attitude message to the visible panel."""
+        self._attitude_count += 1
+        panel = self._panel
+        if panel is None:
             return
-        self._panel.set_status("Calibrating · keep vehicle still")
-        try:
-            result = self._controller.calibrate_stationary()
-        except Exception as exc:
-            LOGGER.warning("Navigation calibration failed: %s", exc)
-            self._panel.set_status(
-                StatusMessage(
-                    "Calibration error",
-                    StatusSeverity.ERROR,
-                    source="navigation",
+        panel.set_heading(message.data.heading_rad, HeadingReference.RELATIVE)
+        panel.set_pitch(message.data.pitch_rad)
+        panel.set_roll(message.data.roll_rad)
+        self._set_live_status()
+
+    def set_imu_message(self, message: ImuStateMessage) -> None:
+        """Apply linear acceleration from one decoded IMU message."""
+        self._imu_count += 1
+        panel = self._panel
+        if panel is None:
+            return
+        linear = message.data.linear_acceleration_m_s2
+        panel.set_accel_x(linear.x)
+        panel.set_accel_y(linear.y)
+        panel.set_accel_z(linear.z)
+        panel.set_accel_total(math.sqrt(linear.x**2 + linear.y**2 + linear.z**2))
+        self._set_live_status()
+
+    def set_position_message(self, message: PositionStateMessage) -> None:
+        """Apply decoded geographic position and ground-track data."""
+        self._position_count += 1
+        panel = self._panel
+        if panel is None:
+            return
+        data = message.data
+        if data.latitude_rad is None or data.longitude_rad is None:
+            panel.set_position(None)
+        else:
+            panel.set_position(
+                PositionFix(
+                    latitude_rad=data.latitude_rad,
+                    longitude_rad=data.longitude_rad,
+                    altitude_m=data.altitude_m,
+                    pfom_m=data.accuracy_m,
                 )
             )
-        else:
-            self._panel.set_status(f"Calibrated · {result.sample_count} samples")
+        panel.set_ground_speed(data.speed_m_s)
+        panel.set_course_over_ground(data.course_rad)
+        self._set_live_status()
 
-    def request_heading_reset(self) -> None:
-        """Reset the active relative-heading estimate."""
-        if self._panel is None or not self._controller.is_started:
+    def set_motion_message(self, message: MotionStateMessage) -> None:
+        """Apply decoded derived motion values used by the panel."""
+        self._motion_count += 1
+        panel = self._panel
+        if panel is None:
             return
-        self._controller.reset_heading()
-        self._panel.set_status("Relative heading zeroed")
+        panel.set_rate_of_climb(message.data.vertical_speed_m_s)
+        self._set_live_status()
 
-    def _poll(self) -> None:
-        self._callback_id = None
-        if not self._visible or self._panel is None or self._presenter is None:
-            return
-        try:
-            state = self._controller.read_state()
-        except Exception as exc:
-            LOGGER.warning("Navigation read failed: %s", exc)
-            self._panel.set_status(
-                StatusMessage(
-                    "Navigation error",
-                    StatusSeverity.ERROR,
-                    source="navigation",
-                )
+    def set_navigation_error(self, topic: str, error: Exception) -> None:
+        """Expose a navigation bus or decode failure on the visible panel."""
+        panel = self._panel
+        text = f"Navigation error [{topic}]: {type(error).__name__}"
+        if panel is not None:
+            panel.set_status(
+                StatusMessage(text, StatusSeverity.ERROR, source="navigation")
             )
+        self.set_status(text)
+
+    def _set_live_status(self) -> None:
+        panel = self._panel
+        if panel is None:
             return
-        self._presenter.present(state)
-        if self._controller.calibration is None:
-            self._panel.set_status("Navigation online · calibration recommended")
+        if self._attitude_count == 0 and self._imu_count == 0:
+            status = "Waiting for navigation telemetry"
         else:
-            self._panel.set_status("Navigation online · calibrated")
-        self._callback_id = self.host.schedule_ui_callback(
-            self.POLL_INTERVAL_MS,
-            self._poll,
-        )
+            status = (
+                "Navigation bus online · "
+                f"att {self._attitude_count} · imu {self._imu_count} · "
+                f"pos {self._position_count} · motion {self._motion_count}"
+            )
+        panel.set_status(status)
+        self.set_status(status)
