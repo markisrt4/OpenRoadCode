@@ -36,6 +36,37 @@ class FakeLauncher:
         self.running = True
 
 
+class FakeBrowserDashboardLauncher(FakeLauncher):
+    def __init__(self) -> None:
+        super().__init__()
+        self.browser_closes = 0
+
+    def close_browser(self, remote_display: str, set_status=None) -> None:
+        self.browser_closes += 1
+
+
+class NonPreloadableLauncher:
+    def __init__(self) -> None:
+        self.launches = 0
+        self.stops = 0
+        self.running = False
+
+    def launch(self, remote_display: str, set_status=None) -> None:
+        self.launches += 1
+        self.running = True
+
+    def stop(self, remote_display: str, set_status=None) -> None:
+        self.stops += 1
+        self.running = False
+
+    def toggle(self, remote_display: str, set_status=None) -> bool:
+        self.running = not self.running
+        return self.running
+
+    def is_running(self) -> bool:
+        return self.running
+
+
 class AppRuntimeManagerTest(unittest.TestCase):
     def _config(self, policy: StartupPolicy) -> ApplicationsConfig:
         return ApplicationsConfig(
@@ -59,12 +90,42 @@ class AppRuntimeManagerTest(unittest.TestCase):
         self.assertEqual(1, launcher.prepares)
         self.assertEqual(0, launcher.launches)
 
+    def test_preload_without_prepare_falls_back_to_launch(self) -> None:
+        launcher = NonPreloadableLauncher()
+        manager = AppRuntimeManager(self._config(StartupPolicy.PRELOAD), remote_display=":2")
+        manager.register("weather", launcher)
+        manager._start_background_apps(None)
+        self.assertEqual(1, launcher.launches)
+
     def test_persistent_app_launches_in_background(self) -> None:
         launcher = FakeLauncher()
         manager = AppRuntimeManager(self._config(StartupPolicy.PERSISTENT), remote_display=":2")
         manager.register("weather", launcher)
         manager._start_background_apps(None)
         self.assertEqual(1, launcher.launches)
+
+    def test_persistent_non_browser_close_keeps_process_running(self) -> None:
+        launcher = FakeLauncher()
+        manager = AppRuntimeManager(self._config(StartupPolicy.PERSISTENT), remote_display=":2")
+        manager.register("weather", launcher)
+        launcher.running = True
+
+        manager.close("weather")
+
+        self.assertEqual(0, launcher.stops)
+        self.assertTrue(launcher.running)
+
+    def test_preloaded_browser_close_only_closes_browser_view(self) -> None:
+        launcher = FakeBrowserDashboardLauncher()
+        manager = AppRuntimeManager(self._config(StartupPolicy.PRELOAD), remote_display=":2")
+        manager.register("weather", launcher)
+        launcher.running = True
+
+        manager.close("weather")
+
+        self.assertEqual(1, launcher.browser_closes)
+        self.assertEqual(0, launcher.stops)
+        self.assertTrue(launcher.running)
 
     def test_launch_presents_registered_app(self) -> None:
         launcher = FakeLauncher()
@@ -91,6 +152,27 @@ class AppRuntimeManagerTest(unittest.TestCase):
         manager.launch("web_ui")
 
         self.assertEqual(1, weather.stops)
+        self.assertEqual(1, web_ui.launches)
+
+    def test_exclusive_handoff_preserves_preloaded_browser_backend(self) -> None:
+        config = ApplicationsConfig(
+            browser=BrowserConfig(),
+            apps=(
+                ApplicationConfig(key="weather", type=ApplicationType.BROWSER, startup=StartupPolicy.PRELOAD, url="http://weather", profile="weather", exclusive_group="auxiliary"),
+                ApplicationConfig(key="web_ui", type=ApplicationType.BROWSER, url="http://web-ui", profile="web-ui", exclusive_group="auxiliary"),
+            ),
+        )
+        weather = FakeBrowserDashboardLauncher()
+        web_ui = FakeLauncher()
+        manager = AppRuntimeManager(config, remote_display=":2")
+        manager.register("weather", weather)
+        manager.register("web_ui", web_ui)
+        weather.running = True
+
+        manager.launch("web_ui")
+
+        self.assertEqual(1, weather.browser_closes)
+        self.assertEqual(0, weather.stops)
         self.assertEqual(1, web_ui.launches)
 
     def test_launch_does_not_close_app_in_different_exclusive_group(self) -> None:
