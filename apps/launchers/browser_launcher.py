@@ -216,6 +216,10 @@ class BrowserKioskLauncher(AppLauncherIf):
             )
         _status(set_status, "Browser stopped")
 
+    def set_url(self, url: str) -> None:
+        """Set the URL used by the next browser launch."""
+        self.url = url
+
     def _close_exclusive_peer(self, display: str) -> None:
         group = self.exclusive_group
         if group is None:
