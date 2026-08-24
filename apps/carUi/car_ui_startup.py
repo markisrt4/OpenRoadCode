@@ -72,6 +72,7 @@ def build_car_ui_dependencies(report: StartupStatusCallback) -> CarUiDependencie
         report("runtime", StartupState.STARTING, "Loading configuration")
         runtime = create_car_ui_runtime(RUNTIME_CONFIG_PATH, project_root=PROJECT_ROOT)
         cleanup.callback(runtime.close)
+        runtime.start_background_apps()
         report("runtime", StartupState.READY, "Configuration loaded")
         report("telemetry", StartupState.READY, "Vehicle and navigation state provided by message bus")
 
