@@ -12,6 +12,7 @@ from controllers.route_planning.route_planning_types import GeoPoint, RouteResul
 from .route_guidance_types import RouteGuidanceState
 
 _EARTH_RADIUS_MILES = 3958.7613
+_PROGRESS_EPSILON_MILES = 1e-6
 
 
 @dataclass(frozen=True, slots=True)
@@ -56,14 +57,10 @@ class RouteGuidanceController:
         self._furthest_progress_miles = progress
 
         remaining = max(0.0, self._shape_distance_miles - progress)
-        destination_distance = self._distance_miles(
-            position,
-            self._route.shape[-1],
-        )
+        destination_distance = self._distance_miles(position, self._route.shape[-1])
         route_complete = destination_distance <= self._arrival_threshold_miles
         off_route = (
-            projection.distance_from_route_miles
-            > self._off_route_threshold_miles
+            projection.distance_from_route_miles > self._off_route_threshold_miles
         ) and not route_complete
 
         maneuver_index = self._maneuver_index_for_progress(progress)
@@ -77,8 +74,7 @@ class RouteGuidanceController:
             if maneuver is None
             else max(
                 0.0,
-                self._distance_at_shape_index(maneuver.end_shape_index)
-                - progress,
+                self._distance_at_shape_index(maneuver.end_shape_index) - progress,
             )
         )
 
@@ -94,11 +90,21 @@ class RouteGuidanceController:
         )
 
     def _maneuver_index_for_progress(self, progress: float) -> int | None:
+        """Return the maneuver whose shape interval contains progress.
+
+        A maneuver is considered complete when progress reaches its end shape
+        point. This makes the instruction transition at the intersection rather
+        than one GPS update after it.
+        """
         if not self._route.maneuvers:
             return None
+
         for index, maneuver in enumerate(self._route.maneuvers):
-            if progress <= self._distance_at_shape_index(maneuver.end_shape_index):
+            end_distance = self._distance_at_shape_index(maneuver.end_shape_index)
+            is_last = index == len(self._route.maneuvers) - 1
+            if is_last or progress < end_distance - _PROGRESS_EPSILON_MILES:
                 return index
+
         return len(self._route.maneuvers) - 1
 
     def _distance_at_shape_index(self, index: int) -> float:
@@ -163,7 +169,9 @@ class RouteGuidanceController:
     def _build_cumulative_distances(shape: tuple[GeoPoint, ...]) -> tuple[float, ...]:
         distances = [0.0]
         for start, end in zip(shape, shape[1:]):
-            distances.append(distances[-1] + RouteGuidanceController._distance_miles(start, end))
+            distances.append(
+                distances[-1] + RouteGuidanceController._distance_miles(start, end)
+            )
         return tuple(distances)
 
     @staticmethod
