@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 import unittest
 
 from config.runtime_config import (
@@ -20,7 +20,6 @@ from config.runtime_config import (
     RotaryEncoderConfig,
     SeesawEncoderConfig,
     RuntimeDisplayConfig,
-    WeatherDashboardConfig,
 )
 from apps.carUi.runtime.car_ui_runtime_factory import (
     CarUiRuntimeFactoryError,
@@ -86,7 +85,6 @@ class RadioRuntimeFactoryTest(unittest.TestCase):
             ),
             auxiliary=AuxiliaryConfig(
                 adsb=AdsbConfig(enabled=False),
-                weather_dashboard=WeatherDashboardConfig(enabled=False),
             ),
         )
 
