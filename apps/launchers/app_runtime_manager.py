@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from threading import Lock, Thread
+from typing import TypeVar
 
 from apps.launchers.app_launcher_if import (
     AppLauncherIf,
@@ -17,6 +18,9 @@ from apps.launchers.app_launcher_if import (
     WindowedAppLauncherIf,
 )
 from config.application_config import ApplicationConfig, ApplicationsConfig, StartupPolicy
+
+
+LauncherT = TypeVar("LauncherT", bound=AppLauncherIf)
 
 
 @dataclass(frozen=True, slots=True)
@@ -46,6 +50,16 @@ class AppRuntimeManager:
             if key in self._apps:
                 raise ValueError(f"Application {key!r} is already registered")
             self._apps[key] = ManagedApplication(config=app, launcher=launcher)
+
+    def launcher(self, key: str, launcher_type: type[LauncherT] | None = None) -> AppLauncherIf | LauncherT:
+        """Return a registered launcher, optionally enforcing its concrete capability."""
+        launcher = self._managed(key).launcher
+        if launcher_type is not None and not isinstance(launcher, launcher_type):
+            raise TypeError(
+                f"Application {key!r} launcher is {type(launcher).__name__}, "
+                f"not {launcher_type.__name__}"
+            )
+        return launcher
 
     def start_background_apps(self, set_status: StatusCallback = None) -> None:
         """Warm configured applications sequentially on one background thread."""
@@ -147,9 +161,6 @@ class AppRuntimeManager:
                 continue
 
     def _start_background_apps(self, set_status: StatusCallback) -> None:
-        # Deliberately sequential. Browser startup is expensive on the Pi and
-        # launching several Chromium profiles at once only moves latency into a
-        # CPU/RAM spike during UI startup.
         with self._lock:
             apps = tuple(self._apps.values())
         for managed in apps:
@@ -171,10 +182,6 @@ class AppRuntimeManager:
         if isinstance(launcher, PreloadableAppLauncherIf):
             launcher.prepare()
             return
-
-        # Generic windowed apps can be genuinely prewarmed by launching the
-        # page/process once and immediately hiding its window. Subsequent show()
-        # restores that same warm process instead of paying startup cost again.
         if isinstance(launcher, WindowedAppLauncherIf):
             launcher.launch(self._remote_display, set_status)
             if launcher.hide(self._remote_display, set_status):
@@ -183,8 +190,6 @@ class AppRuntimeManager:
                 return
             launcher.stop(self._remote_display, set_status)
             return
-
-        # Non-windowed launchers retain the previous preload fallback.
         launcher.launch(self._remote_display, set_status)
 
     def _managed(self, key: str) -> ManagedApplication:
