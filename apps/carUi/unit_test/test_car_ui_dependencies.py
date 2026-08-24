@@ -33,7 +33,6 @@ class CarUiDependenciesTest(unittest.TestCase):
         events: list[str] = []
         dependencies = CarUiDependencies(
             runtime=RecordingResource("runtime", events),  # type: ignore[arg-type]
-            position_source=RecordingResource("position", events),  # type: ignore[arg-type]
             audio_controller=object(),  # type: ignore[arg-type]
             spotify_controller=object(),  # type: ignore[arg-type]
             spotify_image_cache=object(),  # type: ignore[arg-type]
@@ -68,7 +67,6 @@ class CarUiDependenciesTest(unittest.TestCase):
                 "stop:netflix",
                 "stop:youtube",
                 "close:lighting",
-                "stop:position",
             ],
         )
 
@@ -76,7 +74,6 @@ class CarUiDependenciesTest(unittest.TestCase):
         events: list[str] = []
         dependencies = CarUiDependencies(
             runtime=RecordingResource("runtime", events),  # type: ignore[arg-type]
-            position_source=RecordingResource("position", events),  # type: ignore[arg-type]
             audio_controller=object(),  # type: ignore[arg-type]
             spotify_controller=object(),  # type: ignore[arg-type]
             spotify_image_cache=object(),  # type: ignore[arg-type]
@@ -103,8 +100,10 @@ class CarUiDependenciesTest(unittest.TestCase):
             dependencies.close()
 
         self.assertIn("close:runtime", events)
+        self.assertIn("stop:music-video", events)
+        self.assertIn("stop:netflix", events)
+        self.assertIn("stop:youtube", events)
         self.assertIn("close:lighting", events)
-        self.assertIn("stop:position", events)
 
 
 if __name__ == "__main__":
