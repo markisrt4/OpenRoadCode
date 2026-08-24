@@ -8,6 +8,7 @@ from controllers.navigation.browser_position_adapter import BrowserPositionAdapt
 from controllers.navigation.complementary_orientation_estimator import ComplementaryOrientationEstimator
 from controllers.navigation.gpsd_navigation_adapter import GpsdNavigationAdapter
 from controllers.navigation.gpsd_position_source import GpsdPositionSource
+from controllers.navigation.map_presentation_if import MapPresentationIf
 from controllers.navigation.mpu6050_navigation_adapter import Mpu6050NavigationAdapter
 from controllers.navigation.motion_calibration import MotionCalibration
 from controllers.navigation.navigation_controller import NavigationController
@@ -26,7 +27,7 @@ from controllers.navigation.simulated_navigation_controller import SimulatedNavi
 
 __all__ = [
     "BrowserOrientationAdapter", "BrowserPositionAdapter", "ComplementaryOrientationEstimator",
-    "GpsdNavigationAdapter", "GpsdPositionSource", "GpsState", "MotionSample", "MotionCalibration",
+    "GpsdNavigationAdapter", "GpsdPositionSource", "GpsState", "MapPresentationIf", "MotionSample", "MotionCalibration",
     "Mpu6050NavigationAdapter", "NavigationController", "NavigationControllerIf", "NavigationControllerStub",
     "NavigationGpsSourceIf", "NavigationSensorIf", "NavigationState", "NavigationStatePresenter", "Orientation",
     "OrientationEstimatorIf", "OrientationState", "PositionSourceIf", "PositionSnapshotCache", "PositionState",
