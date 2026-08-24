@@ -48,6 +48,7 @@ class AppRuntimeManager:
             self._apps[key] = ManagedApplication(config=app, launcher=launcher)
 
     def start_background_apps(self, set_status: StatusCallback = None) -> None:
+        """Warm configured applications sequentially on one background thread."""
         with self._lock:
             if self._preload_thread is not None and self._preload_thread.is_alive():
                 return
@@ -146,6 +147,9 @@ class AppRuntimeManager:
                 continue
 
     def _start_background_apps(self, set_status: StatusCallback) -> None:
+        # Deliberately sequential. Browser startup is expensive on the Pi and
+        # launching several Chromium profiles at once only moves latency into a
+        # CPU/RAM spike during UI startup.
         with self._lock:
             apps = tuple(self._apps.values())
         for managed in apps:
@@ -153,13 +157,35 @@ class AppRuntimeManager:
             if policy is StartupPolicy.LAZY:
                 continue
             try:
-                if policy is StartupPolicy.PRELOAD and isinstance(managed.launcher, PreloadableAppLauncherIf):
-                    managed.launcher.prepare()
+                if policy is StartupPolicy.PRELOAD:
+                    self._prewarm(managed, set_status)
                 else:
                     self.show(managed.config.key, set_status)
             except Exception as exc:
                 if set_status is not None:
                     set_status(f"Unable to start {managed.config.key}: {exc}")
+
+    def _prewarm(self, managed: ManagedApplication, set_status: StatusCallback) -> None:
+        """Warm an app without leaving its user-facing window visible."""
+        launcher = managed.launcher
+        if isinstance(launcher, PreloadableAppLauncherIf):
+            launcher.prepare()
+            return
+
+        # Generic windowed apps can be genuinely prewarmed by launching the
+        # page/process once and immediately hiding its window. Subsequent show()
+        # restores that same warm process instead of paying startup cost again.
+        if isinstance(launcher, WindowedAppLauncherIf):
+            launcher.launch(self._remote_display, set_status)
+            if launcher.hide(self._remote_display, set_status):
+                with self._lock:
+                    self._visible.discard(managed.config.key)
+                return
+            launcher.stop(self._remote_display, set_status)
+            return
+
+        # Non-windowed launchers retain the previous preload fallback.
+        launcher.launch(self._remote_display, set_status)
 
     def _managed(self, key: str) -> ManagedApplication:
         with self._lock:
