@@ -12,8 +12,10 @@ from config.service_runtime_config import NavigationServiceRuntimeConfig, Servic
 from controllers.navigation import GpsdNavigationAdapter, Mpu6050NavigationAdapter, NavigationController
 from controllers.navigation.simulated_navigation_sensor import SimulatedNavigationSensor
 from controllers.navigation.simulated_position_source import SimulatedPositionSource
+from controllers.route_planning.valhalla_route_planning_controller import ValhallaRoutePlanningController
 from hardware_io.imu import Mpu6050Imu
 from messaging.zeromq import ZeroMqPublisher
+from protocols.valhalla.valhalla_http_client import ValhallaHttpClient
 from services.navigation.navigation_runtime import NavigationRuntime
 
 DEFAULT_RUNTIME_CONFIG = Path(__file__).resolve().parents[2] / "config" / "runtime.toml"
@@ -69,6 +71,21 @@ def build_controller(config: NavigationServiceRuntimeConfig):
     )
 
 
+def build_route_planning_controller(config: NavigationServiceRuntimeConfig):
+    """Build the configured optional route-planning capability."""
+    route_config = config.route_planning
+    if not route_config.enabled:
+        return None
+    if route_config.backend != "valhalla":
+        raise ValueError(f"Unsupported route-planning backend: {route_config.backend}")
+
+    client = ValhallaHttpClient(
+        route_config.base_url,
+        timeout_seconds=route_config.timeout_seconds,
+    )
+    return ValhallaRoutePlanningController(client)
+
+
 def main() -> int:
     args = parse_args()
     system = ServiceRuntimeConfigParser(args.config).load()
@@ -78,6 +95,7 @@ def main() -> int:
         return 0
 
     controller = build_controller(config)
+    route_planning_controller = build_route_planning_controller(config)
     publish_source = config.publish.source
     publisher = ZeroMqPublisher(system.messaging.publisher_endpoint)
     runtime = NavigationRuntime(
@@ -86,11 +104,13 @@ def main() -> int:
         source=publish_source,
         rate_hz=config.rate_hz,
         command_endpoint=config.command_endpoint,
+        route_planning_controller=route_planning_controller,
     )
     print("OpenRoadCode navigation service")
     print(f"  IMU source:        {config.imu.source}")
     print(f"  GPS source:        {config.gps.source}")
     print(f"  solution:          {config.solution.algorithm}")
+    print(f"  route planning:    {config.route_planning.backend if config.route_planning.enabled else 'disabled'}")
     print(f"  telemetry ingress: {system.messaging.publisher_endpoint}")
     print(f"  command endpoint:  {config.command_endpoint}")
     print(f"  publish rate:      {config.rate_hz:g} Hz")
