@@ -11,6 +11,7 @@ CONTAINER_ENGINE="${CONTAINER_ENGINE:-docker}"
 HOST_SRC="${HOST_SRC:-$HOME/src}"
 INSTALL_ROOT="${INSTALL_ROOT:-/opt/openroadcode/navigation}"
 DATA_ROOT="${DATA_ROOT:-/srv/openroadcode}"
+CONFIG_ROOT="${CONFIG_ROOT:-/etc/openroadcode}"
 BUILD_ROOT="${BUILD_ROOT:-$PROJECT_ROOT/build/navigation-stack}"
 MAPLIBRE_SRC="${MAPLIBRE_SRC:-$HOST_SRC/maplibre-native}"
 VALHALLA_SRC="${VALHALLA_SRC:-$HOST_SRC/valhalla}"
@@ -39,11 +40,9 @@ Usage: $0 [options]
 
 Build and install the OpenRoadCode navigation software stack.
 
-Software is installed beneath:
-  $INSTALL_ROOT
-
-Map and routing data are managed separately beneath:
-  $DATA_ROOT
+Software: $INSTALL_ROOT
+Config:   $CONFIG_ROOT/navigation.toml
+Map data: $DATA_ROOT
 
 Options:
   --target TARGET         host_setup target (rpi4, rpi5, linux-dev; default: rpi5)
@@ -58,17 +57,12 @@ Options:
 Map/routing data are intentionally NOT built here. Use tools/map_builder on the
 map-build machine, then pull validated data onto the vehicle with:
   scripts/runtime/pull_navigation_data.sh
-
-Environment overrides include CONTAINER_ENGINE, HOST_SRC, INSTALL_ROOT,
-DATA_ROOT, BUILD_ROOT, MAPLIBRE_REF, VALHALLA_REF, PRIME_SERVER_REF, and
-BUILD_JOBS.
 EOF
 }
 
 while (( $# > 0 )); do
   case "$1" in
-    --target)
-      shift; TARGET="${1:?--target requires a value}" ;;
+    --target) shift; TARGET="${1:?--target requires a value}" ;;
     --show-plan) SHOW_PLAN=1 ;;
     --skip-host-packages) SKIP_HOST_PACKAGES=1 ;;
     --skip-maplibre) SKIP_MAPLIBRE=1 ;;
@@ -92,6 +86,7 @@ OpenRoadCode navigation software plan
   container engine:   $CONTAINER_ENGINE
   host source root:   $HOST_SRC
   software install:   $INSTALL_ROOT
+  runtime config:     $CONFIG_ROOT/navigation.toml
   runtime data root:  $DATA_ROOT
   staging/build root: $BUILD_ROOT
   MapLibre ref:       $MAPLIBRE_REF
@@ -110,21 +105,13 @@ if (( SHOW_PLAN )); then
 fi
 
 command -v git >/dev/null 2>&1 || { echo "git is required" >&2; exit 1; }
-command -v "$CONTAINER_ENGINE" >/dev/null 2>&1 || {
-  echo "Container engine not found: $CONTAINER_ENGINE" >&2
-  exit 1
-}
-
+command -v "$CONTAINER_ENGINE" >/dev/null 2>&1 || { echo "Container engine not found: $CONTAINER_ENGINE" >&2; exit 1; }
 mkdir -p "$BUILD_ROOT" "$HOST_SRC"
 
 checkout_repo() {
   local url="$1" dir="$2" ref="$3" label="$4"
-  if [[ ! -d "$dir/.git" ]]; then
-    echo "[*] Cloning $label..."
-    git clone "$url" "$dir"
-  fi
+  if [[ ! -d "$dir/.git" ]]; then git clone "$url" "$dir"; fi
   if [[ -n "$ref" ]]; then
-    echo "[*] Checking out $label at $ref"
     git -C "$dir" fetch --tags --prune origin
     git -C "$dir" checkout --detach "$ref"
   fi
@@ -133,37 +120,23 @@ checkout_repo() {
 }
 
 if (( ! SKIP_HOST_PACKAGES )); then
-  echo "[*] Installing host prerequisites"
-  bash "$PROJECT_ROOT/scripts/installers/host_setup.sh" \
-    --target "$TARGET" \
-    --feature desktop-ui \
-    --feature gps \
-    --no-vnc \
-    --no-gpsd-service
+  bash "$PROJECT_ROOT/scripts/installers/host_setup.sh" --target "$TARGET" --feature desktop-ui --feature gps --no-vnc --no-gpsd-service
   sudo apt-get update
   sudo apt-get install -y rsync libglfw3 libshp4 libgles2 libuv1
 fi
 
+sudo install -d "$CONFIG_ROOT" /var/cache/openroadcode
+if [[ ! -f "$CONFIG_ROOT/navigation.toml" ]]; then
+  echo "[*] Installing default navigation runtime config"
+  sudo install -m 0644 "$PROJECT_ROOT/config/navigation.toml" "$CONFIG_ROOT/navigation.toml"
+else
+  echo "[*] Preserving existing $CONFIG_ROOT/navigation.toml"
+fi
+
 if (( ! SKIP_MAPLIBRE )); then
-  checkout_repo \
-    "https://github.com/maplibre/maplibre-native.git" \
-    "$MAPLIBRE_SRC" "$MAPLIBRE_REF" "MapLibre Native"
-
-  echo "[*] Building MapLibre builder image"
+  checkout_repo "https://github.com/maplibre/maplibre-native.git" "$MAPLIBRE_SRC" "$MAPLIBRE_REF" "MapLibre Native"
   bash "$PROJECT_ROOT/development/containers/maplibre/build.sh"
-
-  echo "[*] Building MapLibre Native and OpenRoadCode renderer"
-  "$CONTAINER_ENGINE" run --rm \
-    --volume "$HOST_SRC:/src" \
-    --workdir /src \
-    -e BUILD_JOBS="${BUILD_JOBS:-4}" \
-    openroadcode-maplibre-builder \
-    /bin/bash -lc "
-      set -euo pipefail
-      /src/OpenRoadCode/development/containers/maplibre/scripts/build_maplibre.sh
-      /src/OpenRoadCode/development/containers/maplibre/scripts/build_map_renderer.sh
-    "
-
+  "$CONTAINER_ENGINE" run --rm --volume "$HOST_SRC:/src" --workdir /src -e BUILD_JOBS="${BUILD_JOBS:-4}" openroadcode-maplibre-builder /bin/bash -lc "set -euo pipefail; /src/OpenRoadCode/development/containers/maplibre/scripts/build_maplibre.sh; /src/OpenRoadCode/development/containers/maplibre/scripts/build_map_renderer.sh"
   renderer="$PROJECT_ROOT/apps/map_renderer/build-container/openroadcode-map-renderer"
   [[ -x "$renderer" ]] || { echo "Renderer build missing: $renderer" >&2; exit 1; }
   sudo install -d "$INSTALL_ROOT/bin"
@@ -171,69 +144,37 @@ if (( ! SKIP_MAPLIBRE )); then
 fi
 
 if (( ! SKIP_VALHALLA )); then
-  checkout_repo \
-    "https://github.com/kevinkreiser/prime_server.git" \
-    "$PRIME_SERVER_SRC" "$PRIME_SERVER_REF" "prime_server"
-  checkout_repo \
-    "https://github.com/valhalla/valhalla.git" \
-    "$VALHALLA_SRC" "$VALHALLA_REF" "Valhalla"
-
-  echo "[*] Building Valhalla builder image"
+  checkout_repo "https://github.com/kevinkreiser/prime_server.git" "$PRIME_SERVER_SRC" "$PRIME_SERVER_REF" "prime_server"
+  checkout_repo "https://github.com/valhalla/valhalla.git" "$VALHALLA_SRC" "$VALHALLA_REF" "Valhalla"
   bash "$PROJECT_ROOT/development/containers/valhalla/build.sh"
-
   valhalla_stage="$BUILD_ROOT/valhalla"
-  rm -rf "$valhalla_stage"
-  mkdir -p "$valhalla_stage"
-
-  echo "[*] Building Valhalla and prime_server"
-  "$CONTAINER_ENGINE" run --rm \
-    --volume "$HOST_SRC:/src" \
-    --workdir /src \
-    -e BUILD_JOBS="${BUILD_JOBS:-4}" \
-    -e INSTALL_PREFIX="/src/OpenRoadCode/build/navigation-stack/valhalla" \
-    openroadcode-valhalla-builder \
-    /bin/bash -lc "/src/OpenRoadCode/development/containers/valhalla/scripts/build_valhalla.sh"
-
-  [[ -x "$valhalla_stage/bin/valhalla_service" ]] || {
-    echo "Valhalla build missing: $valhalla_stage/bin/valhalla_service" >&2
-    exit 1
-  }
-
+  rm -rf "$valhalla_stage"; mkdir -p "$valhalla_stage"
+  "$CONTAINER_ENGINE" run --rm --volume "$HOST_SRC:/src" --workdir /src -e BUILD_JOBS="${BUILD_JOBS:-4}" -e INSTALL_PREFIX="/src/OpenRoadCode/build/navigation-stack/valhalla" openroadcode-valhalla-builder /bin/bash -lc "/src/OpenRoadCode/development/containers/valhalla/scripts/build_valhalla.sh"
+  [[ -x "$valhalla_stage/bin/valhalla_service" ]] || { echo "Valhalla build missing: $valhalla_stage/bin/valhalla_service" >&2; exit 1; }
   sudo install -d "$INSTALL_ROOT"
   sudo rsync -a --delete "$valhalla_stage/" "$INSTALL_ROOT/valhalla/"
-
   sudo install -d /etc/ld.so.conf.d
-  printf '%s\n' "$INSTALL_ROOT/valhalla/lib" \
-    | sudo tee /etc/ld.so.conf.d/openroadcode-navigation.conf >/dev/null
+  printf '%s\n' "$INSTALL_ROOT/valhalla/lib" | sudo tee /etc/ld.so.conf.d/openroadcode-navigation.conf >/dev/null
   sudo ldconfig
 fi
 
 if (( ! SKIP_SERVICES )) && (( ! SKIP_VALHALLA )); then
   valhalla_config="$DATA_ROOT/valhalla/valhalla.json"
-  echo "[*] Installing Valhalla systemd service"
   if [[ ! -f "$valhalla_config" ]]; then
-    echo "[!] Map/routing data are not installed yet: $valhalla_config" >&2
-    echo "[!] Installing the service is deferred until pull_navigation_data.sh provides data." >&2
+    echo "[!] Service installation deferred until navigation data are present: $valhalla_config" >&2
   else
-    sudo env \
-      PATH="$INSTALL_ROOT/valhalla/bin:$PATH" \
-      bash "$PROJECT_ROOT/scripts/systemd/install_valhalla_systemd.sh" \
-        "$valhalla_config" 1
+    sudo env PATH="$INSTALL_ROOT/valhalla/bin:$PATH" bash "$PROJECT_ROOT/scripts/systemd/install_valhalla_systemd.sh" "$valhalla_config" 1
   fi
 fi
 
 if (( ! SKIP_SMOKE )); then
-  echo "[*] Running software smoke checks"
-  if (( ! SKIP_MAPLIBRE )); then
-    test -x "$INSTALL_ROOT/bin/openroadcode-map-renderer"
-  fi
-  if (( ! SKIP_VALHALLA )); then
-    test -x "$INSTALL_ROOT/valhalla/bin/valhalla_service"
-  fi
+  (( SKIP_MAPLIBRE )) || test -x "$INSTALL_ROOT/bin/openroadcode-map-renderer"
+  (( SKIP_VALHALLA )) || test -x "$INSTALL_ROOT/valhalla/bin/valhalla_service"
+  test -f "$CONFIG_ROOT/navigation.toml"
 fi
 
 echo
 echo "[+] Navigation software installation complete"
 echo "    software: $INSTALL_ROOT"
+echo "    config:   $CONFIG_ROOT/navigation.toml"
 echo "    data:     $DATA_ROOT (managed separately)"
-echo "    updater:  $PROJECT_ROOT/scripts/runtime/pull_navigation_data.sh"
