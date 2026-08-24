@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 
-"""Tests for the Car UI off-road dashboard destination lifecycle."""
+"""Tests for the Car UI off-road dashboard bus-driven lifecycle."""
 
 import unittest
 from unittest.mock import Mock, patch
@@ -41,65 +41,52 @@ class FakeHost:
 
 
 class OffroadDashboardScreenTest(unittest.TestCase):
-    @patch("apps.carUi.screens.offroad_dashboard_screen.NavigationStatePresenter")
     @patch("apps.carUi.screens.offroad_dashboard_screen.OffroadDashboardPanel")
-    def test_show_polls_and_hide_releases_controller(
-        self,
-        panel_type,
-        presenter_type,
-    ) -> None:
+    def test_show_builds_bus_driven_panel(self, panel_type) -> None:
         host = FakeHost()
-        controller = Mock()
-        controller.is_started = True
-        controller.calibration = None
-        controller.read_state.return_value = Mock()
         panel = panel_type.return_value
-        presenter = presenter_type.return_value
         screen = OffroadDashboardScreen(
             host,  # type: ignore[arg-type]
-            controller=controller,
             create_menu_tile=Mock(),
             back_action=Mock(),
         )
 
         screen.show()
 
-        controller.start.assert_called_once()
-        presenter.present.assert_called_once_with(controller.read_state.return_value)
-        self.assertEqual(host.callback, screen._poll)
+        panel.pack.assert_called_once_with(fill="both", expand=True)
+        panel.set_status.assert_called_with("Waiting for navigation telemetry")
+        self.assertEqual(host.status, "Waiting for navigation telemetry")
 
         screen.hide()
-
-        self.assertEqual(host.cancelled, "poll-job")
-        controller.stop.assert_called_once()
-        panel.pack.assert_called_once_with(fill="both", expand=True)
+        self.assertIsNone(screen._panel)
 
     @patch("apps.carUi.screens.offroad_dashboard_screen.OffroadDashboardPanel")
-    def test_sensor_failure_uses_concise_user_message(self, panel_type) -> None:
+    def test_navigation_error_uses_concise_user_message(self, panel_type) -> None:
         host = FakeHost()
-        controller = Mock()
-        controller.start.side_effect = RuntimeError(
-            "MPU-6050 support requires a long implementation detail"
-        )
         panel = panel_type.return_value
         screen = OffroadDashboardScreen(
             host,  # type: ignore[arg-type]
-            controller=controller,
             create_menu_tile=Mock(),
             back_action=Mock(),
         )
+        screen.show()
 
-        with self.assertLogs(
-            "apps.carUi.screens.offroad_dashboard_screen",
-            level="WARNING",
-        ):
-            screen.show()
+        screen.set_navigation_error(
+            "openroad.navigation.imu",
+            RuntimeError("MPU-6050 support requires a long implementation detail"),
+        )
 
         message = panel.set_status.call_args.args[0]
-        self.assertEqual(message.summary, "Motion sensor unavailable")
+        self.assertEqual(
+            message.summary,
+            "Navigation error [openroad.navigation.imu]: RuntimeError",
+        )
         self.assertEqual(message.severity.name, "ERROR")
         self.assertIsNone(message.detail)
-        self.assertEqual(host.status, "Motion sensor unavailable")
+        self.assertEqual(
+            host.status,
+            "Navigation error [openroad.navigation.imu]: RuntimeError",
+        )
 
 
 if __name__ == "__main__":
