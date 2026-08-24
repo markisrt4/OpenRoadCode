@@ -15,9 +15,7 @@ from common.logging.logging_paths import logging_file_path
 
 
 class BrowserKioskLauncher(AppLauncherIf):
-    """Launch and orchestrate a browser window on a selected X display."""
-
-    _exclusive_launchers: dict[tuple[str, str], "BrowserKioskLauncher"] = {}
+    """Launch and orchestrate one browser window on a selected X display."""
 
     def __init__(self, *, url: str, process_pattern: str | None = None, log_file: str | Path | None = None, browser_candidates: tuple[str, ...] = ("chromium-browser", "chromium", "google-chrome"), kiosk: bool = True, app_mode: bool = False, profile_path: str | Path | None = None, window_position: tuple[int, int] | None = None, window_size: tuple[int, int] | None = None, startup_grace_seconds: float = 0.0, extra_arguments: tuple[str, ...] = (), window_class: str | None = None, exclusive_group: str | None = None, window_manager: ExternalWindowManager | None = None) -> None:
         if kiosk and app_mode:
@@ -36,6 +34,8 @@ class BrowserKioskLauncher(AppLauncherIf):
         self.startup_grace_seconds = startup_grace_seconds
         self.extra_arguments = extra_arguments
         self.window_class = window_class
+        # Retained as descriptive metadata for callers/factories. Cross-app
+        # exclusivity is enforced centrally by AppRuntimeManager.
         self.exclusive_group = exclusive_group
         self._window_manager = window_manager or ExternalWindowManager()
         self._process: subprocess.Popen[str] | None = None
@@ -67,7 +67,6 @@ class BrowserKioskLauncher(AppLauncherIf):
             self._hidden = False
             _status(set_status, "Browser already running; window activated")
             return
-        self._close_exclusive_peer(remote_display)
         self._window_id = None
         self._hidden = False
         browser_path = self._find_browser()
@@ -107,8 +106,6 @@ class BrowserKioskLauncher(AppLauncherIf):
                 self._process = None
                 raise RuntimeError(f"Browser exited during startup (status {return_code}); see {self.log_file}")
         self._fit_app_window(remote_display)
-        if self.exclusive_group is not None:
-            self._exclusive_launchers[(self.exclusive_group, remote_display)] = self
         _status(set_status, f"Browser launched on {remote_display}")
 
     def hide(self, remote_display: str, set_status: StatusCallback = None) -> bool:
@@ -135,22 +132,9 @@ class BrowserKioskLauncher(AppLauncherIf):
         self._process = None
         self._window_id = None
         self._hidden = False
-        if self.exclusive_group is not None:
-            key = (self.exclusive_group, remote_display)
-            if self._exclusive_launchers.get(key) is self:
-                self._exclusive_launchers.pop(key, None)
         if not closed_normally:
             close_matching_display_apps(display=remote_display, patterns=(self.process_pattern,))
         _status(set_status, "Browser stopped")
-
-    def _close_exclusive_peer(self, display: str) -> None:
-        group = self.exclusive_group
-        if group is None:
-            return
-        peer = self._exclusive_launchers.get((group, display))
-        if peer is not None and peer is not self:
-            if not peer.hide(display):
-                peer.stop(display)
 
     def _close_app_window(self, display: str) -> bool:
         return self._window_manager.close(display=display, window_id=self._window_id)
