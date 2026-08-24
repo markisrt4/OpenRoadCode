@@ -148,8 +148,16 @@ if (( ! SKIP_VALHALLA )); then
   checkout_repo "https://github.com/valhalla/valhalla.git" "$VALHALLA_SRC" "$VALHALLA_REF" "Valhalla"
   bash "$PROJECT_ROOT/development/containers/valhalla/build.sh"
   valhalla_stage="$BUILD_ROOT/valhalla"
-  rm -rf "$valhalla_stage"; mkdir -p "$valhalla_stage"
+
+  # The build container runs as root and writes into this host-mounted staging
+  # directory. Clean any previous container-owned tree with sudo, then restore
+  # host ownership after the build so normal repo operations remain usable.
+  sudo rm -rf "$valhalla_stage"
+  mkdir -p "$valhalla_stage"
+
   "$CONTAINER_ENGINE" run --rm --volume "$HOST_SRC:/src" --workdir /src -e BUILD_JOBS="${BUILD_JOBS:-4}" -e INSTALL_PREFIX="/src/OpenRoadCode/build/navigation-stack/valhalla" openroadcode-valhalla-builder /bin/bash -lc "/src/OpenRoadCode/development/containers/valhalla/scripts/build_valhalla.sh"
+  sudo chown -R "$(id -u):$(id -g)" "$valhalla_stage"
+
   [[ -x "$valhalla_stage/bin/valhalla_service" ]] || { echo "Valhalla build missing: $valhalla_stage/bin/valhalla_service" >&2; exit 1; }
   sudo install -d "$INSTALL_ROOT"
   sudo rsync -a --delete "$valhalla_stage/" "$INSTALL_ROOT/valhalla/"
