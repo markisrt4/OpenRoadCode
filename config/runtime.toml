@@ -64,6 +64,12 @@ heading_reference = "relative"
 enabled = true
 source = "navigation-service"
 
+[services.navigation.route_planning]
+enabled = true
+backend = "valhalla"
+base_url = "http://127.0.0.1:8002"
+timeout_seconds = 10.0
+
 # -----------------------------------------------------------------------------
 # Automotive service pipeline
 #
@@ -162,7 +168,7 @@ enabled = true
 
 [[radios]]
 key = "railroad"
-config = "railroad.json"
+config = "railroad_am.json"
 backend = "rigctl"
 launcher = "sdrpp"
 enabled = true
