@@ -68,3 +68,9 @@ class ReroutePolicy:
     def reroute_failed(self) -> None:
         """Allow another attempt after cooldown if rerouting fails."""
         self._reroute_pending = False
+
+    def reset(self) -> None:
+        """Reset all route-session-specific policy state."""
+        self._off_route_since = None
+        self._last_reroute_at = None
+        self._reroute_pending = False
