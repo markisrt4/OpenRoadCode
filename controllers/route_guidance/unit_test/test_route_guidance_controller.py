@@ -48,6 +48,28 @@ def test_progress_advances_to_next_maneuver() -> None:
     assert state.current_maneuver.instruction == "Turn left"
 
 
+def test_maneuver_advances_at_exact_shape_boundary() -> None:
+    controller = RouteGuidanceController(_route())
+
+    state = controller.update(GeoPoint(42.0000, -82.9900))
+
+    assert state.current_maneuver_index == 1
+    assert state.current_maneuver is not None
+    assert state.current_maneuver.instruction == "Turn left"
+
+
+def test_final_maneuver_remains_active_at_destination() -> None:
+    controller = RouteGuidanceController(_route())
+
+    state = controller.update(GeoPoint(42.0100, -82.9800))
+
+    assert state.current_maneuver_index == 2
+    assert state.current_maneuver is not None
+    assert state.current_maneuver.instruction == "Turn right"
+    assert state.distance_to_maneuver_miles == 0.0
+    assert state.route_complete
+
+
 def test_progress_does_not_move_backward_with_noisy_fix() -> None:
     controller = RouteGuidanceController(_route())
 
