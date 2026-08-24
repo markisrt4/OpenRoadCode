@@ -6,7 +6,7 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from builder.selection import load_region_ids, save_region_ids
+from tools.map_builder.builder.selection import load_region_ids, save_region_ids
 
 
 class SelectionPersistenceTests(unittest.TestCase):
