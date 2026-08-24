@@ -98,32 +98,34 @@ at a desk. Your laptop should not need to believe it is a Jeep.
 
 OpenRoadCode has two important dependency paths.
 
-Commands and requested behavior use controller interfaces:
+Commands and requested behavior use controller or request-handler interfaces:
 
 ```text
 Application / UI
       ↓
-Controller interface
+Controller or request interface
       ↓
-Concrete controller
+Concrete implementation / service command endpoint
       ↓
 Hardware adapter / protocol
       ↓
 Linux service / physical hardware
 ```
 
-Continuously changing public telemetry is distributed through the message bus:
+Continuously changing public telemetry is distributed through producer services and the message bus:
 
 ```text
 Hardware / simulator
+      ↓
+Domain producer service
       ↓
 SI domain state
       ↓
 Contract publisher
       ↓
-Message bus
+ZeroMQ message bus
       ↓
-Application state
+Shared application telemetry state
       ↓
 Frontend / UI
 ```
@@ -131,31 +133,43 @@ Frontend / UI
 In practical terms:
 
 - `apps/` owns user-facing applications, runtime assembly, and app-specific state.
-- `controllers/` exposes behavior applications can request.
+- `services/` owns long-running domain producers such as navigation and automotive telemetry.
+- `controllers/` exposes domain behavior and hardware-independent processing.
 - `messaging/` owns public telemetry contracts, dispatch, and transports.
 - `frontends/` owns toolkit-specific reusable presentation.
 - `ui/` owns toolkit-independent presentation contracts.
-- `common/` owns neutral cross-cutting helpers such as unit conversion.
+- `common/` owns neutral cross-cutting helpers such as shared telemetry state and unit conversion.
 - `hardware_io/` isolates device-specific access.
 - `protocols/` handles communication formats and remote APIs.
 - `config/` holds runtime and hardware configuration.
 
-Keep hardware-specific imports out of application and UI code. When adding a
-device, place its implementation behind an interface so the rest of the
-project can run with a real adapter, a test fake, or no hardware at all.
+A producer service owns its physical device or simulation source, domain processing, and publication lifecycle. Applications should subscribe to public telemetry instead of creating their own competing GPS, IMU, or OBD-II hardware instances just to display state.
 
 For public telemetry, keep contracts in SI units and perform imperial/metric
 conversion only at the presentation boundary. Shared conversions live in
 `common.units`; do not duplicate conversion constants in each frontend.
 
+Use PUB/SUB for continuously changing state that may have multiple consumers.
+Use request/reply when an operation needs acknowledgement or an error response;
+navigation calibration and heading reset are examples. Do not turn a command
+into telemetry merely because ZeroMQ happens to be nearby.
+
+Simulation belongs at the producer-service input so simulated and physical
+sources exercise the same downstream contract and consumers. Runtime service
+composition belongs in `config/runtime.toml`, not in individual UI applications.
+
 A useful rule when choosing a boundary is:
 
-- "Do this" normally belongs behind a controller interface.
+- "Do this" normally belongs behind a controller or request interface.
 - "This is the current state" is a candidate for a public telemetry contract.
 
-See [docs/architecture.md](docs/architecture.md) for the fuller architecture
-model and [messaging/README.md](messaging/README.md) for a copy/paste subscriber
-quick start.
+Architecture references:
+
+- [Architecture overview](docs/architecture.md)
+- [Messaging overview and subscriber quick start](messaging/README.md)
+- [Message Bus Interface Design Description (IDD)](docs/messaging/message_bus_idd.md)
+- [Navigation producer service](services/navigation/README.md)
+- [Automotive producer service](services/automotive/README.md)
 
 Avoid abstractions that do not provide a useful boundary, test seam, or
 interchangeable implementation. Software already has enough ceremonial
@@ -222,9 +236,11 @@ Docstrings and comments should explain intent, constraints, or surprising
 behavior. They do not need to narrate obvious Python one line at a time.
 
 When adding or changing public telemetry, update both
-`messaging/README.md` and `docs/messaging/message_bus_idd.md`. A new developer
-should be able to discover the topic, decoder, units, and subscription pattern
-without reverse-engineering the producer.
+`messaging/README.md` and `docs/messaging/message_bus_idd.md`. Also update the
+owning service README when source selection, publication behavior, command
+handling, or startup changes. A new developer should be able to discover the
+producer, topic, decoder, units, subscription pattern, and applicable command
+endpoint without reverse-engineering the implementation.
 
 ## Code style
 
@@ -296,7 +312,7 @@ Before opening a pull request:
 - Run `python scripts/check_doxygen_contracts.py` after changing interfaces.
 - Exercise relevant component CLIs when changing hardware integrations.
 - Update configuration examples and documentation when behavior changes.
-- Update messaging documentation when adding or changing public telemetry.
+- Update messaging documentation and the applicable IDD/service README when adding or changing public telemetry.
 - Remove secrets, generated files, debug output, and machine-specific paths.
 
 In the pull request description, tell us:
