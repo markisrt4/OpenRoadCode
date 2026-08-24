@@ -163,8 +163,3 @@ config = "cb.json"
 backend = "rigctl"
 launcher = "sdrpp"
 enabled = true
-
-[auxiliary.adsb]
-enabled = true
-url = "http://127.0.0.1/tar1090"
-close_existing_display_apps = true
