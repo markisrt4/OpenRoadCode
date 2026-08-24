@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Callable
 
 from config.runtime_config import RuntimeConfig, RuntimeConfigParser, RadioStackConfig
-from config.application_config import ApplicationsConfig, ApplicationsConfigParser
+from config.application_config import ApplicationsConfig, ApplicationsConfigParser, ApplicationType
 from apps.carUi.runtime.car_ui_runtime import CarUiRuntime, RadioRuntime
 from apps.carUi.runtime.radio_runtime_registry import RadioRuntimeRegistry
 from apps.carUi.runtime.weather_location_provider import CarUiWeatherLocationProvider
@@ -58,6 +58,8 @@ def build_car_ui_runtime(config: RuntimeConfig, *, applications_config: Applicat
 
     weather_controller = None
     if applications_config is not None:
+        browser_factory = BrowserApplicationFactory(applications_config)
+
         adsb_app = applications_config.app("adsb")
         if adsb_app.enabled:
             app_runtime_manager.register(
@@ -79,12 +81,21 @@ def build_car_ui_runtime(config: RuntimeConfig, *, applications_config: Applicat
                     max_age_seconds=config.position_cache.max_age_seconds,
                 )
             weather_controller = OpenMeteoWeatherController(weather_cache, location_provider=weather_location_provider)
-            browser = BrowserApplicationFactory(applications_config).create("weather")
             weather_launcher = WeatherDashLauncher(
                 cache_directory=DEFAULT_WEATHER_CACHE_DIRECTORY,
-                browser=browser,
+                browser=browser_factory.create("weather"),
             )
             app_runtime_manager.register("weather", weather_launcher)
+
+        # Generic browser applications need no Car UI-specific launcher wiring.
+        # Special browser-backed applications above remain responsible for any
+        # backend process or domain-specific lifecycle they own.
+        for app in applications_config.enabled_apps():
+            if app.type is ApplicationType.BROWSER and app.key != "weather":
+                app_runtime_manager.register(
+                    app.key,
+                    browser_factory.create_from_config(app),
+                )
 
     return CarUiRuntime(
         remote_display=config.runtime.remote_display,
