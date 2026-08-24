@@ -9,7 +9,7 @@ import argparse
 from pathlib import Path
 
 from config.service_runtime_config import NavigationServiceRuntimeConfig, ServiceRuntimeConfigParser
-from controllers.navigation import GpsdNavigationAdapter, Mpu6050NavigationAdapter, NavigationController, SimulatedNavigationController
+from controllers.navigation import GpsdNavigationAdapter, Mpu6050NavigationAdapter, NavigationController
 from controllers.navigation.simulated_navigation_sensor import SimulatedNavigationSensor
 from controllers.navigation.simulated_position_source import SimulatedPositionSource
 from hardware_io.imu import Mpu6050Imu
@@ -22,11 +22,6 @@ DEFAULT_RUNTIME_CONFIG = Path(__file__).resolve().parents[2] / "config" / "runti
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Publish navigation telemetry and serve navigation commands.")
     parser.add_argument("--config", default=str(DEFAULT_RUNTIME_CONFIG))
-    parser.add_argument(
-        "--simulate",
-        action="store_true",
-        help="Development override: use the existing full simulated navigation controller",
-    )
     return parser.parse_args()
 
 
@@ -82,8 +77,8 @@ def main() -> int:
         print("Navigation service disabled by runtime configuration")
         return 0
 
-    controller = SimulatedNavigationController() if args.simulate else build_controller(config)
-    publish_source = "simulated-navigation" if args.simulate else config.publish.source
+    controller = build_controller(config)
+    publish_source = config.publish.source
     publisher = ZeroMqPublisher(system.messaging.publisher_endpoint)
     runtime = NavigationRuntime(
         controller,
@@ -93,9 +88,9 @@ def main() -> int:
         command_endpoint=config.command_endpoint,
     )
     print("OpenRoadCode navigation service")
-    print(f"  IMU source:        {'full simulation' if args.simulate else config.imu.source}")
-    print(f"  GPS source:        {'full simulation' if args.simulate else config.gps.source}")
-    print(f"  solution:          {'simulated' if args.simulate else config.solution.algorithm}")
+    print(f"  IMU source:        {config.imu.source}")
+    print(f"  GPS source:        {config.gps.source}")
+    print(f"  solution:          {config.solution.algorithm}")
     print(f"  telemetry ingress: {system.messaging.publisher_endpoint}")
     print(f"  command endpoint:  {config.command_endpoint}")
     print(f"  publish rate:      {config.rate_hz:g} Hz")
