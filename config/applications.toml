@@ -1,0 +1,49 @@
+# OpenRoadCode user-facing application configuration
+#
+# This file describes how applications are presented and when they should be
+# started. Machine hardware, messaging endpoints, and producer services remain
+# in config/runtime.toml.
+#
+# Startup policies:
+#   lazy       Start when first requested.
+#   preload    Start asynchronously after the primary UI is ready.
+#   persistent Start with the application runtime and keep running.
+
+[browser]
+profile_root = "~/.local/share/openroadcode/browser"
+
+[apps.weather]
+type = "browser"
+enabled = true
+url = "http://127.0.0.1:8501"
+profile = "weather"
+startup = "preload"
+exclusive_group = "auxiliary"
+
+[apps.adsb]
+type = "adsb"
+enabled = true
+url = "http://127.0.0.1/tar1090"
+profile = "adsb"
+startup = "lazy"
+exclusive_group = "auxiliary"
+
+[apps.web_ui]
+type = "browser"
+enabled = true
+url = "http://127.0.0.1:5000"
+profile = "web-ui"
+startup = "lazy"
+
+[apps.youtube]
+type = "browser"
+enabled = true
+url = "https://www.youtube.com"
+profile = "youtube"
+startup = "lazy"
+
+[apps.sdrpp]
+type = "native"
+enabled = true
+startup = "lazy"
+exclusive_group = "sdr"
