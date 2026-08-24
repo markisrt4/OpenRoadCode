@@ -2,7 +2,9 @@
 
 Reproducible Debian-container workflow for generating the offline map and routing data consumed by OpenRoadCode.
 
-It automates the previously manual chain: discover Geofabrik regions, download and validate OSM PBF extracts, merge selected regions when necessary, build MapLibre-compatible MBTiles with tilemaker, install the OpenRoadCode map style and offline glyphs, build Valhalla routing data, validate all generated artifacts, write a build manifest, and deploy the result to `/srv/openroadcode`.
+It automates the previously manual chain: discover Geofabrik regions, download and validate OSM PBF extracts, merge selected regions when necessary, build MapLibre-compatible MBTiles with tilemaker, install the OpenRoadCode map style and offline glyphs, build Valhalla routing data, validate all generated artifacts, write a build manifest, and publish/deploy the result as a `/srv/openroadcode` dataset.
+
+The recommended production model uses a dedicated map-build machine. The vehicle does not compile its own map data; it pulls validated datasets from the build machine with `scripts/runtime/pull_navigation_data.sh`. See [Navigation Build and Deployment](../../docs/navigation_deployment.md).
 
 ## Toolchain
 
@@ -26,21 +28,11 @@ cd tools/map_builder
 ./scripts/run-builder.sh tui
 ```
 
-The runner bind-mounts the local `builder/` and `templates/` directories into
-the container, so Python, TUI, and style-template edits are available
-immediately. Rebuild the image only after changing the Dockerfile, toolchain
-versions, or container-installed dependencies.
+The runner bind-mounts the local `builder/` and `templates/` directories into the container, so Python, TUI, and style-template edits are available immediately. Rebuild the image only after changing the Dockerfile, toolchain versions, or container-installed dependencies.
 
-Controls: Up/Down and PageUp/PageDown navigate, Right expands or collapses a
-region group, Left collapses or moves to its parent, Space selects, `/` searches,
-`c` clears the search, Enter accepts the selected regions, and `q` quits. `b`
-also accepts the selection. Parent/child region combinations are rejected to
-prevent duplicate map data.
+Controls: Up/Down and PageUp/PageDown navigate, Right expands or collapses a region group, Left collapses or moves to its parent, Space selects, `/` searches, `c` clears the search, Enter accepts the selected regions, and `q` quits. `b` also accepts the selection. Parent/child region combinations are rejected to prevent duplicate map data.
 
-The last accepted selection is stored in `.cache/selected-regions.json`. On the
-next run, regions that still exist in the current Geofabrik index are selected
-with `[x]`, and their parent groups are expanded so they are visible. Quitting
-with `q` leaves the previous accepted selection unchanged.
+The last accepted selection is stored in `.cache/selected-regions.json`. On the next run, regions that still exist in the current Geofabrik index are selected with `[x]`, and their parent groups are expanded so they are visible. Quitting with `q` leaves the previous accepted selection unchanged.
 
 ## Non-interactive build
 
@@ -54,9 +46,7 @@ Multiple regions are comma separated:
 ./scripts/run-builder.sh build --regions north-america/us/michigan,north-america/us/ohio
 ```
 
-After a successful interactive or non-interactive build, the builder reports
-the selected region names, their combined source PBF size, total deployable
-output size, elapsed build time, and output path.
+After a successful interactive or non-interactive build, the builder reports the selected region names, their combined source PBF size, total deployable output size, elapsed build time, and output path.
 
 List known Geofabrik IDs with:
 
@@ -85,7 +75,9 @@ build-output/
     └── tiles.tar
 ```
 
-`maps/routes/` is runtime/debug space. Routes are sent dynamically to the native map renderer rather than generated as part of the base dataset.
+`maps/routes/` is runtime/debug space. Routes are sent dynamically to the native map renderer rather than generated as part of the base dataset. Vehicle-side deployment preserves this directory across dataset updates.
+
+The canonical style name is `openroadcode.json`; runtime code should not depend on a region-specific filename.
 
 ## Validation
 
@@ -97,7 +89,11 @@ Run validation again with:
 ./scripts/validate-host.sh
 ```
 
-## Deploy to `/srv`
+A dataset is not considered deployable without a validated `build-manifest.json`.
+
+## Publish on the map-build machine
+
+The recommended vehicle-pull model publishes the latest validated dataset at `/srv/openroadcode` on the map-build machine:
 
 ```bash
 ./scripts/deploy-to-srv.sh
@@ -105,19 +101,31 @@ Run validation again with:
 
 The deployment script refuses to install an output tree without a validated `build-manifest.json`. It synchronizes generated data into `/srv/openroadcode` while preserving `maps/routes/` as runtime/debug space.
 
-To deploy to the same directory on a networked device over SSH:
+The vehicle can then preview and pull that dataset over SSH:
+
+```bash
+./scripts/runtime/pull_navigation_data.sh \
+  --source mapbuilder@MAP_HOST:/srv/openroadcode \
+  --dry-run
+
+./scripts/runtime/pull_navigation_data.sh \
+  --source mapbuilder@MAP_HOST:/srv/openroadcode
+```
+
+These commands are run from the OpenRoadCode repository on the **vehicle**, not from `tools/map_builder` on the build host.
+
+SSH key authentication is recommended. For the pull model, the vehicle only requires read access to the published build-machine dataset; the build machine does not need privileged SSH access to the vehicle.
+
+## Optional push deployment
+
+`deploy-to-srv.sh --remote` remains available for development or manually managed targets:
 
 ```bash
 ./scripts/deploy-to-srv.sh --remote openroad@192.168.1.50
-# Or through Make:
 make deploy REMOTE=openroad@192.168.1.50
 ```
 
-The remote device must have `rsync` installed. Because `/srv/openroadcode` is
-normally root-owned, the remote account must also have passwordless `sudo`
-permission to run `mkdir` and `rsync`. SSH key authentication is recommended.
-Remote rsync uses block-level delta transfer, although rebuilt MBTiles, SQLite,
-PBF, and compressed tile archives may still contain substantial changes.
+For production vehicle updates, prefer the Pi-initiated pull workflow because it controls update timing, stages and validates the incoming dataset, retains the previous dataset, and can roll back after a failed Valhalla restart.
 
 ## Cache and scratch data
 
