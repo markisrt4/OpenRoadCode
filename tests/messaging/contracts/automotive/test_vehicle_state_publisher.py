@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: MIT
 
 from datetime import datetime, timezone
+import math
 import unittest
 
 from controllers.automotive.vehicle_state import VehicleState
@@ -23,7 +24,7 @@ class VehicleStatePublisherTest(unittest.TestCase):
         publisher = VehicleStatePublisher(transport, source="test-source")
         state = VehicleState(
             timestamp=datetime(2026, 8, 21, 17, 27, tzinfo=timezone.utc),
-            rpm=60.0,
+            engine_speed_rad_s=2.0 * math.pi,
         )
 
         publisher.publish(state)
@@ -33,7 +34,7 @@ class VehicleStatePublisherTest(unittest.TestCase):
         self.assertEqual(topic, VEHICLE_STATE_TOPIC)
         self.assertEqual(topic, "openroad.vehicle.state")
         self.assertEqual(payload["source"], "test-source")
-        self.assertIsNotNone(payload["data"]["engine_speed_rad_s"])
+        self.assertAlmostEqual(payload["data"]["engine_speed_rad_s"], 2.0 * math.pi)
 
 
 if __name__ == "__main__":
