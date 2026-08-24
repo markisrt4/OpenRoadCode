@@ -168,7 +168,7 @@ enabled = true
 
 [[radios]]
 key = "railroad"
-config = "railroad_am.json"
+config = "railroad.json"
 backend = "rigctl"
 launcher = "sdrpp"
 enabled = true
