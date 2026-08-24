@@ -168,7 +168,3 @@ enabled = true
 enabled = true
 url = "http://127.0.0.1/tar1090"
 close_existing_display_apps = true
-
-[auxiliary.weather_dashboard]
-enabled = true
-preload = true
