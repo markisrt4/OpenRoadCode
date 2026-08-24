@@ -11,8 +11,6 @@ from unittest.mock import patch
 import unittest
 
 from config.runtime_config import (
-    AdsbConfig,
-    AuxiliaryConfig,
     RuntimeConfig,
     InputConfig,
     RadioStackConfig,
@@ -83,9 +81,6 @@ class RadioRuntimeFactoryTest(unittest.TestCase):
                     enabled=enabled,
                 ),
             ),
-            auxiliary=AuxiliaryConfig(
-                adsb=AdsbConfig(enabled=False),
-            ),
         )
 
     @patch("apps.carUi.runtime.car_ui_runtime_factory.SDRResourceManager")
@@ -106,9 +101,7 @@ class RadioRuntimeFactoryTest(unittest.TestCase):
         load_radio_config.return_value = FakeRadioConfig(
             label="FM Radio",
             default_mode=FakeMode(),
-            presets=(
-                FakePreset("97.1 FM", 97100000, FakeMode()),
-            ),
+            presets=(FakePreset("97.1 FM", 97100000, FakeMode()),),
         )
 
         runtime = build_car_ui_runtime(self._config())
@@ -118,10 +111,7 @@ class RadioRuntimeFactoryTest(unittest.TestCase):
         self.assertEqual(3, len(runtime.rotary_encoders.devices))
         self.assertIn("fm_radio", runtime.radios)
         self.assertEqual(1, len(runtime.radios))
-        rigctl_client.assert_called_once_with(
-            host="127.0.0.1",
-            port=4532,
-        )
+        rigctl_client.assert_called_once_with(host="127.0.0.1", port=4532)
         rigctl_backend.assert_called_once()
         radio_controller.assert_called_once()
         sdrpp_launcher.assert_called_once()
@@ -129,7 +119,6 @@ class RadioRuntimeFactoryTest(unittest.TestCase):
     @patch("apps.carUi.runtime.car_ui_runtime_factory.SDRResourceManager")
     def test_disabled_radio_is_not_assembled(self, resource_manager) -> None:
         runtime = build_car_ui_runtime(self._config(enabled=False))
-
         self.assertEqual(0, len(runtime.radios))
 
     @patch("apps.carUi.runtime.car_ui_runtime_factory.SDRResourceManager")
@@ -145,19 +134,12 @@ class RadioRuntimeFactoryTest(unittest.TestCase):
             presets=(),
         )
 
-        with self.assertRaisesRegex(
-            CarUiRuntimeFactoryError,
-            "Unsupported radio backend",
-        ):
+        with self.assertRaisesRegex(CarUiRuntimeFactoryError, "Unsupported radio backend"):
             build_car_ui_runtime(self._config(backend="mystery"))
 
     def test_registry_reports_available_keys(self) -> None:
         registry = RadioRuntimeRegistry({})
-
-        with self.assertRaisesRegex(
-            KeyError,
-            "Available: <none>",
-        ):
+        with self.assertRaisesRegex(KeyError, "Available: <none>"):
             registry.get("fm_radio")
 
 
