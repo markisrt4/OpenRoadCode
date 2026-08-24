@@ -12,11 +12,7 @@ StatusCallback: TypeAlias = Callable[[str], None] | None
 
 @runtime_checkable
 class AppLauncherIf(Protocol):
-    """Thread-compatible interface for launching external applications.
-
-    Implementations may perform process management synchronously, but their
-    methods must be safe to invoke from a worker thread.
-    """
+    """Thread-compatible interface for launching external applications."""
 
     def launch(self, remote_display: str, set_status: StatusCallback = None) -> None:
         """Launch the application."""
@@ -32,6 +28,15 @@ class AppLauncherIf(Protocol):
 
     def is_running(self) -> bool:
         """Return whether the application is currently running."""
+        ...
+
+
+@runtime_checkable
+class HideableAppLauncherIf(AppLauncherIf, Protocol):
+    """Launcher whose visible window can be hidden while its process stays warm."""
+
+    def hide(self, remote_display: str, set_status: StatusCallback = None) -> bool:
+        """Hide the application without terminating it."""
         ...
 
 
