@@ -60,7 +60,6 @@ def build_car_ui_runtime(config: RuntimeConfig, *, applications_config: Applicat
     if config.auxiliary.adsb.enabled:
         adsb_launcher = ADSBLauncher(url=config.auxiliary.adsb.url, close_existing_display_apps=config.auxiliary.adsb.close_existing_display_apps)
 
-    weather_dash_launcher = None
     weather_controller = None
     if applications_config is not None:
         weather_app = applications_config.app("weather")
@@ -75,11 +74,11 @@ def build_car_ui_runtime(config: RuntimeConfig, *, applications_config: Applicat
                 )
             weather_controller = OpenMeteoWeatherController(weather_cache, location_provider=weather_location_provider)
             browser = BrowserApplicationFactory(applications_config).create("weather")
-            weather_dash_launcher = WeatherDashLauncher(
+            weather_launcher = WeatherDashLauncher(
                 cache_directory=DEFAULT_WEATHER_CACHE_DIRECTORY,
                 browser=browser,
             )
-            app_runtime_manager.register("weather", weather_dash_launcher)
+            app_runtime_manager.register("weather", weather_launcher)
 
     return CarUiRuntime(
         remote_display=config.runtime.remote_display,
@@ -88,7 +87,6 @@ def build_car_ui_runtime(config: RuntimeConfig, *, applications_config: Applicat
         rotary_encoders=config.input.rotary_encoders,
         radios=RadioRuntimeRegistry(runtimes),
         adsb_launcher=adsb_launcher,
-        weather_dash_launcher=weather_dash_launcher,
         weather_controller=weather_controller,
         sdr_resource_manager=resource_manager,
         app_runtime_manager=app_runtime_manager,
