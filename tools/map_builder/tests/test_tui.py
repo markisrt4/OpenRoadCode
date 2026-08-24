@@ -4,8 +4,8 @@
 from pathlib import Path
 import unittest
 
-from builder.geofabrik import load_index, region_map
-from builder.tui import expanded_ancestors, visible_regions
+from tools.map_builder.builder.geofabrik import load_index, region_map
+from tools.map_builder.builder.tui import expanded_ancestors, visible_regions
 
 FIXTURE = Path(__file__).parent / "fixtures/geofabrik-index.json"
 
