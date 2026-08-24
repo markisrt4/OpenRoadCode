@@ -5,7 +5,7 @@ import unittest
 from pathlib import Path
 import tempfile
 
-from builder.cli import directory_size, format_duration, format_size
+from tools.map_builder.builder.cli import directory_size, format_duration, format_size
 
 
 class BuildSummaryFormattingTests(unittest.TestCase):
