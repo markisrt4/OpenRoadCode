@@ -29,7 +29,5 @@ class GoogleEarthMapPresentation(MapPresentationIf):
             "google_earth",
             GoogleEarthLauncher,
         )
-        if launcher.is_running():
-            launcher.stop(self._app_runtime_manager.remote_display)
         launcher.set_location(latitude, longitude)
-        self._app_runtime_manager.show("google_earth")
+        self._app_runtime_manager.restart("google_earth")
