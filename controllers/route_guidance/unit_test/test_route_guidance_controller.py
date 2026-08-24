@@ -91,6 +91,48 @@ def test_off_route_is_detected() -> None:
     assert state.distance_from_route_miles > 0.05
 
 
+def test_off_route_recovers_only_inside_on_route_threshold() -> None:
+    controller = RouteGuidanceController(
+        _route(),
+        off_route_threshold_miles=0.05,
+        on_route_threshold_miles=0.03,
+    )
+
+    off_route = controller.update(GeoPoint(42.0050, -82.9850))
+    still_off_route = controller.update(GeoPoint(42.0050, -82.9895))
+    recovered = controller.update(GeoPoint(42.0050, -82.9898))
+
+    assert off_route.off_route
+    assert still_off_route.off_route
+    assert not recovered.off_route
+
+
+def test_off_route_hysteresis_prevents_threshold_flapping() -> None:
+    controller = RouteGuidanceController(
+        _route(),
+        off_route_threshold_miles=0.05,
+        on_route_threshold_miles=0.03,
+    )
+
+    controller.update(GeoPoint(42.0050, -82.9850))
+    near_outer_threshold = controller.update(GeoPoint(42.0050, -82.9894))
+
+    assert near_outer_threshold.off_route
+
+
+def test_on_route_threshold_cannot_exceed_off_route_threshold() -> None:
+    try:
+        RouteGuidanceController(
+            _route(),
+            off_route_threshold_miles=0.05,
+            on_route_threshold_miles=0.06,
+        )
+    except ValueError as error:
+        assert "must not exceed" in str(error)
+    else:
+        raise AssertionError("Expected ValueError")
+
+
 def test_arrival_is_detected_near_destination() -> None:
     controller = RouteGuidanceController(
         _route(),
