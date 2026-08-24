@@ -5,8 +5,8 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from builder.style import install_style
-from builder.validate import validate_style
+from tools.map_builder.builder.style import install_style
+from tools.map_builder.builder.validate import validate_style
 
 TEMPLATE = Path(__file__).parents[1] / "templates/openroadcode-style.json"
 
