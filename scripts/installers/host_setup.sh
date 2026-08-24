@@ -235,13 +235,21 @@ if (( RUN_VNC )) || (( RUN_GPSD_SERVICE )) || (( RUN_TELEMETRY_SERVICES )); then
   bash "$PROJECT_DIR/scripts/installers/install_services.sh" "${service_args[@]}"
 fi
 
+VERIFY_PYTHON="python3"
+[[ -x "$VENV_DIR/bin/python" ]] && VERIFY_PYTHON="$VENV_DIR/bin/python"
+
 if (( ! SKIP_INSTALLS )); then
   echo
   echo "[*] Verifying installed dependencies..."
-  VERIFY_PYTHON="python3"
-  [[ -x "$VENV_DIR/bin/python" ]] && VERIFY_PYTHON="$VENV_DIR/bin/python"
   "$VERIFY_PYTHON" "$SCRIPT_DIR/verify_installation.py" "${FEATURES[@]}"
 fi
+
+echo
+echo "[*] Verifying runtime health..."
+runtime_args=("${FEATURES[@]}" --config "$PROJECT_DIR/config/runtime.toml")
+(( RUN_TELEMETRY_SERVICES )) && runtime_args+=(--telemetry-services)
+(( RUN_GPSD_SERVICE )) && runtime_args+=(--gpsd-service)
+"$VERIFY_PYTHON" "$SCRIPT_DIR/verify_runtime.py" "${runtime_args[@]}"
 
 echo
 echo "[+] $TARGET setup complete."
