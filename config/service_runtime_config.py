@@ -88,9 +88,29 @@ class NavigationServiceRuntimeConfig:
 
 
 @dataclass(frozen=True, slots=True)
+class AutomotiveInputConfig:
+    source: str = "simulation"
+
+
+@dataclass(frozen=True, slots=True)
+class AutomotivePublishConfig:
+    enabled: bool = True
+    source: str = "automotive-service"
+
+
+@dataclass(frozen=True, slots=True)
+class AutomotiveServiceRuntimeConfig:
+    enabled: bool = True
+    rate_hz: float = 10.0
+    input: AutomotiveInputConfig = AutomotiveInputConfig()
+    publish: AutomotivePublishConfig = AutomotivePublishConfig()
+
+
+@dataclass(frozen=True, slots=True)
 class ServiceRuntimeConfig:
     messaging: MessagingRuntimeConfig = MessagingRuntimeConfig()
     navigation: NavigationServiceRuntimeConfig = NavigationServiceRuntimeConfig()
+    automotive: AutomotiveServiceRuntimeConfig = AutomotiveServiceRuntimeConfig()
 
 
 class ServiceRuntimeConfigParser:
@@ -111,7 +131,8 @@ class ServiceRuntimeConfigParser:
         messaging = self._parse_messaging(data.get("messaging", {}))
         services = self._table(data.get("services", {}), "services")
         navigation = self._parse_navigation(services.get("navigation", {}))
-        return ServiceRuntimeConfig(messaging=messaging, navigation=navigation)
+        automotive = self._parse_automotive(services.get("automotive", {}))
+        return ServiceRuntimeConfig(messaging=messaging, navigation=navigation, automotive=automotive)
 
     def _parse_messaging(self, value) -> MessagingRuntimeConfig:
         data = self._table(value, "messaging")
@@ -131,6 +152,22 @@ class ServiceRuntimeConfigParser:
             gps=self._parse_gps(inputs.get("gps", {})),
             solution=self._parse_solution(data.get("solution", {})),
             publish=self._parse_publish(data.get("publish", {})),
+        )
+
+    def _parse_automotive(self, value) -> AutomotiveServiceRuntimeConfig:
+        data = self._table(value, "services.automotive")
+        input_data = self._table(data.get("input", {}), "services.automotive.input")
+        publish_data = self._table(data.get("publish", {}), "services.automotive.publish")
+        return AutomotiveServiceRuntimeConfig(
+            enabled=self._bool(data.get("enabled", True), "services.automotive.enabled"),
+            rate_hz=self._positive(data.get("rate_hz", 10.0), "services.automotive.rate_hz"),
+            input=AutomotiveInputConfig(
+                source=self._source(input_data.get("source", "simulation"), "services.automotive.input.source")
+            ),
+            publish=AutomotivePublishConfig(
+                enabled=self._bool(publish_data.get("enabled", True), "services.automotive.publish.enabled"),
+                source=self._string(publish_data.get("source", "automotive-service"), "services.automotive.publish.source"),
+            ),
         )
 
     def _parse_imu(self, value) -> ImuInputConfig:
