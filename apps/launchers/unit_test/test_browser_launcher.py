@@ -13,8 +13,9 @@ class BrowserKioskLauncherTest(unittest.TestCase):
     def tearDown(self) -> None:
         BrowserKioskLauncher._exclusive_launchers.clear()
 
-    def test_exclusive_launcher_closes_peer_on_same_display(self) -> None:
+    def test_exclusive_launcher_hides_peer_on_same_display(self) -> None:
         peer = Mock()
+        peer.hide.return_value = True
         BrowserKioskLauncher._exclusive_launchers[("dashboards", ":0")] = peer
         launcher = BrowserKioskLauncher(
             url="https://example.com",
@@ -23,6 +24,21 @@ class BrowserKioskLauncherTest(unittest.TestCase):
 
         launcher._close_exclusive_peer(":0")
 
+        peer.hide.assert_called_once_with(":0")
+        peer.stop.assert_not_called()
+
+    def test_exclusive_launcher_stops_peer_when_hide_is_unavailable(self) -> None:
+        peer = Mock()
+        peer.hide.return_value = False
+        BrowserKioskLauncher._exclusive_launchers[("dashboards", ":0")] = peer
+        launcher = BrowserKioskLauncher(
+            url="https://example.com",
+            exclusive_group="dashboards",
+        )
+
+        launcher._close_exclusive_peer(":0")
+
+        peer.hide.assert_called_once_with(":0")
         peer.stop.assert_called_once_with(":0")
 
     @patch("apps.launchers.browser_launcher.close_matching_display_apps")
