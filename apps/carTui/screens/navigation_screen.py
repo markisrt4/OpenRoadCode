@@ -3,6 +3,7 @@
 
 """Navigation and off-road destination for Car TUI."""
 
+from apps.carTui.unit_preferences import CarTuiUnitPreferences
 from common.telemetry.navigation_bus_state import NavigationBusState
 from frontends.tui.automotive import NavigationDashboardView
 
@@ -16,11 +17,12 @@ class NavigationScreen:
         *,
         refresh_seconds: float = 0.1,
         gps_enabled: bool = False,
+        unit_preferences: CarTuiUnitPreferences | None = None,
     ) -> None:
         self._state = state
         self._refresh_seconds = refresh_seconds
         self._gps_enabled = gps_enabled
-        self._view = NavigationDashboardView()
+        self._unit_preferences = unit_preferences or CarTuiUnitPreferences()
 
     def run(self, window) -> bool:
         """Run until back or quit; return False when the app should quit."""
@@ -29,8 +31,9 @@ class NavigationScreen:
         try:
             while True:
                 snapshot = self._state.snapshot()
-                controls = "b/Esc: back   q: quit   a: acceleration"
-                self._view.render(
+                controls = "b/Esc: back   q: quit   a: acceleration   u: units"
+                view = NavigationDashboardView(self._unit_preferences.unit_system)
+                view.render(
                     window,
                     snapshot if snapshot.connected else None,
                     snapshot.status,
@@ -47,5 +50,7 @@ class NavigationScreen:
                 if key in (ord("a"), ord("A")):
                     modes = ("raw", "linear", "both")
                     acceleration_mode = modes[(modes.index(acceleration_mode) + 1) % len(modes)]
+                if key in (ord("u"), ord("U")):
+                    self._unit_preferences.toggle()
         finally:
             window.timeout(-1)
