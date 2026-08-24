@@ -7,9 +7,15 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 import unittest
 
+from config.application_config import (
+    ApplicationConfig,
+    ApplicationsConfig,
+    ApplicationType,
+    BrowserConfig,
+)
 from config.runtime_config import (
     RuntimeConfig,
     InputConfig,
@@ -24,6 +30,7 @@ from apps.carUi.runtime.car_ui_runtime_factory import (
     build_car_ui_runtime,
 )
 from apps.carUi.runtime.radio_runtime_registry import RadioRuntimeRegistry
+from apps.launchers.google_earth_launcher import GoogleEarthLauncher
 
 
 @dataclass(frozen=True)
@@ -83,6 +90,35 @@ class RadioRuntimeFactoryTest(unittest.TestCase):
             ),
         )
 
+    @staticmethod
+    def _applications() -> ApplicationsConfig:
+        return ApplicationsConfig(
+            browser=BrowserConfig(profile_root=Path("/tmp/openroadcode-browser")),
+            apps=(
+                ApplicationConfig(
+                    key="adsb",
+                    type=ApplicationType.ADSB,
+                    enabled=False,
+                    url="http://127.0.0.1/tar1090",
+                ),
+                ApplicationConfig(
+                    key="weather",
+                    type=ApplicationType.BROWSER,
+                    enabled=False,
+                    url="http://127.0.0.1:8501",
+                    profile="weather",
+                ),
+                ApplicationConfig(
+                    key="google_earth",
+                    type=ApplicationType.BROWSER,
+                    enabled=True,
+                    url="https://earth.google.com/web",
+                    profile="google-earth",
+                    exclusive_group="auxiliary",
+                ),
+            ),
+        )
+
     @patch("apps.carUi.runtime.car_ui_runtime_factory.SDRResourceManager")
     @patch("apps.carUi.runtime.car_ui_runtime_factory.SDRPPLauncher")
     @patch("apps.carUi.runtime.car_ui_runtime_factory.RigctlRadioBackend")
@@ -115,6 +151,34 @@ class RadioRuntimeFactoryTest(unittest.TestCase):
         rigctl_backend.assert_called_once()
         radio_controller.assert_called_once()
         sdrpp_launcher.assert_called_once()
+
+    @patch("apps.carUi.runtime.car_ui_runtime_factory.GoogleEarthLauncher")
+    @patch("apps.carUi.runtime.car_ui_runtime_factory.BrowserApplicationFactory")
+    @patch("apps.carUi.runtime.car_ui_runtime_factory.SDRResourceManager")
+    def test_google_earth_uses_specialized_managed_launcher(
+        self,
+        resource_manager,
+        browser_factory_type,
+        google_earth_type,
+    ) -> None:
+        browser = Mock()
+        browser_factory = browser_factory_type.return_value
+        browser_factory.create_from_config.return_value = browser
+        google_earth = google_earth_type.return_value
+
+        runtime = build_car_ui_runtime(
+            self._config(enabled=False),
+            applications_config=self._applications(),
+        )
+
+        google_earth_config = self._applications().app("google_earth")
+        browser_factory.create_from_config.assert_called_once_with(google_earth_config)
+        google_earth_type.assert_called_once_with(browser=browser)
+        self.assertIsNotNone(runtime.app_runtime_manager)
+        self.assertIs(
+            google_earth,
+            runtime.app_runtime_manager.launcher("google_earth"),
+        )
 
     @patch("apps.carUi.runtime.car_ui_runtime_factory.SDRResourceManager")
     def test_disabled_radio_is_not_assembled(self, resource_manager) -> None:
