@@ -42,6 +42,11 @@ class AppRuntimeManager:
         self._lock = Lock()
         self._preload_thread: Thread | None = None
 
+    @property
+    def remote_display(self) -> str:
+        """Return the display used for managed user-facing applications."""
+        return self._remote_display
+
     def register(self, key: str, launcher: AppLauncherIf) -> None:
         app = self._config.app(key)
         if not app.enabled:
@@ -75,11 +80,9 @@ class AppRuntimeManager:
             self._preload_thread.start()
 
     def launch(self, key: str, set_status: StatusCallback = None) -> None:
-        """Compatibility entry point for presenting an application."""
         self.show(key, set_status)
 
     def show(self, key: str, set_status: StatusCallback = None) -> None:
-        """Present an application after yielding conflicting managed windows."""
         managed = self._managed(key)
         self._close_exclusive_peers(managed, set_status)
         launcher = managed.launcher
@@ -92,7 +95,6 @@ class AppRuntimeManager:
             self._visible.add(key)
 
     def hide(self, key: str, set_status: StatusCallback = None) -> bool:
-        """Hide a managed window while preserving its running process when possible."""
         managed = self._managed(key)
         launcher = managed.launcher
         if not isinstance(launcher, HideableAppLauncherIf):
@@ -138,7 +140,6 @@ class AppRuntimeManager:
         return self._managed(key).launcher.is_running()
 
     def is_visible(self, key: str) -> bool:
-        """Return whether the manager currently considers an app presented."""
         self._managed(key)
         with self._lock:
             return key in self._visible
@@ -177,7 +178,6 @@ class AppRuntimeManager:
                     set_status(f"Unable to start {managed.config.key}: {exc}")
 
     def _prewarm(self, managed: ManagedApplication, set_status: StatusCallback) -> None:
-        """Warm an app without leaving its user-facing window visible."""
         launcher = managed.launcher
         if isinstance(launcher, PreloadableAppLauncherIf):
             launcher.prepare()
