@@ -41,6 +41,15 @@ class HideableAppLauncherIf(AppLauncherIf, Protocol):
 
 
 @runtime_checkable
+class WindowedAppLauncherIf(HideableAppLauncherIf, Protocol):
+    """Launcher whose existing window can be explicitly shown or hidden."""
+
+    def show(self, remote_display: str, set_status: StatusCallback = None) -> bool:
+        """Show and focus an already-running application window."""
+        ...
+
+
+@runtime_checkable
 class PreloadableAppLauncherIf(AppLauncherIf, Protocol):
     """Launcher capable of warming application resources without presenting UI."""
 
