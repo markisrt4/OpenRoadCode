@@ -21,6 +21,7 @@ from apps.launchers.weather_dash_launcher import WeatherDashLauncher
 from controllers.cache import PersistentCache
 from controllers.weather import DEFAULT_WEATHER_CACHE_DIRECTORY, GpsdWeatherLocationProvider, OpenMeteoWeatherController, WeatherSnapshotCache
 from controllers.navigation import PositionSnapshotCache
+from controllers.navigation.google_earth_map_presentation import GoogleEarthMapPresentation
 from config.radio_config_manager import load_radio_config
 from controllers.radio.radio_controller import RadioController
 from controllers.radio.radio_types import RadioMode, RadioPreset, RadioRange
@@ -58,6 +59,7 @@ def build_car_ui_runtime(config: RuntimeConfig, *, applications_config: Applicat
     )
 
     weather_controller = None
+    map_presentation = None
     if applications_config is not None:
         browser_factory = BrowserApplicationFactory(applications_config)
 
@@ -96,6 +98,7 @@ def build_car_ui_runtime(config: RuntimeConfig, *, applications_config: Applicat
                     browser=browser_factory.create_from_config(google_earth_app),
                 ),
             )
+            map_presentation = GoogleEarthMapPresentation(app_runtime_manager)
 
         # Generic browser applications need no Car UI-specific launcher wiring.
         # Special browser-backed applications above remain responsible for any
@@ -119,6 +122,7 @@ def build_car_ui_runtime(config: RuntimeConfig, *, applications_config: Applicat
         weather_controller=weather_controller,
         sdr_resource_manager=resource_manager,
         app_runtime_manager=app_runtime_manager,
+        map_presentation=map_presentation,
         input_config=config.input,
         image_cache=config.image_cache,
         position_cache=config.position_cache,
