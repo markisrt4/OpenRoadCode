@@ -13,6 +13,7 @@ from apps.carUi.runtime.car_ui_runtime import CarUiRuntime, RadioRuntime
 from apps.carUi.runtime.radio_runtime_registry import RadioRuntimeRegistry
 from apps.carUi.runtime.weather_location_provider import CarUiWeatherLocationProvider
 from apps.launchers.adsb_launcher import ADSBLauncher
+from apps.launchers.app_runtime_manager import AppRuntimeManager
 from apps.launchers.browser_app_factory import BrowserApplicationFactory
 from apps.launchers.sdrpp_launcher import SDRPPLauncher, SDRPPProfile
 from apps.launchers.weather_dash_launcher import WeatherDashLauncher
@@ -48,6 +49,13 @@ def build_car_ui_runtime(config: RuntimeConfig, *, applications_config: Applicat
         runtime = _build_radio_runtime(stack=stack, config=config, resource_manager=resource_manager)
         runtimes[runtime.key] = runtime
 
+    auxiliary_display = os.getenv("CARUI_AUXILIARY_DISPLAY") or config.runtime.auxiliary_display
+    app_runtime_manager = (
+        AppRuntimeManager(applications_config, remote_display=auxiliary_display)
+        if applications_config is not None
+        else None
+    )
+
     adsb_launcher = None
     if config.auxiliary.adsb.enabled:
         adsb_launcher = ADSBLauncher(url=config.auxiliary.adsb.url, close_existing_display_apps=config.auxiliary.adsb.close_existing_display_apps)
@@ -71,10 +79,11 @@ def build_car_ui_runtime(config: RuntimeConfig, *, applications_config: Applicat
                 cache_directory=DEFAULT_WEATHER_CACHE_DIRECTORY,
                 browser=browser,
             )
+            app_runtime_manager.register("weather", weather_dash_launcher)
 
     return CarUiRuntime(
         remote_display=config.runtime.remote_display,
-        auxiliary_display=os.getenv("CARUI_AUXILIARY_DISPLAY") or config.runtime.auxiliary_display,
+        auxiliary_display=auxiliary_display,
         media_display=config.runtime.media_display,
         rotary_encoders=config.input.rotary_encoders,
         radios=RadioRuntimeRegistry(runtimes),
@@ -82,6 +91,7 @@ def build_car_ui_runtime(config: RuntimeConfig, *, applications_config: Applicat
         weather_dash_launcher=weather_dash_launcher,
         weather_controller=weather_controller,
         sdr_resource_manager=resource_manager,
+        app_runtime_manager=app_runtime_manager,
         input_config=config.input,
         image_cache=config.image_cache,
         position_cache=config.position_cache,
