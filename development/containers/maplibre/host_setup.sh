@@ -14,6 +14,7 @@ sudo apt-get install -y \
     libglfw3-dev \
     libgles-dev \
     libuv1-dev \
-    libjpeg62-turbo
+    libjpeg62-turbo \
+    libicu76
 
 echo "MapLibre host dependencies installed."
