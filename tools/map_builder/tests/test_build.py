@@ -3,7 +3,7 @@
 
 import unittest
 
-from builder.build import BuildError, _parse_bbox
+from tools.map_builder.builder.build import BuildError, _parse_bbox
 
 
 class BoundingBoxTests(unittest.TestCase):
