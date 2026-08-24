@@ -18,6 +18,11 @@ def meters_per_second_to_kilometers_per_hour(value: float | None) -> float | Non
     return None if value is None else value * 3.6
 
 
+def meters_per_second_squared_to_feet_per_second_squared(value: float | None) -> float | None:
+    """Convert meters per second squared to feet per second squared."""
+    return None if value is None else value * 3.280839895013123
+
+
 def kelvin_to_celsius(value: float | None) -> float | None:
     """Convert absolute temperature in kelvin to degrees Celsius."""
     return None if value is None else value - 273.15
@@ -46,6 +51,11 @@ def meters_to_feet(value: float | None) -> float | None:
 
 def radians_to_degrees(value: float | None) -> float | None:
     """Convert radians to degrees."""
+    return None if value is None else math.degrees(value)
+
+
+def radians_per_second_to_degrees_per_second(value: float | None) -> float | None:
+    """Convert radians per second to degrees per second."""
     return None if value is None else math.degrees(value)
 
 
