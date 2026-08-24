@@ -99,11 +99,13 @@ def test_off_route_recovers_only_inside_on_route_threshold() -> None:
     )
 
     off_route = controller.update(GeoPoint(42.0050, -82.9850))
-    still_off_route = controller.update(GeoPoint(42.0050, -82.9895))
+    still_off_route = controller.update(GeoPoint(42.0050, -82.9893))
     recovered = controller.update(GeoPoint(42.0050, -82.9898))
 
     assert off_route.off_route
+    assert 0.03 < still_off_route.distance_from_route_miles < 0.05
     assert still_off_route.off_route
+    assert recovered.distance_from_route_miles < 0.03
     assert not recovered.off_route
 
 
@@ -115,8 +117,9 @@ def test_off_route_hysteresis_prevents_threshold_flapping() -> None:
     )
 
     controller.update(GeoPoint(42.0050, -82.9850))
-    near_outer_threshold = controller.update(GeoPoint(42.0050, -82.9894))
+    near_outer_threshold = controller.update(GeoPoint(42.0050, -82.9893))
 
+    assert 0.03 < near_outer_threshold.distance_from_route_miles < 0.05
     assert near_outer_threshold.off_route
 
 
