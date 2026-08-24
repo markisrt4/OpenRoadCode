@@ -9,6 +9,7 @@ import curses
 import math
 from typing import Protocol
 
+from common.units import UnitSystem, meters_per_second_to_miles_per_hour, meters_to_feet
 from frontends.tui.curses_helpers import addstr, format_value
 
 
@@ -49,6 +50,7 @@ def navigation_fields(
     state: NavigationSnapshot | None,
     gps_enabled: bool,
     acceleration_mode: str = "both",
+    unit_system: UnitSystem = UnitSystem.IMPERIAL,
 ) -> tuple[tuple[str, str], ...]:
     """Return formatted labels and values for a navigation snapshot."""
     if acceleration_mode not in ACCELERATION_MODES:
@@ -79,12 +81,22 @@ def navigation_fields(
     if not gps_enabled:
         return tuple(fields)
     gps = state.gps if state is not None else None
+    altitude = gps.altitude_m if gps else None
+    speed = gps.speed_mps if gps else None
+    if unit_system == UnitSystem.IMPERIAL:
+        altitude = meters_to_feet(altitude)
+        altitude_unit = "ft"
+        speed = meters_per_second_to_miles_per_hour(speed)
+        speed_unit = "mph"
+    else:
+        altitude_unit = "m"
+        speed_unit = "m/s"
     fields.extend((
         ("GPS fix", f"{gps.fix_mode}D" if gps is not None and gps.has_fix else "Waiting"),
         ("Latitude", format_value(gps.latitude_deg if gps else None, "°", 6)),
         ("Longitude", format_value(gps.longitude_deg if gps else None, "°", 6)),
-        ("Altitude", format_value(gps.altitude_m if gps else None, "m", 1)),
-        ("Ground speed", format_value(gps.speed_mps if gps else None, "m/s", 2)),
+        ("Altitude", format_value(altitude, altitude_unit, 1)),
+        ("Ground speed", format_value(speed, speed_unit, 2)),
         ("Course over ground", format_value(gps.course_deg if gps else None, "°", 1)),
         ("Satellites", str(gps.satellites_used) if gps and gps.satellites_used is not None else "--"),
     ))
@@ -109,6 +121,9 @@ def _acceleration_fields(
 class NavigationDashboardView:
     """Render navigation snapshots into a curses window."""
 
+    def __init__(self, unit_system: UnitSystem = UnitSystem.IMPERIAL) -> None:
+        self._unit_system = unit_system
+
     def render(
         self,
         screen,
@@ -122,7 +137,7 @@ class NavigationDashboardView:
         screen.erase()
         height, width = screen.getmaxyx()
         title_attr = curses.A_BOLD | (curses.color_pair(1) if curses.has_colors() else 0)
-        addstr(screen, 0, 2, "OpenRoadCode Navigation", title_attr)
+        addstr(screen, 0, 2, f"OpenRoadCode Navigation [{self._unit_system.value}]", title_attr)
         addstr(screen, 1, 0, "─" * max(0, width - 1))
         connection = "CONNECTED" if connected else "DISCONNECTED"
         connection_attr = curses.A_BOLD | (
@@ -132,7 +147,7 @@ class NavigationDashboardView:
         if state is not None and state.timestamp is not None:
             timestamp = getattr(state.timestamp, "strftime", lambda _fmt: "--:--:--")
             addstr(screen, 2, max(24, width - 24), f"Updated {timestamp('%H:%M:%S')}")
-        fields = navigation_fields(state, gps_enabled, acceleration_mode)
+        fields = navigation_fields(state, gps_enabled, acceleration_mode, self._unit_system)
         two_columns = width >= 84
         rows_per_column = (len(fields) + 1) // 2 if two_columns else len(fields)
         column_width = width // 2 if two_columns else width
