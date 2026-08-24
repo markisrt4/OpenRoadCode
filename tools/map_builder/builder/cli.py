@@ -60,6 +60,34 @@ def print_build_summary(selected, elapsed_seconds: float) -> None:
     print(f"  Output: {OUTPUT_ROOT}")
 
 
+def print_validation_summary(result: dict, root: Path) -> None:
+    """Print a concise human-readable validation result."""
+    mbtiles = result["mbtiles"]
+    valhalla = result["valhalla"]
+    output_size = directory_size(root)
+    mbtiles_path = root / "maps/vector/openroadcode.mbtiles"
+    style_path = root / "maps/styles/openroadcode.json"
+    extract_path = root / "valhalla/tiles.tar"
+
+    print("\n========================================")
+    print(" OpenRoadCode navigation data: PASS")
+    print("========================================")
+    print(f"  Deployable size:       {format_size(output_size)} ({output_size:,} bytes)")
+    print(f"  Source PBF files:      {result['source_pbfs']}")
+    print(f"  MBTiles size:          {format_size(mbtiles_path.stat().st_size)}")
+    print(f"  Vector tiles:          {mbtiles['tiles']:,}")
+    print(f"  Vector layers:         {len(mbtiles['layers'])}")
+    print(f"  Glyph files:           {result['glyph_files']:,}")
+    print(f"  Style:                 {style_path.name}")
+    print(f"  Valhalla tile files:   {valhalla['tile_files']:,}")
+    print(f"  Valhalla extract:      {format_size(extract_path.stat().st_size)}")
+    print(f"  Valhalla service:      {valhalla.get('service_status', 'not tested')}")
+    print("  SQLite integrity:      PASS")
+    print("  Required map sources:  PASS")
+    print("  Checksums:             PASS")
+    print(f"  Output:                {root}")
+
+
 def run_build(selected, *, clean: bool, service_smoke: bool) -> tuple[dict, float]:
     started = time.monotonic()
     result = build_regions(selected, clean=clean, service_smoke=service_smoke)
@@ -77,6 +105,7 @@ def parse_args() -> argparse.Namespace:
     build.add_argument("--no-service-smoke", action="store_true", help="skip Valhalla /status smoke test")
     validate = sub.add_parser("validate", help="validate existing generated output")
     validate.add_argument("--service-smoke", action="store_true")
+    validate.add_argument("--json", action="store_true", help="also print raw validation JSON")
     sub.add_parser("list", help="list selectable Geofabrik region IDs")
     return parser.parse_args()
 
@@ -87,7 +116,9 @@ def main() -> int:
     try:
         if command == "validate":
             result = validate_output(OUTPUT_ROOT, service_smoke=args.service_smoke)
-            print(json.dumps(result, indent=2))
+            if args.json:
+                print(json.dumps(result, indent=2))
+            print_validation_summary(result, OUTPUT_ROOT)
             return 0
         regions = fetch_index(INDEX_PATH, refresh=args.refresh_index)
         if command == "list":
@@ -129,7 +160,10 @@ def main() -> int:
         print_build_summary(selected, elapsed)
         return 0
     except (ValueError, ValidationError, RuntimeError) as exc:
-        print(f"ERROR: {exc}", file=sys.stderr)
+        print("\n========================================", file=sys.stderr)
+        print(" OpenRoadCode navigation data: FAIL", file=sys.stderr)
+        print("========================================", file=sys.stderr)
+        print(f"  Reason: {exc}", file=sys.stderr)
         return 2
     except KeyboardInterrupt:
         print("\nCancelled", file=sys.stderr)
