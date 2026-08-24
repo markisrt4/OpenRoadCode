@@ -7,7 +7,7 @@ import unittest
 from unittest.mock import Mock
 
 from apps.carUi.screens.aircraft_screen import AircraftScreen
-from apps.carUi.screens.weather_screen import WeatherScreen
+from apps.carUi.screens.weather_screen import WEATHER_APP_KEY, WeatherScreen
 
 
 class AuxiliaryDisplayTest(unittest.TestCase):
@@ -31,19 +31,19 @@ class AuxiliaryDisplayTest(unittest.TestCase):
             display=":0",
         )
 
-    def test_weather_dashboard_uses_auxiliary_display(self) -> None:
-        launcher = Mock()
+    def test_weather_dashboard_uses_managed_application(self) -> None:
+        manager = Mock()
         screen = WeatherScreen.__new__(WeatherScreen)
-        screen._dashboard_launcher = launcher
+        screen._app_runtime_manager = manager
         screen._auxiliary_display = ":4"
         screen.set_status = Mock()
         screen._return_overlay = Mock()
 
         screen.toggle_weather_dashboard()
 
-        launcher.launch.assert_called_once_with(
-            remote_display=":4",
-            set_status=screen.set_status,
+        manager.launch.assert_called_once_with(
+            WEATHER_APP_KEY,
+            screen.set_status,
         )
         screen._return_overlay.show.assert_called_once_with(
             x=12,
@@ -68,9 +68,10 @@ class AuxiliaryDisplayTest(unittest.TestCase):
         )
         screen._home_action.assert_called_once_with()
 
-    def test_weather_return_closes_dashboard_and_goes_home(self) -> None:
+    def test_weather_return_closes_managed_application_and_goes_home(self) -> None:
+        manager = Mock()
         screen = WeatherScreen.__new__(WeatherScreen)
-        screen._dashboard_launcher = Mock()
+        screen._app_runtime_manager = manager
         screen._auxiliary_display = ":4"
         screen._return_overlay = Mock()
         screen.set_status = Mock()
@@ -79,8 +80,8 @@ class AuxiliaryDisplayTest(unittest.TestCase):
         screen._return_from_dashboard()
 
         screen._return_overlay.hide.assert_called_once_with()
-        screen._dashboard_launcher.close_browser.assert_called_once_with(
-            ":4",
+        manager.close.assert_called_once_with(
+            WEATHER_APP_KEY,
             screen.set_status,
         )
         screen._home_action.assert_called_once_with()
