@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Callable
 
 from config.runtime_config import RuntimeConfig, RuntimeConfigParser, RadioStackConfig
-from config.application_config import ApplicationsConfig, ApplicationsConfigParser, StartupPolicy
+from config.application_config import ApplicationsConfig, ApplicationsConfigParser
 from apps.carUi.runtime.car_ui_runtime import CarUiRuntime, RadioRuntime
 from apps.carUi.runtime.radio_runtime_registry import RadioRuntimeRegistry
 from apps.carUi.runtime.weather_location_provider import CarUiWeatherLocationProvider
@@ -41,7 +41,7 @@ def create_car_ui_runtime(config_path: str | Path, *, project_root: str | Path |
 
 
 def build_car_ui_runtime(config: RuntimeConfig, *, applications_config: ApplicationsConfig | None = None) -> CarUiRuntime:
-    """Assemble a runtime from an already parsed configuration."""
+    """Assemble a runtime from already parsed system and application config."""
     resource_manager = SDRResourceManager()
     runtimes: dict[str, RadioRuntime] = {}
     for stack in config.enabled_radios():
@@ -54,28 +54,20 @@ def build_car_ui_runtime(config: RuntimeConfig, *, applications_config: Applicat
 
     weather_dash_launcher = None
     weather_controller = None
-    if config.auxiliary.weather_dashboard.enabled:
-        weather_cache = WeatherSnapshotCache(PersistentCache(DEFAULT_WEATHER_CACHE_DIRECTORY))
-        weather_location_provider = GpsdWeatherLocationProvider()
-        if config.position_cache.enabled:
-            weather_location_provider = CarUiWeatherLocationProvider(
-                weather_location_provider,
-                PositionSnapshotCache(PersistentCache(config.position_cache.directory)),
-                max_age_seconds=config.position_cache.max_age_seconds,
-            )
-        weather_controller = OpenMeteoWeatherController(weather_cache, location_provider=weather_location_provider)
-        browser = None
-        preload = config.auxiliary.weather_dashboard.preload
-        if applications_config is not None:
-            weather_app = applications_config.app("weather")
-            if not weather_app.enabled:
-                weather_controller = None
-            else:
-                browser = BrowserApplicationFactory(applications_config).create("weather")
-                preload = weather_app.startup is StartupPolicy.PRELOAD
-        if weather_controller is not None:
+    if applications_config is not None:
+        weather_app = applications_config.app("weather")
+        if weather_app.enabled:
+            weather_cache = WeatherSnapshotCache(PersistentCache(DEFAULT_WEATHER_CACHE_DIRECTORY))
+            weather_location_provider = GpsdWeatherLocationProvider()
+            if config.position_cache.enabled:
+                weather_location_provider = CarUiWeatherLocationProvider(
+                    weather_location_provider,
+                    PositionSnapshotCache(PersistentCache(config.position_cache.directory)),
+                    max_age_seconds=config.position_cache.max_age_seconds,
+                )
+            weather_controller = OpenMeteoWeatherController(weather_cache, location_provider=weather_location_provider)
+            browser = BrowserApplicationFactory(applications_config).create("weather")
             weather_dash_launcher = WeatherDashLauncher(
-                preload=preload,
                 cache_directory=DEFAULT_WEATHER_CACHE_DIRECTORY,
                 browser=browser,
             )
