@@ -15,18 +15,15 @@ if [[ ! -f "$WRAPPER_SCRIPT" ]]; then
     echo "Wrapper script not found: $WRAPPER_SCRIPT" >&2
     exit 1
 fi
-
 if ! command -v systemctl >/dev/null 2>&1; then
     echo "systemctl is not available on this system." >&2
     exit 1
 fi
-
 if [[ $EUID -ne 0 ]]; then
     echo "This script needs root privileges to install a system service." >&2
     echo "Please run: sudo $0" >&2
     exit 1
 fi
-
 if [[ -z "$RUN_USER" || "$RUN_USER" == "root" ]]; then
     echo "Unable to determine the non-root OpenRoadCode runtime user." >&2
     echo "Run this installer through sudo from the intended user account." >&2
@@ -38,7 +35,8 @@ chmod +x "$WRAPPER_SCRIPT"
 cat > "$SERVICE_FILE" <<EOF
 [Unit]
 Description=OpenRoadCode Navigation Service
-After=network.target gpsd.service
+Requires=openroadcode-message-broker.service
+After=openroadcode-message-broker.service network.target gpsd.service
 Wants=network.target
 
 [Service]
