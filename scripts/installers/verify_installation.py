@@ -28,14 +28,15 @@ PYTHON_IMPORTS: dict[str, tuple[str, ...]] = {
 }
 
 COMMANDS: dict[str, tuple[tuple[str, ...], ...]] = {
-    "base": (("git",), ("curl",),),
-    "browser": (("chromium", "chromium-browser"),),
+    "base": (("git",), ("curl",), ("wget",), ("sudo",), ("pgrep",)),
+    "desktop-ui": (("wmctrl",), ("xprop",)),
+    "browser": (("chromium", "chromium-browser", "google-chrome"),),
     "vnc": (("tigervncserver", "vncserver"),),
     "audio": (("wpctl", "pactl"),),
     "gps": (("gpsd",), ("gpspipe", "cgps")),
     "rtl-sdr": (("rtl_test",), ("SoapySDRUtil",)),
     "adsb": (("readsb",),),
-    "bluetooth": (("bluetoothctl",),),
+    "bluetooth": (("bluetoothctl",), ("sdptool",), ("rfcomm",)),
     "automotive": (("candump",),),
     "sdrpp": (("sdrpp",),),
     "raspberry-pi": (("i2cdetect",),),
@@ -46,7 +47,7 @@ COMMANDS: dict[str, tuple[tuple[str, ...], ...]] = {
 DEPENDENCIES: dict[str, tuple[str, ...]] = {
     "vnc": ("desktop-ui",),
     "spotify": ("audio",),
-    "adsb": ("rtl-sdr",),
+    "adsb": ("rtl-sdr", "browser"),
     "sdrpp": ("rtl-sdr", "desktop-ui", "audio"),
 }
 
