@@ -4,6 +4,7 @@
 #include "map_renderer_frontend.hpp"
 #include "map_view.hpp"
 #include "map_command_server.hpp"
+#include "navigation_config.hpp"
 
 #include <mbgl/map/map.hpp>
 #include <mbgl/renderer/renderer.hpp>
@@ -11,50 +12,49 @@
 #include <mbgl/style/sources/geojson_source.hpp>
 #include <mapbox/geojson.hpp>
 
+#include <iostream>
 #include <memory>
 #include <string>
-#include <iostream>
 
 namespace {
 
-constexpr double kLatitude =
-    42.3314;
+constexpr double kLatitude = 42.3314;
+constexpr double kLongitude = -83.0458;
+constexpr double kZoom = 13.0;
 
-constexpr double kLongitude =
-    -83.0458;
-
-constexpr double kZoom =
-    13.0;
-
-constexpr const char* kStyleUrl =
-    "file:///srv/openroadcode/maps/styles/"
-    "michigan-test.json";
-
-constexpr const char* kCachePath =
-    "/tmp/openroadcode-map-cache.db";
-
+std::string fileUrl(const std::string& path)
+{
+    if (path.rfind("file://", 0) == 0) {
+        return path;
+    }
+    return "file://" + path;
 }
 
+} // namespace
 
 int main()
 {
-    mbgl::ResourceOptions resourceOptions;
+    NavigationConfig config;
+    try {
+        config = loadNavigationConfig();
+    } catch (const std::exception& exception) {
+        std::cerr << "[map_renderer] invalid navigation config: "
+                  << exception.what() << '\n';
+        return 1;
+    }
 
-    resourceOptions.withCachePath(
-        kCachePath
-    );
+    std::cout << "[map_renderer] style: " << config.stylePath << '\n'
+              << "[map_renderer] vehicle marker: " << config.markerMode
+              << " scale=" << config.markerScale << '\n';
+
+    mbgl::ResourceOptions resourceOptions;
+    resourceOptions.withCachePath(config.cachePath);
 
     mbgl::ClientOptions clientOptions;
-
-    MapView view(
-        resourceOptions,
-        clientOptions
-    );
+    MapView view(resourceOptions, clientOptions);
 
     MapRendererFrontend rendererFrontend{
-        std::make_unique<
-            mbgl::Renderer
-        >(
+        std::make_unique<mbgl::Renderer>(
             view.getRendererBackend(),
             view.getPixelRatio()
         ),
@@ -65,179 +65,114 @@ int main()
         rendererFrontend,
         view,
         mbgl::MapOptions()
-            .withSize(
-                view.getSize()
-            )
-            .withPixelRatio(
-                view.getPixelRatio()
-            ),
+            .withSize(view.getSize())
+            .withPixelRatio(view.getPixelRatio()),
         resourceOptions,
         clientOptions
     );
 
-    view.setMap(
-        &map
-    );
-
+    view.setMap(&map);
     map.jumpTo(
         mbgl::CameraOptions()
-            .withCenter(
-                mbgl::LatLng{
-                    kLatitude,
-                    kLongitude
-                }
-            )
-            .withZoom(
-                kZoom
-            )
+            .withCenter(mbgl::LatLng{kLatitude, kLongitude})
+            .withZoom(kZoom)
     );
 
     MapCommandServer commandServer;
 
     view.setUpdateCallback(
-        [&map, &commandServer, &view]() {
-            const auto command =
-                commandServer.poll();
-
+        [&map, &commandServer, &config]() {
+            const auto command = commandServer.poll();
             if (!command) {
                 return;
             }
 
-            if (command->command == "set_center")
-            {
-                std::cout
-                    << "[map_renderer] set_center: "
-                    << command->latitude  << ", "
-                    << command->longitude << '\n';
-
-                map.jumpTo(mbgl::CameraOptions().withCenter(mbgl::LatLng{
-                                command->latitude,
-                                command->longitude }
-                        )
+            if (command->command == "set_center") {
+                std::cout << "[map_renderer] set_center: "
+                          << command->latitude << ", "
+                          << command->longitude << '\n';
+                map.jumpTo(
+                    mbgl::CameraOptions().withCenter(
+                        mbgl::LatLng{command->latitude, command->longitude}
+                    )
                 );
-
                 return;
             }
 
             if (command->command == "fit_bounds") {
-                const mbgl::LatLngBounds bounds = mbgl::LatLngBounds::hull(mbgl::LatLng{
-                            command->south,
-                            command->west
-                        },
-                        mbgl::LatLng{
-                            command->north,
-                            command->east
-                        }
-                    );
-
+                const mbgl::LatLngBounds bounds = mbgl::LatLngBounds::hull(
+                    mbgl::LatLng{command->south, command->west},
+                    mbgl::LatLng{command->north, command->east}
+                );
                 const mbgl::EdgeInsets padding{
                     command->padding,
                     command->padding,
                     command->padding,
                     command->padding
                 };
-
                 const auto camera = map.cameraForLatLngBounds(bounds, padding);
-
-                std::cout
-                    << "[map_renderer] fit_bounds: "
-                    << command->south << ", "
-                    << command->west << " -> "
-                    << command->north << ", "
-                    << command->east
-                    << '\n';
-
-                map.easeTo(
-                    camera,
-                    mbgl::AnimationOptions{
-                        mbgl::Milliseconds(500)
-                    }
-                );
-
+                map.easeTo(camera, mbgl::AnimationOptions{mbgl::Milliseconds(500)});
                 return;
             }
 
-            if (command->command == "set_position")
-            {
+            if (command->command == "set_position") {
                 auto* source = map.getStyle().getSource("vehicle");
-
-                if (!source)
-                {
+                if (!source) {
                     std::cerr << "[map_renderer] vehicle source not found\n";
                     return;
                 }
 
                 auto* vehicleSource = static_cast<mbgl::style::GeoJSONSource*>(source);
-
-                const mapbox::geojson::geometry geometry = mapbox::geometry::point<double>{
-                        command->longitude,
-                        command->latitude
-                    };
-
-                vehicleSource->setGeoJSON(geometry);
-                //view.invalidate();
-
+                mapbox::geojson::feature feature{
+                    mapbox::geojson::geometry{
+                        mapbox::geometry::point<double>{
+                            command->longitude,
+                            command->latitude
+                        }
+                    }
+                };
+                feature.properties["marker_mode"] = config.markerMode;
+                feature.properties["marker_scale"] = config.markerScale;
+                vehicleSource->setGeoJSON(feature);
                 return;
             }
 
-            if (command->command == "set_camera")
-            {
-                map.jumpTo(mbgl::CameraOptions().withCenter(mbgl::LatLng{
-                                command->latitude,
-                                command->longitude}
-                        )
-                        .withZoom   (command->zoom)
+            if (command->command == "set_camera") {
+                map.jumpTo(
+                    mbgl::CameraOptions()
+                        .withCenter(mbgl::LatLng{
+                            command->latitude,
+                            command->longitude
+                        })
+                        .withZoom(command->zoom)
                         .withBearing(command->bearing)
-                        .withPitch  (command->pitch)
+                        .withPitch(command->pitch)
                 );
+                return;
             }
 
-            if (command->command == "set_route")
-            {
+            if (command->command == "set_route") {
                 auto* source = map.getStyle().getSource("route");
-
-                if (!source)
-                {
+                if (!source) {
                     std::cerr << "[map_renderer] route source not found\n";
                     return;
                 }
 
                 auto* routeSource = static_cast<mbgl::style::GeoJSONSource*>(source);
-
-                if (!routeSource)
-                {
-                    std::cerr << "[map_renderer] route source not found\n";
-
-                    return;
-                }
-
-                try
-                {
+                try {
                     const auto geojson = mapbox::geojson::parse(command->geojson);
-
                     routeSource->setGeoJSON(geojson);
-
                     std::cout << "[map_renderer] route updated\n";
+                } catch (const std::exception& exception) {
+                    std::cerr << "[map_renderer] failed to parse route GeoJSON: "
+                              << exception.what() << '\n';
                 }
-                catch
-                (
-                    const std::exception& exception
-                )
-                {
-                    std::cerr
-                        << "[map_renderer] failed to parse route GeoJSON: "
-                        << exception.what()
-                        << '\n';
-                }
-
                 return;
             }
         }
     );
 
-    map.getStyle().loadURL(kStyleUrl);
-
+    map.getStyle().loadURL(fileUrl(config.stylePath));
     view.run();
-
     return 0;
 }
