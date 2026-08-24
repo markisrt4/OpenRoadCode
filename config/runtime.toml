@@ -18,12 +18,6 @@ subscriber_endpoint = "tcp://127.0.0.1:5557"
 
 # -----------------------------------------------------------------------------
 # Navigation service pipeline
-#
-#   configured inputs -> navigation solution -> published navigation contracts
-#
-# Each input can independently come from a physical device or simulation. The
-# solution algorithm runs before publication, so every downstream application
-# sees the same converged navigation state.
 # -----------------------------------------------------------------------------
 [services.navigation]
 enabled = true
@@ -31,21 +25,19 @@ rate_hz = 10.0
 command_endpoint = "tcp://127.0.0.1:5560"
 
 [services.navigation.inputs.imu]
-source = "device" # "device" or "simulation"
+source = "device"
 device = "mpu6050"
 address = 0x68
 
-# Used when source = "simulation".
 [services.navigation.inputs.imu.simulation]
 profile = "driving"
 
 [services.navigation.inputs.gps]
-source = "device" # "device" or "simulation"
+source = "device"
 device = "gpsd"
 host = "127.0.0.1"
 port = "2947"
 
-# Used when source = "simulation".
 [services.navigation.inputs.gps.simulation]
 profile = "driving"
 latitude_deg = 42.8028
@@ -66,15 +58,13 @@ source = "navigation-service"
 
 # -----------------------------------------------------------------------------
 # Automotive service pipeline
-#
-#   ELM327 -> OBD-II manager -> SI VehicleState -> published vehicle contract
 # -----------------------------------------------------------------------------
 [services.automotive]
 enabled = true
 rate_hz = 10.0
 
 [services.automotive.input]
-source = "device" # "device" or "simulation"
+source = "device"
 device = "elm327"
 port = "/dev/rfcomm0"
 baud = 38400
@@ -94,8 +84,6 @@ directory = "~/.cache/openroadcode/images"
 max_entries = 24
 
 [position_cache]
-# This is a consumer-side last-known-position cache, not a GPS source. Live
-# position is produced by services.navigation and distributed on the bus.
 enabled = true
 directory = "~/.cache/openroadcode/position"
 max_age_seconds = 604800
@@ -114,11 +102,6 @@ volume_index = 0
 [input.keyboard]
 enabled = false
 # device_path = "/dev/input/event3"
-
-# [[input.push_buttons]]
-# pin = 11
-# action = "home"
-# active_low = true
 
 [[input.rotary_encoders.devices]]
 driver = "seesaw"
@@ -213,7 +196,3 @@ enabled = true
 enabled = true
 url = "http://127.0.0.1/tar1090"
 close_existing_display_apps = true
-
-[auxiliary.weather_dashboard]
-enabled = true
-preload = true
