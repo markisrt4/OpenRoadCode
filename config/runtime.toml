@@ -64,6 +64,27 @@ heading_reference = "relative"
 enabled = true
 source = "navigation-service"
 
+# -----------------------------------------------------------------------------
+# Automotive service pipeline
+#
+#   ELM327 -> OBD-II manager -> SI VehicleState -> published vehicle contract
+# -----------------------------------------------------------------------------
+[services.automotive]
+enabled = true
+rate_hz = 10.0
+
+[services.automotive.input]
+source = "device" # "device" or "simulation"
+device = "elm327"
+port = "/dev/rfcomm0"
+baud = 38400
+timeout_s = 1.0
+slow_poll_interval_s = 5.0
+
+[services.automotive.publish]
+enabled = true
+source = "obd2"
+
 [audio]
 output = "auto"
 # device_match = "USB Audio"
