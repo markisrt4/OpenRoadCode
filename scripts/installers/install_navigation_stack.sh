@@ -47,7 +47,7 @@ Map data: $DATA_ROOT
 Options:
   --target TARGET         host_setup target (rpi4, rpi5, linux-dev; default: rpi5)
   --show-plan             print the resolved plan without changing the system
-  --skip-host-packages    do not invoke host package setup
+  --skip-host-packages    do not invoke host/component host setup
   --skip-maplibre         skip MapLibre Native and renderer build/install
   --skip-valhalla         skip Valhalla build/install
   --skip-services         skip systemd service installation
@@ -120,19 +120,12 @@ checkout_repo() {
 }
 
 if (( ! SKIP_HOST_PACKAGES )); then
+  echo "[*] Installing navigation host dependencies"
   bash "$PROJECT_ROOT/scripts/installers/host_setup.sh" --target "$TARGET" --feature desktop-ui --feature gps --no-vnc --no-gpsd-service
   sudo apt-get update
-  # Keep runtime packages explicit. Valhalla is compiled in a container but
-  # executes on the host, so host libraries matching its dynamic dependencies
-  # must be present as part of the deployment contract.
-  sudo apt-get install -y \
-    rsync \
-    libglfw3 \
-    libshp4 \
-    libgles2 \
-    libuv1 \
-    libgeotiff5 \
-    libczmq4
+  sudo apt-get install -y rsync
+  (( SKIP_MAPLIBRE )) || bash "$PROJECT_ROOT/development/containers/maplibre/host_setup.sh"
+  (( SKIP_VALHALLA )) || bash "$PROJECT_ROOT/development/containers/valhalla/host_setup.sh"
 fi
 
 sudo install -d "$CONFIG_ROOT" /var/cache/openroadcode
@@ -158,30 +151,21 @@ if (( ! SKIP_VALHALLA )); then
   checkout_repo "https://github.com/valhalla/valhalla.git" "$VALHALLA_SRC" "$VALHALLA_REF" "Valhalla"
   bash "$PROJECT_ROOT/development/containers/valhalla/build.sh"
   valhalla_stage="$BUILD_ROOT/valhalla"
-
-  # The build container runs as root and writes into this host-mounted staging
-  # directory. Clean any previous container-owned tree with sudo, then restore
-  # host ownership after the build so normal repo operations remain usable.
   sudo rm -rf "$valhalla_stage"
   mkdir -p "$valhalla_stage"
-
   "$CONTAINER_ENGINE" run --rm --volume "$HOST_SRC:/src" --workdir /src -e BUILD_JOBS="${BUILD_JOBS:-4}" -e INSTALL_PREFIX="/src/OpenRoadCode/build/navigation-stack/valhalla" openroadcode-valhalla-builder /bin/bash -lc "/src/OpenRoadCode/development/containers/valhalla/scripts/build_valhalla.sh"
   sudo chown -R "$(id -u):$(id -g)" "$valhalla_stage"
-
   [[ -x "$valhalla_stage/bin/valhalla_service" ]] || { echo "Valhalla build missing: $valhalla_stage/bin/valhalla_service" >&2; exit 1; }
   sudo install -d "$INSTALL_ROOT"
   sudo rsync -a --delete "$valhalla_stage/" "$INSTALL_ROOT/valhalla/"
   sudo install -d /etc/ld.so.conf.d
   printf '%s\n' "$INSTALL_ROOT/valhalla/lib" | sudo tee /etc/ld.so.conf.d/openroadcode-navigation.conf >/dev/null
   sudo ldconfig
-
   missing_libs="$(ldd "$INSTALL_ROOT/valhalla/bin/valhalla_service" | awk '/not found/{print $1}')"
   if [[ -n "$missing_libs" ]]; then
     echo "Valhalla runtime dependency check failed." >&2
     echo "Missing shared libraries:" >&2
-    while IFS= read -r library; do
-      [[ -n "$library" ]] && echo "  $library" >&2
-    done <<< "$missing_libs"
+    while IFS= read -r library; do [[ -n "$library" ]] && echo "  $library" >&2; done <<< "$missing_libs"
     exit 1
   fi
   echo "[+] Valhalla runtime dependency check passed"
