@@ -9,7 +9,13 @@ import curses
 import math
 from typing import Protocol
 
-from common.units import UnitSystem, meters_per_second_to_miles_per_hour, meters_to_feet
+from common.units import (
+    UnitSystem,
+    meters_per_second_squared_to_feet_per_second_squared,
+    meters_per_second_to_miles_per_hour,
+    meters_to_feet,
+    radians_per_second_to_degrees_per_second,
+)
 from frontends.tui.curses_helpers import addstr, format_value
 
 
@@ -52,7 +58,7 @@ def navigation_fields(
     acceleration_mode: str = "both",
     unit_system: UnitSystem = UnitSystem.IMPERIAL,
 ) -> tuple[tuple[str, str], ...]:
-    """Return formatted labels and values for a navigation snapshot."""
+    """Return formatted labels and values in the requested presentation units."""
     if acceleration_mode not in ACCELERATION_MODES:
         raise ValueError(f"invalid acceleration mode: {acceleration_mode}")
     fields: list[tuple[str, str]] = []
@@ -68,16 +74,23 @@ def navigation_fields(
         fields.extend(_acceleration_fields(
             state.acceleration_mps2 if state is not None else None,
             "Raw accel",
+            unit_system,
         ))
     if acceleration_mode in ("linear", "both"):
         fields.extend(_acceleration_fields(
             state.linear_acceleration_mps2 if state is not None else None,
             "Linear accel",
+            unit_system,
         ))
     angular = state.angular_velocity_rad_s if state is not None else None
     for axis in ("X", "Y", "Z"):
         value = getattr(angular, axis.lower()) if angular is not None else None
-        fields.append((f"Angular velocity {axis}", format_value(value, "rad/s", 4)))
+        if unit_system == UnitSystem.IMPERIAL:
+            value = radians_per_second_to_degrees_per_second(value)
+            angular_unit = "°/s"
+        else:
+            angular_unit = "rad/s"
+        fields.append((f"Angular velocity {axis}", format_value(value, angular_unit, 4)))
     if not gps_enabled:
         return tuple(fields)
     gps = state.gps if state is not None else None
@@ -106,15 +119,23 @@ def navigation_fields(
 def _acceleration_fields(
     acceleration: VectorSnapshot | None,
     label_prefix: str,
+    unit_system: UnitSystem,
 ) -> tuple[tuple[str, str], ...]:
     if acceleration is None:
         return tuple((f"{label_prefix} {axis}", "--") for axis in ("X", "Y", "Z", "total"))
-    total = math.sqrt(acceleration.x**2 + acceleration.y**2 + acceleration.z**2)
+    values = (acceleration.x, acceleration.y, acceleration.z)
+    total = math.sqrt(sum(value**2 for value in values))
+    if unit_system == UnitSystem.IMPERIAL:
+        values = tuple(meters_per_second_squared_to_feet_per_second_squared(value) for value in values)
+        total = meters_per_second_squared_to_feet_per_second_squared(total)
+        unit = "ft/s²"
+    else:
+        unit = "m/s²"
     return (
-        (f"{label_prefix} X", format_value(acceleration.x, "m/s²", 3)),
-        (f"{label_prefix} Y", format_value(acceleration.y, "m/s²", 3)),
-        (f"{label_prefix} Z", format_value(acceleration.z, "m/s²", 3)),
-        (f"{label_prefix} total", format_value(total, "m/s²", 3)),
+        (f"{label_prefix} X", format_value(values[0], unit, 3)),
+        (f"{label_prefix} Y", format_value(values[1], unit, 3)),
+        (f"{label_prefix} Z", format_value(values[2], unit, 3)),
+        (f"{label_prefix} total", format_value(total, unit, 3)),
     )
 
 
