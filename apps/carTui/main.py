@@ -37,7 +37,7 @@ def parse_args() -> argparse.Namespace:
         "--units",
         choices=tuple(unit.value for unit in UnitSystem),
         default=UnitSystem.IMPERIAL.value,
-        help="Presentation units (default: imperial)",
+        help="Initial presentation units (default: imperial; press u to toggle)",
     )
     parser.add_argument("--config", type=Path, default=DEFAULT_CONFIG_PATH, help="Shared OpenRoadCode runtime TOML configuration")
     parser.add_argument(
@@ -89,13 +89,16 @@ def main() -> int:
     args = parse_args()
     dependencies = build_dependencies(args)
     try:
-        curses.wrapper(
-            CarTui(
-                dependencies,
-                gps_enabled=args.gps or args.simulate,
-                unit_system=UnitSystem(args.units),
-            ).run
-        )
+        try:
+            curses.wrapper(
+                CarTui(
+                    dependencies,
+                    gps_enabled=args.gps or args.simulate,
+                    unit_system=UnitSystem(args.units),
+                ).run
+            )
+        except KeyboardInterrupt:
+            pass
     finally:
         dependencies.close()
     return 0
