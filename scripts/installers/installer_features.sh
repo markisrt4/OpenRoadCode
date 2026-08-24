@@ -83,10 +83,10 @@ get_feature_packages() {
   local feature="$1"
   case "$feature" in
     base)
-      echo "git curl wget ca-certificates python3 python3-venv python3-pip"
+      echo "git curl wget ca-certificates sudo procps python3 python3-venv python3-pip"
       ;;
     desktop-ui)
-      echo "python3-tk dbus-x11 xauth xterm x11-apps wmctrl openbox xfce4 xfce4-goodies"
+      echo "python3-tk dbus-x11 xauth xterm x11-apps x11-utils wmctrl openbox xfce4 xfce4-goodies"
       ;;
     web-ui|browser|input|streamlit)
       echo ""
