@@ -122,7 +122,17 @@ checkout_repo() {
 if (( ! SKIP_HOST_PACKAGES )); then
   bash "$PROJECT_ROOT/scripts/installers/host_setup.sh" --target "$TARGET" --feature desktop-ui --feature gps --no-vnc --no-gpsd-service
   sudo apt-get update
-  sudo apt-get install -y rsync libglfw3 libshp4 libgles2 libuv1
+  # Keep runtime packages explicit. Valhalla is compiled in a container but
+  # executes on the host, so host libraries matching its dynamic dependencies
+  # must be present as part of the deployment contract.
+  sudo apt-get install -y \
+    rsync \
+    libglfw3 \
+    libshp4 \
+    libgles2 \
+    libuv1 \
+    libgeotiff5 \
+    libczmq4
 fi
 
 sudo install -d "$CONFIG_ROOT" /var/cache/openroadcode
@@ -164,6 +174,17 @@ if (( ! SKIP_VALHALLA )); then
   sudo install -d /etc/ld.so.conf.d
   printf '%s\n' "$INSTALL_ROOT/valhalla/lib" | sudo tee /etc/ld.so.conf.d/openroadcode-navigation.conf >/dev/null
   sudo ldconfig
+
+  missing_libs="$(ldd "$INSTALL_ROOT/valhalla/bin/valhalla_service" | awk '/not found/{print $1}')"
+  if [[ -n "$missing_libs" ]]; then
+    echo "Valhalla runtime dependency check failed." >&2
+    echo "Missing shared libraries:" >&2
+    while IFS= read -r library; do
+      [[ -n "$library" ]] && echo "  $library" >&2
+    done <<< "$missing_libs"
+    exit 1
+  fi
+  echo "[+] Valhalla runtime dependency check passed"
 fi
 
 if (( ! SKIP_SERVICES )) && (( ! SKIP_VALHALLA )); then
