@@ -91,12 +91,14 @@ source venv/bin/activate
 ```
 
 Many parts of the project can be developed without vehicle hardware. Prefer
-mock, stub, or unconfigured implementations when working on application logic
-at a desk. Your laptop should not need to believe it is a Jeep.
+mock, stub, simulation, or unconfigured implementations when working on
+application logic at a desk. Your laptop should not need to believe it is a
+Jeep.
 
 ## A quick architecture tour
 
-OpenRoadCode has two important dependency paths.
+OpenRoadCode separates reusable domain behavior, process ownership, messaging,
+and presentation.
 
 Commands and requested behavior use controller or request-handler interfaces:
 
@@ -107,9 +109,7 @@ Controller or request interface
       ↓
 Concrete implementation / service command endpoint
       ↓
-Hardware adapter / protocol
-      ↓
-Linux service / physical hardware
+Hardware adapter / protocol / remote service
 ```
 
 Continuously changing public telemetry is distributed through producer services and the message bus:
@@ -133,41 +133,49 @@ Frontend / UI
 In practical terms:
 
 - `apps/` owns user-facing applications, runtime assembly, and app-specific state.
-- `services/` owns long-running domain producers such as navigation and automotive telemetry.
-- `controllers/` exposes domain behavior and hardware-independent processing.
-- `messaging/` owns public telemetry contracts, dispatch, and transports.
+- `services/` owns long-running domain producers, process lifecycle, runtime composition, and acknowledged command endpoints.
+- `controllers/` exposes reusable domain behavior, policies, and hardware-independent processing.
+- `messaging/` owns public message contracts, encoding/decoding, dispatch, and transports.
 - `frontends/` owns toolkit-specific reusable presentation.
 - `ui/` owns toolkit-independent presentation contracts.
 - `common/` owns neutral cross-cutting helpers such as shared telemetry state and unit conversion.
 - `hardware_io/` isolates device-specific access.
-- `protocols/` handles communication formats and remote APIs.
+- `protocols/` handles communication formats, device protocols, and remote APIs.
 - `config/` holds runtime and hardware configuration.
 
 A producer service owns its physical device or simulation source, domain processing, and publication lifecycle. Applications should subscribe to public telemetry instead of creating their own competing GPS, IMU, or OBD-II hardware instances just to display state.
 
-For public telemetry, keep contracts in SI units and perform imperial/metric
-conversion only at the presentation boundary. Shared conversions live in
-`common.units`; do not duplicate conversion constants in each frontend.
+Do not confuse `services/` with `messaging/`. A service owns and runs a domain capability. Messaging transports and defines public messages. A ZeroMQ socket does not become a service merely because it has ambitions.
+
+For new public telemetry, use SI units and perform imperial/metric conversion only at the presentation boundary. Shared conversions live in `common.units`; do not duplicate conversion constants in each frontend. Existing internal APIs with explicitly named non-SI units must be converted at a documented boundary rather than silently reinterpreted.
 
 Use PUB/SUB for continuously changing state that may have multiple consumers.
 Use request/reply when an operation needs acknowledgement or an error response;
-navigation calibration and heading reset are examples. Do not turn a command
-into telemetry merely because ZeroMQ happens to be nearby.
+navigation calibration, heading reset, and route calculation are examples. Do
+not turn a command into telemetry merely because ZeroMQ happens to be nearby.
 
 Simulation belongs at the producer-service input so simulated and physical
 sources exercise the same downstream contract and consumers. Runtime service
-composition belongs in `config/runtime.toml`, not in individual UI applications.
+composition belongs in runtime configuration, not in individual UI applications.
 
 A useful rule when choosing a boundary is:
 
-- "Do this" normally belongs behind a controller or request interface.
+- "Do this" normally belongs behind a controller/request interface or acknowledged service command endpoint.
 - "This is the current state" is a candidate for a public telemetry contract.
+
+For navigation specifically, keep these responsibilities separate:
+
+- route planning calculates a `RouteResult`;
+- route guidance derives maneuver progress, arrival, and off-route state;
+- navigation-session orchestration owns destination/travel mode, reroute policy, and route replacement;
+- map presentation displays route/position state without deciding when to reroute.
 
 Architecture references:
 
 - [Architecture overview](docs/architecture.md)
 - [Messaging overview and subscriber quick start](messaging/README.md)
 - [Message Bus Interface Design Description (IDD)](docs/messaging/message_bus_idd.md)
+- [Domain IDDs](docs/idd/)
 - [Navigation producer service](services/navigation/README.md)
 - [Automotive producer service](services/automotive/README.md)
 
@@ -187,7 +195,8 @@ Each package may contain one or more of these directories:
 - `integration_test/` contains automated tests connecting real software
   components. These tests must run unattended and clean up their resources.
 - `component_test/` contains manual tools for hardware, interactive input,
-  external applications, credentials, or services that CI cannot provide.
+  external applications, credentials, services, or end-to-end environment
+  checks that CI cannot reliably provide.
 
 Use snake_case filenames:
 
@@ -201,6 +210,11 @@ controllers/radio/
 Files discovered by the automated runner must start with `test_`. Manual
 component programs should normally end with `_cli.py` so they cannot be
 mistaken for unattended tests.
+
+A component test should state its environment assumptions. If it requires
+Raspberry Pi hardware, gpsd, Valhalla, MapLibre, a display server, credentials,
+or another external dependency, document that rather than allowing an import
+failure to serve as the setup guide.
 
 Run the same commands used by continuous integration:
 
@@ -235,12 +249,17 @@ python scripts/check_doxygen_contracts.py
 Docstrings and comments should explain intent, constraints, or surprising
 behavior. They do not need to narrate obvious Python one line at a time.
 
-When adding or changing public telemetry, update both
-`messaging/README.md` and `docs/messaging/message_bus_idd.md`. Also update the
-owning service README when source selection, publication behavior, command
-handling, or startup changes. A new developer should be able to discover the
-producer, topic, decoder, units, subscription pattern, and applicable command
-endpoint without reverse-engineering the implementation.
+When adding or changing a public message contract:
+
+1. define a stable topic or command name and schema version where applicable;
+2. document units, nullability, ranges, producer semantics, and consumer semantics;
+3. add or update the applicable IDD under `docs/idd/` or `docs/messaging/`;
+4. add encoder/decoder and validation tests;
+5. update `messaging/README.md` and the owning service README when discovery or runtime behavior changes.
+
+New normalized public telemetry contracts use SI units unless the IDD explicitly documents a justified exception. Do not expose a presentation preference such as miles versus kilometers as two competing wire contracts.
+
+Public request/reply commands are interfaces too. Document request fields, response fields, failure behavior, units, and ownership in an IDD when they cross a process boundary.
 
 ## Code style
 
@@ -310,9 +329,9 @@ Before opening a pull request:
 - Run `python scripts/run_tests.py unit`.
 - Run `python scripts/run_tests.py integration` when the environment permits.
 - Run `python scripts/check_doxygen_contracts.py` after changing interfaces.
-- Exercise relevant component CLIs when changing hardware integrations.
+- Exercise relevant component CLIs when changing hardware or service integrations.
 - Update configuration examples and documentation when behavior changes.
-- Update messaging documentation and the applicable IDD/service README when adding or changing public telemetry.
+- Update the applicable IDD, messaging documentation, and service README when adding or changing a public cross-process interface.
 - Remove secrets, generated files, debug output, and machine-specific paths.
 
 In the pull request description, tell us:
