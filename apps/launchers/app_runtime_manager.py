@@ -8,7 +8,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 from threading import Lock, Thread
 
-from apps.launchers.app_launcher_if import AppLauncherIf, BrowserDashboardLauncherIf, StatusCallback
+from apps.launchers.app_launcher_if import (
+    AppLauncherIf,
+    BrowserDashboardLauncherIf,
+    PreloadableAppLauncherIf,
+    StatusCallback,
+)
 from config.application_config import ApplicationConfig, ApplicationsConfig, StartupPolicy
 
 
@@ -85,11 +90,7 @@ class AppRuntimeManager:
         """Return whether a registered application's launcher is running."""
         return self._managed(key).launcher.is_running()
 
-    def _close_exclusive_peers(
-        self,
-        target: ManagedApplication,
-        set_status: StatusCallback,
-    ) -> None:
+    def _close_exclusive_peers(self, target: ManagedApplication, set_status: StatusCallback) -> None:
         group = target.config.exclusive_group
         if group is None:
             return
@@ -97,17 +98,13 @@ class AppRuntimeManager:
             peers = tuple(
                 (key, managed)
                 for key, managed in self._apps.items()
-                if managed is not target
-                and managed.config.exclusive_group == group
+                if managed is not target and managed.config.exclusive_group == group
             )
         for key, managed in peers:
             try:
                 if managed.launcher.is_running():
                     self.close(key, set_status)
             except Exception:
-                # A stale or broken peer should not prevent the requested app
-                # from launching; hardware-specific launchers may still apply
-                # stronger resource arbitration of their own.
                 continue
 
     def _start_background_apps(self, set_status: StatusCallback) -> None:
@@ -118,8 +115,10 @@ class AppRuntimeManager:
             if policy is StartupPolicy.LAZY:
                 continue
             try:
-                if policy is StartupPolicy.PRELOAD and hasattr(managed.launcher, "prepare"):
-                    managed.launcher.prepare()  # type: ignore[attr-defined]
+                if policy is StartupPolicy.PRELOAD and isinstance(
+                    managed.launcher, PreloadableAppLauncherIf
+                ):
+                    managed.launcher.prepare()
                 else:
                     self.launch(managed.config.key, set_status)
             except Exception as exc:
