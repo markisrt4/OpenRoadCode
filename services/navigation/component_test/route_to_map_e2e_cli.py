@@ -51,8 +51,6 @@ class _FakeValhallaHandler(BaseHTTPRequestHandler):
         if len(locations) != 2:
             self._reply({"error": "two locations required"}, 400)
             return
-        # Valhalla encoded polyline for a short two-point shape. The actual
-        # controller decoder is exercised rather than bypassed by the test.
         self._reply({
             "trip": {
                 "summary": {"length": 42.5, "time": 3600.0},
@@ -156,7 +154,7 @@ def main() -> int:
                 destination=GeoPoint(42.3314, -83.0458),
             )
         )
-        present_route(MapRendererClient(MAP_ENDPOINT), route)
+        present_route(route, MapRendererClient(MAP_ENDPOINT))
 
         if len(fake_renderer.commands) != 2:
             raise RuntimeError(
