@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from datetime import datetime
 
 from apps.automotive_dashboard.navigation_tui import _fields
+from common.units import UnitSystem
 from controllers.navigation import GpsState
 
 
@@ -40,7 +41,13 @@ class NavigationTuiTests(unittest.TestCase):
             angular_velocity_rad_s=_Vector(0.1, 0.2, 0.3),
         )
 
-        fields = dict(_fields(state, gps_enabled=False))
+        fields = dict(
+            _fields(
+                state,
+                gps_enabled=False,
+                unit_system=UnitSystem.METRIC,
+            )
+        )
 
         self.assertEqual(fields["Heading"], "123.46 °")
         self.assertEqual(fields["Raw accel total"], "3.000 m/s²")
@@ -68,7 +75,13 @@ class NavigationTuiTests(unittest.TestCase):
             ),
         )
 
-        fields = dict(_fields(state, gps_enabled=True))
+        fields = dict(
+            _fields(
+                state,
+                gps_enabled=True,
+                unit_system=UnitSystem.METRIC,
+            )
+        )
 
         self.assertEqual(fields["GPS fix"], "3D")
         self.assertEqual(fields["Latitude"], "42.500000 °")
@@ -91,6 +104,7 @@ class NavigationTuiTests(unittest.TestCase):
                 state,
                 gps_enabled=False,
                 acceleration_mode="linear",
+                unit_system=UnitSystem.METRIC,
             )
         )
 
@@ -98,7 +112,13 @@ class NavigationTuiTests(unittest.TestCase):
         self.assertNotIn("Raw accel X", fields)
 
     def test_shows_waiting_before_first_gps_report(self) -> None:
-        fields = dict(_fields(None, gps_enabled=True))
+        fields = dict(
+            _fields(
+                None,
+                gps_enabled=True,
+                unit_system=UnitSystem.METRIC,
+            )
+        )
 
         self.assertEqual(fields["GPS fix"], "Waiting")
         self.assertEqual(fields["Latitude"], "--")
