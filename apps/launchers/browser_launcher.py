@@ -34,8 +34,6 @@ class BrowserKioskLauncher(AppLauncherIf):
         self.startup_grace_seconds = startup_grace_seconds
         self.extra_arguments = extra_arguments
         self.window_class = window_class
-        # Retained as descriptive metadata for callers/factories. Cross-app
-        # exclusivity is enforced centrally by AppRuntimeManager.
         self.exclusive_group = exclusive_group
         self._window_manager = window_manager or ExternalWindowManager()
         self._process: subprocess.Popen[str] | None = None
@@ -63,9 +61,7 @@ class BrowserKioskLauncher(AppLauncherIf):
 
     def launch(self, remote_display: str, set_status: StatusCallback = None) -> None:
         if self.is_running():
-            self._activate_existing_window(remote_display)
-            self._hidden = False
-            _status(set_status, "Browser already running; window activated")
+            self.show(remote_display, set_status)
             return
         self._window_id = None
         self._hidden = False
@@ -108,6 +104,15 @@ class BrowserKioskLauncher(AppLauncherIf):
         self._fit_app_window(remote_display)
         _status(set_status, f"Browser launched on {remote_display}")
 
+    def show(self, remote_display: str, set_status: StatusCallback = None) -> bool:
+        """Restore and focus an already-running browser window."""
+        if not self.is_running():
+            return False
+        self._activate_existing_window(remote_display)
+        self._hidden = False
+        _status(set_status, "Browser window activated")
+        return True
+
     def hide(self, remote_display: str, set_status: StatusCallback = None) -> bool:
         """Hide the browser window while keeping Chromium and page state warm."""
         if not self.is_running():
@@ -136,6 +141,17 @@ class BrowserKioskLauncher(AppLauncherIf):
             close_matching_display_apps(display=remote_display, patterns=(self.process_pattern,))
         _status(set_status, "Browser stopped")
 
+    def toggle(self, remote_display: str, set_status: StatusCallback = None) -> bool:
+        if self.is_running() and not self._hidden:
+            if self.hide(remote_display, set_status):
+                return False
+            self.stop(remote_display, set_status)
+            return False
+        if self.is_running():
+            return self.show(remote_display, set_status)
+        self.launch(remote_display, set_status)
+        return True
+
     def _close_app_window(self, display: str) -> bool:
         return self._window_manager.close(display=display, window_id=self._window_id)
 
@@ -145,15 +161,6 @@ class BrowserKioskLauncher(AppLauncherIf):
             process.wait(timeout=timeout_seconds)
         except subprocess.TimeoutExpired:
             pass
-
-    def toggle(self, remote_display: str, set_status: StatusCallback = None) -> bool:
-        if self.is_running() and not self._hidden:
-            if self.hide(remote_display, set_status):
-                return False
-            self.stop(remote_display, set_status)
-            return False
-        self.launch(remote_display, set_status)
-        return True
 
     def _find_browser(self) -> str:
         for candidate in self.browser_candidates:
