@@ -33,7 +33,6 @@ class AppRuntimeManager:
 
     def __init__(self, config: ApplicationsConfig, *, remote_display: str) -> None:
         self._config = config
-        # Compatibility fallback for configurations that predate named targets.
         self._fallback_display = remote_display
         self._apps: dict[str, ManagedApplication] = {}
         self._visible: set[str] = set()
@@ -90,6 +89,16 @@ class AppRuntimeManager:
             launcher.launch(display, set_status)
         with self._lock:
             self._visible.add(key)
+
+    def restart(self, key: str, set_status: StatusCallback = None) -> None:
+        """Restart an application on its configured presentation target."""
+        managed = self._managed(key)
+        display = self.display_for(key)
+        if managed.launcher.is_running():
+            managed.launcher.stop(display, set_status)
+        with self._lock:
+            self._visible.discard(key)
+        self.show(key, set_status)
 
     def hide(self, key: str, set_status: StatusCallback = None) -> bool:
         managed = self._managed(key)
