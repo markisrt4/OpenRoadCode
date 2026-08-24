@@ -40,6 +40,19 @@ class BrowserKioskLauncher(AppLauncherIf):
         self._window_id: str | None = None
         self._hidden = False
 
+    def set_url(self, url: str) -> None:
+        """Change the URL used by the next browser launch.
+
+        A running Chromium instance is intentionally not navigated implicitly;
+        callers that need a different page must stop it first so lifecycle and
+        visibility state remain deterministic.
+        """
+        if not url.strip():
+            raise ValueError("url must be non-empty")
+        if self.is_running():
+            raise RuntimeError("Cannot change browser URL while it is running")
+        self.url = url
+
     def is_running(self) -> bool:
         if self._process is not None:
             if self._process.poll() is None:
@@ -105,7 +118,6 @@ class BrowserKioskLauncher(AppLauncherIf):
         _status(set_status, f"Browser launched on {remote_display}")
 
     def show(self, remote_display: str, set_status: StatusCallback = None) -> bool:
-        """Restore and focus an already-running browser window."""
         if not self.is_running():
             return False
         self._activate_existing_window(remote_display)
@@ -114,7 +126,6 @@ class BrowserKioskLauncher(AppLauncherIf):
         return True
 
     def hide(self, remote_display: str, set_status: StatusCallback = None) -> bool:
-        """Hide the browser window while keeping Chromium and page state warm."""
         if not self.is_running():
             return False
         self._ensure_window_id(remote_display)
