@@ -3,7 +3,8 @@
 
 """Route-following guidance controllers."""
 
+from .reroute_policy import ReroutePolicy
 from .route_guidance_controller import RouteGuidanceController
 from .route_guidance_types import RouteGuidanceState
 
-__all__ = ["RouteGuidanceController", "RouteGuidanceState"]
+__all__ = ["ReroutePolicy", "RouteGuidanceController", "RouteGuidanceState"]
