@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Optional
 
 from apps.launchers.app_launcher_if import AppLauncherIf
 from apps.launchers.app_runtime_manager import AppRuntimeManager
+from controllers.navigation.map_presentation_if import MapPresentationIf
 from controllers.radio.radio_controller_if import RadioControllerIf
 from controllers.weather import OpenMeteoWeatherController
 from config.runtime_config import (
@@ -47,6 +48,7 @@ class CarUiRuntime:
     weather_controller: Optional[OpenMeteoWeatherController]
     sdr_resource_manager: object
     app_runtime_manager: AppRuntimeManager | None = None
+    map_presentation: MapPresentationIf | None = None
     input_config: InputConfig | None = None
     image_cache: ImageCacheConfig = ImageCacheConfig()
     position_cache: PositionCacheConfig = PositionCacheConfig()
