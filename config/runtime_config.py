@@ -88,6 +88,7 @@ class RotaryEncoderConfig:
     )
     volume_index: int = 0
 
+
 @dataclass(frozen=True, slots=True)
 class KeyboardConfig:
     enabled: bool = False
@@ -142,17 +143,9 @@ class AdsbConfig:
 
 
 @dataclass(frozen=True, slots=True)
-class WeatherDashboardConfig:
-    """Configure availability of the auxiliary weather dashboard."""
-    enabled: bool = True
-    preload: bool = True
-
-
-@dataclass(frozen=True, slots=True)
 class AuxiliaryConfig:
-    """Contain optional applications launched by the Car UI."""
+    """Contain optional runtime-integrated auxiliary applications."""
     adsb: AdsbConfig
-    weather_dashboard: WeatherDashboardConfig
 
 
 @dataclass(frozen=True, slots=True)
@@ -185,13 +178,7 @@ class RuntimeConfig:
 
 
 class RuntimeConfigParser:
-    """
-    Parse the shared system runtime composition TOML file.
-
-    Runtime composition belongs here. Radio-domain settings such as presets,
-    frequency ranges, modes, bandwidths, and tuning steps remain in the JSON
-    files under PROJECT_ROOT/config/radio.
-    """
+    """Parse shared system runtime composition from TOML."""
 
     def __init__(
         self,
@@ -210,11 +197,7 @@ class RuntimeConfigParser:
         self.require_radio_files = require_radio_files
 
     def load(self) -> RuntimeConfig:
-        """Load and validate the configured TOML file.
-
-        @return Validated Car UI runtime configuration.
-        @exception RuntimeConfigError if the file is missing or invalid.
-        """
+        """Load and validate the configured TOML file."""
         try:
             with self.config_path.open("rb") as file:
                 data = tomllib.load(file)
@@ -229,15 +212,11 @@ class RuntimeConfigParser:
 
         runtime = self._parse_runtime(data.get("runtime", {}))
         image_cache = self._parse_image_cache(data.get("image_cache", {}))
-        position_cache = self._parse_position_cache(
-            data.get("position_cache", {})
-        )
+        position_cache = self._parse_position_cache(data.get("position_cache", {}))
         audio = self._parse_audio(data.get("audio", {}))
         rigctl = self._parse_rigctl(data.get("rigctl", {}))
         input_config = self._parse_input(data.get("input", {}))
-        environmental = self._parse_environmental(
-            data.get("environmental", {})
-        )
+        environmental = self._parse_environmental(data.get("environmental", {}))
         radios = self._parse_radios(data.get("radios", []))
         auxiliary = self._parse_auxiliary(data.get("auxiliary", {}))
 
@@ -255,12 +234,7 @@ class RuntimeConfigParser:
 
     def _parse_audio(self, data: Any) -> AudioConfig:
         section = self._expect_table(data, "audio")
-        output = self._optional_string(
-            section,
-            "output",
-            default="auto",
-            section_name="audio",
-        ).lower()
+        output = self._optional_string(section, "output", default="auto", section_name="audio").lower()
         supported = {"auto", "default", "onboard-analog", "usb"}
         if output not in supported:
             raise RuntimeConfigError(
@@ -270,9 +244,7 @@ class RuntimeConfigParser:
         if device_match is not None and (
             not isinstance(device_match, str) or not device_match.strip()
         ):
-            raise RuntimeConfigError(
-                "audio.device_match must be a non-empty string"
-            )
+            raise RuntimeConfigError("audio.device_match must be a non-empty string")
         return AudioConfig(
             output=output,
             device_match=device_match.strip() if device_match else None,
@@ -281,24 +253,15 @@ class RuntimeConfigParser:
     def _parse_runtime(self, data: Any) -> RuntimeDisplayConfig:
         section = self._expect_table(data, "runtime")
         remote_display = self._optional_string(
-            section,
-            "remote_display",
-            default=":2",
-            section_name="runtime",
+            section, "remote_display", default=":2", section_name="runtime"
         )
         auxiliary_display = self._optional_string(
-            section,
-            "auxiliary_display",
-            default=":0",
-            section_name="runtime",
+            section, "auxiliary_display", default=":0", section_name="runtime"
         )
         media_display_value = section.get("media_display")
         if media_display_value is None:
             media_display = None
-        elif (
-            not isinstance(media_display_value, str)
-            or not media_display_value.strip()
-        ):
+        elif not isinstance(media_display_value, str) or not media_display_value.strip():
             raise RuntimeConfigError(
                 "runtime.media_display must be a non-empty string"
             )
@@ -316,9 +279,7 @@ class RuntimeConfigParser:
         if directory_value is None:
             directory = None
         elif not isinstance(directory_value, str) or not directory_value.strip():
-            raise CarUiRuntimeConfigError(
-                "image_cache.directory must be a non-empty path"
-            )
+            raise RuntimeConfigError("image_cache.directory must be a non-empty path")
         else:
             directory = Path(directory_value.strip()).expanduser()
             if not directory.is_absolute():
@@ -331,25 +292,18 @@ class RuntimeConfigParser:
             or isinstance(max_entries, bool)
             or max_entries <= 0
         ):
-            raise CarUiRuntimeConfigError(
+            raise RuntimeConfigError(
                 "image_cache.max_entries must be a positive integer"
             )
-        return ImageCacheConfig(
-            directory=directory,
-            max_entries=max_entries,
-        )
+        return ImageCacheConfig(directory=directory, max_entries=max_entries)
 
     def _parse_position_cache(self, data: Any) -> PositionCacheConfig:
         section = self._expect_table(data, "position_cache")
         enabled = self._optional_bool(
-            section,
-            "enabled",
-            default=True,
-            section_name="position_cache",
+            section, "enabled", default=True, section_name="position_cache"
         )
         directory_value = section.get(
-            "directory",
-            "~/.cache/openroadcode/position",
+            "directory", "~/.cache/openroadcode/position"
         )
         if not isinstance(directory_value, str) or not directory_value.strip():
             raise RuntimeConfigError(
@@ -376,29 +330,20 @@ class RuntimeConfigParser:
     def _parse_rigctl(self, data: Any) -> RigctlConfig:
         section = self._expect_table(data, "rigctl")
         host = self._optional_string(
-            section,
-            "host",
-            default="127.0.0.1",
-            section_name="rigctl",
+            section, "host", default="127.0.0.1", section_name="rigctl"
         )
         port = section.get("port", 4532)
-
         if not isinstance(port, int) or isinstance(port, bool):
             raise RuntimeConfigError("rigctl.port must be an integer")
         if not 1 <= port <= 65535:
-            raise RuntimeConfigError(
-                "rigctl.port must be between 1 and 65535"
-            )
-
+            raise RuntimeConfigError("rigctl.port must be between 1 and 65535")
         return RigctlConfig(host=host, port=port)
 
     def _parse_input(self, data: Any) -> InputConfig:
         section = self._expect_table(data, "input")
         encoder_data = self._expect_table(
-            section.get("rotary_encoders", {}),
-            "input.rotary_encoders",
+            section.get("rotary_encoders", {}), "input.rotary_encoders"
         )
-
         devices_data = encoder_data.get("devices")
         devices = (
             self._default_encoder_devices()
@@ -412,8 +357,7 @@ class RuntimeConfigParser:
             or not 0 <= volume_index < len(devices)
         ):
             raise RuntimeConfigError(
-                "input.rotary_encoders.volume_index must identify a "
-                "configured encoder"
+                "input.rotary_encoders.volume_index must identify a configured encoder"
             )
 
         keyboard_data = self._expect_table(
@@ -421,7 +365,9 @@ class RuntimeConfigParser:
         )
         keyboard = KeyboardConfig(
             enabled=self._optional_bool(
-                keyboard_data, "enabled", default=False,
+                keyboard_data,
+                "enabled",
+                default=False,
                 section_name="input.keyboard",
             ),
             device_path=keyboard_data.get("device_path"),
@@ -456,7 +402,9 @@ class RuntimeConfigParser:
             used_button_pins.add(pin)
             action = self._required_string(button, "action", name).lower()
             if action not in valid_actions:
-                raise RuntimeConfigError(f"{name}.action is not a supported UI action")
+                raise RuntimeConfigError(
+                    f"{name}.action is not a supported UI action"
+                )
             debounce = button.get("debounce_seconds", 0.05)
             if (
                 isinstance(debounce, bool)
@@ -466,14 +414,19 @@ class RuntimeConfigParser:
                 raise RuntimeConfigError(
                     f"{name}.debounce_seconds must be non-negative"
                 )
-            push_buttons.append(PushButtonConfig(
-                pin=pin,
-                action=action,
-                active_low=self._optional_bool(
-                    button, "active_low", default=True, section_name=name
-                ),
-                debounce_seconds=float(debounce),
-            ))
+            push_buttons.append(
+                PushButtonConfig(
+                    pin=pin,
+                    action=action,
+                    active_low=self._optional_bool(
+                        button,
+                        "active_low",
+                        default=True,
+                        section_name=name,
+                    ),
+                    debounce_seconds=float(debounce),
+                )
+            )
 
         return InputConfig(
             rotary_encoders=RotaryEncoderConfig(
@@ -498,10 +451,8 @@ class RuntimeConfigParser:
         ).lower()
         if driver not in {"bmp388", "bmp390"}:
             raise RuntimeConfigError(
-                "environmental.barometric_sensor.driver must be "
-                "'bmp388' or 'bmp390'"
+                "environmental.barometric_sensor.driver must be 'bmp388' or 'bmp390'"
             )
-
         address = self._i2c_address(
             sensor_data.get("address", 0x77),
             "environmental.barometric_sensor.address",
@@ -519,8 +470,7 @@ class RuntimeConfigParser:
     ) -> tuple[EncoderDeviceConfig, ...]:
         if not isinstance(data, list) or not data:
             raise RuntimeConfigError(
-                "input.rotary_encoders.devices must be a non-empty "
-                "array of tables"
+                "input.rotary_encoders.devices must be a non-empty array of tables"
             )
 
         devices: list[EncoderDeviceConfig] = []
@@ -540,8 +490,7 @@ class RuntimeConfigParser:
 
             if driver == "seesaw":
                 address = self._i2c_address(
-                    section.get("address"),
-                    f"{section_name}.address",
+                    section.get("address"), f"{section_name}.address"
                 )
                 if address in seesaw_addresses:
                     raise RuntimeConfigError(
@@ -558,33 +507,26 @@ class RuntimeConfigParser:
 
             if driver == "gpio":
                 pin_a = self._physical_pin(
-                    section.get("pin_a"),
-                    f"{section_name}.pin_a",
+                    section.get("pin_a"), f"{section_name}.pin_a"
                 )
                 pin_b = self._physical_pin(
-                    section.get("pin_b"),
-                    f"{section_name}.pin_b",
+                    section.get("pin_b"), f"{section_name}.pin_b"
                 )
                 button_value = section.get("button")
                 button = (
                     None
                     if button_value is None
                     else self._physical_pin(
-                        button_value,
-                        f"{section_name}.button",
+                        button_value, f"{section_name}.button"
                     )
                 )
-                pins = (pin_a, pin_b) + (
-                    (button,) if button is not None else ()
-                )
+                pins = (pin_a, pin_b) + ((button,) if button is not None else ())
                 if len(pins) != len(set(pins)):
                     raise RuntimeConfigError(
                         f"{section_name} pins must be unique"
                     )
                 if gpio_pins.intersection(pins):
-                    raise RuntimeConfigError(
-                        "GPIO encoder pins cannot be shared"
-                    )
+                    raise RuntimeConfigError("GPIO encoder pins cannot be shared")
                 gpio_pins.update(pins)
                 devices.append(
                     GpioEncoderConfig(
@@ -618,22 +560,12 @@ class RuntimeConfigParser:
 
         radios: list[RadioStackConfig] = []
         seen_keys: set[str] = set()
-
         for index, item in enumerate(data):
             section_name = f"radios[{index}]"
             section = self._expect_table(item, section_name)
-
             key = self._required_string(section, "key", section_name)
-            config_name = self._required_string(
-                section,
-                "config",
-                section_name,
-            )
-            backend = self._required_string(
-                section,
-                "backend",
-                section_name,
-            )
+            config_name = self._required_string(section, "config", section_name)
+            backend = self._required_string(section, "backend", section_name)
             launcher = self._optional_nullable_string(
                 section,
                 "launcher",
@@ -646,11 +578,8 @@ class RuntimeConfigParser:
                 default=True,
                 section_name=section_name,
             )
-
             if key in seen_keys:
-                raise RuntimeConfigError(
-                    f"Duplicate radio stack key: {key}"
-                )
+                raise RuntimeConfigError(f"Duplicate radio stack key: {key}")
             seen_keys.add(key)
 
             config_path = self._resolve_radio_config_path(config_name)
@@ -670,68 +599,41 @@ class RuntimeConfigParser:
             )
 
         if not radios:
-            raise RuntimeConfigError(
-                "At least one [[radios]] entry is required"
-            )
-
+            raise RuntimeConfigError("At least one [[radios]] entry is required")
         return tuple(radios)
 
     def _parse_auxiliary(self, data: Any) -> AuxiliaryConfig:
         section = self._expect_table(data, "auxiliary")
-
-        adsb_data = self._expect_table(section.get("adsb", {}), "auxiliary.adsb")
-        weather_data = self._expect_table(
-            section.get("weather_dashboard", {}),
-            "auxiliary.weather_dashboard",
+        adsb_data = self._expect_table(
+            section.get("adsb", {}), "auxiliary.adsb"
         )
-
-        adsb = AdsbConfig(
-            enabled=self._optional_bool(
-                adsb_data,
-                "enabled",
-                default=True,
-                section_name="auxiliary.adsb",
-            ),
-            url=self._optional_string(
-                adsb_data,
-                "url",
-                default="http://127.0.0.1/tar1090",
-                section_name="auxiliary.adsb",
-            ),
-            close_existing_display_apps=self._optional_bool(
-                adsb_data,
-                "close_existing_display_apps",
-                default=True,
-                section_name="auxiliary.adsb",
-            ),
-        )
-
-        weather_dashboard = WeatherDashboardConfig(
-            enabled=self._optional_bool(
-                weather_data,
-                "enabled",
-                default=True,
-                section_name="auxiliary.weather_dashboard",
-            ),
-            preload=self._optional_bool(
-                weather_data,
-                "preload",
-                default=True,
-                section_name="auxiliary.weather_dashboard",
-            ),
-        )
-
         return AuxiliaryConfig(
-            adsb=adsb,
-            weather_dashboard=weather_dashboard,
+            adsb=AdsbConfig(
+                enabled=self._optional_bool(
+                    adsb_data,
+                    "enabled",
+                    default=True,
+                    section_name="auxiliary.adsb",
+                ),
+                url=self._optional_string(
+                    adsb_data,
+                    "url",
+                    default="http://127.0.0.1/tar1090",
+                    section_name="auxiliary.adsb",
+                ),
+                close_existing_display_apps=self._optional_bool(
+                    adsb_data,
+                    "close_existing_display_apps",
+                    default=True,
+                    section_name="auxiliary.adsb",
+                ),
+            )
         )
 
     def _resolve_radio_config_path(self, config_name: str) -> Path:
         path = Path(config_name).expanduser()
-
         if path.is_absolute():
             return path.resolve()
-
         return (self.radio_config_dir / path).resolve()
 
     @staticmethod
@@ -778,7 +680,6 @@ class RuntimeConfigParser:
     ) -> str | None:
         if key not in section:
             return default
-
         value = section[key]
         if value is None:
             return None
@@ -829,12 +730,9 @@ class RuntimeConfigParser:
 
     @staticmethod
     def _default_project_root() -> Path:
-        # config/runtime_config.py
         return Path(__file__).resolve().parents[1]
 
 
-# Compatibility aliases for callers migrating from the former Car UI-owned
-# configuration API. New code should use the Automotive names above.
 AutomotiveRuntimeConfigError = RuntimeConfigError
 AutomotiveRuntimeConfig = RuntimeConfig
 AutomotiveRuntimeConfigParser = RuntimeConfigParser
