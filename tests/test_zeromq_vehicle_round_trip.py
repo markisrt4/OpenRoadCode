@@ -3,8 +3,10 @@
 
 """End-to-end ZeroMQ round-trip test for the public vehicle-state contract."""
 
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 import socket
+import threading
 import time
 
 import pytest
@@ -17,7 +19,7 @@ from messaging.contracts.automotive import (
     VehicleStatePublisher,
     decode_vehicle_state,
 )
-from messaging.zeromq import ZeroMqPublisher, ZeroMqSubscriber
+from messaging.zeromq import ZeroMqBroker, ZeroMqPublisher, ZeroMqSubscriber
 
 
 def _free_tcp_endpoint() -> str:
@@ -28,9 +30,19 @@ def _free_tcp_endpoint() -> str:
 
 
 def test_vehicle_state_round_trip_over_zeromq() -> None:
-    endpoint = _free_tcp_endpoint()
-    publisher = ZeroMqPublisher(endpoint)
-    subscriber = ZeroMqSubscriber(endpoint)
+    publisher_endpoint = _free_tcp_endpoint()
+    subscriber_endpoint = _free_tcp_endpoint()
+    broker = ZeroMqBroker(publisher_endpoint, subscriber_endpoint)
+    broker_thread = threading.Thread(target=broker.run, daemon=True)
+    broker_thread.start()
+
+    deadline = time.monotonic() + 2.0
+    while not broker.is_running and time.monotonic() < deadline:
+        time.sleep(0.01)
+    assert broker.is_running
+
+    publisher = ZeroMqPublisher(publisher_endpoint)
+    subscriber = ZeroMqSubscriber(subscriber_endpoint)
     subscriber.subscribe(VEHICLE_STATE_TOPIC)
 
     state = VehicleState(
@@ -44,11 +56,12 @@ def test_vehicle_state_round_trip_over_zeromq() -> None:
     vehicle_publisher = VehicleStatePublisher(publisher, source="simulator")
 
     try:
-        # ZeroMQ PUB/SUB subscriptions propagate asynchronously. Give the
-        # subscription a moment to reach the publisher before the first send.
-        time.sleep(0.1)
-        vehicle_publisher.publish(state)
-        topic, payload = subscriber.receive()
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            receive_future = executor.submit(subscriber.receive)
+            time.sleep(0.2)
+            vehicle_publisher.publish(state)
+            topic, payload = receive_future.result(timeout=2.0)
+
         message = decode_vehicle_state(payload)
 
         assert topic == VEHICLE_STATE_TOPIC
@@ -65,3 +78,6 @@ def test_vehicle_state_round_trip_over_zeromq() -> None:
     finally:
         subscriber.close()
         publisher.close()
+        broker.close()
+        broker_thread.join(timeout=2.0)
+        assert not broker_thread.is_alive()
