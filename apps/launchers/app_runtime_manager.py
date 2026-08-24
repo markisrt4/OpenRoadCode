@@ -21,7 +21,7 @@ class ManagedApplication:
 
 
 class AppRuntimeManager:
-    """Apply lazy, preload, and persistent lifecycle policy to applications."""
+    """Apply lifecycle and mutual-exclusion policy to applications."""
 
     def __init__(self, config: ApplicationsConfig, *, remote_display: str) -> None:
         self._config = config
@@ -54,8 +54,9 @@ class AppRuntimeManager:
             self._preload_thread.start()
 
     def launch(self, key: str, set_status: StatusCallback = None) -> None:
-        """Present an application to the user."""
+        """Present an application to the user, closing conflicting managed apps."""
         managed = self._managed(key)
+        self._close_exclusive_peers(managed, set_status)
         managed.launcher.launch(self._remote_display, set_status)
 
     def close(self, key: str, set_status: StatusCallback = None) -> None:
@@ -78,13 +79,36 @@ class AppRuntimeManager:
             try:
                 managed.launcher.stop(self._remote_display, set_status)
             except Exception:
-                # Shutdown is best-effort; one external application must not
-                # prevent the remaining resources from being released.
                 continue
 
     def is_running(self, key: str) -> bool:
         """Return whether a registered application's launcher is running."""
         return self._managed(key).launcher.is_running()
+
+    def _close_exclusive_peers(
+        self,
+        target: ManagedApplication,
+        set_status: StatusCallback,
+    ) -> None:
+        group = target.config.exclusive_group
+        if group is None:
+            return
+        with self._lock:
+            peers = tuple(
+                (key, managed)
+                for key, managed in self._apps.items()
+                if managed is not target
+                and managed.config.exclusive_group == group
+            )
+        for key, managed in peers:
+            try:
+                if managed.launcher.is_running():
+                    self.close(key, set_status)
+            except Exception:
+                # A stale or broken peer should not prevent the requested app
+                # from launching; hardware-specific launchers may still apply
+                # stronger resource arbitration of their own.
+                continue
 
     def _start_background_apps(self, set_status: StatusCallback) -> None:
         with self._lock:
@@ -97,7 +121,7 @@ class AppRuntimeManager:
                 if policy is StartupPolicy.PRELOAD and hasattr(managed.launcher, "prepare"):
                     managed.launcher.prepare()  # type: ignore[attr-defined]
                 else:
-                    managed.launcher.launch(self._remote_display, set_status)
+                    self.launch(managed.config.key, set_status)
             except Exception as exc:
                 if set_status is not None:
                     set_status(f"Unable to start {managed.config.key}: {exc}")
