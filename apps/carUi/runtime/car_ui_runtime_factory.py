@@ -56,12 +56,18 @@ def build_car_ui_runtime(config: RuntimeConfig, *, applications_config: Applicat
         else None
     )
 
-    adsb_launcher = None
-    if config.auxiliary.adsb.enabled:
-        adsb_launcher = ADSBLauncher(url=config.auxiliary.adsb.url, close_existing_display_apps=config.auxiliary.adsb.close_existing_display_apps)
-
     weather_controller = None
     if applications_config is not None:
+        adsb_app = applications_config.app("adsb")
+        if adsb_app.enabled:
+            app_runtime_manager.register(
+                "adsb",
+                ADSBLauncher(
+                    url=adsb_app.url or "http://127.0.0.1/tar1090",
+                    resource_manager=resource_manager,
+                ),
+            )
+
         weather_app = applications_config.app("weather")
         if weather_app.enabled:
             weather_cache = WeatherSnapshotCache(PersistentCache(DEFAULT_WEATHER_CACHE_DIRECTORY))
@@ -86,7 +92,6 @@ def build_car_ui_runtime(config: RuntimeConfig, *, applications_config: Applicat
         media_display=config.runtime.media_display,
         rotary_encoders=config.input.rotary_encoders,
         radios=RadioRuntimeRegistry(runtimes),
-        adsb_launcher=adsb_launcher,
         weather_controller=weather_controller,
         sdr_resource_manager=resource_manager,
         app_runtime_manager=app_runtime_manager,
