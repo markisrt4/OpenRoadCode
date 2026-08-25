@@ -25,6 +25,10 @@ fi
 
 check_command python
 check_command git
+check_command termux-x11
+check_command xfce4-session
+check_command dbus-launch
+check_command xrandr
 
 if python - <<'PY' >/dev/null 2>&1
 import tkinter
@@ -39,11 +43,11 @@ fi
 DISPLAY_VALUE="${DISPLAY:-:1}"
 echo "[*] DISPLAY:        $DISPLAY_VALUE"
 
-if [[ -S "/tmp/.X11-unix/X${DISPLAY_VALUE#:}" ]]; then
-  echo "[+] X11 socket      available"
+if DISPLAY="$DISPLAY_VALUE" xrandr --query >/dev/null 2>&1; then
+  echo "[+] X11 display     reachable"
 else
-  echo "[*] X11 socket      not visible at /tmp/.X11-unix/X${DISPLAY_VALUE#:}"
-  echo "    This can be normal with Termux:X11; verify that your X server is running."
+  echo "[*] X11 display     not currently reachable"
+  echo "    Start it with: termux-x11 :1 -xstartup \"xfce4-session\""
 fi
 
 if (( fail )); then
