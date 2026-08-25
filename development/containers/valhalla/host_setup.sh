@@ -4,12 +4,12 @@
 
 set -euo pipefail
 
-# Valhalla is compiled in the build container but executed on the host. Keep
-# the host-side shared-library contract here rather than duplicating it in
-# higher-level installers.
+# Valhalla is compiled in a target-matched container but executed on the host.
+# Development packages intentionally pull the matching runtime SONAMEs for the
+# host distribution.
 sudo apt-get update
 sudo apt-get install -y \
-    libgeotiff5 \
-    libczmq4
+    libgeotiff-dev \
+    libczmq-dev
 
-echo "Valhalla host runtime dependencies installed."
+echo "Valhalla host dependencies installed."
