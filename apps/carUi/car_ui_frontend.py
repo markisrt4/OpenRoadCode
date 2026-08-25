@@ -49,9 +49,7 @@ class CarUiFrontend(tk.Tk, UiIf, UiEventHandlerIf, ScreenNavigatorIf):
         self._initialized = False
         self._active_route_id: ScreenId | None = None
         self._navigation_history: list[ScreenId] = []
-        self._weather_dashboard_launcher = (
-            dependencies.runtime.weather_dash_launcher
-        )
+        self._runtime = dependencies.runtime
         self._weather_controller = dependencies.runtime.weather_controller
         self.title(title)
         self._app_icon: tk.PhotoImage | None = None
@@ -114,34 +112,15 @@ class CarUiFrontend(tk.Tk, UiIf, UiEventHandlerIf, ScreenNavigatorIf):
             return False
         if not self._initialized:
             self.composition.lifecycle.start()
+            self._runtime.start_background_apps()
             self._initialized = True
-            self.after_idle(self._preload_weather_dashboard)
+            if self._weather_controller is not None:
+                threading.Thread(
+                    target=self._refresh_weather_data,
+                    name="weather-data-preload",
+                    daemon=True,
+                ).start()
         return True
-
-    def _preload_weather_dashboard(self) -> None:
-        launcher = self._weather_dashboard_launcher
-        if launcher is None or not launcher.preload:
-            return
-        threading.Thread(
-            target=self._prepare_weather_dashboard,
-            name="weather-dashboard-preload",
-            daemon=True,
-        ).start()
-        if self._weather_controller is not None:
-            threading.Thread(
-                target=self._refresh_weather_data,
-                name="weather-data-preload",
-                daemon=True,
-            ).start()
-
-    def _prepare_weather_dashboard(self) -> None:
-        launcher = self._weather_dashboard_launcher
-        if launcher is None:
-            return
-        try:
-            launcher.prepare()
-        except Exception:
-            LOGGER.exception("Weather dashboard background preload failed")
 
     def _refresh_weather_data(self) -> None:
         controller = self._weather_controller
