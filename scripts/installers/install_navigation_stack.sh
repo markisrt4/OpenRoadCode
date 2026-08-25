@@ -54,6 +54,9 @@ Options:
   --skip-smoke            skip final software smoke checks
   -h, --help              show this help
 
+Environment:
+  BUILD_BASE_IMAGE        override target build image (advanced/debug use)
+
 Map/routing data are intentionally NOT built here. Use tools/map_builder on the
 map-build machine, then pull validated data onto the vehicle with:
   scripts/runtime/pull_navigation_data.sh
@@ -80,9 +83,39 @@ case "$TARGET" in
   *) echo "Unsupported target: $TARGET" >&2; exit 2 ;;
 esac
 
+resolve_build_base_image() {
+  if [[ -n "${BUILD_BASE_IMAGE:-}" ]]; then
+    printf '%s\n' "$BUILD_BASE_IMAGE"
+    return
+  fi
+
+  [[ -r /etc/os-release ]] || {
+    echo "Cannot determine host distribution: /etc/os-release is unavailable" >&2
+    return 1
+  }
+
+  local id version_id
+  id="$(. /etc/os-release; printf '%s' "$ID")"
+  version_id="$(. /etc/os-release; printf '%s' "$VERSION_ID")"
+
+  case "$id:$version_id" in
+    ubuntu:24.04) printf '%s\n' 'ubuntu:24.04' ;;
+    debian:13) printf '%s\n' 'debian:trixie' ;;
+    *)
+      echo "Unsupported navigation build host: $id $version_id" >&2
+      echo "Supported hosts: Ubuntu 24.04, Debian 13/Trixie (including matching Pi targets)." >&2
+      echo "Set BUILD_BASE_IMAGE explicitly only if you know the target ABI is compatible." >&2
+      return 1
+      ;;
+  esac
+}
+
+BUILD_BASE_IMAGE="$(resolve_build_base_image)"
+
 cat <<EOF
 OpenRoadCode navigation software plan
   target:             $TARGET
+  build base image:   $BUILD_BASE_IMAGE
   container engine:   $CONTAINER_ENGINE
   host source root:   $HOST_SRC
   software install:   $INSTALL_ROOT
@@ -150,7 +183,7 @@ fi
 
 if (( ! SKIP_MAPLIBRE )); then
   checkout_repo "https://github.com/maplibre/maplibre-native.git" "$MAPLIBRE_SRC" "$MAPLIBRE_REF" "MapLibre Native"
-  bash "$PROJECT_ROOT/development/containers/maplibre/build.sh"
+  BASE_IMAGE="$BUILD_BASE_IMAGE" bash "$PROJECT_ROOT/development/containers/maplibre/build.sh"
   "$CONTAINER_ENGINE" run --rm --volume "$HOST_SRC:/src" --workdir /src -e BUILD_JOBS="${BUILD_JOBS:-4}" openroadcode-maplibre-builder /bin/bash -lc "set -euo pipefail; /src/OpenRoadCode/development/containers/maplibre/scripts/build_maplibre.sh; /src/OpenRoadCode/development/containers/maplibre/scripts/build_map_renderer.sh"
   renderer="$PROJECT_ROOT/apps/map_renderer/build-container/openroadcode-map-renderer"
   [[ -x "$renderer" ]] || { echo "Renderer build missing: $renderer" >&2; exit 1; }
@@ -162,7 +195,7 @@ fi
 if (( ! SKIP_VALHALLA )); then
   checkout_repo "https://github.com/kevinkreiser/prime_server.git" "$PRIME_SERVER_SRC" "$PRIME_SERVER_REF" "prime_server"
   checkout_repo "https://github.com/valhalla/valhalla.git" "$VALHALLA_SRC" "$VALHALLA_REF" "Valhalla"
-  bash "$PROJECT_ROOT/development/containers/valhalla/build.sh"
+  BASE_IMAGE="$BUILD_BASE_IMAGE" bash "$PROJECT_ROOT/development/containers/valhalla/build.sh"
   valhalla_stage="$BUILD_ROOT/valhalla"
   sudo rm -rf "$valhalla_stage"
   mkdir -p "$valhalla_stage"
