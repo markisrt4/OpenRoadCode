@@ -41,12 +41,8 @@ Usage: $0 [options]
 
 Build and install the OpenRoadCode navigation software stack.
 
-Software: $INSTALL_ROOT
-Config:   $CONFIG_ROOT/navigation.toml
-Map data: $DATA_ROOT
-
 Options:
-  --target TARGET         host_setup target (rpi4, rpi5, linux-dev; default: rpi5)
+  --target TARGET         rpi4, rpi5, linux-dev, or termux (experimental)
   --show-plan             print the resolved plan without changing the system
   --skip-host-packages    do not invoke host/component host setup
   --skip-maplibre         skip MapLibre Native and renderer build/install
@@ -56,11 +52,10 @@ Options:
   -h, --help              show this help
 
 Environment:
-  BUILD_BASE_IMAGE        override target build image (advanced/debug use)
+  BUILD_BASE_IMAGE        override Linux target build image (advanced/debug use)
 
 Map/routing data are intentionally NOT built here. Use tools/map_builder on the
-map-build machine, then pull validated data onto the vehicle with:
-  scripts/runtime/pull_navigation_data.sh
+map-build machine, then deploy validated data separately.
 EOF
 }
 
@@ -80,7 +75,7 @@ while (( $# > 0 )); do
 done
 
 case "$TARGET" in
-  rpi4|rpi5|linux-dev) ;;
+  rpi4|rpi5|linux-dev|termux) ;;
   *) echo "Unsupported target: $TARGET" >&2; exit 2 ;;
 esac
 
@@ -90,64 +85,56 @@ is_termux() {
     || [[ "$(uname -a 2>/dev/null || true)" == *" Android"* ]]
 }
 
-resolve_build_base_image() {
-  if [[ -n "${BUILD_BASE_IMAGE:-}" ]]; then
-    printf '%s\n' "$BUILD_BASE_IMAGE"
-    return
-  fi
-
+if [[ "$TARGET" == "termux" ]]; then
+  is_termux || { echo "--target termux must be run inside Termux/Android." >&2; exit 2; }
+  HOST_PLATFORM="android-termux"
+  INSTALL_ROOT="${TERMUX_INSTALL_ROOT:-$PREFIX/opt/openroadcode/navigation}"
+  CONFIG_ROOT="${TERMUX_CONFIG_ROOT:-$PREFIX/etc/openroadcode}"
+  DATA_ROOT="${TERMUX_DATA_ROOT:-$HOME/.local/share/openroadcode}"
+  BUILD_BASE_IMAGE="native-termux"
+else
   if is_termux; then
-    HOST_PLATFORM="android-termux"
-    printf '%s\n' 'unsupported'
-    return
+    echo "Termux detected. Use --target termux for the experimental native Android build." >&2
+    exit 2
   fi
 
-  [[ -r /etc/os-release ]] || {
-    echo "Cannot determine host distribution: /etc/os-release is unavailable" >&2
-    return 1
+  resolve_build_base_image() {
+    if [[ -n "${BUILD_BASE_IMAGE:-}" ]]; then printf '%s\n' "$BUILD_BASE_IMAGE"; return; fi
+    [[ -r /etc/os-release ]] || { echo "Cannot determine host distribution: /etc/os-release is unavailable" >&2; return 1; }
+    local id version_id
+    id="$(. /etc/os-release; printf '%s' "$ID")"
+    version_id="$(. /etc/os-release; printf '%s' "$VERSION_ID")"
+    case "$id:$version_id" in
+      ubuntu:24.04) printf '%s\n' 'ubuntu:24.04' ;;
+      debian:13) printf '%s\n' 'debian:trixie' ;;
+      *)
+        echo "Unsupported navigation build host: $id $version_id" >&2
+        echo "Supported hosts: Ubuntu 24.04 and Debian 13/Trixie." >&2
+        return 1
+        ;;
+    esac
   }
-
-  local id version_id
-  id="$(. /etc/os-release; printf '%s' "$ID")"
-  version_id="$(. /etc/os-release; printf '%s' "$VERSION_ID")"
-
-  case "$id:$version_id" in
-    ubuntu:24.04) printf '%s\n' 'ubuntu:24.04' ;;
-    debian:13) printf '%s\n' 'debian:trixie' ;;
-    *)
-      echo "Unsupported navigation build host: $id $version_id" >&2
-      echo "Supported hosts: Ubuntu 24.04, Debian 13/Trixie (including matching Pi targets)." >&2
-      echo "Set BUILD_BASE_IMAGE explicitly only if you know the target ABI is compatible." >&2
-      return 1
-      ;;
-  esac
-}
-
-BUILD_BASE_IMAGE="$(resolve_build_base_image)"
+  BUILD_BASE_IMAGE="$(resolve_build_base_image)"
+fi
 
 cat <<EOF
 OpenRoadCode navigation software plan
   target:             $TARGET
   host platform:      $HOST_PLATFORM
-  build base image:   $BUILD_BASE_IMAGE
-  container engine:   $CONTAINER_ENGINE
+  build environment:  $BUILD_BASE_IMAGE
   host source root:   $HOST_SRC
   software install:   $INSTALL_ROOT
   runtime config:     $CONFIG_ROOT/navigation.toml
   runtime data root:  $DATA_ROOT
-  staging/build root: $BUILD_ROOT
   MapLibre ref:       $MAPLIBRE_REF
   Valhalla ref:       ${VALHALLA_REF:-UNPINNED}
   prime_server ref:   ${PRIME_SERVER_REF:-UNPINNED}
   map-data build:     external / not performed here
 EOF
 
-if [[ "$HOST_PLATFORM" == "android-termux" ]]; then
-  echo "  native install:      unsupported on Termux/Android"
-fi
-
-if [[ -z "$PRIME_SERVER_REF" ]] && (( ! SKIP_VALHALLA )); then
-  echo "[!] prime_server is not pinned yet; this build is functionally repeatable, not fully reproducible." >&2
+if [[ "$TARGET" == "termux" ]]; then
+  echo "  status:             EXPERIMENTAL"
+  echo "  display:            Termux:X11 Android app required for MapLibre GLFW"
 fi
 
 if (( SHOW_PLAN )); then
@@ -155,10 +142,16 @@ if (( SHOW_PLAN )); then
   exit 0
 fi
 
-if [[ "$HOST_PLATFORM" == "android-termux" ]]; then
-  echo "Native navigation-stack installation is not supported on Termux/Android." >&2
-  echo "Use Termux for Python/controller/messaging tests, or run the native stack on a supported Linux host." >&2
-  exit 2
+if [[ "$TARGET" == "termux" ]]; then
+  exec env \
+    HOST_SRC="$HOST_SRC" \
+    INSTALL_ROOT="$INSTALL_ROOT" \
+    CONFIG_ROOT="$CONFIG_ROOT" \
+    DATA_ROOT="$DATA_ROOT" \
+    MAPLIBRE_REF="$MAPLIBRE_REF" \
+    VALHALLA_REF="$VALHALLA_REF" \
+    BUILD_JOBS="${BUILD_JOBS:-$(nproc)}" \
+    bash "$PROJECT_ROOT/development/termux/build_navigation_stack.sh"
 fi
 
 command -v git >/dev/null 2>&1 || { echo "git is required" >&2; exit 1; }
@@ -199,10 +192,7 @@ fi
 
 sudo install -d "$CONFIG_ROOT" /var/cache/openroadcode
 if [[ ! -f "$CONFIG_ROOT/navigation.toml" ]]; then
-  echo "[*] Installing default navigation runtime config"
   sudo install -m 0644 "$PROJECT_ROOT/config/navigation.toml" "$CONFIG_ROOT/navigation.toml"
-else
-  echo "[*] Preserving existing $CONFIG_ROOT/navigation.toml"
 fi
 
 if (( ! SKIP_MAPLIBRE )); then
