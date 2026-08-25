@@ -30,6 +30,7 @@ RUN apt-get update && apt-get install -y \
     libshp-dev \
     xvfb \
     vim \
+    libzmq3-dev \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /src
