@@ -35,9 +35,8 @@ python -m venv "$VENV_DIR"
 source "$VENV_DIR/bin/activate"
 python -m pip install --upgrade pip wheel setuptools
 
-# Keep this intentionally small. Hardware/platform-specific dependencies belong
-# to their own targets and features, not in the Termux development bootstrap.
-python -m pip install requests tomli Pillow
+# Portable OpenRoadCode runtime dependencies needed by the current car UI path.
+python -m pip install requests tomli Pillow pyzmq
 
 deactivate
 
