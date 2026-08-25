@@ -190,7 +190,12 @@ if (( ! SKIP_HOST_PACKAGES )); then
   (( SKIP_VALHALLA )) || bash "$PROJECT_ROOT/development/containers/valhalla/host_setup.sh"
 fi
 
-sudo install -d "$CONFIG_ROOT" /var/cache/openroadcode
+sudo install -d "$CONFIG_ROOT"
+# The native renderer runs as the invoking desktop user during development and
+# vehicle UI sessions. A root-owned 0755 cache directory lets MapLibre read but
+# not create its ambient cache database, which is an impressively subtle way to
+# make a map renderer fail. Keep the shared cache writable by the runtime user.
+sudo install -d -m 0775 -o "$(id -u)" -g "$(id -g)" /var/cache/openroadcode
 if [[ ! -f "$CONFIG_ROOT/navigation.toml" ]]; then
   sudo install -m 0644 "$PROJECT_ROOT/config/navigation.toml" "$CONFIG_ROOT/navigation.toml"
 fi
