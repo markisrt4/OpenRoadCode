@@ -1,0 +1,6 @@
+--- a/src/mjolnir/graphtilebuilder.cc
++++ b/src/mjolnir/graphtilebuilder.cc
+@@
+-  int64_t edge_info_size = in_mem.tellp() - current_size;
++  const std::streamoff current_pos = in_mem.tellp();
++  const int64_t edge_info_size = static_cast<int64_t>(current_pos) - current_size;
