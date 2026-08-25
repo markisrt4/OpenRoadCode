@@ -6,9 +6,9 @@
 #   PROJECT_ROOT/config/radio
 
 [runtime]
-remote_display = ":2"
-auxiliary_display = ":0"
-# media_display = ":0"
+remote_display = ":1"
+auxiliary_display = ":1"
+media_display = ":1"
 
 [messaging]
 # The broker binds the corresponding XSUB/XPUB endpoints. Producer services
