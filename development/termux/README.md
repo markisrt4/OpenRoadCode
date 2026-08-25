@@ -64,26 +64,30 @@ termux-open ~/storage/downloads/termux-x11-arm64-v8a-debug.apk
 ```
 
 After the Android app is installed, install the Termux-side X11 components if
-needed and start the display server:
+needed and start the display server. Display `:1` is the configuration validated
+by the initial OpenRoadCode experiment and matches the Termux:X11 launch
+instructions used during testing:
 
 ```bash
 pkg install x11-repo
 pkg install termux-x11-nightly xterm
 
-termux-x11 :0 &
-export DISPLAY=:0
+termux-x11 :1 &
+export DISPLAY=:1
 xterm
 ```
 
 An `xterm` window appearing inside the Termux:X11 app confirms that the X11
-path is healthy. Once X11 is working, the installed MapLibre GLFW test
-application can be run:
+path is healthy. Keep `DISPLAY=:1` in the shell used to launch MapLibre or other
+OpenRoadCode graphical applications. Once X11 is working, the installed
+MapLibre GLFW test application can be run:
 
 ```bash
+export DISPLAY=:1
 $PREFIX/opt/openroadcode/navigation/bin/mbgl-glfw
 ```
 
-If `termux-x11 :0` prints `Termux:X11 application is not found`, the Termux-side
+If `termux-x11 :1` prints `Termux:X11 application is not found`, the Termux-side
 package is installed but the separate Android APK is still missing.
 
 ## Captured portability changes
