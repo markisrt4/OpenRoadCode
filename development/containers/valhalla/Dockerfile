@@ -29,6 +29,7 @@ RUN apt-get update && apt-get install -y \
     spatialite-bin \
     libcurl4-openssl-dev \
     liblz4-dev \
+    libxxhash-dev \
     libzmq3-dev \
     libczmq-dev \
     libgeotiff-dev \
