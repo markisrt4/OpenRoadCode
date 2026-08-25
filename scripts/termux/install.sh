@@ -27,7 +27,8 @@ pkg install -y \
   termux-x11-nightly \
   xfce4 \
   dbus \
-  xorg-xrandr
+  xorg-xrandr \
+  chromium
 
 echo "[*] Creating Termux Python virtual environment: $VENV_DIR"
 python -m venv "$VENV_DIR"
