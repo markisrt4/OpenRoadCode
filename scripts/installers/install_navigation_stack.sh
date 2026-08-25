@@ -33,6 +33,7 @@ SKIP_VALHALLA=0
 SKIP_SERVICES=0
 SKIP_SMOKE=0
 TARGET="rpi5"
+HOST_PLATFORM="linux"
 
 usage() {
   cat <<EOF
@@ -83,9 +84,21 @@ case "$TARGET" in
   *) echo "Unsupported target: $TARGET" >&2; exit 2 ;;
 esac
 
+is_termux() {
+  [[ "${PREFIX:-}" == /data/data/com.termux/files/usr* ]] \
+    || [[ "$(uname -o 2>/dev/null || true)" == "Android" ]] \
+    || [[ "$(uname -a 2>/dev/null || true)" == *" Android"* ]]
+}
+
 resolve_build_base_image() {
   if [[ -n "${BUILD_BASE_IMAGE:-}" ]]; then
     printf '%s\n' "$BUILD_BASE_IMAGE"
+    return
+  fi
+
+  if is_termux; then
+    HOST_PLATFORM="android-termux"
+    printf '%s\n' 'unsupported'
     return
   fi
 
@@ -115,6 +128,7 @@ BUILD_BASE_IMAGE="$(resolve_build_base_image)"
 cat <<EOF
 OpenRoadCode navigation software plan
   target:             $TARGET
+  host platform:      $HOST_PLATFORM
   build base image:   $BUILD_BASE_IMAGE
   container engine:   $CONTAINER_ENGINE
   host source root:   $HOST_SRC
@@ -128,6 +142,10 @@ OpenRoadCode navigation software plan
   map-data build:     external / not performed here
 EOF
 
+if [[ "$HOST_PLATFORM" == "android-termux" ]]; then
+  echo "  native install:      unsupported on Termux/Android"
+fi
+
 if [[ -z "$PRIME_SERVER_REF" ]] && (( ! SKIP_VALHALLA )); then
   echo "[!] prime_server is not pinned yet; this build is functionally repeatable, not fully reproducible." >&2
 fi
@@ -135,6 +153,12 @@ fi
 if (( SHOW_PLAN )); then
   echo "Plan only; no changes made."
   exit 0
+fi
+
+if [[ "$HOST_PLATFORM" == "android-termux" ]]; then
+  echo "Native navigation-stack installation is not supported on Termux/Android." >&2
+  echo "Use Termux for Python/controller/messaging tests, or run the native stack on a supported Linux host." >&2
+  exit 2
 fi
 
 command -v git >/dev/null 2>&1 || { echo "git is required" >&2; exit 1; }
