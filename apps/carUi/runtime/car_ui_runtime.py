@@ -47,6 +47,7 @@ class CarUiRuntime:
     radios: "RadioRuntimeRegistry"
     weather_controller: Optional[OpenMeteoWeatherController]
     sdr_resource_manager: object
+    subscriber_endpoint: str
     app_runtime_manager: AppRuntimeManager | None = None
     map_presentation: MapPresentationIf | None = None
     input_config: InputConfig | None = None
