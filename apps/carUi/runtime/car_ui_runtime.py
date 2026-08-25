@@ -5,6 +5,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import logging
+from pathlib import Path
 from typing import TYPE_CHECKING, Optional
 
 from apps.launchers.app_launcher_if import AppLauncherIf
@@ -54,6 +55,11 @@ class CarUiRuntime:
     position_cache: PositionCacheConfig = PositionCacheConfig()
     audio: AudioConfig = AudioConfig()
     media_display: str | None = None
+
+    @property
+    def config_path(self) -> Path:
+        """Return the system runtime configuration path."""
+        return Path(__file__).resolve().parents[3] / "config" / "runtime.toml"
 
     def start_background_apps(self) -> None:
         """Start configured preload and persistent applications asynchronously."""
