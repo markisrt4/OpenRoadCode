@@ -45,22 +45,46 @@ BUILD_JOBS=4 bash development/termux/build_navigation_stack.sh
 ## Termux:X11
 
 The Termux-side X11 packages are not sufficient by themselves. Install the
-Termux:X11 Android APK separately. Android may require temporarily allowing the
-APK installer source according to the device's security policy.
+Termux:X11 Android APK separately from the official Termux:X11 repository:
 
-After the Android app is installed:
+https://github.com/termux/termux-x11
+
+Open the repository's Releases page and choose the current nightly release. On
+an aarch64 phone, download `termux-x11-arm64-v8a-debug.apk`; the universal debug
+APK is also usable. Android may require temporarily allowing the APK installer
+source, and Samsung devices with Auto Blocker enabled may require temporarily
+disabling Auto Blocker during installation.
+
+If the APK is downloaded into Android's Downloads folder and Termux has storage
+access, Android's installer can be opened from Termux with:
 
 ```bash
+termux-setup-storage          # only needed once
+termux-open ~/storage/downloads/termux-x11-arm64-v8a-debug.apk
+```
+
+After the Android app is installed, install the Termux-side X11 components if
+needed and start the display server:
+
+```bash
+pkg install x11-repo
+pkg install termux-x11-nightly xterm
+
 termux-x11 :0 &
 export DISPLAY=:0
 xterm
 ```
 
-Once X11 is working, the installed MapLibre GLFW test application can be run:
+An `xterm` window appearing inside the Termux:X11 app confirms that the X11
+path is healthy. Once X11 is working, the installed MapLibre GLFW test
+application can be run:
 
 ```bash
 $PREFIX/opt/openroadcode/navigation/bin/mbgl-glfw
 ```
+
+If `termux-x11 :0` prints `Termux:X11 application is not found`, the Termux-side
+package is installed but the separate Android APK is still missing.
 
 ## Captured portability changes
 
