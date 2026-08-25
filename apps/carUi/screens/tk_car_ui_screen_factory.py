@@ -62,7 +62,13 @@ class TkCarUiScreenFactory:
         netflix = NetflixScreen(self._host, player=dependencies.netflix_player, display=dependencies.media_display or runtime.remote_display, colors=CAR_UI_THEME["colors"], back_action=lambda: self._show_menu("media"))
         youtube = YouTubeScreen(self._host, player=dependencies.youtube_player, display=dependencies.media_display or runtime.remote_display, colors=CAR_UI_THEME["colors"], back_action=lambda: self._show_menu("media"))
 
-        offroad_dashboard = OffroadDashboardScreen(self._host, create_menu_tile=self._create_menu_tile, back_action=lambda: self._show_menu("gauges"), request_handler=ZeroMqNavigationRequestHandler())
+        offroad_dashboard = OffroadDashboardScreen(
+            self._host,
+            create_menu_tile=self._create_menu_tile,
+            back_action=lambda: self._show_menu("gauges"),
+            request_handler=ZeroMqNavigationRequestHandler(),
+            map_presentation=runtime.map_presentation,
+        )
         vehicle_gauges = VehicleGaugesScreen(self._host, create_menu_tile=self._create_menu_tile, back_action=lambda: self._show_menu("gauges"))
 
         return CarUiScreens(aircraft=aircraft, weather=weather, lighting=lighting, fm_radio=fm_radio, scanner=scanner, spotify=spotify, netflix=netflix, youtube=youtube, offroad_dashboard=offroad_dashboard, vehicle_gauges=vehicle_gauges)
