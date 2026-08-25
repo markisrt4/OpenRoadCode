@@ -15,16 +15,29 @@ import zmq
 
 from controllers.route_planning.route_map_presenter import present_route
 from controllers.route_planning.route_planning_types import GeoPoint, RouteRequest
-from controllers.route_planning.valhalla_route_planning_controller import ValhallaRoutePlanningController
-from protocols.map_renderer.map_renderer_client import MapRendererClient
+from controllers.route_planning.valhalla_route_planning_controller import (
+    ValhallaRoutePlanningController,
+)
+from protocols.map_renderer.map_renderer_client import (
+    DEFAULT_MAP_RENDERER_ENDPOINT,
+    MapRendererClient,
+)
 from protocols.valhalla.valhalla_http_client import ValhallaHttpClient
 from services.navigation.navigation_command_client import NavigationCommandClient
 from services.navigation.navigation_command_service import NavigationCommandService
-from services.navigation.zeromq_navigation_command_server import ZeroMqNavigationCommandServer
+from services.navigation.zeromq_navigation_command_server import (
+    ZeroMqNavigationCommandServer,
+)
 
 VALHALLA_PORT = 18003
+DEFAULT_EXTERNAL_VALHALLA_URL = "http://127.0.0.1:8002"
 NAV_ENDPOINT = "tcp://127.0.0.1:15561"
-MAP_ENDPOINT = "tcp://127.0.0.1:15562"
+FAKE_MAP_ENDPOINT = "tcp://127.0.0.1:15562"
+
+# Deterministic Michigan test geometry. Keep the fake route inside the map
+# dataset so an external renderer can fit the route and still display a
+# meaningful basemap.
+MICHIGAN_TEST_SHAPE = "_fnspAvdui}C~liHfgM~}cH~oRnhhInz]"
 
 
 class _UnusedNavigationController:
@@ -42,12 +55,37 @@ class _FakeValhallaHandler(BaseHTTPRequestHandler):
         if self.path != "/route":
             self.send_error(404)
             return
+
         length = int(self.headers.get("Content-Length", "0"))
         request = json.loads(self.rfile.read(length) or b"{}")
         if len(request.get("locations", [])) != 2:
             self._reply({"error": "two locations required"}, 400)
             return
-        self._reply({"trip": {"summary": {"length": 42.5, "time": 3600.0}, "legs": [{"shape": "_p~iF~ps|U_ulLnnqC", "maneuvers": [{"instruction": "Head south", "verbal_pre_transition_instruction": "Head south", "length": 42.5, "time": 3600.0, "begin_shape_index": 0, "end_shape_index": 1}]}]}})
+
+        self._reply(
+            {
+                "trip": {
+                    "summary": {"length": 33.0, "time": 2700.0},
+                    "legs": [
+                        {
+                            "shape": MICHIGAN_TEST_SHAPE,
+                            "maneuvers": [
+                                {
+                                    "instruction": "Head south toward Detroit",
+                                    "verbal_pre_transition_instruction": (
+                                        "Head south toward Detroit"
+                                    ),
+                                    "length": 33.0,
+                                    "time": 2700.0,
+                                    "begin_shape_index": 0,
+                                    "end_shape_index": 3,
+                                }
+                            ],
+                        }
+                    ],
+                }
+            }
+        )
 
     def log_message(self, format: str, *args) -> None:
         pass
@@ -98,8 +136,32 @@ class _FakeMapRenderer:
 
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--renderer-endpoint", default=MAP_ENDPOINT)
-    parser.add_argument("--external-renderer", action="store_true")
+    parser.add_argument(
+        "--external-renderer",
+        action="store_true",
+        help="send map commands to a running native renderer",
+    )
+    parser.add_argument(
+        "--renderer-endpoint",
+        default=None,
+        help=(
+            "renderer ZeroMQ endpoint; defaults to the native IPC endpoint "
+            "with --external-renderer and the test TCP endpoint otherwise"
+        ),
+    )
+    parser.add_argument(
+        "--external-valhalla",
+        action="store_true",
+        help="use a running Valhalla service instead of the fake HTTP server",
+    )
+    parser.add_argument(
+        "--valhalla-url",
+        default=DEFAULT_EXTERNAL_VALHALLA_URL,
+        help=(
+            "external Valhalla base URL; used with --external-valhalla "
+            f"(default: {DEFAULT_EXTERNAL_VALHALLA_URL})"
+        ),
+    )
     return parser.parse_args()
 
 
@@ -113,25 +175,52 @@ def _wait_navigation(server: ZeroMqNavigationCommandServer) -> None:
 
 def main() -> int:
     args = _parse_args()
-    http_server = ThreadingHTTPServer(("127.0.0.1", VALHALLA_PORT), _FakeValhallaHandler)
-    http_thread = threading.Thread(target=http_server.serve_forever, daemon=True)
-    http_thread.start()
+    renderer_endpoint = args.renderer_endpoint or (
+        DEFAULT_MAP_RENDERER_ENDPOINT
+        if args.external_renderer
+        else FAKE_MAP_ENDPOINT
+    )
+
+    http_server: ThreadingHTTPServer | None = None
+    http_thread: threading.Thread | None = None
+    if args.external_valhalla:
+        valhalla_url = args.valhalla_url
+    else:
+        http_server = ThreadingHTTPServer(
+            ("127.0.0.1", VALHALLA_PORT),
+            _FakeValhallaHandler,
+        )
+        http_thread = threading.Thread(
+            target=http_server.serve_forever,
+            daemon=True,
+        )
+        http_thread.start()
+        valhalla_url = f"http://127.0.0.1:{VALHALLA_PORT}"
 
     planner = ValhallaRoutePlanningController(
-        ValhallaHttpClient(f"http://127.0.0.1:{VALHALLA_PORT}", timeout_seconds=2.0)
+        ValhallaHttpClient(valhalla_url, timeout_seconds=2.0)
     )
     navigation_server = ZeroMqNavigationCommandServer(
-        NavigationCommandService(_UnusedNavigationController(), route_planning_controller=planner),
+        NavigationCommandService(
+            _UnusedNavigationController(),
+            route_planning_controller=planner,
+        ),
         NAV_ENDPOINT,
     )
-    navigation_thread = threading.Thread(target=navigation_server.run, daemon=True)
+    navigation_thread = threading.Thread(
+        target=navigation_server.run,
+        daemon=True,
+    )
     navigation_thread.start()
 
     fake_renderer = None
     renderer_thread = None
     if not args.external_renderer:
-        fake_renderer = _FakeMapRenderer(args.renderer_endpoint)
-        renderer_thread = threading.Thread(target=fake_renderer.run, daemon=True)
+        fake_renderer = _FakeMapRenderer(renderer_endpoint)
+        renderer_thread = threading.Thread(
+            target=fake_renderer.run,
+            daemon=True,
+        )
         renderer_thread.start()
 
     try:
@@ -145,17 +234,20 @@ def main() -> int:
                 destination=GeoPoint(42.3314, -83.0458),
             )
         )
-        present_route(route, MapRendererClient(args.renderer_endpoint))
+        present_route(route, MapRendererClient(renderer_endpoint))
 
         if fake_renderer is not None:
             commands = [item.get("command") for item in fake_renderer.commands]
             if commands != ["set_route", "fit_bounds"]:
-                raise RuntimeError(f"Unexpected renderer commands: {fake_renderer.commands!r}")
+                raise RuntimeError(
+                    f"Unexpected renderer commands: {fake_renderer.commands!r}"
+                )
 
         print("Route-to-map component test passed")
         print(f"  route distance: {route.distance_miles} miles")
         print(f"  route points:   {len(route.shape)}")
-        print(f"  renderer:       {args.renderer_endpoint}")
+        print(f"  valhalla:       {valhalla_url}")
+        print(f"  renderer:       {renderer_endpoint}")
         print("  commands:       set_route -> fit_bounds")
         return 0
     finally:
@@ -165,9 +257,11 @@ def main() -> int:
             fake_renderer.close()
         if renderer_thread is not None:
             renderer_thread.join(1.0)
-        http_server.shutdown()
-        http_server.server_close()
-        http_thread.join(1.0)
+        if http_server is not None:
+            http_server.shutdown()
+            http_server.server_close()
+        if http_thread is not None:
+            http_thread.join(1.0)
 
 
 if __name__ == "__main__":
