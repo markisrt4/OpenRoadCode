@@ -6,7 +6,9 @@
 from __future__ import annotations
 
 import math
+import tkinter as tk
 
+from controllers.navigation.map_presentation_if import MapPresentationIf
 from frontends.tk.automotive import OffroadDashboardPanel
 from frontends.tk.tk_screen_host_if import TkScreenHostIf
 from messaging.contracts.navigation import (
@@ -33,15 +35,18 @@ class OffroadDashboardScreen(CarUiScreen):
         create_menu_tile: MenuTileFactory,
         back_action,
         request_handler: NavigationRequestHandlerIf | None = None,
+        map_presentation: MapPresentationIf | None = None,
         pitch_warning_deg: float = 30.0,
         roll_warning_deg: float = 25.0,
     ) -> None:
         super().__init__(host, ScreenId("offroad_dashboard"), create_menu_tile)
         self._back_action = back_action
         self._request_handler = request_handler
+        self._map_presentation = map_presentation
         self._pitch_warning_deg = pitch_warning_deg
         self._roll_warning_deg = roll_warning_deg
         self._panel: OffroadDashboardPanel | None = None
+        self._latest_position: PositionFix | None = None
         self._attitude_count = 0
         self._imu_count = 0
         self._position_count = 0
@@ -57,11 +62,41 @@ class OffroadDashboardScreen(CarUiScreen):
             request_handler=self._request_handler,
         )
         self._panel.pack(fill="both", expand=True)
+        if self._map_presentation is not None:
+            tk.Button(
+                self._panel,
+                text="GOOGLE EARTH",
+                command=self.show_current_location_on_map,
+                bg="#263d31",
+                fg="#e5f2e9",
+                activebackground="#355442",
+                activeforeground="#ffffff",
+                relief=tk.FLAT,
+                padx=14,
+                font=("TkDefaultFont", 9, "bold"),
+            ).pack(side=tk.BOTTOM, padx=10, pady=(0, 7), anchor="w")
         self._set_live_status()
 
     def hide(self) -> None:
         """Release only the view; telemetry ownership remains outside the screen."""
         self._panel = None
+
+    def show_current_location_on_map(self) -> None:
+        """Present the latest navigation fix using the configured map backend."""
+        presentation = self._map_presentation
+        position = self._latest_position
+        if presentation is None:
+            self.set_status("Map presentation unavailable")
+            return
+        if position is None:
+            self.set_status("Waiting for a GPS position")
+            return
+        presentation.focus_location(
+            math.degrees(position.latitude_rad),
+            math.degrees(position.longitude_rad),
+            altitude_m=position.altitude_m,
+        )
+        self.set_status("Opening current location")
 
     def set_attitude_message(self, message: AttitudeStateMessage) -> None:
         """Apply one decoded attitude message to the visible panel."""
@@ -90,21 +125,21 @@ class OffroadDashboardScreen(CarUiScreen):
     def set_position_message(self, message: PositionStateMessage) -> None:
         """Apply decoded geographic position and ground-track data."""
         self._position_count += 1
+        data = message.data
+        if data.latitude_rad is None or data.longitude_rad is None:
+            self._latest_position = None
+        else:
+            self._latest_position = PositionFix(
+                latitude_rad=data.latitude_rad,
+                longitude_rad=data.longitude_rad,
+                altitude_m=data.altitude_m,
+                pfom_m=data.accuracy_m,
+            )
+
         panel = self._panel
         if panel is None:
             return
-        data = message.data
-        if data.latitude_rad is None or data.longitude_rad is None:
-            panel.set_position(None)
-        else:
-            panel.set_position(
-                PositionFix(
-                    latitude_rad=data.latitude_rad,
-                    longitude_rad=data.longitude_rad,
-                    altitude_m=data.altitude_m,
-                    pfom_m=data.accuracy_m,
-                )
-            )
+        panel.set_position(self._latest_position)
         panel.set_ground_speed(data.speed_m_s)
         panel.set_course_over_ground(data.course_rad)
         self._set_live_status()
