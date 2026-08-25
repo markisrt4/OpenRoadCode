@@ -28,6 +28,7 @@ RUN apt-get update && apt-get install -y \
     libspatialite-dev \
     spatialite-bin \
     libcurl4-openssl-dev \
+    libssl-dev \
     liblz4-dev \
     libxxhash-dev \
     libzmq3-dev \
