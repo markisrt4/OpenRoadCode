@@ -4,6 +4,8 @@
 
 set -euo pipefail
 
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd -- "$SCRIPT_DIR/../.." && pwd)"
 DATA_ROOT="${DATA_ROOT:-/srv/openroadcode}"
 STAGING_ROOT="${STAGING_ROOT:-/srv/openroadcode-update}"
 BACKUP_ROOT="${BACKUP_ROOT:-/srv/openroadcode-previous}"
@@ -85,7 +87,8 @@ echo "[*] Checking remote navigation-data manifest"
 
 if (( ! FORCE )) && [[ -f "$DATA_ROOT/build-manifest.json" ]] \
     && cmp -s "$remote_manifest" "$DATA_ROOT/build-manifest.json"; then
-  echo "[+] Navigation data already match the remote build manifest; nothing to do."
+  echo "[+] Navigation data already match the remote build manifest; refreshing software-owned map style."
+  DATA_ROOT="$DATA_ROOT" bash "$PROJECT_ROOT/scripts/runtime/install_navigation_style.sh"
   exit 0
 fi
 
@@ -143,6 +146,11 @@ sudo mv "$STAGING_ROOT" "$DATA_ROOT"
 # Make the deployed tree readable by runtime services while retaining ordinary
 # ownership semantics for future administrator-managed updates.
 sudo chmod -R a+rX "$DATA_ROOT"
+
+# Presentation is software-version-owned. Overlay the current repository style
+# after promoting map-builder-owned geometry/routing data so style-only changes
+# do not require rebuilding or republishing a multi-gigabyte MBTiles archive.
+DATA_ROOT="$DATA_ROOT" bash "$PROJECT_ROOT/scripts/runtime/install_navigation_style.sh"
 
 if (( ! NO_RESTART )) && command -v systemctl >/dev/null 2>&1; then
   if systemctl list-unit-files valhalla.service >/dev/null 2>&1; then
