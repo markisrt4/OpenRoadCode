@@ -9,9 +9,10 @@ import argparse
 from pathlib import Path
 
 from config.service_runtime_config import NavigationServiceRuntimeConfig, ServiceRuntimeConfigParser
-from controllers.navigation import GpsdNavigationAdapter, Mpu6050NavigationAdapter, NavigationController
+from controllers.navigation import AndroidNavigationSensor, GpsdNavigationAdapter, Mpu6050NavigationAdapter, NavigationController
 from controllers.navigation.simulated_navigation_sensor import SimulatedNavigationSensor
 from controllers.navigation.simulated_position_source import SimulatedPositionSource
+from hardware_io.android import AndroidImu, AndroidSensorBridgeClient
 from hardware_io.imu import Mpu6050Imu
 from messaging.zeromq import ZeroMqPublisher
 from services.navigation.navigation_runtime import NavigationRuntime
@@ -35,9 +36,12 @@ def _create_gps_reader(host: str, port: str):
 def _build_motion_sensor(config: NavigationServiceRuntimeConfig):
     if config.imu.source == "simulation":
         return SimulatedNavigationSensor(profile=config.imu.simulation.profile)
-    if config.imu.device != "mpu6050":
-        raise ValueError(f"Unsupported IMU device: {config.imu.device}")
-    return Mpu6050NavigationAdapter(Mpu6050Imu(address=config.imu.address))
+    if config.imu.device == "android":
+        client = AndroidSensorBridgeClient(base_url=config.imu.bridge_url)
+        return AndroidNavigationSensor(AndroidImu(client))
+    if config.imu.device == "mpu6050":
+        return Mpu6050NavigationAdapter(Mpu6050Imu(address=config.imu.address))
+    raise ValueError(f"Unsupported IMU device: {config.imu.device}")
 
 
 def _build_position_source(config: NavigationServiceRuntimeConfig):
@@ -88,8 +92,8 @@ def main() -> int:
         command_endpoint=config.command_endpoint,
     )
     print("OpenRoadCode navigation service")
-    print(f"  IMU source:        {config.imu.source}")
-    print(f"  GPS source:        {config.gps.source}")
+    print(f"  IMU source:        {config.imu.source}/{config.imu.device}")
+    print(f"  GPS source:        {config.gps.source}/{config.gps.device}")
     print(f"  solution:          {config.solution.algorithm}")
     print(f"  telemetry ingress: {system.messaging.publisher_endpoint}")
     print(f"  command endpoint:  {config.command_endpoint}")
