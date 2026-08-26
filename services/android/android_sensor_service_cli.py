@@ -20,7 +20,7 @@ def main() -> int:
     publisher = ZeroMqPublisher()
     service = AndroidSensorService(client, publisher)
     print("[*] Android sensor bridge ready")
-    print("[*] Publishing android.imu to OpenRoadCode ZeroMQ at 20 Hz")
+    print("[*] Streaming android.imu to OpenRoadCode ZeroMQ")
     print("[*] Press Ctrl+C to stop")
     try:
         service.run()
