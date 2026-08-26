@@ -135,8 +135,11 @@ else
   echo "[*] MapLibre already installed at $MBGL_INSTALLED; skipping build"
 fi
 
-if [[ ! -f "$CONFIG_ROOT/navigation.toml" ]]; then
-  install -m 0644 "$PROJECT_ROOT/config/navigation.toml" "$CONFIG_ROOT/navigation.toml"
+NAVIGATION_CONFIG_SOURCE="$PROJECT_ROOT/config/navigation.toml"
+if [[ -f "$NAVIGATION_CONFIG_SOURCE" && ! -f "$CONFIG_ROOT/navigation.toml" ]]; then
+  install -m 0644 "$NAVIGATION_CONFIG_SOURCE" "$CONFIG_ROOT/navigation.toml"
+elif [[ ! -f "$NAVIGATION_CONFIG_SOURCE" ]]; then
+  echo "[*] No config/navigation.toml in this checkout; skipping optional config install"
 fi
 
 cat <<EOF
@@ -144,7 +147,7 @@ cat <<EOF
 [+] Experimental Termux navigation build complete
     Valhalla: $VALHALLA_SERVICE
     MapLibre: $MBGL_INSTALLED
-    config:   $CONFIG_ROOT/navigation.toml
+    config:   $CONFIG_ROOT/navigation.toml (optional)
     data:     $DATA_ROOT
 
 Set FORCE_REBUILD=1 to rebuild all native components.
