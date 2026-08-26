@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from dataclasses import dataclass
 import json
 from urllib.error import HTTPError, URLError
@@ -24,7 +25,7 @@ class AndroidImuSample:
 class AndroidSensorBridgeClient:
     """Read Android hardware samples exposed on the local bridge HTTP API."""
 
-    def __init__(self, base_url: str = "http://127.0.0.1:8766", timeout_seconds: float = 0.5) -> None:
+    def __init__(self, base_url: str = "http://127.0.0.1:8766", timeout_seconds: float = 2.0) -> None:
         self._base_url = base_url.rstrip("/")
         self._timeout_seconds = timeout_seconds
 
@@ -37,18 +38,33 @@ class AndroidSensorBridgeClient:
         return health.get("status") == "ready"
 
     def read_imu(self) -> AndroidImuSample:
-        payload = self._get_json("/imu")
-        if payload.get("ready") is not True:
-            raise RuntimeError("Android sensor bridge IMU is not ready")
+        """Read one diagnostic IMU snapshot."""
+        return _imu_sample(self._get_json("/imu"))
 
-        acceleration = _vector(payload, "acceleration_mps2")
-        angular_velocity = _vector(payload, "angular_velocity_rad_s")
-        return AndroidImuSample(
-            acceleration_mps2=acceleration,
-            angular_velocity_rad_s=angular_velocity,
-            accelerometer_timestamp_ns=_integer(payload, "accelerometer_timestamp_ns"),
-            gyroscope_timestamp_ns=_integer(payload, "gyroscope_timestamp_ns"),
-        )
+    def stream_imu(self) -> Iterator[AndroidImuSample]:
+        """Yield IMU samples from the bridge's persistent NDJSON stream."""
+        try:
+            with urlopen(
+                self._base_url + "/stream/imu",
+                timeout=self._timeout_seconds,
+            ) as response:
+                for raw_line in response:
+                    line = raw_line.strip()
+                    if not line:
+                        continue
+                    try:
+                        payload = json.loads(line)
+                    except json.JSONDecodeError as exc:
+                        raise RuntimeError(
+                            f"Android sensor bridge returned invalid stream JSON: {exc}"
+                        ) from exc
+                    if not isinstance(payload, dict):
+                        raise RuntimeError(
+                            "Android sensor bridge stream returned a non-object JSON value"
+                        )
+                    yield _imu_sample(payload)
+        except (HTTPError, URLError, TimeoutError, OSError) as exc:
+            raise RuntimeError(f"Android sensor bridge stream failed: {exc}") from exc
 
     def _get_json(self, path: str) -> dict[str, object]:
         try:
@@ -59,6 +75,17 @@ class AndroidSensorBridgeClient:
         if not isinstance(payload, dict):
             raise RuntimeError("Android sensor bridge returned a non-object JSON response")
         return payload
+
+
+def _imu_sample(payload: dict[str, object]) -> AndroidImuSample:
+    if payload.get("ready") is not True:
+        raise RuntimeError("Android sensor bridge IMU is not ready")
+    return AndroidImuSample(
+        acceleration_mps2=_vector(payload, "acceleration_mps2"),
+        angular_velocity_rad_s=_vector(payload, "angular_velocity_rad_s"),
+        accelerometer_timestamp_ns=_integer(payload, "accelerometer_timestamp_ns"),
+        gyroscope_timestamp_ns=_integer(payload, "gyroscope_timestamp_ns"),
+    )
 
 
 def _vector(payload: dict[str, object], name: str) -> Vector3:
