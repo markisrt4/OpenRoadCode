@@ -3,12 +3,14 @@
 
 """Vehicle orientation and motion controller."""
 
+from controllers.navigation.android_magnetometer_adapter import AndroidMagnetometerAdapter
 from controllers.navigation.browser_orientation_adapter import BrowserOrientationAdapter
 from controllers.navigation.browser_position_adapter import BrowserPositionAdapter
 from controllers.navigation.complementary_orientation_estimator import ComplementaryOrientationEstimator
 from controllers.navigation.google_earth_map_presentation import GoogleEarthMapPresentation
 from controllers.navigation.gpsd_navigation_adapter import GpsdNavigationAdapter
 from controllers.navigation.gpsd_position_source import GpsdPositionSource
+from controllers.navigation.magnetometer_source_if import MagnetometerSample, MagnetometerSourceIf
 from controllers.navigation.map_presentation_if import MapPresentationIf
 from controllers.navigation.mpu6050_navigation_adapter import Mpu6050NavigationAdapter
 from controllers.navigation.motion_calibration import MotionCalibration
@@ -27,11 +29,11 @@ from controllers.navigation.unconfigured_navigation_controller import Unconfigur
 from controllers.navigation.simulated_navigation_controller import SimulatedNavigationController
 
 __all__ = [
-    "BrowserOrientationAdapter", "BrowserPositionAdapter", "ComplementaryOrientationEstimator",
-    "GoogleEarthMapPresentation", "GpsdNavigationAdapter", "GpsdPositionSource", "GpsState", "MapPresentationIf",
-    "MotionSample", "MotionCalibration", "Mpu6050NavigationAdapter", "NavigationController", "NavigationControllerIf",
-    "NavigationControllerStub", "NavigationGpsSourceIf", "NavigationSensorIf", "NavigationState",
-    "NavigationStatePresenter", "Orientation", "OrientationEstimatorIf", "OrientationState", "PositionSourceIf",
-    "PositionSnapshotCache", "PositionState", "PersistentPositionSource", "SimulatedNavigationController",
-    "UnconfiguredNavigationController",
+    "AndroidMagnetometerAdapter", "BrowserOrientationAdapter", "BrowserPositionAdapter", "ComplementaryOrientationEstimator",
+    "GoogleEarthMapPresentation", "GpsdNavigationAdapter", "GpsdPositionSource", "GpsState", "MagnetometerSample",
+    "MagnetometerSourceIf", "MapPresentationIf", "MotionSample", "MotionCalibration", "Mpu6050NavigationAdapter",
+    "NavigationController", "NavigationControllerIf", "NavigationControllerStub", "NavigationGpsSourceIf",
+    "NavigationSensorIf", "NavigationState", "NavigationStatePresenter", "Orientation", "OrientationEstimatorIf",
+    "OrientationState", "PositionSourceIf", "PositionSnapshotCache", "PositionState", "PersistentPositionSource",
+    "SimulatedNavigationController", "UnconfiguredNavigationController",
 ]
