@@ -42,12 +42,11 @@ class AndroidMagnetometer:
     def read_magnetometer(self) -> MagnetometerSample:
         if not self._connected:
             raise RuntimeError("Android magnetometer is not connected")
-
         sample = self._client.read_imu()
         if not sample.magnetometer_available:
             raise RuntimeError("Android magnetometer is unavailable")
-
+        field = sample.magnetic_field_ut
         return MagnetometerSample(
-            magnetic_field_ut=sample.magnetic_field_ut,
+            magnetic_field_ut=Vector3(x=field.x, y=field.y, z=field.z),
             timestamp_ns=sample.magnetometer_timestamp_ns,
         )
