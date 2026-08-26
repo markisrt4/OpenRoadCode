@@ -63,6 +63,8 @@ mkdir -p "$HOST_SRC" "$INSTALL_ROOT" "$CONFIG_ROOT" "$DATA_ROOT"
 if [[ ! -d "$PRIME_SERVER_SRC/.git" ]]; then
   git clone https://github.com/kevinkreiser/prime_server.git "$PRIME_SERVER_SRC"
 fi
+git -C "$PRIME_SERVER_SRC" submodule sync --recursive
+git -C "$PRIME_SERVER_SRC" submodule update --init --recursive
 cmake -S "$PRIME_SERVER_SRC" -B "$PRIME_SERVER_SRC/build-termux" -G Ninja \
   -DCMAKE_BUILD_TYPE=Release \
   -DCMAKE_INSTALL_PREFIX="$PREFIX"
