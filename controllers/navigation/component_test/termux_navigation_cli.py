@@ -9,8 +9,9 @@ import argparse
 import threading
 import time
 
-from controllers.navigation.termux_navigation_sensor import TermuxNavigationSensor
-from controllers.navigation.termux_position_source import TermuxPositionSource
+from controllers.navigation.termux_navigation_adapter import TermuxNavigationAdapter
+from controllers.navigation.termux_position_adapter import TermuxPositionAdapter
+from hardware_io.termux_api import TermuxLocationClient, TermuxSensorClient
 
 
 def main() -> int:
@@ -18,8 +19,8 @@ def main() -> int:
     parser.add_argument("--interval", type=float, default=1.0, help="Seconds between samples")
     args = parser.parse_args()
 
-    sensor = TermuxNavigationSensor()
-    position = TermuxPositionSource(interval_seconds=args.interval)
+    sensor = TermuxNavigationAdapter(TermuxSensorClient())
+    position = TermuxPositionAdapter(TermuxLocationClient(), interval_seconds=args.interval)
     latest_position = None
     position_lock = threading.Lock()
 
