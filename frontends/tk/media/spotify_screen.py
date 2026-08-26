@@ -29,6 +29,31 @@ from ui.media import (
 from ui.screen_ui_if import ScreenId
 
 
+class _ThreadSafeSpotifyPlaybackPanel(SpotifyPlaybackPanel):
+    """Route worker-thread ``after(0, ...)`` calls through the UI dispatcher.
+
+    SpotifyPlaybackPanel performs network/image work on background threads. Tk's
+    ``after`` method itself enters Tcl, so it is not safe to call from those
+    threads. This adapter preserves the panel API while ensuring worker results
+    cross the application's Python-only dispatch queue before touching Tk.
+    """
+
+    def __init__(self, *args, ui_dispatch: Callable[[Callable[[], None]], None], **kwargs) -> None:
+        self._ui_dispatch = ui_dispatch
+        self._tk_thread_id = threading.get_ident()
+        super().__init__(*args, **kwargs)
+
+    def after(self, ms: int, func=None, *args):
+        if threading.get_ident() != self._tk_thread_id:
+            if func is None:
+                raise RuntimeError("worker threads may not call Tk after() without a callback")
+            if ms != 0:
+                raise RuntimeError("worker threads may only dispatch immediate UI callbacks")
+            self._ui_dispatch(lambda: func(*args))
+            return None
+        return super().after(ms, func, *args)
+
+
 class SpotifyScreen(TkScreen, MediaUiIf):
     """Present media state and connect media request handlers."""
 
@@ -55,9 +80,7 @@ class SpotifyScreen(TkScreen, MediaUiIf):
         self._seek_handler: SeekRequestHandlerIf | None = None
         self._volume_handler: VolumeRequestHandlerIf | None = None
         self._state_loader: Callable[[], MediaState] | None = None
-        self._state_results: queue.SimpleQueue[tuple[int, MediaState]] = (
-            queue.SimpleQueue()
-        )
+        self._state_results: queue.SimpleQueue[tuple[int, MediaState]] = queue.SimpleQueue()
         self._refresh_generation = 0
         self._refresh_job: object | None = None
         self.spotify_panel: SpotifyPlaybackPanel | None = None
@@ -67,47 +90,28 @@ class SpotifyScreen(TkScreen, MediaUiIf):
         if self.spotify_panel is not None:
             self.spotify_panel.set_media_state(state)
 
-    def set_playback_request_handler(
-        self,
-        handler: PlaybackRequestHandlerIf | None,
-    ) -> None:
+    def set_playback_request_handler(self, handler: PlaybackRequestHandlerIf | None) -> None:
         self._playback_handler = handler
         if self.spotify_panel is not None:
             self.spotify_panel.set_playback_request_handler(handler)
 
-    def set_track_request_handler(
-        self,
-        handler: TrackRequestHandlerIf | None,
-    ) -> None:
+    def set_track_request_handler(self, handler: TrackRequestHandlerIf | None) -> None:
         self._track_handler = handler
         if self.spotify_panel is not None:
             self.spotify_panel.set_track_request_handler(handler)
 
-    def set_seek_request_handler(
-        self,
-        handler: SeekRequestHandlerIf | None,
-    ) -> None:
+    def set_seek_request_handler(self, handler: SeekRequestHandlerIf | None) -> None:
         self._seek_handler = handler
         if self.spotify_panel is not None:
             self.spotify_panel.set_seek_request_handler(handler)
 
-    def set_volume_request_handler(
-        self,
-        handler: VolumeRequestHandlerIf | None,
-    ) -> None:
+    def set_volume_request_handler(self, handler: VolumeRequestHandlerIf | None) -> None:
         self._volume_handler = handler
         if self.spotify_panel is not None:
             self.spotify_panel.set_volume_request_handler(handler)
 
-    def set_state_loader(
-        self,
-        loader: Callable[[], MediaState] | None,
-    ) -> None:
-        """Set the backend loader used by asynchronous refreshes.
-
-        @param loader Callable that reads and returns the latest media state
-            without touching Tk widgets.
-        """
+    def set_state_loader(self, loader: Callable[[], MediaState] | None) -> None:
+        """Set the backend loader used by asynchronous refreshes."""
         self._state_loader = loader
 
     def hide(self) -> None:
@@ -126,12 +130,17 @@ class SpotifyScreen(TkScreen, MediaUiIf):
         self._host.set_screen_title("Spotify")
         self._host.set_screen_back_action(self._back_action)
 
-        panel = SpotifyPlaybackPanel(
+        dispatch = getattr(self._host, "dispatch_ui", None)
+        if dispatch is None:
+            raise RuntimeError("Tk screen host does not provide thread-safe UI dispatch")
+
+        panel = _ThreadSafeSpotifyPlaybackPanel(
             parent=self._host.screen_parent,
             theme=self._theme,
             image_cache=self._image_cache,
             lyrics_client=self._lyrics_client,
             music_video_controller=self._music_video_controller,
+            ui_dispatch=dispatch,
         )
         panel.set_playback_request_handler(self._playback_handler)
         panel.set_track_request_handler(self._track_handler)
@@ -142,24 +151,13 @@ class SpotifyScreen(TkScreen, MediaUiIf):
         self.spotify_panel = panel
         self._host.set_screen_status("Loading Spotify…")
         generation = self._refresh_generation
-        self._refresh_job = self._host.schedule_ui_callback(
-            1,
-            lambda: self._start_refresh(panel, generation),
-        )
+        self._refresh_job = self._host.schedule_ui_callback(1, lambda: self._start_refresh(panel, generation))
 
-    def _start_refresh(
-        self,
-        panel: SpotifyPlaybackPanel,
-        generation: int,
-    ) -> None:
+    def _start_refresh(self, panel: SpotifyPlaybackPanel, generation: int) -> None:
         """Read Spotify state off the Tk event-loop thread."""
         self._refresh_job = None
         loader = self._state_loader
-        if (
-            panel is not self.spotify_panel
-            or generation != self._refresh_generation
-            or loader is None
-        ):
+        if panel is not self.spotify_panel or generation != self._refresh_generation or loader is None:
             return
         threading.Thread(
             target=self._load_state_worker,
@@ -167,37 +165,20 @@ class SpotifyScreen(TkScreen, MediaUiIf):
             name="spotify-state",
             daemon=True,
         ).start()
-        self._refresh_job = self._host.schedule_ui_callback(
-            25,
-            lambda: self._poll_state(panel, generation),
-        )
+        self._refresh_job = self._host.schedule_ui_callback(25, lambda: self._poll_state(panel, generation))
 
-    def _load_state_worker(
-        self,
-        loader: Callable[[], MediaState],
-        generation: int,
-    ) -> None:
+    def _load_state_worker(self, loader: Callable[[], MediaState], generation: int) -> None:
         self._state_results.put((generation, loader()))
 
-    def _poll_state(
-        self,
-        panel: SpotifyPlaybackPanel,
-        generation: int,
-    ) -> None:
+    def _poll_state(self, panel: SpotifyPlaybackPanel, generation: int) -> None:
         self._refresh_job = None
-        if (
-            panel is not self.spotify_panel
-            or generation != self._refresh_generation
-        ):
+        if panel is not self.spotify_panel or generation != self._refresh_generation:
             return
         while True:
             try:
                 result_generation, state = self._state_results.get_nowait()
             except queue.Empty:
-                self._refresh_job = self._host.schedule_ui_callback(
-                    25,
-                    lambda: self._poll_state(panel, generation),
-                )
+                self._refresh_job = self._host.schedule_ui_callback(25, lambda: self._poll_state(panel, generation))
                 return
             if result_generation == generation:
                 break
