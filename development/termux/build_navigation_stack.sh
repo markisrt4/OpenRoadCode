@@ -47,7 +47,7 @@ pkg install -y x11-repo
 pkg update
 pkg install -y \
   git clang cmake ninja pkg-config patch \
-  boost protobuf libsqlite libspatialite spatialite-tools libcurl liblz4 libzmq libczmq \
+  boost boost-headers protobuf libsqlite libspatialite spatialite-tools libcurl liblz4 libzmq libczmq \
   luajit libgeos libpng libjpeg-turbo libwebp libicu rapidjson \
   mesa mesa-dev glfw libx11 xorgproto
 
@@ -91,6 +91,7 @@ cmake --build "$VALHALLA_SRC/build-termux" -j"$BUILD_JOBS"
 cmake --install "$VALHALLA_SRC/build-termux"
 
 checkout_repo https://github.com/maplibre/maplibre-native.git "$MAPLIBRE_SRC" "$MAPLIBRE_REF"
+apply_patch_once "$MAPLIBRE_SRC" "$SCRIPT_DIR/patches/maplibre-android-thread-name.patch"
 rm -rf "$MAPLIBRE_SRC/build-termux-glfw"
 cmake -S "$MAPLIBRE_SRC" -B "$MAPLIBRE_SRC/build-termux-glfw" -G Ninja \
   -DCMAKE_BUILD_TYPE=Release \
