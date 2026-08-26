@@ -7,15 +7,11 @@ from .android_barometric_adapter import AndroidBarometricAdapter
 from .barometric_controller import BarometricController
 from .barometric_controller_if import BarometricControllerIf
 from .barometric_controller_stub import BarometricControllerStub
-from .barometric_source_if import (
-    BarometricSample,
-    BarometricSourceIf,
-)
+from .barometric_source_if import BarometricSample, BarometricSourceIf
 from .barometric_state import BarometricState
 from .bmp3xx_barometric_adapter import Bmp3xxBarometricAdapter
-from .unconfigured_barometric_controller import (
-    UnconfiguredBarometricController,
-)
+from .buffered_barometric_source import BufferedBarometricSource
+from .unconfigured_barometric_controller import UnconfiguredBarometricController
 
 __all__ = [
     "AndroidBarometricAdapter",
@@ -26,5 +22,6 @@ __all__ = [
     "BarometricSourceIf",
     "BarometricState",
     "Bmp3xxBarometricAdapter",
+    "BufferedBarometricSource",
     "UnconfiguredBarometricController",
 ]
