@@ -16,14 +16,19 @@ VENV_DIR="${VENV_DIR:-$PROJECT_ROOT/venv-termux}"
 echo "[*] Updating Termux packages..."
 pkg update
 
+echo "[*] Upgrading installed Termux packages..."
+pkg upgrade -y
+
 echo "[*] Enabling the Termux X11 repository..."
 pkg install -y x11-repo
 
 echo "[*] Installing OpenRoadCode Termux host prerequisites..."
 pkg install -y \
   git \
+  less \
   python \
   python-tkinter \
+  termux-api \
   termux-x11-nightly \
   xfce4 \
   dbus \
