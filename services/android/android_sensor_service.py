@@ -15,6 +15,7 @@ from controllers.environmental import (
 from hardware_io.android import AndroidSensorBridgeClient
 from messaging.contracts.common.timestamp import encode_timestamp
 from messaging.contracts.environmental import BAROMETRIC_STATE_TOPIC, encode_barometric_state
+from messaging.contracts.navigation.frames import ANDROID_DEVICE_FRAME
 from messaging.contracts.navigation.imu_state_codec import encode_imu_state
 from messaging.contracts.navigation.magnetic_field_state_codec import encode_magnetic_field_state
 from messaging.contracts.navigation.topics import IMU_STATE_TOPIC, MAGNETIC_FIELD_STATE_TOPIC
@@ -46,6 +47,7 @@ class AndroidSensorService:
                 self._publisher.publish(IMU_STATE_TOPIC, encode_imu_state(
                     timestamp=timestamp,
                     source=ANDROID_SENSOR_SOURCE,
+                    frame_id=ANDROID_DEVICE_FRAME,
                     acceleration_m_s2=_vector_dict(sample.acceleration_mps2),
                     linear_acceleration_m_s2=linear,
                     angular_velocity_rad_s=_vector_dict(sample.angular_velocity_rad_s),
