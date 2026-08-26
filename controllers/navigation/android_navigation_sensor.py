@@ -1,37 +1,32 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 
-"""Navigation sensor backed by the OpenRoadCode Android Bridge."""
+"""Navigation sensor backed by Android IMU hardware I/O."""
 
 from __future__ import annotations
 
 from controllers.navigation.navigation_sensor_if import MotionSample, NavigationSensorIf
-from hardware_io.android import AndroidSensorBridgeClient
+from hardware_io.android import AndroidImu
 
 
 class AndroidNavigationSensor(NavigationSensorIf):
-    """Expose Android bridge IMU data through the navigation sensor contract."""
+    """Expose ``AndroidImu`` through the navigation sensor contract."""
 
-    def __init__(self, client: AndroidSensorBridgeClient | None = None) -> None:
-        self._client = client or AndroidSensorBridgeClient()
-        self._connected = False
+    def __init__(self, imu: AndroidImu | None = None) -> None:
+        self._imu = imu or AndroidImu()
 
     @property
     def is_connected(self) -> bool:
-        return self._connected and self._client.is_available
+        return self._imu.is_connected
 
     def connect(self) -> None:
-        if not self._client.is_available:
-            raise RuntimeError("OpenRoadCode Android sensor bridge is unavailable or not ready")
-        self._connected = True
+        self._imu.connect()
 
     def disconnect(self) -> None:
-        self._connected = False
+        self._imu.disconnect()
 
     def read_motion(self) -> MotionSample:
-        if not self._connected:
-            raise RuntimeError("Android navigation sensor is not connected")
-        sample = self._client.read_imu()
+        sample = self._imu.read()
         return MotionSample(
             acceleration_mps2=sample.acceleration_mps2,
             angular_velocity_rad_s=sample.angular_velocity_rad_s,
