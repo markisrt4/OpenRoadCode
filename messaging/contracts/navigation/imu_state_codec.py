@@ -1,13 +1,14 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 
-"""Encode and decode vehicle-frame IMU telemetry."""
+"""Encode and decode framed IMU telemetry."""
 
 from collections.abc import Mapping
 from typing import Any
 
 from messaging.contracts.common.timestamp import decode_timestamp, validate_timestamp
 
+from .frames import VEHICLE_FRAME
 from .imu_state_message import ImuStateData, ImuStateMessage, Vector3Data
 from .imu_state_validator import SCHEMA_VERSION, validate_imu_state
 
@@ -23,12 +24,14 @@ def encode_imu_state(
     acceleration_m_s2: Mapping[str, float],
     linear_acceleration_m_s2: Mapping[str, float],
     angular_velocity_rad_s: Mapping[str, float],
+    frame_id: str = VEHICLE_FRAME,
 ) -> dict[str, Any]:
     validate_timestamp(timestamp)
     payload = {
         "version": SCHEMA_VERSION,
         "timestamp": dict(timestamp),
         "source": source,
+        "frame_id": frame_id,
         "data": {
             "acceleration_m_s2": _vector_payload(acceleration_m_s2),
             "linear_acceleration_m_s2": _vector_payload(linear_acceleration_m_s2),
@@ -46,6 +49,7 @@ def decode_imu_state(payload: Mapping[str, Any]) -> ImuStateMessage:
         version=payload["version"],
         timestamp=decode_timestamp(payload["timestamp"]),
         source=payload["source"],
+        frame_id=payload["frame_id"],
         data=ImuStateData(
             acceleration_m_s2=Vector3Data(**data["acceleration_m_s2"]),
             linear_acceleration_m_s2=Vector3Data(**data["linear_acceleration_m_s2"]),
