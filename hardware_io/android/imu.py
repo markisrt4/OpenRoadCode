@@ -20,22 +20,33 @@ class ImuSample:
 
 
 class AndroidImu:
-    """Read Android IMU measurements through the localhost bridge."""
+    """Read Android IMU measurements through the localhost bridge.
+
+    The HTTP bridge client itself is stateless, so connection state is owned by
+    this hardware abstraction. ``connect()`` verifies that the bridge is ready;
+    ``disconnect()`` simply marks this logical device disconnected.
+    """
 
     def __init__(self, client: AndroidSensorBridgeClient | None = None) -> None:
         self._client = client or AndroidSensorBridgeClient()
+        self._connected = False
 
     @property
     def is_connected(self) -> bool:
-        return self._client.is_available
+        return self._connected and self._client.is_available
 
     def connect(self) -> None:
-        self._client.connect()
+        if not self._client.is_available:
+            raise RuntimeError("Android IMU bridge is unavailable or not ready")
+        self._client.read_imu()
+        self._connected = True
 
     def disconnect(self) -> None:
-        self._client.disconnect()
+        self._connected = False
 
     def read(self) -> ImuSample:
+        if not self._connected:
+            raise RuntimeError("Android IMU is not connected")
         sample = self._client.read_imu()
         linear = _vector(sample.linear_acceleration_mps2) if sample.linear_acceleration_available else None
         timestamp = max(sample.accelerometer_timestamp_ns, sample.gyroscope_timestamp_ns) or None
