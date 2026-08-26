@@ -22,6 +22,7 @@ BUILD_JOBS="${BUILD_JOBS:-$(nproc)}"
 INSTALL_ROOT="${INSTALL_ROOT:-$PREFIX/opt/openroadcode/navigation}"
 CONFIG_ROOT="${CONFIG_ROOT:-$PREFIX/etc/openroadcode}"
 DATA_ROOT="${DATA_ROOT:-$HOME/.local/share/openroadcode}"
+FORCE_REBUILD="${FORCE_REBUILD:-0}"
 
 checkout_repo() {
   local url="$1" dir="$2" ref="$3"
@@ -42,6 +43,15 @@ apply_patch_once() {
   fi
 }
 
+should_build() {
+  local artifact="$1"
+  [[ "$FORCE_REBUILD" == "1" || ! -e "$artifact" ]]
+}
+
+prime_server_installed() {
+  compgen -G "$PREFIX/lib/libprime_server.so*" >/dev/null
+}
+
 echo "[*] Installing Termux build dependencies"
 pkg install -y x11-repo
 pkg update
@@ -60,55 +70,70 @@ done
 
 mkdir -p "$HOST_SRC" "$INSTALL_ROOT" "$CONFIG_ROOT" "$DATA_ROOT"
 
-if [[ ! -d "$PRIME_SERVER_SRC/.git" ]]; then
-  git clone https://github.com/kevinkreiser/prime_server.git "$PRIME_SERVER_SRC"
+if [[ "$FORCE_REBUILD" == "1" ]] || ! prime_server_installed; then
+  echo "[*] Building prime_server"
+  if [[ ! -d "$PRIME_SERVER_SRC/.git" ]]; then
+    git clone https://github.com/kevinkreiser/prime_server.git "$PRIME_SERVER_SRC"
+  fi
+  git -C "$PRIME_SERVER_SRC" submodule sync --recursive
+  git -C "$PRIME_SERVER_SRC" submodule update --init --recursive
+  cmake -S "$PRIME_SERVER_SRC" -B "$PRIME_SERVER_SRC/build-termux" -G Ninja \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_INSTALL_PREFIX="$PREFIX"
+  cmake --build "$PRIME_SERVER_SRC/build-termux" -j"$BUILD_JOBS"
+  cmake --install "$PRIME_SERVER_SRC/build-termux"
+else
+  echo "[*] prime_server already installed; skipping build"
 fi
-git -C "$PRIME_SERVER_SRC" submodule sync --recursive
-git -C "$PRIME_SERVER_SRC" submodule update --init --recursive
-cmake -S "$PRIME_SERVER_SRC" -B "$PRIME_SERVER_SRC/build-termux" -G Ninja \
-  -DCMAKE_BUILD_TYPE=Release \
-  -DCMAKE_INSTALL_PREFIX="$PREFIX"
-cmake --build "$PRIME_SERVER_SRC/build-termux" -j"$BUILD_JOBS"
-cmake --install "$PRIME_SERVER_SRC/build-termux"
 
-checkout_repo https://github.com/valhalla/valhalla.git "$VALHALLA_SRC" "$VALHALLA_REF"
-apply_patch_once "$VALHALLA_SRC" "$SCRIPT_DIR/patches/valhalla-streampos.patch"
-rm -rf "$VALHALLA_SRC/build-termux"
-cmake -S "$VALHALLA_SRC" -B "$VALHALLA_SRC/build-termux" -G Ninja \
-  -DCMAKE_BUILD_TYPE=Release \
-  -DCMAKE_INSTALL_PREFIX="$INSTALL_ROOT/valhalla" \
-  -DCMAKE_EXE_LINKER_FLAGS=-llog \
-  -DCMAKE_SHARED_LINKER_FLAGS=-llog \
-  -DENABLE_TESTS=OFF \
-  -DENABLE_BENCHMARKS=OFF \
-  -DENABLE_PYTHON_BINDINGS=OFF \
-  -DENABLE_TOOLS=ON \
-  -DENABLE_DATA_TOOLS=ON \
-  -DENABLE_HTTP=ON \
-  -DENABLE_SERVICES=ON \
-  -DENABLE_SINGLE_FILES_WERROR=OFF
-cmake --build "$VALHALLA_SRC/build-termux" -j"$BUILD_JOBS"
-cmake --install "$VALHALLA_SRC/build-termux"
+VALHALLA_SERVICE="$INSTALL_ROOT/valhalla/bin/valhalla_service"
+if should_build "$VALHALLA_SERVICE"; then
+  echo "[*] Building Valhalla"
+  checkout_repo https://github.com/valhalla/valhalla.git "$VALHALLA_SRC" "$VALHALLA_REF"
+  apply_patch_once "$VALHALLA_SRC" "$SCRIPT_DIR/patches/valhalla-streampos.patch"
+  cmake -S "$VALHALLA_SRC" -B "$VALHALLA_SRC/build-termux" -G Ninja \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_INSTALL_PREFIX="$INSTALL_ROOT/valhalla" \
+    -DCMAKE_EXE_LINKER_FLAGS=-llog \
+    -DCMAKE_SHARED_LINKER_FLAGS=-llog \
+    -DENABLE_TESTS=OFF \
+    -DENABLE_BENCHMARKS=OFF \
+    -DENABLE_PYTHON_BINDINGS=OFF \
+    -DENABLE_TOOLS=ON \
+    -DENABLE_DATA_TOOLS=ON \
+    -DENABLE_HTTP=ON \
+    -DENABLE_SERVICES=ON \
+    -DENABLE_SINGLE_FILES_WERROR=OFF
+  cmake --build "$VALHALLA_SRC/build-termux" -j"$BUILD_JOBS"
+  cmake --install "$VALHALLA_SRC/build-termux"
+else
+  echo "[*] Valhalla already installed at $VALHALLA_SERVICE; skipping build"
+fi
 
-checkout_repo https://github.com/maplibre/maplibre-native.git "$MAPLIBRE_SRC" "$MAPLIBRE_REF"
-apply_patch_once "$MAPLIBRE_SRC" "$SCRIPT_DIR/patches/maplibre-android-thread-name.patch"
-rm -rf "$MAPLIBRE_SRC/build-termux-glfw"
-cmake -S "$MAPLIBRE_SRC" -B "$MAPLIBRE_SRC/build-termux-glfw" -G Ninja \
-  -DCMAKE_BUILD_TYPE=Release \
-  -DCMAKE_SYSTEM_NAME=Linux \
-  -DMLN_WITH_CORE_ONLY=OFF \
-  -DMLN_WITH_GLFW=ON \
-  -DMLN_WITH_OPENGL=ON \
-  -DMLN_WITH_EGL=OFF \
-  -DMLN_WITH_VULKAN=OFF \
-  -DMLN_WITH_WERROR=OFF \
-  -DX11_X11_INCLUDE_PATH="$PREFIX/include" \
-  -DX11_X11_LIB="$PREFIX/lib/libX11.so"
-cmake --build "$MAPLIBRE_SRC/build-termux-glfw" -j"$BUILD_JOBS"
+MBGL_INSTALLED="$INSTALL_ROOT/bin/mbgl-glfw"
+if should_build "$MBGL_INSTALLED"; then
+  echo "[*] Building MapLibre"
+  checkout_repo https://github.com/maplibre/maplibre-native.git "$MAPLIBRE_SRC" "$MAPLIBRE_REF"
+  apply_patch_once "$MAPLIBRE_SRC" "$SCRIPT_DIR/patches/maplibre-android-thread-name.patch"
+  cmake -S "$MAPLIBRE_SRC" -B "$MAPLIBRE_SRC/build-termux-glfw" -G Ninja \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_SYSTEM_NAME=Linux \
+    -DMLN_WITH_CORE_ONLY=OFF \
+    -DMLN_WITH_GLFW=ON \
+    -DMLN_WITH_OPENGL=ON \
+    -DMLN_WITH_EGL=OFF \
+    -DMLN_WITH_VULKAN=OFF \
+    -DMLN_WITH_WERROR=OFF \
+    -DX11_X11_INCLUDE_PATH="$PREFIX/include" \
+    -DX11_X11_LIB="$PREFIX/lib/libX11.so"
+  cmake --build "$MAPLIBRE_SRC/build-termux-glfw" -j"$BUILD_JOBS"
 
-MBGL_GLFW="$MAPLIBRE_SRC/build-termux-glfw/platform/glfw/mbgl-glfw"
-[[ -x "$MBGL_GLFW" ]] || { echo "MapLibre GLFW executable was not produced." >&2; exit 1; }
-install -Dm755 "$MBGL_GLFW" "$INSTALL_ROOT/bin/mbgl-glfw"
+  MBGL_GLFW="$MAPLIBRE_SRC/build-termux-glfw/platform/glfw/mbgl-glfw"
+  [[ -x "$MBGL_GLFW" ]] || { echo "MapLibre GLFW executable was not produced." >&2; exit 1; }
+  install -Dm755 "$MBGL_GLFW" "$MBGL_INSTALLED"
+else
+  echo "[*] MapLibre already installed at $MBGL_INSTALLED; skipping build"
+fi
 
 if [[ ! -f "$CONFIG_ROOT/navigation.toml" ]]; then
   install -m 0644 "$PROJECT_ROOT/config/navigation.toml" "$CONFIG_ROOT/navigation.toml"
@@ -117,14 +142,16 @@ fi
 cat <<EOF
 
 [+] Experimental Termux navigation build complete
-    Valhalla: $INSTALL_ROOT/valhalla/bin/valhalla_service
-    MapLibre: $INSTALL_ROOT/bin/mbgl-glfw
+    Valhalla: $VALHALLA_SERVICE
+    MapLibre: $MBGL_INSTALLED
     config:   $CONFIG_ROOT/navigation.toml
     data:     $DATA_ROOT
+
+Set FORCE_REBUILD=1 to rebuild all native components.
 
 Termux:X11 Android APK is required for graphical execution.
 Start it with:
     termux-x11 :0 &
     export DISPLAY=:0
-    $INSTALL_ROOT/bin/mbgl-glfw
+    $MBGL_INSTALLED
 EOF
