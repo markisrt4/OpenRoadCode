@@ -17,9 +17,18 @@ from hardware_io.imu import Vector3
 @dataclass(frozen=True, slots=True)
 class AndroidImuSample:
     acceleration_mps2: Vector3
+    linear_acceleration_mps2: Vector3
     angular_velocity_rad_s: Vector3
+    magnetic_field_ut: Vector3
+    pressure_hpa: float
     accelerometer_timestamp_ns: int
+    linear_acceleration_timestamp_ns: int
     gyroscope_timestamp_ns: int
+    magnetometer_timestamp_ns: int
+    pressure_timestamp_ns: int
+    linear_acceleration_available: bool
+    magnetometer_available: bool
+    pressure_available: bool
 
 
 class AndroidSensorBridgeClient:
@@ -82,9 +91,18 @@ def _imu_sample(payload: dict[str, object]) -> AndroidImuSample:
         raise RuntimeError("Android sensor bridge IMU is not ready")
     return AndroidImuSample(
         acceleration_mps2=_vector(payload, "acceleration_mps2"),
+        linear_acceleration_mps2=_vector(payload, "linear_acceleration_mps2"),
         angular_velocity_rad_s=_vector(payload, "angular_velocity_rad_s"),
+        magnetic_field_ut=_vector(payload, "magnetic_field_uT"),
+        pressure_hpa=_number(payload, "pressure_hpa"),
         accelerometer_timestamp_ns=_integer(payload, "accelerometer_timestamp_ns"),
+        linear_acceleration_timestamp_ns=_integer(payload, "linear_acceleration_timestamp_ns"),
         gyroscope_timestamp_ns=_integer(payload, "gyroscope_timestamp_ns"),
+        magnetometer_timestamp_ns=_integer(payload, "magnetometer_timestamp_ns"),
+        pressure_timestamp_ns=_integer(payload, "pressure_timestamp_ns"),
+        linear_acceleration_available=payload.get("linear_acceleration_available") is True,
+        magnetometer_available=payload.get("magnetometer_available") is True,
+        pressure_available=payload.get("pressure_available") is True,
     )
 
 
@@ -103,3 +121,10 @@ def _integer(payload: dict[str, object], name: str) -> int:
     if isinstance(value, bool) or not isinstance(value, int):
         raise RuntimeError(f"Android sensor bridge response is missing {name}")
     return value
+
+
+def _number(payload: dict[str, object], name: str) -> float:
+    value = payload.get(name)
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise RuntimeError(f"Android sensor bridge response is missing {name}")
+    return float(value)
