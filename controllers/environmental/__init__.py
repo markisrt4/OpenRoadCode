@@ -3,6 +3,7 @@
 
 """Barometric measurement controllers."""
 
+from .android_barometric_adapter import AndroidBarometricAdapter
 from .barometric_controller import BarometricController
 from .barometric_controller_if import BarometricControllerIf
 from .barometric_controller_stub import BarometricControllerStub
@@ -17,6 +18,7 @@ from .unconfigured_barometric_controller import (
 )
 
 __all__ = [
+    "AndroidBarometricAdapter",
     "BarometricController",
     "BarometricControllerIf",
     "BarometricControllerStub",
