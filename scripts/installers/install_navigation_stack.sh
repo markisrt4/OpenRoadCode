@@ -211,6 +211,11 @@ if (( ! SKIP_MAPLIBRE )); then
   check_runtime_libraries "MapLibre renderer" "$INSTALL_ROOT/bin/openroadcode-map-renderer"
 fi
 
+# Map/routing geometry is deployed independently, but the visual style belongs
+# to this software revision. Refresh it whenever the software stack is installed
+# so style-only improvements do not require rebuilding the MBTiles dataset.
+DATA_ROOT="$DATA_ROOT" bash "$PROJECT_ROOT/scripts/runtime/install_navigation_style.sh"
+
 if (( ! SKIP_VALHALLA )); then
   checkout_repo "https://github.com/kevinkreiser/prime_server.git" "$PRIME_SERVER_SRC" "$PRIME_SERVER_REF" "prime_server"
   checkout_repo "https://github.com/valhalla/valhalla.git" "$VALHALLA_SRC" "$VALHALLA_REF" "Valhalla"
@@ -242,6 +247,9 @@ if (( ! SKIP_SMOKE )); then
   (( SKIP_MAPLIBRE )) || test -x "$INSTALL_ROOT/bin/openroadcode-map-renderer"
   (( SKIP_VALHALLA )) || test -x "$INSTALL_ROOT/valhalla/bin/valhalla_service"
   test -f "$CONFIG_ROOT/navigation.toml"
+  if [[ -d "$DATA_ROOT/maps" ]]; then
+    test -s "$DATA_ROOT/maps/styles/openroadcode.json"
+  fi
 fi
 
 echo
