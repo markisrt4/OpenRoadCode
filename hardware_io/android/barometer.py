@@ -20,18 +20,24 @@ class AndroidBarometer:
 
     def __init__(self, client: AndroidSensorBridgeClient | None = None) -> None:
         self._client = client or AndroidSensorBridgeClient()
+        self._connected = False
 
     @property
     def is_connected(self) -> bool:
-        return self._client.is_available
+        return self._connected and self._client.is_available
 
     def connect(self) -> None:
-        self._client.connect()
+        sample = self._client.read_imu()
+        if not sample.pressure_available:
+            raise RuntimeError("Android pressure sensor is unavailable")
+        self._connected = True
 
     def disconnect(self) -> None:
-        self._client.disconnect()
+        self._connected = False
 
     def read(self) -> PressureSample:
+        if not self._connected:
+            raise RuntimeError("Android barometer is not connected")
         sample = self._client.read_imu()
         if not sample.pressure_available:
             raise RuntimeError("Android pressure sensor is unavailable")
