@@ -4,6 +4,7 @@
 """Vehicle orientation and motion controller."""
 
 from controllers.navigation.android_magnetometer_adapter import AndroidMagnetometerAdapter
+from controllers.navigation.android_navigation_sensor import AndroidNavigationSensor
 from controllers.navigation.browser_orientation_adapter import BrowserOrientationAdapter
 from controllers.navigation.browser_position_adapter import BrowserPositionAdapter
 from controllers.navigation.complementary_orientation_estimator import ComplementaryOrientationEstimator
@@ -29,7 +30,7 @@ from controllers.navigation.unconfigured_navigation_controller import Unconfigur
 from controllers.navigation.simulated_navigation_controller import SimulatedNavigationController
 
 __all__ = [
-    "AndroidMagnetometerAdapter", "BrowserOrientationAdapter", "BrowserPositionAdapter", "ComplementaryOrientationEstimator",
+    "AndroidMagnetometerAdapter", "AndroidNavigationSensor", "BrowserOrientationAdapter", "BrowserPositionAdapter", "ComplementaryOrientationEstimator",
     "GoogleEarthMapPresentation", "GpsdNavigationAdapter", "GpsdPositionSource", "GpsState", "MagnetometerSample",
     "MagnetometerSourceIf", "MapPresentationIf", "MotionSample", "MotionCalibration", "Mpu6050NavigationAdapter",
     "NavigationController", "NavigationControllerIf", "NavigationControllerStub", "NavigationGpsSourceIf",
