@@ -1,0 +1,78 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
+"""Client for the localhost OpenRoadCode Android sensor bridge."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+import json
+from urllib.error import HTTPError, URLError
+from urllib.request import urlopen
+
+from hardware_io.imu import Vector3
+
+
+@dataclass(frozen=True, slots=True)
+class AndroidImuSample:
+    acceleration_mps2: Vector3
+    angular_velocity_rad_s: Vector3
+    accelerometer_timestamp_ns: int
+    gyroscope_timestamp_ns: int
+
+
+class AndroidSensorBridgeClient:
+    """Read Android hardware samples exposed on the local bridge HTTP API."""
+
+    def __init__(self, base_url: str = "http://127.0.0.1:8766", timeout_seconds: float = 0.5) -> None:
+        self._base_url = base_url.rstrip("/")
+        self._timeout_seconds = timeout_seconds
+
+    @property
+    def is_available(self) -> bool:
+        try:
+            health = self._get_json("/health")
+        except RuntimeError:
+            return False
+        return health.get("status") == "ready"
+
+    def read_imu(self) -> AndroidImuSample:
+        payload = self._get_json("/imu")
+        if payload.get("ready") is not True:
+            raise RuntimeError("Android sensor bridge IMU is not ready")
+
+        acceleration = _vector(payload, "acceleration_mps2")
+        angular_velocity = _vector(payload, "angular_velocity_rad_s")
+        return AndroidImuSample(
+            acceleration_mps2=acceleration,
+            angular_velocity_rad_s=angular_velocity,
+            accelerometer_timestamp_ns=_integer(payload, "accelerometer_timestamp_ns"),
+            gyroscope_timestamp_ns=_integer(payload, "gyroscope_timestamp_ns"),
+        )
+
+    def _get_json(self, path: str) -> dict[str, object]:
+        try:
+            with urlopen(self._base_url + path, timeout=self._timeout_seconds) as response:
+                payload = json.load(response)
+        except (HTTPError, URLError, TimeoutError, OSError, json.JSONDecodeError) as exc:
+            raise RuntimeError(f"Android sensor bridge request failed: {exc}") from exc
+        if not isinstance(payload, dict):
+            raise RuntimeError("Android sensor bridge returned a non-object JSON response")
+        return payload
+
+
+def _vector(payload: dict[str, object], name: str) -> Vector3:
+    value = payload.get(name)
+    if not isinstance(value, dict):
+        raise RuntimeError(f"Android sensor bridge response is missing {name}")
+    try:
+        return Vector3(float(value["x"]), float(value["y"]), float(value["z"]))
+    except (KeyError, TypeError, ValueError) as exc:
+        raise RuntimeError(f"Android sensor bridge returned an invalid {name}") from exc
+
+
+def _integer(payload: dict[str, object], name: str) -> int:
+    value = payload.get(name)
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise RuntimeError(f"Android sensor bridge response is missing {name}")
+    return value
