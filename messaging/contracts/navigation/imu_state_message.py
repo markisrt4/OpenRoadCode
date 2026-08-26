@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 
-"""Typed decoded representation of vehicle-frame IMU telemetry."""
+"""Typed decoded representation of framed IMU telemetry."""
 
 from dataclasses import dataclass
 
@@ -27,4 +27,5 @@ class ImuStateMessage:
     version: int
     timestamp: Timestamp
     source: str
+    frame_id: str
     data: ImuStateData
