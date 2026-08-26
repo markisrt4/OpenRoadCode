@@ -15,6 +15,11 @@ from hardware_io.imu import Vector3
 class TermuxSensorClient:
     """Read Android sensors exposed by the ``termux-sensor`` command."""
 
+    def __init__(self, *, timeout_seconds: float = 5.0) -> None:
+        if timeout_seconds <= 0.0:
+            raise ValueError("timeout_seconds must be greater than zero")
+        self._timeout_seconds = timeout_seconds
+
     @property
     def is_available(self) -> bool:
         return shutil.which("termux-sensor") is not None
@@ -48,6 +53,7 @@ class TermuxSensorClient:
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
+            timeout=self._timeout_seconds,
         )
         payload = json.loads(result.stdout)
         if not isinstance(payload, dict):
