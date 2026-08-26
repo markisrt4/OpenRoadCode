@@ -37,7 +37,11 @@ class TermuxNavigationAdapter(NavigationSensorIf):
     def read_motion(self) -> MotionSample:
         if not self._connected:
             raise RuntimeError("Termux navigation adapter is not connected")
+
+        vectors = self._sensor.read_vectors(
+            (self._accelerometer_name, self._gyroscope_name)
+        )
         return MotionSample(
-            acceleration_mps2=self._sensor.read_vector(self._accelerometer_name),
-            angular_velocity_rad_s=self._sensor.read_vector(self._gyroscope_name),
+            acceleration_mps2=vectors[self._accelerometer_name],
+            angular_velocity_rad_s=vectors[self._gyroscope_name],
         )
