@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import time
 
-from apps.carUi.runtime.browser_motion_source import BrowserMotionSource
+from services.navigation.browser_motion_source import BrowserMotionSource
 
 
 def main() -> int:
@@ -28,8 +28,8 @@ def main() -> int:
             previous_time = now
             try:
                 motion = source.read_motion()
-            except RuntimeError:
-                print(f"samples={count} rate={rate:.1f} Hz waiting for first sample...", flush=True)
+            except RuntimeError as exc:
+                print(f"samples={count} rate={rate:.1f} Hz unavailable: {exc}", flush=True)
                 continue
             age = source.sample_age_ms
             print(
