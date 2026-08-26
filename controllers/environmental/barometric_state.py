@@ -14,7 +14,7 @@ class BarometricState:
     """Processed barometric measurements."""
 
     pressure_pa: float
-    temperature_c: float
+    temperature_c: float | None
     altitude_m: float
     relative_altitude_m: float
     vertical_speed_mps: float
@@ -24,7 +24,7 @@ class BarometricState:
     def create(
         *,
         pressure_pa: float,
-        temperature_c: float,
+        temperature_c: float | None,
         altitude_m: float,
         relative_altitude_m: float,
         vertical_speed_mps: float,
