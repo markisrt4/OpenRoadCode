@@ -5,9 +5,11 @@
 
 from hardware_io.termux_api.termux_location import TermuxLocationClient, TermuxLocationData
 from hardware_io.termux_api.termux_sensor import TermuxSensorClient
+from hardware_io.termux_api.termux_sensor_stream import TermuxSensorStream
 
 __all__ = [
     "TermuxLocationClient",
     "TermuxLocationData",
     "TermuxSensorClient",
+    "TermuxSensorStream",
 ]
