@@ -14,7 +14,7 @@ class BarometricSample:
     """One normalized barometric sample in SI units."""
 
     pressure_pa: float
-    temperature_c: float
+    temperature_c: float | None = None
 
 
 class BarometricSourceIf(ABC):
@@ -39,9 +39,10 @@ class BarometricSourceIf(ABC):
 
     @abstractmethod
     def read_barometric(self) -> BarometricSample:
-        """Read pressure in pascals and temperature in degrees Celsius.
+        """Read pressure and optional temperature.
 
-        @return Normalized barometric sample in SI units.
+        @return Normalized barometric sample in SI units. ``temperature_c`` is
+            ``None`` for pressure-only sources such as many phone barometers.
         """
 
     def read_environment(self) -> BarometricSample:
