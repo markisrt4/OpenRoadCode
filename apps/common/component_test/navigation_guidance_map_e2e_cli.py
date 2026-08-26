@@ -15,6 +15,7 @@ from apps.common.route_guidance_runtime import RouteGuidanceRuntime
 from controllers.map_renderer.map_position_adapter import MapPositionAdapter
 from controllers.navigation.navigation_state import PositionState
 from controllers.route_guidance import RouteGuidanceController
+from controllers.route_planning.route_map_presenter import present_route
 from controllers.route_planning.route_planning_types import GeoPoint, RouteManeuver, RouteResult
 from messaging.contracts.navigation import PositionStatePublisher
 from messaging.contracts.route_guidance import (
@@ -118,8 +119,7 @@ def main() -> int:
 
     renderer = MapRendererClient(args.renderer_endpoint, timeout_ms=2000)
     route = _route()
-    renderer.set_route([(point.latitude, point.longitude) for point in route.shape])
-    renderer.fit_bounds([(point.latitude, point.longitude) for point in route.shape])
+    present_route(route, renderer)
 
     map_runtime = NavigationMapFollowRuntime(
         ZeroMqSubscriber(BROKER_SUBSCRIBER_ENDPOINT),
