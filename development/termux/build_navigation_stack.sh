@@ -47,11 +47,11 @@ pkg install -y x11-repo
 pkg update
 pkg install -y \
   git clang cmake ninja pkg-config patch \
-  boost protobuf libsqlite libspatialite libcurl liblz4 libzmq libczmq \
+  boost protobuf libsqlite libspatialite spatialite-tools libcurl liblz4 libzmq libczmq \
   luajit libgeos libpng libjpeg-turbo libwebp libicu rapidjson \
   mesa mesa-dev glfw libx11 xorgproto
 
-for command in git clang cmake ninja pkg-config; do
+for command in git clang cmake ninja pkg-config spatialite spatialite_tool; do
   command -v "$command" >/dev/null || {
     echo "Missing required build command after package installation: $command" >&2
     exit 1
