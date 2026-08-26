@@ -23,6 +23,7 @@ INSTALL_ROOT="${INSTALL_ROOT:-$PREFIX/opt/openroadcode/navigation}"
 CONFIG_ROOT="${CONFIG_ROOT:-$PREFIX/etc/openroadcode}"
 DATA_ROOT="${DATA_ROOT:-$HOME/.local/share/openroadcode}"
 FORCE_REBUILD="${FORCE_REBUILD:-0}"
+X11_DISPLAY="${X11_DISPLAY:-:1}"
 
 checkout_repo() {
   local url="$1" dir="$2" ref="$3"
@@ -151,10 +152,11 @@ cat <<EOF
     data:     $DATA_ROOT
 
 Set FORCE_REBUILD=1 to rebuild all native components.
+Set X11_DISPLAY to override the Termux:X11 display (default: :1).
 
 Termux:X11 Android APK is required for graphical execution.
 Start it with:
-    termux-x11 :0 &
-    export DISPLAY=:0
+    termux-x11 $X11_DISPLAY &
+    export DISPLAY=$X11_DISPLAY
     $MBGL_INSTALLED
 EOF

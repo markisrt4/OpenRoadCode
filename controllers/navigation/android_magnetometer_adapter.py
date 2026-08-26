@@ -1,44 +1,34 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 
-"""Magnetometer source backed by the localhost Android sensor bridge."""
+"""Magnetometer source backed by Android hardware I/O."""
 
 from __future__ import annotations
 
-from hardware_io.android import AndroidSensorBridgeClient
+from hardware_io.android import AndroidMagnetometer
 
 from .magnetometer_source_if import MagnetometerSample, MagnetometerSourceIf
 
 
 class AndroidMagnetometerAdapter(MagnetometerSourceIf):
-    """Expose the Android magnetometer through ``MagnetometerSourceIf``."""
+    """Adapt the Android hardware magnetometer to the navigation contract."""
 
-    def __init__(self, client: AndroidSensorBridgeClient) -> None:
-        self._client = client
-        self._connected = False
+    def __init__(self, magnetometer: AndroidMagnetometer) -> None:
+        self._magnetometer = magnetometer
 
     @property
     def is_connected(self) -> bool:
-        return self._connected and self._client.is_available
+        return self._magnetometer.is_connected
 
     def connect(self) -> None:
-        sample = self._client.read_imu()
-        if not sample.magnetometer_available:
-            raise RuntimeError("Android magnetometer is unavailable")
-        self._connected = True
+        self._magnetometer.connect()
 
     def disconnect(self) -> None:
-        self._connected = False
+        self._magnetometer.disconnect()
 
     def read_magnetometer(self) -> MagnetometerSample:
-        if not self._connected:
-            raise RuntimeError("Android magnetometer source is not connected")
-
-        sample = self._client.read_imu()
-        if not sample.magnetometer_available:
-            raise RuntimeError("Android magnetometer is unavailable")
-
+        sample = self._magnetometer.read_magnetometer()
         return MagnetometerSample(
             magnetic_field_ut=sample.magnetic_field_ut,
-            timestamp_ns=sample.magnetometer_timestamp_ns,
+            timestamp_ns=sample.timestamp_ns,
         )

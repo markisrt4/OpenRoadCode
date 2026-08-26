@@ -1,0 +1,5 @@
+.cache/
+.scratch/
+build-output/
+__pycache__/
+*.pyc
