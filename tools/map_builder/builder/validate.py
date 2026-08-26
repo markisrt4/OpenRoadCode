@@ -3,7 +3,7 @@
 
 """Validate generated OpenRoadCode map artifacts."""
 from __future__ import annotations
-import hashlib,json,sqlite3,subprocess
+import gzip,hashlib,json,os,sqlite3,subprocess
 from pathlib import Path
 class ValidationError(RuntimeError):pass
 def _run(cmd):return subprocess.run(cmd,text=True,capture_output=True,check=True)
@@ -15,23 +15,56 @@ def sha256(path):
 def validate_pbf(path):
  if not path.is_file() or path.stat().st_size==0:raise ValidationError(f"Missing/empty OSM PBF: {path}")
  _run(["osmium","fileinfo","-e",str(path)])
+def _decode_vector_tile(blob):
+ try:
+  import mapbox_vector_tile
+ except ImportError:
+  return None
+ if blob[:2]==b"\x1f\x8b":blob=gzip.decompress(blob)
+ return mapbox_vector_tile.decode(blob)
+def _vector_tile_rows(db,tile_count):
+ full_scan=os.environ.get("OPENROAD_VECTOR_TILE_FULL_SCAN","0").lower() in {"1","true","yes","on"}
+ limit=int(os.environ.get("OPENROAD_VECTOR_TILE_SCAN_LIMIT","0"))
+ if full_scan:return db.execute("SELECT zoom_level,tile_column,tile_row,tile_data FROM tiles ORDER BY zoom_level,tile_column,tile_row")
+ if limit<=0:return ()
+ zooms=[row[0] for row in db.execute("SELECT DISTINCT zoom_level FROM tiles ORDER BY zoom_level")]
+ per_zoom=max(1,limit//max(1,len(zooms)))
+ rows=[]
+ for zoom in zooms:
+  rows.extend(db.execute("SELECT zoom_level,tile_column,tile_row,tile_data FROM tiles WHERE zoom_level=? ORDER BY tile_column,tile_row LIMIT ?",(zoom,per_zoom)))
+ return rows[:limit]
+def validate_vector_tiles(db,tile_count):
+ rows=_vector_tile_rows(db,tile_count); checked=0
+ for zoom,column,row,blob in rows:
+  try:
+   decoded=_decode_vector_tile(blob)
+  except Exception as exc:
+   raise ValidationError(f"Invalid vector tile z={zoom} x={column} y={row}: {exc}") from exc
+  if decoded is None:return {"checked":0,"decoder":"unavailable"}
+  checked+=1
+ return {"checked":checked,"decoder":"mapbox-vector-tile"}
 def validate_mbtiles(path):
  if not path.is_file() or path.stat().st_size==0:raise ValidationError(f"Missing/empty MBTiles: {path}")
  with sqlite3.connect(path) as db:
   integrity=db.execute("PRAGMA integrity_check").fetchone()[0]
   if integrity!="ok":raise ValidationError(f"MBTiles integrity check failed: {integrity}")
   tile_count=db.execute("SELECT COUNT(*) FROM tiles").fetchone()[0]; metadata=dict(db.execute("SELECT name, value FROM metadata"))
+  vector_validation=validate_vector_tiles(db,tile_count)
  if tile_count<=0:raise ValidationError("MBTiles contains no tiles")
  layers={x.get("id") for x in json.loads(metadata.get("json","{}")).get("vector_layers",[]) if isinstance(x,dict)}; missing={"transportation","transportation_name"}-layers
  if missing:raise ValidationError("MBTiles missing required layer(s): "+", ".join(sorted(missing)))
- return {"tiles":tile_count,"layers":sorted(x for x in layers if x)}
-def validate_style(path):
+ return {"tiles":tile_count,"layers":sorted(x for x in layers if x),"vector_tiles":vector_validation}
+def validate_style(path,available_layers=None):
  data=json.loads(path.read_text(encoding="utf-8")); sources=data.get("sources") or {}
  if data.get("version")!=8:raise ValidationError("Style is not MapLibre/Mapbox Style Spec version 8")
  for source in ("openroad","route","vehicle"):
   if source not in sources:raise ValidationError(f"Style missing source: {source}")
  for source in ("vehicle","route"):
   if (sources[source].get("data") or {}).get("type")!="FeatureCollection":raise ValidationError(f"{source.title()} GeoJSON source is malformed")
+ if available_layers is not None:
+  referenced={layer.get("source-layer") for layer in data.get("layers",[]) if layer.get("source")=="openroad" and layer.get("source-layer")}
+  missing=referenced-set(available_layers)
+  if missing:raise ValidationError("Style references unavailable MBTiles layer(s): "+", ".join(sorted(missing)))
 def validate_glyphs(path):
  files=list(path.rglob("*.pbf")) if path.exists() else []
  if len(files)<10 or not any(p.name=="0-255.pbf" for p in files):raise ValidationError(f"Invalid glyph set under {path}")
@@ -61,4 +94,4 @@ def validate_output(root,*,service_smoke=False):
  pbfs=sorted((root/"maps/source").glob("*.osm.pbf"))
  if not pbfs:raise ValidationError("No source PBFs found")
  for pbf in pbfs:validate_pbf(pbf)
- mbtiles=root/"maps/vector/openroadcode.mbtiles"; style=root/"maps/styles/openroadcode.json"; valhalla=root/"valhalla"; result={"source_pbfs":len(pbfs),"mbtiles":validate_mbtiles(mbtiles),"glyph_files":validate_glyphs(root/"maps/glyphs"),"valhalla":validate_valhalla(valhalla,service_smoke=service_smoke)}; validate_style(style); result["checksums"]={"mbtiles":sha256(mbtiles),"style":sha256(style),"valhalla_extract":sha256(valhalla/"tiles.tar")}; return result
+ mbtiles=root/"maps/vector/openroadcode.mbtiles"; style=root/"maps/styles/openroadcode.json"; valhalla=root/"valhalla"; result={"source_pbfs":len(pbfs),"mbtiles":validate_mbtiles(mbtiles),"glyph_files":validate_glyphs(root/"maps/glyphs"),"valhalla":validate_valhalla(valhalla,service_smoke=service_smoke)}; validate_style(style,result["mbtiles"]["layers"]); result["checksums"]={"mbtiles":sha256(mbtiles),"style":sha256(style),"valhalla_extract":sha256(valhalla/"tiles.tar")}; return result
