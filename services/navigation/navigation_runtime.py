@@ -9,7 +9,7 @@ import threading
 import time
 
 from controllers.navigation.navigation_controller_if import NavigationControllerIf
-from messaging.contracts.navigation import NavigationStatePublisher
+from messaging.contracts.navigation.navigation_state_publisher import NavigationStatePublisher
 from services.navigation.navigation_command_service import NavigationCommandService
 from services.navigation.zeromq_navigation_command_server import (
     DEFAULT_NAVIGATION_COMMAND_ENDPOINT,
