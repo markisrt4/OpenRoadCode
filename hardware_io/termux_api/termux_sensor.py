@@ -32,21 +32,50 @@ class TermuxSensorClient:
         return tuple(str(sensor) for sensor in sensors)
 
     def read_vector(self, sensor_name: str) -> Vector3:
-        payload = self._run(["termux-sensor", "-s", sensor_name])
-        if not payload:
-            raise RuntimeError(f"No data returned for Termux sensor {sensor_name!r}")
+        return self.read_vectors((sensor_name,))[sensor_name]
 
-        entry = next(iter(payload.values()))
-        if not isinstance(entry, dict):
-            raise RuntimeError(f"Unexpected Termux sensor payload for {sensor_name!r}")
-        values = entry.get("values")
-        if not isinstance(values, list) or len(values) < 3:
-            raise RuntimeError(f"Termux sensor {sensor_name!r} did not return a 3-axis sample")
-        return Vector3(float(values[0]), float(values[1]), float(values[2]))
+    def read_vectors(self, sensor_names: tuple[str, ...]) -> dict[str, Vector3]:
+        """Read one sample from each requested sensor in a single API call."""
+        if not sensor_names:
+            raise ValueError("sensor_names must not be empty")
+
+        requested = ",".join(sensor_names)
+        payload = self._run(["termux-sensor", "-s", requested, "-n", "1"])
+        vectors: dict[str, Vector3] = {}
+
+        for requested_name in sensor_names:
+            matching_key = next(
+                (key for key in payload if requested_name.lower() in key.lower()),
+                None,
+            )
+            if matching_key is None:
+                raise RuntimeError(
+                    f"No Termux sensor result matched {requested_name!r}"
+                )
+
+            entry = payload[matching_key]
+            if not isinstance(entry, dict):
+                raise RuntimeError(
+                    f"Unexpected Termux sensor payload for {requested_name!r}"
+                )
+            values = entry.get("values")
+            if not isinstance(values, list) or len(values) < 3:
+                raise RuntimeError(
+                    f"Termux sensor {requested_name!r} did not return a 3-axis sample"
+                )
+            vectors[requested_name] = Vector3(
+                float(values[0]),
+                float(values[1]),
+                float(values[2]),
+            )
+
+        return vectors
 
     def _run(self, command: list[str]) -> dict:
         if not self.is_available:
-            raise RuntimeError("termux-sensor is not available; install Termux:API and the termux-api package")
+            raise RuntimeError(
+                "termux-sensor is not available; install Termux:API and the termux-api package"
+            )
         result = subprocess.run(
             command,
             check=True,
