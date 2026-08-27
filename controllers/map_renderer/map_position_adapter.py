@@ -1,4 +1,4 @@
-"""Adapt normalized position reports to smooth map-renderer commands."""
+"""Adapt normalized position and ground-motion reports to smooth map commands."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ import threading
 import time
 from collections.abc import Callable
 
-from controllers.navigation.navigation_state import PositionState
+from controllers.navigation.navigation_state import GroundMotionState, PositionState
 from protocols.map_renderer.map_renderer_client import (
     MapRendererClient,
     MapRendererUnavailableError,
@@ -20,7 +20,7 @@ EARTH_RADIUS_M = 6_371_000.0
 
 
 class MapPositionAdapter:
-    """Smooth live position fixes into marker and follow-camera commands."""
+    """Smooth live position fixes using optional independent ground motion."""
 
     def __init__(
         self,
@@ -67,6 +67,7 @@ class MapPositionAdapter:
         self._thread: threading.Thread | None = None
         self._latest_fix: PositionState | None = None
         self._latest_fix_time: float | None = None
+        self._ground_motion: GroundMotionState | None = None
         self._display_position: tuple[float, float] | None = None
         self._last_frame_time: float | None = None
         self._last_camera_update: float | None = None
@@ -77,7 +78,6 @@ class MapPositionAdapter:
         return self._thread is not None and self._thread.is_alive()
 
     def start(self) -> None:
-        """Start the display interpolation loop."""
         if self.is_running:
             return
         self._stop_event.clear()
@@ -89,7 +89,6 @@ class MapPositionAdapter:
         self._thread.start()
 
     def stop(self) -> None:
-        """Stop the interpolation loop."""
         self._stop_event.set()
         if (
             self._thread is not None
@@ -100,7 +99,7 @@ class MapPositionAdapter:
         self._thread = None
 
     def update(self, state: PositionState) -> None:
-        """Accept one authoritative GPS fix without altering it."""
+        """Accept one authoritative position fix."""
         if (
             not state.has_fix
             or state.latitude_deg is None
@@ -114,25 +113,21 @@ class MapPositionAdapter:
             self._latest_fix = state
             self._latest_fix_time = now
             if self._display_position is None:
-                self._display_position = (
-                    state.latitude_deg,
-                    state.longitude_deg,
-                )
+                self._display_position = (state.latitude_deg, state.longitude_deg)
                 self._last_frame_time = now
-                if (
-                    state.course_deg is not None
-                    and state.speed_mps is not None
-                    and state.speed_mps >= self._minimum_course_speed_mps
-                ):
-                    self._bearing = state.course_deg % 360.0
+                self._apply_motion_bearing_locked()
                 first_fix = True
 
-        # Do not leave the map blank while waiting for the first timer tick.
         if first_fix:
             self.render_once(now)
 
+    def update_ground_motion(self, state: GroundMotionState) -> None:
+        """Accept independent ground speed and course information."""
+        with self._lock:
+            self._ground_motion = state
+            self._apply_motion_bearing_locked()
+
     def render_once(self, now: float | None = None) -> None:
-        """Advance and render one frame; public for deterministic testing."""
         current_time = self._clock() if now is None else now
         with self._lock:
             frame = self._calculate_frame(current_time)
@@ -172,17 +167,19 @@ class MapPositionAdapter:
         target = (fix.latitude_deg, fix.longitude_deg)
         assert target[0] is not None and target[1] is not None
 
+        motion = self._ground_motion
         moving = (
-            fix.speed_mps is not None
-            and fix.speed_mps >= self._minimum_course_speed_mps
-            and fix.course_deg is not None
+            motion is not None
+            and motion.speed_mps is not None
+            and motion.speed_mps >= self._minimum_course_speed_mps
+            and motion.course_deg is not None
         )
         if moving:
             target = _project_position(
                 target[0],
                 target[1],
-                fix.speed_mps * prediction_age,
-                fix.course_deg,
+                motion.speed_mps * prediction_age,
+                motion.course_deg,
             )
 
         frame_delta = (
@@ -203,20 +200,29 @@ class MapPositionAdapter:
         if moving:
             self._bearing = _smooth_bearing(
                 self._bearing,
-                fix.course_deg,
+                motion.course_deg,
                 1.0 - math.exp(-frame_delta / self._correction_time_s),
             )
 
         update_camera = (
             self._last_camera_update is None
-            or now - self._last_camera_update
-            >= self._minimum_camera_interval_s
+            or now - self._last_camera_update >= self._minimum_camera_interval_s
         )
         if update_camera:
             self._last_camera_update = now
         self._display_position = display
         self._last_frame_time = now
         return display[0], display[1], self._bearing, update_camera
+
+    def _apply_motion_bearing_locked(self) -> None:
+        motion = self._ground_motion
+        if (
+            motion is not None
+            and motion.course_deg is not None
+            and motion.speed_mps is not None
+            and motion.speed_mps >= self._minimum_course_speed_mps
+        ):
+            self._bearing = motion.course_deg % 360.0
 
 
 def _project_position(
@@ -259,9 +265,7 @@ def _distance_m(
         * math.cos(latitude_2)
         * math.sin(longitude_delta / 2.0) ** 2
     )
-    return 2.0 * EARTH_RADIUS_M * math.asin(
-        math.sqrt(min(1.0, haversine))
-    )
+    return 2.0 * EARTH_RADIUS_M * math.asin(math.sqrt(min(1.0, haversine)))
 
 
 def _smooth_bearing(current: float, target: float, alpha: float) -> float:
