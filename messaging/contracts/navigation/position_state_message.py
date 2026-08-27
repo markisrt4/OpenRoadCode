@@ -13,8 +13,6 @@ class PositionStateData:
     latitude_rad: float | None
     longitude_rad: float | None
     altitude_m: float | None
-    speed_m_s: float | None
-    course_rad: float | None
     fix_mode: int | None
     satellites_visible: int | None
     satellites_used: int | None
