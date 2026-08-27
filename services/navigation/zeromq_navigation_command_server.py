@@ -10,9 +10,8 @@ from typing import Any, Mapping
 
 import zmq
 
+from services.navigation.endpoints import DEFAULT_NAVIGATION_COMMAND_ENDPOINT
 from services.navigation.navigation_command_service import NavigationCommandService
-
-DEFAULT_NAVIGATION_COMMAND_ENDPOINT = "tcp://127.0.0.1:5560"
 
 
 class ZeroMqNavigationCommandServer:

@@ -3,7 +3,7 @@
 
 """Presentation unit-system selection shared by OpenRoadCode frontends."""
 
-from enum import StrEnum
+from common.str_enum import StrEnum
 
 
 class UnitSystem(StrEnum):

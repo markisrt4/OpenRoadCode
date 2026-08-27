@@ -8,7 +8,11 @@ import logging
 import threading
 
 import gps
-from gps.client import dictwrapper
+
+try:
+    from gps.client import dictwrapper
+except ModuleNotFoundError:
+    dictwrapper = gps.dictwrapper
 
 from hardware_io.gps.gps_types import GpsCallback, GpsData
 

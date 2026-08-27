@@ -17,6 +17,10 @@ class PositionState:
     latitude_deg: float | None = None
     longitude_deg: float | None = None
     altitude_m: float | None = None
+    # Transitional in-process compatibility. Public position messages omit
+    # motion; new callers should use GroundMotionState instead.
+    speed_mps: float | None = None
+    course_deg: float | None = None
     fix_mode: int | None = None
     satellites_visible: int | None = None
     satellites_used: int | None = None
