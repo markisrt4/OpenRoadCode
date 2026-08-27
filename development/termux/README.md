@@ -1,17 +1,20 @@
 # OpenRoadCode Termux Target
 
-This directory contains the experimental native Termux build workflow used to
-exercise OpenRoadCode directly on Android hardware.
+This directory contains the native Termux build workflow used to exercise
+OpenRoadCode directly on Android hardware.
 
 The current target combines:
 
-- the OpenRoadCode Android sensor bridge on localhost port 8766;
-- Python hardware/controller code running natively in Termux;
-- the OpenRoadCode ZeroMQ broker and services;
+- the OpenRoadCode Android sensor bridge on localhost port `8766`;
+- native Python controllers and services running in Termux;
+- the OpenRoadCode ZeroMQ broker and navigation service under runit supervision;
+- Android-backed IMU input through the sensor bridge;
+- simulated geographic position until Android location support is added;
 - native Valhalla and MapLibre builds;
-- Termux:X11 for native graphical execution;
-- an offline navigation dataset stored under
-  `~/.local/share/openroadcode`.
+- Termux:X11 for graphical execution; and
+- offline navigation data stored under `~/.local/share/openroadcode`.
+
+The Termux runtime profile is `config/runtime.termux.toml`.
 
 ## Build the native navigation stack
 
@@ -21,11 +24,12 @@ cd ~/src/OpenRoadCode
 ```
 
 The script installs/builds native dependencies and prints the resulting paths.
-Termux:X11 defaults to display `:1`; override it with `X11_DISPLAY` when needed.
+Termux:X11 normally uses display `:1`; override it with `X11_DISPLAY` when
+needed.
 
 ## Test the Android sensor bridge
 
-With the OpenRoadCode Android bridge application running:
+With the `openroadcode-android-bridge` application running:
 
 ```bash
 curl http://127.0.0.1:8766/health
@@ -34,45 +38,92 @@ python -m hardware_io.android.component_test.magnetometer_cli
 python -m controllers.navigation.component_test.android_navigation_sensor_cli
 ```
 
-## Test Android sensors through ZeroMQ
+The current navigation service consumes Android IMU data through this bridge.
+Android geographic location and ground-motion endpoints are intentionally left
+for a follow-on change; `runtime.termux.toml` therefore uses simulated position
+for now.
 
-Use three Termux sessions.
+## Run broker and navigation as services
 
-Session 1, broker:
-
-```bash
-cd ~/src/OpenRoadCode
-python -m messaging.zeromq.broker_cli
-```
-
-Session 2, Android sensor service:
+Install Termux service supervision once:
 
 ```bash
-cd ~/src/OpenRoadCode
-python -m services.android.android_sensor_service_cli
+pkg install termux-services
 ```
 
-Session 3, subscriber:
+Restart the Termux shell after first installing `termux-services`, then from the
+repository root run:
 
 ```bash
-cd ~/src/OpenRoadCode
-python -m services.android.android_sensor_subscriber_cli
+chmod +x scripts/runit/install_termux_services.sh
+./scripts/runit/install_termux_services.sh
 ```
 
-Move and rotate the phone. The subscriber should continuously print
-`navigation.imu_state` messages whose source is the Android bridge.
+Start and inspect the production broker and navigation services with:
+
+```bash
+sv up openroadcode-broker
+sv up openroadcode-navigation
+
+sv status openroadcode-broker
+sv status openroadcode-navigation
+```
+
+Stop them with:
+
+```bash
+sv down openroadcode-navigation
+sv down openroadcode-broker
+```
+
+The runit definitions call the same runtime wrappers used by the Linux service
+installation. Termux-specific supervision lives under `scripts/runit/`; the
+application/service code remains platform independent.
+
+If navigation remains `down`, run the service definition directly to expose the
+startup error:
+
+```bash
+scripts/runit/openroadcode-navigation/run
+```
+
+A common development-time failure is an older manually launched navigation
+process already owning command endpoint `tcp://127.0.0.1:5560`.
+
+## Run CarUi
+
+Start Termux:X11/XFCE first, for example:
+
+```bash
+termux-x11 :1 -xstartup "xfce4-session"
+```
+
+Then launch CarUi from a Termux/X11 shell with the broker and navigation service
+already running. The runtime uses the Termux profile and normal OpenRoadCode
+messaging contracts.
+
+The turn-by-turn panel has been exercised on Termux against the ZeroMQ guidance
+path. Route guidance, position, ground motion, orientation, and IMU are modeled
+as separate contracts; geographic position does not own speed or course data.
 
 ## Navigation data
 
-The runtime target should pull validated map/routing data from a map-build
-machine. The map-build machine publishes a validated `/srv/openroadcode`
-dataset; the target decides when to update itself. This avoids granting the
-build machine privileged write access to runtime targets and keeps update
-timing under runtime control.
+The runtime target pulls validated map/routing data from a map-build machine.
+The map-build machine publishes a validated `/srv/openroadcode` dataset; the
+target decides when to update itself. This avoids granting the build machine
+privileged write access to runtime targets and keeps update timing under runtime
+control.
 
-Linux vehicle targets use `scripts/runtime/pull_navigation_data.sh`. A
-Termux-native pull helper is the preferred next step for the Android target,
-using `~/.local/share/openroadcode` instead of `/srv/openroadcode` and no sudo.
+The Termux-native target stores deployed navigation data under
+`~/.local/share/openroadcode`. Use `development/termux/pull_navigation_data.sh`
+for the Android/Termux path where applicable.
 
-Server-push deployment is development convenience only, not the production
+Server-push deployment is a development convenience only, not the production
 update model.
+
+## Test notes
+
+The broad Python suite is expected to run under Termux after optional concrete
+implementations are isolated behind lazy package exports. Hardware-specific
+tests that explicitly require Linux-only modules such as gpsd or evdev remain
+platform-specific and should not be treated as Termux runtime dependencies.
