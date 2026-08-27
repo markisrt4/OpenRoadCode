@@ -11,6 +11,7 @@ from apps.carUi.car_ui_frontend_if import CarUiFrontendIf
 from apps.carUi.car_ui_lifecycle import CarUiLifecycle
 from apps.carUi.car_ui_router import CarUiRouter
 from apps.carUi.car_ui_routes import register_car_ui_routes
+from apps.carUi.route_guidance_presenter import RouteGuidancePresenter
 from apps.carUi.runtime.car_ui_input_runtime import CarUiInputRuntime
 from apps.carUi.screens.car_ui_screen_factory_if import CarUiScreenFactoryIf
 from apps.carUi.system import SystemControlManager, SystemController, VehicleStatusManager, VolumeManager
@@ -28,9 +29,10 @@ from messaging.contracts.navigation import (
     decode_motion_state,
     decode_position_state,
 )
+from messaging.contracts.route_guidance import ROUTE_GUIDANCE_STATE_TOPIC, decode_route_guidance_state
 from messaging.message_dispatcher import MessageDispatcher
 from messaging.zeromq import ZeroMqSubscriber
-from ui.screen_ui_if import ScreenId, ScreenUiIf
+from ui.screen_ui_if import ScreenUiIf
 from ui.ui_action import UiAction
 
 
@@ -47,17 +49,14 @@ class CarUiComposition:
         self._assemble_screens()
         self._assemble_message_bus()
         self._assemble_input()
-        register_car_ui_routes(self.screen_router, show_menu=frontend.show_menu, aircraft=self.aircraft_screen, weather=self.weather_screen, lighting=self.lighting_screen, fm_radio=self.fm_radio_screen, scanner_radio=self.scanner_screen, spotify=self.spotify_screen, netflix=self.netflix_screen, youtube=self.youtube_screen, offroad_dashboard=self.offroad_dashboard_screen, vehicle_gauges=self.vehicle_gauges_screen)
+        register_car_ui_routes(self.screen_router, show_menu=frontend.show_menu, aircraft=self.aircraft_screen, weather=self.weather_screen, lighting=self.lighting_screen, fm_radio=self.fm_radio_screen, scanner_radio=self.scanner_screen, spotify=self.spotify_screen, netflix=self.netflix_screen, youtube=self.youtube_screen, offroad_dashboard=self.offroad_dashboard_screen, vehicle_gauges=self.vehicle_gauges_screen, turn_by_turn=self.turn_by_turn_screen)
 
     def _assemble_system_services(self) -> None:
         frontend = self.frontend
         dependencies = self.dependencies
         self.system_controller = SystemController(remote_display=dependencies.runtime.remote_display)
         self.vehicle_status_manager = VehicleStatusManager(top_bar_ui=frontend.top_bar, empty_value=frontend.empty_value)
-        self.bus_position_presenter = BusPositionPresenter(
-            set_position=self.vehicle_status_manager.set_location,
-            set_status=frontend.status_bar.set_status,
-        )
+        self.bus_position_presenter = BusPositionPresenter(set_position=self.vehicle_status_manager.set_location, set_status=frontend.status_bar.set_status)
         self.volume_manager = VolumeManager(audio_controller=dependencies.audio_controller, volume_ui=frontend.volume_panel, set_status=frontend.status_bar.set_status)
         frontend.volume_panel.set_volume_request_handler(self.volume_manager)
         self.volume_manager.refresh()
@@ -75,23 +74,23 @@ class CarUiComposition:
         self.youtube_screen = screens.youtube
         self.offroad_dashboard_screen = screens.offroad_dashboard
         self.vehicle_gauges_screen = screens.vehicle_gauges
+        self.turn_by_turn_screen = screens.turn_by_turn
+        self.route_guidance_presenter = RouteGuidancePresenter(self.turn_by_turn_screen)
 
     def _assemble_message_bus(self) -> None:
-        """Route public telemetry contracts into Tk screens on the UI thread."""
+        """Route public telemetry contracts into screens on the frontend thread."""
         def bus_error(topic: str, error: Exception) -> None:
             self.frontend.dispatch_ui(lambda: self._apply_bus_error(topic, error))
 
         config = ServiceRuntimeConfigParser(self.dependencies.runtime.config_path).load()
-        self.message_dispatcher = MessageDispatcher(
-            ZeroMqSubscriber(config.messaging.subscriber_endpoint),
-            error_handler=bus_error,
-        )
+        self.message_dispatcher = MessageDispatcher(ZeroMqSubscriber(config.messaging.subscriber_endpoint), error_handler=bus_error)
         registrations = (
             (VEHICLE_STATE_TOPIC, decode_vehicle_state, self.vehicle_gauges_screen.set_vehicle_message),
             (ATTITUDE_STATE_TOPIC, decode_attitude_state, self.offroad_dashboard_screen.set_attitude_message),
             (IMU_STATE_TOPIC, decode_imu_state, self.offroad_dashboard_screen.set_imu_message),
             (POSITION_STATE_TOPIC, decode_position_state, self._set_position_message),
             (MOTION_STATE_TOPIC, decode_motion_state, self.offroad_dashboard_screen.set_motion_message),
+            (ROUTE_GUIDANCE_STATE_TOPIC, decode_route_guidance_state, self.route_guidance_presenter.set_guidance_message),
         )
         for topic, decoder, handler in registrations:
             self.message_dispatcher.register(topic, decoder, lambda message, callback=handler: self.frontend.dispatch_ui(lambda: callback(message)))
