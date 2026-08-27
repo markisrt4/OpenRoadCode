@@ -15,6 +15,7 @@ from controllers.route_guidance.route_guidance_controller import RouteGuidanceCo
 from controllers.route_planning.route_planning_controller_if import RoutePlanningControllerIf
 from controllers.route_planning.route_planning_types import GeoPoint, RouteRequest, RouteResult
 from messaging.contracts.navigation import NavigationStatePublisher
+from messaging.contracts.route_guidance import RouteGuidanceStatePublisher
 from services.navigation.navigation_command_service import NavigationCommandService
 from services.navigation.zeromq_navigation_command_server import (
     DEFAULT_NAVIGATION_COMMAND_ENDPOINT,
@@ -45,6 +46,10 @@ class NavigationRuntime:
             raise ValueError("rate_hz must be greater than zero")
         self._controller = controller
         self._state_publisher = NavigationStatePublisher(publisher, source=source)
+        self._guidance_publisher = RouteGuidanceStatePublisher(
+            publisher,
+            source=f"{source}-guidance",
+        )
         self._period_s = 1.0 / rate_hz
         self._route_planning_controller = route_planning_controller
         self._guidance_controller = guidance_controller
@@ -146,4 +151,5 @@ class NavigationRuntime:
             longitude=gps.longitude_deg,
         )
         guidance = guidance_controller.update(position)
+        self._guidance_publisher.publish(guidance)
         session.update(position, guidance)
