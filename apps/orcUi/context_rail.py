@@ -45,13 +45,7 @@ class ContextRail(tk.Frame):
             ContextPage("OFF-ROAD", YELLOW, self._build_offroad),
         )
         self._page_index = 0
-
-        self._title = tk.Label(
-            self,
-            text="",
-            bg=PANEL,
-            font=("Sans", 10, "bold"),
-        )
+        self._title: tk.Label
         self._body = tk.Frame(self, bg=PANEL)
 
         self._build_header()
@@ -68,6 +62,13 @@ class ContextRail(tk.Frame):
         header = tk.Frame(self, bg=PANEL)
         header.pack(fill=tk.X, padx=8, pady=(7, 3))
         header.grid_columnconfigure(1, weight=1)
+
+        self._title = tk.Label(
+            header,
+            text="",
+            bg=PANEL,
+            font=("Sans", 10, "bold"),
+        )
 
         self._nav_button(header, "‹", self._previous_page).grid(
             row=0, column=0, sticky="w"
