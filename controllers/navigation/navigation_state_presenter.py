@@ -33,10 +33,7 @@ class NavigationStatePresenter:
         self._ground_track_ui = ground_track_ui
 
     def present(self, state: NavigationState) -> None:
-        """Publish one complete navigation snapshot.
-
-        @param state Normalized controller snapshot to publish.
-        """
+        """Publish one complete navigation snapshot."""
         self._orientation_ui.set_heading(
             math.radians(state.heading_deg),
             HeadingReference.RELATIVE,
@@ -52,29 +49,33 @@ class NavigationStatePresenter:
             math.sqrt(linear.x**2 + linear.y**2 + linear.z**2)
         )
 
-        gps = state.gps
+        position = state.position
         if (
-            gps is not None
-            and gps.has_fix
-            and gps.latitude_deg is not None
-            and gps.longitude_deg is not None
+            position is not None
+            and position.has_fix
+            and position.latitude_deg is not None
+            and position.longitude_deg is not None
         ):
             self._position_ui.set_position(
                 PositionFix(
-                    latitude_rad=math.radians(gps.latitude_deg),
-                    longitude_rad=math.radians(gps.longitude_deg),
-                    altitude_m=gps.altitude_m,
-                    pfom_m=gps.accuracy_m,
+                    latitude_rad=math.radians(position.latitude_deg),
+                    longitude_rad=math.radians(position.longitude_deg),
+                    altitude_m=position.altitude_m,
+                    pfom_m=position.accuracy_m,
                 )
             )
-            self._ground_track_ui.set_ground_speed(gps.speed_mps)
-            self._ground_track_ui.set_course_over_ground(
-                math.radians(gps.course_deg)
-                if gps.course_deg is not None
-                else None
-            )
+        else:
+            self._position_ui.set_position(None)
+
+        ground_motion = state.ground_motion
+        if ground_motion is None:
+            self._ground_track_ui.set_ground_speed(None)
+            self._ground_track_ui.set_course_over_ground(None)
             return
 
-        self._position_ui.set_position(None)
-        self._ground_track_ui.set_ground_speed(None)
-        self._ground_track_ui.set_course_over_ground(None)
+        self._ground_track_ui.set_ground_speed(ground_motion.speed_mps)
+        self._ground_track_ui.set_course_over_ground(
+            math.radians(ground_motion.course_deg)
+            if ground_motion.course_deg is not None
+            else None
+        )
