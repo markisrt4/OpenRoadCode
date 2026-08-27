@@ -79,25 +79,60 @@ def _positions() -> tuple[GeoPoint, ...]:
     )
 
 
-def _wait_for_broker(broker: ZeroMqBroker) -> None:
+def _start_broker(
+    broker: ZeroMqBroker,
+) -> tuple[threading.Thread, list[BaseException]]:
+    errors: list[BaseException] = []
+
+    def run_broker() -> None:
+        try:
+            broker.run()
+        except BaseException as error:
+            errors.append(error)
+
+    thread = threading.Thread(target=run_broker, daemon=True)
+    thread.start()
+    return thread, errors
+
+
+def _wait_for_broker(
+    broker: ZeroMqBroker,
+    broker_thread: threading.Thread,
+    errors: list[BaseException],
+) -> None:
     deadline = time.monotonic() + 2.0
     while not broker.is_running:
+        if errors:
+            raise RuntimeError(str(errors[0])) from None
+        if not broker_thread.is_alive():
+            raise RuntimeError("broker exited before becoming ready")
         if time.monotonic() >= deadline:
-            raise RuntimeError("ZeroMQ broker did not start")
+            raise RuntimeError("broker did not become ready within 2 seconds")
         time.sleep(0.01)
 
 
 def main() -> int:
     args = _parse_args()
     if args.interval <= 0.0:
-        raise ValueError("--interval must be greater than zero")
+        print("Error: --interval must be greater than zero")
+        return 2
     if args.startup_delay < 0.0:
-        raise ValueError("--startup-delay must not be negative")
+        print("Error: --startup-delay must not be negative")
+        return 2
 
     broker = ZeroMqBroker(PUBLISHER_ENDPOINT, SUBSCRIBER_ENDPOINT)
-    broker_thread = threading.Thread(target=broker.run, daemon=True)
-    broker_thread.start()
-    _wait_for_broker(broker)
+    broker_thread, broker_errors = _start_broker(broker)
+    try:
+        _wait_for_broker(broker, broker_thread, broker_errors)
+    except RuntimeError as error:
+        broker.close()
+        broker_thread.join(timeout=1.0)
+        print("Unable to start the Car UI guidance demo broker.")
+        print(f"  publisher endpoint:  {PUBLISHER_ENDPOINT}")
+        print(f"  subscriber endpoint: {SUBSCRIBER_ENDPOINT}")
+        print(f"  reason:              {error}")
+        print("Another OpenRoadCode broker may already be using these endpoints.")
+        return 1
 
     transport = ZeroMqPublisher(PUBLISHER_ENDPOINT)
     publisher = RouteGuidanceStatePublisher(transport, source="car-ui-guidance-demo")
@@ -133,6 +168,9 @@ def main() -> int:
         print("Turn-by-turn guidance demo complete")
         time.sleep(1.0)
         return 0
+    except KeyboardInterrupt:
+        print("\nTurn-by-turn guidance demo stopped")
+        return 130
     finally:
         transport.close()
         broker.close()
