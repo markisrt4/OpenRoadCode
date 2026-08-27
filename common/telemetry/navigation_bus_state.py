@@ -31,6 +31,7 @@ class NavigationBusSnapshot:
     angular_velocity_rad_s: Vector3Data | None
     gps: PositionState | None
     ground_speed_m_s: float | None
+    course_deg: float | None
     vertical_speed_m_s: float | None
     turn_rate_rad_s: float | None
     attitude_source: str | None
@@ -76,6 +77,7 @@ class NavigationBusState:
         self._angular_velocity_rad_s: Vector3Data | None = None
         self._gps: PositionState | None = None
         self._ground_speed_m_s: float | None = None
+        self._course_deg: float | None = None
         self._vertical_speed_m_s: float | None = None
         self._turn_rate_rad_s: float | None = None
         self._attitude_source: str | None = None
@@ -116,8 +118,6 @@ class NavigationBusState:
             latitude_deg=_degrees(data.latitude_rad),
             longitude_deg=_degrees(data.longitude_rad),
             altitude_m=data.altitude_m,
-            speed_mps=getattr(data, "speed_m_s", None),
-            course_deg=_degrees(getattr(data, "course_rad", None)),
             fix_mode=data.fix_mode,
             satellites_visible=data.satellites_visible,
             satellites_used=data.satellites_used,
@@ -137,6 +137,7 @@ class NavigationBusState:
         with self._lock:
             self._timestamp = _datetime(message)
             self._ground_speed_m_s = data.ground_speed_m_s
+            self._course_deg = _degrees(data.course_rad)
             self._vertical_speed_m_s = data.vertical_speed_m_s
             self._turn_rate_rad_s = data.turn_rate_rad_s
             self._motion_source = message.source
@@ -159,6 +160,7 @@ class NavigationBusState:
                 angular_velocity_rad_s=self._angular_velocity_rad_s,
                 gps=self._gps,
                 ground_speed_m_s=self._ground_speed_m_s,
+                course_deg=self._course_deg,
                 vertical_speed_m_s=self._vertical_speed_m_s,
                 turn_rate_rad_s=self._turn_rate_rad_s,
                 attitude_source=self._attitude_source,

@@ -18,6 +18,9 @@ from controllers.navigation import (
     Mpu6050NavigationAdapter,
     NavigationController,
 )
+from controllers.navigation.simulated_ground_motion_source import (
+    SimulatedGroundMotionSource,
+)
 from controllers.navigation.simulated_navigation_sensor import (
     SimulatedNavigationSensor,
 )
@@ -78,8 +81,6 @@ def _build_position_source(config: NavigationServiceRuntimeConfig):
             profile=simulation.profile,
             latitude_deg=simulation.latitude_deg,
             longitude_deg=simulation.longitude_deg,
-            speed_mps=simulation.speed_mps,
-            course_deg=simulation.course_deg,
         )
 
     if config.gps.device != "gpsd":
@@ -87,6 +88,18 @@ def _build_position_source(config: NavigationServiceRuntimeConfig):
 
     return GpsdNavigationAdapter(
         _create_gps_reader(config.gps.host, config.gps.port)
+    )
+
+
+def _build_ground_motion_source(config: NavigationServiceRuntimeConfig):
+    if config.gps.source != "simulation":
+        return None
+
+    simulation = config.gps.simulation
+    return SimulatedGroundMotionSource(
+        profile=simulation.profile,
+        speed_mps=simulation.speed_mps,
+        course_deg=simulation.course_deg,
     )
 
 
@@ -104,6 +117,7 @@ def build_controller(config: NavigationServiceRuntimeConfig):
             config.solution.complementary_filter.time_constant_s
         ),
         gps_source=_build_position_source(config),
+        ground_motion_source=_build_ground_motion_source(config),
     )
 
 

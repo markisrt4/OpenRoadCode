@@ -6,7 +6,12 @@
 import unittest
 from types import SimpleNamespace
 
-from hardware_io.gps.gps_reader import _Python3GpsSession
+try:
+    from hardware_io.gps.gps_reader import _Python3GpsSession
+except ModuleNotFoundError as error:
+    raise unittest.SkipTest(
+        f"gpsd Python bindings are unavailable on this platform: {error}"
+    ) from error
 
 
 class Python3GpsSessionTest(unittest.TestCase):

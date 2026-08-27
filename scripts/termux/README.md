@@ -1,18 +1,21 @@
 # Termux Development Target
 
-This directory provides the initial OpenRoadCode build/run pipeline for native
-Termux with an X11 server. It is a development and emulation target, not an
-in-vehicle deployment target.
+This directory provides the OpenRoadCode build/run pipeline for native Termux
+with Termux:X11. It is a development and emulation target rather than the
+intended in-vehicle Linux deployment, but it now exercises substantial pieces
+of the production architecture directly on Android hardware.
 
-The Termux pipeline intentionally does not select or modify OpenRoadCode TOML
-configuration. Runtime configuration remains independent from this target.
+Termux-specific installation and launch helpers live here. Production service
+supervision is documented under `scripts/runit/`, and the Termux runtime
+composition is defined by `config/runtime.termux.toml`.
 
 ## Prerequisites
 
 - Termux
 - Termux:X11
 - XFCE4
-- An X display, normally `:1`
+- an X display, normally `:1`
+- the OpenRoadCode Android sensor bridge for Android-backed sensor input
 
 Start the graphical session with:
 
@@ -49,7 +52,7 @@ export DISPLAY=:1
 
 ## Run OpenRoadCode
 
-The default command attempts to launch the car UI:
+The default helper launches CarUi:
 
 ```bash
 export DISPLAY=:1
@@ -63,7 +66,19 @@ A Python module or script may also be supplied explicitly:
 ./scripts/termux/run.sh path/to/script.py
 ```
 
-The first milestone is intentionally limited to proving that OpenRoadCode can
-be installed, imported, and launched under Termux/X11. Hardware support and
-platform-specific runtime configuration can be added separately as those
-interfaces mature.
+For the normal Termux navigation runtime, run the ZeroMQ broker and navigation
+service through the runit definitions under `scripts/runit/` rather than
+starting duplicate long-lived service processes manually.
+
+The current Termux navigation composition uses Android-backed IMU data through
+the localhost sensor bridge and simulated geographic position. Android location
+and ground-motion bridge support are follow-on work and should remain separate
+from the Termux target merge.
+
+## Related documentation
+
+- `development/termux/README.md` describes the native navigation stack, Android
+  sensor bridge testing, navigation data, and end-to-end Termux workflow.
+- `scripts/runit/README.md` describes installation and control of the Termux
+  broker and navigation services.
+- `config/runtime.termux.toml` defines the current Termux runtime composition.

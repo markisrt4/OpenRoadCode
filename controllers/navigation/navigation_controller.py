@@ -16,6 +16,7 @@ from hardware_io.imu import Vector3
 from controllers.navigation.complementary_orientation_estimator import (
     ComplementaryOrientationEstimator,
 )
+from controllers.navigation.ground_motion_source_if import GroundMotionSourceIf
 from controllers.navigation.navigation_gps_source_if import NavigationGpsSourceIf
 from controllers.navigation.navigation_controller_if import NavigationControllerIf
 from controllers.navigation.motion_calibration import MotionCalibration
@@ -39,12 +40,14 @@ class NavigationController(NavigationControllerIf):
         filter_time_constant_s: float = 0.5,
         orientation_estimator: OrientationEstimatorIf | None = None,
         gps_source: NavigationGpsSourceIf | None = None,
+        ground_motion_source: GroundMotionSourceIf | None = None,
         monotonic_clock: Callable[[], float] = time.monotonic,
         wall_clock: Callable[[], datetime] = datetime.now,
         sleeper: Callable[[float], None] = time.sleep,
     ) -> None:
         self._sensor = sensor
         self._gps_source = gps_source
+        self._ground_motion_source = ground_motion_source
         self._orientation_estimator = (
             orientation_estimator
             if orientation_estimator is not None
@@ -85,14 +88,22 @@ class NavigationController(NavigationControllerIf):
             return
 
         self._sensor.connect()
+        gps_started = False
+        ground_motion_started = False
         try:
             motion = self._correct_motion(self._sensor.read_motion())
             self._orientation_estimator.start(motion.acceleration_mps2)
             if self._gps_source is not None:
                 self._gps_source.start(self.update_position_state)
+                gps_started = True
+            if self._ground_motion_source is not None:
+                self._ground_motion_source.start(self.update_ground_motion_state)
+                ground_motion_started = True
             sample_time = self._monotonic_clock()
         except Exception:
-            if self._gps_source is not None:
+            if ground_motion_started and self._ground_motion_source is not None:
+                self._ground_motion_source.stop()
+            if gps_started and self._gps_source is not None:
                 self._gps_source.stop()
             self._orientation_estimator.stop()
             self._sensor.disconnect()
@@ -104,6 +115,8 @@ class NavigationController(NavigationControllerIf):
     def stop(self) -> None:
         """Stop all configured navigation sources."""
         try:
+            if self._ground_motion_source is not None:
+                self._ground_motion_source.stop()
             if self._gps_source is not None:
                 self._gps_source.stop()
         finally:

@@ -6,6 +6,7 @@ from __future__ import annotations
 import time
 from datetime import datetime, timezone
 
+from apps.common.route_guidance_runtime import RouteGuidanceRuntime
 from controllers.navigation.navigation_state import PositionState
 from controllers.route_guidance import RouteGuidanceController
 from controllers.route_planning.route_planning_types import (
@@ -13,8 +14,7 @@ from controllers.route_planning.route_planning_types import (
     RouteManeuver,
     RouteResult,
 )
-from messaging.contracts.navigation import POSITION_STATE_TOPIC, encode_position_state
-from apps.common.route_guidance_runtime import RouteGuidanceRuntime
+from messaging.contracts.navigation import encode_position_state
 
 
 class _Subscriber:
@@ -67,8 +67,6 @@ def _position_payload(latitude: float | None, longitude: float | None):
             latitude_deg=latitude,
             longitude_deg=longitude,
             altitude_m=None,
-            speed_mps=10.0,
-            course_deg=90.0,
             fix_mode=3,
             source="test",
         )
@@ -84,8 +82,6 @@ def test_valid_position_updates_guidance() -> None:
         publisher,
     )
 
-    # Exercise the registered handler directly; MessageDispatcher itself has
-    # separate tests, while this test owns conversion + guidance + publication.
     runtime._handle_position(  # noqa: SLF001
         __import__(
             "messaging.contracts.navigation",
