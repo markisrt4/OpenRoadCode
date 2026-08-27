@@ -136,6 +136,23 @@ else
   echo "[*] MapLibre already installed at $MBGL_INSTALLED; skipping build"
 fi
 
+MAP_RENDERER_INSTALLED="$INSTALL_ROOT/bin/openroadcode-map-renderer"
+if should_build "$MAP_RENDERER_INSTALLED"; then
+  echo "[*] Building OpenRoadCode map renderer"
+  cmake -S "$PROJECT_ROOT/apps/map_renderer" \
+    -B "$PROJECT_ROOT/apps/map_renderer/build-termux" -G Ninja \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_SYSTEM_NAME=Linux \
+    -DMAPLIBRE_ROOT="$MAPLIBRE_SRC" \
+    -DMAPLIBRE_BUILD="$MAPLIBRE_SRC/build-termux-glfw"
+  cmake --build "$PROJECT_ROOT/apps/map_renderer/build-termux" -j"$BUILD_JOBS"
+  install -Dm755 \
+    "$PROJECT_ROOT/apps/map_renderer/build-termux/openroadcode-map-renderer" \
+    "$MAP_RENDERER_INSTALLED"
+else
+  echo "[*] OpenRoadCode map renderer already installed at $MAP_RENDERER_INSTALLED; skipping build"
+fi
+
 NAVIGATION_CONFIG_SOURCE="$PROJECT_ROOT/config/navigation.toml"
 if [[ -f "$NAVIGATION_CONFIG_SOURCE" && ! -f "$CONFIG_ROOT/navigation.toml" ]]; then
   install -m 0644 "$NAVIGATION_CONFIG_SOURCE" "$CONFIG_ROOT/navigation.toml"
@@ -146,17 +163,16 @@ fi
 cat <<EOF
 
 [+] Experimental Termux navigation build complete
-    Valhalla: $VALHALLA_SERVICE
-    MapLibre: $MBGL_INSTALLED
-    config:   $CONFIG_ROOT/navigation.toml (optional)
-    data:     $DATA_ROOT
+    Valhalla:     $VALHALLA_SERVICE
+    MapLibre:     $MBGL_INSTALLED
+    ORC renderer: $MAP_RENDERER_INSTALLED
+    config:       $CONFIG_ROOT/navigation.toml (optional)
+    data:         $DATA_ROOT
 
 Set FORCE_REBUILD=1 to rebuild all native components.
 Set X11_DISPLAY to override the Termux:X11 display (default: :1).
 
 Termux:X11 Android APK is required for graphical execution.
-Start it with:
-    termux-x11 $X11_DISPLAY &
-    export DISPLAY=$X11_DISPLAY
-    $MBGL_INSTALLED
+Start the ORC renderer with:
+    ./development/termux/start_map_renderer.sh
 EOF
