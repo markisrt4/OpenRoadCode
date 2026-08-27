@@ -12,6 +12,7 @@
 #include <mbgl/style/sources/geojson_source.hpp>
 #include <mapbox/geojson.hpp>
 
+#include <cstdlib>
 #include <iostream>
 #include <memory>
 #include <string>
@@ -30,20 +31,31 @@ std::string fileUrl(const std::string& path)
     return "file://" + path;
 }
 
+std::string navigationConfigPath()
+{
+    const auto* configured = std::getenv("OPENROADCODE_NAVIGATION_CONFIG");
+    if (configured != nullptr && configured[0] != '\0') {
+        return configured;
+    }
+    return "/etc/openroadcode/navigation.toml";
+}
+
 } // namespace
 
 int main()
 {
+    const auto configPath = navigationConfigPath();
     NavigationConfig config;
     try {
-        config = loadNavigationConfig();
+        config = loadNavigationConfig(configPath);
     } catch (const std::exception& exception) {
         std::cerr << "[map_renderer] invalid navigation config: "
                   << exception.what() << '\n';
         return 1;
     }
 
-    std::cout << "[map_renderer] style: " << config.stylePath << '\n'
+    std::cout << "[map_renderer] config: " << configPath << '\n'
+              << "[map_renderer] style: " << config.stylePath << '\n'
               << "[map_renderer] vehicle marker: " << config.markerMode
               << " scale=" << config.markerScale << '\n';
 
