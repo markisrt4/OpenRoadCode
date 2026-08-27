@@ -13,11 +13,16 @@ controllers/lighting/
 ├── lighting_controller_stub.py
 ├── dummy_lighting_controller.py
 ├── adapters/
-│   └── leddmx_bluetooth_controller.py
+│   ├── leddmx_controller.py
+│   └── leddmx_bluetooth_controller.py  # legacy compatibility only
 ├── parsers/
 │   └── leddmx_config_parser.py
 └── component_test/
-    └── test_dummy_lighting_controller.py
+    └── leddmx_smoke_cli.py
+
+hardware_io/bluetooth/
+├── ble_gatt_transport_if.py
+└── bleak_gatt_transport.py
 
 protocols/leddmx/
 └── leddmx_protocol.py
@@ -43,11 +48,17 @@ A stateful in-memory emulator.
 Use it for UI development, component tests, and demonstrations where callers
 need to inspect `LightingState` after commands are issued.
 
-### `LedDmxBluetoothController`
+### `LedDmxController`
 
-The hardware adapter for LEDDMX-compatible Bluetooth Low Energy controllers.
-It owns a background asyncio event loop and exposes thread-friendly
-`concurrent.futures.Future` objects to synchronous callers such as Tkinter.
+The transport-neutral LEDDMX controller. It translates lighting operations
+into LEDDMX packets and sends them through an injected `BleGattTransportIf`.
+The production runtime composes it with `BleakGattTransport`. This separation
+keeps device protocol logic independent of Bleak and makes it testable without
+Bluetooth hardware.
+
+`LedDmxBluetoothController` is the older combined implementation. Its module
+remains for source compatibility, but new code should use `LedDmxController`
+and a generic BLE GATT transport.
 
 ## Python dependency
 
@@ -112,14 +123,12 @@ excluded_name_fragments = ["konnwei"]
 Load it explicitly:
 
 ```python
-from controllers.lighting.parsers.leddmx_config_parser import load_leddmx_config
-from controllers.lighting.adapters import LedDmxBluetoothController
+from pathlib import Path
+from apps.common.lighting_runtime_factory import create_lighting_controller
 
-config = load_leddmx_config()
-
-controller = LedDmxBluetoothController(
+controller = create_lighting_controller(
+    project_root=Path.cwd(),
     address=None,
-    config=config,
 )
 ```
 
@@ -129,10 +138,11 @@ the configured write characteristic.
 ## Basic usage
 
 ```python
+from pathlib import Path
+from apps.common.lighting_runtime_factory import create_lighting_controller
 from controllers.lighting import RgbColor
-from controllers.lighting.adapters import LedDmxBluetoothController
 
-controller = LedDmxBluetoothController()
+controller = create_lighting_controller(project_root=Path.cwd())
 
 try:
     controller.connect().result(timeout=20)
@@ -148,9 +158,19 @@ finally:
 
 ## Testing
 
+Run automated lighting and transport tests without hardware:
+
 ```bash
-python3 -m unittest     controllers.lighting.component_test.test_dummy_lighting_controller
+python3 -m pytest -q controllers/lighting hardware_io/bluetooth/component_test
 ```
 
-The protocol and configuration parser should also have independent tests as
-the package grows.
+Run the guarded physical smoke test at low brightness. Omit `--address` to
+discover a controller exposing the configured characteristic:
+
+```bash
+python3 -m controllers.lighting.component_test.leddmx_smoke_cli \
+  --confirm-hardware \
+  --address AA:BB:CC:DD:EE:FF
+```
+
+The test turns the light off in cleanup, including when a command fails.
