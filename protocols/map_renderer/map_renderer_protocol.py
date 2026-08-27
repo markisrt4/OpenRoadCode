@@ -3,7 +3,7 @@
 
 """Protocol definitions for the native map renderer."""
 
-from enum import StrEnum
+from common.str_enum import StrEnum
 
 
 class MapRendererCommand(StrEnum):

@@ -7,9 +7,12 @@ import logging
 import threading
 from collections.abc import Iterator
 from pathlib import Path
+from typing import TYPE_CHECKING
 
-from evdev import InputDevice, categorize, ecodes, list_devices
 from hardware_io.keyboard.keyboard_reader_if import KeyboardReaderIf, KeyCallback
+
+if TYPE_CHECKING:
+    from evdev import InputDevice
 
 
 LOGGER = logging.getLogger(__name__)
@@ -85,6 +88,8 @@ class KeyboardReader(KeyboardReaderIf):
         If no device path was supplied, a keyboard-like device is selected
         automatically.
         """
+        from evdev import InputDevice
+
         if self._device is not None:
             return
 
@@ -126,6 +131,8 @@ class KeyboardReader(KeyboardReaderIf):
             for key in reader.read_keys():
                 print(key)
         """
+        from evdev import categorize, ecodes
+
         self.open()
 
         if self._device is None:
@@ -233,6 +240,8 @@ class KeyboardReader(KeyboardReaderIf):
         A device is considered keyboard-like when it supports common keyboard
         keys such as letters, Enter, or Space.
         """
+        from evdev import InputDevice, ecodes, list_devices
+
         keyboard_keys = {
             ecodes.KEY_A,
             ecodes.KEY_ENTER,

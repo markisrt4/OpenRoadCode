@@ -11,9 +11,7 @@ from services.navigation.navigation_command_service import (
     CALIBRATE_STATIONARY_COMMAND,
     RESET_HEADING_COMMAND,
 )
-from services.navigation.zeromq_navigation_command_server import (
-    DEFAULT_NAVIGATION_COMMAND_ENDPOINT,
-)
+from services.navigation.endpoints import DEFAULT_NAVIGATION_COMMAND_ENDPOINT
 from ui.navigation.navigation_request_handler_if import NavigationRequestHandlerIf
 
 
