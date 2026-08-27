@@ -12,7 +12,7 @@ from hardware_io.imu import Vector3
 
 from .motion_calibration import MotionCalibration
 from .navigation_controller_if import NavigationControllerIf
-from .navigation_state import GpsState, NavigationState
+from .navigation_state import GroundMotionState, NavigationState, PositionState
 
 
 class NavigationControllerStub(NavigationControllerIf):
@@ -56,10 +56,7 @@ class NavigationControllerStub(NavigationControllerIf):
 
     def reset_heading(self, heading_deg: float = 0.0) -> None:
         self._require_started()
-        self._state = replace(
-            self._state,
-            heading_deg=heading_deg % 360.0,
-        )
+        self._state = replace(self._state, heading_deg=heading_deg % 360.0)
 
     def calibrate_stationary(
         self,
@@ -70,9 +67,7 @@ class NavigationControllerStub(NavigationControllerIf):
         if sample_count <= 0:
             raise ValueError("sample_count must be greater than zero")
         if sample_interval_s < 0.0:
-            raise ValueError(
-                "sample_interval_s must not be negative"
-            )
+            raise ValueError("sample_interval_s must not be negative")
 
         zero = Vector3(0.0, 0.0, 0.0)
         self._calibration = MotionCalibration(
@@ -82,8 +77,15 @@ class NavigationControllerStub(NavigationControllerIf):
         )
         return self._calibration
 
-    def update_gps_state(self, gps_state: GpsState) -> None:
-        self._state = replace(self._state, gps=gps_state)
+    def update_position_state(self, position_state: PositionState) -> None:
+        self._state = replace(self._state, position=position_state)
+
+    def update_gps_state(self, position_state: PositionState) -> None:
+        """Compatibility alias for :meth:`update_position_state`."""
+        self.update_position_state(position_state)
+
+    def update_ground_motion_state(self, ground_motion_state: GroundMotionState) -> None:
+        self._state = replace(self._state, ground_motion=ground_motion_state)
 
     def read_state(self) -> NavigationState:
         self._require_started()
