@@ -152,10 +152,11 @@ class CarUiStartupTest(unittest.TestCase):
             build_car_ui_dependencies(lambda *_args: None)
 
         self.assertEqual(events, ["background", "encoder", "runtime"])
+        runtime_path, applications_path = resolve_config_paths()
         create_runtime.assert_called_once_with(
-            RUNTIME_CONFIG_PATH,
+            runtime_path,
             project_root=RUNTIME_CONFIG_PATH.parents[1],
-            applications_config_path=APPLICATIONS_CONFIG_PATH,
+            applications_config_path=applications_path,
         )
 
 
