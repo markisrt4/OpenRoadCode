@@ -34,9 +34,13 @@ class CarUiRoutingTest(unittest.TestCase):
         router, opened = self._create_router()
 
         router.open("aircraft")
+        router.open("navigation")
         router.open("media")
 
-        self.assertEqual(opened, ["aircraft", "menu:media"])
+        self.assertEqual(
+            opened,
+            ["aircraft", "turn_by_turn", "menu:media"],
+        )
 
     @staticmethod
     def _create_router() -> tuple[CarUiRouter, list[str]]:
@@ -58,6 +62,9 @@ class CarUiRoutingTest(unittest.TestCase):
             ),
             vehicle_gauges=RecordingScreen(  # type: ignore[arg-type]
                 "vehicle_gauges", opened
+            ),
+            turn_by_turn=RecordingScreen(  # type: ignore[arg-type]
+                "turn_by_turn", opened
             ),
         )
         return router, opened
