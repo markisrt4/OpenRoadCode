@@ -13,8 +13,8 @@ from messaging.contracts.common.timestamp import validate_timestamp
 
 SCHEMA_VERSION = 1
 DATA_FIELDS = {
-    "latitude_rad", "longitude_rad", "altitude_m", "speed_m_s", "course_rad",
-    "fix_mode", "satellites_visible", "satellites_used", "accuracy_m", "is_cached",
+    "latitude_rad", "longitude_rad", "altitude_m", "fix_mode",
+    "satellites_visible", "satellites_used", "accuracy_m", "is_cached",
 }
 
 
@@ -57,17 +57,11 @@ def validate_position_state(payload: Mapping[str, Any]) -> None:
     latitude = _optional_finite(data, "latitude_rad")
     longitude = _optional_finite(data, "longitude_rad")
     _optional_finite(data, "altitude_m")
-    speed = _optional_finite(data, "speed_m_s")
-    course = _optional_finite(data, "course_rad")
     accuracy = _optional_finite(data, "accuracy_m")
     if latitude is not None and not -math.pi / 2 <= latitude <= math.pi / 2:
         raise ValueError("latitude_rad must be in range -pi/2..pi/2")
     if longitude is not None and not -math.pi <= longitude <= math.pi:
         raise ValueError("longitude_rad must be in range -pi..pi")
-    if speed is not None and speed < 0:
-        raise ValueError("speed_m_s cannot be negative")
-    if course is not None and not 0 <= course < 2 * math.pi:
-        raise ValueError("course_rad must be in range 0..2*pi")
     if accuracy is not None and accuracy < 0:
         raise ValueError("accuracy_m cannot be negative")
     fix_mode = _optional_nonnegative_int(data, "fix_mode")
