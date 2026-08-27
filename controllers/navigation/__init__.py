@@ -15,14 +15,14 @@ from controllers.navigation.navigation_controller_if import NavigationController
 from controllers.navigation.navigation_controller_stub import NavigationControllerStub
 from controllers.navigation.navigation_gps_source_if import NavigationGpsSourceIf
 from controllers.navigation.navigation_sensor_if import MotionSample, NavigationSensorIf
-from controllers.navigation.navigation_state import GpsState, NavigationState, OrientationState, PositionState
+from controllers.navigation.navigation_state import GroundMotionState, GpsState, NavigationState, OrientationState, PositionState
 from controllers.navigation.orientation_estimator_if import Orientation, OrientationEstimatorIf
 from controllers.navigation.position_source_if import PositionSourceIf
 from controllers.navigation.position_snapshot_cache import PositionSnapshotCache
 
 __all__ = [
     "AndroidMagnetometerAdapter", "AndroidNavigationSensor", "BrowserOrientationAdapter", "BrowserPositionAdapter", "ComplementaryOrientationEstimator",
-    "GoogleEarthMapPresentation", "GpsdNavigationAdapter", "GpsdPositionSource", "GpsState", "MagnetometerSample",
+    "GoogleEarthMapPresentation", "GpsdNavigationAdapter", "GpsdPositionSource", "GpsState", "GroundMotionState", "MagnetometerSample",
     "MagnetometerSourceIf", "MapPresentationIf", "MotionSample", "MotionCalibration", "Mpu6050NavigationAdapter",
     "NavigationController", "NavigationControllerIf", "NavigationControllerStub", "NavigationGpsSourceIf",
     "NavigationSensorIf", "NavigationState", "NavigationStatePresenter", "Orientation", "OrientationEstimatorIf",
