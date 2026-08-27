@@ -5,15 +5,21 @@
 
 import os
 import unittest
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
 from apps.carUi.car_ui_startup import (
+    APPLICATIONS_CONFIG_PATH,
+    RUNTIME_CONFIG_PATH,
     STARTUP_ITEMS,
+    TERMUX_APPLICATIONS_CONFIG_PATH,
+    TERMUX_RUNTIME_CONFIG_PATH,
     _env_bool,
     _env_int,
     build_car_ui_dependencies,
     car_ui_splash_enabled,
+    resolve_config_paths,
     resolve_media_display,
 )
 from config.runtime_target import RuntimeTarget
@@ -54,6 +60,34 @@ class CarUiStartupTest(unittest.TestCase):
                     RuntimeTarget.LINUX_DEV, ":9", ":2"
                 ),
             )
+
+    def test_default_config_paths_use_standard_profiles(self) -> None:
+        with patch.dict(os.environ, {}, clear=True):
+            self.assertEqual(
+                (RUNTIME_CONFIG_PATH, APPLICATIONS_CONFIG_PATH),
+                resolve_config_paths(),
+            )
+
+    def test_termux_config_paths_use_termux_profiles(self) -> None:
+        with patch.dict(os.environ, {"TERMUX_VERSION": "0.118"}, clear=True):
+            self.assertEqual(
+                (TERMUX_RUNTIME_CONFIG_PATH, TERMUX_APPLICATIONS_CONFIG_PATH),
+                resolve_config_paths(),
+            )
+
+    def test_config_path_overrides_take_precedence(self) -> None:
+        with patch.dict(
+            os.environ,
+            {
+                "TERMUX_VERSION": "0.118",
+                "OPENROAD_RUNTIME_CONFIG": "~/runtime-test.toml",
+                "OPENROAD_APPLICATIONS_CONFIG": "~/applications-test.toml",
+            },
+            clear=True,
+        ):
+            runtime_path, applications_path = resolve_config_paths()
+            self.assertEqual(Path("~/runtime-test.toml").expanduser(), runtime_path)
+            self.assertEqual(Path("~/applications-test.toml").expanduser(), applications_path)
 
     def test_startup_items_have_unique_keys(self) -> None:
         keys = [item.key for item in STARTUP_ITEMS]
@@ -118,6 +152,11 @@ class CarUiStartupTest(unittest.TestCase):
             build_car_ui_dependencies(lambda *_args: None)
 
         self.assertEqual(events, ["background", "encoder", "runtime"])
+        create_runtime.assert_called_once_with(
+            RUNTIME_CONFIG_PATH,
+            project_root=RUNTIME_CONFIG_PATH.parents[1],
+            applications_config_path=APPLICATIONS_CONFIG_PATH,
+        )
 
 
 if __name__ == "__main__":
