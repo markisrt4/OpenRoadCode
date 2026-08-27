@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 
-"""Normalize browser geolocation payloads for navigation consumers."""
+"""Normalize browser geolocation payloads for position consumers."""
 
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ from controllers.navigation.navigation_state import PositionState
 
 
 class BrowserPositionAdapter:
-    """Translate browser geolocation payloads into navigation state contracts."""
+    """Translate browser geolocation payloads into geographic position state."""
 
     @staticmethod
     def state_from_payload(payload: Any) -> PositionState:
@@ -32,8 +32,6 @@ class BrowserPositionAdapter:
             latitude_deg=latitude,
             longitude_deg=longitude,
             altitude_m=_number(payload.get("altitude"), "altitude"),
-            speed_mps=_number(payload.get("speed"), "speed"),
-            course_deg=_number(payload.get("heading"), "heading"),
             accuracy_m=_number(payload.get("accuracy"), "accuracy"),
             fix_mode=3,
             source="browser",
