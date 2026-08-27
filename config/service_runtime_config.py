@@ -37,6 +37,7 @@ class ImuInputConfig:
     source: str = "device"
     device: str = "mpu6050"
     address: int = 0x68
+    bridge_url: str = "http://127.0.0.1:8766"
     simulation: SimulationProfileConfig = SimulationProfileConfig()
 
 
@@ -200,17 +201,19 @@ class ServiceRuntimeConfigParser:
     def _parse_imu(self, value) -> ImuInputConfig:
         data = self._table(value, "services.navigation.inputs.imu")
         source = self._source(data.get("source", "device"), "services.navigation.inputs.imu.source")
-        device = self._string(data.get("device", "mpu6050"), "services.navigation.inputs.imu.device")
-        if source == "device" and device != "mpu6050":
-            raise ServiceRuntimeConfigError("services.navigation.inputs.imu.device must be mpu6050")
+        device = self._string(data.get("device", "mpu6050"), "services.navigation.inputs.imu.device").lower()
+        if source == "device" and device not in {"mpu6050", "android"}:
+            raise ServiceRuntimeConfigError("services.navigation.inputs.imu.device must be mpu6050 or android")
         address = data.get("address", 0x68)
         if not isinstance(address, int) or isinstance(address, bool) or not 0 <= address <= 0x7F:
             raise ServiceRuntimeConfigError("services.navigation.inputs.imu.address must be a valid 7-bit I2C address")
+        bridge_url = self._string(data.get("bridge_url", "http://127.0.0.1:8766"), "services.navigation.inputs.imu.bridge_url")
         simulation = self._table(data.get("simulation", {}), "services.navigation.inputs.imu.simulation")
         return ImuInputConfig(
             source=source,
             device=device,
             address=address,
+            bridge_url=bridge_url,
             simulation=SimulationProfileConfig(profile=self._string(simulation.get("profile", "driving"), "services.navigation.inputs.imu.simulation.profile")),
         )
 

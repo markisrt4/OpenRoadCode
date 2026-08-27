@@ -3,10 +3,12 @@
 
 """Tests for the Car UI off-road dashboard bus-driven lifecycle."""
 
+import math
 import unittest
 from unittest.mock import Mock, patch
 
 from apps.carUi.screens.offroad_dashboard_screen import OffroadDashboardScreen
+from ui.navigation import PositionFix
 
 
 class FakeHost:
@@ -59,6 +61,31 @@ class OffroadDashboardScreenTest(unittest.TestCase):
 
         screen.hide()
         self.assertIsNone(screen._panel)
+
+    def test_current_position_is_presented_on_configured_map(self) -> None:
+        host = FakeHost()
+        presentation = Mock()
+        screen = OffroadDashboardScreen(
+            host,  # type: ignore[arg-type]
+            create_menu_tile=Mock(),
+            back_action=Mock(),
+            map_presentation=presentation,
+        )
+        screen._latest_position = PositionFix(
+            latitude_rad=math.radians(42.8028),
+            longitude_rad=math.radians(-83.0127),
+            altitude_m=210.0,
+            pfom_m=3.0,
+        )
+
+        screen.show_current_location_on_map()
+
+        presentation.focus_location.assert_called_once_with(
+            42.8028,
+            -83.0127,
+            altitude_m=210.0,
+        )
+        self.assertEqual(host.status, "Opening current location")
 
     @patch("apps.carUi.screens.offroad_dashboard_screen.OffroadDashboardPanel")
     def test_navigation_error_uses_concise_user_message(self, panel_type) -> None:

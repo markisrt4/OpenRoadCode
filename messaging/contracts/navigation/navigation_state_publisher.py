@@ -27,8 +27,8 @@ class NavigationStatePublisher:
     """Fan one normalized navigation sample out to public telemetry topics.
 
     Attitude, IMU, and motion messages share the NavigationState timestamp.
-    Position retains the position source timestamp because GPS fixes may update at
-    a different cadence from the inertial sample.
+    Position retains the position source timestamp because position fixes may
+    update at a different cadence from the inertial sample.
     """
 
     def __init__(
@@ -46,12 +46,13 @@ class NavigationStatePublisher:
         @param state One normalized navigation sample to fan out.
         """
         timestamp = encode_timestamp(state.timestamp)
-        gps = state.gps
+        position = state.position
+        ground_motion = state.ground_motion
 
-        if gps is not None:
+        if position is not None:
             self._publisher.publish(
                 POSITION_STATE_TOPIC,
-                encode_position_state(gps),
+                encode_position_state(position),
             )
 
         self._publisher.publish(
@@ -60,10 +61,17 @@ class NavigationStatePublisher:
                 timestamp=timestamp,
                 source=self._source,
                 heading_rad=math.radians(state.heading_deg),
-                ground_speed_m_s=None if gps is None else gps.speed_mps,
+                ground_speed_m_s=(
+                    None if ground_motion is None else ground_motion.speed_mps
+                ),
+                course_rad=(
+                    None
+                    if ground_motion is None or ground_motion.course_deg is None
+                    else math.radians(ground_motion.course_deg)
+                ),
                 vertical_speed_m_s=None,
                 turn_rate_rad_s=state.angular_velocity_rad_s.z,
-                is_cached=False if gps is None else gps.is_cached,
+                is_cached=False,
             ),
         )
         self._publisher.publish(

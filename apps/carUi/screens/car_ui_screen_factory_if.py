@@ -24,6 +24,7 @@ class CarUiScreens:
     youtube: ScreenUiIf
     offroad_dashboard: ScreenUiIf
     vehicle_gauges: ScreenUiIf
+    turn_by_turn: ScreenUiIf
 
 
 class CarUiScreenFactoryIf(Protocol):

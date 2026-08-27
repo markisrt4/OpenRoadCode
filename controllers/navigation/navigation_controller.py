@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 
-"""Coordinate vehicle motion, orientation, and optional GPS state."""
+"""Coordinate vehicle motion, orientation, and optional position state."""
 
 from __future__ import annotations
 
@@ -16,24 +16,17 @@ from hardware_io.imu import Vector3
 from controllers.navigation.complementary_orientation_estimator import (
     ComplementaryOrientationEstimator,
 )
-from controllers.navigation.navigation_gps_source_if import (
-    NavigationGpsSourceIf,
-)
-from controllers.navigation.navigation_controller_if import (
-    NavigationControllerIf,
-)
+from controllers.navigation.ground_motion_source_if import GroundMotionSourceIf
+from controllers.navigation.navigation_gps_source_if import NavigationGpsSourceIf
+from controllers.navigation.navigation_controller_if import NavigationControllerIf
 from controllers.navigation.motion_calibration import MotionCalibration
-from controllers.navigation.navigation_sensor_if import (
-    MotionSample,
-    NavigationSensorIf,
-)
+from controllers.navigation.navigation_sensor_if import MotionSample, NavigationSensorIf
 from controllers.navigation.navigation_state import (
-    GpsState,
+    GroundMotionState,
     NavigationState,
+    PositionState,
 )
-from controllers.navigation.orientation_estimator_if import (
-    OrientationEstimatorIf,
-)
+from controllers.navigation.orientation_estimator_if import OrientationEstimatorIf
 
 
 class NavigationController(NavigationControllerIf):
@@ -47,12 +40,14 @@ class NavigationController(NavigationControllerIf):
         filter_time_constant_s: float = 0.5,
         orientation_estimator: OrientationEstimatorIf | None = None,
         gps_source: NavigationGpsSourceIf | None = None,
+        ground_motion_source: GroundMotionSourceIf | None = None,
         monotonic_clock: Callable[[], float] = time.monotonic,
         wall_clock: Callable[[], datetime] = datetime.now,
         sleeper: Callable[[float], None] = time.sleep,
     ) -> None:
         self._sensor = sensor
         self._gps_source = gps_source
+        self._ground_motion_source = ground_motion_source
         self._orientation_estimator = (
             orientation_estimator
             if orientation_estimator is not None
@@ -65,8 +60,9 @@ class NavigationController(NavigationControllerIf):
         self._sleeper = sleeper
         self._started = False
         self._last_sample_time: float | None = None
-        self._gps_lock = Lock()
-        self._gps_state: GpsState | None = None
+        self._state_lock = Lock()
+        self._position_state: PositionState | None = None
+        self._ground_motion_state: GroundMotionState | None = None
         self._calibration: MotionCalibration | None = None
 
     @property
@@ -84,27 +80,30 @@ class NavigationController(NavigationControllerIf):
     @property
     def calibration(self) -> MotionCalibration | None:
         """Return the active stationary calibration, if any."""
-
         return self._calibration
 
     def start(self) -> None:
         """Start all configured navigation sources."""
-
         if self._started:
             return
 
         self._sensor.connect()
-
+        gps_started = False
+        ground_motion_started = False
         try:
             motion = self._correct_motion(self._sensor.read_motion())
-            self._orientation_estimator.start(
-                motion.acceleration_mps2
-            )
+            self._orientation_estimator.start(motion.acceleration_mps2)
             if self._gps_source is not None:
-                self._gps_source.start(self.update_gps_state)
+                self._gps_source.start(self.update_position_state)
+                gps_started = True
+            if self._ground_motion_source is not None:
+                self._ground_motion_source.start(self.update_ground_motion_state)
+                ground_motion_started = True
             sample_time = self._monotonic_clock()
         except Exception:
-            if self._gps_source is not None:
+            if ground_motion_started and self._ground_motion_source is not None:
+                self._ground_motion_source.stop()
+            if gps_started and self._gps_source is not None:
                 self._gps_source.stop()
             self._orientation_estimator.stop()
             self._sensor.disconnect()
@@ -115,8 +114,9 @@ class NavigationController(NavigationControllerIf):
 
     def stop(self) -> None:
         """Stop all configured navigation sources."""
-
         try:
+            if self._ground_motion_source is not None:
+                self._ground_motion_source.stop()
             if self._gps_source is not None:
                 self._gps_source.stop()
         finally:
@@ -137,7 +137,6 @@ class NavigationController(NavigationControllerIf):
         sample_interval_s: float = 0.01,
     ) -> MotionCalibration:
         """Measure sensor biases while the vehicle and sensor are stationary."""
-
         if not self._started:
             raise RuntimeError("navigation controller has not been started")
         if sample_count <= 0:
@@ -159,19 +158,13 @@ class NavigationController(NavigationControllerIf):
             if sample_interval_s > 0.0 and index + 1 < sample_count:
                 self._sleeper(sample_interval_s)
 
-        average_acceleration = self._divide_vector(
-            acceleration_sum, sample_count
-        )
+        average_acceleration = self._divide_vector(acceleration_sum, sample_count)
         average_angular_velocity = self._divide_vector(
             angular_velocity_sum, sample_count
         )
-        acceleration_magnitude = self._vector_magnitude(
-            average_acceleration
-        )
+        acceleration_magnitude = self._vector_magnitude(average_acceleration)
         if acceleration_magnitude <= 1e-9:
-            raise RuntimeError(
-                "stationary calibration measured no gravity vector"
-            )
+            raise RuntimeError("stationary calibration measured no gravity vector")
 
         expected_gravity = self._scale_vector(
             average_acceleration,
@@ -194,19 +187,22 @@ class NavigationController(NavigationControllerIf):
         self._last_sample_time = self._monotonic_clock()
         return calibration
 
-    def update_gps_state(self, gps_state: GpsState) -> None:
-        """Accept the latest normalized GPS update.
+    def update_position_state(self, position_state: PositionState) -> None:
+        """Accept the latest normalized geographic position update."""
+        with self._state_lock:
+            self._position_state = position_state
 
-        This method is safe to call from a GPS reader callback thread. It also
-        permits application-managed GPS sources when ``gps_source`` is omitted.
-        """
+    def update_gps_state(self, position_state: PositionState) -> None:
+        """Compatibility alias for :meth:`update_position_state`."""
+        self.update_position_state(position_state)
 
-        with self._gps_lock:
-            self._gps_state = gps_state
+    def update_ground_motion_state(self, ground_motion_state: GroundMotionState) -> None:
+        """Accept the latest normalized ground-motion update."""
+        with self._state_lock:
+            self._ground_motion_state = ground_motion_state
 
     def read_state(self) -> NavigationState:
-        """Read motion and return current orientation and GPS state."""
-
+        """Read motion and return the current navigation state."""
         if not self._started or self._last_sample_time is None:
             raise RuntimeError("navigation controller has not been started")
 
@@ -221,8 +217,9 @@ class NavigationController(NavigationControllerIf):
         )
         self._last_sample_time = sample_time
 
-        with self._gps_lock:
-            gps_state = self._gps_state
+        with self._state_lock:
+            position_state = self._position_state
+            ground_motion_state = self._ground_motion_state
 
         linear_acceleration = self._remove_gravity(
             acceleration=motion.acceleration_mps2,
@@ -238,14 +235,14 @@ class NavigationController(NavigationControllerIf):
             acceleration_mps2=raw_motion.acceleration_mps2,
             linear_acceleration_mps2=linear_acceleration,
             angular_velocity_rad_s=motion.angular_velocity_rad_s,
-            gps=gps_state,
+            position=position_state,
+            ground_motion=ground_motion_state,
         )
 
     def _correct_motion(self, motion: MotionSample) -> MotionSample:
         calibration = self._calibration
         if calibration is None:
             return motion
-
         return MotionSample(
             acceleration_mps2=self._subtract_vectors(
                 motion.acceleration_mps2,
@@ -265,19 +262,12 @@ class NavigationController(NavigationControllerIf):
         roll_deg: float,
     ) -> Vector3:
         """Remove the estimated gravity vector from body-frame acceleration."""
-
         pitch_rad = math.radians(pitch_deg)
         roll_rad = math.radians(roll_deg)
         gravity = cls.STANDARD_GRAVITY_MPS2
-
         gravity_x = -gravity * math.sin(pitch_rad)
-        gravity_y = (
-            gravity * math.sin(roll_rad) * math.cos(pitch_rad)
-        )
-        gravity_z = (
-            gravity * math.cos(roll_rad) * math.cos(pitch_rad)
-        )
-
+        gravity_y = gravity * math.sin(roll_rad) * math.cos(pitch_rad)
+        gravity_z = gravity * math.cos(roll_rad) * math.cos(pitch_rad)
         return Vector3(
             x=acceleration.x - gravity_x,
             y=acceleration.y - gravity_y,
@@ -286,35 +276,19 @@ class NavigationController(NavigationControllerIf):
 
     @staticmethod
     def _add_vectors(left: Vector3, right: Vector3) -> Vector3:
-        return Vector3(
-            left.x + right.x,
-            left.y + right.y,
-            left.z + right.z,
-        )
+        return Vector3(left.x + right.x, left.y + right.y, left.z + right.z)
 
     @staticmethod
     def _subtract_vectors(left: Vector3, right: Vector3) -> Vector3:
-        return Vector3(
-            left.x - right.x,
-            left.y - right.y,
-            left.z - right.z,
-        )
+        return Vector3(left.x - right.x, left.y - right.y, left.z - right.z)
 
     @staticmethod
     def _divide_vector(vector: Vector3, divisor: int) -> Vector3:
-        return Vector3(
-            vector.x / divisor,
-            vector.y / divisor,
-            vector.z / divisor,
-        )
+        return Vector3(vector.x / divisor, vector.y / divisor, vector.z / divisor)
 
     @staticmethod
     def _scale_vector(vector: Vector3, scale: float) -> Vector3:
-        return Vector3(
-            vector.x * scale,
-            vector.y * scale,
-            vector.z * scale,
-        )
+        return Vector3(vector.x * scale, vector.y * scale, vector.z * scale)
 
     @staticmethod
     def _vector_magnitude(vector: Vector3) -> float:

@@ -62,10 +62,11 @@ class ComplementaryOrientationEstimator(OrientationEstimatorIf):
             filter_weight * gyro_roll_deg
             + (1.0 - filter_weight) * acceleration_roll_deg
         )
-        self._pitch_deg = (
+        blended_pitch_deg = (
             filter_weight * gyro_pitch_deg
             + (1.0 - filter_weight) * acceleration_pitch_deg
         )
+        self._pitch_deg = max(-90.0, min(90.0, blended_pitch_deg))
         self._heading_deg = (
             self._heading_deg
             + math.degrees(angular_velocity_rad_s.z * elapsed_s)

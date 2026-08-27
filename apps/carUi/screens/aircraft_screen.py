@@ -11,7 +11,7 @@ from apps.carUi.screens.car_ui_screen_services import (
     MenuTileFactory,
     RadioScreenBindingFactoryIf,
 )
-from apps.launchers.app_launcher_if import AppLauncherIf
+from apps.launchers.app_runtime_manager import AppRuntimeManager
 from frontends.tk.aircraft import AircraftMenuPanel
 from frontends.tk.media.browser_return_overlay import BrowserReturnOverlay
 from apps.carUi.screens.car_ui_screen import CarUiScreen
@@ -26,15 +26,18 @@ from ui.screen_ui_if import ScreenId
 from frontends.tk.tk_screen_host_if import TkScreenHostIf
 
 
+ADSB_APP_KEY = "adsb"
+
+
 class AircraftScreen(CarUiScreen):
-    """Coordinate the Aircraft menu, ADS-B launcher, and Airband radio."""
+    """Coordinate the Aircraft menu, ADS-B application, and Airband radio."""
 
     def __init__(
         self,
         host: TkScreenHostIf,
         *,
         airband_runtime: Callable[[], RadioRuntime],
-        adsb_launcher: AppLauncherIf | None,
+        app_runtime_manager: AppRuntimeManager | None,
         remote_display: str,
         auxiliary_display: str,
         on_frequency_changed: Callable[[int], None],
@@ -44,7 +47,7 @@ class AircraftScreen(CarUiScreen):
     ) -> None:
         super().__init__(host, ScreenId("aircraft"), create_menu_tile)
         self._airband_runtime = airband_runtime
-        self._adsb_launcher = adsb_launcher
+        self._app_runtime_manager = app_runtime_manager
         self._remote_display = remote_display
         self._auxiliary_display = auxiliary_display
         self._on_frequency_changed = on_frequency_changed
@@ -80,16 +83,13 @@ class AircraftScreen(CarUiScreen):
         self.set_status("Aircraft menu ready")
 
     def launch_adsb(self) -> None:
-        launcher = self._adsb_launcher
-        if launcher is None:
+        manager = self._app_runtime_manager
+        if manager is None:
             self.set_status("ADS-B is disabled")
             return
 
         try:
-            launcher.launch(
-                remote_display=self._auxiliary_display,
-                set_status=self.set_status,
-            )
+            manager.launch(ADSB_APP_KEY, self.set_status)
             self.set_status("ADS-B dashboard launched")
             self._return_overlay.show(
                 x=12,
@@ -101,10 +101,10 @@ class AircraftScreen(CarUiScreen):
             print(f"[UI] ADS-B toggle error: {exc}")
 
     def _return_from_adsb(self) -> None:
-        launcher = self._adsb_launcher
         self._return_overlay.hide()
-        if launcher is not None:
-            launcher.stop(self._auxiliary_display, self.set_status)
+        manager = self._app_runtime_manager
+        if manager is not None:
+            manager.close(ADSB_APP_KEY, self.set_status)
         self._home_action()
 
     def show_airband_am(self) -> None:

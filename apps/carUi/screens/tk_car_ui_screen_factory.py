@@ -13,6 +13,7 @@ from apps.carUi.screens.fm_radio_screen import FMRadioScreen
 from apps.carUi.screens.netflix_screen import NetflixScreen
 from apps.carUi.screens.offroad_dashboard_screen import OffroadDashboardScreen
 from apps.carUi.screens.scanner_screen import ScannerScreen
+from apps.carUi.screens.turn_by_turn_screen import TurnByTurnScreen
 from apps.carUi.screens.weather_screen import WeatherScreen
 from apps.carUi.screens.youtube_screen import YouTubeScreen
 from apps.carUi.screens.vehicle_gauges_screen import VehicleGaugesScreen
@@ -25,9 +26,7 @@ from controllers.spotify import SpotifyMediaPresenter
 from frontends.tk.lighting import LightingScreen
 from frontends.tk.media import SpotifyScreen
 from frontends.tk.tk_screen_host_if import TkScreenHostIf
-from services.navigation.zeromq_navigation_request_handler import (
-    ZeroMqNavigationRequestHandler,
-)
+from services.navigation.zeromq_navigation_request_handler import ZeroMqNavigationRequestHandler
 
 
 class TkCarUiScreenFactory:
@@ -43,8 +42,8 @@ class TkCarUiScreenFactory:
     def create_screens(self, dependencies: CarUiDependencies, on_frequency_changed: Callable[[int], None], dispatch: Callable[[Callable[[], None]], None]) -> CarUiScreens:
         runtime = dependencies.runtime
         common = {"remote_display": runtime.remote_display, "on_frequency_changed": on_frequency_changed, "create_menu_tile": self._create_menu_tile, "binding_factory": create_radio_screen_binding}
-        aircraft = AircraftScreen(self._host, airband_runtime=lambda: runtime.radios.get("airband"), adsb_launcher=runtime.adsb_launcher, auxiliary_display=runtime.auxiliary_display, home_action=self._show_main_menu, **common)
-        weather = WeatherScreen(self._host, weather_radio_runtime=lambda: runtime.radios.get("weather_band"), dashboard_launcher=runtime.weather_dash_launcher, auxiliary_display=runtime.auxiliary_display, home_action=self._show_main_menu, **common)
+        aircraft = AircraftScreen(self._host, airband_runtime=lambda: runtime.radios.get("airband"), app_runtime_manager=runtime.app_runtime_manager, auxiliary_display=runtime.auxiliary_display, home_action=self._show_main_menu, **common)
+        weather = WeatherScreen(self._host, weather_radio_runtime=lambda: runtime.radios.get("weather_band"), app_runtime_manager=runtime.app_runtime_manager, auxiliary_display=runtime.auxiliary_display, home_action=self._show_main_menu, **common)
         fm_radio = FMRadioScreen(self._host, runtime=lambda: runtime.radios.get("fm_radio"), back_action=lambda: self._show_menu("radio"), **common)
         scanner = ScannerScreen(self._host, radio_runtimes=runtime.radios, radio_menu_action=lambda: self._show_menu("radio"), compact_ui=self._compact_ui, **common)
 
@@ -69,7 +68,9 @@ class TkCarUiScreenFactory:
             create_menu_tile=self._create_menu_tile,
             back_action=lambda: self._show_menu("gauges"),
             request_handler=ZeroMqNavigationRequestHandler(),
+            map_presentation=runtime.map_presentation,
         )
         vehicle_gauges = VehicleGaugesScreen(self._host, create_menu_tile=self._create_menu_tile, back_action=lambda: self._show_menu("gauges"))
+        turn_by_turn = TurnByTurnScreen(self._host, create_menu_tile=self._create_menu_tile, back_action=self._show_main_menu)
 
-        return CarUiScreens(aircraft=aircraft, weather=weather, lighting=lighting, fm_radio=fm_radio, scanner=scanner, spotify=spotify, netflix=netflix, youtube=youtube, offroad_dashboard=offroad_dashboard, vehicle_gauges=vehicle_gauges)
+        return CarUiScreens(aircraft=aircraft, weather=weather, lighting=lighting, fm_radio=fm_radio, scanner=scanner, spotify=spotify, netflix=netflix, youtube=youtube, offroad_dashboard=offroad_dashboard, vehicle_gauges=vehicle_gauges, turn_by_turn=turn_by_turn)

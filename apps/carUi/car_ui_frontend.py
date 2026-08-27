@@ -11,6 +11,7 @@ import threading
 import tkinter as tk
 from collections.abc import Callable
 from pathlib import Path
+from queue import Empty, Queue
 
 from apps.carUi.car_ui_composition import CarUiComposition
 from apps.carUi.car_ui_dependencies import CarUiDependencies
@@ -34,6 +35,8 @@ from ui.ui_if import UiIf
 
 CAR_UI_LOGO_PATH = Path(__file__).parent / "assets" / "openroadcode.png"
 LOGGER = logging.getLogger(__name__)
+_UI_QUEUE_POLL_MS = 10
+_UI_QUEUE_BUDGET = 128
 
 
 class CarUiFrontend(tk.Tk, UiIf, UiEventHandlerIf, ScreenNavigatorIf):
@@ -49,9 +52,8 @@ class CarUiFrontend(tk.Tk, UiIf, UiEventHandlerIf, ScreenNavigatorIf):
         self._initialized = False
         self._active_route_id: ScreenId | None = None
         self._navigation_history: list[ScreenId] = []
-        self._weather_dashboard_launcher = (
-            dependencies.runtime.weather_dash_launcher
-        )
+        self._ui_queue: Queue[Callable[[], None]] = Queue()
+        self._runtime = dependencies.runtime
         self._weather_controller = dependencies.runtime.weather_controller
         self.title(title)
         self._app_icon: tk.PhotoImage | None = None
@@ -95,6 +97,7 @@ class CarUiFrontend(tk.Tk, UiIf, UiEventHandlerIf, ScreenNavigatorIf):
 
         self.bind("<Escape>", self._toggle_fullscreen)
         self.protocol("WM_DELETE_WINDOW", self.close)
+        self.after(_UI_QUEUE_POLL_MS, self._drain_ui_queue)
 
     def _apply_app_icon(self) -> None:
         """Apply the OpenRoadCode logo to the Tk window and desktop shell."""
@@ -114,34 +117,15 @@ class CarUiFrontend(tk.Tk, UiIf, UiEventHandlerIf, ScreenNavigatorIf):
             return False
         if not self._initialized:
             self.composition.lifecycle.start()
+            self._runtime.start_background_apps()
             self._initialized = True
-            self.after_idle(self._preload_weather_dashboard)
+            if self._weather_controller is not None:
+                threading.Thread(
+                    target=self._refresh_weather_data,
+                    name="weather-data-preload",
+                    daemon=True,
+                ).start()
         return True
-
-    def _preload_weather_dashboard(self) -> None:
-        launcher = self._weather_dashboard_launcher
-        if launcher is None or not launcher.preload:
-            return
-        threading.Thread(
-            target=self._prepare_weather_dashboard,
-            name="weather-dashboard-preload",
-            daemon=True,
-        ).start()
-        if self._weather_controller is not None:
-            threading.Thread(
-                target=self._refresh_weather_data,
-                name="weather-data-preload",
-                daemon=True,
-            ).start()
-
-    def _prepare_weather_dashboard(self) -> None:
-        launcher = self._weather_dashboard_launcher
-        if launcher is None:
-            return
-        try:
-            launcher.prepare()
-        except Exception:
-            LOGGER.exception("Weather dashboard background preload failed")
 
     def _refresh_weather_data(self) -> None:
         controller = self._weather_controller
@@ -192,11 +176,31 @@ class CarUiFrontend(tk.Tk, UiIf, UiEventHandlerIf, ScreenNavigatorIf):
         return self.layout["empty_value"]
 
     def dispatch_ui(self, callback: Callable[[], None]) -> None:
-        """Queue work on the Tk event-loop thread.
+        """Queue work for execution by the Tk event-loop thread.
+
+        This method may be called from worker threads. It intentionally performs
+        no Tk/Tcl calls; the main thread drains the Python queue on a short timer.
 
         @param callback Work to invoke on the Tk thread.
         """
-        self.after(0, callback)
+        if not self._closed:
+            self._ui_queue.put(callback)
+
+    def _drain_ui_queue(self) -> None:
+        """Execute queued worker callbacks exclusively on the Tk main thread."""
+        if self._closed:
+            return
+        for _ in range(_UI_QUEUE_BUDGET):
+            try:
+                callback = self._ui_queue.get_nowait()
+            except Empty:
+                break
+            try:
+                callback()
+            except Exception:
+                LOGGER.exception("CarUi queued UI callback failed")
+        if not self._closed:
+            self.after(_UI_QUEUE_POLL_MS, self._drain_ui_queue)
 
     @property
     def screen_parent(self) -> tk.Misc:
@@ -220,35 +224,22 @@ class CarUiFrontend(tk.Tk, UiIf, UiEventHandlerIf, ScreenNavigatorIf):
 
     @property
     def active_screen_id(self) -> ScreenId | None:
-        """Return the current route identifier.
-
-        @return Active route identifier, or None on the main menu.
-        """
+        """Return the current route identifier, or None on the main menu."""
         return self._active_route_id
 
     def show_screen(self, screen_id: ScreenId) -> None:
-        """Navigate to a registered screen while recording history.
-
-        @param screen_id Destination screen identifier.
-        """
+        """Navigate to a registered screen while recording history."""
         if self._active_route_id is not None:
             self._navigation_history.append(self._active_route_id)
         self._active_route_id = screen_id
         try:
             self.composition.open_route(screen_id.value)
         except Exception:
-            self._active_route_id = (
-                self._navigation_history.pop()
-                if self._navigation_history
-                else None
-            )
+            self._active_route_id = self._navigation_history.pop() if self._navigation_history else None
             raise
 
     def go_back(self) -> bool:
-        """Navigate to the previous route.
-
-        @return True when a history entry was opened.
-        """
+        """Navigate to the previous route."""
         if not self._navigation_history:
             return False
         previous = self._navigation_history.pop()
@@ -262,49 +253,22 @@ class CarUiFrontend(tk.Tk, UiIf, UiEventHandlerIf, ScreenNavigatorIf):
         self.show_main_menu()
 
     def set_screen_title(self, title: str) -> None:
-        """Set the active shell title.
-
-        @param title User-visible screen title.
-        """
         self.top_bar.set_title(title)
 
     def set_screen_back_action(self, action: Callable[[], None]) -> None:
-        """Configure and show the active screen's back action.
-
-        @param action Callback invoked by the back control.
-        """
         self.top_bar.set_back_action(action)
         self.top_bar.show_back_button()
 
     def set_screen_status(self, message: str) -> None:
-        """Set the active screen's status message.
-
-        @param message User-visible status text.
-        """
         self.status_bar.set_status(message)
 
-    def schedule_ui_callback(
-        self,
-        delay_ms: int,
-        callback: Callable[[], None],
-    ) -> object:
-        """Schedule delayed work on the Tk event loop.
-
-        @param delay_ms Non-negative delay in milliseconds.
-        @param callback Work to invoke after the delay.
-        @return Tk callback identifier usable for cancellation.
-        """
+    def schedule_ui_callback(self, delay_ms: int, callback: Callable[[], None]) -> object:
         return self.after(delay_ms, callback)
 
     def cancel_ui_callback(self, callback_id: object) -> None:
-        """Cancel a pending Tk callback.
-
-        @param callback_id Identifier returned by schedule_ui_callback().
-        """
         self.after_cancel(callback_id)
 
     def show_main_menu(self) -> None:
-        """Display the configured home menu and reset shell state."""
         if hasattr(self, "composition"):
             self.composition.activate_screen(None)
         self._active_route_id = None
@@ -316,10 +280,6 @@ class CarUiFrontend(tk.Tk, UiIf, UiEventHandlerIf, ScreenNavigatorIf):
         self.status_bar.set_status("Ready")
 
     def show_menu(self, menu_key: str) -> None:
-        """Display an application submenu.
-
-        @param menu_key Stable key of the menu page to display.
-        """
         self.composition.activate_screen(None)
         self._active_route_id = ScreenId(menu_key)
         titles = {"radio": "Radio", "media": "Media", "gauges": "Gauges"}
@@ -344,10 +304,7 @@ class CarUiFrontend(tk.Tk, UiIf, UiEventHandlerIf, ScreenNavigatorIf):
             on_settings=self._handle_settings,
             on_power=self._handle_power_off,
         )
-        self.top_bar.pack(
-            fill=self.layout["fill_horizontal"],
-            side=self.layout["side_top"],
-        )
+        self.top_bar.pack(fill=self.layout["fill_horizontal"], side=self.layout["side_top"])
         self.content_frame = tk.Frame(container, bg=self.colors["app_bg"])
         self.content_frame.pack(
             fill="both",
@@ -361,10 +318,7 @@ class CarUiFrontend(tk.Tk, UiIf, UiEventHandlerIf, ScreenNavigatorIf):
             compact_ui=self.compact_ui,
             initial_status="Ready",
         )
-        self.status_bar.pack(
-            fill=self.layout["fill_horizontal"],
-            side=self.layout["side_bottom"],
-        )
+        self.status_bar.pack(fill=self.layout["fill_horizontal"], side=self.layout["side_bottom"])
 
     def _create_volume_panel(self, parent: tk.Widget) -> tk.Widget:
         self.volume_panel = VolumePanel(
@@ -387,23 +341,9 @@ class CarUiFrontend(tk.Tk, UiIf, UiEventHandlerIf, ScreenNavigatorIf):
         subtitle: str,
         detail: str,
     ) -> tk.Frame:
-        """Create a Car UI menu tile for an application-specific screen.
-
-        @param parent Parent Tk widget.
-        @param key Stable destination key.
-        @param label Primary tile label.
-        @param subtitle Secondary tile label.
-        @param detail Supplemental tile detail.
-        @return Constructed tile frame.
-        """
         return self.menu_renderer.create_tile(
             parent=parent,
-            tile=MenuTile(
-                key=key,
-                title=label,
-                subtitle=subtitle,
-                detail=detail,
-            ),
+            tile=MenuTile(key=key, title=label, subtitle=subtitle, detail=detail),
         )
 
     def _run_callback(self, key: str) -> None:
@@ -433,9 +373,7 @@ class CarUiFrontend(tk.Tk, UiIf, UiEventHandlerIf, ScreenNavigatorIf):
         explicit = os.getenv(window["geometry_env"])
         if explicit:
             return explicit
-        profile = os.getenv(
-            window["profile_env"], window["default_profile"]
-        ).strip().lower()
+        profile = os.getenv(window["profile_env"], window["default_profile"]).strip().lower()
         return window["profiles"].get(profile, window["default_geometry"])
 
     def _geometry_is_compact(self, geometry: str) -> bool:
@@ -444,9 +382,6 @@ class CarUiFrontend(tk.Tk, UiIf, UiEventHandlerIf, ScreenNavigatorIf):
             width_text, height_text = size.lower().split("x", 1)
             width, height = int(width_text), int(height_text)
             window = self.theme["window"]
-            return (
-                width <= window["compact_max_width"]
-                or height <= window["compact_max_height"]
-            )
+            return width <= window["compact_max_width"] or height <= window["compact_max_height"]
         except (TypeError, ValueError):
             return False

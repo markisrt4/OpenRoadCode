@@ -13,6 +13,10 @@ def create_car_ui_menu_pages() -> dict[str, MenuPage]:
             title="OpenRoadCode",
             tiles=(
                 MenuTile(
+                    "navigation", "NAVIGATION", "Turn-by-turn guidance",
+                    "Directions and route status",
+                ),
+                MenuTile(
                     "radio", "RADIO", "FM / Scanner / NOAA",
                     "Broadcast and monitoring",
                 ),

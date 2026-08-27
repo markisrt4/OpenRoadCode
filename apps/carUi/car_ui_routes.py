@@ -23,6 +23,7 @@ def register_car_ui_routes(
     youtube: ScreenUiIf,
     offroad_dashboard: ScreenUiIf,
     vehicle_gauges: ScreenUiIf,
+    turn_by_turn: ScreenUiIf,
 ) -> None:
     """Register the destinations available in the standard Car UI."""
     router.register_many(
@@ -33,6 +34,7 @@ def register_car_ui_routes(
             "weather": weather.show,
             "lighting": lighting.show,
             "media": lambda: show_menu("media"),
+            "navigation": turn_by_turn.show,
             "fm_radio": fm_radio.show,
             "scanner_radio": scanner_radio.show,
             "spotify": spotify.show,

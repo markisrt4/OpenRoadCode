@@ -1,0 +1,17 @@
+#!/data/data/com.termux/files/usr/bin/bash
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
+set -euo pipefail
+
+SCRIPT_PATH="$(readlink -f -- "${BASH_SOURCE[0]}")"
+SERVICE_DIR="$(dirname -- "$SCRIPT_PATH")"
+PROJECT_ROOT="$(cd -- "$SERVICE_DIR/../../.." && pwd)"
+
+export PYTHONUNBUFFERED=1
+if [[ -x "$PROJECT_ROOT/venv-termux/bin/python" ]]; then
+    export OPENROADCODE_PYTHON="$PROJECT_ROOT/venv-termux/bin/python"
+fi
+
+cd "$PROJECT_ROOT"
+exec "$PROJECT_ROOT/scripts/runtime/start_message_broker.sh"

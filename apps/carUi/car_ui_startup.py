@@ -61,8 +61,22 @@ def create_car_ui_startup_splash() -> StartupSplash[CarUiDependencies]:
     )
 
 
+def _is_termux() -> bool:
+    prefix = os.getenv("PREFIX", "")
+    return bool(os.getenv("TERMUX_VERSION")) or prefix.startswith("/data/data/com.termux/")
+
+
 def car_ui_splash_enabled() -> bool:
-    return _env_bool("CARUI_SPLASH", True)
+    """Return whether the startup splash should be used.
+
+    Termux defaults the splash off because creating a splash ``Tk`` root and
+    then a second application ``Tk`` root can leave Tcl image/interpreter
+    resources with unsafe destruction ordering on Android/Termux Python builds.
+    ``CARUI_SPLASH`` remains an explicit override on every platform.
+    """
+    if "CARUI_SPLASH" in os.environ:
+        return _env_bool("CARUI_SPLASH", True)
+    return not _is_termux()
 
 
 def build_car_ui_dependencies(report: StartupStatusCallback) -> CarUiDependencies:
@@ -72,6 +86,7 @@ def build_car_ui_dependencies(report: StartupStatusCallback) -> CarUiDependencie
         report("runtime", StartupState.STARTING, "Loading configuration")
         runtime = create_car_ui_runtime(RUNTIME_CONFIG_PATH, project_root=PROJECT_ROOT)
         cleanup.callback(runtime.close)
+        runtime.start_background_apps()
         report("runtime", StartupState.READY, "Configuration loaded")
         report("telemetry", StartupState.READY, "Vehicle and navigation state provided by message bus")
 

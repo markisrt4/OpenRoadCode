@@ -43,7 +43,6 @@ class PersistentPositionSourceTest(unittest.TestCase):
                     received_at=now - timedelta(minutes=5),
                     latitude_deg=42.1,
                     longitude_deg=-83.2,
-                    speed_mps=20.0,
                     fix_mode=3,
                     source="gpsd",
                 )
@@ -61,7 +60,8 @@ class PersistentPositionSourceTest(unittest.TestCase):
 
             self.assertEqual(1, len(states))
             self.assertTrue(states[0].is_cached)
-            self.assertIsNone(states[0].speed_mps)
+            self.assertEqual(states[0].latitude_deg, 42.1)
+            self.assertEqual(states[0].longitude_deg, -83.2)
 
     def test_no_fix_does_not_replace_last_good_position(self) -> None:
         now = datetime(2026, 8, 9, 12, 0, 0)

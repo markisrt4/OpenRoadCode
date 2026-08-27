@@ -1,13 +1,15 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 
-"""Validation for vehicle-frame IMU telemetry."""
+"""Validation for framed IMU telemetry."""
 
 import math
 from collections.abc import Mapping
 from typing import Any
 
 from messaging.contracts.common.timestamp import validate_timestamp
+
+from .frames import validate_frame_id
 
 SCHEMA_VERSION = 1
 DATA_FIELDS = {
@@ -31,7 +33,7 @@ def _validate_vector(data: Mapping[str, Any], name: str) -> None:
 
 
 def validate_imu_state(payload: Mapping[str, Any]) -> None:
-    if set(payload) != {"version", "timestamp", "source", "data"}:
+    if set(payload) != {"version", "timestamp", "source", "frame_id", "data"}:
         raise ValueError("IMU message envelope has missing or unknown fields")
     if payload["version"] != SCHEMA_VERSION:
         raise ValueError("unsupported IMU schema version")
@@ -40,6 +42,7 @@ def validate_imu_state(payload: Mapping[str, Any]) -> None:
     validate_timestamp(payload["timestamp"])
     if not isinstance(payload["source"], str) or not payload["source"]:
         raise ValueError("source must be a non-empty string")
+    validate_frame_id(payload["frame_id"])
     data = payload["data"]
     if not isinstance(data, Mapping) or set(data) != DATA_FIELDS:
         raise ValueError("IMU data has missing or unknown fields")

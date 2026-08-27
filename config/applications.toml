@@ -1,0 +1,65 @@
+# OpenRoadCode user-facing application configuration
+#
+# Applications refer to named presentation targets rather than raw X11 display
+# identifiers. This keeps application policy independent of the transport used
+# to present it and leaves room for target types such as VNC later.
+
+[browser]
+profile_root = "~/.local/share/openroadcode/browser"
+
+[presentation]
+default_target = "primary"
+
+[presentation.targets.primary]
+type = "x11"
+display = ":0"
+
+[presentation.targets.auxiliary]
+type = "x11"
+display = ":2"
+
+[apps.weather]
+type = "browser"
+enabled = true
+url = "http://127.0.0.1:8501"
+profile = "weather"
+startup = "preload"
+exclusive_group = "auxiliary"
+
+[apps.adsb]
+type = "adsb"
+enabled = true
+url = "http://127.0.0.1/tar1090"
+profile = "adsb"
+startup = "lazy"
+exclusive_group = "auxiliary"
+
+[apps.web_ui]
+type = "browser"
+enabled = true
+url = "http://127.0.0.1:5000"
+profile = "web-ui"
+startup = "preload"
+
+[apps.youtube]
+type = "browser"
+enabled = true
+url = "https://www.youtube.com"
+profile = "youtube"
+startup = "lazy"
+
+[apps.google_earth]
+type = "browser"
+enabled = true
+url = "https://earth.google.com/web"
+profile = "google-earth"
+startup = "lazy"
+target = "auxiliary"
+exclusive_group = "auxiliary"
+
+[apps.sdrpp]
+type = "native"
+enabled = true
+startup = "lazy"
+target = "auxiliary"
+exclusive_group = "sdr"

@@ -1,129 +1,157 @@
-# Experimental Termux navigation build
+# OpenRoadCode Termux Target
 
-OpenRoadCode can build substantial parts of its native navigation stack directly
-on Android/aarch64 under Termux. This target is experimental and intentionally
-separate from the Debian/Ubuntu container pipeline.
+This directory contains the native Termux build workflow used to exercise
+OpenRoadCode directly on Android hardware.
 
-## Proven configuration
+The current target combines:
 
-The initial experiment was validated on Android 16/aarch64 with Termux. It
-successfully built and executed:
+- the OpenRoadCode Android sensor bridge on localhost port `8766`;
+- native Python controllers and services running in Termux;
+- the OpenRoadCode ZeroMQ broker and navigation service under runit supervision;
+- Android-backed IMU input through the sensor bridge;
+- simulated geographic position and ground motion until Android location/motion
+  endpoints are integrated;
+- native Valhalla and MapLibre builds;
+- Termux:X11 for graphical execution; and
+- offline navigation data stored under `~/.local/share/openroadcode`.
 
-- `prime_server`
-- Valhalla 3.8.3 (`valhalla_service --help`)
-- MapLibre Native core
-- MapLibre Native Linux/GLFW platform build
-- `mbgl-glfw` rendering through Mesa/OpenGL, X11, and the Termux:X11 Android app
+The Termux runtime profile is `config/runtime.termux.toml`.
 
-## Why this needs a separate target
+## Navigation contracts
 
-Termux uses Android's native ABI and does not provide a conventional Debian-like
-host environment. There is no `sudo`, systemd deployment, `/srv` convention, or
-Docker requirement. Native dependencies come from `pkg` and software is built
-against the Termux/Android libraries.
+Navigation data is intentionally separated by responsibility:
 
-Default OpenRoadCode paths are:
+- **Position** contains geographic fix information such as latitude, longitude,
+  altitude, fix mode, satellite counts, and accuracy.
+- **Ground motion** contains speed over ground, course over ground, vertical
+  speed, and turn rate.
+- **Attitude** contains heading, pitch, and roll.
+- **IMU** contains acceleration and angular-velocity measurements.
+- **Route guidance** contains progress and maneuver state for an active route.
 
-- software: `$PREFIX/opt/openroadcode/navigation`
-- config: `$PREFIX/etc/openroadcode/navigation.toml`
-- map/routing data: `$HOME/.local/share/openroadcode`
+Position does not own speed or course. Providers may originate several of these
+values from the same physical device, but the normalized OpenRoadCode contracts
+remain independent.
 
-## Reproducing the build
+The navigation controller likewise accepts position and ground-motion sources
+independently. The Termux simulation profile supplies separate simulated
+position and ground-motion sources, while the Android sensor bridge currently
+supplies the physical IMU input.
 
-From an OpenRoadCode checkout:
-
-```bash
-bash development/termux/build_navigation_stack.sh
-```
-
-`BUILD_JOBS` may be set to limit compilation parallelism, for example:
-
-```bash
-BUILD_JOBS=4 bash development/termux/build_navigation_stack.sh
-```
-
-## Termux:X11
-
-The Termux-side X11 packages are not sufficient by themselves. Install the
-Termux:X11 Android APK separately from the official Termux:X11 repository:
-
-https://github.com/termux/termux-x11
-
-Open the repository's Releases page and choose the current nightly release. On
-an aarch64 phone, download `termux-x11-arm64-v8a-debug.apk`; the universal debug
-APK is also usable. Android may require temporarily allowing the APK installer
-source, and Samsung devices with Auto Blocker enabled may require temporarily
-disabling Auto Blocker during installation.
-
-If the APK is downloaded into Android's Downloads folder and Termux has storage
-access, Android's installer can be opened from Termux with:
+## Build the native navigation stack
 
 ```bash
-termux-setup-storage          # only needed once
-termux-open ~/storage/downloads/termux-x11-arm64-v8a-debug.apk
+cd ~/src/OpenRoadCode
+./development/termux/build_navigation_stack.sh
 ```
 
-After the Android app is installed, install the Termux-side X11 components if
-needed and start the display server. Display `:1` is the configuration validated
-by the initial OpenRoadCode experiment and matches the Termux:X11 launch
-instructions used during testing:
+The script installs/builds native dependencies and prints the resulting paths.
+Termux:X11 normally uses display `:1`; override it with `X11_DISPLAY` when
+needed.
+
+## Test the Android sensor bridge
+
+With the `openroadcode-android-bridge` application running:
 
 ```bash
-pkg install x11-repo
-pkg install termux-x11-nightly xterm
-
-termux-x11 :1 &
-export DISPLAY=:1
-xterm
+curl http://127.0.0.1:8766/health
+curl http://127.0.0.1:8766/imu
+python -m hardware_io.android.component_test.magnetometer_cli
+python -m controllers.navigation.component_test.android_navigation_sensor_cli
 ```
 
-An `xterm` window appearing inside the Termux:X11 app confirms that the X11
-path is healthy. Keep `DISPLAY=:1` in the shell used to launch MapLibre or other
-OpenRoadCode graphical applications. Once X11 is working, the installed
-MapLibre GLFW test application can be run:
+The current navigation service consumes Android IMU data through this bridge.
+Android geographic position and ground-motion endpoints are follow-on bridge
+integrations. Until then, `runtime.termux.toml` supplies those two inputs from
+independent simulation sources.
+
+## Run broker and navigation as services
+
+Install Termux service supervision once:
 
 ```bash
-export DISPLAY=:1
-$PREFIX/opt/openroadcode/navigation/bin/mbgl-glfw
+pkg install termux-services
 ```
 
-If `termux-x11 :1` prints `Termux:X11 application is not found`, the Termux-side
-package is installed but the separate Android APK is still missing.
+Restart the Termux shell after first installing `termux-services`, then from the
+repository root run:
 
-## Captured portability changes
-
-### Valhalla stream position arithmetic
-
-Android/Clang rejects subtraction between `std::streampos` and `int64_t` in
-`src/mjolnir/graphtilebuilder.cc`. The build applies
-`patches/valhalla-streampos.patch`, converting the position through
-`std::streamoff` before integer arithmetic.
-
-### Android logging
-
-Valhalla's Android logging implementation references `__android_log_print`.
-Termux therefore links executable/shared targets with Android `liblog` using
-`-llog`.
-
-### MapLibre Linux/GLFW platform
-
-A normal native Termux configure is detected as Android and MapLibre enters its
-official Android/NDK CMake path. The experimental OpenRoadCode build deliberately
-selects the Linux platform with:
-
-```text
-CMAKE_SYSTEM_NAME=Linux
-MLN_WITH_GLFW=ON
-MLN_WITH_OPENGL=ON
+```bash
+chmod +x scripts/runit/install_termux_services.sh
+./scripts/runit/install_termux_services.sh
 ```
 
-X11 include/library locations are supplied from `$PREFIX`. This produces the
-Linux `mbgl-glfw` application as an Android/Termux-native executable and allows
-it to render through Termux:X11.
+Start and inspect the production broker and navigation services with:
 
-## Remaining work
+```bash
+sv up openroadcode-broker
+sv up openroadcode-navigation
 
-The experiment has not yet validated the complete OpenRoadCode map renderer,
-routing dataset deployment, Valhalla HTTP routing against production tiles, or
-full controller integration on Android. Treat the target as a development and
-portability experiment until those pieces are exercised.
+sv status openroadcode-broker
+sv status openroadcode-navigation
+```
+
+Stop them with:
+
+```bash
+sv down openroadcode-navigation
+sv down openroadcode-broker
+```
+
+The runit definitions call the same runtime wrappers used by the Linux service
+installation. Termux-specific supervision lives under `scripts/runit/`; the
+application/service code remains platform independent.
+
+If navigation remains `down`, run the service definition directly to expose the
+startup error:
+
+```bash
+scripts/runit/openroadcode-navigation/run
+```
+
+Common development-time causes are an older manually launched navigation
+process already owning command endpoint `tcp://127.0.0.1:5560`, or the Android
+sensor bridge not running while the Termux profile is configured for Android
+IMU input.
+
+## Run CarUi
+
+Start Termux:X11/XFCE first, for example:
+
+```bash
+termux-x11 :1 -xstartup "xfce4-session"
+```
+
+Then launch CarUi from a Termux/X11 shell with the broker and navigation service
+already running. The runtime uses the Termux profile and normal OpenRoadCode
+messaging contracts.
+
+The turn-by-turn panel has been exercised on Termux against the ZeroMQ guidance
+path. Map following consumes position and ground motion independently, allowing
+position fixes to remain authoritative while ground motion is used for bearing
+and short-term map prediction.
+
+## Navigation data
+
+The runtime target pulls validated map/routing data from a map-build machine.
+The map-build machine publishes a validated `/srv/openroadcode` dataset; the
+target decides when to update itself. This avoids granting the build machine
+privileged write access to runtime targets and keeps update timing under runtime
+control.
+
+The Termux-native target stores deployed navigation data under
+`~/.local/share/openroadcode`. Use `development/termux/pull_navigation_data.sh`
+for the Android/Termux path where applicable.
+
+Server-push deployment is a development convenience only, not the production
+update model.
+
+## Test notes
+
+The broad Python suite runs under Termux with platform-specific hardware tests
+skipped when their Linux-only dependencies are unavailable. In particular,
+gpsd Python bindings and evdev are not Termux runtime requirements simply
+because Linux hardware adapters exist in the repository.
+
+The final Termux branch regression run completed with 509 tests passing, 2
+platform-specific tests skipped, and 45 subtests passing.

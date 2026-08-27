@@ -15,20 +15,18 @@ from controllers.route_guidance.route_guidance_controller import RouteGuidanceCo
 from controllers.route_planning.route_planning_controller_if import RoutePlanningControllerIf
 from controllers.route_planning.route_planning_types import GeoPoint, RouteRequest, RouteResult
 from messaging.contracts.navigation import NavigationStatePublisher
+from messaging.contracts.route_guidance import RouteGuidanceStatePublisher
 from services.navigation.navigation_command_service import NavigationCommandService
 from services.navigation.zeromq_navigation_command_server import (
     DEFAULT_NAVIGATION_COMMAND_ENDPOINT,
     ZeroMqNavigationCommandServer,
 )
 
+_COMMAND_SERVER_START_TIMEOUT_S = 1.0
+
 
 class NavigationRuntime:
-    """Run navigation telemetry and optional turn-by-turn guidance.
-
-    One runtime owns the navigation controller and, when routing is configured,
-    the active navigation session. Route commands therefore cannot diverge from
-    the position stream that advances guidance and drives rerouting.
-    """
+    """Run navigation telemetry, commands, active route sessions, and guidance."""
 
     def __init__(
         self,
@@ -45,6 +43,10 @@ class NavigationRuntime:
             raise ValueError("rate_hz must be greater than zero")
         self._controller = controller
         self._state_publisher = NavigationStatePublisher(publisher, source=source)
+        self._guidance_publisher = RouteGuidanceStatePublisher(
+            publisher,
+            source=f"{source}-guidance",
+        )
         self._period_s = 1.0 / rate_hz
         self._route_planning_controller = route_planning_controller
         self._guidance_controller = guidance_controller
@@ -71,24 +73,56 @@ class NavigationRuntime:
             command_endpoint,
         )
         self._command_thread: threading.Thread | None = None
+        self._command_server_error: BaseException | None = None
         self._stop_event = threading.Event()
 
     def start(self) -> None:
-        """Start the controller and command server."""
+        """Start the controller and require the command server to become ready."""
         self._controller.start()
         self._stop_event.clear()
+        self._command_server_error = None
         self._command_thread = threading.Thread(
-            target=self._command_server.run,
+            target=self._run_command_server,
             name="navigation-command-server",
             daemon=True,
         )
         self._command_thread.start()
+
+        deadline = time.monotonic() + _COMMAND_SERVER_START_TIMEOUT_S
+        while not self._command_server.is_running:
+            if self._command_server_error is not None:
+                error = self._command_server_error
+                self.close()
+                raise RuntimeError(
+                    f"Navigation command server failed to start on "
+                    f"{self._command_server.endpoint}: {error}"
+                ) from error
+            thread = self._command_thread
+            if thread is None or not thread.is_alive():
+                self.close()
+                raise RuntimeError(
+                    f"Navigation command server exited before binding "
+                    f"{self._command_server.endpoint}"
+                )
+            if time.monotonic() >= deadline:
+                self.close()
+                raise RuntimeError(
+                    f"Navigation command server did not become ready on "
+                    f"{self._command_server.endpoint} within "
+                    f"{_COMMAND_SERVER_START_TIMEOUT_S:g} second"
+                )
+            time.sleep(0.01)
 
     def run(self) -> None:
         """Publish navigation snapshots and advance active guidance."""
         self.start()
         try:
             while not self._stop_event.is_set():
+                if self._command_server_error is not None:
+                    raise RuntimeError(
+                        f"Navigation command server stopped unexpectedly: "
+                        f"{self._command_server_error}"
+                    ) from self._command_server_error
                 started = time.monotonic()
                 state = self._controller.read_state()
                 self._state_publisher.publish(state)
@@ -109,6 +143,13 @@ class NavigationRuntime:
             thread.join(timeout=1.0)
         self._command_thread = None
         self._controller.stop()
+
+    def _run_command_server(self) -> None:
+        try:
+            self._command_server.run()
+        except BaseException as error:
+            self._command_server_error = error
+            self._stop_event.set()
 
     def _activate_route(self, request: RouteRequest, route: RouteResult) -> None:
         route_planner = self._route_planning_controller
@@ -146,4 +187,5 @@ class NavigationRuntime:
             longitude=gps.longitude_deg,
         )
         guidance = guidance_controller.update(position)
+        self._guidance_publisher.publish(guidance)
         session.update(position, guidance)

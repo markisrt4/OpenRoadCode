@@ -7,14 +7,13 @@ from __future__ import annotations
 
 import math
 import threading
-import time
 
 from controllers.navigation.navigation_state import PositionState
 from controllers.navigation.position_source_if import PositionSourceIf, PositionStateCallback
 
 
 class SimulatedPositionSource(PositionSourceIf):
-    """Publish deterministic position updates without a GPS receiver."""
+    """Publish deterministic geographic position updates without a receiver."""
 
     def __init__(
         self,
@@ -30,6 +29,8 @@ class SimulatedPositionSource(PositionSourceIf):
         self._profile = profile.strip().lower()
         self._latitude_deg = latitude_deg
         self._longitude_deg = longitude_deg
+        # Retained temporarily for runtime-config compatibility while simulated
+        # ground motion moves to its own source.
         self._speed_mps = speed_mps
         self._course_deg = course_deg
         self._period_s = 1.0 / update_rate_hz
@@ -61,29 +62,21 @@ class SimulatedPositionSource(PositionSourceIf):
             if self._profile == "stationary":
                 latitude = self._latitude_deg
                 longitude = self._longitude_deg
-                speed = 0.0
-                course = self._course_deg
             elif self._profile == "driving":
                 phase += 0.04
                 latitude = self._latitude_deg + 0.002 * math.sin(phase)
                 longitude = self._longitude_deg + 0.002 * math.cos(phase)
-                speed = self._speed_mps + 1.5 * math.sin(phase * 2.0)
-                course = (self._course_deg + math.degrees(phase)) % 360.0
             else:
                 raise ValueError(f"unsupported simulated GPS profile: {self._profile}")
 
-            callback(
-                PositionState(
-                    latitude_deg=latitude,
-                    longitude_deg=longitude,
-                    altitude_m=180.0 + 8.0 * math.sin(phase * 0.5),
-                    speed_mps=max(0.0, speed),
-                    course_deg=course,
-                    fix_mode=3,
-                    satellites_visible=12,
-                    satellites_used=9,
-                    accuracy_m=3.0,
-                    source="simulation",
-                )
-            )
+            callback(PositionState(
+                latitude_deg=latitude,
+                longitude_deg=longitude,
+                altitude_m=180.0 + 8.0 * math.sin(phase * 0.5),
+                fix_mode=3,
+                satellites_visible=12,
+                satellites_used=9,
+                accuracy_m=3.0,
+                source="simulation",
+            ))
             self._stop_event.wait(self._period_s)

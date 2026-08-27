@@ -5,7 +5,12 @@ from __future__ import annotations
 
 import unittest
 
-from hardware_io.keyboard import KeyboardReader
+try:
+    from hardware_io.keyboard import KeyboardReader
+except ModuleNotFoundError as error:
+    raise unittest.SkipTest(
+        f"evdev keyboard support is unavailable on this platform: {error}"
+    ) from error
 
 
 class KeyboardReaderTest(unittest.TestCase):

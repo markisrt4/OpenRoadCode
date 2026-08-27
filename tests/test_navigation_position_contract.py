@@ -16,8 +16,6 @@ def sample_state(**overrides):
         latitude_deg=42.8028,
         longitude_deg=-83.0127,
         altitude_m=250.5,
-        speed_mps=13.4,
-        course_deg=90.0,
         fix_mode=3,
         satellites_visible=14,
         satellites_used=10,
@@ -34,9 +32,17 @@ def test_encode_position_state_uses_strict_si_and_decodes():
     data = payload["data"]
     assert data["latitude_rad"] == pytest.approx(math.radians(42.8028))
     assert data["longitude_rad"] == pytest.approx(math.radians(-83.0127))
-    assert data["course_rad"] == pytest.approx(math.pi / 2)
     assert data["altitude_m"] == 250.5
-    assert data["speed_m_s"] == 13.4
+    assert set(data) == {
+        "latitude_rad",
+        "longitude_rad",
+        "altitude_m",
+        "fix_mode",
+        "satellites_visible",
+        "satellites_used",
+        "accuracy_m",
+        "is_cached",
+    }
     assert payload["timestamp"]["nanoseconds"] == 123456000
 
     message = decode_position_state(payload)
@@ -50,8 +56,6 @@ def test_position_contract_preserves_null_fields():
         latitude_deg=None,
         longitude_deg=None,
         altitude_m=None,
-        speed_mps=None,
-        course_deg=None,
         fix_mode=None,
         satellites_visible=None,
         satellites_used=None,
