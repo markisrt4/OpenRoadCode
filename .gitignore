@@ -4,3 +4,6 @@ tmp
 venv
 .venv
 build
+
+# runit creates runtime supervision state beside service definitions.
+scripts/runit/*/supervise/
