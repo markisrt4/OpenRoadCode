@@ -13,6 +13,7 @@ from apps.carUi.screens.fm_radio_screen import FMRadioScreen
 from apps.carUi.screens.netflix_screen import NetflixScreen
 from apps.carUi.screens.offroad_dashboard_screen import OffroadDashboardScreen
 from apps.carUi.screens.scanner_screen import ScannerScreen
+from apps.carUi.screens.turn_by_turn_screen import TurnByTurnScreen
 from apps.carUi.screens.weather_screen import WeatherScreen
 from apps.carUi.screens.youtube_screen import YouTubeScreen
 from apps.carUi.screens.vehicle_gauges_screen import VehicleGaugesScreen
@@ -70,5 +71,6 @@ class TkCarUiScreenFactory:
             map_presentation=runtime.map_presentation,
         )
         vehicle_gauges = VehicleGaugesScreen(self._host, create_menu_tile=self._create_menu_tile, back_action=lambda: self._show_menu("gauges"))
+        turn_by_turn = TurnByTurnScreen(self._host, create_menu_tile=self._create_menu_tile, back_action=self._show_main_menu)
 
-        return CarUiScreens(aircraft=aircraft, weather=weather, lighting=lighting, fm_radio=fm_radio, scanner=scanner, spotify=spotify, netflix=netflix, youtube=youtube, offroad_dashboard=offroad_dashboard, vehicle_gauges=vehicle_gauges)
+        return CarUiScreens(aircraft=aircraft, weather=weather, lighting=lighting, fm_radio=fm_radio, scanner=scanner, spotify=spotify, netflix=netflix, youtube=youtube, offroad_dashboard=offroad_dashboard, vehicle_gauges=vehicle_gauges, turn_by_turn=turn_by_turn)
