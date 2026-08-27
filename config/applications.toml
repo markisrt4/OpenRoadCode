@@ -56,10 +56,3 @@ profile = "google-earth"
 startup = "lazy"
 target = "auxiliary"
 exclusive_group = "auxiliary"
-
-[apps.sdrpp]
-type = "native"
-enabled = true
-startup = "lazy"
-target = "auxiliary"
-exclusive_group = "sdr"
