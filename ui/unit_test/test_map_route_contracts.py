@@ -4,7 +4,6 @@
 """Tests for provider-neutral map and route-guidance contracts."""
 
 from dataclasses import FrozenInstanceError
-from datetime import datetime
 import unittest
 
 from ui.navigation import (
@@ -13,7 +12,6 @@ from ui.navigation import (
     LaneGuidance,
     LaneGuidanceUiIf,
     LaneGuidanceUiStub,
-    ManeuverType,
     MapMarker,
     MapMarkerKind,
     MapRequestHandlerIf,
@@ -22,17 +20,12 @@ from ui.navigation import (
     MapUiIf,
     MapUiStub,
     MapViewport,
-    NavigationStatus,
     RouteGeometry,
-    RouteGuidanceState,
     RouteGuidanceUiIf,
     RouteGuidanceUiStub,
-    RouteManeuver,
     RouteRequestHandlerIf,
     RouteRequestHandlerStub,
-    RouteSummary,
     TravelLane,
-    TravelMode,
 )
 
 
@@ -49,27 +42,12 @@ class MapRouteContractTest(unittest.TestCase):
         with self.assertRaises(FrozenInstanceError):
             state.loading = True  # type: ignore[misc]
 
-    def test_route_and_lane_values_cover_turn_by_turn_presentation(self) -> None:
-        maneuver = RouteManeuver(
-            ManeuverType.TURN_RIGHT,
-            "Turn right onto Main Street",
-            250.0,
-            street_name="Main Street",
-        )
-        state = RouteGuidanceState(
-            status=NavigationStatus.ACTIVE,
-            destination=GeoPoint(0.75, -1.44),
-            travel_mode=TravelMode.AUTO,
-            summary=RouteSummary(12_500.0, 900.0, datetime(2030, 1, 1, 12, 0)),
-            current_road="Oak Street",
-            next_maneuver=maneuver,
-        )
+    def test_lane_values_cover_turn_by_turn_presentation(self) -> None:
         lanes = LaneGuidance((
             TravelLane((LaneDirection.STRAIGHT,)),
             TravelLane((LaneDirection.RIGHT,), True, LaneDirection.RIGHT),
         ))
 
-        self.assertEqual(state.next_maneuver, maneuver)
         self.assertTrue(lanes.lanes[1].recommended)
 
     def test_interfaces_are_narrow_and_stubs_are_concrete(self) -> None:
@@ -79,7 +57,13 @@ class MapRouteContractTest(unittest.TestCase):
         )
         self.assertEqual(
             RouteGuidanceUiIf.__abstractmethods__,
-            {"set_route_guidance", "set_route_request_handler"},
+            {
+                "set_instruction",
+                "set_distance_to_maneuver",
+                "set_distance_remaining",
+                "set_off_route",
+                "set_route_complete",
+            },
         )
         self.assertEqual(
             LaneGuidanceUiIf.__abstractmethods__,
