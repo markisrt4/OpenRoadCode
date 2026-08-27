@@ -116,7 +116,11 @@ def test_valid_gps_fix_advances_guidance_and_session():
         publisher.publish.assert_called_once()
         topic, payload = publisher.publish.call_args.args
         assert topic == ROUTE_GUIDANCE_STATE_TOPIC
-        assert isinstance(payload, bytes)
+        assert payload["version"] == 1
+        assert payload["source"] == "test-navigation-guidance"
+        assert payload["data"]["instruction"] == "Continue"
+        assert payload["data"]["distance_to_maneuver_m"] is not None
+        assert payload["data"]["distance_remaining_m"] > 0.0
     finally:
         runtime.close()
 
