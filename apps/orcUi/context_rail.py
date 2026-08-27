@@ -31,14 +31,23 @@ class ContextPage:
 class ContextRail(tk.Frame):
     """Compact, user-switchable secondary information panel."""
 
-    def __init__(self, parent: tk.Misc) -> None:
+    WIDTH = 300
+
+    def __init__(
+        self,
+        parent: tk.Misc,
+        on_expand: Callable[[str], None] | None = None,
+    ) -> None:
         super().__init__(
             parent,
             bg=PANEL,
+            width=self.WIDTH,
             highlightthickness=1,
             highlightbackground=BORDER,
         )
+        self.grid_propagate(False)
 
+        self._on_expand = on_expand
         self._pages = (
             ContextPage("VEHICLE", GREEN, self._build_vehicle),
             ContextPage("TRIP", BLUE, self._build_trip),
@@ -74,15 +83,21 @@ class ContextRail(tk.Frame):
             row=0, column=0, sticky="w"
         )
         self._title.grid(row=0, column=1)
-        self._nav_button(header, "›", self._next_page).grid(
-            row=0, column=2, sticky="e"
-        )
+
+        controls = tk.Frame(header, bg=PANEL)
+        controls.grid(row=0, column=2, sticky="e")
+        if self._on_expand is not None:
+            self._nav_button(controls, "□", self._expand_page, width=2, font_size=12).pack(side=tk.LEFT)
+        self._nav_button(controls, "›", self._next_page).pack(side=tk.LEFT)
 
     @staticmethod
     def _nav_button(
         parent: tk.Misc,
         text: str,
         command: Callable[[], None],
+        *,
+        width: int = 3,
+        font_size: int = 16,
     ) -> tk.Button:
         return tk.Button(
             parent,
@@ -94,10 +109,14 @@ class ContextRail(tk.Frame):
             activeforeground=TEXT,
             relief=tk.FLAT,
             bd=0,
-            width=3,
-            font=("Sans", 16, "bold"),
+            width=width,
+            font=("Sans", font_size, "bold"),
             cursor="hand2",
         )
+
+    def _expand_page(self) -> None:
+        if self._on_expand is not None:
+            self._on_expand(self.selected_page)
 
     def _previous_page(self) -> None:
         self._page_index = (self._page_index - 1) % len(self._pages)
