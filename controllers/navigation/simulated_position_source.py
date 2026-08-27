@@ -73,6 +73,8 @@ class SimulatedPositionSource(PositionSourceIf):
                 latitude_deg=latitude,
                 longitude_deg=longitude,
                 altitude_m=180.0 + 8.0 * math.sin(phase * 0.5),
+                speed_mps=self._speed_mps + 1.5 * math.sin(phase),
+                course_deg=self._course_deg,
                 fix_mode=3,
                 satellites_visible=12,
                 satellites_used=9,

@@ -32,8 +32,6 @@ class PositionSnapshot(Protocol):
     latitude_deg: float | None
     longitude_deg: float | None
     altitude_m: float | None
-    speed_mps: float | None
-    course_deg: float | None
     fix_mode: int | None
     satellites_used: int | None
 
@@ -50,6 +48,7 @@ class NavigationSnapshot(Protocol):
     linear_acceleration_mps2: VectorSnapshot | None
     angular_velocity_rad_s: VectorSnapshot | None
     gps: PositionSnapshot | None
+    ground_speed_m_s: float | None
 
 
 def navigation_fields(
@@ -95,7 +94,7 @@ def navigation_fields(
         return tuple(fields)
     gps = state.gps if state is not None else None
     altitude = gps.altitude_m if gps else None
-    speed = gps.speed_mps if gps else None
+    speed = state.ground_speed_m_s if state is not None else None
     if unit_system == UnitSystem.IMPERIAL:
         altitude = meters_to_feet(altitude)
         altitude_unit = "ft"
@@ -110,7 +109,6 @@ def navigation_fields(
         ("Longitude", format_value(gps.longitude_deg if gps else None, "°", 6)),
         ("Altitude", format_value(altitude, altitude_unit, 1)),
         ("Ground speed", format_value(speed, speed_unit, 2)),
-        ("Course over ground", format_value(gps.course_deg if gps else None, "°", 1)),
         ("Satellites", str(gps.satellites_used) if gps and gps.satellites_used is not None else "--"),
     ))
     return tuple(fields)

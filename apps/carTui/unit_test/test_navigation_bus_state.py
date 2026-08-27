@@ -66,8 +66,6 @@ def test_position_and_motion_messages_populate_navigation_snapshot():
         latitude_deg=42.8028,
         longitude_deg=-83.0127,
         altitude_m=201.5,
-        speed_mps=12.5,
-        course_deg=87.0,
         fix_mode=3,
         satellites_visible=12,
         satellites_used=9,
@@ -89,8 +87,6 @@ def test_position_and_motion_messages_populate_navigation_snapshot():
     assert snapshot.gps.has_fix
     assert snapshot.gps.latitude_deg == pytest.approx(42.8028)
     assert snapshot.gps.longitude_deg == pytest.approx(-83.0127)
-    assert snapshot.gps.speed_mps == pytest.approx(12.5)
-    assert snapshot.gps.course_deg == pytest.approx(87.0)
     assert snapshot.gps.satellites_used == 9
     assert snapshot.ground_speed_m_s == pytest.approx(12.6)
     assert snapshot.vertical_speed_m_s == pytest.approx(0.4)

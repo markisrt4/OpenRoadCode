@@ -36,10 +36,6 @@ def position_message_to_state(message: PositionStateMessage) -> PositionState:
             None if data.longitude_rad is None else math.degrees(data.longitude_rad)
         ),
         altitude_m=data.altitude_m,
-        speed_mps=data.speed_m_s,
-        course_deg=(
-            None if data.course_rad is None else math.degrees(data.course_rad)
-        ),
         fix_mode=data.fix_mode,
         satellites_visible=data.satellites_visible,
         satellites_used=data.satellites_used,

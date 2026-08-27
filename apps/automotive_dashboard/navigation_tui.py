@@ -23,14 +23,9 @@ from messaging.contracts.navigation import (
     decode_position_state,
 )
 from messaging.message_dispatcher import MessageDispatcher
-from messaging.zeromq import ZeroMqSubscriber
 from messaging.zeromq.endpoints import LOCAL_SUBSCRIBER_ENDPOINT
-from services.navigation.zeromq_navigation_request_handler import (
-    ZeroMqNavigationRequestHandler,
-)
-from services.navigation.zeromq_navigation_command_server import (
-    DEFAULT_NAVIGATION_COMMAND_ENDPOINT,
-)
+from services.navigation.endpoints import DEFAULT_NAVIGATION_COMMAND_ENDPOINT
+from ui.navigation.navigation_request_handler_if import NavigationRequestHandlerIf
 
 
 _fields = navigation_fields
@@ -54,7 +49,7 @@ def _next_acceleration_mode(current: str) -> str:
 def _run(
     screen,
     state_cache: NavigationBusState,
-    commands: ZeroMqNavigationRequestHandler,
+    commands: NavigationRequestHandlerIf,
     refresh_seconds: float,
     gps_enabled: bool,
     acceleration_mode: str,
@@ -145,6 +140,8 @@ def parse_args() -> argparse.Namespace:
 
 
 def _build_dispatcher(endpoint: str, state: NavigationBusState) -> MessageDispatcher:
+    from messaging.zeromq.subscriber import ZeroMqSubscriber
+
     dispatcher = MessageDispatcher(ZeroMqSubscriber(endpoint), error_handler=state.set_error)
     dispatcher.register(ATTITUDE_STATE_TOPIC, decode_attitude_state, state.set_attitude)
     dispatcher.register(IMU_STATE_TOPIC, decode_imu_state, state.set_imu)
@@ -154,6 +151,10 @@ def _build_dispatcher(endpoint: str, state: NavigationBusState) -> MessageDispat
 
 
 def main() -> int:
+    from services.navigation.zeromq_navigation_request_handler import (
+        ZeroMqNavigationRequestHandler,
+    )
+
     args = parse_args()
     state = NavigationBusState()
     dispatcher = _build_dispatcher(args.endpoint, state)

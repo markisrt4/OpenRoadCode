@@ -3,7 +3,6 @@
 
 from __future__ import annotations
 
-import math
 import time
 import unittest
 from datetime import datetime, timezone
@@ -72,8 +71,6 @@ class NavigationMapFollowRuntimeTest(unittest.TestCase):
                 latitude_deg=42.8028,
                 longitude_deg=-83.0127,
                 altitude_m=250.0,
-                speed_mps=13.4,
-                course_deg=91.0,
                 fix_mode=3,
                 satellites_visible=12,
                 satellites_used=9,
@@ -95,8 +92,8 @@ class NavigationMapFollowRuntimeTest(unittest.TestCase):
         state = adapter.states[0]
         self.assertAlmostEqual(42.8028, state.latitude_deg or 0.0)
         self.assertAlmostEqual(-83.0127, state.longitude_deg or 0.0)
-        self.assertAlmostEqual(13.4, state.speed_mps or 0.0)
-        self.assertTrue(math.isclose(91.0, state.course_deg or 0.0))
+        self.assertIsNone(state.speed_mps)
+        self.assertIsNone(state.course_deg)
         self.assertEqual("simulation", state.source)
         self.assertEqual(3, state.fix_mode)
 

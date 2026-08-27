@@ -27,6 +27,7 @@ class _NavigationSnapshot:
     linear_acceleration_mps2: _Vector
     angular_velocity_rad_s: _Vector
     gps: GpsState | None = None
+    ground_speed_m_s: float | None = None
 
 
 class NavigationTuiTests(unittest.TestCase):
@@ -68,11 +69,10 @@ class NavigationTuiTests(unittest.TestCase):
                 latitude_deg=42.5,
                 longitude_deg=-83.0,
                 altitude_m=200.0,
-                speed_mps=10.0,
-                course_deg=180.0,
                 fix_mode=3,
                 satellites_used=8,
             ),
+            ground_speed_m_s=10.0,
         )
 
         fields = dict(

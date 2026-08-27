@@ -178,6 +178,16 @@ class NavigationController(NavigationControllerIf):
         """Accept the latest normalized geographic position update."""
         with self._state_lock:
             self._position_state = position_state
+            if (
+                position_state.speed_mps is not None
+                or position_state.course_deg is not None
+            ):
+                self._ground_motion_state = GroundMotionState(
+                    received_at=position_state.received_at,
+                    speed_mps=position_state.speed_mps,
+                    course_deg=position_state.course_deg,
+                    source=position_state.source,
+                )
 
     def update_gps_state(self, position_state: PositionState) -> None:
         """Compatibility alias for :meth:`update_position_state`."""
