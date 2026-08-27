@@ -1,0 +1,11 @@
+# OpenRoadCode navigation runtime configuration.
+# Installed to /etc/openroadcode/navigation.toml by install_navigation_stack.sh.
+
+[map_renderer]
+style = "/srv/openroadcode/maps/styles/openroadcode.json"
+cache = "/var/cache/openroadcode/maplibre.db"
+
+[vehicle_marker]
+# Supported modes: blue_dot, heading, vehicle
+mode = "vehicle"
+scale = 1.0

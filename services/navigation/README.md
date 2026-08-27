@@ -1,6 +1,6 @@
 # Navigation Service
 
-The navigation service is the single owner of the active navigation pipeline. It publishes navigation telemetry and accepts acknowledged navigation commands without requiring applications to know which IMU or GPS hardware is installed.
+The navigation service is the single owner of the active navigation sensor pipeline. It publishes normalized navigation telemetry and accepts acknowledged navigation commands without requiring applications to know which IMU, GPS, or route-planning implementation is installed.
 
 ## Runtime ownership
 
@@ -11,14 +11,36 @@ NavigationController
           |
           +--> NavigationStatePublisher --> ZeroMQ telemetry bus
           |
-          +--> NavigationCommandService <-- ZeroMQ REQ/REP client
+          +--> NavigationCommandService <-- ZeroMQ REQ/REP clients
+                                      |
+                                      +--> RoutePlanningControllerIf
 ```
 
-Applications should subscribe to public navigation topics for state and use `NavigationRequestHandlerIf` for commands. They should not construct navigation hardware merely to display telemetry or request calibration.
+Applications should subscribe to public navigation topics for state and use command/request interfaces for acknowledged operations. They should not construct navigation hardware merely to display telemetry, request calibration, or calculate a route.
+
+Route following is composed separately from raw sensor ownership:
+
+```text
+openroad.navigation.position
+          |
+RouteGuidanceRuntime
+          |
+RouteGuidanceController
+          |
+route_guidance.state
+          |
+NavigationSessionController
+          |
+ReroutePolicy
+          |
+NavigationCommandClient --> navigation.route.calculate
+```
+
+`NavigationSessionController` owns the active destination, travel mode, and route lifecycle. `RouteGuidanceController` owns route-relative geometry/state only. `ReroutePolicy` decides when a sustained off-route condition warrants recalculation; it does not call a route planner itself.
 
 ## Configuration
 
-Navigation composition is selected entirely through runtime TOML. There is no separate simulation code path in the service CLI.
+Navigation composition is selected through runtime TOML. There is no separate simulation code path in the service CLI.
 
 Physical example:
 
@@ -60,7 +82,7 @@ speed_mps = 13.4
 course_deg = 180.0
 ```
 
-Both configurations run the same `NavigationController` and publication path. Only the concrete input sources change.
+Both configurations run the same controller and publication path. Only the concrete input sources change.
 
 ## Start locally
 
@@ -84,58 +106,46 @@ python3 -m services.navigation.navigation_service_cli \
   --config config/runtime_simulation.toml
 ```
 
-The telemetry publisher endpoint comes from `[messaging].publisher_endpoint`. The navigation command endpoint defaults to `tcp://127.0.0.1:5560` unless overridden in the runtime TOML.
+The telemetry publisher endpoint comes from `[messaging].publisher_endpoint`. The navigation command endpoint defaults to `tcp://127.0.0.1:5560` unless overridden in runtime configuration.
 
 ## Public telemetry
 
-The service publishes one controller snapshot across the navigation contracts:
+The service publishes one controller snapshot across the normalized navigation contracts:
 
 - `openroad.navigation.position`
 - `openroad.navigation.motion`
 - `openroad.navigation.attitude`
 - `openroad.navigation.imu`
 
-See `messaging/README.md` and `docs/messaging/message_bus_idd.md` for subscriber examples and wire-contract details.
+Route following additionally publishes derived guidance state on:
+
+- `route_guidance.state`
+
+See `messaging/README.md`, `docs/messaging/message_bus_idd.md`, and `docs/idd/` for subscriber examples and wire-contract details.
 
 ## Commands
 
-Commands use ZeroMQ REQ/REP rather than the PUB/SUB telemetry bus because callers need acknowledgement and error reporting.
+Commands use ZeroMQ REQ/REP rather than the PUB/SUB telemetry bus because callers need acknowledgement, result data, and error reporting.
 
-The initial operations are:
+Supported operations include:
 
 - `navigation.calibrate_stationary`
 - `navigation.reset_heading`
+- `navigation.route.calculate`
 
-Application code should normally depend on the toolkit-independent request interface:
+`navigation.route.calculate` accepts an origin, destination, and travel mode and returns a `RouteResult` representation. `NavigationCommandClient.calculate_route()` is the normal programmatic client used by navigation-session rerouting.
 
-```python
-from ui.navigation.navigation_request_handler_if import NavigationRequestHandlerIf
+Application code for calibration/heading operations should normally depend on the toolkit-independent `NavigationRequestHandlerIf`. Route/session orchestration should depend on a route-calculation callable or client rather than constructing the route planner directly.
 
+The service executes commands against the same controller/service composition used for navigation ownership. This prevents UI processes from creating competing hardware or route-planning instances.
 
-def calibrate(handler: NavigationRequestHandlerIf) -> None:
-    handler.request_stationary_calibration()
+## Route guidance and rerouting
 
+`RouteGuidanceController` projects geographic positions onto the active route and reports progress, remaining distance, maneuver state, arrival, and route deviation. It uses separate off-route and on-route thresholds to provide hysteresis and avoid state flapping from ordinary GPS noise.
 
-def zero_heading(handler: NavigationRequestHandlerIf) -> None:
-    handler.request_heading_reset()
-```
+`ReroutePolicy` adds time-domain policy above that state. By default, an off-route condition must persist before a reroute is requested, and a cooldown prevents repeated recalculation attempts.
 
-A standalone process can use the ZeroMQ implementation:
-
-```python
-from services.navigation.zeromq_navigation_request_handler import (
-    ZeroMqNavigationRequestHandler,
-)
-
-handler = ZeroMqNavigationRequestHandler()
-try:
-    handler.request_stationary_calibration()
-    handler.request_heading_reset()
-finally:
-    handler.close()
-```
-
-The service executes both operations against the same navigation controller instance used for telemetry publication. This prevents UI processes from creating competing hardware/controller instances.
+When recalculation succeeds, `NavigationSessionController` installs the replacement `RouteResult` into `RouteGuidanceController` and can notify map/presentation composition through its route-changed callback.
 
 ## Shared consumer state
 
@@ -149,4 +159,6 @@ Register its setters with `MessageDispatcher`, then read `snapshot()` from the U
 
 ## Testing
 
-Navigation service unit tests cover command semantics, REQ/REP transport, shared controller ownership, runtime composition, and configuration parsing. Messaging integration tests cover navigation telemetry through the broker.
+Portable unit and component coverage includes route planning, route/map presentation, navigation messaging, route guidance, off-route hysteresis/recovery, navigation-session lifecycle, and simulated rerouting through the real ZeroMQ command boundary.
+
+Some integration tests are intentionally platform/environment dependent. Tests involving the Python `gps` binding, real gpsd/GNSS input, a live Valhalla service, or the graphical MapLibre renderer belong on the Raspberry Pi or another host with those dependencies installed.

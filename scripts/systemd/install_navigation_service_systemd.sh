@@ -10,6 +10,7 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd -- "$SCRIPT_DIR/../.." && pwd)"
 WRAPPER_SCRIPT="$PROJECT_ROOT/scripts/runtime/start_navigation_service.sh"
 RUN_USER="${SUDO_USER:-${USER:-}}"
+PYTHON_BIN="${OPENROADCODE_PYTHON:-python3}"
 
 if [[ ! -f "$WRAPPER_SCRIPT" ]]; then
     echo "Wrapper script not found: $WRAPPER_SCRIPT" >&2
@@ -35,15 +36,15 @@ chmod +x "$WRAPPER_SCRIPT"
 cat > "$SERVICE_FILE" <<EOF
 [Unit]
 Description=OpenRoadCode Navigation Service
-Requires=openroadcode-message-broker.service
-After=openroadcode-message-broker.service network.target gpsd.service
-Wants=network.target
+After=network.target gpsd.service openroadcode-zmq.service valhalla.service
+Wants=network.target openroadcode-zmq.service
 
 [Service]
 Type=simple
 User=$RUN_USER
 WorkingDirectory=$PROJECT_ROOT
 Environment=PYTHONUNBUFFERED=1
+Environment=OPENROADCODE_PYTHON=$PYTHON_BIN
 ExecStart=$WRAPPER_SCRIPT
 Restart=on-failure
 RestartSec=2

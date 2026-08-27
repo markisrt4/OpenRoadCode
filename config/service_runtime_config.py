@@ -78,6 +78,14 @@ class NavigationPublishConfig:
 
 
 @dataclass(frozen=True, slots=True)
+class RoutePlanningConfig:
+    enabled: bool = True
+    backend: str = "valhalla"
+    base_url: str = "http://127.0.0.1:8002"
+    timeout_seconds: float = 10.0
+
+
+@dataclass(frozen=True, slots=True)
 class NavigationServiceRuntimeConfig:
     enabled: bool = True
     rate_hz: float = 10.0
@@ -86,6 +94,7 @@ class NavigationServiceRuntimeConfig:
     gps: GpsInputConfig = GpsInputConfig()
     solution: NavigationSolutionConfig = NavigationSolutionConfig()
     publish: NavigationPublishConfig = NavigationPublishConfig()
+    route_planning: RoutePlanningConfig = RoutePlanningConfig()
 
 
 @dataclass(frozen=True, slots=True)
@@ -158,6 +167,7 @@ class ServiceRuntimeConfigParser:
             gps=self._parse_gps(inputs.get("gps", {})),
             solution=self._parse_solution(data.get("solution", {})),
             publish=self._parse_publish(data.get("publish", {})),
+            route_planning=self._parse_route_planning(data.get("route_planning", {})),
         )
 
     def _parse_automotive(self, value) -> AutomotiveServiceRuntimeConfig:
@@ -250,6 +260,18 @@ class ServiceRuntimeConfigParser:
         return NavigationPublishConfig(
             enabled=self._bool(data.get("enabled", True), "services.navigation.publish.enabled"),
             source=self._string(data.get("source", "navigation-service"), "services.navigation.publish.source"),
+        )
+
+    def _parse_route_planning(self, value) -> RoutePlanningConfig:
+        data = self._table(value, "services.navigation.route_planning")
+        backend = self._string(data.get("backend", "valhalla"), "services.navigation.route_planning.backend").lower()
+        if backend != "valhalla":
+            raise ServiceRuntimeConfigError("services.navigation.route_planning.backend must be valhalla")
+        return RoutePlanningConfig(
+            enabled=self._bool(data.get("enabled", True), "services.navigation.route_planning.enabled"),
+            backend=backend,
+            base_url=self._string(data.get("base_url", "http://127.0.0.1:8002"), "services.navigation.route_planning.base_url"),
+            timeout_seconds=self._positive(data.get("timeout_seconds", 10.0), "services.navigation.route_planning.timeout_seconds"),
         )
 
     @staticmethod

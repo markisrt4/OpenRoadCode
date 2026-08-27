@@ -39,6 +39,16 @@ RUN apt-get update \
         libzstd-dev \
     && rm -rf /var/lib/apt/lists/*
 
+# Keep vector-tile validation dependencies isolated from the distro Python.
+RUN python3 -m venv /opt/openroadcode-map-validator \
+    && /opt/openroadcode-map-validator/bin/pip install --no-cache-dir \
+       mapbox-vector-tile==2.2.0
+ENV PATH="/opt/openroadcode-map-validator/bin:${PATH}"
+# Decode a representative cross-zoom sample during normal map builds. Set to
+# 0 to disable or OPENROAD_VECTOR_TILE_FULL_SCAN=1 for exhaustive validation.
+ENV OPENROAD_VECTOR_TILE_SCAN_LIMIT=2000
+ENV OPENROAD_VECTOR_TILE_FULL_SCAN=0
+
 RUN git clone https://github.com/systemed/tilemaker.git /opt/tilemaker \
      && git -C /opt/tilemaker checkout "${TILEMAKER_COMMIT}" \
      && cmake \
