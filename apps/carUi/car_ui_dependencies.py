@@ -11,15 +11,9 @@ import logging
 
 from apps.carUi.runtime.car_ui_runtime import CarUiRuntime
 from controllers.audio.audio_controller_if import AudioControllerIf
-from controllers.automotive import VehicleStateSourceIf
 from controllers.image import ImageCache
 from controllers.lighting.lighting_controller_if import LightingControllerIf
 from controllers.lyrics import LrclibLyricsClient
-from controllers.navigation import (
-    NavigationControllerIf,
-    PositionSourceIf,
-    UnconfiguredNavigationController,
-)
 from controllers.spotify import SpotifyControllerIf
 from controllers.video import MusicVideoController, NetflixPlayer, YouTubePlayer
 from hardware_io.rotary_encoder import RotaryEncoderIf
@@ -32,10 +26,9 @@ LOGGER = logging.getLogger(__name__)
 
 @dataclass(frozen=True, slots=True)
 class CarUiDependencies:
-    """Controller and hardware objects supplied to the Car UI."""
+    """Controllers and local input hardware supplied to the Car UI consumer."""
 
     runtime: CarUiRuntime
-    position_source: PositionSourceIf
     audio_controller: AudioControllerIf
     spotify_controller: SpotifyControllerIf
     spotify_image_cache: ImageCache
@@ -47,13 +40,9 @@ class CarUiDependencies:
     rotary_encoders: Sequence[RotaryEncoderIf]
     volume_encoder_index: int
     media_display: str | None = None
-    navigation_controller: NavigationControllerIf = field(
-        default_factory=UnconfiguredNavigationController
-    )
     keyboards: Sequence[KeyboardReaderIf] = ()
     push_buttons: Sequence[PushButtonIf] = ()
     push_button_actions: Sequence[str] = ()
-    vehicle_state_source: VehicleStateSourceIf | None = None
     _closed: bool = field(default=False, init=False, repr=False, compare=False)
 
     def close(self) -> None:
@@ -75,14 +64,7 @@ class CarUiDependencies:
         )
         self._close_resource("Netflix player", self.netflix_player.stop)
         self._close_resource("YouTube player", self.youtube_player.stop)
-        self._close_resource("navigation controller", self.navigation_controller.stop)
         self._close_resource("lighting controller", self.lighting_controller.close)
-        self._close_resource("position source", self.position_source.stop)
-        if self.vehicle_state_source is not None:
-            self._close_resource(
-                "vehicle telemetry source",
-                self.vehicle_state_source.disconnect,
-            )
 
     @staticmethod
     def _close_resource(name: str, close: Callable[[], object]) -> None:

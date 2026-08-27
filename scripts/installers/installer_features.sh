@@ -12,9 +12,11 @@ get_known_features() {
   cat <<'EOF'
 base
 desktop-ui
+web-ui
 browser
 vnc
 input
+audio
 gps
 rtl-sdr
 streamlit
@@ -32,16 +34,16 @@ EOF
 get_all_features_for_target() {
   local target="$1"
   case "$target" in
-    rpi4|rpi5)
-      get_known_features
-      ;;
+    rpi4|rpi5) get_known_features ;;
     linux-dev)
       cat <<'EOF'
 base
 desktop-ui
+web-ui
 browser
 vnc
 input
+audio
 gps
 rtl-sdr
 streamlit
@@ -54,15 +56,12 @@ spotify
 sdrpp
 EOF
       ;;
-    *)
-      return 1
-      ;;
+    *) return 1 ;;
   esac
 }
 
 is_known_feature() {
-  local requested="$1"
-  local feature
+  local requested="$1" feature
   while read -r feature; do
     [[ "$requested" == "$feature" ]] && return 0
   done < <(get_known_features)
@@ -73,7 +72,8 @@ get_feature_dependencies() {
   local feature="$1"
   case "$feature" in
     vnc) echo "desktop-ui" ;;
-    sdrpp) echo "rtl-sdr desktop-ui" ;;
+    spotify) echo "audio" ;;
+    sdrpp) echo "rtl-sdr desktop-ui audio" ;;
     adsb) echo "rtl-sdr" ;;
     *) echo "" ;;
   esac
@@ -83,28 +83,29 @@ get_feature_packages() {
   local feature="$1"
   case "$feature" in
     base)
-      echo "git curl wget ca-certificates python3 python3-venv python3-pip"
+      echo "git curl wget ca-certificates sudo procps python3 python3-venv python3-pip"
       ;;
     desktop-ui)
-      echo "python3-tk dbus-x11 xauth xterm x11-apps wmctrl openbox xfce4 xfce4-goodies"
+      echo "python3-tk dbus-x11 xauth xterm x11-apps x11-utils wmctrl openbox xfce4 xfce4-goodies"
       ;;
-    browser)
+    web-ui|browser|input|streamlit)
       echo ""
       ;;
     vnc)
       echo "tigervnc-standalone-server tigervnc-common"
       ;;
-    input)
-      echo ""
+    audio)
+      case "${OPENROAD_INSTALL_TARGET:-linux-dev}" in
+        rpi4|rpi5) echo "wireplumber pipewire-pulse alsa-utils" ;;
+        linux-dev) echo "pulseaudio-utils" ;;
+        *) echo "" ;;
+      esac
       ;;
     gps)
       echo "gpsd gpsd-clients python3-gps"
       ;;
     rtl-sdr)
       echo "rtl-sdr soapysdr-tools soapysdr-module-rtlsdr"
-      ;;
-    streamlit)
-      echo ""
       ;;
     adsb)
       echo "readsb"
@@ -119,12 +120,7 @@ get_feature_packages() {
       echo "i2c-tools"
       ;;
     spotify)
-      case "${OPENROAD_INSTALL_TARGET:-linux-dev}" in
-        rpi4) echo "wireplumber pipewire-pulse alsa-utils" ;;
-        rpi5) echo "wireplumber pipewire-pulse alsa-utils usbutils" ;;
-        linux-dev) echo "pulseaudio-utils" ;;
-        *) echo "" ;;
-      esac
+      echo ""
       ;;
     sdrpp)
       echo "sdrpp"
@@ -139,12 +135,15 @@ get_feature_python_packages() {
   local feature="$1"
   case "$feature" in
     base)
-      printf '%s\n' requests tomli
+      printf '%s\n' requests tomli pyzmq
       ;;
     desktop-ui)
       printf '%s\n' Pillow
       ;;
-    browser|vnc|adsb|spotify|sdrpp)
+    web-ui)
+      printf '%s\n' Flask
+      ;;
+    browser|vnc|adsb|audio|spotify|sdrpp)
       echo ""
       ;;
     input)
@@ -165,8 +164,11 @@ get_feature_python_packages() {
     automotive)
       printf '%s\n' pyserial
       ;;
-    imu|environmental)
-      echo ""
+    imu)
+      printf '%s\n' adafruit-blinka adafruit-circuitpython-mpu6050
+      ;;
+    environmental)
+      printf '%s\n' adafruit-blinka adafruit-circuitpython-bmp3xx
       ;;
     raspberry-pi)
       printf '%s\n' \
@@ -183,21 +185,23 @@ get_feature_python_packages() {
 get_feature_help() {
   cat <<'EOF'
 Available features:
-  base          Portable command-line runtime and Python environment
+  base          Portable command-line runtime, ZeroMQ messaging, and Python environment
   desktop-ui    Tk, X11, Openbox, and XFCE desktop support
+  web-ui        Flask-based OpenRoadCode browser frontend
   browser       Chromium browser support
   vnc           TigerVNC server support (includes desktop-ui)
   input         Linux input/evdev support
+  audio         PipeWire/PulseAudio command-line audio control
   gps           GPSD and Python GPS/navigation support
   rtl-sdr       RTL-SDR device and SoapySDR support
   streamlit     Streamlit dashboard support
   adsb          readsb ADS-B support (includes rtl-sdr)
   bluetooth     Bluetooth system and Python support
   automotive    Serial and CAN-bus support
-  imu           Generic I2C inertial-sensor tooling
-  environmental Generic I2C environmental-sensor tooling
-  spotify       Spotify integration extras
-  sdrpp         SDR++ support (includes RTL-SDR and desktop-ui)
+  imu           MPU-6050 and Adafruit Blinka I2C support
+  environmental BMP3XX and Adafruit Blinka I2C support
+  spotify       Spotify integration extras (includes audio)
+  sdrpp         SDR++ support (includes RTL-SDR, desktop-ui, and audio)
   raspberry-pi  Raspberry Pi GPIO, I2C, Blinka, and Seesaw support
 EOF
 }

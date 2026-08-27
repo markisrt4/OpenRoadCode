@@ -9,8 +9,9 @@ from unittest.mock import Mock, patch
 
 from apps.carTui.car_tui import CarTui
 from apps.carTui.main import build_dependencies, main
-from controllers.automotive import SimulatedVehicleStateSource
-from controllers.navigation import SimulatedNavigationController
+from apps.carTui.navigation_bus_state import NavigationBusState
+from apps.carTui.vehicle_bus_state import VehicleBusState
+from messaging.message_dispatcher import MessageDispatcher
 
 
 class FakeWindow:
@@ -58,17 +59,20 @@ class CarTuiTest(unittest.TestCase):
         app = CarTui(Mock())
         app.run(FakeWindow([ord("q")]))
 
-    def test_demo_builds_only_software_simulators(self) -> None:
+    def test_demo_uses_bus_navigation_and_vehicle_state(self) -> None:
         dependencies = build_dependencies(Namespace(simulate=True))
-
-        self.assertIsInstance(
-            dependencies.navigation_controller,
-            SimulatedNavigationController,
-        )
-        self.assertIsInstance(
-            dependencies.vehicle_manager,
-            SimulatedVehicleStateSource,
-        )
+        try:
+            self.assertIsInstance(
+                dependencies.navigation_state,
+                NavigationBusState,
+            )
+            self.assertIsInstance(dependencies.vehicle_state, VehicleBusState)
+            self.assertIsInstance(
+                dependencies.telemetry_dispatcher,
+                MessageDispatcher,
+            )
+        finally:
+            dependencies.close()
 
     @patch("apps.carTui.main.curses.wrapper")
     @patch("apps.carTui.main.parse_args")
@@ -76,7 +80,11 @@ class CarTuiTest(unittest.TestCase):
     def test_demo_enables_simulated_gps_display(
         self, build_dependencies_mock, parse_args_mock, wrapper_mock
     ) -> None:
-        parse_args_mock.return_value = Namespace(simulate=True, gps=False)
+        parse_args_mock.return_value = Namespace(
+            simulate=True,
+            gps=False,
+            units="imperial",
+        )
         dependencies = build_dependencies_mock.return_value
 
         self.assertEqual(main(), 0)

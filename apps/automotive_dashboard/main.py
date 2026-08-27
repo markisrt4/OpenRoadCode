@@ -1,19 +1,30 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 
+"""Standalone graphical consumer of public vehicle telemetry."""
+
+from __future__ import annotations
+
 import argparse
 import tkinter as tk
 
 from apps.automotive_dashboard.automotive_dashboard_window import (
     AutomotiveDashboardWindow,
 )
-from controllers.automotive.obd2 import Elm327ObdAdapter, Obd2Manager
-from hardware_io.automotive.elm327 import Elm327Device
-from protocols.obd2 import Obd2CommandError, Obd2ConnectionError
+from messaging.contracts.automotive import (
+    VEHICLE_STATE_TOPIC,
+    VehicleStateMessage,
+    decode_vehicle_state,
+)
+from messaging.message_dispatcher import MessageDispatcher
+from messaging.zeromq import ZeroMqSubscriber
+from messaging.zeromq.endpoints import LOCAL_SUBSCRIBER_ENDPOINT
 
 
 class AutomotiveDashboardApp:
-    def __init__(self, port: str, baud: int, update_ms: int) -> None:
+    """Render vehicle-state messages delivered by the OpenRoadCode bus."""
+
+    def __init__(self, endpoint: str) -> None:
         self._root = tk.Tk()
         self._root.title("Automotive Dashboard")
         self._root.geometry("800x480")
@@ -22,59 +33,49 @@ class AutomotiveDashboardApp:
         self._window = AutomotiveDashboardWindow(self._root)
         self._window.pack(fill=tk.BOTH, expand=True)
 
-        self._update_ms = update_ms
-
-        device = Elm327Device(port=port, baud=baud)
-        self._manager = Obd2Manager(Elm327ObdAdapter(device))
-        self._connected = False
+        self._dispatcher = MessageDispatcher(
+            ZeroMqSubscriber(endpoint),
+            error_handler=self._on_bus_error,
+        )
+        self._dispatcher.register(
+            VEHICLE_STATE_TOPIC,
+            decode_vehicle_state,
+            self._on_vehicle_message,
+        )
 
     def run(self) -> None:
-        try:
-            self._manager.connect()
-            self._connected = True
-        except Obd2ConnectionError as ex:
-            print(f"ERROR: {ex}")
-
         self._root.protocol("WM_DELETE_WINDOW", self._on_close)
-        self._schedule_update()
+        self._dispatcher.start()
         self._root.mainloop()
 
-    def _schedule_update(self) -> None:
-        if self._connected:
-            try:
-                state = self._manager.read_state()
-                self._window.update_vehicle_state(state)
-            except Obd2CommandError as ex:
-                print(f"WARNING: {ex}")
-            except Obd2ConnectionError as ex:
-                print(f"ERROR: {ex}")
-                self._connected = False
+    def _on_vehicle_message(self, message: VehicleStateMessage) -> None:
+        # Dispatcher handlers run on executor threads. Tk widgets belong to the
+        # Tk thread, so marshal the update through after().
+        self._root.after(0, self._window.update_vehicle_state, message.data)
 
-        self._root.after(self._update_ms, self._schedule_update)
+    def _on_bus_error(self, topic: str, error: Exception) -> None:
+        print(f"WARNING: {topic}: {type(error).__name__}: {error}")
 
     def _on_close(self) -> None:
-        if self._connected:
-            self._manager.disconnect()
-
+        self._dispatcher.close()
         self._root.destroy()
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Automotive dashboard app.")
-    parser.add_argument("--port", default="/dev/rfcomm0")
-    parser.add_argument("--baud", type=int, default=38400)
-    parser.add_argument("--update-ms", type=int, default=500)
+    parser = argparse.ArgumentParser(
+        description="Display OpenRoadCode vehicle-state bus telemetry."
+    )
+    parser.add_argument(
+        "--endpoint",
+        default=LOCAL_SUBSCRIBER_ENDPOINT,
+        help="ZeroMQ broker subscriber endpoint",
+    )
     return parser.parse_args()
 
 
 def main() -> None:
     args = parse_args()
-    app = AutomotiveDashboardApp(
-        port=args.port,
-        baud=args.baud,
-        update_ms=args.update_ms,
-    )
-    app.run()
+    AutomotiveDashboardApp(args.endpoint).run()
 
 
 if __name__ == "__main__":

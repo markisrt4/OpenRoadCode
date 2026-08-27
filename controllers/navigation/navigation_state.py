@@ -17,8 +17,6 @@ class PositionState:
     latitude_deg: float | None = None
     longitude_deg: float | None = None
     altitude_m: float | None = None
-    speed_mps: float | None = None
-    course_deg: float | None = None
     fix_mode: int | None = None
     satellites_visible: int | None = None
     satellites_used: int | None = None
@@ -32,7 +30,20 @@ class PositionState:
         return self.fix_mode is not None and self.fix_mode >= 2
 
 
-# Compatibility name for existing navigation consumers.
+@dataclass(frozen=True, slots=True)
+class GroundMotionState:
+    """Represent motion measured relative to the Earth's surface."""
+
+    received_at: datetime = field(default_factory=datetime.now)
+    speed_mps: float | None = None
+    course_deg: float | None = None
+    speed_accuracy_mps: float | None = None
+    course_accuracy_deg: float | None = None
+    source: str = "unknown"
+
+
+# Compatibility name for existing navigation consumers while callers migrate
+# from GPS-specific terminology to provider-neutral position terminology.
 GpsState = PositionState
 
 
@@ -50,7 +61,7 @@ class OrientationState:
 
 @dataclass(frozen=True, slots=True)
 class NavigationState:
-    """Represent one vehicle orientation and motion sample."""
+    """Represent one vehicle navigation solution sample."""
 
     timestamp: datetime
     heading_deg: float
@@ -59,4 +70,10 @@ class NavigationState:
     acceleration_mps2: Vector3
     linear_acceleration_mps2: Vector3
     angular_velocity_rad_s: Vector3
-    gps: PositionState | None = None
+    position: PositionState | None = None
+    ground_motion: GroundMotionState | None = None
+
+    @property
+    def gps(self) -> PositionState | None:
+        """Compatibility alias for legacy callers expecting ``state.gps``."""
+        return self.position

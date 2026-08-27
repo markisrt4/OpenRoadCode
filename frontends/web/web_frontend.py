@@ -3,10 +3,11 @@
 
 """Flask renderer for toolkit-independent OpenRoadCode menu models."""
 from __future__ import annotations
+import json
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
-from flask import Flask, abort, jsonify, redirect, render_template_string, request, send_from_directory, url_for
+from flask import Flask, Response, abort, jsonify, redirect, render_template_string, request, send_from_directory, stream_with_context, url_for
 from markupsafe import Markup
 from frontends.web.screen_catalog import WebScreen, create_web_screens
 from frontends.web.spotify_screen import render_spotify_screen
@@ -19,7 +20,7 @@ PAGE = """<!doctype html><meta name=viewport content='width=device-width,initial
 SCREEN = """<!doctype html><meta name=viewport content='width=device-width,initial-scale=1'><style>{{style}}</style><header><div class=bar><a class=back href='{{back}}'>‹</a><div class=heading><div class=title>{{screen.title}}</div><div class=subtitle>{{screen.subtitle}}</div></div></div></header><main>{{body}}</main>"""
 
 
-def create_web_frontend(pages: Mapping[str, MenuPage], *, root_page: str="main", screens: Mapping[str, WebScreen]|None=None, navigation_session: Any|None=None, spotify_session: Any|None=None, lighting_session: Any|None=None) -> Flask:
+def create_web_frontend(pages: Mapping[str, MenuPage], *, root_page: str="main", screens: Mapping[str, WebScreen]|None=None, navigation_session: Any|None=None, navigation_ui_state: Any|None=None, vehicle_ui_state: Any|None=None, spotify_session: Any|None=None, lighting_session: Any|None=None) -> Flask:
     if root_page not in pages: raise ValueError(f"Unknown root page: {root_page}")
     screen_map=dict(screens or create_web_screens())
     web_dir=Path(__file__).resolve().parent
@@ -69,8 +70,21 @@ def create_web_frontend(pages: Mapping[str, MenuPage], *, root_page: str="main",
         return jsonify(ok=True,source=state.source)
     @app.get("/api/navigation/state")
     def navigation_state():
-        if navigation_session is None: abort(503)
-        return jsonify(navigation_session.as_dict())
+        if navigation_ui_state is None: abort(503)
+        return jsonify(navigation_ui_state.as_dict())
+    @app.get("/api/navigation/events")
+    def navigation_events():
+        if navigation_ui_state is None: abort(503)
+        return _state_event_response(navigation_ui_state, "navigation")
+
+    @app.get("/api/vehicle/state")
+    def vehicle_state():
+        if vehicle_ui_state is None: abort(503)
+        return jsonify(vehicle_ui_state.as_dict())
+    @app.get("/api/vehicle/events")
+    def vehicle_events():
+        if vehicle_ui_state is None: abort(503)
+        return _state_event_response(vehicle_ui_state, "vehicle")
 
     @app.get("/api/lighting/state")
     def lighting_state():
@@ -127,3 +141,26 @@ def create_web_frontend(pages: Mapping[str, MenuPage], *, root_page: str="main",
     @app.get("/healthz")
     def healthz(): return jsonify(status="ok",frontend="web",screens=len(screen_map))
     return app
+
+
+def _state_event_response(state: Any, event_name: str) -> Response:
+    @stream_with_context
+    def stream():
+        generation, snapshot = state.versioned_snapshot()
+        yield _sse_event(event_name, snapshot.as_dict(), event_id=generation)
+        while True:
+            update = state.wait_for_update(generation, timeout_s=15.0)
+            if update is None:
+                yield ": keep-alive\n\n"
+                continue
+            generation, snapshot = update
+            yield _sse_event(event_name, snapshot.as_dict(), event_id=generation)
+
+    response = Response(stream(), mimetype="text/event-stream")
+    response.headers["Cache-Control"] = "no-cache"
+    response.headers["X-Accel-Buffering"] = "no"
+    return response
+
+
+def _sse_event(event: str, payload: Mapping[str, Any], *, event_id: int) -> str:
+    return f"id: {event_id}\nevent: {event}\ndata: {json.dumps(payload, separators=(',', ':'))}\n\n"

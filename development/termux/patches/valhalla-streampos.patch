@@ -1,0 +1,12 @@
+--- a/src/mjolnir/graphtilebuilder.cc
++++ b/src/mjolnir/graphtilebuilder.cc
+@@ -477,7 +477,8 @@ void GraphTileBuilder::StoreTileData() {
+   for (const auto& edgeinfo : edgeinfo_list_) {
+     in_mem << edgeinfo;
+   }
+-  int64_t edge_info_size = in_mem.tellp() - current_size;
++  const std::streamoff current_pos = in_mem.tellp();
++  const int64_t edge_info_size = static_cast<int64_t>(current_pos) - current_size;
+ 
+   // Write the names
+   header_builder_.set_textlist_offset(header_builder_.edgeinfo_offset() + edge_info_size);

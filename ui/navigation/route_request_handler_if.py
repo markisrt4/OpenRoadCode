@@ -7,7 +7,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Sequence
 
 from ui.navigation.map_ui_if import GeoPoint
-from ui.navigation.route_guidance_ui_if import TravelMode
+from ui.navigation.route_types import TravelMode
 
 
 class RouteRequestHandlerIf(ABC):

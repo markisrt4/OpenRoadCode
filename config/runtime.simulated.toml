@@ -1,0 +1,165 @@
+# OpenRoadCode simulated runtime profile
+#
+# Use this profile for development and bench testing without navigation hardware.
+# It intentionally keeps the production/default runtime.toml untouched.
+
+[runtime]
+remote_display = ":2"
+auxiliary_display = ":0"
+# media_display = ":0"
+
+[messaging]
+publisher_endpoint = "tcp://127.0.0.1:5556"
+subscriber_endpoint = "tcp://127.0.0.1:5557"
+
+[services.navigation]
+enabled = true
+rate_hz = 10.0
+command_endpoint = "tcp://127.0.0.1:5560"
+
+[services.navigation.inputs.imu]
+source = "simulation"
+device = "mpu6050"
+address = 0x68
+
+[services.navigation.inputs.imu.simulation]
+profile = "driving"
+
+[services.navigation.inputs.gps]
+source = "simulation"
+device = "gpsd"
+host = "127.0.0.1"
+port = "2947"
+
+[services.navigation.inputs.gps.simulation]
+profile = "driving"
+latitude_deg = 42.8028
+longitude_deg = -83.0127
+speed_mps = 13.4
+course_deg = 180.0
+
+[services.navigation.solution]
+algorithm = "complementary_filter"
+
+[services.navigation.solution.complementary_filter]
+time_constant_s = 0.5
+heading_reference = "relative"
+
+[services.navigation.publish]
+enabled = true
+source = "navigation-service-simulated"
+
+[audio]
+output = "auto"
+
+[image_cache]
+directory = "~/.cache/openroadcode/images"
+max_entries = 24
+
+[position_cache]
+enabled = true
+directory = "~/.cache/openroadcode/position"
+max_age_seconds = 604800
+
+[rigctl]
+host = "127.0.0.1"
+port = 4532
+
+[environmental.barometric_sensor]
+driver = "bmp388"
+address = 0x77
+
+[input.rotary_encoders]
+volume_index = 0
+
+[input.keyboard]
+enabled = false
+
+[[input.rotary_encoders.devices]]
+driver = "seesaw"
+address = 0x36
+
+[[input.rotary_encoders.devices]]
+driver = "seesaw"
+address = 0x37
+
+[[input.rotary_encoders.devices]]
+driver = "seesaw"
+address = 0x38
+
+[[radios]]
+key = "fm_radio"
+config = "fm_radio.json"
+backend = "rigctl"
+launcher = "sdrpp"
+enabled = true
+
+[[radios]]
+key = "airband"
+config = "airband_am.json"
+backend = "rigctl"
+launcher = "sdrpp"
+enabled = true
+
+[[radios]]
+key = "weather_band"
+config = "weather_band.json"
+backend = "rigctl"
+launcher = "sdrpp"
+enabled = true
+
+[[radios]]
+key = "police_fire"
+config = "police_fire.json"
+backend = "rigctl"
+launcher = "sdrpp"
+enabled = true
+
+[[radios]]
+key = "railroad"
+config = "railroad.json"
+backend = "rigctl"
+launcher = "sdrpp"
+enabled = true
+
+[[radios]]
+key = "ham_2m"
+config = "ham_2m.json"
+backend = "rigctl"
+launcher = "sdrpp"
+enabled = true
+
+[[radios]]
+key = "ham_70cm"
+config = "ham_70cm.json"
+backend = "rigctl"
+launcher = "sdrpp"
+enabled = true
+
+[[radios]]
+key = "gmrs"
+config = "gmrs.json"
+backend = "rigctl"
+launcher = "sdrpp"
+enabled = true
+
+[[radios]]
+key = "frs"
+config = "frs.json"
+backend = "rigctl"
+launcher = "sdrpp"
+enabled = true
+
+[[radios]]
+key = "marine"
+config = "marine.json"
+backend = "rigctl"
+launcher = "sdrpp"
+enabled = true
+
+[[radios]]
+key = "cb"
+config = "cb.json"
+backend = "rigctl"
+launcher = "sdrpp"
+enabled = true

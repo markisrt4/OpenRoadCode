@@ -8,12 +8,16 @@ from datetime import datetime
 import math
 
 from controllers.navigation.navigation_controller_stub import NavigationControllerStub
-from controllers.navigation.navigation_state import NavigationState, PositionState
+from controllers.navigation.navigation_state import (
+    GroundMotionState,
+    NavigationState,
+    PositionState,
+)
 from hardware_io.imu import Vector3
 
 
 class SimulatedNavigationController(NavigationControllerStub):
-    """Generate changing attitude, motion, and GPS values on every read."""
+    """Generate changing attitude, motion, position, and ground motion."""
 
     def __init__(self, step_radians: float = 0.08) -> None:
         zero = Vector3(0.0, 0.0, 0.0)
@@ -26,16 +30,19 @@ class SimulatedNavigationController(NavigationControllerStub):
                 acceleration_mps2=Vector3(0.0, 0.0, 9.80665),
                 linear_acceleration_mps2=zero,
                 angular_velocity_rad_s=zero,
-                gps=PositionState(
+                position=PositionState(
                     latitude_deg=42.3314,
                     longitude_deg=-83.0458,
                     altitude_m=180.0,
-                    speed_mps=0.0,
-                    course_deg=0.0,
                     fix_mode=3,
                     satellites_visible=12,
                     satellites_used=9,
                     accuracy_m=3.0,
+                    source="simulation",
+                ),
+                ground_motion=GroundMotionState(
+                    speed_mps=0.0,
+                    course_deg=0.0,
                     source="simulation",
                 ),
             )
@@ -54,11 +61,14 @@ class SimulatedNavigationController(NavigationControllerStub):
             0.8 * math.cos(self._phase),
             0.15 * math.sin(self._phase * 0.5),
         )
-        gps = replace(
-            current.gps,
+        position = replace(
+            current.position,
             latitude_deg=42.3314 + 0.002 * math.sin(self._phase * 0.1),
             longitude_deg=-83.0458 + 0.002 * math.cos(self._phase * 0.1),
             altitude_m=180.0 + 8.0 * math.sin(self._phase * 0.2),
+        )
+        ground_motion = replace(
+            current.ground_motion,
             speed_mps=8.0 + 3.0 * math.sin(self._phase * 0.4),
             course_deg=heading,
         )
@@ -71,7 +81,8 @@ class SimulatedNavigationController(NavigationControllerStub):
             acceleration_mps2=Vector3(linear.x, linear.y, 9.80665 + linear.z),
             linear_acceleration_mps2=linear,
             angular_velocity_rad_s=Vector3(0.01, 0.02, 0.04),
-            gps=gps,
+            position=position,
+            ground_motion=ground_motion,
         )
         self.set_state(state)
         return state

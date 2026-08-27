@@ -8,6 +8,7 @@ import unittest
 from controllers.lighting import (
     CustomPatternMode,
     DummyLightingController,
+    LightingConnectionStatus,
     LightingState,
     RgbColor,
 )
@@ -31,7 +32,7 @@ class DummyLightingControllerTest(unittest.TestCase):
 
         self.assertEqual(
             LightingState(
-                connected=True,
+                connection_status=LightingConnectionStatus.CONNECTED,
                 power_enabled=True,
                 color=RgbColor(10, 20, 30),
                 brightness_percent=75,

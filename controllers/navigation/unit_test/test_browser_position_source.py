@@ -1,13 +1,14 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 
-"""Tests for the browser geolocation relay."""
+"""Tests for the CarUi browser geolocation relay."""
 
 import http.client
 import json
 import unittest
 
-from controllers.navigation import BrowserPositionSource, PositionState
+from apps.carUi.runtime.browser_position_source import BrowserPositionSource
+from controllers.navigation import PositionState
 
 
 class BrowserPositionSourceTest(unittest.TestCase):
@@ -51,7 +52,7 @@ class BrowserPositionSourceTest(unittest.TestCase):
         response.read()
         connection.close()
 
-        self.assertEqual(response.status, 200)
+        self.assertEqual(response.status, 204)
         self.assertEqual(len(self.states), 1)
         state = self.states[0]
         self.assertEqual(state.latitude_deg, 42.3314)

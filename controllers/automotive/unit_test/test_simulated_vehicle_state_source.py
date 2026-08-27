@@ -22,10 +22,10 @@ class SimulatedVehicleStateSourceTest(unittest.TestCase):
         first = source.read_state()
         second = source.read_state()
 
-        self.assertNotEqual(first.rpm, second.rpm)
-        self.assertIsNotNone(first.speed_mph)
-        self.assertIsNotNone(first.coolant_temp_f)
-        self.assertIsNotNone(first.control_voltage)
+        self.assertNotEqual(first.engine_speed_rad_s, second.engine_speed_rad_s)
+        self.assertIsNotNone(first.vehicle_speed_m_s)
+        self.assertIsNotNone(first.coolant_temperature_k)
+        self.assertIsNotNone(first.control_voltage_v)
 
         source.disconnect()
         with self.assertRaises(RuntimeError):

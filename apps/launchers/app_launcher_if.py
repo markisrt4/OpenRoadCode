@@ -12,58 +12,53 @@ StatusCallback: TypeAlias = Callable[[str], None] | None
 
 @runtime_checkable
 class AppLauncherIf(Protocol):
-    """Thread-compatible interface for launching external applications.
+    """Thread-compatible interface for launching external applications."""
 
-    Implementations may perform process management synchronously, but their
-    methods must be safe to invoke from a worker thread.
-    """
-
-    def launch(
-        self,
-        remote_display: str,
-        set_status: StatusCallback = None,
-    ) -> None:
-        """Launch the application.
-
-        @param remote_display Display identifier to pass to the application.
-        @param set_status Optional callback for user-visible status messages.
-        """
+    def launch(self, remote_display: str, set_status: StatusCallback = None) -> None:
+        """Launch the application."""
         ...
 
-    def stop(
-        self,
-        remote_display: str,
-        set_status: StatusCallback = None,
-    ) -> None:
-        """Stop the application.
-
-        @param remote_display Display on which the application is running.
-        @param set_status Optional callback for user-visible status messages.
-        """
+    def stop(self, remote_display: str, set_status: StatusCallback = None) -> None:
+        """Stop the application."""
         ...
 
-    def toggle(
-        self,
-        remote_display: str,
-        set_status: StatusCallback = None,
-    ) -> bool:
-        """Toggle the application's running state.
-
-        @param remote_display Display on which to launch or stop the app.
-        @param set_status Optional callback for user-visible status messages.
-        @return ``True`` when the application is running after the operation.
-        """
+    def toggle(self, remote_display: str, set_status: StatusCallback = None) -> bool:
+        """Toggle the application's running state."""
         ...
 
     def is_running(self) -> bool:
-        """Return whether the application is currently running.
-
-        @retval True The managed application is running.
-        @retval False No matching application is running.
-        """
+        """Return whether the application is currently running."""
         ...
 
 
+@runtime_checkable
+class HideableAppLauncherIf(AppLauncherIf, Protocol):
+    """Launcher whose visible window can be hidden while its process stays warm."""
+
+    def hide(self, remote_display: str, set_status: StatusCallback = None) -> bool:
+        """Hide the application without terminating it."""
+        ...
+
+
+@runtime_checkable
+class WindowedAppLauncherIf(HideableAppLauncherIf, Protocol):
+    """Launcher whose existing window can be explicitly shown or hidden."""
+
+    def show(self, remote_display: str, set_status: StatusCallback = None) -> bool:
+        """Show and focus an already-running application window."""
+        ...
+
+
+@runtime_checkable
+class PreloadableAppLauncherIf(AppLauncherIf, Protocol):
+    """Launcher capable of warming application resources without presenting UI."""
+
+    def prepare(self) -> None:
+        """Prepare backend or process resources without presenting the app."""
+        ...
+
+
+@runtime_checkable
 class BrowserDashboardLauncherIf(AppLauncherIf, Protocol):
     """Launcher whose browser view can close without stopping its server."""
 
@@ -72,9 +67,5 @@ class BrowserDashboardLauncherIf(AppLauncherIf, Protocol):
         remote_display: str,
         set_status: StatusCallback = None,
     ) -> None:
-        """Close only the dashboard browser and keep its backend warm.
-
-        @param remote_display Display hosting the browser window.
-        @param set_status Optional callback for user-visible status messages.
-        """
+        """Close only the dashboard browser and keep its backend warm."""
         ...

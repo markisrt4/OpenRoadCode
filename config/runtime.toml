@@ -1,32 +1,97 @@
 # Shared OpenRoadCode runtime composition
 #
+# Hardware ownership and domain processing belong to producer services. Apps
+# consume their public telemetry rather than rebuilding navigation/vehicle state.
 # Radio domain configuration files are resolved relative to:
 #   PROJECT_ROOT/config/radio
-#
-# This file selects which runtime components are assembled. Individual radio
-# frequencies, modes, ranges, and presets remain in their existing JSON files.
 
 [runtime]
-remote_display = ":2"
-# Browser dashboards such as Weather and ADS-B default to the local desktop.
-auxiliary_display = ":0"
-# Optional browser-media display. Leave unset for target-aware defaults.
-# media_display = ":0"
+remote_display = ":1"
+auxiliary_display = ":1"
+media_display = ":1"
+
+[messaging]
+# The broker binds the corresponding XSUB/XPUB endpoints. Producer services
+# publish to publisher_endpoint; CarUi/CarTui/WebUi subscribe downstream.
+publisher_endpoint = "tcp://127.0.0.1:5556"
+subscriber_endpoint = "tcp://127.0.0.1:5557"
+
+# -----------------------------------------------------------------------------
+# Navigation service pipeline
+# -----------------------------------------------------------------------------
+[services.navigation]
+enabled = true
+rate_hz = 10.0
+command_endpoint = "tcp://127.0.0.1:5560"
+
+[services.navigation.inputs.imu]
+source = "device"
+device = "mpu6050"
+address = 0x68
+
+[services.navigation.inputs.imu.simulation]
+profile = "driving"
+
+[services.navigation.inputs.gps]
+source = "device"
+device = "gpsd"
+host = "127.0.0.1"
+port = "2947"
+
+[services.navigation.inputs.gps.simulation]
+profile = "driving"
+latitude_deg = 42.8028
+longitude_deg = -83.0127
+speed_mps = 13.4
+course_deg = 180.0
+
+[services.navigation.solution]
+algorithm = "complementary_filter"
+
+[services.navigation.solution.complementary_filter]
+time_constant_s = 0.5
+heading_reference = "relative"
+
+[services.navigation.publish]
+enabled = true
+source = "navigation-service"
+
+[services.navigation.route_planning]
+enabled = true
+backend = "valhalla"
+base_url = "http://127.0.0.1:8002"
+timeout_seconds = 10.0
+
+# -----------------------------------------------------------------------------
+# Automotive service pipeline
+# -----------------------------------------------------------------------------
+[services.automotive]
+enabled = true
+rate_hz = 10.0
+
+[services.automotive.input]
+source = "device"
+device = "elm327"
+port = "/dev/rfcomm0"
+baud = 38400
+timeout_s = 1.0
+slow_poll_interval_s = 5.0
+
+[services.automotive.publish]
+enabled = true
+source = "obd2"
 
 [audio]
-# auto: linux-dev default, Pi 4 onboard analog, Pi 5 USB audio
 output = "auto"
 # device_match = "USB Audio"
 
 [image_cache]
-# Album artwork is persisted here and reused across app launches.
 directory = "~/.cache/openroadcode/images"
 max_entries = 24
 
 [position_cache]
 enabled = true
 directory = "~/.cache/openroadcode/position"
-# Cached coordinates are useful for initial display, weather, and map centering.
 max_age_seconds = 604800
 
 [rigctl]
@@ -43,12 +108,6 @@ volume_index = 0
 [input.keyboard]
 enabled = false
 # device_path = "/dev/input/event3"
-
-# Standalone GPIO buttons are optional and use physical header pin numbers.
-# [[input.push_buttons]]
-# pin = 11
-# action = "home"
-# active_low = true
 
 [[input.rotary_encoders.devices]]
 driver = "seesaw"
@@ -138,13 +197,3 @@ config = "cb.json"
 backend = "rigctl"
 launcher = "sdrpp"
 enabled = true
-
-[auxiliary.adsb]
-enabled = true
-url = "http://127.0.0.1/tar1090"
-close_existing_display_apps = true
-
-[auxiliary.weather_dashboard]
-enabled = true
-# Start Streamlit in the background after CarUi becomes ready.
-preload = true

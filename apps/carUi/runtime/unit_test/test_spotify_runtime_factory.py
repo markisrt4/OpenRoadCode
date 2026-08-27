@@ -25,7 +25,7 @@ class SpotifyRuntimeFactoryTests(unittest.TestCase):
 
     def test_create_spotify_controller_returns_unconfigured_controller(self) -> None:
         with patch(
-            "apps.carUi.runtime.spotify_runtime_factory."
+            "apps.common.spotify_controller_factory."
             "load_spotify_config_from_secrets",
             return_value=None,
         ):

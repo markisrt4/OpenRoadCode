@@ -11,7 +11,7 @@ from frontends.tk.media.spotify_screen import SpotifyScreen
 
 class SpotifyScreenTest(unittest.TestCase):
     @patch("frontends.tk.media.spotify_screen.threading.Thread")
-    @patch("frontends.tk.media.spotify_screen.SpotifyPlaybackPanel")
+    @patch("frontends.tk.media.spotify_screen._ThreadSafeSpotifyPlaybackPanel")
     def test_show_paints_panel_before_loading_state(
         self,
         panel_type: Mock,

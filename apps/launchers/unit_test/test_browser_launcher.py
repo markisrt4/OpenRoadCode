@@ -10,20 +10,18 @@ from apps.launchers.browser_launcher import BrowserKioskLauncher
 
 
 class BrowserKioskLauncherTest(unittest.TestCase):
-    def tearDown(self) -> None:
-        BrowserKioskLauncher._exclusive_launchers.clear()
+    def test_launch_restores_existing_browser_window(self) -> None:
+        launcher = BrowserKioskLauncher(url="https://example.com", window_class="example")
+        launcher._hidden = True
 
-    def test_exclusive_launcher_closes_peer_on_same_display(self) -> None:
-        peer = Mock()
-        BrowserKioskLauncher._exclusive_launchers[("dashboards", ":0")] = peer
-        launcher = BrowserKioskLauncher(
-            url="https://example.com",
-            exclusive_group="dashboards",
-        )
+        with (
+            patch.object(launcher, "is_running", return_value=True),
+            patch.object(launcher, "_activate_existing_window") as activate,
+        ):
+            launcher.launch(":0")
 
-        launcher._close_exclusive_peer(":0")
-
-        peer.stop.assert_called_once_with(":0")
+        activate.assert_called_once_with(":0")
+        self.assertFalse(launcher._hidden)
 
     @patch("apps.launchers.browser_launcher.close_matching_display_apps")
     @patch("apps.launchers.browser_launcher.terminate_process")

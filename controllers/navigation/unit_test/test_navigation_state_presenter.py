@@ -1,14 +1,13 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 
-"""Tests for navigation-state presentation through narrow UI contracts."""
-
 from datetime import datetime
 import math
 import unittest
 from unittest.mock import Mock
 
 from controllers.navigation import (
+    GroundMotionState,
     NavigationState,
     NavigationStatePresenter,
     PositionState,
@@ -38,14 +37,17 @@ class NavigationStatePresenterTest(unittest.TestCase):
             acceleration_mps2=Vector3(0.0, 0.0, 9.81),
             linear_acceleration_mps2=linear,
             angular_velocity_rad_s=Vector3(0.0, 0.0, 0.0),
-            gps=PositionState(
+            position=PositionState(
                 latitude_deg=42.0,
                 longitude_deg=-83.0,
                 altitude_m=200.0,
-                speed_mps=4.0,
-                course_deg=180.0,
                 fix_mode=3,
                 accuracy_m=3.0,
+            ),
+            ground_motion=GroundMotionState(
+                speed_mps=4.0,
+                course_deg=180.0,
+                source="test",
             ),
         )
 
@@ -67,7 +69,7 @@ class NavigationStatePresenterTest(unittest.TestCase):
         ground_track.set_ground_speed.assert_called_once_with(4.0)
         ground_track.set_course_over_ground.assert_called_once_with(math.pi)
 
-    def test_no_fix_clears_position_and_ground_track(self) -> None:
+    def test_no_fix_clears_position_but_preserves_ground_track(self) -> None:
         position = Mock()
         ground_track = Mock()
         presenter = NavigationStatePresenter(
@@ -85,11 +87,20 @@ class NavigationStatePresenterTest(unittest.TestCase):
             acceleration_mps2=zero,
             linear_acceleration_mps2=zero,
             angular_velocity_rad_s=zero,
-            gps=PositionState(),
+            position=PositionState(),
+            ground_motion=GroundMotionState(
+                speed_mps=5.0,
+                course_deg=90.0,
+                source="test",
+            ),
         )
 
         presenter.present(state)
 
         position.set_position.assert_called_once_with(None)
-        ground_track.set_ground_speed.assert_called_once_with(None)
-        ground_track.set_course_over_ground.assert_called_once_with(None)
+        ground_track.set_ground_speed.assert_called_once_with(5.0)
+        ground_track.set_course_over_ground.assert_called_once_with(math.pi / 2)
+
+
+if __name__ == "__main__":
+    unittest.main()

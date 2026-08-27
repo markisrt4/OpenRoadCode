@@ -230,8 +230,6 @@ class NavigationControllerTests(unittest.TestCase):
         gps_state = GpsState(
             latitude_deg=42.5,
             longitude_deg=-83.0,
-            speed_mps=12.0,
-            course_deg=180.0,
             fix_mode=3,
         )
         gps_source = FakeGpsSource(gps_state)
@@ -244,6 +242,7 @@ class NavigationControllerTests(unittest.TestCase):
         state = controller.read_state()
         controller.stop()
 
+        self.assertEqual(state.position, gps_state)
         self.assertEqual(state.gps, gps_state)
         self.assertTrue(gps_state.has_fix)
         self.assertFalse(gps_source.started)
@@ -256,7 +255,7 @@ class NavigationControllerTests(unittest.TestCase):
         controller.start()
         state = controller.read_state()
 
-        self.assertEqual(state.gps, gps_state)
+        self.assertEqual(state.position, gps_state)
 
 
 class Mpu6050NavigationAdapterTests(unittest.TestCase):
@@ -299,7 +298,7 @@ class Mpu6050NavigationAdapterTests(unittest.TestCase):
 
 
 class GpsdNavigationAdapterTests(unittest.TestCase):
-    def test_translates_gpsd_report_to_gps_state(self) -> None:
+    def test_translates_gpsd_report_to_position_state(self) -> None:
         class FakeGpsReader:
             def __init__(self) -> None:
                 self.callback: Callable[[GpsData], None] | None = None
@@ -338,7 +337,8 @@ class GpsdNavigationAdapterTests(unittest.TestCase):
 
         self.assertEqual(len(received), 1)
         self.assertEqual(received[0].latitude_deg, 42.5)
-        self.assertEqual(received[0].course_deg, 180.0)
+        self.assertEqual(received[0].longitude_deg, -83.0)
+        self.assertEqual(received[0].altitude_m, 200.0)
         self.assertTrue(received[0].has_fix)
         self.assertTrue(reader.stopped)
 

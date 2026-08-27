@@ -15,6 +15,7 @@ from controllers.lighting.lighting_controller_stub import (
 from controllers.lighting.lighting_presenter import LightingPresenter
 from controllers.lighting.lighting_types import (
     CustomPatternMode,
+    LightingConnectionStatus,
     LightingState,
     RgbColor,
 )
@@ -32,6 +33,7 @@ __all__ = [
     "DummyLightingController",
     "LightingControllerIf",
     "LightingControllerStub",
+    "LightingConnectionStatus",
     "LightingState",
     "RgbColor",
     "UnconfiguredControllerStub",

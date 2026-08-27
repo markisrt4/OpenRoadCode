@@ -9,6 +9,7 @@ PROJECT_ROOT="$(cd -- "$SCRIPT_DIR/../.." && pwd)"
 
 RUN_VNC=0
 RUN_GPSD_SERVICE=0
+RUN_TELEMETRY_SERVICES=0
 GPS_DEVICE="${GPS_DEVICE:-/dev/ttyACM0}"
 
 usage() {
@@ -18,6 +19,7 @@ Usage: $0 [options]
 Options:
   --vnc                Configure the VNC user service
   --gpsd               Configure the GPSD system service
+  --telemetry          Configure OpenRoadCode broker/navigation/automotive services
   --gps-device DEVICE  GPS serial device (default: $GPS_DEVICE)
   -h, --help           Show this help
 EOF
@@ -27,6 +29,7 @@ while (( $# > 0 )); do
   case "$1" in
     --vnc) RUN_VNC=1 ;;
     --gpsd) RUN_GPSD_SERVICE=1 ;;
+    --telemetry) RUN_TELEMETRY_SERVICES=1 ;;
     --gps-device)
       shift
       if (( $# == 0 )); then
@@ -48,7 +51,7 @@ while (( $# > 0 )); do
   shift
 done
 
-if (( ! RUN_VNC && ! RUN_GPSD_SERVICE )); then
+if (( ! RUN_VNC && ! RUN_GPSD_SERVICE && ! RUN_TELEMETRY_SERVICES )); then
   echo "[*] No services selected."
   exit 0
 fi
@@ -61,4 +64,9 @@ fi
 if (( RUN_GPSD_SERVICE )); then
   echo "[*] Installing GPSD systemd service for $GPS_DEVICE..."
   sudo bash "$PROJECT_ROOT/scripts/systemd/install_gpsd_systemd.sh" "$GPS_DEVICE"
+fi
+
+if (( RUN_TELEMETRY_SERVICES )); then
+  echo "[*] Installing OpenRoadCode telemetry services..."
+  sudo bash "$PROJECT_ROOT/scripts/systemd/install_telemetry_services_systemd.sh"
 fi
