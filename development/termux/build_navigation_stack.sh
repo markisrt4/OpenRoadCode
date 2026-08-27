@@ -16,8 +16,10 @@ HOST_SRC="${HOST_SRC:-$HOME/src}"
 MAPLIBRE_SRC="${MAPLIBRE_SRC:-$HOST_SRC/maplibre-native}"
 VALHALLA_SRC="${VALHALLA_SRC:-$HOST_SRC/valhalla}"
 PRIME_SERVER_SRC="${PRIME_SERVER_SRC:-$HOST_SRC/prime_server}"
+CPPZMQ_SRC="${CPPZMQ_SRC:-$HOST_SRC/cppzmq}"
 MAPLIBRE_REF="${MAPLIBRE_REF:-b0388d186d582a8535aa3c03e3cc2ef98cb70dc0}"
 VALHALLA_REF="${VALHALLA_REF:-a60c7cbfc83e073f50887cd27e0109d02e6b64e5}"
+CPPZMQ_REF="${CPPZMQ_REF:-v4.11.0}"
 BUILD_JOBS="${BUILD_JOBS:-$(nproc)}"
 INSTALL_ROOT="${INSTALL_ROOT:-$PREFIX/opt/openroadcode/navigation}"
 CONFIG_ROOT="${CONFIG_ROOT:-$PREFIX/etc/openroadcode}"
@@ -85,6 +87,15 @@ if [[ "$FORCE_REBUILD" == "1" ]] || ! prime_server_installed; then
   cmake --install "$PRIME_SERVER_SRC/build-termux"
 else
   echo "[*] prime_server already installed; skipping build"
+fi
+
+if [[ "$FORCE_REBUILD" == "1" || ! -f "$PREFIX/include/zmq.hpp" ]]; then
+  echo "[*] Installing cppzmq headers"
+  checkout_repo https://github.com/zeromq/cppzmq.git "$CPPZMQ_SRC" "$CPPZMQ_REF"
+  install -Dm644 "$CPPZMQ_SRC/zmq.hpp" "$PREFIX/include/zmq.hpp"
+  install -Dm644 "$CPPZMQ_SRC/zmq_addon.hpp" "$PREFIX/include/zmq_addon.hpp"
+else
+  echo "[*] cppzmq headers already installed; skipping install"
 fi
 
 VALHALLA_SERVICE="$INSTALL_ROOT/valhalla/bin/valhalla_service"
