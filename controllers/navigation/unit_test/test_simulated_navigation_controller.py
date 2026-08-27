@@ -18,9 +18,12 @@ class SimulatedNavigationControllerTest(unittest.TestCase):
 
         self.assertNotEqual(first.heading_deg, second.heading_deg)
         self.assertNotEqual(first.roll_deg, second.roll_deg)
-        self.assertTrue(second.gps.has_fix)
-        self.assertIsNotNone(second.gps.speed_mps)
-        self.assertEqual(second.gps.source, "simulation")
+        self.assertIsNotNone(second.position)
+        self.assertTrue(second.position.has_fix)  # type: ignore[union-attr]
+        self.assertEqual(second.position.source, "simulation")  # type: ignore[union-attr]
+        self.assertIsNotNone(second.ground_motion)
+        self.assertIsNotNone(second.ground_motion.speed_mps)  # type: ignore[union-attr]
+        self.assertEqual(second.ground_motion.source, "simulation")  # type: ignore[union-attr]
 
     def test_supports_calibration_and_heading_reset(self) -> None:
         controller = SimulatedNavigationController()
@@ -32,3 +35,7 @@ class SimulatedNavigationControllerTest(unittest.TestCase):
 
         self.assertEqual(calibration.sample_count, 25)
         self.assertAlmostEqual(state.heading_deg, 1.5)
+
+
+if __name__ == "__main__":
+    unittest.main()
