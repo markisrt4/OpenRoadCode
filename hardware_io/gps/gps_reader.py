@@ -6,11 +6,11 @@ from __future__ import annotations
 import json
 import logging
 import threading
-from collections.abc import Callable
-from dataclasses import dataclass
 
 import gps
 from gps.client import dictwrapper
+
+from hardware_io.gps.gps_types import GpsCallback, GpsData
 
 
 LOGGER = logging.getLogger(__name__)
@@ -30,35 +30,6 @@ class _Python3GpsSession(gps.gps):
                 dictwrapper(satellite)
                 for satellite in self.data.satellites
             ]
-
-
-@dataclass(frozen=True)
-class GpsData:
-    """Represent one normalized gpsd report.
-
-    Position and altitude are expressed in degrees and meters; speed is in
-    meters per second and track is in degrees.
-    """
-    latitude: float | None = None
-    longitude: float | None = None
-    altitude: float | None = None
-    speed: float | None = None
-    track: float | None = None
-    mode: int | None = None
-    satellites_visible: int | None = None
-    satellites_used: int | None = None
-
-    @property
-    def has_fix(self) -> bool:
-        """Return whether gpsd reports a positional fix.
-
-        @retval True gpsd reports a 2D or 3D fix.
-        @retval False gpsd reports no fix or an unknown mode.
-        """
-        return self.mode is not None and self.mode >= 2
-
-
-GpsCallback = Callable[[GpsData], None]
 
 
 class GpsReader:
