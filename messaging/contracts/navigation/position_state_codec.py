@@ -30,8 +30,6 @@ def encode_position_state(state: PositionState) -> dict[str, Any]:
             "latitude_rad": _degrees_to_radians(state.latitude_deg),
             "longitude_rad": _degrees_to_radians(state.longitude_deg),
             "altitude_m": state.altitude_m,
-            "speed_m_s": state.speed_mps,
-            "course_rad": _degrees_to_radians(state.course_deg),
             "fix_mode": state.fix_mode,
             "satellites_visible": state.satellites_visible,
             "satellites_used": state.satellites_used,
