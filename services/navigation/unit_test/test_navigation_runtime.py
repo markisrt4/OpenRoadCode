@@ -16,6 +16,7 @@ from controllers.route_planning.route_planning_types import (
     RouteRequest,
     RouteResult,
 )
+from messaging.contracts.route_guidance import ROUTE_GUIDANCE_STATE_TOPIC
 from services.navigation.navigation_runtime import NavigationRuntime
 
 
@@ -43,9 +44,6 @@ def test_runtime_uses_supplied_controller_for_command_service():
         command_endpoint="inproc://navigation-runtime-unit-test",
     )
     try:
-        # The command service is deliberately constructed from the same controller
-        # instance used by the telemetry loop. This is the ownership invariant the
-        # runtime exists to enforce.
         assert runtime._command_server._service._controller is controller
     finally:
         runtime.close()
@@ -83,9 +81,10 @@ def test_valid_gps_fix_advances_guidance_and_session():
     route = _route()
     route_planner = Mock()
     route_planner.calculate_route.return_value = route
+    publisher = Mock()
     runtime = NavigationRuntime(
         Mock(),
-        Mock(),
+        publisher,
         source="test-navigation",
         command_endpoint="inproc://navigation-runtime-guidance-test",
         route_planning_controller=route_planner,
@@ -114,6 +113,10 @@ def test_valid_gps_fix_advances_guidance_and_session():
         position, guidance = session.update.call_args.args
         assert position == GeoPoint(42.0, -82.995)
         assert guidance.distance_along_route_miles > 0.0
+        publisher.publish.assert_called_once()
+        topic, payload = publisher.publish.call_args.args
+        assert topic == ROUTE_GUIDANCE_STATE_TOPIC
+        assert isinstance(payload, bytes)
     finally:
         runtime.close()
 
