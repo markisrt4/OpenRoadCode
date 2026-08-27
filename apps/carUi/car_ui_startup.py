@@ -26,6 +26,9 @@ from frontends.tk.system import StartupItem, StartupSplash, StartupState, Startu
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 RUNTIME_CONFIG_PATH = PROJECT_ROOT / "config" / "runtime.toml"
+TERMUX_RUNTIME_CONFIG_PATH = PROJECT_ROOT / "config" / "runtime.termux.toml"
+APPLICATIONS_CONFIG_PATH = PROJECT_ROOT / "config" / "applications.toml"
+TERMUX_APPLICATIONS_CONFIG_PATH = PROJECT_ROOT / "config" / "applications.termux.toml"
 SPLASH_IMAGE_PATH = Path(__file__).parent / "assets" / "openroadcode-splash.png"
 
 STARTUP_ITEMS = (
@@ -66,6 +69,19 @@ def _is_termux() -> bool:
     return bool(os.getenv("TERMUX_VERSION")) or prefix.startswith("/data/data/com.termux/")
 
 
+def resolve_config_paths() -> tuple[Path, Path]:
+    """Return matching system and application configuration profiles."""
+    runtime_override = os.getenv("OPENROAD_RUNTIME_CONFIG")
+    applications_override = os.getenv("OPENROAD_APPLICATIONS_CONFIG")
+    runtime_path = Path(runtime_override).expanduser() if runtime_override else (
+        TERMUX_RUNTIME_CONFIG_PATH if _is_termux() else RUNTIME_CONFIG_PATH
+    )
+    applications_path = Path(applications_override).expanduser() if applications_override else (
+        TERMUX_APPLICATIONS_CONFIG_PATH if _is_termux() else APPLICATIONS_CONFIG_PATH
+    )
+    return runtime_path, applications_path
+
+
 def car_ui_splash_enabled() -> bool:
     """Return whether the startup splash should be used.
 
@@ -84,7 +100,12 @@ def build_car_ui_dependencies(report: StartupStatusCallback) -> CarUiDependencie
     with ExitStack() as cleanup:
         report("display", StartupState.READY, "Display configured")
         report("runtime", StartupState.STARTING, "Loading configuration")
-        runtime = create_car_ui_runtime(RUNTIME_CONFIG_PATH, project_root=PROJECT_ROOT)
+        runtime_config_path, applications_config_path = resolve_config_paths()
+        runtime = create_car_ui_runtime(
+            runtime_config_path,
+            project_root=PROJECT_ROOT,
+            applications_config_path=applications_config_path,
+        )
         cleanup.callback(runtime.close)
         runtime.start_background_apps()
         report("runtime", StartupState.READY, "Configuration loaded")
