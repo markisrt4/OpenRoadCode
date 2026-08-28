@@ -36,17 +36,10 @@ VEHICLE_GAUGES_HTML = '''
 
 MUSIC_VISUALIZER_HTML = '''
 <div class="card">
-  <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-    <button id="music-visualizer-toggle" class="primary">START MICROPHONE</button>
-    <select id="music-visualizer-mode" class="search" style="width:auto">
-      <option value="bars">Spectrum Bars</option><option value="rings">Electric Rings</option><option value="tunnel">Frequency Tunnel</option>
-    </select>
-  </div>
+  <button id="music-visualizer-toggle" class="primary wide">START MICROPHONE</button>
   <p id="music-visualizer-status">Start the microphone to feed the shared Python MusicAnalyzer.</p>
 </div>
-<div class="card" style="padding:8px;overflow:hidden;background:#03070c">
-  <canvas id="music-visualizer-canvas" style="display:block;width:100%;height:min(58vh,430px);border-radius:12px"></canvas>
-</div>
+<div id="music-visualizer-anchor"></div>
 <div class="card">
   <div style="display:grid;gap:10px">
     <div><small>BASS</small><div style="height:8px;background:#222b34;border-radius:8px"><div id="music-bass" style="height:100%;width:0;background:#45b8ff;border-radius:8px"></div></div></div>
@@ -55,6 +48,7 @@ MUSIC_VISUALIZER_HTML = '''
   </div>
 </div>
 <script src="/web-assets/audio-analysis/browser_pcm_capture.js"></script>
+<script src="/web-assets/audio-analysis/webgl_music_visualizer.js"></script>
 <script src="/web-assets/audio-analysis/music_visualizer.js"></script>
 '''
 
