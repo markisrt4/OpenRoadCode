@@ -53,6 +53,7 @@ jobs:
 
       - name: Generate Doxygen documentation
         run: |
+          mkdir -p build
           rm -f build/doxygen-warnings.log
           doxygen Doxyfile
           test ! -s build/doxygen-warnings.log
