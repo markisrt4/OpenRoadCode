@@ -10,52 +10,48 @@
 #include <iostream>
 #include <utility>
 
+namespace {
+constexpr const char* kMapCommandTopic = "map.command";
+}
+
 MapCommandServer::MapCommandServer(std::string endpoint_)
     : endpoint(std::move(endpoint_))
 {
     socket.set(zmq::sockopt::linger, 0);
-    socket.bind(endpoint);
-    std::cout << "Map command endpoint: " << endpoint << '\n';
+    socket.set(zmq::sockopt::subscribe, kMapCommandTopic);
+    socket.connect(endpoint);
+    std::cout << "Map command bus: " << endpoint
+              << " topic=" << kMapCommandTopic << '\n';
 }
 
 std::optional<MapCommand> MapCommandServer::poll()
 {
-    zmq::message_t request;
-    const auto received = socket.recv(request, zmq::recv_flags::dontwait);
+    zmq::message_t topicMessage;
+    const auto received = socket.recv(topicMessage, zmq::recv_flags::dontwait);
     if (!received) {
         return std::nullopt;
     }
 
-    const std::string payload(
-        static_cast<const char*>(request.data()), request.size()
-    );
-    const auto command = parseCommand(payload);
-    if (!command) {
-        sendReply(false, "Invalid map renderer command");
+    zmq::message_t payloadMessage;
+    if (!socket.recv(payloadMessage, zmq::recv_flags::none)) {
         return std::nullopt;
     }
 
-    sendReply(true, "Command accepted");
+    const std::string topic(
+        static_cast<const char*>(topicMessage.data()), topicMessage.size()
+    );
+    if (topic != kMapCommandTopic) {
+        return std::nullopt;
+    }
+
+    const std::string payload(
+        static_cast<const char*>(payloadMessage.data()), payloadMessage.size()
+    );
+    const auto command = parseCommand(payload);
+    if (!command) {
+        std::cerr << "[map_renderer] invalid map.command payload\n";
+    }
     return command;
-}
-
-void MapCommandServer::sendReply(bool ok, const std::string& message)
-{
-    rapidjson::Document document;
-    document.SetObject();
-    auto& allocator = document.GetAllocator();
-    document.AddMember("ok", ok, allocator);
-    rapidjson::Value messageValue;
-    messageValue.SetString(message.c_str(),
-                           static_cast<rapidjson::SizeType>(message.size()),
-                           allocator);
-    document.AddMember("message", messageValue, allocator);
-
-    rapidjson::StringBuffer buffer;
-    rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
-    document.Accept(writer);
-    socket.send(zmq::buffer(buffer.GetString(), buffer.GetSize()),
-                zmq::send_flags::none);
 }
 
 std::optional<MapCommand> MapCommandServer::parseCommand(
