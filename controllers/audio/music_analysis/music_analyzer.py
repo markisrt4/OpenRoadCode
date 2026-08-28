@@ -17,7 +17,7 @@ class MusicAnalyzer(MusicAnalyzerIf):
 
     _ZEROIZE_PERCENTILE = 75.0
     _ZEROIZE_MARGIN_DB = 3.0
-    _SPECTRAL_RELATIVE_FLOOR_DB = -48.0
+    _SPECTRAL_RELATIVE_FLOOR_DB = -42.0
 
     def __init__(self, *, fft_size: int = 2048, band_count: int = 24) -> None:
         if fft_size < 256 or fft_size & (fft_size - 1):
