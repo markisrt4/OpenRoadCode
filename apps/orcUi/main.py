@@ -10,6 +10,7 @@ from datetime import datetime
 
 from apps.orcUi.context_rail import ContextRail
 from apps.orcUi.navigation_presenter import NavigationPresenter, PositionPresentationState
+from apps.orcUi.vehicle_panel import VehiclePanel
 from apps.orcUi.vehicle_presenter import VehiclePresenter, VehiclePresentationState
 from messaging.contracts.automotive import VEHICLE_STATE_TOPIC, VehicleStateMessage, decode_vehicle_state
 from messaging.contracts.navigation import POSITION_STATE_TOPIC, PositionStateMessage, decode_position_state
@@ -44,6 +45,7 @@ class OrcUiApp:
         self._clock_label: tk.Label
         self._content: tk.Frame
         self._context_rail: ContextRail | None = None
+        self._vehicle_panel: VehiclePanel | None = None
         self._vehicle_state = VehiclePresentationState()
         self._position_state = PositionPresentationState()
         self._volume = 20
@@ -78,30 +80,12 @@ class OrcUiApp:
         bar.grid(row=0, column=0, columnspan=2, sticky="ew")
         bar.grid_propagate(False)
         bar.grid_columnconfigure(1, weight=1)
-
         brand = tk.Frame(bar, bg=TOP_BG)
         brand.grid(row=0, column=0, sticky="w", padx=(10, 8))
         self._build_logo_mark(brand)
         for letter, color in (("O", BLUE), ("R", RED), ("C", GREEN)):
-            tk.Label(
-                brand,
-                text=letter,
-                fg=color,
-                bg=TOP_BG,
-                font=("Sans", 21, "bold"),
-                padx=0,
-                pady=0,
-                bd=0,
-            ).pack(side=tk.LEFT, padx=0)
-        tk.Label(
-            brand,
-            text="ui",
-            fg="#c5ccd2",
-            bg=TOP_BG,
-            font=("Monospace", 12),
-            padx=0,
-        ).pack(side=tk.LEFT, padx=(3, 0), pady=(5, 0))
-
+            tk.Label(brand, text=letter, fg=color, bg=TOP_BG, font=("Sans", 21, "bold"), padx=0, pady=0, bd=0).pack(side=tk.LEFT, padx=0)
+        tk.Label(brand, text="ui", fg="#c5ccd2", bg=TOP_BG, font=("Monospace", 12), padx=0).pack(side=tk.LEFT, padx=(3, 0), pady=(5, 0))
         self._clock_label = tk.Label(bar, fg=TEXT, bg=TOP_BG, font=("Sans", 17, "bold"))
         self._clock_label.grid(row=0, column=1)
         status = tk.Frame(bar, bg=TOP_BG)
@@ -111,14 +95,11 @@ class OrcUiApp:
 
     @staticmethod
     def _build_logo_mark(parent: tk.Misc) -> None:
-        """Draw the compact three-color ORC road/triangle mark."""
         logo = tk.Canvas(parent, width=32, height=30, bg=TOP_BG, highlightthickness=0, bd=0)
         logo.pack(side=tk.LEFT, padx=(0, 4))
-        # Three colored edges echo the triangular road mark used by OpenRoadCode.
         logo.create_line(16, 3, 3, 26, fill=BLUE, width=4)
         logo.create_line(3, 26, 29, 26, fill=RED, width=4)
         logo.create_line(29, 26, 16, 3, fill=GREEN, width=4)
-        # Inner road centerline keeps the mark recognizable at dashboard scale.
         logo.create_line(16, 9, 16, 21, fill="#d7dde2", width=2, dash=(3, 3))
 
     def _build_side_nav(self) -> None:
@@ -164,7 +145,12 @@ class OrcUiApp:
     def _select_nav(self, name: str) -> None:
         self._active_nav = name
         self._paint_nav()
-        self._show_home() if name == "HOME" else self._show_placeholder(name)
+        if name == "HOME":
+            self._show_home()
+        elif name == "VEHICLE":
+            self._show_vehicle_panel()
+        else:
+            self._show_placeholder(name)
 
     def _paint_nav(self) -> None:
         for name, button in self._nav_buttons.items():
@@ -173,6 +159,7 @@ class OrcUiApp:
 
     def _clear_content(self) -> None:
         self._context_rail = None
+        self._vehicle_panel = None
         for child in self._content.winfo_children():
             child.destroy()
 
@@ -204,6 +191,13 @@ class OrcUiApp:
         self._summary(media, "No media", "Playback service")
         tk.Label(media, text="▂▅▃▇▄▆▂▅", fg=BLUE, bg=PANEL, font=("Sans", 14, "bold")).pack(anchor="w", padx=16, pady=(7, 0))
 
+    def _show_vehicle_panel(self) -> None:
+        self._clear_content()
+        self._active_nav = "VEHICLE"
+        self._paint_nav()
+        self._vehicle_panel = VehiclePanel(self._content, on_back=self._show_home, state=self._vehicle_state)
+        self._vehicle_panel.pack(fill=tk.BOTH, expand=True)
+
     def _on_vehicle_message(self, message: VehicleStateMessage) -> None:
         state = VehiclePresenter.present(message.data)
         self._root.after(0, self._apply_vehicle_state, state)
@@ -212,6 +206,8 @@ class OrcUiApp:
         self._vehicle_state = state
         if self._context_rail is not None and self._context_rail.winfo_exists():
             self._context_rail.update_vehicle_state(state)
+        if self._vehicle_panel is not None and self._vehicle_panel.winfo_exists():
+            self._vehicle_panel.update_state(state)
 
     def _on_position_message(self, message: PositionStateMessage) -> None:
         state = NavigationPresenter.present_position(message.data)
@@ -231,8 +227,11 @@ class OrcUiApp:
         self._root.destroy()
 
     def _show_context_full_panel(self, name: str) -> None:
+        if name == "VEHICLE":
+            self._show_vehicle_panel()
+            return
         self._clear_content()
-        accent = {"VEHICLE": GREEN, "TRIP": BLUE, "OFF-ROAD": YELLOW}.get(name, GREEN)
+        accent = {"TRIP": BLUE, "OFF-ROAD": YELLOW}.get(name, GREEN)
         panel = self._panel(self._content, name, accent)
         panel.pack(fill=tk.BOTH, expand=True)
         tk.Button(panel, text="‹ HOME", command=self._show_home, bg="#101820", fg=TEXT, relief=tk.FLAT, font=("Sans", 11, "bold"), padx=14, pady=7).pack(anchor="nw", padx=14, pady=10)
