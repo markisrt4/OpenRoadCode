@@ -121,7 +121,7 @@ def _validate_geometry(
         if count == 0:
             raise ValueError("geometry command has zero repeat count")
 
-        if command in (1, 2):  # MoveTo, LineTo
+        if command in (1, 2):
             required = count * 2
             if index + required > len(values):
                 raise ValueError("truncated geometry coordinate pair")
@@ -138,10 +138,7 @@ def _validate_geometry(
                         "paths outside valid range of coordinate_type: "
                         f"{identity} coordinate=({x},{y})"
                     )
-        elif command == 7:  # ClosePath
-            # ClosePath consumes no coordinate parameters. MapLibre also forces
-            # the remaining repeat count to zero, so one encoded ClosePath is
-            # the meaningful form for vector-tile geometry.
+        elif command == 7:
             continue
         else:
             raise ValueError(f"unknown geometry command {command}")
@@ -191,8 +188,6 @@ def _decode_vector_tile(blob: bytes) -> dict:
         if field_number == 3 and wire_type == 2:
             layers += 1
             features += _validate_layer(value)
-    if layers == 0:
-        raise ValueError("vector tile contains no layers")
     return {"layers": layers, "features": features}
 
 
