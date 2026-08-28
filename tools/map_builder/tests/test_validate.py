@@ -90,6 +90,12 @@ class GeometryValidationTest(unittest.TestCase):
 
 
 class VectorTileValidationTest(unittest.TestCase):
+    def test_accepts_empty_vector_tile(self):
+        self.assertEqual(
+            {"layers": 0, "features": 0},
+            _decode_vector_tile(b""),
+        )
+
     def test_decodes_minimal_vector_tile_without_external_dependencies(self):
         geometry = b"".join(
             _varint(value)
