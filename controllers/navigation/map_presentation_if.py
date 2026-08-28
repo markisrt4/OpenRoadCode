@@ -19,5 +19,10 @@ class MapPresentationIf(ABC):
         *,
         altitude_m: float | None = None,
     ) -> None:
-        """Center the presentation on a geographic location."""
+        """Center the presentation on a geographic location.
+
+        @param latitude Geographic latitude in degrees.
+        @param longitude Geographic longitude in degrees.
+        @param altitude_m Optional altitude above mean sea level in meters.
+        """
         ...
