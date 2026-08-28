@@ -15,7 +15,7 @@ fi
 
 mkdir -p "$SERVICE_ROOT"
 
-for service in openroadcode-broker openroadcode-navigation; do
+for service in openroadcode-broker openroadcode-navigation openroadcode-adsb; do
     source_dir="$SCRIPT_DIR/$service"
     target="$SERVICE_ROOT/$service"
 
@@ -34,7 +34,9 @@ echo "OpenRoadCode Termux services installed."
 echo "Start them with:"
 echo "  sv up openroadcode-broker"
 echo "  sv up openroadcode-navigation"
+echo "  sv up openroadcode-adsb"
 echo
 echo "Check status with:"
 echo "  sv status openroadcode-broker"
 echo "  sv status openroadcode-navigation"
+echo "  sv status openroadcode-adsb"
