@@ -24,3 +24,11 @@ Run the live component test from the project root:
 python3 -m controllers.automotive.obd2.component_test.obd2_cli \
     --port /dev/rfcomm0
 ```
+
+That command polls continuously for development. For a finite, diagnostic
+pass/fail test of the complete Bluetooth-to-decoded-telemetry path, run:
+
+```bash
+python3 -m controllers.automotive.component_test.obd2_bluetooth_smoke_cli \
+    --port /dev/rfcomm0
+```
