@@ -23,6 +23,11 @@ detect_raspberry_pi_model() {
   if [[ -r "$model_file" ]]; then
     tr -d '\0' < "$model_file"
   fi
+
+  # Not finding Raspberry Pi model information is normal on generic Linux
+  # development hosts and CI runners. Treat that as "no model detected"
+  # rather than a hardware-probe failure so callers remain safe under set -e.
+  return 0
 }
 
 select_raspberry_pi_gpio_backend() {
@@ -77,10 +82,14 @@ source "$VENV_DIR/bin/activate"
 python -m pip install --upgrade pip wheel setuptools
 
 if [[ " ${FEATURES[*]} " == *" gps "* ]]; then
-  gps_location="$(
-    python -m pip show gps 2>/dev/null \
-      | awk -F': ' '$1 == "Location" { print $2; exit }'
-  )"
+  gps_location=""
+  if gps_metadata="$(python -m pip show gps 2>/dev/null)"; then
+    gps_location="$(
+      printf '%s\n' "$gps_metadata" \
+        | awk -F': ' '$1 == "Location" { print $2; exit }'
+    )"
+  fi
+
   if [[ -n "$gps_location" && "$gps_location" == "$VIRTUAL_ENV"/* ]]; then
     echo "[*] Removing incompatible PyPI gps package; using python3-gps instead..."
     python -m pip uninstall -y gps
