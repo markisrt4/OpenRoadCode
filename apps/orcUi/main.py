@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import signal
 import tkinter as tk
 from datetime import datetime
 
@@ -50,6 +51,7 @@ class OrcUiApp:
         self._position_state = PositionPresentationState()
         self._volume = 20
         self._volume_label: tk.Label
+        self._closing = False
         self._dispatcher = MessageDispatcher(
             ZeroMqSubscriber(LOCAL_SUBSCRIBER_ENDPOINT),
             error_handler=self._on_bus_error,
@@ -62,8 +64,31 @@ class OrcUiApp:
 
     def run(self) -> None:
         self._root.protocol("WM_DELETE_WINDOW", self._on_close)
+        previous_sigint = signal.getsignal(signal.SIGINT)
+        signal.signal(signal.SIGINT, self._on_sigint)
         self._dispatcher.start()
-        self._root.mainloop()
+        try:
+            self._root.mainloop()
+        except KeyboardInterrupt:
+            self._shutdown()
+        finally:
+            signal.signal(signal.SIGINT, previous_sigint)
+            self._shutdown()
+
+    def _on_sigint(self, _signum: int, _frame) -> None:
+        """Convert terminal Ctrl-C into the same orderly path as the Exit button."""
+        self._root.after_idle(self._shutdown)
+
+    def _shutdown(self) -> None:
+        """Close messaging and Tk exactly once regardless of exit path."""
+        if self._closing:
+            return
+        self._closing = True
+        self._dispatcher.close()
+        try:
+            self._root.destroy()
+        except tk.TclError:
+            pass
 
     def _build_shell(self) -> None:
         self._root.grid_rowconfigure(1, weight=1)
@@ -200,9 +225,12 @@ class OrcUiApp:
 
     def _on_vehicle_message(self, message: VehicleStateMessage) -> None:
         state = VehiclePresenter.present(message.data)
-        self._root.after(0, self._apply_vehicle_state, state)
+        if not self._closing:
+            self._root.after(0, self._apply_vehicle_state, state)
 
     def _apply_vehicle_state(self, state: VehiclePresentationState) -> None:
+        if self._closing:
+            return
         self._vehicle_state = state
         if self._context_rail is not None and self._context_rail.winfo_exists():
             self._context_rail.update_vehicle_state(state)
@@ -211,9 +239,12 @@ class OrcUiApp:
 
     def _on_position_message(self, message: PositionStateMessage) -> None:
         state = NavigationPresenter.present_position(message.data)
-        self._root.after(0, self._apply_position_state, state)
+        if not self._closing:
+            self._root.after(0, self._apply_position_state, state)
 
     def _apply_position_state(self, state: PositionPresentationState) -> None:
+        if self._closing:
+            return
         self._position_state = state
         if self._context_rail is not None and self._context_rail.winfo_exists():
             self._context_rail.update_position_state(state)
@@ -223,8 +254,7 @@ class OrcUiApp:
         print(f"WARNING: {topic}: {type(error).__name__}: {error}")
 
     def _on_close(self) -> None:
-        self._dispatcher.close()
-        self._root.destroy()
+        self._shutdown()
 
     def _show_context_full_panel(self, name: str) -> None:
         if name == "VEHICLE":
@@ -255,6 +285,8 @@ class OrcUiApp:
         tk.Label(parent, text=secondary, fg=MUTED, bg=PANEL, font=("Sans", 9)).pack(anchor="w", padx=16)
 
     def _update_clock(self) -> None:
+        if self._closing:
+            return
         now = datetime.now()
         self._clock_label.configure(text=now.strftime("%I:%M %p     %a, %b %d").lstrip("0"))
         self._root.after(1000, self._update_clock)
