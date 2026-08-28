@@ -7,4 +7,5 @@ build
 build-termux/
 
 # runit creates runtime supervision state beside service definitions.
-scripts/runit/*/supervise/
+# Never track supervise directories, regardless of where a service tree lives.
+**/supervise/
