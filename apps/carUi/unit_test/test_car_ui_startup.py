@@ -14,7 +14,6 @@ from apps.carUi.car_ui_startup import (
     RUNTIME_CONFIG_PATH,
     STARTUP_ITEMS,
     TERMUX_APPLICATIONS_CONFIG_PATH,
-    TERMUX_RUNTIME_CONFIG_PATH,
     _env_bool,
     _env_int,
     build_car_ui_dependencies,
@@ -68,10 +67,10 @@ class CarUiStartupTest(unittest.TestCase):
                 resolve_config_paths(),
             )
 
-    def test_termux_config_paths_use_termux_profiles(self) -> None:
+    def test_termux_uses_shared_runtime_and_termux_applications(self) -> None:
         with patch.dict(os.environ, {"TERMUX_VERSION": "0.118"}, clear=True):
             self.assertEqual(
-                (TERMUX_RUNTIME_CONFIG_PATH, TERMUX_APPLICATIONS_CONFIG_PATH),
+                (RUNTIME_CONFIG_PATH, TERMUX_APPLICATIONS_CONFIG_PATH),
                 resolve_config_paths(),
             )
 
