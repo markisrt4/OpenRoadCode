@@ -8,6 +8,7 @@
 
 #include <zmq.hpp>
 
+/** @brief Parsed command accepted by the native MapLibre renderer. */
 struct MapCommand {
     std::string command;
     double latitude = 0.0;
@@ -23,9 +24,13 @@ struct MapCommand {
     std::string geojson;
 };
 
-/** Non-blocking ZeroMQ REP server for native map-renderer commands. */
+/** @brief Non-blocking ZeroMQ REP server for native map-renderer commands. */
 class MapCommandServer {
 public:
+    /**
+     * @brief Bind the renderer command server.
+     * @param endpoint ZeroMQ endpoint on which renderer commands are received.
+     */
     explicit MapCommandServer(
         std::string endpoint = "ipc:///tmp/openroadcode-map-renderer"
     );
@@ -34,7 +39,10 @@ public:
     MapCommandServer(const MapCommandServer&) = delete;
     MapCommandServer& operator=(const MapCommandServer&) = delete;
 
-    /** Receive and validate at most one pending command. */
+    /**
+     * @brief Receive and validate at most one pending command.
+     * @return Parsed command when one is available, otherwise std::nullopt.
+     */
     std::optional<MapCommand> poll();
 
 private:

@@ -17,7 +17,10 @@ class GroundMotionSourceIf(ABC):
 
     @abstractmethod
     def start(self, callback: GroundMotionStateCallback) -> None:
-        """Start publishing normalized ground-motion snapshots."""
+        """Start publishing normalized ground-motion snapshots.
+
+        @param callback Callback invoked for each normalized ground-motion update.
+        """
         ...
 
     @abstractmethod

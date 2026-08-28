@@ -5,6 +5,7 @@
 
 #include <string>
 
+/** @brief Runtime configuration consumed by the native map renderer. */
 struct NavigationConfig
 {
     std::string stylePath{"/srv/openroadcode/maps/styles/openroadcode.json"};
@@ -13,6 +14,11 @@ struct NavigationConfig
     double markerScale{1.0};
 };
 
+/**
+ * @brief Load native renderer settings from a navigation TOML file.
+ * @param path Path to the navigation runtime configuration.
+ * @return Parsed renderer and vehicle-marker settings.
+ */
 NavigationConfig loadNavigationConfig(
     const std::string& path = "/etc/openroadcode/navigation.toml"
 );
