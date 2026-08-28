@@ -195,7 +195,7 @@ Available features:
   gps           GPSD and Python GPS/navigation support
   rtl-sdr       RTL-SDR device and SoapySDR support
   streamlit     Streamlit dashboard support
-  adsb          readsb ADS-B support (includes rtl-sdr)
+  adsb          readsb + tar1090 ADS-B support (includes rtl-sdr)
   bluetooth     Bluetooth system and Python support
   automotive    Serial and CAN-bus support
   imu           MPU-6050 and Adafruit Blinka I2C support
