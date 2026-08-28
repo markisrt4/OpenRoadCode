@@ -24,9 +24,26 @@ for service in openroadcode-broker openroadcode-navigation openroadcode-adsb; do
         exit 1
     fi
 
-    chmod +x "$source_dir/run"
-    ln -sfn "$source_dir" "$target"
-    echo "Installed $service -> $source_dir"
+    if [[ -L "$target" ]]; then
+        sv down "$service" >/dev/null 2>&1 || true
+        rm -f "$target"
+    elif [[ -e "$target" && ! -d "$target" ]]; then
+        echo "Service target exists and is not a directory: $target" >&2
+        exit 1
+    fi
+
+    mkdir -p "$target"
+    install -m 0755 "$source_dir/run" "$target/run"
+
+    if [[ -f "$source_dir/finish" ]]; then
+        install -m 0755 "$source_dir/finish" "$target/finish"
+    fi
+    if [[ -d "$source_dir/log" && -f "$source_dir/log/run" ]]; then
+        mkdir -p "$target/log"
+        install -m 0755 "$source_dir/log/run" "$target/log/run"
+    fi
+
+    echo "Installed $service in $target"
 done
 
 echo
