@@ -126,7 +126,7 @@ Current public bus domains include:
 - navigation IMU
 - route guidance state
 
-See [`messaging/README.md`](../messaging/README.md), [`docs/messaging/message_bus_idd.md`](messaging/message_bus_idd.md), and the domain IDDs under [`docs/idd/`](idd/).
+See [`messaging/README.md`](https://github.com/markisrt4/OpenRoadCode/blob/master/messaging/README.md), [`docs/messaging/message_bus_idd.md`](messaging/message_bus_idd.md), and the domain IDDs under [`docs/idd/`](idd/).
 
 ## Units
 
