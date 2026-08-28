@@ -21,8 +21,10 @@ else
 fi
 
 if command -v systemctl >/dev/null 2>&1; then
-    echo "[*] Enabling ADS-B web services..."
-    sudo systemctl enable --now readsb || true
+    # readsb owns the RTL-SDR while running. OpenRoadCode starts it on demand
+    # through ADSBLauncher so the receiver remains available to SDR++/radio.
+    echo "[*] Configuring ADS-B services..."
+    sudo systemctl disable --now readsb || true
     sudo systemctl enable --now lighttpd || true
 fi
 
@@ -30,6 +32,6 @@ if command -v curl >/dev/null 2>&1; then
     if curl -fsI --max-time 3 http://127.0.0.1/tar1090/ >/dev/null; then
         echo "[+] tar1090 is reachable at http://127.0.0.1/tar1090/"
     else
-        echo "[*] tar1090 is installed but is not reachable yet; readsb/lighttpd may still be starting."
+        echo "[*] tar1090 is installed; its web server may still be starting."
     fi
 fi
