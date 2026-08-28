@@ -35,7 +35,7 @@ STARTUP_ITEMS = (
     StartupItem("runtime", "Runtime configuration"),
     StartupItem("telemetry", "Telemetry bus"),
     StartupItem("audio", "Audio"),
-    StartupItem("spotify", "Spotify"),
+    StartupItem("media", "Media"),
     StartupItem("lighting", "Lighting"),
     StartupItem("input", "Input devices"),
 )
@@ -111,8 +111,12 @@ def build_car_ui_dependencies(report: StartupStatusCallback) -> CarUiDependencie
             applications_config_path=applications_config_path,
         )
         cleanup.callback(runtime.close)
-        runtime.start_background_apps()
-        report("runtime", StartupState.READY, "Configuration loaded")
+
+        def report_preload_status(detail: str) -> None:
+            report("runtime", StartupState.DEGRADED, detail)
+
+        runtime.start_background_apps(report_preload_status)
+        report("runtime", StartupState.READY, "Configuration loaded; background applications starting")
         report("telemetry", StartupState.READY, "Vehicle and navigation state provided by message bus")
 
         report("input", StartupState.STARTING, "Loading input devices")
@@ -128,7 +132,7 @@ def build_car_ui_dependencies(report: StartupStatusCallback) -> CarUiDependencie
         audio_controller = create_audio_controller(steps=CAR_UI_THEME["layout"]["volume_steps"], config=runtime.audio, target=runtime_target)
         report("audio", StartupState.READY, "Audio controller ready")
 
-        report("spotify", StartupState.STARTING, "Loading controller")
+        report("media", StartupState.STARTING, "Loading media controllers")
         spotify_controller = create_spotify_controller()
         spotify_image_cache = ImageCache(max_entries=runtime.image_cache.max_entries, cache_directory=runtime.image_cache.directory)
         spotify_lyrics_client = LrclibLyricsClient()
@@ -142,7 +146,7 @@ def build_car_ui_dependencies(report: StartupStatusCallback) -> CarUiDependencie
         youtube_player = YouTubePlayer(software_rendering=software_rendering)
         cleanup.callback(netflix_player.stop)
         cleanup.callback(youtube_player.stop)
-        report("spotify", StartupState.READY, "Controller ready")
+        report("media", StartupState.READY, "Spotify and media controllers ready")
 
         report("lighting", StartupState.STARTING, "Loading controller")
         lighting_controller = create_lighting_controller(project_root=PROJECT_ROOT, address=os.getenv("CARUI_LIGHTING_ADDRESS"))
