@@ -37,13 +37,6 @@ exclusive_group = "auxiliary"
 [apps.adsb.data]
 source = "simulation"
 
-[apps.web_ui]
-type = "browser"
-enabled = true
-url = "http://127.0.0.1:5000"
-profile = "web-ui"
-startup = "preload"
-
 [apps.youtube]
 type = "browser"
 enabled = true
