@@ -475,12 +475,15 @@ void MapView::render()
 
 void MapView::run()
 {
+    std::cout << "[map_renderer] entering GLFW event loop\n";
+
     auto callback = [&]() {
         if (
             glfwWindowShouldClose(
                 window
             )
         ) {
+            std::cout << "[map_renderer] GLFW requested window close\n";
             runLoop.stop();
             return;
         }
@@ -519,6 +522,9 @@ void MapView::run()
 #else
     runLoop.run();
 #endif
+
+    std::cout << "[map_renderer] GLFW event loop returned; windowShouldClose="
+              << glfwWindowShouldClose(window) << '\n';
 }
 
 

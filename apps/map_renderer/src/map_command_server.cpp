@@ -10,8 +10,13 @@
 #include <iostream>
 #include <utility>
 
-MapCommandServer::MapCommandServer(std::string endpoint_)
-    : endpoint(std::move(endpoint_))
+MapCommandServer::MapCommandServer()
+    : MapCommandServer("ipc:///tmp/openroadcode-map-renderer")
+{
+}
+
+MapCommandServer::MapCommandServer(std::string endpoint)
+    : endpoint(std::move(endpoint))
 {
     socket.set(zmq::sockopt::linger, 0);
     socket.bind(endpoint);

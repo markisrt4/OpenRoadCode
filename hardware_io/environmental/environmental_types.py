@@ -5,7 +5,7 @@
 
 from __future__ import annotations
 
-from enum import StrEnum
+from common.str_enum import StrEnum
 
 
 class PressureUnit(StrEnum):

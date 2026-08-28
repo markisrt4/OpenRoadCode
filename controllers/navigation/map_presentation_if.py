@@ -21,8 +21,8 @@ class MapPresentationIf(ABC):
     ) -> None:
         """Center the presentation on a geographic location.
 
-        @param latitude Geographic latitude in decimal degrees.
-        @param longitude Geographic longitude in decimal degrees.
+        @param latitude Geographic latitude in degrees.
+        @param longitude Geographic longitude in degrees.
         @param altitude_m Optional altitude above mean sea level in meters.
         """
         ...

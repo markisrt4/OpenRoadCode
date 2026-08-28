@@ -12,6 +12,7 @@
 #include <mbgl/style/sources/geojson_source.hpp>
 #include <mapbox/geojson.hpp>
 
+#include <cstdlib>
 #include <iostream>
 #include <memory>
 #include <string>
@@ -21,6 +22,7 @@ namespace {
 constexpr double kLatitude = 42.3314;
 constexpr double kLongitude = -83.0458;
 constexpr double kZoom = 13.0;
+constexpr const char* kDefaultRendererEndpoint = "ipc:///tmp/openroadcode-map-renderer";
 
 std::string fileUrl(const std::string& path)
 {
@@ -30,20 +32,40 @@ std::string fileUrl(const std::string& path)
     return "file://" + path;
 }
 
+std::string environmentOrDefault(const char* name, const char* fallback)
+{
+    const auto* configured = std::getenv(name);
+    if (configured != nullptr && configured[0] != '\0') {
+        return configured;
+    }
+    return fallback;
+}
+
 } // namespace
 
 int main()
 {
+    const auto configPath = environmentOrDefault(
+        "OPENROADCODE_NAVIGATION_CONFIG",
+        "/etc/openroadcode/navigation.toml"
+    );
+    const auto rendererEndpoint = environmentOrDefault(
+        "OPENROADCODE_MAP_RENDERER_ENDPOINT",
+        kDefaultRendererEndpoint
+    );
+
     NavigationConfig config;
     try {
-        config = loadNavigationConfig();
+        config = loadNavigationConfig(configPath);
     } catch (const std::exception& exception) {
         std::cerr << "[map_renderer] invalid navigation config: "
                   << exception.what() << '\n';
         return 1;
     }
 
-    std::cout << "[map_renderer] style: " << config.stylePath << '\n'
+    std::cout << "[map_renderer] config: " << configPath << '\n'
+              << "[map_renderer] style: " << config.stylePath << '\n'
+              << "[map_renderer] endpoint: " << rendererEndpoint << '\n'
               << "[map_renderer] vehicle marker: " << config.markerMode
               << " scale=" << config.markerScale << '\n';
 
@@ -78,7 +100,7 @@ int main()
             .withZoom(kZoom)
     );
 
-    MapCommandServer commandServer;
+    MapCommandServer commandServer(rendererEndpoint);
 
     view.setUpdateCallback(
         [&map, &commandServer, &config]() {

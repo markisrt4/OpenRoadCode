@@ -2,13 +2,13 @@ PROJECT_NAME           = "OpenRoadCode"
 PROJECT_BRIEF          = "Public API reference for OpenRoadCode"
 
 OUTPUT_DIRECTORY       = build/doxygen
-INPUT                  = README.md apps controllers services messaging hardware_io protocols config common ui frontends input_events
-FILE_PATTERNS          = *.py *.md
+INPUT                  = README.md docs apps controllers services messaging hardware_io protocols config common ui frontends input_events
+FILE_PATTERNS          = *.py *.hpp *.cpp *.md
 RECURSIVE              = YES
-USE_MDFILE_AS_MAINPAGE = README.md
 
 EXCLUDE_PATTERNS       = */test/* */unit_test/* */component_test/* \
-                         */integration_test/* */apps/qtUi/* */__pycache__/*
+                         */integration_test/* */apps/qtUi/* */__pycache__/* \
+                         */build/* */build-*/*
 EXTRACT_ALL            = NO
 EXTRACT_PRIVATE        = NO
 EXTRACT_STATIC         = NO
@@ -22,6 +22,7 @@ MULTILINE_CPP_IS_BRIEF = YES
 PYTHON_DOCSTRING        = NO
 OPTIMIZE_OUTPUT_JAVA   = YES
 MARKDOWN_SUPPORT       = YES
+USE_MDFILE_AS_MAINPAGE = README.md
 
 # Graphviz is optional. Keep documentation generation dependency-free; users
 # can enable these settings locally when `dot` is installed.

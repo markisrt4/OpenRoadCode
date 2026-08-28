@@ -55,9 +55,14 @@ def test_position_and_motion_messages_populate_navigation_snapshot():
     state = NavigationBusState()
     position = PositionState(
         received_at=datetime.fromtimestamp(10, tz=timezone.utc),
-        latitude_deg=42.8028, longitude_deg=-83.0127, altitude_m=201.5,
-        fix_mode=3, satellites_visible=12, satellites_used=9,
-        accuracy_m=2.4, source="test-gps",
+        latitude_deg=42.8028,
+        longitude_deg=-83.0127,
+        altitude_m=201.5,
+        fix_mode=3,
+        satellites_visible=12,
+        satellites_used=9,
+        accuracy_m=2.4,
+        source="test-gps",
     )
     state.set_position(decode_position_state(encode_position_state(position)))
     state.set_motion(decode_motion_state(encode_motion_state(

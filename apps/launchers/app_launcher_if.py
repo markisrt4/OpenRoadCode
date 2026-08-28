@@ -17,32 +17,32 @@ class AppLauncherIf(Protocol):
     def launch(self, remote_display: str, set_status: StatusCallback = None) -> None:
         """Launch the application.
 
-        @param remote_display X11 display used for the application window.
-        @param set_status Optional callback for launcher status messages.
+        @param remote_display Display identifier used for the launched application.
+        @param set_status Optional callback used to report launcher status.
         """
         ...
 
     def stop(self, remote_display: str, set_status: StatusCallback = None) -> None:
         """Stop the application.
 
-        @param remote_display X11 display associated with the application window.
-        @param set_status Optional callback for launcher status messages.
+        @param remote_display Display identifier associated with the application.
+        @param set_status Optional callback used to report launcher status.
         """
         ...
 
     def toggle(self, remote_display: str, set_status: StatusCallback = None) -> bool:
         """Toggle the application's running state.
 
-        @param remote_display X11 display used for the application window.
-        @param set_status Optional callback for launcher status messages.
-        @return ``True`` when the application is running after the toggle.
+        @param remote_display Display identifier used for the application.
+        @param set_status Optional callback used to report launcher status.
+        @return True when the application is running after the toggle.
         """
         ...
 
     def is_running(self) -> bool:
         """Return whether the application is currently running.
 
-        @return ``True`` when the launcher considers the application active.
+        @return True when the application is currently running.
         """
         ...
 
@@ -54,9 +54,9 @@ class HideableAppLauncherIf(AppLauncherIf, Protocol):
     def hide(self, remote_display: str, set_status: StatusCallback = None) -> bool:
         """Hide the application without terminating it.
 
-        @param remote_display X11 display containing the application window.
-        @param set_status Optional callback for launcher status messages.
-        @return ``True`` when the application window was hidden.
+        @param remote_display Display identifier containing the application window.
+        @param set_status Optional callback used to report launcher status.
+        @return True when the application was hidden successfully.
         """
         ...
 
@@ -68,9 +68,9 @@ class WindowedAppLauncherIf(HideableAppLauncherIf, Protocol):
     def show(self, remote_display: str, set_status: StatusCallback = None) -> bool:
         """Show and focus an already-running application window.
 
-        @param remote_display X11 display containing the application window.
-        @param set_status Optional callback for launcher status messages.
-        @return ``True`` when an existing application window was shown.
+        @param remote_display Display identifier containing the application window.
+        @param set_status Optional callback used to report launcher status.
+        @return True when the application window was shown successfully.
         """
         ...
 
@@ -95,7 +95,7 @@ class BrowserDashboardLauncherIf(AppLauncherIf, Protocol):
     ) -> None:
         """Close only the dashboard browser and keep its backend warm.
 
-        @param remote_display X11 display containing the dashboard browser.
-        @param set_status Optional callback for launcher status messages.
+        @param remote_display Display identifier containing the browser window.
+        @param set_status Optional callback used to report launcher status.
         """
         ...

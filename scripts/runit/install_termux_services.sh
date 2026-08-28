@@ -5,6 +5,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd -- "$SCRIPT_DIR/../.." && pwd)"
 SERVICE_ROOT="${PREFIX:-/data/data/com.termux/files/usr}/var/service"
 
 if ! command -v sv >/dev/null 2>&1; then
@@ -24,6 +25,8 @@ for service in openroadcode-broker openroadcode-navigation openroadcode-adsb; do
         exit 1
     fi
 
+    # The service directory must be real runtime state, not a symlink back into
+    # the source tree. runsv creates supervise/ beneath this directory.
     if [[ -L "$target" ]]; then
         sv down "$service" >/dev/null 2>&1 || true
         rm -f "$target"
@@ -31,19 +34,16 @@ for service in openroadcode-broker openroadcode-navigation openroadcode-adsb; do
         echo "Service target exists and is not a directory: $target" >&2
         exit 1
     fi
-
     mkdir -p "$target"
-    install -m 0755 "$source_dir/run" "$target/run"
 
-    if [[ -f "$source_dir/finish" ]]; then
-        install -m 0755 "$source_dir/finish" "$target/finish"
-    fi
-    if [[ -d "$source_dir/log" && -f "$source_dir/log/run" ]]; then
-        mkdir -p "$target/log"
-        install -m 0755 "$source_dir/log/run" "$target/log/run"
-    fi
+    # Install the source definition and provide the checkout location through
+    # the environment. This keeps mutable runit state out of the repository.
+    sed \
+        -e "s|^PROJECT_ROOT=.*$|PROJECT_ROOT=\"$PROJECT_ROOT\"|" \
+        "$source_dir/run" > "$target/run"
+    chmod +x "$target/run"
 
-    echo "Installed $service in $target"
+    echo "Installed $service -> $target"
 done
 
 echo

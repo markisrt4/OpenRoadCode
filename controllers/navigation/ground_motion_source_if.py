@@ -19,7 +19,7 @@ class GroundMotionSourceIf(ABC):
     def start(self, callback: GroundMotionStateCallback) -> None:
         """Start publishing normalized ground-motion snapshots.
 
-        @param callback Consumer invoked for each normalized ground-motion update.
+        @param callback Callback invoked for each normalized ground-motion update.
         """
         ...
 

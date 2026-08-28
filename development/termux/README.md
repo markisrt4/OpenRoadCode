@@ -10,8 +10,10 @@ The current target combines:
 - the OpenRoadCode ZeroMQ broker, navigation service, and simulated ADS-B web
   presentation under runit supervision;
 - Android-backed IMU input through the sensor bridge;
-- simulated geographic position and ground motion until Android location/motion
-  endpoints are integrated;
+- simulated geographic position and ground motion in the normal Termux runtime
+  profile until Android location/motion endpoints are integrated;
+- an independently tested browser-geolocation position path for native map
+  checkout;
 - native Valhalla and MapLibre builds;
 - Termux:X11 for graphical execution; and
 - offline navigation data stored under `~/.local/share/openroadcode`.
@@ -158,6 +160,103 @@ On Raspberry Pi/Linux targets, the ADS-B source is `rtlsdr`. That path owns the
 shared RTL-SDR receiver only while the ADS-B application is active, allowing
 SDR++ and readsb to share the hardware rather than fighting over it like two
 programs with absolutely no concept of property rights.
+
+## Native map checkout with browser geolocation
+
+A native MapLibre blue-dot checkout has been verified on Android using browser
+geolocation as a temporary physical position source. The browser path publishes
+the same public `openroad.navigation.position` contract used by normal
+navigation consumers, so the renderer and map-follow runtime remain independent
+of the physical position provider.
+
+The verified data path is:
+
+```text
+Android browser navigator.geolocation
+        |
+        v
+BrowserPositionSource HTTP :8765
+        |
+        v
+PositionStatePublisher -> ZeroMQ ingress :5556
+        |
+        v
+OpenRoadCode broker -> subscriber egress :5557
+        |
+        v
+NavigationMapFollowRuntime
+        |
+        v
+MapRendererClient -> renderer command endpoint :5562
+        |
+        v
+native MapLibre renderer -> offline map + blue dot
+```
+
+For this isolated checkout, stop the normal navigation service so its simulated
+position does not compete with browser position:
+
+```bash
+sv down openroadcode-navigation
+sv status openroadcode-broker
+```
+
+Keep the following processes running in separate Termux terminals.
+
+### Terminal 1: broker
+
+The broker is normally already supervised by runit:
+
+```bash
+sv up openroadcode-broker
+sv status openroadcode-broker
+```
+
+### Terminal 2: native map renderer
+
+```bash
+cd ~/src/OpenRoadCode
+export DISPLAY=:1
+./development/termux/start_map_renderer.sh
+```
+
+The Termux launcher creates target-local renderer configuration and rewrites the
+deployed style paths for `~/.local/share/openroadcode`. The Termux renderer
+command endpoint is TCP `tcp://127.0.0.1:5562`; this avoids Android restrictions
+encountered with `/tmp` IPC sockets.
+
+Mesa may report DRI3/Zink warnings under Termux:X11. A verified software-rendered
+configuration falls back to LLVMpipe and still renders the offline map.
+
+### Terminal 3: navigation-to-map follower
+
+```bash
+cd ~/src/OpenRoadCode
+source venv-termux/bin/activate
+python -m apps.common.navigation_map_follow_cli \
+    --config config/runtime.termux.toml \
+    --renderer-endpoint tcp://127.0.0.1:5562
+```
+
+### Terminal 4: browser position publisher
+
+```bash
+cd ~/src/OpenRoadCode
+source venv-termux/bin/activate
+python development/termux/browser_position_publisher_cli.py
+```
+
+Open `http://localhost:8765/` in the normal Android browser, select **Share
+location**, and grant location permission. The terminal should print normalized
+latitude, longitude, and accuracy reports. The map follower consumes those
+reports from the normal ZeroMQ subscriber endpoint and updates the native blue
+dot at the physical location.
+
+This browser path is a development checkout, not the intended production GPS
+architecture. The next production integration is an Android-backed
+`PositionSourceIf` composed into the navigation service. Downstream consumers
+should require no changes because they already consume the normalized position
+contract.
 
 ## Run CarUi
 

@@ -13,7 +13,7 @@ class RouteGuidanceUiIf(ABC):
     def set_instruction(self, instruction: str | None) -> None:
         """Set the current maneuver instruction.
 
-        @param instruction Human-readable maneuver text, or ``None`` to clear it.
+        @param instruction Human-readable maneuver instruction, or None when unavailable.
         """
         ...
 
@@ -21,7 +21,7 @@ class RouteGuidanceUiIf(ABC):
     def set_distance_to_maneuver(self, distance_m: float | None) -> None:
         """Set distance remaining until the current maneuver.
 
-        @param distance_m Remaining distance in meters, or ``None`` when unavailable.
+        @param distance_m Distance to the maneuver in meters, or None when unavailable.
         """
         ...
 
@@ -29,7 +29,7 @@ class RouteGuidanceUiIf(ABC):
     def set_distance_remaining(self, distance_m: float | None) -> None:
         """Set total route distance remaining.
 
-        @param distance_m Total remaining route distance in meters, or ``None`` when unavailable.
+        @param distance_m Remaining route distance in meters, or None when unavailable.
         """
         ...
 
@@ -37,7 +37,7 @@ class RouteGuidanceUiIf(ABC):
     def set_off_route(self, off_route: bool) -> None:
         """Set whether the vehicle is currently off route.
 
-        @param off_route ``True`` when the current position is considered off route.
+        @param off_route True when the vehicle is considered off the active route.
         """
         ...
 
@@ -45,6 +45,6 @@ class RouteGuidanceUiIf(ABC):
     def set_route_complete(self, complete: bool) -> None:
         """Set whether the destination has been reached.
 
-        @param complete ``True`` when route guidance has reached its destination.
+        @param complete True when route guidance has reached the destination.
         """
         ...
