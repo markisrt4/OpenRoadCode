@@ -9,8 +9,10 @@ import tkinter as tk
 from datetime import datetime
 
 from apps.orcUi.context_rail import ContextRail
+from apps.orcUi.navigation_presenter import NavigationPresenter, PositionPresentationState
 from apps.orcUi.vehicle_presenter import VehiclePresenter, VehiclePresentationState
 from messaging.contracts.automotive import VEHICLE_STATE_TOPIC, VehicleStateMessage, decode_vehicle_state
+from messaging.contracts.navigation import POSITION_STATE_TOPIC, PositionStateMessage, decode_position_state
 from messaging.message_dispatcher import MessageDispatcher
 from messaging.zeromq import ZeroMqSubscriber
 from messaging.zeromq.endpoints import LOCAL_SUBSCRIBER_ENDPOINT
@@ -20,11 +22,12 @@ PANEL = "#0b1117"
 BORDER = "#25313b"
 TEXT = "#edf2f5"
 MUTED = "#89959e"
-GREEN = "#79c83d"
-BLUE = "#3297e5"
+GREEN = "#84ce1f"
+BLUE = "#168bd1"
+RED = "#f15a16"
 PURPLE = "#a25ce5"
 YELLOW = "#d6ad22"
-RED = "#e35d6a"
+TOP_BG = "#020406"
 
 
 class OrcUiApp:
@@ -42,10 +45,15 @@ class OrcUiApp:
         self._content: tk.Frame
         self._context_rail: ContextRail | None = None
         self._vehicle_state = VehiclePresentationState()
+        self._position_state = PositionPresentationState()
         self._volume = 20
         self._volume_label: tk.Label
-        self._dispatcher = MessageDispatcher(ZeroMqSubscriber(LOCAL_SUBSCRIBER_ENDPOINT), error_handler=self._on_bus_error)
+        self._dispatcher = MessageDispatcher(
+            ZeroMqSubscriber(LOCAL_SUBSCRIBER_ENDPOINT),
+            error_handler=self._on_bus_error,
+        )
         self._dispatcher.register(VEHICLE_STATE_TOPIC, decode_vehicle_state, self._on_vehicle_message)
+        self._dispatcher.register(POSITION_STATE_TOPIC, decode_position_state, self._on_position_message)
         self._build_shell()
         self._show_home()
         self._update_clock()
@@ -66,22 +74,52 @@ class OrcUiApp:
         self._build_footer()
 
     def _build_top_bar(self) -> None:
-        bar = tk.Frame(self._root, bg="#020406", height=50)
+        bar = tk.Frame(self._root, bg=TOP_BG, height=50)
         bar.grid(row=0, column=0, columnspan=2, sticky="ew")
         bar.grid_propagate(False)
         bar.grid_columnconfigure(1, weight=1)
-        brand = tk.Frame(bar, bg="#020406")
-        brand.grid(row=0, column=0, sticky="w", padx=(12, 8))
-        tk.Label(brand, text="▲", fg=GREEN, bg="#020406", font=("Sans", 19, "bold")).pack(side=tk.LEFT, padx=(0, 3))
-        tk.Label(brand, text="O", fg=BLUE, bg="#020406", font=("Sans", 22, "bold")).pack(side=tk.LEFT)
-        tk.Label(brand, text="R", fg=RED, bg="#020406", font=("Sans", 22, "bold")).pack(side=tk.LEFT)
-        tk.Label(brand, text="C", fg=GREEN, bg="#020406", font=("Sans", 22, "bold")).pack(side=tk.LEFT)
-        self._clock_label = tk.Label(bar, fg=TEXT, bg="#020406", font=("Sans", 17, "bold"))
+
+        brand = tk.Frame(bar, bg=TOP_BG)
+        brand.grid(row=0, column=0, sticky="w", padx=(10, 8))
+        self._build_logo_mark(brand)
+        for letter, color in (("O", BLUE), ("R", RED), ("C", GREEN)):
+            tk.Label(
+                brand,
+                text=letter,
+                fg=color,
+                bg=TOP_BG,
+                font=("Sans", 21, "bold"),
+                padx=0,
+                pady=0,
+                bd=0,
+            ).pack(side=tk.LEFT, padx=0)
+        tk.Label(
+            brand,
+            text="ui",
+            fg="#c5ccd2",
+            bg=TOP_BG,
+            font=("Monospace", 12),
+            padx=0,
+        ).pack(side=tk.LEFT, padx=(3, 0), pady=(5, 0))
+
+        self._clock_label = tk.Label(bar, fg=TEXT, bg=TOP_BG, font=("Sans", 17, "bold"))
         self._clock_label.grid(row=0, column=1)
-        status = tk.Frame(bar, bg="#020406")
+        status = tk.Frame(bar, bg=TOP_BG)
         status.grid(row=0, column=2, padx=(8, 14), sticky="e")
-        tk.Label(status, text="☁  --°F", fg=TEXT, bg="#020406", font=("Sans", 11, "bold")).pack(side=tk.LEFT, padx=(0, 12))
-        tk.Label(status, text="GPS  ▮▮▮   WiFi   BT   🚗", fg="#b8c0c6", bg="#020406", font=("Sans", 11)).pack(side=tk.LEFT)
+        tk.Label(status, text="☁  --°F", fg=TEXT, bg=TOP_BG, font=("Sans", 11, "bold")).pack(side=tk.LEFT, padx=(0, 12))
+        tk.Label(status, text="GPS  ▮▮▮   WiFi   BT   🚗", fg="#b8c0c6", bg=TOP_BG, font=("Sans", 11)).pack(side=tk.LEFT)
+
+    @staticmethod
+    def _build_logo_mark(parent: tk.Misc) -> None:
+        """Draw the compact three-color ORC road/triangle mark."""
+        logo = tk.Canvas(parent, width=32, height=30, bg=TOP_BG, highlightthickness=0, bd=0)
+        logo.pack(side=tk.LEFT, padx=(0, 4))
+        # Three colored edges echo the triangular road mark used by OpenRoadCode.
+        logo.create_line(16, 3, 3, 26, fill=BLUE, width=4)
+        logo.create_line(3, 26, 29, 26, fill=RED, width=4)
+        logo.create_line(29, 26, 16, 3, fill=GREEN, width=4)
+        # Inner road centerline keeps the mark recognizable at dashboard scale.
+        logo.create_line(16, 9, 16, 21, fill="#d7dde2", width=2, dash=(3, 3))
 
     def _build_side_nav(self) -> None:
         nav = tk.Frame(self._root, bg="#070c11", width=112)
@@ -98,7 +136,8 @@ class OrcUiApp:
         bar.grid(row=2, column=0, columnspan=2, sticky="ew", padx=8, pady=(0, 5))
         bar.grid_propagate(False)
         bar.grid_columnconfigure(0, weight=2)
-        for col in range(1, 6): bar.grid_columnconfigure(col, weight=1)
+        for col in range(1, 6):
+            bar.grid_columnconfigure(col, weight=1)
         volume = tk.Frame(bar, bg=PANEL, highlightthickness=1, highlightbackground=BORDER)
         volume.grid(row=0, column=0, sticky="nsew", padx=3)
         volume.grid_columnconfigure(1, weight=1)
@@ -107,20 +146,20 @@ class OrcUiApp:
         self._volume_label.grid(row=0, column=1)
         tk.Button(volume, text="+", command=lambda: self._change_volume(5), bg=PANEL, fg=TEXT, relief=tk.FLAT, bd=0, font=("Sans", 15, "bold")).grid(row=0, column=2, sticky="ns", padx=4)
         for col, text in enumerate(["🎙  Push to Talk", "▣  Front Cam", "▣  SCREEN\nAuto", "☀  BRIGHTNESS\n70%", "↪  EXIT"], start=1):
-            tk.Button(bar, text=text, command=self._root.destroy if text.endswith("EXIT") else None, bg=PANEL, fg=TEXT, relief=tk.FLAT, highlightthickness=1, highlightbackground=BORDER, font=("Sans", 9)).grid(row=0, column=col, sticky="nsew", padx=3)
+            tk.Button(bar, text=text, command=self._on_close if text.endswith("EXIT") else None, bg=PANEL, fg=TEXT, relief=tk.FLAT, highlightthickness=1, highlightbackground=BORDER, font=("Sans", 9)).grid(row=0, column=col, sticky="nsew", padx=3)
 
     def _change_volume(self, delta: int) -> None:
         self._volume = max(0, min(100, self._volume + delta))
         self._volume_label.configure(text=f"{'🔇' if self._volume == 0 else '🔊'} {self._volume}%")
 
     def _build_footer(self) -> None:
-        footer = tk.Frame(self._root, bg="#020406", height=25)
+        footer = tk.Frame(self._root, bg=TOP_BG, height=25)
         footer.grid(row=3, column=0, columnspan=2, sticky="ew")
         footer.grid_propagate(False)
         footer.grid_columnconfigure(1, weight=1)
-        tk.Label(footer, text="OpenRoadCode", fg="#aab2b8", bg="#020406", font=("Sans", 8)).grid(row=0, column=0, padx=10)
-        tk.Label(footer, text="Services: --   |   ZMQ: --", fg=MUTED, bg="#020406", font=("Sans", 8)).grid(row=0, column=1)
-        tk.Label(footer, text="orcUi prototype", fg=MUTED, bg="#020406", font=("Sans", 8)).grid(row=0, column=2, padx=10)
+        tk.Label(footer, text="OpenRoadCode", fg="#aab2b8", bg=TOP_BG, font=("Sans", 8)).grid(row=0, column=0, padx=10)
+        tk.Label(footer, text="Services: --   |   ZMQ: --", fg=MUTED, bg=TOP_BG, font=("Sans", 8)).grid(row=0, column=1)
+        tk.Label(footer, text="orcUi prototype", fg=MUTED, bg=TOP_BG, font=("Sans", 8)).grid(row=0, column=2, padx=10)
 
     def _select_nav(self, name: str) -> None:
         self._active_nav = name
@@ -134,7 +173,8 @@ class OrcUiApp:
 
     def _clear_content(self) -> None:
         self._context_rail = None
-        for child in self._content.winfo_children(): child.destroy()
+        for child in self._content.winfo_children():
+            child.destroy()
 
     def _show_home(self) -> None:
         self._clear_content()
@@ -149,12 +189,19 @@ class OrcUiApp:
         tk.Label(map_panel, text="MAP / ROUTE VIEW", fg="#53616c", bg=PANEL, font=("Sans", 18, "bold")).place(relx=.5, rely=.5, anchor="center")
         self._context_rail = ContextRail(self._content, on_expand=self._show_context_full_panel)
         self._context_rail.update_vehicle_state(self._vehicle_state)
+        self._context_rail.update_position_state(self._position_state)
         self._context_rail.grid(row=0, column=1, rowspan=2, sticky="nsew", padx=(5, 0))
         lower = tk.Frame(self._content, bg=BG)
         lower.grid(row=1, column=0, sticky="nsew", padx=(0, 5), pady=(5, 0))
-        lower.grid_columnconfigure(0, weight=1); lower.grid_columnconfigure(1, weight=1); lower.grid_rowconfigure(0, weight=1)
-        radio = self._panel(lower, "RADIO", PURPLE); radio.grid(row=0, column=0, sticky="nsew", padx=(0, 5)); self._summary(radio, "101.1 FM", "Radio service")
-        media = self._panel(lower, "MEDIA", BLUE); media.grid(row=0, column=1, sticky="nsew", padx=(5, 0)); self._summary(media, "No media", "Playback service")
+        lower.grid_columnconfigure(0, weight=1)
+        lower.grid_columnconfigure(1, weight=1)
+        lower.grid_rowconfigure(0, weight=1)
+        radio = self._panel(lower, "RADIO", PURPLE)
+        radio.grid(row=0, column=0, sticky="nsew", padx=(0, 5))
+        self._summary(radio, "101.1 FM", "Radio service")
+        media = self._panel(lower, "MEDIA", BLUE)
+        media.grid(row=0, column=1, sticky="nsew", padx=(5, 0))
+        self._summary(media, "No media", "Playback service")
         tk.Label(media, text="▂▅▃▇▄▆▂▅", fg=BLUE, bg=PANEL, font=("Sans", 14, "bold")).pack(anchor="w", padx=16, pady=(7, 0))
 
     def _on_vehicle_message(self, message: VehicleStateMessage) -> None:
@@ -165,6 +212,15 @@ class OrcUiApp:
         self._vehicle_state = state
         if self._context_rail is not None and self._context_rail.winfo_exists():
             self._context_rail.update_vehicle_state(state)
+
+    def _on_position_message(self, message: PositionStateMessage) -> None:
+        state = NavigationPresenter.present_position(message.data)
+        self._root.after(0, self._apply_position_state, state)
+
+    def _apply_position_state(self, state: PositionPresentationState) -> None:
+        self._position_state = state
+        if self._context_rail is not None and self._context_rail.winfo_exists():
+            self._context_rail.update_position_state(state)
 
     @staticmethod
     def _on_bus_error(topic: str, error: Exception) -> None:
@@ -177,18 +233,22 @@ class OrcUiApp:
     def _show_context_full_panel(self, name: str) -> None:
         self._clear_content()
         accent = {"VEHICLE": GREEN, "TRIP": BLUE, "OFF-ROAD": YELLOW}.get(name, GREEN)
-        panel = self._panel(self._content, name, accent); panel.pack(fill=tk.BOTH, expand=True)
+        panel = self._panel(self._content, name, accent)
+        panel.pack(fill=tk.BOTH, expand=True)
         tk.Button(panel, text="‹ HOME", command=self._show_home, bg="#101820", fg=TEXT, relief=tk.FLAT, font=("Sans", 11, "bold"), padx=14, pady=7).pack(anchor="nw", padx=14, pady=10)
         tk.Label(panel, text=f"FULL {name} PANEL", fg=accent, bg=PANEL, font=("Sans", 28, "bold")).place(relx=.5, rely=.44, anchor="center")
 
     def _show_placeholder(self, name: str) -> None:
-        self._clear_content(); panel = self._panel(self._content, name, GREEN); panel.pack(fill=tk.BOTH, expand=True)
+        self._clear_content()
+        panel = self._panel(self._content, name, GREEN)
+        panel.pack(fill=tk.BOTH, expand=True)
         tk.Label(panel, text=f"{name}\nCOMING NEXT", fg=TEXT, bg=PANEL, font=("Sans", 24, "bold")).place(relx=.5, rely=.5, anchor="center")
 
     @staticmethod
     def _panel(parent: tk.Misc, title: str, accent: str) -> tk.Frame:
         frame = tk.Frame(parent, bg=PANEL, highlightthickness=1, highlightbackground=BORDER)
-        tk.Label(frame, text=title, fg=accent, bg=PANEL, font=("Sans", 10, "bold")).pack(anchor="nw", padx=14, pady=(11, 4)); return frame
+        tk.Label(frame, text=title, fg=accent, bg=PANEL, font=("Sans", 10, "bold")).pack(anchor="nw", padx=14, pady=(11, 4))
+        return frame
 
     @staticmethod
     def _summary(parent: tk.Frame, primary: str, secondary: str) -> None:
@@ -196,11 +256,14 @@ class OrcUiApp:
         tk.Label(parent, text=secondary, fg=MUTED, bg=PANEL, font=("Sans", 9)).pack(anchor="w", padx=16)
 
     def _update_clock(self) -> None:
-        now = datetime.now(); self._clock_label.configure(text=now.strftime("%I:%M %p     %a, %b %d").lstrip("0")); self._root.after(1000, self._update_clock)
+        now = datetime.now()
+        self._clock_label.configure(text=now.strftime("%I:%M %p     %a, %b %d").lstrip("0"))
+        self._root.after(1000, self._update_clock)
 
 
 def main() -> None:
     OrcUiApp().run()
 
 
-if __name__ == "__main__": main()
+if __name__ == "__main__":
+    main()
