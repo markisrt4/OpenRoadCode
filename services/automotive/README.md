@@ -108,6 +108,20 @@ python3 -m apps.carTui.main
 
 The Vehicle screen updates as new `VehicleState` messages arrive. No automotive simulation or OBD-II object is constructed inside Car TUI.
 
+## Physical topic end-to-end test
+
+After `/dev/rfcomm0` exists, run the self-contained hardware-to-topic test:
+
+```bash
+python3 -m services.automotive.component_test.obd2_topic_e2e_cli \
+  --port /dev/rfcomm0
+```
+
+The test starts a broker on temporary localhost ports, constructs the physical
+ELM327 automotive runtime, subscribes to `openroad.vehicle.state`, validates
+the decoded message, prints its SI values, and shuts everything down. It does
+not require the installed broker or automotive services to be running.
+
 ## Design rule
 
 Producer services own hardware and simulation sources. Applications consume messaging contracts. This keeps the consumer path identical between bench simulation and the vehicle:
