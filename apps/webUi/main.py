@@ -6,6 +6,7 @@
 import atexit
 import os
 
+from apps.webUi.browser_music_analysis_session import WebBrowserMusicAnalysisSession
 from apps.webUi.menu_catalog import create_web_ui_menu_pages
 from apps.webUi.navigation_session import WebNavigationSession
 from apps.webUi.periodic_position_publisher import PeriodicPositionPublisher
@@ -35,40 +36,18 @@ def _create_navigation_session() -> tuple[
     if not enabled:
         return WebNavigationSession(), None, None
 
-    endpoint = os.environ.get(
-        "OPENROADCODE_ZMQ_POSITION_ENDPOINT",
-        "tcp://127.0.0.1:5556",
-    )
+    endpoint = os.environ.get("OPENROADCODE_ZMQ_POSITION_ENDPOINT", "tcp://127.0.0.1:5556")
     rate_hz = float(os.environ.get("OPENROADCODE_ZMQ_POSITION_RATE_HZ", "5.0"))
-
     publisher = ZeroMqPublisher(endpoint)
     position_publisher = PositionStatePublisher(publisher)
-    periodic_publisher = PeriodicPositionPublisher(
-        position_publisher.publish,
-        rate_hz=rate_hz,
-    )
+    periodic_publisher = PeriodicPositionPublisher(position_publisher.publish, rate_hz=rate_hz)
     periodic_publisher.start()
-
-    return (
-        WebNavigationSession(position_sink=periodic_publisher.update),
-        publisher,
-        periodic_publisher,
-    )
+    return WebNavigationSession(position_sink=periodic_publisher.update), publisher, periodic_publisher
 
 
-def _create_bus_consumer() -> tuple[
-    WebNavigationUiState,
-    WebVehicleUiState,
-    MessageDispatcher,
-]:
+def _create_bus_consumer() -> tuple[WebNavigationUiState, WebVehicleUiState, MessageDispatcher]:
     """Consume public navigation and automotive contracts for WebUI models."""
-    endpoint = os.environ.get(
-        "OPENROADCODE_ZMQ_SUBSCRIBE_ENDPOINT",
-        os.environ.get(
-            "OPENROADCODE_ZMQ_NAVIGATION_SUBSCRIBE_ENDPOINT",
-            "tcp://127.0.0.1:5557",
-        ),
-    )
+    endpoint = os.environ.get("OPENROADCODE_ZMQ_SUBSCRIBE_ENDPOINT", os.environ.get("OPENROADCODE_ZMQ_NAVIGATION_SUBSCRIBE_ENDPOINT", "tcp://127.0.0.1:5557"))
     navigation_state = WebNavigationUiState()
     vehicle_state = WebVehicleUiState()
 
@@ -78,25 +57,10 @@ def _create_bus_consumer() -> tuple[
         else:
             navigation_state.set_error(topic, error)
 
-    dispatcher = MessageDispatcher(
-        ZeroMqSubscriber(endpoint),
-        error_handler=handle_error,
-    )
-    dispatcher.register(
-        POSITION_STATE_TOPIC,
-        decode_position_state,
-        navigation_state.set_position,
-    )
-    dispatcher.register(
-        MOTION_STATE_TOPIC,
-        decode_motion_state,
-        navigation_state.set_motion,
-    )
-    dispatcher.register(
-        VEHICLE_STATE_TOPIC,
-        decode_vehicle_state,
-        vehicle_state.set_vehicle,
-    )
+    dispatcher = MessageDispatcher(ZeroMqSubscriber(endpoint), error_handler=handle_error)
+    dispatcher.register(POSITION_STATE_TOPIC, decode_position_state, navigation_state.set_position)
+    dispatcher.register(MOTION_STATE_TOPIC, decode_motion_state, navigation_state.set_motion)
+    dispatcher.register(VEHICLE_STATE_TOPIC, decode_vehicle_state, vehicle_state.set_vehicle)
     dispatcher.start()
     return navigation_state, vehicle_state, dispatcher
 
@@ -104,12 +68,14 @@ def _create_bus_consumer() -> tuple[
 navigation_session, position_zmq_publisher, periodic_position_publisher = _create_navigation_session()
 navigation_ui_state, vehicle_ui_state, bus_dispatcher = _create_bus_consumer()
 spotify_session = WebSpotifySession()
+music_analysis_session = WebBrowserMusicAnalysisSession()
 app = create_web_frontend(
     create_web_ui_menu_pages(),
     navigation_session=navigation_session,
     navigation_ui_state=navigation_ui_state,
     vehicle_ui_state=vehicle_ui_state,
     spotify_session=spotify_session,
+    music_analysis_session=music_analysis_session,
 )
 
 
