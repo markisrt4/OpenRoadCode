@@ -26,7 +26,7 @@ constexpr double kLatitude = 42.3314;
 constexpr double kLongitude = -83.0458;
 constexpr double kZoom = 13.0;
 constexpr auto kFollowCameraDuration = mbgl::Milliseconds(120);
-constexpr const char* kDefaultRendererEndpoint = "ipc:///tmp/openroadcode-map-renderer";
+constexpr const char* kDefaultBrokerSubscriberEndpoint = "tcp://127.0.0.1:5557";
 constexpr const char* kDataRootToken = "__OPENROADCODE_DATA_ROOT__";
 constexpr const char* kLegacyDataRoot = "/srv/openroadcode";
 
@@ -80,9 +80,9 @@ int main()
         "OPENROADCODE_NAVIGATION_CONFIG",
         "/etc/openroadcode/navigation.toml"
     );
-    const auto rendererEndpoint = environmentOrDefault(
-        "OPENROADCODE_MAP_RENDERER_ENDPOINT",
-        kDefaultRendererEndpoint
+    const auto brokerSubscriberEndpoint = environmentOrDefault(
+        "OPENROADCODE_BROKER_SUBSCRIBER_ENDPOINT",
+        kDefaultBrokerSubscriberEndpoint
     );
 
     NavigationConfig config;
@@ -97,7 +97,8 @@ int main()
     std::cout << "[map_renderer] config: " << configPath << '\n'
               << "[map_renderer] data root: " << config.dataRoot << '\n'
               << "[map_renderer] style: " << config.stylePath << '\n'
-              << "[map_renderer] endpoint: " << rendererEndpoint << '\n'
+              << "[map_renderer] command bus: " << brokerSubscriberEndpoint
+              << " topic=map.command\n"
               << "[map_renderer] vehicle marker: " << config.markerMode
               << " scale=" << config.markerScale << '\n';
 
@@ -141,7 +142,7 @@ int main()
             .withZoom(kZoom)
     );
 
-    MapCommandServer commandServer(rendererEndpoint);
+    MapCommandServer commandServer(brokerSubscriberEndpoint);
 
     view.setUpdateCallback(
         [&map, &commandServer, &config]() {
