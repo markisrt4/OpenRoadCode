@@ -23,6 +23,11 @@ detect_raspberry_pi_model() {
   if [[ -r "$model_file" ]]; then
     tr -d '\0' < "$model_file"
   fi
+
+  # Not finding Raspberry Pi model information is normal on generic Linux
+  # development hosts and CI runners. Treat that as "no model detected"
+  # rather than a hardware-probe failure so callers remain safe under set -e.
+  return 0
 }
 
 select_raspberry_pi_gpio_backend() {
