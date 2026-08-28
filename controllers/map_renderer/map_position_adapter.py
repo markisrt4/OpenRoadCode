@@ -33,7 +33,7 @@ class MapPositionAdapter:
         correction_time_s: float = 0.5,
         maximum_prediction_age_s: float = 1.5,
         snap_distance_m: float = 75.0,
-        minimum_camera_interval_s: float = 0.05,
+        minimum_camera_interval_s: float = 0.10,
         minimum_course_speed_mps: float = 1.0,
         clock: Callable[[], float] = time.monotonic,
     ) -> None:
