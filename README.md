@@ -2,41 +2,36 @@
 
 > An open-source automotive computing, software-defined radio, vehicle telemetry, and embedded experimentation platform.
 
-OpenRoadCode is a modular in-vehicle computing platform designed for Raspberry Pi and Linux-based embedded systems.
+OpenRoadCode is a modular in-vehicle computing platform designed primarily for Raspberry Pi and Linux-based embedded systems. Android/Termux is also used as an active portability and development target.
 
-It combines software-defined radio, GPS, vehicle telemetry, media controls, environmental sensors, physical controls, and a touchscreen interface into one extensible platform.
+It combines software-defined radio, offline navigation, positioning, vehicle telemetry, media controls, environmental sensors, physical controls, and touchscreen interfaces into one extensible platform.
 
 The project is intended for developers, makers, radio enthusiasts, and embedded Linux engineers who want a vehicle computing system they can inspect, modify, extend, and fully control.
 
 OpenRoadCode does not replace factory safety or vehicle-control systems. It complements them with an independent platform for experimentation, visualization, communications, entertainment, and custom applications.
 
-Explore the project at [openroadcode.org](https://www.openroadcode.org/) or
-visit the [OpenRoadCode repository](https://github.com/markisrt4/OpenRoadCode).
+Explore the project at [openroadcode.org](https://www.openroadcode.org/) or visit the [OpenRoadCode repository](https://github.com/markisrt4/OpenRoadCode).
 
 ---
 
 ## Project Status
 
-OpenRoadCode is under active development.
+OpenRoadCode is under active development and currently operates as an advanced experimental platform rather than a finished commercial infotainment system.
 
-The project currently operates as an advanced experimental platform rather than a finished commercial infotainment system.
-
-Some components are functional and actively used in the reference vehicle. Others are experimental, hardware-dependent, or still being integrated.
-
-Interfaces, configuration formats, and directory structures may continue to evolve before the first stable release.
+Some components are functional and actively used in the reference vehicle. Others are experimental, hardware-dependent, or still being integrated. Interfaces, configuration formats, and directory structures may continue to evolve before the first stable release.
 
 ---
 
 ## Project Goals
 
-OpenRoadCode is designed around several core goals:
+OpenRoadCode is designed to:
 
 * Provide an open and customizable automotive computing platform
 * Support multiple hardware implementations through reusable interfaces
 * Keep hardware-specific code isolated from application logic
 * Allow applications and controllers to be tested without physical hardware
-* Support Raspberry Pi and other Linux-based embedded computers
-* Encourage experimentation with radio, vehicle telemetry, sensors, and embedded Linux
+* Support Raspberry Pi and Linux development systems while exercising portability through Android/Termux
+* Encourage experimentation with radio, navigation, vehicle telemetry, sensors, and embedded Linux
 * Provide educational examples of modular Python and embedded-system architecture
 * Avoid unnecessary dependence on cloud services
 
@@ -47,54 +42,29 @@ OpenRoadCode is designed around several core goals:
 Current and partially integrated capabilities include:
 
 * Touchscreen automotive user interface
-* FM broadcast radio
-* AM airband reception
-* NOAA weather radio
-* Multi-band radio scanning
-* RTL-SDR integration
-* ADS-B aircraft tracking
-* Provider-independent positioning through GPSD or browser geolocation
-* Bluetooth OBD-II communication
-* Vehicle telemetry and gauge support
+* Offline Valhalla route planning and MapLibre map presentation
+* Provider-independent positioning and navigation telemetry
+* FM broadcast radio, AM airband, NOAA weather radio, and multi-band scanning
+* RTL-SDR integration with shared receiver ownership
+* ADS-B aircraft tracking through readsb and tar1090
+* Bluetooth OBD-II communication and vehicle telemetry
 * Bluetooth cabin-lighting control
-* Spotify integration
-* Music-video lookup and playback
+* Spotify integration, artwork, lyrics, and music-video lookup/playback
+* YouTube and Netflix media launchers
 * PipeWire audio control
-* Rotary encoder input
-* Keyboard input
-* GPIO pushbuttons
-* Environmental sensing
-* Barometric pressure sensing
-* IMU and vehicle-orientation experiments
-* Remote display through VNC
+* Rotary encoder, keyboard, and GPIO pushbutton input
+* Environmental, barometric, IMU, and vehicle-orientation sensing
+* Configurable browser application lifecycle and presentation targets
 * Configurable startup and splash-screen behavior
-* Mock and stub controllers for development without hardware
+* Mock, stub, and simulation implementations for development without hardware
 
-Not every feature is supported on every hardware configuration.
+Not every feature is supported on every target. In particular, Android/Termux is a development and portability target and does not provide hardware parity with the Raspberry Pi installation.
 
 ---
 
 ## Planned and Experimental Features
 
-Potential future work includes:
-
-* Offline navigation
-* Downloadable maps
-* Dashcam support
-* Backup-camera integration
-* Additional vehicle gauges
-* CAN bus monitoring
-* TPMS integration
-* Steering-wheel control integration
-* APRS
-* AIS reception
-* Digital radio modes
-* Additional SDR applications
-* Trip recording and telemetry history
-* Additional embedded Linux targets
-* Custom OpenRoadCode operating-system images
-
-These items represent areas of interest rather than release commitments.
+Potential future work includes dashcam and backup-camera integration, additional vehicle gauges, CAN/TPMS integration, steering-wheel controls, APRS, AIS, additional digital radio modes, trip recording, and custom OpenRoadCode operating-system images. These are areas of interest rather than release commitments.
 
 ---
 
@@ -107,86 +77,39 @@ The current reference system is based primarily on:
 | Raspberry Pi 5               | Primary embedded computer            |
 | Raspberry Pi 4               | Secondary and development target     |
 | Raspberry Pi Touch Display 2 | Primary touchscreen                  |
-| RTL-SDR receivers            | Radio reception                      |
-| USB GPS receiver or browser  | Position and time data               |
+| RTL-SDR receivers            | Radio and ADS-B reception            |
+| USB GNSS receiver            | Position and time data               |
 | Bluetooth OBD-II adapter     | Vehicle telemetry                    |
 | Bluetooth LED controller     | Cabin-lighting control               |
 | Rotary encoders              | Physical user input                  |
 | GPIO pushbuttons             | Physical controls and shutdown input |
-| Environmental sensors        | Temperature and barometric data      |
-| IMU sensors                  | Pitch, roll, and motion data         |
+| Environmental / IMU sensors  | Environmental and motion data        |
 | USB audio hardware           | Audio input and output               |
 | Ethernet travel router       | Local in-vehicle network             |
 | Linux workstation or VM      | Development environment              |
+| Android / Termux device      | Portability and integration testing  |
 
-OpenRoadCode is designed to support additional hardware through adapter and controller interfaces.
-
-Hardware compatibility varies by Linux distribution, kernel, device permissions, and available drivers.
+Hardware compatibility varies by platform, Linux distribution, kernel, device permissions, and available drivers.
 
 ---
 
 ## Software Architecture
 
-OpenRoadCode separates application logic from hardware-specific implementations and uses two complementary communication paths.
-
-The primary repository areas are:
+OpenRoadCode separates applications, application-facing controllers, domain services, messaging, protocols, and hardware-specific implementations.
 
 ```text
 OpenRoadCode/
-├── apps/
-│   ├── carUi/
-│   ├── carTui/
-│   └── other applications
-│
-├── services/
-│   ├── navigation/
-│   └── automotive/
-│
-├── messaging/
-│   ├── contracts/
-│   └── zeromq/
-│
-├── controllers/
-│   ├── audio/
-│   ├── automotive/
-│   ├── environmental/
-│   ├── image/
-│   ├── lighting/
-│   ├── navigation/
-│   ├── radio/
-│   ├── spotify/
-│   └── other application-facing controllers
-│
-├── common/
-│   ├── telemetry/
-│   └── units/
-│
-├── frontends/
-├── ui/
-├── input_events/
-├── hardware_io/
-├── protocols/
-├── config/
-├── scripts/
-└── tests and component-test utilities
-```
-
-Commands and requested behavior use controller or request-handler interfaces:
-
-```text
-Application / UI
-        │
-        ▼
-Controller or request interface
-        │
-        ▼
-Concrete implementation / service command endpoint
-        │
-        ▼
-Hardware adapter / protocol
-        │
-        ▼
-Linux service / physical hardware
+├── apps/                 main applications and application launchers
+├── services/             long-lived domain producers such as navigation
+├── messaging/            public contracts and ZeroMQ transport
+├── controllers/          application-facing behavior
+├── hardware_io/          physical and platform-specific adapters
+├── protocols/            device and external-service protocols
+├── common/               shared telemetry and units
+├── frontends/ and ui/    presentation implementations
+├── input_events/         cross-layer physical input contracts
+├── config/               runtime and application policy
+└── scripts/              installation and service integration
 ```
 
 Continuously changing public telemetry is distributed through producer services and the ZeroMQ message bus:
@@ -196,8 +119,6 @@ Hardware / simulation
         │
         ▼
 Domain producer service
-  ├── navigation
-  └── automotive
         │
         ▼
 SI-normalized public contracts
@@ -212,152 +133,62 @@ Shared application telemetry state
 carUi / carTui / webUi / demos
 ```
 
-Producer services own the physical device or simulation source, domain processing, and publication lifecycle. Applications should consume public telemetry rather than constructing competing GPS, IMU, or OBD-II hardware/controller instances merely to display state.
+Producer services own physical devices or simulation sources, domain processing, and publication lifecycle. Applications consume public telemetry instead of constructing competing GPS, IMU, or OBD-II instances merely to display state.
 
-OpenRoadCode keeps public telemetry SI-normalized on the wire. Imperial or metric conversion happens at the presentation boundary through helpers in `common.units`, so all consumers receive the same canonical values.
+Commands requiring acknowledgement or error reporting use request/reply messaging where appropriate. Public telemetry remains SI-normalized on the wire; presentation code performs unit conversion.
 
-PUB/SUB is used for continuously changing telemetry. Operations that require acknowledgement or error reporting use request/reply messaging where appropriate; navigation calibration and heading reset are examples of ZeroMQ REQ/REP commands.
-
-Runtime service composition is selected through `config/runtime.toml`. Simulation can be selected at the producer-service input without changing downstream applications.
+`carUi`, `carTui`, and `webUi` are peer applications. Browser-backed utilities such as Weather, ADS-B, YouTube, and Google Earth are auxiliary applications managed by CarUi according to application policy. A top-level application is not preloaded merely because it happens to use a browser.
 
 Messaging and service documentation:
 
 * [Messaging overview and subscriber quick start](messaging/README.md)
-* [Message Bus Interface Design Description (IDD)](docs/messaging/message_bus_idd.md)
+* [Message Bus Interface Design Description](docs/messaging/message_bus_idd.md)
 * [Navigation producer service](services/navigation/README.md)
 * [Automotive producer service](services/automotive/README.md)
 * [Car TUI telemetry consumer](apps/carTui/README.md)
+* [Termux development target](development/termux/README.md)
 * [Contributor architecture and testing rules](CONTRIBUTING.md)
 
-Higher-level application modules should not depend directly on hardware-specific implementations. Cross-layer physical-input values live in `input_events`; shared telemetry caches and unit conversions live under `common`.
-
 ---
 
-## Controllers
+## Configuration and Application Lifecycle
 
-Controllers expose application-facing behavior.
+Runtime service composition is selected through `config/runtime.toml`. Producer inputs can select physical, browser-backed, Android-backed, or simulation implementations without changing downstream telemetry consumers.
 
-Examples include:
+User-facing auxiliary applications are configured separately:
 
-* Radio control
-* Audio control
-* Spotify playback
-* Navigation
-* Lighting
-* Environmental data
-* Vehicle information
+* `config/applications.toml` contains the Raspberry Pi/Linux application profile.
+* `config/applications.termux.toml` contains Termux presentation routing and platform-specific application behavior.
+* `config/runtime.termux.toml` is an explicit Android sensor/navigation service profile. CarUi does not select it automatically.
 
-A controller may have several implementations:
+Application startup policy is explicit:
 
-```text
-AudioControllerIf
-├── PipeWireAudioController
-├── AudioControllerStub
-└── UnconfiguredAudioController
-```
+* `lazy` starts an application when requested.
+* `preload` warms application resources in the background without leaving the presentation visible.
+* `persistent` keeps the application/runtime available while visibility is managed separately.
 
-This pattern allows the application to run with:
+Browser-backed applications use independent Chromium app windows and profiles. Presentation targets and exclusive groups control where windows appear and which auxiliary applications may remain visible together.
 
-* Real hardware
-* Mock data
-* Stub implementations
-* Unsupported or unconfigured features
+ADS-B also separates presentation from data ownership. The Raspberry Pi/Linux profile uses `source = "rtlsdr"`; the Termux profile currently uses `source = "simulation"`. With the RTL-SDR source, `readsb` is started on demand by the ADS-B launcher and stopped when ADS-B releases the receiver. It is deliberately not a permanently enabled system service because the receiver is shared with other SDR applications.
 
-Controllers should avoid exposing unnecessary implementation details to the user interface.
-
----
-
-## Hardware Adapters
-
-Hardware adapters isolate device-specific behavior.
-
-Examples include:
-
-* USB GPS receivers
-* Bluetooth OBD-II devices
-* Raspberry Pi GPIO
-* I2C rotary encoders
-* Environmental sensors
-* IMUs
-* Pushbuttons
-* Linux keyboard input
-
-Application code should interact with interfaces and domain objects rather than directly accessing device files, GPIO libraries, serial ports, or Bluetooth libraries.
-
-This makes it easier to support additional implementations without rewriting higher-level code.
-
----
-
-## Protocol Modules
-
-Protocol modules implement communication formats independently of the user interface.
-
-Examples include:
-
-* OBD-II and ELM327 commands
-* Spotify Web API requests
-* OAuth authorization
-* `rigctl` radio control
-* Bluetooth lighting protocols
-
-Protocol code should not contain user-interface behavior.
-
----
-
-## Configuration
-
-OpenRoadCode uses configuration files for hardware selection, radio profiles, device settings, runtime behavior, and application options.
-
-Configuration files are stored primarily under:
-
-```text
-config/
-```
-
-The goal is to avoid hard-coding:
-
-* Device addresses
-* Bluetooth UUIDs
-* Serial-device paths
-* Radio frequencies
-* Scanner ranges
-* Runtime implementations
-* Application-specific hardware selections
-
-Example configurations should be copied and customized rather than edited in place when possible.
-
-Do not commit credentials, API keys, OAuth tokens, or other secrets to the repository.
+Do not commit credentials, API keys, OAuth tokens, browser state, or runtime service state such as runit `supervise/` directories.
 
 ---
 
 ## Installation
 
-Installation currently supports Raspberry Pi OS and Debian/Ubuntu development
-hosts. Review the installer before running it on an existing system: it may
-install packages, configure services, and create a Python environment.
-
-A typical development setup begins with:
+Raspberry Pi OS and Debian/Ubuntu hosts use the target-aware installer. Review it before running it on an existing system because it may install packages, configure services, and create a Python environment.
 
 ```bash
 git clone https://github.com/markisrt4/OpenRoadCode.git
 cd OpenRoadCode
-```
 
-Run the installer with an explicit target profile:
-
-```bash
 ./scripts/installers/host_setup.sh --target rpi4
 ./scripts/installers/host_setup.sh --target rpi5
 ./scripts/installers/host_setup.sh --target linux-dev
 ```
 
-Targets install only their platform fundamentals. Add the capabilities needed
-for a particular machine explicitly:
-
-When the `spotify` feature is selected, `linux-dev` installs the `pactl`
-client through `pulseaudio-utils`; Raspberry Pi 4 and Pi 5 targets install
-PipeWire/WirePlumber support for `wpctl`. Runtime composition performs the same
-target detection and may be overridden with `OPENROAD_RUNTIME_TARGET`.
+Features can be selected explicitly, for example:
 
 ```bash
 ./scripts/installers/host_setup.sh --target rpi5 \
@@ -365,60 +196,25 @@ target detection and may be overridden with `OPENROAD_RUNTIME_TARGET`.
   --feature input \
   --feature gps \
   --feature bluetooth \
-  --feature automotive
+  --feature automotive \
+  --feature adsb
 ```
 
-Concrete devices are configured separately. For example, after installing the
-`bluetooth` capability, configure a Bluetooth Serial Port Profile device with:
+Use `--all-features` to install all compatible software capabilities, `--show-plan` to inspect the resolved plan without modifying the machine, and `--with-vnc` or `--with-gpsd-service` only when those services should be configured.
 
-```bash
-./scripts/installers/setup_bluetooth_spp.sh --address AA:BB:CC:DD:EE:FF
-```
+Concrete devices and credentials remain separate from package installation. Run `./scripts/installers/host_setup.sh --help` for current options.
 
-Run the setup utility without an address for an interactive scan and device
-selection. The interactive host installer also offers compatible device and
-service setup as an optional post-install phase.
+### Android / Termux
 
-Use `--with-vnc` or `--with-gpsd-service` only when those services should be
-configured. VNC password initialization is interactive and never creates a
-default password.
+Termux is an active development target rather than a complete Raspberry Pi replacement. It is used to exercise native Python services, ZeroMQ, Valhalla, MapLibre, Chromium/Termux:X11 presentation, Android sensor integration, and simulated ADS-B presentation.
 
-Install every capability compatible with a target without spelling out the
-complete feature list:
-
-```bash
-./scripts/installers/host_setup.sh --target rpi5 --all-features
-```
-
-`--all-features` installs software support but does not pair concrete devices,
-create credentials, or enable optional services. Combine it with
-`--with-vnc` or `--with-gpsd-service` when desired, and add `--show-plan` to
-preview the complete expansion.
-
-Inspect the resolved features and services without changing the system:
-
-```bash
-./scripts/installers/host_setup.sh --target linux-dev --show-plan
-```
-
-The installer compares the selected target with the detected machine and asks
-for confirmation when they differ. Noninteractive mismatches fail safely;
-`--force-target` is available for deliberate automated overrides.
-
-After installation, activate the Python environment if the installer created one:
-
-```bash
-source venv/bin/activate
-```
-
-Run `./scripts/installers/host_setup.sh --help` for optional feature and service
-arguments.
+Follow [development/termux/README.md](development/termux/README.md) for the current native build, runit services, sensor bridge, navigation data, tar1090, and CarUi launch workflow.
 
 ---
 
-## Running the Car UI
+## Running CarUi
 
-From the repository root:
+From the repository root on a normal Linux/Raspberry Pi installation:
 
 ```bash
 CARUI_GEOMETRY=1024x600 \
@@ -426,124 +222,44 @@ CARUI_FULLSCREEN=0 \
 venv/bin/python -m apps.carUi.main
 ```
 
-For fullscreen operation:
+Termux normally uses X11 display `:1` and disables the splash by default because of Android/Termux Tcl/Tk interpreter teardown behavior. The Termux guide contains the complete launch sequence.
 
-```bash
-CARUI_FULLSCREEN=1 \
-venv/bin/python -m apps.carUi.main
-```
-
-Environment variables currently used by the application include:
-
-| Variable                  | Purpose                               |
-| ------------------------- | ------------------------------------- |
-| `CARUI_GEOMETRY`          | Window size in `WIDTHxHEIGHT` format  |
-| `CARUI_FULLSCREEN`        | Enable or disable fullscreen mode     |
-| `CARUI_SPLASH`            | Enable or disable the startup splash  |
-| `CARUI_SPLASH_FADE_MS`    | Splash fade duration                  |
-| `CARUI_SPLASH_HOLD_MS`    | Time the splash remains fully visible |
-| `CARUI_SPLASH_FULLSCREEN` | Override splash fullscreen behavior   |
-| `CARUI_DISPLAY`           | Explicit X11 display override         |
-
-Example without the startup splash:
-
-```bash
-CARUI_SPLASH=0 \
-CARUI_GEOMETRY=1024x600 \
-CARUI_FULLSCREEN=0 \
-venv/bin/python -m apps.carUi.main
-```
-
----
-
-## Remote X11 Development
-
-OpenRoadCode can be launched through X11 forwarding for development.
-
-Connect to the target system with:
-
-```bash
-ssh -X username@openroad-host
-```
-
-Then run:
-
-```bash
-echo "$DISPLAY"
-
-CARUI_GEOMETRY=1024x600 \
-CARUI_FULLSCREEN=0 \
-venv/bin/python -m apps.carUi.main
-```
-
-Trusted X11 forwarding may be used where appropriate:
-
-```bash
-ssh -Y username@openroad-host
-```
-
-The application normally preserves the `DISPLAY` value assigned by SSH.
+Useful overrides include `CARUI_GEOMETRY`, `CARUI_FULLSCREEN`, `CARUI_SPLASH`, `CARUI_MEDIA_DISPLAY`, `OPENROAD_RUNTIME_CONFIG`, `OPENROAD_APPLICATIONS_CONFIG`, and `OPENROAD_RUNTIME_TARGET`.
 
 ---
 
 ## Development Without Hardware
 
-Many OpenRoadCode components provide mocks, stubs, or unconfigured implementations.
+Mocks, stubs, simulation producers, and unconfigured implementations allow developers to test application logic, presentation, dependency assembly, and failure handling without the complete vehicle hardware stack.
 
-These allow developers to:
-
-* Test application logic on a workstation
-* Develop panels without connecting physical devices
-* Simulate controller state
-* Verify dependency assembly
-* Test failure and unconfigured states
-* Build new hardware adapters independently
-
-New controllers should provide a mock or stub implementation when practical.
+Component-test CLIs provide direct subsystem verification for navigation inputs, OBD-II, SDR applications, rotary encoders, environmental sensors, Spotify/media, audio, and Bluetooth devices. Component tests may require hardware, permissions, services, or environment variables and supplement rather than replace automated tests.
 
 ---
 
-## Component Tests
+## Automated Checks and Doxygen
 
-Many hardware and controller modules include command-line component tests.
+Public methods declared in `*_if.py` modules must document every argument with `@param` and every non-`None` return value with `@return` or `@retval`.
 
-These are intended to verify one subsystem at a time without launching the complete application.
-
-Examples may include tests for:
-
-* GPSD and browser position input
-* OBD-II communication
-* Rotary encoders
-* Environmental sensors
-* Spotify
-* Music-video lookup
-* Audio control
-* Bluetooth devices
-
-Component tests may require hardware, Linux permissions, system services, or environment variables.
-
-They supplement automated tests but should not be treated as a replacement for them.
-
----
-
-## Automated Checks
-
-Public methods declared in `*_if.py` modules must document:
-
-* Every argument with `@param`
-* Every non-`None` return value with `@return` or `@retval`
-
-Run the interface-contract check with:
+Run the interface-contract checker and generate documentation with:
 
 ```bash
-python3 scripts/check_doxygen_contracts.py
+python scripts/check_doxygen_contracts.py
+doxygen Doxyfile
 ```
 
-The command exits with a nonzero status when a public interface contract is incomplete.
+Generated HTML documentation is written to:
 
-GitHub Actions may run this and other checks for pull requests and changes to the default branch.
+```text
+build/doxygen/html/index.html
+```
 
-Additional automated behavioral tests are being added as the project matures.
+Doxygen warnings are written to:
+
+```text
+build/doxygen-warnings.log
+```
+
+Unit tests use Python's `unittest` framework. Focused subsystem tests live alongside their implementation packages; component tests are used where real hardware or platform services are required.
 
 ---
 
@@ -551,196 +267,53 @@ Additional automated behavioral tests are being added as the project matures.
 
 General project conventions include:
 
-* Use `snake_case` for Python modules, methods, functions, and variables
-* Use clear interface names ending in `If`
-* Prefer dependency injection over global state
-* Keep hardware-specific behavior in `hardware_io`
-* Keep protocol parsing in `protocols`
-* Keep application-facing behavior in `controllers`
-* Avoid importing application modules from lower-level packages
-* Provide type annotations for public APIs
-* Document public interfaces
-* Keep configuration outside application logic
-* Provide mocks or stubs for hardware-dependent components when practical
-* Handle unavailable hardware as a normal runtime condition
-* Prefer small, focused modules over large multipurpose classes
-
----
-
-## Adding New Hardware
-
-A typical hardware integration should follow this pattern:
-
-1. Define or reuse a hardware interface.
-2. Create a concrete adapter for the device.
-3. Add a component test for direct hardware verification.
-4. Create or update the corresponding controller.
-5. Add configuration for selecting the implementation.
-6. Inject the implementation during runtime assembly.
-7. Keep device-specific imports out of the UI.
-
-Example:
-
-```text
-EnvironmentalSensorIf
-        │
-        ├── Bmp390Adapter
-        ├── MockEnvironmentalSensor
-        └── FutureSensorAdapter
-```
-
-The rest of the application should not need to know which physical sensor is active.
-
----
-
-## Adding a New Application Feature
-
-A new user-facing feature will typically include:
-
-```text
-apps/
-    User-interface panel or application
-
-controllers/
-    Application-facing behavior
-
-hardware_io/
-    Optional device implementation
-
-protocols/
-    Optional communication protocol
-
-config/
-    Runtime and device settings
-```
-
-Not every feature requires every layer.
-
-Avoid creating abstractions unless they provide a real boundary, test seam, or interchangeable implementation. Software has enough ceremonial architecture already.
+* Use `snake_case` for Python modules, methods, functions, and variables.
+* Use clear interface names ending in `If`.
+* Prefer dependency injection over global state.
+* Keep hardware-specific behavior in `hardware_io`.
+* Keep protocol parsing in `protocols`.
+* Keep application-facing behavior in `controllers`.
+* Keep long-lived producer ownership in `services`.
+* Avoid importing application modules from lower-level packages.
+* Provide type annotations and Doxygen contracts for public interfaces.
+* Keep configuration outside application logic.
+* Handle unavailable hardware as a normal runtime condition.
+* Add mocks/stubs where they create a useful test seam.
+* Avoid abstractions that do not provide a real boundary or interchangeable implementation.
 
 ---
 
 ## Supported Platforms
 
-Primary development targets include:
+Primary targets are:
 
-* Raspberry Pi OS
+* Raspberry Pi OS on Raspberry Pi 4 and Raspberry Pi 5
 * Debian-based ARM64 systems
-* Debian-based AMD64 development systems
+* Debian/Ubuntu AMD64 development systems
+* Android/Termux as an active development and portability target
 
-Other Linux distributions may work but are not currently guaranteed.
-
-The user interface currently relies on Linux desktop and display technologies including Tkinter, X11, VNC, and related services.
-
-Some integrations also rely on:
-
-* GPSD
-* BlueZ
-* PipeWire
-* RTL-SDR
-* SDR++
-* Chromium
-* Streamlit
-* Linux GPIO and I2C support
+Termux support is intentionally partial. Hardware-specific Linux integrations such as GPIO, some audio paths, and direct RTL-SDR ownership may differ or be unavailable. Termux:X11 provides the graphical environment used by the current Android workflow.
 
 ---
 
 ## Safety
 
-OpenRoadCode is an experimental hobbyist and educational platform.
+OpenRoadCode is an experimental hobbyist and educational platform. It must not be relied upon for steering, braking, throttle, airbags, stability control, or other safety-critical vehicle functions.
 
-It must not be relied upon for:
-
-* Steering
-* Braking
-* Throttle control
-* Airbag control
-* Stability control
-* Other safety-critical vehicle functions
-
-Do not interact with the system while driving unless the interaction is legal, safe, and designed to minimize distraction.
-
-Radio operation must comply with applicable laws and regulations.
-
-Vehicle wiring, power integration, CAN bus access, GPIO connections, and external hardware modifications should be performed carefully.
-
-The project maintainers and contributors are not responsible for vehicle damage, data loss, distraction, regulatory violations, or injury resulting from use of the software or associated hardware.
+Do not interact with the system while driving unless the interaction is legal, safe, and designed to minimize distraction. Radio operation must comply with applicable laws and regulations. Vehicle wiring, power integration, CAN access, GPIO connections, and external hardware modifications should be performed carefully.
 
 ---
 
 ## Contributing
 
-Contributions are welcome, particularly in the following areas:
+Contributions are welcome, particularly in automated tests, documentation, hardware adapters, configuration validation, installation, accessibility, radio applications, vehicle telemetry, embedded Linux support, failure handling, and platform portability.
 
-* Automated tests
-* Documentation
-* Hardware adapters
-* Configuration validation
-* Installation improvements
-* User-interface accessibility
-* Radio applications
-* Vehicle telemetry
-* Embedded Linux support
-* Failure handling
-* Platform portability
+Before a major architectural change, describe the problem, proposed design, affected layers, platform dependencies, and testing implications. Changes should preserve the separation between applications, controllers, services, messaging, protocols, and hardware-specific code.
 
-Before submitting a major architectural change, open an issue describing:
-
-* The problem being solved
-* The proposed design
-* The affected layers
-* Hardware or platform dependencies
-* Testing considerations
-
-Changes should preserve separation between applications, controllers, protocols, and hardware-specific code.
-
-Ready to get involved? Read the friendly
-[contributor guide](https://github.com/markisrt4/OpenRoadCode/blob/master/CONTRIBUTING.md)
-for development setup, architecture, testing conventions, hardware guidance,
-and the pull-request checklist.
-
----
-
-## Reporting Problems
-
-When reporting a problem, include:
-
-* Linux distribution and version
-* CPU architecture
-* Raspberry Pi or computer model
-* Python version
-* Relevant hardware
-* Configuration files with secrets removed
-* Steps to reproduce
-* Expected behavior
-* Actual behavior
-* Relevant logs or terminal output
-
-For hardware-related issues, also include:
-
-* Device model
-* Connection type
-* Device path
-* USB or I2C detection output
-* Required Linux services
-* Whether the component test succeeds
+Read [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, architecture, testing conventions, hardware guidance, and the pull-request checklist.
 
 ---
 
 ## License
 
-OpenRoadCode is released under the MIT License.
-
-See [LICENSE](LICENSE) for the complete license text.
-
-Security concerns should be reported according to the
-[security policy](SECURITY.md). Please do not disclose sensitive findings in
-a public issue.
-
----
-
-## Acknowledgments
-
-OpenRoadCode builds upon the work of many open-source projects and communities, including Linux, Python, Raspberry Pi, RTL-SDR, GPSD, BlueZ, PipeWire, SDR++, Spotify integration libraries, and numerous hardware-driver projects.
-
-The project would not be possible without the maintainers who document obscure hardware behavior so the rest of us can eventually discover that one missing `udev` rule.
+OpenRoadCode is licensed under the MIT License. See [LICENSE](LICENSE).
