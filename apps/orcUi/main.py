@@ -10,6 +10,7 @@ import tkinter as tk
 from datetime import datetime
 
 from apps.orcUi.context_rail import ContextRail
+from apps.orcUi.navigation_panel import NavigationPanel
 from apps.orcUi.navigation_presenter import (
     AttitudePresentationState,
     NavigationPresenter,
@@ -58,6 +59,7 @@ class OrcUiApp:
         self._clock_label: tk.Label
         self._content: tk.Frame
         self._context_rail: ContextRail | None = None
+        self._navigation_panel: NavigationPanel | None = None
         self._vehicle_panel: VehiclePanel | None = None
         self._offroad_panel: OffRoadPanel | None = None
         self._vehicle_state = VehiclePresentationState()
@@ -185,6 +187,8 @@ class OrcUiApp:
         self._paint_nav()
         if name == "HOME":
             self._show_home()
+        elif name == "NAVIGATION":
+            self._show_navigation_panel()
         elif name == "VEHICLE":
             self._show_vehicle_panel()
         else:
@@ -197,6 +201,7 @@ class OrcUiApp:
 
     def _clear_content(self) -> None:
         self._context_rail = None
+        self._navigation_panel = None
         self._vehicle_panel = None
         self._offroad_panel = None
         for child in self._content.winfo_children():
@@ -229,6 +234,16 @@ class OrcUiApp:
         media.grid(row=0, column=1, sticky="nsew", padx=(5, 0))
         self._summary(media, "No media", "Playback service")
         tk.Label(media, text="▂▅▃▇▄▆▂▅", fg=BLUE, bg=PANEL, font=("Sans", 14, "bold")).pack(anchor="w", padx=16, pady=(7, 0))
+
+    def _show_navigation_panel(self) -> None:
+        self._clear_content()
+        self._active_nav = "NAVIGATION"
+        self._paint_nav()
+        self._navigation_panel = NavigationPanel(
+            self._content,
+            on_back=self._show_home,
+        )
+        self._navigation_panel.pack(fill=tk.BOTH, expand=True)
 
     def _show_vehicle_panel(self) -> None:
         self._clear_content()
