@@ -14,58 +14,48 @@ class WebScreen:
 
 
 NETFLIX_HTML = '''
-<div class="card">
-  <b>Netflix</b>
-  <p>Open Netflix directly on this device, or search for a title.</p>
-  <button id="netflix-open" class="primary wide">OPEN NETFLIX</button>
-</div>
-<form id="netflix-search-form" class="card">
-  <label for="netflix-search"><b>Find a title</b></label>
-  <input id="netflix-search" class="search" type="search" placeholder="Movie or show" autocomplete="off">
-  <button class="wide" type="submit">SEARCH NETFLIX</button>
-</form>
+<div class="card"><b>Netflix</b><p>Open Netflix directly on this device, or search for a title.</p><button id="netflix-open" class="primary wide">OPEN NETFLIX</button></div>
+<form id="netflix-search-form" class="card"><label for="netflix-search"><b>Find a title</b></label><input id="netflix-search" class="search" type="search" placeholder="Movie or show" autocomplete="off"><button class="wide" type="submit">SEARCH NETFLIX</button></form>
 <script src="/web-assets/media/browser_media.js"></script>
 '''
 
 YOUTUBE_HTML = '''
-<form id="youtube-search-form" class="card">
-  <label for="youtube-search"><b>Search YouTube</b></label>
-  <input id="youtube-search" class="search" type="search" placeholder="Video, channel, artist…" autocomplete="off">
-  <button class="primary wide" type="submit">SEARCH YOUTUBE</button>
-</form>
-<div class="card">
-  <p>Or open YouTube and browse normally on this device.</p>
-  <button id="youtube-open" class="wide">OPEN YOUTUBE</button>
-</div>
+<form id="youtube-search-form" class="card"><label for="youtube-search"><b>Search YouTube</b></label><input id="youtube-search" class="search" type="search" placeholder="Video, channel, artist…" autocomplete="off"><button class="primary wide" type="submit">SEARCH YOUTUBE</button></form>
+<div class="card"><p>Or open YouTube and browse normally on this device.</p><button id="youtube-open" class="wide">OPEN YOUTUBE</button></div>
 <script src="/web-assets/media/browser_media.js"></script>
 '''
 
 VEHICLE_GAUGES_HTML = '''
 <div class="card"><b>Automotive bus</b><p id="vehicle-obd-status">Waiting for openroad.vehicle.state…</p></div>
-<div class="gauges">
-  <div class="gauge"><span id="vehicle-rpm">--</span><small>RPM</small></div>
-  <div class="gauge"><span id="vehicle-obd-speed">--</span><small>OBD MPH</small></div>
-  <div class="gauge"><span id="vehicle-throttle">--</span><small>THROTTLE %</small></div>
-  <div class="gauge"><span id="vehicle-boost">--</span><small>BOOST PSI</small></div>
-  <div class="gauge"><span id="vehicle-coolant">--</span><small>COOLANT °F</small></div>
-  <div class="gauge"><span id="vehicle-load">--</span><small>ENGINE LOAD %</small></div>
-  <div class="gauge"><span id="vehicle-fuel">--</span><small>FUEL %</small></div>
-  <div class="gauge"><span id="vehicle-voltage">--</span><small>CONTROL V</small></div>
-</div>
+<div class="gauges"><div class="gauge"><span id="vehicle-rpm">--</span><small>RPM</small></div><div class="gauge"><span id="vehicle-obd-speed">--</span><small>OBD MPH</small></div><div class="gauge"><span id="vehicle-throttle">--</span><small>THROTTLE %</small></div><div class="gauge"><span id="vehicle-boost">--</span><small>BOOST PSI</small></div><div class="gauge"><span id="vehicle-coolant">--</span><small>COOLANT °F</small></div><div class="gauge"><span id="vehicle-load">--</span><small>ENGINE LOAD %</small></div><div class="gauge"><span id="vehicle-fuel">--</span><small>FUEL %</small></div><div class="gauge"><span id="vehicle-voltage">--</span><small>CONTROL V</small></div></div>
 <div class="card"><b>Navigation bus</b><p id="vehicle-sensor-status">Waiting for navigation data, or start phone GPS.</p></div>
-<div class="gauges">
-  <div class="gauge"><span id="vehicle-speed">--</span><small>GPS MPH</small></div>
-  <div class="gauge"><span id="vehicle-heading">--</span><small>HEADING</small></div>
-  <div class="gauge"><span id="vehicle-altitude">--</span><small>ALTITUDE</small></div>
-  <div class="gauge"><span id="vehicle-accuracy">--</span><small>GPS ACCURACY</small></div>
+<div class="gauges"><div class="gauge"><span id="vehicle-speed">--</span><small>GPS MPH</small></div><div class="gauge"><span id="vehicle-heading">--</span><small>HEADING</small></div><div class="gauge"><span id="vehicle-altitude">--</span><small>ALTITUDE</small></div><div class="gauge"><span id="vehicle-accuracy">--</span><small>GPS ACCURACY</small></div></div>
+<div class="card"><b>Phone sensors</b><p>Use this device as a navigation.position producer.</p><button id="start-vehicle-sensors" class="primary wide">START PHONE GPS</button></div>
+<script src="/web-assets/sensors/geolocation.js"></script><script src="/web-assets/sensors/vehicle_gauges.js"></script>
+'''
+
+MUSIC_VISUALIZER_HTML = '''
+<div class="card">
+  <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+    <button id="music-visualizer-toggle" class="primary">START MICROPHONE</button>
+    <select id="music-visualizer-mode" class="search" style="width:auto">
+      <option value="bars">Spectrum Bars</option><option value="rings">Electric Rings</option><option value="tunnel">Frequency Tunnel</option>
+    </select>
+  </div>
+  <p id="music-visualizer-status">Start the microphone to feed the shared Python MusicAnalyzer.</p>
+</div>
+<div class="card" style="padding:8px;overflow:hidden;background:#03070c">
+  <canvas id="music-visualizer-canvas" style="display:block;width:100%;height:min(58vh,430px);border-radius:12px"></canvas>
 </div>
 <div class="card">
-  <b>Phone sensors</b>
-  <p>Use this device as a navigation.position producer.</p>
-  <button id="start-vehicle-sensors" class="primary wide">START PHONE GPS</button>
+  <div style="display:grid;gap:10px">
+    <div><small>BASS</small><div style="height:8px;background:#222b34;border-radius:8px"><div id="music-bass" style="height:100%;width:0;background:#45b8ff;border-radius:8px"></div></div></div>
+    <div><small>MID</small><div style="height:8px;background:#222b34;border-radius:8px"><div id="music-mid" style="height:100%;width:0;background:#58df7b;border-radius:8px"></div></div></div>
+    <div><small>TREBLE</small><div style="height:8px;background:#222b34;border-radius:8px"><div id="music-treble" style="height:100%;width:0;background:#d260ff;border-radius:8px"></div></div></div>
+  </div>
 </div>
-<script src="/web-assets/sensors/geolocation.js"></script>
-<script src="/web-assets/sensors/vehicle_gauges.js"></script>
+<script src="/web-assets/audio-analysis/browser_pcm_capture.js"></script>
+<script src="/web-assets/audio-analysis/music_visualizer.js"></script>
 '''
 
 
@@ -85,4 +75,5 @@ def create_web_screens() -> dict[str, WebScreen]:
         "accent_lighting": WebScreen("Accent Lighting", "Frontend controls", '''<div class="card"><input type="range" min="0" max="100"><input type="color"></div>'''),
         "netflix": WebScreen("Netflix", "Browser-native launcher", NETFLIX_HTML),
         "youtube": WebScreen("YouTube", "Browser-native search and video", YOUTUBE_HTML),
+        "music_visualizer": WebScreen("Music Visualizer", "Browser audio + shared analyzer", MUSIC_VISUALIZER_HTML),
     }
