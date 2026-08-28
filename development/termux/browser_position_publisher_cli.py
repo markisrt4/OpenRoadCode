@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import argparse
+import signal
 import sys
 import threading
 from pathlib import Path
@@ -44,17 +45,26 @@ def main() -> None:
             f"accuracy={state.accuracy_m}m"
         )
 
-    source.start(handle_position)
-    print(f"[browser-gps] publishing to {args.publisher_endpoint}")
-    print("[browser-gps] press Ctrl+C to stop")
+    def handle_shutdown_signal(signum: int, _frame: object) -> None:
+        print(f"\n[browser-gps] received signal {signum}; shutting down")
+        stopped.set()
+
+    previous_handlers: dict[int, object] = {}
+    for signum in (signal.SIGINT, signal.SIGTERM):
+        previous_handlers[signum] = signal.getsignal(signum)
+        signal.signal(signum, handle_shutdown_signal)
 
     try:
+        source.start(handle_position)
+        print(f"[browser-gps] publishing to {args.publisher_endpoint}")
+        print("[browser-gps] press Ctrl+C to stop")
         stopped.wait()
-    except KeyboardInterrupt:
-        pass
     finally:
         source.stop()
         publisher.close()
+        for signum, handler in previous_handlers.items():
+            signal.signal(signum, handler)
+        print("[browser-gps] stopped")
 
 
 if __name__ == "__main__":
