@@ -9,22 +9,20 @@ import tkinter as tk
 from collections.abc import Callable
 from dataclasses import dataclass
 
+from apps.orcUi.navigation_presenter import PositionPresentationState
 from apps.orcUi.vehicle_presenter import VehiclePresentationState
-
 
 PANEL = "#0b1117"
 BORDER = "#25313b"
 TEXT = "#edf2f5"
 MUTED = "#89959e"
-GREEN = "#79c83d"
-BLUE = "#3297e5"
+GREEN = "#84ce1f"
+BLUE = "#168bd1"
 YELLOW = "#d6ad22"
 
 
 @dataclass(frozen=True)
 class ContextPage:
-    """Description of one context-rail page."""
-
     name: str
     accent: str
     builder: Callable[[tk.Frame], None]
@@ -35,16 +33,14 @@ class ContextRail(tk.Frame):
 
     WIDTH = 300
 
-    def __init__(
-        self,
-        parent: tk.Misc,
-        on_expand: Callable[[str], None] | None = None,
-    ) -> None:
+    def __init__(self, parent: tk.Misc, on_expand: Callable[[str], None] | None = None) -> None:
         super().__init__(parent, bg=PANEL, width=self.WIDTH, highlightthickness=1, highlightbackground=BORDER)
-        self.grid_propagate(False)
+        self.pack_propagate(False)
         self._on_expand = on_expand
         self._vehicle_state = VehiclePresentationState()
+        self._position_state = PositionPresentationState()
         self._vehicle_value_labels: dict[str, tk.Label] = {}
+        self._offroad_value_labels: dict[str, tk.Label] = {}
         self._pages = (
             ContextPage("VEHICLE", GREEN, self._build_vehicle),
             ContextPage("TRIP", BLUE, self._build_trip),
@@ -62,10 +58,14 @@ class ContextRail(tk.Frame):
         return self._pages[self._page_index].name
 
     def update_vehicle_state(self, state: VehiclePresentationState) -> None:
-        """Update the cached vehicle presentation state and visible metrics."""
         self._vehicle_state = state
         if self.selected_page == "VEHICLE":
             self._paint_vehicle_values()
+
+    def update_position_state(self, state: PositionPresentationState) -> None:
+        self._position_state = state
+        if self.selected_page == "OFF-ROAD":
+            self._paint_offroad_values()
 
     def _build_header(self) -> None:
         header = tk.Frame(self, bg=PANEL)
@@ -100,6 +100,7 @@ class ContextRail(tk.Frame):
         for child in self._body.winfo_children():
             child.destroy()
         self._vehicle_value_labels.clear()
+        self._offroad_value_labels.clear()
         page = self._pages[self._page_index]
         self._title.configure(text=page.name, fg=page.accent)
         page.builder(self._body)
@@ -131,8 +132,24 @@ class ContextRail(tk.Frame):
         self._metric_table(parent, (("distance", "Distance", "mi"), ("elapsed", "Elapsed", ""), ("average", "Avg speed", "MPH"), ("moving", "Moving", ""), ("fuel_used", "Fuel used", "gal"), ("economy", "Economy", "MPG")))
 
     def _build_offroad(self, parent: tk.Frame) -> None:
-        tk.Label(parent, text="N\n↑\n---°", fg=YELLOW, bg=PANEL, font=("Sans", 16, "bold"), justify=tk.CENTER).pack(pady=(4, 8))
-        self._metric_table(parent, (("altitude", "Altitude", "ft"), ("pitch", "Pitch", "°"), ("roll", "Roll", "°"), ("gps", "GPS", "sats")))
+        self._metric_table(parent, (("latitude", "Latitude", "°"), ("longitude", "Longitude", "°"), ("altitude", "Altitude", "ft"), ("fix", "GPS fix", ""), ("satellites", "Satellites", "used"), ("accuracy", "Accuracy", "m")), self._offroad_value_labels)
+        self._paint_offroad_values()
+
+    def _paint_offroad_values(self) -> None:
+        state = self._position_state
+        fix_names = {1: "none", 2: "2D", 3: "3D"}
+        values = {
+            "latitude": self._format(state.latitude_deg, ".5f"),
+            "longitude": self._format(state.longitude_deg, ".5f"),
+            "altitude": self._format(state.altitude_ft, ".0f"),
+            "fix": "--" if state.fix_mode is None else fix_names.get(state.fix_mode, str(state.fix_mode)),
+            "satellites": "--" if state.satellites_used is None else str(state.satellites_used),
+            "accuracy": self._format(state.accuracy_m, ".1f"),
+        }
+        for key, value in values.items():
+            label = self._offroad_value_labels.get(key)
+            if label is not None:
+                label.configure(text=value)
 
     @staticmethod
     def _format(value: float | None, spec: str) -> str:
