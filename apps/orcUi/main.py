@@ -64,21 +64,60 @@ class OrcUiApp:
         bar.grid_columnconfigure(1, weight=1)
 
         brand = tk.Frame(bar, bg="#020406")
-        brand.grid(row=0, column=0, sticky="w", padx=18)
-        tk.Label(brand, text="▲", fg=GREEN, bg="#020406", font=("Sans", 19, "bold")).pack(side=tk.LEFT, padx=(0, 7))
-        tk.Label(brand, text="O", fg=GREEN, bg="#020406", font=("Sans", 22, "bold")).pack(side=tk.LEFT)
-        tk.Label(brand, text="R", fg=BLUE, bg="#020406", font=("Sans", 22, "bold")).pack(side=tk.LEFT)
-        tk.Label(brand, text="C", fg=PURPLE, bg="#020406", font=("Sans", 22, "bold")).pack(side=tk.LEFT)
-
-        self._clock_label = tk.Label(bar, fg=TEXT, bg="#020406", font=("Sans", 17, "bold"))
-        self._clock_label.grid(row=0, column=1)
+        brand.grid(row=0, column=0, sticky="w", padx=(12, 8))
         tk.Label(
+            brand,
+            text="▲",
+            fg=GREEN,
+            bg="#020406",
+            font=("Sans", 19, "bold"),
+        ).pack(side=tk.LEFT, padx=(0, 3))
+        tk.Label(
+            brand,
+            text="O",
+            fg=BLUE,
+            bg="#020406",
+            font=("Sans", 22, "bold"),
+        ).pack(side=tk.LEFT, padx=0)
+        tk.Label(
+            brand,
+            text="R",
+            fg=RED,
+            bg="#020406",
+            font=("Sans", 22, "bold"),
+        ).pack(side=tk.LEFT, padx=0)
+        tk.Label(
+            brand,
+            text="C",
+            fg=GREEN,
+            bg="#020406",
+            font=("Sans", 22, "bold"),
+        ).pack(side=tk.LEFT, padx=0)
+
+        self._clock_label = tk.Label(
             bar,
+            fg=TEXT,
+            bg="#020406",
+            font=("Sans", 17, "bold"),
+        )
+        self._clock_label.grid(row=0, column=1)
+
+        status = tk.Frame(bar, bg="#020406")
+        status.grid(row=0, column=2, padx=(8, 14), sticky="e")
+        tk.Label(
+            status,
+            text="☁  --°F",
+            fg=TEXT,
+            bg="#020406",
+            font=("Sans", 11, "bold"),
+        ).pack(side=tk.LEFT, padx=(0, 12))
+        tk.Label(
+            status,
             text="GPS  ▮▮▮   WiFi   BT   🚗",
             fg="#b8c0c6",
             bg="#020406",
             font=("Sans", 11),
-        ).grid(row=0, column=2, padx=18)
+        ).pack(side=tk.LEFT)
 
     def _build_side_nav(self) -> None:
         nav = tk.Frame(self._root, bg="#070c11", width=112)
