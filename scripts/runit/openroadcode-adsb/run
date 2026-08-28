@@ -1,0 +1,17 @@
+#!/data/data/com.termux/files/usr/bin/bash
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
+set -euo pipefail
+
+TAR1090_ROOT="${TAR1090_ROOT:-$HOME/src/tar1090/html}"
+TAR1090_PORT="${TAR1090_PORT:-8081}"
+
+if [[ ! -f "$TAR1090_ROOT/index.html" ]]; then
+    echo "tar1090 is not installed at $TAR1090_ROOT" >&2
+    echo "Run development/termux/setup_tar1090.sh first." >&2
+    exit 1
+fi
+
+cd "$TAR1090_ROOT"
+exec python -m http.server "$TAR1090_PORT" --bind 127.0.0.1
