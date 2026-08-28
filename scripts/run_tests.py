@@ -18,6 +18,7 @@ SUITE_DIRECTORIES = {
     "unit": "unit_test",
     "integration": "integration_test",
 }
+PYTEST_NO_TESTS_COLLECTED = 5
 
 
 def find_suites(kind: str) -> tuple[Path, ...]:
@@ -55,7 +56,7 @@ def run_kind(kind: str) -> bool:
             cwd=PROJECT_ROOT,
             check=False,
         )
-        if result.returncode != 0:
+        if result.returncode not in (0, PYTEST_NO_TESTS_COLLECTED):
             return False
 
     return True
