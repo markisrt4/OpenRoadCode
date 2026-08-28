@@ -17,6 +17,7 @@ class MusicAnalyzer(MusicAnalyzerIf):
 
     _ZEROIZE_PERCENTILE = 75.0
     _ZEROIZE_MARGIN_DB = 3.0
+    _SPECTRAL_RELATIVE_FLOOR_DB = -48.0
 
     def __init__(self, *, fft_size: int = 2048, band_count: int = 24) -> None:
         if fft_size < 256 or fft_size & (fft_size - 1):
@@ -92,6 +93,7 @@ class MusicAnalyzer(MusicAnalyzerIf):
         if self._zeroize_collecting:
             self._zeroize_frames.append(magnitude.copy())
         gated_magnitude = self._gate_ambient(magnitude)
+        gated_magnitude = self._gate_spectral_leakage(gated_magnitude)
         level = min(1.0, float(np.sqrt(np.mean(pcm * pcm))) * 4.0)
         bass = self._normalized_band(gated_magnitude, frequencies, 20, 250, "bass")
         mid = self._normalized_band(gated_magnitude, frequencies, 250, 4000, "mid")
@@ -118,6 +120,19 @@ class MusicAnalyzer(MusicAnalyzerIf):
             return magnitude
         threshold = self._noise_floor * (10.0 ** (self._ZEROIZE_MARGIN_DB / 20.0))
         return np.maximum(magnitude - threshold, 0.0)
+
+    def _gate_spectral_leakage(self, magnitude: np.ndarray) -> np.ndarray:
+        """Suppress bins far below the strongest spectral component.
+
+        A Hann window greatly reduces FFT leakage, but it does not eliminate it.
+        Without a floor, adaptive per-band normalization can promote tiny leakage
+        in an otherwise empty band to full-scale activity on the first frame.
+        """
+        strongest = float(np.max(magnitude)) if magnitude.size else 0.0
+        if strongest <= 0.0:
+            return magnitude
+        threshold = strongest * (10.0 ** (self._SPECTRAL_RELATIVE_FLOOR_DB / 20.0))
+        return np.where(magnitude >= threshold, magnitude, 0.0)
 
     def _reset_adaptive_state(self) -> None:
         self._band_peaks.fill(1e-6)
@@ -148,6 +163,8 @@ class MusicAnalyzer(MusicAnalyzerIf):
         key: str,
     ) -> float:
         raw = self._band_rms(magnitude, frequencies, low_hz, high_hz)
+        if raw <= 1e-8:
+            return 0.0
         peak = max(raw, self._summary_peaks[key] * 0.992, 1e-6)
         self._summary_peaks[key] = peak
         return min(1.0, raw / peak)
@@ -165,6 +182,9 @@ class MusicAnalyzer(MusicAnalyzerIf):
         output = []
         for index, (low, high) in enumerate(zip(edges[:-1], edges[1:])):
             raw = self._band_rms(magnitude, frequencies, float(low), float(high))
+            if raw <= 1e-8:
+                output.append(0.0)
+                continue
             peak = max(raw, float(self._band_peaks[index]) * 0.992, 1e-6)
             self._band_peaks[index] = peak
             output.append(min(1.0, raw / peak))
