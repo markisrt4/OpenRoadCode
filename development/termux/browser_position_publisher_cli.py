@@ -6,6 +6,8 @@
 from __future__ import annotations
 
 import argparse
+import errno
+import signal
 import sys
 import threading
 from pathlib import Path
@@ -19,7 +21,7 @@ from messaging.contracts.navigation import PositionStatePublisher
 from messaging.zeromq.publisher import ZeroMqPublisher
 
 
-def main() -> None:
+def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8765)
@@ -34,6 +36,7 @@ def main() -> None:
     position_publisher = PositionStatePublisher(publisher)
     source = BrowserPositionSource(host=args.host, port=args.port)
     stopped = threading.Event()
+    started = False
 
     def handle_position(state) -> None:
         position_publisher.publish(state)
@@ -44,18 +47,44 @@ def main() -> None:
             f"accuracy={state.accuracy_m}m"
         )
 
-    source.start(handle_position)
-    print(f"[browser-gps] publishing to {args.publisher_endpoint}")
-    print("[browser-gps] press Ctrl+C to stop")
+    def handle_shutdown_signal(signum: int, _frame: object) -> None:
+        print(f"\n[browser-gps] received signal {signum}; shutting down")
+        stopped.set()
+
+    previous_handlers: dict[int, object] = {}
+    for signum in (signal.SIGINT, signal.SIGTERM):
+        previous_handlers[signum] = signal.getsignal(signum)
+        signal.signal(signum, handle_shutdown_signal)
 
     try:
+        try:
+            source.start(handle_position)
+            started = True
+        except OSError as exc:
+            if exc.errno == errno.EADDRINUSE:
+                print(
+                    f"[browser-gps] cannot start: {args.host}:{args.port} is already in use",
+                    file=sys.stderr,
+                )
+                print(
+                    "[browser-gps] another browser position publisher may already be running",
+                    file=sys.stderr,
+                )
+                return 2
+            raise
+
+        print(f"[browser-gps] publishing to {args.publisher_endpoint}")
+        print("[browser-gps] press Ctrl+C to stop")
         stopped.wait()
-    except KeyboardInterrupt:
-        pass
+        return 0
     finally:
         source.stop()
         publisher.close()
+        for signum, handler in previous_handlers.items():
+            signal.signal(signum, handler)
+        if started:
+            print("[browser-gps] stopped")
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

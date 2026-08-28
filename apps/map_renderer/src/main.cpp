@@ -13,8 +13,11 @@
 #include <mapbox/geojson.hpp>
 
 #include <cstdlib>
+#include <fstream>
 #include <iostream>
+#include <iterator>
 #include <memory>
+#include <stdexcept>
 #include <string>
 
 namespace {
@@ -22,15 +25,10 @@ namespace {
 constexpr double kLatitude = 42.3314;
 constexpr double kLongitude = -83.0458;
 constexpr double kZoom = 13.0;
+constexpr auto kFollowCameraDuration = mbgl::Milliseconds(120);
 constexpr const char* kDefaultRendererEndpoint = "ipc:///tmp/openroadcode-map-renderer";
-
-std::string fileUrl(const std::string& path)
-{
-    if (path.rfind("file://", 0) == 0) {
-        return path;
-    }
-    return "file://" + path;
-}
+constexpr const char* kDataRootToken = "__OPENROADCODE_DATA_ROOT__";
+constexpr const char* kLegacyDataRoot = "/srv/openroadcode";
 
 std::string environmentOrDefault(const char* name, const char* fallback)
 {
@@ -39,6 +37,39 @@ std::string environmentOrDefault(const char* name, const char* fallback)
         return configured;
     }
     return fallback;
+}
+
+void replaceAll(std::string& value, const std::string& from, const std::string& to)
+{
+    if (from.empty()) {
+        return;
+    }
+
+    std::size_t offset = 0;
+    while ((offset = value.find(from, offset)) != std::string::npos) {
+        value.replace(offset, from.length(), to);
+        offset += to.length();
+    }
+}
+
+std::string loadStyleJson(const NavigationConfig& config)
+{
+    std::ifstream input(config.stylePath);
+    if (!input) {
+        throw std::runtime_error("unable to open map style: " + config.stylePath);
+    }
+
+    std::string style{
+        std::istreambuf_iterator<char>{input},
+        std::istreambuf_iterator<char>{}
+    };
+
+    replaceAll(style, kDataRootToken, config.dataRoot);
+    if (config.dataRoot != kLegacyDataRoot) {
+        replaceAll(style, kLegacyDataRoot, config.dataRoot);
+    }
+
+    return style;
 }
 
 } // namespace
@@ -64,10 +95,20 @@ int main()
     }
 
     std::cout << "[map_renderer] config: " << configPath << '\n'
+              << "[map_renderer] data root: " << config.dataRoot << '\n'
               << "[map_renderer] style: " << config.stylePath << '\n'
               << "[map_renderer] endpoint: " << rendererEndpoint << '\n'
               << "[map_renderer] vehicle marker: " << config.markerMode
               << " scale=" << config.markerScale << '\n';
+
+    std::string styleJson;
+    try {
+        styleJson = loadStyleJson(config);
+    } catch (const std::exception& exception) {
+        std::cerr << "[map_renderer] failed to load navigation style: "
+                  << exception.what() << '\n';
+        return 1;
+    }
 
     mbgl::ResourceOptions resourceOptions;
     resourceOptions.withCachePath(config.cachePath);
@@ -110,9 +151,6 @@ int main()
             }
 
             if (command->command == "set_center") {
-                std::cout << "[map_renderer] set_center: "
-                          << command->latitude << ", "
-                          << command->longitude << '\n';
                 map.jumpTo(
                     mbgl::CameraOptions().withCenter(
                         mbgl::LatLng{command->latitude, command->longitude}
@@ -160,15 +198,17 @@ int main()
             }
 
             if (command->command == "set_camera") {
-                map.jumpTo(
-                    mbgl::CameraOptions()
-                        .withCenter(mbgl::LatLng{
-                            command->latitude,
-                            command->longitude
-                        })
-                        .withZoom(command->zoom)
-                        .withBearing(command->bearing)
-                        .withPitch(command->pitch)
+                const auto camera = mbgl::CameraOptions()
+                    .withCenter(mbgl::LatLng{
+                        command->latitude,
+                        command->longitude
+                    })
+                    .withZoom(command->zoom)
+                    .withBearing(command->bearing)
+                    .withPitch(command->pitch);
+                map.easeTo(
+                    camera,
+                    mbgl::AnimationOptions{kFollowCameraDuration}
                 );
                 return;
             }
@@ -194,7 +234,7 @@ int main()
         }
     );
 
-    map.getStyle().loadURL(fileUrl(config.stylePath));
+    map.getStyle().loadJSON(styleJson);
     view.run();
     return 0;
 }

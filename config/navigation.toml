@@ -1,9 +1,12 @@
 # OpenRoadCode navigation runtime configuration.
-# Installed to /etc/openroadcode/navigation.toml by install_navigation_stack.sh.
+# Installed by the navigation stack for both Linux and Termux targets.
+# Relative renderer paths are resolved below the platform runtime roots.
 
 [map_renderer]
-style = "/srv/openroadcode/maps/styles/openroadcode.json"
-cache = "/var/cache/openroadcode/maplibre.db"
+data_root = "/srv/openroadcode"
+cache_root = "/var/cache/openroadcode"
+style = "maps/styles/openroadcode.json"
+cache = "maplibre.db"
 
 [vehicle_marker]
 # Supported modes: blue_dot, heading, vehicle

@@ -16,6 +16,13 @@ _MAX_REQUEST_BYTES = 16_384
 _LOCATION_PAGE = b"""<!doctype html><meta name=viewport content='width=device-width,initial-scale=1'><title>OpenRoadCode Position</title><body><h1>OpenRoadCode Position</h1><button id=start>Share location</button><pre id=status>Waiting to start.</pre><script>const s=document.querySelector('#status');document.querySelector('#start').onclick=()=>navigator.geolocation.watchPosition(async p=>{const c=p.coords;const r=await fetch('/position',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({latitude:c.latitude,longitude:c.longitude,altitude:c.altitude,speed:c.speed,heading:c.heading,accuracy:c.accuracy})});s.textContent=r.ok?`${c.latitude.toFixed(6)}, ${c.longitude.toFixed(6)}`:await r.text();},e=>s.textContent=e.message,{enableHighAccuracy:true,maximumAge:1000,timeout:15000});</script></body>"""
 
 
+class _BrowserPositionHttpServer(ThreadingHTTPServer):
+    """HTTP server tuned for clean stop/start cycles."""
+
+    allow_reuse_address = True
+    daemon_threads = True
+
+
 class BrowserPositionSource(PositionSourceIf):
     """Receive browser position reports for CarUi over an app-owned HTTP server."""
 
@@ -65,7 +72,11 @@ class BrowserPositionSource(PositionSourceIf):
             def log_message(self, format: str, *args: object) -> None:
                 pass
 
-        self._server = ThreadingHTTPServer((self._host, self._port), Handler)
+        try:
+            self._server = _BrowserPositionHttpServer((self._host, self._port), Handler)
+        except Exception:
+            self._callback = None
+            raise
         self._thread = threading.Thread(target=self._server.serve_forever, name="carui-browser-position", daemon=True)
         self._thread.start()
         print(f"[Position] Open {self.url} and select 'Share location'")
