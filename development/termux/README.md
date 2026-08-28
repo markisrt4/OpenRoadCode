@@ -14,10 +14,64 @@ The current target combines:
 - an independently tested browser-geolocation position path for native map
   checkout;
 - native Valhalla and MapLibre builds;
-- Termux:X11 for graphical execution; and
+- Termux:X11 for graphical execution;
+- optional hardware-accelerated graphics when a compatible Mesa backend is
+  available; and
 - offline navigation data stored under `~/.local/share/openroadcode`.
 
 The Termux runtime profile is `config/runtime.termux.toml`.
+
+## Graphics acceleration
+
+Android devices do not share one GPU architecture, so OpenRoadCode does not
+assume a particular video driver. `development/termux/configure_graphics.sh`
+inspects the device and selects only a graphics backend that the installed
+Termux repositories can support.
+
+Run detection without changing packages:
+
+```bash
+./development/termux/configure_graphics.sh
+```
+
+Install the packages selected for the detected device:
+
+```bash
+./development/termux/configure_graphics.sh --install
+```
+
+The first validated hardware path is Qualcomm/Adreno. On a device exposing the
+KGSL interface, when the Termux repository supplies
+`mesa-vulkan-icd-freedreno`, the selected stack is:
+
+```text
+Adreno -> KGSL -> Turnip/Freedreno -> Vulkan -> Zink -> OpenGL -> Termux:X11
+```
+
+For that backend, OpenGL applications should be launched with:
+
+```bash
+export MESA_LOADER_DRIVER_OVERRIDE=zink
+```
+
+Validate each layer independently when bringing up a new device. When the
+corresponding diagnostic packages are installed, useful probes are:
+
+```bash
+vulkaninfo --summary
+MESA_LOADER_DRIVER_OVERRIDE=zink glxinfo -B
+MESA_LOADER_DRIVER_OVERRIDE=zink glxgears
+```
+
+Do not install every Mesa Vulkan ICD indiscriminately and do not assume
+Freedreno on Mali, PowerVR, or other GPU families. Unknown devices retain the
+basic/software graphics path until a hardware backend has been validated.
+Application launchers should consume the selected graphics environment rather
+than hard-coding a GPU vendor.
+
+Chromium launched under Termux:X11 should use `--password-store=basic` so it
+does not depend on a desktop password-keyring service. GPU-specific Chromium
+flags should remain platform/runtime configuration rather than UI code.
 
 ## Navigation contracts
 

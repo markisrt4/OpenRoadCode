@@ -10,6 +10,9 @@ from ui.navigation.map_ui_if import GeoPoint
 class MapRequestHandlerStub(MapRequestHandlerIf):
     """Ignore semantic map requests."""
 
+    def request_follow(self, enabled: bool) -> None:
+        pass
+
     def request_recenter(self) -> None:
         pass
 
