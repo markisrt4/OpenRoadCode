@@ -96,8 +96,8 @@ get_feature_packages() {
       ;;
     audio)
       case "${OPENROAD_INSTALL_TARGET:-linux-dev}" in
-        rpi4|rpi5) echo "wireplumber pipewire-pulse alsa-utils" ;;
-        linux-dev) echo "pulseaudio-utils" ;;
+        rpi4|rpi5) echo "wireplumber pipewire-pulse pipewire-bin pulseaudio-utils alsa-utils python3-numpy" ;;
+        linux-dev) echo "pipewire-bin pulseaudio-utils python3-numpy" ;;
         *) echo "" ;;
       esac
       ;;
@@ -191,7 +191,7 @@ Available features:
   browser       Chromium browser support
   vnc           TigerVNC server support (includes desktop-ui)
   input         Linux input/evdev support
-  audio         PipeWire/PulseAudio command-line audio control
+  audio         PipeWire/PulseAudio control, capture, and native music analysis
   gps           GPSD and Python GPS/navigation support
   rtl-sdr       RTL-SDR device and SoapySDR support
   streamlit     Streamlit dashboard support
