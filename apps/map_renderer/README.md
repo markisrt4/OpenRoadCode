@@ -26,6 +26,6 @@ The navigation-stack installer builds MapLibre Native and the OpenRoadCode rende
 /opt/openroadcode/navigation/bin/
 ```
 
-Map and Valhalla data are intentionally built and deployed separately; see [Navigation deployment](../../docs/navigation_deployment.md).
+Map and Valhalla data are intentionally built and deployed separately; see [Navigation deployment](https://github.com/markisrt4/OpenRoadCode/blob/master/docs/navigation_deployment.md).
 
 The container workflow is source-repeatable but not yet bit-for-bit hermetic. Its Debian base image and APT packages still float. The guide records this limitation and the remaining work needed for a stricter reproducibility guarantee.
