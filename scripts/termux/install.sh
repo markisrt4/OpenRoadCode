@@ -42,8 +42,8 @@ python -m venv --system-site-packages "$VENV_DIR"
 source "$VENV_DIR/bin/activate"
 python -m pip install --upgrade pip wheel setuptools
 
-# Portable OpenRoadCode runtime dependencies needed by the current car UI path.
-python -m pip install requests tomli Pillow pyzmq pyserial
+# Portable OpenRoadCode runtime dependencies needed by the current browser/car UI paths.
+python -m pip install Flask requests tomli Pillow pyzmq pyserial
 
 deactivate
 
