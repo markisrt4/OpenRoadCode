@@ -20,12 +20,13 @@ PAGE = """<!doctype html><meta name=viewport content='width=device-width,initial
 SCREEN = """<!doctype html><meta name=viewport content='width=device-width,initial-scale=1'><style>{{style}}</style><header><div class=bar><a class=back href='{{back}}'>‹</a><div class=heading><div class=title>{{screen.title}}</div><div class=subtitle>{{screen.subtitle}}</div></div></div></header><main>{{body}}</main>"""
 
 
-def create_web_frontend(pages: Mapping[str, MenuPage], *, root_page: str="main", screens: Mapping[str, WebScreen]|None=None, navigation_session: Any|None=None, navigation_ui_state: Any|None=None, vehicle_ui_state: Any|None=None, spotify_session: Any|None=None) -> Flask:
+def create_web_frontend(pages: Mapping[str, MenuPage], *, root_page: str="main", screens: Mapping[str, WebScreen]|None=None, navigation_session: Any|None=None, navigation_ui_state: Any|None=None, vehicle_ui_state: Any|None=None, spotify_session: Any|None=None, music_analysis_session: Any|None=None) -> Flask:
     if root_page not in pages: raise ValueError(f"Unknown root page: {root_page}")
     screen_map=dict(screens or create_web_screens())
     web_dir=Path(__file__).resolve().parent
     sensor_dir=web_dir / "sensors"
     media_dir=web_dir / "media"
+    audio_analysis_dir=web_dir / "audio_analysis"
     app=Flask(__name__)
 
     @app.get("/")
@@ -52,6 +53,20 @@ def create_web_frontend(pages: Mapping[str, MenuPage], *, root_page: str="main",
     def web_sensor_asset(filename:str): return send_from_directory(sensor_dir,filename)
     @app.get("/web-assets/media/<path:filename>")
     def web_media_asset(filename:str): return send_from_directory(media_dir,filename)
+    @app.get("/web-assets/audio-analysis/<path:filename>")
+    def web_audio_analysis_asset(filename:str): return send_from_directory(audio_analysis_dir,filename)
+
+    @app.post("/api/audio-analysis/browser/frame")
+    def browser_audio_analysis_frame():
+        if music_analysis_session is None: abort(503)
+        try:
+            sample_rate_hz=int(request.headers.get("X-Sample-Rate","0"))
+            return jsonify(music_analysis_session.push_pcm16(request.get_data(),sample_rate_hz))
+        except (TypeError,ValueError) as exc: return jsonify(error=str(exc)),400
+    @app.get("/api/audio-analysis/state")
+    def audio_analysis_state():
+        if music_analysis_session is None: abort(503)
+        return jsonify(music_analysis_session.state())
 
     @app.post("/api/navigation/position")
     def navigation_position():
