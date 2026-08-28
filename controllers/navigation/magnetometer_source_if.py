@@ -25,7 +25,10 @@ class MagnetometerSourceIf(ABC):
     @property
     @abstractmethod
     def is_connected(self) -> bool:
-        """Return whether the source is connected and ready."""
+        """Return whether the source is connected and ready.
+
+        @return True when the source is connected and ready for measurements.
+        """
 
     @abstractmethod
     def connect(self) -> None:
@@ -37,4 +40,7 @@ class MagnetometerSourceIf(ABC):
 
     @abstractmethod
     def read_magnetometer(self) -> MagnetometerSample:
-        """Read magnetic field strength in microteslas along each device axis."""
+        """Read magnetic field strength in microteslas along each device axis.
+
+        @return Latest normalized magnetic-field sample.
+        """
