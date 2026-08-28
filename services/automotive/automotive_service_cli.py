@@ -9,10 +9,7 @@ import argparse
 from pathlib import Path
 
 from config.service_runtime_config import AutomotiveServiceRuntimeConfig, ServiceRuntimeConfigParser
-from controllers.automotive.obd2.elm327_obd_adapter import Elm327ObdAdapter
-from controllers.automotive.obd2.obd2_manager import Obd2Manager
 from controllers.automotive.simulated_vehicle_state_source import SimulatedVehicleStateSource
-from hardware_io.automotive.elm327 import Elm327Device
 from messaging.zeromq import ZeroMqPublisher
 from services.automotive.automotive_runtime import AutomotiveRuntime
 
@@ -31,6 +28,13 @@ def build_source(config: AutomotiveServiceRuntimeConfig):
         return SimulatedVehicleStateSource()
     if config.input.device != "elm327":
         raise ValueError(f"Unsupported automotive device: {config.input.device}")
+
+    # Keep physical-device dependencies out of simulation-only deployments.
+    # Importing Elm327Device loads pyserial, which is unnecessary when the
+    # configured source is the built-in vehicle simulator.
+    from controllers.automotive.obd2.elm327_obd_adapter import Elm327ObdAdapter
+    from controllers.automotive.obd2.obd2_manager import Obd2Manager
+    from hardware_io.automotive.elm327 import Elm327Device
 
     device = Elm327Device(
         port=config.input.port,
