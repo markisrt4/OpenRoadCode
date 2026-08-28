@@ -5,15 +5,20 @@
 
 import os
 import unittest
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
 from apps.carUi.car_ui_startup import (
+    APPLICATIONS_CONFIG_PATH,
+    RUNTIME_CONFIG_PATH,
     STARTUP_ITEMS,
+    TERMUX_APPLICATIONS_CONFIG_PATH,
     _env_bool,
     _env_int,
     build_car_ui_dependencies,
     car_ui_splash_enabled,
+    resolve_config_paths,
     resolve_media_display,
 )
 from config.runtime_target import RuntimeTarget
@@ -22,43 +27,50 @@ from config.runtime_target import RuntimeTarget
 class CarUiStartupTest(unittest.TestCase):
     def test_linux_media_uses_active_desktop_display(self) -> None:
         with patch.dict(os.environ, {"DISPLAY": ":0"}, clear=True):
-            self.assertEqual(
-                ":0",
-                resolve_media_display(RuntimeTarget.LINUX_DEV, ":2"),
-            )
+            self.assertEqual(":0", resolve_media_display(RuntimeTarget.LINUX_DEV, ":2"))
 
     def test_pi_media_uses_configured_vehicle_display(self) -> None:
         with patch.dict(os.environ, {"DISPLAY": ":0"}, clear=True):
-            self.assertEqual(
-                ":2",
-                resolve_media_display(RuntimeTarget.RPI5, ":2"),
-            )
+            self.assertEqual(":2", resolve_media_display(RuntimeTarget.RPI5, ":2"))
 
     def test_media_display_override_takes_precedence(self) -> None:
-        with patch.dict(
-            os.environ, {"DISPLAY": ":0", "CARUI_MEDIA_DISPLAY": ":2"},
-            clear=True,
-        ):
-            self.assertEqual(
-                ":2",
-                resolve_media_display(
-                    RuntimeTarget.LINUX_DEV, ":9", ":1"
-                ),
-            )
+        with patch.dict(os.environ, {"DISPLAY": ":0", "CARUI_MEDIA_DISPLAY": ":2"}, clear=True):
+            self.assertEqual(":2", resolve_media_display(RuntimeTarget.LINUX_DEV, ":9", ":1"))
 
     def test_toml_media_display_precedes_target_default(self) -> None:
         with patch.dict(os.environ, {"DISPLAY": ":0"}, clear=True):
-            self.assertEqual(
-                ":2",
-                resolve_media_display(
-                    RuntimeTarget.LINUX_DEV, ":9", ":2"
-                ),
-            )
+            self.assertEqual(":2", resolve_media_display(RuntimeTarget.LINUX_DEV, ":9", ":2"))
+
+    def test_default_config_paths_use_standard_profiles(self) -> None:
+        with patch.dict(os.environ, {}, clear=True):
+            self.assertEqual((RUNTIME_CONFIG_PATH, APPLICATIONS_CONFIG_PATH), resolve_config_paths())
+
+    def test_termux_uses_shared_runtime_and_termux_applications(self) -> None:
+        with patch.dict(os.environ, {"TERMUX_VERSION": "0.118"}, clear=True):
+            self.assertEqual((RUNTIME_CONFIG_PATH, TERMUX_APPLICATIONS_CONFIG_PATH), resolve_config_paths())
+
+    def test_config_path_overrides_take_precedence(self) -> None:
+        with patch.dict(
+            os.environ,
+            {
+                "TERMUX_VERSION": "0.118",
+                "OPENROAD_RUNTIME_CONFIG": "~/runtime-test.toml",
+                "OPENROAD_APPLICATIONS_CONFIG": "~/applications-test.toml",
+            },
+            clear=True,
+        ):
+            runtime_path, applications_path = resolve_config_paths()
+            self.assertEqual(Path("~/runtime-test.toml").expanduser(), runtime_path)
+            self.assertEqual(Path("~/applications-test.toml").expanduser(), applications_path)
 
     def test_startup_items_have_unique_keys(self) -> None:
         keys = [item.key for item in STARTUP_ITEMS]
-
         self.assertEqual(len(keys), len(set(keys)))
+
+    def test_media_is_reported_as_a_startup_subsystem(self) -> None:
+        labels = {item.key: item.label for item in STARTUP_ITEMS}
+        self.assertEqual("Media", labels["media"])
+        self.assertNotIn("spotify", labels)
 
     def test_splash_is_enabled_by_default(self) -> None:
         with patch.dict(os.environ, {}, clear=True):
@@ -78,10 +90,7 @@ class CarUiStartupTest(unittest.TestCase):
         with patch.dict(os.environ, {}, clear=True):
             self.assertFalse(_env_bool("MISSING_STARTUP_BOOL", False))
 
-    @patch(
-        "apps.carUi.car_ui_startup.create_spotify_controller",
-        side_effect=RuntimeError("spotify failed"),
-    )
+    @patch("apps.carUi.car_ui_startup.create_spotify_controller", side_effect=RuntimeError("spotify failed"))
     @patch("apps.carUi.car_ui_startup.create_audio_controller")
     @patch("apps.carUi.car_ui_startup.create_input_device_runtime")
     @patch("apps.carUi.car_ui_startup.create_rotary_encoder_runtime")
@@ -100,24 +109,24 @@ class CarUiStartupTest(unittest.TestCase):
             audio=object(),
             media_display=None,
             input_config=object(),
-            start_background_apps=lambda: events.append("background"),
+            start_background_apps=lambda _set_status=None: events.append("background"),
             close=lambda: events.append("runtime"),
         )
         encoder = SimpleNamespace(stop=lambda: events.append("encoder"))
         create_runtime.return_value = runtime
-        create_encoders.return_value = SimpleNamespace(
-            encoders=(encoder,), volume_index=0
-        )
-        create_input_devices.return_value = SimpleNamespace(
-            keyboards=(),
-            push_buttons=(),
-            push_button_actions=(),
-        )
+        create_encoders.return_value = SimpleNamespace(encoders=(encoder,), volume_index=0)
+        create_input_devices.return_value = SimpleNamespace(keyboards=(), push_buttons=(), push_button_actions=())
 
         with self.assertRaisesRegex(RuntimeError, "spotify failed"):
             build_car_ui_dependencies(lambda *_args: None)
 
         self.assertEqual(events, ["background", "encoder", "runtime"])
+        runtime_path, applications_path = resolve_config_paths()
+        create_runtime.assert_called_once_with(
+            runtime_path,
+            project_root=RUNTIME_CONFIG_PATH.parents[1],
+            applications_config_path=applications_path,
+        )
 
 
 if __name__ == "__main__":

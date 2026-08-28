@@ -3,6 +3,8 @@
 
 """Tests for browser process lifecycle behavior."""
 
+from pathlib import Path
+from tempfile import TemporaryDirectory
 import unittest
 from unittest.mock import Mock, patch
 
@@ -22,6 +24,26 @@ class BrowserKioskLauncherTest(unittest.TestCase):
 
         activate.assert_called_once_with(":0")
         self.assertFalse(launcher._hidden)
+
+    def test_launch_uses_basic_password_store(self) -> None:
+        with TemporaryDirectory() as temporary:
+            launcher = BrowserKioskLauncher(
+                url="https://example.com",
+                log_file=Path(temporary) / "browser.log",
+            )
+            process = Mock()
+            process.poll.return_value = None
+
+            with (
+                patch.object(launcher, "is_running", return_value=False),
+                patch.object(launcher, "_find_browser", return_value="/usr/bin/chromium"),
+                patch("apps.launchers.browser_launcher.x11_environment", return_value={"DISPLAY": ":1"}),
+                patch("apps.launchers.browser_launcher.subprocess.Popen", return_value=process) as popen,
+            ):
+                launcher.launch(":1")
+
+            command = popen.call_args.args[0]
+            self.assertIn("--password-store=basic", command)
 
     @patch("apps.launchers.browser_launcher.close_matching_display_apps")
     @patch("apps.launchers.browser_launcher.terminate_process")

@@ -52,11 +52,7 @@ def build_car_ui_runtime(config: RuntimeConfig, *, applications_config: Applicat
         runtimes[runtime.key] = runtime
 
     auxiliary_display = os.getenv("CARUI_AUXILIARY_DISPLAY") or config.runtime.auxiliary_display
-    app_runtime_manager = (
-        AppRuntimeManager(applications_config, remote_display=auxiliary_display)
-        if applications_config is not None
-        else None
-    )
+    app_runtime_manager = AppRuntimeManager(applications_config, remote_display=auxiliary_display) if applications_config is not None else None
 
     weather_controller = None
     map_presentation = None
@@ -69,6 +65,7 @@ def build_car_ui_runtime(config: RuntimeConfig, *, applications_config: Applicat
                 "adsb",
                 ADSBLauncher(
                     url=adsb_app.url or "http://127.0.0.1/tar1090",
+                    data_source=adsb_app.adsb_data_source.value if adsb_app.adsb_data_source is not None else "rtlsdr",
                     resource_manager=resource_manager,
                 ),
             )
@@ -78,67 +75,27 @@ def build_car_ui_runtime(config: RuntimeConfig, *, applications_config: Applicat
             weather_cache = WeatherSnapshotCache(PersistentCache(DEFAULT_WEATHER_CACHE_DIRECTORY))
             weather_location_provider = GpsdWeatherLocationProvider()
             if config.position_cache.enabled:
-                weather_location_provider = CarUiWeatherLocationProvider(
-                    weather_location_provider,
-                    PositionSnapshotCache(PersistentCache(config.position_cache.directory)),
-                    max_age_seconds=config.position_cache.max_age_seconds,
-                )
+                weather_location_provider = CarUiWeatherLocationProvider(weather_location_provider, PositionSnapshotCache(PersistentCache(config.position_cache.directory)), max_age_seconds=config.position_cache.max_age_seconds)
             weather_controller = OpenMeteoWeatherController(weather_cache, location_provider=weather_location_provider)
-            weather_launcher = WeatherDashLauncher(
-                cache_directory=DEFAULT_WEATHER_CACHE_DIRECTORY,
-                browser=browser_factory.create("weather"),
-            )
+            weather_launcher = WeatherDashLauncher(cache_directory=DEFAULT_WEATHER_CACHE_DIRECTORY, browser=browser_factory.create("weather"))
             app_runtime_manager.register("weather", weather_launcher)
 
         google_earth_app = applications_config.app("google_earth")
         if google_earth_app.enabled:
-            app_runtime_manager.register(
-                "google_earth",
-                GoogleEarthLauncher(
-                    browser=browser_factory.create_from_config(google_earth_app),
-                ),
-            )
+            app_runtime_manager.register("google_earth", GoogleEarthLauncher(browser=browser_factory.create_from_config(google_earth_app)))
             map_presentation = GoogleEarthMapPresentation(app_runtime_manager)
 
-        # Generic browser applications need no Car UI-specific launcher wiring.
-        # Special browser-backed applications above remain responsible for any
-        # backend process or domain-specific lifecycle they own.
         for app in applications_config.enabled_apps():
-            if (
-                app.type is ApplicationType.BROWSER
-                and app.key not in ("weather", "google_earth")
-            ):
-                app_runtime_manager.register(
-                    app.key,
-                    browser_factory.create_from_config(app),
-                )
+            if app.type is ApplicationType.BROWSER and app.key not in ("weather", "google_earth"):
+                app_runtime_manager.register(app.key, browser_factory.create_from_config(app))
 
-    return CarUiRuntime(
-        remote_display=config.runtime.remote_display,
-        auxiliary_display=auxiliary_display,
-        media_display=config.runtime.media_display,
-        rotary_encoders=config.input.rotary_encoders,
-        radios=RadioRuntimeRegistry(runtimes),
-        weather_controller=weather_controller,
-        sdr_resource_manager=resource_manager,
-        app_runtime_manager=app_runtime_manager,
-        map_presentation=map_presentation,
-        input_config=config.input,
-        image_cache=config.image_cache,
-        position_cache=config.position_cache,
-        audio=config.audio,
-    )
+    return CarUiRuntime(remote_display=config.runtime.remote_display, auxiliary_display=auxiliary_display, media_display=config.runtime.media_display, rotary_encoders=config.input.rotary_encoders, radios=RadioRuntimeRegistry(runtimes), weather_controller=weather_controller, sdr_resource_manager=resource_manager, app_runtime_manager=app_runtime_manager, map_presentation=map_presentation, input_config=config.input, image_cache=config.image_cache, position_cache=config.position_cache, audio=config.audio)
 
 
 def _build_radio_runtime(*, stack: RadioStackConfig, config: RuntimeConfig, resource_manager: SDRResourceManager) -> RadioRuntime:
     radio_config = load_radio_config(stack.config_path)
     backend = _build_backend(backend_type=stack.backend, config=config)
-    controller = RadioController(
-        backend=backend,
-        presets=tuple(RadioPreset(label=preset.label, frequency_hz=preset.frequency_hz, mode=_runtime_mode(preset.mode)) for preset in radio_config.presets),
-        default_mode=_runtime_mode(radio_config.default_mode),
-        radio_range=_runtime_range(radio_config),
-    )
+    controller = RadioController(backend=backend, presets=tuple(RadioPreset(label=preset.label, frequency_hz=preset.frequency_hz, mode=_runtime_mode(preset.mode)) for preset in radio_config.presets), default_mode=_runtime_mode(radio_config.default_mode), radio_range=_runtime_range(radio_config))
     launcher = _build_launcher(launcher_type=stack.launcher, stack=stack, radio_config=radio_config, resource_manager=resource_manager)
     return RadioRuntime(key=stack.key, config=radio_config, controller=controller, launcher=launcher)
 
@@ -157,12 +114,7 @@ def _build_launcher(*, launcher_type: str | None, stack: RadioStackConfig, radio
         raise CarUiRuntimeFactoryError(f"Radio stack '{stack.key}' does not define a usable launcher")
     if launcher_type != "sdrpp":
         raise CarUiRuntimeFactoryError(f"Unsupported radio launcher '{launcher_type}' for stack '{stack.key}'")
-    profile = SDRPPProfile(
-        name=getattr(radio_config, "label", stack.key),
-        mode=radio_config.default_mode.name,
-        step_hz=radio_config.default_mode.step_hz,
-        start_frequency_hz=_profile_start_frequency(radio_config),
-    )
+    profile = SDRPPProfile(name=getattr(radio_config, "label", stack.key), mode=radio_config.default_mode.name, step_hz=radio_config.default_mode.step_hz, start_frequency_hz=_profile_start_frequency(radio_config))
     return SDRPPLauncher(profile=profile, resource_manager=resource_manager, owner_name=f"sdrpp_{stack.key}")
 
 

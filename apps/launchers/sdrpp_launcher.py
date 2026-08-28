@@ -86,10 +86,7 @@ class SDRPPLauncher(AppLauncherIf):
                 set_status=set_status,
             )
 
-        subprocess.run(
-            ["sudo", "systemctl", "stop", "readsb"],
-            check=False,
-        )
+        _stop_readsb_service()
 
         if self.is_running():
             if self.is_rigctl_ready():
@@ -218,6 +215,25 @@ class SDRPPLauncher(AppLauncherIf):
             start_new_session=True,
             text=True,
         )
+
+
+def _stop_readsb_service() -> bool:
+    """Stop readsb when systemd tooling exists on the current host."""
+    systemctl = shutil.which("systemctl")
+    if systemctl is None:
+        return False
+
+    sudo = shutil.which("sudo")
+    command = [systemctl, "stop", "readsb"]
+    if sudo is not None:
+        command.insert(0, sudo)
+
+    try:
+        subprocess.run(command, check=False)
+    except OSError:
+        return False
+
+    return True
 
 
 def _sdrpp_environment(display: str) -> dict[str, str]:

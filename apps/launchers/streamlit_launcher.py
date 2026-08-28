@@ -77,7 +77,11 @@ class StreamlitLauncher(AppLauncherIf):
         with self._start_lock:
             if not self.is_running():
                 self._start_server()
-        self._wait_for_server()
+        if not self._wait_for_server():
+            raise RuntimeError(
+                "Streamlit server did not become reachable at "
+                f"http://127.0.0.1:{self.port}. Check log: {self.log_file}"
+            )
 
     def stop(self, remote_display: str, set_status: StatusCallback = None) -> None:
         self.browser.stop(remote_display, None)
@@ -117,6 +121,8 @@ class StreamlitLauncher(AppLauncherIf):
         deadline = time.monotonic() + self.startup_timeout_seconds
         url = f"http://127.0.0.1:{self.port}"
         while time.monotonic() < deadline:
+            if self._process is not None and self._process.poll() is not None:
+                return False
             try:
                 with urlopen(url, timeout=0.5) as response:
                     if 200 <= response.status < 500:

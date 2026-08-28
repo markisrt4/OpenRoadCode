@@ -16,7 +16,7 @@ fi
 
 mkdir -p "$SERVICE_ROOT"
 
-for service in openroadcode-broker openroadcode-navigation; do
+for service in openroadcode-broker openroadcode-navigation openroadcode-adsb; do
     source_dir="$SCRIPT_DIR/$service"
     target="$SERVICE_ROOT/$service"
 
@@ -28,7 +28,11 @@ for service in openroadcode-broker openroadcode-navigation; do
     # The service directory must be real runtime state, not a symlink back into
     # the source tree. runsv creates supervise/ beneath this directory.
     if [[ -L "$target" ]]; then
+        sv down "$service" >/dev/null 2>&1 || true
         rm -f "$target"
+    elif [[ -e "$target" && ! -d "$target" ]]; then
+        echo "Service target exists and is not a directory: $target" >&2
+        exit 1
     fi
     mkdir -p "$target"
 
@@ -47,7 +51,9 @@ echo "OpenRoadCode Termux services installed."
 echo "Start them with:"
 echo "  sv up openroadcode-broker"
 echo "  sv up openroadcode-navigation"
+echo "  sv up openroadcode-adsb"
 echo
 echo "Check status with:"
 echo "  sv status openroadcode-broker"
 echo "  sv status openroadcode-navigation"
+echo "  sv status openroadcode-adsb"
