@@ -59,7 +59,7 @@ echo "[*] Installing Termux build dependencies"
 pkg install -y x11-repo
 pkg update
 pkg install -y \
-  git clang cmake ninja pkg-config patch \
+  git clang cmake ninja pkg-config patch python python-pillow \
   boost boost-headers protobuf libsqlite libspatialite spatialite-tools libcurl liblz4 libzmq libczmq \
   luajit libgeos libpng libjpeg-turbo libwebp libicu rapidjson \
   mesa mesa-dev glfw libx11 xorgproto

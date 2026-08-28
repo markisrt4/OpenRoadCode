@@ -26,6 +26,8 @@ from frontends.tk.system import StartupItem, StartupSplash, StartupState, Startu
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 RUNTIME_CONFIG_PATH = PROJECT_ROOT / "config" / "runtime.toml"
+APPLICATIONS_CONFIG_PATH = PROJECT_ROOT / "config" / "applications.toml"
+TERMUX_APPLICATIONS_CONFIG_PATH = PROJECT_ROOT / "config" / "applications.termux.toml"
 SPLASH_IMAGE_PATH = Path(__file__).parent / "assets" / "openroadcode-splash.png"
 
 STARTUP_ITEMS = (
@@ -33,7 +35,7 @@ STARTUP_ITEMS = (
     StartupItem("runtime", "Runtime configuration"),
     StartupItem("telemetry", "Telemetry bus"),
     StartupItem("audio", "Audio"),
-    StartupItem("spotify", "Spotify"),
+    StartupItem("media", "Media"),
     StartupItem("lighting", "Lighting"),
     StartupItem("input", "Input devices"),
 )
@@ -66,6 +68,24 @@ def _is_termux() -> bool:
     return bool(os.getenv("TERMUX_VERSION")) or prefix.startswith("/data/data/com.termux/")
 
 
+def resolve_config_paths() -> tuple[Path, Path]:
+    """Return Car UI runtime and application configuration profiles.
+
+    Car UI uses the shared runtime profile on every platform unless explicitly
+    overridden. Termux selects a platform-specific applications profile because
+    presentation targets differ there. ``runtime.termux.toml`` remains an
+    explicit Android sensor/navigation service profile rather than a Car UI
+    composition profile.
+    """
+    runtime_override = os.getenv("OPENROAD_RUNTIME_CONFIG")
+    applications_override = os.getenv("OPENROAD_APPLICATIONS_CONFIG")
+    runtime_path = Path(runtime_override).expanduser() if runtime_override else RUNTIME_CONFIG_PATH
+    applications_path = Path(applications_override).expanduser() if applications_override else (
+        TERMUX_APPLICATIONS_CONFIG_PATH if _is_termux() else APPLICATIONS_CONFIG_PATH
+    )
+    return runtime_path, applications_path
+
+
 def car_ui_splash_enabled() -> bool:
     """Return whether the startup splash should be used.
 
@@ -84,10 +104,19 @@ def build_car_ui_dependencies(report: StartupStatusCallback) -> CarUiDependencie
     with ExitStack() as cleanup:
         report("display", StartupState.READY, "Display configured")
         report("runtime", StartupState.STARTING, "Loading configuration")
-        runtime = create_car_ui_runtime(RUNTIME_CONFIG_PATH, project_root=PROJECT_ROOT)
+        runtime_config_path, applications_config_path = resolve_config_paths()
+        runtime = create_car_ui_runtime(
+            runtime_config_path,
+            project_root=PROJECT_ROOT,
+            applications_config_path=applications_config_path,
+        )
         cleanup.callback(runtime.close)
-        runtime.start_background_apps()
-        report("runtime", StartupState.READY, "Configuration loaded")
+
+        def report_preload_status(detail: str) -> None:
+            report("runtime", StartupState.DEGRADED, detail)
+
+        runtime.start_background_apps(report_preload_status)
+        report("runtime", StartupState.READY, "Configuration loaded; background applications starting")
         report("telemetry", StartupState.READY, "Vehicle and navigation state provided by message bus")
 
         report("input", StartupState.STARTING, "Loading input devices")
@@ -103,7 +132,7 @@ def build_car_ui_dependencies(report: StartupStatusCallback) -> CarUiDependencie
         audio_controller = create_audio_controller(steps=CAR_UI_THEME["layout"]["volume_steps"], config=runtime.audio, target=runtime_target)
         report("audio", StartupState.READY, "Audio controller ready")
 
-        report("spotify", StartupState.STARTING, "Loading controller")
+        report("media", StartupState.STARTING, "Loading media controllers")
         spotify_controller = create_spotify_controller()
         spotify_image_cache = ImageCache(max_entries=runtime.image_cache.max_entries, cache_directory=runtime.image_cache.directory)
         spotify_lyrics_client = LrclibLyricsClient()
@@ -117,7 +146,7 @@ def build_car_ui_dependencies(report: StartupStatusCallback) -> CarUiDependencie
         youtube_player = YouTubePlayer(software_rendering=software_rendering)
         cleanup.callback(netflix_player.stop)
         cleanup.callback(youtube_player.stop)
-        report("spotify", StartupState.READY, "Controller ready")
+        report("media", StartupState.READY, "Spotify and media controllers ready")
 
         report("lighting", StartupState.STARTING, "Loading controller")
         lighting_controller = create_lighting_controller(project_root=PROJECT_ROOT, address=os.getenv("CARUI_LIGHTING_ADDRESS"))

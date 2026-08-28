@@ -122,6 +122,11 @@ if [[ " ${FEATURES[*]} " == *" browser "* ]]; then
   fi
 fi
 
+if [[ " ${FEATURES[*]} " == *" adsb "* ]]; then
+  echo "[*] Installing ADS-B web dashboard..."
+  bash "$SCRIPT_DIR/setup_adsb_web.sh"
+fi
+
 if [[ " ${FEATURES[*]} " == *" sdrpp "* ]]; then
   echo "[*] Installing SDR++ if available..."
   if dpkg -s sdrpp >/dev/null 2>&1; then

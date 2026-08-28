@@ -28,12 +28,15 @@ struct MapCommand {
 class MapCommandServer {
 public:
     /**
+     * @brief Bind the renderer command server to the default endpoint.
+     */
+    MapCommandServer();
+
+    /**
      * @brief Bind the renderer command server.
      * @param endpoint ZeroMQ endpoint on which renderer commands are received.
      */
-    explicit MapCommandServer(
-        std::string endpoint = "ipc:///tmp/openroadcode-map-renderer"
-    );
+    explicit MapCommandServer(std::string endpoint);
     ~MapCommandServer() = default;
 
     MapCommandServer(const MapCommandServer&) = delete;

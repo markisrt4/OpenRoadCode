@@ -20,13 +20,11 @@ class WeatherDashLauncher(StreamlitLauncher):
         *,
         project_root: str | Path | None = None,
         port: int = 8501,
-        preload: bool = True,
         cache_directory: str | Path = DEFAULT_WEATHER_CACHE_DIRECTORY,
         refresh_seconds: int = 120,
         browser: BrowserKioskLauncher | None = None,
     ) -> None:
         root = Path(project_root).expanduser().resolve() if project_root is not None else Path(__file__).resolve().parents[2]
-        self.preload = preload
 
         super().__init__(
             app_path=root / "apps" / "weatherDash" / "main.py",

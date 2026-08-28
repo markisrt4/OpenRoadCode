@@ -80,7 +80,14 @@ class BrowserKioskLauncher(AppLauncherIf):
         self._hidden = False
         browser_path = self._find_browser()
         environment = x11_environment(remote_display)
-        command = [browser_path, "--noerrdialogs", "--disable-infobars", "--disable-session-crashed-bubble", "--disable-restore-session-state"]
+        command = [
+            browser_path,
+            "--noerrdialogs",
+            "--disable-infobars",
+            "--disable-session-crashed-bubble",
+            "--disable-restore-session-state",
+            "--password-store=basic",
+        ]
         if self.kiosk:
             command.append("--kiosk")
         if self.app_mode:
