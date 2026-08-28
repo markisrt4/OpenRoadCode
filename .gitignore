@@ -4,7 +4,7 @@ tmp
 venv
 .venv
 build
-build-termux/
+**/build-termux/
 
 # runit creates runtime supervision state beside service definitions.
 # Never track supervise directories, regardless of where a service tree lives.
