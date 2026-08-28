@@ -110,17 +110,20 @@ The Vehicle screen updates as new `VehicleState` messages arrive. No automotive 
 
 ## Physical topic end-to-end test
 
-After `/dev/rfcomm0` exists, run the self-contained hardware-to-topic test:
+With the configured ZeroMQ broker running, execute the production-composition
+hardware-to-topic test:
 
 ```bash
 python3 -m services.automotive.component_test.obd2_topic_e2e_cli \
-  --port /dev/rfcomm0
+  --config config/runtime.toml
 ```
 
-The test starts a broker on temporary localhost ports, constructs the physical
-ELM327 automotive runtime, subscribes to `openroad.vehicle.state`, validates
-the decoded message, prints its SI values, and shuts everything down. It does
-not require the installed broker or automotive services to be running.
+The test reads the automotive source, device path, baud, timeouts, publish
+source/rate, and messaging endpoints from TOML. It constructs the same source
+and `AutomotiveRuntime` as the production service, subscribes to
+`openroad.vehicle.state`, validates the decoded message, prints its SI values,
+and shuts down. Do not run the installed automotive service simultaneously,
+because both processes would compete for the configured ELM327 serial device.
 
 ## Design rule
 

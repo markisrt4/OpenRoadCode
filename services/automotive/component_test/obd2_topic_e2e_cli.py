@@ -7,40 +7,30 @@
 from __future__ import annotations
 
 import argparse
-import socket
 import sys
 import threading
-import time
 from dataclasses import asdict
 from pathlib import Path
 from typing import Any
 
-from controllers.automotive.obd2 import Elm327ObdAdapter, Obd2Manager
-from hardware_io.automotive.elm327 import Elm327Device
+from config.service_runtime_config import ServiceRuntimeConfigParser
 from messaging.contracts.automotive import (
     VEHICLE_STATE_TOPIC,
     decode_vehicle_state,
 )
 from messaging.zeromq import ZeroMqPublisher, ZeroMqSubscriber
-from messaging.zeromq.broker import ZeroMqBroker
 from services.automotive.automotive_runtime import AutomotiveRuntime
-
-
-def _free_tcp_endpoint() -> str:
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-        sock.bind(("127.0.0.1", 0))
-        return f"tcp://127.0.0.1:{sock.getsockname()[1]}"
+from services.automotive.automotive_service_cli import (
+    DEFAULT_RUNTIME_CONFIG,
+    build_source,
+)
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--port", default="/dev/rfcomm0")
-    parser.add_argument("--baud", type=int, default=38400)
-    parser.add_argument("--serial-timeout", type=float, default=1.0)
+    parser.add_argument("--config", default=str(DEFAULT_RUNTIME_CONFIG))
     parser.add_argument("--topic-timeout", type=float, default=45.0)
     args = parser.parse_args()
-    if args.serial_timeout <= 0 or args.serial_timeout > 10:
-        parser.error("--serial-timeout must be greater than 0 and at most 10 seconds")
     if args.topic_timeout <= 0 or args.topic_timeout > 180:
         parser.error("--topic-timeout must be greater than 0 and at most 180 seconds")
     return args
@@ -56,26 +46,26 @@ def _numeric_values(message: Any) -> dict[str, int | float]:
 
 def main() -> int:
     args = parse_args()
-    if not Path(args.port).exists():
-        print(f"FAIL [RFCOMM]: {args.port} does not exist", file=sys.stderr)
+    system = ServiceRuntimeConfigParser(args.config).load()
+    config = system.automotive
+    if not config.enabled:
+        print("FAIL [config]: services.automotive.enabled is false", file=sys.stderr)
+        return 2
+    if not config.publish.enabled:
+        print("FAIL [config]: services.automotive.publish.enabled is false", file=sys.stderr)
+        return 2
+    if config.input.source == "device" and not Path(config.input.port).exists():
+        print(f"FAIL [RFCOMM]: {config.input.port} does not exist", file=sys.stderr)
         return 2
 
-    ingress = _free_tcp_endpoint()
-    egress = _free_tcp_endpoint()
-    while egress == ingress:
-        egress = _free_tcp_endpoint()
+    print(f"Config: {Path(args.config).expanduser().resolve()}")
+    print(f"Input: {config.input.source}")
+    if config.input.source == "device":
+        print(f"Device: {config.input.device} on {config.input.port} at {config.input.baud} baud")
+    print(f"Publisher endpoint: {system.messaging.publisher_endpoint}")
+    print(f"Subscriber endpoint: {system.messaging.subscriber_endpoint}")
 
-    broker = ZeroMqBroker(ingress, egress)
-    broker_thread = threading.Thread(target=broker.run, name="Obd2E2eBroker", daemon=True)
-    broker_thread.start()
-    deadline = time.monotonic() + 2.0
-    while not broker.is_running and time.monotonic() < deadline:
-        time.sleep(0.01)
-    if not broker.is_running:
-        print("FAIL [broker]: local ZeroMQ broker did not start", file=sys.stderr)
-        return 4
-
-    subscriber = ZeroMqSubscriber(egress)
+    subscriber = ZeroMqSubscriber(system.messaging.subscriber_endpoint)
     subscriber.subscribe(VEHICLE_STATE_TOPIC)
     received: list[tuple[str, Any]] = []
     receiver_error: list[Exception] = []
@@ -94,17 +84,14 @@ def main() -> int:
     receiver_thread.start()
     time.sleep(0.2)
 
-    source = Obd2Manager(
-        Elm327ObdAdapter(
-            Elm327Device(
-                port=args.port,
-                baud=args.baud,
-                timeout=args.serial_timeout,
-            )
-        )
+    source = build_source(config)
+    publisher = ZeroMqPublisher(system.messaging.publisher_endpoint)
+    runtime = AutomotiveRuntime(
+        source,
+        publisher,
+        publish_source=config.publish.source,
+        rate_hz=config.rate_hz,
     )
-    publisher = ZeroMqPublisher(ingress)
-    runtime = AutomotiveRuntime(source, publisher, publish_source="obd2-e2e", rate_hz=1.0)
     runtime_error: list[Exception] = []
 
     def run_automotive() -> None:
@@ -149,12 +136,10 @@ def main() -> int:
         return 0
     finally:
         runtime.close()
-        runtime_thread.join(timeout=args.serial_timeout * 16 + 5.0)
+        runtime_thread.join(timeout=config.input.timeout_s * 16 + 5.0)
         subscriber.close()
         receiver_thread.join(timeout=1.0)
         publisher.close()
-        broker.close()
-        broker_thread.join(timeout=2.0)
 
 
 if __name__ == "__main__":
