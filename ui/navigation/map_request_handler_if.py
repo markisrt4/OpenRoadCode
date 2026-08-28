@@ -12,6 +12,14 @@ class MapRequestHandlerIf(ABC):
     """Handle map camera and style requests without renderer coupling."""
 
     @abstractmethod
+    def request_follow(self, enabled: bool) -> None:
+        """Request whether the map camera follows current position.
+
+        @param enabled True to follow the vehicle; False for manual camera mode.
+        """
+        ...
+
+    @abstractmethod
     def request_recenter(self) -> None:
         """Request that the map follow the current position again."""
         ...
