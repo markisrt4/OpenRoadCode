@@ -141,13 +141,13 @@ Commands requiring acknowledgement or error reporting use request/reply messagin
 
 Messaging and service documentation:
 
-* [Messaging overview and subscriber quick start](messaging/README.md)
-* [Message Bus Interface Design Description](docs/messaging/message_bus_idd.md)
-* [Navigation producer service](services/navigation/README.md)
-* [Automotive producer service](services/automotive/README.md)
-* [Car TUI telemetry consumer](apps/carTui/README.md)
-* [Termux development target](development/termux/README.md)
-* [Contributor architecture and testing rules](CONTRIBUTING.md)
+* [Messaging overview and subscriber quick start](https://github.com/markisrt4/OpenRoadCode/blob/master/messaging/README.md)
+* [Message Bus Interface Design Description](https://github.com/markisrt4/OpenRoadCode/blob/master/docs/messaging/message_bus_idd.md)
+* [Navigation producer service](https://github.com/markisrt4/OpenRoadCode/blob/master/services/navigation/README.md)
+* [Automotive producer service](https://github.com/markisrt4/OpenRoadCode/blob/master/services/automotive/README.md)
+* [Car TUI telemetry consumer](https://github.com/markisrt4/OpenRoadCode/blob/master/apps/carTui/README.md)
+* [Termux development target](https://github.com/markisrt4/OpenRoadCode/blob/master/development/termux/README.md)
+* [Contributor architecture and testing rules](https://github.com/markisrt4/OpenRoadCode/blob/master/CONTRIBUTING.md)
 
 ---
 
@@ -208,7 +208,7 @@ Concrete devices and credentials remain separate from package installation. Run 
 
 Termux is an active development target rather than a complete Raspberry Pi replacement. It is used to exercise native Python services, ZeroMQ, Valhalla, MapLibre, Chromium/Termux:X11 presentation, Android sensor integration, and simulated ADS-B presentation.
 
-Follow [development/termux/README.md](development/termux/README.md) for the current native build, runit services, sensor bridge, navigation data, tar1090, and CarUi launch workflow.
+Follow the [Termux development guide](https://github.com/markisrt4/OpenRoadCode/blob/master/development/termux/README.md) for the current native build, runit services, sensor bridge, navigation data, tar1090, and CarUi launch workflow.
 
 ---
 
@@ -310,10 +310,10 @@ Contributions are welcome, particularly in automated tests, documentation, hardw
 
 Before a major architectural change, describe the problem, proposed design, affected layers, platform dependencies, and testing implications. Changes should preserve the separation between applications, controllers, services, messaging, protocols, and hardware-specific code.
 
-Read [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, architecture, testing conventions, hardware guidance, and the pull-request checklist.
+Read [CONTRIBUTING.md](https://github.com/markisrt4/OpenRoadCode/blob/master/CONTRIBUTING.md) for development setup, architecture, testing conventions, hardware guidance, and the pull-request checklist.
 
 ---
 
 ## License
 
-OpenRoadCode is licensed under the MIT License. See [LICENSE](LICENSE).
+OpenRoadCode is licensed under the MIT License. See [LICENSE](https://github.com/markisrt4/OpenRoadCode/blob/master/LICENSE).
