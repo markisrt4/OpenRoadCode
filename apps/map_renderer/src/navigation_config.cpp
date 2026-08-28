@@ -13,6 +13,9 @@
 
 namespace {
 
+constexpr const char* kLegacyDataRoot = "/srv/openroadcode";
+constexpr const char* kLegacyCacheRoot = "/var/cache/openroadcode";
+
 std::string trim(std::string value)
 {
     const auto notSpace = [](unsigned char c) { return !std::isspace(c); };
@@ -44,13 +47,23 @@ std::string environmentOrDefault(const char* name, const std::string& fallback)
     return fallback;
 }
 
-std::string resolvePath(const std::string& root, const std::string& path)
+std::string resolvePath(
+    const std::string& root,
+    const std::string& path,
+    const std::string& legacyRoot)
 {
     const std::filesystem::path configured{path};
-    if (configured.is_absolute()) {
-        return configured.lexically_normal().string();
+    if (!configured.is_absolute()) {
+        return (std::filesystem::path{root} / configured).lexically_normal().string();
     }
-    return (std::filesystem::path{root} / configured).lexically_normal().string();
+
+    const std::filesystem::path legacy{legacyRoot};
+    const auto relative = configured.lexically_relative(legacy);
+    if (!relative.empty() && *relative.begin() != ".." && root != legacyRoot) {
+        return (std::filesystem::path{root} / relative).lexically_normal().string();
+    }
+
+    return configured.lexically_normal().string();
 }
 
 } // namespace
@@ -109,7 +122,7 @@ NavigationConfig loadNavigationConfig(const std::string& path)
 
     config.dataRoot = environmentOrDefault("OPENROADCODE_DATA_ROOT", config.dataRoot);
     config.cacheRoot = environmentOrDefault("OPENROADCODE_CACHE_ROOT", config.cacheRoot);
-    config.stylePath = resolvePath(config.dataRoot, config.stylePath);
-    config.cachePath = resolvePath(config.cacheRoot, config.cachePath);
+    config.stylePath = resolvePath(config.dataRoot, config.stylePath, kLegacyDataRoot);
+    config.cachePath = resolvePath(config.cacheRoot, config.cachePath, kLegacyCacheRoot);
     return config;
 }
