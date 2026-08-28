@@ -16,7 +16,10 @@ The current target combines:
 - Termux:X11 for graphical execution; and
 - offline navigation data stored under `~/.local/share/openroadcode`.
 
-The Termux runtime profile is `config/runtime.termux.toml`.
+CarUi keeps the shared runtime composition in `config/runtime.toml` and selects
+`config/applications.termux.toml` for Termux-specific application behavior.
+`config/runtime.termux.toml` remains available as an explicit Termux navigation
+and sensor-service profile through `OPENROAD_RUNTIME_CONFIG`.
 
 ## Navigation contracts
 
@@ -103,9 +106,9 @@ sv down openroadcode-broker
 ```
 
 The runit definitions call the same runtime wrappers used by the Linux service
-installation where applicable. Termux-specific supervision lives under
-`scripts/runit/`; runtime `supervise/` state belongs under the Termux service
-root and must not be committed to the source tree.
+installation where applicable. Termux-specific service definitions live under
+`scripts/runit/`. Runtime-generated `supervise/` directories are state, not
+source, and must never be committed to the repository.
 
 If navigation remains `down`, run the service definition directly to expose the
 startup error:
@@ -147,8 +150,14 @@ curl -I http://127.0.0.1:8081/
 Do not also run `python -m http.server 8081` manually while the service is up.
 CarUi uses `http://127.0.0.1:8081/` for the Termux Aircraft / ADS-B panel.
 
-On Raspberry Pi/Linux targets, the ADS-B source is `rtlsdr`; the `adsb` install
-feature installs readsb and tar1090 instead of using this simulation service.
+The seeded JSON is a presentation fixture, not a continuous aircraft simulator.
+A future simulation producer can replace those files without changing the
+browser launcher or application configuration contract.
+
+On Raspberry Pi/Linux targets, the ADS-B source is `rtlsdr`. That path owns the
+shared RTL-SDR receiver only while the ADS-B application is active, allowing
+SDR++ and readsb to share the hardware rather than fighting over it like two
+programs with absolutely no concept of property rights.
 
 ## Run CarUi
 
@@ -159,8 +168,19 @@ termux-x11 :1 -xstartup "xfce4-session"
 ```
 
 Then launch CarUi from a Termux/X11 shell with the broker and navigation service
-already running. The runtime uses the Termux profile and normal OpenRoadCode
-messaging contracts.
+already running:
+
+```bash
+cd ~/src/OpenRoadCode
+export DISPLAY=:1
+export CARUI_FULLSCREEN=0
+export CARUI_GEOMETRY=1024x600
+python -m apps.carUi.main
+```
+
+Browser-backed launchers use the selected X11 display and Chromium is started
+with `--password-store=basic`, avoiding desktop-keyring prompts on both Termux
+and Linux targets.
 
 The turn-by-turn panel has been exercised on Termux against the ZeroMQ guidance
 path. Map following consumes position and ground motion independently, allowing
