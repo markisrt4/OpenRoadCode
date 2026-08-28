@@ -1,6 +1,15 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 
+"""Launch and coordinate the ADS-B aircraft dashboard.
+
+The launcher separates presentation from the configured ADS-B data producer.
+The ``rtlsdr`` source owns the shared RTL-SDR resource while the dashboard is
+open and starts/stops the Linux ``readsb`` service on demand. The ``simulation``
+source only requires an already-running tar1090 web presentation and never
+manipulates SDR hardware or systemd services.
+"""
+
 from __future__ import annotations
 
 import shutil
@@ -20,7 +29,13 @@ SIMULATION_DATA_SOURCE = "simulation"
 
 
 class ADSBLauncher(AppLauncherIf):
-    """Launch a configured ADS-B data source and tar1090 dashboard."""
+    """Launch a configured ADS-B data source and tar1090 dashboard.
+
+    ``rtlsdr`` is the Raspberry Pi/Linux hardware path. It acquires the shared
+    SDR resource, closes competing SDR++ windows, and starts ``readsb`` only
+    while the ADS-B application owns the receiver. ``simulation`` is the
+    hardware-independent path used by Termux presentation testing.
+    """
 
     def __init__(self, *, url: str = "http://127.0.0.1/tar1090", data_source: str = RTLSDR_DATA_SOURCE, browser_log_file: str | Path | None = None, resource_manager=None, owner_name: str = "adsb", readsb_service: str = "readsb", startup_timeout_seconds: float = 5.0) -> None:
         if data_source not in (RTLSDR_DATA_SOURCE, SIMULATION_DATA_SOURCE):
