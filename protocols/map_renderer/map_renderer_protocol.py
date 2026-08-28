@@ -6,6 +6,9 @@
 from common.str_enum import StrEnum
 
 
+MAP_RENDERER_COMMAND_TOPIC = "map.command"
+
+
 class MapRendererCommand(StrEnum):
     """Commands supported by the native map renderer."""
 
