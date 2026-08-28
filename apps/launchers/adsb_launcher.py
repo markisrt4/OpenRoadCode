@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import shutil
 import subprocess
 import time
 from pathlib import Path
@@ -62,10 +63,7 @@ class ADSBLauncher(AppLauncherIf):
             patterns=("sdrpp", "sdr\\+\\+"),
         )
 
-        subprocess.run(
-            ["sudo", "systemctl", "start", self.readsb_service],
-            check=False,
-        )
+        _set_systemd_service_state(self.readsb_service, "start")
 
         receiver_ready = self._readsb_is_running()
         dashboard_ready = self._dashboard_is_reachable()
@@ -86,10 +84,7 @@ class ADSBLauncher(AppLauncherIf):
 
     def stop(self, remote_display: str, set_status: StatusCallback = None) -> None:
         self.browser.stop(remote_display, None)
-        subprocess.run(
-            ["sudo", "systemctl", "stop", self.readsb_service],
-            check=False,
-        )
+        _set_systemd_service_state(self.readsb_service, "stop")
         if self.resource_manager is not None:
             self.resource_manager.release(self.owner_name, set_status=set_status)
         _status(set_status, "ADS-B dashboard closed")
@@ -118,6 +113,25 @@ class ADSBLauncher(AppLauncherIf):
                 return 200 <= response.status < 400
         except (OSError, URLError, ValueError):
             return False
+
+
+def _set_systemd_service_state(service: str, action: str) -> bool:
+    """Best-effort systemd service control on hosts that provide it."""
+    systemctl = shutil.which("systemctl")
+    if systemctl is None:
+        return False
+
+    command = [systemctl, action, service]
+    sudo = shutil.which("sudo")
+    if sudo is not None:
+        command.insert(0, sudo)
+
+    try:
+        subprocess.run(command, check=False)
+    except OSError:
+        return False
+
+    return True
 
 
 def _status(callback: StatusCallback, message: str) -> None:
