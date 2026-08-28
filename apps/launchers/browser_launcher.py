@@ -3,7 +3,6 @@
 
 from __future__ import annotations
 
-import os
 import shutil
 import subprocess
 import time
@@ -81,9 +80,14 @@ class BrowserKioskLauncher(AppLauncherIf):
         self._hidden = False
         browser_path = self._find_browser()
         environment = x11_environment(remote_display)
-        command = [browser_path, "--noerrdialogs", "--disable-infobars", "--disable-session-crashed-bubble", "--disable-restore-session-state"]
-        if _is_termux():
-            command.append("--password-store=basic")
+        command = [
+            browser_path,
+            "--noerrdialogs",
+            "--disable-infobars",
+            "--disable-session-crashed-bubble",
+            "--disable-restore-session-state",
+            "--password-store=basic",
+        ]
         if self.kiosk:
             command.append("--kiosk")
         if self.app_mode:
@@ -197,10 +201,6 @@ class BrowserKioskLauncher(AppLauncherIf):
         if self.window_class is None:
             return
         self._window_id = self._window_manager.activate(display=display, window_class=self.window_class)
-
-
-def _is_termux() -> bool:
-    return bool(os.getenv("TERMUX_VERSION")) or os.getenv("PREFIX", "").startswith("/data/data/com.termux/")
 
 
 def _status(callback: StatusCallback, message: str) -> None:
