@@ -26,6 +26,11 @@ class ApplicationType(str, Enum):
     NATIVE = "native"
 
 
+class AdsbDataSource(str, Enum):
+    RTLSDR = "rtlsdr"
+    SIMULATION = "simulation"
+
+
 class StartupPolicy(str, Enum):
     LAZY = "lazy"
     PRELOAD = "preload"
@@ -62,6 +67,7 @@ class ApplicationConfig:
     profile: str | None = None
     exclusive_group: str | None = None
     target: str | None = None
+    adsb_data_source: AdsbDataSource | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -119,12 +125,7 @@ class ApplicationsConfigParser:
         for app in apps:
             if app.target is not None and app.target not in target_keys:
                 raise ApplicationConfigError(f"apps.{app.key}.target references unknown presentation target {app.target!r}")
-        return ApplicationsConfig(
-            browser=browser,
-            apps=apps,
-            presentation_targets=targets,
-            default_target=default_target,
-        )
+        return ApplicationsConfig(browser=browser, apps=apps, presentation_targets=targets, default_target=default_target)
 
     def _parse_browser(self, data: Any) -> BrowserConfig:
         section = self._expect_table(data, "browser")
@@ -140,11 +141,7 @@ class ApplicationsConfigParser:
         targets: list[PresentationTargetConfig] = []
         for key, raw_target in raw_targets.items():
             target = self._expect_table(raw_target, f"presentation.targets.{key}")
-            target_type = self._enum_value(
-                PresentationTargetType,
-                target.get("type"),
-                f"presentation.targets.{key}.type",
-            )
+            target_type = self._enum_value(PresentationTargetType, target.get("type"), f"presentation.targets.{key}.type")
             display = self._optional_string(target, "display", f"presentation.targets.{key}.display")
             if target_type is PresentationTargetType.X11 and display is None:
                 raise ApplicationConfigError(f"presentation.targets.{key}.display is required for x11 targets")
@@ -165,20 +162,15 @@ class ApplicationsConfigParser:
             profile = self._optional_string(app, "profile", f"apps.{key}.profile")
             exclusive_group = self._optional_string(app, "exclusive_group", f"apps.{key}.exclusive_group")
             target = self._optional_string(app, "target", f"apps.{key}.target")
+            adsb_data_source = None
+            if app_type is ApplicationType.ADSB:
+                data_config = self._expect_table(app.get("data", {}), f"apps.{key}.data")
+                adsb_data_source = self._enum_value(AdsbDataSource, data_config.get("source", AdsbDataSource.RTLSDR.value), f"apps.{key}.data.source")
             if app_type in (ApplicationType.BROWSER, ApplicationType.ADSB) and url is None:
                 raise ApplicationConfigError(f"apps.{key}.url is required for {app_type.value} applications")
             if app_type is ApplicationType.BROWSER and profile is None:
                 raise ApplicationConfigError(f"apps.{key}.profile is required for browser applications")
-            apps.append(ApplicationConfig(
-                key=key,
-                type=app_type,
-                enabled=enabled,
-                startup=startup,
-                url=url,
-                profile=profile,
-                exclusive_group=exclusive_group,
-                target=target,
-            ))
+            apps.append(ApplicationConfig(key=key, type=app_type, enabled=enabled, startup=startup, url=url, profile=profile, exclusive_group=exclusive_group, target=target, adsb_data_source=adsb_data_source))
         return tuple(apps)
 
     @staticmethod
