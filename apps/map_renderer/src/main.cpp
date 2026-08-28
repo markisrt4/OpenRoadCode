@@ -25,6 +25,7 @@ namespace {
 constexpr double kLatitude = 42.3314;
 constexpr double kLongitude = -83.0458;
 constexpr double kZoom = 13.0;
+constexpr auto kFollowCameraDuration = mbgl::Milliseconds(120);
 constexpr const char* kDefaultRendererEndpoint = "ipc:///tmp/openroadcode-map-renderer";
 constexpr const char* kDataRootToken = "__OPENROADCODE_DATA_ROOT__";
 constexpr const char* kLegacyDataRoot = "/srv/openroadcode";
@@ -63,9 +64,6 @@ std::string loadStyleJson(const NavigationConfig& config)
         std::istreambuf_iterator<char>{}
     };
 
-    // New style templates use an explicit runtime-root token. Keep support for
-    // the former /srv/openroadcode form so an already-deployed style continues
-    // to work after upgrading the renderer.
     replaceAll(style, kDataRootToken, config.dataRoot);
     if (config.dataRoot != kLegacyDataRoot) {
         replaceAll(style, kLegacyDataRoot, config.dataRoot);
@@ -153,9 +151,6 @@ int main()
             }
 
             if (command->command == "set_center") {
-                std::cout << "[map_renderer] set_center: "
-                          << command->latitude << ", "
-                          << command->longitude << '\n';
                 map.jumpTo(
                     mbgl::CameraOptions().withCenter(
                         mbgl::LatLng{command->latitude, command->longitude}
@@ -203,15 +198,17 @@ int main()
             }
 
             if (command->command == "set_camera") {
-                map.jumpTo(
-                    mbgl::CameraOptions()
-                        .withCenter(mbgl::LatLng{
-                            command->latitude,
-                            command->longitude
-                        })
-                        .withZoom(command->zoom)
-                        .withBearing(command->bearing)
-                        .withPitch(command->pitch)
+                const auto camera = mbgl::CameraOptions()
+                    .withCenter(mbgl::LatLng{
+                        command->latitude,
+                        command->longitude
+                    })
+                    .withZoom(command->zoom)
+                    .withBearing(command->bearing)
+                    .withPitch(command->pitch);
+                map.easeTo(
+                    camera,
+                    mbgl::AnimationOptions{kFollowCameraDuration}
                 );
                 return;
             }
