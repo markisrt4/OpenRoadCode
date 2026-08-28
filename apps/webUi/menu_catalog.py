@@ -44,7 +44,8 @@ def create_web_ui_menu_pages() -> dict[str, MenuPage]:
         ), columns=2),
         "media": MenuPage(title="Media", tiles=(
             MenuTile("spotify", "SPOTIFY", "Streaming control", "Spotify integration"),
+            MenuTile("music_visualizer", "VISUALIZER", "Music-reactive graphics", "Browser microphone + shared analyzer"),
             MenuTile("netflix", "NETFLIX", "Streaming video", "Browser integration"),
             MenuTile("youtube", "YOUTUBE", "Video and search", "Browser integration"),
-        ), columns=3),
+        ), columns=2),
     }
