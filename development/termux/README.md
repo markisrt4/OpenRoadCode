@@ -7,7 +7,8 @@ The current target combines:
 
 - the OpenRoadCode Android sensor bridge on localhost port `8766`;
 - native Python controllers and services running in Termux;
-- the OpenRoadCode ZeroMQ broker and navigation service under runit supervision;
+- the OpenRoadCode ZeroMQ broker, navigation service, and simulated ADS-B web
+  presentation under runit supervision;
 - Android-backed IMU input through the sensor bridge;
 - simulated geographic position and ground motion until Android location/motion
   endpoints are integrated;
@@ -65,7 +66,7 @@ Android geographic position and ground-motion endpoints are follow-on bridge
 integrations. Until then, `runtime.termux.toml` supplies those two inputs from
 independent simulation sources.
 
-## Run broker and navigation as services
+## Run supervised Termux services
 
 Install Termux service supervision once:
 
@@ -81,26 +82,30 @@ chmod +x scripts/runit/install_termux_services.sh
 ./scripts/runit/install_termux_services.sh
 ```
 
-Start and inspect the production broker and navigation services with:
+Start and inspect the supervised services with:
 
 ```bash
 sv up openroadcode-broker
 sv up openroadcode-navigation
+sv up openroadcode-adsb
 
 sv status openroadcode-broker
 sv status openroadcode-navigation
+sv status openroadcode-adsb
 ```
 
 Stop them with:
 
 ```bash
+sv down openroadcode-adsb
 sv down openroadcode-navigation
 sv down openroadcode-broker
 ```
 
 The runit definitions call the same runtime wrappers used by the Linux service
-installation. Termux-specific supervision lives under `scripts/runit/`; the
-application/service code remains platform independent.
+installation where applicable. Termux-specific supervision lives under
+`scripts/runit/`; runtime `supervise/` state belongs under the Termux service
+root and must not be committed to the source tree.
 
 If navigation remains `down`, run the service definition directly to expose the
 startup error:
@@ -113,6 +118,37 @@ Common development-time causes are an older manually launched navigation
 process already owning command endpoint `tcp://127.0.0.1:5560`, or the Android
 sensor bridge not running while the Termux profile is configured for Android
 IMU input.
+
+## ADS-B / tar1090 simulation
+
+The Termux application profile uses the ADS-B producer source `simulation`.
+This keeps presentation testing independent of RTL-SDR hardware and Linux
+`readsb`/systemd service management.
+
+Install the tar1090 presentation files once:
+
+```bash
+cd ~/src/OpenRoadCode
+./development/termux/setup_tar1090.sh
+```
+
+The setup script clones tar1090 under `~/src/tar1090` and seeds its `html/data`
+directory with presentation-test JSON when no data exists yet.
+
+After `scripts/runit/install_termux_services.sh` has installed the service,
+`openroadcode-adsb` owns the local tar1090 web server on port `8081`:
+
+```bash
+sv up openroadcode-adsb
+sv status openroadcode-adsb
+curl -I http://127.0.0.1:8081/
+```
+
+Do not also run `python -m http.server 8081` manually while the service is up.
+CarUi uses `http://127.0.0.1:8081/` for the Termux Aircraft / ADS-B panel.
+
+On Raspberry Pi/Linux targets, the ADS-B source is `rtlsdr`; the `adsb` install
+feature installs readsb and tar1090 instead of using this simulation service.
 
 ## Run CarUi
 
