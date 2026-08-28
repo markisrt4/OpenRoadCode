@@ -95,5 +95,15 @@ def _getprop(name: str) -> str:
 def _freedreno_icd_present(prefix: str) -> bool:
     if not prefix:
         return False
-    icd_dir = Path(prefix) / "etc" / "vulkan" / "icd.d"
-    return any(icd_dir.glob("*freedreno*.json"))
+
+    # Termux currently installs Vulkan ICD manifests under share/vulkan/icd.d.
+    # Keep etc/vulkan/icd.d as a compatibility location because other Linux
+    # layouts use it and package layouts are not an API worth betting on.
+    icd_directories = (
+        Path(prefix) / "share" / "vulkan" / "icd.d",
+        Path(prefix) / "etc" / "vulkan" / "icd.d",
+    )
+    return any(
+        any(icd_dir.glob("*freedreno*.json"))
+        for icd_dir in icd_directories
+    )
