@@ -10,11 +10,23 @@ import tkinter as tk
 from datetime import datetime
 
 from apps.orcUi.context_rail import ContextRail
-from apps.orcUi.navigation_presenter import NavigationPresenter, PositionPresentationState
+from apps.orcUi.navigation_presenter import (
+    AttitudePresentationState,
+    NavigationPresenter,
+    PositionPresentationState,
+)
+from apps.orcUi.offroad_panel import OffRoadPanel
 from apps.orcUi.vehicle_panel import VehiclePanel
 from apps.orcUi.vehicle_presenter import VehiclePresenter, VehiclePresentationState
 from messaging.contracts.automotive import VEHICLE_STATE_TOPIC, VehicleStateMessage, decode_vehicle_state
-from messaging.contracts.navigation import POSITION_STATE_TOPIC, PositionStateMessage, decode_position_state
+from messaging.contracts.navigation import (
+    ATTITUDE_STATE_TOPIC,
+    POSITION_STATE_TOPIC,
+    AttitudeStateMessage,
+    PositionStateMessage,
+    decode_attitude_state,
+    decode_position_state,
+)
 from messaging.message_dispatcher import MessageDispatcher
 from messaging.zeromq import ZeroMqSubscriber
 from messaging.zeromq.endpoints import LOCAL_SUBSCRIBER_ENDPOINT
@@ -47,8 +59,10 @@ class OrcUiApp:
         self._content: tk.Frame
         self._context_rail: ContextRail | None = None
         self._vehicle_panel: VehiclePanel | None = None
+        self._offroad_panel: OffRoadPanel | None = None
         self._vehicle_state = VehiclePresentationState()
         self._position_state = PositionPresentationState()
+        self._attitude_state = AttitudePresentationState()
         self._volume = 20
         self._volume_label: tk.Label
         self._closing = False
@@ -58,6 +72,7 @@ class OrcUiApp:
         )
         self._dispatcher.register(VEHICLE_STATE_TOPIC, decode_vehicle_state, self._on_vehicle_message)
         self._dispatcher.register(POSITION_STATE_TOPIC, decode_position_state, self._on_position_message)
+        self._dispatcher.register(ATTITUDE_STATE_TOPIC, decode_attitude_state, self._on_attitude_message)
         self._build_shell()
         self._show_home()
         self._update_clock()
@@ -76,11 +91,9 @@ class OrcUiApp:
             self._shutdown()
 
     def _on_sigint(self, _signum: int, _frame) -> None:
-        """Convert terminal Ctrl-C into the same orderly path as the Exit button."""
         self._root.after_idle(self._shutdown)
 
     def _shutdown(self) -> None:
-        """Close messaging and Tk exactly once regardless of exit path."""
         if self._closing:
             return
         self._closing = True
@@ -185,6 +198,7 @@ class OrcUiApp:
     def _clear_content(self) -> None:
         self._context_rail = None
         self._vehicle_panel = None
+        self._offroad_panel = None
         for child in self._content.winfo_children():
             child.destroy()
 
@@ -223,6 +237,16 @@ class OrcUiApp:
         self._vehicle_panel = VehiclePanel(self._content, on_back=self._show_home, state=self._vehicle_state)
         self._vehicle_panel.pack(fill=tk.BOTH, expand=True)
 
+    def _show_offroad_panel(self) -> None:
+        self._clear_content()
+        self._offroad_panel = OffRoadPanel(
+            self._content,
+            on_back=self._show_home,
+            position=self._position_state,
+            attitude=self._attitude_state,
+        )
+        self._offroad_panel.pack(fill=tk.BOTH, expand=True)
+
     def _on_vehicle_message(self, message: VehicleStateMessage) -> None:
         state = VehiclePresenter.present(message.data)
         if not self._closing:
@@ -248,6 +272,20 @@ class OrcUiApp:
         self._position_state = state
         if self._context_rail is not None and self._context_rail.winfo_exists():
             self._context_rail.update_position_state(state)
+        if self._offroad_panel is not None and self._offroad_panel.winfo_exists():
+            self._offroad_panel.update_position(state)
+
+    def _on_attitude_message(self, message: AttitudeStateMessage) -> None:
+        state = NavigationPresenter.present_attitude(message.data)
+        if not self._closing:
+            self._root.after(0, self._apply_attitude_state, state)
+
+    def _apply_attitude_state(self, state: AttitudePresentationState) -> None:
+        if self._closing:
+            return
+        self._attitude_state = state
+        if self._offroad_panel is not None and self._offroad_panel.winfo_exists():
+            self._offroad_panel.update_attitude(state)
 
     @staticmethod
     def _on_bus_error(topic: str, error: Exception) -> None:
@@ -260,8 +298,11 @@ class OrcUiApp:
         if name == "VEHICLE":
             self._show_vehicle_panel()
             return
+        if name == "OFF-ROAD":
+            self._show_offroad_panel()
+            return
         self._clear_content()
-        accent = {"TRIP": BLUE, "OFF-ROAD": YELLOW}.get(name, GREEN)
+        accent = {"TRIP": BLUE}.get(name, GREEN)
         panel = self._panel(self._content, name, accent)
         panel.pack(fill=tk.BOTH, expand=True)
         tk.Button(panel, text="‹ HOME", command=self._show_home, bg="#101820", fg=TEXT, relief=tk.FLAT, font=("Sans", 11, "bold"), padx=14, pady=7).pack(anchor="nw", padx=14, pady=10)
