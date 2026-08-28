@@ -26,7 +26,6 @@ from frontends.tk.system import StartupItem, StartupSplash, StartupState, Startu
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 RUNTIME_CONFIG_PATH = PROJECT_ROOT / "config" / "runtime.toml"
-TERMUX_RUNTIME_CONFIG_PATH = PROJECT_ROOT / "config" / "runtime.termux.toml"
 APPLICATIONS_CONFIG_PATH = PROJECT_ROOT / "config" / "applications.toml"
 TERMUX_APPLICATIONS_CONFIG_PATH = PROJECT_ROOT / "config" / "applications.termux.toml"
 SPLASH_IMAGE_PATH = Path(__file__).parent / "assets" / "openroadcode-splash.png"
@@ -70,12 +69,17 @@ def _is_termux() -> bool:
 
 
 def resolve_config_paths() -> tuple[Path, Path]:
-    """Return matching system and application configuration profiles."""
+    """Return Car UI runtime and application configuration profiles.
+
+    Car UI uses the shared runtime profile on every platform unless explicitly
+    overridden. Termux selects a platform-specific applications profile because
+    presentation targets differ there. ``runtime.termux.toml`` remains an
+    explicit Android sensor/navigation service profile rather than a Car UI
+    composition profile.
+    """
     runtime_override = os.getenv("OPENROAD_RUNTIME_CONFIG")
     applications_override = os.getenv("OPENROAD_APPLICATIONS_CONFIG")
-    runtime_path = Path(runtime_override).expanduser() if runtime_override else (
-        TERMUX_RUNTIME_CONFIG_PATH if _is_termux() else RUNTIME_CONFIG_PATH
-    )
+    runtime_path = Path(runtime_override).expanduser() if runtime_override else RUNTIME_CONFIG_PATH
     applications_path = Path(applications_override).expanduser() if applications_override else (
         TERMUX_APPLICATIONS_CONFIG_PATH if _is_termux() else APPLICATIONS_CONFIG_PATH
     )
