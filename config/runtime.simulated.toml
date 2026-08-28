@@ -156,7 +156,7 @@ enabled = true
 
 [[radios]]
 key = "frs"
-config = "frs_radio.json"
+config = "frs.json"
 backend = "rigctl"
 launcher = "sdrpp"
 enabled = true
