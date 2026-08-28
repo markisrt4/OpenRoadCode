@@ -7,6 +7,8 @@ from __future__ import annotations
 
 import argparse
 
+import zmq
+
 from messaging.zeromq.broker import ZeroMqBroker
 from messaging.zeromq.endpoints import (
     BROKER_PUBLISHER_BIND_ENDPOINT,
@@ -37,6 +39,11 @@ def main() -> int:
         broker.run()
     except KeyboardInterrupt:
         pass
+    except zmq.ZMQError as error:
+        if error.errno == zmq.EADDRINUSE:
+            print("ZeroMQ broker is already running on the configured endpoints")
+            return 0
+        raise
     finally:
         broker.close()
     return 0
