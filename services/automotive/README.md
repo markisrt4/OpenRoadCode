@@ -114,16 +114,16 @@ With the configured ZeroMQ broker running, execute the production-composition
 hardware-to-topic test:
 
 ```bash
-python3 -m services.automotive.component_test.obd2_topic_e2e_cli \
+python3 -m apps.common.component_test.automotive_topic_e2e_cli \
   --config config/runtime.toml
 ```
 
-The test reads the automotive source, device path, baud, timeouts, publish
-source/rate, and messaging endpoints from TOML. It constructs the same source
-and `AutomotiveRuntime` as the production service, subscribes to
-`openroad.vehicle.state`, validates the decoded message, prints its SI values,
-and shuts down. Do not run the installed automotive service simultaneously,
-because both processes would compete for the configured ELM327 serial device.
+The app-level test reads the automotive source, device path, baud, timeouts,
+publish source/rate, and messaging endpoints from TOML. It constructs the same
+source and `AutomotiveRuntime` as production, then dispatches
+`openroad.vehicle.state` into the shared application `VehicleBusState` cache.
+Do not run the installed automotive service simultaneously, because both
+processes would compete for the configured ELM327 serial device.
 
 ## Design rule
 
