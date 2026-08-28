@@ -27,6 +27,7 @@ pkg install -y \
   git \
   less \
   python \
+  python-numpy \
   python-tkinter \
   termux-api \
   termux-x11-nightly \
@@ -36,7 +37,7 @@ pkg install -y \
   chromium
 
 echo "[*] Creating Termux Python virtual environment: $VENV_DIR"
-python -m venv "$VENV_DIR"
+python -m venv --system-site-packages "$VENV_DIR"
 # shellcheck disable=SC1091
 source "$VENV_DIR/bin/activate"
 python -m pip install --upgrade pip wheel setuptools
