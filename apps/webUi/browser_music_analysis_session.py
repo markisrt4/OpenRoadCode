@@ -42,9 +42,13 @@ class WebBrowserMusicAnalysisSession:
         with self._lock:
             state = self._analyzer.analyze(samples, sample_rate_hz)
             self._latest = state
-            if self._consumer is not None:
-                self._consumer(state)
-            return self._state_dict(state)
+            data = self._state_dict(state)
+
+        # Consumers may ultimately touch BLE, network, or other comparatively
+        # slow backends.  Never hold the analysis-state lock while publishing.
+        if self._consumer is not None:
+            self._consumer(state)
+        return data
 
     def state(self) -> dict[str, object]:
         """Return the latest analysis state, or an idle state before first audio."""
