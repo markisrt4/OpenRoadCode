@@ -8,8 +8,10 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 from controllers.environmental import (
+    AmbientLightController,
     BarometricController,
     BarometricSample,
+    BufferedAmbientLightSensor,
     BufferedBarometricSource,
 )
 from hardware_io.android import AndroidSensorBridgeClient
@@ -40,10 +42,13 @@ class AndroidSensorService:
         self._publisher = publisher
         self._barometric_source = BufferedBarometricSource()
         self._barometric = BarometricController(self._barometric_source)
+        self._ambient_light_sensor = BufferedAmbientLightSensor()
+        self._ambient_light = AmbientLightController(self._ambient_light_sensor)
 
     def run(self) -> None:
         """Forward Android motion and environmental sensor samples."""
         barometric_started = False
+        ambient_light_started = False
         try:
             for sample in self._client.stream_imu():
                 timestamp = encode_timestamp(datetime.now(timezone.utc))
@@ -85,12 +90,19 @@ class AndroidSensorService:
                     ))
 
                 if sample.ambient_light_available:
+                    self._ambient_light_sensor.update_illuminance_lux(sample.ambient_light_lux)
+                    if not ambient_light_started:
+                        self._ambient_light.start()
+                        ambient_light_started = True
+                    state = self._ambient_light.read_state()
                     self._publisher.publish(AMBIENT_LIGHT_STATE_TOPIC, encode_ambient_light_state(
-                        timestamp=timestamp,
+                        timestamp=encode_timestamp(state.timestamp),
                         source=ANDROID_SENSOR_SOURCE,
-                        illuminance_lux=sample.ambient_light_lux,
+                        illuminance_lux=state.illuminance_lux,
                     ))
         finally:
+            if ambient_light_started:
+                self._ambient_light.stop()
             if barometric_started:
                 self._barometric.stop()
 
