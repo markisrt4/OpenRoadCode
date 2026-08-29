@@ -217,3 +217,62 @@ The CLI displays heading, pitch, roll, acceleration, and angular velocity every
 0.1 seconds. Press `Ctrl+C` to stop it.
 
 Read one state and exit:
+
+```bash
+python3 -m controllers.navigation.component_test.navigation_cli --once
+```
+
+Use a different I2C address or sample interval:
+
+```bash
+python3 -m controllers.navigation.component_test.navigation_cli \
+    --address 0x69 \
+    --interval 0.2
+```
+
+The default estimator can also be tuned with
+`--filter-time-constant SECONDS`. A larger value trusts short-term gyroscope
+motion longer; a smaller value corrects pitch and roll toward accelerometer
+tilt more quickly:
+
+```bash
+python3 -m controllers.navigation.component_test.navigation_cli \
+    --filter-time-constant 1.0
+```
+
+Run the CLI with `--help` for all options. The heading shown by this test is
+relative because the default estimator does not yet use an absolute heading
+source.
+
+If gpsd is already running, include its latest state in the output:
+
+```bash
+python3 -m controllers.navigation.component_test.navigation_cli --gps
+```
+
+Use `--gps-host` and `--gps-port` for a non-default gpsd endpoint.
+
+## Position Integration
+
+Applications and controllers consume `PositionSourceIf`, independently of how
+the position was obtained. The `gpsd` connection remains in `hardware_io.gps`,
+while `GpsdPositionSource` adapts its reports. `BrowserPositionSource` provides
+the same contract from browser geolocation.
+
+GPS can contribute:
+
+- Position and altitude
+- Ground speed
+- Course over ground while the vehicle is moving
+- A low-frequency correction for drifting relative heading
+
+Course over ground is not the same as the direction the vehicle is facing. It
+is unreliable while stopped or moving very slowly, and it can differ from
+vehicle heading during reversing or sideways motion. For that reason, GPS
+course should be treated as a conditional fusion input rather than replacing
+the orientation estimator.
+
+`GpsdPositionSource` adds normalized position/course state to
+`NavigationState`. A later GPS-aware `OrientationEstimatorIf` can use valid,
+sufficiently fast course updates for drift correction; the current default
+estimator intentionally does not fuse GPS course into heading yet.
