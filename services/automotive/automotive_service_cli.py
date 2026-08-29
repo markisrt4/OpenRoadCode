@@ -30,17 +30,31 @@ def build_source(config: AutomotiveServiceRuntimeConfig):
         raise ValueError(f"Unsupported automotive device: {config.input.device}")
 
     # Keep physical-device dependencies out of simulation-only deployments.
-    # Importing Elm327Device loads pyserial, which is unnecessary when the
-    # configured source is the built-in vehicle simulator.
     from controllers.automotive.obd2.elm327_obd_adapter import Elm327ObdAdapter
     from controllers.automotive.obd2.obd2_manager import Obd2Manager
     from hardware_io.automotive.elm327 import Elm327Device
 
-    device = Elm327Device(
-        port=config.input.port,
-        baud=config.input.baud,
-        timeout=config.input.timeout_s,
-    )
+    if config.input.transport == "tcp":
+        from hardware_io.automotive.tcp_stream_transport import TcpStreamTransport
+
+        transport = TcpStreamTransport(
+            host=config.input.host,
+            port=config.input.tcp_port,
+            timeout=config.input.timeout_s,
+        )
+        device = Elm327Device(
+            timeout=config.input.timeout_s,
+            transport=transport,
+        )
+    elif config.input.transport == "serial":
+        device = Elm327Device(
+            port=config.input.port,
+            baud=config.input.baud,
+            timeout=config.input.timeout_s,
+        )
+    else:
+        raise ValueError(f"Unsupported automotive transport: {config.input.transport}")
+
     adapter = Elm327ObdAdapter(device)
     return Obd2Manager(
         adapter,
@@ -71,8 +85,12 @@ def main() -> int:
     print(f"  input source:      {config.input.source}")
     if config.input.source == "device":
         print(f"  device:            {config.input.device}")
-        print(f"  serial port:       {config.input.port}")
-        print(f"  baud:              {config.input.baud}")
+        print(f"  transport:         {config.input.transport}")
+        if config.input.transport == "serial":
+            print(f"  serial port:       {config.input.port}")
+            print(f"  baud:              {config.input.baud}")
+        else:
+            print(f"  TCP endpoint:      {config.input.host}:{config.input.tcp_port}")
     print(f"  telemetry ingress: {system.messaging.publisher_endpoint}")
     print(f"  publish rate:      {config.rate_hz:g} Hz")
     print(f"  publish source:    {config.publish.source}")
