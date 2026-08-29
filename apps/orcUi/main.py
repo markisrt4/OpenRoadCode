@@ -20,6 +20,7 @@ from apps.orcUi.navigation_presenter import (
     PositionPresentationState,
 )
 from apps.orcUi.offroad_panel import OffRoadPanel
+from apps.orcUi.orc_theme import ThemeMode, apply_tk_theme, install_map_style, toggle, toggle_label
 from apps.orcUi.vehicle_panel import VehiclePanel
 from apps.orcUi.vehicle_presenter import VehiclePresenter, VehiclePresentationState
 from messaging.contracts.automotive import VEHICLE_STATE_TOPIC, VehicleStateMessage, decode_vehicle_state
@@ -57,6 +58,8 @@ class OrcUiApp:
         self._root.geometry("1024x600")
         self._root.minsize(1024, 600)
         self._root.configure(bg=BG)
+        self._theme_mode = ThemeMode.DARK
+        self._theme_button: tk.Button
         self._active_nav = "HOME"
         self._nav_buttons: dict[str, tk.Button] = {}
         self._clock_label: tk.Label
@@ -80,6 +83,7 @@ class OrcUiApp:
         self._dispatcher.register(VEHICLE_STATE_TOPIC, decode_vehicle_state, self._on_vehicle_message)
         self._dispatcher.register(POSITION_STATE_TOPIC, decode_position_state, self._on_position_message)
         self._dispatcher.register(ATTITUDE_STATE_TOPIC, decode_attitude_state, self._on_attitude_message)
+        install_map_style(self._theme_mode)
         self._build_shell()
         self._show_home()
         self._update_clock()
@@ -136,8 +140,24 @@ class OrcUiApp:
         self._clock_label.grid(row=0, column=1)
         status = tk.Frame(bar, bg=TOP_BG)
         status.grid(row=0, column=2, padx=(8, 14), sticky="e")
-        tk.Label(status, text="☁  --°F", fg=TEXT, bg=TOP_BG, font=("Sans", 11, "bold")).pack(side=tk.LEFT, padx=(0, 12))
-        tk.Label(status, text="GPS  ▮▮▮   WiFi   BT   🚗", fg="#b8c0c6", bg=TOP_BG, font=("Sans", 11)).pack(side=tk.LEFT)
+        tk.Label(status, text="☁  --°F", fg=TEXT, bg=TOP_BG, font=("Sans", 11, "bold")).pack(side=tk.LEFT, padx=(0, 10))
+        tk.Label(status, text="GPS  ▮▮▮   WiFi   BT   🚗", fg="#b8c0c6", bg=TOP_BG, font=("Sans", 11)).pack(side=tk.LEFT, padx=(0, 10))
+        self._theme_button = tk.Button(
+            status,
+            text=toggle_label(self._theme_mode),
+            command=self._toggle_theme,
+            bg="#101820",
+            fg=TEXT,
+            activebackground="#121b23",
+            activeforeground=TEXT,
+            relief=tk.FLAT,
+            bd=0,
+            font=("Sans", 9, "bold"),
+            padx=9,
+            pady=5,
+            cursor="hand2",
+        )
+        self._theme_button.pack(side=tk.LEFT)
 
     @staticmethod
     def _build_logo_mark(parent: tk.Misc) -> None:
@@ -179,6 +199,24 @@ class OrcUiApp:
         self._volume = max(0, min(100, self._volume + delta))
         self._volume_label.configure(text=f"{'🔇' if self._volume == 0 else '🔊'} {self._volume}%")
 
+    def _toggle_theme(self) -> None:
+        self._theme_mode = toggle(self._theme_mode)
+        install_map_style(self._theme_mode)
+        apply_tk_theme(self._root, self._theme_mode)
+        self._theme_button.configure(text=toggle_label(self._theme_mode))
+        self._paint_nav()
+        self._reload_active_map()
+
+    def _reload_active_map(self) -> None:
+        if self._home_map_panel is not None and self._home_map_panel.winfo_exists():
+            parent_window_id = self._home_map_panel.map_host_window_id
+        elif self._navigation_panel is not None and self._navigation_panel.winfo_exists():
+            parent_window_id = self._navigation_panel.map_host_window_id
+        else:
+            return
+        self._map_renderer.stop()
+        self._root.after(100, lambda: self._start_map_renderer(parent_window_id))
+
     def _build_footer(self) -> None:
         footer = tk.Frame(self._root, bg=TOP_BG, height=25)
         footer.grid(row=3, column=0, columnspan=2, sticky="ew")
@@ -201,9 +239,13 @@ class OrcUiApp:
             self._show_placeholder(name)
 
     def _paint_nav(self) -> None:
+        light = self._theme_mode is ThemeMode.LIGHT
+        inactive_fg = "#3c4a54" if light else "#c7cdd2"
+        inactive_bg = "#e4e9ed" if light else "#070c11"
+        active_bg = "#d5dde3" if light else "#101820"
         for name, button in self._nav_buttons.items():
             active = name == self._active_nav
-            button.configure(fg=GREEN if active else "#c7cdd2", bg="#101820" if active else "#070c11")
+            button.configure(fg=GREEN if active else inactive_fg, bg=active_bg if active else inactive_bg)
 
     def _clear_content(self) -> None:
         self._map_renderer.stop()
@@ -241,6 +283,8 @@ class OrcUiApp:
         media.grid(row=0, column=1, sticky="nsew", padx=(5, 0))
         self._summary(media, "No media", "Playback service")
         tk.Label(media, text="▂▅▃▇▄▆▂▅", fg=BLUE, bg=PANEL, font=("Sans", 14, "bold")).pack(anchor="w", padx=16, pady=(7, 0))
+        if self._theme_mode is ThemeMode.LIGHT:
+            apply_tk_theme(self._content, self._theme_mode)
         self._root.update_idletasks()
         self._start_map_renderer(self._home_map_panel.map_host_window_id)
 
@@ -253,6 +297,8 @@ class OrcUiApp:
             on_back=self._show_home,
         )
         self._navigation_panel.pack(fill=tk.BOTH, expand=True)
+        if self._theme_mode is ThemeMode.LIGHT:
+            apply_tk_theme(self._navigation_panel, self._theme_mode)
         self._root.update_idletasks()
         self._start_map_renderer(self._navigation_panel.map_host_window_id)
 
@@ -272,6 +318,8 @@ class OrcUiApp:
         self._paint_nav()
         self._vehicle_panel = VehiclePanel(self._content, on_back=self._show_home, state=self._vehicle_state)
         self._vehicle_panel.pack(fill=tk.BOTH, expand=True)
+        if self._theme_mode is ThemeMode.LIGHT:
+            apply_tk_theme(self._vehicle_panel, self._theme_mode)
 
     def _show_offroad_panel(self) -> None:
         self._clear_content()
@@ -282,6 +330,8 @@ class OrcUiApp:
             attitude=self._attitude_state,
         )
         self._offroad_panel.pack(fill=tk.BOTH, expand=True)
+        if self._theme_mode is ThemeMode.LIGHT:
+            apply_tk_theme(self._offroad_panel, self._theme_mode)
 
     def _on_vehicle_message(self, message: VehicleStateMessage) -> None:
         state = VehiclePresenter.present(message.data)
@@ -343,12 +393,16 @@ class OrcUiApp:
         panel.pack(fill=tk.BOTH, expand=True)
         tk.Button(panel, text="‹ HOME", command=self._show_home, bg="#101820", fg=TEXT, relief=tk.FLAT, font=("Sans", 11, "bold"), padx=14, pady=7).pack(anchor="nw", padx=14, pady=10)
         tk.Label(panel, text=f"FULL {name} PANEL", fg=accent, bg=PANEL, font=("Sans", 28, "bold")).place(relx=.5, rely=.44, anchor="center")
+        if self._theme_mode is ThemeMode.LIGHT:
+            apply_tk_theme(panel, self._theme_mode)
 
     def _show_placeholder(self, name: str) -> None:
         self._clear_content()
         panel = self._panel(self._content, name, GREEN)
         panel.pack(fill=tk.BOTH, expand=True)
         tk.Label(panel, text=f"{name}\nCOMING NEXT", fg=TEXT, bg=PANEL, font=("Sans", 24, "bold")).place(relx=.5, rely=.5, anchor="center")
+        if self._theme_mode is ThemeMode.LIGHT:
+            apply_tk_theme(panel, self._theme_mode)
 
     @staticmethod
     def _panel(parent: tk.Misc, title: str, accent: str) -> tk.Frame:
