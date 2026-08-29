@@ -1,8 +1,6 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 
-from datetime import datetime, timezone
-
 import pytest
 
 from controllers.navigation.imu_frame_normalizer import normalize_imu_to_vehicle
@@ -22,7 +20,7 @@ from messaging.contracts.navigation.imu_state_message import (
 def _message(frame_id: str) -> ImuStateMessage:
     return ImuStateMessage(
         version=1,
-        timestamp=Timestamp(datetime.now(timezone.utc)),
+        timestamp=Timestamp(seconds=1, nanoseconds=2),
         source="test",
         frame_id=frame_id,
         data=ImuStateData(
