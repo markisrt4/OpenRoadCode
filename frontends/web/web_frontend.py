@@ -20,7 +20,7 @@ PAGE = """<!doctype html><meta name=viewport content='width=device-width,initial
 SCREEN = """<!doctype html><meta name=viewport content='width=device-width,initial-scale=1'><style>{{style}}</style><header><div class=bar><a class=back href='{{back}}'>‹</a><div class=heading><div class=title>{{screen.title}}</div><div class=subtitle>{{screen.subtitle}}</div></div></div></header><main>{{body}}</main>"""
 
 
-def create_web_frontend(pages: Mapping[str, MenuPage], *, root_page: str="main", screens: Mapping[str, WebScreen]|None=None, navigation_session: Any|None=None, navigation_ui_state: Any|None=None, vehicle_ui_state: Any|None=None, spotify_session: Any|None=None, music_analysis_session: Any|None=None, music_reactive_lighting_session: Any|None=None, song_recognition_session: Any|None=None) -> Flask:
+def create_web_frontend(pages: Mapping[str, MenuPage], *, root_page: str="main", screens: Mapping[str, WebScreen]|None=None, navigation_session: Any|None=None, navigation_ui_state: Any|None=None, vehicle_ui_state: Any|None=None, spotify_session: Any|None=None, music_analysis_session: Any|None=None, linux_music_analysis_session: Any|None=None, music_reactive_lighting_session: Any|None=None, song_recognition_session: Any|None=None) -> Flask:
     if root_page not in pages: raise ValueError(f"Unknown root page: {root_page}")
     screen_map=dict(screens or create_web_screens())
     web_dir=Path(__file__).resolve().parent
@@ -67,6 +67,34 @@ def create_web_frontend(pages: Mapping[str, MenuPage], *, root_page: str="main",
     def audio_analysis_state():
         if music_analysis_session is None: abort(503)
         return jsonify(music_analysis_session.state())
+
+    @app.get("/api/audio-analysis/linux/state")
+    def linux_audio_analysis_state():
+        if linux_music_analysis_session is None: abort(503)
+        return jsonify(linux_music_analysis_session.state())
+    @app.post("/api/audio-analysis/linux/start")
+    def linux_audio_analysis_start():
+        if linux_music_analysis_session is None: abort(503)
+        try: return jsonify(linux_music_analysis_session.start())
+        except Exception as exc: return jsonify(error=str(exc)),502
+    @app.post("/api/audio-analysis/linux/stop")
+    def linux_audio_analysis_stop():
+        if linux_music_analysis_session is None: abort(503)
+        return jsonify(linux_music_analysis_session.stop())
+    @app.post("/api/audio-analysis/linux/zeroize/start")
+    def linux_audio_analysis_zeroize_start():
+        if linux_music_analysis_session is None: abort(503)
+        return jsonify(linux_music_analysis_session.start_zeroize())
+    @app.post("/api/audio-analysis/linux/zeroize/finish")
+    def linux_audio_analysis_zeroize_finish():
+        if linux_music_analysis_session is None: abort(503)
+        try: return jsonify(linux_music_analysis_session.finish_zeroize())
+        except RuntimeError as exc: return jsonify(error=str(exc)),400
+    @app.post("/api/audio-analysis/linux/zeroize/clear")
+    def linux_audio_analysis_zeroize_clear():
+        if linux_music_analysis_session is None: abort(503)
+        return jsonify(linux_music_analysis_session.clear_zeroize())
+
     @app.get("/api/audio-analysis/lighting")
     def audio_analysis_lighting_state():
         if music_reactive_lighting_session is None:
