@@ -48,9 +48,23 @@ def test_mapper_clamps_values_and_maps_silence_to_black() -> None:
     assert loud.brightness_percent == 100
 
 
+def test_reactive_lighting_defaults_disabled() -> None:
+    controller = DummyLightingController()
+    controller.connect().result()
+    reactive = MusicReactiveLighting(controller, update_interval_seconds=0.0)
+
+    assert reactive.is_enabled is False
+    assert reactive.update(MusicAnalysisState(level=1.0, bass=1.0)) == ()
+    assert controller.current_state().color == RgbColor(255, 255, 255)
+
+
 def test_update_ignores_frames_while_controller_is_disconnected() -> None:
     controller = DummyLightingController()
-    reactive = MusicReactiveLighting(controller, update_interval_seconds=0.0)
+    reactive = MusicReactiveLighting(
+        controller,
+        update_interval_seconds=0.0,
+        enabled=True,
+    )
 
     commands = reactive.update(MusicAnalysisState(level=1.0, bass=1.0))
 
@@ -61,7 +75,11 @@ def test_update_ignores_frames_while_controller_is_disconnected() -> None:
 def test_update_applies_color_and_brightness_to_connected_controller() -> None:
     controller = DummyLightingController()
     controller.connect().result()
-    reactive = MusicReactiveLighting(controller, update_interval_seconds=0.0)
+    reactive = MusicReactiveLighting(
+        controller,
+        update_interval_seconds=0.0,
+        enabled=True,
+    )
 
     commands = reactive.update(MusicAnalysisState(level=0.6, treble=1.0))
     for command in commands:
@@ -79,6 +97,7 @@ def test_update_rate_limits_transport_commands() -> None:
     reactive = MusicReactiveLighting(
         controller,
         update_interval_seconds=0.05,
+        enabled=True,
         clock=lambda: now[0],
     )
 
@@ -95,17 +114,46 @@ def test_update_rate_limits_transport_commands() -> None:
 def test_update_skips_unchanged_output() -> None:
     controller = DummyLightingController()
     controller.connect().result()
-    reactive = MusicReactiveLighting(controller, update_interval_seconds=0.0)
+    reactive = MusicReactiveLighting(
+        controller,
+        update_interval_seconds=0.0,
+        enabled=True,
+    )
     analysis = MusicAnalysisState(level=0.5, mid=1.0)
 
     assert len(reactive.update(analysis)) == 2
     assert reactive.update(analysis) == ()
 
 
+def test_enabling_resets_cached_output_and_rate_limit() -> None:
+    now = [10.0]
+    controller = DummyLightingController()
+    controller.connect().result()
+    reactive = MusicReactiveLighting(
+        controller,
+        update_interval_seconds=10.0,
+        enabled=True,
+        clock=lambda: now[0],
+    )
+    analysis = MusicAnalysisState(level=0.5, mid=1.0)
+
+    assert len(reactive.update(analysis)) == 2
+    reactive.set_enabled(False)
+    assert reactive.update(analysis) == ()
+
+    reactive.set_enabled(True)
+    assert reactive.is_enabled is True
+    assert len(reactive.update(analysis)) == 2
+
+
 def test_reset_allows_same_output_to_be_reapplied() -> None:
     controller = DummyLightingController()
     controller.connect().result()
-    reactive = MusicReactiveLighting(controller, update_interval_seconds=10.0)
+    reactive = MusicReactiveLighting(
+        controller,
+        update_interval_seconds=10.0,
+        enabled=True,
+    )
     analysis = MusicAnalysisState(level=0.5, mid=1.0)
 
     assert len(reactive.update(analysis)) == 2
