@@ -26,38 +26,46 @@ class TcpStreamTransport(StreamTransportIf):
     def connect(self) -> None:
         if self.is_connected:
             return
-        self._socket = socket.create_connection(
+        sock = socket.create_connection(
             (self._host, self._port), timeout=self._timeout
         )
-        self._socket.settimeout(self._timeout)
+        sock.settimeout(self._timeout)
+        self._socket = sock
 
     def close(self) -> None:
-        if self._socket is None:
-            return
-        try:
-            self._socket.close()
-        finally:
-            self._socket = None
+        sock = self._socket
+        self._socket = None
+        if sock is not None:
+            sock.close()
 
     def reset_input_buffer(self) -> None:
-        if self._socket is None:
-            raise OSError("TCP transport is not connected")
-        previous_timeout = self._socket.gettimeout()
+        sock = self._require_socket()
+        previous_timeout = sock.gettimeout()
         try:
-            self._socket.setblocking(False)
+            sock.setblocking(False)
             while True:
                 try:
-                    if not self._socket.recv(4096):
-                        break
+                    data = sock.recv(4096)
+                    if not data:
+                        self._mark_disconnected(sock)
+                        raise OSError("TCP transport peer disconnected")
                 except BlockingIOError:
                     break
+        except OSError:
+            if self._socket is sock:
+                self._mark_disconnected(sock)
+            raise
         finally:
-            self._socket.settimeout(previous_timeout)
+            if self._socket is sock:
+                sock.settimeout(previous_timeout)
 
     def write(self, data: bytes) -> int:
-        if self._socket is None:
-            raise OSError("TCP transport is not connected")
-        self._socket.sendall(data)
+        sock = self._require_socket()
+        try:
+            sock.sendall(data)
+        except OSError:
+            self._mark_disconnected(sock)
+            raise
         return len(data)
 
     def flush(self) -> None:
@@ -65,9 +73,28 @@ class TcpStreamTransport(StreamTransportIf):
         return
 
     def read(self, size: int) -> bytes:
-        if self._socket is None:
-            raise OSError("TCP transport is not connected")
+        sock = self._require_socket()
         try:
-            return self._socket.recv(size)
+            data = sock.recv(size)
         except socket.timeout:
             return b""
+        except OSError:
+            self._mark_disconnected(sock)
+            raise
+        if not data:
+            self._mark_disconnected(sock)
+            raise OSError("TCP transport peer disconnected")
+        return data
+
+    def _require_socket(self) -> socket.socket:
+        if self._socket is None:
+            raise OSError("TCP transport is not connected")
+        return self._socket
+
+    def _mark_disconnected(self, sock: socket.socket) -> None:
+        if self._socket is sock:
+            self._socket = None
+        try:
+            sock.close()
+        except OSError:
+            pass
