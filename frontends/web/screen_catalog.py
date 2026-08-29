@@ -53,6 +53,7 @@ MUSIC_VISUALIZER_HTML = '''
   </div>
 </div>
 <script src="/web-assets/audio-analysis/browser_pcm_capture.js"></script>
+<script src="/web-assets/audio-analysis/kick_mode.js"></script>
 <script src="/web-assets/audio-analysis/webgl_music_visualizer.js"></script>
 <script src="/web-assets/audio-analysis/music_visualizer.js"></script>
 '''
