@@ -6,7 +6,10 @@
 from __future__ import annotations
 
 import os
+import shutil
 import signal
+import subprocess
+import sys
 import tkinter as tk
 from datetime import datetime
 
@@ -60,6 +63,8 @@ class OrcUiApp:
         self._root.configure(bg=BG)
         self._theme_mode = ThemeMode.DARK
         self._theme_button: tk.Button
+        self._power_button: tk.Button
+        self._power_dialog: tk.Toplevel | None = None
         self._active_nav = "HOME"
         self._nav_buttons: dict[str, tk.Button] = {}
         self._clock_label: tk.Label
@@ -142,22 +147,22 @@ class OrcUiApp:
         status.grid(row=0, column=2, padx=(8, 14), sticky="e")
         tk.Label(status, text="☁  --°F", fg=TEXT, bg=TOP_BG, font=("Sans", 11, "bold")).pack(side=tk.LEFT, padx=(0, 10))
         tk.Label(status, text="GPS  ▮▮▮   WiFi   BT   🚗", fg="#b8c0c6", bg=TOP_BG, font=("Sans", 11)).pack(side=tk.LEFT, padx=(0, 10))
-        self._theme_button = tk.Button(
+        self._power_button = tk.Button(
             status,
-            text=toggle_label(self._theme_mode),
-            command=self._toggle_theme,
+            text="⏻",
+            command=self._show_power_dialog,
             bg="#101820",
             fg=TEXT,
             activebackground="#121b23",
             activeforeground=TEXT,
             relief=tk.FLAT,
             bd=0,
-            font=("Sans", 9, "bold"),
-            padx=9,
-            pady=5,
+            font=("Sans", 16, "bold"),
+            padx=10,
+            pady=2,
             cursor="hand2",
         )
-        self._theme_button.pack(side=tk.LEFT)
+        self._power_button.pack(side=tk.LEFT)
 
     @staticmethod
     def _build_logo_mark(parent: tk.Misc) -> None:
@@ -192,12 +197,213 @@ class OrcUiApp:
         self._volume_label = tk.Label(volume, text="🔊 20%", bg=PANEL, fg=TEXT, font=("Sans", 10, "bold"))
         self._volume_label.grid(row=0, column=1)
         tk.Button(volume, text="+", command=lambda: self._change_volume(5), bg=PANEL, fg=TEXT, relief=tk.FLAT, bd=0, font=("Sans", 15, "bold")).grid(row=0, column=2, sticky="ns", padx=4)
-        for col, text in enumerate(["🎙  Push to Talk", "▣  Front Cam", "▣  SCREEN\nAuto", "☀  BRIGHTNESS\n70%", "↪  EXIT"], start=1):
-            tk.Button(bar, text=text, command=self._on_close if text.endswith("EXIT") else None, bg=PANEL, fg=TEXT, relief=tk.FLAT, highlightthickness=1, highlightbackground=BORDER, font=("Sans", 9)).grid(row=0, column=col, sticky="nsew", padx=3)
+        for col, text in enumerate(["🎙  Push to Talk", "▣  Front Cam", "▣  SCREEN\nAuto", "☀  BRIGHTNESS\n70%"], start=1):
+            tk.Button(bar, text=text, bg=PANEL, fg=TEXT, relief=tk.FLAT, highlightthickness=1, highlightbackground=BORDER, font=("Sans", 9)).grid(row=0, column=col, sticky="nsew", padx=3)
+        self._theme_button = tk.Button(
+            bar,
+            text=toggle_label(self._theme_mode),
+            command=self._toggle_theme,
+            bg=PANEL,
+            fg=TEXT,
+            activebackground="#121b23",
+            activeforeground=TEXT,
+            relief=tk.FLAT,
+            highlightthickness=1,
+            highlightbackground=BORDER,
+            font=("Sans", 9, "bold"),
+            cursor="hand2",
+        )
+        self._theme_button.grid(row=0, column=5, sticky="nsew", padx=3)
 
     def _change_volume(self, delta: int) -> None:
         self._volume = max(0, min(100, self._volume + delta))
         self._volume_label.configure(text=f"{'🔇' if self._volume == 0 else '🔊'} {self._volume}%")
+
+    def _show_power_dialog(self) -> None:
+        if self._power_dialog is not None and self._power_dialog.winfo_exists():
+            self._power_dialog.lift()
+            return
+
+        dialog = tk.Toplevel(self._root)
+        self._power_dialog = dialog
+        dialog.title("OpenRoadCode Power")
+        dialog.transient(self._root)
+        dialog.resizable(False, False)
+        dialog.configure(bg=PANEL)
+        dialog.protocol("WM_DELETE_WINDOW", self._close_power_dialog)
+
+        frame = tk.Frame(dialog, bg=PANEL, padx=18, pady=16)
+        frame.pack(fill=tk.BOTH, expand=True)
+        tk.Label(
+            frame,
+            text="POWER",
+            fg=TEXT,
+            bg=PANEL,
+            font=("Sans", 16, "bold"),
+        ).pack(pady=(0, 4))
+        tk.Label(
+            frame,
+            text="System actions are intentionally two taps away.",
+            fg=MUTED,
+            bg=PANEL,
+            font=("Sans", 9),
+        ).pack(pady=(0, 14))
+
+        for text, command in (
+            ("EXIT UI", self._on_close),
+            ("RESTART UI", self._restart_ui),
+            ("SHUT DOWN SYSTEM", self._show_shutdown_confirmation),
+            ("CANCEL", self._close_power_dialog),
+        ):
+            tk.Button(
+                frame,
+                text=text,
+                command=command,
+                bg="#101820",
+                fg=TEXT,
+                activebackground="#121b23",
+                activeforeground=TEXT,
+                relief=tk.FLAT,
+                highlightthickness=1,
+                highlightbackground=BORDER,
+                width=24,
+                pady=8,
+                font=("Sans", 10, "bold"),
+                cursor="hand2",
+            ).pack(fill=tk.X, pady=3)
+
+        if self._theme_mode is ThemeMode.LIGHT:
+            apply_tk_theme(dialog, self._theme_mode)
+        self._center_power_dialog(dialog)
+
+    def _show_shutdown_confirmation(self) -> None:
+        dialog = self._power_dialog
+        if dialog is None or not dialog.winfo_exists():
+            return
+        for child in dialog.winfo_children():
+            child.destroy()
+
+        frame = tk.Frame(dialog, bg=PANEL, padx=18, pady=16)
+        frame.pack(fill=tk.BOTH, expand=True)
+        tk.Label(
+            frame,
+            text="SHUT DOWN SYSTEM?",
+            fg=RED,
+            bg=PANEL,
+            font=("Sans", 15, "bold"),
+        ).pack(pady=(2, 7))
+        tk.Label(
+            frame,
+            text="This stops OpenRoadCode and powers off the host.",
+            fg=MUTED,
+            bg=PANEL,
+            font=("Sans", 9),
+        ).pack(pady=(0, 14))
+        tk.Button(
+            frame,
+            text="CONFIRM SHUTDOWN",
+            command=self._shutdown_system,
+            bg="#3a1212",
+            fg=TEXT,
+            activebackground="#521818",
+            activeforeground=TEXT,
+            relief=tk.FLAT,
+            highlightthickness=1,
+            highlightbackground=RED,
+            pady=9,
+            font=("Sans", 10, "bold"),
+            cursor="hand2",
+        ).pack(fill=tk.X, pady=3)
+        tk.Button(
+            frame,
+            text="BACK",
+            command=self._reopen_power_dialog,
+            bg="#101820",
+            fg=TEXT,
+            activebackground="#121b23",
+            activeforeground=TEXT,
+            relief=tk.FLAT,
+            highlightthickness=1,
+            highlightbackground=BORDER,
+            pady=9,
+            font=("Sans", 10, "bold"),
+            cursor="hand2",
+        ).pack(fill=tk.X, pady=3)
+        if self._theme_mode is ThemeMode.LIGHT:
+            apply_tk_theme(dialog, self._theme_mode)
+        self._center_power_dialog(dialog)
+
+    def _reopen_power_dialog(self) -> None:
+        self._close_power_dialog()
+        self._show_power_dialog()
+
+    def _close_power_dialog(self) -> None:
+        dialog = self._power_dialog
+        self._power_dialog = None
+        if dialog is not None and dialog.winfo_exists():
+            dialog.destroy()
+
+    def _restart_ui(self) -> None:
+        self._map_renderer.stop()
+        self._dispatcher.close()
+        os.execv(sys.executable, [sys.executable, "-m", "apps.orcUi"])
+
+    def _shutdown_system(self) -> None:
+        command: list[str] | None = None
+        if shutil.which("systemctl"):
+            command = ["systemctl", "poweroff"]
+        elif shutil.which("loginctl"):
+            command = ["loginctl", "poweroff"]
+
+        if command is None:
+            self._show_power_error(
+                "System shutdown is unavailable on this host.\n"
+                "Exit UI is still available."
+            )
+            return
+
+        self._map_renderer.stop()
+        self._dispatcher.close()
+        try:
+            subprocess.Popen(command)
+        except OSError as error:
+            self._show_power_error(f"Shutdown failed: {error}")
+            return
+        self._shutdown()
+
+    def _show_power_error(self, message: str) -> None:
+        dialog = self._power_dialog
+        if dialog is None or not dialog.winfo_exists():
+            return
+        for child in dialog.winfo_children():
+            child.destroy()
+        frame = tk.Frame(dialog, bg=PANEL, padx=18, pady=16)
+        frame.pack(fill=tk.BOTH, expand=True)
+        tk.Label(frame, text="POWER", fg=RED, bg=PANEL, font=("Sans", 15, "bold")).pack(pady=(0, 8))
+        tk.Label(frame, text=message, fg=TEXT, bg=PANEL, font=("Sans", 9), justify=tk.CENTER).pack(pady=(0, 12))
+        tk.Button(
+            frame,
+            text="BACK",
+            command=self._reopen_power_dialog,
+            bg="#101820",
+            fg=TEXT,
+            relief=tk.FLAT,
+            highlightthickness=1,
+            highlightbackground=BORDER,
+            pady=8,
+            cursor="hand2",
+        ).pack(fill=tk.X)
+        if self._theme_mode is ThemeMode.LIGHT:
+            apply_tk_theme(dialog, self._theme_mode)
+        self._center_power_dialog(dialog)
+
+    def _center_power_dialog(self, dialog: tk.Toplevel) -> None:
+        dialog.update_idletasks()
+        width = dialog.winfo_reqwidth()
+        height = dialog.winfo_reqheight()
+        x = self._root.winfo_rootx() + max(0, (self._root.winfo_width() - width) // 2)
+        y = self._root.winfo_rooty() + max(0, (self._root.winfo_height() - height) // 2)
+        dialog.geometry(f"{width}x{height}+{x}+{y}")
 
     def _toggle_theme(self) -> None:
         self._theme_mode = toggle(self._theme_mode)
