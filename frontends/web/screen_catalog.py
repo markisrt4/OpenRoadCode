@@ -39,6 +39,11 @@ MUSIC_VISUALIZER_HTML = '''
   <button id="music-visualizer-toggle" class="primary wide">START MICROPHONE</button>
   <p id="music-visualizer-status">Start the microphone to feed the shared Python MusicAnalyzer.</p>
 </div>
+<div class="card">
+  <b>Music-Reactive Lighting</b>
+  <p id="music-lighting-status">Checking lighting backend…</p>
+  <button id="music-lighting-toggle" class="wide" disabled>CHECKING LIGHTING…</button>
+</div>
 <div id="music-visualizer-anchor"></div>
 <div class="card">
   <div style="display:grid;gap:10px">
