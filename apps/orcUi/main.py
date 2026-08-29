@@ -12,6 +12,7 @@ from datetime import datetime
 
 from apps.launchers.map_renderer_launcher import MapRendererLauncher
 from apps.orcUi.context_rail import ContextRail
+from apps.orcUi.home_map_panel import HomeMapPanel
 from apps.orcUi.navigation_panel import NavigationPanel
 from apps.orcUi.navigation_presenter import (
     AttitudePresentationState,
@@ -61,6 +62,7 @@ class OrcUiApp:
         self._clock_label: tk.Label
         self._content: tk.Frame
         self._context_rail: ContextRail | None = None
+        self._home_map_panel: HomeMapPanel | None = None
         self._navigation_panel: NavigationPanel | None = None
         self._vehicle_panel: VehiclePanel | None = None
         self._offroad_panel: OffRoadPanel | None = None
@@ -206,6 +208,7 @@ class OrcUiApp:
     def _clear_content(self) -> None:
         self._map_renderer.stop()
         self._context_rail = None
+        self._home_map_panel = None
         self._navigation_panel = None
         self._vehicle_panel = None
         self._offroad_panel = None
@@ -220,9 +223,8 @@ class OrcUiApp:
         self._content.grid_columnconfigure(1, weight=0, minsize=ContextRail.WIDTH)
         self._content.grid_rowconfigure(0, weight=3)
         self._content.grid_rowconfigure(1, weight=2)
-        map_panel = self._panel(self._content, "NAVIGATION", BLUE)
-        map_panel.grid(row=0, column=0, sticky="nsew", padx=(0, 5), pady=(0, 5))
-        tk.Label(map_panel, text="MAP / ROUTE VIEW", fg="#53616c", bg=PANEL, font=("Sans", 18, "bold")).place(relx=.5, rely=.5, anchor="center")
+        self._home_map_panel = HomeMapPanel(self._content)
+        self._home_map_panel.grid(row=0, column=0, sticky="nsew", padx=(0, 5), pady=(0, 5))
         self._context_rail = ContextRail(self._content, on_expand=self._show_context_full_panel)
         self._context_rail.update_vehicle_state(self._vehicle_state)
         self._context_rail.update_position_state(self._position_state)
@@ -239,6 +241,8 @@ class OrcUiApp:
         media.grid(row=0, column=1, sticky="nsew", padx=(5, 0))
         self._summary(media, "No media", "Playback service")
         tk.Label(media, text="▂▅▃▇▄▆▂▅", fg=BLUE, bg=PANEL, font=("Sans", 14, "bold")).pack(anchor="w", padx=16, pady=(7, 0))
+        self._root.update_idletasks()
+        self._start_map_renderer(self._home_map_panel.map_host_window_id)
 
     def _show_navigation_panel(self) -> None:
         self._clear_content()
@@ -250,17 +254,14 @@ class OrcUiApp:
         )
         self._navigation_panel.pack(fill=tk.BOTH, expand=True)
         self._root.update_idletasks()
-        self._start_navigation_renderer()
+        self._start_map_renderer(self._navigation_panel.map_host_window_id)
 
-    def _start_navigation_renderer(self) -> None:
-        panel = self._navigation_panel
-        if panel is None or not panel.winfo_exists():
-            return
+    def _start_map_renderer(self, parent_window_id: int) -> None:
         display = os.environ.get("DISPLAY", ":1")
         try:
             self._map_renderer.launch(
                 display=display,
-                parent_window_id=panel.map_host_window_id,
+                parent_window_id=parent_window_id,
             )
         except (OSError, RuntimeError) as error:
             print(f"WARNING: map renderer: {type(error).__name__}: {error}")
