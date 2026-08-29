@@ -10,6 +10,7 @@ import time
 
 from controllers.automotive.vehicle_state_source_if import VehicleStateSourceIf
 from messaging.contracts.automotive import VehicleStatePublisher
+from protocols.obd2 import Obd2Error
 
 
 class AutomotiveRuntime:
@@ -22,28 +23,42 @@ class AutomotiveRuntime:
         *,
         publish_source: str = "automotive-service",
         rate_hz: float = 10.0,
+        reconnect_interval_s: float = 2.0,
     ) -> None:
         if rate_hz <= 0.0:
             raise ValueError("rate_hz must be greater than zero")
+        if reconnect_interval_s <= 0.0:
+            raise ValueError("reconnect_interval_s must be greater than zero")
         self._source = source
         self._state_publisher = VehicleStatePublisher(publisher, source=publish_source)
         self._period_s = 1.0 / rate_hz
+        self._reconnect_interval_s = reconnect_interval_s
         self._stop_event = threading.Event()
         self._connected = False
 
     def start(self) -> None:
-        """Connect the configured vehicle-state source."""
-        self._source.connect()
-        self._connected = True
+        """Prepare the runtime; source connection is managed by run()."""
         self._stop_event.clear()
 
     def run(self) -> None:
-        """Publish source snapshots until close() is called."""
+        """Publish snapshots and reconnect the source after OBD-II failures."""
         self.start()
         try:
             while not self._stop_event.is_set():
+                if not self._connected:
+                    if not self._try_connect():
+                        self._stop_event.wait(self._reconnect_interval_s)
+                        continue
+
                 started = time.monotonic()
-                self._state_publisher.publish(self._source.read_state())
+                try:
+                    state = self._source.read_state()
+                except Obd2Error:
+                    self._disconnect_source()
+                    self._stop_event.wait(self._reconnect_interval_s)
+                    continue
+
+                self._state_publisher.publish(state)
                 remaining = self._period_s - (time.monotonic() - started)
                 if remaining > 0.0:
                     self._stop_event.wait(remaining)
@@ -53,6 +68,21 @@ class AutomotiveRuntime:
     def close(self) -> None:
         """Stop publishing and disconnect the owned source."""
         self._stop_event.set()
-        if self._connected:
+        self._disconnect_source()
+
+    def _try_connect(self) -> bool:
+        try:
+            self._source.connect()
+        except Obd2Error:
+            self._disconnect_source()
+            return False
+        self._connected = True
+        return True
+
+    def _disconnect_source(self) -> None:
+        if not self._connected:
+            return
+        try:
             self._source.disconnect()
+        finally:
             self._connected = False
