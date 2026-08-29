@@ -5,10 +5,12 @@
 
 from __future__ import annotations
 
+import os
 import signal
 import tkinter as tk
 from datetime import datetime
 
+from apps.launchers.map_renderer_launcher import MapRendererLauncher
 from apps.orcUi.context_rail import ContextRail
 from apps.orcUi.navigation_panel import NavigationPanel
 from apps.orcUi.navigation_presenter import (
@@ -62,6 +64,7 @@ class OrcUiApp:
         self._navigation_panel: NavigationPanel | None = None
         self._vehicle_panel: VehiclePanel | None = None
         self._offroad_panel: OffRoadPanel | None = None
+        self._map_renderer = MapRendererLauncher()
         self._vehicle_state = VehiclePresentationState()
         self._position_state = PositionPresentationState()
         self._attitude_state = AttitudePresentationState()
@@ -99,6 +102,7 @@ class OrcUiApp:
         if self._closing:
             return
         self._closing = True
+        self._map_renderer.stop()
         self._dispatcher.close()
         try:
             self._root.destroy()
@@ -200,6 +204,7 @@ class OrcUiApp:
             button.configure(fg=GREEN if active else "#c7cdd2", bg="#101820" if active else "#070c11")
 
     def _clear_content(self) -> None:
+        self._map_renderer.stop()
         self._context_rail = None
         self._navigation_panel = None
         self._vehicle_panel = None
@@ -244,6 +249,21 @@ class OrcUiApp:
             on_back=self._show_home,
         )
         self._navigation_panel.pack(fill=tk.BOTH, expand=True)
+        self._root.update_idletasks()
+        self._start_navigation_renderer()
+
+    def _start_navigation_renderer(self) -> None:
+        panel = self._navigation_panel
+        if panel is None or not panel.winfo_exists():
+            return
+        display = os.environ.get("DISPLAY", ":1")
+        try:
+            self._map_renderer.launch(
+                display=display,
+                parent_window_id=panel.map_host_window_id,
+            )
+        except (OSError, RuntimeError) as error:
+            print(f"WARNING: map renderer: {type(error).__name__}: {error}")
 
     def _show_vehicle_panel(self) -> None:
         self._clear_content()
