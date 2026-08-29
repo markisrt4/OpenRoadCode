@@ -40,6 +40,14 @@ MUSIC_VISUALIZER_HTML = '''
   <p id="music-visualizer-status">Start the microphone to feed the shared Python MusicAnalyzer.</p>
 </div>
 <div class="card">
+  <b>Now Hearing</b>
+  <div id="music-song-title" style="font-size:22px;font-weight:900;margin-top:12px">No song identified</div>
+  <div id="music-song-artist" style="color:#aebac4;margin-top:4px">Waiting for recognition</div>
+  <div id="music-song-album" style="color:#aebac4;margin-top:4px"></div>
+  <button id="music-song-identify" class="wide" disabled>IDENTIFY SONG</button>
+  <p id="music-song-status">Checking song recognition provider…</p>
+</div>
+<div class="card">
   <b>Music-Reactive Lighting</b>
   <p id="music-lighting-status">Checking lighting backend…</p>
   <button id="music-lighting-toggle" class="wide" disabled>CHECKING LIGHTING…</button>
