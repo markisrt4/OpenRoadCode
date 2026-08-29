@@ -14,7 +14,12 @@ from controllers.environmental import (
 )
 from hardware_io.android import AndroidSensorBridgeClient
 from messaging.contracts.common.timestamp import encode_timestamp
-from messaging.contracts.environmental import BAROMETRIC_STATE_TOPIC, encode_barometric_state
+from messaging.contracts.environmental import (
+    AMBIENT_LIGHT_STATE_TOPIC,
+    BAROMETRIC_STATE_TOPIC,
+    encode_ambient_light_state,
+    encode_barometric_state,
+)
 from messaging.contracts.navigation.frames import ANDROID_DEVICE_FRAME
 from messaging.contracts.navigation.imu_state_codec import encode_imu_state
 from messaging.contracts.navigation.magnetic_field_state_codec import encode_magnetic_field_state
@@ -37,7 +42,7 @@ class AndroidSensorService:
         self._barometric = BarometricController(self._barometric_source)
 
     def run(self) -> None:
-        """Forward IMU, magnetic-field, and pressure from one streamed sample."""
+        """Forward Android motion and environmental sensor samples."""
         barometric_started = False
         try:
             for sample in self._client.stream_imu():
@@ -77,6 +82,13 @@ class AndroidSensorService:
                         altitude_m=state.altitude_m,
                         relative_altitude_m=state.relative_altitude_m,
                         vertical_speed_m_s=state.vertical_speed_mps,
+                    ))
+
+                if sample.ambient_light_available:
+                    self._publisher.publish(AMBIENT_LIGHT_STATE_TOPIC, encode_ambient_light_state(
+                        timestamp=timestamp,
+                        source=ANDROID_SENSOR_SOURCE,
+                        illuminance_lux=sample.ambient_light_lux,
                     ))
         finally:
             if barometric_started:
