@@ -11,6 +11,7 @@ from apps.webUi.menu_catalog import create_web_ui_menu_pages
 from apps.webUi.music_reactive_lighting_session import WebMusicReactiveLightingSession
 from apps.webUi.navigation_session import WebNavigationSession
 from apps.webUi.periodic_position_publisher import PeriodicPositionPublisher
+from apps.webUi.song_recognition_session import WebSongRecognitionSession
 from apps.webUi.spotify_session import WebSpotifySession
 from apps.webUi.web_navigation_ui_state import WebNavigationUiState
 from apps.webUi.web_vehicle_ui_state import WebVehicleUiState
@@ -89,6 +90,7 @@ def _create_music_analysis() -> tuple[
 navigation_session, position_zmq_publisher, periodic_position_publisher = _create_navigation_session()
 navigation_ui_state, vehicle_ui_state, bus_dispatcher = _create_bus_consumer()
 spotify_session = WebSpotifySession()
+song_recognition_session = WebSongRecognitionSession()
 music_analysis_session, music_reactive_lighting_session = _create_music_analysis()
 app = create_web_frontend(
     create_web_ui_menu_pages(),
@@ -98,6 +100,7 @@ app = create_web_frontend(
     spotify_session=spotify_session,
     music_analysis_session=music_analysis_session,
     music_reactive_lighting_session=music_reactive_lighting_session,
+    song_recognition_session=song_recognition_session,
 )
 
 
