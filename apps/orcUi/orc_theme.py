@@ -28,15 +28,18 @@ DARK = {
     "muted": "#89959e",
 }
 
+# Light mode is intentionally warm-neutral rather than blue-white.  The ORC
+# accent colors already provide plenty of color, so the chrome should stay
+# quiet and let information win the visual hierarchy battle.
 LIGHT = {
-    "bg": "#eef2f5",
-    "panel": "#ffffff",
-    "top": "#dde4e9",
-    "nav": "#e4e9ed",
-    "active": "#d5dde3",
-    "border": "#bcc7cf",
-    "text": "#18232c",
-    "muted": "#60707b",
+    "bg": "#e8e7e2",
+    "panel": "#f7f6f2",
+    "top": "#deddd8",
+    "nav": "#e2e1dc",
+    "active": "#d2d4d0",
+    "border": "#b7b9b5",
+    "text": "#202528",
+    "muted": "#666e72",
 }
 
 ACCENT_BLUE = "#168bd1"
@@ -45,71 +48,66 @@ ACCENT_RED = "#f15a16"
 ACCENT_PURPLE = "#a25ce5"
 ACCENT_YELLOW = "#d6ad22"
 
+_LIGHT_BLUE = "#0878b6"
+_LIGHT_GREEN = "#5f9418"
+_LIGHT_RED = "#c94d1a"
+_LIGHT_PURPLE = "#7f49ad"
+_LIGHT_YELLOW = "#927518"
 
 _DARK_TO_LIGHT = {
-    "#05090d": "#eef2f5",
-    "#0b1117": "#ffffff",
-    "#020406": "#dde4e9",
-    "#070c11": "#e4e9ed",
-    "#101820": "#d5dde3",
-    "#121b23": "#d0d9df",
-    "#25313b": "#bcc7cf",
-    "#edf2f5": "#18232c",
-    "#89959e": "#60707b",
-    "#c7cdd2": "#3c4a54",
-    "#b8c0c6": "#485760",
-    "#aab2b8": "#56656f",
-    "#c5ccd2": "#4f5d67",
-    "#d7dde2": "#596872",
-    "#53616c": "#6d7b85",
+    "#05090d": LIGHT["bg"],
+    "#0b1117": LIGHT["panel"],
+    "#020406": LIGHT["top"],
+    "#070c11": LIGHT["nav"],
+    "#101820": LIGHT["active"],
+    "#121b23": "#ccceca",
+    "#25313b": LIGHT["border"],
+    "#edf2f5": LIGHT["text"],
+    "#89959e": LIGHT["muted"],
+    "#c7cdd2": "#444b4f",
+    "#b8c0c6": "#52595d",
+    "#aab2b8": "#60676b",
+    "#c5ccd2": "#51585c",
+    "#d7dde2": "#596064",
+    "#53616c": "#737a7d",
+    ACCENT_BLUE: _LIGHT_BLUE,
+    ACCENT_GREEN: _LIGHT_GREEN,
+    ACCENT_RED: _LIGHT_RED,
+    ACCENT_PURPLE: _LIGHT_PURPLE,
+    ACCENT_YELLOW: _LIGHT_YELLOW,
 }
 _LIGHT_TO_DARK = {value: key for key, value in _DARK_TO_LIGHT.items()}
 
-_MAP_DARK_COLORS = {
-    "#f3f1eb": "#0a0e12",
-    "#d5e7cf": "#16231a",
-    "#e7efd3": "#1b251b",
-    "#e5ead4": "#1b231c",
-    "#eee7ca": "#252317",
-    "#ece8dd": "#171b1e",
-    "#e9e5e0": "#171c20",
-    "#ecdfd7": "#21191a",
-    "#e1dcda": "#1c1b1e",
-    "#dce7d6": "#172119",
-    "#eadde4": "#211a20",
-    "#ebe4cf": "#211f18",
-    "#e7e3dc": "#191d20",
-    "#d3e8ca": "#17301d",
-    "#a8d4eb": "#102a38",
-    "#88c5e6": "#24516a",
-    "#aaa49d": "#56616a",
-    "#9f9b96": "#59636a",
-    "#c9c2b7": "#424b50",
-    "#cbc6bf": "#384148",
-    "#f7f5f1": "#59646c",
-    "#c7c2bc": "#39434a",
-    "#ffffff": "#68747c",
-    "#b9b3ac": "#3c474f",
-    "#faf8f3": "#626e76",
-    "#c4a675": "#5a4d33",
-    "#f2d59f": "#887548",
-    "#b47f58": "#603f2d",
-    "#efb674": "#a46d3c",
-    "#c6c6c6": "#59636a",
-    "#d8d4cf": "#242b30",
-    "#cbc6c0": "#2d353a",
-    "#b8b2ac": "#3b454c",
-    "#eef8fc": "#0d171d",
-    "#fff8e8": "#16130e",
-    "#373431": "#d0d6da",
-    "#353330": "#d6dcdf",
-    "#f7f4ee": "#101418",
-    "#626262": "#bcc5ca",
-    "#675f56": "#bac2c6",
-    "#f5f2eb": "#11161a",
-    "#565149": "#c5cdd1",
-    "#66554c": "#c9cfd2",
-    "#7d766f": "#aeb8bd",
+# The map palettes are semantic rather than an inversion of the daytime style.
+# Night mode deliberately suppresses local detail while keeping important roads,
+# labels, the route, and vehicle marker legible at a glance.
+_MAP_DARK = {
+    "background": "#090b0d",
+    "land": "#0d1012",
+    "residential": "#101417",
+    "commercial": "#151316",
+    "industrial": "#141518",
+    "park": "#101912",
+    "water": "#091820",
+    "waterway": "#173546",
+    "boundary": "#343c42",
+    "rail": "#343b40",
+    "path": "#252b2f",
+    "minor_casing": "#181d20",
+    "minor_road": "#252b30",
+    "secondary_casing": "#23292d",
+    "secondary_road": "#343c42",
+    "primary_casing": "#30383e",
+    "primary_road": "#48535b",
+    "motorway_casing": "#3c464d",
+    "motorway": "#59656d",
+    "building": "#171c1f",
+    "building_outline": "#252c30",
+    "label": "#929ba1",
+    "label_major": "#aeb6bb",
+    "label_minor": "#778087",
+    "label_halo": "#090b0d",
+    "water_label": "#5f879b",
 }
 
 
@@ -144,7 +142,7 @@ def install_map_style(mode: ThemeMode, data_root: str | Path | None = None) -> P
 
     document = json.loads(template.read_text(encoding="utf-8"))
     if mode is ThemeMode.DARK:
-        document = _replace_json_colors(document, _MAP_DARK_COLORS)
+        _apply_dark_map_palette(document)
     destination.write_text(json.dumps(document, separators=(",", ":")), encoding="utf-8")
     return destination
 
@@ -176,11 +174,70 @@ def _apply_widget(widget: tk.Misc, mapping: dict[str, str]) -> None:
         _apply_widget(child, mapping)
 
 
-def _replace_json_colors(value: Any, mapping: dict[str, str]) -> Any:
-    if isinstance(value, str):
-        return mapping.get(value.lower(), value)
-    if isinstance(value, list):
-        return [_replace_json_colors(item, mapping) for item in value]
-    if isinstance(value, dict):
-        return {key: _replace_json_colors(item, mapping) for key, item in value.items()}
-    return value
+def _apply_dark_map_palette(document: dict[str, Any]) -> None:
+    layers = {layer.get("id"): layer for layer in document.get("layers", [])}
+
+    _paint(layers, "background", "background-color", _MAP_DARK["background"])
+
+    _paint(layers, "landcover", "fill-color", _MAP_DARK["land"])
+    _paint(layers, "landuse", "fill-color", _MAP_DARK["residential"])
+    _paint(layers, "parks", "fill-color", _MAP_DARK["park"])
+    _paint(layers, "water", "fill-color", _MAP_DARK["water"])
+    _paint(layers, "waterways", "line-color", _MAP_DARK["waterway"])
+    _paint(layers, "boundaries", "line-color", _MAP_DARK["boundary"])
+    _paint(layers, "railways", "line-color", _MAP_DARK["rail"])
+    _paint(layers, "paths", "line-color", _MAP_DARK["path"])
+
+    for layer_id in ("service-roads-casing", "residential-roads-casing"):
+        _paint(layers, layer_id, "line-color", _MAP_DARK["minor_casing"])
+    for layer_id in ("service-roads", "residential-roads"):
+        _paint(layers, layer_id, "line-color", _MAP_DARK["minor_road"])
+
+    _paint(layers, "secondary-roads-casing", "line-color", _MAP_DARK["secondary_casing"])
+    _paint(layers, "secondary-roads", "line-color", _MAP_DARK["secondary_road"])
+    _paint(layers, "primary-roads-casing", "line-color", _MAP_DARK["primary_casing"])
+    _paint(layers, "primary-roads", "line-color", _MAP_DARK["primary_road"])
+    _paint(layers, "motorways-casing", "line-color", _MAP_DARK["motorway_casing"])
+    _paint(layers, "motorways", "line-color", _MAP_DARK["motorway"])
+    _paint(layers, "aeroways", "line-color", _MAP_DARK["secondary_road"])
+
+    building = layers.get("buildings")
+    if building is not None:
+        paint = building.setdefault("paint", {})
+        paint["fill-color"] = _MAP_DARK["building"]
+        paint["fill-outline-color"] = _MAP_DARK["building_outline"]
+
+    _symbol(layers, "water-labels", _MAP_DARK["water_label"])
+    _symbol(layers, "road-refs-major", _MAP_DARK["label_major"])
+    _symbol(layers, "road-labels", _MAP_DARK["label"])
+    _symbol(layers, "place-labels", _MAP_DARK["label_major"])
+    _symbol(layers, "aerodrome-labels", _MAP_DARK["label_minor"])
+    _symbol(layers, "mountain-peaks", _MAP_DARK["label_minor"])
+    _symbol(layers, "poi-labels-important", _MAP_DARK["label"])
+    _symbol(layers, "poi-labels-food", _MAP_DARK["label_minor"])
+    _symbol(layers, "house-numbers", _MAP_DARK["label_minor"])
+
+
+def _paint(
+    layers: dict[str | None, dict[str, Any]],
+    layer_id: str,
+    property_name: str,
+    value: str,
+) -> None:
+    layer = layers.get(layer_id)
+    if layer is not None:
+        layer.setdefault("paint", {})[property_name] = value
+
+
+def _symbol(
+    layers: dict[str | None, dict[str, Any]],
+    layer_id: str,
+    text_color: str,
+) -> None:
+    layer = layers.get(layer_id)
+    if layer is None:
+        return
+    paint = layer.setdefault("paint", {})
+    paint["text-color"] = text_color
+    paint["text-halo-color"] = _MAP_DARK["label_halo"]
+    paint["text-halo-width"] = 1.25
