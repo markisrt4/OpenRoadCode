@@ -101,8 +101,11 @@ class NavigationServiceRuntimeConfig:
 class AutomotiveInputConfig:
     source: str = "simulation"
     device: str = "elm327"
+    transport: str = "serial"
     port: str = "/dev/rfcomm0"
     baud: int = 38400
+    host: str = "127.0.0.1"
+    tcp_port: int = 35000
     timeout_s: float = 1.0
     slow_poll_interval_s: float = 5.0
 
@@ -178,17 +181,41 @@ class ServiceRuntimeConfigParser:
         device = self._string(input_data.get("device", "elm327"), "services.automotive.input.device").lower()
         if source == "device" and device != "elm327":
             raise ServiceRuntimeConfigError("services.automotive.input.device must be elm327")
+
+        transport = self._string(
+            input_data.get("transport", "serial"),
+            "services.automotive.input.transport",
+        ).lower()
+        if source == "device" and transport not in {"serial", "tcp"}:
+            raise ServiceRuntimeConfigError(
+                "services.automotive.input.transport must be serial or tcp"
+            )
+
         baud = input_data.get("baud", 38400)
         if not isinstance(baud, int) or isinstance(baud, bool) or baud <= 0:
             raise ServiceRuntimeConfigError("services.automotive.input.baud must be a positive integer")
+
+        tcp_port = input_data.get("tcp_port", 35000)
+        if (
+            not isinstance(tcp_port, int)
+            or isinstance(tcp_port, bool)
+            or not 1 <= tcp_port <= 65535
+        ):
+            raise ServiceRuntimeConfigError(
+                "services.automotive.input.tcp_port must be an integer from 1 to 65535"
+            )
+
         return AutomotiveServiceRuntimeConfig(
             enabled=self._bool(data.get("enabled", True), "services.automotive.enabled"),
             rate_hz=self._positive(data.get("rate_hz", 10.0), "services.automotive.rate_hz"),
             input=AutomotiveInputConfig(
                 source=source,
                 device=device,
+                transport=transport,
                 port=self._string(input_data.get("port", "/dev/rfcomm0"), "services.automotive.input.port"),
                 baud=baud,
+                host=self._string(input_data.get("host", "127.0.0.1"), "services.automotive.input.host"),
+                tcp_port=tcp_port,
                 timeout_s=self._positive(input_data.get("timeout_s", 1.0), "services.automotive.input.timeout_s"),
                 slow_poll_interval_s=self._positive(input_data.get("slow_poll_interval_s", 5.0), "services.automotive.input.slow_poll_interval_s"),
             ),
