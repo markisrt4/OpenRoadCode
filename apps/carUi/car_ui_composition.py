@@ -17,6 +17,7 @@ from apps.carUi.screens.car_ui_screen_factory_if import CarUiScreenFactoryIf
 from apps.carUi.system import SystemControlManager, SystemController, VehicleStatusManager, VolumeManager
 from config.service_runtime_config import ServiceRuntimeConfigParser
 from controllers.input import InputManager, InputMapper
+from controllers.navigation.imu_frame_normalizer import normalize_imu_to_vehicle
 from input_events import InputDeviceId, InputDeviceType
 from messaging.contracts.automotive import VEHICLE_STATE_TOPIC, decode_vehicle_state
 from messaging.contracts.navigation import (
@@ -87,13 +88,17 @@ class CarUiComposition:
         registrations = (
             (VEHICLE_STATE_TOPIC, decode_vehicle_state, self.vehicle_gauges_screen.set_vehicle_message),
             (ATTITUDE_STATE_TOPIC, decode_attitude_state, self.offroad_dashboard_screen.set_attitude_message),
-            (IMU_STATE_TOPIC, decode_imu_state, self.offroad_dashboard_screen.set_imu_message),
+            (IMU_STATE_TOPIC, self._decode_vehicle_imu, self.offroad_dashboard_screen.set_imu_message),
             (POSITION_STATE_TOPIC, decode_position_state, self._set_position_message),
             (MOTION_STATE_TOPIC, decode_motion_state, self.offroad_dashboard_screen.set_motion_message),
             (ROUTE_GUIDANCE_STATE_TOPIC, decode_route_guidance_state, self.route_guidance_presenter.set_guidance_message),
         )
         for topic, decoder, handler in registrations:
             self.message_dispatcher.register(topic, decoder, lambda message, callback=handler: self.frontend.dispatch_ui(lambda: callback(message)))
+
+    @staticmethod
+    def _decode_vehicle_imu(payload):
+        return normalize_imu_to_vehicle(decode_imu_state(payload))
 
     def _set_position_message(self, message) -> None:
         self.bus_position_presenter.set_position_message(message)
