@@ -10,7 +10,7 @@ import struct
 import pytest
 
 from apps.webUi.browser_music_analysis_session import WebBrowserMusicAnalysisSession
-from controllers.audio.music_analysis import MusicAnalyzer
+from controllers.audio.music_analysis import MusicAnalysisState, MusicAnalyzer
 
 
 def _pcm16_sine(*, frequency_hz: float, sample_rate_hz: int, sample_count: int) -> bytes:
@@ -66,6 +66,28 @@ def test_pcm16_frame_is_analyzed_and_retained() -> None:
     assert state["bass"] > state["mid"]
     assert state["bass"] > state["treble"]
     assert session.state() == state
+
+
+def test_analyzed_frame_is_published_to_consumer() -> None:
+    sample_rate_hz = 48000
+    fft_size = 1024
+    received: list[MusicAnalysisState] = []
+    session = WebBrowserMusicAnalysisSession(
+        MusicAnalyzer(fft_size=fft_size),
+        consumer=received.append,
+    )
+    audio = _pcm16_sine(
+        frequency_hz=1000.0,
+        sample_rate_hz=sample_rate_hz,
+        sample_count=fft_size,
+    )
+
+    returned = session.push_pcm16(audio, sample_rate_hz)
+
+    assert len(received) == 1
+    assert received[0].sample_rate_hz == sample_rate_hz
+    assert received[0].fft_size == fft_size
+    assert returned["mid"] == received[0].mid
 
 
 def test_zeroize_lifecycle_is_forwarded_to_analyzer() -> None:
