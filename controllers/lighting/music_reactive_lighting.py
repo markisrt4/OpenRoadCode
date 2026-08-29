@@ -66,6 +66,7 @@ class MusicReactiveLighting:
         *,
         mapper: MusicReactiveLightingMapper | None = None,
         update_interval_seconds: float = 0.05,
+        enabled: bool = False,
         clock: Callable[[], float] = monotonic,
     ) -> None:
         if update_interval_seconds < 0.0:
@@ -75,23 +76,44 @@ class MusicReactiveLighting:
         self._mapper = mapper or MusicReactiveLightingMapper()
         self._update_interval_seconds = update_interval_seconds
         self._clock = clock
+        self._enabled = bool(enabled)
         self._last_update_time: float | None = None
         self._last_state: MusicReactiveLightingState | None = None
+
+    @property
+    def is_enabled(self) -> bool:
+        """Return whether analyzer frames may control the lighting output."""
+        return self._enabled
+
+    def set_enabled(self, enabled: bool) -> None:
+        """Enable or disable music-reactive output.
+
+        Changing the state clears the cached output and rate-limit timestamp so
+        the first frame after enabling is always applied immediately.
+
+        @param enabled ``True`` to allow analysis frames to drive lighting.
+        """
+        enabled = bool(enabled)
+        if enabled == self._enabled:
+            return
+        self._enabled = enabled
+        self.reset()
 
     def update(
         self,
         analysis: MusicAnalysisState,
     ) -> tuple[Future[None], ...]:
-        """Apply one analyzer frame when enough time has elapsed.
+        """Apply one analyzer frame when reactive control is enabled.
 
-        Frames are ignored while the underlying lighting controller is
-        disconnected. Unchanged color or brightness values are also skipped to
-        reduce traffic on comparatively slow transports such as BLE.
+        Frames are ignored while reactive control is disabled or the underlying
+        lighting controller is disconnected. Unchanged color or brightness
+        values are skipped to reduce traffic on comparatively slow transports
+        such as BLE.
 
         @param analysis Shared music-analysis snapshot.
         @return Futures for commands issued for this frame.
         """
-        if not self._controller.is_connected:
+        if not self._enabled or not self._controller.is_connected:
             return ()
 
         now = self._clock()
