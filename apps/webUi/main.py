@@ -7,6 +7,7 @@ import atexit
 import os
 
 from apps.webUi.browser_music_analysis_session import WebBrowserMusicAnalysisSession
+from apps.webUi.linux_audio_analysis_session import WebLinuxAudioAnalysisSession
 from apps.webUi.menu_catalog import create_web_ui_menu_pages
 from apps.webUi.music_reactive_lighting_session import WebMusicReactiveLightingSession
 from apps.webUi.navigation_session import WebNavigationSession
@@ -71,11 +72,16 @@ def _create_bus_consumer() -> tuple[WebNavigationUiState, WebVehicleUiState, Mes
 
 def _create_music_analysis() -> tuple[
     WebBrowserMusicAnalysisSession,
+    WebLinuxAudioAnalysisSession,
     WebMusicReactiveLightingSession,
 ]:
-    """Compose browser analysis with optional software-driven lighting."""
+    """Compose browser/Linux analysis with optional software-driven lighting."""
     if os.environ.get("OPENROADCODE_WEB_DUMMY_LIGHTING", "0") != "1":
-        return WebBrowserMusicAnalysisSession(), WebMusicReactiveLightingSession()
+        return (
+            WebBrowserMusicAnalysisSession(),
+            WebLinuxAudioAnalysisSession(),
+            WebMusicReactiveLightingSession(),
+        )
 
     controller = DummyLightingController()
     controller.connect().result()
@@ -83,6 +89,7 @@ def _create_music_analysis() -> tuple[
     fanout = MusicAnalysisFanout((reactive_lighting.update,))
     return (
         WebBrowserMusicAnalysisSession(consumer=fanout),
+        WebLinuxAudioAnalysisSession(consumer=fanout),
         WebMusicReactiveLightingSession(reactive_lighting),
     )
 
@@ -91,7 +98,7 @@ navigation_session, position_zmq_publisher, periodic_position_publisher = _creat
 navigation_ui_state, vehicle_ui_state, bus_dispatcher = _create_bus_consumer()
 spotify_session = WebSpotifySession()
 song_recognition_session = WebSongRecognitionSession()
-music_analysis_session, music_reactive_lighting_session = _create_music_analysis()
+music_analysis_session, linux_music_analysis_session, music_reactive_lighting_session = _create_music_analysis()
 app = create_web_frontend(
     create_web_ui_menu_pages(),
     navigation_session=navigation_session,
@@ -99,12 +106,14 @@ app = create_web_frontend(
     vehicle_ui_state=vehicle_ui_state,
     spotify_session=spotify_session,
     music_analysis_session=music_analysis_session,
+    linux_music_analysis_session=linux_music_analysis_session,
     music_reactive_lighting_session=music_reactive_lighting_session,
     song_recognition_session=song_recognition_session,
 )
 
 
 def _close_messaging() -> None:
+    linux_music_analysis_session.stop()
     bus_dispatcher.close()
     if periodic_position_publisher is not None:
         periodic_position_publisher.close()
