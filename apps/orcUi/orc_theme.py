@@ -78,36 +78,36 @@ _DARK_TO_LIGHT = {
 }
 _LIGHT_TO_DARK = {value: key for key, value in _DARK_TO_LIGHT.items()}
 
-# The map palettes are semantic rather than an inversion of the daytime style.
-# Night mode deliberately suppresses local detail while keeping important roads,
-# labels, the route, and vehicle marker legible at a glance.
+# Night mode intentionally keeps the canvas dark while giving transportation
+# geometry substantially more contrast.  In a car, roads matter more than
+# subtle cartographic texture.
 _MAP_DARK = {
-    "background": "#090b0d",
-    "land": "#0d1012",
-    "residential": "#101417",
-    "commercial": "#151316",
-    "industrial": "#141518",
-    "park": "#101912",
-    "water": "#091820",
-    "waterway": "#173546",
-    "boundary": "#343c42",
-    "rail": "#343b40",
-    "path": "#252b2f",
-    "minor_casing": "#181d20",
-    "minor_road": "#252b30",
-    "secondary_casing": "#23292d",
-    "secondary_road": "#343c42",
-    "primary_casing": "#30383e",
-    "primary_road": "#48535b",
-    "motorway_casing": "#3c464d",
-    "motorway": "#59656d",
-    "building": "#171c1f",
-    "building_outline": "#252c30",
-    "label": "#929ba1",
-    "label_major": "#aeb6bb",
-    "label_minor": "#778087",
-    "label_halo": "#090b0d",
-    "water_label": "#5f879b",
+    "background": "#080a0c",
+    "land": "#0d1114",
+    "residential": "#11171b",
+    "commercial": "#171519",
+    "industrial": "#15181b",
+    "park": "#102018",
+    "water": "#081b25",
+    "waterway": "#2d6079",
+    "boundary": "#566168",
+    "rail": "#4b545a",
+    "path": "#454c51",
+    "minor_casing": "#22282c",
+    "minor_road": "#515a60",
+    "secondary_casing": "#30373c",
+    "secondary_road": "#69747b",
+    "primary_casing": "#3b444a",
+    "primary_road": "#89959c",
+    "motorway_casing": "#4c565d",
+    "motorway": "#a8b2b8",
+    "building": "#20272b",
+    "building_outline": "#3a4348",
+    "label": "#c2c9cd",
+    "label_major": "#e1e5e7",
+    "label_minor": "#9ca6ac",
+    "label_halo": "#080a0c",
+    "water_label": "#82afc4",
 }
 
 
@@ -178,7 +178,6 @@ def _apply_dark_map_palette(document: dict[str, Any]) -> None:
     layers = {layer.get("id"): layer for layer in document.get("layers", [])}
 
     _paint(layers, "background", "background-color", _MAP_DARK["background"])
-
     _paint(layers, "landcover", "fill-color", _MAP_DARK["land"])
     _paint(layers, "landuse", "fill-color", _MAP_DARK["residential"])
     _paint(layers, "parks", "fill-color", _MAP_DARK["park"])
