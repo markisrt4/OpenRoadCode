@@ -8,14 +8,22 @@ from dataclasses import asdict
 import struct
 import threading
 
-from controllers.audio.music_analysis import MusicAnalyzer
+from controllers.audio.music_analysis import (
+    MusicAnalysisConsumer,
+    MusicAnalyzer,
+)
 
 
 class WebBrowserMusicAnalysisSession:
     """Analyze PCM16 frames supplied by a browser microphone capture."""
 
-    def __init__(self, analyzer: MusicAnalyzer | None = None) -> None:
+    def __init__(
+        self,
+        analyzer: MusicAnalyzer | None = None,
+        consumer: MusicAnalysisConsumer | None = None,
+    ) -> None:
         self._analyzer = analyzer or MusicAnalyzer()
+        self._consumer = consumer
         self._lock = threading.RLock()
         self._latest = None
 
@@ -32,8 +40,11 @@ class WebBrowserMusicAnalysisSession:
         integers = struct.unpack(f"<{count}h", audio)
         samples = tuple(value / 32768.0 for value in integers)
         with self._lock:
-            self._latest = self._analyzer.analyze(samples, sample_rate_hz)
-            return self._state_dict(self._latest)
+            state = self._analyzer.analyze(samples, sample_rate_hz)
+            self._latest = state
+            if self._consumer is not None:
+                self._consumer(state)
+            return self._state_dict(state)
 
     def state(self) -> dict[str, object]:
         """Return the latest analysis state, or an idle state before first audio."""
