@@ -27,16 +27,7 @@ class MusicReactiveLightingMapper:
     """Convert analyzer bands and percussion estimates into RGB lighting."""
 
     def map(self, state: MusicAnalysisState) -> MusicReactiveLightingState:
-        """Derive RGB chroma and brightness from an analysis snapshot.
-
-        Bass/kick activity drives red, mid/snare activity drives green, and
-        treble/cymbal activity drives blue. Chroma is normalized independently
-        from loudness so quiet passages retain their spectral color while the
-        overall analyzer level controls lamp brightness.
-
-        @param state Shared music-analysis snapshot.
-        @return Lighting color and brightness for the snapshot.
-        """
+        """Derive RGB chroma and brightness from an analysis snapshot."""
         red = max(_unit(state.bass), _unit(state.percussion.kick))
         green = max(_unit(state.mid), _unit(state.percussion.snare))
         blue = max(_unit(state.treble), _unit(state.percussion.cymbal))
@@ -85,14 +76,13 @@ class MusicReactiveLighting:
         """Return whether analyzer frames may control the lighting output."""
         return self._enabled
 
+    @property
+    def is_connected(self) -> bool:
+        """Return whether the underlying lighting controller is connected."""
+        return self._controller.is_connected
+
     def set_enabled(self, enabled: bool) -> None:
-        """Enable or disable music-reactive output.
-
-        Changing the state clears the cached output and rate-limit timestamp so
-        the first frame after enabling is always applied immediately.
-
-        @param enabled ``True`` to allow analysis frames to drive lighting.
-        """
+        """Enable or disable music-reactive output."""
         enabled = bool(enabled)
         if enabled == self._enabled:
             return
@@ -103,16 +93,7 @@ class MusicReactiveLighting:
         self,
         analysis: MusicAnalysisState,
     ) -> tuple[Future[None], ...]:
-        """Apply one analyzer frame when reactive control is enabled.
-
-        Frames are ignored while reactive control is disabled or the underlying
-        lighting controller is disconnected. Unchanged color or brightness
-        values are skipped to reduce traffic on comparatively slow transports
-        such as BLE.
-
-        @param analysis Shared music-analysis snapshot.
-        @return Futures for commands issued for this frame.
-        """
+        """Apply one analyzer frame when reactive control is enabled."""
         if not self._enabled or not self._controller.is_connected:
             return ()
 
