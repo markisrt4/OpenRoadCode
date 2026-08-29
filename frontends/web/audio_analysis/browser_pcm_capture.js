@@ -49,6 +49,25 @@
       this.audioContext=this.stream=this.source=this.processor=this.sink=null;
     }
 
+    async recordClip(durationMs=8000) {
+      if(!this.running||!this.stream)throw Error('Start the microphone before identifying a song.');
+      if(!window.MediaRecorder)throw Error('Encoded audio recording is unavailable in this browser.');
+      const chunks=[];
+      const recorder=new MediaRecorder(this.stream);
+      return new Promise((resolve,reject)=>{
+        recorder.ondataavailable=event=>{if(event.data?.size)chunks.push(event.data);};
+        recorder.onerror=event=>reject(event.error||Error('Audio clip recording failed.'));
+        recorder.onstop=async()=>{
+          try{
+            const blob=new Blob(chunks,{type:recorder.mimeType||'audio/webm'});
+            resolve(await blob.arrayBuffer());
+          }catch(error){reject(error);}
+        };
+        recorder.start();
+        setTimeout(()=>{if(recorder.state!=='inactive')recorder.stop();},durationMs);
+      });
+    }
+
     async _send(samples) {
       this.inFlight=true;
       try {
