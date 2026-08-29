@@ -75,36 +75,36 @@ _DARK_TO_LIGHT = {
 }
 _LIGHT_TO_DARK = {value: key for key, value in _DARK_TO_LIGHT.items()}
 
-# High-contrast automotive night palette. The canvas stays dark, but the road
-# network is intentionally much brighter than surrounding map detail so it can
-# be read with a quick glance rather than studied like a cartography exam.
+# High-contrast automotive night palette.  The broad casing around each road
+# is intentionally visible too; changing only the narrow center line made far
+# less visual difference than the raw colors suggested.
 _MAP_DARK = {
-    "background": "#07090b",
-    "land": "#0c1013",
-    "residential": "#10161a",
-    "commercial": "#171419",
-    "industrial": "#15171a",
-    "park": "#102016",
-    "water": "#081a24",
-    "waterway": "#39738f",
-    "boundary": "#59636a",
-    "rail": "#535c62",
-    "path": "#596167",
-    "minor_casing": "#252b2f",
-    "minor_road": "#7b858c",
-    "secondary_casing": "#333a3f",
-    "secondary_road": "#9aa4aa",
-    "primary_casing": "#41494f",
-    "primary_road": "#c2c9cd",
-    "motorway_casing": "#525b61",
-    "motorway": "#eef1f2",
-    "building": "#252b2f",
-    "building_outline": "#444c51",
-    "label": "#d7dcdf",
-    "label_major": "#f4f6f7",
-    "label_minor": "#b5bdc2",
-    "label_halo": "#07090b",
-    "water_label": "#91bfd4",
+    "background": "#090c0f",
+    "land": "#12171b",
+    "residential": "#171d21",
+    "commercial": "#1d191e",
+    "industrial": "#1a1d20",
+    "park": "#14251a",
+    "water": "#0a202b",
+    "waterway": "#43839e",
+    "boundary": "#687279",
+    "rail": "#626b71",
+    "path": "#697178",
+    "minor_casing": "#4b5359",
+    "minor_road": "#c2c8cc",
+    "secondary_casing": "#596168",
+    "secondary_road": "#d5dade",
+    "primary_casing": "#687178",
+    "primary_road": "#e7eaec",
+    "motorway_casing": "#747e85",
+    "motorway": "#ffffff",
+    "building": "#2c3337",
+    "building_outline": "#51595f",
+    "label": "#e1e5e7",
+    "label_major": "#ffffff",
+    "label_minor": "#c0c7cb",
+    "label_halo": "#090c0f",
+    "water_label": "#9ac7da",
 }
 
 
@@ -232,4 +232,4 @@ def _symbol(
     paint = layer.setdefault("paint", {})
     paint["text-color"] = text_color
     paint["text-halo-color"] = _MAP_DARK["label_halo"]
-    paint["text-halo-width"] = 1.5
+    paint["text-halo-width"] = 1.6
