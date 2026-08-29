@@ -20,7 +20,7 @@ PAGE = """<!doctype html><meta name=viewport content='width=device-width,initial
 SCREEN = """<!doctype html><meta name=viewport content='width=device-width,initial-scale=1'><style>{{style}}</style><header><div class=bar><a class=back href='{{back}}'>‹</a><div class=heading><div class=title>{{screen.title}}</div><div class=subtitle>{{screen.subtitle}}</div></div></div></header><main>{{body}}</main>"""
 
 
-def create_web_frontend(pages: Mapping[str, MenuPage], *, root_page: str="main", screens: Mapping[str, WebScreen]|None=None, navigation_session: Any|None=None, navigation_ui_state: Any|None=None, vehicle_ui_state: Any|None=None, spotify_session: Any|None=None, music_analysis_session: Any|None=None, music_reactive_lighting_session: Any|None=None) -> Flask:
+def create_web_frontend(pages: Mapping[str, MenuPage], *, root_page: str="main", screens: Mapping[str, WebScreen]|None=None, navigation_session: Any|None=None, navigation_ui_state: Any|None=None, vehicle_ui_state: Any|None=None, spotify_session: Any|None=None, music_analysis_session: Any|None=None, music_reactive_lighting_session: Any|None=None, song_recognition_session: Any|None=None) -> Flask:
     if root_page not in pages: raise ValueError(f"Unknown root page: {root_page}")
     screen_map=dict(screens or create_web_screens())
     web_dir=Path(__file__).resolve().parent
@@ -80,6 +80,21 @@ def create_web_frontend(pages: Mapping[str, MenuPage], *, root_page: str="main",
             return jsonify(error="enabled must be a boolean"),400
         try: return jsonify(music_reactive_lighting_session.set_enabled(payload["enabled"]))
         except RuntimeError as exc: return jsonify(error=str(exc)),503
+
+    @app.get("/api/song-recognition/config")
+    def song_recognition_config():
+        if song_recognition_session is None:
+            return jsonify(configured=False,provider=None)
+        return jsonify(song_recognition_session.config())
+    @app.post("/api/song-recognition/identify")
+    def song_recognition_identify():
+        if song_recognition_session is None: abort(503)
+        audio=request.get_data(cache=False)
+        if not audio: return jsonify(error="Empty audio sample"),400
+        if len(audio)>4_000_000: return jsonify(error="Audio sample is too large"),413
+        try: return jsonify(song_recognition_session.recognize(audio))
+        except RuntimeError as exc: return jsonify(error=str(exc)),503
+        except Exception as exc: return jsonify(error=str(exc)),502
 
     @app.post("/api/navigation/position")
     def navigation_position():
