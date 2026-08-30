@@ -181,10 +181,20 @@ class MapPositionAdapter:
                 return
             latitude, longitude, bearing, update_camera = frame
             zoom, pitch, camera_bearing = self._camera_parameters_locked(bearing)
+            camera_mode = "MANUAL" if self._manual_camera is not None else "AUTO"
 
         try:
             self._map_renderer.set_position(latitude, longitude)
             if self._follow and update_camera:
+                LOGGER.warning(
+                    "MAP_CAMERA_SEND mode=%s lat=%.7f lon=%.7f zoom=%.3f bearing=%.3f pitch=%.1f",
+                    camera_mode,
+                    latitude,
+                    longitude,
+                    zoom,
+                    camera_bearing,
+                    pitch,
+                )
                 self._map_renderer.set_camera(
                     latitude=latitude,
                     longitude=longitude,
