@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import math
 import tkinter as tk
 from collections.abc import Callable
 
@@ -31,6 +32,7 @@ class NavigationPanel(tk.Frame):
         super().__init__(parent, bg=BG)
         self._request_handler: MapRequestHandlerIf | None = None
         self._zoom_level = 16.5
+        self._pitch_rad = math.radians(45.0)
         self._follow_enabled = True
         self._follow_button: tk.Button
         self._map_host: tk.Frame
@@ -119,7 +121,7 @@ class NavigationPanel(tk.Frame):
             font=("Sans", 16, "bold"),
         ).place(relx=0.5, rely=0.5, anchor="center")
 
-        controls = tk.Frame(body, bg=PANEL, width=112)
+        controls = tk.Frame(body, bg=PANEL, width=132)
         controls.grid(row=0, column=1, sticky="ns", padx=(6, 0))
         controls.grid_propagate(False)
 
@@ -135,14 +137,40 @@ class NavigationPanel(tk.Frame):
             highlightthickness=1,
             highlightbackground=BORDER,
             font=("Sans", 9, "bold"),
-            height=3,
+            height=2,
         )
         self._follow_button.pack(fill=tk.X, padx=6, pady=(8, 5))
 
+        pan = tk.Frame(controls, bg=PANEL)
+        pan.pack(padx=6, pady=4)
+        for row, column, text, north, east in (
+            (0, 1, "▲", 1.0, 0.0),
+            (1, 0, "◀", 0.0, -1.0),
+            (1, 2, "▶", 0.0, 1.0),
+            (2, 1, "▼", -1.0, 0.0),
+        ):
+            tk.Button(
+                pan,
+                text=text,
+                command=lambda n=north, e=east: self._pan(n, e),
+                bg=PANEL,
+                fg=TEXT,
+                activebackground="#101820",
+                activeforeground=GREEN,
+                relief=tk.FLAT,
+                highlightthickness=1,
+                highlightbackground=BORDER,
+                font=("Sans", 11, "bold"),
+                width=3,
+                height=1,
+            ).grid(row=row, column=column, padx=2, pady=2)
+
         for text, command in (
-            ("+", lambda: self._change_zoom(1.0)),
-            ("−", lambda: self._change_zoom(-1.0)),
-            ("N", self._north_up),
+            ("ZOOM +", lambda: self._change_zoom(1.0)),
+            ("ZOOM −", lambda: self._change_zoom(-1.0)),
+            ("TILT +", lambda: self._change_pitch(5.0)),
+            ("TILT −", lambda: self._change_pitch(-5.0)),
+            ("NORTH UP", self._north_up),
             ("RECENTER", self._recenter),
         ):
             tk.Button(
@@ -156,9 +184,9 @@ class NavigationPanel(tk.Frame):
                 relief=tk.FLAT,
                 highlightthickness=1,
                 highlightbackground=BORDER,
-                font=("Sans", 10, "bold"),
-                height=2,
-            ).pack(fill=tk.X, padx=6, pady=5)
+                font=("Sans", 9, "bold"),
+                height=1,
+            ).pack(fill=tk.X, padx=6, pady=3)
 
         tk.Label(
             controls,
@@ -167,7 +195,7 @@ class NavigationPanel(tk.Frame):
             fg=MUTED,
             font=("Sans", 8),
             justify=tk.CENTER,
-        ).pack(side=tk.BOTTOM, pady=10)
+        ).pack(side=tk.BOTTOM, pady=8)
 
     def _toggle_follow(self) -> None:
         enabled = not self._follow_enabled
@@ -175,11 +203,31 @@ class NavigationPanel(tk.Frame):
         if self._request_handler is not None:
             self._request_handler.request_follow(enabled)
 
+    def _pan_distance_m(self) -> float:
+        return max(20.0, min(100_000.0, 40_000_000.0 / (2 ** self._zoom_level) * 2.5))
+
+    def _pan(self, north: float, east: float) -> None:
+        self.set_follow_enabled(False)
+        if self._request_handler is not None:
+            distance_m = self._pan_distance_m()
+            self._request_handler.request_pan(
+                north_m=north * distance_m,
+                east_m=east * distance_m,
+            )
+
     def _change_zoom(self, delta: float) -> None:
         self._zoom_level = max(1.0, min(22.0, self._zoom_level + delta))
         self.set_follow_enabled(False)
         if self._request_handler is not None:
             self._request_handler.request_zoom(self._zoom_level)
+
+    def _change_pitch(self, delta_deg: float) -> None:
+        pitch_deg = math.degrees(self._pitch_rad) + delta_deg
+        pitch_deg = max(0.0, min(60.0, pitch_deg))
+        self._pitch_rad = math.radians(pitch_deg)
+        self.set_follow_enabled(False)
+        if self._request_handler is not None:
+            self._request_handler.request_pitch(self._pitch_rad)
 
     def _north_up(self) -> None:
         self.set_follow_enabled(False)
