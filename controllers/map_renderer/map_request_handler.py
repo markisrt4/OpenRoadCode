@@ -50,6 +50,26 @@ class MapRequestHandler(MapRequestHandlerIf):
         self.request_follow(False)
         self._send_camera()
 
+    def request_pan(self, north_m: float, east_m: float) -> None:
+        import math
+
+        earth_radius_m = 6_378_137.0
+        latitude_rad = self._center.latitude_rad + north_m / earth_radius_m
+        cos_latitude = math.cos(latitude_rad)
+        if abs(cos_latitude) < 1.0e-6:
+            cos_latitude = math.copysign(1.0e-6, cos_latitude)
+        longitude_rad = self._center.longitude_rad + east_m / (
+            earth_radius_m * cos_latitude
+        )
+
+        self._center = GeoPoint(
+            latitude_rad=latitude_rad,
+            longitude_rad=longitude_rad,
+            altitude_m=self._center.altitude_m,
+        )
+        self.request_follow(False)
+        self._send_camera()
+
     def request_zoom(self, zoom_level: float) -> None:
         self._zoom_level = zoom_level
         self.request_follow(False)

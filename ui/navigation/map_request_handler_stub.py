@@ -19,6 +19,9 @@ class MapRequestHandlerStub(MapRequestHandlerIf):
     def request_center_on(self, position: GeoPoint) -> None:
         pass
 
+    def request_pan(self, north_m: float, east_m: float) -> None:
+        pass
+
     def request_zoom(self, zoom_level: float) -> None:
         pass
 

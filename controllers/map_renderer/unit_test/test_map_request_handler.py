@@ -65,6 +65,24 @@ class MapRequestHandlerTest(unittest.TestCase):
         self.assertAlmostEqual(camera[0], 43.0)
         self.assertAlmostEqual(camera[1], -83.2)
 
+    def test_pan_north_updates_camera_and_disables_follow(self) -> None:
+        self.handler.request_pan(north_m=1000.0, east_m=0.0)
+
+        self.assertFalse(self.handler.follow_enabled)
+        self.assertEqual(self.follow_changes, [False])
+        camera = self.renderer.cameras[-1]
+        self.assertGreater(camera[0], 42.8)
+        self.assertAlmostEqual(camera[1], -83.0)
+
+    def test_pan_east_updates_camera_and_disables_follow(self) -> None:
+        self.handler.request_pan(north_m=0.0, east_m=1000.0)
+
+        self.assertFalse(self.handler.follow_enabled)
+        self.assertEqual(self.follow_changes, [False])
+        camera = self.renderer.cameras[-1]
+        self.assertAlmostEqual(camera[0], 42.8)
+        self.assertGreater(camera[1], -83.0)
+
 
 if __name__ == "__main__":
     unittest.main()
