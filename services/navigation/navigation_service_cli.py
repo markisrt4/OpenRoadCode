@@ -81,6 +81,8 @@ def _build_position_source(config: NavigationServiceRuntimeConfig):
             profile=simulation.profile,
             latitude_deg=simulation.latitude_deg,
             longitude_deg=simulation.longitude_deg,
+            speed_mps=simulation.speed_mps,
+            course_deg=simulation.course_deg,
         )
 
     if config.gps.device != "gpsd":
