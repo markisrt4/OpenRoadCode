@@ -10,7 +10,9 @@ import shlex
 import subprocess
 from pathlib import Path
 
-from apps.launchers.process_manager import terminate_process
+from apps.launchers.process_manager import find_matching_processes, terminate_process
+
+_MAP_RENDERER_PROCESS_PATTERN = r"(^|/)openroadcode-map-renderer([[:space:]]|$)"
 
 
 class MapRendererLauncher:
@@ -45,6 +47,13 @@ class MapRendererLauncher:
         if self.is_running():
             return
 
+        # A renderer left behind by an interrupted/restarted UI is not owned by
+        # this launcher instance. Kill it before starting the renderer that will
+        # consume the freshly generated theme style. Otherwise the stale process
+        # can keep displaying the previous style and make theme changes appear
+        # to have been ignored.
+        self._terminate_stale_renderers()
+
         command = self._command or _default_command()
         environment = os.environ.copy()
         environment.update(
@@ -75,6 +84,19 @@ class MapRendererLauncher:
             return
         terminate_process(self._process)
         self._process = None
+
+    @staticmethod
+    def _terminate_stale_renderers() -> None:
+        """Terminate renderer processes not owned by this launcher instance."""
+
+        current_pid = os.getpid()
+        for process in find_matching_processes(_MAP_RENDERER_PROCESS_PATTERN):
+            if process.pid == current_pid:
+                continue
+            try:
+                os.kill(process.pid, 15)
+            except ProcessLookupError:
+                pass
 
 
 def _default_command() -> list[str]:
