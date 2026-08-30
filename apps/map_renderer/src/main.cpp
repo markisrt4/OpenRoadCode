@@ -22,10 +22,9 @@
 
 namespace {
 
-constexpr double kLatitude = 42.3314;
-constexpr double kLongitude = -83.0458;
-constexpr double kZoom = 13.0;
-constexpr auto kFollowCameraDuration = mbgl::Milliseconds(120);
+constexpr double kDefaultLatitude = 0.0;
+constexpr double kDefaultLongitude = 0.0;
+constexpr double kDefaultZoom = 2.0;
 constexpr const char* kDefaultBrokerSubscriberEndpoint = "tcp://127.0.0.1:5557";
 constexpr const char* kDataRootToken = "__OPENROADCODE_DATA_ROOT__";
 constexpr const char* kLegacyDataRoot = "/srv/openroadcode";
@@ -138,8 +137,8 @@ int main()
     view.setMap(&map);
     map.jumpTo(
         mbgl::CameraOptions()
-            .withCenter(mbgl::LatLng{kLatitude, kLongitude})
-            .withZoom(kZoom)
+            .withCenter(mbgl::LatLng{kDefaultLatitude, kDefaultLongitude})
+            .withZoom(kDefaultZoom)
     );
 
     MapCommandServer commandServer(brokerSubscriberEndpoint);
@@ -207,10 +206,10 @@ int main()
                     .withZoom(command->zoom)
                     .withBearing(command->bearing)
                     .withPitch(command->pitch);
-                map.easeTo(
-                    camera,
-                    mbgl::AnimationOptions{kFollowCameraDuration}
-                );
+                // The navigation adapter already smooths position and bearing.
+                // Applying each live-follow sample directly avoids overlapping
+                // easeTo animations when camera commands arrive frequently.
+                map.jumpTo(camera);
                 return;
             }
 
