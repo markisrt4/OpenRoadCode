@@ -33,6 +33,15 @@ class MapRequestHandlerIf(ABC):
         ...
 
     @abstractmethod
+    def request_pan(self, north_m: float, east_m: float) -> None:
+        """Request a geographic camera pan.
+
+        @param north_m Distance north in metres.
+        @param east_m Distance east in metres.
+        """
+        ...
+
+    @abstractmethod
     def request_zoom(self, zoom_level: float) -> None:
         """Request an absolute renderer-neutral zoom level.
 
