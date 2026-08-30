@@ -75,18 +75,24 @@ _DARK_TO_LIGHT = {
 }
 _LIGHT_TO_DARK = {value: key for key, value in _DARK_TO_LIGHT.items()}
 
-# High-contrast automotive night palette.  The broad casing around each road
-# is intentionally visible too; changing only the narrow center line made far
-# less visual difference than the raw colors suggested.
+# Night palette keeps the road network neutral and readable while using ORC
+# accents to make semantic map features immediately recognizable at a glance.
 _MAP_DARK = {
-    "background": "#090c0f",
-    "land": "#12171b",
+    "background": "#070b0f",
+    "land": "#10161a",
+    "wood": "#102319",
+    "grass": "#15251a",
+    "scrub": "#18241b",
+    "farmland": "#222319",
     "residential": "#171d21",
-    "commercial": "#1d191e",
-    "industrial": "#1a1d20",
-    "park": "#14251a",
-    "water": "#0a202b",
-    "waterway": "#43839e",
+    "commercial": "#201922",
+    "industrial": "#1b2024",
+    "cemetery": "#16241b",
+    "hospital": "#241a20",
+    "school": "#242119",
+    "park": "#17331f",
+    "water": "#082b3c",
+    "waterway": "#22a9dc",
     "boundary": "#687279",
     "rail": "#626b71",
     "path": "#697178",
@@ -103,8 +109,12 @@ _MAP_DARK = {
     "label": "#e1e5e7",
     "label_major": "#ffffff",
     "label_minor": "#c0c7cb",
-    "label_halo": "#090c0f",
-    "water_label": "#9ac7da",
+    "label_halo": "#070b0f",
+    "water_label": "#59c9ee",
+    "poi_important": ACCENT_GREEN,
+    "poi_food": ACCENT_PURPLE,
+    "route_ref": ACCENT_RED,
+    "place_label": "#f4f6f7",
 }
 
 
@@ -171,11 +181,52 @@ def _apply_dark_map_palette(document: dict[str, Any]) -> None:
     layers = {layer.get("id"): layer for layer in document.get("layers", [])}
 
     _paint(layers, "background", "background-color", _MAP_DARK["background"])
-    _paint(layers, "landcover", "fill-color", _MAP_DARK["land"])
-    _paint(layers, "landuse", "fill-color", _MAP_DARK["residential"])
+
+    _paint(
+        layers,
+        "landcover",
+        "fill-color",
+        [
+            "match",
+            ["get", "class"],
+            "wood",
+            _MAP_DARK["wood"],
+            "grass",
+            _MAP_DARK["grass"],
+            "scrub",
+            _MAP_DARK["scrub"],
+            "farmland",
+            _MAP_DARK["farmland"],
+            _MAP_DARK["land"],
+        ],
+    )
+    _paint(
+        layers,
+        "landuse",
+        "fill-color",
+        [
+            "match",
+            ["get", "class"],
+            "residential",
+            _MAP_DARK["residential"],
+            "commercial",
+            _MAP_DARK["commercial"],
+            "industrial",
+            _MAP_DARK["industrial"],
+            "cemetery",
+            _MAP_DARK["cemetery"],
+            "hospital",
+            _MAP_DARK["hospital"],
+            "school",
+            _MAP_DARK["school"],
+            _MAP_DARK["residential"],
+        ],
+    )
+
     _paint(layers, "parks", "fill-color", _MAP_DARK["park"])
     _paint(layers, "water", "fill-color", _MAP_DARK["water"])
     _paint(layers, "waterways", "line-color", _MAP_DARK["waterway"])
+    _paint(layers, "waterways", "line-opacity", 1.0)
     _paint(layers, "boundaries", "line-color", _MAP_DARK["boundary"])
     _paint(layers, "railways", "line-color", _MAP_DARK["rail"])
     _paint(layers, "paths", "line-color", _MAP_DARK["path"])
@@ -200,21 +251,21 @@ def _apply_dark_map_palette(document: dict[str, Any]) -> None:
         paint["fill-outline-color"] = _MAP_DARK["building_outline"]
 
     _symbol(layers, "water-labels", _MAP_DARK["water_label"])
-    _symbol(layers, "road-refs-major", _MAP_DARK["label_major"])
-    _symbol(layers, "road-labels", _MAP_DARK["label"])
-    _symbol(layers, "place-labels", _MAP_DARK["label_major"])
+    _symbol(layers, "road-refs-major", _MAP_DARK["route_ref"], halo_width=2.0)
+    _symbol(layers, "road-labels", _MAP_DARK["label"], halo_width=1.8)
+    _symbol(layers, "place-labels", _MAP_DARK["place_label"], halo_width=2.2)
     _symbol(layers, "aerodrome-labels", _MAP_DARK["label_minor"])
     _symbol(layers, "mountain-peaks", _MAP_DARK["label_minor"])
-    _symbol(layers, "poi-labels-important", _MAP_DARK["label"])
-    _symbol(layers, "poi-labels-food", _MAP_DARK["label_minor"])
-    _symbol(layers, "house-numbers", _MAP_DARK["label_minor"])
+    _symbol(layers, "poi-labels-important", _MAP_DARK["poi_important"], halo_width=1.9)
+    _symbol(layers, "poi-labels-food", _MAP_DARK["poi_food"], halo_width=1.8)
+    _symbol(layers, "house-numbers", _MAP_DARK["label_minor"], halo_width=1.2)
 
 
 def _paint(
     layers: dict[str | None, dict[str, Any]],
     layer_id: str,
     property_name: str,
-    value: str,
+    value: Any,
 ) -> None:
     layer = layers.get(layer_id)
     if layer is not None:
@@ -225,6 +276,8 @@ def _symbol(
     layers: dict[str | None, dict[str, Any]],
     layer_id: str,
     text_color: str,
+    *,
+    halo_width: float = 1.6,
 ) -> None:
     layer = layers.get(layer_id)
     if layer is None:
@@ -232,4 +285,4 @@ def _symbol(
     paint = layer.setdefault("paint", {})
     paint["text-color"] = text_color
     paint["text-halo-color"] = _MAP_DARK["label_halo"]
-    paint["text-halo-width"] = 1.6
+    paint["text-halo-width"] = halo_width
