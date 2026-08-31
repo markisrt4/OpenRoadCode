@@ -19,8 +19,8 @@ class ExternalWindowManager:
             raise ValueError("window_timeout_seconds must be greater than zero")
         self._window_timeout_seconds = window_timeout_seconds
 
-    def fit(self, *, display: str, window_class: str, position: tuple[int, int], size: tuple[int, int]) -> str | None:
-        """Fit a matching undecorated window to the requested rectangle."""
+    def fit(self, *, display: str, window_class: str, position: tuple[int, int], size: tuple[int, int], borderless: bool = False) -> str | None:
+        """Fit a matching window to the requested rectangle."""
         width, height = size
         if width <= 0 or height <= 0:
             raise ValueError("size values must be positive")
@@ -38,10 +38,13 @@ class ExternalWindowManager:
         time.sleep(0.1)
         x, y = position
         self._run(["wmctrl", "-ir", window_id, "-e", f"0,{x},{y},{width},{height}"], environment)
+        if borderless and self._tools_available("xdotool"):
+            self._run(["xdotool", "set_window", "--overrideredirect", "1", window_id], environment)
+            self._run(["xdotool", "windowmove", window_id, str(x), str(y)], environment)
+            self._run(["xdotool", "windowsize", window_id, str(width), str(height)], environment)
         return window_id
 
     def activate(self, *, display: str, window_class: str) -> str | None:
-        """Raise and focus a matching external window."""
         if not self._tools_available("wmctrl"):
             return None
         window_id = self.wait_for_window_id(display=display, window_class=window_class)
@@ -52,28 +55,24 @@ class ExternalWindowManager:
         return window_id
 
     def hide(self, *, display: str, window_id: str | None) -> bool:
-        """Minimize an identified external window without terminating its process."""
         if window_id is None or not self._tools_available("xdotool"):
             return False
-        self._run(["xdotool", "windowminimize", window_id], x11_environment(display))
+        self._run(["xdotool", "windowunmap", window_id], x11_environment(display))
         return True
 
     def show(self, *, display: str, window_id: str | None) -> bool:
-        """Restore an identified external window without changing process state."""
-        if window_id is None or not self._tools_available("wmctrl"):
+        if window_id is None or not self._tools_available("xdotool"):
             return False
-        self._run(["wmctrl", "-ir", window_id, "-b", "remove,hidden"], x11_environment(display))
+        self._run(["xdotool", "windowmap", window_id], x11_environment(display))
         return True
 
     def close(self, *, display: str, window_id: str | None) -> bool:
-        """Ask the window manager to close an identified external window."""
         if window_id is None or not self._tools_available("wmctrl"):
             return False
         self._run(["wmctrl", "-ic", window_id], x11_environment(display))
         return True
 
     def wait_for_window_id(self, *, display: str, window_class: str) -> str | None:
-        """Wait briefly for a window whose WM_CLASS contains window_class."""
         if not self._tools_available("wmctrl"):
             return None
         expected_class = window_class.casefold()
@@ -98,7 +97,6 @@ class ExternalWindowManager:
 
 
 def x11_environment(display: str) -> dict[str, str]:
-    """Return an environment forcing an external application onto X11."""
     environment = os.environ.copy()
     environment.update({"DISPLAY": display, "XDG_SESSION_TYPE": "x11", "GDK_BACKEND": "x11"})
     return environment
