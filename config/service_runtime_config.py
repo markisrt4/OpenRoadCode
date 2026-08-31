@@ -56,6 +56,7 @@ class GpsInputConfig:
     device: str = "gpsd"
     host: str = "127.0.0.1"
     port: str = "2947"
+    bridge_url: str = "http://127.0.0.1:8766"
     simulation: GpsSimulationConfig = GpsSimulationConfig()
 
 
@@ -181,30 +182,15 @@ class ServiceRuntimeConfigParser:
         device = self._string(input_data.get("device", "elm327"), "services.automotive.input.device").lower()
         if source == "device" and device != "elm327":
             raise ServiceRuntimeConfigError("services.automotive.input.device must be elm327")
-
-        transport = self._string(
-            input_data.get("transport", "serial"),
-            "services.automotive.input.transport",
-        ).lower()
+        transport = self._string(input_data.get("transport", "serial"), "services.automotive.input.transport").lower()
         if source == "device" and transport not in {"serial", "tcp"}:
-            raise ServiceRuntimeConfigError(
-                "services.automotive.input.transport must be serial or tcp"
-            )
-
+            raise ServiceRuntimeConfigError("services.automotive.input.transport must be serial or tcp")
         baud = input_data.get("baud", 38400)
         if not isinstance(baud, int) or isinstance(baud, bool) or baud <= 0:
             raise ServiceRuntimeConfigError("services.automotive.input.baud must be a positive integer")
-
         tcp_port = input_data.get("tcp_port", 35000)
-        if (
-            not isinstance(tcp_port, int)
-            or isinstance(tcp_port, bool)
-            or not 1 <= tcp_port <= 65535
-        ):
-            raise ServiceRuntimeConfigError(
-                "services.automotive.input.tcp_port must be an integer from 1 to 65535"
-            )
-
+        if not isinstance(tcp_port, int) or isinstance(tcp_port, bool) or not 1 <= tcp_port <= 65535:
+            raise ServiceRuntimeConfigError("services.automotive.input.tcp_port must be an integer from 1 to 65535")
         return AutomotiveServiceRuntimeConfig(
             enabled=self._bool(data.get("enabled", True), "services.automotive.enabled"),
             rate_hz=self._positive(data.get("rate_hz", 10.0), "services.automotive.rate_hz"),
@@ -247,15 +233,16 @@ class ServiceRuntimeConfigParser:
     def _parse_gps(self, value) -> GpsInputConfig:
         data = self._table(value, "services.navigation.inputs.gps")
         source = self._source(data.get("source", "device"), "services.navigation.inputs.gps.source")
-        device = self._string(data.get("device", "gpsd"), "services.navigation.inputs.gps.device")
-        if source == "device" and device != "gpsd":
-            raise ServiceRuntimeConfigError("services.navigation.inputs.gps.device must be gpsd")
+        device = self._string(data.get("device", "gpsd"), "services.navigation.inputs.gps.device").lower()
+        if source == "device" and device not in {"gpsd", "android"}:
+            raise ServiceRuntimeConfigError("services.navigation.inputs.gps.device must be gpsd or android")
         simulation = self._table(data.get("simulation", {}), "services.navigation.inputs.gps.simulation")
         return GpsInputConfig(
             source=source,
             device=device,
             host=self._string(data.get("host", "127.0.0.1"), "services.navigation.inputs.gps.host"),
             port=self._string(str(data.get("port", "2947")), "services.navigation.inputs.gps.port"),
+            bridge_url=self._string(data.get("bridge_url", "http://127.0.0.1:8766"), "services.navigation.inputs.gps.bridge_url"),
             simulation=GpsSimulationConfig(
                 profile=self._string(simulation.get("profile", "driving"), "services.navigation.inputs.gps.simulation.profile"),
                 latitude_deg=self._number(simulation.get("latitude_deg", 42.8028), "services.navigation.inputs.gps.simulation.latitude_deg"),
