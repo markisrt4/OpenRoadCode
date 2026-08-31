@@ -9,8 +9,11 @@ import math
 
 from controllers.map_renderer.map_request_handler import MapRequestHandler
 from messaging.contracts.navigation import (
+    MOTION_STATE_TOPIC,
     POSITION_STATE_TOPIC,
+    MotionStateMessage,
     PositionStateMessage,
+    decode_motion_state,
     decode_position_state,
 )
 from messaging.message_dispatcher import MessageDispatcher
@@ -19,9 +22,11 @@ from messaging.zeromq.endpoints import LOCAL_SUBSCRIBER_ENDPOINT
 from protocols.map_renderer.map_renderer_client import MapRendererClient
 from ui.navigation import GeoPoint, MapRequestHandlerIf
 
+_MIN_COURSE_UP_SPEED_M_S = 1.5
+
 
 class MapCameraRuntime:
-    """Feed navigation position into one renderer-neutral map request handler."""
+    """Feed navigation position and motion into the native map camera."""
 
     def __init__(
         self,
@@ -46,6 +51,11 @@ class MapCameraRuntime:
             decode_position_state,
             self._on_position_message,
         )
+        self._dispatcher.register(
+            MOTION_STATE_TOPIC,
+            decode_motion_state,
+            self._on_motion_message,
+        )
         self._closed = False
 
     @property
@@ -55,7 +65,7 @@ class MapCameraRuntime:
         return self._handler
 
     def start(self) -> None:
-        """Start receiving navigation position updates."""
+        """Start receiving navigation position and motion updates."""
 
         self._dispatcher.start()
 
@@ -87,3 +97,18 @@ class MapCameraRuntime:
             latitude=math.degrees(data.latitude_rad),
             longitude=math.degrees(data.longitude_rad),
         )
+
+    def _on_motion_message(self, message: MotionStateMessage) -> None:
+        """Keep a followed map course-up while the vehicle is moving."""
+        data = message.data
+        speed_m_s = data.ground_speed_m_s
+        if speed_m_s is None or speed_m_s < _MIN_COURSE_UP_SPEED_M_S:
+            return
+
+        bearing_rad = data.course_rad
+        if bearing_rad is None:
+            bearing_rad = data.heading_rad
+        if bearing_rad is None:
+            return
+
+        self._handler.update_follow_bearing(bearing_rad)
