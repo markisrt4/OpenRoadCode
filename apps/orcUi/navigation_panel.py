@@ -5,17 +5,17 @@ from __future__ import annotations
 import math
 import tkinter as tk
 from collections.abc import Callable
+from apps.orcUi.shared_map_camera import get_shared_map_camera_runtime
 from ui.navigation import MapRequestHandlerIf
 
 BG="#05090d"; PANEL="#0b1117"; BORDER="#25313b"; TEXT="#edf2f5"; MUTED="#89959e"; GREEN="#84ce1f"; BLUE="#168bd1"; RED="#f15a16"; PURPLE="#a25ce5"
 
 class NavigationPanel(tk.Frame):
-    def __init__(self,parent:tk.Misc,*,map_request_handler:MapRequestHandlerIf,on_back:Callable[[],None]|None=None)->None:
+    def __init__(self,parent:tk.Misc,*,map_request_handler:MapRequestHandlerIf|None=None,on_back:Callable[[],None]|None=None)->None:
         super().__init__(parent,bg=BG); del on_back
-        self._request_handler=map_request_handler
-        self._zoom_level=float(getattr(map_request_handler,"zoom_level",16.5)); self._pitch_rad=float(getattr(map_request_handler,"pitch_rad",math.radians(45.0)))
-        self._follow_enabled=bool(getattr(map_request_handler,"follow_enabled",True)); self._poi_focus=getattr(map_request_handler,"poi_focus",None)
-        self._build()
+        runtime=get_shared_map_camera_runtime(); self._request_handler=map_request_handler or runtime.request_handler
+        self._zoom_level=float(getattr(self._request_handler,"zoom_level",16.5)); self._pitch_rad=float(getattr(self._request_handler,"pitch_rad",math.radians(45.0)))
+        self._follow_enabled=bool(getattr(self._request_handler,"follow_enabled",True)); self._poi_focus=getattr(self._request_handler,"poi_focus",None); self._build()
     @property
     def map_host_window_id(self)->int: self.update_idletasks(); return self._map_host.winfo_id()
     def set_map_request_handler(self,handler:MapRequestHandlerIf|None)->None:
