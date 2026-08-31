@@ -1,17 +1,21 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 
-"""Manual cross-process X11 embedding test for SDR++."""
+"""Manual X11 embedding test using a supplied SDR++ process ID."""
 
 from __future__ import annotations
 
-import os
+import argparse
 import tkinter as tk
 
-from apps.common.x11_window_embedder import X11WindowEmbedder
+from frontends.x11 import X11WindowEmbedder
 
 
 def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("pid", type=int, help="PID of the SDR++ X11 process")
+    args = parser.parse_args()
+
     root = tk.Tk()
     root.title("ORC X11 Embed Test")
     root.geometry("900x520")
@@ -22,37 +26,32 @@ def main() -> None:
     host = tk.Frame(root, bg="black")
     host.pack(fill="both", expand=True)
 
-    status = tk.Label(root, text="Waiting for SDR++...")
+    status = tk.Label(root, text=f"Waiting for SDR++ PID {args.pid}...")
     status.pack(fill="x")
 
     root.update_idletasks()
-    host_xid = host.winfo_id()
-    embedder = X11WindowEmbedder(os.getenv("DISPLAY"))
+    embedder = X11WindowEmbedder()
 
     def attach() -> None:
         try:
-            sdrpp_xid = embedder.find_window(
-                title_contains="SDR++",
-                timeout_seconds=0.1,
+            window_id = embedder.embed(
+                args.pid,
+                host.winfo_id(),
+                host.winfo_width(),
+                host.winfo_height(),
             )
-            embedder.embed(sdrpp_xid, host_xid)
-            resize(sdrpp_xid)
             status.config(
-                text=f"Embedded SDR++ XID 0x{sdrpp_xid:x} into 0x{host_xid:x}"
+                text=f"Embedded SDR++ XID {window_id} from PID {args.pid}"
+            )
+            host.bind(
+                "<Configure>",
+                lambda event: embedder.resize(event.width, event.height),
             )
         except Exception as exc:
-            status.config(text=f"Waiting for SDR++: {exc}")
-            root.after(250, attach)
-
-    def resize(child_xid: int) -> None:
-        embedder.resize(child_xid, host.winfo_width(), host.winfo_height())
-        host.bind(
-            "<Configure>",
-            lambda event: embedder.resize(child_xid, event.width, event.height),
-        )
+            status.config(text=f"Embed failed: {exc}")
 
     def close() -> None:
-        embedder.close()
+        embedder.clear()
         root.destroy()
 
     root.protocol("WM_DELETE_WINDOW", close)
