@@ -42,6 +42,19 @@ class MapRequestHandlerIf(ABC):
         ...
 
     @abstractmethod
+    def request_pan_screen(self, right_px: float, up_px: float) -> None:
+        """Request a camera pan in screen-relative pixels.
+
+        The handler owns conversion from viewport-relative movement to geographic
+        movement so UI implementations do not duplicate zoom, latitude, or
+        bearing math.
+
+        @param right_px Positive pixels move the camera toward screen-right.
+        @param up_px Positive pixels move the camera toward screen-up.
+        """
+        ...
+
+    @abstractmethod
     def request_zoom(self, zoom_level: float) -> None:
         """Request an absolute renderer-neutral zoom level.
 
