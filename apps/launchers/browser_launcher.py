@@ -73,6 +73,17 @@ class BrowserKioskLauncher(AppLauncherIf):
         self.window_size = size
         self.startup_grace_seconds = max(self.startup_grace_seconds, 0.2)
 
+    def configure_kiosk_window(self, *, position: tuple[int, int], size: tuple[int, int]) -> None:
+        """Use kiosk chrome while constraining the browser to a managed region."""
+        width, height = size
+        if width <= 0 or height <= 0:
+            raise ValueError("size values must be positive")
+        self.kiosk = True
+        self.app_mode = False
+        self.window_position = position
+        self.window_size = size
+        self.startup_grace_seconds = max(self.startup_grace_seconds, 0.2)
+
     def launch(self, remote_display: str, set_status: StatusCallback = None) -> None:
         if self.is_running():
             self.show(remote_display, set_status)
