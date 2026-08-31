@@ -15,7 +15,7 @@ BG="#05090d"; PANEL="#0b1117"; BORDER="#25313b"; TEXT="#edf2f5"; MUTED="#89959e"
 class NavigationPanel(tk.Frame):
     def __init__(self,parent:tk.Misc,*,map_request_handler:MapRequestHandlerIf|None=None,on_back:Callable[[],None]|None=None)->None:
         super().__init__(parent,bg=BG); del on_back
-        runtime=get_shared_map_camera_runtime(); self._request_handler=map_request_handler or runtime.request_handler
+        self._camera_runtime=get_shared_map_camera_runtime(); self._request_handler=map_request_handler or self._camera_runtime.request_handler
         self._earth_launcher=GoogleEarthLauncher(); self._earth_visible=False
         self._zoom_level=float(getattr(self._request_handler,"zoom_level",16.5)); self._pitch_rad=float(getattr(self._request_handler,"pitch_rad",math.radians(45.0)))
         self._follow_enabled=bool(getattr(self._request_handler,"follow_enabled",True)); self._poi_focus=set(getattr(self._request_handler,"poi_focus",())); self._build(); self._schedule_renderer_refresh()
@@ -68,6 +68,10 @@ class NavigationPanel(tk.Frame):
                 size=(max(1,self._map_host.winfo_width()),max(1,self._map_host.winfo_height()))
                 self._earth_launcher.configure_app_window(position=position,size=size)
                 self._earth_launcher.set_color_scheme("dark" if self._is_dark_theme() else "light")
+                if not self._earth_launcher.is_running():
+                    current_position=self._camera_runtime.latest_position
+                    if current_position is not None:
+                        self._earth_launcher.set_location(math.degrees(current_position.latitude_rad),math.degrees(current_position.longitude_rad))
             self._earth_visible=self._earth_launcher.toggle(self._display())
             if self._earth_visible:
                 self._earth_button.configure(text="▣  MAP",bg=GREEN,fg="#05090d",highlightbackground="#b8f55f")
