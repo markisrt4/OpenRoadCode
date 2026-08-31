@@ -1,0 +1,50 @@
+# Native Linux games exposed by OpenRoadCode.
+# Commands are argv arrays so arguments do not require shell parsing.
+
+[[games]]
+name = "Extreme Tux Racer"
+description = "Race Tux down snowy courses."
+command = ["extremetuxracer"]
+enabled = true
+
+[[games]]
+name = "SuperTuxKart"
+description = "Native open-source kart racing."
+command = ["supertuxkart"]
+enabled = false
+
+[[games]]
+name = "Bovo"
+description = "Gomoku / five-in-a-row board game."
+command = ["bovo"]
+enabled = false
+
+[[games]]
+name = "KMines"
+description = "Classic Minesweeper-style puzzle game."
+command = ["kmines"]
+enabled = false
+
+[[games]]
+name = "KPatience"
+description = "Collection of solitaire card games."
+command = ["kpat"]
+enabled = false
+
+[[games]]
+name = "GNOME 2048"
+description = "Sliding-tile 2048 puzzle game."
+command = ["gnome-2048"]
+enabled = false
+
+[[games]]
+name = "GNOME Nibbles"
+description = "Snake-style arcade game with multiplayer support."
+command = ["gnome-nibbles"]
+enabled = false
+
+[[games]]
+name = "GNOME Sudoku"
+description = "Touch-friendly Sudoku puzzle game."
+command = ["gnome-sudoku"]
+enabled = false
