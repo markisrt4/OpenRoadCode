@@ -59,6 +59,7 @@ class MapCameraRuntime:
             self._on_motion_message,
         )
         self._course_reference: GeoPoint | None = None
+        self._latest_position: GeoPoint | None = None
         self._closed = False
 
     @property
@@ -66,6 +67,12 @@ class MapCameraRuntime:
         """Return the semantic camera request interface."""
 
         return self._handler
+
+    @property
+    def latest_position(self) -> GeoPoint | None:
+        """Return the most recent valid navigation position."""
+
+        return self._latest_position
 
     def start(self) -> None:
         """Start receiving navigation position and motion updates."""
@@ -91,6 +98,7 @@ class MapCameraRuntime:
             longitude_rad=data.longitude_rad,
             altitude_m=data.altitude_m,
         )
+        self._latest_position = point
 
         # Android location providers do not always report speed/course even
         # while position itself is updating. Derive a stable course from the
