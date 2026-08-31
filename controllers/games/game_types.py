@@ -16,6 +16,7 @@ class GameDefinition:
     environment: dict[str, str] = field(default_factory=dict)
     termux_package: str | None = None
     termux_dependencies: tuple[str, ...] = ()
+    debian_package: str | None = None
 
     def __post_init__(self) -> None:
         if not self.name.strip():
