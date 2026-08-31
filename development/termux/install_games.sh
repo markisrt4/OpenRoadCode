@@ -57,14 +57,15 @@ INSTALLED=()
 UNAVAILABLE=()
 WARNINGS=()
 
-install_if_available extremetuxracer extremetuxracer
-install_if_available supertuxkart supertuxkart
-install_if_available bovo bovo
+# Keep these aligned with config/games.toml.
 install_if_available kmines kmines qt6-qtsvg
-install_if_available kpat kpat
-install_if_available gnome-2048 gnome-2048
-install_if_available gnome-nibbles gnome-nibbles
-install_if_available gnome-sudoku gnome-sudoku
+install_if_available kpat kpat qt6-qtsvg
+install_if_available kmahjongg kmahjongg
+install_if_available palapeli palapeli
+install_if_available kiriki kiriki
+install_if_available kigo kigo
+install_if_available xmoto xmoto
+install_if_available pong2 pong2
 
 printf '\n'
 log 'installation summary'
@@ -74,7 +75,7 @@ if ((${#WARNINGS[@]})); then printf '  installed but executable was not detected
 printf '\n'
 log 'detected ORC game executables:'
 found_any=0
-for binary in extremetuxracer supertuxkart bovo kmines kpat gnome-2048 gnome-nibbles gnome-sudoku; do
+for binary in kmines kpat kmahjongg palapeli kiriki kigo xmoto pong2; do
     if path="$(command -v "$binary" 2>/dev/null)"; then printf '  %-18s %s\n' "$binary" "$path"; found_any=1; fi
 done
 if ((found_any == 0)); then printf '  none\n'; fi
