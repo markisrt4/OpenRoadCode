@@ -98,6 +98,27 @@ class MapRequestHandlerTest(unittest.TestCase):
         self.handler.update_follow_bearing(math.radians(90.0))
         self.assertEqual(self.renderer.cameras, [])
 
+    def test_follow_camera_updates_center_and_bearing_once(self) -> None:
+        point = GeoPoint(math.radians(42.9), math.radians(-83.1))
+        self.handler.update_follow_camera(point, math.radians(90.0))
+        self.assertTrue(self.handler.follow_enabled)
+        self.assertEqual(len(self.renderer.cameras), 1)
+        camera = self.renderer.cameras[-1]
+        self.assertAlmostEqual(camera[0], 42.9)
+        self.assertAlmostEqual(camera[1], -83.1)
+        self.assertAlmostEqual(camera[3], 90.0)
+
+    def test_follow_camera_tracks_latest_position_in_manual_mode(self) -> None:
+        point = GeoPoint(math.radians(42.9), math.radians(-83.1))
+        self.handler.request_follow(False)
+        self.renderer.cameras.clear()
+        self.handler.update_follow_camera(point, math.radians(90.0))
+        self.assertEqual(self.renderer.cameras, [])
+        self.handler.request_recenter()
+        camera = self.renderer.cameras[-1]
+        self.assertAlmostEqual(camera[0], 42.9)
+        self.assertAlmostEqual(camera[1], -83.1)
+
     def _assert_nearby_focus_camera_assist(self, category: str) -> None:
         self.handler = MapRequestHandler(
             self.renderer,
