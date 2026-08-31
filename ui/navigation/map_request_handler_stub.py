@@ -34,5 +34,8 @@ class MapRequestHandlerStub(MapRequestHandlerIf):
     def request_pitch(self, pitch_rad: float) -> None:
         pass
 
+    def request_poi_focus(self, category: str | None) -> None:
+        pass
+
     def request_style(self, style_id: str) -> None:
         pass
