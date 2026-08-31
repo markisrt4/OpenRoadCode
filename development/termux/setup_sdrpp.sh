@@ -20,11 +20,11 @@ command -v pkg >/dev/null 2>&1 || {
 echo "[*] Installing Termux proot support"
 pkg install -y proot-distro git
 
-if ! proot-distro list | grep -Eq '^[[:space:]]*debian[[:space:]]'; then
+if proot-distro list | grep -Eq '(^|[[:space:]])debian([[:space:]]|$)'; then
+  echo "[*] Debian proot is already installed"
+else
   echo "[*] Installing Debian proot"
   proot-distro install debian
-else
-  echo "[*] Debian proot is already installed"
 fi
 
 echo "[*] Installing SDR++ dependencies and building inside Debian"
