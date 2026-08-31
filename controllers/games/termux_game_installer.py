@@ -5,13 +5,14 @@ from __future__ import annotations
 import os
 import shutil
 import subprocess
+from collections.abc import Sequence
 
 from .game_installer_if import GameInstallerIf
 from .game_types import GameDefinition
 
 
 class TermuxGameInstaller(GameInstallerIf):
-    """Install games exposed by the configured Termux repositories."""
+    """Install and execute games exposed by the configured Termux repositories."""
 
     @staticmethod
     def supported() -> bool:
@@ -36,6 +37,10 @@ class TermuxGameInstaller(GameInstallerIf):
             self._package_available(dependency) for dependency in game.termux_dependencies
         )
 
+    def is_installed(self, game: GameDefinition) -> bool:
+        """Return whether the game's executable is available in Termux."""
+        return self.supported() and shutil.which(game.command[0]) is not None
+
     def install(self, game: GameDefinition) -> None:
         package = game.termux_package
         if not package:
@@ -46,3 +51,7 @@ class TermuxGameInstaller(GameInstallerIf):
             raise RuntimeError(f"{package} or one of its dependencies is not available from the configured Termux repositories")
         packages = [package, *game.termux_dependencies]
         subprocess.run(["pkg", "install", "-y", *packages], check=True)
+
+    def launch_command(self, game: GameDefinition) -> Sequence[str]:
+        """Return the direct Termux command for *game*."""
+        return game.command
