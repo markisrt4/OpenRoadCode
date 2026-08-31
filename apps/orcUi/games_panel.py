@@ -6,14 +6,14 @@
 from __future__ import annotations
 
 import os
-import shutil
 import threading
 import tkinter as tk
 from collections.abc import Callable
 from pathlib import Path
 
 from controllers.games.game_catalog import load_game_catalog
-from controllers.games.game_installer_factory import create_game_installer
+from controllers.games.game_installer_factory import create_game_installers
+from controllers.games.game_installer_if import GameInstallerIf
 from controllers.games.game_launcher import GameLauncher
 from controllers.games.game_types import GameDefinition
 from frontends.x11.x11_window_embedder import X11WindowEmbedder
@@ -37,7 +37,7 @@ class GamesPanel(tk.Frame):
         super().__init__(parent, bg=BG)
         self._on_back = on_back
         self._launcher = GameLauncher()
-        self._installer = create_game_installer()
+        self._installers = create_game_installers()
         self._embedder = X11WindowEmbedder()
         self._status: tk.Label
         self._body: tk.Frame
@@ -46,7 +46,9 @@ class GamesPanel(tk.Frame):
         self._next_button: tk.Button
         self._game_host: tk.Frame | None = None
         self._installing_game: GameDefinition | None = None
+        self._installing_with: GameInstallerIf | None = None
         self._active_game: GameDefinition | None = None
+        self._active_backend: GameInstallerIf | None = None
         self._filter = "all"
         self._page = 0
         self._filter_buttons: dict[str, tk.Button] = {}
@@ -115,6 +117,24 @@ class GamesPanel(tk.Frame):
             return self._games
         return [game for game in self._games if game.category == self._filter]
 
+    def _installed_backend(self, game: GameDefinition) -> GameInstallerIf | None:
+        for installer in self._installers:
+            try:
+                if installer.is_installed(game):
+                    return installer
+            except OSError:
+                continue
+        return None
+
+    def _available_backend(self, game: GameDefinition) -> GameInstallerIf | None:
+        for installer in self._installers:
+            try:
+                if installer.is_available(game):
+                    return installer
+            except OSError:
+                continue
+        return None
+
     def _refresh_cards(self) -> None:
         self._game_host = None
         self._clear_body()
@@ -179,23 +199,22 @@ class GamesPanel(tk.Frame):
     def _game_card(self, parent: tk.Misc, game: GameDefinition) -> tk.Frame:
         card = tk.Frame(parent, bg=PANEL, highlightthickness=1, highlightbackground=BORDER)
         card.grid_columnconfigure(1, weight=1)
-        installed = shutil.which(game.command[0]) is not None
+        installed_backend = self._installed_backend(game)
+        installed = installed_backend is not None
         is_installing = self._installing_game == game
         another_install_running = self._installing_game is not None and not is_installing
-        installable = False
+        available_backend = None
         if game.enabled and not installed and not is_installing and not another_install_running:
-            try:
-                installable = self._installer.is_available(game)
-            except OSError:
-                pass
+            available_backend = self._available_backend(game)
+        installable = available_backend is not None
         if is_installing:
             state, action, command, accent = "INSTALLING", "INSTALLING…", None, BLUE
         elif not game.enabled:
             state, action, command, accent = "DISABLED", "DISABLED", None, MUTED
         elif installed:
-            state, action, command, accent = "READY", "PLAY", lambda selected=game: self._launch(selected), GREEN
+            state, action, command, accent = "READY", "PLAY", lambda selected=game, backend=installed_backend: self._launch(selected, backend), GREEN
         elif installable:
-            state, action, command, accent = "AVAILABLE", "INSTALL", lambda selected=game: self._install(selected), BLUE
+            state, action, command, accent = "AVAILABLE", "INSTALL", lambda selected=game, backend=available_backend: self._install(selected, backend), BLUE
         else:
             state, action, command, accent = "UNAVAILABLE", "UNAVAILABLE", None, MUTED
         actionable = command is not None and self._installing_game is None
@@ -215,7 +234,7 @@ class GamesPanel(tk.Frame):
         tk.Button(card, text=action, command=command, state=tk.NORMAL if actionable else tk.DISABLED, bg="#102018" if installed else ("#0d1b24" if installable or is_installing else "#11161a"), fg=accent, activebackground="#183024", activeforeground=TEXT, disabledforeground=accent if is_installing else MUTED, relief=tk.FLAT, highlightthickness=1, highlightbackground=accent if actionable or is_installing else BORDER, font=("Sans", 9, "bold"), padx=11, pady=6, cursor="hand2" if actionable else "arrow").grid(row=0, column=2, rowspan=3, padx=10, pady=8)
         return card
 
-    def _show_game_host(self, game: GameDefinition) -> None:
+    def _show_game_host(self, game: GameDefinition) -> tuple[int, int, int]:
         self._clear_body()
         host = tk.Frame(self._body, bg="#000000", highlightthickness=1, highlightbackground=BORDER)
         host.pack(fill=tk.BOTH, expand=True, padx=4, pady=4)
@@ -223,39 +242,40 @@ class GamesPanel(tk.Frame):
         self._game_host = host
         self._active_game = game
         host.bind("<Configure>", self._resize_embedded_game)
+        return host.winfo_id(), host.winfo_width(), host.winfo_height()
 
-    def _launch(self, game: GameDefinition) -> None:
+    def _launch(self, game: GameDefinition, backend: GameInstallerIf | None) -> None:
+        if backend is None:
+            self._status.configure(text=f"No runtime found for {game.name}", fg=RED)
+            return
         if self._launcher.is_running():
             self._status.configure(text="A game is already running", fg=RED)
             return
         if not self._embedder.supported():
             self._status.configure(text="Embedded games require xdotool", fg=RED)
             return
-        self._show_game_host(game)
+        host_id, width, height = self._show_game_host(game)
+        self._active_backend = backend
         try:
-            self._launcher.launch(game)
+            self._launcher.launch(game, backend.launch_command(game))
         except (OSError, RuntimeError, ValueError) as error:
             self._active_game = None
+            self._active_backend = None
             self._refresh_cards()
             self._status.configure(text=f"Launch failed: {error}", fg=RED)
             return
         process_id = self._launcher.process_id
         if process_id is None:
             self._active_game = None
+            self._active_backend = None
             self._refresh_cards()
             self._status.configure(text=f"Launch failed: {game.name} exited immediately", fg=RED)
             return
         self._status.configure(text=f"Embedding: {game.name}…", fg=BLUE)
-        threading.Thread(target=self._embed_worker, args=(game, process_id), daemon=True).start()
+        threading.Thread(target=self._embed_worker, args=(game, process_id, host_id, width, height), daemon=True).start()
 
-    def _embed_worker(self, game: GameDefinition, process_id: int) -> None:
-        host = self._game_host
-        if host is None:
-            return
+    def _embed_worker(self, game: GameDefinition, process_id: int, host_id: int, width: int, height: int) -> None:
         try:
-            host_id = host.winfo_id()
-            width = host.winfo_width()
-            height = host.winfo_height()
             self._embedder.embed(process_id, host_id, width, height)
         except Exception as error:
             self.after(0, self._embed_finished, game, error)
@@ -267,6 +287,7 @@ class GamesPanel(tk.Frame):
             self._launcher.stop()
             self._embedder.clear()
             self._active_game = None
+            self._active_backend = None
             self._refresh_cards()
             self._status.configure(text=f"Embed failed: {error}", fg=RED)
             return
@@ -276,27 +297,29 @@ class GamesPanel(tk.Frame):
         if self._embedder.window_id is not None:
             self._embedder.resize(event.width, event.height)
 
-    def _install(self, game: GameDefinition) -> None:
-        if self._installing_game is not None:
+    def _install(self, game: GameDefinition, backend: GameInstallerIf | None) -> None:
+        if self._installing_game is not None or backend is None:
             return
         self._installing_game = game
+        self._installing_with = backend
         self._status.configure(text=f"Installing: {game.name}…", fg=BLUE)
         self._refresh_cards()
-        threading.Thread(target=self._install_worker, args=(game,), daemon=True).start()
+        threading.Thread(target=self._install_worker, args=(game, backend), daemon=True).start()
 
-    def _install_worker(self, game: GameDefinition) -> None:
+    def _install_worker(self, game: GameDefinition, backend: GameInstallerIf) -> None:
         try:
-            self._installer.install(game)
+            backend.install(game)
         except Exception as error:
-            self.after(0, self._install_finished, game, error)
+            self.after(0, self._install_finished, game, backend, error)
             return
-        self.after(0, self._install_finished, game, None)
+        self.after(0, self._install_finished, game, backend, None)
 
-    def _install_finished(self, game: GameDefinition, error: Exception | None) -> None:
+    def _install_finished(self, game: GameDefinition, backend: GameInstallerIf, error: Exception | None) -> None:
         self._installing_game = None
+        self._installing_with = None
         if error is not None:
             self._status.configure(text=f"Install failed: {error}", fg=RED)
-        elif shutil.which(game.command[0]) is None:
+        elif not backend.is_installed(game):
             self._status.configure(text=f"Installed package, but {game.command[0]} was not found", fg=RED)
         else:
             self._status.configure(text=f"Installed: {game.name}", fg=GREEN)
@@ -307,3 +330,5 @@ class GamesPanel(tk.Frame):
         self._launcher.stop()
         self._embedder.clear()
         self._active_game = None
+        self._active_backend = None
+        self._refresh_cards()
