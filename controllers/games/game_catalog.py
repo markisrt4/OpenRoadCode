@@ -23,6 +23,7 @@ def load_game_catalog(path: str | Path) -> list[GameDefinition]:
                 enabled=entry.get("enabled", True),
                 environment=dict(entry.get("environment", {})),
                 termux_package=install.get("termux_package"),
+                termux_dependencies=tuple(install.get("termux_dependencies", [])),
             )
         )
     return games
