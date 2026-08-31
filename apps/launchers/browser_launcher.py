@@ -29,6 +29,10 @@ class BrowserKioskLauncher(AppLauncherIf):
         self.kiosk=True; self.app_mode=False; self.parent_window_id=None; self.window_position=position; self.window_size=size; self.startup_grace_seconds=max(self.startup_grace_seconds,.2)
     def configure_embedded_kiosk_window(self,*,position:tuple[int,int],size:tuple[int,int],parent_window_id:int)->None:
         self.kiosk=True; self.app_mode=False; self.borderless=True; self.parent_window_id=parent_window_id; self.window_position=position; self.window_size=size; self.startup_grace_seconds=max(self.startup_grace_seconds,.2)
+    def send_key(self,d:str,key:str)->bool:
+        if not self.is_running(): return False
+        self._ensure_window_id(d)
+        return self._window_manager.send_key(display=d,window_id=self._window_id,key=key)
     def launch(self,remote_display:str,set_status:StatusCallback=None)->None:
         if self.is_running(): self.show(remote_display,set_status); return
         self._window_id=None; self._hidden=False; env=graphics_environment(x11_environment(remote_display)); browser=self._find_browser()
