@@ -18,10 +18,8 @@ enabled = true
 rate_hz = 20.0
 command_endpoint = "tcp://127.0.0.1:5560"
 
-# Do not make the entire navigation service depend on the optional Android IMU
-# bridge. A stationary simulated IMU keeps map/position/navigation consumers
-# alive during normal Termux UI development. Android IMU hardware can be tested
-# with a hardware-specific runtime profile.
+# Keep the IMU simulated for ordinary Termux UI development. Android position
+# is independent below, so a live map fix does not require the IMU stream.
 [services.navigation.inputs.imu]
 source = "simulation"
 device = "android"
@@ -30,10 +28,11 @@ bridge_url = "http://127.0.0.1:8766"
 [services.navigation.inputs.imu.simulation]
 profile = "stationary"
 
-# GPS remains simulated in this profile until Android position is composed into
-# the normal navigation service. This keeps this profile deterministic today.
+# Use Android's live location through the localhost OpenRoadCode bridge.
 [services.navigation.inputs.gps]
-source = "simulation"
+source = "device"
+device = "android"
+bridge_url = "http://127.0.0.1:8766"
 
 [services.navigation.inputs.gps.simulation]
 profile = "stationary"
