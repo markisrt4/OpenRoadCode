@@ -92,9 +92,11 @@ class MapRequestHandler(MapRequestHandlerIf):
         del style_id
 
     def update_follow_center(self, position: GeoPoint) -> None:
-        """Update the authoritative vehicle center without changing mode."""
+        """Update the authoritative vehicle center and follow it when enabled."""
 
         self._center = position
+        if self._follow_enabled:
+            self._send_camera()
 
     def _send_camera(self) -> None:
         import math
