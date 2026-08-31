@@ -7,6 +7,8 @@ from __future__ import annotations
 
 import tkinter as tk
 
+from apps.orcUi.map_camera_runtime import MapCameraRuntime
+
 PANEL = "#0b1117"
 BORDER = "#25313b"
 BLUE = "#168bd1"
@@ -23,7 +25,14 @@ class HomeMapPanel(tk.Frame):
             highlightbackground=BORDER,
         )
         self._map_host: tk.Frame
+        self._camera_runtime = MapCameraRuntime(
+            zoom_level=16.5,
+            pitch_rad=0.0,
+            follow_enabled=True,
+        )
         self._build()
+        self.bind("<Destroy>", self._on_destroy, add="+")
+        self._camera_runtime.start()
 
     @property
     def map_host_window_id(self) -> int:
@@ -52,3 +61,7 @@ class HomeMapPanel(tk.Frame):
             padx=1,
             pady=(0, 1),
         )
+
+    def _on_destroy(self, event: tk.Event) -> None:
+        if event.widget is self:
+            self._camera_runtime.close()
