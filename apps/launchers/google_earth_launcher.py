@@ -30,6 +30,15 @@ class GoogleEarthLauncher:
         """Present Earth as a positioned Chromium app window."""
         self._browser.configure_app_window(position=position, size=size)
 
+    def configure_kiosk_window(
+        self,
+        *,
+        position: tuple[int, int],
+        size: tuple[int, int],
+    ) -> None:
+        """Present Earth with kiosk chrome constrained to the map region."""
+        self._browser.configure_kiosk_window(position=position, size=size)
+
     def set_location(self, latitude: float, longitude: float) -> None:
         """Set the location used by the next Google Earth launch."""
         self._browser.set_url(self._location_url(latitude, longitude))
