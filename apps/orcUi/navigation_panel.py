@@ -93,14 +93,14 @@ class NavigationPanel(tk.Frame):
         tk.Label(controls, text="PAN MAP", bg=PANEL, fg=BLUE, font=("Sans", 8, "bold")).pack(pady=(3, 0))
         pan = tk.Frame(controls, bg=PANEL)
         pan.pack(padx=6, pady=4)
-        for row, column, text, north, east in (
+        for row, column, text, up, right in (
             (0, 1, "▲", 1.0, 0.0),
             (1, 0, "◀", 0.0, -1.0),
             (1, 2, "▶", 0.0, 1.0),
             (2, 1, "▼", -1.0, 0.0),
         ):
             tk.Button(
-                pan, text=text, command=lambda n=north, e=east: self._pan(n, e),
+                pan, text=text, command=lambda u=up, r=right: self._pan(u, r),
                 bg="#101820", fg=TEXT, activebackground=BLUE, activeforeground=TEXT,
                 relief=tk.FLAT, highlightthickness=1, highlightbackground="#3d5362",
                 font=("Sans", 13, "bold"), width=3, height=1,
@@ -135,13 +135,18 @@ class NavigationPanel(tk.Frame):
         self.set_follow_enabled(enabled)
         self._request_handler.request_follow(enabled)
 
-    def _pan_distance_m(self) -> float:
-        return max(40.0, min(100_000.0, 40_000_000.0 / (2 ** self._zoom_level) * 5.0))
-
-    def _pan(self, north: float, east: float) -> None:
+    def _pan(self, up: float, right: float) -> None:
         self.set_follow_enabled(False)
-        distance_m = self._pan_distance_m()
-        self._request_handler.request_pan(north_m=north * distance_m, east_m=east * distance_m)
+        self._map_host.update_idletasks()
+        # Move by roughly one quarter of the visible viewport per tap. The
+        # controller converts these screen-relative pixels using authoritative
+        # zoom/bearing/latitude state.
+        horizontal_px = max(48.0, self._map_host.winfo_width() * 0.25)
+        vertical_px = max(48.0, self._map_host.winfo_height() * 0.25)
+        self._request_handler.request_pan_screen(
+            right_px=right * horizontal_px,
+            up_px=up * vertical_px,
+        )
 
     def _change_zoom(self, delta: float) -> None:
         self._zoom_level = max(1.0, min(22.0, self._zoom_level + delta))
