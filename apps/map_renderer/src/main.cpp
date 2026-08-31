@@ -48,17 +48,12 @@ std::string loadStyleJson(const NavigationConfig& config) {
     if (config.dataRoot != kLegacyDataRoot) replaceAll(style, kLegacyDataRoot, config.dataRoot);
     return style;
 }
-bool setLayerVisible(mbgl::style::Style& style, const char* id, bool visible) {
+void setLayerVisible(mbgl::style::Style& style, const char* id, bool visible) {
     auto* layer = style.getLayer(id);
-    if (layer == nullptr) {
-        std::cerr << "[map_renderer] layer not found: " << id << '\n';
-        return false;
+    if (layer != nullptr) {
+        layer->setVisibility(visible ? mbgl::style::VisibilityType::Visible
+                                     : mbgl::style::VisibilityType::None);
     }
-    layer->setVisibility(visible ? mbgl::style::VisibilityType::Visible
-                                 : mbgl::style::VisibilityType::None);
-    std::cout << "[map_renderer] layer " << id << " -> "
-              << (visible ? "visible" : "none") << '\n';
-    return true;
 }
 } // namespace
 
@@ -102,19 +97,10 @@ int main() {
         }
         if (command->command == "set_poi_focus") {
             const bool fuel = command->category == "fuel";
-            const bool glowFound = setLayerVisible(map.getStyle(), "fuel-focus-glow", fuel);
-            const bool labelFound = setLayerVisible(map.getStyle(), "fuel-focus-label", fuel);
-
-            // Diagnostic control: make a successful fuel-focus command impossible to miss.
-            // Remove after the native layer mutation path is verified.
-            setLayerVisible(map.getStyle(), "motorways-casing", !fuel);
-            setLayerVisible(map.getStyle(), "motorways", !fuel);
-
+            setLayerVisible(map.getStyle(), "fuel-focus-glow", fuel);
+            setLayerVisible(map.getStyle(), "fuel-focus-label", fuel);
             view.invalidate();
-            std::cout << "[map_renderer] POI focus: " << (fuel ? "fuel" : "off")
-                      << " glow=" << (glowFound ? "found" : "missing")
-                      << " label=" << (labelFound ? "found" : "missing") << '\n';
-            return;
+            std::cout << "[map_renderer] POI focus: " << (fuel ? "fuel" : "off") << '\n'; return;
         }
         if (command->command == "set_route") {
             auto* source = map.getStyle().getSource("route"); if (!source) return;
