@@ -12,7 +12,6 @@ from config.service_runtime_config import AutomotiveServiceRuntimeConfig, Servic
 from controllers.automotive.obd2.elm327_obd_adapter import Elm327ObdAdapter
 from controllers.automotive.obd2.obd2_manager import Obd2Manager
 from controllers.automotive.simulated_vehicle_state_source import SimulatedVehicleStateSource
-from hardware_io.automotive.elm327 import Elm327Device
 from hardware_io.automotive.elm327.elm327_tcp_device import Elm327TcpDevice
 from messaging.zeromq import ZeroMqPublisher
 from services.automotive.automotive_runtime import AutomotiveRuntime
@@ -40,6 +39,8 @@ def build_source(config: AutomotiveServiceRuntimeConfig):
             timeout=config.input.timeout_s,
         )
     else:
+        from hardware_io.automotive.elm327.elm327_device import Elm327Device
+
         device = Elm327Device(
             port=config.input.port,
             baud=config.input.baud,
