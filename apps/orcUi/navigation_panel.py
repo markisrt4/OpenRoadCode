@@ -70,32 +70,18 @@ class NavigationPanel(tk.Frame):
         self.grid_rowconfigure(1, weight=1)
         self.grid_columnconfigure(0, weight=1)
 
-        header = tk.Frame(self, bg=BG, height=68)
-        header.grid(row=0, column=0, sticky="ew", pady=(0, 5))
-        header.grid_propagate(False)
-        header.grid_columnconfigure(0, weight=1)
+        shortcut_bar = tk.Frame(self, bg=BG, height=38)
+        shortcut_bar.grid(row=0, column=0, sticky="ew", pady=(0, 4))
+        shortcut_bar.grid_propagate(False)
 
-        title_row = tk.Frame(header, bg=BG)
-        title_row.grid(row=0, column=0, sticky="ew")
-        title_row.grid_columnconfigure(0, weight=1)
-        tk.Label(
-            title_row,
-            text="NAVIGATION",
-            bg=BG,
-            fg=TEXT,
-            font=("Sans", 13, "bold"),
-        ).grid(row=0, column=0)
+        shortcuts = tk.Frame(shortcut_bar, bg=BG)
+        shortcuts.pack(side=tk.LEFT, padx=(2, 0), pady=3)
 
-        shortcuts = tk.Frame(header, bg=BG)
-        shortcuts.grid(row=1, column=0, sticky="ew", padx=2, pady=(3, 0))
-        for column in range(4):
-            shortcuts.grid_columnconfigure(column, weight=1, uniform="nav-shortcut")
-
-        for column, text, accent, key in (
-            (0, "⌂  HOME", BLUE, "home"),
-            (1, "▣  WORK", PURPLE, "work"),
-            (2, "⛽  GAS", GREEN, "gas"),
-            (3, "✦  FOOD", RED, "food"),
+        for text, accent, key in (
+            ("⌂ HOME", BLUE, "home"),
+            ("▣ WORK", PURPLE, "work"),
+            ("⛽ GAS", GREEN, "gas"),
+            ("♨ FOOD", RED, "food"),
         ):
             tk.Button(
                 shortcuts,
@@ -108,19 +94,22 @@ class NavigationPanel(tk.Frame):
                 relief=tk.FLAT,
                 highlightthickness=1,
                 highlightbackground=BORDER,
-                font=("Sans", 9, "bold"),
+                font=("Sans", 8, "bold"),
+                width=9,
                 height=1,
-            ).grid(row=0, column=column, sticky="ew", padx=2)
+                padx=3,
+                pady=1,
+            ).pack(side=tk.LEFT, padx=(0, 4))
 
         self._shortcut_status = tk.StringVar(value="")
         tk.Label(
-            header,
+            shortcut_bar,
             textvariable=self._shortcut_status,
             bg=BG,
             fg=MUTED,
             font=("Sans", 7),
             anchor="e",
-        ).place(relx=0.995, rely=0.02, anchor="ne")
+        ).pack(side=tk.RIGHT, padx=5)
 
         body = tk.Frame(self, bg=BG)
         body.grid(row=1, column=0, sticky="nsew")
