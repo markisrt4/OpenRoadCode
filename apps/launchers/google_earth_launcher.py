@@ -39,6 +39,10 @@ class GoogleEarthLauncher:
         """Present Earth with kiosk chrome constrained to the map region."""
         self._browser.configure_kiosk_window(position=position, size=size)
 
+    def set_color_scheme(self, color_scheme: str | None) -> None:
+        """Set the Chromium appearance preference used for Earth."""
+        self._browser.set_color_scheme(color_scheme)
+
     def set_location(self, latitude: float, longitude: float) -> None:
         """Set the location used by the next Google Earth launch."""
         self._browser.set_url(self._location_url(latitude, longitude))
