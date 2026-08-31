@@ -5,7 +5,6 @@ from __future__ import annotations
 
 import time
 
-from hardware_io.automotive.serial_stream_transport import SerialStreamTransport
 from hardware_io.automotive.stream_transport_if import StreamTransportIf
 from hardware_io.automotive.elm327.elm327_errors import (
     Elm327CommandError,
@@ -36,11 +35,20 @@ class Elm327Device:
     ) -> None:
         self._port = port
         self._timeout = timeout
-        self._transport = transport or SerialStreamTransport(
-            port=port,
-            baud=baud,
-            timeout=timeout,
-        )
+        if transport is None:
+            # Keep the serial backend optional at import time. Platforms such as
+            # Android/Termux use injected TCP transports and intentionally do
+            # not depend on PySerial.
+            from hardware_io.automotive.serial_stream_transport import (
+                SerialStreamTransport,
+            )
+
+            transport = SerialStreamTransport(
+                port=port,
+                baud=baud,
+                timeout=timeout,
+            )
+        self._transport = transport
 
     @property
     def is_connected(self) -> bool:
