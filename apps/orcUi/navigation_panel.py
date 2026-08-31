@@ -15,7 +15,7 @@ class NavigationPanel(tk.Frame):
         super().__init__(parent,bg=BG); del on_back
         runtime=get_shared_map_camera_runtime(); self._request_handler=map_request_handler or runtime.request_handler
         self._zoom_level=float(getattr(self._request_handler,"zoom_level",16.5)); self._pitch_rad=float(getattr(self._request_handler,"pitch_rad",math.radians(45.0)))
-        self._follow_enabled=bool(getattr(self._request_handler,"follow_enabled",True)); self._poi_focus=getattr(self._request_handler,"poi_focus",None); self._build(); self._schedule_renderer_refresh()
+        self._follow_enabled=bool(getattr(self._request_handler,"follow_enabled",True)); self._poi_focus=set(getattr(self._request_handler,"poi_focus",())); self._build(); self._schedule_renderer_refresh()
     @property
     def map_host_window_id(self)->int: self.update_idletasks(); return self._map_host.winfo_id()
     def set_map_request_handler(self,handler:MapRequestHandlerIf|None)->None:
@@ -26,10 +26,9 @@ class NavigationPanel(tk.Frame):
         self.grid_rowconfigure(1,weight=1); self.grid_columnconfigure(0,weight=1)
         bar=tk.Frame(self,bg=BG,height=38); bar.grid(row=0,column=0,sticky="ew",pady=(0,4)); bar.grid_propagate(False)
         shortcuts=tk.Frame(bar,bg=BG); shortcuts.pack(side=tk.LEFT,padx=2,pady=3)
-        for text,accent,key in (("⌂ HOME",BLUE,"home"),("▣ WORK",PURPLE,"work"),("⛽ GAS",GREEN,"gas"),("▣ GROCERY",GREEN,"grocery"),("♨ FOOD",RED,"food")):
+        for text,accent,key in (("⌂ HOME",BLUE,"home"),("▣ WORK",PURPLE,"work"),("⛽ GAS",RED,"gas"),("▣ GROCERY",GREEN,"grocery"),("♨ FOOD",RED,"food")):
             tk.Button(shortcuts,text=text,command=lambda s=key:self._destination_shortcut(s),bg=PANEL,fg=accent,activebackground="#101820",activeforeground=TEXT,relief=tk.FLAT,highlightthickness=1,highlightbackground=BORDER,font=("Sans",8,"bold"),width=9,height=1,padx=3,pady=1).pack(side=tk.LEFT,padx=(0,4))
-        focus_labels={"fuel":"Fuel focus active","grocery":"Grocery focus active"}
-        self._shortcut_status=tk.StringVar(value=focus_labels.get(self._poi_focus,""))
+        self._shortcut_status=tk.StringVar(value=self._focus_status())
         tk.Label(bar,textvariable=self._shortcut_status,bg=BG,fg=MUTED,font=("Sans",7),anchor="e").pack(side=tk.RIGHT,padx=5)
         body=tk.Frame(self,bg=BG); body.grid(row=1,column=0,sticky="nsew"); body.grid_rowconfigure(0,weight=1); body.grid_columnconfigure(0,weight=1)
         self._map_host=tk.Frame(body,bg="#020406",highlightthickness=1,highlightbackground=BORDER); self._map_host.grid(row=0,column=0,sticky="nsew")
@@ -48,16 +47,19 @@ class NavigationPanel(tk.Frame):
     def _refresh_renderer_state(self)->None:
         refresh=getattr(self._request_handler,"refresh_renderer_state",None)
         if refresh is not None: refresh()
+    def _focus_status(self)->str:
+        names=[]
+        if "fuel" in self._poi_focus: names.append("Gas")
+        if "grocery" in self._poi_focus: names.append("Grocery")
+        return " + ".join(names)+" highlighted" if names else ""
     def _destination_shortcut(self,shortcut:str)->None:
         focus_category={"gas":"fuel","grocery":"grocery"}.get(shortcut)
         if focus_category is not None:
-            self._poi_focus=None if self._poi_focus==focus_category else focus_category
-            self._request_handler.request_poi_focus(self._poi_focus)
-            if self._poi_focus=="fuel": self._shortcut_status.set("Fuel stations highlighted")
-            elif self._poi_focus=="grocery": self._shortcut_status.set("Grocery stores highlighted")
-            else: self._shortcut_status.set("Nearby focus off")
-            return
-        self._request_handler.request_poi_focus(None); self._poi_focus=None
+            if focus_category in self._poi_focus: self._poi_focus.remove(focus_category)
+            else: self._poi_focus.add(focus_category)
+            self._request_handler.request_poi_focus(focus_category)
+            self._shortcut_status.set(self._focus_status()); return
+        self._request_handler.request_poi_focus(None); self._poi_focus.clear()
         messages={"home":"Home location not configured","work":"Work location not configured","food":"Nearby food search not connected yet"}
         self._shortcut_status.set(messages[shortcut]); self.after(2500,lambda:self._shortcut_status.set(""))
     def _toggle_follow(self)->None:
