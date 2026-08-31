@@ -1,6 +1,33 @@
 # Native games exposed by OpenRoadCode.
-# Commands are argv arrays so arguments do not require shell parsing.
-# Categories drive the orcUi game filters; icons are resolved from the host theme.
+# A game remains in the catalog even when the current runtime cannot install it.
+# Platform-specific package metadata describes where it can be installed.
+
+[[games]]
+name = "Extreme Tux Racer"
+description = "Race Tux down snowy courses."
+category = "action"
+icon = "extremetuxracer"
+command = ["extremetuxracer"]
+[games.install]
+debian_package = "extremetuxracer"
+
+[[games]]
+name = "SuperTuxKart"
+description = "Open-source kart racing."
+category = "action"
+icon = "supertuxkart"
+command = ["supertuxkart"]
+[games.install]
+debian_package = "supertuxkart"
+
+[[games]]
+name = "Bovo"
+description = "Gomoku / five-in-a-row board game."
+category = "card_board"
+icon = "bovo"
+command = ["bovo"]
+[games.install]
+debian_package = "bovo"
 
 [[games]]
 name = "KMines"
@@ -11,6 +38,7 @@ command = ["kmines"]
 [games.install]
 termux_package = "kmines"
 termux_dependencies = ["qt6-qtsvg"]
+debian_package = "kmines"
 
 [[games]]
 name = "KPatience"
@@ -21,6 +49,34 @@ command = ["kpat"]
 [games.install]
 termux_package = "kpat"
 termux_dependencies = ["qt6-qtsvg"]
+debian_package = "kpat"
+
+[[games]]
+name = "GNOME 2048"
+description = "Sliding-tile 2048 puzzle game."
+category = "puzzle"
+icon = "gnome-2048"
+command = ["gnome-2048"]
+[games.install]
+debian_package = "gnome-2048"
+
+[[games]]
+name = "GNOME Nibbles"
+description = "Snake-style arcade game with multiplayer support."
+category = "casual"
+icon = "gnome-nibbles"
+command = ["gnome-nibbles"]
+[games.install]
+debian_package = "gnome-nibbles"
+
+[[games]]
+name = "GNOME Sudoku"
+description = "Touch-friendly Sudoku puzzle game."
+category = "puzzle"
+icon = "gnome-sudoku"
+command = ["gnome-sudoku"]
+[games.install]
+debian_package = "gnome-sudoku"
 
 [[games]]
 name = "KMahjongg"
@@ -30,6 +86,7 @@ icon = "kmahjongg"
 command = ["kmahjongg"]
 [games.install]
 termux_package = "kmahjongg"
+debian_package = "kmahjongg"
 
 [[games]]
 name = "Palapeli"
@@ -39,6 +96,7 @@ icon = "palapeli"
 command = ["palapeli"]
 [games.install]
 termux_package = "palapeli"
+debian_package = "palapeli"
 
 [[games]]
 name = "Kiriki"
@@ -48,6 +106,7 @@ icon = "kiriki"
 command = ["kiriki"]
 [games.install]
 termux_package = "kiriki"
+debian_package = "kiriki"
 
 [[games]]
 name = "Kigo"
@@ -57,6 +116,7 @@ icon = "kigo"
 command = ["kigo"]
 [games.install]
 termux_package = "kigo"
+debian_package = "kigo"
 
 [[games]]
 name = "X-Moto"
@@ -66,6 +126,7 @@ icon = "xmoto"
 command = ["xmoto"]
 [games.install]
 termux_package = "xmoto"
+debian_package = "xmoto"
 
 [[games]]
 name = "Pong2"
@@ -75,3 +136,4 @@ icon = "pong2"
 command = ["pong2"]
 [games.install]
 termux_package = "pong2"
+debian_package = "pong2"
