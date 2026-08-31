@@ -16,6 +16,10 @@ class DebianGameInstaller(GameInstallerIf):
     def __init__(self) -> None:
         self._runner = DebianCommandRunner()
 
+    @property
+    def backend_id(self) -> str:
+        return "debian"
+
     @staticmethod
     def supported() -> bool:
         """Return whether a Debian environment is available."""
