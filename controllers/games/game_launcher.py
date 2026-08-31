@@ -2,6 +2,7 @@
 
 import os
 import subprocess
+from collections.abc import Sequence
 from typing import Optional
 
 from .game_launcher_if import GameLauncherIf
@@ -21,7 +22,7 @@ class GameLauncher(GameLauncherIf):
             return None
         return self._process.pid
 
-    def launch(self, game: GameDefinition) -> None:
+    def launch(self, game: GameDefinition, command: Sequence[str] | None = None) -> None:
         if not game.enabled:
             raise ValueError(f"game is disabled: {game.name}")
         if self.is_running():
@@ -29,7 +30,7 @@ class GameLauncher(GameLauncherIf):
 
         env = os.environ.copy()
         env.update(game.environment)
-        self._process = subprocess.Popen(game.command, env=env)
+        self._process = subprocess.Popen(tuple(command) if command is not None else game.command, env=env)
 
     def stop(self) -> None:
         if not self.is_running():
