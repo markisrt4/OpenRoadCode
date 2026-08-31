@@ -58,8 +58,8 @@ class NavigationPanel(tk.Frame):
   if self._earth_overlay is not None:self._earth_overlay.lift()
  def _leave_earth(self)->None:
   self._destroy_earth_overlay()
-  if self._earth_launcher.is_running():self._earth_launcher.hide(self._display())
-  self._earth_visible=False;self._earth_button.configure(text="◉  EARTH",bg=BLUE,fg="white");self._shortcut_status.set("MapLibre");self.winfo_toplevel().lift();self.winfo_toplevel().focus_force()
+  if self._earth_launcher.is_running():self._earth_launcher.stop(self._display())
+  self._earth_visible=False;self._earth_initialized=False;self._earth_button.configure(text="◉  EARTH",bg=BLUE,fg="white");self._shortcut_status.set("MapLibre");self.winfo_toplevel().deiconify();self.winfo_toplevel().lift();self.winfo_toplevel().focus_force()
  def _toggle_earth(self):
   try:
    if self._earth_visible:self._leave_earth();return
