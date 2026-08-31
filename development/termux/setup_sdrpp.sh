@@ -38,6 +38,7 @@ SDRPP_REF="${SDRPP_REF:-master}"
 BUILD_JOBS="${BUILD_JOBS:-4}"
 SDRPP_SRC="$HOME/SDRPlusPlus"
 SDRPP_BUILD="$SDRPP_SRC/build"
+SDRPP_ROOT="$SDRPP_SRC/root_dev"
 
 export DEBIAN_FRONTEND=noninteractive
 
@@ -83,18 +84,28 @@ cmake --build "$SDRPP_BUILD" --parallel "$BUILD_JOBS"
   exit 1
 }
 
+echo "[*] Preparing SDR++ development resources"
+cd "$SDRPP_SRC"
+./create_root.sh
+
+[[ -d "$SDRPP_ROOT/res" || -d "$SDRPP_ROOT/resources" ]] || {
+  echo "SDR++ development root was not created correctly at $SDRPP_ROOT." >&2
+  exit 1
+}
+
 cat <<EOF
 
 [+] SDR++ build complete
-    source: $SDRPP_SRC
-    binary: $SDRPP_BUILD/sdrpp
+    source:    $SDRPP_SRC
+    binary:    $SDRPP_BUILD/sdrpp
+    resources: $SDRPP_ROOT
 
 To launch SDR++ in Termux:X11:
 
     proot-distro login debian --shared-tmp
     export DISPLAY=:1
-    cd ~/SDRPlusPlus/build
-    ./sdrpp
+    cd ~/SDRPlusPlus
+    ./build/sdrpp -r root_dev
 
 If your X server uses :1.0 instead, set DISPLAY=:1.0.
 EOF
