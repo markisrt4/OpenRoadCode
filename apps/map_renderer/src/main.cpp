@@ -97,10 +97,14 @@ int main() {
         }
         if (command->command == "set_poi_focus") {
             const bool fuel = command->category == "fuel";
+            const bool grocery = command->category == "grocery";
             setLayerVisible(map.getStyle(), "fuel-focus-glow", fuel);
             setLayerVisible(map.getStyle(), "fuel-focus-label", fuel);
+            setLayerVisible(map.getStyle(), "grocery-focus-glow", grocery);
+            setLayerVisible(map.getStyle(), "grocery-focus-label", grocery);
             view.invalidate();
-            std::cout << "[map_renderer] POI focus: " << (fuel ? "fuel" : "off") << '\n'; return;
+            std::cout << "[map_renderer] POI focus: "
+                      << (fuel ? "fuel" : grocery ? "grocery" : "off") << '\n'; return;
         }
         if (command->command == "set_route") {
             auto* source = map.getStyle().getSource("route"); if (!source) return;
