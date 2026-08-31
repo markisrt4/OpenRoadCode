@@ -116,55 +116,55 @@ _MAP_DARK = {
     "label_halo": "#101a20",
     "water_label": "#72d1f3",
     "road_ref": "#a9d9ed",
-    "poi": "#9bd64a",
-    "poi_food": "#d0a9e0",
+    "poi": "#b6ef55",
+    "poi_food": "#ff7043",
     "house": "#a2afb5",
 }
 
 _MAP_LIGHT = {
-    "background": "#e8eef1",
-    "wood": "#c7dfcf",
-    "grass": "#d8e7c9",
-    "scrub": "#dce5d2",
-    "farmland": "#e7e1c7",
-    "land_default": "#e3e8e7",
-    "residential": "#e3e8eb",
-    "commercial": "#ebe2e8",
-    "industrial": "#dde4e6",
-    "cemetery": "#d5e5d9",
-    "hospital": "#eadfe6",
-    "school": "#eae7d7",
-    "landuse_default": "#e1e6e7",
-    "park": "#c3dfc8",
-    "water": "#8bc8e5",
-    "waterway": "#59b2df",
-    "boundary": "#8999a1",
-    "rail": "#929da3",
-    "path": "#a8b1b4",
-    "service_casing": "#bdc5c9",
-    "service": "#f1f4f5",
-    "residential_casing": "#b7c1c6",
-    "residential_road": "#fbfcfd",
-    "secondary_casing": "#83aebe",
-    "secondary_road": "#cee8f3",
-    "primary_casing": "#438fb7",
-    "primary_road": "#7fc4e7",
-    "motorway_casing": "#237aa7",
-    "motorway": "#3f9fd4",
-    "aeroway": "#a8b2b7",
-    "building": "#cbd4d8",
-    "building_outline": "#a7b4ba",
+    "background": "#e7eef2",
+    "wood": "#a9d4b8",
+    "grass": "#c8e3b2",
+    "scrub": "#d1e1c3",
+    "farmland": "#eadb9e",
+    "land_default": "#e1e8e8",
+    "residential": "#e1e7eb",
+    "commercial": "#eddbe7",
+    "industrial": "#d9e2e5",
+    "cemetery": "#c5dfcb",
+    "hospital": "#efd7e2",
+    "school": "#f0e4b9",
+    "landuse_default": "#dee6e7",
+    "park": "#a9dcb7",
+    "water": "#75bee3",
+    "waterway": "#2da6df",
+    "boundary": "#82949e",
+    "rail": "#8b989e",
+    "path": "#a1acae",
+    "service_casing": "#b9c3c7",
+    "service": "#f2f5f6",
+    "residential_casing": "#b1bdc3",
+    "residential_road": "#ffffff",
+    "secondary_casing": "#70a5bc",
+    "secondary_road": "#c1e2f1",
+    "primary_casing": "#277fae",
+    "primary_road": "#62b8e2",
+    "motorway_casing": "#146e9f",
+    "motorway": "#269bd4",
+    "aeroway": "#a1adb2",
+    "building": "#c6d1d6",
+    "building_outline": "#9eacb3",
     "route_casing": "#ffffff",
-    "route": "#df331f",
-    "label": "#334149",
-    "label_major": "#202c32",
-    "label_minor": "#56656d",
-    "label_halo": "#f4f7f8",
-    "water_label": "#246f98",
-    "road_ref": "#2e6683",
-    "poi": "#5f9418",
-    "poi_food": "#7f49ad",
-    "house": "#707d84",
+    "route": "#e33b24",
+    "label": "#2e3d45",
+    "label_major": "#17252c",
+    "label_minor": "#52636c",
+    "label_halo": "#f5f8f9",
+    "water_label": "#146f9f",
+    "road_ref": "#205f80",
+    "poi": "#477f12",
+    "poi_food": "#c54226",
+    "house": "#697980",
 }
 
 
@@ -229,11 +229,7 @@ def _apply_widget(widget: tk.Misc, mapping: dict[str, str]) -> None:
 
 
 def _apply_map_palette(document: dict[str, Any], colors: dict[str, str]) -> None:
-    """Override only known canonical layer paint properties.
-
-    Keeping this list explicit protects the renderer from accidental mutations of
-    unrelated layer definitions while still allowing the UI theme to own colors.
-    """
+    """Override only known canonical layer paint properties."""
 
     layers = {layer.get("id"): layer for layer in document.get("layers", [])}
 
@@ -243,8 +239,7 @@ def _apply_map_palette(document: dict[str, Any], colors: dict[str, str]) -> None
         "landcover",
         "fill-color",
         [
-            "match",
-            ["get", "class"],
+            "match", ["get", "class"],
             "wood", colors["wood"],
             "grass", colors["grass"],
             "scrub", colors["scrub"],
@@ -257,8 +252,7 @@ def _apply_map_palette(document: dict[str, Any], colors: dict[str, str]) -> None
         "landuse",
         "fill-color",
         [
-            "match",
-            ["get", "class"],
+            "match", ["get", "class"],
             "residential", colors["residential"],
             "commercial", colors["commercial"],
             "industrial", colors["industrial"],
@@ -301,6 +295,9 @@ def _apply_map_palette(document: dict[str, Any], colors: dict[str, str]) -> None
     _paint_label(layers, "place-labels", colors["label_major"], colors["label_halo"])
     _paint_label(layers, "aerodrome-labels", colors["label_minor"], colors["label_halo"])
     _paint_label(layers, "mountain-peaks", colors["label_minor"], colors["label_halo"])
+
+    # POIs need to read as interactive/navigation information rather than more
+    # terrain. Important places use high-chroma green; food uses warm ORC red.
     _paint_label(layers, "poi-labels-important", colors["poi"], colors["label_halo"])
     _paint_label(layers, "poi-labels-food", colors["poi_food"], colors["label_halo"])
     _paint_label(layers, "house-numbers", colors["house"], colors["label_halo"])
