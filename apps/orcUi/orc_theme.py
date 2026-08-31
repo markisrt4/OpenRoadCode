@@ -75,8 +75,9 @@ _DARK_TO_LIGHT = {
 }
 _LIGHT_TO_DARK = {value: key for key, value in _DARK_TO_LIGHT.items()}
 
-# Night palette keeps the road network neutral and readable while using ORC
-# accents to make semantic map features immediately recognizable at a glance.
+# Keep the palette definitions available while dark-style transformation is
+# isolated from renderer lifecycle debugging. The raw template is currently
+# deployed unchanged so styling cannot invalidate or alter map layers.
 _MAP_DARK = {
     "background": "#070b0f",
     "land": "#10161a",
@@ -136,6 +137,9 @@ def apply_tk_theme(root: tk.Misc, mode: ThemeMode) -> None:
 
 
 def install_map_style(mode: ThemeMode, data_root: str | Path | None = None) -> Path | None:
+    """Install the canonical style without modifying its MapLibre layer definitions."""
+
+    del mode
     repo_root = Path(__file__).resolve().parents[2]
     template = repo_root / "tools" / "map_builder" / "templates" / "openroadcode-style.json"
     root = Path(data_root or Path.home() / ".local" / "share" / "openroadcode")
@@ -144,8 +148,6 @@ def install_map_style(mode: ThemeMode, data_root: str | Path | None = None) -> P
         return None
 
     document = json.loads(template.read_text(encoding="utf-8"))
-    if mode is ThemeMode.DARK:
-        _apply_dark_map_palette(document)
     destination.write_text(json.dumps(document, separators=(",", ":")), encoding="utf-8")
     return destination
 
@@ -179,86 +181,7 @@ def _apply_widget(widget: tk.Misc, mapping: dict[str, str]) -> None:
 
 def _apply_dark_map_palette(document: dict[str, Any]) -> None:
     layers = {layer.get("id"): layer for layer in document.get("layers", [])}
-
     _paint(layers, "background", "background-color", _MAP_DARK["background"])
-
-    _paint(
-        layers,
-        "landcover",
-        "fill-color",
-        [
-            "match",
-            ["get", "class"],
-            "wood",
-            _MAP_DARK["wood"],
-            "grass",
-            _MAP_DARK["grass"],
-            "scrub",
-            _MAP_DARK["scrub"],
-            "farmland",
-            _MAP_DARK["farmland"],
-            _MAP_DARK["land"],
-        ],
-    )
-    _paint(
-        layers,
-        "landuse",
-        "fill-color",
-        [
-            "match",
-            ["get", "class"],
-            "residential",
-            _MAP_DARK["residential"],
-            "commercial",
-            _MAP_DARK["commercial"],
-            "industrial",
-            _MAP_DARK["industrial"],
-            "cemetery",
-            _MAP_DARK["cemetery"],
-            "hospital",
-            _MAP_DARK["hospital"],
-            "school",
-            _MAP_DARK["school"],
-            _MAP_DARK["residential"],
-        ],
-    )
-
-    _paint(layers, "parks", "fill-color", _MAP_DARK["park"])
-    _paint(layers, "water", "fill-color", _MAP_DARK["water"])
-    _paint(layers, "waterways", "line-color", _MAP_DARK["waterway"])
-    _paint(layers, "waterways", "line-opacity", 1.0)
-    _paint(layers, "boundaries", "line-color", _MAP_DARK["boundary"])
-    _paint(layers, "railways", "line-color", _MAP_DARK["rail"])
-    _paint(layers, "paths", "line-color", _MAP_DARK["path"])
-
-    for layer_id in ("service-roads-casing", "residential-roads-casing"):
-        _paint(layers, layer_id, "line-color", _MAP_DARK["minor_casing"])
-    for layer_id in ("service-roads", "residential-roads"):
-        _paint(layers, layer_id, "line-color", _MAP_DARK["minor_road"])
-
-    _paint(layers, "secondary-roads-casing", "line-color", _MAP_DARK["secondary_casing"])
-    _paint(layers, "secondary-roads", "line-color", _MAP_DARK["secondary_road"])
-    _paint(layers, "primary-roads-casing", "line-color", _MAP_DARK["primary_casing"])
-    _paint(layers, "primary-roads", "line-color", _MAP_DARK["primary_road"])
-    _paint(layers, "motorways-casing", "line-color", _MAP_DARK["motorway_casing"])
-    _paint(layers, "motorways", "line-color", _MAP_DARK["motorway"])
-    _paint(layers, "aeroways", "line-color", _MAP_DARK["secondary_road"])
-
-    building = layers.get("buildings")
-    if building is not None:
-        paint = building.setdefault("paint", {})
-        paint["fill-color"] = _MAP_DARK["building"]
-        paint["fill-outline-color"] = _MAP_DARK["building_outline"]
-
-    _symbol(layers, "water-labels", _MAP_DARK["water_label"])
-    _symbol(layers, "road-refs-major", _MAP_DARK["route_ref"], halo_width=2.0)
-    _symbol(layers, "road-labels", _MAP_DARK["label"], halo_width=1.8)
-    _symbol(layers, "place-labels", _MAP_DARK["place_label"], halo_width=2.2)
-    _symbol(layers, "aerodrome-labels", _MAP_DARK["label_minor"])
-    _symbol(layers, "mountain-peaks", _MAP_DARK["label_minor"])
-    _symbol(layers, "poi-labels-important", _MAP_DARK["poi_important"], halo_width=1.9)
-    _symbol(layers, "poi-labels-food", _MAP_DARK["poi_food"], halo_width=1.8)
-    _symbol(layers, "house-numbers", _MAP_DARK["label_minor"], halo_width=1.2)
 
 
 def _paint(
@@ -270,19 +193,3 @@ def _paint(
     layer = layers.get(layer_id)
     if layer is not None:
         layer.setdefault("paint", {})[property_name] = value
-
-
-def _symbol(
-    layers: dict[str | None, dict[str, Any]],
-    layer_id: str,
-    text_color: str,
-    *,
-    halo_width: float = 1.6,
-) -> None:
-    layer = layers.get(layer_id)
-    if layer is None:
-        return
-    paint = layer.setdefault("paint", {})
-    paint["text-color"] = text_color
-    paint["text-halo-color"] = _MAP_DARK["label_halo"]
-    paint["text-halo-width"] = halo_width
