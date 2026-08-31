@@ -21,6 +21,15 @@ class GoogleEarthLauncher:
             window_class="openroadcode-google-earth",
         )
 
+    def configure_app_window(
+        self,
+        *,
+        position: tuple[int, int],
+        size: tuple[int, int],
+    ) -> None:
+        """Present Earth as a positioned Chromium app window."""
+        self._browser.configure_app_window(position=position, size=size)
+
     def set_location(self, latitude: float, longitude: float) -> None:
         """Set the location used by the next Google Earth launch."""
         self._browser.set_url(self._location_url(latitude, longitude))
