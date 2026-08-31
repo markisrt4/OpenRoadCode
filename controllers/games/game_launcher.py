@@ -14,6 +14,13 @@ class GameLauncher(GameLauncherIf):
     def __init__(self) -> None:
         self._process: Optional[subprocess.Popen] = None
 
+    @property
+    def process_id(self) -> int | None:
+        """Return the active child process id, if one exists."""
+        if not self.is_running() or self._process is None:
+            return None
+        return self._process.pid
+
     def launch(self, game: GameDefinition) -> None:
         if not game.enabled:
             raise ValueError(f"game is disabled: {game.name}")
