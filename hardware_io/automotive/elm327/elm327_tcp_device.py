@@ -6,7 +6,6 @@ from __future__ import annotations
 import socket
 import time
 
-from hardware_io.automotive.elm327.elm327_device import Elm327Device
 from hardware_io.automotive.elm327.elm327_errors import (
     Elm327CommandError,
     Elm327ConnectionError,
@@ -17,7 +16,7 @@ from hardware_io.automotive.elm327.elm327_response import Elm327Response
 class Elm327TcpDevice:
     """TCP connection to an ELM327-compatible byte stream."""
 
-    INITIALIZATION_COMMANDS = Elm327Device.INITIALIZATION_COMMANDS
+    INITIALIZATION_COMMANDS = ("ATZ", "ATE0", "ATL0", "ATS0", "ATH1", "ATSP0")
 
     def __init__(
         self,
@@ -44,7 +43,7 @@ class Elm327TcpDevice:
             )
             self._socket.settimeout(self._timeout)
             self._initialize()
-        except Elm327CommandError as exc:
+        except (Elm327CommandError, Elm327ConnectionError) as exc:
             self.disconnect()
             raise Elm327ConnectionError(
                 f"Connected to {self._host}:{self._port}, but ELM327 "
@@ -86,7 +85,7 @@ class Elm327TcpDevice:
             return Elm327Response(
                 command=normalized_command,
                 raw=raw,
-                lines=Elm327Device._parse_lines(raw),
+                lines=self._parse_lines(raw),
             )
         except OSError as exc:
             raise Elm327CommandError(
@@ -129,6 +128,11 @@ class Elm327TcpDevice:
             if b">" in chunk:
                 break
         return data.decode("ascii", errors="replace")
+
+    @staticmethod
+    def _parse_lines(raw: str) -> tuple[str, ...]:
+        cleaned = raw.replace(">", "\r")
+        return tuple(line.strip() for line in cleaned.splitlines() if line.strip())
 
     def __enter__(self) -> Elm327TcpDevice:
         self.connect()
