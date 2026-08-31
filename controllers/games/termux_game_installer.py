@@ -18,10 +18,8 @@ class TermuxGameInstaller(GameInstallerIf):
         """Return whether the current runtime looks like Termux."""
         return shutil.which("pkg") is not None and "com.termux" in os.environ.get("PREFIX", "")
 
-    def is_available(self, game: GameDefinition) -> bool:
-        package = game.termux_package
-        if not package or not self.supported():
-            return False
+    @staticmethod
+    def _package_available(package: str) -> bool:
         result = subprocess.run(
             ["apt-cache", "show", package],
             stdout=subprocess.DEVNULL,
@@ -30,6 +28,14 @@ class TermuxGameInstaller(GameInstallerIf):
         )
         return result.returncode == 0
 
+    def is_available(self, game: GameDefinition) -> bool:
+        package = game.termux_package
+        if not package or not self.supported():
+            return False
+        return self._package_available(package) and all(
+            self._package_available(dependency) for dependency in game.termux_dependencies
+        )
+
     def install(self, game: GameDefinition) -> None:
         package = game.termux_package
         if not package:
@@ -37,5 +43,6 @@ class TermuxGameInstaller(GameInstallerIf):
         if not self.supported():
             raise RuntimeError("Termux package manager is not available")
         if not self.is_available(game):
-            raise RuntimeError(f"{package} is not available from the configured Termux repositories")
-        subprocess.run(["pkg", "install", "-y", package], check=True)
+            raise RuntimeError(f"{package} or one of its dependencies is not available from the configured Termux repositories")
+        packages = [package, *game.termux_dependencies]
+        subprocess.run(["pkg", "install", "-y", *packages], check=True)
