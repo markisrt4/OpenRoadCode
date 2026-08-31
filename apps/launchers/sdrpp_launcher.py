@@ -73,6 +73,7 @@ class SDRPPLauncher(AppLauncherIf):
         self.termux_proot_distribution = termux_proot_distribution
         self.termux_sdrpp_source = Path(termux_sdrpp_source)
         self._process: subprocess.Popen[str] | None = None
+        self._launched_via_proot = False
 
     def is_running(self) -> bool:
         if self._process is not None:
@@ -112,6 +113,7 @@ class SDRPPLauncher(AppLauncherIf):
             return
 
         command = self._launch_command(remote_display)
+        self._launched_via_proot = _is_proot_command(command)
         environment = _sdrpp_environment(remote_display)
         self.log_file.parent.mkdir(parents=True, exist_ok=True)
         log_handle = self.log_file.open("a", encoding="utf-8")
@@ -149,6 +151,7 @@ class SDRPPLauncher(AppLauncherIf):
         if self._process is not None:
             terminate_process(self._process)
             self._process = None
+        self._launched_via_proot = False
 
         close_matching_display_apps(
             display=remote_display,
@@ -167,6 +170,26 @@ class SDRPPLauncher(AppLauncherIf):
 
         self.launch(remote_display, set_status)
         return True
+
+    def window_process_id(self, timeout_seconds: float = 8.0) -> int:
+        """Return the process ID that owns SDR++'s X11 window."""
+        if self._process is None or self._process.poll() is not None:
+            raise RuntimeError("SDR++ is not running under this launcher")
+
+        if not self._launched_via_proot:
+            return self._process.pid
+
+        deadline = time.monotonic() + timeout_seconds
+        while time.monotonic() < deadline:
+            pid = _find_descendant_matching(
+                self._process.pid,
+                ("./build/sdrpp", "/build/sdrpp", "SDRPlusPlus"),
+            )
+            if pid is not None:
+                return pid
+            time.sleep(0.1)
+
+        raise RuntimeError("Could not find SDR++ child process inside proot")
 
     def is_rigctl_ready(self) -> bool:
         try:
@@ -261,6 +284,51 @@ class SDRPPLauncher(AppLauncherIf):
             start_new_session=True,
             text=True,
         )
+
+
+def _is_proot_command(command: list[str]) -> bool:
+    return bool(command and Path(command[0]).name == "proot-distro")
+
+
+def _find_descendant_matching(
+    root_pid: int,
+    command_fragments: tuple[str, ...],
+) -> int | None:
+    """Find a descendant process whose command line identifies SDR++."""
+    pending = [root_pid]
+    seen: set[int] = set()
+    while pending:
+        pid = pending.pop()
+        if pid in seen:
+            continue
+        seen.add(pid)
+
+        if pid != root_pid:
+            cmdline = _read_proc_cmdline(pid)
+            if any(fragment in cmdline for fragment in command_fragments):
+                return pid
+
+        pending.extend(_read_proc_children(pid))
+    return None
+
+
+def _read_proc_children(pid: int) -> list[int]:
+    path = Path(f"/proc/{pid}/task/{pid}/children")
+    try:
+        text = path.read_text(encoding="utf-8").strip()
+    except (OSError, UnicodeError):
+        return []
+    if not text:
+        return []
+    return [int(value) for value in text.split() if value.isdigit()]
+
+
+def _read_proc_cmdline(pid: int) -> str:
+    path = Path(f"/proc/{pid}/cmdline")
+    try:
+        return path.read_bytes().replace(b"\0", b" ").decode(errors="replace")
+    except OSError:
+        return ""
 
 
 def _is_termux() -> bool:
