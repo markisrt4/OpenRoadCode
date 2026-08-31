@@ -19,6 +19,8 @@ TEXT = "#edf2f5"
 MUTED = "#89959e"
 GREEN = "#84ce1f"
 BLUE = "#168bd1"
+RED = "#f15a16"
+PURPLE = "#a25ce5"
 
 
 class NavigationPanel(tk.Frame):
@@ -37,6 +39,7 @@ class NavigationPanel(tk.Frame):
         self._follow_enabled = True
         self._follow_button: tk.Button
         self._map_host: tk.Frame
+        self._shortcut_status: tk.StringVar
         self._camera_runtime = MapCameraRuntime(
             zoom_level=self._zoom_level,
             pitch_rad=self._pitch_rad,
@@ -66,11 +69,58 @@ class NavigationPanel(tk.Frame):
     def _build(self) -> None:
         self.grid_rowconfigure(1, weight=1)
         self.grid_columnconfigure(0, weight=1)
-        header = tk.Frame(self, bg=BG, height=42)
+
+        header = tk.Frame(self, bg=BG, height=68)
         header.grid(row=0, column=0, sticky="ew", pady=(0, 5))
         header.grid_propagate(False)
         header.grid_columnconfigure(0, weight=1)
-        tk.Label(header, text="NAVIGATION", bg=BG, fg=TEXT, font=("Sans", 14, "bold")).grid(row=0, column=0)
+
+        title_row = tk.Frame(header, bg=BG)
+        title_row.grid(row=0, column=0, sticky="ew")
+        title_row.grid_columnconfigure(0, weight=1)
+        tk.Label(
+            title_row,
+            text="NAVIGATION",
+            bg=BG,
+            fg=TEXT,
+            font=("Sans", 13, "bold"),
+        ).grid(row=0, column=0)
+
+        shortcuts = tk.Frame(header, bg=BG)
+        shortcuts.grid(row=1, column=0, sticky="ew", padx=2, pady=(3, 0))
+        for column in range(4):
+            shortcuts.grid_columnconfigure(column, weight=1, uniform="nav-shortcut")
+
+        for column, text, accent, key in (
+            (0, "⌂  HOME", BLUE, "home"),
+            (1, "▣  WORK", PURPLE, "work"),
+            (2, "⛽  GAS", GREEN, "gas"),
+            (3, "✦  FOOD", RED, "food"),
+        ):
+            tk.Button(
+                shortcuts,
+                text=text,
+                command=lambda shortcut=key: self._destination_shortcut(shortcut),
+                bg=PANEL,
+                fg=accent,
+                activebackground="#101820",
+                activeforeground=TEXT,
+                relief=tk.FLAT,
+                highlightthickness=1,
+                highlightbackground=BORDER,
+                font=("Sans", 9, "bold"),
+                height=1,
+            ).grid(row=0, column=column, sticky="ew", padx=2)
+
+        self._shortcut_status = tk.StringVar(value="")
+        tk.Label(
+            header,
+            textvariable=self._shortcut_status,
+            bg=BG,
+            fg=MUTED,
+            font=("Sans", 7),
+            anchor="e",
+        ).place(relx=0.995, rely=0.02, anchor="ne")
 
         body = tk.Frame(self, bg=BG)
         body.grid(row=1, column=0, sticky="nsew")
@@ -130,6 +180,16 @@ class NavigationPanel(tk.Frame):
         if event.widget is self:
             self._camera_runtime.close()
 
+    def _destination_shortcut(self, shortcut: str) -> None:
+        messages = {
+            "home": "Home location not configured",
+            "work": "Work location not configured",
+            "gas": "Nearby gas search not connected yet",
+            "food": "Nearby food search not connected yet",
+        }
+        self._shortcut_status.set(messages[shortcut])
+        self.after(2500, lambda: self._shortcut_status.set(""))
+
     def _toggle_follow(self) -> None:
         enabled = not self._follow_enabled
         self.set_follow_enabled(enabled)
@@ -138,9 +198,6 @@ class NavigationPanel(tk.Frame):
     def _pan(self, up: float, right: float) -> None:
         self.set_follow_enabled(False)
         self._map_host.update_idletasks()
-        # Move by roughly one quarter of the visible viewport per tap. The
-        # controller converts these screen-relative pixels using authoritative
-        # zoom/bearing/latitude state.
         horizontal_px = max(48.0, self._map_host.winfo_width() * 0.25)
         vertical_px = max(48.0, self._map_host.winfo_height() * 0.25)
         self._request_handler.request_pan_screen(
