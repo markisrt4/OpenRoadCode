@@ -13,7 +13,7 @@ from ui.navigation import GeoPoint
 class FakeRenderer:
     def __init__(self) -> None:
         self.cameras: list[tuple[float, float, float, float, float]] = []
-        self.poi_focus: list[str | None] = []
+        self.poi_focus: list[tuple[str | None, bool]] = []
 
     def set_camera(
         self,
@@ -25,8 +25,8 @@ class FakeRenderer:
     ) -> None:
         self.cameras.append((latitude, longitude, zoom, bearing, pitch))
 
-    def set_poi_focus(self, category: str | None) -> None:
-        self.poi_focus.append(category)
+    def set_poi_focus(self, category: str | None, enabled: bool = True) -> None:
+        self.poi_focus.append((category, enabled))
 
 
 class MapRequestHandlerTest(unittest.TestCase):
@@ -90,7 +90,7 @@ class MapRequestHandlerTest(unittest.TestCase):
         self.handler.request_poi_focus(category)
         self.assertTrue(self.handler.follow_enabled)
         self.assertEqual(self.follow_changes, [])
-        self.assertEqual(self.renderer.poi_focus[-1], category)
+        self.assertEqual(self.renderer.poi_focus[-1], (category, True))
         camera = self.renderer.cameras[-1]
         self.assertAlmostEqual(camera[2], 14.0)
         self.assertAlmostEqual(camera[4], 45.0)
@@ -105,8 +105,13 @@ class MapRequestHandlerTest(unittest.TestCase):
         self.handler.request_zoom(16.0)
         self.renderer.cameras.clear()
         self.handler.request_poi_focus("fuel")
-        self.assertEqual(self.renderer.poi_focus[-1], "fuel")
+        self.assertEqual(self.renderer.poi_focus[-1], ("fuel", True))
         self.assertEqual(self.renderer.cameras, [])
+
+    def test_poi_focus_can_be_toggled_off(self) -> None:
+        self.handler.request_poi_focus("fuel")
+        self.handler.request_poi_focus("fuel")
+        self.assertEqual(self.renderer.poi_focus[-2:], [("fuel", True), ("fuel", False)])
 
 
 if __name__ == "__main__":
