@@ -72,6 +72,7 @@ rate_hz = 10.0
 [services.automotive.input]
 source = "device"
 device = "elm327"
+transport = "serial"
 port = "/dev/rfcomm0"
 baud = 38400
 timeout_s = 1.0

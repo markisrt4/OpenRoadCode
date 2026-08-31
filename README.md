@@ -18,6 +18,8 @@ Explore the project at [openroadcode.org](https://www.openroadcode.org/) or visi
 
 OpenRoadCode is under active development and currently operates as an advanced experimental platform rather than a finished commercial infotainment system.
 
+The current integration work includes a new ORC UI shell, native offline MapLibre presentation, Valhalla route planning, live Android-backed positioning on Termux, message-bus map commands, map follow/recenter behavior, and focused POI presentation. These paths are being exercised together before promotion to the main development line.
+
 Some components are functional and actively used in the reference vehicle. Others are experimental, hardware-dependent, or still being integrated. Interfaces, configuration formats, and directory structures may continue to evolve before the first stable release.
 
 ---
@@ -41,9 +43,13 @@ OpenRoadCode is designed to:
 
 Current and partially integrated capabilities include:
 
-* Touchscreen automotive user interface
-* Offline Valhalla route planning and MapLibre map presentation
+* Touchscreen automotive user interface, including the evolving `orcUi` shell
+* Offline Valhalla route planning and native MapLibre map presentation
+* Route overlays, camera follow/recenter, manual map panning, and live vehicle position
 * Provider-independent positioning and navigation telemetry
+* Android bridge geographic positioning for the Termux navigation service
+* Message-bus-driven native map-renderer commands
+* Focused map POI presentation for selected categories
 * FM broadcast radio, AM airband, NOAA weather radio, and multi-band scanning
 * RTL-SDR integration with shared receiver ownership
 * ADS-B aircraft tracking through readsb and tar1090
@@ -64,7 +70,7 @@ Not every feature is supported on every target. In particular, Android/Termux is
 
 ## Planned and Experimental Features
 
-Potential future work includes dashcam and backup-camera integration, additional vehicle gauges, CAN/TPMS integration, steering-wheel controls, APRS, AIS, additional digital radio modes, trip recording, and custom OpenRoadCode operating-system images. These are areas of interest rather than release commitments.
+Potential future work includes dashcam and backup-camera integration, additional vehicle gauges, CAN/TPMS integration, steering-wheel controls, APRS, AIS, additional digital radio modes, trip recording, richer semantic POI discovery, and custom OpenRoadCode operating-system images. These are areas of interest rather than release commitments.
 
 ---
 
@@ -130,14 +136,16 @@ ZeroMQ XSUB/XPUB broker
 Shared application telemetry state
         │
         ▼
-carUi / carTui / webUi / demos
+orcUi / carUi / carTui / webUi / demos
 ```
 
 Producer services own physical devices or simulation sources, domain processing, and publication lifecycle. Applications consume public telemetry instead of constructing competing GPS, IMU, or OBD-II instances merely to display state.
 
+Map presentation follows the same separation. Navigation owns normalized position and route information, application-side map logic owns camera policy, and `MapRendererClient` publishes renderer commands through the message bus. The native MapLibre renderer therefore does not need to know whether a position originated from USB GNSS, Android, browser-based development input, or simulation.
+
 Commands requiring acknowledgement or error reporting use request/reply messaging where appropriate. Public telemetry remains SI-normalized on the wire; presentation code performs unit conversion.
 
-`carUi`, `carTui`, and `webUi` are peer applications. Browser-backed utilities such as Weather, ADS-B, YouTube, and Google Earth are auxiliary applications managed by CarUi according to application policy. A top-level application is not preloaded merely because it happens to use a browser.
+`orcUi`, `carUi`, `carTui`, and `webUi` are application front ends at different stages of development. Browser-backed utilities such as Weather, ADS-B, YouTube, and Google Earth are auxiliary applications managed according to application policy.
 
 Messaging and service documentation:
 
@@ -153,13 +161,13 @@ Messaging and service documentation:
 
 ## Configuration and Application Lifecycle
 
-Runtime service composition is selected through `config/runtime.toml`. Producer inputs can select physical, browser-backed, Android-backed, or simulation implementations without changing downstream telemetry consumers.
+Runtime service composition is selected through `config/runtime.toml`. Producer inputs can select physical, Android-backed, or simulation implementations without changing downstream telemetry consumers.
 
 User-facing auxiliary applications are configured separately:
 
 * `config/applications.toml` contains the Raspberry Pi/Linux application profile.
 * `config/applications.termux.toml` contains Termux presentation routing and platform-specific application behavior.
-* `config/runtime.termux.toml` is an explicit Android sensor/navigation service profile. CarUi does not select it automatically.
+* `config/runtime.termux.toml` is an explicit Android sensor/navigation service profile.
 
 Application startup policy is explicit:
 
@@ -169,7 +177,7 @@ Application startup policy is explicit:
 
 Browser-backed applications use independent Chromium app windows and profiles. Presentation targets and exclusive groups control where windows appear and which auxiliary applications may remain visible together.
 
-ADS-B also separates presentation from data ownership. The Raspberry Pi/Linux profile uses `source = "rtlsdr"`; the Termux profile currently uses `source = "simulation"`. With the RTL-SDR source, `readsb` is started on demand by the ADS-B launcher and stopped when ADS-B releases the receiver. It is deliberately not a permanently enabled system service because the receiver is shared with other SDR applications.
+ADS-B also separates presentation from data ownership. The Raspberry Pi/Linux profile uses `source = "rtlsdr"`; the Termux profile currently uses `source = "simulation"`. With the RTL-SDR source, `readsb` is started on demand by the ADS-B launcher and stopped when ADS-B releases the receiver.
 
 Do not commit credentials, API keys, OAuth tokens, browser state, or runtime service state such as runit `supervise/` directories.
 
@@ -188,19 +196,7 @@ cd OpenRoadCode
 ./scripts/installers/host_setup.sh --target linux-dev
 ```
 
-Features can be selected explicitly, for example:
-
-```bash
-./scripts/installers/host_setup.sh --target rpi5 \
-  --feature desktop-ui \
-  --feature input \
-  --feature gps \
-  --feature bluetooth \
-  --feature automotive \
-  --feature adsb
-```
-
-Use `--all-features` to install all compatible software capabilities, `--show-plan` to inspect the resolved plan without modifying the machine, and `--with-vnc` or `--with-gpsd-service` only when those services should be configured.
+Features can be selected explicitly. Use `--all-features` to install all compatible software capabilities, `--show-plan` to inspect the resolved plan without modifying the machine, and `--with-vnc` or `--with-gpsd-service` only when those services should be configured.
 
 Concrete devices and credentials remain separate from package installation. Run `./scripts/installers/host_setup.sh --help` for current options.
 
@@ -208,23 +204,21 @@ Concrete devices and credentials remain separate from package installation. Run 
 
 Termux is an active development target rather than a complete Raspberry Pi replacement. It is used to exercise native Python services, ZeroMQ, Valhalla, MapLibre, Chromium/Termux:X11 presentation, Android sensor integration, and simulated ADS-B presentation.
 
-Follow the [Termux development guide](https://github.com/markisrt4/OpenRoadCode/blob/master/development/termux/README.md) for the current native build, runit services, sensor bridge, navigation data, tar1090, and CarUi launch workflow.
+The current navigation profile consumes geographic position from the localhost Android sensor bridge while retaining simulation fallbacks for platform-dependent sensor inputs. Follow the [Termux development guide](https://github.com/markisrt4/OpenRoadCode/blob/master/development/termux/README.md) for the current native build, runit services, sensor bridge, navigation data, Valhalla, and UI workflow.
 
 ---
 
-## Running CarUi
+## Running the ORC UI
 
-From the repository root on a normal Linux/Raspberry Pi installation:
+From the repository root:
 
 ```bash
-CARUI_GEOMETRY=1024x600 \
-CARUI_FULLSCREEN=0 \
-venv/bin/python -m apps.carUi.main
+python -m apps.orcUi
 ```
 
-Termux normally uses X11 display `:1` and disables the splash by default because of Android/Termux Tcl/Tk interpreter teardown behavior. The Termux guide contains the complete launch sequence.
+On Termux, start or verify Termux:X11 first and export the appropriate `DISPLAY` value. The Termux guide contains the current launch sequence and native map prerequisites.
 
-Useful overrides include `CARUI_GEOMETRY`, `CARUI_FULLSCREEN`, `CARUI_SPLASH`, `CARUI_MEDIA_DISPLAY`, `OPENROAD_RUNTIME_CONFIG`, `OPENROAD_APPLICATIONS_CONFIG`, and `OPENROAD_RUNTIME_TARGET`.
+The older `carUi` application remains in the repository while the ORC UI shell is integrated and matured.
 
 ---
 
@@ -232,7 +226,7 @@ Useful overrides include `CARUI_GEOMETRY`, `CARUI_FULLSCREEN`, `CARUI_SPLASH`, `
 
 Mocks, stubs, simulation producers, and unconfigured implementations allow developers to test application logic, presentation, dependency assembly, and failure handling without the complete vehicle hardware stack.
 
-Component-test CLIs provide direct subsystem verification for navigation inputs, OBD-II, SDR applications, rotary encoders, environmental sensors, Spotify/media, audio, and Bluetooth devices. Component tests may require hardware, permissions, services, or environment variables and supplement rather than replace automated tests.
+Component-test CLIs provide direct subsystem verification for navigation inputs, route planning and map presentation, OBD-II, SDR applications, rotary encoders, environmental sensors, Spotify/media, audio, and Bluetooth devices. Component tests may require hardware, permissions, services, or environment variables and supplement rather than replace automated tests.
 
 ---
 
@@ -247,19 +241,9 @@ python scripts/check_doxygen_contracts.py
 doxygen Doxyfile
 ```
 
-Generated HTML documentation is written to:
+Generated HTML documentation is written to `build/doxygen/html/index.html`; warnings are written to `build/doxygen-warnings.log` and are treated as errors by the project Doxyfile.
 
-```text
-build/doxygen/html/index.html
-```
-
-Doxygen warnings are written to:
-
-```text
-build/doxygen-warnings.log
-```
-
-Unit tests use Python's `unittest` framework. Focused subsystem tests live alongside their implementation packages; component tests are used where real hardware or platform services are required.
+Before a pull request, also run the relevant unit/component tests for the changed subsystems. Native integration changes should be exercised on their target platform where practical, because Python can verify a contract but remains stubbornly unable to impersonate an Android graphics stack convincingly.
 
 ---
 

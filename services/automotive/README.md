@@ -84,7 +84,7 @@ Simulation:
 
 ```bash
 python3 -m services.automotive.automotive_service_cli \
-  --config config/runtime_simulation.toml
+  --config config/runtime.simulated.toml
 ```
 
 Physical vehicle:

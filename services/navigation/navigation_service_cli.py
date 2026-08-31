@@ -18,6 +18,7 @@ from controllers.navigation import (
     Mpu6050NavigationAdapter,
     NavigationController,
 )
+from controllers.navigation.android_position_source import AndroidPositionSource
 from controllers.navigation.simulated_ground_motion_source import (
     SimulatedGroundMotionSource,
 )
@@ -81,14 +82,21 @@ def _build_position_source(config: NavigationServiceRuntimeConfig):
             profile=simulation.profile,
             latitude_deg=simulation.latitude_deg,
             longitude_deg=simulation.longitude_deg,
+            speed_mps=simulation.speed_mps,
+            course_deg=simulation.course_deg,
         )
 
-    if config.gps.device != "gpsd":
-        raise ValueError(f"Unsupported GPS device: {config.gps.device}")
+    if config.gps.device == "android":
+        return AndroidPositionSource(
+            AndroidSensorBridgeClient(base_url=config.gps.bridge_url)
+        )
 
-    return GpsdNavigationAdapter(
-        _create_gps_reader(config.gps.host, config.gps.port)
-    )
+    if config.gps.device == "gpsd":
+        return GpsdNavigationAdapter(
+            _create_gps_reader(config.gps.host, config.gps.port)
+        )
+
+    raise ValueError(f"Unsupported GPS device: {config.gps.device}")
 
 
 def _build_ground_motion_source(config: NavigationServiceRuntimeConfig):

@@ -42,7 +42,8 @@ class MapPositionAdapterTest(unittest.TestCase):
         self.assertEqual([(42.1, -83.2)], renderer.positions)
         self.assertEqual(1, len(renderer.cameras))
         latitude, longitude, zoom, bearing, pitch = renderer.cameras[0]
-        self.assertEqual((42.1, -83.2), (latitude, longitude))
+        self.assertEqual(42.1, latitude)
+        self.assertEqual(-83.2, longitude)
         self.assertAlmostEqual(15.385714285714286, zoom)
         self.assertEqual(5.0, bearing)
         self.assertEqual(45.0, pitch)

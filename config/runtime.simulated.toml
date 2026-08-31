@@ -1,6 +1,6 @@
 # OpenRoadCode simulated runtime profile
 #
-# Use this profile for development and bench testing without navigation hardware.
+# Use this profile for development and bench testing without vehicle or navigation hardware.
 # It intentionally keeps the production/default runtime.toml untouched.
 
 [runtime]
@@ -11,6 +11,17 @@ auxiliary_display = ":0"
 [messaging]
 publisher_endpoint = "tcp://127.0.0.1:5556"
 subscriber_endpoint = "tcp://127.0.0.1:5557"
+
+[services.automotive]
+enabled = true
+rate_hz = 10.0
+
+[services.automotive.input]
+source = "simulation"
+
+[services.automotive.publish]
+enabled = true
+source = "simulated-vehicle"
 
 [services.navigation]
 enabled = true

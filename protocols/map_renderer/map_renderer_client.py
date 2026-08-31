@@ -1,120 +1,116 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 
-"""Client for controlling the native OpenRoadCode map renderer."""
+"""Client for publishing native map-renderer commands on the ORC message bus."""
 
 from __future__ import annotations
 
-import json
-import threading
+from collections.abc import Mapping
+from queue import Queue
+from threading import Thread
+from typing import Any
 
-import zmq
+from messaging.publisher_if import PublisherIf
+from messaging.zeromq.publisher import ZeroMqPublisher
 
-from .map_renderer_protocol import MapRendererCommand
-
-DEFAULT_MAP_RENDERER_ENDPOINT = "ipc:///tmp/openroadcode-map-renderer"
+from .map_renderer_protocol import MAP_RENDERER_COMMAND_TOPIC, MapRendererCommand
 
 
 class MapRendererUnavailableError(RuntimeError):
-    """Raised when the native map renderer is unavailable."""
+    """Raised when a map-renderer command cannot be published."""
 
 
 class MapRendererCommandError(RuntimeError):
-    """Raised when the native map renderer rejects a command."""
+    """Retained for compatibility with callers of the former request/reply client."""
+
+
+_STOP = object()
 
 
 class MapRendererClient:
-    """Send request/reply commands to the native map renderer.
+    """Publish asynchronous map-renderer commands through the ORC broker."""
 
-    The client keeps one ZeroMQ context and REQ socket alive across commands.
-    Navigation follow mode can issue position and camera updates many times per
-    second, so rebuilding the complete ZeroMQ transport for every command adds
-    unnecessary latency and allocator/socket churn, especially on Termux.
-    """
-
-    def __init__(
-        self,
-        endpoint: str = DEFAULT_MAP_RENDERER_ENDPOINT,
-        *,
-        timeout_ms: int = 1000,
-    ) -> None:
+    def __init__(self, publisher: PublisherIf | None = None, *, endpoint: str | None = None,
+                 timeout_ms: int | None = None) -> None:
+        del timeout_ms
+        self._publisher = publisher
         self._endpoint = endpoint
-        self._timeout_ms = timeout_ms
-        self._context = zmq.Context()
-        self._socket: zmq.Socket | None = None
-        self._lock = threading.Lock()
+        self._closed = False
+        self._send_error: Exception | None = None
+        self._queue: Queue[Mapping[str, Any] | object] | None = None
+        self._sender_thread: Thread | None = None
+        if publisher is None:
+            self._queue = Queue()
+            self._sender_thread = Thread(target=self._sender_loop,
+                name="map-renderer-command-publisher", daemon=True)
+            self._sender_thread.start()
 
     def close(self) -> None:
-        """Close the renderer transport."""
-        with self._lock:
-            self._close_socket()
-            if not self._context.closed:
-                self._context.term()
+        if self._closed:
+            return
+        self._closed = True
+        if self._queue is not None and self._sender_thread is not None:
+            self._queue.put(_STOP)
+            self._sender_thread.join(timeout=1.0)
+            return
+        if self._publisher is not None:
+            self._publisher.close()
 
     def set_camera(self, latitude: float, longitude: float, zoom: float,
                    bearing: float = 0.0, pitch: float = 0.0) -> None:
         self._send_command({"command": MapRendererCommand.SET_CAMERA,
-                            "latitude": latitude, "longitude": longitude,
-                            "zoom": zoom, "bearing": bearing, "pitch": pitch})
+            "latitude": latitude, "longitude": longitude, "zoom": zoom,
+            "bearing": bearing, "pitch": pitch})
 
     def set_route(self, geojson: dict[str, object]) -> None:
-        self._send_command({"command": MapRendererCommand.SET_ROUTE,
-                            "geojson": geojson})
+        self._send_command({"command": MapRendererCommand.SET_ROUTE, "geojson": geojson})
 
     def set_center(self, latitude: float, longitude: float) -> None:
         self._send_command({"command": MapRendererCommand.SET_CENTER,
-                            "latitude": latitude, "longitude": longitude})
+            "latitude": latitude, "longitude": longitude})
 
     def set_position(self, latitude: float, longitude: float) -> None:
         self._send_command({"command": MapRendererCommand.SET_POSITION,
-                            "latitude": latitude, "longitude": longitude})
+            "latitude": latitude, "longitude": longitude})
+
+    def set_poi_focus(self, category: str | None, enabled: bool = True) -> None:
+        self._send_command({"command": MapRendererCommand.SET_POI_FOCUS,
+            "category": category or "", "enabled": enabled if category else False})
 
     def fit_bounds(self, south: float, west: float, north: float, east: float,
                    padding: float = 40.0) -> None:
         self._send_command({"command": MapRendererCommand.FIT_BOUNDS,
-                            "south": south, "west": west, "north": north,
-                            "east": east, "padding": padding})
-
-    def _create_socket(self) -> zmq.Socket:
-        socket = self._context.socket(zmq.REQ)
-        socket.setsockopt(zmq.LINGER, 0)
-        socket.setsockopt(zmq.SNDTIMEO, self._timeout_ms)
-        socket.setsockopt(zmq.RCVTIMEO, self._timeout_ms)
-        socket.connect(self._endpoint)
-        return socket
-
-    def _get_socket(self) -> zmq.Socket:
-        if self._context.closed:
-            raise MapRendererUnavailableError("Map renderer client is closed")
-        if self._socket is None:
-            self._socket = self._create_socket()
-        return self._socket
-
-    def _close_socket(self) -> None:
-        if self._socket is not None:
-            self._socket.close(linger=0)
-            self._socket = None
+            "south": south, "west": west, "north": north, "east": east,
+            "padding": padding})
 
     def _send_command(self, command: dict[str, object]) -> None:
-        with self._lock:
-            try:
-                client = self._get_socket()
-                client.send_string(json.dumps(command))
-                response = client.recv_json()
-            except (zmq.Again, zmq.ZMQError, ValueError) as exc:
-                # A REQ socket cannot safely continue after a timed-out or
-                # otherwise interrupted request/reply exchange. Recreate only
-                # the socket so the next frame can recover without rebuilding
-                # the entire ZeroMQ context.
-                self._close_socket()
-                raise MapRendererUnavailableError(
-                    f"Map renderer unavailable at {self._endpoint}"
-                ) from exc
+        if self._closed:
+            raise MapRendererUnavailableError("map renderer client is closed")
+        if self._send_error is not None:
+            raise MapRendererUnavailableError("unable to publish map renderer command") from self._send_error
+        if self._queue is not None:
+            self._queue.put(command)
+            return
+        if self._publisher is None:
+            raise MapRendererUnavailableError("map renderer publisher is unavailable")
+        try:
+            self._publisher.publish(MAP_RENDERER_COMMAND_TOPIC, command)
+        except (RuntimeError, OSError) as exc:
+            raise MapRendererUnavailableError("unable to publish map renderer command") from exc
 
-        if not isinstance(response, dict) or not response.get("ok", False):
-            message = (
-                response.get("message", "Map renderer rejected command")
-                if isinstance(response, dict)
-                else "Invalid map renderer response"
-            )
-            raise MapRendererCommandError(str(message))
+    def _sender_loop(self) -> None:
+        publisher = ZeroMqPublisher(self._endpoint) if self._endpoint else ZeroMqPublisher()
+        try:
+            assert self._queue is not None
+            while True:
+                command = self._queue.get()
+                try:
+                    if command is _STOP:
+                        return
+                    publisher.publish(MAP_RENDERER_COMMAND_TOPIC, command)
+                except Exception as exc:
+                    self._send_error = exc
+                finally:
+                    self._queue.task_done()
+        finally:
+            publisher.close()

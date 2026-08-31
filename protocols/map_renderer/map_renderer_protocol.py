@@ -6,6 +6,9 @@
 from common.str_enum import StrEnum
 
 
+MAP_RENDERER_COMMAND_TOPIC = "map.command"
+
+
 class MapRendererCommand(StrEnum):
     """Commands supported by the native map renderer."""
 
@@ -14,3 +17,4 @@ class MapRendererCommand(StrEnum):
     SET_ROUTE = "set_route"
     FIT_BOUNDS = "fit_bounds"
     SET_POSITION = "set_position"
+    SET_POI_FOCUS = "set_poi_focus"

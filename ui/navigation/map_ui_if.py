@@ -86,6 +86,7 @@ class MapState:
     @param markers Complete marker collection.
     @param route_geometry Optional route line.
     @param style_id Optional application-defined map style identifier.
+    @param follow_enabled Whether the camera should follow current position.
     @param loading Whether map resources are loading.
     @param error_message Optional user-visible map error.
     """
@@ -94,6 +95,7 @@ class MapState:
     markers: tuple[MapMarker, ...] = ()
     route_geometry: RouteGeometry | None = None
     style_id: str | None = None
+    follow_enabled: bool = True
     loading: bool = False
     error_message: str | None = None
 

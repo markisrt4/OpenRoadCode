@@ -21,20 +21,14 @@ from protocols.map_renderer.map_renderer_client import MapRendererClient
 
 BROKER_PUBLISHER_ENDPOINT = "tcp://127.0.0.1:16556"
 BROKER_SUBSCRIBER_ENDPOINT = "tcp://127.0.0.1:16557"
-DEFAULT_RENDERER_ENDPOINT = "tcp://127.0.0.1:15562"
 
 
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
             "Publish simulated navigation positions through the real OpenRoadCode "
-            "ZeroMQ bus and follow them with the map renderer."
+            "ZeroMQ bus and emit map commands on the same broker."
         )
-    )
-    parser.add_argument(
-        "--renderer-endpoint",
-        default=DEFAULT_RENDERER_ENDPOINT,
-        help="ZeroMQ endpoint of an already-running map renderer command server",
     )
     parser.add_argument(
         "--interval",
@@ -114,7 +108,7 @@ def main() -> int:
     _wait_for_broker(broker)
 
     map_adapter = MapPositionAdapter(
-        MapRendererClient(args.renderer_endpoint, timeout_ms=2000),
+        MapRendererClient(ZeroMqPublisher(BROKER_PUBLISHER_ENDPOINT)),
         frame_rate_hz=20.0,
         correction_time_s=0.25,
         maximum_prediction_age_s=0.75,
@@ -151,9 +145,9 @@ def main() -> int:
         time.sleep(0.5)
 
         print("Simulated navigation map-follow component test passed")
-        print(f"  renderer: {args.renderer_endpoint}")
+        print(f"  broker:   {BROKER_PUBLISHER_ENDPOINT} -> {BROKER_SUBSCRIBER_ENDPOINT}")
         print(f"  fixes:    {len(positions)}")
-        print("  expected C++ commands: set_position + set_camera stream")
+        print("  expected map.command stream: set_position + set_camera")
         return 0
     finally:
         runtime.close()

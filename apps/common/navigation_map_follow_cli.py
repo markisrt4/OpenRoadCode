@@ -16,11 +16,11 @@ import tty
 from apps.common.navigation_map_follow import NavigationMapFollowRuntime
 from config.service_runtime_config import ServiceRuntimeConfigParser
 from controllers.map_renderer.map_position_adapter import MapPositionAdapter
+from messaging.zeromq.publisher import ZeroMqPublisher
 from messaging.zeromq.subscriber import ZeroMqSubscriber
 from protocols.map_renderer.map_renderer_client import MapRendererClient
 
 DEFAULT_RUNTIME_CONFIG = "config/runtime.toml"
-DEFAULT_RENDERER_ENDPOINT = "tcp://127.0.0.1:5562"
 
 
 def _parse_args() -> argparse.Namespace:
@@ -28,7 +28,6 @@ def _parse_args() -> argparse.Namespace:
         description="Follow published OpenRoadCode navigation position on MapLibre."
     )
     parser.add_argument("--config", default=DEFAULT_RUNTIME_CONFIG)
-    parser.add_argument("--renderer-endpoint", default=DEFAULT_RENDERER_ENDPOINT)
     parser.add_argument("--no-follow", action="store_true")
     return parser.parse_args()
 
@@ -89,7 +88,9 @@ def main() -> int:
     signal.signal(signal.SIGTERM, stop)
 
     adapter = MapPositionAdapter(
-        MapRendererClient(args.renderer_endpoint, timeout_ms=2000),
+        MapRendererClient(
+            ZeroMqPublisher(config.messaging.publisher_endpoint)
+        ),
         follow=not args.no_follow,
     )
     runtime = NavigationMapFollowRuntime(
@@ -98,7 +99,7 @@ def main() -> int:
     )
 
     print(f"navigation bus: {config.messaging.subscriber_endpoint}")
-    print(f"map renderer:   {args.renderer_endpoint}")
+    print(f"map commands:   {config.messaging.publisher_endpoint} topic=map.command")
     print("camera: AUTO speed-aware zoom / course bearing")
     print("controls: +/- zoom | W/S pitch | A/D bearing | R auto | Q quit")
     print("waiting for navigation position")

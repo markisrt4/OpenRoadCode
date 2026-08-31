@@ -1,8 +1,8 @@
 # OpenRoadCode Termux runtime composition
 #
-# Run the OpenRoadCode Android Bridge app first. This profile lets the normal
-# navigation and automotive services consume phone-owned hardware through
-# localhost bridges while keeping the normal ORC contracts above that layer.
+# Use this profile for Termux/X11 integration and bench testing. Keep the core
+# navigation service deterministic and available even when optional Android
+# hardware bridges are not running.
 
 [runtime]
 remote_display = ":1"
@@ -18,15 +18,21 @@ enabled = true
 rate_hz = 20.0
 command_endpoint = "tcp://127.0.0.1:5560"
 
+# Keep the IMU simulated for ordinary Termux UI development. Android position
+# is independent below, so a live map fix does not require the IMU stream.
 [services.navigation.inputs.imu]
-source = "device"
+source = "simulation"
 device = "android"
 bridge_url = "http://127.0.0.1:8766"
 
-# GPS remains simulated in this profile until Android position is composed into
-# the normal navigation service. This keeps this profile deterministic today.
+[services.navigation.inputs.imu.simulation]
+profile = "stationary"
+
+# Use Android's live location through the localhost OpenRoadCode bridge.
 [services.navigation.inputs.gps]
-source = "simulation"
+source = "device"
+device = "android"
+bridge_url = "http://127.0.0.1:8766"
 
 [services.navigation.inputs.gps.simulation]
 profile = "stationary"
@@ -46,6 +52,8 @@ heading_reference = "relative"
 enabled = true
 source = "navigation-service-android"
 
+# Android owns the Bluetooth SPP connection. OpenRoadCode consumes the raw
+# ELM327 byte stream over the bridge's localhost-only TCP endpoint.
 [services.automotive]
 enabled = true
 rate_hz = 10.0
@@ -56,7 +64,7 @@ device = "elm327"
 transport = "tcp"
 host = "127.0.0.1"
 tcp_port = 35000
-timeout_s = 2.0
+timeout_s = 1.0
 slow_poll_interval_s = 5.0
 
 [services.automotive.publish]
@@ -102,7 +110,7 @@ driver = "seesaw"
 address = 0x38
 
 # RuntimeConfigParser still requires at least one radio stack. Disable it here;
-# the Termux sensor profile is intentionally focused on navigation plumbing.
+# the Termux sensor profile is intentionally focused on hardware plumbing.
 [[radios]]
 key = "fm_radio"
 config = "fm_radio.json"

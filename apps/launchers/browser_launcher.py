@@ -10,6 +10,7 @@ from pathlib import Path
 
 from apps.launchers.app_launcher_if import AppLauncherIf, StatusCallback
 from apps.launchers.external_window_manager import ExternalWindowManager, x11_environment
+from apps.launchers.graphics_environment import graphics_environment
 from apps.launchers.process_manager import close_matching_display_apps, is_process_running, terminate_process
 from common.logging.logging_paths import logging_file_path
 
@@ -79,7 +80,7 @@ class BrowserKioskLauncher(AppLauncherIf):
         self._window_id = None
         self._hidden = False
         browser_path = self._find_browser()
-        environment = x11_environment(remote_display)
+        environment = graphics_environment(x11_environment(remote_display))
         command = [
             browser_path,
             "--noerrdialogs",
