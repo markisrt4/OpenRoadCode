@@ -96,15 +96,16 @@ int main() {
                 .withZoom(command->zoom).withBearing(command->bearing).withPitch(command->pitch)); return;
         }
         if (command->command == "set_poi_focus") {
-            const bool fuel = command->category == "fuel";
-            const bool grocery = command->category == "grocery";
-            setLayerVisible(map.getStyle(), "fuel-focus-glow", fuel);
-            setLayerVisible(map.getStyle(), "fuel-focus-label", fuel);
-            setLayerVisible(map.getStyle(), "grocery-focus-glow", grocery);
-            setLayerVisible(map.getStyle(), "grocery-focus-label", grocery);
+            if (command->category == "fuel") {
+                setLayerVisible(map.getStyle(), "fuel-focus-glow", command->enabled);
+                setLayerVisible(map.getStyle(), "fuel-focus-label", command->enabled);
+            } else if (command->category == "grocery") {
+                setLayerVisible(map.getStyle(), "grocery-focus-glow", command->enabled);
+                setLayerVisible(map.getStyle(), "grocery-focus-label", command->enabled);
+            }
             view.invalidate();
-            std::cout << "[map_renderer] POI focus: "
-                      << (fuel ? "fuel" : grocery ? "grocery" : "off") << '\n'; return;
+            std::cout << "[map_renderer] POI focus: " << command->category
+                      << " -> " << (command->enabled ? "on" : "off") << '\n'; return;
         }
         if (command->command == "set_route") {
             auto* source = map.getStyle().getSource("route"); if (!source) return;
