@@ -47,12 +47,13 @@ class ExternalWindowManager:
         return window_id
 
     def send_key(self, *, display: str, window_id: str | None, key: str) -> bool:
-        """Send one xdotool key chord directly to a managed window."""
+        """Activate a managed X11 window, then send a normal xdotool key chord."""
         if window_id is None or not self._tools_available("xdotool"):
             return False
         environment = x11_environment(display)
         self._run(["xdotool", "windowactivate", "--sync", window_id], environment)
-        self._run(["xdotool", "key", "--window", window_id, key], environment)
+        time.sleep(0.08)
+        self._run(["xdotool", "key", "--clearmodifiers", key], environment)
         return True
 
     def activate(self, *, display: str, window_class: str) -> str | None:
