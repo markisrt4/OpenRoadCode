@@ -82,9 +82,12 @@ class MapRouteContractTest(unittest.TestCase):
                 "request_follow",
                 "request_recenter",
                 "request_center_on",
+                "request_pan",
+                "request_pan_screen",
                 "request_zoom",
                 "request_bearing",
                 "request_pitch",
+                "request_poi_focus",
                 "request_style",
             },
         )
