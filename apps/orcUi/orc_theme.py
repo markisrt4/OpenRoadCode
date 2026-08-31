@@ -98,11 +98,15 @@ def _apply_dark_map_palette(document: dict[str,Any]) -> None:
     _paint(layers,"waterways","line-opacity",1.0)
     for lid in ("service-roads-casing","residential-roads-casing"):_paint(layers,lid,"line-color",_MAP_DARK["minor_casing"])
     for lid in ("service-roads","residential-roads"):_paint(layers,lid,"line-color",_MAP_DARK["minor_road"])
-    for prefix,key in (("secondary","secondary"),("primary","primary"),("motorways","motorway")):
+    for prefix,road_key,casing_key in (
+        ("secondary","secondary_road","secondary_casing"),
+        ("primary","primary_road","primary_casing"),
+        ("motorways","motorway","motorway_casing"),
+    ):
         casing_id = f"{prefix}-roads-casing" if prefix != "motorways" else "motorways-casing"
         road_id = f"{prefix}-roads" if prefix != "motorways" else "motorways"
-        _paint(layers,casing_id,"line-color",_MAP_DARK[f"{key}_casing"])
-        _paint(layers,road_id,"line-color",_MAP_DARK[key])
+        _paint(layers,casing_id,"line-color",_MAP_DARK[casing_key])
+        _paint(layers,road_id,"line-color",_MAP_DARK[road_key])
     _paint(layers,"aeroways","line-color",_MAP_DARK["secondary_road"])
     building=layers.get("buildings")
     if building is not None:
