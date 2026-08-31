@@ -36,8 +36,8 @@ class NavigationPanel(tk.Frame):
         for text,accent,key in (("⌂ HOME",BLUE,"home"),("▣ WORK",PURPLE,"work"),("⛽ GAS",RED,"gas"),("▣ GROCERY",GREEN,"grocery"),("♨ FOOD",RED,"food")):
             tk.Button(shortcuts,text=text,command=lambda s=key:self._destination_shortcut(s),bg=PANEL,fg=accent,activebackground="#101820",activeforeground=TEXT,relief=tk.FLAT,highlightthickness=1,highlightbackground=BORDER,font=("Sans",8,"bold"),width=9,height=1,padx=3,pady=1).pack(side=tk.LEFT,padx=(0,4))
         self._shortcut_status=tk.StringVar(value=self._focus_status())
-        self._earth_button=tk.Button(bar,text="◉ EARTH",command=self._toggle_earth,bg=PANEL,fg=BLUE,activebackground="#101820",activeforeground=TEXT,relief=tk.FLAT,highlightthickness=1,highlightbackground=BORDER,font=("Sans",8,"bold"),width=9,height=1,padx=3,pady=1)
-        self._earth_button.pack(side=tk.RIGHT,padx=(4,2),pady=3)
+        self._earth_button=tk.Button(bar,text="◉  EARTH",command=self._toggle_earth,bg=BLUE,fg="#ffffff",activebackground=GREEN,activeforeground="#05090d",relief=tk.FLAT,highlightthickness=2,highlightbackground="#5bbcff",font=("Sans",9,"bold"),width=11,height=1,padx=5,pady=1)
+        self._earth_button.pack(side=tk.RIGHT,padx=(7,2),pady=2)
         tk.Label(bar,textvariable=self._shortcut_status,bg=BG,fg=MUTED,font=("Sans",7),anchor="e").pack(side=tk.RIGHT,padx=5)
         body=tk.Frame(self,bg=BG); body.grid(row=1,column=0,sticky="nsew"); body.grid_rowconfigure(0,weight=1); body.grid_columnconfigure(0,weight=1)
         self._map_host=tk.Frame(body,bg="#020406",highlightthickness=1,highlightbackground=BORDER); self._map_host.grid(row=0,column=0,sticky="nsew")
@@ -59,12 +59,15 @@ class NavigationPanel(tk.Frame):
             if not self._earth_visible:
                 position=(self._map_host.winfo_rootx(),self._map_host.winfo_rooty())
                 size=(max(1,self._map_host.winfo_width()),max(1,self._map_host.winfo_height()))
-                self._earth_launcher.configure_app_window(position=position,size=size)
+                self._earth_launcher.configure_kiosk_window(position=position,size=size)
             self._earth_visible=self._earth_launcher.toggle(self._display())
-            self._earth_button.configure(text="MAP" if self._earth_visible else "◉ EARTH",fg=GREEN if self._earth_visible else BLUE)
+            if self._earth_visible:
+                self._earth_button.configure(text="▣  MAP",bg=GREEN,fg="#05090d",highlightbackground="#b8f55f")
+            else:
+                self._earth_button.configure(text="◉  EARTH",bg=BLUE,fg="#ffffff",highlightbackground="#5bbcff")
             self._shortcut_status.set("Google Earth" if self._earth_visible else "MapLibre")
         except (OSError,RuntimeError,ValueError) as exc:
-            self._earth_visible=False; self._earth_button.configure(text="◉ EARTH",fg=RED); self._shortcut_status.set(f"Earth unavailable: {exc}")
+            self._earth_visible=False; self._earth_button.configure(text="◉  EARTH",bg=RED,fg="#ffffff",highlightbackground="#ff8b5e"); self._shortcut_status.set(f"Earth unavailable: {exc}")
     def _schedule_renderer_refresh(self)->None:
         for delay_ms in (300,700,1200): self.after(delay_ms,self._refresh_renderer_state)
     def _refresh_renderer_state(self)->None:
