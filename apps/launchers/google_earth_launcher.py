@@ -9,11 +9,11 @@ class GoogleEarthLauncher:
     def __init__(self,*,browser:BrowserKioskLauncher|None=None)->None:
         self._browser=browser or BrowserKioskLauncher(url=self._location_url(42.3314,-83.0458),process_pattern='earth.google.com',window_class='openroadcode-google-earth')
     def configure_app_window(self,*,position:tuple[int,int],size:tuple[int,int],parent_window_id:int|None=None)->None:
-        if parent_window_id is not None:
-            self._browser.configure_embedded_kiosk_window(position=position,size=size,parent_window_id=parent_window_id)
-        else:
-            self._browser.configure_app_window(position=position,size=size,borderless=True)
-    def configure_kiosk_window(self,*,position:tuple[int,int],size:tuple[int,int])->None:self._browser.configure_kiosk_window(position=position,size=size)
+        self._browser.configure_app_window(position=position,size=size,borderless=True,parent_window_id=parent_window_id)
+    def configure_fullscreen(self,*,position:tuple[int,int],size:tuple[int,int])->None:
+        """Launch Earth as an intentional Chromium kiosk view."""
+        self._browser.configure_kiosk_window(position=position,size=size)
+    def configure_kiosk_window(self,*,position:tuple[int,int],size:tuple[int,int])->None:self.configure_fullscreen(position=position,size=size)
     def set_color_scheme(self,value:str|None)->None:self._browser.set_color_scheme(value)
     def set_location(self,latitude:float,longitude:float)->None:self._browser.set_url(self._location_url(latitude,longitude))
     def launch(self,d:str,set_status:StatusCallback=None)->None:self._browser.launch(d,set_status)
