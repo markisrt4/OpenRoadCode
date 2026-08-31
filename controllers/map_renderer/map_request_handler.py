@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import math
 from collections.abc import Callable
 
 from ui.navigation import GeoPoint, MapRequestHandlerIf
@@ -26,6 +27,7 @@ class MapRequestHandler(MapRequestHandlerIf):
     ) -> None:
         self._renderer = renderer
         self._center = center
+        self._follow_center = center
         self._zoom_level = zoom_level
         self._bearing_rad = bearing_rad
         self._pitch_rad = pitch_rad
@@ -37,11 +39,14 @@ class MapRequestHandler(MapRequestHandlerIf):
         return self._follow_enabled
 
     def request_recenter(self) -> None:
+        self._center = self._follow_center
         self.request_follow(True)
         self._send_camera()
 
     def request_follow(self, enabled: bool) -> None:
         self._follow_enabled = enabled
+        if enabled:
+            self._center = self._follow_center
         if self._on_follow_changed is not None:
             self._on_follow_changed(enabled)
 
@@ -51,8 +56,6 @@ class MapRequestHandler(MapRequestHandlerIf):
         self._send_camera()
 
     def request_pan(self, north_m: float, east_m: float) -> None:
-        import math
-
         earth_radius_m = 6_378_137.0
         latitude_rad = self._center.latitude_rad + north_m / earth_radius_m
         cos_latitude = math.cos(latitude_rad)
@@ -86,21 +89,17 @@ class MapRequestHandler(MapRequestHandlerIf):
         self._send_camera()
 
     def request_style(self, style_id: str) -> None:
-        # Styles are currently selected by the native renderer configuration.
-        # Keep the semantic request in the public contract until runtime style
-        # switching is added to the renderer protocol.
         del style_id
 
     def update_follow_center(self, position: GeoPoint) -> None:
-        """Update the authoritative vehicle center and follow it when enabled."""
+        """Update the authoritative vehicle position without corrupting manual camera state."""
 
-        self._center = position
+        self._follow_center = position
         if self._follow_enabled:
+            self._center = position
             self._send_camera()
 
     def _send_camera(self) -> None:
-        import math
-
         self._renderer.set_camera(
             latitude=math.degrees(self._center.latitude_rad),
             longitude=math.degrees(self._center.longitude_rad),
