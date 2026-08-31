@@ -23,6 +23,8 @@ from protocols.map_renderer.map_renderer_client import MapRendererClient
 from ui.navigation import GeoPoint, MapRequestHandlerIf
 
 _MIN_COURSE_UP_SPEED_M_S = 1.5
+_MIN_COURSE_POSITION_DELTA_M = 4.0
+_EARTH_RADIUS_M = 6_378_137.0
 
 
 class MapCameraRuntime:
@@ -56,6 +58,7 @@ class MapCameraRuntime:
             decode_motion_state,
             self._on_motion_message,
         )
+        self._course_reference: GeoPoint | None = None
         self._closed = False
 
     @property
@@ -88,6 +91,23 @@ class MapCameraRuntime:
             longitude_rad=data.longitude_rad,
             altitude_m=data.altitude_m,
         )
+
+        # Android location providers do not always report speed/course even
+        # while position itself is updating. Derive a stable course from the
+        # displacement between sufficiently separated fixes so course-up still
+        # works on those providers without letting stationary GPS noise spin
+        # the map.
+        reference = self._course_reference
+        if reference is None:
+            self._course_reference = point
+        else:
+            distance_m = self._distance_m(reference, point)
+            if distance_m >= _MIN_COURSE_POSITION_DELTA_M:
+                self._handler.update_follow_bearing(
+                    self._bearing_rad(reference, point)
+                )
+                self._course_reference = point
+
         self._handler.update_follow_center(point)
 
         # Position and camera are deliberately separate renderer commands. The
@@ -112,3 +132,30 @@ class MapCameraRuntime:
             return
 
         self._handler.update_follow_bearing(bearing_rad)
+
+    @staticmethod
+    def _distance_m(start: GeoPoint, end: GeoPoint) -> float:
+        d_lat = end.latitude_rad - start.latitude_rad
+        d_lon = end.longitude_rad - start.longitude_rad
+        sin_lat = math.sin(d_lat / 2.0)
+        sin_lon = math.sin(d_lon / 2.0)
+        a = (
+            sin_lat * sin_lat
+            + math.cos(start.latitude_rad)
+            * math.cos(end.latitude_rad)
+            * sin_lon
+            * sin_lon
+        )
+        return 2.0 * _EARTH_RADIUS_M * math.asin(min(1.0, math.sqrt(a)))
+
+    @staticmethod
+    def _bearing_rad(start: GeoPoint, end: GeoPoint) -> float:
+        d_lon = end.longitude_rad - start.longitude_rad
+        y = math.sin(d_lon) * math.cos(end.latitude_rad)
+        x = (
+            math.cos(start.latitude_rad) * math.sin(end.latitude_rad)
+            - math.sin(start.latitude_rad)
+            * math.cos(end.latitude_rad)
+            * math.cos(d_lon)
+        )
+        return math.atan2(y, x)
