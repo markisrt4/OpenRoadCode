@@ -14,7 +14,10 @@ class StreamTransportIf(ABC):
     @property
     @abstractmethod
     def is_connected(self) -> bool:
-        """Return whether the transport is connected."""
+        """Return whether the transport is connected.
+
+        @return True when the transport is connected; otherwise False.
+        """
         ...
 
     @abstractmethod
@@ -34,7 +37,11 @@ class StreamTransportIf(ABC):
 
     @abstractmethod
     def write(self, data: bytes) -> int:
-        """Write bytes and return the number accepted."""
+        """Write bytes to the transport.
+
+        @param data Bytes to write.
+        @return Number of bytes accepted by the transport.
+        """
         ...
 
     @abstractmethod
@@ -44,5 +51,9 @@ class StreamTransportIf(ABC):
 
     @abstractmethod
     def read(self, size: int) -> bytes:
-        """Read up to ``size`` bytes, returning empty bytes on timeout."""
+        """Read bytes from the transport.
+
+        @param size Maximum number of bytes to read.
+        @return Up to ``size`` bytes, or empty bytes on timeout.
+        """
         ...
