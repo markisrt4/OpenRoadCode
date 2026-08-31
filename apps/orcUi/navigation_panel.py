@@ -3,8 +3,10 @@
 """Full navigation panel for the integrated ORC cockpit UI."""
 from __future__ import annotations
 import math
+import os
 import tkinter as tk
 from collections.abc import Callable
+from apps.launchers.google_earth_launcher import GoogleEarthLauncher
 from apps.orcUi.shared_map_camera import get_shared_map_camera_runtime
 from ui.navigation import MapRequestHandlerIf
 
@@ -14,6 +16,7 @@ class NavigationPanel(tk.Frame):
     def __init__(self,parent:tk.Misc,*,map_request_handler:MapRequestHandlerIf|None=None,on_back:Callable[[],None]|None=None)->None:
         super().__init__(parent,bg=BG); del on_back
         runtime=get_shared_map_camera_runtime(); self._request_handler=map_request_handler or runtime.request_handler
+        self._earth_launcher=GoogleEarthLauncher(); self._earth_visible=False
         self._zoom_level=float(getattr(self._request_handler,"zoom_level",16.5)); self._pitch_rad=float(getattr(self._request_handler,"pitch_rad",math.radians(45.0)))
         self._follow_enabled=bool(getattr(self._request_handler,"follow_enabled",True)); self._poi_focus=set(getattr(self._request_handler,"poi_focus",())); self._build(); self._schedule_renderer_refresh()
     @property
@@ -22,6 +25,10 @@ class NavigationPanel(tk.Frame):
         if handler is not None: self._request_handler=handler
     def set_follow_enabled(self,enabled:bool)->None:
         self._follow_enabled=enabled; self._follow_button.configure(text="F" if enabled else "F̸",fg=GREEN if enabled else TEXT)
+    def destroy(self)->None:
+        if self._earth_launcher.is_running():
+            self._earth_launcher.stop(self._display())
+        super().destroy()
     def _build(self)->None:
         self.grid_rowconfigure(1,weight=1); self.grid_columnconfigure(0,weight=1)
         bar=tk.Frame(self,bg=BG,height=38); bar.grid(row=0,column=0,sticky="ew",pady=(0,4)); bar.grid_propagate(False)
@@ -29,6 +36,8 @@ class NavigationPanel(tk.Frame):
         for text,accent,key in (("⌂ HOME",BLUE,"home"),("▣ WORK",PURPLE,"work"),("⛽ GAS",RED,"gas"),("▣ GROCERY",GREEN,"grocery"),("♨ FOOD",RED,"food")):
             tk.Button(shortcuts,text=text,command=lambda s=key:self._destination_shortcut(s),bg=PANEL,fg=accent,activebackground="#101820",activeforeground=TEXT,relief=tk.FLAT,highlightthickness=1,highlightbackground=BORDER,font=("Sans",8,"bold"),width=9,height=1,padx=3,pady=1).pack(side=tk.LEFT,padx=(0,4))
         self._shortcut_status=tk.StringVar(value=self._focus_status())
+        self._earth_button=tk.Button(bar,text="◉ EARTH",command=self._toggle_earth,bg=PANEL,fg=BLUE,activebackground="#101820",activeforeground=TEXT,relief=tk.FLAT,highlightthickness=1,highlightbackground=BORDER,font=("Sans",8,"bold"),width=9,height=1,padx=3,pady=1)
+        self._earth_button.pack(side=tk.RIGHT,padx=(4,2),pady=3)
         tk.Label(bar,textvariable=self._shortcut_status,bg=BG,fg=MUTED,font=("Sans",7),anchor="e").pack(side=tk.RIGHT,padx=5)
         body=tk.Frame(self,bg=BG); body.grid(row=1,column=0,sticky="nsew"); body.grid_rowconfigure(0,weight=1); body.grid_columnconfigure(0,weight=1)
         self._map_host=tk.Frame(body,bg="#020406",highlightthickness=1,highlightbackground=BORDER); self._map_host.grid(row=0,column=0,sticky="nsew")
@@ -42,6 +51,20 @@ class NavigationPanel(tk.Frame):
         tk.Label(controls,text="ZOOM\nTILT\nNORTH\nCENTER",bg=PANEL,fg=MUTED,font=("Sans",6),justify=tk.CENTER).pack(side=tk.BOTTOM,pady=5)
     def _control(self,parent,text,command,fg):
         return tk.Button(parent,text=text,command=command,bg=PANEL,fg=fg,activebackground="#101820",activeforeground=TEXT,relief=tk.FLAT,highlightthickness=1,highlightbackground=BORDER,font=("Sans",11,"bold"),height=1)
+    def _display(self)->str:
+        return os.environ.get("DISPLAY",":1")
+    def _toggle_earth(self)->None:
+        try:
+            self._map_host.update_idletasks()
+            if not self._earth_visible:
+                position=(self._map_host.winfo_rootx(),self._map_host.winfo_rooty())
+                size=(max(1,self._map_host.winfo_width()),max(1,self._map_host.winfo_height()))
+                self._earth_launcher.configure_app_window(position=position,size=size)
+            self._earth_visible=self._earth_launcher.toggle(self._display())
+            self._earth_button.configure(text="MAP" if self._earth_visible else "◉ EARTH",fg=GREEN if self._earth_visible else BLUE)
+            self._shortcut_status.set("Google Earth" if self._earth_visible else "MapLibre")
+        except (OSError,RuntimeError,ValueError) as exc:
+            self._earth_visible=False; self._earth_button.configure(text="◉ EARTH",fg=RED); self._shortcut_status.set(f"Earth unavailable: {exc}")
     def _schedule_renderer_refresh(self)->None:
         for delay_ms in (300,700,1200): self.after(delay_ms,self._refresh_renderer_state)
     def _refresh_renderer_state(self)->None:
