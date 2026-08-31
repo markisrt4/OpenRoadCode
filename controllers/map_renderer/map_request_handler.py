@@ -10,6 +10,8 @@ from collections.abc import Callable
 
 from ui.navigation import GeoPoint, MapRequestHandlerIf
 
+_MIN_FUEL_FOCUS_ZOOM = 14.0
+
 
 class MapRequestHandler(MapRequestHandlerIf):
     """Maintain user-controlled camera state and issue native map commands."""
@@ -98,6 +100,9 @@ class MapRequestHandler(MapRequestHandlerIf):
 
     def request_poi_focus(self, category: str | None) -> None:
         self._poi_focus = category
+        if category == "fuel" and self._zoom_level < _MIN_FUEL_FOCUS_ZOOM:
+            self._zoom_level = _MIN_FUEL_FOCUS_ZOOM
+            self._send_camera()
         self._renderer.set_poi_focus(category)
 
     def request_style(self, style_id: str) -> None:
