@@ -36,6 +36,7 @@ class BrowserKioskLauncher(AppLauncherIf):
         self.extra_arguments = extra_arguments
         self.window_class = window_class
         self.exclusive_group = exclusive_group
+        self.color_scheme: str | None = None
         self._window_manager = window_manager or ExternalWindowManager()
         self._process: subprocess.Popen[str] | None = None
         self._window_id: str | None = None
@@ -53,6 +54,14 @@ class BrowserKioskLauncher(AppLauncherIf):
         if self.is_running():
             raise RuntimeError("Cannot change browser URL while it is running")
         self.url = url
+
+    def set_color_scheme(self, color_scheme: str | None) -> None:
+        """Prefer Chromium dark or light appearance for the next launch."""
+        if color_scheme not in (None, "dark", "light"):
+            raise ValueError("color_scheme must be 'dark', 'light', or None")
+        if self.is_running():
+            raise RuntimeError("Cannot change browser color scheme while it is running")
+        self.color_scheme = color_scheme
 
     def is_running(self) -> bool:
         if self._process is not None:
@@ -92,6 +101,10 @@ class BrowserKioskLauncher(AppLauncherIf):
         self._hidden = False
         browser_path = self._find_browser()
         environment = graphics_environment(x11_environment(remote_display))
+        if self.color_scheme == "dark":
+            environment["GTK_THEME"] = "Adwaita:dark"
+        elif self.color_scheme == "light":
+            environment["GTK_THEME"] = "Adwaita"
         command = [
             browser_path,
             "--noerrdialogs",
@@ -100,6 +113,8 @@ class BrowserKioskLauncher(AppLauncherIf):
             "--disable-restore-session-state",
             "--password-store=basic",
         ]
+        if self.color_scheme == "dark":
+            command.append("--force-dark-mode")
         if self.kiosk:
             command.append("--kiosk")
         if self.app_mode:
