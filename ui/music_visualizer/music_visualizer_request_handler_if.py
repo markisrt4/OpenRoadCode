@@ -15,10 +15,16 @@ class MusicVisualizerRequestHandlerIf(ABC):
 
     @abstractmethod
     def request_kick_mode(self, mode: KickMode) -> None:
-        """Select the rendered kick-drum layout."""
+        """Select the rendered kick-drum layout.
+
+        @param mode Kick-drum layout to activate.
+        """
         ...
 
     @abstractmethod
     def request_visualization_mode(self, mode: MusicVisualizationMode) -> None:
-        """Select the active visualization renderer."""
+        """Select the active visualization renderer.
+
+        @param mode Visualization mode to activate.
+        """
         ...
