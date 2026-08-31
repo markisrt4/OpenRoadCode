@@ -44,7 +44,7 @@ class GamesOrcUiApp(OrcUiApp):
                 relief=tk.FLAT,
                 bd=0,
                 font=("Sans", 9),
-                height=3,
+                height=2,
                 cursor="hand2",
             )
             button.pack(fill=tk.X, padx=4, pady=1)
