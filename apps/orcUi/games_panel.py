@@ -205,12 +205,16 @@ class GamesPanel(tk.Frame):
 
         actionable = command is not None and self._installing_game is None
         icon = self._icon_for(game)
-        icon_label = tk.Label(card, bg=PANEL, width=64, height=56)
+        icon_box = tk.Frame(card, bg=PANEL, width=64, height=56)
+        icon_box.grid(row=0, column=0, rowspan=3, padx=(10, 3), pady=5)
+        icon_box.grid_propagate(False)
+        icon_label = tk.Label(icon_box, bg=PANEL)
         if icon is not None:
             icon_label.configure(image=icon)
         else:
             icon_label.configure(text="◈", fg=accent, font=("Sans", 25, "bold"))
-        icon_label.grid(row=0, column=0, rowspan=3, padx=(10, 3), pady=5)
+        icon_label.place(relx=0.5, rely=0.5, anchor="center")
+
         tk.Label(card, text=game.name, fg=TEXT if actionable or installed or is_installing else MUTED, bg=PANEL, font=("Sans", 13, "bold")).grid(row=0, column=1, sticky="sw", padx=6, pady=(5, 0))
         tk.Label(card, text=game.description, fg=MUTED, bg=PANEL, font=("Sans", 8), anchor="w").grid(row=1, column=1, sticky="ew", padx=6)
         tk.Label(card, text=state, fg=accent, bg=PANEL, font=("Sans", 8, "bold")).grid(row=2, column=1, sticky="nw", padx=6, pady=(1, 5))
