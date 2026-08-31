@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import math
 import tkinter as tk
-from collections.abc import Callable
 
 from ui.navigation import MapRequestHandlerIf
 
@@ -17,7 +16,6 @@ BORDER = "#25313b"
 TEXT = "#edf2f5"
 MUTED = "#89959e"
 GREEN = "#84ce1f"
-BLUE = "#168bd1"
 
 
 class NavigationPanel(tk.Frame):
@@ -26,8 +24,6 @@ class NavigationPanel(tk.Frame):
     def __init__(
         self,
         parent: tk.Misc,
-        *,
-        on_back: Callable[[], None],
     ) -> None:
         super().__init__(parent, bg=BG)
         self._request_handler: MapRequestHandlerIf | None = None
@@ -36,7 +32,7 @@ class NavigationPanel(tk.Frame):
         self._follow_enabled = True
         self._follow_button: tk.Button
         self._map_host: tk.Frame
-        self._build(on_back)
+        self._build()
 
     @property
     def map_host_window_id(self) -> int:
@@ -62,27 +58,14 @@ class NavigationPanel(tk.Frame):
             fg=GREEN if enabled else TEXT,
         )
 
-    def _build(self, on_back: Callable[[], None]) -> None:
+    def _build(self) -> None:
         self.grid_rowconfigure(1, weight=1)
         self.grid_columnconfigure(0, weight=1)
 
         header = tk.Frame(self, bg=BG, height=42)
         header.grid(row=0, column=0, sticky="ew", pady=(0, 5))
         header.grid_propagate(False)
-        header.grid_columnconfigure(1, weight=1)
-
-        tk.Button(
-            header,
-            text="‹ HOME",
-            command=on_back,
-            bg=BG,
-            fg=TEXT,
-            activebackground=PANEL,
-            activeforeground=GREEN,
-            relief=tk.FLAT,
-            bd=0,
-            font=("Sans", 10, "bold"),
-        ).grid(row=0, column=0, sticky="w", padx=(4, 12))
+        header.grid_columnconfigure(0, weight=1)
 
         tk.Label(
             header,
@@ -90,15 +73,7 @@ class NavigationPanel(tk.Frame):
             bg=BG,
             fg=TEXT,
             font=("Sans", 14, "bold"),
-        ).grid(row=0, column=1)
-
-        tk.Label(
-            header,
-            text="MAPLIBRE",
-            bg=BG,
-            fg=BLUE,
-            font=("Sans", 9, "bold"),
-        ).grid(row=0, column=2, sticky="e", padx=8)
+        ).grid(row=0, column=0)
 
         body = tk.Frame(self, bg=BG)
         body.grid(row=1, column=0, sticky="nsew")
