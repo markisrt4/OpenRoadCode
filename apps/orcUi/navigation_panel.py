@@ -26,9 +26,10 @@ class NavigationPanel(tk.Frame):
         self.grid_rowconfigure(1,weight=1); self.grid_columnconfigure(0,weight=1)
         bar=tk.Frame(self,bg=BG,height=38); bar.grid(row=0,column=0,sticky="ew",pady=(0,4)); bar.grid_propagate(False)
         shortcuts=tk.Frame(bar,bg=BG); shortcuts.pack(side=tk.LEFT,padx=2,pady=3)
-        for text,accent,key in (("⌂ HOME",BLUE,"home"),("▣ WORK",PURPLE,"work"),("⛽ GAS",GREEN,"gas"),("♨ FOOD",RED,"food")):
+        for text,accent,key in (("⌂ HOME",BLUE,"home"),("▣ WORK",PURPLE,"work"),("⛽ GAS",GREEN,"gas"),("▣ GROCERY",GREEN,"grocery"),("♨ FOOD",RED,"food")):
             tk.Button(shortcuts,text=text,command=lambda s=key:self._destination_shortcut(s),bg=PANEL,fg=accent,activebackground="#101820",activeforeground=TEXT,relief=tk.FLAT,highlightthickness=1,highlightbackground=BORDER,font=("Sans",8,"bold"),width=9,height=1,padx=3,pady=1).pack(side=tk.LEFT,padx=(0,4))
-        self._shortcut_status=tk.StringVar(value="Fuel focus active" if self._poi_focus=="fuel" else "")
+        focus_labels={"fuel":"Fuel focus active","grocery":"Grocery focus active"}
+        self._shortcut_status=tk.StringVar(value=focus_labels.get(self._poi_focus,""))
         tk.Label(bar,textvariable=self._shortcut_status,bg=BG,fg=MUTED,font=("Sans",7),anchor="e").pack(side=tk.RIGHT,padx=5)
         body=tk.Frame(self,bg=BG); body.grid(row=1,column=0,sticky="nsew"); body.grid_rowconfigure(0,weight=1); body.grid_columnconfigure(0,weight=1)
         self._map_host=tk.Frame(body,bg="#020406",highlightthickness=1,highlightbackground=BORDER); self._map_host.grid(row=0,column=0,sticky="nsew")
@@ -48,9 +49,14 @@ class NavigationPanel(tk.Frame):
         refresh=getattr(self._request_handler,"refresh_renderer_state",None)
         if refresh is not None: refresh()
     def _destination_shortcut(self,shortcut:str)->None:
-        if shortcut=="gas":
-            self._poi_focus=None if self._poi_focus=="fuel" else "fuel"; self._request_handler.request_poi_focus(self._poi_focus)
-            self._shortcut_status.set("Fuel stations highlighted" if self._poi_focus else "Fuel focus off"); return
+        focus_category={"gas":"fuel","grocery":"grocery"}.get(shortcut)
+        if focus_category is not None:
+            self._poi_focus=None if self._poi_focus==focus_category else focus_category
+            self._request_handler.request_poi_focus(self._poi_focus)
+            if self._poi_focus=="fuel": self._shortcut_status.set("Fuel stations highlighted")
+            elif self._poi_focus=="grocery": self._shortcut_status.set("Grocery stores highlighted")
+            else: self._shortcut_status.set("Nearby focus off")
+            return
         self._request_handler.request_poi_focus(None); self._poi_focus=None
         messages={"home":"Home location not configured","work":"Work location not configured","food":"Nearby food search not connected yet"}
         self._shortcut_status.set(messages[shortcut]); self.after(2500,lambda:self._shortcut_status.set(""))
