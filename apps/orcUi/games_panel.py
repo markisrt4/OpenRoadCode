@@ -26,13 +26,8 @@ MUTED = "#89959e"
 GREEN = "#84ce1f"
 RED = "#f15a16"
 BLUE = "#168bd1"
-FILTERS = (
-    ("ALL", "all"),
-    ("CASUAL", "casual"),
-    ("PUZZLE", "puzzle"),
-    ("CARD / BOARD", "card_board"),
-    ("ACTION", "action"),
-)
+PAGE_SIZE = 6
+FILTERS = (("ALL", "all"), ("CASUAL", "casual"), ("PUZZLE", "puzzle"), ("CARD / BOARD", "card_board"), ("ACTION", "action"))
 
 
 class GamesPanel(tk.Frame):
@@ -46,10 +41,14 @@ class GamesPanel(tk.Frame):
         self._embedder = X11GameEmbedder()
         self._status: tk.Label
         self._body: tk.Frame
+        self._page_label: tk.Label
+        self._prev_button: tk.Button
+        self._next_button: tk.Button
         self._game_host: tk.Frame | None = None
         self._installing_game: GameDefinition | None = None
         self._active_game: GameDefinition | None = None
         self._filter = "all"
+        self._page = 0
         self._filter_buttons: dict[str, tk.Button] = {}
         self._icon_cache: dict[str, tk.PhotoImage | None] = {}
         self._games = self._load_games()
@@ -65,20 +64,11 @@ class GamesPanel(tk.Frame):
 
     def _build(self) -> None:
         toolbar = tk.Frame(self, bg=BG)
-        toolbar.pack(fill=tk.X, pady=(2, 8))
+        toolbar.pack(fill=tk.X, pady=(2, 6))
         filters = tk.Frame(toolbar, bg=BG)
         filters.pack(side=tk.LEFT)
         for label, category in FILTERS:
-            button = tk.Button(
-                filters,
-                text=label,
-                command=lambda selected=category: self._set_filter(selected),
-                relief=tk.FLAT,
-                font=("Sans", 9, "bold"),
-                padx=11,
-                pady=6,
-                cursor="hand2",
-            )
+            button = tk.Button(filters, text=label, command=lambda selected=category: self._set_filter(selected), relief=tk.FLAT, font=("Sans", 9, "bold"), padx=11, pady=6, cursor="hand2")
             button.pack(side=tk.LEFT, padx=(0, 5))
             self._filter_buttons[category] = button
         self._status = tk.Label(toolbar, text="Choose a game", fg=MUTED, bg=BG, font=("Sans", 10))
@@ -87,26 +77,35 @@ class GamesPanel(tk.Frame):
 
         self._body = tk.Frame(self, bg=BG)
         self._body.pack(fill=tk.BOTH, expand=True)
+
+        pager = tk.Frame(self, bg=BG)
+        pager.pack(fill=tk.X, pady=(4, 1))
+        self._prev_button = tk.Button(pager, text="‹ PREV", command=lambda: self._change_page(-1), bg="#101820", fg=TEXT, relief=tk.FLAT, font=("Sans", 9, "bold"), padx=16, pady=4)
+        self._prev_button.pack(side=tk.LEFT, padx=6)
+        self._next_button = tk.Button(pager, text="NEXT ›", command=lambda: self._change_page(1), bg="#101820", fg=TEXT, relief=tk.FLAT, font=("Sans", 9, "bold"), padx=16, pady=4)
+        self._next_button.pack(side=tk.RIGHT, padx=6)
+        self._page_label = tk.Label(pager, text="", fg=MUTED, bg=BG, font=("Sans", 9, "bold"))
+        self._page_label.pack(expand=True)
         self._refresh_cards()
 
     def _set_filter(self, category: str) -> None:
         if self._active_game is not None or self._installing_game is not None:
             return
         self._filter = category
+        self._page = 0
         self._update_filter_buttons()
+        self._refresh_cards()
+
+    def _change_page(self, delta: int) -> None:
+        games = self._visible_games()
+        page_count = max(1, (len(games) + PAGE_SIZE - 1) // PAGE_SIZE)
+        self._page = max(0, min(page_count - 1, self._page + delta))
         self._refresh_cards()
 
     def _update_filter_buttons(self) -> None:
         for category, button in self._filter_buttons.items():
             selected = category == self._filter
-            button.configure(
-                bg="#17300f" if selected else "#101820",
-                fg=GREEN if selected else TEXT,
-                activebackground="#214019" if selected else "#18232c",
-                activeforeground=TEXT,
-                highlightthickness=1,
-                highlightbackground=GREEN if selected else BORDER,
-            )
+            button.configure(bg="#17300f" if selected else "#101820", fg=GREEN if selected else TEXT, activebackground="#214019" if selected else "#18232c", activeforeground=TEXT, highlightthickness=1, highlightbackground=GREEN if selected else BORDER)
 
     def _clear_body(self) -> None:
         for child in self._body.winfo_children():
@@ -122,15 +121,27 @@ class GamesPanel(tk.Frame):
         self._clear_body()
         games = self._visible_games()
         if not games:
+            self._page = 0
+            self._page_label.configure(text="")
+            self._prev_button.configure(state=tk.DISABLED)
+            self._next_button.configure(state=tk.DISABLED)
             tk.Label(self._body, text="No games in this category", fg=MUTED, bg=BG, font=("Sans", 18, "bold")).place(relx=.5, rely=.45, anchor="center")
             return
+
+        page_count = max(1, (len(games) + PAGE_SIZE - 1) // PAGE_SIZE)
+        self._page = min(self._page, page_count - 1)
+        start = self._page * PAGE_SIZE
+        page_games = games[start:start + PAGE_SIZE]
+        self._page_label.configure(text=f"{self._page + 1} / {page_count}" if page_count > 1 else "")
+        self._prev_button.configure(state=tk.NORMAL if self._page > 0 else tk.DISABLED)
+        self._next_button.configure(state=tk.NORMAL if self._page + 1 < page_count else tk.DISABLED)
+
         for column in range(2):
             self._body.grid_columnconfigure(column, weight=1, uniform="game")
-        rows = max(1, (len(games) + 1) // 2)
-        for row in range(rows):
+        for row in range(3):
             self._body.grid_rowconfigure(row, weight=1, uniform="game")
-        for index, game in enumerate(games):
-            self._game_card(self._body, game).grid(row=index // 2, column=index % 2, sticky="nsew", padx=6, pady=6)
+        for index, game in enumerate(page_games):
+            self._game_card(self._body, game).grid(row=index // 2, column=index % 2, sticky="nsew", padx=6, pady=5)
 
     def _find_icon(self, icon_name: str) -> Path | None:
         prefix = Path(os.environ.get("PREFIX", "/usr"))
@@ -160,8 +171,8 @@ class GamesPanel(tk.Frame):
             try:
                 image = tk.PhotoImage(file=str(path))
                 maximum = max(image.width(), image.height())
-                if maximum > 64:
-                    factor = max(1, (maximum + 63) // 64)
+                if maximum > 56:
+                    factor = max(1, (maximum + 55) // 56)
                     image = image.subsample(factor, factor)
             except tk.TclError:
                 image = None
@@ -194,17 +205,16 @@ class GamesPanel(tk.Frame):
 
         actionable = command is not None and self._installing_game is None
         icon = self._icon_for(game)
-        icon_label = tk.Label(card, bg=PANEL, width=72, height=64)
+        icon_label = tk.Label(card, bg=PANEL, width=64, height=56)
         if icon is not None:
             icon_label.configure(image=icon)
         else:
-            icon_label.configure(text="◈", fg=accent, font=("Sans", 28, "bold"))
-        icon_label.grid(row=0, column=0, rowspan=3, padx=(12, 4), pady=8)
-
-        tk.Label(card, text=game.name, fg=TEXT if actionable or installed or is_installing else MUTED, bg=PANEL, font=("Sans", 14, "bold")).grid(row=0, column=1, sticky="sw", padx=8, pady=(8, 1))
-        tk.Label(card, text=game.description, fg=MUTED, bg=PANEL, font=("Sans", 9), anchor="w").grid(row=1, column=1, sticky="ew", padx=8)
-        tk.Label(card, text=state, fg=accent, bg=PANEL, font=("Sans", 8, "bold")).grid(row=2, column=1, sticky="nw", padx=8, pady=(2, 8))
-        tk.Button(card, text=action, command=command, state=tk.NORMAL if actionable else tk.DISABLED, bg="#102018" if installed else ("#0d1b24" if installable or is_installing else "#11161a"), fg=accent, activebackground="#183024", activeforeground=TEXT, disabledforeground=accent if is_installing else MUTED, relief=tk.FLAT, highlightthickness=1, highlightbackground=accent if actionable or is_installing else BORDER, font=("Sans", 10, "bold"), padx=14, pady=7, cursor="hand2" if actionable else "arrow").grid(row=0, column=2, rowspan=3, padx=12, pady=12)
+            icon_label.configure(text="◈", fg=accent, font=("Sans", 25, "bold"))
+        icon_label.grid(row=0, column=0, rowspan=3, padx=(10, 3), pady=5)
+        tk.Label(card, text=game.name, fg=TEXT if actionable or installed or is_installing else MUTED, bg=PANEL, font=("Sans", 13, "bold")).grid(row=0, column=1, sticky="sw", padx=6, pady=(5, 0))
+        tk.Label(card, text=game.description, fg=MUTED, bg=PANEL, font=("Sans", 8), anchor="w").grid(row=1, column=1, sticky="ew", padx=6)
+        tk.Label(card, text=state, fg=accent, bg=PANEL, font=("Sans", 8, "bold")).grid(row=2, column=1, sticky="nw", padx=6, pady=(1, 5))
+        tk.Button(card, text=action, command=command, state=tk.NORMAL if actionable else tk.DISABLED, bg="#102018" if installed else ("#0d1b24" if installable or is_installing else "#11161a"), fg=accent, activebackground="#183024", activeforeground=TEXT, disabledforeground=accent if is_installing else MUTED, relief=tk.FLAT, highlightthickness=1, highlightbackground=accent if actionable or is_installing else BORDER, font=("Sans", 9, "bold"), padx=11, pady=6, cursor="hand2" if actionable else "arrow").grid(row=0, column=2, rowspan=3, padx=10, pady=8)
         return card
 
     def _show_game_host(self, game: GameDefinition) -> None:
