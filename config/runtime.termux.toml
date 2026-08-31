@@ -1,8 +1,8 @@
 # OpenRoadCode Termux runtime composition
 #
 # Run the OpenRoadCode Android Bridge app first. This profile lets the normal
-# navigation service consume the phone IMU through the localhost bridge while
-# keeping the rest of the application stack on the normal ORC contracts.
+# navigation and automotive services consume phone-owned hardware through
+# localhost bridges while keeping the normal ORC contracts above that layer.
 
 [runtime]
 remote_display = ":1"
@@ -46,16 +46,22 @@ heading_reference = "relative"
 enabled = true
 source = "navigation-service-android"
 
-# Keep unrelated producer services disabled while exercising the phone runtime.
 [services.automotive]
-enabled = false
+enabled = true
+rate_hz = 10.0
 
 [services.automotive.input]
-source = "simulation"
+source = "device"
+device = "elm327"
+transport = "tcp"
+host = "127.0.0.1"
+tcp_port = 35000
+timeout_s = 2.0
+slow_poll_interval_s = 5.0
 
 [services.automotive.publish]
-enabled = false
-source = "automotive-service"
+enabled = true
+source = "automotive-service-android"
 
 [audio]
 output = "auto"
