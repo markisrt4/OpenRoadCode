@@ -18,6 +18,7 @@ add_executable(openroadcode-map-renderer
     src/map_view.cpp
     src/map_renderer_frontend.cpp
     src/map_command_server.cpp
+    src/map_event_publisher.cpp
     src/navigation_config.cpp
     ${MAPLIBRE_ROOT}/platform/glfw/glfw_gl_backend.cpp
 )
