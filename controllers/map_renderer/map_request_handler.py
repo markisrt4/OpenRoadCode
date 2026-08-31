@@ -56,22 +56,30 @@ class MapRequestHandler(MapRequestHandlerIf):
         self._send_camera()
 
     def request_pan(self, north_m: float, east_m: float) -> None:
-        earth_radius_m = 6_378_137.0
-        latitude_rad = self._center.latitude_rad + north_m / earth_radius_m
-        cos_latitude = math.cos(latitude_rad)
-        if abs(cos_latitude) < 1.0e-6:
-            cos_latitude = math.copysign(1.0e-6, cos_latitude)
-        longitude_rad = self._center.longitude_rad + east_m / (
-            earth_radius_m * cos_latitude
+        self._pan_geographic(north_m=north_m, east_m=east_m)
+
+    def request_pan_screen(self, right_px: float, up_px: float) -> None:
+        """Pan in screen coordinates using the authoritative camera state."""
+
+        # Web Mercator ground resolution at the current latitude. MapLibre uses
+        # 512 px logical tiles, so this converts a UI pixel gesture into metres.
+        earth_circumference_m = 2.0 * math.pi * 6_378_137.0
+        metres_per_pixel = (
+            earth_circumference_m
+            * max(0.01, math.cos(self._center.latitude_rad))
+            / (512.0 * (2.0**self._zoom_level))
         )
 
-        self._center = GeoPoint(
-            latitude_rad=latitude_rad,
-            longitude_rad=longitude_rad,
-            altitude_m=self._center.altitude_m,
-        )
-        self.request_follow(False)
-        self._send_camera()
+        screen_right_m = right_px * metres_per_pixel
+        screen_up_m = up_px * metres_per_pixel
+
+        # Bearing is clockwise from north. Rotate screen axes back into the
+        # geographic north/east frame before updating the camera center.
+        cos_bearing = math.cos(self._bearing_rad)
+        sin_bearing = math.sin(self._bearing_rad)
+        north_m = screen_up_m * cos_bearing - screen_right_m * sin_bearing
+        east_m = screen_up_m * sin_bearing + screen_right_m * cos_bearing
+        self._pan_geographic(north_m=north_m, east_m=east_m)
 
     def request_zoom(self, zoom_level: float) -> None:
         self._zoom_level = zoom_level
@@ -98,6 +106,24 @@ class MapRequestHandler(MapRequestHandlerIf):
         if self._follow_enabled:
             self._center = position
             self._send_camera()
+
+    def _pan_geographic(self, *, north_m: float, east_m: float) -> None:
+        earth_radius_m = 6_378_137.0
+        latitude_rad = self._center.latitude_rad + north_m / earth_radius_m
+        cos_latitude = math.cos(latitude_rad)
+        if abs(cos_latitude) < 1.0e-6:
+            cos_latitude = math.copysign(1.0e-6, cos_latitude)
+        longitude_rad = self._center.longitude_rad + east_m / (
+            earth_radius_m * cos_latitude
+        )
+
+        self._center = GeoPoint(
+            latitude_rad=latitude_rad,
+            longitude_rad=longitude_rad,
+            altitude_m=self._center.altitude_m,
+        )
+        self.request_follow(False)
+        self._send_camera()
 
     def _send_camera(self) -> None:
         self._renderer.set_camera(
