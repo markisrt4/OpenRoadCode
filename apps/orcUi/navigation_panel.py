@@ -39,24 +39,31 @@ class NavigationPanel(tk.Frame):
         self._earth_button=tk.Button(bar,text="◉  EARTH",command=self._toggle_earth,bg=BLUE,fg="#ffffff",activebackground=GREEN,activeforeground="#05090d",relief=tk.FLAT,highlightthickness=2,highlightbackground="#5bbcff",font=("Sans",9,"bold"),width=11,height=1,padx=5,pady=1)
         self._earth_button.pack(side=tk.RIGHT,padx=(7,2),pady=2)
         tk.Label(bar,textvariable=self._shortcut_status,bg=BG,fg=MUTED,font=("Sans",7),anchor="e").pack(side=tk.RIGHT,padx=5)
-        body=tk.Frame(self,bg=BG); body.grid(row=1,column=0,sticky="nsew"); body.grid_rowconfigure(0,weight=1); body.grid_columnconfigure(0,weight=1)
-        self._map_host=tk.Frame(body,bg="#020406",highlightthickness=1,highlightbackground=BORDER); self._map_host.grid(row=0,column=0,sticky="nsew")
-        controls=tk.Frame(body,bg=PANEL,width=62); controls.grid(row=0,column=1,sticky="ns",padx=(4,0)); controls.grid_propagate(False)
-        self._follow_button=self._control(controls,"F",self._toggle_follow,GREEN); self._follow_button.pack(fill=tk.X,padx=5,pady=(7,5)); self.set_follow_enabled(self._follow_enabled)
-        pan=tk.Frame(controls,bg=PANEL); pan.pack(pady=2)
+        self._body=tk.Frame(self,bg=BG); self._body.grid(row=1,column=0,sticky="nsew"); self._body.grid_rowconfigure(0,weight=1); self._body.grid_columnconfigure(0,weight=1)
+        self._map_host=tk.Frame(self._body,bg="#020406",highlightthickness=1,highlightbackground=BORDER); self._map_host.grid(row=0,column=0,sticky="nsew")
+        self._controls=tk.Frame(self._body,bg=PANEL,width=62); self._controls.grid(row=0,column=1,sticky="ns",padx=(4,0)); self._controls.grid_propagate(False)
+        self._follow_button=self._control(self._controls,"F",self._toggle_follow,GREEN); self._follow_button.pack(fill=tk.X,padx=5,pady=(7,5)); self.set_follow_enabled(self._follow_enabled)
+        pan=tk.Frame(self._controls,bg=PANEL); pan.pack(pady=2)
         for row,col,text,up,right in ((0,1,"▲",1,0),(1,0,"◀",0,-1),(1,2,"▶",0,1),(2,1,"▼",-1,0)):
             tk.Button(pan,text=text,command=lambda u=up,r=right:self._pan(u,r),bg="#101820",fg=TEXT,activebackground=BLUE,activeforeground=TEXT,relief=tk.FLAT,highlightthickness=1,highlightbackground=BORDER,font=("Sans",9,"bold"),width=1,height=1,padx=2,pady=1).grid(row=row,column=col,padx=1,pady=1)
         for text,command,accent in (("+",lambda:self._change_zoom(1),BLUE),("−",lambda:self._change_zoom(-1),BLUE),("↗",lambda:self._change_pitch(5),PURPLE),("↘",lambda:self._change_pitch(-5),PURPLE),("N",self._north_up,TEXT),("◎",self._recenter,GREEN)):
-            self._control(controls,text,command,accent).pack(fill=tk.X,padx=5,pady=2)
-        tk.Label(controls,text="ZOOM\nTILT\nNORTH\nCENTER",bg=PANEL,fg=MUTED,font=("Sans",6),justify=tk.CENTER).pack(side=tk.BOTTOM,pady=5)
+            self._control(self._controls,text,command,accent).pack(fill=tk.X,padx=5,pady=2)
+        tk.Label(self._controls,text="ZOOM\nTILT\nNORTH\nCENTER",bg=PANEL,fg=MUTED,font=("Sans",6),justify=tk.CENTER).pack(side=tk.BOTTOM,pady=5)
     def _control(self,parent,text,command,fg):
         return tk.Button(parent,text=text,command=command,bg=PANEL,fg=fg,activebackground="#101820",activeforeground=TEXT,relief=tk.FLAT,highlightthickness=1,highlightbackground=BORDER,font=("Sans",11,"bold"),height=1)
     def _display(self)->str:
         return os.environ.get("DISPLAY",":1")
+    def _set_earth_layout(self,enabled:bool)->None:
+        if enabled:
+            self._controls.grid_remove()
+        else:
+            self._controls.grid()
+        self._body.update_idletasks()
     def _toggle_earth(self)->None:
         try:
             self._map_host.update_idletasks()
             if not self._earth_visible:
+                self._set_earth_layout(True)
                 position=(self._map_host.winfo_rootx(),self._map_host.winfo_rooty())
                 size=(max(1,self._map_host.winfo_width()),max(1,self._map_host.winfo_height()))
                 self._earth_launcher.configure_app_window(position=position,size=size)
@@ -65,10 +72,11 @@ class NavigationPanel(tk.Frame):
             if self._earth_visible:
                 self._earth_button.configure(text="▣  MAP",bg=GREEN,fg="#05090d",highlightbackground="#b8f55f")
             else:
+                self._set_earth_layout(False)
                 self._earth_button.configure(text="◉  EARTH",bg=BLUE,fg="#ffffff",highlightbackground="#5bbcff")
             self._shortcut_status.set("Google Earth" if self._earth_visible else "MapLibre")
         except (OSError,RuntimeError,ValueError) as exc:
-            self._earth_visible=False; self._earth_button.configure(text="◉  EARTH",bg=RED,fg="#ffffff",highlightbackground="#ff8b5e"); self._shortcut_status.set(f"Earth unavailable: {exc}")
+            self._earth_visible=False; self._set_earth_layout(False); self._earth_button.configure(text="◉  EARTH",bg=RED,fg="#ffffff",highlightbackground="#ff8b5e"); self._shortcut_status.set(f"Earth unavailable: {exc}")
     def _is_dark_theme(self)->bool:
         color=BG.lstrip("#")
         red,green,blue=(int(color[index:index+2],16) for index in (0,2,4))
