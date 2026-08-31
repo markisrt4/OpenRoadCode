@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import subprocess
+from collections.abc import Sequence
 
 from .debian_command_runner import DebianCommandRunner
 from .game_installer_if import GameInstallerIf
@@ -10,7 +11,7 @@ from .game_types import GameDefinition
 
 
 class DebianGameInstaller(GameInstallerIf):
-    """Install games from Debian regardless of how Debian is hosted."""
+    """Install and execute games from Debian regardless of how Debian is hosted."""
 
     def __init__(self) -> None:
         self._runner = DebianCommandRunner()
@@ -42,6 +43,18 @@ class DebianGameInstaller(GameInstallerIf):
             return False
         return self._package_available(package)
 
+    def is_installed(self, game: GameDefinition) -> bool:
+        """Return whether the game's executable is available inside Debian."""
+        if not self.supported():
+            return False
+        result = self._runner.run(
+            ["sh", "-lc", f"command -v -- {game.command[0]} >/dev/null 2>&1"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            check=False,
+        )
+        return result.returncode == 0
+
     def install(self, game: GameDefinition) -> None:
         package = game.debian_package
         if not package:
@@ -51,3 +64,7 @@ class DebianGameInstaller(GameInstallerIf):
         if not self.is_available(game):
             raise RuntimeError(f"{package} is not available from the configured Debian repositories")
         self._runner.run(["apt-get", "install", "-y", package], check=True)
+
+    def launch_command(self, game: GameDefinition) -> Sequence[str]:
+        """Return a host command that executes *game* inside Debian."""
+        return self._runner.command(game.command, shared_tmp=True)
