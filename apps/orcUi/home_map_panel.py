@@ -24,6 +24,7 @@ class HomeMapPanel(tk.Frame):
         self._request_handler = map_request_handler or runtime.request_handler
         self._map_host: tk.Frame
         self._build()
+        self.after(300, self._refresh_renderer_state)
 
     @property
     def map_host_window_id(self) -> int:
@@ -37,3 +38,8 @@ class HomeMapPanel(tk.Frame):
                  font=("Sans", 10, "bold")).grid(row=0, column=0, sticky="w", padx=14, pady=(11, 4))
         self._map_host = tk.Frame(self, bg="#020406")
         self._map_host.grid(row=1, column=0, sticky="nsew", padx=1, pady=(0, 1))
+
+    def _refresh_renderer_state(self) -> None:
+        refresh = getattr(self._request_handler, "refresh_renderer_state", None)
+        if refresh is not None:
+            refresh()
