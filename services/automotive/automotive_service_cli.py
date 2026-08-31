@@ -13,6 +13,7 @@ from controllers.automotive.obd2.elm327_obd_adapter import Elm327ObdAdapter
 from controllers.automotive.obd2.obd2_manager import Obd2Manager
 from controllers.automotive.simulated_vehicle_state_source import SimulatedVehicleStateSource
 from hardware_io.automotive.elm327 import Elm327Device
+from hardware_io.automotive.elm327.elm327_tcp_device import Elm327TcpDevice
 from messaging.zeromq import ZeroMqPublisher
 from services.automotive.automotive_runtime import AutomotiveRuntime
 
@@ -32,11 +33,18 @@ def build_source(config: AutomotiveServiceRuntimeConfig):
     if config.input.device != "elm327":
         raise ValueError(f"Unsupported automotive device: {config.input.device}")
 
-    device = Elm327Device(
-        port=config.input.port,
-        baud=config.input.baud,
-        timeout=config.input.timeout_s,
-    )
+    if config.input.transport == "tcp":
+        device = Elm327TcpDevice(
+            host=config.input.host,
+            port=config.input.tcp_port,
+            timeout=config.input.timeout_s,
+        )
+    else:
+        device = Elm327Device(
+            port=config.input.port,
+            baud=config.input.baud,
+            timeout=config.input.timeout_s,
+        )
     adapter = Elm327ObdAdapter(device)
     return Obd2Manager(
         adapter,
@@ -67,8 +75,12 @@ def main() -> int:
     print(f"  input source:      {config.input.source}")
     if config.input.source == "device":
         print(f"  device:            {config.input.device}")
-        print(f"  serial port:       {config.input.port}")
-        print(f"  baud:              {config.input.baud}")
+        print(f"  transport:         {config.input.transport}")
+        if config.input.transport == "tcp":
+            print(f"  TCP endpoint:      {config.input.host}:{config.input.tcp_port}")
+        else:
+            print(f"  serial port:       {config.input.port}")
+            print(f"  baud:              {config.input.baud}")
     print(f"  telemetry ingress: {system.messaging.publisher_endpoint}")
     print(f"  publish rate:      {config.rate_hz:g} Hz")
     print(f"  publish source:    {config.publish.source}")
