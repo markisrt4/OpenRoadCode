@@ -15,7 +15,7 @@ class NavigationPanel(tk.Frame):
         super().__init__(parent,bg=BG); del on_back
         runtime=get_shared_map_camera_runtime(); self._request_handler=map_request_handler or runtime.request_handler
         self._zoom_level=float(getattr(self._request_handler,"zoom_level",16.5)); self._pitch_rad=float(getattr(self._request_handler,"pitch_rad",math.radians(45.0)))
-        self._follow_enabled=bool(getattr(self._request_handler,"follow_enabled",True)); self._poi_focus=getattr(self._request_handler,"poi_focus",None); self._build()
+        self._follow_enabled=bool(getattr(self._request_handler,"follow_enabled",True)); self._poi_focus=getattr(self._request_handler,"poi_focus",None); self._build(); self.after(300,self._refresh_renderer_state)
     @property
     def map_host_window_id(self)->int: self.update_idletasks(); return self._map_host.winfo_id()
     def set_map_request_handler(self,handler:MapRequestHandlerIf|None)->None:
@@ -42,6 +42,9 @@ class NavigationPanel(tk.Frame):
         tk.Label(controls,text="ZOOM\nTILT\nNORTH\nCENTER",bg=PANEL,fg=MUTED,font=("Sans",6),justify=tk.CENTER).pack(side=tk.BOTTOM,pady=5)
     def _control(self,parent,text,command,fg):
         return tk.Button(parent,text=text,command=command,bg=PANEL,fg=fg,activebackground="#101820",activeforeground=TEXT,relief=tk.FLAT,highlightthickness=1,highlightbackground=BORDER,font=("Sans",11,"bold"),height=1)
+    def _refresh_renderer_state(self)->None:
+        refresh=getattr(self._request_handler,"refresh_renderer_state",None)
+        if refresh is not None: refresh()
     def _destination_shortcut(self,shortcut:str)->None:
         if shortcut=="gas":
             self._poi_focus=None if self._poi_focus=="fuel" else "fuel"; self._request_handler.request_poi_focus(self._poi_focus)
