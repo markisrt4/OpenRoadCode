@@ -73,9 +73,9 @@ class MapRendererClient:
         self._send_command({"command": MapRendererCommand.SET_POSITION,
             "latitude": latitude, "longitude": longitude})
 
-    def set_poi_focus(self, category: str | None) -> None:
+    def set_poi_focus(self, category: str | None, enabled: bool = True) -> None:
         self._send_command({"command": MapRendererCommand.SET_POI_FOCUS,
-            "category": category or ""})
+            "category": category or "", "enabled": enabled if category else False})
 
     def fit_bounds(self, south: float, west: float, north: float, east: float,
                    padding: float = 40.0) -> None:
