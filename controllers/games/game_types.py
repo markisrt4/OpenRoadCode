@@ -13,6 +13,7 @@ class GameDefinition:
     enabled: bool = True
     environment: dict[str, str] = field(default_factory=dict)
     termux_package: str | None = None
+    termux_dependencies: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         if not self.name.strip():
