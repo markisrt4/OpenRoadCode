@@ -21,73 +21,30 @@ class GoogleEarthLauncher:
             window_class="openroadcode-google-earth",
         )
 
-    def configure_app_window(
-        self,
-        *,
-        position: tuple[int, int],
-        size: tuple[int, int],
-    ) -> None:
-        """Present Earth as a positioned Chromium app window."""
-        self._browser.configure_app_window(position=position, size=size)
+    def configure_app_window(self, *, position: tuple[int, int], size: tuple[int, int]) -> None:
+        """Present Earth as a borderless positioned Chromium app window."""
+        self._browser.configure_app_window(position=position, size=size, borderless=True)
 
-    def configure_kiosk_window(
-        self,
-        *,
-        position: tuple[int, int],
-        size: tuple[int, int],
-    ) -> None:
-        """Present Earth with kiosk chrome constrained to the map region."""
+    def configure_kiosk_window(self, *, position: tuple[int, int], size: tuple[int, int]) -> None:
         self._browser.configure_kiosk_window(position=position, size=size)
 
     def set_color_scheme(self, color_scheme: str | None) -> None:
-        """Set the Chromium appearance preference used for Earth."""
         self._browser.set_color_scheme(color_scheme)
 
     def set_location(self, latitude: float, longitude: float) -> None:
-        """Set the location used by the next Google Earth launch."""
         self._browser.set_url(self._location_url(latitude, longitude))
 
-    def focus_location(
-        self,
-        latitude: float,
-        longitude: float,
-        remote_display: str,
-        set_status: StatusCallback = None,
-    ) -> None:
-        """Restart Google Earth centered on a new location."""
-        if self.is_running():
-            self.stop(remote_display)
-        self.set_location(latitude, longitude)
-        self.launch(remote_display, set_status)
+    def focus_location(self, latitude: float, longitude: float, remote_display: str, set_status: StatusCallback = None) -> None:
+        if self.is_running(): self.stop(remote_display)
+        self.set_location(latitude, longitude); self.launch(remote_display, set_status)
 
-    def launch(self, remote_display: str, set_status: StatusCallback = None) -> None:
-        self._browser.launch(remote_display, set_status)
-
-    def show(self, remote_display: str, set_status: StatusCallback = None) -> bool:
-        return self._browser.show(remote_display, set_status)
-
-    def hide(self, remote_display: str, set_status: StatusCallback = None) -> bool:
-        return self._browser.hide(remote_display, set_status)
-
-    def stop(self, remote_display: str, set_status: StatusCallback = None) -> None:
-        self._browser.stop(remote_display, set_status)
-
-    def toggle(self, remote_display: str, set_status: StatusCallback = None) -> bool:
-        return self._browser.toggle(remote_display, set_status)
-
-    def is_running(self) -> bool:
-        return self._browser.is_running()
+    def launch(self, remote_display: str, set_status: StatusCallback = None) -> None: self._browser.launch(remote_display, set_status)
+    def show(self, remote_display: str, set_status: StatusCallback = None) -> bool: return self._browser.show(remote_display, set_status)
+    def hide(self, remote_display: str, set_status: StatusCallback = None) -> bool: return self._browser.hide(remote_display, set_status)
+    def stop(self, remote_display: str, set_status: StatusCallback = None) -> None: self._browser.stop(remote_display, set_status)
+    def toggle(self, remote_display: str, set_status: StatusCallback = None) -> bool: return self._browser.toggle(remote_display, set_status)
+    def is_running(self) -> bool: return self._browser.is_running()
 
     @classmethod
-    def _location_url(
-        cls,
-        latitude: float,
-        longitude: float,
-        *,
-        tilt: float = 60.0,
-    ) -> str:
-        return (
-            f"{cls.BASE_URL}/{latitude},{longitude}"
-            f"/@{latitude},{longitude},"
-            f"182a,605d,35y,0h,{tilt}t,0r"
-        )
+    def _location_url(cls, latitude: float, longitude: float, *, tilt: float = 60.0) -> str:
+        return f"{cls.BASE_URL}/{latitude},{longitude}/@{latitude},{longitude},182a,605d,35y,0h,{tilt}t,0r"
