@@ -14,6 +14,7 @@ def load_game_catalog(path: str | Path) -> list[GameDefinition]:
 
     games: list[GameDefinition] = []
     for entry in data.get("games", []):
+        install = entry.get("install", {})
         games.append(
             GameDefinition(
                 name=entry["name"],
@@ -21,6 +22,7 @@ def load_game_catalog(path: str | Path) -> list[GameDefinition]:
                 description=entry.get("description", ""),
                 enabled=entry.get("enabled", True),
                 environment=dict(entry.get("environment", {})),
+                termux_package=install.get("termux_package"),
             )
         )
     return games
