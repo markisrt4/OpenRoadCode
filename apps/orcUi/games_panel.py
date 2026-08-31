@@ -36,7 +36,7 @@ class GamesPanel(tk.Frame):
         self._installer = TermuxGameInstaller()
         self._status: tk.Label
         self._body: tk.Frame
-        self._installing = False
+        self._installing_game: GameDefinition | None = None
         self._games = self._load_games()
         self._build()
 
@@ -97,33 +97,44 @@ class GamesPanel(tk.Frame):
         card.grid_columnconfigure(0, weight=1)
 
         installed = shutil.which(game.command[0]) is not None
+        is_installing = self._installing_game == game
+        another_install_running = self._installing_game is not None and not is_installing
+
         installable = False
-        if game.enabled and not installed and not self._installing:
+        if game.enabled and not installed and not is_installing and not another_install_running:
             try:
                 installable = self._installer.is_available(game)
             except OSError:
                 installable = False
 
-        if not game.enabled:
+        if is_installing:
+            state = "INSTALLING"
+            action = "INSTALLING…"
+            command = None
+            accent = BLUE
+        elif not game.enabled:
             state = "DISABLED"
             action = state
             command = None
+            accent = MUTED
         elif installed:
             state = "READY"
             action = "PLAY"
             command = lambda selected=game: self._launch(selected)
+            accent = GREEN
         elif installable:
             state = "AVAILABLE"
             action = "INSTALL"
             command = lambda selected=game: self._install(selected)
+            accent = BLUE
         else:
             state = "UNAVAILABLE"
             action = state
             command = None
+            accent = MUTED
 
-        actionable = command is not None and not self._installing
-        accent = GREEN if installed else (BLUE if installable else MUTED)
-        tk.Label(card, text=game.name, fg=TEXT if actionable or installed else MUTED, bg=PANEL, font=("Sans", 14, "bold")).grid(row=0, column=0, sticky="w", padx=14, pady=(12, 3))
+        actionable = command is not None and self._installing_game is None
+        tk.Label(card, text=game.name, fg=TEXT if actionable or installed or is_installing else MUTED, bg=PANEL, font=("Sans", 14, "bold")).grid(row=0, column=0, sticky="w", padx=14, pady=(12, 3))
         tk.Label(card, text=game.description, fg=MUTED, bg=PANEL, font=("Sans", 9), anchor="w").grid(row=1, column=0, sticky="ew", padx=14)
         tk.Label(card, text=state, fg=accent, bg=PANEL, font=("Sans", 8, "bold")).grid(row=2, column=0, sticky="w", padx=14, pady=(5, 8))
         tk.Button(
@@ -131,14 +142,14 @@ class GamesPanel(tk.Frame):
             text=action,
             command=command,
             state=tk.NORMAL if actionable else tk.DISABLED,
-            bg="#102018" if installed else ("#0d1b24" if installable else "#11161a"),
+            bg="#102018" if installed else ("#0d1b24" if installable or is_installing else "#11161a"),
             fg=accent,
             activebackground="#183024",
             activeforeground=TEXT,
-            disabledforeground=MUTED,
+            disabledforeground=accent if is_installing else MUTED,
             relief=tk.FLAT,
             highlightthickness=1,
-            highlightbackground=accent if actionable else BORDER,
+            highlightbackground=accent if actionable or is_installing else BORDER,
             font=("Sans", 10, "bold"),
             padx=16,
             pady=7,
@@ -147,9 +158,9 @@ class GamesPanel(tk.Frame):
         return card
 
     def _install(self, game: GameDefinition) -> None:
-        if self._installing:
+        if self._installing_game is not None:
             return
-        self._installing = True
+        self._installing_game = game
         self._status.configure(text=f"Installing: {game.name}…", fg=BLUE)
         self._refresh_cards()
         threading.Thread(target=self._install_worker, args=(game,), daemon=True).start()
@@ -163,7 +174,7 @@ class GamesPanel(tk.Frame):
         self.after(0, self._install_finished, game, None)
 
     def _install_finished(self, game: GameDefinition, error: Exception | None) -> None:
-        self._installing = False
+        self._installing_game = None
         if error is not None:
             self._status.configure(text=f"Install failed: {error}", fg=RED)
         elif shutil.which(game.command[0]) is None:
