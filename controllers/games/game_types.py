@@ -12,6 +12,7 @@ class GameDefinition:
     description: str = ""
     enabled: bool = True
     environment: dict[str, str] = field(default_factory=dict)
+    termux_package: str | None = None
 
     def __post_init__(self) -> None:
         if not self.name.strip():
