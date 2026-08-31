@@ -10,13 +10,14 @@ from ui.navigation import MapRequestHandlerIf
 BG="#05090d"; PANEL="#0b1117"; BORDER="#25313b"; TEXT="#edf2f5"; MUTED="#89959e"; GREEN="#84ce1f"; BLUE="#168bd1"; RED="#f15a16"; PURPLE="#a25ce5"
 class NavigationPanel(tk.Frame):
  def __init__(self,parent:tk.Misc,*,map_request_handler:MapRequestHandlerIf|None=None,on_back:Callable[[],None]|None=None)->None:
-  super().__init__(parent,bg=BG); del on_back; self._camera_runtime=get_shared_map_camera_runtime(); self._request_handler=map_request_handler or self._camera_runtime.request_handler; self._earth_launcher=GoogleEarthLauncher(); self._earth_visible=False; self._earth_initialized=False; self._zoom_level=float(getattr(self._request_handler,"zoom_level",16.5)); self._pitch_rad=float(getattr(self._request_handler,"pitch_rad",math.radians(45))); self._follow_enabled=bool(getattr(self._request_handler,"follow_enabled",True)); self._poi_focus=set(getattr(self._request_handler,"poi_focus",())); self._build(); self._schedule_renderer_refresh()
+  super().__init__(parent,bg=BG); del on_back; self._camera_runtime=get_shared_map_camera_runtime(); self._request_handler=map_request_handler or self._camera_runtime.request_handler; self._earth_launcher=GoogleEarthLauncher(); self._earth_visible=False; self._earth_initialized=False; self._earth_overlay:tk.Toplevel|None=None; self._zoom_level=float(getattr(self._request_handler,"zoom_level",16.5)); self._pitch_rad=float(getattr(self._request_handler,"pitch_rad",math.radians(45))); self._follow_enabled=bool(getattr(self._request_handler,"follow_enabled",True)); self._poi_focus=set(getattr(self._request_handler,"poi_focus",())); self._build(); self._schedule_renderer_refresh()
  @property
  def map_host_window_id(self)->int:self.update_idletasks();return self._map_host.winfo_id()
  def set_map_request_handler(self,h):
   if h is not None:self._request_handler=h
  def set_follow_enabled(self,e):self._follow_enabled=e;self._follow_button.configure(text="F" if e else "F̸",fg=GREEN if e else TEXT)
  def destroy(self):
+  self._destroy_earth_overlay()
   if self._earth_launcher.is_running():self._earth_launcher.stop(self._display())
   super().destroy()
  def _build(self):
@@ -27,8 +28,6 @@ class NavigationPanel(tk.Frame):
   for text,cmd in (("+",lambda:self._change_zoom(1)),("−",lambda:self._change_zoom(-1)),("N",self._north_up),("◎",self._recenter)):self._control(self._controls,text,cmd,TEXT).pack(fill=tk.X,padx=5,pady=3)
  def _control(self,p,t,c,f):return tk.Button(p,text=t,command=c,bg=PANEL,fg=f,relief=tk.FLAT,font=("Sans",11,"bold"))
  def _display(self):return os.environ.get("DISPLAY",":1")
- def _set_earth_layout(self,e):
-  self._controls.grid_remove() if e else self._controls.grid();self._body.update_idletasks()
  def _prepare_first_earth_launch(self):
   if self._earth_initialized:return
   if self._earth_launcher.is_running():self._earth_launcher.stop(self._display())
@@ -37,14 +36,26 @@ class NavigationPanel(tk.Frame):
    lat=math.degrees(p.latitude_rad);lon=math.degrees(p.longitude_rad);self._earth_launcher.set_location(lat,lon);self._shortcut_status.set(f"Earth {lat:.5f}, {lon:.5f}")
   else:self._shortcut_status.set("Earth: waiting for GPS; using default")
   self._earth_initialized=True
+ def _screen_geometry(self)->tuple[tuple[int,int],tuple[int,int]]:
+  root=self.winfo_toplevel();root.update_idletasks();return (0,0),(max(1,root.winfo_screenwidth()),max(1,root.winfo_screenheight()))
+ def _show_earth_overlay(self)->None:
+  self._destroy_earth_overlay();overlay=tk.Toplevel(self);overlay.overrideredirect(True);overlay.configure(bg=BLUE);overlay.attributes("-topmost",True);overlay.geometry("+14+14")
+  button=tk.Button(overlay,text="←  ORC",command=self._leave_earth,bg=BLUE,fg="white",activebackground=GREEN,activeforeground=BG,relief=tk.FLAT,highlightthickness=2,highlightbackground="#5bbcff",font=("Sans",12,"bold"),padx=12,pady=7);button.pack();self._earth_overlay=overlay;overlay.lift();overlay.after(300,overlay.lift)
+ def _destroy_earth_overlay(self)->None:
+  if self._earth_overlay is not None:
+   try:self._earth_overlay.destroy()
+   except tk.TclError:pass
+   self._earth_overlay=None
+ def _leave_earth(self)->None:
+  self._destroy_earth_overlay()
+  if self._earth_launcher.is_running():self._earth_launcher.hide(self._display())
+  self._earth_visible=False;self._earth_button.configure(text="◉  EARTH",bg=BLUE,fg="white");self._shortcut_status.set("MapLibre");self.winfo_toplevel().lift();self.winfo_toplevel().focus_force()
  def _toggle_earth(self):
   try:
-   if not self._earth_visible:
-    self._set_earth_layout(True);self._prepare_first_earth_launch();self._map_host.update_idletasks();size=(max(1,self._map_host.winfo_width()),max(1,self._map_host.winfo_height()));self._earth_launcher.configure_app_window(position=(self._map_host.winfo_rootx(),self._map_host.winfo_rooty()),size=size,parent_window_id=self._map_host.winfo_id())
-   self._earth_visible=self._earth_launcher.toggle(self._display())
-   if self._earth_visible:self._earth_button.configure(text="▣  MAP",bg=GREEN,fg=BG)
-   else:self._set_earth_layout(False);self._earth_button.configure(text="◉  EARTH",bg=BLUE,fg="white");self._shortcut_status.set("MapLibre")
-  except Exception as exc:self._earth_visible=False;self._set_earth_layout(False);self._shortcut_status.set(f"Earth unavailable: {exc}")
+   if self._earth_visible:self._leave_earth();return
+   self._prepare_first_earth_launch();position,size=self._screen_geometry();self._earth_launcher.configure_fullscreen(position=position,size=size);self._earth_visible=self._earth_launcher.toggle(self._display())
+   if self._earth_visible:self._earth_button.configure(text="▣  MAP",bg=GREEN,fg=BG);self._show_earth_overlay()
+  except Exception as exc:self._earth_visible=False;self._destroy_earth_overlay();self._shortcut_status.set(f"Earth unavailable: {exc}")
  def _schedule_renderer_refresh(self):
   for d in (300,700,1200):self.after(d,self._refresh_renderer_state)
  def _refresh_renderer_state(self):
