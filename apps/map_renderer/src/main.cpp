@@ -48,12 +48,17 @@ std::string loadStyleJson(const NavigationConfig& config) {
     if (config.dataRoot != kLegacyDataRoot) replaceAll(style, kLegacyDataRoot, config.dataRoot);
     return style;
 }
-void setLayerVisible(mbgl::style::Style& style, const char* id, bool visible) {
+bool setLayerVisible(mbgl::style::Style& style, const char* id, bool visible) {
     auto* layer = style.getLayer(id);
-    if (layer != nullptr) {
-        layer->setVisibility(visible ? mbgl::style::VisibilityType::Visible
-                                     : mbgl::style::VisibilityType::None);
+    if (layer == nullptr) {
+        std::cerr << "[map_renderer] layer not found: " << id << '\n';
+        return false;
     }
+    layer->setVisibility(visible ? mbgl::style::VisibilityType::Visible
+                                 : mbgl::style::VisibilityType::None);
+    std::cout << "[map_renderer] layer " << id << " -> "
+              << (visible ? "visible" : "none") << '\n';
+    return true;
 }
 } // namespace
 
@@ -76,7 +81,7 @@ int main() {
     map.jumpTo(mbgl::CameraOptions().withCenter(mbgl::LatLng{kDefaultLatitude, kDefaultLongitude}).withZoom(kDefaultZoom));
     MapCommandServer commandServer(brokerSubscriberEndpoint);
 
-    view.setUpdateCallback([&map, &commandServer, &config]() {
+    view.setUpdateCallback([&map, &commandServer, &config, &view]() {
         const auto command = commandServer.poll(); if (!command) return;
         if (command->command == "set_center") { map.jumpTo(mbgl::CameraOptions().withCenter(mbgl::LatLng{command->latitude, command->longitude})); return; }
         if (command->command == "fit_bounds") {
@@ -97,9 +102,19 @@ int main() {
         }
         if (command->command == "set_poi_focus") {
             const bool fuel = command->category == "fuel";
-            setLayerVisible(map.getStyle(), "fuel-focus-glow", fuel);
-            setLayerVisible(map.getStyle(), "fuel-focus-label", fuel);
-            std::cout << "[map_renderer] POI focus: " << (fuel ? "fuel" : "off") << '\n'; return;
+            const bool glowFound = setLayerVisible(map.getStyle(), "fuel-focus-glow", fuel);
+            const bool labelFound = setLayerVisible(map.getStyle(), "fuel-focus-label", fuel);
+
+            // Diagnostic control: make a successful fuel-focus command impossible to miss.
+            // Remove after the native layer mutation path is verified.
+            setLayerVisible(map.getStyle(), "motorways-casing", !fuel);
+            setLayerVisible(map.getStyle(), "motorways", !fuel);
+
+            view.invalidate();
+            std::cout << "[map_renderer] POI focus: " << (fuel ? "fuel" : "off")
+                      << " glow=" << (glowFound ? "found" : "missing")
+                      << " label=" << (labelFound ? "found" : "missing") << '\n';
+            return;
         }
         if (command->command == "set_route") {
             auto* source = map.getStyle().getSource("route"); if (!source) return;
