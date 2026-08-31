@@ -70,6 +70,14 @@ Position does not conceptually own speed or course. A physical provider may deli
 
 The current Termux navigation profile uses the Android bridge as its physical position source and keeps IMU simulation available so navigation remains usable when Android motion integration is unavailable. The map consumes the normalized navigation position contract rather than talking directly to Android.
 
+## Automotive transport on Termux
+
+PySerial is intentionally **not** a Termux dependency. Android/Termux automotive hardware uses the Android bridge and TCP transport rather than opening a serial device directly from Termux.
+
+The ELM327 stack keeps transport selection behind the common stream-transport interface. Physical Linux targets may select the serial backend when PySerial is installed, while Android/Termux injects the TCP transport exposed by the bridge. Importing the OBD-II controller stack or running transport-injected/simulated tests must not require PySerial merely to collect or import the modules.
+
+For the validated KONNWEI/ELM327 Android path, the bridge exposes the Bluetooth SPP connection through localhost TCP. This keeps Bluetooth ownership in Android while OpenRoadCode consumes the same ELM327 protocol through a platform-neutral byte stream.
+
 ## Build the native navigation stack
 
 ```bash
