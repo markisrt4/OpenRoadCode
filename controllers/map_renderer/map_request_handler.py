@@ -10,7 +10,8 @@ from collections.abc import Callable
 
 from ui.navigation import GeoPoint, MapRequestHandlerIf
 
-_MIN_FUEL_FOCUS_ZOOM = 14.0
+_MIN_NEARBY_POI_ZOOM = 14.0
+_NEARBY_POI_CATEGORIES = frozenset(("fuel", "grocery"))
 
 
 class MapRequestHandler(MapRequestHandlerIf):
@@ -100,8 +101,8 @@ class MapRequestHandler(MapRequestHandlerIf):
 
     def request_poi_focus(self, category: str | None) -> None:
         self._poi_focus = category
-        if category == "fuel" and self._zoom_level < _MIN_FUEL_FOCUS_ZOOM:
-            self._zoom_level = _MIN_FUEL_FOCUS_ZOOM
+        if category in _NEARBY_POI_CATEGORIES and self._zoom_level < _MIN_NEARBY_POI_ZOOM:
+            self._zoom_level = _MIN_NEARBY_POI_ZOOM
             self._send_camera()
         self._renderer.set_poi_focus(category)
 
