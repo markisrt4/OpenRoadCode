@@ -17,3 +17,4 @@ class MapRendererCommand(StrEnum):
     SET_ROUTE = "set_route"
     FIT_BOUNDS = "fit_bounds"
     SET_POSITION = "set_position"
+    SET_POI_FOCUS = "set_poi_focus"
