@@ -22,6 +22,9 @@ class MapRequestHandlerStub(MapRequestHandlerIf):
     def request_pan(self, north_m: float, east_m: float) -> None:
         pass
 
+    def request_pan_screen(self, right_px: float, up_px: float) -> None:
+        pass
+
     def request_zoom(self, zoom_level: float) -> None:
         pass
 
