@@ -5,15 +5,19 @@ from __future__ import annotations
 import math
 import tkinter as tk
 from collections.abc import Callable
+from apps.launchers.android_intent_launcher import AndroidIntentLauncher, AndroidIntentLauncherError
 from apps.orcUi.shared_map_camera import get_shared_map_camera_runtime
 from ui.navigation import MapRequestHandlerIf
 
 BG="#05090d"; PANEL="#0b1117"; BORDER="#25313b"; TEXT="#edf2f5"; MUTED="#89959e"; GREEN="#84ce1f"; BLUE="#168bd1"; RED="#f15a16"; PURPLE="#a25ce5"
 
+FOOD_APPS=(("PANERA","com.panera.bread"),("McDONALD'S","com.mcdonalds.app"))
+
 class NavigationPanel(tk.Frame):
     def __init__(self,parent:tk.Misc,*,map_request_handler:MapRequestHandlerIf|None=None,on_back:Callable[[],None]|None=None)->None:
         super().__init__(parent,bg=BG); del on_back
         runtime=get_shared_map_camera_runtime(); self._request_handler=map_request_handler or runtime.request_handler
+        self._android_launcher=AndroidIntentLauncher(); self._food_menu:tk.Frame|None=None
         self._zoom_level=float(getattr(self._request_handler,"zoom_level",16.5)); self._pitch_rad=float(getattr(self._request_handler,"pitch_rad",math.radians(45.0)))
         self._follow_enabled=bool(getattr(self._request_handler,"follow_enabled",True)); self._poi_focus=set(getattr(self._request_handler,"poi_focus",())); self._build(); self._schedule_renderer_refresh()
     @property
@@ -53,6 +57,7 @@ class NavigationPanel(tk.Frame):
         if "grocery" in self._poi_focus: names.append("Grocery")
         return " + ".join(names)+" highlighted" if names else ""
     def _destination_shortcut(self,shortcut:str)->None:
+        if shortcut=="food": self._show_food_apps(); return
         focus_category={"gas":"fuel","grocery":"grocery"}.get(shortcut)
         if focus_category is not None:
             if focus_category in self._poi_focus: self._poi_focus.remove(focus_category)
@@ -60,8 +65,25 @@ class NavigationPanel(tk.Frame):
             self._request_handler.request_poi_focus(focus_category)
             self._shortcut_status.set(self._focus_status()); return
         self._request_handler.request_poi_focus(None); self._poi_focus.clear()
-        messages={"home":"Home location not configured","work":"Work location not configured","food":"Nearby food search not connected yet"}
+        messages={"home":"Home location not configured","work":"Work location not configured"}
         self._shortcut_status.set(messages[shortcut]); self.after(2500,lambda:self._shortcut_status.set(""))
+    def _show_food_apps(self)->None:
+        if self._food_menu is not None and self._food_menu.winfo_exists(): self._food_menu.destroy()
+        menu=tk.Frame(self,bg=PANEL,highlightthickness=1,highlightbackground=RED)
+        menu.place(relx=.5,rely=.5,anchor=tk.CENTER,width=310,height=150); self._food_menu=menu
+        tk.Label(menu,text="ORDER FOOD",bg=PANEL,fg=TEXT,font=("Sans",12,"bold")).pack(pady=(12,8))
+        row=tk.Frame(menu,bg=PANEL); row.pack()
+        for name,package in FOOD_APPS:
+            tk.Button(row,text=name,command=lambda p=package,n=name:self._launch_food_app(n,p),bg="#101820",fg=RED,activebackground=RED,activeforeground=TEXT,relief=tk.FLAT,highlightthickness=1,highlightbackground=BORDER,font=("Sans",9,"bold"),width=13,height=2).pack(side=tk.LEFT,padx=5)
+        tk.Button(menu,text="CANCEL",command=menu.destroy,bg=PANEL,fg=MUTED,relief=tk.FLAT,font=("Sans",7,"bold")).pack(pady=7)
+    def _launch_food_app(self,name:str,package:str)->None:
+        try:
+            self._android_launcher.launch_package(package)
+            self._shortcut_status.set(f"Opening {name}")
+        except AndroidIntentLauncherError as exc:
+            self._shortcut_status.set(f"Android launch failed: {exc}")
+        if self._food_menu is not None and self._food_menu.winfo_exists(): self._food_menu.destroy()
+        self.after(3500,lambda:self._shortcut_status.set(""))
     def _toggle_follow(self)->None:
         enabled=not self._follow_enabled; self.set_follow_enabled(enabled); self._request_handler.request_follow(enabled)
     def _pan(self,up:float,right:float)->None:
