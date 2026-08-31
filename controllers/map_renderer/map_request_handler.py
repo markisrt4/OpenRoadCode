@@ -25,11 +25,28 @@ class MapRequestHandler(MapRequestHandlerIf):
         self._bearing_rad = bearing_rad
         self._pitch_rad = pitch_rad
         self._follow_enabled = follow_enabled
+        self._poi_focus: str | None = None
         self._on_follow_changed = on_follow_changed
 
     @property
     def follow_enabled(self) -> bool:
         return self._follow_enabled
+
+    @property
+    def zoom_level(self) -> float:
+        return self._zoom_level
+
+    @property
+    def bearing_rad(self) -> float:
+        return self._bearing_rad
+
+    @property
+    def pitch_rad(self) -> float:
+        return self._pitch_rad
+
+    @property
+    def poi_focus(self) -> str | None:
+        return self._poi_focus
 
     def request_recenter(self) -> None:
         self._center = self._follow_center
@@ -80,10 +97,16 @@ class MapRequestHandler(MapRequestHandlerIf):
         self._send_camera()
 
     def request_poi_focus(self, category: str | None) -> None:
+        self._poi_focus = category
         self._renderer.set_poi_focus(category)
 
     def request_style(self, style_id: str) -> None:
         del style_id
+
+    def refresh_renderer_state(self) -> None:
+        """Replay persistent camera and POI state after a renderer restart."""
+        self._send_camera()
+        self._renderer.set_poi_focus(self._poi_focus)
 
     def update_follow_center(self, position: GeoPoint) -> None:
         self._follow_center = position
