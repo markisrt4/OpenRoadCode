@@ -26,6 +26,7 @@ def load_game_catalog(path: str | Path) -> list[GameDefinition]:
                 environment=dict(entry.get("environment", {})),
                 termux_package=install.get("termux_package"),
                 termux_dependencies=tuple(install.get("termux_dependencies", [])),
+                debian_package=install.get("debian_package"),
             )
         )
     return games
