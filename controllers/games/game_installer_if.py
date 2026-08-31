@@ -9,6 +9,11 @@ from .game_types import GameDefinition
 class GameInstallerIf(ABC):
     """Environment adapter used to query, install, and launch game packages."""
 
+    @property
+    @abstractmethod
+    def backend_id(self) -> str:
+        """Return the stable identifier used for persistent inventory entries."""
+
     @abstractmethod
     def is_available(self, game: GameDefinition) -> bool:
         """Return whether this environment can install *game*."""
