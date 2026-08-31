@@ -47,12 +47,22 @@ class ExternalWindowManager:
         return window_id
 
     def send_key(self, *, display: str, window_id: str | None, key: str) -> bool:
-        """Activate a managed X11 window, then send a normal xdotool key chord."""
+        """Activate a managed X11 window and inject a key chord as real press/release steps."""
         if window_id is None or not self._tools_available("xdotool"):
             return False
         environment = x11_environment(display)
         self._run(["xdotool", "windowactivate", "--sync", window_id], environment)
-        time.sleep(0.08)
+        time.sleep(0.1)
+        if key.casefold() == "ctrl+shift+b":
+            for command in (
+                ["xdotool", "keydown", "ctrl"],
+                ["xdotool", "keydown", "shift"],
+                ["xdotool", "key", "b"],
+                ["xdotool", "keyup", "shift"],
+                ["xdotool", "keyup", "ctrl"],
+            ):
+                self._run(command, environment)
+            return True
         self._run(["xdotool", "key", "--clearmodifiers", key], environment)
         return True
 
