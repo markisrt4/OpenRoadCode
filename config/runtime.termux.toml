@@ -1,8 +1,8 @@
 # OpenRoadCode Termux runtime composition
 #
-# Run the OpenRoadCode Android Bridge app first. This profile lets the normal
-# producer services consume phone-hosted hardware bridges while keeping the
-# rest of the application stack on the normal ORC contracts.
+# Use this profile for Termux/X11 integration and bench testing. Keep the core
+# navigation service deterministic and available even when optional Android
+# hardware bridges are not running.
 
 [runtime]
 remote_display = ":1"
@@ -18,10 +18,17 @@ enabled = true
 rate_hz = 20.0
 command_endpoint = "tcp://127.0.0.1:5560"
 
+# Do not make the entire navigation service depend on the optional Android IMU
+# bridge. A stationary simulated IMU keeps map/position/navigation consumers
+# alive during normal Termux UI development. Android IMU hardware can be tested
+# with a hardware-specific runtime profile.
 [services.navigation.inputs.imu]
-source = "device"
+source = "simulation"
 device = "android"
 bridge_url = "http://127.0.0.1:8766"
+
+[services.navigation.inputs.imu.simulation]
+profile = "stationary"
 
 # GPS remains simulated in this profile until Android position is composed into
 # the normal navigation service. This keeps this profile deterministic today.
