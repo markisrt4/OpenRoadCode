@@ -10,8 +10,7 @@ from collections.abc import Callable
 
 from ui.navigation import GeoPoint, MapRequestHandlerIf
 
-_MIN_NEARBY_POI_ZOOM = 14.0
-_NEARBY_POI_CATEGORIES = frozenset(("fuel", "grocery"))
+_MIN_POI_FOCUS_ZOOM = 14.0
 
 
 class MapRequestHandler(MapRequestHandlerIf):
@@ -28,7 +27,7 @@ class MapRequestHandler(MapRequestHandlerIf):
         self._bearing_rad = bearing_rad
         self._pitch_rad = pitch_rad
         self._follow_enabled = follow_enabled
-        self._poi_focus: str | None = None
+        self._poi_focus: set[str] = set()
         self._on_follow_changed = on_follow_changed
 
     @property
@@ -48,8 +47,8 @@ class MapRequestHandler(MapRequestHandlerIf):
         return self._pitch_rad
 
     @property
-    def poi_focus(self) -> str | None:
-        return self._poi_focus
+    def poi_focus(self) -> frozenset[str]:
+        return frozenset(self._poi_focus)
 
     def request_recenter(self) -> None:
         self._center = self._follow_center
@@ -100,11 +99,20 @@ class MapRequestHandler(MapRequestHandlerIf):
         self._send_camera()
 
     def request_poi_focus(self, category: str | None) -> None:
-        self._poi_focus = category
-        if category in _NEARBY_POI_CATEGORIES and self._zoom_level < _MIN_NEARBY_POI_ZOOM:
-            self._zoom_level = _MIN_NEARBY_POI_ZOOM
-            self._send_camera()
-        self._renderer.set_poi_focus(category)
+        if category is None:
+            for active in tuple(self._poi_focus):
+                self._renderer.set_poi_focus(active, False)
+            self._poi_focus.clear()
+            return
+        enabled = category not in self._poi_focus
+        if enabled:
+            self._poi_focus.add(category)
+            if self._zoom_level < _MIN_POI_FOCUS_ZOOM:
+                self._zoom_level = _MIN_POI_FOCUS_ZOOM
+                self._send_camera()
+        else:
+            self._poi_focus.remove(category)
+        self._renderer.set_poi_focus(category, enabled)
 
     def request_style(self, style_id: str) -> None:
         del style_id
@@ -112,7 +120,8 @@ class MapRequestHandler(MapRequestHandlerIf):
     def refresh_renderer_state(self) -> None:
         """Replay persistent camera and POI state after a renderer restart."""
         self._send_camera()
-        self._renderer.set_poi_focus(self._poi_focus)
+        for category in self._poi_focus:
+            self._renderer.set_poi_focus(category, True)
 
     def update_follow_center(self, position: GeoPoint) -> None:
         self._follow_center = position
