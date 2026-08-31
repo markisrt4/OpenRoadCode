@@ -5,6 +5,8 @@
 
 from __future__ import annotations
 
+import math
+
 from controllers.map_renderer.map_request_handler import MapRequestHandler
 from messaging.contracts.navigation import (
     POSITION_STATE_TOPIC,
@@ -70,10 +72,18 @@ class MapCameraRuntime:
         data = message.data
         if data.latitude_rad is None or data.longitude_rad is None:
             return
-        self._handler.update_follow_center(
-            GeoPoint(
-                latitude_rad=data.latitude_rad,
-                longitude_rad=data.longitude_rad,
-                altitude_m=data.altitude_m,
-            )
+
+        point = GeoPoint(
+            latitude_rad=data.latitude_rad,
+            longitude_rad=data.longitude_rad,
+            altitude_m=data.altitude_m,
+        )
+        self._handler.update_follow_center(point)
+
+        # Position and camera are deliberately separate renderer commands. The
+        # marker remains at the vehicle's true location while the user pans or
+        # disables follow mode.
+        self._renderer_client.set_position(
+            latitude=math.degrees(data.latitude_rad),
+            longitude=math.degrees(data.longitude_rad),
         )
