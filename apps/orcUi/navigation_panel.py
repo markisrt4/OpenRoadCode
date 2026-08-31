@@ -59,7 +59,8 @@ class NavigationPanel(tk.Frame):
             if not self._earth_visible:
                 position=(self._map_host.winfo_rootx(),self._map_host.winfo_rooty())
                 size=(max(1,self._map_host.winfo_width()),max(1,self._map_host.winfo_height()))
-                self._earth_launcher.configure_kiosk_window(position=position,size=size)
+                self._earth_launcher.configure_app_window(position=position,size=size)
+                self._earth_launcher.set_color_scheme("dark" if self._is_dark_theme() else "light")
             self._earth_visible=self._earth_launcher.toggle(self._display())
             if self._earth_visible:
                 self._earth_button.configure(text="▣  MAP",bg=GREEN,fg="#05090d",highlightbackground="#b8f55f")
@@ -68,6 +69,10 @@ class NavigationPanel(tk.Frame):
             self._shortcut_status.set("Google Earth" if self._earth_visible else "MapLibre")
         except (OSError,RuntimeError,ValueError) as exc:
             self._earth_visible=False; self._earth_button.configure(text="◉  EARTH",bg=RED,fg="#ffffff",highlightbackground="#ff8b5e"); self._shortcut_status.set(f"Earth unavailable: {exc}")
+    def _is_dark_theme(self)->bool:
+        color=BG.lstrip("#")
+        red,green,blue=(int(color[index:index+2],16) for index in (0,2,4))
+        return (red*299+green*587+blue*114)/1000 < 128
     def _schedule_renderer_refresh(self)->None:
         for delay_ms in (300,700,1200): self.after(delay_ms,self._refresh_renderer_state)
     def _refresh_renderer_state(self)->None:
