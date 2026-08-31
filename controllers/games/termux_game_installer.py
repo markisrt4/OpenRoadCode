@@ -14,6 +14,10 @@ from .game_types import GameDefinition
 class TermuxGameInstaller(GameInstallerIf):
     """Install and execute games exposed by the configured Termux repositories."""
 
+    @property
+    def backend_id(self) -> str:
+        return "termux"
+
     @staticmethod
     def supported() -> bool:
         """Return whether the current runtime looks like Termux."""
