@@ -2,9 +2,6 @@
 set -euo pipefail
 
 # Install games used by the OpenRoadCode games launcher on Termux/X11.
-#
-# Termux does not necessarily package every desktop game in config/games.toml,
-# so this script probes the active repositories before attempting installs.
 # Missing packages are reported rather than making the whole setup fail.
 
 PREFIX="${PREFIX:-/data/data/com.termux/files/usr}"
@@ -20,25 +17,36 @@ have_package() {
 install_if_available() {
     local package="$1"
     local binary="${2:-$1}"
+    shift 2 || true
+    local dependencies=("$@")
 
-    if command -v "$binary" >/dev/null 2>&1; then
+    if ! have_package "$package"; then
+        log "not available in current Termux repositories: $package"
+        UNAVAILABLE+=("$package")
+        return 0
+    fi
+
+    for dependency in "${dependencies[@]}"; do
+        if ! have_package "$dependency"; then
+            log "dependency unavailable for $package: $dependency"
+            UNAVAILABLE+=("$package")
+            return 0
+        fi
+    done
+
+    if command -v "$binary" >/dev/null 2>&1 && ((${#dependencies[@]} == 0)); then
         log "already installed: $package ($binary)"
         INSTALLED+=("$package")
         return 0
     fi
 
-    if have_package "$package"; then
-        log "installing: $package"
-        pkg install -y "$package"
-        if command -v "$binary" >/dev/null 2>&1; then
-            INSTALLED+=("$package")
-        else
-            log "installed $package, but expected binary '$binary' was not found"
-            WARNINGS+=("$package")
-        fi
+    log "installing: $package ${dependencies[*]}"
+    pkg install -y "$package" "${dependencies[@]}"
+    if command -v "$binary" >/dev/null 2>&1; then
+        INSTALLED+=("$package")
     else
-        log "not available in current Termux repositories: $package"
-        UNAVAILABLE+=("$package")
+        log "installed $package, but expected binary '$binary' was not found"
+        WARNINGS+=("$package")
     fi
 }
 
@@ -57,12 +65,11 @@ INSTALLED=()
 UNAVAILABLE=()
 WARNINGS=()
 
-# Keep these aligned with config/games.toml. Package and executable names are
-# intentionally separate because some distributions name them differently.
+# Keep these aligned with config/games.toml.
 install_if_available extremetuxracer extremetuxracer
 install_if_available supertuxkart supertuxkart
 install_if_available bovo bovo
-install_if_available kmines kmines
+install_if_available kmines kmines qt6-qtsvg
 install_if_available kpat kpat
 install_if_available gnome-2048 gnome-2048
 install_if_available gnome-nibbles gnome-nibbles
@@ -100,11 +107,4 @@ done
 
 if ((found_any == 0)); then
     printf '  none\n'
-    printf '\n'
-    log 'No catalog games are currently packaged/installed. Run:'
-    printf '  pkg search game\n'
-    printf '  pkg search tux\n'
-    printf '  pkg search sudoku\n'
-    printf '\n'
-    log 'Send the useful package names back so the ORC catalog can be adapted to Termux.'
 fi
