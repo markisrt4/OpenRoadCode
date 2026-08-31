@@ -40,9 +40,9 @@ class NavigationPanel(tk.Frame):
   root=self.winfo_toplevel();root.update_idletasks();return (0,0),(max(1,root.winfo_screenwidth()),max(1,root.winfo_screenheight()))
  def _show_earth_overlay(self)->None:
   self._destroy_earth_overlay();overlay=tk.Toplevel(self);overlay.overrideredirect(True);overlay.configure(bg=BG);overlay.attributes("-topmost",True);overlay.geometry("+14+14")
-  row=tk.Frame(overlay,bg=BG);row.pack()
-  tk.Button(row,text="←  ORC",command=self._leave_earth,bg=BLUE,fg="white",activebackground=GREEN,activeforeground=BG,relief=tk.FLAT,highlightthickness=2,highlightbackground="#5bbcff",font=("Sans",12,"bold"),padx=12,pady=7).pack(side=tk.LEFT)
-  tk.Button(row,text="☰  MENU",command=self._toggle_earth_menu,bg=PANEL,fg=TEXT,activebackground=BLUE,activeforeground="white",relief=tk.FLAT,highlightthickness=2,highlightbackground=BORDER,font=("Sans",11,"bold"),padx=10,pady=7).pack(side=tk.LEFT,padx=(5,0))
+  column=tk.Frame(overlay,bg=BG);column.pack()
+  tk.Button(column,text="←  ORC",command=self._leave_earth,bg=BLUE,fg="white",activebackground=GREEN,activeforeground=BG,relief=tk.FLAT,highlightthickness=2,highlightbackground="#5bbcff",font=("Sans",12,"bold"),padx=12,pady=7,width=8).pack(fill=tk.X)
+  tk.Button(column,text="☰  MENU",command=self._toggle_earth_menu,bg=PANEL,fg=TEXT,activebackground=BLUE,activeforeground="white",relief=tk.FLAT,highlightthickness=2,highlightbackground=BORDER,font=("Sans",11,"bold"),padx=10,pady=7,width=8).pack(fill=tk.X,pady=(5,0))
   self._earth_overlay=overlay;overlay.lift();overlay.after(300,overlay.lift)
  def _destroy_earth_overlay(self)->None:
   if self._earth_overlay is not None:
@@ -51,7 +51,7 @@ class NavigationPanel(tk.Frame):
    self._earth_overlay=None
  def _toggle_earth_menu(self)->None:
   if not self._earth_launcher.toggle_menu_bar(self._display()):return
-  if self._earth_overlay is not None:self._earth_overlay.after(80,self._earth_overlay.lift)
+  if self._earth_overlay is not None:self._earth_overlay.after(120,self._earth_overlay.lift)
  def _hide_earth_menu_on_launch(self)->None:
   if not self._earth_visible:return
   self._earth_launcher.toggle_menu_bar(self._display())
