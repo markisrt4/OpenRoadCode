@@ -20,6 +20,8 @@ def load_game_catalog(path: str | Path) -> list[GameDefinition]:
                 name=entry["name"],
                 command=tuple(entry["command"]),
                 description=entry.get("description", ""),
+                category=entry.get("category", "casual"),
+                icon=entry.get("icon"),
                 enabled=entry.get("enabled", True),
                 environment=dict(entry.get("environment", {})),
                 termux_package=install.get("termux_package"),
