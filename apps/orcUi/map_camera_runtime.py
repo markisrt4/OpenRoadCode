@@ -96,19 +96,19 @@ class MapCameraRuntime:
         # while position itself is updating. Derive a stable course from the
         # displacement between sufficiently separated fixes so course-up still
         # works on those providers without letting stationary GPS noise spin
-        # the map.
+        # the map. When a new course is available, apply it with the new center
+        # in one camera command rather than rendering two successive jumps.
+        bearing_rad: float | None = None
         reference = self._course_reference
         if reference is None:
             self._course_reference = point
         else:
             distance_m = self._distance_m(reference, point)
             if distance_m >= _MIN_COURSE_POSITION_DELTA_M:
-                self._handler.update_follow_bearing(
-                    self._bearing_rad(reference, point)
-                )
+                bearing_rad = self._bearing_rad(reference, point)
                 self._course_reference = point
 
-        self._handler.update_follow_center(point)
+        self._handler.update_follow_camera(point, bearing_rad)
 
         # Position and camera are deliberately separate renderer commands. The
         # marker remains at the vehicle's true location while the user pans or
