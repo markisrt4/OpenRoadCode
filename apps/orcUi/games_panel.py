@@ -13,10 +13,10 @@ from collections.abc import Callable
 from pathlib import Path
 
 from controllers.games.game_catalog import load_game_catalog
+from controllers.games.game_installer_factory import create_game_installer
 from controllers.games.game_launcher import GameLauncher
 from controllers.games.game_types import GameDefinition
-from controllers.games.termux_game_installer import TermuxGameInstaller
-from controllers.games.x11_game_embedder import X11GameEmbedder
+from frontends.x11.x11_window_embedder import X11WindowEmbedder
 
 BG = "#05090d"
 PANEL = "#0b1117"
@@ -37,8 +37,8 @@ class GamesPanel(tk.Frame):
         super().__init__(parent, bg=BG)
         self._on_back = on_back
         self._launcher = GameLauncher()
-        self._installer = TermuxGameInstaller()
-        self._embedder = X11GameEmbedder()
+        self._installer = create_game_installer()
+        self._embedder = X11WindowEmbedder()
         self._status: tk.Label
         self._body: tk.Frame
         self._page_label: tk.Label
@@ -77,7 +77,6 @@ class GamesPanel(tk.Frame):
 
         self._body = tk.Frame(self, bg=BG)
         self._body.pack(fill=tk.BOTH, expand=True)
-
         pager = tk.Frame(self, bg=BG)
         pager.pack(fill=tk.X, pady=(4, 1))
         self._prev_button = tk.Button(pager, text="‹ PREV", command=lambda: self._change_page(-1), bg="#101820", fg=TEXT, relief=tk.FLAT, font=("Sans", 9, "bold"), padx=16, pady=4)
@@ -127,7 +126,6 @@ class GamesPanel(tk.Frame):
             self._next_button.configure(state=tk.DISABLED)
             tk.Label(self._body, text="No games in this category", fg=MUTED, bg=BG, font=("Sans", 18, "bold")).place(relx=.5, rely=.45, anchor="center")
             return
-
         page_count = max(1, (len(games) + PAGE_SIZE - 1) // PAGE_SIZE)
         self._page = min(self._page, page_count - 1)
         start = self._page * PAGE_SIZE
@@ -135,7 +133,6 @@ class GamesPanel(tk.Frame):
         self._page_label.configure(text=f"{self._page + 1} / {page_count}" if page_count > 1 else "")
         self._prev_button.configure(state=tk.NORMAL if self._page > 0 else tk.DISABLED)
         self._next_button.configure(state=tk.NORMAL if self._page + 1 < page_count else tk.DISABLED)
-
         for column in range(2):
             self._body.grid_columnconfigure(column, weight=1, uniform="game")
         for row in range(3):
@@ -191,7 +188,6 @@ class GamesPanel(tk.Frame):
                 installable = self._installer.is_available(game)
             except OSError:
                 pass
-
         if is_installing:
             state, action, command, accent = "INSTALLING", "INSTALLING…", None, BLUE
         elif not game.enabled:
@@ -202,7 +198,6 @@ class GamesPanel(tk.Frame):
             state, action, command, accent = "AVAILABLE", "INSTALL", lambda selected=game: self._install(selected), BLUE
         else:
             state, action, command, accent = "UNAVAILABLE", "UNAVAILABLE", None, MUTED
-
         actionable = command is not None and self._installing_game is None
         icon = self._icon_for(game)
         icon_box = tk.Frame(card, bg=PANEL, width=64, height=56)
@@ -214,7 +209,6 @@ class GamesPanel(tk.Frame):
         else:
             icon_label.configure(text="◈", fg=accent, font=("Sans", 25, "bold"))
         icon_label.place(relx=0.5, rely=0.5, anchor="center")
-
         tk.Label(card, text=game.name, fg=TEXT if actionable or installed or is_installing else MUTED, bg=PANEL, font=("Sans", 13, "bold")).grid(row=0, column=1, sticky="sw", padx=6, pady=(5, 0))
         tk.Label(card, text=game.description, fg=MUTED, bg=PANEL, font=("Sans", 8), anchor="w").grid(row=1, column=1, sticky="ew", padx=6)
         tk.Label(card, text=state, fg=accent, bg=PANEL, font=("Sans", 8, "bold")).grid(row=2, column=1, sticky="nw", padx=6, pady=(1, 5))
