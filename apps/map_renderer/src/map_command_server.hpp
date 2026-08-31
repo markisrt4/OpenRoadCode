@@ -22,22 +22,19 @@ struct MapCommand {
     double east = 0.0;
     double padding = 40.0;
     std::string geojson;
+    std::string category;
 };
 
-/** @brief Non-blocking subscriber for map commands on the ORC message bus. */
 class MapCommandServer {
 public:
     explicit MapCommandServer(std::string endpoint = "tcp://127.0.0.1:5557");
     ~MapCommandServer() = default;
-
     MapCommandServer(const MapCommandServer&) = delete;
     MapCommandServer& operator=(const MapCommandServer&) = delete;
-
     std::optional<MapCommand> poll();
 
 private:
     std::optional<MapCommand> parseCommand(const std::string& payload) const;
-
     std::string endpoint;
     zmq::context_t context{1};
     zmq::socket_t socket{context, zmq::socket_type::sub};
