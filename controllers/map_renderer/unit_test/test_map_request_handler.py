@@ -13,6 +13,7 @@ from ui.navigation import GeoPoint
 class FakeRenderer:
     def __init__(self) -> None:
         self.cameras: list[tuple[float, float, float, float, float]] = []
+        self.poi_focus: list[str | None] = []
 
     def set_camera(
         self,
@@ -23,6 +24,9 @@ class FakeRenderer:
         pitch: float = 0.0,
     ) -> None:
         self.cameras.append((latitude, longitude, zoom, bearing, pitch))
+
+    def set_poi_focus(self, category: str | None) -> None:
+        self.poi_focus.append(category)
 
 
 class MapRequestHandlerTest(unittest.TestCase):
@@ -82,6 +86,34 @@ class MapRequestHandlerTest(unittest.TestCase):
         camera = self.renderer.cameras[-1]
         self.assertAlmostEqual(camera[0], 42.8)
         self.assertGreater(camera[1], -83.0)
+
+    def test_fuel_focus_zooms_in_without_disabling_follow(self) -> None:
+        self.handler = MapRequestHandler(
+            self.renderer,
+            center=GeoPoint(math.radians(42.8), math.radians(-83.0)),
+            zoom_level=12.5,
+            pitch_rad=math.radians(45.0),
+            follow_enabled=True,
+            on_follow_changed=self.follow_changes.append,
+        )
+
+        self.handler.request_poi_focus("fuel")
+
+        self.assertTrue(self.handler.follow_enabled)
+        self.assertEqual(self.follow_changes, [])
+        self.assertEqual(self.renderer.poi_focus[-1], "fuel")
+        camera = self.renderer.cameras[-1]
+        self.assertAlmostEqual(camera[2], 14.0)
+        self.assertAlmostEqual(camera[4], 45.0)
+
+    def test_fuel_focus_does_not_zoom_out(self) -> None:
+        self.handler.request_zoom(16.0)
+        self.renderer.cameras.clear()
+
+        self.handler.request_poi_focus("fuel")
+
+        self.assertEqual(self.renderer.poi_focus[-1], "fuel")
+        self.assertEqual(self.renderer.cameras, [])
 
 
 if __name__ == "__main__":
