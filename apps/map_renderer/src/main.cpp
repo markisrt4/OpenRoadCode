@@ -25,6 +25,7 @@ namespace {
 constexpr double kDefaultLatitude = 0.0;
 constexpr double kDefaultLongitude = 0.0;
 constexpr double kDefaultZoom = 2.0;
+constexpr auto kCameraAnimationDuration = mbgl::Milliseconds(450);
 constexpr const char* kDefaultBrokerSubscriberEndpoint = "tcp://127.0.0.1:5557";
 constexpr const char* kDataRootToken = "__OPENROADCODE_DATA_ROOT__";
 constexpr const char* kLegacyDataRoot = "/srv/openroadcode";
@@ -92,8 +93,15 @@ int main() {
             vehicleSource->setGeoJSON(feature); return;
         }
         if (command->command == "set_camera") {
-            map.jumpTo(mbgl::CameraOptions().withCenter(mbgl::LatLng{command->latitude, command->longitude})
-                .withZoom(command->zoom).withBearing(command->bearing).withPitch(command->pitch)); return;
+            map.easeTo(
+                mbgl::CameraOptions()
+                    .withCenter(mbgl::LatLng{command->latitude, command->longitude})
+                    .withZoom(command->zoom)
+                    .withBearing(command->bearing)
+                    .withPitch(command->pitch),
+                mbgl::AnimationOptions{kCameraAnimationDuration}
+            );
+            return;
         }
         if (command->command == "set_poi_focus") {
             if (command->category == "fuel") {
