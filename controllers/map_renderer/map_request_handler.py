@@ -84,8 +84,8 @@ class MapRequestHandler(MapRequestHandlerIf):
         )
 
     def request_zoom(self, zoom_level: float) -> None:
+        """Change zoom without changing the current follow/manual mode."""
         self._zoom_level = zoom_level
-        self.request_follow(False)
         self._send_camera()
 
     def request_bearing(self, bearing_rad: float) -> None:
