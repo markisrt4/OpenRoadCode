@@ -125,16 +125,27 @@ class MapRequestHandler(MapRequestHandlerIf):
 
     def update_follow_center(self, position: GeoPoint) -> None:
         """Update the vehicle-follow center without changing manual mode."""
-        self._follow_center = position
-        if self._follow_enabled:
-            self._center = position
-            self._send_camera()
+        self.update_follow_camera(position)
 
     def update_follow_bearing(self, bearing_rad: float) -> None:
         """Update automatic course-up bearing without disabling follow mode."""
         if not self._follow_enabled:
             return
         self._bearing_rad = bearing_rad
+        self._send_camera()
+
+    def update_follow_camera(
+        self,
+        position: GeoPoint,
+        bearing_rad: float | None = None,
+    ) -> None:
+        """Update followed position and optional bearing with one camera command."""
+        self._follow_center = position
+        if not self._follow_enabled:
+            return
+        self._center = position
+        if bearing_rad is not None:
+            self._bearing_rad = bearing_rad
         self._send_camera()
 
     def _pan_geographic(self, *, north_m: float, east_m: float) -> None:
