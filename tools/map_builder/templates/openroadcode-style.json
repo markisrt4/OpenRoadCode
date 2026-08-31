@@ -1,61 +1,39 @@
-{
-  "version": 8,
-  "glyphs": "file://__OPENROADCODE_DATA_ROOT__/maps/glyphs/{fontstack}/{range}.pbf",
-  "sources": {
-    "openroad": {"type": "vector", "url": "mbtiles://__OPENROADCODE_DATA_ROOT__/maps/vector/openroadcode.mbtiles"},
-    "route": {"type": "geojson", "data": {"type": "FeatureCollection", "features": []}},
-    "vehicle": {"type": "geojson", "data": {"type": "FeatureCollection", "features": []}}
-  },
-  "layers": [
-    {"id":"background","type":"background","paint":{"background-color":"#f3f1eb"}},
-
-    {"id":"landcover","type":"fill","source":"openroad","source-layer":"landcover","paint":{"fill-color":["match",["get","class"],"wood","#d5e7cf","grass","#e7efd3","scrub","#e5ead4","farmland","#eee7ca","#ece8dd"],"fill-opacity":0.78}},
-    {"id":"landuse","type":"fill","source":"openroad","source-layer":"landuse","paint":{"fill-color":["match",["get","class"],"residential","#e9e5e0","commercial","#ecdfd7","industrial","#e1dcda","cemetery","#dce7d6","hospital","#eadde4","school","#ebe4cf","#e7e3dc"],"fill-opacity":["interpolate",["linear"],["zoom"],7,0.42,12,0.64,15,0.78]}},
-    {"id":"parks","type":"fill","source":"openroad","source-layer":"park","minzoom":8,"paint":{"fill-color":"#d3e8ca","fill-opacity":["interpolate",["linear"],["zoom"],8,0.65,13,0.9]}},
-    {"id":"water","type":"fill","source":"openroad","source-layer":"water","paint":{"fill-color":"#a8d4eb"}},
-    {"id":"waterways","type":"line","source":"openroad","source-layer":"waterway","minzoom":8,"paint":{"line-color":"#88c5e6","line-width":["interpolate",["linear"],["zoom"],8,0.65,11,1.0,14,2.0,17,3.0],"line-opacity":0.92}},
-    {"id":"boundaries","type":"line","source":"openroad","source-layer":"boundary","minzoom":4,"paint":{"line-color":"#aaa49d","line-width":["interpolate",["linear"],["zoom"],4,0.45,10,0.9,14,1.35],"line-dasharray":[3,3],"line-opacity":0.58}},
-
-    {"id":"railways","type":"line","source":"openroad","source-layer":"transportation","minzoom":10,"filter":["in",["get","class"],["literal",["rail","transit"]]],"paint":{"line-color":"#9f9b96","line-width":["interpolate",["linear"],["zoom"],10,0.7,14,1.4,17,2.0],"line-dasharray":[2,2],"line-opacity":0.72}},
-
-    {"id":"paths","type":"line","source":"openroad","source-layer":"transportation","minzoom":14,"filter":["in",["get","class"],["literal",["path","track"]]],"paint":{"line-color":"#c9c2b7","line-width":["interpolate",["linear"],["zoom"],14,0.7,16,1.2,18,2.0],"line-dasharray":[2,2],"line-opacity":0.82}},
-    {"id":"service-roads-casing","type":"line","source":"openroad","source-layer":"transportation","minzoom":13,"filter":["==",["get","class"],"service"],"paint":{"line-color":"#cbc6bf","line-width":["interpolate",["linear"],["zoom"],13,1.2,15,2.7,18,5.0]}},
-    {"id":"service-roads","type":"line","source":"openroad","source-layer":"transportation","minzoom":13,"filter":["==",["get","class"],"service"],"paint":{"line-color":"#f7f5f1","line-width":["interpolate",["linear"],["zoom"],13,0.7,15,1.9,18,4.0]}},
-
-    {"id":"residential-roads-casing","type":"line","source":"openroad","source-layer":"transportation","minzoom":11,"filter":["in",["get","class"],["literal",["minor","residential","living_street"]]],"paint":{"line-color":"#c7c2bc","line-width":["interpolate",["linear"],["zoom"],11,1.35,13,2.4,15,4.8,18,8.0]}},
-    {"id":"residential-roads","type":"line","source":"openroad","source-layer":"transportation","minzoom":11,"filter":["in",["get","class"],["literal",["minor","residential","living_street"]]],"paint":{"line-color":"#ffffff","line-width":["interpolate",["linear"],["zoom"],11,0.8,13,1.7,15,3.8,18,6.8]}},
-
-    {"id":"secondary-roads-casing","type":"line","source":"openroad","source-layer":"transportation","minzoom":8,"filter":["in",["get","class"],["literal",["secondary","tertiary"]]],"paint":{"line-color":"#b9b3ac","line-width":["interpolate",["linear"],["zoom"],8,1.3,11,2.8,14,5.5,17,9.0]}},
-    {"id":"secondary-roads","type":"line","source":"openroad","source-layer":"transportation","minzoom":8,"filter":["in",["get","class"],["literal",["secondary","tertiary"]]],"paint":{"line-color":"#faf8f3","line-width":["interpolate",["linear"],["zoom"],8,0.75,11,2.0,14,4.3,17,7.5]}},
-
-    {"id":"primary-roads-casing","type":"line","source":"openroad","source-layer":"transportation","minzoom":6,"filter":["==",["get","class"],"primary"],"paint":{"line-color":"#c4a675","line-width":["interpolate",["linear"],["zoom"],6,1.6,9,2.7,12,4.8,15,7.5,17,10.5]}},
-    {"id":"primary-roads","type":"line","source":"openroad","source-layer":"transportation","minzoom":6,"filter":["==",["get","class"],"primary"],"paint":{"line-color":"#f2d59f","line-width":["interpolate",["linear"],["zoom"],6,1.0,9,1.9,12,3.7,15,6.2,17,9.0]}},
-
-    {"id":"motorways-casing","type":"line","source":"openroad","source-layer":"transportation","minzoom":4,"filter":["in",["get","class"],["literal",["motorway","trunk"]]],"paint":{"line-color":"#b47f58","line-width":["interpolate",["linear"],["zoom"],4,1.8,7,2.8,10,4.8,13,7.3,16,11.0]}},
-    {"id":"motorways","type":"line","source":"openroad","source-layer":"transportation","minzoom":4,"filter":["in",["get","class"],["literal",["motorway","trunk"]]],"paint":{"line-color":"#efb674","line-width":["interpolate",["linear"],["zoom"],4,1.15,7,2.0,10,3.7,13,6.0,16,9.2]}},
-
-    {"id":"aeroways","type":"line","source":"openroad","source-layer":"aeroway","minzoom":11,"paint":{"line-color":"#c6c6c6","line-width":["interpolate",["linear"],["zoom"],11,1.0,14,3.0,17,5.0]}},
-
-    {"id":"buildings","type":"fill","source":"openroad","source-layer":"building","minzoom":12.5,"paint":{"fill-color":["interpolate",["linear"],["zoom"],12.5,"#d8d4cf",16,"#cbc6c0"],"fill-outline-color":"#b8b2ac","fill-opacity":["interpolate",["linear"],["zoom"],12.5,0.45,14,0.75,17,0.9]}},
-
-    {"id":"route-line-casing","type":"line","source":"route","paint":{"line-color":"#ffffff","line-width":["interpolate",["linear"],["zoom"],8,7,13,9,17,12],"line-opacity":0.96}},
-    {"id":"route-line","type":"line","source":"route","paint":{"line-color":"#cc0000","line-width":["interpolate",["linear"],["zoom"],8,4,13,6,17,8],"line-opacity":0.96}},
-
-    {"id":"water-labels","type":"symbol","source":"openroad","source-layer":"water_name","minzoom":9,"layout":{"text-field":"{name:latin}","text-font":["KlokanTech Noto Sans CJK Regular"],"text-size":["interpolate",["linear"],["zoom"],9,10,12,12,16,15],"text-padding":10},"paint":{"text-color":"#477f9f","text-halo-color":"#eef8fc","text-halo-width":1.6}},
-
-    {"id":"road-refs-major","type":"symbol","source":"openroad","source-layer":"transportation_name","minzoom":7,"filter":["has","ref"],"layout":{"symbol-placement":"line","text-field":"{ref}","text-font":["KlokanTech Noto Sans CJK Regular"],"text-size":["interpolate",["linear"],["zoom"],7,9,12,10,16,11],"text-padding":22,"symbol-spacing":450},"paint":{"text-color":"#624b33","text-halo-color":"#fff8e8","text-halo-width":2.2}},
-    {"id":"road-labels","type":"symbol","source":"openroad","source-layer":"transportation_name","minzoom":9,"layout":{"symbol-placement":"line","text-field":"{name:latin}","text-font":["KlokanTech Noto Sans CJK Regular"],"text-size":["interpolate",["linear"],["zoom"],9,10,11,11,14,13,17,15],"text-padding":10,"symbol-spacing":300},"paint":{"text-color":"#373431","text-halo-color":"#ffffff","text-halo-width":2.0}},
-
-    {"id":"place-labels","type":"symbol","source":"openroad","source-layer":"place","minzoom":5,"layout":{"text-field":"{name:latin}","text-font":["KlokanTech Noto Sans CJK Regular"],"text-size":["interpolate",["linear"],["zoom"],5,11,8,13,11,15,15,18],"text-padding":12},"paint":{"text-color":"#353330","text-halo-color":"#f7f4ee","text-halo-width":2.2}},
-    {"id":"aerodrome-labels","type":"symbol","source":"openroad","source-layer":"aerodrome_label","minzoom":10,"layout":{"text-field":"{name:latin}","text-font":["KlokanTech Noto Sans CJK Regular"],"text-size":["interpolate",["linear"],["zoom"],10,10,14,12,17,14],"text-padding":10},"paint":{"text-color":"#626262","text-halo-color":"#ffffff","text-halo-width":1.5}},
-    {"id":"mountain-peaks","type":"symbol","source":"openroad","source-layer":"mountain_peak","minzoom":11,"layout":{"text-field":"{name:latin}","text-font":["KlokanTech Noto Sans CJK Regular"],"text-size":["interpolate",["linear"],["zoom"],11,10,15,12],"text-padding":8},"paint":{"text-color":"#675f56","text-halo-color":"#f5f2eb","text-halo-width":1.5}},
-
-    {"id":"poi-labels-important","type":"symbol","source":"openroad","source-layer":"poi","minzoom":12,"filter":["in",["get","class"],["literal",["hospital","school","college","university","fuel","grocery","park","attraction"]]],"layout":{"text-field":"{name:latin}","text-font":["KlokanTech Noto Sans CJK Regular"],"text-size":["interpolate",["linear"],["zoom"],12,10,15,12,17,13],"text-padding":10},"paint":{"text-color":"#565149","text-halo-color":"#ffffff","text-halo-width":1.7}},
-    {"id":"poi-labels-food","type":"symbol","source":"openroad","source-layer":"poi","minzoom":14,"filter":["==",["get","class"],"restaurant"],"layout":{"text-field":"{name:latin}","text-font":["KlokanTech Noto Sans CJK Regular"],"text-size":["interpolate",["linear"],["zoom"],14,10,17,12],"text-padding":8},"paint":{"text-color":"#66554c","text-halo-color":"#ffffff","text-halo-width":1.5}},
-    {"id":"house-numbers","type":"symbol","source":"openroad","source-layer":"housenumber","minzoom":15,"layout":{"text-field":"{housenumber}","text-font":["KlokanTech Noto Sans CJK Regular"],"text-size":["interpolate",["linear"],["zoom"],15,8,18,10],"text-padding":3},"paint":{"text-color":"#7d766f","text-halo-color":"#ffffff","text-halo-width":1}},
-
-    {"id":"vehicle-blue-dot","type":"circle","source":"vehicle","filter":["==",["get","marker_mode"],"blue_dot"],"paint":{"circle-radius":["*",9,["get","marker_scale"]],"circle-color":"#0066ff","circle-stroke-color":"#ffffff","circle-stroke-width":3}},
-    {"id":"vehicle-heading","type":"circle","source":"vehicle","filter":["==",["get","marker_mode"],"heading"],"paint":{"circle-radius":["*",8,["get","marker_scale"]],"circle-color":"#0066ff","circle-stroke-color":"#ffffff","circle-stroke-width":2}},
-    {"id":"vehicle-veloster","type":"circle","source":"vehicle","filter":["==",["get","marker_mode"],"vehicle"],"paint":{"circle-radius":["*",10,["get","marker_scale"]],"circle-color":"#d71920","circle-stroke-color":"#ffffff","circle-stroke-width":3}}
-  ]
-}
+{"version":8,"glyphs":"file://__OPENROADCODE_DATA_ROOT__/maps/glyphs/{fontstack}/{range}.pbf","sources":{"openroad":{"type":"vector","url":"mbtiles://__OPENROADCODE_DATA_ROOT__/maps/vector/openroadcode.mbtiles"},"route":{"type":"geojson","data":{"type":"FeatureCollection","features":[]}},"vehicle":{"type":"geojson","data":{"type":"FeatureCollection","features":[]}}},"layers":[
+{"id":"background","type":"background","paint":{"background-color":"#f3f1eb"}},
+{"id":"landcover","type":"fill","source":"openroad","source-layer":"landcover","paint":{"fill-color":["match",["get","class"],"wood","#d5e7cf","grass","#e7efd3","scrub","#e5ead4","farmland","#dce4c0","#ece8dd"],"fill-opacity":0.78}},
+{"id":"landuse","type":"fill","source":"openroad","source-layer":"landuse","paint":{"fill-color":["match",["get","class"],"residential","#e9e5e0","commercial","#ecdfd7","industrial","#e1dcda","cemetery","#dce7d6","hospital","#eadde4","school","#ebe4cf","#e7e3dc"],"fill-opacity":["interpolate",["linear"],["zoom"],7,0.42,12,0.64,15,0.78]}},
+{"id":"parks","type":"fill","source":"openroad","source-layer":"park","minzoom":8,"paint":{"fill-color":"#d3e8ca","fill-opacity":0.85}},
+{"id":"water","type":"fill","source":"openroad","source-layer":"water","paint":{"fill-color":"#a8d4eb"}},
+{"id":"waterways","type":"line","source":"openroad","source-layer":"waterway","minzoom":8,"paint":{"line-color":"#88c5e6","line-width":2}},
+{"id":"boundaries","type":"line","source":"openroad","source-layer":"boundary","minzoom":4,"paint":{"line-color":"#aaa49d","line-width":1,"line-dasharray":[3,3]}},
+{"id":"railways","type":"line","source":"openroad","source-layer":"transportation","minzoom":10,"filter":["in",["get","class"],["literal",["rail","transit"]]],"paint":{"line-color":"#9f9b96","line-width":1.4,"line-dasharray":[2,2]}},
+{"id":"paths","type":"line","source":"openroad","source-layer":"transportation","minzoom":14,"filter":["in",["get","class"],["literal",["path","track"]]],"paint":{"line-color":"#c9c2b7","line-width":1.2,"line-dasharray":[2,2]}},
+{"id":"service-roads-casing","type":"line","source":"openroad","source-layer":"transportation","minzoom":13,"filter":["==",["get","class"],"service"],"paint":{"line-color":"#cbc6bf","line-width":3}},
+{"id":"service-roads","type":"line","source":"openroad","source-layer":"transportation","minzoom":13,"filter":["==",["get","class"],"service"],"paint":{"line-color":"#f7f5f1","line-width":2}},
+{"id":"residential-roads-casing","type":"line","source":"openroad","source-layer":"transportation","minzoom":11,"filter":["in",["get","class"],["literal",["minor","residential","living_street"]]],"paint":{"line-color":"#c7c2bc","line-width":["interpolate",["linear"],["zoom"],11,1.35,15,4.8,18,8]}},
+{"id":"residential-roads","type":"line","source":"openroad","source-layer":"transportation","minzoom":11,"filter":["in",["get","class"],["literal",["minor","residential","living_street"]]],"paint":{"line-color":"#fff","line-width":["interpolate",["linear"],["zoom"],11,.8,15,3.8,18,6.8]}},
+{"id":"secondary-roads-casing","type":"line","source":"openroad","source-layer":"transportation","minzoom":8,"filter":["in",["get","class"],["literal",["secondary","tertiary"]]],"paint":{"line-color":"#b9b3ac","line-width":5}},
+{"id":"secondary-roads","type":"line","source":"openroad","source-layer":"transportation","minzoom":8,"filter":["in",["get","class"],["literal",["secondary","tertiary"]]],"paint":{"line-color":"#faf8f3","line-width":4}},
+{"id":"primary-roads-casing","type":"line","source":"openroad","source-layer":"transportation","minzoom":6,"filter":["==",["get","class"],"primary"],"paint":{"line-color":"#c4a675","line-width":7}},
+{"id":"primary-roads","type":"line","source":"openroad","source-layer":"transportation","minzoom":6,"filter":["==",["get","class"],"primary"],"paint":{"line-color":"#f2d59f","line-width":6}},
+{"id":"motorways-casing","type":"line","source":"openroad","source-layer":"transportation","minzoom":4,"filter":["in",["get","class"],["literal",["motorway","trunk"]]],"paint":{"line-color":"#b47f58","line-width":10}},
+{"id":"motorways","type":"line","source":"openroad","source-layer":"transportation","minzoom":4,"filter":["in",["get","class"],["literal",["motorway","trunk"]]],"paint":{"line-color":"#efb674","line-width":8}},
+{"id":"aeroways","type":"line","source":"openroad","source-layer":"aeroway","minzoom":11,"paint":{"line-color":"#c6c6c6","line-width":3}},
+{"id":"buildings","type":"fill","source":"openroad","source-layer":"building","minzoom":12.5,"paint":{"fill-color":"#cbc6c0","fill-outline-color":"#b8b2ac","fill-opacity":.8}},
+{"id":"route-line-casing","type":"line","source":"route","paint":{"line-color":"#fff","line-width":10}},
+{"id":"route-line","type":"line","source":"route","paint":{"line-color":"#cc0000","line-width":7}},
+{"id":"water-labels","type":"symbol","source":"openroad","source-layer":"water_name","minzoom":9,"layout":{"text-field":"{name:latin}","text-font":["KlokanTech Noto Sans CJK Regular"],"text-size":12},"paint":{"text-color":"#477f9f","text-halo-color":"#eef8fc","text-halo-width":1.6}},
+{"id":"road-refs-major","type":"symbol","source":"openroad","source-layer":"transportation_name","minzoom":7,"filter":["has","ref"],"layout":{"symbol-placement":"line","text-field":"{ref}","text-font":["KlokanTech Noto Sans CJK Regular"],"text-size":10},"paint":{"text-color":"#624b33","text-halo-color":"#fff8e8","text-halo-width":2}},
+{"id":"road-labels","type":"symbol","source":"openroad","source-layer":"transportation_name","minzoom":9,"layout":{"symbol-placement":"line","text-field":"{name:latin}","text-font":["KlokanTech Noto Sans CJK Regular"],"text-size":12},"paint":{"text-color":"#373431","text-halo-color":"#fff","text-halo-width":2}},
+{"id":"place-labels","type":"symbol","source":"openroad","source-layer":"place","minzoom":5,"layout":{"text-field":"{name:latin}","text-font":["KlokanTech Noto Sans CJK Regular"],"text-size":15},"paint":{"text-color":"#353330","text-halo-color":"#f7f4ee","text-halo-width":2}},
+{"id":"aerodrome-labels","type":"symbol","source":"openroad","source-layer":"aerodrome_label","minzoom":10,"layout":{"text-field":"{name:latin}","text-font":["KlokanTech Noto Sans CJK Regular"],"text-size":12},"paint":{"text-color":"#626262","text-halo-color":"#fff","text-halo-width":1.5}},
+{"id":"mountain-peaks","type":"symbol","source":"openroad","source-layer":"mountain_peak","minzoom":11,"layout":{"text-field":"{name:latin}","text-font":["KlokanTech Noto Sans CJK Regular"],"text-size":11},"paint":{"text-color":"#675f56","text-halo-color":"#f5f2eb","text-halo-width":1.5}},
+{"id":"poi-labels-important","type":"symbol","source":"openroad","source-layer":"poi","minzoom":12,"filter":["in",["get","class"],["literal",["hospital","school","college","university","fuel","grocery","park","attraction"]]],"layout":{"text-field":"{name:latin}","text-font":["KlokanTech Noto Sans CJK Regular"],"text-size":12},"paint":{"text-color":"#565149","text-halo-color":"#fff","text-halo-width":1.7}},
+{"id":"poi-labels-food","type":"symbol","source":"openroad","source-layer":"poi","minzoom":14,"filter":["==",["get","class"],"restaurant"],"layout":{"text-field":"{name:latin}","text-font":["KlokanTech Noto Sans CJK Regular"],"text-size":11},"paint":{"text-color":"#66554c","text-halo-color":"#fff","text-halo-width":1.5}},
+{"id":"fuel-focus-glow","type":"circle","source":"openroad","source-layer":"poi","minzoom":10,"filter":["==",["get","class"],"fuel"],"layout":{"visibility":"none"},"paint":{"circle-radius":["interpolate",["linear"],["zoom"],10,10,15,18,18,25],"circle-color":"#84ce1f","circle-opacity":.28,"circle-blur":.7,"circle-stroke-color":"#dfff9b","circle-stroke-width":2}},
+{"id":"fuel-focus-label","type":"symbol","source":"openroad","source-layer":"poi","minzoom":10,"filter":["==",["get","class"],"fuel"],"layout":{"visibility":"none","text-field":"⛽ {name:latin}","text-font":["KlokanTech Noto Sans CJK Regular"],"text-size":["interpolate",["linear"],["zoom"],10,11,15,14],"text-offset":[0,1.5],"text-anchor":"top","text-allow-overlap":true},"paint":{"text-color":"#dfff9b","text-halo-color":"#071008","text-halo-width":2.5}},
+{"id":"house-numbers","type":"symbol","source":"openroad","source-layer":"housenumber","minzoom":15,"layout":{"text-field":"{housenumber}","text-font":["KlokanTech Noto Sans CJK Regular"],"text-size":9},"paint":{"text-color":"#7d766f","text-halo-color":"#fff","text-halo-width":1}},
+{"id":"vehicle-blue-dot","type":"circle","source":"vehicle","filter":["==",["get","marker_mode"],"blue_dot"],"paint":{"circle-radius":["*",9,["get","marker_scale"]],"circle-color":"#0066ff","circle-stroke-color":"#fff","circle-stroke-width":3}},
+{"id":"vehicle-heading","type":"circle","source":"vehicle","filter":["==",["get","marker_mode"],"heading"],"paint":{"circle-radius":["*",8,["get","marker_scale"]],"circle-color":"#0066ff","circle-stroke-color":"#fff","circle-stroke-width":2}},
+{"id":"vehicle-veloster","type":"circle","source":"vehicle","filter":["==",["get","marker_mode"],"vehicle"],"paint":{"circle-radius":["*",10,["get","marker_scale"]],"circle-color":"#d71920","circle-stroke-color":"#fff","circle-stroke-width":3}}
+]}
