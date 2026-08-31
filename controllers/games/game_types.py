@@ -10,6 +10,8 @@ class GameDefinition:
     name: str
     command: tuple[str, ...]
     description: str = ""
+    category: str = "casual"
+    icon: str | None = None
     enabled: bool = True
     environment: dict[str, str] = field(default_factory=dict)
     termux_package: str | None = None
@@ -20,3 +22,5 @@ class GameDefinition:
             raise ValueError("game name must not be empty")
         if not self.command:
             raise ValueError("game command must not be empty")
+        if not self.category.strip():
+            raise ValueError("game category must not be empty")
