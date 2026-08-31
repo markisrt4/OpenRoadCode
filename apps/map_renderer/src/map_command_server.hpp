@@ -23,6 +23,7 @@ struct MapCommand {
     double padding = 40.0;
     std::string geojson;
     std::string category;
+    bool enabled = false;
 };
 
 class MapCommandServer {
