@@ -39,10 +39,18 @@ class MapRequestHandlerTest(unittest.TestCase):
             on_follow_changed=self.follow_changes.append,
         )
 
-    def test_manual_camera_request_disables_follow(self) -> None:
+    def test_zoom_preserves_follow_mode(self) -> None:
+        self.handler.request_zoom(14.0)
+        self.assertTrue(self.handler.follow_enabled)
+        self.assertEqual(self.follow_changes, [])
+        self.assertAlmostEqual(self.renderer.cameras[-1][2], 14.0)
+
+    def test_zoom_preserves_manual_mode(self) -> None:
+        self.handler.request_follow(False)
+        self.follow_changes.clear()
         self.handler.request_zoom(14.0)
         self.assertFalse(self.handler.follow_enabled)
-        self.assertEqual(self.follow_changes, [False])
+        self.assertEqual(self.follow_changes, [])
         self.assertAlmostEqual(self.renderer.cameras[-1][2], 14.0)
 
     def test_recenter_restores_follow(self) -> None:
