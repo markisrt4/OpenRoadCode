@@ -78,6 +78,18 @@ class MapRequestHandlerTest(unittest.TestCase):
         self.assertAlmostEqual(camera[0], 42.8)
         self.assertGreater(camera[1], -83.0)
 
+    def test_follow_bearing_rotates_without_disabling_follow(self) -> None:
+        self.handler.update_follow_bearing(math.radians(90.0))
+        self.assertTrue(self.handler.follow_enabled)
+        self.assertEqual(self.follow_changes, [])
+        self.assertAlmostEqual(self.renderer.cameras[-1][3], 90.0)
+
+    def test_follow_bearing_is_ignored_in_manual_mode(self) -> None:
+        self.handler.request_follow(False)
+        self.renderer.cameras.clear()
+        self.handler.update_follow_bearing(math.radians(90.0))
+        self.assertEqual(self.renderer.cameras, [])
+
     def _assert_nearby_focus_camera_assist(self, category: str) -> None:
         self.handler = MapRequestHandler(
             self.renderer,
