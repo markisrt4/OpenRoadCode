@@ -53,8 +53,11 @@ class GamesPanel(tk.Frame):
         self._page = 0
         self._filter_buttons: dict[str, tk.Button] = {}
         self._icon_cache: dict[str, tk.PhotoImage | None] = {}
+        self._game_backends: dict[str, tuple[GameInstallerIf | None, GameInstallerIf | None]] = {}
+        self._inventory_loading = True
         self._games = self._load_games()
         self._build()
+        threading.Thread(target=self._inventory_worker, daemon=True).start()
 
     @staticmethod
     def _load_games() -> list[GameDefinition]:
@@ -73,7 +76,7 @@ class GamesPanel(tk.Frame):
             button = tk.Button(filters, text=label, command=lambda selected=category: self._set_filter(selected), relief=tk.FLAT, font=("Sans", 9, "bold"), padx=11, pady=6, cursor="hand2")
             button.pack(side=tk.LEFT, padx=(0, 5))
             self._filter_buttons[category] = button
-        self._status = tk.Label(toolbar, text="Choose a game", fg=MUTED, bg=BG, font=("Sans", 10))
+        self._status = tk.Label(toolbar, text="Checking games…", fg=BLUE, bg=BG, font=("Sans", 10))
         self._status.pack(side=tk.RIGHT, padx=8)
         self._update_filter_buttons()
 
@@ -88,6 +91,37 @@ class GamesPanel(tk.Frame):
         self._page_label = tk.Label(pager, text="", fg=MUTED, bg=BG, font=("Sans", 9, "bold"))
         self._page_label.pack(expand=True)
         self._refresh_cards()
+
+    def _inventory_worker(self) -> None:
+        inventory: dict[str, tuple[GameInstallerIf | None, GameInstallerIf | None]] = {}
+        for game in self._games:
+            installed_backend = None
+            available_backend = None
+            for installer in self._installers:
+                try:
+                    if installed_backend is None and installer.is_installed(game):
+                        installed_backend = installer
+                    if available_backend is None and installer.is_available(game):
+                        available_backend = installer
+                except (OSError, RuntimeError):
+                    continue
+            inventory[game.name] = (installed_backend, available_backend)
+        self.after(0, self._inventory_finished, inventory)
+
+    def _inventory_finished(self, inventory: dict[str, tuple[GameInstallerIf | None, GameInstallerIf | None]]) -> None:
+        self._game_backends = inventory
+        self._inventory_loading = False
+        if self._active_game is None and self._installing_game is None:
+            self._status.configure(text="Choose a game", fg=MUTED)
+            self._refresh_cards()
+
+    def _rescan_inventory(self) -> None:
+        if self._inventory_loading:
+            return
+        self._inventory_loading = True
+        self._status.configure(text="Refreshing games…", fg=BLUE)
+        self._refresh_cards()
+        threading.Thread(target=self._inventory_worker, daemon=True).start()
 
     def _set_filter(self, category: str) -> None:
         if self._active_game is not None or self._installing_game is not None:
@@ -116,24 +150,6 @@ class GamesPanel(tk.Frame):
         if self._filter == "all":
             return self._games
         return [game for game in self._games if game.category == self._filter]
-
-    def _installed_backend(self, game: GameDefinition) -> GameInstallerIf | None:
-        for installer in self._installers:
-            try:
-                if installer.is_installed(game):
-                    return installer
-            except OSError:
-                continue
-        return None
-
-    def _available_backend(self, game: GameDefinition) -> GameInstallerIf | None:
-        for installer in self._installers:
-            try:
-                if installer.is_available(game):
-                    return installer
-            except OSError:
-                continue
-        return None
 
     def _refresh_cards(self) -> None:
         self._game_host = None
@@ -199,13 +215,10 @@ class GamesPanel(tk.Frame):
     def _game_card(self, parent: tk.Misc, game: GameDefinition) -> tk.Frame:
         card = tk.Frame(parent, bg=PANEL, highlightthickness=1, highlightbackground=BORDER)
         card.grid_columnconfigure(1, weight=1)
-        installed_backend = self._installed_backend(game)
+        installed_backend, available_backend = self._game_backends.get(game.name, (None, None))
         installed = installed_backend is not None
         is_installing = self._installing_game == game
-        another_install_running = self._installing_game is not None and not is_installing
-        available_backend = None
-        if game.enabled and not installed and not is_installing and not another_install_running:
-            available_backend = self._available_backend(game)
+        checking = self._inventory_loading and game.name not in self._game_backends
         installable = available_backend is not None
         if is_installing:
             state, action, command, accent = "INSTALLING", "INSTALLING…", None, BLUE
@@ -213,6 +226,8 @@ class GamesPanel(tk.Frame):
             state, action, command, accent = "DISABLED", "DISABLED", None, MUTED
         elif installed:
             state, action, command, accent = "READY", "PLAY", lambda selected=game, backend=installed_backend: self._launch(selected, backend), GREEN
+        elif checking:
+            state, action, command, accent = "CHECKING", "CHECKING…", None, BLUE
         elif installable:
             state, action, command, accent = "AVAILABLE", "INSTALL", lambda selected=game, backend=available_backend: self._install(selected, backend), BLUE
         else:
@@ -231,7 +246,7 @@ class GamesPanel(tk.Frame):
         tk.Label(card, text=game.name, fg=TEXT if actionable or installed or is_installing else MUTED, bg=PANEL, font=("Sans", 13, "bold")).grid(row=0, column=1, sticky="sw", padx=6, pady=(5, 0))
         tk.Label(card, text=game.description, fg=MUTED, bg=PANEL, font=("Sans", 8), anchor="w").grid(row=1, column=1, sticky="ew", padx=6)
         tk.Label(card, text=state, fg=accent, bg=PANEL, font=("Sans", 8, "bold")).grid(row=2, column=1, sticky="nw", padx=6, pady=(1, 5))
-        tk.Button(card, text=action, command=command, state=tk.NORMAL if actionable else tk.DISABLED, bg="#102018" if installed else ("#0d1b24" if installable or is_installing else "#11161a"), fg=accent, activebackground="#183024", activeforeground=TEXT, disabledforeground=accent if is_installing else MUTED, relief=tk.FLAT, highlightthickness=1, highlightbackground=accent if actionable or is_installing else BORDER, font=("Sans", 9, "bold"), padx=11, pady=6, cursor="hand2" if actionable else "arrow").grid(row=0, column=2, rowspan=3, padx=10, pady=8)
+        tk.Button(card, text=action, command=command, state=tk.NORMAL if actionable else tk.DISABLED, bg="#102018" if installed else ("#0d1b24" if installable or checking or is_installing else "#11161a"), fg=accent, activebackground="#183024", activeforeground=TEXT, disabledforeground=accent if checking or is_installing else MUTED, relief=tk.FLAT, highlightthickness=1, highlightbackground=accent if actionable or checking or is_installing else BORDER, font=("Sans", 9, "bold"), padx=11, pady=6, cursor="hand2" if actionable else "arrow").grid(row=0, column=2, rowspan=3, padx=10, pady=8)
         return card
 
     def _show_game_host(self, game: GameDefinition) -> tuple[int, int, int]:
@@ -319,10 +334,14 @@ class GamesPanel(tk.Frame):
         self._installing_with = None
         if error is not None:
             self._status.configure(text=f"Install failed: {error}", fg=RED)
-        elif not backend.is_installed(game):
+            self._refresh_cards()
+            return
+        if not backend.is_installed(game):
             self._status.configure(text=f"Installed package, but {game.command[0]} was not found", fg=RED)
-        else:
-            self._status.configure(text=f"Installed: {game.name}", fg=GREEN)
+            self._refresh_cards()
+            return
+        self._status.configure(text=f"Installed: {game.name}", fg=GREEN)
+        self._game_backends[game.name] = (backend, backend)
         self._refresh_cards()
 
     def stop(self) -> None:
