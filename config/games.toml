@@ -33,6 +33,7 @@ command = ["kmines"]
 enabled = true
 [games.install]
 termux_package = "kmines"
+termux_dependencies = ["qt6-qtsvg"]
 
 [[games]]
 name = "KPatience"
