@@ -1,0 +1,54 @@
+/* SPDX-FileCopyrightText: 2026 Mark G. Russell
+ * SPDX-License-Identifier: MIT
+ */
+
+:root {
+    --background: #05090d;
+    --surface: #0b1117;
+    --surface-alt: #101820;
+    --border: #25313b;
+    --text: #edf2f5;
+    --text-muted: #89959e;
+    --accent-primary: #168bd1;
+    --accent-success: #84ce1f;
+    --accent-warning: #d6ad22;
+    --accent-danger: #f15a16;
+    --control-background: var(--surface-alt);
+    --control-active: var(--accent-primary);
+    --control-text: var(--text);
+}
+
+.button {
+    background: var(--control-background);
+    color: var(--control-text);
+    border-color: var(--border);
+}
+
+.button.active {
+    background: var(--control-active);
+    color: var(--control-text);
+}
+
+.automotive-gauge {
+    background: #000000;
+    color: var(--text);
+    --gauge-face: #f2efe5;
+    --gauge-bezel: #626668;
+    --gauge-tick: #202428;
+    --gauge-needle: #ff3143;
+}
+
+.automotive-shifter {
+    background: var(--surface);
+    color: var(--text);
+    --gear-active: #ff3143;
+    --gear-inactive: var(--text-muted);
+}
+
+.automotive-offroad {
+    background: var(--background);
+    color: var(--text);
+    --sky: #18344b;
+    --ground: #493825;
+    --heading: var(--accent-primary);
+}
