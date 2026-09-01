@@ -5,14 +5,16 @@
 
 from __future__ import annotations
 
+import math
 import tkinter as tk
 from collections.abc import Callable
 from types import SimpleNamespace
 
 from apps.orcUi.navigation_presenter import AttitudePresentationState, PositionPresentationState
-from apps.orcUi.offroad_panel import OffRoadPanel
 from apps.orcUi.vehicle_presenter import VehiclePresentationState
-from frontends.tk.automotive import DEFAULT_GAUGES, VehicleGaugePanel
+from frontends.tk.automotive import DEFAULT_GAUGES, OffroadDashboardPanel, VehicleGaugePanel
+from frontends.tk.automotive.vehicle_gauge_widgets import LinearGauge
+from ui.navigation import HeadingReference, PositionFix
 
 BG = "#000000"
 TAB_BG = "#101820"
@@ -25,12 +27,18 @@ class VehiclePanel(tk.Frame):
     """ORC driving dashboard backed by reusable automotive instruments."""
 
     _TABS = ("PERFORMANCE", "ENGINE", "OFF-ROAD", "TRIP")
-    _GAUGE_VIEWS: dict[str, tuple[tuple[str, ...], int]] = {
-        "PERFORMANCE": (("rpm", "boost", "speed", "throttle"), 4),
-        "ENGINE": (("coolant", "intake", "load", "fuel", "voltage"), 2),
-    }
+    _PERFORMANCE_IDS = ("rpm", "boost", "speed", "throttle")
+    _ENGINE_IDS = ("coolant", "intake", "load", "fuel", "voltage")
 
-    def __init__(self, parent: tk.Misc, *, on_back: Callable[[], None], state: VehiclePresentationState | None = None, position: PositionPresentationState | None = None, attitude: AttitudePresentationState | None = None) -> None:
+    def __init__(
+        self,
+        parent: tk.Misc,
+        *,
+        on_back: Callable[[], None],
+        state: VehiclePresentationState | None = None,
+        position: PositionPresentationState | None = None,
+        attitude: AttitudePresentationState | None = None,
+    ) -> None:
         super().__init__(parent, bg=BG)
         self._on_back = on_back
         self._state = state or VehiclePresentationState()
@@ -39,8 +47,10 @@ class VehiclePanel(tk.Frame):
         self._current_view = "PERFORMANCE"
         self._view_buttons: dict[str, tk.Button] = {}
         self._gauges: VehicleGaugePanel | None = None
-        self._offroad: OffRoadPanel | None = None
+        self._engine_gauges: dict[str, LinearGauge] = {}
+        self._offroad: OffroadDashboardPanel | None = None
         self._view_content: tk.Widget | None = None
+
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(1, weight=1)
 
@@ -48,7 +58,19 @@ class VehiclePanel(tk.Frame):
         tabs.grid(row=0, column=0, sticky="ew", pady=(0, 4))
         for column, name in enumerate(self._TABS):
             tabs.grid_columnconfigure(column, weight=1)
-            button = tk.Button(tabs, text=name, command=lambda selected=name: self._show_view(selected), bg=TAB_BG, fg=TEXT, activebackground=TAB_ACTIVE, activeforeground=TEXT, relief=tk.FLAT, bd=0, font=("Sans", 9, "bold"), pady=5)
+            button = tk.Button(
+                tabs,
+                text=name,
+                command=lambda selected=name: self._show_view(selected),
+                bg=TAB_BG,
+                fg=TEXT,
+                activebackground=TAB_ACTIVE,
+                activeforeground=TEXT,
+                relief=tk.FLAT,
+                bd=0,
+                font=("Sans", 9, "bold"),
+                pady=5,
+            )
             button.grid(row=0, column=column, sticky="ew", padx=(0, 4))
             self._view_buttons[name] = button
 
@@ -64,45 +86,125 @@ class VehiclePanel(tk.Frame):
         self._current_view = name
         for view_name, button in self._view_buttons.items():
             active = view_name == name
-            button.configure(bg=TAB_ACTIVE if active else TAB_BG, fg=TEXT if active else MUTED)
+            button.configure(
+                bg=TAB_ACTIVE if active else TAB_BG,
+                fg=TEXT if active else MUTED,
+            )
+
         if self._view_content is not None:
             self._view_content.destroy()
         self._view_content = None
         self._gauges = None
+        self._engine_gauges.clear()
         self._offroad = None
 
-        if name in self._GAUGE_VIEWS:
-            self._show_gauges(name)
+        if name == "PERFORMANCE":
+            self._show_performance()
+        elif name == "ENGINE":
+            self._show_engine()
         elif name == "OFF-ROAD":
             self._show_offroad()
         else:
-            self._show_placeholder("TRIP", "Trip distance, time, economy and drive statistics will live here.")
+            self._show_placeholder(
+                "TRIP",
+                "Trip distance, time, economy and drive statistics will live here.",
+            )
 
-    def _show_gauges(self, name: str) -> None:
-        visible_ids, columns = self._GAUGE_VIEWS[name]
-        definitions = tuple(definition for definition in DEFAULT_GAUGES if definition.gauge_id in visible_ids)
-        panel = VehicleGaugePanel(self._view_host, definitions=definitions, columns=columns, show_config_button=False)
+    def _show_performance(self) -> None:
+        definitions = tuple(
+            definition
+            for definition in DEFAULT_GAUGES
+            if definition.gauge_id in self._PERFORMANCE_IDS
+        )
+        panel = VehicleGaugePanel(
+            self._view_host,
+            definitions=definitions,
+            columns=4,
+            show_config_button=False,
+        )
         panel.grid(row=0, column=0, sticky="nsew")
         panel._toolbar.grid_remove()  # type: ignore[attr-defined]
         self._gauges = panel
         self._view_content = panel
         self._apply_state()
 
+    def _show_engine(self) -> None:
+        """Show compact secondary gauges two across."""
+        host = tk.Frame(self._view_host, bg=BG)
+        host.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
+        host.grid_columnconfigure(0, weight=1, uniform="engine")
+        host.grid_columnconfigure(1, weight=1, uniform="engine")
+        for row in range(3):
+            host.grid_rowconfigure(row, weight=1)
+
+        definitions = {
+            definition.gauge_id: definition
+            for definition in DEFAULT_GAUGES
+            if definition.gauge_id in self._ENGINE_IDS
+        }
+        for index, gauge_id in enumerate(self._ENGINE_IDS):
+            definition = definitions[gauge_id]
+            gauge = LinearGauge(
+                host,
+                title=definition.title,
+                unit=definition.unit,
+                minimum=definition.minimum,
+                maximum=definition.maximum,
+                caution_low=definition.caution_low,
+                danger_low=definition.danger_low,
+                caution_high=definition.caution_high,
+                danger_high=definition.danger_high,
+                icon=definition.icon,
+                precision=definition.precision,
+                width=260,
+                height=95,
+            )
+            row, column = divmod(index, 2)
+            gauge.grid(row=row, column=column, sticky="nsew", padx=5, pady=5)
+            self._engine_gauges[gauge_id] = gauge
+
+        self._view_content = host
+        self._apply_state()
+
     def _show_offroad(self) -> None:
-        panel = OffRoadPanel(self._view_host, on_back=self._on_back, position=self._position, attitude=self._attitude, show_header=False)
+        """Embed the original reusable off-road dashboard, not a recreation."""
+        panel = OffroadDashboardPanel(
+            self._view_host,
+            pitch_warning_deg=30.0,
+            roll_warning_deg=25.0,
+            request_handler=None,
+        )
         panel.grid(row=0, column=0, sticky="nsew")
         self._offroad = panel
         self._view_content = panel
+        self._apply_offroad_state()
 
     def _show_placeholder(self, title: str, detail: str) -> None:
         frame = tk.Frame(self._view_host, bg=BG)
         frame.grid(row=0, column=0, sticky="nsew")
         frame.grid_columnconfigure(0, weight=1)
         frame.grid_rowconfigure(0, weight=1)
-        body = tk.Frame(frame, bg="#0b1117", highlightthickness=1, highlightbackground="#25313b")
+        body = tk.Frame(
+            frame,
+            bg="#0b1117",
+            highlightthickness=1,
+            highlightbackground="#25313b",
+        )
         body.grid(row=0, column=0, sticky="nsew", padx=8, pady=8)
-        tk.Label(body, text=title, fg=TEXT, bg="#0b1117", font=("Sans", 22, "bold")).pack(pady=(80, 10))
-        tk.Label(body, text=detail, fg=MUTED, bg="#0b1117", font=("Sans", 11)).pack()
+        tk.Label(
+            body,
+            text=title,
+            fg=TEXT,
+            bg="#0b1117",
+            font=("Sans", 22, "bold"),
+        ).pack(pady=(80, 10))
+        tk.Label(
+            body,
+            text=detail,
+            fg=MUTED,
+            bg="#0b1117",
+            font=("Sans", 11),
+        ).pack()
         self._view_content = frame
 
     def update_state(self, state: VehiclePresentationState) -> None:
@@ -111,16 +213,70 @@ class VehiclePanel(tk.Frame):
 
     def update_position(self, state: PositionPresentationState) -> None:
         self._position = state
-        if self._offroad is not None:
-            self._offroad.update_position(state)
+        self._apply_offroad_state()
 
     def update_attitude(self, state: AttitudePresentationState) -> None:
         self._attitude = state
-        if self._offroad is not None:
-            self._offroad.update_attitude(state)
+        self._apply_offroad_state()
 
     def _apply_state(self) -> None:
-        if self._gauges is None:
+        gauge_state = SimpleNamespace(
+            rpm=self._state.engine_speed_rpm,
+            speed_mph=self._state.speed_mph,
+            boost_psi=self._state.boost_psi,
+            throttle_pct=self._state.throttle_percent,
+            coolant_temp_f=self._state.coolant_temperature_f,
+            intake_temp_f=self._state.intake_air_temperature_f,
+            engine_load_pct=self._state.engine_load_percent,
+            control_voltage=self._state.control_voltage_v,
+            fuel_level_pct=self._state.fuel_percent,
+        )
+        if self._gauges is not None:
+            self._gauges.update_state(gauge_state, connected=True)
+
+        engine_values = {
+            "coolant": self._state.coolant_temperature_f,
+            "intake": self._state.intake_air_temperature_f,
+            "load": self._state.engine_load_percent,
+            "fuel": self._state.fuel_percent,
+            "voltage": self._state.control_voltage_v,
+        }
+        for gauge_id, gauge in self._engine_gauges.items():
+            gauge.set_connected(True)
+            gauge.set_value(engine_values[gauge_id])
+
+    def _apply_offroad_state(self) -> None:
+        panel = self._offroad
+        if panel is None:
             return
-        gauge_state = SimpleNamespace(rpm=self._state.engine_speed_rpm, speed_mph=self._state.speed_mph, boost_psi=self._state.boost_psi, throttle_pct=self._state.throttle_percent, coolant_temp_f=self._state.coolant_temperature_f, intake_temp_f=self._state.intake_air_temperature_f, engine_load_pct=self._state.engine_load_percent, control_voltage=self._state.control_voltage_v, fuel_level_pct=self._state.fuel_percent)
-        self._gauges.update_state(gauge_state, connected=True)
+
+        attitude = self._attitude
+        panel.set_heading(
+            None if attitude.heading_deg is None else math.radians(attitude.heading_deg),
+            HeadingReference.RELATIVE,
+        )
+        panel.set_pitch(
+            None if attitude.pitch_deg is None else math.radians(attitude.pitch_deg)
+        )
+        panel.set_roll(
+            None if attitude.roll_deg is None else math.radians(attitude.roll_deg)
+        )
+
+        position = self._position
+        if position.latitude_deg is not None and position.longitude_deg is not None:
+            altitude_m = (
+                None
+                if position.altitude_ft is None
+                else position.altitude_ft / 3.280839895013123
+            )
+            panel.set_position(
+                PositionFix(
+                    latitude_rad=math.radians(position.latitude_deg),
+                    longitude_rad=math.radians(position.longitude_deg),
+                    altitude_m=altitude_m,
+                    pfom_m=position.accuracy_m,
+                )
+            )
+        else:
+            panel.set_position(None)
+        panel.set_status("Navigation online")
