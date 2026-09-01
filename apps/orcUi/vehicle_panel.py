@@ -11,9 +11,8 @@ from collections.abc import Callable
 from types import SimpleNamespace
 
 from apps.orcUi.navigation_presenter import AttitudePresentationState, PositionPresentationState
-from apps.orcUi.shifter_gauge import ShifterGauge
 from apps.orcUi.vehicle_presenter import VehiclePresentationState
-from frontends.tk.automotive import DEFAULT_GAUGES, OffroadDashboardPanel, VehicleGaugePanel
+from frontends.tk.automotive import DEFAULT_GAUGES, OffroadDashboardPanel, ShifterGauge, VehicleGaugePanel
 from frontends.tk.automotive.vehicle_gauge_widgets import LinearGauge
 from ui.navigation import HeadingReference, PositionFix
 
@@ -117,8 +116,6 @@ class VehiclePanel(tk.Frame):
         panel.grid(row=0, column=0, sticky="nsew")
         panel._toolbar.grid_remove()  # type: ignore[attr-defined]
 
-        # Gear is useful at a glance, but it should not steal dashboard space
-        # from RPM/boost/speed/throttle. Keep it as a narrow footer strip.
         shifter = ShifterGauge(host, height=58)
         shifter.grid(row=1, column=0, sticky="ew", padx=5, pady=(0, 3))
 
