@@ -11,6 +11,7 @@ from collections.abc import Callable
 from types import SimpleNamespace
 
 from apps.orcUi.navigation_presenter import AttitudePresentationState, PositionPresentationState
+from apps.orcUi.shifter_gauge import ShifterGauge
 from apps.orcUi.vehicle_presenter import VehiclePresentationState
 from frontends.tk.automotive import DEFAULT_GAUGES, OffroadDashboardPanel, VehicleGaugePanel
 from frontends.tk.automotive.vehicle_gauge_widgets import LinearGauge
@@ -48,6 +49,7 @@ class VehiclePanel(tk.Frame):
         self._view_buttons: dict[str, tk.Button] = {}
         self._gauges: VehicleGaugePanel | None = None
         self._engine_gauges: dict[str, LinearGauge] = {}
+        self._shifter: ShifterGauge | None = None
         self._offroad: OffroadDashboardPanel | None = None
         self._view_content: tk.Widget | None = None
 
@@ -86,16 +88,13 @@ class VehiclePanel(tk.Frame):
         self._current_view = name
         for view_name, button in self._view_buttons.items():
             active = view_name == name
-            button.configure(
-                bg=TAB_ACTIVE if active else TAB_BG,
-                fg=TEXT if active else MUTED,
-            )
-
+            button.configure(bg=TAB_ACTIVE if active else TAB_BG, fg=TEXT if active else MUTED)
         if self._view_content is not None:
             self._view_content.destroy()
         self._view_content = None
         self._gauges = None
         self._engine_gauges.clear()
+        self._shifter = None
         self._offroad = None
 
         if name == "PERFORMANCE":
@@ -105,27 +104,25 @@ class VehiclePanel(tk.Frame):
         elif name == "OFF-ROAD":
             self._show_offroad()
         else:
-            self._show_placeholder(
-                "TRIP",
-                "Trip distance, time, economy and drive statistics will live here.",
-            )
+            self._show_placeholder("TRIP", "Trip distance, time, economy and drive statistics will live here.")
 
     def _show_performance(self) -> None:
-        definitions = tuple(
-            definition
-            for definition in DEFAULT_GAUGES
-            if definition.gauge_id in self._PERFORMANCE_IDS
-        )
-        panel = VehicleGaugePanel(
-            self._view_host,
-            definitions=definitions,
-            columns=4,
-            show_config_button=False,
-        )
+        host = tk.Frame(self._view_host, bg=BG)
+        host.grid(row=0, column=0, sticky="nsew")
+        host.grid_columnconfigure(0, weight=1)
+        host.grid_rowconfigure(0, weight=1)
+
+        definitions = tuple(definition for definition in DEFAULT_GAUGES if definition.gauge_id in self._PERFORMANCE_IDS)
+        panel = VehicleGaugePanel(host, definitions=definitions, columns=4, show_config_button=False)
         panel.grid(row=0, column=0, sticky="nsew")
         panel._toolbar.grid_remove()  # type: ignore[attr-defined]
+
+        shifter = ShifterGauge(host, height=105)
+        shifter.grid(row=1, column=0, sticky="ew", padx=5, pady=(0, 5))
+
         self._gauges = panel
-        self._view_content = panel
+        self._shifter = shifter
+        self._view_content = host
         self._apply_state()
 
     def _show_engine(self) -> None:
@@ -137,11 +134,7 @@ class VehiclePanel(tk.Frame):
         for row in range(3):
             host.grid_rowconfigure(row, weight=1)
 
-        definitions = {
-            definition.gauge_id: definition
-            for definition in DEFAULT_GAUGES
-            if definition.gauge_id in self._ENGINE_IDS
-        }
+        definitions = {definition.gauge_id: definition for definition in DEFAULT_GAUGES if definition.gauge_id in self._ENGINE_IDS}
         for index, gauge_id in enumerate(self._ENGINE_IDS):
             definition = definitions[gauge_id]
             gauge = LinearGauge(
@@ -167,7 +160,7 @@ class VehiclePanel(tk.Frame):
         self._apply_state()
 
     def _show_offroad(self) -> None:
-        """Embed the original reusable off-road dashboard, not a recreation."""
+        """Embed the original reusable off-road dashboard."""
         panel = OffroadDashboardPanel(
             self._view_host,
             pitch_warning_deg=30.0,
@@ -184,27 +177,10 @@ class VehiclePanel(tk.Frame):
         frame.grid(row=0, column=0, sticky="nsew")
         frame.grid_columnconfigure(0, weight=1)
         frame.grid_rowconfigure(0, weight=1)
-        body = tk.Frame(
-            frame,
-            bg="#0b1117",
-            highlightthickness=1,
-            highlightbackground="#25313b",
-        )
+        body = tk.Frame(frame, bg="#0b1117", highlightthickness=1, highlightbackground="#25313b")
         body.grid(row=0, column=0, sticky="nsew", padx=8, pady=8)
-        tk.Label(
-            body,
-            text=title,
-            fg=TEXT,
-            bg="#0b1117",
-            font=("Sans", 22, "bold"),
-        ).pack(pady=(80, 10))
-        tk.Label(
-            body,
-            text=detail,
-            fg=MUTED,
-            bg="#0b1117",
-            font=("Sans", 11),
-        ).pack()
+        tk.Label(body, text=title, fg=TEXT, bg="#0b1117", font=("Sans", 22, "bold")).pack(pady=(80, 10))
+        tk.Label(body, text=detail, fg=MUTED, bg="#0b1117", font=("Sans", 11)).pack()
         self._view_content = frame
 
     def update_state(self, state: VehiclePresentationState) -> None:
@@ -233,6 +209,10 @@ class VehiclePanel(tk.Frame):
         )
         if self._gauges is not None:
             self._gauges.update_state(gauge_state, connected=True)
+        # Gear inference is intentionally not faked. Until the learned-ratio
+        # estimator publishes a gear, the shifter shows an unknown dash.
+        if self._shifter is not None:
+            self._shifter.set_gear(None)
 
         engine_values = {
             "coolant": self._state.coolant_temperature_f,
@@ -249,34 +229,14 @@ class VehiclePanel(tk.Frame):
         panel = self._offroad
         if panel is None:
             return
-
         attitude = self._attitude
-        panel.set_heading(
-            None if attitude.heading_deg is None else math.radians(attitude.heading_deg),
-            HeadingReference.RELATIVE,
-        )
-        panel.set_pitch(
-            None if attitude.pitch_deg is None else math.radians(attitude.pitch_deg)
-        )
-        panel.set_roll(
-            None if attitude.roll_deg is None else math.radians(attitude.roll_deg)
-        )
-
+        panel.set_heading(None if attitude.heading_deg is None else math.radians(attitude.heading_deg), HeadingReference.RELATIVE)
+        panel.set_pitch(None if attitude.pitch_deg is None else math.radians(attitude.pitch_deg))
+        panel.set_roll(None if attitude.roll_deg is None else math.radians(attitude.roll_deg))
         position = self._position
         if position.latitude_deg is not None and position.longitude_deg is not None:
-            altitude_m = (
-                None
-                if position.altitude_ft is None
-                else position.altitude_ft / 3.280839895013123
-            )
-            panel.set_position(
-                PositionFix(
-                    latitude_rad=math.radians(position.latitude_deg),
-                    longitude_rad=math.radians(position.longitude_deg),
-                    altitude_m=altitude_m,
-                    pfom_m=position.accuracy_m,
-                )
-            )
+            altitude_m = None if position.altitude_ft is None else position.altitude_ft / 3.280839895013123
+            panel.set_position(PositionFix(latitude_rad=math.radians(position.latitude_deg), longitude_rad=math.radians(position.longitude_deg), altitude_m=altitude_m, pfom_m=position.accuracy_m))
         else:
             panel.set_position(None)
         panel.set_status("Navigation online")
