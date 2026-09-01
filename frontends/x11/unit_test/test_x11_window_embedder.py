@@ -25,11 +25,12 @@ class X11WindowEmbedderTest(unittest.TestCase):
 
     @patch("frontends.x11.x11_window_embedder.subprocess.run")
     @patch("frontends.x11.x11_window_embedder.shutil.which", return_value="/usr/bin/xdotool")
-    def test_embed_reparents_and_resizes_found_window(
+    def test_embed_reparents_maps_and_resizes_found_window(
         self, _which: Mock, run: Mock
     ) -> None:
         run.side_effect = [
             subprocess.CompletedProcess([], 0, stdout="111\n222\n", stderr=""),
+            subprocess.CompletedProcess([], 0),
             subprocess.CompletedProcess([], 0),
             subprocess.CompletedProcess([], 0),
             subprocess.CompletedProcess([], 0),
@@ -49,13 +50,34 @@ class X11WindowEmbedderTest(unittest.TestCase):
             run.call_args_list[1].args[0],
         )
         self.assertEqual(
-            ["xdotool", "windowsize", "222", "800", "400"],
+            ["xdotool", "windowmap", "222"],
             run.call_args_list[2].args[0],
         )
         self.assertEqual(
-            ["xdotool", "windowmove", "222", "0", "0"],
+            ["xdotool", "windowsize", "222", "800", "400"],
             run.call_args_list[3].args[0],
         )
+        self.assertEqual(
+            ["xdotool", "windowmove", "222", "0", "0"],
+            run.call_args_list[4].args[0],
+        )
+
+    @patch("frontends.x11.x11_window_embedder.subprocess.run")
+    def test_detach_reparents_unmaps_and_forgets_window(self, run: Mock) -> None:
+        embedder = X11WindowEmbedder()
+        embedder._window_id = 99
+
+        embedder.detach(123)
+
+        self.assertEqual(
+            ["xdotool", "windowreparent", "99", "123"],
+            run.call_args_list[0].args[0],
+        )
+        self.assertEqual(
+            ["xdotool", "windowunmap", "99"],
+            run.call_args_list[1].args[0],
+        )
+        self.assertIsNone(embedder.window_id)
 
     @patch("frontends.x11.x11_window_embedder.subprocess.run")
     def test_resize_clamps_dimensions_to_one(self, run: Mock) -> None:
