@@ -7,35 +7,28 @@
 #include <mbgl/util/run_loop.hpp>
 #include <mbgl/util/timer.hpp>
 
-#include <memory>
 #include <functional>
+#include <memory>
 #include <string>
 
 struct GLFWwindow;
 class GLFWBackend;
 class MapRendererFrontend;
 
-namespace mbgl {
-namespace gfx {
-class RendererBackend;
-}
-}
+namespace mbgl { namespace gfx { class RendererBackend; } }
 
 class MapView : public mbgl::MapObserver {
 public:
     using PoiSelectedCallback = std::function<void(
         const std::string& name,
         const std::string& brand,
+        const std::string& sourceClass,
+        const std::string& sourceSubclass,
         double latitude,
-        double longitude
-    )>;
+        double longitude)>;
 
-    MapView(
-        const mbgl::ResourceOptions& resourceOptions,
-        const mbgl::ClientOptions& clientOptions
-    );
+    MapView(const mbgl::ResourceOptions& resourceOptions, const mbgl::ClientOptions& clientOptions);
     ~MapView() override;
-
     float getPixelRatio() const;
     mbgl::Size getSize() const;
     mbgl::gfx::RendererBackend& getRendererBackend();
