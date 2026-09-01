@@ -1,6 +1,5 @@
 #include <core.h>
 #include <gui/gui.h>
-#include <gui/menus/theme.h>
 #include <module.h>
 #include <utils/flog.h>
 #include <utils/networking.h>
@@ -36,10 +35,12 @@ std::string trim(std::string value) {
 class RemoteControlModule : public ModuleManager::Instance {
 public:
     explicit RemoteControlModule(std::string name) : name(std::move(name)) {
+        gui::menu.registerEntry(this->name, menuHandler, this, nullptr);
         startServer();
     }
 
     ~RemoteControlModule() override {
+        gui::menu.removeEntry(name);
         if (client) { client->close(); }
         if (listener) { listener->close(); }
     }
@@ -112,14 +113,14 @@ private:
         constexpr const char* prefix = "SET theme ";
         if (command.rfind(prefix, 0) == 0) {
             const std::string requested = trim(command.substr(std::char_traits<char>::length(prefix)));
-            if (requested != "Dark" && requested != "Light") {
+            const auto themes = gui::themeManager.getThemeNames();
+            if (std::find(themes.begin(), themes.end(), requested) == themes.end()) {
                 writeResponse("ERROR invalid-value\n");
                 return;
             }
 
-            // The networking callbacks execute away from the ImGui render path.
-            // Queue the request and apply it from the module's menu callback,
-            // which SDR++ invokes on its GUI thread.
+            // Networking callbacks run outside the ImGui render path. Queue
+            // GUI mutations and consume them from menuHandler on the GUI thread.
             {
                 std::lock_guard<std::mutex> lock(pendingMutex);
                 pendingTheme = requested;
@@ -131,9 +132,6 @@ private:
         writeResponse("ERROR unknown-command\n");
     }
 
-public:
-    // Called by SDR++ from its GUI path. The setup script creates one module
-    // instance and registers this handler under the instance name.
     static void menuHandler(void* ctx) {
         auto* self = static_cast<RemoteControlModule*>(ctx);
         std::string requested;
@@ -143,14 +141,10 @@ public:
         }
         if (requested.empty()) { return; }
 
-        const auto it = std::find(thememenu::themeNames.begin(), thememenu::themeNames.end(), requested);
-        if (it == thememenu::themeNames.end()) {
-            flog::error("Remote Control requested unavailable theme '{}'", requested);
+        if (!gui::themeManager.applyTheme(requested)) {
+            flog::error("Remote Control could not apply theme '{}'", requested);
             return;
         }
-
-        thememenu::themeId = static_cast<int>(std::distance(thememenu::themeNames.begin(), it));
-        thememenu::applyTheme();
 
         core::configManager.acquire();
         core::configManager.conf["theme"] = requested;
@@ -158,15 +152,6 @@ public:
         flog::info("Remote Control applied theme '{}'", requested);
     }
 
-    void registerGuiHandler() {
-        gui::menu.registerEntry(name, menuHandler, this, nullptr);
-    }
-
-    void unregisterGuiHandler() {
-        gui::menu.removeEntry(name);
-    }
-
-private:
     std::string name;
     bool enabled = true;
     uint8_t dataBuf[1024]{};
@@ -180,15 +165,11 @@ private:
 MOD_EXPORT void _INIT_() {}
 
 MOD_EXPORT ModuleManager::Instance* _CREATE_INSTANCE_(std::string name) {
-    auto* instance = new RemoteControlModule(std::move(name));
-    instance->registerGuiHandler();
-    return instance;
+    return new RemoteControlModule(std::move(name));
 }
 
 MOD_EXPORT void _DELETE_INSTANCE_(void* instance) {
-    auto* remote = static_cast<RemoteControlModule*>(instance);
-    remote->unregisterGuiHandler();
-    delete remote;
+    delete static_cast<RemoteControlModule*>(instance);
 }
 
 MOD_EXPORT void _END_() {}
