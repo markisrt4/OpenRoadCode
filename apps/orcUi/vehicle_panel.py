@@ -23,10 +23,13 @@ MUTED = "#89959e"
 class VehiclePanel(tk.Frame):
     """ORC vehicle dashboard backed by the reusable automotive gauges."""
 
-    _VIEWS: dict[str, tuple[tuple[str, ...], int]] = {
+    _TABS = ("PERFORMANCE", "ENGINE", "OFF-ROAD", "TRIP")
+    _GAUGE_VIEWS: dict[str, tuple[tuple[str, ...], int]] = {
+        # Gear will join this group once the learned-ratio estimator is wired in.
         "PERFORMANCE": (("rpm", "boost", "speed", "throttle"), 4),
-        "ENGINE": (("coolant", "intake", "load"), 3),
-        "VEHICLE": (("fuel", "voltage"), 2),
+        # Engine and vehicle-health telemetry share one page. Five compact linear
+        # gauges use the available area much better than two mostly empty tabs.
+        "ENGINE": (("coolant", "intake", "load", "fuel", "voltage"), 3),
     }
 
     def __init__(
@@ -44,14 +47,15 @@ class VehiclePanel(tk.Frame):
         self._current_view = "PERFORMANCE"
         self._view_buttons: dict[str, tk.Button] = {}
         self._gauges: VehicleGaugePanel | None = None
+        self._view_content: tk.Widget | None = None
 
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(1, weight=1)
 
         tabs = tk.Frame(self, bg=BG)
         tabs.grid(row=0, column=0, sticky="ew", pady=(0, 4))
-
-        for name in self._VIEWS:
+        for column, name in enumerate(self._TABS):
+            tabs.grid_columnconfigure(column, weight=1)
             button = tk.Button(
                 tabs,
                 text=name,
@@ -63,22 +67,21 @@ class VehiclePanel(tk.Frame):
                 relief=tk.FLAT,
                 bd=0,
                 font=("Sans", 9, "bold"),
-                padx=18,
                 pady=5,
             )
-            button.pack(side=tk.LEFT, padx=(0, 4))
+            button.grid(row=0, column=column, sticky="ew", padx=(0, 4))
             self._view_buttons[name] = button
 
-        self._gauge_host = tk.Frame(self, bg=BG)
-        self._gauge_host.grid(row=1, column=0, sticky="nsew")
-        self._gauge_host.grid_columnconfigure(0, weight=1)
-        self._gauge_host.grid_rowconfigure(0, weight=1)
+        self._view_host = tk.Frame(self, bg=BG)
+        self._view_host.grid(row=1, column=0, sticky="nsew")
+        self._view_host.grid_columnconfigure(0, weight=1)
+        self._view_host.grid_rowconfigure(0, weight=1)
 
         self._show_view(self._current_view)
 
     def _show_view(self, name: str) -> None:
         """Switch the automotive dashboard to one telemetry group."""
-        if name not in self._VIEWS:
+        if name not in self._TABS:
             raise ValueError(f"Unknown vehicle view: {name}")
 
         self._current_view = name
@@ -89,27 +92,56 @@ class VehiclePanel(tk.Frame):
                 fg=TEXT if active else MUTED,
             )
 
-        if self._gauges is not None:
-            self._gauges.destroy()
+        if self._view_content is not None:
+            self._view_content.destroy()
+        self._view_content = None
+        self._gauges = None
 
-        visible_ids, columns = self._VIEWS[name]
+        if name in self._GAUGE_VIEWS:
+            self._show_gauges(name)
+        elif name == "OFF-ROAD":
+            self._show_placeholder(
+                "OFF-ROAD",
+                "Heading, pitch, roll, position and trail telemetry will live here.",
+            )
+        else:
+            self._show_placeholder(
+                "TRIP",
+                "Trip distance, time, economy and drive statistics will live here.",
+            )
+
+    def _show_gauges(self, name: str) -> None:
+        visible_ids, columns = self._GAUGE_VIEWS[name]
         definitions = tuple(
             definition
             for definition in DEFAULT_GAUGES
             if definition.gauge_id in visible_ids
         )
-        self._gauges = VehicleGaugePanel(
-            self._gauge_host,
+        panel = VehicleGaugePanel(
+            self._view_host,
             definitions=definitions,
             columns=columns,
             show_config_button=False,
         )
-        self._gauges.grid(row=0, column=0, sticky="nsew")
+        panel.grid(row=0, column=0, sticky="nsew")
 
         # orcUi already provides the surrounding shell and navigation. The
         # reusable panel's standalone connection toolbar is redundant here.
-        self._gauges._toolbar.grid_remove()  # type: ignore[attr-defined]
+        panel._toolbar.grid_remove()  # type: ignore[attr-defined]
+        self._gauges = panel
+        self._view_content = panel
         self._apply_state()
+
+    def _show_placeholder(self, title: str, detail: str) -> None:
+        frame = tk.Frame(self._view_host, bg=BG)
+        frame.grid(row=0, column=0, sticky="nsew")
+        frame.grid_columnconfigure(0, weight=1)
+        frame.grid_rowconfigure(0, weight=1)
+        body = tk.Frame(frame, bg="#0b1117", highlightthickness=1, highlightbackground="#25313b")
+        body.grid(row=0, column=0, sticky="nsew", padx=8, pady=8)
+        tk.Label(body, text=title, fg=TEXT, bg="#0b1117", font=("Sans", 22, "bold")).pack(pady=(80, 10))
+        tk.Label(body, text=detail, fg=MUTED, bg="#0b1117", font=("Sans", 11)).pack()
+        self._view_content = frame
 
     def update_state(self, state: VehiclePresentationState) -> None:
         """Refresh the visible automotive gauges from the latest ORC state."""
