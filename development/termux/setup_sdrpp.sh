@@ -86,22 +86,24 @@ cmake --build "$SDRPP_BUILD" --parallel "$BUILD_JOBS"
 }
 
 echo "[*] Preparing SDR++ development resources"
-cd "$SDRPP_SRC"
-./create_root.sh
-
-[[ -d "$SDRPP_ROOT/res" || -d "$SDRPP_ROOT/resources" ]] || {
-  echo "SDR++ development root was not created correctly at $SDRPP_ROOT." >&2
-  exit 1
-}
-
-RIGCTL_MODULE="$(find "$SDRPP_BUILD" -type f -name 'rigctl_server.so' -print -quit)"
-[[ -n "$RIGCTL_MODULE" ]] || {
-  echo "SDR++ Rigctl Server was enabled but rigctl_server.so was not produced." >&2
-  exit 1
-}
-
+mkdir -p "$SDRPP_ROOT"
+cp -a "$SDRPP_SRC/root/." "$SDRPP_ROOT/"
 mkdir -p "$SDRPP_ROOT/modules"
-cp -f "$RIGCTL_MODULE" "$SDRPP_ROOT/modules/rigctl_server.so"
+rm -f "$SDRPP_ROOT/modules/"*.so
+
+module_count=0
+while IFS= read -r module; do
+  if nm -D "$module" 2>/dev/null | grep -Eq '[[:space:]]_INFO_$'; then
+    cp -f "$module" "$SDRPP_ROOT/modules/$(basename "$module")"
+    module_count=$((module_count + 1))
+  fi
+done < <(find "$SDRPP_BUILD" -type f -name '*.so' -print)
+
+echo "[*] Installed $module_count SDR++ runtime modules"
+[[ -f "$SDRPP_ROOT/modules/rigctl_server.so" ]] || {
+  echo "SDR++ Rigctl Server was enabled but rigctl_server.so was not installed." >&2
+  exit 1
+}
 
 cat > "$SDRPP_ROOT/rigctl_server_config.json" <<'EOF'
 {
@@ -123,6 +125,7 @@ cat <<EOF
     source:    $SDRPP_SRC
     binary:    $SDRPP_BUILD/sdrpp
     resources: $SDRPP_ROOT
+    modules:   $module_count
     rigctl:    127.0.0.1:4532 (autostart enabled)
 
 To launch SDR++ in Termux:X11:
