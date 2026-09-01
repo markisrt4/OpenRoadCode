@@ -34,11 +34,12 @@ class X11WindowEmbedder(WindowEmbedderIf):
         height: int,
         window_name: str | None = None,
     ) -> int:
-        """Find a visible X11 client and reparent it into *host_window_id*.
+        """Find an X11 client and reparent it into *host_window_id*.
 
         Process-based lookup is attempted first. Some proot/X11 combinations do not
         expose a useful ``_NET_WM_PID`` property, so callers may supply *window_name*
-        as a fallback selector.
+        as a fallback selector. Name lookup intentionally includes unmapped windows
+        so a client can survive while its ORC panel is temporarily destroyed.
         """
         if not self.supported():
             raise RuntimeError("xdotool is required for embedded X11 windows")
@@ -56,16 +57,35 @@ class X11WindowEmbedder(WindowEmbedderIf):
         if window_id is None:
             suffix = f" or window name {window_name!r}" if window_name else ""
             raise RuntimeError(
-                f"no visible X11 window found for process {process_id}{suffix}"
+                f"no X11 window found for process {process_id}{suffix}"
             )
 
         subprocess.run(
             ["xdotool", "windowreparent", str(window_id), str(host_window_id)],
             check=True,
         )
+        subprocess.run(
+            ["xdotool", "windowmap", str(window_id)],
+            check=False,
+        )
         self._window_id = window_id
         self.resize(width, height)
         return window_id
+
+    def detach(self, parent_window_id: int) -> None:
+        """Move the client to a stable parent and hide it between ORC panels."""
+        if self._window_id is None:
+            return
+        window_id = self._window_id
+        subprocess.run(
+            ["xdotool", "windowreparent", str(window_id), str(parent_window_id)],
+            check=False,
+        )
+        subprocess.run(
+            ["xdotool", "windowunmap", str(window_id)],
+            check=False,
+        )
+        self._window_id = None
 
     @staticmethod
     def _find_by_process(process_id: int) -> int | None:
@@ -82,7 +102,7 @@ class X11WindowEmbedder(WindowEmbedderIf):
         # xdotool treats --name as a regular expression. Escape literal names such
         # as "SDR++" so '+' is not interpreted as a regex quantifier.
         result = subprocess.run(
-            ["xdotool", "search", "--onlyvisible", "--name", re.escape(window_name)],
+            ["xdotool", "search", "--name", re.escape(window_name)],
             capture_output=True,
             text=True,
             check=False,
