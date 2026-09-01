@@ -39,10 +39,13 @@
 }
 
 .automotive-shifter {
-    background: var(--surface);
-    color: var(--text);
+    background: #090a0b;
+    color: #d9dbd9;
+    --panel: #111315;
+    --border: #626668;
     --gear-active: #ff3143;
-    --gear-inactive: var(--text-muted);
+    --gear-inactive: #747879;
+    --gear-selected-background: #57131b;
 }
 
 .automotive-offroad {
