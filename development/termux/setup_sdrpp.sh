@@ -29,7 +29,11 @@ command -v pkg >/dev/null 2>&1 || {
 echo "[*] Installing Termux proot support"
 pkg install -y proot-distro git
 
-if proot-distro list | grep -Eq '(^|[[:space:]])debian([[:space:]]|$)'; then
+# `proot-distro list` is descriptive text rather than a stable machine-readable
+# interface. Checking the distro rootfs directly avoids mistaking an already
+# installed (or currently running) Debian container for a missing one.
+DEBIAN_ROOTFS="$PREFIX/var/lib/proot-distro/installed-rootfs/debian"
+if [[ -d "$DEBIAN_ROOTFS" ]]; then
   echo "[*] Debian proot is already installed"
 else
   echo "[*] Installing Debian proot"
@@ -60,6 +64,7 @@ apt-get install -y \
   cmake \
   git \
   binutils \
+  python3 \
   libfftw3-dev \
   libglfw3-dev \
   libvolk-dev \
