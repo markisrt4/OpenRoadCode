@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <cctype>
 #include <mutex>
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -29,6 +30,15 @@ std::string trim(std::string value) {
         value.pop_back();
     }
     return value;
+}
+
+std::string join(const std::vector<std::string>& values, const char* separator) {
+    std::ostringstream stream;
+    for (std::size_t i = 0; i < values.size(); ++i) {
+        if (i != 0) { stream << separator; }
+        stream << values[i];
+    }
+    return stream.str();
 }
 }
 
@@ -107,6 +117,12 @@ private:
             std::string theme = core::configManager.conf["theme"];
             core::configManager.release();
             writeResponse("VALUE theme " + theme + "\n");
+            return;
+        }
+
+        if (command == "GET themes") {
+            const auto themes = gui::themeManager.getThemeNames();
+            writeResponse("VALUES themes " + join(themes, "|") + "\n");
             return;
         }
 
