@@ -1,55 +1,15 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
-"""Resolve map restaurant POIs to ordering destinations."""
-from __future__ import annotations
 
-import re
-from dataclasses import dataclass
+"""Compatibility imports for the POI restaurant catalog.
 
+New code should import from ``controllers.poi.restaurant_catalog``.
+"""
 
-@dataclass(frozen=True)
-class RestaurantDestination:
-    """Ordering metadata associated with a restaurant brand."""
-
-    brand: str
-    aliases: tuple[str, ...]
-    android_package: str | None
-    order_url: str
-
-
-def _normalize(value: str | None) -> str:
-    if not value:
-        return ""
-    return re.sub(r"[^a-z0-9]+", "", value.casefold())
-
-
-RESTAURANTS: tuple[RestaurantDestination, ...] = (
-    RestaurantDestination(
-        brand="Panera Bread",
-        aliases=("Panera", "Panera Bread", "Saint Louis Bread Co", "St Louis Bread Co"),
-        android_package="com.panera.bread",
-        order_url="https://www.panerabread.com/en-us/start-an-order.html",
-    ),
-    RestaurantDestination(
-        brand="McDonald's",
-        aliases=("McDonald's", "McDonalds", "Mc Donalds"),
-        android_package="com.mcdonalds.app",
-        order_url="https://www.mcdonalds.com/us/en-us.html",
-    ),
+from controllers.poi.restaurant_catalog import (
+    RESTAURANTS,
+    RestaurantDestination,
+    resolve_restaurant_poi,
 )
 
-
-_ALIAS_INDEX = {
-    _normalize(alias): restaurant
-    for restaurant in RESTAURANTS
-    for alias in (restaurant.brand, *restaurant.aliases)
-}
-
-
-def resolve_restaurant_poi(*, brand: str | None = None, name: str | None = None) -> RestaurantDestination | None:
-    """Return ordering metadata for a map POI, preferring explicit brand data."""
-    for candidate in (brand, name):
-        match = _ALIAS_INDEX.get(_normalize(candidate))
-        if match is not None:
-            return match
-    return None
+__all__ = ["RESTAURANTS", "RestaurantDestination", "resolve_restaurant_poi"]
