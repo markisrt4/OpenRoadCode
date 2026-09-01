@@ -209,10 +209,8 @@ class VehiclePanel(tk.Frame):
         )
         if self._gauges is not None:
             self._gauges.update_state(gauge_state, connected=True)
-        # Gear inference is intentionally not faked. Until the learned-ratio
-        # estimator publishes a gear, the shifter shows an unknown dash.
         if self._shifter is not None:
-            self._shifter.set_gear(None)
+            self._shifter.set_gear(self._state.gear)
 
         engine_values = {
             "coolant": self._state.coolant_temperature_f,
