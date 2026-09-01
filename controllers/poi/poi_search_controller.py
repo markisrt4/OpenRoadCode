@@ -51,12 +51,14 @@ class PoiSearchController(PoiSearchControllerIf):
 def _category_for(raw: RawMapPoi) -> PoiCategory:
     source_class = (raw.source_class or "").casefold()
     source_subclass = (raw.source_subclass or "").casefold()
-    if source_class in {"restaurant", "fast_food", "cafe", "food"}:
+    if source_class in {"restaurant", "fast_food", "cafe", "food"} or source_subclass in {
+        "restaurant", "fast_food", "cafe"
+    }:
         return PoiCategory.FOOD
-    if source_class in {"fuel", "gas_station"}:
+    if source_class in {"fuel", "gas_station"} or source_subclass in {"fuel", "gas_station"}:
         return PoiCategory.FUEL
     if source_class in {"grocery", "supermarket"} or source_subclass in {
-        "grocery", "supermarket"
+        "grocery", "supermarket", "convenience"
     }:
         return PoiCategory.GROCERY
     return PoiCategory.OTHER
