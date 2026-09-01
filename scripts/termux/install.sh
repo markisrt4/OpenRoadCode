@@ -42,7 +42,7 @@ source "$VENV_DIR/bin/activate"
 python -m pip install --upgrade pip wheel setuptools
 
 # Portable OpenRoadCode runtime dependencies needed by the current car UI path.
-python -m pip install requests tomli Pillow pyzmq pyserial
+python -m pip install requests tomli Pillow pyzmq pyserial tinycss2
 
 deactivate
 
