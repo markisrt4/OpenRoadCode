@@ -9,6 +9,7 @@ import shlex
 import shutil
 import socket
 import subprocess
+import threading
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -30,6 +31,9 @@ DEFAULT_TERMUX_PROOT_DISTRIBUTION = "debian"
 DEFAULT_TERMUX_XDG_RUNTIME_DIR = "/tmp/runtime-root"
 DEFAULT_NATIVE_SDRPP_ROOT = Path.home() / "SDRPlusPlus" / "root_dev"
 _VALID_THEMES = {"Dark", "Light"}
+_THEME_SYNC_LOCK = threading.Lock()
+_PENDING_THEME_SYNC: tuple[str, str, Path, Path | None] | None = None
+_THEME_SYNC_WATCHER_RUNNING = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -87,10 +91,7 @@ class SDRPPLauncher(AppLauncherIf):
                 return True
             self._process = None
 
-        return (
-            is_process_running("sdrpp")
-            or is_process_running("sdr\\+\\+")
-        )
+        return _sdrpp_process_running()
 
     def set_theme(self, theme: str) -> None:
         """Set the SDR++ theme to synchronize before the next launch."""
@@ -321,14 +322,89 @@ def sync_sdrpp_theme(
     termux_sdrpp_source: str | Path = DEFAULT_TERMUX_SDRPP_SOURCE,
     native_root: str | Path | None = None,
 ) -> bool:
-    """Persist an SDR++ theme for native Linux or the Termux Debian proot."""
+    """Persist a theme without letting a running SDR++ overwrite it on exit."""
     selected = _normalize_theme(theme)
+    source = Path(termux_sdrpp_source)
+    root = Path(native_root) if native_root is not None else None
 
+    if _sdrpp_process_running():
+        _defer_sdrpp_theme_sync(
+            selected,
+            termux_proot_distribution,
+            source,
+            root,
+        )
+        return True
+
+    return _write_sdrpp_theme(
+        selected,
+        termux_proot_distribution=termux_proot_distribution,
+        termux_sdrpp_source=source,
+        native_root=root,
+    )
+
+
+def _defer_sdrpp_theme_sync(
+    theme: str,
+    termux_proot_distribution: str,
+    termux_sdrpp_source: Path,
+    native_root: Path | None,
+) -> None:
+    global _PENDING_THEME_SYNC, _THEME_SYNC_WATCHER_RUNNING
+
+    with _THEME_SYNC_LOCK:
+        _PENDING_THEME_SYNC = (
+            theme,
+            termux_proot_distribution,
+            termux_sdrpp_source,
+            native_root,
+        )
+        if _THEME_SYNC_WATCHER_RUNNING:
+            return
+        _THEME_SYNC_WATCHER_RUNNING = True
+
+    threading.Thread(
+        target=_theme_sync_worker,
+        name="sdrpp-theme-sync",
+        daemon=True,
+    ).start()
+
+
+def _theme_sync_worker() -> None:
+    global _PENDING_THEME_SYNC, _THEME_SYNC_WATCHER_RUNNING
+
+    while _sdrpp_process_running():
+        time.sleep(0.25)
+
+    with _THEME_SYNC_LOCK:
+        pending = _PENDING_THEME_SYNC
+        _PENDING_THEME_SYNC = None
+        _THEME_SYNC_WATCHER_RUNNING = False
+
+    if pending is None:
+        return
+
+    theme, distribution, source, native_root = pending
+    _write_sdrpp_theme(
+        theme,
+        termux_proot_distribution=distribution,
+        termux_sdrpp_source=source,
+        native_root=native_root,
+    )
+
+
+def _write_sdrpp_theme(
+    theme: str,
+    *,
+    termux_proot_distribution: str,
+    termux_sdrpp_source: Path,
+    native_root: Path | None,
+) -> bool:
     if _is_termux():
         proot_distro = shutil.which("proot-distro")
         if proot_distro is None:
             return False
-        config_path = Path(termux_sdrpp_source) / "root_dev" / "config.json"
+        config_path = termux_sdrpp_source / "root_dev" / "config.json"
         script = (
             "import json, pathlib, sys; "
             "p=pathlib.Path(sys.argv[1]); "
@@ -347,7 +423,7 @@ def sync_sdrpp_theme(
                 "-c",
                 script,
                 str(config_path),
-                selected,
+                theme,
             ],
             check=False,
             stdout=subprocess.DEVNULL,
@@ -355,13 +431,13 @@ def sync_sdrpp_theme(
         )
         return result.returncode == 0
 
-    root = Path(native_root) if native_root is not None else DEFAULT_NATIVE_SDRPP_ROOT
+    root = native_root if native_root is not None else DEFAULT_NATIVE_SDRPP_ROOT
     config_path = root / "config.json"
     if not config_path.is_file():
         return False
     try:
         document = json.loads(config_path.read_text(encoding="utf-8"))
-        document["theme"] = selected
+        document["theme"] = theme
         config_path.write_text(
             json.dumps(document, indent=4) + "\n",
             encoding="utf-8",
@@ -369,6 +445,13 @@ def sync_sdrpp_theme(
     except (OSError, json.JSONDecodeError):
         return False
     return True
+
+
+def _sdrpp_process_running() -> bool:
+    return (
+        is_process_running("sdrpp")
+        or is_process_running("sdr\\+\\+")
+    )
 
 
 def _normalize_theme(theme: str) -> str:
