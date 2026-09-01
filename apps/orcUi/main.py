@@ -27,6 +27,7 @@ from apps.orcUi.orc_theme import ThemeMode, apply_tk_theme, install_map_style, t
 from apps.orcUi.radio_panel import RadioPanel
 from apps.orcUi.vehicle_panel import VehiclePanel
 from apps.orcUi.vehicle_presenter import VehiclePresenter, VehiclePresentationState
+from frontends.x11 import X11WindowEmbedder
 from messaging.contracts.automotive import VEHICLE_STATE_TOPIC, VehicleStateMessage, decode_vehicle_state
 from messaging.contracts.navigation import (
     ATTITUDE_STATE_TOPIC,
@@ -74,6 +75,7 @@ class OrcUiApp:
         self._home_map_panel: HomeMapPanel | None = None
         self._navigation_panel: NavigationPanel | None = None
         self._radio_panel: RadioPanel | None = None
+        self._radio_embedder = X11WindowEmbedder()
         self._vehicle_panel: VehiclePanel | None = None
         self._offroad_panel: OffRoadPanel | None = None
         self._map_renderer = MapRendererLauncher()
@@ -149,21 +151,7 @@ class OrcUiApp:
         status.grid(row=0, column=2, padx=(8, 14), sticky="e")
         tk.Label(status, text="☁  --°F", fg=TEXT, bg=TOP_BG, font=("Sans", 11, "bold")).pack(side=tk.LEFT, padx=(0, 10))
         tk.Label(status, text="GPS  ▮▮▮   WiFi   BT   🚗", fg="#b8c0c6", bg=TOP_BG, font=("Sans", 11)).pack(side=tk.LEFT, padx=(0, 10))
-        self._power_button = tk.Button(
-            status,
-            text="⏻",
-            command=self._show_power_dialog,
-            bg="#101820",
-            fg=TEXT,
-            activebackground="#121b23",
-            activeforeground=TEXT,
-            relief=tk.FLAT,
-            bd=0,
-            font=("Sans", 16, "bold"),
-            padx=10,
-            pady=2,
-            cursor="hand2",
-        )
+        self._power_button = tk.Button(status, text="⏻", command=self._show_power_dialog, bg="#101820", fg=TEXT, activebackground="#121b23", activeforeground=TEXT, relief=tk.FLAT, bd=0, font=("Sans", 16, "bold"), padx=10, pady=2, cursor="hand2")
         self._power_button.pack(side=tk.LEFT)
 
     @staticmethod
@@ -201,20 +189,7 @@ class OrcUiApp:
         tk.Button(volume, text="+", command=lambda: self._change_volume(5), bg=PANEL, fg=TEXT, relief=tk.FLAT, bd=0, font=("Sans", 15, "bold")).grid(row=0, column=2, sticky="ns", padx=4)
         for col, text in enumerate(["🎙  Push to Talk", "▣  Front Cam", "▣  SCREEN\nAuto", "☀  BRIGHTNESS\n70%"], start=1):
             tk.Button(bar, text=text, bg=PANEL, fg=TEXT, relief=tk.FLAT, highlightthickness=1, highlightbackground=BORDER, font=("Sans", 9)).grid(row=0, column=col, sticky="nsew", padx=3)
-        self._theme_button = tk.Button(
-            bar,
-            text=toggle_label(self._theme_mode),
-            command=self._toggle_theme,
-            bg=PANEL,
-            fg=TEXT,
-            activebackground="#121b23",
-            activeforeground=TEXT,
-            relief=tk.FLAT,
-            highlightthickness=1,
-            highlightbackground=BORDER,
-            font=("Sans", 9, "bold"),
-            cursor="hand2",
-        )
+        self._theme_button = tk.Button(bar, text=toggle_label(self._theme_mode), command=self._toggle_theme, bg=PANEL, fg=TEXT, activebackground="#121b23", activeforeground=TEXT, relief=tk.FLAT, highlightthickness=1, highlightbackground=BORDER, font=("Sans", 9, "bold"), cursor="hand2")
         self._theme_button.grid(row=0, column=5, sticky="nsew", padx=3)
 
     def _change_volume(self, delta: int) -> None:
@@ -225,7 +200,6 @@ class OrcUiApp:
         if self._power_dialog is not None and self._power_dialog.winfo_exists():
             self._power_dialog.lift()
             return
-
         dialog = tk.Toplevel(self._root)
         self._power_dialog = dialog
         dialog.title("OpenRoadCode Power")
@@ -233,47 +207,12 @@ class OrcUiApp:
         dialog.resizable(False, False)
         dialog.configure(bg=PANEL)
         dialog.protocol("WM_DELETE_WINDOW", self._close_power_dialog)
-
         frame = tk.Frame(dialog, bg=PANEL, padx=18, pady=16)
         frame.pack(fill=tk.BOTH, expand=True)
-        tk.Label(
-            frame,
-            text="POWER",
-            fg=TEXT,
-            bg=PANEL,
-            font=("Sans", 16, "bold"),
-        ).pack(pady=(0, 4))
-        tk.Label(
-            frame,
-            text="System actions are intentionally two taps away.",
-            fg=MUTED,
-            bg=PANEL,
-            font=("Sans", 9),
-        ).pack(pady=(0, 14))
-
-        for text, command in (
-            ("EXIT UI", self._on_close),
-            ("RESTART UI", self._restart_ui),
-            ("SHUT DOWN SYSTEM", self._show_shutdown_confirmation),
-            ("CANCEL", self._close_power_dialog),
-        ):
-            tk.Button(
-                frame,
-                text=text,
-                command=command,
-                bg="#101820",
-                fg=TEXT,
-                activebackground="#121b23",
-                activeforeground=TEXT,
-                relief=tk.FLAT,
-                highlightthickness=1,
-                highlightbackground=BORDER,
-                width=24,
-                pady=8,
-                font=("Sans", 10, "bold"),
-                cursor="hand2",
-            ).pack(fill=tk.X, pady=3)
-
+        tk.Label(frame, text="POWER", fg=TEXT, bg=PANEL, font=("Sans", 16, "bold")).pack(pady=(0, 4))
+        tk.Label(frame, text="System actions are intentionally two taps away.", fg=MUTED, bg=PANEL, font=("Sans", 9)).pack(pady=(0, 14))
+        for text, command in (("EXIT UI", self._on_close), ("RESTART UI", self._restart_ui), ("SHUT DOWN SYSTEM", self._show_shutdown_confirmation), ("CANCEL", self._close_power_dialog)):
+            tk.Button(frame, text=text, command=command, bg="#101820", fg=TEXT, activebackground="#121b23", activeforeground=TEXT, relief=tk.FLAT, highlightthickness=1, highlightbackground=BORDER, width=24, pady=8, font=("Sans", 10, "bold"), cursor="hand2").pack(fill=tk.X, pady=3)
         if self._theme_mode is ThemeMode.LIGHT:
             apply_tk_theme(dialog, self._theme_mode)
         self._center_power_dialog(dialog)
@@ -284,53 +223,12 @@ class OrcUiApp:
             return
         for child in dialog.winfo_children():
             child.destroy()
-
         frame = tk.Frame(dialog, bg=PANEL, padx=18, pady=16)
         frame.pack(fill=tk.BOTH, expand=True)
-        tk.Label(
-            frame,
-            text="SHUT DOWN SYSTEM?",
-            fg=RED,
-            bg=PANEL,
-            font=("Sans", 15, "bold"),
-        ).pack(pady=(2, 7))
-        tk.Label(
-            frame,
-            text="This stops OpenRoadCode and powers off the host.",
-            fg=MUTED,
-            bg=PANEL,
-            font=("Sans", 9),
-        ).pack(pady=(0, 14))
-        tk.Button(
-            frame,
-            text="CONFIRM SHUTDOWN",
-            command=self._shutdown_system,
-            bg="#3a1212",
-            fg=TEXT,
-            activebackground="#521818",
-            activeforeground=TEXT,
-            relief=tk.FLAT,
-            highlightthickness=1,
-            highlightbackground=RED,
-            pady=9,
-            font=("Sans", 10, "bold"),
-            cursor="hand2",
-        ).pack(fill=tk.X, pady=3)
-        tk.Button(
-            frame,
-            text="BACK",
-            command=self._reopen_power_dialog,
-            bg="#101820",
-            fg=TEXT,
-            activebackground="#121b23",
-            activeforeground=TEXT,
-            relief=tk.FLAT,
-            highlightthickness=1,
-            highlightbackground=BORDER,
-            pady=9,
-            font=("Sans", 10, "bold"),
-            cursor="hand2",
-        ).pack(fill=tk.X, pady=3)
+        tk.Label(frame, text="SHUT DOWN SYSTEM?", fg=RED, bg=PANEL, font=("Sans", 15, "bold")).pack(pady=(2, 7))
+        tk.Label(frame, text="This stops OpenRoadCode and powers off the host.", fg=MUTED, bg=PANEL, font=("Sans", 9)).pack(pady=(0, 14))
+        tk.Button(frame, text="CONFIRM SHUTDOWN", command=self._shutdown_system, bg="#3a1212", fg=TEXT, activebackground="#521818", activeforeground=TEXT, relief=tk.FLAT, highlightthickness=1, highlightbackground=RED, pady=9, font=("Sans", 10, "bold"), cursor="hand2").pack(fill=tk.X, pady=3)
+        tk.Button(frame, text="BACK", command=self._reopen_power_dialog, bg="#101820", fg=TEXT, activebackground="#121b23", activeforeground=TEXT, relief=tk.FLAT, highlightthickness=1, highlightbackground=BORDER, pady=9, font=("Sans", 10, "bold"), cursor="hand2").pack(fill=tk.X, pady=3)
         if self._theme_mode is ThemeMode.LIGHT:
             apply_tk_theme(dialog, self._theme_mode)
         self._center_power_dialog(dialog)
@@ -356,14 +254,9 @@ class OrcUiApp:
             command = ["systemctl", "poweroff"]
         elif shutil.which("loginctl"):
             command = ["loginctl", "poweroff"]
-
         if command is None:
-            self._show_power_error(
-                "System shutdown is unavailable on this host.\n"
-                "Exit UI is still available."
-            )
+            self._show_power_error("System shutdown is unavailable on this host.\nExit UI is still available.")
             return
-
         self._map_renderer.stop()
         self._dispatcher.close()
         try:
@@ -383,18 +276,7 @@ class OrcUiApp:
         frame.pack(fill=tk.BOTH, expand=True)
         tk.Label(frame, text="POWER", fg=RED, bg=PANEL, font=("Sans", 15, "bold")).pack(pady=(0, 8))
         tk.Label(frame, text=message, fg=TEXT, bg=PANEL, font=("Sans", 9), justify=tk.CENTER).pack(pady=(0, 12))
-        tk.Button(
-            frame,
-            text="BACK",
-            command=self._reopen_power_dialog,
-            bg="#101820",
-            fg=TEXT,
-            relief=tk.FLAT,
-            highlightthickness=1,
-            highlightbackground=BORDER,
-            pady=8,
-            cursor="hand2",
-        ).pack(fill=tk.X)
+        tk.Button(frame, text="BACK", command=self._reopen_power_dialog, bg="#101820", fg=TEXT, relief=tk.FLAT, highlightthickness=1, highlightbackground=BORDER, pady=8, cursor="hand2").pack(fill=tk.X)
         if self._theme_mode is ThemeMode.LIGHT:
             apply_tk_theme(dialog, self._theme_mode)
         self._center_power_dialog(dialog)
@@ -459,8 +341,8 @@ class OrcUiApp:
 
     def _clear_content(self) -> None:
         self._map_renderer.stop()
-        if self._radio_panel is not None:
-            self._radio_panel.clear_embedding()
+        if self._radio_panel is not None and self._radio_panel.winfo_exists():
+            self._radio_panel.detach_sdrpp(self._root.winfo_id())
         self._context_rail = None
         self._home_map_panel = None
         self._navigation_panel = None
@@ -505,10 +387,7 @@ class OrcUiApp:
         self._clear_content()
         self._active_nav = "NAVIGATION"
         self._paint_nav()
-        self._navigation_panel = NavigationPanel(
-            self._content,
-            on_back=self._show_home,
-        )
+        self._navigation_panel = NavigationPanel(self._content, on_back=self._show_home)
         self._navigation_panel.pack(fill=tk.BOTH, expand=True)
         if self._theme_mode is ThemeMode.LIGHT:
             apply_tk_theme(self._navigation_panel, self._theme_mode)
@@ -518,10 +397,7 @@ class OrcUiApp:
     def _start_map_renderer(self, parent_window_id: int) -> None:
         display = os.environ.get("DISPLAY", ":1")
         try:
-            self._map_renderer.launch(
-                display=display,
-                parent_window_id=parent_window_id,
-            )
+            self._map_renderer.launch(display=display, parent_window_id=parent_window_id)
         except (OSError, RuntimeError) as error:
             print(f"WARNING: map renderer: {type(error).__name__}: {error}")
 
@@ -529,7 +405,7 @@ class OrcUiApp:
         self._clear_content()
         self._active_nav = "RADIO"
         self._paint_nav()
-        self._radio_panel = RadioPanel(self._content, on_back=self._show_home)
+        self._radio_panel = RadioPanel(self._content, embedder=self._radio_embedder)
         self._radio_panel.pack(fill=tk.BOTH, expand=True)
         if self._theme_mode is ThemeMode.LIGHT:
             apply_tk_theme(self._radio_panel, self._theme_mode)
@@ -556,12 +432,7 @@ class OrcUiApp:
 
     def _show_offroad_panel(self) -> None:
         self._clear_content()
-        self._offroad_panel = OffRoadPanel(
-            self._content,
-            on_back=self._show_home,
-            position=self._position_state,
-            attitude=self._attitude_state,
-        )
+        self._offroad_panel = OffRoadPanel(self._content, on_back=self._show_home, position=self._position_state, attitude=self._attitude_state)
         self._offroad_panel.pack(fill=tk.BOTH, expand=True)
         if self._theme_mode is ThemeMode.LIGHT:
             apply_tk_theme(self._offroad_panel, self._theme_mode)
