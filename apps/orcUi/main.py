@@ -14,6 +14,7 @@ import tkinter as tk
 from datetime import datetime
 
 from apps.launchers.map_renderer_launcher import MapRendererLauncher
+from apps.launchers.sdrpp_launcher import sync_sdrpp_theme
 from apps.orcUi.context_rail import ContextRail
 from apps.orcUi.home_map_panel import HomeMapPanel
 from apps.orcUi.navigation_panel import NavigationPanel
@@ -292,6 +293,7 @@ class OrcUiApp:
     def _toggle_theme(self) -> None:
         self._theme_mode = toggle(self._theme_mode)
         install_map_style(self._theme_mode)
+        sync_sdrpp_theme("Light" if self._theme_mode is ThemeMode.LIGHT else "Dark")
         apply_tk_theme(self._root, self._theme_mode)
         self._theme_button.configure(text=toggle_label(self._theme_mode))
         self._paint_nav()
