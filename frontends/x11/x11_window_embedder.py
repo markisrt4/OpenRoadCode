@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import shutil
 import subprocess
 import time
@@ -10,7 +11,7 @@ from .window_embedder_if import WindowEmbedderIf
 
 
 class X11WindowEmbedder(WindowEmbedderIf):
-    """Use xdotool to reparent a process window into an ORC frontend host."""
+    """Use xdotool to reparent an application window into an ORC frontend host."""
 
     def __init__(self, timeout_seconds: float = 8.0) -> None:
         self._timeout_seconds = timeout_seconds
@@ -25,29 +26,38 @@ class X11WindowEmbedder(WindowEmbedderIf):
     def window_id(self) -> int | None:
         return self._window_id
 
-    def embed(self, process_id: int, host_window_id: int, width: int, height: int) -> int:
-        """Find the visible X11 window for *process_id* and reparent it into *host_window_id*."""
+    def embed(
+        self,
+        process_id: int,
+        host_window_id: int,
+        width: int,
+        height: int,
+        window_name: str | None = None,
+    ) -> int:
+        """Find a visible X11 client and reparent it into *host_window_id*.
+
+        Process-based lookup is attempted first. Some proot/X11 combinations do not
+        expose a useful ``_NET_WM_PID`` property, so callers may supply *window_name*
+        as a fallback selector.
+        """
         if not self.supported():
             raise RuntimeError("xdotool is required for embedded X11 windows")
 
         deadline = time.monotonic() + self._timeout_seconds
         window_id: int | None = None
         while time.monotonic() < deadline:
-            result = subprocess.run(
-                ["xdotool", "search", "--onlyvisible", "--pid", str(process_id)],
-                capture_output=True,
-                text=True,
-                check=False,
-            )
-            if result.returncode == 0:
-                candidates = [line.strip() for line in result.stdout.splitlines() if line.strip()]
-                if candidates:
-                    window_id = int(candidates[-1])
-                    break
+            window_id = self._find_by_process(process_id)
+            if window_id is None and window_name:
+                window_id = self._find_by_name(window_name)
+            if window_id is not None:
+                break
             time.sleep(0.1)
 
         if window_id is None:
-            raise RuntimeError(f"no visible X11 window found for process {process_id}")
+            suffix = f" or window name {window_name!r}" if window_name else ""
+            raise RuntimeError(
+                f"no visible X11 window found for process {process_id}{suffix}"
+            )
 
         subprocess.run(
             ["xdotool", "windowreparent", str(window_id), str(host_window_id)],
@@ -56,6 +66,37 @@ class X11WindowEmbedder(WindowEmbedderIf):
         self._window_id = window_id
         self.resize(width, height)
         return window_id
+
+    @staticmethod
+    def _find_by_process(process_id: int) -> int | None:
+        result = subprocess.run(
+            ["xdotool", "search", "--onlyvisible", "--pid", str(process_id)],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        return X11WindowEmbedder._last_window_id(result)
+
+    @staticmethod
+    def _find_by_name(window_name: str) -> int | None:
+        # xdotool treats --name as a regular expression. Escape literal names such
+        # as "SDR++" so '+' is not interpreted as a regex quantifier.
+        result = subprocess.run(
+            ["xdotool", "search", "--onlyvisible", "--name", re.escape(window_name)],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        return X11WindowEmbedder._last_window_id(result)
+
+    @staticmethod
+    def _last_window_id(result: subprocess.CompletedProcess[str]) -> int | None:
+        if result.returncode != 0:
+            return None
+        candidates = [line.strip() for line in result.stdout.splitlines() if line.strip()]
+        if not candidates:
+            return None
+        return int(candidates[-1])
 
     def resize(self, width: int, height: int) -> None:
         """Resize the currently embedded client to match its ORC host."""
