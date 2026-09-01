@@ -80,8 +80,14 @@ class SDRPPLauncherTest(unittest.TestCase):
         self.assertEqual(
             "/data/data/com.termux/files/usr/bin/proot-distro", command[0]
         )
-        self.assertEqual(["login", "debian", "--"], command[1:4])
+        self.assertEqual(["login", "debian", "--shared-tmp", "--"], command[1:5])
         self.assertIn("DISPLAY=:1", command)
+        self.assertIn("XDG_RUNTIME_DIR=/tmp/runtime-root", command)
+        self.assertIn("XDG_SESSION_TYPE=x11", command)
+        self.assertIn("GDK_BACKEND=x11", command)
+        self.assertIn("LIBGL_ALWAYS_SOFTWARE=1", command)
+        self.assertIn("mkdir -p /tmp/runtime-root", command[-1])
+        self.assertIn("chmod 700 /tmp/runtime-root", command[-1])
         self.assertIn("cd /root/SDRPlusPlus", command[-1])
         self.assertIn("./build/sdrpp -r root_dev --autostart", command[-1])
 
