@@ -29,6 +29,7 @@ class VehiclePresentationState:
     engine_load_percent: float | None = None
     fuel_percent: float | None = None
     control_voltage_v: float | None = None
+    gear: str | None = None
 
 
 class VehiclePresenter:
@@ -36,6 +37,14 @@ class VehiclePresenter:
 
     @staticmethod
     def present(state: VehicleStateData) -> VehiclePresentationState:
+        gear = None
+        if state.transmission_gear == -1:
+            gear = "R"
+        elif state.transmission_gear == 0:
+            gear = "N"
+        elif state.transmission_gear is not None:
+            gear = str(state.transmission_gear)
+
         return VehiclePresentationState(
             speed_mph=(
                 None
@@ -74,4 +83,5 @@ class VehiclePresenter:
                 None if state.fuel_level is None else state.fuel_level * 100.0
             ),
             control_voltage_v=state.control_voltage_v,
+            gear=gear,
         )
