@@ -4,7 +4,6 @@
 #pragma once
 
 #include <string>
-
 #include <zmq.hpp>
 
 class MapEventPublisher {
@@ -14,6 +13,8 @@ public:
     void publishPoiSelected(
         const std::string& name,
         const std::string& brand,
+        const std::string& sourceClass,
+        const std::string& sourceSubclass,
         double latitude,
         double longitude
     );
