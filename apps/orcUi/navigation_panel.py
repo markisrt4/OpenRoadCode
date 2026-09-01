@@ -50,12 +50,16 @@ class NavigationPanel(tk.Frame):
    except tk.TclError:pass
    self._earth_overlay=None
  def _toggle_earth_menu(self)->None:
-  if not self._earth_launcher.toggle_menu_bar(self._display()):return
-  if self._earth_overlay is not None:self._earth_overlay.after(120,self._earth_overlay.lift)
- def _hide_earth_menu_on_launch(self)->None:
+  overlay=self._earth_overlay
+  if overlay is None:return
+  overlay.withdraw()
+  self.after(150,lambda:self._send_earth_menu_toggle(overlay))
+ def _send_earth_menu_toggle(self,overlay:tk.Toplevel)->None:
   if not self._earth_visible:return
   self._earth_launcher.toggle_menu_bar(self._display())
-  if self._earth_overlay is not None:self._earth_overlay.lift()
+  try:
+   overlay.deiconify();overlay.attributes("-topmost",True);overlay.lift()
+  except tk.TclError:pass
  def _leave_earth(self)->None:
   self._destroy_earth_overlay()
   if self._earth_launcher.is_running():self._earth_launcher.stop(self._display())
@@ -64,8 +68,7 @@ class NavigationPanel(tk.Frame):
   try:
    if self._earth_visible:self._leave_earth();return
    self._prepare_first_earth_launch();position,size=self._screen_geometry();self._earth_launcher.configure_fullscreen(position=position,size=size);self._earth_visible=self._earth_launcher.toggle(self._display())
-   if self._earth_visible:
-    self._earth_button.configure(text="▣  MAP",bg=GREEN,fg=BG);self._show_earth_overlay();self.after(1500,self._hide_earth_menu_on_launch)
+   if self._earth_visible:self._earth_button.configure(text="▣  MAP",bg=GREEN,fg=BG);self._show_earth_overlay()
   except Exception as exc:self._earth_visible=False;self._destroy_earth_overlay();self._shortcut_status.set(f"Earth unavailable: {exc}")
  def _schedule_renderer_refresh(self):
   for d in (300,700,1200):self.after(d,self._refresh_renderer_state)
