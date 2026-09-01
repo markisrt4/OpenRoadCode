@@ -8,12 +8,29 @@
 #include <rapidjson/writer.h>
 #include <utility>
 
-namespace { constexpr const char* kPoiSelectedTopic = "map.poi.selected"; }
+namespace {
+constexpr const char* kPoiSelectedTopic = "map.poi.selected";
+constexpr const char* kPoiSearchResultTopic = "map.poi.search_result";
+
+std::string jsonString(rapidjson::Document& document)
+{
+    rapidjson::StringBuffer buffer;
+    rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
+    document.Accept(writer);
+    return buffer.GetString();
+}
+}
 
 MapEventPublisher::MapEventPublisher(std::string endpoint)
 {
     socket.set(zmq::sockopt::linger, 0);
     socket.connect(std::move(endpoint));
+}
+
+void MapEventPublisher::publishJson(const char* topic, const std::string& json)
+{
+    socket.send(zmq::buffer(topic, std::char_traits<char>::length(topic)), zmq::send_flags::sndmore);
+    socket.send(zmq::buffer(json), zmq::send_flags::none);
 }
 
 void MapEventPublisher::publishPoiSelected(
@@ -33,10 +50,25 @@ void MapEventPublisher::publishPoiSelected(
     document.AddMember("subclass", rapidjson::Value(sourceSubclass.c_str(), allocator), allocator);
     document.AddMember("latitude", latitude, allocator);
     document.AddMember("longitude", longitude, allocator);
+    publishJson(kPoiSelectedTopic, jsonString(document));
+}
 
-    rapidjson::StringBuffer buffer;
-    rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
-    document.Accept(writer);
-    socket.send(zmq::buffer(kPoiSelectedTopic), zmq::send_flags::sndmore);
-    socket.send(zmq::buffer(buffer.GetString(), buffer.GetSize()), zmq::send_flags::none);
+void MapEventPublisher::publishPoiSearchResult(
+    const std::string& category,
+    int count,
+    double south,
+    double west,
+    double north,
+    double east)
+{
+    rapidjson::Document document;
+    document.SetObject();
+    auto& allocator = document.GetAllocator();
+    document.AddMember("category", rapidjson::Value(category.c_str(), allocator), allocator);
+    document.AddMember("count", count, allocator);
+    document.AddMember("south", south, allocator);
+    document.AddMember("west", west, allocator);
+    document.AddMember("north", north, allocator);
+    document.AddMember("east", east, allocator);
+    publishJson(kPoiSearchResultTopic, jsonString(document));
 }
