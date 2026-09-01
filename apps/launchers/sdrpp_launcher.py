@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 import shlex
 import shutil
@@ -27,6 +28,8 @@ from common.logging.logging_paths import logging_file_path
 DEFAULT_TERMUX_SDRPP_SOURCE = Path("/root/SDRPlusPlus")
 DEFAULT_TERMUX_PROOT_DISTRIBUTION = "debian"
 DEFAULT_TERMUX_XDG_RUNTIME_DIR = "/tmp/runtime-root"
+DEFAULT_NATIVE_SDRPP_ROOT = Path.home() / "SDRPlusPlus" / "root_dev"
+_VALID_THEMES = {"Dark", "Light"}
 
 
 @dataclass(frozen=True, slots=True)
@@ -55,6 +58,7 @@ class SDRPPLauncher(AppLauncherIf):
         rigctl_timeout_seconds: float = 15.0,
         termux_proot_distribution: str = DEFAULT_TERMUX_PROOT_DISTRIBUTION,
         termux_sdrpp_source: str | Path = DEFAULT_TERMUX_SDRPP_SOURCE,
+        theme: str | None = None,
     ) -> None:
         self.profile = profile
         self.log_file = Path(
@@ -73,6 +77,7 @@ class SDRPPLauncher(AppLauncherIf):
         self.rigctl_timeout_seconds = rigctl_timeout_seconds
         self.termux_proot_distribution = termux_proot_distribution
         self.termux_sdrpp_source = Path(termux_sdrpp_source)
+        self.theme = _normalize_theme(theme) if theme is not None else None
         self._process: subprocess.Popen[str] | None = None
         self._launched_via_proot = False
 
@@ -85,6 +90,20 @@ class SDRPPLauncher(AppLauncherIf):
         return (
             is_process_running("sdrpp")
             or is_process_running("sdr\\+\\+")
+        )
+
+    def set_theme(self, theme: str) -> None:
+        """Set the SDR++ theme to synchronize before the next launch."""
+        self.theme = _normalize_theme(theme)
+
+    def sync_theme(self) -> bool:
+        """Persist the configured theme into SDR++'s runtime config."""
+        if self.theme is None:
+            return False
+        return sync_sdrpp_theme(
+            self.theme,
+            termux_proot_distribution=self.termux_proot_distribution,
+            termux_sdrpp_source=self.termux_sdrpp_source,
         )
 
     def launch(
@@ -112,6 +131,9 @@ class SDRPPLauncher(AppLauncherIf):
             _status(set_status, "Waiting for existing SDR++ RigCTL...")
             self.wait_for_rigctl()
             return
+
+        if self.theme is not None:
+            self.sync_theme()
 
         command = self._launch_command(remote_display)
         self._launched_via_proot = _is_proot_command(command)
@@ -290,6 +312,70 @@ class SDRPPLauncher(AppLauncherIf):
             start_new_session=True,
             text=True,
         )
+
+
+def sync_sdrpp_theme(
+    theme: str,
+    *,
+    termux_proot_distribution: str = DEFAULT_TERMUX_PROOT_DISTRIBUTION,
+    termux_sdrpp_source: str | Path = DEFAULT_TERMUX_SDRPP_SOURCE,
+    native_root: str | Path | None = None,
+) -> bool:
+    """Persist an SDR++ theme for native Linux or the Termux Debian proot."""
+    selected = _normalize_theme(theme)
+
+    if _is_termux():
+        proot_distro = shutil.which("proot-distro")
+        if proot_distro is None:
+            return False
+        config_path = Path(termux_sdrpp_source) / "root_dev" / "config.json"
+        script = (
+            "import json, pathlib, sys; "
+            "p=pathlib.Path(sys.argv[1]); "
+            "d=json.loads(p.read_text()); "
+            "d['theme']=sys.argv[2]; "
+            "p.write_text(json.dumps(d, indent=4)+'\\n')"
+        )
+        result = subprocess.run(
+            [
+                proot_distro,
+                "login",
+                termux_proot_distribution,
+                "--shared-tmp",
+                "--",
+                "python3",
+                "-c",
+                script,
+                str(config_path),
+                selected,
+            ],
+            check=False,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        return result.returncode == 0
+
+    root = Path(native_root) if native_root is not None else DEFAULT_NATIVE_SDRPP_ROOT
+    config_path = root / "config.json"
+    if not config_path.is_file():
+        return False
+    try:
+        document = json.loads(config_path.read_text(encoding="utf-8"))
+        document["theme"] = selected
+        config_path.write_text(
+            json.dumps(document, indent=4) + "\n",
+            encoding="utf-8",
+        )
+    except (OSError, json.JSONDecodeError):
+        return False
+    return True
+
+
+def _normalize_theme(theme: str) -> str:
+    selected = theme.strip().capitalize()
+    if selected not in _VALID_THEMES:
+        raise ValueError(f"Unsupported SDR++ theme: {theme!r}")
+    return selected
 
 
 def _is_proot_command(command: list[str]) -> bool:
