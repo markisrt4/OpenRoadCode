@@ -39,6 +39,7 @@ def main() -> None:
                 host.winfo_id(),
                 host.winfo_width(),
                 host.winfo_height(),
+                window_name="SDR++",
             )
             status.config(
                 text=f"Embedded SDR++ XID {window_id} from PID {args.pid}"
