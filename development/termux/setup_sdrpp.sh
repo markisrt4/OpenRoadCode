@@ -88,22 +88,20 @@ cmake --build "$SDRPP_BUILD" --parallel "$BUILD_JOBS"
 echo "[*] Preparing SDR++ development resources"
 mkdir -p "$SDRPP_ROOT"
 cp -a "$SDRPP_SRC/root/." "$SDRPP_ROOT/"
-mkdir -p "$SDRPP_ROOT/modules"
-rm -f "$SDRPP_ROOT/modules/"*.so
 
-module_count=0
-while IFS= read -r module; do
-  if nm -D "$module" 2>/dev/null | grep -Eq '[[:space:]]_INFO_$'; then
-    cp -f "$module" "$SDRPP_ROOT/modules/$(basename "$module")"
-    module_count=$((module_count + 1))
-  fi
-done < <(find "$SDRPP_BUILD" -type f -name '*.so' -print)
-
-echo "[*] Installed $module_count SDR++ runtime modules"
-[[ -f "$SDRPP_ROOT/modules/rigctl_server.so" ]] || {
-  echo "SDR++ Rigctl Server was enabled but rigctl_server.so was not installed." >&2
+RIGCTL_MODULE="$(find "$SDRPP_BUILD" -type f -name 'rigctl_server.so' -print -quit)"
+[[ -n "$RIGCTL_MODULE" ]] || {
+  echo "SDR++ Rigctl Server was enabled but rigctl_server.so was not produced." >&2
   exit 1
 }
+
+# Termux/proot does not provide a normal desktop audio stack. Loading every
+# desktop SDR++ module here can crash during module initialization (notably
+# audio_source). Keep the embedded ORC runtime minimal until modules are
+# explicitly enabled/tested for this platform.
+mkdir -p "$SDRPP_ROOT/modules"
+rm -f "$SDRPP_ROOT/modules/"*.so
+cp -f "$RIGCTL_MODULE" "$SDRPP_ROOT/modules/rigctl_server.so"
 
 cat > "$SDRPP_ROOT/rigctl_server_config.json" <<'EOF'
 {
@@ -125,7 +123,7 @@ cat <<EOF
     source:    $SDRPP_SRC
     binary:    $SDRPP_BUILD/sdrpp
     resources: $SDRPP_ROOT
-    modules:   $module_count
+    modules:   rigctl_server.so (Termux-safe runtime)
     rigctl:    127.0.0.1:4532 (autostart enabled)
 
 To launch SDR++ in Termux:X11:
