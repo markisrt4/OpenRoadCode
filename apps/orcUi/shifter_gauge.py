@@ -9,11 +9,11 @@ import tkinter as tk
 
 
 class ShifterGauge(tk.Canvas):
-    """Show a large digital gear beside a six-speed H-pattern."""
+    """Show the current gear beside a compact Veloster six-speed pattern."""
 
     VALID_GEARS = {"R", "N", "1", "2", "3", "4", "5", "6"}
 
-    def __init__(self, parent: tk.Misc, *, width: int = 390, height: int = 105) -> None:
+    def __init__(self, parent: tk.Misc, *, width: int = 330, height: int = 58) -> None:
         super().__init__(
             parent,
             width=width,
@@ -44,7 +44,7 @@ class ShifterGauge(tk.Canvas):
         muted = "#747879"
         active = "#ff3143"
 
-        pad = max(6, int(h * 0.07))
+        pad = max(3, int(h * 0.06))
         self.create_rectangle(
             pad,
             pad,
@@ -52,44 +52,45 @@ class ShifterGauge(tk.Canvas):
             h - pad,
             fill=panel,
             outline=border,
-            width=2,
+            width=1,
         )
 
-        digital_right = w * 0.34
+        # The digital indication is intentionally tiny compared with the
+        # primary instruments. It is supporting information, not a fifth gauge.
+        digital_right = w * 0.23
         self.create_text(
-            digital_right * 0.50,
-            h * 0.22,
+            digital_right * 0.46,
+            h * 0.27,
             text="GEAR",
             fill=text,
-            font=("DejaVu Sans Condensed", max(8, int(h * 0.10)), "bold"),
+            font=("DejaVu Sans Condensed", max(7, int(h * 0.12)), "bold"),
         )
         self.create_text(
-            digital_right * 0.50,
-            h * 0.61,
+            digital_right * 0.46,
+            h * 0.65,
             text=self._gear or "—",
             fill=active,
-            font=("DejaVu Sans Mono", max(30, int(h * 0.43)), "bold"),
+            font=("DejaVu Sans Mono", max(18, int(h * 0.34)), "bold"),
         )
         self.create_line(
             digital_right,
-            pad * 1.7,
+            pad * 1.5,
             digital_right,
-            h - pad * 1.7,
+            h - pad * 1.5,
             fill=border,
-            width=2,
+            width=1,
         )
 
         # Veloster six-speed pattern: R/1/3/5 across the top, 2/4/6 below.
-        x_positions = [w * 0.46, w * 0.60, w * 0.74, w * 0.88]
+        x_positions = [w * 0.40, w * 0.56, w * 0.70, w * 0.84]
         top_y = h * 0.31
-        bottom_y = h * 0.72
+        bottom_y = h * 0.70
         mid_y = (top_y + bottom_y) / 2
 
-        # Draw the three forward H gates and the reverse branch.
         for x in x_positions[1:]:
-            self.create_line(x, top_y, x, bottom_y, fill=muted, width=3)
-        self.create_line(x_positions[1], mid_y, x_positions[3], mid_y, fill=muted, width=3)
-        self.create_line(x_positions[0], top_y, x_positions[1], top_y, fill=muted, width=3)
+            self.create_line(x, top_y, x, bottom_y, fill=muted, width=2)
+        self.create_line(x_positions[1], mid_y, x_positions[3], mid_y, fill=muted, width=2)
+        self.create_line(x_positions[0], top_y, x_positions[1], top_y, fill=muted, width=2)
 
         positions = {
             "R": (x_positions[0], top_y),
@@ -103,7 +104,7 @@ class ShifterGauge(tk.Canvas):
         for gear, (x, y) in positions.items():
             selected = self._gear == gear
             if selected:
-                radius = h * 0.105
+                radius = max(6, h * 0.10)
                 self.create_oval(
                     x - radius,
                     y - radius,
@@ -111,20 +112,19 @@ class ShifterGauge(tk.Canvas):
                     y + radius,
                     fill="#57131b",
                     outline=active,
-                    width=2,
+                    width=1,
                 )
             self.create_text(
                 x,
                 y,
                 text=gear,
                 fill=active if selected else text,
-                font=("DejaVu Sans", max(9, int(h * 0.12)), "bold"),
+                font=("DejaVu Sans", max(8, int(h * 0.14)), "bold"),
             )
 
-        # Neutral is the center cross-gate rather than another numbered position.
-        neutral_x = (x_positions[2] + x_positions[1]) / 2
+        neutral_x = (x_positions[1] + x_positions[2]) / 2
         if self._gear == "N":
-            radius = h * 0.055
+            radius = max(3, h * 0.045)
             self.create_oval(
                 neutral_x - radius,
                 mid_y - radius,
