@@ -22,6 +22,7 @@ $SUDO apt-get install -y \
   build-essential \
   cmake \
   git \
+  binutils \
   libfftw3-dev \
   libglfw3-dev \
   libvolk-dev \
@@ -60,17 +61,25 @@ cmake --build "$SDRPP_BUILD" --parallel "$BUILD_JOBS"
   exit 1
 }
 
-RIGCTL_SO="$(find "$SDRPP_BUILD" -type f -name 'rigctl_server.so' -print -quit)"
-[[ -n "$RIGCTL_SO" ]] || {
-  echo "Rigctl Server was enabled but rigctl_server.so was not produced." >&2
-  exit 1
-}
-
 echo "[*] Preparing SDR++ development resources"
 mkdir -p "$SDRPP_ROOT"
 cp -a "$SDRPP_SRC/root/." "$SDRPP_ROOT/"
 mkdir -p "$SDRPP_ROOT/modules"
-cp "$RIGCTL_SO" "$SDRPP_ROOT/modules/rigctl_server.so"
+rm -f "$SDRPP_ROOT/modules/"*.so
+
+module_count=0
+while IFS= read -r module; do
+  if nm -D "$module" 2>/dev/null | grep -Eq '[[:space:]]_INFO_$'; then
+    cp -f "$module" "$SDRPP_ROOT/modules/$(basename "$module")"
+    module_count=$((module_count + 1))
+  fi
+done < <(find "$SDRPP_BUILD" -type f -name '*.so' -print)
+
+echo "[*] Installed $module_count SDR++ runtime modules"
+[[ -f "$SDRPP_ROOT/modules/rigctl_server.so" ]] || {
+  echo "SDR++ Rigctl Server was enabled but rigctl_server.so was not installed." >&2
+  exit 1
+}
 
 cat > "$SDRPP_ROOT/rigctl_server_config.json" <<'JSON'
 {
@@ -92,6 +101,7 @@ cat <<EOF
     source:    $SDRPP_SRC
     binary:    $SDRPP_BUILD/sdrpp
     resources: $SDRPP_ROOT
+    modules:   $module_count
     rigctl:    127.0.0.1:4532 (autostart)
 
 Launch with:
