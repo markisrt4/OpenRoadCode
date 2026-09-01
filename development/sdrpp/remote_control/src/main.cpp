@@ -1,13 +1,11 @@
 #include <core.h>
 #include <gui/gui.h>
-#include <gui/widgets/waterfall.h>
 #include <module.h>
 #include <utils/flog.h>
 #include <utils/networking.h>
 
 #include <algorithm>
 #include <cctype>
-#include <mutex>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -18,7 +16,7 @@ SDRPP_MOD_INFO{
     /* Name:            */ "remote_control",
     /* Description:     */ "Remote application control server for SDR++",
     /* Author:          */ "OpenRoadCode contributors",
-    /* Version:         */ 0, 1, 0,
+    /* Version:         */ 0, 1, 1,
     /* Max instances    */ 1
 };
 
@@ -46,14 +44,10 @@ std::string join(const std::vector<std::string>& values, const char* separator) 
 class RemoteControlModule : public ModuleManager::Instance {
 public:
     explicit RemoteControlModule(std::string name) : name(std::move(name)) {
-        inputHandler.ctx = this;
-        inputHandler.handler = inputProcess;
-        gui::waterfall.onInputProcess.bindHandler(&inputHandler);
         startServer();
     }
 
     ~RemoteControlModule() override {
-        gui::waterfall.onInputProcess.unbindHandler(&inputHandler);
         if (client) { client->close(); }
         if (listener) { listener->close(); }
     }
@@ -124,50 +118,40 @@ private:
         }
 
         if (command == "GET themes") {
-            std::lock_guard<std::mutex> lock(stateMutex);
-            writeResponse("VALUES themes " + join(themeNames, "|") + "\n");
+            writeResponse("VALUES themes " + join(gui::themeManager.getThemeNames(), "|") + "\n");
             return;
         }
 
         constexpr const char* prefix = "SET theme ";
         if (command.rfind(prefix, 0) == 0) {
-            const std::string requested = trim(command.substr(std::char_traits<char>::length(prefix)));
-            {
-                std::lock_guard<std::mutex> lock(stateMutex);
-                if (std::find(themeNames.begin(), themeNames.end(), requested) == themeNames.end()) {
-                    writeResponse("ERROR invalid-value\n");
-                    return;
-                }
-                pendingTheme = requested;
+            if (!enabled) {
+                writeResponse("ERROR disabled\n");
+                return;
             }
+
+            const std::string requested = trim(command.substr(std::char_traits<char>::length(prefix)));
+            const auto themeNames = gui::themeManager.getThemeNames();
+            if (std::find(themeNames.begin(), themeNames.end(), requested) == themeNames.end()) {
+                writeResponse("ERROR invalid-value\n");
+                return;
+            }
+
+            if (!gui::themeManager.applyTheme(requested)) {
+                flog::error("Remote Control could not apply theme '{}'", requested);
+                writeResponse("ERROR apply-failed\n");
+                return;
+            }
+
+            core::configManager.acquire();
+            core::configManager.conf["theme"] = requested;
+            core::configManager.release(true);
+
+            flog::info("Remote Control applied theme '{}'", requested);
             writeResponse("OK\n");
             return;
         }
 
         writeResponse("ERROR unknown-command\n");
-    }
-
-    static void inputProcess(ImGui::WaterFall::InputHandlerArgs, void* ctx) {
-        auto* self = static_cast<RemoteControlModule*>(ctx);
-        if (!self->enabled) { return; }
-
-        std::string requested;
-        {
-            std::lock_guard<std::mutex> lock(self->stateMutex);
-            self->themeNames = gui::themeManager.getThemeNames();
-            requested.swap(self->pendingTheme);
-        }
-        if (requested.empty()) { return; }
-
-        if (!gui::themeManager.applyTheme(requested)) {
-            flog::error("Remote Control could not apply theme '{}'", requested);
-            return;
-        }
-
-        core::configManager.acquire();
-        core::configManager.conf["theme"] = requested;
-        core::configManager.release(true);
-        flog::info("Remote Control applied theme '{}'", requested);
     }
 
     std::string name;
@@ -176,10 +160,6 @@ private:
     net::Listener listener;
     net::Conn client;
     std::string command;
-    std::mutex stateMutex;
-    std::vector<std::string> themeNames;
-    std::string pendingTheme;
-    EventHandler<ImGui::WaterFall::InputHandlerArgs> inputHandler;
 };
 
 MOD_EXPORT void _INIT_() {}
