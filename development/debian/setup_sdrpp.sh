@@ -4,11 +4,21 @@
 
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ORC_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+REMOTE_CONTROL_SRC="$ORC_ROOT/development/sdrpp/remote_control"
+
+[[ -f "$REMOTE_CONTROL_SRC/CMakeLists.txt" && -f "$REMOTE_CONTROL_SRC/src/main.cpp" ]] || {
+  echo "OpenRoadCode SDR++ remote_control module was not found at $REMOTE_CONTROL_SRC" >&2
+  exit 1
+}
+
 SDRPP_REF="${SDRPP_REF:-master}"
 BUILD_JOBS="${BUILD_JOBS:-4}"
 SDRPP_SRC="${SDRPP_SRC:-$HOME/SDRPlusPlus}"
 SDRPP_BUILD="$SDRPP_SRC/build"
 SDRPP_ROOT="$SDRPP_SRC/root_dev"
+REMOTE_CONTROL_DST="$SDRPP_SRC/misc_modules/remote_control"
 
 if [[ "${EUID:-$(id -u)}" -ne 0 ]]; then
   SUDO=sudo
@@ -46,6 +56,36 @@ if git -C "$SDRPP_SRC" show-ref --verify --quiet "refs/remotes/origin/$SDRPP_REF
   git -C "$SDRPP_SRC" reset --hard "origin/$SDRPP_REF"
 fi
 
+echo "[*] Staging OpenRoadCode remote_control SDR++ module"
+rm -rf "$REMOTE_CONTROL_DST"
+cp -a "$REMOTE_CONTROL_SRC" "$REMOTE_CONTROL_DST"
+
+python3 - "$SDRPP_SRC/CMakeLists.txt" "$SDRPP_SRC/core/src/core.cpp" <<'PY'
+from pathlib import Path
+import sys
+
+cmake_path = Path(sys.argv[1])
+core_path = Path(sys.argv[2])
+
+cmake = cmake_path.read_text()
+cmake_line = 'add_subdirectory("misc_modules/remote_control")'
+if cmake_line not in cmake:
+    cmake = cmake.rstrip() + f"\n\n# OpenRoadCode application remote control module\n{cmake_line}\n"
+    cmake_path.write_text(cmake)
+
+core = core_path.read_text()
+instance_lines = (
+    '    defConfig["moduleInstances"]["Remote Control"]["module"] = "remote_control";\n'
+    '    defConfig["moduleInstances"]["Remote Control"]["enabled"] = true;\n'
+)
+if 'moduleInstances"]["Remote Control"]' not in core:
+    marker = '    defConfig["moduleInstances"]["Rigctl Server"] = "rigctl_server";\n'
+    if marker not in core:
+        raise SystemExit("Could not locate Rigctl Server default module instance in SDR++ core.cpp")
+    core = core.replace(marker, marker + instance_lines, 1)
+    core_path.write_text(core)
+PY
+
 cmake -S "$SDRPP_SRC" -B "$SDRPP_BUILD" \
   -DCMAKE_BUILD_TYPE=Release \
   -DOPT_BUILD_RIGCTL_SERVER=ON \
@@ -80,6 +120,18 @@ echo "[*] Installed $module_count SDR++ runtime modules"
   echo "SDR++ Rigctl Server was enabled but rigctl_server.so was not installed." >&2
   exit 1
 }
+[[ -f "$SDRPP_ROOT/modules/remote_control.so" ]] || {
+  echo "OpenRoadCode remote_control.so was not installed." >&2
+  exit 1
+}
+
+echo "[*] Verifying remote_control SDR++ ABI exports"
+for symbol in _INFO_ _INIT_ _CREATE_INSTANCE_ _DELETE_INSTANCE_ _END_; do
+  if ! nm -D "$SDRPP_ROOT/modules/remote_control.so" 2>/dev/null | grep -Eq "[[:space:]]${symbol}$"; then
+    echo "remote_control.so is missing required SDR++ symbol: $symbol" >&2
+    exit 1
+  fi
+done
 
 cat > "$SDRPP_ROOT/rigctl_server_config.json" <<'JSON'
 {
@@ -98,11 +150,13 @@ JSON
 cat <<EOF
 
 [+] SDR++ build complete
-    source:    $SDRPP_SRC
-    binary:    $SDRPP_BUILD/sdrpp
-    resources: $SDRPP_ROOT
-    modules:   $module_count
-    rigctl:    127.0.0.1:4532 (autostart)
+    source:         $SDRPP_SRC
+    binary:         $SDRPP_BUILD/sdrpp
+    resources:      $SDRPP_ROOT
+    modules:        $module_count (includes remote_control.so)
+    rigctl:         127.0.0.1:4532 (autostart)
+    remote control: 127.0.0.1:4533
+    ABI check:      _INFO_ _INIT_ _CREATE_INSTANCE_ _DELETE_INSTANCE_ _END_ OK
 
 Launch with:
 
