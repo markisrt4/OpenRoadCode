@@ -26,6 +26,7 @@ from common.logging.logging_paths import logging_file_path
 
 DEFAULT_TERMUX_SDRPP_SOURCE = Path("/root/SDRPlusPlus")
 DEFAULT_TERMUX_PROOT_DISTRIBUTION = "debian"
+DEFAULT_TERMUX_XDG_RUNTIME_DIR = "/tmp/runtime-root"
 
 
 @dataclass(frozen=True, slots=True)
@@ -245,7 +246,10 @@ class SDRPPLauncher(AppLauncherIf):
             )
 
         source = str(self.termux_sdrpp_source)
+        runtime_dir = DEFAULT_TERMUX_XDG_RUNTIME_DIR
         shell_command = (
+            f"mkdir -p {shlex.quote(runtime_dir)} && "
+            f"chmod 700 {shlex.quote(runtime_dir)} && "
             f"cd {shlex.quote(source)} && "
             "exec ./build/sdrpp -r root_dev --autostart"
         )
@@ -253,9 +257,11 @@ class SDRPPLauncher(AppLauncherIf):
             proot_distro,
             "login",
             self.termux_proot_distribution,
+            "--shared-tmp",
             "--",
             "env",
             f"DISPLAY={display}",
+            f"XDG_RUNTIME_DIR={runtime_dir}",
             "XDG_SESSION_TYPE=x11",
             "GDK_BACKEND=x11",
             "LIBGL_ALWAYS_SOFTWARE=1",
