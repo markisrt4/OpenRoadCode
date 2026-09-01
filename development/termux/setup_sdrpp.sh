@@ -29,11 +29,10 @@ command -v pkg >/dev/null 2>&1 || {
 echo "[*] Installing Termux proot support"
 pkg install -y proot-distro git
 
-# `proot-distro list` is descriptive text rather than a stable machine-readable
-# interface. Checking the distro rootfs directly avoids mistaking an already
-# installed (or currently running) Debian container for a missing one.
-DEBIAN_ROOTFS="$PREFIX/var/lib/proot-distro/installed-rootfs/debian"
-if [[ -d "$DEBIAN_ROOTFS" ]]; then
+# Probe Debian by actually entering it. This avoids relying on proot-distro's
+# human-readable list output or internal installation paths, both of which can
+# vary between releases.
+if proot-distro login debian -- /bin/true >/dev/null 2>&1; then
   echo "[*] Debian proot is already installed"
 else
   echo "[*] Installing Debian proot"
