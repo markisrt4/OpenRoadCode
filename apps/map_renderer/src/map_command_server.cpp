@@ -52,7 +52,7 @@ std::optional<MapCommand> MapCommandServer::parseCommand(const std::string& payl
         command.geojson = buffer.GetString();
         return command;
     }
-    if (command.command == "set_poi_focus") {
+    if (command.command == "set_poi_focus" || command.command == "search_pois") {
         if (!document.HasMember("category") || !document["category"].IsString()) return std::nullopt;
         command.category = document["category"].GetString();
         command.enabled = document.HasMember("enabled") && document["enabled"].IsBool()
