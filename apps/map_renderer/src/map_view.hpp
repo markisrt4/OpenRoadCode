@@ -17,6 +17,14 @@ class MapRendererFrontend;
 
 namespace mbgl { namespace gfx { class RendererBackend; } }
 
+struct PoiSearchResult {
+    int count = 0;
+    double south = 0.0;
+    double west = 0.0;
+    double north = 0.0;
+    double east = 0.0;
+};
+
 class MapView : public mbgl::MapObserver {
 public:
     using PoiSelectedCallback = std::function<void(
@@ -40,6 +48,7 @@ public:
     void onWillStartRenderingFrame() override;
     void setUpdateCallback(std::function<void()> callback);
     void setPoiSelectedCallback(PoiSelectedCallback callback);
+    PoiSearchResult searchVisiblePois(const std::string& category) const;
 
 private:
     static void onWindowResize(GLFWwindow* window, int width, int height);
