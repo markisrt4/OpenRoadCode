@@ -47,18 +47,41 @@ class ExternalWindowManager:
         return window_id
 
     def send_key(self, *, display: str, window_id: str | None, key: str, window_class: str | None = None) -> bool:
-        """Resolve and activate the current managed window, then send a key chord."""
+        """Activate the current managed window and send a key chord."""
         if not self._tools_available("xdotool"):
             return False
+        environment = x11_environment(display)
         if window_class:
-            window_id = self.wait_for_window_id(display=display, window_class=window_class)
+            result = subprocess.run(
+                [
+                    "xdotool",
+                    "search",
+                    "--class",
+                    window_class,
+                    "windowactivate",
+                    "--sync",
+                    "key",
+                    "--clearmodifiers",
+                    key,
+                ],
+                env=environment,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                check=False,
+            )
+            return result.returncode == 0
         if window_id is None:
             return False
-        environment = x11_environment(display)
         self._run(["xdotool", "windowactivate", "--sync", window_id], environment)
         time.sleep(0.1)
-        self._run(["xdotool", "key", key], environment)
-        return True
+        result = subprocess.run(
+            ["xdotool", "key", "--clearmodifiers", key],
+            env=environment,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            check=False,
+        )
+        return result.returncode == 0
 
     def activate(self, *, display: str, window_class: str) -> str | None:
         window_id = self.wait_for_window_id(display=display, window_class=window_class)
