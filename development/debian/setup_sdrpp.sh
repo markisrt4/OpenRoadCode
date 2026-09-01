@@ -33,6 +33,7 @@ $SUDO apt-get install -y \
   cmake \
   git \
   binutils \
+  python3 \
   libfftw3-dev \
   libglfw3-dev \
   libvolk-dev \
@@ -132,6 +133,23 @@ for symbol in _INFO_ _INIT_ _CREATE_INSTANCE_ _DELETE_INSTANCE_ _END_; do
     exit 1
   fi
 done
+
+if [[ -f "$SDRPP_ROOT/config.json" ]]; then
+  echo "[*] Enabling Remote Control instance in existing SDR++ config"
+  python3 - "$SDRPP_ROOT/config.json" <<'PY'
+import json
+from pathlib import Path
+import sys
+
+path = Path(sys.argv[1])
+data = json.loads(path.read_text())
+data.setdefault("moduleInstances", {})["Remote Control"] = {
+    "module": "remote_control",
+    "enabled": True,
+}
+path.write_text(json.dumps(data, indent=4) + "\n")
+PY
+fi
 
 cat > "$SDRPP_ROOT/rigctl_server_config.json" <<'JSON'
 {
