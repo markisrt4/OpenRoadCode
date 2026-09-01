@@ -24,6 +24,7 @@ from apps.orcUi.navigation_presenter import (
 )
 from apps.orcUi.offroad_panel import OffRoadPanel
 from apps.orcUi.orc_theme import ThemeMode, apply_tk_theme, install_map_style, toggle, toggle_label
+from apps.orcUi.radio_panel import RadioPanel
 from apps.orcUi.vehicle_panel import VehiclePanel
 from apps.orcUi.vehicle_presenter import VehiclePresenter, VehiclePresentationState
 from messaging.contracts.automotive import VEHICLE_STATE_TOPIC, VehicleStateMessage, decode_vehicle_state
@@ -72,6 +73,7 @@ class OrcUiApp:
         self._context_rail: ContextRail | None = None
         self._home_map_panel: HomeMapPanel | None = None
         self._navigation_panel: NavigationPanel | None = None
+        self._radio_panel: RadioPanel | None = None
         self._vehicle_panel: VehiclePanel | None = None
         self._offroad_panel: OffRoadPanel | None = None
         self._map_renderer = MapRendererLauncher()
@@ -439,6 +441,8 @@ class OrcUiApp:
             self._show_home()
         elif name == "NAVIGATION":
             self._show_navigation_panel()
+        elif name == "RADIO":
+            self._show_radio_panel()
         elif name == "VEHICLE":
             self._show_vehicle_panel()
         else:
@@ -455,9 +459,12 @@ class OrcUiApp:
 
     def _clear_content(self) -> None:
         self._map_renderer.stop()
+        if self._radio_panel is not None:
+            self._radio_panel.clear_embedding()
         self._context_rail = None
         self._home_map_panel = None
         self._navigation_panel = None
+        self._radio_panel = None
         self._vehicle_panel = None
         self._offroad_panel = None
         for child in self._content.winfo_children():
@@ -517,6 +524,26 @@ class OrcUiApp:
             )
         except (OSError, RuntimeError) as error:
             print(f"WARNING: map renderer: {type(error).__name__}: {error}")
+
+    def _show_radio_panel(self) -> None:
+        self._clear_content()
+        self._active_nav = "RADIO"
+        self._paint_nav()
+        self._radio_panel = RadioPanel(self._content, on_back=self._show_home)
+        self._radio_panel.pack(fill=tk.BOTH, expand=True)
+        if self._theme_mode is ThemeMode.LIGHT:
+            apply_tk_theme(self._radio_panel, self._theme_mode)
+        self._root.update_idletasks()
+        self._root.after(100, self._attach_existing_sdrpp)
+
+    def _attach_existing_sdrpp(self) -> None:
+        panel = self._radio_panel
+        if panel is None or not panel.winfo_exists():
+            return
+        try:
+            panel.attach_sdrpp()
+        except (OSError, RuntimeError, subprocess.SubprocessError) as error:
+            print(f"WARNING: SDR++ embed: {type(error).__name__}: {error}")
 
     def _show_vehicle_panel(self) -> None:
         self._clear_content()
