@@ -117,8 +117,10 @@ class VehiclePanel(tk.Frame):
         panel.grid(row=0, column=0, sticky="nsew")
         panel._toolbar.grid_remove()  # type: ignore[attr-defined]
 
-        shifter = ShifterGauge(host, height=105)
-        shifter.grid(row=1, column=0, sticky="ew", padx=5, pady=(0, 5))
+        # Gear is useful at a glance, but it should not steal dashboard space
+        # from RPM/boost/speed/throttle. Keep it as a narrow footer strip.
+        shifter = ShifterGauge(host, height=58)
+        shifter.grid(row=1, column=0, sticky="ew", padx=5, pady=(0, 3))
 
         self._gauges = panel
         self._shifter = shifter
