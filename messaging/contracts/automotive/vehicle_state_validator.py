@@ -15,6 +15,7 @@ TOP_LEVEL_FIELDS = {"version", "timestamp", "source", "data"}
 DATA_FIELDS = {
     "engine_speed_rad_s",
     "vehicle_speed_m_s",
+    "transmission_gear",
     "throttle_position",
     "accelerator_pedal_position",
     "engine_load",
@@ -42,6 +43,7 @@ NONNEGATIVE_FIELDS = {
     "control_voltage_v",
 }
 TEMPERATURE_FIELDS = {"coolant_temperature_k", "intake_air_temperature_k"}
+VALID_GEARS = {-1, 0, 1, 2, 3, 4, 5, 6}
 
 
 def _validate_number(name: str, value: Any) -> None:
@@ -81,7 +83,15 @@ def validate_vehicle_state(payload: Mapping[str, Any]) -> None:
     if set(data) != DATA_FIELDS:
         raise ValueError("vehicle state data contains missing or unknown fields")
 
-    for name in DATA_FIELDS:
+    gear = data["transmission_gear"]
+    if gear is not None and (
+        isinstance(gear, bool)
+        or not isinstance(gear, int)
+        or gear not in VALID_GEARS
+    ):
+        raise ValueError("transmission_gear must be null, -1, 0, or 1..6")
+
+    for name in DATA_FIELDS - {"transmission_gear"}:
         value = data[name]
         _validate_number(name, value)
         if value is None:
