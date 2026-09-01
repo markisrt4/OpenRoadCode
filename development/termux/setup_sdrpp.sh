@@ -72,6 +72,7 @@ fi
 
 cmake -S "$SDRPP_SRC" -B "$SDRPP_BUILD" \
   -DCMAKE_BUILD_TYPE=Release \
+  -DOPT_BUILD_RIGCTL_SERVER=ON \
   -DOPT_BUILD_BLADERF_SOURCE=OFF \
   -DOPT_BUILD_PLUTOSDR_SOURCE=OFF \
   -DOPT_BUILD_AIRSPY_SOURCE=OFF \
@@ -93,12 +94,36 @@ cd "$SDRPP_SRC"
   exit 1
 }
 
+RIGCTL_MODULE="$(find "$SDRPP_BUILD" -type f -name 'rigctl_server.so' -print -quit)"
+[[ -n "$RIGCTL_MODULE" ]] || {
+  echo "SDR++ Rigctl Server was enabled but rigctl_server.so was not produced." >&2
+  exit 1
+}
+
+mkdir -p "$SDRPP_ROOT/modules"
+cp -f "$RIGCTL_MODULE" "$SDRPP_ROOT/modules/rigctl_server.so"
+
+cat > "$SDRPP_ROOT/rigctl_server_config.json" <<'EOF'
+{
+    "Rigctl Server": {
+        "host": "127.0.0.1",
+        "port": 4532,
+        "tuning": true,
+        "recording": false,
+        "autoStart": true,
+        "vfo": "Radio",
+        "recorder": ""
+    }
+}
+EOF
+
 cat <<EOF
 
 [+] SDR++ build complete
     source:    $SDRPP_SRC
     binary:    $SDRPP_BUILD/sdrpp
     resources: $SDRPP_ROOT
+    rigctl:    127.0.0.1:4532 (autostart enabled)
 
 To launch SDR++ in Termux:X11:
 
