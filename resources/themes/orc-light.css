@@ -30,22 +30,22 @@
 }
 
 .automotive-gauge {
-    background: var(--background);
-    color: var(--text);
-    --gauge-face: #f8fafb;
-    --gauge-bezel: #aebbc1;
-    --gauge-tick: #435159;
-    --gauge-needle: #d51f2b;
+    background: #000000;
+    color: #ffffff;
+    --gauge-face: #080a0c;
+    --gauge-bezel: #8b9499;
+    --gauge-tick: #f2f4f5;
+    --gauge-needle: #ff3143;
 }
 
 .automotive-shifter {
-    background: var(--background);
-    color: var(--text);
-    --panel: var(--surface);
-    --border: var(--border);
-    --gear-active: #d51f2b;
-    --gear-inactive: var(--text-muted);
-    --gear-selected-background: #f0c9cd;
+    background: #000000;
+    color: #ffffff;
+    --panel: #111315;
+    --border: #626668;
+    --gear-active: #ff3143;
+    --gear-inactive: #b7bdc0;
+    --gear-selected-background: #57131b;
 }
 
 .automotive-offroad {

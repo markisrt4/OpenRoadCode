@@ -134,10 +134,10 @@ class VehiclePanel(tk.Frame):
         panel.grid(row=0, column=0, sticky="nsew")
         panel._toolbar.grid_remove()  # type: ignore[attr-defined]
 
-        shifter = ShifterGauge(host, height=58)
+        shifter = ShifterGauge(host, width=280, height=58)
         if self._theme_bundle is not None:
             shifter.set_style_sheet(self._theme_bundle.style_sheet)
-        shifter.grid(row=1, column=0, sticky="ew", padx=5, pady=(0, 3))
+        shifter.grid(row=1, column=0, pady=(0, 3))
 
         self._gauges = panel
         self._shifter = shifter

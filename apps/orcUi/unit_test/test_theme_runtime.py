@@ -24,10 +24,19 @@ def test_create_theme_controller_loads_packaged_orc_themes() -> None:
     assert controller.theme.background == "#e8edf0"
 
 
-def test_packaged_light_theme_contains_automotive_shifter_style() -> None:
+def test_packaged_light_theme_keeps_automotive_instruments_dark() -> None:
     controller = create_theme_controller(ThemeMode.LIGHT)
-    shifter = controller.bundle.style_sheet.declarations(".automotive-shifter")
+    sheet = controller.bundle.style_sheet
 
-    assert shifter["background"] == "#e8edf0"
-    assert shifter["--panel"] == "#f6f8f9"
-    assert shifter["--gear-active"] == "#d51f2b"
+    gauge = sheet.declarations(".automotive-gauge")
+    shifter = sheet.declarations(".automotive-shifter")
+
+    assert gauge["background"] == "#000000"
+    assert gauge["color"] == "#ffffff"
+    assert gauge["--gauge-face"] == "#080a0c"
+    assert gauge["--gauge-tick"] == "#f2f4f5"
+
+    assert shifter["background"] == "#000000"
+    assert shifter["color"] == "#ffffff"
+    assert shifter["--panel"] == "#111315"
+    assert shifter["--gear-active"] == "#ff3143"
