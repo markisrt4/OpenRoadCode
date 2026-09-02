@@ -16,6 +16,7 @@ def _message(source: str = "test-obd") -> VehicleStateMessage:
         data=VehicleStateData(
             engine_speed_rad_s=100.0,
             vehicle_speed_m_s=20.0,
+            transmission_gear=3,
             throttle_position=0.4,
             accelerator_pedal_position=0.3,
             engine_load=0.5,
@@ -55,6 +56,7 @@ def test_vehicle_messages_update_latest_state_and_receive_count():
     assert snapshot.received_count == 2
     assert snapshot.status == "Vehicle telemetry: second · 2 messages"
     assert snapshot.vehicle.data.vehicle_speed_m_s == 20.0
+    assert snapshot.vehicle.data.transmission_gear == 3
     assert snapshot.vehicle.data.boost_pressure_pa == 19000.0
 
 
