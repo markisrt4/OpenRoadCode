@@ -6,8 +6,15 @@
 from __future__ import annotations
 
 import math
+import os
+from pathlib import Path
 
+from controllers.cache import PersistentCache
 from controllers.map_renderer.map_request_handler import MapRequestHandler
+from controllers.navigation.position_snapshot_cache import (
+    DEFAULT_POSITION_CACHE_DIRECTORY,
+    PositionSnapshotCache,
+)
 from messaging.contracts.navigation import (
     MOTION_STATE_TOPIC,
     POSITION_STATE_TOPIC,
@@ -36,14 +43,22 @@ class MapCameraRuntime:
         zoom_level: float = 16.5,
         pitch_rad: float = 0.0,
         follow_enabled: bool = True,
+        position_cache_directory: str | Path | None = None,
     ) -> None:
+        cached_center = self._load_cached_center(position_cache_directory)
+        initial_center = cached_center or GeoPoint(
+            latitude_rad=0.0,
+            longitude_rad=0.0,
+        )
+
         self._renderer_client = MapRendererClient()
         self._handler = MapRequestHandler(
             self._renderer_client,
-            center=GeoPoint(latitude_rad=0.0, longitude_rad=0.0),
+            center=initial_center,
             zoom_level=zoom_level,
             pitch_rad=pitch_rad,
             follow_enabled=follow_enabled,
+            camera_initialized=cached_center is not None,
         )
         self._dispatcher = MessageDispatcher(
             ZeroMqSubscriber(LOCAL_SUBSCRIBER_ENDPOINT)
@@ -58,7 +73,7 @@ class MapCameraRuntime:
             decode_motion_state,
             self._on_motion_message,
         )
-        self._course_reference: GeoPoint | None = None
+        self._course_reference: GeoPoint | None = cached_center
         self._closed = False
 
     @property
@@ -132,6 +147,38 @@ class MapCameraRuntime:
             return
 
         self._handler.update_follow_bearing(bearing_rad)
+
+    @staticmethod
+    def _load_cached_center(
+        position_cache_directory: str | Path | None,
+    ) -> GeoPoint | None:
+        directory = (
+            Path(position_cache_directory).expanduser()
+            if position_cache_directory is not None
+            else Path(
+                os.getenv(
+                    "CARUI_POSITION_CACHE_DIRECTORY",
+                    str(DEFAULT_POSITION_CACHE_DIRECTORY),
+                )
+            ).expanduser()
+        )
+        try:
+            cached = PositionSnapshotCache(PersistentCache(directory)).load()
+        except OSError:
+            return None
+
+        if (
+            cached is None
+            or cached.latitude_deg is None
+            or cached.longitude_deg is None
+        ):
+            return None
+
+        return GeoPoint(
+            latitude_rad=math.radians(cached.latitude_deg),
+            longitude_rad=math.radians(cached.longitude_deg),
+            altitude_m=cached.altitude_m,
+        )
 
     @staticmethod
     def _distance_m(start: GeoPoint, end: GeoPoint) -> float:
