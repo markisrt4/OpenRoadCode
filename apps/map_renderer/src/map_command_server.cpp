@@ -86,6 +86,10 @@ std::optional<MapCommand> MapCommandServer::parseCommand(const std::string& payl
         if (document.HasMember("padding") && document["padding"].IsNumber()) command.padding = document["padding"].GetDouble();
         return command;
     }
+    if (command.command == "fit_dataset") {
+        if (document.HasMember("padding") && document["padding"].IsNumber()) command.padding = document["padding"].GetDouble();
+        return command;
+    }
     std::cerr << "Unknown map command: " << command.command << '\n';
     return std::nullopt;
 }
