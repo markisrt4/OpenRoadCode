@@ -16,7 +16,7 @@ SDRPP_MOD_INFO{
     /* Name:            */ "remote_control",
     /* Description:     */ "Remote application control server for SDR++",
     /* Author:          */ "OpenRoadCode contributors",
-    /* Version:         */ 0, 1, 1,
+    /* Version:         */ 0, 2, 0,
     /* Max instances    */ 1
 };
 
@@ -38,6 +38,10 @@ std::string join(const std::vector<std::string>& values, const char* separator) 
         stream << values[i];
     }
     return stream.str();
+}
+
+const char* onOff(bool value) {
+    return value ? "on" : "off";
 }
 }
 
@@ -101,6 +105,25 @@ private:
         }
     }
 
+    bool waterfallShown() {
+        core::configManager.acquire();
+        bool shown = core::configManager.conf["showWaterfall"];
+        core::configManager.release();
+        return shown;
+    }
+
+    void setWaterfallShown(bool shown) {
+        if (shown) {
+            gui::waterfall.showWaterfall();
+        }
+        else {
+            gui::waterfall.hideWaterfall();
+        }
+        core::configManager.acquire();
+        core::configManager.conf["showWaterfall"] = shown;
+        core::configManager.release(true);
+    }
+
     void commandHandler(const std::string& command) {
         if (command.empty()) { return; }
 
@@ -122,14 +145,51 @@ private:
             return;
         }
 
-        constexpr const char* prefix = "SET theme ";
-        if (command.rfind(prefix, 0) == 0) {
+        if (command == "GET waterfall") {
+            writeResponse(std::string("VALUE waterfall ") + onOff(waterfallShown()) + "\n");
+            return;
+        }
+
+        if (command == "TOGGLE waterfall") {
+            if (!enabled) {
+                writeResponse("ERROR disabled\n");
+                return;
+            }
+            const bool shown = !waterfallShown();
+            setWaterfallShown(shown);
+            writeResponse(std::string("VALUE waterfall ") + onOff(shown) + "\n");
+            return;
+        }
+
+        constexpr const char* waterfallPrefix = "SET waterfall ";
+        if (command.rfind(waterfallPrefix, 0) == 0) {
+            if (!enabled) {
+                writeResponse("ERROR disabled\n");
+                return;
+            }
+            const std::string requested = trim(command.substr(std::char_traits<char>::length(waterfallPrefix)));
+            if (requested == "on") {
+                setWaterfallShown(true);
+            }
+            else if (requested == "off") {
+                setWaterfallShown(false);
+            }
+            else {
+                writeResponse("ERROR invalid-value\n");
+                return;
+            }
+            writeResponse("OK\n");
+            return;
+        }
+
+        constexpr const char* themePrefix = "SET theme ";
+        if (command.rfind(themePrefix, 0) == 0) {
             if (!enabled) {
                 writeResponse("ERROR disabled\n");
                 return;
             }
 
-            const std::string requested = trim(command.substr(std::char_traits<char>::length(prefix)));
+            const std::string requested = trim(command.substr(std::char_traits<char>::length(themePrefix)));
             const auto themeNames = gui::themeManager.getThemeNames();
             if (std::find(themeNames.begin(), themeNames.end(), requested) == themeNames.end()) {
                 writeResponse("ERROR invalid-value\n");
