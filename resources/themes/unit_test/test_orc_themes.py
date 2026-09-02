@@ -60,6 +60,24 @@ def test_packaged_theme_contains_complete_offroad_palette(filename: str) -> None
     assert required <= values.keys()
 
 
+@pytest.mark.parametrize("filename", _THEME_FILES)
+def test_automotive_gauge_defines_linear_card_palette(filename: str) -> None:
+    values = load_theme_bundle(_THEME_ROOT / filename).style_sheet.declarations(
+        ".automotive-gauge"
+    )
+
+    required = {
+        "--linear-card-background",
+        "--linear-card-inner",
+        "--linear-card-border",
+        "--linear-card-highlight",
+        "--linear-card-text",
+        "--linear-card-muted",
+    }
+
+    assert required <= values.keys()
+
+
 def test_light_theme_keeps_instruments_dark_but_offroad_light() -> None:
     bundle = load_theme_bundle(_THEME_ROOT / "orc-light.css")
     sheet = bundle.style_sheet
@@ -68,7 +86,7 @@ def test_light_theme_keeps_instruments_dark_but_offroad_light() -> None:
     shifter = sheet.declarations(".automotive-shifter")
     offroad = sheet.declarations(".automotive-offroad")
 
-    assert gauge["background"] == "#000000"
+    assert gauge["background"] == bundle.ui.background
     assert gauge["color"] == "#ffffff"
     assert gauge["--gauge-face"] == "#080a0c"
     assert gauge["--gauge-tick"] == "#f2f4f5"

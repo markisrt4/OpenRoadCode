@@ -30,12 +30,19 @@
 }
 
 .automotive-gauge {
-    background: #000000;
+    background: var(--background);
     color: var(--text);
-    --gauge-face: #f2efe5;
-    --gauge-bezel: #626668;
-    --gauge-tick: #202428;
+    --gauge-face: #080a0c;
+    --gauge-bezel: #8b9499;
+    --gauge-tick: #f2f4f5;
     --gauge-needle: #ff3143;
+
+    --linear-card-background: #343a3e;
+    --linear-card-inner: #111518;
+    --linear-card-border: #8f989d;
+    --linear-card-highlight: #525a5f;
+    --linear-card-text: #f0f0ed;
+    --linear-card-muted: #a9acad;
 }
 
 .automotive-shifter {

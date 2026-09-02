@@ -25,6 +25,30 @@ def vehicle_gauge_theme_from_style_sheet(
     bezel = values.get("--gauge-bezel", VEHICLE_GAUGE_THEME.bezel_mid)
     tick = values.get("--gauge-tick", foreground)
     needle = values.get("--gauge-needle", VEHICLE_GAUGE_THEME.needle_body)
+    card_background = values.get(
+        "--linear-card-background",
+        VEHICLE_GAUGE_THEME.linear_card_background,
+    )
+    card_inner = values.get(
+        "--linear-card-inner",
+        VEHICLE_GAUGE_THEME.linear_card_inner,
+    )
+    card_border = values.get(
+        "--linear-card-border",
+        VEHICLE_GAUGE_THEME.linear_card_border,
+    )
+    card_highlight = values.get(
+        "--linear-card-highlight",
+        VEHICLE_GAUGE_THEME.linear_card_highlight,
+    )
+    card_text = values.get(
+        "--linear-card-text",
+        VEHICLE_GAUGE_THEME.linear_card_text,
+    )
+    card_muted = values.get(
+        "--linear-card-muted",
+        VEHICLE_GAUGE_THEME.linear_card_muted,
+    )
 
     return replace(
         VEHICLE_GAUGE_THEME,
@@ -40,4 +64,10 @@ def vehicle_gauge_theme_from_style_sheet(
         bezel_midlight=bezel,
         needle_body=needle,
         needle_outline=needle,
+        linear_card_background=card_background,
+        linear_card_inner=card_inner,
+        linear_card_border=card_border,
+        linear_card_highlight=card_highlight,
+        linear_card_text=card_text,
+        linear_card_muted=card_muted,
     )

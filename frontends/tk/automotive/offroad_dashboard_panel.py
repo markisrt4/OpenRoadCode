@@ -337,14 +337,14 @@ class OffroadDashboardPanel(
         if isinstance(status, StatusMessage):
             text = status.summary
             color = {
-                StatusSeverity.INFORMATION: TEXT,
-                StatusSeverity.SUCCESS: GREEN,
-                StatusSeverity.WARNING: AMBER,
-                StatusSeverity.ERROR: RED,
+                StatusSeverity.INFORMATION: self._theme.text,
+                StatusSeverity.SUCCESS: self._theme.success,
+                StatusSeverity.WARNING: self._theme.warning,
+                StatusSeverity.ERROR: self._theme.danger,
             }[status.severity]
         else:
             text = status or ""
-            color = GREEN
+            color = self._theme.success
         self._status_label.configure(fg=color)
         self._status.set(text.upper())
 
@@ -377,7 +377,7 @@ class OffroadDashboardPanel(
         self._draw_header(width, state)
 
         content_top = 88
-        content_bottom = height - 142
+        content_bottom = height - 106
         center_x = width / 2.0
         center_y = (content_top + content_bottom) / 2.0
         horizon_radius = min(width * 0.24, (content_bottom - content_top) * 0.48)
@@ -486,9 +486,9 @@ class OffroadDashboardPanel(
             else "REL"
         )
         heading_text = (
-            f"{reference_text} {heading:03.0f}°"
+            f"{heading:03.0f}°"
             if state is not None
-            else "REL ---°"
+            else "---°"
         )
         self._canvas.create_text(
             width / 2,
@@ -745,8 +745,8 @@ class OffroadDashboardPanel(
         )
 
         center_x = x + width / 2
-        center_y = y + 145
-        half_level = width * 0.38
+        center_y = y + 122
+        half_level = width * 0.34
         self._canvas.create_line(
             center_x - half_level,
             center_y + 25,
@@ -765,76 +765,30 @@ class OffroadDashboardPanel(
             font=("TkDefaultFont", 7, "bold"),
         )
 
-        scale = min(1.0, width / 210.0)
+        # Pitch is easier to read as an incline reference than as another
+        # miniature vehicle. The center attitude gauge already owns the
+        # vehicle graphic.
+        incline_half = width * 0.27
+        incline_angle = math.radians(-pitch)
+        dx = incline_half * math.cos(incline_angle)
+        dy = incline_half * math.sin(incline_angle)
 
-        def transform(
-            points: tuple[tuple[float, float], ...],
-        ) -> tuple[float, ...]:
-            transformed: list[float] = []
-            for local_x, local_y in points:
-                screen_point = _rotate_screen_point(
-                    (local_x * scale, local_y * scale),
-                    center_x,
-                    center_y,
-                    -pitch,
-                )
-                transformed.extend(screen_point)
-            return tuple(transformed)
-
-        # The vehicle faces right, so positive pitch visibly raises its nose.
-        body = (
-            (-69, -5), (48, -5), (70, 9), (64, 22),
-            (-66, 22), (-76, 10),
+        self._canvas.create_line(
+            center_x - dx,
+            center_y - dy,
+            center_x + dx,
+            center_y + dy,
+            fill=color if value is not None else self._theme.muted,
+            width=5,
         )
-        cabin = ((-39, -6), (-24, -32), (22, -32), (42, -6))
-        window = ((-27, -9), (-17, -26), (15, -26), (29, -9))
-
-        self._canvas.create_polygon(
-            *transform(body),
-            fill="#263d31",
-            outline=TEXT,
-            width=2,
-            joinstyle=tk.ROUND,
+        self._canvas.create_oval(
+            center_x - 5,
+            center_y - 5,
+            center_x + 5,
+            center_y + 5,
+            fill=self._theme.warning,
+            outline="",
         )
-        self._canvas.create_polygon(
-            *transform(cabin),
-            fill="#263d31",
-            outline=TEXT,
-            width=2,
-        )
-        self._canvas.create_polygon(
-            *transform(window),
-            fill="#102636",
-            outline="#7ea3b8",
-            width=1,
-        )
-
-        for wheel_x in (-48, 47):
-            wheel_center_x, wheel_center_y = _rotate_screen_point(
-                (wheel_x * scale, 22 * scale),
-                center_x,
-                center_y,
-                -pitch,
-            )
-            wheel_radius = 13 * scale
-            self._canvas.create_oval(
-                wheel_center_x - wheel_radius,
-                wheel_center_y - wheel_radius,
-                wheel_center_x + wheel_radius,
-                wheel_center_y + wheel_radius,
-                fill="#101411",
-                outline="#9bad9f",
-                width=2,
-            )
-            hub_radius = 4 * scale
-            self._canvas.create_oval(
-                wheel_center_x - hub_radius,
-                wheel_center_y - hub_radius,
-                wheel_center_x + hub_radius,
-                wheel_center_y + hub_radius,
-                fill=self._theme.warning,
-                outline="",
-            )
 
         self._canvas.create_text(
             x + width - 12,
@@ -1120,7 +1074,7 @@ class OffroadDashboardPanel(
         height: int,
         state: _DashboardState | None,
     ) -> None:
-        top = height - 128
+        top = height - 92
         margin = 14
         gap = 8
         labels: list[tuple[str, str]] = []
@@ -1198,14 +1152,14 @@ class OffroadDashboardPanel(
             )
             self._canvas.create_text(
                 x + card_width / 2,
-                top + 25,
+                top + 18,
                 text=label,
                 fill=self._theme.muted,
                 font=("TkDefaultFont", 9, "bold"),
             )
             self._canvas.create_text(
                 x + card_width / 2,
-                top + 66,
+                top + 51,
                 text=value,
                 fill=self._theme.text,
                 font=("TkFixedFont", 14, "bold"),

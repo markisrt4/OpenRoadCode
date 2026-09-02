@@ -317,4 +317,3 @@ class VehiclePanel(tk.Frame):
             panel.set_position(PositionFix(latitude_rad=math.radians(position.latitude_deg), longitude_rad=math.radians(position.longitude_deg), altitude_m=altitude_m, pfom_m=position.accuracy_m))
         else:
             panel.set_position(None)
-        panel.set_status("Navigation online")
