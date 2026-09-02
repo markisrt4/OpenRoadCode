@@ -10,9 +10,9 @@ import tkinter as tk
 from tkinter import simpledialog
 
 from apps.orcUi.adsb_control import OrcUiAdsbControl
-from apps.orcUi.radio_control import OrcUiRadioControl, OrcUiRadioState
-from apps.orcUi.radio_profiles import OrcUiRadioPreset, OrcUiRadioProfile
-from apps.orcUi.sdrpp_control import OrcUiSdrppControl
+from controllers.radio.radio_profile_controller import RadioProfileController, RadioProfileState
+from controllers.radio.radio_profiles import RadioProfile, RadioProfilePreset
+from controllers.sdr.sdrpp_control import OrcUiSdrppControl
 from frontends.x11 import X11WindowEmbedder
 
 BG = "#05090d"
@@ -29,10 +29,10 @@ RADIO_GROUPS = tuple(name for name, _ in MAIN_GROUPS)
 class RadioPanel(tk.Frame):
     """Automotive controls wrapped around embedded SDR++ and ADS-B views."""
 
-    def __init__(self, parent: tk.Misc, *, embedder: X11WindowEmbedder | None = None, radio_control: OrcUiRadioControl | None = None, sdrpp_control: OrcUiSdrppControl | None = None, adsb_control: OrcUiAdsbControl | None = None) -> None:
+    def __init__(self, parent: tk.Misc, *, embedder: X11WindowEmbedder | None = None, radio_control: RadioProfileController | None = None, sdrpp_control: OrcUiSdrppControl | None = None, adsb_control: OrcUiAdsbControl | None = None) -> None:
         super().__init__(parent, bg=BG)
         self._embedder = embedder or X11WindowEmbedder()
-        self._radio = radio_control or OrcUiRadioControl()
+        self._radio = radio_control or RadioProfileController()
         self._sdrpp = sdrpp_control or OrcUiSdrppControl()
         self._adsb = adsb_control or OrcUiAdsbControl()
         self._display = os.environ.get("DISPLAY", ":1")
@@ -42,7 +42,6 @@ class RadioPanel(tk.Frame):
         self._drawer_open = False
         self._drawer: tk.Frame | None = None
         self._display_buttons: dict[str, tk.Button] = {}
-        self._telemetry_job: str | None = None
 
         self.grid_columnconfigure(0, weight=1); self.grid_rowconfigure(1, weight=1)
         self._groups = tk.Frame(self, bg=PANEL, highlightthickness=1, highlightbackground=BORDER); self._groups.grid(row=0, column=0, sticky="ew", pady=(0, 6)); self._build_group_bar()
@@ -59,8 +58,6 @@ class RadioPanel(tk.Frame):
         tk.Button(self._controls, text="TUNE +", command=self._tune_up, bg=PANEL, fg=MUTED, relief=tk.FLAT, bd=0, padx=10, pady=7).grid(row=0, column=3, rowspan=3, sticky="ns")
         tk.Button(self._controls, text="PRESET ›", command=self._next_preset, bg=PANEL, fg=TEXT, relief=tk.FLAT, bd=0, padx=12, pady=7).grid(row=0, column=4, rowspan=3, sticky="ns")
         self._apply_radio_state(self._radio.state)
-        self.bind("<Destroy>", self._on_destroy, add="+")
-        self._schedule_telemetry()
 
     def _build_group_bar(self) -> None:
         for name, label in MAIN_GROUPS:
@@ -74,8 +71,7 @@ class RadioPanel(tk.Frame):
         menu = tk.Menu(self, tearoff=False, bg=PANEL, fg=TEXT, activebackground="#17232d", activeforeground=GREEN, bd=1, relief=tk.FLAT, font=("Sans", 11))
         profiles = self._radio.catalog.profiles_for_group(group)
         for profile in profiles:
-            if len(profiles) == 1:
-                self._add_profile_presets(menu, profile)
+            if len(profiles) == 1: self._add_profile_presets(menu, profile)
             else:
                 submenu = tk.Menu(menu, tearoff=False, bg=PANEL, fg=TEXT, activebackground="#17232d", activeforeground=GREEN, font=("Sans", 11)); self._add_profile_presets(submenu, profile); menu.add_cascade(label=profile.label, menu=submenu)
         if group == "AIR":
@@ -85,24 +81,21 @@ class RadioPanel(tk.Frame):
             menu.add_separator(); menu.add_command(label="＋ Add Current Preset", command=lambda: self._add_current_preset(group))
         self._popup_menu(menu, button)
 
-    def _add_profile_presets(self, menu: tk.Menu, profile: OrcUiRadioProfile) -> None:
+    def _add_profile_presets(self, menu: tk.Menu, profile: RadioProfile) -> None:
         if not profile.presets:
-            menu.add_command(label=profile.label, command=lambda key=profile.key: self._select_profile(key))
-            return
+            menu.add_command(label=profile.label, command=lambda key=profile.key: self._select_profile(key)); return
         for preset in profile.presets:
             marker = "★ " if preset.user_defined else ""
             menu.add_command(label=f"{marker}{preset.label}", command=lambda p=profile, item=preset: self._select_preset(p, item))
 
-    def _select_profile(self, profile_key: str) -> None:
-        self._leave_adsb(); self._run_radio_action(lambda: self._radio.select_profile(profile_key))
+    def _select_profile(self, profile_key: str) -> None: self._leave_adsb(); self._run_radio_action(lambda: self._radio.select_profile(profile_key))
 
-    def _select_preset(self, profile: OrcUiRadioProfile, preset: OrcUiRadioPreset) -> None:
+    def _select_preset(self, profile: RadioProfile, preset: RadioProfilePreset) -> None:
         self._leave_adsb()
         try:
             if self._radio.active_profile_key != profile.key: self._radio.select_profile(profile.key)
             self._apply_radio_state(self._radio.tune_preset(preset)); self._active_group = profile.group; self._paint_groups()
-        except (OSError, RuntimeError, ValueError) as error:
-            self._frequency_label.configure(text=f"RIGCTL: {error}", fg=RED)
+        except (OSError, RuntimeError, ValueError) as error: self._frequency_label.configure(text=f"RIGCTL: {error}", fg=RED)
 
     def _add_current_preset(self, group: str) -> None:
         profiles = self._radio.catalog.profiles_for_group(group)
@@ -110,8 +103,7 @@ class RadioPanel(tk.Frame):
         profile = self._radio.catalog.profile(self._radio.active_profile_key) if self._radio.active_profile_key in {p.key for p in profiles} else profiles[0]
         state = self._radio.state
         label = simpledialog.askstring("Add radio preset", "Preset name:", initialvalue=state.label, parent=self)
-        if not label: return
-        self._radio.catalog.add_user_preset(profile.key, label=label, frequency_hz=state.frequency_hz)
+        if label: self._radio.catalog.add_user_preset(profile.key, label=label, frequency_hz=state.frequency_hz)
 
     def _show_adsb(self) -> None:
         self._active_group = "AIR:ADSB"; self._paint_groups(); parent_window_id = int(self.winfo_toplevel().winfo_id())
@@ -186,7 +178,8 @@ class RadioPanel(tk.Frame):
         if not themes: return
         menu = tk.Menu(self, tearoff=False, bg=PANEL, fg=TEXT)
         for theme in themes: menu.add_command(label=theme, command=lambda value=theme: self._sdrpp.set_theme(value))
-        menu.tk_popup(self.winfo_pointerx(), self.winfo_pointery())
+        try: menu.tk_popup(self.winfo_pointerx(), self.winfo_pointery())
+        finally: menu.grab_release()
 
     def _paint_toggle(self, key: str, label: str, enabled: bool) -> None: self._display_buttons[key].configure(text=f"{label}     {'ON' if enabled else 'OFF'}", fg=GREEN if enabled else MUTED, bg="#101820" if enabled else PANEL)
     def _remote_toggle(self, key: str, label: str, action) -> None:
@@ -212,35 +205,9 @@ class RadioPanel(tk.Frame):
         try: self._apply_radio_state(action())
         except (OSError, RuntimeError, ValueError) as error: self._frequency_label.configure(text=f"RIGCTL: {error}", fg=RED); print(f"WARNING: SDR++ rigctl: {type(error).__name__}: {error}")
 
-    def _apply_radio_state(self, state: OrcUiRadioState) -> None:
-        self.set_station(state.label, state.frequency_hz, state.mode_name); self._metadata_label.configure(text=state.rds or "")
-
-    def _schedule_telemetry(self) -> None:
-        self._telemetry_job = self.after(1000, self._refresh_telemetry)
-
-    def _refresh_telemetry(self) -> None:
-        self._telemetry_job = None
-        if not self.winfo_exists(): return
-        try:
-            telemetry = self._sdrpp.telemetry()
-            rds = None
-            try: rds = self._radio.state.rds
-            except (OSError, RuntimeError, ValueError): pass
-            parts = [f"SNR {telemetry.snr_db:.1f} dB"]
-            if rds: parts.insert(0, rds)
-            self._metadata_label.configure(text="   •   ".join(parts), fg=GREEN)
-        except (OSError, RuntimeError, ValueError):
-            try:
-                state = self._radio.state
-                self._metadata_label.configure(text=state.rds or "", fg=GREEN)
-            except (OSError, RuntimeError, ValueError): pass
-        self._schedule_telemetry()
-
-    def _on_destroy(self, event: tk.Event) -> None:
-        if event.widget is self and self._telemetry_job is not None:
-            try: self.after_cancel(self._telemetry_job)
-            except tk.TclError: pass
-            self._telemetry_job = None
+    def _apply_radio_state(self, state: RadioProfileState) -> None:
+        self.set_station(state.label, state.frequency_hz, state.mode_name)
+        self._metadata_label.configure(text=state.rds or "")
 
     def _on_host_resize(self, event: tk.Event) -> None: self._embedder.resize(event.width, event.height)
     def _paint_groups(self) -> None:
