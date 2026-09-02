@@ -25,7 +25,16 @@ class X11WindowEmbedder(WindowEmbedderIf):
     def window_id(self) -> int | None:
         return self._window_id
 
-    def embed(self, process_id: int, host_window_id: int, width: int, height: int, window_name: str | None = None) -> int:
+    def embed(
+        self,
+        process_id: int,
+        host_window_id: int,
+        width: int,
+        height: int,
+        *,
+        window_name: str | None = None,
+        window_class: str | None = None,
+    ) -> int:
         """Find, reparent, map, and size an X11 client inside the host window."""
         if not self.supported():
             raise RuntimeError("xdotool is required for embedded X11 windows")
@@ -34,6 +43,8 @@ class X11WindowEmbedder(WindowEmbedderIf):
         last_error: subprocess.SubprocessError | None = None
         while time.monotonic() < deadline:
             window_id = self._find_by_process(process_id)
+            if window_id is None and window_class:
+                window_id = self._find_by_class(window_class)
             if window_id is None and window_name:
                 window_id = self._find_by_name(window_name)
             if window_id is None:
@@ -53,9 +64,16 @@ class X11WindowEmbedder(WindowEmbedderIf):
                 self._window_id = None
                 time.sleep(0.15)
 
-        suffix = f" or window name {window_name!r}" if window_name else ""
+        selectors = []
+        if process_id > 0:
+            selectors.append(f"process {process_id}")
+        if window_class:
+            selectors.append(f"window class {window_class!r}")
+        if window_name:
+            selectors.append(f"window name {window_name!r}")
+        target = " or ".join(selectors) or "requested application"
         detail = f"; last X11 error: {last_error}" if last_error else ""
-        raise RuntimeError(f"no usable X11 window found for process {process_id}{suffix}{detail}")
+        raise RuntimeError(f"no usable X11 window found for {target}{detail}")
 
     def detach(self, parent_window_id: int) -> None:
         if self._window_id is None:
@@ -70,6 +88,16 @@ class X11WindowEmbedder(WindowEmbedderIf):
         if process_id <= 0:
             return None
         result = subprocess.run(["xdotool", "search", "--onlyvisible", "--pid", str(process_id)], capture_output=True, text=True, check=False)
+        return X11WindowEmbedder._best_window_id(result)
+
+    @staticmethod
+    def _find_by_class(window_class: str) -> int | None:
+        escaped = re.escape(window_class)
+        visible = subprocess.run(["xdotool", "search", "--onlyvisible", "--class", escaped], capture_output=True, text=True, check=False)
+        window_id = X11WindowEmbedder._best_window_id(visible)
+        if window_id is not None:
+            return window_id
+        result = subprocess.run(["xdotool", "search", "--class", escaped], capture_output=True, text=True, check=False)
         return X11WindowEmbedder._best_window_id(result)
 
     @staticmethod
