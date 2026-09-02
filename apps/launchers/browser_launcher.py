@@ -96,6 +96,7 @@ class BrowserKioskLauncher(AppLauncherIf):
         if self.profile_path is not None:
             self.profile_path.mkdir(parents=True, exist_ok=True)
             self.profile_path.chmod(0o700)
+            self._remove_stale_profile_singleton()
             command.append(f"--user-data-dir={self.profile_path}")
         if self.window_position is not None:
             x, y = self.window_position
@@ -180,6 +181,19 @@ class BrowserKioskLauncher(AppLauncherIf):
             process.wait(timeout=timeout_seconds)
         except subprocess.TimeoutExpired:
             pass
+
+    def _remove_stale_profile_singleton(self) -> None:
+        """Remove Chromium singleton links only when its socket target is gone."""
+        if self.profile_path is None:
+            return
+        socket_path = self.profile_path / "SingletonSocket"
+        if not socket_path.is_symlink() or socket_path.exists():
+            return
+        for name in ("SingletonLock", "SingletonSocket", "SingletonCookie"):
+            try:
+                (self.profile_path / name).unlink(missing_ok=True)
+            except OSError:
+                pass
 
     def _find_browser(self) -> str:
         for candidate in self.browser_candidates:
