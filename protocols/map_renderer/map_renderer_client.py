@@ -83,6 +83,10 @@ class MapRendererClient:
             "south": south, "west": west, "north": north, "east": east,
             "padding": padding})
 
+    def fit_dataset(self, padding: float = 24.0) -> None:
+        """Frame the installed offline map dataset."""
+        self._send_command({"command": MapRendererCommand.FIT_DATASET, "padding": padding})
+
     def _send_command(self, command: dict[str, object]) -> None:
         if self._closed:
             raise MapRendererUnavailableError("map renderer client is closed")
