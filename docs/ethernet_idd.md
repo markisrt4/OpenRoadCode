@@ -22,9 +22,9 @@ Unless a row explicitly says otherwise, the values below are defaults and may be
 | 8081 | `127.0.0.1:8081` | tar1090 presentation server | ADS-B aircraft web presentation | TCP | HTTP | Termux/runit default. `TAR1090_PORT` can override it. |
 | 8501 | `127.0.0.1:8501` client URL | Weather dashboard / Streamlit | Weather dashboard web application | TCP | Streamlit HTTP/WebSocket | Default in `WeatherDashLauncher` / `StreamlitLauncher`. Streamlit owns the server process. |
 | 8765 | `127.0.0.1:8765` | CarUI browser position source | Browser-provided geographic position for development | TCP | HTTP + JSON | Development/application-owned server. Configurable with `CARUI_BROWSER_POSITION_HOST` / `CARUI_BROWSER_POSITION_PORT`. |
-| 8766 | `http://127.0.0.1:8766` | OpenRoadCode Android sensor bridge | Android location/IMU/sensor bridge consumed by Termux runtime | TCP | HTTP + JSON/NDJSON | Current Termux runtime default. **Conflicts with the other 8766 defaults below if run simultaneously.** |
-| 8766 | `127.0.0.1:8766` | Navigation `BrowserMotionSource` | Browser DeviceMotion development input | TCP | HTTP + JSON | Development/component source. **Shares the default with the Android sensor bridge and YouTube music-video local server. Reconfigure before concurrent use.** |
-| 8766 | `127.0.0.1:8766` | `YouTubeMusicVideo` local player server | Serves the temporary local YouTube player page and close callback | TCP | HTTP | Started only while music-video playback is active. **Shares the default with the Android sensor bridge and browser motion source. Reconfigure before concurrent use.** |
+| 8766 | `http://127.0.0.1:8766` | OpenRoadCode Android sensor bridge | Android location/IMU/sensor bridge consumed by Termux runtime | TCP | HTTP + JSON/NDJSON | Dedicated Android sensor bridge port. |
+| 8767 | `127.0.0.1:8767` | Navigation `BrowserMotionSource` | Browser DeviceMotion development input | TCP | HTTP + JSON | Dedicated browser-motion development/component port. |
+| 8768 | `127.0.0.1:8768` | `YouTubeMusicVideo` local player server | Serves the temporary local YouTube player page and close callback | TCP | HTTP | Dedicated transient music-video player port; listener exists only while playback is active. |
 | 8888 | `127.0.0.1:8888/callback` | OpenRoadCode OAuth redirect server | Local browser OAuth callback, including Spotify authentication | TCP | HTTP / OAuth 2.0 loopback redirect | Transient authentication listener rather than a long-lived service. |
 | 35000 | `127.0.0.1:35000` | OpenRoadCode Android Bluetooth SPP bridge | Raw ELM327 stream consumed by the Termux automotive service | TCP | Raw TCP carrying ELM327 ASCII command/response data | Current Termux automotive default. Android owns the Bluetooth SPP connection; OpenRoadCode consumes the proxied stream. |
 
@@ -36,17 +36,16 @@ The process that binds a listening socket is the port owner. Clients should cons
 
 Loopback-only defaults should remain loopback-only unless remote access is an intentional, reviewed part of the design. `0.0.0.0` / wildcard listeners deserve particular care because they can be reachable from the vehicle LAN or another connected network depending on host firewall and routing policy.
 
-## Known default-port collision: 8766
+## Local application port allocation
 
-Port `8766` currently has three independent default owners:
+The adjacent `8765`-`8768` range is intentionally allocated by function so independently enabled components do not compete for a socket:
 
-1. the Android sensor bridge used by the Termux runtime;
-2. `services.navigation.browser_motion_source.BrowserMotionSource`; and
-3. `controllers.video.youtube_music_video.YouTubeMusicVideo`.
+1. `8765` - CarUI browser position source;
+2. `8766` - Android sensor bridge;
+3. `8767` - navigation browser motion source; and
+4. `8768` - YouTube music-video local player.
 
-Those roles cannot bind the same address and port simultaneously. The Android bridge is part of the active Termux runtime, while the browser-motion source is primarily a development/component path and the YouTube server is transient. Until the defaults are separated, any composition that enables more than one of them must override at least one port.
-
-This collision is intentionally recorded here rather than hidden. An IDD is considerably more useful when it documents reality instead of providing a beautifully formatted alibi for it.
+These defaults may still be overridden where the owning component exposes configuration, but a new component must not reuse one of these defaults simply because it happens not to be running during development. That particular form of optimism is how the original collision arrived.
 
 ## Branch audit
 
@@ -57,7 +56,7 @@ All repository branches visible during the audit were compared with `master` for
 
 | Branch | Audit result |
 | --- | --- |
-| `master` | Baseline for the port registry above. |
+| `master` | Baseline for the original port inventory; the dedicated 8767/8768 assignments are introduced by this IDD branch. |
 | `android_sensor_bridge` | Fully behind `master`; no branch-only port. |
 | `android-waydroid-frontend` | Diverged; map/Android frontend work adds no unique fixed port beyond existing message-bus/map dependencies. |
 | `archive/bluetooth-integration-20260827` | Diverged archived Bluetooth/UI work; no unique fixed IP port. |
