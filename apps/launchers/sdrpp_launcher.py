@@ -24,12 +24,15 @@ from apps.launchers.process_manager import (
     terminate_process,
 )
 from common.logging.logging_paths import logging_file_path
+from protocols.sdrpp_remote_control import SDRPPRemoteControlClient
 
 
 DEFAULT_TERMUX_SDRPP_SOURCE = Path("/root/SDRPlusPlus")
 DEFAULT_TERMUX_PROOT_DISTRIBUTION = "debian"
 DEFAULT_TERMUX_XDG_RUNTIME_DIR = "/tmp/runtime-root"
 DEFAULT_NATIVE_SDRPP_ROOT = Path.home() / "SDRPlusPlus" / "root_dev"
+DEFAULT_REMOTE_CONTROL_HOST = "127.0.0.1"
+DEFAULT_REMOTE_CONTROL_PORT = 4533
 _VALID_THEMES = {"Dark", "Light"}
 _THEME_SYNC_LOCK = threading.Lock()
 _PENDING_THEME_SYNC: tuple[str, str, Path, Path | None] | None = None
@@ -46,7 +49,7 @@ class SDRPPProfile:
 
 
 class SDRPPLauncher(AppLauncherIf):
-    """Launch SDR++ and wait for its RigCTL server."""
+    """Launch SDR++ and expose its RF and application-control endpoints."""
 
     def __init__(
         self,
@@ -60,6 +63,9 @@ class SDRPPLauncher(AppLauncherIf):
         rigctl_host: str = "127.0.0.1",
         rigctl_port: int = 4532,
         rigctl_timeout_seconds: float = 15.0,
+        remote_control_host: str = DEFAULT_REMOTE_CONTROL_HOST,
+        remote_control_port: int = DEFAULT_REMOTE_CONTROL_PORT,
+        remote_control_timeout_seconds: float = 0.75,
         termux_proot_distribution: str = DEFAULT_TERMUX_PROOT_DISTRIBUTION,
         termux_sdrpp_source: str | Path = DEFAULT_TERMUX_SDRPP_SOURCE,
         theme: str | None = None,
@@ -79,6 +85,11 @@ class SDRPPLauncher(AppLauncherIf):
         self.rigctl_host = rigctl_host
         self.rigctl_port = rigctl_port
         self.rigctl_timeout_seconds = rigctl_timeout_seconds
+        self.remote_control = SDRPPRemoteControlClient(
+            host=remote_control_host,
+            port=remote_control_port,
+            timeout=remote_control_timeout_seconds,
+        )
         self.termux_proot_distribution = termux_proot_distribution
         self.termux_sdrpp_source = Path(termux_sdrpp_source)
         self.theme = _normalize_theme(theme) if theme is not None else None
@@ -93,18 +104,26 @@ class SDRPPLauncher(AppLauncherIf):
 
         return _sdrpp_process_running()
 
-    def set_theme(self, theme: str) -> None:
-        """Set the SDR++ theme to synchronize before the next launch."""
+    def set_theme(self, theme: str) -> bool:
+        """Apply a theme live when possible, otherwise persist it for launch."""
         self.theme = _normalize_theme(theme)
+        if self.is_running():
+            try:
+                if self.remote_control.set_theme(self.theme):
+                    return True
+            except (OSError, RuntimeError):
+                pass
+        return self.sync_theme()
 
     def sync_theme(self) -> bool:
-        """Persist the configured theme into SDR++'s runtime config."""
+        """Synchronize the configured theme with SDR++."""
         if self.theme is None:
             return False
         return sync_sdrpp_theme(
             self.theme,
             termux_proot_distribution=self.termux_proot_distribution,
             termux_sdrpp_source=self.termux_sdrpp_source,
+            remote_control=self.remote_control,
         )
 
     def launch(
@@ -225,6 +244,10 @@ class SDRPPLauncher(AppLauncherIf):
         except OSError:
             return False
 
+    def is_remote_control_ready(self) -> bool:
+        """Return True when the ORC SDR++ application-control plugin responds."""
+        return self.remote_control.ping()
+
     def wait_for_rigctl(self) -> None:
         deadline = time.monotonic() + self.rigctl_timeout_seconds
         last_error: OSError | None = None
@@ -321,13 +344,21 @@ def sync_sdrpp_theme(
     termux_proot_distribution: str = DEFAULT_TERMUX_PROOT_DISTRIBUTION,
     termux_sdrpp_source: str | Path = DEFAULT_TERMUX_SDRPP_SOURCE,
     native_root: str | Path | None = None,
+    remote_control: SDRPPRemoteControlClient | None = None,
 ) -> bool:
-    """Persist a theme without letting a running SDR++ overwrite it on exit."""
+    """Apply a running SDR++ theme live, with config persistence as fallback."""
     selected = _normalize_theme(theme)
     source = Path(termux_sdrpp_source)
     root = Path(native_root) if native_root is not None else None
 
     if _sdrpp_process_running():
+        client = remote_control or SDRPPRemoteControlClient()
+        try:
+            if client.set_theme(selected):
+                return True
+        except (OSError, RuntimeError):
+            pass
+
         _defer_sdrpp_theme_sync(
             selected,
             termux_proot_distribution,
