@@ -37,6 +37,10 @@ class MapRequestHandler(MapRequestHandlerIf):
         return self._follow_enabled
 
     @property
+    def camera_initialized(self) -> bool:
+        return self._camera_initialized
+
+    @property
     def zoom_level(self) -> float:
         return self._zoom_level
 
@@ -118,6 +122,16 @@ class MapRequestHandler(MapRequestHandlerIf):
 
     def request_style(self, style_id: str) -> None:
         del style_id
+
+    def request_fit_bounds(self, south: float, west: float, north: float, east: float,
+                           padding: float = 60.0) -> None:
+        """Frame explicit bounds and suspend follow so the result stays visible."""
+        self.request_follow(False)
+        self._renderer.fit_bounds(south, west, north, east, padding)
+
+    def request_dataset_overview(self, padding: float = 24.0) -> None:
+        """Frame the installed offline dataset without inventing a position."""
+        self._renderer.fit_dataset(padding)
 
     def refresh_renderer_state(
         self,
