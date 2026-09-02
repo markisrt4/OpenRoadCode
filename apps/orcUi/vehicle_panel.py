@@ -213,6 +213,8 @@ class VehiclePanel(tk.Frame):
             roll_warning_deg=25.0,
             request_handler=None,
         )
+        if self._theme_bundle is not None:
+            panel.set_style_sheet(self._theme_bundle.style_sheet)
         panel.grid(row=0, column=0, sticky="nsew")
         self._offroad = panel
         self._view_content = panel
@@ -249,6 +251,9 @@ class VehiclePanel(tk.Frame):
 
         if self._shifter is not None:
             self._shifter.set_style_sheet(theme_bundle.style_sheet)
+
+        if self._offroad is not None:
+            self._offroad.set_style_sheet(theme_bundle.style_sheet)
 
         if self._gauges is not None:
             self._gauges.set_style_sheet(theme_bundle.style_sheet)
