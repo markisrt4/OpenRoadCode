@@ -15,6 +15,8 @@ from controllers.navigation.position_source_if import (
     PositionStateCallback,
 )
 
+_DEFAULT_PERSIST_INTERVAL_SECONDS = 15.0
+
 
 class PersistentPositionSource(PositionSourceIf):
     """Publish a recent cached fix before forwarding live source updates."""
@@ -25,15 +27,20 @@ class PersistentPositionSource(PositionSourceIf):
         cache: PositionSnapshotCache,
         *,
         max_age_seconds: float = 604800.0,
+        persist_interval_seconds: float = _DEFAULT_PERSIST_INTERVAL_SECONDS,
         clock: Callable[[], datetime] = datetime.now,
     ) -> None:
         if max_age_seconds < 0:
             raise ValueError("max_age_seconds cannot be negative")
+        if persist_interval_seconds < 0:
+            raise ValueError("persist_interval_seconds cannot be negative")
         self._source = source
         self._cache = cache
         self._max_age_seconds = max_age_seconds
+        self._persist_interval_seconds = persist_interval_seconds
         self._clock = clock
         self._callback: PositionStateCallback | None = None
+        self._last_persisted_at: datetime | None = None
 
     def start(self, callback: PositionStateCallback) -> None:
         """Publish a recent cached fix, then start the live source."""
@@ -61,10 +68,20 @@ class PersistentPositionSource(PositionSourceIf):
             and state.latitude_deg is not None
             and state.longitude_deg is not None
         ):
-            try:
-                self._cache.store(state)
-            except OSError:
-                pass
+            now = self._clock()
+            last_persisted_at = self._last_persisted_at
+            should_persist = (
+                last_persisted_at is None
+                or (now - last_persisted_at).total_seconds()
+                >= self._persist_interval_seconds
+            )
+            if should_persist:
+                try:
+                    self._cache.store(state)
+                except OSError:
+                    pass
+                else:
+                    self._last_persisted_at = now
         callback = self._callback
         if callback is not None:
             callback(state)
