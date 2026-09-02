@@ -5,13 +5,10 @@
 from __future__ import annotations
 import json
 import tkinter as tk
-from enum import Enum
 from pathlib import Path
 from typing import Any
 
-class ThemeMode(str, Enum):
-    DARK = "dark"
-    LIGHT = "light"
+from ui.theme import ThemeMode
 
 DARK={"bg":"#05090d","panel":"#0b1117","top":"#020406","nav":"#070c11","active":"#101820","border":"#25313b","text":"#edf2f5","muted":"#89959e"}
 LIGHT={"bg":"#e8edf0","panel":"#f6f8f9","top":"#dce3e7","nav":"#e1e7ea","active":"#d1dbe0","border":"#b3c0c7","text":"#20282d","muted":"#66747c"}
