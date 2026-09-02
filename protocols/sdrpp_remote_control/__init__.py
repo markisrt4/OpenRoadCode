@@ -3,6 +3,6 @@
 
 """SDR++ application remote-control protocol client."""
 
-from protocols.sdrpp_remote_control.client import SDRPPRemoteControlClient
+from protocols.sdrpp_remote_control.client import SDRPPRemoteControlClient, SDRPPTelemetry
 
-__all__ = ["SDRPPRemoteControlClient"]
+__all__ = ["SDRPPRemoteControlClient", "SDRPPTelemetry"]
