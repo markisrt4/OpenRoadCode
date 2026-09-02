@@ -7,6 +7,7 @@ from controllers.poi.poi_models import (
     PoiAction,
     PoiActionKind,
     PoiCategory,
+    PoiSearchResult,
     PointOfInterest,
 )
 from controllers.poi.poi_search_controller import PoiSearchController
@@ -18,5 +19,6 @@ __all__ = [
     "PoiCategory",
     "PoiSearchController",
     "PoiSearchControllerIf",
+    "PoiSearchResult",
     "PointOfInterest",
 ]
