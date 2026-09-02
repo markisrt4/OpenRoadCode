@@ -13,49 +13,31 @@
 #define MAX_COMMAND_LENGTH 1024
 
 SDRPP_MOD_INFO{
-    /* Name:            */ "remote_control",
-    /* Description:     */ "Remote application control server for SDR++",
-    /* Author:          */ "OpenRoadCode contributors",
-    /* Version:         */ 0, 2, 0,
-    /* Max instances    */ 1
+    "remote_control",
+    "Remote application control server for SDR++",
+    "OpenRoadCode contributors",
+    0, 3, 0,
+    1
 };
 
 namespace {
 std::string trim(std::string value) {
-    while (!value.empty() && std::isspace(static_cast<unsigned char>(value.front()))) {
-        value.erase(value.begin());
-    }
-    while (!value.empty() && std::isspace(static_cast<unsigned char>(value.back()))) {
-        value.pop_back();
-    }
+    while (!value.empty() && std::isspace(static_cast<unsigned char>(value.front()))) value.erase(value.begin());
+    while (!value.empty() && std::isspace(static_cast<unsigned char>(value.back()))) value.pop_back();
     return value;
 }
-
 std::string join(const std::vector<std::string>& values, const char* separator) {
     std::ostringstream stream;
-    for (std::size_t i = 0; i < values.size(); ++i) {
-        if (i != 0) { stream << separator; }
-        stream << values[i];
-    }
+    for (std::size_t i = 0; i < values.size(); ++i) { if (i) stream << separator; stream << values[i]; }
     return stream.str();
 }
-
-const char* onOff(bool value) {
-    return value ? "on" : "off";
-}
+const char* onOff(bool value) { return value ? "on" : "off"; }
 }
 
 class RemoteControlModule : public ModuleManager::Instance {
 public:
-    explicit RemoteControlModule(std::string name) : name(std::move(name)) {
-        startServer();
-    }
-
-    ~RemoteControlModule() override {
-        if (client) { client->close(); }
-        if (listener) { listener->close(); }
-    }
-
+    explicit RemoteControlModule(std::string name) : name(std::move(name)) { startServer(); }
+    ~RemoteControlModule() override { if (client) client->close(); if (listener) listener->close(); }
     void postInit() override {}
     void enable() override { enabled = true; }
     void disable() override { enabled = false; }
@@ -63,154 +45,79 @@ public:
 
 private:
     void startServer() {
-        try {
-            listener = net::listen("127.0.0.1", 4533);
-            listener->acceptAsync(clientHandler, this);
-            flog::info("Remote Control listening on 127.0.0.1:4533");
-        }
-        catch (const std::exception& e) {
-            flog::error("Could not start Remote Control server: {}", e.what());
-        }
+        try { listener = net::listen("127.0.0.1", 4533); listener->acceptAsync(clientHandler, this); flog::info("Remote Control listening on 127.0.0.1:4533"); }
+        catch (const std::exception& e) { flog::error("Could not start Remote Control server: {}", e.what()); }
     }
-
     static void clientHandler(net::Conn client, void* ctx) {
-        auto* self = static_cast<RemoteControlModule*>(ctx);
-        self->client = std::move(client);
+        auto* self = static_cast<RemoteControlModule*>(ctx); self->client = std::move(client);
         self->client->readAsync(sizeof(self->dataBuf), self->dataBuf, dataHandler, self, false);
-        self->client->waitForEnd();
-        self->client->close();
-        if (self->listener) { self->listener->acceptAsync(clientHandler, self); }
+        self->client->waitForEnd(); self->client->close();
+        if (self->listener) self->listener->acceptAsync(clientHandler, self);
     }
-
     static void dataHandler(int count, uint8_t* data, void* ctx) {
         auto* self = static_cast<RemoteControlModule*>(ctx);
         for (int i = 0; i < count; ++i) {
-            if (data[i] == '\n') {
-                self->commandHandler(trim(self->command));
-                self->command.clear();
-                continue;
-            }
-            if (data[i] != '\r' && self->command.size() < MAX_COMMAND_LENGTH) {
-                self->command += static_cast<char>(data[i]);
-            }
+            if (data[i] == '\n') { self->commandHandler(trim(self->command)); self->command.clear(); continue; }
+            if (data[i] != '\r' && self->command.size() < MAX_COMMAND_LENGTH) self->command += static_cast<char>(data[i]);
         }
-        if (self->client && self->client->isOpen()) {
-            self->client->readAsync(sizeof(self->dataBuf), self->dataBuf, dataHandler, self, false);
-        }
+        if (self->client && self->client->isOpen()) self->client->readAsync(sizeof(self->dataBuf), self->dataBuf, dataHandler, self, false);
     }
-
     void writeResponse(const std::string& response) {
-        if (client && client->isOpen()) {
-            client->write(response.size(), reinterpret_cast<uint8_t*>(const_cast<char*>(response.c_str())));
-        }
+        if (client && client->isOpen()) client->write(response.size(), reinterpret_cast<uint8_t*>(const_cast<char*>(response.c_str())));
     }
-
-    bool waterfallShown() {
-        core::configManager.acquire();
-        bool shown = core::configManager.conf["showWaterfall"];
-        core::configManager.release();
-        return shown;
+    bool configBool(const char* key) {
+        core::configManager.acquire(); bool value = core::configManager.conf[key]; core::configManager.release(); return value;
     }
+    void saveBool(const char* key, bool value) {
+        core::configManager.acquire(); core::configManager.conf[key] = value; core::configManager.release(true);
+    }
+    void setWaterfall(bool value) { value ? gui::waterfall.showWaterfall() : gui::waterfall.hideWaterfall(); saveBool("showWaterfall", value); }
+    void setBandplan(bool value) { value ? gui::waterfall.showBandplan() : gui::waterfall.hideBandplan(); saveBool("bandPlanEnabled", value); }
+    void setFFTHold(bool value) { gui::waterfall.setFFTHold(value); saveBool("fftHold", value); }
 
-    void setWaterfallShown(bool shown) {
-        if (shown) {
-            gui::waterfall.showWaterfall();
+    bool handleToggleProperty(const std::string& command, const std::string& property, const char* configKey, void (RemoteControlModule::*setter)(bool)) {
+        if (command == "GET " + property) { writeResponse("VALUE " + property + " " + onOff(configBool(configKey)) + "\n"); return true; }
+        if (command == "TOGGLE " + property) {
+            if (!enabled) { writeResponse("ERROR disabled\n"); return true; }
+            bool value = !configBool(configKey); (this->*setter)(value); writeResponse("VALUE " + property + " " + onOff(value) + "\n"); return true;
         }
-        else {
-            gui::waterfall.hideWaterfall();
+        const std::string prefix = "SET " + property + " ";
+        if (command.rfind(prefix, 0) == 0) {
+            if (!enabled) { writeResponse("ERROR disabled\n"); return true; }
+            const std::string requested = trim(command.substr(prefix.size()));
+            if (requested == "on") (this->*setter)(true);
+            else if (requested == "off") (this->*setter)(false);
+            else { writeResponse("ERROR invalid-value\n"); return true; }
+            writeResponse("OK\n"); return true;
         }
-        core::configManager.acquire();
-        core::configManager.conf["showWaterfall"] = shown;
-        core::configManager.release(true);
+        return false;
     }
 
     void commandHandler(const std::string& command) {
-        if (command.empty()) { return; }
-
-        if (command == "PING") {
-            writeResponse("OK\n");
-            return;
+        if (command.empty()) return;
+        if (command == "PING") { writeResponse("OK\n"); return; }
+        if (handleToggleProperty(command, "waterfall", "showWaterfall", &RemoteControlModule::setWaterfall)) return;
+        if (handleToggleProperty(command, "bandplan", "bandPlanEnabled", &RemoteControlModule::setBandplan)) return;
+        if (handleToggleProperty(command, "fft_hold", "fftHold", &RemoteControlModule::setFFTHold)) return;
+        if (command == "ACTION auto_range") {
+            if (!enabled) { writeResponse("ERROR disabled\n"); return; }
+            gui::waterfall.autoRange(); writeResponse("OK\n"); return;
         }
-
         if (command == "GET theme") {
-            core::configManager.acquire();
-            std::string theme = core::configManager.conf["theme"];
-            core::configManager.release();
-            writeResponse("VALUE theme " + theme + "\n");
-            return;
+            core::configManager.acquire(); std::string theme = core::configManager.conf["theme"]; core::configManager.release();
+            writeResponse("VALUE theme " + theme + "\n"); return;
         }
-
-        if (command == "GET themes") {
-            writeResponse("VALUES themes " + join(gui::themeManager.getThemeNames(), "|") + "\n");
-            return;
-        }
-
-        if (command == "GET waterfall") {
-            writeResponse(std::string("VALUE waterfall ") + onOff(waterfallShown()) + "\n");
-            return;
-        }
-
-        if (command == "TOGGLE waterfall") {
-            if (!enabled) {
-                writeResponse("ERROR disabled\n");
-                return;
-            }
-            const bool shown = !waterfallShown();
-            setWaterfallShown(shown);
-            writeResponse(std::string("VALUE waterfall ") + onOff(shown) + "\n");
-            return;
-        }
-
-        constexpr const char* waterfallPrefix = "SET waterfall ";
-        if (command.rfind(waterfallPrefix, 0) == 0) {
-            if (!enabled) {
-                writeResponse("ERROR disabled\n");
-                return;
-            }
-            const std::string requested = trim(command.substr(std::char_traits<char>::length(waterfallPrefix)));
-            if (requested == "on") {
-                setWaterfallShown(true);
-            }
-            else if (requested == "off") {
-                setWaterfallShown(false);
-            }
-            else {
-                writeResponse("ERROR invalid-value\n");
-                return;
-            }
-            writeResponse("OK\n");
-            return;
-        }
-
+        if (command == "GET themes") { writeResponse("VALUES themes " + join(gui::themeManager.getThemeNames(), "|") + "\n"); return; }
         constexpr const char* themePrefix = "SET theme ";
         if (command.rfind(themePrefix, 0) == 0) {
-            if (!enabled) {
-                writeResponse("ERROR disabled\n");
-                return;
-            }
-
+            if (!enabled) { writeResponse("ERROR disabled\n"); return; }
             const std::string requested = trim(command.substr(std::char_traits<char>::length(themePrefix)));
             const auto themeNames = gui::themeManager.getThemeNames();
-            if (std::find(themeNames.begin(), themeNames.end(), requested) == themeNames.end()) {
-                writeResponse("ERROR invalid-value\n");
-                return;
-            }
-
-            if (!gui::themeManager.applyTheme(requested)) {
-                flog::error("Remote Control could not apply theme '{}'", requested);
-                writeResponse("ERROR apply-failed\n");
-                return;
-            }
-
-            core::configManager.acquire();
-            core::configManager.conf["theme"] = requested;
-            core::configManager.release(true);
-
-            flog::info("Remote Control applied theme '{}'", requested);
-            writeResponse("OK\n");
-            return;
+            if (std::find(themeNames.begin(), themeNames.end(), requested) == themeNames.end()) { writeResponse("ERROR invalid-value\n"); return; }
+            if (!gui::themeManager.applyTheme(requested)) { writeResponse("ERROR apply-failed\n"); return; }
+            core::configManager.acquire(); core::configManager.conf["theme"] = requested; core::configManager.release(true);
+            flog::info("Remote Control applied theme '{}'", requested); writeResponse("OK\n"); return;
         }
-
         writeResponse("ERROR unknown-command\n");
     }
 
@@ -223,13 +130,6 @@ private:
 };
 
 MOD_EXPORT void _INIT_() {}
-
-MOD_EXPORT ModuleManager::Instance* _CREATE_INSTANCE_(std::string name) {
-    return new RemoteControlModule(std::move(name));
-}
-
-MOD_EXPORT void _DELETE_INSTANCE_(void* instance) {
-    delete static_cast<RemoteControlModule*>(instance);
-}
-
+MOD_EXPORT ModuleManager::Instance* _CREATE_INSTANCE_(std::string name) { return new RemoteControlModule(std::move(name)); }
+MOD_EXPORT void _DELETE_INSTANCE_(void* instance) { delete static_cast<RemoteControlModule*>(instance); }
 MOD_EXPORT void _END_() {}
