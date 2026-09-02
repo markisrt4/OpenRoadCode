@@ -51,7 +51,16 @@
 .automotive-offroad {
     background: var(--background);
     color: var(--text);
+    --panel: var(--surface);
+    --border: var(--border);
+    --muted: var(--text-muted);
+    --heading: var(--accent-primary);
+    --success: var(--accent-success);
+    --warning: var(--accent-warning);
+    --danger: var(--accent-danger);
     --sky: #b9d9ea;
     --ground: #d8c4a8;
-    --heading: var(--accent-primary);
+    --control-background: var(--control-background);
+    --control-active: var(--control-active);
+    --control-text: var(--control-text);
 }

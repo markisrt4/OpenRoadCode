@@ -13,6 +13,9 @@ from types import SimpleNamespace
 from apps.orcUi.navigation_presenter import AttitudePresentationState, PositionPresentationState
 from apps.orcUi.vehicle_presenter import VehiclePresentationState
 from frontends.tk.automotive import DEFAULT_GAUGES, OffroadDashboardPanel, ShifterGauge, VehicleGaugePanel
+from frontends.tk.automotive.vehicle_gauge_theme import (
+    vehicle_gauge_theme_from_style_sheet,
+)
 from frontends.tk.automotive.vehicle_gauge_widgets import LinearGauge
 from ui.navigation import HeadingReference, PositionFix
 from ui.theme import ThemeBundle
@@ -124,13 +127,26 @@ class VehiclePanel(tk.Frame):
             self._show_placeholder("TRIP", "Trip distance, time, economy and drive statistics will live here.")
 
     def _show_performance(self) -> None:
-        host = tk.Frame(self._view_host, bg=BG)
+        background = (
+            self._theme_bundle.ui.background
+            if self._theme_bundle is not None
+            else BG
+        )
+        host = tk.Frame(self._view_host, bg=background)
         host.grid(row=0, column=0, sticky="nsew")
         host.grid_columnconfigure(0, weight=1)
         host.grid_rowconfigure(0, weight=1)
 
         definitions = tuple(definition for definition in DEFAULT_GAUGES if definition.gauge_id in self._PERFORMANCE_IDS)
-        panel = VehicleGaugePanel(host, definitions=definitions, columns=4, show_config_button=False)
+        panel = VehicleGaugePanel(
+            host,
+            definitions=definitions,
+            columns=4,
+            show_config_button=False,
+            panel_background=background,
+        )
+        if self._theme_bundle is not None:
+            panel.set_style_sheet(self._theme_bundle.style_sheet)
         panel.grid(row=0, column=0, sticky="nsew")
         panel._toolbar.grid_remove()  # type: ignore[attr-defined]
 
@@ -146,7 +162,12 @@ class VehiclePanel(tk.Frame):
 
     def _show_engine(self) -> None:
         """Show compact secondary gauges two across."""
-        host = tk.Frame(self._view_host, bg=BG)
+        background = (
+            self._theme_bundle.ui.background
+            if self._theme_bundle is not None
+            else BG
+        )
+        host = tk.Frame(self._view_host, bg=background)
         host.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
         host.grid_columnconfigure(0, weight=1, uniform="engine")
         host.grid_columnconfigure(1, weight=1, uniform="engine")
@@ -154,6 +175,11 @@ class VehiclePanel(tk.Frame):
             host.grid_rowconfigure(row, weight=1)
 
         definitions = {definition.gauge_id: definition for definition in DEFAULT_GAUGES if definition.gauge_id in self._ENGINE_IDS}
+        gauge_style = (
+            vehicle_gauge_theme_from_style_sheet(self._theme_bundle.style_sheet)
+            if self._theme_bundle is not None
+            else None
+        )
         for index, gauge_id in enumerate(self._ENGINE_IDS):
             definition = definitions[gauge_id]
             gauge = LinearGauge(
@@ -168,6 +194,7 @@ class VehiclePanel(tk.Frame):
                 danger_high=definition.danger_high,
                 icon=definition.icon,
                 precision=definition.precision,
+                style=gauge_style,
                 width=260,
                 height=95,
             )
@@ -222,6 +249,14 @@ class VehiclePanel(tk.Frame):
 
         if self._shifter is not None:
             self._shifter.set_style_sheet(theme_bundle.style_sheet)
+
+        if self._gauges is not None:
+            self._gauges.set_style_sheet(theme_bundle.style_sheet)
+
+        if self._engine_gauges:
+            # Recreate direct gauge widgets so every Canvas redraw uses the
+            # newly resolved component theme.
+            self._show_view(self._current_view)
 
     def update_state(self, state: VehiclePresentationState) -> None:
         self._state = state
