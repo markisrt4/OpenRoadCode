@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <iomanip>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -14,9 +15,9 @@
 
 SDRPP_MOD_INFO{
     "remote_control",
-    "Remote application control server for SDR++",
+    "Remote application control and telemetry server for SDR++",
     "OpenRoadCode contributors",
-    0, 3, 0,
+    0, 4, 0,
     1
 };
 
@@ -29,6 +30,11 @@ std::string trim(std::string value) {
 std::string join(const std::vector<std::string>& values, const char* separator) {
     std::ostringstream stream;
     for (std::size_t i = 0; i < values.size(); ++i) { if (i) stream << separator; stream << values[i]; }
+    return stream.str();
+}
+std::string number(double value) {
+    std::ostringstream stream;
+    stream << std::fixed << std::setprecision(3) << value;
     return stream.str();
 }
 const char* onOff(bool value) { return value ? "on" : "off"; }
@@ -102,6 +108,29 @@ private:
         if (command == "ACTION auto_range") {
             if (!enabled) { writeResponse("ERROR disabled\n"); return; }
             gui::waterfall.autoRange(); writeResponse("OK\n"); return;
+        }
+        if (command == "GET snr") { writeResponse("VALUE snr " + number(gui::waterfall.selectedVFOSNR) + "\n"); return; }
+        if (command == "GET center_frequency") { writeResponse("VALUE center_frequency " + number(gui::waterfall.getCenterFrequency()) + "\n"); return; }
+        if (command == "GET bandwidth") { writeResponse("VALUE bandwidth " + number(gui::waterfall.getBandwidth()) + "\n"); return; }
+        if (command == "GET view_bandwidth") { writeResponse("VALUE view_bandwidth " + number(gui::waterfall.getViewBandwidth()) + "\n"); return; }
+        if (command == "GET fft_min") { writeResponse("VALUE fft_min " + number(gui::waterfall.getFFTMin()) + "\n"); return; }
+        if (command == "GET fft_max") { writeResponse("VALUE fft_max " + number(gui::waterfall.getFFTMax()) + "\n"); return; }
+        if (command == "GET waterfall_min") { writeResponse("VALUE waterfall_min " + number(gui::waterfall.getWaterfallMin()) + "\n"); return; }
+        if (command == "GET waterfall_max") { writeResponse("VALUE waterfall_max " + number(gui::waterfall.getWaterfallMax()) + "\n"); return; }
+        if (command == "GET selected_vfo") { writeResponse("VALUE selected_vfo " + (gui::waterfall.selectedVFO.empty() ? std::string("none") : gui::waterfall.selectedVFO) + "\n"); return; }
+        if (command == "GET telemetry") {
+            writeResponse(
+                "TELEMETRY snr=" + number(gui::waterfall.selectedVFOSNR) +
+                " center_frequency=" + number(gui::waterfall.getCenterFrequency()) +
+                " bandwidth=" + number(gui::waterfall.getBandwidth()) +
+                " view_bandwidth=" + number(gui::waterfall.getViewBandwidth()) +
+                " fft_min=" + number(gui::waterfall.getFFTMin()) +
+                " fft_max=" + number(gui::waterfall.getFFTMax()) +
+                " waterfall_min=" + number(gui::waterfall.getWaterfallMin()) +
+                " waterfall_max=" + number(gui::waterfall.getWaterfallMax()) +
+                " selected_vfo=" + (gui::waterfall.selectedVFO.empty() ? std::string("none") : gui::waterfall.selectedVFO) + "\n"
+            );
+            return;
         }
         if (command == "GET theme") {
             core::configManager.acquire(); std::string theme = core::configManager.conf["theme"]; core::configManager.release();
