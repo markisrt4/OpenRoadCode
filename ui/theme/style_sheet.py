@@ -11,7 +11,6 @@ import re
 
 import tinycss2
 
-from .theme_bundle import ThemeBundle
 from .ui_theme import UiTheme
 
 _VAR_PATTERN = re.compile(r"var\(\s*(--[A-Za-z0-9_-]+)\s*\)")
@@ -80,8 +79,11 @@ def load_ui_theme(path: str | Path) -> UiTheme:
     return _ui_theme_from_sheet(load_style_sheet(path), path)
 
 
-def load_theme_bundle(path: str | Path) -> ThemeBundle:
+def load_theme_bundle(path: str | Path):
     """Load one stylesheet and its resolved semantic UI theme."""
+
+    # Local import avoids a module cycle: ThemeBundle contains a StyleSheet.
+    from .theme_bundle import ThemeBundle
 
     sheet = load_style_sheet(path)
     return ThemeBundle(
