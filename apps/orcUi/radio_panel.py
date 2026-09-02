@@ -1,13 +1,14 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 
-"""orcUi radio panel hosting and controlling the SDR++ X11 client."""
+"""orcUi radio panel hosting and controlling external radio presentations."""
 
 from __future__ import annotations
 
+import os
 import tkinter as tk
-from collections.abc import Callable
 
+from apps.orcUi.adsb_control import OrcUiAdsbControl
 from apps.orcUi.radio_control import OrcUiRadioControl, OrcUiRadioState
 from apps.orcUi.sdrpp_control import OrcUiSdrppControl
 from frontends.x11 import X11WindowEmbedder
@@ -49,14 +50,16 @@ RADIO_GROUPS = tuple(name for name, _ in MAIN_GROUPS)
 
 
 class RadioPanel(tk.Frame):
-    """Automotive controls wrapped around an embedded SDR++ viewport."""
+    """Automotive controls wrapped around embedded SDR++ and ADS-B views."""
 
-    def __init__(self, parent: tk.Misc, *, embedder: X11WindowEmbedder | None = None, radio_control: OrcUiRadioControl | None = None, sdrpp_control: OrcUiSdrppControl | None = None, on_adsb: Callable[[], None] | None = None) -> None:
+    def __init__(self, parent: tk.Misc, *, embedder: X11WindowEmbedder | None = None, radio_control: OrcUiRadioControl | None = None, sdrpp_control: OrcUiSdrppControl | None = None, adsb_control: OrcUiAdsbControl | None = None) -> None:
         super().__init__(parent, bg=BG)
         self._embedder = embedder or X11WindowEmbedder()
         self._radio = radio_control or OrcUiRadioControl()
         self._sdrpp = sdrpp_control or OrcUiSdrppControl()
-        self._on_adsb = on_adsb
+        self._adsb = adsb_control or OrcUiAdsbControl()
+        self._display = os.environ.get("DISPLAY", ":1")
+        self._embedded_view = "sdrpp"
         self._active_group = "FM"
         self._group_buttons: dict[str, tk.Button] = {}
         self._drawer_open = False
@@ -78,16 +81,16 @@ class RadioPanel(tk.Frame):
         self._host.grid(row=0, column=0, sticky="nsew")
         self._host.bind("<Configure>", self._on_host_resize)
 
-        controls = tk.Frame(self, bg=PANEL, highlightthickness=1, highlightbackground=BORDER)
-        controls.grid(row=2, column=0, sticky="ew", pady=(6, 0))
-        controls.grid_columnconfigure(2, weight=1)
-        tk.Button(controls, text="‹ PRESET", command=self._previous_preset, bg=PANEL, fg=TEXT, relief=tk.FLAT, bd=0, padx=12, pady=7).grid(row=0, column=0, rowspan=2, sticky="ns")
-        tk.Button(controls, text="− TUNE", command=self._tune_down, bg=PANEL, fg=MUTED, relief=tk.FLAT, bd=0, padx=10, pady=7).grid(row=0, column=1, rowspan=2, sticky="ns")
-        center = tk.Frame(controls, bg=PANEL); center.grid(row=0, column=2, rowspan=2, sticky="ew")
+        self._controls = tk.Frame(self, bg=PANEL, highlightthickness=1, highlightbackground=BORDER)
+        self._controls.grid(row=2, column=0, sticky="ew", pady=(6, 0))
+        self._controls.grid_columnconfigure(2, weight=1)
+        tk.Button(self._controls, text="‹ PRESET", command=self._previous_preset, bg=PANEL, fg=TEXT, relief=tk.FLAT, bd=0, padx=12, pady=7).grid(row=0, column=0, rowspan=2, sticky="ns")
+        tk.Button(self._controls, text="− TUNE", command=self._tune_down, bg=PANEL, fg=MUTED, relief=tk.FLAT, bd=0, padx=10, pady=7).grid(row=0, column=1, rowspan=2, sticky="ns")
+        center = tk.Frame(self._controls, bg=PANEL); center.grid(row=0, column=2, rowspan=2, sticky="ew")
         self._station_label = tk.Label(center, text="NO PRESET", bg=PANEL, fg=TEXT, font=("Sans", 11, "bold")); self._station_label.pack()
         self._frequency_label = tk.Label(center, text="--.- MHz", bg=PANEL, fg=MUTED, font=("Monospace", 9)); self._frequency_label.pack()
-        tk.Button(controls, text="TUNE +", command=self._tune_up, bg=PANEL, fg=MUTED, relief=tk.FLAT, bd=0, padx=10, pady=7).grid(row=0, column=3, rowspan=2, sticky="ns")
-        tk.Button(controls, text="PRESET ›", command=self._next_preset, bg=PANEL, fg=TEXT, relief=tk.FLAT, bd=0, padx=12, pady=7).grid(row=0, column=4, rowspan=2, sticky="ns")
+        tk.Button(self._controls, text="TUNE +", command=self._tune_up, bg=PANEL, fg=MUTED, relief=tk.FLAT, bd=0, padx=10, pady=7).grid(row=0, column=3, rowspan=2, sticky="ns")
+        tk.Button(self._controls, text="PRESET ›", command=self._next_preset, bg=PANEL, fg=TEXT, relief=tk.FLAT, bd=0, padx=12, pady=7).grid(row=0, column=4, rowspan=2, sticky="ns")
         self._apply_radio_state(self._radio.state)
 
     def _build_group_bar(self) -> None:
@@ -112,11 +115,51 @@ class RadioPanel(tk.Frame):
         self._paint_groups()
         button = self._group_buttons["AIR"]
         menu = tk.Menu(self, tearoff=False, bg=PANEL, fg=TEXT, activebackground="#17232d", activeforeground=GREEN, bd=1, relief=tk.FLAT, font=("Sans", 11))
-        menu.add_command(label="Airband Voice", command=lambda: self.select_group("AIR"))
-        if self._on_adsb is not None:
-            menu.add_separator()
-            menu.add_command(label="✈ ADS-B Aircraft Map", command=self._on_adsb)
+        menu.add_command(label="Airband Voice", command=self._show_airband_voice)
+        menu.add_separator()
+        menu.add_command(label="✈ ADS-B Aircraft Map", command=self._show_adsb)
         self._popup_menu(menu, button)
+
+    def _show_adsb(self) -> None:
+        self._active_group = "AIR:ADSB"
+        self._paint_groups()
+        parent_window_id = int(self.winfo_toplevel().winfo_id())
+        try:
+            self._embedder.detach(parent_window_id)
+            self._adsb.launch(self._display)
+            self.update_idletasks()
+            self._embedder.embed(
+                0,
+                self.host_window_id,
+                self._host.winfo_width(),
+                self._host.winfo_height(),
+                window_class=OrcUiAdsbControl.WINDOW_CLASS,
+            )
+            self._embedded_view = "adsb"
+            self._controls.grid_remove()
+            self._controls_button.configure(state=tk.DISABLED, fg=MUTED)
+        except (OSError, RuntimeError, ValueError) as error:
+            self._embedded_view = "none"
+            self._frequency_label.configure(text=f"ADS-B: {error}", fg=RED)
+            print(f"WARNING: ADS-B launch/embed: {type(error).__name__}: {error}")
+
+    def _show_airband_voice(self) -> None:
+        if self._embedded_view == "adsb":
+            parent_window_id = int(self.winfo_toplevel().winfo_id())
+            self._embedder.detach(parent_window_id)
+            try:
+                self._adsb.stop(self._display)
+            except (OSError, RuntimeError, ValueError) as error:
+                print(f"WARNING: ADS-B stop: {type(error).__name__}: {error}")
+            self._embedded_view = "none"
+            try:
+                self.attach_sdrpp()
+                self._embedded_view = "sdrpp"
+            except (OSError, RuntimeError, ValueError) as error:
+                print(f"WARNING: SDR++ reattach: {type(error).__name__}: {error}")
+        self._controls.grid()
+        self._controls_button.configure(state=tk.NORMAL, fg=TEXT)
+        self.select_group("AIR")
 
     def _show_band_menu(self, parent_group: str, entries: tuple[tuple[str, str], ...]) -> None:
         self._active_group = parent_group
@@ -158,9 +201,19 @@ class RadioPanel(tk.Frame):
 
     def attach_sdrpp(self, process_id: int = 0) -> int:
         self.update_idletasks()
-        return self._embedder.embed(process_id, self.host_window_id, self._host.winfo_width(), self._host.winfo_height(), window_name="SDR++")
+        window_id = self._embedder.embed(process_id, self.host_window_id, self._host.winfo_width(), self._host.winfo_height(), window_name="SDR++")
+        self._embedded_view = "sdrpp"
+        return window_id
 
-    def detach_sdrpp(self, parent_window_id: int) -> None: self._embedder.detach(parent_window_id)
+    def detach_sdrpp(self, parent_window_id: int) -> None:
+        self._embedder.detach(parent_window_id)
+        if self._embedded_view == "adsb":
+            try:
+                self._adsb.stop(self._display)
+            except (OSError, RuntimeError, ValueError) as error:
+                print(f"WARNING: ADS-B stop: {type(error).__name__}: {error}")
+        self._embedded_view = "none"
+
     def clear_embedding(self) -> None: self._embedder.clear()
 
     def _toggle_drawer(self) -> None:
