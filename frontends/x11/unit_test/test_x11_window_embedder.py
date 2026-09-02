@@ -30,6 +30,11 @@ class X11WindowEmbedderTest(unittest.TestCase):
     ) -> None:
         run.side_effect = [
             subprocess.CompletedProcess([], 0, stdout="111\n222\n", stderr=""),
+            subprocess.CompletedProcess([], 0, stdout="WIDTH=320\nHEIGHT=200\n", stderr=""),
+            subprocess.CompletedProcess([], 0, stdout="WIDTH=800\nHEIGHT=600\n", stderr=""),
+            subprocess.CompletedProcess([], 0),
+            subprocess.CompletedProcess([], 0),
+            subprocess.CompletedProcess([], 0),
             subprocess.CompletedProcess([], 0),
             subprocess.CompletedProcess([], 0),
             subprocess.CompletedProcess([], 0),
@@ -41,26 +46,24 @@ class X11WindowEmbedderTest(unittest.TestCase):
 
         self.assertEqual(222, window_id)
         self.assertEqual(222, embedder.window_id)
+        commands = [call.args[0] for call in run.call_args_list]
         self.assertEqual(
             ["xdotool", "search", "--onlyvisible", "--pid", "1234"],
-            run.call_args_list[0].args[0],
+            commands[0],
         )
-        self.assertEqual(
-            ["xdotool", "windowreparent", "222", "5678"],
-            run.call_args_list[1].args[0],
-        )
-        self.assertEqual(
-            ["xdotool", "windowmap", "222"],
-            run.call_args_list[2].args[0],
-        )
-        self.assertEqual(
-            ["xdotool", "windowsize", "222", "800", "400"],
-            run.call_args_list[3].args[0],
-        )
-        self.assertEqual(
-            ["xdotool", "windowmove", "222", "0", "0"],
-            run.call_args_list[4].args[0],
-        )
+        self.assertIn(["xdotool", "getwindowgeometry", "--shell", "111"], commands)
+        self.assertIn(["xdotool", "getwindowgeometry", "--shell", "222"], commands)
+        self.assertIn(["xdotool", "windowreparent", "222", "5678"], commands)
+        self.assertIn(["xdotool", "windowmap", "222"], commands)
+        self.assertIn(["xdotool", "windowsize", "222", "800", "400"], commands)
+        self.assertIn(["xdotool", "windowmove", "222", "0", "0"], commands)
+
+    @patch("frontends.x11.x11_window_embedder.subprocess.run")
+    def test_best_window_id_falls_back_to_last_when_geometry_is_empty(self, run: Mock) -> None:
+        run.return_value = subprocess.CompletedProcess([], 0, stdout=None, stderr=None)
+        result = subprocess.CompletedProcess([], 0, stdout="111\n222\n", stderr="")
+
+        self.assertEqual(222, X11WindowEmbedder._best_window_id(result))
 
     @patch("frontends.x11.x11_window_embedder.subprocess.run")
     def test_detach_reparents_unmaps_and_forgets_window(self, run: Mock) -> None:
