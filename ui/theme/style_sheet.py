@@ -11,6 +11,7 @@ import re
 
 import tinycss2
 
+from .theme_bundle import ThemeBundle
 from .ui_theme import UiTheme
 
 _VAR_PATTERN = re.compile(r"var\(\s*(--[A-Za-z0-9_-]+)\s*\)")
@@ -76,14 +77,29 @@ def load_style_sheet(path: str | Path) -> StyleSheet:
 def load_ui_theme(path: str | Path) -> UiTheme:
     """Load the semantic :root palette from an ORC theme stylesheet."""
 
+    return _ui_theme_from_sheet(load_style_sheet(path), path)
+
+
+def load_theme_bundle(path: str | Path) -> ThemeBundle:
+    """Load one stylesheet and its resolved semantic UI theme."""
+
     sheet = load_style_sheet(path)
+    return ThemeBundle(
+        ui=_ui_theme_from_sheet(sheet, path),
+        style_sheet=sheet,
+    )
+
+
+def _ui_theme_from_sheet(sheet: StyleSheet, path: str | Path) -> UiTheme:
     root = sheet.declarations(":root")
 
     def required(name: str) -> str:
         try:
             return root[name]
         except KeyError as exc:
-            raise ValueError(f"Theme {path} is missing required property {name}") from exc
+            raise ValueError(
+                f"Theme {path} is missing required property {name}"
+            ) from exc
 
     return UiTheme(
         background=required("--background"),
@@ -105,18 +121,25 @@ def load_ui_theme(path: str | Path) -> UiTheme:
 def _resolve_variables(value: str, variables: dict[str, str]) -> str:
     """Resolve the simple var(--name) references supported by ORC themes."""
 
-    current = value
-    seen: set[str] = set()
-    while True:
-        match = _VAR_PATTERN.search(current)
-        if match is None:
-            return current
-        variable = match.group(1)
-        if variable in seen:
-            raise ValueError(f"Cyclic CSS custom property reference: {variable}")
-        seen.add(variable)
-        try:
-            replacement = variables[variable]
-        except KeyError as exc:
-            raise ValueError(f"Undefined CSS custom property: {variable}") from exc
-        current = current[: match.start()] + replacement + current[match.end() :]
+    def resolve(text: str, stack: tuple[str, ...]) -> str:
+        def replace(match: re.Match[str]) -> str:
+            variable = match.group(1)
+
+            if variable in stack:
+                chain = " -> ".join((*stack, variable))
+                raise ValueError(
+                    f"Cyclic CSS custom property reference: {chain}"
+                )
+
+            try:
+                replacement = variables[variable]
+            except KeyError as exc:
+                raise ValueError(
+                    f"Undefined CSS custom property: {variable}"
+                ) from exc
+
+            return resolve(replacement, (*stack, variable))
+
+        return _VAR_PATTERN.sub(replace, text)
+
+    return resolve(value, ())

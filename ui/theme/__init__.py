@@ -3,7 +3,7 @@
 
 """Frontend-neutral UI theme contracts."""
 
-from .style_sheet import StyleSheet, load_style_sheet, load_ui_theme
+from .style_sheet import StyleSheet, load_style_sheet, load_theme_bundle, load_ui_theme
 from .theme_bundle import ThemeBundle
 from .theme_mode import ThemeMode
 from .theme_ui_if import ThemeUiIf
@@ -17,5 +17,6 @@ __all__ = [
     "ThemeUiIf",
     "UiTheme",
     "load_style_sheet",
+    "load_theme_bundle",
     "load_ui_theme",
 ]
