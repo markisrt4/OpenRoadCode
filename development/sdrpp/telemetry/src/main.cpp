@@ -40,7 +40,7 @@ std::string selectedVFO() {
 
 struct SignalMetrics {
     double peakDb = NAN;
-    double noiseFloorDb = NAN;
+    double fftAverageDb = NAN;
 };
 
 SignalMetrics measureSelectedVFO() {
@@ -49,9 +49,8 @@ SignalMetrics measureSelectedVFO() {
     const auto vfoIt = gui::waterfall.vfos.find(selected);
     if (selected.empty() || vfoIt == gui::waterfall.vfos.end() || vfoIt->second == nullptr) return metrics;
 
-    float* fft = nullptr;
     int width = 0;
-    gui::waterfall.acquireLatestFFT(fft, width);
+    float* fft = gui::waterfall.acquireLatestFFT(width);
     if (fft == nullptr || width <= 0) {
         gui::waterfall.releaseLatestFFT();
         return metrics;
@@ -85,7 +84,7 @@ SignalMetrics measureSelectedVFO() {
 
     if (samples > 0) {
         metrics.peakDb = peak;
-        metrics.noiseFloorDb = sum / samples;
+        metrics.fftAverageDb = sum / samples;
     }
     return metrics;
 }
@@ -133,19 +132,13 @@ private:
                 self->command.clear();
                 continue;
             }
-            if (data[i] != '\r' && self->command.size() < MAX_COMMAND_LENGTH) {
-                self->command += static_cast<char>(data[i]);
-            }
+            if (data[i] != '\r' && self->command.size() < MAX_COMMAND_LENGTH) self->command += static_cast<char>(data[i]);
         }
-        if (self->client && self->client->isOpen()) {
-            self->client->readAsync(sizeof(self->dataBuf), self->dataBuf, dataHandler, self, false);
-        }
+        if (self->client && self->client->isOpen()) self->client->readAsync(sizeof(self->dataBuf), self->dataBuf, dataHandler, self, false);
     }
 
     void writeResponse(const std::string& response) {
-        if (client && client->isOpen()) {
-            client->write(response.size(), reinterpret_cast<uint8_t*>(const_cast<char*>(response.c_str())));
-        }
+        if (client && client->isOpen()) client->write(response.size(), reinterpret_cast<uint8_t*>(const_cast<char*>(response.c_str())));
     }
 
     void commandHandler(const std::string& command) {
@@ -157,10 +150,10 @@ private:
         if (command == "GET center_frequency") { writeResponse("VALUE center_frequency " + number(gui::waterfall.getCenterFrequency()) + "\n"); return; }
         if (command == "GET bandwidth") { writeResponse("VALUE bandwidth " + number(gui::waterfall.getBandwidth()) + "\n"); return; }
         if (command == "GET view_bandwidth") { writeResponse("VALUE view_bandwidth " + number(gui::waterfall.getViewBandwidth()) + "\n"); return; }
-        if (command == "GET signal_peak" || command == "GET noise_floor") {
+        if (command == "GET signal_peak" || command == "GET fft_average") {
             const auto metrics = measureSelectedVFO();
             if (command == "GET signal_peak") writeResponse("VALUE signal_peak " + metric(metrics.peakDb) + "\n");
-            else writeResponse("VALUE noise_floor " + metric(metrics.noiseFloorDb) + "\n");
+            else writeResponse("VALUE fft_average " + metric(metrics.fftAverageDb) + "\n");
             return;
         }
         if (command == "GET telemetry") {
@@ -168,7 +161,7 @@ private:
             writeResponse(
                 "TELEMETRY snr=" + number(gui::waterfall.selectedVFOSNR) +
                 " signal_peak=" + metric(metrics.peakDb) +
-                " noise_floor=" + metric(metrics.noiseFloorDb) +
+                " fft_average=" + metric(metrics.fftAverageDb) +
                 " center_frequency=" + number(gui::waterfall.getCenterFrequency()) +
                 " bandwidth=" + number(gui::waterfall.getBandwidth()) +
                 " view_bandwidth=" + number(gui::waterfall.getViewBandwidth()) +
