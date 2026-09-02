@@ -48,3 +48,15 @@ class PointOfInterest:
     source_class: str | None = None
     source_subclass: str | None = None
     actions: tuple[PoiAction, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
+class PoiSearchResult:
+    """Describe the geographic result of a semantic POI search."""
+
+    category: PoiCategory
+    count: int
+    south: float
+    west: float
+    north: float
+    east: float
