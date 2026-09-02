@@ -7,9 +7,9 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping
 
-from ui.theme import ThemeMode, UiTheme
+from ui.theme import ThemeBundle, ThemeMode, UiTheme
 
-ThemeListener = Callable[[ThemeMode, UiTheme], None]
+ThemeListener = Callable[[ThemeMode, ThemeBundle], None]
 
 
 class ThemeController:
@@ -17,7 +17,7 @@ class ThemeController:
 
     def __init__(
         self,
-        themes: Mapping[ThemeMode, UiTheme],
+        themes: Mapping[ThemeMode, ThemeBundle],
         initial_mode: ThemeMode = ThemeMode.DARK,
     ) -> None:
         self._themes = dict(themes)
@@ -31,8 +31,14 @@ class ThemeController:
         return self._mode
 
     @property
-    def theme(self) -> UiTheme:
+    def bundle(self) -> ThemeBundle:
         return self._themes[self._mode]
+
+    @property
+    def theme(self) -> UiTheme:
+        """Return the generic semantic palette for convenience."""
+
+        return self.bundle.ui
 
     def set_mode(self, mode: ThemeMode) -> None:
         if mode not in self._themes:
@@ -51,7 +57,7 @@ class ThemeController:
         if listener not in self._listeners:
             self._listeners.append(listener)
         if notify:
-            listener(self._mode, self.theme)
+            listener(self._mode, self.bundle)
 
     def unsubscribe(self, listener: ThemeListener) -> None:
         try:
@@ -61,4 +67,4 @@ class ThemeController:
 
     def _notify(self) -> None:
         for listener in tuple(self._listeners):
-            listener(self._mode, self.theme)
+            listener(self._mode, self.bundle)
