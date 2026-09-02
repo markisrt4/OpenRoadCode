@@ -15,6 +15,8 @@ BROKER_SUBSCRIBER_ENDPOINT="${OPENROADCODE_BROKER_SUBSCRIBER_ENDPOINT:-tcp://127
 RENDERER="$INSTALL_ROOT/bin/openroadcode-map-renderer"
 CONFIG="${OPENROADCODE_NAVIGATION_CONFIG:-$CONFIG_ROOT/navigation.toml}"
 STYLE="$DATA_ROOT/maps/styles/openroadcode.json"
+TERMUX_TMP_ROOT="${PREFIX:-/data/data/com.termux/files/usr}/tmp"
+RUNTIME_DIR="${XDG_RUNTIME_DIR:-$TERMUX_TMP_ROOT/openroadcode-$UID}"
 
 [[ -x "$RENDERER" ]] || {
   echo "OpenRoadCode map renderer is not installed: $RENDERER" >&2
@@ -32,7 +34,8 @@ STYLE="$DATA_ROOT/maps/styles/openroadcode.json"
   exit 1
 }
 
-mkdir -p "$CACHE_ROOT"
+mkdir -p "$CACHE_ROOT" "$TERMUX_TMP_ROOT" "$RUNTIME_DIR"
+chmod 700 "$RUNTIME_DIR"
 
 GRAPHICS_ENV="$({
   PYTHONPATH="$REPO_ROOT${PYTHONPATH:+:$PYTHONPATH}" python3 - <<'PY'
@@ -50,6 +53,8 @@ while IFS='=' read -r key value; do
 done <<< "$GRAPHICS_ENV"
 
 export DISPLAY="$DISPLAY_VALUE"
+export TMPDIR="$TERMUX_TMP_ROOT"
+export XDG_RUNTIME_DIR="$RUNTIME_DIR"
 export OPENROADCODE_NAVIGATION_CONFIG="$CONFIG"
 export OPENROADCODE_DATA_ROOT="$DATA_ROOT"
 export OPENROADCODE_CACHE_ROOT="$CACHE_ROOT"
@@ -58,5 +63,6 @@ export OPENROADCODE_BROKER_SUBSCRIBER_ENDPOINT="$BROKER_SUBSCRIBER_ENDPOINT"
 echo "OpenRoadCode map graphics backend: ${OPENROADCODE_GRAPHICS_BACKEND:-system}"
 echo "OpenRoadCode map config: $CONFIG"
 echo "OpenRoadCode map data root: $DATA_ROOT"
+echo "OpenRoadCode map runtime dir: $XDG_RUNTIME_DIR"
 echo "OpenRoadCode map command bus: $BROKER_SUBSCRIBER_ENDPOINT topic=map.command"
 exec "$RENDERER"
