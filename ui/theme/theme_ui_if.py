@@ -12,5 +12,8 @@ class ThemeUiIf(Protocol):
     """A UI object that can apply a complete theme at runtime."""
 
     def set_theme(self, theme: UiTheme) -> None:
-        """Apply *theme* and redraw any theme-dependent presentation."""
+        """Apply a theme and redraw theme-dependent presentation.
+
+        @param theme Complete semantic UI theme to apply.
+        """
         ...
