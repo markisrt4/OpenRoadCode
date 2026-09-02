@@ -48,6 +48,14 @@ class OrcUiAdsbControl:
     def running(self) -> bool:
         return self._launcher.is_running()
 
+    def configure_browser_window(
+        self,
+        *,
+        position: tuple[int, int],
+        size: tuple[int, int],
+    ) -> None:
+        self._launcher.configure_browser_window(position=position, size=size)
+
     def launch(self, display: str) -> None:
         self._launcher.launch(display)
 
