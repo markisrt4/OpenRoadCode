@@ -13,6 +13,9 @@ from ui.navigation import MapRequestHandlerIf
 PANEL = "#0b1117"
 BORDER = "#25313b"
 BLUE = "#168bd1"
+_HOME_MAP_ZOOM = 12.5
+_HOME_MAP_BEARING_RAD = 0.0
+_HOME_MAP_PITCH_RAD = 0.0
 
 
 class HomeMapPanel(tk.Frame):
@@ -41,12 +44,16 @@ class HomeMapPanel(tk.Frame):
 
     def _schedule_renderer_refresh(self) -> None:
         # PUB/SUB drops commands until the newly launched renderer has joined.
-        # Replay a few times so a host-window switch cannot strand the renderer
-        # at its default camera if the first state message arrives too early.
+        # Replay the HOME presentation a few times without mutating the shared
+        # navigation camera. HOME is deliberately flat, north-up, and wider.
         for delay_ms in (300, 700, 1200):
             self.after(delay_ms, self._refresh_renderer_state)
 
     def _refresh_renderer_state(self) -> None:
         refresh = getattr(self._request_handler, "refresh_renderer_state", None)
         if refresh is not None:
-            refresh()
+            refresh(
+                zoom_level=_HOME_MAP_ZOOM,
+                bearing_rad=_HOME_MAP_BEARING_RAD,
+                pitch_rad=_HOME_MAP_PITCH_RAD,
+            )
