@@ -11,12 +11,13 @@ from controllers.poi import PoiAction, PoiActionKind, PoiCategory, PoiSearchCont
 from ui.navigation import MapRequestHandlerIf
 
 BG="#05090d"; PANEL="#0b1117"; BORDER="#25313b"; TEXT="#edf2f5"; MUTED="#89959e"; GREEN="#84ce1f"; BLUE="#168bd1"; RED="#f15a16"; PURPLE="#a25ce5"
+_POI_SEARCH_SETTLE_MS=750
 
 class NavigationPanel(tk.Frame):
     def __init__(self,parent:tk.Misc,*,map_request_handler:MapRequestHandlerIf|None=None,on_back:Callable[[],None]|None=None)->None:
         super().__init__(parent,bg=BG); del on_back
         runtime=get_shared_map_camera_runtime(); self._request_handler=map_request_handler or runtime.request_handler
-        self._android_launcher=AndroidIntentLauncher(); self._poi_controller=PoiSearchController(); self._poi_card:tk.Frame|None=None
+        self._android_launcher=AndroidIntentLauncher(); self._poi_controller=PoiSearchController(); self._poi_card:tk.Frame|None=None; self._poi_search_after_id:str|None=None
         self._zoom_level=float(getattr(self._request_handler,"zoom_level",16.5)); self._pitch_rad=float(getattr(self._request_handler,"pitch_rad",math.radians(45.0))); self._follow_enabled=bool(getattr(self._request_handler,"follow_enabled",True))
         self._build(); self._schedule_renderer_refresh(); self.after(100,self._poll_poi_events)
     @property
@@ -24,7 +25,12 @@ class NavigationPanel(tk.Frame):
     def set_map_request_handler(self,handler:MapRequestHandlerIf|None)->None:
         if handler is not None:self._request_handler=handler
     def set_follow_enabled(self,enabled:bool)->None:self._follow_enabled=enabled; self._follow_button.configure(text="F" if enabled else "F̸",fg=GREEN if enabled else TEXT)
-    def destroy(self)->None:self._poi_controller.close(); super().destroy()
+    def destroy(self)->None:
+        if self._poi_search_after_id is not None:
+            try:self.after_cancel(self._poi_search_after_id)
+            except tk.TclError:pass
+            self._poi_search_after_id=None
+        self._poi_controller.close(); super().destroy()
     def _build(self)->None:
         self.grid_rowconfigure(1,weight=1); self.grid_columnconfigure(0,weight=1)
         bar=tk.Frame(self,bg=BG,height=38); bar.grid(row=0,column=0,sticky="ew",pady=(0,4)); bar.grid_propagate(False); shortcuts=tk.Frame(bar,bg=BG); shortcuts.pack(side=tk.LEFT,padx=2,pady=3)
@@ -46,16 +52,37 @@ class NavigationPanel(tk.Frame):
     def _destination_shortcut(self,shortcut:str)->None:
         category={"food":PoiCategory.FOOD,"gas":PoiCategory.FUEL,"grocery":PoiCategory.GROCERY}.get(shortcut)
         if category is not None:
-            self._poi_controller.search(category); self._shortcut_status.set(f"Finding {category.name.casefold()} nearby…"); return
+            self._start_poi_search(category); return
         self._poi_controller.clear(); messages={"home":"Home location not configured","work":"Work location not configured"}; self._shortcut_status.set(messages[shortcut]); self.after(2500,lambda:self._shortcut_status.set(""))
+    def _start_poi_search(self,category:PoiCategory)->None:
+        if not bool(getattr(self._request_handler,"camera_initialized",False)):
+            self._shortcut_status.set("Position unavailable — nearby search needs a GPS fix")
+            return
+        if self._poi_search_after_id is not None:
+            try:self.after_cancel(self._poi_search_after_id)
+            except tk.TclError:pass
+            self._poi_search_after_id=None
+        category_name=category.name.casefold()
+        self._poi_controller.clear()
+        self.set_follow_enabled(False)
+        self._request_handler.request_follow(False)
+        self._request_handler.request_poi_focus(None)
+        self._request_handler.request_poi_focus(category_name)
+        self._zoom_level=max(self._zoom_level,14.0)
+        self._shortcut_status.set(f"Loading nearby {category_name}…")
+        self._poi_search_after_id=self.after(_POI_SEARCH_SETTLE_MS,lambda:self._issue_poi_search(category))
+    def _issue_poi_search(self,category:PoiCategory)->None:
+        self._poi_search_after_id=None
+        self._shortcut_status.set(f"Searching nearby {category.name.casefold()}…")
+        self._poi_controller.search(category)
     def _poll_poi_events(self)->None:
         result=self._poi_controller.poll_search_result()
         if result is not None:
             if result.count>0:
-                self.set_follow_enabled(False); fit=getattr(self._request_handler,"request_fit_bounds",None)
+                fit=getattr(self._request_handler,"request_fit_bounds",None)
                 if fit is not None:fit(result.south,result.west,result.north,result.east,60.0)
                 noun=result.category.name.casefold(); self._shortcut_status.set(f"{result.count} {noun} result{'s' if result.count != 1 else ''}")
-            else:self._shortcut_status.set(f"No {result.category.name.casefold()} results in view")
+            else:self._shortcut_status.set(f"No {result.category.name.casefold()} results nearby")
         poi=self._poi_controller.poll_selected()
         if poi is not None:self._show_poi_card(poi)
         if self.winfo_exists():self.after(100,self._poll_poi_events)
