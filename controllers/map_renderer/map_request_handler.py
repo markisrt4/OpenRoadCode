@@ -19,6 +19,7 @@ class MapRequestHandler(MapRequestHandlerIf):
     def __init__(self, renderer, *, center: GeoPoint, zoom_level: float = 16.5,
                  bearing_rad: float = 0.0, pitch_rad: float = 0.0,
                  follow_enabled: bool = True,
+                 camera_initialized: bool = True,
                  on_follow_changed: Callable[[bool], None] | None = None) -> None:
         self._renderer = renderer
         self._center = center
@@ -27,6 +28,7 @@ class MapRequestHandler(MapRequestHandlerIf):
         self._bearing_rad = bearing_rad
         self._pitch_rad = pitch_rad
         self._follow_enabled = follow_enabled
+        self._camera_initialized = camera_initialized
         self._poi_focus: set[str] = set()
         self._on_follow_changed = on_follow_changed
 
@@ -64,6 +66,7 @@ class MapRequestHandler(MapRequestHandlerIf):
 
     def request_center_on(self, position: GeoPoint) -> None:
         self._center = position
+        self._camera_initialized = True
         self.request_follow(False)
         self._send_camera()
 
@@ -141,6 +144,7 @@ class MapRequestHandler(MapRequestHandlerIf):
     ) -> None:
         """Update followed position and optional bearing with one camera command."""
         self._follow_center = position
+        self._camera_initialized = True
         if not self._follow_enabled:
             return
         self._center = position
@@ -149,6 +153,8 @@ class MapRequestHandler(MapRequestHandlerIf):
         self._send_camera()
 
     def _pan_geographic(self, *, north_m: float, east_m: float) -> None:
+        if not self._camera_initialized:
+            return
         earth_radius_m = 6_378_137.0
         latitude_rad = self._center.latitude_rad + north_m / earth_radius_m
         cos_latitude = math.cos(latitude_rad)
@@ -161,6 +167,8 @@ class MapRequestHandler(MapRequestHandlerIf):
         self._send_camera()
 
     def _send_camera(self) -> None:
+        if not self._camera_initialized:
+            return
         self._renderer.set_camera(latitude=math.degrees(self._center.latitude_rad),
             longitude=math.degrees(self._center.longitude_rad), zoom=self._zoom_level,
             bearing=math.degrees(self._bearing_rad), pitch=math.degrees(self._pitch_rad))
