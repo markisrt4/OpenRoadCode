@@ -12,7 +12,7 @@ Unless a row explicitly says otherwise, the values below are defaults and may be
 | ---: | --- | --- | --- | --- | --- | --- | --- |
 | 2947 | `127.0.0.1:2947` | `gpsd` | GNSS data service consumed by navigation and weather location providers | TCP | gpsd JSON protocol | No direct unit test located | Current Linux/Raspberry Pi runtime default. Configured by `services.navigation.inputs.gps` in `config/runtime.toml`. |
 | 4532 | `127.0.0.1:4532` | SDR++ Rigctl Server | Radio tuning/control endpoint consumed by OpenRoadCode radio controllers | TCP | Hamlib rigctl text protocol | No direct unit test located | Current runtime default in `config/runtime.toml`; SDR++ is the server. |
-| 4533 | `127.0.0.1:4533` | OpenRoadCode SDR++ remote-control module | Higher-level SDR++ UI/application control | TCP | OpenRoadCode line-oriented UTF-8 command/response protocol | No direct unit test located | **Branch-only:** `orcui-sdrpp-integration`. Not present on `master` as of the audit date. |
+| 4533 | `127.0.0.1:4533` | OpenRoadCode SDR++ remote-control module | Higher-level SDR++ UI/application control | TCP | OpenRoadCode line-oriented UTF-8 command/response protocol | No direct unit test located | Dedicated SDR++ remote-control endpoint. |
 | 5000 | `0.0.0.0:5000` | `apps/webUi` | Main OpenRoadCode web frontend | TCP | HTTP (Flask) | No direct unit test located | Current `apps/webUi/main.py` default; override with `OPENROADCODE_WEB_HOST` / `OPENROADCODE_WEB_PORT`. |
 | 5556 | `tcp://0.0.0.0:5556` broker bind; clients normally use `tcp://127.0.0.1:5556` | OpenRoadCode ZeroMQ broker | Broker ingress for application/service publishers | TCP | ZeroMQ XSUB | No direct unit test located | Current message-bus publisher endpoint. The broker owns the listening socket; producers connect. |
 | 5557 | `tcp://0.0.0.0:5557` broker bind; clients normally use `tcp://127.0.0.1:5557` | OpenRoadCode ZeroMQ broker | Broker egress for subscribers | TCP | ZeroMQ XPUB | No direct unit test located | Current message-bus subscriber endpoint. The broker owns the listening socket; applications and the map renderer connect. |
@@ -28,7 +28,7 @@ Unless a row explicitly says otherwise, the values below are defaults and may be
 | 8888 | `127.0.0.1:8888/callback` | OpenRoadCode OAuth redirect server | Local browser OAuth callback, including Spotify authentication | TCP | HTTP / OAuth 2.0 loopback redirect | No direct unit test located | Transient authentication listener rather than a long-lived service. |
 | 35000 | `127.0.0.1:35000` | OpenRoadCode Android Bluetooth SPP bridge | Raw ELM327 stream consumed by the Termux automotive service | TCP | Raw TCP carrying ELM327 ASCII command/response data | No direct unit test located | Current Termux automotive default. Android owns the Bluetooth SPP connection; OpenRoadCode consumes the proxied stream. |
 
-`No direct unit test located` means the repository and branch audit did not identify a unit test that directly exercises that listener or port. It does not mean the owning subsystem has no unit, integration, or component-test coverage. Links in this column deliberately point only to unit tests that directly cover the documented interface rather than merely testing nearby code.
+`No direct unit test located` means the repository audit did not identify a unit test that directly exercises that listener or port. It does not mean the owning subsystem has no unit, integration, or component-test coverage. Links in this column deliberately point only to unit tests that directly cover the documented interface rather than merely testing nearby code.
 
 ## Port ownership rules
 
@@ -48,38 +48,6 @@ The adjacent `8765`-`8768` range is intentionally allocated by function so indep
 4. `8768` - YouTube music-video local player.
 
 These defaults may still be overridden where the owning component exposes configuration, but a new component must not reuse one of these defaults simply because it happens not to be running during development. That particular form of optimism is how the original collision arrived.
-
-## Branch audit
-
-Audit date: **2026-09-02**  
-Baseline: `master` at `d07a92118c638150aa7838b891f145be2e927932`
-
-All repository branches visible during the audit were compared with `master` for network-facing changes and fixed-port additions.
-
-| Branch | Audit result |
-| --- | --- |
-| `master` | Baseline for the original port inventory; the dedicated 8767/8768 assignments are introduced by this IDD branch. |
-| `android_sensor_bridge` | Fully behind `master`; no branch-only port. |
-| `android-waydroid-frontend` | Diverged; map/Android frontend work adds no unique fixed port beyond existing message-bus/map dependencies. |
-| `archive/bluetooth-integration-20260827` | Diverged archived Bluetooth/UI work; no unique fixed IP port. |
-| `automotive` | Diverged automotive/UI work; no unique fixed IP port. |
-| `bluetooth_dev` | Diverged BLE GATT work; Bluetooth transport only, no unique Ethernet/IP port. |
-| `bluetooth-integration` | Diverged BLE/UI work; no unique fixed IP port. |
-| `feature/telemetry-systemd` | Diverged runtime ownership work; no unique fixed port. |
-| `fix/termux-runit-runtime-state` | Fully behind `master`; no branch-only port. |
-| `game_launcher` | Diverged game-launcher work; no unique fixed port. |
-| `integration/orc-ui-games` | Diverged ORC UI/game integration; no unique fixed port. |
-| `music-visualizer` | Diverged audio/web work; no unique fixed port beyond interfaces already represented on `master` such as the OAuth callback. |
-| `music-visualizer-refresh` | Diverged audio/web refresh; no unique fixed port. |
-| `navigation-google-earth` | Diverged browser/Google Earth integration; no unique fixed local service port. |
-| `orc-ui-shell` | Fully behind `master`; no branch-only port. |
-| `orcui-sdrpp-integration` | **Adds branch-only TCP port 4533** for the OpenRoadCode SDR++ remote-control module. |
-| `portable_router` | Diverged network-router work; manages interfaces/NAT and a `192.168.8.1/24` bench LAN but introduces no fixed OpenRoadCode application port. |
-| `python3-dependencies-update` | Diverged legacy Qt/dependency work; no unique fixed port. |
-| `termux_target` | Fully behind `master`; no branch-only port. |
-| `text_input_device` | Diverged text-input/Valhalla work; remote text input is an in-process abstraction and adds no separate socket. Valhalla uses the existing route-planning interface. |
-| `ui_interfaces` | Fully behind `master`; no branch-only port. |
-| `ui-theme-css` | Diverged UI/automotive work; no unique fixed port. |
 
 ## Source-of-truth locations
 
@@ -102,6 +70,6 @@ The principal code/configuration locations behind this registry are:
 - `hardware_io/android/`
 - `hardware_io/automotive/elm327/elm327_tcp_device.py`
 - `controllers/video/youtube_music_video.py`
-- branch `orcui-sdrpp-integration`: `protocols/sdrpp_remote_control/client.py`
+- `protocols/sdrpp_remote_control/client.py`
 
 When code and this document disagree, treat the mismatch as a documentation defect or an undocumented interface change and reconcile both in the same pull request.
