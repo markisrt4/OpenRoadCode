@@ -87,7 +87,6 @@ class MapRequestHandler(MapRequestHandlerIf):
         )
 
     def request_zoom(self, zoom_level: float) -> None:
-        """Change zoom without changing the current follow/manual mode."""
         self._zoom_level = zoom_level
         self._send_camera()
 
@@ -120,18 +119,26 @@ class MapRequestHandler(MapRequestHandlerIf):
     def request_style(self, style_id: str) -> None:
         del style_id
 
-    def refresh_renderer_state(self) -> None:
-        """Replay persistent camera and POI state after a renderer restart."""
-        self._send_camera()
+    def refresh_renderer_state(
+        self,
+        *,
+        zoom_level: float | None = None,
+        bearing_rad: float | None = None,
+        pitch_rad: float | None = None,
+    ) -> None:
+        """Replay state, optionally with a non-persistent presentation camera."""
+        self._send_camera(
+            zoom_level=zoom_level,
+            bearing_rad=bearing_rad,
+            pitch_rad=pitch_rad,
+        )
         for category in self._poi_focus:
             self._renderer.set_poi_focus(category, True)
 
     def update_follow_center(self, position: GeoPoint) -> None:
-        """Update the vehicle-follow center without changing manual mode."""
         self.update_follow_camera(position)
 
     def update_follow_bearing(self, bearing_rad: float) -> None:
-        """Update automatic course-up bearing without disabling follow mode."""
         if not self._follow_enabled:
             return
         self._bearing_rad = bearing_rad
@@ -142,7 +149,6 @@ class MapRequestHandler(MapRequestHandlerIf):
         position: GeoPoint,
         bearing_rad: float | None = None,
     ) -> None:
-        """Update followed position and optional bearing with one camera command."""
         self._follow_center = position
         self._camera_initialized = True
         if not self._follow_enabled:
@@ -166,9 +172,19 @@ class MapRequestHandler(MapRequestHandlerIf):
         self.request_follow(False)
         self._send_camera()
 
-    def _send_camera(self) -> None:
+    def _send_camera(
+        self,
+        *,
+        zoom_level: float | None = None,
+        bearing_rad: float | None = None,
+        pitch_rad: float | None = None,
+    ) -> None:
         if not self._camera_initialized:
             return
-        self._renderer.set_camera(latitude=math.degrees(self._center.latitude_rad),
-            longitude=math.degrees(self._center.longitude_rad), zoom=self._zoom_level,
-            bearing=math.degrees(self._bearing_rad), pitch=math.degrees(self._pitch_rad))
+        self._renderer.set_camera(
+            latitude=math.degrees(self._center.latitude_rad),
+            longitude=math.degrees(self._center.longitude_rad),
+            zoom=self._zoom_level if zoom_level is None else zoom_level,
+            bearing=math.degrees(self._bearing_rad if bearing_rad is None else bearing_rad),
+            pitch=math.degrees(self._pitch_rad if pitch_rad is None else pitch_rad),
+        )
