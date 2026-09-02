@@ -142,13 +142,22 @@ class X11WindowEmbedder(WindowEmbedderIf):
             if geometry.returncode != 0:
                 continue
             width = height = 0
+            has_geometry = False
             for line in (geometry.stdout or "").splitlines():
                 if line.startswith("WIDTH="):
-                    try: width = int(line[6:])
-                    except ValueError: pass
+                    try:
+                        width = int(line[6:])
+                        has_geometry = True
+                    except ValueError:
+                        pass
                 elif line.startswith("HEIGHT="):
-                    try: height = int(line[7:])
-                    except ValueError: pass
+                    try:
+                        height = int(line[7:])
+                        has_geometry = True
+                    except ValueError:
+                        pass
+            if not has_geometry:
+                continue
             area = width * height
             if area > best_area:
                 best_area = area
