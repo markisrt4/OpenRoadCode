@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import subprocess
 from collections.abc import Sequence
 
 from .debian_command_runner import DebianCommandRunner
@@ -58,7 +57,6 @@ class DebianGameInstaller(GameInstallerIf):
             ["dpkg-query", "-W", "-f=${db:Status-Status}", package],
             capture_output=True,
             text=True,
-            stderr=subprocess.DEVNULL,
             check=False,
         )
         return result.returncode == 0 and result.stdout.strip() == "installed"
