@@ -23,18 +23,26 @@ MAIN_GROUPS = (
     ("FM", "♫ FM"),
     ("WEATHER", "☁ WEATHER"),
     ("AIR", "✈ AIR"),
-    ("HAM", "⌁ HAM"),
-    ("SCANNER", "⌁ SCANNER"),
+    ("HAM", "⌁ HAM ▾"),
+    ("SCANNER", "⌁ SCANNER ▾"),
+)
+HAM_BANDS = (
+    ("160M", "160 m"), ("80M", "80 m"), ("60M", "60 m"),
+    ("40M", "40 m"), ("30M", "30 m"), ("20M", "20 m"),
+    ("17M", "17 m"), ("15M", "15 m"), ("12M", "12 m"),
+    ("10M", "10 m"), ("6M", "6 m"), ("2M", "2 m"),
+    ("1.25M", "1.25 m"), ("70CM", "70 cm"), ("33CM", "33 cm"),
+    ("23CM", "23 cm"),
 )
 SCANNER_GROUPS = (
-    ("PUBLIC SAFETY", "★ PUBLIC SAFETY"),
-    ("FIRE/EMS", "✚ FIRE / EMS"),
-    ("LAW", "◆ LAW"),
-    ("RAIL", "▰ RAIL"),
-    ("MARINE", "≈ MARINE"),
-    ("AVIATION", "✈ AVIATION"),
-    ("BUSINESS", "▣ BUSINESS"),
-    ("UTILITIES", "⚡ UTILITIES"),
+    ("PUBLIC SAFETY", "★ Public Safety"),
+    ("FIRE/EMS", "✚ Fire / EMS"),
+    ("LAW", "◆ Law Enforcement"),
+    ("RAIL", "▰ Rail"),
+    ("MARINE", "≈ Marine"),
+    ("AVIATION", "✈ Aviation"),
+    ("BUSINESS", "▣ Business"),
+    ("UTILITIES", "⚡ Utilities"),
 )
 RADIO_GROUPS = tuple(name for name, _ in MAIN_GROUPS)
 
@@ -58,7 +66,7 @@ class RadioPanel(tk.Frame):
 
         self._groups = tk.Frame(self, bg=PANEL, highlightthickness=1, highlightbackground=BORDER)
         self._groups.grid(row=0, column=0, sticky="ew", pady=(0, 6))
-        self._show_main_groups()
+        self._build_group_bar()
 
         self._body = tk.Frame(self, bg=BG)
         self._body.grid(row=1, column=0, sticky="nsew")
@@ -80,36 +88,37 @@ class RadioPanel(tk.Frame):
         tk.Button(controls, text="PRESET ›", command=self._next_preset, bg=PANEL, fg=TEXT, relief=tk.FLAT, bd=0, padx=12, pady=7).grid(row=0, column=4, rowspan=2, sticky="ns")
         self._apply_radio_state(self._radio.state)
 
-    def _clear_group_bar(self) -> None:
-        for widget in self._groups.winfo_children():
-            widget.destroy()
-        self._group_buttons.clear()
-
-    def _nav_button(self, key: str, label: str, command, *, expand: bool = True) -> tk.Button:
-        button = tk.Button(self._groups, text=label, command=command, bg=PANEL, fg=TEXT, activebackground="#17232d", activeforeground=GREEN, relief=tk.FLAT, bd=0, font=("Sans", 9, "bold"), padx=9, pady=7)
-        button.pack(side=tk.LEFT, fill=tk.X, expand=expand)
-        self._group_buttons[key] = button
-        return button
-
-    def _show_main_groups(self) -> None:
-        self._clear_group_bar()
+    def _build_group_bar(self) -> None:
         for name, label in MAIN_GROUPS:
-            command = self._show_scanner_groups if name == "SCANNER" else lambda group=name: self.select_group(group)
-            self._nav_button(name, label, command)
+            if name == "HAM":
+                command = lambda: self._show_band_menu("HAM", HAM_BANDS)
+            elif name == "SCANNER":
+                command = lambda: self._show_band_menu("SCANNER", SCANNER_GROUPS)
+            else:
+                command = lambda group=name: self.select_group(group)
+            button = tk.Button(self._groups, text=label, command=command, bg=PANEL, fg=TEXT, activebackground="#17232d", activeforeground=GREEN, relief=tk.FLAT, bd=0, font=("Sans", 9, "bold"), padx=9, pady=7)
+            button.pack(side=tk.LEFT, fill=tk.X, expand=True)
+            self._group_buttons[name] = button
         self._controls_button = tk.Button(self._groups, text="☰ CONTROLS", command=self._toggle_drawer, bg=PANEL, fg=TEXT, activebackground="#17232d", activeforeground=GREEN, relief=tk.FLAT, bd=0, font=("Sans", 9, "bold"), padx=12, pady=7)
         self._controls_button.pack(side=tk.RIGHT)
         self._paint_groups()
 
-    def _show_scanner_groups(self) -> None:
-        self._active_group = "SCANNER"
-        self._clear_group_bar()
-        self._nav_button("BACK", "‹ BACK", self._show_main_groups, expand=False)
-        for name, label in SCANNER_GROUPS:
-            self._nav_button(name, label, lambda group=name: self._select_scanner_group(group))
+    def _show_band_menu(self, parent_group: str, entries: tuple[tuple[str, str], ...]) -> None:
+        self._active_group = parent_group
         self._paint_groups()
+        button = self._group_buttons[parent_group]
+        menu = tk.Menu(self, tearoff=False, bg=PANEL, fg=TEXT, activebackground="#17232d", activeforeground=GREEN, bd=1, relief=tk.FLAT, font=("Sans", 11))
+        for key, label in entries:
+            menu.add_command(label=label, command=lambda selected=key: self._select_subgroup(parent_group, selected))
+        x = button.winfo_rootx()
+        y = button.winfo_rooty() + button.winfo_height()
+        try:
+            menu.tk_popup(x, y)
+        finally:
+            menu.grab_release()
 
-    def _select_scanner_group(self, name: str) -> None:
-        self._active_group = name
+    def _select_subgroup(self, parent_group: str, subgroup: str) -> None:
+        self._active_group = f"{parent_group}:{subgroup}"
         self._paint_groups()
 
     @property
@@ -194,6 +203,7 @@ class RadioPanel(tk.Frame):
     def _apply_radio_state(self, state: OrcUiRadioState) -> None: self.set_station(state.label, state.frequency_hz, state.mode_name)
     def _on_host_resize(self, event: tk.Event) -> None: self._embedder.resize(event.width, event.height)
     def _paint_groups(self) -> None:
+        parent_active = self._active_group.split(":", 1)[0]
         for name, button in self._group_buttons.items():
-            active = name == self._active_group
+            active = name == parent_active
             button.configure(fg=GREEN if active else TEXT, bg="#101820" if active else PANEL)
