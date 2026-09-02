@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 from controllers.poi.poi_enricher import enrich_poi
-from controllers.poi.poi_models import PoiCategory, PointOfInterest
+from controllers.poi.poi_models import PoiCategory, PoiSearchResult, PointOfInterest
 from controllers.poi.poi_search_controller_if import PoiSearchControllerIf
 from protocols.map_renderer.map_poi_source import MapPoiSource, RawMapPoi
 
@@ -27,6 +27,23 @@ class PoiSearchController(PoiSearchControllerIf):
         if raw is None:
             return None
         return enrich_poi(self._to_poi(raw))
+
+    def poll_search_result(self) -> PoiSearchResult | None:
+        raw = self._source.poll_search_result()
+        if raw is None:
+            return None
+        try:
+            category = PoiCategory[raw.category.upper()]
+        except KeyError:
+            category = PoiCategory.OTHER
+        return PoiSearchResult(
+            category=category,
+            count=raw.count,
+            south=raw.south,
+            west=raw.west,
+            north=raw.north,
+            east=raw.east,
+        )
 
     def clear(self) -> None:
         self._active_category = None
