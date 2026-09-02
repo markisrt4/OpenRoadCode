@@ -17,8 +17,17 @@ class WindowEmbedderIf(ABC):
         """Return the currently embedded native window identifier."""
 
     @abstractmethod
-    def embed(self, process_id: int, host_window_id: int, width: int, height: int) -> int:
-        """Embed a process window into the supplied frontend host."""
+    def embed(
+        self,
+        process_id: int,
+        host_window_id: int,
+        width: int,
+        height: int,
+        *,
+        window_name: str | None = None,
+        window_class: str | None = None,
+    ) -> int:
+        """Embed a matching application window into the supplied frontend host."""
 
     @abstractmethod
     def resize(self, width: int, height: int) -> None:
