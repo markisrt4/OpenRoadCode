@@ -37,6 +37,7 @@ target_include_directories(openroadcode-map-renderer PRIVATE
     ${MAPLIBRE_ROOT}/vendor/maplibre-native-base/deps/variant/include
     ${MAPLIBRE_ROOT}/vendor/maplibre-native-base/deps/cheap-ruler-cpp/include
     ${MAPLIBRE_ROOT}/vendor/rapidjson/include
+    ${MAPLIBRE_ROOT}/vendor/sqlite/include
 )
 
 target_compile_definitions(openroadcode-map-renderer PRIVATE
