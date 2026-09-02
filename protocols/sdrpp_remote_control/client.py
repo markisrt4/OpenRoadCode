@@ -6,24 +6,10 @@
 from __future__ import annotations
 
 import socket
-from dataclasses import dataclass
-
-
-@dataclass(frozen=True)
-class SDRPPTelemetry:
-    snr_db: float
-    center_frequency_hz: float
-    bandwidth_hz: float
-    view_bandwidth_hz: float
-    fft_min_db: float
-    fft_max_db: float
-    waterfall_min_db: float
-    waterfall_max_db: float
-    selected_vfo: str | None
 
 
 class SDRPPRemoteControlClient:
-    """Send application-control and telemetry commands to SDR++."""
+    """Send application-control commands to a running SDR++ instance."""
 
     def __init__(self, host: str = "127.0.0.1", port: int = 4533, timeout: float = 0.75) -> None:
         self.host = host
@@ -54,13 +40,6 @@ class SDRPPRemoteControlClient:
         if not response.startswith(prefix):
             raise RuntimeError(f"Unexpected SDR++ {name} response: {response!r}")
         return response[len(prefix):].strip()
-
-    def _get_float(self, name: str) -> float:
-        value = self._get_value(name)
-        try:
-            return float(value)
-        except ValueError as exc:
-            raise RuntimeError(f"Invalid SDR++ {name} value: {value!r}") from exc
 
     def _get_toggle(self, name: str) -> bool:
         value = self._get_value(name).lower()
@@ -113,47 +92,6 @@ class SDRPPRemoteControlClient:
     def get_fft_hold(self) -> bool: return self._get_toggle("fft_hold")
     def set_fft_hold(self, enabled: bool) -> bool: return self._set_toggle("fft_hold", enabled)
     def toggle_fft_hold(self) -> bool: return self._toggle("fft_hold")
-
-    def get_snr(self) -> float: return self._get_float("snr")
-    def get_center_frequency(self) -> float: return self._get_float("center_frequency")
-    def get_bandwidth(self) -> float: return self._get_float("bandwidth")
-    def get_view_bandwidth(self) -> float: return self._get_float("view_bandwidth")
-    def get_fft_min(self) -> float: return self._get_float("fft_min")
-    def get_fft_max(self) -> float: return self._get_float("fft_max")
-    def get_waterfall_min(self) -> float: return self._get_float("waterfall_min")
-    def get_waterfall_max(self) -> float: return self._get_float("waterfall_max")
-    def get_selected_vfo(self) -> str | None:
-        value = self._get_value("selected_vfo")
-        return None if value == "none" else value
-
-    def get_telemetry(self) -> SDRPPTelemetry:
-        response = self.send("GET telemetry")
-        prefix = "TELEMETRY "
-        if not response.startswith(prefix):
-            raise RuntimeError(f"Unexpected SDR++ telemetry response: {response!r}")
-        fields = {}
-        for item in response[len(prefix):].split():
-            key, separator, value = item.partition("=")
-            if separator:
-                fields[key] = value
-        required = {
-            "snr", "center_frequency", "bandwidth", "view_bandwidth",
-            "fft_min", "fft_max", "waterfall_min", "waterfall_max", "selected_vfo",
-        }
-        missing = required.difference(fields)
-        if missing:
-            raise RuntimeError(f"SDR++ telemetry missing fields: {', '.join(sorted(missing))}")
-        return SDRPPTelemetry(
-            snr_db=float(fields["snr"]),
-            center_frequency_hz=float(fields["center_frequency"]),
-            bandwidth_hz=float(fields["bandwidth"]),
-            view_bandwidth_hz=float(fields["view_bandwidth"]),
-            fft_min_db=float(fields["fft_min"]),
-            fft_max_db=float(fields["fft_max"]),
-            waterfall_min_db=float(fields["waterfall_min"]),
-            waterfall_max_db=float(fields["waterfall_max"]),
-            selected_vfo=None if fields["selected_vfo"] == "none" else fields["selected_vfo"],
-        )
 
     def auto_range(self) -> bool:
         response = self.send("ACTION auto_range")
