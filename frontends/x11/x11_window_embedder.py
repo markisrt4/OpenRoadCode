@@ -115,7 +115,7 @@ class X11WindowEmbedder(WindowEmbedderIf):
         """Return the last parsed result, retained for existing callers/tests."""
         if result.returncode != 0:
             return None
-        candidates = [line.strip() for line in result.stdout.splitlines() if line.strip()]
+        candidates = [line.strip() for line in (result.stdout or "").splitlines() if line.strip()]
         if not candidates:
             return None
         return int(candidates[-1])
@@ -125,7 +125,7 @@ class X11WindowEmbedder(WindowEmbedderIf):
         if result.returncode != 0:
             return None
         candidates: list[int] = []
-        for line in result.stdout.splitlines():
+        for line in (result.stdout or "").splitlines():
             try:
                 candidates.append(int(line.strip()))
             except ValueError:
@@ -142,7 +142,7 @@ class X11WindowEmbedder(WindowEmbedderIf):
             if geometry.returncode != 0:
                 continue
             width = height = 0
-            for line in geometry.stdout.splitlines():
+            for line in (geometry.stdout or "").splitlines():
                 if line.startswith("WIDTH="):
                     try: width = int(line[6:])
                     except ValueError: pass
