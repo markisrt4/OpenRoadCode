@@ -18,7 +18,25 @@ TEXT = "#edf2f5"
 MUTED = "#89959e"
 GREEN = "#84ce1f"
 RED = "#f15a16"
-RADIO_GROUPS = ("FM", "WEATHER", "AIR", "HAM", "SCANNER")
+
+MAIN_GROUPS = (
+    ("FM", "♫ FM"),
+    ("WEATHER", "☁ WEATHER"),
+    ("AIR", "✈ AIR"),
+    ("HAM", "⌁ HAM"),
+    ("SCANNER", "⌁ SCANNER"),
+)
+SCANNER_GROUPS = (
+    ("PUBLIC SAFETY", "★ PUBLIC SAFETY"),
+    ("FIRE/EMS", "✚ FIRE / EMS"),
+    ("LAW", "◆ LAW"),
+    ("RAIL", "▰ RAIL"),
+    ("MARINE", "≈ MARINE"),
+    ("AVIATION", "✈ AVIATION"),
+    ("BUSINESS", "▣ BUSINESS"),
+    ("UTILITIES", "⚡ UTILITIES"),
+)
+RADIO_GROUPS = tuple(name for name, _ in MAIN_GROUPS)
 
 
 class RadioPanel(tk.Frame):
@@ -38,15 +56,9 @@ class RadioPanel(tk.Frame):
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(1, weight=1)
 
-        groups = tk.Frame(self, bg=PANEL, highlightthickness=1, highlightbackground=BORDER)
-        groups.grid(row=0, column=0, sticky="ew", pady=(0, 6))
-        for name in RADIO_GROUPS:
-            button = tk.Button(groups, text=name, command=lambda group=name: self.select_group(group), bg=PANEL, fg=TEXT, activebackground="#17232d", activeforeground=GREEN, relief=tk.FLAT, bd=0, font=("Sans", 9, "bold"), padx=10, pady=7)
-            button.pack(side=tk.LEFT, fill=tk.X, expand=True)
-            self._group_buttons[name] = button
-        self._controls_button = tk.Button(groups, text="☰ CONTROLS", command=self._toggle_drawer, bg=PANEL, fg=TEXT, activebackground="#17232d", activeforeground=GREEN, relief=tk.FLAT, bd=0, font=("Sans", 9, "bold"), padx=14, pady=7)
-        self._controls_button.pack(side=tk.RIGHT)
-        self._paint_groups()
+        self._groups = tk.Frame(self, bg=PANEL, highlightthickness=1, highlightbackground=BORDER)
+        self._groups.grid(row=0, column=0, sticky="ew", pady=(0, 6))
+        self._show_main_groups()
 
         self._body = tk.Frame(self, bg=BG)
         self._body.grid(row=1, column=0, sticky="nsew")
@@ -68,6 +80,38 @@ class RadioPanel(tk.Frame):
         tk.Button(controls, text="PRESET ›", command=self._next_preset, bg=PANEL, fg=TEXT, relief=tk.FLAT, bd=0, padx=12, pady=7).grid(row=0, column=4, rowspan=2, sticky="ns")
         self._apply_radio_state(self._radio.state)
 
+    def _clear_group_bar(self) -> None:
+        for widget in self._groups.winfo_children():
+            widget.destroy()
+        self._group_buttons.clear()
+
+    def _nav_button(self, key: str, label: str, command, *, expand: bool = True) -> tk.Button:
+        button = tk.Button(self._groups, text=label, command=command, bg=PANEL, fg=TEXT, activebackground="#17232d", activeforeground=GREEN, relief=tk.FLAT, bd=0, font=("Sans", 9, "bold"), padx=9, pady=7)
+        button.pack(side=tk.LEFT, fill=tk.X, expand=expand)
+        self._group_buttons[key] = button
+        return button
+
+    def _show_main_groups(self) -> None:
+        self._clear_group_bar()
+        for name, label in MAIN_GROUPS:
+            command = self._show_scanner_groups if name == "SCANNER" else lambda group=name: self.select_group(group)
+            self._nav_button(name, label, command)
+        self._controls_button = tk.Button(self._groups, text="☰ CONTROLS", command=self._toggle_drawer, bg=PANEL, fg=TEXT, activebackground="#17232d", activeforeground=GREEN, relief=tk.FLAT, bd=0, font=("Sans", 9, "bold"), padx=12, pady=7)
+        self._controls_button.pack(side=tk.RIGHT)
+        self._paint_groups()
+
+    def _show_scanner_groups(self) -> None:
+        self._active_group = "SCANNER"
+        self._clear_group_bar()
+        self._nav_button("BACK", "‹ BACK", self._show_main_groups, expand=False)
+        for name, label in SCANNER_GROUPS:
+            self._nav_button(name, label, lambda group=name: self._select_scanner_group(group))
+        self._paint_groups()
+
+    def _select_scanner_group(self, name: str) -> None:
+        self._active_group = name
+        self._paint_groups()
+
     @property
     def host_window_id(self) -> int:
         self.update_idletasks(); return int(self._host.winfo_id())
@@ -86,8 +130,7 @@ class RadioPanel(tk.Frame):
 
     def attach_sdrpp(self, process_id: int = 0) -> int:
         self.update_idletasks()
-        window_id = self._embedder.embed(process_id, self.host_window_id, self._host.winfo_width(), self._host.winfo_height(), window_name="SDR++")
-        return window_id
+        return self._embedder.embed(process_id, self.host_window_id, self._host.winfo_width(), self._host.winfo_height(), window_name="SDR++")
 
     def detach_sdrpp(self, parent_window_id: int) -> None: self._embedder.detach(parent_window_id)
     def clear_embedding(self) -> None: self._embedder.clear()
@@ -100,8 +143,7 @@ class RadioPanel(tk.Frame):
             return
         if self._drawer is None: self._build_drawer()
         self._drawer.place(relx=1.0, rely=0.0, relheight=1.0, width=250, anchor="ne")
-        self._drawer.lift()
-        self._drawer_open = True
+        self._drawer.lift(); self._drawer_open = True
         self._controls_button.configure(fg=GREEN, bg="#101820")
         self._refresh_display_controls()
 
@@ -110,11 +152,7 @@ class RadioPanel(tk.Frame):
         header = tk.Frame(self._drawer, bg="#101820"); header.pack(fill=tk.X)
         tk.Label(header, text="RADIO CONTROLS", bg="#101820", fg=TEXT, font=("Sans", 11, "bold"), padx=12, pady=10).pack(side=tk.LEFT)
         tk.Button(header, text="✕", command=self._toggle_drawer, bg="#101820", fg=MUTED, activeforeground=TEXT, relief=tk.FLAT, bd=0, padx=12, pady=10).pack(side=tk.RIGHT)
-        for key, label, action in (
-            ("waterfall", "WATERFALL", self._toggle_waterfall),
-            ("bandplan", "BANDPLAN", self._toggle_bandplan),
-            ("fft_hold", "PEAK HOLD", self._toggle_fft_hold),
-        ):
+        for key, label, action in (("waterfall", "WATERFALL", self._toggle_waterfall), ("bandplan", "BANDPLAN", self._toggle_bandplan), ("fft_hold", "PEAK HOLD", self._toggle_fft_hold)):
             button = tk.Button(self._drawer, text=label, command=action, anchor="w", bg=PANEL, fg=MUTED, activebackground="#17232d", activeforeground=GREEN, relief=tk.FLAT, bd=0, font=("Sans", 10, "bold"), padx=16, pady=13)
             button.pack(fill=tk.X); self._display_buttons[key] = button
         tk.Frame(self._drawer, bg=BORDER, height=1).pack(fill=tk.X, padx=12, pady=4)
@@ -138,11 +176,7 @@ class RadioPanel(tk.Frame):
         except (OSError, RuntimeError, ValueError) as error: print(f"WARNING: SDR++ auto range: {type(error).__name__}: {error}")
 
     def _refresh_display_controls(self) -> None:
-        for key, label, getter in (
-            ("waterfall", "WATERFALL", self._sdrpp.waterfall_visible),
-            ("bandplan", "BANDPLAN", self._sdrpp.bandplan_visible),
-            ("fft_hold", "PEAK HOLD", self._sdrpp.fft_hold_enabled),
-        ):
+        for key, label, getter in (("waterfall", "WATERFALL", self._sdrpp.waterfall_visible), ("bandplan", "BANDPLAN", self._sdrpp.bandplan_visible), ("fft_hold", "PEAK HOLD", self._sdrpp.fft_hold_enabled)):
             try: self._paint_toggle(key, label, getter())
             except (OSError, RuntimeError, ValueError): self._display_buttons[key].configure(text=label, fg=MUTED, bg=PANEL)
 
