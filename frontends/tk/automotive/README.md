@@ -4,6 +4,40 @@ This package contains reusable Tk automotive screens and panels. Widgets here
 present values through toolkit-independent contracts from `ui`; they do not
 construct, poll, calibrate, or stop controllers and hardware.
 
+## Theme architecture
+
+Automotive presentation uses the shared OpenRoadCode theme pipeline rather than
+application-local color rewriting:
+
+```text
+orc-dark.css / orc-light.css
+        |
+        v
+    StyleSheet
+        |
+        +--> VehicleGaugeTheme
+        +--> ShifterTheme
+        +--> OffroadTheme
+        |
+        v
+     Tk widgets
+```
+
+`ThemeController` owns the selected `ThemeMode` and active `ThemeBundle` without
+knowing how a frontend renders them. Tk-specific code resolves the stylesheet
+into typed frontend themes. Controllers, telemetry producers, and hardware
+therefore remain independent of Tk and CSS.
+
+The automotive stylesheet selectors are `.automotive-gauge`,
+`.automotive-shifter`, and `.automotive-offroad`. Widgets should consume the
+active stylesheet through `set_style_sheet()` or a typed `set_theme()` method
+instead of embedding ORC palette constants in application screens.
+
+Page surfaces and instrument surfaces are intentionally separate. Light mode
+can use a light dashboard background while retaining a dark round gauge face or
+shifter cluster. Linear telemetry cards have dedicated surface, text, and muted
+text properties so their values remain readable in either mode.
+
 ## Off-road dashboard
 
 `OffroadDashboardPanel` renders vehicle attitude, linear acceleration,
