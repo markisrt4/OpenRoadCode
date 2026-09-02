@@ -80,8 +80,14 @@ def validate_vehicle_state(payload: Mapping[str, Any]) -> None:
     data = payload["data"]
     if not isinstance(data, Mapping):
         raise ValueError("vehicle state data must be an object")
-    if set(data) != DATA_FIELDS:
-        raise ValueError("vehicle state data contains missing or unknown fields")
+    actual_fields = set(data)
+    if actual_fields != DATA_FIELDS:
+        missing = sorted(DATA_FIELDS - actual_fields)
+        unknown = sorted(actual_fields - DATA_FIELDS)
+        raise ValueError(
+            "vehicle state data schema mismatch: "
+            f"missing={missing}, unknown={unknown}"
+        )
 
     gear = data["transmission_gear"]
     if gear is not None and (
