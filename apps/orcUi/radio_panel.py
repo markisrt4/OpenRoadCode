@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import tkinter as tk
+from collections.abc import Callable
 
 from apps.orcUi.radio_control import OrcUiRadioControl, OrcUiRadioState
 from apps.orcUi.sdrpp_control import OrcUiSdrppControl
@@ -22,7 +23,7 @@ RED = "#f15a16"
 MAIN_GROUPS = (
     ("FM", "♫ FM"),
     ("WEATHER", "☁ WEATHER"),
-    ("AIR", "✈ AIR"),
+    ("AIR", "✈ AIR ▾"),
     ("HAM", "⌁ HAM ▾"),
     ("SCANNER", "⌁ SCANNER ▾"),
 )
@@ -50,11 +51,12 @@ RADIO_GROUPS = tuple(name for name, _ in MAIN_GROUPS)
 class RadioPanel(tk.Frame):
     """Automotive controls wrapped around an embedded SDR++ viewport."""
 
-    def __init__(self, parent: tk.Misc, *, embedder: X11WindowEmbedder | None = None, radio_control: OrcUiRadioControl | None = None, sdrpp_control: OrcUiSdrppControl | None = None) -> None:
+    def __init__(self, parent: tk.Misc, *, embedder: X11WindowEmbedder | None = None, radio_control: OrcUiRadioControl | None = None, sdrpp_control: OrcUiSdrppControl | None = None, on_adsb: Callable[[], None] | None = None) -> None:
         super().__init__(parent, bg=BG)
         self._embedder = embedder or X11WindowEmbedder()
         self._radio = radio_control or OrcUiRadioControl()
         self._sdrpp = sdrpp_control or OrcUiSdrppControl()
+        self._on_adsb = on_adsb
         self._active_group = "FM"
         self._group_buttons: dict[str, tk.Button] = {}
         self._drawer_open = False
@@ -90,7 +92,9 @@ class RadioPanel(tk.Frame):
 
     def _build_group_bar(self) -> None:
         for name, label in MAIN_GROUPS:
-            if name == "HAM":
+            if name == "AIR":
+                command = self._show_air_menu
+            elif name == "HAM":
                 command = lambda: self._show_band_menu("HAM", HAM_BANDS)
             elif name == "SCANNER":
                 command = lambda: self._show_band_menu("SCANNER", SCANNER_GROUPS)
@@ -103,6 +107,17 @@ class RadioPanel(tk.Frame):
         self._controls_button.pack(side=tk.RIGHT)
         self._paint_groups()
 
+    def _show_air_menu(self) -> None:
+        self._active_group = "AIR"
+        self._paint_groups()
+        button = self._group_buttons["AIR"]
+        menu = tk.Menu(self, tearoff=False, bg=PANEL, fg=TEXT, activebackground="#17232d", activeforeground=GREEN, bd=1, relief=tk.FLAT, font=("Sans", 11))
+        menu.add_command(label="Airband Voice", command=lambda: self.select_group("AIR"))
+        if self._on_adsb is not None:
+            menu.add_separator()
+            menu.add_command(label="✈ ADS-B Aircraft Map", command=self._on_adsb)
+        self._popup_menu(menu, button)
+
     def _show_band_menu(self, parent_group: str, entries: tuple[tuple[str, str], ...]) -> None:
         self._active_group = parent_group
         self._paint_groups()
@@ -110,6 +125,10 @@ class RadioPanel(tk.Frame):
         menu = tk.Menu(self, tearoff=False, bg=PANEL, fg=TEXT, activebackground="#17232d", activeforeground=GREEN, bd=1, relief=tk.FLAT, font=("Sans", 11))
         for key, label in entries:
             menu.add_command(label=label, command=lambda selected=key: self._select_subgroup(parent_group, selected))
+        self._popup_menu(menu, button)
+
+    @staticmethod
+    def _popup_menu(menu: tk.Menu, button: tk.Button) -> None:
         x = button.winfo_rootx()
         y = button.winfo_rooty() + button.winfo_height()
         try:
