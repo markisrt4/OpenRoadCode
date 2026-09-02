@@ -13,13 +13,8 @@ CACHE_ROOT="${OPENROADCODE_CACHE_ROOT:-$HOME/.cache/openroadcode}"
 DISPLAY_VALUE="${DISPLAY:-:1}"
 BROKER_SUBSCRIBER_ENDPOINT="${OPENROADCODE_BROKER_SUBSCRIBER_ENDPOINT:-tcp://127.0.0.1:5557}"
 RENDERER="$INSTALL_ROOT/bin/openroadcode-map-renderer"
-RUNTIME_CONFIG="$HOME/.local/state/openroadcode/navigation/navigation.termux.toml"
-CONFIG="${OPENROADCODE_NAVIGATION_CONFIG:-$RUNTIME_CONFIG}"
+CONFIG="${OPENROADCODE_NAVIGATION_CONFIG:-$CONFIG_ROOT/navigation.toml}"
 STYLE="$DATA_ROOT/maps/styles/openroadcode.json"
-
-if [[ ! -f "$CONFIG" && -z "${OPENROADCODE_NAVIGATION_CONFIG:-}" ]]; then
-  CONFIG="$CONFIG_ROOT/navigation.toml"
-fi
 
 [[ -x "$RENDERER" ]] || {
   echo "OpenRoadCode map renderer is not installed: $RENDERER" >&2
