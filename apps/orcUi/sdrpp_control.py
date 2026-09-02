@@ -14,14 +14,14 @@ class OrcUiSdrppControl:
     def __init__(self, client: SDRPPRemoteControlClient | None = None) -> None:
         self._client = client or SDRPPRemoteControlClient()
 
-    def waterfall_visible(self) -> bool:
-        """Return whether SDR++ is currently showing its waterfall."""
-        return self._client.get_waterfall()
+    def waterfall_visible(self) -> bool: return self._client.get_waterfall()
+    def set_waterfall_visible(self, visible: bool) -> bool: return self._client.set_waterfall(visible)
+    def toggle_waterfall(self) -> bool: return self._client.toggle_waterfall()
 
-    def set_waterfall_visible(self, visible: bool) -> bool:
-        """Show or hide the SDR++ waterfall immediately."""
-        return self._client.set_waterfall(visible)
+    def bandplan_visible(self) -> bool: return self._client.get_bandplan()
+    def toggle_bandplan(self) -> bool: return self._client.toggle_bandplan()
 
-    def toggle_waterfall(self) -> bool:
-        """Toggle the SDR++ waterfall and return its new visible state."""
-        return self._client.toggle_waterfall()
+    def fft_hold_enabled(self) -> bool: return self._client.get_fft_hold()
+    def toggle_fft_hold(self) -> bool: return self._client.toggle_fft_hold()
+
+    def auto_range(self) -> bool: return self._client.auto_range()
