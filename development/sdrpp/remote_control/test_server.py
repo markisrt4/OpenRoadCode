@@ -12,102 +12,79 @@ from dataclasses import dataclass
 class RemoteControlState:
     themes: tuple[str, ...] = ("Dark", "Light", "Dracula", "Grey")
     current_theme: str = "Dark"
+    waterfall: bool = True
+    bandplan: bool = True
+    fft_hold: bool = False
+    snr: float = 24.5
+    center_frequency: float = 104_300_000.0
+    bandwidth: float = 2_400_000.0
+    view_bandwidth: float = 2_400_000.0
+    fft_min: float = -120.0
+    fft_max: float = -20.0
+    waterfall_min: float = -120.0
+    waterfall_max: float = -20.0
+    selected_vfo: str = "Radio"
 
     def handle(self, command: str) -> str:
         command = command.strip()
-        if not command:
-            return "ERROR empty-command"
-
-        if command == "PING":
-            return "OK"
-
-        if command == "GET theme":
-            return f"VALUE theme {self.current_theme}"
-
-        if command == "GET themes":
-            return f"VALUES themes {'|'.join(self.themes)}"
-
+        if not command: return "ERROR empty-command"
+        if command == "PING": return "OK"
+        if command == "GET theme": return f"VALUE theme {self.current_theme}"
+        if command == "GET themes": return f"VALUES themes {'|'.join(self.themes)}"
+        for name in ("waterfall", "bandplan", "fft_hold"):
+            if command == f"GET {name}": return f"VALUE {name} {'on' if getattr(self, name) else 'off'}"
+            if command == f"TOGGLE {name}":
+                setattr(self, name, not getattr(self, name)); return f"VALUE {name} {'on' if getattr(self, name) else 'off'}"
+            if command.startswith(f"SET {name} "):
+                value = command.split()[-1]
+                if value not in ("on", "off"): return "ERROR invalid-value"
+                setattr(self, name, value == "on"); return "OK"
+        values = ("snr", "center_frequency", "bandwidth", "view_bandwidth", "fft_min", "fft_max", "waterfall_min", "waterfall_max", "selected_vfo")
+        for name in values:
+            if command == f"GET {name}": return f"VALUE {name} {getattr(self, name)}"
+        if command == "GET telemetry":
+            return "TELEMETRY " + " ".join(f"{name}={getattr(self, name)}" for name in values)
+        if command == "ACTION auto_range": return "OK"
         prefix = "SET theme "
         if command.startswith(prefix):
             requested = command[len(prefix):].strip()
-            if requested not in self.themes:
-                return "ERROR invalid-value"
-            self.current_theme = requested
-            return "OK"
-
+            if requested not in self.themes: return "ERROR invalid-value"
+            self.current_theme = requested; return "OK"
         return "ERROR unknown-command"
 
 
 class RemoteControlRequestHandler(socketserver.StreamRequestHandler):
     def handle(self) -> None:
         state: RemoteControlState = self.server.state  # type: ignore[attr-defined]
-        peer = f"{self.client_address[0]}:{self.client_address[1]}"
-        print(f"[connect] {peer}", flush=True)
-
+        peer = f"{self.client_address[0]}:{self.client_address[1]}"; print(f"[connect] {peer}", flush=True)
         while raw_line := self.rfile.readline():
-            command = raw_line.decode("utf-8", errors="replace").rstrip("\r\n")
-            response = state.handle(command)
-            print(f"[rx] {command!r}", flush=True)
-            print(f"[tx] {response!r}", flush=True)
-            self.wfile.write((response + "\n").encode("utf-8"))
-            self.wfile.flush()
-
+            command = raw_line.decode("utf-8", errors="replace").rstrip("\r\n"); response = state.handle(command)
+            print(f"[rx] {command!r}", flush=True); print(f"[tx] {response!r}", flush=True); self.wfile.write((response + "\n").encode("utf-8")); self.wfile.flush()
         print(f"[disconnect] {peer}", flush=True)
 
 
 class RemoteControlTestServer(socketserver.ThreadingTCPServer):
-    allow_reuse_address = True
-    daemon_threads = True
-
-    def __init__(
-        self,
-        server_address: tuple[str, int],
-        state: RemoteControlState,
-    ) -> None:
-        self.state = state
-        super().__init__(server_address, RemoteControlRequestHandler)
+    allow_reuse_address = True; daemon_threads = True
+    def __init__(self, server_address: tuple[str, int], state: RemoteControlState) -> None:
+        self.state = state; super().__init__(server_address, RemoteControlRequestHandler)
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description="Fake SDR++ remote-control server for validating line protocol exchanges."
-    )
-    parser.add_argument("--host", default="127.0.0.1")
-    parser.add_argument("--port", type=int, default=4533)
-    parser.add_argument(
-        "--themes",
-        default="Dark,Light,Dracula,Grey",
-        help="Comma-separated themes exposed by GET themes.",
-    )
-    parser.add_argument(
-        "--theme",
-        default="Dark",
-        help="Initial current theme.",
-    )
+    parser = argparse.ArgumentParser(description="Fake SDR++ remote-control server for validating line protocol exchanges.")
+    parser.add_argument("--host", default="127.0.0.1"); parser.add_argument("--port", type=int, default=4533)
+    parser.add_argument("--themes", default="Dark,Light,Dracula,Grey"); parser.add_argument("--theme", default="Dark")
     return parser.parse_args()
 
 
 def main() -> None:
-    args = parse_args()
-    themes = tuple(value.strip() for value in args.themes.split(",") if value.strip())
-    if not themes:
-        raise SystemExit("At least one theme is required")
-    if args.theme not in themes:
-        raise SystemExit(f"Initial theme {args.theme!r} is not in --themes")
-
+    args = parse_args(); themes = tuple(value.strip() for value in args.themes.split(",") if value.strip())
+    if not themes: raise SystemExit("At least one theme is required")
+    if args.theme not in themes: raise SystemExit(f"Initial theme {args.theme!r} is not in --themes")
     state = RemoteControlState(themes=themes, current_theme=args.theme)
     with RemoteControlTestServer((args.host, args.port), state) as server:
-        print(
-            f"Fake SDR++ remote-control server listening on {args.host}:{args.port}",
-            flush=True,
-        )
-        print(f"Themes: {', '.join(themes)}", flush=True)
-        print(f"Current theme: {state.current_theme}", flush=True)
-        try:
-            server.serve_forever()
-        except KeyboardInterrupt:
-            print("\nStopping.", flush=True)
+        print(f"Fake SDR++ remote-control server listening on {args.host}:{args.port}", flush=True)
+        try: server.serve_forever()
+        except KeyboardInterrupt: print("\nStopping.", flush=True)
 
 
-if __name__ == "__main__":
-    main()
+if __name__ == "__main__": main()
