@@ -175,6 +175,7 @@ Architecture references:
 - [Architecture overview](docs/architecture.md)
 - [Messaging overview and subscriber quick start](messaging/README.md)
 - [Message Bus Interface Design Description (IDD)](docs/messaging/message_bus_idd.md)
+- [Ethernet Interface Design Description and port registry](docs/ethernet_idd.md)
 - [Domain IDDs](docs/idd/)
 - [Navigation producer service](services/navigation/README.md)
 - [Automotive producer service](services/automotive/README.md)
@@ -261,6 +262,8 @@ New normalized public telemetry contracts use SI units unless the IDD explicitly
 
 Public request/reply commands are interfaces too. Document request fields, response fields, failure behavior, units, and ownership in an IDD when they cross a process boundary.
 
+When adding or changing a fixed IP port, listener, or explicitly configured network endpoint, update the [Ethernet IDD](docs/ethernet_idd.md) in the same change. Record the port owner, bind/connect address, transport, application protocol, and any platform or concurrency constraints. Do not introduce an undocumented default port and leave future contributors to discover it through `ss`, optimism, and increasingly creative language.
+
 ## Code style
 
 - Use `snake_case` for modules, functions, methods, and variables.
@@ -331,7 +334,7 @@ Before opening a pull request:
 - Run `python scripts/check_doxygen_contracts.py` after changing interfaces.
 - Exercise relevant component CLIs when changing hardware or service integrations.
 - Update configuration examples and documentation when behavior changes.
-- Update the applicable IDD, messaging documentation, and service README when adding or changing a public cross-process interface.
+- Update the applicable IDD, messaging documentation, service README, and Ethernet IDD when adding or changing a public cross-process or fixed-port network interface.
 - Remove secrets, generated files, debug output, and machine-specific paths.
 
 In the pull request description, tell us:
