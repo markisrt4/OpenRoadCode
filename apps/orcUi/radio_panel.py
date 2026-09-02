@@ -8,6 +8,7 @@ from __future__ import annotations
 import tkinter as tk
 
 from apps.orcUi.radio_control import OrcUiRadioControl, OrcUiRadioState
+from apps.orcUi.sdrpp_control import OrcUiSdrppControl
 from frontends.x11 import X11WindowEmbedder
 
 BG = "#05090d"
@@ -30,14 +31,17 @@ class RadioPanel(tk.Frame):
         *,
         embedder: X11WindowEmbedder | None = None,
         radio_control: OrcUiRadioControl | None = None,
+        sdrpp_control: OrcUiSdrppControl | None = None,
     ) -> None:
         super().__init__(parent, bg=BG)
         self._embedder = embedder or X11WindowEmbedder()
         self._radio = radio_control or OrcUiRadioControl()
+        self._sdrpp = sdrpp_control or OrcUiSdrppControl()
         self._active_group = "FM"
         self._group_buttons: dict[str, tk.Button] = {}
         self._station_label: tk.Label
         self._frequency_label: tk.Label
+        self._waterfall_button: tk.Button
         self._host: tk.Frame
 
         self.grid_columnconfigure(0, weight=1)
@@ -87,6 +91,8 @@ class RadioPanel(tk.Frame):
 
         tk.Button(controls, text="TUNE +", command=self._tune_up, bg=PANEL, fg=MUTED, activebackground="#17232d", activeforeground=GREEN, relief=tk.FLAT, bd=0, padx=10, pady=7).grid(row=0, column=3, rowspan=2, sticky="ns")
         tk.Button(controls, text="PRESET ›", command=self._next_preset, bg=PANEL, fg=TEXT, activebackground="#17232d", activeforeground=GREEN, relief=tk.FLAT, bd=0, padx=12, pady=7).grid(row=0, column=4, rowspan=2, sticky="ns")
+        self._waterfall_button = tk.Button(controls, text="WATERFALL", command=self._toggle_waterfall, bg=PANEL, fg=MUTED, activebackground="#17232d", activeforeground=GREEN, relief=tk.FLAT, bd=0, padx=10, pady=7)
+        self._waterfall_button.grid(row=0, column=5, rowspan=2, sticky="ns")
         self._apply_radio_state(self._radio.state)
 
     @property
@@ -112,7 +118,9 @@ class RadioPanel(tk.Frame):
 
     def attach_sdrpp(self, process_id: int = 0) -> int:
         self.update_idletasks()
-        return self._embedder.embed(process_id, self.host_window_id, self._host.winfo_width(), self._host.winfo_height(), window_name="SDR++")
+        window_id = self._embedder.embed(process_id, self.host_window_id, self._host.winfo_width(), self._host.winfo_height(), window_name="SDR++")
+        self._refresh_waterfall_button()
+        return window_id
 
     def detach_sdrpp(self, parent_window_id: int) -> None:
         self._embedder.detach(parent_window_id)
@@ -131,6 +139,26 @@ class RadioPanel(tk.Frame):
 
     def _tune_up(self) -> None:
         self._run_radio_action(self._radio.tune_up)
+
+    def _toggle_waterfall(self) -> None:
+        try:
+            self._paint_waterfall(self._sdrpp.toggle_waterfall())
+        except (OSError, RuntimeError, ValueError) as error:
+            self._waterfall_button.configure(text="WATERFALL !", fg=RED)
+            print(f"WARNING: SDR++ remote control: {type(error).__name__}: {error}")
+
+    def _refresh_waterfall_button(self) -> None:
+        try:
+            self._paint_waterfall(self._sdrpp.waterfall_visible())
+        except (OSError, RuntimeError, ValueError):
+            self._waterfall_button.configure(text="WATERFALL", fg=MUTED, bg=PANEL)
+
+    def _paint_waterfall(self, visible: bool) -> None:
+        self._waterfall_button.configure(
+            text="WATERFALL ON" if visible else "WATERFALL OFF",
+            fg=GREEN if visible else MUTED,
+            bg="#101820" if visible else PANEL,
+        )
 
     def _run_radio_action(self, action) -> None:
         try:
