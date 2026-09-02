@@ -5,7 +5,7 @@
 
 from abc import ABC, abstractmethod
 
-from controllers.poi.poi_models import PoiCategory, PointOfInterest
+from controllers.poi.poi_models import PoiCategory, PoiSearchResult, PointOfInterest
 
 
 class PoiSearchControllerIf(ABC):
@@ -19,6 +19,11 @@ class PoiSearchControllerIf(ABC):
     @abstractmethod
     def poll_selected(self) -> PointOfInterest | None:
         """Return the latest selected POI, if one is available."""
+        ...
+
+    @abstractmethod
+    def poll_search_result(self) -> PoiSearchResult | None:
+        """Return the latest completed POI search result, if available."""
         ...
 
     @abstractmethod
