@@ -5,7 +5,7 @@
 
 from __future__ import annotations
 
-from protocols.sdrpp_remote_control import SDRPPRemoteControlClient, SDRPPTelemetry
+from protocols.sdrpp_remote_control import SDRPPRemoteControlClient
 
 
 class OrcUiSdrppControl:
@@ -28,6 +28,3 @@ class OrcUiSdrppControl:
     def theme(self) -> str: return self._client.get_theme()
     def themes(self) -> tuple[str, ...]: return self._client.get_themes()
     def set_theme(self, theme: str) -> bool: return self._client.set_theme(theme)
-
-    def snr_db(self) -> float: return self._client.get_snr()
-    def telemetry(self) -> SDRPPTelemetry: return self._client.get_telemetry()
