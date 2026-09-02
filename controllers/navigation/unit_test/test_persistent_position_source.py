@@ -85,6 +85,43 @@ class PersistentPositionSourceTest(unittest.TestCase):
             self.assertIsNotNone(restored)
             self.assertEqual(42.1, restored.latitude_deg)  # type: ignore[union-attr]
 
+    def test_live_fixes_are_forwarded_while_cache_writes_are_throttled(self) -> None:
+        now = datetime(2026, 8, 9, 12, 0, 0)
+        current_time = [now]
+        cache = Mock()
+        cache.load.return_value = None
+        live = FakePositionSource()
+        states: list[PositionState] = []
+        source = PersistentPositionSource(
+            live,
+            cache,
+            persist_interval_seconds=15.0,
+            clock=lambda: current_time[0],
+        )
+        source.start(states.append)
+
+        def publish(latitude: float) -> None:
+            live.publish(
+                PositionState(
+                    received_at=current_time[0],
+                    latitude_deg=latitude,
+                    longitude_deg=-83.2,
+                    fix_mode=3,
+                    source="browser",
+                )
+            )
+
+        publish(42.1)
+        current_time[0] += timedelta(seconds=5)
+        publish(42.2)
+        current_time[0] += timedelta(seconds=10)
+        publish(42.3)
+
+        self.assertEqual(3, len(states))
+        self.assertEqual(2, cache.store.call_count)
+        self.assertEqual(42.1, cache.store.call_args_list[0].args[0].latitude_deg)
+        self.assertEqual(42.3, cache.store.call_args_list[1].args[0].latitude_deg)
+
     def test_expired_fix_is_not_published(self) -> None:
         now = datetime(2026, 8, 9, 12, 0, 0)
         cache = Mock()
@@ -106,6 +143,14 @@ class PersistentPositionSourceTest(unittest.TestCase):
         source.start(states.append)
 
         self.assertEqual([], states)
+
+    def test_negative_persist_interval_is_rejected(self) -> None:
+        with self.assertRaisesRegex(ValueError, "persist_interval_seconds"):
+            PersistentPositionSource(
+                FakePositionSource(),
+                Mock(),
+                persist_interval_seconds=-1.0,
+            )
 
 
 if __name__ == "__main__":
