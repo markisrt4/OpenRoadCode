@@ -56,7 +56,7 @@ class BrowserMotionSource(NavigationSensorIf):
     def __init__(
         self,
         host: str = "127.0.0.1",
-        port: int = 8766,
+        port: int = 8767,
         *,
         max_sample_age_seconds: float = 0.5,
     ) -> None:
