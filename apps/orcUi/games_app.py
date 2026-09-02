@@ -5,11 +5,19 @@
 
 from __future__ import annotations
 
+import threading
 import tkinter as tk
+from pathlib import Path
 
-from apps.orcUi.games_panel import GamesPanel
 from apps.orcUi.main import GREEN, OrcUiApp
 from apps.orcUi.orc_theme import ThemeMode, apply_tk_theme
+from controllers.games.game_catalog import load_game_catalog
+from controllers.games.game_controller import GameController
+from controllers.games.game_installer_factory import create_game_installers
+from controllers.games.game_launcher import GameLauncher
+from controllers.games.game_types import GameDefinition
+from frontends.tk.games import GamesPanel
+from frontends.x11.x11_window_embedder import X11WindowEmbedder
 
 
 class GamesOrcUiApp(OrcUiApp):
@@ -17,6 +25,10 @@ class GamesOrcUiApp(OrcUiApp):
 
     def __init__(self) -> None:
         self._games_panel: GamesPanel | None = None
+        self._games_controller: GameController | None = None
+        self._game_launcher = GameLauncher()
+        self._game_embedder = X11WindowEmbedder()
+        self._game_host: tk.Frame | None = None
         super().__init__()
 
     def _build_side_nav(self) -> None:
@@ -24,28 +36,14 @@ class GamesOrcUiApp(OrcUiApp):
         nav.grid(row=1, column=0, sticky="ns", padx=(8, 0), pady=6)
         nav.grid_propagate(False)
         for item in [
-            "HOME",
-            "NAVIGATION",
-            "RADIO",
-            "VEHICLE",
-            "LIGHTING",
-            "GAMES",
-            "CONTROLS",
-            "SETTINGS",
+            "HOME", "NAVIGATION", "RADIO", "VEHICLE", "LIGHTING",
+            "GAMES", "CONTROLS", "SETTINGS",
         ]:
             button = tk.Button(
-                nav,
-                text=item,
-                command=lambda name=item: self._select_nav(name),
-                bg="#070c11",
-                fg="#c7cdd2",
-                activebackground="#101820",
-                activeforeground=GREEN,
-                relief=tk.FLAT,
-                bd=0,
-                font=("Sans", 9),
-                height=2,
-                cursor="hand2",
+                nav, text=item, command=lambda name=item: self._select_nav(name),
+                bg="#070c11", fg="#c7cdd2", activebackground="#101820",
+                activeforeground=GREEN, relief=tk.FLAT, bd=0,
+                font=("Sans", 9), height=2, cursor="hand2",
             )
             button.pack(fill=tk.X, padx=4, pady=1)
             self._nav_buttons[item] = button
@@ -58,23 +56,90 @@ class GamesOrcUiApp(OrcUiApp):
         super()._select_nav(name)
 
     def _clear_content(self) -> None:
-        if self._games_panel is not None:
-            self._games_panel.stop()
-            self._games_panel = None
+        self._stop_game_runtime()
+        self._games_controller = None
+        self._games_panel = None
         super()._clear_content()
+
+    @staticmethod
+    def _load_games() -> list[GameDefinition]:
+        config = Path(__file__).resolve().parents[2] / "config" / "games.toml"
+        try:
+            return load_game_catalog(config)
+        except (OSError, KeyError, TypeError, ValueError):
+            return []
 
     def _show_games_panel(self) -> None:
         self._clear_content()
         self._active_nav = "GAMES"
         self._paint_nav()
-        self._games_panel = GamesPanel(self._content, on_back=self._show_home)
-        self._games_panel.pack(fill=tk.BOTH, expand=True)
+        panel = GamesPanel(self._content)
+        panel.pack(fill=tk.BOTH, expand=True)
+        controller = GameController(
+            games=self._load_games(),
+            installers=create_game_installers(),
+            run_work=lambda work: threading.Thread(target=work, daemon=True).start(),
+            run_ui=lambda work: self._root.after(0, work),
+            launch_game=self._launch_game_runtime,
+            stop_game=self._stop_game_runtime,
+        )
+        self._games_panel = panel
+        self._games_controller = controller
+        controller.set_games_ui(panel)
+        controller.start()
         if self._theme_mode is ThemeMode.LIGHT:
-            apply_tk_theme(self._games_panel, self._theme_mode)
+            apply_tk_theme(panel, self._theme_mode)
+
+    def _launch_game_runtime(self, game: GameDefinition, backend) -> None:
+        if self._game_launcher.is_running():
+            raise RuntimeError("A game is already running")
+        if not self._game_embedder.supported():
+            raise RuntimeError("Embedded games require xdotool")
+        panel = self._games_panel
+        if panel is None:
+            raise RuntimeError("Games panel is not active")
+        for child in panel._body.winfo_children():
+            child.destroy()
+        host = tk.Frame(panel._body, bg="#000000", highlightthickness=1, highlightbackground="#25313b")
+        host.pack(fill=tk.BOTH, expand=True, padx=4, pady=4)
+        host.update_idletasks()
+        host.bind("<Configure>", self._resize_game_runtime)
+        self._game_host = host
+        self._game_launcher.launch(game, backend.launch_command(game))
+        process_id = self._game_launcher.process_id
+        if process_id is None:
+            self._stop_game_runtime()
+            raise RuntimeError(f"{game.name} exited immediately")
+        host_id, width, height = host.winfo_id(), host.winfo_width(), host.winfo_height()
+        threading.Thread(
+            target=self._embed_game_runtime,
+            args=(process_id, host_id, width, height),
+            daemon=True,
+        ).start()
+
+    def _embed_game_runtime(self, process_id: int, host_id: int, width: int, height: int) -> None:
+        try:
+            self._game_embedder.embed(process_id, host_id, width, height)
+        except Exception:
+            self._root.after(0, self._game_embed_failed)
+
+    def _game_embed_failed(self) -> None:
+        self._stop_game_runtime()
+        controller = self._games_controller
+        if controller is not None:
+            controller.request_stop_game()
+
+    def _resize_game_runtime(self, event: tk.Event) -> None:
+        if self._game_embedder.window_id is not None:
+            self._game_embedder.resize(event.width, event.height)
+
+    def _stop_game_runtime(self) -> None:
+        self._game_launcher.stop()
+        self._game_embedder.clear()
+        self._game_host = None
 
     def _shutdown(self) -> None:
-        if self._games_panel is not None:
-            self._games_panel.stop()
+        self._stop_game_runtime()
         super()._shutdown()
 
 
