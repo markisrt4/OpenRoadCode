@@ -28,7 +28,6 @@ class GamesOrcUiApp(OrcUiApp):
         self._games_controller: GameController | None = None
         self._game_launcher = GameLauncher()
         self._game_embedder = X11WindowEmbedder()
-        self._game_host: tk.Frame | None = None
         super().__init__()
 
     def _build_side_nav(self) -> None:
@@ -98,19 +97,16 @@ class GamesOrcUiApp(OrcUiApp):
         panel = self._games_panel
         if panel is None:
             raise RuntimeError("Games panel is not active")
-        for child in panel._body.winfo_children():
-            child.destroy()
-        host = tk.Frame(panel._body, bg="#000000", highlightthickness=1, highlightbackground="#25313b")
-        host.pack(fill=tk.BOTH, expand=True, padx=4, pady=4)
-        host.update_idletasks()
-        host.bind("<Configure>", self._resize_game_runtime)
-        self._game_host = host
-        self._game_launcher.launch(game, backend.launch_command(game))
+        host_id, width, height = panel.show_runtime_host(self._resize_game_runtime)
+        try:
+            self._game_launcher.launch(game, backend.launch_command(game))
+        except Exception:
+            panel.hide_runtime_host()
+            raise
         process_id = self._game_launcher.process_id
         if process_id is None:
             self._stop_game_runtime()
             raise RuntimeError(f"{game.name} exited immediately")
-        host_id, width, height = host.winfo_id(), host.winfo_width(), host.winfo_height()
         threading.Thread(
             target=self._embed_game_runtime,
             args=(process_id, host_id, width, height),
@@ -124,19 +120,22 @@ class GamesOrcUiApp(OrcUiApp):
             self._root.after(0, self._game_embed_failed)
 
     def _game_embed_failed(self) -> None:
-        self._stop_game_runtime()
         controller = self._games_controller
         if controller is not None:
             controller.request_stop_game()
+        else:
+            self._stop_game_runtime()
 
-    def _resize_game_runtime(self, event: tk.Event) -> None:
+    def _resize_game_runtime(self, width: int, height: int) -> None:
         if self._game_embedder.window_id is not None:
-            self._game_embedder.resize(event.width, event.height)
+            self._game_embedder.resize(width, height)
 
     def _stop_game_runtime(self) -> None:
         self._game_launcher.stop()
         self._game_embedder.clear()
-        self._game_host = None
+        panel = self._games_panel
+        if panel is not None:
+            panel.hide_runtime_host()
 
     def _shutdown(self) -> None:
         self._stop_game_runtime()
