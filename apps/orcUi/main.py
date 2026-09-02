@@ -23,7 +23,8 @@ from apps.orcUi.navigation_presenter import (
     PositionPresentationState,
 )
 from apps.orcUi.offroad_panel import OffRoadPanel
-from apps.orcUi.orc_theme import ThemeMode, apply_tk_theme, install_map_style, toggle, toggle_label
+from apps.orcUi.orc_theme import ThemeMode, apply_tk_theme, install_map_style, toggle_label
+from apps.orcUi.theme_runtime import create_theme_controller
 from apps.orcUi.vehicle_panel import VehiclePanel
 from apps.orcUi.vehicle_presenter import VehiclePresenter, VehiclePresentationState
 from messaging.contracts.automotive import VEHICLE_STATE_TOPIC, VehicleStateMessage, decode_vehicle_state
@@ -61,7 +62,8 @@ class OrcUiApp:
         self._root.geometry("1024x600")
         self._root.minsize(1024, 600)
         self._root.configure(bg=BG)
-        self._theme_mode = ThemeMode.DARK
+        self._theme_controller = create_theme_controller()
+        self._theme_mode = self._theme_controller.mode
         self._theme_button: tk.Button
         self._power_button: tk.Button
         self._power_dialog: tk.Toplevel | None = None
@@ -406,7 +408,7 @@ class OrcUiApp:
         dialog.geometry(f"{width}x{height}+{x}+{y}")
 
     def _toggle_theme(self) -> None:
-        self._theme_mode = toggle(self._theme_mode)
+        self._theme_mode = self._theme_controller.toggle()
         install_map_style(self._theme_mode)
         apply_tk_theme(self._root, self._theme_mode)
         self._theme_button.configure(text=toggle_label(self._theme_mode))
