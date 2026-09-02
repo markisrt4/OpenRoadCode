@@ -10,8 +10,6 @@ from collections.abc import Callable
 
 from ui.navigation import GeoPoint, MapRequestHandlerIf
 
-_MIN_POI_FOCUS_ZOOM = 14.0
-
 
 class MapRequestHandler(MapRequestHandlerIf):
     """Maintain user-controlled camera state and issue native map commands."""
@@ -113,9 +111,6 @@ class MapRequestHandler(MapRequestHandlerIf):
         enabled = category not in self._poi_focus
         if enabled:
             self._poi_focus.add(category)
-            if self._zoom_level < _MIN_POI_FOCUS_ZOOM:
-                self._zoom_level = _MIN_POI_FOCUS_ZOOM
-                self._send_camera()
         else:
             self._poi_focus.remove(category)
         self._renderer.set_poi_focus(category, enabled)
