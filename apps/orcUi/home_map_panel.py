@@ -13,7 +13,7 @@ from ui.navigation import MapRequestHandlerIf
 PANEL = "#0b1117"
 BORDER = "#25313b"
 BLUE = "#168bd1"
-_HOME_MAP_ZOOM = 12.5
+_HOME_MAP_ZOOM = 12.0
 _HOME_MAP_BEARING_RAD = 0.0
 _HOME_MAP_PITCH_RAD = 0.0
 
@@ -44,16 +44,22 @@ class HomeMapPanel(tk.Frame):
 
     def _schedule_renderer_refresh(self) -> None:
         # PUB/SUB drops commands until the newly launched renderer has joined.
-        # Replay the HOME presentation a few times without mutating the shared
-        # navigation camera. HOME is deliberately flat, north-up, and wider.
+        # HOME is a presentation camera, not the navigation camera. With a
+        # known position it shows a flat local overview; otherwise it asks the
+        # renderer to frame the installed dataset instead of inventing (0, 0).
         for delay_ms in (300, 700, 1200):
             self.after(delay_ms, self._refresh_renderer_state)
 
     def _refresh_renderer_state(self) -> None:
-        refresh = getattr(self._request_handler, "refresh_renderer_state", None)
-        if refresh is not None:
-            refresh(
-                zoom_level=_HOME_MAP_ZOOM,
-                bearing_rad=_HOME_MAP_BEARING_RAD,
-                pitch_rad=_HOME_MAP_PITCH_RAD,
-            )
+        if bool(getattr(self._request_handler, "camera_initialized", False)):
+            refresh = getattr(self._request_handler, "refresh_renderer_state", None)
+            if refresh is not None:
+                refresh(
+                    zoom_level=_HOME_MAP_ZOOM,
+                    bearing_rad=_HOME_MAP_BEARING_RAD,
+                    pitch_rad=_HOME_MAP_PITCH_RAD,
+                )
+            return
+        overview = getattr(self._request_handler, "request_dataset_overview", None)
+        if overview is not None:
+            overview()
