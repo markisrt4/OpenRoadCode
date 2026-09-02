@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import os
 import tkinter as tk
+from collections.abc import Callable
 from pathlib import Path
 
 from ui.games import GameStatus, GameUiState, GamesRequestHandlerIf, GamesUiIf
@@ -35,6 +36,7 @@ class GamesPanel(tk.Frame, GamesUiIf):
         self._page_label: tk.Label
         self._prev_button: tk.Button
         self._next_button: tk.Button
+        self._runtime_host: tk.Frame | None = None
         self._filter = "all"
         self._page = 0
         self._filter_buttons: dict[str, tk.Button] = {}
@@ -46,7 +48,8 @@ class GamesPanel(tk.Frame, GamesUiIf):
 
     def set_games(self, games: tuple[GameUiState, ...]) -> None:
         self._games = tuple(games)
-        self._refresh_cards()
+        if self._runtime_host is None:
+            self._refresh_cards()
 
     def set_games_status(self, message: str) -> None:
         if message.startswith(("Install failed", "Launch failed", "Embed failed", "No runtime")):
@@ -58,6 +61,21 @@ class GamesPanel(tk.Frame, GamesUiIf):
         else:
             color = MUTED
         self._status.configure(text=message, fg=color)
+
+    def show_runtime_host(self, on_resize: Callable[[int, int], None]) -> tuple[int, int, int]:
+        """Replace game cards with a native-window host and return its geometry."""
+        self._clear_body()
+        host = tk.Frame(self._body, bg="#000000", highlightthickness=1, highlightbackground=BORDER)
+        host.pack(fill=tk.BOTH, expand=True, padx=4, pady=4)
+        host.update_idletasks()
+        host.bind("<Configure>", lambda event: on_resize(event.width, event.height))
+        self._runtime_host = host
+        return host.winfo_id(), host.winfo_width(), host.winfo_height()
+
+    def hide_runtime_host(self) -> None:
+        """Remove the native-window host and restore game cards."""
+        self._runtime_host = None
+        self._refresh_cards()
 
     def _build(self) -> None:
         toolbar = tk.Frame(self, bg=BG)
@@ -71,7 +89,6 @@ class GamesPanel(tk.Frame, GamesUiIf):
         self._status = tk.Label(toolbar, text="Checking games…", fg=BLUE, bg=BG, font=("Sans", 10))
         self._status.pack(side=tk.RIGHT, padx=8)
         self._update_filter_buttons()
-
         self._body = tk.Frame(self, bg=BG)
         self._body.pack(fill=tk.BOTH, expand=True)
         pager = tk.Frame(self, bg=BG)
@@ -85,12 +102,16 @@ class GamesPanel(tk.Frame, GamesUiIf):
         self._refresh_cards()
 
     def _set_filter(self, category: str) -> None:
+        if self._runtime_host is not None:
+            return
         self._filter = category
         self._page = 0
         self._update_filter_buttons()
         self._refresh_cards()
 
     def _change_page(self, delta: int) -> None:
+        if self._runtime_host is not None:
+            return
         games = self._visible_games()
         page_count = max(1, (len(games) + PAGE_SIZE - 1) // PAGE_SIZE)
         self._page = max(0, min(page_count - 1, self._page + delta))
@@ -173,9 +194,8 @@ class GamesPanel(tk.Frame, GamesUiIf):
     def _game_card(self, parent: tk.Misc, game: GameUiState) -> tk.Frame:
         card = tk.Frame(parent, bg=PANEL, highlightthickness=1, highlightbackground=BORDER)
         card.grid_columnconfigure(1, weight=1)
-        action = self._action_for(game)
-        actionable = action[1] is not None
-        label, command, accent = action
+        label, command, accent = self._action_for(game)
+        actionable = command is not None
         icon = self._icon_for(game)
         icon_box = tk.Frame(card, bg=PANEL, width=64, height=56)
         icon_box.grid(row=0, column=0, rowspan=3, padx=(10, 3), pady=5)
