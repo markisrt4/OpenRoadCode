@@ -18,7 +18,7 @@ class NavigationPanel(tk.Frame):
         runtime=get_shared_map_camera_runtime(); self._request_handler=map_request_handler or runtime.request_handler
         self._android_launcher=AndroidIntentLauncher(); self._poi_controller=PoiSearchController(); self._poi_card:tk.Frame|None=None
         self._zoom_level=float(getattr(self._request_handler,"zoom_level",16.5)); self._pitch_rad=float(getattr(self._request_handler,"pitch_rad",math.radians(45.0))); self._follow_enabled=bool(getattr(self._request_handler,"follow_enabled",True))
-        self._build(); self._schedule_renderer_refresh(); self.after(100,self._poll_poi_selection)
+        self._build(); self._schedule_renderer_refresh(); self.after(100,self._poll_poi_events)
     @property
     def map_host_window_id(self)->int: self.update_idletasks(); return self._map_host.winfo_id()
     def set_map_request_handler(self,handler:MapRequestHandlerIf|None)->None:
@@ -48,10 +48,17 @@ class NavigationPanel(tk.Frame):
         if category is not None:
             self._poi_controller.search(category); self._shortcut_status.set(f"Finding {category.name.casefold()} nearby…"); return
         self._poi_controller.clear(); messages={"home":"Home location not configured","work":"Work location not configured"}; self._shortcut_status.set(messages[shortcut]); self.after(2500,lambda:self._shortcut_status.set(""))
-    def _poll_poi_selection(self)->None:
+    def _poll_poi_events(self)->None:
+        result=self._poi_controller.poll_search_result()
+        if result is not None:
+            if result.count>0:
+                self.set_follow_enabled(False); fit=getattr(self._request_handler,"request_fit_bounds",None)
+                if fit is not None:fit(result.south,result.west,result.north,result.east,60.0)
+                noun=result.category.name.casefold(); self._shortcut_status.set(f"{result.count} {noun} result{'s' if result.count != 1 else ''}")
+            else:self._shortcut_status.set(f"No {result.category.name.casefold()} results in view")
         poi=self._poi_controller.poll_selected()
         if poi is not None:self._show_poi_card(poi)
-        if self.winfo_exists():self.after(100,self._poll_poi_selection)
+        if self.winfo_exists():self.after(100,self._poll_poi_events)
     def _show_poi_card(self,poi:PointOfInterest)->None:
         if self._poi_card is not None and self._poi_card.winfo_exists():self._poi_card.destroy()
         card=tk.Frame(self,bg=PANEL,highlightthickness=1,highlightbackground=RED); card.place(relx=.5,rely=.78,anchor=tk.CENTER,width=390,height=112); self._poi_card=card
