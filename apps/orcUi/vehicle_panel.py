@@ -15,6 +15,7 @@ from apps.orcUi.vehicle_presenter import VehiclePresentationState
 from frontends.tk.automotive import DEFAULT_GAUGES, OffroadDashboardPanel, ShifterGauge, VehicleGaugePanel
 from frontends.tk.automotive.vehicle_gauge_widgets import LinearGauge
 from ui.navigation import HeadingReference, PositionFix
+from ui.theme import ThemeBundle
 
 BG = "#000000"
 TAB_BG = "#101820"
@@ -38,8 +39,11 @@ class VehiclePanel(tk.Frame):
         state: VehiclePresentationState | None = None,
         position: PositionPresentationState | None = None,
         attitude: AttitudePresentationState | None = None,
+        theme_bundle: ThemeBundle | None = None,
     ) -> None:
-        super().__init__(parent, bg=BG)
+        self._theme_bundle = theme_bundle
+        background = theme_bundle.ui.background if theme_bundle is not None else BG
+        super().__init__(parent, bg=background)
         self._on_back = on_back
         self._state = state or VehiclePresentationState()
         self._position = position or PositionPresentationState()
@@ -55,18 +59,19 @@ class VehiclePanel(tk.Frame):
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(1, weight=1)
 
-        tabs = tk.Frame(self, bg=BG)
+        tabs = tk.Frame(self, bg=background)
         tabs.grid(row=0, column=0, sticky="ew", pady=(0, 4))
         for column, name in enumerate(self._TABS):
             tabs.grid_columnconfigure(column, weight=1)
+            ui_theme = theme_bundle.ui if theme_bundle is not None else None
             button = tk.Button(
                 tabs,
                 text=name,
                 command=lambda selected=name: self._show_view(selected),
-                bg=TAB_BG,
-                fg=TEXT,
-                activebackground=TAB_ACTIVE,
-                activeforeground=TEXT,
+                bg=ui_theme.control_background if ui_theme is not None else TAB_BG,
+                fg=ui_theme.control_text if ui_theme is not None else TEXT,
+                activebackground=ui_theme.control_active if ui_theme is not None else TAB_ACTIVE,
+                activeforeground=ui_theme.control_text if ui_theme is not None else TEXT,
                 relief=tk.FLAT,
                 bd=0,
                 font=("Sans", 9, "bold"),
@@ -75,7 +80,7 @@ class VehiclePanel(tk.Frame):
             button.grid(row=0, column=column, sticky="ew", padx=(0, 4))
             self._view_buttons[name] = button
 
-        self._view_host = tk.Frame(self, bg=BG)
+        self._view_host = tk.Frame(self, bg=background)
         self._view_host.grid(row=1, column=0, sticky="nsew")
         self._view_host.grid_columnconfigure(0, weight=1)
         self._view_host.grid_rowconfigure(0, weight=1)
@@ -85,9 +90,22 @@ class VehiclePanel(tk.Frame):
         if name not in self._TABS:
             raise ValueError(f"Unknown vehicle view: {name}")
         self._current_view = name
+        ui_theme = self._theme_bundle.ui if self._theme_bundle is not None else None
         for view_name, button in self._view_buttons.items():
             active = view_name == name
-            button.configure(bg=TAB_ACTIVE if active else TAB_BG, fg=TEXT if active else MUTED)
+            if ui_theme is None:
+                button.configure(
+                    bg=TAB_ACTIVE if active else TAB_BG,
+                    fg=TEXT if active else MUTED,
+                )
+            else:
+                button.configure(
+                    bg=ui_theme.control_active if active else ui_theme.control_background,
+                    fg=ui_theme.control_text if active else ui_theme.text_muted,
+                    activebackground=ui_theme.control_active,
+                    activeforeground=ui_theme.control_text,
+                    highlightbackground=ui_theme.border,
+                )
         if self._view_content is not None:
             self._view_content.destroy()
         self._view_content = None
@@ -117,6 +135,8 @@ class VehiclePanel(tk.Frame):
         panel._toolbar.grid_remove()  # type: ignore[attr-defined]
 
         shifter = ShifterGauge(host, height=58)
+        if self._theme_bundle is not None:
+            shifter.set_style_sheet(self._theme_bundle.style_sheet)
         shifter.grid(row=1, column=0, sticky="ew", padx=5, pady=(0, 3))
 
         self._gauges = panel
@@ -181,6 +201,27 @@ class VehiclePanel(tk.Frame):
         tk.Label(body, text=title, fg=TEXT, bg="#0b1117", font=("Sans", 22, "bold")).pack(pady=(80, 10))
         tk.Label(body, text=detail, fg=MUTED, bg="#0b1117", font=("Sans", 11)).pack()
         self._view_content = frame
+
+    def set_theme_bundle(self, theme_bundle: ThemeBundle) -> None:
+        """Apply the active application theme to ORC-owned vehicle controls."""
+
+        self._theme_bundle = theme_bundle
+        theme = theme_bundle.ui
+        self.configure(bg=theme.background)
+        self._view_host.configure(bg=theme.background)
+
+        for view_name, button in self._view_buttons.items():
+            active = view_name == self._current_view
+            button.configure(
+                bg=theme.control_active if active else theme.control_background,
+                fg=theme.control_text if active else theme.text_muted,
+                activebackground=theme.control_active,
+                activeforeground=theme.control_text,
+                highlightbackground=theme.border,
+            )
+
+        if self._shifter is not None:
+            self._shifter.set_style_sheet(theme_bundle.style_sheet)
 
     def update_state(self, state: VehiclePresentationState) -> None:
         self._state = state

@@ -412,6 +412,8 @@ class OrcUiApp:
         install_map_style(self._theme_mode)
         apply_tk_theme(self._root, self._theme_mode)
         self._theme_button.configure(text=toggle_label(self._theme_mode))
+        if self._vehicle_panel is not None and self._vehicle_panel.winfo_exists():
+            self._vehicle_panel.set_theme_bundle(self._theme_controller.bundle)
         self._paint_nav()
         self._reload_active_map()
 
@@ -530,6 +532,7 @@ class OrcUiApp:
             state=self._vehicle_state,
             position=self._position_state,
             attitude=self._attitude_state,
+            theme_bundle=self._theme_controller.bundle,
         )
         self._vehicle_panel.pack(fill=tk.BOTH, expand=True)
         if self._theme_mode is ThemeMode.LIGHT:
