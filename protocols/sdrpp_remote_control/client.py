@@ -73,3 +73,39 @@ class SDRPPRemoteControlClient:
         if response.startswith("ERROR "):
             return False
         raise RuntimeError(f"Unexpected SDR++ set-theme response: {response!r}")
+
+    def get_waterfall(self) -> bool:
+        """Return whether SDR++ is currently showing its waterfall."""
+        response = self.send("GET waterfall")
+        prefix = "VALUE waterfall "
+        if not response.startswith(prefix):
+            raise RuntimeError(f"Unexpected SDR++ waterfall response: {response!r}")
+        value = response[len(prefix):].strip().lower()
+        if value == "on":
+            return True
+        if value == "off":
+            return False
+        raise RuntimeError(f"Unexpected SDR++ waterfall value: {value!r}")
+
+    def set_waterfall(self, visible: bool) -> bool:
+        """Set waterfall visibility and return the resulting state."""
+        value = "on" if visible else "off"
+        response = self.send(f"SET waterfall {value}")
+        if response == "OK":
+            return visible
+        if response.startswith("ERROR "):
+            raise RuntimeError(f"SDR++ rejected waterfall setting: {response}")
+        raise RuntimeError(f"Unexpected SDR++ set-waterfall response: {response!r}")
+
+    def toggle_waterfall(self) -> bool:
+        """Toggle waterfall visibility and return the resulting state."""
+        response = self.send("TOGGLE waterfall")
+        prefix = "VALUE waterfall "
+        if not response.startswith(prefix):
+            raise RuntimeError(f"Unexpected SDR++ waterfall toggle response: {response!r}")
+        value = response[len(prefix):].strip().lower()
+        if value == "on":
+            return True
+        if value == "off":
+            return False
+        raise RuntimeError(f"Unexpected SDR++ waterfall value: {value!r}")
