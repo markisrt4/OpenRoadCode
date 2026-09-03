@@ -17,6 +17,7 @@ class PoiCategory(Enum):
     FOOD = auto()
     FUEL = auto()
     GROCERY = auto()
+    TRANSIT = auto()
     OTHER = auto()
 
 
