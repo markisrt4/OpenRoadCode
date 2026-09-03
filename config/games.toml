@@ -6,8 +6,8 @@
 name = "Extreme Tux Racer"
 description = "Race Tux down snowy courses."
 category = "action"
-icon = "extremetuxracer"
-command = ["extremetuxracer"]
+icon = "etr"
+command = ["etr"]
 [games.install]
 debian_package = "extremetuxracer"
 
