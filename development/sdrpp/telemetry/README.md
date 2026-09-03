@@ -2,7 +2,7 @@
 
 `telemetry` is a read-only OpenRoadCode SDR++ module that exposes runtime receiver/display measurements over a small localhost TCP protocol.
 
-It intentionally does **not** tune the radio or control the SDR++ UI. Those responsibilities belong to Rigctl (`4532`) and the ORC remote-control module (`4533`).
+It intentionally does **not** tune the radio or control the SDR++ UI. Those responsibilities belong to Rigctl (`4532`) and the remote-control module (`4533`).
 
 ## Endpoint
 
@@ -16,7 +16,7 @@ It intentionally does **not** tune the radio or control the SDR++ UI. Those resp
 PING
 GET snr
 GET signal_peak
-GET noise_floor
+GET fft_average
 GET selected_vfo
 GET center_frequency
 GET bandwidth
@@ -24,7 +24,30 @@ GET view_bandwidth
 GET telemetry
 ```
 
-`GET telemetry` returns a compact snapshot containing the available metrics in one response. The exact metric set may evolve while the module is validated against SDR++ upstream APIs.
+`GET telemetry` returns a compact snapshot containing the available metrics in one response.
+
+`fft_average` is the arithmetic average of the finite FFT bins within the selected VFO. It is a relative display measurement, not a calibrated RF noise-floor measurement.
+
+## Testing the Live Module
+
+Prefer the ORC Python client or a small Python socket probe when testing the live module. Different `nc` implementations have different connection-close behavior and are not the canonical telemetry test path.
+
+A dependency-free socket probe is:
+
+```bash
+python3 - <<'PY'
+import socket
+
+for command in ("PING\n", "GET telemetry\n"):
+    print(f">>> {command.strip()}")
+    with socket.create_connection(("127.0.0.1", 4534), timeout=2) as sock:
+        sock.sendall(command.encode())
+        sock.shutdown(socket.SHUT_WR)
+        print(sock.recv(4096).decode().rstrip())
+PY
+```
+
+The application-facing client lives in `protocols/sdrpp_telemetry`.
 
 ## Development Test Server
 
@@ -34,13 +57,7 @@ The Python server allows ORC protocol/controller/UI work without rebuilding or r
 python development/sdrpp/telemetry/test_server.py
 ```
 
-Then query it from another shell:
-
-```bash
-printf 'PING\nGET snr\nGET signal_peak\nGET noise_floor\nGET telemetry\n' | nc 127.0.0.1 4534
-```
-
-The fake signal values vary slowly so refresh behavior is visible during UI testing.
+It implements the same one-command request/response model and metric names as the production module. Fake signal values vary slowly so refresh behavior is visible during UI testing.
 
 ## Intended ORC Data Path
 
