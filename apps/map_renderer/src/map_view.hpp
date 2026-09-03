@@ -44,6 +44,7 @@ public:
     void setRendererFrontend(MapRendererFrontend* rendererFrontend);
     void run();
     void invalidate();
+    void showWindow();
     void setShouldClose();
     void onWillStartRenderingFrame() override;
     void setUpdateCallback(std::function<void()> callback);
@@ -73,6 +74,7 @@ private:
     double lastClick = -1.0;
     bool tracking = false;
     bool dirty = false;
+    bool deferredShow = false;
     mbgl::util::RunLoop runLoop;
     mbgl::util::Timer frameTick;
     std::function<void()> updateCallback;
