@@ -1,0 +1,24 @@
+#!/data/data/com.termux/files/usr/bin/bash
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
+set -euo pipefail
+
+SCRIPT_PATH="$(readlink -f -- "${BASH_SOURCE[0]}")"
+SERVICE_DIR="$(dirname -- "$SCRIPT_PATH")"
+PROJECT_ROOT="$(cd -- "$SERVICE_DIR/../../.." && pwd)"
+
+export PYTHONUNBUFFERED=1
+if [[ -f "$PROJECT_ROOT/config/runtime.termux.local.toml" ]]; then
+    export OPENROADCODE_RUNTIME_CONFIG="$PROJECT_ROOT/config/runtime.termux.local.toml"
+else
+    export OPENROADCODE_RUNTIME_CONFIG="$PROJECT_ROOT/config/runtime.termux.toml"
+fi
+if [[ -x "$PROJECT_ROOT/venv-termux/bin/python" ]]; then
+    export OPENROADCODE_PYTHON="$PROJECT_ROOT/venv-termux/bin/python"
+fi
+
+# Automotive is independently supervised. If the Android Bluetooth bridge or
+# ELM327 endpoint is unavailable, the service owns its reconnect behavior.
+cd "$PROJECT_ROOT"
+exec "$PROJECT_ROOT/scripts/runtime/start_automotive_service.sh"
