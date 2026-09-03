@@ -41,18 +41,11 @@ class SDRTelemetryMonitor:
     def read(self, include_rds: bool = False) -> SDRTelemetry:
         """Read one best-effort snapshot without propagating backend failures."""
         snapshot = self._safe_read_telemetry()
-
         frequency_hz = self._frequency(snapshot)
         signal = self._format_db(snapshot.signal_peak_db if snapshot else None)
         snr = self._format_db(snapshot.snr_db if snapshot else None)
         rds = self._safe_read_rds() if include_rds else "--"
-
-        return SDRTelemetry(
-            frequency_hz=frequency_hz,
-            signal=signal,
-            snr=snr,
-            rds=rds,
-        )
+        return SDRTelemetry(frequency_hz=frequency_hz, signal=signal, snr=snr, rds=rds)
 
     def _safe_read_telemetry(self) -> SDRPPTelemetry | None:
         try:
@@ -63,16 +56,20 @@ class SDRTelemetryMonitor:
     def _frequency(self, snapshot: SDRPPTelemetry | None) -> Optional[int]:
         if snapshot is not None and snapshot.center_frequency_hz is not None:
             return int(round(snapshot.center_frequency_hz))
-
         try:
             value = getattr(self.radio_controller, "current_frequency_hz", None)
+            if value is None:
+                state = getattr(self.radio_controller, "state", None)
+                value = getattr(state, "frequency_hz", None)
             return int(value) if value is not None else None
-        except (TypeError, ValueError):
+        except (OSError, RuntimeError, TypeError, ValueError):
             return None
 
     def _safe_read_rds(self) -> str:
         try:
-            method = getattr(self.radio_controller, "get_rds", None)
+            method = getattr(self.radio_controller, "read_rds", None)
+            if method is None:
+                method = getattr(self.radio_controller, "get_rds", None)
             if method is None:
                 return "--"
             return self._clean_text(method())
