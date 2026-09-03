@@ -183,6 +183,7 @@ int main() {
             if (command->command == "set_center") {
                 map.jumpTo(mbgl::CameraOptions().withCenter(
                     mbgl::LatLng{command->latitude, command->longitude}));
+                view.showWindow();
                 continue;
             }
             if (command->command == "fit_bounds") {
@@ -194,12 +195,14 @@ int main() {
                 map.easeTo(
                     map.cameraForLatLngBounds(bounds, padding),
                     mbgl::AnimationOptions{mbgl::Milliseconds(500)});
+                view.showWindow();
                 continue;
             }
             if (command->command == "fit_dataset") {
                 if (!fitDatasetCamera(map, config, command->padding, true)) {
                     std::cerr << "[map_renderer] unable to fit dataset bounds\n";
                 }
+                view.showWindow();
                 continue;
             }
             if (command->command == "set_position") {
@@ -223,6 +226,10 @@ int main() {
                     .withZoom(command->zoom)
                     .withBearing(command->bearing)
                     .withPitch(command->pitch));
+                // Embedded renderers start hidden. Reveal only after the owning
+                // panel has supplied its semantic camera so users never see the
+                // temporary dataset camera during HOME/NAV renderer replacement.
+                view.showWindow();
                 continue;
             }
             if (command->command == "search_pois") {
