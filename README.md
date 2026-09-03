@@ -151,6 +151,7 @@ Messaging and service documentation:
 
 * [Messaging overview and subscriber quick start](https://github.com/markisrt4/OpenRoadCode/blob/master/messaging/README.md)
 * [Message Bus Interface Design Description](https://github.com/markisrt4/OpenRoadCode/blob/master/docs/messaging/message_bus_idd.md)
+* [Ethernet Interface Design Description and port registry](docs/ethernet_idd.md)
 * [Navigation producer service](https://github.com/markisrt4/OpenRoadCode/blob/master/services/navigation/README.md)
 * [Automotive producer service](https://github.com/markisrt4/OpenRoadCode/blob/master/services/automotive/README.md)
 * [Car TUI telemetry consumer](https://github.com/markisrt4/OpenRoadCode/blob/master/apps/carTui/README.md)
