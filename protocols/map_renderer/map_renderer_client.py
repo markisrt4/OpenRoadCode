@@ -6,8 +6,6 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from queue import Queue
-from threading import Thread
 from typing import Any
 
 from messaging.publisher_if import PublisherIf
@@ -24,36 +22,28 @@ class MapRendererCommandError(RuntimeError):
     """Retained for compatibility with callers of the former request/reply client."""
 
 
-_STOP = object()
-
-
 class MapRendererClient:
-    """Publish asynchronous map-renderer commands through the ORC broker."""
+    """Publish asynchronous map-renderer commands through the ORC broker.
+
+    The publisher is created eagerly and used directly by the UI thread. ZeroMQ
+    PUB sends are non-blocking for this local in-process command path, so an
+    extra Python queue/sender thread only adds scheduling latency to interactive
+    camera controls and can accumulate stale camera commands.
+    """
 
     def __init__(self, publisher: PublisherIf | None = None, *, endpoint: str | None = None,
                  timeout_ms: int | None = None) -> None:
         del timeout_ms
-        self._publisher = publisher
-        self._endpoint = endpoint
+        self._publisher = publisher or (ZeroMqPublisher(endpoint) if endpoint else ZeroMqPublisher())
+        self._owns_publisher = publisher is None
         self._closed = False
         self._send_error: Exception | None = None
-        self._queue: Queue[Mapping[str, Any] | object] | None = None
-        self._sender_thread: Thread | None = None
-        if publisher is None:
-            self._queue = Queue()
-            self._sender_thread = Thread(target=self._sender_loop,
-                name="map-renderer-command-publisher", daemon=True)
-            self._sender_thread.start()
 
     def close(self) -> None:
         if self._closed:
             return
         self._closed = True
-        if self._queue is not None and self._sender_thread is not None:
-            self._queue.put(_STOP)
-            self._sender_thread.join(timeout=1.0)
-            return
-        if self._publisher is not None:
+        if self._owns_publisher:
             self._publisher.close()
 
     def set_camera(self, latitude: float, longitude: float, zoom: float,
@@ -87,34 +77,13 @@ class MapRendererClient:
         """Frame the installed offline map dataset."""
         self._send_command({"command": MapRendererCommand.FIT_DATASET, "padding": padding})
 
-    def _send_command(self, command: dict[str, object]) -> None:
+    def _send_command(self, command: Mapping[str, Any]) -> None:
         if self._closed:
             raise MapRendererUnavailableError("map renderer client is closed")
         if self._send_error is not None:
             raise MapRendererUnavailableError("unable to publish map renderer command") from self._send_error
-        if self._queue is not None:
-            self._queue.put(command)
-            return
-        if self._publisher is None:
-            raise MapRendererUnavailableError("map renderer publisher is unavailable")
         try:
             self._publisher.publish(MAP_RENDERER_COMMAND_TOPIC, command)
         except (RuntimeError, OSError) as exc:
+            self._send_error = exc
             raise MapRendererUnavailableError("unable to publish map renderer command") from exc
-
-    def _sender_loop(self) -> None:
-        publisher = ZeroMqPublisher(self._endpoint) if self._endpoint else ZeroMqPublisher()
-        try:
-            assert self._queue is not None
-            while True:
-                command = self._queue.get()
-                try:
-                    if command is _STOP:
-                        return
-                    publisher.publish(MAP_RENDERER_COMMAND_TOPIC, command)
-                except Exception as exc:
-                    self._send_error = exc
-                finally:
-                    self._queue.task_done()
-        finally:
-            publisher.close()
