@@ -6,7 +6,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Optional
 
-from protocols.sdrpp_telemetry import SDRPPTelemetryClient
+from protocols.sdrpp_telemetry import SDRPPTelemetry, SDRPPTelemetryClient
 
 
 @dataclass(frozen=True)
@@ -54,13 +54,13 @@ class SDRTelemetryMonitor:
             rds=rds,
         )
 
-    def _safe_read_telemetry(self):
+    def _safe_read_telemetry(self) -> SDRPPTelemetry | None:
         try:
             return self.telemetry_client.read()
         except Exception:
             return None
 
-    def _frequency(self, snapshot) -> Optional[int]:
+    def _frequency(self, snapshot: SDRPPTelemetry | None) -> Optional[int]:
         if snapshot is not None and snapshot.center_frequency_hz is not None:
             return int(round(snapshot.center_frequency_hz))
 
