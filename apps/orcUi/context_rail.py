@@ -11,6 +11,11 @@ from dataclasses import dataclass
 
 from apps.orcUi.navigation_presenter import PositionPresentationState
 from apps.orcUi.vehicle_presenter import VehiclePresentationState
+from frontends.tk.automotive.vehicle_gauge_widgets import (
+    GearIndicator,
+    LinearGauge,
+    RoundGauge,
+)
 
 PANEL = "#0b1117"
 BORDER = "#25313b"
@@ -39,7 +44,7 @@ class ContextRail(tk.Frame):
         self._on_expand = on_expand
         self._vehicle_state = VehiclePresentationState()
         self._position_state = PositionPresentationState()
-        self._vehicle_value_labels: dict[str, tk.Label] = {}
+        self._vehicle_gauges: dict[str, RoundGauge | LinearGauge | GearIndicator] = {}
         self._offroad_value_labels: dict[str, tk.Label] = {}
         self._pages = (
             ContextPage("VEHICLE", GREEN, self._build_vehicle),
@@ -99,7 +104,7 @@ class ContextRail(tk.Frame):
     def _show_page(self) -> None:
         for child in self._body.winfo_children():
             child.destroy()
-        self._vehicle_value_labels.clear()
+        self._vehicle_gauges.clear()
         self._offroad_value_labels.clear()
         page = self._pages[self._page_index]
         self._title.configure(text=page.name, fg=page.accent)
@@ -110,23 +115,80 @@ class ContextRail(tk.Frame):
             tk.Label(dots, text="●" if index == self._page_index else "·", fg=page.accent if index == self._page_index else MUTED, bg=PANEL, font=("Sans", 9)).pack(side=tk.LEFT, padx=2)
 
     def _build_vehicle(self, parent: tk.Frame) -> None:
-        self._metric_table(parent, (("speed", "Speed", "MPH"), ("rpm", "RPM", "RPM"), ("boost", "Boost", "PSI"), ("coolant", "Coolant", "°F"), ("fuel", "Fuel", "%"), ("voltage", "Voltage", "V")), self._vehicle_value_labels)
+        """Build a glanceable miniature instrument cluster for the home rail."""
+        cluster = tk.Frame(parent, bg=PANEL)
+        cluster.pack(fill=tk.BOTH, expand=True)
+        cluster.grid_columnconfigure(0, weight=1)
+        cluster.grid_columnconfigure(1, weight=1)
+        cluster.grid_rowconfigure(0, weight=3)
+        cluster.grid_rowconfigure(1, weight=2)
+
+        rpm = RoundGauge(
+            cluster,
+            title="RPM",
+            unit="x1000",
+            minimum=0.0,
+            maximum=8.0,
+            major_step=2.0,
+            caution_start=6.0,
+            danger_start=6.8,
+            precision=1,
+            size=126,
+        )
+        rpm.grid(row=0, column=0, sticky="nsew", padx=(0, 2), pady=(0, 2))
+
+        boost = RoundGauge(
+            cluster,
+            title="BOOST",
+            unit="PSI",
+            minimum=-15.0,
+            maximum=25.0,
+            major_step=10.0,
+            caution_start=18.0,
+            danger_start=22.0,
+            precision=1,
+            size=126,
+        )
+        boost.grid(row=0, column=1, sticky="nsew", padx=(2, 0), pady=(0, 2))
+
+        gear = GearIndicator(cluster, width=92, height=112)
+        gear.grid(row=1, column=0, sticky="nsew", padx=(0, 2), pady=(2, 0))
+
+        coolant = LinearGauge(
+            cluster,
+            title="Coolant",
+            unit="°F",
+            minimum=100.0,
+            maximum=260.0,
+            caution_high=225.0,
+            danger_high=240.0,
+            icon="coolant",
+            precision=0,
+            width=160,
+            height=112,
+        )
+        coolant.grid(row=1, column=1, sticky="nsew", padx=(2, 0), pady=(2, 0))
+
+        self._vehicle_gauges.update(
+            rpm=rpm,
+            boost=boost,
+            gear=gear,
+            coolant=coolant,
+        )
         self._paint_vehicle_values()
 
     def _paint_vehicle_values(self) -> None:
         state = self._vehicle_state
-        values = {
-            "speed": self._format(state.speed_mph, ".0f"),
-            "rpm": self._format(state.engine_speed_rpm, ".0f"),
-            "boost": self._format(state.boost_psi, ".1f"),
-            "coolant": self._format(state.coolant_temperature_f, ".0f"),
-            "fuel": self._format(state.fuel_percent, ".0f"),
-            "voltage": self._format(state.control_voltage_v, ".1f"),
+        values: dict[str, float | str | None] = {
+            "rpm": None if state.engine_speed_rpm is None else state.engine_speed_rpm / 1000.0,
+            "boost": state.boost_psi,
+            "gear": state.gear,
+            "coolant": state.coolant_temperature_f,
         }
         for key, value in values.items():
-            label = self._vehicle_value_labels.get(key)
-            if label is not None:
-                label.configure(text=value)
+            gauge = self._vehicle_gauges.get(key)
+            if gauge is not None:
+                gauge.set_value(value)
 
     def _build_trip(self, parent: tk.Frame) -> None:
         self._metric_table(parent, (("distance", "Distance", "mi"), ("elapsed", "Elapsed", ""), ("average", "Avg speed", "MPH"), ("moving", "Moving", ""), ("fuel_used", "Fuel used", "gal"), ("economy", "Economy", "MPG")))
