@@ -6,10 +6,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Optional
 
+from protocols.sdrpp_telemetry import SDRPPTelemetryClient
+
 
 @dataclass(frozen=True)
 class SDRTelemetry:
-    """Best-effort frequency and signal telemetry for an SDR receiver."""
+    """Best-effort receiver telemetry suitable for frontend presentation."""
+
     frequency_hz: Optional[int] = None
     signal: str = "--"
     snr: str = "--"
@@ -17,25 +20,32 @@ class SDRTelemetry:
 
 
 class SDRTelemetryMonitor:
-    """
-    Best-effort SDR++/rigctl telemetry reader.
+    """Combine SDR++ runtime telemetry with radio-specific RDS data.
 
-    This class owns the rigctl query details so UI code does not have to.
+    Signal measurements come from the dedicated read-only SDR++ telemetry
+    protocol on port 4534. RDS remains a radio concern and is obtained through
+    the radio controller only when explicitly requested.
+
+    ``read`` performs socket I/O. Graphical frontends must call it from a
+    worker/background thread rather than their UI thread.
     """
 
-    def __init__(self, radio_controller) -> None:
+    def __init__(
+        self,
+        radio_controller,
+        telemetry_client: SDRPPTelemetryClient | None = None,
+    ) -> None:
         self.radio_controller = radio_controller
+        self.telemetry_client = telemetry_client or SDRPPTelemetryClient()
 
     def read(self, include_rds: bool = False) -> SDRTelemetry:
-        """Read a telemetry snapshot without propagating backend failures.
+        """Read one best-effort snapshot without propagating backend failures."""
+        snapshot = self._safe_read_telemetry()
 
-        @param include_rds Query RDS text when ``True``.
-        @return Available telemetry with ``"--"`` placeholders for failures.
-        """
-        frequency_hz = self._safe_get_frequency()
-        signal = self._safe_client_call("get_signal_strength")
-        snr = self._safe_client_call("get_snr")
-        rds = self._safe_client_call("get_rds") if include_rds else "--"
+        frequency_hz = self._frequency(snapshot)
+        signal = self._format_db(snapshot.signal_peak_db if snapshot else None)
+        snr = self._format_db(snapshot.snr_db if snapshot else None)
+        rds = self._safe_read_rds() if include_rds else "--"
 
         return SDRTelemetry(
             frequency_hz=frequency_hz,
@@ -44,47 +54,38 @@ class SDRTelemetryMonitor:
             rds=rds,
         )
 
-    def _safe_get_frequency(self) -> Optional[int]:
+    def _safe_read_telemetry(self):
         try:
-            backend = getattr(self.radio_controller, "backend", None)
-            if backend is not None and hasattr(backend, "get_frequency"):
-                return int(backend.get_frequency())
+            return self.telemetry_client.read()
+        except Exception:
+            return None
 
+    def _frequency(self, snapshot) -> Optional[int]:
+        if snapshot is not None and snapshot.center_frequency_hz is not None:
+            return int(round(snapshot.center_frequency_hz))
+
+        try:
             value = getattr(self.radio_controller, "current_frequency_hz", None)
             return int(value) if value is not None else None
-        except Exception:
-            return getattr(self.radio_controller, "current_frequency_hz", None)
+        except (TypeError, ValueError):
+            return None
 
-    def _safe_client_call(self, method_name: str) -> str:
+    def _safe_read_rds(self) -> str:
         try:
-            backend = getattr(self.radio_controller, "backend", None)
-            client = getattr(backend, "client", None)
-
-            if client is None:
-                return "--"
-
-            method = getattr(client, method_name, None)
+            method = getattr(self.radio_controller, "get_rds", None)
             if method is None:
                 return "--"
-
-            value = method()
-            return self._clean_rigctl_value(value)
-
+            return self._clean_text(method())
         except Exception:
             return "--"
 
-    def _clean_rigctl_value(self, value: object) -> str:
+    @staticmethod
+    def _format_db(value: float | None) -> str:
+        return "--" if value is None else f"{value:.1f} dB"
+
+    @staticmethod
+    def _clean_text(value: object) -> str:
         text = str(value).strip() if value is not None else ""
-
-        if not text:
+        if not text or text.startswith("RPRT") or "error" in text.lower():
             return "--"
-
-        # SDR++ / rigctl returns this when the level command is unsupported.
-        # Displaying it as telemetry is how machines mock us.
-        if text.startswith("RPRT"):
-            return "--"
-
-        if "error" in text.lower():
-            return "--"
-
         return text
