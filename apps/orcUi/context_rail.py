@@ -121,7 +121,8 @@ class ContextRail(tk.Frame):
         cluster.grid_columnconfigure(0, weight=1)
         cluster.grid_columnconfigure(1, weight=1)
         cluster.grid_rowconfigure(0, weight=3)
-        cluster.grid_rowconfigure(1, weight=2)
+        cluster.grid_rowconfigure(1, weight=3)
+        cluster.grid_rowconfigure(2, weight=1)
 
         rpm = RoundGauge(
             cluster,
@@ -133,7 +134,7 @@ class ContextRail(tk.Frame):
             caution_start=6.0,
             danger_start=6.8,
             precision=1,
-            size=126,
+            size=122,
         )
         rpm.grid(row=0, column=0, sticky="nsew", padx=(0, 2), pady=(0, 2))
 
@@ -147,12 +148,24 @@ class ContextRail(tk.Frame):
             caution_start=18.0,
             danger_start=22.0,
             precision=1,
-            size=126,
+            size=122,
         )
         boost.grid(row=0, column=1, sticky="nsew", padx=(2, 0), pady=(0, 2))
 
-        gear = GearIndicator(cluster, width=92, height=112)
-        gear.grid(row=1, column=0, sticky="nsew", padx=(0, 2), pady=(2, 0))
+        speed = RoundGauge(
+            cluster,
+            title="SPEED",
+            unit="MPH",
+            minimum=0.0,
+            maximum=160.0,
+            major_step=40.0,
+            precision=0,
+            size=122,
+        )
+        speed.grid(row=1, column=0, sticky="nsew", padx=(0, 2), pady=2)
+
+        gear = GearIndicator(cluster, width=122, height=122)
+        gear.grid(row=1, column=1, sticky="nsew", padx=(2, 0), pady=2)
 
         coolant = LinearGauge(
             cluster,
@@ -164,14 +177,21 @@ class ContextRail(tk.Frame):
             danger_high=240.0,
             icon="coolant",
             precision=0,
-            width=160,
-            height=112,
+            width=250,
+            height=64,
         )
-        coolant.grid(row=1, column=1, sticky="nsew", padx=(2, 0), pady=(2, 0))
+        coolant.grid(
+            row=2,
+            column=0,
+            columnspan=2,
+            sticky="nsew",
+            pady=(2, 0),
+        )
 
         self._vehicle_gauges.update(
             rpm=rpm,
             boost=boost,
+            speed=speed,
             gear=gear,
             coolant=coolant,
         )
@@ -182,6 +202,7 @@ class ContextRail(tk.Frame):
         values: dict[str, float | str | None] = {
             "rpm": None if state.engine_speed_rpm is None else state.engine_speed_rpm / 1000.0,
             "boost": state.boost_psi,
+            "speed": state.speed_mph,
             "gear": state.gear,
             "coolant": state.coolant_temperature_f,
         }
