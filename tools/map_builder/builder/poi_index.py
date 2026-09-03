@@ -4,12 +4,10 @@
 """Build the renderer-independent OpenRoadCode POI search index from OSM."""
 from __future__ import annotations
 
+import json
 import sqlite3
 import subprocess
 from pathlib import Path
-
-
-_POI_FILTER = "nwr[amenity][name],nwr[shop][name],nwr[public_transport][name],nwr[railway][name],nwr[highway=bus_stop][name]"
 
 
 def _classification(tags: dict[str, str]) -> tuple[str, str, str] | None:
@@ -60,6 +58,9 @@ def build_poi_index(source_pbf: Path, destination: Path) -> int:
     destination.parent.mkdir(parents=True, exist_ok=True)
     destination.unlink(missing_ok=True)
 
+    # GeoJSONSeq keeps memory bounded even for multi-state extracts. Osmium emits
+    # representative points for areas, so restaurants/stations mapped as ways
+    # remain searchable rather than silently vanishing from the sidecar.
     command = [
         "osmium", "export", str(source_pbf),
         "--geometry-types=point",
@@ -71,7 +72,6 @@ def build_poi_index(source_pbf: Path, destination: Path) -> int:
     process = subprocess.Popen(command, stdout=subprocess.PIPE, text=True)
     assert process.stdout is not None
 
-    import json
     connection = sqlite3.connect(destination)
     count = 0
     try:
