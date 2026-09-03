@@ -8,6 +8,7 @@ import hashlib, json, os, re, shutil, subprocess, time
 from pathlib import Path
 from urllib.request import Request, urlopen
 from .geofabrik import Region
+from .poi_index import build_poi_index
 from .style import install_style
 from .validate import validate_output
 OUTPUT_ROOT=Path(os.environ.get("OPENROAD_OUTPUT_ROOT","/srv/openroadcode")); CACHE_ROOT=Path(os.environ.get("OPENROAD_CACHE_ROOT","/cache")); SCRATCH_ROOT=Path(os.environ.get("OPENROAD_SCRATCH_ROOT","/scratch")); STYLE_TEMPLATE=Path(os.environ.get("OPENROAD_STYLE_TEMPLATE","/opt/openroadcode-map-builder/templates/openroadcode-style.json")); TILEMAKER_CONFIG=Path("/opt/tilemaker/resources/config-openmaptiles.json"); TILEMAKER_PROCESS=Path("/opt/tilemaker/resources/process-openmaptiles.lua"); GLYPH_SOURCE=Path("/opt/klokantech-gl-fonts/KlokanTech Noto Sans CJK Regular")
@@ -33,10 +34,10 @@ def _download_and_verify(region:Region)->Path:
  run(["osmium","fileinfo","-e",str(cached)]); return cached
 def _prepare_output_dirs(clean:bool)->None:
  if clean and OUTPUT_ROOT.exists():
-  for relative in ("maps/vector","maps/styles","maps/glyphs","maps/source","valhalla"):
+  for relative in ("maps/vector","maps/styles","maps/glyphs","maps/source","maps/poi","valhalla"):
    target=OUTPUT_ROOT/relative
    if target.exists(): shutil.rmtree(target)
- for relative in ("maps/vector","maps/styles","maps/glyphs","maps/source","maps/routes","valhalla/tiles"): (OUTPUT_ROOT/relative).mkdir(parents=True,exist_ok=True)
+ for relative in ("maps/vector","maps/styles","maps/glyphs","maps/source","maps/poi","maps/routes","valhalla/tiles"): (OUTPUT_ROOT/relative).mkdir(parents=True,exist_ok=True)
  SCRATCH_ROOT.mkdir(parents=True,exist_ok=True)
 def _install_sources(regions,cached_pbfs):
  installed=[]
@@ -86,11 +87,11 @@ def _build_valhalla(pbfs):
  with config.open("w",encoding="utf-8") as output:subprocess.run(cmd,check=True,stdout=output)
  with timezones.open("wb") as output:subprocess.run(["valhalla_build_timezones"],check=True,stdout=output)
  run(["valhalla_build_admins","-c",str(config),*(str(p) for p in pbfs)]); run(["valhalla_build_tiles","-c",str(config),*(str(p) for p in pbfs)]); run(["valhalla_build_extract","-c",str(config),"-v"])
-def _write_manifest(regions,validation):
- manifest={"schema":1,"generated_unix":int(time.time()),"regions":[asdict(r) for r in regions],"validation":validation,"tools":{}}
+def _write_manifest(regions,validation,poi_count):
+ manifest={"schema":1,"generated_unix":int(time.time()),"regions":[asdict(r) for r in regions],"validation":validation,"poi_index":{"count":poi_count,"path":"maps/poi/openroadcode-poi.sqlite"},"tools":{}}
  for tool in ("tilemaker","valhalla_service","osmium"):
   result=subprocess.run([tool,"--version"],text=True,capture_output=True,check=False); manifest["tools"][tool]=(result.stdout or result.stderr).strip().splitlines()[0]
  (OUTPUT_ROOT/"build-manifest.json").write_text(json.dumps(manifest,indent=2)+"\n",encoding="utf-8")
 def build_regions(regions:list[Region],*,clean:bool=True,service_smoke:bool=True)->dict:
  if not regions:raise BuildError("No regions selected")
- _prepare_output_dirs(clean=clean); cached=[_download_and_verify(r) for r in regions]; installed=_install_sources(regions,cached); tilemaker_input,bbox=_merge_for_tilemaker(installed); _build_maplibre_data(tilemaker_input,bbox); _build_valhalla(installed); validation=validate_output(OUTPUT_ROOT,service_smoke=service_smoke); _write_manifest(regions,validation); return validation
+ _prepare_output_dirs(clean=clean); cached=[_download_and_verify(r) for r in regions]; installed=_install_sources(regions,cached); tilemaker_input,bbox=_merge_for_tilemaker(installed); poi_count=build_poi_index(tilemaker_input,OUTPUT_ROOT/"maps/poi/openroadcode-poi.sqlite"); print(f"Built POI index with {poi_count} searchable places",flush=True); _build_maplibre_data(tilemaker_input,bbox); _build_valhalla(installed); validation=validate_output(OUTPUT_ROOT,service_smoke=service_smoke); _write_manifest(regions,validation,poi_count); return validation
