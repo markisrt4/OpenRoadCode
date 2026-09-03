@@ -20,6 +20,7 @@ TEXT = "#edf2f5"
 MUTED = "#89959e"
 GREEN = "#84ce1f"
 BLUE = "#168bd1"
+RED = "#f15a16"
 YELLOW = "#d6ad22"
 
 
@@ -42,6 +43,7 @@ class ContextRail(tk.Frame):
         self._vehicle_state = VehiclePresentationState()
         self._position_state = PositionPresentationState()
         self._vehicle_gauges: dict[str, RoundGauge | LinearGauge | FuelLevelGauge] = {}
+        self._gear_value_label: tk.Label | None = None
         self._offroad_value_labels: dict[str, tk.Label] = {}
         self._pages = (
             ContextPage("VEHICLE", GREEN, self._build_vehicle),
@@ -102,6 +104,7 @@ class ContextRail(tk.Frame):
         for child in self._body.winfo_children():
             child.destroy()
         self._vehicle_gauges.clear()
+        self._gear_value_label = None
         self._offroad_value_labels.clear()
         page = self._pages[self._page_index]
         self._title.configure(text=page.name, fg=page.accent)
@@ -112,7 +115,7 @@ class ContextRail(tk.Frame):
             tk.Label(dots, text="●" if index == self._page_index else "·", fg=page.accent if index == self._page_index else MUTED, bg=PANEL, font=("Sans", 9)).pack(side=tk.LEFT, padx=2)
 
     def _build_vehicle(self, parent: tk.Frame) -> None:
-        """Build the five-instrument home vehicle cluster."""
+        """Build the primary home instruments plus compact vehicle status."""
         cluster = tk.Frame(parent, bg=PANEL)
         cluster.pack(fill=tk.BOTH, expand=True)
         cluster.grid_columnconfigure(0, weight=1)
@@ -164,8 +167,12 @@ class ContextRail(tk.Frame):
         fuel = FuelLevelGauge(cluster, size=122)
         fuel.grid(row=1, column=1, sticky="nsew", padx=(2, 0), pady=2)
 
+        status = tk.Frame(cluster, bg=PANEL)
+        status.grid(row=2, column=0, columnspan=2, sticky="nsew", pady=(2, 0))
+        status.grid_columnconfigure(0, weight=1)
+
         coolant = LinearGauge(
-            cluster,
+            status,
             title="Coolant",
             unit="°F",
             minimum=100.0,
@@ -174,10 +181,28 @@ class ContextRail(tk.Frame):
             danger_high=240.0,
             icon="coolant",
             precision=0,
-            width=250,
+            width=190,
             height=58,
         )
-        coolant.grid(row=2, column=0, columnspan=2, sticky="nsew", pady=(2, 0))
+        coolant.grid(row=0, column=0, sticky="nsew", padx=(0, 4))
+
+        gear = tk.Frame(status, bg=PANEL, highlightthickness=1, highlightbackground=BORDER)
+        gear.grid(row=0, column=1, sticky="nsew", padx=(4, 0))
+        tk.Label(
+            gear,
+            text="GEAR",
+            fg=MUTED,
+            bg=PANEL,
+            font=("Sans", 7, "bold"),
+        ).pack(padx=10, pady=(4, 0))
+        self._gear_value_label = tk.Label(
+            gear,
+            text="—",
+            fg=RED,
+            bg=PANEL,
+            font=("Sans", 22, "bold"),
+        )
+        self._gear_value_label.pack(padx=10, pady=(0, 3))
 
         self._vehicle_gauges.update(
             rpm=rpm,
@@ -201,6 +226,8 @@ class ContextRail(tk.Frame):
             gauge = self._vehicle_gauges.get(key)
             if gauge is not None:
                 gauge.set_value(value)
+        if self._gear_value_label is not None:
+            self._gear_value_label.configure(text=state.gear or "—")
 
     def _build_trip(self, parent: tk.Frame) -> None:
         self._metric_table(parent, (("distance", "Distance", "mi"), ("elapsed", "Elapsed", ""), ("average", "Avg speed", "MPH"), ("moving", "Moving", ""), ("fuel_used", "Fuel used", "gal"), ("economy", "Economy", "MPG")))
