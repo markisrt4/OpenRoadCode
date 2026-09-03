@@ -11,11 +11,8 @@ from dataclasses import dataclass
 
 from apps.orcUi.navigation_presenter import PositionPresentationState
 from apps.orcUi.vehicle_presenter import VehiclePresentationState
-from frontends.tk.automotive.vehicle_gauge_widgets import (
-    GearIndicator,
-    LinearGauge,
-    RoundGauge,
-)
+from frontends.tk.automotive import FuelLevelGauge
+from frontends.tk.automotive.vehicle_gauge_widgets import LinearGauge, RoundGauge
 
 PANEL = "#0b1117"
 BORDER = "#25313b"
@@ -44,7 +41,7 @@ class ContextRail(tk.Frame):
         self._on_expand = on_expand
         self._vehicle_state = VehiclePresentationState()
         self._position_state = PositionPresentationState()
-        self._vehicle_gauges: dict[str, RoundGauge | LinearGauge | GearIndicator] = {}
+        self._vehicle_gauges: dict[str, RoundGauge | LinearGauge | FuelLevelGauge] = {}
         self._offroad_value_labels: dict[str, tk.Label] = {}
         self._pages = (
             ContextPage("VEHICLE", GREEN, self._build_vehicle),
@@ -115,7 +112,7 @@ class ContextRail(tk.Frame):
             tk.Label(dots, text="●" if index == self._page_index else "·", fg=page.accent if index == self._page_index else MUTED, bg=PANEL, font=("Sans", 9)).pack(side=tk.LEFT, padx=2)
 
     def _build_vehicle(self, parent: tk.Frame) -> None:
-        """Build a glanceable miniature instrument cluster for the home rail."""
+        """Build the five-instrument home vehicle cluster."""
         cluster = tk.Frame(parent, bg=PANEL)
         cluster.pack(fill=tk.BOTH, expand=True)
         cluster.grid_columnconfigure(0, weight=1)
@@ -138,6 +135,18 @@ class ContextRail(tk.Frame):
         )
         rpm.grid(row=0, column=0, sticky="nsew", padx=(0, 2), pady=(0, 2))
 
+        speed = RoundGauge(
+            cluster,
+            title="SPEED",
+            unit="MPH",
+            minimum=0.0,
+            maximum=160.0,
+            major_step=40.0,
+            precision=0,
+            size=122,
+        )
+        speed.grid(row=0, column=1, sticky="nsew", padx=(2, 0), pady=(0, 2))
+
         boost = RoundGauge(
             cluster,
             title="BOOST",
@@ -150,22 +159,10 @@ class ContextRail(tk.Frame):
             precision=1,
             size=122,
         )
-        boost.grid(row=0, column=1, sticky="nsew", padx=(2, 0), pady=(0, 2))
+        boost.grid(row=1, column=0, sticky="nsew", padx=(0, 2), pady=2)
 
-        speed = RoundGauge(
-            cluster,
-            title="SPEED",
-            unit="MPH",
-            minimum=0.0,
-            maximum=160.0,
-            major_step=40.0,
-            precision=0,
-            size=122,
-        )
-        speed.grid(row=1, column=0, sticky="nsew", padx=(0, 2), pady=2)
-
-        gear = GearIndicator(cluster, width=122, height=122)
-        gear.grid(row=1, column=1, sticky="nsew", padx=(2, 0), pady=2)
+        fuel = FuelLevelGauge(cluster, size=122)
+        fuel.grid(row=1, column=1, sticky="nsew", padx=(2, 0), pady=2)
 
         coolant = LinearGauge(
             cluster,
@@ -178,32 +175,26 @@ class ContextRail(tk.Frame):
             icon="coolant",
             precision=0,
             width=250,
-            height=64,
+            height=58,
         )
-        coolant.grid(
-            row=2,
-            column=0,
-            columnspan=2,
-            sticky="nsew",
-            pady=(2, 0),
-        )
+        coolant.grid(row=2, column=0, columnspan=2, sticky="nsew", pady=(2, 0))
 
         self._vehicle_gauges.update(
             rpm=rpm,
-            boost=boost,
             speed=speed,
-            gear=gear,
+            boost=boost,
+            fuel=fuel,
             coolant=coolant,
         )
         self._paint_vehicle_values()
 
     def _paint_vehicle_values(self) -> None:
         state = self._vehicle_state
-        values: dict[str, float | str | None] = {
+        values: dict[str, float | None] = {
             "rpm": None if state.engine_speed_rpm is None else state.engine_speed_rpm / 1000.0,
-            "boost": state.boost_psi,
             "speed": state.speed_mph,
-            "gear": state.gear,
+            "boost": state.boost_psi,
+            "fuel": state.fuel_percent,
             "coolant": state.coolant_temperature_f,
         }
         for key, value in values.items():
