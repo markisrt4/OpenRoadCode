@@ -119,30 +119,45 @@ echo "[*] Preparing SDR++ development resources"
 mkdir -p "$SDRPP_ROOT"
 cp -a "$SDRPP_SRC/root/." "$SDRPP_ROOT/"
 
-RIGCTL_MODULE="$(find "$SDRPP_BUILD" -type f -name 'rigctl_server.so' -print -quit)"
-REMOTE_CONTROL_MODULE="$(find "$SDRPP_BUILD" -type f -name 'remote_control.so' -print -quit)"
-TELEMETRY_MODULE="$(find "$SDRPP_BUILD" -type f -name 'telemetry.so' -print -quit)"
+has_export() {
+  local file="$1"
+  local symbol="$2"
+  nm -D --defined-only "$file" 2>/dev/null | awk -v wanted="$symbol" '$NF == wanted { found=1 } END { exit(found ? 0 : 1) }'
+}
 
-for pair in \
-  "Rigctl Server:$RIGCTL_MODULE" \
-  "OpenRoadCode remote control:$REMOTE_CONTROL_MODULE" \
-  "OpenRoadCode telemetry:$TELEMETRY_MODULE"; do
-  name="${pair%%:*}"
-  file="${pair#*:}"
-  [[ -n "$file" ]] || {
-    echo "$name module was not produced." >&2
-    exit 1
-  }
-done
+is_sdrpp_module() {
+  local file="$1"
+  local symbol
+  for symbol in _INFO_ _INIT_ _CREATE_INSTANCE_ _DELETE_INSTANCE_ _END_; do
+    has_export "$file" "$symbol" || return 1
+  done
+}
+
+find_module_artifact() {
+  local filename="$1"
+  local candidate
+  while IFS= read -r candidate; do
+    if is_sdrpp_module "$candidate"; then
+      printf '%s\n' "$candidate"
+      return 0
+    fi
+  done < <(find "$SDRPP_BUILD" -type f -name "$filename" -print)
+
+  echo "No valid SDR++ module artifact found for $filename." >&2
+  echo "Candidates and exported module symbols:" >&2
+  while IFS= read -r candidate; do
+    echo "  $candidate" >&2
+    nm -D --defined-only "$candidate" 2>/dev/null | awk '$NF ~ /^_(INFO|INIT|CREATE_INSTANCE|DELETE_INSTANCE|END)_$/ { print "    " $NF }' >&2 || true
+  done < <(find "$SDRPP_BUILD" -type f -name "$filename" -print)
+  return 1
+}
+
+RIGCTL_MODULE="$(find_module_artifact 'rigctl_server.so')"
+REMOTE_CONTROL_MODULE="$(find_module_artifact 'remote_control.so')"
+TELEMETRY_MODULE="$(find_module_artifact 'telemetry.so')"
 
 for module in "$REMOTE_CONTROL_MODULE" "$TELEMETRY_MODULE"; do
-  echo "[*] Verifying $(basename "$module") SDR++ ABI exports"
-  for symbol in _INFO_ _INIT_ _CREATE_INSTANCE_ _DELETE_INSTANCE_ _END_; do
-    nm -D "$module" 2>/dev/null | grep -Eq "[[:space:]]${symbol}$" || {
-      echo "$(basename "$module") is missing required SDR++ symbol: $symbol" >&2
-      exit 1
-    }
-  done
+  echo "[*] Verified $(basename "$module") SDR++ ABI exports"
 done
 
 mkdir -p "$SDRPP_ROOT/modules"
@@ -182,8 +197,6 @@ cat > "$SDRPP_ROOT/rigctl_server_config.json" <<'JSON'
 }
 JSON
 
-# OpenRoadCode's native launcher resolves `sdrpp` from PATH. Install a small
-# wrapper so it always launches this ORC build with the matching root_dev tree.
 echo "[*] Installing /usr/local/bin/sdrpp launcher wrapper"
 wrapper_tmp="$(mktemp)"
 cat > "$wrapper_tmp" <<EOF
