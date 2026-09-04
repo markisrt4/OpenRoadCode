@@ -119,7 +119,7 @@ class FuelLevelGauge(tk.Canvas):
             elif percent <= 25.0:
                 color = self._style.caution_value
             else:
-                color = self._style.tick_color if major else self._style.muted_detail
+                color = self._style.foreground_color if major else self._style.muted_detail
             self.create_line(
                 x1, y1, x2, y2,
                 fill=color,
@@ -153,7 +153,7 @@ class FuelLevelGauge(tk.Canvas):
         needle_value = 0.0 if self._value is None or not self._connected else self._value
         needle_ratio = needle_value / 100.0
         needle_angle = self.START_ANGLE_DEG + needle_ratio * self.SWEEP_ANGLE_DEG
-        needle_color = self._style.needle_color if self._value is not None and self._connected else self._style.muted_color
+        needle_color = self._style.accent_color if self._value is not None and self._connected else self._style.muted_color
         nx, ny = self._point(cx, cy, radius * 0.52, needle_angle)
         tail_x, tail_y = self._point(cx, cy, radius * -0.10, needle_angle)
         self.create_line(
