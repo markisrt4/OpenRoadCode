@@ -1,4 +1,4 @@
-"""Interface for launching native Linux games."""
+"""! @brief Interface for launching native Linux games."""
 
 from abc import ABC, abstractmethod
 
@@ -6,16 +6,22 @@ from .game_types import GameDefinition
 
 
 class GameLauncherIf(ABC):
-    """Launch and manage one external game process at a time."""
+    """! @brief Launch and manage one external game process at a time."""
 
     @abstractmethod
     def launch(self, game: GameDefinition) -> None:
-        """Launch *game* or raise if another game is already running."""
+        """! @brief Launch a game or raise if another game is already running.
+
+        @param game Configured game definition to launch.
+        """
 
     @abstractmethod
     def stop(self) -> None:
-        """Stop the currently running game, if any."""
+        """! @brief Stop the currently running game, if any."""
 
     @abstractmethod
     def is_running(self) -> bool:
-        """Return True while the launched game process is alive."""
+        """! @brief Return whether the launched game process is alive.
+
+        @return True while the launched game process is alive, otherwise False.
+        """
