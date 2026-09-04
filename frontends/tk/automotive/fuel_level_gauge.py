@@ -105,6 +105,21 @@ class FuelLevelGauge(tk.Canvas):
                 outline=color,
             )
 
+        # Give the gauge a permanent visual scale so an unavailable fuel signal
+        # still looks like an instrument instead of an empty black circle.
+        arc_r = radius * 0.66
+        self.create_arc(
+            cx - arc_r,
+            cy - arc_r,
+            cx + arc_r,
+            cy + arc_r,
+            start=-(self.START_ANGLE_DEG + self.SWEEP_ANGLE_DEG),
+            extent=self.SWEEP_ANGLE_DEG,
+            style=tk.ARC,
+            outline=self._style.muted_detail,
+            width=max(1, int(size * 0.012)),
+        )
+
         active_count = self.active_segment_count(self._value) if self._connected else 0
         for index in range(self.SEGMENT_COUNT):
             ratio = index / max(1, self.SEGMENT_COUNT - 1)
@@ -113,8 +128,8 @@ class FuelLevelGauge(tk.Canvas):
             segment_percent = ratio * 100.0
             active = index < active_count
             color = self._segment_color(segment_percent, active)
-            inner = radius * 0.59
-            outer = radius * 0.72
+            inner = radius * 0.55
+            outer = radius * 0.73
             x1 = cx + inner * math.cos(angle)
             y1 = cy + inner * math.sin(angle)
             x2 = cx + outer * math.cos(angle)
@@ -125,64 +140,74 @@ class FuelLevelGauge(tk.Canvas):
                 x2,
                 y2,
                 fill=color,
-                width=max(3, int(size * 0.035)),
+                width=max(4, int(size * 0.045)),
                 capstyle=tk.ROUND,
             )
 
         self.create_text(
             cx,
-            cy - radius * 0.28,
+            cy - radius * 0.31,
             text="FUEL",
             fill=self._style.primary_text,
             font=(
                 self._style.condensed_font_family,
-                max(7, int(radius * 0.12)),
+                max(8, int(radius * 0.13)),
                 "bold",
             ),
         )
-        value_text = "--" if self._value is None else f"{self._value:.0f}"
+
         if not self._connected:
             value_text = "OFF"
+            detail_text = "NO DATA"
+        elif self._value is None:
+            value_text = "--"
+            detail_text = "NO DATA"
+        else:
+            value_text = f"{self._value:.0f}"
+            detail_text = "%"
+
         self.create_text(
             cx,
-            cy + radius * 0.02,
+            cy + radius * 0.01,
             text=value_text,
             fill=self._value_color(),
             font=(
                 self._style.mono_font_family,
-                max(14, int(radius * 0.31)),
+                max(15, int(radius * 0.33)),
                 "bold",
             ),
         )
         self.create_text(
             cx,
-            cy + radius * 0.30,
-            text="%",
+            cy + radius * 0.31,
+            text=detail_text,
             fill=self._style.muted_detail,
             font=(
                 self._style.condensed_font_family,
-                max(7, int(radius * 0.11)),
+                max(7, int(radius * 0.10)),
                 "bold",
             ),
         )
         self.create_text(
-            cx - radius * 0.53,
-            cy + radius * 0.54,
+            cx - radius * 0.54,
+            cy + radius * 0.55,
             text="E",
-            fill=self._style.muted_detail,
-            font=(self._style.font_family, max(7, int(radius * 0.10)), "bold"),
+            fill=self._style.danger_value,
+            font=(self._style.font_family, max(8, int(radius * 0.11)), "bold"),
         )
         self.create_text(
-            cx + radius * 0.53,
-            cy + radius * 0.54,
+            cx + radius * 0.54,
+            cy + radius * 0.55,
             text="F",
-            fill=self._style.muted_detail,
-            font=(self._style.font_family, max(7, int(radius * 0.10)), "bold"),
+            fill=self._style.primary_text,
+            font=(self._style.font_family, max(8, int(radius * 0.11)), "bold"),
         )
 
     def _segment_color(self, segment_percent: float, active: bool) -> str:
         if not active:
-            return self._style.disabled_normal_value
+            # ``disabled_normal_value`` is intentionally very subdued for normal
+            # gauges and was nearly invisible here. Fuel needs a visible scale.
+            return self._style.muted_detail
         if segment_percent <= 12.5:
             return self._style.danger_value
         if segment_percent <= 25.0:
