@@ -17,7 +17,13 @@ DARK={"bg":"#05090d","panel":"#0b1117","top":"#020406","nav":"#070c11","active":
 LIGHT={"bg":"#e8edf0","panel":"#f6f8f9","top":"#dce3e7","nav":"#e1e7ea","active":"#d1dbe0","border":"#b3c0c7","text":"#20282d","muted":"#66747c"}
 ACCENT_BLUE="#168bd1"; ACCENT_GREEN="#84ce1f"; ACCENT_RED="#f15a16"; ACCENT_PURPLE="#a25ce5"; ACCENT_YELLOW="#d6ad22"
 _LIGHT_BLUE="#0878b6"; _LIGHT_GREEN="#5f9418"; _LIGHT_RED="#c94d1a"; _LIGHT_PURPLE="#7f49ad"; _LIGHT_YELLOW="#927518"
-_DARK_TO_LIGHT={"#05090d":LIGHT["bg"],"#0b1117":LIGHT["panel"],"#020406":LIGHT["top"],"#070c11":LIGHT["nav"],"#101820":LIGHT["active"],"#25313b":LIGHT["border"],"#edf2f5":LIGHT["text"],"#89959e":LIGHT["muted"],ACCENT_BLUE:_LIGHT_BLUE,ACCENT_GREEN:_LIGHT_GREEN,ACCENT_RED:_LIGHT_RED,ACCENT_PURPLE:_LIGHT_PURPLE,ACCENT_YELLOW:_LIGHT_YELLOW}
+_DARK_TO_LIGHT={
+    "#05090d":LIGHT["bg"],"#0b1117":LIGHT["panel"],"#020406":LIGHT["top"],"#070c11":LIGHT["nav"],"#101820":LIGHT["active"],"#25313b":LIGHT["border"],"#edf2f5":LIGHT["text"],"#89959e":LIGHT["muted"],
+    "#17300f":"#dcebcf","#214019":"#cfdfc2","#18232c":"#c7d2d8",
+    "#102018":"#e2ecd9","#0d1b24":"#dceaf2","#11161a":"#e1e6e9","#183024":"#d4e5c8",
+    "#29110d":"#f6ded8","#3b1811":"#edcfc7",
+    ACCENT_BLUE:_LIGHT_BLUE,ACCENT_GREEN:_LIGHT_GREEN,ACCENT_RED:_LIGHT_RED,ACCENT_PURPLE:_LIGHT_PURPLE,ACCENT_YELLOW:_LIGHT_YELLOW,
+}
 _LIGHT_TO_DARK={v:k for k,v in _DARK_TO_LIGHT.items()}
 
 _MAP_DARK={
