@@ -9,11 +9,12 @@ PROJECT_ROOT="$(cd -- "$SCRIPT_DIR/../.." && pwd)"
 SERVICE_ROOT="${PREFIX:-/data/data/com.termux/files/usr}/var/service"
 SERVICES=(
     openroadcode-service-manager
-    openroadcode-broker
+    openroadcode-message-broker
     openroadcode-navigation
     openroadcode-automotive
     openroadcode-adsb
 )
+LEGACY_SERVICES=(openroadcode-broker)
 
 if ! command -v sv >/dev/null 2>&1; then
     echo "Termux runit services are not installed." >&2
@@ -22,6 +23,18 @@ if ! command -v sv >/dev/null 2>&1; then
 fi
 
 mkdir -p "$SERVICE_ROOT"
+
+# Remove service names retired by the version-controlled definitions. Stop the
+# old instance first so migration cannot leave two brokers bound to the same
+# ZeroMQ ports.
+for service in "${LEGACY_SERVICES[@]}"; do
+    target="$SERVICE_ROOT/$service"
+    if [[ -e "$target" || -L "$target" ]]; then
+        sv down "$service" >/dev/null 2>&1 || true
+        rm -rf "$target"
+        echo "Removed legacy service $service"
+    fi
+done
 
 for service in "${SERVICES[@]}"; do
     source_dir="$SCRIPT_DIR/$service"
@@ -90,7 +103,7 @@ echo
 echo "OpenRoadCode Termux services installed."
 echo "The service manager stays available as the lightweight local control plane."
 echo "Start the core stack with:"
-echo "  sv up openroadcode-broker"
+echo "  sv up openroadcode-message-broker"
 echo "  sv up openroadcode-navigation"
 echo "  sv up openroadcode-automotive"
 echo "Optional ADS-B:"
