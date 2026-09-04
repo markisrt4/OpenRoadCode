@@ -10,7 +10,7 @@ The project is intended for developers, makers, radio enthusiasts, and embedded 
 
 OpenRoadCode does not replace factory safety or vehicle-control systems. It complements them with an independent platform for experimentation, visualization, communications, entertainment, and custom applications.
 
-Explore the project at [openroadcode.org](https://www.openroadcode.org/) or visit the [OpenRoadCode repository](https://github.com/markisrt4/OpenRoadCode).
+Explore the project at https://www.openroadcode.org/ or visit the OpenRoadCode repository at https://github.com/markisrt4/OpenRoadCode.
 
 ---
 
@@ -99,7 +99,7 @@ Termux uses the corresponding proot build/setup path:
 ./development/termux/setup_sdrpp.sh
 ```
 
-See [`development/sdrpp/README.md`](development/sdrpp/README.md) and [`controllers/sdr/README.md`](controllers/sdr/README.md) for module and controller boundaries.
+The detailed SDR++ integration notes live in `development/sdrpp/README.md`; application-facing SDR controller notes live in `controllers/sdr/README.md`.
 
 ---
 
@@ -182,18 +182,7 @@ Commands requiring acknowledgement or error reporting use request/reply messagin
 
 `orcUi`, `carUi`, `carTui`, and `webUi` are application front ends at different stages of development. Browser-backed utilities such as Weather, ADS-B, YouTube, and Google Earth are auxiliary applications managed according to application policy.
 
-Messaging and service documentation:
-
-* [Messaging overview and subscriber quick start](messaging/README.md)
-* [Message Bus Interface Design Description](docs/messaging/message_bus_idd.md)
-* [Ethernet Interface Design Description and port registry](docs/ethernet_idd.md)
-* [Navigation producer service](services/navigation/README.md)
-* [Automotive producer service](services/automotive/README.md)
-* [SDR controllers](controllers/sdr/README.md)
-* [SDR++ integration](development/sdrpp/README.md)
-* [Car TUI telemetry consumer](apps/carTui/README.md)
-* [Termux development target](development/termux/README.md)
-* [Contributor architecture and testing rules](CONTRIBUTING.md)
+Messaging and service documentation is available under `messaging/README.md`, `docs/messaging/message_bus_idd.md`, `docs/ethernet_idd.md`, `services/navigation/README.md`, `services/automotive/README.md`, `controllers/sdr/README.md`, `development/sdrpp/README.md`, `apps/carTui/README.md`, `development/termux/README.md`, and `CONTRIBUTING.md`.
 
 ---
 
@@ -244,7 +233,7 @@ Concrete devices and credentials remain separate from package installation. Run 
 
 Termux is an active development target rather than a complete Raspberry Pi replacement. It is used to exercise native Python services, ZeroMQ, Valhalla, MapLibre, Chromium/Termux:X11 presentation, Android sensor integration, SDR++ integration, and simulated ADS-B presentation.
 
-The current navigation profile consumes geographic position from the localhost Android sensor bridge while retaining simulation fallbacks for platform-dependent sensor inputs. SDR++ runs inside the Debian proot and is presented through Termux:X11. Follow the [Termux development guide](development/termux/README.md) for the current native build, runit services, sensor bridge, navigation data, Valhalla, SDR++, and UI workflow.
+The current navigation profile consumes geographic position from the localhost Android sensor bridge while retaining simulation fallbacks for platform-dependent sensor inputs. SDR++ runs inside the Debian proot and is presented through Termux:X11. Follow `development/termux/README.md` for the current native build, runit services, sensor bridge, navigation data, Valhalla, SDR++, and UI workflow.
 
 ---
 
@@ -336,10 +325,10 @@ Contributions are welcome, particularly in automated tests, documentation, hardw
 
 Before a major architectural change, describe the problem, proposed design, affected layers, platform dependencies, and testing implications. Changes should preserve the separation between applications, controllers, services, messaging, protocols, and hardware-specific code.
 
-Read [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, architecture, testing conventions, hardware guidance, and the pull-request checklist.
+Read `CONTRIBUTING.md` for development setup, architecture, testing conventions, hardware guidance, and the pull-request checklist.
 
 ---
 
 ## License
 
-OpenRoadCode is licensed under the MIT License. See [LICENSE](LICENSE).
+OpenRoadCode is licensed under the MIT License. See `LICENSE`.
