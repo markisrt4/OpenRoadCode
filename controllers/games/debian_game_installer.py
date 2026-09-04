@@ -72,8 +72,7 @@ class DebianGameInstaller(GameInstallerIf):
         self._runner.run(["apt-get", "install", "-y", package], check=True)
 
     def launch_command(self, game: GameDefinition) -> Sequence[str]:
-        """Return a host command that executes *game* inside Debian."""
-        return self._runner.command(
-            ["env", f"PATH={self._GAME_PATH}", *game.command],
-            shared_tmp=True,
+        """Return a host command that executes *game* graphically inside Debian."""
+        return self._runner.graphical_command(
+            ["env", f"PATH={self._GAME_PATH}", *game.command]
         )
