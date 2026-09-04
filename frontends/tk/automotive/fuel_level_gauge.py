@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 
-"""Segmented round fuel-level gauge for automotive Tk frontends."""
+"""Analog round fuel-level gauge for automotive Tk frontends."""
 
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ from apps.common.uiTheme import VEHICLE_GAUGE_THEME, VehicleGaugeTheme
 
 
 class FuelLevelGauge(tk.Canvas):
-    """Compact round fuel gauge with discrete level tiers."""
+    """Compact analog fuel gauge with a needle and graduated level scale."""
 
     SEGMENT_COUNT = 12
     START_ANGLE_DEG = 145.0
@@ -57,7 +57,7 @@ class FuelLevelGauge(tk.Canvas):
 
     @classmethod
     def active_segment_count(cls, fuel_percent: float | None) -> int:
-        """Return how many discrete segments should illuminate."""
+        """Return how many graduated scale divisions are below the fuel level."""
         if fuel_percent is None:
             return 0
         clamped = max(0.0, min(100.0, float(fuel_percent)))
@@ -79,6 +79,10 @@ class FuelLevelGauge(tk.Canvas):
     def _on_resize(self, _event: tk.Event[tk.Misc]) -> None:
         self._draw()
 
+    def _point(self, cx: float, cy: float, radius: float, angle_deg: float) -> tuple[float, float]:
+        angle = math.radians(angle_deg)
+        return cx + radius * math.cos(angle), cy + radius * math.sin(angle)
+
     def _draw(self) -> None:
         self.delete("all")
         width = max(1, self.winfo_width())
@@ -96,117 +100,93 @@ class FuelLevelGauge(tk.Canvas):
             (0.77, self._style.face_color),
         ):
             r = radius * scale
-            self.create_oval(
-                cx - r,
-                cy - r,
-                cx + r,
-                cy + r,
-                fill=color,
-                outline=color,
-            )
+            self.create_oval(cx - r, cy - r, cx + r, cy + r, fill=color, outline=color)
 
-        # Give the gauge a permanent visual scale so an unavailable fuel signal
-        # still looks like an instrument instead of an empty black circle.
-        arc_r = radius * 0.66
-        self.create_arc(
-            cx - arc_r,
-            cy - arc_r,
-            cx + arc_r,
-            cy + arc_r,
-            start=-(self.START_ANGLE_DEG + self.SWEEP_ANGLE_DEG),
-            extent=self.SWEEP_ANGLE_DEG,
-            style=tk.ARC,
-            outline=self._style.muted_detail,
-            width=max(1, int(size * 0.012)),
-        )
-
-        active_count = self.active_segment_count(self._value) if self._connected else 0
-        for index in range(self.SEGMENT_COUNT):
-            ratio = index / max(1, self.SEGMENT_COUNT - 1)
+        # Graduated analog scale. Quarter-tank marks are longer and brighter;
+        # the empty end of the scale transitions through danger and caution.
+        tick_count = 20
+        for index in range(tick_count + 1):
+            ratio = index / tick_count
             angle_deg = self.START_ANGLE_DEG + ratio * self.SWEEP_ANGLE_DEG
-            angle = math.radians(angle_deg)
-            segment_percent = ratio * 100.0
-            active = index < active_count
-            color = self._segment_color(segment_percent, active)
-            inner = radius * 0.55
-            outer = radius * 0.73
-            x1 = cx + inner * math.cos(angle)
-            y1 = cy + inner * math.sin(angle)
-            x2 = cx + outer * math.cos(angle)
-            y2 = cy + outer * math.sin(angle)
+            major = index % 5 == 0
+            outer = radius * 0.72
+            inner = radius * (0.54 if major else 0.61)
+            x1, y1 = self._point(cx, cy, inner, angle_deg)
+            x2, y2 = self._point(cx, cy, outer, angle_deg)
+            percent = ratio * 100.0
+            if percent <= 12.5:
+                color = self._style.danger_value
+            elif percent <= 25.0:
+                color = self._style.caution_value
+            else:
+                color = self._style.tick_color if major else self._style.muted_detail
             self.create_line(
-                x1,
-                y1,
-                x2,
-                y2,
+                x1, y1, x2, y2,
                 fill=color,
-                width=max(4, int(size * 0.045)),
+                width=max(2, int(size * (0.024 if major else 0.012))),
                 capstyle=tk.ROUND,
             )
 
+        # Familiar quarter-tank landmarks make the scale readable at a glance.
+        for percent, label in ((0, "E"), (25, "¼"), (50, "½"), (75, "¾"), (100, "F")):
+            ratio = percent / 100.0
+            angle_deg = self.START_ANGLE_DEG + ratio * self.SWEEP_ANGLE_DEG
+            tx, ty = self._point(cx, cy, radius * 0.43, angle_deg)
+            color = self._style.danger_value if percent == 0 else self._style.primary_text
+            self.create_text(
+                tx, ty,
+                text=label,
+                fill=color,
+                font=(self._style.font_family, max(7, int(radius * 0.105)), "bold"),
+            )
+
         self.create_text(
             cx,
-            cy - radius * 0.31,
+            cy - radius * 0.28,
             text="FUEL",
             fill=self._style.primary_text,
-            font=(
-                self._style.condensed_font_family,
-                max(8, int(radius * 0.13)),
-                "bold",
-            ),
+            font=(self._style.condensed_font_family, max(8, int(radius * 0.13)), "bold"),
         )
 
-        if not self._connected:
-            value_text = "OFF"
+        # A real analog needle is the primary indicator. With no fuel telemetry
+        # it rests at E in the muted color rather than pretending we know a value.
+        needle_value = 0.0 if self._value is None or not self._connected else self._value
+        needle_ratio = needle_value / 100.0
+        needle_angle = self.START_ANGLE_DEG + needle_ratio * self.SWEEP_ANGLE_DEG
+        needle_color = self._style.needle_color if self._value is not None and self._connected else self._style.muted_color
+        nx, ny = self._point(cx, cy, radius * 0.52, needle_angle)
+        tail_x, tail_y = self._point(cx, cy, radius * -0.10, needle_angle)
+        self.create_line(
+            tail_x, tail_y, nx, ny,
+            fill=needle_color,
+            width=max(3, int(size * 0.026)),
+            capstyle=tk.ROUND,
+        )
+        hub = max(3.0, size * 0.035)
+        self.create_oval(
+            cx - hub, cy - hub, cx + hub, cy + hub,
+            fill=self._style.bezel_midlight,
+            outline=self._style.primary_text,
+            width=max(1, int(size * 0.008)),
+        )
+
+        if not self._connected or self._value is None:
             detail_text = "NO DATA"
-        elif self._value is None:
-            value_text = "--"
-            detail_text = "NO DATA"
+            detail_color = self._style.muted_detail
         else:
-            value_text = f"{self._value:.0f}"
-            detail_text = "%"
-
+            detail_text = f"{self._value:.0f}%"
+            detail_color = self._value_color()
         self.create_text(
             cx,
-            cy + radius * 0.01,
-            text=value_text,
-            fill=self._value_color(),
-            font=(
-                self._style.mono_font_family,
-                max(15, int(radius * 0.33)),
-                "bold",
-            ),
-        )
-        self.create_text(
-            cx,
-            cy + radius * 0.31,
+            cy + radius * 0.35,
             text=detail_text,
-            fill=self._style.muted_detail,
-            font=(
-                self._style.condensed_font_family,
-                max(7, int(radius * 0.10)),
-                "bold",
-            ),
-        )
-        self.create_text(
-            cx - radius * 0.54,
-            cy + radius * 0.55,
-            text="E",
-            fill=self._style.danger_value,
-            font=(self._style.font_family, max(8, int(radius * 0.11)), "bold"),
-        )
-        self.create_text(
-            cx + radius * 0.54,
-            cy + radius * 0.55,
-            text="F",
-            fill=self._style.primary_text,
-            font=(self._style.font_family, max(8, int(radius * 0.11)), "bold"),
+            fill=detail_color,
+            font=(self._style.mono_font_family, max(7, int(radius * 0.105)), "bold"),
         )
 
     def _segment_color(self, segment_percent: float, active: bool) -> str:
+        """Retain tier-color behavior for callers/tests using the legacy helper."""
         if not active:
-            # ``disabled_normal_value`` is intentionally very subdued for normal
-            # gauges and was nearly invisible here. Fuel needs a visible scale.
             return self._style.muted_detail
         if segment_percent <= 12.5:
             return self._style.danger_value
