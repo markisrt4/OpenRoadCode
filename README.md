@@ -4,7 +4,7 @@
 
 OpenRoadCode is a modular in-vehicle computing platform designed primarily for Raspberry Pi and Linux-based embedded systems. Android/Termux is also used as an active portability and development target.
 
-It combines software-defined radio, offline navigation, positioning, vehicle telemetry, media controls, environmental sensors, physical controls, and touchscreen interfaces into one extensible platform.
+It combines software-defined radio, offline navigation, positioning, vehicle telemetry, media controls, environmental sensors, physical controls, touchscreen interfaces, and optional native Linux games into one extensible platform.
 
 The project is intended for developers, makers, radio enthusiasts, and embedded Linux engineers who want a vehicle computing system they can inspect, modify, extend, and fully control.
 
@@ -18,7 +18,7 @@ Explore the project at [openroadcode.org](https://www.openroadcode.org/) or visi
 
 OpenRoadCode is under active development and currently operates as an advanced experimental platform rather than a finished commercial infotainment system.
 
-The current integration work includes a new ORC UI shell, native offline MapLibre presentation, Valhalla route planning, live Android-backed positioning on Termux, message-bus map commands, map follow/recenter behavior, and focused POI presentation. These paths are being exercised together before promotion to the main development line.
+The current integration line includes the ORC UI shell, native offline MapLibre presentation, Valhalla route planning, live Android-backed positioning on Termux, message-bus map commands, map follow/recenter behavior, focused POI presentation, and a native games launcher. The games integration provides package discovery/installation, category browsing, lifecycle management, X11 window embedding, and an ORC-owned kiosk exit path.
 
 Some components are functional and actively used in the reference vehicle. Others are experimental, hardware-dependent, or still being integrated. Interfaces, configuration formats, and directory structures may continue to evolve before the first stable release.
 
@@ -33,7 +33,7 @@ OpenRoadCode is designed to:
 * Keep hardware-specific code isolated from application logic
 * Allow applications and controllers to be tested without physical hardware
 * Support Raspberry Pi and Linux development systems while exercising portability through Android/Termux
-* Encourage experimentation with radio, navigation, vehicle telemetry, sensors, and embedded Linux
+* Encourage experimentation with radio, navigation, vehicle telemetry, sensors, entertainment, and embedded Linux
 * Provide educational examples of modular Python and embedded-system architecture
 * Avoid unnecessary dependence on cloud services
 
@@ -44,6 +44,7 @@ OpenRoadCode is designed to:
 Current and partially integrated capabilities include:
 
 * Touchscreen automotive user interface, including the evolving `orcUi` shell
+* Native Linux games browser with category filters, package discovery/installation, launch/stop lifecycle, and X11 kiosk embedding
 * Offline Valhalla route planning and native MapLibre map presentation
 * Route overlays, camera follow/recenter, manual map panning, and live vehicle position
 * Provider-independent positioning and navigation telemetry
@@ -65,6 +66,18 @@ Current and partially integrated capabilities include:
 * Mock, stub, and simulation implementations for development without hardware
 
 Not every feature is supported on every target. In particular, Android/Termux is a development and portability target and does not provide hardware parity with the Raspberry Pi installation.
+
+---
+
+## Native Games
+
+The ORC UI includes an optional native-games frontend. `config/games.toml` is the catalog and describes game commands, categories, icons, and package metadata. The controller layer discovers available installers and keeps the Tk frontend independent of whether a game is supplied by the host Debian system, Termux, or Debian hosted through `proot-distro`.
+
+The games panel performs inventory work asynchronously, caches resolved package backends, and presents install/play state without blocking the Tk event loop. While a game is active, the category browser is replaced by an ORC-owned **EXIT GAME** control and the game's X11 window is hosted in the Games content area. Exiting through either ORC or the game itself returns lifecycle state to the browser.
+
+On native Debian/Ubuntu, graphical games use the host graphics stack. On Android/Termux, Debian games can run through the Debian userspace while Termux:X11 remains the display owner. When `virglrenderer-android` is available, the Debian command runner can use Mesa `virpipe` through the shared temporary socket to reach the Android GPU without injecting Android/Bionic graphics libraries into the Debian/glibc process.
+
+X11 embedding currently requires `xdotool`. Some games manage their own window geometry aggressively; the embedder follows the launched process tree, reparents the visible game window, and reasserts host geometry during startup. This is best-effort compatibility with third-party applications rather than a guarantee that every Linux game will behave as an embeddable widget.
 
 ---
 
@@ -108,11 +121,11 @@ OpenRoadCode/
 ├── apps/                 main applications and application launchers
 ├── services/             long-lived domain producers such as navigation
 ├── messaging/            public contracts and ZeroMQ transport
-├── controllers/          application-facing behavior
+├── controllers/          application-facing behavior, including games
 ├── hardware_io/          physical and platform-specific adapters
 ├── protocols/            device and external-service protocols
 ├── common/               shared telemetry and units
-├── frontends/ and ui/    presentation implementations
+├── frontends/ and ui/    presentation implementations and contracts
 ├── input_events/         cross-layer physical input contracts
 ├── config/               runtime and application policy
 └── scripts/              installation and service integration
@@ -143,20 +156,22 @@ Producer services own physical devices or simulation sources, domain processing,
 
 Map presentation follows the same separation. Navigation owns normalized position and route information, application-side map logic owns camera policy, and `MapRendererClient` publishes renderer commands through the message bus. The native MapLibre renderer therefore does not need to know whether a position originated from USB GNSS, Android, browser-based development input, or simulation.
 
+The games feature follows the same boundary rule: toolkit-independent game state and requests live under `ui/games`, lifecycle and package policy live under `controllers/games`, Tk rendering lives under `frontends/tk/games`, and generic X11 window hosting lives under `frontends/x11`.
+
 Commands requiring acknowledgement or error reporting use request/reply messaging where appropriate. Public telemetry remains SI-normalized on the wire; presentation code performs unit conversion.
 
 `orcUi`, `carUi`, `carTui`, and `webUi` are application front ends at different stages of development. Browser-backed utilities such as Weather, ADS-B, YouTube, and Google Earth are auxiliary applications managed according to application policy.
 
 Messaging and service documentation:
 
-* [Messaging overview and subscriber quick start](https://github.com/markisrt4/OpenRoadCode/blob/master/messaging/README.md)
-* [Message Bus Interface Design Description](https://github.com/markisrt4/OpenRoadCode/blob/master/docs/messaging/message_bus_idd.md)
+* [Messaging overview and subscriber quick start](messaging/README.md)
+* [Message Bus Interface Design Description](docs/messaging/message_bus_idd.md)
 * [Ethernet Interface Design Description and port registry](docs/ethernet_idd.md)
-* [Navigation producer service](https://github.com/markisrt4/OpenRoadCode/blob/master/services/navigation/README.md)
-* [Automotive producer service](https://github.com/markisrt4/OpenRoadCode/blob/master/services/automotive/README.md)
-* [Car TUI telemetry consumer](https://github.com/markisrt4/OpenRoadCode/blob/master/apps/carTui/README.md)
-* [Termux development target](https://github.com/markisrt4/OpenRoadCode/blob/master/development/termux/README.md)
-* [Contributor architecture and testing rules](https://github.com/markisrt4/OpenRoadCode/blob/master/CONTRIBUTING.md)
+* [Navigation producer service](services/navigation/README.md)
+* [Automotive producer service](services/automotive/README.md)
+* [Car TUI telemetry consumer](apps/carTui/README.md)
+* [Termux development target](development/termux/README.md)
+* [Contributor architecture and testing rules](CONTRIBUTING.md)
 
 ---
 
@@ -169,6 +184,7 @@ User-facing auxiliary applications are configured separately:
 * `config/applications.toml` contains the Raspberry Pi/Linux application profile.
 * `config/applications.termux.toml` contains Termux presentation routing and platform-specific application behavior.
 * `config/runtime.termux.toml` is an explicit Android sensor/navigation service profile.
+* `config/games.toml` contains the optional native-games catalog and package metadata.
 
 Application startup policy is explicit:
 
@@ -203,9 +219,9 @@ Concrete devices and credentials remain separate from package installation. Run 
 
 ### Android / Termux
 
-Termux is an active development target rather than a complete Raspberry Pi replacement. It is used to exercise native Python services, ZeroMQ, Valhalla, MapLibre, Chromium/Termux:X11 presentation, Android sensor integration, and simulated ADS-B presentation.
+Termux is an active development target rather than a complete Raspberry Pi replacement. It is used to exercise native Python services, ZeroMQ, Valhalla, MapLibre, Chromium/Termux:X11 presentation, Android sensor integration, simulated ADS-B presentation, and the native-games frontend.
 
-The current navigation profile consumes geographic position from the localhost Android sensor bridge while retaining simulation fallbacks for platform-dependent sensor inputs. Follow the [Termux development guide](https://github.com/markisrt4/OpenRoadCode/blob/master/development/termux/README.md) for the current native build, runit services, sensor bridge, navigation data, Valhalla, and UI workflow.
+The current navigation profile consumes geographic position from the localhost Android sensor bridge while retaining simulation fallbacks for platform-dependent sensor inputs. Follow the [Termux development guide](development/termux/README.md) for the current native build, runit services, sensor bridge, navigation data, Valhalla, UI, and games workflow.
 
 ---
 
@@ -217,7 +233,7 @@ From the repository root:
 python -m apps.orcUi
 ```
 
-On Termux, start or verify Termux:X11 first and export the appropriate `DISPLAY` value. The Termux guide contains the current launch sequence and native map prerequisites.
+On Termux, start or verify Termux:X11 first and export the appropriate `DISPLAY` value. The Termux guide contains the current launch sequence and native map/game prerequisites.
 
 The older `carUi` application remains in the repository while the ORC UI shell is integrated and matured.
 
@@ -227,7 +243,7 @@ The older `carUi` application remains in the repository while the ORC UI shell i
 
 Mocks, stubs, simulation producers, and unconfigured implementations allow developers to test application logic, presentation, dependency assembly, and failure handling without the complete vehicle hardware stack.
 
-Component-test CLIs provide direct subsystem verification for navigation inputs, route planning and map presentation, OBD-II, SDR applications, rotary encoders, environmental sensors, Spotify/media, audio, and Bluetooth devices. Component tests may require hardware, permissions, services, or environment variables and supplement rather than replace automated tests.
+Component-test CLIs provide direct subsystem verification for navigation inputs, route planning and map presentation, OBD-II, SDR applications, rotary encoders, environmental sensors, Spotify/media, audio, Bluetooth devices, and native game inventory/lifecycle behavior. Component tests may require hardware, permissions, services, or environment variables and supplement rather than replace automated tests.
 
 ---
 
@@ -242,7 +258,7 @@ python scripts/check_doxygen_contracts.py
 doxygen Doxyfile
 ```
 
-Generated HTML documentation is written to `build/doxygen/html/index.html`; warnings are written to `build/doxygen-warnings.log` and are treated as errors by the project Doxyfile.
+Generated HTML documentation is written to `build/doxygen/html/index.html`; warnings are written to `build/doxygen-warnings.log` and are treated as errors by the project Doxyfile. The Doxygen input includes `ui` and `frontends`, so the games contracts and frontend/X11 integration are part of the generated API documentation where publicly documented.
 
 Before a pull request, also run the relevant unit/component tests for the changed subsystems. Native integration changes should be exercised on their target platform where practical, because Python can verify a contract but remains stubbornly unable to impersonate an Android graphics stack convincingly.
 
@@ -259,6 +275,7 @@ General project conventions include:
 * Keep protocol parsing in `protocols`.
 * Keep application-facing behavior in `controllers`.
 * Keep long-lived producer ownership in `services`.
+* Keep toolkit and native-window mechanics in `frontends`; controllers should expose semantic state and requests instead.
 * Avoid importing application modules from lower-level packages.
 * Provide type annotations and Doxygen contracts for public interfaces.
 * Keep configuration outside application logic.
@@ -277,7 +294,7 @@ Primary targets are:
 * Debian/Ubuntu AMD64 development systems
 * Android/Termux as an active development and portability target
 
-Termux support is intentionally partial. Hardware-specific Linux integrations such as GPIO, some audio paths, and direct RTL-SDR ownership may differ or be unavailable. Termux:X11 provides the graphical environment used by the current Android workflow.
+Termux support is intentionally partial. Hardware-specific Linux integrations such as GPIO, some audio paths, and direct RTL-SDR ownership may differ or be unavailable. Termux:X11 provides the graphical environment used by the current Android workflow. Debian applications hosted through Termux `proot-distro` remain Debian userspace applications; OpenRoadCode hides that hosting detail behind its Debian command runner.
 
 ---
 
@@ -285,7 +302,7 @@ Termux support is intentionally partial. Hardware-specific Linux integrations su
 
 OpenRoadCode is an experimental hobbyist and educational platform. It must not be relied upon for steering, braking, throttle, airbags, stability control, or other safety-critical vehicle functions.
 
-Do not interact with the system while driving unless the interaction is legal, safe, and designed to minimize distraction. Radio operation must comply with applicable laws and regulations. Vehicle wiring, power integration, CAN access, GPIO connections, and external hardware modifications should be performed carefully.
+Do not interact with the system while driving unless the interaction is legal, safe, and designed to minimize distraction. Games and other entertainment applications are for use while the vehicle is safely parked. Radio operation must comply with applicable laws and regulations. Vehicle wiring, power integration, CAN access, GPIO connections, and external hardware modifications should be performed carefully.
 
 ---
 
@@ -295,10 +312,10 @@ Contributions are welcome, particularly in automated tests, documentation, hardw
 
 Before a major architectural change, describe the problem, proposed design, affected layers, platform dependencies, and testing implications. Changes should preserve the separation between applications, controllers, services, messaging, protocols, and hardware-specific code.
 
-Read [CONTRIBUTING.md](https://github.com/markisrt4/OpenRoadCode/blob/master/CONTRIBUTING.md) for development setup, architecture, testing conventions, hardware guidance, and the pull-request checklist.
+Read [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, architecture, testing conventions, hardware guidance, and the pull-request checklist.
 
 ---
 
 ## License
 
-OpenRoadCode is licensed under the MIT License. See [LICENSE](https://github.com/markisrt4/OpenRoadCode/blob/master/LICENSE).
+OpenRoadCode is licensed under the MIT License. See [LICENSE](LICENSE).
