@@ -22,6 +22,7 @@ RED = "#f15a16"
 BLUE = "#168bd1"
 PAGE_SIZE = 6
 FILTERS = (("ALL", "all"), ("CASUAL", "casual"), ("PUZZLE", "puzzle"), ("CARD / BOARD", "card_board"), ("ACTION", "action"))
+_ICON_SIZES = (128, 96, 64, 48, 32, 256)
 
 
 class GamesPanel(tk.Frame, GamesUiIf):
@@ -39,6 +40,7 @@ class GamesPanel(tk.Frame, GamesUiIf):
         self._runtime_host: tk.Frame | None = None
         self._filter = "all"
         self._page = 0
+        self._initial_loading = True
         self._filter_buttons: dict[str, tk.Button] = {}
         self._icon_cache: dict[str, tk.PhotoImage | None] = {}
         self._build()
@@ -52,15 +54,19 @@ class GamesPanel(tk.Frame, GamesUiIf):
             self._refresh_cards()
 
     def set_games_status(self, message: str) -> None:
+        was_loading = self._initial_loading
+        self._initial_loading = message.startswith(("Checking games", "Refreshing games"))
         if message.startswith(("Install failed", "Launch failed", "Embed failed", "No runtime")):
             color = RED
-        elif message.startswith(("Installing", "Checking", "Refreshing", "Embedding")):
+        elif message.startswith(("Installing", "Checking", "Refreshing", "Embedding", "Launching")):
             color = BLUE
         elif message.startswith(("Installed", "Playing")):
             color = GREEN
         else:
             color = MUTED
         self._status.configure(text=message, fg=color)
+        if self._runtime_host is None and was_loading != self._initial_loading:
+            self._refresh_cards()
 
     def show_runtime_host(self, on_resize: Callable[[int, int], None]) -> tuple[int, int, int]:
         """Replace game cards with a native-window host and return its geometry."""
@@ -102,7 +108,7 @@ class GamesPanel(tk.Frame, GamesUiIf):
         self._refresh_cards()
 
     def _set_filter(self, category: str) -> None:
-        if self._runtime_host is not None:
+        if self._runtime_host is not None or self._initial_loading:
             return
         self._filter = category
         self._page = 0
@@ -110,7 +116,7 @@ class GamesPanel(tk.Frame, GamesUiIf):
         self._refresh_cards()
 
     def _change_page(self, delta: int) -> None:
-        if self._runtime_host is not None:
+        if self._runtime_host is not None or self._initial_loading:
             return
         games = self._visible_games()
         page_count = max(1, (len(games) + PAGE_SIZE - 1) // PAGE_SIZE)
@@ -131,8 +137,23 @@ class GamesPanel(tk.Frame, GamesUiIf):
             return list(self._games)
         return [game for game in self._games if game.category == self._filter]
 
+    def _show_loading(self) -> None:
+        self._page_label.configure(text="")
+        self._prev_button.configure(state=tk.DISABLED)
+        self._next_button.configure(state=tk.DISABLED)
+        tk.Label(
+            self._body,
+            text="Loading games…",
+            fg=TEXT,
+            bg=BG,
+            font=("Sans", 18, "bold"),
+        ).place(relx=.5, rely=.45, anchor="center")
+
     def _refresh_cards(self) -> None:
         self._clear_body()
+        if self._initial_loading:
+            self._show_loading()
+            return
         games = self._visible_games()
         if not games:
             self._page = 0
@@ -156,21 +177,25 @@ class GamesPanel(tk.Frame, GamesUiIf):
             self._game_card(self._body, game).grid(row=index // 2, column=index % 2, sticky="nsew", padx=6, pady=5)
 
     def _find_icon(self, icon_name: str) -> Path | None:
+        """Find a desktop icon without recursively walking the whole icon tree."""
         prefix = Path(os.environ.get("PREFIX", "/usr"))
-        roots = (prefix / "share" / "icons", prefix / "share" / "pixmaps", Path("/usr/share/icons"), Path("/usr/share/pixmaps"))
-        candidates: list[Path] = []
-        for root in roots:
-            if not root.exists():
-                continue
+        pixmap_roots = (prefix / "share" / "pixmaps", Path("/usr/share/pixmaps"))
+        for root in pixmap_roots:
             for extension in ("png", "gif"):
-                candidates.extend(root.glob(f"**/{icon_name}.{extension}"))
-        if not candidates:
-            return None
-        def score(path: Path) -> tuple[int, int]:
-            text = str(path)
-            preferred = 1 if any(size in text for size in ("128x128", "96x96", "64x64", "48x48")) else 0
-            return preferred, -len(text)
-        return max(candidates, key=score)
+                candidate = root / f"{icon_name}.{extension}"
+                if candidate.is_file():
+                    return candidate
+
+        icon_roots = (prefix / "share" / "icons", Path("/usr/share/icons"))
+        for root in icon_roots:
+            for theme in ("hicolor", "breeze", "breeze-dark", "Adwaita"):
+                for size in _ICON_SIZES:
+                    for context in ("apps", "applications"):
+                        for extension in ("png", "gif"):
+                            candidate = root / theme / f"{size}x{size}" / context / f"{icon_name}.{extension}"
+                            if candidate.is_file():
+                                return candidate
+        return None
 
     def _icon_for(self, game: GameUiState) -> tk.PhotoImage | None:
         if not game.icon:
