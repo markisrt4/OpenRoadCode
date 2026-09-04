@@ -102,7 +102,7 @@ class GamesOrcUiApp(OrcUiApp):
         host_id, width, height = panel.show_runtime_host(self._resize_game_runtime)
         try:
             command = backend.launch_command(game)
-            self._game_launcher.launch(game, command)
+            self._game_launcher.launch(game, command, on_exit=self._game_process_exited)
         except Exception:
             panel.hide_runtime_host()
             raise
@@ -129,6 +129,21 @@ class GamesOrcUiApp(OrcUiApp):
         else:
             threading.Thread(target=self._stop_game_runtime, daemon=True).start()
 
+    def _game_process_exited(self) -> None:
+        """Return spontaneous native-game exits to the controller on Tk."""
+        try:
+            self._root.after(0, self._finish_game_process_exit)
+        except (RuntimeError, tk.TclError):
+            pass
+
+    def _finish_game_process_exit(self) -> None:
+        self._game_embedder.clear()
+        controller = self._games_controller
+        if controller is not None:
+            controller.request_stop_game()
+        else:
+            self._finish_stop_game_runtime()
+
     def _resize_game_runtime(self, width: int, height: int) -> None:
         """Debounce X11 resize work so Configure storms never block Tk."""
         self._pending_game_size = (width, height)
@@ -145,11 +160,7 @@ class GamesOrcUiApp(OrcUiApp):
         self._pending_game_size = None
         if size is None or self._game_embedder.window_id is None:
             return
-        threading.Thread(
-            target=self._game_embedder.resize,
-            args=size,
-            daemon=True,
-        ).start()
+        threading.Thread(target=self._game_embedder.resize, args=size, daemon=True).start()
 
     def _stop_game_runtime(self) -> None:
         """Stop the process; UI restoration is scheduled back onto Tk."""
@@ -162,7 +173,7 @@ class GamesOrcUiApp(OrcUiApp):
 
     def _finish_stop_game_runtime(self) -> None:
         panel = self._games_panel
-        if panel is not None:
+        if panel is not None and panel.winfo_exists():
             panel.hide_runtime_host()
 
     def _shutdown(self) -> None:
@@ -172,8 +183,6 @@ class GamesOrcUiApp(OrcUiApp):
             except tk.TclError:
                 pass
             self._game_resize_after_id = None
-        # Shutdown is already terminal UI work; avoid scheduling callbacks into a
-        # Tk interpreter that is about to disappear.
         self._game_launcher.stop()
         self._game_embedder.clear()
         super()._shutdown()
