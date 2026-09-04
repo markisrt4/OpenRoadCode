@@ -9,7 +9,7 @@ control it through the localhost service-manager API.
 
 - `openroadcode-service-manager` provides the lightweight localhost control
   plane on `127.0.0.1:8768`.
-- `openroadcode-broker` runs the ZeroMQ message broker.
+- `openroadcode-message-broker` runs the ZeroMQ message broker.
 - `openroadcode-navigation` runs the navigation service using
   `config/runtime.termux.toml`.
 - `openroadcode-automotive` publishes the automotive state. Navigation ground
@@ -40,7 +40,9 @@ git switch automotive
 
 The installer creates real service directories under `$PREFIX/var/service/`
 and copies the version-controlled `run` definitions into them. Mutable
-`supervise/` state therefore remains outside the source tree.
+`supervise/` state therefore remains outside the source tree. The installer
+also removes retired service names, stopping them first so a migration cannot
+leave duplicate processes bound to the same ports.
 
 The installer also verifies that `runsvdir` has adopted every service. A newly
 added service normally appears automatically. If Termux's existing supervisor
@@ -62,18 +64,18 @@ unable to open supervise/ok: file does not exist
 
 ```bash
 sv status openroadcode-service-manager
-sv status openroadcode-broker
+sv status openroadcode-message-broker
 sv status openroadcode-navigation
 sv status openroadcode-automotive
 sv status openroadcode-adsb
 
-sv up openroadcode-broker
+sv up openroadcode-message-broker
 sv up openroadcode-navigation
 sv up openroadcode-automotive
 
 sv down openroadcode-automotive
 sv down openroadcode-navigation
-sv down openroadcode-broker
+sv down openroadcode-message-broker
 ```
 
 Start dependencies in the order broker -> navigation -> automotive. Stop them
@@ -89,7 +91,7 @@ restarts.
 curl http://127.0.0.1:8768/services
 curl -X POST http://127.0.0.1:8768/stack/core/start
 curl -X POST http://127.0.0.1:8768/stack/core/stop
-curl -X POST http://127.0.0.1:8768/services/navigation/restart
+curl -X POST http://127.0.0.1:8768/services/openroadcode-navigation/restart
 ```
 
 The API binds only to localhost and accepts only predefined OpenRoadCode
