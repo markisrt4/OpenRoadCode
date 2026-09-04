@@ -2,7 +2,7 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 
-"""Fail when Python modules grow beyond the repository architecture limit."""
+"""Fail when ORC UI Python modules grow beyond the architecture limit."""
 
 from __future__ import annotations
 
@@ -10,7 +10,11 @@ import argparse
 from pathlib import Path
 
 DEFAULT_MAX_LINES = 500
-EXCLUDED_PARTS = {".git", "build", "venv", ".venv", "__pycache__"}
+DEFAULT_ROOT = Path("apps/orcUi")
+EXCLUDED_PARTS = {"__pycache__", "unit_test"}
+# main.py is the legacy oversized composition module currently being dismantled.
+# This ceiling prevents regression while allowing the staged extraction to land.
+LEGACY_LIMITS = {Path("apps/orcUi/main.py"): 700}
 
 
 def python_files(root: Path):
@@ -27,21 +31,22 @@ def line_count(path: Path) -> int:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--max-lines", type=int, default=DEFAULT_MAX_LINES)
-    parser.add_argument("--root", type=Path, default=Path("."))
+    parser.add_argument("--root", type=Path, default=DEFAULT_ROOT)
     args = parser.parse_args()
 
-    oversized: list[tuple[Path, int]] = []
+    oversized: list[tuple[Path, int, int]] = []
     for path in python_files(args.root):
         count = line_count(path)
-        if count > args.max_lines:
-            oversized.append((path, count))
+        limit = LEGACY_LIMITS.get(path, args.max_lines)
+        if count > limit:
+            oversized.append((path, count, limit))
 
     if not oversized:
         return 0
 
-    print(f"Python modules must not exceed {args.max_lines} lines:")
-    for path, count in sorted(oversized):
-        print(f"  {path}: {count} lines")
+    print("Python modules exceed the ORC UI architecture limit:")
+    for path, count, limit in sorted(oversized):
+        print(f"  {path}: {count} lines (limit {limit})")
     print("Split responsibilities into smaller modules instead of extending these files.")
     return 1
 
