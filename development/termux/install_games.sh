@@ -50,8 +50,8 @@ log 'enabling Termux X11 repository'
 pkg install -y x11-repo
 log 'refreshing package metadata'
 pkg update -y
-log 'installing X11 embedding helper'
-pkg install -y xdotool
+log 'installing X11 embedding and Debian OpenGL helpers'
+pkg install -y xdotool virglrenderer-android
 
 INSTALLED=()
 UNAVAILABLE=()
