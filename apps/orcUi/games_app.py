@@ -10,7 +10,7 @@ import tkinter as tk
 from pathlib import Path
 
 from apps.orcUi.main import GREEN, OrcUiApp
-from apps.orcUi.orc_theme import ThemeMode, apply_tk_theme
+from apps.orcUi.orc_theme import ThemeMode
 from controllers.games.game_catalog import load_game_catalog
 from controllers.games.game_controller import GameController
 from controllers.games.game_installer_factory import create_game_installers
@@ -50,6 +50,28 @@ class GamesOrcUiApp(OrcUiApp):
             self._nav_buttons[item] = button
         self._paint_nav()
 
+    def _paint_nav(self) -> None:
+        """Paint navigation using the active theme instead of restoring dark colors."""
+        light = self._theme_mode is ThemeMode.LIGHT
+        normal_bg = "#e1e7ea" if light else "#070c11"
+        active_bg = "#d1dbe0" if light else "#101820"
+        normal_fg = "#46545c" if light else "#c7cdd2"
+        active_fg = "#5f9418" if light else GREEN
+        for name, button in self._nav_buttons.items():
+            selected = name == self._active_nav
+            button.configure(
+                fg=active_fg if selected else normal_fg,
+                bg=active_bg if selected else normal_bg,
+                activebackground=active_bg,
+                activeforeground=active_fg,
+            )
+
+    def _toggle_theme(self) -> None:
+        super()._toggle_theme()
+        panel = self._games_panel
+        if panel is not None and panel.winfo_exists():
+            panel.set_light_mode(self._theme_mode is ThemeMode.LIGHT)
+
     def _select_nav(self, name: str) -> None:
         if name == "GAMES":
             self._show_games_panel()
@@ -75,6 +97,7 @@ class GamesOrcUiApp(OrcUiApp):
         self._active_nav = "GAMES"
         self._paint_nav()
         panel = GamesPanel(self._content)
+        panel.set_light_mode(self._theme_mode is ThemeMode.LIGHT)
         panel.pack(fill=tk.BOTH, expand=True)
         controller = GameController(
             games=self._load_games(),
@@ -88,8 +111,6 @@ class GamesOrcUiApp(OrcUiApp):
         self._games_controller = controller
         controller.set_games_ui(panel)
         controller.start()
-        if self._theme_mode is ThemeMode.LIGHT:
-            apply_tk_theme(panel, self._theme_mode)
 
     def _launch_game_runtime(self, game: GameDefinition, backend) -> None:
         if self._game_launcher.is_running():
