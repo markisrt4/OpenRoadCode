@@ -36,7 +36,7 @@ class X11WindowEmbedder(WindowEmbedderIf):
         window_name: str | None = None,
         window_class: str | None = None,
     ) -> int:
-        """Find, reparent, map, and size an X11 client inside the host window."""
+        """Find, hide, reparent, size, and map an X11 client inside the host."""
         if not self.supported():
             raise RuntimeError("xdotool is required for embedded X11 windows")
 
@@ -52,12 +52,39 @@ class X11WindowEmbedder(WindowEmbedderIf):
                 time.sleep(0.1)
                 continue
             try:
-                subprocess.run(["xdotool", "windowreparent", str(window_id), str(host_window_id)], check=True, capture_output=True, text=True)
-                subprocess.run(["xdotool", "windowmap", str(window_id)], check=True, capture_output=True, text=True)
+                # Hide the top-level client before stealing it from the window
+                # manager. This avoids the visible desktop-to-host teleport and
+                # also gives XFCE less opportunity to fight the reparent.
+                subprocess.run(
+                    ["xdotool", "windowunmap", str(window_id)],
+                    check=True,
+                    capture_output=True,
+                    text=True,
+                )
+                subprocess.run(
+                    ["xdotool", "windowreparent", str(window_id), str(host_window_id)],
+                    check=True,
+                    capture_output=True,
+                    text=True,
+                )
+
                 self._window_id = window_id
                 self._host_window_id = host_window_id
+
+                # Size and position while hidden so the first visible frame is
+                # already in its final ORC host geometry.
                 self.resize(width, height)
-                subprocess.run(["xdotool", "sync", str(window_id)], check=False, capture_output=True)
+                subprocess.run(
+                    ["xdotool", "windowmap", str(window_id)],
+                    check=True,
+                    capture_output=True,
+                    text=True,
+                )
+                subprocess.run(
+                    ["xdotool", "sync", str(window_id)],
+                    check=False,
+                    capture_output=True,
+                )
                 time.sleep(0.05)
                 self.resize(width, height)
                 return window_id
@@ -65,6 +92,14 @@ class X11WindowEmbedder(WindowEmbedderIf):
                 last_error = error
                 self._window_id = None
                 self._host_window_id = None
+                # If reparenting failed after unmapping, restore visibility so
+                # the external application is not accidentally stranded hidden.
+                subprocess.run(
+                    ["xdotool", "windowmap", str(window_id)],
+                    check=False,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                )
                 time.sleep(0.15)
 
         selectors = []
