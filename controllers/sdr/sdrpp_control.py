@@ -8,8 +8,8 @@ from __future__ import annotations
 from protocols.sdrpp_remote_control import SDRPPRemoteControlClient
 
 
-class OrcUiSdrppControl:
-    """Expose ORC-oriented controls without leaking the remote protocol into UI code."""
+class SDRPPControl:
+    """Expose application-facing SDR++ controls without leaking wire protocol details."""
 
     def __init__(self, client: SDRPPRemoteControlClient | None = None) -> None:
         self._client = client or SDRPPRemoteControlClient()
