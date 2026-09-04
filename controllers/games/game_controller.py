@@ -93,7 +93,7 @@ class GameController(GamesRequestHandlerIf):
         self._run_work(lambda: self._install_worker(game, backend))
 
     def request_launch_game(self, game_id: str) -> None:
-        """Launch a game without blocking the UI scheduler."""
+        """Handle a launch request after the frontend has created its runtime host."""
         game = self._games_by_id.get(game_id)
         backend = self._installed.get(game_id)
         if (
@@ -107,26 +107,17 @@ class GameController(GamesRequestHandlerIf):
             return
         self._launch_pending = True
         self._publish_status(f"Launching: {game.name}…")
-        self._run_work(lambda: self._launch_worker(game, backend))
-
-    def _launch_worker(self, game: GameDefinition, backend: GameInstallerIf) -> None:
-        error: Exception | None = None
         try:
-            assert self._launch_game is not None
             self._launch_game(game, backend)
-        except Exception as exc:
-            error = exc
-        self._run_ui(lambda: self._launch_finished(game, error))
-
-    def _launch_finished(self, game: GameDefinition, error: Exception | None) -> None:
-        self._launch_pending = False
-        if error is not None:
-            self._status[game.name] = GameStatus.ERROR
+        except Exception as error:
+            self._launch_pending = False
+            self._status[game_id] = GameStatus.ERROR
             self._publish_status(f"Launch failed: {error}")
             self._publish()
             return
-        self._active_game_id = game.name
-        self._status[game.name] = GameStatus.RUNNING
+        self._launch_pending = False
+        self._active_game_id = game_id
+        self._status[game_id] = GameStatus.RUNNING
         self._publish_status(f"Playing: {game.name}")
         self._publish()
 
