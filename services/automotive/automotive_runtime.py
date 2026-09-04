@@ -5,9 +5,11 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 import threading
 import time
 
+from controllers.automotive.gear_estimator import GearEstimator
 from controllers.automotive.vehicle_state_source_if import VehicleStateSourceIf
 from messaging.contracts.automotive import VehicleStatePublisher
 from protocols.obd2 import Obd2Error
@@ -24,6 +26,7 @@ class AutomotiveRuntime:
         publish_source: str = "automotive-service",
         rate_hz: float = 10.0,
         reconnect_interval_s: float = 2.0,
+        gear_estimator: GearEstimator | None = None,
     ) -> None:
         if rate_hz <= 0.0:
             raise ValueError("rate_hz must be greater than zero")
@@ -33,6 +36,7 @@ class AutomotiveRuntime:
         self._state_publisher = VehicleStatePublisher(publisher, source=publish_source)
         self._period_s = 1.0 / rate_hz
         self._reconnect_interval_s = reconnect_interval_s
+        self._gear_estimator = gear_estimator
         self._stop_event = threading.Event()
         self._connected = False
 
@@ -58,6 +62,14 @@ class AutomotiveRuntime:
                     self._stop_event.wait(self._reconnect_interval_s)
                     continue
 
+                if self._gear_estimator is not None:
+                    state = replace(
+                        state,
+                        transmission_gear=self._gear_estimator.estimate(
+                            state.engine_speed_rad_s,
+                            state.vehicle_speed_m_s,
+                        ),
+                    )
                 self._state_publisher.publish(state)
                 remaining = self._period_s - (time.monotonic() - started)
                 if remaining > 0.0:

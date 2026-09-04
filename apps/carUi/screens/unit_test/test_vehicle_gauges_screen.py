@@ -40,6 +40,7 @@ def _message() -> VehicleStateMessage:
         data=VehicleStateData(
             engine_speed_rad_s=100.0,
             vehicle_speed_m_s=20.0,
+            transmission_gear=3,
             throttle_position=0.4,
             accelerator_pedal_position=0.3,
             engine_load=0.5,

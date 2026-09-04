@@ -20,7 +20,8 @@ from apps.orcUi.home_map_panel import HomeMapPanel
 from apps.orcUi.navigation_panel import NavigationPanel
 from apps.orcUi.navigation_presenter import AttitudePresentationState, NavigationPresenter, PositionPresentationState
 from apps.orcUi.offroad_panel import OffRoadPanel
-from apps.orcUi.orc_theme import ThemeMode, apply_tk_theme, install_map_style, toggle, toggle_label
+from apps.orcUi.orc_theme import ThemeMode, apply_tk_theme, install_map_style, toggle_label
+from apps.orcUi.theme_runtime import create_theme_controller
 from apps.orcUi.radio_panel import RadioPanel
 from apps.orcUi.vehicle_panel import VehiclePanel
 from apps.orcUi.vehicle_presenter import VehiclePresenter, VehiclePresentationState

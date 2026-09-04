@@ -12,7 +12,6 @@ from ui.navigation import MapRequestHandlerIf
 
 PANEL = "#0b1117"
 BORDER = "#25313b"
-BLUE = "#168bd1"
 
 
 class HomeMapPanel(tk.Frame):
@@ -32,12 +31,10 @@ class HomeMapPanel(tk.Frame):
         return self._map_host.winfo_id()
 
     def _build(self) -> None:
-        self.grid_rowconfigure(1, weight=1)
+        self.grid_rowconfigure(0, weight=1)
         self.grid_columnconfigure(0, weight=1)
-        tk.Label(self, text="NAVIGATION", fg=BLUE, bg=PANEL,
-                 font=("Sans", 10, "bold")).grid(row=0, column=0, sticky="w", padx=14, pady=(11, 4))
         self._map_host = tk.Frame(self, bg="#020406")
-        self._map_host.grid(row=1, column=0, sticky="nsew", padx=1, pady=(0, 1))
+        self._map_host.grid(row=0, column=0, sticky="nsew", padx=1, pady=1)
 
     def _schedule_renderer_refresh(self) -> None:
         # PUB/SUB drops commands until the newly launched renderer has joined.

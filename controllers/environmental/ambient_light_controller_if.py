@@ -18,7 +18,7 @@ class AmbientLightControllerIf(ABC):
     def is_started(self) -> bool:
         """Return whether the controller is ready to read state.
 
-        @return ``True`` when the controller has been started and is ready.
+        @return True when the controller has started and can read state.
         """
 
     @property
@@ -26,7 +26,7 @@ class AmbientLightControllerIf(ABC):
     def is_available(self) -> bool:
         """Return whether ambient light support is available.
 
-        @return ``True`` when ambient light sensing is available.
+        @return True when an ambient light source is available.
         """
 
     @property
@@ -34,15 +34,15 @@ class AmbientLightControllerIf(ABC):
     def status_message(self) -> str | None:
         """Return an availability message, if one applies.
 
-        @return A status message, or ``None`` when no message applies.
+        @return Availability/status message, or None when no message applies.
         """
 
     @property
     @abstractmethod
     def latest_state(self) -> AmbientLightState | None:
-        """Return the latest ambient light state.
+        """Return the latest state, or ``None`` before the first read.
 
-        @return The latest state, or ``None`` before the first successful read.
+        @return Most recently sampled ambient light state, or None when unread.
         """
 
     @abstractmethod
@@ -55,7 +55,7 @@ class AmbientLightControllerIf(ABC):
 
     @abstractmethod
     def read_state(self) -> AmbientLightState:
-        """Read the current ambient light state.
+        """Read and return the current ambient light state.
 
-        @return The current ambient light state.
+        @return Newly sampled ambient light state.
         """
