@@ -106,7 +106,7 @@ class RadioEntryPanel(tk.Frame):
         rf_card.grid_rowconfigure(0, weight=1)
         self._rf_button = tk.Button(
             rf_card,
-            text="▶\nRF RADIO\n\nSDR++ / SDR",
+            text="RF RADIO\n\n▶\n\nSDR++ / SDR",
             command=self._launch_rf_radio,
             bg=PANEL,
             fg=TEXT,
@@ -124,7 +124,7 @@ class RadioEntryPanel(tk.Frame):
         streaming_card.grid_rowconfigure(0, weight=1)
         self._streaming_button = tk.Button(
             streaming_card,
-            text="◉\nSTREAMING RADIO\n\nINTERNET STATIONS",
+            text="STREAMING RADIO\n\n◉\n\nINTERNET STATIONS",
             command=self._show_streaming_placeholder,
             bg=PANEL,
             fg=TEXT,
@@ -168,6 +168,10 @@ class RadioEntryPanel(tk.Frame):
 
         def launch() -> None:
             try:
+                # ORC-patched SDR++ honors this before glfwCreateWindow(). The
+                # window exists for X11 embedding but never flashes as a normal
+                # desktop window first.
+                os.environ["ORC_SDRPP_START_HIDDEN"] = "1"
                 self._launcher.launch(self._display)
             except Exception as error:
                 launch_error.append(error)
@@ -179,11 +183,6 @@ class RadioEntryPanel(tk.Frame):
         )
         launcher_thread.start()
 
-        # SDRPPLauncher.launch() intentionally waits for RigCTL before it
-        # returns. The X11 client normally exists well before that point, so
-        # waiting for launch() to return made the visible window appear much
-        # later than necessary. Watch for the process in parallel and embed it
-        # as soon as it exists.
         process_id: int | None = None
         deadline = time.monotonic() + 12.0
         while time.monotonic() < deadline and not launch_error:
@@ -204,8 +203,6 @@ class RadioEntryPanel(tk.Frame):
             self.after(0, lambda exc=launch_error[0]: self._show_launch_error(exc))
             return
 
-        # Existing SDR++ instances are not owned by this launcher's Popen
-        # handle, so fall back to the embedder's normal window-name lookup.
         self.after(0, lambda: self._attach_rf_radio(0))
 
     def _attach_rf_radio(self, process_id: int) -> None:
@@ -228,7 +225,7 @@ class RadioEntryPanel(tk.Frame):
             self._radio_panel.destroy()
         self._radio_panel = None
         self._chooser.grid()
-        self._rf_button.configure(state=tk.NORMAL, text="▶\nRF RADIO\n\nSDR++ / SDR")
+        self._rf_button.configure(state=tk.NORMAL, text="RF RADIO\n\n▶\n\nSDR++ / SDR")
         self._streaming_button.configure(state=tk.NORMAL)
         self._status.configure(text=f"SDR++: {type(error).__name__}: {error}", fg=RED)
         print(f"WARNING: SDR++ launch/embed: {type(error).__name__}: {error}")
