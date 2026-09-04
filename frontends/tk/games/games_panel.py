@@ -33,7 +33,11 @@ class GamesPanel(tk.Frame, GamesUiIf):
         self._request_handler: GamesRequestHandlerIf | None = None
         self._games: tuple[GameUiState, ...] = ()
         self._status: tk.Label
+        self._toolbar: tk.Frame
+        self._filters: tk.Frame
+        self._exit_button: tk.Button
         self._body: tk.Frame
+        self._pager: tk.Frame
         self._page_label: tk.Label
         self._prev_button: tk.Button
         self._next_button: tk.Button
@@ -56,9 +60,9 @@ class GamesPanel(tk.Frame, GamesUiIf):
     def set_games_status(self, message: str) -> None:
         was_loading = self._initial_loading
         self._initial_loading = message.startswith(("Checking games", "Refreshing games"))
-        if message.startswith(("Install failed", "Launch failed", "Embed failed", "No runtime")):
+        if message.startswith(("Install failed", "Launch failed", "Embed failed", "No runtime", "Stop failed")):
             color = RED
-        elif message.startswith(("Installing", "Checking", "Refreshing", "Embedding", "Launching")):
+        elif message.startswith(("Installing", "Checking", "Refreshing", "Embedding", "Launching", "Stopping")):
             color = BLUE
         elif message.startswith(("Installed", "Playing")):
             color = GREEN
@@ -69,8 +73,12 @@ class GamesPanel(tk.Frame, GamesUiIf):
             self._refresh_cards()
 
     def show_runtime_host(self, on_resize: Callable[[int, int], None]) -> tuple[int, int, int]:
-        """Replace game cards with a native-window host and return its geometry."""
+        """Replace game cards with a native-window host and enter kiosk mode."""
         self._clear_body()
+        self._filters.pack_forget()
+        self._status.pack_forget()
+        self._exit_button.pack(side=tk.RIGHT, padx=8)
+        self._pager.pack_forget()
         host = tk.Frame(self._body, bg="#000000", highlightthickness=1, highlightbackground=BORDER)
         host.pack(fill=tk.BOTH, expand=True, padx=4, pady=4)
         host.update_idletasks()
@@ -79,31 +87,56 @@ class GamesPanel(tk.Frame, GamesUiIf):
         return host.winfo_id(), host.winfo_width(), host.winfo_height()
 
     def hide_runtime_host(self) -> None:
-        """Remove the native-window host and restore game cards."""
+        """Leave kiosk mode and restore the normal games browser."""
         self._runtime_host = None
+        self._exit_button.pack_forget()
+        self._filters.pack(side=tk.LEFT)
+        self._status.pack(side=tk.RIGHT, padx=8)
+        self._pager.pack(fill=tk.X, pady=(4, 1))
         self._refresh_cards()
 
+    def _request_exit_game(self) -> None:
+        handler = self._request_handler
+        if handler is not None:
+            handler.request_stop_game()
+
     def _build(self) -> None:
-        toolbar = tk.Frame(self, bg=BG)
-        toolbar.pack(fill=tk.X, pady=(2, 6))
-        filters = tk.Frame(toolbar, bg=BG)
-        filters.pack(side=tk.LEFT)
+        self._toolbar = tk.Frame(self, bg=BG)
+        self._toolbar.pack(fill=tk.X, pady=(2, 6))
+        self._filters = tk.Frame(self._toolbar, bg=BG)
+        self._filters.pack(side=tk.LEFT)
         for label, category in FILTERS:
-            button = tk.Button(filters, text=label, command=lambda selected=category: self._set_filter(selected), relief=tk.FLAT, font=("Sans", 9, "bold"), padx=11, pady=6, cursor="hand2")
+            button = tk.Button(self._filters, text=label, command=lambda selected=category: self._set_filter(selected), relief=tk.FLAT, font=("Sans", 9, "bold"), padx=11, pady=6, cursor="hand2")
             button.pack(side=tk.LEFT, padx=(0, 5))
             self._filter_buttons[category] = button
-        self._status = tk.Label(toolbar, text="Checking games…", fg=BLUE, bg=BG, font=("Sans", 10))
+        self._status = tk.Label(self._toolbar, text="Checking games…", fg=BLUE, bg=BG, font=("Sans", 10))
         self._status.pack(side=tk.RIGHT, padx=8)
+        self._exit_button = tk.Button(
+            self._toolbar,
+            text="EXIT GAME",
+            command=self._request_exit_game,
+            bg="#29110d",
+            fg=RED,
+            activebackground="#3b1811",
+            activeforeground=TEXT,
+            relief=tk.FLAT,
+            highlightthickness=1,
+            highlightbackground=RED,
+            font=("Sans", 10, "bold"),
+            padx=22,
+            pady=6,
+            cursor="hand2",
+        )
         self._update_filter_buttons()
         self._body = tk.Frame(self, bg=BG)
         self._body.pack(fill=tk.BOTH, expand=True)
-        pager = tk.Frame(self, bg=BG)
-        pager.pack(fill=tk.X, pady=(4, 1))
-        self._prev_button = tk.Button(pager, text="‹ PREV", command=lambda: self._change_page(-1), bg="#101820", fg=TEXT, relief=tk.FLAT, font=("Sans", 9, "bold"), padx=16, pady=4)
+        self._pager = tk.Frame(self, bg=BG)
+        self._pager.pack(fill=tk.X, pady=(4, 1))
+        self._prev_button = tk.Button(self._pager, text="‹ PREV", command=lambda: self._change_page(-1), bg="#101820", fg=TEXT, relief=tk.FLAT, font=("Sans", 9, "bold"), padx=16, pady=4)
         self._prev_button.pack(side=tk.LEFT, padx=6)
-        self._next_button = tk.Button(pager, text="NEXT ›", command=lambda: self._change_page(1), bg="#101820", fg=TEXT, relief=tk.FLAT, font=("Sans", 9, "bold"), padx=16, pady=4)
+        self._next_button = tk.Button(self._pager, text="NEXT ›", command=lambda: self._change_page(1), bg="#101820", fg=TEXT, relief=tk.FLAT, font=("Sans", 9, "bold"), padx=16, pady=4)
         self._next_button.pack(side=tk.RIGHT, padx=6)
-        self._page_label = tk.Label(pager, text="", fg=MUTED, bg=BG, font=("Sans", 9, "bold"))
+        self._page_label = tk.Label(self._pager, text="", fg=MUTED, bg=BG, font=("Sans", 9, "bold"))
         self._page_label.pack(expand=True)
         self._refresh_cards()
 
@@ -141,13 +174,7 @@ class GamesPanel(tk.Frame, GamesUiIf):
         self._page_label.configure(text="")
         self._prev_button.configure(state=tk.DISABLED)
         self._next_button.configure(state=tk.DISABLED)
-        tk.Label(
-            self._body,
-            text="Loading games…",
-            fg=TEXT,
-            bg=BG,
-            font=("Sans", 18, "bold"),
-        ).place(relx=.5, rely=.45, anchor="center")
+        tk.Label(self._body, text="Loading games…", fg=TEXT, bg=BG, font=("Sans", 18, "bold")).place(relx=.5, rely=.45, anchor="center")
 
     def _refresh_cards(self) -> None:
         self._clear_body()
@@ -185,7 +212,6 @@ class GamesPanel(tk.Frame, GamesUiIf):
                 candidate = root / f"{icon_name}.{extension}"
                 if candidate.is_file():
                     return candidate
-
         icon_roots = (prefix / "share" / "icons", Path("/usr/share/icons"))
         for root in icon_roots:
             for theme in ("hicolor", "breeze", "breeze-dark", "Adwaita"):
