@@ -480,6 +480,7 @@ class OrcUiApp:
         self._context_rail = ContextRail(self._content, on_expand=self._show_context_full_panel)
         self._context_rail.update_vehicle_state(self._vehicle_state)
         self._context_rail.update_position_state(self._position_state)
+        self._context_rail.update_attitude_state(self._attitude_state)
         self._context_rail.grid(row=0, column=1, rowspan=2, sticky="nsew", padx=(5, 0))
         lower = tk.Frame(self._content, bg=BG)
         lower.grid(row=1, column=0, sticky="nsew", padx=(0, 5), pady=(5, 0))
@@ -589,6 +590,8 @@ class OrcUiApp:
         if self._closing:
             return
         self._attitude_state = state
+        if self._context_rail is not None and self._context_rail.winfo_exists():
+            self._context_rail.update_attitude_state(state)
         if self._offroad_panel is not None and self._offroad_panel.winfo_exists():
             self._offroad_panel.update_attitude(state)
         if self._vehicle_panel is not None and self._vehicle_panel.winfo_exists():
