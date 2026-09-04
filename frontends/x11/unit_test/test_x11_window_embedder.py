@@ -28,18 +28,41 @@ class X11WindowEmbedderTest(unittest.TestCase):
     def test_embed_reparents_maps_and_resizes_found_window(
         self, _which: Mock, run: Mock
     ) -> None:
-        run.side_effect = [
-            subprocess.CompletedProcess([], 0, stdout="111\n222\n", stderr=""),
-            subprocess.CompletedProcess([], 0, stdout="WIDTH=320\nHEIGHT=200\n", stderr=""),
-            subprocess.CompletedProcess([], 0, stdout="WIDTH=800\nHEIGHT=600\n", stderr=""),
-            subprocess.CompletedProcess([], 0),
-            subprocess.CompletedProcess([], 0),
-            subprocess.CompletedProcess([], 0),
-            subprocess.CompletedProcess([], 0),
-            subprocess.CompletedProcess([], 0),
-            subprocess.CompletedProcess([], 0),
-            subprocess.CompletedProcess([], 0),
-        ]
+        def fake_run(command, **_kwargs):
+            if (
+                len(command) >= 4
+                and command[0] == "xdotool"
+                and command[1] == "search"
+                and "--pid" in command
+                and "1234" in command
+            ):
+                return subprocess.CompletedProcess(
+                    command, 0, stdout="111\\n222\\n", stderr=""
+                )
+
+            if command == ["xdotool", "getwindowgeometry", "--shell", "111"]:
+                return subprocess.CompletedProcess(
+                    command, 0, stdout="WIDTH=320\\nHEIGHT=200\\n", stderr=""
+                )
+
+            if command == ["xdotool", "getwindowgeometry", "--shell", "222"]:
+                return subprocess.CompletedProcess(
+                    command, 0, stdout="WIDTH=800\\nHEIGHT=600\\n", stderr=""
+                )
+
+            if command == ["xwininfo", "-id", "222", "-tree"]:
+                return subprocess.CompletedProcess(
+                    command,
+                    0,
+                    stdout="Parent window id: 0x162e",
+                    stderr="",
+                )
+
+            return subprocess.CompletedProcess(
+                command, 0, stdout="", stderr=""
+            )
+
+        run.side_effect = fake_run
         embedder = X11WindowEmbedder(timeout_seconds=0.1)
 
         window_id = embedder.embed(1234, 5678, 800, 400)
@@ -48,7 +71,7 @@ class X11WindowEmbedderTest(unittest.TestCase):
         self.assertEqual(222, embedder.window_id)
         commands = [call.args[0] for call in run.call_args_list]
         self.assertEqual(
-            ["xdotool", "search", "--onlyvisible", "--pid", "1234"],
+            ["xdotool", "search", "--pid", "1234"],
             commands[0],
         )
         self.assertIn(["xdotool", "getwindowgeometry", "--shell", "111"], commands)
@@ -93,10 +116,7 @@ class X11WindowEmbedderTest(unittest.TestCase):
             ["xdotool", "windowsize", "99", "1", "1"],
             run.call_args_list[0].args[0],
         )
-        self.assertEqual(
-            ["xdotool", "windowmove", "99", "0", "0"],
-            run.call_args_list[1].args[0],
-        )
+        self.assertEqual(1, run.call_count)
 
     @patch("frontends.x11.x11_window_embedder.subprocess.run")
     def test_clear_forgets_embedded_window(self, run: Mock) -> None:

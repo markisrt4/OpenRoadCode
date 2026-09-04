@@ -5,25 +5,118 @@
 from __future__ import annotations
 import json
 import tkinter as tk
-from enum import Enum
 from pathlib import Path
 from typing import Any
 
-class ThemeMode(str, Enum):
-    DARK = "dark"
-    LIGHT = "light"
+from ui.theme import ThemeMode
 
 DARK={"bg":"#05090d","panel":"#0b1117","top":"#020406","nav":"#070c11","active":"#101820","border":"#25313b","text":"#edf2f5","muted":"#89959e"}
 LIGHT={"bg":"#e8edf0","panel":"#f6f8f9","top":"#dce3e7","nav":"#e1e7ea","active":"#d1dbe0","border":"#b3c0c7","text":"#20282d","muted":"#66747c"}
 ACCENT_BLUE="#168bd1"; ACCENT_GREEN="#84ce1f"; ACCENT_RED="#f15a16"; ACCENT_PURPLE="#a25ce5"; ACCENT_YELLOW="#d6ad22"
 _LIGHT_BLUE="#0878b6"; _LIGHT_GREEN="#5f9418"; _LIGHT_RED="#c94d1a"; _LIGHT_PURPLE="#7f49ad"; _LIGHT_YELLOW="#927518"
-_DARK_TO_LIGHT={
-    "#05090d":LIGHT["bg"],"#0b1117":LIGHT["panel"],"#020406":LIGHT["top"],"#070c11":LIGHT["nav"],"#101820":LIGHT["active"],"#25313b":LIGHT["border"],"#edf2f5":LIGHT["text"],"#89959e":LIGHT["muted"],
-    "#17300f":"#dcebcf","#214019":"#cfdfc2","#18232c":"#c7d2d8",
-    "#102018":"#e2ecd9","#0d1b24":"#dceaf2","#11161a":"#e1e6e9","#183024":"#d4e5c8",
-    "#29110d":"#f6ded8","#3b1811":"#edcfc7",
-    ACCENT_BLUE:_LIGHT_BLUE,ACCENT_GREEN:_LIGHT_GREEN,ACCENT_RED:_LIGHT_RED,ACCENT_PURPLE:_LIGHT_PURPLE,ACCENT_YELLOW:_LIGHT_YELLOW,
-}
+_DARK_TO_LIGHT={"#05090d":LIGHT["bg"],"#0b1117":LIGHT["panel"],"#020406":LIGHT["top"],"#070c11":LIGHT["nav"],"#101820":LIGHT["active"],"#25313b":LIGHT["border"],"#edf2f5":LIGHT["text"],"#89959e":LIGHT["muted"],ACCENT_BLUE:_LIGHT_BLUE,ACCENT_GREEN:_LIGHT_GREEN,ACCENT_RED:_LIGHT_RED,ACCENT_PURPLE:_LIGHT_PURPLE,ACCENT_YELLOW:_LIGHT_YELLOW}
+
+# Automotive instruments are canvas-heavy, so normal Tk widget option
+# translation is not enough. Keep the performance-cluster character in dark
+# mode while supplying a deliberate daylight palette instead of literal color
+# inversion. These entries also cover the off-road dashboard's semantic colors.
+_DARK_TO_LIGHT.update({
+    "#000000":"#e8edf0",
+    "#090a0b":"#eef2f4",
+    "#08090a":"#e7ecef",
+    "#0a0c0d":"#f5f7f8",
+    "#0b0d0e":"#f5f7f8",
+    "#111315":"#ffffff",
+    "#151719":"#d4dce0",
+    "#17191b":"#20282d",
+    "#181b1c":"#edf1f3",
+    "#1e2123":"#cbd3d7",
+    "#202326":"#aab5bb",
+    "#282b2d":"#c4cdd2",
+    "#2c2e2f":"#d6dde0",
+    "#2e3133":"#bcc7cc",
+    "#303234":"#c3cbd0",
+    "#39484f":"#c0cbd0",
+    "#4e3d12":"#ead9a8",
+    "#57131b":"#f0c9cd",
+    "#5e6263":"#aebbc1",
+    "#626668":"#aebbc1",
+    "#686b6d":"#66747c",
+    "#6f7373":"#aeb8bd",
+    "#707476":"#939fa5",
+    "#747879":"#738189",
+    "#767a7c":"#9aa5aa",
+    "#7b1017":"#b94b53",
+    "#85898a":"#7e8b92",
+    "#8a8881":"#6d787e",
+    "#9b9c99":"#c6ced2",
+    "#9da1a2":"#9aa6ac",
+    "#a92b34":"#c95b63",
+    "#a9acad":"#6f7e86",
+    "#aeb1b1":"#586970",
+    "#b7b9b8":"#6e7b81",
+    "#c7c9c7":"#9aa6ac",
+    "#c8cbca":"#435159",
+    "#d8dad9":"#35444b",
+    "#d9dbd9":"#35444b",
+    "#dedfda":"#f8fafb",
+    "#e3e4e1":"#ffffff",
+    "#f0f0ed":"#20282d",
+    "#f2efe5":"#f8fafb",
+    "#ffffff":"#20282d",
+    "#ff694f":"#c73d2d",
+    "#ff3143":"#d51f2b",
+    "#ff3446":"#d51f2b",
+    "#f0b323":"#9b720c",
+    "#e4a514":"#9b720c",
+    "#c88b0d":"#8b6508",
+    "#760d14":"#b21f29",
+    "#f26a70":"#d85d64",
+    "#650008":"#9a3038",
+    "#e10d1c":"#c81d2b",
+    "#ff4b56":"#d94b55",
+    "#c40012":"#b71927",
+    "#07100d":"#e8edf0",
+    "#101d18":"#f6f8f9",
+    "#274238":"#b3c0c7",
+    "#e5f2e9":"#20282d",
+    "#8ca398":"#66747c",
+    "#66e38f":"#5f9418",
+    "#ffb347":"#927518",
+    "#ff5d52":"#c94d1a",
+    "#18344b":"#b9d9ea",
+    "#493825":"#d8c4a8",
+    "#263d31":"#d4ded8",
+    "#355442":"#c4d3ca",
+    "#1c322a":"#c5d0ca",
+    "#274536":"#cbd8d0",
+    "#102636":"#d2e3ec",
+    "#7ea3b8":"#64869a",
+    "#0a1512":"#eef2f0",
+    "#193027":"#d3ddd7",
+    "#27483a":"#c2d1c8",
+    "#111613":"#ccd3cf",
+    "#80958a":"#71827a",
+    "#9bad9f":"#76867d",
+    "#ffe6a1":"#d6ad22",
+    "#b9c8bf":"#82928a",
+    "#101411":"#c9d0cc",
+    "#5b1512":"#f1d1cc",
+    "#ffd6d2":"#7e332c",
+})
+# Games-specific light-mode mappings.
+_DARK_TO_LIGHT.update({
+    "#17300f":"#dcebcf",
+    "#214019":"#cfdfc2",
+    "#18232c":"#c7d2d8",
+    "#102018":"#e2ecd9",
+    "#0d1b24":"#dceaf2",
+    "#11161a":"#e1e6e9",
+    "#183024":"#d4e5c8",
+    "#29110d":"#f6ded8",
+    "#3b1811":"#edcfc7",
+})
+
 _LIGHT_TO_DARK={v:k for k,v in _DARK_TO_LIGHT.items()}
 
 _MAP_DARK={
@@ -49,7 +142,23 @@ def _apply_widget(widget:tk.Misc,mapping:dict[str,str])->None:
         if current in mapping:
             try: widget.configure(**{option:mapping[current]})
             except tk.TclError: pass
+    if isinstance(widget,tk.Canvas): _apply_canvas_items(widget,mapping)
     for child in widget.winfo_children(): _apply_widget(child,mapping)
+
+def _apply_canvas_items(canvas:tk.Canvas,mapping:dict[str,str])->None:
+    """Translate colors already painted into a canvas.
+
+    Vehicle instruments and the off-road dashboard draw most of their visual
+    state as canvas items, so changing only the Canvas widget background would
+    leave a dark dashboard floating in a light shell.
+    """
+    for item in canvas.find_all():
+        for option in ("fill","outline"):
+            try: current=str(canvas.itemcget(item,option)).lower()
+            except tk.TclError: continue
+            if current in mapping:
+                try: canvas.itemconfigure(item,**{option:mapping[current]})
+                except tk.TclError: pass
 
 def _apply_map_palette(document:dict[str,Any],colors:dict[str,str])->None:
     layers={layer.get("id"):layer for layer in document.get("layers",[])}

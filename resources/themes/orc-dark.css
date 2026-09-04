@@ -1,0 +1,73 @@
+/* SPDX-FileCopyrightText: 2026 Mark G. Russell
+ * SPDX-License-Identifier: MIT
+ */
+
+:root {
+    --background: #05090d;
+    --surface: #0b1117;
+    --surface-alt: #101820;
+    --border: #25313b;
+    --text: #edf2f5;
+    --text-muted: #89959e;
+    --accent-primary: #168bd1;
+    --accent-success: #84ce1f;
+    --accent-warning: #d6ad22;
+    --accent-danger: #f15a16;
+    --control-background: var(--surface-alt);
+    --control-active: var(--accent-primary);
+    --control-text: var(--text);
+}
+
+.button {
+    background: var(--control-background);
+    color: var(--control-text);
+    border-color: var(--border);
+}
+
+.button.active {
+    background: var(--control-active);
+    color: var(--control-text);
+}
+
+.automotive-gauge {
+    background: var(--background);
+    color: var(--text);
+    --gauge-face: #080a0c;
+    --gauge-bezel: #8b9499;
+    --gauge-tick: #f2f4f5;
+    --gauge-needle: #ff3143;
+
+    --linear-card-background: #343a3e;
+    --linear-card-inner: #111518;
+    --linear-card-border: #8f989d;
+    --linear-card-highlight: #525a5f;
+    --linear-card-text: #f0f0ed;
+    --linear-card-muted: #a9acad;
+}
+
+.automotive-shifter {
+    background: #090a0b;
+    color: #d9dbd9;
+    --panel: #111315;
+    --border: #626668;
+    --gear-active: #ff3143;
+    --gear-inactive: #747879;
+    --gear-selected-background: #57131b;
+}
+
+.automotive-offroad {
+    background: var(--background);
+    color: var(--text);
+    --panel: var(--surface);
+    --border: var(--border);
+    --muted: var(--text-muted);
+    --heading: var(--accent-primary);
+    --success: var(--accent-success);
+    --warning: var(--accent-warning);
+    --danger: var(--accent-danger);
+    --sky: #18344b;
+    --ground: #493825;
+    --control-background: var(--control-background);
+    --control-active: var(--control-active);
+    --control-text: var(--control-text);
+}
