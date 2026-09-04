@@ -42,9 +42,9 @@ class GamesOrcUiApp(OrcUiApp):
                 nav, text=item, command=lambda name=item: self._select_nav(name),
                 bg="#070c11", fg="#c7cdd2", activebackground="#101820",
                 activeforeground=GREEN, relief=tk.FLAT, bd=0,
-                font=("Sans", 9), height=2, cursor="hand2",
+                font=("Sans", 9), height=3, cursor="hand2",
             )
-            button.pack(fill=tk.X, padx=4, pady=1)
+            button.pack(fill=tk.X, padx=4, pady=2)
             self._nav_buttons[item] = button
         self._paint_nav()
 
