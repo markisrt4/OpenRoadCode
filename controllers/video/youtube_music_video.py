@@ -53,7 +53,7 @@ class YouTubeMusicVideo(MusicVideoIf):
         max_search_results: int = 10,
         region_code: str = "US",
         host: str = "127.0.0.1",
-        port: int = 8766,
+        port: int = 8768,
         fullscreen: bool = False,
         chromium_executable: str | None = None,
         software_rendering: bool = False,
