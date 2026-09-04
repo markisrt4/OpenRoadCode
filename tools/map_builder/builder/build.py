@@ -105,7 +105,7 @@ def _pbf_bbox(pbf: Path) -> str:
  return _parse_bbox(result.stdout.strip())
 
 
-def _merge_for_tilemaker(pbfs):
+def _merge_for_build(pbfs):
  if len(pbfs)==1:return pbfs[0],None
  merged=SCRATCH_ROOT/"selected-regions.osm.pbf"; merged.unlink(missing_ok=True); run(["osmium","merge","--overwrite","-o",str(merged),*(str(p) for p in pbfs)]); return merged,_pbf_bbox(merged)
 def _build_maplibre_data(tilemaker_input,bbox=None):
@@ -116,7 +116,7 @@ def _build_maplibre_data(tilemaker_input,bbox=None):
  run(command); install_style(STYLE_TEMPLATE,OUTPUT_ROOT/"maps/styles/openroadcode.json"); glyph_dest=OUTPUT_ROOT/"maps/glyphs/KlokanTech Noto Sans CJK Regular"
  if glyph_dest.exists():shutil.rmtree(glyph_dest)
  shutil.copytree(GLYPH_SOURCE,glyph_dest)
-def _build_valhalla(pbfs):
+def _build_valhalla(pbf:Path):
  root=OUTPUT_ROOT/"valhalla"; tiles=root/"tiles"
  if tiles.exists():shutil.rmtree(tiles)
  tiles.mkdir(parents=True); config=root/"valhalla.json"; admins=root/"admins.sqlite"; timezones=root/"timezones.sqlite"; extract=root/"tiles.tar"
@@ -124,7 +124,7 @@ def _build_valhalla(pbfs):
  cmd=["valhalla_build_config","--mjolnir-tile-dir",str(tiles),"--mjolnir-tile-extract",str(extract),"--mjolnir-timezone",str(timezones),"--mjolnir-admin",str(admins)]
  with config.open("w",encoding="utf-8") as output:subprocess.run(cmd,check=True,stdout=output)
  with timezones.open("wb") as output:subprocess.run(["valhalla_build_timezones"],check=True,stdout=output)
- run(["valhalla_build_admins","-c",str(config),*(str(p) for p in pbfs)]); run(["valhalla_build_tiles","-c",str(config),*(str(p) for p in pbfs)]); run(["valhalla_build_extract","-c",str(config),"-v"])
+ run(["valhalla_build_admins","-c",str(config),str(pbf)]); run(["valhalla_build_tiles","-c",str(config),str(pbf)]); run(["valhalla_build_extract","-c",str(config),"-v"])
 def _write_manifest(regions,validation,poi_count):
  manifest={"schema":1,"generated_unix":int(time.time()),"regions":[asdict(r) for r in regions],"validation":validation,"poi_index":{"count":poi_count,"path":"maps/poi/openroadcode-poi.sqlite"},"tools":{}}
  for tool in ("tilemaker","valhalla_service","osmium"):
@@ -132,4 +132,4 @@ def _write_manifest(regions,validation,poi_count):
  (OUTPUT_ROOT/"build-manifest.json").write_text(json.dumps(manifest,indent=2)+"\n",encoding="utf-8")
 def build_regions(regions:list[Region],*,clean:bool=True,service_smoke:bool=True)->dict:
  if not regions:raise BuildError("No regions selected")
- _prepare_output_dirs(clean=clean); cached=[_download_and_verify(r) for r in regions]; installed=_install_sources(regions,cached); tilemaker_input,bbox=_merge_for_tilemaker(installed); poi_count=build_poi_index(tilemaker_input,OUTPUT_ROOT/"maps/poi/openroadcode-poi.sqlite"); print(f"Built POI index with {poi_count} searchable places",flush=True); _build_maplibre_data(tilemaker_input,bbox); _build_valhalla(installed); validation=validate_output(OUTPUT_ROOT,service_smoke=service_smoke); _write_manifest(regions,validation,poi_count); return validation
+ _prepare_output_dirs(clean=clean); cached=[_download_and_verify(r) for r in regions]; installed=_install_sources(regions,cached); build_input,bbox=_merge_for_build(installed); poi_count=build_poi_index(build_input,OUTPUT_ROOT/"maps/poi/openroadcode-poi.sqlite"); print(f"Built POI index with {poi_count} searchable places",flush=True); _build_maplibre_data(build_input,bbox); _build_valhalla(build_input); validation=validate_output(OUTPUT_ROOT,service_smoke=service_smoke); _write_manifest(regions,validation,poi_count); return validation
