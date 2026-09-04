@@ -44,7 +44,7 @@ class GamesPanel(tk.Frame, GamesUiIf):
         self._runtime_host: tk.Frame | None = None
         self._filter = "all"
         self._page = 0
-        self._initial_loading = True
+        self._inventory_loading = True
         self._filter_buttons: dict[str, tk.Button] = {}
         self._icon_cache: dict[str, tk.PhotoImage | None] = {}
         self._build()
@@ -58,8 +58,7 @@ class GamesPanel(tk.Frame, GamesUiIf):
             self._refresh_cards()
 
     def set_games_status(self, message: str) -> None:
-        was_loading = self._initial_loading
-        self._initial_loading = message.startswith(("Checking games", "Refreshing games"))
+        self._inventory_loading = message.startswith(("Checking games", "Refreshing games"))
         if message.startswith(("Install failed", "Launch failed", "Embed failed", "No runtime", "Stop failed")):
             color = RED
         elif message.startswith(("Installing", "Checking", "Refreshing", "Embedding", "Launching", "Stopping")):
@@ -69,8 +68,6 @@ class GamesPanel(tk.Frame, GamesUiIf):
         else:
             color = MUTED
         self._status.configure(text=message, fg=color)
-        if self._runtime_host is None and was_loading != self._initial_loading:
-            self._refresh_cards()
 
     def show_runtime_host(self, on_resize: Callable[[int, int], None]) -> tuple[int, int, int]:
         """Replace game cards with a native-window host and enter kiosk mode."""
@@ -141,7 +138,7 @@ class GamesPanel(tk.Frame, GamesUiIf):
         self._refresh_cards()
 
     def _set_filter(self, category: str) -> None:
-        if self._runtime_host is not None or self._initial_loading:
+        if self._runtime_host is not None:
             return
         self._filter = category
         self._page = 0
@@ -149,7 +146,7 @@ class GamesPanel(tk.Frame, GamesUiIf):
         self._refresh_cards()
 
     def _change_page(self, delta: int) -> None:
-        if self._runtime_host is not None or self._initial_loading:
+        if self._runtime_host is not None:
             return
         games = self._visible_games()
         page_count = max(1, (len(games) + PAGE_SIZE - 1) // PAGE_SIZE)
@@ -178,7 +175,7 @@ class GamesPanel(tk.Frame, GamesUiIf):
 
     def _refresh_cards(self) -> None:
         self._clear_body()
-        if self._initial_loading:
+        if not self._games:
             self._show_loading()
             return
         games = self._visible_games()
