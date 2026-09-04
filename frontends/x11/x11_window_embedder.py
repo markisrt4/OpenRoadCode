@@ -16,6 +16,7 @@ class X11WindowEmbedder(WindowEmbedderIf):
     def __init__(self, timeout_seconds: float = 8.0) -> None:
         self._timeout_seconds = timeout_seconds
         self._window_id: int | None = None
+        self._host_window_id: int | None = None
 
     @staticmethod
     def supported() -> bool:
@@ -54,6 +55,7 @@ class X11WindowEmbedder(WindowEmbedderIf):
                 subprocess.run(["xdotool", "windowreparent", str(window_id), str(host_window_id)], check=True, capture_output=True, text=True)
                 subprocess.run(["xdotool", "windowmap", str(window_id)], check=True, capture_output=True, text=True)
                 self._window_id = window_id
+                self._host_window_id = host_window_id
                 self.resize(width, height)
                 subprocess.run(["xdotool", "sync", str(window_id)], check=False, capture_output=True)
                 time.sleep(0.05)
@@ -62,6 +64,7 @@ class X11WindowEmbedder(WindowEmbedderIf):
             except subprocess.SubprocessError as error:
                 last_error = error
                 self._window_id = None
+                self._host_window_id = None
                 time.sleep(0.15)
 
         selectors = []
@@ -82,6 +85,7 @@ class X11WindowEmbedder(WindowEmbedderIf):
         subprocess.run(["xdotool", "windowreparent", str(window_id), str(parent_window_id)], check=False)
         subprocess.run(["xdotool", "windowunmap", str(window_id)], check=False)
         self._window_id = None
+        self._host_window_id = None
 
     @staticmethod
     def _find_by_process(process_id: int) -> int | None:
@@ -164,12 +168,35 @@ class X11WindowEmbedder(WindowEmbedderIf):
                 best_id = window_id
         return best_id
 
+    @staticmethod
+    def _parent_window_id(window_id: int) -> int | None:
+        if shutil.which("xwininfo") is None:
+            return None
+        result = subprocess.run(["xwininfo", "-id", str(window_id), "-tree"], capture_output=True, text=True, check=False)
+        if result.returncode != 0:
+            return None
+        match = re.search(r"Parent window id:\s*(0x[0-9a-fA-F]+)", result.stdout or "")
+        return int(match.group(1), 16) if match else None
+
     def resize(self, width: int, height: int) -> None:
         if self._window_id is None:
             return
-        width = max(1, int(width)); height = max(1, int(height))
+        width = max(1, int(width))
+        height = max(1, int(height))
         subprocess.run(["xdotool", "windowsize", str(self._window_id), str(width), str(height)], check=False)
-        subprocess.run(["xdotool", "windowmove", str(self._window_id), "0", "0"], check=False)
+
+        # `windowmove 0 0` is only correct while the foreign client remains a
+        # child of the Tk host. Some window managers briefly reparent a client
+        # back to their own frame after map/configure. In that case, moving to
+        # 0,0 puts SDR++ at the desktop origin, exactly the failure seen under
+        # Termux/XFCE. Avoid moving a window unless the requested host is still
+        # its actual X11 parent.
+        if self._host_window_id is None:
+            return
+        parent_id = self._parent_window_id(self._window_id)
+        if parent_id == self._host_window_id:
+            subprocess.run(["xdotool", "windowmove", str(self._window_id), "0", "0"], check=False)
 
     def clear(self) -> None:
         self._window_id = None
+        self._host_window_id = None
