@@ -9,7 +9,7 @@ import tkinter as tk
 from collections.abc import Callable
 from dataclasses import dataclass
 
-from apps.orcUi.navigation_presenter import PositionPresentationState
+from apps.orcUi.navigation_presenter import AttitudePresentationState, PositionPresentationState
 from apps.orcUi.vehicle_presenter import VehiclePresentationState
 from frontends.tk.automotive import FuelLevelGauge
 from frontends.tk.automotive.vehicle_gauge_widgets import LinearGauge, RoundGauge
@@ -37,11 +37,18 @@ class ContextRail(tk.Frame):
     WIDTH = 300
 
     def __init__(self, parent: tk.Misc, on_expand: Callable[[str], None] | None = None) -> None:
-        super().__init__(parent, bg=PANEL, width=self.WIDTH, highlightthickness=1, highlightbackground=BORDER)
+        super().__init__(
+            parent,
+            bg=PANEL,
+            width=self.WIDTH,
+            highlightthickness=1,
+            highlightbackground=BORDER,
+        )
         self.pack_propagate(False)
         self._on_expand = on_expand
         self._vehicle_state = VehiclePresentationState()
         self._position_state = PositionPresentationState()
+        self._attitude_state = AttitudePresentationState()
         self._vehicle_gauges: dict[str, RoundGauge | LinearGauge | FuelLevelGauge] = {}
         self._gear_value_label: tk.Label | None = None
         self._offroad_value_labels: dict[str, tk.Label] = {}
@@ -65,9 +72,16 @@ class ContextRail(tk.Frame):
         self._vehicle_state = state
         if self.selected_page == "VEHICLE":
             self._paint_vehicle_values()
+        elif self.selected_page == "OFF-ROAD":
+            self._paint_offroad_values()
 
     def update_position_state(self, state: PositionPresentationState) -> None:
         self._position_state = state
+        if self.selected_page == "OFF-ROAD":
+            self._paint_offroad_values()
+
+    def update_attitude_state(self, state: AttitudePresentationState) -> None:
+        self._attitude_state = state
         if self.selected_page == "OFF-ROAD":
             self._paint_offroad_values()
 
@@ -81,12 +95,34 @@ class ContextRail(tk.Frame):
         controls = tk.Frame(header, bg=PANEL)
         controls.grid(row=0, column=2, sticky="e")
         if self._on_expand is not None:
-            self._nav_button(controls, "□", self._expand_page, width=2, font_size=12).pack(side=tk.LEFT)
+            self._nav_button(controls, "□", self._expand_page, width=2, font_size=12).pack(
+                side=tk.LEFT
+            )
         self._nav_button(controls, "›", self._next_page).pack(side=tk.LEFT)
 
     @staticmethod
-    def _nav_button(parent: tk.Misc, text: str, command: Callable[[], None], *, width: int = 3, font_size: int = 16) -> tk.Button:
-        return tk.Button(parent, text=text, command=command, bg=PANEL, fg=TEXT, activebackground="#121b23", activeforeground=TEXT, relief=tk.FLAT, bd=0, width=width, font=("Sans", font_size, "bold"), cursor="hand2")
+    def _nav_button(
+        parent: tk.Misc,
+        text: str,
+        command: Callable[[], None],
+        *,
+        width: int = 3,
+        font_size: int = 16,
+    ) -> tk.Button:
+        return tk.Button(
+            parent,
+            text=text,
+            command=command,
+            bg=PANEL,
+            fg=TEXT,
+            activebackground="#121b23",
+            activeforeground=TEXT,
+            relief=tk.FLAT,
+            bd=0,
+            width=width,
+            font=("Sans", font_size, "bold"),
+            cursor="hand2",
+        )
 
     def _expand_page(self) -> None:
         if self._on_expand is not None:
@@ -112,7 +148,13 @@ class ContextRail(tk.Frame):
         dots = tk.Frame(self._body, bg=PANEL)
         dots.pack(side=tk.BOTTOM, pady=(4, 0))
         for index in range(len(self._pages)):
-            tk.Label(dots, text="●" if index == self._page_index else "·", fg=page.accent if index == self._page_index else MUTED, bg=PANEL, font=("Sans", 9)).pack(side=tk.LEFT, padx=2)
+            tk.Label(
+                dots,
+                text="●" if index == self._page_index else "·",
+                fg=page.accent if index == self._page_index else MUTED,
+                bg=PANEL,
+                font=("Sans", 9),
+            ).pack(side=tk.LEFT, padx=2)
 
     def _build_vehicle(self, parent: tk.Frame) -> None:
         """Build the primary home instruments plus compact vehicle status."""
@@ -124,11 +166,42 @@ class ContextRail(tk.Frame):
         cluster.grid_rowconfigure(1, weight=3)
         cluster.grid_rowconfigure(2, weight=1)
 
-        rpm = RoundGauge(cluster, title="RPM", unit="x1000", minimum=0.0, maximum=8.0, major_step=1.0, caution_start=6.0, danger_start=6.8, precision=1, size=122)
+        rpm = RoundGauge(
+            cluster,
+            title="RPM",
+            unit="x1000",
+            minimum=0.0,
+            maximum=8.0,
+            major_step=1.0,
+            caution_start=6.0,
+            danger_start=6.8,
+            precision=1,
+            size=122,
+        )
         rpm.grid(row=0, column=0, sticky="nsew", padx=(0, 2), pady=(0, 2))
-        speed = RoundGauge(cluster, title="SPEED", unit="MPH", minimum=0.0, maximum=160.0, major_step=40.0, precision=0, size=122)
+        speed = RoundGauge(
+            cluster,
+            title="SPEED",
+            unit="MPH",
+            minimum=0.0,
+            maximum=160.0,
+            major_step=40.0,
+            precision=0,
+            size=122,
+        )
         speed.grid(row=0, column=1, sticky="nsew", padx=(2, 0), pady=(0, 2))
-        boost = RoundGauge(cluster, title="BOOST", unit="PSI", minimum=-15.0, maximum=25.0, major_step=5.0, caution_start=18.0, danger_start=22.0, precision=1, size=122)
+        boost = RoundGauge(
+            cluster,
+            title="BOOST",
+            unit="PSI",
+            minimum=-15.0,
+            maximum=25.0,
+            major_step=5.0,
+            caution_start=18.0,
+            danger_start=22.0,
+            precision=1,
+            size=122,
+        )
         boost.grid(row=1, column=0, sticky="nsew", padx=(0, 2), pady=2)
         fuel = FuelLevelGauge(cluster, size=122)
         fuel.grid(row=1, column=1, sticky="nsew", padx=(2, 0), pady=2)
@@ -136,12 +209,28 @@ class ContextRail(tk.Frame):
         status = tk.Frame(cluster, bg=PANEL)
         status.grid(row=2, column=0, columnspan=2, sticky="nsew", pady=(2, 0))
         status.grid_columnconfigure(0, weight=1)
-        coolant = LinearGauge(status, title="Coolant", unit="°F", minimum=100.0, maximum=260.0, caution_high=225.0, danger_high=240.0, icon="coolant", precision=0, width=190, height=58)
+        coolant = LinearGauge(
+            status,
+            title="Coolant",
+            unit="°F",
+            minimum=100.0,
+            maximum=260.0,
+            caution_high=225.0,
+            danger_high=240.0,
+            icon="coolant",
+            precision=0,
+            width=190,
+            height=58,
+        )
         coolant.grid(row=0, column=0, sticky="nsew", padx=(0, 4))
         gear = tk.Frame(status, bg=PANEL, highlightthickness=1, highlightbackground=BORDER)
         gear.grid(row=0, column=1, sticky="nsew", padx=(4, 0))
-        tk.Label(gear, text="GEAR", fg=MUTED, bg=PANEL, font=("Sans", 7, "bold")).pack(padx=10, pady=(4, 0))
-        self._gear_value_label = tk.Label(gear, text="—", fg=RED, bg=PANEL, font=("Sans", 22, "bold"))
+        tk.Label(gear, text="GEAR", fg=MUTED, bg=PANEL, font=("Sans", 7, "bold")).pack(
+            padx=10, pady=(4, 0)
+        )
+        self._gear_value_label = tk.Label(
+            gear, text="—", fg=RED, bg=PANEL, font=("Sans", 22, "bold")
+        )
         self._gear_value_label.pack(padx=10, pady=(0, 3))
         self._vehicle_gauges.update(rpm=rpm, speed=speed, boost=boost, fuel=fuel, coolant=coolant)
         self._paint_vehicle_values()
@@ -163,85 +252,205 @@ class ContextRail(tk.Frame):
             self._gear_value_label.configure(text=state.gear or "—")
 
     def _build_trip(self, parent: tk.Frame) -> None:
-        self._metric_table(parent, (("distance", "Distance", "mi"), ("elapsed", "Elapsed", ""), ("average", "Avg speed", "MPH"), ("moving", "Moving", ""), ("fuel_used", "Fuel used", "gal"), ("economy", "Economy", "MPG")))
+        self._metric_table(
+            parent,
+            (
+                ("distance", "Distance", "mi"),
+                ("elapsed", "Elapsed", ""),
+                ("average", "Avg speed", "MPH"),
+                ("moving", "Moving", ""),
+                ("fuel_used", "Fuel used", "gal"),
+                ("economy", "Economy", "MPG"),
+            ),
+        )
 
     def _build_offroad(self, parent: tk.Frame) -> None:
-        """Build a compact GPS instrument instead of a debug-style table."""
+        """Build a compact trail-driving instrument from navigation and vehicle state."""
         panel = tk.Frame(parent, bg=PANEL)
         panel.pack(fill=tk.BOTH, expand=True)
         panel.grid_columnconfigure(0, weight=1)
         panel.grid_columnconfigure(1, weight=1)
-        panel.grid_rowconfigure(1, weight=1)
 
         status = tk.Frame(panel, bg=PANEL, highlightthickness=1, highlightbackground=BORDER)
-        status.grid(row=0, column=0, columnspan=2, sticky="ew", pady=(2, 7))
+        status.grid(row=0, column=0, columnspan=2, sticky="ew", pady=(2, 6))
         status.grid_columnconfigure(1, weight=1)
-        tk.Label(status, text="GPS", fg=MUTED, bg=PANEL, font=("Sans", 8, "bold")).grid(row=0, column=0, padx=(8, 4), pady=5)
-        self._offroad_value_labels["fix"] = tk.Label(status, text="NO FIX", fg=YELLOW, bg=PANEL, font=("Sans", 10, "bold"))
+        tk.Label(status, text="GPS", fg=MUTED, bg=PANEL, font=("Sans", 8, "bold")).grid(
+            row=0, column=0, padx=(8, 4), pady=5
+        )
+        self._offroad_value_labels["fix"] = tk.Label(
+            status, text="NO FIX", fg=RED, bg=PANEL, font=("Sans", 10, "bold")
+        )
         self._offroad_value_labels["fix"].grid(row=0, column=1, sticky="w", pady=5)
-        self._offroad_value_labels["accuracy"] = tk.Label(status, text="± -- m", fg=MUTED, bg=PANEL, font=("Sans", 9, "bold"))
+        self._offroad_value_labels["accuracy"] = tk.Label(
+            status, text="± -- m", fg=MUTED, bg=PANEL, font=("Sans", 9, "bold")
+        )
         self._offroad_value_labels["accuracy"].grid(row=0, column=2, padx=(4, 8), pady=5)
 
-        coordinates = tk.Frame(panel, bg=PANEL, highlightthickness=1, highlightbackground=BORDER)
-        coordinates.grid(row=1, column=0, columnspan=2, sticky="nsew", pady=(0, 7))
-        coordinates.grid_columnconfigure(0, weight=1)
-        tk.Label(coordinates, text="POSITION", fg=YELLOW, bg=PANEL, font=("Sans", 8, "bold"), anchor="w").grid(row=0, column=0, sticky="w", padx=9, pady=(7, 2))
-        self._offroad_value_labels["latitude"] = tk.Label(coordinates, text="--", fg=TEXT, bg=PANEL, font=("Sans", 15, "bold"), anchor="w")
-        self._offroad_value_labels["latitude"].grid(row=1, column=0, sticky="ew", padx=9)
-        self._offroad_value_labels["longitude"] = tk.Label(coordinates, text="--", fg=TEXT, bg=PANEL, font=("Sans", 15, "bold"), anchor="w")
-        self._offroad_value_labels["longitude"].grid(row=2, column=0, sticky="ew", padx=9, pady=(0, 7))
+        heading = tk.Frame(panel, bg=PANEL, highlightthickness=1, highlightbackground=BORDER)
+        heading.grid(row=1, column=0, columnspan=2, sticky="nsew", pady=(0, 6))
+        tk.Label(
+            heading,
+            text="HEADING",
+            fg=YELLOW,
+            bg=PANEL,
+            font=("Sans", 7, "bold"),
+        ).pack(pady=(5, 0))
+        self._offroad_value_labels["heading"] = tk.Label(
+            heading, text="--", fg=TEXT, bg=PANEL, font=("Sans", 22, "bold")
+        )
+        self._offroad_value_labels["heading"].pack(pady=(0, 5))
+
+        pitch = self._offroad_metric_card(panel, "PITCH", "pitch", "°")
+        pitch.grid(row=2, column=0, sticky="nsew", padx=(0, 3), pady=(0, 6))
+        roll = self._offroad_metric_card(panel, "ROLL", "roll", "°")
+        roll.grid(row=2, column=1, sticky="nsew", padx=(3, 0), pady=(0, 6))
 
         altitude = self._offroad_metric_card(panel, "ALTITUDE", "altitude", "ft")
-        altitude.grid(row=2, column=0, sticky="nsew", padx=(0, 3))
-        satellites = self._offroad_metric_card(panel, "SATELLITES", "satellites", "used")
-        satellites.grid(row=2, column=1, sticky="nsew", padx=(3, 0))
+        altitude.grid(row=3, column=0, sticky="nsew", padx=(0, 3), pady=(0, 6))
+        speed = self._offroad_metric_card(panel, "SPEED", "speed", "mph")
+        speed.grid(row=3, column=1, sticky="nsew", padx=(3, 0), pady=(0, 6))
+
+        footer = tk.Frame(panel, bg=PANEL, highlightthickness=1, highlightbackground=BORDER)
+        footer.grid(row=4, column=0, columnspan=2, sticky="ew")
+        footer.grid_columnconfigure(0, weight=1)
+        self._offroad_value_labels["coordinates"] = tk.Label(
+            footer,
+            text="--",
+            fg=TEXT,
+            bg=PANEL,
+            font=("Monospace", 8, "bold"),
+            anchor="w",
+        )
+        self._offroad_value_labels["coordinates"].grid(
+            row=0, column=0, sticky="ew", padx=(8, 4), pady=6
+        )
+        self._offroad_value_labels["satellites"] = tk.Label(
+            footer,
+            text="-- sat",
+            fg=MUTED,
+            bg=PANEL,
+            font=("Sans", 8, "bold"),
+        )
+        self._offroad_value_labels["satellites"].grid(
+            row=0, column=1, sticky="e", padx=(4, 8), pady=6
+        )
+
         self._paint_offroad_values()
 
     def _offroad_metric_card(self, parent: tk.Misc, title: str, key: str, unit: str) -> tk.Frame:
         card = tk.Frame(parent, bg=PANEL, highlightthickness=1, highlightbackground=BORDER)
-        tk.Label(card, text=title, fg=MUTED, bg=PANEL, font=("Sans", 7, "bold")).pack(pady=(6, 0))
+        tk.Label(card, text=title, fg=MUTED, bg=PANEL, font=("Sans", 7, "bold")).pack(
+            pady=(5, 0)
+        )
         value_row = tk.Frame(card, bg=PANEL)
-        value_row.pack(pady=(0, 6))
+        value_row.pack(pady=(0, 5))
         value = tk.Label(value_row, text="--", fg=TEXT, bg=PANEL, font=("Sans", 15, "bold"))
         value.pack(side=tk.LEFT)
-        tk.Label(value_row, text=unit, fg=MUTED, bg=PANEL, font=("Sans", 7)).pack(side=tk.LEFT, padx=(3, 0), pady=(6, 0))
+        tk.Label(value_row, text=unit, fg=MUTED, bg=PANEL, font=("Sans", 7)).pack(
+            side=tk.LEFT, padx=(3, 0), pady=(6, 0)
+        )
         self._offroad_value_labels[key] = value
         return card
 
     def _paint_offroad_values(self) -> None:
-        state = self._position_state
-        fix_names = {1: "NO FIX", 2: "2D FIX", 3: "3D FIX"}
+        position = self._position_state
+        attitude = self._attitude_state
+        vehicle = self._vehicle_state
+
+        heading = attitude.heading_deg
+        heading_text = "--" if heading is None else f"{self._cardinal_direction(heading)}  {heading:03.0f}°"
+        coordinates = (
+            "--"
+            if position.latitude_deg is None or position.longitude_deg is None
+            else f"{position.latitude_deg:.5f}°  {position.longitude_deg:.5f}°"
+        )
         values = {
-            "latitude": "--" if state.latitude_deg is None else f"LAT  {state.latitude_deg:.5f}°",
-            "longitude": "--" if state.longitude_deg is None else f"LON  {state.longitude_deg:.5f}°",
-            "altitude": self._format(state.altitude_ft, ".0f"),
-            "fix": "NO FIX" if state.fix_mode is None else fix_names.get(state.fix_mode, str(state.fix_mode)),
-            "satellites": "--" if state.satellites_used is None else str(state.satellites_used),
-            "accuracy": "± -- m" if state.accuracy_m is None else f"± {state.accuracy_m:.1f} m",
+            "heading": heading_text,
+            "pitch": self._signed(attitude.pitch_deg),
+            "roll": self._signed(attitude.roll_deg),
+            "altitude": self._format(position.altitude_ft, ".0f"),
+            "speed": self._format(vehicle.speed_mph, ".0f"),
+            "fix": self._fix_text(position.fix_mode),
+            "accuracy": "± -- m" if position.accuracy_m is None else f"± {position.accuracy_m:.1f} m",
+            "coordinates": coordinates,
+            "satellites": "-- sat" if position.satellites_used is None else f"{position.satellites_used} sat",
         }
         for key, value in values.items():
             label = self._offroad_value_labels.get(key)
             if label is not None:
                 label.configure(text=value)
+
         fix_label = self._offroad_value_labels.get("fix")
         if fix_label is not None:
-            fix_label.configure(fg=GREEN if state.fix_mode is not None and state.fix_mode >= 2 else YELLOW)
+            fix_label.configure(fg=self._fix_color(position.fix_mode))
+
+        for key, value in (("pitch", attitude.pitch_deg), ("roll", attitude.roll_deg)):
+            label = self._offroad_value_labels.get(key)
+            if label is not None:
+                label.configure(fg=RED if value is not None and abs(value) >= 20.0 else TEXT)
+
+    @staticmethod
+    def _fix_text(fix_mode: int | None) -> str:
+        return {1: "NO FIX", 2: "2D FIX", 3: "3D FIX"}.get(fix_mode, "NO FIX")
+
+    @staticmethod
+    def _fix_color(fix_mode: int | None) -> str:
+        if fix_mode is not None and fix_mode >= 3:
+            return GREEN
+        if fix_mode == 2:
+            return YELLOW
+        return RED
+
+    @staticmethod
+    def _cardinal_direction(heading_deg: float) -> str:
+        directions = ("N", "NE", "E", "SE", "S", "SW", "W", "NW")
+        index = int((heading_deg % 360.0 + 22.5) // 45.0) % len(directions)
+        return directions[index]
+
+    @staticmethod
+    def _signed(value: float | None) -> str:
+        return "--" if value is None else f"{value:+.1f}"
 
     @staticmethod
     def _format(value: float | None, spec: str) -> str:
         return "--" if value is None else format(value, spec)
 
     @staticmethod
-    def _metric_table(parent: tk.Frame, metrics: tuple[tuple[str, str, str], ...], value_labels: dict[str, tk.Label] | None = None) -> None:
+    def _metric_table(
+        parent: tk.Frame,
+        metrics: tuple[tuple[str, str, str], ...],
+        value_labels: dict[str, tk.Label] | None = None,
+    ) -> None:
         grid = tk.Frame(parent, bg=PANEL)
         grid.pack(fill=tk.BOTH, expand=True)
         grid.grid_columnconfigure(0, weight=2)
         grid.grid_columnconfigure(1, weight=1)
         grid.grid_columnconfigure(2, weight=1)
         for row, (key, label, unit) in enumerate(metrics):
-            tk.Label(grid, text=label, fg=MUTED, bg=PANEL, font=("Sans", 9), anchor="w").grid(row=row, column=0, sticky="w", padx=(2, 4), pady=3)
-            value = tk.Label(grid, text="--", fg=TEXT, bg=PANEL, font=("Sans", 12, "bold"), anchor="e")
+            tk.Label(
+                grid,
+                text=label,
+                fg=MUTED,
+                bg=PANEL,
+                font=("Sans", 9),
+                anchor="w",
+            ).grid(row=row, column=0, sticky="w", padx=(2, 4), pady=3)
+            value = tk.Label(
+                grid,
+                text="--",
+                fg=TEXT,
+                bg=PANEL,
+                font=("Sans", 12, "bold"),
+                anchor="e",
+            )
             value.grid(row=row, column=1, sticky="e", padx=4, pady=3)
             if value_labels is not None:
                 value_labels[key] = value
-            tk.Label(grid, text=unit, fg=MUTED, bg=PANEL, font=("Sans", 8), anchor="w").grid(row=row, column=2, sticky="w", padx=(0, 2), pady=3)
+            tk.Label(
+                grid,
+                text=unit,
+                fg=MUTED,
+                bg=PANEL,
+                font=("Sans", 8),
+                anchor="w",
+            ).grid(row=row, column=2, sticky="w", padx=(0, 2), pady=3)
