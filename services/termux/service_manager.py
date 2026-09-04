@@ -22,13 +22,13 @@ class RunitServiceManager:
     """Control only the explicitly supported OpenRoadCode runit services."""
 
     SERVICES = (
-        "openroadcode-broker",
+        "openroadcode-message-broker",
         "openroadcode-navigation",
         "openroadcode-automotive",
         "openroadcode-adsb",
     )
     CORE_STACK = (
-        "openroadcode-broker",
+        "openroadcode-message-broker",
         "openroadcode-navigation",
         "openroadcode-automotive",
     )
