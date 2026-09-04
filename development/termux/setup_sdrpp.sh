@@ -102,10 +102,10 @@ rm -rf "$REMOTE_CONTROL_DST" "$TELEMETRY_DST"
 cp -a "$REMOTE_CONTROL_SRC" "$REMOTE_CONTROL_DST"
 cp -a "$TELEMETRY_SRC" "$TELEMETRY_DST"
 
-python3 - "$SDRPP_SRC/CMakeLists.txt" "$SDRPP_SRC/core/src/core.cpp" <<'PY'
+python3 - "$SDRPP_SRC/CMakeLists.txt" "$SDRPP_SRC/core/src/core.cpp" "$SDRPP_SRC/core/backends/glfw/backend.cpp" <<'PY'
 from pathlib import Path
 import sys
-cmake_path = Path(sys.argv[1]); core_path = Path(sys.argv[2])
+cmake_path = Path(sys.argv[1]); core_path = Path(sys.argv[2]); backend_path = Path(sys.argv[3])
 cmake = cmake_path.read_text()
 for comment, line in (("OpenRoadCode application remote control module", 'add_subdirectory("misc_modules/remote_control")'), ("OpenRoadCode telemetry module", 'add_subdirectory("misc_modules/telemetry")')):
     if line not in cmake: cmake = cmake.rstrip() + f"\n\n# {comment}\n{line}\n"
@@ -118,6 +118,19 @@ for instance, module in (("Remote Control", "remote_control"), ("Telemetry", "te
         lines = f'    defConfig["moduleInstances"]["{instance}"]["module"] = "{module}";\n    defConfig["moduleInstances"]["{instance}"]["enabled"] = true;\n'
         core = core.replace(marker, marker + lines, 1)
 core_path.write_text(core)
+
+# Embedded ORC launches ask GLFW to create the client hidden. X11 can then
+# reparent and map it inside the Tk host without a one-frame desktop flash.
+backend = backend_path.read_text()
+hidden_marker = '        if (!glfwInit()) {\n            return 1;\n        }\n'
+hidden_code = hidden_marker + '\n        if (std::getenv("ORC_SDRPP_START_HIDDEN") != nullptr) {\n            glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);\n        }\n'
+if 'ORC_SDRPP_START_HIDDEN' not in backend:
+    if hidden_marker not in backend:
+        raise SystemExit("Could not locate GLFW initialization in SDR++ backend.cpp")
+    if '#include <cstdlib>\n' not in backend:
+        backend = backend.replace('#include <filesystem>\n', '#include <filesystem>\n#include <cstdlib>\n', 1)
+    backend = backend.replace(hidden_marker, hidden_code, 1)
+backend_path.write_text(backend)
 PY
 
 cmake -S "$SDRPP_SRC" -B "$SDRPP_BUILD" -DCMAKE_BUILD_TYPE=Release -DOPT_BUILD_RIGCTL_SERVER=ON -DOPT_BUILD_BLADERF_SOURCE=OFF -DOPT_BUILD_PLUTOSDR_SOURCE=OFF -DOPT_BUILD_AIRSPY_SOURCE=OFF -DOPT_BUILD_AIRSPYHF_SOURCE=OFF
