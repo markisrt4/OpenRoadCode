@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import os
 import threading
+import time
 import tkinter as tk
 
 from apps.launchers.sdrpp_launcher import SDRPPLauncher, SDRPPProfile
@@ -149,10 +150,6 @@ class RadioEntryPanel(tk.Frame):
             return
         self._launching = True
 
-        # Build the useful part of the radio screen immediately. SDR++ can take
-        # a while to cross the Termux -> proot -> Debian -> X11 boundary, and
-        # there is no reason to make the driver stare at the source chooser
-        # while Linux performs its ceremonial startup dance.
         self._chooser.grid_remove()
         self._radio_panel = LaunchAwareRadioPanel(self, embedder=self._embedder)
         self._radio_panel.grid(row=0, column=0, sticky="nsew")
@@ -161,20 +158,55 @@ class RadioEntryPanel(tk.Frame):
 
         threading.Thread(
             target=self._launch_rf_worker,
-            name="orcui-sdrpp-launch",
+            name="orcui-sdrpp-launch-watch",
             daemon=True,
         ).start()
 
     def _launch_rf_worker(self) -> None:
-        try:
-            self._launcher.launch(self._display)
+        """Launch SDR++ and embed its window before RigCTL startup finishes."""
+        launch_error: list[Exception] = []
+
+        def launch() -> None:
             try:
-                process_id = self._launcher.window_process_id()
+                self._launcher.launch(self._display)
+            except Exception as error:
+                launch_error.append(error)
+
+        launcher_thread = threading.Thread(
+            target=launch,
+            name="orcui-sdrpp-launch",
+            daemon=True,
+        )
+        launcher_thread.start()
+
+        # SDRPPLauncher.launch() intentionally waits for RigCTL before it
+        # returns. The X11 client normally exists well before that point, so
+        # waiting for launch() to return made the visible window appear much
+        # later than necessary. Watch for the process in parallel and embed it
+        # as soon as it exists.
+        process_id: int | None = None
+        deadline = time.monotonic() + 12.0
+        while time.monotonic() < deadline and not launch_error:
+            try:
+                process_id = self._launcher.window_process_id(timeout_seconds=0.25)
+                break
             except RuntimeError:
-                process_id = 0
+                if not launcher_thread.is_alive():
+                    break
+                time.sleep(0.05)
+
+        if process_id is not None:
             self.after(0, lambda pid=process_id: self._attach_rf_radio(pid))
-        except Exception as error:
-            self.after(0, lambda exc=error: self._show_launch_error(exc))
+            return
+
+        launcher_thread.join()
+        if launch_error:
+            self.after(0, lambda exc=launch_error[0]: self._show_launch_error(exc))
+            return
+
+        # Existing SDR++ instances are not owned by this launcher's Popen
+        # handle, so fall back to the embedder's normal window-name lookup.
+        self.after(0, lambda: self._attach_rf_radio(0))
 
     def _attach_rf_radio(self, process_id: int) -> None:
         panel = self._radio_panel
