@@ -36,14 +36,14 @@ def _create_schema(connection: sqlite3.Connection) -> None:
     connection.executescript(
         """
         CREATE TABLE poi (
-            poi_id TEXT PRIMARY KEY,
+            id TEXT PRIMARY KEY,
             name TEXT NOT NULL,
             brand TEXT,
             latitude REAL NOT NULL,
             longitude REAL NOT NULL,
             category TEXT NOT NULL,
-            source_class TEXT,
-            source_subclass TEXT
+            class TEXT,
+            subclass TEXT
         );
         CREATE INDEX poi_category_lat_lon
             ON poi(category, latitude, longitude);
@@ -58,9 +58,9 @@ def build_poi_index(source_pbf: Path, destination: Path) -> int:
     destination.parent.mkdir(parents=True, exist_ok=True)
     destination.unlink(missing_ok=True)
 
-    # GeoJSONSeq keeps memory bounded even for multi-state extracts. Osmium emits
-    # representative points for areas, so restaurants/stations mapped as ways
-    # remain searchable rather than silently vanishing from the sidecar.
+    # GeoJSONSeq keeps memory bounded even for multi-state extracts. This first
+    # pass intentionally indexes point features; area-derived POIs are handled
+    # separately rather than pretending osmium turns polygons into centroids.
     command = [
         "osmium", "export", str(source_pbf),
         "--geometry-types=point",
@@ -73,13 +73,16 @@ def build_poi_index(source_pbf: Path, destination: Path) -> int:
     assert process.stdout is not None
 
     connection = sqlite3.connect(destination)
-    count = 0
     try:
         _create_schema(connection)
         for line in process.stdout:
             feature = json.loads(line)
             properties = feature.get("properties") or {}
-            tags = {str(key): str(value) for key, value in properties.items() if value is not None}
+            tags = {
+                str(key): str(value)
+                for key, value in properties.items()
+                if value is not None
+            }
             name = tags.get("name", "").strip()
             if not name:
                 continue
@@ -95,16 +98,27 @@ def build_poi_index(source_pbf: Path, destination: Path) -> int:
             longitude, latitude = float(coordinates[0]), float(coordinates[1])
             category, source_class, source_subclass = classification
             osm_type = tags.get("@type", tags.get("type", "osm"))
-            osm_id = tags.get("@id", tags.get("id", str(count)))
+            osm_id = tags.get("@id", tags.get("id"))
+            if not osm_id:
+                continue
             poi_id = f"osm:{osm_type}:{osm_id}"
             connection.execute(
                 "INSERT OR REPLACE INTO poi "
-                "(poi_id,name,brand,latitude,longitude,category,source_class,source_subclass) "
+                "(id,name,brand,latitude,longitude,category,class,subclass) "
                 "VALUES (?,?,?,?,?,?,?,?)",
-                (poi_id, name, tags.get("brand"), latitude, longitude, category, source_class, source_subclass),
+                (
+                    poi_id,
+                    name,
+                    tags.get("brand"),
+                    latitude,
+                    longitude,
+                    category,
+                    source_class,
+                    source_subclass,
+                ),
             )
-            count += 1
         connection.commit()
+        count = int(connection.execute("SELECT COUNT(*) FROM poi").fetchone()[0])
     finally:
         process.stdout.close()
         return_code = process.wait()
