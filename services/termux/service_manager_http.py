@@ -10,6 +10,7 @@ from dataclasses import asdict
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
+import subprocess
 
 from services.termux.service_manager import RunitServiceManager, ServiceStatus
 
