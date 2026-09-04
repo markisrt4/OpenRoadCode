@@ -1,6 +1,3 @@
-# SPDX-FileCopyrightText: 2026 Mark G. Russell
-# SPDX-License-Identifier: MIT
-
 """Coordinate game inventory, installation, caching, and semantic UI state."""
 
 from __future__ import annotations
@@ -46,6 +43,9 @@ class GameController(GamesRequestHandlerIf):
         self._available: dict[str, GameInstallerIf] = {}
         self._status: dict[str, GameStatus] = {}
         self._inventory_loading = False
+        self._active_game_id: str | None = None
+        self._launch_pending = False
+        self._stop_pending = False
 
         cached = self._cache.load()
         for game in self._games:
@@ -93,30 +93,78 @@ class GameController(GamesRequestHandlerIf):
         self._run_work(lambda: self._install_worker(game, backend))
 
     def request_launch_game(self, game_id: str) -> None:
-        """Handle a semantic launch request."""
+        """Launch a game without blocking the UI scheduler."""
         game = self._games_by_id.get(game_id)
         backend = self._installed.get(game_id)
-        if game is None or backend is None or self._launch_game is None:
+        if (
+            game is None
+            or backend is None
+            or self._launch_game is None
+            or self._launch_pending
+            or self._stop_pending
+            or self._active_game_id is not None
+        ):
             return
+        self._launch_pending = True
+        self._publish_status(f"Launching: {game.name}…")
+        self._run_work(lambda: self._launch_worker(game, backend))
+
+    def _launch_worker(self, game: GameDefinition, backend: GameInstallerIf) -> None:
+        error: Exception | None = None
         try:
+            assert self._launch_game is not None
             self._launch_game(game, backend)
-        except Exception as error:
-            self._status[game_id] = GameStatus.ERROR
+        except Exception as exc:
+            error = exc
+        self._run_ui(lambda: self._launch_finished(game, error))
+
+    def _launch_finished(self, game: GameDefinition, error: Exception | None) -> None:
+        self._launch_pending = False
+        if error is not None:
+            self._status[game.name] = GameStatus.ERROR
             self._publish_status(f"Launch failed: {error}")
             self._publish()
             return
-        self._status[game_id] = GameStatus.RUNNING
+        self._active_game_id = game.name
+        self._status[game.name] = GameStatus.RUNNING
         self._publish_status(f"Playing: {game.name}")
         self._publish()
 
     def request_stop_game(self) -> None:
-        """Handle a semantic stop request for the active game."""
-        if self._stop_game is not None:
+        """Stop the active game without waiting for its process on the UI thread."""
+        if self._stop_pending:
+            return
+        active_game_id = self._active_game_id
+        if active_game_id is None:
+            active_game_id = next(
+                (game_id for game_id, status in self._status.items() if status == GameStatus.RUNNING),
+                None,
+            )
+        if self._stop_game is None:
+            self._finish_stop(active_game_id, None)
+            return
+        self._stop_pending = True
+        self._publish_status("Stopping game…")
+        self._run_work(lambda: self._stop_worker(active_game_id))
+
+    def _stop_worker(self, active_game_id: str | None) -> None:
+        error: Exception | None = None
+        try:
+            assert self._stop_game is not None
             self._stop_game()
-        for game_id, status in tuple(self._status.items()):
-            if status == GameStatus.RUNNING:
-                self._status[game_id] = GameStatus.READY
-        self._publish_status("Choose a game")
+        except Exception as exc:
+            error = exc
+        self._run_ui(lambda: self._finish_stop(active_game_id, error))
+
+    def _finish_stop(self, active_game_id: str | None, error: Exception | None) -> None:
+        self._stop_pending = False
+        self._active_game_id = None
+        if active_game_id is not None and self._status.get(active_game_id) == GameStatus.RUNNING:
+            self._status[active_game_id] = GameStatus.READY
+        if error is not None:
+            self._publish_status(f"Stop failed: {error}")
+        else:
+            self._publish_status("Choose a game")
         self._publish()
 
     def _scan_inventory(self, verify_cached: bool) -> None:
