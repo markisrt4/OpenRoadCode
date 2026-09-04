@@ -24,6 +24,34 @@ PAGE_SIZE = 6
 FILTERS = (("ALL", "all"), ("CASUAL", "casual"), ("PUZZLE", "puzzle"), ("CARD / BOARD", "card_board"), ("ACTION", "action"))
 _ICON_SIZES = (128, 96, 64, 48, 32, 256)
 
+# Games creates and recreates widgets as inventory state changes.  Keep its
+# palette local so newly-created cards stay in the currently selected theme.
+_DARK_TO_LIGHT = {
+    "#05090d": "#e8edf0",
+    "#0b1117": "#f6f8f9",
+    "#25313b": "#b3c0c7",
+    "#edf2f5": "#20282d",
+    "#89959e": "#66747c",
+    "#84ce1f": "#5f9418",
+    "#f15a16": "#c94d1a",
+    "#168bd1": "#0878b6",
+    "#101820": "#d1dbe0",
+    "#17300f": "#dce9d0",
+    "#214019": "#d0e3bf",
+    "#18232c": "#c6d2d8",
+    "#102018": "#e4eedf",
+    "#0d1b24": "#e0edf4",
+    "#11161a": "#e5e9eb",
+    "#183024": "#d5e6cd",
+    "#29110d": "#f3dfda",
+    "#3b1811": "#ecd1ca",
+}
+_LIGHT_TO_DARK = {value: key for key, value in _DARK_TO_LIGHT.items()}
+_THEME_OPTIONS = (
+    "background", "foreground", "activebackground", "activeforeground",
+    "highlightbackground", "highlightcolor", "disabledforeground",
+)
+
 
 class GamesPanel(tk.Frame, GamesUiIf):
     """Touch-friendly Tk view that renders game state and emits requests."""
@@ -45,9 +73,15 @@ class GamesPanel(tk.Frame, GamesUiIf):
         self._filter = "all"
         self._page = 0
         self._inventory_loading = True
+        self._light_mode = False
         self._filter_buttons: dict[str, tk.Button] = {}
         self._icon_cache: dict[str, tk.PhotoImage | None] = {}
         self._build()
+
+    def set_light_mode(self, enabled: bool) -> None:
+        """Set the Games palette and remember it for future card rebuilds."""
+        self._light_mode = enabled
+        self._apply_current_theme(self)
 
     def set_games_request_handler(self, handler: GamesRequestHandlerIf | None) -> None:
         self._request_handler = handler
@@ -68,6 +102,7 @@ class GamesPanel(tk.Frame, GamesUiIf):
         else:
             color = MUTED
         self._status.configure(text=message, fg=color)
+        self._apply_current_theme(self._status)
 
     def show_runtime_host(self, on_resize: Callable[[int, int], None]) -> tuple[int, int, int]:
         """Replace game cards with a native-window host and enter kiosk mode."""
@@ -81,6 +116,7 @@ class GamesPanel(tk.Frame, GamesUiIf):
         host.update_idletasks()
         host.bind("<Configure>", lambda event: on_resize(event.width, event.height))
         self._runtime_host = host
+        self._apply_current_theme(self)
         return host.winfo_id(), host.winfo_width(), host.winfo_height()
 
     def hide_runtime_host(self) -> None:
@@ -172,6 +208,7 @@ class GamesPanel(tk.Frame, GamesUiIf):
         self._prev_button.configure(state=tk.DISABLED)
         self._next_button.configure(state=tk.DISABLED)
         tk.Label(self._body, text="Loading games…", fg=TEXT, bg=BG, font=("Sans", 18, "bold")).place(relx=.5, rely=.45, anchor="center")
+        self._apply_current_theme(self)
 
     def _refresh_cards(self) -> None:
         self._clear_body()
@@ -185,6 +222,7 @@ class GamesPanel(tk.Frame, GamesUiIf):
             self._prev_button.configure(state=tk.DISABLED)
             self._next_button.configure(state=tk.DISABLED)
             tk.Label(self._body, text="No games in this category", fg=MUTED, bg=BG, font=("Sans", 18, "bold")).place(relx=.5, rely=.45, anchor="center")
+            self._apply_current_theme(self)
             return
         page_count = max(1, (len(games) + PAGE_SIZE - 1) // PAGE_SIZE)
         self._page = min(self._page, page_count - 1)
@@ -199,6 +237,7 @@ class GamesPanel(tk.Frame, GamesUiIf):
             self._body.grid_rowconfigure(row, weight=1, uniform="game")
         for index, game in enumerate(page_games):
             self._game_card(self._body, game).grid(row=index // 2, column=index % 2, sticky="nsew", padx=6, pady=5)
+        self._apply_current_theme(self)
 
     def _find_icon(self, icon_name: str) -> Path | None:
         """Find a desktop icon without recursively walking the whole icon tree."""
@@ -277,3 +316,23 @@ class GamesPanel(tk.Frame, GamesUiIf):
         if game.status == GameStatus.DISABLED:
             return "DISABLED", None, MUTED
         return "UNAVAILABLE", None, MUTED
+
+    def _apply_current_theme(self, widget: tk.Misc) -> None:
+        mapping = _DARK_TO_LIGHT if self._light_mode else _LIGHT_TO_DARK
+        self._apply_theme_widget(widget, mapping)
+
+    @classmethod
+    def _apply_theme_widget(cls, widget: tk.Misc, mapping: dict[str, str]) -> None:
+        for option in _THEME_OPTIONS:
+            try:
+                current = str(widget.cget(option)).lower()
+            except (tk.TclError, AttributeError):
+                continue
+            replacement = mapping.get(current)
+            if replacement is not None:
+                try:
+                    widget.configure(**{option: replacement})
+                except tk.TclError:
+                    pass
+        for child in widget.winfo_children():
+            cls._apply_theme_widget(child, mapping)
