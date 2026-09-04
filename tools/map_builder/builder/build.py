@@ -15,11 +15,49 @@ OUTPUT_ROOT=Path(os.environ.get("OPENROAD_OUTPUT_ROOT","/srv/openroadcode")); CA
 class BuildError(RuntimeError): pass
 def run(cmd:list[str],*,cwd:Path|None=None)->None:
  print("+"," ".join(str(x) for x in cmd),flush=True); subprocess.run(cmd,cwd=cwd,check=True)
+
+
+def _format_bytes(value: float) -> str:
+ for unit in ("B", "KiB", "MiB", "GiB", "TiB"):
+  if value < 1024.0 or unit == "TiB":
+   return f"{value:.1f} {unit}"
+  value /= 1024.0
+ return f"{value:.1f} TiB"
+
+
+def _print_download_progress(downloaded: int, total: int, started: float) -> None:
+ elapsed=max(time.monotonic()-started,0.001); speed=downloaded/elapsed
+ if total>0:
+  fraction=min(downloaded/total,1.0); width=30; filled=int(width*fraction)
+  bar="#"*filled+"-"*(width-filled)
+  print(
+   f"\r  [{bar}] {fraction*100:6.2f}%  "
+   f"{_format_bytes(downloaded)} / {_format_bytes(total)}  "
+   f"{_format_bytes(speed)}/s",
+   end="",
+   flush=True,
+  )
+ else:
+  print(
+   f"\r  Downloaded {_format_bytes(downloaded)}  {_format_bytes(speed)}/s",
+   end="",
+   flush=True,
+  )
+
+
 def _download(url:str,destination:Path)->None:
  destination.parent.mkdir(parents=True,exist_ok=True)
  if destination.exists() and destination.stat().st_size>0: print(f"Using cached {destination.name}"); return
- tmp=destination.with_suffix(destination.suffix+".part"); request=Request(url,headers={"User-Agent":"OpenRoadCode-map-builder/1.0"}); print(f"Downloading {url}")
- with urlopen(request,timeout=120) as response,tmp.open("wb") as output: shutil.copyfileobj(response,output,1024*1024)
+ tmp=destination.with_suffix(destination.suffix+".part"); request=Request(url,headers={"User-Agent":"OpenRoadCode-map-builder/1.0"}); print(f"Downloading {url}",flush=True)
+ downloaded=0; started=time.monotonic()
+ with urlopen(request,timeout=120) as response,tmp.open("wb") as output:
+  content_length=response.headers.get("Content-Length")
+  total=int(content_length) if content_length and content_length.isdigit() else 0
+  while True:
+   chunk=response.read(1024*1024)
+   if not chunk: break
+   output.write(chunk); downloaded+=len(chunk); _print_download_progress(downloaded,total,started)
+ print(flush=True)
  tmp.replace(destination)
 def _download_and_verify(region:Region)->Path:
  cached=CACHE_ROOT/"pbf"/f"{region.safe_id}.osm.pbf"; _download(region.pbf_url,cached)
