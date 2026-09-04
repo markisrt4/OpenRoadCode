@@ -28,6 +28,8 @@ class GamesOrcUiApp(OrcUiApp):
         self._games_controller: GameController | None = None
         self._game_launcher = GameLauncher()
         self._game_embedder = X11WindowEmbedder()
+        self._game_resize_after_id: str | None = None
+        self._pending_game_size: tuple[int, int] | None = None
         super().__init__()
 
     def _build_side_nav(self) -> None:
@@ -99,7 +101,8 @@ class GamesOrcUiApp(OrcUiApp):
             raise RuntimeError("Games panel is not active")
         host_id, width, height = panel.show_runtime_host(self._resize_game_runtime)
         try:
-            self._game_launcher.launch(game, backend.launch_command(game))
+            command = backend.launch_command(game)
+            self._game_launcher.launch(game, command)
         except Exception:
             panel.hide_runtime_host()
             raise
@@ -124,21 +127,55 @@ class GamesOrcUiApp(OrcUiApp):
         if controller is not None:
             controller.request_stop_game()
         else:
-            self._stop_game_runtime()
+            threading.Thread(target=self._stop_game_runtime, daemon=True).start()
 
     def _resize_game_runtime(self, width: int, height: int) -> None:
-        if self._game_embedder.window_id is not None:
-            self._game_embedder.resize(width, height)
+        """Debounce X11 resize work so Configure storms never block Tk."""
+        self._pending_game_size = (width, height)
+        if self._game_resize_after_id is not None:
+            try:
+                self._root.after_cancel(self._game_resize_after_id)
+            except tk.TclError:
+                pass
+        self._game_resize_after_id = self._root.after(75, self._dispatch_game_resize)
+
+    def _dispatch_game_resize(self) -> None:
+        self._game_resize_after_id = None
+        size = self._pending_game_size
+        self._pending_game_size = None
+        if size is None or self._game_embedder.window_id is None:
+            return
+        threading.Thread(
+            target=self._game_embedder.resize,
+            args=size,
+            daemon=True,
+        ).start()
 
     def _stop_game_runtime(self) -> None:
+        """Stop the process; UI restoration is scheduled back onto Tk."""
         self._game_launcher.stop()
         self._game_embedder.clear()
+        try:
+            self._root.after(0, self._finish_stop_game_runtime)
+        except (RuntimeError, tk.TclError):
+            pass
+
+    def _finish_stop_game_runtime(self) -> None:
         panel = self._games_panel
         if panel is not None:
             panel.hide_runtime_host()
 
     def _shutdown(self) -> None:
-        self._stop_game_runtime()
+        if self._game_resize_after_id is not None:
+            try:
+                self._root.after_cancel(self._game_resize_after_id)
+            except tk.TclError:
+                pass
+            self._game_resize_after_id = None
+        # Shutdown is already terminal UI work; avoid scheduling callbacks into a
+        # Tk interpreter that is about to disappear.
+        self._game_launcher.stop()
+        self._game_embedder.clear()
         super()._shutdown()
 
 
