@@ -53,6 +53,17 @@ def _create_schema(connection: sqlite3.Connection) -> None:
     )
 
 
+def _decode_geojsonseq_record(line: str) -> dict:
+    """Decode one RFC 8142 GeoJSON text-sequence record from osmium export."""
+    # GeoJSONSeq records begin with ASCII Record Separator (0x1e).  json.loads
+    # does not consider that character JSON whitespace, so remove it before
+    # decoding.  Also tolerate blank lines between records.
+    record = line.lstrip("\x1e").strip()
+    if not record:
+        return {}
+    return json.loads(record)
+
+
 def build_poi_index(source_pbf: Path, destination: Path) -> int:
     """Extract searchable named POIs from ``source_pbf`` into SQLite."""
     destination.parent.mkdir(parents=True, exist_ok=True)
@@ -76,7 +87,9 @@ def build_poi_index(source_pbf: Path, destination: Path) -> int:
     try:
         _create_schema(connection)
         for line in process.stdout:
-            feature = json.loads(line)
+            feature = _decode_geojsonseq_record(line)
+            if not feature:
+                continue
             properties = feature.get("properties") or {}
             tags = {
                 str(key): str(value)
