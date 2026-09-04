@@ -3,7 +3,7 @@
 
 """Module entry point for ``python -m apps.orcUi``."""
 
-from apps.orcUi.games_app import main
+from apps.orcUi.radio_entry_app import main
 
 
 if __name__ == "__main__":
