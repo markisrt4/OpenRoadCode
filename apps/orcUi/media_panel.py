@@ -11,35 +11,23 @@ from collections.abc import Callable
 
 from apps.common.spotify_controller_factory import create_spotify_controller
 from apps.common.uiTheme.spotify import SPOTIFY_PANEL_THEME
-from apps.orcUi.orc_theme import (
-    ACCENT_BLUE,
-    ACCENT_GREEN,
-    ACCENT_RED,
-    DARK,
-)
+from apps.orcUi.orc_theme import ACCENT_BLUE, ACCENT_GREEN, ACCENT_RED, DARK
 from config.runtime_target import RuntimeTarget, detect_runtime_target
 from controllers.image import ImageCache
 from controllers.lyrics import LrclibLyricsClient
 from controllers.spotify import SpotifyMediaPresenter
-from controllers.video import (
-    MusicVideoController,
-    NetflixPlayer,
-    YouTubeMusicVideo,
-    YouTubePlayer,
-)
+from controllers.video import MusicVideoController, NetflixPlayer, YouTubeMusicVideo, YouTubePlayer
 from frontends.tk.media import SpotifyPlaybackPanel
-
 
 BG = DARK["bg"]
 PANEL = DARK["panel"]
+ACTIVE = DARK["active"]
 BORDER = DARK["border"]
 TEXT = DARK["text"]
 MUTED = DARK["muted"]
 
 
 class _SpotifyPanelUi:
-    """Small MediaUi adapter that lets the existing presenter drive a panel."""
-
     def __init__(self, panel: SpotifyPlaybackPanel) -> None:
         self._panel = panel
 
@@ -61,7 +49,6 @@ class MediaPanel(tk.Frame):
         self._on_back = on_back
         self._status_callback = status_callback or (lambda _message: None)
         self._view_host: tk.Frame | None = None
-        self._active_component: tk.Widget | None = None
         self._netflix_player: NetflixPlayer | None = None
         self._youtube_player: YouTubePlayer | None = None
         self._spotify_video_controller: MusicVideoController | None = None
@@ -72,16 +59,10 @@ class MediaPanel(tk.Frame):
         self.show_hub()
 
     def close(self) -> None:
-        """Stop media launched by this panel and cancel UI refresh work."""
         if self._closed:
             return
         self._closed = True
-        if self._spotify_refresh_job is not None:
-            try:
-                self.after_cancel(self._spotify_refresh_job)
-            except tk.TclError:
-                pass
-            self._spotify_refresh_job = None
+        self._cancel_spotify_refresh()
         if self._spotify_video_controller is not None:
             self._spotify_video_controller.stop_video()
         if self._netflix_player is not None:
@@ -95,33 +76,59 @@ class MediaPanel(tk.Frame):
 
     def show_hub(self) -> None:
         self._clear_view()
-        self._set_title("MEDIA", "Streaming, playback, and video")
+        self._set_title("MEDIA", "Music, video, and streaming")
+
+        hero = tk.Frame(self._view_host, bg=BG)
+        hero.pack(fill=tk.X, padx=12, pady=(2, 4))
+        tk.Label(
+            hero,
+            text="YOUR MEDIA",
+            bg=BG,
+            fg=TEXT,
+            font=("Sans", 22, "bold"),
+        ).pack(anchor="w")
+        tk.Label(
+            hero,
+            text="Pick a service and go. No launcher maze required.",
+            bg=BG,
+            fg=MUTED,
+            font=("Sans", 10),
+        ).pack(anchor="w", pady=(1, 0))
 
         grid = tk.Frame(self._view_host, bg=BG)
-        grid.pack(fill=tk.BOTH, expand=True, padx=4, pady=(6, 4))
+        grid.pack(fill=tk.BOTH, expand=True, padx=6, pady=(4, 8))
         for column in range(3):
             grid.grid_columnconfigure(column, weight=1, uniform="media")
         grid.grid_rowconfigure(0, weight=1)
 
         cards = (
             (
+                "♫",
                 "SPOTIFY",
-                "Music + playback",
-                "Now playing, transport controls, artwork, lyrics, and music video.",
+                "MUSIC",
+                "Now playing",
+                "Artwork, lyrics, playback controls and music video.",
+                "OPEN PLAYER",
                 ACCENT_GREEN,
                 self.show_spotify,
             ),
             (
+                "▶",
                 "YOUTUBE",
-                "Video + search",
-                "Open YouTube directly in the dedicated ORC browser session.",
+                "VIDEO",
+                "Watch anything",
+                "Jump straight into your dedicated YouTube session.",
+                "OPEN YOUTUBE",
                 ACCENT_RED,
                 self.show_youtube,
             ),
             (
+                "N",
                 "NETFLIX",
-                "Streaming video",
-                "Open Netflix directly with the retained ORC browser profile.",
+                "STREAM",
+                "Continue watching",
+                "Launch Netflix with your retained browser profile.",
+                "OPEN NETFLIX",
                 ACCENT_BLUE,
                 self.show_netflix,
             ),
@@ -132,7 +139,7 @@ class MediaPanel(tk.Frame):
                 column=column,
                 sticky="nsew",
                 padx=6,
-                pady=6,
+                pady=4,
             )
 
     def show_spotify(self) -> None:
@@ -140,8 +147,6 @@ class MediaPanel(tk.Frame):
         self._set_title("SPOTIFY", "Now playing and playback controls", show_media_back=True)
         try:
             controller = create_spotify_controller()
-            image_cache = ImageCache(max_entries=64)
-            lyrics_client = LrclibLyricsClient()
             target = detect_runtime_target()
             video_controller = MusicVideoController(
                 spotify_controller=controller,
@@ -153,18 +158,16 @@ class MediaPanel(tk.Frame):
             panel = SpotifyPlaybackPanel(
                 self._view_host,
                 music_video_controller=video_controller,
-                image_cache=image_cache,
-                lyrics_client=lyrics_client,
+                image_cache=ImageCache(max_entries=64),
+                lyrics_client=LrclibLyricsClient(),
                 theme=SPOTIFY_PANEL_THEME,
             )
-            ui = _SpotifyPanelUi(panel)
-            presenter = SpotifyMediaPresenter(controller, ui)
+            presenter = SpotifyMediaPresenter(controller, _SpotifyPanelUi(panel))
             panel.set_playback_request_handler(presenter)
             panel.set_track_request_handler(presenter)
             panel.set_seek_request_handler(presenter)
             panel.set_volume_request_handler(presenter)
             panel.pack(fill=tk.BOTH, expand=True, padx=4, pady=4)
-            self._active_component = panel
             self._spotify_video_controller = video_controller
             self._spotify_presenter = presenter
             self._refresh_spotify()
@@ -172,31 +175,23 @@ class MediaPanel(tk.Frame):
             self._show_error("Spotify", error)
 
     def show_youtube(self) -> None:
-        """Launch YouTube directly; the media hub remains underneath."""
         try:
             player = self._youtube_player or YouTubePlayer(
                 software_rendering=detect_runtime_target() is RuntimeTarget.LINUX_DEV,
             )
             self._youtube_player = player
-            player.play(
-                "https://www.youtube.com/",
-                display=os.environ.get("DISPLAY", ":1"),
-            )
+            player.play("https://www.youtube.com/", display=os.environ.get("DISPLAY", ":1"))
             self._status_callback("YouTube opened")
         except Exception as error:
             self._status_callback(f"YouTube failed: {error}")
 
     def show_netflix(self) -> None:
-        """Launch Netflix directly; the media hub remains underneath."""
         try:
             player = self._netflix_player or NetflixPlayer(
                 software_rendering=detect_runtime_target() is RuntimeTarget.LINUX_DEV,
             )
             self._netflix_player = player
-            player.play(
-                "https://www.netflix.com/browse",
-                display=os.environ.get("DISPLAY", ":1"),
-            )
+            player.play("https://www.netflix.com/browse", display=os.environ.get("DISPLAY", ":1"))
             self._status_callback("Netflix opened")
         except Exception as error:
             self._status_callback(f"Netflix failed: {error}")
@@ -204,16 +199,18 @@ class MediaPanel(tk.Frame):
     def _build_shell(self) -> None:
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(1, weight=1)
+
         self._header = tk.Frame(self, bg=PANEL, highlightthickness=1, highlightbackground=BORDER)
         self._header.grid(row=0, column=0, sticky="ew", padx=2, pady=(2, 6))
         self._header.grid_columnconfigure(1, weight=1)
+
         self._back_button = tk.Button(
             self._header,
             text="‹ HOME",
             command=self._on_back,
             bg=PANEL,
             fg=TEXT,
-            activebackground=DARK["active"],
+            activebackground=ACTIVE,
             activeforeground=TEXT,
             relief=tk.FLAT,
             bd=0,
@@ -222,28 +219,17 @@ class MediaPanel(tk.Frame):
             pady=8,
         )
         self._back_button.grid(row=0, column=0, rowspan=2, sticky="nsw", padx=(6, 10), pady=5)
-        self._title_label = tk.Label(
-            self._header,
-            text="MEDIA",
-            bg=PANEL,
-            fg=TEXT,
-            font=("Sans", 16, "bold"),
-        )
+
+        self._title_label = tk.Label(self._header, text="MEDIA", bg=PANEL, fg=TEXT, font=("Sans", 16, "bold"))
         self._title_label.grid(row=0, column=1, sticky="sw", pady=(7, 0))
-        self._subtitle_label = tk.Label(
-            self._header,
-            text="",
-            bg=PANEL,
-            fg=MUTED,
-            font=("Sans", 9),
-        )
+        self._subtitle_label = tk.Label(self._header, text="", bg=PANEL, fg=MUTED, font=("Sans", 9))
         self._subtitle_label.grid(row=1, column=1, sticky="nw", pady=(0, 7))
 
         self._media_back = tk.Button(
             self._header,
             text="ALL MEDIA",
             command=self.show_hub,
-            bg=DARK["active"],
+            bg=ACTIVE,
             fg=TEXT,
             activebackground=BORDER,
             activeforeground=TEXT,
@@ -267,20 +253,23 @@ class MediaPanel(tk.Frame):
             self._media_back.grid_remove()
 
     def _clear_view(self) -> None:
-        if self._spotify_refresh_job is not None:
-            try:
-                self.after_cancel(self._spotify_refresh_job)
-            except tk.TclError:
-                pass
-            self._spotify_refresh_job = None
+        self._cancel_spotify_refresh()
         self._spotify_presenter = None
         if self._spotify_video_controller is not None:
             self._spotify_video_controller.stop_video()
             self._spotify_video_controller = None
-        self._active_component = None
         if self._view_host is not None:
             for child in self._view_host.winfo_children():
                 child.destroy()
+
+    def _cancel_spotify_refresh(self) -> None:
+        if self._spotify_refresh_job is None:
+            return
+        try:
+            self.after_cancel(self._spotify_refresh_job)
+        except tk.TclError:
+            pass
+        self._spotify_refresh_job = None
 
     def _refresh_spotify(self) -> None:
         presenter = self._spotify_presenter
@@ -295,37 +284,47 @@ class MediaPanel(tk.Frame):
     def _media_card(
         self,
         parent: tk.Widget,
+        glyph: str,
         title: str,
+        category: str,
         subtitle: str,
         detail: str,
+        action: str,
         accent: str,
         command: Callable[[], None],
     ) -> tk.Frame:
-        card = tk.Frame(
-            parent,
-            bg=PANEL,
-            highlightthickness=1,
-            highlightbackground=BORDER,
-            cursor="hand2",
-        )
-        accent_bar = tk.Frame(card, bg=accent, height=5)
-        accent_bar.pack(fill=tk.X)
+        card = tk.Frame(parent, bg=PANEL, highlightthickness=1, highlightbackground=BORDER, cursor="hand2")
+        tk.Frame(card, bg=accent, height=6).pack(fill=tk.X)
+
         body = tk.Frame(card, bg=PANEL)
-        body.pack(fill=tk.BOTH, expand=True, padx=18, pady=16)
+        body.pack(fill=tk.BOTH, expand=True, padx=16, pady=(14, 12))
+
+        top = tk.Frame(body, bg=PANEL)
+        top.pack(fill=tk.X)
+
+        glyph_box = tk.Frame(top, bg=accent, width=48, height=48)
+        glyph_box.pack(side=tk.LEFT)
+        glyph_box.pack_propagate(False)
         tk.Label(
-            body,
-            text=title,
-            bg=PANEL,
-            fg=accent,
-            font=("Sans", 18, "bold"),
-        ).pack(anchor="w", pady=(4, 8))
+            glyph_box,
+            text=glyph,
+            bg=accent,
+            fg=BG,
+            font=("Sans", 22, "bold"),
+        ).pack(fill=tk.BOTH, expand=True)
+
+        identity = tk.Frame(top, bg=PANEL)
+        identity.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(12, 0))
+        tk.Label(identity, text=title, bg=PANEL, fg=TEXT, font=("Sans", 16, "bold")).pack(anchor="w")
+        tk.Label(identity, text=category, bg=PANEL, fg=accent, font=("Sans", 8, "bold")).pack(anchor="w", pady=(2, 0))
+
         tk.Label(
             body,
             text=subtitle,
             bg=PANEL,
             fg=TEXT,
             font=("Sans", 12, "bold"),
-        ).pack(anchor="w", pady=(0, 8))
+        ).pack(anchor="w", pady=(18, 5))
         tk.Label(
             body,
             text=detail,
@@ -333,23 +332,28 @@ class MediaPanel(tk.Frame):
             fg=MUTED,
             font=("Sans", 9),
             justify=tk.LEFT,
-            wraplength=230,
+            wraplength=220,
         ).pack(anchor="w")
-        tk.Button(
+
+        button = tk.Button(
             body,
-            text="OPEN",
+            text=f"{action}   ›",
             command=command,
-            bg=DARK["active"],
-            fg=TEXT,
-            activebackground=BORDER,
-            activeforeground=TEXT,
+            bg=accent,
+            fg=BG,
+            activebackground=accent,
+            activeforeground=BG,
             relief=tk.FLAT,
             bd=0,
-            font=("Sans", 10, "bold"),
-            padx=14,
-            pady=8,
-        ).pack(anchor="w", side=tk.BOTTOM, pady=(14, 0))
+            font=("Sans", 9, "bold"),
+            padx=12,
+            pady=9,
+            cursor="hand2",
+        )
+        button.pack(fill=tk.X, side=tk.BOTTOM, pady=(14, 0))
+
         self._bind_card(card, command)
+        self._bind_hover(card, accent)
         return card
 
     @staticmethod
@@ -359,6 +363,11 @@ class MediaPanel(tk.Frame):
             if isinstance(child, tk.Button):
                 continue
             MediaPanel._bind_card(child, command)
+
+    @staticmethod
+    def _bind_hover(card: tk.Frame, accent: str) -> None:
+        card.bind("<Enter>", lambda _event: card.configure(highlightbackground=accent, highlightthickness=2))
+        card.bind("<Leave>", lambda _event: card.configure(highlightbackground=BORDER, highlightthickness=1))
 
     def _show_error(self, service: str, error: Exception) -> None:
         self._status_callback(f"{service} failed: {error}")
