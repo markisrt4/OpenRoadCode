@@ -16,7 +16,7 @@ name = "SuperTuxKart"
 description = "Open-source kart racing."
 category = "action"
 icon = "supertuxkart"
-command = ["supertuxkart"]
+command = ["supertuxkart", "--render-driver=gl", "--windowed"]
 [games.install]
 debian_package = "supertuxkart"
 
