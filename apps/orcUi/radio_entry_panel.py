@@ -25,6 +25,36 @@ BLUE = "#168bd1"
 RED = "#f15a16"
 
 
+class LaunchAwareRadioPanel(RadioPanel):
+    """Radio panel that can present SDR++ startup state inside its X11 host."""
+
+    def __init__(self, parent: tk.Misc, *, embedder: X11WindowEmbedder) -> None:
+        super().__init__(parent, embedder=embedder)
+        self._launch_status = tk.Label(
+            self._host,
+            text="Loading SDR++…",
+            bg="#000000",
+            fg=TEXT,
+            font=("Sans", 20, "bold"),
+            padx=24,
+            pady=18,
+        )
+        self._launch_status.place(relx=0.5, rely=0.5, anchor="center")
+
+    def show_loading(self, text: str = "Loading SDR++…") -> None:
+        self._launch_status.configure(text=text, fg=TEXT)
+        self._launch_status.place(relx=0.5, rely=0.5, anchor="center")
+        self._launch_status.lift()
+
+    def show_loading_error(self, text: str) -> None:
+        self._launch_status.configure(text=text, fg=RED)
+        self._launch_status.place(relx=0.5, rely=0.5, anchor="center")
+        self._launch_status.lift()
+
+    def hide_loading(self) -> None:
+        self._launch_status.place_forget()
+
+
 class RadioEntryPanel(tk.Frame):
     """Offer RF or streaming radio before constructing the active radio UI."""
 
@@ -43,15 +73,15 @@ class RadioEntryPanel(tk.Frame):
             fullscreen=False,
             embedded=True,
         )
-        self._radio_panel: RadioPanel | None = None
+        self._radio_panel: LaunchAwareRadioPanel | None = None
         self._launching = False
 
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(0, weight=1)
         self._chooser = tk.Frame(self, bg=BG)
         self._chooser.grid(row=0, column=0, sticky="nsew")
-        self._chooser.grid_columnconfigure(0, weight=1)
-        self._chooser.grid_columnconfigure(1, weight=1)
+        self._chooser.grid_columnconfigure(0, weight=1, uniform="radio-source")
+        self._chooser.grid_columnconfigure(1, weight=1, uniform="radio-source")
         self._chooser.grid_rowconfigure(0, weight=1)
         self._build_choice_buttons()
 
@@ -70,7 +100,7 @@ class RadioEntryPanel(tk.Frame):
 
     def _build_choice_buttons(self) -> None:
         rf_card = tk.Frame(self._chooser, bg=PANEL, highlightthickness=1, highlightbackground=BORDER)
-        rf_card.grid(row=0, column=0, sticky="nsew", padx=(18, 9), pady=26)
+        rf_card.grid(row=0, column=0, sticky="nsew", padx=(12, 6), pady=18)
         rf_card.grid_columnconfigure(0, weight=1)
         rf_card.grid_rowconfigure(0, weight=1)
         self._rf_button = tk.Button(
@@ -88,7 +118,7 @@ class RadioEntryPanel(tk.Frame):
         self._rf_button.grid(row=0, column=0, sticky="nsew")
 
         streaming_card = tk.Frame(self._chooser, bg=PANEL, highlightthickness=1, highlightbackground=BORDER)
-        streaming_card.grid(row=0, column=1, sticky="nsew", padx=(9, 18), pady=26)
+        streaming_card.grid(row=0, column=1, sticky="nsew", padx=(6, 12), pady=18)
         streaming_card.grid_columnconfigure(0, weight=1)
         streaming_card.grid_rowconfigure(0, weight=1)
         self._streaming_button = tk.Button(
@@ -112,16 +142,28 @@ class RadioEntryPanel(tk.Frame):
             fg=MUTED,
             font=("Sans", 10),
         )
-        self._status.grid(row=1, column=0, columnspan=2, pady=(0, 12))
+        self._status.grid(row=1, column=0, columnspan=2, pady=(0, 10))
 
     def _launch_rf_radio(self) -> None:
         if self._launching:
             return
         self._launching = True
-        self._rf_button.configure(state=tk.DISABLED, text="STARTING…\nRF RADIO\n\nLaunching SDR++")
-        self._streaming_button.configure(state=tk.DISABLED)
-        self._status.configure(text="Starting SDR++ and waiting for RigCTL…", fg=MUTED)
-        threading.Thread(target=self._launch_rf_worker, name="orcui-sdrpp-launch", daemon=True).start()
+
+        # Build the useful part of the radio screen immediately. SDR++ can take
+        # a while to cross the Termux -> proot -> Debian -> X11 boundary, and
+        # there is no reason to make the driver stare at the source chooser
+        # while Linux performs its ceremonial startup dance.
+        self._chooser.grid_remove()
+        self._radio_panel = LaunchAwareRadioPanel(self, embedder=self._embedder)
+        self._radio_panel.grid(row=0, column=0, sticky="nsew")
+        self._radio_panel.show_loading("Loading SDR++…")
+        self.update_idletasks()
+
+        threading.Thread(
+            target=self._launch_rf_worker,
+            name="orcui-sdrpp-launch",
+            daemon=True,
+        ).start()
 
     def _launch_rf_worker(self) -> None:
         try:
@@ -130,24 +172,18 @@ class RadioEntryPanel(tk.Frame):
                 process_id = self._launcher.window_process_id()
             except RuntimeError:
                 process_id = 0
-            self.after(0, lambda pid=process_id: self._show_rf_radio(pid))
+            self.after(0, lambda pid=process_id: self._attach_rf_radio(pid))
         except Exception as error:
             self.after(0, lambda exc=error: self._show_launch_error(exc))
 
-    def _show_rf_radio(self, process_id: int) -> None:
-        if not self.winfo_exists():
+    def _attach_rf_radio(self, process_id: int) -> None:
+        panel = self._radio_panel
+        if panel is None or not panel.winfo_exists():
             return
         try:
-            self._chooser.grid_remove()
-            self._radio_panel = RadioPanel(self, embedder=self._embedder)
-            self._radio_panel.grid(row=0, column=0, sticky="nsew")
-            self.update_idletasks()
-            self._radio_panel.attach_sdrpp(process_id)
+            panel.attach_sdrpp(process_id)
+            panel.hide_loading()
         except Exception as error:
-            if self._radio_panel is not None:
-                self._radio_panel.destroy()
-                self._radio_panel = None
-            self._chooser.grid()
             self._show_launch_error(error)
             return
         self._launching = False
@@ -156,6 +192,10 @@ class RadioEntryPanel(tk.Frame):
         if not self.winfo_exists():
             return
         self._launching = False
+        if self._radio_panel is not None and self._radio_panel.winfo_exists():
+            self._radio_panel.destroy()
+        self._radio_panel = None
+        self._chooser.grid()
         self._rf_button.configure(state=tk.NORMAL, text="▶\nRF RADIO\n\nSDR++ / SDR")
         self._streaming_button.configure(state=tk.NORMAL)
         self._status.configure(text=f"SDR++: {type(error).__name__}: {error}", fg=RED)
