@@ -27,7 +27,7 @@ from controllers.video import (
     YouTubeMusicVideo,
     YouTubePlayer,
 )
-from frontends.tk.media import NetflixPanel, SpotifyPlaybackPanel, YouTubePanel
+from frontends.tk.media import SpotifyPlaybackPanel
 
 
 BG = DARK["bg"]
@@ -35,16 +35,6 @@ PANEL = DARK["panel"]
 BORDER = DARK["border"]
 TEXT = DARK["text"]
 MUTED = DARK["muted"]
-
-_BROWSER_COLORS = {
-    "app_bg": BG,
-    "tile_bg": PANEL,
-    "tile_border": BORDER,
-    "tile_accent": ACCENT_BLUE,
-    "tile_title": TEXT,
-    "tile_subtitle": MUTED,
-    "tile_detail": MUTED,
-}
 
 
 class _SpotifyPanelUi:
@@ -58,7 +48,7 @@ class _SpotifyPanelUi:
 
 
 class MediaPanel(tk.Frame):
-    """ORC-styled media landing page and hosted legacy media components."""
+    """ORC-styled media landing page and hosted Spotify component."""
 
     def __init__(
         self,
@@ -124,14 +114,14 @@ class MediaPanel(tk.Frame):
             (
                 "YOUTUBE",
                 "Video + search",
-                "Search or open YouTube in the dedicated ORC browser session.",
+                "Open YouTube directly in the dedicated ORC browser session.",
                 ACCENT_RED,
                 self.show_youtube,
             ),
             (
                 "NETFLIX",
                 "Streaming video",
-                "Open Netflix with the retained ORC browser profile.",
+                "Open Netflix directly with the retained ORC browser profile.",
                 ACCENT_BLUE,
                 self.show_netflix,
             ),
@@ -182,48 +172,34 @@ class MediaPanel(tk.Frame):
             self._show_error("Spotify", error)
 
     def show_youtube(self) -> None:
-        self._clear_view()
-        self._set_title("YOUTUBE", "Video search and playback", show_media_back=True)
+        """Launch YouTube directly; the media hub remains underneath."""
         try:
             player = self._youtube_player or YouTubePlayer(
                 software_rendering=detect_runtime_target() is RuntimeTarget.LINUX_DEV,
             )
             self._youtube_player = player
-            panel = YouTubePanel(
-                self._view_host,
-                player=player,
-                default_url="https://www.youtube.com/",
+            player.play(
+                "https://www.youtube.com/",
                 display=os.environ.get("DISPLAY", ":1"),
-                set_status=self._status_callback,
-                on_return=self.show_hub,
-                colors=_BROWSER_COLORS,
             )
-            panel.pack(fill=tk.BOTH, expand=True)
-            self._active_component = panel
+            self._status_callback("YouTube opened")
         except Exception as error:
-            self._show_error("YouTube", error)
+            self._status_callback(f"YouTube failed: {error}")
 
     def show_netflix(self) -> None:
-        self._clear_view()
-        self._set_title("NETFLIX", "Streaming video", show_media_back=True)
+        """Launch Netflix directly; the media hub remains underneath."""
         try:
             player = self._netflix_player or NetflixPlayer(
                 software_rendering=detect_runtime_target() is RuntimeTarget.LINUX_DEV,
             )
             self._netflix_player = player
-            panel = NetflixPanel(
-                self._view_host,
-                player=player,
-                default_url="https://www.netflix.com/browse",
+            player.play(
+                "https://www.netflix.com/browse",
                 display=os.environ.get("DISPLAY", ":1"),
-                set_status=self._status_callback,
-                on_return=self.show_hub,
-                colors=_BROWSER_COLORS,
             )
-            panel.pack(fill=tk.BOTH, expand=True)
-            self._active_component = panel
+            self._status_callback("Netflix opened")
         except Exception as error:
-            self._show_error("Netflix", error)
+            self._status_callback(f"Netflix failed: {error}")
 
     def _build_shell(self) -> None:
         self.grid_columnconfigure(0, weight=1)
