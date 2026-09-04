@@ -49,12 +49,9 @@ class X11WindowEmbedder(WindowEmbedderIf):
             if window_id is None and window_name:
                 window_id = self._find_by_name(window_name)
             if window_id is None:
-                time.sleep(0.1)
+                time.sleep(0.05)
                 continue
             try:
-                # Hide the top-level client before stealing it from the window
-                # manager. This avoids the visible desktop-to-host teleport and
-                # also gives XFCE less opportunity to fight the reparent.
                 subprocess.run(
                     ["xdotool", "windowunmap", str(window_id)],
                     check=True,
@@ -70,9 +67,6 @@ class X11WindowEmbedder(WindowEmbedderIf):
 
                 self._window_id = window_id
                 self._host_window_id = host_window_id
-
-                # Size and position while hidden so the first visible frame is
-                # already in its final ORC host geometry.
                 self.resize(width, height)
                 subprocess.run(
                     ["xdotool", "windowmap", str(window_id)],
@@ -92,8 +86,6 @@ class X11WindowEmbedder(WindowEmbedderIf):
                 last_error = error
                 self._window_id = None
                 self._host_window_id = None
-                # If reparenting failed after unmapping, restore visibility so
-                # the external application is not accidentally stranded hidden.
                 subprocess.run(
                     ["xdotool", "windowmap", str(window_id)],
                     check=False,
@@ -126,7 +118,15 @@ class X11WindowEmbedder(WindowEmbedderIf):
     def _find_by_process(process_id: int) -> int | None:
         if process_id <= 0:
             return None
-        result = subprocess.run(["xdotool", "search", "--onlyvisible", "--pid", str(process_id)], capture_output=True, text=True, check=False)
+        # Search mapped and unmapped windows. Using --onlyvisible here meant
+        # ORC could not discover SDR++ until XFCE had already displayed it,
+        # guaranteeing the visible desktop-to-host "snap" on every launch.
+        result = subprocess.run(
+            ["xdotool", "search", "--pid", str(process_id)],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
         return X11WindowEmbedder._best_window_id(result)
 
     @staticmethod
@@ -220,12 +220,6 @@ class X11WindowEmbedder(WindowEmbedderIf):
         height = max(1, int(height))
         subprocess.run(["xdotool", "windowsize", str(self._window_id), str(width), str(height)], check=False)
 
-        # `windowmove 0 0` is only correct while the foreign client remains a
-        # child of the Tk host. Some window managers briefly reparent a client
-        # back to their own frame after map/configure. In that case, moving to
-        # 0,0 puts SDR++ at the desktop origin, exactly the failure seen under
-        # Termux/XFCE. Avoid moving a window unless the requested host is still
-        # its actual X11 parent.
         if self._host_window_id is None:
             return
         parent_id = self._parent_window_id(self._window_id)
