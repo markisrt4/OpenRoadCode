@@ -18,7 +18,7 @@ Explore the project at [openroadcode.org](https://www.openroadcode.org/) or visi
 
 OpenRoadCode is under active development and currently operates as an advanced experimental platform rather than a finished commercial infotainment system.
 
-The current integration work includes a new ORC UI shell, native offline MapLibre presentation, Valhalla route planning, live Android-backed positioning on Termux, message-bus map commands, map follow/recenter behavior, and focused POI presentation. These paths are being exercised together before promotion to the main development line.
+Current integration work includes the `orcUi` shell, native offline MapLibre presentation, Valhalla route planning, live Android-backed positioning on Termux, and an integrated SDR++ RF-radio frontend. SDR++ can be launched and embedded directly inside `orcUi` on X11, with ORC-owned radio profiles, presets, telemetry, RDS presentation, and SDR++ display controls layered around the native SDR application.
 
 Some components are functional and actively used in the reference vehicle. Others are experimental, hardware-dependent, or still being integrated. Interfaces, configuration formats, and directory structures may continue to evolve before the first stable release.
 
@@ -50,7 +50,10 @@ Current and partially integrated capabilities include:
 * Android bridge geographic positioning for the Termux navigation service
 * Message-bus-driven native map-renderer commands
 * Focused map POI presentation for selected categories
-* FM broadcast radio, AM airband, NOAA weather radio, and multi-band scanning
+* Integrated SDR++ RF radio embedded in `orcUi` on X11
+* FM broadcast, NOAA weather, AM airband, HAM, and scanner-oriented radio profiles and presets
+* SDR++ application controls for waterfall, band plan, FFT hold, auto range, and theme synchronization
+* Read-only SDR++ signal/SNR telemetry and FM RDS presentation
 * RTL-SDR integration with shared receiver ownership
 * ADS-B aircraft tracking through readsb and tar1090
 * Bluetooth OBD-II communication and vehicle telemetry
@@ -64,13 +67,45 @@ Current and partially integrated capabilities include:
 * Configurable startup and splash-screen behavior
 * Mock, stub, and simulation implementations for development without hardware
 
+The Radio entry screen separates RF Radio from Streaming Radio. RF Radio launches the integrated SDR++ path; Streaming Radio currently presents a Coming Soon screen while its provider/controller plumbing remains under development.
+
 Not every feature is supported on every target. In particular, Android/Termux is a development and portability target and does not provide hardware parity with the Raspberry Pi installation.
+
+---
+
+## SDR++ RF Radio Integration
+
+OpenRoadCode treats SDR++ as the native RF engine and spectrum/waterfall UI rather than reimplementing SDR functionality in Tkinter. On X11, `orcUi` launches SDR++, discovers its window, reparents it into the radio host, and keeps the embedded window sized to the ORC panel. The same path is exercised on native Debian/Linux and through Debian proot under Termux:X11.
+
+Three localhost interfaces deliberately separate responsibilities:
+
+| Port | Interface | Responsibility |
+| --- | --- | --- |
+| 4532 | SDR++ RigCTL | RF tuning, mode/bandwidth, receiver operations, and radio-specific data such as FM RDS |
+| 4533 | ORC `remote_control` module | SDR++ UI/application controls such as waterfall, band plan, FFT hold, auto range, and theme |
+| 4534 | ORC `telemetry` module | Read-only SNR, signal/FFT metrics, VFO, frequency, bandwidth, and display ranges |
+
+Application-facing SDR behavior lives under `controllers/sdr`; wire protocols remain under `protocols`; SDR++ process lifecycle remains in `apps/launchers/sdrpp_launcher.py`; X11 window ownership is handled by `frontends/x11`; and `apps/orcUi` owns presentation. Telemetry is best-effort and must not prevent normal tuning or radio operation if port 4534 is unavailable.
+
+The Debian setup script builds the ORC SDR++ modules and installs the X11 integration tools required by the embedded UI:
+
+```bash
+./development/debian/setup_sdrpp.sh
+```
+
+Termux uses the corresponding proot build/setup path:
+
+```bash
+./development/termux/setup_sdrpp.sh
+```
+
+See [`development/sdrpp/README.md`](development/sdrpp/README.md) and [`controllers/sdr/README.md`](controllers/sdr/README.md) for module and controller boundaries.
 
 ---
 
 ## Planned and Experimental Features
 
-Potential future work includes dashcam and backup-camera integration, additional vehicle gauges, CAN/TPMS integration, steering-wheel controls, APRS, AIS, additional digital radio modes, trip recording, richer semantic POI discovery, and custom OpenRoadCode operating-system images. These are areas of interest rather than release commitments.
+Potential future work includes streaming-radio station discovery, dashcam and backup-camera integration, additional vehicle gauges, CAN/TPMS integration, steering-wheel controls, APRS, AIS, additional digital radio modes, trip recording, richer semantic POI discovery, and custom OpenRoadCode operating-system images. These are areas of interest rather than release commitments.
 
 ---
 
@@ -149,14 +184,16 @@ Commands requiring acknowledgement or error reporting use request/reply messagin
 
 Messaging and service documentation:
 
-* [Messaging overview and subscriber quick start](https://github.com/markisrt4/OpenRoadCode/blob/master/messaging/README.md)
-* [Message Bus Interface Design Description](https://github.com/markisrt4/OpenRoadCode/blob/master/docs/messaging/message_bus_idd.md)
+* [Messaging overview and subscriber quick start](messaging/README.md)
+* [Message Bus Interface Design Description](docs/messaging/message_bus_idd.md)
 * [Ethernet Interface Design Description and port registry](docs/ethernet_idd.md)
-* [Navigation producer service](https://github.com/markisrt4/OpenRoadCode/blob/master/services/navigation/README.md)
-* [Automotive producer service](https://github.com/markisrt4/OpenRoadCode/blob/master/services/automotive/README.md)
-* [Car TUI telemetry consumer](https://github.com/markisrt4/OpenRoadCode/blob/master/apps/carTui/README.md)
-* [Termux development target](https://github.com/markisrt4/OpenRoadCode/blob/master/development/termux/README.md)
-* [Contributor architecture and testing rules](https://github.com/markisrt4/OpenRoadCode/blob/master/CONTRIBUTING.md)
+* [Navigation producer service](services/navigation/README.md)
+* [Automotive producer service](services/automotive/README.md)
+* [SDR controllers](controllers/sdr/README.md)
+* [SDR++ integration](development/sdrpp/README.md)
+* [Car TUI telemetry consumer](apps/carTui/README.md)
+* [Termux development target](development/termux/README.md)
+* [Contributor architecture and testing rules](CONTRIBUTING.md)
 
 ---
 
@@ -199,13 +236,15 @@ cd OpenRoadCode
 
 Features can be selected explicitly. Use `--all-features` to install all compatible software capabilities, `--show-plan` to inspect the resolved plan without modifying the machine, and `--with-vnc` or `--with-gpsd-service` only when those services should be configured.
 
+For the integrated SDR++ RF path on Debian/Linux, run `./development/debian/setup_sdrpp.sh`. It installs the SDR++ build dependencies, ORC's SDR++ modules, and the X11 utilities used for embedding. An X11 session is required for the current embedded-window implementation.
+
 Concrete devices and credentials remain separate from package installation. Run `./scripts/installers/host_setup.sh --help` for current options.
 
 ### Android / Termux
 
-Termux is an active development target rather than a complete Raspberry Pi replacement. It is used to exercise native Python services, ZeroMQ, Valhalla, MapLibre, Chromium/Termux:X11 presentation, Android sensor integration, and simulated ADS-B presentation.
+Termux is an active development target rather than a complete Raspberry Pi replacement. It is used to exercise native Python services, ZeroMQ, Valhalla, MapLibre, Chromium/Termux:X11 presentation, Android sensor integration, SDR++ integration, and simulated ADS-B presentation.
 
-The current navigation profile consumes geographic position from the localhost Android sensor bridge while retaining simulation fallbacks for platform-dependent sensor inputs. Follow the [Termux development guide](https://github.com/markisrt4/OpenRoadCode/blob/master/development/termux/README.md) for the current native build, runit services, sensor bridge, navigation data, Valhalla, and UI workflow.
+The current navigation profile consumes geographic position from the localhost Android sensor bridge while retaining simulation fallbacks for platform-dependent sensor inputs. SDR++ runs inside the Debian proot and is presented through Termux:X11. Follow the [Termux development guide](development/termux/README.md) for the current native build, runit services, sensor bridge, navigation data, Valhalla, SDR++, and UI workflow.
 
 ---
 
@@ -217,7 +256,9 @@ From the repository root:
 python -m apps.orcUi
 ```
 
-On Termux, start or verify Termux:X11 first and export the appropriate `DISPLAY` value. The Termux guide contains the current launch sequence and native map prerequisites.
+The RADIO navigation item opens a source chooser. RF RADIO starts the SDR++ integration and embeds SDR++ into the ORC radio panel; STREAMING RADIO currently opens its Coming Soon page.
+
+On Linux, the embedded SDR++ path requires an X11 session and the tools installed by `development/debian/setup_sdrpp.sh`. On Termux, start or verify Termux:X11 first and export the appropriate `DISPLAY` value. The Termux guide contains the current launch sequence and native map prerequisites.
 
 The older `carUi` application remains in the repository while the ORC UI shell is integrated and matured.
 
@@ -295,10 +336,10 @@ Contributions are welcome, particularly in automated tests, documentation, hardw
 
 Before a major architectural change, describe the problem, proposed design, affected layers, platform dependencies, and testing implications. Changes should preserve the separation between applications, controllers, services, messaging, protocols, and hardware-specific code.
 
-Read [CONTRIBUTING.md](https://github.com/markisrt4/OpenRoadCode/blob/master/CONTRIBUTING.md) for development setup, architecture, testing conventions, hardware guidance, and the pull-request checklist.
+Read [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, architecture, testing conventions, hardware guidance, and the pull-request checklist.
 
 ---
 
 ## License
 
-OpenRoadCode is licensed under the MIT License. See [LICENSE](https://github.com/markisrt4/OpenRoadCode/blob/master/LICENSE).
+OpenRoadCode is licensed under the MIT License. See [LICENSE](LICENSE).
