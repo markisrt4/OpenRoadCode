@@ -14,7 +14,7 @@ from controllers.radio.radio_profile_controller import RadioProfileController, R
 from controllers.radio.radio_profiles import RadioProfile, RadioProfilePreset
 from controllers.sdr.sdr_telemetry_monitor import SDRTelemetryMonitor
 from controllers.sdr.sdr_telemetry_worker import SDRTelemetryWorker
-from controllers.sdr.sdrpp_control import OrcUiSdrppControl
+from controllers.sdr.sdrpp_control import SDRPPControl
 from frontends.x11 import X11WindowEmbedder
 
 BG = "#05090d"
@@ -31,11 +31,11 @@ RADIO_GROUPS = tuple(name for name, _ in MAIN_GROUPS)
 class RadioPanel(tk.Frame):
     """Automotive controls wrapped around embedded SDR++ and ADS-B views."""
 
-    def __init__(self, parent: tk.Misc, *, embedder: X11WindowEmbedder | None = None, radio_control: RadioProfileController | None = None, sdrpp_control: OrcUiSdrppControl | None = None, adsb_control: OrcUiAdsbControl | None = None) -> None:
+    def __init__(self, parent: tk.Misc, *, embedder: X11WindowEmbedder | None = None, radio_control: RadioProfileController | None = None, sdrpp_control: SDRPPControl | None = None, adsb_control: OrcUiAdsbControl | None = None) -> None:
         super().__init__(parent, bg=BG)
         self._embedder = embedder or X11WindowEmbedder()
         self._radio = radio_control or RadioProfileController()
-        self._sdrpp = sdrpp_control or OrcUiSdrppControl()
+        self._sdrpp = sdrpp_control or SDRPPControl()
         self._adsb = adsb_control or OrcUiAdsbControl()
         self._telemetry_worker = SDRTelemetryWorker(SDRTelemetryMonitor(self._radio))
         self._telemetry_after_id: str | None = None
