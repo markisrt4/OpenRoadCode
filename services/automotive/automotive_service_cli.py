@@ -10,11 +10,12 @@ from pathlib import Path
 
 from config.service_runtime_config import AutomotiveServiceRuntimeConfig, ServiceRuntimeConfigParser
 from controllers.automotive.gear_estimator import GearEstimator
+from controllers.automotive.navigation_motion_vehicle_state_source import NavigationMotionVehicleStateSource
 from controllers.automotive.obd2.elm327_obd_adapter import Elm327ObdAdapter
 from controllers.automotive.obd2.obd2_manager import Obd2Manager
 from controllers.automotive.simulated_vehicle_state_source import SimulatedVehicleStateSource
 from hardware_io.automotive.elm327.elm327_tcp_device import Elm327TcpDevice
-from messaging.zeromq import ZeroMqPublisher
+from messaging.zeromq import ZeroMqPublisher, ZeroMqSubscriber
 from services.automotive.automotive_runtime import AutomotiveRuntime
 
 DEFAULT_RUNTIME_CONFIG = Path(__file__).resolve().parents[2] / "config" / "runtime.toml"
@@ -24,6 +25,11 @@ DEFAULT_GEAR_PROFILE = Path(__file__).resolve().parents[2] / "vehicle_gears.lear
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Publish automotive telemetry.")
     parser.add_argument("--config", default=str(DEFAULT_RUNTIME_CONFIG))
+    parser.add_argument(
+        "--navigation-motion",
+        action="store_true",
+        help="use real navigation ground speed instead of the configured OBD/simulation source",
+    )
     parser.add_argument(
         "--gear-profile",
         type=Path,
@@ -78,7 +84,12 @@ def main() -> int:
         print("Automotive publishing disabled by runtime configuration")
         return 0
 
-    source = build_source(config)
+    if args.navigation_motion:
+        source = NavigationMotionVehicleStateSource(
+            ZeroMqSubscriber(system.messaging.subscriber_endpoint)
+        )
+    else:
+        source = build_source(config)
     gear_estimator = _load_gear_estimator(args.gear_profile)
     publisher = ZeroMqPublisher(system.messaging.publisher_endpoint)
     runtime = AutomotiveRuntime(
@@ -89,8 +100,10 @@ def main() -> int:
         gear_estimator=gear_estimator,
     )
     print("OpenRoadCode automotive service")
-    print(f"  input source:      {config.input.source}")
-    if config.input.source == "device":
+    print(f"  input source:      {'navigation-motion' if args.navigation_motion else config.input.source}")
+    if args.navigation_motion:
+        print(f"  motion endpoint:   {system.messaging.subscriber_endpoint}")
+    elif config.input.source == "device":
         print(f"  device:            {config.input.device}")
         print(f"  transport:         {config.input.transport}")
         if config.input.transport == "tcp":
