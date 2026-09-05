@@ -39,6 +39,7 @@ def main() -> None:
         RadioScreen(
             app,
             theme_bundle=lambda: theme_bundle(app.theme_mode),
+            theme_mode=lambda: app.theme_mode,
             panel_factory=_create_radio_panel,
             sync_theme=_sync_radio_theme,
         ),
