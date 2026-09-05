@@ -6,7 +6,7 @@ import math
 import tkinter as tk
 from collections.abc import Callable
 from apps.orcUi.shared_map_camera import get_shared_map_camera_runtime
-from apps.orcUi.theme_runtime import theme_bundle
+from apps.orcUi.theme_runtime import theme_bundle as get_theme_bundle
 from ui.navigation import MapRequestHandlerIf
 from ui.theme import ThemeBundle, ThemeMode
 
@@ -18,7 +18,7 @@ class NavigationPanel(tk.Frame):
         if theme_bundle is None:
             parent_bg=str(parent.cget("background")).lower()
             mode=ThemeMode.LIGHT if parent_bg=="#e8edf0" else ThemeMode.DARK
-            theme_bundle=globals()["theme_bundle"](mode)
+            theme_bundle=get_theme_bundle(mode)
         self._theme_bundle=theme_bundle
         super().__init__(parent,bg=self._background()); del on_back
         runtime=get_shared_map_camera_runtime(); self._request_handler=map_request_handler or runtime.request_handler
@@ -47,7 +47,7 @@ class NavigationPanel(tk.Frame):
         self._shortcut_status=tk.StringVar(value=self._focus_status())
         tk.Label(bar,textvariable=self._shortcut_status,bg=chrome,fg=muted,font=("Sans",7),anchor="e").pack(side=tk.RIGHT,padx=7)
         body=tk.Frame(self,bg=bg); body.grid(row=1,column=0,sticky="nsew"); body.grid_rowconfigure(0,weight=1); body.grid_columnconfigure(0,weight=1)
-        self._map_host=tk.Frame(body,bg="#020406",highlightthickness=1,highlightbackground=border); self._map_host.grid(row=0,column=0,sticky="nsew")
+        self._map_host=tk.Frame(body,bg=bg,highlightthickness=1,highlightbackground=border); self._map_host.grid(row=0,column=0,sticky="nsew")
         controls=tk.Frame(body,bg=chrome,width=62,highlightthickness=1,highlightbackground=border); controls.grid(row=0,column=1,sticky="ns",padx=(4,0)); controls.grid_propagate(False)
         self._follow_button=self._control(controls,"F",self._toggle_follow,GREEN); self._follow_button.pack(fill=tk.X,padx=5,pady=(7,5)); self.set_follow_enabled(self._follow_enabled)
         pan=tk.Frame(controls,bg=chrome); pan.pack(pady=2)
