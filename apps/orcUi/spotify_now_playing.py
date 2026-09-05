@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import queue
 import threading
 import tkinter as tk
 from collections.abc import Callable
@@ -27,6 +28,7 @@ class SpotifyNowPlaying(tk.Frame):
         self._controller = create_spotify_controller()
         self._closed = False
         self._generation = 0
+        self._results: queue.SimpleQueue[tuple[int, tuple[bool, str, str]]] = queue.SimpleQueue()
         self._title = tk.StringVar(value="Spotify • YouTube • Netflix")
         self._artist = tk.StringVar(value="Media hub")
         self._status = tk.StringVar(value="")
@@ -53,6 +55,7 @@ class SpotifyNowPlaying(tk.Frame):
         self._generation += 1
         generation = self._generation
         threading.Thread(target=self._load, args=(generation,), name="orcui-home-spotify", daemon=True).start()
+        self.after(25, lambda: self._poll(generation))
 
     def _load(self, generation: int) -> None:
         try:
@@ -64,16 +67,23 @@ class SpotifyNowPlaying(tk.Frame):
             )
         except Exception:
             result = (False, "", "")
+        self._results.put((generation, result))
+
+    def _poll(self, generation: int) -> None:
         if self._closed or generation != self._generation:
             return
         try:
-            self.after(0, lambda: self._apply(generation, result))
-        except tk.TclError:
-            pass
-
-    def _apply(self, generation: int, result: tuple[bool, str, str]) -> None:
-        if self._closed or generation != self._generation:
+            result_generation, result = self._results.get_nowait()
+        except queue.Empty:
+            self.after(25, lambda: self._poll(generation))
             return
+        if result_generation != generation:
+            self.after(25, lambda: self._poll(generation))
+            return
+        self._apply(result)
+        self.after(5000, self._refresh)
+
+    def _apply(self, result: tuple[bool, str, str]) -> None:
         playing, title, artist = result
         if playing:
             self._title.set(f"♫  {title}")
@@ -83,4 +93,3 @@ class SpotifyNowPlaying(tk.Frame):
             self._title.set("Spotify • YouTube • Netflix")
             self._artist.set("Media hub")
             self._status.set("")
-        self.after(5000, self._refresh)
