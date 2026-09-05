@@ -6,11 +6,13 @@ from apps.launchers.browser_launcher import BrowserKioskLauncher
 
 class GoogleEarthLauncher:
     BASE_URL='https://earth.google.com/web/search'
+    WINDOW_CLASS='openroadcode-google-earth'
     MENU_SHORTCUT='ctrl+shift+b'
     def __init__(self,*,browser:BrowserKioskLauncher|None=None)->None:
-        self._browser=browser or BrowserKioskLauncher(url=self._location_url(42.3314,-83.0458),process_pattern='earth.google.com',window_class='openroadcode-google-earth')
+        self._browser=browser or BrowserKioskLauncher(url=self._location_url(42.3314,-83.0458),process_pattern='earth.google.com',window_class=self.WINDOW_CLASS)
     def configure_app_window(self,*,position:tuple[int,int],size:tuple[int,int],parent_window_id:int|None=None)->None:
-        self._browser.configure_app_window(position=position,size=size,borderless=True,parent_window_id=parent_window_id)
+        del parent_window_id
+        self._browser.configure_app_window(position=position,size=size)
     def configure_fullscreen(self,*,position:tuple[int,int],size:tuple[int,int])->None:
         self._browser.configure_kiosk_window(position=position,size=size)
     def configure_kiosk_window(self,*,position:tuple[int,int],size:tuple[int,int])->None:self.configure_fullscreen(position=position,size=size)
