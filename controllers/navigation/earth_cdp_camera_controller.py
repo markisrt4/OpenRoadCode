@@ -23,6 +23,30 @@ class EarthRuntimeProbe:
     custom_element_names: tuple[str, ...]
 
 
+@dataclass(frozen=True)
+class EarthRuntimeObject:
+    """Shallow description of one potentially useful Earth runtime global."""
+
+    name: str
+    value_type: str
+    constructor_name: str
+    keys: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class EarthRuntimeInspection:
+    """Targeted facts about Earth's JS/WASM boundary and render canvas."""
+
+    earth_wasm_started: bool | None
+    module_present: bool
+    module_keys: tuple[str, ...]
+    canvas_width: int | None
+    canvas_height: int | None
+    canvas_client_width: int | None
+    canvas_client_height: int | None
+    globals: tuple[EarthRuntimeObject, ...]
+
+
 class EarthCdpCameraController(EarthCameraControllerIf):
     """Own the stable CDP boundary while Earth camera control is investigated."""
 
@@ -66,6 +90,95 @@ class EarthCdpCameraController(EarthCameraControllerIf):
             ready_state=str(value.get("readyState", "")),
             canvas_count=int(value.get("canvasCount", 0)),
             custom_element_names=tuple(str(name) for name in names),
+        )
+
+    def inspect_runtime(self) -> EarthRuntimeInspection:
+        """Inspect likely Earth camera/WASM globals without invoking them."""
+        value = self._client.evaluate_earth(
+            """(() => {
+                const safeKeys = value => {
+                    if (value === null || value === undefined) return [];
+                    try { return Object.getOwnPropertyNames(value).sort().slice(0, 80); }
+                    catch (_) { return []; }
+                };
+                const describe = name => {
+                    let value;
+                    try { value = window[name]; }
+                    catch (_) { return {name, type: 'unreadable', constructorName: '', keys: []}; }
+                    let constructorName = '';
+                    try { constructorName = value?.constructor?.name || ''; }
+                    catch (_) {}
+                    return {
+                        name,
+                        type: typeof value,
+                        constructorName,
+                        keys: safeKeys(value),
+                    };
+                };
+                const candidates = Object.getOwnPropertyNames(window)
+                    .filter(name => /earth|camera|wasm/i.test(name))
+                    .filter(name => !/^module\$contents\$google3\$third_party\$javascript\$angular2/.test(name))
+                    .sort()
+                    .slice(0, 120);
+                const canvas = document.querySelector('canvas');
+                const moduleValue = window.Module;
+                return {
+                    earthWasmStarted: typeof window.earthWasmStarted === 'boolean'
+                        ? window.earthWasmStarted : null,
+                    modulePresent: moduleValue !== undefined && moduleValue !== null,
+                    moduleKeys: safeKeys(moduleValue),
+                    canvas: canvas ? {
+                        width: Number(canvas.width) || 0,
+                        height: Number(canvas.height) || 0,
+                        clientWidth: Number(canvas.clientWidth) || 0,
+                        clientHeight: Number(canvas.clientHeight) || 0,
+                    } : null,
+                    globals: candidates.map(describe),
+                };
+            })()"""
+        )
+        if not isinstance(value, dict):
+            raise RuntimeError("Google Earth runtime inspection returned an unexpected value")
+
+        raw_globals = value.get("globals")
+        objects: list[EarthRuntimeObject] = []
+        if isinstance(raw_globals, list):
+            for item in raw_globals:
+                if not isinstance(item, dict):
+                    continue
+                raw_keys = item.get("keys")
+                keys = tuple(str(key) for key in raw_keys) if isinstance(raw_keys, list) else ()
+                objects.append(
+                    EarthRuntimeObject(
+                        name=str(item.get("name", "")),
+                        value_type=str(item.get("type", "")),
+                        constructor_name=str(item.get("constructorName", "")),
+                        keys=keys,
+                    )
+                )
+
+        canvas = value.get("canvas")
+        if not isinstance(canvas, dict):
+            canvas = {}
+        wasm_started = value.get("earthWasmStarted")
+        if not isinstance(wasm_started, bool):
+            wasm_started = None
+        raw_module_keys = value.get("moduleKeys")
+        module_keys = tuple(str(key) for key in raw_module_keys) if isinstance(raw_module_keys, list) else ()
+
+        def optional_int(name: str) -> int | None:
+            raw = canvas.get(name)
+            return int(raw) if isinstance(raw, (int, float)) else None
+
+        return EarthRuntimeInspection(
+            earth_wasm_started=wasm_started,
+            module_present=bool(value.get("modulePresent", False)),
+            module_keys=module_keys,
+            canvas_width=optional_int("width"),
+            canvas_height=optional_int("height"),
+            canvas_client_width=optional_int("clientWidth"),
+            canvas_client_height=optional_int("clientHeight"),
+            globals=tuple(objects),
         )
 
     def inspect_globals(self, *, keywords: tuple[str, ...] = ("earth", "camera", "map", "scene", "view")) -> tuple[str, ...]:
