@@ -11,6 +11,8 @@ from ui.navigation import MapRequestHandlerIf
 
 BG="#05090d"; PANEL="#0b1117"; BORDER="#25313b"; TEXT="#edf2f5"; MUTED="#89959e"; GREEN="#84ce1f"; BLUE="#168bd1"; RED="#f15a16"; PURPLE="#a25ce5"
 _MPS_TO_MPH=2.2369362920544
+_M_TO_MI=0.000621371192237334
+_M_TO_FT=3.28083989501312
 
 class NavigationPanel(tk.Frame):
  def __init__(self,parent:tk.Misc,*,map_request_handler:MapRequestHandlerIf|None=None,on_back:Callable[[],None]|None=None)->None:
@@ -36,8 +38,16 @@ class NavigationPanel(tk.Frame):
   self._shortcut_status=tk.StringVar(value=self._focus_status());self._earth_button=tk.Button(bar,text="◉  EARTH",command=self._toggle_earth,bg=BLUE,fg="white",relief=tk.FLAT,font=("Sans",9,"bold"),width=11);self._earth_button.pack(side=tk.RIGHT,padx=(7,2),pady=2);tk.Label(bar,textvariable=self._shortcut_status,bg=BG,fg=MUTED,font=("Sans",7)).pack(side=tk.RIGHT,padx=5);short.pack(side=tk.LEFT,padx=2,pady=3)
   self._body=tk.Frame(self,bg=BG);self._body.grid(row=1,column=0,sticky="nsew");self._body.grid_rowconfigure(0,weight=1);self._body.grid_columnconfigure(0,weight=1)
   self._map_host=tk.Frame(self._body,bg="#020406",highlightthickness=1,highlightbackground=BORDER);self._map_host.grid(row=0,column=0,sticky="nsew");self._map_host.bind("<Configure>",self._on_map_host_resize)
-  self._controls=tk.Frame(self._body,bg=PANEL,width=62);self._controls.grid(row=0,column=1,rowspan=2,sticky="ns",padx=(4,0));self._controls.grid_propagate(False);self._follow_button=self._control(self._controls,"F",self._toggle_follow,GREEN);self._follow_button.pack(fill=tk.X,padx=5,pady=7);self.set_follow_enabled(self._follow_enabled)
+  self._controls=tk.Frame(self._body,bg=PANEL,width=62);self._controls.grid(row=0,column=1,rowspan=3,sticky="ns",padx=(4,0));self._controls.grid_propagate(False);self._follow_button=self._control(self._controls,"F",self._toggle_follow,GREEN);self._follow_button.pack(fill=tk.X,padx=5,pady=7);self.set_follow_enabled(self._follow_enabled)
   for text,cmd in (("+",lambda:self._change_zoom(1)),("−",lambda:self._change_zoom(-1)),("N",self._north_up),("◎",self._recenter)):self._control(self._controls,text,cmd,TEXT).pack(fill=tk.X,padx=5,pady=3)
+  self._earth_guidance=tk.Frame(self._body,bg=PANEL,highlightthickness=1,highlightbackground=BORDER)
+  self._earth_instruction_var=tk.StringVar(value="No active route")
+  self._earth_maneuver_distance_var=tk.StringVar(value="")
+  self._earth_route_remaining_var=tk.StringVar(value="")
+  tk.Label(self._earth_guidance,text="➜",bg=PANEL,fg=GREEN,font=("Sans",18,"bold"),padx=10).pack(side=tk.LEFT)
+  tk.Label(self._earth_guidance,textvariable=self._earth_instruction_var,bg=PANEL,fg=TEXT,font=("Sans",11,"bold"),anchor="w").pack(side=tk.LEFT,fill=tk.X,expand=True,pady=5)
+  tk.Label(self._earth_guidance,textvariable=self._earth_maneuver_distance_var,bg=PANEL,fg=GREEN,font=("Sans",10,"bold"),padx=10).pack(side=tk.RIGHT)
+  tk.Label(self._earth_guidance,textvariable=self._earth_route_remaining_var,bg=PANEL,fg=MUTED,font=("Sans",8),padx=8).pack(side=tk.RIGHT)
   self._earth_hud=tk.Frame(self._body,bg=PANEL,highlightthickness=1,highlightbackground=BORDER)
   self._earth_speed_var=tk.StringVar(value="-- mph");self._earth_track_var=tk.StringVar(value="---°");self._earth_position_var=tk.StringVar(value="GPS --")
   tk.Label(self._earth_hud,text="EARTH",bg=PANEL,fg=BLUE,font=("Sans",8,"bold"),padx=9,pady=5).pack(side=tk.LEFT)
@@ -57,7 +67,7 @@ class NavigationPanel(tk.Frame):
  def _earth_geometry(self)->tuple[tuple[int,int],tuple[int,int]]:
   self.update_idletasks();return (self._map_host.winfo_rootx(),self._map_host.winfo_rooty()),(max(1,self._map_host.winfo_width()),max(1,self._map_host.winfo_height()))
  def _embed_earth(self)->None:
-  self._earth_hud.grid(row=1,column=0,sticky="ew",pady=(4,0));self.update_idletasks();position,size=self._earth_geometry()
+  self._earth_guidance.grid(row=1,column=0,sticky="ew",pady=(4,0));self._earth_hud.grid(row=2,column=0,sticky="ew",pady=(3,0));self.update_idletasks();position,size=self._earth_geometry()
   if not self._earth_launcher.is_running():self._earth_launcher.configure_app_window(position=position,size=size);self._earth_launcher.launch(self._display())
   self.update_idletasks();self._earth_embedder.embed(0,self.map_host_window_id,size[0],size[1],window_class=GoogleEarthLauncher.WINDOW_CLASS)
   self._earth_visible=True;self._earth_button.configure(text="▣  MAP",bg=GREEN,fg=BG);self._start_earth_hud()
@@ -67,13 +77,13 @@ class NavigationPanel(tk.Frame):
    except (OSError,RuntimeError):pass
   self._earth_embedder.clear()
  def _leave_earth(self)->None:
-  self._stop_earth_hud();self._detach_earth();self._earth_hud.grid_remove();self._earth_visible=False;self._earth_button.configure(text="◉  EARTH",bg=BLUE,fg="white");self._shortcut_status.set("MapLibre")
+  self._stop_earth_hud();self._detach_earth();self._earth_guidance.grid_remove();self._earth_hud.grid_remove();self._earth_visible=False;self._earth_button.configure(text="◉  EARTH",bg=BLUE,fg="white");self._shortcut_status.set("MapLibre")
  def _toggle_earth(self):
   try:
    if self._earth_visible:self._leave_earth();return
    self._prepare_first_earth_launch();self._embed_earth()
   except Exception as exc:
-   self._earth_visible=False;self._stop_earth_hud();self._detach_earth();self._earth_hud.grid_remove()
+   self._earth_visible=False;self._stop_earth_hud();self._detach_earth();self._earth_guidance.grid_remove();self._earth_hud.grid_remove()
    if self._earth_launcher.is_running():
     try:self._earth_launcher.stop(self._display())
     except Exception:pass
@@ -93,7 +103,23 @@ class NavigationPanel(tk.Frame):
   else:self._earth_track_var.set(f"{math.degrees(track)%360.0:03.0f}° {self._cardinal(track)}")
   if position is None:self._earth_position_var.set("GPS --")
   else:self._earth_position_var.set(f"{math.degrees(position.latitude_rad):.4f}, {math.degrees(position.longitude_rad):.4f}")
+  self._update_earth_guidance()
   self._earth_hud_after=self.after(500,self._update_earth_hud)
+ def _update_earth_guidance(self)->None:
+  if self._camera_runtime.latest_route_complete:
+   self._earth_instruction_var.set("Destination reached");self._earth_maneuver_distance_var.set("");self._earth_route_remaining_var.set("");return
+  instruction=self._camera_runtime.latest_instruction
+  if self._camera_runtime.latest_off_route:
+   self._earth_instruction_var.set("OFF ROUTE" if not instruction else f"OFF ROUTE  •  {instruction}")
+  else:self._earth_instruction_var.set(instruction or "No active route")
+  self._earth_maneuver_distance_var.set(self._format_distance(self._camera_runtime.latest_distance_to_maneuver_m))
+  remaining=self._camera_runtime.latest_distance_remaining_m
+  self._earth_route_remaining_var.set("" if remaining is None else f"{remaining*_M_TO_MI:.1f} mi remaining")
+ @staticmethod
+ def _format_distance(distance_m:float|None)->str:
+  if distance_m is None:return ""
+  if distance_m<304.8:return f"{max(0.0,distance_m)*_M_TO_FT:.0f} ft"
+  return f"{max(0.0,distance_m)*_M_TO_MI:.1f} mi"
  @staticmethod
  def _cardinal(track_rad:float)->str:
   names=("N","NE","E","SE","S","SW","W","NW");return names[int((math.degrees(track_rad)%360.0+22.5)//45.0)%8]
