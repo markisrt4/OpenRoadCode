@@ -5,7 +5,9 @@ from __future__ import annotations
 import math
 import tkinter as tk
 from collections.abc import Callable
+from apps.orcUi.hover_help import HoverHelp
 from apps.orcUi.shared_map_camera import get_shared_map_camera_runtime
+from ui.button_help import ButtonHelp
 from ui.navigation import MapRequestHandlerIf
 
 BG="#05090d"; PANEL="#0b1117"; BORDER="#25313b"; TEXT="#edf2f5"; MUTED="#89959e"; GREEN="#84ce1f"; BLUE="#168bd1"; RED="#f15a16"; PURPLE="#a25ce5"
@@ -15,7 +17,7 @@ class NavigationPanel(tk.Frame):
         super().__init__(parent,bg=BG); del on_back
         self._runtime=get_shared_map_camera_runtime(); self._request_handler=map_request_handler or self._runtime.request_handler
         self._zoom_level=float(getattr(self._request_handler,"zoom_level",16.5)); self._pitch_rad=float(getattr(self._request_handler,"pitch_rad",math.radians(45.0)))
-        self._follow_enabled=bool(getattr(self._request_handler,"follow_enabled",True)); self._poi_focus=set(getattr(self._request_handler,"poi_focus",())); self._flight_enabled=self._runtime.flight_enabled; self._build(); self._schedule_renderer_refresh()
+        self._follow_enabled=bool(getattr(self._request_handler,"follow_enabled",True)); self._poi_focus=set(getattr(self._request_handler,"poi_focus",())); self._flight_enabled=self._runtime.flight_enabled; self._hover_helpers=[]; self._build(); self._schedule_renderer_refresh()
     @property
     def map_host_window_id(self)->int: self.update_idletasks(); return self._map_host.winfo_id()
     def set_map_request_handler(self,handler:MapRequestHandlerIf|None)->None:
@@ -26,31 +28,33 @@ class NavigationPanel(tk.Frame):
         self.grid_rowconfigure(1,weight=1); self.grid_columnconfigure(0,weight=1)
         bar=tk.Frame(self,bg=BG,height=38); bar.grid(row=0,column=0,sticky="ew",pady=(0,4)); bar.grid_propagate(False)
         shortcuts=tk.Frame(bar,bg=BG); shortcuts.pack(side=tk.LEFT,padx=2,pady=3)
-        for text,accent,key in (("⌂ HOME",BLUE,"home"),("▣ WORK",PURPLE,"work"),("⛽ GAS",RED,"gas"),("▣ GROCERY",GREEN,"grocery"),("♨ FOOD",RED,"food")):
-            tk.Button(shortcuts,text=text,command=lambda s=key:self._destination_shortcut(s),bg=PANEL,fg=accent,activebackground="#101820",activeforeground=TEXT,relief=tk.FLAT,highlightthickness=1,highlightbackground=BORDER,font=("Sans",8,"bold"),width=9,height=1,padx=3,pady=1).pack(side=tk.LEFT,padx=(0,4))
-        self._shortcut_status=tk.StringVar(value=self._focus_status())
-        tk.Label(bar,textvariable=self._shortcut_status,bg=BG,fg=MUTED,font=("Sans",7),anchor="e").pack(side=tk.RIGHT,padx=5)
+        for text,accent,key,help_text in (("⌂ HOME",BLUE,"home","Center or route to Home"),("▣ WORK",PURPLE,"work","Center or route to Work"),("⛽ GAS",RED,"gas","Highlight nearby fuel stations"),("▣ GROCERY",GREEN,"grocery","Highlight nearby grocery stores"),("♨ FOOD",RED,"food","Find nearby food")):
+            button=tk.Button(shortcuts,text=text,command=lambda s=key:self._destination_shortcut(s),bg=PANEL,fg=accent,activebackground="#101820",activeforeground=TEXT,relief=tk.FLAT,highlightthickness=1,highlightbackground=BORDER,font=("Sans",8,"bold"),width=9,height=1,padx=3,pady=1)
+            button.pack(side=tk.LEFT,padx=(0,4)); self._add_help(button,help_text)
+        self._shortcut_status=tk.StringVar(value=self._focus_status()); tk.Label(bar,textvariable=self._shortcut_status,bg=BG,fg=MUTED,font=("Sans",7),anchor="e").pack(side=tk.RIGHT,padx=5)
         body=tk.Frame(self,bg=BG); body.grid(row=1,column=0,sticky="nsew"); body.grid_rowconfigure(0,weight=1); body.grid_columnconfigure(0,weight=1)
         self._map_host=tk.Frame(body,bg="#020406",highlightthickness=1,highlightbackground=BORDER); self._map_host.grid(row=0,column=0,sticky="nsew")
         controls=tk.Frame(body,bg=PANEL,width=62); controls.grid(row=0,column=1,sticky="ns",padx=(4,0)); controls.grid_propagate(False)
-        self._fly_button=self._control(controls,"FLY",self._toggle_flight,PURPLE); self._fly_button.pack(fill=tk.X,padx=5,pady=(7,4)); self._update_fly_button()
-        self._follow_button=self._control(controls,"F",self._toggle_follow,GREEN); self._follow_button.pack(fill=tk.X,padx=5,pady=(0,5)); self.set_follow_enabled(self._follow_enabled)
+        self._fly_button=self._control(controls,"FLY",self._toggle_flight,PURPLE,"Start or stop free-flight mode"); self._fly_button.pack(fill=tk.X,padx=5,pady=(7,4)); self._update_fly_button()
+        self._follow_button=self._control(controls,"F",self._toggle_follow,GREEN,"Toggle automatic vehicle follow"); self._follow_button.pack(fill=tk.X,padx=5,pady=(0,5)); self.set_follow_enabled(self._follow_enabled)
         pan=tk.Frame(controls,bg=PANEL); pan.pack(pady=2)
-        for row,col,text,up,right in ((0,1,"▲",1,0),(1,0,"◀",0,-1),(1,2,"▶",0,1),(2,1,"▼",-1,0)):
-            tk.Button(pan,text=text,command=lambda u=up,r=right:self._pan(u,r),bg="#101820",fg=TEXT,activebackground=BLUE,activeforeground=TEXT,relief=tk.FLAT,highlightthickness=1,highlightbackground=BORDER,font=("Sans",9,"bold"),width=1,height=1,padx=2,pady=1).grid(row=row,column=col,padx=1,pady=1)
-        for text,command,accent in (("+",lambda:self._change_zoom(1),BLUE),("−",lambda:self._change_zoom(-1),BLUE),("↗",lambda:self._change_pitch(5),PURPLE),("↘",lambda:self._change_pitch(-5),PURPLE),("N",self._north_up,TEXT),("◎",self._recenter,GREEN)):
-            self._control(controls,text,command,accent).pack(fill=tk.X,padx=5,pady=2)
+        for row,col,text,up,right,help_text in ((0,1,"▲",1,0,"Pan up; in flight increase speed"),(1,0,"◀",0,-1,"Pan left; in flight turn left"),(1,2,"▶",0,1,"Pan right; in flight turn right"),(2,1,"▼",-1,0,"Pan down; in flight decrease speed")):
+            button=tk.Button(pan,text=text,command=lambda u=up,r=right:self._pan(u,r),bg="#101820",fg=TEXT,activebackground=BLUE,activeforeground=TEXT,relief=tk.FLAT,highlightthickness=1,highlightbackground=BORDER,font=("Sans",9,"bold"),width=1,height=1,padx=2,pady=1)
+            button.grid(row=row,column=col,padx=1,pady=1); self._add_help(button,help_text)
+        for text,command,accent,help_text in (("+",lambda:self._change_zoom(1),BLUE,"Zoom in; in flight lower the camera"),("−",lambda:self._change_zoom(-1),BLUE,"Zoom out; in flight raise the camera"),("↗",lambda:self._change_pitch(5),PURPLE,"Increase map or flight camera pitch"),("↘",lambda:self._change_pitch(-5),PURPLE,"Decrease map or flight camera pitch"),("N",self._north_up,TEXT,"Set map bearing to north-up"),("◎",self._recenter,GREEN,"Recenter and resume vehicle follow")):
+            self._control(controls,text,command,accent,help_text).pack(fill=tk.X,padx=5,pady=2)
         tk.Label(controls,text="FLY\nTURN / SPEED\nVIEW",bg=PANEL,fg=MUTED,font=("Sans",6),justify=tk.CENTER).pack(side=tk.BOTTOM,pady=5)
-    def _control(self,parent,text,command,fg):
-        return tk.Button(parent,text=text,command=command,bg=PANEL,fg=fg,activebackground="#101820",activeforeground=TEXT,relief=tk.FLAT,highlightthickness=1,highlightbackground=BORDER,font=("Sans",11,"bold"),height=1)
-    def _update_fly_button(self)->None:
-        self._fly_button.configure(text="LAND" if self._flight_enabled else "FLY",fg=RED if self._flight_enabled else PURPLE)
+    def _control(self,parent,text,command,fg,help_text=None):
+        button=tk.Button(parent,text=text,command=command,bg=PANEL,fg=fg,activebackground="#101820",activeforeground=TEXT,relief=tk.FLAT,highlightthickness=1,highlightbackground=BORDER,font=("Sans",11,"bold"),height=1)
+        if help_text: self._add_help(button,help_text)
+        return button
+    def _add_help(self,widget,help_text): self._hover_helpers.append(HoverHelp(widget,ButtonHelp(help_text)))
+    def _update_fly_button(self)->None: self._fly_button.configure(text="LAND" if self._flight_enabled else "FLY",fg=RED if self._flight_enabled else PURPLE)
     def _toggle_flight(self)->None:
         if self._flight_enabled:
             self._runtime.stop_flight(); self._flight_enabled=False; self._shortcut_status.set("Flight mode off")
         else:
-            if not self._runtime.start_flight():
-                self._shortcut_status.set("Waiting for position before flight"); return
+            if not self._runtime.start_flight(): self._shortcut_status.set("Waiting for position before flight"); return
             self._flight_enabled=True; self._shortcut_status.set("Flight mode: arrows turn / throttle")
         self._update_fly_button()
     def _schedule_renderer_refresh(self)->None:
@@ -70,23 +74,18 @@ class NavigationPanel(tk.Frame):
             if focus_category in self._poi_focus: self._poi_focus.remove(focus_category)
             else: self._poi_focus.add(focus_category)
             self._request_handler.request_poi_focus(focus_category); self._shortcut_status.set(self._focus_status()); return
-        self._request_handler.request_poi_focus(None); self._poi_focus.clear()
-        messages={"home":"Home location not configured","work":"Work location not configured","food":"Nearby food search not connected yet"}
-        self._shortcut_status.set(messages[shortcut]); self.after(2500,lambda:self._shortcut_status.set(""))
+        self._request_handler.request_poi_focus(None); self._poi_focus.clear(); messages={"home":"Home location not configured","work":"Work location not configured","food":"Nearby food search not connected yet"}; self._shortcut_status.set(messages[shortcut]); self.after(2500,lambda:self._shortcut_status.set(""))
     def _toggle_follow(self)->None:
         if self._flight_enabled: return
         enabled=not self._follow_enabled; self.set_follow_enabled(enabled); self._request_handler.request_follow(enabled)
     def _pan(self,up:float,right:float)->None:
-        if self._flight_enabled:
-            self._runtime.adjust_flight(speed_delta_mps=up*5.0,heading_delta_deg=right*10.0); return
+        if self._flight_enabled: self._runtime.adjust_flight(speed_delta_mps=up*5.0,heading_delta_deg=right*10.0); return
         self.set_follow_enabled(False); self._map_host.update_idletasks(); self._request_handler.request_pan_screen(right_px=right*max(48,self._map_host.winfo_width()*.25),up_px=up*max(48,self._map_host.winfo_height()*.25))
     def _change_zoom(self,delta:float)->None:
-        if self._flight_enabled:
-            self._runtime.adjust_flight(zoom_delta=delta*0.5); return
+        if self._flight_enabled: self._runtime.adjust_flight(zoom_delta=delta*0.5); return
         self._zoom_level=max(1,min(22,self._zoom_level+delta)); self.set_follow_enabled(False); self._request_handler.request_zoom(self._zoom_level)
     def _change_pitch(self,delta_deg:float)->None:
-        if self._flight_enabled:
-            self._runtime.adjust_flight(pitch_delta_deg=delta_deg); return
+        if self._flight_enabled: self._runtime.adjust_flight(pitch_delta_deg=delta_deg); return
         pitch_deg=max(0,min(60,math.degrees(self._pitch_rad)+delta_deg)); self._pitch_rad=math.radians(pitch_deg); self.set_follow_enabled(False); self._request_handler.request_pitch(self._pitch_rad)
     def _north_up(self)->None:
         if self._flight_enabled: return
