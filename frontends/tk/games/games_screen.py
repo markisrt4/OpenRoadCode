@@ -14,6 +14,7 @@ import tkinter as tk
 from controllers.games.game_catalog import load_game_catalog
 from controllers.games.game_controller import GameController
 from controllers.games.game_installer_factory import create_game_installers
+from controllers.games.game_installer_if import GameInstallerIf
 from controllers.games.game_launcher import GameLauncher
 from controllers.games.game_types import GameDefinition
 from frontends.tk.tk_screen import TkScreen
@@ -47,8 +48,8 @@ class GamesScreen(TkScreen):
     def show(self) -> None:
         """Build Games into the host and begin inventory discovery."""
         self.hide()
-        self._host.clear_screen_content()
         self._host.activate_screen(self)
+        self._host.clear_screen_content()
         self._host.set_screen_title("GAMES")
 
         panel = GamesPanel(self._host.screen_parent)
@@ -97,7 +98,7 @@ class GamesScreen(TkScreen):
         except (OSError, KeyError, TypeError, ValueError):
             return []
 
-    def _launch_runtime(self, game: GameDefinition, backend) -> None:
+    def _launch_runtime(self, game: GameDefinition, backend: GameInstallerIf) -> None:
         if self._launcher.is_running():
             raise RuntimeError("A game is already running")
         if not self._embedder.supported():
