@@ -181,11 +181,26 @@ check_runtime_libraries() {
   echo "[+] $label runtime dependency check passed"
 }
 
+install_missing_debian_packages() {
+  local missing=() package
+  for package in "$@"; do
+    if ! dpkg-query -W -f='${Status}' "$package" 2>/dev/null | grep -q '^install ok installed$'; then
+      missing+=("$package")
+    fi
+  done
+  if ((${#missing[@]})); then
+    echo "[*] Installing missing navigation packages: ${missing[*]}"
+    sudo apt-get update
+    sudo apt-get install -y "${missing[@]}"
+  else
+    echo "[*] Navigation-specific host packages are already installed"
+  fi
+}
+
 if (( ! SKIP_HOST_PACKAGES )); then
-  echo "[*] Installing navigation host dependencies"
+  echo "[*] Checking navigation host dependencies"
   bash "$PROJECT_ROOT/scripts/installers/host_setup.sh" --target "$TARGET" --feature desktop-ui --feature gps --no-vnc --no-gpsd-service
-  sudo apt-get update
-  sudo apt-get install -y rsync python3-zmq
+  install_missing_debian_packages rsync python3-zmq
   (( SKIP_MAPLIBRE )) || bash "$PROJECT_ROOT/development/containers/maplibre/host_setup.sh"
   (( SKIP_VALHALLA )) || bash "$PROJECT_ROOT/development/containers/valhalla/host_setup.sh"
 fi
