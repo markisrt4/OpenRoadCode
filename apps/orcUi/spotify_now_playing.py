@@ -19,17 +19,17 @@ GREEN = "#84ce1f"
 
 
 class SpotifyNowPlaying(tk.Frame):
-    """Render the shared Spotify snapshot without performing network I/O."""
+    """Render the shared Spotify state without doing network work in Tk."""
 
     def __init__(
         self,
         parent: tk.Widget,
         *,
-        spotify_state: SpotifyStateService,
+        service: SpotifyStateService,
         on_open: Callable[[], None],
     ) -> None:
         super().__init__(parent, bg=PANEL, cursor="hand2")
-        self._spotify_state = spotify_state
+        self._service = service
         self._on_open = on_open
         self._closed = False
         self._title = tk.StringVar(value="Spotify • YouTube • Netflix")
@@ -54,7 +54,7 @@ class SpotifyNowPlaying(tk.Frame):
     def _refresh(self) -> None:
         if self._closed:
             return
-        state = self._spotify_state.latest_state()
+        state = self._service.latest_state()
         if state.playback is PlaybackState.PLAYING and state.title:
             self._title.set(f"♫  {state.title}")
             self._artist.set(state.artist or "")
