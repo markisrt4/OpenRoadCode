@@ -33,6 +33,7 @@ from apps.orcUi.orc_theme import (
     toggle_label,
 )
 from apps.orcUi.radio_panel import RadioPanel
+from apps.orcUi.theme_runtime import theme_bundle
 from apps.orcUi.vehicle_panel import VehiclePanel
 from apps.orcUi.vehicle_presenter import VehiclePresenter, VehiclePresentationState
 from frontends.x11 import X11WindowEmbedder
@@ -328,7 +329,8 @@ class OrcUiApp:
         logo.create_line(16, 9, 16, 21, fill="#d7dde2", width=2, dash=(3, 3))
 
     def _build_side_nav(self) -> None:
-        self._nav_frame = tk.Frame(self._root, bg="#070c11", width=112)
+        ui = theme_bundle(self._theme_mode).ui
+        self._nav_frame = tk.Frame(self._root, bg=ui.background, width=112)
         self._nav_frame.grid(row=1, column=0, sticky="ns", padx=(8, 0), pady=6)
         self._nav_frame.grid_propagate(False)
         self._rebuild_side_nav()
@@ -336,6 +338,8 @@ class OrcUiApp:
     def _rebuild_side_nav(self) -> None:
         if not hasattr(self, "_nav_frame"):
             return
+        ui = theme_bundle(self._theme_mode).ui
+        self._nav_frame.configure(bg=ui.background)
         for child in self._nav_frame.winfo_children():
             child.destroy()
         self._nav_buttons.clear()
@@ -344,8 +348,10 @@ class OrcUiApp:
                 self._nav_frame,
                 text=item,
                 command=lambda name=item: self._select_nav(name),
-                bg="#070c11",
-                fg="#c7cdd2",
+                bg=ui.control_background,
+                fg=ui.control_text,
+                activebackground=ui.control_active,
+                activeforeground="#ffffff",
                 relief=tk.FLAT,
                 bd=0,
                 font=("Sans", 9),
@@ -603,10 +609,16 @@ class OrcUiApp:
         self._root.title("OpenRoadCode")
 
     def _paint_nav(self) -> None:
+        ui = theme_bundle(self._theme_mode).ui
+        self._nav_frame.configure(bg=ui.background)
         for name, button in self._nav_buttons.items():
+            selected = name == self._active_nav
             button.configure(
-                fg=GREEN if name == self._active_nav else "#c7cdd2",
-                bg="#101820" if name == self._active_nav else "#070c11",
+                fg="#ffffff" if selected else ui.control_text,
+                bg=ui.control_active if selected else ui.control_background,
+                activebackground=ui.control_active,
+                activeforeground="#ffffff",
+                highlightbackground=ui.border,
             )
 
     def _clear_content(self) -> None:
