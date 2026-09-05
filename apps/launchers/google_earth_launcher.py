@@ -23,6 +23,7 @@ class GoogleEarthLauncher:
             extra_arguments=(
                 f"--remote-debugging-port={self.DEVTOOLS_PORT}",
                 "--remote-debugging-address=127.0.0.1",
+                "--remote-allow-origins=*",
             ),
         )
         self._devtools = ChromiumDevToolsClient(port=self.DEVTOOLS_PORT)
