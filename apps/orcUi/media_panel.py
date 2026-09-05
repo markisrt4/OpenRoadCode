@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import copy
 import os
 import queue
 import threading
@@ -28,6 +29,36 @@ ACTIVE = DARK["active"]
 BORDER = DARK["border"]
 TEXT = DARK["text"]
 MUTED = DARK["muted"]
+MUSIC_VIDEO_PORT = 8770
+
+
+def _orc_spotify_theme() -> dict:
+    """Adapt the legacy Spotify panel palette to ORC theme colors.
+
+    Using the ORC dark palette here lets the shell's existing light-mode
+    translator convert every Spotify background, button, and text surface
+    consistently instead of leaving dark legacy colors behind.
+    """
+    theme = copy.deepcopy(SPOTIFY_PANEL_THEME)
+    theme["colors"].update(
+        {
+            "background": BG,
+            "card_background": PANEL,
+            "card_border": BORDER,
+            "title": TEXT,
+            "subtitle": MUTED,
+            "detail": MUTED,
+            "status": ACCENT_GREEN,
+            "button_background": ACTIVE,
+            "button_foreground": TEXT,
+            "button_active_background": ACCENT_GREEN,
+            "button_active_foreground": BG,
+            "button_disabled_foreground": MUTED,
+            "progress_track": BORDER,
+            "progress_fill": ACCENT_GREEN,
+        }
+    )
+    return theme
 
 
 class _ThreadSafeSpotifyPlaybackPanel(SpotifyPlaybackPanel):
@@ -191,6 +222,7 @@ class MediaPanel(tk.Frame):
             video_controller = MusicVideoController(
                 spotify_controller=controller,
                 music_video=YouTubeMusicVideo(
+                    port=MUSIC_VIDEO_PORT,
                     fullscreen=True,
                     software_rendering=target is RuntimeTarget.LINUX_DEV,
                 ),
@@ -200,7 +232,7 @@ class MediaPanel(tk.Frame):
                 music_video_controller=video_controller,
                 image_cache=ImageCache(max_entries=64),
                 lyrics_client=LrclibLyricsClient(),
-                theme=SPOTIFY_PANEL_THEME,
+                theme=_orc_spotify_theme(),
                 ui_dispatch=self._dispatch_ui,
             )
             presenter = SpotifyMediaPresenter(controller, _SpotifyPanelUi(panel))
