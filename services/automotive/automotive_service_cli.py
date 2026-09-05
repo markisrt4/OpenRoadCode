@@ -9,6 +9,7 @@ import argparse
 from pathlib import Path
 
 from config.service_runtime_config import AutomotiveServiceRuntimeConfig, ServiceRuntimeConfigParser
+from controllers.automotive.composite_vehicle_state_source import CompositeVehicleStateSource
 from controllers.automotive.gear_estimator import GearEstimator
 from controllers.automotive.navigation_motion_vehicle_state_source import NavigationMotionVehicleStateSource
 from controllers.automotive.obd2.elm327_obd_adapter import Elm327ObdAdapter
@@ -29,8 +30,8 @@ def parse_args() -> argparse.Namespace:
         "--configured-source",
         action="store_true",
         help=(
-            "use the legacy automotive source from runtime configuration; "
-            "by default vehicle speed comes from navigation ground motion"
+            "use only the automotive source from runtime configuration; "
+            "by default navigation ground speed is merged with vehicle telemetry"
         ),
     )
     parser.add_argument(
@@ -92,16 +93,17 @@ def main() -> int:
         print("Automotive publishing disabled by runtime configuration")
         return 0
 
-    # Navigation owns road-motion state, so automotive consumes its ground speed
-    # by default on every platform. The configured OBD/simulation source remains
-    # available explicitly while the future composite source is being built.
+    # Automotive owns engine/vehicle telemetry while navigation owns road motion.
+    # Merge both by default so GPS ground speed does not displace OBD-II data.
     use_navigation_motion = not args.configured_source or args.navigation_motion
+    vehicle_source = build_source(config)
     if use_navigation_motion:
-        source = NavigationMotionVehicleStateSource(
+        motion_source = NavigationMotionVehicleStateSource(
             ZeroMqSubscriber(system.messaging.subscriber_endpoint)
         )
+        source = CompositeVehicleStateSource(vehicle_source, motion_source)
     else:
-        source = build_source(config)
+        source = vehicle_source
 
     gear_estimator = _load_gear_estimator(args.gear_profile)
     publisher = ZeroMqPublisher(system.messaging.publisher_endpoint)
@@ -115,11 +117,12 @@ def main() -> int:
     print("OpenRoadCode automotive service")
     print(
         f"  input source:      "
-        f"{'navigation-motion' if use_navigation_motion else config.input.source}"
+        f"{config.input.source} + navigation-motion" if use_navigation_motion
+        else f"  input source:      {config.input.source}"
     )
     if use_navigation_motion:
         print(f"  motion endpoint:   {system.messaging.subscriber_endpoint}")
-    elif config.input.source == "device":
+    if config.input.source == "device":
         print(f"  device:            {config.input.device}")
         print(f"  transport:         {config.input.transport}")
         if config.input.transport == "tcp":
