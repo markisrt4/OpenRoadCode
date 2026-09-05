@@ -16,6 +16,11 @@ from messaging.contracts.navigation import (
     decode_motion_state,
     decode_position_state,
 )
+from messaging.contracts.route_guidance import (
+    ROUTE_GUIDANCE_STATE_TOPIC,
+    RouteGuidanceStateMessage,
+    decode_route_guidance_state,
+)
 from messaging.message_dispatcher import MessageDispatcher
 from messaging.zeromq import ZeroMqSubscriber
 from messaging.zeromq.endpoints import LOCAL_SUBSCRIBER_ENDPOINT
@@ -28,7 +33,7 @@ _EARTH_RADIUS_M = 6_378_137.0
 
 
 class MapCameraRuntime:
-    """Feed navigation position and motion into the native map camera."""
+    """Feed public navigation state into ORC map renderers."""
 
     def __init__(
         self,
@@ -45,62 +50,74 @@ class MapCameraRuntime:
             pitch_rad=pitch_rad,
             follow_enabled=follow_enabled,
         )
-        self._dispatcher = MessageDispatcher(
-            ZeroMqSubscriber(LOCAL_SUBSCRIBER_ENDPOINT)
-        )
+        self._dispatcher = MessageDispatcher(ZeroMqSubscriber(LOCAL_SUBSCRIBER_ENDPOINT))
+        self._dispatcher.register(POSITION_STATE_TOPIC, decode_position_state, self._on_position_message)
+        self._dispatcher.register(MOTION_STATE_TOPIC, decode_motion_state, self._on_motion_message)
         self._dispatcher.register(
-            POSITION_STATE_TOPIC,
-            decode_position_state,
-            self._on_position_message,
-        )
-        self._dispatcher.register(
-            MOTION_STATE_TOPIC,
-            decode_motion_state,
-            self._on_motion_message,
+            ROUTE_GUIDANCE_STATE_TOPIC,
+            decode_route_guidance_state,
+            self._on_route_guidance_message,
         )
         self._course_reference: GeoPoint | None = None
         self._latest_position: GeoPoint | None = None
         self._latest_ground_speed_m_s: float | None = None
         self._latest_course_rad: float | None = None
         self._latest_heading_rad: float | None = None
+        self._latest_instruction: str | None = None
+        self._latest_distance_to_maneuver_m: float | None = None
+        self._latest_distance_remaining_m: float | None = None
+        self._latest_off_route = False
+        self._latest_route_complete = False
         self._closed = False
 
     @property
     def request_handler(self) -> MapRequestHandlerIf:
-        """Return the semantic camera request interface."""
         return self._handler
 
     @property
     def latest_position(self) -> GeoPoint | None:
-        """Return the most recent valid navigation position."""
         return self._latest_position
 
     @property
     def latest_ground_speed_m_s(self) -> float | None:
-        """Return the most recent ground speed from navigation telemetry."""
         return self._latest_ground_speed_m_s
 
     @property
     def latest_course_rad(self) -> float | None:
-        """Return the most recent course over ground."""
         return self._latest_course_rad
 
     @property
     def latest_heading_rad(self) -> float | None:
-        """Return the most recent heading estimate."""
         return self._latest_heading_rad
 
     @property
     def latest_track_rad(self) -> float | None:
-        """Prefer course over ground, falling back to heading."""
         return self._latest_course_rad if self._latest_course_rad is not None else self._latest_heading_rad
 
+    @property
+    def latest_instruction(self) -> str | None:
+        return self._latest_instruction
+
+    @property
+    def latest_distance_to_maneuver_m(self) -> float | None:
+        return self._latest_distance_to_maneuver_m
+
+    @property
+    def latest_distance_remaining_m(self) -> float | None:
+        return self._latest_distance_remaining_m
+
+    @property
+    def latest_off_route(self) -> bool:
+        return self._latest_off_route
+
+    @property
+    def latest_route_complete(self) -> bool:
+        return self._latest_route_complete
+
     def start(self) -> None:
-        """Start receiving navigation position and motion updates."""
         self._dispatcher.start()
 
     def close(self) -> None:
-        """Release subscriber and renderer-command resources."""
         if self._closed:
             return
         self._closed = True
@@ -111,14 +128,12 @@ class MapCameraRuntime:
         data = message.data
         if data.latitude_rad is None or data.longitude_rad is None:
             return
-
         point = GeoPoint(
             latitude_rad=data.latitude_rad,
             longitude_rad=data.longitude_rad,
             altitude_m=data.altitude_m,
         )
         self._latest_position = point
-
         bearing_rad: float | None = None
         reference = self._course_reference
         if reference is None:
@@ -130,7 +145,6 @@ class MapCameraRuntime:
                 self._course_reference = point
                 if self._latest_course_rad is None:
                     self._latest_heading_rad = bearing_rad
-
         self._handler.update_follow_camera(point, bearing_rad)
         self._renderer_client.set_position(
             latitude=math.degrees(data.latitude_rad),
@@ -138,23 +152,24 @@ class MapCameraRuntime:
         )
 
     def _on_motion_message(self, message: MotionStateMessage) -> None:
-        """Capture live motion and keep a followed map course-up while moving."""
         data = message.data
         self._latest_ground_speed_m_s = data.ground_speed_m_s
         self._latest_course_rad = data.course_rad
         self._latest_heading_rad = data.heading_rad
-
         speed_m_s = data.ground_speed_m_s
         if speed_m_s is None or speed_m_s < _MIN_COURSE_UP_SPEED_M_S:
             return
+        bearing_rad = data.course_rad if data.course_rad is not None else data.heading_rad
+        if bearing_rad is not None:
+            self._handler.update_follow_bearing(bearing_rad)
 
-        bearing_rad = data.course_rad
-        if bearing_rad is None:
-            bearing_rad = data.heading_rad
-        if bearing_rad is None:
-            return
-
-        self._handler.update_follow_bearing(bearing_rad)
+    def _on_route_guidance_message(self, message: RouteGuidanceStateMessage) -> None:
+        data = message.data
+        self._latest_instruction = data.instruction
+        self._latest_distance_to_maneuver_m = data.distance_to_maneuver_m
+        self._latest_distance_remaining_m = data.distance_remaining_m
+        self._latest_off_route = data.off_route
+        self._latest_route_complete = data.route_complete
 
     @staticmethod
     def _distance_m(start: GeoPoint, end: GeoPoint) -> float:
