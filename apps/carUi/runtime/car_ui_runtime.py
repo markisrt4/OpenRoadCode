@@ -8,8 +8,8 @@ import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, Optional
 
-from apps.launchers.app_launcher_if import AppLauncherIf
-from apps.launchers.app_runtime_manager import AppRuntimeManager
+from apps.launchers.app_launcher_if import AppLauncherIf, StatusCallback
+from controllers.application_runtime import AppRuntimeManager
 from controllers.navigation.map_presentation_if import MapPresentationIf
 from controllers.radio.radio_controller_if import RadioControllerIf
 from controllers.weather import OpenMeteoWeatherController
@@ -61,10 +61,10 @@ class CarUiRuntime:
         """Return the system runtime configuration path."""
         return Path(__file__).resolve().parents[3] / "config" / "runtime.toml"
 
-    def start_background_apps(self) -> None:
+    def start_background_apps(self, set_status: StatusCallback = None) -> None:
         """Start configured preload and persistent applications asynchronously."""
         if self.app_runtime_manager is not None:
-            self.app_runtime_manager.start_background_apps()
+            self.app_runtime_manager.start_background_apps(set_status)
 
     def close(self) -> None:
         """Stop managed applications and radio controllers owned by this runtime."""
