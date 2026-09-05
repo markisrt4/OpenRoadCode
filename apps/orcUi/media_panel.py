@@ -21,6 +21,7 @@ from controllers.lyrics import LrclibLyricsClient
 from controllers.spotify import SpotifyMediaPresenter
 from controllers.video import MusicVideoController, NetflixPlayer, YouTubeMusicVideo, YouTubePlayer
 from frontends.tk.media import SpotifyPlaybackPanel
+from frontends.x11 import X11WindowEmbedder
 from ui.media import MediaState
 
 BG = DARK["bg"]
@@ -30,15 +31,12 @@ BORDER = DARK["border"]
 TEXT = DARK["text"]
 MUTED = DARK["muted"]
 MUSIC_VIDEO_PORT = 8770
+YOUTUBE_WINDOW_CLASS = "OpenRoadCodeYouTube"
+NETFLIX_WINDOW_CLASS = "OpenRoadCodeNetflix"
 
 
 def _orc_spotify_theme() -> dict:
-    """Adapt the legacy Spotify panel palette to ORC theme colors.
-
-    Using the ORC dark palette here lets the shell's existing light-mode
-    translator convert every Spotify background, button, and text surface
-    consistently instead of leaving dark legacy colors behind.
-    """
+    """Adapt the legacy Spotify panel palette to ORC theme colors."""
     theme = copy.deepcopy(SPOTIFY_PANEL_THEME)
     theme["colors"].update(
         {
@@ -64,12 +62,7 @@ def _orc_spotify_theme() -> dict:
 class _ThreadSafeSpotifyPlaybackPanel(SpotifyPlaybackPanel):
     """Keep worker-thread panel callbacks out of Tcl/Tk."""
 
-    def __init__(
-        self,
-        *args,
-        ui_dispatch: Callable[[Callable[[], None]], None],
-        **kwargs,
-    ) -> None:
+    def __init__(self, *args, ui_dispatch: Callable[[Callable[[], None]], None], **kwargs) -> None:
         self._ui_dispatch = ui_dispatch
         self._tk_thread_id = threading.get_ident()
         super().__init__(*args, **kwargs)
@@ -94,7 +87,7 @@ class _SpotifyPanelUi:
 
 
 class MediaPanel(tk.Frame):
-    """ORC-styled media landing page and hosted Spotify component."""
+    """ORC-styled media landing page with hosted media applications."""
 
     def __init__(
         self,
@@ -106,7 +99,11 @@ class MediaPanel(tk.Frame):
         super().__init__(parent, bg=BG)
         self._on_back = on_back
         self._status_callback = status_callback or (lambda _message: None)
+        self._display = os.environ.get("DISPLAY", ":1")
         self._view_host: tk.Frame | None = None
+        self._browser_host: tk.Frame | None = None
+        self._browser_embedder = X11WindowEmbedder()
+        self._active_browser: str | None = None
         self._netflix_player: NetflixPlayer | None = None
         self._youtube_player: YouTubePlayer | None = None
         self._spotify_video_controller: MusicVideoController | None = None
@@ -136,10 +133,7 @@ class MediaPanel(tk.Frame):
             self._ui_dispatch_job = None
         if self._spotify_video_controller is not None:
             self._spotify_video_controller.stop_video()
-        if self._netflix_player is not None:
-            self._netflix_player.stop()
-        if self._youtube_player is not None:
-            self._youtube_player.stop()
+        self._stop_embedded_browser()
 
     def destroy(self) -> None:
         self.close()
@@ -151,13 +145,7 @@ class MediaPanel(tk.Frame):
 
         hero = tk.Frame(self._view_host, bg=BG)
         hero.pack(fill=tk.X, padx=12, pady=(2, 4))
-        tk.Label(
-            hero,
-            text="YOUR MEDIA",
-            bg=BG,
-            fg=TEXT,
-            font=("Sans", 22, "bold"),
-        ).pack(anchor="w")
+        tk.Label(hero, text="YOUR MEDIA", bg=BG, fg=TEXT, font=("Sans", 22, "bold")).pack(anchor="w")
         tk.Label(
             hero,
             text="Pick a service and go. No launcher maze required.",
@@ -173,45 +161,12 @@ class MediaPanel(tk.Frame):
         grid.grid_rowconfigure(0, weight=1)
 
         cards = (
-            (
-                "♫",
-                "SPOTIFY",
-                "MUSIC",
-                "Now playing",
-                "Artwork, lyrics, playback controls and music video.",
-                "OPEN PLAYER",
-                ACCENT_GREEN,
-                self.show_spotify,
-            ),
-            (
-                "▶",
-                "YOUTUBE",
-                "VIDEO",
-                "Watch anything",
-                "Jump straight into your dedicated YouTube session.",
-                "OPEN YOUTUBE",
-                ACCENT_RED,
-                self.show_youtube,
-            ),
-            (
-                "N",
-                "NETFLIX",
-                "STREAM",
-                "Continue watching",
-                "Launch Netflix with your retained browser profile.",
-                "OPEN NETFLIX",
-                ACCENT_BLUE,
-                self.show_netflix,
-            ),
+            ("♫", "SPOTIFY", "MUSIC", "Now playing", "Artwork, lyrics, playback controls and music video.", "OPEN PLAYER", ACCENT_GREEN, self.show_spotify),
+            ("▶", "YOUTUBE", "VIDEO", "Watch anything", "Open YouTube inside the ORC media surface.", "OPEN YOUTUBE", ACCENT_RED, self.show_youtube),
+            ("N", "NETFLIX", "STREAM", "Continue watching", "Open Netflix inside ORC using your retained browser profile.", "OPEN NETFLIX", ACCENT_BLUE, self.show_netflix),
         )
         for column, card in enumerate(cards):
-            self._media_card(grid, *card).grid(
-                row=0,
-                column=column,
-                sticky="nsew",
-                padx=6,
-                pady=4,
-            )
+            self._media_card(grid, *card).grid(row=0, column=column, sticky="nsew", padx=6, pady=4)
 
     def show_spotify(self) -> None:
         self._clear_view()
@@ -249,26 +204,103 @@ class MediaPanel(tk.Frame):
             self._show_error("Spotify", error)
 
     def show_youtube(self) -> None:
-        try:
-            player = self._youtube_player or YouTubePlayer(
-                software_rendering=detect_runtime_target() is RuntimeTarget.LINUX_DEV,
-            )
-            self._youtube_player = player
-            player.play("https://www.youtube.com/", display=os.environ.get("DISPLAY", ":1"))
-            self._status_callback("YouTube opened")
-        except Exception as error:
-            self._status_callback(f"YouTube failed: {error}")
+        self._show_embedded_browser(
+            service="YouTube",
+            subtitle="Embedded YouTube kiosk",
+            window_class=YOUTUBE_WINDOW_CLASS,
+            launch=self._launch_youtube,
+        )
 
     def show_netflix(self) -> None:
+        self._show_embedded_browser(
+            service="Netflix",
+            subtitle="Embedded Netflix kiosk",
+            window_class=NETFLIX_WINDOW_CLASS,
+            launch=self._launch_netflix,
+        )
+
+    def _launch_youtube(self, position: tuple[int, int], size: tuple[int, int]) -> None:
+        player = self._youtube_player or YouTubePlayer(
+            software_rendering=detect_runtime_target() is RuntimeTarget.LINUX_DEV,
+        )
+        self._youtube_player = player
+        player.play(
+            "https://www.youtube.com/",
+            display=self._display,
+            window_position=position,
+            window_size=size,
+        )
+        self._active_browser = "youtube"
+
+    def _launch_netflix(self, position: tuple[int, int], size: tuple[int, int]) -> None:
+        player = self._netflix_player or NetflixPlayer(
+            software_rendering=detect_runtime_target() is RuntimeTarget.LINUX_DEV,
+        )
+        self._netflix_player = player
+        player.play(
+            "https://www.netflix.com/browse",
+            display=self._display,
+            window_position=position,
+            window_size=size,
+        )
+        self._active_browser = "netflix"
+
+    def _show_embedded_browser(
+        self,
+        *,
+        service: str,
+        subtitle: str,
+        window_class: str,
+        launch: Callable[[tuple[int, int], tuple[int, int]], None],
+    ) -> None:
+        self._clear_view()
+        self._set_title(service.upper(), subtitle, show_media_back=True)
         try:
-            player = self._netflix_player or NetflixPlayer(
-                software_rendering=detect_runtime_target() is RuntimeTarget.LINUX_DEV,
+            if not X11WindowEmbedder.supported():
+                raise RuntimeError("xdotool is required for embedded media kiosks")
+
+            host = tk.Frame(self._view_host, bg="#000000", highlightthickness=1, highlightbackground=BORDER)
+            host.pack(fill=tk.BOTH, expand=True, padx=4, pady=4)
+            host.bind("<Configure>", self._on_browser_host_resize)
+            self._browser_host = host
+            self.update_idletasks()
+
+            size = (max(1, host.winfo_width()), max(1, host.winfo_height()))
+            position = (host.winfo_rootx(), host.winfo_rooty())
+            launch(position, size)
+            self.update_idletasks()
+
+            self._browser_embedder.embed(
+                0,
+                int(host.winfo_id()),
+                size[0],
+                size[1],
+                window_class=window_class,
             )
-            self._netflix_player = player
-            player.play("https://www.netflix.com/browse", display=os.environ.get("DISPLAY", ":1"))
-            self._status_callback("Netflix opened")
+            self._status_callback(f"{service} embedded")
         except Exception as error:
-            self._status_callback(f"Netflix failed: {error}")
+            self._stop_embedded_browser()
+            self._show_error(service, error)
+
+    def _on_browser_host_resize(self, event: tk.Event) -> None:
+        if self._browser_embedder.window_id is None:
+            return
+        self._browser_embedder.resize(max(1, event.width), max(1, event.height))
+
+    def _stop_embedded_browser(self) -> None:
+        if self._browser_embedder.window_id is not None:
+            try:
+                parent_window_id = int(self.winfo_toplevel().winfo_id())
+                self._browser_embedder.detach(parent_window_id)
+            except (RuntimeError, tk.TclError):
+                self._browser_embedder.clear()
+
+        if self._active_browser == "youtube" and self._youtube_player is not None:
+            self._youtube_player.stop()
+        elif self._active_browser == "netflix" and self._netflix_player is not None:
+            self._netflix_player.stop()
+        self._active_browser = None
+        self._browser_host = None
 
     def _build_shell(self) -> None:
         self.grid_columnconfigure(0, weight=1)
@@ -327,6 +359,7 @@ class MediaPanel(tk.Frame):
             self._media_back.grid_remove()
 
     def _clear_view(self) -> None:
+        self._stop_embedded_browser()
         self._spotify_refresh_generation += 1
         self._spotify_refresh_in_flight = False
         self._cancel_spotify_refresh()
@@ -364,7 +397,12 @@ class MediaPanel(tk.Frame):
         self._spotify_refresh_job = self.after(25, lambda: self._poll_spotify_state(generation))
 
     def _load_spotify_state(self, presenter: SpotifyMediaPresenter, generation: int) -> None:
-        state = presenter.read_state()
+        try:
+            state = presenter.read_state()
+        except Exception as error:
+            self._ui_dispatch_queue.put(lambda: self._status_callback(f"Spotify refresh failed: {error}"))
+            self._spotify_state_results.put((generation, MediaState()))
+            return
         self._spotify_state_results.put((generation, state))
 
     def _poll_spotify_state(self, generation: int) -> None:
@@ -422,33 +460,20 @@ class MediaPanel(tk.Frame):
 
         body = tk.Frame(card, bg=PANEL)
         body.pack(fill=tk.BOTH, expand=True, padx=16, pady=(14, 12))
-
         top = tk.Frame(body, bg=PANEL)
         top.pack(fill=tk.X)
 
         glyph_box = tk.Frame(top, bg=accent, width=48, height=48)
         glyph_box.pack(side=tk.LEFT)
         glyph_box.pack_propagate(False)
-        tk.Label(
-            glyph_box,
-            text=glyph,
-            bg=accent,
-            fg=BG,
-            font=("Sans", 22, "bold"),
-        ).pack(fill=tk.BOTH, expand=True)
+        tk.Label(glyph_box, text=glyph, bg=accent, fg=BG, font=("Sans", 22, "bold")).pack(fill=tk.BOTH, expand=True)
 
         identity = tk.Frame(top, bg=PANEL)
         identity.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(12, 0))
         tk.Label(identity, text=title, bg=PANEL, fg=TEXT, font=("Sans", 16, "bold")).pack(anchor="w")
         tk.Label(identity, text=category, bg=PANEL, fg=accent, font=("Sans", 8, "bold")).pack(anchor="w", pady=(2, 0))
 
-        tk.Label(
-            body,
-            text=subtitle,
-            bg=PANEL,
-            fg=TEXT,
-            font=("Sans", 12, "bold"),
-        ).pack(anchor="w", pady=(18, 5))
+        tk.Label(body, text=subtitle, bg=PANEL, fg=TEXT, font=("Sans", 12, "bold")).pack(anchor="w", pady=(18, 5))
         tk.Label(
             body,
             text=detail,
