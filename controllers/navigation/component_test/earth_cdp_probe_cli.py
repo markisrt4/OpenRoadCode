@@ -38,6 +38,16 @@ def main() -> None:
         if item.keys:
             print(f"    keys: {', '.join(item.keys)}")
 
+    print("selected Module hooks:")
+    for hook in controller.inspect_module_hooks():
+        constructor = f" / {hook.constructor_name}" if hook.constructor_name else ""
+        arity = f", arity={hook.arity}" if hook.arity is not None else ""
+        print(f"  {hook.name}: {hook.value_type}{constructor}{arity}")
+        if hook.keys:
+            print(f"    keys: {', '.join(hook.keys)}")
+        if hook.source_preview:
+            print(f"    source: {hook.source_preview}")
+
 
 if __name__ == "__main__":
     main()
