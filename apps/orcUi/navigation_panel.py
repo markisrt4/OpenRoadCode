@@ -42,24 +42,12 @@ class NavigationPanel(tk.Frame):
   self._destroy_earth_overlay();overlay=tk.Toplevel(self);overlay.overrideredirect(True);overlay.configure(bg=BG);overlay.attributes("-topmost",True);overlay.geometry("+14+14")
   column=tk.Frame(overlay,bg=BG);column.pack()
   tk.Button(column,text="←  ORC",command=self._leave_earth,bg=BLUE,fg="white",activebackground=GREEN,activeforeground=BG,relief=tk.FLAT,highlightthickness=2,highlightbackground="#5bbcff",font=("Sans",12,"bold"),padx=12,pady=7,width=8).pack(fill=tk.X)
-  tk.Button(column,text="☰  MENU",command=self._toggle_earth_menu,bg=PANEL,fg=TEXT,activebackground=BLUE,activeforeground="white",relief=tk.FLAT,highlightthickness=2,highlightbackground=BORDER,font=("Sans",11,"bold"),padx=10,pady=7,width=8).pack(fill=tk.X,pady=(5,0))
   self._earth_overlay=overlay;overlay.lift();overlay.after(300,overlay.lift)
  def _destroy_earth_overlay(self)->None:
   if self._earth_overlay is not None:
    try:self._earth_overlay.destroy()
    except tk.TclError:pass
    self._earth_overlay=None
- def _toggle_earth_menu(self)->None:
-  if not self._earth_visible:return
-  try:
-   sent=self._earth_launcher.toggle_menu_bar(self._display())
-   self._shortcut_status.set("Earth menu shortcut sent" if sent else "Earth menu shortcut unavailable")
-  except Exception as exc:
-   self._shortcut_status.set(f"Earth menu error: {exc}")
-  overlay=self._earth_overlay
-  if overlay is not None:
-   try:overlay.attributes("-topmost",True);overlay.lift()
-   except tk.TclError:pass
  def _leave_earth(self)->None:
   self._destroy_earth_overlay()
   if self._earth_launcher.is_running():self._earth_launcher.stop(self._display())
