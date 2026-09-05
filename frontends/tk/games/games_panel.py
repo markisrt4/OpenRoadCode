@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import os
 import tkinter as tk
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from pathlib import Path
 
 from ui.games import GameStatus, GameUiState, GamesRequestHandlerIf, GamesUiIf
@@ -86,7 +86,7 @@ class GamesPanel(tk.Frame, GamesUiIf):
     def set_games_request_handler(self, handler: GamesRequestHandlerIf | None) -> None:
         self._request_handler = handler
 
-    def set_games(self, games: tuple[GameUiState, ...]) -> None:
+    def set_games(self, games: Sequence[GameUiState]) -> None:
         self._games = tuple(games)
         if self._runtime_host is None:
             self._refresh_cards()
@@ -296,43 +296,38 @@ class GamesPanel(tk.Frame, GamesUiIf):
         tk.Label(card, text=game.name, fg=TEXT if actionable or game.status in (GameStatus.READY, GameStatus.INSTALLING, GameStatus.RUNNING) else MUTED, bg=PANEL, font=("Sans", 13, "bold")).grid(row=0, column=1, sticky="sw", padx=6, pady=(5, 0))
         tk.Label(card, text=game.description, fg=MUTED, bg=PANEL, font=("Sans", 8), anchor="w").grid(row=1, column=1, sticky="ew", padx=6)
         tk.Label(card, text=game.status.name, fg=accent, bg=PANEL, font=("Sans", 8, "bold")).grid(row=2, column=1, sticky="nw", padx=6, pady=(1, 5))
-        tk.Button(card, text=label, command=command, state=tk.NORMAL if actionable else tk.DISABLED, bg="#102018" if game.status in (GameStatus.READY, GameStatus.RUNNING) else ("#0d1b24" if game.status in (GameStatus.AVAILABLE, GameStatus.CHECKING, GameStatus.INSTALLING) else "#11161a"), fg=accent, activebackground="#183024", activeforeground=TEXT, disabledforeground=accent if game.status in (GameStatus.CHECKING, GameStatus.INSTALLING) else MUTED, relief=tk.FLAT, highlightthickness=1, highlightbackground=accent if actionable or game.status in (GameStatus.CHECKING, GameStatus.INSTALLING) else BORDER, font=("Sans", 9, "bold"), padx=11, pady=6, cursor="hand2" if actionable else "arrow").grid(row=0, column=2, rowspan=3, padx=10, pady=8)
+        tk.Button(card, text=label, command=command, state=tk.NORMAL if actionable else tk.DISABLED, bg="#102018" if game.status in (GameStatus.READY, GameStatus.RUNNING) else ("#0d1b24" if game.status in (GameStatus.AVAILABLE, GameStatus.CHECKING, GameStatus.INSTALLING) else "#11161a"), fg=accent, activebackground="#183024", activeforeground=TEXT, disabledforeground=accent if game.status in (GameStatus.CHECKING, GameStatus.INSTALLING) else MUTED, relief=tk.FLAT, highlightthickness=1, highlightbackground=accent if actionable else BORDER, font=("Sans", 9, "bold"), width=11, padx=5, pady=5, cursor="hand2" if actionable else "").grid(row=0, column=2, rowspan=3, padx=10, pady=9, sticky="e")
         return card
 
-    def _action_for(self, game: GameUiState) -> tuple[str, object | None, str]:
-        handler = self._request_handler
-        if game.status == GameStatus.READY:
-            return "PLAY", (lambda: handler.request_launch_game(game.game_id)) if handler else None, GREEN
-        if game.status == GameStatus.AVAILABLE:
-            return "INSTALL", (lambda: handler.request_install_game(game.game_id)) if handler else None, BLUE
-        if game.status == GameStatus.RUNNING:
-            return "STOP", handler.request_stop_game if handler else None, GREEN
-        if game.status == GameStatus.INSTALLING:
-            return "INSTALLING…", None, BLUE
-        if game.status == GameStatus.CHECKING:
-            return "CHECKING…", None, BLUE
-        if game.status == GameStatus.ERROR:
-            return "ERROR", None, RED
-        if game.status == GameStatus.DISABLED:
-            return "DISABLED", None, MUTED
+    def _action_for(self, game: GameUiState) -> tuple[str, Callable[[], None] | None, str]:
+        if game.status is GameStatus.READY:
+            return "PLAY", lambda: self._request_handler.request_launch_game(game.key) if self._request_handler else None, GREEN
+        if game.status is GameStatus.RUNNING:
+            return "PLAYING", None, GREEN
+        if game.status is GameStatus.AVAILABLE:
+            return "INSTALL", lambda: self._request_handler.request_install_game(game.key) if self._request_handler else None, BLUE
+        if game.status is GameStatus.INSTALLING:
+            return "INSTALLING", None, BLUE
+        if game.status is GameStatus.CHECKING:
+            return "CHECKING", None, BLUE
         return "UNAVAILABLE", None, MUTED
 
     def _apply_current_theme(self, widget: tk.Misc) -> None:
         mapping = _DARK_TO_LIGHT if self._light_mode else _LIGHT_TO_DARK
-        self._apply_theme_widget(widget, mapping)
+        self._apply_theme_recursive(widget, mapping)
 
     @classmethod
-    def _apply_theme_widget(cls, widget: tk.Misc, mapping: dict[str, str]) -> None:
+    def _apply_theme_recursive(cls, widget: tk.Misc, mapping: dict[str, str]) -> None:
         for option in _THEME_OPTIONS:
             try:
-                current = str(widget.cget(option)).lower()
+                value = str(widget.cget(option)).lower()
             except (tk.TclError, AttributeError):
                 continue
-            replacement = mapping.get(current)
+            replacement = mapping.get(value)
             if replacement is not None:
                 try:
                     widget.configure(**{option: replacement})
                 except tk.TclError:
                     pass
         for child in widget.winfo_children():
-            cls._apply_theme_widget(child, mapping)
+            cls._apply_theme_recursive(child, mapping)
