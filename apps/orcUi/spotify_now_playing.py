@@ -22,7 +22,7 @@ PANEL = DARK["panel"]
 TEXT = DARK["text"]
 MUTED = DARK["muted"]
 GREEN = "#84ce1f"
-ART_SIZE = 76
+ART_SIZE = 64
 
 
 class SpotifyNowPlaying(tk.Frame):
@@ -35,10 +35,22 @@ class SpotifyNowPlaying(tk.Frame):
         self._artwork_uri:str|None=None; self._artwork_photo:ImageTk.PhotoImage|None=None; self._art_results:queue.SimpleQueue[tuple[str,object|None]]=queue.SimpleQueue()
         cache_dir=Path.home()/".cache"/"openroadcode"/"spotify-artwork"
         self._image_cache=ImageCache(max_entries=16,cache_directory=cache_dir)
-        body=tk.Frame(self,bg=PANEL); body.pack(fill=tk.BOTH,expand=True,padx=12,pady=8)
-        self._art_label=tk.Label(body,text="♫",fg=GREEN,bg=DARK["active"],font=("Sans",24,"bold"),width=4,height=3); self._art_label.pack(side=tk.LEFT,padx=(0,12))
-        text=tk.Frame(body,bg=PANEL); text.pack(side=tk.LEFT,fill=tk.BOTH,expand=True)
-        tk.Label(text,textvariable=self._title,fg=TEXT,bg=PANEL,font=("Sans",13,"bold"),anchor="w").pack(fill=tk.X,pady=(5,1)); tk.Label(text,textvariable=self._artist,fg=MUTED,bg=PANEL,font=("Sans",9),anchor="w").pack(fill=tk.X); tk.Label(text,textvariable=self._status,fg=GREEN,bg=PANEL,font=("Sans",8,"bold"),anchor="w").pack(fill=tk.X,pady=(3,0))
+
+        body=tk.Frame(self,bg=PANEL)
+        body.pack(fill=tk.BOTH,expand=True,padx=14,pady=(8,10))
+        body.grid_columnconfigure(1,weight=1)
+        body.grid_rowconfigure(0,weight=1)
+
+        self._art_label=tk.Label(body,text="♫",fg=GREEN,bg=DARK["active"],font=("Sans",21,"bold"),width=4,height=3,anchor="center")
+        self._art_label.grid(row=0,column=0,sticky="nw",padx=(0,11),pady=(1,0))
+
+        text=tk.Frame(body,bg=PANEL)
+        text.grid(row=0,column=1,sticky="new")
+        text.grid_columnconfigure(0,weight=1)
+        tk.Label(text,textvariable=self._title,fg=TEXT,bg=PANEL,font=("Sans",12,"bold"),anchor="w",justify=tk.LEFT).grid(row=0,column=0,sticky="ew",pady=(0,2))
+        tk.Label(text,textvariable=self._artist,fg=MUTED,bg=PANEL,font=("Sans",9),anchor="w",justify=tk.LEFT).grid(row=1,column=0,sticky="ew")
+        tk.Label(text,textvariable=self._status,fg=GREEN,bg=PANEL,font=("Sans",8,"bold"),anchor="w").grid(row=2,column=0,sticky="ew",pady=(3,0))
+
         self._bind_open(self); self._refresh()
 
     def destroy(self)->None:self._closed=True; super().destroy()
