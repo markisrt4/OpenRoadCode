@@ -13,7 +13,11 @@ from apps.orcUi.orc_theme import ThemeMode
 
 
 class OrcUiFeatureIf(ABC):
-    """Feature mounted into the orcUi shell through composition."""
+    """Feature mounted into the orcUi shell through composition.
+
+    Runtime dependencies and UI scheduling belong in the feature constructor.
+    The shell supplies only the content host when a feature is activated.
+    """
 
     @property
     @abstractmethod
@@ -23,25 +27,19 @@ class OrcUiFeatureIf(ABC):
     @property
     @abstractmethod
     def nav_order(self) -> int:
-        """Return the feature's position in the side-navigation ordering."""
+        """Return the feature's position in side-navigation ordering."""
 
     @abstractmethod
-    def show(
-        self,
-        *,
-        root: tk.Tk,
-        content: tk.Frame,
-        theme_mode: ThemeMode,
-    ) -> None:
-        """Mount the feature into the provided content frame."""
+    def show(self, content: tk.Frame) -> None:
+        """Mount the feature into the shell-owned content frame."""
 
     @abstractmethod
     def hide(self) -> None:
-        """Release active UI/runtime state before the shell destroys content."""
+        """Release active UI/runtime state before content is destroyed."""
 
     @abstractmethod
     def theme_changed(self, theme_mode: ThemeMode) -> None:
-        """Apply a shell theme change to any active feature UI/runtime."""
+        """Apply an application theme change to active feature state."""
 
     @abstractmethod
     def shutdown(self) -> None:
