@@ -60,28 +60,47 @@ class MapCameraRuntime:
         )
         self._course_reference: GeoPoint | None = None
         self._latest_position: GeoPoint | None = None
+        self._latest_ground_speed_m_s: float | None = None
+        self._latest_course_rad: float | None = None
+        self._latest_heading_rad: float | None = None
         self._closed = False
 
     @property
     def request_handler(self) -> MapRequestHandlerIf:
         """Return the semantic camera request interface."""
-
         return self._handler
 
     @property
     def latest_position(self) -> GeoPoint | None:
         """Return the most recent valid navigation position."""
-
         return self._latest_position
+
+    @property
+    def latest_ground_speed_m_s(self) -> float | None:
+        """Return the most recent ground speed from navigation telemetry."""
+        return self._latest_ground_speed_m_s
+
+    @property
+    def latest_course_rad(self) -> float | None:
+        """Return the most recent course over ground."""
+        return self._latest_course_rad
+
+    @property
+    def latest_heading_rad(self) -> float | None:
+        """Return the most recent heading estimate."""
+        return self._latest_heading_rad
+
+    @property
+    def latest_track_rad(self) -> float | None:
+        """Prefer course over ground, falling back to heading."""
+        return self._latest_course_rad if self._latest_course_rad is not None else self._latest_heading_rad
 
     def start(self) -> None:
         """Start receiving navigation position and motion updates."""
-
         self._dispatcher.start()
 
     def close(self) -> None:
         """Release subscriber and renderer-command resources."""
-
         if self._closed:
             return
         self._closed = True
@@ -100,12 +119,6 @@ class MapCameraRuntime:
         )
         self._latest_position = point
 
-        # Android location providers do not always report speed/course even
-        # while position itself is updating. Derive a stable course from the
-        # displacement between sufficiently separated fixes so course-up still
-        # works on those providers without letting stationary GPS noise spin
-        # the map. When a new course is available, apply it with the new center
-        # in one camera command rather than rendering two successive jumps.
         bearing_rad: float | None = None
         reference = self._course_reference
         if reference is None:
@@ -115,20 +128,22 @@ class MapCameraRuntime:
             if distance_m >= _MIN_COURSE_POSITION_DELTA_M:
                 bearing_rad = self._bearing_rad(reference, point)
                 self._course_reference = point
+                if self._latest_course_rad is None:
+                    self._latest_heading_rad = bearing_rad
 
         self._handler.update_follow_camera(point, bearing_rad)
-
-        # Position and camera are deliberately separate renderer commands. The
-        # marker remains at the vehicle's true location while the user pans or
-        # disables follow mode.
         self._renderer_client.set_position(
             latitude=math.degrees(data.latitude_rad),
             longitude=math.degrees(data.longitude_rad),
         )
 
     def _on_motion_message(self, message: MotionStateMessage) -> None:
-        """Keep a followed map course-up while the vehicle is moving."""
+        """Capture live motion and keep a followed map course-up while moving."""
         data = message.data
+        self._latest_ground_speed_m_s = data.ground_speed_m_s
+        self._latest_course_rad = data.course_rad
+        self._latest_heading_rad = data.heading_rad
+
         speed_m_s = data.ground_speed_m_s
         if speed_m_s is None or speed_m_s < _MIN_COURSE_UP_SPEED_M_S:
             return
