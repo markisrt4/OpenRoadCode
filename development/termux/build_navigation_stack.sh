@@ -55,18 +55,36 @@ prime_server_installed() {
   compgen -G "$PREFIX/lib/libprime_server.so*" >/dev/null
 }
 
-echo "[*] Installing Termux build dependencies"
-pkg install -y x11-repo
-pkg update
-pkg install -y \
-  git clang cmake ninja pkg-config patch python python-pillow \
-  boost boost-headers protobuf libsqlite libspatialite spatialite-tools libcurl liblz4 libzmq libczmq \
-  luajit libgeos libpng libjpeg-turbo libwebp libicu rapidjson \
+termux_packages=(
+  git clang cmake ninja pkg-config patch python python-pillow
+  boost boost-headers protobuf libsqlite libspatialite spatialite-tools libcurl liblz4 libzmq libczmq
+  luajit libgeos libpng libjpeg-turbo libwebp libicu rapidjson
   mesa mesa-dev glfw libx11 xorgproto
+)
+
+if ! dpkg-query -W -f='${Status}' x11-repo 2>/dev/null | grep -q '^install ok installed$'; then
+  echo "[*] Enabling Termux X11 repository"
+  pkg install -y x11-repo
+fi
+
+missing_packages=()
+for package in "${termux_packages[@]}"; do
+  if ! dpkg-query -W -f='${Status}' "$package" 2>/dev/null | grep -q '^install ok installed$'; then
+    missing_packages+=("$package")
+  fi
+done
+
+if ((${#missing_packages[@]})); then
+  echo "[*] Installing missing Termux build dependencies: ${missing_packages[*]}"
+  pkg update
+  pkg install -y "${missing_packages[@]}"
+else
+  echo "[*] Termux build dependencies are already installed"
+fi
 
 for command in git clang cmake ninja pkg-config spatialite spatialite_tool; do
   command -v "$command" >/dev/null || {
-    echo "Missing required build command after package installation: $command" >&2
+    echo "Missing required build command after dependency check: $command" >&2
     exit 1
   }
 done
