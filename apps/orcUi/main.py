@@ -7,7 +7,8 @@ from __future__ import annotations
 
 import tkinter as tk
 
-from apps.launchers.sdrpp_launcher import sync_sdrpp_theme
+from apps.launchers.sdrpp_launcher import SDRPPLauncher, sync_sdrpp_theme
+from apps.orcUi.application_runtime import create_orc_ui_application_runtime
 from apps.orcUi.orc_ui_app import OrcUiApp
 from apps.orcUi.radio_entry_panel import RadioEntryPanel
 from apps.orcUi.theme_runtime import theme_bundle
@@ -23,8 +24,14 @@ def _create_radio_panel(
     parent: tk.Misc,
     embedder: X11WindowEmbedder,
     theme: ThemeBundle,
+    launcher: SDRPPLauncher,
 ) -> RadioEntryPanel:
-    return RadioEntryPanel(parent, embedder=embedder, theme=theme)
+    return RadioEntryPanel(
+        parent,
+        embedder=embedder,
+        theme=theme,
+        launcher=launcher,
+    )
 
 
 def _sync_radio_theme(mode: ThemeMode) -> None:
@@ -33,6 +40,7 @@ def _sync_radio_theme(mode: ThemeMode) -> None:
 
 def main() -> None:
     """Compose and run the integrated OpenRoadCode UI."""
+    application_runtime = create_orc_ui_application_runtime()
     app = OrcUiApp()
     app.register_screen(
         "RADIO",
@@ -40,7 +48,12 @@ def main() -> None:
             app,
             theme_bundle=lambda: theme_bundle(app.theme_mode),
             theme_mode=lambda: app.theme_mode,
-            panel_factory=_create_radio_panel,
+            panel_factory=lambda parent, embedder, theme: _create_radio_panel(
+                parent,
+                embedder,
+                theme,
+                application_runtime.sdrpp,
+            ),
             sync_theme=_sync_radio_theme,
         ),
     )
@@ -48,7 +61,15 @@ def main() -> None:
         "GAMES",
         GamesScreen(app, theme_mode=lambda: app.theme_mode),
     )
-    app.run()
+
+    # Keep heavyweight optional applications out of the critical UI startup
+    # path. Once Tk has presented the shell, the shared lifecycle controller
+    # applies PRELOAD/PERSISTENT policy on its background worker.
+    app.schedule_ui_callback(1500, application_runtime.start_background_apps)
+    try:
+        app.run()
+    finally:
+        application_runtime.close()
 
 
 if __name__ == "__main__":
