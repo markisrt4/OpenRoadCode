@@ -7,41 +7,52 @@ import tkinter as tk
 from collections.abc import Callable
 from apps.orcUi.shared_map_camera import get_shared_map_camera_runtime
 from ui.navigation import MapRequestHandlerIf
+from ui.theme import ThemeBundle
 
 BG="#05090d"; PANEL="#0b1117"; BORDER="#25313b"; TEXT="#edf2f5"; MUTED="#89959e"; GREEN="#84ce1f"; BLUE="#168bd1"; RED="#f15a16"; PURPLE="#a25ce5"
+NAV_CHROME="#111a21"
 
 class NavigationPanel(tk.Frame):
-    def __init__(self,parent:tk.Misc,*,map_request_handler:MapRequestHandlerIf|None=None,on_back:Callable[[],None]|None=None)->None:
-        super().__init__(parent,bg=BG); del on_back
+    def __init__(self,parent:tk.Misc,*,map_request_handler:MapRequestHandlerIf|None=None,on_back:Callable[[],None]|None=None,theme_bundle:ThemeBundle|None=None)->None:
+        self._theme_bundle=theme_bundle
+        super().__init__(parent,bg=self._background()); del on_back
         runtime=get_shared_map_camera_runtime(); self._request_handler=map_request_handler or runtime.request_handler
         self._zoom_level=float(getattr(self._request_handler,"zoom_level",16.5)); self._pitch_rad=float(getattr(self._request_handler,"pitch_rad",math.radians(45.0)))
         self._follow_enabled=bool(getattr(self._request_handler,"follow_enabled",True)); self._poi_focus=set(getattr(self._request_handler,"poi_focus",())); self._build(); self._schedule_renderer_refresh()
+    def _background(self)->str: return self._theme_bundle.ui.background if self._theme_bundle is not None else BG
+    def _panel(self)->str: return self._theme_bundle.ui.surface if self._theme_bundle is not None else PANEL
+    def _chrome(self)->str: return self._theme_bundle.ui.surface_alt if self._theme_bundle is not None else NAV_CHROME
+    def _border(self)->str: return self._theme_bundle.ui.border if self._theme_bundle is not None else BORDER
+    def _text(self)->str: return self._theme_bundle.ui.text if self._theme_bundle is not None else TEXT
+    def _muted(self)->str: return self._theme_bundle.ui.text_muted if self._theme_bundle is not None else MUTED
+    def _active(self)->str: return self._theme_bundle.ui.control_active if self._theme_bundle is not None else "#18252e"
     @property
     def map_host_window_id(self)->int: self.update_idletasks(); return self._map_host.winfo_id()
     def set_map_request_handler(self,handler:MapRequestHandlerIf|None)->None:
         if handler is not None: self._request_handler=handler
     def set_follow_enabled(self,enabled:bool)->None:
-        self._follow_enabled=enabled; self._follow_button.configure(text="F" if enabled else "F̸",fg=GREEN if enabled else TEXT)
+        self._follow_enabled=enabled; self._follow_button.configure(text="F" if enabled else "F̸",fg=GREEN if enabled else self._text())
     def _build(self)->None:
+        bg=self._background(); panel=self._panel(); chrome=self._chrome(); border=self._border(); text_color=self._text(); muted=self._muted(); active=self._active()
         self.grid_rowconfigure(1,weight=1); self.grid_columnconfigure(0,weight=1)
-        bar=tk.Frame(self,bg=BG,height=38); bar.grid(row=0,column=0,sticky="ew",pady=(0,4)); bar.grid_propagate(False)
-        shortcuts=tk.Frame(bar,bg=BG); shortcuts.pack(side=tk.LEFT,padx=2,pady=3)
-        for text,accent,key in (("⌂ HOME",BLUE,"home"),("▣ WORK",PURPLE,"work"),("⛽ GAS",RED,"gas"),("▣ GROCERY",GREEN,"grocery"),("♨ FOOD",RED,"food")):
-            tk.Button(shortcuts,text=text,command=lambda s=key:self._destination_shortcut(s),bg=PANEL,fg=accent,activebackground="#101820",activeforeground=TEXT,relief=tk.FLAT,highlightthickness=1,highlightbackground=BORDER,font=("Sans",8,"bold"),width=9,height=1,padx=3,pady=1).pack(side=tk.LEFT,padx=(0,4))
+        bar=tk.Frame(self,bg=chrome,height=38,highlightthickness=1,highlightbackground=border); bar.grid(row=0,column=0,sticky="ew",pady=(0,4)); bar.grid_propagate(False)
+        shortcuts=tk.Frame(bar,bg=chrome); shortcuts.pack(side=tk.LEFT,padx=4,pady=3)
+        for label,accent,key in (("⌂ HOME",BLUE,"home"),("▣ WORK",PURPLE,"work"),("⛽ GAS",RED,"gas"),("▣ GROCERY",GREEN,"grocery"),("♨ FOOD",RED,"food")):
+            tk.Button(shortcuts,text=label,command=lambda s=key:self._destination_shortcut(s),bg=panel,fg=accent,activebackground=active,activeforeground=text_color,relief=tk.FLAT,highlightthickness=1,highlightbackground=border,font=("Sans",8,"bold"),width=9,height=1,padx=3,pady=1).pack(side=tk.LEFT,padx=(0,4))
         self._shortcut_status=tk.StringVar(value=self._focus_status())
-        tk.Label(bar,textvariable=self._shortcut_status,bg=BG,fg=MUTED,font=("Sans",7),anchor="e").pack(side=tk.RIGHT,padx=5)
-        body=tk.Frame(self,bg=BG); body.grid(row=1,column=0,sticky="nsew"); body.grid_rowconfigure(0,weight=1); body.grid_columnconfigure(0,weight=1)
-        self._map_host=tk.Frame(body,bg="#020406",highlightthickness=1,highlightbackground=BORDER); self._map_host.grid(row=0,column=0,sticky="nsew")
-        controls=tk.Frame(body,bg=PANEL,width=62); controls.grid(row=0,column=1,sticky="ns",padx=(4,0)); controls.grid_propagate(False)
+        tk.Label(bar,textvariable=self._shortcut_status,bg=chrome,fg=muted,font=("Sans",7),anchor="e").pack(side=tk.RIGHT,padx=7)
+        body=tk.Frame(self,bg=bg); body.grid(row=1,column=0,sticky="nsew"); body.grid_rowconfigure(0,weight=1); body.grid_columnconfigure(0,weight=1)
+        self._map_host=tk.Frame(body,bg="#020406",highlightthickness=1,highlightbackground=border); self._map_host.grid(row=0,column=0,sticky="nsew")
+        controls=tk.Frame(body,bg=chrome,width=62,highlightthickness=1,highlightbackground=border); controls.grid(row=0,column=1,sticky="ns",padx=(4,0)); controls.grid_propagate(False)
         self._follow_button=self._control(controls,"F",self._toggle_follow,GREEN); self._follow_button.pack(fill=tk.X,padx=5,pady=(7,5)); self.set_follow_enabled(self._follow_enabled)
-        pan=tk.Frame(controls,bg=PANEL); pan.pack(pady=2)
-        for row,col,text,up,right in ((0,1,"▲",1,0),(1,0,"◀",0,-1),(1,2,"▶",0,1),(2,1,"▼",-1,0)):
-            tk.Button(pan,text=text,command=lambda u=up,r=right:self._pan(u,r),bg="#101820",fg=TEXT,activebackground=BLUE,activeforeground=TEXT,relief=tk.FLAT,highlightthickness=1,highlightbackground=BORDER,font=("Sans",9,"bold"),width=1,height=1,padx=2,pady=1).grid(row=row,column=col,padx=1,pady=1)
-        for text,command,accent in (("+",lambda:self._change_zoom(1),BLUE),("−",lambda:self._change_zoom(-1),BLUE),("↗",lambda:self._change_pitch(5),PURPLE),("↘",lambda:self._change_pitch(-5),PURPLE),("N",self._north_up,TEXT),("◎",self._recenter,GREEN)):
-            self._control(controls,text,command,accent).pack(fill=tk.X,padx=5,pady=2)
-        tk.Label(controls,text="ZOOM\nTILT\nNORTH\nCENTER",bg=PANEL,fg=MUTED,font=("Sans",6),justify=tk.CENTER).pack(side=tk.BOTTOM,pady=5)
+        pan=tk.Frame(controls,bg=chrome); pan.pack(pady=2)
+        for row,col,label,up,right in ((0,1,"▲",1,0),(1,0,"◀",0,-1),(1,2,"▶",0,1),(2,1,"▼",-1,0)):
+            tk.Button(pan,text=label,command=lambda u=up,r=right:self._pan(u,r),bg=panel,fg=text_color,activebackground=active,activeforeground=text_color,relief=tk.FLAT,highlightthickness=1,highlightbackground=border,font=("Sans",9,"bold"),width=1,height=1,padx=2,pady=1).grid(row=row,column=col,padx=1,pady=1)
+        for label,command,accent in (("+",lambda:self._change_zoom(1),BLUE),("−",lambda:self._change_zoom(-1),BLUE),("↗",lambda:self._change_pitch(5),PURPLE),("↘",lambda:self._change_pitch(-5),PURPLE),("N",self._north_up,text_color),("◎",self._recenter,GREEN)):
+            self._control(controls,label,command,accent).pack(fill=tk.X,padx=5,pady=2)
+        tk.Label(controls,text="ZOOM\nTILT\nNORTH\nCENTER",bg=chrome,fg=muted,font=("Sans",6),justify=tk.CENTER).pack(side=tk.BOTTOM,pady=5)
     def _control(self,parent,text,command,fg):
-        return tk.Button(parent,text=text,command=command,bg=PANEL,fg=fg,activebackground="#101820",activeforeground=TEXT,relief=tk.FLAT,highlightthickness=1,highlightbackground=BORDER,font=("Sans",11,"bold"),height=1)
+        return tk.Button(parent,text=text,command=command,bg=self._panel(),fg=fg,activebackground=self._active(),activeforeground=self._text(),relief=tk.FLAT,highlightthickness=1,highlightbackground=self._border(),font=("Sans",11,"bold"),height=1)
     def _schedule_renderer_refresh(self)->None:
         for delay_ms in (300,700,1200): self.after(delay_ms,self._refresh_renderer_state)
     def _refresh_renderer_state(self)->None:
