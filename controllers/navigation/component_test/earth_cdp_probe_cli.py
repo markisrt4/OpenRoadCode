@@ -18,13 +18,25 @@ def main() -> None:
     print(f"ready: {probe.ready_state}")
     print(f"canvas count: {probe.canvas_count}")
     print(f"url: {probe.url}")
-    print("custom elements:")
-    for name in probe.custom_element_names:
-        print(f"  {name}")
 
-    print("matching globals:")
-    for name in controller.inspect_globals():
-        print(f"  {name}")
+    inspection = controller.inspect_runtime()
+    print(f"earthWasmStarted: {inspection.earth_wasm_started}")
+    print(f"Module present: {inspection.module_present}")
+    print(
+        "canvas: "
+        f"{inspection.canvas_width}x{inspection.canvas_height} backing, "
+        f"{inspection.canvas_client_width}x{inspection.canvas_client_height} client"
+    )
+    print("Module keys:")
+    for key in inspection.module_keys:
+        print(f"  {key}")
+
+    print("targeted globals:")
+    for item in inspection.globals:
+        constructor = f" / {item.constructor_name}" if item.constructor_name else ""
+        print(f"  {item.name}: {item.value_type}{constructor}")
+        if item.keys:
+            print(f"    keys: {', '.join(item.keys)}")
 
 
 if __name__ == "__main__":
