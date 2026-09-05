@@ -11,6 +11,7 @@ import signal
 import subprocess
 import sys
 import tkinter as tk
+from collections.abc import Callable
 from datetime import datetime
 
 from apps.launchers.map_renderer_launcher import MapRendererLauncher
@@ -45,6 +46,7 @@ from messaging.contracts.navigation import (
 from messaging.message_dispatcher import MessageDispatcher
 from messaging.zeromq import ZeroMqSubscriber
 from messaging.zeromq.endpoints import LOCAL_SUBSCRIBER_ENDPOINT
+from ui.screen_ui_if import ScreenUiIf
 
 BG = "#05090d"
 PANEL = "#0b1117"
@@ -75,7 +77,21 @@ class OrcUiApp:
         self._power_dialog: tk.Toplevel | None = None
 
         self._active_nav = "HOME"
+        self._nav_items = [
+            "HOME",
+            "NAVIGATION",
+            "RADIO",
+            "VEHICLE",
+            "LIGHTING",
+            "CONTROLS",
+            "SETTINGS",
+        ]
         self._nav_buttons: dict[str, tk.Button] = {}
+        self._screen_registry: dict[str, ScreenUiIf] = {}
+        self._active_screen: ScreenUiIf | None = None
+        self._screen_back_action: Callable[[], None] | None = None
+        self._screen_status = ""
+        self._nav_frame: tk.Frame
         self._clock_label: tk.Label
         self._content: tk.Frame
 
@@ -120,6 +136,73 @@ class OrcUiApp:
         self._show_home()
         self._update_clock()
 
+    @property
+    def theme_mode(self) -> ThemeMode:
+        """Return the active ORC UI theme mode."""
+        return self._theme_mode
+
+    @property
+    def screen_parent(self) -> tk.Misc:
+        """Return the Tk container used by registered screens."""
+        return self._content
+
+    def register_screen(
+        self,
+        label: str,
+        screen: ScreenUiIf,
+        *,
+        before: str | None = "CONTROLS",
+    ) -> None:
+        """Register a composed screen and expose it in the side navigation."""
+        nav_label = label.strip().upper()
+        if not nav_label:
+            raise ValueError("Screen navigation label must not be empty")
+        self._screen_registry[nav_label] = screen
+        if nav_label not in self._nav_items:
+            if before is not None and before in self._nav_items:
+                self._nav_items.insert(self._nav_items.index(before), nav_label)
+            else:
+                self._nav_items.append(nav_label)
+        self._rebuild_side_nav()
+
+    def activate_screen(self, screen: ScreenUiIf) -> None:
+        """Make a registered screen the active semantic UI target."""
+        previous = self._active_screen
+        if previous is screen:
+            return
+        if previous is not None:
+            previous.hide()
+        self._active_screen = screen
+
+    def clear_screen_content(self) -> None:
+        """Clear the central content area before a screen rebuild."""
+        self._clear_content()
+
+    def set_screen_title(self, title: str) -> None:
+        """Expose the active screen title through the application window."""
+        title = title.strip()
+        self._root.title("OpenRoadCode" if not title else f"OpenRoadCode | {title}")
+
+    def set_screen_back_action(self, action: Callable[[], None]) -> None:
+        """Store the current screen back action for shell-level input routing."""
+        self._screen_back_action = action
+
+    def set_screen_status(self, message: str) -> None:
+        """Store active-screen status until the shell status surface is migrated."""
+        self._screen_status = message
+
+    def schedule_ui_callback(
+        self,
+        delay_ms: int,
+        callback: Callable[[], None],
+    ) -> object:
+        """Schedule work on Tk's event-loop thread."""
+        return self._root.after(delay_ms, callback)
+
+    def cancel_ui_callback(self, callback_id: object) -> None:
+        """Cancel pending Tk work previously scheduled by a screen."""
+        self._root.after_cancel(callback_id)
+
     def run(self) -> None:
         self._root.protocol("WM_DELETE_WINDOW", self._on_close)
         old_signal_handler = signal.getsignal(signal.SIGINT)
@@ -140,6 +223,10 @@ class OrcUiApp:
         if self._closing:
             return
         self._closing = True
+        active_screen = self._active_screen
+        self._active_screen = None
+        if active_screen is not None:
+            active_screen.hide()
         self._map_renderer.stop()
         self._dispatcher.close()
         try:
@@ -241,20 +328,20 @@ class OrcUiApp:
         logo.create_line(16, 9, 16, 21, fill="#d7dde2", width=2, dash=(3, 3))
 
     def _build_side_nav(self) -> None:
-        nav = tk.Frame(self._root, bg="#070c11", width=112)
-        nav.grid(row=1, column=0, sticky="ns", padx=(8, 0), pady=6)
-        nav.grid_propagate(False)
-        for item in [
-            "HOME",
-            "NAVIGATION",
-            "RADIO",
-            "VEHICLE",
-            "LIGHTING",
-            "CONTROLS",
-            "SETTINGS",
-        ]:
+        self._nav_frame = tk.Frame(self._root, bg="#070c11", width=112)
+        self._nav_frame.grid(row=1, column=0, sticky="ns", padx=(8, 0), pady=6)
+        self._nav_frame.grid_propagate(False)
+        self._rebuild_side_nav()
+
+    def _rebuild_side_nav(self) -> None:
+        if not hasattr(self, "_nav_frame"):
+            return
+        for child in self._nav_frame.winfo_children():
+            child.destroy()
+        self._nav_buttons.clear()
+        for item in self._nav_items:
             button = tk.Button(
-                nav,
+                self._nav_frame,
                 text=item,
                 command=lambda name=item: self._select_nav(name),
                 bg="#070c11",
@@ -442,6 +529,10 @@ class OrcUiApp:
         install_map_style(self._theme_mode)
         sync_sdrpp_theme("Light" if self._theme_mode is ThemeMode.LIGHT else "Dark")
         apply_tk_theme(self._root, self._theme_mode)
+        active_screen = self._active_screen
+        set_theme_mode = getattr(active_screen, "set_theme_mode", None)
+        if callable(set_theme_mode):
+            set_theme_mode(self._theme_mode)
         self._theme_button.configure(text=toggle_label(self._theme_mode))
         self._paint_nav()
         self._reload_active_map()
@@ -486,6 +577,11 @@ class OrcUiApp:
     def _select_nav(self, name: str) -> None:
         self._active_nav = name
         self._paint_nav()
+        screen = self._screen_registry.get(name)
+        if screen is not None:
+            screen.show()
+            return
+        self._deactivate_active_screen()
         handler = {
             "HOME": self._show_home,
             "NAVIGATION": self._show_navigation_panel,
@@ -496,6 +592,15 @@ class OrcUiApp:
             self._show_placeholder(name)
         else:
             handler()
+
+    def _deactivate_active_screen(self) -> None:
+        active_screen = self._active_screen
+        self._active_screen = None
+        if active_screen is not None:
+            active_screen.hide()
+        self._screen_back_action = None
+        self._screen_status = ""
+        self._root.title("OpenRoadCode")
 
     def _paint_nav(self) -> None:
         for name, button in self._nav_buttons.items():
