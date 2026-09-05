@@ -16,6 +16,7 @@ from ui.theme import ThemeBundle, ThemeMode
 
 RadioPanelFactory = Callable[[tk.Misc, X11WindowEmbedder, ThemeBundle], tk.Widget]
 ThemeBundleProvider = Callable[[], ThemeBundle]
+ThemeModeProvider = Callable[[], ThemeMode]
 ThemeSyncHandler = Callable[[ThemeMode], None]
 
 
@@ -27,12 +28,14 @@ class RadioScreen(TkScreen):
         host: TkScreenHostIf,
         *,
         theme_bundle: ThemeBundleProvider,
+        theme_mode: ThemeModeProvider,
         panel_factory: RadioPanelFactory,
         sync_theme: ThemeSyncHandler | None = None,
     ) -> None:
         super().__init__(ScreenId("radio"))
         self._host = host
         self._theme_bundle = theme_bundle
+        self._theme_mode = theme_mode
         self._panel_factory = panel_factory
         self._sync_theme = sync_theme
         self._embedder = X11WindowEmbedder()
@@ -46,7 +49,7 @@ class RadioScreen(TkScreen):
         self._host.set_screen_title("RADIO")
 
         theme = self._theme_bundle()
-        self._sync_external_theme(theme.mode)
+        self._sync_external_theme(self._theme_mode())
         panel = self._panel_factory(self._host.screen_parent, self._embedder, theme)
         panel.pack(fill=tk.BOTH, expand=True)
         self._panel = panel
