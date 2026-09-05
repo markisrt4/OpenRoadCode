@@ -59,6 +59,11 @@ std::optional<MapCommand> MapCommandServer::parseCommand(const std::string& payl
             ? document["enabled"].GetBool() : !command.category.empty();
         return command;
     }
+    if (command.command == "set_flight_mode") {
+        if (!document.HasMember("enabled") || !document["enabled"].IsBool()) return std::nullopt;
+        command.enabled = document["enabled"].GetBool();
+        return command;
+    }
     if (command.command == "set_center" || command.command == "set_position") {
         if (!document.HasMember("latitude") || !document["latitude"].IsNumber() ||
             !document.HasMember("longitude") || !document["longitude"].IsNumber()) return std::nullopt;
@@ -66,7 +71,7 @@ std::optional<MapCommand> MapCommandServer::parseCommand(const std::string& payl
         command.longitude = document["longitude"].GetDouble();
         return command;
     }
-    if (command.command == "set_camera") {
+    if (command.command == "set_camera" || command.command == "set_flight_state") {
         if (!document.HasMember("latitude") || !document["latitude"].IsNumber() ||
             !document.HasMember("longitude") || !document["longitude"].IsNumber() ||
             !document.HasMember("zoom") || !document["zoom"].IsNumber() ||
