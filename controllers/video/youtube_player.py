@@ -33,10 +33,12 @@ class YouTubePlayer:
             "chromium-browser",
         ),
         software_rendering: bool = False,
+        dark_mode: bool = False,
     ) -> None:
         self._profile_path = Path(profile_path).expanduser()
         self._browser_candidates = browser_candidates
         self._software_rendering = software_rendering
+        self._dark_mode = dark_mode
         self._launcher: BrowserKioskLauncher | None = None
         self._display = ""
 
@@ -75,6 +77,10 @@ class YouTubePlayer:
             "--autoplay-policy=no-user-gesture-required",
             "--no-first-run",
         ]
+        if self._dark_mode:
+            arguments.append("--force-dark-mode")
+        else:
+            arguments.append("--disable-features=WebContentsForceDark")
         if self._software_rendering:
             arguments.extend(
                 (
@@ -93,10 +99,7 @@ class YouTubePlayer:
         self._display = ""
 
     def is_active(self) -> bool:
-        return (
-            self._launcher is not None
-            and self._launcher.is_running()
-        )
+        return self._launcher is not None and self._launcher.is_running()
 
     @staticmethod
     def resolve_target(target: str) -> str:
