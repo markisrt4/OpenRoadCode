@@ -50,16 +50,16 @@ class NavigationPanel(tk.Frame):
    except tk.TclError:pass
    self._earth_overlay=None
  def _toggle_earth_menu(self)->None:
-  overlay=self._earth_overlay
-  if overlay is None:return
-  overlay.withdraw()
-  self.after(150,lambda:self._send_earth_menu_toggle(overlay))
- def _send_earth_menu_toggle(self,overlay:tk.Toplevel)->None:
   if not self._earth_visible:return
-  self._earth_launcher.toggle_menu_bar(self._display())
   try:
-   overlay.deiconify();overlay.attributes("-topmost",True);overlay.lift()
-  except tk.TclError:pass
+   sent=self._earth_launcher.toggle_menu_bar(self._display())
+   self._shortcut_status.set("Earth menu shortcut sent" if sent else "Earth menu shortcut unavailable")
+  except Exception as exc:
+   self._shortcut_status.set(f"Earth menu error: {exc}")
+  overlay=self._earth_overlay
+  if overlay is not None:
+   try:overlay.attributes("-topmost",True);overlay.lift()
+   except tk.TclError:pass
  def _leave_earth(self)->None:
   self._destroy_earth_overlay()
   if self._earth_launcher.is_running():self._earth_launcher.stop(self._display())
