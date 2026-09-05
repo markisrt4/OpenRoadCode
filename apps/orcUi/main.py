@@ -120,8 +120,11 @@ class OrcUiApp:
         self._context_rail=self._home_map_panel=self._navigation_panel=self._radio_panel=self._vehicle_panel=self._offroad_panel=self._media_panel=None
         for child in self._content.winfo_children():child.destroy()
     def _show_home(self):
-        self._clear_content(); self._active_nav="HOME"; self._paint_nav(); self._content.grid_columnconfigure(0,weight=1); self._content.grid_columnconfigure(1,weight=0,minsize=ContextRail.WIDTH); self._content.grid_rowconfigure(0,weight=3); self._content.grid_rowconfigure(1,weight=2); self._home_map_panel=HomeMapPanel(self._content); self._home_map_panel.grid(row=0,column=0,sticky="nsew",padx=(0,5),pady=(0,5)); self._context_rail=ContextRail(self._content,on_expand=self._show_context_full_panel); self._context_rail.update_vehicle_state(self._vehicle_state); self._context_rail.update_position_state(self._position_state); self._context_rail.grid(row=0,column=1,rowspan=2,sticky="nsew",padx=(5,0)); lower=tk.Frame(self._content,bg=BG); lower.grid(row=1,column=0,sticky="nsew",padx=(0,5),pady=(5,0)); lower.grid_columnconfigure(0,weight=1); lower.grid_columnconfigure(1,weight=1); lower.grid_rowconfigure(0,weight=1); radio=self._panel(lower,"RADIO",PURPLE); radio.grid(row=0,column=0,sticky="nsew",padx=(0,5)); self._summary(radio,"101.1 FM","Radio service"); media=self._panel(lower,"MEDIA",BLUE); media.grid(row=0,column=1,sticky="nsew",padx=(5,0)); SpotifyNowPlaying(media,service=self._spotify_service,on_open=lambda:self._select_nav("MEDIA")).pack(fill=tk.BOTH,expand=True)
+        self._clear_content(); self._active_nav="HOME"; self._paint_nav(); self._content.grid_columnconfigure(0,weight=1); self._content.grid_columnconfigure(1,weight=0,minsize=ContextRail.WIDTH); self._content.grid_rowconfigure(0,weight=3); self._content.grid_rowconfigure(1,weight=2); self._home_map_panel=HomeMapPanel(self._content); self._home_map_panel.grid(row=0,column=0,sticky="nsew",padx=(0,5),pady=(0,5)); self._context_rail=ContextRail(self._content,on_expand=self._show_context_full_panel); self._context_rail.update_vehicle_state(self._vehicle_state); self._context_rail.update_position_state(self._position_state); self._context_rail.grid(row=0,column=1,rowspan=2,sticky="nsew",padx=(5,0)); lower=tk.Frame(self._content,bg=BG); lower.grid(row=1,column=0,sticky="nsew",padx=(0,5),pady=(5,0)); lower.grid_columnconfigure(0,weight=3); lower.grid_columnconfigure(1,weight=2); lower.grid_rowconfigure(0,weight=1); radio=self._panel(lower,"RADIO",PURPLE); radio.grid(row=0,column=0,sticky="nsew",padx=(0,5)); self._summary(radio,"101.1 FM","Radio service"); media=self._panel(lower,"MEDIA",BLUE); media.grid(row=0,column=1,sticky="nsew",padx=(5,0)); SpotifyNowPlaying(media,service=self._spotify_service,on_open=self._show_spotify_from_home).pack(fill=tk.BOTH,expand=True)
         self._root.update_idletasks(); self._root.after(100,lambda:self._start_map_renderer(self._home_map_panel.map_host_window_id))
+    def _show_spotify_from_home(self):
+        self._show_media_panel()
+        if self._media_panel is not None:self._media_panel.show_spotify()
     def _show_navigation_panel(self):
         self._clear_content(); self._active_nav="NAVIGATION"; self._paint_nav(); self._navigation_panel=NavigationPanel(self._content,on_back=self._show_home); self._navigation_panel.pack(fill=tk.BOTH,expand=True); self._root.update_idletasks(); self._root.after(100,lambda:self._start_map_renderer(self._navigation_panel.map_host_window_id))
     def _start_map_renderer(self,parent_window_id):
@@ -156,11 +159,11 @@ class OrcUiApp:
         if name=="VEHICLE":return self._show_vehicle_panel()
         if name=="OFF-ROAD":return self._show_offroad_panel()
         self._show_placeholder(name)
-    def _show_placeholder(self,name): self._clear_content(); p=self._panel(self._content,name,GREEN); p.pack(fill=tk.BOTH,expand=True); tk.Label(p,text=f"{name}\nCOMING NEXT",fg=TEXT,bg=PANEL,font=("Sans",24,"bold")).place(relx=.5,rely=.5,anchor="center")
     @staticmethod
     def _panel(parent,title,accent): f=tk.Frame(parent,bg=PANEL,highlightthickness=1,highlightbackground=BORDER); tk.Label(f,text=title,fg=accent,bg=PANEL,font=("Sans",10,"bold")).pack(anchor="nw",padx=14,pady=(11,4)); return f
     @staticmethod
     def _summary(parent,primary,secondary): tk.Label(parent,text=primary,fg=TEXT,bg=PANEL,font=("Sans",14,"bold")).pack(anchor="w",padx=16,pady=(12,2)); tk.Label(parent,text=secondary,fg=MUTED,bg=PANEL,font=("Sans",9)).pack(anchor="w",padx=16)
+    def _show_placeholder(self,name): self._clear_content(); p=self._panel(self._content,name,GREEN); p.pack(fill=tk.BOTH,expand=True); tk.Label(p,text=f"{name}\nCOMING NEXT",fg=TEXT,bg=PANEL,font=("Sans",24,"bold")).place(relx=.5,rely=.5,anchor="center")
     def _update_clock(self):
         if self._closing:return
         self._clock_label.configure(text=datetime.now().strftime("%I:%M %p     %a, %b %d").lstrip("0")); self._root.after(1000,self._update_clock)
