@@ -15,7 +15,6 @@ import tty
 
 from config.service_runtime_config import ServiceRuntimeConfigParser
 from controllers.map_renderer.flight_camera_controller import FlightCameraController, FlightState
-from messaging.zeromq.publisher import ZeroMqPublisher
 from protocols.map_renderer.map_renderer_client import MapRendererClient
 
 DEFAULT_RUNTIME_CONFIG = "config/runtime.toml"
@@ -44,7 +43,10 @@ def main() -> int:
     signal.signal(signal.SIGINT, stop)
     signal.signal(signal.SIGTERM, stop)
 
-    renderer = MapRendererClient(ZeroMqPublisher(config.messaging.publisher_endpoint))
+    # Use MapRendererClient's queued sender so renderer/broker publishing can never
+    # stall the terminal-input loop. Flight runs at 30 Hz; stdin should not have
+    # to wait behind ZeroMQ just because humans insist on steering the airplane.
+    renderer = MapRendererClient(endpoint=config.messaging.publisher_endpoint)
     controller = FlightCameraController(
         renderer,
         FlightState(
@@ -63,13 +65,17 @@ def main() -> int:
     fd = sys.stdin.fileno()
     previous = termios.tcgetattr(fd) if sys.stdin.isatty() else None
     try:
-        controller.start()
         if previous is None:
-            stop_event.wait()
-            return 0
+            print("flight input unavailable: stdin is not a TTY")
+            return 1
+
+        # Put the terminal in cbreak mode before starting flight publishing so
+        # keyboard capture is established independently of renderer startup.
         tty.setcbreak(fd)
+        controller.start()
+
         while not stop_event.is_set():
-            ready, _, _ = select.select([sys.stdin], [], [], 0.2)
+            ready, _, _ = select.select([fd], [], [], 0.2)
             if not ready:
                 continue
             key = sys.stdin.read(1).lower()
