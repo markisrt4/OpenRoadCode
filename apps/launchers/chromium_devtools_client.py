@@ -130,7 +130,6 @@ class ChromiumDevToolsClient:
             "Connection: Upgrade\r\n"
             f"Sec-WebSocket-Key: {key}\r\n"
             "Sec-WebSocket-Version: 13\r\n"
-            f"Origin: http://{host}:{port}\r\n"
             "\r\n"
         )
         connection.sendall(request.encode("ascii"))
