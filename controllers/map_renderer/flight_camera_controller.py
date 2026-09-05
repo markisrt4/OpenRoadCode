@@ -29,7 +29,7 @@ class FlightState:
 
 
 class FlightCameraController:
-    """Integrate a virtual aircraft position and publish MapLibre camera commands."""
+    """Integrate a virtual aircraft position and exclusively drive flight presentation."""
 
     def __init__(
         self,
@@ -64,15 +64,17 @@ class FlightCameraController:
             return
         self._stop_event.clear()
         self._last_frame_time = self._clock()
+        self._map_renderer.set_flight_mode(True)
+        self.render_once(self._last_frame_time)
         self._thread = threading.Thread(target=self._run, name="FlightCameraController", daemon=True)
         self._thread.start()
-        self.render_once(self._last_frame_time)
 
     def stop(self) -> None:
         self._stop_event.set()
         if self._thread is not None and self._thread.is_alive() and self._thread is not threading.current_thread():
             self._thread.join(timeout=1.0)
         self._thread = None
+        self._map_renderer.set_flight_mode(False)
 
     def adjust(
         self,
@@ -109,8 +111,7 @@ class FlightCameraController:
                 state = replace(state, latitude_deg=latitude, longitude_deg=longitude)
                 self._state = state
 
-        self._map_renderer.set_position(state.latitude_deg, state.longitude_deg)
-        self._map_renderer.set_camera(
+        self._map_renderer.set_flight_state(
             latitude=state.latitude_deg,
             longitude=state.longitude_deg,
             zoom=state.zoom,
