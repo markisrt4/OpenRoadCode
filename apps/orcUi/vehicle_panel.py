@@ -74,7 +74,7 @@ class VehiclePanel(tk.Frame):
                 bg=ui_theme.control_background if ui_theme is not None else TAB_BG,
                 fg=ui_theme.control_text if ui_theme is not None else TEXT,
                 activebackground=ui_theme.control_active if ui_theme is not None else TAB_ACTIVE,
-                activeforeground=ui_theme.control_text if ui_theme is not None else TEXT,
+                activeforeground="#ffffff" if ui_theme is not None else TEXT,
                 relief=tk.FLAT,
                 bd=0,
                 font=("Sans", 9, "bold"),
@@ -104,9 +104,9 @@ class VehiclePanel(tk.Frame):
             else:
                 button.configure(
                     bg=ui_theme.control_active if active else ui_theme.control_background,
-                    fg=ui_theme.control_text if active else ui_theme.text_muted,
+                    fg="#ffffff" if active else ui_theme.text_muted,
                     activebackground=ui_theme.control_active,
-                    activeforeground=ui_theme.control_text,
+                    activeforeground="#ffffff",
                     highlightbackground=ui_theme.border,
                 )
         if self._view_content is not None:
@@ -221,19 +221,24 @@ class VehiclePanel(tk.Frame):
         self._apply_offroad_state()
 
     def _show_placeholder(self, title: str, detail: str) -> None:
-        frame = tk.Frame(self._view_host, bg=BG)
+        ui = self._theme_bundle.ui if self._theme_bundle is not None else None
+        background = ui.background if ui is not None else BG
+        surface = ui.surface if ui is not None else "#0b1117"
+        border = ui.border if ui is not None else "#25313b"
+        text = ui.text if ui is not None else TEXT
+        muted = ui.text_muted if ui is not None else MUTED
+        frame = tk.Frame(self._view_host, bg=background)
         frame.grid(row=0, column=0, sticky="nsew")
         frame.grid_columnconfigure(0, weight=1)
         frame.grid_rowconfigure(0, weight=1)
-        body = tk.Frame(frame, bg="#0b1117", highlightthickness=1, highlightbackground="#25313b")
+        body = tk.Frame(frame, bg=surface, highlightthickness=1, highlightbackground=border)
         body.grid(row=0, column=0, sticky="nsew", padx=8, pady=8)
-        tk.Label(body, text=title, fg=TEXT, bg="#0b1117", font=("Sans", 22, "bold")).pack(pady=(80, 10))
-        tk.Label(body, text=detail, fg=MUTED, bg="#0b1117", font=("Sans", 11)).pack()
+        tk.Label(body, text=title, fg=text, bg=surface, font=("Sans", 22, "bold")).pack(pady=(80, 10))
+        tk.Label(body, text=detail, fg=muted, bg=surface, font=("Sans", 11)).pack()
         self._view_content = frame
 
     def set_theme_bundle(self, theme_bundle: ThemeBundle) -> None:
         """Apply the active application theme to ORC-owned vehicle controls."""
-
         self._theme_bundle = theme_bundle
         theme = theme_bundle.ui
         self.configure(bg=theme.background)
@@ -243,9 +248,9 @@ class VehiclePanel(tk.Frame):
             active = view_name == self._current_view
             button.configure(
                 bg=theme.control_active if active else theme.control_background,
-                fg=theme.control_text if active else theme.text_muted,
+                fg="#ffffff" if active else theme.text_muted,
                 activebackground=theme.control_active,
-                activeforeground=theme.control_text,
+                activeforeground="#ffffff",
                 highlightbackground=theme.border,
             )
 
@@ -258,9 +263,9 @@ class VehiclePanel(tk.Frame):
         if self._gauges is not None:
             self._gauges.set_style_sheet(theme_bundle.style_sheet)
 
-        if self._engine_gauges:
-            # Recreate direct gauge widgets so every Canvas redraw uses the
-            # newly resolved component theme.
+        if self._engine_gauges or self._current_view == "TRIP":
+            # Recreate direct widgets so every Canvas or placeholder uses the
+            # newly resolved CSS component theme.
             self._show_view(self._current_view)
 
     def update_state(self, state: VehiclePresentationState) -> None:
