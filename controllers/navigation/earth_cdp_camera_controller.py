@@ -41,6 +41,7 @@ class EarthModuleHook:
     value_type: str
     constructor_name: str
     arity: int | None
+    embind_arg_count: int | None
     source_preview: str
     keys: tuple[str, ...]
 
@@ -229,11 +230,19 @@ class EarthCdpCameraController(EarthCameraControllerIf):
                         try { sourcePreview = Function.prototype.toString.call(value).slice(0, 500); }
                         catch (_) {}
                     }
+                    let embindArgCount = null;
+                    if (typeof value === 'function') {
+                        try {
+                            embindArgCount = Number.isInteger(value.argCount)
+                                ? value.argCount : null;
+                        } catch (_) {}
+                    }
                     return {
                         name,
                         type: typeof value,
                         constructorName,
                         arity: typeof value === 'function' ? value.length : null,
+                        embindArgCount,
                         sourcePreview,
                         keys,
                     };
@@ -248,6 +257,12 @@ class EarthCdpCameraController(EarthCameraControllerIf):
                 continue
             raw_arity = item.get("arity")
             arity = int(raw_arity) if isinstance(raw_arity, (int, float)) else None
+            raw_embind_arg_count = item.get("embindArgCount")
+            embind_arg_count = (
+                int(raw_embind_arg_count)
+                if isinstance(raw_embind_arg_count, (int, float))
+                else None
+            )
             raw_keys = item.get("keys")
             keys = tuple(str(key) for key in raw_keys) if isinstance(raw_keys, list) else ()
             hooks.append(
@@ -256,6 +271,7 @@ class EarthCdpCameraController(EarthCameraControllerIf):
                     value_type=str(item.get("type", "")),
                     constructor_name=str(item.get("constructorName", "")),
                     arity=arity,
+                    embind_arg_count=embind_arg_count,
                     source_preview=str(item.get("sourcePreview", "")),
                     keys=keys,
                 )
