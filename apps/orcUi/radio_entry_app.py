@@ -11,6 +11,7 @@ from apps.launchers.sdrpp_launcher import sync_sdrpp_theme
 from apps.orcUi.orc_theme import ThemeMode
 from apps.orcUi.orc_ui_app import OrcUiApp
 from apps.orcUi.radio_entry_panel import RadioEntryPanel
+from apps.orcUi.theme_runtime import theme_bundle
 from frontends.tk.games import GamesScreen
 
 
@@ -36,6 +37,7 @@ class RadioEntryOrcUiApp(OrcUiApp):
         self._radio_panel = RadioEntryPanel(
             self._content,
             embedder=self._radio_embedder,
+            theme=theme_bundle(self._theme_mode),
         )
         self._radio_panel.pack(fill=tk.BOTH, expand=True)
 
