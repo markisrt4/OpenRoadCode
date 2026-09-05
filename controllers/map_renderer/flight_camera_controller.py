@@ -18,8 +18,6 @@ EARTH_RADIUS_M = 6_371_000.0
 
 @dataclass(frozen=True)
 class FlightState:
-    """Current virtual aircraft state used to drive the map camera."""
-
     latitude_deg: float
     longitude_deg: float
     heading_deg: float = 0.0
@@ -29,19 +27,14 @@ class FlightState:
 
 
 class FlightCameraController:
-    """Integrate a virtual aircraft position and exclusively drive flight presentation.
-
-    Keyboard input changes commanded targets. The rendered aircraft eases toward
-    those targets instead of snapping immediately, which gives the map camera the
-    inertia expected from an aircraft rather than a cursor.
-    """
+    """Integrate a virtual aircraft and exclusively drive flight presentation."""
 
     def __init__(
         self,
         map_renderer: MapRendererClient,
         initial_state: FlightState,
         *,
-        frame_rate_hz: float = 30.0,
+        frame_rate_hz: float = 20.0,
         max_acceleration_mps2: float = 7.0,
         max_turn_rate_deg_s: float = 20.0,
         max_pitch_rate_deg_s: float = 12.0,
@@ -95,15 +88,8 @@ class FlightCameraController:
         self._thread = None
         self._map_renderer.set_flight_mode(False)
 
-    def adjust(
-        self,
-        *,
-        speed_delta_mps: float = 0.0,
-        heading_delta_deg: float = 0.0,
-        pitch_delta_deg: float = 0.0,
-        zoom_delta: float = 0.0,
-    ) -> FlightState:
-        """Adjust commanded flight targets and return the new target state."""
+    def adjust(self, *, speed_delta_mps: float = 0.0, heading_delta_deg: float = 0.0,
+               pitch_delta_deg: float = 0.0, zoom_delta: float = 0.0) -> FlightState:
         with self._lock:
             self._target_state = self._normalized(replace(
                 self._target_state,
@@ -114,67 +100,51 @@ class FlightCameraController:
             ))
             return self._target_state
 
-    def render_once(self, now: float | None = None) -> FlightState:
+    def render_once(self, now: float | None = None, *, elapsed_override: float | None = None) -> FlightState:
         current_time = self._clock() if now is None else now
         with self._lock:
             previous = self._last_frame_time
-            elapsed = 0.0 if previous is None else max(0.0, current_time - previous)
+            elapsed = (0.0 if previous is None else max(0.0, current_time - previous)) if elapsed_override is None else elapsed_override
             self._last_frame_time = current_time
             state = self._state
             target = self._target_state
-
             if elapsed > 0.0:
                 speed = _approach(state.speed_mps, target.speed_mps, self._max_acceleration_mps2 * elapsed)
                 heading = _approach_heading(state.heading_deg, target.heading_deg, self._max_turn_rate_deg_s * elapsed)
                 pitch = _approach(state.pitch_deg, target.pitch_deg, self._max_pitch_rate_deg_s * elapsed)
                 zoom = _approach(state.zoom, target.zoom, self._max_zoom_rate_s * elapsed)
-
-                latitude = state.latitude_deg
-                longitude = state.longitude_deg
+                latitude, longitude = state.latitude_deg, state.longitude_deg
                 if speed > 0.0:
-                    latitude, longitude = _project_position(
-                        latitude,
-                        longitude,
-                        speed * elapsed,
-                        heading,
-                    )
-
-                state = self._normalized(replace(
-                    state,
-                    latitude_deg=latitude,
-                    longitude_deg=longitude,
-                    speed_mps=speed,
-                    heading_deg=heading,
-                    pitch_deg=pitch,
-                    zoom=zoom,
-                ))
+                    latitude, longitude = _project_position(latitude, longitude, speed * elapsed, heading)
+                state = self._normalized(replace(state, latitude_deg=latitude, longitude_deg=longitude,
+                    speed_mps=speed, heading_deg=heading, pitch_deg=pitch, zoom=zoom))
                 self._state = state
-
-        self._map_renderer.set_flight_state(
-            latitude=state.latitude_deg,
-            longitude=state.longitude_deg,
-            zoom=state.zoom,
-            bearing=state.heading_deg,
-            pitch=state.pitch_deg,
-        )
+        self._map_renderer.set_flight_state(latitude=state.latitude_deg, longitude=state.longitude_deg,
+            zoom=state.zoom, bearing=state.heading_deg, pitch=state.pitch_deg)
         return state
 
     def _run(self) -> None:
-        while not self._stop_event.wait(self._frame_period_s):
-            self.render_once()
+        next_frame = self._clock()
+        while not self._stop_event.is_set():
+            next_frame += self._frame_period_s
+            remaining = next_frame - self._clock()
+            if remaining > 0.0 and self._stop_event.wait(remaining):
+                return
+            # Advance simulation by an exact frame period. Scheduler jitter should
+            # delay a frame, not alter the aircraft's distance travelled per frame.
+            self.render_once(elapsed_override=self._frame_period_s)
+            if self._clock() - next_frame > self._frame_period_s:
+                next_frame = self._clock()
 
     @staticmethod
     def _normalized(state: FlightState) -> FlightState:
-        return replace(
-            state,
+        return replace(state,
             latitude_deg=min(85.0, max(-85.0, state.latitude_deg)),
             longitude_deg=((state.longitude_deg + 180.0) % 360.0) - 180.0,
             heading_deg=state.heading_deg % 360.0,
-            # MapLibre Native's default camera constraint tops out at 60 degrees.
             pitch_deg=min(60.0, max(0.0, state.pitch_deg)),
             zoom=min(19.0, max(3.0, state.zoom)),
-            speed_mps=max(0.0, state.speed_mps),
-        )
+            speed_mps=max(0.0, state.speed_mps))
 
 
 def _approach(value: float, target: float, maximum_delta: float) -> float:
@@ -195,12 +165,9 @@ def _project_position(latitude: float, longitude: float, distance_m: float, bear
     bearing = math.radians(bearing_deg)
     latitude_radians = math.radians(latitude)
     longitude_radians = math.radians(longitude)
-    projected_latitude = math.asin(
-        math.sin(latitude_radians) * math.cos(angular_distance)
-        + math.cos(latitude_radians) * math.sin(angular_distance) * math.cos(bearing)
-    )
+    projected_latitude = math.asin(math.sin(latitude_radians) * math.cos(angular_distance)
+        + math.cos(latitude_radians) * math.sin(angular_distance) * math.cos(bearing))
     projected_longitude = longitude_radians + math.atan2(
         math.sin(bearing) * math.sin(angular_distance) * math.cos(latitude_radians),
-        math.cos(angular_distance) - math.sin(latitude_radians) * math.sin(projected_latitude),
-    )
+        math.cos(angular_distance) - math.sin(latitude_radians) * math.sin(projected_latitude))
     return math.degrees(projected_latitude), ((math.degrees(projected_longitude) + 180.0) % 360.0) - 180.0
