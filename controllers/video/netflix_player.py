@@ -33,10 +33,12 @@ class NetflixPlayer:
             "chromium-browser",
         ),
         software_rendering: bool = False,
+        dark_mode: bool = False,
     ) -> None:
         self._profile_path = Path(profile_path).expanduser()
         self._browser_candidates = browser_candidates
         self._software_rendering = software_rendering
+        self._dark_mode = dark_mode
         self._launcher: BrowserKioskLauncher | None = None
         self._display = ""
 
@@ -75,6 +77,10 @@ class NetflixPlayer:
             "--autoplay-policy=no-user-gesture-required",
             "--no-first-run",
         ]
+        if self._dark_mode:
+            arguments.append("--force-dark-mode")
+        else:
+            arguments.append("--disable-features=WebContentsForceDark")
         if self._software_rendering:
             arguments.extend(
                 (
@@ -95,10 +101,7 @@ class NetflixPlayer:
 
     def is_active(self) -> bool:
         """Return whether the Netflix browser process is running."""
-        return (
-            self._launcher is not None
-            and self._launcher.is_running()
-        )
+        return self._launcher is not None and self._launcher.is_running()
 
     @staticmethod
     def validate_url(url: str) -> str:
@@ -108,9 +111,7 @@ class NetflixPlayer:
         hostname = (parsed.hostname or "").casefold()
         if parsed.scheme != "https":
             raise ValueError("Netflix URL must use HTTPS")
-        if hostname != "netflix.com" and not hostname.endswith(
-            ".netflix.com"
-        ):
+        if hostname != "netflix.com" and not hostname.endswith(".netflix.com"):
             raise ValueError("URL must point to netflix.com")
         return normalized_url
 
