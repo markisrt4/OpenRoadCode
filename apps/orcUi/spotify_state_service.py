@@ -71,7 +71,7 @@ class SpotifyStateService(
 ):
     """Poll Spotify once, cache MediaState, and run controls off the Tk thread."""
 
-    def __init__(self, *, refresh_seconds: float = 5.0) -> None:
+    def __init__(self, *, refresh_seconds: float = 2.0) -> None:
         if refresh_seconds <= 0:
             raise ValueError("refresh_seconds must be positive")
         self._controller = _SynchronizedSpotifyController(create_spotify_controller())
@@ -113,6 +113,7 @@ class SpotifyStateService(
             return self._state
 
     def request_refresh(self) -> None:
+        """Wake the state worker for an immediate Spotify API refresh."""
         self._wake.set()
 
     def request_play(self) -> None:
@@ -166,6 +167,11 @@ class SpotifyStateService(
                 print(f"WARNING: Spotify command failed: {type(error).__name__}: {error}")
 
     def _refresh_state(self) -> None:
-        state = self._presenter.read_state()
+        try:
+            state = self._presenter.read_state()
+        except Exception as error:
+            # Keep the service alive through transient auth/network failures.
+            print(f"WARNING: Spotify state refresh failed: {type(error).__name__}: {error}")
+            return
         with self._state_lock:
             self._state = state
