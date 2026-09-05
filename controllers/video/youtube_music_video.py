@@ -8,6 +8,7 @@ import json
 import os
 import re
 import shutil
+import signal
 import subprocess
 import tempfile
 import threading
@@ -181,6 +182,8 @@ class YouTubeMusicVideo(MusicVideoIf):
             prefix="youtube-music-video-"
         )
         document_root = Path(self._temporary_directory.name)
+        browser_profile = document_root / "chromium-profile"
+        browser_profile.mkdir(parents=True, exist_ok=True)
         fallback_video_ids = (
             self._ranked_video_ids
             if video.video_id in self._ranked_video_ids
@@ -216,6 +219,7 @@ class YouTubeMusicVideo(MusicVideoIf):
         command = [
             chromium,
             f"--app={url}",
+            f"--user-data-dir={browser_profile}",
             "--autoplay-policy=no-user-gesture-required",
             "--no-first-run",
             "--disable-session-crashed-bubble",
@@ -232,7 +236,10 @@ class YouTubeMusicVideo(MusicVideoIf):
             command.append("--start-fullscreen")
 
         try:
-            self._browser_process = subprocess.Popen(command)
+            self._browser_process = subprocess.Popen(
+                command,
+                start_new_session=True,
+            )
         except OSError:
             self._cleanup()
             raise
@@ -240,13 +247,24 @@ class YouTubeMusicVideo(MusicVideoIf):
         return True
 
     def stop_video(self) -> None:
-        if self._browser_process is not None and self._browser_process.poll() is None:
-            self._browser_process.terminate()
+        process = self._browser_process
+        if process is not None and process.poll() is None:
+            process.terminate()
             try:
-                self._browser_process.wait(timeout=3)
+                process.wait(timeout=1.5)
             except subprocess.TimeoutExpired:
-                self._browser_process.kill()
-                self._browser_process.wait(timeout=3)
+                try:
+                    os.killpg(process.pid, signal.SIGTERM)
+                    process.wait(timeout=1.0)
+                except (ProcessLookupError, PermissionError, subprocess.TimeoutExpired):
+                    try:
+                        os.killpg(process.pid, signal.SIGKILL)
+                    except (ProcessLookupError, PermissionError):
+                        process.kill()
+                    try:
+                        process.wait(timeout=1.0)
+                    except subprocess.TimeoutExpired:
+                        pass
         self._cleanup()
 
     def is_video_active(self) -> bool:
@@ -499,6 +517,7 @@ const startSeconds = {start_seconds};
 const playerOrigin = {json.dumps(origin)};
 let candidateIndex = 0;
 let player;
+let autoplayBootstrapMuted = false;
 document.getElementById(\"return-to-carui\").addEventListener(
     \"click\",
     async () => {{
@@ -507,15 +526,17 @@ document.getElementById(\"return-to-carui\").addEventListener(
         button.textContent = \"CLOSING...\";
         try {{
             await fetch(\"/close\", {{ method: \"POST\" }});
-        }} catch (_error) {{
-            window.close();
-        }}
+        }} catch (_error) {{}}
+        window.close();
     }}
 );
 function showMessage(text) {{
     const message = document.getElementById(\"message\");
     message.textContent = text;
     message.style.display = \"block\";
+}}
+function hideMessage() {{
+    document.getElementById(\"message\").style.display = \"none\";
 }}
 function handlePlaybackError(event) {{
     candidateIndex += 1;
@@ -552,8 +573,22 @@ function onYouTubeIframeAPIReady() {{
                 if (startSeconds > 0) event.target.seekTo(startSeconds, true);
                 event.target.playVideo();
             }},
+            onStateChange: (event) => {{
+                if (event.data === YT.PlayerState.PLAYING && autoplayBootstrapMuted) {{
+                    setTimeout(() => {{
+                        event.target.unMute();
+                        hideMessage();
+                        autoplayBootstrapMuted = false;
+                    }}, 150);
+                }}
+            }},
             onError: handlePlaybackError,
-            onAutoplayBlocked: () => showMessage(\"Autoplay was blocked. Tap the video to play.\")
+            onAutoplayBlocked: () => {{
+                autoplayBootstrapMuted = true;
+                showMessage(\"Starting playback...\");
+                player.mute();
+                player.playVideo();
+            }}
         }}
     }});
 }}
