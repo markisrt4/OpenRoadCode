@@ -6,26 +6,31 @@ import math
 import tkinter as tk
 from collections.abc import Callable
 from apps.orcUi.shared_map_camera import get_shared_map_camera_runtime
+from apps.orcUi.theme_runtime import theme_bundle
 from ui.navigation import MapRequestHandlerIf
-from ui.theme import ThemeBundle
+from ui.theme import ThemeBundle, ThemeMode
 
 BG="#05090d"; PANEL="#0b1117"; BORDER="#25313b"; TEXT="#edf2f5"; MUTED="#89959e"; GREEN="#84ce1f"; BLUE="#168bd1"; RED="#f15a16"; PURPLE="#a25ce5"
 NAV_CHROME="#111a21"
 
 class NavigationPanel(tk.Frame):
     def __init__(self,parent:tk.Misc,*,map_request_handler:MapRequestHandlerIf|None=None,on_back:Callable[[],None]|None=None,theme_bundle:ThemeBundle|None=None)->None:
+        if theme_bundle is None:
+            parent_bg=str(parent.cget("background")).lower()
+            mode=ThemeMode.LIGHT if parent_bg=="#e8edf0" else ThemeMode.DARK
+            theme_bundle=globals()["theme_bundle"](mode)
         self._theme_bundle=theme_bundle
         super().__init__(parent,bg=self._background()); del on_back
         runtime=get_shared_map_camera_runtime(); self._request_handler=map_request_handler or runtime.request_handler
         self._zoom_level=float(getattr(self._request_handler,"zoom_level",16.5)); self._pitch_rad=float(getattr(self._request_handler,"pitch_rad",math.radians(45.0)))
         self._follow_enabled=bool(getattr(self._request_handler,"follow_enabled",True)); self._poi_focus=set(getattr(self._request_handler,"poi_focus",())); self._build(); self._schedule_renderer_refresh()
-    def _background(self)->str: return self._theme_bundle.ui.background if self._theme_bundle is not None else BG
-    def _panel(self)->str: return self._theme_bundle.ui.surface if self._theme_bundle is not None else PANEL
+    def _background(self)->str: return self._theme_bundle.ui.background
+    def _panel(self)->str: return self._theme_bundle.ui.surface
     def _chrome(self)->str: return self._theme_bundle.ui.surface_alt if self._theme_bundle is not None else NAV_CHROME
-    def _border(self)->str: return self._theme_bundle.ui.border if self._theme_bundle is not None else BORDER
-    def _text(self)->str: return self._theme_bundle.ui.text if self._theme_bundle is not None else TEXT
-    def _muted(self)->str: return self._theme_bundle.ui.text_muted if self._theme_bundle is not None else MUTED
-    def _active(self)->str: return self._theme_bundle.ui.control_active if self._theme_bundle is not None else "#18252e"
+    def _border(self)->str: return self._theme_bundle.ui.border
+    def _text(self)->str: return self._theme_bundle.ui.text
+    def _muted(self)->str: return self._theme_bundle.ui.text_muted
+    def _active(self)->str: return self._theme_bundle.ui.control_active
     @property
     def map_host_window_id(self)->int: self.update_idletasks(); return self._map_host.winfo_id()
     def set_map_request_handler(self,handler:MapRequestHandlerIf|None)->None:
