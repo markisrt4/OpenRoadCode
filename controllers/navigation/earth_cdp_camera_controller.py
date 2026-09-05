@@ -34,6 +34,18 @@ class EarthRuntimeObject:
 
 
 @dataclass(frozen=True)
+class EarthModuleHook:
+    """Read-only description of a selected Emscripten Module member."""
+
+    name: str
+    value_type: str
+    constructor_name: str
+    arity: int | None
+    source_preview: str
+    keys: tuple[str, ...]
+
+
+@dataclass(frozen=True)
 class EarthRuntimeInspection:
     """Targeted facts about Earth's JS/WASM boundary and render canvas."""
 
@@ -95,7 +107,7 @@ class EarthCdpCameraController(EarthCameraControllerIf):
     def inspect_runtime(self) -> EarthRuntimeInspection:
         """Inspect likely Earth camera/WASM globals without invoking them."""
         value = self._client.evaluate_earth(
-            """(() => {
+            r"""(() => {
                 const safeKeys = value => {
                     if (value === null || value === undefined) return [];
                     try { return Object.getOwnPropertyNames(value).sort().slice(0, 80); }
@@ -180,6 +192,75 @@ class EarthCdpCameraController(EarthCameraControllerIf):
             canvas_client_height=optional_int("clientHeight"),
             globals=tuple(objects),
         )
+
+    def inspect_module_hooks(self) -> tuple[EarthModuleHook, ...]:
+        """Describe selected Earth Module bridge members without calling them."""
+        value = self._client.evaluate_earth(
+            """(() => {
+                const moduleValue = window.Module;
+                if (!moduleValue) return [];
+                const names = [
+                    'ReceiveViewModelCommand',
+                    'ResizeViewport',
+                    'onViewportResized',
+                    'ccall',
+                    'cwrap',
+                    'canvas',
+                    'ctx',
+                    'labelRenderer',
+                    'earth-ready',
+                    '_initialize',
+                    '_main'
+                ];
+                return names.map(name => {
+                    let value;
+                    try { value = moduleValue[name]; }
+                    catch (_) { value = undefined; }
+                    let constructorName = '';
+                    try { constructorName = value?.constructor?.name || ''; }
+                    catch (_) {}
+                    let keys = [];
+                    try {
+                        if (value !== null && value !== undefined)
+                            keys = Object.getOwnPropertyNames(value).sort().slice(0, 50);
+                    } catch (_) {}
+                    let sourcePreview = '';
+                    if (typeof value === 'function') {
+                        try { sourcePreview = Function.prototype.toString.call(value).slice(0, 500); }
+                        catch (_) {}
+                    }
+                    return {
+                        name,
+                        type: typeof value,
+                        constructorName,
+                        arity: typeof value === 'function' ? value.length : null,
+                        sourcePreview,
+                        keys,
+                    };
+                });
+            })()"""
+        )
+        if not isinstance(value, list):
+            return ()
+        hooks: list[EarthModuleHook] = []
+        for item in value:
+            if not isinstance(item, dict):
+                continue
+            raw_arity = item.get("arity")
+            arity = int(raw_arity) if isinstance(raw_arity, (int, float)) else None
+            raw_keys = item.get("keys")
+            keys = tuple(str(key) for key in raw_keys) if isinstance(raw_keys, list) else ()
+            hooks.append(
+                EarthModuleHook(
+                    name=str(item.get("name", "")),
+                    value_type=str(item.get("type", "")),
+                    constructor_name=str(item.get("constructorName", "")),
+                    arity=arity,
+                    source_preview=str(item.get("sourcePreview", "")),
+                    keys=keys,
+                )
+            )
+        return tuple(hooks)
 
     def inspect_globals(self, *, keywords: tuple[str, ...] = ("earth", "camera", "map", "scene", "view")) -> tuple[str, ...]:
         """Return matching top-level global names without invoking Earth internals."""
