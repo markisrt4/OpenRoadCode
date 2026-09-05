@@ -40,7 +40,7 @@ class ManagedSDRPPLauncher(SDRPPLauncher):
         if shutil.which("xdotool") is None:
             return None
         result = subprocess.run(
-            ["xdotool", "search", "--name", "SDR++"],
+            ["xdotool", "search", "--name", r"SDR\+\+"],
             capture_output=True,
             text=True,
             check=False,
