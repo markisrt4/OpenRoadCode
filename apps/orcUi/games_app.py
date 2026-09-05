@@ -80,6 +80,9 @@ class GamesOrcUiApp(OrcUiApp):
 
     def _clear_content(self) -> None:
         self._stop_game_runtime()
+        controller = self._games_controller
+        if controller is not None:
+            controller.set_games_ui(None)
         self._games_controller = None
         self._games_panel = None
         super()._clear_content()
@@ -204,6 +207,9 @@ class GamesOrcUiApp(OrcUiApp):
             except tk.TclError:
                 pass
             self._game_resize_after_id = None
+        controller = self._games_controller
+        if controller is not None:
+            controller.set_games_ui(None)
         self._game_launcher.stop()
         self._game_embedder.clear()
         super()._shutdown()
