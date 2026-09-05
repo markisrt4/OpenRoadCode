@@ -73,6 +73,18 @@ class MapRendererClient:
         self._send_command({"command": MapRendererCommand.SET_POSITION,
             "latitude": latitude, "longitude": longitude})
 
+    def set_flight_mode(self, enabled: bool) -> None:
+        """Give or release exclusive position/camera ownership to flight mode."""
+        self._send_command({"command": MapRendererCommand.SET_FLIGHT_MODE,
+            "enabled": enabled})
+
+    def set_flight_state(self, latitude: float, longitude: float, zoom: float,
+                         bearing: float = 0.0, pitch: float = 0.0) -> None:
+        """Atomically update the virtual aircraft marker and flight camera."""
+        self._send_command({"command": MapRendererCommand.SET_FLIGHT_STATE,
+            "latitude": latitude, "longitude": longitude, "zoom": zoom,
+            "bearing": bearing, "pitch": pitch})
+
     def set_poi_focus(self, category: str | None, enabled: bool = True) -> None:
         self._send_command({"command": MapRendererCommand.SET_POI_FOCUS,
             "category": category or "", "enabled": enabled if category else False})
