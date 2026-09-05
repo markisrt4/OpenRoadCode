@@ -33,7 +33,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--port",
         type=int,
-        default=8766,
+        default=8768,
         help="Local HTTP port used by the YouTube player.",
     )
 

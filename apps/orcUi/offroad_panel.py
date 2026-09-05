@@ -32,6 +32,7 @@ class OffRoadPanel(tk.Frame):
         on_back: Callable[[], None],
         position: PositionPresentationState | None = None,
         attitude: AttitudePresentationState | None = None,
+        show_header: bool = True,
     ) -> None:
         super().__init__(parent, bg=BG)
         self._position = position or PositionPresentationState()
@@ -45,19 +46,52 @@ class OffRoadPanel(tk.Frame):
 
         self.grid_columnconfigure(0, weight=1)
         self.grid_columnconfigure(1, weight=1)
-        self.grid_rowconfigure(1, weight=1)
+        content_row = 1 if show_header else 0
+        self.grid_rowconfigure(content_row, weight=1)
 
-        header = tk.Frame(self, bg=BG)
-        header.grid(row=0, column=0, columnspan=2, sticky="ew", pady=(0, 6))
-        tk.Button(header, text="‹ HOME", command=on_back, bg="#101820", fg=TEXT,
-                  relief=tk.FLAT, bd=0, font=("Sans", 10, "bold"), padx=14, pady=6).pack(side=tk.LEFT)
-        tk.Label(header, text="OFF-ROAD", fg=YELLOW, bg=BG,
-                 font=("Sans", 13, "bold")).pack(side=tk.LEFT, padx=14)
-        tk.Label(header, text="NAVIGATION + ATTITUDE", fg=MUTED, bg=BG,
-                 font=("Monospace", 9)).pack(side=tk.RIGHT, padx=4)
+        if show_header:
+            header = tk.Frame(self, bg=BG)
+            header.grid(
+                row=0,
+                column=0,
+                columnspan=2,
+                sticky="ew",
+                pady=(0, 6),
+            )
+            tk.Button(
+                header,
+                text="‹ HOME",
+                command=on_back,
+                bg="#101820",
+                fg=TEXT,
+                relief=tk.FLAT,
+                bd=0,
+                font=("Sans", 10, "bold"),
+                padx=14,
+                pady=6,
+            ).pack(side=tk.LEFT)
+            tk.Label(
+                header,
+                text="OFF-ROAD",
+                fg=YELLOW,
+                bg=BG,
+                font=("Sans", 13, "bold"),
+            ).pack(side=tk.LEFT, padx=14)
+            tk.Label(
+                header,
+                text="NAVIGATION + ATTITUDE",
+                fg=MUTED,
+                bg=BG,
+                font=("Monospace", 9),
+            ).pack(side=tk.RIGHT, padx=4)
 
         instruments = tk.Frame(self, bg=BG)
-        instruments.grid(row=1, column=0, sticky="nsew", padx=(0, 5))
+        instruments.grid(
+            row=content_row,
+            column=0,
+            sticky="nsew",
+            padx=(0, 5),
+        )
         instruments.grid_rowconfigure(0, weight=1)
         instruments.grid_rowconfigure(1, weight=1)
         instruments.grid_columnconfigure(0, weight=1)
@@ -86,7 +120,12 @@ class OffRoadPanel(tk.Frame):
         self._roll_label.pack(side=tk.LEFT, padx=14)
 
         position_card = self._card(self)
-        position_card.grid(row=1, column=1, sticky="nsew", padx=(5, 0))
+        position_card.grid(
+            row=content_row,
+            column=1,
+            sticky="nsew",
+            padx=(5, 0),
+        )
         tk.Label(position_card, text="POSITION", fg=GREEN, bg=PANEL,
                  font=("Sans", 10, "bold")).pack(anchor="w", padx=16, pady=(14, 8))
         grid = tk.Frame(position_card, bg=PANEL)
