@@ -8,9 +8,10 @@ from apps.launchers.google_earth_launcher import GoogleEarthLauncher
 from apps.orcUi.shared_map_camera import get_shared_map_camera_runtime
 from ui.navigation import MapRequestHandlerIf
 BG="#05090d"; PANEL="#0b1117"; BORDER="#25313b"; TEXT="#edf2f5"; MUTED="#89959e"; GREEN="#84ce1f"; BLUE="#168bd1"; RED="#f15a16"; PURPLE="#a25ce5"
+_MPS_TO_MPH=2.2369362920544
 class NavigationPanel(tk.Frame):
  def __init__(self,parent:tk.Misc,*,map_request_handler:MapRequestHandlerIf|None=None,on_back:Callable[[],None]|None=None)->None:
-  super().__init__(parent,bg=BG); del on_back; self._camera_runtime=get_shared_map_camera_runtime(); self._request_handler=map_request_handler or self._camera_runtime.request_handler; self._earth_launcher=GoogleEarthLauncher(); self._earth_visible=False; self._earth_initialized=False; self._earth_overlay:tk.Toplevel|None=None; self._zoom_level=float(getattr(self._request_handler,"zoom_level",16.5)); self._pitch_rad=float(getattr(self._request_handler,"pitch_rad",math.radians(45))); self._follow_enabled=bool(getattr(self._request_handler,"follow_enabled",True)); self._poi_focus=set(getattr(self._request_handler,"poi_focus",())); self._build(); self._schedule_renderer_refresh()
+  super().__init__(parent,bg=BG); del on_back; self._camera_runtime=get_shared_map_camera_runtime(); self._request_handler=map_request_handler or self._camera_runtime.request_handler; self._earth_launcher=GoogleEarthLauncher(); self._earth_visible=False; self._earth_initialized=False; self._earth_overlay:tk.Toplevel|None=None; self._earth_speed_var:tk.StringVar|None=None; self._earth_track_var:tk.StringVar|None=None; self._earth_position_var:tk.StringVar|None=None; self._earth_hud_after:str|None=None; self._zoom_level=float(getattr(self._request_handler,"zoom_level",16.5)); self._pitch_rad=float(getattr(self._request_handler,"pitch_rad",math.radians(45))); self._follow_enabled=bool(getattr(self._request_handler,"follow_enabled",True)); self._poi_focus=set(getattr(self._request_handler,"poi_focus",())); self._build(); self._schedule_renderer_refresh()
  @property
  def map_host_window_id(self)->int:self.update_idletasks();return self._map_host.winfo_id()
  def set_map_request_handler(self,h):
@@ -40,14 +41,39 @@ class NavigationPanel(tk.Frame):
   root=self.winfo_toplevel();root.update_idletasks();return (0,0),(max(1,root.winfo_screenwidth()),max(1,root.winfo_screenheight()))
  def _show_earth_overlay(self)->None:
   self._destroy_earth_overlay();overlay=tk.Toplevel(self);overlay.overrideredirect(True);overlay.configure(bg=BG);overlay.attributes("-topmost",True);overlay.geometry("+14+14")
-  column=tk.Frame(overlay,bg=BG);column.pack()
-  tk.Button(column,text="←  ORC",command=self._leave_earth,bg=BLUE,fg="white",activebackground=GREEN,activeforeground=BG,relief=tk.FLAT,highlightthickness=2,highlightbackground="#5bbcff",font=("Sans",12,"bold"),padx=12,pady=7,width=8).pack(fill=tk.X)
-  self._earth_overlay=overlay;overlay.lift();overlay.after(300,overlay.lift)
+  column=tk.Frame(overlay,bg=BG,highlightthickness=1,highlightbackground=BORDER);column.pack()
+  tk.Button(column,text="←  ORC",command=self._leave_earth,bg=BLUE,fg="white",activebackground=GREEN,activeforeground=BG,relief=tk.FLAT,highlightthickness=0,font=("Sans",12,"bold"),padx=12,pady=7,width=8).pack(fill=tk.X)
+  hud=tk.Frame(column,bg=PANEL);hud.pack(fill=tk.X,pady=(4,0))
+  self._earth_speed_var=tk.StringVar(value="-- mph");self._earth_track_var=tk.StringVar(value="---°");self._earth_position_var=tk.StringVar(value="GPS --")
+  tk.Label(hud,textvariable=self._earth_speed_var,bg=PANEL,fg=GREEN,font=("Sans",16,"bold"),anchor="center").pack(fill=tk.X,padx=8,pady=(7,0))
+  tk.Label(hud,textvariable=self._earth_track_var,bg=PANEL,fg=TEXT,font=("Sans",11,"bold"),anchor="center").pack(fill=tk.X,padx=8)
+  tk.Label(hud,textvariable=self._earth_position_var,bg=PANEL,fg=MUTED,font=("Sans",7),anchor="center").pack(fill=tk.X,padx=8,pady=(1,7))
+  self._earth_overlay=overlay;overlay.lift();overlay.after(300,overlay.lift);self._update_earth_hud()
+ def _update_earth_hud(self)->None:
+  if not self._earth_visible or self._earth_overlay is None:return
+  speed=self._camera_runtime.latest_ground_speed_m_s;track=self._camera_runtime.latest_track_rad;position=self._camera_runtime.latest_position
+  if self._earth_speed_var is not None:self._earth_speed_var.set("-- mph" if speed is None else f"{max(0.0,speed)*_MPS_TO_MPH:.0f} mph")
+  if self._earth_track_var is not None:
+   if track is None:self._earth_track_var.set("---°")
+   else:self._earth_track_var.set(f"{math.degrees(track)%360.0:03.0f}° {self._cardinal(track)}")
+  if self._earth_position_var is not None:
+   if position is None:self._earth_position_var.set("GPS --")
+   else:self._earth_position_var.set(f"{math.degrees(position.latitude_rad):.4f}, {math.degrees(position.longitude_rad):.4f}")
+  try:self._earth_overlay.attributes("-topmost",True);self._earth_overlay.lift();self._earth_hud_after=self.after(500,self._update_earth_hud)
+  except tk.TclError:self._earth_hud_after=None
+ @staticmethod
+ def _cardinal(track_rad:float)->str:
+  names=("N","NE","E","SE","S","SW","W","NW");return names[int((math.degrees(track_rad)%360.0+22.5)//45.0)%8]
  def _destroy_earth_overlay(self)->None:
+  if self._earth_hud_after is not None:
+   try:self.after_cancel(self._earth_hud_after)
+   except tk.TclError:pass
+   self._earth_hud_after=None
   if self._earth_overlay is not None:
    try:self._earth_overlay.destroy()
    except tk.TclError:pass
    self._earth_overlay=None
+  self._earth_speed_var=None;self._earth_track_var=None;self._earth_position_var=None
  def _leave_earth(self)->None:
   self._destroy_earth_overlay()
   if self._earth_launcher.is_running():self._earth_launcher.stop(self._display())
