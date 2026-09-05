@@ -8,13 +8,21 @@ from __future__ import annotations
 import tkinter as tk
 
 from apps.launchers.sdrpp_launcher import sync_sdrpp_theme
-from apps.orcUi.games_app import GamesOrcUiApp
 from apps.orcUi.orc_theme import ThemeMode
+from apps.orcUi.orc_ui_app import OrcUiApp
 from apps.orcUi.radio_entry_panel import RadioEntryPanel
+from frontends.tk.games import GamesScreen
 
 
-class RadioEntryOrcUiApp(GamesOrcUiApp):
-    """Run the integrated cockpit shell with radio and native games support."""
+class RadioEntryOrcUiApp(OrcUiApp):
+    """Run the integrated cockpit shell with radio chooser composition."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.register_screen(
+            "GAMES",
+            GamesScreen(self, theme_mode=lambda: self.theme_mode),
+        )
 
     def _show_radio_panel(self) -> None:
         self._clear_content()
