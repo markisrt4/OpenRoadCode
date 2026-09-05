@@ -62,6 +62,11 @@ class GameController(GamesRequestHandlerIf):
 
     def set_games_ui(self, games_ui: GamesUiIf | None) -> None:
         """Attach a games UI and wire its semantic request handler."""
+        previous_ui = self._ui
+        if previous_ui is games_ui:
+            return
+        if previous_ui is not None:
+            previous_ui.set_games_request_handler(None)
         self._ui = games_ui
         if games_ui is None:
             return
@@ -260,19 +265,15 @@ class GameController(GamesRequestHandlerIf):
     def _publish(self) -> None:
         if self._ui is None:
             return
-        self._ui.set_games(
-            tuple(
-                GameUiState(
-                    game_id=game.name,
-                    name=game.name,
-                    description=game.description,
-                    category=game.category,
-                    icon=game.icon,
-                    status=self._status[game.name],
-                    backend_id=(self._installed.get(game.name) or self._available.get(game.name)).backend_id
-                    if (self._installed.get(game.name) or self._available.get(game.name)) is not None
-                    else None,
-                )
-                for game in self._games
-            )
+        states = tuple(self._state_for(game) for game in self._games)
+        self._ui.set_games(states)
+
+    def _state_for(self, game: GameDefinition) -> GameUiState:
+        return GameUiState(
+            game_id=game.name,
+            name=game.name,
+            description=game.description,
+            category=game.category,
+            status=self._status[game.name],
+            icon=game.icon,
         )
