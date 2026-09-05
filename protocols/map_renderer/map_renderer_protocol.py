@@ -18,3 +18,5 @@ class MapRendererCommand(StrEnum):
     FIT_BOUNDS = "fit_bounds"
     SET_POSITION = "set_position"
     SET_POI_FOCUS = "set_poi_focus"
+    SET_FLIGHT_MODE = "set_flight_mode"
+    SET_FLIGHT_STATE = "set_flight_state"
