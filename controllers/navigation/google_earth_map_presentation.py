@@ -5,8 +5,8 @@
 
 from __future__ import annotations
 
-from apps.launchers.app_runtime_manager import AppRuntimeManager
 from apps.launchers.google_earth_launcher import GoogleEarthLauncher
+from controllers.application_runtime import AppRuntimeManager
 from controllers.navigation.map_presentation_if import MapPresentationIf
 
 
