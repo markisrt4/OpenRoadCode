@@ -56,6 +56,16 @@ void setLayerVisible(mbgl::style::Style& style, const char* id, bool visible) {
                                      : mbgl::style::VisibilityType::None);
     }
 }
+void setMarker(mbgl::Map& map, double latitude, double longitude,
+               const std::string& markerMode, double markerScale, double bearing) {
+    auto* source = map.getStyle().getSource("vehicle"); if (!source) return;
+    auto* vehicleSource = static_cast<mbgl::style::GeoJSONSource*>(source);
+    mapbox::geojson::feature feature{mapbox::geojson::geometry{mapbox::geometry::point<double>{longitude, latitude}}};
+    feature.properties["marker_mode"] = markerMode;
+    feature.properties["marker_scale"] = markerScale;
+    feature.properties["bearing"] = bearing;
+    vehicleSource->setGeoJSON(feature);
+}
 } // namespace
 
 int main() {
@@ -76,9 +86,29 @@ int main() {
     view.setMap(&map);
     map.jumpTo(mbgl::CameraOptions().withCenter(mbgl::LatLng{kDefaultLatitude, kDefaultLongitude}).withZoom(kDefaultZoom));
     MapCommandServer commandServer(brokerSubscriberEndpoint);
+    bool flightMode = false;
 
-    view.setUpdateCallback([&map, &commandServer, &config, &view]() {
+    view.setUpdateCallback([&map, &commandServer, &config, &view, &flightMode]() {
         const auto command = commandServer.poll(); if (!command) return;
+        if (command->command == "set_flight_mode") {
+            flightMode = command->enabled;
+            std::cout << "[map_renderer] flight mode: " << (flightMode ? "on" : "off") << '\n';
+            return;
+        }
+        if (command->command == "set_flight_state") {
+            if (!flightMode) return;
+            setMarker(map, command->latitude, command->longitude, "airplane", config.markerScale, command->bearing);
+            map.jumpTo(
+                mbgl::CameraOptions()
+                    .withCenter(mbgl::LatLng{command->latitude, command->longitude})
+                    .withZoom(command->zoom)
+                    .withBearing(command->bearing)
+                    .withPitch(command->pitch)
+            );
+            return;
+        }
+        if (flightMode && (command->command == "set_center" || command->command == "fit_bounds" ||
+                           command->command == "set_position" || command->command == "set_camera")) return;
         if (command->command == "set_center") { map.jumpTo(mbgl::CameraOptions().withCenter(mbgl::LatLng{command->latitude, command->longitude})); return; }
         if (command->command == "fit_bounds") {
             const auto bounds = mbgl::LatLngBounds::hull(mbgl::LatLng{command->south, command->west}, mbgl::LatLng{command->north, command->east});
@@ -86,11 +116,7 @@ int main() {
             map.easeTo(map.cameraForLatLngBounds(bounds, padding), mbgl::AnimationOptions{mbgl::Milliseconds(500)}); return;
         }
         if (command->command == "set_position") {
-            auto* source = map.getStyle().getSource("vehicle"); if (!source) return;
-            auto* vehicleSource = static_cast<mbgl::style::GeoJSONSource*>(source);
-            mapbox::geojson::feature feature{mapbox::geojson::geometry{mapbox::geometry::point<double>{command->longitude, command->latitude}}};
-            feature.properties["marker_mode"] = config.markerMode; feature.properties["marker_scale"] = config.markerScale;
-            vehicleSource->setGeoJSON(feature); return;
+            setMarker(map, command->latitude, command->longitude, config.markerMode, config.markerScale, 0.0); return;
         }
         if (command->command == "set_camera") {
             map.easeTo(
