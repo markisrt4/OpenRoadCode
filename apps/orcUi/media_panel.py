@@ -6,6 +6,8 @@
 from __future__ import annotations
 
 import os
+import queue
+import threading
 import tkinter as tk
 from collections.abc import Callable
 
@@ -18,6 +20,7 @@ from controllers.lyrics import LrclibLyricsClient
 from controllers.spotify import SpotifyMediaPresenter
 from controllers.video import MusicVideoController, NetflixPlayer, YouTubeMusicVideo, YouTubePlayer
 from frontends.tk.media import SpotifyPlaybackPanel
+from ui.media import MediaState
 
 BG = DARK["bg"]
 PANEL = DARK["panel"]
@@ -25,6 +28,30 @@ ACTIVE = DARK["active"]
 BORDER = DARK["border"]
 TEXT = DARK["text"]
 MUTED = DARK["muted"]
+
+
+class _ThreadSafeSpotifyPlaybackPanel(SpotifyPlaybackPanel):
+    """Keep worker-thread panel callbacks out of Tcl/Tk."""
+
+    def __init__(
+        self,
+        *args,
+        ui_dispatch: Callable[[Callable[[], None]], None],
+        **kwargs,
+    ) -> None:
+        self._ui_dispatch = ui_dispatch
+        self._tk_thread_id = threading.get_ident()
+        super().__init__(*args, **kwargs)
+
+    def after(self, ms: int, func=None, *args):
+        if threading.get_ident() != self._tk_thread_id:
+            if func is None:
+                raise RuntimeError("worker threads may not call Tk after() without a callback")
+            if ms != 0:
+                raise RuntimeError("worker threads may only dispatch immediate UI callbacks")
+            self._ui_dispatch(lambda: func(*args))
+            return None
+        return super().after(ms, func, *args)
 
 
 class _SpotifyPanelUi:
@@ -54,8 +81,15 @@ class MediaPanel(tk.Frame):
         self._spotify_video_controller: MusicVideoController | None = None
         self._spotify_refresh_job: str | None = None
         self._spotify_presenter: SpotifyMediaPresenter | None = None
+        self._spotify_panel: SpotifyPlaybackPanel | None = None
+        self._spotify_refresh_generation = 0
+        self._spotify_refresh_in_flight = False
+        self._spotify_state_results: queue.SimpleQueue[tuple[int, MediaState]] = queue.SimpleQueue()
+        self._ui_dispatch_queue: queue.SimpleQueue[Callable[[], None]] = queue.SimpleQueue()
+        self._ui_dispatch_job: str | None = None
         self._closed = False
         self._build_shell()
+        self._ui_dispatch_job = self.after(25, self._poll_ui_dispatch)
         self.show_hub()
 
     def close(self) -> None:
@@ -63,6 +97,12 @@ class MediaPanel(tk.Frame):
             return
         self._closed = True
         self._cancel_spotify_refresh()
+        if self._ui_dispatch_job is not None:
+            try:
+                self.after_cancel(self._ui_dispatch_job)
+            except tk.TclError:
+                pass
+            self._ui_dispatch_job = None
         if self._spotify_video_controller is not None:
             self._spotify_video_controller.stop_video()
         if self._netflix_player is not None:
@@ -155,12 +195,13 @@ class MediaPanel(tk.Frame):
                     software_rendering=target is RuntimeTarget.LINUX_DEV,
                 ),
             )
-            panel = SpotifyPlaybackPanel(
+            panel = _ThreadSafeSpotifyPlaybackPanel(
                 self._view_host,
                 music_video_controller=video_controller,
                 image_cache=ImageCache(max_entries=64),
                 lyrics_client=LrclibLyricsClient(),
                 theme=SPOTIFY_PANEL_THEME,
+                ui_dispatch=self._dispatch_ui,
             )
             presenter = SpotifyMediaPresenter(controller, _SpotifyPanelUi(panel))
             panel.set_playback_request_handler(presenter)
@@ -170,6 +211,7 @@ class MediaPanel(tk.Frame):
             panel.pack(fill=tk.BOTH, expand=True, padx=4, pady=4)
             self._spotify_video_controller = video_controller
             self._spotify_presenter = presenter
+            self._spotify_panel = panel
             self._refresh_spotify()
         except Exception as error:
             self._show_error("Spotify", error)
@@ -253,8 +295,11 @@ class MediaPanel(tk.Frame):
             self._media_back.grid_remove()
 
     def _clear_view(self) -> None:
+        self._spotify_refresh_generation += 1
+        self._spotify_refresh_in_flight = False
         self._cancel_spotify_refresh()
         self._spotify_presenter = None
+        self._spotify_panel = None
         if self._spotify_video_controller is not None:
             self._spotify_video_controller.stop_video()
             self._spotify_video_controller = None
@@ -273,13 +318,60 @@ class MediaPanel(tk.Frame):
 
     def _refresh_spotify(self) -> None:
         presenter = self._spotify_presenter
-        if presenter is None or self._closed:
+        panel = self._spotify_panel
+        if presenter is None or panel is None or self._closed or self._spotify_refresh_in_flight:
             return
+        generation = self._spotify_refresh_generation
+        self._spotify_refresh_in_flight = True
+        threading.Thread(
+            target=self._load_spotify_state,
+            args=(presenter, generation),
+            name="orcui-spotify-state",
+            daemon=True,
+        ).start()
+        self._spotify_refresh_job = self.after(25, lambda: self._poll_spotify_state(generation))
+
+    def _load_spotify_state(self, presenter: SpotifyMediaPresenter, generation: int) -> None:
+        state = presenter.read_state()
+        self._spotify_state_results.put((generation, state))
+
+    def _poll_spotify_state(self, generation: int) -> None:
+        self._spotify_refresh_job = None
+        panel = self._spotify_panel
+        if panel is None or self._closed or generation != self._spotify_refresh_generation:
+            return
+        while True:
+            try:
+                result_generation, state = self._spotify_state_results.get_nowait()
+            except queue.Empty:
+                self._spotify_refresh_job = self.after(25, lambda: self._poll_spotify_state(generation))
+                return
+            if result_generation == generation:
+                break
+        self._spotify_refresh_in_flight = False
         try:
-            presenter.refresh()
-        except Exception as error:
-            self._status_callback(f"Spotify refresh failed: {error}")
+            panel.set_media_state(state)
+        except tk.TclError:
+            return
         self._spotify_refresh_job = self.after(5000, self._refresh_spotify)
+
+    def _dispatch_ui(self, callback: Callable[[], None]) -> None:
+        self._ui_dispatch_queue.put(callback)
+
+    def _poll_ui_dispatch(self) -> None:
+        self._ui_dispatch_job = None
+        if self._closed:
+            return
+        for _ in range(100):
+            try:
+                callback = self._ui_dispatch_queue.get_nowait()
+            except queue.Empty:
+                break
+            try:
+                callback()
+            except (RuntimeError, tk.TclError):
+                pass
+        self._ui_dispatch_job = self.after(25, self._poll_ui_dispatch)
 
     def _media_card(
         self,
