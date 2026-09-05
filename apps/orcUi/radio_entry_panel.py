@@ -12,30 +12,32 @@ import tkinter as tk
 
 from apps.launchers.sdrpp_launcher import SDRPPLauncher, SDRPPProfile
 from apps.orcUi.radio_panel import RadioPanel
+from apps.orcUi.theme_runtime import theme_bundle
 from config.radio_config_manager import load_radio_config
 from controllers.radio.radio_profiles import RadioProfileCatalog
 from frontends.x11 import X11WindowEmbedder
+from ui.theme import ThemeBundle, ThemeMode
 
-BG = "#05090d"
-PANEL = "#0b1117"
-BORDER = "#25313b"
-TEXT = "#edf2f5"
-MUTED = "#89959e"
-GREEN = "#84ce1f"
-BLUE = "#168bd1"
 RED = "#f15a16"
 
 
 class LaunchAwareRadioPanel(RadioPanel):
     """Radio panel that can present SDR++ startup state inside its X11 host."""
 
-    def __init__(self, parent: tk.Misc, *, embedder: X11WindowEmbedder) -> None:
+    def __init__(
+        self,
+        parent: tk.Misc,
+        *,
+        embedder: X11WindowEmbedder,
+        theme: ThemeBundle,
+    ) -> None:
         super().__init__(parent, embedder=embedder)
+        self._theme = theme
         self._launch_status = tk.Label(
             self._host,
             text="Loading SDR++…",
-            bg="#000000",
-            fg=TEXT,
+            bg=theme.ui.background,
+            fg=theme.ui.text,
             font=("Sans", 20, "bold"),
             padx=24,
             pady=18,
@@ -43,7 +45,7 @@ class LaunchAwareRadioPanel(RadioPanel):
         self._launch_status.place(relx=0.5, rely=0.5, anchor="center")
 
     def show_loading(self, text: str = "Loading SDR++…") -> None:
-        self._launch_status.configure(text=text, fg=TEXT)
+        self._launch_status.configure(text=text, fg=self._theme.ui.text)
         self._launch_status.place(relx=0.5, rely=0.5, anchor="center")
         self._launch_status.lift()
 
@@ -60,8 +62,11 @@ class RadioEntryPanel(tk.Frame):
         *,
         embedder: X11WindowEmbedder | None = None,
         launcher: SDRPPLauncher | None = None,
+        theme: ThemeBundle | None = None,
     ) -> None:
-        super().__init__(parent, bg=BG)
+        self._theme = theme or self._theme_for_parent(parent)
+        ui = self._theme.ui
+        super().__init__(parent, bg=ui.background)
         self._embedder = embedder or X11WindowEmbedder()
         self._display = os.environ.get("DISPLAY", ":1")
         self._launcher = launcher or SDRPPLauncher(
@@ -74,13 +79,22 @@ class RadioEntryPanel(tk.Frame):
 
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(0, weight=1)
-        self._chooser = tk.Frame(self, bg=BG)
+        self._chooser = tk.Frame(self, bg=ui.background)
         self._chooser.grid(row=0, column=0, sticky="nsew")
         self._chooser.grid_columnconfigure(0, weight=1, uniform="radio-source")
         self._chooser.grid_columnconfigure(1, weight=1, uniform="radio-source")
         self._chooser.grid_rowconfigure(0, weight=1)
         self._build_choice_buttons()
         self._streaming_page = self._build_streaming_page()
+
+    @staticmethod
+    def _theme_for_parent(parent: tk.Misc) -> ThemeBundle:
+        try:
+            background = str(parent.cget("background")).lower()
+        except (AttributeError, tk.TclError):
+            background = ""
+        mode = ThemeMode.LIGHT if background == "#e8edf0" else ThemeMode.DARK
+        return theme_bundle(mode)
 
     @staticmethod
     def _default_sdrpp_profile() -> SDRPPProfile:
@@ -96,7 +110,8 @@ class RadioEntryPanel(tk.Frame):
         )
 
     def _build_choice_buttons(self) -> None:
-        rf_card = tk.Frame(self._chooser, bg=PANEL, highlightthickness=1, highlightbackground=BORDER)
+        ui = self._theme.ui
+        rf_card = tk.Frame(self._chooser, bg=ui.surface, highlightthickness=1, highlightbackground=ui.border)
         rf_card.grid(row=0, column=0, sticky="nsew", padx=(12, 6), pady=18)
         rf_card.grid_columnconfigure(0, weight=1)
         rf_card.grid_rowconfigure(0, weight=1)
@@ -104,17 +119,17 @@ class RadioEntryPanel(tk.Frame):
             rf_card,
             text="RF RADIO\n\n▶\n\nSDR++ / SDR",
             command=self._launch_rf_radio,
-            bg=PANEL,
-            fg=TEXT,
-            activebackground="#17232d",
-            activeforeground=GREEN,
+            bg=ui.surface,
+            fg=ui.text,
+            activebackground=ui.control_background,
+            activeforeground=ui.accent_success,
             relief=tk.FLAT,
             bd=0,
             font=("Sans", 22, "bold"),
         )
         self._rf_button.grid(row=0, column=0, sticky="nsew")
 
-        streaming_card = tk.Frame(self._chooser, bg=PANEL, highlightthickness=1, highlightbackground=BORDER)
+        streaming_card = tk.Frame(self._chooser, bg=ui.surface, highlightthickness=1, highlightbackground=ui.border)
         streaming_card.grid(row=0, column=1, sticky="nsew", padx=(6, 12), pady=18)
         streaming_card.grid_columnconfigure(0, weight=1)
         streaming_card.grid_rowconfigure(0, weight=1)
@@ -122,10 +137,10 @@ class RadioEntryPanel(tk.Frame):
             streaming_card,
             text="STREAMING RADIO\n\n◉\n\nINTERNET STATIONS",
             command=self._show_streaming_coming_soon,
-            bg=PANEL,
-            fg=TEXT,
-            activebackground="#17232d",
-            activeforeground=BLUE,
+            bg=ui.surface,
+            fg=ui.text,
+            activebackground=ui.control_background,
+            activeforeground=ui.accent_primary,
             relief=tk.FLAT,
             bd=0,
             font=("Sans", 22, "bold"),
@@ -135,22 +150,23 @@ class RadioEntryPanel(tk.Frame):
         self._status = tk.Label(
             self._chooser,
             text="Choose a radio source",
-            bg=BG,
-            fg=MUTED,
+            bg=ui.background,
+            fg=ui.text_muted,
             font=("Sans", 10),
         )
         self._status.grid(row=1, column=0, columnspan=2, pady=(0, 10))
 
     def _build_streaming_page(self) -> tk.Frame:
-        page = tk.Frame(self, bg=BG)
+        ui = self._theme.ui
+        page = tk.Frame(self, bg=ui.background)
         page.grid_columnconfigure(0, weight=1)
         page.grid_rowconfigure(0, weight=1)
-        card = tk.Frame(page, bg=PANEL, highlightthickness=1, highlightbackground=BORDER)
+        card = tk.Frame(page, bg=ui.surface, highlightthickness=1, highlightbackground=ui.border)
         card.grid(row=0, column=0, sticky="nsew", padx=12, pady=18)
-        tk.Label(card, text="STREAMING RADIO", bg=PANEL, fg=BLUE, font=("Sans", 18, "bold")).place(relx=0.5, rely=0.36, anchor="center")
-        tk.Label(card, text="COMING SOON", bg=PANEL, fg=TEXT, font=("Sans", 30, "bold")).place(relx=0.5, rely=0.50, anchor="center")
-        tk.Label(card, text="Regional internet stations, cached artwork, favorites, and more.", bg=PANEL, fg=MUTED, font=("Sans", 11)).place(relx=0.5, rely=0.62, anchor="center")
-        tk.Button(card, text="‹ BACK TO RADIO", command=self._show_chooser, bg="#101820", fg=TEXT, activebackground="#17232d", activeforeground=BLUE, relief=tk.FLAT, bd=0, font=("Sans", 10, "bold"), padx=16, pady=9).place(relx=0.5, rely=0.76, anchor="center")
+        tk.Label(card, text="STREAMING RADIO", bg=ui.surface, fg=ui.accent_primary, font=("Sans", 18, "bold")).place(relx=0.5, rely=0.36, anchor="center")
+        tk.Label(card, text="COMING SOON", bg=ui.surface, fg=ui.text, font=("Sans", 30, "bold")).place(relx=0.5, rely=0.50, anchor="center")
+        tk.Label(card, text="Regional internet stations, cached artwork, favorites, and more.", bg=ui.surface, fg=ui.text_muted, font=("Sans", 11)).place(relx=0.5, rely=0.62, anchor="center")
+        tk.Button(card, text="‹ BACK TO RADIO", command=self._show_chooser, bg=ui.control_background, fg=ui.control_text, activebackground=ui.control_active, activeforeground="#ffffff", relief=tk.FLAT, bd=0, font=("Sans", 10, "bold"), padx=16, pady=9).place(relx=0.5, rely=0.76, anchor="center")
         return page
 
     def _show_streaming_coming_soon(self) -> None:
@@ -166,7 +182,11 @@ class RadioEntryPanel(tk.Frame):
             return
         self._launching = True
         self._chooser.grid_remove()
-        self._radio_panel = LaunchAwareRadioPanel(self, embedder=self._embedder)
+        self._radio_panel = LaunchAwareRadioPanel(
+            self,
+            embedder=self._embedder,
+            theme=self._theme,
+        )
         self._radio_panel.grid(row=0, column=0, sticky="nsew")
         self._radio_panel.show_loading("Loading SDR++…")
         self.update_idletasks()
