@@ -17,11 +17,14 @@ class EarthInputCameraController(EarthCameraControllerIf):
         "city": (480.0, 480.0),
         "region": (480.0, 480.0, 480.0, 480.0),
     }
-    _PAN_VIEWPORT_FRACTION = 0.24
-    _TILT_VIEWPORT_FRACTION = 0.22
+    _PAN_BASE_REPEATS = 15
+    _PAN_MIN_REPEATS = 6
+    _PAN_MAX_REPEATS = 40
+    _TILT_VIEWPORT_FRACTION = 0.07
 
     def __init__(self, client: ChromiumDevToolsClient | None = None) -> None:
         self._client = client or ChromiumDevToolsClient(port=9223)
+        self._zoom_bias = 0
 
     @property
     def name(self) -> str:
@@ -38,37 +41,48 @@ class EarthInputCameraController(EarthCameraControllerIf):
         return False
 
     def zoom_in(self) -> bool:
-        return self._wheel(-480.0)
+        ok = self._wheel(-480.0)
+        if ok:
+            self._zoom_bias = min(8, self._zoom_bias + 1)
+        return ok
 
     def zoom_out(self) -> bool:
-        return self._wheel(480.0)
+        ok = self._wheel(480.0)
+        if ok:
+            self._zoom_bias = max(-8, self._zoom_bias - 1)
+        return ok
 
     def north_up(self) -> bool:
         return self._key("n", "KeyN", 78)
 
     def pan(self, *, up: float = 0.0, right: float = 0.0) -> bool:
-        """Pan by a fixed fraction of the visible viewport.
+        """Pan using Earth arrow controls with zoom-relative travel.
 
-        Because the gesture is specified in screen space, the ground distance
-        naturally scales with the current Earth zoom level.
+        Arrow-key pan is reliable in Earth. The repeat count grows as ORC zooms
+        in and shrinks as it zooms out, keeping a button press useful across
+        driving and regional scales.
         """
-        if up == 0.0 and right == 0.0:
+        key = None
+        if abs(up) >= abs(right) and up != 0.0:
+            key = ("ArrowUp", "ArrowUp", 38) if up > 0 else ("ArrowDown", "ArrowDown", 40)
+        elif right != 0.0:
+            key = ("ArrowRight", "ArrowRight", 39) if right > 0 else ("ArrowLeft", "ArrowLeft", 37)
+        if key is None:
             return True
-        try:
-            width, height = self._viewport_size()
-            dx = -right * width * self._PAN_VIEWPORT_FRACTION
-            dy = up * height * self._PAN_VIEWPORT_FRACTION
-            return self._drag(dx=dx, dy=dy)
-        except (OSError, RuntimeError, TypeError, ValueError):
-            return False
+
+        scale = 1.35 ** self._zoom_bias
+        repeats = round(self._PAN_BASE_REPEATS * scale)
+        repeats = max(self._PAN_MIN_REPEATS, min(self._PAN_MAX_REPEATS, repeats))
+        return all(self._key(*key, printable=False) for _ in range(repeats))
 
     def tilt(self, delta_deg: float) -> bool:
-        """Tilt with Google's documented Shift+left-drag gesture."""
+        """Tilt with a small Shift+left-drag step."""
         if delta_deg == 0.0:
             return True
         try:
             _, height = self._viewport_size()
-            dy = height * self._TILT_VIEWPORT_FRACTION
+            magnitude = max(0.5, min(2.0, abs(delta_deg) / 5.0))
+            dy = height * self._TILT_VIEWPORT_FRACTION * magnitude
             if delta_deg < 0.0:
                 dy = -dy
             return self._drag(dx=0.0, dy=dy, modifiers=8)
