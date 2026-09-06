@@ -92,6 +92,10 @@ class ChromiumDevToolsClient:
         longitude: float,
         *,
         accuracy_m: float = 5.0,
+        altitude_m: float | None = None,
+        altitude_accuracy_m: float | None = None,
+        heading_deg: float | None = None,
+        speed_m_s: float | None = None,
     ) -> None:
         """Override browser geolocation for the running Google Earth page."""
         if not -90.0 <= latitude <= 90.0:
@@ -100,18 +104,52 @@ class ChromiumDevToolsClient:
             raise ValueError("longitude must be between -180 and 180 degrees")
         if accuracy_m < 0.0:
             raise ValueError("accuracy_m must be non-negative")
-        self.command_earth(
-            "Emulation.setGeolocationOverride",
-            {
-                "latitude": float(latitude),
-                "longitude": float(longitude),
-                "accuracy": float(accuracy_m),
-            },
-        )
+        if altitude_accuracy_m is not None and altitude_accuracy_m < 0.0:
+            raise ValueError("altitude_accuracy_m must be non-negative")
+        if heading_deg is not None and not 0.0 <= heading_deg <= 360.0:
+            raise ValueError("heading_deg must be between 0 and 360 degrees")
+        if speed_m_s is not None and speed_m_s < 0.0:
+            raise ValueError("speed_m_s must be non-negative")
+
+        params: dict[str, float] = {
+            "latitude": float(latitude),
+            "longitude": float(longitude),
+            "accuracy": float(accuracy_m),
+        }
+        if altitude_m is not None:
+            params["altitude"] = float(altitude_m)
+        if altitude_accuracy_m is not None:
+            params["altitudeAccuracy"] = float(altitude_accuracy_m)
+        if heading_deg is not None:
+            params["heading"] = float(heading_deg)
+        if speed_m_s is not None:
+            params["speed"] = float(speed_m_s)
+
+        self.command_earth("Emulation.setGeolocationOverride", params)
 
     def clear_geolocation_override(self) -> None:
         """Restore normal browser geolocation behavior for Google Earth."""
         self.command_earth("Emulation.clearGeolocationOverride")
+
+    def geolocation_snapshot(self) -> dict[str, Any]:
+        """Return the geolocation values currently visible to the Earth page."""
+        value = self.evaluate_earth(
+            """new Promise(resolve => navigator.geolocation.getCurrentPosition(
+                position => resolve({
+                    ok: true,
+                    latitude: position.coords.latitude,
+                    longitude: position.coords.longitude,
+                    accuracy: position.coords.accuracy,
+                    altitude: position.coords.altitude,
+                    altitudeAccuracy: position.coords.altitudeAccuracy,
+                    heading: position.coords.heading,
+                    speed: position.coords.speed
+                }),
+                error => resolve({ok: false, code: error.code, message: error.message}),
+                {enableHighAccuracy: true, maximumAge: 0, timeout: 2000}
+            ))"""
+        )
+        return value if isinstance(value, dict) else {}
 
     def evaluate(self, target: DevToolsTarget, expression: str, *, return_by_value: bool = True) -> Any:
         """Evaluate JavaScript in a page target through the CDP WebSocket."""
