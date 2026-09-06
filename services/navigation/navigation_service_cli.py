@@ -136,7 +136,7 @@ def _build_ground_motion_source(config: NavigationServiceRuntimeConfig):
     )
 
 
-def build_controller(config: NavigationServiceRuntimeConfig):
+def build_controller(config: NavigationServiceRuntimeConfig, *, position_source=None):
     """Build the configured pre-publication navigation solution pipeline."""
     if config.solution.algorithm != "complementary_filter":
         raise ValueError(
@@ -144,10 +144,13 @@ def build_controller(config: NavigationServiceRuntimeConfig):
             f"{config.solution.algorithm}"
         )
 
+    if position_source is None:
+        position_source = _build_position_source(config)
+
     return NavigationController(
         sensor=_build_motion_sensor(config),
         filter_time_constant_s=config.solution.complementary_filter.time_constant_s,
-        gps_source=_build_position_source(config),
+        gps_source=position_source,
         ground_motion_source=_build_ground_motion_source(config),
     )
 
@@ -186,9 +189,13 @@ def main() -> int:
         print("Navigation service disabled by runtime configuration")
         return 0
 
-    controller = build_controller(config)
+    position_source = _build_position_source(config)
+    controller = build_controller(config, position_source=position_source)
     route_planning_controller = build_route_planning_controller(config)
     geocoder = build_geocoder(args.search_database)
+    route_simulator = (
+        position_source if isinstance(position_source, SimulatedPositionSource) else None
+    )
 
     publish_source = config.publish.source
     publisher = ZeroMqPublisher(system.messaging.publisher_endpoint)
@@ -201,6 +208,7 @@ def main() -> int:
         command_endpoint=config.command_endpoint,
         route_planning_controller=route_planning_controller,
         geocoder=geocoder,
+        route_simulator=route_simulator,
     )
 
     print("OpenRoadCode navigation service")
@@ -214,6 +222,7 @@ def main() -> int:
     print(f"  geocoding:         {'offline' if geocoder is not None else 'disabled'}")
     if geocoder is not None:
         print(f"  search database:   {Path(args.search_database).expanduser()}")
+    print(f"  route simulation:  {'available' if route_simulator is not None else 'disabled'}")
     print(f"  telemetry ingress: {system.messaging.publisher_endpoint}")
     print(f"  command endpoint:  {config.command_endpoint}")
     print(f"  publish rate:      {config.rate_hz:g} Hz")
