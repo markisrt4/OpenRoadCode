@@ -9,9 +9,12 @@ import threading
 import tkinter as tk
 from collections.abc import Callable
 
+from PIL import ImageTk
+
 from apps.orcUi.spotify_local_player import SpotifyLocalPlayer, SpotifyPlaybackMode
 from apps.orcUi.spotify_state_service import SpotifyStateService
 from controllers.spotify.spotify_library import SpotifyLibraryTrack, SpotifyPlaylist
+from frontends.tk.media.spotify_services_if import ArtworkProviderIf
 
 SPOTIFY_BG = "#121212"
 SPOTIFY_SURFACE = "#181818"
@@ -20,6 +23,7 @@ SPOTIFY_GREEN = "#1DB954"
 SPOTIFY_MUTED = "#B3B3B3"
 SPOTIFY_BORDER = "#303030"
 TEXT = "#FFFFFF"
+ART_SIZE = 56
 
 
 class SpotifyBrowsePanel(tk.Frame):
@@ -33,17 +37,25 @@ class SpotifyBrowsePanel(tk.Frame):
         local_player: SpotifyLocalPlayer,
         dispatch_ui: Callable[[Callable[[], None]], None],
         show_now_playing: Callable[[], None],
+        image_cache: ArtworkProviderIf | None = None,
     ) -> None:
         super().__init__(parent, bg=SPOTIFY_BG)
         self._service = service
         self._local_player = local_player
         self._dispatch_ui = dispatch_ui
         self._show_now_playing = show_now_playing
+        self._image_cache = image_cache
+        self._images: list[ImageTk.PhotoImage] = []
         self._content = tk.Frame(self, bg=SPOTIFY_BG)
         self._content.pack(fill=tk.BOTH, expand=True)
         self._mode_status: tk.Label | None = None
         self._mode_buttons: dict[SpotifyPlaybackMode, tk.Button] = {}
         self.show_home()
+
+    def show_now_playing_header(self) -> None:
+        self._clear()
+        self._build_mode_bar()
+        self._build_browse_bar(active="now")
 
     def show_home(self) -> None:
         self._clear()
@@ -69,10 +81,7 @@ class SpotifyBrowsePanel(tk.Frame):
         bar.pack(fill=tk.X, padx=4, pady=(0, 4))
         tk.Label(bar, text="PLAYBACK", bg=SPOTIFY_BG, fg=SPOTIFY_MUTED, font=("Sans", 8, "bold")).pack(side=tk.LEFT, padx=(8, 8), pady=5)
         self._mode_buttons = {}
-        for mode, command in (
-            (SpotifyPlaybackMode.REMOTE, self._local_player.request_remote),
-            (SpotifyPlaybackMode.PLAYER, self._local_player.request_player),
-        ):
+        for mode, command in ((SpotifyPlaybackMode.REMOTE, self._local_player.request_remote), (SpotifyPlaybackMode.PLAYER, self._local_player.request_player)):
             button = tk.Button(bar, text=mode.value, command=lambda c=command: self._change_mode(c), bg=SPOTIFY_SURFACE, fg=TEXT, activebackground=SPOTIFY_GREEN, activeforeground="#000000", relief=tk.FLAT, bd=0, font=("Sans", 9, "bold"), padx=14, pady=5)
             button.pack(side=tk.LEFT, padx=2, pady=4)
             self._mode_buttons[mode] = button
@@ -93,23 +102,19 @@ class SpotifyBrowsePanel(tk.Frame):
         state = self._local_player.state()
         for mode, button in self._mode_buttons.items():
             selected = state.mode is mode
-            button.configure(bg=SPOTIFY_GREEN if selected else SPOTIFY_SURFACE, fg="#000000" if selected else TEXT, state=tk.NORMAL if mode is SpotifyPlaybackMode.REMOTE or state.available else tk.DISABLED)
+            disabled = state.busy or (mode is SpotifyPlaybackMode.PLAYER and not state.available)
+            button.configure(bg=SPOTIFY_GREEN if selected else SPOTIFY_SURFACE, fg="#000000" if selected else TEXT, state=tk.DISABLED if disabled else tk.NORMAL)
         if self._mode_status is not None:
-            self._mode_status.configure(text=state.message)
+            self._mode_status.configure(text=state.message, fg=SPOTIFY_GREEN if state.mode is SpotifyPlaybackMode.PLAYER and not state.busy else SPOTIFY_MUTED)
 
     def _build_browse_bar(self, *, active: str | None) -> None:
         bar = tk.Frame(self._content, bg=SPOTIFY_BG)
         bar.pack(fill=tk.X, padx=4, pady=(0, 5))
         tk.Label(bar, text="BROWSE", bg=SPOTIFY_BG, fg=SPOTIFY_MUTED, font=("Sans", 8, "bold")).pack(side=tk.LEFT, padx=(8, 8), pady=6)
-        for key, text, command in (
-            ("now", "NOW PLAYING", self._show_now_playing),
-            ("liked", "♥  LIKED", self.show_saved),
-            ("recent", "RECENT", self.show_recent),
-            ("playlists", "PLAYLISTS", self.show_playlists),
-        ):
+        for key, text, command in (("now", "NOW PLAYING", self._show_now_playing), ("liked", "♥  LIKED", self.show_saved), ("recent", "RECENT", self.show_recent), ("playlists", "PLAYLISTS", self.show_playlists)):
             selected = key == active
-            tk.Button(bar, text=text, command=command, bg=SPOTIFY_GREEN if selected else SPOTIFY_SURFACE, fg="#000000" if selected else TEXT, activebackground=SPOTIFY_SURFACE_HOVER, activeforeground=TEXT, relief=tk.FLAT, bd=0, font=("Sans", 9, "bold"), padx=10, pady=5).pack(side=tk.LEFT, padx=2, pady=4)
-        tk.Button(bar, text="SEARCH · COMING SOON", state=tk.DISABLED, bg=SPOTIFY_SURFACE, fg=SPOTIFY_MUTED, disabledforeground=SPOTIFY_MUTED, relief=tk.FLAT, bd=0, font=("Sans", 9, "bold"), padx=10, pady=5).pack(side=tk.LEFT, padx=2, pady=4)
+            tk.Button(bar, text=text, command=command, bg=SPOTIFY_GREEN if selected else SPOTIFY_SURFACE, fg="#000000" if selected else TEXT, activebackground=SPOTIFY_GREEN, activeforeground="#000000", relief=tk.FLAT, bd=0, font=("Sans", 9, "bold"), padx=10, pady=5).pack(side=tk.LEFT, padx=2, pady=4)
+        tk.Button(bar, text="SEARCH · COMING SOON", state=tk.DISABLED, bg=SPOTIFY_BG, fg=SPOTIFY_MUTED, disabledforeground=SPOTIFY_MUTED, relief=tk.FLAT, bd=0, font=("Sans", 8, "bold"), padx=10, pady=5).pack(side=tk.LEFT, padx=(8, 2), pady=4)
 
     def _load_collection(self, title: str, active: str, loader: Callable[..., tuple[SpotifyLibraryTrack, ...]]) -> None:
         self._clear()
@@ -138,8 +143,11 @@ class SpotifyBrowsePanel(tk.Frame):
         self._build_browse_bar(active=active)
         self._heading(title, f"{len(tracks)} tracks")
         grid = self._grid()
+        if not tracks:
+            self._empty_message("No tracks returned.")
+            return
         for index, track in enumerate(tracks):
-            card = self._item_card(grid, track.name, track.artist_name, command=lambda uri=track.uri: self._play_track(uri))
+            card = self._track_card(grid, track)
             card.grid(row=index // 3, column=index % 3, sticky="nsew", padx=4, pady=4)
 
     def _render_playlists(self, playlists: tuple[SpotifyPlaylist, ...]) -> None:
@@ -148,10 +156,93 @@ class SpotifyBrowsePanel(tk.Frame):
         self._build_browse_bar(active="playlists")
         self._heading("PLAYLISTS", f"{len(playlists)} playlists")
         grid = self._grid()
+        if not playlists:
+            self._empty_message("No playlists returned.")
+            return
         for index, playlist in enumerate(playlists):
-            detail = f"{playlist.item_count} tracks · {playlist.owner_name}"
-            card = self._item_card(grid, playlist.name, detail, command=lambda item=playlist: self._open_playlist(item))
+            card = self._playlist_card(grid, playlist)
             card.grid(row=index // 3, column=index % 3, sticky="nsew", padx=4, pady=4)
+
+    def _track_card(self, parent: tk.Misc, track: SpotifyLibraryTrack) -> tk.Frame:
+        detail = track.artist_name
+        if track.album_name:
+            detail += f"  •  {track.album_name}"
+        return self._art_card(parent, track.name, detail, track.album_art_url, lambda: self._play_track(track.uri))
+
+    def _playlist_card(self, parent: tk.Misc, playlist: SpotifyPlaylist) -> tk.Frame:
+        detail = f"{playlist.item_count or 0} tracks"
+        if playlist.owner_name:
+            detail += f"  •  {playlist.owner_name}"
+        return self._art_card(parent, playlist.name, detail, playlist.image_url, lambda: self._open_playlist(playlist))
+
+    def _art_card(self, parent: tk.Misc, title_text: str, detail_text: str, artwork_url: str | None, command: Callable[[], None]) -> tk.Frame:
+        card = tk.Frame(parent, bg=SPOTIFY_SURFACE, highlightthickness=1, highlightbackground=SPOTIFY_BORDER, cursor="hand2", height=76)
+        card.grid_propagate(False)
+        card.grid_columnconfigure(1, weight=1)
+        art_host = tk.Frame(card, bg=SPOTIFY_SURFACE)
+        art_host.grid(row=0, column=0, rowspan=2, padx=7, pady=7)
+        art = tk.Label(art_host, text="♫", bg="#242424", fg=SPOTIFY_GREEN, font=("Sans", 18, "bold"), width=5, height=2)
+        art.pack()
+        loading = tk.Label(art_host, text="LOADING" if artwork_url else "", bg=SPOTIFY_SURFACE, fg=SPOTIFY_MUTED, font=("Sans", 6, "bold"))
+        loading.pack(pady=(1, 0))
+        title = tk.Label(card, text=title_text, bg=SPOTIFY_SURFACE, fg=TEXT, font=("Sans", 9, "bold"), anchor="w", justify=tk.LEFT, wraplength=150)
+        title.grid(row=0, column=1, sticky="sew", padx=(0, 7), pady=(7, 0))
+        detail = tk.Label(card, text=detail_text, bg=SPOTIFY_SURFACE, fg=SPOTIFY_MUTED, font=("Sans", 8), anchor="w", justify=tk.LEFT, wraplength=155)
+        detail.grid(row=1, column=1, sticky="new", padx=(0, 7), pady=(1, 7))
+        widgets = (card, art_host, art, loading, title, detail)
+        for widget in widgets:
+            widget.bind("<Button-1>", lambda _event, c=command: c())
+        self._bind_hover(card, widgets[1:])
+        if artwork_url and self._image_cache is not None:
+            self._load_artwork(artwork_url, art, loading)
+        return card
+
+    def _load_artwork(self, url: str, label: tk.Label, loading: tk.Label) -> None:
+        def worker() -> None:
+            try:
+                image = self._image_cache.get(url, width=ART_SIZE, height=ART_SIZE) if self._image_cache is not None else None
+            except Exception:
+                image = None
+            self._dispatch_ui(lambda: self._apply_artwork(label, loading, image))
+        threading.Thread(target=worker, daemon=True, name="spotify-library-art").start()
+
+    def _apply_artwork(self, label: tk.Label, loading: tk.Label, image: object | None) -> None:
+        try:
+            if not label.winfo_exists():
+                return
+            if loading.winfo_exists():
+                loading.configure(text="")
+            if image is None:
+                return
+            photo = ImageTk.PhotoImage(image)
+            self._images.append(photo)
+            label.configure(image=photo, text="", width=ART_SIZE, height=ART_SIZE)
+        except tk.TclError:
+            return
+
+    @staticmethod
+    def _bind_hover(card: tk.Frame, children: tuple[tk.Widget, ...]) -> None:
+        def enter(_event=None) -> None:
+            try:
+                card.configure(bg=SPOTIFY_SURFACE_HOVER, highlightbackground=SPOTIFY_GREEN)
+                for widget in children:
+                    if widget.cget("bg") == SPOTIFY_SURFACE:
+                        widget.configure(bg=SPOTIFY_SURFACE_HOVER)
+            except tk.TclError:
+                pass
+        def leave(_event=None) -> None:
+            try:
+                card.configure(bg=SPOTIFY_SURFACE, highlightbackground=SPOTIFY_BORDER)
+                for widget in children:
+                    if widget.cget("bg") == SPOTIFY_SURFACE_HOVER:
+                        widget.configure(bg=SPOTIFY_SURFACE)
+            except tk.TclError:
+                pass
+        card.bind("<Enter>", enter)
+        card.bind("<Leave>", leave)
+        for widget in children:
+            widget.bind("<Enter>", enter, add="+")
+            widget.bind("<Leave>", leave, add="+")
 
     def _open_playlist(self, playlist: SpotifyPlaylist) -> None:
         self._clear()
@@ -168,6 +259,7 @@ class SpotifyBrowsePanel(tk.Frame):
 
     def _play_track(self, uri: str) -> None:
         self._service.request_play_track(uri)
+        self._service.request_refresh()
         self._show_now_playing()
 
     def _grid(self) -> tk.Frame:
@@ -176,13 +268,6 @@ class SpotifyBrowsePanel(tk.Frame):
         for column in range(3):
             grid.grid_columnconfigure(column, weight=1, uniform="spotify-items")
         return grid
-
-    def _item_card(self, parent: tk.Misc, title: str, detail: str, *, command: Callable[[], None]) -> tk.Frame:
-        card = tk.Frame(parent, bg=SPOTIFY_SURFACE, highlightthickness=1, highlightbackground=SPOTIFY_BORDER, height=72)
-        card.grid_propagate(False)
-        body = tk.Button(card, text=f"{title}\n{detail}", command=command, anchor="w", justify=tk.LEFT, bg=SPOTIFY_SURFACE, fg=TEXT, activebackground=SPOTIFY_SURFACE_HOVER, activeforeground=TEXT, relief=tk.FLAT, bd=0, font=("Sans", 9, "bold"), padx=10, pady=8)
-        body.pack(fill=tk.BOTH, expand=True)
-        return card
 
     def _heading(self, title: str, detail: str) -> None:
         header = tk.Frame(self._content, bg=SPOTIFY_BG)
@@ -203,5 +288,6 @@ class SpotifyBrowsePanel(tk.Frame):
         self._empty_message(f"Spotify: {detail}")
 
     def _clear(self) -> None:
+        self._images.clear()
         for child in self._content.winfo_children():
             child.destroy()
