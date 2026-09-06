@@ -10,7 +10,7 @@ from controllers.navigation.earth_camera_controller_if import EarthCameraControl
 
 
 class EarthInputCameraController(EarthCameraControllerIf):
-    """Drive Google Earth's normal camera shortcuts through Chrome DevTools input."""
+    """Drive Google Earth's camera through Chrome DevTools input events."""
 
     def __init__(self, client: ChromiumDevToolsClient | None = None) -> None:
         self._client = client or ChromiumDevToolsClient(port=9223)
@@ -32,21 +32,60 @@ class EarthInputCameraController(EarthCameraControllerIf):
         return False
 
     def zoom_in(self) -> bool:
-        return self._key("+")
+        return self._wheel(-480.0)
 
     def zoom_out(self) -> bool:
-        return self._key("-")
+        return self._wheel(480.0)
 
     def north_up(self) -> bool:
-        return self._key("n")
+        return self._key("n", "KeyN", 78)
 
-    def _key(self, key: str) -> bool:
-        """Send a real browser key press to the Earth page via CDP."""
+    def _wheel(self, delta_y: float) -> bool:
+        """Zoom at the center of the Earth viewport using a browser wheel event."""
         try:
             self._client.activate(self._require_target_id())
-            params = self._key_params(key)
-            self._client.command_earth("Input.dispatchKeyEvent", {"type": "keyDown", **params})
-            self._client.command_earth("Input.dispatchKeyEvent", {"type": "keyUp", **params})
+            viewport = self._client.evaluate_earth(
+                "({width: Math.max(1, window.innerWidth), height: Math.max(1, window.innerHeight)})"
+            )
+            value = viewport.get("result", {}).get("result", {}).get("value", {})
+            width = float(value.get("width", 800))
+            height = float(value.get("height", 500))
+            self._client.command_earth(
+                "Input.dispatchMouseEvent",
+                {
+                    "type": "mouseWheel",
+                    "x": width / 2.0,
+                    "y": height / 2.0,
+                    "deltaX": 0.0,
+                    "deltaY": delta_y,
+                },
+            )
+            return True
+        except (OSError, RuntimeError, TypeError, ValueError):
+            return False
+
+    def _key(self, key: str, code: str, virtual_key: int) -> bool:
+        """Send the same key sequence Chrome generates for a printable shortcut."""
+        try:
+            self._client.activate(self._require_target_id())
+            common = {
+                "key": key,
+                "code": code,
+                "windowsVirtualKeyCode": virtual_key,
+                "nativeVirtualKeyCode": virtual_key,
+            }
+            self._client.command_earth(
+                "Input.dispatchKeyEvent",
+                {"type": "rawKeyDown", **common},
+            )
+            self._client.command_earth(
+                "Input.dispatchKeyEvent",
+                {"type": "char", "text": key, "unmodifiedText": key, **common},
+            )
+            self._client.command_earth(
+                "Input.dispatchKeyEvent",
+                {"type": "keyUp", **common},
+            )
             return True
         except (OSError, RuntimeError, ValueError):
             return False
@@ -56,35 +95,3 @@ class EarthInputCameraController(EarthCameraControllerIf):
         if target is None:
             raise RuntimeError("Google Earth DevTools target is not available")
         return target.id
-
-    @staticmethod
-    def _key_params(key: str) -> dict[str, object]:
-        if key == "+":
-            return {
-                "key": "+",
-                "code": "Equal",
-                "windowsVirtualKeyCode": 187,
-                "nativeVirtualKeyCode": 187,
-                "text": "+",
-                "unmodifiedText": "+",
-                "modifiers": 8,
-            }
-        if key == "-":
-            return {
-                "key": "-",
-                "code": "Minus",
-                "windowsVirtualKeyCode": 189,
-                "nativeVirtualKeyCode": 189,
-                "text": "-",
-                "unmodifiedText": "-",
-            }
-        if key == "n":
-            return {
-                "key": "n",
-                "code": "KeyN",
-                "windowsVirtualKeyCode": 78,
-                "nativeVirtualKeyCode": 78,
-                "text": "n",
-                "unmodifiedText": "n",
-            }
-        raise ValueError(f"unsupported Earth key: {key}")
