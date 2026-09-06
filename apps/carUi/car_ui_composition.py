@@ -33,6 +33,11 @@ from messaging.contracts.navigation import (
 from messaging.contracts.route_guidance import ROUTE_GUIDANCE_STATE_TOPIC, decode_route_guidance_state
 from messaging.message_dispatcher import MessageDispatcher
 from messaging.zeromq import ZeroMqSubscriber
+from services.navigation.navigation_command_client import (
+    NavigationCommandClient,
+    NavigationCommandError,
+    NavigationCommandUnavailableError,
+)
 from ui.screen_ui_if import ScreenUiIf
 from ui.ui_action import UiAction
 
@@ -77,6 +82,24 @@ class CarUiComposition:
         self.vehicle_gauges_screen = screens.vehicle_gauges
         self.turn_by_turn_screen = screens.turn_by_turn
         self.route_guidance_presenter = RouteGuidancePresenter(self.turn_by_turn_screen)
+
+        config = ServiceRuntimeConfigParser(self.dependencies.runtime.config_path).load()
+        self.navigation_command_client = NavigationCommandClient(
+            config.navigation.command_endpoint
+        )
+        set_simulation_action = getattr(
+            self.turn_by_turn_screen, "set_simulation_action", None
+        )
+        if callable(set_simulation_action):
+            set_simulation_action(self._simulate_active_route)
+
+    def _simulate_active_route(self) -> None:
+        try:
+            self.navigation_command_client.simulate_active_route(time_scale=60.0)
+        except (NavigationCommandError, NavigationCommandUnavailableError) as error:
+            self.frontend.status_bar.set_status(f"Simulation unavailable: {error}")
+            return
+        self.frontend.status_bar.set_status("Route simulation started at 60x")
 
     def _assemble_message_bus(self) -> None:
         """Route public telemetry contracts into screens on the frontend thread."""
