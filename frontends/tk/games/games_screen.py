@@ -21,7 +21,7 @@ from frontends.tk.tk_screen import TkScreen
 from frontends.tk.tk_screen_host_if import TkScreenHostIf
 from frontends.x11.x11_window_embedder import X11WindowEmbedder
 from ui.screen_ui_if import ScreenId
-from ui.theme import ThemeMode
+from ui.theme import ThemeBundle, ThemeMode
 
 from .games_panel import GamesPanel
 
@@ -33,10 +33,12 @@ class GamesScreen(TkScreen):
         self,
         host: TkScreenHostIf,
         *,
+        theme_bundle: Callable[[], ThemeBundle],
         theme_mode: Callable[[], ThemeMode],
     ) -> None:
         super().__init__(ScreenId("games"))
         self._host = host
+        self._theme_bundle = theme_bundle
         self._theme_mode = theme_mode
         self._panel: GamesPanel | None = None
         self._controller: GameController | None = None
@@ -46,14 +48,12 @@ class GamesScreen(TkScreen):
         self._pending_size: tuple[int, int] | None = None
 
     def show(self) -> None:
-        """Build Games into the host and begin inventory discovery."""
         self.hide()
         self._host.activate_screen(self)
         self._host.clear_screen_content()
         self._host.set_screen_title("GAMES")
 
-        panel = GamesPanel(self._host.screen_parent)
-        panel.set_light_mode(self._theme_mode() is ThemeMode.LIGHT)
+        panel = GamesPanel(self._host.screen_parent, theme=self._theme_bundle())
         panel.pack(fill=tk.BOTH, expand=True)
 
         controller = GameController(
@@ -70,7 +70,6 @@ class GamesScreen(TkScreen):
         controller.start()
 
     def hide(self) -> None:
-        """Disconnect the UI and stop transient native-game activity."""
         controller = self._controller
         if controller is not None:
             controller.set_games_ui(None)
@@ -81,13 +80,13 @@ class GamesScreen(TkScreen):
         self._panel = None
 
     def set_theme_mode(self, mode: ThemeMode) -> None:
-        """Apply a theme change to the active Games panel."""
+        """Apply the current CSS-derived theme bundle to Games."""
+        del mode
         panel = self._panel
         if panel is not None and panel.winfo_exists():
-            panel.set_light_mode(mode is ThemeMode.LIGHT)
+            panel.set_theme_bundle(self._theme_bundle())
 
     def shutdown(self) -> None:
-        """Release Games resources during application shutdown."""
         self.hide()
 
     @staticmethod
@@ -109,11 +108,7 @@ class GamesScreen(TkScreen):
 
         host_id, width, height = panel.show_runtime_host(self._resize_runtime)
         try:
-            self._launcher.launch(
-                game,
-                backend.launch_command(game),
-                on_exit=self._process_exited,
-            )
+            self._launcher.launch(game, backend.launch_command(game), on_exit=self._process_exited)
         except Exception:
             panel.hide_runtime_host()
             raise
@@ -158,10 +153,7 @@ class GamesScreen(TkScreen):
     def _resize_runtime(self, width: int, height: int) -> None:
         self._pending_size = (width, height)
         self._cancel_resize()
-        self._resize_callback_id = self._host.schedule_ui_callback(
-            75,
-            self._dispatch_resize,
-        )
+        self._resize_callback_id = self._host.schedule_ui_callback(75, self._dispatch_resize)
 
     def _cancel_resize(self) -> None:
         callback_id = self._resize_callback_id
