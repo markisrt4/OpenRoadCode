@@ -132,7 +132,7 @@ def main() -> None:
             theme_bundle=lambda: theme_bundle(app.theme_mode),
             active=active,
             show_media=lambda: media_screen.show(),
-            show_home=lambda: app._select_nav("HOME"),
+            show_home=lambda: app.navigate_to("HOME"),
             show_spotify=lambda: spotify_screen.show(),
             show_youtube=lambda: youtube_screen.show(),
             show_netflix=lambda: netflix_screen.show(),
