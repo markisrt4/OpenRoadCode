@@ -63,9 +63,11 @@ class BrowserMediaScreen(TkScreen):
         self._panel_factory = panel_factory
         self._back_action = back_action
         self._media_navigation_factory = media_navigation_factory
+        self._launch_job: object | None = None
 
     def show(self) -> None:
         """Open the provider directly while retaining ORC media navigation."""
+        self.hide()
         self._host.activate_screen(self)
         self._host.clear_screen_content()
         self._host.set_screen_title(self._title)
@@ -89,12 +91,27 @@ class BrowserMediaScreen(TkScreen):
         )
         panel.pack(fill=tk.BOTH, expand=True)
 
-        # The browser uses the panel's final screen coordinates for kiosk
-        # placement. Resolve Tk geometry first, then launch immediately so the
-        # user never lands on a redundant provider-specific launch screen.
-        root.update_idletasks()
-        panel.open_home()
+        # Do not spawn and manipulate an external X11 browser while Tk is
+        # still inside the navigation callback that is destroying/rebuilding
+        # the screen hierarchy.  Let Tk finish that transaction first, then
+        # launch the provider on the next event-loop turn.  This preserves the
+        # direct-to-kiosk UX without mixing two X11 lifecycle operations in one
+        # callback.
+        self._launch_job = self._host.schedule_ui_callback(
+            1,
+            lambda: self._open_panel(panel),
+        )
 
     def hide(self) -> None:
-        """Stop the browser owned by this screen when navigating away."""
+        """Cancel pending launch work and stop this screen's browser."""
+        if self._launch_job is not None:
+            try:
+                self._host.cancel_ui_callback(self._launch_job)
+            except Exception:
+                pass
+            self._launch_job = None
         self._player.stop()
+
+    def _open_panel(self, panel: BrowserMediaPanelIf) -> None:
+        self._launch_job = None
+        panel.open_home()
