@@ -24,6 +24,8 @@ class EarthInputCameraController(EarthCameraControllerIf):
     _ROTATE_VIEWPORT_FRACTION_PER_45_DEG = 0.12
     _CHASE_ZOOM_STEPS = 12
     _CHASE_ZOOM_FOCUS_Y = 0.36
+    _LOCATION_RIGHT_MARGIN_PX = 34.0
+    _LOCATION_BOTTOM_MARGIN_PX = 34.0
 
     def __init__(self, client: ChromiumDevToolsClient | None = None) -> None:
         self._client = client or ChromiumDevToolsClient(port=9223)
@@ -56,12 +58,7 @@ class EarthInputCameraController(EarthCameraControllerIf):
         return ok
 
     def zoom_closest(self) -> bool:
-        """Drive Earth toward its closest useful zoom level.
-
-        In an oblique chase view, focus the wheel above screen center where
-        Earth's tracked vehicle sits. This closes camera range on the vehicle
-        instead of zooming toward empty foreground behind it.
-        """
+        """Drive Earth toward its closest useful zoom level."""
         ok = all(
             self._wheel(-600.0, y_fraction=self._CHASE_ZOOM_FOCUS_Y)
             for _ in range(self._CHASE_ZOOM_STEPS)
@@ -79,9 +76,26 @@ class EarthInputCameraController(EarthCameraControllerIf):
 
     def toggle_menu_bar(self) -> bool:
         """Toggle Google Earth's menu bar using its Ctrl+Shift+B shortcut."""
-        # Chrome DevTools modifier bits: Alt=1, Ctrl=2, Meta=4, Shift=8.
-        # Keep this non-printable so a failed shortcut cannot type into search.
         return self._key("B", "KeyB", 66, printable=False, modifiers=10)
+
+    def activate_location_tracking(self) -> bool:
+        """Click Google's location tool in the bottom-right of the Earth viewport."""
+        try:
+            self._client.activate(self._require_target_id())
+            width, height = self._viewport_size()
+            x = max(1.0, width - self._LOCATION_RIGHT_MARGIN_PX)
+            y = max(1.0, height - self._LOCATION_BOTTOM_MARGIN_PX)
+            self._client.command_earth(
+                "Input.dispatchMouseEvent",
+                {"type": "mousePressed", "x": x, "y": y, "button": "left", "buttons": 1, "clickCount": 1},
+            )
+            self._client.command_earth(
+                "Input.dispatchMouseEvent",
+                {"type": "mouseReleased", "x": x, "y": y, "button": "left", "buttons": 0, "clickCount": 1},
+            )
+            return True
+        except (OSError, RuntimeError, TypeError, ValueError):
+            return False
 
     def pan(self, *, up: float = 0.0, right: float = 0.0) -> bool:
         """Pan using Earth arrow controls with zoom-relative travel."""
@@ -135,8 +149,9 @@ class EarthInputCameraController(EarthCameraControllerIf):
         viewport = self._client.evaluate_earth(
             "({width: Math.max(1, window.innerWidth), height: Math.max(1, window.innerHeight)})"
         )
-        value = viewport.get("result", {}).get("result", {}).get("value", {})
-        return float(value.get("width", 800)), float(value.get("height", 500))
+        if isinstance(viewport, dict):
+            return float(viewport.get("width", 800)), float(viewport.get("height", 500))
+        return 800.0, 500.0
 
     def _drag(self, *, dx: float, dy: float, modifiers: int = 0) -> bool:
         self._client.activate(self._require_target_id())
