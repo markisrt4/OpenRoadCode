@@ -103,7 +103,7 @@ class NavigationPanel(tk.Frame):
    self._earth_initialized=False;self._earth_button.configure(text="◉  EARTH",bg=BLUE,fg="white");self._update_follow_button();self._update_chase_button();self._shortcut_status.set(f"Earth unavailable: {exc}")
  def _toggle_earth_menu(self):
   if not self._earth_visible:return
-  if self._earth_input.toggle_menu_bar():
+  if self._earth_embedder.send_key("ctrl+shift+b"):
    self._earth_menu_visible=not self._earth_menu_visible;self._update_menu_button();self._shortcut_status.set("Earth menu shown" if self._earth_menu_visible else "Earth menu hidden")
   else:self._shortcut_status.set("Earth menu control unavailable")
  def _start_earth_hud(self)->None:
