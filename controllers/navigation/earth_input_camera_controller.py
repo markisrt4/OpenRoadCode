@@ -77,6 +77,12 @@ class EarthInputCameraController(EarthCameraControllerIf):
         """Reset Earth to a zero-pitch top-down view."""
         return self._key("u", "KeyU", 85)
 
+    def toggle_menu_bar(self) -> bool:
+        """Toggle Google Earth's menu bar using its Ctrl+Shift+B shortcut."""
+        # Chrome DevTools modifier bits: Alt=1, Ctrl=2, Meta=4, Shift=8.
+        # Keep this non-printable so a failed shortcut cannot type into search.
+        return self._key("B", "KeyB", 66, printable=False, modifiers=10)
+
     def pan(self, *, up: float = 0.0, right: float = 0.0) -> bool:
         """Pan using Earth arrow controls with zoom-relative travel."""
         key = None
