@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 
-"""Compose shared external-application lifecycle policy for orcUi."""
+"""Compose shared application lifecycle policy for orcUi."""
 
 from __future__ import annotations
 
@@ -11,6 +11,7 @@ from pathlib import Path
 
 from apps.launchers.managed_sdrpp_launcher import ManagedSDRPPLauncher
 from apps.launchers.sdrpp_launcher import SDRPPProfile
+from apps.orcUi.media_application_service import MediaApplicationService
 from apps.orcUi.radio_application_service import ManagedRadioApplicationService
 from config.application_config import ApplicationsConfigParser
 from config.radio_config_manager import load_radio_config
@@ -24,20 +25,25 @@ TERMUX_APPLICATIONS_CONFIG_PATH = PROJECT_ROOT / "config" / "applications.termux
 
 @dataclass(frozen=True, slots=True)
 class OrcUiApplicationRuntime:
-    """Managed external applications composed for the ORC frontend."""
+    """Managed application services composed for the ORC frontend."""
 
     manager: AppRuntimeManager
     radio: ManagedRadioApplicationService
+    media: MediaApplicationService
 
     def start_background_apps(self) -> None:
+        """Apply configured external-app policy and start shared media work."""
         self.manager.start_background_apps(_report_background_status)
+        self.media.start()
 
     def close(self) -> None:
+        """Close media services before terminating managed applications."""
+        self.media.close()
         self.manager.stop_all()
 
 
 def create_orc_ui_application_runtime() -> OrcUiApplicationRuntime:
-    """Load platform application policy and register orcUi launchers."""
+    """Load platform application policy and compose ORC application services."""
     config = ApplicationsConfigParser(_applications_config_path()).load()
     fallback_display = os.environ.get("DISPLAY", ":1" if _is_termux() else ":0")
     manager = AppRuntimeManager(config, remote_display=fallback_display)
@@ -48,7 +54,8 @@ def create_orc_ui_application_runtime() -> OrcUiApplicationRuntime:
     )
     manager.register("sdrpp", sdrpp)
     radio = ManagedRadioApplicationService(manager, sdrpp)
-    return OrcUiApplicationRuntime(manager=manager, radio=radio)
+    media = MediaApplicationService()
+    return OrcUiApplicationRuntime(manager=manager, radio=radio, media=media)
 
 
 def _applications_config_path() -> Path:
