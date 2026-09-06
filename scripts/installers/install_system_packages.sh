@@ -34,38 +34,21 @@ detect_host_arch() {
   fi
 
   case "$arch" in
-    amd64|x86_64|x64)
-      echo "amd64"
-      ;;
-    arm64|aarch64)
-      echo "arm64"
-      ;;
-    armhf|armv7l|armv6l|armv8l)
-      echo "armhf"
-      ;;
-    *)
-      echo "$arch"
-      ;;
+    amd64|x86_64|x64) echo "amd64" ;;
+    arm64|aarch64) echo "arm64" ;;
+    armhf|armv7l|armv6l|armv8l) echo "armhf" ;;
+    *) echo "$arch" ;;
   esac
 }
 
 HOST_ARCH="$(detect_host_arch)"
 case "$HOST_ARCH" in
-  amd64)
-    echo "[*] Detected x86_64/amd64 host; using desktop-oriented package flow."
-    ;;
-  arm64|armhf)
-    echo "[*] Detected ARM host; using the Debian ARM package flow."
-    ;;
-  *)
-    echo "[*] Detected host architecture: $HOST_ARCH"
-    ;;
+  amd64) echo "[*] Detected x86_64/amd64 host; using desktop-oriented package flow." ;;
+  arm64|armhf) echo "[*] Detected ARM host; using the Debian ARM package flow." ;;
+  *) echo "[*] Detected host architecture: $HOST_ARCH" ;;
 esac
 
-echo "[*] Updating apt..."
-sudo apt update
-
-echo "[*] Installing feature-based packages..."
+echo "[*] Checking feature-based system packages..."
 base_packages=()
 for feature in "${FEATURES[@]}"; do
   if ! is_known_feature "$feature"; then
@@ -81,7 +64,6 @@ for feature in "${FEATURES[@]}"; do
   done < <(get_feature_packages "$feature")
 done
 
-# Deduplicate while preserving order
 unique_packages=()
 for pkg in "${base_packages[@]}"; do
   if [[ " ${unique_packages[*]} " != *" $pkg "* ]]; then
@@ -89,39 +71,54 @@ for pkg in "${base_packages[@]}"; do
   fi
 done
 
-available_packages=()
+missing_packages=()
 for pkg in "${unique_packages[@]}"; do
   if dpkg -s "$pkg" >/dev/null 2>&1; then
     echo "[*] Already installed: $pkg"
-    continue
-  fi
-
-  if apt-cache show "$pkg" >/dev/null 2>&1; then
-    available_packages+=("$pkg")
   else
-    echo "[!] Package not available, skipping: $pkg"
+    missing_packages+=("$pkg")
   fi
 done
 
-if (( ${#available_packages[@]} > 0 )); then
-  echo "[*] Installing: ${available_packages[*]}"
-  sudo apt install -y --no-install-recommends "${available_packages[@]}"
+if (( ${#missing_packages[@]} > 0 )); then
+  echo "[*] Missing system packages detected; updating apt metadata..."
+  sudo apt update
+
+  available_packages=()
+  for pkg in "${missing_packages[@]}"; do
+    if apt-cache show "$pkg" >/dev/null 2>&1; then
+      available_packages+=("$pkg")
+    else
+      echo "[!] Package not available, skipping: $pkg"
+    fi
+  done
+
+  if (( ${#available_packages[@]} > 0 )); then
+    echo "[*] Installing: ${available_packages[*]}"
+    sudo apt install -y --no-install-recommends "${available_packages[@]}"
+  fi
+else
+  echo "[*] All requested system packages are already installed; skipping apt update/install."
 fi
 
 if [[ " ${FEATURES[*]} " == *" browser "* ]]; then
-  echo "[*] Installing Chromium..."
+  echo "[*] Checking Chromium..."
   if dpkg -s chromium >/dev/null 2>&1; then
     echo "[*] Already installed: chromium"
   elif dpkg -s chromium-browser >/dev/null 2>&1; then
     echo "[*] Already installed: chromium-browser"
-  elif apt-cache show chromium >/dev/null 2>&1; then
-    echo "[*] Installing Chromium browser: chromium"
-    sudo apt install -y --no-install-recommends chromium
-  elif apt-cache show chromium-browser >/dev/null 2>&1; then
-    echo "[*] Installing Chromium browser: chromium-browser"
-    sudo apt install -y --no-install-recommends chromium-browser
   else
-    echo "[!] No available Chromium package found."
+    echo "[*] Chromium is missing; updating apt metadata..."
+    sudo apt update
+    if apt-cache show chromium >/dev/null 2>&1; then
+      echo "[*] Installing Chromium browser: chromium"
+      sudo apt install -y --no-install-recommends chromium
+    elif apt-cache show chromium-browser >/dev/null 2>&1; then
+      echo "[*] Installing Chromium browser: chromium-browser"
+      sudo apt install -y --no-install-recommends chromium-browser
+    else
+      echo "[!] No available Chromium package found."
+    fi
   fi
 fi
 
@@ -131,12 +128,16 @@ if [[ " ${FEATURES[*]} " == *" adsb "* ]]; then
 fi
 
 if [[ " ${FEATURES[*]} " == *" sdrpp "* ]]; then
-  echo "[*] Installing SDR++ if available..."
+  echo "[*] Checking SDR++..."
   if dpkg -s sdrpp >/dev/null 2>&1; then
     echo "[*] Already installed: sdrpp"
-  elif apt-cache show sdrpp >/dev/null 2>&1; then
-    sudo apt install -y --no-install-recommends sdrpp
   else
-    echo "[!] Package not available, skipping: sdrpp"
+    echo "[*] SDR++ is missing; updating apt metadata..."
+    sudo apt update
+    if apt-cache show sdrpp >/dev/null 2>&1; then
+      sudo apt install -y --no-install-recommends sdrpp
+    else
+      echo "[!] Package not available, skipping: sdrpp"
+    fi
   fi
 fi
