@@ -15,6 +15,7 @@ from apps.orcUi.application_runtime import create_orc_ui_application_runtime
 from apps.orcUi.orc_ui_app import OrcUiApp
 from apps.orcUi.radio_application_service import RadioApplicationServiceIf
 from apps.orcUi.radio_entry_panel import RadioEntryPanel
+from apps.orcUi.spotify_now_playing import SpotifyNowPlaying
 from apps.orcUi.theme_runtime import theme_bundle
 from config.runtime_target import RuntimeTarget, detect_runtime_target
 from controllers.image import ImageCache
@@ -27,7 +28,6 @@ from frontends.x11 import X11WindowEmbedder
 from ui.theme import ThemeBundle, ThemeMode
 
 __all__ = ["OrcUiApp", "main"]
-
 SPOTIFY_GREEN = "#1DB954"
 MUSIC_VIDEO_PORT = 8770
 MUSIC_VIDEO_WINDOW_CLASS = "OpenRoadCodeMusicVideo"
@@ -42,24 +42,8 @@ def _sync_radio_theme(mode: ThemeMode) -> None:
 
 
 def _spotify_theme(app: OrcUiApp) -> dict:
-    ui = theme_bundle(app.theme_mode).ui
     theme = copy.deepcopy(SPOTIFY_PANEL_THEME)
-    theme["colors"].update({
-        "background": "#121212",
-        "card_background": "#181818",
-        "card_border": "#303030",
-        "title": "#FFFFFF",
-        "subtitle": "#B3B3B3",
-        "detail": "#B3B3B3",
-        "status": SPOTIFY_GREEN,
-        "button_background": "#282828",
-        "button_foreground": "#FFFFFF",
-        "button_active_background": SPOTIFY_GREEN,
-        "button_active_foreground": "#000000",
-        "button_disabled_foreground": "#747474",
-        "progress_track": "#404040",
-        "progress_fill": SPOTIFY_GREEN,
-    })
+    theme["colors"].update({"background": "#121212", "card_background": "#181818", "card_border": "#303030", "title": "#FFFFFF", "subtitle": "#B3B3B3", "detail": "#B3B3B3", "status": SPOTIFY_GREEN, "button_background": "#282828", "button_foreground": "#FFFFFF", "button_active_background": SPOTIFY_GREEN, "button_active_foreground": "#000000", "button_disabled_foreground": "#747474", "progress_track": "#404040", "progress_fill": SPOTIFY_GREEN})
     return theme
 
 
@@ -72,7 +56,6 @@ def main() -> None:
     application_runtime = create_orc_ui_application_runtime()
     media = application_runtime.media
     app = OrcUiApp()
-
     app.register_screen("RADIO", RadioScreen(app, theme_bundle=lambda: theme_bundle(app.theme_mode), theme_mode=lambda: app.theme_mode, panel_factory=lambda parent, embedder, theme: _create_radio_panel(parent, embedder, theme, application_runtime.radio), sync_theme=_sync_radio_theme))
     app.register_screen("GAMES", GamesScreen(app, theme_bundle=lambda: theme_bundle(app.theme_mode), theme_mode=lambda: app.theme_mode))
 
@@ -82,17 +65,7 @@ def main() -> None:
     lyrics = LrclibLyricsClient()
     music_video = YouTubeMusicVideo(port=MUSIC_VIDEO_PORT, fullscreen=False, software_rendering=software_rendering, window_class=MUSIC_VIDEO_WINDOW_CLASS, show_return_button=False)
     music_video_controller = MusicVideoController(spotify_controller=media.spotify.controller, music_video=music_video)
-
-    spotify_screen = SpotifyScreen(
-        app,
-        theme=_spotify_theme(app),
-        back_action=lambda: media_screen.show(),
-        image_cache=image_cache,
-        lyrics_client=lyrics,
-        music_video_controller=music_video_controller,
-        service=media.spotify,
-        local_player=media.spotify_local_player,
-    )
+    spotify_screen = SpotifyScreen(app, theme=_spotify_theme(app), back_action=lambda: media_screen.show(), image_cache=image_cache, lyrics_client=lyrics, music_video_controller=music_video_controller, service=media.spotify, local_player=media.spotify_local_player)
     spotify_screen.set_playback_request_handler(media.spotify)
     spotify_screen.set_track_request_handler(media.spotify)
     spotify_screen.set_seek_request_handler(media.spotify)
@@ -105,6 +78,7 @@ def main() -> None:
     netflix_screen = BrowserMediaScreen("netflix", app, title="Netflix", player=netflix_player, panel_factory=lambda parent, player, display, status, back: NetflixPanel(parent, player=player, default_url="https://www.netflix.com/browse", display=display, set_status=status, on_return=back, colors=_browser_colors(app, accent="#E50914")), back_action=lambda: media_screen.show())
     media_screen = MediaScreen(app, theme_bundle=lambda: theme_bundle(app.theme_mode), show_spotify=spotify_screen.show, show_youtube=youtube_screen.show, show_netflix=netflix_screen.show)
     app.register_screen("MEDIA", media_screen)
+    app.set_home_media_factory(lambda parent: SpotifyNowPlaying(parent, service=media.spotify, on_open=spotify_screen.show))
 
     app.schedule_ui_callback(1500, application_runtime.start_background_apps)
     try:
