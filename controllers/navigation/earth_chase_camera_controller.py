@@ -22,7 +22,7 @@ class EarthChaseCameraController:
     _HEADING_DEADBAND_DEG = 4.0
     _MAX_ROTATION_STEP_DEG = 12.0
     _CHASE_FORWARD_TILT_STEPS = 6
-    _CHASE_FORWARD_TILT_STEP_DEG = 5.0
+    _CHASE_FORWARD_TILT_STEP_DEG = -5.0
 
     def __init__(self, input_controller: EarthInputCameraController) -> None:
         self._input = input_controller
@@ -39,8 +39,8 @@ class EarthChaseCameraController:
         if not self._enabled:
             return True
 
-        # Establish a deterministic reference, then move from straight-down to
-        # a low forward-looking oblique view suitable for driving.
+        # Establish a deterministic reference, then tilt from straight-down
+        # toward the horizon for a forward-looking driving view.
         if not self._input.top_down():
             self._enabled = False
             return False
