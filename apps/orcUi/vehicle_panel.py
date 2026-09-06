@@ -55,12 +55,12 @@ class VehiclePanel(tk.Frame):
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(1, weight=1)
 
-        tabs = tk.Frame(self, bg=ui.background)
-        tabs.grid(row=0, column=0, sticky="ew", pady=(0, 4))
+        self._tabs = tk.Frame(self, bg=ui.background)
+        self._tabs.grid(row=0, column=0, sticky="ew", pady=(0, 4))
         for column, name in enumerate(self._TABS):
-            tabs.grid_columnconfigure(column, weight=1)
+            self._tabs.grid_columnconfigure(column, weight=1)
             button = tk.Button(
-                tabs,
+                self._tabs,
                 text=name,
                 command=lambda selected=name: self._show_view(selected),
                 bg=ui.control_background,
@@ -227,31 +227,17 @@ class VehiclePanel(tk.Frame):
         self._view_content = frame
 
     def set_theme_bundle(self, theme_bundle: ThemeBundle) -> None:
-        """Apply the active application theme to ORC-owned vehicle controls."""
+        """Apply the active CSS theme and rebuild the active instrument view."""
         self._theme_bundle = theme_bundle
         theme = theme_bundle.ui
         self.configure(bg=theme.background)
+        self._tabs.configure(bg=theme.background)
         self._view_host.configure(bg=theme.background)
 
-        for view_name, button in self._view_buttons.items():
-            active = view_name == self._current_view
-            button.configure(
-                bg=theme.control_active if active else theme.control_background,
-                fg="#ffffff" if active else theme.text_muted,
-                activebackground=theme.control_active,
-                activeforeground="#ffffff",
-                highlightbackground=theme.border,
-            )
-
-        if self._shifter is not None:
-            self._shifter.set_style_sheet(theme_bundle.style_sheet)
-        if self._offroad is not None:
-            self._offroad.set_style_sheet(theme_bundle.style_sheet)
-        if self._gauges is not None:
-            self._gauges.set_style_sheet(theme_bundle.style_sheet)
-
-        if self._engine_gauges or self._current_view == "TRIP":
-            self._show_view(self._current_view)
+        # Instrument widgets cache drawing colors and panel backgrounds. Rebuild
+        # the active view from the new style sheet instead of translating old
+        # widget colors or leaving a half-themed dashboard behind.
+        self._show_view(self._current_view)
 
     def update_state(self, state: VehiclePresentationState) -> None:
         self._state = state
