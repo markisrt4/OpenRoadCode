@@ -22,7 +22,7 @@ from controllers.image import ImageCache
 from controllers.lyrics import LrclibLyricsClient
 from controllers.video import MusicVideoController, NetflixPlayer, YouTubeMusicVideo, YouTubePlayer
 from frontends.tk.games import GamesScreen
-from frontends.tk.media import BrowserMediaScreen, MediaScreen, NetflixPanel, SpotifyScreen, YouTubePanel
+from frontends.tk.media import BrowserMediaScreen, MediaNavigationBar, MediaScreen, NetflixPanel, SpotifyScreen, YouTubePanel
 from frontends.tk.radio import RadioScreen
 from frontends.x11 import X11WindowEmbedder
 from ui.theme import ThemeBundle, ThemeMode
@@ -65,7 +65,29 @@ def main() -> None:
     lyrics = LrclibLyricsClient()
     music_video = YouTubeMusicVideo(port=MUSIC_VIDEO_PORT, fullscreen=False, software_rendering=software_rendering, window_class=MUSIC_VIDEO_WINDOW_CLASS, show_return_button=False)
     music_video_controller = MusicVideoController(spotify_controller=media.spotify.controller, music_video=music_video)
-    spotify_screen = SpotifyScreen(app, theme=_spotify_theme(app), back_action=lambda: media_screen.show(), image_cache=image_cache, lyrics_client=lyrics, music_video_controller=music_video_controller, service=media.spotify, local_player=media.spotify_local_player)
+
+    def media_navigation(parent: tk.Misc, active: str) -> tk.Widget:
+        return MediaNavigationBar(
+            parent,
+            theme_bundle=lambda: theme_bundle(app.theme_mode),
+            active=active,
+            show_media=lambda: media_screen.show(),
+            show_spotify=lambda: spotify_screen.show(),
+            show_youtube=lambda: youtube_screen.show(),
+            show_netflix=lambda: netflix_screen.show(),
+        )
+
+    spotify_screen = SpotifyScreen(
+        app,
+        theme=_spotify_theme(app),
+        back_action=lambda: media_screen.show(),
+        image_cache=image_cache,
+        lyrics_client=lyrics,
+        music_video_controller=music_video_controller,
+        service=media.spotify,
+        local_player=media.spotify_local_player,
+        media_navigation_factory=media_navigation,
+    )
     spotify_screen.set_playback_request_handler(media.spotify)
     spotify_screen.set_track_request_handler(media.spotify)
     spotify_screen.set_seek_request_handler(media.spotify)
@@ -74,8 +96,24 @@ def main() -> None:
 
     youtube_player = YouTubePlayer(software_rendering=software_rendering, dark_mode=app.theme_mode is ThemeMode.DARK)
     netflix_player = NetflixPlayer(software_rendering=software_rendering, dark_mode=app.theme_mode is ThemeMode.DARK)
-    youtube_screen = BrowserMediaScreen("youtube", app, title="YouTube", player=youtube_player, panel_factory=lambda parent, player, display, status, back: YouTubePanel(parent, player=player, default_url="https://www.youtube.com/", display=display, set_status=status, on_return=back, colors=_browser_colors(app, accent="#FF0033")), back_action=lambda: media_screen.show())
-    netflix_screen = BrowserMediaScreen("netflix", app, title="Netflix", player=netflix_player, panel_factory=lambda parent, player, display, status, back: NetflixPanel(parent, player=player, default_url="https://www.netflix.com/browse", display=display, set_status=status, on_return=back, colors=_browser_colors(app, accent="#E50914")), back_action=lambda: media_screen.show())
+    youtube_screen = BrowserMediaScreen(
+        "youtube",
+        app,
+        title="YouTube",
+        player=youtube_player,
+        panel_factory=lambda parent, player, display, status, back: YouTubePanel(parent, player=player, default_url="https://www.youtube.com/", display=display, set_status=status, on_return=back, colors=_browser_colors(app, accent="#FF0033")),
+        back_action=lambda: media_screen.show(),
+        media_navigation_factory=media_navigation,
+    )
+    netflix_screen = BrowserMediaScreen(
+        "netflix",
+        app,
+        title="Netflix",
+        player=netflix_player,
+        panel_factory=lambda parent, player, display, status, back: NetflixPanel(parent, player=player, default_url="https://www.netflix.com/browse", display=display, set_status=status, on_return=back, colors=_browser_colors(app, accent="#E50914")),
+        back_action=lambda: media_screen.show(),
+        media_navigation_factory=media_navigation,
+    )
 
     def show_spotify_local() -> None:
         media.spotify_local_player.request_player()
