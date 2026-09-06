@@ -12,7 +12,7 @@ from apps.carUi.screens.car_ui_screen_services import (
     MenuTileFactory,
     RadioScreenBindingFactoryIf,
 )
-from apps.launchers.app_runtime_manager import AppRuntimeManager
+from controllers.application_runtime import AppRuntimeManager
 from frontends.tk.weather import WeatherMenuPanel
 from frontends.tk.media.browser_return_overlay import BrowserReturnOverlay
 from frontends.tk.radio import RadioPanel
