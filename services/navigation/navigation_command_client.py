@@ -18,7 +18,9 @@ from controllers.route_planning.route_planning_types import (
 )
 from services.navigation.navigation_command_service import (
     CALCULATE_ROUTE_COMMAND,
+    SIMULATE_ROUTE_COMMAND,
     START_ROUTE_COMMAND,
+    STOP_ROUTE_SIMULATION_COMMAND,
 )
 from services.navigation.zeromq_navigation_command_server import (
     DEFAULT_NAVIGATION_COMMAND_ENDPOINT,
@@ -88,6 +90,14 @@ class NavigationCommandClient:
             },
         )
         return self._route_from_response(response)
+
+    def simulate_active_route(self, *, time_scale: float = 60.0) -> None:
+        """Drive configured simulated position input along the active route."""
+        self._request(SIMULATE_ROUTE_COMMAND, {"time_scale": time_scale})
+
+    def stop_route_simulation(self) -> None:
+        """Return the navigation input to its normal simulation profile."""
+        self._request(STOP_ROUTE_SIMULATION_COMMAND, {})
 
     @classmethod
     def _route_from_response(cls, response: dict[str, Any]) -> RouteResult:
