@@ -18,7 +18,7 @@ Explore the project at https://www.openroadcode.org/ or visit the OpenRoadCode r
 
 OpenRoadCode is under active development and currently operates as an advanced experimental platform rather than a finished commercial infotainment system.
 
-Current integration work includes the `orcUi` shell, native offline MapLibre presentation, Valhalla route planning, live Android-backed positioning on Termux, and an integrated SDR++ RF-radio frontend. SDR++ can be launched and embedded directly inside `orcUi` on X11, with ORC-owned radio profiles, presets, telemetry, RDS presentation, and SDR++ display controls layered around the native SDR application.
+Current integration work includes the `orcUi` shell, native offline MapLibre presentation, Valhalla route planning, live Android-backed positioning on Termux, integrated SDR++ RF radio, and a native ORC media hub. Spotify now shares one background state/control service across Home and Media, while experimental PLAYER mode can register ORC itself as a Spotify Connect playback device on supported Linux/Chrome systems.
 
 Some components are functional and actively used in the reference vehicle. Others are experimental, hardware-dependent, or still being integrated. Interfaces, configuration formats, and directory structures may continue to evolve before the first stable release.
 
@@ -59,8 +59,10 @@ Current and partially integrated capabilities include:
 * ADS-B aircraft tracking through readsb and tar1090
 * Bluetooth OBD-II communication and vehicle telemetry
 * Bluetooth cabin-lighting control
-* Spotify integration, artwork, lyrics, and music-video lookup/playback
-* YouTube and Netflix media launchers
+* Integrated Spotify artwork, lyrics, playback controls, music-video lookup, and shared Home now-playing state
+* Spotify REMOTE mode for controlling an external Spotify Connect device
+* Experimental Spotify PLAYER mode using the Web Playback SDK so ORC can become the playback device on supported Linux/Chrome systems
+* Embedded YouTube and Netflix media surfaces on supported X11/browser targets
 * PipeWire audio control
 * Rotary encoder, keyboard, and GPIO pushbutton input
 * Environmental, barometric, IMU, and vehicle-orientation sensing
@@ -71,6 +73,23 @@ Current and partially integrated capabilities include:
 The Radio entry screen separates RF Radio from Streaming Radio. RF Radio launches the integrated SDR++ path; Streaming Radio currently presents a Coming Soon screen while its provider/controller plumbing remains under development.
 
 Not every feature is supported on every target. In particular, Android/Termux is a development and portability target and does not provide hardware parity with the Raspberry Pi installation.
+
+---
+
+## Media and Spotify
+
+The `orcUi` Media page provides one ORC-owned surface for Spotify, YouTube, and Netflix rather than exposing a collection of unrelated desktop launchers. YouTube and Netflix use retained browser profiles and X11 window hosting where the target browser supports the required service capabilities.
+
+Spotify uses a shared `SpotifyStateService` for playback state and commands. The Home now-playing card and full Spotify panel therefore observe the same cached state instead of independently polling Spotify. Network operations and playback commands run away from the Tk event thread.
+
+The Spotify screen exposes two playback destination modes:
+
+* **REMOTE** controls the active external Spotify Connect device, which is the portable/default behavior and remains available on Termux.
+* **PLAYER** starts a local Spotify Web Playback SDK host, launches a compatible Google Chrome instance as the audio backend, waits for Spotify to register the `OpenRoadCode` Connect device, and transfers playback to it. The browser is hidden after registration while the ORC Spotify panel remains the user interface.
+
+PLAYER mode currently requires Spotify Premium and a browser environment capable of Spotify Web Playback/EME. The verified Debian/Ubuntu AMD64 path uses Google Chrome stable. Chromium alone is not treated as sufficient because builds without the required media capabilities can fail SDK initialization. Termux therefore remains REMOTE-only for now.
+
+Spotify uses OAuth PKCE and does not require a client secret. Credentials and OAuth tokens must not be committed to the repository.
 
 ---
 
@@ -224,7 +243,7 @@ Application startup policy is explicit:
 * `preload` warms application resources in the background without leaving the presentation visible.
 * `persistent` keeps the application/runtime available while visibility is managed separately.
 
-Browser-backed applications use independent Chromium app windows and profiles. Presentation targets and exclusive groups control where windows appear and which auxiliary applications may remain visible together.
+Browser-backed applications use independent browser app windows and profiles. Presentation targets and exclusive groups control where windows appear and which auxiliary applications may remain visible together. Spotify PLAYER mode is a special case: its Chrome app window is a playback backend and is hidden after the SDK registers the ORC Connect device.
 
 ADS-B also separates presentation from data ownership. The Raspberry Pi/Linux profile uses `source = "rtlsdr"`; the Termux profile currently uses `source = "simulation"`. With the RTL-SDR source, `readsb` is started on demand by the ADS-B launcher and stopped when ADS-B releases the receiver.
 
@@ -249,13 +268,22 @@ Features can be selected explicitly. Use `--all-features` to install all compati
 
 For the integrated SDR++ RF path on Debian/Linux, run `./development/debian/setup_sdrpp.sh`. It installs the SDR++ build dependencies, ORC's SDR++ modules, and the X11 utilities used for embedding. An X11 session is required for the current embedded-window implementation.
 
+For the integrated media path on Debian/Ubuntu, run:
+
+```bash
+./development/debian/setup_media.sh
+./development/debian/install_secrets.sh
+```
+
+`setup_media.sh` installs the X11 integration utility and, on AMD64, Google Chrome stable for Spotify PLAYER mode. `install_secrets.sh` configures Spotify's PKCE client ID/redirect URI and other supported media credentials without placing secrets in the repository. If Spotify credentials are already configured, the secrets installer does not need to be rerun merely to update the media runtime.
+
 Concrete devices and credentials remain separate from package installation. Run `./scripts/installers/host_setup.sh --help` for current options.
 
 ### Android / Termux
 
 Termux is an active development target rather than a complete Raspberry Pi replacement. It is used to exercise native Python services, ZeroMQ, Valhalla, MapLibre, Chromium/Termux:X11 presentation, Android sensor integration, SDR++ integration, and simulated ADS-B presentation.
 
-The current navigation profile consumes geographic position from the localhost Android sensor bridge while retaining simulation fallbacks for platform-dependent sensor inputs. SDR++ runs inside the Debian proot and is presented through Termux:X11. Follow `development/termux/README.md` for the current native build, runit services, sensor bridge, navigation data, Valhalla, SDR++, and UI workflow.
+The current navigation profile consumes geographic position from the localhost Android sensor bridge while retaining simulation fallbacks for platform-dependent sensor inputs. SDR++ runs inside the Debian proot and is presented through Termux:X11. Spotify REMOTE mode is supported; PLAYER mode is currently disabled because the tested Termux Chromium environment cannot initialize the Spotify Web Playback SDK. Follow `development/termux/README.md` for the current native build, runit services, sensor bridge, navigation data, Valhalla, SDR++, and UI workflow.
 
 ---
 
@@ -269,8 +297,10 @@ python -m apps.orcUi
 
 The RADIO navigation item opens a source chooser. RF RADIO starts the SDR++ integration and embeds SDR++ into the ORC radio panel; STREAMING RADIO currently opens its Coming Soon page.
 
-On Linux, the embedded SDR++ path requires an X11 session and the tools installed by `development/debian/setup_sdrpp.sh`. On Termux, start or verify Termux:X11 first and export the appropriate `DISPLAY` value. The Termux guide contains the current launch sequence and native map prerequisites.
-On Termux, start or verify Termux:X11 first and export the appropriate `DISPLAY` value. The Termux guide contains the current launch sequence and native map/game prerequisites.
+The MEDIA navigation item opens the integrated Spotify, YouTube, and Netflix hub. On supported Linux systems, Spotify's **PLAYER** control makes OpenRoadCode the Spotify Connect playback destination; **REMOTE** leaves playback on external Spotify Connect devices. The local player is application-owned, so it can continue while the user navigates away from the Media page and is stopped during ORC shutdown/restart.
+
+On Linux, embedded X11 applications require the relevant setup scripts and an X11 session. On Termux, start or verify Termux:X11 first and export the appropriate `DISPLAY` value. The Termux guide contains the current launch sequence and native map/game prerequisites.
+
 The older `carUi` application remains in the repository while the ORC UI shell is integrated and matured.
 
 ---
