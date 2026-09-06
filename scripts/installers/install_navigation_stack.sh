@@ -156,6 +156,18 @@ fi
 
 command -v git >/dev/null 2>&1 || { echo "git is required" >&2; exit 1; }
 command -v "$CONTAINER_ENGINE" >/dev/null 2>&1 || { echo "Container engine not found: $CONTAINER_ENGINE" >&2; exit 1; }
+
+CONTAINER_CMD=("$CONTAINER_ENGINE")
+if ! "$CONTAINER_ENGINE" info >/dev/null 2>&1; then
+  if command -v sudo >/dev/null 2>&1 && sudo "$CONTAINER_ENGINE" info >/dev/null 2>&1; then
+    CONTAINER_CMD=(sudo "$CONTAINER_ENGINE")
+  else
+    echo "Unable to access the $CONTAINER_ENGINE daemon as the current user or through sudo." >&2
+    exit 1
+  fi
+fi
+
+echo "  container command:  ${CONTAINER_CMD[*]}"
 mkdir -p "$BUILD_ROOT" "$HOST_SRC"
 
 checkout_repo() {
@@ -203,7 +215,7 @@ fi
 if (( ! SKIP_MAPLIBRE )); then
   checkout_repo "https://github.com/maplibre/maplibre-native.git" "$MAPLIBRE_SRC" "$MAPLIBRE_REF" "MapLibre Native"
   BASE_IMAGE="$BUILD_BASE_IMAGE" bash "$PROJECT_ROOT/development/containers/maplibre/build.sh"
-  "$CONTAINER_ENGINE" run --rm --volume "$HOST_SRC:/src" --workdir /src -e BUILD_JOBS="${BUILD_JOBS:-4}" openroadcode-maplibre-builder /bin/bash -lc "set -euo pipefail; /src/OpenRoadCode/development/containers/maplibre/scripts/build_maplibre.sh; /src/OpenRoadCode/development/containers/maplibre/scripts/build_map_renderer.sh"
+  "${CONTAINER_CMD[@]}" run --rm --volume "$HOST_SRC:/src" --workdir /src -e BUILD_JOBS="${BUILD_JOBS:-4}" openroadcode-maplibre-builder /bin/bash -lc "set -euo pipefail; /src/OpenRoadCode/development/containers/maplibre/scripts/build_maplibre.sh; /src/OpenRoadCode/development/containers/maplibre/scripts/build_map_renderer.sh"
   renderer="$PROJECT_ROOT/apps/map_renderer/build-container/openroadcode-map-renderer"
   [[ -x "$renderer" ]] || { echo "Renderer build missing: $renderer" >&2; exit 1; }
   sudo install -d "$INSTALL_ROOT/bin"
@@ -223,7 +235,7 @@ if (( ! SKIP_VALHALLA )); then
   valhalla_stage="$BUILD_ROOT/valhalla"
   sudo rm -rf "$valhalla_stage"
   mkdir -p "$valhalla_stage"
-  "$CONTAINER_ENGINE" run --rm --volume "$HOST_SRC:/src" --workdir /src -e BUILD_JOBS="${BUILD_JOBS:-4}" -e INSTALL_PREFIX="/src/OpenRoadCode/build/navigation-stack/valhalla" openroadcode-valhalla-builder /bin/bash -lc "/src/OpenRoadCode/development/containers/valhalla/scripts/build_valhalla.sh"
+  "${CONTAINER_CMD[@]}" run --rm --volume "$HOST_SRC:/src" --workdir /src -e BUILD_JOBS="${BUILD_JOBS:-4}" -e INSTALL_PREFIX="/src/OpenRoadCode/build/navigation-stack/valhalla" openroadcode-valhalla-builder /bin/bash -lc "/src/OpenRoadCode/development/containers/valhalla/scripts/build_valhalla.sh"
   sudo chown -R "$(id -u):$(id -g)" "$valhalla_stage"
   [[ -x "$valhalla_stage/bin/valhalla_service" ]] || { echo "Valhalla build missing: $valhalla_stage/bin/valhalla_service" >&2; exit 1; }
   sudo install -d "$INSTALL_ROOT"
