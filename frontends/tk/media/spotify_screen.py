@@ -21,6 +21,8 @@ from frontends.tk.tk_screen_host_if import TkScreenHostIf
 from ui.media import MediaState, MediaUiIf, PlaybackRequestHandlerIf, SeekRequestHandlerIf, TrackRequestHandlerIf, VolumeRequestHandlerIf
 from ui.screen_ui_if import ScreenId
 
+MediaNavigationFactory = Callable[[tk.Misc, str], tk.Widget]
+
 
 class _ThreadSafeSpotifyPlaybackPanel(SpotifyPlaybackPanel):
     """Route worker-thread callbacks through a Python-only callback queue."""
@@ -42,7 +44,19 @@ class _ThreadSafeSpotifyPlaybackPanel(SpotifyPlaybackPanel):
 class SpotifyScreen(TkScreen, MediaUiIf):
     """Present Spotify now-playing, destination selection, and library browse."""
 
-    def __init__(self, host: TkScreenHostIf, *, theme: dict[str, Any], back_action: Callable[[], None], image_cache: ArtworkProviderIf, lyrics_client: LyricsProviderIf, music_video_controller: MusicVideoRequestHandlerIf, service: SpotifyStateService | None = None, local_player: SpotifyLocalPlayer | None = None) -> None:
+    def __init__(
+        self,
+        host: TkScreenHostIf,
+        *,
+        theme: dict[str, Any],
+        back_action: Callable[[], None],
+        image_cache: ArtworkProviderIf,
+        lyrics_client: LyricsProviderIf,
+        music_video_controller: MusicVideoRequestHandlerIf,
+        service: SpotifyStateService | None = None,
+        local_player: SpotifyLocalPlayer | None = None,
+        media_navigation_factory: MediaNavigationFactory | None = None,
+    ) -> None:
         super().__init__(ScreenId("spotify"))
         self._host = host
         self._theme = theme
@@ -52,6 +66,7 @@ class SpotifyScreen(TkScreen, MediaUiIf):
         self._music_video_controller = music_video_controller
         self._service = service
         self._local_player = local_player
+        self._media_navigation_factory = media_navigation_factory
         self._state: MediaState | None = None
         self._playback_handler: PlaybackRequestHandlerIf | None = None
         self._track_handler: TrackRequestHandlerIf | None = None
@@ -137,6 +152,10 @@ class SpotifyScreen(TkScreen, MediaUiIf):
         self._dispatch_job = self._host.schedule_ui_callback(25, lambda: self._poll_ui_callbacks(generation))
         return generation
 
+    def _build_media_navigation(self, parent: tk.Misc) -> None:
+        if self._media_navigation_factory is not None:
+            self._media_navigation_factory(parent, "spotify").pack(fill=tk.X, padx=4, pady=(4, 2))
+
     def _browse_panel(self, parent: tk.Misc) -> SpotifyBrowsePanel:
         if self._service is None or self._local_player is None:
             raise RuntimeError("Spotify browse services are unavailable")
@@ -146,6 +165,7 @@ class SpotifyScreen(TkScreen, MediaUiIf):
         generation = self._begin_screen()
         root = tk.Frame(self._host.screen_parent, bg="#121212")
         root.pack(fill=tk.BOTH, expand=True)
+        self._build_media_navigation(root)
 
         if self._service is not None and self._local_player is not None:
             controls = self._browse_panel(root)
@@ -164,9 +184,12 @@ class SpotifyScreen(TkScreen, MediaUiIf):
 
     def _show_browse(self, action: Callable[[SpotifyBrowsePanel], None]) -> None:
         self._begin_screen()
+        root = tk.Frame(self._host.screen_parent, bg="#121212")
+        root.pack(fill=tk.BOTH, expand=True)
+        self._build_media_navigation(root)
         if self._service is None or self._local_player is None:
             return
-        panel = self._browse_panel(self._host.screen_parent)
+        panel = self._browse_panel(root)
         panel.pack(fill=tk.BOTH, expand=True)
         action(panel)
 
