@@ -5,81 +5,50 @@
 
 from abc import ABC, abstractmethod
 
-from controllers.spotify.spotify_library import SpotifyLibraryTrack
+from controllers.spotify.spotify_library import SpotifyLibraryTrack, SpotifyPlaylist
 from controllers.spotify.spotify_state import SpotifyState
 
 
 class SpotifyControllerIf(ABC):
-    """Playback, library, and history contract used by Spotify applications."""
+    """Playback, library, history, and playlist contract for Spotify apps."""
 
     @abstractmethod
     def current_state(self) -> SpotifyState:
-        """Return the latest available playback state.
+        """Return the latest available playback state."""
 
-        @return Immutable availability, device, track, and progress snapshot.
+    @abstractmethod
+    def play(self) -> None: """Start or resume playback."""
+    @abstractmethod
+    def pause(self) -> None: """Pause playback."""
+    @abstractmethod
+    def play_pause(self) -> None: """Toggle playback."""
+    @abstractmethod
+    def next_track(self) -> None: """Skip to the next track."""
+    @abstractmethod
+    def previous_track(self) -> None: """Return to the previous track."""
+    @abstractmethod
+    def set_volume_percent(self, volume_percent: int) -> None: """Set playback volume from 0 through 100."""
+    @abstractmethod
+    def seek_to_position_ms(self, position_ms: int) -> None: """Seek within the current track."""
+    @abstractmethod
+    def transfer_playback(self, device_id: str, *, play: bool = True) -> None: """Transfer playback to a Spotify Connect device."""
+    @abstractmethod
+    def saved_tracks(self, *, limit: int = 20) -> tuple[SpotifyLibraryTrack, ...]: """Return tracks saved in the user's library."""
+    @abstractmethod
+    def recently_played(self, *, limit: int = 20) -> tuple[SpotifyLibraryTrack, ...]: """Return recently played tracks."""
+    @abstractmethod
+    def play_track(self, track_uri: str) -> None: """Begin playback of one Spotify track URI."""
+
+    def playlists(self, *, limit: int = 20) -> tuple[SpotifyPlaylist, ...]:
+        """Return the current user's playlists.
+
+        Controllers without library browsing support may return an empty tuple.
         """
+        return ()
 
-    @abstractmethod
-    def play(self) -> None:
-        """Start or resume playback."""
+    def playlist_tracks(self, playlist_id: str, *, limit: int = 20) -> tuple[SpotifyLibraryTrack, ...]:
+        """Return playable tracks from one playlist.
 
-    @abstractmethod
-    def pause(self) -> None:
-        """Pause playback."""
-
-    @abstractmethod
-    def play_pause(self) -> None:
-        """Toggle between playing and paused states."""
-
-    @abstractmethod
-    def next_track(self) -> None:
-        """Skip to the next track in the active playback context."""
-
-    @abstractmethod
-    def previous_track(self) -> None:
-        """Return to the previous track in the active playback context."""
-
-    @abstractmethod
-    def set_volume_percent(self, volume_percent: int) -> None:
-        """Set playback volume.
-
-        @param volume_percent Volume in the inclusive range 0 through 100.
+        Controllers without playlist browsing support may return an empty tuple.
         """
-
-    @abstractmethod
-    def seek_to_position_ms(self, position_ms: int) -> None:
-        """Seek within the current track.
-
-        @param position_ms Zero-based track position in milliseconds.
-        """
-
-    @abstractmethod
-    def transfer_playback(self, device_id: str, *, play: bool = True) -> None:
-        """Transfer Spotify playback to a specific Connect device.
-
-        @param device_id Spotify Connect device identifier.
-        @param play Whether playback should resume after transfer.
-        """
-
-    @abstractmethod
-    def saved_tracks(self, *, limit: int = 20) -> tuple[SpotifyLibraryTrack, ...]:
-        """Return tracks saved in the user's Spotify library.
-
-        @param limit Maximum number of tracks to request.
-        @return Saved tracks in Spotify's returned order.
-        """
-
-    @abstractmethod
-    def recently_played(self, *, limit: int = 20) -> tuple[SpotifyLibraryTrack, ...]:
-        """Return the user's recently played tracks.
-
-        @param limit Maximum number of history entries to request.
-        @return Recent tracks in Spotify's returned order.
-        """
-
-    @abstractmethod
-    def play_track(self, track_uri: str) -> None:
-        """Begin playback of one Spotify track URI.
-
-        @param track_uri Spotify track URI such as ``spotify:track:...``.
-        """
+        return ()
