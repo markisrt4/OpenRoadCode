@@ -23,6 +23,7 @@ from apps.orcUi.navigation_presenter import AttitudePresentationState, Navigatio
 from apps.orcUi.offroad_panel import OffRoadPanel
 from apps.orcUi.orc_theme import ThemeMode, apply_tk_theme, install_map_style, toggle, toggle_label
 from apps.orcUi.radio_panel import RadioPanel
+from apps.orcUi.spotify_local_player import SpotifyLocalPlayer
 from apps.orcUi.spotify_now_playing import SpotifyNowPlaying
 from apps.orcUi.spotify_state_service import SpotifyStateService
 from apps.orcUi.vehicle_panel import VehiclePanel
@@ -42,7 +43,7 @@ class OrcUiApp:
         self._theme_mode=ThemeMode.DARK; self._theme_button:tk.Button; self._power_button:tk.Button; self._power_dialog:tk.Toplevel|None=None
         self._active_nav="HOME"; self._nav_buttons:dict[str,tk.Button]={}; self._clock_label:tk.Label; self._content:tk.Frame
         self._context_rail=None; self._home_map_panel=None; self._navigation_panel=None; self._radio_panel=None; self._radio_embedder=X11WindowEmbedder(); self._vehicle_panel=None; self._offroad_panel=None; self._media_panel=None
-        self._map_renderer=MapRendererLauncher(); self._spotify_service=SpotifyStateService(); self._vehicle_state=VehiclePresentationState(); self._position_state=PositionPresentationState(); self._attitude_state=AttitudePresentationState(); self._volume=20; self._volume_label:tk.Label; self._closing=False
+        self._map_renderer=MapRendererLauncher(); self._spotify_service=SpotifyStateService(); self._spotify_local_player=SpotifyLocalPlayer(spotify_service=self._spotify_service); self._vehicle_state=VehiclePresentationState(); self._position_state=PositionPresentationState(); self._attitude_state=AttitudePresentationState(); self._volume=20; self._volume_label:tk.Label; self._closing=False
         self._dispatcher=MessageDispatcher(ZeroMqSubscriber(LOCAL_SUBSCRIBER_ENDPOINT),error_handler=self._on_bus_error)
         self._dispatcher.register(VEHICLE_STATE_TOPIC,decode_vehicle_state,self._on_vehicle_message); self._dispatcher.register(POSITION_STATE_TOPIC,decode_position_state,self._on_position_message); self._dispatcher.register(ATTITUDE_STATE_TOPIC,decode_attitude_state,self._on_attitude_message)
         install_map_style(self._theme_mode); self._build_shell(); self._spotify_service.start(); self._show_home(); self._update_clock()
@@ -54,7 +55,7 @@ class OrcUiApp:
     def _on_sigint(self,_signum,_frame): self._root.after_idle(self._shutdown)
     def _shutdown(self):
         if self._closing:return
-        self._closing=True; self._map_renderer.stop(); self._dispatcher.close(); self._spotify_service.close()
+        self._closing=True; self._map_renderer.stop(); self._dispatcher.close(); self._spotify_local_player.close(); self._spotify_service.close()
         if self._media_panel is not None:self._media_panel.close()
         try:self._root.destroy()
         except tk.TclError:pass
@@ -91,11 +92,11 @@ class OrcUiApp:
     def _close_power_dialog(self):
         d=self._power_dialog; self._power_dialog=None
         if d is not None and d.winfo_exists():d.destroy()
-    def _restart_ui(self): self._map_renderer.stop(); self._dispatcher.close(); self._spotify_service.close(); os.execv(sys.executable,[sys.executable,"-m","apps.orcUi"])
+    def _restart_ui(self): self._map_renderer.stop(); self._dispatcher.close(); self._spotify_local_player.close(); self._spotify_service.close(); os.execv(sys.executable,[sys.executable,"-m","apps.orcUi"])
     def _shutdown_system(self):
         command=["systemctl","poweroff"] if shutil.which("systemctl") else (["loginctl","poweroff"] if shutil.which("loginctl") else None)
         if command is None:return
-        self._map_renderer.stop(); self._dispatcher.close(); self._spotify_service.close(); subprocess.Popen(command); self._shutdown()
+        self._map_renderer.stop(); self._dispatcher.close(); self._spotify_local_player.close(); self._spotify_service.close(); subprocess.Popen(command); self._shutdown()
     def _center_power_dialog(self,d):
         d.update_idletasks(); w=d.winfo_reqwidth(); h=d.winfo_reqheight(); x=self._root.winfo_rootx()+max(0,(self._root.winfo_width()-w)//2); y=self._root.winfo_rooty()+max(0,(self._root.winfo_height()-h)//2); d.geometry(f"{w}x{h}+{x}+{y}")
     def _toggle_theme(self):
@@ -136,7 +137,7 @@ class OrcUiApp:
         if p is None or not p.winfo_exists():return
         try:p.attach_sdrpp()
         except (OSError,RuntimeError,subprocess.SubprocessError) as e:print(f"WARNING: SDR++ embed: {type(e).__name__}: {e}")
-    def _show_media_panel(self): self._clear_content(); self._active_nav="MEDIA"; self._paint_nav(); self._media_panel=MediaPanel(self._content,on_back=self._show_home,status_callback=lambda message:print(f"[Media] {message}"),theme_mode=self._theme_mode,spotify_service=self._spotify_service); self._media_panel.pack(fill=tk.BOTH,expand=True)
+    def _show_media_panel(self): self._clear_content(); self._active_nav="MEDIA"; self._paint_nav(); self._media_panel=MediaPanel(self._content,on_back=self._show_home,status_callback=lambda message:print(f"[Media] {message}"),theme_mode=self._theme_mode,spotify_service=self._spotify_service,spotify_local_player=self._spotify_local_player); self._media_panel.pack(fill=tk.BOTH,expand=True)
     def _show_vehicle_panel(self): self._clear_content(); self._active_nav="VEHICLE"; self._paint_nav(); self._vehicle_panel=VehiclePanel(self._content,on_back=self._show_home,state=self._vehicle_state); self._vehicle_panel.pack(fill=tk.BOTH,expand=True)
     def _show_offroad_panel(self): self._clear_content(); self._offroad_panel=OffRoadPanel(self._content,on_back=self._show_home,position=self._position_state,attitude=self._attitude_state); self._offroad_panel.pack(fill=tk.BOTH,expand=True)
     def _on_vehicle_message(self,m):
