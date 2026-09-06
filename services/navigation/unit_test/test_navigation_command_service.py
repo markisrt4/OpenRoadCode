@@ -120,6 +120,26 @@ def test_text_destination_is_geocoded_before_route_calculation():
     assert request.destination == GeoPoint(42.3314, -83.0458)
 
 
+def test_unresolved_text_destination_is_rejected_before_route_calculation():
+    route_planner = Mock()
+    geocoder = Mock()
+    geocoder.geocode.return_value = None
+    service = NavigationCommandService(Mock(), route_planner, geocoder=geocoder)
+
+    result = service.execute(
+        CALCULATE_ROUTE_COMMAND,
+        {
+            "origin": {"latitude": 42.8028, "longitude": -83.0127},
+            "destination": "Definitely Not A Real Place",
+        },
+    )
+
+    assert not result.ok
+    assert "could not be resolved" in result.message
+    geocoder.geocode.assert_called_once_with("Definitely Not A Real Place")
+    route_planner.calculate_route.assert_not_called()
+
+
 def test_text_destination_is_rejected_when_geocoding_not_configured():
     route_planner = Mock()
     service = NavigationCommandService(Mock(), route_planner)
