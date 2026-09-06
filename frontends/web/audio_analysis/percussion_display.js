@@ -1,6 +1,13 @@
 (()=>{
   const root=window.OpenRoadCodeWeb=window.OpenRoadCodeWeb||{};
   const pulse={snare:0,tomHigh:0,tomMid:0,tomLow:0,cymbal:0};
+  const previous={snare:0,tomHigh:0,tomMid:0,tomLow:0,cymbal:0};
+  const lastHit={snare:-Infinity,tomHigh:-Infinity,tomMid:-Infinity,tomLow:-Infinity,cymbal:-Infinity};
+  const thresholds={snare:.16,tomHigh:.14,tomMid:.14,tomLow:.15,cymbal:.17};
+  const rises={snare:.055,tomHigh:.045,tomMid:.045,tomLow:.05,cymbal:.055};
+  const refractoryMs={snare:72,tomHigh:78,tomMid:82,tomLow:88,cymbal:64};
+  const decay={snare:.62,tomHigh:.64,tomMid:.65,tomLow:.67,cymbal:.60};
+
   function install(){
     if(document.getElementById('music-drum-kit'))return true;
     const anchor=document.getElementById('music-visualizer-anchor');if(!anchor)return false;
@@ -10,8 +17,29 @@
     anchor.after(card);card.querySelector('#mv-toggle-drums').onclick=()=>{const wrap=card.querySelector('#mv-kit-wrap'),hidden=wrap.hidden;wrap.hidden=!hidden;card.querySelector('#mv-toggle-drums').textContent=hidden?'HIDE DRUMS':'SHOW DRUMS'};
     root.KickMode?.install();return true;
   }
-  function punch(id,value,color,base=''){const el=document.getElementById(id);if(!el)return;el.style.transform=`${base} scale(${1+value*.25})`;el.style.filter=`brightness(${1+value*.35})`;el.style.boxShadow=`0 0 ${8+value*24}px ${color}`}
+
+  function onset(name,value){
+    const now=performance.now(),rise=Math.max(0,value-previous[name]);
+    previous[name]=value;
+    const hit=value>=thresholds[name]&&rise>=rises[name]&&now-lastHit[name]>=refractoryMs[name];
+    if(hit){lastHit[name]=now;pulse[name]=Math.max(pulse[name],Math.min(1,.58+value*.62))}
+    else pulse[name]*=decay[name];
+    return pulse[name];
+  }
+
+  function punch(id,value,color,base=''){const el=document.getElementById(id);if(!el)return;el.style.transform=`${base} scale(${1+value*.28})`;el.style.filter=`brightness(${1+value*.42})`;el.style.boxShadow=value>.02?`0 0 ${8+value*28}px ${color}`:'none'}
   function meter(id,value,color){const el=document.getElementById(id);if(!el)return;const on=Math.round(Math.max(0,Math.min(1,value))*el.children.length);[...el.children].forEach((x,i)=>{x.style.background=i<on?color:'#16202a';x.style.opacity=i<on?1:.35})}
-  function render(p={}){install();const v={kick:p.kick||0,snare:p.snare||0,tomLow:p.tom_low??p.tomLow??0,tomMid:p.tom_mid??p.tomMid??0,tomHigh:p.tom_high??p.tomHigh??0,cymbal:p.cymbal||0};for(const key of Object.keys(pulse))pulse[key]=Math.max(v[key]||0,pulse[key]*.72);root.KickMode?.render(v.kick,punch);punch('drum-snare',pulse.snare,'rgba(255,198,46,.68)','translateX(-50%)');punch('drum-tom-high',pulse.tomHigh,'rgba(168,76,255,.68)');punch('drum-tom-mid',pulse.tomMid,'rgba(56,214,180,.68)');punch('drum-tom-low',pulse.tomLow,'rgba(40,182,255,.68)');for(const id of ['drum-cymbal-left','drum-cymbal-right'])punch(id,pulse.cymbal,'rgba(255,205,55,.55)');meter('mv-seg-kick',v.kick,'#ff4939');meter('mv-seg-snare',v.snare,'#ff9c27');meter('mv-seg-tomLow',v.tomLow,'#ffe138');meter('mv-seg-tomMid',v.tomMid,'#50df58');meter('mv-seg-tomHigh',v.tomHigh,'#32c7f2');meter('mv-seg-cymbal',v.cymbal,'#c858ff')}
+  function render(p={}){
+    install();
+    const v={kick:p.kick||0,snare:p.snare||0,tomLow:p.tom_low??p.tomLow??0,tomMid:p.tom_mid??p.tomMid??0,tomHigh:p.tom_high??p.tomHigh??0,cymbal:p.cymbal||0};
+    root.KickMode?.render(v.kick,punch);
+    const hits={snare:onset('snare',v.snare),tomHigh:onset('tomHigh',v.tomHigh),tomMid:onset('tomMid',v.tomMid),tomLow:onset('tomLow',v.tomLow),cymbal:onset('cymbal',v.cymbal)};
+    punch('drum-snare',hits.snare,'rgba(255,198,46,.68)','translateX(-50%)');
+    punch('drum-tom-high',hits.tomHigh,'rgba(168,76,255,.68)');
+    punch('drum-tom-mid',hits.tomMid,'rgba(56,214,180,.68)');
+    punch('drum-tom-low',hits.tomLow,'rgba(40,182,255,.68)');
+    for(const id of ['drum-cymbal-left','drum-cymbal-right'])punch(id,hits.cymbal,'rgba(255,205,55,.55)');
+    meter('mv-seg-kick',v.kick,'#ff4939');meter('mv-seg-snare',v.snare,'#ff9c27');meter('mv-seg-tomLow',v.tomLow,'#ffe138');meter('mv-seg-tomMid',v.tomMid,'#50df58');meter('mv-seg-tomHigh',v.tomHigh,'#32c7f2');meter('mv-seg-cymbal',v.cymbal,'#c858ff')
+  }
   root.PercussionDisplay={install,render};install();
 })();
