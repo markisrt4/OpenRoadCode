@@ -21,11 +21,9 @@ from apps.orcUi.navigation_panel import NavigationPanel
 from apps.orcUi.navigation_presenter import AttitudePresentationState, NavigationPresenter, PositionPresentationState
 from apps.orcUi.offroad_panel import OffRoadPanel
 from apps.orcUi.orc_theme import ThemeMode, install_map_style, toggle, toggle_label
-from apps.orcUi.radio_panel import RadioPanel
 from apps.orcUi.theme_runtime import theme_bundle
 from apps.orcUi.vehicle_panel import VehiclePanel
 from apps.orcUi.vehicle_presenter import VehiclePresenter, VehiclePresentationState
-from frontends.x11 import X11WindowEmbedder
 from messaging.contracts.automotive import VEHICLE_STATE_TOPIC, decode_vehicle_state
 from messaging.contracts.navigation import ATTITUDE_STATE_TOPIC, POSITION_STATE_TOPIC, decode_attitude_state, decode_position_state
 from messaging.message_dispatcher import MessageDispatcher
@@ -64,8 +62,6 @@ class OrcUiApp:
         self._context_rail: ContextRail | None = None
         self._home_map_panel: HomeMapPanel | None = None
         self._navigation_panel: NavigationPanel | None = None
-        self._radio_panel: RadioPanel | None = None
-        self._radio_embedder = X11WindowEmbedder()
         self._vehicle_panel: VehiclePanel | None = None
         self._offroad_panel: OffRoadPanel | None = None
         self._map_renderer = MapRendererLauncher()
@@ -109,6 +105,25 @@ class OrcUiApp:
             else:
                 self._nav_items.append(nav_label)
         self._rebuild_side_nav()
+
+    def navigate_to(self, name: str) -> None:
+        """Show a registered screen or built-in shell destination."""
+        nav_name = name.strip().upper()
+        if not nav_name:
+            raise ValueError("Navigation destination must not be empty")
+        self._active_nav = nav_name
+        self._paint_nav()
+        screen = self._screen_registry.get(nav_name)
+        if screen is not None:
+            screen.show()
+            return
+        self._deactivate_active_screen()
+        handler = {
+            "HOME": self._show_home,
+            "NAVIGATION": self._show_navigation_panel,
+            "VEHICLE": self._show_vehicle_panel,
+        }.get(nav_name)
+        self._show_placeholder(nav_name) if handler is None else handler()
 
     def activate_screen(self, screen: ScreenUiIf) -> None:
         previous = self._active_screen
@@ -224,7 +239,7 @@ class OrcUiApp:
             child.destroy()
         self._nav_buttons.clear()
         for item in self._nav_items:
-            button = tk.Button(self._nav_frame, text=item, command=lambda name=item: self._select_nav(name), bg=ui.control_background, fg=ui.control_text, activebackground=ui.control_active, activeforeground="#ffffff", relief=tk.FLAT, bd=0, font=("Sans", 9), height=3)
+            button = tk.Button(self._nav_frame, text=item, command=lambda name=item: self.navigate_to(name), bg=ui.control_background, fg=ui.control_text, activebackground=ui.control_active, activeforeground="#ffffff", relief=tk.FLAT, bd=0, font=("Sans", 9), height=3)
             button.pack(fill=tk.X, padx=4, pady=2)
             self._nav_buttons[item] = button
         self._paint_nav()
@@ -371,17 +386,6 @@ class OrcUiApp:
         self._map_renderer.stop()
         self._root.after(100, lambda: self._start_map_renderer(parent_window_id))
 
-    def _select_nav(self, name: str) -> None:
-        self._active_nav = name
-        self._paint_nav()
-        screen = self._screen_registry.get(name)
-        if screen is not None:
-            screen.show()
-            return
-        self._deactivate_active_screen()
-        handler = {"HOME": self._show_home, "NAVIGATION": self._show_navigation_panel, "RADIO": self._show_radio_panel, "VEHICLE": self._show_vehicle_panel}.get(name)
-        self._show_placeholder(name) if handler is None else handler()
-
     def _deactivate_active_screen(self) -> None:
         active_screen = self._active_screen
         self._active_screen = None
@@ -400,12 +404,9 @@ class OrcUiApp:
 
     def _clear_content(self) -> None:
         self._map_renderer.stop()
-        if self._radio_panel is not None and self._radio_panel.winfo_exists():
-            self._radio_panel.detach_sdrpp(self._root.winfo_id())
         self._context_rail = None
         self._home_map_panel = None
         self._navigation_panel = None
-        self._radio_panel = None
         self._vehicle_panel = None
         self._offroad_panel = None
         for child in self._content.winfo_children():
@@ -458,24 +459,6 @@ class OrcUiApp:
             self._map_renderer.launch(display=os.environ.get("DISPLAY", ":1"), parent_window_id=parent_window_id)
         except (OSError, RuntimeError) as error:
             print(f"WARNING: map renderer: {type(error).__name__}: {error}")
-
-    def _show_radio_panel(self) -> None:
-        self._clear_content()
-        self._active_nav = "RADIO"
-        self._paint_nav()
-        self._radio_panel = RadioPanel(self._content, embedder=self._radio_embedder, theme=self._theme)
-        self._radio_panel.pack(fill=tk.BOTH, expand=True)
-        self._root.update_idletasks()
-        self._root.after(100, self._attach_existing_sdrpp)
-
-    def _attach_existing_sdrpp(self) -> None:
-        panel = self._radio_panel
-        if panel is None or not panel.winfo_exists():
-            return
-        try:
-            panel.attach_sdrpp()
-        except (OSError, RuntimeError, subprocess.SubprocessError) as error:
-            print(f"WARNING: SDR++ embed: {type(error).__name__}: {error}")
 
     def _show_vehicle_panel(self) -> None:
         self._clear_content()
