@@ -152,5 +152,13 @@ class EarthCdpCameraController(EarthCameraControllerIf):
         return tuple(str(n) for n in value) if isinstance(value,list) else ()
 
     def set_view(self, view: EarthCameraView) -> bool:
-        del view
-        return False
+        """Feed ORC position into Chromium's geolocation provider for Earth tracking."""
+        try:
+            self._client.set_geolocation_override(
+                view.latitude_deg,
+                view.longitude_deg,
+                accuracy_m=5.0,
+            )
+        except (OSError, RuntimeError, ValueError):
+            return False
+        return True
