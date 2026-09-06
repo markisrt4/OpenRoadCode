@@ -78,7 +78,7 @@ class EarthGeolocationBridge:
                         }
                         const pending = state.pendingCurrent.splice(0);
                         for (const callback of pending) deliverAsync(callback, position);
-                        return state.callbacks.size > 0 || pending.length > 0;
+                        return true;
                     };
 
                     window.__orcEarthGeoBridge = state;
