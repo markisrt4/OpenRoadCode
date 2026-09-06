@@ -6,9 +6,6 @@ from __future__ import annotations
 import tkinter as tk
 from collections.abc import Callable
 
-from frontends.tk.media.browser_return_overlay import (
-    BrowserReturnOverlay,
-)
 from frontends.tk.media.spotify_services_if import BrowserMediaPlayerIf
 
 
@@ -27,27 +24,17 @@ class NetflixPanel(tk.Frame):
         colors: dict[str, str],
     ) -> None:
         super().__init__(parent, bg=colors["app_bg"])
+        del on_return
         self._player = player
         self._default_url = default_url
         self._display = display
         self._set_status = set_status
         self._colors = colors
-        self._return_overlay = BrowserReturnOverlay(
-            self,
-            command=on_return,
-            background=colors["tile_accent"],
-            foreground=colors["tile_title"],
-            active_background=colors["tile_border"],
-        )
         self._build_ui()
 
     def open_home(self) -> None:
         """Open the Netflix browse page immediately."""
         self._open()
-
-    def destroy(self) -> None:
-        self._return_overlay.hide()
-        super().destroy()
 
     def _build_ui(self) -> None:
         card = tk.Frame(
@@ -89,8 +76,8 @@ class NetflixPanel(tk.Frame):
         tk.Label(
             card,
             text=(
-                "Netflix opens in a dedicated browser window. "
-                "Your login is retained for future sessions."
+                "Netflix is presented by the shared ORC X11 application "
+                "manager. Use the media navigation above to leave the kiosk."
             ),
             bg=self._colors["tile_bg"],
             fg=self._colors["tile_detail"],
@@ -137,13 +124,8 @@ class NetflixPanel(tk.Frame):
         except Exception as error:
             self._set_status(f"Netflix launch failed: {error}")
             return
-        self._return_overlay.show(
-            x=self.winfo_rootx() + 12,
-            y=self.winfo_rooty() + 12,
-        )
         self._set_status(f"Netflix opened on {self._display}")
 
     def _stop(self) -> None:
-        self._return_overlay.hide()
         self._player.stop()
         self._set_status("Netflix stopped")
