@@ -203,7 +203,7 @@ feature_index=0
 while (( feature_index < ${#FEATURES[@]} )); do
   feature="${FEATURES[$feature_index]}"
   while read -r dependency; do [[ -z "$dependency" ]] || append_feature "$dependency"; done < <(get_feature_dependencies "$feature" | tr ' ' '\n')
-  ((feature_index += 1))
+  feature_index=$((feature_index + 1))
 done
 for feature in "${FEATURES[@]}"; do is_known_feature "$feature" || { echo "[!] Internal error: unknown resolved feature '$feature'" >&2; exit 1; }; done
 
