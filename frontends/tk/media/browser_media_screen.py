@@ -1,49 +1,25 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 
-"""Screen adapters for browser-backed media panels."""
+"""Screen adapter for browser-backed media destinations."""
 
 from __future__ import annotations
 
 import os
 import tkinter as tk
 from collections.abc import Callable
-from typing import Protocol
 
 from frontends.tk.media.spotify_services_if import BrowserMediaPlayerIf
 from frontends.tk.tk_screen import TkScreen
 from frontends.tk.tk_screen_host_if import TkScreenHostIf
+from frontends.x11 import X11WindowEmbedder
 from ui.screen_ui_if import ScreenId
 
 MediaNavigationFactory = Callable[[tk.Misc, str], tk.Widget]
 
 
-class BrowserMediaPanelIf(Protocol):
-    """Panel contract needed by a browser-backed media screen."""
-
-    def pack(self, *args, **kwargs) -> None:
-        """Place the panel in the Tk layout."""
-        ...
-
-    def open_home(self) -> None:
-        """Launch the provider's default kiosk destination."""
-        ...
-
-
-BrowserMediaPanelFactory = Callable[
-    [
-        tk.Misc,
-        BrowserMediaPlayerIf,
-        str,
-        Callable[[str], None],
-        Callable[[], None],
-    ],
-    BrowserMediaPanelIf,
-]
-
-
 class BrowserMediaScreen(TkScreen):
-    """Adapt a browser media panel to the shared screen lifecycle."""
+    """Launch and reparent one managed browser directly into an ORC screen."""
 
     def __init__(
         self,
@@ -52,7 +28,8 @@ class BrowserMediaScreen(TkScreen):
         *,
         title: str,
         player: BrowserMediaPlayerIf,
-        panel_factory: BrowserMediaPanelFactory,
+        default_target: str,
+        window_class: str,
         back_action: Callable[[], None],
         media_navigation_factory: MediaNavigationFactory | None = None,
     ) -> None:
@@ -60,20 +37,23 @@ class BrowserMediaScreen(TkScreen):
         self._host = host
         self._title = title
         self._player = player
-        self._panel_factory = panel_factory
+        self._default_target = default_target
+        self._window_class = window_class
         self._back_action = back_action
         self._media_navigation_factory = media_navigation_factory
         self._launch_job: object | None = None
+        self._embedder = X11WindowEmbedder()
+        self._browser_host: tk.Frame | None = None
 
     def show(self) -> None:
-        """Open the provider directly while retaining ORC media navigation."""
+        """Show media navigation and launch the provider directly below it."""
         self.hide()
         self._host.activate_screen(self)
         self._host.clear_screen_content()
         self._host.set_screen_title(self._title)
         self._host.set_screen_back_action(self._back_action)
 
-        root = tk.Frame(self._host.screen_parent)
+        root = tk.Frame(self._host.screen_parent, bg="#000000")
         root.pack(fill=tk.BOTH, expand=True)
 
         if self._media_navigation_factory is not None:
@@ -82,36 +62,69 @@ class BrowserMediaScreen(TkScreen):
                 self.screen_id.value,
             ).pack(fill=tk.X, padx=4, pady=(4, 2))
 
-        panel = self._panel_factory(
-            root,
-            self._player,
-            os.environ.get("DISPLAY", ":1"),
-            self._host.set_screen_status,
-            self._back_action,
-        )
-        panel.pack(fill=tk.BOTH, expand=True)
+        browser_host = tk.Frame(root, bg="#000000")
+        browser_host.pack(fill=tk.BOTH, expand=True, padx=4, pady=(2, 4))
+        browser_host.bind("<Configure>", self._on_browser_host_resize)
+        self._browser_host = browser_host
 
-        # Do not spawn and manipulate an external X11 browser while Tk is
-        # still inside the navigation callback that is destroying/rebuilding
-        # the screen hierarchy.  Let Tk finish that transaction first, then
-        # launch the provider on the next event-loop turn.  This preserves the
-        # direct-to-kiosk UX without mixing two X11 lifecycle operations in one
-        # callback.
+        # Let Tk finish creating the native host window before starting Chrome.
+        # There is deliberately no provider-specific intermediate panel here.
         self._launch_job = self._host.schedule_ui_callback(
             1,
-            lambda: self._open_panel(panel),
+            self._launch_and_embed,
         )
 
     def hide(self) -> None:
-        """Cancel pending launch work and stop this screen's browser."""
+        """Detach the embedded X11 window and stop the managed browser."""
         if self._launch_job is not None:
             try:
                 self._host.cancel_ui_callback(self._launch_job)
             except Exception:
                 pass
             self._launch_job = None
-        self._player.stop()
 
-    def _open_panel(self, panel: BrowserMediaPanelIf) -> None:
+        if self._embedder.window_id is not None:
+            try:
+                parent_id = int(self._host.screen_parent.winfo_toplevel().winfo_id())
+                self._embedder.detach(parent_id)
+            except (RuntimeError, tk.TclError):
+                self._embedder.clear()
+
+        self._player.stop()
+        self._browser_host = None
+
+    def _launch_and_embed(self) -> None:
         self._launch_job = None
-        panel.open_home()
+        host = self._browser_host
+        if host is None or not host.winfo_exists():
+            return
+
+        try:
+            host.update_idletasks()
+            width = max(1, host.winfo_width())
+            height = max(1, host.winfo_height())
+            position = (host.winfo_rootx(), host.winfo_rooty())
+            display = os.environ.get("DISPLAY", ":1")
+
+            self._player.play(
+                self._default_target,
+                display=display,
+                window_position=position,
+                window_size=(width, height),
+            )
+
+            self._embedder.embed(
+                0,
+                int(host.winfo_id()),
+                width,
+                height,
+                window_class=self._window_class,
+            )
+            self._host.set_screen_status(f"{self._title} ready")
+        except Exception as error:
+            self._embedder.clear()
+            self._host.set_screen_status(f"{self._title} launch failed: {error}")
+
+    def _on_browser_host_resize(self, event: tk.Event) -> None:
+        if self._embedder.window_id is not None:
+            self._embedder.resize(max(1, event.width), max(1, event.height))
