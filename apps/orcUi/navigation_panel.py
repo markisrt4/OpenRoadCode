@@ -7,6 +7,7 @@ from collections.abc import Callable
 from apps.launchers.google_earth_launcher import GoogleEarthLauncher
 from apps.orcUi.shared_map_camera import get_shared_map_camera_runtime
 from controllers.navigation.earth_geolocation_bridge import EarthGeolocationBridge
+from controllers.navigation.earth_input_camera_controller import EarthInputCameraController
 from frontends.x11 import X11WindowEmbedder
 from ui.navigation import MapRequestHandlerIf
 
@@ -21,7 +22,7 @@ class NavigationPanel(tk.Frame):
  def __init__(self,parent:tk.Misc,*,map_request_handler:MapRequestHandlerIf|None=None,on_back:Callable[[],None]|None=None)->None:
   super().__init__(parent,bg=BG); del on_back
   self._camera_runtime=get_shared_map_camera_runtime(); self._request_handler=map_request_handler or self._camera_runtime.request_handler
-  self._earth_launcher=GoogleEarthLauncher(); self._earth_embedder=X11WindowEmbedder(); self._earth_geolocation=EarthGeolocationBridge(); self._earth_visible=False; self._earth_initialized=False; self._earth_hud_after:str|None=None; self._earth_last_sent_position:tuple[float,float]|None=None; self._earth_watch_count=0; self._earth_tracking_primed=False; self._earth_follow_enabled=True
+  self._earth_launcher=GoogleEarthLauncher(); self._earth_embedder=X11WindowEmbedder(); self._earth_geolocation=EarthGeolocationBridge(); self._earth_input=EarthInputCameraController(); self._earth_visible=False; self._earth_initialized=False; self._earth_hud_after:str|None=None; self._earth_last_sent_position:tuple[float,float]|None=None; self._earth_watch_count=0; self._earth_tracking_primed=False; self._earth_follow_enabled=True
   self._zoom_level=float(getattr(self._request_handler,"zoom_level",16.5)); self._pitch_rad=float(getattr(self._request_handler,"pitch_rad",math.radians(45))); self._follow_enabled=bool(getattr(self._request_handler,"follow_enabled",True)); self._poi_focus=set(getattr(self._request_handler,"poi_focus",()))
   self._build(); self._schedule_renderer_refresh()
  @property
@@ -162,13 +163,11 @@ class NavigationPanel(tk.Frame):
   self.set_follow_enabled(not self._follow_enabled);self._request_handler.request_follow(self._follow_enabled)
  def _change_zoom(self,d):
   if self._earth_visible:
-   self._shortcut_status.set("Earth zoom control next")
-   return
+   ok=self._earth_input.zoom_in() if d>0 else self._earth_input.zoom_out();self._shortcut_status.set("Earth zoom" if ok else "Earth zoom unavailable");return
   self._zoom_level+=d;self._request_handler.request_zoom(self._zoom_level)
  def _north_up(self):
   if self._earth_visible:
-   self._shortcut_status.set("Earth north-up control next")
-   return
+   self._shortcut_status.set("Earth north up" if self._earth_input.north_up() else "Earth north-up unavailable");return
   self._request_handler.request_bearing(0.0)
  def _recenter(self):
   if self._earth_visible:
