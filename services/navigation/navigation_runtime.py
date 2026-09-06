@@ -179,15 +179,23 @@ class NavigationRuntime:
     def _update_guidance(self, state) -> None:
         session = self._session_controller
         guidance_controller = self._guidance_controller
-        gps = getattr(state, "gps", None)
-        if session is None or guidance_controller is None or gps is None or not gps.has_fix:
+        position_state = getattr(state, "position", None)
+        if (
+            session is None
+            or guidance_controller is None
+            or position_state is None
+            or not position_state.has_fix
+        ):
             return
-        if gps.latitude_deg is None or gps.longitude_deg is None:
+        if (
+            position_state.latitude_deg is None
+            or position_state.longitude_deg is None
+        ):
             return
 
         position = GeoPoint(
-            latitude=gps.latitude_deg,
-            longitude=gps.longitude_deg,
+            latitude=position_state.latitude_deg,
+            longitude=position_state.longitude_deg,
         )
         guidance = guidance_controller.update(position)
         self._guidance_publisher.publish(guidance)
