@@ -11,20 +11,13 @@ from collections.abc import Callable
 from types import SimpleNamespace
 
 from apps.orcUi.navigation_presenter import AttitudePresentationState, PositionPresentationState
+from apps.orcUi.theme_runtime import theme_bundle as packaged_theme_bundle
 from apps.orcUi.vehicle_presenter import VehiclePresentationState
 from frontends.tk.automotive import DEFAULT_GAUGES, OffroadDashboardPanel, ShifterGauge, VehicleGaugePanel
-from frontends.tk.automotive.vehicle_gauge_theme import (
-    vehicle_gauge_theme_from_style_sheet,
-)
+from frontends.tk.automotive.vehicle_gauge_theme import vehicle_gauge_theme_from_style_sheet
 from frontends.tk.automotive.vehicle_gauge_widgets import LinearGauge
 from ui.navigation import HeadingReference, PositionFix
-from ui.theme import ThemeBundle
-
-BG = "#000000"
-TAB_BG = "#101820"
-TAB_ACTIVE = "#168bd1"
-TEXT = "#edf2f5"
-MUTED = "#89959e"
+from ui.theme import ThemeBundle, ThemeMode
 
 
 class VehiclePanel(tk.Frame):
@@ -44,9 +37,9 @@ class VehiclePanel(tk.Frame):
         attitude: AttitudePresentationState | None = None,
         theme_bundle: ThemeBundle | None = None,
     ) -> None:
-        self._theme_bundle = theme_bundle
-        background = theme_bundle.ui.background if theme_bundle is not None else BG
-        super().__init__(parent, bg=background)
+        self._theme_bundle = theme_bundle or packaged_theme_bundle(ThemeMode.DARK)
+        ui = self._theme_bundle.ui
+        super().__init__(parent, bg=ui.background)
         self._on_back = on_back
         self._state = state or VehiclePresentationState()
         self._position = position or PositionPresentationState()
@@ -62,19 +55,18 @@ class VehiclePanel(tk.Frame):
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(1, weight=1)
 
-        tabs = tk.Frame(self, bg=background)
+        tabs = tk.Frame(self, bg=ui.background)
         tabs.grid(row=0, column=0, sticky="ew", pady=(0, 4))
         for column, name in enumerate(self._TABS):
             tabs.grid_columnconfigure(column, weight=1)
-            ui_theme = theme_bundle.ui if theme_bundle is not None else None
             button = tk.Button(
                 tabs,
                 text=name,
                 command=lambda selected=name: self._show_view(selected),
-                bg=ui_theme.control_background if ui_theme is not None else TAB_BG,
-                fg=ui_theme.control_text if ui_theme is not None else TEXT,
-                activebackground=ui_theme.control_active if ui_theme is not None else TAB_ACTIVE,
-                activeforeground="#ffffff" if ui_theme is not None else TEXT,
+                bg=ui.control_background,
+                fg=ui.control_text,
+                activebackground=ui.control_active,
+                activeforeground="#ffffff",
                 relief=tk.FLAT,
                 bd=0,
                 font=("Sans", 9, "bold"),
@@ -83,7 +75,7 @@ class VehiclePanel(tk.Frame):
             button.grid(row=0, column=column, sticky="ew", padx=(0, 4))
             self._view_buttons[name] = button
 
-        self._view_host = tk.Frame(self, bg=background)
+        self._view_host = tk.Frame(self, bg=ui.background)
         self._view_host.grid(row=1, column=0, sticky="nsew")
         self._view_host.grid_columnconfigure(0, weight=1)
         self._view_host.grid_rowconfigure(0, weight=1)
@@ -93,22 +85,16 @@ class VehiclePanel(tk.Frame):
         if name not in self._TABS:
             raise ValueError(f"Unknown vehicle view: {name}")
         self._current_view = name
-        ui_theme = self._theme_bundle.ui if self._theme_bundle is not None else None
+        ui = self._theme_bundle.ui
         for view_name, button in self._view_buttons.items():
             active = view_name == name
-            if ui_theme is None:
-                button.configure(
-                    bg=TAB_ACTIVE if active else TAB_BG,
-                    fg=TEXT if active else MUTED,
-                )
-            else:
-                button.configure(
-                    bg=ui_theme.control_active if active else ui_theme.control_background,
-                    fg="#ffffff" if active else ui_theme.text_muted,
-                    activebackground=ui_theme.control_active,
-                    activeforeground="#ffffff",
-                    highlightbackground=ui_theme.border,
-                )
+            button.configure(
+                bg=ui.control_active if active else ui.control_background,
+                fg="#ffffff" if active else ui.text_muted,
+                activebackground=ui.control_active,
+                activeforeground="#ffffff",
+                highlightbackground=ui.border,
+            )
         if self._view_content is not None:
             self._view_content.destroy()
         self._view_content = None
@@ -127,17 +113,17 @@ class VehiclePanel(tk.Frame):
             self._show_placeholder("TRIP", "Trip distance, time, economy and drive statistics will live here.")
 
     def _show_performance(self) -> None:
-        background = (
-            self._theme_bundle.ui.background
-            if self._theme_bundle is not None
-            else BG
-        )
+        background = self._theme_bundle.ui.background
         host = tk.Frame(self._view_host, bg=background)
         host.grid(row=0, column=0, sticky="nsew")
         host.grid_columnconfigure(0, weight=1)
         host.grid_rowconfigure(0, weight=1)
 
-        definitions = tuple(definition for definition in DEFAULT_GAUGES if definition.gauge_id in self._PERFORMANCE_IDS)
+        definitions = tuple(
+            definition
+            for definition in DEFAULT_GAUGES
+            if definition.gauge_id in self._PERFORMANCE_IDS
+        )
         panel = VehicleGaugePanel(
             host,
             definitions=definitions,
@@ -145,14 +131,12 @@ class VehiclePanel(tk.Frame):
             show_config_button=False,
             panel_background=background,
         )
-        if self._theme_bundle is not None:
-            panel.set_style_sheet(self._theme_bundle.style_sheet)
+        panel.set_style_sheet(self._theme_bundle.style_sheet)
         panel.grid(row=0, column=0, sticky="nsew")
         panel._toolbar.grid_remove()  # type: ignore[attr-defined]
 
         shifter = ShifterGauge(host, width=280, height=58)
-        if self._theme_bundle is not None:
-            shifter.set_style_sheet(self._theme_bundle.style_sheet)
+        shifter.set_style_sheet(self._theme_bundle.style_sheet)
         shifter.grid(row=1, column=0, pady=(0, 3))
 
         self._gauges = panel
@@ -161,12 +145,7 @@ class VehiclePanel(tk.Frame):
         self._apply_state()
 
     def _show_engine(self) -> None:
-        """Show compact secondary gauges two across."""
-        background = (
-            self._theme_bundle.ui.background
-            if self._theme_bundle is not None
-            else BG
-        )
+        background = self._theme_bundle.ui.background
         host = tk.Frame(self._view_host, bg=background)
         host.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
         host.grid_columnconfigure(0, weight=1, uniform="engine")
@@ -174,12 +153,12 @@ class VehiclePanel(tk.Frame):
         for row in range(3):
             host.grid_rowconfigure(row, weight=1)
 
-        definitions = {definition.gauge_id: definition for definition in DEFAULT_GAUGES if definition.gauge_id in self._ENGINE_IDS}
-        gauge_style = (
-            vehicle_gauge_theme_from_style_sheet(self._theme_bundle.style_sheet)
-            if self._theme_bundle is not None
-            else None
-        )
+        definitions = {
+            definition.gauge_id: definition
+            for definition in DEFAULT_GAUGES
+            if definition.gauge_id in self._ENGINE_IDS
+        }
+        gauge_style = vehicle_gauge_theme_from_style_sheet(self._theme_bundle.style_sheet)
         for index, gauge_id in enumerate(self._ENGINE_IDS):
             definition = definitions[gauge_id]
             gauge = LinearGauge(
@@ -206,35 +185,45 @@ class VehiclePanel(tk.Frame):
         self._apply_state()
 
     def _show_offroad(self) -> None:
-        """Embed the original reusable off-road dashboard."""
         panel = OffroadDashboardPanel(
             self._view_host,
             pitch_warning_deg=30.0,
             roll_warning_deg=25.0,
             request_handler=None,
         )
-        if self._theme_bundle is not None:
-            panel.set_style_sheet(self._theme_bundle.style_sheet)
+        panel.set_style_sheet(self._theme_bundle.style_sheet)
         panel.grid(row=0, column=0, sticky="nsew")
         self._offroad = panel
         self._view_content = panel
         self._apply_offroad_state()
 
     def _show_placeholder(self, title: str, detail: str) -> None:
-        ui = self._theme_bundle.ui if self._theme_bundle is not None else None
-        background = ui.background if ui is not None else BG
-        surface = ui.surface if ui is not None else "#0b1117"
-        border = ui.border if ui is not None else "#25313b"
-        text = ui.text if ui is not None else TEXT
-        muted = ui.text_muted if ui is not None else MUTED
-        frame = tk.Frame(self._view_host, bg=background)
+        ui = self._theme_bundle.ui
+        frame = tk.Frame(self._view_host, bg=ui.background)
         frame.grid(row=0, column=0, sticky="nsew")
         frame.grid_columnconfigure(0, weight=1)
         frame.grid_rowconfigure(0, weight=1)
-        body = tk.Frame(frame, bg=surface, highlightthickness=1, highlightbackground=border)
+        body = tk.Frame(
+            frame,
+            bg=ui.surface,
+            highlightthickness=1,
+            highlightbackground=ui.border,
+        )
         body.grid(row=0, column=0, sticky="nsew", padx=8, pady=8)
-        tk.Label(body, text=title, fg=text, bg=surface, font=("Sans", 22, "bold")).pack(pady=(80, 10))
-        tk.Label(body, text=detail, fg=muted, bg=surface, font=("Sans", 11)).pack()
+        tk.Label(
+            body,
+            text=title,
+            fg=ui.text,
+            bg=ui.surface,
+            font=("Sans", 22, "bold"),
+        ).pack(pady=(80, 10))
+        tk.Label(
+            body,
+            text=detail,
+            fg=ui.text_muted,
+            bg=ui.surface,
+            font=("Sans", 11),
+        ).pack()
         self._view_content = frame
 
     def set_theme_bundle(self, theme_bundle: ThemeBundle) -> None:
@@ -256,16 +245,12 @@ class VehiclePanel(tk.Frame):
 
         if self._shifter is not None:
             self._shifter.set_style_sheet(theme_bundle.style_sheet)
-
         if self._offroad is not None:
             self._offroad.set_style_sheet(theme_bundle.style_sheet)
-
         if self._gauges is not None:
             self._gauges.set_style_sheet(theme_bundle.style_sheet)
 
         if self._engine_gauges or self._current_view == "TRIP":
-            # Recreate direct widgets so every Canvas or placeholder uses the
-            # newly resolved CSS component theme.
             self._show_view(self._current_view)
 
     def update_state(self, state: VehiclePresentationState) -> None:
@@ -313,12 +298,26 @@ class VehiclePanel(tk.Frame):
         if panel is None:
             return
         attitude = self._attitude
-        panel.set_heading(None if attitude.heading_deg is None else math.radians(attitude.heading_deg), HeadingReference.RELATIVE)
+        panel.set_heading(
+            None if attitude.heading_deg is None else math.radians(attitude.heading_deg),
+            HeadingReference.RELATIVE,
+        )
         panel.set_pitch(None if attitude.pitch_deg is None else math.radians(attitude.pitch_deg))
         panel.set_roll(None if attitude.roll_deg is None else math.radians(attitude.roll_deg))
         position = self._position
         if position.latitude_deg is not None and position.longitude_deg is not None:
-            altitude_m = None if position.altitude_ft is None else position.altitude_ft / 3.280839895013123
-            panel.set_position(PositionFix(latitude_rad=math.radians(position.latitude_deg), longitude_rad=math.radians(position.longitude_deg), altitude_m=altitude_m, pfom_m=position.accuracy_m))
+            altitude_m = (
+                None
+                if position.altitude_ft is None
+                else position.altitude_ft / 3.280839895013123
+            )
+            panel.set_position(
+                PositionFix(
+                    latitude_rad=math.radians(position.latitude_deg),
+                    longitude_rad=math.radians(position.longitude_deg),
+                    altitude_m=altitude_m,
+                    pfom_m=position.accuracy_m,
+                )
+            )
         else:
             panel.set_position(None)
