@@ -30,38 +30,37 @@ class MediaNavigationBar(tk.Frame):
         show_youtube: Callable[[], None],
         show_netflix: Callable[[], None],
     ) -> None:
-        theme = theme_bundle().ui
-        super().__init__(parent, bg=theme.background)
+        self._theme = theme_bundle().ui
+        super().__init__(parent, bg=self._theme.background)
 
         self._button(
             "‹ MEDIA",
             show_media,
             selected=active == "media",
-            accent=theme.control_active,
-            foreground=theme.text,
+            accent=self._theme.control_active,
         ).pack(side=tk.LEFT)
 
-        providers = tk.Frame(self, bg=theme.background)
+        providers = tk.Frame(self, bg=self._theme.background)
         providers.pack(side=tk.LEFT, padx=(10, 0))
         for key, text, command, accent in (
             ("spotify", "SPOTIFY", show_spotify, SPOTIFY_GREEN),
             ("youtube", "YOUTUBE", show_youtube, YOUTUBE_RED),
             ("netflix", "NETFLIX", show_netflix, NETFLIX_RED),
         ):
-            self._button(
+            self._provider_button(
+                providers,
                 text,
                 command,
                 selected=key == active,
                 accent=accent,
-                foreground="#000000" if key == "spotify" else theme.text,
+                dark_text=key == "spotify",
             ).pack(side=tk.LEFT, padx=(0, 4))
 
         self._button(
             "HOME",
             show_home,
             selected=False,
-            accent=theme.control_active,
-            foreground=theme.text,
+            accent=self._theme.control_active,
         ).pack(side=tk.RIGHT)
 
     def _button(
@@ -71,25 +70,42 @@ class MediaNavigationBar(tk.Frame):
         *,
         selected: bool,
         accent: str,
-        foreground: str,
     ) -> tk.Button:
-        theme = self._theme_bundle().ui if hasattr(self, "_theme_bundle") else None
-        if theme is None:
-            background = accent if selected else self.cget("bg")
-            normal_foreground = foreground
-            active_foreground = foreground
-        else:
-            background = accent if selected else theme.surface
-            normal_foreground = foreground if selected else theme.text
-            active_foreground = foreground
         return tk.Button(
             self,
             text=text,
             command=command,
-            bg=background,
-            fg=normal_foreground,
+            bg=accent if selected else self._theme.surface,
+            fg=self._theme.text,
             activebackground=accent,
-            activeforeground=active_foreground,
+            activeforeground=self._theme.text,
+            relief=tk.FLAT,
+            bd=0,
+            font=("Sans", 9, "bold"),
+            padx=12,
+            pady=6,
+            cursor="hand2",
+        )
+
+    def _provider_button(
+        self,
+        parent: tk.Misc,
+        text: str,
+        command: Callable[[], None],
+        *,
+        selected: bool,
+        accent: str,
+        dark_text: bool,
+    ) -> tk.Button:
+        selected_foreground = "#000000" if dark_text else "#FFFFFF"
+        return tk.Button(
+            parent,
+            text=text,
+            command=command,
+            bg=accent if selected else self._theme.surface,
+            fg=selected_foreground if selected else self._theme.text,
+            activebackground=accent,
+            activeforeground=selected_foreground,
             relief=tk.FLAT,
             bd=0,
             font=("Sans", 9, "bold"),
