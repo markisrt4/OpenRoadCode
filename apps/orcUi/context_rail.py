@@ -191,10 +191,11 @@ class ContextRail(tk.Frame):
         cluster.grid_rowconfigure(1, weight=3)
         cluster.grid_rowconfigure(2, weight=1)
 
+        rpm_cell = self._compact_gauge_cell(cluster, "RPM", "×1000", row=0, column=0, padx=(0, 2), pady=(0, 2))
         rpm = RoundGauge(
-            cluster,
-            title="RPM",
-            unit="x1000",
+            rpm_cell,
+            title="",
+            unit="",
             minimum=0.0,
             maximum=8.0,
             major_step=1.0,
@@ -202,25 +203,29 @@ class ContextRail(tk.Frame):
             danger_start=6.8,
             precision=1,
             style=gauge_style,
-            size=122,
+            size=112,
         )
-        rpm.grid(row=0, column=0, sticky="nsew", padx=(0, 2), pady=(0, 2))
+        rpm.pack(fill=tk.BOTH, expand=True)
+
+        speed_cell = self._compact_gauge_cell(cluster, "SPEED", "MPH", row=0, column=1, padx=(2, 0), pady=(0, 2))
         speed = RoundGauge(
-            cluster,
-            title="SPEED",
-            unit="MPH",
+            speed_cell,
+            title="",
+            unit="",
             minimum=0.0,
             maximum=160.0,
             major_step=40.0,
             precision=0,
             style=gauge_style,
-            size=122,
+            size=112,
         )
-        speed.grid(row=0, column=1, sticky="nsew", padx=(2, 0), pady=(0, 2))
+        speed.pack(fill=tk.BOTH, expand=True)
+
+        boost_cell = self._compact_gauge_cell(cluster, "BOOST", "PSI", row=1, column=0, padx=(0, 2), pady=2)
         boost = RoundGauge(
-            cluster,
-            title="BOOST",
-            unit="PSI",
+            boost_cell,
+            title="",
+            unit="",
             minimum=-15.0,
             maximum=25.0,
             major_step=5.0,
@@ -228,11 +233,13 @@ class ContextRail(tk.Frame):
             danger_start=22.0,
             precision=1,
             style=gauge_style,
-            size=122,
+            size=112,
         )
-        boost.grid(row=1, column=0, sticky="nsew", padx=(0, 2), pady=2)
-        fuel = FuelLevelGauge(cluster, style=gauge_style, size=122)
-        fuel.grid(row=1, column=1, sticky="nsew", padx=(2, 0), pady=2)
+        boost.pack(fill=tk.BOTH, expand=True)
+
+        fuel_cell = self._compact_gauge_cell(cluster, "FUEL", "%", row=1, column=1, padx=(2, 0), pady=2)
+        fuel = FuelLevelGauge(fuel_cell, style=gauge_style, size=112, show_title=False)
+        fuel.pack(fill=tk.BOTH, expand=True)
 
         status = tk.Frame(cluster, bg=ui.surface)
         status.grid(row=2, column=0, columnspan=2, sticky="nsew", pady=(2, 0))
@@ -276,6 +283,38 @@ class ContextRail(tk.Frame):
         self._gear_value_label.pack(padx=10, pady=(0, 3))
         self._vehicle_gauges.update(rpm=rpm, speed=speed, boost=boost, fuel=fuel, coolant=coolant)
         self._paint_vehicle_values()
+
+    def _compact_gauge_cell(
+        self,
+        parent: tk.Frame,
+        title: str,
+        unit: str,
+        *,
+        row: int,
+        column: int,
+        padx: tuple[int, int] | int,
+        pady: tuple[int, int] | int,
+    ) -> tk.Frame:
+        ui = self._theme.ui
+        cell = tk.Frame(parent, bg=ui.surface)
+        cell.grid(row=row, column=column, sticky="nsew", padx=padx, pady=pady)
+        label = tk.Frame(cell, bg=ui.surface)
+        label.pack(side=tk.BOTTOM, fill=tk.X, pady=(0, 1))
+        tk.Label(
+            label,
+            text=title,
+            fg=ui.text,
+            bg=ui.surface,
+            font=("Sans", 8, "bold"),
+        ).pack(side=tk.LEFT, expand=True, anchor="e")
+        tk.Label(
+            label,
+            text=unit,
+            fg=ui.text_muted,
+            bg=ui.surface,
+            font=("Sans", 7),
+        ).pack(side=tk.LEFT, expand=True, anchor="w", padx=(4, 0))
+        return cell
 
     def _paint_vehicle_values(self) -> None:
         state = self._vehicle_state
