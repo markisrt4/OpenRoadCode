@@ -32,6 +32,8 @@ SKIP_MAPLIBRE=0
 SKIP_VALHALLA=0
 SKIP_SERVICES=0
 SKIP_SMOKE=0
+FORCE_MAPLIBRE=0
+FORCE_VALHALLA=0
 TARGET="rpi5"
 HOST_PLATFORM="linux"
 
@@ -47,12 +49,17 @@ Options:
   --skip-host-packages    do not invoke host/component host setup
   --skip-maplibre         skip MapLibre Native and renderer build/install
   --skip-valhalla         skip Valhalla build/install
+  --force-maplibre        rebuild MapLibre/renderer even if already installed
+  --force-valhalla        rebuild Valhalla even if already installed
   --skip-services         skip systemd service installation
   --skip-smoke            skip final software smoke checks
   -h, --help              show this help
 
 Environment:
   BUILD_BASE_IMAGE        override Linux target build image (advanced/debug use)
+
+Existing installed MapLibre and Valhalla artifacts are reused by default. Use
+--force-maplibre or --force-valhalla when a deliberate rebuild is required.
 
 Map/routing data are intentionally NOT built here. Use tools/map_builder on the
 map-build machine, then deploy validated data separately.
@@ -66,6 +73,8 @@ while (( $# > 0 )); do
     --skip-host-packages) SKIP_HOST_PACKAGES=1 ;;
     --skip-maplibre) SKIP_MAPLIBRE=1 ;;
     --skip-valhalla) SKIP_VALHALLA=1 ;;
+    --force-maplibre) FORCE_MAPLIBRE=1 ;;
+    --force-valhalla) FORCE_VALHALLA=1 ;;
     --skip-services) SKIP_SERVICES=1 ;;
     --skip-smoke) SKIP_SMOKE=1 ;;
     -h|--help) usage; exit 0 ;;
@@ -168,7 +177,11 @@ if ! "$CONTAINER_ENGINE" info >/dev/null 2>&1; then
 fi
 
 echo "  container command:  ${CONTAINER_CMD[*]}"
-mkdir -p "$BUILD_ROOT" "$HOST_SRC"
+mkdir -p "$HOST_SRC"
+# A previous sudo-driven build can leave this tree root-owned. Keep the staging
+# directory owned by the invoking user so resume attempts do not fail halfway
+# through with a permission error.
+sudo install -d -m 0755 -o "$(id -u)" -g "$(id -g)" "$BUILD_ROOT"
 
 checkout_repo() {
   local url="$1" dir="$2" ref="$3" label="$4"
@@ -193,8 +206,12 @@ check_runtime_libraries() {
   echo "[+] $label runtime dependency check passed"
 }
 
+container_image_exists() {
+  "${CONTAINER_CMD[@]}" image inspect "$1" >/dev/null 2>&1
+}
+
 if (( ! SKIP_HOST_PACKAGES )); then
-  echo "[*] Installing navigation host dependencies"
+  echo "[*] Checking/installing navigation host dependencies"
   bash "$PROJECT_ROOT/scripts/installers/host_setup.sh" --target "$TARGET" --feature desktop-ui --feature gps --no-vnc --no-gpsd-service
   sudo apt-get update
   sudo apt-get install -y rsync python3-zmq
@@ -203,61 +220,78 @@ if (( ! SKIP_HOST_PACKAGES )); then
 fi
 
 sudo install -d "$CONFIG_ROOT"
-# The native renderer runs as the invoking desktop user during development and
-# vehicle UI sessions. A root-owned 0755 cache directory lets MapLibre read but
-# not create its ambient cache database, which is an impressively subtle way to
-# make a map renderer fail. Keep the shared cache writable by the runtime user.
 sudo install -d -m 0775 -o "$(id -u)" -g "$(id -g)" /var/cache/openroadcode
 if [[ ! -f "$CONFIG_ROOT/navigation.toml" ]]; then
   sudo install -m 0644 "$PROJECT_ROOT/config/navigation.toml" "$CONFIG_ROOT/navigation.toml"
+else
+  echo "[=] Runtime config already installed"
 fi
 
+maplibre_installed="$INSTALL_ROOT/bin/openroadcode-map-renderer"
 if (( ! SKIP_MAPLIBRE )); then
-  checkout_repo "https://github.com/maplibre/maplibre-native.git" "$MAPLIBRE_SRC" "$MAPLIBRE_REF" "MapLibre Native"
-  BASE_IMAGE="$BUILD_BASE_IMAGE" bash "$PROJECT_ROOT/development/containers/maplibre/build.sh"
-  "${CONTAINER_CMD[@]}" run --rm --volume "$HOST_SRC:/src" --workdir /src -e BUILD_JOBS="${BUILD_JOBS:-4}" openroadcode-maplibre-builder /bin/bash -lc "set -euo pipefail; /src/OpenRoadCode/development/containers/maplibre/scripts/build_maplibre.sh; /src/OpenRoadCode/development/containers/maplibre/scripts/build_map_renderer.sh"
-  renderer="$PROJECT_ROOT/apps/map_renderer/build-container/openroadcode-map-renderer"
-  [[ -x "$renderer" ]] || { echo "Renderer build missing: $renderer" >&2; exit 1; }
-  sudo install -d "$INSTALL_ROOT/bin"
-  sudo install -m 0755 "$renderer" "$INSTALL_ROOT/bin/openroadcode-map-renderer"
-  check_runtime_libraries "MapLibre renderer" "$INSTALL_ROOT/bin/openroadcode-map-renderer"
+  if [[ -x "$maplibre_installed" ]] && (( ! FORCE_MAPLIBRE )); then
+    echo "[=] MapLibre renderer already installed; skipping rebuild"
+    check_runtime_libraries "MapLibre renderer" "$maplibre_installed"
+  else
+    checkout_repo "https://github.com/maplibre/maplibre-native.git" "$MAPLIBRE_SRC" "$MAPLIBRE_REF" "MapLibre Native"
+    if container_image_exists openroadcode-maplibre-builder && (( ! FORCE_MAPLIBRE )); then
+      echo "[=] MapLibre builder image already exists"
+    else
+      BASE_IMAGE="$BUILD_BASE_IMAGE" bash "$PROJECT_ROOT/development/containers/maplibre/build.sh"
+    fi
+    "${CONTAINER_CMD[@]}" run --rm --volume "$HOST_SRC:/src" --workdir /src -e BUILD_JOBS="${BUILD_JOBS:-4}" openroadcode-maplibre-builder /bin/bash -lc "set -euo pipefail; /src/OpenRoadCode/development/containers/maplibre/scripts/build_maplibre.sh; /src/OpenRoadCode/development/containers/maplibre/scripts/build_map_renderer.sh"
+    renderer="$PROJECT_ROOT/apps/map_renderer/build-container/openroadcode-map-renderer"
+    [[ -x "$renderer" ]] || { echo "Renderer build missing: $renderer" >&2; exit 1; }
+    sudo install -d "$INSTALL_ROOT/bin"
+    sudo install -m 0755 "$renderer" "$maplibre_installed"
+    check_runtime_libraries "MapLibre renderer" "$maplibre_installed"
+  fi
 fi
 
-# Map/routing geometry is deployed independently, but the visual style belongs
-# to this software revision. Refresh it whenever the software stack is installed
-# so style-only improvements do not require rebuilding the MBTiles dataset.
 DATA_ROOT="$DATA_ROOT" bash "$PROJECT_ROOT/scripts/runtime/install_navigation_style.sh"
 
+valhalla_installed="$INSTALL_ROOT/valhalla/bin/valhalla_service"
 if (( ! SKIP_VALHALLA )); then
-  checkout_repo "https://github.com/kevinkreiser/prime_server.git" "$PRIME_SERVER_SRC" "$PRIME_SERVER_REF" "prime_server"
-  checkout_repo "https://github.com/valhalla/valhalla.git" "$VALHALLA_SRC" "$VALHALLA_REF" "Valhalla"
-  BASE_IMAGE="$BUILD_BASE_IMAGE" bash "$PROJECT_ROOT/development/containers/valhalla/build.sh"
-  valhalla_stage="$BUILD_ROOT/valhalla"
-  sudo rm -rf "$valhalla_stage"
-  mkdir -p "$valhalla_stage"
-  "${CONTAINER_CMD[@]}" run --rm --volume "$HOST_SRC:/src" --workdir /src -e BUILD_JOBS="${BUILD_JOBS:-4}" -e INSTALL_PREFIX="/src/OpenRoadCode/build/navigation-stack/valhalla" openroadcode-valhalla-builder /bin/bash -lc "/src/OpenRoadCode/development/containers/valhalla/scripts/build_valhalla.sh"
-  sudo chown -R "$(id -u):$(id -g)" "$valhalla_stage"
-  [[ -x "$valhalla_stage/bin/valhalla_service" ]] || { echo "Valhalla build missing: $valhalla_stage/bin/valhalla_service" >&2; exit 1; }
-  sudo install -d "$INSTALL_ROOT"
-  sudo rsync -a --delete "$valhalla_stage/" "$INSTALL_ROOT/valhalla/"
-  sudo install -d /etc/ld.so.conf.d
-  printf '%s\n' "$INSTALL_ROOT/valhalla/lib" | sudo tee /etc/ld.so.conf.d/openroadcode-navigation.conf >/dev/null
-  sudo ldconfig
-  check_runtime_libraries "Valhalla" "$INSTALL_ROOT/valhalla/bin/valhalla_service"
+  if [[ -x "$valhalla_installed" ]] && (( ! FORCE_VALHALLA )); then
+    echo "[=] Valhalla already installed; skipping rebuild"
+    check_runtime_libraries "Valhalla" "$valhalla_installed"
+  else
+    checkout_repo "https://github.com/kevinkreiser/prime_server.git" "$PRIME_SERVER_SRC" "$PRIME_SERVER_REF" "prime_server"
+    checkout_repo "https://github.com/valhalla/valhalla.git" "$VALHALLA_SRC" "$VALHALLA_REF" "Valhalla"
+    if container_image_exists openroadcode-valhalla-builder && (( ! FORCE_VALHALLA )); then
+      echo "[=] Valhalla builder image already exists"
+    else
+      BASE_IMAGE="$BUILD_BASE_IMAGE" bash "$PROJECT_ROOT/development/containers/valhalla/build.sh"
+    fi
+    valhalla_stage="$BUILD_ROOT/valhalla"
+    sudo rm -rf "$valhalla_stage"
+    sudo install -d -m 0755 -o "$(id -u)" -g "$(id -g)" "$valhalla_stage"
+    "${CONTAINER_CMD[@]}" run --rm --volume "$HOST_SRC:/src" --workdir /src -e BUILD_JOBS="${BUILD_JOBS:-4}" -e INSTALL_PREFIX="/src/OpenRoadCode/build/navigation-stack/valhalla" openroadcode-valhalla-builder /bin/bash -lc "/src/OpenRoadCode/development/containers/valhalla/scripts/build_valhalla.sh"
+    sudo chown -R "$(id -u):$(id -g)" "$valhalla_stage"
+    [[ -x "$valhalla_stage/bin/valhalla_service" ]] || { echo "Valhalla build missing: $valhalla_stage/bin/valhalla_service" >&2; exit 1; }
+    sudo install -d "$INSTALL_ROOT"
+    sudo rsync -a --delete "$valhalla_stage/" "$INSTALL_ROOT/valhalla/"
+    sudo install -d /etc/ld.so.conf.d
+    printf '%s\n' "$INSTALL_ROOT/valhalla/lib" | sudo tee /etc/ld.so.conf.d/openroadcode-navigation.conf >/dev/null
+    sudo ldconfig
+    check_runtime_libraries "Valhalla" "$valhalla_installed"
+  fi
 fi
 
 if (( ! SKIP_SERVICES )) && (( ! SKIP_VALHALLA )); then
   valhalla_config="$DATA_ROOT/valhalla/valhalla.json"
   if [[ ! -f "$valhalla_config" ]]; then
     echo "[!] Service installation deferred until navigation data are present: $valhalla_config" >&2
+  elif [[ ! -x "$valhalla_installed" ]]; then
+    echo "[!] Service installation deferred until Valhalla is installed: $valhalla_installed" >&2
   else
     sudo env PATH="$INSTALL_ROOT/valhalla/bin:$PATH" bash "$PROJECT_ROOT/scripts/systemd/install_valhalla_systemd.sh" "$valhalla_config" 1
   fi
 fi
 
 if (( ! SKIP_SMOKE )); then
-  (( SKIP_MAPLIBRE )) || test -x "$INSTALL_ROOT/bin/openroadcode-map-renderer"
-  (( SKIP_VALHALLA )) || test -x "$INSTALL_ROOT/valhalla/bin/valhalla_service"
+  (( SKIP_MAPLIBRE )) || test -x "$maplibre_installed"
+  (( SKIP_VALHALLA )) || test -x "$valhalla_installed"
   test -f "$CONFIG_ROOT/navigation.toml"
   if [[ -d "$DATA_ROOT/maps" ]]; then
     test -s "$DATA_ROOT/maps/styles/openroadcode.json"
