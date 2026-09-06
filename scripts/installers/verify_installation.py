@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import importlib
+import os
 import shutil
 import sys
 from collections.abc import Iterable
@@ -75,8 +76,18 @@ def check_import(module: str) -> tuple[bool, str]:
 
 
 def check_command(alternatives: tuple[str, ...]) -> tuple[bool, str]:
+    search_path = os.pathsep.join(
+        part
+        for part in (
+            os.environ.get("PATH", ""),
+            "/usr/local/sbin",
+            "/usr/sbin",
+            "/sbin",
+        )
+        if part
+    )
     for command in alternatives:
-        path = shutil.which(command)
+        path = shutil.which(command, path=search_path)
         if path:
             return True, path
     return False, " or ".join(alternatives)
