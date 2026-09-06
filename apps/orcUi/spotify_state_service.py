@@ -12,7 +12,7 @@ from collections.abc import Callable
 from apps.common.spotify_controller_factory import create_spotify_controller
 from controllers.spotify import SpotifyMediaPresenter
 from controllers.spotify.spotify_controller_if import SpotifyControllerIf
-from controllers.spotify.spotify_library import SpotifyLibraryTrack
+from controllers.spotify.spotify_library import SpotifyLibraryTrack, SpotifyPlaylist
 from controllers.spotify.spotify_state import SpotifyState
 from ui.media import (
     MediaState,
@@ -75,6 +75,14 @@ class _SynchronizedSpotifyController(SpotifyControllerIf):
         with self._lock:
             return self._backend.recently_played(limit=limit)
 
+    def playlists(self, *, limit: int = 20) -> tuple[SpotifyPlaylist, ...]:
+        with self._lock:
+            return self._backend.playlists(limit=limit)
+
+    def playlist_tracks(self, playlist_id: str, *, limit: int = 20) -> tuple[SpotifyLibraryTrack, ...]:
+        with self._lock:
+            return self._backend.playlist_tracks(playlist_id, limit=limit)
+
     def play_track(self, track_uri: str) -> None:
         with self._lock:
             self._backend.play_track(track_uri)
@@ -101,8 +109,10 @@ class SpotifyStateService(
         self._library_lock = threading.RLock()
         self._saved_tracks: tuple[SpotifyLibraryTrack, ...] = ()
         self._recent_tracks: tuple[SpotifyLibraryTrack, ...] = ()
+        self._playlists: tuple[SpotifyPlaylist, ...] = ()
         self._saved_tracks_loaded = False
         self._recent_tracks_loaded = False
+        self._playlists_loaded = False
         self._commands: queue.Queue[Callable[[], None]] = queue.Queue()
         self._wake = threading.Event()
         self._stop = threading.Event()
@@ -115,7 +125,7 @@ class SpotifyStateService(
         return self._controller
 
     def start(self) -> None:
-        """Start playback polling and opportunistic library warming."""
+        """Start playback polling and opportunistic media-library warming."""
         if self._thread is not None and self._thread.is_alive():
             return
         self._stop.clear()
@@ -196,13 +206,13 @@ class SpotifyStateService(
         with self._library_lock:
             return self._recent_tracks if self._recent_tracks_loaded else None
 
-    def load_saved_tracks(self, *, limit: int = 20, refresh: bool = False) -> tuple[SpotifyLibraryTrack, ...]:
-        """Return saved tracks, using the warmed cache when possible.
+    def cached_playlists(self) -> tuple[SpotifyPlaylist, ...] | None:
+        """Return warmed playlists, or ``None`` before the first load."""
+        with self._library_lock:
+            return self._playlists if self._playlists_loaded else None
 
-        @param limit Maximum number of tracks requested from Spotify.
-        @param refresh Force a Web API refresh instead of returning warmed data.
-        @return Saved tracks from cache or Spotify.
-        """
+    def load_saved_tracks(self, *, limit: int = 20, refresh: bool = False) -> tuple[SpotifyLibraryTrack, ...]:
+        """Return saved tracks, using warmed data when possible."""
         with self._library_lock:
             if self._saved_tracks_loaded and not refresh and len(self._saved_tracks) >= min(limit, self.LIBRARY_WARM_LIMIT):
                 return self._saved_tracks[:limit]
@@ -213,12 +223,7 @@ class SpotifyStateService(
         return tracks
 
     def load_recently_played(self, *, limit: int = 20, refresh: bool = False) -> tuple[SpotifyLibraryTrack, ...]:
-        """Return recent tracks, using the warmed cache when possible.
-
-        @param limit Maximum number of tracks requested from Spotify.
-        @param refresh Force a Web API refresh instead of returning warmed data.
-        @return Recent tracks from cache or Spotify.
-        """
+        """Return recent tracks, using warmed data when possible."""
         with self._library_lock:
             if self._recent_tracks_loaded and not refresh and len(self._recent_tracks) >= min(limit, self.LIBRARY_WARM_LIMIT):
                 return self._recent_tracks[:limit]
@@ -228,11 +233,27 @@ class SpotifyStateService(
             self._recent_tracks_loaded = True
         return tracks
 
+    def load_playlists(self, *, limit: int = 20, refresh: bool = False) -> tuple[SpotifyPlaylist, ...]:
+        """Return user playlists, using warmed data when possible."""
+        with self._library_lock:
+            if self._playlists_loaded and not refresh and len(self._playlists) >= min(limit, self.LIBRARY_WARM_LIMIT):
+                return self._playlists[:limit]
+        playlists = self._controller.playlists(limit=limit)
+        with self._library_lock:
+            self._playlists = playlists
+            self._playlists_loaded = True
+        return playlists
+
+    def load_playlist_tracks(self, playlist_id: str, *, limit: int = 20) -> tuple[SpotifyLibraryTrack, ...]:
+        """Load tracks for one Spotify playlist on a worker thread."""
+        return self._controller.playlist_tracks(playlist_id, limit=limit)
+
     def _warm_library(self) -> None:
-        """Warm the first library/history page while the user enters ORC UI."""
+        """Warm common Spotify browse data while the user enters ORC UI."""
         if self._stop.wait(0.75):
             return
-        for loader in (self.load_recently_played, self.load_saved_tracks):
+        loaders = (self.load_recently_played, self.load_saved_tracks, self.load_playlists)
+        for loader in loaders:
             if self._stop.is_set():
                 return
             try:
