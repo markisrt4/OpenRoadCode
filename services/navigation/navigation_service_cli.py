@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import argparse
 import os
+from dataclasses import replace
 from pathlib import Path
 
 from config.service_runtime_config import (
@@ -35,6 +36,9 @@ DEFAULT_RUNTIME_CONFIG = Path(__file__).resolve().parents[2] / "config" / "runti
 
 
 def _default_search_database() -> Path:
+    configured = os.environ.get("OPENROADCODE_SEARCH_DATABASE")
+    if configured:
+        return Path(configured).expanduser()
     data_home = os.environ.get("XDG_DATA_HOME")
     root = Path(data_home).expanduser() if data_home else Path.home() / ".local" / "share"
     return root / "openroadcode" / "maps" / "search" / "openroadcode-search.sqlite"
@@ -51,6 +55,32 @@ def parse_args() -> argparse.Namespace:
         help="Offline OpenRoadCode search database used for destination geocoding.",
     )
     return parser.parse_args()
+
+
+def _apply_input_source_overrides(
+    config: NavigationServiceRuntimeConfig,
+) -> NavigationServiceRuntimeConfig:
+    """Apply deployment-level input selection without mutating shared TOML."""
+    imu_source = os.environ.get("OPENROADCODE_NAV_IMU_SOURCE")
+    gps_source = os.environ.get("OPENROADCODE_NAV_GPS_SOURCE")
+
+    if imu_source is not None:
+        imu_source = imu_source.strip().lower()
+        if imu_source not in {"device", "simulation"}:
+            raise ValueError(
+                "OPENROADCODE_NAV_IMU_SOURCE must be 'device' or 'simulation'"
+            )
+        config = replace(config, imu=replace(config.imu, source=imu_source))
+
+    if gps_source is not None:
+        gps_source = gps_source.strip().lower()
+        if gps_source not in {"device", "simulation"}:
+            raise ValueError(
+                "OPENROADCODE_NAV_GPS_SOURCE must be 'device' or 'simulation'"
+            )
+        config = replace(config, gps=replace(config.gps, source=gps_source))
+
+    return config
 
 
 def _create_gps_reader(host: str, port: str):
@@ -150,7 +180,7 @@ def build_geocoder(database: str | Path):
 def main() -> int:
     args = parse_args()
     system = ServiceRuntimeConfigParser(args.config).load()
-    config = system.navigation
+    config = _apply_input_source_overrides(system.navigation)
 
     if not config.enabled:
         print("Navigation service disabled by runtime configuration")
