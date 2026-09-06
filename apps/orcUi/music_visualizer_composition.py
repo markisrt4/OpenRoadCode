@@ -38,6 +38,20 @@ def selected_music_visualizer_source() -> MusicVisualizerSource:
         ) from exc
 
 
+def _pipewire_block_size() -> int:
+    """Return the configured PipeWire capture block size."""
+    raw = os.getenv("OPENROAD_MUSIC_VISUALIZER_BLOCK_SIZE", "2048")
+    try:
+        block_size = int(raw)
+    except ValueError as exc:
+        raise ValueError(
+            f"OPENROAD_MUSIC_VISUALIZER_BLOCK_SIZE must be an integer, got '{raw}'"
+        ) from exc
+    if block_size < 2048:
+        raise ValueError("OPENROAD_MUSIC_VISUALIZER_BLOCK_SIZE must be >= 2048")
+    return block_size
+
+
 def create_music_visualizer_session(
     callback: Callable[[VisualizerFrame], None],
     *,
@@ -49,10 +63,11 @@ def create_music_visualizer_session(
         return None
 
     target = os.getenv("OPENROAD_MUSIC_VISUALIZER_PIPEWIRE_TARGET") or None
+    block_size = _pipewire_block_size()
 
     def pipeline_factory(analysis_callback):
         return MusicAnalysisPipeline(
-            PipewireAudioCapture(target=target),
+            PipewireAudioCapture(target=target, block_size=block_size),
             MusicAnalyzer(),
             analysis_callback,
         )
