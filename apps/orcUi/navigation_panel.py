@@ -50,9 +50,9 @@ class NavigationPanel(tk.Frame):
   pan=tk.Frame(self._controls,bg=PANEL);pan.pack(pady=2)
   for row,col,text,up,right in ((0,1,"▲",1,0),(1,0,"◀",0,-1),(1,2,"▶",0,1),(2,1,"▼",-1,0)):
    tk.Button(pan,text=text,command=lambda u=up,r=right:self._pan(u,r),bg="#101820",fg=TEXT,activebackground=BLUE,activeforeground=TEXT,relief=tk.FLAT,highlightthickness=1,highlightbackground=BORDER,font=("Sans",9,"bold"),width=1,height=1,padx=2,pady=1).grid(row=row,column=col,padx=1,pady=1)
-  for text,cmd,accent in (("+",lambda:self._change_zoom(1),BLUE),("−",lambda:self._change_zoom(-1),BLUE),("↗",lambda:self._change_pitch(5),PURPLE),("↘",lambda:self._change_pitch(-5),PURPLE),("N",self._north_up,TEXT),("◎",self._recenter,GREEN)):
+  for text,cmd,accent in (("+",lambda:self._change_zoom(1),BLUE),("−",lambda:self._change_zoom(-1),BLUE),("↗",lambda:self._change_pitch(5),PURPLE),("↘",lambda:self._change_pitch(-5),PURPLE),("↶",lambda:self._rotate_earth(-15),RED),("↷",lambda:self._rotate_earth(15),RED),("N",self._north_up,TEXT),("◎",self._recenter,GREEN)):
    self._control(self._controls,text,cmd,accent).pack(fill=tk.X,padx=5,pady=2)
-  tk.Label(self._controls,text="ZOOM\nTILT\nNORTH\nCENTER",bg=PANEL,fg=MUTED,font=("Sans",6),justify=tk.CENTER).pack(side=tk.BOTTOM,pady=5)
+  tk.Label(self._controls,text="ZOOM\nTILT\nROTATE\nNORTH\nCENTER",bg=PANEL,fg=MUTED,font=("Sans",6),justify=tk.CENTER).pack(side=tk.BOTTOM,pady=5)
   self._earth_guidance=tk.Frame(self._body,bg=PANEL,highlightthickness=1,highlightbackground=BORDER);self._earth_instruction_var=tk.StringVar(value="No active route");self._earth_maneuver_distance_var=tk.StringVar(value="");self._earth_route_remaining_var=tk.StringVar(value="")
   tk.Label(self._earth_guidance,text="➜",bg=PANEL,fg=GREEN,font=("Sans",18,"bold"),padx=10).pack(side=tk.LEFT);tk.Label(self._earth_guidance,textvariable=self._earth_instruction_var,bg=PANEL,fg=TEXT,font=("Sans",11,"bold"),anchor="w").pack(side=tk.LEFT,fill=tk.X,expand=True,pady=5);tk.Label(self._earth_guidance,textvariable=self._earth_maneuver_distance_var,bg=PANEL,fg=GREEN,font=("Sans",10,"bold"),padx=10).pack(side=tk.RIGHT);tk.Label(self._earth_guidance,textvariable=self._earth_route_remaining_var,bg=PANEL,fg=MUTED,font=("Sans",8),padx=8).pack(side=tk.RIGHT)
   self._earth_hud=tk.Frame(self._body,bg=PANEL,highlightthickness=1,highlightbackground=BORDER);self._earth_speed_var=tk.StringVar(value="-- mph");self._earth_track_var=tk.StringVar(value="---°");self._earth_position_var=tk.StringVar(value="GPS --")
@@ -180,6 +180,10 @@ class NavigationPanel(tk.Frame):
   if self._earth_visible:
    self._earth_follow_enabled=False;self._update_follow_button();ok=self._earth_input.tilt(delta_deg);self._shortcut_status.set("Earth tilt" if ok else "Earth tilt unavailable");return
   pitch_deg=max(0,min(60,math.degrees(self._pitch_rad)+delta_deg));self._pitch_rad=math.radians(pitch_deg);self.set_follow_enabled(False);self._request_handler.request_pitch(self._pitch_rad)
+ def _rotate_earth(self,delta_deg:float):
+  if not self._earth_visible:
+   self._shortcut_status.set("Earth rotation only");return
+  self._earth_follow_enabled=False;self._update_follow_button();ok=self._earth_input.rotate(delta_deg);self._shortcut_status.set("Earth rotate" if ok else "Earth rotate unavailable")
  def _north_up(self):
   if self._earth_visible:
    self._earth_follow_enabled=False;self._update_follow_button();self._shortcut_status.set("Earth north up" if self._earth_input.north_up() else "Earth north-up unavailable");return
