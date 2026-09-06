@@ -15,12 +15,14 @@ BG="#05090d"; PANEL="#0b1117"; BORDER="#25313b"; TEXT="#edf2f5"; MUTED="#89959e"
 _MPS_TO_MPH=2.2369362920544
 _M_TO_MI=0.000621371192237334
 _M_TO_FT=3.28083989501312
+_EARTH_POSITION_THRESHOLD_M=3.0
+_EARTH_RADIUS_M=6371008.8
 
 class NavigationPanel(tk.Frame):
  def __init__(self,parent:tk.Misc,*,map_request_handler:MapRequestHandlerIf|None=None,on_back:Callable[[],None]|None=None)->None:
   super().__init__(parent,bg=BG); del on_back
   self._camera_runtime=get_shared_map_camera_runtime(); self._request_handler=map_request_handler or self._camera_runtime.request_handler
-  self._earth_launcher=GoogleEarthLauncher(); self._earth_embedder=X11WindowEmbedder(); self._earth_camera=EarthCdpCameraController(); self._earth_visible=False; self._earth_initialized=False; self._earth_hud_after:str|None=None
+  self._earth_launcher=GoogleEarthLauncher(); self._earth_embedder=X11WindowEmbedder(); self._earth_camera=EarthCdpCameraController(); self._earth_visible=False; self._earth_initialized=False; self._earth_hud_after:str|None=None; self._earth_last_sent_position:tuple[float,float]|None=None
   self._zoom_level=float(getattr(self._request_handler,"zoom_level",16.5)); self._pitch_rad=float(getattr(self._request_handler,"pitch_rad",math.radians(45))); self._follow_enabled=bool(getattr(self._request_handler,"follow_enabled",True)); self._poi_focus=set(getattr(self._request_handler,"poi_focus",()))
   self._build(); self._schedule_renderer_refresh()
  @property
@@ -62,7 +64,7 @@ class NavigationPanel(tk.Frame):
   self._earth_guidance.grid(row=1,column=0,sticky="ew",pady=(4,0));self._earth_hud.grid(row=2,column=0,sticky="ew",pady=(3,0));self.update_idletasks();position,size=self._earth_geometry()
   if not self._earth_launcher.is_running():self._earth_launcher.configure_app_window(position=position,size=size);self._earth_launcher.launch(self._display())
   self.update_idletasks();self._earth_embedder.embed(0,self.map_host_window_id,size[0],size[1],window_class=GoogleEarthLauncher.WINDOW_CLASS)
-  self._earth_visible=True;self._earth_button.configure(text="▣  MAP",bg=GREEN,fg=BG);self._start_earth_hud()
+  self._earth_last_sent_position=None;self._earth_visible=True;self._earth_button.configure(text="▣  MAP",bg=GREEN,fg=BG);self._start_earth_hud()
  def _detach_earth(self)->None:
   if self._earth_embedder.window_id is not None:
    try:self._earth_embedder.detach(int(self.winfo_toplevel().winfo_id()))
@@ -96,9 +98,19 @@ class NavigationPanel(tk.Frame):
   if position is None:self._earth_position_var.set("GPS --")
   else:
    lat=math.degrees(position.latitude_rad);lon=math.degrees(position.longitude_rad);self._earth_position_var.set(f"{lat:.4f}, {lon:.4f}")
-   if not self._earth_camera.set_view(EarthCameraView(latitude_deg=lat,longitude_deg=lon,heading_deg=None if track is None else math.degrees(track)%360.0)):
-    self._shortcut_status.set("Earth GPS bridge unavailable")
+   if self._earth_position_changed(lat,lon):
+    if self._earth_camera.set_view(EarthCameraView(latitude_deg=lat,longitude_deg=lon,heading_deg=None if track is None else math.degrees(track)%360.0)):
+     self._earth_last_sent_position=(lat,lon)
+    else:self._shortcut_status.set("Earth GPS bridge unavailable")
   self._update_earth_guidance();self._earth_hud_after=self.after(500,self._update_earth_hud)
+ def _earth_position_changed(self,lat:float,lon:float)->bool:
+  previous=self._earth_last_sent_position
+  if previous is None:return True
+  lat1,lon1=map(math.radians,previous);lat2,lon2=math.radians(lat),math.radians(lon)
+  dlat=lat2-lat1;dlon=lon2-lon1
+  a=math.sin(dlat/2.0)**2+math.cos(lat1)*math.cos(lat2)*math.sin(dlon/2.0)**2
+  distance=_EARTH_RADIUS_M*2.0*math.atan2(math.sqrt(a),math.sqrt(max(0.0,1.0-a)))
+  return distance>=_EARTH_POSITION_THRESHOLD_M
  def _update_earth_guidance(self)->None:
   if self._camera_runtime.latest_route_complete:self._earth_instruction_var.set("Destination reached");self._earth_maneuver_distance_var.set("");self._earth_route_remaining_var.set("");return
   instruction=self._camera_runtime.latest_instruction
