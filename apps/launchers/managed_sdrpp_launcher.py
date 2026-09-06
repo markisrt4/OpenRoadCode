@@ -19,6 +19,15 @@ class ManagedSDRPPLauncher(SDRPPLauncher):
 
     def prepare(self, remote_display: str, set_status: StatusCallback = None) -> None:
         """Start SDR++ for preload and hide its X11 window as it appears."""
+        # Recover before starting the hide watcher. Otherwise the watcher can
+        # consume an old SDR++ window, exit, and leave the replacement process
+        # with no watcher at all.
+        if self.is_running() and not self.is_rigctl_ready():
+            if set_status is not None:
+                set_status("Recovering stale SDR++ process...")
+            self.stop(remote_display, set_status)
+            time.sleep(0.25)
+
         watcher = threading.Thread(
             target=self._hide_when_window_appears,
             name="sdrpp-preload-window-hide",
