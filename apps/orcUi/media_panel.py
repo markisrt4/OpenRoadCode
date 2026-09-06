@@ -13,6 +13,7 @@ from collections.abc import Callable
 
 from apps.common.uiTheme.spotify import SPOTIFY_PANEL_THEME
 from apps.orcUi.orc_theme import ACCENT_BLUE, ACCENT_GREEN, ACCENT_RED, DARK
+from apps.orcUi.spotify_local_player import SpotifyLocalPlayer, SpotifyPlaybackMode
 from apps.orcUi.spotify_state_service import SpotifyStateService
 from config.runtime_target import RuntimeTarget, detect_runtime_target
 from controllers.image import ImageCache
@@ -42,8 +43,8 @@ def _orc_spotify_theme() -> dict:
 class MediaPanel(tk.Frame):
     """ORC-styled media landing page with hosted media applications."""
 
-    def __init__(self,parent:tk.Widget,*,on_back:Callable[[],None],spotify_service:SpotifyStateService,status_callback:Callable[[str],None]|None=None,theme_mode:ThemeMode=ThemeMode.DARK)->None:
-        super().__init__(parent,bg=BG); self._on_back=on_back; self._spotify_service=spotify_service; self._status_callback=status_callback or (lambda _message:None); self._theme_mode=theme_mode; self._display=os.environ.get("DISPLAY",":1"); self._view_host:tk.Frame|None=None; self._browser_host:tk.Frame|None=None; self._browser_embedder=X11WindowEmbedder(); self._active_browser:str|None=None; self._netflix_player:NetflixPlayer|None=None; self._youtube_player:YouTubePlayer|None=None; self._spotify_video_controller:MusicVideoController|None=None; self._spotify_refresh_job:str|None=None; self._spotify_panel:SpotifyPlaybackPanel|None=None; self._ui_dispatch_queue:queue.SimpleQueue[Callable[[],None]]=queue.SimpleQueue(); self._ui_dispatch_job:str|None=None; self._closed=False; self._build_shell(); self._ui_dispatch_job=self.after(25,self._poll_ui_dispatch); self.show_hub()
+    def __init__(self,parent:tk.Widget,*,on_back:Callable[[],None],spotify_service:SpotifyStateService,spotify_local_player:SpotifyLocalPlayer,status_callback:Callable[[str],None]|None=None,theme_mode:ThemeMode=ThemeMode.DARK)->None:
+        super().__init__(parent,bg=BG); self._on_back=on_back; self._spotify_service=spotify_service; self._spotify_local_player=spotify_local_player; self._status_callback=status_callback or (lambda _message:None); self._theme_mode=theme_mode; self._display=os.environ.get("DISPLAY",":1"); self._view_host:tk.Frame|None=None; self._browser_host:tk.Frame|None=None; self._browser_embedder=X11WindowEmbedder(); self._active_browser:str|None=None; self._netflix_player:NetflixPlayer|None=None; self._youtube_player:YouTubePlayer|None=None; self._spotify_video_controller:MusicVideoController|None=None; self._spotify_refresh_job:str|None=None; self._spotify_panel:SpotifyPlaybackPanel|None=None; self._spotify_mode_buttons:dict[SpotifyPlaybackMode,tk.Button]={}; self._spotify_mode_status:tk.Label|None=None; self._ui_dispatch_queue:queue.SimpleQueue[Callable[[],None]]=queue.SimpleQueue(); self._ui_dispatch_job:str|None=None; self._closed=False; self._build_shell(); self._ui_dispatch_job=self.after(25,self._poll_ui_dispatch); self.show_hub()
 
     def set_theme_mode(self,theme_mode:ThemeMode)->None:
         if theme_mode is self._theme_mode:return
@@ -68,8 +69,20 @@ class MediaPanel(tk.Frame):
     def show_spotify(self)->None:
         self._clear_view(); self._set_title("SPOTIFY","Now playing and playback controls",show_media_back=True)
         try:
-            self._spotify_service.request_refresh(); target=detect_runtime_target(); video_controller=MusicVideoController(spotify_controller=self._spotify_service.controller,music_video=YouTubeMusicVideo(port=MUSIC_VIDEO_PORT,fullscreen=True,software_rendering=target is RuntimeTarget.LINUX_DEV)); panel=SpotifyPlaybackPanel(self._view_host,music_video_controller=video_controller,image_cache=ImageCache(max_entries=64),lyrics_client=LrclibLyricsClient(),theme=_orc_spotify_theme()); panel.set_playback_request_handler(self._spotify_service); panel.set_track_request_handler(self._spotify_service); panel.set_seek_request_handler(self._spotify_service); panel.set_volume_request_handler(self._spotify_service); panel.pack(fill=tk.BOTH,expand=True,padx=4,pady=4); self._spotify_video_controller=video_controller; self._spotify_panel=panel; self._refresh_spotify()
+            self._build_spotify_mode_bar(); self._spotify_service.request_refresh(); target=detect_runtime_target(); video_controller=MusicVideoController(spotify_controller=self._spotify_service.controller,music_video=YouTubeMusicVideo(port=MUSIC_VIDEO_PORT,fullscreen=True,software_rendering=target is RuntimeTarget.LINUX_DEV)); panel=SpotifyPlaybackPanel(self._view_host,music_video_controller=video_controller,image_cache=ImageCache(max_entries=64),lyrics_client=LrclibLyricsClient(),theme=_orc_spotify_theme()); panel.set_playback_request_handler(self._spotify_service); panel.set_track_request_handler(self._spotify_service); panel.set_seek_request_handler(self._spotify_service); panel.set_volume_request_handler(self._spotify_service); panel.pack(fill=tk.BOTH,expand=True,padx=4,pady=4); self._spotify_video_controller=video_controller; self._spotify_panel=panel; self._refresh_spotify()
         except Exception as error:self._show_error("Spotify",error)
+
+    def _build_spotify_mode_bar(self)->None:
+        bar=tk.Frame(self._view_host,bg=BG); bar.pack(fill=tk.X,padx=4,pady=(0,4)); tk.Label(bar,text="PLAYBACK",bg=BG,fg=MUTED,font=("Sans",8,"bold")).pack(side=tk.LEFT,padx=(4,8)); self._spotify_mode_buttons={}
+        for mode,command in ((SpotifyPlaybackMode.REMOTE,self._spotify_local_player.request_remote),(SpotifyPlaybackMode.PLAYER,self._spotify_local_player.request_player)):
+            button=tk.Button(bar,text=mode.value,command=command,bg=ACTIVE,fg=TEXT,activebackground=ACCENT_GREEN,activeforeground=BG,relief=tk.FLAT,bd=0,font=("Sans",9,"bold"),padx=14,pady=5); button.pack(side=tk.LEFT,padx=2); self._spotify_mode_buttons[mode]=button
+        self._spotify_mode_status=tk.Label(bar,text="",bg=BG,fg=MUTED,font=("Sans",9)); self._spotify_mode_status.pack(side=tk.LEFT,padx=(10,0)); self._refresh_spotify_mode()
+
+    def _refresh_spotify_mode(self)->None:
+        state=self._spotify_local_player.state()
+        for mode,button in self._spotify_mode_buttons.items():
+            selected=mode is state.mode; button.configure(bg=ACCENT_GREEN if selected else ACTIVE,fg=BG if selected else TEXT,state=tk.DISABLED if state.busy or (mode is SpotifyPlaybackMode.PLAYER and not state.available) else tk.NORMAL)
+        if self._spotify_mode_status is not None:self._spotify_mode_status.configure(text=state.message,fg=ACCENT_GREEN if state.mode is SpotifyPlaybackMode.PLAYER and not state.busy else MUTED)
 
     def show_youtube(self)->None:self._show_embedded_browser(service="YouTube",subtitle="Embedded YouTube kiosk",window_class=YOUTUBE_WINDOW_CLASS,launch=self._launch_youtube)
     def show_netflix(self)->None:self._show_embedded_browser(service="Netflix",subtitle="Embedded Netflix kiosk",window_class=NETFLIX_WINDOW_CLASS,launch=self._launch_netflix)
@@ -94,7 +107,7 @@ class MediaPanel(tk.Frame):
         self.grid_columnconfigure(0,weight=1); self.grid_rowconfigure(1,weight=1); self._header=tk.Frame(self,bg=PANEL,highlightthickness=1,highlightbackground=BORDER); self._header.grid(row=0,column=0,sticky="ew",padx=2,pady=(2,6)); self._header.grid_columnconfigure(1,weight=1); self._back_button=tk.Button(self._header,text="‹ HOME",command=self._on_back,bg=PANEL,fg=TEXT,activebackground=ACTIVE,activeforeground=TEXT,relief=tk.FLAT,bd=0,font=("Sans",10,"bold"),padx=10,pady=8); self._back_button.grid(row=0,column=0,rowspan=2,sticky="nsw",padx=(6,10),pady=5); self._title_label=tk.Label(self._header,text="MEDIA",bg=PANEL,fg=TEXT,font=("Sans",16,"bold")); self._title_label.grid(row=0,column=1,sticky="sw",pady=(7,0)); self._subtitle_label=tk.Label(self._header,text="",bg=PANEL,fg=MUTED,font=("Sans",9)); self._subtitle_label.grid(row=1,column=1,sticky="nw",pady=(0,7)); self._media_back=tk.Button(self._header,text="ALL MEDIA",command=self.show_hub,bg=ACTIVE,fg=TEXT,activebackground=BORDER,activeforeground=TEXT,relief=tk.FLAT,bd=0,font=("Sans",9,"bold"),padx=12,pady=7); self._media_back.grid(row=0,column=2,rowspan=2,padx=8,pady=6); self._view_host=tk.Frame(self,bg=BG); self._view_host.grid(row=1,column=0,sticky="nsew")
     def _set_title(self,title,subtitle,*,show_media_back=False):self._title_label.configure(text=title); self._subtitle_label.configure(text=subtitle); self._media_back.grid() if show_media_back else self._media_back.grid_remove()
     def _clear_view(self):
-        self._stop_embedded_browser(); self._cancel_spotify_refresh(); self._spotify_panel=None
+        self._stop_embedded_browser(); self._cancel_spotify_refresh(); self._spotify_panel=None; self._spotify_mode_buttons={}; self._spotify_mode_status=None
         if self._spotify_video_controller is not None:self._spotify_video_controller.stop_video(); self._spotify_video_controller=None
         if self._view_host is not None:
             for child in self._view_host.winfo_children():child.destroy()
@@ -106,7 +119,7 @@ class MediaPanel(tk.Frame):
     def _refresh_spotify(self):
         panel=self._spotify_panel
         if panel is None or self._closed:return
-        try:panel.set_media_state(self._spotify_service.latest_state())
+        try:panel.set_media_state(self._spotify_service.latest_state()); self._refresh_spotify_mode()
         except tk.TclError:return
         self._spotify_refresh_job=self.after(500,self._refresh_spotify)
     def _dispatch_ui(self,callback):self._ui_dispatch_queue.put(callback)
