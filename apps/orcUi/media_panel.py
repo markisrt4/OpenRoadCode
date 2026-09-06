@@ -62,14 +62,14 @@ def _orc_spotify_theme() -> dict:
             "title": TEXT,
             "subtitle": MUTED,
             "detail": MUTED,
-            "status": ACCENT_GREEN,
+            "status": SPOTIFY_GREEN,
             "button_background": ACTIVE,
             "button_foreground": TEXT,
-            "button_active_background": ACCENT_GREEN,
-            "button_active_foreground": BG,
+            "button_active_background": SPOTIFY_GREEN,
+            "button_active_foreground": "#000000",
             "button_disabled_foreground": MUTED,
             "progress_track": BORDER,
-            "progress_fill": ACCENT_GREEN,
+            "progress_fill": SPOTIFY_GREEN,
         }
     )
     return theme
@@ -169,13 +169,13 @@ class MediaPanel(tk.Frame):
 
         spotify = self._media_card(
             grid,
-            "♫",
+            "spotify",
             "SPOTIFY",
             "MUSIC",
             "Now playing",
             "Artwork, lyrics, library, playlists and music video.",
             None,
-            ACCENT_GREEN,
+            SPOTIFY_GREEN,
             self.show_spotify,
         )
         spotify.grid(row=0, column=0, sticky="nsew", padx=6, pady=4)
@@ -222,8 +222,10 @@ class MediaPanel(tk.Frame):
             actions,
             text="REMOTE",
             command=self._open_spotify_remote,
-            bg=ACTIVE,
+            bg=SPOTIFY_SURFACE,
             fg=TEXT,
+            activebackground=SPOTIFY_SURFACE_HOVER,
+            activeforeground=TEXT,
             relief=tk.FLAT,
             bd=0,
             font=("Sans", 9, "bold"),
@@ -234,8 +236,10 @@ class MediaPanel(tk.Frame):
             actions,
             text="PLAY HERE",
             command=self._open_spotify_local,
-            bg=ACCENT_GREEN,
-            fg=BG,
+            bg=SPOTIFY_GREEN,
+            fg="#000000",
+            activebackground=SPOTIFY_GREEN,
+            activeforeground="#000000",
             relief=tk.FLAT,
             bd=0,
             font=("Sans", 9, "bold"),
@@ -293,15 +297,15 @@ class MediaPanel(tk.Frame):
             self._show_error("Spotify", error)
 
     def _build_spotify_mode_bar(self) -> None:
-        bar = tk.Frame(self._view_host, bg=BG)
+        bar = tk.Frame(self._view_host, bg=SPOTIFY_BG)
         bar.pack(fill=tk.X, padx=4, pady=(0, 4))
         tk.Label(
             bar,
             text="PLAYBACK",
-            bg=BG,
-            fg=MUTED,
+            bg=SPOTIFY_BG,
+            fg=SPOTIFY_MUTED,
             font=("Sans", 8, "bold"),
-        ).pack(side=tk.LEFT, padx=(4, 8))
+        ).pack(side=tk.LEFT, padx=(8, 8), pady=5)
         self._spotify_mode_buttons = {}
         for mode, command in (
             (SpotifyPlaybackMode.REMOTE, self._spotify_local_player.request_remote),
@@ -311,23 +315,23 @@ class MediaPanel(tk.Frame):
                 bar,
                 text=mode.value,
                 command=command,
-                bg=ACTIVE,
+                bg=SPOTIFY_SURFACE,
                 fg=TEXT,
-                activebackground=ACCENT_GREEN,
-                activeforeground=BG,
+                activebackground=SPOTIFY_GREEN,
+                activeforeground="#000000",
                 relief=tk.FLAT,
                 bd=0,
                 font=("Sans", 9, "bold"),
                 padx=14,
                 pady=5,
             )
-            button.pack(side=tk.LEFT, padx=2)
+            button.pack(side=tk.LEFT, padx=2, pady=4)
             self._spotify_mode_buttons[mode] = button
         self._spotify_mode_status = tk.Label(
             bar,
             text="",
-            bg=BG,
-            fg=MUTED,
+            bg=SPOTIFY_BG,
+            fg=SPOTIFY_MUTED,
             font=("Sans", 9),
         )
         self._spotify_mode_status.pack(side=tk.LEFT, padx=(10, 0))
@@ -874,8 +878,10 @@ class MediaPanel(tk.Frame):
         for mode, button in self._spotify_mode_buttons.items():
             selected = mode is state.mode
             button.configure(
-                bg=ACCENT_GREEN if selected else ACTIVE,
-                fg=BG if selected else TEXT,
+                bg=SPOTIFY_GREEN if selected else SPOTIFY_SURFACE,
+                fg="#000000" if selected else TEXT,
+                activebackground=SPOTIFY_GREEN,
+                activeforeground="#000000",
                 state=(
                     tk.DISABLED
                     if state.busy
@@ -887,9 +893,9 @@ class MediaPanel(tk.Frame):
             self._spotify_mode_status.configure(
                 text=state.message,
                 fg=(
-                    ACCENT_GREEN
+                    SPOTIFY_GREEN
                     if state.mode is SpotifyPlaybackMode.PLAYER and not state.busy
-                    else MUTED
+                    else SPOTIFY_MUTED
                 ),
             )
 
@@ -921,8 +927,8 @@ class MediaPanel(tk.Frame):
                 controls,
                 text="‹ RETURN TO SPOTIFY",
                 command=self._return_from_spotify_video,
-                bg=ACCENT_GREEN,
-                fg=BG,
+                bg=SPOTIFY_GREEN,
+                fg="#000000",
                 relief=tk.FLAT,
                 bd=0,
                 font=("Sans", 9, "bold"),
@@ -1222,13 +1228,16 @@ class MediaPanel(tk.Frame):
         glyph_box = tk.Frame(top, bg=accent, width=48, height=48)
         glyph_box.pack(side=tk.LEFT)
         glyph_box.pack_propagate(False)
-        tk.Label(
-            glyph_box,
-            text=glyph,
-            bg=accent,
-            fg=BG,
-            font=("Sans", 22, "bold"),
-        ).pack(fill=tk.BOTH, expand=True)
+        if glyph == "spotify":
+            self._spotify_logo(glyph_box, accent)
+        else:
+            tk.Label(
+                glyph_box,
+                text=glyph,
+                bg=accent,
+                fg=BG,
+                font=("Sans", 22, "bold"),
+            ).pack(fill=tk.BOTH, expand=True)
         identity = tk.Frame(top, bg=PANEL)
         identity.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(12, 0))
         tk.Label(
@@ -1276,6 +1285,32 @@ class MediaPanel(tk.Frame):
             ).pack(fill=tk.X, side=tk.BOTTOM, pady=(14, 0))
         self._bind_card(card, command)
         return card
+
+    @staticmethod
+    def _spotify_logo(parent: tk.Widget, background: str) -> None:
+        """Draw a compact Spotify-style three-wave mark without an image asset."""
+        canvas = tk.Canvas(
+            parent,
+            width=48,
+            height=48,
+            bg=background,
+            highlightthickness=0,
+            bd=0,
+        )
+        canvas.pack(fill=tk.BOTH, expand=True)
+        for bounds, width in (
+            ((8, 10, 41, 31), 4),
+            ((10, 17, 39, 35), 3),
+            ((12, 24, 37, 39), 3),
+        ):
+            canvas.create_arc(
+                *bounds,
+                start=24,
+                extent=135,
+                style=tk.ARC,
+                outline="#000000",
+                width=width,
+            )
 
     @staticmethod
     def _bind_card(widget, command) -> None:
