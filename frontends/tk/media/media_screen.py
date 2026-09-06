@@ -56,8 +56,20 @@ class MediaScreen(TkScreen):
 
         heading = tk.Frame(root, bg=theme.background)
         heading.pack(fill=tk.X, padx=14, pady=(10, 4))
-        tk.Label(heading, text="MEDIA", bg=theme.background, fg=theme.text, font=("Sans", 20, "bold")).pack(anchor="w")
-        tk.Label(heading, text="Music, video, and streaming", bg=theme.background, fg=theme.text_muted, font=("Sans", 10)).pack(anchor="w")
+        tk.Label(
+            heading,
+            text="MEDIA",
+            bg=theme.background,
+            fg=theme.text,
+            font=("Sans", 20, "bold"),
+        ).pack(anchor="w")
+        tk.Label(
+            heading,
+            text="Music, video, and streaming",
+            bg=theme.background,
+            fg=theme.text_muted,
+            font=("Sans", 10),
+        ).pack(anchor="w")
 
         grid = tk.Frame(root, bg=theme.background)
         grid.pack(fill=tk.BOTH, expand=True, padx=6, pady=(2, 8))
@@ -78,25 +90,31 @@ class MediaScreen(TkScreen):
         spotify.grid(row=0, column=0, sticky="nsew", padx=6, pady=4)
         self._spotify_card_actions(spotify)
 
-        for column, card in enumerate(
-            (
-                ("▶", "YOUTUBE", "VIDEO", "Watch anything", "Open YouTube inside the ORC media surface.", YOUTUBE_RED, self._show_youtube),
-                ("N", "NETFLIX", "STREAM", "Continue watching", "Open Netflix using your retained browser profile.", NETFLIX_RED, self._show_netflix),
-            ),
-            start=1,
-        ):
-            glyph, title, category, subtitle, detail, accent, command = card
-            self._media_card(
-                grid,
-                glyph=glyph,
-                title=title,
-                category=category,
-                subtitle=subtitle,
-                detail=detail,
-                accent=accent,
-                command=command,
-                action=f"OPEN {title}",
-            ).grid(row=0, column=column, sticky="nsew", padx=6, pady=4)
+        youtube = self._media_card(
+            grid,
+            glyph="youtube",
+            title="YOUTUBE",
+            category="VIDEO",
+            subtitle="Watch instantly",
+            detail="Jump straight into YouTube in the ORC kiosk surface.",
+            accent=YOUTUBE_RED,
+            command=self._show_youtube,
+            action="OPEN YOUTUBE",
+        )
+        youtube.grid(row=0, column=1, sticky="nsew", padx=6, pady=4)
+
+        netflix = self._media_card(
+            grid,
+            glyph="netflix",
+            title="NETFLIX",
+            category="STREAM",
+            subtitle="Continue watching",
+            detail="Open Netflix directly with your retained browser profile.",
+            accent=NETFLIX_RED,
+            command=self._show_netflix,
+            action="OPEN NETFLIX",
+        )
+        netflix.grid(row=0, column=2, sticky="nsew", padx=6, pady=4)
 
     def _media_card(
         self,
@@ -112,31 +130,82 @@ class MediaScreen(TkScreen):
         action: str | None = None,
     ) -> tk.Frame:
         theme = self._theme_bundle().ui
-        card = tk.Frame(parent, bg=theme.surface, highlightthickness=1, highlightbackground=theme.border, cursor="hand2")
+        card = tk.Frame(
+            parent,
+            bg=theme.surface,
+            highlightthickness=1,
+            highlightbackground=theme.border,
+            cursor="hand2",
+        )
         tk.Frame(card, bg=accent, height=6).pack(fill=tk.X)
+
         body = tk.Frame(card, bg=theme.surface)
         body.pack(fill=tk.BOTH, expand=True, padx=16, pady=(14, 12))
 
         top = tk.Frame(body, bg=theme.surface)
         top.pack(fill=tk.X)
-        glyph_box = tk.Frame(top, bg=accent, width=48, height=48)
+        glyph_box = tk.Frame(
+            top,
+            bg=theme.background,
+            width=52,
+            height=52,
+            highlightthickness=1,
+            highlightbackground=theme.border,
+        )
         glyph_box.pack(side=tk.LEFT)
         glyph_box.pack_propagate(False)
-        if glyph == "spotify":
-            self._spotify_logo(glyph_box, accent)
-        else:
-            tk.Label(glyph_box, text=glyph, bg=accent, fg=theme.background, font=("Sans", 22, "bold")).pack(fill=tk.BOTH, expand=True)
+        self._provider_logo(glyph_box, glyph, accent)
 
         identity = tk.Frame(top, bg=theme.surface)
         identity.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(12, 0))
-        tk.Label(identity, text=title, bg=theme.surface, fg=theme.text, font=("Sans", 16, "bold")).pack(anchor="w")
-        tk.Label(identity, text=category, bg=theme.surface, fg=accent, font=("Sans", 8, "bold")).pack(anchor="w", pady=(2, 0))
+        tk.Label(
+            identity,
+            text=title,
+            bg=theme.surface,
+            fg=theme.text,
+            font=("Sans", 16, "bold"),
+        ).pack(anchor="w")
+        tk.Label(
+            identity,
+            text=category,
+            bg=theme.surface,
+            fg=accent,
+            font=("Sans", 8, "bold"),
+        ).pack(anchor="w", pady=(2, 0))
 
-        tk.Label(body, text=subtitle, bg=theme.surface, fg=theme.text, font=("Sans", 12, "bold")).pack(anchor="w", pady=(18, 5))
-        tk.Label(body, text=detail, bg=theme.surface, fg=theme.text_muted, font=("Sans", 9), justify=tk.LEFT, wraplength=220).pack(anchor="w")
+        tk.Label(
+            body,
+            text=subtitle,
+            bg=theme.surface,
+            fg=theme.text,
+            font=("Sans", 12, "bold"),
+        ).pack(anchor="w", pady=(18, 5))
+        tk.Label(
+            body,
+            text=detail,
+            bg=theme.surface,
+            fg=theme.text_muted,
+            font=("Sans", 9),
+            justify=tk.LEFT,
+            wraplength=220,
+        ).pack(anchor="w")
 
         if action is not None:
-            tk.Button(body, text=f"{action}   ›", command=command, bg=accent, fg=theme.background, activebackground=accent, activeforeground=theme.background, relief=tk.FLAT, bd=0, font=("Sans", 9, "bold"), padx=12, pady=9).pack(fill=tk.X, side=tk.BOTTOM, pady=(14, 0))
+            tk.Button(
+                body,
+                text=f"{action}   ›",
+                command=command,
+                bg=accent,
+                fg="#FFFFFF",
+                activebackground=accent,
+                activeforeground="#FFFFFF",
+                relief=tk.FLAT,
+                bd=0,
+                font=("Sans", 9, "bold"),
+                padx=12,
+                pady=9,
+                cursor="hand2",
+            ).pack(fill=tk.X, side=tk.BOTTOM, pady=(14, 0))
 
         self._bind_card(card, command)
         return card
@@ -177,16 +246,75 @@ class MediaScreen(TkScreen):
             state=tk.NORMAL if self._spotify_local_available() else tk.DISABLED,
         ).grid(row=0, column=1, sticky="ew", padx=(3, 0))
 
+    def _provider_logo(self, parent: tk.Widget, glyph: str, accent: str) -> None:
+        if glyph == "spotify":
+            parent.configure(bg=SPOTIFY_GREEN, highlightthickness=0)
+            self._spotify_logo(parent, SPOTIFY_GREEN)
+            return
+        if glyph == "youtube":
+            self._youtube_logo(parent)
+            return
+        if glyph == "netflix":
+            self._netflix_logo(parent)
+            return
+
+        theme = self._theme_bundle().ui
+        tk.Label(
+            parent,
+            text=glyph,
+            bg=theme.background,
+            fg=accent,
+            font=("Sans", 22, "bold"),
+        ).pack(fill=tk.BOTH, expand=True)
+
     @staticmethod
     def _spotify_logo(parent: tk.Widget, background: str) -> None:
-        canvas = tk.Canvas(parent, width=48, height=48, bg=background, highlightthickness=0, bd=0)
+        canvas = tk.Canvas(
+            parent,
+            width=48,
+            height=48,
+            bg=background,
+            highlightthickness=0,
+            bd=0,
+        )
         canvas.pack(fill=tk.BOTH, expand=True)
         for bounds, width in (
             ((8, 10, 41, 31), 4),
             ((10, 17, 39, 35), 3),
             ((12, 24, 37, 39), 3),
         ):
-            canvas.create_arc(*bounds, start=24, extent=135, style=tk.ARC, outline="#000000", width=width)
+            canvas.create_arc(
+                *bounds,
+                start=24,
+                extent=135,
+                style=tk.ARC,
+                outline="#000000",
+                width=width,
+            )
+
+    @staticmethod
+    def _youtube_logo(parent: tk.Widget) -> None:
+        canvas = tk.Canvas(
+            parent,
+            width=52,
+            height=52,
+            bg="#111111",
+            highlightthickness=0,
+            bd=0,
+        )
+        canvas.pack(fill=tk.BOTH, expand=True)
+        canvas.create_rectangle(8, 14, 44, 38, fill=YOUTUBE_RED, outline=YOUTUBE_RED)
+        canvas.create_polygon(23, 19, 23, 33, 34, 26, fill="#FFFFFF", outline="#FFFFFF")
+
+    @staticmethod
+    def _netflix_logo(parent: tk.Widget) -> None:
+        tk.Label(
+            parent,
+            text="N",
+            bg="#111111",
+            fg=NETFLIX_RED,
+            font=("Sans", 28, "bold"),
+        ).pack(fill=tk.BOTH, expand=True)
 
     @staticmethod
     def _bind_card(widget: tk.Widget, command: Callable[[], None]) -> None:
