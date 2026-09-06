@@ -55,6 +55,14 @@ def _browser_colors(app: OrcUiApp, *, accent: str) -> dict[str, str]:
 def main() -> None:
     application_runtime = create_orc_ui_application_runtime()
     media = application_runtime.media
+
+    # Spotify state is part of the UI's own data model, not an optional
+    # external application.  Start it before the Tk loop so Home/Spotify can
+    # discover an already-active Spotify Connect session immediately.  The
+    # later application-runtime startup is idempotent and still owns the
+    # remaining background-app policy.
+    media.start()
+
     app = OrcUiApp()
     app.register_screen("RADIO", RadioScreen(app, theme_bundle=lambda: theme_bundle(app.theme_mode), theme_mode=lambda: app.theme_mode, panel_factory=lambda parent, embedder, theme: _create_radio_panel(parent, embedder, theme, application_runtime.radio), sync_theme=_sync_radio_theme))
     app.register_screen("GAMES", GamesScreen(app, theme_bundle=lambda: theme_bundle(app.theme_mode), theme_mode=lambda: app.theme_mode))
@@ -85,6 +93,7 @@ def main() -> None:
         lyrics_client=lyrics,
         music_video_controller=music_video_controller,
         music_video_presentation=music_video,
+        video_window_class=MUSIC_VIDEO_WINDOW_CLASS,
         service=media.spotify,
         local_player=media.spotify_local_player,
         media_navigation_factory=media_navigation,
@@ -118,6 +127,7 @@ def main() -> None:
 
     def show_spotify_remote() -> None:
         media.spotify_local_player.request_remote()
+        media.spotify.request_refresh()
         spotify_screen.show()
 
     def show_spotify_local() -> None:
