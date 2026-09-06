@@ -17,15 +17,19 @@ fi
 # under /opt/openroadcode/navigation.
 VALHALLA_CONFIG="${1:-/srv/openroadcode/valhalla/valhalla.json}"
 VALHALLA_WORKERS="${2:-1}"
+NAVIGATION_TARGET="${OPENROADCODE_NAVIGATION_TARGET:-rpi5}"
 
 "$SCRIPT_DIR/install_zeromq_systemd.sh"
 "$SCRIPT_DIR/install_valhalla_systemd.sh" "$VALHALLA_CONFIG" "$VALHALLA_WORKERS"
-"$SCRIPT_DIR/install_navigation_service_systemd.sh"
+OPENROADCODE_NAVIGATION_TARGET="$NAVIGATION_TARGET" \
+OPENROADCODE_SEARCH_DATABASE="${OPENROADCODE_SEARCH_DATABASE:-}" \
+    "$SCRIPT_DIR/install_navigation_service_systemd.sh"
 
 systemctl daemon-reload
 
 echo
 echo "OpenRoadCode navigation runtime installed and enabled."
+echo "Target: $NAVIGATION_TARGET"
 echo "Services:"
 echo "  openroadcode-zmq.service"
 echo "  valhalla.service"
