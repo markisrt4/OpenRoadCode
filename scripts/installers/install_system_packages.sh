@@ -72,9 +72,12 @@ for feature in "${FEATURES[@]}"; do
     echo "[!] Unknown feature: $feature" >&2
     exit 1
   fi
-  while read -r pkg; do
-    [[ -z "$pkg" ]] && continue
-    base_packages+=("$pkg")
+  while read -r package_line; do
+    [[ -z "$package_line" ]] && continue
+    read -r -a package_words <<< "$package_line"
+    for pkg in "${package_words[@]}"; do
+      [[ -z "$pkg" ]] || base_packages+=("$pkg")
+    done
   done < <(get_feature_packages "$feature")
 done
 
