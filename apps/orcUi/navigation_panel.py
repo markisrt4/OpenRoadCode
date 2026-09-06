@@ -8,6 +8,7 @@ from apps.launchers.google_earth_launcher import GoogleEarthLauncher
 from apps.orcUi.shared_map_camera import get_shared_map_camera_runtime
 from controllers.navigation.earth_camera_controller_if import EarthCameraView
 from controllers.navigation.earth_cdp_camera_controller import EarthCdpCameraController
+from controllers.navigation.earth_geolocation_watch_probe import EarthGeolocationWatchProbe
 from frontends.x11 import X11WindowEmbedder
 from ui.navigation import MapRequestHandlerIf
 
@@ -17,13 +18,12 @@ _M_TO_MI=0.000621371192237334
 _M_TO_FT=3.28083989501312
 _EARTH_POSITION_THRESHOLD_M=3.0
 _EARTH_RADIUS_M=6371008.8
-_EARTH_BOOTSTRAP_REFRESH_MS=2500
 
 class NavigationPanel(tk.Frame):
  def __init__(self,parent:tk.Misc,*,map_request_handler:MapRequestHandlerIf|None=None,on_back:Callable[[],None]|None=None)->None:
   super().__init__(parent,bg=BG); del on_back
   self._camera_runtime=get_shared_map_camera_runtime(); self._request_handler=map_request_handler or self._camera_runtime.request_handler
-  self._earth_launcher=GoogleEarthLauncher(); self._earth_embedder=X11WindowEmbedder(); self._earth_camera=EarthCdpCameraController(); self._earth_visible=False; self._earth_initialized=False; self._earth_hud_after:str|None=None; self._earth_bootstrap_after:str|None=None; self._earth_last_sent_position:tuple[float,float]|None=None
+  self._earth_launcher=GoogleEarthLauncher(); self._earth_embedder=X11WindowEmbedder(); self._earth_camera=EarthCdpCameraController(); self._earth_watch_probe=EarthGeolocationWatchProbe(); self._earth_visible=False; self._earth_initialized=False; self._earth_hud_after:str|None=None; self._earth_last_sent_position:tuple[float,float]|None=None; self._earth_watch_count=0
   self._zoom_level=float(getattr(self._request_handler,"zoom_level",16.5)); self._pitch_rad=float(getattr(self._request_handler,"pitch_rad",math.radians(45))); self._follow_enabled=bool(getattr(self._request_handler,"follow_enabled",True)); self._poi_focus=set(getattr(self._request_handler,"poi_focus",()))
   self._build(); self._schedule_renderer_refresh()
  @property
@@ -32,7 +32,7 @@ class NavigationPanel(tk.Frame):
   if h is not None:self._request_handler=h
  def set_follow_enabled(self,e):self._follow_enabled=e;self._follow_button.configure(text="F" if e else "F̸",fg=GREEN if e else TEXT)
  def destroy(self):
-  self._stop_earth_hud(); self._cancel_earth_bootstrap_refresh(); self._detach_earth()
+  self._stop_earth_hud(); self._detach_earth()
   if self._earth_launcher.is_running():self._earth_launcher.stop(self._display())
   super().destroy()
  def _build(self):
@@ -65,20 +65,20 @@ class NavigationPanel(tk.Frame):
   self._earth_guidance.grid(row=1,column=0,sticky="ew",pady=(4,0));self._earth_hud.grid(row=2,column=0,sticky="ew",pady=(3,0));self.update_idletasks();position,size=self._earth_geometry()
   if not self._earth_launcher.is_running():self._earth_launcher.configure_app_window(position=position,size=size);self._earth_launcher.launch(self._display())
   self.update_idletasks();self._earth_embedder.embed(0,self.map_host_window_id,size[0],size[1],window_class=GoogleEarthLauncher.WINDOW_CLASS)
-  self._earth_last_sent_position=None;self._earth_visible=True;self._earth_button.configure(text="▣  MAP",bg=GREEN,fg=BG);self._start_earth_hud();self._schedule_earth_bootstrap_refresh()
+  self._earth_last_sent_position=None;self._earth_watch_count=0;self._earth_watch_probe.install();self._earth_visible=True;self._earth_button.configure(text="▣  MAP",bg=GREEN,fg=BG);self._start_earth_hud()
  def _detach_earth(self)->None:
   if self._earth_embedder.window_id is not None:
    try:self._earth_embedder.detach(int(self.winfo_toplevel().winfo_id()))
    except (OSError,RuntimeError):pass
   self._earth_embedder.clear()
  def _leave_earth(self)->None:
-  self._stop_earth_hud();self._cancel_earth_bootstrap_refresh();self._detach_earth();self._earth_guidance.grid_remove();self._earth_hud.grid_remove();self._earth_visible=False;self._earth_button.configure(text="◉  EARTH",bg=BLUE,fg="white");self._shortcut_status.set("MapLibre")
+  self._stop_earth_hud();self._detach_earth();self._earth_guidance.grid_remove();self._earth_hud.grid_remove();self._earth_visible=False;self._earth_button.configure(text="◉  EARTH",bg=BLUE,fg="white");self._shortcut_status.set("MapLibre")
  def _toggle_earth(self):
   try:
    if self._earth_visible:self._leave_earth();return
    self._prepare_first_earth_launch();self._embed_earth()
   except Exception as exc:
-   self._earth_visible=False;self._stop_earth_hud();self._cancel_earth_bootstrap_refresh();self._detach_earth();self._earth_guidance.grid_remove();self._earth_hud.grid_remove()
+   self._earth_visible=False;self._stop_earth_hud();self._detach_earth();self._earth_guidance.grid_remove();self._earth_hud.grid_remove()
    if self._earth_launcher.is_running():
     try:self._earth_launcher.stop(self._display())
     except Exception:pass
@@ -90,18 +90,12 @@ class NavigationPanel(tk.Frame):
    try:self.after_cancel(self._earth_hud_after)
    except tk.TclError:pass
    self._earth_hud_after=None
- def _schedule_earth_bootstrap_refresh(self)->None:
-  self._cancel_earth_bootstrap_refresh();self._earth_bootstrap_after=self.after(_EARTH_BOOTSTRAP_REFRESH_MS,self._refresh_earth_geolocation)
- def _cancel_earth_bootstrap_refresh(self)->None:
-  if self._earth_bootstrap_after is not None:
-   try:self.after_cancel(self._earth_bootstrap_after)
-   except tk.TclError:pass
-   self._earth_bootstrap_after=None
- def _refresh_earth_geolocation(self)->None:
-  self._earth_bootstrap_after=None
-  if not self._earth_visible:return
-  self._earth_last_sent_position=None
-  self._send_earth_position(force=True)
+ def _refresh_earth_tracking_watch(self)->None:
+  if not self._earth_watch_probe.install():return
+  count=self._earth_watch_probe.registration_count()
+  if count is None:return
+  if count>self._earth_watch_count:
+   self._earth_watch_count=count;self._earth_last_sent_position=None;self._send_earth_position(force=True);self._shortcut_status.set("Earth GPS tracking active")
  def _send_earth_position(self,*,force:bool=False)->None:
   position=self._camera_runtime.latest_position
   if position is None:return
@@ -117,8 +111,8 @@ class NavigationPanel(tk.Frame):
   else:self._earth_track_var.set(f"{math.degrees(track)%360.0:03.0f}° {self._cardinal(track)}")
   if position is None:self._earth_position_var.set("GPS --")
   else:
-   lat=math.degrees(position.latitude_rad);lon=math.degrees(position.longitude_rad);self._earth_position_var.set(f"{lat:.4f}, {lon:.4f}");self._send_earth_position()
-  self._update_earth_guidance();self._earth_hud_after=self.after(500,self._update_earth_hud)
+   lat=math.degrees(position.latitude_rad);lon=math.degrees(position.longitude_rad);self._earth_position_var.set(f"{lat:.4f}, {lon:.4f}")
+  self._refresh_earth_tracking_watch();self._send_earth_position();self._update_earth_guidance();self._earth_hud_after=self.after(500,self._update_earth_hud)
  def _earth_position_changed(self,lat:float,lon:float)->bool:
   previous=self._earth_last_sent_position
   if previous is None:return True
