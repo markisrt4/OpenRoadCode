@@ -6,6 +6,8 @@ import math, os, tkinter as tk
 from collections.abc import Callable
 from apps.launchers.google_earth_launcher import GoogleEarthLauncher
 from apps.orcUi.shared_map_camera import get_shared_map_camera_runtime
+from controllers.navigation.earth_camera_controller_if import EarthCameraView
+from controllers.navigation.earth_cdp_camera_controller import EarthCdpCameraController
 from frontends.x11 import X11WindowEmbedder
 from ui.navigation import MapRequestHandlerIf
 
@@ -18,7 +20,7 @@ class NavigationPanel(tk.Frame):
  def __init__(self,parent:tk.Misc,*,map_request_handler:MapRequestHandlerIf|None=None,on_back:Callable[[],None]|None=None)->None:
   super().__init__(parent,bg=BG); del on_back
   self._camera_runtime=get_shared_map_camera_runtime(); self._request_handler=map_request_handler or self._camera_runtime.request_handler
-  self._earth_launcher=GoogleEarthLauncher(); self._earth_embedder=X11WindowEmbedder(); self._earth_visible=False; self._earth_initialized=False; self._earth_hud_after:str|None=None
+  self._earth_launcher=GoogleEarthLauncher(); self._earth_embedder=X11WindowEmbedder(); self._earth_camera=EarthCdpCameraController(); self._earth_visible=False; self._earth_initialized=False; self._earth_hud_after:str|None=None
   self._zoom_level=float(getattr(self._request_handler,"zoom_level",16.5)); self._pitch_rad=float(getattr(self._request_handler,"pitch_rad",math.radians(45))); self._follow_enabled=bool(getattr(self._request_handler,"follow_enabled",True)); self._poi_focus=set(getattr(self._request_handler,"poi_focus",()))
   self._build(); self._schedule_renderer_refresh()
  @property
@@ -40,20 +42,10 @@ class NavigationPanel(tk.Frame):
   self._map_host=tk.Frame(self._body,bg="#020406",highlightthickness=1,highlightbackground=BORDER);self._map_host.grid(row=0,column=0,sticky="nsew");self._map_host.bind("<Configure>",self._on_map_host_resize)
   self._controls=tk.Frame(self._body,bg=PANEL,width=62);self._controls.grid(row=0,column=1,rowspan=3,sticky="ns",padx=(4,0));self._controls.grid_propagate(False);self._follow_button=self._control(self._controls,"F",self._toggle_follow,GREEN);self._follow_button.pack(fill=tk.X,padx=5,pady=7);self.set_follow_enabled(self._follow_enabled)
   for text,cmd in (("+",lambda:self._change_zoom(1)),("−",lambda:self._change_zoom(-1)),("N",self._north_up),("◎",self._recenter)):self._control(self._controls,text,cmd,TEXT).pack(fill=tk.X,padx=5,pady=3)
-  self._earth_guidance=tk.Frame(self._body,bg=PANEL,highlightthickness=1,highlightbackground=BORDER)
-  self._earth_instruction_var=tk.StringVar(value="No active route")
-  self._earth_maneuver_distance_var=tk.StringVar(value="")
-  self._earth_route_remaining_var=tk.StringVar(value="")
-  tk.Label(self._earth_guidance,text="➜",bg=PANEL,fg=GREEN,font=("Sans",18,"bold"),padx=10).pack(side=tk.LEFT)
-  tk.Label(self._earth_guidance,textvariable=self._earth_instruction_var,bg=PANEL,fg=TEXT,font=("Sans",11,"bold"),anchor="w").pack(side=tk.LEFT,fill=tk.X,expand=True,pady=5)
-  tk.Label(self._earth_guidance,textvariable=self._earth_maneuver_distance_var,bg=PANEL,fg=GREEN,font=("Sans",10,"bold"),padx=10).pack(side=tk.RIGHT)
-  tk.Label(self._earth_guidance,textvariable=self._earth_route_remaining_var,bg=PANEL,fg=MUTED,font=("Sans",8),padx=8).pack(side=tk.RIGHT)
-  self._earth_hud=tk.Frame(self._body,bg=PANEL,highlightthickness=1,highlightbackground=BORDER)
-  self._earth_speed_var=tk.StringVar(value="-- mph");self._earth_track_var=tk.StringVar(value="---°");self._earth_position_var=tk.StringVar(value="GPS --")
-  tk.Label(self._earth_hud,text="EARTH",bg=PANEL,fg=BLUE,font=("Sans",8,"bold"),padx=9,pady=5).pack(side=tk.LEFT)
-  tk.Label(self._earth_hud,textvariable=self._earth_speed_var,bg=PANEL,fg=GREEN,font=("Sans",11,"bold"),padx=10).pack(side=tk.LEFT)
-  tk.Label(self._earth_hud,textvariable=self._earth_track_var,bg=PANEL,fg=TEXT,font=("Sans",9,"bold"),padx=10).pack(side=tk.LEFT)
-  tk.Label(self._earth_hud,textvariable=self._earth_position_var,bg=PANEL,fg=MUTED,font=("Monospace",8),padx=10).pack(side=tk.RIGHT)
+  self._earth_guidance=tk.Frame(self._body,bg=PANEL,highlightthickness=1,highlightbackground=BORDER);self._earth_instruction_var=tk.StringVar(value="No active route");self._earth_maneuver_distance_var=tk.StringVar(value="");self._earth_route_remaining_var=tk.StringVar(value="")
+  tk.Label(self._earth_guidance,text="➜",bg=PANEL,fg=GREEN,font=("Sans",18,"bold"),padx=10).pack(side=tk.LEFT);tk.Label(self._earth_guidance,textvariable=self._earth_instruction_var,bg=PANEL,fg=TEXT,font=("Sans",11,"bold"),anchor="w").pack(side=tk.LEFT,fill=tk.X,expand=True,pady=5);tk.Label(self._earth_guidance,textvariable=self._earth_maneuver_distance_var,bg=PANEL,fg=GREEN,font=("Sans",10,"bold"),padx=10).pack(side=tk.RIGHT);tk.Label(self._earth_guidance,textvariable=self._earth_route_remaining_var,bg=PANEL,fg=MUTED,font=("Sans",8),padx=8).pack(side=tk.RIGHT)
+  self._earth_hud=tk.Frame(self._body,bg=PANEL,highlightthickness=1,highlightbackground=BORDER);self._earth_speed_var=tk.StringVar(value="-- mph");self._earth_track_var=tk.StringVar(value="---°");self._earth_position_var=tk.StringVar(value="GPS --")
+  tk.Label(self._earth_hud,text="EARTH",bg=PANEL,fg=BLUE,font=("Sans",8,"bold"),padx=9,pady=5).pack(side=tk.LEFT);tk.Label(self._earth_hud,textvariable=self._earth_speed_var,bg=PANEL,fg=GREEN,font=("Sans",11,"bold"),padx=10).pack(side=tk.LEFT);tk.Label(self._earth_hud,textvariable=self._earth_track_var,bg=PANEL,fg=TEXT,font=("Sans",9,"bold"),padx=10).pack(side=tk.LEFT);tk.Label(self._earth_hud,textvariable=self._earth_position_var,bg=PANEL,fg=MUTED,font=("Monospace",8),padx=10).pack(side=tk.RIGHT)
  def _control(self,p,t,c,f):return tk.Button(p,text=t,command=c,bg=PANEL,fg=f,relief=tk.FLAT,font=("Sans",11,"bold"))
  def _display(self):return os.environ.get("DISPLAY",":1")
  def _prepare_first_earth_launch(self):
@@ -102,19 +94,17 @@ class NavigationPanel(tk.Frame):
   if track is None:self._earth_track_var.set("---°")
   else:self._earth_track_var.set(f"{math.degrees(track)%360.0:03.0f}° {self._cardinal(track)}")
   if position is None:self._earth_position_var.set("GPS --")
-  else:self._earth_position_var.set(f"{math.degrees(position.latitude_rad):.4f}, {math.degrees(position.longitude_rad):.4f}")
-  self._update_earth_guidance()
-  self._earth_hud_after=self.after(500,self._update_earth_hud)
+  else:
+   lat=math.degrees(position.latitude_rad);lon=math.degrees(position.longitude_rad);self._earth_position_var.set(f"{lat:.4f}, {lon:.4f}")
+   if not self._earth_camera.set_view(EarthCameraView(latitude_deg=lat,longitude_deg=lon,heading_deg=None if track is None else math.degrees(track)%360.0)):
+    self._shortcut_status.set("Earth GPS bridge unavailable")
+  self._update_earth_guidance();self._earth_hud_after=self.after(500,self._update_earth_hud)
  def _update_earth_guidance(self)->None:
-  if self._camera_runtime.latest_route_complete:
-   self._earth_instruction_var.set("Destination reached");self._earth_maneuver_distance_var.set("");self._earth_route_remaining_var.set("");return
+  if self._camera_runtime.latest_route_complete:self._earth_instruction_var.set("Destination reached");self._earth_maneuver_distance_var.set("");self._earth_route_remaining_var.set("");return
   instruction=self._camera_runtime.latest_instruction
-  if self._camera_runtime.latest_off_route:
-   self._earth_instruction_var.set("OFF ROUTE" if not instruction else f"OFF ROUTE  •  {instruction}")
+  if self._camera_runtime.latest_off_route:self._earth_instruction_var.set("OFF ROUTE" if not instruction else f"OFF ROUTE  •  {instruction}")
   else:self._earth_instruction_var.set(instruction or "No active route")
-  self._earth_maneuver_distance_var.set(self._format_distance(self._camera_runtime.latest_distance_to_maneuver_m))
-  remaining=self._camera_runtime.latest_distance_remaining_m
-  self._earth_route_remaining_var.set("" if remaining is None else f"{remaining*_M_TO_MI:.1f} mi remaining")
+  self._earth_maneuver_distance_var.set(self._format_distance(self._camera_runtime.latest_distance_to_maneuver_m));remaining=self._camera_runtime.latest_distance_remaining_m;self._earth_route_remaining_var.set("" if remaining is None else f"{remaining*_M_TO_MI:.1f} mi remaining")
  @staticmethod
  def _format_distance(distance_m:float|None)->str:
   if distance_m is None:return ""
