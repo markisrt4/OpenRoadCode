@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from threading import Lock, Thread
+from threading import Lock, RLock, Thread
 from typing import TypeVar
 
 from apps.launchers.app_launcher_if import (
@@ -37,6 +37,7 @@ class AppRuntimeManager:
         self._apps: dict[str, ManagedApplication] = {}
         self._visible: set[str] = set()
         self._lock = Lock()
+        self._lifecycle_locks: dict[str, RLock] = {}
         self._preload_thread: Thread | None = None
 
     @property
@@ -60,6 +61,7 @@ class AppRuntimeManager:
             if key in self._apps:
                 raise ValueError(f"Application {key!r} is already registered")
             self._apps[key] = ManagedApplication(config=app, launcher=launcher)
+            self._lifecycle_locks[key] = RLock()
 
     def launcher(self, key: str, launcher_type: type[LauncherT] | None = None) -> AppLauncherIf | LauncherT:
         launcher = self._managed(key).launcher
@@ -86,62 +88,67 @@ class AppRuntimeManager:
     def show(self, key: str, set_status: StatusCallback = None) -> None:
         managed = self._managed(key)
         self._close_exclusive_peers(managed, set_status)
-        display = self.display_for(key)
-        launcher = managed.launcher
-        shown = False
-        if launcher.is_running() and isinstance(launcher, WindowedAppLauncherIf):
-            shown = launcher.show(display, set_status)
-        if not shown:
-            launcher.launch(display, set_status)
-        with self._lock:
-            self._visible.add(key)
+        with self._lifecycle_lock(key):
+            display = self.display_for(key)
+            launcher = managed.launcher
+            shown = False
+            if launcher.is_running() and isinstance(launcher, WindowedAppLauncherIf):
+                shown = launcher.show(display, set_status)
+            if not shown:
+                launcher.launch(display, set_status)
+            with self._lock:
+                self._visible.add(key)
 
     def restart(self, key: str, set_status: StatusCallback = None) -> None:
-        managed = self._managed(key)
-        display = self.display_for(key)
-        if managed.launcher.is_running():
-            managed.launcher.stop(display, set_status)
-        with self._lock:
-            self._visible.discard(key)
-        self.show(key, set_status)
-
-    def hide(self, key: str, set_status: StatusCallback = None) -> bool:
-        managed = self._managed(key)
-        launcher = managed.launcher
-        if not isinstance(launcher, HideableAppLauncherIf):
-            return False
-        hidden = launcher.hide(self.display_for(key), set_status)
-        if hidden:
+        with self._lifecycle_lock(key):
+            managed = self._managed(key)
+            display = self.display_for(key)
+            if managed.launcher.is_running():
+                managed.launcher.stop(display, set_status)
             with self._lock:
                 self._visible.discard(key)
-        return hidden
+            self.show(key, set_status)
+
+    def hide(self, key: str, set_status: StatusCallback = None) -> bool:
+        with self._lifecycle_lock(key):
+            managed = self._managed(key)
+            launcher = managed.launcher
+            if not isinstance(launcher, HideableAppLauncherIf):
+                return False
+            hidden = launcher.hide(self.display_for(key), set_status)
+            if hidden:
+                with self._lock:
+                    self._visible.discard(key)
+            return hidden
 
     def close(self, key: str, set_status: StatusCallback = None) -> None:
-        managed = self._managed(key)
-        display = self.display_for(key)
-        if managed.config.startup in (StartupPolicy.PRELOAD, StartupPolicy.PERSISTENT):
-            if self.hide(key, set_status):
-                return
-            launcher = managed.launcher
-            if isinstance(launcher, BrowserDashboardLauncherIf):
-                launcher.close_browser(display, set_status)
-                with self._lock:
-                    self._visible.discard(key)
-                return
-            if managed.config.startup is StartupPolicy.PERSISTENT:
-                with self._lock:
-                    self._visible.discard(key)
-                return
-        managed.launcher.stop(display, set_status)
-        with self._lock:
-            self._visible.discard(key)
+        with self._lifecycle_lock(key):
+            managed = self._managed(key)
+            display = self.display_for(key)
+            if managed.config.startup in (StartupPolicy.PRELOAD, StartupPolicy.PERSISTENT):
+                if self.hide(key, set_status):
+                    return
+                launcher = managed.launcher
+                if isinstance(launcher, BrowserDashboardLauncherIf):
+                    launcher.close_browser(display, set_status)
+                    with self._lock:
+                        self._visible.discard(key)
+                    return
+                if managed.config.startup is StartupPolicy.PERSISTENT:
+                    with self._lock:
+                        self._visible.discard(key)
+                    return
+            managed.launcher.stop(display, set_status)
+            with self._lock:
+                self._visible.discard(key)
 
     def stop_all(self, set_status: StatusCallback = None) -> None:
         with self._lock:
             apps = tuple(self._apps.items())
         for key, managed in apps:
             try:
-                managed.launcher.stop(self.display_for(key), set_status)
+                with self._lifecycle_lock(key):
+                    managed.launcher.stop(self.display_for(key), set_status)
             except Exception:
                 continue
             finally:
@@ -190,24 +197,33 @@ class AppRuntimeManager:
                     set_status(f"Unable to start {managed.config.key}: {exc}")
 
     def _prewarm(self, managed: ManagedApplication, set_status: StatusCallback) -> None:
-        launcher = managed.launcher
-        display = self.display_for(managed.config.key)
-        if isinstance(launcher, PreloadableAppLauncherIf):
-            launcher.prepare()
-            return
-        if isinstance(launcher, WindowedAppLauncherIf):
-            launcher.launch(display, set_status)
-            if launcher.hide(display, set_status):
-                with self._lock:
-                    self._visible.discard(managed.config.key)
+        key = managed.config.key
+        with self._lifecycle_lock(key):
+            launcher = managed.launcher
+            display = self.display_for(key)
+            if isinstance(launcher, PreloadableAppLauncherIf):
+                launcher.prepare()
                 return
-            launcher.stop(display, set_status)
-            return
-        launcher.launch(display, set_status)
+            if isinstance(launcher, WindowedAppLauncherIf):
+                launcher.launch(display, set_status)
+                if launcher.hide(display, set_status):
+                    with self._lock:
+                        self._visible.discard(key)
+                    return
+                launcher.stop(display, set_status)
+                return
+            launcher.launch(display, set_status)
 
     def _managed(self, key: str) -> ManagedApplication:
         with self._lock:
             try:
                 return self._apps[key]
+            except KeyError as exc:
+                raise KeyError(f"Application {key!r} is not registered") from exc
+
+    def _lifecycle_lock(self, key: str) -> RLock:
+        with self._lock:
+            try:
+                return self._lifecycle_locks[key]
             except KeyError as exc:
                 raise KeyError(f"Application {key!r} is not registered") from exc
