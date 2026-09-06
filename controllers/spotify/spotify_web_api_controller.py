@@ -53,6 +53,19 @@ class SpotifyWebApiController(SpotifyControllerIf):
         position = max(0, position_ms)
         self._client.request("PUT", f"/me/player/seek?position_ms={position}")
 
+    def transfer_playback(self, device_id: str, *, play: bool = True) -> None:
+        normalized_device_id = device_id.strip()
+        if not normalized_device_id:
+            raise ValueError("device_id cannot be empty")
+        self._client.request(
+            "PUT",
+            "/me/player",
+            body={
+                "device_ids": [normalized_device_id],
+                "play": play,
+            },
+        )
+
     def _create_state(self, response: dict[str, Any]) -> SpotifyState:
         item = response.get("item") or {}
         album = item.get("album") or {}
