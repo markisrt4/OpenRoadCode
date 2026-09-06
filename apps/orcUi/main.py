@@ -115,6 +115,10 @@ def main() -> None:
         media_navigation_factory=media_navigation,
     )
 
+    def show_spotify_remote() -> None:
+        media.spotify_local_player.request_remote()
+        spotify_screen.show()
+
     def show_spotify_local() -> None:
         media.spotify_local_player.request_player()
         spotify_screen.show()
@@ -125,7 +129,7 @@ def main() -> None:
         show_spotify=spotify_screen.show,
         show_youtube=youtube_screen.show,
         show_netflix=netflix_screen.show,
-        show_spotify_remote=spotify_screen.show,
+        show_spotify_remote=show_spotify_remote,
         show_spotify_local=show_spotify_local,
         spotify_local_available=lambda: media.spotify_local_player.state().available,
     )
