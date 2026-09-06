@@ -5,6 +5,8 @@
 
 from __future__ import annotations
 
+import json
+
 from apps.launchers.chromium_devtools_client import ChromiumDevToolsClient
 
 
@@ -24,34 +26,29 @@ class EarthGeolocationWatchProbe:
                     if (window.__orcEarthGeoWatchProbe?.installed) return true;
                     const originalWatch = geo.watchPosition.bind(geo);
                     const originalClear = geo.clearWatch.bind(geo);
-                    const state = {
-                        installed: true,
-                        registrations: 0,
-                        lastRegistrationMs: null,
-                        callbacks: new Map()
-                    };
+                    const state = {installed:true, registrations:0, lastRegistrationMs:null, callbacks:new Map()};
                     Object.defineProperty(geo, 'watchPosition', {
-                        configurable: true,
-                        value: function(success, error, options) {
+                        configurable:true,
+                        value:function(success, error, options) {
                             state.registrations += 1;
                             state.lastRegistrationMs = Date.now();
                             let browserId = null;
-                            const ignoredNativeError = function(nativeError) {
-                                // Chromium/Termux may have no native location provider. ORC is
-                                // the provider for this Earth session, so do not fail Earth's
-                                // watcher merely because Chromium's network service cannot fix.
-                                if (!window.__orcEarthGeoWatchProbe?.callbacks.has(browserId) && error) {
-                                    error(nativeError);
-                                }
-                            };
-                            browserId = originalWatch(success, ignoredNativeError, options);
+                            browserId = originalWatch(
+                                success,
+                                function(nativeError) {
+                                    // ORC supplies the position for this Earth session. Ignore
+                                    // Chromium's missing network location provider while active.
+                                    if (!state.callbacks.has(browserId) && error) error(nativeError);
+                                },
+                                options
+                            );
                             state.callbacks.set(browserId, success);
                             return browserId;
                         }
                     });
                     Object.defineProperty(geo, 'clearWatch', {
-                        configurable: true,
-                        value: function(browserId) {
+                        configurable:true,
+                        value:function(browserId) {
                             state.callbacks.delete(browserId);
                             return originalClear(browserId);
                         }
@@ -65,7 +62,6 @@ class EarthGeolocationWatchProbe:
         return value is True
 
     def registration_count(self) -> int | None:
-        """Return how many watchPosition registrations Earth has made."""
         try:
             value = self._client.evaluate_earth(
                 "(() => window.__orcEarthGeoWatchProbe?.registrations ?? null)()"
@@ -86,7 +82,7 @@ class EarthGeolocationWatchProbe:
         speed_m_s: float | None = None,
         altitude_m: float | None = None,
     ) -> bool:
-        """Deliver one synthetic GeolocationPosition to every active Earth watcher."""
+        """Deliver one GeolocationPosition-shaped fix to active Earth watchers."""
         payload = {
             "latitude": float(latitude_deg),
             "longitude": float(longitude_deg),
@@ -96,39 +92,20 @@ class EarthGeolocationWatchProbe:
             "heading": None if heading_deg is None else float(heading_deg) % 360.0,
             "speed": None if speed_m_s is None else max(0.0, float(speed_m_s)),
         }
-        try:
-            value = self._client.evaluate_earth(
-                f"""(() => {{
-                    const state = window.__orcEarthGeoWatchProbe;
-                    if (!state?.installed || !state.callbacks?.size) return false;
-                    const coords = Object.freeze({payload!r}
-                        .replace ? null : null);
-                    return true;
-                }})()"""
-            )
-        except (OSError, RuntimeError, ValueError):
-            value = None
-        # Build the JavaScript with JSON rather than Python repr. Kept separate so
-        # browser objects exactly match the GeolocationPosition shape Earth expects.
-        import json
         expression = f"""(() => {{
             const state = window.__orcEarthGeoWatchProbe;
             if (!state?.installed || !state.callbacks?.size) return false;
             const raw = {json.dumps(payload)};
             const coords = Object.freeze({{
-                latitude: raw.latitude,
-                longitude: raw.longitude,
-                accuracy: raw.accuracy,
-                altitude: raw.altitude,
-                altitudeAccuracy: raw.altitudeAccuracy,
-                heading: raw.heading,
-                speed: raw.speed,
+                latitude:raw.latitude, longitude:raw.longitude, accuracy:raw.accuracy,
+                altitude:raw.altitude, altitudeAccuracy:raw.altitudeAccuracy,
+                heading:raw.heading, speed:raw.speed,
                 toJSON() {{ return raw; }}
             }});
             const position = Object.freeze({{
-                coords,
-                timestamp: Date.now(),
-                toJSON() {{ return {{coords: coords.toJSON(), timestamp: this.timestamp}}; }}
+                coords:coords,
+                timestamp:Date.now(),
+                toJSON() {{ return {{coords:coords.toJSON(), timestamp:this.timestamp}}; }}
             }});
             let delivered = 0;
             for (const callback of state.callbacks.values()) {{
