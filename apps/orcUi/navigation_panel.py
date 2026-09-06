@@ -189,7 +189,9 @@ class NavigationPanel(tk.Frame):
   enable=not self._earth_chase.enabled
   if enable:
    self._earth_follow_enabled=True;self._earth_tracking_primed=False;self._earth_last_sent_position=None
+   self._earth_geolocation.install();self._send_earth_position(force=True);self._earth_input.activate_location_tracking()
   ok=self._earth_chase.set_enabled(enable)
+  if enable:self.after(250,self._refresh_earth_tracking_watch)
   self._update_follow_button();self._update_chase_button();self._shortcut_status.set("Earth chase on" if ok and enable else "Earth chase off" if ok else "Earth chase unavailable")
  def _pan(self,up:float,right:float):
   if self._earth_visible:
@@ -214,7 +216,6 @@ class NavigationPanel(tk.Frame):
  def _recenter(self):
   if self._earth_visible:
    self._earth_follow_enabled=True;self._earth_tracking_primed=False;self._earth_last_sent_position=None;self._update_follow_button()
-   if self._send_earth_position(force=True):self._earth_tracking_primed=True;self._shortcut_status.set("Earth recentered")
-   else:self._shortcut_status.set("Earth recenter waiting for GPS")
+   self._earth_geolocation.install();self._send_earth_position(force=True);self._earth_input.activate_location_tracking();self.after(250,self._refresh_earth_tracking_watch);self._shortcut_status.set("Earth recenter requested")
    return
   self.set_follow_enabled(True);self._request_handler.request_recenter()
