@@ -9,6 +9,7 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
+from apps.launchers.browser_app_factory import BrowserApplicationFactory
 from apps.launchers.managed_sdrpp_launcher import ManagedSDRPPLauncher
 from apps.launchers.sdrpp_launcher import SDRPPProfile
 from apps.orcUi.media_application_service import MediaApplicationService
@@ -47,12 +48,18 @@ def create_orc_ui_application_runtime() -> OrcUiApplicationRuntime:
     config = ApplicationsConfigParser(_applications_config_path()).load()
     fallback_display = os.environ.get("DISPLAY", ":1" if _is_termux() else ":0")
     manager = AppRuntimeManager(config, remote_display=fallback_display)
+
     sdrpp = ManagedSDRPPLauncher(
         profile=_default_sdrpp_profile(),
         fullscreen=False,
         embedded=True,
     )
     manager.register("sdrpp", sdrpp)
+
+    browser_factory = BrowserApplicationFactory(config)
+    manager.register("youtube", browser_factory.create("youtube"))
+    manager.register("netflix", browser_factory.create("netflix"))
+
     radio = ManagedRadioApplicationService(manager, sdrpp)
     media = MediaApplicationService()
     return OrcUiApplicationRuntime(manager=manager, radio=radio, media=media)
