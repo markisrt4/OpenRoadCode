@@ -17,6 +17,7 @@ class EarthInputCameraController(EarthCameraControllerIf):
         "city": (480.0, 480.0),
         "region": (480.0, 480.0, 480.0, 480.0),
     }
+    _PAN_KEY_REPEATS = 5
 
     def __init__(self, client: ChromiumDevToolsClient | None = None) -> None:
         self._client = client or ChromiumDevToolsClient(port=9223)
@@ -45,7 +46,7 @@ class EarthInputCameraController(EarthCameraControllerIf):
         return self._key("n", "KeyN", 78)
 
     def pan(self, *, up: float = 0.0, right: float = 0.0) -> bool:
-        """Pan Earth with its normal arrow-key camera controls."""
+        """Pan Earth by a useful amount instead of one tiny arrow-key tick."""
         key = None
         if abs(up) >= abs(right) and up != 0.0:
             key = ("ArrowUp", "ArrowUp", 38) if up > 0 else ("ArrowDown", "ArrowDown", 40)
@@ -53,15 +54,17 @@ class EarthInputCameraController(EarthCameraControllerIf):
             key = ("ArrowRight", "ArrowRight", 39) if right > 0 else ("ArrowLeft", "ArrowLeft", 37)
         if key is None:
             return True
-        return self._key(*key, printable=False)
+        return all(
+            self._key(*key, printable=False)
+            for _ in range(self._PAN_KEY_REPEATS)
+        )
 
     def tilt(self, delta_deg: float) -> bool:
-        """Tilt Earth using PageUp/PageDown camera shortcuts."""
+        """Tilt Earth using Shift+Arrow, matching the 3D-view shortcuts."""
         if delta_deg == 0.0:
             return True
-        if delta_deg > 0.0:
-            return self._key("PageUp", "PageUp", 33, printable=False)
-        return self._key("PageDown", "PageDown", 34, printable=False)
+        key = ("ArrowDown", "ArrowDown", 40) if delta_deg > 0.0 else ("ArrowUp", "ArrowUp", 38)
+        return self._key(*key, printable=False, modifiers=8)
 
     def apply_preset(self, name: str) -> bool:
         """Apply a coarse driving-scale view preset relative to the current view."""
@@ -100,6 +103,7 @@ class EarthInputCameraController(EarthCameraControllerIf):
         virtual_key: int,
         *,
         printable: bool = True,
+        modifiers: int = 0,
     ) -> bool:
         try:
             self._client.activate(self._require_target_id())
@@ -108,6 +112,7 @@ class EarthInputCameraController(EarthCameraControllerIf):
                 "code": code,
                 "windowsVirtualKeyCode": virtual_key,
                 "nativeVirtualKeyCode": virtual_key,
+                "modifiers": modifiers,
             }
             self._client.command_earth("Input.dispatchKeyEvent", {"type": "rawKeyDown", **common})
             if printable:
