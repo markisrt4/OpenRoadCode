@@ -68,12 +68,55 @@ class ChromiumDevToolsClient:
         payload = self._json_get("/json/version")
         return payload if isinstance(payload, dict) else {}
 
-    def evaluate(self, target: DevToolsTarget, expression: str, *, return_by_value: bool = True) -> Any:
-        """Evaluate JavaScript in a page target through the CDP WebSocket."""
+    def command(
+        self,
+        target: DevToolsTarget,
+        method: str,
+        params: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Send one Chrome DevTools Protocol command to a page target."""
         if not target.web_socket_debugger_url:
             raise ValueError("DevTools target does not expose a WebSocket debugger URL")
-        result = self._command(
-            target.web_socket_debugger_url,
+        return self._command(target.web_socket_debugger_url, method, params or {})
+
+    def command_earth(self, method: str, params: dict[str, Any] | None = None) -> dict[str, Any]:
+        """Send one Chrome DevTools Protocol command to the Google Earth page."""
+        target = self.earth_target()
+        if target is None:
+            raise RuntimeError("Google Earth DevTools target is not available")
+        return self.command(target, method, params)
+
+    def set_geolocation_override(
+        self,
+        latitude: float,
+        longitude: float,
+        *,
+        accuracy_m: float = 5.0,
+    ) -> None:
+        """Override browser geolocation for the running Google Earth page."""
+        if not -90.0 <= latitude <= 90.0:
+            raise ValueError("latitude must be between -90 and 90 degrees")
+        if not -180.0 <= longitude <= 180.0:
+            raise ValueError("longitude must be between -180 and 180 degrees")
+        if accuracy_m < 0.0:
+            raise ValueError("accuracy_m must be non-negative")
+        self.command_earth(
+            "Emulation.setGeolocationOverride",
+            {
+                "latitude": float(latitude),
+                "longitude": float(longitude),
+                "accuracy": float(accuracy_m),
+            },
+        )
+
+    def clear_geolocation_override(self) -> None:
+        """Restore normal browser geolocation behavior for Google Earth."""
+        self.command_earth("Emulation.clearGeolocationOverride")
+
+    def evaluate(self, target: DevToolsTarget, expression: str, *, return_by_value: bool = True) -> Any:
+        """Evaluate JavaScript in a page target through the CDP WebSocket."""
+        result = self.command(
+            target,
             "Runtime.evaluate",
             {
                 "expression": expression,
