@@ -50,6 +50,13 @@ url = "https://www.youtube.com"
 profile = "youtube"
 startup = "lazy"
 
+[apps.netflix]
+type = "browser"
+enabled = true
+url = "https://www.netflix.com/browse"
+profile = "netflix"
+startup = "lazy"
+
 [apps.google_earth]
 type = "browser"
 enabled = true
