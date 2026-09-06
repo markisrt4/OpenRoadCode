@@ -44,20 +44,8 @@ class PipewireAudioCapture(AudioCaptureIf):
         if shutil.which("pw-record") is None:
             raise RuntimeError("pw-record was not found; install PipeWire tools")
 
-        command = [
-            "pw-record",
-            "--format",
-            "f32",
-            "--rate",
-            str(self.sample_rate_hz),
-            "--channels",
-            "1",
-        ]
-        if self.target:
-            command.extend(["--target", self.target])
-        command.append("-")
         self._process = subprocess.Popen(
-            command,
+            self._build_command(),
             stdout=subprocess.PIPE,
             stderr=subprocess.DEVNULL,
             bufsize=0,
@@ -86,6 +74,23 @@ class PipewireAudioCapture(AudioCaptureIf):
         self._thread = None
         if thread is not None and thread is not threading.current_thread():
             thread.join(timeout=1.0)
+
+    def _build_command(self) -> list[str]:
+        """Build a pw-record command that emits headerless float32 PCM."""
+        command = [
+            "pw-record",
+            "--raw",
+            "--format",
+            "f32",
+            "--rate",
+            str(self.sample_rate_hz),
+            "--channels",
+            "1",
+        ]
+        if self.target:
+            command.extend(["--target", self.target])
+        command.append("-")
+        return command
 
     def _read_loop(self, callback: AudioSamplesCallback) -> None:
         process = self._process
