@@ -17,7 +17,7 @@ SEARCH_DATABASE="${OPENROADCODE_SEARCH_DATABASE:-}"
 case "$NAVIGATION_TARGET" in
     linux-dev)
         NAV_IMU_SOURCE="simulation"
-        NAV_GPS_SOURCE="simulation"
+        NAV_GPS_SOURCE="browser"
         ;;
     rpi4|rpi5)
         NAV_IMU_SOURCE="device"
