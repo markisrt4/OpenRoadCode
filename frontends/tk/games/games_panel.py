@@ -11,77 +11,54 @@ from collections.abc import Callable, Sequence
 from pathlib import Path
 
 from ui.games import GameStatus, GameUiState, GamesRequestHandlerIf, GamesUiIf
+from ui.theme import ThemeBundle
 
-BG = "#05090d"
-PANEL = "#0b1117"
-BORDER = "#25313b"
-TEXT = "#edf2f5"
-MUTED = "#89959e"
-GREEN = "#84ce1f"
-RED = "#f15a16"
-BLUE = "#168bd1"
 PAGE_SIZE = 6
 FILTERS = (("ALL", "all"), ("CASUAL", "casual"), ("PUZZLE", "puzzle"), ("CARD / BOARD", "card_board"), ("ACTION", "action"))
 _ICON_SIZES = (128, 96, 64, 48, 32, 256)
-
-# Games creates and recreates widgets as inventory state changes.  Keep its
-# palette local so newly-created cards stay in the currently selected theme.
-_DARK_TO_LIGHT = {
-    "#05090d": "#e8edf0",
-    "#0b1117": "#f6f8f9",
-    "#25313b": "#b3c0c7",
-    "#edf2f5": "#20282d",
-    "#89959e": "#66747c",
-    "#84ce1f": "#5f9418",
-    "#f15a16": "#c94d1a",
-    "#168bd1": "#0878b6",
-    "#101820": "#d1dbe0",
-    "#17300f": "#dce9d0",
-    "#214019": "#d0e3bf",
-    "#18232c": "#c6d2d8",
-    "#102018": "#e4eedf",
-    "#0d1b24": "#e0edf4",
-    "#11161a": "#e5e9eb",
-    "#183024": "#d5e6cd",
-    "#29110d": "#f3dfda",
-    "#3b1811": "#ecd1ca",
-}
-_LIGHT_TO_DARK = {value: key for key, value in _DARK_TO_LIGHT.items()}
-_THEME_OPTIONS = (
-    "background", "foreground", "activebackground", "activeforeground",
-    "highlightbackground", "highlightcolor", "disabledforeground",
-)
 
 
 class GamesPanel(tk.Frame, GamesUiIf):
     """Touch-friendly Tk view that renders game state and emits requests."""
 
-    def __init__(self, parent: tk.Misc) -> None:
-        tk.Frame.__init__(self, parent, bg=BG)
+    def __init__(self, parent: tk.Misc, *, theme: ThemeBundle) -> None:
+        self._theme = theme
+        tk.Frame.__init__(self, parent, bg=theme.ui.background)
         self._request_handler: GamesRequestHandlerIf | None = None
         self._games: tuple[GameUiState, ...] = ()
-        self._status: tk.Label
-        self._toolbar: tk.Frame
-        self._filters: tk.Frame
-        self._exit_button: tk.Button
-        self._body: tk.Frame
-        self._pager: tk.Frame
-        self._page_label: tk.Label
-        self._prev_button: tk.Button
-        self._next_button: tk.Button
-        self._runtime_host: tk.Frame | None = None
         self._filter = "all"
         self._page = 0
         self._inventory_loading = True
-        self._light_mode = False
+        self._status_message = "Checking games…"
         self._filter_buttons: dict[str, tk.Button] = {}
         self._icon_cache: dict[str, tk.PhotoImage | None] = {}
+        self._runtime_host: tk.Frame | None = None
         self._build()
 
-    def set_light_mode(self, enabled: bool) -> None:
-        """Set the Games palette and remember it for future card rebuilds."""
-        self._light_mode = enabled
-        self._apply_current_theme(self)
+    def set_theme_bundle(self, theme: ThemeBundle) -> None:
+        """Apply a CSS-derived theme to the active games surface."""
+        self._theme = theme
+        if self._runtime_host is not None:
+            ui = theme.ui
+            self.configure(bg=ui.background)
+            self._toolbar.configure(bg=ui.background)
+            self._body.configure(bg=ui.background)
+            self._runtime_host.configure(
+                bg=ui.background,
+                highlightbackground=ui.border,
+            )
+            self._exit_button.configure(
+                bg=ui.control_background,
+                fg=ui.accent_danger,
+                activebackground=ui.control_active,
+                activeforeground="#ffffff",
+                highlightbackground=ui.accent_danger,
+            )
+            return
+        for child in self.winfo_children():
+            child.destroy()
+        self._filter_buttons.clear()
+        self._build()
 
     def set_games_request_handler(self, handler: GamesRequestHandlerIf | None) -> None:
         self._request_handler = handler
@@ -92,35 +69,30 @@ class GamesPanel(tk.Frame, GamesUiIf):
             self._refresh_cards()
 
     def set_games_status(self, message: str) -> None:
+        self._status_message = message
         self._inventory_loading = message.startswith(("Checking games", "Refreshing games"))
-        if message.startswith(("Install failed", "Launch failed", "Embed failed", "No runtime", "Stop failed")):
-            color = RED
-        elif message.startswith(("Installing", "Checking", "Refreshing", "Embedding", "Launching", "Stopping")):
-            color = BLUE
-        elif message.startswith(("Installed", "Playing")):
-            color = GREEN
-        else:
-            color = MUTED
-        self._status.configure(text=message, fg=color)
-        self._apply_current_theme(self._status)
+        self._paint_status()
 
     def show_runtime_host(self, on_resize: Callable[[int, int], None]) -> tuple[int, int, int]:
-        """Replace game cards with a native-window host and enter kiosk mode."""
         self._clear_body()
         self._filters.pack_forget()
         self._status.pack_forget()
         self._exit_button.pack(side=tk.RIGHT, padx=8)
         self._pager.pack_forget()
-        host = tk.Frame(self._body, bg="#000000", highlightthickness=1, highlightbackground=BORDER)
+        ui = self._theme.ui
+        host = tk.Frame(
+            self._body,
+            bg=ui.background,
+            highlightthickness=1,
+            highlightbackground=ui.border,
+        )
         host.pack(fill=tk.BOTH, expand=True, padx=4, pady=4)
         host.update_idletasks()
         host.bind("<Configure>", lambda event: on_resize(event.width, event.height))
         self._runtime_host = host
-        self._apply_current_theme(self)
         return host.winfo_id(), host.winfo_width(), host.winfo_height()
 
     def hide_runtime_host(self) -> None:
-        """Leave kiosk mode and restore the normal games browser."""
         self._runtime_host = None
         self._exit_button.pack_forget()
         self._filters.pack(side=tk.LEFT)
@@ -129,49 +101,100 @@ class GamesPanel(tk.Frame, GamesUiIf):
         self._refresh_cards()
 
     def _request_exit_game(self) -> None:
-        handler = self._request_handler
-        if handler is not None:
-            handler.request_stop_game()
+        if self._request_handler is not None:
+            self._request_handler.request_stop_game()
 
     def _build(self) -> None:
-        self._toolbar = tk.Frame(self, bg=BG)
+        ui = self._theme.ui
+        self.configure(bg=ui.background)
+        self._toolbar = tk.Frame(self, bg=ui.background)
         self._toolbar.pack(fill=tk.X, pady=(2, 6))
-        self._filters = tk.Frame(self._toolbar, bg=BG)
+        self._filters = tk.Frame(self._toolbar, bg=ui.background)
         self._filters.pack(side=tk.LEFT)
         for label, category in FILTERS:
-            button = tk.Button(self._filters, text=label, command=lambda selected=category: self._set_filter(selected), relief=tk.FLAT, font=("Sans", 9, "bold"), padx=11, pady=6, cursor="hand2")
+            button = tk.Button(
+                self._filters,
+                text=label,
+                command=lambda selected=category: self._set_filter(selected),
+                relief=tk.FLAT,
+                font=("Sans", 9, "bold"),
+                padx=11,
+                pady=6,
+                cursor="hand2",
+            )
             button.pack(side=tk.LEFT, padx=(0, 5))
             self._filter_buttons[category] = button
-        self._status = tk.Label(self._toolbar, text="Checking games…", fg=BLUE, bg=BG, font=("Sans", 10))
+        self._status = tk.Label(
+            self._toolbar,
+            text=self._status_message,
+            bg=ui.background,
+            font=("Sans", 10),
+        )
         self._status.pack(side=tk.RIGHT, padx=8)
         self._exit_button = tk.Button(
             self._toolbar,
             text="EXIT GAME",
             command=self._request_exit_game,
-            bg="#29110d",
-            fg=RED,
-            activebackground="#3b1811",
-            activeforeground=TEXT,
+            bg=ui.control_background,
+            fg=ui.accent_danger,
+            activebackground=ui.control_active,
+            activeforeground="#ffffff",
             relief=tk.FLAT,
             highlightthickness=1,
-            highlightbackground=RED,
+            highlightbackground=ui.accent_danger,
             font=("Sans", 10, "bold"),
             padx=22,
             pady=6,
             cursor="hand2",
         )
-        self._update_filter_buttons()
-        self._body = tk.Frame(self, bg=BG)
+        self._body = tk.Frame(self, bg=ui.background)
         self._body.pack(fill=tk.BOTH, expand=True)
-        self._pager = tk.Frame(self, bg=BG)
+        self._pager = tk.Frame(self, bg=ui.background)
         self._pager.pack(fill=tk.X, pady=(4, 1))
-        self._prev_button = tk.Button(self._pager, text="‹ PREV", command=lambda: self._change_page(-1), bg="#101820", fg=TEXT, relief=tk.FLAT, font=("Sans", 9, "bold"), padx=16, pady=4)
+        self._prev_button = self._pager_button("‹ PREV", lambda: self._change_page(-1))
         self._prev_button.pack(side=tk.LEFT, padx=6)
-        self._next_button = tk.Button(self._pager, text="NEXT ›", command=lambda: self._change_page(1), bg="#101820", fg=TEXT, relief=tk.FLAT, font=("Sans", 9, "bold"), padx=16, pady=4)
+        self._next_button = self._pager_button("NEXT ›", lambda: self._change_page(1))
         self._next_button.pack(side=tk.RIGHT, padx=6)
-        self._page_label = tk.Label(self._pager, text="", fg=MUTED, bg=BG, font=("Sans", 9, "bold"))
+        self._page_label = tk.Label(
+            self._pager,
+            text="",
+            fg=ui.text_muted,
+            bg=ui.background,
+            font=("Sans", 9, "bold"),
+        )
         self._page_label.pack(expand=True)
+        self._update_filter_buttons()
+        self._paint_status()
         self._refresh_cards()
+
+    def _pager_button(self, text: str, command: Callable[[], None]) -> tk.Button:
+        ui = self._theme.ui
+        return tk.Button(
+            self._pager,
+            text=text,
+            command=command,
+            bg=ui.control_background,
+            fg=ui.control_text,
+            activebackground=ui.control_active,
+            activeforeground="#ffffff",
+            relief=tk.FLAT,
+            font=("Sans", 9, "bold"),
+            padx=16,
+            pady=4,
+        )
+
+    def _paint_status(self) -> None:
+        ui = self._theme.ui
+        message = self._status_message
+        if message.startswith(("Install failed", "Launch failed", "Embed failed", "No runtime", "Stop failed")):
+            color = ui.accent_danger
+        elif message.startswith(("Installing", "Checking", "Refreshing", "Embedding", "Launching", "Stopping")):
+            color = ui.accent_primary
+        elif message.startswith(("Installed", "Playing")):
+            color = ui.accent_success
+        else:
+            color = ui.text_muted
+        self._status.configure(text=message, fg=color, bg=ui.background)
 
     def _set_filter(self, category: str) -> None:
         if self._runtime_host is not None:
@@ -190,9 +213,17 @@ class GamesPanel(tk.Frame, GamesUiIf):
         self._refresh_cards()
 
     def _update_filter_buttons(self) -> None:
+        ui = self._theme.ui
         for category, button in self._filter_buttons.items():
             selected = category == self._filter
-            button.configure(bg="#17300f" if selected else "#101820", fg=GREEN if selected else TEXT, activebackground="#214019" if selected else "#18232c", activeforeground=TEXT, highlightthickness=1, highlightbackground=GREEN if selected else BORDER)
+            button.configure(
+                bg=ui.control_active if selected else ui.control_background,
+                fg="#ffffff" if selected else ui.control_text,
+                activebackground=ui.control_active,
+                activeforeground="#ffffff",
+                highlightthickness=1,
+                highlightbackground=ui.accent_success if selected else ui.border,
+            )
 
     def _clear_body(self) -> None:
         for child in self._body.winfo_children():
@@ -204,11 +235,17 @@ class GamesPanel(tk.Frame, GamesUiIf):
         return [game for game in self._games if game.category == self._filter]
 
     def _show_loading(self) -> None:
+        ui = self._theme.ui
         self._page_label.configure(text="")
         self._prev_button.configure(state=tk.DISABLED)
         self._next_button.configure(state=tk.DISABLED)
-        tk.Label(self._body, text="Loading games…", fg=TEXT, bg=BG, font=("Sans", 18, "bold")).place(relx=.5, rely=.45, anchor="center")
-        self._apply_current_theme(self)
+        tk.Label(
+            self._body,
+            text="Loading games…",
+            fg=ui.text,
+            bg=ui.background,
+            font=("Sans", 18, "bold"),
+        ).place(relx=.5, rely=.45, anchor="center")
 
     def _refresh_cards(self) -> None:
         self._clear_body()
@@ -217,12 +254,18 @@ class GamesPanel(tk.Frame, GamesUiIf):
             return
         games = self._visible_games()
         if not games:
+            ui = self._theme.ui
             self._page = 0
             self._page_label.configure(text="")
             self._prev_button.configure(state=tk.DISABLED)
             self._next_button.configure(state=tk.DISABLED)
-            tk.Label(self._body, text="No games in this category", fg=MUTED, bg=BG, font=("Sans", 18, "bold")).place(relx=.5, rely=.45, anchor="center")
-            self._apply_current_theme(self)
+            tk.Label(
+                self._body,
+                text="No games in this category",
+                fg=ui.text_muted,
+                bg=ui.background,
+                font=("Sans", 18, "bold"),
+            ).place(relx=.5, rely=.45, anchor="center")
             return
         page_count = max(1, (len(games) + PAGE_SIZE - 1) // PAGE_SIZE)
         self._page = min(self._page, page_count - 1)
@@ -236,25 +279,27 @@ class GamesPanel(tk.Frame, GamesUiIf):
         for row in range(3):
             self._body.grid_rowconfigure(row, weight=1, uniform="game")
         for index, game in enumerate(page_games):
-            self._game_card(self._body, game).grid(row=index // 2, column=index % 2, sticky="nsew", padx=6, pady=5)
-        self._apply_current_theme(self)
+            self._game_card(self._body, game).grid(
+                row=index // 2,
+                column=index % 2,
+                sticky="nsew",
+                padx=6,
+                pady=5,
+            )
 
     def _find_icon(self, icon_name: str) -> Path | None:
-        """Find a desktop icon without recursively walking the whole icon tree."""
         prefix = Path(os.environ.get("PREFIX", "/usr"))
-        pixmap_roots = (prefix / "share" / "pixmaps", Path("/usr/share/pixmaps"))
-        for root in pixmap_roots:
+        for root in (prefix / "share" / "pixmaps", Path("/usr/share/pixmaps")):
             for extension in ("png", "gif"):
                 candidate = root / f"{icon_name}.{extension}"
                 if candidate.is_file():
                     return candidate
-        icon_roots = (prefix / "share" / "icons", Path("/usr/share/icons"))
-        for root in icon_roots:
-            for theme in ("hicolor", "breeze", "breeze-dark", "Adwaita"):
+        for root in (prefix / "share" / "icons", Path("/usr/share/icons")):
+            for icon_theme in ("hicolor", "breeze", "breeze-dark", "Adwaita"):
                 for size in _ICON_SIZES:
                     for context in ("apps", "applications"):
                         for extension in ("png", "gif"):
-                            candidate = root / theme / f"{size}x{size}" / context / f"{icon_name}.{extension}"
+                            candidate = root / icon_theme / f"{size}x{size}" / context / f"{icon_name}.{extension}"
                             if candidate.is_file():
                                 return candidate
         return None
@@ -271,63 +316,82 @@ class GamesPanel(tk.Frame, GamesUiIf):
                 image = tk.PhotoImage(file=str(path))
                 maximum = max(image.width(), image.height())
                 if maximum > 56:
-                    factor = max(1, (maximum + 55) // 56)
-                    image = image.subsample(factor, factor)
+                    image = image.subsample(max(1, (maximum + 55) // 56), max(1, (maximum + 55) // 56))
             except tk.TclError:
                 image = None
         self._icon_cache[game.icon] = image
         return image
 
     def _game_card(self, parent: tk.Misc, game: GameUiState) -> tk.Frame:
-        card = tk.Frame(parent, bg=PANEL, highlightthickness=1, highlightbackground=BORDER)
+        ui = self._theme.ui
+        card = tk.Frame(parent, bg=ui.surface, highlightthickness=1, highlightbackground=ui.border)
         card.grid_columnconfigure(1, weight=1)
         label, command, accent = self._action_for(game)
         actionable = command is not None
         icon = self._icon_for(game)
-        icon_box = tk.Frame(card, bg=PANEL, width=64, height=56)
+        icon_box = tk.Frame(card, bg=ui.surface, width=64, height=56)
         icon_box.grid(row=0, column=0, rowspan=3, padx=(10, 3), pady=5)
         icon_box.grid_propagate(False)
-        icon_label = tk.Label(icon_box, bg=PANEL)
+        icon_label = tk.Label(icon_box, bg=ui.surface)
         if icon is not None:
             icon_label.configure(image=icon)
         else:
             icon_label.configure(text="◈", fg=accent, font=("Sans", 25, "bold"))
         icon_label.place(relx=0.5, rely=0.5, anchor="center")
-        tk.Label(card, text=game.name, fg=TEXT if actionable or game.status in (GameStatus.READY, GameStatus.INSTALLING, GameStatus.RUNNING) else MUTED, bg=PANEL, font=("Sans", 13, "bold")).grid(row=0, column=1, sticky="sw", padx=6, pady=(5, 0))
-        tk.Label(card, text=game.description, fg=MUTED, bg=PANEL, font=("Sans", 8), anchor="w").grid(row=1, column=1, sticky="ew", padx=6)
-        tk.Label(card, text=game.status.name, fg=accent, bg=PANEL, font=("Sans", 8, "bold")).grid(row=2, column=1, sticky="nw", padx=6, pady=(1, 5))
-        tk.Button(card, text=label, command=command, state=tk.NORMAL if actionable else tk.DISABLED, bg="#102018" if game.status in (GameStatus.READY, GameStatus.RUNNING) else ("#0d1b24" if game.status in (GameStatus.AVAILABLE, GameStatus.CHECKING, GameStatus.INSTALLING) else "#11161a"), fg=accent, activebackground="#183024", activeforeground=TEXT, disabledforeground=accent if game.status in (GameStatus.CHECKING, GameStatus.INSTALLING) else MUTED, relief=tk.FLAT, highlightthickness=1, highlightbackground=accent if actionable else BORDER, font=("Sans", 9, "bold"), width=11, padx=5, pady=5, cursor="hand2" if actionable else "").grid(row=0, column=2, rowspan=3, padx=10, pady=9, sticky="e")
+        available = game.status in (GameStatus.READY, GameStatus.INSTALLING, GameStatus.RUNNING)
+        tk.Label(
+            card,
+            text=game.name,
+            fg=ui.text if actionable or available else ui.text_muted,
+            bg=ui.surface,
+            font=("Sans", 13, "bold"),
+        ).grid(row=0, column=1, sticky="sw", padx=6, pady=(5, 0))
+        tk.Label(
+            card,
+            text=game.description,
+            fg=ui.text_muted,
+            bg=ui.surface,
+            font=("Sans", 8),
+            anchor="w",
+        ).grid(row=1, column=1, sticky="ew", padx=6)
+        tk.Label(
+            card,
+            text=game.status.name,
+            fg=accent,
+            bg=ui.surface,
+            font=("Sans", 8, "bold"),
+        ).grid(row=2, column=1, sticky="nw", padx=6, pady=(1, 5))
+        tk.Button(
+            card,
+            text=label,
+            command=command,
+            state=tk.NORMAL if actionable else tk.DISABLED,
+            bg=ui.control_background,
+            fg=accent,
+            activebackground=ui.control_active,
+            activeforeground="#ffffff",
+            disabledforeground=accent if game.status in (GameStatus.CHECKING, GameStatus.INSTALLING) else ui.text_muted,
+            relief=tk.FLAT,
+            highlightthickness=1,
+            highlightbackground=accent if actionable else ui.border,
+            font=("Sans", 9, "bold"),
+            width=11,
+            padx=5,
+            pady=5,
+            cursor="hand2" if actionable else "",
+        ).grid(row=0, column=2, rowspan=3, padx=10, pady=9, sticky="e")
         return card
 
     def _action_for(self, game: GameUiState) -> tuple[str, Callable[[], None] | None, str]:
+        ui = self._theme.ui
         if game.status is GameStatus.READY:
-            return "PLAY", lambda: self._request_handler.request_launch_game(game.key) if self._request_handler else None, GREEN
+            return "PLAY", lambda: self._request_handler.request_launch_game(game.key) if self._request_handler else None, ui.accent_success
         if game.status is GameStatus.RUNNING:
-            return "PLAYING", None, GREEN
+            return "PLAYING", None, ui.accent_success
         if game.status is GameStatus.AVAILABLE:
-            return "INSTALL", lambda: self._request_handler.request_install_game(game.key) if self._request_handler else None, BLUE
+            return "INSTALL", lambda: self._request_handler.request_install_game(game.key) if self._request_handler else None, ui.accent_primary
         if game.status is GameStatus.INSTALLING:
-            return "INSTALLING", None, BLUE
+            return "INSTALLING", None, ui.accent_primary
         if game.status is GameStatus.CHECKING:
-            return "CHECKING", None, BLUE
-        return "UNAVAILABLE", None, MUTED
-
-    def _apply_current_theme(self, widget: tk.Misc) -> None:
-        mapping = _DARK_TO_LIGHT if self._light_mode else _LIGHT_TO_DARK
-        self._apply_theme_recursive(widget, mapping)
-
-    @classmethod
-    def _apply_theme_recursive(cls, widget: tk.Misc, mapping: dict[str, str]) -> None:
-        for option in _THEME_OPTIONS:
-            try:
-                value = str(widget.cget(option)).lower()
-            except (tk.TclError, AttributeError):
-                continue
-            replacement = mapping.get(value)
-            if replacement is not None:
-                try:
-                    widget.configure(**{option: replacement})
-                except tk.TclError:
-                    pass
-        for child in widget.winfo_children():
-            cls._apply_theme_recursive(child, mapping)
+            return "CHECKING", None, ui.accent_primary
+        return "UNAVAILABLE", None, ui.text_muted
