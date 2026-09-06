@@ -12,6 +12,7 @@ import tkinter as tk
 from apps.common.uiTheme.spotify import SPOTIFY_PANEL_THEME
 from apps.launchers.sdrpp_launcher import sync_sdrpp_theme
 from apps.orcUi.application_runtime import create_orc_ui_application_runtime
+from apps.orcUi.managed_browser_media_player import ManagedBrowserMediaPlayer
 from apps.orcUi.orc_ui_app import OrcUiApp
 from apps.orcUi.radio_application_service import RadioApplicationServiceIf
 from apps.orcUi.radio_entry_panel import RadioEntryPanel
@@ -57,10 +58,8 @@ def main() -> None:
     media = application_runtime.media
 
     # Spotify state is part of the UI's own data model, not an optional
-    # external application.  Start it before the Tk loop so Home/Spotify can
-    # discover an already-active Spotify Connect session immediately.  The
-    # later application-runtime startup is idempotent and still owns the
-    # remaining background-app policy.
+    # external application. Start it before the Tk loop so Home/Spotify can
+    # discover an already-active Spotify Connect session immediately.
     media.start()
 
     app = OrcUiApp()
@@ -104,8 +103,17 @@ def main() -> None:
     spotify_screen.set_volume_request_handler(media.spotify)
     spotify_screen.set_state_loader(media.spotify.latest_state)
 
-    youtube_player = YouTubePlayer(software_rendering=software_rendering, dark_mode=app.theme_mode is ThemeMode.DARK)
-    netflix_player = NetflixPlayer(software_rendering=software_rendering, dark_mode=app.theme_mode is ThemeMode.DARK)
+    youtube_player = ManagedBrowserMediaPlayer(
+        application_runtime.manager,
+        "youtube",
+        resolve_target=YouTubePlayer.resolve_target,
+    )
+    netflix_player = ManagedBrowserMediaPlayer(
+        application_runtime.manager,
+        "netflix",
+        resolve_target=NetflixPlayer.validate_url,
+    )
+
     youtube_screen = BrowserMediaScreen(
         "youtube",
         app,
@@ -152,8 +160,6 @@ def main() -> None:
         app.run()
     finally:
         music_video_controller.stop_video()
-        youtube_player.stop()
-        netflix_player.stop()
         application_runtime.close()
 
 
