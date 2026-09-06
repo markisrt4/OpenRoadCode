@@ -62,6 +62,10 @@ class _SynchronizedSpotifyController(SpotifyControllerIf):
         with self._lock:
             self._backend.seek_to_position_ms(position_ms)
 
+    def transfer_playback(self, device_id: str, *, play: bool = True) -> None:
+        with self._lock:
+            self._backend.transfer_playback(device_id, play=play)
+
 
 class SpotifyStateService(
     PlaybackRequestHandlerIf,
@@ -144,6 +148,10 @@ class SpotifyStateService(
         clamped = max(0, min(100, volume_percent))
         self._enqueue(lambda: self._controller.set_volume_percent(clamped))
 
+    def request_transfer_playback(self, device_id: str, *, play: bool = True) -> None:
+        """Queue a Spotify Connect transfer without blocking the UI thread."""
+        self._enqueue(lambda: self._controller.transfer_playback(device_id, play=play))
+
     def _enqueue(self, command: Callable[[], None]) -> None:
         self._commands.put(command)
         self._wake.set()
@@ -170,7 +178,6 @@ class SpotifyStateService(
         try:
             state = self._presenter.read_state()
         except Exception as error:
-            # Keep the service alive through transient auth/network failures.
             print(f"WARNING: Spotify state refresh failed: {type(error).__name__}: {error}")
             return
         with self._state_lock:
