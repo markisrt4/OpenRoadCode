@@ -22,6 +22,7 @@ class EarthInputCameraController(EarthCameraControllerIf):
     _PAN_MAX_REPEATS = 40
     _TILT_VIEWPORT_FRACTION = 0.05
     _ROTATE_VIEWPORT_FRACTION_PER_45_DEG = 0.12
+    _CHASE_ZOOM_STEPS = 12
 
     def __init__(self, client: ChromiumDevToolsClient | None = None) -> None:
         self._client = client or ChromiumDevToolsClient(port=9223)
@@ -53,8 +54,19 @@ class EarthInputCameraController(EarthCameraControllerIf):
             self._zoom_bias = max(-8, self._zoom_bias - 1)
         return ok
 
+    def zoom_closest(self) -> bool:
+        """Drive Earth toward its closest useful zoom level."""
+        ok = all(self._wheel(-600.0) for _ in range(self._CHASE_ZOOM_STEPS))
+        if ok:
+            self._zoom_bias = 8
+        return ok
+
     def north_up(self) -> bool:
         return self._key("n", "KeyN", 78)
+
+    def top_down(self) -> bool:
+        """Reset Earth to a zero-pitch top-down view."""
+        return self._key("u", "KeyU", 85)
 
     def pan(self, *, up: float = 0.0, right: float = 0.0) -> bool:
         """Pan using Earth arrow controls with zoom-relative travel."""
