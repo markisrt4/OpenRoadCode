@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import argparse
 
+from apps.launchers.chromium_devtools_client import ChromiumDevToolsClient
 from controllers.navigation.earth_cdp_camera_controller import EarthCdpCameraController
 
 
@@ -34,6 +35,34 @@ def _print_trace(controller: EarthCdpCameraController) -> None:
                 print(f"      preview: {preview}")
 
 
+def _probe_geolocation(latitude: float, longitude: float, accuracy_m: float) -> None:
+    client = ChromiumDevToolsClient(port=9223)
+    client.set_geolocation_override(latitude, longitude, accuracy_m=accuracy_m)
+    observed = client.evaluate_earth(
+        """(() => new Promise(resolve => {
+            if (!navigator.geolocation) {
+                resolve({ok: false, error: 'navigator.geolocation unavailable'});
+                return;
+            }
+            navigator.geolocation.getCurrentPosition(
+                position => resolve({
+                    ok: true,
+                    latitude: position.coords.latitude,
+                    longitude: position.coords.longitude,
+                    accuracy: position.coords.accuracy
+                }),
+                error => resolve({ok: false, error: error.message, code: error.code}),
+                {enableHighAccuracy: true, timeout: 5000, maximumAge: 0}
+            );
+        }))()"""
+    )
+    print(f"CDP geolocation override set: {latitude:.7f}, {longitude:.7f} accuracy={accuracy_m:g}m")
+    print(f"Earth page navigator.geolocation reports: {observed}")
+    print("Now use Google Earth's normal My Location control.")
+    print("If Earth flies to the injected coordinate, the absolute-position path works.")
+    print("The override remains active until Earth/Chromium exits or --clear-geolocation is run.")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -41,11 +70,39 @@ def main() -> None:
         action="store_true",
         help="passively trace ReceiveViewModelCommand while you manipulate Earth",
     )
+    parser.add_argument(
+        "--geolocation",
+        nargs=2,
+        type=float,
+        metavar=("LAT", "LON"),
+        help="override Chromium geolocation for Earth and verify navigator.geolocation",
+    )
+    parser.add_argument(
+        "--accuracy-m",
+        type=float,
+        default=5.0,
+        help="accuracy reported with --geolocation (default: 5 meters)",
+    )
+    parser.add_argument(
+        "--clear-geolocation",
+        action="store_true",
+        help="clear the Chromium geolocation override for Earth",
+    )
     args = parser.parse_args()
 
     controller = EarthCdpCameraController()
     if not controller.available():
         raise SystemExit("Google Earth DevTools target is not available")
+
+    if args.clear_geolocation:
+        ChromiumDevToolsClient(port=9223).clear_geolocation_override()
+        print("Google Earth geolocation override cleared.")
+        return
+
+    if args.geolocation is not None:
+        latitude, longitude = args.geolocation
+        _probe_geolocation(latitude, longitude, args.accuracy_m)
+        return
 
     if args.trace_commands:
         if not controller.install_command_trace():
