@@ -98,12 +98,18 @@ class PipewireAudioCapture(AudioCaptureIf):
             self._running = False
             return
         byte_count = self.block_size * np.dtype(np.float32).itemsize
+        pending = bytearray()
         try:
             while self._running:
-                data = process.stdout.read(byte_count)
-                if not data or len(data) < byte_count:
+                chunk = process.stdout.read(byte_count - len(pending))
+                if not chunk:
                     break
-                samples = np.frombuffer(data, dtype=np.float32).copy()
+                pending.extend(chunk)
+                if len(pending) < byte_count:
+                    continue
+
+                samples = np.frombuffer(pending, dtype=np.float32).copy()
+                pending.clear()
                 callback(samples, self.sample_rate_hz)
         finally:
             self._running = False
