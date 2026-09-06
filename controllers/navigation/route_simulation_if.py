@@ -5,11 +5,12 @@
 
 from __future__ import annotations
 
-from typing import Protocol
+from typing import Protocol, runtime_checkable
 
 from controllers.route_planning.route_planning_types import RouteResult
 
 
+@runtime_checkable
 class RouteSimulationIf(Protocol):
     """Allow a navigation input source to follow an already-calculated route."""
 
