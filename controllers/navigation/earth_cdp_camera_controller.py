@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from typing import Any
 
@@ -70,7 +71,7 @@ class EarthCdpCameraController(EarthCameraControllerIf):
 
     def _send_view_model_commands(self, commands: tuple[tuple[str, tuple[int, ...]], ...]) -> bool:
         """Replay a small sequence of commands observed from Earth's own UI."""
-        command_data = repr([(name, list(payload)) for name, payload in commands])
+        command_data = json.dumps([[name, list(payload)] for name, payload in commands])
         value = self._client.evaluate_earth(
             """(() => {
                 const M = window.Module;
