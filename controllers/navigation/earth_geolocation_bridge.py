@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 
-"""Feed ORC navigation fixes directly to Google Earth's geolocation watcher."""
+"""Feed ORC navigation fixes directly to Google Earth's geolocation API."""
 
 from __future__ import annotations
 
@@ -11,47 +11,76 @@ from apps.launchers.chromium_devtools_client import ChromiumDevToolsClient
 
 
 class EarthGeolocationBridge:
-    """Bridge ORC position/motion data into Google's browser geolocation API."""
+    """Provide Google Earth with a synthetic geolocation API backed by ORC."""
 
     def __init__(self, client: ChromiumDevToolsClient | None = None) -> None:
         self._client = client or ChromiumDevToolsClient(port=9223)
 
     def install(self) -> bool:
-        """Wrap watchPosition and retain Earth's success callback."""
+        """Replace browser geolocation reads with an ORC-owned provider."""
         try:
             value = self._client.evaluate_earth(
                 r"""(() => {
                     const geo = navigator.geolocation;
                     if (!geo) return false;
                     if (window.__orcEarthGeoBridge?.installed) return true;
-                    const originalWatch = geo.watchPosition.bind(geo);
-                    const originalClear = geo.clearWatch.bind(geo);
-                    const state = {installed:true, registrations:0, callbacks:new Map()};
+
+                    const state = {
+                        installed: true,
+                        registrations: 0,
+                        nextWatchId: 1,
+                        callbacks: new Map(),
+                        pendingCurrent: [],
+                        latestFix: null
+                    };
+
+                    const deliverAsync = (callback, position) => {
+                        if (typeof callback !== 'function' || !position) return;
+                        queueMicrotask(() => {
+                            try { callback(position); } catch (_) {}
+                        });
+                    };
+
                     Object.defineProperty(geo, 'watchPosition', {
-                        configurable:true,
-                        value:function(success, error, options) {
+                        configurable: true,
+                        value: function(success, error, options) {
+                            void error;
+                            void options;
+                            const id = state.nextWatchId++;
                             state.registrations += 1;
-                            let browserId = null;
-                            browserId = originalWatch(
-                                success,
-                                function(nativeError) {
-                                    // ORC is the location provider for this Earth session.
-                                    // Suppress Chromium provider failures after registration.
-                                    if (!state.callbacks.has(browserId) && error) error(nativeError);
-                                },
-                                options
-                            );
-                            state.callbacks.set(browserId, success);
-                            return browserId;
+                            state.callbacks.set(id, success);
+                            if (state.latestFix) deliverAsync(success, state.latestFix);
+                            return id;
                         }
                     });
+
                     Object.defineProperty(geo, 'clearWatch', {
-                        configurable:true,
-                        value:function(browserId) {
-                            state.callbacks.delete(browserId);
-                            return originalClear(browserId);
+                        configurable: true,
+                        value: function(id) {
+                            state.callbacks.delete(id);
                         }
                     });
+
+                    Object.defineProperty(geo, 'getCurrentPosition', {
+                        configurable: true,
+                        value: function(success, error, options) {
+                            void error;
+                            void options;
+                            if (state.latestFix) deliverAsync(success, state.latestFix);
+                            else state.pendingCurrent.push(success);
+                        }
+                    });
+
+                    state.deliver = function(position) {
+                        state.latestFix = position;
+                        for (const callback of state.callbacks.values()) {
+                            deliverAsync(callback, position);
+                        }
+                        const pending = state.pendingCurrent.splice(0);
+                        for (const callback of pending) deliverAsync(callback, position);
+                        return state.callbacks.size > 0 || pending.length > 0;
+                    };
+
                     window.__orcEarthGeoBridge = state;
                     return true;
                 })()"""
@@ -82,7 +111,7 @@ class EarthGeolocationBridge:
         speed_m_s: float | None = None,
         altitude_m: float | None = None,
     ) -> bool:
-        """Deliver one GeolocationPosition-shaped ORC fix to active Earth watchers."""
+        """Deliver one GeolocationPosition-shaped ORC fix to Google Earth."""
         payload = {
             "latitude": float(latitude_deg),
             "longitude": float(longitude_deg),
@@ -94,24 +123,24 @@ class EarthGeolocationBridge:
         }
         expression = f"""(() => {{
             const state = window.__orcEarthGeoBridge;
-            if (!state?.installed || !state.callbacks?.size) return false;
+            if (!state?.installed || typeof state.deliver !== 'function') return false;
             const raw = {json.dumps(payload)};
             const coords = Object.freeze({{
-                latitude:raw.latitude, longitude:raw.longitude, accuracy:raw.accuracy,
-                altitude:raw.altitude, altitudeAccuracy:raw.altitudeAccuracy,
-                heading:raw.heading, speed:raw.speed,
+                latitude: raw.latitude,
+                longitude: raw.longitude,
+                accuracy: raw.accuracy,
+                altitude: raw.altitude,
+                altitudeAccuracy: raw.altitudeAccuracy,
+                heading: raw.heading,
+                speed: raw.speed,
                 toJSON() {{ return raw; }}
             }});
             const position = Object.freeze({{
-                coords:coords,
-                timestamp:Date.now(),
-                toJSON() {{ return {{coords:coords.toJSON(), timestamp:this.timestamp}}; }}
+                coords,
+                timestamp: Date.now(),
+                toJSON() {{ return {{coords: coords.toJSON(), timestamp: this.timestamp}}; }}
             }});
-            let delivered = 0;
-            for (const callback of state.callbacks.values()) {{
-                try {{ callback(position); delivered += 1; }} catch (_) {{}}
-            }}
-            return delivered > 0;
+            return state.deliver(position);
         }})()"""
         try:
             return self._client.evaluate_earth(expression) is True
