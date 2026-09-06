@@ -92,7 +92,6 @@ def main() -> None:
         lyrics_client=lyrics,
         music_video_controller=music_video_controller,
         music_video_presentation=music_video,
-        video_window_class=MUSIC_VIDEO_WINDOW_CLASS,
         service=media.spotify,
         local_player=media.spotify_local_player,
         media_navigation_factory=media_navigation,
