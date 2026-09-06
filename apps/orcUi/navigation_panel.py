@@ -23,7 +23,7 @@ class NavigationPanel(tk.Frame):
  def __init__(self,parent:tk.Misc,*,map_request_handler:MapRequestHandlerIf|None=None,on_back:Callable[[],None]|None=None)->None:
   super().__init__(parent,bg=BG); del on_back
   self._camera_runtime=get_shared_map_camera_runtime(); self._request_handler=map_request_handler or self._camera_runtime.request_handler
-  self._earth_launcher=GoogleEarthLauncher(); self._earth_embedder=X11WindowEmbedder(); self._earth_camera=EarthCdpCameraController(); self._earth_watch_probe=EarthGeolocationWatchProbe(); self._earth_visible=False; self._earth_initialized=False; self._earth_hud_after:str|None=None; self._earth_last_sent_position:tuple[float,float]|None=None; self._earth_watch_count=0
+  self._earth_launcher=GoogleEarthLauncher(); self._earth_embedder=X11WindowEmbedder(); self._earth_camera=EarthCdpCameraController(); self._earth_watch_probe=EarthGeolocationWatchProbe(); self._earth_visible=False; self._earth_initialized=False; self._earth_hud_after:str|None=None; self._earth_last_sent_position:tuple[float,float]|None=None; self._earth_watch_count=0; self._earth_tracking_primed=False
   self._zoom_level=float(getattr(self._request_handler,"zoom_level",16.5)); self._pitch_rad=float(getattr(self._request_handler,"pitch_rad",math.radians(45))); self._follow_enabled=bool(getattr(self._request_handler,"follow_enabled",True)); self._poi_focus=set(getattr(self._request_handler,"poi_focus",()))
   self._build(); self._schedule_renderer_refresh()
  @property
@@ -65,7 +65,7 @@ class NavigationPanel(tk.Frame):
   self._earth_guidance.grid(row=1,column=0,sticky="ew",pady=(4,0));self._earth_hud.grid(row=2,column=0,sticky="ew",pady=(3,0));self.update_idletasks();position,size=self._earth_geometry()
   if not self._earth_launcher.is_running():self._earth_launcher.configure_app_window(position=position,size=size);self._earth_launcher.launch(self._display())
   self.update_idletasks();self._earth_embedder.embed(0,self.map_host_window_id,size[0],size[1],window_class=GoogleEarthLauncher.WINDOW_CLASS)
-  self._earth_last_sent_position=None;self._earth_watch_count=0;self._earth_watch_probe.install();self._earth_visible=True;self._earth_button.configure(text="▣  MAP",bg=GREEN,fg=BG);self._start_earth_hud()
+  self._earth_last_sent_position=None;self._earth_watch_count=0;self._earth_tracking_primed=False;self._earth_watch_probe.install();self._earth_visible=True;self._earth_button.configure(text="▣  MAP",bg=GREEN,fg=BG);self._start_earth_hud()
  def _detach_earth(self)->None:
   if self._earth_embedder.window_id is not None:
    try:self._earth_embedder.detach(int(self.winfo_toplevel().winfo_id()))
@@ -95,14 +95,17 @@ class NavigationPanel(tk.Frame):
   count=self._earth_watch_probe.registration_count()
   if count is None:return
   if count>self._earth_watch_count:
-   self._earth_watch_count=count;self._earth_last_sent_position=None;self._send_earth_position(force=True);self._shortcut_status.set("Earth GPS tracking active")
- def _send_earth_position(self,*,force:bool=False)->None:
+   self._earth_watch_count=count;self._earth_tracking_primed=False;self._earth_last_sent_position=None
+  if count>0 and not self._earth_tracking_primed:
+   if self._send_earth_position(force=True):
+    self._earth_tracking_primed=True;self._shortcut_status.set("Earth GPS tracking active")
+ def _send_earth_position(self,*,force:bool=False)->bool:
   position=self._camera_runtime.latest_position
-  if position is None:return
+  if position is None:return False
   speed=self._camera_runtime.latest_ground_speed_m_s;track=self._camera_runtime.latest_track_rad;lat=math.degrees(position.latitude_rad);lon=math.degrees(position.longitude_rad)
-  if not force and not self._earth_position_changed(lat,lon):return
-  if self._earth_camera.set_view(EarthCameraView(latitude_deg=lat,longitude_deg=lon,heading_deg=None if track is None else math.degrees(track)%360.0,speed_m_s=None if speed is None else max(0.0,speed))):self._earth_last_sent_position=(lat,lon)
-  else:self._shortcut_status.set("Earth GPS bridge unavailable")
+  if not force and not self._earth_position_changed(lat,lon):return False
+  if self._earth_camera.set_view(EarthCameraView(latitude_deg=lat,longitude_deg=lon,heading_deg=None if track is None else math.degrees(track)%360.0,speed_m_s=None if speed is None else max(0.0,speed))):self._earth_last_sent_position=(lat,lon);return True
+  self._shortcut_status.set("Earth GPS bridge unavailable");return False
  def _update_earth_hud(self)->None:
   if not self._earth_visible:return
   speed=self._camera_runtime.latest_ground_speed_m_s;track=self._camera_runtime.latest_track_rad;position=self._camera_runtime.latest_position
@@ -112,7 +115,9 @@ class NavigationPanel(tk.Frame):
   if position is None:self._earth_position_var.set("GPS --")
   else:
    lat=math.degrees(position.latitude_rad);lon=math.degrees(position.longitude_rad);self._earth_position_var.set(f"{lat:.4f}, {lon:.4f}")
-  self._refresh_earth_tracking_watch();self._send_earth_position();self._update_earth_guidance();self._earth_hud_after=self.after(500,self._update_earth_hud)
+  self._refresh_earth_tracking_watch()
+  if self._earth_tracking_primed:self._send_earth_position()
+  self._update_earth_guidance();self._earth_hud_after=self.after(500,self._update_earth_hud)
  def _earth_position_changed(self,lat:float,lon:float)->bool:
   previous=self._earth_last_sent_position
   if previous is None:return True
