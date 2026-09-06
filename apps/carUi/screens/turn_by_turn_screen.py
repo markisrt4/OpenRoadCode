@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 import tkinter as tk
 
 from apps.carUi.screens.car_ui_screen import CarUiScreen
@@ -33,9 +34,14 @@ class TurnByTurnScreen(CarUiScreen, RouteGuidanceUiIf):
         self._distance_remaining_m: float | None = None
         self._off_route = False
         self._route_complete = False
+        self._simulation_action: Callable[[], None] | None = None
         self._distance_label: tk.Label | None = None
         self._instruction_label: tk.Label | None = None
         self._remaining_label: tk.Label | None = None
+
+    def set_simulation_action(self, action: Callable[[], None]) -> None:
+        """Install the temporary development action for route simulation."""
+        self._simulation_action = action
 
     def show(self) -> None:
         self.prepare_screen("Navigation", self._back_action)
@@ -54,6 +60,16 @@ class TurnByTurnScreen(CarUiScreen, RouteGuidanceUiIf):
         self._instruction_label.pack(fill="x", pady=(12, 18))
         self._remaining_label = tk.Label(frame, font=("TkDefaultFont", 15))
         self._remaining_label.pack(anchor="w")
+
+        if self._simulation_action is not None:
+            tk.Button(
+                frame,
+                text="SIMULATE ROUTE 60x",
+                command=self._simulation_action,
+                padx=18,
+                pady=10,
+            ).pack(anchor="e", side="bottom", pady=(14, 0))
+
         self._render()
 
     def hide(self) -> None:
