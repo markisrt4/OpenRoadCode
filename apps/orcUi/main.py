@@ -7,9 +7,10 @@ from __future__ import annotations
 
 import tkinter as tk
 
-from apps.launchers.sdrpp_launcher import SDRPPLauncher, sync_sdrpp_theme
+from apps.launchers.sdrpp_launcher import sync_sdrpp_theme
 from apps.orcUi.application_runtime import create_orc_ui_application_runtime
 from apps.orcUi.orc_ui_app import OrcUiApp
+from apps.orcUi.radio_application_service import RadioApplicationServiceIf
 from apps.orcUi.radio_entry_panel import RadioEntryPanel
 from apps.orcUi.theme_runtime import theme_bundle
 from frontends.tk.games import GamesScreen
@@ -24,13 +25,13 @@ def _create_radio_panel(
     parent: tk.Misc,
     embedder: X11WindowEmbedder,
     theme: ThemeBundle,
-    launcher: SDRPPLauncher,
+    radio_application: RadioApplicationServiceIf,
 ) -> RadioEntryPanel:
     return RadioEntryPanel(
         parent,
         embedder=embedder,
         theme=theme,
-        launcher=launcher,
+        radio_application=radio_application,
     )
 
 
@@ -52,7 +53,7 @@ def main() -> None:
                 parent,
                 embedder,
                 theme,
-                application_runtime.sdrpp,
+                application_runtime.radio,
             ),
             sync_theme=_sync_radio_theme,
         ),
