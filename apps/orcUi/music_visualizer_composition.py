@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import os
+from collections.abc import Callable
 from enum import Enum
 
 from apps.orcUi.music_visualizer_panel import VisualizerFrame
@@ -38,7 +39,7 @@ def selected_music_visualizer_source() -> MusicVisualizerSource:
 
 
 def create_music_visualizer_session(
-    callback: callable[[VisualizerFrame], None],
+    callback: Callable[[VisualizerFrame], None],
     *,
     source: MusicVisualizerSource | None = None,
 ) -> MusicVisualizerSession | None:
