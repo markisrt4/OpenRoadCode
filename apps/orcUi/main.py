@@ -80,7 +80,6 @@ def _spotify_theme(app: OrcUiApp) -> dict:
 def main() -> None:
     application_runtime = create_orc_ui_application_runtime()
     media = application_runtime.media
-    media.start()
 
     app = OrcUiApp()
     app.register_screen(
