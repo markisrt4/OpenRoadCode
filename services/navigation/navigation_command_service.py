@@ -99,6 +99,8 @@ class NavigationCommandService:
     def _parse_route_request(self, args: Mapping[str, Any]) -> RouteRequest:
         origin = args.get("origin")
         destination = args.get("destination")
+        if origin is None:
+            origin = self._current_origin()
         if not isinstance(origin, Mapping):
             raise ValueError("origin object is required")
 
@@ -118,6 +120,21 @@ class NavigationCommandService:
             destination=GeoPoint(latitude=float(destination["latitude"]), longitude=float(destination["longitude"])),
             travel_mode=travel_mode,
         )
+
+    def _current_origin(self) -> Mapping[str, float]:
+        state = self._controller.read_state()
+        position = state.position
+        if (
+            position is None
+            or not position.has_fix
+            or position.latitude_deg is None
+            or position.longitude_deg is None
+        ):
+            raise ValueError("current navigation position is unavailable")
+        return {
+            "latitude": position.latitude_deg,
+            "longitude": position.longitude_deg,
+        }
 
     def _geocode_destination(self, destination: str) -> Mapping[str, float]:
         if self._geocoder is None:
