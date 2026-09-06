@@ -9,26 +9,27 @@ from controllers.poi.sqlite_poi_search_source import SqlitePoiSearchSource
 
 
 def _database(tmp_path):
-    path = tmp_path / "poi.sqlite"
+    path = tmp_path / "openroadcode-search.sqlite"
     connection = sqlite3.connect(path)
     connection.execute(
         """CREATE TABLE poi (
             id TEXT PRIMARY KEY,
-            name TEXT,
+            name TEXT NOT NULL,
             brand TEXT,
             latitude REAL NOT NULL,
             longitude REAL NOT NULL,
+            category TEXT NOT NULL,
             class TEXT,
             subclass TEXT
         )"""
     )
     connection.executemany(
-        "INSERT INTO poi VALUES (?, ?, ?, ?, ?, ?, ?)",
+        "INSERT INTO poi VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
         [
-            ("restaurant", "Lunch", None, 42.50, -83.05, "restaurant", "restaurant"),
-            ("fuel", "Fuel", None, 42.51, -83.04, "shop", "fuel"),
-            ("bus", "12 Mile / Ryan", None, 42.52, -83.03, "bus", "bus_stop"),
-            ("far", "Far Away", None, 44.00, -83.03, "bus", "bus_stop"),
+            ("restaurant", "Lunch", None, 42.50, -83.05, "FOOD", "restaurant", "restaurant"),
+            ("fuel", "Fuel", None, 42.51, -83.04, "FUEL", "shop", "fuel"),
+            ("bus", "12 Mile / Ryan", None, 42.52, -83.03, "TRANSIT", "bus", "bus_stop"),
+            ("far", "Far Away", None, 44.00, -83.03, "TRANSIT", "bus", "bus_stop"),
         ],
     )
     connection.commit()
