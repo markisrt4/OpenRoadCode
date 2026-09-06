@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 
 from apps.launchers.chromium_devtools_client import ChromiumDevToolsClient
 from controllers.navigation.earth_cdp_camera_controller import EarthCdpCameraController
@@ -40,10 +41,74 @@ def _probe_geolocation(latitude: float, longitude: float, accuracy_m: float) -> 
     print(f"Earth page navigator.geolocation reports: {observed}")
 
 
+def _install_geolocation_trace(client: ChromiumDevToolsClient) -> bool:
+    value=client.evaluate_earth(r"""(() => {
+      const geo=navigator.geolocation;
+      if(!geo) return false;
+      if(window.__orcGeoTrace?.installed) { window.__orcGeoTrace.events.length=0; return true; }
+      const trace={installed:true,events:[],nextId:1};
+      const push=(kind,data={})=>{trace.events.push({time:Date.now(),kind,...data});if(trace.events.length>200)trace.events.shift();};
+      const snap=p=>({
+        latitude:p.coords.latitude,longitude:p.coords.longitude,accuracy:p.coords.accuracy,
+        altitude:p.coords.altitude,altitudeAccuracy:p.coords.altitudeAccuracy,
+        heading:p.coords.heading,speed:p.coords.speed,timestamp:p.timestamp
+      });
+      const originalGet=geo.getCurrentPosition.bind(geo);
+      const originalWatch=geo.watchPosition.bind(geo);
+      const originalClear=geo.clearWatch.bind(geo);
+      Object.defineProperty(geo,'getCurrentPosition',{configurable:true,value:function(success,error,options){
+        const id=trace.nextId++;push('getCurrentPosition',{id,options:options||null});
+        return originalGet(p=>{push('getCurrentPosition.success',{id,position:snap(p)});if(success)success(p);},e=>{push('getCurrentPosition.error',{id,code:e.code,message:e.message});if(error)error(e);},options);
+      }});
+      Object.defineProperty(geo,'watchPosition',{configurable:true,value:function(success,error,options){
+        const id=trace.nextId++;push('watchPosition',{id,options:options||null});
+        const browserId=originalWatch(p=>{push('watchPosition.success',{id,browserId,position:snap(p)});if(success)success(p);},e=>{push('watchPosition.error',{id,browserId,code:e.code,message:e.message});if(error)error(e);},options);
+        push('watchPosition.registered',{id,browserId});return browserId;
+      }});
+      Object.defineProperty(geo,'clearWatch',{configurable:true,value:function(browserId){push('clearWatch',{browserId});return originalClear(browserId);}});
+      window.__orcGeoTrace=trace;
+      return true;
+    })()""")
+    return value is True
+
+
+def _read_geolocation_trace(client: ChromiumDevToolsClient) -> dict:
+    value=client.evaluate_earth(r"""(async () => {
+      let permission='unknown';
+      try { permission=(await navigator.permissions.query({name:'geolocation'})).state; } catch(_) {}
+      return {
+        permission,
+        visibility:document.visibilityState,
+        hasFocus:document.hasFocus(),
+        events:window.__orcGeoTrace?.events || []
+      };
+    })()""")
+    return value if isinstance(value,dict) else {}
+
+
+def _trace_geolocation() -> None:
+    client=ChromiumDevToolsClient(port=9223)
+    if not _install_geolocation_trace(client): raise SystemExit("navigator.geolocation is not available")
+    before=_read_geolocation_trace(client)
+    print(f"geolocation permission: {before.get('permission')}")
+    print(f"document visibility: {before.get('visibility')}  focus: {before.get('hasFocus')}")
+    print("Geolocation trace installed.")
+    print("Click Google Earth's My Location button once. Let it spin for a few seconds, then press Enter here.")
+    input()
+    result=_read_geolocation_trace(client)
+    events=result.get("events") if isinstance(result.get("events"),list) else []
+    print(f"geolocation permission: {result.get('permission')}")
+    print(f"document visibility: {result.get('visibility')}  focus: {result.get('hasFocus')}")
+    print(f"captured geolocation events: {len(events)}")
+    for index,event in enumerate(events,1):
+        print(f"  {index:02d}: {json.dumps(event,sort_keys=True)}")
+
+
 def main() -> None:
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--trace-commands",action="store_true")
     parser.add_argument("--trace-my-location",action="store_true")
+    parser.add_argument("--trace-geolocation",action="store_true",help="trace Earth's navigator.geolocation calls and callbacks")
     parser.add_argument("--geolocation",nargs=2,type=float,metavar=("LAT","LON"))
     parser.add_argument("--accuracy-m",type=float,default=5.0)
     parser.add_argument("--clear-geolocation",action="store_true")
@@ -58,6 +123,8 @@ def main() -> None:
         ChromiumDevToolsClient(port=9223).clear_geolocation_override(); print("Google Earth geolocation override cleared."); return
     if args.geolocation is not None:
         _probe_geolocation(*args.geolocation,args.accuracy_m); return
+    if args.trace_geolocation:
+        _trace_geolocation(); return
     if args.my_location_focused:
         if not controller.trigger_my_location_focused(): raise SystemExit("Earth command bridge is not available")
         print("Replayed My Location [34,0] -> [10,0]."); return
