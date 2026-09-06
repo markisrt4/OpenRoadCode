@@ -11,6 +11,7 @@ from pathlib import Path
 
 from apps.launchers.managed_sdrpp_launcher import ManagedSDRPPLauncher
 from apps.launchers.sdrpp_launcher import SDRPPProfile
+from apps.orcUi.radio_application_service import ManagedRadioApplicationService
 from config.application_config import ApplicationsConfigParser
 from config.radio_config_manager import load_radio_config
 from controllers.application_runtime import AppRuntimeManager
@@ -26,7 +27,7 @@ class OrcUiApplicationRuntime:
     """Managed external applications composed for the ORC frontend."""
 
     manager: AppRuntimeManager
-    sdrpp: ManagedSDRPPLauncher
+    radio: ManagedRadioApplicationService
 
     def start_background_apps(self) -> None:
         self.manager.start_background_apps(_report_background_status)
@@ -46,7 +47,8 @@ def create_orc_ui_application_runtime() -> OrcUiApplicationRuntime:
         embedded=True,
     )
     manager.register("sdrpp", sdrpp)
-    return OrcUiApplicationRuntime(manager=manager, sdrpp=sdrpp)
+    radio = ManagedRadioApplicationService(manager, sdrpp)
+    return OrcUiApplicationRuntime(manager=manager, radio=radio)
 
 
 def _applications_config_path() -> Path:
