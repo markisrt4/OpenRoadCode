@@ -1,15 +1,18 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 
+from datetime import datetime
 from unittest.mock import Mock
 
 from controllers.navigation.geocoding import GeocodedLocation
+from controllers.navigation.navigation_state import NavigationState, PositionState
 from controllers.route_planning.route_planning_types import (
     GeoPoint,
     RouteManeuver,
     RouteResult,
     TravelMode,
 )
+from hardware_io.imu import Vector3
 from services.navigation import (
     CALCULATE_ROUTE_COMMAND,
     CALIBRATE_STATIONARY_COMMAND,
@@ -65,6 +68,20 @@ def _route_result():
     )
 
 
+def _navigation_state(position: PositionState | None) -> NavigationState:
+    zero = Vector3(0.0, 0.0, 0.0)
+    return NavigationState(
+        timestamp=datetime.now(),
+        heading_deg=0.0,
+        pitch_deg=0.0,
+        roll_deg=0.0,
+        acceleration_mps2=zero,
+        linear_acceleration_mps2=zero,
+        angular_velocity_rad_s=zero,
+        position=position,
+    )
+
+
 def test_route_calculation_is_forwarded_to_route_planner():
     controller = Mock()
     route_planner = Mock()
@@ -87,6 +104,49 @@ def test_route_calculation_is_forwarded_to_route_planner():
     assert request.origin == GeoPoint(42.8028, -83.0127)
     assert request.destination == GeoPoint(42.3314, -83.0458)
     assert request.travel_mode is TravelMode.AUTO
+
+
+def test_route_uses_current_position_when_origin_is_omitted():
+    controller = Mock()
+    controller.read_state.return_value = _navigation_state(
+        PositionState(
+            latitude_deg=42.8028,
+            longitude_deg=-83.0127,
+            fix_mode=3,
+            source="test",
+        )
+    )
+    route_planner = Mock()
+    route_planner.calculate_route.return_value = _route_result()
+    service = NavigationCommandService(controller, route_planner)
+
+    result = service.execute(
+        CALCULATE_ROUTE_COMMAND,
+        {"destination": {"latitude": 42.3314, "longitude": -83.0458}},
+    )
+
+    assert result.ok
+    controller.read_state.assert_called_once_with()
+    request = route_planner.calculate_route.call_args.args[0]
+    assert request.origin == GeoPoint(42.8028, -83.0127)
+
+
+def test_route_without_origin_is_rejected_when_current_position_has_no_fix():
+    controller = Mock()
+    controller.read_state.return_value = _navigation_state(
+        PositionState(latitude_deg=42.8028, longitude_deg=-83.0127, fix_mode=1)
+    )
+    route_planner = Mock()
+    service = NavigationCommandService(controller, route_planner)
+
+    result = service.execute(
+        CALCULATE_ROUTE_COMMAND,
+        {"destination": {"latitude": 42.3314, "longitude": -83.0458}},
+    )
+
+    assert not result.ok
+    assert "current navigation position is unavailable" in result.message
+    route_planner.calculate_route.assert_not_called()
 
 
 def test_text_destination_is_geocoded_before_route_calculation():
