@@ -16,6 +16,12 @@ from ui.theme import ThemeBundle
 SPOTIFY_GREEN = "#1DB954"
 YOUTUBE_RED = "#FF0033"
 NETFLIX_RED = "#E50914"
+YOUTUBE_SURFACE = "#171717"
+YOUTUBE_BORDER = "#343434"
+NETFLIX_SURFACE = "#080808"
+NETFLIX_BORDER = "#3A1014"
+BRAND_TEXT = "#FFFFFF"
+BRAND_MUTED = "#AFAFAF"
 
 
 class MediaScreen(TkScreen):
@@ -94,12 +100,16 @@ class MediaScreen(TkScreen):
             grid,
             glyph="youtube",
             title="YOUTUBE",
-            category="VIDEO",
-            subtitle="Watch instantly",
-            detail="Jump straight into YouTube in the ORC kiosk surface.",
+            category="WATCH",
+            subtitle="Video, creators, live",
+            detail="Launch straight into the YouTube kiosk with your retained profile.",
             accent=YOUTUBE_RED,
             command=self._show_youtube,
-            action="OPEN YOUTUBE",
+            action="WATCH YOUTUBE",
+            surface=YOUTUBE_SURFACE,
+            border=YOUTUBE_BORDER,
+            title_color=BRAND_TEXT,
+            muted_color=BRAND_MUTED,
         )
         youtube.grid(row=0, column=1, sticky="nsew", padx=6, pady=4)
 
@@ -107,12 +117,16 @@ class MediaScreen(TkScreen):
             grid,
             glyph="netflix",
             title="NETFLIX",
-            category="STREAM",
-            subtitle="Continue watching",
-            detail="Open Netflix directly with your retained browser profile.",
+            category="STREAMING",
+            subtitle="Movies & series",
+            detail="Resume Netflix directly in its kiosk with your retained browser profile.",
             accent=NETFLIX_RED,
             command=self._show_netflix,
             action="OPEN NETFLIX",
+            surface=NETFLIX_SURFACE,
+            border=NETFLIX_BORDER,
+            title_color=BRAND_TEXT,
+            muted_color="#8F8F8F",
         )
         netflix.grid(row=0, column=2, sticky="nsew", padx=6, pady=4)
 
@@ -128,21 +142,30 @@ class MediaScreen(TkScreen):
         accent: str,
         command: Callable[[], None],
         action: str | None = None,
+        surface: str | None = None,
+        border: str | None = None,
+        title_color: str | None = None,
+        muted_color: str | None = None,
     ) -> tk.Frame:
         theme = self._theme_bundle().ui
+        card_surface = surface or theme.surface
+        card_border = border or theme.border
+        card_title = title_color or theme.text
+        card_muted = muted_color or theme.text_muted
+
         card = tk.Frame(
             parent,
-            bg=theme.surface,
+            bg=card_surface,
             highlightthickness=1,
-            highlightbackground=theme.border,
+            highlightbackground=card_border,
             cursor="hand2",
         )
-        tk.Frame(card, bg=accent, height=6).pack(fill=tk.X)
+        self._brand_header(card, glyph, accent, card_surface)
 
-        body = tk.Frame(card, bg=theme.surface)
+        body = tk.Frame(card, bg=card_surface)
         body.pack(fill=tk.BOTH, expand=True, padx=16, pady=(14, 12))
 
-        top = tk.Frame(body, bg=theme.surface)
+        top = tk.Frame(body, bg=card_surface)
         top.pack(fill=tk.X)
         glyph_box = tk.Frame(
             top,
@@ -150,25 +173,25 @@ class MediaScreen(TkScreen):
             width=52,
             height=52,
             highlightthickness=1,
-            highlightbackground=theme.border,
+            highlightbackground=card_border,
         )
         glyph_box.pack(side=tk.LEFT)
         glyph_box.pack_propagate(False)
         self._provider_logo(glyph_box, glyph, accent)
 
-        identity = tk.Frame(top, bg=theme.surface)
+        identity = tk.Frame(top, bg=card_surface)
         identity.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(12, 0))
         tk.Label(
             identity,
             text=title,
-            bg=theme.surface,
-            fg=theme.text,
+            bg=card_surface,
+            fg=card_title,
             font=("Sans", 16, "bold"),
         ).pack(anchor="w")
         tk.Label(
             identity,
             text=category,
-            bg=theme.surface,
+            bg=card_surface,
             fg=accent,
             font=("Sans", 8, "bold"),
         ).pack(anchor="w", pady=(2, 0))
@@ -176,19 +199,24 @@ class MediaScreen(TkScreen):
         tk.Label(
             body,
             text=subtitle,
-            bg=theme.surface,
-            fg=theme.text,
+            bg=card_surface,
+            fg=card_title,
             font=("Sans", 12, "bold"),
         ).pack(anchor="w", pady=(18, 5))
         tk.Label(
             body,
             text=detail,
-            bg=theme.surface,
-            fg=theme.text_muted,
+            bg=card_surface,
+            fg=card_muted,
             font=("Sans", 9),
             justify=tk.LEFT,
             wraplength=220,
         ).pack(anchor="w")
+
+        if glyph == "youtube":
+            self._youtube_signature(body, card_surface, card_muted)
+        elif glyph == "netflix":
+            self._netflix_signature(body, card_surface)
 
         if action is not None:
             tk.Button(
@@ -209,6 +237,67 @@ class MediaScreen(TkScreen):
 
         self._bind_card(card, command)
         return card
+
+    @staticmethod
+    def _brand_header(
+        card: tk.Frame,
+        glyph: str,
+        accent: str,
+        surface: str,
+    ) -> None:
+        if glyph == "youtube":
+            header = tk.Frame(card, bg=surface, height=9)
+            header.pack(fill=tk.X)
+            header.pack_propagate(False)
+            tk.Frame(header, bg=accent, width=82).pack(side=tk.LEFT, fill=tk.Y)
+            return
+
+        if glyph == "netflix":
+            header = tk.Frame(card, bg="#000000", height=9)
+            header.pack(fill=tk.X)
+            header.pack_propagate(False)
+            tk.Frame(header, bg=accent, width=24).pack(side=tk.RIGHT, fill=tk.Y)
+            return
+
+        tk.Frame(card, bg=accent, height=6).pack(fill=tk.X)
+
+    @staticmethod
+    def _youtube_signature(
+        parent: tk.Widget,
+        background: str,
+        muted: str,
+    ) -> None:
+        row = tk.Frame(parent, bg=background)
+        row.pack(fill=tk.X, pady=(18, 0))
+        tk.Label(
+            row,
+            text="▶",
+            bg=YOUTUBE_RED,
+            fg="#FFFFFF",
+            font=("Sans", 8, "bold"),
+            padx=6,
+            pady=2,
+        ).pack(side=tk.LEFT)
+        tk.Label(
+            row,
+            text="  CREATOR VIDEO",
+            bg=background,
+            fg=muted,
+            font=("Sans", 8, "bold"),
+        ).pack(side=tk.LEFT)
+
+    @staticmethod
+    def _netflix_signature(parent: tk.Widget, background: str) -> None:
+        row = tk.Frame(parent, bg=background)
+        row.pack(fill=tk.X, pady=(18, 0))
+        tk.Frame(row, bg=NETFLIX_RED, width=3, height=18).pack(side=tk.LEFT)
+        tk.Label(
+            row,
+            text="  CINEMA · SERIES",
+            bg=background,
+            fg="#D6D6D6",
+            font=("Sans", 8, "bold"),
+        ).pack(side=tk.LEFT)
 
     def _spotify_card_actions(self, card: tk.Frame) -> None:
         theme = self._theme_bundle().ui
@@ -303,15 +392,31 @@ class MediaScreen(TkScreen):
             bd=0,
         )
         canvas.pack(fill=tk.BOTH, expand=True)
-        canvas.create_rectangle(8, 14, 44, 38, fill=YOUTUBE_RED, outline=YOUTUBE_RED)
-        canvas.create_polygon(23, 19, 23, 33, 34, 26, fill="#FFFFFF", outline="#FFFFFF")
+        canvas.create_rectangle(
+            8,
+            14,
+            44,
+            38,
+            fill=YOUTUBE_RED,
+            outline=YOUTUBE_RED,
+        )
+        canvas.create_polygon(
+            23,
+            19,
+            23,
+            33,
+            34,
+            26,
+            fill="#FFFFFF",
+            outline="#FFFFFF",
+        )
 
     @staticmethod
     def _netflix_logo(parent: tk.Widget) -> None:
         tk.Label(
             parent,
             text="N",
-            bg="#111111",
+            bg="#000000",
             fg=NETFLIX_RED,
             font=("Sans", 28, "bold"),
         ).pack(fill=tk.BOTH, expand=True)
