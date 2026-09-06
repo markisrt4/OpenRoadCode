@@ -18,6 +18,8 @@ class EarthCameraView:
     heading_deg: float | None = None
     tilt_deg: float | None = None
     altitude_m: float | None = None
+    speed_m_s: float | None = None
+    accuracy_m: float | None = None
 
 
 class EarthCameraControllerIf(ABC):
