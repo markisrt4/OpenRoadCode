@@ -1,13 +1,16 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 
+"""Application-facing Spotify controller contract."""
+
 from abc import ABC, abstractmethod
 
+from controllers.spotify.spotify_library import SpotifyLibraryTrack
 from controllers.spotify.spotify_state import SpotifyState
 
 
 class SpotifyControllerIf(ABC):
-    """Playback-control contract used by Spotify user interfaces."""
+    """Playback, library, and history contract used by Spotify applications."""
 
     @abstractmethod
     def current_state(self) -> SpotifyState:
@@ -56,4 +59,27 @@ class SpotifyControllerIf(ABC):
 
         @param device_id Spotify Connect device identifier.
         @param play Whether playback should resume after transfer.
+        """
+
+    @abstractmethod
+    def saved_tracks(self, *, limit: int = 20) -> tuple[SpotifyLibraryTrack, ...]:
+        """Return tracks saved in the user's Spotify library.
+
+        @param limit Maximum number of tracks to request.
+        @return Saved tracks in Spotify's returned order.
+        """
+
+    @abstractmethod
+    def recently_played(self, *, limit: int = 20) -> tuple[SpotifyLibraryTrack, ...]:
+        """Return the user's recently played tracks.
+
+        @param limit Maximum number of history entries to request.
+        @return Recent tracks in Spotify's returned order.
+        """
+
+    @abstractmethod
+    def play_track(self, track_uri: str) -> None:
+        """Begin playback of one Spotify track URI.
+
+        @param track_uri Spotify track URI such as ``spotify:track:...``.
         """
