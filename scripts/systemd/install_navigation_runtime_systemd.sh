@@ -12,7 +12,10 @@ if [[ $EUID -ne 0 ]]; then
     exit 1
 fi
 
-VALHALLA_CONFIG="${1:-/opt/valhalla/valhalla.json}"
+# Keep the systemd installer aligned with the runtime/deployment layout.
+# Navigation data is deployed under /srv/openroadcode, while binaries live
+# under /opt/openroadcode/navigation.
+VALHALLA_CONFIG="${1:-/srv/openroadcode/valhalla/valhalla.json}"
 VALHALLA_WORKERS="${2:-1}"
 
 "$SCRIPT_DIR/install_zeromq_systemd.sh"
