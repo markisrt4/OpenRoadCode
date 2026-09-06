@@ -18,10 +18,17 @@ class ManagedSDRPPLauncher(SDRPPLauncher):
     """Allow ``AppRuntimeManager`` to keep SDR++ warm but out of sight."""
 
     def launch(self, remote_display: str, set_status: StatusCallback = None) -> None:
+        # A previous ORC session can leave an SDR++ process behind after RigCTL
+        # has stopped responding. Treat that as stale ownership rather than
+        # waiting on a process that cannot satisfy the radio contract.
+        if self.is_running() and not self.is_rigctl_ready():
+            if set_status is not None:
+                set_status("Recovering stale SDR++ process...")
+            self.stop(remote_display, set_status)
+            time.sleep(0.25)
+
         # SDRPPLauncher waits for RigCTL before returning. Watch for the X11
         # client concurrently and unmap it as soon as the process owns a window.
-        # Looking up by PID is important here: SDR++ can map its window before
-        # its final title is installed, which made name-based hiding visibly late.
         watcher = threading.Thread(
             target=self._hide_when_window_appears,
             name="sdrpp-preload-window-hide",
@@ -31,6 +38,11 @@ class ManagedSDRPPLauncher(SDRPPLauncher):
         super().launch(remote_display, set_status)
 
     def show(self, remote_display: str, set_status: StatusCallback = None) -> bool:
+        # Process existence and application readiness are different states.
+        # If RigCTL is unavailable, let AppRuntimeManager fall through to
+        # launch(), which performs stale-process recovery above.
+        if not self.is_rigctl_ready():
+            return False
         del remote_display
         window_id = self._window_id()
         if window_id is None:
@@ -68,10 +80,6 @@ class ManagedSDRPPLauncher(SDRPPLauncher):
         if shutil.which("xdotool") is None:
             return None
 
-        # Prefer the owning process because it is available before the window
-        # manager/title state has completely settled. This is particularly
-        # useful for the Termux proot launch path, where the actual SDR++ child
-        # appears underneath the proot-distro wrapper.
         if self._process is not None and self._process.poll() is None:
             try:
                 process_id = self.window_process_id(timeout_seconds=0.02)
@@ -82,8 +90,6 @@ class ManagedSDRPPLauncher(SDRPPLauncher):
                 if window_id is not None:
                     return window_id
 
-        # Fall back to WM_CLASS before title. Some window managers publish the
-        # class earlier than the final SDR++ title string.
         for window_class in ("sdrpp", "SDR++"):
             window_id = self._search_window("--class", window_class)
             if window_id is not None:
