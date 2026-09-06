@@ -43,13 +43,23 @@ venv/bin/python -m apps.carTui.main --demo
 hardware drivers:
 
 ```text
-Mpu6050Imu -> Mpu6050NavigationAdapter -> NavigationSensorIf
-GpsReader  -> GpsdPositionSource       -> PositionSourceIf
+Mpu6050Imu         -> Mpu6050NavigationAdapter   -> NavigationSensorIf
+AndroidImu         -> AndroidNavigationSensor    -> NavigationSensorIf
+AndroidMagnetometer -> AndroidMagnetometerAdapter -> MagnetometerSourceIf
+GpsReader          -> GpsdPositionSource         -> PositionSourceIf
 ```
 
 `Mpu6050NavigationAdapter` converts the MPU-6050 acceleration and angular
-velocity readings into a normalized `MotionSample`. Future motion sensors can
-provide their own `NavigationSensorIf` adapters.
+velocity readings into a normalized `MotionSample`. `AndroidNavigationSensor`
+performs the same role for Android accelerometer and gyroscope data while also
+rotating Android device-frame vectors into the canonical OpenRoadCode vehicle
+frame. Other motion sensors can provide their own `NavigationSensorIf`
+adapters.
+
+`AndroidMagnetometerAdapter` similarly rotates Android magnetometer samples
+into the vehicle frame before exposing them through `MagnetometerSourceIf`.
+Hardware-facing Android classes intentionally remain in the Android device
+frame; navigation-facing adapters own the mounting transform.
 
 `GpsdPositionSource` converts asynchronous `GpsData` reports into normalized
 `PositionState` updates. `BrowserPositionSource` receives the browser
@@ -97,16 +107,40 @@ and `stop()` methods.
 
 ## Coordinate Convention
 
-The orientation math assumes the IMU is mounted with:
+The orientation math assumes a right-handed vehicle coordinate frame with:
 
 - Positive X pointing forward
-- Positive Y pointing to the right
+- Positive Y pointing to the left
 - Positive Z pointing up
 
 With this mounting, positive pitch raises the front, positive roll lowers the
 right side, and positive heading rotation is around the Z axis. A differently
 mounted sensor should be transformed into this coordinate system before its
 measurements reach the controller.
+
+Android sensors report in the Android device coordinate frame. The default
+OpenRoadCode phone mounting convention is portrait orientation, screen facing
+up, with the top of the phone pointing toward the front of the vehicle. Under
+that mounting, Android vectors are transformed as:
+
+```text
+vehicle_x =  android_y
+vehicle_y = -android_x
+vehicle_z =  android_z
+```
+
+`AndroidNavigationSensor` applies this transform to acceleration and angular
+velocity, and `AndroidMagnetometerAdapter` applies it to magnetic-field data.
+If the phone is mounted differently, the adapter transform must be changed or
+made configurable rather than compensating for the mounting in UI code.
+
+Public IMU telemetry also carries a `frame_id`. Raw Android sensor telemetry may
+therefore be published as `android_device` without pretending it is already in
+vehicle coordinates. Consumers that require vehicle-relative IMU data use
+`normalize_imu_to_vehicle()`: `vehicle` messages pass through unchanged,
+`android_device` messages receive the transform above, and world-frame IMU
+messages are rejected because conversion from ENU/NED to vehicle coordinates
+requires orientation information.
 
 ## Usage
 

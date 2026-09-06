@@ -78,19 +78,32 @@ class Elm327ObdAdapterTests(unittest.TestCase):
 
 class Elm327DeviceTests(unittest.TestCase):
     def test_initialization_failure_is_reported_as_connection_error(self) -> None:
-        class FakeSerial:
-            is_open = True
-            def close(self) -> None:
-                self.is_open = False
+        class FakeTransport:
+            is_connected = False
 
-        device = Elm327Device()
-        with (
-            patch(
-                "hardware_io.automotive.elm327.elm327_device.serial.Serial",
-                return_value=FakeSerial(),
-                create=True,
-            ),
-            patch.object(device, "_initialize", side_effect=Elm327CommandError("ELM327 command failed: ATZ")),
+            def connect(self) -> None:
+                self.is_connected = True
+
+            def close(self) -> None:
+                self.is_connected = False
+
+            def reset_input_buffer(self) -> None:
+                pass
+
+            def write(self, data: bytes) -> int:
+                return len(data)
+
+            def flush(self) -> None:
+                pass
+
+            def read(self, size: int) -> bytes:
+                return b""
+
+        device = Elm327Device(transport=FakeTransport())  # type: ignore[arg-type]
+        with patch.object(
+            device,
+            "_initialize",
+            side_effect=Elm327CommandError("ELM327 command failed: ATZ"),
         ):
             with self.assertRaises(Elm327ConnectionError):
                 device.connect()

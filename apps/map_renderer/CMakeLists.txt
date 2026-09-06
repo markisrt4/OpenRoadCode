@@ -10,6 +10,7 @@ set(MAPLIBRE_ROOT "/src/maplibre-native" CACHE PATH "Path to MapLibre Native sou
 set(MAPLIBRE_BUILD "${MAPLIBRE_ROOT}/build-linux-opengl" CACHE PATH "Path to MapLibre Native build tree")
 
 find_package(PkgConfig REQUIRED)
+find_package(X11 REQUIRED)
 pkg_check_modules(ZMQ REQUIRED libzmq)
 
 add_executable(openroadcode-map-renderer
@@ -23,6 +24,7 @@ add_executable(openroadcode-map-renderer
 
 target_include_directories(openroadcode-map-renderer PRIVATE
     ${ZMQ_INCLUDE_DIRS}
+    ${X11_INCLUDE_DIR}
     ${MAPLIBRE_ROOT}/include
     ${MAPLIBRE_ROOT}/src
     ${MAPLIBRE_ROOT}/platform/default/include
@@ -46,6 +48,7 @@ target_link_directories(openroadcode-map-renderer PRIVATE ${MAPLIBRE_BUILD})
 
 target_link_libraries(openroadcode-map-renderer PRIVATE
     ${ZMQ_LIBRARIES}
+    ${X11_LIBRARIES}
     glfw
     ${MAPLIBRE_BUILD}/libmbgl-core.a
     ${MAPLIBRE_BUILD}/libmbgl-vendor-parsedate.a

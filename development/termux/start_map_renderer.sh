@@ -4,45 +4,57 @@
 
 set -euo pipefail
 
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd -- "$SCRIPT_DIR/../.." && pwd)"
 INSTALL_ROOT="${OPENROADCODE_NAVIGATION_ROOT:-${PREFIX:-/data/data/com.termux/files/usr}/opt/openroadcode/navigation}"
+CONFIG_ROOT="${OPENROADCODE_CONFIG_ROOT:-${PREFIX:-/data/data/com.termux/files/usr}/etc/openroadcode}"
 DATA_ROOT="${OPENROADCODE_DATA_ROOT:-$HOME/.local/share/openroadcode}"
-RUNTIME_ROOT="${OPENROADCODE_RUNTIME_ROOT:-$HOME/.local/state/openroadcode/navigation}"
+CACHE_ROOT="${OPENROADCODE_CACHE_ROOT:-$HOME/.cache/openroadcode}"
 DISPLAY_VALUE="${DISPLAY:-:1}"
-RENDERER_ENDPOINT="${OPENROADCODE_MAP_RENDERER_ENDPOINT:-tcp://127.0.0.1:5562}"
+BROKER_SUBSCRIBER_ENDPOINT="${OPENROADCODE_BROKER_SUBSCRIBER_ENDPOINT:-tcp://127.0.0.1:5557}"
 RENDERER="$INSTALL_ROOT/bin/openroadcode-map-renderer"
-SOURCE_STYLE="$DATA_ROOT/maps/styles/openroadcode.json"
-RUNTIME_STYLE="$RUNTIME_ROOT/openroadcode.termux.json"
-RUNTIME_CONFIG="$RUNTIME_ROOT/navigation.termux.toml"
-CACHE_PATH="$HOME/.cache/openroadcode/maplibre.db"
+CONFIG="$CONFIG_ROOT/navigation.toml"
+STYLE="$DATA_ROOT/maps/styles/openroadcode.json"
 
 [[ -x "$RENDERER" ]] || {
   echo "OpenRoadCode map renderer is not installed: $RENDERER" >&2
   echo "Run ./development/termux/build_navigation_stack.sh first." >&2
   exit 1
 }
-[[ -f "$SOURCE_STYLE" ]] || {
-  echo "Offline map style is missing: $SOURCE_STYLE" >&2
+[[ -f "$CONFIG" ]] || {
+  echo "Navigation config is missing: $CONFIG" >&2
+  echo "Run ./development/termux/build_navigation_stack.sh first." >&2
+  exit 1
+}
+[[ -f "$STYLE" ]] || {
+  echo "Offline map style is missing: $STYLE" >&2
   echo "Pull the navigation dataset before starting the renderer." >&2
   exit 1
 }
 
-mkdir -p "$RUNTIME_ROOT" "$(dirname "$CACHE_PATH")"
+mkdir -p "$CACHE_ROOT"
 
-# The deployable dataset intentionally uses the Linux deployment root. Create a
-# target-local runtime style rather than mutating the canonical dataset.
-sed "s#/srv/openroadcode#$DATA_ROOT#g" "$SOURCE_STYLE" > "$RUNTIME_STYLE"
+GRAPHICS_ENV="$({
+  PYTHONPATH="$REPO_ROOT${PYTHONPATH:+:$PYTHONPATH}" python3 - <<'PY'
+from apps.launchers.graphics_environment import detect_graphics_runtime
 
-cat > "$RUNTIME_CONFIG" <<EOF
-[map_renderer]
-style = "$RUNTIME_STYLE"
-cache = "$CACHE_PATH"
+runtime = detect_graphics_runtime()
+print(f"OPENROADCODE_GRAPHICS_BACKEND={runtime.backend}")
+for key, value in runtime.environment.items():
+    print(f"{key}={value}")
+PY
+})"
 
-[vehicle_marker]
-mode = "blue_dot"
-scale = 1.0
-EOF
+while IFS='=' read -r key value; do
+  [[ -n "$key" ]] && export "$key=$value"
+done <<< "$GRAPHICS_ENV"
 
 export DISPLAY="$DISPLAY_VALUE"
-export OPENROADCODE_NAVIGATION_CONFIG="$RUNTIME_CONFIG"
-export OPENROADCODE_MAP_RENDERER_ENDPOINT="$RENDERER_ENDPOINT"
+export OPENROADCODE_NAVIGATION_CONFIG="$CONFIG"
+export OPENROADCODE_DATA_ROOT="$DATA_ROOT"
+export OPENROADCODE_CACHE_ROOT="$CACHE_ROOT"
+export OPENROADCODE_BROKER_SUBSCRIBER_ENDPOINT="$BROKER_SUBSCRIBER_ENDPOINT"
+
+echo "OpenRoadCode map graphics backend: ${OPENROADCODE_GRAPHICS_BACKEND:-system}"
+echo "OpenRoadCode map command bus: $BROKER_SUBSCRIBER_ENDPOINT topic=map.command"
 exec "$RENDERER"

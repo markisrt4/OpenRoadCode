@@ -12,6 +12,7 @@ from messaging.contracts.common import Timestamp
 class VehicleStateData:
     engine_speed_rad_s: float | None
     vehicle_speed_m_s: float | None
+    transmission_gear: int | None
     throttle_position: float | None
     accelerator_pedal_position: float | None
     engine_load: float | None

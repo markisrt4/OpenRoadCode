@@ -5,8 +5,7 @@ from __future__ import annotations
 
 import time
 
-import serial
-
+from hardware_io.automotive.stream_transport_if import StreamTransportIf
 from hardware_io.automotive.elm327.elm327_errors import (
     Elm327CommandError,
     Elm327ConnectionError,
@@ -15,7 +14,7 @@ from hardware_io.automotive.elm327.elm327_response import Elm327Response
 
 
 class Elm327Device:
-    """Serial connection to an ELM327-compatible device."""
+    """Command interface to an ELM327-compatible byte-stream device."""
 
     INITIALIZATION_COMMANDS = (
         "ATZ",
@@ -31,26 +30,36 @@ class Elm327Device:
         port: str = "/dev/rfcomm0",
         baud: int = 38400,
         timeout: float = 1.0,
+        *,
+        transport: StreamTransportIf | None = None,
     ) -> None:
         self._port = port
-        self._baud = baud
         self._timeout = timeout
-        self._serial: serial.Serial | None = None
+        if transport is None:
+            # Keep the serial backend optional at import time. Platforms such as
+            # Android/Termux use injected TCP transports and intentionally do
+            # not depend on PySerial.
+            from hardware_io.automotive.serial_stream_transport import (
+                SerialStreamTransport,
+            )
+
+            transport = SerialStreamTransport(
+                port=port,
+                baud=baud,
+                timeout=timeout,
+            )
+        self._transport = transport
 
     @property
     def is_connected(self) -> bool:
-        return self._serial is not None and self._serial.is_open
+        return self._transport.is_connected
 
     def connect(self) -> None:
         if self.is_connected:
             return
 
         try:
-            self._serial = serial.Serial(
-                port=self._port,
-                baudrate=self._baud,
-                timeout=self._timeout,
-            )
+            self._transport.connect()
             self._initialize()
         except Elm327CommandError as exc:
             self.disconnect()
@@ -58,29 +67,21 @@ class Elm327Device:
                 f"Connected to {self._port}, but ELM327 initialization "
                 f"failed: {exc}"
             ) from exc
-        except (serial.SerialException, OSError) as exc:
+        except OSError as exc:
             self.disconnect()
             raise Elm327ConnectionError(
-                f"Unable to connect to ELM327 on {self._port}. "
-                "Check adapter power, rfcomm, Bluetooth connectivity, "
-                "and whether another application is using the device."
+                f"Unable to connect to ELM327 on {self._port}: {exc}"
             ) from exc
 
     def disconnect(self) -> None:
-        if self._serial is None:
-            return
-
-        try:
-            self._serial.close()
-        finally:
-            self._serial = None
+        self._transport.close()
 
     def send_command(
         self,
         command: str,
         delay: float = 0.0,
     ) -> Elm327Response:
-        if not self.is_connected or self._serial is None:
+        if not self.is_connected:
             raise Elm327ConnectionError("ELM327 device is not connected")
 
         normalized_command = command.strip().upper()
@@ -88,9 +89,9 @@ class Elm327Device:
             raise ValueError("command cannot be empty")
 
         try:
-            self._serial.reset_input_buffer()
-            self._serial.write(f"{normalized_command}\r".encode("ascii"))
-            self._serial.flush()
+            self._transport.reset_input_buffer()
+            self._transport.write(f"{normalized_command}\r".encode("ascii"))
+            self._transport.flush()
 
             if delay > 0:
                 time.sleep(delay)
@@ -101,7 +102,7 @@ class Elm327Device:
                 raw=raw,
                 lines=self._parse_lines(raw),
             )
-        except (serial.SerialException, OSError) as exc:
+        except OSError as exc:
             raise Elm327CommandError(
                 f"ELM327 command failed: {normalized_command}: {exc}"
             ) from exc
@@ -111,13 +112,13 @@ class Elm327Device:
             self.send_command(command, delay=0.6)
 
     def _read_until_prompt(self) -> str:
-        if self._serial is None:
+        if not self.is_connected:
             raise Elm327ConnectionError("ELM327 device is not connected")
 
         data = bytearray()
         deadline = time.monotonic() + self._timeout
         while time.monotonic() < deadline:
-            chunk = self._serial.read(1)
+            chunk = self._transport.read(1)
             if not chunk:
                 continue
             data.extend(chunk)

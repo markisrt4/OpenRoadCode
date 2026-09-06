@@ -138,7 +138,7 @@ get_feature_python_packages() {
       printf '%s\n' requests tomli pyzmq
       ;;
     desktop-ui)
-      printf '%s\n' Pillow
+      printf '%s\n' Pillow tinycss2
       ;;
     web-ui)
       printf '%s\n' Flask

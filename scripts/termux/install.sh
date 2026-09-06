@@ -43,7 +43,9 @@ source "$VENV_DIR/bin/activate"
 python -m pip install --upgrade pip wheel setuptools
 
 # Portable OpenRoadCode runtime dependencies needed by the current browser/car UI paths.
-python -m pip install Flask requests tomli Pillow pyzmq pyserial
+# Automotive communication on Termux is provided by the Android bridge over TCP,
+# so pyserial belongs to the Linux/Raspberry Pi installer rather than this one.
+python -m pip install Flask requests tomli Pillow pyzmq tinycss2
 
 deactivate
 

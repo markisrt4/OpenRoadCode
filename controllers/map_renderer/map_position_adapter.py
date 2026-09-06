@@ -20,7 +20,7 @@ EARTH_RADIUS_M = 6_371_000.0
 
 
 class MapPositionAdapter:
-    """Smooth live position fixes using optional independent ground motion."""
+    """Smooth live position fixes and manage the navigation camera."""
 
     def __init__(
         self,
@@ -33,8 +33,10 @@ class MapPositionAdapter:
         correction_time_s: float = 0.5,
         maximum_prediction_age_s: float = 1.5,
         snap_distance_m: float = 75.0,
-        minimum_camera_interval_s: float = 0.05,
+        minimum_camera_interval_s: float = 0.10,
         minimum_course_speed_mps: float = 1.0,
+        minimum_zoom_change: float = 0.15,
+        minimum_bearing_change_deg: float = 2.0,
         clock: Callable[[], float] = time.monotonic,
     ) -> None:
         for name, value in {
@@ -49,6 +51,10 @@ class MapPositionAdapter:
             raise ValueError("minimum_camera_interval_s must not be negative")
         if minimum_course_speed_mps < 0.0:
             raise ValueError("minimum_course_speed_mps must not be negative")
+        if minimum_zoom_change < 0.0:
+            raise ValueError("minimum_zoom_change must not be negative")
+        if minimum_bearing_change_deg < 0.0:
+            raise ValueError("minimum_bearing_change_deg must not be negative")
 
         self._map_renderer = map_renderer
         self._follow = follow
@@ -60,6 +66,8 @@ class MapPositionAdapter:
         self._snap_distance_m = snap_distance_m
         self._minimum_camera_interval_s = minimum_camera_interval_s
         self._minimum_course_speed_mps = minimum_course_speed_mps
+        self._minimum_zoom_change = minimum_zoom_change
+        self._minimum_bearing_change_deg = minimum_bearing_change_deg
         self._clock = clock
 
         self._lock = threading.Lock()
@@ -72,10 +80,18 @@ class MapPositionAdapter:
         self._last_frame_time: float | None = None
         self._last_camera_update: float | None = None
         self._bearing = 0.0
+        self._automatic_zoom: float | None = None
+        self._automatic_bearing: float | None = None
+        self._manual_camera: tuple[float, float, float] | None = None
 
     @property
     def is_running(self) -> bool:
         return self._thread is not None and self._thread.is_alive()
+
+    @property
+    def is_manual_camera(self) -> bool:
+        with self._lock:
+            return self._manual_camera is not None
 
     def start(self) -> None:
         if self.is_running:
@@ -127,23 +143,54 @@ class MapPositionAdapter:
             self._ground_motion = state
             self._apply_motion_bearing_locked()
 
+    def adjust_camera(
+        self,
+        *,
+        zoom_delta: float = 0.0,
+        pitch_delta: float = 0.0,
+        bearing_delta: float = 0.0,
+    ) -> tuple[float, float, float]:
+        """Adjust the followed camera and enter manual camera mode."""
+        with self._lock:
+            if self._manual_camera is None:
+                zoom, _, bearing = self._stable_auto_camera_locked(self._bearing)
+                pitch = self._pitch
+            else:
+                zoom, pitch, bearing = self._manual_camera
+
+            zoom = min(19.0, max(3.0, zoom + zoom_delta))
+            pitch = min(60.0, max(0.0, pitch + pitch_delta))
+            bearing = (bearing + bearing_delta) % 360.0
+            self._manual_camera = (zoom, pitch, bearing)
+            self._last_camera_update = None
+            return self._manual_camera
+
+    def enable_auto_camera(self) -> None:
+        """Return zoom, pitch, and bearing to automatic navigation behavior."""
+        with self._lock:
+            self._manual_camera = None
+            self._automatic_zoom = None
+            self._automatic_bearing = None
+            self._last_camera_update = None
+
     def render_once(self, now: float | None = None) -> None:
         current_time = self._clock() if now is None else now
         with self._lock:
             frame = self._calculate_frame(current_time)
-        if frame is None:
-            return
+            if frame is None:
+                return
+            latitude, longitude, bearing, update_camera = frame
+            zoom, pitch, camera_bearing = self._camera_parameters_locked(bearing)
 
-        latitude, longitude, bearing, update_camera = frame
         try:
             self._map_renderer.set_position(latitude, longitude)
             if self._follow and update_camera:
                 self._map_renderer.set_camera(
                     latitude=latitude,
                     longitude=longitude,
-                    zoom=self._zoom,
-                    bearing=bearing,
-                    pitch=self._pitch,
+                    zoom=zoom,
+                    bearing=camera_bearing,
+                    pitch=pitch,
                 )
         except MapRendererUnavailableError as error:
             LOGGER.warning("%s", error)
@@ -214,6 +261,51 @@ class MapPositionAdapter:
         self._last_frame_time = now
         return display[0], display[1], self._bearing, update_camera
 
+    def _camera_parameters_locked(
+        self,
+        automatic_bearing: float,
+    ) -> tuple[float, float, float]:
+        if self._manual_camera is not None:
+            return self._manual_camera
+        return self._stable_auto_camera_locked(automatic_bearing)
+
+    def _stable_auto_camera_locked(
+        self,
+        automatic_bearing: float,
+    ) -> tuple[float, float, float]:
+        target_zoom = self._adaptive_zoom_locked()
+        if (
+            self._automatic_zoom is None
+            or abs(target_zoom - self._automatic_zoom) >= self._minimum_zoom_change
+        ):
+            self._automatic_zoom = target_zoom
+
+        target_bearing = automatic_bearing % 360.0
+        if (
+            self._automatic_bearing is None
+            or _bearing_difference_deg(self._automatic_bearing, target_bearing)
+            >= self._minimum_bearing_change_deg
+        ):
+            self._automatic_bearing = target_bearing
+
+        return self._automatic_zoom, self._pitch, self._automatic_bearing
+
+    def _adaptive_zoom_locked(self) -> float:
+        motion = self._ground_motion
+        if motion is None or motion.speed_mps is None:
+            return self._zoom
+
+        speed = max(0.0, motion.speed_mps)
+        if speed <= 3.0:
+            return self._zoom
+        if speed <= 13.5:
+            return _interpolate(speed, 3.0, 13.5, self._zoom, 15.2)
+        if speed <= 27.0:
+            return _interpolate(speed, 13.5, 27.0, 15.2, 14.0)
+        if speed <= 36.0:
+            return _interpolate(speed, 27.0, 36.0, 14.0, 13.5)
+        return 13.5
+
     def _apply_motion_bearing_locked(self) -> None:
         motion = self._ground_motion
         if (
@@ -223,6 +315,17 @@ class MapPositionAdapter:
             and motion.speed_mps >= self._minimum_course_speed_mps
         ):
             self._bearing = motion.course_deg % 360.0
+
+
+def _interpolate(
+    value: float,
+    input_minimum: float,
+    input_maximum: float,
+    output_minimum: float,
+    output_maximum: float,
+) -> float:
+    fraction = (value - input_minimum) / (input_maximum - input_minimum)
+    return output_minimum + fraction * (output_maximum - output_minimum)
 
 
 def _project_position(
@@ -271,3 +374,7 @@ def _distance_m(
 def _smooth_bearing(current: float, target: float, alpha: float) -> float:
     difference = (target - current + 180.0) % 360.0 - 180.0
     return (current + alpha * difference) % 360.0
+
+
+def _bearing_difference_deg(first: float, second: float) -> float:
+    return abs((second - first + 180.0) % 360.0 - 180.0)

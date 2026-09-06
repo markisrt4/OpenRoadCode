@@ -6,9 +6,18 @@ INPUT                  = README.md docs apps controllers services messaging hard
 FILE_PATTERNS          = *.py *.hpp *.cpp *.md
 RECURSIVE              = YES
 
+# Doxygen treats files named README.md as main-page candidates. Keep the
+# repository README as the one main page while leaving Markdown under docs/
+# available as normal generated documentation.
 EXCLUDE_PATTERNS       = */test/* */unit_test/* */component_test/* \
                          */integration_test/* */apps/qtUi/* */__pycache__/* \
-                         */build/* */build-*/*
+                         */build/* */build-*/* \
+                         */apps/*README.md */controllers/*README.md \
+                         */services/*README.md */messaging/*README.md \
+                         */hardware_io/*README.md */protocols/*README.md \
+                         */config/*README.md */common/*README.md \
+                         */ui/*README.md */frontends/*README.md \
+                         */input_events/*README.md
 EXTRACT_ALL            = NO
 EXTRACT_PRIVATE        = NO
 EXTRACT_STATIC         = NO

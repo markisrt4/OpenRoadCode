@@ -22,37 +22,21 @@ struct MapCommand {
     double east = 0.0;
     double padding = 40.0;
     std::string geojson;
+    std::string category;
+    bool enabled = false;
 };
 
-/** @brief Non-blocking ZeroMQ REP server for native map-renderer commands. */
 class MapCommandServer {
 public:
-    /**
-     * @brief Bind the renderer command server to the default endpoint.
-     */
-    MapCommandServer();
-
-    /**
-     * @brief Bind the renderer command server.
-     * @param endpoint ZeroMQ endpoint on which renderer commands are received.
-     */
-    explicit MapCommandServer(std::string endpoint);
+    explicit MapCommandServer(std::string endpoint = "tcp://127.0.0.1:5557");
     ~MapCommandServer() = default;
-
     MapCommandServer(const MapCommandServer&) = delete;
     MapCommandServer& operator=(const MapCommandServer&) = delete;
-
-    /**
-     * @brief Receive and validate at most one pending command.
-     * @return Parsed command when one is available, otherwise std::nullopt.
-     */
     std::optional<MapCommand> poll();
 
 private:
     std::optional<MapCommand> parseCommand(const std::string& payload) const;
-    void sendReply(bool ok, const std::string& message);
-
     std::string endpoint;
     zmq::context_t context{1};
-    zmq::socket_t socket{context, zmq::socket_type::rep};
+    zmq::socket_t socket{context, zmq::socket_type::sub};
 };

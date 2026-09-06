@@ -24,6 +24,7 @@ def decode_vehicle_state(payload: Mapping[str, Any]) -> VehicleStateMessage:
         data=VehicleStateData(
             engine_speed_rad_s=data["engine_speed_rad_s"],
             vehicle_speed_m_s=data["vehicle_speed_m_s"],
+            transmission_gear=data["transmission_gear"],
             throttle_position=data["throttle_position"],
             accelerator_pedal_position=data["accelerator_pedal_position"],
             engine_load=data["engine_load"],

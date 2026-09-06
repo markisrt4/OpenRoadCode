@@ -102,3 +102,28 @@ def test_device_imu_and_device_gps_can_be_composed(monkeypatch):
 
     assert isinstance(controller._sensor, _FakeMotionAdapter)
     assert isinstance(controller._gps_source, _FakeGpsAdapter)
+
+def test_simulated_gps_uses_configured_speed_and_course():
+    config = _config("simulation", "simulation")
+    config = NavigationServiceRuntimeConfig(
+        imu=config.imu,
+        gps=GpsInputConfig(
+            source="simulation",
+            device="gpsd",
+            host="127.0.0.1",
+            port="2947",
+            simulation=GpsSimulationConfig(
+                profile="stationary",
+                latitude_deg=42.8028,
+                longitude_deg=-83.0127,
+                speed_mps=0.0,
+                course_deg=0.0,
+            ),
+        ),
+    )
+
+    controller = navigation_service_cli.build_controller(config)
+
+    assert isinstance(controller._gps_source, SimulatedPositionSource)
+    assert controller._gps_source._speed_mps == 0.0
+    assert controller._gps_source._course_deg == 0.0

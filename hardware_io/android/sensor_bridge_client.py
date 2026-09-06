@@ -21,14 +21,30 @@ class AndroidImuSample:
     angular_velocity_rad_s: Vector3
     magnetic_field_ut: Vector3
     pressure_hpa: float
+    ambient_light_lux: float
     accelerometer_timestamp_ns: int
     linear_acceleration_timestamp_ns: int
     gyroscope_timestamp_ns: int
     magnetometer_timestamp_ns: int
     pressure_timestamp_ns: int
+    ambient_light_timestamp_ns: int
     linear_acceleration_available: bool
     magnetometer_available: bool
     pressure_available: bool
+    ambient_light_available: bool
+
+
+@dataclass(frozen=True, slots=True)
+class AndroidLocationSample:
+    latitude_deg: float
+    longitude_deg: float
+    altitude_m: float | None
+    speed_mps: float | None
+    bearing_deg: float | None
+    horizontal_accuracy_m: float | None
+    timestamp_ms: int
+    age_ms: int
+    provider: str
 
 
 class AndroidSensorBridgeClient:
@@ -49,6 +65,10 @@ class AndroidSensorBridgeClient:
     def read_imu(self) -> AndroidImuSample:
         """Read one diagnostic IMU snapshot."""
         return _imu_sample(self._get_json("/imu"))
+
+    def read_location(self) -> AndroidLocationSample:
+        """Read the latest Android location snapshot."""
+        return _location_sample(self._get_json("/location"))
 
     def stream_imu(self) -> Iterator[AndroidImuSample]:
         """Yield IMU samples from the bridge's persistent NDJSON stream."""
@@ -95,14 +115,42 @@ def _imu_sample(payload: dict[str, object]) -> AndroidImuSample:
         angular_velocity_rad_s=_vector(payload, "angular_velocity_rad_s"),
         magnetic_field_ut=_vector(payload, "magnetic_field_uT"),
         pressure_hpa=_number(payload, "pressure_hpa"),
+        ambient_light_lux=_number(payload, "ambient_light_lux"),
         accelerometer_timestamp_ns=_integer(payload, "accelerometer_timestamp_ns"),
         linear_acceleration_timestamp_ns=_integer(payload, "linear_acceleration_timestamp_ns"),
         gyroscope_timestamp_ns=_integer(payload, "gyroscope_timestamp_ns"),
         magnetometer_timestamp_ns=_integer(payload, "magnetometer_timestamp_ns"),
         pressure_timestamp_ns=_integer(payload, "pressure_timestamp_ns"),
+        ambient_light_timestamp_ns=_integer(payload, "ambient_light_timestamp_ns"),
         linear_acceleration_available=payload.get("linear_acceleration_available") is True,
         magnetometer_available=payload.get("magnetometer_available") is True,
         pressure_available=payload.get("pressure_available") is True,
+        ambient_light_available=payload.get("ambient_light_available") is True,
+    )
+
+
+def _location_sample(payload: dict[str, object]) -> AndroidLocationSample:
+    if payload.get("ready") is not True:
+        raise RuntimeError("Android sensor bridge location is not ready")
+    latitude = _number(payload, "latitude")
+    longitude = _number(payload, "longitude")
+    if not -90.0 <= latitude <= 90.0:
+        raise RuntimeError("Android sensor bridge returned invalid latitude")
+    if not -180.0 <= longitude <= 180.0:
+        raise RuntimeError("Android sensor bridge returned invalid longitude")
+    provider = payload.get("provider")
+    if not isinstance(provider, str):
+        provider = "android"
+    return AndroidLocationSample(
+        latitude_deg=latitude,
+        longitude_deg=longitude,
+        altitude_m=_optional_number(payload, "altitude_m"),
+        speed_mps=_optional_number(payload, "speed_mps"),
+        bearing_deg=_optional_number(payload, "bearing_deg"),
+        horizontal_accuracy_m=_optional_number(payload, "horizontal_accuracy_m"),
+        timestamp_ms=_integer(payload, "timestamp_ms"),
+        age_ms=_integer(payload, "age_ms"),
+        provider=provider,
     )
 
 
@@ -127,4 +175,13 @@ def _number(payload: dict[str, object], name: str) -> float:
     value = payload.get(name)
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         raise RuntimeError(f"Android sensor bridge response is missing {name}")
+    return float(value)
+
+
+def _optional_number(payload: dict[str, object], name: str) -> float | None:
+    value = payload.get(name)
+    if value is None:
+        return None
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise RuntimeError(f"Android sensor bridge returned an invalid {name}")
     return float(value)

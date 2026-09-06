@@ -8,8 +8,10 @@
 /** @brief Runtime configuration consumed by the native map renderer. */
 struct NavigationConfig
 {
-    std::string stylePath{"/srv/openroadcode/maps/styles/openroadcode.json"};
-    std::string cachePath{"/var/cache/openroadcode/maplibre.db"};
+    std::string dataRoot{"/srv/openroadcode"};
+    std::string cacheRoot{"/var/cache/openroadcode"};
+    std::string stylePath{"maps/styles/openroadcode.json"};
+    std::string cachePath{"maplibre.db"};
     std::string markerMode{"vehicle"};
     double markerScale{1.0};
 };

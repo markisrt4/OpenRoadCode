@@ -21,7 +21,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--video-id", help="Skip search and play a known video ID.")
     parser.add_argument("--position-ms", type=int, default=0)
     parser.add_argument("--fullscreen", action="store_true")
-    parser.add_argument("--port", type=int, default=8766)
+    parser.add_argument("--port", type=int, default=8768)
     return parser.parse_args()
 
 

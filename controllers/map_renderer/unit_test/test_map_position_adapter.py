@@ -40,7 +40,13 @@ class MapPositionAdapterTest(unittest.TestCase):
         adapter.update_ground_motion(GroundMotionState(speed_mps=12.0, course_deg=725.0, source="gpsd"))
         adapter.update(PositionState(latitude_deg=42.1, longitude_deg=-83.2, fix_mode=3, source="gpsd"))
         self.assertEqual([(42.1, -83.2)], renderer.positions)
-        self.assertEqual([(42.1, -83.2, 16.5, 5.0, 45.0)], renderer.cameras)
+        self.assertEqual(1, len(renderer.cameras))
+        latitude, longitude, zoom, bearing, pitch = renderer.cameras[0]
+        self.assertEqual(42.1, latitude)
+        self.assertEqual(-83.2, longitude)
+        self.assertAlmostEqual(15.385714285714286, zoom)
+        self.assertEqual(5.0, bearing)
+        self.assertEqual(45.0, pitch)
 
     def test_interpolates_marker_between_gps_fixes(self) -> None:
         renderer = RecordingMapRenderer()

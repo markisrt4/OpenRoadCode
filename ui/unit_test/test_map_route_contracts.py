@@ -37,8 +37,10 @@ class MapRouteContractTest(unittest.TestCase):
             markers=(MapMarker("vehicle", current, MapMarkerKind.CURRENT_POSITION),),
             route_geometry=RouteGeometry((current, GeoPoint(0.75, -1.44))),
             style_id="day",
+            follow_enabled=False,
         )
 
+        self.assertFalse(state.follow_enabled)
         with self.assertRaises(FrozenInstanceError):
             state.loading = True  # type: ignore[misc]
 
@@ -77,11 +79,15 @@ class MapRouteContractTest(unittest.TestCase):
         self.assertEqual(
             MapRequestHandlerIf.__abstractmethods__,
             {
+                "request_follow",
                 "request_recenter",
                 "request_center_on",
+                "request_pan",
+                "request_pan_screen",
                 "request_zoom",
                 "request_bearing",
                 "request_pitch",
+                "request_poi_focus",
                 "request_style",
             },
         )

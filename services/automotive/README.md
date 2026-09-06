@@ -48,7 +48,7 @@ enabled = true
 source = "simulated-vehicle"
 ```
 
-Physical ELM327 example:
+Physical serial ELM327 example for Linux/Raspberry Pi:
 
 ```toml
 [services.automotive]
@@ -58,6 +58,7 @@ rate_hz = 10.0
 [services.automotive.input]
 source = "device"
 device = "elm327"
+transport = "serial"
 port = "/dev/rfcomm0"
 baud = 38400
 timeout_s = 1.0
@@ -68,9 +69,61 @@ enabled = true
 source = "obd2"
 ```
 
-`Elm327Device` owns the serial connection, `Elm327ObdAdapter` translates between ELM327 responses and OBD-II models, and `Obd2Manager` polls supported PIDs and assembles the SI-normalized `VehicleState`.
+Termux uses the Android Bluetooth bridge over localhost TCP rather than a local
+serial device:
+
+```toml
+[services.automotive]
+enabled = true
+rate_hz = 10.0
+
+[services.automotive.input]
+source = "device"
+device = "elm327"
+transport = "tcp"
+host = "127.0.0.1"
+tcp_port = 35000
+timeout_s = 2.0
+slow_poll_interval_s = 5.0
+
+[services.automotive.publish]
+enabled = true
+source = "automotive-service-android"
+```
+
+`Elm327Device` owns the serial transport and `Elm327TcpDevice` owns the TCP
+transport. Both feed the same `Elm327ObdAdapter`, `Obd2Manager`,
+`AutomotiveRuntime`, and public `VehicleState` contract. This keeps the
+Raspberry Pi/Linux and Termux compositions symmetric above the transport
+boundary.
 
 The manager polls RPM, vehicle speed, throttle, accelerator position, engine load, and manifold pressure on each snapshot. Slower-changing values such as barometric pressure, airflow, coolant/intake temperature, fuel level, and module voltage use `slow_poll_interval_s`.
+
+## Gear estimation
+
+The automotive runtime can augment each published `VehicleState` with an
+estimated `transmission_gear`. The estimator compares engine speed and road
+speed against a learned ratio profile.
+
+By default the service looks for `vehicle_gears.learned.toml`. A different
+profile can be supplied with `--gear-profile`. If the profile does not exist,
+gear estimation is safely disabled.
+
+Learn a manual-transmission profile with:
+
+```bash
+python -m scripts.automotive.learn_gears
+```
+
+The ratio estimator identifies forward gears only. RPM and road speed alone
+cannot reliably distinguish neutral or reverse, and the estimator intentionally
+returns an unknown gear during shifts, clutch slip, very low speed, or a poor
+ratio match.
+
+`transmission_gear` is part of the public `openroad.vehicle.state` schema.
+After deploying a wire-contract change, restart long-running supervised
+producer processes so an older service does not continue publishing the prior
+schema.
 
 ## Start locally
 
@@ -84,7 +137,7 @@ Simulation:
 
 ```bash
 python3 -m services.automotive.automotive_service_cli \
-  --config config/runtime_simulation.toml
+  --config config/runtime.simulated.toml
 ```
 
 Physical vehicle:
@@ -94,7 +147,7 @@ python3 -m services.automotive.automotive_service_cli \
   --config config/runtime.toml
 ```
 
-For Bluetooth serial ELM327 adapters, `/dev/rfcomm0` must already exist and be connected before starting the service. Change `port` in the runtime TOML when using another serial device.
+For a serial Bluetooth ELM327 on Linux/Raspberry Pi, `/dev/rfcomm0` must already exist and be connected before starting the service. Termux instead uses the configured Android bridge TCP endpoint.
 
 The service publishes to `[messaging].publisher_endpoint` at the configured `rate_hz`.
 

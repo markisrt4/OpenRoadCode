@@ -1,0 +1,100 @@
+name: Quality checks
+
+on:
+  pull_request:
+  push:
+    branches:
+      - master
+      - automotive
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: quality-checks-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Quality checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install system validation tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes doxygen
+
+      - name: Install OpenRoadCode Python dependencies
+        shell: bash
+        run: |
+          source scripts/installers/installer_features.sh
+          mapfile -t features < <(get_all_features_for_target linux-dev)
+          ./scripts/installers/install_python_env.sh "${features[@]}"
+          venv/bin/python -m pip install pytest ruff
+
+      - name: Lint Python
+        run: venv/bin/python -m ruff check .
+
+      - name: Check Python module size
+        run: venv/bin/python scripts/check_python_module_size.py
+
+      - name: Run unit tests
+        run: venv/bin/python scripts/run_tests.py unit
+
+      - name: Run integration tests
+        run: venv/bin/python scripts/run_tests.py integration
+
+      - name: Validate Doxygen contracts
+        run: venv/bin/python scripts/check_doxygen_contracts.py
+
+      - name: Generate Doxygen documentation
+        shell: bash
+        run: |
+          mkdir -p build
+          rm -f build/doxygen-warnings.log
+
+          set +e
+          doxygen Doxyfile
+          doxygen_status=$?
+          set -e
+
+          if [[ -s build/doxygen-warnings.log ]]; then
+            echo "Doxygen warnings:" >&2
+            cat build/doxygen-warnings.log >&2
+          fi
+
+          if (( doxygen_status != 0 )); then
+            exit "$doxygen_status"
+          fi
+
+          test ! -s build/doxygen-warnings.log
+
+      - name: Validate shell syntax
+        shell: bash
+        run: |
+          bash -n development/termux/build_navigation_stack.sh
+          bash -n scripts/runit/install_termux_services.sh
+          bash -n scripts/runit/openroadcode-adsb/run
+
+      - name: Check source-tree runtime state
+        shell: bash
+        run: |
+          if find scripts/runit -type d -name supervise -print -quit | grep -q .; then
+            echo "Runtime supervise directory found in source tree:" >&2
+            find scripts/runit -type d -name supervise -print >&2
+            exit 1
+          fi
+
+      - name: Check repository whitespace
+        run: git diff --check

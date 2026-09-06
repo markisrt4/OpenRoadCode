@@ -10,10 +10,19 @@ from ui.navigation.map_ui_if import GeoPoint
 class MapRequestHandlerStub(MapRequestHandlerIf):
     """Ignore semantic map requests."""
 
+    def request_follow(self, enabled: bool) -> None:
+        pass
+
     def request_recenter(self) -> None:
         pass
 
     def request_center_on(self, position: GeoPoint) -> None:
+        pass
+
+    def request_pan(self, north_m: float, east_m: float) -> None:
+        pass
+
+    def request_pan_screen(self, right_px: float, up_px: float) -> None:
         pass
 
     def request_zoom(self, zoom_level: float) -> None:
@@ -23,6 +32,9 @@ class MapRequestHandlerStub(MapRequestHandlerIf):
         pass
 
     def request_pitch(self, pitch_rad: float) -> None:
+        pass
+
+    def request_poi_focus(self, category: str | None) -> None:
         pass
 
     def request_style(self, style_id: str) -> None:
