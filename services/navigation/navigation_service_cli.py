@@ -22,6 +22,8 @@ from controllers.navigation import (
     NavigationController,
 )
 from controllers.navigation.android_position_source import AndroidPositionSource
+from controllers.navigation.browser_position_source import BrowserPositionSource
+from controllers.navigation.route_simulation_if import RouteSimulationIf
 from controllers.navigation.simulated_ground_motion_source import SimulatedGroundMotionSource
 from controllers.navigation.simulated_navigation_sensor import SimulatedNavigationSensor
 from controllers.navigation.simulated_position_source import SimulatedPositionSource
@@ -74,9 +76,9 @@ def _apply_input_source_overrides(
 
     if gps_source is not None:
         gps_source = gps_source.strip().lower()
-        if gps_source not in {"device", "simulation"}:
+        if gps_source not in {"device", "simulation", "browser"}:
             raise ValueError(
-                "OPENROADCODE_NAV_GPS_SOURCE must be 'device' or 'simulation'"
+                "OPENROADCODE_NAV_GPS_SOURCE must be 'device', 'simulation', or 'browser'"
             )
         config = replace(config, gps=replace(config.gps, source=gps_source))
 
@@ -114,6 +116,11 @@ def _build_position_source(config: NavigationServiceRuntimeConfig):
             speed_mps=simulation.speed_mps,
             course_deg=simulation.course_deg,
         )
+
+    if config.gps.source == "browser":
+        host = os.environ.get("OPENROADCODE_BROWSER_POSITION_HOST", "127.0.0.1")
+        port = int(os.environ.get("OPENROADCODE_BROWSER_POSITION_PORT", "8765"))
+        return BrowserPositionSource(host=host, port=port)
 
     if config.gps.device == "android":
         return AndroidPositionSource(AndroidSensorBridgeClient(base_url=config.gps.bridge_url))
@@ -194,7 +201,7 @@ def main() -> int:
     route_planning_controller = build_route_planning_controller(config)
     geocoder = build_geocoder(args.search_database)
     route_simulator = (
-        position_source if isinstance(position_source, SimulatedPositionSource) else None
+        position_source if isinstance(position_source, RouteSimulationIf) else None
     )
 
     publish_source = config.publish.source
