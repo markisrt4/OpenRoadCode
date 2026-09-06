@@ -6,12 +6,14 @@
 from __future__ import annotations
 
 import argparse
+import os
 from pathlib import Path
 
 from config.service_runtime_config import (
     NavigationServiceRuntimeConfig,
     ServiceRuntimeConfigParser,
 )
+from controllers.geocoding.sqlite_geocoder import SqliteGeocoder
 from controllers.navigation import (
     AndroidNavigationSensor,
     GpsdNavigationAdapter,
@@ -19,25 +21,23 @@ from controllers.navigation import (
     NavigationController,
 )
 from controllers.navigation.android_position_source import AndroidPositionSource
-from controllers.navigation.simulated_ground_motion_source import (
-    SimulatedGroundMotionSource,
-)
-from controllers.navigation.simulated_navigation_sensor import (
-    SimulatedNavigationSensor,
-)
+from controllers.navigation.simulated_ground_motion_source import SimulatedGroundMotionSource
+from controllers.navigation.simulated_navigation_sensor import SimulatedNavigationSensor
 from controllers.navigation.simulated_position_source import SimulatedPositionSource
-from controllers.route_planning.valhalla_route_planning_controller import (
-    ValhallaRoutePlanningController,
-)
+from controllers.route_planning.valhalla_route_planning_controller import ValhallaRoutePlanningController
 from hardware_io.android import AndroidImu, AndroidSensorBridgeClient
 from hardware_io.imu import Mpu6050Imu
 from messaging.zeromq import ZeroMqPublisher
 from protocols.valhalla.valhalla_http_client import ValhallaHttpClient
 from services.navigation.navigation_runtime import NavigationRuntime
 
-DEFAULT_RUNTIME_CONFIG = (
-    Path(__file__).resolve().parents[2] / "config" / "runtime.toml"
-)
+DEFAULT_RUNTIME_CONFIG = Path(__file__).resolve().parents[2] / "config" / "runtime.toml"
+
+
+def _default_search_database() -> Path:
+    data_home = os.environ.get("XDG_DATA_HOME")
+    root = Path(data_home).expanduser() if data_home else Path.home() / ".local" / "share"
+    return root / "openroadcode" / "maps" / "search" / "openroadcode-search.sqlite"
 
 
 def parse_args() -> argparse.Namespace:
@@ -45,6 +45,11 @@ def parse_args() -> argparse.Namespace:
         description="Publish navigation telemetry and serve navigation commands."
     )
     parser.add_argument("--config", default=str(DEFAULT_RUNTIME_CONFIG))
+    parser.add_argument(
+        "--search-database",
+        default=str(_default_search_database()),
+        help="Offline OpenRoadCode search database used for destination geocoding.",
+    )
     return parser.parse_args()
 
 
@@ -57,20 +62,14 @@ def _create_gps_reader(host: str, port: str):
 
 def _build_motion_sensor(config: NavigationServiceRuntimeConfig):
     if config.imu.source == "simulation":
-        return SimulatedNavigationSensor(
-            profile=config.imu.simulation.profile
-        )
+        return SimulatedNavigationSensor(profile=config.imu.simulation.profile)
 
     if config.imu.device == "android":
-        client = AndroidSensorBridgeClient(
-            base_url=config.imu.bridge_url
-        )
+        client = AndroidSensorBridgeClient(base_url=config.imu.bridge_url)
         return AndroidNavigationSensor(AndroidImu(client))
 
     if config.imu.device == "mpu6050":
-        return Mpu6050NavigationAdapter(
-            Mpu6050Imu(address=config.imu.address)
-        )
+        return Mpu6050NavigationAdapter(Mpu6050Imu(address=config.imu.address))
 
     raise ValueError(f"Unsupported IMU device: {config.imu.device}")
 
@@ -87,14 +86,10 @@ def _build_position_source(config: NavigationServiceRuntimeConfig):
         )
 
     if config.gps.device == "android":
-        return AndroidPositionSource(
-            AndroidSensorBridgeClient(base_url=config.gps.bridge_url)
-        )
+        return AndroidPositionSource(AndroidSensorBridgeClient(base_url=config.gps.bridge_url))
 
     if config.gps.device == "gpsd":
-        return GpsdNavigationAdapter(
-            _create_gps_reader(config.gps.host, config.gps.port)
-        )
+        return GpsdNavigationAdapter(_create_gps_reader(config.gps.host, config.gps.port))
 
     raise ValueError(f"Unsupported GPS device: {config.gps.device}")
 
@@ -121,17 +116,13 @@ def build_controller(config: NavigationServiceRuntimeConfig):
 
     return NavigationController(
         sensor=_build_motion_sensor(config),
-        filter_time_constant_s=(
-            config.solution.complementary_filter.time_constant_s
-        ),
+        filter_time_constant_s=config.solution.complementary_filter.time_constant_s,
         gps_source=_build_position_source(config),
         ground_motion_source=_build_ground_motion_source(config),
     )
 
 
-def build_route_planning_controller(
-    config: NavigationServiceRuntimeConfig,
-):
+def build_route_planning_controller(config: NavigationServiceRuntimeConfig):
     """Build the configured optional route-planning capability."""
     route_config = config.route_planning
 
@@ -139,15 +130,21 @@ def build_route_planning_controller(
         return None
 
     if route_config.backend != "valhalla":
-        raise ValueError(
-            f"Unsupported route-planning backend: {route_config.backend}"
-        )
+        raise ValueError(f"Unsupported route-planning backend: {route_config.backend}")
 
     client = ValhallaHttpClient(
         route_config.base_url,
         timeout_seconds=route_config.timeout_seconds,
     )
     return ValhallaRoutePlanningController(client)
+
+
+def build_geocoder(database: str | Path):
+    """Build offline geocoding when the deployed search database is present."""
+    path = Path(database).expanduser()
+    if not path.is_file():
+        return None
+    return SqliteGeocoder(path)
 
 
 def main() -> int:
@@ -161,6 +158,7 @@ def main() -> int:
 
     controller = build_controller(config)
     route_planning_controller = build_route_planning_controller(config)
+    geocoder = build_geocoder(args.search_database)
 
     publish_source = config.publish.source
     publisher = ZeroMqPublisher(system.messaging.publisher_endpoint)
@@ -172,6 +170,7 @@ def main() -> int:
         rate_hz=config.rate_hz,
         command_endpoint=config.command_endpoint,
         route_planning_controller=route_planning_controller,
+        geocoder=geocoder,
     )
 
     print("OpenRoadCode navigation service")
@@ -182,6 +181,9 @@ def main() -> int:
         "  route planning:    "
         f"{config.route_planning.backend if config.route_planning.enabled else 'disabled'}"
     )
+    print(f"  geocoding:         {'offline' if geocoder is not None else 'disabled'}")
+    if geocoder is not None:
+        print(f"  search database:   {Path(args.search_database).expanduser()}")
     print(f"  telemetry ingress: {system.messaging.publisher_endpoint}")
     print(f"  command endpoint:  {config.command_endpoint}")
     print(f"  publish rate:      {config.rate_hz:g} Hz")
