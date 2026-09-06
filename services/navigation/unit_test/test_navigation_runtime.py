@@ -77,7 +77,7 @@ def test_route_start_creates_active_session_from_planned_route():
         runtime.close()
 
 
-def test_valid_gps_fix_advances_guidance_and_session():
+def test_valid_position_fix_advances_guidance_and_session():
     route = _route()
     route_planner = Mock()
     route_planner.calculate_route.return_value = route
@@ -100,7 +100,7 @@ def test_valid_gps_fix_advances_guidance_and_session():
         assert session is not None
         session.update = Mock(wraps=session.update)
         state = SimpleNamespace(
-            gps=SimpleNamespace(
+            position=SimpleNamespace(
                 has_fix=True,
                 latitude_deg=42.0,
                 longitude_deg=-82.995,
