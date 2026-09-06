@@ -14,6 +14,8 @@ from frontends.tk.tk_screen import TkScreen
 from frontends.tk.tk_screen_host_if import TkScreenHostIf
 from ui.screen_ui_if import ScreenId
 
+MediaNavigationFactory = Callable[[tk.Misc, str], tk.Widget]
+
 
 class BrowserMediaScreen(TkScreen):
     """Adapt a browser media panel to the shared screen lifecycle."""
@@ -27,6 +29,7 @@ class BrowserMediaScreen(TkScreen):
         player: BrowserMediaPlayerIf,
         panel_factory: Callable[[tk.Misc, BrowserMediaPlayerIf, str, Callable[[str], None], Callable[[], None]], tk.Widget],
         back_action: Callable[[], None],
+        media_navigation_factory: MediaNavigationFactory | None = None,
     ) -> None:
         super().__init__(ScreenId(screen_id))
         self._host = host
@@ -34,6 +37,7 @@ class BrowserMediaScreen(TkScreen):
         self._player = player
         self._panel_factory = panel_factory
         self._back_action = back_action
+        self._media_navigation_factory = media_navigation_factory
 
     def show(self) -> None:
         """Build the panel and make it the active ORC screen."""
@@ -41,8 +45,13 @@ class BrowserMediaScreen(TkScreen):
         self._host.clear_screen_content()
         self._host.set_screen_title(self._title)
         self._host.set_screen_back_action(self._back_action)
+
+        root = tk.Frame(self._host.screen_parent)
+        root.pack(fill=tk.BOTH, expand=True)
+        if self._media_navigation_factory is not None:
+            self._media_navigation_factory(root, self.screen_id.value).pack(fill=tk.X, padx=4, pady=(4, 2))
         self._panel_factory(
-            self._host.screen_parent,
+            root,
             self._player,
             os.environ.get("DISPLAY", ":1"),
             self._host.set_screen_status,
