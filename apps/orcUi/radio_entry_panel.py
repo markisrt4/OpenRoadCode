@@ -20,8 +20,7 @@ class LaunchAwareRadioPanel(RadioPanel):
     """Radio panel that can present SDR++ startup state inside its X11 host."""
 
     def __init__(self, parent: tk.Misc, *, embedder: X11WindowEmbedder, theme: ThemeBundle) -> None:
-        super().__init__(parent, embedder=embedder)
-        self._theme = theme
+        super().__init__(parent, embedder=embedder, theme=theme)
         self._launch_status = tk.Label(self._host, text="Loading SDR++…", bg=theme.ui.background, fg=theme.ui.text, font=("Sans", 20, "bold"), padx=24, pady=18)
         self._launch_status.place(relx=0.5, rely=0.5, anchor="center")
 
