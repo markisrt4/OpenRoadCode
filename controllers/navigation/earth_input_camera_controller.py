@@ -12,6 +12,12 @@ from controllers.navigation.earth_camera_controller_if import EarthCameraControl
 class EarthInputCameraController(EarthCameraControllerIf):
     """Drive Google Earth's camera through Chrome DevTools input events."""
 
+    _PRESET_WHEEL_STEPS = {
+        "street": (-480.0, -480.0),
+        "city": (480.0, 480.0),
+        "region": (480.0, 480.0, 480.0, 480.0),
+    }
+
     def __init__(self, client: ChromiumDevToolsClient | None = None) -> None:
         self._client = client or ChromiumDevToolsClient(port=9223)
 
@@ -26,8 +32,6 @@ class EarthInputCameraController(EarthCameraControllerIf):
             return False
 
     def set_view(self, view: EarthCameraView) -> bool:
-        # Absolute Earth camera control remains deliberately separate from
-        # browser input. Position/follow is supplied by EarthGeolocationBridge.
         del view
         return False
 
@@ -40,8 +44,33 @@ class EarthInputCameraController(EarthCameraControllerIf):
     def north_up(self) -> bool:
         return self._key("n", "KeyN", 78)
 
+    def pan(self, *, up: float = 0.0, right: float = 0.0) -> bool:
+        """Pan Earth with its normal arrow-key camera controls."""
+        key = None
+        if abs(up) >= abs(right) and up != 0.0:
+            key = ("ArrowUp", "ArrowUp", 38) if up > 0 else ("ArrowDown", "ArrowDown", 40)
+        elif right != 0.0:
+            key = ("ArrowRight", "ArrowRight", 39) if right > 0 else ("ArrowLeft", "ArrowLeft", 37)
+        if key is None:
+            return True
+        return self._key(*key, printable=False)
+
+    def tilt(self, delta_deg: float) -> bool:
+        """Tilt Earth using PageUp/PageDown camera shortcuts."""
+        if delta_deg == 0.0:
+            return True
+        if delta_deg > 0.0:
+            return self._key("PageUp", "PageUp", 33, printable=False)
+        return self._key("PageDown", "PageDown", 34, printable=False)
+
+    def apply_preset(self, name: str) -> bool:
+        """Apply a coarse driving-scale view preset relative to the current view."""
+        steps = self._PRESET_WHEEL_STEPS.get(name.casefold())
+        if steps is None:
+            raise ValueError(f"unsupported Earth view preset: {name}")
+        return all(self._wheel(delta) for delta in steps)
+
     def _wheel(self, delta_y: float) -> bool:
-        """Zoom at the center of the Earth viewport using a browser wheel event."""
         try:
             self._client.activate(self._require_target_id())
             viewport = self._client.evaluate_earth(
@@ -64,8 +93,14 @@ class EarthInputCameraController(EarthCameraControllerIf):
         except (OSError, RuntimeError, TypeError, ValueError):
             return False
 
-    def _key(self, key: str, code: str, virtual_key: int) -> bool:
-        """Send the same key sequence Chrome generates for a printable shortcut."""
+    def _key(
+        self,
+        key: str,
+        code: str,
+        virtual_key: int,
+        *,
+        printable: bool = True,
+    ) -> bool:
         try:
             self._client.activate(self._require_target_id())
             common = {
@@ -74,18 +109,13 @@ class EarthInputCameraController(EarthCameraControllerIf):
                 "windowsVirtualKeyCode": virtual_key,
                 "nativeVirtualKeyCode": virtual_key,
             }
-            self._client.command_earth(
-                "Input.dispatchKeyEvent",
-                {"type": "rawKeyDown", **common},
-            )
-            self._client.command_earth(
-                "Input.dispatchKeyEvent",
-                {"type": "char", "text": key, "unmodifiedText": key, **common},
-            )
-            self._client.command_earth(
-                "Input.dispatchKeyEvent",
-                {"type": "keyUp", **common},
-            )
+            self._client.command_earth("Input.dispatchKeyEvent", {"type": "rawKeyDown", **common})
+            if printable:
+                self._client.command_earth(
+                    "Input.dispatchKeyEvent",
+                    {"type": "char", "text": key, "unmodifiedText": key, **common},
+                )
+            self._client.command_earth("Input.dispatchKeyEvent", {"type": "keyUp", **common})
             return True
         except (OSError, RuntimeError, ValueError):
             return False
