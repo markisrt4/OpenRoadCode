@@ -28,6 +28,8 @@ sudo apt-get update
 sudo apt-get install -y \
     ca-certificates \
     wget \
+    wmctrl \
+    x11-utils \
     xdotool
 
 if [[ "${arch}" == "amd64" ]]; then
@@ -62,6 +64,8 @@ else
     echo "Chrome: not available"
 fi
 
+echo "wmctrl: $(command -v wmctrl)"
+echo "xprop: $(command -v xprop)"
 echo "xdotool: $(command -v xdotool)"
 echo
 echo "Media runtime setup complete."
