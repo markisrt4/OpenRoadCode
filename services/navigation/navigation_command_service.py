@@ -9,6 +9,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any, Mapping
 
+from controllers.navigation.geocoding import GeocoderIf
 from controllers.navigation.navigation_controller_if import NavigationControllerIf
 from controllers.route_planning.route_planning_controller_if import RoutePlanningControllerIf
 from controllers.route_planning.route_planning_types import GeoPoint, RouteRequest, RouteResult, TravelMode
@@ -40,11 +41,13 @@ class NavigationCommandService:
         controller: NavigationControllerIf,
         route_planning_controller: RoutePlanningControllerIf | None = None,
         *,
+        geocoder: GeocoderIf | None = None,
         on_route_started: RouteStartedCallback | None = None,
         on_route_cancelled: RouteCancelledCallback | None = None,
     ) -> None:
         self._controller = controller
         self._route_planning_controller = route_planning_controller
+        self._geocoder = geocoder
         self._on_route_started = on_route_started
         self._on_route_cancelled = on_route_cancelled
 
@@ -93,12 +96,16 @@ class NavigationCommandService:
             data=self._route_data(route),
         )
 
-    @staticmethod
-    def _parse_route_request(args: Mapping[str, Any]) -> RouteRequest:
+    def _parse_route_request(self, args: Mapping[str, Any]) -> RouteRequest:
         origin = args.get("origin")
         destination = args.get("destination")
-        if not isinstance(origin, Mapping) or not isinstance(destination, Mapping):
-            raise ValueError("origin and destination objects are required")
+        if not isinstance(origin, Mapping):
+            raise ValueError("origin object is required")
+
+        if isinstance(destination, str):
+            destination = self._geocode_destination(destination)
+        if not isinstance(destination, Mapping):
+            raise ValueError("destination object or address string is required")
 
         travel_mode_name = str(args.get("travel_mode", "AUTO")).upper()
         try:
@@ -111,6 +118,17 @@ class NavigationCommandService:
             destination=GeoPoint(latitude=float(destination["latitude"]), longitude=float(destination["longitude"])),
             travel_mode=travel_mode,
         )
+
+    def _geocode_destination(self, destination: str) -> Mapping[str, float]:
+        if self._geocoder is None:
+            raise ValueError("text destination requires geocoding to be configured")
+        result = self._geocoder.geocode(destination)
+        if result is None:
+            raise ValueError(f"destination could not be resolved: {destination}")
+        return {
+            "latitude": result.latitude_deg,
+            "longitude": result.longitude_deg,
+        }
 
     @staticmethod
     def _route_data(route: RouteResult) -> Mapping[str, Any]:
