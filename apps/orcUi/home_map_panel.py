@@ -8,7 +8,7 @@ from __future__ import annotations
 import tkinter as tk
 
 from apps.orcUi.shared_map_camera import get_shared_map_camera_runtime
-from apps.orcUi.theme_runtime import theme_bundle
+from apps.orcUi.theme_runtime import theme_bundle as packaged_theme_bundle
 from ui.navigation import MapRequestHandlerIf
 from ui.theme import ThemeBundle, ThemeMode
 
@@ -23,7 +23,7 @@ class HomeMapPanel(tk.Frame):
         map_request_handler: MapRequestHandlerIf | None = None,
         theme: ThemeBundle | None = None,
     ) -> None:
-        self._theme = theme or self._theme_for_parent(parent)
+        self._theme = theme or packaged_theme_bundle(ThemeMode.DARK)
         ui = self._theme.ui
         super().__init__(
             parent,
@@ -37,20 +37,17 @@ class HomeMapPanel(tk.Frame):
         self._build()
         self._schedule_renderer_refresh()
 
-    @staticmethod
-    def _theme_for_parent(parent: tk.Misc) -> ThemeBundle:
-        """Resolve the active packaged theme for panels created after a toggle."""
-        try:
-            background = str(parent.cget("background")).lower()
-        except (AttributeError, tk.TclError):
-            background = ""
-        mode = ThemeMode.LIGHT if background == "#e8edf0" else ThemeMode.DARK
-        return theme_bundle(mode)
-
     @property
     def map_host_window_id(self) -> int:
         self.update_idletasks()
         return self._map_host.winfo_id()
+
+    def set_theme_bundle(self, theme: ThemeBundle) -> None:
+        """Apply the active CSS-derived theme to the map host chrome."""
+        self._theme = theme
+        ui = theme.ui
+        self.configure(bg=ui.surface, highlightbackground=ui.border)
+        self._map_host.configure(bg=ui.background)
 
     def _build(self) -> None:
         self.grid_rowconfigure(0, weight=1)
