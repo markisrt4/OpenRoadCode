@@ -76,7 +76,21 @@ def main() -> None:
     netflix_player = NetflixPlayer(software_rendering=software_rendering, dark_mode=app.theme_mode is ThemeMode.DARK)
     youtube_screen = BrowserMediaScreen("youtube", app, title="YouTube", player=youtube_player, panel_factory=lambda parent, player, display, status, back: YouTubePanel(parent, player=player, default_url="https://www.youtube.com/", display=display, set_status=status, on_return=back, colors=_browser_colors(app, accent="#FF0033")), back_action=lambda: media_screen.show())
     netflix_screen = BrowserMediaScreen("netflix", app, title="Netflix", player=netflix_player, panel_factory=lambda parent, player, display, status, back: NetflixPanel(parent, player=player, default_url="https://www.netflix.com/browse", display=display, set_status=status, on_return=back, colors=_browser_colors(app, accent="#E50914")), back_action=lambda: media_screen.show())
-    media_screen = MediaScreen(app, theme_bundle=lambda: theme_bundle(app.theme_mode), show_spotify=spotify_screen.show, show_youtube=youtube_screen.show, show_netflix=netflix_screen.show)
+
+    def show_spotify_local() -> None:
+        media.spotify_local_player.request_player()
+        spotify_screen.show()
+
+    media_screen = MediaScreen(
+        app,
+        theme_bundle=lambda: theme_bundle(app.theme_mode),
+        show_spotify=spotify_screen.show,
+        show_youtube=youtube_screen.show,
+        show_netflix=netflix_screen.show,
+        show_spotify_remote=spotify_screen.show,
+        show_spotify_local=show_spotify_local,
+        spotify_local_available=lambda: media.spotify_local_player.state().available,
+    )
     app.register_screen("MEDIA", media_screen)
     app.set_home_media_factory(lambda parent: SpotifyNowPlaying(parent, service=media.spotify, on_open=spotify_screen.show))
 
