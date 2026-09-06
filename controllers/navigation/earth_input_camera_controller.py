@@ -21,6 +21,7 @@ class EarthInputCameraController(EarthCameraControllerIf):
     _PAN_MIN_REPEATS = 6
     _PAN_MAX_REPEATS = 40
     _TILT_VIEWPORT_FRACTION = 0.05
+    _ROTATE_VIEWPORT_FRACTION_PER_45_DEG = 0.12
 
     def __init__(self, client: ChromiumDevToolsClient | None = None) -> None:
         self._client = client or ChromiumDevToolsClient(port=9223)
@@ -56,12 +57,7 @@ class EarthInputCameraController(EarthCameraControllerIf):
         return self._key("n", "KeyN", 78)
 
     def pan(self, *, up: float = 0.0, right: float = 0.0) -> bool:
-        """Pan using Earth arrow controls with zoom-relative travel.
-
-        Arrow-key pan is reliable in Earth. The repeat count grows as ORC zooms
-        in and shrinks as it zooms out, keeping a button press useful across
-        driving and regional scales.
-        """
+        """Pan using Earth arrow controls with zoom-relative travel."""
         key = None
         if abs(up) >= abs(right) and up != 0.0:
             key = ("ArrowUp", "ArrowUp", 38) if up > 0 else ("ArrowDown", "ArrowDown", 40)
@@ -69,7 +65,6 @@ class EarthInputCameraController(EarthCameraControllerIf):
             key = ("ArrowRight", "ArrowRight", 39) if right > 0 else ("ArrowLeft", "ArrowLeft", 37)
         if key is None:
             return True
-
         scale = 1.35 ** self._zoom_bias
         repeats = round(self._PAN_BASE_REPEATS * scale)
         repeats = max(self._PAN_MIN_REPEATS, min(self._PAN_MAX_REPEATS, repeats))
@@ -86,6 +81,18 @@ class EarthInputCameraController(EarthCameraControllerIf):
             if delta_deg < 0.0:
                 dy = -dy
             return self._drag(dx=0.0, dy=dy, modifiers=8)
+        except (OSError, RuntimeError, TypeError, ValueError):
+            return False
+
+    def rotate(self, delta_deg: float) -> bool:
+        """Rotate Earth heading with a horizontal Shift+left-drag."""
+        if abs(delta_deg) < 0.1:
+            return True
+        try:
+            width, _ = self._viewport_size()
+            bounded = max(-90.0, min(90.0, delta_deg))
+            dx = width * self._ROTATE_VIEWPORT_FRACTION_PER_45_DEG * (bounded / 45.0)
+            return self._drag(dx=dx, dy=0.0, modifiers=8)
         except (OSError, RuntimeError, TypeError, ValueError):
             return False
 
@@ -122,15 +129,7 @@ class EarthInputCameraController(EarthCameraControllerIf):
         )
         self._client.command_earth(
             "Input.dispatchMouseEvent",
-            {
-                "type": "mouseReleased",
-                "x": end_x,
-                "y": end_y,
-                "button": "left",
-                "buttons": 0,
-                "modifiers": modifiers,
-                "clickCount": 1,
-            },
+            {"type": "mouseReleased", "x": end_x, "y": end_y, "button": "left", "buttons": 0, "modifiers": modifiers, "clickCount": 1},
         )
         return True
 
@@ -140,42 +139,19 @@ class EarthInputCameraController(EarthCameraControllerIf):
             width, height = self._viewport_size()
             self._client.command_earth(
                 "Input.dispatchMouseEvent",
-                {
-                    "type": "mouseWheel",
-                    "x": width / 2.0,
-                    "y": height / 2.0,
-                    "deltaX": 0.0,
-                    "deltaY": delta_y,
-                },
+                {"type": "mouseWheel", "x": width / 2.0, "y": height / 2.0, "deltaX": 0.0, "deltaY": delta_y},
             )
             return True
         except (OSError, RuntimeError, TypeError, ValueError):
             return False
 
-    def _key(
-        self,
-        key: str,
-        code: str,
-        virtual_key: int,
-        *,
-        printable: bool = True,
-        modifiers: int = 0,
-    ) -> bool:
+    def _key(self, key: str, code: str, virtual_key: int, *, printable: bool = True, modifiers: int = 0) -> bool:
         try:
             self._client.activate(self._require_target_id())
-            common = {
-                "key": key,
-                "code": code,
-                "windowsVirtualKeyCode": virtual_key,
-                "nativeVirtualKeyCode": virtual_key,
-                "modifiers": modifiers,
-            }
+            common = {"key": key, "code": code, "windowsVirtualKeyCode": virtual_key, "nativeVirtualKeyCode": virtual_key, "modifiers": modifiers}
             self._client.command_earth("Input.dispatchKeyEvent", {"type": "rawKeyDown", **common})
             if printable:
-                self._client.command_earth(
-                    "Input.dispatchKeyEvent",
-                    {"type": "char", "text": key, "unmodifiedText": key, **common},
-                )
+                self._client.command_earth("Input.dispatchKeyEvent", {"type": "char", "text": key, "unmodifiedText": key, **common})
             self._client.command_earth("Input.dispatchKeyEvent", {"type": "keyUp", **common})
             return True
         except (OSError, RuntimeError, ValueError):
