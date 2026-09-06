@@ -141,6 +141,12 @@ OpenRoadCode navigation software plan
   map-data build:     external / not performed here
 EOF
 
+if [[ "$TARGET" == "linux-dev" ]]; then
+  echo "  navigation inputs: simulated IMU + GPS"
+elif [[ "$TARGET" != "termux" ]]; then
+  echo "  navigation inputs: physical device configuration"
+fi
+
 if [[ "$TARGET" == "termux" ]]; then
   echo "  status:             EXPERIMENTAL"
   echo "  display:            Termux:X11 Android app required for MapLibre GLFW"
@@ -178,9 +184,6 @@ fi
 
 echo "  container command:  ${CONTAINER_CMD[*]}"
 mkdir -p "$HOST_SRC"
-# A previous sudo-driven build can leave this tree root-owned. Keep the staging
-# directory owned by the invoking user so resume attempts do not fail halfway
-# through with a permission error.
 sudo install -d -m 0755 -o "$(id -u)" -g "$(id -g)" "$BUILD_ROOT"
 
 checkout_repo() {
@@ -213,8 +216,17 @@ container_image_exists() {
 if (( ! SKIP_HOST_PACKAGES )); then
   echo "[*] Checking/installing navigation host dependencies"
   bash "$PROJECT_ROOT/scripts/installers/host_setup.sh" --target "$TARGET" --feature desktop-ui --feature gps --no-vnc --no-gpsd-service
-  sudo apt-get update
-  sudo apt-get install -y rsync python3-zmq
+  missing_runtime_packages=()
+  for pkg in rsync python3-zmq; do
+    dpkg -s "$pkg" >/dev/null 2>&1 || missing_runtime_packages+=("$pkg")
+  done
+  if (( ${#missing_runtime_packages[@]} > 0 )); then
+    echo "[*] Missing navigation runtime packages: ${missing_runtime_packages[*]}"
+    sudo apt-get update
+    sudo apt-get install -y "${missing_runtime_packages[@]}"
+  else
+    echo "[=] Navigation runtime packages already installed; skipping apt update/install"
+  fi
   (( SKIP_MAPLIBRE )) || bash "$PROJECT_ROOT/development/containers/maplibre/host_setup.sh"
   (( SKIP_VALHALLA )) || bash "$PROJECT_ROOT/development/containers/valhalla/host_setup.sh"
 fi
@@ -281,11 +293,16 @@ fi
 if (( ! SKIP_SERVICES )) && (( ! SKIP_VALHALLA )); then
   valhalla_config="$DATA_ROOT/valhalla/valhalla.json"
   if [[ ! -f "$valhalla_config" ]]; then
-    echo "[!] Service installation deferred until navigation data are present: $valhalla_config" >&2
+    echo "[!] Runtime service installation deferred until navigation data are present: $valhalla_config" >&2
   elif [[ ! -x "$valhalla_installed" ]]; then
-    echo "[!] Service installation deferred until Valhalla is installed: $valhalla_installed" >&2
+    echo "[!] Runtime service installation deferred until Valhalla is installed: $valhalla_installed" >&2
   else
-    sudo env PATH="$INSTALL_ROOT/valhalla/bin:$PATH" bash "$PROJECT_ROOT/scripts/systemd/install_valhalla_systemd.sh" "$valhalla_config" 1
+    search_database="$DATA_ROOT/maps/search/openroadcode-search.sqlite"
+    sudo env \
+      PATH="$INSTALL_ROOT/valhalla/bin:$PATH" \
+      OPENROADCODE_NAVIGATION_TARGET="$TARGET" \
+      OPENROADCODE_SEARCH_DATABASE="$search_database" \
+      bash "$PROJECT_ROOT/scripts/systemd/install_navigation_runtime_systemd.sh" "$valhalla_config" 1
   fi
 fi
 
