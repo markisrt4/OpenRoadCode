@@ -36,7 +36,13 @@ class EarthChaseCameraController:
         self._camera_heading_deg = None
         if not self._enabled:
             return True
+        if not self._input.top_down():
+            self._enabled = False
+            return False
         if not self._input.north_up():
+            self._enabled = False
+            return False
+        if not self._input.zoom_closest():
             self._enabled = False
             return False
         self._camera_heading_deg = 0.0
