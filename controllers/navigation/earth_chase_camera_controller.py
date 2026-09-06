@@ -21,7 +21,7 @@ class EarthChaseCameraController:
     _MIN_SPEED_M_S = 2.0
     _HEADING_DEADBAND_DEG = 4.0
     _MAX_ROTATION_STEP_DEG = 12.0
-    _CHASE_FORWARD_TILT_STEPS = 9
+    _CHASE_FORWARD_TILT_STEPS = 7
     _CHASE_FORWARD_TILT_STEP_DEG = -5.0
 
     def __init__(self, input_controller: EarthInputCameraController) -> None:
@@ -39,21 +39,23 @@ class EarthChaseCameraController:
         if not self._enabled:
             return True
 
-        # Establish a deterministic reference, then tilt from straight-down
-        # toward a low forward-looking angle suitable for driving.
+        # Establish a deterministic reference, set the forward-looking angle,
+        # then zoom last. Earth changes apparent range while orbiting/tilting,
+        # so zooming before a large tilt can turn a close view back into a
+        # satellite-like one.
         if not self._input.top_down():
             self._enabled = False
             return False
         if not self._input.north_up():
             self._enabled = False
             return False
-        if not self._input.zoom_closest():
-            self._enabled = False
-            return False
         for _ in range(self._CHASE_FORWARD_TILT_STEPS):
             if not self._input.tilt(self._CHASE_FORWARD_TILT_STEP_DEG):
                 self._enabled = False
                 return False
+        if not self._input.zoom_closest():
+            self._enabled = False
+            return False
 
         self._camera_heading_deg = 0.0
         return True
