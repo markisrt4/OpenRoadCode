@@ -20,7 +20,7 @@ class EarthInputCameraController(EarthCameraControllerIf):
     _PAN_BASE_REPEATS = 15
     _PAN_MIN_REPEATS = 6
     _PAN_MAX_REPEATS = 40
-    _TILT_VIEWPORT_FRACTION = 0.07
+    _TILT_VIEWPORT_FRACTION = 0.05
 
     def __init__(self, client: ChromiumDevToolsClient | None = None) -> None:
         self._client = client or ChromiumDevToolsClient(port=9223)
