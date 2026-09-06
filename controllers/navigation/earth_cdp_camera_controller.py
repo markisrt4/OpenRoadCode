@@ -86,27 +86,13 @@ class EarthCdpCameraController(EarthCameraControllerIf):
         return value is True
 
     def trigger_my_location(self) -> bool:
-        """Replay the earlier single My Location command for comparison testing."""
-        return self._send_view_model_commands((
-            ("earth.mylocation.MyLocationViewModelCommand", (18, 0)),
-        ))
+        return self._send_view_model_commands((("earth.mylocation.MyLocationViewModelCommand", (18, 0)),))
 
     def trigger_my_location_focused(self) -> bool:
-        """Replay the two My Location messages observed during a manual recenter."""
-        return self._send_view_model_commands((
-            ("earth.mylocation.MyLocationViewModelCommand", (34, 0)),
-            ("earth.mylocation.MyLocationViewModelCommand", (10, 0)),
-        ))
+        return self._send_view_model_commands((("earth.mylocation.MyLocationViewModelCommand", (34, 0)),("earth.mylocation.MyLocationViewModelCommand", (10, 0))))
 
     def trigger_my_location_full_sequence(self) -> bool:
-        """Replay the complete non-input sequence observed during a manual recenter."""
-        return self._send_view_model_commands((
-            ("earth.system.SystemViewModelCommand", (26, 0)),
-            ("earth.system.SystemViewModelCommand", (34, 0)),
-            ("earth.mylocation.MyLocationViewModelCommand", (34, 0)),
-            ("earth.mylocation.MyLocationViewModelCommand", (10, 0)),
-            ("earth.mylocation.MyLocationViewModelCommand", (10, 0)),
-        ))
+        return self._send_view_model_commands((("earth.system.SystemViewModelCommand", (26, 0)),("earth.system.SystemViewModelCommand", (34, 0)),("earth.mylocation.MyLocationViewModelCommand", (34, 0)),("earth.mylocation.MyLocationViewModelCommand", (10, 0)),("earth.mylocation.MyLocationViewModelCommand", (10, 0))))
 
     def probe_runtime(self) -> EarthRuntimeProbe:
         value = self._client.evaluate_earth("""(() => ({title:document.title,url:location.href,readyState:document.readyState,canvasCount:document.querySelectorAll('canvas').length,customElementNames:[...document.querySelectorAll('*')].map(e=>e.localName).filter(n=>n&&n.includes('-')).filter((n,i,v)=>v.indexOf(n)===i).sort().slice(0,100)}))()""")
@@ -151,13 +137,20 @@ class EarthCdpCameraController(EarthCameraControllerIf):
         encoded=repr([k.lower() for k in keywords]); value:Any=self._client.evaluate_earth("(() => {const needles="+encoded+";return Object.getOwnPropertyNames(window).filter(n=>needles.some(x=>n.toLowerCase().includes(x))).sort().slice(0,200)})()")
         return tuple(str(n) for n in value) if isinstance(value,list) else ()
 
+    def geolocation_snapshot(self) -> dict[str, Any]:
+        """Return the complete browser geolocation fix currently visible to Earth."""
+        return self._client.geolocation_snapshot()
+
     def set_view(self, view: EarthCameraView) -> bool:
-        """Feed ORC position into Chromium's geolocation provider for Earth tracking."""
+        """Feed ORC position and motion into Chromium's geolocation provider."""
         try:
             self._client.set_geolocation_override(
                 view.latitude_deg,
                 view.longitude_deg,
-                accuracy_m=5.0,
+                accuracy_m=5.0 if view.accuracy_m is None else view.accuracy_m,
+                altitude_m=view.altitude_m,
+                heading_deg=view.heading_deg,
+                speed_m_s=view.speed_m_s,
             )
         except (OSError, RuntimeError, ValueError):
             return False
