@@ -8,6 +8,7 @@ from __future__ import annotations
 import threading
 import time
 
+from controllers.navigation.geocoding import GeocoderIf
 from controllers.navigation.navigation_controller_if import NavigationControllerIf
 from controllers.navigation_session.navigation_session_controller import NavigationSessionController
 from controllers.route_guidance import ReroutePolicy
@@ -38,6 +39,7 @@ class NavigationRuntime:
         command_endpoint: str = DEFAULT_NAVIGATION_COMMAND_ENDPOINT,
         route_planning_controller: RoutePlanningControllerIf | None = None,
         guidance_controller: RouteGuidanceController | None = None,
+        geocoder: GeocoderIf | None = None,
     ) -> None:
         if rate_hz <= 0.0:
             raise ValueError("rate_hz must be greater than zero")
@@ -63,6 +65,7 @@ class NavigationRuntime:
             NavigationCommandService(
                 controller,
                 route_planning_controller=route_planning_controller,
+                geocoder=geocoder,
                 on_route_started=(
                     self._activate_route if route_planning_controller is not None else None
                 ),
