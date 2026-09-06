@@ -99,7 +99,7 @@ class NavigationPanel(tk.Frame):
   else:
    lat=math.degrees(position.latitude_rad);lon=math.degrees(position.longitude_rad);self._earth_position_var.set(f"{lat:.4f}, {lon:.4f}")
    if self._earth_position_changed(lat,lon):
-    if self._earth_camera.set_view(EarthCameraView(latitude_deg=lat,longitude_deg=lon,heading_deg=None if track is None else math.degrees(track)%360.0)):
+    if self._earth_camera.set_view(EarthCameraView(latitude_deg=lat,longitude_deg=lon,heading_deg=None if track is None else math.degrees(track)%360.0,speed_m_s=None if speed is None else max(0.0,speed))):
      self._earth_last_sent_position=(lat,lon)
     else:self._shortcut_status.set("Earth GPS bridge unavailable")
   self._update_earth_guidance();self._earth_hud_after=self.after(500,self._update_earth_hud)
