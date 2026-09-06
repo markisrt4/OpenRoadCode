@@ -5,6 +5,8 @@
 set -euo pipefail
 
 SECRETS_FILE="${SECRETS_FILE:-/etc/openroadcode/secrets.env}"
+INSTALL_OWNER="$(id -un)"
+INSTALL_GROUP="$(id -gn)"
 declare -A UPDATES=()
 
 usage() {
@@ -87,8 +89,9 @@ fi
 
 secrets_dir="$(dirname -- "$SECRETS_FILE")"
 temporary_file="$(mktemp)"
+filtered_file="$(mktemp)"
 cleanup() {
-    rm -f -- "$temporary_file"
+    rm -f -- "$temporary_file" "$filtered_file"
 }
 trap cleanup EXIT
 
@@ -97,12 +100,6 @@ if [[ -r "$SECRETS_FILE" ]]; then
 elif command -v sudo >/dev/null 2>&1 && sudo test -r "$SECRETS_FILE" 2>/dev/null; then
     sudo cat -- "$SECRETS_FILE" > "$temporary_file"
 fi
-
-filtered_file="$(mktemp)"
-cleanup_all() {
-    rm -f -- "$temporary_file" "$filtered_file"
-}
-trap cleanup_all EXIT
 
 awk -v keys="$(printf '%s\n' "${!UPDATES[@]}")" '
     BEGIN {
@@ -130,12 +127,16 @@ done
 if [[ "$SECRETS_FILE" == /etc/* ]]; then
     command -v sudo >/dev/null 2>&1 || fail "sudo is required to write $SECRETS_FILE"
     sudo install -d -m 0755 -- "$secrets_dir"
-    sudo install -m 0600 -- "$filtered_file" "$SECRETS_FILE"
+    sudo install -o "$INSTALL_OWNER" -g "$INSTALL_GROUP" -m 0600 \
+        -- "$filtered_file" "$SECRETS_FILE"
 else
     mkdir -p -- "$secrets_dir"
     chmod 0700 "$secrets_dir"
     install -m 0600 -- "$filtered_file" "$SECRETS_FILE"
 fi
+
+[[ -r "$SECRETS_FILE" ]] \
+    || fail "installed secrets file is not readable by $INSTALL_OWNER: $SECRETS_FILE"
 
 trap - EXIT
 rm -f -- "$temporary_file" "$filtered_file"
@@ -148,5 +149,6 @@ done
 echo
 echo "Secrets file:"
 echo "  $SECRETS_FILE"
+echo "Owner: $INSTALL_OWNER:$INSTALL_GROUP (mode 0600)"
 echo
 echo "Restart OpenRoadCode to load the new values."
