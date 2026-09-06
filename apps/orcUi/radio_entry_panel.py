@@ -11,9 +11,8 @@ import tkinter as tk
 
 from apps.orcUi.radio_application_service import RadioApplicationServiceIf
 from apps.orcUi.radio_panel import RadioPanel
-from apps.orcUi.theme_runtime import theme_bundle
 from frontends.x11 import X11WindowEmbedder
-from ui.theme import ThemeBundle, ThemeMode
+from ui.theme import ThemeBundle
 
 
 class LaunchAwareRadioPanel(RadioPanel):
@@ -36,9 +35,9 @@ class LaunchAwareRadioPanel(RadioPanel):
 class RadioEntryPanel(tk.Frame):
     """Offer RF or streaming radio and host the active radio presentation."""
 
-    def __init__(self, parent: tk.Misc, *, radio_application: RadioApplicationServiceIf, embedder: X11WindowEmbedder | None = None, theme: ThemeBundle | None = None) -> None:
-        self._theme = theme or self._theme_for_parent(parent)
-        ui = self._theme.ui
+    def __init__(self, parent: tk.Misc, *, radio_application: RadioApplicationServiceIf, theme: ThemeBundle, embedder: X11WindowEmbedder | None = None) -> None:
+        self._theme = theme
+        ui = theme.ui
         super().__init__(parent, bg=ui.background)
         self._embedder = embedder or X11WindowEmbedder()
         self._radio_application = radio_application
@@ -54,15 +53,6 @@ class RadioEntryPanel(tk.Frame):
         self._chooser.grid_rowconfigure(0, weight=1)
         self._build_choice_buttons()
         self._streaming_page = self._build_streaming_page()
-
-    @staticmethod
-    def _theme_for_parent(parent: tk.Misc) -> ThemeBundle:
-        try:
-            background = str(parent.cget("background")).lower()
-        except (AttributeError, tk.TclError):
-            background = ""
-        mode = ThemeMode.LIGHT if background == "#e8edf0" else ThemeMode.DARK
-        return theme_bundle(mode)
 
     def _build_choice_buttons(self) -> None:
         ui = self._theme.ui
