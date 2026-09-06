@@ -23,6 +23,7 @@ class EarthInputCameraController(EarthCameraControllerIf):
     _TILT_VIEWPORT_FRACTION = 0.05
     _ROTATE_VIEWPORT_FRACTION_PER_45_DEG = 0.12
     _CHASE_ZOOM_STEPS = 12
+    _CHASE_ZOOM_FOCUS_Y = 0.36
 
     def __init__(self, client: ChromiumDevToolsClient | None = None) -> None:
         self._client = client or ChromiumDevToolsClient(port=9223)
@@ -55,8 +56,16 @@ class EarthInputCameraController(EarthCameraControllerIf):
         return ok
 
     def zoom_closest(self) -> bool:
-        """Drive Earth toward its closest useful zoom level."""
-        ok = all(self._wheel(-600.0) for _ in range(self._CHASE_ZOOM_STEPS))
+        """Drive Earth toward its closest useful zoom level.
+
+        In an oblique chase view, focus the wheel above screen center where
+        Earth's tracked vehicle sits. This closes camera range on the vehicle
+        instead of zooming toward empty foreground behind it.
+        """
+        ok = all(
+            self._wheel(-600.0, y_fraction=self._CHASE_ZOOM_FOCUS_Y)
+            for _ in range(self._CHASE_ZOOM_STEPS)
+        )
         if ok:
             self._zoom_bias = 8
         return ok
@@ -145,13 +154,14 @@ class EarthInputCameraController(EarthCameraControllerIf):
         )
         return True
 
-    def _wheel(self, delta_y: float) -> bool:
+    def _wheel(self, delta_y: float, *, y_fraction: float = 0.5) -> bool:
         try:
             self._client.activate(self._require_target_id())
             width, height = self._viewport_size()
+            y_fraction = max(0.05, min(0.95, y_fraction))
             self._client.command_earth(
                 "Input.dispatchMouseEvent",
-                {"type": "mouseWheel", "x": width / 2.0, "y": height / 2.0, "deltaX": 0.0, "deltaY": delta_y},
+                {"type": "mouseWheel", "x": width / 2.0, "y": height * y_fraction, "deltaX": 0.0, "deltaY": delta_y},
             )
             return True
         except (OSError, RuntimeError, TypeError, ValueError):
