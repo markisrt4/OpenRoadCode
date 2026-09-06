@@ -9,6 +9,7 @@ from controllers.spotify.spotify_state import SpotifyState
 
 class MockSpotifyController(SpotifyControllerIf):
     """Deterministic in-memory Spotify controller for demos and development."""
+
     def __init__(self) -> None:
         self._tracks = [
             ("Tom Sawyer", "Rush", "Moving Pictures", 276_000),
@@ -20,6 +21,7 @@ class MockSpotifyController(SpotifyControllerIf):
         self._track_index = 0
         self._is_playing = True
         self._volume_percent = 70
+        self._device_name = "Mock Phone"
         self._track_started_at = time.monotonic()
         self._paused_progress_ms = 0
 
@@ -34,7 +36,7 @@ class MockSpotifyController(SpotifyControllerIf):
             track_name=track_name,
             artist_name=artist_name,
             album_name=album_name,
-            device_name="Mock Phone",
+            device_name=self._device_name,
             volume_percent=self._volume_percent,
             progress_ms=progress_ms,
             duration_ms=duration_ms,
@@ -45,9 +47,7 @@ class MockSpotifyController(SpotifyControllerIf):
         if self._is_playing:
             return
 
-        self._track_started_at = (
-            time.monotonic() - (self._paused_progress_ms / 1000.0)
-        )
+        self._track_started_at = time.monotonic() - (self._paused_progress_ms / 1000.0)
         self._is_playing = True
 
     def pause(self) -> None:
@@ -75,6 +75,23 @@ class MockSpotifyController(SpotifyControllerIf):
     def set_volume_percent(self, volume_percent: int) -> None:
         self._volume_percent = max(0, min(100, volume_percent))
 
+    def seek_to_position_ms(self, position_ms: int) -> None:
+        _, _, _, duration_ms = self._tracks[self._track_index]
+        position_ms = max(0, min(duration_ms, position_ms))
+        self._paused_progress_ms = position_ms
+        if self._is_playing:
+            self._track_started_at = time.monotonic() - (position_ms / 1000.0)
+
+    def transfer_playback(self, device_id: str, *, play: bool = True) -> None:
+        normalized_device_id = device_id.strip()
+        if not normalized_device_id:
+            raise ValueError("device_id cannot be empty")
+        self._device_name = normalized_device_id
+        if play:
+            self.play()
+        else:
+            self.pause()
+
     def _reset_progress(self) -> None:
         self._track_started_at = time.monotonic()
         self._paused_progress_ms = 0
@@ -90,18 +107,3 @@ class MockSpotifyController(SpotifyControllerIf):
             return 0
 
         return elapsed_ms
-
-    def seek_to_position_ms(self, position_ms: int) -> None:
-        _, _, _, duration_ms = self._tracks[self._track_index]
-
-        position_ms = max(
-            0,
-            min(duration_ms, position_ms),
-        )
-
-        self._paused_progress_ms = position_ms
-
-        if self._is_playing:
-            self._track_started_at = (
-                time.monotonic() - (position_ms / 1000.0)
-            )

@@ -38,3 +38,6 @@ class UnconfiguredController(SpotifyControllerIf):
 
     def seek_to_position_ms(self, position_ms: int) -> None:
         pass
+
+    def transfer_playback(self, device_id: str, *, play: bool = True) -> None:
+        pass

@@ -49,3 +49,11 @@ class SpotifyControllerIf(ABC):
 
         @param position_ms Zero-based track position in milliseconds.
         """
+
+    @abstractmethod
+    def transfer_playback(self, device_id: str, *, play: bool = True) -> None:
+        """Transfer Spotify playback to a specific Connect device.
+
+        @param device_id Spotify Connect device identifier.
+        @param play Whether playback should resume after transfer.
+        """
