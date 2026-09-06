@@ -14,6 +14,12 @@ from apps.launchers import BrowserKioskLauncher
 from apps.orcUi.spotify_web_player_host import SpotifyWebPlayerHost
 
 WINDOW_CLASS = "OpenRoadCodeSpotifyPlayer"
+SPOTIFY_BROWSER_CANDIDATES = (
+    "google-chrome-stable",
+    "google-chrome",
+    "chromium",
+    "chromium-browser",
+)
 
 
 def main() -> None:
@@ -22,6 +28,7 @@ def main() -> None:
     browser = BrowserKioskLauncher(
         url=host.url,
         process_pattern="OpenRoadCodeSpotifyPlayer",
+        browser_candidates=SPOTIFY_BROWSER_CANDIDATES,
         kiosk=False,
         app_mode=True,
         profile_path=Path.home() / ".cache" / "openroadcode" / "spotify-player-browser",
@@ -35,10 +42,13 @@ def main() -> None:
 
     def stop(_signum: int | None = None, _frame: object | None = None) -> None:
         nonlocal stopping
-        if stopping: return
+        if stopping:
+            return
         stopping = True
-        try: browser.stop(display)
-        finally: host.close()
+        try:
+            browser.stop(display)
+        finally:
+            host.close()
 
     signal.signal(signal.SIGINT, stop)
     signal.signal(signal.SIGTERM, stop)
@@ -51,7 +61,8 @@ def main() -> None:
             if host.device_id:
                 print(f"[Spotify Player] SUCCESS: OpenRoadCode device {host.device_id}")
                 print("[Spotify Player] Check Spotify Connect on your phone for 'OpenRoadCode'.")
-                while not stopping: time.sleep(1.0)
+                while not stopping:
+                    time.sleep(1.0)
                 break
             if host.error:
                 print(f"[Spotify Player] SDK error: {host.error}")
