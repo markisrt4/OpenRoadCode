@@ -60,7 +60,11 @@ def main() -> None:
     )
     app.register_screen(
         "GAMES",
-        GamesScreen(app, theme_mode=lambda: app.theme_mode),
+        GamesScreen(
+            app,
+            theme_bundle=lambda: theme_bundle(app.theme_mode),
+            theme_mode=lambda: app.theme_mode,
+        ),
     )
 
     # Keep heavyweight optional applications out of the critical UI startup
