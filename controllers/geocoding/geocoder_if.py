@@ -1,21 +1,8 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 
-"""Geocoding contracts."""
-from __future__ import annotations
+"""Compatibility exports for the canonical navigation geocoding contract."""
 
-from dataclasses import dataclass
-from typing import Protocol
+from controllers.navigation.geocoding import GeocodedLocation, GeocoderIf
 
-
-@dataclass(frozen=True, slots=True)
-class GeocodedLocation:
-    formatted_address: str
-    latitude_deg: float
-    longitude_deg: float
-
-
-class GeocoderIf(Protocol):
-    def geocode(self, address: str) -> GeocodedLocation | None:
-        """Resolve a human-readable address using an offline search source."""
-        ...
+__all__ = ["GeocodedLocation", "GeocoderIf"]
