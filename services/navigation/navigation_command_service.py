@@ -19,9 +19,13 @@ RESET_HEADING_COMMAND = "navigation.reset_heading"
 CALCULATE_ROUTE_COMMAND = "navigation.route.calculate"
 START_ROUTE_COMMAND = "navigation.route.start"
 CANCEL_ROUTE_COMMAND = "navigation.route.cancel"
+SIMULATE_ROUTE_COMMAND = "navigation.route.simulate"
+STOP_ROUTE_SIMULATION_COMMAND = "navigation.route.simulation.stop"
 
 RouteStartedCallback = Callable[[RouteRequest, RouteResult], None]
 RouteCancelledCallback = Callable[[], None]
+RouteSimulationStartedCallback = Callable[[float], None]
+RouteSimulationStoppedCallback = Callable[[], None]
 
 
 @dataclass(frozen=True, slots=True)
@@ -44,12 +48,16 @@ class NavigationCommandService:
         geocoder: GeocoderIf | None = None,
         on_route_started: RouteStartedCallback | None = None,
         on_route_cancelled: RouteCancelledCallback | None = None,
+        on_route_simulation_started: RouteSimulationStartedCallback | None = None,
+        on_route_simulation_stopped: RouteSimulationStoppedCallback | None = None,
     ) -> None:
         self._controller = controller
         self._route_planning_controller = route_planning_controller
         self._geocoder = geocoder
         self._on_route_started = on_route_started
         self._on_route_cancelled = on_route_cancelled
+        self._on_route_simulation_started = on_route_simulation_started
+        self._on_route_simulation_stopped = on_route_simulation_stopped
 
     def execute(self, command: str, arguments: Mapping[str, Any] | None = None) -> NavigationCommandResult:
         args = dict(arguments or {})
@@ -72,6 +80,22 @@ class NavigationCommandService:
             if self._on_route_cancelled is not None:
                 self._on_route_cancelled()
             return NavigationCommandResult(True, "Active route cancelled")
+
+        if command == SIMULATE_ROUTE_COMMAND:
+            if self._on_route_simulation_started is None:
+                return NavigationCommandResult(False, "Route simulation is not configured")
+            try:
+                time_scale = float(args.get("time_scale", 60.0))
+                self._on_route_simulation_started(time_scale)
+            except (TypeError, ValueError, RuntimeError) as error:
+                return NavigationCommandResult(False, str(error))
+            return NavigationCommandResult(True, f"Route simulation started at {time_scale:g}x")
+
+        if command == STOP_ROUTE_SIMULATION_COMMAND:
+            if self._on_route_simulation_stopped is None:
+                return NavigationCommandResult(False, "Route simulation is not configured")
+            self._on_route_simulation_stopped()
+            return NavigationCommandResult(True, "Route simulation stopped")
 
         return NavigationCommandResult(False, f"Unknown navigation command: {command}")
 
