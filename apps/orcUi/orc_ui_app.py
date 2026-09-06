@@ -41,13 +41,11 @@ class OrcUiApp:
         self._theme_mode = ThemeMode.DARK
         self._theme = theme_bundle(self._theme_mode)
         ui = self._theme.ui
-
         self._root = tk.Tk()
         self._root.title("OpenRoadCode")
         self._root.geometry("1024x600")
         self._root.minsize(1024, 600)
         self._root.configure(bg=ui.background)
-
         self._theme_button: tk.Button
         self._power_button: tk.Button
         self._power_dialog: tk.Toplevel | None = None
@@ -58,6 +56,7 @@ class OrcUiApp:
         self._active_screen: ScreenUiIf | None = None
         self._screen_back_action: Callable[[], None] | None = None
         self._screen_status = ""
+        self._home_media_factory: Callable[[tk.Misc], tk.Widget] | None = None
         self._nav_frame: tk.Frame
         self._clock_label: tk.Label
         self._clock_after_id: str | None = None
@@ -76,12 +75,10 @@ class OrcUiApp:
         self._volume = 20
         self._volume_label: tk.Label
         self._closing = False
-
         self._dispatcher = MessageDispatcher(ZeroMqSubscriber(LOCAL_SUBSCRIBER_ENDPOINT), error_handler=self._on_bus_error)
         self._dispatcher.register(VEHICLE_STATE_TOPIC, decode_vehicle_state, self._on_vehicle_message)
         self._dispatcher.register(POSITION_STATE_TOPIC, decode_position_state, self._on_position_message)
         self._dispatcher.register(ATTITUDE_STATE_TOPIC, decode_attitude_state, self._on_attitude_message)
-
         install_map_style(self._theme_mode)
         self._build_shell()
         self._show_home()
@@ -94,6 +91,12 @@ class OrcUiApp:
     @property
     def screen_parent(self) -> tk.Misc:
         return self._content
+
+    def set_home_media_factory(self, factory: Callable[[tk.Misc], tk.Widget] | None) -> None:
+        """Install a media-owned Home summary without coupling the shell to Spotify."""
+        self._home_media_factory = factory
+        if self._active_nav == "HOME":
+            self._show_home()
 
     def register_screen(self, label: str, screen: ScreenUiIf, *, before: str | None = "CONTROLS") -> None:
         nav_label = label.strip().upper()
@@ -257,7 +260,6 @@ class OrcUiApp:
         tk.Label(footer, text="orcUi prototype", fg=ui.text_muted, bg=ui.surface_alt, font=("Sans", 8)).grid(row=0, column=2, padx=10)
 
     def _rebuild_shell_theme(self) -> None:
-        """Repaint shell chrome from the authoritative CSS theme bundle."""
         for child in self._root.winfo_children():
             if child is self._content:
                 continue
@@ -427,7 +429,7 @@ class OrcUiApp:
         self._context_rail.grid(row=0, column=1, rowspan=2, sticky="nsew", padx=(5, 0))
         lower = tk.Frame(self._content, bg=ui.background)
         lower.grid(row=1, column=0, sticky="nsew", padx=(0, 5), pady=(5, 0))
-        lower.grid_columnconfigure(0, weight=1)
+        lower.grid_columnconfigure(0, weight=4)
         lower.grid_columnconfigure(1, weight=1)
         lower.grid_rowconfigure(0, weight=1)
         radio = self._panel(lower, "RADIO", ui.accent_warning)
@@ -435,7 +437,10 @@ class OrcUiApp:
         self._summary(radio, "101.1 FM", "Radio service")
         media = self._panel(lower, "MEDIA", ui.accent_primary)
         media.grid(row=0, column=1, sticky="nsew", padx=(5, 0))
-        self._summary(media, "No media", "Playback service")
+        if self._home_media_factory is None:
+            self._summary(media, "No media", "Playback service")
+        else:
+            self._home_media_factory(media).pack(fill=tk.BOTH, expand=True)
         self._root.update_idletasks()
         self._start_map_renderer(self._home_map_panel.map_host_window_id)
 
