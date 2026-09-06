@@ -14,60 +14,50 @@ from controllers.poi.poi_search_source_if import PoiSearchQuery, PoiSearchSource
 from ui.navigation import GeoPoint
 
 
-_CATEGORY_SQL: dict[PoiCategory, tuple[str, ...]] = {
-    PoiCategory.FOOD: ("restaurant", "fast_food", "cafe", "food"),
-    PoiCategory.FUEL: ("fuel", "gas_station"),
-    PoiCategory.GROCERY: ("grocery", "supermarket", "convenience"),
-    PoiCategory.TRANSIT: (
-        "bus",
-        "bus_stop",
-        "station",
-        "railway_station",
-        "tram_stop",
-        "subway",
-        "subway_entrance",
-    ),
+_CATEGORY_NAME: dict[PoiCategory, str] = {
+    PoiCategory.FOOD: "FOOD",
+    PoiCategory.FUEL: "FUEL",
+    PoiCategory.GROCERY: "GROCERY",
+    PoiCategory.TRANSIT: "TRANSIT",
 }
 
 
 class SqlitePoiSearchSource(PoiSearchSourceIf):
-    """Search an OpenRoadCode POI sidecar database by geographic bounds."""
+    """Search the unified OpenRoadCode offline search database."""
 
     def __init__(self, database_path: str | Path) -> None:
         self._path = Path(database_path).expanduser()
-        self._connection = sqlite3.connect(self._path)
+        self._connection = sqlite3.connect(
+            f"file:{self._path}?mode=ro",
+            uri=True,
+        )
         self._connection.row_factory = sqlite3.Row
 
     def search(self, query: PoiSearchQuery) -> tuple[PointOfInterest, ...]:
-        values = _CATEGORY_SQL.get(query.category)
-        if not values:
+        category = _CATEGORY_NAME.get(query.category)
+        if category is None:
             return ()
 
-        placeholders = ",".join("?" for _ in values)
-        category_clause = (
-            f"(lower(coalesce(class, '')) IN ({placeholders}) "
-            f"OR lower(coalesce(subclass, '')) IN ({placeholders}))"
-        )
         bounds = query.bounds
-        sql = f"""
+        rows = self._connection.execute(
+            """
             SELECT id, name, brand, latitude, longitude, class, subclass
               FROM poi
-             WHERE latitude BETWEEN ? AND ?
+             WHERE category = ?
+               AND latitude BETWEEN ? AND ?
                AND longitude BETWEEN ? AND ?
-               AND {category_clause}
              ORDER BY name COLLATE NOCASE, id
              LIMIT ?
-        """
-        parameters = (
-            bounds.south,
-            bounds.north,
-            bounds.west,
-            bounds.east,
-            *values,
-            *values,
-            query.limit,
-        )
-        rows = self._connection.execute(sql, parameters).fetchall()
+            """,
+            (
+                category,
+                bounds.south,
+                bounds.north,
+                bounds.west,
+                bounds.east,
+                query.limit,
+            ),
+        ).fetchall()
         return tuple(self._to_poi(row, query.category) for row in rows)
 
     def close(self) -> None:
