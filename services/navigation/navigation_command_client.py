@@ -14,8 +14,12 @@ from controllers.route_planning.route_planning_types import (
     RouteManeuver,
     RouteRequest,
     RouteResult,
+    TravelMode,
 )
-from services.navigation.navigation_command_service import CALCULATE_ROUTE_COMMAND
+from services.navigation.navigation_command_service import (
+    CALCULATE_ROUTE_COMMAND,
+    START_ROUTE_COMMAND,
+)
 from services.navigation.zeromq_navigation_command_server import (
     DEFAULT_NAVIGATION_COMMAND_ENDPOINT,
 )
@@ -51,10 +55,46 @@ class NavigationCommandClient:
                 "travel_mode": request.travel_mode.name,
             },
         )
+        return self._route_from_response(response)
+
+    def calculate_route_to(
+        self,
+        destination: str,
+        *,
+        travel_mode: TravelMode = TravelMode.AUTO,
+    ) -> RouteResult:
+        """Calculate a route from the current position to a text destination."""
+        response = self._request(
+            CALCULATE_ROUTE_COMMAND,
+            {
+                "destination": destination,
+                "travel_mode": travel_mode.name,
+            },
+        )
+        return self._route_from_response(response)
+
+    def start_route_to(
+        self,
+        destination: str,
+        *,
+        travel_mode: TravelMode = TravelMode.AUTO,
+    ) -> RouteResult:
+        """Resolve a text destination and start guidance from the current position."""
+        response = self._request(
+            START_ROUTE_COMMAND,
+            {
+                "destination": destination,
+                "travel_mode": travel_mode.name,
+            },
+        )
+        return self._route_from_response(response)
+
+    @classmethod
+    def _route_from_response(cls, response: dict[str, Any]) -> RouteResult:
         data = response.get("data")
         if not isinstance(data, dict):
             raise NavigationCommandError("Route response did not contain route data")
-        return self._decode_route(data)
+        return cls._decode_route(data)
 
     def _request(self, command: str, arguments: dict[str, Any]) -> dict[str, Any]:
         context = zmq.Context()
