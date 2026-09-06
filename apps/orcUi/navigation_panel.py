@@ -45,8 +45,14 @@ class NavigationPanel(tk.Frame):
   self._shortcut_status=tk.StringVar(value=self._focus_status());self._earth_button=tk.Button(bar,text="◉  EARTH",command=self._toggle_earth,bg=BLUE,fg="white",relief=tk.FLAT,font=("Sans",9,"bold"),width=11);self._earth_button.pack(side=tk.RIGHT,padx=(7,2),pady=2);tk.Label(bar,textvariable=self._shortcut_status,bg=BG,fg=MUTED,font=("Sans",7)).pack(side=tk.RIGHT,padx=5);short.pack(side=tk.LEFT,padx=2,pady=3)
   self._body=tk.Frame(self,bg=BG);self._body.grid(row=1,column=0,sticky="nsew");self._body.grid_rowconfigure(0,weight=1);self._body.grid_columnconfigure(0,weight=1)
   self._map_host=tk.Frame(self._body,bg="#020406",highlightthickness=1,highlightbackground=BORDER);self._map_host.grid(row=0,column=0,sticky="nsew");self._map_host.bind("<Configure>",self._on_map_host_resize)
-  self._controls=tk.Frame(self._body,bg=PANEL,width=62);self._controls.grid(row=0,column=1,rowspan=3,sticky="ns",padx=(4,0));self._controls.grid_propagate(False);self._follow_button=self._control(self._controls,"F",self._toggle_follow,GREEN);self._follow_button.pack(fill=tk.X,padx=5,pady=7);self.set_follow_enabled(self._follow_enabled)
-  for text,cmd in (("+",lambda:self._change_zoom(1)),("−",lambda:self._change_zoom(-1)),("N",self._north_up),("◎",self._recenter)):self._control(self._controls,text,cmd,TEXT).pack(fill=tk.X,padx=5,pady=3)
+  self._controls=tk.Frame(self._body,bg=PANEL,width=62);self._controls.grid(row=0,column=1,rowspan=3,sticky="ns",padx=(4,0));self._controls.grid_propagate(False)
+  self._follow_button=self._control(self._controls,"F",self._toggle_follow,GREEN);self._follow_button.pack(fill=tk.X,padx=5,pady=(7,5));self.set_follow_enabled(self._follow_enabled)
+  pan=tk.Frame(self._controls,bg=PANEL);pan.pack(pady=2)
+  for row,col,text,up,right in ((0,1,"▲",1,0),(1,0,"◀",0,-1),(1,2,"▶",0,1),(2,1,"▼",-1,0)):
+   tk.Button(pan,text=text,command=lambda u=up,r=right:self._pan(u,r),bg="#101820",fg=TEXT,activebackground=BLUE,activeforeground=TEXT,relief=tk.FLAT,highlightthickness=1,highlightbackground=BORDER,font=("Sans",9,"bold"),width=1,height=1,padx=2,pady=1).grid(row=row,column=col,padx=1,pady=1)
+  for text,cmd,accent in (("+",lambda:self._change_zoom(1),BLUE),("−",lambda:self._change_zoom(-1),BLUE),("↗",lambda:self._change_pitch(5),PURPLE),("↘",lambda:self._change_pitch(-5),PURPLE),("N",self._north_up,TEXT),("◎",self._recenter,GREEN)):
+   self._control(self._controls,text,cmd,accent).pack(fill=tk.X,padx=5,pady=2)
+  tk.Label(self._controls,text="ZOOM\nTILT\nNORTH\nCENTER",bg=PANEL,fg=MUTED,font=("Sans",6),justify=tk.CENTER).pack(side=tk.BOTTOM,pady=5)
   self._earth_guidance=tk.Frame(self._body,bg=PANEL,highlightthickness=1,highlightbackground=BORDER);self._earth_instruction_var=tk.StringVar(value="No active route");self._earth_maneuver_distance_var=tk.StringVar(value="");self._earth_route_remaining_var=tk.StringVar(value="")
   tk.Label(self._earth_guidance,text="➜",bg=PANEL,fg=GREEN,font=("Sans",18,"bold"),padx=10).pack(side=tk.LEFT);tk.Label(self._earth_guidance,textvariable=self._earth_instruction_var,bg=PANEL,fg=TEXT,font=("Sans",11,"bold"),anchor="w").pack(side=tk.LEFT,fill=tk.X,expand=True,pady=5);tk.Label(self._earth_guidance,textvariable=self._earth_maneuver_distance_var,bg=PANEL,fg=GREEN,font=("Sans",10,"bold"),padx=10).pack(side=tk.RIGHT);tk.Label(self._earth_guidance,textvariable=self._earth_route_remaining_var,bg=PANEL,fg=MUTED,font=("Sans",8),padx=8).pack(side=tk.RIGHT)
   self._earth_hud=tk.Frame(self._body,bg=PANEL,highlightthickness=1,highlightbackground=BORDER);self._earth_speed_var=tk.StringVar(value="-- mph");self._earth_track_var=tk.StringVar(value="---°");self._earth_position_var=tk.StringVar(value="GPS --")
@@ -161,14 +167,23 @@ class NavigationPanel(tk.Frame):
    else:self._shortcut_status.set("Earth follow off")
    self._update_follow_button();return
   self.set_follow_enabled(not self._follow_enabled);self._request_handler.request_follow(self._follow_enabled)
+ def _pan(self,up:float,right:float):
+  if self._earth_visible:
+   self._earth_follow_enabled=False;self._update_follow_button()
+   ok=self._earth_input.pan(up=up,right=right);self._shortcut_status.set("Earth pan" if ok else "Earth pan unavailable");return
+  self.set_follow_enabled(False);self._map_host.update_idletasks();self._request_handler.request_pan_screen(right_px=right*max(48,self._map_host.winfo_width()*.25),up_px=up*max(48,self._map_host.winfo_height()*.25))
  def _change_zoom(self,d):
   if self._earth_visible:
-   ok=self._earth_input.zoom_in() if d>0 else self._earth_input.zoom_out();self._shortcut_status.set("Earth zoom" if ok else "Earth zoom unavailable");return
-  self._zoom_level+=d;self._request_handler.request_zoom(self._zoom_level)
+   self._earth_follow_enabled=False;self._update_follow_button();ok=self._earth_input.zoom_in() if d>0 else self._earth_input.zoom_out();self._shortcut_status.set("Earth zoom" if ok else "Earth zoom unavailable");return
+  self._zoom_level=max(1,min(22,self._zoom_level+d));self.set_follow_enabled(False);self._request_handler.request_zoom(self._zoom_level)
+ def _change_pitch(self,delta_deg:float):
+  if self._earth_visible:
+   self._earth_follow_enabled=False;self._update_follow_button();ok=self._earth_input.tilt(delta_deg);self._shortcut_status.set("Earth tilt" if ok else "Earth tilt unavailable");return
+  pitch_deg=max(0,min(60,math.degrees(self._pitch_rad)+delta_deg));self._pitch_rad=math.radians(pitch_deg);self.set_follow_enabled(False);self._request_handler.request_pitch(self._pitch_rad)
  def _north_up(self):
   if self._earth_visible:
-   self._shortcut_status.set("Earth north up" if self._earth_input.north_up() else "Earth north-up unavailable");return
-  self._request_handler.request_bearing(0.0)
+   self._earth_follow_enabled=False;self._update_follow_button();self._shortcut_status.set("Earth north up" if self._earth_input.north_up() else "Earth north-up unavailable");return
+  self.set_follow_enabled(False);self._request_handler.request_bearing(0.0)
  def _recenter(self):
   if self._earth_visible:
    self._earth_follow_enabled=True;self._earth_tracking_primed=False;self._earth_last_sent_position=None;self._update_follow_button()
