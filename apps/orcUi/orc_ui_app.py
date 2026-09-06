@@ -15,7 +15,6 @@ from collections.abc import Callable
 from datetime import datetime
 
 from apps.launchers.map_renderer_launcher import MapRendererLauncher
-from apps.launchers.sdrpp_launcher import sync_sdrpp_theme
 from apps.orcUi.context_rail import ContextRail
 from apps.orcUi.home_map_panel import HomeMapPanel
 from apps.orcUi.navigation_panel import NavigationPanel
@@ -61,6 +60,7 @@ class OrcUiApp:
         self._screen_status = ""
         self._nav_frame: tk.Frame
         self._clock_label: tk.Label
+        self._clock_after_id: str | None = None
         self._content: tk.Frame
         self._context_rail: ContextRail | None = None
         self._home_map_panel: HomeMapPanel | None = None
@@ -269,7 +269,7 @@ class OrcUiApp:
         self._build_side_nav()
         self._build_bottom_bar()
         self._build_footer()
-        self._update_clock()
+        self._paint_clock()
 
     def _change_volume(self, delta: int) -> None:
         self._volume = max(0, min(100, self._volume + delta))
@@ -337,7 +337,6 @@ class OrcUiApp:
         self._theme_mode = toggle(self._theme_mode)
         self._theme = theme_bundle(self._theme_mode)
         install_map_style(self._theme_mode)
-        sync_sdrpp_theme("Light" if self._theme_mode is ThemeMode.LIGHT else "Dark")
         self._close_power_dialog()
         self._rebuild_shell_theme()
         self._apply_theme_to_content()
@@ -357,6 +356,8 @@ class OrcUiApp:
             self._navigation_panel.set_theme_bundle(bundle)
         if self._vehicle_panel is not None and self._vehicle_panel.winfo_exists():
             self._vehicle_panel.set_theme_bundle(bundle)
+        if self._offroad_panel is not None and self._offroad_panel.winfo_exists():
+            self._offroad_panel.set_theme(bundle.ui)
 
     def _reload_active_map(self) -> None:
         if self._home_map_panel is not None and self._home_map_panel.winfo_exists():
@@ -457,7 +458,7 @@ class OrcUiApp:
         self._clear_content()
         self._active_nav = "RADIO"
         self._paint_nav()
-        self._radio_panel = RadioPanel(self._content, embedder=self._radio_embedder)
+        self._radio_panel = RadioPanel(self._content, embedder=self._radio_embedder, theme=self._theme)
         self._radio_panel.pack(fill=tk.BOTH, expand=True)
         self._root.update_idletasks()
         self._root.after(100, self._attach_existing_sdrpp)
@@ -551,9 +552,15 @@ class OrcUiApp:
         tk.Label(parent, text=primary, fg=ui.text, bg=ui.surface, font=("Sans", 14, "bold")).pack(anchor="w", padx=16, pady=(12, 2))
         tk.Label(parent, text=secondary, fg=ui.text_muted, bg=ui.surface, font=("Sans", 9)).pack(anchor="w", padx=16)
 
-    def _update_clock(self) -> None:
+    def _paint_clock(self) -> None:
         if self._closing:
             return
         text = datetime.now().strftime("%I:%M %p     %a, %b %d").lstrip("0")
         self._clock_label.configure(text=text)
-        self._root.after(1000, self._update_clock)
+
+    def _update_clock(self) -> None:
+        if self._closing:
+            return
+        self._clock_after_id = None
+        self._paint_clock()
+        self._clock_after_id = self._root.after(1000, self._update_clock)
