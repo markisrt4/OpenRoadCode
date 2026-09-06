@@ -17,7 +17,8 @@ class EarthInputCameraController(EarthCameraControllerIf):
         "city": (480.0, 480.0),
         "region": (480.0, 480.0, 480.0, 480.0),
     }
-    _PAN_KEY_REPEATS = 5
+    _PAN_VIEWPORT_FRACTION = 0.24
+    _TILT_VIEWPORT_FRACTION = 0.22
 
     def __init__(self, client: ChromiumDevToolsClient | None = None) -> None:
         self._client = client or ChromiumDevToolsClient(port=9223)
@@ -46,25 +47,33 @@ class EarthInputCameraController(EarthCameraControllerIf):
         return self._key("n", "KeyN", 78)
 
     def pan(self, *, up: float = 0.0, right: float = 0.0) -> bool:
-        """Pan Earth by a useful amount instead of one tiny arrow-key tick."""
-        key = None
-        if abs(up) >= abs(right) and up != 0.0:
-            key = ("ArrowUp", "ArrowUp", 38) if up > 0 else ("ArrowDown", "ArrowDown", 40)
-        elif right != 0.0:
-            key = ("ArrowRight", "ArrowRight", 39) if right > 0 else ("ArrowLeft", "ArrowLeft", 37)
-        if key is None:
+        """Pan by a fixed fraction of the visible viewport.
+
+        Because the gesture is specified in screen space, the ground distance
+        naturally scales with the current Earth zoom level.
+        """
+        if up == 0.0 and right == 0.0:
             return True
-        return all(
-            self._key(*key, printable=False)
-            for _ in range(self._PAN_KEY_REPEATS)
-        )
+        try:
+            width, height = self._viewport_size()
+            dx = -right * width * self._PAN_VIEWPORT_FRACTION
+            dy = up * height * self._PAN_VIEWPORT_FRACTION
+            return self._drag(dx=dx, dy=dy)
+        except (OSError, RuntimeError, TypeError, ValueError):
+            return False
 
     def tilt(self, delta_deg: float) -> bool:
-        """Tilt Earth using Shift+Arrow, matching the 3D-view shortcuts."""
+        """Tilt with Google's documented Shift+left-drag gesture."""
         if delta_deg == 0.0:
             return True
-        key = ("ArrowDown", "ArrowDown", 40) if delta_deg > 0.0 else ("ArrowUp", "ArrowUp", 38)
-        return self._key(*key, printable=False, modifiers=8)
+        try:
+            _, height = self._viewport_size()
+            dy = height * self._TILT_VIEWPORT_FRACTION
+            if delta_deg < 0.0:
+                dy = -dy
+            return self._drag(dx=0.0, dy=dy, modifiers=8)
+        except (OSError, RuntimeError, TypeError, ValueError):
+            return False
 
     def apply_preset(self, name: str) -> bool:
         """Apply a coarse driving-scale view preset relative to the current view."""
@@ -73,15 +82,48 @@ class EarthInputCameraController(EarthCameraControllerIf):
             raise ValueError(f"unsupported Earth view preset: {name}")
         return all(self._wheel(delta) for delta in steps)
 
+    def _viewport_size(self) -> tuple[float, float]:
+        self._client.activate(self._require_target_id())
+        viewport = self._client.evaluate_earth(
+            "({width: Math.max(1, window.innerWidth), height: Math.max(1, window.innerHeight)})"
+        )
+        value = viewport.get("result", {}).get("result", {}).get("value", {})
+        return float(value.get("width", 800)), float(value.get("height", 500))
+
+    def _drag(self, *, dx: float, dy: float, modifiers: int = 0) -> bool:
+        self._client.activate(self._require_target_id())
+        width, height = self._viewport_size()
+        start_x = width / 2.0
+        start_y = height / 2.0
+        end_x = max(1.0, min(width - 1.0, start_x + dx))
+        end_y = max(1.0, min(height - 1.0, start_y + dy))
+        common = {"button": "left", "buttons": 1, "modifiers": modifiers}
+        self._client.command_earth(
+            "Input.dispatchMouseEvent",
+            {"type": "mousePressed", "x": start_x, "y": start_y, "clickCount": 1, **common},
+        )
+        self._client.command_earth(
+            "Input.dispatchMouseEvent",
+            {"type": "mouseMoved", "x": end_x, "y": end_y, **common},
+        )
+        self._client.command_earth(
+            "Input.dispatchMouseEvent",
+            {
+                "type": "mouseReleased",
+                "x": end_x,
+                "y": end_y,
+                "button": "left",
+                "buttons": 0,
+                "modifiers": modifiers,
+                "clickCount": 1,
+            },
+        )
+        return True
+
     def _wheel(self, delta_y: float) -> bool:
         try:
             self._client.activate(self._require_target_id())
-            viewport = self._client.evaluate_earth(
-                "({width: Math.max(1, window.innerWidth), height: Math.max(1, window.innerHeight)})"
-            )
-            value = viewport.get("result", {}).get("result", {}).get("value", {})
-            width = float(value.get("width", 800))
-            height = float(value.get("height", 500))
+            width, height = self._viewport_size()
             self._client.command_earth(
                 "Input.dispatchMouseEvent",
                 {
