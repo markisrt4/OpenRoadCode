@@ -44,10 +44,6 @@ class X11WindowEmbedder(WindowEmbedderIf):
                 subprocess.run(["xdotool", "windowunmap", str(window_id)], check=True, capture_output=True, text=True)
                 subprocess.run(["xdotool", "windowreparent", str(window_id), str(host_window_id)], check=True, capture_output=True, text=True)
                 self._window_id = window_id; self._host_window_id = host_window_id
-                # Reparented clients may retain their old root-window coordinates.
-                # Always pin the child to the host origin.  Relying on xwininfo to
-                # prove the parent first allowed Chromium to extend over sibling
-                # Tk controls on some X11 servers, making visible buttons unclickable.
                 subprocess.run(["xdotool", "windowmove", str(window_id), "0", "0"], check=False, capture_output=True)
                 self.resize(width, height)
                 subprocess.run(["xdotool", "windowmap", str(window_id)], check=True, capture_output=True, text=True)
@@ -146,6 +142,18 @@ class X11WindowEmbedder(WindowEmbedderIf):
         subprocess.run(["xdotool", "windowsize", str(self._window_id), str(width), str(height)], check=False)
         if self._host_window_id is not None:
             subprocess.run(["xdotool", "windowmove", str(self._window_id), "0", "0"], check=False)
+
+    def send_key(self, key: str) -> bool:
+        """Send an X11 key chord directly to the embedded client window."""
+        if self._window_id is None or not self.supported():
+            return False
+        result = subprocess.run(
+            ["xdotool", "key", "--window", str(self._window_id), key],
+            check=False,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        return result.returncode == 0
 
     def clear(self) -> None:
         self._window_id = None; self._host_window_id = None
