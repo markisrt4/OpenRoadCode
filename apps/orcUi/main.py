@@ -56,10 +56,6 @@ def _browser_colors(app: OrcUiApp, *, accent: str) -> dict[str, str]:
 def main() -> None:
     application_runtime = create_orc_ui_application_runtime()
     media = application_runtime.media
-
-    # Spotify state is part of the UI's own data model, not an optional
-    # external application. Start it before the Tk loop so Home/Spotify can
-    # discover an already-active Spotify Connect session immediately.
     media.start()
 
     app = OrcUiApp()
@@ -79,6 +75,7 @@ def main() -> None:
             theme_bundle=lambda: theme_bundle(app.theme_mode),
             active=active,
             show_media=lambda: media_screen.show(),
+            show_home=lambda: app._select_nav("HOME"),
             show_spotify=lambda: spotify_screen.show(),
             show_youtube=lambda: youtube_screen.show(),
             show_netflix=lambda: netflix_screen.show(),
@@ -102,16 +99,8 @@ def main() -> None:
     spotify_screen.set_volume_request_handler(media.spotify)
     spotify_screen.set_state_loader(media.spotify.latest_state)
 
-    youtube_player = ManagedBrowserMediaPlayer(
-        application_runtime.manager,
-        "youtube",
-        resolve_target=YouTubePlayer.resolve_target,
-    )
-    netflix_player = ManagedBrowserMediaPlayer(
-        application_runtime.manager,
-        "netflix",
-        resolve_target=NetflixPlayer.validate_url,
-    )
+    youtube_player = ManagedBrowserMediaPlayer(application_runtime.manager, "youtube", resolve_target=YouTubePlayer.resolve_target)
+    netflix_player = ManagedBrowserMediaPlayer(application_runtime.manager, "netflix", resolve_target=NetflixPlayer.validate_url)
 
     youtube_screen = BrowserMediaScreen(
         "youtube",
