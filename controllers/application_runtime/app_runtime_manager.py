@@ -42,11 +42,9 @@ class AppRuntimeManager:
 
     @property
     def remote_display(self) -> str:
-        """Return the legacy fallback display for compatibility."""
         return self._fallback_display
 
     def display_for(self, key: str) -> str:
-        """Resolve the X11 display for a managed application's presentation target."""
         managed = self._managed(key)
         target = self._config.target_for_app(managed.config)
         if target is None:
@@ -70,16 +68,10 @@ class AppRuntimeManager:
         return launcher
 
     def start_background_apps(self, set_status: StatusCallback = None) -> None:
-        """Start PRELOAD and PERSISTENT applications on a background worker."""
         with self._lock:
             if self._preload_thread is not None and self._preload_thread.is_alive():
                 return
-            self._preload_thread = Thread(
-                target=self._start_background_apps,
-                args=(set_status,),
-                name="openroadcode-app-preload",
-                daemon=True,
-            )
+            self._preload_thread = Thread(target=self._start_background_apps, args=(set_status,), name="openroadcode-app-preload", daemon=True)
             self._preload_thread.start()
 
     def launch(self, key: str, set_status: StatusCallback = None) -> None:
@@ -168,11 +160,7 @@ class AppRuntimeManager:
         if group is None:
             return
         with self._lock:
-            peers = tuple(
-                (key, managed)
-                for key, managed in self._apps.items()
-                if managed is not target and managed.config.exclusive_group == group
-            )
+            peers = tuple((key, managed) for key, managed in self._apps.items() if managed is not target and managed.config.exclusive_group == group)
         for key, managed in peers:
             try:
                 if managed.launcher.is_running():
@@ -202,7 +190,9 @@ class AppRuntimeManager:
             launcher = managed.launcher
             display = self.display_for(key)
             if isinstance(launcher, PreloadableAppLauncherIf):
-                launcher.prepare()
+                launcher.prepare(display, set_status)
+                with self._lock:
+                    self._visible.discard(key)
                 return
             if isinstance(launcher, WindowedAppLauncherIf):
                 launcher.launch(display, set_status)
