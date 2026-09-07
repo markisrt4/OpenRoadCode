@@ -5,10 +5,10 @@
 
 import atexit
 import os
+import shutil
 
-from apps.webUi.browser_music_analysis_session import WebBrowserMusicAnalysisSession
-from apps.webUi.linux_audio_analysis_session import WebLinuxAudioAnalysisSession
 from apps.webUi.menu_catalog import create_web_ui_menu_pages
+from apps.webUi.music_analysis_source_session import WebMusicAnalysisSourceSession
 from apps.webUi.music_reactive_lighting_session import WebMusicReactiveLightingSession
 from apps.webUi.navigation_session import WebNavigationSession
 from apps.webUi.periodic_position_publisher import PeriodicPositionPublisher
@@ -16,7 +16,9 @@ from apps.webUi.song_recognition_session import WebSongRecognitionSession
 from apps.webUi.spotify_session import WebSpotifySession
 from apps.webUi.web_navigation_ui_state import WebNavigationUiState
 from apps.webUi.web_vehicle_ui_state import WebVehicleUiState
+from controllers.audio.capture import PipewireAudioCapture
 from controllers.audio.music_analysis import MusicAnalysisFanout
+from controllers.audio.music_analysis.music_analysis_session import MusicAnalysisSession, PushAudioCapture
 from controllers.lighting import DummyLightingController, MusicReactiveLighting
 from frontends.web import create_web_frontend
 from messaging.contracts.automotive import VEHICLE_STATE_TOPIC, decode_vehicle_state
@@ -70,26 +72,26 @@ def _create_bus_consumer() -> tuple[WebNavigationUiState, WebVehicleUiState, Mes
     return navigation_state, vehicle_state, dispatcher
 
 
-def _create_music_analysis() -> tuple[
-    WebBrowserMusicAnalysisSession,
-    WebLinuxAudioAnalysisSession,
-    WebMusicReactiveLightingSession,
-]:
-    """Compose browser/Linux analysis with optional software-driven lighting."""
+def _create_music_analysis() -> tuple[MusicAnalysisSession, WebMusicReactiveLightingSession]:
+    """Compose one analyzer with platform-provided capture factories.
+
+    Browser capture is always available through an external PCM transport.
+    PipeWire is advertised only when its recording executable is installed.
+    No backend is started or selected during application construction.
+    """
+    sources = {"browser": PushAudioCapture}
+    if shutil.which("pw-record") is not None:
+        sources["linux-pipewire"] = PipewireAudioCapture
+
     if os.environ.get("OPENROADCODE_WEB_DUMMY_LIGHTING", "0") != "1":
-        return (
-            WebBrowserMusicAnalysisSession(),
-            WebLinuxAudioAnalysisSession(),
-            WebMusicReactiveLightingSession(),
-        )
+        return MusicAnalysisSession(sources), WebMusicReactiveLightingSession()
 
     controller = DummyLightingController()
     controller.connect().result()
     reactive_lighting = MusicReactiveLighting(controller)
     fanout = MusicAnalysisFanout((reactive_lighting.update,))
     return (
-        WebBrowserMusicAnalysisSession(consumer=fanout),
-        WebLinuxAudioAnalysisSession(consumer=fanout),
+        MusicAnalysisSession(sources, consumer=fanout),
         WebMusicReactiveLightingSession(reactive_lighting),
     )
 
@@ -98,7 +100,11 @@ navigation_session, position_zmq_publisher, periodic_position_publisher = _creat
 navigation_ui_state, vehicle_ui_state, bus_dispatcher = _create_bus_consumer()
 spotify_session = WebSpotifySession()
 song_recognition_session = WebSongRecognitionSession()
-music_analysis_session, linux_music_analysis_session, music_reactive_lighting_session = _create_music_analysis()
+audio_session, music_reactive_lighting_session = _create_music_analysis()
+# Temporary HTTP adapters preserve the original endpoints without duplicating
+# capture pipelines, analyzers, or calibration state.
+music_analysis_session = WebMusicAnalysisSourceSession(audio_session, "browser")
+linux_music_analysis_session = WebMusicAnalysisSourceSession(audio_session, "linux-pipewire")
 app = create_web_frontend(
     create_web_ui_menu_pages(),
     navigation_session=navigation_session,
@@ -107,13 +113,14 @@ app = create_web_frontend(
     spotify_session=spotify_session,
     music_analysis_session=music_analysis_session,
     linux_music_analysis_session=linux_music_analysis_session,
+    audio_session=audio_session,
     music_reactive_lighting_session=music_reactive_lighting_session,
     song_recognition_session=song_recognition_session,
 )
 
 
 def _close_messaging() -> None:
-    linux_music_analysis_session.stop()
+    audio_session.stop()
     bus_dispatcher.close()
     if periodic_position_publisher is not None:
         periodic_position_publisher.close()
