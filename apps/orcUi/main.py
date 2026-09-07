@@ -21,6 +21,7 @@ from apps.orcUi.theme_runtime import theme_bundle
 from config.runtime_target import RuntimeTarget, detect_runtime_target
 from controllers.image import ImageCache
 from controllers.lyrics import LrclibLyricsClient
+from controllers.radio.streaming_radio_controller import StreamingRadioController
 from controllers.video import MusicVideoController, NetflixPlayer, YouTubeMusicVideo, YouTubePlayer
 from frontends.tk.games import GamesScreen
 from frontends.tk.media import BrowserMediaScreen, MediaNavigationBar, MediaScreen, SpotifyScreen
@@ -41,12 +42,14 @@ def _create_radio_panel(
     embedder: X11WindowEmbedder,
     theme: ThemeBundle,
     radio_application: RadioApplicationServiceIf,
+    streaming_radio: StreamingRadioController,
 ) -> RadioEntryPanel:
     return RadioEntryPanel(
         parent,
         embedder=embedder,
         theme=theme,
         radio_application=radio_application,
+        streaming_radio=streaming_radio,
     )
 
 
@@ -93,6 +96,7 @@ def main() -> None:
                 embedder,
                 theme,
                 application_runtime.radio,
+                application_runtime.streaming_radio,
             ),
             sync_theme=_sync_radio_theme,
         ),
