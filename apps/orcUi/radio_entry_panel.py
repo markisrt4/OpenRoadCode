@@ -141,18 +141,18 @@ class RadioEntryPanel(tk.Frame):
         accent_bar.grid_propagate(False)
 
         heading = tk.Frame(card, bg=ui.surface)
-        heading.grid(row=1, column=0, sticky="ew", padx=24, pady=(22, 10))
+        heading.grid(row=1, column=0, sticky="ew", padx=18, pady=(20, 10))
         heading.grid_columnconfigure(1, weight=1)
 
         icon = tk.Canvas(
             heading,
-            width=82,
-            height=82,
+            width=72,
+            height=72,
             bg=ui.surface,
             highlightthickness=0,
             bd=0,
         )
-        icon.grid(row=0, column=0, rowspan=2, sticky="w", padx=(0, 18))
+        icon.grid(row=0, column=0, rowspan=2, sticky="w", padx=(0, 14))
         self._draw_source_icon(icon, icon_kind=icon_kind, accent=accent)
 
         tk.Label(
@@ -162,13 +162,13 @@ class RadioEntryPanel(tk.Frame):
             fg=accent,
             font=("Sans", 9, "bold"),
             anchor="w",
-        ).grid(row=0, column=1, sticky="sw", pady=(8, 2))
+        ).grid(row=0, column=1, sticky="sw", pady=(6, 2))
         tk.Label(
             heading,
             text=title,
             bg=ui.surface,
             fg=ui.text,
-            font=("Sans", 24, "bold"),
+            font=("Sans", 20, "bold"),
             anchor="w",
         ).grid(row=1, column=1, sticky="nw")
 
@@ -229,18 +229,18 @@ class RadioEntryPanel(tk.Frame):
 
     def _draw_source_icon(self, canvas: tk.Canvas, *, icon_kind: str, accent: str) -> None:
         ui = self._theme.ui
-        canvas.create_oval(5, 5, 77, 77, outline=accent, width=2)
+        canvas.create_oval(5, 5, 67, 67, outline=accent, width=2)
         if icon_kind == "rf":
-            canvas.create_line(41, 58, 41, 35, fill=ui.text, width=3)
-            canvas.create_oval(37, 29, 45, 37, fill=accent, outline=accent)
-            canvas.create_arc(25, 18, 57, 50, start=310, extent=100, style=tk.ARC, outline=accent, width=2)
-            canvas.create_arc(16, 9, 66, 59, start=310, extent=100, style=tk.ARC, outline=ui.text_muted, width=2)
-            canvas.create_line(30, 62, 52, 62, fill=ui.text_muted, width=2)
+            canvas.create_line(36, 51, 36, 31, fill=ui.text, width=3)
+            canvas.create_oval(32, 26, 40, 34, fill=accent, outline=accent)
+            canvas.create_arc(22, 16, 50, 44, start=310, extent=100, style=tk.ARC, outline=accent, width=2)
+            canvas.create_arc(14, 8, 58, 52, start=310, extent=100, style=tk.ARC, outline=ui.text_muted, width=2)
+            canvas.create_line(27, 55, 45, 55, fill=ui.text_muted, width=2)
             return
-        canvas.create_oval(35, 35, 47, 47, fill=accent, outline=accent)
-        canvas.create_arc(25, 25, 57, 57, start=315, extent=90, style=tk.ARC, outline=accent, width=2)
-        canvas.create_arc(16, 16, 66, 66, start=315, extent=90, style=tk.ARC, outline=ui.text_muted, width=2)
-        canvas.create_arc(8, 8, 74, 74, start=315, extent=90, style=tk.ARC, outline=accent, width=2)
+        canvas.create_oval(31, 31, 41, 41, fill=accent, outline=accent)
+        canvas.create_arc(22, 22, 50, 50, start=315, extent=90, style=tk.ARC, outline=accent, width=2)
+        canvas.create_arc(14, 14, 58, 58, start=315, extent=90, style=tk.ARC, outline=ui.text_muted, width=2)
+        canvas.create_arc(7, 7, 65, 65, start=315, extent=90, style=tk.ARC, outline=accent, width=2)
 
     @staticmethod
     def _walk_widgets(root: tk.Misc) -> tuple[tk.Misc, ...]:
