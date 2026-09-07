@@ -13,15 +13,13 @@ from pathlib import Path
 
 from PIL import ImageTk
 
-from apps.orcUi.orc_theme import DARK
 from apps.orcUi.spotify_state_service import SpotifyStateService
+from apps.orcUi.theme_runtime import theme_bundle
 from controllers.image import ImageCache
 from ui.media import PlaybackState
+from ui.theme import ThemeMode
 
-PANEL = DARK["panel"]
-TEXT = DARK["text"]
-MUTED = DARK["muted"]
-GREEN = "#84ce1f"
+GREEN = "#1DB954"
 ART_SIZE = 64
 
 
@@ -35,7 +33,8 @@ class SpotifyNowPlaying(tk.Frame):
         service: SpotifyStateService,
         on_open: Callable[[], None],
     ) -> None:
-        super().__init__(parent, bg=PANEL, cursor="hand2")
+        ui = theme_bundle(ThemeMode.DARK).ui
+        super().__init__(parent, bg=ui.surface, cursor="hand2")
         self._service = service
         self._on_open = on_open
         self._closed = False
@@ -48,18 +47,18 @@ class SpotifyNowPlaying(tk.Frame):
         cache_dir = Path.home() / ".cache" / "openroadcode" / "spotify-artwork"
         self._image_cache = ImageCache(max_entries=16, cache_directory=cache_dir)
 
-        body = tk.Frame(self, bg=PANEL)
+        body = tk.Frame(self, bg=ui.surface)
         body.pack(fill=tk.BOTH, expand=True, padx=10, pady=(7, 8))
         body.grid_columnconfigure(1, weight=1)
         body.grid_rowconfigure(0, weight=1)
 
-        art_host = tk.Frame(body, bg=PANEL)
+        art_host = tk.Frame(body, bg=ui.surface)
         art_host.grid(row=0, column=0, sticky="nw", padx=(0, 9))
         self._art_label = tk.Label(
             art_host,
             text="♫",
             fg=GREEN,
-            bg=DARK["active"],
+            bg=ui.control_active,
             font=("Sans", 20, "bold"),
             width=4,
             height=2,
@@ -69,41 +68,18 @@ class SpotifyNowPlaying(tk.Frame):
         self._art_loading = tk.Label(
             art_host,
             text="",
-            fg=MUTED,
-            bg=PANEL,
+            fg=ui.text_muted,
+            bg=ui.surface,
             font=("Sans", 6, "bold"),
         )
         self._art_loading.pack(pady=(2, 0))
 
-        text = tk.Frame(body, bg=PANEL)
+        text = tk.Frame(body, bg=ui.surface)
         text.grid(row=0, column=1, sticky="new")
         text.grid_columnconfigure(0, weight=1)
-        tk.Label(
-            text,
-            textvariable=self._title,
-            fg=TEXT,
-            bg=PANEL,
-            font=("Sans", 11, "bold"),
-            anchor="w",
-            justify=tk.LEFT,
-        ).grid(row=0, column=0, sticky="ew", pady=(0, 2))
-        tk.Label(
-            text,
-            textvariable=self._artist,
-            fg=MUTED,
-            bg=PANEL,
-            font=("Sans", 8),
-            anchor="w",
-            justify=tk.LEFT,
-        ).grid(row=1, column=0, sticky="ew")
-        tk.Label(
-            text,
-            textvariable=self._status,
-            fg=GREEN,
-            bg=PANEL,
-            font=("Sans", 7, "bold"),
-            anchor="w",
-        ).grid(row=2, column=0, sticky="ew", pady=(3, 0))
+        tk.Label(text, textvariable=self._title, fg=ui.text, bg=ui.surface, font=("Sans", 11, "bold"), anchor="w", justify=tk.LEFT).grid(row=0, column=0, sticky="ew", pady=(0, 2))
+        tk.Label(text, textvariable=self._artist, fg=ui.text_muted, bg=ui.surface, font=("Sans", 8), anchor="w", justify=tk.LEFT).grid(row=1, column=0, sticky="ew")
+        tk.Label(text, textvariable=self._status, fg=GREEN, bg=ui.surface, font=("Sans", 7, "bold"), anchor="w").grid(row=2, column=0, sticky="ew", pady=(3, 0))
 
         self._bind_open(self)
         self._refresh()
@@ -162,12 +138,7 @@ class SpotifyNowPlaying(tk.Frame):
             if image is None:
                 continue
             self._artwork_photo = ImageTk.PhotoImage(image)
-            self._art_label.configure(
-                image=self._artwork_photo,
-                text="",
-                width=ART_SIZE,
-                height=ART_SIZE,
-            )
+            self._art_label.configure(image=self._artwork_photo, text="", width=ART_SIZE, height=ART_SIZE)
 
     def _show_artwork_placeholder(self) -> None:
         self._artwork_uri = None

@@ -14,6 +14,9 @@ from .game_types import GameDefinition
 class TermuxGameInstaller(GameInstallerIf):
     """Install and execute games exposed by the configured Termux repositories."""
 
+    def __init__(self) -> None:
+        self._available_packages: set[str] | None = None
+
     @property
     def backend_id(self) -> str:
         return "termux"
@@ -23,15 +26,22 @@ class TermuxGameInstaller(GameInstallerIf):
         """Return whether the current runtime looks like Termux."""
         return shutil.which("pkg") is not None and "com.termux" in os.environ.get("PREFIX", "")
 
-    @staticmethod
-    def _package_available(package: str) -> bool:
+    def _load_available_packages(self) -> set[str]:
+        """Load the Termux package index once instead of spawning apt-cache per game."""
+        if self._available_packages is not None:
+            return self._available_packages
         result = subprocess.run(
-            ["apt-cache", "show", package],
-            stdout=subprocess.DEVNULL,
+            ["apt-cache", "pkgnames"],
+            stdout=subprocess.PIPE,
             stderr=subprocess.DEVNULL,
+            text=True,
             check=False,
         )
-        return result.returncode == 0
+        self._available_packages = set(result.stdout.splitlines()) if result.returncode == 0 else set()
+        return self._available_packages
+
+    def _package_available(self, package: str) -> bool:
+        return package in self._load_available_packages()
 
     def is_available(self, game: GameDefinition) -> bool:
         package = game.termux_package
@@ -55,6 +65,7 @@ class TermuxGameInstaller(GameInstallerIf):
             raise RuntimeError(f"{package} or one of its dependencies is not available from the configured Termux repositories")
         packages = [package, *game.termux_dependencies]
         subprocess.run(["pkg", "install", "-y", *packages], check=True)
+        self._available_packages = None
 
     def launch_command(self, game: GameDefinition) -> Sequence[str]:
         """Return the direct Termux command for *game*."""

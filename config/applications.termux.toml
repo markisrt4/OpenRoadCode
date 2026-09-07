@@ -18,6 +18,12 @@ display = ":1"
 type = "x11"
 display = ":1"
 
+[apps.sdrpp]
+type = "native"
+enabled = true
+startup = "preload"
+target = "primary"
+
 [apps.weather]
 type = "browser"
 enabled = true
@@ -42,6 +48,13 @@ type = "browser"
 enabled = true
 url = "https://www.youtube.com"
 profile = "youtube"
+startup = "lazy"
+
+[apps.netflix]
+type = "browser"
+enabled = true
+url = "https://www.netflix.com/browse"
+profile = "netflix"
 startup = "lazy"
 
 [apps.google_earth]

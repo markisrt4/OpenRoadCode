@@ -4,84 +4,76 @@
 
 set -euo pipefail
 
-REPO="hydrasdr/SDRPlusPlus"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ORC_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+SETUP_SCRIPT="$ORC_ROOT/development/debian/setup_sdrpp.sh"
 
-CODENAME="$(. /etc/os-release && echo "${VERSION_CODENAME}")"
+[[ -x "$SETUP_SCRIPT" ]] || {
+  echo "[!] SDR++ source-build helper was not found or is not executable:" >&2
+  echo "    $SETUP_SCRIPT" >&2
+  exit 1
+}
+
+if [[ ! -r /etc/os-release ]]; then
+  echo "[!] /etc/os-release was not found; Debian/Ubuntu host expected." >&2
+  exit 1
+fi
+
+# shellcheck disable=SC1091
+. /etc/os-release
+CODENAME="${VERSION_CODENAME:-unknown}"
 ARCH="$(dpkg --print-architecture)"
 
 echo "[*] Ubuntu/Debian codename: $CODENAME"
 echo "[*] Architecture:           $ARCH"
+echo "[*] SDR++ source ref:       ${SDRPP_REF:-master}"
+echo
 
-case "$CODENAME" in
-  noble|jammy|focal)
-    ASSET_NAME="sdrpp_ubuntu_${CODENAME}_${ARCH}.deb"
-    ;;
-  bookworm|bullseye|sid)
-    ASSET_NAME="sdrpp_debian_${CODENAME}_${ARCH}.deb"
-    ;;
-  *)
-    echo "[!] Unsupported codename: $CODENAME"
-    exit 1
-    ;;
-esac
+echo "[*] Building SDR++ from source with the OpenRoadCode modules"
+echo "    remote_control.so"
+echo "    telemetry.so"
+echo "    rigctl_server.so"
+echo
 
-echo "[*] Looking for asset:"
-echo "    $ASSET_NAME"
+# development/debian/setup_sdrpp.sh is the canonical Linux source-build path.
+# It stages the ORC modules into SDR++ before CMake configuration, validates
+# their exported SDR++ ABI symbols, prepares root_dev, and installs the
+# /usr/local/bin/sdrpp wrapper that launches against those resources.
+"$SETUP_SCRIPT"
 
-sudo apt update
-sudo apt install -y curl ca-certificates jq rtl-sdr soapysdr-tools soapysdr-module-rtlsdr x11-apps
+if command -v udevadm >/dev/null 2>&1; then
+  if [[ "${EUID:-$(id -u)}" -ne 0 ]]; then
+    SUDO=sudo
+  else
+    SUDO=
+  fi
 
-API_URL="https://api.github.com/repos/${REPO}/releases/latest"
-
-DEB_URL="$(
-  curl -fsSL "$API_URL" |
-    jq -r --arg name "$ASSET_NAME" '
-      .assets[]
-      | select(.name == $name)
-      | .browser_download_url
-    ' | head -n1
-)"
-
-if [[ -z "$DEB_URL" || "$DEB_URL" == "null" ]]; then
-  echo "[!] Could not find matching asset."
-  echo "[*] Available .deb assets:"
-  curl -fsSL "$API_URL" |
-    jq -r '.assets[].name' |
-    grep '\.deb$' || true
-  exit 1
-fi
-
-TMPDIR="$(mktemp -d)"
-trap 'rm -rf "$TMPDIR"' EXIT
-
-DEB_FILE="$TMPDIR/$ASSET_NAME"
-
-echo "[*] Downloading:"
-echo "    $DEB_URL"
-
-curl -L --fail -o "$DEB_FILE" "$DEB_URL"
-
-echo "[*] Installing SDR++..."
-sudo apt install -y "$DEB_FILE"
-
-echo "[*] Installing RTL-SDR udev rule..."
-sudo tee /etc/udev/rules.d/20-rtlsdr.rules >/dev/null <<'EOF'
+  echo "[*] Installing RTL-SDR udev rule..."
+  $SUDO tee /etc/udev/rules.d/20-rtlsdr.rules >/dev/null <<'EOF'
 SUBSYSTEM=="usb", ATTRS{idVendor}=="0bda", ATTRS{idProduct}=="2832", GROUP="plugdev", MODE="0660"
 SUBSYSTEM=="usb", ATTRS{idVendor}=="0bda", ATTRS{idProduct}=="2838", GROUP="plugdev", MODE="0660"
 SUBSYSTEM=="usb", ATTRS{idVendor}=="0bda", ATTRS{idProduct}=="2830", GROUP="plugdev", MODE="0660"
 EOF
+  $SUDO usermod -aG plugdev "$USER" || true
+  $SUDO udevadm control --reload-rules
+  $SUDO udevadm trigger || true
+fi
 
-sudo usermod -aG plugdev "$USER" || true
-sudo udevadm control --reload-rules
-sudo udevadm trigger || true
+if ! command -v sdrpp >/dev/null 2>&1; then
+  echo "[!] Source build completed but sdrpp is not available in PATH." >&2
+  exit 1
+fi
 
 echo
-echo "[+] SDR++ installed."
+echo "[+] OpenRoadCode SDR++ source build installed."
+echo "    launcher: $(command -v sdrpp)"
+echo "    source:   ${SDRPP_SRC:-$HOME/SDRPlusPlus}"
+echo "    ref:      ${SDRPP_REF:-master}"
 echo
 echo "Test SDR:"
 echo "    rtl_test -t"
 echo
-echo "Launch SDR++:"
-echo "    sdrpp"
+echo "Launch SDR++ with the ORC modules:"
+echo "    sdrpp --autostart"
 echo
-echo "[!] Replug the SDR dongle or log out/in if permissions are weird."
+echo "[!] Replug the SDR dongle or log out/in if group permissions changed."
