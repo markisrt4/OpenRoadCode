@@ -6,6 +6,8 @@
 from __future__ import annotations
 
 import json
+import os
+import time
 
 from apps.launchers.chromium_devtools_client import ChromiumDevToolsClient
 
@@ -15,6 +17,8 @@ class EarthGeolocationBridge:
 
     def __init__(self, client: ChromiumDevToolsClient | None = None) -> None:
         self._client = client or ChromiumDevToolsClient(port=9223)
+        self._trace_enabled = os.environ.get("ORC_EARTH_TRACE", "").strip().casefold() in {"1", "true", "yes", "on"}
+        self._last_trace_at = 0.0
 
     def install(self) -> bool:
         """Replace browser geolocation reads with an ORC-owned provider."""
@@ -143,6 +147,19 @@ class EarthGeolocationBridge:
             return state.deliver(position);
         }})()"""
         try:
-            return self._client.evaluate_earth(expression) is True
+            ok = self._client.evaluate_earth(expression) is True
         except (OSError, RuntimeError, ValueError):
-            return False
+            ok = False
+        if self._trace_enabled:
+            now = time.monotonic()
+            if not ok or now - self._last_trace_at >= 1.0:
+                self._last_trace_at = now
+                watchers = self.registration_count()
+                print(
+                    "[earth-bridge] "
+                    f"push={'ok' if ok else 'FAIL'} "
+                    f"lat={payload['latitude']:.6f} lon={payload['longitude']:.6f} "
+                    f"heading={payload['heading']} speed={payload['speed']} watchers={watchers}",
+                    flush=True,
+                )
+        return ok
