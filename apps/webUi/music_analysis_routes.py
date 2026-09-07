@@ -9,6 +9,9 @@ from flask import Blueprint, jsonify, request
 from controllers.audio.music_analysis.music_analysis_session import MusicAnalysisSession
 
 
+MAX_PCM_FRAME_BYTES = 262_144
+
+
 def create_music_analysis_routes(session: MusicAnalysisSession) -> Blueprint:
     """Expose source discovery, lifecycle, PCM ingress, and calibration."""
     api = Blueprint("music_analysis", __name__)
@@ -36,7 +39,8 @@ def create_music_analysis_routes(session: MusicAnalysisSession) -> Blueprint:
             if payload.get("running", True):
                 result = session.start(source)
             else:
-                result = session.select(source)
+                session.select(source)
+                result = session.stop()
             return jsonify(result)
         except Exception as exc:
             return error(exc)
@@ -50,10 +54,15 @@ def create_music_analysis_routes(session: MusicAnalysisSession) -> Blueprint:
 
     @api.post("/api/audio-analysis/session/pcm16")
     def pcm16():
+        if request.content_length is not None and request.content_length > MAX_PCM_FRAME_BYTES:
+            return jsonify(error="PCM frame is too large"), 413
         try:
             source = request.headers.get("X-Audio-Source", "browser")
             rate = int(request.headers.get("X-Sample-Rate", "0"))
-            return jsonify(session.push_pcm16(request.get_data(), rate, source=source))
+            audio = request.get_data()
+            if len(audio) > MAX_PCM_FRAME_BYTES:
+                return jsonify(error="PCM frame is too large"), 413
+            return jsonify(session.push_pcm16(audio, rate, source=source))
         except Exception as exc:
             return error(exc)
 
