@@ -25,7 +25,7 @@ class NavigationPanel(tk.Frame):
  def __init__(self,parent:tk.Misc,*,map_request_handler:MapRequestHandlerIf|None=None,on_back:Callable[[],None]|None=None)->None:
   super().__init__(parent,bg=BG); del on_back
   self._camera_runtime=get_shared_map_camera_runtime(); self._request_handler=map_request_handler or self._camera_runtime.request_handler
-  self._earth_launcher=GoogleEarthLauncher(); self._earth_embedder=X11WindowEmbedder(); self._earth_geolocation=EarthGeolocationBridge(); self._earth_input=EarthInputCameraController(); self._earth_chase=EarthChaseCameraController(self._earth_input); self._earth_vehicle=EarthVehicleOverlay(); self._earth_visible=False; self._earth_initialized=False; self._earth_hud_after:str|None=None; self._earth_last_sent_position:tuple[float,float]|None=None; self._earth_watch_count=0; self._earth_tracking_primed=False; self._earth_follow_enabled=True; self._earth_menu_visible=True
+  self._earth_launcher=GoogleEarthLauncher(); self._earth_embedder=X11WindowEmbedder(); self._earth_geolocation=EarthGeolocationBridge(); self._earth_input=EarthInputCameraController(); self._earth_chase=EarthChaseCameraController(self._earth_input); self._earth_vehicle=EarthVehicleOverlay(); self._earth_visible=False; self._earth_initialized=False; self._earth_hud_after:str|None=None; self._earth_last_sent_position:tuple[float,float]|None=None; self._earth_watch_count=0; self._earth_tracking_primed=False; self._earth_follow_enabled=True; self._earth_menu_visible=True; self._earth_activation_attempts=0
   self._zoom_level=float(getattr(self._request_handler,"zoom_level",16.5)); self._pitch_rad=float(getattr(self._request_handler,"pitch_rad",math.radians(45))); self._follow_enabled=bool(getattr(self._request_handler,"follow_enabled",True)); self._poi_focus=set(getattr(self._request_handler,"poi_focus",()))
   self._build(); self._earth_map_overlay=EarthMapButtonOverlay(self,self._map_host,self._toggle_earth); self._schedule_renderer_refresh()
  @property
@@ -85,7 +85,7 @@ class NavigationPanel(tk.Frame):
   self._set_earth_layout(True);self.update_idletasks();position,size=self._earth_geometry()
   if not self._earth_launcher.is_running():self._earth_launcher.configure_app_window(position=position,size=size);self._earth_launcher.launch(self._display())
   self.update_idletasks();self._earth_embedder.embed(0,self.map_host_window_id,size[0],size[1],window_class=GoogleEarthLauncher.WINDOW_CLASS)
-  self._earth_last_sent_position=None;self._earth_watch_count=0;self._earth_tracking_primed=False;self._earth_follow_enabled=True;self._earth_chase.set_enabled(False);self._earth_geolocation.install();self._earth_vehicle.install();self._earth_visible=True;self._earth_button.configure(text="▣  MAP",bg=GREEN,fg=BG);self._earth_map_overlay.show();self._update_follow_button();self._update_chase_button();self._start_earth_hud()
+  self._earth_last_sent_position=None;self._earth_watch_count=0;self._earth_tracking_primed=False;self._earth_follow_enabled=True;self._earth_activation_attempts=0;self._earth_chase.set_enabled(False);self._earth_geolocation.install();self._earth_vehicle.install();self._earth_visible=True;self._earth_button.configure(text="▣  MAP",bg=GREEN,fg=BG);self._earth_map_overlay.show();self._update_follow_button();self._update_chase_button();self._start_earth_hud();self.after(700,self._ensure_earth_tracking_active)
  def _detach_earth(self)->None:
   if self._earth_embedder.window_id is not None:
    try:self._earth_embedder.detach(int(self.winfo_toplevel().winfo_id()))
@@ -115,6 +115,18 @@ class NavigationPanel(tk.Frame):
    try:self.after_cancel(self._earth_hud_after)
    except tk.TclError:pass
    self._earth_hud_after=None
+ def _ensure_earth_tracking_active(self)->None:
+  if not self._earth_visible or not self._earth_follow_enabled:return
+  if not self._earth_geolocation.install():
+   if self._earth_activation_attempts<4:self._earth_activation_attempts+=1;self.after(700,self._ensure_earth_tracking_active)
+   return
+  count=self._earth_geolocation.registration_count()
+  if count is not None and count>0:
+   self._earth_watch_count=count;self._earth_tracking_primed=False;self._earth_last_sent_position=None;self._refresh_earth_tracking_watch();return
+  if self._earth_activation_attempts>=4:
+   self._shortcut_status.set("Earth GPS activation unavailable");return
+  self._earth_activation_attempts+=1
+  self._earth_input.activate_location_tracking();self.after(500,self._ensure_earth_tracking_active)
  def _refresh_earth_tracking_watch(self)->None:
   if not self._earth_follow_enabled:return
   if not self._earth_geolocation.install():return
