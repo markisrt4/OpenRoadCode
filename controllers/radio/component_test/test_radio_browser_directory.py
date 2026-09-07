@@ -28,6 +28,19 @@ class RadioBrowserDirectoryComponentTest(unittest.TestCase):
         self.assertTrue(all(station.stream_url for station in stations))
         self.assertTrue(any(station.country_code == "US" for station in stations))
 
+    def test_finds_detroit_area_stations(self) -> None:
+        stations = self.directory.stations_near(
+            latitude=42.3314,
+            longitude=-83.0458,
+            radius_km=80.0,
+            state="Michigan",
+            limit=25,
+        )
+
+        self.assertGreater(len(stations), 0)
+        self.assertTrue(all(station.station_id for station in stations))
+        self.assertTrue(all(station.stream_url for station in stations))
+
     def test_search_returns_named_station_results(self) -> None:
         stations = self.directory.search("WDET", limit=10)
 
