@@ -18,6 +18,8 @@ from config.application_config import ApplicationsConfigParser
 from config.radio_config_manager import load_radio_config
 from controllers.application_runtime import AppRuntimeManager
 from controllers.radio.radio_profiles import RadioProfileCatalog
+from controllers.radio.streaming_radio_controller import StreamingRadioController
+from hardware_io.audio.mpv_streaming_audio_player import MpvStreamingAudioPlayer
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 APPLICATIONS_CONFIG_PATH = PROJECT_ROOT / "config" / "applications.toml"
@@ -30,6 +32,7 @@ class OrcUiApplicationRuntime:
 
     manager: AppRuntimeManager
     radio: ManagedRadioApplicationService
+    streaming_radio: StreamingRadioController
     media: MediaApplicationService
 
     def start_background_apps(self) -> None:
@@ -39,6 +42,7 @@ class OrcUiApplicationRuntime:
 
     def close(self) -> None:
         """Close media services before terminating managed applications."""
+        self.streaming_radio.stop()
         self.media.close()
         self.manager.stop_all()
 
@@ -61,8 +65,14 @@ def create_orc_ui_application_runtime() -> OrcUiApplicationRuntime:
     manager.register("netflix", browser_factory.create("netflix"))
 
     radio = ManagedRadioApplicationService(manager, sdrpp)
+    streaming_radio = StreamingRadioController(MpvStreamingAudioPlayer())
     media = MediaApplicationService()
-    return OrcUiApplicationRuntime(manager=manager, radio=radio, media=media)
+    return OrcUiApplicationRuntime(
+        manager=manager,
+        radio=radio,
+        streaming_radio=streaming_radio,
+        media=media,
+    )
 
 
 def _applications_config_path() -> Path:
