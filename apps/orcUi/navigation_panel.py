@@ -58,36 +58,36 @@ class NavigationPanel(tk.Frame):
  def set_follow_enabled(self,e):self._follow_enabled=e;self._update_follow_button()
  def _update_follow_button(self):
   enabled=self._earth_follow_enabled if self._earth_visible else self._follow_enabled
-  self._follow_button.configure(text="F" if enabled else "F̸",fg=GREEN if enabled else TEXT)
+  self._follow_button.configure(text="F" if enabled else "F̸",fg=self._ui.accent_success if enabled else self._ui.text)
  def _update_chase_button(self):
-  self._chase_button.configure(text="C" if self._earth_chase.enabled else "C̸",fg=GREEN if self._earth_chase.enabled else TEXT)
+  self._chase_button.configure(text="C" if self._earth_chase.enabled else "C̸",fg=self._ui.accent_success if self._earth_chase.enabled else self._ui.text)
  def _update_menu_button(self):
-  self._menu_button.configure(text="M" if self._earth_menu_visible else "M̸",fg=BLUE if self._earth_menu_visible else TEXT)
+  self._menu_button.configure(text="M" if self._earth_menu_visible else "M̸",fg=self._ui.accent_primary if self._earth_menu_visible else self._ui.text)
  def destroy(self):
   self._stop_earth_hud(); self._earth_map_overlay.destroy(); self._earth_vehicle.remove(); self._detach_earth()
   if self._earth_launcher.is_running():self._earth_launcher.stop(self._display())
   super().destroy()
  def _build(self):
   self.grid_rowconfigure(1,weight=1);self.grid_columnconfigure(0,weight=1)
-  self._bar=tk.Frame(self,bg=BG,height=38);self._bar.grid(row=0,column=0,sticky="ew",pady=(0,4));self._bar.grid_propagate(False)
-  self._shortcuts=tk.Frame(self._bar,bg=BG)
-  for text,accent,key in (("⌂ HOME",BLUE,"home"),("▣ WORK",PURPLE,"work"),("⛽ GAS",RED,"gas"),("▣ GROCERY",GREEN,"grocery"),("♨ FOOD",RED,"food")):tk.Button(self._shortcuts,text=text,command=lambda s=key:self._destination_shortcut(s),bg=PANEL,fg=accent,relief=tk.FLAT,font=("Sans",8,"bold"),width=9).pack(side=tk.LEFT,padx=(0,4))
-  self._shortcut_status=tk.StringVar(value=self._focus_status());self._earth_button=tk.Button(self._bar,text="◉  EARTH",command=self._toggle_earth,bg=BLUE,fg="white",relief=tk.FLAT,font=("Sans",9,"bold"),width=11);self._earth_button.pack(side=tk.RIGHT,padx=(7,2),pady=2);self._status_label=tk.Label(self._bar,textvariable=self._shortcut_status,bg=BG,fg=MUTED,font=("Sans",7));self._status_label.pack(side=tk.RIGHT,padx=5);self._shortcuts.pack(side=tk.LEFT,padx=2,pady=3)
-  self._body=tk.Frame(self,bg=BG);self._body.grid(row=1,column=0,sticky="nsew");self._body.grid_rowconfigure(0,weight=1);self._body.grid_columnconfigure(0,weight=1)
-  self._map_host=tk.Frame(self._body,bg="#020406",highlightthickness=1,highlightbackground=BORDER);self._map_host.grid(row=0,column=0,sticky="nsew");self._map_host.bind("<Configure>",self._on_map_host_resize)
-  self._controls=tk.Frame(self._body,bg=PANEL,width=62);self._controls.grid(row=0,column=1,rowspan=2,sticky="ns",padx=(4,0));self._controls.grid_propagate(False)
-  self._menu_button=self._control(self._controls,"M",self._toggle_earth_menu,BLUE);self._menu_button.pack(fill=tk.X,padx=5,pady=(7,2));self._menu_button.pack_forget()
-  self._follow_button=self._control(self._controls,"F",self._toggle_follow,GREEN);self._follow_button.pack(fill=tk.X,padx=5,pady=(7,2));self.set_follow_enabled(self._follow_enabled)
-  self._chase_button=self._control(self._controls,"C̸",self._toggle_chase,TEXT);self._chase_button.pack(fill=tk.X,padx=5,pady=(0,4));self._update_chase_button()
-  pan=tk.Frame(self._controls,bg=PANEL);pan.pack(pady=2)
+  self._bar=tk.Frame(self,bg=self._ui.background,height=38);self._bar.grid(row=0,column=0,sticky="ew",pady=(0,4));self._bar.grid_propagate(False)
+  self._shortcuts=tk.Frame(self._bar,bg=self._ui.background)
+  for text,accent,key in (("⌂ HOME",self._ui.accent_primary,"home"),("▣ WORK",self._ui.accent_warning,"work"),("⛽ GAS",self._ui.accent_danger,"gas"),("▣ GROCERY",self._ui.accent_success,"grocery"),("♨ FOOD",self._ui.accent_danger,"food")):tk.Button(self._shortcuts,text=text,command=lambda s=key:self._destination_shortcut(s),bg=self._ui.surface_alt,fg=accent,relief=tk.FLAT,font=("Sans",8,"bold"),width=9).pack(side=tk.LEFT,padx=(0,4))
+  self._shortcut_status=tk.StringVar(value=self._focus_status());self._earth_button=tk.Button(self._bar,text="◉  EARTH",command=self._toggle_earth,bg=self._ui.accent_primary,fg="white",relief=tk.FLAT,font=("Sans",9,"bold"),width=11);self._earth_button.pack(side=tk.RIGHT,padx=(7,2),pady=2);self._status_label=tk.Label(self._bar,textvariable=self._shortcut_status,bg=self._ui.background,fg=self._ui.text_muted,font=("Sans",7));self._status_label.pack(side=tk.RIGHT,padx=5);self._shortcuts.pack(side=tk.LEFT,padx=2,pady=3)
+  self._body=tk.Frame(self,bg=self._ui.background);self._body.grid(row=1,column=0,sticky="nsew");self._body.grid_rowconfigure(0,weight=1);self._body.grid_columnconfigure(0,weight=1)
+  self._map_host=tk.Frame(self._body,bg="#020406",highlightthickness=1,highlightbackground=self._ui.border);self._map_host.grid(row=0,column=0,sticky="nsew");self._map_host.bind("<Configure>",self._on_map_host_resize)
+  self._controls=tk.Frame(self._body,bg=self._ui.surface_alt,width=62);self._controls.grid(row=0,column=1,rowspan=2,sticky="ns",padx=(4,0));self._controls.grid_propagate(False)
+  self._menu_button=self._control(self._controls,"M",self._toggle_earth_menu,self._ui.accent_primary);self._menu_button.pack(fill=tk.X,padx=5,pady=(7,2));self._menu_button.pack_forget()
+  self._follow_button=self._control(self._controls,"F",self._toggle_follow,self._ui.accent_success);self._follow_button.pack(fill=tk.X,padx=5,pady=(7,2));self.set_follow_enabled(self._follow_enabled)
+  self._chase_button=self._control(self._controls,"C̸",self._toggle_chase,self._ui.text);self._chase_button.pack(fill=tk.X,padx=5,pady=(0,4));self._update_chase_button()
+  pan=tk.Frame(self._controls,bg=self._ui.surface_alt);pan.pack(pady=2)
   for row,col,text,up,right in ((0,1,"▲",1,0),(1,0,"◀",0,-1),(1,2,"▶",0,1),(2,1,"▼",-1,0)):
-   tk.Button(pan,text=text,command=lambda u=up,r=right:self._pan(u,r),bg="#101820",fg=TEXT,activebackground=BLUE,activeforeground=TEXT,relief=tk.FLAT,highlightthickness=1,highlightbackground=BORDER,font=("Sans",9,"bold"),width=1,height=1,padx=2,pady=1).grid(row=row,column=col,padx=1,pady=1)
-  for text,cmd,accent in (("+",lambda:self._change_zoom(1),BLUE),("−",lambda:self._change_zoom(-1),BLUE),("↗",lambda:self._change_pitch(5),PURPLE),("↘",lambda:self._change_pitch(-5),PURPLE),("↶",lambda:self._rotate_earth(-15),RED),("↷",lambda:self._rotate_earth(15),RED),("N",self._north_up,TEXT),("◎",self._recenter,GREEN)):
+   tk.Button(pan,text=text,command=lambda u=up,r=right:self._pan(u,r),bg="#101820",fg=self._ui.text,activebackground=self._ui.accent_primary,activeforeground=self._ui.text,relief=tk.FLAT,highlightthickness=1,highlightbackground=self._ui.border,font=("Sans",9,"bold"),width=1,height=1,padx=2,pady=1).grid(row=row,column=col,padx=1,pady=1)
+  for text,cmd,accent in (("+",lambda:self._change_zoom(1),self._ui.accent_primary),("−",lambda:self._change_zoom(-1),self._ui.accent_primary),("↗",lambda:self._change_pitch(5),self._ui.accent_warning),("↘",lambda:self._change_pitch(-5),self._ui.accent_warning),("↶",lambda:self._rotate_earth(-15),self._ui.accent_danger),("↷",lambda:self._rotate_earth(15),self._ui.accent_danger),("N",self._north_up,self._ui.text),("◎",self._recenter,self._ui.accent_success)):
    self._control(self._controls,text,cmd,accent).pack(fill=tk.X,padx=5,pady=2)
-  tk.Label(self._controls,text="FOLLOW\nCHASE\nZOOM\nTILT\nROTATE\nNORTH\nCENTER",bg=PANEL,fg=MUTED,font=("Sans",6),justify=tk.CENTER).pack(side=tk.BOTTOM,pady=5)
-  self._earth_compact=tk.Frame(self._body,bg=PANEL,highlightthickness=1,highlightbackground=BORDER);self._earth_instruction_var=tk.StringVar(value="No active route");self._earth_maneuver_distance_var=tk.StringVar(value="");self._earth_route_remaining_var=tk.StringVar(value="");self._earth_speed_var=tk.StringVar(value="-- mph");self._earth_track_var=tk.StringVar(value="---°");self._earth_position_var=tk.StringVar(value="GPS --")
-  tk.Label(self._earth_compact,text="➜",bg=PANEL,fg=GREEN,font=("Sans",16,"bold"),padx=8).pack(side=tk.LEFT);tk.Label(self._earth_compact,textvariable=self._earth_instruction_var,bg=PANEL,fg=TEXT,font=("Sans",10,"bold"),anchor="w").pack(side=tk.LEFT,fill=tk.X,expand=True,pady=4);tk.Label(self._earth_compact,textvariable=self._earth_maneuver_distance_var,bg=PANEL,fg=GREEN,font=("Sans",9,"bold"),padx=7).pack(side=tk.RIGHT);tk.Label(self._earth_compact,textvariable=self._earth_speed_var,bg=PANEL,fg=GREEN,font=("Sans",10,"bold"),padx=7).pack(side=tk.RIGHT);tk.Label(self._earth_compact,textvariable=self._earth_track_var,bg=PANEL,fg=TEXT,font=("Sans",8,"bold"),padx=6).pack(side=tk.RIGHT);tk.Label(self._earth_compact,textvariable=self._earth_route_remaining_var,bg=PANEL,fg=MUTED,font=("Sans",7),padx=6).pack(side=tk.RIGHT)
- def _control(self,p,t,c,f):return tk.Button(p,text=t,command=c,bg=PANEL,fg=f,relief=tk.FLAT,font=("Sans",11,"bold"))
+  tk.Label(self._controls,text="FOLLOW\nCHASE\nZOOM\nTILT\nROTATE\nNORTH\nCENTER",bg=self._ui.surface_alt,fg=self._ui.text_muted,font=("Sans",6),justify=tk.CENTER).pack(side=tk.BOTTOM,pady=5)
+  self._earth_compact=tk.Frame(self._body,bg=self._ui.surface_alt,highlightthickness=1,highlightbackground=self._ui.border);self._earth_instruction_var=tk.StringVar(value="No active route");self._earth_maneuver_distance_var=tk.StringVar(value="");self._earth_route_remaining_var=tk.StringVar(value="");self._earth_speed_var=tk.StringVar(value="-- mph");self._earth_track_var=tk.StringVar(value="---°");self._earth_position_var=tk.StringVar(value="GPS --")
+  tk.Label(self._earth_compact,text="➜",bg=self._ui.surface_alt,fg=self._ui.accent_success,font=("Sans",16,"bold"),padx=8).pack(side=tk.LEFT);tk.Label(self._earth_compact,textvariable=self._earth_instruction_var,bg=self._ui.surface_alt,fg=self._ui.text,font=("Sans",10,"bold"),anchor="w").pack(side=tk.LEFT,fill=tk.X,expand=True,pady=4);tk.Label(self._earth_compact,textvariable=self._earth_maneuver_distance_var,bg=self._ui.surface_alt,fg=self._ui.accent_success,font=("Sans",9,"bold"),padx=7).pack(side=tk.RIGHT);tk.Label(self._earth_compact,textvariable=self._earth_speed_var,bg=self._ui.surface_alt,fg=self._ui.accent_success,font=("Sans",10,"bold"),padx=7).pack(side=tk.RIGHT);tk.Label(self._earth_compact,textvariable=self._earth_track_var,bg=self._ui.surface_alt,fg=self._ui.text,font=("Sans",8,"bold"),padx=6).pack(side=tk.RIGHT);tk.Label(self._earth_compact,textvariable=self._earth_route_remaining_var,bg=self._ui.surface_alt,fg=self._ui.text_muted,font=("Sans",7),padx=6).pack(side=tk.RIGHT)
+ def _control(self,p,t,c,f):return tk.Button(p,text=t,command=c,bg=self._ui.surface_alt,fg=f,relief=tk.FLAT,font=("Sans",11,"bold"))
  def _display(self):return os.environ.get("DISPLAY",":1")
  def _prepare_first_earth_launch(self):
   if self._earth_initialized:return
@@ -108,14 +108,14 @@ class NavigationPanel(tk.Frame):
   self._set_earth_layout(True);self.update_idletasks();position,size=self._earth_geometry()
   if not self._earth_launcher.is_running():self._earth_launcher.configure_app_window(position=position,size=size);self._earth_launcher.launch(self._display())
   self.update_idletasks();self._earth_embedder.embed(0,self.map_host_window_id,size[0],size[1],window_class=GoogleEarthLauncher.WINDOW_CLASS)
-  self._earth_last_sent_position=None;self._earth_watch_count=0;self._earth_tracking_primed=False;self._earth_follow_enabled=True;self._earth_activation_attempts=0;self._earth_chase.set_enabled(False);self._earth_geolocation.install();self._earth_vehicle.install();self._earth_visible=True;self._earth_button.configure(text="▣  MAP",bg=GREEN,fg=BG);self._earth_map_overlay.show();self._update_follow_button();self._update_chase_button();self._start_earth_hud();self.after(700,self._ensure_earth_tracking_active)
+  self._earth_last_sent_position=None;self._earth_watch_count=0;self._earth_tracking_primed=False;self._earth_follow_enabled=True;self._earth_activation_attempts=0;self._earth_chase.set_enabled(False);self._earth_geolocation.install();self._earth_vehicle.install();self._earth_visible=True;self._earth_button.configure(text="▣  MAP",bg=self._ui.accent_success,fg=self._ui.background);self._earth_map_overlay.show();self._update_follow_button();self._update_chase_button();self._start_earth_hud();self.after(700,self._ensure_earth_tracking_active)
  def _detach_earth(self)->None:
   if self._earth_embedder.window_id is not None:
    try:self._earth_embedder.detach(int(self.winfo_toplevel().winfo_id()))
    except (OSError,RuntimeError):pass
   self._earth_embedder.clear()
  def _leave_earth(self)->None:
-  self._earth_chase.set_enabled(False);self._stop_earth_hud();self._earth_map_overlay.hide();self._earth_vehicle.remove();self._detach_earth();self._set_earth_layout(False);self._earth_visible=False;self._earth_button.configure(text="◉  EARTH",bg=BLUE,fg="white");self._update_follow_button();self._update_chase_button();self._shortcut_status.set("MapLibre")
+  self._earth_chase.set_enabled(False);self._stop_earth_hud();self._earth_map_overlay.hide();self._earth_vehicle.remove();self._detach_earth();self._set_earth_layout(False);self._earth_visible=False;self._earth_button.configure(text="◉  EARTH",bg=self._ui.accent_primary,fg="white");self._update_follow_button();self._update_chase_button();self._shortcut_status.set("MapLibre")
  def _toggle_earth(self):
   try:
    if getattr(self, "_earth_visible", False):self._leave_earth();return
@@ -125,7 +125,7 @@ class NavigationPanel(tk.Frame):
    if self._earth_launcher.is_running():
     try:self._earth_launcher.stop(self._display())
     except Exception:pass
-   self._earth_initialized=False;self._earth_button.configure(text="◉  EARTH",bg=BLUE,fg="white");self._update_follow_button();self._update_chase_button();self._shortcut_status.set(f"Earth unavailable: {exc}")
+   self._earth_initialized=False;self._earth_button.configure(text="◉  EARTH",bg=self._ui.accent_primary,fg="white");self._update_follow_button();self._update_chase_button();self._shortcut_status.set(f"Earth unavailable: {exc}")
  def _toggle_earth_menu(self):
   if not self._earth_visible:return
   if self._earth_embedder.send_key("ctrl+shift+b"):
