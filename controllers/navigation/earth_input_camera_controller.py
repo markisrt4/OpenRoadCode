@@ -26,8 +26,12 @@ class EarthInputCameraController(EarthCameraControllerIf):
     _ROTATE_VIEWPORT_FRACTION_PER_45_DEG = 0.12
     _CHASE_ZOOM_STEPS = 12
     _CHASE_ZOOM_FOCUS_Y = 0.36
-    _LOCATION_RIGHT_MARGIN_PX = 34.0
-    _LOCATION_BOTTOM_MARGIN_PX = 34.0
+    # Measured on the embedded Earth canvas in the Termux layout.  Google's
+    # location control is on the right-side canvas toolbar, not the lower-right
+    # corner.  Keep the right edge relative to viewport width while preserving
+    # the toolbar's top-relative Y position.
+    _LOCATION_RIGHT_MARGIN_PX = 38.0
+    _LOCATION_TOP_OFFSET_PX = 128.0
     _LOCATION_NAME_TOKENS = (
         "my location",
         "your location",
@@ -92,10 +96,9 @@ class EarthInputCameraController(EarthCameraControllerIf):
         try:
             self._client.activate(self._require_target_id())
 
-            # Google Earth Web moves controls as toolbars/layout change.  A
-            # fixed bottom-right coordinate was therefore a particularly
-            # optimistic way to find Locate Me.  Prefer the accessibility tree
-            # and only keep the old coordinate as a final compatibility fallback.
+            # Earth renders its main controls into a canvas, so accessibility
+            # discovery is not always available.  Try it first, then use the
+            # traced right-side toolbar location from the embedded layout.
             point = self._location_control_point()
             if point is not None:
                 return self._click(*point)
@@ -103,7 +106,7 @@ class EarthInputCameraController(EarthCameraControllerIf):
             width, height = self._viewport_size()
             return self._click(
                 max(1.0, width - self._LOCATION_RIGHT_MARGIN_PX),
-                max(1.0, height - self._LOCATION_BOTTOM_MARGIN_PX),
+                min(max(1.0, self._LOCATION_TOP_OFFSET_PX), max(1.0, height - 1.0)),
             )
         except (OSError, RuntimeError, TypeError, ValueError):
             return False
