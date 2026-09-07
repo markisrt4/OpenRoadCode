@@ -5,10 +5,12 @@ from __future__ import annotations
 import math, os, tkinter as tk
 from collections.abc import Callable
 from apps.launchers.google_earth_launcher import GoogleEarthLauncher
+from apps.orcUi.earth_map_button_overlay import EarthMapButtonOverlay
 from apps.orcUi.shared_map_camera import get_shared_map_camera_runtime
 from controllers.navigation.earth_chase_camera_controller import EarthChaseCameraController
 from controllers.navigation.earth_geolocation_bridge import EarthGeolocationBridge
 from controllers.navigation.earth_input_camera_controller import EarthInputCameraController
+from controllers.navigation.earth_vehicle_overlay import EarthVehicleOverlay
 from frontends.x11 import X11WindowEmbedder
 from ui.navigation import MapRequestHandlerIf
 
@@ -23,9 +25,9 @@ class NavigationPanel(tk.Frame):
  def __init__(self,parent:tk.Misc,*,map_request_handler:MapRequestHandlerIf|None=None,on_back:Callable[[],None]|None=None)->None:
   super().__init__(parent,bg=BG); del on_back
   self._camera_runtime=get_shared_map_camera_runtime(); self._request_handler=map_request_handler or self._camera_runtime.request_handler
-  self._earth_launcher=GoogleEarthLauncher(); self._earth_embedder=X11WindowEmbedder(); self._earth_geolocation=EarthGeolocationBridge(); self._earth_input=EarthInputCameraController(); self._earth_chase=EarthChaseCameraController(self._earth_input); self._earth_visible=False; self._earth_initialized=False; self._earth_hud_after:str|None=None; self._earth_last_sent_position:tuple[float,float]|None=None; self._earth_watch_count=0; self._earth_tracking_primed=False; self._earth_follow_enabled=True; self._earth_menu_visible=True
+  self._earth_launcher=GoogleEarthLauncher(); self._earth_embedder=X11WindowEmbedder(); self._earth_geolocation=EarthGeolocationBridge(); self._earth_input=EarthInputCameraController(); self._earth_chase=EarthChaseCameraController(self._earth_input); self._earth_vehicle=EarthVehicleOverlay(); self._earth_visible=False; self._earth_initialized=False; self._earth_hud_after:str|None=None; self._earth_last_sent_position:tuple[float,float]|None=None; self._earth_watch_count=0; self._earth_tracking_primed=False; self._earth_follow_enabled=True; self._earth_menu_visible=True
   self._zoom_level=float(getattr(self._request_handler,"zoom_level",16.5)); self._pitch_rad=float(getattr(self._request_handler,"pitch_rad",math.radians(45))); self._follow_enabled=bool(getattr(self._request_handler,"follow_enabled",True)); self._poi_focus=set(getattr(self._request_handler,"poi_focus",()))
-  self._build(); self._schedule_renderer_refresh()
+  self._build(); self._earth_map_overlay=EarthMapButtonOverlay(self,self._map_host,self._toggle_earth); self._schedule_renderer_refresh()
  @property
  def map_host_window_id(self)->int:self.update_idletasks();return int(self._map_host.winfo_id())
  def set_map_request_handler(self,h):
@@ -39,7 +41,7 @@ class NavigationPanel(tk.Frame):
  def _update_menu_button(self):
   self._menu_button.configure(text="M" if self._earth_menu_visible else "M̸",fg=BLUE if self._earth_menu_visible else TEXT)
  def destroy(self):
-  self._stop_earth_hud(); self._detach_earth()
+  self._stop_earth_hud(); self._earth_map_overlay.destroy(); self._earth_vehicle.remove(); self._detach_earth()
   if self._earth_launcher.is_running():self._earth_launcher.stop(self._display())
   super().destroy()
  def _build(self):
@@ -51,7 +53,6 @@ class NavigationPanel(tk.Frame):
   self._body=tk.Frame(self,bg=BG);self._body.grid(row=1,column=0,sticky="nsew");self._body.grid_rowconfigure(0,weight=1);self._body.grid_columnconfigure(0,weight=1)
   self._map_host=tk.Frame(self._body,bg="#020406",highlightthickness=1,highlightbackground=BORDER);self._map_host.grid(row=0,column=0,sticky="nsew");self._map_host.bind("<Configure>",self._on_map_host_resize)
   self._controls=tk.Frame(self._body,bg=PANEL,width=62);self._controls.grid(row=0,column=1,rowspan=2,sticky="ns",padx=(4,0));self._controls.grid_propagate(False)
-  self._map_button=self._control(self._controls,"MAP",self._toggle_earth,GREEN);self._map_button.pack(fill=tk.X,padx=5,pady=(7,2));self._map_button.pack_forget()
   self._menu_button=self._control(self._controls,"M",self._toggle_earth_menu,BLUE);self._menu_button.pack(fill=tk.X,padx=5,pady=(7,2));self._menu_button.pack_forget()
   self._follow_button=self._control(self._controls,"F",self._toggle_follow,GREEN);self._follow_button.pack(fill=tk.X,padx=5,pady=(7,2));self.set_follow_enabled(self._follow_enabled)
   self._chase_button=self._control(self._controls,"C̸",self._toggle_chase,TEXT);self._chase_button.pack(fill=tk.X,padx=5,pady=(0,4));self._update_chase_button()
@@ -77,27 +78,27 @@ class NavigationPanel(tk.Frame):
   self.update_idletasks();return (self._map_host.winfo_rootx(),self._map_host.winfo_rooty()),(max(1,self._map_host.winfo_width()),max(1,self._map_host.winfo_height()))
  def _set_earth_layout(self,enabled:bool)->None:
   if enabled:
-   self._bar.grid_remove();self._map_button.pack(fill=tk.X,padx=5,pady=(7,2),before=self._follow_button);self._menu_button.pack(fill=tk.X,padx=5,pady=(0,2),before=self._follow_button);self._earth_compact.grid(row=1,column=0,sticky="ew",pady=(3,0));self._controls.grid_configure(rowspan=2);self._update_menu_button()
+   self._bar.grid_remove();self._menu_button.pack(fill=tk.X,padx=5,pady=(7,2),before=self._follow_button);self._earth_compact.grid(row=1,column=0,sticky="ew",pady=(3,0));self._controls.grid_configure(rowspan=2);self._update_menu_button()
   else:
-   self._earth_compact.grid_remove();self._map_button.pack_forget();self._menu_button.pack_forget();self._bar.grid();self._controls.grid_configure(rowspan=2)
+   self._earth_compact.grid_remove();self._menu_button.pack_forget();self._bar.grid();self._controls.grid_configure(rowspan=2)
  def _embed_earth(self)->None:
   self._set_earth_layout(True);self.update_idletasks();position,size=self._earth_geometry()
   if not self._earth_launcher.is_running():self._earth_launcher.configure_app_window(position=position,size=size);self._earth_launcher.launch(self._display())
   self.update_idletasks();self._earth_embedder.embed(0,self.map_host_window_id,size[0],size[1],window_class=GoogleEarthLauncher.WINDOW_CLASS)
-  self._earth_last_sent_position=None;self._earth_watch_count=0;self._earth_tracking_primed=False;self._earth_follow_enabled=True;self._earth_chase.set_enabled(False);self._earth_geolocation.install();self._earth_visible=True;self._earth_button.configure(text="▣  MAP",bg=GREEN,fg=BG);self._update_follow_button();self._update_chase_button();self._start_earth_hud()
+  self._earth_last_sent_position=None;self._earth_watch_count=0;self._earth_tracking_primed=False;self._earth_follow_enabled=True;self._earth_chase.set_enabled(False);self._earth_geolocation.install();self._earth_vehicle.install();self._earth_visible=True;self._earth_button.configure(text="▣  MAP",bg=GREEN,fg=BG);self._earth_map_overlay.show();self._update_follow_button();self._update_chase_button();self._start_earth_hud()
  def _detach_earth(self)->None:
   if self._earth_embedder.window_id is not None:
    try:self._earth_embedder.detach(int(self.winfo_toplevel().winfo_id()))
    except (OSError,RuntimeError):pass
   self._earth_embedder.clear()
  def _leave_earth(self)->None:
-  self._earth_chase.set_enabled(False);self._stop_earth_hud();self._detach_earth();self._set_earth_layout(False);self._earth_visible=False;self._earth_button.configure(text="◉  EARTH",bg=BLUE,fg="white");self._update_follow_button();self._update_chase_button();self._shortcut_status.set("MapLibre")
+  self._earth_chase.set_enabled(False);self._stop_earth_hud();self._earth_map_overlay.hide();self._earth_vehicle.remove();self._detach_earth();self._set_earth_layout(False);self._earth_visible=False;self._earth_button.configure(text="◉  EARTH",bg=BLUE,fg="white");self._update_follow_button();self._update_chase_button();self._shortcut_status.set("MapLibre")
  def _toggle_earth(self):
   try:
    if self._earth_visible:self._leave_earth();return
    self._prepare_first_earth_launch();self._embed_earth()
   except Exception as exc:
-   self._earth_visible=False;self._earth_chase.set_enabled(False);self._stop_earth_hud();self._detach_earth();self._set_earth_layout(False)
+   self._earth_visible=False;self._earth_chase.set_enabled(False);self._stop_earth_hud();self._earth_map_overlay.hide();self._earth_vehicle.remove();self._detach_earth();self._set_earth_layout(False)
    if self._earth_launcher.is_running():
     try:self._earth_launcher.stop(self._display())
     except Exception:pass
@@ -144,7 +145,8 @@ class NavigationPanel(tk.Frame):
   self._refresh_earth_tracking_watch()
   if self._earth_tracking_primed:self._send_earth_position()
   if self._earth_follow_enabled and self._earth_chase.enabled:self._earth_chase.update(track_rad=track,speed_m_s=speed)
-  self._update_earth_guidance();self._earth_hud_after=self.after(500,self._update_earth_hud)
+  self._earth_vehicle.install();self._earth_vehicle.update_attitude(heading_rad=self._camera_runtime.latest_heading_rad,pitch_rad=self._camera_runtime.latest_pitch_rad,roll_rad=self._camera_runtime.latest_roll_rad)
+  self._update_earth_guidance();self._earth_hud_after=self.after(100,self._update_earth_hud)
  def _earth_position_changed(self,lat:float,lon:float)->bool:
   previous=self._earth_last_sent_position
   if previous is None:return True
@@ -168,7 +170,7 @@ class NavigationPanel(tk.Frame):
  def _cardinal(track_rad:float)->str:
   names=("N","NE","E","SE","S","SW","W","NW");return names[int((math.degrees(track_rad)%360.0+22.5)//45.0)%8]
  def _on_map_host_resize(self,event):
-  if self._earth_visible:self._earth_embedder.resize(max(1,event.width),max(1,event.height))
+  if self._earth_visible:self._earth_embedder.resize(max(1,event.width),max(1,event.height));self._earth_map_overlay.reposition()
  def _schedule_renderer_refresh(self):
   for d in (300,700,1200):self.after(d,self._refresh_renderer_state)
  def _refresh_renderer_state(self):
