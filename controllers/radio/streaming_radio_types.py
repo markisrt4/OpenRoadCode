@@ -20,6 +20,8 @@ class StreamingRadioStation:
     codec: str | None = None
     bitrate_kbps: int | None = None
     tags: tuple[str, ...] = ()
+    latitude: float | None = None
+    longitude: float | None = None
 
     def __post_init__(self) -> None:
         station_id = self.station_id.strip()
@@ -44,6 +46,10 @@ class StreamingRadioStation:
 
         if self.bitrate_kbps is not None and self.bitrate_kbps < 0:
             raise ValueError("bitrate_kbps must not be negative")
+        if self.latitude is not None and not -90.0 <= self.latitude <= 90.0:
+            raise ValueError("latitude must be between -90 and 90")
+        if self.longitude is not None and not -180.0 <= self.longitude <= 180.0:
+            raise ValueError("longitude must be between -180 and 180")
 
 
 def _clean(value: str | None) -> str | None:
