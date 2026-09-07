@@ -4,5 +4,6 @@
 """Tk frontend for native game inventory and requests."""
 
 from .games_panel import GamesPanel
+from .games_screen import GamesScreen
 
-__all__ = ["GamesPanel"]
+__all__ = ["GamesPanel", "GamesScreen"]

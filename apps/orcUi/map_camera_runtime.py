@@ -7,7 +7,12 @@ from __future__ import annotations
 
 import math
 
+from controllers.cache import PersistentCache
 from controllers.map_renderer.map_request_handler import MapRequestHandler
+from controllers.navigation.position_snapshot_cache import (
+    DEFAULT_POSITION_CACHE_DIRECTORY,
+    PositionSnapshotCache,
+)
 from messaging.contracts.navigation import (
     MOTION_STATE_TOPIC,
     POSITION_STATE_TOPIC,
@@ -38,9 +43,13 @@ class MapCameraRuntime:
         follow_enabled: bool = True,
     ) -> None:
         self._renderer_client = MapRendererClient()
+        self._position_cache = PositionSnapshotCache(
+            PersistentCache(DEFAULT_POSITION_CACHE_DIRECTORY)
+        )
+        initial_position = self._cached_position()
         self._handler = MapRequestHandler(
             self._renderer_client,
-            center=GeoPoint(latitude_rad=0.0, longitude_rad=0.0),
+            center=initial_position or GeoPoint(latitude_rad=0.0, longitude_rad=0.0),
             zoom_level=zoom_level,
             pitch_rad=pitch_rad,
             follow_enabled=follow_enabled,
@@ -58,7 +67,7 @@ class MapCameraRuntime:
             decode_motion_state,
             self._on_motion_message,
         )
-        self._course_reference: GeoPoint | None = None
+        self._course_reference: GeoPoint | None = initial_position
         self._closed = False
 
     @property
@@ -80,6 +89,22 @@ class MapCameraRuntime:
         self._closed = True
         self._dispatcher.close()
         self._renderer_client.close()
+
+    def _cached_position(self) -> GeoPoint | None:
+        """Restore the last valid position so the map never depends on PUB/SUB timing."""
+        state = self._position_cache.load()
+        if (
+            state is None
+            or not state.has_fix
+            or state.latitude_deg is None
+            or state.longitude_deg is None
+        ):
+            return None
+        return GeoPoint(
+            latitude_rad=math.radians(state.latitude_deg),
+            longitude_rad=math.radians(state.longitude_deg),
+            altitude_m=state.altitude_m,
+        )
 
     def _on_position_message(self, message: PositionStateMessage) -> None:
         data = message.data
