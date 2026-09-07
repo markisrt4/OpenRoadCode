@@ -7,40 +7,63 @@ from __future__ import annotations
 
 import argparse
 from dataclasses import asdict
+import hmac
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
+import os
 import subprocess
 
 from services.linux.systemd_service_manager import ServiceStatus, SystemdServiceManager
 
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 8769
+TOKEN_ENV = "OPENROADCODE_SERVICE_MANAGER_TOKEN"
+LOOPBACK_HOSTS = {"127.0.0.1", "localhost", "::1"}
 
 
 def _payload(statuses: tuple[ServiceStatus, ...] | list[ServiceStatus]) -> dict[str, object]:
     return {"services": [asdict(status) for status in statuses]}
 
 
+def _authorized(header_value: str | None, token: str | None) -> bool:
+    """Return whether the request satisfies the configured bearer-token policy."""
+    if not token:
+        return True
+    if not header_value or not header_value.startswith("Bearer "):
+        return False
+    supplied = header_value.removeprefix("Bearer ")
+    return hmac.compare_digest(supplied, token)
+
+
 class SystemdServiceManagerHandler(BaseHTTPRequestHandler):
     """Serve the same restricted service-management API used by Termux."""
 
     manager = SystemdServiceManager()
+    auth_token: str | None = None
 
     def do_GET(self) -> None:  # noqa: N802 - BaseHTTPRequestHandler API
+        if not self._authenticate():
+            return
         if self.path.rstrip("/") != "/services":
             self._json(HTTPStatus.NOT_FOUND, {"error": "not found"})
             return
         self._json(HTTPStatus.OK, _payload(self.manager.all_status()))
 
     def do_POST(self) -> None:  # noqa: N802 - BaseHTTPRequestHandler API
+        if not self._authenticate():
+            return
         parts = [part for part in self.path.split("/") if part]
         try:
             if parts == ["stack", "core", "start"]:
                 statuses = self.manager.start_core()
             elif parts == ["stack", "core", "stop"]:
                 statuses = self.manager.stop_core()
-            elif len(parts) == 3 and parts[0] == "services" and parts[2] in {"start", "stop", "restart"}:
+            elif len(parts) == 3 and parts[0] == "services" and parts[2] in {
+                "start",
+                "stop",
+                "restart",
+            }:
                 action = getattr(self.manager, parts[2])
                 statuses = (action(parts[1]),)
             else:
@@ -51,6 +74,12 @@ class SystemdServiceManagerHandler(BaseHTTPRequestHandler):
             return
         self._json(HTTPStatus.OK, _payload(statuses))
 
+    def _authenticate(self) -> bool:
+        if _authorized(self.headers.get("Authorization"), self.auth_token):
+            return True
+        self._json(HTTPStatus.UNAUTHORIZED, {"error": "unauthorized"})
+        return False
+
     def log_message(self, format: str, *args: object) -> None:
         return
 
@@ -58,6 +87,7 @@ class SystemdServiceManagerHandler(BaseHTTPRequestHandler):
         body = json.dumps(payload).encode("utf-8")
         self.send_response(status.value)
         self.send_header("Content-Type", "application/json")
+        self.send_header("Cache-Control", "no-store")
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
         self.wfile.write(body)
@@ -68,11 +98,18 @@ def main() -> int:
     parser.add_argument("--host", default=DEFAULT_HOST)
     parser.add_argument("--port", type=int, default=DEFAULT_PORT)
     args = parser.parse_args()
-    if args.host not in {"127.0.0.1", "localhost", "::1"}:
-        parser.error("systemd service manager must remain bound to localhost")
 
+    token = os.environ.get(TOKEN_ENV, "").strip() or None
+    if args.host not in LOOPBACK_HOSTS and token is None:
+        parser.error(f"non-loopback service manager requires {TOKEN_ENV}")
+
+    SystemdServiceManagerHandler.auth_token = token
     server = ThreadingHTTPServer((args.host, args.port), SystemdServiceManagerHandler)
-    print(f"OpenRoadCode systemd service manager listening on {args.host}:{args.port}")
+    auth_mode = "bearer token" if token else "localhost only"
+    print(
+        f"OpenRoadCode systemd service manager listening on {args.host}:{args.port} "
+        f"({auth_mode})"
+    )
     try:
         server.serve_forever()
     except KeyboardInterrupt:
