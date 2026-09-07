@@ -4,8 +4,13 @@
 from __future__ import annotations
 
 import unittest
+from unittest.mock import patch
 
-from controllers.radio.adapters.radio_browser_directory import _parse_station
+from controllers.radio.adapters.radio_browser_directory import (
+    RadioBrowserDirectory,
+    _distance_km,
+    _parse_station,
+)
 from controllers.radio.streaming_radio_types import StreamingRadioStation
 
 
@@ -32,7 +37,7 @@ class StreamingRadioStationTest(unittest.TestCase):
 
 
 class RadioBrowserPayloadTest(unittest.TestCase):
-    def test_parses_resolved_stream_and_artwork(self) -> None:
+    def test_parses_resolved_stream_artwork_and_location(self) -> None:
         station = _parse_station(
             {
                 "stationuuid": "station-1",
@@ -46,6 +51,8 @@ class RadioBrowserPayloadTest(unittest.TestCase):
                 "codec": "AAC",
                 "bitrate": 128,
                 "tags": "local,news,talk",
+                "geo_lat": 42.3314,
+                "geo_long": -83.0458,
             }
         )
 
@@ -55,9 +62,63 @@ class RadioBrowserPayloadTest(unittest.TestCase):
         self.assertEqual(station.artwork_url, "https://example.test/logo.png")
         self.assertEqual(station.bitrate_kbps, 128)
         self.assertEqual(station.tags, ("local", "news", "talk"))
+        self.assertEqual(station.latitude, 42.3314)
+        self.assertEqual(station.longitude, -83.0458)
 
     def test_ignores_incomplete_station(self) -> None:
         self.assertIsNone(_parse_station({"stationuuid": "station-1", "name": "No Stream"}))
+
+
+class NearbyStationDiscoveryTest(unittest.TestCase):
+    def test_distance_is_zero_for_same_position(self) -> None:
+        self.assertAlmostEqual(_distance_km(42.3314, -83.0458, 42.3314, -83.0458), 0.0)
+
+    def test_nearby_stations_are_sorted_then_missing_location_falls_back(self) -> None:
+        directory = RadioBrowserDirectory()
+        close = StreamingRadioStation(
+            station_id="close",
+            name="Close",
+            stream_url="https://example.test/close",
+            latitude=42.34,
+            longitude=-83.05,
+        )
+        farther = StreamingRadioStation(
+            station_id="farther",
+            name="Farther",
+            stream_url="https://example.test/farther",
+            latitude=42.55,
+            longitude=-83.20,
+        )
+        outside = StreamingRadioStation(
+            station_id="outside",
+            name="Outside",
+            stream_url="https://example.test/outside",
+            latitude=44.31,
+            longitude=-85.60,
+        )
+        unknown = StreamingRadioStation(
+            station_id="unknown",
+            name="Unknown location",
+            stream_url="https://example.test/unknown",
+        )
+
+        with patch.object(
+            directory,
+            "stations_by_region",
+            return_value=(farther, outside, unknown, close),
+        ):
+            stations = directory.stations_near(
+                latitude=42.3314,
+                longitude=-83.0458,
+                radius_km=80.0,
+                state="Michigan",
+                limit=10,
+            )
+
+        self.assertEqual(
+            tuple(station.station_id for station in stations),
+            ("close", "farther", "unknown"),
+        )
 
 
 if __name__ == "__main__":
