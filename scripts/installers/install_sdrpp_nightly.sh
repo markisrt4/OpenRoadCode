@@ -4,102 +4,76 @@
 
 set -euo pipefail
 
-REPO="hydrasdr/SDRPlusPlus"
-CODENAME="$(. /etc/os-release && echo "${VERSION_CODENAME}")"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ORC_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+SETUP_SCRIPT="$ORC_ROOT/development/debian/setup_sdrpp.sh"
+
+[[ -x "$SETUP_SCRIPT" ]] || {
+  echo "[!] SDR++ source-build helper was not found or is not executable:" >&2
+  echo "    $SETUP_SCRIPT" >&2
+  exit 1
+}
+
+if [[ ! -r /etc/os-release ]]; then
+  echo "[!] /etc/os-release was not found; Debian/Ubuntu host expected." >&2
+  exit 1
+fi
+
+# shellcheck disable=SC1091
+. /etc/os-release
+CODENAME="${VERSION_CODENAME:-unknown}"
 ARCH="$(dpkg --print-architecture)"
 
 echo "[*] Ubuntu/Debian codename: $CODENAME"
 echo "[*] Architecture:           $ARCH"
-
-case "$CODENAME" in
-  noble|jammy|focal) DISTRO=ubuntu ;;
-  trixie|bookworm|bullseye|sid) DISTRO=debian ;;
-  *) echo "[!] Unsupported codename: $CODENAME" >&2; exit 1 ;;
-esac
-
-TMPDIR="$(mktemp -d)"
-trap 'rm -rf "$TMPDIR"' EXIT
-
-sudo apt update
-sudo apt install -y curl ca-certificates jq rtl-sdr soapysdr-tools soapysdr-module-rtlsdr x11-apps
-
-API_URL="https://api.github.com/repos/${REPO}/releases/latest"
-RELEASE_JSON="$TMPDIR/release.json"
-curl -fsSL "$API_URL" -o "$RELEASE_JSON"
-
-asset_url() {
-  jq -r --arg name "$1" '.assets[] | select(.name == $name) | .browser_download_url' "$RELEASE_JSON" | head -n1
-}
-
-ASSET_CODENAME="$CODENAME"
-if [[ "$CODENAME" == trixie ]]; then
-  # Upstream currently publishes Bookworm, Bullseye and Sid packages, but no
-  # Trixie package. Sid is the closest package target for Debian 13.
-  ASSET_CODENAME="sid"
-  echo "[*] No native Trixie package is published upstream; trying Debian Sid."
-fi
-
-ASSET_NAME="sdrpp_${DISTRO}_${ASSET_CODENAME}_${ARCH}.deb"
-DEB_URL="$(asset_url "$ASSET_NAME")"
-
-if [[ -z "$DEB_URL" ]]; then
-  echo "[!] No matching SDR++ package for $CODENAME/$ARCH." >&2
-  echo "[*] Available .deb assets:" >&2
-  jq -r '.assets[].name | select(endswith(".deb"))' "$RELEASE_JSON" >&2
-  exit 1
-fi
-
-DEB_FILE="$TMPDIR/$ASSET_NAME"
-echo "[*] Downloading $ASSET_NAME"
-curl -fL --retry 3 -o "$DEB_FILE" "$DEB_URL"
-
-PACKAGE_ARCH="$(dpkg-deb -f "$DEB_FILE" Architecture)"
-if [[ "$PACKAGE_ARCH" != "$ARCH" && "$PACKAGE_ARCH" != all ]]; then
-  echo "[!] Package architecture mismatch: $PACKAGE_ARCH" >&2
-  exit 1
-fi
-
-echo "[*] Package dependencies:"
-dpkg-deb -f "$DEB_FILE" Depends || true
+echo "[*] SDR++ source ref:       ${SDRPP_REF:-master}"
 echo
 
-# APT's simulator resolves dependencies against the current host repositories.
-# This keeps the Trixie fallback honest instead of dragging Sid repos onto the
-# machine, which would be a delightfully efficient way to ruin Debian.
-SIMULATION="$TMPDIR/apt-simulation.txt"
-if ! apt-get -s install "$DEB_FILE" >"$SIMULATION" 2>&1; then
-  cat "$SIMULATION" >&2
-  echo "[!] Package dependencies are not satisfiable on this host." >&2
-  echo "[*] Use a native source build instead of mixing Debian repositories." >&2
-  exit 1
-fi
-cat "$SIMULATION"
-if grep -Eq '^Remv ' "$SIMULATION"; then
-  echo "[!] APT would remove installed packages. Refusing installation." >&2
-  exit 1
-fi
+echo "[*] Building SDR++ from source with the OpenRoadCode modules"
+echo "    remote_control.so"
+echo "    telemetry.so"
+echo "    rigctl_server.so"
+echo
 
-sudo apt install -y "$DEB_FILE"
-
-if [[ ! -e /usr/bin/sdrpp ]] && ! command -v sdrpp >/dev/null 2>&1; then
-  echo "[!] Installation completed but sdrpp was not found in PATH." >&2
-  exit 1
-fi
+# development/debian/setup_sdrpp.sh is the canonical Linux source-build path.
+# It stages the ORC modules into SDR++ before CMake configuration, validates
+# their exported SDR++ ABI symbols, prepares root_dev, and installs the
+# /usr/local/bin/sdrpp wrapper that launches against those resources.
+"$SETUP_SCRIPT"
 
 if command -v udevadm >/dev/null 2>&1; then
+  if [[ "${EUID:-$(id -u)}" -ne 0 ]]; then
+    SUDO=sudo
+  else
+    SUDO=
+  fi
+
   echo "[*] Installing RTL-SDR udev rule..."
-  sudo tee /etc/udev/rules.d/20-rtlsdr.rules >/dev/null <<'EOF'
+  $SUDO tee /etc/udev/rules.d/20-rtlsdr.rules >/dev/null <<'EOF'
 SUBSYSTEM=="usb", ATTRS{idVendor}=="0bda", ATTRS{idProduct}=="2832", GROUP="plugdev", MODE="0660"
 SUBSYSTEM=="usb", ATTRS{idVendor}=="0bda", ATTRS{idProduct}=="2838", GROUP="plugdev", MODE="0660"
 SUBSYSTEM=="usb", ATTRS{idVendor}=="0bda", ATTRS{idProduct}=="2830", GROUP="plugdev", MODE="0660"
 EOF
-  sudo usermod -aG plugdev "$USER" || true
-  sudo udevadm control --reload-rules
-  sudo udevadm trigger || true
+  $SUDO usermod -aG plugdev "$USER" || true
+  $SUDO udevadm control --reload-rules
+  $SUDO udevadm trigger || true
+fi
+
+if ! command -v sdrpp >/dev/null 2>&1; then
+  echo "[!] Source build completed but sdrpp is not available in PATH." >&2
+  exit 1
 fi
 
 echo
-echo "[+] SDR++ installed."
-echo "Test SDR: rtl_test -t"
-echo "Launch SDR++: sdrpp"
-echo "[!] Replug the SDR dongle or log out/in if permissions are weird."
+echo "[+] OpenRoadCode SDR++ source build installed."
+echo "    launcher: $(command -v sdrpp)"
+echo "    source:   ${SDRPP_SRC:-$HOME/SDRPlusPlus}"
+echo "    ref:      ${SDRPP_REF:-master}"
+echo
+echo "Test SDR:"
+echo "    rtl_test -t"
+echo
+echo "Launch SDR++ with the ORC modules:"
+echo "    sdrpp --autostart"
+echo
+echo "[!] Replug the SDR dongle or log out/in if group permissions changed."
