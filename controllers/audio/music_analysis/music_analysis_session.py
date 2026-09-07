@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 
-"""Own one analyzer and select interchangeable PCM capture backends."""
+"""Source-independent music analysis and calibration ownership."""
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping, Sequence
@@ -10,17 +10,12 @@ import struct
 import threading
 
 from controllers.audio.capture.audio_capture_if import AudioCaptureIf
-from .music_analysis_pipeline import MusicAnalysisPipeline
 from .music_analysis_types import MusicAnalysisState
 from .music_analyzer import MusicAnalyzer
 
 
 class PushAudioCapture(AudioCaptureIf):
-    """Adapt PCM supplied by an external transport to AudioCaptureIf.
-
-    The transport owns permissions and acquisition. This adapter owns only
-    the callback and accepts frames while the source is selected and running.
-    """
+    """Adapt external PCM transport to the standard capture contract."""
 
     def __init__(self) -> None:
         self._callback = None
@@ -41,11 +36,12 @@ class PushAudioCapture(AudioCaptureIf):
         self._callback = None
 
     def push(self, samples: Sequence[float], sample_rate_hz: int) -> None:
-        if not self._running or self._callback is None:
+        callback = self._callback
+        if not self._running or callback is None:
             raise RuntimeError("audio source is not running")
         if sample_rate_hz <= 0:
             raise ValueError("sample_rate_hz must be positive")
-        self._callback(samples, sample_rate_hz)
+        callback(samples, sample_rate_hz)
 
     def push_pcm16(self, audio: bytes, sample_rate_hz: int) -> None:
         if not audio or len(audio) % 2:
@@ -55,12 +51,12 @@ class PushAudioCapture(AudioCaptureIf):
 
 
 class MusicAnalysisSession:
-    """Select one source, analyze PCM, and publish shared analysis state.
+    """Own one analyzer, one selected capture, and one calibration profile.
 
-    Source factories are injected by composition. No platform-specific capture
-    implementation is imported here. Switching stops the old source before
-    starting the next. Calibration is cleared on source changes because noise
-    profiles belong to the acquisition path, not to the visualizer.
+    Factories are supplied by platform composition. Source changes clear the
+    noise profile and adaptive state. Lifecycle operations are serialized and
+    callbacks from previous capture generations are ignored. Consumers receive
+    raw MusicAnalysisState, never presentation-gained values.
     """
 
     def __init__(self, sources: Mapping[str, Callable[[], AudioCaptureIf]], *,
@@ -71,9 +67,9 @@ class MusicAnalysisSession:
         self._analyzer = analyzer or MusicAnalyzer()
         self._consumer = consumer
         self._lock = threading.RLock()
+        self._lifecycle = threading.RLock()
         self._source: str | None = None
         self._capture: AudioCaptureIf | None = None
-        self._pipeline: MusicAnalysisPipeline | None = None
         self._latest: MusicAnalysisState | None = None
         self._generation = 0
         self._calibrating = False
@@ -82,54 +78,73 @@ class MusicAnalysisSession:
         return tuple(self._sources)
 
     def select(self, source: str) -> dict[str, object]:
-        with self._lock:
+        with self._lifecycle:
             if source not in self._sources:
                 raise ValueError(f"Unknown audio source: {source}")
             if source == self._source:
                 return self.state()
-            self._stop_locked()
-            self._analyzer.clear_zeroize()
-            self._calibrating = False
-            self._latest = None
-            self._capture = self._sources[source]()
-            self._source = source
-            self._pipeline = MusicAnalysisPipeline(self._capture, self._analyzer, self._on_state)
+            self.stop()
+            with self._lock:
+                self._analyzer.clear_zeroize()
+                self._calibrating = False
+                self._latest = None
+                self._capture = None
+                self._source = None
+            capture = self._sources[source]()
+            with self._lock:
+                self._capture = capture
+                self._source = source
             return self.state()
 
     def start(self, source: str | None = None) -> dict[str, object]:
-        with self._lock:
+        with self._lifecycle:
             if source is not None:
                 self.select(source)
-            if self._pipeline is None:
-                raise ValueError("Select an audio source first")
-            if not self._pipeline.is_running:
-                self._pipeline.start()
+            with self._lock:
+                capture = self._capture
+                if capture is None:
+                    raise ValueError("Select an audio source first")
+                if capture.is_running:
+                    return self.state()
+                self._generation += 1
+                generation = self._generation
+            try:
+                capture.start(lambda samples, rate: self._on_samples(generation, samples, rate))
+            except Exception:
+                with self._lock:
+                    self._generation += 1
+                capture.stop()
+                raise
             return self.state()
 
     def stop(self) -> dict[str, object]:
-        with self._lock:
-            self._stop_locked()
+        with self._lifecycle:
+            with self._lock:
+                self._generation += 1
+                capture = self._capture
+                self._calibrating = False
+            if capture is not None:
+                capture.stop()
             return self.state()
-
-    def _stop_locked(self) -> None:
-        self._generation += 1
-        if self._pipeline is not None and self._pipeline.is_running:
-            self._pipeline.stop()
-        self._calibrating = False
 
     def push_pcm16(self, audio: bytes, sample_rate_hz: int, *, source: str = "browser") -> dict[str, object]:
         with self._lock:
-            if self._source != source or not isinstance(self._capture, PushAudioCapture):
-                raise RuntimeError("Selected audio source does not accept browser PCM")
-            self._capture.push_pcm16(audio, sample_rate_hz)
+            capture = self._push_source(source)
+            capture.push_pcm16(audio, sample_rate_hz)
             return self.state()
 
     def push(self, samples: Sequence[float], sample_rate_hz: int, *, source: str) -> dict[str, object]:
         with self._lock:
-            if self._source != source or not isinstance(self._capture, PushAudioCapture):
-                raise RuntimeError("Selected audio source does not accept external PCM")
-            self._capture.push(samples, sample_rate_hz)
+            capture = self._push_source(source)
+            capture.push(samples, sample_rate_hz)
             return self.state()
+
+    def _push_source(self, source: str) -> PushAudioCapture:
+        if self._source != source or not isinstance(self._capture, PushAudioCapture):
+            raise RuntimeError("Selected audio source does not accept external PCM")
+        if not self._capture.is_running:
+            raise RuntimeError("audio source is not running")
+        return self._capture
 
     def state(self) -> dict[str, object]:
         with self._lock:
@@ -144,13 +159,13 @@ class MusicAnalysisSession:
             else:
                 data = asdict(self._latest)
                 data["spectrum"] = list(self._latest.spectrum)
-            data.update(source=self._source, running=bool(self._pipeline and self._pipeline.is_running),
+            data.update(source=self._source, running=bool(self._capture and self._capture.is_running),
                         zeroized=self._analyzer.is_zeroized, calibrating=self._calibrating)
             return data
 
     def start_zeroize(self) -> dict[str, object]:
         with self._lock:
-            if self._pipeline is None or not self._pipeline.is_running:
+            if self._capture is None or not self._capture.is_running:
                 raise RuntimeError("Start an audio source before calibration")
             self._analyzer.start_zeroize()
             self._calibrating = True
@@ -158,8 +173,10 @@ class MusicAnalysisSession:
 
     def finish_zeroize(self) -> dict[str, object]:
         with self._lock:
-            self._analyzer.finish_zeroize()
-            self._calibrating = False
+            try:
+                self._analyzer.finish_zeroize()
+            finally:
+                self._calibrating = False
             return self.state()
 
     def clear_zeroize(self) -> dict[str, object]:
@@ -168,8 +185,11 @@ class MusicAnalysisSession:
             self._calibrating = False
             return self.state()
 
-    def _on_state(self, state: MusicAnalysisState) -> None:
+    def _on_samples(self, generation: int, samples: Sequence[float], sample_rate_hz: int) -> None:
         with self._lock:
+            if generation != self._generation:
+                return
+            state = self._analyzer.analyze(samples, sample_rate_hz)
             self._latest = state
         if self._consumer is not None:
             self._consumer(state)
