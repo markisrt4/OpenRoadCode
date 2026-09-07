@@ -39,13 +39,23 @@
   }
   async function command(task){
     if(busy)return;busy=true;syncControls();
-    try{await task()}catch(error){if(status)status.textContent=`Audio error: ${error.message}`}
+    try{await task()}
+    catch(error){
+      try{
+        const current=await api('session/state',{cache:'no-store'});
+        render(current);
+        sourceSelect.value=available.includes(current.source)?current.source:(available[0]||'');
+        if(!current.running&&capture.running)await capture.stop();
+        if(current.running&&current.source!=='browser'&&!pollTimer)schedulePoll(epoch);
+      }catch(recoveryError){console.warn('OpenRoadCode audio state recovery:',recoveryError)}
+      if(status)status.textContent=`Audio error: ${error.message}`;
+    }
     finally{busy=false;syncControls()}
   }
   function cancelPoll(){epoch++;if(pollTimer){clearTimeout(pollTimer);pollTimer=null}}
   function schedulePoll(token,delay=100){if(token===epoch)pollTimer=setTimeout(()=>poll(token),delay)}
   async function poll(token){
-    if(token!==epoch)return;
+    if(token!==epoch)return;pollTimer=null;
     try{
       const next=await api('session/state',{cache:'no-store'});
       if(token!==epoch)return;
@@ -76,6 +86,7 @@
     try{
       if(source==='browser')await capture.start(frame=>{if(token===epoch&&activeSource==='browser')render(frame)});
     }catch(error){
+      await capture.stop();
       render(await api('session/stop',{method:'POST'}));
       throw error;
     }
