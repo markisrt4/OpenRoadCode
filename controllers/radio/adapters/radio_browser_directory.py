@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import math
 from typing import Any
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
@@ -62,6 +63,51 @@ class RadioBrowserDirectory(StreamingRadioDirectoryIf):
             }
         )
 
+    def stations_near(
+        self,
+        *,
+        latitude: float,
+        longitude: float,
+        radius_km: float,
+        state: str,
+        country_code: str = "US",
+        limit: int = 50,
+    ) -> tuple[StreamingRadioStation, ...]:
+        if not -90.0 <= latitude <= 90.0:
+            raise ValueError("latitude must be between -90 and 90")
+        if not -180.0 <= longitude <= 180.0:
+            raise ValueError("longitude must be between -180 and 180")
+        if radius_km <= 0:
+            raise ValueError("radius_km must be positive")
+
+        limit = _validate_limit(limit)
+        candidates = self.stations_by_region(
+            state=state,
+            country_code=country_code,
+            limit=500,
+        )
+
+        nearby: list[tuple[float, StreamingRadioStation]] = []
+        fallback: list[StreamingRadioStation] = []
+        for station in candidates:
+            if station.latitude is None or station.longitude is None:
+                fallback.append(station)
+                continue
+            distance = _distance_km(
+                latitude,
+                longitude,
+                station.latitude,
+                station.longitude,
+            )
+            if distance <= radius_km:
+                nearby.append((distance, station))
+
+        nearby.sort(key=lambda item: item[0])
+        ordered = [station for _, station in nearby]
+        seen = {station.station_id for station in ordered}
+        ordered.extend(station for station in fallback if station.station_id not in seen)
+        return tuple(ordered[:limit])
+
     def _request_stations(self, params: dict[str, str]) -> tuple[StreamingRadioStation, ...]:
         url = f"{self._api_base}/stations/search?{urlencode(params)}"
         request = Request(url, headers={"User-Agent": self.USER_AGENT})
@@ -102,6 +148,8 @@ def _parse_station(item: Any) -> StreamingRadioStation | None:
         codec=_optional_text(item.get("codec")),
         bitrate_kbps=bitrate_kbps,
         tags=tags,
+        latitude=_optional_float(item.get("geo_lat")),
+        longitude=_optional_float(item.get("geo_long")),
     )
 
 
@@ -112,7 +160,29 @@ def _optional_text(value: Any) -> str | None:
     return text or None
 
 
+def _optional_float(value: Any) -> float | None:
+    if value in (None, ""):
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
 def _validate_limit(limit: int) -> int:
     if limit <= 0:
         raise ValueError("limit must be greater than zero")
     return min(limit, 500)
+
+
+def _distance_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    earth_radius_km = 6371.0088
+    phi1 = math.radians(lat1)
+    phi2 = math.radians(lat2)
+    delta_phi = math.radians(lat2 - lat1)
+    delta_lambda = math.radians(lon2 - lon1)
+    a = (
+        math.sin(delta_phi / 2.0) ** 2
+        + math.cos(phi1) * math.cos(phi2) * math.sin(delta_lambda / 2.0) ** 2
+    )
+    return earth_radius_km * 2.0 * math.atan2(math.sqrt(a), math.sqrt(1.0 - a))
