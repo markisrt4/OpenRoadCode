@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import math
 import tkinter as tk
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -54,6 +55,8 @@ class ContextRail(tk.Frame):
         self._vehicle_gauges: dict[str, RoundGauge | LinearGauge | FuelLevelGauge] = {}
         self._gear_value_label: tk.Label | None = None
         self._offroad_value_labels: dict[str, tk.Label] = {}
+        self._offroad_heading_canvas: tk.Canvas | None = None
+        self._offroad_attitude_canvas: tk.Canvas | None = None
         self._page_index = 0
         self._title: tk.Label
         self._body: tk.Frame
@@ -99,11 +102,16 @@ class ContextRail(tk.Frame):
             child.destroy()
         self._vehicle_gauges.clear()
         self._gear_value_label = None
-        self._offroad_value_labels.clear()
+        self._clear_offroad_refs()
         self._build_header()
         self._body = tk.Frame(self, bg=self._theme.ui.surface)
         self._body.pack(fill=tk.BOTH, expand=True, padx=10, pady=(2, 10))
         self._show_page()
+
+    def _clear_offroad_refs(self) -> None:
+        self._offroad_value_labels.clear()
+        self._offroad_heading_canvas = None
+        self._offroad_attitude_canvas = None
 
     def _build_header(self) -> None:
         ui = self._theme.ui
@@ -149,13 +157,11 @@ class ContextRail(tk.Frame):
             self._on_expand(self.selected_page)
 
     def _previous_page(self) -> None:
-        pages = self._pages()
-        self._page_index = (self._page_index - 1) % len(pages)
+        self._page_index = (self._page_index - 1) % len(self._pages())
         self._show_page()
 
     def _next_page(self) -> None:
-        pages = self._pages()
-        self._page_index = (self._page_index + 1) % len(pages)
+        self._page_index = (self._page_index + 1) % len(self._pages())
         self._show_page()
 
     def _show_page(self) -> None:
@@ -164,7 +170,7 @@ class ContextRail(tk.Frame):
             child.destroy()
         self._vehicle_gauges.clear()
         self._gear_value_label = None
-        self._offroad_value_labels.clear()
+        self._clear_offroad_refs()
         pages = self._pages()
         page = pages[self._page_index]
         self._title.configure(text=page.name, fg=page.accent, bg=ui.surface)
@@ -191,7 +197,7 @@ class ContextRail(tk.Frame):
         cluster.grid_rowconfigure(1, weight=3)
         cluster.grid_rowconfigure(2, weight=1)
 
-        rpm_cell = self._compact_gauge_cell(cluster, "RPM", "×1000", row=0, column=0, padx=(0, 2), pady=(0, 2))
+        rpm_cell = self._compact_gauge_cell(cluster, "RPM", "×1000", 0, 0, (0, 2), (0, 2))
         rpm = RoundGauge(
             rpm_cell,
             title="",
@@ -207,7 +213,7 @@ class ContextRail(tk.Frame):
         )
         rpm.pack(fill=tk.BOTH, expand=True)
 
-        speed_cell = self._compact_gauge_cell(cluster, "SPEED", "MPH", row=0, column=1, padx=(2, 0), pady=(0, 2))
+        speed_cell = self._compact_gauge_cell(cluster, "SPEED", "MPH", 0, 1, (2, 0), (0, 2))
         speed = RoundGauge(
             speed_cell,
             title="",
@@ -221,7 +227,7 @@ class ContextRail(tk.Frame):
         )
         speed.pack(fill=tk.BOTH, expand=True)
 
-        boost_cell = self._compact_gauge_cell(cluster, "BOOST", "PSI", row=1, column=0, padx=(0, 2), pady=2)
+        boost_cell = self._compact_gauge_cell(cluster, "BOOST", "PSI", 1, 0, (0, 2), 2)
         boost = RoundGauge(
             boost_cell,
             title="",
@@ -237,7 +243,7 @@ class ContextRail(tk.Frame):
         )
         boost.pack(fill=tk.BOTH, expand=True)
 
-        fuel_cell = self._compact_gauge_cell(cluster, "FUEL", "%", row=1, column=1, padx=(2, 0), pady=2)
+        fuel_cell = self._compact_gauge_cell(cluster, "FUEL", "%", 1, 1, (2, 0), 2)
         fuel = FuelLevelGauge(fuel_cell, style=gauge_style, size=112, show_title=False)
         fuel.pack(fill=tk.BOTH, expand=True)
 
@@ -259,20 +265,11 @@ class ContextRail(tk.Frame):
             height=58,
         )
         coolant.grid(row=0, column=0, sticky="nsew", padx=(0, 4))
-        gear = tk.Frame(
-            status,
-            bg=ui.surface,
-            highlightthickness=1,
-            highlightbackground=ui.border,
-        )
+        gear = self._card(status)
         gear.grid(row=0, column=1, sticky="nsew", padx=(4, 0))
-        tk.Label(
-            gear,
-            text="GEAR",
-            fg=ui.text_muted,
-            bg=ui.surface,
-            font=("Sans", 7, "bold"),
-        ).pack(padx=10, pady=(4, 0))
+        tk.Label(gear, text="GEAR", fg=ui.text_muted, bg=ui.surface, font=("Sans", 7, "bold")).pack(
+            padx=10, pady=(4, 0)
+        )
         self._gear_value_label = tk.Label(
             gear,
             text="—",
@@ -289,7 +286,6 @@ class ContextRail(tk.Frame):
         parent: tk.Frame,
         title: str,
         unit: str,
-        *,
         row: int,
         column: int,
         padx: tuple[int, int] | int,
@@ -300,25 +296,17 @@ class ContextRail(tk.Frame):
         cell.grid(row=row, column=column, sticky="nsew", padx=padx, pady=pady)
         label = tk.Frame(cell, bg=ui.surface)
         label.pack(side=tk.BOTTOM, fill=tk.X, pady=(0, 1))
-        tk.Label(
-            label,
-            text=title,
-            fg=ui.text,
-            bg=ui.surface,
-            font=("Sans", 8, "bold"),
-        ).pack(side=tk.LEFT, expand=True, anchor="e")
-        tk.Label(
-            label,
-            text=unit,
-            fg=ui.text_muted,
-            bg=ui.surface,
-            font=("Sans", 7),
-        ).pack(side=tk.LEFT, expand=True, anchor="w", padx=(4, 0))
+        tk.Label(label, text=title, fg=ui.text, bg=ui.surface, font=("Sans", 8, "bold")).pack(
+            side=tk.LEFT, expand=True, anchor="e"
+        )
+        tk.Label(label, text=unit, fg=ui.text_muted, bg=ui.surface, font=("Sans", 7)).pack(
+            side=tk.LEFT, expand=True, anchor="w", padx=(4, 0)
+        )
         return cell
 
     def _paint_vehicle_values(self) -> None:
         state = self._vehicle_state
-        values: dict[str, float | None] = {
+        values = {
             "rpm": None if state.engine_speed_rpm is None else state.engine_speed_rpm / 1000.0,
             "speed": state.speed_mph,
             "boost": state.boost_psi,
@@ -351,6 +339,7 @@ class ContextRail(tk.Frame):
         panel.pack(fill=tk.BOTH, expand=True)
         panel.grid_columnconfigure(0, weight=1)
         panel.grid_columnconfigure(1, weight=1)
+        panel.grid_rowconfigure(1, weight=1)
 
         status = self._card(panel)
         status.grid(row=0, column=0, columnspan=2, sticky="ew", pady=(2, 6))
@@ -375,39 +364,63 @@ class ContextRail(tk.Frame):
         )
         self._offroad_value_labels["accuracy"].grid(row=0, column=2, padx=(4, 8), pady=5)
 
-        heading = self._card(panel)
-        heading.grid(row=1, column=0, columnspan=2, sticky="nsew", pady=(0, 6))
+        heading_card = self._card(panel)
+        heading_card.grid(row=1, column=0, sticky="nsew", padx=(0, 3), pady=(0, 6))
         tk.Label(
-            heading,
+            heading_card,
             text="HEADING",
             fg=ui.accent_warning,
             bg=ui.surface,
             font=("Sans", 7, "bold"),
         ).pack(pady=(5, 0))
+        self._offroad_heading_canvas = tk.Canvas(
+            heading_card,
+            width=118,
+            height=86,
+            bg=ui.surface,
+            highlightthickness=0,
+        )
+        self._offroad_heading_canvas.pack(fill=tk.BOTH, expand=True, padx=4)
         self._offroad_value_labels["heading"] = tk.Label(
-            heading,
+            heading_card,
             text="--",
             fg=ui.text,
             bg=ui.surface,
-            font=("Sans", 22, "bold"),
+            font=("Sans", 13, "bold"),
         )
         self._offroad_value_labels["heading"].pack(pady=(0, 5))
 
-        self._offroad_metric_card(panel, "PITCH", "pitch", "°").grid(
+        attitude_card = self._card(panel)
+        attitude_card.grid(row=1, column=1, sticky="nsew", padx=(3, 0), pady=(0, 6))
+        tk.Label(
+            attitude_card,
+            text="ATTITUDE",
+            fg=ui.accent_primary,
+            bg=ui.surface,
+            font=("Sans", 7, "bold"),
+        ).pack(pady=(5, 0))
+        self._offroad_attitude_canvas = tk.Canvas(
+            attitude_card,
+            width=118,
+            height=86,
+            bg=ui.surface,
+            highlightthickness=0,
+        )
+        self._offroad_attitude_canvas.pack(fill=tk.BOTH, expand=True, padx=4)
+        attitude_values = tk.Frame(attitude_card, bg=ui.surface)
+        attitude_values.pack(fill=tk.X, pady=(0, 5))
+        self._offroad_value_labels["pitch"] = self._small_attitude_value(attitude_values, "P", side=tk.LEFT)
+        self._offroad_value_labels["roll"] = self._small_attitude_value(attitude_values, "R", side=tk.RIGHT)
+
+        self._offroad_metric_card(panel, "ALTITUDE", "altitude", "ft").grid(
             row=2, column=0, sticky="nsew", padx=(0, 3), pady=(0, 6)
         )
-        self._offroad_metric_card(panel, "ROLL", "roll", "°").grid(
-            row=2, column=1, sticky="nsew", padx=(3, 0), pady=(0, 6)
-        )
-        self._offroad_metric_card(panel, "ALTITUDE", "altitude", "ft").grid(
-            row=3, column=0, sticky="nsew", padx=(0, 3), pady=(0, 6)
-        )
         self._offroad_metric_card(panel, "SPEED", "speed", "mph").grid(
-            row=3, column=1, sticky="nsew", padx=(3, 0), pady=(0, 6)
+            row=2, column=1, sticky="nsew", padx=(3, 0), pady=(0, 6)
         )
 
         footer = self._card(panel)
-        footer.grid(row=4, column=0, columnspan=2, sticky="ew")
+        footer.grid(row=3, column=0, columnspan=2, sticky="ew")
         footer.grid_columnconfigure(0, weight=1)
         self._offroad_value_labels["coordinates"] = tk.Label(
             footer,
@@ -427,6 +440,17 @@ class ContextRail(tk.Frame):
         )
         self._offroad_value_labels["satellites"].grid(row=0, column=1, sticky="e", padx=(4, 8), pady=6)
         self._paint_offroad_values()
+
+    def _small_attitude_value(self, parent: tk.Misc, prefix: str, *, side: str) -> tk.Label:
+        ui = self._theme.ui
+        holder = tk.Frame(parent, bg=ui.surface)
+        holder.pack(side=side, padx=7)
+        tk.Label(holder, text=prefix, fg=ui.text_muted, bg=ui.surface, font=("Sans", 7, "bold")).pack(
+            side=tk.LEFT, padx=(0, 2)
+        )
+        value = tk.Label(holder, text="--", fg=ui.text, bg=ui.surface, font=("Sans", 9, "bold"))
+        value.pack(side=tk.LEFT)
+        return value
 
     def _card(self, parent: tk.Misc) -> tk.Frame:
         ui = self._theme.ui
@@ -457,7 +481,7 @@ class ContextRail(tk.Frame):
         attitude = self._attitude_state
         vehicle = self._vehicle_state
         heading = attitude.heading_deg
-        heading_text = "--" if heading is None else f"{self._cardinal_direction(heading)}  {heading:03.0f}°"
+        heading_text = "--" if heading is None else f"{self._cardinal_direction(heading)} {heading:03.0f}°"
         coordinates = (
             "--"
             if position.latitude_deg is None or position.longitude_deg is None
@@ -486,9 +510,65 @@ class ContextRail(tk.Frame):
         for key, value in (("pitch", attitude.pitch_deg), ("roll", attitude.roll_deg)):
             label = self._offroad_value_labels.get(key)
             if label is not None:
-                label.configure(
-                    fg=ui.accent_danger if value is not None and abs(value) >= 20.0 else ui.text
-                )
+                label.configure(fg=ui.accent_danger if value is not None and abs(value) >= 20.0 else ui.text)
+
+        self._paint_compass(heading)
+        self._paint_attitude(attitude.pitch_deg, attitude.roll_deg)
+
+    def _paint_compass(self, heading: float | None) -> None:
+        canvas = self._offroad_heading_canvas
+        if canvas is None:
+            return
+        ui = self._theme.ui
+        canvas.delete("all")
+        width = max(90, canvas.winfo_width())
+        height = max(70, canvas.winfo_height())
+        cx, cy = width / 2, height / 2
+        radius = min(width, height) * 0.36
+        canvas.create_oval(cx - radius, cy - radius, cx + radius, cy + radius, outline=ui.border, width=2)
+        for label, degrees in (("N", 0), ("E", 90), ("S", 180), ("W", 270)):
+            angle = math.radians(degrees - 90)
+            canvas.create_text(
+                cx + radius * 0.72 * math.cos(angle),
+                cy + radius * 0.72 * math.sin(angle),
+                text=label,
+                fill=ui.accent_warning if label == "N" else ui.text_muted,
+                font=("Sans", 7, "bold"),
+            )
+        if heading is not None:
+            angle = math.radians(heading - 90)
+            canvas.create_line(
+                cx,
+                cy,
+                cx + radius * 0.62 * math.cos(angle),
+                cy + radius * 0.62 * math.sin(angle),
+                fill=ui.accent_warning,
+                width=3,
+                arrow=tk.LAST,
+            )
+            canvas.create_oval(cx - 3, cy - 3, cx + 3, cy + 3, fill=ui.accent_warning, outline="")
+
+    def _paint_attitude(self, pitch: float | None, roll: float | None) -> None:
+        canvas = self._offroad_attitude_canvas
+        if canvas is None:
+            return
+        ui = self._theme.ui
+        canvas.delete("all")
+        width = max(90, canvas.winfo_width())
+        height = max(70, canvas.winfo_height())
+        cx, cy = width / 2, height / 2
+        canvas.create_line(12, cy, width - 12, cy, fill=ui.border, width=1)
+        if pitch is None or roll is None:
+            return
+        pitch_offset = max(-25.0, min(25.0, pitch)) * (height / 100.0)
+        angle = math.radians(-roll)
+        half = width * 0.33
+        dx, dy = half * math.cos(angle), half * math.sin(angle)
+        horizon_y = cy + pitch_offset
+        color = ui.accent_danger if abs(pitch) >= 20.0 or abs(roll) >= 20.0 else ui.accent_primary
+        canvas.create_line(cx - dx, horizon_y - dy, cx + dx, horizon_y + dy, fill=color, width=3)
+        canvas.create_line(cx - 12, cy, cx + 12, cy, fill=ui.text, width=2)
+        canvas.create_line(cx, cy - 5, cx, cy + 5, fill=ui.text, width=2)
 
     @staticmethod
     def _fix_text(fix_mode: int | None) -> str:
@@ -510,7 +590,7 @@ class ContextRail(tk.Frame):
 
     @staticmethod
     def _signed(value: float | None) -> str:
-        return "--" if value is None else f"{value:+.1f}"
+        return "--" if value is None else f"{value:+.1f}°"
 
     @staticmethod
     def _format(value: float | None, spec: str) -> str:
