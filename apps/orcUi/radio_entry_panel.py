@@ -11,6 +11,8 @@ import tkinter as tk
 
 from apps.orcUi.radio_application_service import RadioApplicationServiceIf
 from apps.orcUi.radio_panel import RadioPanel
+from controllers.radio.adapters.radio_browser_directory import RadioBrowserDirectory
+from frontends.tk.radio.streaming_radio_panel import StreamingRadioPanel
 from frontends.x11 import X11WindowEmbedder
 from ui.theme import ThemeBundle
 
@@ -42,6 +44,7 @@ class RadioEntryPanel(tk.Frame):
         self._embedder = embedder or X11WindowEmbedder()
         self._radio_application = radio_application
         self._radio_panel: LaunchAwareRadioPanel | None = None
+        self._streaming_page: StreamingRadioPanel | None = None
         self._launching = False
 
         self.grid_columnconfigure(0, weight=1)
@@ -52,7 +55,6 @@ class RadioEntryPanel(tk.Frame):
         self._chooser.grid_columnconfigure(1, weight=1, uniform="radio-source")
         self._chooser.grid_rowconfigure(0, weight=1)
         self._build_choice_buttons()
-        self._streaming_page = self._build_streaming_page()
 
     def _build_choice_buttons(self) -> None:
         ui = self._theme.ui
@@ -67,27 +69,20 @@ class RadioEntryPanel(tk.Frame):
         streaming_card.grid(row=0, column=1, sticky="nsew", padx=(6, 12), pady=18)
         streaming_card.grid_columnconfigure(0, weight=1)
         streaming_card.grid_rowconfigure(0, weight=1)
-        self._streaming_button = tk.Button(streaming_card, text="STREAMING RADIO\n\n◉\n\nINTERNET STATIONS", command=self._show_streaming_coming_soon, bg=ui.surface, fg=ui.text, activebackground=ui.control_background, activeforeground=ui.accent_primary, relief=tk.FLAT, bd=0, font=("Sans", 22, "bold"))
+        self._streaming_button = tk.Button(streaming_card, text="STREAMING RADIO\n\n◉\n\nINTERNET STATIONS", command=self._show_streaming_radio, bg=ui.surface, fg=ui.text, activebackground=ui.control_background, activeforeground=ui.accent_primary, relief=tk.FLAT, bd=0, font=("Sans", 22, "bold"))
         self._streaming_button.grid(row=0, column=0, sticky="nsew")
 
         self._status = tk.Label(self._chooser, text="Choose a radio source", bg=ui.background, fg=ui.text_muted, font=("Sans", 10))
         self._status.grid(row=1, column=0, columnspan=2, pady=(0, 10))
 
-    def _build_streaming_page(self) -> tk.Frame:
-        ui = self._theme.ui
-        page = tk.Frame(self, bg=ui.background)
-        page.grid_columnconfigure(0, weight=1)
-        page.grid_rowconfigure(0, weight=1)
-        card = tk.Frame(page, bg=ui.surface, highlightthickness=1, highlightbackground=ui.border)
-        card.grid(row=0, column=0, sticky="nsew", padx=12, pady=18)
-        tk.Label(card, text="STREAMING RADIO", bg=ui.surface, fg=ui.accent_primary, font=("Sans", 18, "bold")).place(relx=0.5, rely=0.36, anchor="center")
-        tk.Label(card, text="COMING SOON", bg=ui.surface, fg=ui.text, font=("Sans", 30, "bold")).place(relx=0.5, rely=0.50, anchor="center")
-        tk.Label(card, text="Regional internet stations, cached artwork, favorites, and more.", bg=ui.surface, fg=ui.text_muted, font=("Sans", 11)).place(relx=0.5, rely=0.62, anchor="center")
-        tk.Button(card, text="‹ BACK TO RADIO", command=self._show_chooser, bg=ui.control_background, fg=ui.control_text, activebackground=ui.control_active, activeforeground="#ffffff", relief=tk.FLAT, bd=0, font=("Sans", 10, "bold"), padx=16, pady=9).place(relx=0.5, rely=0.76, anchor="center")
-        return page
-
-    def _show_streaming_coming_soon(self) -> None:
+    def _show_streaming_radio(self) -> None:
         self._chooser.grid_remove()
+        if self._streaming_page is None or not self._streaming_page.winfo_exists():
+            self._streaming_page = StreamingRadioPanel(
+                self,
+                directory=RadioBrowserDirectory(timeout_s=10.0),
+                on_back=self._show_chooser,
+            )
         self._streaming_page.grid(row=0, column=0, sticky="nsew")
 
     def _show_chooser(self) -> None:
