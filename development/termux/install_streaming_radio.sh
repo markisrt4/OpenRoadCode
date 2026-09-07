@@ -23,16 +23,24 @@ echo "=========================================="
 echo "PREFIX: ${PREFIX}"
 echo
 
+echo "Refreshing package metadata..."
+pkg update -y
+
+echo "Ensuring TLS certificates are installed..."
+pkg install -y ca-certificates
+
+cert_file="${PREFIX}/etc/tls/cert.pem"
+if [[ ! -s "${cert_file}" ]]; then
+    fail "ca-certificates is installed, but expected certificate bundle was not found: ${cert_file}"
+fi
+
+echo "Certificates: ${cert_file}"
+
 if command -v mpv >/dev/null 2>&1; then
     echo "mpv is already installed: $(command -v mpv)"
 else
-    echo "Refreshing package metadata..."
-    pkg update -y
-
     echo "Installing streaming-radio runtime dependencies..."
-    pkg install -y \
-        ca-certificates \
-        mpv
+    pkg install -y mpv
 fi
 
 echo
@@ -47,6 +55,5 @@ echo "mpv: ${mpv_path}"
 echo "Version: ${mpv_version}"
 echo
 echo "Streaming radio runtime dependencies are ready."
-echo "Termux mpv is configured for Android audio output by the Termux package."
 echo "Run OpenRoadCode streaming-radio tests from the repository root with:"
 echo "  python -m unittest -v controllers.radio.unit_test.test_streaming_radio_controller hardware_io.audio.unit_test.test_mpv_streaming_audio_player"
