@@ -103,6 +103,14 @@ def main() -> int:
 
     count = bridge.registration_count() or 0
     if count == 0:
+        candidates = earth_input.location_control_diagnostics()
+        if candidates:
+            print("[earth-direct] location-like Earth controls discovered:")
+            for candidate in candidates:
+                print(f"[earth-direct]   {candidate}")
+        else:
+            print("[earth-direct] no location-like accessibility controls discovered")
+
         print("[earth-direct] Earth has no geolocation watch yet; activating Locate Me once")
         if not earth_input.activate_location_tracking():
             print("[earth-direct] FAIL: could not activate Earth's location control")
@@ -111,7 +119,8 @@ def main() -> int:
 
     if count == 0:
         print("[earth-direct] FAIL: Earth never registered navigator.geolocation.watchPosition")
-        print("[earth-direct] This isolates the problem to Earth location activation/bridge integration.")
+        print("[earth-direct] Locate Me was clicked, but Earth did not subscribe to geolocation.")
+        print("[earth-direct] This remains isolated to Earth location activation/bridge integration.")
         return 6
 
     print(f"[earth-direct] PASS: Earth registered {count} geolocation watch(es)")
