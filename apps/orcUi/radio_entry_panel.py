@@ -12,6 +12,7 @@ import tkinter as tk
 from apps.orcUi.radio_application_service import RadioApplicationServiceIf
 from apps.orcUi.radio_panel import RadioPanel
 from controllers.radio.adapters.radio_browser_directory import RadioBrowserDirectory
+from controllers.radio.streaming_radio_controller import StreamingRadioController
 from frontends.tk.radio.streaming_radio_panel import StreamingRadioPanel
 from frontends.x11 import X11WindowEmbedder
 from ui.theme import ThemeBundle
@@ -37,12 +38,21 @@ class LaunchAwareRadioPanel(RadioPanel):
 class RadioEntryPanel(tk.Frame):
     """Offer RF or streaming radio and host the active radio presentation."""
 
-    def __init__(self, parent: tk.Misc, *, radio_application: RadioApplicationServiceIf, theme: ThemeBundle, embedder: X11WindowEmbedder | None = None) -> None:
+    def __init__(
+        self,
+        parent: tk.Misc,
+        *,
+        radio_application: RadioApplicationServiceIf,
+        streaming_radio: StreamingRadioController,
+        theme: ThemeBundle,
+        embedder: X11WindowEmbedder | None = None,
+    ) -> None:
         self._theme = theme
         ui = theme.ui
         super().__init__(parent, bg=ui.background)
         self._embedder = embedder or X11WindowEmbedder()
         self._radio_application = radio_application
+        self._streaming_radio = streaming_radio
         self._radio_panel: LaunchAwareRadioPanel | None = None
         self._streaming_page: StreamingRadioPanel | None = None
         self._launching = False
@@ -81,12 +91,14 @@ class RadioEntryPanel(tk.Frame):
             self._streaming_page = StreamingRadioPanel(
                 self,
                 directory=RadioBrowserDirectory(timeout_s=10.0),
+                controller=self._streaming_radio,
                 on_back=self._show_chooser,
             )
         self._streaming_page.grid(row=0, column=0, sticky="nsew")
 
     def _show_chooser(self) -> None:
-        self._streaming_page.grid_remove()
+        if self._streaming_page is not None and self._streaming_page.winfo_exists():
+            self._streaming_page.grid_remove()
         self._chooser.grid(row=0, column=0, sticky="nsew")
 
     def _launch_rf_radio(self) -> None:
