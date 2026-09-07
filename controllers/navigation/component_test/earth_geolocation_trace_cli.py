@@ -1,6 +1,6 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
-"""Observe Earth geolocation calls without activating its controls."""
+"""Observe Earth geolocation calls and the user's location-control click."""
 from __future__ import annotations
 
 import argparse
@@ -14,7 +14,7 @@ _INSTALL = r'''(() => {
  const geo = navigator.geolocation;
  if (!geo) return {error: 'Geolocation unavailable'};
  if (window.__orcEarthGeoTrace) return {installed: true, existing: true};
- const state = {events: [], next: 1, active: new Map()};
+ const state = {events: [], active: new Map(), listeners: []};
  const record = (type, detail = {}) => {
   state.events.push({time: new Date().toISOString(), type, ...detail});
   if (state.events.length > 500) state.events.shift();
@@ -24,6 +24,29 @@ _INSTALL = r'''(() => {
   clearWatch: geo.clearWatch,
   getCurrentPosition: geo.getCurrentPosition
  };
+ const describeTarget = target => {
+  if (!target) return {};
+  return {
+   tag: target.tagName || null,
+   id: target.id || null,
+   className: typeof target.className === 'string' ? target.className : null,
+   ariaLabel: target.getAttribute?.('aria-label') || null,
+   title: target.getAttribute?.('title') || null
+  };
+ };
+ const inputListener = event => {
+  record('input.' + event.type, {
+   x: Number(event.clientX),
+   y: Number(event.clientY),
+   width: window.innerWidth,
+   height: window.innerHeight,
+   ...describeTarget(event.target)
+  });
+ };
+ for (const type of ['pointerdown', 'pointerup', 'mousedown', 'mouseup', 'click']) {
+  document.addEventListener(type, inputListener, true);
+  state.listeners.push([type, inputListener]);
+ }
  const wrap = (success, error, method) => ({
   success: p => {record(method + '.success', {latitude: p.coords.latitude, longitude: p.coords.longitude}); if (typeof success === 'function') success(p);},
   error: e => {record(method + '.error', {code: e.code, message: e.message}); if (typeof error === 'function') error(e);}
@@ -47,11 +70,16 @@ _INSTALL = r'''(() => {
  state.snapshot = () => ({activeWatchers: state.active.size, events: state.events.slice()});
  state.restore = () => {
   for (const [name, fn] of Object.entries(original)) Object.defineProperty(geo, name, {configurable: true, value: fn});
+  for (const [type, listener] of state.listeners) document.removeEventListener(type, listener, true);
   delete window.__orcEarthGeoTrace;
  };
  window.__orcEarthGeoTrace = state;
- record('trace.installed', {existingBridge: !!window.__orcEarthGeoBridge?.installed});
- return {installed: true, existingBridge: !!window.__orcEarthGeoBridge?.installed};
+ record('trace.installed', {
+  existingBridge: !!window.__orcEarthGeoBridge?.installed,
+  width: window.innerWidth,
+  height: window.innerHeight
+ });
+ return {installed: true, existingBridge: !!window.__orcEarthGeoBridge?.installed, width: window.innerWidth, height: window.innerHeight};
 })()'''
 
 
@@ -65,7 +93,7 @@ def main() -> int:
         print(_PREFIX, json.dumps(result, sort_keys=True), flush=True)
         if not isinstance(result, dict) or not result.get('installed'):
             return 2
-        print(_PREFIX, 'Click the actual Earth location control once. No automatic clicks or synthetic fixes.', flush=True)
+        print(_PREFIX, 'Click the actual Earth location control once. The trace will record the click coordinates and geolocation calls.', flush=True)
         deadline = time.monotonic() + args.seconds
         seen = 0
         while time.monotonic() < deadline:
