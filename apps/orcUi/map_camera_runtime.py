@@ -9,10 +9,13 @@ import math
 
 from controllers.map_renderer.map_request_handler import MapRequestHandler
 from messaging.contracts.navigation import (
+    ATTITUDE_STATE_TOPIC,
     MOTION_STATE_TOPIC,
     POSITION_STATE_TOPIC,
+    AttitudeStateMessage,
     MotionStateMessage,
     PositionStateMessage,
+    decode_attitude_state,
     decode_motion_state,
     decode_position_state,
 )
@@ -53,6 +56,7 @@ class MapCameraRuntime:
         self._dispatcher = MessageDispatcher(ZeroMqSubscriber(LOCAL_SUBSCRIBER_ENDPOINT))
         self._dispatcher.register(POSITION_STATE_TOPIC, decode_position_state, self._on_position_message)
         self._dispatcher.register(MOTION_STATE_TOPIC, decode_motion_state, self._on_motion_message)
+        self._dispatcher.register(ATTITUDE_STATE_TOPIC, decode_attitude_state, self._on_attitude_message)
         self._dispatcher.register(
             ROUTE_GUIDANCE_STATE_TOPIC,
             decode_route_guidance_state,
@@ -63,6 +67,8 @@ class MapCameraRuntime:
         self._latest_ground_speed_m_s: float | None = None
         self._latest_course_rad: float | None = None
         self._latest_heading_rad: float | None = None
+        self._latest_pitch_rad: float | None = None
+        self._latest_roll_rad: float | None = None
         self._latest_instruction: str | None = None
         self._latest_distance_to_maneuver_m: float | None = None
         self._latest_distance_remaining_m: float | None = None
@@ -89,6 +95,14 @@ class MapCameraRuntime:
     @property
     def latest_heading_rad(self) -> float | None:
         return self._latest_heading_rad
+
+    @property
+    def latest_pitch_rad(self) -> float | None:
+        return self._latest_pitch_rad
+
+    @property
+    def latest_roll_rad(self) -> float | None:
+        return self._latest_roll_rad
 
     @property
     def latest_track_rad(self) -> float | None:
@@ -162,6 +176,13 @@ class MapCameraRuntime:
         bearing_rad = data.course_rad if data.course_rad is not None else data.heading_rad
         if bearing_rad is not None:
             self._handler.update_follow_bearing(bearing_rad)
+
+    def _on_attitude_message(self, message: AttitudeStateMessage) -> None:
+        data = message.data
+        if data.heading_rad is not None:
+            self._latest_heading_rad = data.heading_rad
+        self._latest_pitch_rad = data.pitch_rad
+        self._latest_roll_rad = data.roll_rad
 
     def _on_route_guidance_message(self, message: RouteGuidanceStateMessage) -> None:
         data = message.data
