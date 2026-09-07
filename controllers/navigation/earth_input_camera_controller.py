@@ -5,6 +5,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from apps.launchers.chromium_devtools_client import ChromiumDevToolsClient
 from controllers.navigation.earth_camera_controller_if import EarthCameraControllerIf, EarthCameraView
 
@@ -26,6 +28,13 @@ class EarthInputCameraController(EarthCameraControllerIf):
     _CHASE_ZOOM_FOCUS_Y = 0.36
     _LOCATION_RIGHT_MARGIN_PX = 34.0
     _LOCATION_BOTTOM_MARGIN_PX = 34.0
+    _LOCATION_NAME_TOKENS = (
+        "my location",
+        "your location",
+        "current location",
+        "locate me",
+        "location",
+    )
 
     def __init__(self, client: ChromiumDevToolsClient | None = None) -> None:
         self._client = client or ChromiumDevToolsClient(port=9223)
@@ -79,23 +88,46 @@ class EarthInputCameraController(EarthCameraControllerIf):
         return self._key("B", "KeyB", 66, printable=False, modifiers=10)
 
     def activate_location_tracking(self) -> bool:
-        """Click Google's location tool in the bottom-right of the Earth viewport."""
+        """Activate Earth's location tool, preferring semantic discovery over coordinates."""
         try:
             self._client.activate(self._require_target_id())
+
+            # Google Earth Web moves controls as toolbars/layout change.  A
+            # fixed bottom-right coordinate was therefore a particularly
+            # optimistic way to find Locate Me.  Prefer the accessibility tree
+            # and only keep the old coordinate as a final compatibility fallback.
+            point = self._location_control_point()
+            if point is not None:
+                return self._click(*point)
+
             width, height = self._viewport_size()
-            x = max(1.0, width - self._LOCATION_RIGHT_MARGIN_PX)
-            y = max(1.0, height - self._LOCATION_BOTTOM_MARGIN_PX)
-            self._client.command_earth(
-                "Input.dispatchMouseEvent",
-                {"type": "mousePressed", "x": x, "y": y, "button": "left", "buttons": 1, "clickCount": 1},
+            return self._click(
+                max(1.0, width - self._LOCATION_RIGHT_MARGIN_PX),
+                max(1.0, height - self._LOCATION_BOTTOM_MARGIN_PX),
             )
-            self._client.command_earth(
-                "Input.dispatchMouseEvent",
-                {"type": "mouseReleased", "x": x, "y": y, "button": "left", "buttons": 0, "clickCount": 1},
-            )
-            return True
         except (OSError, RuntimeError, TypeError, ValueError):
             return False
+
+    def location_control_diagnostics(self) -> tuple[str, ...]:
+        """Return compact accessibility candidates useful when Locate Me cannot be found."""
+        try:
+            self._client.command_earth("Accessibility.enable")
+            tree = self._client.command_earth("Accessibility.getFullAXTree")
+        except (OSError, RuntimeError, TypeError, ValueError):
+            return ()
+
+        candidates: list[str] = []
+        for node in tree.get("nodes", []):
+            if not isinstance(node, dict):
+                continue
+            name = self._ax_value(node.get("name"))
+            role = self._ax_value(node.get("role"))
+            if not name:
+                continue
+            lowered = name.casefold()
+            if any(token in lowered for token in self._LOCATION_NAME_TOKENS):
+                candidates.append(f"{role or '?'}: {name}")
+        return tuple(candidates[:12])
 
     def pan(self, *, up: float = 0.0, right: float = 0.0) -> bool:
         """Pan using Earth arrow controls with zoom-relative travel."""
@@ -143,6 +175,66 @@ class EarthInputCameraController(EarthCameraControllerIf):
         if steps is None:
             raise ValueError(f"unsupported Earth view preset: {name}")
         return all(self._wheel(delta) for delta in steps)
+
+    def _location_control_point(self) -> tuple[float, float] | None:
+        """Resolve a location-like accessibility node to viewport coordinates."""
+        self._client.command_earth("Accessibility.enable")
+        tree = self._client.command_earth("Accessibility.getFullAXTree")
+        ranked: list[tuple[int, dict[str, Any]]] = []
+
+        for node in tree.get("nodes", []):
+            if not isinstance(node, dict):
+                continue
+            backend_id = node.get("backendDOMNodeId")
+            if not isinstance(backend_id, int):
+                continue
+            name = self._ax_value(node.get("name"))
+            if not name:
+                continue
+            lowered = name.casefold()
+            score = next(
+                (len(self._LOCATION_NAME_TOKENS) - i for i, token in enumerate(self._LOCATION_NAME_TOKENS) if token in lowered),
+                0,
+            )
+            if score:
+                ranked.append((score, node))
+
+        ranked.sort(key=lambda item: item[0], reverse=True)
+        for _, node in ranked:
+            backend_id = int(node["backendDOMNodeId"])
+            try:
+                model = self._client.command_earth(
+                    "DOM.getBoxModel", {"backendNodeId": backend_id}
+                ).get("model")
+            except RuntimeError:
+                continue
+            if not isinstance(model, dict):
+                continue
+            quad = model.get("border") or model.get("content")
+            if not isinstance(quad, list) or len(quad) < 8:
+                continue
+            xs = [float(quad[i]) for i in range(0, 8, 2)]
+            ys = [float(quad[i]) for i in range(1, 8, 2)]
+            return sum(xs) / len(xs), sum(ys) / len(ys)
+        return None
+
+    @staticmethod
+    def _ax_value(value: Any) -> str:
+        if isinstance(value, dict):
+            raw = value.get("value")
+            return "" if raw is None else str(raw)
+        return "" if value is None else str(value)
+
+    def _click(self, x: float, y: float) -> bool:
+        self._client.command_earth(
+            "Input.dispatchMouseEvent",
+            {"type": "mousePressed", "x": x, "y": y, "button": "left", "buttons": 1, "clickCount": 1},
+        )
+        self._client.command_earth(
+            "Input.dispatchMouseEvent",
+            {"type": "mouseReleased", "x": x, "y": y, "button": "left", "buttons": 0, "clickCount": 1},
+        )
+        return True
 
     def _viewport_size(self) -> tuple[float, float]:
         self._client.activate(self._require_target_id())
