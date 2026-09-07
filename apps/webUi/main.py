@@ -16,7 +16,7 @@ from apps.webUi.song_recognition_session import WebSongRecognitionSession
 from apps.webUi.spotify_session import WebSpotifySession
 from apps.webUi.web_navigation_ui_state import WebNavigationUiState
 from apps.webUi.web_vehicle_ui_state import WebVehicleUiState
-from controllers.audio.capture import PipewireAudioCapture
+from controllers.audio.capture import AndroidPlaybackAudioCapture, PipewireAudioCapture
 from controllers.audio.music_analysis import MusicAnalysisFanout
 from controllers.audio.music_analysis.music_analysis_session import MusicAnalysisSession, PushAudioCapture
 from controllers.lighting import DummyLightingController, MusicReactiveLighting
@@ -77,11 +77,15 @@ def _create_music_analysis() -> tuple[MusicAnalysisSession, WebMusicReactiveLigh
 
     Browser capture is always available through an external PCM transport.
     PipeWire is advertised only when its recording executable is installed.
+    Android playback is offered on Android, or explicitly for integration tests.
+    Native capture and its user-consent flow belong to the Android bridge.
     No backend is started or selected during application construction.
     """
     sources = {"browser": PushAudioCapture}
     if shutil.which("pw-record") is not None:
         sources["linux-pipewire"] = PipewireAudioCapture
+    if os.environ.get("ANDROID_ROOT") or os.environ.get("OPENROADCODE_ANDROID_PLAYBACK", "0") == "1":
+        sources["android-playback"] = AndroidPlaybackAudioCapture
 
     if os.environ.get("OPENROADCODE_WEB_DUMMY_LIGHTING", "0") != "1":
         return MusicAnalysisSession(sources), WebMusicReactiveLightingSession()
