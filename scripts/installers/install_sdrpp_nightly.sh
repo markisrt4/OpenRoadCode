@@ -23,7 +23,7 @@ trap 'rm -rf "$TMPDIR"' EXIT
 sudo apt update
 sudo apt install -y curl ca-certificates jq rtl-sdr soapysdr-tools soapysdr-module-rtlsdr x11-apps
 
-API_URL="https://api.github.com/repos/${REPO}/releases/tags/nightly"
+API_URL="https://api.github.com/repos/${REPO}/releases/latest"
 RELEASE_JSON="$TMPDIR/release.json"
 curl -fsSL "$API_URL" -o "$RELEASE_JSON"
 
@@ -31,19 +31,20 @@ asset_url() {
   jq -r --arg name "$1" '.assets[] | select(.name == $name) | .browser_download_url' "$RELEASE_JSON" | head -n1
 }
 
-ASSET_NAME="sdrpp_${DISTRO}_${CODENAME}_${ARCH}.deb"
-DEB_URL="$(asset_url "$ASSET_NAME")"
-
-# Trixie is not currently an upstream packaging target. Try the Bookworm
-# build only after inspecting its dependencies against this machine.
-if [[ -z "$DEB_URL" && "$CODENAME" == trixie ]]; then
-  ASSET_NAME="sdrpp_debian_bookworm_${ARCH}.deb"
-  DEB_URL="$(asset_url "$ASSET_NAME")"
-  echo "[*] No native Trixie package; inspecting the Bookworm build."
+ASSET_CODENAME="$CODENAME"
+if [[ "$CODENAME" == trixie ]]; then
+  # Upstream currently publishes Bookworm, Bullseye and Sid packages, but no
+  # Trixie package. Sid is the closest package target for Debian 13.
+  ASSET_CODENAME="sid"
+  echo "[*] No native Trixie package is published upstream; trying Debian Sid."
 fi
 
+ASSET_NAME="sdrpp_${DISTRO}_${ASSET_CODENAME}_${ARCH}.deb"
+DEB_URL="$(asset_url "$ASSET_NAME")"
+
 if [[ -z "$DEB_URL" ]]; then
-  echo "[!] No matching nightly package for $CODENAME/$ARCH." >&2
+  echo "[!] No matching SDR++ package for $CODENAME/$ARCH." >&2
+  echo "[*] Available .deb assets:" >&2
   jq -r '.assets[].name | select(endswith(".deb"))' "$RELEASE_JSON" >&2
   exit 1
 fi
@@ -62,13 +63,14 @@ echo "[*] Package dependencies:"
 dpkg-deb -f "$DEB_FILE" Depends || true
 echo
 
-# APT's simulator resolves dependencies using the host's configured repos.
-# Never add an older Debian repository or force dependency installation.
+# APT's simulator resolves dependencies against the current host repositories.
+# This keeps the Trixie fallback honest instead of dragging Sid repos onto the
+# machine, which would be a delightfully efficient way to ruin Debian.
 SIMULATION="$TMPDIR/apt-simulation.txt"
 if ! apt-get -s install "$DEB_FILE" >"$SIMULATION" 2>&1; then
   cat "$SIMULATION" >&2
   echo "[!] Package dependencies are not satisfiable on this host." >&2
-  echo "[*] Use a native source build instead of mixing Debian releases." >&2
+  echo "[*] Use a native source build instead of mixing Debian repositories." >&2
   exit 1
 fi
 cat "$SIMULATION"
@@ -97,7 +99,7 @@ EOF
 fi
 
 echo
- echo "[+] SDR++ installed."
+echo "[+] SDR++ installed."
 echo "Test SDR: rtl_test -t"
 echo "Launch SDR++: sdrpp"
 echo "[!] Replug the SDR dongle or log out/in if permissions are weird."
