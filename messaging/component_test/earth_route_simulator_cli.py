@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import argparse
 import math
+import threading
 import time
 from datetime import datetime, timezone
 
@@ -17,7 +18,8 @@ from controllers.navigation.navigation_state import (
 )
 from hardware_io.imu import Vector3
 from messaging.contracts.navigation import NavigationStatePublisher
-from messaging.zeromq import ZeroMqPublisher
+from messaging.zeromq import ZeroMqBroker, ZeroMqPublisher
+from messaging.zeromq.endpoints import LOCAL_PUBLISHER_ENDPOINT
 
 _EARTH_RADIUS_M = 6_378_137.0
 
@@ -39,10 +41,14 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Publish a deterministic simulated driving route for ORC Earth testing."
     )
-    parser.add_argument("--endpoint", default="tcp://127.0.0.1:5556")
+    parser.add_argument("--endpoint", default=LOCAL_PUBLISHER_ENDPOINT)
     parser.add_argument("--rate-hz", type=float, default=5.0)
     parser.add_argument("--speed-mps", type=float, default=10.0)
-    parser.add_argument("--loop", action="store_true", default=True)
+    parser.add_argument(
+        "--no-broker",
+        action="store_true",
+        help="Do not start a local ORC ZeroMQ broker; use an already-running broker instead.",
+    )
     return parser.parse_args()
 
 
@@ -74,12 +80,33 @@ def _lerp(a: float, b: float, t: float) -> float:
     return a + (b - a) * t
 
 
+def _start_broker() -> tuple[ZeroMqBroker, threading.Thread]:
+    broker = ZeroMqBroker()
+    thread = threading.Thread(target=broker.run, name="earth-route-broker", daemon=True)
+    thread.start()
+    deadline = time.monotonic() + 2.0
+    while not broker.is_running and thread.is_alive() and time.monotonic() < deadline:
+        time.sleep(0.02)
+    if not broker.is_running:
+        raise RuntimeError(
+            "Unable to start the ORC ZeroMQ broker on ports 5556/5557. "
+            "Another broker may already be running; retry with --no-broker."
+        )
+    return broker, thread
+
+
 def main() -> None:
     args = parse_args()
     if args.rate_hz <= 0.0:
         raise SystemExit("--rate-hz must be > 0")
     if args.speed_mps <= 0.0:
         raise SystemExit("--speed-mps must be > 0")
+
+    broker: ZeroMqBroker | None = None
+    broker_thread: threading.Thread | None = None
+    if not args.no_broker:
+        broker, broker_thread = _start_broker()
+        print("[earth-route] started local ORC ZeroMQ broker on 5556/5557")
 
     transport = ZeroMqPublisher(args.endpoint)
     publisher = NavigationStatePublisher(transport, source="earth-route-simulator")
@@ -161,6 +188,10 @@ def main() -> None:
         print("\n[earth-route] stopped")
     finally:
         transport.close()
+        if broker is not None:
+            broker.close()
+        if broker_thread is not None:
+            broker_thread.join(timeout=1.0)
 
 
 if __name__ == "__main__":
