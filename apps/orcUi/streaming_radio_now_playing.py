@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import tkinter as tk
+from collections.abc import Callable
 
 from controllers.radio.streaming_radio_controller import StreamingRadioController
 from ui.theme import ThemeBundle
@@ -20,7 +21,7 @@ class StreamingRadioNowPlaying(tk.Frame):
         *,
         controller: StreamingRadioController,
         theme: ThemeBundle,
-        on_open: callable,
+        on_open: Callable[[], None],
     ) -> None:
         ui = theme.ui
         super().__init__(parent, bg=ui.surface)
