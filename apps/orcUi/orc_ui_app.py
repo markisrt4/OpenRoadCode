@@ -54,6 +54,7 @@ class OrcUiApp:
         self._active_screen: ScreenUiIf | None = None
         self._screen_back_action: Callable[[], None] | None = None
         self._screen_status = ""
+        self._home_radio_factory: Callable[[tk.Misc], tk.Widget] | None = None
         self._home_media_factory: Callable[[tk.Misc], tk.Widget] | None = None
         self._nav_frame: tk.Frame
         self._clock_label: tk.Label
@@ -87,6 +88,12 @@ class OrcUiApp:
     @property
     def screen_parent(self) -> tk.Misc:
         return self._content
+
+    def set_home_radio_factory(self, factory: Callable[[tk.Misc], tk.Widget] | None) -> None:
+        """Install a radio-owned Home summary without coupling the shell to a radio backend."""
+        self._home_radio_factory = factory
+        if self._active_nav == "HOME":
+            self._show_home()
 
     def set_home_media_factory(self, factory: Callable[[tk.Misc], tk.Widget] | None) -> None:
         """Install a media-owned Home summary without coupling the shell to Spotify."""
@@ -435,7 +442,10 @@ class OrcUiApp:
         lower.grid_rowconfigure(0, weight=1)
         radio = self._panel(lower, "RADIO", ui.accent_warning)
         radio.grid(row=0, column=0, sticky="nsew", padx=(0, 5))
-        self._summary(radio, "101.1 FM", "Radio service")
+        if self._home_radio_factory is None:
+            self._summary(radio, "No radio", "Radio service")
+        else:
+            self._home_radio_factory(radio).pack(fill=tk.BOTH, expand=True)
         media = self._panel(lower, "MEDIA", ui.accent_primary)
         media.grid(row=0, column=1, sticky="nsew", padx=(5, 0))
         if self._home_media_factory is None:
