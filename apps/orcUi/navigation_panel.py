@@ -51,6 +51,7 @@ class NavigationPanel(tk.Frame):
   self._body=tk.Frame(self,bg=BG);self._body.grid(row=1,column=0,sticky="nsew");self._body.grid_rowconfigure(0,weight=1);self._body.grid_columnconfigure(0,weight=1)
   self._map_host=tk.Frame(self._body,bg="#020406",highlightthickness=1,highlightbackground=BORDER);self._map_host.grid(row=0,column=0,sticky="nsew");self._map_host.bind("<Configure>",self._on_map_host_resize)
   self._controls=tk.Frame(self._body,bg=PANEL,width=62);self._controls.grid(row=0,column=1,rowspan=2,sticky="ns",padx=(4,0));self._controls.grid_propagate(False)
+  self._map_button=self._control(self._controls,"MAP",self._toggle_earth,GREEN);self._map_button.pack(fill=tk.X,padx=5,pady=(7,2));self._map_button.pack_forget()
   self._menu_button=self._control(self._controls,"M",self._toggle_earth_menu,BLUE);self._menu_button.pack(fill=tk.X,padx=5,pady=(7,2));self._menu_button.pack_forget()
   self._follow_button=self._control(self._controls,"F",self._toggle_follow,GREEN);self._follow_button.pack(fill=tk.X,padx=5,pady=(7,2));self.set_follow_enabled(self._follow_enabled)
   self._chase_button=self._control(self._controls,"C̸",self._toggle_chase,TEXT);self._chase_button.pack(fill=tk.X,padx=5,pady=(0,4));self._update_chase_button()
@@ -76,9 +77,9 @@ class NavigationPanel(tk.Frame):
   self.update_idletasks();return (self._map_host.winfo_rootx(),self._map_host.winfo_rooty()),(max(1,self._map_host.winfo_width()),max(1,self._map_host.winfo_height()))
  def _set_earth_layout(self,enabled:bool)->None:
   if enabled:
-   self._shortcuts.pack_forget();self._status_label.pack_forget();self._menu_button.pack(fill=tk.X,padx=5,pady=(7,2),before=self._follow_button);self._earth_compact.grid(row=1,column=0,sticky="ew",pady=(3,0));self._controls.grid_configure(rowspan=2);self._update_menu_button()
+   self._bar.grid_remove();self._map_button.pack(fill=tk.X,padx=5,pady=(7,2),before=self._follow_button);self._menu_button.pack(fill=tk.X,padx=5,pady=(0,2),before=self._follow_button);self._earth_compact.grid(row=1,column=0,sticky="ew",pady=(3,0));self._controls.grid_configure(rowspan=2);self._update_menu_button()
   else:
-   self._earth_compact.grid_remove();self._menu_button.pack_forget();self._status_label.pack(side=tk.RIGHT,padx=5);self._shortcuts.pack(side=tk.LEFT,padx=2,pady=3);self._controls.grid_configure(rowspan=2)
+   self._earth_compact.grid_remove();self._map_button.pack_forget();self._menu_button.pack_forget();self._bar.grid();self._controls.grid_configure(rowspan=2)
  def _embed_earth(self)->None:
   self._set_earth_layout(True);self.update_idletasks();position,size=self._earth_geometry()
   if not self._earth_launcher.is_running():self._earth_launcher.configure_app_window(position=position,size=size);self._earth_launcher.launch(self._display())
