@@ -75,9 +75,11 @@ class MusicAnalysisSession:
         self._calibrating = False
 
     def sources(self) -> tuple[str, ...]:
+        """Return registered source identifiers in presentation order."""
         return tuple(self._sources)
 
     def select(self, source: str) -> dict[str, object]:
+        """Select a source without starting it, stopping the previous one."""
         with self._lifecycle:
             if source not in self._sources:
                 raise ValueError(f"Unknown audio source: {source}")
@@ -97,6 +99,7 @@ class MusicAnalysisSession:
             return self.state()
 
     def start(self, source: str | None = None) -> dict[str, object]:
+        """Start the selected source, or select and start a named source."""
         with self._lifecycle:
             if source is not None:
                 self.select(source)
@@ -113,40 +116,50 @@ class MusicAnalysisSession:
             except Exception:
                 with self._lock:
                     self._generation += 1
-                capture.stop()
+                try:
+                    capture.stop()
+                except Exception:
+                    pass  # Preserve the original backend-start failure.
                 raise
             return self.state()
 
     def stop(self) -> dict[str, object]:
+        """Stop capture, invalidating callbacks before releasing resources."""
         with self._lifecycle:
             with self._lock:
                 self._generation += 1
                 capture = self._capture
-                self._calibrating = False
+                if self._calibrating:
+                    # An unfinished collection must never continue after restart.
+                    # Clearing also discards the previous noise profile, explicitly.
+                    self._analyzer.clear_zeroize()
+                    self._calibrating = False
             if capture is not None:
                 capture.stop()
             return self.state()
 
     def push_pcm16(self, audio: bytes, sample_rate_hz: int, *, source: str = "browser") -> dict[str, object]:
-        with self._lock:
-            capture = self._push_source(source)
-            capture.push_pcm16(audio, sample_rate_hz)
-            return self.state()
+        """Decode a little-endian PCM16 frame from the selected push source."""
+        capture = self._push_source(source)
+        capture.push_pcm16(audio, sample_rate_hz)
+        return self.state()
 
     def push(self, samples: Sequence[float], sample_rate_hz: int, *, source: str) -> dict[str, object]:
-        with self._lock:
-            capture = self._push_source(source)
-            capture.push(samples, sample_rate_hz)
-            return self.state()
+        """Accept normalized PCM from an external capture transport."""
+        capture = self._push_source(source)
+        capture.push(samples, sample_rate_hz)
+        return self.state()
 
     def _push_source(self, source: str) -> PushAudioCapture:
-        if self._source != source or not isinstance(self._capture, PushAudioCapture):
-            raise RuntimeError("Selected audio source does not accept external PCM")
-        if not self._capture.is_running:
-            raise RuntimeError("audio source is not running")
-        return self._capture
+        with self._lock:
+            if self._source != source or not isinstance(self._capture, PushAudioCapture):
+                raise RuntimeError("Selected audio source does not accept external PCM")
+            if not self._capture.is_running:
+                raise RuntimeError("audio source is not running")
+            return self._capture
 
     def state(self) -> dict[str, object]:
+        """Return raw analyzer state and source/calibration lifecycle status."""
         with self._lock:
             if self._latest is None:
                 data: dict[str, object] = {
@@ -164,6 +177,7 @@ class MusicAnalysisSession:
             return data
 
     def start_zeroize(self) -> dict[str, object]:
+        """Collect ambient-noise frames from the currently running source."""
         with self._lock:
             if self._capture is None or not self._capture.is_running:
                 raise RuntimeError("Start an audio source before calibration")
@@ -172,6 +186,7 @@ class MusicAnalysisSession:
             return self.state()
 
     def finish_zeroize(self) -> dict[str, object]:
+        """Commit the collected noise profile, or report an empty collection."""
         with self._lock:
             try:
                 self._analyzer.finish_zeroize()
@@ -180,6 +195,7 @@ class MusicAnalysisSession:
             return self.state()
 
     def clear_zeroize(self) -> dict[str, object]:
+        """Discard calibration and reset the analyzer's adaptive state."""
         with self._lock:
             self._analyzer.clear_zeroize()
             self._calibrating = False
