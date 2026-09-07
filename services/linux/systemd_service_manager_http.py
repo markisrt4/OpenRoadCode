@@ -36,6 +36,11 @@ def _authorized(header_value: str | None, token: str | None) -> bool:
     return hmac.compare_digest(supplied, token)
 
 
+def _binding_allowed(host: str, token: str | None) -> bool:
+    """Require authentication whenever the manager is reachable off-host."""
+    return host in LOOPBACK_HOSTS or bool(token)
+
+
 class SystemdServiceManagerHandler(BaseHTTPRequestHandler):
     """Serve the same restricted service-management API used by Termux."""
 
@@ -100,7 +105,7 @@ def main() -> int:
     args = parser.parse_args()
 
     token = os.environ.get(TOKEN_ENV, "").strip() or None
-    if args.host not in LOOPBACK_HOSTS and token is None:
+    if not _binding_allowed(args.host, token):
         parser.error(f"non-loopback service manager requires {TOKEN_ENV}")
 
     SystemdServiceManagerHandler.auth_token = token
