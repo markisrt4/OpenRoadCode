@@ -5,7 +5,7 @@
 
 import unittest
 
-from services.linux.systemd_service_manager_http import _authorized
+from services.linux.systemd_service_manager_http import _authorized, _binding_allowed
 
 
 class SystemdServiceManagerHttpTest(unittest.TestCase):
@@ -21,6 +21,16 @@ class SystemdServiceManagerHttpTest(unittest.TestCase):
 
     def test_configured_token_rejects_wrong_bearer_value(self) -> None:
         self.assertFalse(_authorized("Bearer wrong", "secret"))
+
+    def test_loopback_binding_does_not_require_token(self) -> None:
+        self.assertTrue(_binding_allowed("127.0.0.1", None))
+        self.assertTrue(_binding_allowed("localhost", None))
+        self.assertTrue(_binding_allowed("::1", None))
+
+    def test_remote_binding_requires_token(self) -> None:
+        self.assertFalse(_binding_allowed("0.0.0.0", None))
+        self.assertFalse(_binding_allowed("192.168.8.2", None))
+        self.assertTrue(_binding_allowed("0.0.0.0", "secret"))
 
 
 if __name__ == "__main__":
