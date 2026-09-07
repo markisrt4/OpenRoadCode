@@ -24,3 +24,16 @@ class StreamingRadioDirectoryIf(ABC):
         limit: int = 50,
     ) -> tuple[StreamingRadioStation, ...]:
         """Return healthy stations for a state or regional label."""
+
+    @abstractmethod
+    def stations_near(
+        self,
+        *,
+        latitude: float,
+        longitude: float,
+        radius_km: float,
+        state: str,
+        country_code: str = "US",
+        limit: int = 50,
+    ) -> tuple[StreamingRadioStation, ...]:
+        """Return stations near a position, with regional fallback for missing geo metadata."""
