@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import re
 import threading
 import tkinter as tk
 from collections.abc import Callable
@@ -37,6 +38,27 @@ ARTWORK_TIMEOUT_S = 5.0
 ARTWORK_USER_AGENT = "OpenRoadCode/streaming-radio"
 CARD_COLUMNS = 2
 
+GENRE_FILTERS = (
+    "All", "Rock", "Country", "Pop", "News/Talk", "Sports", "Jazz",
+    "Classical", "Christian", "Hip-Hop/R&B", "Electronic", "Variety",
+)
+QUALITY_FILTERS = ("All", "Low", "Mid", "High")
+BAND_FILTERS = ("All", "FM", "AM", "DAB", "Internet-only", "Unknown")
+
+_GENRE_TAGS = {
+    "Rock": {"rock", "classic rock", "alternative rock", "indie rock", "hard rock"},
+    "Country": {"country", "americana", "bluegrass"},
+    "Pop": {"pop", "top 40", "top40", "adult contemporary", "hot ac"},
+    "News/Talk": {"news", "talk", "talk radio", "public radio", "politics"},
+    "Sports": {"sports", "sport", "sports talk"},
+    "Jazz": {"jazz", "smooth jazz"},
+    "Classical": {"classical", "opera"},
+    "Christian": {"christian", "christian contemporary", "gospel", "religious", "worship"},
+    "Hip-Hop/R&B": {"hip hop", "hip-hop", "rap", "r&b", "rnb", "urban"},
+    "Electronic": {"electronic", "edm", "dance", "house", "techno", "trance"},
+    "Variety": {"variety", "eclectic", "mixed", "community"},
+}
+
 BackHandler = Callable[[], None]
 StationHandler = Callable[[StreamingRadioStation], None]
 
@@ -65,6 +87,12 @@ class StreamingRadioPanel(tk.Frame):
         self._selected_station: StreamingRadioStation | None = None
         self._load_generation = 0
         self._playback_busy = False
+        self._genre_filter = "All"
+        self._quality_filter = "All"
+        self._band_filter = "All"
+        self._filter_drawer_open = False
+        self._filter_drawer: tk.Frame | None = None
+        self._filter_value_labels: dict[str, tk.Label] = {}
         self._artwork_executor = ThreadPoolExecutor(max_workers=4, thread_name_prefix="orcui-radio-artwork")
         self._artwork_images: dict[str, ImageTk.PhotoImage] = {}
         self._artwork_pending: set[str] = set()
@@ -111,15 +139,17 @@ class StreamingRadioPanel(tk.Frame):
     def _build_filters(self) -> None:
         filters = tk.Frame(self, bg=PANEL, highlightthickness=1, highlightbackground=BORDER)
         filters.grid(row=1, column=0, sticky="ew", padx=12, pady=(0, 6))
-        for column in range(4):
+        for column in range(5):
             filters.grid_columnconfigure(column, weight=1)
         self._mode_buttons: dict[str, tk.Button] = {}
         for column, (mode, label) in enumerate((("local", "LOCAL"), ("regional", "REGIONAL"), ("favorites", "★ FAVORITES"))):
             button = tk.Button(filters, text=label, command=lambda selected=mode: self._set_mode(selected), bg=PANEL, fg=TEXT, activebackground=CARD_SELECTED, activeforeground=GREEN, relief=tk.FLAT, bd=0, font=("Sans", 10, "bold"), padx=10, pady=8)
             button.grid(row=0, column=column, sticky="ew")
             self._mode_buttons[mode] = button
-        self._internet_button = tk.Button(filters, text="INTERNET ONLY: OFF", command=self._toggle_internet_only, bg=PANEL, fg=MUTED, activebackground=CARD_SELECTED, activeforeground=BLUE, relief=tk.FLAT, bd=0, font=("Sans", 9, "bold"), padx=10, pady=8)
+        self._internet_button = tk.Button(filters, text="INTERNET ONLY: OFF", command=self._toggle_internet_only, bg=PANEL, fg=MUTED, activebackground=CARD_SELECTED, activeforeground=BLUE, relief=tk.FLAT, bd=0, font=("Sans", 9, "bold"), padx=8, pady=8)
         self._internet_button.grid(row=0, column=3, sticky="ew")
+        self._filters_button = tk.Button(filters, text="☰ FILTERS", command=self._toggle_filter_drawer, bg=PANEL, fg=TEXT, activebackground=CARD_SELECTED, activeforeground=GREEN, relief=tk.FLAT, bd=0, font=("Sans", 9, "bold"), padx=8, pady=8)
+        self._filters_button.grid(row=0, column=4, sticky="ew")
         self._paint_filters()
 
     def _build_station_list(self) -> None:
@@ -168,6 +198,86 @@ class StreamingRadioPanel(tk.Frame):
             button.configure(fg=GREEN if active else TEXT, bg=CARD if active else PANEL)
         state = "ON" if self._internet_only else "OFF"
         self._internet_button.configure(text=f"INTERNET ONLY: {state}", fg=BLUE if self._internet_only else MUTED, bg=CARD if self._internet_only else PANEL)
+        active_count = sum(value != "All" for value in (self._genre_filter, self._quality_filter, self._band_filter))
+        label = "☰ FILTERS" if active_count == 0 else f"☰ FILTERS ({active_count})"
+        self._filters_button.configure(text=label, fg=GREEN if active_count or self._filter_drawer_open else TEXT, bg=CARD if self._filter_drawer_open else PANEL)
+
+    def _toggle_filter_drawer(self) -> None:
+        if self._filter_drawer_open:
+            self._close_filter_drawer()
+            return
+        if self._filter_drawer is None or not self._filter_drawer.winfo_exists():
+            self._build_filter_drawer()
+        self._filter_drawer.place(relx=1.0, rely=0.0, relheight=1.0, width=320, anchor="ne")
+        self._filter_drawer.lift()
+        self._filter_drawer_open = True
+        self._paint_filters()
+
+    def _close_filter_drawer(self) -> None:
+        if self._filter_drawer is not None and self._filter_drawer.winfo_exists():
+            self._filter_drawer.place_forget()
+        self._filter_drawer_open = False
+        self._paint_filters()
+
+    def _build_filter_drawer(self) -> None:
+        drawer = tk.Frame(self, bg=PANEL, highlightthickness=2, highlightbackground=BORDER)
+        self._filter_drawer = drawer
+        drawer.grid_columnconfigure(0, weight=1)
+        header = tk.Frame(drawer, bg=CARD)
+        header.grid(row=0, column=0, sticky="ew")
+        header.grid_columnconfigure(0, weight=1)
+        tk.Label(header, text="STATION FILTERS", bg=CARD, fg=TEXT, font=("Sans", 13, "bold"), anchor="w", padx=12, pady=11).grid(row=0, column=0, sticky="ew")
+        tk.Button(header, text="✕", command=self._close_filter_drawer, bg=CARD, fg=MUTED, activebackground=CARD_SELECTED, activeforeground=TEXT, relief=tk.FLAT, bd=0, font=("Sans", 13, "bold"), padx=12, pady=8).grid(row=0, column=1)
+        body = tk.Frame(drawer, bg=PANEL, padx=12, pady=10)
+        body.grid(row=1, column=0, sticky="nsew")
+        body.grid_columnconfigure(0, weight=1)
+        self._build_filter_group(body, row=0, title="MUSIC / CONTENT", key="genre", values=GENRE_FILTERS)
+        self._build_filter_group(body, row=1, title="STREAM QUALITY", key="quality", values=QUALITY_FILTERS, helper="Low <96   Mid 96–191   High ≥192 kbps")
+        self._build_filter_group(body, row=2, title="BAND / ORIGIN", key="band", values=BAND_FILTERS, helper="Band is inferred from tags and station naming.")
+        tk.Button(body, text="CLEAR FILTERS", command=self._clear_station_filters, bg=CARD, fg=TEXT, activebackground=CARD_SELECTED, activeforeground=GREEN, relief=tk.FLAT, bd=0, font=("Sans", 9, "bold"), pady=8).grid(row=3, column=0, sticky="ew", pady=(14, 4))
+
+    def _build_filter_group(self, parent: tk.Misc, *, row: int, title: str, key: str, values: tuple[str, ...], helper: str | None = None) -> None:
+        group = tk.Frame(parent, bg=PANEL)
+        group.grid(row=row, column=0, sticky="ew", pady=(0, 12))
+        group.grid_columnconfigure(0, weight=1)
+        tk.Label(group, text=title, bg=PANEL, fg=BLUE, font=("Sans", 9, "bold"), anchor="w").grid(row=0, column=0, sticky="ew")
+        current = {"genre": self._genre_filter, "quality": self._quality_filter, "band": self._band_filter}[key]
+        value_label = tk.Label(group, text=current, bg=PANEL, fg=GREEN if current != "All" else MUTED, font=("Sans", 9, "bold"), anchor="e")
+        value_label.grid(row=0, column=1, sticky="e")
+        self._filter_value_labels[key] = value_label
+        choices = tk.Frame(group, bg=PANEL)
+        choices.grid(row=1, column=0, columnspan=2, sticky="ew", pady=(5, 0))
+        columns = 2 if len(values) <= 6 else 3
+        for column in range(columns):
+            choices.grid_columnconfigure(column, weight=1)
+        for index, value in enumerate(values):
+            tk.Button(choices, text=value.upper(), command=lambda selected=value, filter_key=key: self._set_station_filter(filter_key, selected), bg=CARD, fg=TEXT, activebackground=CARD_SELECTED, activeforeground=GREEN, relief=tk.FLAT, bd=0, font=("Sans", 8, "bold"), padx=5, pady=6).grid(row=index // columns, column=index % columns, sticky="ew", padx=2, pady=2)
+        if helper:
+            tk.Label(group, text=helper, bg=PANEL, fg=MUTED, font=("Sans", 7), anchor="w", justify=tk.LEFT, wraplength=280).grid(row=2, column=0, columnspan=2, sticky="ew", pady=(4, 0))
+
+    def _set_station_filter(self, key: str, value: str) -> None:
+        if key == "genre":
+            self._genre_filter = value
+        elif key == "quality":
+            self._quality_filter = value
+        elif key == "band":
+            self._band_filter = value
+        else:
+            raise ValueError(f"Unknown station filter: {key}")
+        label = self._filter_value_labels.get(key)
+        if label is not None:
+            label.configure(text=value, fg=GREEN if value != "All" else MUTED)
+        self._paint_filters()
+        self._render_stations()
+
+    def _clear_station_filters(self) -> None:
+        self._genre_filter = "All"
+        self._quality_filter = "All"
+        self._band_filter = "All"
+        for label in self._filter_value_labels.values():
+            label.configure(text="All", fg=MUTED)
+        self._paint_filters()
+        self._render_stations()
 
     def _reload(self) -> None:
         if self._mode == "favorites":
@@ -204,7 +314,12 @@ class StreamingRadioPanel(tk.Frame):
             child.destroy()
         stations = self._visible_stations()
         if not stations:
-            message = "No favorite stations in this view." if self._mode == "favorites" else "No stations explicitly identified as internet-only." if self._internet_only else "No stations found."
+            if self._mode == "favorites":
+                message = "No favorite stations match these filters."
+            elif self._internet_only:
+                message = "No internet-only stations match these filters."
+            else:
+                message = "No stations match these filters."
             self._show_status(message)
             return
         for index, station in enumerate(stations):
@@ -215,8 +330,16 @@ class StreamingRadioPanel(tk.Frame):
         if self._mode == "favorites":
             stations = tuple(station for station in stations if station.station_id in self._favorites)
         if self._internet_only:
-            return tuple(station for station in stations if is_explicit_internet_only(station))
-        return tuple(station for station in stations if not is_explicit_internet_only(station))
+            stations = tuple(station for station in stations if is_explicit_internet_only(station))
+        else:
+            stations = tuple(station for station in stations if not is_explicit_internet_only(station))
+        if self._genre_filter != "All":
+            stations = tuple(station for station in stations if station_genre_matches(station, self._genre_filter))
+        if self._quality_filter != "All":
+            stations = tuple(station for station in stations if station_quality(station) == self._quality_filter)
+        if self._band_filter != "All":
+            stations = tuple(station for station in stations if station_band(station) == self._band_filter)
+        return stations
 
     def _build_station_card(self, station: StreamingRadioStation, *, row: int, column: int) -> None:
         selected = self._selected_station is not None and station.station_id == self._selected_station.station_id
@@ -228,7 +351,6 @@ class StreamingRadioPanel(tk.Frame):
         card = tk.Frame(self._list, bg=card_bg, highlightthickness=thickness, highlightbackground=border)
         card.grid(row=row, column=column, sticky="nsew", padx=5, pady=5)
         card.grid_columnconfigure(1, weight=1)
-
         if playing:
             banner = tk.Label(card, text="●  NOW PLAYING", bg=GREEN, fg="#071006", font=("Sans", 9, "bold"), anchor="w", padx=8, pady=3)
             banner.grid(row=0, column=0, columnspan=3, sticky="ew")
@@ -236,27 +358,21 @@ class StreamingRadioPanel(tk.Frame):
         else:
             banner = None
             content_row = 0
-
         artwork = tk.Label(card, text="RADIO", bg="#081018", fg=MUTED, width=8, height=4, font=("Sans", 8, "bold"))
         artwork.grid(row=content_row, column=0, rowspan=3, padx=(8, 7), pady=8, sticky="w")
         self._apply_or_load_artwork(station, artwork)
-
         name = tk.Label(card, text=station.name, bg=card_bg, fg=GREEN if playing else TEXT, font=("Sans", 14 if playing else 11, "bold"), anchor="w", justify=tk.LEFT, wraplength=250)
         name.grid(row=content_row, column=1, columnspan=2, sticky="ew", padx=(0, 6), pady=(8, 1))
-
         details = _station_details(station)
         if is_explicit_internet_only(station):
             details = f"INTERNET ONLY • {details}"
         detail_label = tk.Label(card, text=details, bg=card_bg, fg=BLUE if is_explicit_internet_only(station) else MUTED, font=("Sans", 8), anchor="w", justify=tk.LEFT, wraplength=245)
         detail_label.grid(row=content_row + 1, column=1, columnspan=2, sticky="ew", padx=(0, 6), pady=(0, 4))
-
         favorite = station.station_id in self._favorites
         favorite_button = tk.Button(card, text="★" if favorite else "☆", command=lambda item=station: self._toggle_station_favorite(item), bg=card_bg, fg=GREEN if favorite else MUTED, activebackground=card_bg, activeforeground=GREEN, relief=tk.FLAT, bd=0, font=("Sans", 15), padx=5, pady=2)
         favorite_button.grid(row=content_row + 2, column=1, sticky="w", pady=(0, 6))
-
         play_button = tk.Button(card, text="■  STOP" if playing else "▶ PLAY", command=self._request_stop if playing else lambda item=station: self._request_play(item), state=tk.DISABLED if self._playback_busy else tk.NORMAL, bg=GREEN if playing else PANEL, fg="#071006" if playing else TEXT, activebackground="#9bdc45" if playing else CARD_SELECTED, activeforeground="#071006" if playing else GREEN, disabledforeground=MUTED, relief=tk.FLAT, bd=0, font=("Sans", 11 if playing else 9, "bold"), padx=14, pady=7 if playing else 5)
         play_button.grid(row=content_row + 2, column=2, sticky="e", padx=(4, 7), pady=(0, 6))
-
         clickable = [card, artwork, name, detail_label]
         if banner is not None:
             clickable.append(banner)
@@ -364,8 +480,57 @@ class StreamingRadioPanel(tk.Frame):
 
 
 def is_explicit_internet_only(station: StreamingRadioStation) -> bool:
-    tags = {tag.casefold().replace("_", " ").replace("-", " ") for tag in station.tags}
+    tags = {_normalize_tag(tag) for tag in station.tags}
     return bool(tags & {"internet", "internet only", "online only", "web radio", "webradio"})
+
+
+def station_genre_matches(station: StreamingRadioStation, genre: str) -> bool:
+    if genre == "All":
+        return True
+    accepted = _GENRE_TAGS.get(genre)
+    if accepted is None:
+        return False
+    tags = {_normalize_tag(tag) for tag in station.tags}
+    return bool(tags & {_normalize_tag(tag) for tag in accepted})
+
+
+def station_quality(station: StreamingRadioStation) -> str:
+    bitrate = station.bitrate_kbps
+    if bitrate is None or bitrate <= 0:
+        return "Unknown"
+    if bitrate < 96:
+        return "Low"
+    if bitrate < 192:
+        return "Mid"
+    return "High"
+
+
+def station_band(station: StreamingRadioStation) -> str:
+    if is_explicit_internet_only(station):
+        return "Internet-only"
+    tags = {_normalize_tag(tag) for tag in station.tags}
+    if tags & {"dab", "dab+", "digital audio broadcasting", "dabradio"}:
+        return "DAB"
+    if tags & {"fm", "fm radio", "fmradio"}:
+        return "FM"
+    if tags & {"am", "am radio", "amradio", "medium wave", "mw"}:
+        return "AM"
+    name = station.name.casefold()
+    if re.search(r"\bfm\b", name):
+        return "FM"
+    if re.search(r"\bam\b", name):
+        return "AM"
+    for match in re.finditer(r"(?<!\d)(\d{2,3}\.\d)(?!\d)", name):
+        frequency = float(match.group(1))
+        if 87.5 <= frequency <= 108.0:
+            return "FM"
+    if re.search(r"\b(?:5[3-9]\d|[6-9]\d{2}|1[0-6]\d{2}|1700|1710)\s*(?:khz|am)\b", name):
+        return "AM"
+    return "Unknown"
+
+
+def _normalize_tag(tag: str) -> str:
+    return " ".join(tag.casefold().replace("_", " ").replace("-", " ").split())
 
 
 def _download_artwork(url: str) -> Image.Image:
