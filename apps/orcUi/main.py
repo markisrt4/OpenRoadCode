@@ -17,6 +17,7 @@ from apps.orcUi.orc_ui_app import OrcUiApp
 from apps.orcUi.radio_application_service import RadioApplicationServiceIf
 from apps.orcUi.radio_entry_panel import RadioEntryPanel
 from apps.orcUi.spotify_now_playing import SpotifyNowPlaying
+from apps.orcUi.streaming_radio_now_playing import StreamingRadioNowPlaying
 from apps.orcUi.theme_runtime import theme_bundle
 from config.runtime_target import RuntimeTarget, detect_runtime_target
 from controllers.image import ImageCache
@@ -100,6 +101,14 @@ def main() -> None:
             ),
             sync_theme=_sync_radio_theme,
         ),
+    )
+    app.set_home_radio_factory(
+        lambda parent: StreamingRadioNowPlaying(
+            parent,
+            controller=application_runtime.streaming_radio,
+            theme=theme_bundle(app.theme_mode),
+            on_open=lambda: app.navigate_to("RADIO"),
+        )
     )
     app.register_screen(
         "GAMES",
