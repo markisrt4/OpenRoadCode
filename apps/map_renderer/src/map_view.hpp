@@ -74,7 +74,6 @@ private:
     double lastClick = -1.0;
     bool tracking = false;
     bool dirty = false;
-    bool deferredShow = false;
     mbgl::util::RunLoop runLoop;
     mbgl::util::Timer frameTick;
     std::function<void()> updateCallback;
