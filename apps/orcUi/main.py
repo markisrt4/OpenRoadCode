@@ -86,28 +86,27 @@ def main() -> None:
     media = application_runtime.media
 
     app = OrcUiApp()
-    app.register_screen(
-        "RADIO",
-        RadioScreen(
-            app,
-            theme_bundle=lambda: theme_bundle(app.theme_mode),
-            theme_mode=lambda: app.theme_mode,
-            panel_factory=lambda parent, embedder, theme: _create_radio_panel(
-                parent,
-                embedder,
-                theme,
-                application_runtime.radio,
-                application_runtime.streaming_radio,
-            ),
-            sync_theme=_sync_radio_theme,
+    radio_screen = RadioScreen(
+        app,
+        theme_bundle=lambda: theme_bundle(app.theme_mode),
+        theme_mode=lambda: app.theme_mode,
+        panel_factory=lambda parent, embedder, theme: _create_radio_panel(
+            parent,
+            embedder,
+            theme,
+            application_runtime.radio,
+            application_runtime.streaming_radio,
         ),
+        sync_theme=_sync_radio_theme,
     )
+    app.register_screen("RADIO", radio_screen)
     app.set_home_radio_factory(
         lambda parent: StreamingRadioNowPlaying(
             parent,
             controller=application_runtime.streaming_radio,
             theme=theme_bundle(app.theme_mode),
-            on_open=lambda: app.navigate_to("RADIO"),
+            on_open_rf=radio_screen.show_rf,
+            on_open_streaming=radio_screen.show_streaming,
         )
     )
     app.register_screen(
