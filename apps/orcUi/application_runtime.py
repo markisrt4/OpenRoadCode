@@ -32,6 +32,7 @@ class OrcUiApplicationRuntime:
     manager: AppRuntimeManager
     radio: ManagedRadioApplicationService
     media: MediaApplicationService
+    earth: GoogleEarthLauncher
 
     def start_background_apps(self) -> None:
         """Apply configured external-app policy and start shared media work."""
@@ -60,11 +61,12 @@ def create_orc_ui_application_runtime() -> OrcUiApplicationRuntime:
     browser_factory = BrowserApplicationFactory(config)
     manager.register("youtube", browser_factory.create("youtube"))
     manager.register("netflix", browser_factory.create("netflix"))
-    manager.register("google_earth", GoogleEarthLauncher())
+    earth = GoogleEarthLauncher()
+    manager.register("google_earth", earth)
 
     radio = ManagedRadioApplicationService(manager, sdrpp)
     media = MediaApplicationService()
-    return OrcUiApplicationRuntime(manager=manager, radio=radio, media=media)
+    return OrcUiApplicationRuntime(manager=manager, radio=radio, media=media, earth=earth)
 
 
 def _applications_config_path() -> Path:
