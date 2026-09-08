@@ -22,11 +22,13 @@ class DetectionTest(unittest.TestCase):
         frame = DetectionFrame(
             timestamp_s=12.5,
             sequence=7,
+            inference_time_ms=18.4,
             detections=(detection,),
         )
 
         self.assertEqual(frame.sequence, 7)
         self.assertEqual(frame.detections[0].label, "car")
+        self.assertEqual(frame.inference_time_ms, 18.4)
 
     def test_rejects_invalid_confidence(self) -> None:
         with self.assertRaises(ValueError):
@@ -35,6 +37,10 @@ class DetectionTest(unittest.TestCase):
     def test_rejects_non_normalized_box(self) -> None:
         with self.assertRaises(ValueError):
             Detection("car", 0.9, 0.1, 0.1, 1.2, 0.2)
+
+    def test_rejects_negative_inference_time(self) -> None:
+        with self.assertRaises(ValueError):
+            DetectionFrame(1.0, 1, -1.0, ())
 
 
 if __name__ == "__main__":
