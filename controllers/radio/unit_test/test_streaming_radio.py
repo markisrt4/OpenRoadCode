@@ -69,6 +69,37 @@ class RadioBrowserPayloadTest(unittest.TestCase):
         self.assertIsNone(_parse_station({"stationuuid": "station-1", "name": "No Stream"}))
 
 
+class RadioBrowserIdentifierResolutionTest(unittest.TestCase):
+    def test_resolves_ids_in_favorite_order_and_skips_duplicates(self) -> None:
+        directory = RadioBrowserDirectory(api_base="https://radio.test/json")
+        one = StreamingRadioStation(
+            station_id="one",
+            name="One",
+            stream_url="https://example.test/one",
+        )
+        two = StreamingRadioStation(
+            station_id="two",
+            name="Two",
+            stream_url="https://example.test/two",
+        )
+
+        def request(url: str) -> tuple[StreamingRadioStation, ...]:
+            if url.endswith("/one"):
+                return (one,)
+            if url.endswith("/two"):
+                return (two,)
+            return ()
+
+        with patch.object(directory, "_request_stations", side_effect=request) as mocked:
+            stations = directory.stations_by_ids(("two", "one", "two", ""))
+
+        self.assertEqual(
+            tuple(station.station_id for station in stations),
+            ("two", "one"),
+        )
+        self.assertEqual(mocked.call_count, 2)
+
+
 class NearbyStationDiscoveryTest(unittest.TestCase):
     def test_distance_is_zero_for_same_position(self) -> None:
         self.assertAlmostEqual(_distance_km(42.3314, -83.0458, 42.3314, -83.0458), 0.0)
