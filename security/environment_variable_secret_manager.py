@@ -7,9 +7,24 @@ import os
 from collections.abc import Mapping
 from pathlib import Path
 
+from common.xdg_paths import openroadcode_config_dir
 from .secret_manager_if import SecretManagerIf
 
 DEFAULT_SECRETS_FILE = Path("/etc/openroadcode/secrets.env")
+OPENROADCODE_SECRETS_FILE_ENV = "OPENROADCODE_SECRETS_FILE"
+
+
+def resolve_default_secrets_file() -> Path:
+    """Return the platform-appropriate default OpenRoadCode secrets file."""
+    override = os.environ.get(OPENROADCODE_SECRETS_FILE_ENV)
+    if override:
+        return Path(override).expanduser()
+
+    prefix = os.environ.get("PREFIX", "")
+    if prefix.endswith("/com.termux/files/usr"):
+        return openroadcode_config_dir("secrets.env")
+
+    return DEFAULT_SECRETS_FILE
 
 
 class EnvironmentVariableSecretManager(SecretManagerIf):
@@ -26,7 +41,8 @@ class EnvironmentVariableSecretManager(SecretManagerIf):
 
         secrets_file:
             Environment-style secrets file used when ``environment`` is
-            omitted.
+            omitted. When omitted, a platform-appropriate default is resolved
+            at runtime.
     """
 
     def __init__(
@@ -34,10 +50,15 @@ class EnvironmentVariableSecretManager(SecretManagerIf):
         environment: Mapping[str, str] | None = None,
         *,
         prefix: str = "",
-        secrets_file: str | Path = DEFAULT_SECRETS_FILE,
+        secrets_file: str | Path | None = None,
     ) -> None:
         if environment is None:
-            loaded_environment = self._load_file(Path(secrets_file))
+            resolved_secrets_file = (
+                resolve_default_secrets_file()
+                if secrets_file is None
+                else Path(secrets_file)
+            )
+            loaded_environment = self._load_file(resolved_secrets_file)
             loaded_environment.update(os.environ)
             self._environment: Mapping[str, str] = loaded_environment
         else:

@@ -9,7 +9,9 @@ from pathlib import Path
 from unittest.mock import patch
 
 from security.environment_variable_secret_manager import (
+    DEFAULT_SECRETS_FILE,
     EnvironmentVariableSecretManager,
+    resolve_default_secrets_file,
 )
 
 
@@ -57,6 +59,53 @@ class EnvironmentVariableSecretManagerTest(unittest.TestCase):
 
             self.assertEqual(
                 "environment-client-id",
+                manager.get_secret("SPOTIFY_CLIENT_ID"),
+            )
+
+    def test_default_secrets_file_is_linux_path(self) -> None:
+        with patch.dict("os.environ", {}, clear=True):
+            self.assertEqual(DEFAULT_SECRETS_FILE, resolve_default_secrets_file())
+
+    def test_default_secrets_file_uses_termux_config_home(self) -> None:
+        environment = {
+            "PREFIX": "/data/data/com.termux/files/usr",
+            "XDG_CONFIG_HOME": "/tmp/termux-config",
+        }
+        with patch.dict("os.environ", environment, clear=True):
+            self.assertEqual(
+                Path("/tmp/termux-config/openroadcode/secrets.env"),
+                resolve_default_secrets_file(),
+            )
+
+    def test_secrets_file_environment_override_wins(self) -> None:
+        environment = {
+            "PREFIX": "/data/data/com.termux/files/usr",
+            "OPENROADCODE_SECRETS_FILE": "/tmp/custom-secrets.env",
+        }
+        with patch.dict("os.environ", environment, clear=True):
+            self.assertEqual(
+                Path("/tmp/custom-secrets.env"),
+                resolve_default_secrets_file(),
+            )
+
+    def test_explicit_constructor_path_still_wins(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            secrets_file = Path(directory) / "explicit.env"
+            secrets_file.write_text(
+                "SPOTIFY_CLIENT_ID=explicit-client-id\n",
+                encoding="utf-8",
+            )
+            environment = {
+                "PREFIX": "/data/data/com.termux/files/usr",
+                "OPENROADCODE_SECRETS_FILE": "/does/not/exist",
+            }
+            with patch.dict("os.environ", environment, clear=True):
+                manager = EnvironmentVariableSecretManager(
+                    secrets_file=secrets_file,
+                )
+
+            self.assertEqual(
+                "explicit-client-id",
                 manager.get_secret("SPOTIFY_CLIENT_ID"),
             )
 

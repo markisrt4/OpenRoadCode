@@ -1,107 +1,86 @@
-README.md
-
-
 # Radio Controller
 
-`controllers.radio` provides transport-independent radio control behavior. It coordinates tuning, modes, presets, frequency ranges, and input adapters without depending on a specific UI or radio protocol implementation.
+`controllers.radio` provides transport-independent radio behavior. It coordinates tuning, modes, presets, frequency ranges, selectable radio profiles, and radio-specific metadata without depending on a particular frontend.
 
 ## Package Layout
 
 ```text
 controllers/radio/
-├── __init__.py
 ├── radio_backend_if.py
 ├── radio_controller.py
 ├── radio_controller_if.py
 ├── radio_controller_stub.py
 ├── radio_input_adapter_if.py
+├── radio_profile_controller.py
+├── radio_profiles.py
 ├── radio_types.py
 ├── unconfigured_radio_controller.py
-├── README.md
 ├── adapters/
-│   ├── __init__.py
 │   ├── keyboard_radio_adapter.py
 │   └── rigctl_radio_backend.py
 ├── component_test/
-│   ├── __init__.py
-│   └── test_radio_component.py
 └── integration_test/
-    ├── __init__.py
-    └── test_sdrpp_rigctl.py
 ```
 
 ## Responsibilities
 
-The package owns:
+The package owns radio-domain behavior:
 
-- Current frequency and mode state
-- Frequency stepping and range wrapping
+- Current frequency and demodulation mode
+- Frequency stepping and configured range wrapping
 - Preset selection and wraparound
+- Config-driven radio profile selection
+- Persistent user preset overlays
 - Controller-facing backend contracts
 - Input-to-controller mappings
-- Adaptation of a rigctl client to the radio backend contract
+- Adaptation of Rigctl to the radio backend contract
+- Access to radio-specific metadata such as RDS when the backend supports it
 
-Protocol packages own command formatting, socket communication, and protocol response parsing. Higher-level code owns configuration loading, process lifecycle, UI behavior, and runtime assembly.
+Protocol packages own command formatting, socket communication, and response parsing. `controllers/sdr` owns SDR++ application control and SDR telemetry. Frontends own presentation and user interaction.
 
-## Controller Implementations
+## Radio Profiles
 
-Applications and input adapters should depend on `RadioControllerIf`.
+`RadioProfileCatalog` loads shipped profiles from `config/radio/common` and the configured locale directory, currently defaulting to `config/radio/romeo`. Locale profiles override common profiles with the same key.
 
-- `RadioController` coordinates a configured receiver backend.
-- `RadioControllerStub` provides deterministic in-memory tuning and telemetry
-  for demos and UI development.
-- `UnconfiguredRadioController` reports `is_available == False`, exposes a
-  reason through `status_message`, and raises for radio operations rather than
-  fabricating receiver state.
+User-created presets are stored separately from repository configuration so normal UI edits never mutate shipped JSON files.
 
-## System Dependencies
+`RadioProfileController` composes a `RadioController` for the active profile and provides profile/preset operations to frontends.
 
-The core radio controller uses only the Python standard library.
+## RDS
 
-The keyboard adapter requires `evdev`:
+RDS is radio metadata and belongs in the radio path rather than the generic SDR++ telemetry protocol.
 
-```bash
-sudo apt install python3-evdev
-```
-
-The rigctl backend requires the local `protocols.rigctl` package and access to a running rigctl-compatible server.
-
-The SDR++ integration test requires SDR++ with the Rigctl Server module available.
-
-### Installing SDR++
-
-SDR++ is not installed as a dependency of this Python package. Install it separately using a package or build provided by the SDR++ project.
-
-Download the appropriate Linux build from the SDR++ project:
-
-- https://www.sdrpp.org/
-- Project Location: https://github.com/AlexandreRouma/SDRPlusPlus
-- Nightly Build: https://github.com/AlexandreRouma/SDRPlusPlus/releases
-
-On Debian- or Ubuntu-based systems, install a downloaded `.deb` package with:
-
-```bash
-sudo apt install ./sdrpp_<package>.deb
-```
-
-For distributions without a supported package, follow the SDR++ Linux build instructions in the upstream repository.
-
-After installation, start SDR++ and configure the **Rigctl Server** module:
+The current ORC path is:
 
 ```text
-Host: localhost
-Port: 4532
+SDR++ / Rigctl :4532
+        ↓
+protocols/rigctl
+        ↓
+RigctlRadioBackend
+        ↓
+RadioController.get_rds()
+        ↓
+RadioProfileController.read_rds()
+        ↓
+frontend presentation
 ```
 
-Select the VFO to be controlled and start the Rigctl Server module before running the integration test.
+RDS should be requested asynchronously by graphical frontends. Reading ordinary controller state must not cause hidden network I/O.
 
-Verify that SDR++ is listening on the expected port:
+For ORCui, an FM-only RDS overlay over the embedded SDR++ view is a natural presentation. The overlay should be visible only for WFM/FM profiles and can eventually present Program Service/station identity and RadioText independently if the backend exposes structured RDS fields.
 
-```bash
-ss -ltn | grep 4532
+## SDR++ Services
+
+ORC intentionally separates SDR++ integration by responsibility:
+
+```text
+4532  Rigctl          RF tuning, modes, bandwidth, radio-specific metadata
+4533  remote_control SDR++ application/UI controls
+4534  telemetry      read-only SDR++ runtime measurements
 ```
 
-The integration test defaults to `127.0.0.1:4532`.
+See `development/sdrpp/README.md` for the module architecture.
 
 ## Basic Use
 
@@ -132,7 +111,7 @@ controller.next_preset()
 controller.stop()
 ```
 
-## Component Test
+## Tests
 
 Run the deterministic component test from the repository root:
 
@@ -140,69 +119,21 @@ Run the deterministic component test from the repository root:
 python3 -m controllers.radio.component_test
 ```
 
-The test uses in-memory test doubles and prints the result of each validated operation. It covers:
-
-- Startup and shutdown
-- Default mode application
-- Frequency stepping
-- Range wrapping
-- Preset navigation
-- Backend synchronization
-- Rigctl frequency conversion
-- Signal strength, SNR, and RDS forwarding
-- Optional response normalization
-- Invalid response handling
-- Radio model validation
-
-The component test does not require SDR++, a keyboard device, a network connection, or third-party system packages.
-
-## SDR++ Rigctl Integration Test
-
-The integration test connects to a real rigctl server and exercises `RigctlRadioBackend`.
-
-To test an already-running SDR++ instance:
+The SDR++ Rigctl integration test connects to a real Rigctl server:
 
 ```bash
 python3 -m controllers.radio.integration_test.test_sdrpp_rigctl
 ```
 
-To set and verify a test frequency:
-
-```bash
-python3 -m controllers.radio.integration_test.test_sdrpp_rigctl \
-    --frequency 101100000
-```
-
-To set a mode and bandwidth during the test:
-
-```bash
-python3 -m controllers.radio.integration_test.test_sdrpp_rigctl \
-    --frequency 101100000 \
-    --mode WFM \
-    --bandwidth 180000
-```
-
-To launch SDR++ as part of the test:
-
-```bash
-python3 -m controllers.radio.integration_test.test_sdrpp_rigctl \
-    --launch-command "sdrpp" \
-    --frequency 101100000
-```
-
-Note: Rigctl Server must be enabled within sdrpp.  Enable Rigctl Serrver -> Listen on startup
-
-The test defaults to `127.0.0.1:4532`. Use `--host` and `--port` to select a different rigctl endpoint.
-
-When a test frequency is supplied, the integration test records the original frequency and restores it before exiting. A process launched with `--launch-command` is stopped when the test completes.
+The default endpoint is `127.0.0.1:4532`. SDR++ must have its Rigctl Server module enabled.
 
 ## Import Boundaries
 
-The root package exports only controller interfaces, controller types, and the controller implementation. Concrete adapters are imported explicitly:
+Core users should depend on controller interfaces/types. Concrete transport adapters are imported explicitly:
 
 ```python
 from controllers.radio.adapters.rigctl_radio_backend import RigctlRadioBackend
 from controllers.radio.adapters.keyboard_radio_adapter import KeyboardRadioAdapter
 ```
 
-This prevents optional adapter dependencies from being imported when only the core controller package is needed.
+This prevents optional transport dependencies from leaking into unrelated applications.

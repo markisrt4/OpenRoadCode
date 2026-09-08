@@ -20,17 +20,21 @@ from ui.navigation import (
     SatelliteInfo,
     TranslationUiIf,
 )
+from frontends.tk.automotive.offroad_theme import OffroadTheme
 from ui.system import StatusMessage, StatusSeverity, StatusUiIf, StatusValue
+from ui.theme import StyleSheet
 
 
-BACKGROUND = "#07100d"
-PANEL = "#101d18"
-GRID = "#274238"
-TEXT = "#e5f2e9"
-MUTED = "#8ca398"
-GREEN = "#66e38f"
-AMBER = "#ffb347"
-RED = "#ff5d52"
+# ORC automotive palette.
+BACKGROUND = "#05090d"
+PANEL = "#0b1117"
+GRID = "#25313b"
+TEXT = "#edf2f5"
+MUTED = "#89959e"
+BLUE = "#168bd1"
+GREEN = "#84ce1f"
+AMBER = "#d6ad22"
+RED = "#f15a16"
 SKY = "#18344b"
 GROUND = "#493825"
 
@@ -124,8 +128,25 @@ class OffroadDashboardPanel(
         pitch_warning_deg: float,
         roll_warning_deg: float,
         request_handler: NavigationRequestHandlerIf | None = None,
+        theme: OffroadTheme | None = None,
     ) -> None:
-        super().__init__(parent, bg=BACKGROUND)
+        self._theme = theme or OffroadTheme(
+            background=BACKGROUND,
+            panel=PANEL,
+            border=GRID,
+            text=TEXT,
+            muted=MUTED,
+            primary=BLUE,
+            success=GREEN,
+            warning=AMBER,
+            danger=RED,
+            sky=SKY,
+            ground=GROUND,
+            control_background="#101820",
+            control_active=BLUE,
+            control_text=TEXT,
+        )
+        super().__init__(parent, bg=self._theme.background)
         self._pitch_warning_deg = pitch_warning_deg
         self._roll_warning_deg = roll_warning_deg
         self._request_handler = request_handler
@@ -136,13 +157,14 @@ class OffroadDashboardPanel(
 
         self._canvas = tk.Canvas(
             self,
-            bg=BACKGROUND,
+            bg=self._theme.background,
             highlightthickness=0,
         )
         self._canvas.pack(fill=tk.BOTH, expand=True)
         self._canvas.bind("<Configure>", lambda _event: self._draw())
 
-        controls = tk.Frame(self, bg=PANEL)
+        controls = tk.Frame(self, bg=self._theme.panel)
+        self._controls = controls
         controls.pack(fill=tk.X)
         self._button(
             controls, "CALIBRATE", self._request_calibration
@@ -155,11 +177,34 @@ class OffroadDashboardPanel(
         self._status_label = tk.Label(
             controls,
             textvariable=self._status,
-            fg=GREEN,
-            bg=PANEL,
+            fg=self._theme.success,
+            bg=self._theme.panel,
             font=("TkFixedFont", 10, "bold"),
         )
         self._status_label.pack(side=tk.RIGHT, padx=14)
+
+    def set_theme(self, theme: OffroadTheme) -> None:
+        """Apply a resolved off-road theme and redraw the dashboard."""
+
+        self._theme = theme
+        self.configure(bg=theme.background)
+        self._canvas.configure(bg=theme.background)
+        self._controls.configure(bg=theme.panel)
+        self._status_label.configure(bg=theme.panel)
+        for child in self._controls.winfo_children():
+            if isinstance(child, tk.Button):
+                child.configure(
+                    bg=theme.control_background,
+                    fg=theme.control_text,
+                    activebackground=theme.control_active,
+                    activeforeground=theme.control_text,
+                )
+        self._draw()
+
+    def set_style_sheet(self, sheet: StyleSheet) -> None:
+        """Apply the .automotive-offroad stylesheet rule."""
+
+        self.set_theme(OffroadTheme.from_style_sheet(sheet))
 
     def set_navigation_request_handler(
         self,
@@ -292,19 +337,19 @@ class OffroadDashboardPanel(
         if isinstance(status, StatusMessage):
             text = status.summary
             color = {
-                StatusSeverity.INFORMATION: TEXT,
-                StatusSeverity.SUCCESS: GREEN,
-                StatusSeverity.WARNING: AMBER,
-                StatusSeverity.ERROR: RED,
+                StatusSeverity.INFORMATION: self._theme.text,
+                StatusSeverity.SUCCESS: self._theme.success,
+                StatusSeverity.WARNING: self._theme.warning,
+                StatusSeverity.ERROR: self._theme.danger,
             }[status.severity]
         else:
             text = status or ""
-            color = GREEN
+            color = self._theme.success
         self._status_label.configure(fg=color)
         self._status.set(text.upper())
 
-    @staticmethod
     def _button(
+        self,
         parent: tk.Widget,
         text: str,
         command: object,
@@ -313,10 +358,10 @@ class OffroadDashboardPanel(
             parent,
             text=text,
             command=command,
-            bg="#263d31",
-            fg=TEXT,
-            activebackground="#355442",
-            activeforeground="#ffffff",
+            bg=self._theme.control_background,
+            fg=self._theme.control_text,
+            activebackground=self._theme.control_active,
+            activeforeground=self._theme.control_text,
             relief=tk.FLAT,
             padx=14,
             font=("TkDefaultFont", 9, "bold"),
@@ -332,7 +377,7 @@ class OffroadDashboardPanel(
         self._draw_header(width, state)
 
         content_top = 88
-        content_bottom = height - 142
+        content_bottom = height - 106
         center_x = width / 2.0
         center_y = (content_top + content_bottom) / 2.0
         horizon_radius = min(width * 0.24, (content_bottom - content_top) * 0.48)
@@ -406,7 +451,7 @@ class OffroadDashboardPanel(
             center_x + half_width,
             banner_y + 27,
             fill="#5b1512",
-            outline=RED,
+            outline=self._theme.danger,
             width=3,
         )
         self._canvas.create_text(
@@ -429,7 +474,7 @@ class OffroadDashboardPanel(
         width: int,
         state: _DashboardState | None,
     ) -> None:
-        self._canvas.create_rectangle(0, 0, width, 82, fill=PANEL, outline="")
+        self._canvas.create_rectangle(0, 0, width, 82, fill=self._theme.panel, outline="")
         heading = state.heading_deg if state is not None else 0.0
         reference_text = (
             {
@@ -441,15 +486,15 @@ class OffroadDashboardPanel(
             else "REL"
         )
         heading_text = (
-            f"{reference_text} {heading:03.0f}°"
+            f"{heading:03.0f}°"
             if state is not None
-            else "REL ---°"
+            else "---°"
         )
         self._canvas.create_text(
             width / 2,
             22,
             text=heading_text,
-            fill=TEXT,
+            fill=self._theme.text,
             font=("TkFixedFont", 22, "bold"),
         )
 
@@ -460,13 +505,13 @@ class OffroadDashboardPanel(
             major = offset % 15 == 0
             y1 = 52
             y2 = 72 if major else 64
-            self._canvas.create_line(x, y1, x, y2, fill=GRID, width=2)
+            self._canvas.create_line(x, y1, x, y2, fill=self._theme.border, width=2)
             if major:
                 self._canvas.create_text(
                     x,
                     44,
                     text=f"{marker_heading:.0f}",
-                    fill=MUTED,
+                    fill=self._theme.muted,
                     font=("TkFixedFont", 9),
                 )
         self._canvas.create_polygon(
@@ -476,7 +521,7 @@ class OffroadDashboardPanel(
             78,
             width / 2,
             66,
-            fill=AMBER,
+            fill=self._theme.warning,
             outline="",
         )
 
@@ -491,14 +536,14 @@ class OffroadDashboardPanel(
 
         height = 164
         self._canvas.create_rectangle(
-            x, y, x + width, y + height, fill=PANEL, outline=GRID, width=2
+            x, y, x + width, y + height, fill=self._theme.panel, outline=self._theme.border, width=2
         )
         self._canvas.create_text(
             x + 14,
             y + 14,
             anchor=tk.NW,
             text="HEADING",
-            fill=MUTED,
+            fill=self._theme.muted,
             font=("TkDefaultFont", 10, "bold"),
         )
 
@@ -510,7 +555,7 @@ class OffroadDashboardPanel(
             center_y - radius,
             center_x + radius,
             center_y + radius,
-            outline=GRID,
+            outline=self._theme.border,
             width=2,
         )
         self._canvas.create_line(
@@ -531,7 +576,7 @@ class OffroadDashboardPanel(
             center_x,
             center_y - radius - 9,
             text="0",
-            fill=GREEN,
+            fill=self._theme.success,
             font=("TkDefaultFont", 7, "bold"),
         )
 
@@ -554,7 +599,7 @@ class OffroadDashboardPanel(
                     f"GPS {gps.course_deg:.0f}° "
                     f"{_cardinal_direction(gps.course_deg)}"
                 ),
-                fill=AMBER,
+                fill=self._theme.warning,
                 font=("TkDefaultFont", 8, "bold"),
             )
 
@@ -583,7 +628,7 @@ class OffroadDashboardPanel(
         self._canvas.create_polygon(
             *transform(local_body),
             fill="#274536",
-            outline=GREEN if state is not None else MUTED,
+            outline=self._theme.success if state is not None else MUTED,
             width=2,
             joinstyle=tk.ROUND,
         )
@@ -604,7 +649,7 @@ class OffroadDashboardPanel(
             nose_y - 3,
             nose_x + 3,
             nose_y + 3,
-            fill=GREEN,
+            fill=self._theme.success,
             outline="",
         )
 
@@ -626,7 +671,7 @@ class OffroadDashboardPanel(
             center_x,
             y + height - 10,
             text=relative_text,
-            fill=TEXT,
+            fill=self._theme.text,
             font=("TkFixedFont", 9, "bold"),
         )
 
@@ -668,14 +713,14 @@ class OffroadDashboardPanel(
 
         height = 225
         self._canvas.create_rectangle(
-            x, y, x + width, y + height, fill=PANEL, outline=GRID, width=2
+            x, y, x + width, y + height, fill=self._theme.panel, outline=self._theme.border, width=2
         )
         self._canvas.create_text(
             x + 14,
             y + 16,
             anchor=tk.NW,
             text="PITCH",
-            fill=MUTED,
+            fill=self._theme.muted,
             font=("TkDefaultFont", 11, "bold"),
         )
 
@@ -700,14 +745,14 @@ class OffroadDashboardPanel(
         )
 
         center_x = x + width / 2
-        center_y = y + 145
-        half_level = width * 0.38
+        center_y = y + 122
+        half_level = width * 0.34
         self._canvas.create_line(
             center_x - half_level,
             center_y + 25,
             center_x + half_level,
             center_y + 25,
-            fill=AMBER,
+            fill=self._theme.warning,
             width=2,
             dash=(5, 4),
         )
@@ -716,80 +761,34 @@ class OffroadDashboardPanel(
             center_y + 36,
             anchor=tk.E,
             text="LEVEL",
-            fill=AMBER,
+            fill=self._theme.warning,
             font=("TkDefaultFont", 7, "bold"),
         )
 
-        scale = min(1.0, width / 210.0)
+        # Pitch is easier to read as an incline reference than as another
+        # miniature vehicle. The center attitude gauge already owns the
+        # vehicle graphic.
+        incline_half = width * 0.27
+        incline_angle = math.radians(-pitch)
+        dx = incline_half * math.cos(incline_angle)
+        dy = incline_half * math.sin(incline_angle)
 
-        def transform(
-            points: tuple[tuple[float, float], ...],
-        ) -> tuple[float, ...]:
-            transformed: list[float] = []
-            for local_x, local_y in points:
-                screen_point = _rotate_screen_point(
-                    (local_x * scale, local_y * scale),
-                    center_x,
-                    center_y,
-                    -pitch,
-                )
-                transformed.extend(screen_point)
-            return tuple(transformed)
-
-        # The vehicle faces right, so positive pitch visibly raises its nose.
-        body = (
-            (-69, -5), (48, -5), (70, 9), (64, 22),
-            (-66, 22), (-76, 10),
+        self._canvas.create_line(
+            center_x - dx,
+            center_y - dy,
+            center_x + dx,
+            center_y + dy,
+            fill=color if value is not None else self._theme.muted,
+            width=5,
         )
-        cabin = ((-39, -6), (-24, -32), (22, -32), (42, -6))
-        window = ((-27, -9), (-17, -26), (15, -26), (29, -9))
-
-        self._canvas.create_polygon(
-            *transform(body),
-            fill="#263d31",
-            outline=TEXT,
-            width=2,
-            joinstyle=tk.ROUND,
+        self._canvas.create_oval(
+            center_x - 5,
+            center_y - 5,
+            center_x + 5,
+            center_y + 5,
+            fill=self._theme.warning,
+            outline="",
         )
-        self._canvas.create_polygon(
-            *transform(cabin),
-            fill="#263d31",
-            outline=TEXT,
-            width=2,
-        )
-        self._canvas.create_polygon(
-            *transform(window),
-            fill="#102636",
-            outline="#7ea3b8",
-            width=1,
-        )
-
-        for wheel_x in (-48, 47):
-            wheel_center_x, wheel_center_y = _rotate_screen_point(
-                (wheel_x * scale, 22 * scale),
-                center_x,
-                center_y,
-                -pitch,
-            )
-            wheel_radius = 13 * scale
-            self._canvas.create_oval(
-                wheel_center_x - wheel_radius,
-                wheel_center_y - wheel_radius,
-                wheel_center_x + wheel_radius,
-                wheel_center_y + wheel_radius,
-                fill="#101411",
-                outline="#9bad9f",
-                width=2,
-            )
-            hub_radius = 4 * scale
-            self._canvas.create_oval(
-                wheel_center_x - hub_radius,
-                wheel_center_y - hub_radius,
-                wheel_center_x + hub_radius,
-                wheel_center_y + hub_radius,
-                fill=AMBER,
-                outline="",
-            )
 
         self._canvas.create_text(
             x + width - 12,
@@ -815,7 +814,7 @@ class OffroadDashboardPanel(
             center_x + radius,
             center_y + radius,
             fill="#0a1512",
-            outline=GRID,
+            outline=self._theme.border,
             width=3,
         )
 
@@ -848,7 +847,7 @@ class OffroadDashboardPanel(
             center_y - 10,
             anchor=tk.E,
             text="LEVEL",
-            fill=AMBER,
+            fill=self._theme.warning,
             font=("TkDefaultFont", 8, "bold"),
         )
 
@@ -860,7 +859,7 @@ class OffroadDashboardPanel(
                 center_y + inner * math.sin(marker_angle),
                 center_x + (radius - 3) * math.cos(marker_angle),
                 center_y + (radius - 3) * math.sin(marker_angle),
-                fill=MUTED,
+                fill=self._theme.muted,
                 width=2,
             )
 
@@ -974,7 +973,7 @@ class OffroadDashboardPanel(
                 x + lamp_radius,
                 y + lamp_radius,
                 fill="#ffe6a1",
-                outline=AMBER,
+                outline=self._theme.warning,
                 width=2,
             )
 
@@ -1003,7 +1002,7 @@ class OffroadDashboardPanel(
                     y,
                     x + 7,
                     y,
-                    fill=MUTED if value else TEXT,
+                    fill=self._theme.muted if value else TEXT,
                     width=2,
                 )
                 self._canvas.create_text(
@@ -1011,7 +1010,7 @@ class OffroadDashboardPanel(
                     y,
                     anchor=tk.E,
                     text=str(value),
-                    fill=MUTED,
+                    fill=self._theme.muted,
                     font=("TkFixedFont", 8),
                 )
         self._canvas.create_polygon(
@@ -1021,7 +1020,7 @@ class OffroadDashboardPanel(
             center_y - 6,
             x + 22,
             center_y + 6,
-            fill=AMBER,
+            fill=self._theme.warning,
             outline="",
         )
 
@@ -1037,14 +1036,14 @@ class OffroadDashboardPanel(
     ) -> None:
         height = 150
         self._canvas.create_rectangle(
-            x, y, x + width, y + height, fill=PANEL, outline=GRID, width=2
+            x, y, x + width, y + height, fill=self._theme.panel, outline=self._theme.border, width=2
         )
         self._canvas.create_text(
             x + 14,
             y + 16,
             anchor=tk.NW,
             text=title,
-            fill=MUTED,
+            fill=self._theme.muted,
             font=("TkDefaultFont", 11, "bold"),
         )
         if value is None:
@@ -1065,7 +1064,7 @@ class OffroadDashboardPanel(
             x + width / 2,
             y + 121,
             text=direction if value is not None else "--",
-            fill=TEXT,
+            fill=self._theme.text,
             font=("TkDefaultFont", 10, "bold"),
         )
 
@@ -1075,7 +1074,7 @@ class OffroadDashboardPanel(
         height: int,
         state: _DashboardState | None,
     ) -> None:
-        top = height - 128
+        top = height - 92
         margin = 14
         gap = 8
         labels: list[tuple[str, str]] = []
@@ -1148,21 +1147,21 @@ class OffroadDashboardPanel(
                 top,
                 x + card_width,
                 height - 10,
-                fill=PANEL,
-                outline=GRID,
+                fill=self._theme.panel,
+                outline=self._theme.border,
             )
             self._canvas.create_text(
                 x + card_width / 2,
-                top + 25,
+                top + 18,
                 text=label,
-                fill=MUTED,
+                fill=self._theme.muted,
                 font=("TkDefaultFont", 9, "bold"),
             )
             self._canvas.create_text(
                 x + card_width / 2,
-                top + 66,
+                top + 51,
                 text=value,
-                fill=TEXT,
+                fill=self._theme.text,
                 font=("TkFixedFont", 14, "bold"),
             )
 

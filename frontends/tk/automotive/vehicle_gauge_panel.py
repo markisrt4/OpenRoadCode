@@ -20,6 +20,9 @@ from apps.common.uiTheme import (
     VEHICLE_GAUGE_THEME,
     VehicleGaugeRedlineTheme,
 )
+from frontends.tk.automotive.vehicle_gauge_theme import (
+    vehicle_gauge_theme_from_style_sheet,
+)
 from frontends.tk.automotive.vehicle_gauge_widgets import (
     DiagnosticsPanel,
     GearIndicator,
@@ -28,6 +31,7 @@ from frontends.tk.automotive.vehicle_gauge_widgets import (
     RoundGauge,
     TirePressurePanel,
 )
+from ui.theme import StyleSheet
 from ui.automotive import (
     DiagnosticTroubleCode,
     DiagnosticsRequestHandlerIf,
@@ -195,6 +199,7 @@ class VehicleGaugePanel(
         config_path: str | Path | None = None,
         columns: int = 3,
         show_config_button: bool = True,
+        panel_background: str | None = None,
     ) -> None:
         super().__init__(master)
         if columns < 1:
@@ -215,6 +220,11 @@ class VehicleGaugePanel(
             mil_on=None,
         )
         self._style = VEHICLE_GAUGE_THEME
+        self._panel_background = (
+            panel_background
+            if panel_background is not None
+            else self._style.panel_background
+        )
 
         self.configure(style="VehicleGauge.TFrame")
         self._configure_styles()
@@ -237,12 +247,20 @@ class VehicleGaugePanel(
                 command=self.open_layout_editor,
             ).grid(row=0, column=1, sticky="e")
 
-        self._gauge_host = tk.Frame(self, background=self._style.background_color)
+        self._gauge_host = tk.Frame(self, background=self._panel_background)
         self._gauge_host.grid(row=1, column=0, sticky="nsew", padx=8, pady=8)
         self.columnconfigure(0, weight=1)
         self.rowconfigure(1, weight=1)
         self.bind("<Configure>", self._on_panel_resize)
 
+        self._rebuild_gauges()
+
+    def set_style_sheet(self, sheet: StyleSheet) -> None:
+        """Apply automotive gauge styling and rebuild rendered instruments."""
+
+        self._style = vehicle_gauge_theme_from_style_sheet(sheet)
+        self._configure_styles()
+        self._gauge_host.configure(background=self._panel_background)
         self._rebuild_gauges()
 
     def update_state(
@@ -716,7 +734,7 @@ class VehicleGaugePanel(
         style = ttk.Style(self)
         style.configure(
             "VehicleGauge.TFrame",
-            background=self._style.panel_background,
+            background=self._panel_background,
         )
         style.configure(
             "VehicleGauge.TLabel",

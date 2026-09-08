@@ -4,9 +4,6 @@
 # display. Application lifecycle policy intentionally mirrors applications.toml;
 # only presentation routing differs for the Android/Termux runtime.
 
-[browser]
-profile_root = "~/.local/share/openroadcode/browser"
-
 [presentation]
 default_target = "primary"
 
@@ -17,6 +14,12 @@ display = ":1"
 [presentation.targets.auxiliary]
 type = "x11"
 display = ":1"
+
+[apps.sdrpp]
+type = "native"
+enabled = true
+startup = "preload"
+target = "primary"
 
 [apps.weather]
 type = "browser"
@@ -42,6 +45,13 @@ type = "browser"
 enabled = true
 url = "https://www.youtube.com"
 profile = "youtube"
+startup = "lazy"
+
+[apps.netflix]
+type = "browser"
+enabled = true
+url = "https://www.netflix.com/browse"
+profile = "netflix"
 startup = "lazy"
 
 [apps.google_earth]

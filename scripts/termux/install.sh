@@ -28,6 +28,7 @@ pkg install -y \
   less \
   python \
   python-tkinter \
+  ruff \
   termux-api \
   termux-x11-nightly \
   xfce4 \
@@ -42,7 +43,9 @@ source "$VENV_DIR/bin/activate"
 python -m pip install --upgrade pip wheel setuptools
 
 # Portable OpenRoadCode runtime dependencies needed by the current car UI path.
-python -m pip install requests tomli Pillow pyzmq pyserial
+# Automotive communication on Termux is provided by the Android bridge over TCP,
+# so pyserial belongs to the Linux/Raspberry Pi installer rather than this one.
+python -m pip install requests tomli Pillow pyzmq tinycss2
 
 deactivate
 

@@ -11,6 +11,7 @@ The current target combines:
 - simulated IMU input in the current Termux navigation profile;
 - native Valhalla and MapLibre builds;
 - Termux:X11 for graphical execution;
+- optional native Linux games, including Debian packages hosted through `proot-distro`;
 - optional hardware-accelerated graphics when a compatible Mesa backend is available; and
 - offline navigation data stored under `~/.local/share/openroadcode`.
 
@@ -32,13 +33,13 @@ Install the packages selected for the detected device:
 ./development/termux/configure_graphics.sh --install
 ```
 
-The first validated hardware path is Qualcomm/Adreno. On a device exposing the KGSL interface, when the Termux repository supplies `mesa-vulkan-icd-freedreno`, the selected stack is:
+The first validated native Termux hardware path is Qualcomm/Adreno. On a device exposing the KGSL interface, when the Termux repository supplies `mesa-vulkan-icd-freedreno`, the selected stack is:
 
 ```text
 Adreno -> KGSL -> Turnip/Freedreno -> Vulkan -> Zink -> OpenGL -> Termux:X11
 ```
 
-For that backend, OpenGL applications should be launched with:
+For that native Termux backend, OpenGL applications should be launched with:
 
 ```bash
 export MESA_LOADER_DRIVER_OVERRIDE=zink
@@ -55,6 +56,48 @@ MESA_LOADER_DRIVER_OVERRIDE=zink glxgears
 Do not install every Mesa Vulkan ICD indiscriminately and do not assume Freedreno on Mali, PowerVR, or other GPU families. Unknown devices retain the basic/software graphics path until a hardware backend has been validated. Application launchers should consume the selected graphics environment rather than hard-coding a GPU vendor.
 
 Chromium launched under Termux:X11 should use `--password-store=basic` so it does not depend on a desktop password-keyring service. GPU-specific Chromium flags should remain platform/runtime configuration rather than UI code.
+
+### Debian/proot OpenGL for games
+
+Debian applications running under `proot-distro` use glibc and cannot safely load Termux/Bionic Turnip libraries directly. For graphical Debian games, OpenRoadCode instead supports Mesa `virpipe` with Termux `virglrenderer-android`:
+
+```text
+Debian game / OpenGL
+        |
+        v
+Debian Mesa virpipe
+        |
+        v
+shared /tmp/.virgl_test socket
+        |
+        v
+Termux virgl_test_server_android
+        |
+        v
+Android graphics stack / GPU
+```
+
+Install the Android VirGL server package when using this path:
+
+```bash
+pkg install virglrenderer-android
+```
+
+The Debian command runner starts `virgl_test_server_android` on demand when it is installed and exposes the shared socket to Debian with `proot-distro --shared-tmp`. It sets `GALLIUM_DRIVER=virpipe` for that Debian process only. This is intentionally separate from the native Termux Zink/Turnip environment.
+
+SuperTuxKart is configured to use its OpenGL renderer rather than Vulkan on this path. Debian Vulkan may otherwise select a software renderer even when OpenGL through VirGL is accelerated.
+
+## Native games
+
+The ORC UI Games panel reads `config/games.toml`, discovers installed/available packages asynchronously, and supports both Termux packages and Debian packages. Install the Termux-side game prerequisites with:
+
+```bash
+./development/termux/install_games.sh
+```
+
+The Games frontend requires `xdotool` for X11 embedding. When a Debian game is selected, the controller chooses the Debian backend without exposing whether Debian is native or hosted through `proot-distro` to the UI.
+
+While a game is active, ORC replaces the category browser with an **EXIT GAME** control and reparents the game's X11 window into the Games content area. Closing a game through its own menu is also detected and returns the panel to the game browser. Window embedding is best effort because third-party games can create helper processes or reposition their own top-level windows; the X11 frontend searches the launched process tree and reasserts the ORC host geometry during startup.
 
 ## Navigation contracts
 
@@ -219,7 +262,7 @@ export CARUI_GEOMETRY=1024x600
 python -m apps.orcUi
 ```
 
-The current ORC UI navigation map supports shared camera state between Home and Navigation views, follow/recenter behavior, screen-relative panning, route overlays, live vehicle position, and focused POI categories. Browser-backed launchers use the selected X11 display and Chromium is started with `--password-store=basic`.
+The current ORC UI navigation map supports shared camera state between Home and Navigation views, follow/recenter behavior, screen-relative panning, route overlays, live vehicle position, and focused POI categories. The Games panel can launch installed native/hosted Linux games into its X11 content host. Browser-backed launchers use the selected X11 display and Chromium is started with `--password-store=basic`.
 
 ## Navigation data
 
@@ -229,4 +272,4 @@ Vector-map content and routing data are generated from source datasets and shoul
 
 ## Test notes
 
-The broad Python suite runs under Termux with platform-specific hardware tests skipped when their Linux-only dependencies are unavailable. Component tests supplement automated tests where real hardware, native services, X11, or Android integration is required.
+The broad Python suite runs under Termux with platform-specific hardware tests skipped when their Linux-only dependencies are unavailable. Component tests supplement automated tests where real hardware, native services, X11, Android integration, or game packages are required.

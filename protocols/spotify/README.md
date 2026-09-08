@@ -1,146 +1,68 @@
-# Spotify Protocol
+# Spotify Protocol Integration
 
-The `spotify` protocol component provides Spotify-specific authentication and communication with the Spotify Web API.
+`protocols/spotify` owns Spotify-specific OAuth and Web API transport. Application code should normally depend on `controllers/spotify` rather than this package directly.
 
-It builds upon the generic OAuth protocol component for OAuth 2.0 and PKCE authentication.
+## Configuration
+
+OpenRoadCode uses Spotify OAuth Authorization Code with PKCE. Runtime configuration is read through the project secret-manager abstraction.
+
+Required value:
+
+```text
+SPOTIFY_CLIENT_ID=<Spotify application client id>
+```
+
+Optional redirect override:
+
+```text
+SPOTIFY_REDIRECT_URI=http://127.0.0.1:8888/callback
+```
+
+No client secret is required or expected. Credentials and OAuth tokens must never be committed.
+
+The canonical OAuth scopes are declared in `spotify_config.py`. They currently cover playback state/control, Web Playback SDK streaming, profile access, saved tracks, recently played tracks, and private playlists. When scopes change, an existing token cache may not contain the new permissions. Re-authorize the cached Spotify token before testing features that depend on newly added scopes.
 
 ## Components
 
-The Spotify protocol includes:
+- `SpotifyConfig` translates runtime settings into the generic OAuth configuration.
+- `SpotifyAuth` owns Spotify authorization and token refresh behavior.
+- `SpotifyTokenStore` persists OAuth tokens outside the repository.
+- `SpotifyWebApiClient` performs authenticated requests against the Spotify Web API.
 
-- Spotify configuration
-- Spotify OAuth authentication
-- Spotify OAuth token storage
-- Spotify Web API client
-- Spotify installation script
+HTTP paths, JSON parsing into application models, and semantic operations such as saved-library/history retrieval belong in `controllers/spotify`, not in the transport layer.
 
-## Directory Layout
+## Token storage
 
-```text
-spotify/
-├── __init__.py
-├── install_spotify.sh
-├── spotify_auth.py
-├── spotify_config.py
-├── spotify_token_store.py
-├── spotify_web_api_client.py
-├── README.md
-└── component_test/
-    ├── __init__.py
-    └── spotify_auth_cli.py
-```
-
-## Installation
-
-Before using the Spotify protocol you must create a Spotify Developer application.
-
-1. Visit the Spotify Developer Dashboard.
-2. Create an application.
-3. Add the following Redirect URI:
-
-```text
-http://127.0.0.1:8888/callback
-```
-
-4. Copy the application's Client ID.
-
-Run the installation script:
-
-```bash
-./install_spotify.sh
-```
-
-The installer will:
-
-- Prompt for the Spotify Client ID
-- Store configuration in the shared OpenRoadCode secrets file
-- Launch the Spotify authorization flow
-- Store OAuth tokens locally
-
-Configuration is stored in:
-
-```text
-/etc/openroadcode/secrets.env
-```
-
-OAuth tokens are stored in:
+OAuth tokens are stored by default at:
 
 ```text
 ~/.config/spotify/tokens.json
 ```
 
-Neither file should be committed to source control. Process environment
-variables override values from the secrets file when needed for testing.
+Stored access tokens are reused and refreshed when possible. To force authorization after a scope change:
 
-## Authentication
+```bash
+python3 -m protocols.spotify.component_test.spotify_auth_cli --clear-tokens
+```
 
-`SpotifyAuth` performs Spotify authorization using OAuth 2.0 with PKCE.
+## Platform setup
 
-It uses the generic OAuth protocol component for:
+Debian/Ubuntu credentials can be configured with:
 
-- Authorization URL generation
-- PKCE
-- Redirect handling
-- Token exchange
-- Token refresh
+```bash
+./development/debian/install_secrets.sh
+```
 
-Stored access tokens are reused whenever possible.
+Termux uses the corresponding secrets setup under `development/termux`. Spotify REMOTE mode does not require a local Web Playback browser. PLAYER mode additionally requires a compatible browser; the verified Linux path is Google Chrome stable.
 
-Expired access tokens are automatically refreshed.
+## Component test
 
-## Spotify Web API Client
-
-`SpotifyWebApiClient` communicates with the Spotify Web API.
-
-It supports:
-
-- Authenticated HTTP requests
-- JSON responses
-- Automatic OAuth access token retrieval
-- HTTP error handling
-
-The client provides access to Spotify resources including:
-
-- Current playback state
-- Playback devices
-- Album information
-- Artist information
-- Album artwork URLs
-- Volume
-- Track position
-- Playback control
-
-The Web API client returns Spotify data only.
-
-It does not download album artwork or perform image caching.
-
-## Component Test
-
-A CLI component test is provided.
-
-Run from the project root:
+From the repository root:
 
 ```bash
 python3 -m protocols.spotify.component_test.spotify_auth_cli
 ```
 
-Force a new authorization:
+## Boundary
 
-```bash
-python3 -m protocols.spotify.component_test.spotify_auth_cli \
-    --clear-tokens
-```
-
-## Design
-
-The Spotify protocol is responsible only for Spotify-specific communication.
-
-Responsibilities include:
-
-- OAuth authentication
-- Web API communication
-- Spotify request and response handling
-
-Playback logic, media state management, album artwork downloading, image caching, and user interface behavior belong in higher-level controller or application components.
-
-Generic OAuth functionality is implemented by the `protocols.oauth` package.
+This package is intentionally transport-focused. Playback policy, Connect destination selection, library presentation, artwork caching, and UI behavior belong in controllers/services/applications. Generic OAuth mechanics remain in `protocols.oauth`.

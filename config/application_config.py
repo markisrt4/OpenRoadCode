@@ -10,6 +10,8 @@ from enum import Enum
 from pathlib import Path
 from typing import Any
 
+from common.xdg_paths import openroadcode_data_dir
+
 try:
     import tomllib
 except ModuleNotFoundError:  # Python 3.10
@@ -54,7 +56,7 @@ class PresentationTargetConfig:
 
 @dataclass(frozen=True, slots=True)
 class BrowserConfig:
-    profile_root: Path = Path.home() / ".local" / "share" / "openroadcode" / "browser"
+    profile_root: Path = openroadcode_data_dir("browser")
 
 
 @dataclass(frozen=True, slots=True)
@@ -129,7 +131,7 @@ class ApplicationsConfigParser:
 
     def _parse_browser(self, data: Any) -> BrowserConfig:
         section = self._expect_table(data, "browser")
-        raw_root = section.get("profile_root", "~/.local/share/openroadcode/browser")
+        raw_root = section.get("profile_root", str(openroadcode_data_dir("browser")))
         if not isinstance(raw_root, str) or not raw_root.strip():
             raise ApplicationConfigError("browser.profile_root must be a non-empty string")
         return BrowserConfig(profile_root=Path(raw_root).expanduser())

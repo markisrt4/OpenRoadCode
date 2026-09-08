@@ -8,21 +8,29 @@ from __future__ import annotations
 import tkinter as tk
 
 from apps.orcUi.shared_map_camera import get_shared_map_camera_runtime
+from apps.orcUi.theme_runtime import theme_bundle as packaged_theme_bundle
 from ui.navigation import MapRequestHandlerIf
-
-PANEL = "#0b1117"
-BORDER = "#25313b"
-BLUE = "#168bd1"
-_HOME_MAP_ZOOM = 12.0
-_HOME_MAP_BEARING_RAD = 0.0
-_HOME_MAP_PITCH_RAD = 0.0
+from ui.theme import ThemeBundle, ThemeMode
 
 
 class HomeMapPanel(tk.Frame):
     """Provide the HOME navigation card and its native renderer host."""
 
-    def __init__(self, parent: tk.Misc, *, map_request_handler: MapRequestHandlerIf | None = None) -> None:
-        super().__init__(parent, bg=PANEL, highlightthickness=1, highlightbackground=BORDER)
+    def __init__(
+        self,
+        parent: tk.Misc,
+        *,
+        map_request_handler: MapRequestHandlerIf | None = None,
+        theme: ThemeBundle | None = None,
+    ) -> None:
+        self._theme = theme or packaged_theme_bundle(ThemeMode.DARK)
+        ui = self._theme.ui
+        super().__init__(
+            parent,
+            bg=ui.surface,
+            highlightthickness=1,
+            highlightbackground=ui.border,
+        )
         runtime = get_shared_map_camera_runtime()
         self._request_handler = map_request_handler or runtime.request_handler
         self._map_host: tk.Frame
@@ -34,32 +42,29 @@ class HomeMapPanel(tk.Frame):
         self.update_idletasks()
         return self._map_host.winfo_id()
 
+    def set_theme_bundle(self, theme: ThemeBundle) -> None:
+        """Apply the active CSS-derived theme to the map host chrome."""
+        self._theme = theme
+        ui = theme.ui
+        self.configure(bg=ui.surface, highlightbackground=ui.border)
+        self._map_host.configure(bg=ui.background)
+
     def _build(self) -> None:
-        self.grid_rowconfigure(1, weight=1)
+        self.grid_rowconfigure(0, weight=1)
         self.grid_columnconfigure(0, weight=1)
-        tk.Label(self, text="NAVIGATION", fg=BLUE, bg=PANEL,
-                 font=("Sans", 10, "bold")).grid(row=0, column=0, sticky="w", padx=14, pady=(11, 4))
-        self._map_host = tk.Frame(self, bg="#020406")
-        self._map_host.grid(row=1, column=0, sticky="nsew", padx=1, pady=(0, 1))
+        # The native map renderer paints over this host. Keep the host itself
+        # neutral and let MapLibre own the actual map palette.
+        self._map_host = tk.Frame(self, bg=self._theme.ui.background)
+        self._map_host.grid(row=0, column=0, sticky="nsew", padx=1, pady=1)
 
     def _schedule_renderer_refresh(self) -> None:
         # PUB/SUB drops commands until the newly launched renderer has joined.
-        # HOME is a presentation camera, not the navigation camera. With a
-        # known position it shows a flat local overview; otherwise it asks the
-        # renderer to frame the installed dataset instead of inventing (0, 0).
+        # Replay a few times so a host-window switch cannot strand the renderer
+        # at its default camera if the first state message arrives too early.
         for delay_ms in (300, 700, 1200):
             self.after(delay_ms, self._refresh_renderer_state)
 
     def _refresh_renderer_state(self) -> None:
-        if bool(getattr(self._request_handler, "camera_initialized", False)):
-            refresh = getattr(self._request_handler, "refresh_renderer_state", None)
-            if refresh is not None:
-                refresh(
-                    zoom_level=_HOME_MAP_ZOOM,
-                    bearing_rad=_HOME_MAP_BEARING_RAD,
-                    pitch_rad=_HOME_MAP_PITCH_RAD,
-                )
-            return
-        overview = getattr(self._request_handler, "request_dataset_overview", None)
-        if overview is not None:
-            overview()
+        refresh = getattr(self._request_handler, "refresh_renderer_state", None)
+        if refresh is not None:
+            refresh()

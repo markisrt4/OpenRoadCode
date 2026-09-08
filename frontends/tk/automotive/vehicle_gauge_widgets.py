@@ -445,8 +445,8 @@ class LinearGauge(_ValueGauge):
             pad,
             w - pad,
             h - pad,
-            fill=self._style.bezel_outer,
-            outline=self._style.panel_border,
+            fill=self._style.linear_card_background,
+            outline=self._style.linear_card_border,
             width=2,
         )
         self.create_rectangle(
@@ -454,8 +454,8 @@ class LinearGauge(_ValueGauge):
             pad * 1.35,
             w - pad * 1.35,
             h - pad * 1.35,
-            fill=self._style.panel_inner,
-            outline=self._style.panel_inner_border,
+            fill=self._style.linear_card_inner,
+            outline=self._style.linear_card_highlight,
         )
 
         icon_x = pad * 2
@@ -467,7 +467,7 @@ class LinearGauge(_ValueGauge):
             h * 0.30,
             anchor="w",
             text=self._title.upper(),
-            fill=self._style.primary_text,
+            fill=self._style.linear_card_text,
             font=(self._style.condensed_font_family, max(8, int(h * 0.12)), "bold"),
         )
         value_text = "--" if self._value is None else f"{self._value:.{self._precision}f}"
@@ -478,7 +478,7 @@ class LinearGauge(_ValueGauge):
             h * 0.30,
             anchor="e",
             text=f"{value_text} {self._unit}",
-            fill=self._value_color(),
+            fill=self._display_value_color(),
             font=(self._style.mono_font_family, max(8, int(h * 0.13)), "bold"),
         )
 
@@ -528,12 +528,28 @@ class LinearGauge(_ValueGauge):
             x = x1 + (x2 - x1) * index / 5
             self.create_line(x, y + bar_h / 2, x, y + bar_h, fill=self._style.threshold_marker)
         endpoint_font = (self._style.font_family, max(7, int(h * 0.08)))
-        self.create_text(x1, h * 0.84, anchor="w", text=self._format_end(self._minimum), fill=self._style.endpoint_text, font=endpoint_font)
-        self.create_text(x2, h * 0.84, anchor="e", text=self._format_end(self._maximum), fill=self._style.endpoint_text, font=endpoint_font)
+        self.create_text(x1, h * 0.84, anchor="w", text=self._format_end(self._minimum), fill=self._style.linear_card_muted, font=endpoint_font)
+        self.create_text(x2, h * 0.84, anchor="e", text=self._format_end(self._maximum), fill=self._style.linear_card_muted, font=endpoint_font)
 
     def _value_x(self, value: float, x1: float, x2: float) -> float:
         clamped = max(self._minimum, min(self._maximum, value))
         return x1 + (clamped - self._minimum) / (self._maximum - self._minimum) * (x2 - x1)
+
+    def _display_value_color(self) -> str:
+        """Return a readable card-text color for the numeric readout."""
+        if not self._connected or self._value is None:
+            return self._style.linear_card_muted
+        if (
+            (self._danger_low is not None and self._value <= self._danger_low)
+            or (self._danger_high is not None and self._value >= self._danger_high)
+        ):
+            return self._style.danger_value
+        if (
+            (self._caution_low is not None and self._value <= self._caution_low)
+            or (self._caution_high is not None and self._value >= self._caution_high)
+        ):
+            return self._style.caution_value
+        return self._style.linear_card_text
 
     def _value_color(self) -> str:
         if not self._connected or self._value is None:

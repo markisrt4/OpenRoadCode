@@ -3,9 +3,11 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
+from unittest.mock import patch
 
 from config.component_test.runtime_config_test_app import main
 from config.runtime_config import RuntimeConfigParser
@@ -107,6 +109,17 @@ class RuntimeConfigTestAppTest(unittest.TestCase):
         config = RuntimeConfigParser(self.config_path, project_root=self.project_root).load()
         self.assertTrue(config.position_cache.enabled)
         self.assertEqual(604800.0, config.position_cache.max_age_seconds)
+
+    def test_position_cache_default_honors_xdg_cache_home(self) -> None:
+        with patch.dict(os.environ, {"XDG_CACHE_HOME": "/tmp/orc-xdg-cache"}):
+            config = RuntimeConfigParser(
+                self.config_path,
+                project_root=self.project_root,
+            ).load()
+        self.assertEqual(
+            Path("/tmp/orc-xdg-cache/openroadcode/position"),
+            config.position_cache.directory,
+        )
 
     def test_position_cache_configuration_is_parsed(self) -> None:
         self.config_path.write_text(

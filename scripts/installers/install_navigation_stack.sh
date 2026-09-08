@@ -99,7 +99,8 @@ if [[ "$TARGET" == "termux" ]]; then
   HOST_PLATFORM="android-termux"
   INSTALL_ROOT="${TERMUX_INSTALL_ROOT:-$PREFIX/opt/openroadcode/navigation}"
   CONFIG_ROOT="${TERMUX_CONFIG_ROOT:-$PREFIX/etc/openroadcode}"
-  DATA_ROOT="${TERMUX_DATA_ROOT:-$HOME/.local/share/openroadcode}"
+  XDG_DATA_HOME="${XDG_DATA_HOME:-$HOME/.local/share}"
+  DATA_ROOT="${TERMUX_DATA_ROOT:-$XDG_DATA_HOME/openroadcode}"
   BUILD_BASE_IMAGE="native-termux"
 else
   if is_termux; then
