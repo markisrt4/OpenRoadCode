@@ -11,6 +11,7 @@ set -euo pipefail
 get_known_features() {
   cat <<'EOF'
 base
+dev-tools
 desktop-ui
 web-ui
 browser
@@ -38,6 +39,7 @@ get_all_features_for_target() {
     linux-dev)
       cat <<'EOF'
 base
+dev-tools
 desktop-ui
 web-ui
 browser
@@ -83,7 +85,10 @@ get_feature_packages() {
   local feature="$1"
   case "$feature" in
     base)
-      echo "git curl wget ca-certificates sudo procps python3 python3-venv python3-pip ruff"
+      echo "git curl wget ca-certificates sudo procps python3 python3-venv python3-pip"
+      ;;
+    dev-tools)
+      echo ""
       ;;
     desktop-ui)
       echo "python3-tk dbus-x11 xauth xterm x11-apps x11-utils wmctrl openbox xfce4 xfce4-goodies"
@@ -137,6 +142,9 @@ get_feature_python_packages() {
     base)
       printf '%s\n' requests tomli pyzmq
       ;;
+    dev-tools)
+      printf '%s\n' pytest ruff
+      ;;
     desktop-ui)
       printf '%s\n' Pillow tinycss2
       ;;
@@ -186,6 +194,7 @@ get_feature_help() {
   cat <<'EOF'
 Available features:
   base          Portable command-line runtime, ZeroMQ messaging, and Python environment
+  dev-tools     Python test and lint tools (pytest and Ruff)
   desktop-ui    Tk, X11, Openbox, and XFCE desktop support
   web-ui        Flask-based OpenRoadCode browser frontend
   browser       Chromium browser support
