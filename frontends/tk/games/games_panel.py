@@ -385,11 +385,11 @@ class GamesPanel(tk.Frame, GamesUiIf):
     def _action_for(self, game: GameUiState) -> tuple[str, Callable[[], None] | None, str]:
         ui = self._theme.ui
         if game.status is GameStatus.READY:
-            return "PLAY", lambda: self._request_handler.request_launch_game(game.key) if self._request_handler else None, ui.accent_success
+            return "PLAY", lambda: self._request_handler.request_launch_game(game.game_id) if self._request_handler else None, ui.accent_success
         if game.status is GameStatus.RUNNING:
             return "PLAYING", None, ui.accent_success
         if game.status is GameStatus.AVAILABLE:
-            return "INSTALL", lambda: self._request_handler.request_install_game(game.key) if self._request_handler else None, ui.accent_primary
+            return "INSTALL", lambda: self._request_handler.request_install_game(game.game_id) if self._request_handler else None, ui.accent_primary
         if game.status is GameStatus.INSTALLING:
             return "INSTALLING", None, ui.accent_primary
         if game.status is GameStatus.CHECKING:
