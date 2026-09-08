@@ -9,12 +9,12 @@ import queue
 import threading
 import tkinter as tk
 from collections.abc import Callable
-from pathlib import Path
 
 from PIL import ImageTk
 
 from apps.orcUi.spotify_state_service import SpotifyStateService
 from apps.orcUi.theme_runtime import theme_bundle
+from common.xdg_paths import openroadcode_cache_dir
 from controllers.image import ImageCache
 from ui.media import PlaybackState
 from ui.theme import ThemeMode
@@ -44,7 +44,7 @@ class SpotifyNowPlaying(tk.Frame):
         self._artwork_uri: str | None = None
         self._artwork_photo: ImageTk.PhotoImage | None = None
         self._art_results: queue.SimpleQueue[tuple[str, object | None]] = queue.SimpleQueue()
-        cache_dir = Path.home() / ".cache" / "openroadcode" / "spotify-artwork"
+        cache_dir = openroadcode_cache_dir("spotify-artwork")
         self._image_cache = ImageCache(max_entries=16, cache_directory=cache_dir)
 
         body = tk.Frame(self, bg=ui.surface)
