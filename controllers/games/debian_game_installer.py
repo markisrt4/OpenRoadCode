@@ -73,6 +73,7 @@ class DebianGameInstaller(GameInstallerIf):
 
     def launch_command(self, game: GameDefinition) -> Sequence[str]:
         """Return a host command that executes *game* graphically inside Debian."""
+        environment = [f"{name}={value}" for name, value in game.environment.items()]
         return self._runner.graphical_command(
-            ["env", f"PATH={self._GAME_PATH}", *game.command]
+            ["env", f"PATH={self._GAME_PATH}", *environment, *game.command]
         )
