@@ -59,6 +59,14 @@ class RadioEntryPanel(tk.Frame):
         self._chooser.grid_rowconfigure(0, weight=1)
         self._build_choice_buttons()
 
+    def open_streaming_radio(self) -> None:
+        """Present the streaming-radio browser directly."""
+        self._show_streaming_radio()
+
+    def open_rf_radio(self) -> None:
+        """Launch and present the RF radio directly."""
+        self._launch_rf_radio()
+
     def _build_choice_buttons(self) -> None:
         ui = self._theme.ui
         rf_card, self._rf_button = self._build_source_card(parent=self._chooser, title="RF RADIO", eyebrow="SOFTWARE DEFINED RADIO", description="Tune live RF with SDR++ spectrum and waterfall controls.", features="FM  •  WEATHER  •  AIRBAND  •  HAM", action_text="OPEN RF RADIO  ›", accent=ui.accent_success, icon_kind="rf", command=self._launch_rf_radio)
