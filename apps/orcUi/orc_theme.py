@@ -9,6 +9,7 @@ import json
 from pathlib import Path
 from typing import Any
 
+from common.xdg_paths import openroadcode_data_dir
 from ui.theme import ThemeMode
 
 _MAP_DARK = {
@@ -33,7 +34,7 @@ def install_map_style(mode: ThemeMode, data_root: str | Path | None = None) -> P
     """Install the generated MapLibre style for the requested presentation mode."""
     repo_root = Path(__file__).resolve().parents[2]
     template = repo_root / "tools" / "map_builder" / "templates" / "openroadcode-style.json"
-    root = Path(data_root or Path.home() / ".local" / "share" / "openroadcode")
+    root = Path(data_root) if data_root is not None else openroadcode_data_dir()
     destination = root / "maps" / "styles" / "openroadcode.json"
     if not template.is_file() or not destination.parent.is_dir():
         return None
