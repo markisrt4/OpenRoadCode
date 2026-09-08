@@ -5,9 +5,9 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Protocol, Sequence
 
+from common.xdg_paths import openroadcode_cache_dir
 from .streaming_station import StreamingStation
 
 
@@ -56,7 +56,6 @@ class StreamingRadioController:
         self._current_station = None
 
 
-def default_image_cache_dir() -> Path:
+def default_image_cache_dir():
     """Return the XDG cache location reserved for station artwork."""
-    root = Path.home() / ".cache" if not (xdg := __import__("os").environ.get("XDG_CACHE_HOME")) else Path(xdg)
-    return root / "openroadcode" / "streaming_radio" / "images"
+    return openroadcode_cache_dir("streaming_radio", "images")
