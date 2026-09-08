@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from apps.launchers.browser_app_factory import BrowserApplicationFactory
+from apps.launchers.google_earth_launcher import GoogleEarthLauncher
 from apps.launchers.managed_sdrpp_launcher import ManagedSDRPPLauncher
 from apps.launchers.sdrpp_launcher import SDRPPProfile
 from apps.orcUi.media_application_service import MediaApplicationService
@@ -59,6 +60,7 @@ def create_orc_ui_application_runtime() -> OrcUiApplicationRuntime:
     browser_factory = BrowserApplicationFactory(config)
     manager.register("youtube", browser_factory.create("youtube"))
     manager.register("netflix", browser_factory.create("netflix"))
+    manager.register("google_earth", GoogleEarthLauncher())
 
     radio = ManagedRadioApplicationService(manager, sdrpp)
     media = MediaApplicationService()
