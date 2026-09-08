@@ -12,22 +12,22 @@ from frontends.tk.media.spotify_screen import SpotifyScreen
 def _theme() -> dict:
     """Return the minimum valid Spotify theme consumed by the screen."""
     return {
-        "colors": {
-            "background": "#121212",
-        },
-        "layout": {
-            "refresh_interval_ms": 1000,
-        },
+        "colors": {"background": "#121212"},
+        "layout": {"refresh_interval_ms": 1000},
     }
 
 
 class SpotifyScreenTest(unittest.TestCase):
+    @patch("frontends.tk.media.spotify_screen.SpotifyVideoOverlay")
+    @patch("frontends.tk.media.spotify_screen.tk.Frame")
     @patch("frontends.tk.media.spotify_screen.threading.Thread")
     @patch("frontends.tk.media.spotify_screen._ThreadSafeSpotifyPlaybackPanel")
     def test_show_paints_panel_before_loading_state(
         self,
         panel_type: Mock,
         thread_type: Mock,
+        frame_type: Mock,
+        overlay_type: Mock,
     ) -> None:
         host = Mock()
         scheduled: list[object] = []
@@ -52,26 +52,27 @@ class SpotifyScreenTest(unittest.TestCase):
 
         screen.show()
 
+        self.assertEqual(frame_type.call_count, 2)
+        frame_type.assert_any_call(host.screen_parent, bg=_theme()["colors"]["background"])
+        panel_type.assert_called_once()
         panel.pack.assert_called_once_with(fill="both", expand=True)
+        overlay_type.assert_called_once()
         panel.set_media_state.assert_not_called()
         state_loader.assert_not_called()
-        self.assertEqual(len(scheduled), 1)
+        self.assertEqual(len(scheduled), 2)
 
-        scheduled[0]()  # type: ignore[operator]
+        # The first callback polls UI dispatch; the last starts hydration.
+        scheduled[-1]()  # type: ignore[operator]
 
         thread_type.assert_called_once()
         thread_type.return_value.start.assert_called_once_with()
         panel.set_media_state.assert_not_called()
+        state_loader.assert_not_called()
 
     def test_theme_change_rebuilds_visible_now_playing_view(self) -> None:
         screen = SpotifyScreen(
-            Mock(),
-            theme=_theme(),
-            back_action=Mock(),
-            image_cache=Mock(),
-            lyrics_client=Mock(),
-            music_video_controller=Mock(),
-            music_video_presentation=Mock(),
+            Mock(), theme=_theme(), back_action=Mock(), image_cache=Mock(),
+            lyrics_client=Mock(), music_video_controller=Mock(), music_video_presentation=Mock(),
         )
         screen._visible = True
         screen._view = "now"
@@ -83,13 +84,8 @@ class SpotifyScreenTest(unittest.TestCase):
 
     def test_theme_change_does_not_rebuild_hidden_screen(self) -> None:
         screen = SpotifyScreen(
-            Mock(),
-            theme=_theme(),
-            back_action=Mock(),
-            image_cache=Mock(),
-            lyrics_client=Mock(),
-            music_video_controller=Mock(),
-            music_video_presentation=Mock(),
+            Mock(), theme=_theme(), back_action=Mock(), image_cache=Mock(),
+            lyrics_client=Mock(), music_video_controller=Mock(), music_video_presentation=Mock(),
         )
 
         with patch.object(screen, "_show_now_playing") as show_now_playing:
