@@ -47,14 +47,8 @@ class MapRendererLauncher:
         if self.is_running():
             return
 
-        # A renderer left behind by an interrupted/restarted UI is not owned by
-        # this launcher instance. Kill it before starting the renderer that will
-        # consume the freshly generated theme style. Otherwise the stale process
-        # can keep displaying the previous style and make theme changes appear
-        # to have been ignored.
-        self._terminate_stale_renderers()
-
         command = self._command or _default_command()
+        self._terminate_stale_renderers()
         environment = os.environ.copy()
         environment.update(
             {
@@ -105,11 +99,8 @@ def _default_command() -> list[str]:
         return shlex.split(override)
 
     repo_root = Path(__file__).resolve().parents[2]
-    termux_launcher = repo_root / "development" / "termux" / "start_map_renderer.sh"
-    if termux_launcher.is_file():
-        return ["bash", str(termux_launcher)]
+    prefix = os.environ.get("PREFIX", "")
+    if prefix.startswith("/data/data/com.termux/files/usr"):
+        return ["bash", str(repo_root / "development" / "termux" / "start_map_renderer.sh")]
 
-    raise RuntimeError(
-        "No map renderer launcher is configured. Set "
-        "OPENROADCODE_MAP_RENDERER_COMMAND."
-    )
+    return ["bash", str(repo_root / "scripts" / "runtime" / "start_map_renderer.sh")]
