@@ -23,6 +23,10 @@ class LaunchAwareRadioPanel(RadioPanel):
         self._launch_status = tk.Label(self._host, text="Loading SDR++…", bg=theme.ui.background, fg=theme.ui.text, font=("Sans", 20, "bold"), padx=24, pady=18)
         self._launch_status.place(relx=0.5, rely=0.5, anchor="center")
 
+    def set_theme_bundle(self, theme: ThemeBundle) -> None:
+        super().set_theme_bundle(theme)
+        self._launch_status.configure(bg=theme.ui.background, fg=theme.ui.text)
+
     def show_loading(self, text: str = "Loading SDR++…") -> None:
         self._launch_status.configure(text=text, fg=self._theme.ui.text)
         self._launch_status.place(relx=0.5, rely=0.5, anchor="center")
@@ -53,6 +57,29 @@ class RadioEntryPanel(tk.Frame):
         self._chooser.grid_rowconfigure(0, weight=1)
         self._build_choice_buttons()
         self._streaming_page = self._build_streaming_page()
+
+    def set_theme_bundle(self, theme: ThemeBundle) -> None:
+        """Apply CSS-derived theme changes without restarting an active SDR++ view."""
+        self._theme = theme
+        self.configure(bg=theme.ui.background)
+        panel = self._radio_panel
+        if panel is not None and panel.winfo_exists():
+            panel.set_theme_bundle(theme)
+            return
+
+        streaming_visible = self._streaming_page.winfo_ismapped()
+        self._chooser.destroy()
+        self._streaming_page.destroy()
+        self._chooser = tk.Frame(self, bg=theme.ui.background)
+        self._chooser.grid_columnconfigure(0, weight=1, uniform="radio-source")
+        self._chooser.grid_columnconfigure(1, weight=1, uniform="radio-source")
+        self._chooser.grid_rowconfigure(0, weight=1)
+        self._build_choice_buttons()
+        self._streaming_page = self._build_streaming_page()
+        if streaming_visible:
+            self._streaming_page.grid(row=0, column=0, sticky="nsew")
+        else:
+            self._chooser.grid(row=0, column=0, sticky="nsew")
 
     def _build_choice_buttons(self) -> None:
         ui = self._theme.ui
