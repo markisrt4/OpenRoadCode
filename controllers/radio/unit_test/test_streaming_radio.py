@@ -83,21 +83,21 @@ class RadioBrowserIdentifierResolutionTest(unittest.TestCase):
             stream_url="https://example.test/two",
         )
 
-        def request(url: str) -> tuple[StreamingRadioStation, ...]:
-            if url.endswith("/one"):
-                return (one,)
-            if url.endswith("/two"):
-                return (two,)
-            return ()
-
-        with patch.object(directory, "_request_stations", side_effect=request) as mocked:
+        with patch.object(
+            directory,
+            "_request_stations",
+            return_value=(one, two),
+        ) as mocked:
             stations = directory.stations_by_ids(("two", "one", "two", ""))
 
         self.assertEqual(
             tuple(station.station_id for station in stations),
             ("two", "one"),
         )
-        self.assertEqual(mocked.call_count, 2)
+        mocked.assert_called_once()
+        requested_url = mocked.call_args.args[0]
+        self.assertIn("/stations/byuuid?", requested_url)
+        self.assertIn("uuids=two%2Cone", requested_url)
 
 
 class NearbyStationDiscoveryTest(unittest.TestCase):
