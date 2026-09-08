@@ -9,7 +9,7 @@ presentation-neutral object detections. Camera ownership remains in
 Use the project setup script rather than installing dependencies by hand:
 
 ```bash
-bash development/debian/setup_camera_perception.sh
+./development/debian/setup_camera_perception.sh
 ```
 
 The script installs the Linux camera tooling (`v4l-utils`, OpenCV, Python venv
