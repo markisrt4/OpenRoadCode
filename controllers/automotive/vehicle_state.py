@@ -10,13 +10,16 @@ class VehicleState:
     """Immutable SI-normalized snapshot of decoded vehicle telemetry.
 
     Values that were unsupported or unavailable during the latest poll are
-    ``None``. Fractions use the range 0.0 through 1.0.
+    ``None``. Fractions use the range 0.0 through 1.0. ``transmission_gear``
+    uses -1 for reverse, 0 for neutral, and 1 through 6 for forward gears.
+    ``None`` means unknown or indeterminate, such as during a shift.
     """
 
     timestamp: datetime
 
     engine_speed_rad_s: float | None = None
     vehicle_speed_m_s: float | None = None
+    transmission_gear: int | None = None
 
     throttle_position: float | None = None
     accelerator_pedal_position: float | None = None
