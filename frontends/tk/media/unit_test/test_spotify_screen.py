@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 
-"""Tests for deferred Spotify screen hydration."""
+"""Tests for deferred Spotify screen hydration and live theme refresh."""
 
 import unittest
 from unittest.mock import Mock, patch
@@ -34,6 +34,7 @@ class SpotifyScreenTest(unittest.TestCase):
             image_cache=Mock(),
             lyrics_client=Mock(),
             music_video_controller=Mock(),
+            music_video_presentation=Mock(),
         )
         screen.set_state_loader(state_loader)
 
@@ -49,6 +50,40 @@ class SpotifyScreenTest(unittest.TestCase):
         thread_type.assert_called_once()
         thread_type.return_value.start.assert_called_once_with()
         panel.set_media_state.assert_not_called()
+
+    def test_theme_change_rebuilds_visible_now_playing_view(self) -> None:
+        screen = SpotifyScreen(
+            Mock(),
+            theme={"layout": {"refresh_interval_ms": 1000}},
+            back_action=Mock(),
+            image_cache=Mock(),
+            lyrics_client=Mock(),
+            music_video_controller=Mock(),
+            music_video_presentation=Mock(),
+        )
+        screen._visible = True
+        screen._view = "now"
+
+        with patch.object(screen, "_show_now_playing") as show_now_playing:
+            screen.set_theme_mode(object())
+
+        show_now_playing.assert_called_once_with()
+
+    def test_theme_change_does_not_rebuild_hidden_screen(self) -> None:
+        screen = SpotifyScreen(
+            Mock(),
+            theme={"layout": {"refresh_interval_ms": 1000}},
+            back_action=Mock(),
+            image_cache=Mock(),
+            lyrics_client=Mock(),
+            music_video_controller=Mock(),
+            music_video_presentation=Mock(),
+        )
+
+        with patch.object(screen, "_show_now_playing") as show_now_playing:
+            screen.set_theme_mode(object())
+
+        show_now_playing.assert_not_called()
 
 
 if __name__ == "__main__":
