@@ -20,6 +20,7 @@ from controllers.image import ImageCache
 from controllers.lyrics import LrclibLyricsClient
 from controllers.video import MusicVideoController, NetflixPlayer, YouTubeMusicVideo, YouTubePlayer
 from frontends.tk.media import BrowserMediaScreen, MediaNavigationBar, MediaScreen, SpotifyScreen
+from ui.theme import ThemeMode
 
 MUSIC_VIDEO_PORT = 8770
 MUSIC_VIDEO_WINDOW_CLASS = "OpenRoadCodeMusicVideo"
@@ -90,8 +91,15 @@ def configure_media(app: OrcUiApp, runtime) -> MediaComposition:
     spotify_screen.set_volume_request_handler(media.spotify)
     spotify_screen.set_state_loader(media.spotify.latest_state)
 
-    youtube_player = ManagedBrowserMediaPlayer(runtime.manager, "youtube", resolve_target=YouTubePlayer.resolve_target)
-    netflix_player = ManagedBrowserMediaPlayer(runtime.manager, "netflix", resolve_target=NetflixPlayer.validate_url)
+    browser_color_scheme = lambda: "dark" if app.theme_mode is ThemeMode.DARK else "light"
+    youtube_player = ManagedBrowserMediaPlayer(
+        runtime.manager, "youtube", resolve_target=YouTubePlayer.resolve_target,
+        preferred_color_scheme=browser_color_scheme,
+    )
+    netflix_player = ManagedBrowserMediaPlayer(
+        runtime.manager, "netflix", resolve_target=NetflixPlayer.validate_url,
+        preferred_color_scheme=browser_color_scheme,
+    )
     youtube_screen = BrowserMediaScreen(
         "youtube", app, title="YouTube", player=youtube_player,
         default_target="https://www.youtube.com/", window_class=YOUTUBE_WINDOW_CLASS,
