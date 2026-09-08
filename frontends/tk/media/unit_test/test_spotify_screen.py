@@ -34,6 +34,7 @@ class SpotifyScreenTest(unittest.TestCase):
             image_cache=Mock(),
             lyrics_client=Mock(),
             music_video_controller=Mock(),
+            music_video_presentation=Mock(),
         )
         screen.set_state_loader(state_loader)
 
