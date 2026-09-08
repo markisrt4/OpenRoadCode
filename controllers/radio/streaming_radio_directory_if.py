@@ -16,6 +16,13 @@ class StreamingRadioDirectoryIf(ABC):
         """Find stations whose names match a user query."""
 
     @abstractmethod
+    def stations_by_ids(
+        self,
+        station_ids: tuple[str, ...],
+    ) -> tuple[StreamingRadioStation, ...]:
+        """Resolve stable directory identifiers to current station metadata."""
+
+    @abstractmethod
     def stations_by_region(
         self,
         *,
