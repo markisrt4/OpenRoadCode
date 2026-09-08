@@ -62,6 +62,6 @@ type = "browser"
 enabled = true
 url = "https://earth.google.com/web"
 profile = "google-earth"
-startup = "preload"
+startup = "lazy"
 target = "auxiliary"
 exclusive_group = "auxiliary"
