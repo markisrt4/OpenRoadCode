@@ -6,7 +6,6 @@
 from __future__ import annotations
 
 import copy
-from pathlib import Path
 import tkinter as tk
 
 from apps.common.uiTheme.spotify import SPOTIFY_PANEL_THEME
@@ -19,6 +18,7 @@ from apps.orcUi.radio_entry_panel import RadioEntryPanel
 from apps.orcUi.spotify_now_playing import SpotifyNowPlaying
 from apps.orcUi.streaming_radio_now_playing import StreamingRadioNowPlaying
 from apps.orcUi.theme_runtime import theme_bundle
+from common.xdg_paths import openroadcode_cache_dir
 from config.runtime_target import RuntimeTarget, detect_runtime_target
 from controllers.image import ImageCache
 from controllers.lyrics import LrclibLyricsClient
@@ -122,7 +122,7 @@ def main() -> None:
     software_rendering = runtime_target is RuntimeTarget.LINUX_DEV
     image_cache = ImageCache(
         max_entries=128,
-        cache_directory=Path.home() / ".cache" / "openroadcode" / "media-art",
+        cache_directory=openroadcode_cache_dir("media-art"),
     )
     lyrics = LrclibLyricsClient()
     music_video = YouTubeMusicVideo(
