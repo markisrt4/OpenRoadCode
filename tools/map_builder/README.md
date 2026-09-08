@@ -34,6 +34,12 @@ Controls: Up/Down and PageUp/PageDown navigate, Right expands or collapses a reg
 
 The last accepted selection is stored in `.cache/selected-regions.json`. On the next run, regions that still exist in the current Geofabrik index are selected with `[x]`, and their parent groups are expanded so they are visible. Quitting with `q` leaves the previous accepted selection unchanged.
 
+Before starting an expensive build, the builder checks `build-output/build-manifest.json`. If the manifest contains the same selected Geofabrik regions and the existing generated output passes validation, the existing build is reused instead of rerunning tilemaker and Valhalla. Region order does not matter. Use `--force` when a fresh rebuild is intentional, for example to pick up newer OpenStreetMap source data.
+
+```bash
+./scripts/run-builder.sh tui --force
+```
+
 ## Non-interactive build
 
 ```bash
@@ -46,7 +52,13 @@ Multiple regions are comma separated:
 ./scripts/run-builder.sh build --regions north-america/us/michigan,north-america/us/ohio
 ```
 
-After a successful interactive or non-interactive build, the builder reports the selected region names, their combined source PBF size, total deployable output size, elapsed build time, and output path.
+Normal non-interactive builds also reuse matching validated output. Force a rebuild with:
+
+```bash
+./scripts/run-builder.sh build --regions north-america/us/michigan --force
+```
+
+After a successful interactive or non-interactive build, the builder reports the selected region names, their combined source PBF size, total deployable output size, elapsed build time, and output path. When an existing build is reused, it reports that result and prints the validation summary instead.
 
 List known Geofabrik IDs with:
 
@@ -137,7 +149,7 @@ For production vehicle updates, prefer the Pi-initiated pull workflow because it
 make test
 ```
 
-The included tests cover Geofabrik region parsing/selection rules and MapLibre style installation/validation.
+The included tests cover Geofabrik region parsing/selection rules, MapLibre style installation/validation, and reuse detection for matching validated build output.
 
 ## Attribution
 
