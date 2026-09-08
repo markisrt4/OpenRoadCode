@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import os
 import shutil
 import signal
 import subprocess
@@ -346,8 +347,7 @@ class OrcUiApp:
 
     def _restart_ui(self) -> None:
         self._map_runtime.stop()
-        sys.argv = [sys.executable, "-m", "apps.orcUi"]
-        sys.exit(0)
+        os.execv(sys.executable, [sys.executable, "-m", "apps.orcUi"])
 
     def _shutdown_system(self) -> None:
         if shutil.which("systemctl"):
