@@ -543,7 +543,7 @@ def _download_artwork(url: str) -> Image.Image:
     if len(payload) > 2 * 1024 * 1024:
         raise ValueError("station artwork exceeds 2 MiB")
     with Image.open(BytesIO(payload)) as image:
-        converted = image.convert("RGB")
+        converted = image.convert("RGBA")
         fitted = ImageOps.fit(converted, (ARTWORK_SIZE, ARTWORK_SIZE), method=Image.Resampling.LANCZOS)
         return fitted.copy()
 
