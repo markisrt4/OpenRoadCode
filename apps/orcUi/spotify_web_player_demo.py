@@ -8,10 +8,10 @@ from __future__ import annotations
 import os
 import signal
 import time
-from pathlib import Path
 
 from apps.launchers import BrowserKioskLauncher
 from apps.orcUi.spotify_web_player_host import SpotifyWebPlayerHost
+from common.xdg_paths import openroadcode_data_dir
 
 WINDOW_CLASS = "OpenRoadCodeSpotifyPlayer"
 SPOTIFY_BROWSER_CANDIDATES = (
@@ -31,7 +31,7 @@ def main() -> None:
         browser_candidates=SPOTIFY_BROWSER_CANDIDATES,
         kiosk=False,
         app_mode=True,
-        profile_path=Path.home() / ".cache" / "openroadcode" / "spotify-player-browser",
+        profile_path=openroadcode_data_dir("spotify-player-browser"),
         window_position=(120, 100),
         window_size=(720, 420),
         startup_grace_seconds=0.5,
