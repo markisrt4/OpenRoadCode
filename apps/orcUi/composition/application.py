@@ -29,9 +29,9 @@ class OrcUiComposition:
 
     def run(self) -> None:
         """Start ingress/services, run Tk, and close resources in reverse order."""
-        self.app.schedule_ui_callback(1500, self.runtime.start_background_apps)
-        self.core.start()
         try:
+            self.app.schedule_ui_callback(1500, self.runtime.start_background_apps)
+            self.core.start()
             self.app.run()
         finally:
             try:
