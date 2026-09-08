@@ -65,7 +65,7 @@ def _spotify_theme(app: OrcUiApp) -> dict:
             "title": "#FFFFFF",
             "subtitle": "#B3B3B3",
             "detail": "#B3B3B3",
-            "status": SPOTIFY_GREEN",
+            "status": SPOTIFY_GREEN,
             "button_background": "#282828",
             "button_foreground": "#FFFFFF",
             "button_active_background": SPOTIFY_GREEN,
