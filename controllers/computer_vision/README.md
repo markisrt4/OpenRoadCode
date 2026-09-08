@@ -4,15 +4,26 @@ The computer-vision layer consumes `CameraFrame` objects and publishes
 presentation-neutral object detections. Camera ownership remains in
 `hardware_io.camera`; perception does not open video devices directly.
 
-## VM perception preview
+## Debian/Ubuntu setup
 
-Install the camera and YOLO development dependencies in the active Python
-environment:
+Use the project setup script rather than installing dependencies by hand:
 
 ```bash
-sudo apt install python3-opencv
-python -m pip install ultralytics
+bash development/debian/setup_camera_perception.sh
 ```
+
+The script installs the Linux camera tooling (`v4l-utils`, OpenCV, Python venv
+support), finds the active OpenRoadCode virtual environment or the repository
+`venv`, creates `venv` if needed, and installs Ultralytics there. It finishes
+with import checks and reports whether `/dev/video0` is present.
+
+Activate the environment when needed:
+
+```bash
+source venv/bin/activate
+```
+
+## VM perception preview
 
 Run the live preview with the default USB camera:
 
