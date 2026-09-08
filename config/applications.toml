@@ -4,9 +4,6 @@
 # identifiers. This keeps application policy independent of the transport used
 # to present it and leaves room for target types such as VNC later.
 
-[browser]
-profile_root = "~/.local/share/openroadcode/browser"
-
 [presentation]
 default_target = "primary"
 
