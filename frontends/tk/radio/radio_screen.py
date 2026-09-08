@@ -68,7 +68,12 @@ class RadioScreen(TkScreen):
         self._embedder.clear()
 
     def set_theme_mode(self, mode: ThemeMode) -> None:
-        """Keep external SDR presentation aligned with the application theme."""
+        """Apply live ORC and external SDR theme changes without restarting radio."""
+        panel = self._panel
+        if panel is not None and panel.winfo_exists():
+            set_theme_bundle = getattr(panel, "set_theme_bundle", None)
+            if callable(set_theme_bundle):
+                set_theme_bundle(self._theme_bundle())
         self._sync_external_theme(mode)
 
     def _sync_external_theme(self, mode: ThemeMode) -> None:
