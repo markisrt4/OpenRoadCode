@@ -43,6 +43,23 @@ class OrcUiCompositionTest(unittest.TestCase):
         core.close.assert_called_once_with()
         runtime.close.assert_called_once_with()
 
+    def test_run_closes_resources_when_core_start_fails(self) -> None:
+        app = Mock()
+        core = Mock()
+        core.app = app
+        core.start.side_effect = RuntimeError("ingress failed")
+        runtime = Mock()
+        media = Mock()
+        composition = OrcUiComposition(core=core, runtime=runtime, media=media)
+
+        with self.assertRaisesRegex(RuntimeError, "ingress failed"):
+            composition.run()
+
+        app.run.assert_not_called()
+        media.close.assert_called_once_with()
+        core.close.assert_called_once_with()
+        runtime.close.assert_called_once_with()
+
     @patch("apps.orcUi.composition.application.configure_media")
     @patch("apps.orcUi.composition.application.configure_games")
     @patch("apps.orcUi.composition.application.configure_radio")
