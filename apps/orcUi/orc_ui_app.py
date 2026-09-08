@@ -495,6 +495,8 @@ class OrcUiApp:
         self._position_state = state
         if self._context_rail is not None and self._context_rail.winfo_exists():
             self._context_rail.update_position_state(state)
+        if self._offroad_panel is not None and self._offroad_panel.winfo_exists():
+            self._offroad_panel.update_position(state)
 
     def _on_attitude_message(self, message) -> None:
         state = NavigationPresenter.present_attitude(message.data)
@@ -506,6 +508,8 @@ class OrcUiApp:
         self._attitude_state = state
         if self._context_rail is not None and self._context_rail.winfo_exists():
             self._context_rail.update_attitude_state(state)
+        if self._offroad_panel is not None and self._offroad_panel.winfo_exists():
+            self._offroad_panel.update_attitude(state)
 
     @staticmethod
     def _on_bus_error(topic, error: Exception) -> None:
