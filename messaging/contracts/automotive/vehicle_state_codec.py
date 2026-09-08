@@ -15,6 +15,7 @@ def encode_vehicle_state(state: VehicleState, *, source: str = "obd2") -> dict[s
         "data": {
             "engine_speed_rad_s": state.engine_speed_rad_s,
             "vehicle_speed_m_s": state.vehicle_speed_m_s,
+            "transmission_gear": state.transmission_gear,
             "throttle_position": state.throttle_position,
             "accelerator_pedal_position": state.accelerator_pedal_position,
             "engine_load": state.engine_load,
