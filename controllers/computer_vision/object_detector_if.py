@@ -41,7 +41,12 @@ class DetectionFrame:
 
     timestamp_s: float
     sequence: int
+    inference_time_ms: float
     detections: tuple[Detection, ...]
+
+    def __post_init__(self) -> None:
+        if self.inference_time_ms < 0.0:
+            raise ValueError("inference_time_ms must be non-negative")
 
 
 class ObjectDetectorIf(ABC):
