@@ -13,6 +13,7 @@ from apps.common.uiTheme.spotify import SPOTIFY_PANEL_THEME
 from apps.launchers.sdrpp_launcher import sync_sdrpp_theme
 from apps.orcUi.application_runtime import create_orc_ui_application_runtime
 from apps.orcUi.managed_browser_media_player import ManagedBrowserMediaPlayer
+from apps.orcUi.managed_orc_ui_app import ManagedOrcUiApp
 from apps.orcUi.orc_ui_app import OrcUiApp
 from apps.orcUi.radio_application_service import RadioApplicationServiceIf
 from apps.orcUi.radio_entry_panel import RadioEntryPanel
@@ -81,7 +82,7 @@ def main() -> None:
     application_runtime = create_orc_ui_application_runtime()
     media = application_runtime.media
 
-    app = OrcUiApp()
+    app = ManagedOrcUiApp(earth_launcher=application_runtime.earth)
     app.register_screen(
         "RADIO",
         RadioScreen(
@@ -183,7 +184,7 @@ def main() -> None:
         player=netflix_player,
         default_target="https://www.netflix.com/browse",
         window_class=NETFLIX_WINDOW_CLASS,
-        back_action=lambda: media_screen.show(),
+        back_action=lambda: media_screen.show,
         media_navigation_factory=media_navigation,
     )
 
