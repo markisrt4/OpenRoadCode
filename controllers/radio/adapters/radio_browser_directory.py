@@ -6,7 +6,7 @@ from __future__ import annotations
 import json
 import math
 from typing import Any
-from urllib.parse import quote, urlencode
+from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
 from controllers.radio.streaming_radio_directory_if import StreamingRadioDirectoryIf
@@ -43,19 +43,19 @@ class RadioBrowserDirectory(StreamingRadioDirectoryIf):
         station_ids: tuple[str, ...],
     ) -> tuple[StreamingRadioStation, ...]:
         """Resolve Radio Browser station UUIDs while preserving favorite order."""
-        resolved: list[StreamingRadioStation] = []
-        seen: set[str] = set()
+        ordered_ids: list[str] = []
         for station_id in station_ids:
             normalized = station_id.strip()
-            if not normalized or normalized in seen:
-                continue
-            seen.add(normalized)
-            stations = self._request_stations(
-                f"{self._api_base}/stations/byuuid/{quote(normalized, safe='')}"
-            )
-            if stations:
-                resolved.append(stations[0])
-        return tuple(resolved)
+            if normalized and normalized not in ordered_ids:
+                ordered_ids.append(normalized)
+        if not ordered_ids:
+            return ()
+
+        stations = self._request_stations(
+            f"{self._api_base}/stations/byuuid?{urlencode({'uuids': ','.join(ordered_ids)})}"
+        )
+        by_id = {station.station_id: station for station in stations}
+        return tuple(by_id[station_id] for station_id in ordered_ids if station_id in by_id)
 
     def stations_by_region(
         self,
