@@ -47,6 +47,17 @@ class RadioBrowserDirectoryComponentTest(unittest.TestCase):
         self.assertGreater(len(stations), 0)
         self.assertTrue(any("WDET" in station.name.upper() for station in stations))
 
+    def test_resolves_current_metadata_by_station_id(self) -> None:
+        searched = self.directory.search("WDET", limit=10)
+        self.assertGreater(len(searched), 0)
+        station_id = searched[0].station_id
+
+        resolved = self.directory.stations_by_ids((station_id,))
+
+        self.assertEqual(len(resolved), 1)
+        self.assertEqual(resolved[0].station_id, station_id)
+        self.assertTrue(resolved[0].stream_url)
+
 
 if __name__ == "__main__":
     unittest.main()
