@@ -236,6 +236,8 @@ Messaging and service documentation is available under `messaging/README.md`, `d
 
 Runtime service composition is selected through `config/runtime.toml`. Producer inputs can select physical, Android-backed, or simulation implementations without changing downstream telemetry consumers.
 
+Per-user configuration, persistent application data, cache data, and runtime state follow the XDG Base Directory Specification. Linux and Termux use the same resolution rules; see [`docs/xdg_paths.md`](docs/xdg_paths.md) for the directory layout, platform behavior, overrides, and migration guidance.
+
 User-facing auxiliary applications are configured separately:
 
 * `config/applications.toml` contains the Raspberry Pi/Linux application profile.
