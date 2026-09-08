@@ -70,7 +70,7 @@ class BrowserMediaScreen(TkScreen):
         self._launch_job = self._host.schedule_ui_callback(1, self._launch_and_embed)
 
     def set_theme_mode(self, _mode: object) -> None:
-        """Repaint ORC chrome without disturbing the embedded browser session."""
+        """Repaint ORC chrome and relaunch Chromium with the new color scheme."""
         if not self._visible:
             return
         background = self._background()
@@ -83,6 +83,27 @@ class BrowserMediaScreen(TkScreen):
             if self._media_navigation_factory is not None:
                 self._navigation = self._media_navigation_factory(self._root, self.screen_id.value)
                 self._navigation.pack(fill=tk.X, padx=4, pady=(4, 2), before=self._browser_host)
+        self._restart_browser_for_theme()
+
+    def _restart_browser_for_theme(self) -> None:
+        host = self._browser_host
+        if host is None or not host.winfo_exists():
+            return
+        if self._launch_job is not None:
+            try:
+                self._host.cancel_ui_callback(self._launch_job)
+            except Exception:
+                pass
+            self._launch_job = None
+        if self._embedder.window_id is not None:
+            try:
+                parent_id = int(self._host.screen_parent.winfo_toplevel().winfo_id())
+                self._embedder.detach(parent_id)
+            except (RuntimeError, tk.TclError):
+                self._embedder.clear()
+        self._player.stop()
+        self._host.set_screen_status(f"Applying {self._title} theme…")
+        self._launch_job = self._host.schedule_ui_callback(1, self._launch_and_embed)
 
     def hide(self) -> None:
         """Detach the embedded X11 window and stop the managed browser."""
