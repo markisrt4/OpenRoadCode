@@ -20,6 +20,7 @@ class VehicleStateCodecTest(unittest.TestCase):
             timestamp=self.timestamp,
             engine_speed_rad_s=2.0 * math.pi,
             vehicle_speed_m_s=4.4704,
+            transmission_gear=3,
             throttle_position=0.25,
             accelerator_pedal_position=0.5,
             engine_load=0.75,
@@ -37,6 +38,7 @@ class VehicleStateCodecTest(unittest.TestCase):
 
         self.assertAlmostEqual(data["engine_speed_rad_s"], 2.0 * math.pi)
         self.assertAlmostEqual(data["vehicle_speed_m_s"], 4.4704)
+        self.assertEqual(data["transmission_gear"], 3)
         self.assertEqual(data["throttle_position"], 0.25)
         self.assertEqual(data["accelerator_pedal_position"], 0.5)
         self.assertEqual(data["engine_load"], 0.75)
@@ -52,8 +54,8 @@ class VehicleStateCodecTest(unittest.TestCase):
     def test_all_data_fields_are_present_and_nullable(self) -> None:
         payload = encode_vehicle_state(VehicleState(timestamp=self.timestamp))
         expected_fields = {
-            "engine_speed_rad_s", "vehicle_speed_m_s", "throttle_position",
-            "accelerator_pedal_position", "engine_load",
+            "engine_speed_rad_s", "vehicle_speed_m_s", "transmission_gear",
+            "throttle_position", "accelerator_pedal_position", "engine_load",
             "intake_manifold_pressure_pa", "barometric_pressure_pa",
             "boost_pressure_pa", "mass_air_flow_kg_s", "coolant_temperature_k",
             "intake_air_temperature_k", "fuel_level", "control_voltage_v",
