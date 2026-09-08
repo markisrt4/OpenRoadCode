@@ -5,7 +5,8 @@ set -euo pipefail
 
 REMOTE="${NAV_DATA_REMOTE:-${1:-}}"
 REMOTE_ROOT="${NAV_DATA_REMOTE_ROOT:-/srv/openroadcode}"
-DATA_ROOT="${NAV_DATA_ROOT:-$HOME/.local/share/openroadcode}"
+XDG_DATA_HOME="${XDG_DATA_HOME:-$HOME/.local/share}"
+DATA_ROOT="${NAV_DATA_ROOT:-$XDG_DATA_HOME/openroadcode}"
 STAGING="${DATA_ROOT}.staging"
 BACKUP="${DATA_ROOT}.previous"
 
