@@ -5,7 +5,6 @@
 
 from __future__ import annotations
 
-import os
 import shutil
 import signal
 import subprocess
@@ -14,28 +13,24 @@ import tkinter as tk
 from collections.abc import Callable
 from datetime import datetime
 
-from apps.launchers.map_renderer_launcher import MapRendererLauncher
 from apps.orcUi.context_rail import ContextRail
+from apps.orcUi.core_runtime import MapRuntimeIf
 from apps.orcUi.home_map_panel import HomeMapPanel
 from apps.orcUi.navigation_panel import NavigationPanel
-from apps.orcUi.navigation_presenter import AttitudePresentationState, NavigationPresenter, PositionPresentationState
+from apps.orcUi.navigation_presenter import AttitudePresentationState, PositionPresentationState
 from apps.orcUi.offroad_panel import OffRoadPanel
 from apps.orcUi.orc_theme import ThemeMode, install_map_style, toggle, toggle_label
 from apps.orcUi.theme_runtime import theme_bundle
 from apps.orcUi.vehicle_panel import VehiclePanel
-from apps.orcUi.vehicle_presenter import VehiclePresenter, VehiclePresentationState
-from messaging.contracts.automotive import VEHICLE_STATE_TOPIC, decode_vehicle_state
-from messaging.contracts.navigation import ATTITUDE_STATE_TOPIC, POSITION_STATE_TOPIC, decode_attitude_state, decode_position_state
-from messaging.message_dispatcher import MessageDispatcher
-from messaging.zeromq import ZeroMqSubscriber
-from messaging.zeromq.endpoints import LOCAL_SUBSCRIBER_ENDPOINT
+from apps.orcUi.vehicle_presenter import VehiclePresentationState
 from ui.screen_ui_if import ScreenUiIf
 
 
 class OrcUiApp:
-    """Own the integrated Tk application and its runtime-facing adapters."""
+    """Own the integrated Tk shell and presentation state."""
 
-    def __init__(self) -> None:
+    def __init__(self, *, map_runtime: MapRuntimeIf) -> None:
+        self._map_runtime = map_runtime
         self._theme_mode = ThemeMode.DARK
         self._theme = theme_bundle(self._theme_mode)
         ui = self._theme.ui
@@ -64,17 +59,12 @@ class OrcUiApp:
         self._navigation_panel: NavigationPanel | None = None
         self._vehicle_panel: VehiclePanel | None = None
         self._offroad_panel: OffRoadPanel | None = None
-        self._map_renderer = MapRendererLauncher()
         self._vehicle_state = VehiclePresentationState()
         self._position_state = PositionPresentationState()
         self._attitude_state = AttitudePresentationState()
         self._volume = 20
         self._volume_label: tk.Label
         self._closing = False
-        self._dispatcher = MessageDispatcher(ZeroMqSubscriber(LOCAL_SUBSCRIBER_ENDPOINT), error_handler=self._on_bus_error)
-        self._dispatcher.register(VEHICLE_STATE_TOPIC, decode_vehicle_state, self._on_vehicle_message)
-        self._dispatcher.register(POSITION_STATE_TOPIC, decode_position_state, self._on_position_message)
-        self._dispatcher.register(ATTITUDE_STATE_TOPIC, decode_attitude_state, self._on_attitude_message)
         install_map_style(self._theme_mode)
         self._build_shell()
         self._show_home()
@@ -152,11 +142,40 @@ class OrcUiApp:
     def cancel_ui_callback(self, callback_id: object) -> None:
         self._root.after_cancel(callback_id)
 
+    def apply_vehicle_state(self, state: VehiclePresentationState) -> None:
+        """Apply already-presented vehicle state to mounted shell widgets."""
+        if self._closing:
+            return
+        self._vehicle_state = state
+        if self._context_rail is not None and self._context_rail.winfo_exists():
+            self._context_rail.update_vehicle_state(state)
+        if self._vehicle_panel is not None and self._vehicle_panel.winfo_exists():
+            self._vehicle_panel.update_state(state)
+
+    def apply_position_state(self, state: PositionPresentationState) -> None:
+        """Apply already-presented position state to mounted shell widgets."""
+        if self._closing:
+            return
+        self._position_state = state
+        if self._context_rail is not None and self._context_rail.winfo_exists():
+            self._context_rail.update_position_state(state)
+        if self._offroad_panel is not None and self._offroad_panel.winfo_exists():
+            self._offroad_panel.update_position(state)
+
+    def apply_attitude_state(self, state: AttitudePresentationState) -> None:
+        """Apply already-presented attitude state to mounted shell widgets."""
+        if self._closing:
+            return
+        self._attitude_state = state
+        if self._context_rail is not None and self._context_rail.winfo_exists():
+            self._context_rail.update_attitude_state(state)
+        if self._offroad_panel is not None and self._offroad_panel.winfo_exists():
+            self._offroad_panel.update_attitude(state)
+
     def run(self) -> None:
         self._root.protocol("WM_DELETE_WINDOW", self._on_close)
         old_signal_handler = signal.getsignal(signal.SIGINT)
         signal.signal(signal.SIGINT, self._on_sigint)
-        self._dispatcher.start()
         try:
             self._root.mainloop()
         except KeyboardInterrupt:
@@ -176,8 +195,7 @@ class OrcUiApp:
         self._active_screen = None
         if active_screen is not None:
             active_screen.hide()
-        self._map_renderer.stop()
-        self._dispatcher.close()
+        self._map_runtime.stop()
         try:
             self._root.destroy()
         except tk.TclError:
@@ -327,9 +345,9 @@ class OrcUiApp:
             dialog.destroy()
 
     def _restart_ui(self) -> None:
-        self._map_renderer.stop()
-        self._dispatcher.close()
-        os.execv(sys.executable, [sys.executable, "-m", "apps.orcUi"])
+        self._map_runtime.stop()
+        sys.argv = [sys.executable, "-m", "apps.orcUi"]
+        sys.exit(0)
 
     def _shutdown_system(self) -> None:
         if shutil.which("systemctl"):
@@ -338,8 +356,7 @@ class OrcUiApp:
             command = ["loginctl", "poweroff"]
         else:
             return
-        self._map_renderer.stop()
-        self._dispatcher.close()
+        self._map_runtime.stop()
         subprocess.Popen(command)
         self._shutdown()
 
@@ -383,7 +400,7 @@ class OrcUiApp:
             parent_window_id = self._navigation_panel.map_host_window_id
         else:
             return
-        self._map_renderer.stop()
+        self._map_runtime.stop()
         self._root.after(100, lambda: self._start_map_renderer(parent_window_id))
 
     def _deactivate_active_screen(self) -> None:
@@ -403,7 +420,7 @@ class OrcUiApp:
             button.configure(fg="#ffffff" if selected else ui.control_text, bg=ui.control_active if selected else ui.control_background, activebackground=ui.control_active, activeforeground="#ffffff", highlightbackground=ui.border)
 
     def _clear_content(self) -> None:
-        self._map_renderer.stop()
+        self._map_runtime.stop()
         self._context_rail = None
         self._home_map_panel = None
         self._navigation_panel = None
@@ -456,7 +473,7 @@ class OrcUiApp:
 
     def _start_map_renderer(self, parent_window_id: int) -> None:
         try:
-            self._map_renderer.launch(display=os.environ.get("DISPLAY", ":1"), parent_window_id=parent_window_id)
+            self._map_runtime.launch(parent_window_id)
         except (OSError, RuntimeError) as error:
             print(f"WARNING: map renderer: {type(error).__name__}: {error}")
 
@@ -471,49 +488,6 @@ class OrcUiApp:
         self._clear_content()
         self._offroad_panel = OffRoadPanel(self._content, on_back=self._show_home, position=self._position_state, attitude=self._attitude_state, theme=self._theme.ui)
         self._offroad_panel.pack(fill=tk.BOTH, expand=True)
-
-    def _on_vehicle_message(self, message) -> None:
-        state = VehiclePresenter.present(message.data)
-        if not self._closing:
-            self._root.after(0, self._apply_vehicle_state, state)
-
-    def _apply_vehicle_state(self, state: VehiclePresentationState) -> None:
-        if self._closing:
-            return
-        self._vehicle_state = state
-        if self._context_rail is not None and self._context_rail.winfo_exists():
-            self._context_rail.update_vehicle_state(state)
-        if self._vehicle_panel is not None and self._vehicle_panel.winfo_exists():
-            self._vehicle_panel.update_state(state)
-
-    def _on_position_message(self, message) -> None:
-        state = NavigationPresenter.present_position(message.data)
-        if not self._closing:
-            self._root.after(0, self._apply_position_state, state)
-
-    def _apply_position_state(self, state: PositionPresentationState) -> None:
-        self._position_state = state
-        if self._context_rail is not None and self._context_rail.winfo_exists():
-            self._context_rail.update_position_state(state)
-        if self._offroad_panel is not None and self._offroad_panel.winfo_exists():
-            self._offroad_panel.update_position(state)
-
-    def _on_attitude_message(self, message) -> None:
-        state = NavigationPresenter.present_attitude(message.data)
-        self._attitude_state = state
-        if not self._closing:
-            self._root.after(0, self._apply_attitude_state, state)
-
-    def _apply_attitude_state(self, state: AttitudePresentationState) -> None:
-        self._attitude_state = state
-        if self._context_rail is not None and self._context_rail.winfo_exists():
-            self._context_rail.update_attitude_state(state)
-        if self._offroad_panel is not None and self._offroad_panel.winfo_exists():
-            self._offroad_panel.update_attitude(state)
-
-    @staticmethod
-    def _on_bus_error(topic, error: Exception) -> None:
-        print(f"WARNING: {topic}: {type(error).__name__}: {error}")
 
     def _on_close(self) -> None:
         self._shutdown()
