@@ -66,6 +66,7 @@ description = "Snake-style arcade game with multiplayer support."
 category = "casual"
 icon = "gnome-nibbles"
 command = ["gnome-nibbles"]
+environment = { GSK_RENDERER = "cairo" }
 [games.install]
 debian_package = "gnome-nibbles"
 
