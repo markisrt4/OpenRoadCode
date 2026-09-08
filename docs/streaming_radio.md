@@ -1,71 +1,63 @@
 # Streaming Radio
 
-Status: experimental, functional on the `streaming-radio` branch. This document describes the implemented integration as of September 7, 2026, not a finished release.
+Status: functional on the `streaming-radio` branch and in final integration testing.
 
 ## Overview
 
-Streaming Radio adds internet station discovery and audio playback to the existing ORC Radio entry screen. It does not replace SDR++ or the RF radio path. The Radio chooser retains its RF Radio and Streaming Radio cards. The streaming browser provides Local, Regional, Favorites and Internet Only views, station artwork, selection and playback controls. The active station receives prominent now-playing treatment, and Home has a separate radio-owned summary.
+Streaming Radio adds internet station discovery and audio playback to the existing ORC Radio entry screen without replacing the SDR++ RF path. The chooser continues to offer RF Radio and Streaming Radio. The streaming browser provides Local, Regional and Favorites views plus genre, quality and band/origin filters, station artwork, selection and playback controls. Home observes the same shared streaming-radio controller and shows the active station independently of the Radio panel.
 
-The feature uses Radio Browser for discovery and mpv for audio. It requires an internet connection for directory requests and remote streams. It does not require an SDR receiver, and audio-only mpv does not require X11. The integrated Tk application still requires its normal graphical environment.
+Radio Browser supplies station discovery and current metadata. mpv supplies audio playback. Internet access is required for directory requests and remote streams; the streaming path itself does not require an SDR receiver.
 
 ## Architecture and ownership
 
 ```text
-apps/orcUi/main.py (composition)
-  ├── OrcUiApplicationRuntime
-  │     └── StreamingRadioController
-  │           └── StreamingAudioPlayerIf
-  │                 └── MpvStreamingAudioPlayer → mpv process
-  ├── RadioScreen → RadioEntryPanel → StreamingRadioPanel
-  │                                      └── StreamingRadioDirectoryIf
-  │                                            └── RadioBrowserDirectory → HTTPS
-  └── OrcUiApp → Home RADIO tile → StreamingRadioNowPlaying
-                                      └── same StreamingRadioController
+apps/orcUi/application_runtime.py
+  └── StreamingRadioController
+        └── StreamingAudioPlayerIf
+              └── MpvStreamingAudioPlayer
+
+RadioEntryPanel
+  └── PersistentStreamingRadioPanel
+        ├── StreamingRadioFavorites
+        │     └── PersistentCache
+        └── StreamingRadioDirectoryIf
+              └── RadioBrowserDirectory
+
+Home RADIO tile
+  └── same StreamingRadioController
 ```
 
-`application_runtime.py` constructs one streaming controller and owns its shutdown. `main.py` injects that controller into the Radio screen and Home summary. Home does not own a second player or inspect the radio panel's widgets. The shell exposes `set_home_radio_factory`, parallel to its existing media factory, so radio presentation remains independently owned.
+The runtime owns one streaming controller and stops it during application cleanup. The Radio screen and Home summary receive that controller by injection rather than constructing their own players.
 
-The important source files are:
+Favorites are intentionally separate from station metadata. `StreamingRadioFavorites` stores only stable Radio Browser station UUIDs. When Favorites is opened, `RadioBrowserDirectory.stations_by_ids()` resolves those UUIDs to current names, stream URLs, artwork and other metadata. This avoids persisting stale stream URLs or duplicating the directory record locally.
 
-| Area | File | Responsibility |
-| --- | --- | --- |
-| Station model | `controllers/radio/streaming_radio_types.py` | Immutable station identity, URLs and metadata |
-| Directory contract | `controllers/radio/streaming_radio_directory_if.py` | Search, regional and nearby discovery |
-| Directory adapter | `controllers/radio/adapters/radio_browser_directory.py` | Radio Browser HTTP requests and response mapping |
-| Playback controller | `controllers/radio/streaming_radio_controller.py` | Current station and play/stop coordination |
-| Audio contract | `controllers/audio/streaming_audio_player_if.py` | Player-independent playback operations |
-| Audio adapter | `hardware_io/audio/mpv_streaming_audio_player.py` | External mpv process lifecycle |
-| Browser | `frontends/tk/radio/streaming_radio_panel.py` | Station browsing, artwork and touch controls |
-| Home summary | `apps/orcUi/streaming_radio_now_playing.py` | Current station presentation and Radio navigation |
-| Composition | `apps/orcUi/application_runtime.py`, `apps/orcUi/main.py` | Shared service construction, injection and cleanup |
+Favorites use the shared byte-oriented `PersistentCache`; serialization and validation remain domain policy in `StreamingRadioFavorites`. The storage root is OpenRoadCode user data rather than disposable cache data:
 
-The station model contains `station_id`, `name`, `stream_url`, optional homepage/artwork URLs, state, country code, codec, bitrate, tags and optional coordinates. The directory interface returns immutable tuples of stations. Its methods are `search(query, limit=20)`, `stations_by_region(state, country_code='US', limit=50)` and `stations_near(latitude, longitude, radius_km, state, country_code='US', limit=50)`.
+```text
+${XDG_DATA_HOME:-~/.local/share}/openroadcode/radio/
+```
 
-The controller exposes `current_station`, `is_playing`, `play(station)` and `stop()`. It delegates audio operations to the injected player. The mpv adapter launches audio-only playback with `--no-video --really-quiet -- URL`, redirects standard streams to DEVNULL, and terminates the owned process on stop, escalating to kill after its configured timeout. The runtime also stops streaming playback during application cleanup.
+The physical file name is hashed by `PersistentCache`. The logical key is versioned by the favorites store. The short-lived earlier TOML favorites format under `${XDG_CONFIG_HOME:-~/.config}/openroadcode/streaming_radio.toml` is read once for migration when no new-format favorites exist; the legacy file is not deleted.
 
-## Discovery and classification
+`common/xdg_paths.py` provides shared XDG config, data, cache and state roots plus OpenRoadCode-specific helpers. It honors absolute XDG overrides and falls back to the freedesktop defaults. Existing unrelated cache users have not been migrated on this branch.
 
-The current adapter uses the Radio Browser JSON API, with `https://de1.api.radio-browser.info/json` as its default endpoint. Requests use a bounded timeout and an ORC User-Agent. Search and regional discovery use station metadata supplied by the directory. Nearby discovery retrieves statewide candidates, calculates Haversine distances for entries with coordinates, sorts nearby results and retains entries without coordinates as regional fallback candidates.
+## Discovery and filtering
 
-The integrated browser currently defaults to Detroit coordinates (42.3314, -83.0458), an 80 km radius and Michigan. This is a development default, not live GPS-based discovery. The CLI permits overriding the coordinates, radius, state and country. The UI currently requests up to 50 local or 100 regional stations.
+`StreamingRadioDirectoryIf` supports name search, station-ID resolution, regional discovery and nearby discovery. `RadioBrowserDirectory` maps Radio Browser JSON responses into immutable `StreamingRadioStation` values. Favorites are resolved through Radio Browser's UUID lookup endpoint in one batched request and then reordered to match the saved favorite order.
 
-Internet Only uses conservative explicit-tag classification. Tags such as `internet`, `internet only`, `online only`, `web radio` and `webradio` identify candidates. Radio Browser metadata does not reliably distinguish internet-native stations from terrestrial stations that also stream. Consequently, the filter is not an authoritative classification, and untagged internet-native stations may be excluded. The normal view also excludes explicitly internet-only entries. A future directory policy should make this distinction more reliable without inventing station metadata.
+The integrated browser currently defaults local discovery to Detroit coordinates, an 80 km radius and Michigan. This remains a development default rather than live GPS-driven discovery.
 
-Favorites are currently session-only station IDs. They are not persisted to disk or synchronized across devices. The Favorites view filters the stations currently loaded in the browser, so it is not yet a complete independent favorites directory. Search is available through the CLI; the integrated browser currently exposes Local, Regional, Favorites and Internet Only rather than a search field.
+The filter drawer provides genre/content, reported stream quality and band/origin filters. Internet-only classification is conservative and tag-based because Radio Browser does not provide an authoritative terrestrial-versus-internet-native field. FM/AM/DAB classification is best-effort metadata inference and should not be treated as authoritative RF information.
 
-## User interface and playback state
+## Playback and presentation
 
-The browser loads directory data on a worker thread and returns results to Tk for rendering. Artwork is fetched through a bounded thread pool, limited to 2 MiB per response, converted to RGB and fitted to 64×64 pixels. Images are retained in a panel-local cache. Directory and artwork failures must not prevent the rest of the UI from operating.
+Directory and favorite-resolution work runs off the Tk event thread. Playback requests also run on a worker thread. Station cards show selection, favorite state and playback state; the active stream receives stronger now-playing treatment and a Stop action. Home observes the same controller, so navigating away from Radio does not intentionally stop playback.
 
-Station cards provide artwork, name, metadata, favorite selection and Play/Stop. The active station uses a stronger green border, a NOW PLAYING banner, larger title and prominent Stop control. A separate footer reports selection, connection, playback or failure status. Playback operations run on a worker thread rather than blocking the Tk event loop.
-
-The Home RADIO tile uses the same controller and displays the current station, available metadata and an Open Radio action. Its periodic refresh observes the controller's state. The Home MEDIA tile remains independently owned by the media/Spotify integration. Navigating away from Radio does not intentionally stop the stream; application shutdown does.
-
-`is_playing` currently means that the owned mpv process is still running. It is not proof that audio is audible, buffering has completed, or a remote stream is healthy. The controller stores the last successfully requested station and clears it on stop. There is no dedicated buffering/error state machine, mpv IPC, stream metadata reader or shared audio-focus arbitration yet.
+`MpvStreamingAudioPlayer` launches mpv in audio-only mode and owns the process lifecycle. `is_playing` currently means the mpv process is alive; it does not prove that buffering completed or audio is audible. More advanced buffering, reconnection, metadata and audio-focus behavior remain future work.
 
 ## Installation
 
-From the repository root, install the target-specific dependencies:
+From the repository root:
 
 ```bash
 # Debian/Ubuntu
@@ -75,61 +67,47 @@ bash development/debian/install_streaming_radio.sh
 bash development/termux/install_streaming_radio.sh
 ```
 
-The installers provide mpv and certificate dependencies. The Termux installer explicitly installs `ca-certificates` and checks its expected certificate bundle. A working network connection and valid TLS certificates are required for HTTPS directory requests. The integrated UI also needs its normal Python/Tk/Pillow dependencies and graphical environment.
+Use the installer for the environment in which ORC and mpv actually run. The Termux installer includes its certificate dependency checks.
 
-Do not run the Debian installer inside Termux's native package environment or assume the Termux installer configures a Debian proot. Install in the environment where the Python application and mpv backend will execute. Audio output follows mpv's available platform audio configuration; no dedicated ORC output-device selector is implemented here.
+## Validation
 
-## Running and validating
-
-Use the repository root and the existing branch. Do not create another branch for this feature.
+Pull the current branch first:
 
 ```bash
 git switch streaming-radio
 git pull --ff-only
+```
 
+Run the focused deterministic tests:
+
+```bash
 PYTHONPATH=. python -m unittest -v \
+  common.unit_test.test_xdg_paths \
+  controllers.cache.unit_test.test_persistent_cache \
   controllers.radio.unit_test.test_streaming_radio \
   controllers.radio.unit_test.test_streaming_radio_controller \
+  controllers.radio.unit_test.test_streaming_radio_favorites \
   hardware_io.audio.unit_test.test_mpv_streaming_audio_player \
   frontends.tk.radio.unit_test.test_streaming_radio_panel
 ```
 
-The network component test is opt-in because it contacts an external directory:
+Run the opt-in live Radio Browser component test:
 
 ```bash
 ORC_RUN_NETWORK_COMPONENT_TESTS=1 PYTHONPATH=. \
 python -m unittest -v controllers.radio.component_test.test_radio_browser_directory
 ```
 
-The CLI provides a useful independent smoke test before debugging Tk:
-
-```bash
-PYTHONPATH=. python -m controllers.radio.component_test.streaming_radio_cli
-PYTHONPATH=. python -m controllers.radio.component_test.streaming_radio_cli --regional --state Michigan --limit 50
-PYTHONPATH=. python -m controllers.radio.component_test.streaming_radio_cli --search WDET
-PYTHONPATH=. python -m controllers.radio.component_test.streaming_radio_cli --latitude 42.3314 --longitude -83.0458 --radius-km 120
-```
-
-Select a station number, listen, and press Enter to stop. The CLI constructs its own controller and mpv player, so it should not be run concurrently with the integrated UI when testing exclusive audio ownership.
-
-Launch the integrated application in its configured graphical session:
+Launch the integrated UI:
 
 ```bash
 PYTHONPATH=. python -m apps.orcUi
 ```
 
-For a manual acceptance pass, open Radio → Streaming Radio, load Local and Regional stations, select and play a station, verify the active card and Stop control, navigate to Home, confirm the RADIO tile shows the same station, then return to Radio. Stop playback and confirm Home returns to its idle presentation. Also check directory failure, an invalid stream, repeated play/stop, and navigation away while playing. These are acceptance checks, not claims that every case has passed on every target.
+For the final 1024×600 acceptance pass, verify the Radio chooser, Local and Regional station loading, filter drawer layout, play/stop, Home now-playing state, favorite add/remove, Favorites reload after restarting ORC, return navigation, shutdown while streaming, directory failure and an invalid stream. Also confirm that a persisted favorite still opens using freshly resolved directory metadata rather than data stored with the favorite.
 
-The earlier deterministic and live directory/controller tests were reported passing during branch development. The latest Home and active-card changes still require a fresh local regression and visual pass. No full-repository or cross-platform test result is claimed here.
+## Remaining limitations
 
-## Troubleshooting
+Streaming Radio does not yet provide GPS-driven local discovery, authoritative broadcast-band classification, integrated station search in the Tk browser, track metadata, mpv IPC, buffering/reconnect state or shared audio-focus arbitration. Those are follow-up features, not blockers for this branch.
 
-If imports fail with `No module named controllers`, run from the repository root and set `PYTHONPATH=.`. If directory loading fails, check network access, TLS certificates and the Radio Browser service before changing UI code. If stations appear but audio is silent, verify `mpv --version`, test a known stream with mpv directly, and inspect the host audio output and volume. The current backend suppresses mpv output, so it does not provide detailed stream diagnostics in the UI.
-
-If Home does not reflect playback, confirm that the composition root injects the same controller into both the browser and Home widget. Do not create a second player to fix a presentation problem. If the active station disappears from the browser after changing filters, remember that the directory list and current playback are separate; the Home summary should still report the active stream.
-
-## Known limitations and next steps
-
-This branch does not yet provide persistent favorites, reliable internet-native classification, GPS-driven local discovery, a complete favorites catalog, integrated station search, shared artwork caching, track metadata, buffering/reconnection state, audio-focus arbitration or a full player-state subscription contract. The current Home widget polls controller state and the browser maintains its own selection and busy state. A future shared presentation/state service can consolidate these without moving process ownership into Tk or the shell.
-
-Before merging, complete the focused regression tests and 1024×600 visual acceptance pass, review the Home integration and shutdown behavior, and update the root README to remove its obsolete Coming Soon description. Keep unrelated navigation, media and runtime refactors outside this branch.
+Before merging, merge current `master` into `streaming-radio`, resolve only genuine conflicts, rerun the focused and live tests, and repeat the 1024×600 smoke test. Keep broader XDG migration and unrelated runtime refactors out of this branch.
