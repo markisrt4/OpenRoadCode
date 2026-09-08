@@ -23,6 +23,7 @@ from apps.launchers.app_launcher_if import AppLauncherIf, StatusCallback
 from apps.launchers.browser_launcher import BrowserKioskLauncher
 from apps.launchers.process_manager import close_matching_display_apps, is_process_running
 from common.logging.logging_paths import logging_file_path
+from common.xdg_paths import openroadcode_data_dir
 
 RTLSDR_DATA_SOURCE = "rtlsdr"
 SIMULATION_DATA_SOURCE = "simulation"
@@ -46,7 +47,7 @@ class ADSBLauncher(AppLauncherIf):
         self.owner_name = owner_name
         self.readsb_service = readsb_service
         self.startup_timeout_seconds = startup_timeout_seconds
-        self.browser = BrowserKioskLauncher(url=url, process_pattern=url, profile_path=Path.home() / ".local" / "share" / "openroadcode" / "browser" / "adsb", window_class="OpenRoadCodeADSB", exclusive_group="openroadcode-auxiliary-dashboard", log_file=browser_log_file or logging_file_path("openroadcode", "adsb-browser.log"))
+        self.browser = BrowserKioskLauncher(url=url, process_pattern=url, profile_path=openroadcode_data_dir("browser", "adsb"), window_class="OpenRoadCodeADSB", exclusive_group="openroadcode-auxiliary-dashboard", log_file=browser_log_file or logging_file_path("openroadcode", "adsb-browser.log"))
 
     def is_running(self) -> bool:
         return self.browser.is_running()
