@@ -6,7 +6,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import os
 import subprocess
+
+
+SYSTEMCTL_BIN = os.environ.get("OPENROADCODE_SYSTEMCTL", "/usr/bin/systemctl")
+PRIVILEGED_ACTIONS = {"start", "stop", "restart"}
 
 
 @dataclass(frozen=True, slots=True)
@@ -104,8 +109,11 @@ class SystemdServiceManager:
         *extra: str,
         check: bool = True,
     ) -> subprocess.CompletedProcess[str]:
+        command = [SYSTEMCTL_BIN, action, unit, *extra]
+        if action in PRIVILEGED_ACTIONS:
+            command = ["sudo", "-n", *command]
         return subprocess.run(
-            ["systemctl", action, unit, *extra],
+            command,
             check=check,
             capture_output=True,
             text=True,
