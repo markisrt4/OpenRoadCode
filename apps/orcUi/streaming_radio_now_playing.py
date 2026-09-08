@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 
-"""Home-screen summary for streaming-radio playback."""
+"""Home-screen radio summary with streaming playback awareness."""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ from ui.theme import ThemeBundle
 
 
 class StreamingRadioNowPlaying(tk.Frame):
-    """Present the current streaming-radio station on Home."""
+    """Present neutral radio state and current streaming playback on Home."""
 
     def __init__(
         self,
@@ -35,9 +35,9 @@ class StreamingRadioNowPlaying(tk.Frame):
 
         self._status = tk.Label(
             self,
-            text="STREAMING RADIO",
+            text="RADIO",
             bg=ui.surface,
-            fg=ui.accent_success,
+            fg=ui.accent_primary,
             font=("Sans", 9, "bold"),
             anchor="w",
         )
@@ -45,7 +45,7 @@ class StreamingRadioNowPlaying(tk.Frame):
 
         self._station = tk.Label(
             self,
-            text="No stream playing",
+            text="No radio active",
             bg=ui.surface,
             fg=ui.text,
             font=("Sans", 16, "bold"),
@@ -57,7 +57,7 @@ class StreamingRadioNowPlaying(tk.Frame):
 
         self._detail = tk.Label(
             self,
-            text="Open Radio to choose a station",
+            text="Open Radio to choose RF or streaming",
             bg=ui.surface,
             fg=ui.text_muted,
             font=("Sans", 9),
@@ -97,7 +97,7 @@ class StreamingRadioNowPlaying(tk.Frame):
         current = self._controller.current_station
         playing = current is not None and self._controller.is_playing
         if playing and current is not None:
-            self._status.configure(text="● NOW PLAYING", fg=self._ui.accent_success)
+            self._status.configure(text="● STREAMING RADIO", fg=self._ui.accent_success)
             self._station.configure(text=current.name)
             details: list[str] = []
             if current.state:
@@ -108,7 +108,7 @@ class StreamingRadioNowPlaying(tk.Frame):
                 details.append(f"{current.bitrate_kbps} kbps")
             self._detail.configure(text=" • ".join(details) or "Streaming radio")
         else:
-            self._status.configure(text="STREAMING RADIO", fg=self._ui.accent_primary)
-            self._station.configure(text="No stream playing")
-            self._detail.configure(text="Open Radio to choose a station")
+            self._status.configure(text="RADIO", fg=self._ui.accent_primary)
+            self._station.configure(text="No radio active")
+            self._detail.configure(text="Open Radio to choose RF or streaming")
         self._after_id = self.after(750, self._refresh)
