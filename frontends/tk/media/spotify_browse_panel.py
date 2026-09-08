@@ -257,7 +257,7 @@ class SpotifyBrowsePanel(tk.Frame):
             )
         except Exception as error:
             self._dispatch_ui(
-                lambda: self._render_error(str(error), generation)
+                lambda error=error: self._render_error(str(error), generation)
             )
 
     def _load_playlists_worker(self, generation: int) -> None:
@@ -268,7 +268,7 @@ class SpotifyBrowsePanel(tk.Frame):
             )
         except Exception as error:
             self._dispatch_ui(
-                lambda: self._render_error(str(error), generation)
+                lambda error=error: self._render_error(str(error), generation)
             )
 
     def _render_tracks(
@@ -587,7 +587,7 @@ class SpotifyBrowsePanel(tk.Frame):
                 )
             except Exception as error:
                 self._dispatch_ui(
-                    lambda: self._render_error(str(error), generation)
+                    lambda error=error: self._render_error(str(error), generation)
                 )
 
         threading.Thread(

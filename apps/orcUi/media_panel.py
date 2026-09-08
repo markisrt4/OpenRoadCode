@@ -431,7 +431,7 @@ class MediaPanel(tk.Frame):
                     )
                 )
             except Exception as error:
-                self._dispatch_ui(lambda: self._show_error("Spotify", error))
+                self._dispatch_ui(lambda error=error: self._show_error("Spotify", error))
 
         threading.Thread(
             target=worker,
@@ -481,7 +481,7 @@ class MediaPanel(tk.Frame):
                     lambda: self._render_spotify_playlists(playlists, generation)
                 )
             except Exception as error:
-                self._dispatch_ui(lambda: self._show_error("Spotify", error))
+                self._dispatch_ui(lambda error=error: self._show_error("Spotify", error))
 
         threading.Thread(
             target=worker,
@@ -617,7 +617,7 @@ class MediaPanel(tk.Frame):
                     )
                 )
             except Exception as error:
-                self._dispatch_ui(lambda: self._show_error("Spotify", error))
+                self._dispatch_ui(lambda error=error: self._show_error("Spotify", error))
 
         threading.Thread(
             target=worker,

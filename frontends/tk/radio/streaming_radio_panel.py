@@ -298,7 +298,7 @@ class StreamingRadioPanel(tk.Frame):
             else:
                 stations = self._directory.stations_by_region(state="Michigan", country_code="US", limit=100)
         except Exception as error:
-            self.after(0, lambda: self._finish_load(generation, (), error))
+            self.after(0, lambda error=error: self._finish_load(generation, (), error))
             return
         self.after(0, lambda: self._finish_load(generation, stations, None))
 
@@ -403,7 +403,7 @@ class StreamingRadioPanel(tk.Frame):
         try:
             self._controller.stop() if station is None else self._controller.play(station)
         except Exception as error:
-            self.after(0, lambda: self._finish_playback(error))
+            self.after(0, lambda error=error: self._finish_playback(error))
             return
         self.after(0, lambda: self._finish_playback(None))
 
