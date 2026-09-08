@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+from threading import RLock
+
 from apps.launchers.app_launcher_if import StatusCallback
 from apps.launchers.browser_launcher import BrowserKioskLauncher
 from apps.launchers.chromium_devtools_client import ChromiumDevToolsClient, DevToolsTarget
@@ -15,11 +17,16 @@ class GoogleEarthLauncher:
     DEVTOOLS_PORT = 9223
 
     def __init__(self, *, browser: BrowserKioskLauncher | None = None) -> None:
+        self._lifecycle_lock = RLock()
         self._browser = browser or BrowserKioskLauncher(
             url=self._location_url(42.3314, -83.0458),
             process_pattern="earth.google.com",
             window_class=self.WINDOW_CLASS,
             profile_path="~/.cache/openroadcode/google-earth-chromium",
+            kiosk=False,
+            app_mode=True,
+            window_position=(-20000, -20000),
+            window_size=(1024, 600),
             extra_arguments=(
                 f"--remote-debugging-port={self.DEVTOOLS_PORT}",
                 "--remote-debugging-address=127.0.0.1",
@@ -28,21 +35,36 @@ class GoogleEarthLauncher:
         )
         self._devtools = ChromiumDevToolsClient(port=self.DEVTOOLS_PORT)
 
+    def prepare(self, remote_display: str, set_status: StatusCallback = None) -> None:
+        """Warm the browser offscreen without activating an existing window."""
+        with self._lifecycle_lock:
+            if not self._browser.is_running():
+                self._browser.set_color_scheme("dark")
+                self._browser.launch(remote_display, set_status)
+            if not self._browser.hide(remote_display, set_status):
+                raise RuntimeError("Google Earth preload could not hide its window")
+            if set_status is not None:
+                set_status("Google Earth preloaded")
+
     def configure_app_window(self, *, position: tuple[int, int], size: tuple[int, int], parent_window_id: int | None = None) -> None:
         del parent_window_id
-        self._browser.configure_app_window(position=position, size=size)
+        with self._lifecycle_lock:
+            self._browser.configure_app_window(position=position, size=size)
 
     def configure_fullscreen(self, *, position: tuple[int, int], size: tuple[int, int]) -> None:
-        self._browser.configure_kiosk_window(position=position, size=size)
+        with self._lifecycle_lock:
+            self._browser.configure_kiosk_window(position=position, size=size)
 
     def configure_kiosk_window(self, *, position: tuple[int, int], size: tuple[int, int]) -> None:
         self.configure_fullscreen(position=position, size=size)
 
     def set_color_scheme(self, value: str | None) -> None:
-        self._browser.set_color_scheme(value)
+        with self._lifecycle_lock:
+            self._browser.set_color_scheme(value)
 
     def set_location(self, latitude: float, longitude: float) -> None:
-        self._browser.set_url(self._location_url(latitude, longitude))
+        with self._lifecycle_lock:
+            self._browser.set_url(self._location_url(latitude, longitude))
 
     def toggle_menu_bar(self, display: str) -> bool:
         return self._browser.send_key(display, self.MENU_SHORTCUT)
@@ -58,22 +80,28 @@ class GoogleEarthLauncher:
         return self.devtools_target() is not None
 
     def launch(self, display: str, set_status: StatusCallback = None) -> None:
-        self._browser.launch(display, set_status)
+        with self._lifecycle_lock:
+            self._browser.launch(display, set_status)
 
     def show(self, display: str, set_status: StatusCallback = None) -> bool:
-        return self._browser.show(display, set_status)
+        with self._lifecycle_lock:
+            return self._browser.show(display, set_status)
 
     def hide(self, display: str, set_status: StatusCallback = None) -> bool:
-        return self._browser.hide(display, set_status)
+        with self._lifecycle_lock:
+            return self._browser.hide(display, set_status)
 
     def stop(self, display: str, set_status: StatusCallback = None) -> None:
-        self._browser.stop(display, set_status)
+        with self._lifecycle_lock:
+            self._browser.stop(display, set_status)
 
     def toggle(self, display: str, set_status: StatusCallback = None) -> bool:
-        return self._browser.toggle(display, set_status)
+        with self._lifecycle_lock:
+            return self._browser.toggle(display, set_status)
 
     def is_running(self) -> bool:
-        return self._browser.is_running()
+        with self._lifecycle_lock:
+            return self._browser.is_running()
 
     @classmethod
     def _location_url(cls, latitude: float, longitude: float, *, tilt: float = 60.0) -> str:
