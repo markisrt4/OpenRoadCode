@@ -129,5 +129,12 @@ def configure_media(app: OrcUiApp, runtime) -> MediaComposition:
         spotify_local_available=lambda: media.spotify_local_player.state().available,
     )
     app.register_screen("MEDIA", media_screen)
-    app.set_home_media_factory(lambda parent: SpotifyNowPlaying(parent, service=media.spotify, on_open=spotify_screen.show))
+    app.set_home_media_factory(
+        lambda parent: SpotifyNowPlaying(
+            parent,
+            service=media.spotify,
+            on_open=spotify_screen.show,
+            theme_bundle=lambda: theme_bundle(app.theme_mode),
+        )
+    )
     return MediaComposition(music_video_controller)
