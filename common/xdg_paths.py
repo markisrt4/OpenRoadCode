@@ -32,9 +32,17 @@ def xdg_state_home() -> Path:
     return _home("XDG_STATE_HOME", ".local/state")
 
 
+def openroadcode_config_dir(*parts: str) -> Path:
+    return xdg_config_home().joinpath("openroadcode", *parts)
+
+
 def openroadcode_data_dir(*parts: str) -> Path:
     return xdg_data_home().joinpath("openroadcode", *parts)
 
 
 def openroadcode_cache_dir(*parts: str) -> Path:
     return xdg_cache_home().joinpath("openroadcode", *parts)
+
+
+def openroadcode_state_dir(*parts: str) -> Path:
+    return xdg_state_home().joinpath("openroadcode", *parts)
