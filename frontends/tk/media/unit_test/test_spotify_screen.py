@@ -9,6 +9,18 @@ from unittest.mock import Mock, patch
 from frontends.tk.media.spotify_screen import SpotifyScreen
 
 
+def _theme() -> dict:
+    """Return the minimum valid Spotify theme consumed by the screen."""
+    return {
+        "colors": {
+            "background": "#121212",
+        },
+        "layout": {
+            "refresh_interval_ms": 1000,
+        },
+    }
+
+
 class SpotifyScreenTest(unittest.TestCase):
     @patch("frontends.tk.media.spotify_screen.threading.Thread")
     @patch("frontends.tk.media.spotify_screen._ThreadSafeSpotifyPlaybackPanel")
@@ -29,7 +41,7 @@ class SpotifyScreenTest(unittest.TestCase):
         state_loader = Mock()
         screen = SpotifyScreen(
             host,
-            theme={"layout": {"refresh_interval_ms": 1000}},
+            theme=_theme(),
             back_action=Mock(),
             image_cache=Mock(),
             lyrics_client=Mock(),
@@ -54,7 +66,7 @@ class SpotifyScreenTest(unittest.TestCase):
     def test_theme_change_rebuilds_visible_now_playing_view(self) -> None:
         screen = SpotifyScreen(
             Mock(),
-            theme={"layout": {"refresh_interval_ms": 1000}},
+            theme=_theme(),
             back_action=Mock(),
             image_cache=Mock(),
             lyrics_client=Mock(),
@@ -72,7 +84,7 @@ class SpotifyScreenTest(unittest.TestCase):
     def test_theme_change_does_not_rebuild_hidden_screen(self) -> None:
         screen = SpotifyScreen(
             Mock(),
-            theme={"layout": {"refresh_interval_ms": 1000}},
+            theme=_theme(),
             back_action=Mock(),
             image_cache=Mock(),
             lyrics_client=Mock(),
