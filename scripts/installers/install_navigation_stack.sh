@@ -34,7 +34,8 @@ SKIP_SERVICES=0
 SKIP_SMOKE=0
 FORCE_MAPLIBRE=0
 FORCE_VALHALLA=0
-TARGET="rpi5"
+TARGET=""
+TARGET_EXPLICIT=0
 HOST_PLATFORM="linux"
 
 usage() {
@@ -44,7 +45,7 @@ Usage: $0 [options]
 Build and install the OpenRoadCode navigation software stack.
 
 Options:
-  --target TARGET         rpi4, rpi5, linux-dev, or termux (experimental)
+  --target TARGET         override auto-detected target: rpi4, rpi5, linux-dev, or termux (experimental)
   --show-plan             print the resolved plan without changing the system
   --skip-host-packages    do not invoke host/component host setup
   --skip-maplibre         skip MapLibre Native and renderer build/install
@@ -58,6 +59,9 @@ Options:
 Environment:
   BUILD_BASE_IMAGE        override Linux target build image (advanced/debug use)
 
+When --target is omitted the installer detects Raspberry Pi 4/5, Termux, or a
+normal Linux development host automatically.
+
 Existing installed MapLibre and Valhalla artifacts are reused by default. Use
 --force-maplibre or --force-valhalla when a deliberate rebuild is required.
 
@@ -68,7 +72,7 @@ EOF
 
 while (( $# > 0 )); do
   case "$1" in
-    --target) shift; TARGET="${1:?--target requires a value}" ;;
+    --target) shift; TARGET="${1:?--target requires a value}"; TARGET_EXPLICIT=1 ;;
     --show-plan) SHOW_PLAN=1 ;;
     --skip-host-packages) SKIP_HOST_PACKAGES=1 ;;
     --skip-maplibre) SKIP_MAPLIBRE=1 ;;
@@ -83,16 +87,58 @@ while (( $# > 0 )); do
   shift
 done
 
-case "$TARGET" in
-  rpi4|rpi5|linux-dev|termux) ;;
-  *) echo "Unsupported target: $TARGET" >&2; exit 2 ;;
-esac
-
 is_termux() {
   [[ "${PREFIX:-}" == /data/data/com.termux/files/usr* ]] \
     || [[ "$(uname -o 2>/dev/null || true)" == "Android" ]] \
     || [[ "$(uname -a 2>/dev/null || true)" == *" Android"* ]]
 }
+
+detect_target() {
+  if is_termux; then
+    echo "termux"
+    return
+  fi
+
+  local model=""
+  if [[ -r /proc/device-tree/model ]]; then
+    model="$(tr -d '\0' < /proc/device-tree/model)"
+  fi
+
+  case "$model" in
+    *"Raspberry Pi 4"*|*"Compute Module 4"*) echo "rpi4" ;;
+    *"Raspberry Pi 5"*|*"Raspberry Pi 500"*|*"Compute Module 5"*) echo "rpi5" ;;
+    *"Raspberry Pi"*|*"Compute Module"*)
+      echo "Unable to determine supported Raspberry Pi generation from: $model" >&2
+      return 1
+      ;;
+    "")
+      [[ "$(uname -s 2>/dev/null || true)" == "Linux" ]] || {
+        echo "Unsupported navigation install host" >&2
+        return 1
+      }
+      echo "linux-dev"
+      ;;
+    *)
+      [[ "$(uname -s 2>/dev/null || true)" == "Linux" ]] || {
+        echo "Unsupported navigation install host: $model" >&2
+        return 1
+      }
+      echo "linux-dev"
+      ;;
+  esac
+}
+
+if [[ -z "$TARGET" ]]; then
+  TARGET="$(detect_target)"
+  echo "[*] Auto-detected navigation target: $TARGET"
+elif (( TARGET_EXPLICIT )); then
+  echo "[*] Using requested navigation target: $TARGET"
+fi
+
+case "$TARGET" in
+  rpi4|rpi5|linux-dev|termux) ;;
+  *) echo "Unsupported target: $TARGET" >&2; exit 2 ;;
+esac
 
 if [[ "$TARGET" == "termux" ]]; then
   is_termux || { echo "--target termux must be run inside Termux/Android." >&2; exit 2; }
