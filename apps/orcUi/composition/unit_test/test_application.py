@@ -35,8 +35,9 @@ class OrcUiCompositionTest(unittest.TestCase):
         media.close.assert_called_once_with()
         core.close.assert_called_once_with()
         runtime.close.assert_called_once_with()
+        core.lifecycle.execute_requested_action.assert_called_once_with()
 
-    def test_run_shuts_down_games_before_other_resources(self) -> None:
+    def test_run_executes_lifecycle_action_after_other_resources_close(self) -> None:
         events = Mock()
         app = Mock()
         core = Mock()
@@ -49,6 +50,7 @@ class OrcUiCompositionTest(unittest.TestCase):
         media.close.side_effect = lambda: events("media")
         core.close.side_effect = lambda: events("core")
         runtime.close.side_effect = lambda: events("runtime")
+        core.lifecycle.execute_requested_action.side_effect = lambda: events("lifecycle")
         composition = OrcUiComposition(
             core=core,
             runtime=runtime,
@@ -60,11 +62,17 @@ class OrcUiCompositionTest(unittest.TestCase):
         composition.run()
 
         self.assertEqual(
-            [call("games"), call("media"), call("core"), call("runtime")],
+            [
+                call("games"),
+                call("media"),
+                call("core"),
+                call("runtime"),
+                call("lifecycle"),
+            ],
             events.call_args_list,
         )
 
-    def test_run_closes_resources_when_app_raises(self) -> None:
+    def test_run_closes_resources_when_app_raises_without_host_action(self) -> None:
         app = Mock()
         app.run.side_effect = RuntimeError("boom")
         core = Mock()
@@ -88,6 +96,7 @@ class OrcUiCompositionTest(unittest.TestCase):
         media.close.assert_called_once_with()
         core.close.assert_called_once_with()
         runtime.close.assert_called_once_with()
+        core.lifecycle.execute_requested_action.assert_not_called()
 
     def test_run_closes_resources_when_core_start_fails(self) -> None:
         app = Mock()
@@ -114,6 +123,7 @@ class OrcUiCompositionTest(unittest.TestCase):
         media.close.assert_called_once_with()
         core.close.assert_called_once_with()
         runtime.close.assert_called_once_with()
+        core.lifecycle.execute_requested_action.assert_not_called()
 
     @patch("apps.orcUi.composition.application.configure_media")
     @patch("apps.orcUi.composition.application.configure_games")
