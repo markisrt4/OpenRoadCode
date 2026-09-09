@@ -4,7 +4,7 @@
 """Tests for top-level ORC UI composition ownership."""
 
 import unittest
-from unittest.mock import Mock, patch
+from unittest.mock import Mock, call, patch
 
 from apps.orcUi.composition.application import OrcUiComposition, create_orc_ui_composition
 
@@ -16,16 +16,39 @@ class OrcUiCompositionTest(unittest.TestCase):
         core.app = app
         runtime = Mock()
         media = Mock()
-        composition = OrcUiComposition(core=core, runtime=runtime, media=media)
+        games = Mock()
+        composition = OrcUiComposition(core=core, runtime=runtime, media=media, games=games)
 
         composition.run()
 
         app.schedule_ui_callback.assert_called_once_with(1500, runtime.start_background_apps)
         core.start.assert_called_once_with()
         app.run.assert_called_once_with()
+        games.shutdown.assert_called_once_with()
         media.close.assert_called_once_with()
         core.close.assert_called_once_with()
         runtime.close.assert_called_once_with()
+
+    def test_run_shuts_down_games_before_other_resources(self) -> None:
+        events = Mock()
+        app = Mock()
+        core = Mock()
+        core.app = app
+        runtime = Mock()
+        media = Mock()
+        games = Mock()
+        games.shutdown.side_effect = lambda: events("games")
+        media.close.side_effect = lambda: events("media")
+        core.close.side_effect = lambda: events("core")
+        runtime.close.side_effect = lambda: events("runtime")
+        composition = OrcUiComposition(core=core, runtime=runtime, media=media, games=games)
+
+        composition.run()
+
+        self.assertEqual(
+            [call("games"), call("media"), call("core"), call("runtime")],
+            events.call_args_list,
+        )
 
     def test_run_closes_resources_when_app_raises(self) -> None:
         app = Mock()
@@ -34,11 +57,13 @@ class OrcUiCompositionTest(unittest.TestCase):
         core.app = app
         runtime = Mock()
         media = Mock()
-        composition = OrcUiComposition(core=core, runtime=runtime, media=media)
+        games = Mock()
+        composition = OrcUiComposition(core=core, runtime=runtime, media=media, games=games)
 
         with self.assertRaisesRegex(RuntimeError, "boom"):
             composition.run()
 
+        games.shutdown.assert_called_once_with()
         media.close.assert_called_once_with()
         core.close.assert_called_once_with()
         runtime.close.assert_called_once_with()
@@ -50,12 +75,14 @@ class OrcUiCompositionTest(unittest.TestCase):
         core.start.side_effect = RuntimeError("ingress failed")
         runtime = Mock()
         media = Mock()
-        composition = OrcUiComposition(core=core, runtime=runtime, media=media)
+        games = Mock()
+        composition = OrcUiComposition(core=core, runtime=runtime, media=media, games=games)
 
         with self.assertRaisesRegex(RuntimeError, "ingress failed"):
             composition.run()
 
         app.run.assert_not_called()
+        games.shutdown.assert_called_once_with()
         media.close.assert_called_once_with()
         core.close.assert_called_once_with()
         runtime.close.assert_called_once_with()
@@ -76,6 +103,7 @@ class OrcUiCompositionTest(unittest.TestCase):
         runtime = create_runtime.return_value
         core = create_core.return_value
         app = core.app
+        games = configure_games.return_value
         media = configure_media.return_value
 
         composition = create_orc_ui_composition()
@@ -83,6 +111,7 @@ class OrcUiCompositionTest(unittest.TestCase):
         self.assertIs(composition.runtime, runtime)
         self.assertIs(composition.core, core)
         self.assertIs(composition.app, app)
+        self.assertIs(composition.games, games)
         self.assertIs(composition.media, media)
         configure_radio.assert_called_once_with(app, runtime)
         configure_games.assert_called_once_with(app)
