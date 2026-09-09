@@ -15,6 +15,8 @@ class GameDefinition:
     enabled: bool = True
     environment: dict[str, str] = field(default_factory=dict)
     hardware_acceleration: bool = True
+    window_name: str | None = None
+    window_class: str | None = None
     termux_package: str | None = None
     termux_dependencies: tuple[str, ...] = ()
     debian_package: str | None = None
