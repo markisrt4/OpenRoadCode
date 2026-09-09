@@ -152,17 +152,10 @@ class GamesScreen(TkScreen):
         if process_id is None:
             self._stop_runtime()
             raise RuntimeError(f"{game.name} exited immediately")
+        window_name, window_class = backend.window_selectors(game)
         threading.Thread(
             target=self._embed_runtime,
-            args=(
-                process_id,
-                host_id,
-                width,
-                height,
-                generation,
-                game.window_name,
-                game.window_class,
-            ),
+            args=(process_id, host_id, width, height, generation, window_name, window_class),
             daemon=True,
         ).start()
 
