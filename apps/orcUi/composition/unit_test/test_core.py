@@ -14,7 +14,13 @@ class CoreCompositionTest(unittest.TestCase):
         app = Mock()
         map_runtime = Mock()
         ingress = Mock()
-        core = CoreComposition(app=app, map_runtime=map_runtime, state_ingress=ingress)
+        lifecycle = Mock()
+        core = CoreComposition(
+            app=app,
+            map_runtime=map_runtime,
+            state_ingress=ingress,
+            lifecycle=lifecycle,
+        )
 
         core.start()
         core.close()
@@ -23,21 +29,27 @@ class CoreCompositionTest(unittest.TestCase):
         ingress.close.assert_called_once_with()
         map_runtime.stop.assert_called_once_with()
 
+    @patch("apps.orcUi.composition.core.SystemLifecycleController")
     @patch("apps.orcUi.composition.core.StateIngressRuntime")
     @patch("apps.orcUi.composition.core.OrcUiApp")
     @patch("apps.orcUi.composition.core.MapRuntime")
-    def test_factory_injects_map_runtime_and_ui_state_sinks(
+    def test_factory_injects_shell_runtime_dependencies_and_ui_state_sinks(
         self,
         map_runtime_type: Mock,
         app_type: Mock,
         ingress_type: Mock,
+        lifecycle_type: Mock,
     ) -> None:
         map_runtime = map_runtime_type.return_value
+        lifecycle = lifecycle_type.return_value
         app = app_type.return_value
 
         core = create_core_composition()
 
-        app_type.assert_called_once_with(map_runtime=map_runtime)
+        app_type.assert_called_once_with(
+            map_runtime=map_runtime,
+            lifecycle_handler=lifecycle,
+        )
         ingress_type.assert_called_once_with(
             schedule_ui=app.schedule_ui_callback,
             apply_vehicle_state=app.apply_vehicle_state,
@@ -47,6 +59,7 @@ class CoreCompositionTest(unittest.TestCase):
         self.assertIs(core.app, app)
         self.assertIs(core.map_runtime, map_runtime)
         self.assertIs(core.state_ingress, ingress_type.return_value)
+        self.assertIs(core.lifecycle, lifecycle)
 
 
 if __name__ == "__main__":
