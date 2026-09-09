@@ -1,10 +1,10 @@
 # ORC Media Integration
 
-The `orcUi` Media surface integrates Spotify, YouTube, and Netflix while keeping service protocols, browser lifecycle, X11 mechanics, and Tk presentation separated. See [ARCHITECTURE.md](ARCHITECTURE.md) for the complete application composition and ownership model.
+The `orcUi` Media surface integrates Spotify, YouTube, and Netflix while keeping service protocols, browser lifecycle, X11 mechanics, and Tk presentation separated. See [`apps/orcUi/ARCHITECTURE.md`](../../../apps/orcUi/ARCHITECTURE.md) for the complete application composition and ownership model.
 
 ## Composition and ownership
 
-`composition/media.py` constructs the media presentation graph using the shared `OrcUiApplicationRuntime`. It wires the MEDIA hub, Spotify screen, browser-backed screens, HOME now-playing widget, image cache, lyrics client, and music-video controller. `MediaComposition.close()` releases its owned music-video resource. The application runtime owns shared media services and managed application launchers. HOME and MEDIA must not create separate Spotify state services.
+`apps/orcUi/composition/media.py` constructs the media presentation graph using the shared `OrcUiApplicationRuntime`. It wires the MEDIA hub, Spotify screen, browser-backed screens, HOME now-playing widget, image cache, lyrics client, and music-video controller. `MediaComposition.close()` releases its owned music-video resource. The application runtime owns shared media services and managed application launchers. HOME and MEDIA must not create separate Spotify state services.
 
 The media navigation bar provides navigation between the hub, Spotify, YouTube, Netflix, and HOME. Individual provider screens do not need duplicate provider-selection buttons.
 
@@ -23,7 +23,7 @@ Because library/history permissions were added after the original playback integ
 
 ### Theme behavior
 
-The Spotify theme adapter in `composition/media.py` derives chrome colors from the active CSS `ThemeBundle`. Backgrounds, surfaces, borders, text, and ordinary controls follow ORC dark/light mode. Intentional Spotify actions and progress accents use Spotify green (`#1DB954`) rather than ORC blue.
+The Spotify theme adapter in `apps/orcUi/composition/media.py` derives chrome colors from the active CSS `ThemeBundle`. Backgrounds, surfaces, borders, text, and ordinary controls follow ORC dark/light mode. Intentional Spotify actions and progress accents use Spotify green (`#1DB954`) rather than ORC blue.
 
 `SpotifyScreen` receives a theme provider and rebuilds its visible view when the theme changes. HOME now-playing also receives the live theme provider. Neither should initialize itself with a fixed dark palette. Theme changes must not create duplicate Spotify services or synchronously fetch playback state on the Tk event thread.
 
