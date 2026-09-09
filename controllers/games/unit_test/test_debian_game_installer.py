@@ -18,7 +18,7 @@ class DebianGameInstallerRuntimeTest(unittest.TestCase):
             environment={"GENERIC_SETTING": "1"},
             termux_proot=TermuxProotRuntimeConfig(
                 environment={"GSK_RENDERER": "cairo"},
-                hardware_acceleration=False,
+                rendering="software",
                 window_name="Nibbles",
                 window_class="org.gnome.Nibbles",
             ),
@@ -38,7 +38,7 @@ class DebianGameInstallerRuntimeTest(unittest.TestCase):
         args = runner.graphical_command.call_args.args[0]
         self.assertIn("GENERIC_SETTING=1", args)
         self.assertIn("GSK_RENDERER=cairo", args)
-        self.assertEqual(False, runner.graphical_command.call_args.kwargs["hardware_acceleration"])
+        self.assertEqual("software", runner.graphical_command.call_args.kwargs["rendering"])
         self.assertEqual(
             ("Nibbles", "org.gnome.Nibbles"),
             installer.window_selectors(self._game()),
@@ -57,7 +57,7 @@ class DebianGameInstallerRuntimeTest(unittest.TestCase):
         args = runner.graphical_command.call_args.args[0]
         self.assertIn("GENERIC_SETTING=1", args)
         self.assertNotIn("GSK_RENDERER=cairo", args)
-        self.assertEqual(True, runner.graphical_command.call_args.kwargs["hardware_acceleration"])
+        self.assertEqual("auto", runner.graphical_command.call_args.kwargs["rendering"])
         self.assertEqual((None, None), installer.window_selectors(self._game()))
 
 
