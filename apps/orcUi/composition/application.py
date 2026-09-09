@@ -31,7 +31,7 @@ class OrcUiComposition:
         return self.core.app
 
     def run(self) -> None:
-        """Start ingress/services, run Tk, and close resources in reverse order."""
+        """Run Tk, close every owned resource, then honor host lifecycle intent."""
         try:
             self.app.schedule_ui_callback(1500, self.runtime.start_background_apps)
             self.core.start()
@@ -50,6 +50,10 @@ class OrcUiComposition:
                         self.core.close()
                     finally:
                         self.runtime.close()
+
+        # Restart/poweroff is deliberately deferred until all application-owned
+        # resources have completed their normal shutdown path.
+        self.core.lifecycle.execute_requested_action()
 
 
 def create_orc_ui_composition() -> OrcUiComposition:
