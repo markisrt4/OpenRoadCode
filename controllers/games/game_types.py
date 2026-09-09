@@ -16,6 +16,7 @@ class TermuxProotRuntimeConfig:
     rendering: str = "auto"
     window_name: str | None = None
     window_class: str | None = None
+    relax_size_hints: bool = False
 
     def __post_init__(self) -> None:
         if self.rendering not in {"auto", "software"}:
