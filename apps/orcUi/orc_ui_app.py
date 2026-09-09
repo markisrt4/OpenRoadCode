@@ -2,11 +2,7 @@
 # SPDX-License-Identifier: MIT
 """Integrated OpenRoadCode automotive application shell."""
 from __future__ import annotations
-import os
-import shutil
 import signal
-import subprocess
-import sys
 import tkinter as tk
 from collections.abc import Callable
 from datetime import datetime
@@ -22,11 +18,18 @@ from apps.orcUi.theme_runtime import theme_bundle
 from apps.orcUi.vehicle_panel import VehiclePanel
 from apps.orcUi.vehicle_presenter import VehiclePresentationState
 from ui.screen_ui_if import ScreenUiIf
+from ui.system import SystemLifecycleRequestHandlerIf
 
 class OrcUiApp:
     """Own the integrated Tk shell and presentation state."""
-    def __init__(self, *, map_runtime: MapRuntimeIf) -> None:
+    def __init__(
+        self,
+        *,
+        map_runtime: MapRuntimeIf,
+        lifecycle_handler: SystemLifecycleRequestHandlerIf,
+    ) -> None:
         self._map_runtime = map_runtime
+        self._lifecycle_handler = lifecycle_handler
         self._theme_mode = ThemeMode.DARK
         self._theme = theme_bundle(self._theme_mode)
         ui = self._theme.ui
@@ -288,17 +291,10 @@ class OrcUiApp:
         icon = "🔇" if self._volume == 0 else "🔊"
         self._volume_label.configure(text=f"{icon} {self._volume}%")
     def _restart_ui(self) -> None:
-        self._map_runtime.stop()
-        os.execv(sys.executable, [sys.executable, "-m", "apps.orcUi"])
+        self._lifecycle_handler.request_restart_ui()
+        self._shutdown()
     def _shutdown_system(self) -> None:
-        if shutil.which("systemctl"):
-            command = ["systemctl", "poweroff"]
-        elif shutil.which("loginctl"):
-            command = ["loginctl", "poweroff"]
-        else:
-            return
-        self._map_runtime.stop()
-        subprocess.Popen(command)
+        self._lifecycle_handler.request_poweroff()
         self._shutdown()
     def _toggle_theme(self) -> None:
         self._theme_mode = toggle(self._theme_mode)
