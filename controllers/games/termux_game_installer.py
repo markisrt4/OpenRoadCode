@@ -69,4 +69,7 @@ class TermuxGameInstaller(GameInstallerIf):
 
     def launch_command(self, game: GameDefinition) -> Sequence[str]:
         """Return the direct Termux command for *game*."""
-        return game.command
+        if not game.environment:
+            return game.command
+        environment = [f"{name}={value}" for name, value in game.environment.items()]
+        return ["env", *environment, *game.command]

@@ -7,7 +7,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from common.xdg_paths import openroadcode_config_dir
 from frontends.tk.automotive import VehicleGaugePanel
 from frontends.tk.tk_screen_host_if import TkScreenHostIf
 from messaging.contracts.automotive import VehicleStateMessage
@@ -19,7 +18,7 @@ from apps.carUi.screens.car_ui_screen_services import MenuTileFactory
 from apps.carUi.vehicle_gauge_presenter import VehicleGaugePresenter
 
 
-DEFAULT_LAYOUT_PATH = openroadcode_config_dir("vehicle_gauges.json")
+DEFAULT_LAYOUT_PATH = Path.home() / ".config/openroadcode/vehicle_gauges.json"
 
 
 class VehicleGaugesScreen(CarUiScreen):

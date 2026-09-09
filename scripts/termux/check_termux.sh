@@ -25,7 +25,6 @@ fi
 
 check_command python
 check_command git
-check_command ruff
 check_command termux-x11
 check_command xfce4-session
 check_command dbus-launch

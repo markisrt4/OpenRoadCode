@@ -182,7 +182,7 @@ validate_distribution "$DISTRO_ID" "$DISTRO_LIKE"
 confirm_target_mismatch "$TARGET" "$DETECTED_TARGET" "$RPI_MODEL"
 
 FEATURES=()
-if (( INSTALL_ALL_FEATURES )); then mapfile -t FEATURES < <(get_all_features_for_target "$TARGET"); elif (( USE_DEFAULT_FEATURES )); then FEATURES=(base); [[ "$TARGET" == "linux-dev" ]] && append_feature dev-tools; fi
+if (( INSTALL_ALL_FEATURES )); then mapfile -t FEATURES < <(get_all_features_for_target "$TARGET"); elif (( USE_DEFAULT_FEATURES )); then FEATURES=(base); fi
 case "$TARGET" in
   rpi4) GPIO_BACKEND="RPi.GPIO"; append_feature raspberry-pi ;;
   rpi5) GPIO_BACKEND="rpi-lgpio"; append_feature raspberry-pi ;;

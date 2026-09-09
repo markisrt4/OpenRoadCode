@@ -6,8 +6,6 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from common.xdg_paths import xdg_cache_home
-
 
 def logging_tmp_dir(app_name: str) -> Path:
     """Return the temporary logging directory for an application.
@@ -16,7 +14,7 @@ def logging_tmp_dir(app_name: str) -> Path:
 
     1. LOGGING_TMP_DIR
     2. TMPDIR
-    3. XDG cache home / <app_name> / tmp
+    3. ~/.cache/<app_name>/tmp
 
     The directory is created if it does not already exist.
 
@@ -33,7 +31,12 @@ def logging_tmp_dir(app_name: str) -> Path:
             "LOGGING_TMP_DIR",
             os.getenv(
                 "TMPDIR",
-                str(xdg_cache_home() / app_name / "tmp"),
+                str(
+                    Path.home()
+                    / ".cache"
+                    / app_name
+                    / "tmp"
+                ),
             ),
         )
     )

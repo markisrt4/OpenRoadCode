@@ -11,7 +11,6 @@ import subprocess
 from pathlib import Path
 
 from apps.launchers.process_manager import find_matching_processes, terminate_process
-from common.xdg_paths import openroadcode_state_dir
 
 _MAP_RENDERER_PROCESS_PATTERN = r"(^|/)openroadcode-map-renderer([[:space:]]|$)"
 
@@ -27,7 +26,8 @@ class MapRendererLauncher:
     ) -> None:
         self._command = command
         self._log_file = Path(
-            log_file or openroadcode_state_dir("map-renderer", "map-renderer.log")
+            log_file
+            or Path.home() / ".cache" / "openroadcode" / "map-renderer.log"
         )
         self._process: subprocess.Popen[str] | None = None
 

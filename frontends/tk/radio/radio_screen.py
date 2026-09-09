@@ -54,16 +54,6 @@ class RadioScreen(TkScreen):
         panel.pack(fill=tk.BOTH, expand=True)
         self._panel = panel
 
-    def show_rf(self) -> None:
-        """Open Radio and immediately enter the RF presentation."""
-        self.show()
-        self._invoke_panel_action("open_rf_radio")
-
-    def show_streaming(self) -> None:
-        """Open Radio and immediately enter the streaming browser."""
-        self.show()
-        self._invoke_panel_action("open_streaming_radio")
-
     def hide(self) -> None:
         """Detach any embedded SDR window before the host destroys content."""
         panel = self._panel
@@ -78,17 +68,13 @@ class RadioScreen(TkScreen):
         self._embedder.clear()
 
     def set_theme_mode(self, mode: ThemeMode) -> None:
-        """Keep external SDR presentation aligned with the application theme."""
-        self._sync_external_theme(mode)
-
-    def _invoke_panel_action(self, action_name: str) -> None:
+        """Apply live ORC and external SDR theme changes without restarting radio."""
         panel = self._panel
-        if panel is None:
-            return
-        action = getattr(panel, action_name, None)
-        if not callable(action):
-            raise RuntimeError(f"Radio panel does not support {action_name}")
-        action()
+        if panel is not None and panel.winfo_exists():
+            set_theme_bundle = getattr(panel, "set_theme_bundle", None)
+            if callable(set_theme_bundle):
+                set_theme_bundle(self._theme_bundle())
+        self._sync_external_theme(mode)
 
     def _sync_external_theme(self, mode: ThemeMode) -> None:
         handler = self._sync_theme

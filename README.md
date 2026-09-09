@@ -18,7 +18,7 @@ Explore the project at https://www.openroadcode.org/ or visit the OpenRoadCode r
 
 OpenRoadCode is under active development and currently operates as an advanced experimental platform rather than a finished commercial infotainment system.
 
-Current integration work includes the `orcUi` shell, native offline MapLibre presentation, Valhalla route planning, live Android-backed positioning on Termux, integrated SDR++ RF radio, Radio Browser-backed streaming radio with mpv playback, and a native ORC media hub. Streaming Radio and Spotify now both expose shared playback state beyond their full screens, including Home now-playing presentation, while experimental Spotify PLAYER mode can register ORC itself as a Spotify Connect playback device on supported Linux/Chrome systems.
+Current integration work includes the `orcUi` shell, native offline MapLibre presentation, Valhalla route planning, live Android-backed positioning on Termux, integrated SDR++ RF radio, and a native ORC media hub. Spotify now shares one background state/control service across Home and Media, while experimental PLAYER mode can register ORC itself as a Spotify Connect playback device on supported Linux/Chrome systems.
 
 Some components are functional and actively used in the reference vehicle. Others are experimental, hardware-dependent, or still being integrated. Interfaces, configuration formats, and directory structures may continue to evolve before the first stable release.
 
@@ -55,9 +55,6 @@ Current and partially integrated capabilities include:
 * FM broadcast, NOAA weather, AM airband, HAM, and scanner-oriented radio profiles and presets
 * SDR++ application controls for waterfall, band plan, FFT hold, auto range, and theme synchronization
 * Read-only SDR++ signal/SNR telemetry and FM RDS presentation
-* Radio Browser-backed streaming-radio discovery for local and regional stations
-* Two-column streaming station browser with artwork, session favorites, explicit internet-only filtering, play/stop controls, and Home now-playing presentation
-* mpv-backed streaming audio behind an application-facing playback interface
 * RTL-SDR integration with shared receiver ownership
 * ADS-B aircraft tracking through readsb and tar1090
 * Bluetooth OBD-II communication and vehicle telemetry
@@ -73,7 +70,7 @@ Current and partially integrated capabilities include:
 * Configurable startup and splash-screen behavior
 * Mock, stub, and simulation implementations for development without hardware
 
-The Radio entry screen separates RF Radio from Streaming Radio. RF Radio launches the integrated SDR++ path. Streaming Radio opens the native ORC station browser and uses a shared `StreamingRadioController` with an mpv-backed audio adapter so playback can continue while the user navigates elsewhere in `orcUi`. Home reflects the same streaming-radio playback state in its RADIO tile. See [`docs/streaming_radio.md`](docs/streaming_radio.md) for architecture, installation, validation, limitations, and troubleshooting.
+The Radio entry screen separates RF Radio from Streaming Radio. RF Radio launches the integrated SDR++ path; Streaming Radio currently presents a Coming Soon screen while its provider/controller plumbing remains under development.
 
 Not every feature is supported on every target. In particular, Android/Termux is a development and portability target and does not provide hardware parity with the Raspberry Pi installation.
 
@@ -138,7 +135,7 @@ X11 embedding currently requires `xdotool`. Some games manage their own window g
 --- 
 ## Planned and Experimental Features
 
-Potential future work includes richer streaming-radio classification and metadata, dashcam and backup-camera integration, additional vehicle gauges, CAN/TPMS integration, steering-wheel controls, APRS, AIS, additional digital radio modes, trip recording, richer semantic POI discovery, and custom OpenRoadCode operating-system images. These are areas of interest rather than release commitments.
+Potential future work includes streaming-radio station discovery, dashcam and backup-camera integration, additional vehicle gauges, CAN/TPMS integration, steering-wheel controls, APRS, AIS, additional digital radio modes, trip recording, richer semantic POI discovery, and custom OpenRoadCode operating-system images. These are areas of interest rather than release commitments.
 
 ---
 
@@ -213,17 +210,14 @@ Map presentation follows the same separation. Navigation owns normalized positio
 
 The games feature follows the same boundary rule: toolkit-independent game state and requests live under `ui/games`, lifecycle and package policy live under `controllers/games`, Tk rendering lives under `frontends/tk/games`, and generic X11 window hosting lives under `frontends/x11`.
 
-Streaming Radio follows the same separation. Radio Browser discovery is behind `StreamingRadioDirectoryIf`, playback is coordinated by `StreamingRadioController`, the platform audio process is behind `StreamingAudioPlayerIf`, Tk owns station presentation, and the application runtime owns the shared controller lifecycle. Home and the full browser observe the same controller rather than constructing competing players.
-
 Commands requiring acknowledgement or error reporting use request/reply messaging where appropriate. Public telemetry remains SI-normalized on the wire; presentation code performs unit conversion.
 
 `orcUi`, `carUi`, `carTui`, and `webUi` are application front ends at different stages of development. Browser-backed utilities such as Weather, ADS-B, YouTube, and Google Earth are auxiliary applications managed according to application policy.
 
-Messaging and service documentation is available under `messaging/README.md`, `docs/messaging/message_bus_idd.md`, `docs/ethernet_idd.md`, `docs/streaming_radio.md`, `services/navigation/README.md`, `services/automotive/README.md`, `controllers/sdr/README.md`, `development/sdrpp/README.md`, `apps/carTui/README.md`, `development/termux/README.md`, and `CONTRIBUTING.md`.
+Messaging and service documentation is available under `messaging/README.md`, `docs/messaging/message_bus_idd.md`, `docs/ethernet_idd.md`, `services/navigation/README.md`, `services/automotive/README.md`, `controllers/sdr/README.md`, `development/sdrpp/README.md`, `apps/carTui/README.md`, `development/termux/README.md`, and `CONTRIBUTING.md`.
 * [Messaging overview and subscriber quick start](messaging/README.md)
 * [Message Bus Interface Design Description](docs/messaging/message_bus_idd.md)
 * [Ethernet Interface Design Description and port registry](docs/ethernet_idd.md)
-* [Streaming Radio architecture and validation](docs/streaming_radio.md)
 * [Navigation producer service](services/navigation/README.md)
 * [Automotive producer service](services/automotive/README.md)
 * [Car TUI telemetry consumer](apps/carTui/README.md)
@@ -235,8 +229,6 @@ Messaging and service documentation is available under `messaging/README.md`, `d
 ## Configuration and Application Lifecycle
 
 Runtime service composition is selected through `config/runtime.toml`. Producer inputs can select physical, Android-backed, or simulation implementations without changing downstream telemetry consumers.
-
-Per-user configuration, persistent application data, cache data, and runtime state follow the XDG Base Directory Specification. Linux and Termux use the same resolution rules; see [`docs/xdg_paths.md`](docs/xdg_paths.md) for the directory layout, platform behavior, overrides, and migration guidance.
 
 User-facing auxiliary applications are configured separately:
 
@@ -276,18 +268,6 @@ Features can be selected explicitly. Use `--all-features` to install all compati
 
 For the integrated SDR++ RF path on Debian/Linux, run `./development/debian/setup_sdrpp.sh`. It installs the SDR++ build dependencies, ORC's SDR++ modules, and the X11 utilities used for embedding. An X11 session is required for the current embedded-window implementation.
 
-For Streaming Radio, install mpv and TLS certificate support in the environment where ORC runs:
-
-```bash
-# Debian/Ubuntu
-bash development/debian/install_streaming_radio.sh
-
-# Termux
-bash development/termux/install_streaming_radio.sh
-```
-
-Streaming station discovery and playback require network access. The detailed target notes and smoke-test commands are in [`docs/streaming_radio.md`](docs/streaming_radio.md).
-
 For the integrated media path on Debian/Ubuntu, run:
 
 ```bash
@@ -301,9 +281,9 @@ Concrete devices and credentials remain separate from package installation. Run 
 
 ### Android / Termux
 
-Termux is an active development target rather than a complete Raspberry Pi replacement. It is used to exercise native Python services, ZeroMQ, Valhalla, MapLibre, Chromium/Termux:X11 presentation, Android sensor integration, SDR++ integration, streaming radio, and simulated ADS-B presentation.
+Termux is an active development target rather than a complete Raspberry Pi replacement. It is used to exercise native Python services, ZeroMQ, Valhalla, MapLibre, Chromium/Termux:X11 presentation, Android sensor integration, SDR++ integration, and simulated ADS-B presentation.
 
-The current navigation profile consumes geographic position from the localhost Android sensor bridge while retaining simulation fallbacks for platform-dependent sensor inputs. SDR++ runs inside the Debian proot and is presented through Termux:X11. Streaming Radio uses native Python directory access and mpv in the environment where ORC executes. Spotify REMOTE mode is supported; PLAYER mode is currently disabled because the tested Termux Chromium environment cannot initialize the Spotify Web Playback SDK. Follow `development/termux/README.md` for the current native build, runit services, sensor bridge, navigation data, Valhalla, SDR++, and UI workflow.
+The current navigation profile consumes geographic position from the localhost Android sensor bridge while retaining simulation fallbacks for platform-dependent sensor inputs. SDR++ runs inside the Debian proot and is presented through Termux:X11. Spotify REMOTE mode is supported; PLAYER mode is currently disabled because the tested Termux Chromium environment cannot initialize the Spotify Web Playback SDK. Follow `development/termux/README.md` for the current native build, runit services, sensor bridge, navigation data, Valhalla, SDR++, and UI workflow.
 
 ---
 
@@ -315,7 +295,7 @@ From the repository root:
 python -m apps.orcUi
 ```
 
-The RADIO navigation item opens a source chooser. **RF RADIO** starts the SDR++ integration and embeds SDR++ into the ORC radio panel. **STREAMING RADIO** opens the native station browser, where Local and Regional discovery, session Favorites, explicit Internet Only filtering, station artwork, Play/Stop controls, and current playback state are available. Streaming playback is application-owned, so it can continue while the user navigates to Home; the Home RADIO tile reflects the same active station.
+The RADIO navigation item opens a source chooser. RF RADIO starts the SDR++ integration and embeds SDR++ into the ORC radio panel; STREAMING RADIO currently opens its Coming Soon page.
 
 The MEDIA navigation item opens the integrated Spotify, YouTube, and Netflix hub. On supported Linux systems, Spotify's **PLAYER** control makes OpenRoadCode the Spotify Connect playback destination; **REMOTE** leaves playback on external Spotify Connect devices. The local player is application-owned, so it can continue while the user navigates away from the Media page and is stopped during ORC shutdown/restart.
 
@@ -329,7 +309,7 @@ The older `carUi` application remains in the repository while the ORC UI shell i
 
 Mocks, stubs, simulation producers, and unconfigured implementations allow developers to test application logic, presentation, dependency assembly, and failure handling without the complete vehicle hardware stack.
 
-Component-test CLIs provide direct subsystem verification for navigation inputs, route planning and map presentation, OBD-II, SDR applications, streaming-radio discovery/playback, rotary encoders, environmental sensors, Spotify/media, audio, Bluetooth devices, and native game inventory/lifecycle behavior. Component tests may require hardware, permissions, services, network access, or environment variables and supplement rather than replace automated tests.
+Component-test CLIs provide direct subsystem verification for navigation inputs, route planning and map presentation, OBD-II, SDR applications, rotary encoders, environmental sensors, Spotify/media, audio, Bluetooth devices, and native game inventory/lifecycle behavior. Component tests may require hardware, permissions, services, or environment variables and supplement rather than replace automated tests.
 
 ---
 

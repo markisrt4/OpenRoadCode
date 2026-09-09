@@ -103,6 +103,44 @@ class RadioPanel(tk.Frame):
         self._telemetry_worker.stop()
         super().destroy()
 
+    def set_theme_bundle(self, theme: ThemeBundle) -> None:
+        """Repaint ORC radio chrome without disturbing the embedded X11 window."""
+        self._theme = theme
+        ui = theme.ui
+        self.configure(bg=ui.background)
+        self._groups.configure(bg=ui.surface, highlightbackground=ui.border)
+        self._body.configure(bg=ui.background)
+        self._host.configure(bg=ui.background, highlightbackground=ui.border)
+        self._telemetry_overlay.configure(bg=ui.surface_alt, highlightbackground=ui.border)
+        self._signal_label.configure(bg=ui.surface_alt, fg=ui.text)
+        self._snr_label.configure(bg=ui.surface_alt, fg=ui.accent_success)
+        self._controls.configure(bg=ui.surface, highlightbackground=ui.border)
+        for child in self._controls.winfo_children():
+            if isinstance(child, tk.Button):
+                child.configure(
+                    bg=ui.surface,
+                    fg=ui.text,
+                    activebackground=ui.control_background,
+                    activeforeground=ui.accent_success,
+                )
+            elif isinstance(child, tk.Frame):
+                child.configure(bg=ui.surface)
+        self._station_label.configure(bg=ui.surface, fg=ui.text)
+        self._frequency_label.configure(bg=ui.surface, fg=ui.text_muted)
+        self._metadata_label.configure(bg=ui.surface, fg=ui.accent_success)
+        if self._drawer is not None:
+            self._drawer.destroy()
+            self._drawer = None
+            self._drawer_open = False
+            self._display_buttons.clear()
+        self._controls_button.configure(
+            bg=ui.surface,
+            fg=ui.text,
+            activebackground=ui.control_background,
+            activeforeground=ui.accent_success,
+        )
+        self._paint_groups()
+
     def _build_group_bar(self) -> None:
         ui = self._theme.ui
         for name, label in MAIN_GROUPS:
@@ -391,4 +429,9 @@ class RadioPanel(tk.Frame):
         parent_active = self._active_group.split(":", 1)[0]
         for name, button in self._group_buttons.items():
             active = name == parent_active
-            button.configure(fg=ui.accent_success if active else ui.text, bg=ui.surface_alt if active else ui.surface)
+            button.configure(
+                fg=ui.accent_success if active else ui.text,
+                bg=ui.surface_alt if active else ui.surface,
+                activebackground=ui.control_background,
+                activeforeground=ui.accent_success,
+            )

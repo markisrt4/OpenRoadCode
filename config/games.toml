@@ -57,6 +57,10 @@ description = "Sliding-tile 2048 puzzle game."
 category = "puzzle"
 icon = "gnome-2048"
 command = ["gnome-2048"]
+[games.termux_proot]
+rendering = "software"
+environment = { GSK_RENDERER = "cairo" }
+window_name = "2048"
 [games.install]
 debian_package = "gnome-2048"
 
@@ -66,6 +70,11 @@ description = "Snake-style arcade game with multiplayer support."
 category = "casual"
 icon = "gnome-nibbles"
 command = ["gnome-nibbles"]
+[games.termux_proot]
+rendering = "software"
+environment = { GSK_RENDERER = "cairo" }
+window_name = "Nibbles"
+window_class = "org.gnome.Nibbles"
 [games.install]
 debian_package = "gnome-nibbles"
 
@@ -75,6 +84,10 @@ description = "Touch-friendly Sudoku puzzle game."
 category = "puzzle"
 icon = "gnome-sudoku"
 command = ["gnome-sudoku"]
+[games.termux_proot]
+rendering = "software"
+environment = { GSK_RENDERER = "cairo" }
+window_name = "Sudoku"
 [games.install]
 debian_package = "gnome-sudoku"
 

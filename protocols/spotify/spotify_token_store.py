@@ -8,14 +8,18 @@ import os
 from pathlib import Path
 import tempfile
 
-from common.xdg_paths import xdg_config_home
 from protocols.oauth import (
     OAuthTokens,
     OAuthTokenStoreIf,
 )
 
 
-DEFAULT_TOKEN_PATH = xdg_config_home() / "spotify" / "tokens.json"
+DEFAULT_TOKEN_PATH = (
+    Path.home()
+    / ".config"
+    / "spotify"
+    / "tokens.json"
+)
 
 
 class SpotifyTokenStore(OAuthTokenStoreIf):
