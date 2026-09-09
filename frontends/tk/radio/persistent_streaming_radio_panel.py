@@ -71,7 +71,14 @@ class PersistentStreamingRadioPanel(StreamingRadioPanel):
         try:
             stations = self._directory.stations_by_ids(station_ids)
         except Exception as error:
-            self.after(0, lambda: self._finish_load(generation, (), error))
+            self.after(
+                0,
+                lambda captured_error=error: self._finish_load(
+                    generation,
+                    (),
+                    captured_error,
+                ),
+            )
             return
         self.after(0, lambda: self._finish_load(generation, stations, None))
 
