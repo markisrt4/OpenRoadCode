@@ -5,7 +5,6 @@ from __future__ import annotations
 
 import time
 import unittest
-from unittest.mock import patch
 
 from apps.orcUi.spotify_local_player import SpotifyLocalPlayer, SpotifyPlaybackMode
 
@@ -44,9 +43,8 @@ class _Browser:
     def launch(self, _display: str) -> None:
         self.launched = True
 
-    def hide(self, _display: str) -> bool:
+    def hide(self, _display: str) -> None:
         self.hidden = True
-        return True
 
     def stop(self, _display: str) -> None:
         self.stopped = True
@@ -59,15 +57,16 @@ class SpotifyLocalPlayerTest(unittest.TestCase):
             time.sleep(0.01)
         self.assertFalse(player.state().busy)
 
-    @patch("apps.orcUi.spotify_local_player.shutil.which", return_value="/usr/bin/google-chrome-stable")
-    def test_player_mode_registers_transfers_and_hides_browser(self, _which) -> None:
+    def test_player_mode_registers_transfers_and_hides_browser(self) -> None:
         service = _SpotifyService()
         host = _Host()
         browser = _Browser()
         player = SpotifyLocalPlayer(
             spotify_service=service,  # type: ignore[arg-type]
-            host_factory=lambda: host,  # type: ignore[arg-type]
-            browser_factory=lambda _url: browser,  # type: ignore[arg-type]
+            host_factory=lambda: host,
+            browser_factory=lambda _url: browser,
+            browser_candidates=("google-chrome-stable",),
+            browser_finder=lambda _candidate: "/usr/bin/google-chrome-stable",
             registration_timeout_seconds=0.5,
         )
 
@@ -81,10 +80,15 @@ class SpotifyLocalPlayerTest(unittest.TestCase):
         self.assertTrue(browser.hidden)
         player.close()
 
-    @patch("apps.orcUi.spotify_local_player.shutil.which", return_value=None)
-    def test_player_mode_is_unavailable_without_supported_chrome(self, _which) -> None:
+    def test_player_mode_is_unavailable_without_supported_browser(self) -> None:
         service = _SpotifyService()
-        player = SpotifyLocalPlayer(spotify_service=service)  # type: ignore[arg-type]
+        player = SpotifyLocalPlayer(
+            spotify_service=service,  # type: ignore[arg-type]
+            host_factory=_Host,
+            browser_factory=lambda _url: _Browser(),
+            browser_candidates=("google-chrome-stable",),
+            browser_finder=lambda _candidate: None,
+        )
 
         player.request_player()
 
