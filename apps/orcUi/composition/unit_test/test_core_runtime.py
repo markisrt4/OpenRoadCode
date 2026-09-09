@@ -50,6 +50,20 @@ class StateIngressRuntimeTest(unittest.TestCase):
         self.dispatcher.start.assert_called_once_with()
         self.dispatcher.close.assert_called_once_with()
 
+    def test_close_drops_late_ui_delivery(self) -> None:
+        self.runtime.close()
+
+        self.runtime._schedule_state(self.vehicle_sink)
+
+        self.schedule_ui.assert_not_called()
+
+    def test_tk_shutdown_runtime_error_is_ignored(self) -> None:
+        self.schedule_ui.side_effect = RuntimeError("main thread is not in main loop")
+
+        self.runtime._schedule_state(self.vehicle_sink)
+
+        self.schedule_ui.assert_called_once()
+
     @patch("apps.orcUi.core_runtime.VehiclePresenter.present")
     def test_vehicle_message_is_presented_before_ui_dispatch(self, present: Mock) -> None:
         message = Mock()
