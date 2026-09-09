@@ -55,6 +55,9 @@ jobs:
       - name: Run integration tests
         run: venv/bin/python scripts/run_tests.py integration
 
+      - name: Validate Markdown links
+        run: venv/bin/python scripts/check_markdown_links.py
+
       - name: Validate Doxygen contracts
         run: venv/bin/python scripts/check_doxygen_contracts.py
 
