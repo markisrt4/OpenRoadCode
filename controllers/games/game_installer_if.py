@@ -52,3 +52,8 @@ class GameInstallerIf(ABC):
         """Return backend-specific X11 window name/class selectors when needed."""
         del game
         return None, None
+
+    def relax_window_size_hints(self, game: GameDefinition) -> bool:
+        """Return whether the embedding backend may ignore application size hints."""
+        del game
+        return False
