@@ -1,9 +1,15 @@
 """Load native game definitions from TOML configuration."""
 
+import os
 from pathlib import Path
 import tomllib
 
 from .game_types import GameDefinition, TermuxProotRuntimeConfig
+
+
+def _is_termux_host() -> bool:
+    """Return whether the current host is Termux."""
+    return bool(os.environ.get("TERMUX_VERSION")) or "com.termux" in os.environ.get("PREFIX", "")
 
 
 def load_game_catalog(path: str | Path) -> list[GameDefinition]:
@@ -12,10 +18,12 @@ def load_game_catalog(path: str | Path) -> list[GameDefinition]:
     with config_path.open("rb") as config_file:
         data = tomllib.load(config_file)
 
+    termux_host = _is_termux_host()
     games: list[GameDefinition] = []
     for entry in data.get("games", []):
         install = entry.get("install", {})
         termux_proot = entry.get("termux_proot", {})
+        termux_proot_enabled = termux_proot.get("enabled", True)
         games.append(
             GameDefinition(
                 name=entry["name"],
@@ -23,9 +31,10 @@ def load_game_catalog(path: str | Path) -> list[GameDefinition]:
                 description=entry.get("description", ""),
                 category=entry.get("category", "casual"),
                 icon=entry.get("icon"),
-                enabled=entry.get("enabled", True),
+                enabled=entry.get("enabled", True) and (not termux_host or termux_proot_enabled),
                 environment=dict(entry.get("environment", {})),
                 termux_proot=TermuxProotRuntimeConfig(
+                    enabled=termux_proot_enabled,
                     environment=dict(termux_proot.get("environment", {})),
                     rendering=termux_proot.get("rendering", "auto"),
                     window_name=termux_proot.get("window_name"),
