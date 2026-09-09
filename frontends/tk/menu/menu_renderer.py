@@ -7,8 +7,9 @@ import tkinter as tk
 from collections.abc import Callable
 from typing import Any
 
+from frontends.tk.menu.menu_icons import create_icon
 from ui.menu import MenuPage, MenuTile
-from ui.menu.menu_icons import create_menu_icon
+from ui.menu.menu_icons import menu_icon_for_key
 
 
 class MenuRenderer:
@@ -128,13 +129,14 @@ class MenuRenderer:
             pady=self._style["body_pady"],
         )
 
-        icon = create_menu_icon(
-            body,
-            key=tile.key,
-            size=self._style.get("icon_size", 48),
-            background=self._colors["tile_bg"],
-        )
-        if icon is not None:
+        icon_id = tile.icon or menu_icon_for_key(tile.key)
+        if icon_id is not None:
+            icon = create_icon(
+                body,
+                icon_id=icon_id,
+                size=self._style.get("icon_size", 48),
+                background=self._colors["tile_bg"],
+            )
             icon.pack(anchor=anchor, pady=(0, self._style["subtitle_top_pad"]))
 
         self._create_label(
