@@ -7,6 +7,7 @@ REPO_ROOT="$(cd -- "${SCRIPT_DIR}/.." && pwd)"
 MARKDOWN_PATH="${1:-docs/README.md}"
 HOST="${GRIP_HOST:-127.0.0.1}"
 PORT="${GRIP_PORT:-6419}"
+PYTHON_BIN="${PYTHON:-python}"
 
 if [[ "${MARKDOWN_PATH}" != /* ]]; then
     MARKDOWN_PATH="${REPO_ROOT}/${MARKDOWN_PATH}"
@@ -17,24 +18,8 @@ if [[ ! -f "${MARKDOWN_PATH}" ]]; then
     exit 1
 fi
 
-if ! command -v grip >/dev/null 2>&1; then
-    cat >&2 <<'EOF'
-The 'grip' Markdown preview server is not installed.
-
-Install it in the active Python environment with:
-
-    python -m pip install grip
-
-Then rerun this script.
-EOF
-    exit 1
-fi
-
-URL="http://${HOST}:${PORT}"
-
-echo "Previewing: ${MARKDOWN_PATH}"
-echo "Open:       ${URL}"
-echo "Press Ctrl-C to stop the preview server."
-echo
-
-exec grip "${MARKDOWN_PATH}" "${HOST}:${PORT}"
+exec "${PYTHON_BIN}" "${SCRIPT_DIR}/docs_preview.py" \
+    --source "${REPO_ROOT}" \
+    --document "${MARKDOWN_PATH}" \
+    --host "${HOST}" \
+    --port "${PORT}"
