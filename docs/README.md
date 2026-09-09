@@ -9,7 +9,7 @@ The [project README](../README.md) remains the repository landing page. [Doxygen
 - [System architecture](architecture.md)
 - [Applications architecture audit](apps_architecture_audit.md)
 - [ORC UI architecture](../apps/orcUi/ARCHITECTURE.md)
-- [ORC media integration](../apps/orcUi/MEDIA.md)
+- [ORC media integration](../frontends/tk/media/README.md)
 - [Ethernet interface design](ethernet_idd.md)
 - [Android sensor pipeline](android_sensor_pipeline.md)
 - [Navigation runtime](navigation_runtime.md)
@@ -25,7 +25,7 @@ The [project README](../README.md) remains the repository landing page. [Doxygen
 
 ## Applications
 
-Application documentation covers the graphical, terminal, browser, rendering, launcher, demo, and dashboard surfaces. The ORC UI architecture and media guides above document the current runtime composition and ownership model introduced by the runtime-integration cleanup.
+Application documentation covers the graphical, terminal, browser, rendering, launcher, demo, and dashboard surfaces. The ORC UI architecture guide documents the runtime composition and ownership model; feature-specific media behavior lives with the Tk media frontend.
 
 - [Car UI](../apps/carUi/README.md)
 - [Car UI input](../apps/carUi/input/README.md)
@@ -51,7 +51,7 @@ These directories contain the bulk of the component-level documentation. Their R
 - [UI contracts](../ui/README.md) — toolkit-independent presentation contracts
 - [UI component-test guide](../ui/component_test/README.md) — component-test documentation
 - [Input events](../input_events/README.md) — normalized physical-input contracts
-- [Frontends](../frontends/README.md) — concrete presentation implementations, including [terminal frontends](../frontends/tui/README.md) and [Tk automotive frontend](../frontends/tk/automotive/README.md)
+- [Frontends](../frontends/README.md) — concrete presentation implementations, including [terminal frontends](../frontends/tui/README.md), [Tk automotive frontend](../frontends/tk/automotive/README.md), and [Tk media frontend](../frontends/tk/media/README.md)
 
 ## Development, deployment, and tooling
 
