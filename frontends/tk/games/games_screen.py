@@ -117,7 +117,10 @@ class GamesScreen(TkScreen):
                 pass
 
     def shutdown(self) -> None:
-        self.hide()
+        """Stop any game process without depending on a live Tk hierarchy."""
+        self._launch_generation += 1
+        self._launcher.stop()
+        self._embedder.clear()
 
     @staticmethod
     def _load_games() -> list[GameDefinition]:
