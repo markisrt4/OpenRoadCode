@@ -22,6 +22,7 @@ rendering = "software"
 environment = { GSK_RENDERER = "cairo" }
 window_name = "Nibbles"
 window_class = "org.gnome.Nibbles"
+relax_size_hints = true
 [games.install]
 debian_package = "gnome-nibbles"
 """
@@ -35,6 +36,7 @@ debian_package = "gnome-nibbles"
         self.assertEqual({"GSK_RENDERER": "cairo"}, game.termux_proot.environment)
         self.assertEqual("Nibbles", game.termux_proot.window_name)
         self.assertEqual("org.gnome.Nibbles", game.termux_proot.window_class)
+        self.assertTrue(game.termux_proot.relax_size_hints)
 
     def test_invalid_termux_rendering_policy_is_rejected(self) -> None:
         config = """
