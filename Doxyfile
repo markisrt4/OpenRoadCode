@@ -8,10 +8,9 @@ INPUT                  = README.md docs apps controllers services messaging \
 FILE_PATTERNS          = *.py *.hpp *.cpp *.md
 RECURSIVE              = YES
 
-# Keep test/build artifacts out of the generated reference. Production
-# component README.md files remain discoverable; USE_MDFILE_AS_MAINPAGE below
-# keeps the repository README as the single main page. Documentation that lives
-# intentionally under test directories remains excluded with the test code.
+# Keep the human-facing docs index out of Doxygen so the repository README is
+# the single API main page. Test/build artifacts remain excluded as well.
+EXCLUDE                = docs/README.md
 EXCLUDE_PATTERNS       = */test/* */unit_test/* */component_test/* \
                          */integration_test/* */apps/qtUi/* */__pycache__/* \
                          */build/* */build-*/*
