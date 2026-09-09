@@ -61,6 +61,7 @@ command = ["gnome-2048"]
 rendering = "software"
 environment = { GSK_RENDERER = "cairo" }
 window_name = "2048"
+relax_size_hints = true
 [games.install]
 debian_package = "gnome-2048"
 
@@ -75,6 +76,7 @@ rendering = "software"
 environment = { GSK_RENDERER = "cairo" }
 window_name = "Nibbles"
 window_class = "org.gnome.Nibbles"
+relax_size_hints = true
 [games.install]
 debian_package = "gnome-nibbles"
 
@@ -88,6 +90,7 @@ command = ["gnome-sudoku"]
 rendering = "software"
 environment = { GSK_RENDERER = "cairo" }
 window_name = "Sudoku"
+relax_size_hints = true
 [games.install]
 debian_package = "gnome-sudoku"
 
