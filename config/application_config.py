@@ -5,7 +5,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
 from typing import Any
@@ -56,7 +56,7 @@ class PresentationTargetConfig:
 
 @dataclass(frozen=True, slots=True)
 class BrowserConfig:
-    profile_root: Path = openroadcode_data_dir("browser")
+    profile_root: Path = field(default_factory=lambda: openroadcode_data_dir("browser"))
 
 
 @dataclass(frozen=True, slots=True)
@@ -131,7 +131,9 @@ class ApplicationsConfigParser:
 
     def _parse_browser(self, data: Any) -> BrowserConfig:
         section = self._expect_table(data, "browser")
-        raw_root = section.get("profile_root", str(openroadcode_data_dir("browser")))
+        raw_root = section.get("profile_root")
+        if raw_root is None:
+            return BrowserConfig()
         if not isinstance(raw_root, str) or not raw_root.strip():
             raise ApplicationConfigError("browser.profile_root must be a non-empty string")
         return BrowserConfig(profile_root=Path(raw_root).expanduser())
