@@ -72,6 +72,7 @@ class StateIngressRuntime:
         self._apply_vehicle_state = apply_vehicle_state
         self._apply_position_state = apply_position_state
         self._apply_attitude_state = apply_attitude_state
+        self._closing = False
         self._dispatcher = dispatcher or MessageDispatcher(
             ZeroMqSubscriber(LOCAL_SUBSCRIBER_ENDPOINT),
             error_handler=self._on_bus_error,
@@ -93,22 +94,41 @@ class StateIngressRuntime:
         )
 
     def start(self) -> None:
+        self._closing = False
         self._dispatcher.start()
 
     def close(self) -> None:
+        self._closing = True
         self._dispatcher.close()
+
+    def _schedule_state(self, callback: Callable[[], None]) -> None:
+        """Schedule UI work unless Tk is already leaving its main loop.
+
+        Message callbacks run on the ingress thread. During Ctrl-C or normal UI
+        teardown, one final message can race with Tk destroying its main loop.
+        Tk raises RuntimeError in that narrow window; the state is obsolete at
+        that point, so dropping it is the correct shutdown behavior.
+        """
+        if self._closing:
+            return
+        try:
+            self._schedule_ui(0, callback)
+        except RuntimeError:
+            # Tk may already be outside mainloop while composition cleanup is
+            # still closing the dispatcher. There is no UI left to update.
+            return
 
     def _on_vehicle_message(self, message) -> None:
         state = VehiclePresenter.present(message.data)
-        self._schedule_ui(0, lambda: self._apply_vehicle_state(state))
+        self._schedule_state(lambda: self._apply_vehicle_state(state))
 
     def _on_position_message(self, message) -> None:
         state = NavigationPresenter.present_position(message.data)
-        self._schedule_ui(0, lambda: self._apply_position_state(state))
+        self._schedule_state(lambda: self._apply_position_state(state))
 
     def _on_attitude_message(self, message) -> None:
         state = NavigationPresenter.present_attitude(message.data)
-        self._schedule_ui(0, lambda: self._apply_attitude_state(state))
+        self._schedule_state(lambda: self._apply_attitude_state(state))
 
     @staticmethod
     def _on_bus_error(topic, error: Exception) -> None:
