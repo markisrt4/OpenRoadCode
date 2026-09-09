@@ -55,7 +55,9 @@ HOME, context rail, and other structural content are not required to become regi
 
 `composition/media.py` wires the shared Spotify service, local player, image cache, lyrics client, music-video controller, MEDIA hub, Spotify screen, browser-backed YouTube/Netflix screens, and HOME now-playing widget. `MediaComposition.close()` releases its owned video resource. The shared Spotify state service is not duplicated for HOME and MEDIA.
 
-`composition/games.py` registers the games frontend. New features should follow the same pattern: construct dependencies in composition, expose behavior through contracts, keep presentation in the frontend, and assign resource cleanup to the owner.
+`composition/games.py` registers the games frontend. The Games screen creates the runtime host and requests semantic launch/stop behavior. Platform launch adapters own environment-specific compatibility. In particular, Termux/proot renderer choices, environment overrides, and X11 title/class fallbacks live under `games.termux_proot` configuration and are consumed only by the Debian/proot backend. Native Debian does not inherit those compatibility settings. Shared X11 embedding remains generic and positions a successfully reparented client at the runtime-host origin.
+
+New features should follow the same pattern: construct dependencies in composition, expose behavior through contracts, keep presentation in the frontend, and assign resource cleanup to the owner.
 
 ## Theme ownership
 
@@ -79,12 +81,14 @@ From the repository root, use the active virtual environment and run:
 python -m unittest discover -s apps/orcUi/composition/unit_test -p 'test_*.py'
 python -m unittest discover -s apps/orcUi/unit_test -p 'test_*.py'
 python -m unittest discover -s controllers/application_runtime/unit_test -p 'test_*.py'
+python -m unittest discover -s controllers/games/unit_test -p 'test_*.py'
+python -m unittest discover -s frontends/x11/unit_test -p 'test_*.py'
 python -m unittest discover -s frontends/tk/media/unit_test -p 'test_*.py'
 python -m unittest discover -s frontends/tk/radio/unit_test -p 'test_*.py'
 python -m apps.orcUi
 ```
 
-The focused suites exercise assembly, ownership, state ingress, map adapter behavior, lifecycle failure cleanup, and feature theme behavior. They do not replace an X11 integration test. On Termux, launch from the configured X11 session with the required broker, navigation, and external services available. Test HOME, NAVIGATION/map, VEHICLE, OFF-ROAD live state, MEDIA, browser color modes, RADIO embedding, theme transitions, and UI restart.
+The focused suites exercise assembly, ownership, state ingress, map adapter behavior, lifecycle failure cleanup, game backend isolation, X11 embedding geometry, and feature theme behavior. They do not replace an X11 integration test. On Termux, launch from the configured X11 session with the required broker, navigation, and external services available. Test HOME, NAVIGATION/map, VEHICLE, OFF-ROAD live state, MEDIA, browser color modes, RADIO embedding, GAMES embedding, theme transitions, and UI restart.
 
 Before merging a substantial runtime refactor, review the complete branch diff for unrelated changes, run the focused suites, and perform the GUI smoke test. A passing mocked test is not proof that external processes or Tk/X11 integration work.
 
