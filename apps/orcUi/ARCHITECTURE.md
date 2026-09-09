@@ -53,7 +53,7 @@ HOME, context rail, and other structural content are not required to become regi
 
 `composition/radio.py` wires the radio screen, radio application service, and external SDR++ theme synchronization. The radio frontend owns Tk presentation and X11 embedding, while the application runtime owns managed process lifecycle. Theme changes must not unnecessarily restart or detach an active SDR++ session.
 
-`composition/media.py` wires the shared Spotify service, local player, image cache, lyrics client, music-video controller, MEDIA hub, Spotify screen, browser-backed YouTube/Netflix screens, and HOME now-playing widget. `MediaComposition.close()` releases its owned video resource. The shared Spotify state service is not duplicated for HOME and MEDIA.
+`composition/media.py` wires the shared Spotify service, local player, image cache, lyrics client, music-video controller, MEDIA hub, Spotify screen, browser-backed YouTube/Netflix screens, and HOME now-playing widget. `MediaComposition.close()` releases its owned video resource. The shared Spotify state service is not duplicated for HOME and MEDIA. See [`frontends/tk/media/README.md`](../../frontends/tk/media/README.md) for media-specific behavior.
 
 `composition/games.py` registers the games frontend. The Games screen creates the runtime host and requests semantic launch/stop behavior. Platform launch adapters own environment-specific compatibility. In particular, Termux/proot renderer choices, environment overrides, and X11 title/class fallbacks live under `games.termux_proot` configuration and are consumed only by the Debian/proot backend. Native Debian does not inherit those compatibility settings. Shared X11 embedding remains generic and positions a successfully reparented client at the runtime-host origin.
 
@@ -65,7 +65,7 @@ New features should follow the same pattern: construct dependencies in compositi
 
 Intentional provider brand colors are separate from ORC chrome. Spotify actions and progress accents use Spotify green; the surrounding card, text, borders, and controls follow the active CSS theme. HOME now-playing receives the live theme provider rather than a fixed dark bundle.
 
-Browser-backed media also passes the preferred color scheme to Chromium. A change of ORC mode relaunches the managed browser with the corresponding preference, preserving its dedicated profile while reloading the configured media URL. The website ultimately controls its own rendering; a browser preference is not a guarantee that every site will honor it. See `MEDIA.md` for media-specific behavior.
+Browser-backed media also passes the preferred color scheme to Chromium. A change of ORC mode relaunches the managed browser with the corresponding preference, preserving its dedicated profile while reloading the configured media URL. The website ultimately controls its own rendering; a browser preference is not a guarantee that every site will honor it. See [`frontends/tk/media/README.md`](../../frontends/tk/media/README.md) for media-specific behavior.
 
 ## Lifecycle and cleanup
 
