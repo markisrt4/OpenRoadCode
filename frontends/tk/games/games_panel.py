@@ -33,6 +33,7 @@ class GamesPanel(tk.Frame, GamesUiIf):
         self._filter_buttons: dict[str, tk.Button] = {}
         self._icon_cache: dict[str, tk.PhotoImage | None] = {}
         self._runtime_host: tk.Frame | None = None
+        self._runtime_exit_button: tk.Button | None = None
         self._build()
 
     def set_theme_bundle(self, theme: ThemeBundle) -> None:
@@ -47,13 +48,14 @@ class GamesPanel(tk.Frame, GamesUiIf):
                 bg=ui.background,
                 highlightbackground=ui.border,
             )
-            self._exit_button.configure(
-                bg=ui.control_background,
-                fg=ui.accent_danger,
-                activebackground=ui.control_active,
-                activeforeground="#ffffff",
-                highlightbackground=ui.accent_danger,
-            )
+            if self._runtime_exit_button is not None:
+                self._runtime_exit_button.configure(
+                    bg=ui.control_background,
+                    fg=ui.accent_danger,
+                    activebackground=ui.control_active,
+                    activeforeground="#ffffff",
+                    highlightbackground=ui.accent_danger,
+                )
             return
         for child in self.winfo_children():
             child.destroy()
@@ -75,9 +77,7 @@ class GamesPanel(tk.Frame, GamesUiIf):
 
     def show_runtime_host(self, on_resize: Callable[[int, int], None]) -> tuple[int, int, int]:
         self._clear_body()
-        self._filters.pack_forget()
-        self._status.pack_forget()
-        self._exit_button.pack(side=tk.RIGHT, padx=8)
+        self._toolbar.pack_forget()
         self._pager.pack_forget()
         ui = self._theme.ui
         host = tk.Frame(
@@ -86,17 +86,41 @@ class GamesPanel(tk.Frame, GamesUiIf):
             highlightthickness=1,
             highlightbackground=ui.border,
         )
-        host.pack(fill=tk.BOTH, expand=True, padx=4, pady=4)
+        host.pack(fill=tk.BOTH, expand=True)
+        exit_button = tk.Button(
+            host,
+            text="EXIT GAME",
+            command=self._request_exit_game,
+            bg=ui.control_background,
+            fg=ui.accent_danger,
+            activebackground=ui.control_active,
+            activeforeground="#ffffff",
+            relief=tk.FLAT,
+            highlightthickness=1,
+            highlightbackground=ui.accent_danger,
+            font=("Sans", 10, "bold"),
+            padx=22,
+            pady=6,
+            cursor="hand2",
+        )
+        exit_button.place(relx=1.0, x=-12, y=10, anchor="ne")
+        exit_button.lift()
         host.update_idletasks()
         host.bind("<Configure>", lambda event: on_resize(event.width, event.height))
         self._runtime_host = host
+        self._runtime_exit_button = exit_button
         return host.winfo_id(), host.winfo_width(), host.winfo_height()
 
     def hide_runtime_host(self) -> None:
+        exit_button = self._runtime_exit_button
+        self._runtime_exit_button = None
+        if exit_button is not None:
+            try:
+                exit_button.destroy()
+            except tk.TclError:
+                pass
         self._runtime_host = None
-        self._exit_button.pack_forget()
-        self._filters.pack(side=tk.LEFT)
-        self._status.pack(side=tk.RIGHT, padx=8)
+        self._toolbar.pack(fill=tk.X, pady=(2, 6), before=self._body)
         self._pager.pack(fill=tk.X, pady=(4, 1))
         self._refresh_cards()
 
@@ -131,22 +155,6 @@ class GamesPanel(tk.Frame, GamesUiIf):
             font=("Sans", 10),
         )
         self._status.pack(side=tk.RIGHT, padx=8)
-        self._exit_button = tk.Button(
-            self._toolbar,
-            text="EXIT GAME",
-            command=self._request_exit_game,
-            bg=ui.control_background,
-            fg=ui.accent_danger,
-            activebackground=ui.control_active,
-            activeforeground="#ffffff",
-            relief=tk.FLAT,
-            highlightthickness=1,
-            highlightbackground=ui.accent_danger,
-            font=("Sans", 10, "bold"),
-            padx=22,
-            pady=6,
-            cursor="hand2",
-        )
         self._body = tk.Frame(self, bg=ui.background)
         self._body.pack(fill=tk.BOTH, expand=True)
         self._pager = tk.Frame(self, bg=ui.background)
