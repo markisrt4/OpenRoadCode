@@ -61,13 +61,19 @@ class DebianCommandRunner:
             return command
         raise RuntimeError("No Debian environment is available")
 
-    def graphical_command(self, args: Sequence[str]) -> list[str]:
+    def graphical_command(
+        self,
+        args: Sequence[str],
+        *,
+        hardware_acceleration: bool = True,
+    ) -> list[str]:
         """Return a command suitable for launching a graphical Debian application.
 
-        Native Debian receives the command unchanged.  Under Termux/proot, ORC
-        shares the X11 socket and uses Mesa's virpipe client when the Android
-        virgl renderer is installed.  This keeps Bionic GPU libraries out of
-        the glibc process while still providing hardware-accelerated OpenGL.
+        Native Debian receives the command unchanged. Under Termux/proot, ORC
+        shares the X11 socket. Games that opt into hardware acceleration use
+        Mesa's virpipe client when the Android virgl renderer is available.
+        Software-only games explicitly use llvmpipe and do not start or connect
+        to the virgl rendering server.
         """
         if self._mode == "native":
             return list(args)
@@ -80,10 +86,16 @@ class DebianCommandRunner:
             environment.append(f"DISPLAY={display}")
         environment.append("XDG_RUNTIME_DIR=/tmp")
 
-        if self._ensure_virgl_server():
+        if hardware_acceleration:
+            if self._ensure_virgl_server():
+                environment.extend((
+                    "LIBGL_ALWAYS_SOFTWARE=true",
+                    "GALLIUM_DRIVER=virpipe",
+                ))
+        else:
             environment.extend((
                 "LIBGL_ALWAYS_SOFTWARE=true",
-                "GALLIUM_DRIVER=virpipe",
+                "GALLIUM_DRIVER=llvmpipe",
             ))
 
         return self.command(["env", *environment, *args], shared_tmp=True)
