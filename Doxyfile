@@ -2,13 +2,16 @@ PROJECT_NAME           = "OpenRoadCode"
 PROJECT_BRIEF          = "Public API reference for OpenRoadCode"
 
 OUTPUT_DIRECTORY       = build/doxygen
-INPUT                  = README.md docs apps controllers services messaging hardware_io protocols config common ui frontends input_events
+INPUT                  = README.md docs apps controllers services messaging \
+                         hardware_io protocols config common ui frontends \
+                         input_events networking security development scripts tools
 FILE_PATTERNS          = *.py *.hpp *.cpp *.md
 RECURSIVE              = YES
 
-# Keep test/build artifacts out of the generated reference. Component
-# README.md files remain discoverable; USE_MDFILE_AS_MAINPAGE below keeps the
-# repository README as the single main page.
+# Keep test/build artifacts out of the generated reference. Production
+# component README.md files remain discoverable; USE_MDFILE_AS_MAINPAGE below
+# keeps the repository README as the single main page. Documentation that lives
+# intentionally under test directories remains excluded with the test code.
 EXCLUDE_PATTERNS       = */test/* */unit_test/* */component_test/* \
                          */integration_test/* */apps/qtUi/* */__pycache__/* \
                          */build/* */build-*/*
