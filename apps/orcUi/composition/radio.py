@@ -6,10 +6,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import tkinter as tk
 
 from apps.launchers.sdrpp_launcher import sync_sdrpp_theme
 from apps.orcUi.orc_ui_app import OrcUiApp
 from apps.orcUi.radio_entry_panel import RadioEntryPanel
+from apps.orcUi.streaming_radio_now_playing import StreamingRadioNowPlaying
 from apps.orcUi.theme_runtime import theme_bundle
 from controllers.radio.adapters.radio_browser_directory import RadioBrowserDirectory
 from controllers.radio.streaming_radio_favorites import StreamingRadioFavorites
@@ -50,4 +52,25 @@ def configure_radio(app: OrcUiApp, runtime) -> RadioComposition:
         sync_theme=sync_theme,
     )
     app.register_screen("RADIO", screen)
+
+    def show_radio_source(source: str) -> None:
+        """Navigate through the shell before opening a radio source."""
+        app.navigate_to("RADIO")
+        if source == "rf":
+            screen.open_rf()
+        elif source == "streaming":
+            screen.open_streaming()
+        else:
+            raise ValueError(f"Unsupported radio source: {source}")
+
+    def home_radio_factory(parent: tk.Misc) -> tk.Widget:
+        return StreamingRadioNowPlaying(
+            parent,
+            controller=runtime.streaming_radio,
+            theme=theme_bundle(app.theme_mode),
+            on_open_rf=lambda: show_radio_source("rf"),
+            on_open_streaming=lambda: show_radio_source("streaming"),
+        )
+
+    app.set_home_radio_factory(home_radio_factory)
     return RadioComposition(screen=screen, directory=directory, favorites=favorites)
