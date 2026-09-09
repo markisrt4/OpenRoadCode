@@ -12,7 +12,7 @@ from apps.orcUi.home_map_panel import HomeMapPanel
 from apps.orcUi.navigation_panel import NavigationPanel
 from apps.orcUi.navigation_presenter import AttitudePresentationState, PositionPresentationState
 from apps.orcUi.offroad_panel import OffRoadPanel
-from apps.orcUi.orc_theme import ThemeMode, install_map_style, toggle, toggle_label
+from apps.orcUi.orc_theme import ThemeMode, toggle, toggle_label
 from apps.orcUi.power_dialog import PowerDialog
 from apps.orcUi.theme_runtime import theme_bundle
 from apps.orcUi.vehicle_panel import VehiclePanel
@@ -71,7 +71,7 @@ class OrcUiApp:
             on_restart=self._restart_ui,
             on_shutdown=self._shutdown_system,
         )
-        install_map_style(self._theme_mode)
+        self._map_runtime.set_theme(self._theme_mode)
         self._build_shell()
         self._show_home()
         self._update_clock()
@@ -299,7 +299,7 @@ class OrcUiApp:
     def _toggle_theme(self) -> None:
         self._theme_mode = toggle(self._theme_mode)
         self._theme = theme_bundle(self._theme_mode)
-        install_map_style(self._theme_mode)
+        self._map_runtime.set_theme(self._theme_mode)
         self._power_dialog.close()
         self._rebuild_shell_theme()
         if self._active_nav == "HOME":
