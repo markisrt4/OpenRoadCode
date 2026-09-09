@@ -66,7 +66,6 @@ Development documentation is also kept beside the tools and platform targets it 
 - [runit services](../scripts/runit/README.md)
 - [Termux scripts](../scripts/termux/README.md)
 - [Map builder](../tools/map_builder/README.md)
-- [XDG paths](xdg_paths.md)
 - [Contributing](../CONTRIBUTING.md)
 
 ## Features and reference
