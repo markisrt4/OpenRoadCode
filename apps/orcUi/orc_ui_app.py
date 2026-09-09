@@ -18,9 +18,13 @@ from apps.orcUi.theme_runtime import theme_bundle
 from apps.orcUi.vehicle_panel import VehiclePanel
 from apps.orcUi.vehicle_presenter import VehiclePresentationState
 from ui.screen_ui_if import ScreenUiIf
-from ui.system import SystemLifecycleRequestHandlerIf
+from ui.system import (
+    SystemLifecycleRequestHandlerIf,
+    VolumeRequestHandlerIf,
+    VolumeUiIf,
+)
 
-class OrcUiApp:
+class OrcUiApp(VolumeUiIf):
     """Own the integrated Tk shell and presentation state."""
     def __init__(
         self,
@@ -61,7 +65,9 @@ class OrcUiApp:
         self._vehicle_state = VehiclePresentationState()
         self._position_state = PositionPresentationState()
         self._attitude_state = AttitudePresentationState()
-        self._volume = 20
+        self._volume_percent: float | None = None
+        self._volume_muted: bool | None = None
+        self._volume_request_handler: VolumeRequestHandlerIf | None = None
         self._volume_label: tk.Label
         self._closing = False
         self._power_dialog = PowerDialog(
@@ -91,6 +97,24 @@ class OrcUiApp:
         self._home_media_factory = factory
         if self._active_nav == "HOME":
             self._show_home()
+    def set_volume_request_handler(
+        self,
+        handler: VolumeRequestHandlerIf | None,
+    ) -> None:
+        """Connect the shell volume controls to a semantic request handler."""
+        self._volume_request_handler = handler
+    def set_volume(self, volume_percent: float | None) -> None:
+        """Display normalized system volume state in the shell."""
+        self._volume_percent = (
+            None
+            if volume_percent is None
+            else max(0.0, min(100.0, volume_percent))
+        )
+        self._paint_volume()
+    def set_muted(self, muted: bool | None) -> None:
+        """Display system mute state in the shell."""
+        self._volume_muted = muted
+        self._paint_volume()
     def register_screen(self, label: str, screen: ScreenUiIf, *, before: str | None = "CONTROLS") -> None:
         nav_label = label.strip().upper()
         if not nav_label:
@@ -256,10 +280,10 @@ class OrcUiApp:
         volume = tk.Frame(bar, bg=ui.surface, highlightthickness=1, highlightbackground=ui.border)
         volume.grid(row=0, column=0, sticky="nsew", padx=3)
         volume.grid_columnconfigure(1, weight=1)
-        tk.Button(volume, text="−", command=lambda: self._change_volume(-5), bg=ui.control_background, fg=ui.control_text, activebackground=ui.control_active, activeforeground="#ffffff", relief=tk.FLAT, bd=0, font=("Sans", 16, "bold")).grid(row=0, column=0, sticky="ns", padx=4)
-        self._volume_label = tk.Label(volume, text="🔊 20%", bg=ui.surface, fg=ui.text, font=("Sans", 10, "bold"))
+        tk.Button(volume, text="−", command=self._request_volume_down, bg=ui.control_background, fg=ui.control_text, activebackground=ui.control_active, activeforeground="#ffffff", relief=tk.FLAT, bd=0, font=("Sans", 16, "bold")).grid(row=0, column=0, sticky="ns", padx=4)
+        self._volume_label = tk.Label(volume, text=self._volume_text(), bg=ui.surface, fg=ui.text, font=("Sans", 10, "bold"))
         self._volume_label.grid(row=0, column=1)
-        tk.Button(volume, text="+", command=lambda: self._change_volume(5), bg=ui.control_background, fg=ui.control_text, activebackground=ui.control_active, activeforeground="#ffffff", relief=tk.FLAT, bd=0, font=("Sans", 15, "bold")).grid(row=0, column=2, sticky="ns", padx=4)
+        tk.Button(volume, text="+", command=self._request_volume_up, bg=ui.control_background, fg=ui.control_text, activebackground=ui.control_active, activeforeground="#ffffff", relief=tk.FLAT, bd=0, font=("Sans", 15, "bold")).grid(row=0, column=2, sticky="ns", padx=4)
         for column, text in enumerate(("🎙  Push to Talk", "▣  Front Cam", "▣  SCREEN\nAuto", "☀  BRIGHTNESS\n70%"), start=1):
             tk.Button(bar, text=text, bg=ui.control_background, fg=ui.control_text, activebackground=ui.control_active, activeforeground="#ffffff", relief=tk.FLAT, highlightthickness=1, highlightbackground=ui.border, font=("Sans", 9)).grid(row=0, column=column, sticky="nsew", padx=3)
         self._theme_button = tk.Button(bar, text=toggle_label(self._theme_mode), command=self._toggle_theme, bg=ui.control_background, fg=ui.control_text, activebackground=ui.control_active, activeforeground="#ffffff", relief=tk.FLAT, highlightthickness=1, highlightbackground=ui.border, font=("Sans", 9, "bold"))
@@ -286,10 +310,22 @@ class OrcUiApp:
         self._build_bottom_bar()
         self._build_footer()
         self._paint_clock()
-    def _change_volume(self, delta: int) -> None:
-        self._volume = max(0, min(100, self._volume + delta))
-        icon = "🔇" if self._volume == 0 else "🔊"
-        self._volume_label.configure(text=f"{icon} {self._volume}%")
+    def _request_volume_up(self) -> None:
+        handler = self._volume_request_handler
+        if handler is not None:
+            handler.request_volume_up()
+    def _request_volume_down(self) -> None:
+        handler = self._volume_request_handler
+        if handler is not None:
+            handler.request_volume_down()
+    def _volume_text(self) -> str:
+        icon = "🔇" if self._volume_muted else "🔊"
+        if self._volume_percent is None:
+            return f"{icon} --"
+        return f"{icon} {round(self._volume_percent)}%"
+    def _paint_volume(self) -> None:
+        if hasattr(self, "_volume_label") and self._volume_label.winfo_exists():
+            self._volume_label.configure(text=self._volume_text())
     def _restart_ui(self) -> None:
         self._lifecycle_handler.request_restart_ui()
         self._shutdown()
