@@ -154,13 +154,37 @@ class GamesScreen(TkScreen):
             raise RuntimeError(f"{game.name} exited immediately")
         threading.Thread(
             target=self._embed_runtime,
-            args=(process_id, host_id, width, height, generation),
+            args=(
+                process_id,
+                host_id,
+                width,
+                height,
+                generation,
+                game.window_name,
+                game.window_class,
+            ),
             daemon=True,
         ).start()
 
-    def _embed_runtime(self, process_id: int, host_id: int, width: int, height: int, generation: int) -> None:
+    def _embed_runtime(
+        self,
+        process_id: int,
+        host_id: int,
+        width: int,
+        height: int,
+        generation: int,
+        window_name: str | None,
+        window_class: str | None,
+    ) -> None:
         try:
-            self._embedder.embed(process_id, host_id, width, height)
+            self._embedder.embed(
+                process_id,
+                host_id,
+                width,
+                height,
+                window_name=window_name,
+                window_class=window_class,
+            )
         except Exception:
             self._host.schedule_ui_callback(0, lambda: self._embed_failed(generation))
         else:
