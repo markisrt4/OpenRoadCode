@@ -3,9 +3,11 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
+from unittest.mock import patch
 
 from config.application_config import (
     ApplicationConfigError,
@@ -52,6 +54,14 @@ enabled = false
         self.assertEqual(weather.exclusive_group, "auxiliary")
         self.assertEqual(config.preload_apps(), (weather,))
         self.assertFalse(config.app("sdrpp").enabled)
+
+    def test_browser_profile_root_defaults_to_xdg_data_home(self) -> None:
+        with patch.dict(os.environ, {"XDG_DATA_HOME": "/mnt/orc-data"}):
+            config = self._load("[apps]\n")
+        self.assertEqual(
+            config.browser.profile_root,
+            Path("/mnt/orc-data/openroadcode/browser"),
+        )
 
     def test_defaults_startup_to_lazy_and_enabled_to_true(self) -> None:
         config = self._load(
