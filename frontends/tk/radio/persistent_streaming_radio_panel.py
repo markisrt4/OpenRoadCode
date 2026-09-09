@@ -10,7 +10,7 @@ import threading
 from controllers.radio.streaming_radio_favorites import StreamingRadioFavorites
 from controllers.radio.streaming_radio_filters import StationFilters
 from controllers.radio.streaming_radio_types import StreamingRadioStation
-from frontends.tk.radio.streaming_radio_panel import StreamingRadioPanel
+from frontends.tk.radio.streaming_radio_panel import DANGER, StreamingRadioPanel
 
 
 class PersistentStreamingRadioPanel(StreamingRadioPanel):
@@ -81,7 +81,7 @@ class PersistentStreamingRadioPanel(StreamingRadioPanel):
         except (OSError, ValueError) as error:
             self._selection_label.configure(
                 text=f"Unable to save favorite: {error}",
-                fg=self._theme.ui.accent_danger,
+                fg=DANGER,
             )
             return
 
