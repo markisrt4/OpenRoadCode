@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping
-from concurrent.futures import Executor, ThreadPoolExecutor
+from concurrent.futures import CancelledError, Executor, ThreadPoolExecutor
 from dataclasses import dataclass
 from threading import Event, Lock, Thread
 from typing import Any
@@ -66,19 +66,17 @@ class MessageDispatcher:
             daemon=True,
         )
         self._started = False
+        self._closed = False
 
     def register(self, topic: str, decoder: Decoder, handler: Handler) -> None:
-        """Subscribe and register one decoder/handler pair for a topic.
-
-        @param topic Public topic name to subscribe to and dispatch.
-        @param decoder Contract decoder that converts the wire payload to a typed message.
-        @param handler Application callback invoked with each decoded message.
-        """
+        """Subscribe and register one decoder/handler pair for a topic."""
         if not topic:
             raise ValueError("topic must not be empty")
         with self._lock:
             if self._started:
                 raise RuntimeError("registrations must be completed before start()")
+            if self._closed:
+                raise RuntimeError("dispatcher is closed")
             if topic in self._registrations:
                 raise ValueError(f"topic already registered: {topic}")
             self._registrations[topic] = _Registration(decoder, handler)
@@ -87,17 +85,28 @@ class MessageDispatcher:
     def start(self) -> None:
         """Start the single subscriber receive thread after registration is complete."""
         with self._lock:
+            if self._closed:
+                raise RuntimeError("dispatcher is closed")
             if self._started:
                 return
             self._started = True
         self._thread.start()
 
     def close(self) -> None:
-        """Stop reception, close transport resources, and drain handler work."""
+        """Stop reception before shutting down handler workers.
+
+        The receive thread must be fully stopped before the owned executor is
+        shut down. Otherwise a message received during teardown can race an
+        executor shutdown and attempt to submit work after shutdown has begun.
+        """
+        with self._lock:
+            if self._closed:
+                return
+            self._closed = True
         self._stop_event.set()
         self._subscriber.close()
         if self._thread.is_alive():
-            self._thread.join(timeout=1.0)
+            self._thread.join()
         if self._owns_executor:
             self._executor.shutdown(wait=True, cancel_futures=True)
 
@@ -110,6 +119,11 @@ class MessageDispatcher:
                     self._report_error("receive", exc)
                 return
 
+            # close() can become visible while receive() is returning. Do not
+            # decode or submit one final message after shutdown has started.
+            if self._stop_event.is_set():
+                return
+
             with self._lock:
                 registration = self._registrations.get(topic)
             if registration is None:
@@ -118,10 +132,21 @@ class MessageDispatcher:
             try:
                 message = registration.decoder(payload)
             except Exception as exc:
-                self._report_error(topic, exc)
+                if not self._stop_event.is_set():
+                    self._report_error(topic, exc)
                 continue
 
-            future = self._executor.submit(registration.handler, message)
+            if self._stop_event.is_set():
+                return
+
+            try:
+                future = self._executor.submit(registration.handler, message)
+            except RuntimeError as exc:
+                # An externally supplied executor can be shut down independently.
+                # During our own teardown this is expected and should be silent.
+                if not self._stop_event.is_set():
+                    self._report_error(topic, exc)
+                return
             future.add_done_callback(
                 lambda completed, message_topic=topic: self._handler_done(
                     message_topic, completed
@@ -129,10 +154,15 @@ class MessageDispatcher:
             )
 
     def _handler_done(self, topic: str, future) -> None:
+        if future.cancelled():
+            return
         try:
             future.result()
+        except CancelledError:
+            return
         except Exception as exc:
-            self._report_error(topic, exc)
+            if not self._stop_event.is_set():
+                self._report_error(topic, exc)
 
     def _report_error(self, topic: str, exc: Exception) -> None:
         if self._error_handler is not None:
