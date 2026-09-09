@@ -21,6 +21,7 @@ from apps.orcUi.navigation_panel import NavigationPanel
 from apps.orcUi.navigation_presenter import AttitudePresentationState, PositionPresentationState
 from apps.orcUi.offroad_panel import OffRoadPanel
 from apps.orcUi.orc_theme import ThemeMode, install_map_style, toggle, toggle_label
+from apps.orcUi.power_dialog import PowerDialog
 from apps.orcUi.theme_runtime import theme_bundle
 from apps.orcUi.vehicle_panel import VehiclePanel
 from apps.orcUi.vehicle_presenter import VehiclePresentationState
@@ -42,7 +43,6 @@ class OrcUiApp:
         self._root.configure(bg=ui.background)
         self._theme_button: tk.Button
         self._power_button: tk.Button
-        self._power_dialog: tk.Toplevel | None = None
         self._active_nav = "HOME"
         self._nav_items = ["HOME", "NAVIGATION", "RADIO", "VEHICLE", "LIGHTING", "CONTROLS", "SETTINGS"]
         self._nav_buttons: dict[str, tk.Button] = {}
@@ -50,6 +50,7 @@ class OrcUiApp:
         self._active_screen: ScreenUiIf | None = None
         self._screen_back_action: Callable[[], None] | None = None
         self._screen_status = ""
+        self._home_radio_factory: Callable[[tk.Misc], tk.Widget] | None = None
         self._home_media_factory: Callable[[tk.Misc], tk.Widget] | None = None
         self._nav_frame: tk.Frame
         self._clock_label: tk.Label
@@ -66,6 +67,13 @@ class OrcUiApp:
         self._volume = 20
         self._volume_label: tk.Label
         self._closing = False
+        self._power_dialog = PowerDialog(
+            self._root,
+            theme=lambda: self._theme,
+            on_exit=self._on_close,
+            on_restart=self._restart_ui,
+            on_shutdown=self._shutdown_system,
+        )
         install_map_style(self._theme_mode)
         self._build_shell()
         self._show_home()
@@ -78,6 +86,12 @@ class OrcUiApp:
     @property
     def screen_parent(self) -> tk.Misc:
         return self._content
+
+    def set_home_radio_factory(self, factory: Callable[[tk.Misc], tk.Widget] | None) -> None:
+        """Install a radio-owned Home summary without coupling the shell to radio."""
+        self._home_radio_factory = factory
+        if self._active_nav == "HOME":
+            self._show_home()
 
     def set_home_media_factory(self, factory: Callable[[tk.Misc], tk.Widget] | None) -> None:
         """Install a media-owned Home summary without coupling the shell to Spotify."""
@@ -231,7 +245,7 @@ class OrcUiApp:
         status.grid(row=0, column=2, padx=(8, 14), sticky="e")
         tk.Label(status, text="☁  --°F", fg=ui.text, bg=ui.surface_alt, font=("Sans", 11, "bold")).pack(side=tk.LEFT, padx=(0, 10))
         tk.Label(status, text="GPS  ▮▮▮   WiFi   BT   🚗", fg=ui.text_muted, bg=ui.surface_alt, font=("Sans", 11)).pack(side=tk.LEFT, padx=(0, 10))
-        self._power_button = tk.Button(status, text="⏻", command=self._show_power_dialog, bg=ui.control_background, fg=ui.control_text, activebackground=ui.control_active, activeforeground="#ffffff", relief=tk.FLAT, bd=0, font=("Sans", 16, "bold"), padx=10, pady=2)
+        self._power_button = tk.Button(status, text="⏻", command=self._power_dialog.show, bg=ui.control_background, fg=ui.control_text, activebackground=ui.control_active, activeforeground="#ffffff", relief=tk.FLAT, bd=0, font=("Sans", 16, "bold"), padx=10, pady=2)
         self._power_button.pack(side=tk.LEFT)
 
     def _build_logo_mark(self, parent: tk.Misc) -> None:
@@ -312,39 +326,6 @@ class OrcUiApp:
         icon = "🔇" if self._volume == 0 else "🔊"
         self._volume_label.configure(text=f"{icon} {self._volume}%")
 
-    def _show_power_dialog(self) -> None:
-        if self._power_dialog is not None and self._power_dialog.winfo_exists():
-            self._power_dialog.lift()
-            return
-        ui = self._theme.ui
-        dialog = tk.Toplevel(self._root)
-        self._power_dialog = dialog
-        dialog.title("OpenRoadCode Power")
-        dialog.transient(self._root)
-        dialog.resizable(False, False)
-        dialog.configure(bg=ui.surface)
-        dialog.protocol("WM_DELETE_WINDOW", self._close_power_dialog)
-        frame = tk.Frame(dialog, bg=ui.surface, padx=18, pady=16)
-        frame.pack(fill=tk.BOTH, expand=True)
-        tk.Label(frame, text="POWER", fg=ui.text, bg=ui.surface, font=("Sans", 16, "bold")).pack(pady=(0, 4))
-        tk.Label(frame, text="System actions are intentionally two taps away.", fg=ui.text_muted, bg=ui.surface, font=("Sans", 9)).pack(pady=(0, 14))
-        for text, command in (("EXIT UI", self._on_close), ("RESTART UI", self._restart_ui), ("SHUT DOWN SYSTEM", self._show_shutdown_confirmation), ("CANCEL", self._close_power_dialog)):
-            tk.Button(frame, text=text, command=command, bg=ui.control_background, fg=ui.control_text, activebackground=ui.control_active, activeforeground="#ffffff", relief=tk.FLAT, width=24, pady=8, font=("Sans", 10, "bold")).pack(fill=tk.X, pady=3)
-        self._center_power_dialog(dialog)
-
-    def _show_shutdown_confirmation(self) -> None:
-        self._shutdown_system()
-
-    def _reopen_power_dialog(self) -> None:
-        self._close_power_dialog()
-        self._show_power_dialog()
-
-    def _close_power_dialog(self) -> None:
-        dialog = self._power_dialog
-        self._power_dialog = None
-        if dialog is not None and dialog.winfo_exists():
-            dialog.destroy()
-
     def _restart_ui(self) -> None:
         self._map_runtime.stop()
         os.execv(sys.executable, [sys.executable, "-m", "apps.orcUi"])
@@ -360,18 +341,11 @@ class OrcUiApp:
         subprocess.Popen(command)
         self._shutdown()
 
-    def _center_power_dialog(self, dialog: tk.Toplevel) -> None:
-        dialog.update_idletasks()
-        width, height = dialog.winfo_reqwidth(), dialog.winfo_reqheight()
-        x = self._root.winfo_rootx() + max(0, (self._root.winfo_width() - width) // 2)
-        y = self._root.winfo_rooty() + max(0, (self._root.winfo_height() - height) // 2)
-        dialog.geometry(f"{width}x{height}+{x}+{y}")
-
     def _toggle_theme(self) -> None:
         self._theme_mode = toggle(self._theme_mode)
         self._theme = theme_bundle(self._theme_mode)
         install_map_style(self._theme_mode)
-        self._close_power_dialog()
+        self._power_dialog.close()
         self._rebuild_shell_theme()
         self._apply_theme_to_content()
         active_screen = self._active_screen
@@ -452,7 +426,10 @@ class OrcUiApp:
         lower.grid_rowconfigure(0, weight=1)
         radio = self._panel(lower, "RADIO", ui.accent_warning)
         radio.grid(row=0, column=0, sticky="nsew", padx=(0, 5))
-        self._summary(radio, "101.1 FM", "Radio service")
+        if self._home_radio_factory is None:
+            self._summary(radio, "No radio active", "Choose RF or streaming")
+        else:
+            self._home_radio_factory(radio).pack(fill=tk.BOTH, expand=True)
         media = self._panel(lower, "MEDIA", ui.accent_primary)
         media.grid(row=0, column=1, sticky="nsew", padx=(5, 0))
         if self._home_media_factory is None:
