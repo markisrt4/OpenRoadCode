@@ -7,9 +7,18 @@ import unittest
 from unittest.mock import Mock, patch
 
 from apps.orcUi.core_runtime import MapRuntime, StateIngressRuntime
+from apps.orcUi.orc_theme import ThemeMode
 
 
 class MapRuntimeTest(unittest.TestCase):
+    @patch("apps.orcUi.core_runtime.install_map_style")
+    def test_set_theme_installs_map_style(self, install_map_style: Mock) -> None:
+        runtime = MapRuntime(Mock())
+
+        runtime.set_theme(ThemeMode.LIGHT)
+
+        install_map_style.assert_called_once_with(ThemeMode.LIGHT)
+
     @patch.dict("apps.orcUi.core_runtime.os.environ", {"DISPLAY": ":9"})
     def test_launch_supplies_display_and_parent_window(self) -> None:
         renderer = Mock()
