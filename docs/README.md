@@ -40,17 +40,17 @@ Generated from the canonical documentation files. Every component README and sta
 
 ### Apps
 
-- [Automotive Dashboard](../apps/automotive_dashboard/README.md)
-- [Car Tui](../apps/carTui/README.md)
-- [Car Ui](../apps/carUi/README.md)
+- [Automotive Dashboard (`apps/automotive_dashboard`)](../apps/automotive_dashboard/README.md)
+- [Cartui (`apps/carTui`)](../apps/carTui/README.md)
 - [Input (`apps/carUi/input`)](../apps/carUi/input/README.md)
+- [Carui (`apps/carUi`)](../apps/carUi/README.md)
 - [Runtime (`apps/carUi/runtime`)](../apps/carUi/runtime/README.md)
 - [Automotive (`apps/demos/automotive`)](../apps/demos/automotive/README.md)
-- [Launchers](../apps/launchers/README.md)
-- [Map Renderer](../apps/map_renderer/README.md)
+- [Launchers (`apps/launchers`)](../apps/launchers/README.md)
+- [Map Renderer (`apps/map_renderer`)](../apps/map_renderer/README.md)
 - [Architecture (`apps/orcUi`)](../apps/orcUi/ARCHITECTURE.md)
-- [Weatherdash](../apps/weatherDash/README.md)
-- [Webui](../apps/webUi/README.md)
+- [Weatherdash (`apps/weatherDash`)](../apps/weatherDash/README.md)
+- [Webui (`apps/webUi`)](../apps/webUi/README.md)
 
 ### Config
 
@@ -58,31 +58,31 @@ Generated from the canonical documentation files. Every component README and sta
 
 ### Controllers
 
-- [Audio](../controllers/audio/README.md)
-- [Automotive](../controllers/automotive/README.md)
+- [Audio (`controllers/audio`)](../controllers/audio/README.md)
 - [Obd2 (`controllers/automotive/obd2`)](../controllers/automotive/obd2/README.md)
-- [Cache](../controllers/cache/README.md)
-- [Environmental](../controllers/environmental/README.md)
-- [Image](../controllers/image/README.md)
-- [Input](../controllers/input/README.md)
-- [Lighting](../controllers/lighting/README.md)
-- [Navigation](../controllers/navigation/README.md)
-- [Radio](../controllers/radio/README.md)
-- [Route Planning](../controllers/route_planning/README.md)
-- [Sdr](../controllers/sdr/README.md)
-- [Spotify](../controllers/spotify/README.md)
-- [Streaming Radio](../controllers/streaming_radio/README.md)
-- [Video](../controllers/video/README.md)
-- [Weather](../controllers/weather/README.md)
+- [Automotive (`controllers/automotive`)](../controllers/automotive/README.md)
+- [Cache (`controllers/cache`)](../controllers/cache/README.md)
+- [Environmental (`controllers/environmental`)](../controllers/environmental/README.md)
+- [Image (`controllers/image`)](../controllers/image/README.md)
+- [Input (`controllers/input`)](../controllers/input/README.md)
+- [Lighting (`controllers/lighting`)](../controllers/lighting/README.md)
+- [Navigation (`controllers/navigation`)](../controllers/navigation/README.md)
+- [Radio (`controllers/radio`)](../controllers/radio/README.md)
+- [Route Planning (`controllers/route_planning`)](../controllers/route_planning/README.md)
+- [Sdr (`controllers/sdr`)](../controllers/sdr/README.md)
+- [Spotify (`controllers/spotify`)](../controllers/spotify/README.md)
+- [Streaming Radio (`controllers/streaming_radio`)](../controllers/streaming_radio/README.md)
+- [Video (`controllers/video`)](../controllers/video/README.md)
+- [Weather (`controllers/weather`)](../controllers/weather/README.md)
 
 ### Development
 
 - [Maplibre (`development/containers/maplibre`)](../development/containers/maplibre/README.md)
 - [Scripts (`development/containers/maplibre/scripts`)](../development/containers/maplibre/scripts/README.md)
-- [Sdrpp](../development/sdrpp/README.md)
+- [Sdrpp (`development/sdrpp`)](../development/sdrpp/README.md)
 - [Remote Control (`development/sdrpp/remote_control`)](../development/sdrpp/remote_control/README.md)
 - [Telemetry (`development/sdrpp/telemetry`)](../development/sdrpp/telemetry/README.md)
-- [Termux](../development/termux/README.md)
+- [Termux (`development/termux`)](../development/termux/README.md)
 
 ### Docs
 
@@ -113,17 +113,17 @@ Generated from the canonical documentation files. Every component README and sta
 
 ### Hardware Io
 
-- [Android](../hardware_io/android/README.md)
-- [Automotive](../hardware_io/automotive/README.md)
+- [Android (`hardware_io/android`)](../hardware_io/android/README.md)
 - [Elm327 (`hardware_io/automotive/elm327`)](../hardware_io/automotive/elm327/README.md)
-- [Bluetooth](../hardware_io/bluetooth/README.md)
-- [Environmental](../hardware_io/environmental/README.md)
-- [Gpio](../hardware_io/gpio/README.md)
-- [Gps](../hardware_io/gps/README.md)
-- [Imu](../hardware_io/imu/README.md)
-- [Keyboard](../hardware_io/keyboard/README.md)
-- [Potentiometer](../hardware_io/potentiometer/README.md)
-- [Rotary Encoder](../hardware_io/rotary_encoder/README.md)
+- [Automotive (`hardware_io/automotive`)](../hardware_io/automotive/README.md)
+- [Bluetooth (`hardware_io/bluetooth`)](../hardware_io/bluetooth/README.md)
+- [Environmental (`hardware_io/environmental`)](../hardware_io/environmental/README.md)
+- [Gpio (`hardware_io/gpio`)](../hardware_io/gpio/README.md)
+- [Gps (`hardware_io/gps`)](../hardware_io/gps/README.md)
+- [Imu (`hardware_io/imu`)](../hardware_io/imu/README.md)
+- [Keyboard (`hardware_io/keyboard`)](../hardware_io/keyboard/README.md)
+- [Potentiometer (`hardware_io/potentiometer`)](../hardware_io/potentiometer/README.md)
+- [Rotary Encoder (`hardware_io/rotary_encoder`)](../hardware_io/rotary_encoder/README.md)
 
 ### Input Events
 
@@ -140,23 +140,23 @@ Generated from the canonical documentation files. Every component README and sta
 
 ### Protocols
 
-- [Can](../protocols/can/README.md)
-- [Map Renderer](../protocols/map_renderer/README.md)
-- [Oauth](../protocols/oauth/README.md)
-- [Obd2](../protocols/obd2/README.md)
-- [Rigctl](../protocols/rigctl/README.md)
-- [Sdrpp Telemetry](../protocols/sdrpp_telemetry/README.md)
-- [Spotify](../protocols/spotify/README.md)
+- [Can (`protocols/can`)](../protocols/can/README.md)
+- [Map Renderer (`protocols/map_renderer`)](../protocols/map_renderer/README.md)
+- [Oauth (`protocols/oauth`)](../protocols/oauth/README.md)
+- [Obd2 (`protocols/obd2`)](../protocols/obd2/README.md)
+- [Rigctl (`protocols/rigctl`)](../protocols/rigctl/README.md)
+- [Sdrpp Telemetry (`protocols/sdrpp_telemetry`)](../protocols/sdrpp_telemetry/README.md)
+- [Spotify (`protocols/spotify`)](../protocols/spotify/README.md)
 
 ### Scripts
 
-- [Runit](../scripts/runit/README.md)
-- [Termux](../scripts/termux/README.md)
+- [Runit (`scripts/runit`)](../scripts/runit/README.md)
+- [Termux (`scripts/termux`)](../scripts/termux/README.md)
 
 ### Services
 
-- [Automotive](../services/automotive/README.md)
-- [Navigation](../services/navigation/README.md)
+- [Automotive (`services/automotive`)](../services/automotive/README.md)
+- [Navigation (`services/navigation`)](../services/navigation/README.md)
 
 ### Tools
 
@@ -164,8 +164,8 @@ Generated from the canonical documentation files. Every component README and sta
 
 ### Ui
 
-- [Ui](../ui/README.md)
 - [Component Test (`ui/component_test`)](../ui/component_test/README.md)
+- [Ui](../ui/README.md)
 
 <!-- END GENERATED DOCS INDEX -->
 
