@@ -13,6 +13,7 @@ from apps.orcUi.composition.games import configure_games
 from apps.orcUi.composition.media import MediaComposition, configure_media
 from apps.orcUi.composition.radio import configure_radio
 from apps.orcUi.orc_ui_app import OrcUiApp
+from frontends.tk.games import GamesScreen
 
 
 @dataclass(slots=True)
@@ -22,6 +23,7 @@ class OrcUiComposition:
     core: CoreComposition
     runtime: OrcUiApplicationRuntime
     media: MediaComposition
+    games: GamesScreen
 
     @property
     def app(self) -> OrcUiApp:
@@ -35,12 +37,18 @@ class OrcUiComposition:
             self.app.run()
         finally:
             try:
-                self.media.close()
+                # Games can own proot/GTK child processes. Shut them down before
+                # closing media or state ingress so teardown does not race a live
+                # embedded game session.
+                self.games.shutdown()
             finally:
                 try:
-                    self.core.close()
+                    self.media.close()
                 finally:
-                    self.runtime.close()
+                    try:
+                        self.core.close()
+                    finally:
+                        self.runtime.close()
 
 
 def create_orc_ui_composition() -> OrcUiComposition:
@@ -51,11 +59,11 @@ def create_orc_ui_composition() -> OrcUiComposition:
         core = create_core_composition()
         app = core.app
         configure_radio(app, runtime)
-        configure_games(app)
+        games = configure_games(app)
         media = configure_media(app, runtime)
     except Exception:
         if core is not None:
             core.close()
         runtime.close()
         raise
-    return OrcUiComposition(core=core, runtime=runtime, media=media)
+    return OrcUiComposition(core=core, runtime=runtime, media=media, games=games)
