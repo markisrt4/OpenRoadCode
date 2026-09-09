@@ -59,6 +59,7 @@ icon = "gnome-2048"
 command = ["gnome-2048"]
 hardware_acceleration = false
 environment = { GSK_RENDERER = "cairo" }
+window_name = "2048"
 [games.install]
 debian_package = "gnome-2048"
 
@@ -70,6 +71,8 @@ icon = "gnome-nibbles"
 command = ["gnome-nibbles"]
 hardware_acceleration = false
 environment = { GSK_RENDERER = "cairo" }
+window_name = "Nibbles"
+window_class = "org.gnome.Nibbles"
 [games.install]
 debian_package = "gnome-nibbles"
 
@@ -81,6 +84,7 @@ icon = "gnome-sudoku"
 command = ["gnome-sudoku"]
 hardware_acceleration = false
 environment = { GSK_RENDERER = "cairo" }
+window_name = "Sudoku"
 [games.install]
 debian_package = "gnome-sudoku"
 
