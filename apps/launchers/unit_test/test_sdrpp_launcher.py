@@ -5,27 +5,21 @@
 
 import json
 import os
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import Mock, patch
 
 from apps.launchers.sdrpp_launcher import (
-    SDRPPLauncher,
-    SDRPPProfile,
-    _is_termux,
-    _sdrpp_environment,
-    _stop_readsb_service,
-    sync_sdrpp_theme,
+    SDRPPLauncher, SDRPPProfile, _is_termux, _sdrpp_environment,
+    _stop_readsb_service, sync_sdrpp_theme,
 )
 
 
 class SDRPPLauncherTest(unittest.TestCase):
     def setUp(self) -> None:
-        self.profile = SDRPPProfile(
-            name="fm", mode="WFM", step_hz=100_000,
-            start_frequency_hz=101_100_000,
-        )
+        self.profile = SDRPPProfile(name="fm", mode="WFM", step_hz=100_000, start_frequency_hz=101_100_000)
 
     def test_environment_targets_requested_x11_display(self) -> None:
         with patch.dict(os.environ, {"KEEP_ME": "yes", "LD_PRELOAD": "old.so"}, clear=True):
@@ -86,9 +80,7 @@ class SDRPPLauncherTest(unittest.TestCase):
     @patch("apps.launchers.sdrpp_launcher._is_termux", return_value=True)
     @patch("apps.launchers.sdrpp_launcher.shutil.which")
     def test_termux_launch_command_uses_debian_proot(self, which: Mock, _termux: Mock) -> None:
-        which.side_effect = lambda command: (
-            "/data/data/com.termux/files/usr/bin/proot-distro" if command == "proot-distro" else None
-        )
+        which.side_effect = lambda command: "/data/data/com.termux/files/usr/bin/proot-distro" if command == "proot-distro" else None
         launcher = SDRPPLauncher(profile=self.profile)
         command = launcher._launch_command(":1")
         self.assertEqual("/data/data/com.termux/files/usr/bin/proot-distro", command[0])
@@ -151,10 +143,7 @@ class SDRPPLauncherTest(unittest.TestCase):
     def test_readsb_stop_uses_termux_runit(self, which: Mock, run: Mock, _termux: Mock) -> None:
         which.side_effect = lambda command: "/usr/bin/sv" if command == "sv" else None
         self.assertIsNone(_stop_readsb_service())
-        run.assert_called_once_with(
-            ["/usr/bin/sv", "down", "readsb"],
-            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False,
-        )
+        run.assert_called_once_with(["/usr/bin/sv", "down", "readsb"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False)
 
     @patch("apps.launchers.sdrpp_launcher._stop_readsb_service")
     def test_existing_ready_process_does_not_spawn_another(self, stop_readsb: Mock) -> None:
