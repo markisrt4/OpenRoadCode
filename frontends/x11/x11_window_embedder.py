@@ -203,16 +203,6 @@ class X11WindowEmbedder(WindowEmbedderIf):
                 best_id = window_id
         return best_id
 
-    @staticmethod
-    def _parent_window_id(window_id: int) -> int | None:
-        if shutil.which("xwininfo") is None:
-            return None
-        result = subprocess.run(["xwininfo", "-id", str(window_id), "-tree"], capture_output=True, text=True, check=False)
-        if result.returncode != 0:
-            return None
-        match = re.search(r"Parent window id:\s*(0x[0-9a-fA-F]+)", result.stdout or "")
-        return int(match.group(1), 16) if match else None
-
     def resize(self, width: int, height: int) -> None:
         if self._window_id is None:
             return
@@ -220,10 +210,11 @@ class X11WindowEmbedder(WindowEmbedderIf):
         height = max(1, int(height))
         subprocess.run(["xdotool", "windowsize", str(self._window_id), str(width), str(height)], check=False)
 
-        if self._host_window_id is None:
-            return
-        parent_id = self._parent_window_id(self._window_id)
-        if parent_id == self._host_window_id:
+        # Once ORC has successfully reparented the client, its coordinates are
+        # relative to the runtime host. Always pin it to the host origin. Some
+        # GTK/CSD clients keep their pre-reparent desktop position otherwise,
+        # which leaves the embedded game offset and clipped inside the panel.
+        if self._host_window_id is not None:
             subprocess.run(["xdotool", "windowmove", str(self._window_id), "0", "0"], check=False)
 
     def clear(self) -> None:

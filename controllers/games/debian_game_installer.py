@@ -73,6 +73,19 @@ class DebianGameInstaller(GameInstallerIf):
 
     def launch_command(self, game: GameDefinition) -> Sequence[str]:
         """Return a host command that executes *game* graphically inside Debian."""
+        environment = dict(game.environment)
+        hardware_acceleration = True
+        if self._runner.is_proot:
+            environment.update(game.termux_proot.environment)
+            hardware_acceleration = game.termux_proot.hardware_acceleration
+        environment_args = [f"{name}={value}" for name, value in environment.items()]
         return self._runner.graphical_command(
-            ["env", f"PATH={self._GAME_PATH}", *game.command]
+            ["env", f"PATH={self._GAME_PATH}", *environment_args, *game.command],
+            hardware_acceleration=hardware_acceleration,
         )
+
+    def window_selectors(self, game: GameDefinition) -> tuple[str | None, str | None]:
+        """Return proot-only X11 selectors needed when wrapper PIDs hide the client."""
+        if not self._runner.is_proot:
+            return None, None
+        return game.termux_proot.window_name, game.termux_proot.window_class

@@ -4,6 +4,16 @@ from dataclasses import dataclass, field
 
 
 @dataclass(frozen=True, slots=True)
+class TermuxProotRuntimeConfig:
+    """Termux/proot-only launch and X11 compatibility settings."""
+
+    environment: dict[str, str] = field(default_factory=dict)
+    hardware_acceleration: bool = True
+    window_name: str | None = None
+    window_class: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
 class GameDefinition:
     """Configuration describing an externally installed native game."""
 
@@ -14,6 +24,7 @@ class GameDefinition:
     icon: str | None = None
     enabled: bool = True
     environment: dict[str, str] = field(default_factory=dict)
+    termux_proot: TermuxProotRuntimeConfig = field(default_factory=TermuxProotRuntimeConfig)
     termux_package: str | None = None
     termux_dependencies: tuple[str, ...] = ()
     debian_package: str | None = None

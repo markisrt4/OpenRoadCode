@@ -4,6 +4,9 @@
 # display. Application lifecycle policy intentionally mirrors applications.toml;
 # only presentation routing differs for the Android/Termux runtime.
 
+[browser]
+profile_root = "~/.local/share/openroadcode/browser"
+
 [presentation]
 default_target = "primary"
 

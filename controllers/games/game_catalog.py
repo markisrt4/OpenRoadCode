@@ -3,7 +3,7 @@
 from pathlib import Path
 import tomllib
 
-from .game_types import GameDefinition
+from .game_types import GameDefinition, TermuxProotRuntimeConfig
 
 
 def load_game_catalog(path: str | Path) -> list[GameDefinition]:
@@ -15,6 +15,7 @@ def load_game_catalog(path: str | Path) -> list[GameDefinition]:
     games: list[GameDefinition] = []
     for entry in data.get("games", []):
         install = entry.get("install", {})
+        termux_proot = entry.get("termux_proot", {})
         games.append(
             GameDefinition(
                 name=entry["name"],
@@ -24,6 +25,12 @@ def load_game_catalog(path: str | Path) -> list[GameDefinition]:
                 icon=entry.get("icon"),
                 enabled=entry.get("enabled", True),
                 environment=dict(entry.get("environment", {})),
+                termux_proot=TermuxProotRuntimeConfig(
+                    environment=dict(termux_proot.get("environment", {})),
+                    hardware_acceleration=termux_proot.get("hardware_acceleration", True),
+                    window_name=termux_proot.get("window_name"),
+                    window_class=termux_proot.get("window_class"),
+                ),
                 termux_package=install.get("termux_package"),
                 termux_dependencies=tuple(install.get("termux_dependencies", [])),
                 debian_package=install.get("debian_package"),

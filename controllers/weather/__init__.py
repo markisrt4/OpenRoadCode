@@ -4,13 +4,15 @@
 """Toolkit-independent weather retrieval and snapshot caching."""
 
 from importlib import import_module
+from pathlib import Path
 from typing import Any
 
-from common.xdg_paths import openroadcode_cache_dir
 from controllers.weather.weather_snapshot import WeatherLocation, WeatherSnapshot
 from controllers.weather.weather_snapshot_cache import WeatherSnapshotCache
 
-DEFAULT_WEATHER_CACHE_DIRECTORY = openroadcode_cache_dir("weather")
+DEFAULT_WEATHER_CACHE_DIRECTORY = (
+    Path.home() / ".cache" / "openroadcode" / "weather"
+)
 
 __all__ = [
     "OpenMeteoWeatherController",

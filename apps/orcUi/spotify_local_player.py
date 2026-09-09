@@ -12,11 +12,11 @@ import time
 from collections.abc import Callable
 from dataclasses import dataclass
 from enum import Enum
+from pathlib import Path
 
 from apps.launchers import BrowserKioskLauncher
 from apps.orcUi.spotify_state_service import SpotifyStateService
 from apps.orcUi.spotify_web_player_host import SpotifyWebPlayerHost
-from common.xdg_paths import openroadcode_data_dir
 
 WINDOW_CLASS = "OpenRoadCodeSpotifyPlayer"
 SPOTIFY_PLAYER_BROWSERS = ("google-chrome-stable", "google-chrome")
@@ -235,7 +235,7 @@ class SpotifyLocalPlayer:
             browser_candidates=SPOTIFY_PLAYER_BROWSERS,
             kiosk=False,
             app_mode=True,
-            profile_path=openroadcode_data_dir("spotify-player-browser"),
+            profile_path=Path.home() / ".cache" / "openroadcode" / "spotify-player-browser",
             window_position=(8, 8),
             window_size=(420, 220),
             startup_grace_seconds=0.5,

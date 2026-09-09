@@ -7,8 +7,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from common.xdg_paths import openroadcode_cache_dir
-
 try:
     import tomllib
 except ModuleNotFoundError:  # Python 3.10
@@ -41,7 +39,7 @@ class ImageCacheConfig:
 class PositionCacheConfig:
     """Configure persistence of the last valid geographic fix."""
     enabled: bool = True
-    directory: Path = openroadcode_cache_dir("position")
+    directory: Path = Path.home() / ".cache" / "openroadcode" / "position"
     max_age_seconds: float = 604800.0
 
 
@@ -236,15 +234,12 @@ class RuntimeConfigParser:
     def _parse_position_cache(self, data: Any) -> PositionCacheConfig:
         section = self._expect_table(data, "position_cache")
         enabled = self._optional_bool(section, "enabled", default=True, section_name="position_cache")
-        directory_value = section.get("directory")
-        if directory_value is None:
-            directory = openroadcode_cache_dir("position")
-        elif not isinstance(directory_value, str) or not directory_value.strip():
+        directory_value = section.get("directory", "~/.cache/openroadcode/position")
+        if not isinstance(directory_value, str) or not directory_value.strip():
             raise RuntimeConfigError("position_cache.directory must be a non-empty path")
-        else:
-            directory = Path(directory_value.strip()).expanduser()
-            if not directory.is_absolute():
-                directory = self.project_root / directory
+        directory = Path(directory_value.strip()).expanduser()
+        if not directory.is_absolute():
+            directory = self.project_root / directory
         max_age = section.get("max_age_seconds", 604800.0)
         if isinstance(max_age, bool) or not isinstance(max_age, (int, float)) or max_age < 0:
             raise RuntimeConfigError("position_cache.max_age_seconds must be non-negative")

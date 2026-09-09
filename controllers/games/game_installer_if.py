@@ -47,3 +47,8 @@ class GameInstallerIf(ABC):
         @param game Configured game definition to launch.
         @return Command arguments suitable for the host process launcher.
         """
+
+    def window_selectors(self, game: GameDefinition) -> tuple[str | None, str | None]:
+        """Return backend-specific X11 window name/class selectors when needed."""
+        del game
+        return None, None
