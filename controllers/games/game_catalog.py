@@ -24,6 +24,7 @@ def load_game_catalog(path: str | Path) -> list[GameDefinition]:
                 icon=entry.get("icon"),
                 enabled=entry.get("enabled", True),
                 environment=dict(entry.get("environment", {})),
+                hardware_acceleration=entry.get("hardware_acceleration", True),
                 termux_package=install.get("termux_package"),
                 termux_dependencies=tuple(install.get("termux_dependencies", [])),
                 debian_package=install.get("debian_package"),
