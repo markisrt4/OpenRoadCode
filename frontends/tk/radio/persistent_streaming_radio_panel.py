@@ -8,6 +8,7 @@ from __future__ import annotations
 import threading
 
 from controllers.radio.streaming_radio_favorites import StreamingRadioFavorites
+from controllers.radio.streaming_radio_filters import StationFilters
 from controllers.radio.streaming_radio_types import StreamingRadioStation
 from frontends.tk.radio.streaming_radio_panel import StreamingRadioPanel
 
@@ -19,6 +20,20 @@ class PersistentStreamingRadioPanel(StreamingRadioPanel):
         self._favorites_store = favorites
         super().__init__(*args, **kwargs)
         self._favorites = set(favorites.station_ids)
+
+    def _visible_stations(self) -> tuple[StreamingRadioStation, ...]:
+        """Apply the shared filter contract without changing directory ordering."""
+        stations = self._stations
+        if self._mode == "favorites":
+            stations = tuple(
+                station for station in stations
+                if station.station_id in self._favorites
+            )
+        return StationFilters(
+            genre=self._genre_filter,
+            quality=self._quality_filter,
+            band=self._band_filter,
+        ).apply(stations)
 
     def _set_mode(self, mode: str) -> None:
         if mode not in self._mode_buttons or mode == self._mode:
@@ -66,7 +81,7 @@ class PersistentStreamingRadioPanel(StreamingRadioPanel):
         except (OSError, ValueError) as error:
             self._selection_label.configure(
                 text=f"Unable to save favorite: {error}",
-                fg="#f15a16",
+                fg=self._theme.ui.accent_danger,
             )
             return
 
