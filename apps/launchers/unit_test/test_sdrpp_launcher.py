@@ -159,14 +159,30 @@ class SDRPPLauncherTest(unittest.TestCase):
         launcher.wait_for_rigctl.assert_not_called()
         status.assert_called_with("SDR++ already ready: fm")
 
+    @patch("apps.launchers.sdrpp_launcher.time.sleep")
     @patch("apps.launchers.sdrpp_launcher._stop_readsb_service")
-    def test_existing_process_waits_for_rigctl(self, _stop_readsb: Mock) -> None:
+    @patch("apps.launchers.sdrpp_launcher.subprocess.Popen")
+    def test_existing_process_without_rigctl_is_recovered(self, popen: Mock, _stop_readsb: Mock, sleep: Mock) -> None:
+        process = Mock()
+        process.poll.return_value = None
+        popen.return_value = process
         launcher = SDRPPLauncher(profile=self.profile)
         launcher.is_running = Mock(return_value=True)
         launcher.is_rigctl_ready = Mock(return_value=False)
+        launcher.stop = Mock()
+        launcher._launch_command = Mock(return_value=["/usr/bin/sdrpp", "--autostart"])
         launcher.wait_for_rigctl = Mock()
-        launcher.launch(":1")
+        launcher._request_fullscreen = Mock()
+        status = Mock()
+
+        launcher.launch(":1", status)
+
+        launcher.stop.assert_called_once_with(":1", status)
+        sleep.assert_called_once_with(0.25)
+        launcher._launch_command.assert_called_once_with(":1")
+        popen.assert_called_once()
         launcher.wait_for_rigctl.assert_called_once_with()
+        self.assertEqual("SDR++ ready: fm", status.call_args.args[0])
 
     @patch("apps.launchers.sdrpp_launcher._stop_readsb_service")
     @patch("apps.launchers.sdrpp_launcher.subprocess.Popen")
