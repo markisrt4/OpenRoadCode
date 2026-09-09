@@ -8,14 +8,14 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from apps.orcUi.core_runtime import MapRuntime, StateIngressRuntime
-from apps.orcUi.orc_ui_app import OrcUiApp
+from apps.orcUi.home_shell import ComposedHomeShell
 
 
 @dataclass(slots=True)
 class CoreComposition:
     """Own the shell-facing infrastructure for one ORC UI process."""
 
-    app: OrcUiApp
+    app: ComposedHomeShell
     map_runtime: MapRuntime
     state_ingress: StateIngressRuntime
 
@@ -32,7 +32,7 @@ class CoreComposition:
 def create_core_composition() -> CoreComposition:
     """Create the Tk shell and inject its runtime-facing dependencies."""
     map_runtime = MapRuntime()
-    app = OrcUiApp(map_runtime=map_runtime)
+    app = ComposedHomeShell(map_runtime=map_runtime)
     state_ingress = StateIngressRuntime(
         schedule_ui=app.schedule_ui_callback,
         apply_vehicle_state=app.apply_vehicle_state,
