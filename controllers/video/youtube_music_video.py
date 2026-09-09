@@ -36,8 +36,17 @@ class _Candidate:
 class YouTubeMusicVideo(MusicVideoIf):
     """Find and present music videos using YouTube."""
     def __init__(self,secret_manager:SecretManagerIf|None=None,*,api_key_secret_name:str="YOUTUBE_API_KEY",max_search_results:int=10,region_code:str="US",host:str="127.0.0.1",port:int=8768,fullscreen:bool=False,chromium_executable:str|None=None,software_rendering:bool=False,window_class:str|None=None,show_return_button:bool=True)->None:
-        """Create a YouTube music-video backend.
+        """! @brief Create a YouTube music-video backend.
 
+        @param secret_manager Optional secret provider used to resolve the YouTube API key.
+        @param api_key_secret_name Secret name used to retrieve the YouTube Data API key.
+        @param max_search_results Maximum number of YouTube search results to rank.
+        @param region_code Two-letter country code used for YouTube search results.
+        @param host Local HTTP host used for the embedded player page.
+        @param port Local HTTP port used for the embedded player page.
+        @param fullscreen Whether Chromium should request fullscreen presentation.
+        @param chromium_executable Optional explicit Chromium-compatible browser executable.
+        @param software_rendering Whether browser GPU acceleration should be disabled.
         @param window_class Optional X11 browser class used by ORC reparenting.
         @param show_return_button Whether the hosted page renders its standalone RETURN button.
         """
