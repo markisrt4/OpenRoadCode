@@ -20,6 +20,7 @@ from apps.orcUi.navigation_presenter import (
     NavigationPresenter,
     PositionPresentationState,
 )
+from apps.orcUi.orc_theme import ThemeMode, install_map_style
 from apps.orcUi.vehicle_presenter import VehiclePresenter, VehiclePresentationState
 from messaging.contracts.automotive import VEHICLE_STATE_TOPIC, decode_vehicle_state
 from messaging.contracts.navigation import (
@@ -36,16 +37,22 @@ from messaging.zeromq.endpoints import LOCAL_SUBSCRIBER_ENDPOINT
 class MapRuntimeIf(Protocol):
     """Map-process behavior required by the Tk shell."""
 
+    def set_theme(self, mode: ThemeMode) -> None: ...
+
     def launch(self, parent_window_id: int) -> None: ...
 
     def stop(self) -> None: ...
 
 
 class MapRuntime:
-    """Own the external map-renderer process and X11 launch details."""
+    """Own the external map-renderer process, style, and X11 launch details."""
 
     def __init__(self, renderer: MapRendererLauncher | None = None) -> None:
         self._renderer = renderer or MapRendererLauncher()
+
+    def set_theme(self, mode: ThemeMode) -> None:
+        """Install map presentation assets for the requested ORC theme."""
+        install_map_style(mode)
 
     def launch(self, parent_window_id: int) -> None:
         self._renderer.launch(
