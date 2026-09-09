@@ -30,6 +30,7 @@ def load_game_catalog(path: str | Path) -> list[GameDefinition]:
                     rendering=termux_proot.get("rendering", "auto"),
                     window_name=termux_proot.get("window_name"),
                     window_class=termux_proot.get("window_class"),
+                    relax_size_hints=termux_proot.get("relax_size_hints", False),
                 ),
                 termux_package=install.get("termux_package"),
                 termux_dependencies=tuple(install.get("termux_dependencies", [])),
