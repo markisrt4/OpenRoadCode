@@ -306,12 +306,16 @@ class OrcUiApp:
         install_map_style(self._theme_mode)
         self._power_dialog.close()
         self._rebuild_shell_theme()
-        self._apply_theme_to_content()
+        if self._active_nav == "HOME":
+            self._show_home()
+        else:
+            self._apply_theme_to_content()
         active_screen = self._active_screen
         set_theme_mode = getattr(active_screen, "set_theme_mode", None)
         if callable(set_theme_mode):
             set_theme_mode(self._theme_mode)
-        self._reload_active_map()
+        if self._active_nav != "HOME":
+            self._reload_active_map()
     def _apply_theme_to_content(self) -> None:
         bundle = self._theme
         if self._home_map_panel is not None and self._home_map_panel.winfo_exists():
