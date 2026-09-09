@@ -43,6 +43,12 @@ class StateIngressRuntimeTest(unittest.TestCase):
             dispatcher=self.dispatcher,
         )
 
+    def test_start_schedules_ui_drain_before_dispatcher(self) -> None:
+        self.runtime.start()
+
+        self.schedule_ui.assert_called_once_with(0, self.runtime._drain_ui_queue)
+        self.dispatcher.start.assert_called_once_with()
+
     def test_lifecycle_delegates_to_dispatcher(self) -> None:
         self.runtime.start()
         self.runtime.close()
@@ -54,53 +60,60 @@ class StateIngressRuntimeTest(unittest.TestCase):
         self.runtime.close()
 
         self.runtime._schedule_state(self.vehicle_sink)
+        self.runtime._drain_ui_queue()
 
-        self.schedule_ui.assert_not_called()
+        self.vehicle_sink.assert_not_called()
 
-    def test_tk_shutdown_runtime_error_is_ignored(self) -> None:
-        self.schedule_ui.side_effect = RuntimeError("main thread is not in main loop")
-
+    def test_worker_state_enqueue_does_not_call_tk_scheduler(self) -> None:
         self.runtime._schedule_state(self.vehicle_sink)
 
-        self.schedule_ui.assert_called_once()
+        self.schedule_ui.assert_not_called()
+        self.vehicle_sink.assert_not_called()
+
+    def test_ui_drain_applies_queued_state_and_reschedules(self) -> None:
+        self.runtime._schedule_state(self.vehicle_sink)
+
+        self.runtime._drain_ui_queue()
+
+        self.vehicle_sink.assert_called_once_with()
+        self.schedule_ui.assert_called_once_with(
+            self.runtime._UI_DRAIN_INTERVAL_MS,
+            self.runtime._drain_ui_queue,
+        )
 
     @patch("apps.orcUi.core_runtime.VehiclePresenter.present")
-    def test_vehicle_message_is_presented_before_ui_dispatch(self, present: Mock) -> None:
+    def test_vehicle_message_is_presented_before_ui_drain(self, present: Mock) -> None:
         message = Mock()
         state = present.return_value
 
         self.runtime._on_vehicle_message(message)
 
         present.assert_called_once_with(message.data)
-        self.schedule_ui.assert_called_once()
-        delay, callback = self.schedule_ui.call_args.args
-        self.assertEqual(delay, 0)
+        self.schedule_ui.assert_not_called()
         self.vehicle_sink.assert_not_called()
-        callback()
+        self.runtime._drain_ui_queue()
         self.vehicle_sink.assert_called_once_with(state)
 
     @patch("apps.orcUi.core_runtime.NavigationPresenter.present_position")
-    def test_position_message_is_presented_before_ui_dispatch(self, present: Mock) -> None:
+    def test_position_message_is_presented_before_ui_drain(self, present: Mock) -> None:
         message = Mock()
         state = present.return_value
 
         self.runtime._on_position_message(message)
 
-        delay, callback = self.schedule_ui.call_args.args
-        self.assertEqual(delay, 0)
-        callback()
+        self.schedule_ui.assert_not_called()
+        self.runtime._drain_ui_queue()
         self.position_sink.assert_called_once_with(state)
 
     @patch("apps.orcUi.core_runtime.NavigationPresenter.present_attitude")
-    def test_attitude_message_is_presented_before_ui_dispatch(self, present: Mock) -> None:
+    def test_attitude_message_is_presented_before_ui_drain(self, present: Mock) -> None:
         message = Mock()
         state = present.return_value
 
         self.runtime._on_attitude_message(message)
 
-        delay, callback = self.schedule_ui.call_args.args
-        self.assertEqual(delay, 0)
-        callback()
+        self.schedule_ui.assert_not_called()
+        self.runtime._drain_ui_queue()
         self.attitude_sink.assert_called_once_with(state)
 
 
