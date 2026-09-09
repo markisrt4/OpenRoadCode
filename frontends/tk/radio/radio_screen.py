@@ -54,15 +54,23 @@ class RadioScreen(TkScreen):
         panel.pack(fill=tk.BOTH, expand=True)
         self._panel = panel
 
+    def open_rf(self) -> None:
+        """Enter RF presentation on the already mounted radio screen."""
+        self._invoke_panel_action("open_rf_radio")
+
+    def open_streaming(self) -> None:
+        """Enter the streaming browser on the already mounted radio screen."""
+        self._invoke_panel_action("open_streaming_radio")
+
     def show_rf(self) -> None:
         """Open Radio and immediately enter the RF presentation."""
         self.show()
-        self._invoke_panel_action("open_rf_radio")
+        self.open_rf()
 
     def show_streaming(self) -> None:
         """Open Radio and immediately enter the streaming browser."""
         self.show()
-        self._invoke_panel_action("open_streaming_radio")
+        self.open_streaming()
 
     def hide(self) -> None:
         """Detach any embedded SDR window before the host destroys content."""
