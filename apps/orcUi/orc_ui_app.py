@@ -1,10 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
-
 """Integrated OpenRoadCode automotive application shell."""
-
 from __future__ import annotations
-
 import os
 import shutil
 import signal
@@ -13,7 +10,6 @@ import sys
 import tkinter as tk
 from collections.abc import Callable
 from datetime import datetime
-
 from apps.orcUi.context_rail import ContextRail
 from apps.orcUi.core_runtime import MapRuntimeIf
 from apps.orcUi.home_map_panel import HomeMapPanel
@@ -21,15 +17,14 @@ from apps.orcUi.navigation_panel import NavigationPanel
 from apps.orcUi.navigation_presenter import AttitudePresentationState, PositionPresentationState
 from apps.orcUi.offroad_panel import OffRoadPanel
 from apps.orcUi.orc_theme import ThemeMode, install_map_style, toggle, toggle_label
+from apps.orcUi.power_dialog import PowerDialog
 from apps.orcUi.theme_runtime import theme_bundle
 from apps.orcUi.vehicle_panel import VehiclePanel
 from apps.orcUi.vehicle_presenter import VehiclePresentationState
 from ui.screen_ui_if import ScreenUiIf
 
-
 class OrcUiApp:
     """Own the integrated Tk shell and presentation state."""
-
     def __init__(self, *, map_runtime: MapRuntimeIf) -> None:
         self._map_runtime = map_runtime
         self._theme_mode = ThemeMode.DARK
@@ -42,7 +37,6 @@ class OrcUiApp:
         self._root.configure(bg=ui.background)
         self._theme_button: tk.Button
         self._power_button: tk.Button
-        self._power_dialog: tk.Toplevel | None = None
         self._active_nav = "HOME"
         self._nav_items = ["HOME", "NAVIGATION", "RADIO", "VEHICLE", "LIGHTING", "CONTROLS", "SETTINGS"]
         self._nav_buttons: dict[str, tk.Button] = {}
@@ -50,6 +44,7 @@ class OrcUiApp:
         self._active_screen: ScreenUiIf | None = None
         self._screen_back_action: Callable[[], None] | None = None
         self._screen_status = ""
+        self._home_radio_factory: Callable[[tk.Misc], tk.Widget] | None = None
         self._home_media_factory: Callable[[tk.Misc], tk.Widget] | None = None
         self._nav_frame: tk.Frame
         self._clock_label: tk.Label
@@ -66,25 +61,33 @@ class OrcUiApp:
         self._volume = 20
         self._volume_label: tk.Label
         self._closing = False
+        self._power_dialog = PowerDialog(
+            self._root,
+            theme=lambda: self._theme,
+            on_exit=self._on_close,
+            on_restart=self._restart_ui,
+            on_shutdown=self._shutdown_system,
+        )
         install_map_style(self._theme_mode)
         self._build_shell()
         self._show_home()
         self._update_clock()
-
     @property
     def theme_mode(self) -> ThemeMode:
         return self._theme_mode
-
     @property
     def screen_parent(self) -> tk.Misc:
         return self._content
-
+    def set_home_radio_factory(self, factory: Callable[[tk.Misc], tk.Widget] | None) -> None:
+        """Install a radio-owned Home summary without coupling the shell to radio."""
+        self._home_radio_factory = factory
+        if self._active_nav == "HOME":
+            self._show_home()
     def set_home_media_factory(self, factory: Callable[[tk.Misc], tk.Widget] | None) -> None:
         """Install a media-owned Home summary without coupling the shell to Spotify."""
         self._home_media_factory = factory
         if self._active_nav == "HOME":
             self._show_home()
-
     def register_screen(self, label: str, screen: ScreenUiIf, *, before: str | None = "CONTROLS") -> None:
         nav_label = label.strip().upper()
         if not nav_label:
@@ -96,7 +99,6 @@ class OrcUiApp:
             else:
                 self._nav_items.append(nav_label)
         self._rebuild_side_nav()
-
     def navigate_to(self, name: str) -> None:
         """Show a registered screen or built-in shell destination."""
         nav_name = name.strip().upper()
@@ -109,13 +111,8 @@ class OrcUiApp:
             screen.show()
             return
         self._deactivate_active_screen()
-        handler = {
-            "HOME": self._show_home,
-            "NAVIGATION": self._show_navigation_panel,
-            "VEHICLE": self._show_vehicle_panel,
-        }.get(nav_name)
+        handler = {"HOME": self._show_home, "NAVIGATION": self._show_navigation_panel, "VEHICLE": self._show_vehicle_panel}.get(nav_name)
         self._show_placeholder(nav_name) if handler is None else handler()
-
     def activate_screen(self, screen: ScreenUiIf) -> None:
         previous = self._active_screen
         if previous is screen:
@@ -123,26 +120,19 @@ class OrcUiApp:
         if previous is not None:
             previous.hide()
         self._active_screen = screen
-
     def clear_screen_content(self) -> None:
         self._clear_content()
-
     def set_screen_title(self, title: str) -> None:
         title = title.strip()
         self._root.title("OpenRoadCode" if not title else f"OpenRoadCode | {title}")
-
     def set_screen_back_action(self, action: Callable[[], None]) -> None:
         self._screen_back_action = action
-
     def set_screen_status(self, message: str) -> None:
         self._screen_status = message
-
     def schedule_ui_callback(self, delay_ms: int, callback: Callable[[], None]) -> object:
         return self._root.after(delay_ms, callback)
-
     def cancel_ui_callback(self, callback_id: object) -> None:
         self._root.after_cancel(callback_id)
-
     def apply_vehicle_state(self, state: VehiclePresentationState) -> None:
         """Apply already-presented vehicle state to mounted shell widgets."""
         if self._closing:
@@ -152,7 +142,6 @@ class OrcUiApp:
             self._context_rail.update_vehicle_state(state)
         if self._vehicle_panel is not None and self._vehicle_panel.winfo_exists():
             self._vehicle_panel.update_state(state)
-
     def apply_position_state(self, state: PositionPresentationState) -> None:
         """Apply already-presented position state to mounted shell widgets."""
         if self._closing:
@@ -162,7 +151,6 @@ class OrcUiApp:
             self._context_rail.update_position_state(state)
         if self._offroad_panel is not None and self._offroad_panel.winfo_exists():
             self._offroad_panel.update_position(state)
-
     def apply_attitude_state(self, state: AttitudePresentationState) -> None:
         """Apply already-presented attitude state to mounted shell widgets."""
         if self._closing:
@@ -172,7 +160,6 @@ class OrcUiApp:
             self._context_rail.update_attitude_state(state)
         if self._offroad_panel is not None and self._offroad_panel.winfo_exists():
             self._offroad_panel.update_attitude(state)
-
     def run(self) -> None:
         self._root.protocol("WM_DELETE_WINDOW", self._on_close)
         old_signal_handler = signal.getsignal(signal.SIGINT)
@@ -184,10 +171,8 @@ class OrcUiApp:
         finally:
             signal.signal(signal.SIGINT, old_signal_handler)
             self._shutdown()
-
     def _on_sigint(self, _signum, _frame) -> None:
         self._root.after_idle(self._shutdown)
-
     def _shutdown(self) -> None:
         if self._closing:
             return
@@ -201,7 +186,6 @@ class OrcUiApp:
             self._root.destroy()
         except tk.TclError:
             pass
-
     def _build_shell(self) -> None:
         ui = self._theme.ui
         self._root.grid_rowconfigure(1, weight=1)
@@ -212,7 +196,6 @@ class OrcUiApp:
         self._content.grid(row=1, column=1, sticky="nsew", padx=(6, 8), pady=6)
         self._build_bottom_bar()
         self._build_footer()
-
     def _build_top_bar(self) -> None:
         ui = self._theme.ui
         bar = tk.Frame(self._root, bg=ui.surface_alt, height=50)
@@ -231,9 +214,8 @@ class OrcUiApp:
         status.grid(row=0, column=2, padx=(8, 14), sticky="e")
         tk.Label(status, text="☁  --°F", fg=ui.text, bg=ui.surface_alt, font=("Sans", 11, "bold")).pack(side=tk.LEFT, padx=(0, 10))
         tk.Label(status, text="GPS  ▮▮▮   WiFi   BT   🚗", fg=ui.text_muted, bg=ui.surface_alt, font=("Sans", 11)).pack(side=tk.LEFT, padx=(0, 10))
-        self._power_button = tk.Button(status, text="⏻", command=self._show_power_dialog, bg=ui.control_background, fg=ui.control_text, activebackground=ui.control_active, activeforeground="#ffffff", relief=tk.FLAT, bd=0, font=("Sans", 16, "bold"), padx=10, pady=2)
+        self._power_button = tk.Button(status, text="⏻", command=self._power_dialog.show, bg=ui.control_background, fg=ui.control_text, activebackground=ui.control_active, activeforeground="#ffffff", relief=tk.FLAT, bd=0, font=("Sans", 16, "bold"), padx=10, pady=2)
         self._power_button.pack(side=tk.LEFT)
-
     def _build_logo_mark(self, parent: tk.Misc) -> None:
         ui = self._theme.ui
         logo = tk.Canvas(parent, width=32, height=30, bg=ui.surface_alt, highlightthickness=0, bd=0)
@@ -242,13 +224,11 @@ class OrcUiApp:
         logo.create_line(3, 26, 29, 26, fill=ui.accent_danger, width=4)
         logo.create_line(29, 26, 16, 3, fill=ui.accent_success, width=4)
         logo.create_line(16, 9, 16, 21, fill=ui.text_muted, width=2, dash=(3, 3))
-
     def _build_side_nav(self) -> None:
         self._nav_frame = tk.Frame(self._root, bg=self._theme.ui.background, width=112)
         self._nav_frame.grid(row=1, column=0, sticky="ns", padx=(8, 0), pady=6)
         self._nav_frame.grid_propagate(False)
         self._rebuild_side_nav()
-
     def _rebuild_side_nav(self) -> None:
         if not hasattr(self, "_nav_frame"):
             return
@@ -262,7 +242,6 @@ class OrcUiApp:
             button.pack(fill=tk.X, padx=4, pady=2)
             self._nav_buttons[item] = button
         self._paint_nav()
-
     def _build_bottom_bar(self) -> None:
         ui = self._theme.ui
         bar = tk.Frame(self._root, bg=ui.background, height=55)
@@ -282,7 +261,6 @@ class OrcUiApp:
             tk.Button(bar, text=text, bg=ui.control_background, fg=ui.control_text, activebackground=ui.control_active, activeforeground="#ffffff", relief=tk.FLAT, highlightthickness=1, highlightbackground=ui.border, font=("Sans", 9)).grid(row=0, column=column, sticky="nsew", padx=3)
         self._theme_button = tk.Button(bar, text=toggle_label(self._theme_mode), command=self._toggle_theme, bg=ui.control_background, fg=ui.control_text, activebackground=ui.control_active, activeforeground="#ffffff", relief=tk.FLAT, highlightthickness=1, highlightbackground=ui.border, font=("Sans", 9, "bold"))
         self._theme_button.grid(row=0, column=5, sticky="nsew", padx=3)
-
     def _build_footer(self) -> None:
         ui = self._theme.ui
         footer = tk.Frame(self._root, bg=ui.surface_alt, height=25)
@@ -292,7 +270,6 @@ class OrcUiApp:
         tk.Label(footer, text="OpenRoadCode", fg=ui.text_muted, bg=ui.surface_alt, font=("Sans", 8)).grid(row=0, column=0, padx=10)
         tk.Label(footer, text="Services: --   |   ZMQ: --", fg=ui.text_muted, bg=ui.surface_alt, font=("Sans", 8)).grid(row=0, column=1)
         tk.Label(footer, text="orcUi prototype", fg=ui.text_muted, bg=ui.surface_alt, font=("Sans", 8)).grid(row=0, column=2, padx=10)
-
     def _rebuild_shell_theme(self) -> None:
         for child in self._root.winfo_children():
             if child is self._content:
@@ -306,49 +283,13 @@ class OrcUiApp:
         self._build_bottom_bar()
         self._build_footer()
         self._paint_clock()
-
     def _change_volume(self, delta: int) -> None:
         self._volume = max(0, min(100, self._volume + delta))
         icon = "🔇" if self._volume == 0 else "🔊"
         self._volume_label.configure(text=f"{icon} {self._volume}%")
-
-    def _show_power_dialog(self) -> None:
-        if self._power_dialog is not None and self._power_dialog.winfo_exists():
-            self._power_dialog.lift()
-            return
-        ui = self._theme.ui
-        dialog = tk.Toplevel(self._root)
-        self._power_dialog = dialog
-        dialog.title("OpenRoadCode Power")
-        dialog.transient(self._root)
-        dialog.resizable(False, False)
-        dialog.configure(bg=ui.surface)
-        dialog.protocol("WM_DELETE_WINDOW", self._close_power_dialog)
-        frame = tk.Frame(dialog, bg=ui.surface, padx=18, pady=16)
-        frame.pack(fill=tk.BOTH, expand=True)
-        tk.Label(frame, text="POWER", fg=ui.text, bg=ui.surface, font=("Sans", 16, "bold")).pack(pady=(0, 4))
-        tk.Label(frame, text="System actions are intentionally two taps away.", fg=ui.text_muted, bg=ui.surface, font=("Sans", 9)).pack(pady=(0, 14))
-        for text, command in (("EXIT UI", self._on_close), ("RESTART UI", self._restart_ui), ("SHUT DOWN SYSTEM", self._show_shutdown_confirmation), ("CANCEL", self._close_power_dialog)):
-            tk.Button(frame, text=text, command=command, bg=ui.control_background, fg=ui.control_text, activebackground=ui.control_active, activeforeground="#ffffff", relief=tk.FLAT, width=24, pady=8, font=("Sans", 10, "bold")).pack(fill=tk.X, pady=3)
-        self._center_power_dialog(dialog)
-
-    def _show_shutdown_confirmation(self) -> None:
-        self._shutdown_system()
-
-    def _reopen_power_dialog(self) -> None:
-        self._close_power_dialog()
-        self._show_power_dialog()
-
-    def _close_power_dialog(self) -> None:
-        dialog = self._power_dialog
-        self._power_dialog = None
-        if dialog is not None and dialog.winfo_exists():
-            dialog.destroy()
-
     def _restart_ui(self) -> None:
         self._map_runtime.stop()
         os.execv(sys.executable, [sys.executable, "-m", "apps.orcUi"])
-
     def _shutdown_system(self) -> None:
         if shutil.which("systemctl"):
             command = ["systemctl", "poweroff"]
@@ -359,27 +300,22 @@ class OrcUiApp:
         self._map_runtime.stop()
         subprocess.Popen(command)
         self._shutdown()
-
-    def _center_power_dialog(self, dialog: tk.Toplevel) -> None:
-        dialog.update_idletasks()
-        width, height = dialog.winfo_reqwidth(), dialog.winfo_reqheight()
-        x = self._root.winfo_rootx() + max(0, (self._root.winfo_width() - width) // 2)
-        y = self._root.winfo_rooty() + max(0, (self._root.winfo_height() - height) // 2)
-        dialog.geometry(f"{width}x{height}+{x}+{y}")
-
     def _toggle_theme(self) -> None:
         self._theme_mode = toggle(self._theme_mode)
         self._theme = theme_bundle(self._theme_mode)
         install_map_style(self._theme_mode)
-        self._close_power_dialog()
+        self._power_dialog.close()
         self._rebuild_shell_theme()
-        self._apply_theme_to_content()
+        if self._active_nav == "HOME":
+            self._show_home()
+        else:
+            self._apply_theme_to_content()
         active_screen = self._active_screen
         set_theme_mode = getattr(active_screen, "set_theme_mode", None)
         if callable(set_theme_mode):
             set_theme_mode(self._theme_mode)
-        self._reload_active_map()
-
+        if self._active_nav != "HOME":
+            self._reload_active_map()
     def _apply_theme_to_content(self) -> None:
         bundle = self._theme
         if self._home_map_panel is not None and self._home_map_panel.winfo_exists():
@@ -392,7 +328,6 @@ class OrcUiApp:
             self._vehicle_panel.set_theme_bundle(bundle)
         if self._offroad_panel is not None and self._offroad_panel.winfo_exists():
             self._offroad_panel.set_theme(bundle.ui)
-
     def _reload_active_map(self) -> None:
         if self._home_map_panel is not None and self._home_map_panel.winfo_exists():
             parent_window_id = self._home_map_panel.map_host_window_id
@@ -402,7 +337,6 @@ class OrcUiApp:
             return
         self._map_runtime.stop()
         self._root.after(100, lambda: self._start_map_renderer(parent_window_id))
-
     def _deactivate_active_screen(self) -> None:
         active_screen = self._active_screen
         self._active_screen = None
@@ -411,14 +345,12 @@ class OrcUiApp:
         self._screen_back_action = None
         self._screen_status = ""
         self._root.title("OpenRoadCode")
-
     def _paint_nav(self) -> None:
         ui = self._theme.ui
         self._nav_frame.configure(bg=ui.background)
         for name, button in self._nav_buttons.items():
             selected = name == self._active_nav
             button.configure(fg="#ffffff" if selected else ui.control_text, bg=ui.control_active if selected else ui.control_background, activebackground=ui.control_active, activeforeground="#ffffff", highlightbackground=ui.border)
-
     def _clear_content(self) -> None:
         self._map_runtime.stop()
         self._context_rail = None
@@ -428,7 +360,6 @@ class OrcUiApp:
         self._offroad_panel = None
         for child in self._content.winfo_children():
             child.destroy()
-
     def _show_home(self) -> None:
         self._clear_content()
         self._active_nav = "HOME"
@@ -452,7 +383,10 @@ class OrcUiApp:
         lower.grid_rowconfigure(0, weight=1)
         radio = self._panel(lower, "RADIO", ui.accent_warning)
         radio.grid(row=0, column=0, sticky="nsew", padx=(0, 5))
-        self._summary(radio, "101.1 FM", "Radio service")
+        if self._home_radio_factory is None:
+            self._summary(radio, "No radio active", "Choose RF or streaming")
+        else:
+            self._home_radio_factory(radio).pack(fill=tk.BOTH, expand=True)
         media = self._panel(lower, "MEDIA", ui.accent_primary)
         media.grid(row=0, column=1, sticky="nsew", padx=(5, 0))
         if self._home_media_factory is None:
@@ -461,7 +395,6 @@ class OrcUiApp:
             self._home_media_factory(media).pack(fill=tk.BOTH, expand=True)
         self._root.update_idletasks()
         self._start_map_renderer(self._home_map_panel.map_host_window_id)
-
     def _show_navigation_panel(self) -> None:
         self._clear_content()
         self._active_nav = "NAVIGATION"
@@ -470,28 +403,23 @@ class OrcUiApp:
         self._navigation_panel.pack(fill=tk.BOTH, expand=True)
         self._root.update_idletasks()
         self._start_map_renderer(self._navigation_panel.map_host_window_id)
-
     def _start_map_renderer(self, parent_window_id: int) -> None:
         try:
             self._map_runtime.launch(parent_window_id)
         except (OSError, RuntimeError) as error:
             print(f"WARNING: map renderer: {type(error).__name__}: {error}")
-
     def _show_vehicle_panel(self) -> None:
         self._clear_content()
         self._active_nav = "VEHICLE"
         self._paint_nav()
         self._vehicle_panel = VehiclePanel(self._content, on_back=self._show_home, state=self._vehicle_state, theme_bundle=self._theme)
         self._vehicle_panel.pack(fill=tk.BOTH, expand=True)
-
     def _show_offroad_panel(self) -> None:
         self._clear_content()
         self._offroad_panel = OffRoadPanel(self._content, on_back=self._show_home, position=self._position_state, attitude=self._attitude_state, theme=self._theme.ui)
         self._offroad_panel.pack(fill=tk.BOTH, expand=True)
-
     def _on_close(self) -> None:
         self._shutdown()
-
     def _show_context_full_panel(self, name: str) -> None:
         if name == "VEHICLE":
             self._show_vehicle_panel()
@@ -499,31 +427,26 @@ class OrcUiApp:
             self._show_offroad_panel()
         else:
             self._show_placeholder(name)
-
     def _show_placeholder(self, name: str) -> None:
         self._clear_content()
         ui = self._theme.ui
         panel = self._panel(self._content, name, ui.accent_success)
         panel.pack(fill=tk.BOTH, expand=True)
         tk.Label(panel, text=f"{name}\nCOMING NEXT", fg=ui.text, bg=ui.surface, font=("Sans", 24, "bold")).place(relx=0.5, rely=0.5, anchor="center")
-
     def _panel(self, parent: tk.Misc, title: str, accent: str) -> tk.Frame:
         ui = self._theme.ui
         frame = tk.Frame(parent, bg=ui.surface, highlightthickness=1, highlightbackground=ui.border)
         tk.Label(frame, text=title, fg=accent, bg=ui.surface, font=("Sans", 10, "bold")).pack(anchor="nw", padx=14, pady=(11, 4))
         return frame
-
     def _summary(self, parent: tk.Misc, primary: str, secondary: str) -> None:
         ui = self._theme.ui
         tk.Label(parent, text=primary, fg=ui.text, bg=ui.surface, font=("Sans", 14, "bold")).pack(anchor="w", padx=16, pady=(12, 2))
         tk.Label(parent, text=secondary, fg=ui.text_muted, bg=ui.surface, font=("Sans", 9)).pack(anchor="w", padx=16)
-
     def _paint_clock(self) -> None:
         if self._closing:
             return
         text = datetime.now().strftime("%I:%M %p     %a, %b %d").lstrip("0")
         self._clock_label.configure(text=text)
-
     def _update_clock(self) -> None:
         if self._closing:
             return

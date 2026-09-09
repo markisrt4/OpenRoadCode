@@ -8,8 +8,12 @@ from apps.orcUi.theme_runtime import theme_bundle
 from frontends.tk.games import GamesScreen
 
 
-def configure_games(app: OrcUiApp) -> None:
-    app.register_screen("GAMES", GamesScreen(
-        app, theme_bundle=lambda: theme_bundle(app.theme_mode),
+def configure_games(app: OrcUiApp) -> GamesScreen:
+    """Create, register, and return the Games screen owned by composition."""
+    screen = GamesScreen(
+        app,
+        theme_bundle=lambda: theme_bundle(app.theme_mode),
         theme_mode=lambda: app.theme_mode,
-    ))
+    )
+    app.register_screen("GAMES", screen)
+    return screen

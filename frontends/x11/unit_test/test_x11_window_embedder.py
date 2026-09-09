@@ -123,14 +123,38 @@ class X11WindowEmbedderTest(unittest.TestCase):
         )
 
     @patch("frontends.x11.x11_window_embedder.subprocess.run")
+    @patch("frontends.x11.x11_window_embedder.shutil.which")
+    def test_resize_relaxes_normal_hints_before_sizing(self, which: Mock, run: Mock) -> None:
+        def fake_which(name: str):
+            return "/usr/bin/xprop" if name == "xprop" else "/usr/bin/xdotool"
+
+        which.side_effect = fake_which
+        embedder = X11WindowEmbedder()
+        embedder._window_id = 99
+        embedder._host_window_id = 123
+        embedder._relax_size_hints = True
+
+        embedder.resize(640, 480)
+
+        commands = [call.args[0] for call in run.call_args_list]
+        self.assertEqual(
+            ["/usr/bin/xprop", "-id", "99", "-remove", "WM_NORMAL_HINTS"],
+            commands[0],
+        )
+        self.assertEqual(["xdotool", "windowsize", "99", "640", "480"], commands[1])
+        self.assertEqual(["xdotool", "windowmove", "99", "0", "0"], commands[2])
+
+    @patch("frontends.x11.x11_window_embedder.subprocess.run")
     def test_clear_forgets_embedded_window(self, run: Mock) -> None:
         embedder = X11WindowEmbedder()
         embedder._window_id = 99
+        embedder._relax_size_hints = True
 
         embedder.clear()
         embedder.resize(640, 480)
 
         self.assertIsNone(embedder.window_id)
+        self.assertFalse(embedder._relax_size_hints)
         run.assert_not_called()
 
 

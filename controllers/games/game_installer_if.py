@@ -56,3 +56,12 @@ class GameInstallerIf(ABC):
         """
         del game
         return None, None
+
+    def relax_window_size_hints(self, game: GameDefinition) -> bool:
+        """! @brief Return whether the embedding backend may ignore application size hints.
+
+        @param game Configured game definition whose window hints may be relaxed.
+        @return True when the backend may ignore application size hints, otherwise False.
+        """
+        del game
+        return False

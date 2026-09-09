@@ -269,6 +269,7 @@ class GameController(GamesRequestHandlerIf):
         self._ui.set_games(states)
 
     def _state_for(self, game: GameDefinition) -> GameUiState:
+        backend = self._installed.get(game.name) or self._available.get(game.name)
         return GameUiState(
             game_id=game.name,
             name=game.name,
@@ -276,4 +277,5 @@ class GameController(GamesRequestHandlerIf):
             category=game.category,
             status=self._status[game.name],
             icon=game.icon,
+            backend_id=None if backend is None else backend.backend_id,
         )

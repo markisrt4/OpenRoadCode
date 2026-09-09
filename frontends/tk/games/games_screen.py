@@ -84,7 +84,6 @@ class GamesScreen(TkScreen):
         self._panel = None
 
     def set_theme_mode(self, mode: ThemeMode) -> None:
-        """Apply the current CSS-derived theme bundle to Games."""
         del mode
         panel = self._panel
         if panel is not None and panel.winfo_exists():
@@ -118,7 +117,10 @@ class GamesScreen(TkScreen):
                 pass
 
     def shutdown(self) -> None:
-        self.hide()
+        """Stop any game process without depending on a live Tk hierarchy."""
+        self._launch_generation += 1
+        self._launcher.stop()
+        self._embedder.clear()
 
     @staticmethod
     def _load_games() -> list[GameDefinition]:
@@ -153,9 +155,19 @@ class GamesScreen(TkScreen):
             self._stop_runtime()
             raise RuntimeError(f"{game.name} exited immediately")
         window_name, window_class = backend.window_selectors(game)
+        relax_size_hints = backend.relax_window_size_hints(game)
         threading.Thread(
             target=self._embed_runtime,
-            args=(process_id, host_id, width, height, generation, window_name, window_class),
+            args=(
+                process_id,
+                host_id,
+                width,
+                height,
+                generation,
+                window_name,
+                window_class,
+                relax_size_hints,
+            ),
             daemon=True,
         ).start()
 
@@ -168,6 +180,7 @@ class GamesScreen(TkScreen):
         generation: int,
         window_name: str | None,
         window_class: str | None,
+        relax_size_hints: bool,
     ) -> None:
         try:
             self._embedder.embed(
@@ -177,6 +190,7 @@ class GamesScreen(TkScreen):
                 height,
                 window_name=window_name,
                 window_class=window_class,
+                relax_size_hints=relax_size_hints,
             )
         except Exception:
             self._host.schedule_ui_callback(0, lambda: self._embed_failed(generation))

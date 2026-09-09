@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import copy
 from dataclasses import dataclass
-from pathlib import Path
 import tkinter as tk
 
 from apps.common.uiTheme.spotify import SPOTIFY_PANEL_THEME
@@ -15,6 +14,7 @@ from apps.orcUi.managed_browser_media_player import ManagedBrowserMediaPlayer
 from apps.orcUi.orc_ui_app import OrcUiApp
 from apps.orcUi.spotify_now_playing import SpotifyNowPlaying
 from apps.orcUi.theme_runtime import theme_bundle
+from common.xdg_paths import openroadcode_cache_dir
 from config.runtime_target import RuntimeTarget, detect_runtime_target
 from controllers.image import ImageCache
 from controllers.lyrics import LrclibLyricsClient
@@ -63,7 +63,7 @@ def spotify_theme(app: OrcUiApp) -> dict:
 def configure_media(app: OrcUiApp, runtime) -> MediaComposition:
     media = runtime.media
     software_rendering = detect_runtime_target() is RuntimeTarget.LINUX_DEV
-    image_cache = ImageCache(max_entries=128, cache_directory=Path.home() / ".cache" / "openroadcode" / "media-art")
+    image_cache = ImageCache(max_entries=128, cache_directory=openroadcode_cache_dir("media-art"))
     lyrics = LrclibLyricsClient()
     music_video = YouTubeMusicVideo(
         port=MUSIC_VIDEO_PORT, fullscreen=False, software_rendering=software_rendering,

@@ -89,3 +89,7 @@ class DebianGameInstaller(GameInstallerIf):
         if not self._runner.is_proot:
             return None, None
         return game.termux_proot.window_name, game.termux_proot.window_class
+
+    def relax_window_size_hints(self, game: GameDefinition) -> bool:
+        """Return whether this proot game may be sized below its desktop hint."""
+        return self._runner.is_proot and game.termux_proot.relax_size_hints

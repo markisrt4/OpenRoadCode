@@ -58,8 +58,9 @@ category = "puzzle"
 icon = "gnome-2048"
 command = ["gnome-2048"]
 [games.termux_proot]
+enabled = false
 rendering = "software"
-environment = { GSK_RENDERER = "cairo" }
+environment = { GSK_RENDERER = "cairo", NO_AT_BRIDGE = "1" }
 window_name = "2048"
 [games.install]
 debian_package = "gnome-2048"
@@ -71,8 +72,9 @@ category = "casual"
 icon = "gnome-nibbles"
 command = ["gnome-nibbles"]
 [games.termux_proot]
+enabled = false
 rendering = "software"
-environment = { GSK_RENDERER = "cairo" }
+environment = { GSK_RENDERER = "cairo", NO_AT_BRIDGE = "1" }
 window_name = "Nibbles"
 window_class = "org.gnome.Nibbles"
 [games.install]
@@ -85,8 +87,9 @@ category = "puzzle"
 icon = "gnome-sudoku"
 command = ["gnome-sudoku"]
 [games.termux_proot]
+enabled = false
 rendering = "software"
-environment = { GSK_RENDERER = "cairo" }
+environment = { GSK_RENDERER = "cairo", NO_AT_BRIDGE = "1" }
 window_name = "Sudoku"
 [games.install]
 debian_package = "gnome-sudoku"

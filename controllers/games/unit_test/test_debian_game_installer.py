@@ -21,6 +21,7 @@ class DebianGameInstallerRuntimeTest(unittest.TestCase):
                 rendering="software",
                 window_name="Nibbles",
                 window_class="org.gnome.Nibbles",
+                relax_size_hints=True,
             ),
             debian_package="gnome-nibbles",
         )
@@ -43,6 +44,7 @@ class DebianGameInstallerRuntimeTest(unittest.TestCase):
             ("Nibbles", "org.gnome.Nibbles"),
             installer.window_selectors(self._game()),
         )
+        self.assertTrue(installer.relax_window_size_hints(self._game()))
 
     @patch("controllers.games.debian_game_installer.DebianCommandRunner")
     def test_native_debian_ignores_termux_proot_runtime_compatibility(self, runner_type: Mock) -> None:
@@ -59,6 +61,7 @@ class DebianGameInstallerRuntimeTest(unittest.TestCase):
         self.assertNotIn("GSK_RENDERER=cairo", args)
         self.assertEqual("auto", runner.graphical_command.call_args.kwargs["rendering"])
         self.assertEqual((None, None), installer.window_selectors(self._game()))
+        self.assertFalse(installer.relax_window_size_hints(self._game()))
 
 
 if __name__ == "__main__":

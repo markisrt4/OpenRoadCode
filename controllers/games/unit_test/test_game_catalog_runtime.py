@@ -3,9 +3,11 @@
 
 """Tests for platform-specific game runtime configuration loading."""
 
+import os
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from controllers.games.game_catalog import load_game_catalog
 
@@ -22,6 +24,7 @@ rendering = "software"
 environment = { GSK_RENDERER = "cairo" }
 window_name = "Nibbles"
 window_class = "org.gnome.Nibbles"
+relax_size_hints = true
 [games.install]
 debian_package = "gnome-nibbles"
 """
@@ -35,6 +38,45 @@ debian_package = "gnome-nibbles"
         self.assertEqual({"GSK_RENDERER": "cairo"}, game.termux_proot.environment)
         self.assertEqual("Nibbles", game.termux_proot.window_name)
         self.assertEqual("org.gnome.Nibbles", game.termux_proot.window_class)
+        self.assertTrue(game.termux_proot.relax_size_hints)
+
+    def test_termux_only_disable_marks_game_disabled_on_termux(self) -> None:
+        config = """
+[[games]]
+name = "Nibbles"
+command = ["gnome-nibbles"]
+[games.termux_proot]
+enabled = false
+"""
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "games.toml"
+            path.write_text(config, encoding="utf-8")
+            with patch.dict(
+                os.environ,
+                {"PREFIX": "/data/data/com.termux/files/usr"},
+                clear=True,
+            ):
+                game = load_game_catalog(path)[0]
+
+        self.assertFalse(game.enabled)
+        self.assertFalse(game.termux_proot.enabled)
+
+    def test_termux_only_disable_does_not_disable_native_debian(self) -> None:
+        config = """
+[[games]]
+name = "Nibbles"
+command = ["gnome-nibbles"]
+[games.termux_proot]
+enabled = false
+"""
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "games.toml"
+            path.write_text(config, encoding="utf-8")
+            with patch.dict(os.environ, {"PREFIX": "/usr"}, clear=True):
+                game = load_game_catalog(path)[0]
+
+        self.assertTrue(game.enabled)
+        self.assertFalse(game.termux_proot.enabled)
 
     def test_invalid_termux_rendering_policy_is_rejected(self) -> None:
         config = """

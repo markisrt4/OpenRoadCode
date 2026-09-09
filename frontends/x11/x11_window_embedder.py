@@ -17,6 +17,7 @@ class X11WindowEmbedder(WindowEmbedderIf):
         self._timeout_seconds = timeout_seconds
         self._window_id: int | None = None
         self._host_window_id: int | None = None
+        self._relax_size_hints = False
 
     @staticmethod
     def supported() -> bool:
@@ -35,6 +36,7 @@ class X11WindowEmbedder(WindowEmbedderIf):
         *,
         window_name: str | None = None,
         window_class: str | None = None,
+        relax_size_hints: bool = False,
     ) -> int:
         """Find, hide, reparent, size, and map an X11 client inside the host."""
         if not self.supported():
@@ -67,6 +69,7 @@ class X11WindowEmbedder(WindowEmbedderIf):
 
                 self._window_id = window_id
                 self._host_window_id = host_window_id
+                self._relax_size_hints = relax_size_hints
                 self.resize(width, height)
                 subprocess.run(
                     ["xdotool", "windowmap", str(window_id)],
@@ -86,6 +89,7 @@ class X11WindowEmbedder(WindowEmbedderIf):
                 last_error = error
                 self._window_id = None
                 self._host_window_id = None
+                self._relax_size_hints = False
                 subprocess.run(
                     ["xdotool", "windowmap", str(window_id)],
                     check=False,
@@ -113,14 +117,12 @@ class X11WindowEmbedder(WindowEmbedderIf):
         subprocess.run(["xdotool", "windowunmap", str(window_id)], check=False)
         self._window_id = None
         self._host_window_id = None
+        self._relax_size_hints = False
 
     @staticmethod
     def _find_by_process(process_id: int) -> int | None:
         if process_id <= 0:
             return None
-        # Search mapped and unmapped windows. Using --onlyvisible here meant
-        # ORC could not discover SDR++ until XFCE had already displayed it,
-        # guaranteeing the visible desktop-to-host "snap" on every launch.
         result = subprocess.run(
             ["xdotool", "search", "--pid", str(process_id)],
             capture_output=True,
@@ -151,7 +153,6 @@ class X11WindowEmbedder(WindowEmbedderIf):
 
     @staticmethod
     def _last_window_id(result: subprocess.CompletedProcess[str]) -> int | None:
-        """Return the last parsed result, retained for existing callers/tests."""
         if result.returncode != 0:
             return None
         candidates = [line.strip() for line in (result.stdout or "").splitlines() if line.strip()]
@@ -203,20 +204,30 @@ class X11WindowEmbedder(WindowEmbedderIf):
                 best_id = window_id
         return best_id
 
+    def _relax_current_size_hints(self) -> None:
+        if not self._relax_size_hints or self._window_id is None:
+            return
+        xprop = shutil.which("xprop")
+        if xprop is None:
+            return
+        subprocess.run(
+            [xprop, "-id", str(self._window_id), "-remove", "WM_NORMAL_HINTS"],
+            check=False,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+
     def resize(self, width: int, height: int) -> None:
         if self._window_id is None:
             return
         width = max(1, int(width))
         height = max(1, int(height))
+        self._relax_current_size_hints()
         subprocess.run(["xdotool", "windowsize", str(self._window_id), str(width), str(height)], check=False)
-
-        # Once ORC has successfully reparented the client, its coordinates are
-        # relative to the runtime host. Always pin it to the host origin. Some
-        # GTK/CSD clients keep their pre-reparent desktop position otherwise,
-        # which leaves the embedded game offset and clipped inside the panel.
         if self._host_window_id is not None:
             subprocess.run(["xdotool", "windowmove", str(self._window_id), "0", "0"], check=False)
 
     def clear(self) -> None:
         self._window_id = None
         self._host_window_id = None
+        self._relax_size_hints = False
