@@ -9,8 +9,9 @@ portable Spotify behavior lives below the application package.
 
 from __future__ import annotations
 
-from apps.orcUi.spotify_local_player import SpotifyLocalPlayer
+from apps.orcUi.spotify_local_player_factory import create_spotify_local_player
 from controllers.spotify.spotify_controller_if import SpotifyControllerIf
+from controllers.spotify.spotify_local_player import SpotifyLocalPlayer
 from controllers.spotify.spotify_state_service import SpotifyStateService
 
 
@@ -19,9 +20,7 @@ class MediaApplicationService:
 
     def __init__(self, spotify_controller: SpotifyControllerIf) -> None:
         self._spotify = SpotifyStateService(spotify_controller)
-        self._spotify_local_player = SpotifyLocalPlayer(
-            spotify_service=self._spotify,
-        )
+        self._spotify_local_player = create_spotify_local_player(self._spotify)
         self._started = False
 
     @property
