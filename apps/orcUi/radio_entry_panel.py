@@ -42,6 +42,11 @@ class LaunchAwareRadioPanel(RadioPanel):
         )
         self._launch_status.place(relx=0.5, rely=0.5, anchor="center")
 
+    def set_theme_bundle(self, theme: ThemeBundle) -> None:
+        """Repaint radio chrome and any visible SDR++ launch status."""
+        super().set_theme_bundle(theme)
+        self._launch_status.configure(bg=theme.ui.background, fg=theme.ui.text)
+
     def show_loading(self, text: str = "Loading SDR++…") -> None:
         self._launch_status.configure(text=text, fg=self._theme.ui.text)
         self._launch_status.place(relx=0.5, rely=0.5, anchor="center")
@@ -85,6 +90,19 @@ class RadioEntryPanel(tk.Frame):
         self._chooser.grid_columnconfigure(1, weight=1, uniform="radio-source")
         self._chooser.grid_rowconfigure(0, weight=1)
         self._build_choice_buttons()
+
+    def set_theme_bundle(self, theme: ThemeBundle) -> None:
+        """Apply a live ORC theme without restarting radio playback."""
+        self._theme = theme
+        self.configure(bg=theme.ui.background)
+        self._chooser.configure(bg=theme.ui.background)
+        for child in self._chooser.winfo_children():
+            child.destroy()
+        self._build_choice_buttons()
+        if self._streaming_page is not None and self._streaming_page.winfo_exists():
+            self._streaming_page.set_theme_bundle(theme)
+        if self._radio_panel is not None and self._radio_panel.winfo_exists():
+            self._radio_panel.set_theme_bundle(theme)
 
     def open_streaming_radio(self) -> None:
         """Present the streaming-radio browser directly."""
@@ -325,6 +343,7 @@ class RadioEntryPanel(tk.Frame):
                 directory=self._directory,
                 controller=self._streaming_radio,
                 favorites=self._favorites,
+                theme=self._theme,
                 on_back=self._show_chooser,
             )
         self._streaming_page.grid(row=0, column=0, sticky="nsew")
