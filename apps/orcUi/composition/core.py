@@ -9,6 +9,7 @@ from dataclasses import dataclass
 
 from apps.orcUi.core_runtime import MapRuntime, StateIngressRuntime
 from apps.orcUi.orc_ui_app import OrcUiApp
+from controllers.system import SystemLifecycleController
 
 
 @dataclass(slots=True)
@@ -18,6 +19,7 @@ class CoreComposition:
     app: OrcUiApp
     map_runtime: MapRuntime
     state_ingress: StateIngressRuntime
+    lifecycle: SystemLifecycleController
 
     def start(self) -> None:
         self.state_ingress.start()
@@ -32,7 +34,11 @@ class CoreComposition:
 def create_core_composition() -> CoreComposition:
     """Create the Tk shell and inject its runtime-facing dependencies."""
     map_runtime = MapRuntime()
-    app = OrcUiApp(map_runtime=map_runtime)
+    lifecycle = SystemLifecycleController()
+    app = OrcUiApp(
+        map_runtime=map_runtime,
+        lifecycle_handler=lifecycle,
+    )
     state_ingress = StateIngressRuntime(
         schedule_ui=app.schedule_ui_callback,
         apply_vehicle_state=app.apply_vehicle_state,
@@ -43,4 +49,5 @@ def create_core_composition() -> CoreComposition:
         app=app,
         map_runtime=map_runtime,
         state_ingress=state_ingress,
+        lifecycle=lifecycle,
     )
