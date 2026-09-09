@@ -10,6 +10,7 @@ from unittest.mock import Mock, patch
 
 from apps.orcUi.composition.radio import configure_radio
 from apps.orcUi.home_shell import ComposedHomeShell
+from ui.theme import ThemeMode
 
 
 class HomeRadioCompositionTest(unittest.TestCase):
@@ -19,6 +20,7 @@ class HomeRadioCompositionTest(unittest.TestCase):
     @patch("apps.orcUi.composition.radio.RadioBrowserDirectory")
     def test_home_factory_uses_runtime_and_retained_screen(self, directory_type, favorites_type, screen_type, now_playing_type):
         app = Mock()
+        app.theme_mode = ThemeMode.DARK
         runtime = Mock()
         composition = configure_radio(app, runtime)
         self.assertIs(composition.screen, screen_type.return_value)
