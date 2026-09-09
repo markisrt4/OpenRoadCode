@@ -15,9 +15,16 @@ class OrcUiCompositionTest(unittest.TestCase):
         core = Mock()
         core.app = app
         runtime = Mock()
+        radio = Mock()
         media = Mock()
         games = Mock()
-        composition = OrcUiComposition(core=core, runtime=runtime, media=media, games=games)
+        composition = OrcUiComposition(
+            core=core,
+            runtime=runtime,
+            radio=radio,
+            media=media,
+            games=games,
+        )
 
         composition.run()
 
@@ -35,13 +42,20 @@ class OrcUiCompositionTest(unittest.TestCase):
         core = Mock()
         core.app = app
         runtime = Mock()
+        radio = Mock()
         media = Mock()
         games = Mock()
         games.shutdown.side_effect = lambda: events("games")
         media.close.side_effect = lambda: events("media")
         core.close.side_effect = lambda: events("core")
         runtime.close.side_effect = lambda: events("runtime")
-        composition = OrcUiComposition(core=core, runtime=runtime, media=media, games=games)
+        composition = OrcUiComposition(
+            core=core,
+            runtime=runtime,
+            radio=radio,
+            media=media,
+            games=games,
+        )
 
         composition.run()
 
@@ -56,9 +70,16 @@ class OrcUiCompositionTest(unittest.TestCase):
         core = Mock()
         core.app = app
         runtime = Mock()
+        radio = Mock()
         media = Mock()
         games = Mock()
-        composition = OrcUiComposition(core=core, runtime=runtime, media=media, games=games)
+        composition = OrcUiComposition(
+            core=core,
+            runtime=runtime,
+            radio=radio,
+            media=media,
+            games=games,
+        )
 
         with self.assertRaisesRegex(RuntimeError, "boom"):
             composition.run()
@@ -74,9 +95,16 @@ class OrcUiCompositionTest(unittest.TestCase):
         core.app = app
         core.start.side_effect = RuntimeError("ingress failed")
         runtime = Mock()
+        radio = Mock()
         media = Mock()
         games = Mock()
-        composition = OrcUiComposition(core=core, runtime=runtime, media=media, games=games)
+        composition = OrcUiComposition(
+            core=core,
+            runtime=runtime,
+            radio=radio,
+            media=media,
+            games=games,
+        )
 
         with self.assertRaisesRegex(RuntimeError, "ingress failed"):
             composition.run()
@@ -103,6 +131,7 @@ class OrcUiCompositionTest(unittest.TestCase):
         runtime = create_runtime.return_value
         core = create_core.return_value
         app = core.app
+        radio = configure_radio.return_value
         games = configure_games.return_value
         media = configure_media.return_value
 
@@ -111,6 +140,7 @@ class OrcUiCompositionTest(unittest.TestCase):
         self.assertIs(composition.runtime, runtime)
         self.assertIs(composition.core, core)
         self.assertIs(composition.app, app)
+        self.assertIs(composition.radio, radio)
         self.assertIs(composition.games, games)
         self.assertIs(composition.media, media)
         configure_radio.assert_called_once_with(app, runtime)
