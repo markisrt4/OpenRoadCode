@@ -10,24 +10,24 @@ import tkinter as tk
 from ui.icon import IconId
 
 
-_GLYPH_ICONS: dict[IconId, tuple[str, str]] = {
-    IconId.RADIO: ("◉", "#38a8ff"),
-    IconId.AIRCRAFT: ("✈", "#70c7ff"),
-    IconId.AIRBAND_AM: ("AM", "#70c7ff"),
-    IconId.GAUGES: ("◔", "#ffb020"),
-    IconId.WEATHER: ("☀", "#ffd24a"),
-    IconId.WEATHER_RADIO: ("☁", "#70c7ff"),
-    IconId.LIGHTING: ("✦", "#f2d45c"),
-    IconId.MEDIA: ("▶", "#c58cff"),
-    IconId.FM_RADIO: ("FM", "#38a8ff"),
-    IconId.SCANNER_RADIO: ("⌁", "#48d11f"),
-    IconId.POWER: ("⏻", "#edf2f5"),
-    IconId.MICROPHONE: ("MIC", "#edf2f5"),
-    IconId.CAMERA: ("CAM", "#edf2f5"),
-    IconId.DISPLAY: ("▣", "#edf2f5"),
-    IconId.BRIGHTNESS: ("☀", "#ffd24a"),
-    IconId.VOLUME: ("VOL", "#edf2f5"),
-    IconId.VOLUME_MUTED: ("MUTE", "#edf2f5"),
+_GLYPH_ICONS: dict[IconId, str] = {
+    IconId.RADIO: "◉",
+    IconId.AIRCRAFT: "✈",
+    IconId.AIRBAND_AM: "AM",
+    IconId.GAUGES: "◔",
+    IconId.WEATHER: "☀",
+    IconId.WEATHER_RADIO: "☁",
+    IconId.LIGHTING: "✦",
+    IconId.MEDIA: "▶",
+    IconId.FM_RADIO: "FM",
+    IconId.SCANNER_RADIO: "⌁",
+    IconId.POWER: "⏻",
+    IconId.MICROPHONE: "MIC",
+    IconId.CAMERA: "CAM",
+    IconId.DISPLAY: "▣",
+    IconId.BRIGHTNESS: "☀",
+    IconId.VOLUME: "VOL",
+    IconId.VOLUME_MUTED: "MUTE",
 }
 
 
@@ -37,6 +37,7 @@ def create_icon(
     icon_id: IconId,
     size: int,
     background: str,
+    foreground: str,
 ) -> tk.Canvas:
     """Render one semantic icon using Tk primitives."""
     canvas = tk.Canvas(
@@ -55,8 +56,7 @@ def create_icon(
     elif icon_id is IconId.YOUTUBE:
         _draw_youtube(canvas, size)
     else:
-        glyph, color = _GLYPH_ICONS.get(icon_id, ("?", "#edf2f5"))
-        _draw_glyph(canvas, size, glyph, color)
+        _draw_glyph(canvas, size, _GLYPH_ICONS.get(icon_id, "?"), foreground)
     return canvas
 
 
