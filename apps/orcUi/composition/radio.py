@@ -15,12 +15,19 @@ def configure_radio(app: OrcUiApp, runtime) -> None:
     def sync_theme(mode: ThemeMode) -> None:
         sync_sdrpp_theme("Light" if mode is ThemeMode.LIGHT else "Dark")
 
-    app.register_screen("RADIO", RadioScreen(
-        app,
-        theme_bundle=lambda: theme_bundle(app.theme_mode),
-        theme_mode=lambda: app.theme_mode,
-        panel_factory=lambda parent, embedder, theme: RadioEntryPanel(
-            parent, embedder=embedder, theme=theme, radio_application=runtime.radio,
+    app.register_screen(
+        "RADIO",
+        RadioScreen(
+            app,
+            theme_bundle=lambda: theme_bundle(app.theme_mode),
+            theme_mode=lambda: app.theme_mode,
+            panel_factory=lambda parent, embedder, theme: RadioEntryPanel(
+                parent,
+                embedder=embedder,
+                theme=theme,
+                radio_application=runtime.radio,
+                streaming_radio=runtime.streaming_radio,
+            ),
+            sync_theme=sync_theme,
         ),
-        sync_theme=sync_theme,
-    ))
+    )
