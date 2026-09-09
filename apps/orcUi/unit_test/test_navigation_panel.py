@@ -1,12 +1,13 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 
-"""Unit tests for ORC navigation panel camera controls."""
+"""Unit tests for ORC navigation panel camera and POI controls."""
 
 import unittest
-from unittest.mock import Mock, patch
+from unittest.mock import Mock
 
 from apps.orcUi.navigation_panel import NavigationPanel
+from controllers.poi import PoiCategory
 
 
 class NavigationPanelControlTest(unittest.TestCase):
@@ -54,6 +55,42 @@ class NavigationPanelControlTest(unittest.TestCase):
 
         panel.set_follow_enabled.assert_called_once_with(False)
         panel._request_handler.request_follow.assert_called_once_with(False)
+
+    def test_gas_shortcut_starts_fuel_search(self) -> None:
+        panel = self._panel()
+        panel._start_poi_search = Mock()
+
+        panel._destination_shortcut("gas")
+
+        panel._start_poi_search.assert_called_once_with(PoiCategory.FUEL)
+
+    def test_grocery_shortcut_starts_grocery_search(self) -> None:
+        panel = self._panel()
+        panel._start_poi_search = Mock()
+
+        panel._destination_shortcut("grocery")
+
+        panel._start_poi_search.assert_called_once_with(PoiCategory.GROCERY)
+
+    def test_food_shortcut_starts_food_search(self) -> None:
+        panel = self._panel()
+        panel._start_poi_search = Mock()
+
+        panel._destination_shortcut("food")
+
+        panel._start_poi_search.assert_called_once_with(PoiCategory.FOOD)
+
+    def test_issue_poi_search_forwards_to_controller(self) -> None:
+        panel = self._panel()
+        panel._poi_controller = Mock()
+        panel._shortcut_status = Mock()
+        panel._poi_search_after_id = "pending"
+
+        panel._issue_poi_search(PoiCategory.FUEL)
+
+        self.assertIsNone(panel._poi_search_after_id)
+        panel._poi_controller.search.assert_called_once_with(PoiCategory.FUEL)
+        panel._shortcut_status.set.assert_called_once_with("Searching nearby fuel…")
 
 
 if __name__ == "__main__":
