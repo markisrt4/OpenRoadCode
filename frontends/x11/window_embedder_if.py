@@ -32,6 +32,7 @@ class WindowEmbedderIf(ABC):
         *,
         window_name: str | None = None,
         window_class: str | None = None,
+        relax_size_hints: bool = False,
     ) -> int:
         """Embed a matching application window into the supplied frontend host.
 
@@ -41,6 +42,7 @@ class WindowEmbedderIf(ABC):
         @param height Initial embedded-window height in pixels.
         @param window_name Optional native window-name match used during discovery.
         @param window_class Optional native window-class match used during discovery.
+        @param relax_size_hints Whether the backend may remove restrictive X11 size hints.
         @return The native identifier of the embedded application window.
         """
 
