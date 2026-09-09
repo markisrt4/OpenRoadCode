@@ -65,16 +65,18 @@ class DebianCommandRunner:
         self,
         args: Sequence[str],
         *,
-        hardware_acceleration: bool = True,
+        rendering: str = "auto",
     ) -> list[str]:
         """Return a command suitable for launching a graphical Debian application.
 
         Native Debian receives the command unchanged. Under Termux/proot, ORC
-        shares the X11 socket. Games that opt into hardware acceleration use
-        Mesa's virpipe client when the Android virgl renderer is available.
-        Software-only games explicitly use llvmpipe and do not start or connect
-        to the virgl rendering server.
+        shares the X11 socket. ``auto`` uses an accelerated virpipe bridge only
+        when the required Termux renderer capability is present. ``software``
+        explicitly selects Mesa llvmpipe. The decision is capability based and
+        does not depend on a particular phone model or GPU.
         """
+        if rendering not in {"auto", "software"}:
+            raise ValueError(f"unsupported rendering policy: {rendering}")
         if self._mode == "native":
             return list(args)
         if self._mode != "proot":
@@ -86,22 +88,26 @@ class DebianCommandRunner:
             environment.append(f"DISPLAY={display}")
         environment.append("XDG_RUNTIME_DIR=/tmp")
 
-        if hardware_acceleration:
-            if self._ensure_virgl_server():
-                environment.extend((
-                    "LIBGL_ALWAYS_SOFTWARE=true",
-                    "GALLIUM_DRIVER=virpipe",
-                ))
-        else:
+        if rendering == "software":
             environment.extend((
                 "LIBGL_ALWAYS_SOFTWARE=true",
                 "GALLIUM_DRIVER=llvmpipe",
+            ))
+        elif self._ensure_virgl_server():
+            environment.extend((
+                "LIBGL_ALWAYS_SOFTWARE=true",
+                "GALLIUM_DRIVER=virpipe",
             ))
 
         return self.command(["env", *environment, *args], shared_tmp=True)
 
     def _ensure_virgl_server(self) -> bool:
-        """Start Termux's virgl renderer when available and return success."""
+        """Start an available Termux virgl renderer and return success.
+
+        ``virgl_test_server_android`` is discovered at runtime. If it is not
+        installed on the current Android/Termux device, accelerated bridging is
+        simply unavailable and the caller continues without virpipe settings.
+        """
         server = shutil.which("virgl_test_server_android")
         tmpdir = os.environ.get("TMPDIR")
         if not server or not tmpdir:

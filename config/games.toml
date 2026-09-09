@@ -58,7 +58,7 @@ category = "puzzle"
 icon = "gnome-2048"
 command = ["gnome-2048"]
 [games.termux_proot]
-hardware_acceleration = false
+rendering = "software"
 environment = { GSK_RENDERER = "cairo" }
 window_name = "2048"
 [games.install]
@@ -71,7 +71,7 @@ category = "casual"
 icon = "gnome-nibbles"
 command = ["gnome-nibbles"]
 [games.termux_proot]
-hardware_acceleration = false
+rendering = "software"
 environment = { GSK_RENDERER = "cairo" }
 window_name = "Nibbles"
 window_class = "org.gnome.Nibbles"
@@ -85,7 +85,7 @@ category = "puzzle"
 icon = "gnome-sudoku"
 command = ["gnome-sudoku"]
 [games.termux_proot]
-hardware_acceleration = false
+rendering = "software"
 environment = { GSK_RENDERER = "cairo" }
 window_name = "Sudoku"
 [games.install]

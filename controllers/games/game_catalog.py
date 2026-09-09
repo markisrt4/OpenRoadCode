@@ -27,7 +27,7 @@ def load_game_catalog(path: str | Path) -> list[GameDefinition]:
                 environment=dict(entry.get("environment", {})),
                 termux_proot=TermuxProotRuntimeConfig(
                     environment=dict(termux_proot.get("environment", {})),
-                    hardware_acceleration=termux_proot.get("hardware_acceleration", True),
+                    rendering=termux_proot.get("rendering", "auto"),
                     window_name=termux_proot.get("window_name"),
                     window_class=termux_proot.get("window_class"),
                 ),
