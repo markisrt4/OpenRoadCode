@@ -6,6 +6,7 @@ on:
     branches:
       - master
       - automotive
+      - runtime-integration-cleanup
   workflow_dispatch:
 
 permissions:
@@ -103,6 +104,9 @@ jobs:
           bash -n development/termux/build_navigation_stack.sh
           bash -n scripts/runit/install_termux_services.sh
           bash -n scripts/runit/openroadcode-adsb/run
+          bash -n scripts/systemd/install_service_manager_systemd.sh
+          bash -n development/debian/install_streaming_radio.sh
+          bash -n development/termux/install_streaming_radio.sh
 
       - name: Check source-tree runtime state
         shell: bash
