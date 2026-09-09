@@ -2,7 +2,7 @@ PROJECT_NAME           = "OpenRoadCode"
 PROJECT_BRIEF          = "Public API reference for OpenRoadCode"
 
 OUTPUT_DIRECTORY       = build/doxygen
-INPUT                  = README.md docs apps controllers services messaging \
+INPUT                  = README.md CONTRIBUTING.md SECURITY.md docs apps controllers services messaging \
                          hardware_io protocols config common ui frontends \
                          input_events networking security development scripts tools
 FILE_PATTERNS          = *.py *.hpp *.cpp *.md
