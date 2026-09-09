@@ -9,6 +9,7 @@ from controllers.spotify.spotify_controller_stub import SpotifyControllerStub
 from controllers.spotify.spotify_library import SpotifyLibraryTrack
 from controllers.spotify.spotify_media_presenter import SpotifyMediaPresenter
 from controllers.spotify.spotify_state import SpotifyState
+from controllers.spotify.spotify_state_service import SpotifyStateService
 from controllers.spotify.spotify_web_api_controller import SpotifyWebApiController
 from controllers.spotify.unconfigured_controller import UnconfiguredController
 
@@ -19,6 +20,7 @@ __all__ = [
     "SpotifyLibraryTrack",
     "SpotifyMediaPresenter",
     "SpotifyState",
+    "SpotifyStateService",
     "SpotifyWebApiController",
     "UnconfiguredController",
 ]
