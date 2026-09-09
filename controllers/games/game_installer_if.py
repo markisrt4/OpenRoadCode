@@ -49,6 +49,10 @@ class GameInstallerIf(ABC):
         """
 
     def window_selectors(self, game: GameDefinition) -> tuple[str | None, str | None]:
-        """Return backend-specific X11 window name/class selectors when needed."""
+        """! @brief Return backend-specific X11 window selectors when needed.
+
+        @param game Configured game definition whose runtime window will be selected.
+        @return Pair containing an optional window name and optional window class.
+        """
         del game
         return None, None
