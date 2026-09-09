@@ -8,6 +8,8 @@ The [project README](../README.md) remains the repository landing page. [Doxygen
 
 - [System architecture](architecture.md)
 - [Applications architecture audit](apps_architecture_audit.md)
+- [ORC UI architecture](../apps/orcUi/ARCHITECTURE.md)
+- [ORC media integration](../apps/orcUi/MEDIA.md)
 - [Ethernet interface design](ethernet_idd.md)
 - [Android sensor pipeline](android_sensor_pipeline.md)
 - [Navigation runtime](navigation_runtime.md)
@@ -23,7 +25,7 @@ The [project README](../README.md) remains the repository landing page. [Doxygen
 
 ## Applications
 
-The application layer currently contains ten README files covering graphical, terminal, browser, rendering, launcher, demo, and dashboard applications.
+Application documentation covers the graphical, terminal, browser, rendering, launcher, demo, and dashboard surfaces. The ORC UI architecture and media guides above document the current runtime composition and ownership model introduced by the runtime-integration cleanup.
 
 - [Car UI](../apps/carUi/README.md)
 - [Car UI input](../apps/carUi/input/README.md)
@@ -40,11 +42,11 @@ The application layer currently contains ten README files covering graphical, te
 
 These directories contain the bulk of the component-level documentation. Their README files are kept with their implementations and are recursively published by the documentation website.
 
-- [Controllers](../controllers/) — 16 README files covering audio, automotive/OBD-II, input, radio, SDR, navigation, rendering, and related control layers
-- [Hardware I/O](../hardware_io/) — 11 README files covering GPS, IMU, GPIO, Bluetooth, and other hardware adapters
-- [Protocols](../protocols/) — 7 README files including CAN, OBD-II, OAuth, map rendering, rig control, and related protocol models
+- [Controllers](../controllers/) — audio, automotive/OBD-II, input, radio, SDR, navigation, rendering, application runtime, games, media, and related control layers
+- [Hardware I/O](../hardware_io/) — GPS, IMU, GPIO, Bluetooth, and other hardware adapters
+- [Protocols](../protocols/) — CAN, OBD-II, OAuth, map rendering, rig control, Spotify, and related protocol models
 - [Services](../services/) — [automotive](../services/automotive/README.md) and [navigation](../services/navigation/README.md)
-- [Messaging](../messaging/README.md) — transport-independent messaging contracts and ZeroMQ transport
+- [Messaging](../messaging/README.md) — transport-independent messaging contracts, dispatch, and ZeroMQ transport
 - [Configuration](../config/README.md) — shared runtime configuration and profiles
 - [UI contracts](../ui/README.md) — toolkit-independent presentation contracts
 - [UI component-test guide](../ui/component_test/README.md) — component-test documentation
@@ -69,18 +71,19 @@ Development documentation is also kept beside the tools and platform targets it 
 
 ## Features and reference
 
-- [Streaming radio](streaming_radio.md)
 - [Roadmap](roadmap.md)
 - [Vehicle one-wire reference](vehicle-one-wire.pdf)
 - [Security policy](../SECURITY.md)
 - [Doxygen configuration](../Doxyfile)
 
+Streaming Radio is currently represented in the application as a Coming Soon surface while its provider/controller plumbing is under development. The former implementation guide was removed during runtime cleanup, so it is intentionally not linked here as active architecture documentation.
+
 ## Documentation coverage
 
-A repository-wide inventory on `master` contains 64 `README.md` files. This documentation branch adds this `docs/README.md`, bringing the branch total to 65. The public website recursively imports the README files, so its generated documentation tree is the exhaustive per-component navigator; this page is the curated human entry point.
+The public website recursively imports component README files, while this page provides a curated human entry point. Counts are deliberately not hard-coded here because the repository is changing quickly; the generated documentation tree is the authoritative exhaustive inventory.
 
-Top-level areas without README files are still intentionally represented where appropriate by API/reference generation or their owning documentation. At the time of this inventory, `cad`, `common`, `networking`, `resources`, `security`, and `tests` contain no README files of their own.
+Top-level areas without their own README are still represented where appropriate by API/reference generation or by cross-cutting documentation under `docs/`.
 
 ## Documentation conventions
 
-Keep implementation-specific instructions in the owning component's README. Put cross-cutting architecture, interface, deployment, and user guides under `docs/`. Link to canonical files instead of duplicating them. When adding a new component README, ensure the public documentation importer and Doxygen inputs still cover its directory, and add it here when it represents a new documentation area or important entry point.
+Keep implementation-specific instructions in the owning component's README. Put cross-cutting architecture, interface, deployment, and user guides under `docs/`. Link to canonical files instead of duplicating them. When adding a new component README or standalone architecture guide, ensure the public documentation importer and Doxygen inputs still cover it, and add it here when it represents a new documentation area or important entry point.
