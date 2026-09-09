@@ -14,6 +14,7 @@ The [project README](../README.md) remains the repository landing page. [Doxygen
 - [Android sensor pipeline](android_sensor_pipeline.md)
 - [Navigation runtime](navigation_runtime.md)
 - [Navigation deployment](navigation_deployment.md)
+- [XDG path policy](xdg_paths.md)
 - [Message bus interface design](messaging/message_bus_idd.md)
 - [Automotive vehicle-state interface](idd/automotive_vehicle_state.md)
 - [Environmental barometric-state interface](idd/environmental_barometric_state.md)
@@ -44,7 +45,7 @@ These directories contain the bulk of the component-level documentation. Their R
 
 - [Controllers](../controllers/) — audio, automotive/OBD-II, input, radio, SDR, navigation, rendering, application runtime, games, media, and related control layers
 - [Hardware I/O](../hardware_io/) — GPS, IMU, GPIO, Bluetooth, and other hardware adapters
-- [Protocols](../protocols/) — CAN, OBD-II, OAuth, map rendering, rig control, Spotify, and related protocol models
+- [Protocols](../protocols/) — CAN, OBD-II, OAuth, map rendering, rig control, Spotify, and related protocol models; see [CAN protocol models](../protocols/can/README.md) for the transport-independent CAN frame layer
 - [Services](../services/) — [automotive](../services/automotive/README.md) and [navigation](../services/navigation/README.md)
 - [Messaging](../messaging/README.md) — transport-independent messaging contracts, dispatch, and ZeroMQ transport
 - [Configuration](../config/README.md) — shared runtime configuration and profiles
@@ -70,12 +71,12 @@ Development documentation is also kept beside the tools and platform targets it 
 
 ## Features and reference
 
+- [Streaming Radio](streaming_radio.md) — internet station discovery, favorites, filtering, mpv playback, and shared Radio/Home now-playing state
+- [XDG path policy](xdg_paths.md) — per-user configuration, persistent data, cache, and state locations on Linux and Termux
 - [Roadmap](roadmap.md)
 - [Vehicle one-wire reference](vehicle-one-wire.pdf)
 - [Security policy](../SECURITY.md)
 - [Doxygen configuration](../Doxyfile)
-
-Streaming Radio is currently represented in the application as a Coming Soon surface while its provider/controller plumbing is under development. The former implementation guide was removed during runtime cleanup, so it is intentionally not linked here as active architecture documentation.
 
 ## Documentation coverage
 
