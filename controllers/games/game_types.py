@@ -12,6 +12,7 @@ class TermuxProotRuntimeConfig:
     accelerated bridge; ``software`` forces Mesa software rendering.
     """
 
+    enabled: bool = True
     environment: dict[str, str] = field(default_factory=dict)
     rendering: str = "auto"
     window_name: str | None = None
