@@ -22,7 +22,7 @@ from apps.orcUi.theme_runtime import theme_bundle
 from apps.orcUi.vehicle_panel import VehiclePanel
 from apps.orcUi.vehicle_presenter import VehiclePresentationState
 from messaging.contracts.route_guidance import RouteGuidanceStateMessage
-from ui.navigation import RouteRequestHandlerIf
+from ui.navigation import RouteRequestHandlerIf, RouteSimulationRequestHandlerIf
 from ui.screen_ui_if import ScreenUiIf
 
 class OrcUiApp:
@@ -32,9 +32,11 @@ class OrcUiApp:
         *,
         map_runtime: MapRuntimeIf,
         route_request_handler: RouteRequestHandlerIf,
+        route_simulation_handler: RouteSimulationRequestHandlerIf,
     ) -> None:
         self._map_runtime = map_runtime
         self._route_request_handler = route_request_handler
+        self._route_simulation_handler = route_simulation_handler
         self._theme_mode = ThemeMode.DARK
         self._theme = theme_bundle(self._theme_mode)
         ui = self._theme.ui
@@ -426,6 +428,7 @@ class OrcUiApp:
         self._navigation_panel = NavigationPanel(
             self._content,
             route_request_handler=self._route_request_handler,
+            route_simulation_handler=self._route_simulation_handler,
             on_back=self._show_home,
             theme_bundle=self._theme,
         )
