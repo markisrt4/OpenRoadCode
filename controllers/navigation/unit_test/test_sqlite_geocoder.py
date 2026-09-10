@@ -164,3 +164,33 @@ def test_postcode_only_context_ranks_nearest_street_candidate(tmp_path):
     assert results
     assert results[0].display_name == "Cascade Circle"
     assert math.isclose(math.degrees(results[0].position.latitude_rad), 42.817744)
+
+
+def test_directional_street_with_postcode_falls_back_to_nearest_segment(tmp_path):
+    path = _db(tmp_path)
+    con = sqlite3.connect(path)
+    con.execute(
+        "INSERT INTO address VALUES (?,?,?,?,?,?,?,?,?,?)",
+        ("zip48397","1","Some Arsenal Road",None,None,"MI","48397","US",42.49,-83.04),
+    )
+    con.execute(
+        "INSERT INTO street VALUES (?,?,?,?,?,?,?)",
+        ("east11-near","East 11 Mile Road",None,None,None,42.4916,-83.0443),
+    )
+    con.execute(
+        "INSERT INTO street VALUES (?,?,?,?,?,?,?)",
+        ("east11-far","East 11 Mile Road",None,None,None,42.4957,-82.9026),
+    )
+    con.commit()
+    con.close()
+
+    geocoder = SqliteGeocoder(path)
+    try:
+        results = geocoder.geocode("6501 East 11 Mile Road 48397")
+    finally:
+        geocoder.close()
+
+    assert results
+    assert results[0].source == "street"
+    assert results[0].display_name == "East 11 Mile Road"
+    assert math.isclose(math.degrees(results[0].position.longitude_rad), -83.0443)
