@@ -211,10 +211,14 @@ class SqliteGeocoder:
             GeocodeResult(
                 display_name=_format_street(row),
                 position=_point(row),
-                confidence=0.55 if query.house_number else 0.8,
+                confidence=_street_confidence(
+                    score=score,
+                    distance_km=distance_km,
+                    has_house_number=query.house_number is not None,
+                ),
                 source="street",
             )
-            for _, _, row in ranked[:limit]
+            for score, distance_km, row in ranked[:limit]
         ]
 
     def _place_results(self, query: str, limit: int) -> list[GeocodeResult]:
@@ -320,6 +324,29 @@ def _find_street_suffix_index(tokens: list[str]) -> int | None:
         if token.casefold().rstrip(".") in suffixes:
             return index
     return None
+
+def _street_confidence(*, score: int, distance_km: float, has_house_number: bool) -> float:
+    base = 0.45 if has_house_number else 0.65
+
+    if score >= 100:
+        base += 0.12
+    elif score >= 80:
+        base += 0.08
+    elif score >= 75:
+        base += 0.05
+
+    if math.isfinite(distance_km):
+        if distance_km <= 1.0:
+            base += 0.18
+        elif distance_km <= 5.0:
+            base += 0.14
+        elif distance_km <= 15.0:
+            base += 0.09
+        elif distance_km <= 30.0:
+            base += 0.04
+
+    return round(min(base, 0.95), 2)
+
 
 def _distance_km(lat1_deg: float, lon1_deg: float, lat2_deg: float, lon2_deg: float) -> float:
     lat1 = math.radians(lat1_deg)
