@@ -18,6 +18,17 @@ from ui.navigation import GeoPoint
 _ADDRESS_RE = re.compile(r"^\s*([^,]+?)(?:\s*,\s*(.*))?$")
 _STREET_RE = re.compile(r"^\s*([0-9]+[A-Za-z0-9-]*)\s+(.+?)\s*$")
 
+_DIRECTIONALS = {
+    "n": "north",
+    "s": "south",
+    "e": "east",
+    "w": "west",
+    "ne": "northeast",
+    "nw": "northwest",
+    "se": "southeast",
+    "sw": "southwest",
+}
+
 _STREET_SUFFIXES = {
     "st": "street",
     "rd": "road",
@@ -173,6 +184,8 @@ class SqliteGeocoder:
                 score += 100
             elif candidate.startswith(requested + " ") or requested.startswith(candidate + " "):
                 score += 80
+            elif _street_core(candidate) == _street_core(requested):
+                score += 75
             else:
                 continue
 
@@ -240,8 +253,17 @@ def _normalize_words(value: str) -> str:
 
 def _normalize_street(value: str) -> str:
     words = re.findall(r"[a-z0-9]+", value.casefold())
-    if words:
-        words[-1] = _STREET_SUFFIXES.get(words[-1], words[-1])
+    if not words:
+        return ""
+    words = [_DIRECTIONALS.get(word, word) for word in words]
+    words[-1] = _STREET_SUFFIXES.get(words[-1], words[-1])
+    return " ".join(words)
+
+
+def _street_core(value: str) -> str:
+    words = value.split()
+    if words and words[-1] in set(_STREET_SUFFIXES.values()):
+        words = words[:-1]
     return " ".join(words)
 
 
