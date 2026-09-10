@@ -23,14 +23,11 @@ _CATEGORY_NAME: dict[PoiCategory, str] = {
 
 _TRANSIT_SQL: dict[TransitMode, tuple[str, tuple[str, ...]]] = {
     TransitMode.ALL: ("", ()),
-    TransitMode.BUS: (" AND class = ?", ("bus",)),
-    TransitMode.RAIL: (
-        " AND class = ? AND subclass IN (?, ?)",
-        ("railway", "station", "halt"),
-    ),
+    TransitMode.BUS: (" AND transit_mode = ?", ("bus",)),
+    TransitMode.RAIL: (" AND transit_mode = ?", ("rail",)),
     TransitMode.TRAM_SUBWAY: (
-        " AND class = ? AND subclass IN (?, ?)",
-        ("railway", "tram_stop", "subway_entrance"),
+        " AND transit_mode IN (?, ?)",
+        ("tram", "subway"),
     ),
 }
 
