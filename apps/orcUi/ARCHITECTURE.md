@@ -1,105 +1,142 @@
-# ORC UI Architecture
+# orcUi Architecture
 
-## Principles
+## Purpose
 
-OpenRoadCode separates contracts for behavior, CSS for presentation, and composition for ownership. The Tk shell must not construct transport, decoder, presenter, worker, browser, or external-process infrastructure. Feature composition wires application/controller services to presentation adapters. Runtime objects own their resources and expose explicit lifecycle operations.
+`apps/orcUi` is the application assembly and runtime layer for the integrated OpenRoadCode UI. It is not the Tk frontend itself.
 
-`ui/` is the toolkit-independent semantic boundary. Contracts there describe user intent, presentation state, and semantic identifiers. They must remain consumable by Tk, web, Android, or another frontend without importing toolkit-specific rendering or backend implementation details.
+OpenRoadCode deliberately separates semantic UI contracts, reusable behavior, frontend rendering, and application composition so that a feature can be presented by Tk, web, Android, or another frontend without moving its controller logic into the application shell.
+
+## Dependency boundaries
+
+`ui/` is the toolkit-independent semantic boundary. Contracts there describe user intent, presentation state, semantic identifiers, and narrow frontend-facing behavior. Code in `ui/` must not depend on Tkinter, application composition, transport implementations, controllers, or hardware implementations.
+
+`controllers/` owns reusable behavior and integration logic. Long-lived workers, state synchronization, protocol behavior, playback coordination, and similar reusable behavior do not belong in `orcUi` or in a concrete frontend.
+
+`frontends/<frontend>/` owns concrete presentation. For Tk specifically, `frontends/tk` is the reusable Tk ecosystem. Feature packages such as `frontends/tk/media`, `frontends/tk/radio`, `frontends/tk/automotive`, and `frontends/tk/games` should depend on narrow contracts rather than on one application shell.
+
+`frontends/tk/orc_ui` is intentionally application-specific. It owns the integrated orcUi Tk root window, shell chrome, HOME layout, context rail, structural navigation/vehicle/off-road panels, power dialog, and other Tk presentation that exists specifically because of the orcUi layout.
+
+`apps/orcUi` owns assembly, application-specific runtime adapters, presenters used by the assembly, and resource lifecycle. Composition may select a concrete frontend implementation, but Tk widgets and Tk-specific rendering do not belong in this package.
+
+The intended direction is:
+
+```text
+ui contracts
+    ↑
+controllers / reusable application services
+    ↑
+frontend implementations
+    ↑
+application composition
+```
+
+A concrete composition root is allowed to know which frontend it selected. Reusable controllers and UI contracts must not know which application or frontend selected them.
 
 ## Entry point and assembly
 
-`python -m apps.orcUi` enters `main.py`, which calls `create_orc_ui_composition().run()`. The compatibility export of `OrcUiApp` remains available from `main.py`.
+`python -m apps.orcUi` enters `main.py`, which does one thing: create the application composition and run it. It does not re-export the concrete Tk shell.
 
-`composition/application.py` is the top-level composition root. It creates `OrcUiApplicationRuntime`, then `CoreComposition`, and configures RADIO, GAMES, and MEDIA. `OrcUiComposition` owns those top-level objects and defines shutdown order.
-
-```
-main.py
+```text
+apps/orcUi/main.py
   -> composition/application.py
        -> OrcUiApplicationRuntime
-            -> application runtime manager
-            -> radio and media application services
        -> composition/core.py
             -> MapRuntime
             -> SystemLifecycleController
-            -> SystemVolumeHandler / audio controller
-            -> OrcUiApp(semantic handlers + runtime interfaces)
+            -> SystemVolumeHandler
+            -> frontends/tk/orc_ui/OrcUiApp
             -> StateIngressRuntime
        -> composition/radio.py
+            -> reusable Tk radio presentation
        -> composition/games.py
+            -> reusable Tk games presentation
        -> composition/media.py
+            -> reusable Tk media presentation
 ```
 
-The application runtime owns background application services and managed launchers. Core composition owns shell-facing map, system lifecycle, system volume, and state-ingress wiring. Feature composition owns feature-specific screen construction and wiring. Do not move concrete service construction back into `main.py` or `OrcUiApp`.
+`OrcUiComposition` owns the top-level graph and shutdown order. Application/runtime objects own the resources they create. The Tk shell consumes injected runtime interfaces and semantic contracts rather than constructing backend infrastructure itself.
 
-## Core shell and state flow
+## Tk shell ownership
 
-`OrcUiApp` owns the Tk window, shell chrome, structural HOME content, screen registration and navigation, theme intent, widget placement, and Tk lifecycle. It consumes runtime interfaces and UI contracts. It does not create ZeroMQ subscribers, message decoders, presenters, host lifecycle commands, audio backends, Spotify workers, browsers, or map-renderer launchers.
+`frontends/tk/orc_ui/orc_ui_app.py` owns the concrete integrated Tk shell. It creates the Tk root, arranges shell chrome and structural panels, manages Tk screen hosting/navigation, paints presentation state, and runs the Tk event loop.
 
-`core_runtime.py` contains shell-facing runtime adapters. `MapRuntime` owns the external map-renderer launcher and renderer-specific theme/style installation. `StateIngressRuntime` owns the message dispatcher and subscriber, registers automotive and navigation topic decoders, invokes the vehicle/navigation presenters, and schedules UI-ready state delivery onto the Tk thread.
+It must not create ZeroMQ subscribers, message decoders, audio backends, Spotify synchronization workers, browser lifecycle managers, external map renderer launchers, or host restart/poweroff implementations. Those dependencies are injected through application/runtime or UI contracts.
 
+Structural orcUi widgets that are meaningful only inside that shell stay under `frontends/tk/orc_ui`. A widget that could reasonably be reused by another Tk application belongs in an appropriate feature package under `frontends/tk` instead.
+
+## Reusing Tk for another application
+
+`frontends/tk` is not uniquely tailored to orcUi. A future independent Tk application should create its own application-specific package, for example:
+
+```text
+frontends/tk/
+    automotive/
+    media/
+    radio/
+    games/
+    ... reusable Tk features ...
+
+    orc_ui/
+        orc_ui_app.py
+        ... orcUi-specific layout ...
+
+    alternate_ui/
+        alternate_ui_app.py
+        ... alternate layout ...
 ```
-ZeroMQ -> MessageDispatcher -> contract decoder -> presenter
-                                                   |
-                                                   v
-                                           Tk scheduler
-                                                   |
-                                                   v
-                              OrcUiApp.apply_*_state(...)
-                                                   |
-                                  visible structural panels
+
+That alternate shell can reuse the existing controllers, `ui/` contracts, and generic Tk feature packages. Reusable Tk screens use `TkScreenHostIf`, so another Tk shell can host them by implementing that narrow interface rather than inheriting from or depending on `OrcUiApp`.
+
+If a generic Tk component begins importing `frontends.tk.orc_ui`, that is an architecture smell. Extract the required operation into a narrow contract rather than coupling the reusable component to the orcUi shell.
+
+## State flow
+
+`core_runtime.py` contains shell-facing runtime adapters. `MapRuntime` owns the external map-renderer lifecycle and renderer-specific theme consequences. `StateIngressRuntime` owns message ingress, decoders, presenter invocation, and scheduling already-presented state onto the UI thread.
+
+```text
+transport -> decoder -> presenter -> UI-thread scheduler -> concrete frontend
 ```
 
-Vehicle, position, and attitude are distinct presentation states. The shell forwards them to the relevant context rail, vehicle, and off-road widgets. It must not decode transport payloads or couple position state to a particular GPS implementation. Background callbacks must not manipulate Tk widgets directly. Closing guards prevent queued work from updating destroyed widgets.
+Vehicle, position, and attitude remain distinct presentation states. Concrete frontend widgets receive those already-presented states. They do not decode transport payloads or assume a particular sensor implementation.
 
-HOME, context rail, and other structural content are not required to become registered screens. Registered feature screens use the shell's screen-host and navigation interfaces. This distinction avoids inventing screen lifecycle machinery for every widget.
+## System intent
 
-## System intent contracts
+System controls use semantic contracts from `ui.system`.
 
-System controls use semantic contracts from `ui.system` rather than direct platform operations.
+Volume requests flow through `VolumeRequestHandlerIf`; normalized volume/mute state returns through `VolumeUiIf`. `SystemVolumeHandler` translates those requests to the concrete audio controller.
 
-Volume requests flow from the shell through `VolumeRequestHandlerIf`; normalized volume and mute state return through `VolumeUiIf`. `SystemVolumeHandler` owns the translation to the concrete audio controller. The shell therefore does not know about `wpctl`, PipeWire, PulseAudio, sinks, or platform commands.
-
-Restart and poweroff requests flow through `SystemLifecycleRequestHandlerIf`. `SystemLifecycleController` records the requested action but does not execute it while Tk and feature resources are still alive. `OrcUiComposition.run()` closes application-owned resources first, then dispatches the deferred host action. This prevents process replacement from bypassing normal cleanup.
-
-## Semantic icons
-
-Shared UI models use `ui.icon.IconId`, not Unicode glyphs, SVG paths, image filenames, CSS classes, or Tk assets. An icon identifier describes meaning such as `POWER`, `CAMERA`, or `VOLUME_MUTED`; it does not prescribe rendering.
-
-Each frontend owns the mapping from `IconId` to its native representation. Tk mappings live under `frontends/tk`; a web frontend may map the same identifier to SVG/CSS, and Android may map it to a native drawable. Menu metadata follows the same rule. This keeps icons digestible by every UI without forcing one frontend's presentation technology onto another.
+Restart and poweroff requests flow through `SystemLifecycleRequestHandlerIf`. `SystemLifecycleController` records the requested action, and `OrcUiComposition` executes it only after normal resource cleanup.
 
 ## Feature composition
 
-`composition/radio.py` wires the radio screen, radio application service, and external SDR++ theme synchronization. The radio frontend owns Tk presentation and X11 embedding, while the application runtime owns managed process lifecycle. Theme changes must not unnecessarily restart or detach an active SDR++ session.
+`composition/radio.py` wires application-owned radio services to reusable Tk radio presentation. X11/SDR++ presentation details live with the appropriate frontend/launcher implementation, while the runtime owns managed process lifetime.
 
-`composition/media.py` wires the shared Spotify service, local player, image cache, lyrics client, music-video controller, MEDIA hub, Spotify screen, browser-backed YouTube/Netflix screens, and HOME now-playing widget. `MediaComposition.close()` releases its owned video resource. The shared Spotify state service is not duplicated for HOME and MEDIA.
+`composition/media.py` wires shared Spotify services, local-player behavior, image/lyrics/video dependencies, and reusable Tk media screens. Spotify synchronization and local Web Player lifecycle remain under `controllers/spotify`.
 
-Long-lived Spotify state synchronization and local Web Player behavior live under `controllers/spotify`, not `apps/orcUi`. Those components own command queues, worker threads, Spotify API coordination, browser-backed player lifecycle, playback transfer, and related state synchronization. ORC UI composition constructs/wires them; Tk consumes their presentation-facing state.
+`composition/games.py` registers the reusable Tk games frontend. Environment-specific launching and compatibility remain backend concerns.
 
-`composition/games.py` registers the games frontend. The Games screen creates the runtime host and requests semantic launch/stop behavior. Platform launch adapters own environment-specific compatibility. Termux/proot renderer choices, environment overrides, and X11 title/class fallbacks remain backend concerns rather than shell concerns.
-
-New features should follow the same pattern: construct dependencies in composition, expose behavior through contracts, keep presentation in the frontend, and assign resource cleanup to the object that creates the resource.
+New features should follow the same sequence: define semantic contracts, implement reusable behavior, implement presentation per frontend, then assemble concrete choices at the application composition edge.
 
 ## Theme ownership
 
-`theme_runtime.py` resolves the active `ThemeBundle` from the CSS files in `ui/theme`. CSS supplies the visual source of truth for shell and feature chrome. Components receive the active bundle or a provider and repaint when the theme changes. Do not introduce local dark/light palettes or translate old colors into new colors at runtime.
+`theme_runtime.py` resolves `ThemeBundle` values from the shared CSS-derived theme model. Concrete frontends paint those values. Runtime-specific consequences, such as installing a MapLibre style, belong to the runtime that owns that renderer rather than to the shell.
 
-`OrcUiApp` owns theme intent. Renderer-specific consequences do not belong in the shell. For example, the shell calls `MapRuntimeIf.set_theme()` and the map runtime performs MapLibre style installation. This same rule applies to future frontend/runtime-specific theme effects.
+Semantic theme intent may originate from the active application shell. Provider-specific brand colors are allowed where intentional, but application chrome should continue to come from the shared theme model.
 
-Intentional provider brand colors are separate from ORC chrome. Spotify actions and progress accents may use Spotify green; surrounding card, text, borders, and controls follow the active CSS theme.
+## Lifecycle
 
-## Lifecycle and cleanup
+A resource has one clear owner. The object that creates a process, worker, subscriber, browser host, or other managed resource must expose and own its cleanup behavior.
 
-`OrcUiComposition.run()` schedules deferred application startup, starts core state ingress/system state, runs the Tk shell, and closes resources in nested `finally` blocks. Games are stopped before media, then core and application runtime are closed. Core cleanup closes ingress before stopping the map renderer. The factory also closes already-created resources when assembly fails.
+`OrcUiComposition.run()` starts the assembled graph, runs the selected frontend, then closes games/media/core/application resources in defined order before executing any deferred host lifecycle action.
 
-Host restart/poweroff is deliberately deferred until normal cleanup completes. Do not add independent shutdown paths inside feature screens. A resource should have one clear owner and an idempotent close/stop operation where appropriate.
+Do not add independent shutdown paths inside feature screens merely because reaching `subprocess` from a button is temptingly easy.
 
-## Developer workflow
+## Developer verification
 
-From the repository root, use the active virtual environment and run:
+From the repository root, run the focused suites relevant to the changed ownership:
 
 ```bash
 python -m unittest discover -s apps/orcUi/composition/unit_test -p 'test_*.py'
-python -m unittest discover -s apps/orcUi/unit_test -p 'test_*.py'
 python -m unittest discover -s controllers/system/unit_test -p 'test_*.py'
 python -m unittest discover -s controllers/audio/unit_test -p 'test_*.py'
 python -m unittest discover -s controllers/spotify/unit_test -p 'test_*.py'
@@ -107,16 +144,26 @@ python -m unittest discover -s controllers/application_runtime/unit_test -p 'tes
 python -m unittest discover -s controllers/games/unit_test -p 'test_*.py'
 python -m unittest discover -s ui/unit_test -p 'test_*.py'
 python -m unittest discover -s frontends/tk/unit_test -p 'test_*.py'
-python -m unittest discover -s frontends/x11/unit_test -p 'test_*.py'
+python -m unittest discover -s frontends/tk/orc_ui/unit_test -p 'test_*.py'
 python -m unittest discover -s frontends/tk/media/unit_test -p 'test_*.py'
 python -m unittest discover -s frontends/tk/radio/unit_test -p 'test_*.py'
+python -m unittest discover -s frontends/x11/unit_test -p 'test_*.py'
 python -m apps.orcUi
 ```
 
-The focused suites exercise assembly, ownership, semantic contracts, state ingress, map adapter behavior, lifecycle failure cleanup, game backend isolation, X11 embedding geometry, icon mapping, and feature theme behavior. They do not replace an X11 integration test. On Termux, test HOME, NAVIGATION/map, VEHICLE, OFF-ROAD live state, MEDIA/Spotify, RADIO embedding, GAMES embedding, volume, theme transitions, UI restart, and shutdown.
+These tests do not replace an X11 integration smoke test. On Termux/X11, exercise HOME, NAVIGATION/map, VEHICLE, OFF-ROAD state, MEDIA/Spotify, RADIO embedding, GAMES embedding, volume, theme changes, restart, and shutdown.
 
-Before merging a substantial runtime refactor, review the complete branch diff for unrelated changes, run the focused suites and repository quality checks, and perform the GUI smoke test. A passing mocked test is not proof that external processes or Tk/X11 integration work.
+Before merging a substantial architecture change, review the complete branch diff for stale paths or accidental product behavior changes, run repository quality checks, and perform the GUI smoke test.
 
 ## Maintenance rules
 
-Keep `main.py` as an entry point. Keep concrete dependency construction in composition or runtime factories. Keep transport and presentation conversions outside the shell. Keep shared icons semantic and frontend rendering local. Keep theme values sourced from CSS except deliberate brand accents. Preserve existing service ownership rather than constructing duplicate controllers. Add tests for lifecycle, state delivery, and contract wiring when changing ownership. Update this document when ownership or assembly changes.
+- Keep `apps/orcUi/main.py` as a thin composition entry point.
+- Keep concrete dependency construction in composition/runtime factories.
+- Keep Tk rendering under `frontends/tk`.
+- Keep orcUi-specific Tk layout under `frontends/tk/orc_ui`.
+- Keep reusable Tk features independent of `OrcUiApp` and `frontends/tk/orc_ui`.
+- Prefer `TkScreenHostIf` or another narrow contract when reusable Tk presentation needs host services.
+- Keep transport decoding and backend resource ownership outside concrete frontend widgets.
+- Keep shared icons semantic and frontend rendering local.
+- Keep theme values sourced from the shared theme model except deliberate provider branding.
+- Remove obsolete compatibility aliases when ownership changes instead of preserving architectural ambiguity indefinitely.
