@@ -61,7 +61,7 @@ apps/orcUi/main.py
             -> apps/orcUi/adapters/browser lifecycle
 ```
 
-`OrcUiComposition` owns the top-level graph and shutdown order. Application/runtime objects own the resources they create. The Tk shell consumes injected runtime interfaces and semantic contracts rather than constructing backend infrastructure itself.
+`OrcUiComposition` owns the top-level graph and shutdown order. Application/runtime objects own the resources they create. The Tk shell consumes injected runtime interfaces and semantic contracts rather than constructing backend infrastructure itself. `CoreComposition` owns `MapCameraRuntime` and injects its `MapRequestHandlerIf` explicitly through `OrcUiApp` to the HOME and NAVIGATION panels; no process-global map-camera registry is used.
 
 ## Tk shell ownership
 
