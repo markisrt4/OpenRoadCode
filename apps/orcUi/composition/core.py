@@ -13,6 +13,9 @@ from apps.orcUi.frontend.tk.orc_ui_app import OrcUiApp
 from controllers.audio import PipewireAudioController, SystemVolumeHandler
 from controllers.map_renderer.map_camera_runtime import MapCameraRuntime
 from controllers.system import SystemLifecycleController
+from messaging.zeromq import ZeroMqPublisher, ZeroMqSubscriber
+from messaging.zeromq.endpoints import LOCAL_PUBLISHER_ENDPOINT, LOCAL_SUBSCRIBER_ENDPOINT
+from services.trip import TripRuntime
 
 
 @dataclass(slots=True)
@@ -23,6 +26,8 @@ class CoreComposition:
     map_runtime: MapRuntime
     map_camera: MapCameraRuntime
     state_ingress: StateIngressRuntime
+    trip_runtime: TripRuntime
+    trip_publisher: ZeroMqPublisher
     lifecycle: SystemLifecycleController
     volume: SystemVolumeHandler
 
@@ -30,15 +35,22 @@ class CoreComposition:
         self.volume.refresh()
         self.map_camera.start()
         self.state_ingress.start()
+        self.trip_runtime.start()
 
     def close(self) -> None:
         try:
-            self.state_ingress.close()
+            self.trip_runtime.close()
         finally:
             try:
-                self.map_camera.close()
+                self.state_ingress.close()
             finally:
-                self.map_runtime.stop()
+                try:
+                    self.trip_publisher.close()
+                finally:
+                    try:
+                        self.map_camera.close()
+                    finally:
+                        self.map_runtime.stop()
 
 
 def create_core_composition() -> CoreComposition:
@@ -72,11 +84,19 @@ def create_core_composition() -> CoreComposition:
         apply_position_state=app.apply_position_state,
         apply_attitude_state=app.apply_attitude_state,
     )
+    trip_publisher = ZeroMqPublisher(LOCAL_PUBLISHER_ENDPOINT)
+    trip_runtime = TripRuntime(
+        ZeroMqSubscriber(LOCAL_SUBSCRIBER_ENDPOINT),
+        trip_publisher,
+        publish_source="orc-ui-trip-runtime",
+    )
     return CoreComposition(
         app=app,
         map_runtime=map_runtime,
         map_camera=map_camera,
         state_ingress=state_ingress,
+        trip_runtime=trip_runtime,
+        trip_publisher=trip_publisher,
         lifecycle=lifecycle,
         volume=volume,
     )
