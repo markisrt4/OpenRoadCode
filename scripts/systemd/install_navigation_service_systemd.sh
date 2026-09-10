@@ -53,8 +53,8 @@ chmod +x "$WRAPPER_SCRIPT"
 cat > "$SERVICE_FILE" <<EOF
 [Unit]
 Description=OpenRoadCode Navigation Service
-After=network.target gpsd.service openroadcode-zmq.service valhalla.service
-Wants=network.target openroadcode-zmq.service
+After=network.target gpsd.service openroadcode-message-broker.service valhalla.service
+Wants=network.target openroadcode-message-broker.service
 
 [Service]
 Type=simple
