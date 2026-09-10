@@ -68,6 +68,7 @@ def create_core_composition() -> CoreComposition:
     state_ingress = StateIngressRuntime(
         schedule_ui=app.schedule_ui_callback,
         apply_vehicle_state=app.apply_vehicle_state,
+        apply_trip_state=app.apply_trip_state,
         apply_position_state=app.apply_position_state,
         apply_attitude_state=app.apply_attitude_state,
     )
