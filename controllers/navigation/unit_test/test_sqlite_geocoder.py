@@ -72,3 +72,44 @@ def test_place_search_resolves_named_place(tmp_path):
     finally:
         geocoder.close()
     assert any(result.source == "place" for result in results)
+
+
+def test_street_suffix_abbreviation_matches_full_suffix(tmp_path):
+    path = _db(tmp_path)
+    con = sqlite3.connect(path)
+    con.execute(
+        "INSERT INTO address VALUES (?,?,?,?,?,?,?,?,?,?)",
+        ("a2","11711","Cascade Circle",None,"Bruce Township","MI","48065","US",42.85,-83.02),
+    )
+    con.commit()
+    con.close()
+
+    geocoder = SqliteGeocoder(path)
+    try:
+        results = geocoder.geocode("11711 Cascade Cir")
+    finally:
+        geocoder.close()
+
+    assert results
+    assert results[0].source == "address"
+    assert results[0].display_name.startswith("11711 Cascade Circle")
+
+
+def test_comma_less_numbered_address_can_match_street_prefix(tmp_path):
+    path = _db(tmp_path)
+    con = sqlite3.connect(path)
+    con.execute(
+        "INSERT INTO address VALUES (?,?,?,?,?,?,?,?,?,?)",
+        ("a3","11711","Cascade Circle",None,"Bruce Township","MI","48065","US",42.85,-83.02),
+    )
+    con.commit()
+    con.close()
+
+    geocoder = SqliteGeocoder(path)
+    try:
+        results = geocoder.geocode("11711 Cascade Cir Bruce Township MI 48065")
+    finally:
+        geocoder.close()
+
+    assert results
+    assert results[0].display_name.startswith("11711 Cascade Circle")
