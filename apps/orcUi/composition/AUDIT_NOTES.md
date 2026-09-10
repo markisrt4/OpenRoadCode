@@ -7,7 +7,9 @@ This temporary branch audits ownership boundaries without changing product behav
 - Host restart and poweroff no longer belong to the Tk shell. They flow through the toolkit-independent `ui.system.SystemLifecycleRequestHandlerIf` contract to `SystemLifecycleController`, and host actions execute only after top-level cleanup.
 - Map style installation no longer belongs to the Tk shell. Theme intent is passed through `MapRuntimeIf.set_theme()`, and the map runtime owns renderer-specific style installation through `map_theme_runtime.py`; `orc_theme.py` now contains presentation-only mode helpers.
 - Shell volume buttons emit requests through `VolumeRequestHandlerIf`; `SystemVolumeHandler` bridges those semantic contracts to the audio controller and returns normalized state through `VolumeUiIf`.
-- Long-lived Spotify state synchronization and reusable local Web Player lifecycle live under `controllers/spotify`. `apps/orcUi` retains application-specific composition/factory wiring rather than compatibility re-exports of controller behavior.
+- Long-lived Spotify state synchronization and reusable local Web Player lifecycle live under `controllers/spotify`. ORC-specific browser/Web Playback host implementations and factories now live under `apps/orcUi/adapters` instead of the app package root.
+- Managed YouTube/Netflix browser lifecycle adaptation lives under `apps/orcUi/adapters`; media composition selects that adapter without making it a reusable frontend concern.
+- The ADS-B launcher/config lifecycle adapter lives under `apps/orcUi/adapters`; the ORC-specific radio frontend consumes it while reusable Tk radio code remains application-neutral.
 - Icons are semantic UI data. `ui.icon.IconId` is toolkit-independent; each frontend maps those identifiers to its native rendering.
 - Menu icon metadata carries semantic identifiers instead of Tk-oriented presentation.
 - The integrated orcUi Tk shell and its structural panels live under `apps/orcUi/frontend/tk`, because they are both Tk-specific and application-specific.
@@ -26,7 +28,9 @@ This temporary branch audits ownership boundaries without changing product behav
 
 `apps/orcUi/frontend/tk` contains the concrete Tk implementation of the integrated orcUi shell and shell-specific layout. A future independent Tk UI should own its shell under its own `apps/<application>/frontend/tk` package and reuse the generic Tk feature packages.
 
-Controller behavior belongs under `controllers`. Process/resource ownership belongs to the runtime or composition object that creates it. `apps/orcUi` is the application assembly/runtime layer and may select reusable frontend implementations at its composition edge.
+`apps/orcUi/adapters` contains ORC-selected host/platform adapters such as browser, Spotify Web Player, and ADS-B lifecycle bridges. These adapters may depend on launchers, configuration, protocols, or host services, but reusable controllers and reusable frontend packages must not depend on them.
+
+Controller behavior belongs under `controllers`. Process/resource ownership belongs to the runtime or composition object that creates it. `apps/orcUi` is the application assembly/runtime layer and may select reusable frontend implementations and host adapters at its composition edge.
 
 ## Remaining verification
 
