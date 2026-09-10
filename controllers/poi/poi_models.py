@@ -35,6 +35,7 @@ class PoiActionKind(Enum):
 
     NAVIGATE = auto()
     OPEN_URI = auto()
+    OPEN_APP_OR_URI = auto()
 
 
 @dataclass(frozen=True, slots=True)
@@ -44,6 +45,7 @@ class PoiAction:
     kind: PoiActionKind
     label: str
     uri: str | None = None
+    android_package: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
