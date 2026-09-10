@@ -19,3 +19,4 @@ class MapRendererCommand(StrEnum):
     FIT_DATASET = "fit_dataset"
     SET_POSITION = "set_position"
     SET_POI_FOCUS = "set_poi_focus"
+    SET_POI_RESULTS = "set_poi_results"
