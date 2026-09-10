@@ -38,3 +38,26 @@ class AndroidIntentLauncherTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def test_open_package_or_uri_prefers_package() -> None:
+    launcher = AndroidIntentLauncher("am")
+    launcher.launch_package = Mock()
+    launcher.open_uri = Mock()
+
+    result = launcher.open_package_or_uri("com.panera.bread", "https://example.com")
+
+    assert result == "app"
+    launcher.launch_package.assert_called_once_with("com.panera.bread")
+    launcher.open_uri.assert_not_called()
+
+
+def test_open_package_or_uri_falls_back_to_uri() -> None:
+    launcher = AndroidIntentLauncher("am")
+    launcher.launch_package = Mock(side_effect=AndroidIntentLauncherError("missing"))
+    launcher.open_uri = Mock()
+
+    result = launcher.open_package_or_uri("com.panera.bread", "https://example.com")
+
+    assert result == "uri"
+    launcher.open_uri.assert_called_once_with("https://example.com")
