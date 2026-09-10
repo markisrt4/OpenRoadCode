@@ -28,6 +28,11 @@ from messaging.contracts.navigation import (
     decode_attitude_state,
     decode_position_state,
 )
+from messaging.contracts.route_guidance import (
+    ROUTE_GUIDANCE_STATE_TOPIC,
+    RouteGuidanceStateMessage,
+    decode_route_guidance_state,
+)
 from messaging.message_dispatcher import MessageDispatcher
 from messaging.zeromq import ZeroMqSubscriber
 from messaging.zeromq.endpoints import LOCAL_SUBSCRIBER_ENDPOINT
@@ -69,12 +74,14 @@ class StateIngressRuntime:
         apply_vehicle_state: Callable[[VehiclePresentationState], None],
         apply_position_state: Callable[[PositionPresentationState], None],
         apply_attitude_state: Callable[[AttitudePresentationState], None],
+        apply_route_guidance_state: Callable[[RouteGuidanceStateMessage], None],
         dispatcher: MessageDispatcher | None = None,
     ) -> None:
         self._schedule_ui = schedule_ui
         self._apply_vehicle_state = apply_vehicle_state
         self._apply_position_state = apply_position_state
         self._apply_attitude_state = apply_attitude_state
+        self._apply_route_guidance_state = apply_route_guidance_state
         self._pending_ui: SimpleQueue[Callable[[], None]] = SimpleQueue()
         self._closing = False
         self._dispatcher = dispatcher or MessageDispatcher(
@@ -95,6 +102,11 @@ class StateIngressRuntime:
             ATTITUDE_STATE_TOPIC,
             decode_attitude_state,
             self._on_attitude_message,
+        )
+        self._dispatcher.register(
+            ROUTE_GUIDANCE_STATE_TOPIC,
+            decode_route_guidance_state,
+            self._on_route_guidance_message,
         )
 
     def start(self) -> None:
@@ -154,6 +166,9 @@ class StateIngressRuntime:
     def _on_attitude_message(self, message) -> None:
         state = NavigationPresenter.present_attitude(message.data)
         self._schedule_state(lambda: self._apply_attitude_state(state))
+
+    def _on_route_guidance_message(self, message: RouteGuidanceStateMessage) -> None:
+        self._schedule_state(lambda: self._apply_route_guidance_state(message))
 
     @staticmethod
     def _on_bus_error(topic, error: Exception) -> None:
