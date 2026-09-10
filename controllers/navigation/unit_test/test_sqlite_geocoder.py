@@ -194,3 +194,27 @@ def test_directional_street_with_postcode_falls_back_to_nearest_segment(tmp_path
     assert results[0].source == "street"
     assert results[0].display_name == "East 11 Mile Road"
     assert math.isclose(math.degrees(results[0].position.longitude_rad), -83.0443)
+
+
+def test_directional_abbreviation_and_missing_suffix_are_normalized(tmp_path):
+    path = _db(tmp_path)
+    con = sqlite3.connect(path)
+    con.execute(
+        "INSERT INTO address VALUES (?,?,?,?,?,?,?,?,?,?)",
+        ("zip48397b","1","Some Arsenal Road",None,None,"MI","48397","US",42.49,-83.04),
+    )
+    con.execute(
+        "INSERT INTO street VALUES (?,?,?,?,?,?,?)",
+        ("east11","East 11 Mile Road",None,None,None,42.4916,-83.0443),
+    )
+    con.commit()
+    con.close()
+
+    geocoder = SqliteGeocoder(path)
+    try:
+        results = geocoder.geocode("6501 E. 11 Mile 48397")
+    finally:
+        geocoder.close()
+
+    assert results
+    assert results[0].display_name == "East 11 Mile Road"
