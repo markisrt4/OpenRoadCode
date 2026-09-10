@@ -12,7 +12,7 @@ This temporary branch audits ownership boundaries without changing product behav
 - Menu icon metadata carries semantic identifiers instead of Tk-oriented presentation.
 - The integrated orcUi Tk shell and its structural panels live under `apps/orcUi/frontend/tk`, because they are both Tk-specific and application-specific.
 - `frontends/tk` is reserved for reusable Tk implementations and does not own orcUi-specific shell layout.
-- Radio Tk presentation has moved to `frontends/tk/radio`; remaining app coupling there is tracked for follow-up cleanup.
+- The reusable radio screen and streaming-radio widgets remain under `frontends/tk/radio`; the ORC-specific RF/ADS-B chooser and embedded radio panel now live under `apps/orcUi/frontend/tk`.
 - The obsolete app-local shifter gauge was removed in favor of the themed implementation under `frontends/tk/automotive`.
 - Tk-specific orcUi shell tests live with `apps/orcUi/frontend/tk`.
 - `apps/orcUi/main.py` is composition-only; the historical `OrcUiApp` export and `home_shell.py` compatibility alias were removed.
