@@ -11,7 +11,7 @@ import tkinter as tk
 from collections.abc import Callable
 
 from apps.orcUi.radio_application_service import RadioApplicationServiceIf
-from apps.orcUi.radio_panel import RadioPanel
+from frontends.tk.radio.radio_panel import RadioPanel
 from controllers.radio.streaming_radio_controller import StreamingRadioController
 from controllers.radio.streaming_radio_directory_if import StreamingRadioDirectoryIf
 from controllers.radio.streaming_radio_favorites import StreamingRadioFavorites
