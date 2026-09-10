@@ -11,6 +11,7 @@ from collections.abc import Callable
 
 from apps.orcUi.navigation_presenter import AttitudePresentationState, PositionPresentationState
 from apps.orcUi.theme_runtime import theme_bundle as packaged_theme_bundle
+from apps.orcUi.trip_presenter import TripPresentationState
 from apps.orcUi.vehicle_presenter import VehiclePresentationState
 from frontends.tk.automotive import DEFAULT_GAUGES, OffroadDashboardPanel, ShifterGauge
 from frontends.tk.automotive.vehicle_gauge_theme import vehicle_gauge_theme_from_style_sheet
@@ -32,6 +33,7 @@ class VehiclePanel(tk.Frame):
         *,
         on_back: Callable[[], None],
         state: VehiclePresentationState | None = None,
+        trip_state: TripPresentationState | None = None,
         position: PositionPresentationState | None = None,
         attitude: AttitudePresentationState | None = None,
         theme_bundle: ThemeBundle | None = None,
@@ -41,6 +43,7 @@ class VehiclePanel(tk.Frame):
         super().__init__(parent, bg=ui.background)
         self._on_back = on_back
         self._state = state or VehiclePresentationState()
+        self._trip_state = trip_state or TripPresentationState()
         self._position = position or PositionPresentationState()
         self._attitude = attitude or AttitudePresentationState()
         self._current_view = "PERFORMANCE"
@@ -49,6 +52,7 @@ class VehiclePanel(tk.Frame):
         self._engine_gauges: dict[str, LinearGauge] = {}
         self._shifter: ShifterGauge | None = None
         self._offroad: OffroadDashboardPanel | None = None
+        self._trip_value_labels: dict[str, tk.Label] = {}
         self._view_content: tk.Widget | None = None
 
         self.grid_columnconfigure(0, weight=1)
@@ -101,6 +105,7 @@ class VehiclePanel(tk.Frame):
         self._engine_gauges.clear()
         self._shifter = None
         self._offroad = None
+        self._trip_value_labels.clear()
 
         if name == "PERFORMANCE":
             self._show_performance()
@@ -109,7 +114,7 @@ class VehiclePanel(tk.Frame):
         elif name == "OFF-ROAD":
             self._show_offroad()
         else:
-            self._show_placeholder("TRIP", "Trip distance, time, economy and drive statistics will live here.")
+            self._show_trip()
 
     def _show_performance(self) -> None:
         ui = self._theme_bundle.ui
@@ -262,6 +267,72 @@ class VehiclePanel(tk.Frame):
             font=("Sans", 11),
         ).pack()
         self._view_content = frame
+
+    def _show_trip(self) -> None:
+        ui = self._theme_bundle.ui
+        host = tk.Frame(self._view_host, bg=ui.background)
+        host.grid(row=0, column=0, sticky="nsew", padx=8, pady=8)
+        for column in range(3):
+            host.grid_columnconfigure(column, weight=1)
+        for row in range(3):
+            host.grid_rowconfigure(row, weight=1)
+        metrics = (
+            ("distance", "DISTANCE", "mi"),
+            ("elapsed", "ELAPSED", ""),
+            ("moving", "MOVING", ""),
+            ("average", "AVG SPEED", "MPH"),
+            ("maximum", "MAX SPEED", "MPH"),
+            ("fuel_used", "FUEL USED", "gal"),
+            ("economy", "ECONOMY", "MPG"),
+            ("range", "EST RANGE", "mi"),
+            ("status", "STATUS", ""),
+        )
+        for index, (key, title, unit) in enumerate(metrics):
+            row, column = divmod(index, 3)
+            card = tk.Frame(host, bg=ui.surface, highlightthickness=1, highlightbackground=ui.border)
+            card.grid(row=row, column=column, sticky="nsew", padx=5, pady=5)
+            tk.Label(card, text=title, fg=ui.text_muted, bg=ui.surface, font=("Sans", 9, "bold")).pack(pady=(14, 3))
+            value = tk.Label(card, text="--", fg=ui.text, bg=ui.surface, font=("Sans", 20, "bold"))
+            value.pack()
+            tk.Label(card, text=unit, fg=ui.text_muted, bg=ui.surface, font=("Sans", 8)).pack(pady=(0, 10))
+            self._trip_value_labels[key] = value
+        self._view_content = host
+        self._apply_trip_state()
+
+    def show_trip_view(self) -> None:
+        """Switch the vehicle panel directly to its trip view."""
+        self._show_view("TRIP")
+
+    def update_trip_state(self, state: TripPresentationState) -> None:
+        self._trip_state = state
+        self._apply_trip_state()
+
+    def _apply_trip_state(self) -> None:
+        if not self._trip_value_labels:
+            return
+        state = self._trip_state
+        values = {
+            "distance": f"{state.distance_miles:.1f}",
+            "elapsed": self._format_duration(state.elapsed_s),
+            "moving": self._format_duration(state.moving_s),
+            "average": "--" if state.average_speed_mph is None else f"{state.average_speed_mph:.1f}",
+            "maximum": "--" if state.maximum_speed_mph is None else f"{state.maximum_speed_mph:.1f}",
+            "fuel_used": "--" if state.fuel_used_gallons is None else f"{state.fuel_used_gallons:.2f}",
+            "economy": "--" if state.economy_mpg is None else f"{state.economy_mpg:.1f}",
+            "range": "--" if state.estimated_range_miles is None else f"{state.estimated_range_miles:.0f}",
+            "status": state.status.upper(),
+        }
+        for key, text in values.items():
+            label = self._trip_value_labels.get(key)
+            if label is not None:
+                label.configure(text=text)
+
+    @staticmethod
+    def _format_duration(seconds: float) -> str:
+        total = max(0, round(seconds))
+        hours, remainder = divmod(total, 3600)
+        minutes, secs = divmod(remainder, 60)
+        return f"{hours:d}:{minutes:02d}:{secs:02d}"
 
     def set_theme_bundle(self, theme_bundle: ThemeBundle) -> None:
         """Apply the active CSS theme and rebuild the active instrument view."""
