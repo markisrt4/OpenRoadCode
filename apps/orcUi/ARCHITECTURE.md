@@ -4,7 +4,7 @@
 
 `apps/orcUi` is the application assembly and runtime layer for the integrated OpenRoadCode UI. It also owns presentation that is specific to the orcUi application itself.
 
-OpenRoadCode deliberately separates semantic UI contracts, reusable behavior, reusable frontend rendering, application-specific presentation, and application composition so that a feature can be presented by Tk, web, Android, or another frontend without moving its controller logic into the application shell.
+OpenRoadCode deliberately separates semantic UI contracts, reusable behavior, reusable frontend rendering, application-specific presentation, host/platform adapters, and application composition so that a feature can be presented by Tk, web, Android, or another frontend without moving its controller logic into the application shell.
 
 ## Dependency boundaries
 
@@ -16,7 +16,9 @@ OpenRoadCode deliberately separates semantic UI contracts, reusable behavior, re
 
 `apps/orcUi/frontend/tk` owns the integrated orcUi Tk root window, shell chrome, HOME layout, context rail, structural navigation/vehicle/off-road panels, power dialog, and other Tk presentation that exists specifically because of the orcUi application layout.
 
-`apps/orcUi` also owns assembly, application-specific runtime adapters, presenters used by the assembly, and resource lifecycle. Composition may select reusable frontend implementations and combine them with application-specific presentation.
+`apps/orcUi/adapters` owns ORC-selected host/platform bridges. These include browser lifecycle adaptation, the local Spotify Web Playback host, and ADS-B launcher/config adaptation. They may know about launchers, local services, protocols, configuration, and host details. Reusable controllers and reusable frontend packages must not know about them.
+
+`apps/orcUi` also owns assembly, application-specific runtime adapters, presenters used by the assembly, and resource lifecycle. Composition may select reusable frontend implementations and combine them with application-specific presentation and host adapters.
 
 The intended direction is:
 
@@ -27,12 +29,12 @@ controllers / reusable application services
     ↑
 reusable frontend implementations
     ↑
-application-specific frontend
+application-specific frontend + host adapters
     ↑
 application composition
 ```
 
-A concrete application frontend and composition root are allowed to know which reusable frontend components they selected. Reusable controllers, UI contracts, and reusable frontend packages must not know which application selected them.
+A concrete application frontend and composition root are allowed to know which reusable frontend components and host adapters they selected. Reusable controllers, UI contracts, and reusable frontend packages must not know which application selected them.
 
 ## Entry point and assembly
 
@@ -50,10 +52,13 @@ apps/orcUi/main.py
             -> StateIngressRuntime
        -> composition/radio.py
             -> reusable Tk radio presentation
+            -> apps/orcUi/frontend/tk radio shell
+            -> apps/orcUi/adapters/ADS-B lifecycle
        -> composition/games.py
             -> reusable Tk games presentation
        -> composition/media.py
             -> reusable Tk media presentation
+            -> apps/orcUi/adapters/browser lifecycle
 ```
 
 `OrcUiComposition` owns the top-level graph and shutdown order. Application/runtime objects own the resources they create. The Tk shell consumes injected runtime interfaces and semantic contracts rather than constructing backend infrastructure itself.
@@ -111,13 +116,13 @@ Restart and poweroff requests flow through `SystemLifecycleRequestHandlerIf`. `S
 
 ## Feature composition
 
-`composition/radio.py` wires application-owned radio services to reusable Tk radio presentation. X11/SDR++ presentation details live with the appropriate frontend/launcher implementation, while the runtime owns managed process lifetime.
+`composition/radio.py` wires application-owned radio services to reusable Tk radio presentation and the ORC-specific radio shell. SDR++/ADS-B presentation details stay outside the reusable radio package. ADS-B host/config lifecycle is an ORC adapter, while managed process lifetime remains explicitly owned.
 
-`composition/media.py` wires shared Spotify services, local-player behavior, image/lyrics/video dependencies, and reusable Tk media screens. Spotify synchronization and local Web Player lifecycle remain under `controllers/spotify`.
+`composition/media.py` wires shared Spotify services, local-player behavior, image/lyrics/video dependencies, and reusable Tk media screens. Spotify synchronization and local-player behavior remain under `controllers/spotify`; ORC-selected browser and Web Playback hosts live under `apps/orcUi/adapters`.
 
 `composition/games.py` registers the reusable Tk games frontend. Environment-specific launching and compatibility remain backend concerns.
 
-New features should follow the same sequence: define semantic contracts, implement reusable behavior, implement reusable presentation per frontend where appropriate, add application-specific presentation only when necessary, then assemble concrete choices at the application composition edge.
+New features should follow the same sequence: define semantic contracts, implement reusable behavior, implement reusable presentation per frontend where appropriate, add application-specific presentation or host adapters only when necessary, then assemble concrete choices at the application composition edge.
 
 ## Theme ownership
 
@@ -163,7 +168,8 @@ Before merging a substantial architecture change, review the complete branch dif
 - Keep concrete dependency construction in composition/runtime factories.
 - Keep reusable Tk rendering under `frontends/tk`.
 - Keep orcUi-specific Tk rendering and layout under `apps/orcUi/frontend/tk`.
-- Keep reusable Tk features independent of `OrcUiApp` and `apps/orcUi`.
+- Keep ORC-selected host/platform bridges under `apps/orcUi/adapters`.
+- Keep reusable Tk features independent of `OrcUiApp`, `apps/orcUi/frontend/tk`, and app adapters.
 - Prefer `TkScreenHostIf` or another narrow contract when reusable Tk presentation needs host services.
 - Keep transport decoding and backend resource ownership outside concrete frontend widgets.
 - Keep shared icons semantic and frontend rendering local.
