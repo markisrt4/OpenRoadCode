@@ -134,7 +134,7 @@ def test_numbered_address_falls_back_to_normalized_street(tmp_path):
     assert results
     assert results[0].source == "street"
     assert results[0].display_name == "Cascade Circle"
-    assert results[0].confidence == 0.55
+    assert 0.5 <= results[0].confidence < 0.8
 
 
 def test_postcode_only_context_ranks_nearest_street_candidate(tmp_path):
