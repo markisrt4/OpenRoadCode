@@ -9,7 +9,7 @@ import os
 import tkinter as tk
 from tkinter import simpledialog
 
-from apps.orcUi.adsb_control import OrcUiAdsbControl
+from apps.orcUi.adapters.adsb_control import OrcUiAdsbControl
 from apps.orcUi.theme_runtime import theme_bundle
 from controllers.radio.radio_profile_controller import RadioProfileController, RadioProfileState
 from controllers.radio.radio_profiles import RadioProfile, RadioProfilePreset
