@@ -10,6 +10,8 @@ from collections.abc import Sequence
 
 from controllers.route_planning.route_planning_types import GeoPoint as RouteGeoPoint
 from controllers.route_planning.route_planning_types import TravelMode as RouteTravelMode
+from controllers.route_planning.route_map_presenter import present_route
+from protocols.map_renderer.map_renderer_client import MapRendererClient
 from services.navigation.navigation_command_client import NavigationCommandClient
 from ui.navigation import GeoPoint, RouteRequestHandlerIf
 from ui.navigation.route_types import TravelMode
@@ -18,8 +20,13 @@ from ui.navigation.route_types import TravelMode
 class NavigationRouteRequestHandler(RouteRequestHandlerIf):
     """Send semantic UI route requests to the navigation service."""
 
-    def __init__(self, client: NavigationCommandClient | None = None) -> None:
+    def __init__(
+        self,
+        client: NavigationCommandClient | None = None,
+        map_renderer: MapRendererClient | None = None,
+    ) -> None:
         self._client = client or NavigationCommandClient()
+        self._map_renderer = map_renderer or MapRendererClient()
         self._travel_mode = TravelMode.AUTO
         self._waypoints: tuple[GeoPoint, ...] = ()
 
@@ -32,16 +39,21 @@ class NavigationRouteRequestHandler(RouteRequestHandlerIf):
         if waypoints:
             raise NotImplementedError("navigation command service does not yet support waypoints")
         self._travel_mode = travel_mode
-        self._client.start_route(
+        route = self._client.start_route(
             RouteGeoPoint(
                 latitude=math.degrees(destination.latitude_rad),
                 longitude=math.degrees(destination.longitude_rad),
             ),
             travel_mode=RouteTravelMode[travel_mode.name],
         )
+        present_route(route, self._map_renderer)
 
     def request_cancel_route(self) -> None:
         self._client.cancel_route()
+        self._map_renderer.clear_route()
+
+    def close(self) -> None:
+        self._map_renderer.close()
 
     def request_add_waypoint(self, waypoint: GeoPoint) -> None:
         self._waypoints = (*self._waypoints, waypoint)
