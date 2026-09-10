@@ -8,7 +8,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 
-from controllers.poi.poi_models import PoiCategory, PointOfInterest
+from controllers.poi.poi_models import PoiCategory, PointOfInterest, TransitMode
 
 
 @dataclass(frozen=True, slots=True)
@@ -36,10 +36,13 @@ class PoiSearchQuery:
     category: PoiCategory
     bounds: PoiSearchBounds
     limit: int = 50
+    transit_mode: TransitMode = TransitMode.ALL
 
     def __post_init__(self) -> None:
         if self.limit < 1:
             raise ValueError("POI search limit must be positive")
+        if self.category is not PoiCategory.TRANSIT and self.transit_mode is not TransitMode.ALL:
+            raise ValueError("transit_mode is only valid for TRANSIT searches")
 
 
 class PoiSearchSourceIf(ABC):
