@@ -12,8 +12,8 @@ from apps.orcUi.composition.core import CoreComposition, create_core_composition
 from apps.orcUi.composition.games import configure_games
 from apps.orcUi.composition.media import MediaComposition, configure_media
 from apps.orcUi.composition.radio import RadioComposition, configure_radio
-from apps.orcUi.orc_ui_app import OrcUiApp
 from frontends.tk.games import GamesScreen
+from frontends.tk.orc_ui.orc_ui_app import OrcUiApp
 
 
 @dataclass(slots=True)
@@ -38,9 +38,6 @@ class OrcUiComposition:
             self.app.run()
         finally:
             try:
-                # Games can own proot/GTK child processes. Shut them down before
-                # closing media or state ingress so teardown does not race a live
-                # embedded game session.
                 self.games.shutdown()
             finally:
                 try:
@@ -51,8 +48,6 @@ class OrcUiComposition:
                     finally:
                         self.runtime.close()
 
-        # Restart/poweroff is deliberately deferred until all application-owned
-        # resources have completed their normal shutdown path.
         self.core.lifecycle.execute_requested_action()
 
 
