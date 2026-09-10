@@ -10,12 +10,12 @@ from dataclasses import dataclass
 
 from apps.orcUi.core_runtime import MapRuntime, StateIngressRuntime
 from apps.orcUi.frontend.tk.orc_ui_app import OrcUiApp
-from apps.orcUi.map_camera_runtime import MapCameraRuntime
 from apps.orcUi.shared_map_camera import (
     clear_shared_map_camera_runtime,
     install_shared_map_camera_runtime,
 )
 from controllers.audio import PipewireAudioController, SystemVolumeHandler
+from controllers.map_renderer.map_camera_runtime import MapCameraRuntime
 from controllers.system import SystemLifecycleController
 
 
