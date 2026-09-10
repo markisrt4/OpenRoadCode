@@ -18,6 +18,7 @@ from controllers.route_planning.route_planning_types import (
 )
 from services.navigation.navigation_command_service import (
     CALCULATE_ROUTE_COMMAND,
+    CANCEL_ROUTE_COMMAND,
     SIMULATE_ROUTE_COMMAND,
     START_ROUTE_COMMAND,
     STOP_ROUTE_SIMULATION_COMMAND,
@@ -74,6 +75,26 @@ class NavigationCommandClient:
             },
         )
         return self._route_from_response(response)
+
+    def start_route(
+        self,
+        destination: GeoPoint,
+        *,
+        travel_mode: TravelMode = TravelMode.AUTO,
+    ) -> RouteResult:
+        """Start guidance to a coordinate from the current navigation position."""
+        response = self._request(
+            START_ROUTE_COMMAND,
+            {
+                "destination": self._encode_point(destination),
+                "travel_mode": travel_mode.name,
+            },
+        )
+        return self._route_from_response(response)
+
+    def cancel_route(self) -> None:
+        """Cancel the active navigation route."""
+        self._request(CANCEL_ROUTE_COMMAND, {})
 
     def start_route_to(
         self,
