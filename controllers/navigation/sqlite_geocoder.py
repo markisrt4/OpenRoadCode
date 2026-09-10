@@ -142,15 +142,24 @@ class SqliteGeocoder:
             return []
 
         requested = _normalize_street(query.street)
+        search_tokens = [token for token in query.street.split() if token]
+        search_token = next(
+            (
+                token
+                for token in search_tokens
+                if token.casefold().rstrip(".") not in {"east", "west", "north", "south", "e", "w", "n", "s"}
+            ),
+            search_tokens[0],
+        )
         rows = self._connection.execute(
             """
             SELECT name, city, state, postcode, latitude, longitude
             FROM street
             WHERE name LIKE ? COLLATE NOCASE
             ORDER BY id
-            LIMIT 500
+            LIMIT 1000
             """,
-            (f"%{query.street.split()[0]}%",),
+            (f"%{search_token}%",),
         ).fetchall()
 
         postcode_center = self._postcode_center(query.postcode)
@@ -261,7 +270,6 @@ def _parse_query(value: str) -> _ParsedQuery:
                 postcode = state_tokens[1]
     elif house_number is not None:
         tokens = street.split()
-        street_suffix_index = _find_street_suffix_index(tokens)
 
         if tokens and re.fullmatch(r"[0-9]{5}(?:-[0-9]{4})?", tokens[-1]):
             postcode = tokens[-1]
@@ -271,9 +279,8 @@ def _parse_query(value: str) -> _ParsedQuery:
             state = tokens[-1]
             tokens = tokens[:-1]
 
+        street_suffix_index = _find_street_suffix_index(tokens)
         if street_suffix_index is not None:
-            # The suffix index was computed before stripping trailing locality
-            # hints, so it still identifies the end of the street name.
             street = " ".join(tokens[: street_suffix_index + 1])
             locality_tokens = tokens[street_suffix_index + 1 :]
             city = " ".join(locality_tokens) or None
