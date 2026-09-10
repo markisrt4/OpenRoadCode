@@ -9,7 +9,7 @@ portable Spotify behavior lives below the application package.
 
 from __future__ import annotations
 
-from apps.orcUi.spotify_local_player_factory import create_spotify_local_player
+from apps.orcUi.adapters.spotify_local_player_factory import create_spotify_local_player
 from controllers.spotify.spotify_controller_if import SpotifyControllerIf
 from controllers.spotify.spotify_local_player import SpotifyLocalPlayer
 from controllers.spotify.spotify_state_service import SpotifyStateService
