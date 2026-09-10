@@ -28,6 +28,10 @@ class MapRequestHandler(MapRequestHandlerIf):
         self._follow_enabled = follow_enabled
         self._camera_initialized = camera_initialized
         self._poi_focus: set[str] = set()
+        self._poi_results_geojson: dict[str, object] = {
+            "type": "FeatureCollection",
+            "features": [],
+        }
         self._on_follow_changed = on_follow_changed
 
     @property
@@ -135,9 +139,8 @@ class MapRequestHandler(MapRequestHandlerIf):
                     },
                 }
             )
-        self._renderer.set_poi_results(
-            {"type": "FeatureCollection", "features": features}
-        )
+        self._poi_results_geojson = {"type": "FeatureCollection", "features": features}
+        self._renderer.set_poi_results(self._poi_results_geojson)
 
     def request_style(self, style_id: str) -> None:
         del style_id
@@ -165,6 +168,7 @@ class MapRequestHandler(MapRequestHandlerIf):
             bearing_rad=bearing_rad,
             pitch_rad=pitch_rad,
         )
+        self._renderer.set_poi_results(self._poi_results_geojson)
         for category in self._poi_focus:
             self._renderer.set_poi_focus(category, True)
 
