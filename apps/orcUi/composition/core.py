@@ -42,6 +42,7 @@ def create_core_composition() -> CoreComposition:
     app = OrcUiApp(
         map_runtime=map_runtime,
         route_request_handler=route_request_handler,
+        route_simulation_handler=route_request_handler,
     )
     state_ingress = StateIngressRuntime(
         schedule_ui=app.schedule_ui_callback,
