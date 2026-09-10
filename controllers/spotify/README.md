@@ -8,10 +8,11 @@ The Spotify controller package is the application-facing boundary between OpenRo
 - `SpotifyWebApiController` implements that contract through `protocols/spotify`.
 - `SpotifyMediaPresenter` converts Spotify playback state into the toolkit-neutral `ui.media.MediaState` model.
 - `SpotifyStateService` serializes backend access, caches playback/library state, queues semantic media requests, and keeps Spotify API work off UI threads. The concrete backend is injected by application composition.
+- `SpotifyLocalPlayer` owns the reusable local Spotify Connect/Web Playback SDK lifecycle and playback-destination state. Host-specific browser and Web Player adapters are injected by application composition.
 - `MockSpotifyController`, `SpotifyControllerStub`, and `UnconfiguredController` preserve useful development and configuration seams.
 - `SpotifyLibraryTrack` is the immutable application-facing model for saved and recently played tracks.
 
-The controller package deliberately does not own OAuth setup, application composition, Tk widgets, or host-specific screen layout. OAuth and HTTP transport belong in `protocols/spotify`; presentation belongs to `ui` and `frontends`. The ORC application still owns local Spotify playback-device lifecycle until that runtime boundary is extracted separately.
+The controller package deliberately does not own OAuth setup, application composition, Tk widgets, or host-specific screen layout. OAuth and HTTP transport belong in `protocols/spotify`; presentation belongs to `ui` and `frontends`. ORC-specific composition remains responsible for selecting browser candidates, data paths, window geometry, and the concrete Web Player host adapter used by `SpotifyLocalPlayer`.
 
 ## OAuth permissions
 
