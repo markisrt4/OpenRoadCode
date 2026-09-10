@@ -218,3 +218,31 @@ def test_directional_abbreviation_and_missing_suffix_are_normalized(tmp_path):
 
     assert results
     assert results[0].display_name == "East 11 Mile Road"
+
+
+def test_postcode_distance_affects_street_confidence(tmp_path):
+    path = _db(tmp_path)
+    con = sqlite3.connect(path)
+    con.execute(
+        "INSERT INTO address VALUES (?,?,?,?,?,?,?,?,?,?)",
+        ("zip48397c","1","Some Arsenal Road",None,None,"MI","48397","US",42.49,-83.04),
+    )
+    con.execute(
+        "INSERT INTO street VALUES (?,?,?,?,?,?,?)",
+        ("near-score","East 11 Mile Road",None,None,None,42.491,-83.041),
+    )
+    con.execute(
+        "INSERT INTO street VALUES (?,?,?,?,?,?,?)",
+        ("far-score","East 11 Mile Road",None,None,None,42.495,-82.92),
+    )
+    con.commit()
+    con.close()
+
+    geocoder = SqliteGeocoder(path)
+    try:
+        results = geocoder.geocode("6501 E. 11 Mile 48397", limit=5)
+    finally:
+        geocoder.close()
+
+    assert len(results) >= 2
+    assert results[0].confidence > results[1].confidence
