@@ -9,10 +9,12 @@ import math
 import tkinter as tk
 from collections.abc import Callable
 
-from apps.launchers.android_intent_launcher import AndroidIntentLauncher, AndroidIntentLauncherError
+from apps.launchers.android_intent_launcher import AndroidIntentLauncherError
 from apps.orcUi.shared_map_camera import get_shared_map_camera_runtime
 from apps.orcUi.theme_runtime import theme_bundle as packaged_theme_bundle
 from controllers.navigation.map_favorites import MapFavorites
+from controllers.poi.android_poi_action_executor import AndroidPoiActionExecutor
+from controllers.poi.poi_action_executor_if import PoiActionExecutorIf
 from controllers.poi import PoiAction, PoiActionKind, PoiCategory, PoiSearchController, PointOfInterest, TransitMode
 from ui.navigation import (
     MapMarker,
@@ -41,6 +43,7 @@ class NavigationPanel(tk.Frame):
         map_favorites: MapFavorites | None = None,
         on_back: Callable[[], None] | None = None,
         theme_bundle: ThemeBundle | None = None,
+        poi_action_executor: PoiActionExecutorIf | None = None,
     ) -> None:
         self._theme_bundle = theme_bundle or packaged_theme_bundle(ThemeMode.DARK)
         super().__init__(parent, bg=self._theme_bundle.ui.background)
@@ -50,7 +53,7 @@ class NavigationPanel(tk.Frame):
         self._route_request_handler = route_request_handler or RouteRequestHandlerStub()
         self._route_simulation_handler = route_simulation_handler
         self._map_favorites = map_favorites or MapFavorites()
-        self._android_launcher = AndroidIntentLauncher()
+        self._poi_action_executor = poi_action_executor or AndroidPoiActionExecutor()
         self._poi_controller = PoiSearchController()
         self._poi_card: tk.Frame | None = None
         self._poi_search_after_id: str | None = None
@@ -232,10 +235,11 @@ class NavigationPanel(tk.Frame):
         tk.Label(card,text=poi.name,bg=ui.surface_alt,fg=ui.text,font=("Sans",12,"bold")).pack(pady=(10,5))
         buttons=tk.Frame(card,bg=ui.surface_alt); buttons.pack()
         for action in poi.actions:
-            if action.kind is PoiActionKind.NAVIGATE or (
-                action.kind in {PoiActionKind.OPEN_URI, PoiActionKind.OPEN_APP_OR_URI}
-                and action.uri
-            ):
+            if action.kind in {
+                PoiActionKind.NAVIGATE,
+                PoiActionKind.ORDER,
+                PoiActionKind.OPEN_WEBSITE,
+            }:
                 tk.Button(
                     buttons,
                     text=action.label,
@@ -267,22 +271,11 @@ class NavigationPanel(tk.Frame):
                 self._shortcut_status.set(f"Routing to {poi.name}")
             except Exception as exc:
                 self._shortcut_status.set(f"Route failed: {exc}")
-        elif action.kind is PoiActionKind.OPEN_URI and action.uri:
+        else:
             try:
-                self._android_launcher.open_uri(action.uri)
-                self._shortcut_status.set(f"Opening {action.label.casefold()}")
-            except AndroidIntentLauncherError as exc:
-                self._shortcut_status.set(f"Launch failed: {exc}")
-        elif action.kind is PoiActionKind.OPEN_APP_OR_URI and action.uri:
-            try:
-                destination = self._android_launcher.open_package_or_uri(
-                    action.android_package,
-                    action.uri,
-                )
-                self._shortcut_status.set(
-                    f"Opening {action.label.casefold()} in {destination}"
-                )
-            except AndroidIntentLauncherError as exc:
+                status = self._poi_action_executor.execute(poi, action)
+                self._shortcut_status.set(status)
+            except (AndroidIntentLauncherError, ValueError) as exc:
                 self._shortcut_status.set(f"Launch failed: {exc}")
         if self._poi_card is not None and self._poi_card.winfo_exists():self._poi_card.destroy()
         self.after(3500,lambda:self._shortcut_status.set(""))
