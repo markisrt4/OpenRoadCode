@@ -50,7 +50,9 @@ class NavigationRouteRequestHandler(RouteRequestHandlerIf):
 
     def request_cancel_route(self) -> None:
         self._client.cancel_route()
-        self._map_renderer.clear_route()
+        self._map_renderer.set_route(
+            {"type": "FeatureCollection", "features": []}
+        )
 
     def close(self) -> None:
         self._map_renderer.close()
