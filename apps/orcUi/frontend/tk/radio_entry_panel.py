@@ -6,7 +6,6 @@
 from __future__ import annotations
 
 import threading
-import time
 import tkinter as tk
 from collections.abc import Callable
 
@@ -373,40 +372,21 @@ class RadioEntryPanel(tk.Frame):
         ).start()
 
     def _present_rf_worker(self) -> None:
-        presentation_error: list[Exception] = []
-
-        def present() -> None:
-            try:
-                self._radio_application.present()
-            except Exception as error:
-                presentation_error.append(error)
-
-        presentation_thread = threading.Thread(
-            target=present,
-            name="orcui-sdrpp-present-request",
-            daemon=True,
-        )
-        presentation_thread.start()
-        process_id: int | None = None
-        deadline = time.monotonic() + 12.0
-        while time.monotonic() < deadline and not presentation_error:
-            try:
-                process_id = self._radio_application.window_process_id(timeout_seconds=0.25)
-                break
-            except RuntimeError:
-                if not presentation_thread.is_alive():
-                    break
-                time.sleep(0.05)
-
-        if process_id is not None:
-            self.after(0, lambda pid=process_id: self._attach_rf_radio(pid))
+        try:
+            # Complete managed application startup first.  In particular,
+            # SDRPPLauncher.present() does not return until RigCTL is ready.
+            # Racing PID discovery against startup allowed the X11 embed path
+            # to run while SDR++ was still creating/replacing its top-level
+            # window, which made embedding nondeterministic across launches.
+            self._radio_application.present()
+            process_id = self._radio_application.window_process_id(
+                timeout_seconds=2.0,
+            )
+        except Exception as error:
+            self.after(0, lambda exc=error: self._show_launch_error(exc))
             return
 
-        presentation_thread.join()
-        if presentation_error:
-            self.after(0, lambda exc=presentation_error[0]: self._show_launch_error(exc))
-            return
-        self.after(0, lambda: self._attach_rf_radio(0))
+        self.after(0, lambda pid=process_id: self._attach_rf_radio(pid))
 
     def _attach_rf_radio(self, process_id: int) -> None:
         panel = self._radio_panel
