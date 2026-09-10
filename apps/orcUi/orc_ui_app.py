@@ -21,12 +21,20 @@ from apps.orcUi.power_dialog import PowerDialog
 from apps.orcUi.theme_runtime import theme_bundle
 from apps.orcUi.vehicle_panel import VehiclePanel
 from apps.orcUi.vehicle_presenter import VehiclePresentationState
+from messaging.contracts.route_guidance import RouteGuidanceStateMessage
+from ui.navigation import RouteRequestHandlerIf
 from ui.screen_ui_if import ScreenUiIf
 
 class OrcUiApp:
     """Own the integrated Tk shell and presentation state."""
-    def __init__(self, *, map_runtime: MapRuntimeIf) -> None:
+    def __init__(
+        self,
+        *,
+        map_runtime: MapRuntimeIf,
+        route_request_handler: RouteRequestHandlerIf,
+    ) -> None:
         self._map_runtime = map_runtime
+        self._route_request_handler = route_request_handler
         self._theme_mode = ThemeMode.DARK
         self._theme = theme_bundle(self._theme_mode)
         ui = self._theme.ui
@@ -160,6 +168,22 @@ class OrcUiApp:
             self._context_rail.update_attitude_state(state)
         if self._offroad_panel is not None and self._offroad_panel.winfo_exists():
             self._offroad_panel.update_attitude(state)
+    def apply_route_guidance_state(self, message: RouteGuidanceStateMessage) -> None:
+        """Apply active route guidance to the mounted navigation panel."""
+        if self._closing:
+            return
+        panel = self._navigation_panel
+        if panel is None or not panel.winfo_exists():
+            return
+        data = message.data
+        panel.set_route_guidance(
+            instruction=data.instruction,
+            distance_to_maneuver_m=data.distance_to_maneuver_m,
+            distance_remaining_m=data.distance_remaining_m,
+            off_route=data.off_route,
+            route_complete=data.route_complete,
+        )
+
     def run(self) -> None:
         self._root.protocol("WM_DELETE_WINDOW", self._on_close)
         old_signal_handler = signal.getsignal(signal.SIGINT)
@@ -399,7 +423,12 @@ class OrcUiApp:
         self._clear_content()
         self._active_nav = "NAVIGATION"
         self._paint_nav()
-        self._navigation_panel = NavigationPanel(self._content, on_back=self._show_home, theme_bundle=self._theme)
+        self._navigation_panel = NavigationPanel(
+            self._content,
+            route_request_handler=self._route_request_handler,
+            on_back=self._show_home,
+            theme_bundle=self._theme,
+        )
         self._navigation_panel.pack(fill=tk.BOTH, expand=True)
         self._root.update_idletasks()
         self._start_map_renderer(self._navigation_panel.map_host_window_id)
