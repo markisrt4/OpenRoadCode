@@ -15,12 +15,12 @@ from queue import Empty, SimpleQueue
 from typing import Protocol
 
 from apps.launchers.map_renderer_launcher import MapRendererLauncher
+from apps.orcUi.map_theme_runtime import install_map_style
 from apps.orcUi.navigation_presenter import (
     AttitudePresentationState,
     NavigationPresenter,
     PositionPresentationState,
 )
-from apps.orcUi.orc_theme import ThemeMode, install_map_style
 from apps.orcUi.vehicle_presenter import VehiclePresenter, VehiclePresentationState
 from messaging.contracts.automotive import VEHICLE_STATE_TOPIC, decode_vehicle_state
 from messaging.contracts.navigation import (
@@ -32,6 +32,7 @@ from messaging.contracts.navigation import (
 from messaging.message_dispatcher import MessageDispatcher
 from messaging.zeromq import ZeroMqSubscriber
 from messaging.zeromq.endpoints import LOCAL_SUBSCRIBER_ENDPOINT
+from ui.theme import ThemeMode
 
 
 class MapRuntimeIf(Protocol):
