@@ -9,7 +9,6 @@ import math
 import tkinter as tk
 from collections.abc import Callable
 
-from apps.orcUi.shared_map_camera import get_shared_map_camera_runtime
 from apps.orcUi.theme_runtime import theme_bundle as packaged_theme_bundle
 from ui.navigation import MapRequestHandlerIf
 from ui.theme import ThemeBundle, ThemeMode
@@ -22,7 +21,7 @@ class NavigationPanel(tk.Frame):
         self,
         parent: tk.Misc,
         *,
-        map_request_handler: MapRequestHandlerIf | None = None,
+        map_request_handler: MapRequestHandlerIf,
         on_back: Callable[[], None] | None = None,
         theme_bundle: ThemeBundle | None = None,
     ) -> None:
@@ -30,8 +29,7 @@ class NavigationPanel(tk.Frame):
         super().__init__(parent, bg=self._theme_bundle.ui.background)
         del on_back
 
-        runtime = get_shared_map_camera_runtime()
-        self._request_handler = map_request_handler or runtime.request_handler
+        self._request_handler = map_request_handler
         self._zoom_level = float(getattr(self._request_handler, "zoom_level", 16.5))
         self._pitch_rad = float(
             getattr(self._request_handler, "pitch_rad", math.radians(45.0))
