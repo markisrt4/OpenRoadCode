@@ -8,7 +8,7 @@ from __future__ import annotations
 from dataclasses import replace
 
 from controllers.poi.poi_models import PoiAction, PoiActionKind, PoiCategory, PointOfInterest
-from controllers.poi.restaurant_catalog import resolve_restaurant_poi
+from controllers.poi.business_catalog import resolve_business
 
 
 def enrich_poi(poi: PointOfInterest) -> PointOfInterest:
@@ -17,16 +17,16 @@ def enrich_poi(poi: PointOfInterest) -> PointOfInterest:
     brand = poi.brand
 
     if poi.category is PoiCategory.FOOD:
-        restaurant = resolve_restaurant_poi(brand=poi.brand, name=poi.name)
-        if restaurant is not None:
-            brand = restaurant.brand
-            actions.append(
-                PoiAction(
-                    PoiActionKind.OPEN_APP_OR_URI,
-                    "ORDER",
-                    uri=restaurant.order_url,
-                    android_package=restaurant.android_package,
+        business = resolve_business(brand=poi.brand, name=poi.name)
+        if business is not None:
+            brand = business.brand
+            if "order" in business.capabilities:
+                actions.append(
+                    PoiAction(
+                        PoiActionKind.ORDER,
+                        "ORDER",
+                        provider_id=business.provider_id,
+                    )
                 )
-            )
 
     return replace(poi, brand=brand, actions=tuple(actions))
