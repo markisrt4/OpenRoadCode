@@ -250,6 +250,12 @@ int main() {
                 } else if (command->category == "grocery") {
                     setLayerVisible(map.getStyle(), "grocery-focus-glow", command->enabled);
                     setLayerVisible(map.getStyle(), "grocery-focus-label", command->enabled);
+                } else if (command->category == "food") {
+                    setLayerVisible(map.getStyle(), "food-focus-glow", command->enabled);
+                    setLayerVisible(map.getStyle(), "food-focus-label", command->enabled);
+                } else if (command->category == "transit") {
+                    setLayerVisible(map.getStyle(), "transit-focus-glow", command->enabled);
+                    setLayerVisible(map.getStyle(), "transit-focus-label", command->enabled);
                 }
                 view.invalidate();
                 continue;
