@@ -11,6 +11,7 @@ from collections.abc import Callable
 from pathlib import Path
 
 from controllers.cache import PersistentCache
+from controllers.navigation.current_position import get_current_position
 from controllers.navigation.position_snapshot_cache import (
     DEFAULT_POSITION_CACHE_DIRECTORY,
     PositionSnapshotCache,
@@ -53,7 +54,7 @@ class PoiSearchController(PoiSearchControllerIf):
         self._source = source or MapPoiSource()
         self._search_source = search_source
         self._owns_search_source = search_source is None
-        self._position_provider = position_provider or self._cached_position
+        self._position_provider = position_provider or self._default_position
         self._active_category: PoiCategory | None = None
         self._pending_search_result: PoiSearchResult | None = None
 
@@ -110,7 +111,10 @@ class PoiSearchController(PoiSearchControllerIf):
         return self._search_source
 
     @staticmethod
-    def _cached_position() -> GeoPoint | None:
+    def _default_position() -> GeoPoint | None:
+        live = get_current_position()
+        if live is not None:
+            return live
         cache = PositionSnapshotCache(PersistentCache(DEFAULT_POSITION_CACHE_DIRECTORY))
         state = cache.load()
         if (
