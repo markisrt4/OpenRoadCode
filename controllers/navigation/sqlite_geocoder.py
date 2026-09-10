@@ -124,33 +124,49 @@ class SqliteGeocoder:
     def _street_results(self, query: _ParsedQuery, limit: int) -> list[GeocodeResult]:
         if not query.street:
             return []
-        clauses = ["name = ? COLLATE NOCASE"]
-        params: list[object] = [query.street]
-        if query.city:
-            clauses.append("(city IS NULL OR city = ? COLLATE NOCASE)")
-            params.append(query.city)
-        if query.state:
-            clauses.append("(state IS NULL OR state = ? COLLATE NOCASE)")
-            params.append(query.state)
-        params.append(limit)
+
+        requested = _normalize_street(query.street)
         rows = self._connection.execute(
-            f"""
+            """
             SELECT name, city, state, postcode, latitude, longitude
             FROM street
-            WHERE {" AND ".join(clauses)}
+            WHERE name LIKE ? COLLATE NOCASE
             ORDER BY id
-            LIMIT ?
+            LIMIT 500
             """,
-            params,
+            (f"%{query.street.split()[0]}%",),
         ).fetchall()
+
+        ranked: list[tuple[int, sqlite3.Row]] = []
+        for row in rows:
+            candidate = _normalize_street(str(row["name"] or ""))
+            if not candidate:
+                continue
+            score = 0
+            if candidate == requested:
+                score += 100
+            elif candidate.startswith(requested + " ") or requested.startswith(candidate + " "):
+                score += 80
+            else:
+                continue
+
+            if query.city and row["city"] and _normalize_words(str(row["city"])) == _normalize_words(query.city):
+                score += 10
+            if query.state and row["state"] and str(row["state"]).casefold() == query.state.casefold():
+                score += 5
+            if query.postcode and row["postcode"] and str(row["postcode"]).casefold() == query.postcode.casefold():
+                score += 5
+            ranked.append((score, row))
+
+        ranked.sort(key=lambda item: (-item[0], str(item[1]["name"]).casefold()))
         return [
             GeocodeResult(
                 display_name=_format_street(row),
                 position=_point(row),
-                confidence=0.65 if query.house_number else 0.8,
+                confidence=0.55 if query.house_number else 0.8,
                 source="street",
             )
-            for row in rows
+            for _, row in ranked[:limit]
         ]
 
     def _place_results(self, query: str, limit: int) -> list[GeocodeResult]:
