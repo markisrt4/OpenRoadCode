@@ -3,11 +3,15 @@
 
 """Unit tests for ORC navigation panel camera and POI controls."""
 
+import math
 import unittest
 from unittest.mock import Mock
 
 from apps.orcUi.navigation_panel import NavigationPanel
+from controllers.navigation.map_favorites import MapFavorite
 from controllers.poi import PoiCategory, TransitMode
+from ui.navigation import GeoPoint
+from ui.navigation.route_types import TravelMode
 
 
 class NavigationPanelControlTest(unittest.TestCase):
@@ -19,6 +23,12 @@ class NavigationPanelControlTest(unittest.TestCase):
         panel._zoom_level = 16.5
         panel._zoom_text = Mock()
         panel._follow_enabled = True
+        panel._poi_controller = Mock()
+        panel._shortcut_status = Mock()
+        panel._active_poi_render_category = ""
+        panel._route_request_handler = Mock()
+        panel._map_favorites = Mock()
+        panel.after = Mock()
         panel.set_follow_enabled = Mock(side_effect=lambda enabled: setattr(panel, "_follow_enabled", enabled))
         return panel
 
@@ -55,6 +65,29 @@ class NavigationPanelControlTest(unittest.TestCase):
     def test_food_shortcut_starts_food_search(self) -> None:
         panel = self._panel(); panel._start_poi_search = Mock(); panel._destination_shortcut("food")
         panel._start_poi_search.assert_called_once_with(PoiCategory.FOOD)
+
+    def test_home_shortcut_starts_route_to_saved_home(self) -> None:
+        panel = self._panel()
+        position = GeoPoint(math.radians(42.8), math.radians(-83.0))
+        panel._map_favorites.home = MapFavorite("home", "Home", position)
+
+        panel._destination_shortcut("home")
+
+        panel._route_request_handler.request_start_route.assert_called_once_with(
+            position,
+            (),
+            TravelMode.AUTO,
+        )
+        panel._shortcut_status.set.assert_called_with("Routing to Home")
+
+    def test_work_shortcut_reports_unconfigured_location(self) -> None:
+        panel = self._panel()
+        panel._map_favorites.work = None
+
+        panel._destination_shortcut("work")
+
+        panel._route_request_handler.request_start_route.assert_not_called()
+        panel._shortcut_status.set.assert_called_with("Work location not configured")
 
     def test_issue_poi_search_forwards_default_mode(self) -> None:
         panel = self._panel(); panel._poi_controller = Mock(); panel._shortcut_status = Mock(); panel._poi_search_after_id = "pending"
