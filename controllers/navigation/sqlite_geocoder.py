@@ -204,26 +204,46 @@ def _parse_query(value: str) -> _ParsedQuery:
     house_number = street_match.group(1).strip() if street_match else None
     street = street_match.group(2).strip() if street_match else first
 
-    parts = [part.strip() for part in remainder.split(",") if part.strip()]
-    city = parts[0] if parts else None
+    city = None
     state = None
     postcode = None
 
-    if len(parts) >= 2:
-        tokens = parts[1].split()
-        if tokens:
-            state = tokens[0]
-        if len(tokens) > 1:
-            postcode = tokens[1]
-    elif len(parts) == 1:
-        tokens = parts[0].split()
-        if len(tokens) >= 2 and re.fullmatch(r"[A-Za-z]{2}", tokens[-2]):
-            city = " ".join(tokens[:-2]) or None
-            state = tokens[-2]
-            postcode = tokens[-1] if re.fullmatch(r"[0-9A-Za-z -]+", tokens[-1]) else None
+    if remainder:
+        parts = [part.strip() for part in remainder.split(",") if part.strip()]
+        city = parts[0] if parts else None
+        if len(parts) >= 2:
+            state_tokens = parts[1].split()
+            if state_tokens:
+                state = state_tokens[0]
+            if len(state_tokens) > 1:
+                postcode = state_tokens[1]
+    elif house_number is not None:
+        tokens = street.split()
+        if len(tokens) >= 4:
+            maybe_postcode = tokens[-1]
+            maybe_state = tokens[-2]
+            if (
+                re.fullmatch(r"[0-9]{5}(?:-[0-9]{4})?", maybe_postcode)
+                and re.fullmatch(r"[A-Za-z]{2}", maybe_state)
+            ):
+                postcode = maybe_postcode
+                state = maybe_state
+                locality_tokens = tokens[1:-2]
+                street_suffix_index = _find_street_suffix_index(tokens)
+                if street_suffix_index is not None and street_suffix_index < len(tokens) - 2:
+                    street = " ".join(tokens[: street_suffix_index + 1])
+                    locality_tokens = tokens[street_suffix_index + 1 : -2]
+                    city = " ".join(locality_tokens) or None
 
     return _ParsedQuery(house_number, street, city, state, postcode)
 
+
+def _find_street_suffix_index(tokens: list[str]) -> int | None:
+    suffixes = set(_STREET_SUFFIXES) | set(_STREET_SUFFIXES.values())
+    for index, token in enumerate(tokens):
+        if token.casefold().rstrip(".") in suffixes:
+            return index
+    return None
 
 def _point(row: sqlite3.Row) -> GeoPoint:
     return GeoPoint(
