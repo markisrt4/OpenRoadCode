@@ -60,3 +60,15 @@ def test_close_closes_renderer_client() -> None:
     handler.close()
 
     renderer.close.assert_called_once_with()
+
+
+def test_route_simulation_requests_delegate_to_navigation_client() -> None:
+    client = Mock()
+    renderer = Mock()
+    handler = NavigationRouteRequestHandler(client, renderer)
+
+    handler.request_start_route_simulation(time_scale=30.0)
+    handler.request_stop_route_simulation()
+
+    client.simulate_active_route.assert_called_once_with(time_scale=30.0)
+    client.stop_route_simulation.assert_called_once_with()
