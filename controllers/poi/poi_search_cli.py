@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 
-"""Command-line diagnostic for the live OpenRoadCode POI pipeline."""
+"""Command-line diagnostic for OpenRoadCode offline POI discovery and selection."""
 
 from __future__ import annotations
 
@@ -11,6 +11,7 @@ import sys
 import time
 
 from controllers.poi import PoiCategory, PoiSearchController
+from ui.navigation import GeoPoint
 
 
 def _parse_category(value: str) -> PoiCategory:
@@ -62,8 +63,9 @@ def _wait_for_selected(
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description=(
-            "Exercise the live map-renderer POI protocol without the ORC Tk UI. "
-            "The ZeroMQ broker and native map renderer must already be running."
+            "Exercise renderer-independent offline POI discovery. "
+            "Use --lat/--lon to override the current/cached navigation position. "
+            "The ZeroMQ broker and native renderer are only required for --wait-selected."
         )
     )
     parser.add_argument(
@@ -71,17 +73,19 @@ def _build_parser() -> argparse.ArgumentParser:
         type=_parse_category,
         help="POI category: food, fuel/gas, grocery, transit, or other",
     )
+    parser.add_argument("--lat", type=float, help="search-center latitude in degrees")
+    parser.add_argument("--lon", type=float, help="search-center longitude in degrees")
     parser.add_argument(
         "--timeout",
         type=float,
         default=5.0,
-        help="seconds to wait for a POI search result (default: 5)",
+        help="seconds to wait for the controller result (default: 5)",
     )
     parser.add_argument(
         "--settle",
         type=float,
-        default=0.5,
-        help="seconds to let ZeroMQ subscriptions connect before searching (default: 0.5)",
+        default=0.0,
+        help="seconds to allow renderer selection subscriptions to settle (default: 0)",
     )
     parser.add_argument(
         "--wait-selected",
@@ -102,23 +106,47 @@ def main(argv: list[str] | None = None) -> int:
     if args.timeout <= 0 or args.settle < 0 or args.selection_timeout <= 0:
         print("timeouts must be positive and --settle must be non-negative", file=sys.stderr)
         return 2
+    if (args.lat is None) != (args.lon is None):
+        print("--lat and --lon must be supplied together", file=sys.stderr)
+        return 2
+    if args.lat is not None and not -90.0 <= args.lat <= 90.0:
+        print("--lat must be between -90 and 90", file=sys.stderr)
+        return 2
+    if args.lon is not None and not -180.0 <= args.lon <= 180.0:
+        print("--lon must be between -180 and 180", file=sys.stderr)
+        return 2
 
-    controller = PoiSearchController()
+    position_provider = None
+    if args.lat is not None and args.lon is not None:
+        position = GeoPoint(
+            latitude_rad=math.radians(args.lat),
+            longitude_rad=math.radians(args.lon),
+        )
+        position_provider = lambda: position
+
+    controller = PoiSearchController(position_provider=position_provider)
     try:
         if args.settle:
             time.sleep(args.settle)
 
         category_name = args.category.name.casefold()
-        print(f"[poi-cli] searching category={category_name}", flush=True)
+        if args.lat is not None:
+            print(
+                f"[poi-cli] searching category={category_name} "
+                f"center={args.lat:.6f},{args.lon:.6f}",
+                flush=True,
+            )
+        else:
+            print(
+                f"[poi-cli] searching category={category_name} "
+                "center=current/cached-position",
+                flush=True,
+            )
         controller.search(args.category)
 
         result = _wait_for_search_result(controller, timeout_seconds=args.timeout)
         if result is None:
-            print(
-                "[poi-cli] FAIL: no map.poi.search_result received. "
-                "Check that the ZeroMQ broker and native map renderer are running.",
-                file=sys.stderr,
-            )
+            print("[poi-cli] FAIL: controller produced no search result", file=sys.stderr)
             return 1
 
         print("[poi-cli] search result")
@@ -131,7 +159,7 @@ def main(argv: list[str] | None = None) -> int:
         )
 
         if not args.wait_selected:
-            print("[poi-cli] PASS: renderer search response received")
+            print("[poi-cli] PASS: offline POI search completed")
             return 0
 
         print(
@@ -169,7 +197,7 @@ def main(argv: list[str] | None = None) -> int:
         else:
             print("  actions:  none")
 
-        print("[poi-cli] PASS: search and selection pipeline received")
+        print("[poi-cli] PASS: offline search and renderer selection received")
         return 0
     finally:
         controller.close()
