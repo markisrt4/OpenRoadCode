@@ -9,3 +9,6 @@ build
 # runit creates runtime supervision state beside service definitions.
 # Never track supervise directories, regardless of where a service tree lives.
 **/supervise/
+
+# Downloaded camera perception model weights.
+yolo11n.pt
