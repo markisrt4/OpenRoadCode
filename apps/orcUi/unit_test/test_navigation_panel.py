@@ -27,6 +27,10 @@ class NavigationPanelControlTest(unittest.TestCase):
         panel._shortcut_status = Mock()
         panel._active_poi_render_category = ""
         panel._route_request_handler = Mock()
+        panel._route_simulation_handler = Mock()
+        panel._route_active = False
+        panel._simulation_active = False
+        panel._simulate_button = Mock()
         panel._map_favorites = Mock()
         panel.after = Mock()
         panel.set_follow_enabled = Mock(side_effect=lambda enabled: setattr(panel, "_follow_enabled", enabled))
@@ -88,6 +92,29 @@ class NavigationPanelControlTest(unittest.TestCase):
 
         panel._route_request_handler.request_start_route.assert_not_called()
         panel._shortcut_status.set.assert_called_with("Work location not configured")
+
+    def test_sim_drive_starts_active_route_simulation(self) -> None:
+        panel = self._panel()
+        panel._route_active = True
+
+        panel._toggle_route_simulation()
+
+        panel._route_simulation_handler.request_start_route_simulation.assert_called_once_with(
+            time_scale=60.0
+        )
+        self.assertTrue(panel._simulation_active)
+        panel._shortcut_status.set.assert_called_with("Simulating route at 60×")
+
+    def test_sim_drive_toggle_stops_active_simulation(self) -> None:
+        panel = self._panel()
+        panel._route_active = True
+        panel._simulation_active = True
+
+        panel._toggle_route_simulation()
+
+        panel._route_simulation_handler.request_stop_route_simulation.assert_called_once_with()
+        self.assertFalse(panel._simulation_active)
+        panel._shortcut_status.set.assert_called_with("Route simulation stopped")
 
     def test_issue_poi_search_forwards_default_mode(self) -> None:
         panel = self._panel(); panel._poi_controller = Mock(); panel._shortcut_status = Mock(); panel._poi_search_after_id = "pending"
