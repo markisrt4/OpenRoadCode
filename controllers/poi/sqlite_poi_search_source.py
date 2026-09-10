@@ -55,6 +55,7 @@ class SqlitePoiSearchSource(PoiSearchSourceIf):
         center_longitude = (bounds.west + bounds.east) / 2.0
         longitude_scale = math.cos(math.radians(center_latitude))
 
+        fetch_limit = query.limit * 4 if query.category is PoiCategory.TRANSIT else query.limit
         rows = self._connection.execute(
             """
             SELECT id, name, brand, latitude, longitude, class, subclass
@@ -85,10 +86,13 @@ class SqlitePoiSearchSource(PoiSearchSourceIf):
                 longitude_scale,
                 center_longitude,
                 longitude_scale,
-                query.limit,
+                fetch_limit,
             ),
         ).fetchall()
-        return tuple(self._to_poi(row, query.category) for row in rows)
+        pois = tuple(self._to_poi(row, query.category) for row in rows)
+        if query.category is PoiCategory.TRANSIT:
+            pois = _dedupe_transit(pois)
+        return pois[: query.limit]
 
     def close(self) -> None:
         self._connection.close()
@@ -107,3 +111,37 @@ class SqlitePoiSearchSource(PoiSearchSourceIf):
             source_class=row["class"],
             source_subclass=row["subclass"],
         )
+
+
+def _dedupe_transit(
+    pois: tuple[PointOfInterest, ...],
+    *,
+    distance_threshold_m: float = 75.0,
+) -> tuple[PointOfInterest, ...]:
+    """Collapse multiple OSM representations of the same physical transit stop."""
+
+    kept: list[PointOfInterest] = []
+    for poi in pois:
+        normalized_name = " ".join(poi.name.casefold().split())
+        duplicate = False
+        for existing in kept:
+            if " ".join(existing.name.casefold().split()) != normalized_name:
+                continue
+            if _distance_m(existing.position, poi.position) <= distance_threshold_m:
+                duplicate = True
+                break
+        if not duplicate:
+            kept.append(poi)
+    return tuple(kept)
+
+
+def _distance_m(first: GeoPoint, second: GeoPoint) -> float:
+    dlat = second.latitude_rad - first.latitude_rad
+    dlon = second.longitude_rad - first.longitude_rad
+    haversine = (
+        math.sin(dlat / 2.0) ** 2
+        + math.cos(first.latitude_rad)
+        * math.cos(second.latitude_rad)
+        * math.sin(dlon / 2.0) ** 2
+    )
+    return 2.0 * 6_378_137.0 * math.asin(min(1.0, math.sqrt(haversine)))
