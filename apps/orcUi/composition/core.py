@@ -29,7 +29,10 @@ class CoreComposition:
         try:
             self.state_ingress.close()
         finally:
-            self.map_runtime.stop()
+            try:
+                self.route_request_handler.close()
+            finally:
+                self.map_runtime.stop()
 
 
 def create_core_composition() -> CoreComposition:
