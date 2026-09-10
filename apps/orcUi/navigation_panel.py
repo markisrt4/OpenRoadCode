@@ -123,6 +123,7 @@ class NavigationPanel(tk.Frame):
             ("⛽ GAS", ui.accent_danger, "gas"),
             ("▣ GROCERY", ui.accent_success, "grocery"),
             ("♨ FOOD", ui.accent_danger, "food"),
+            ("▰ TRANSIT", ui.accent_primary, "transit"),
         )
         for label, accent, key in shortcut_specs:
             tk.Button(
@@ -270,6 +271,7 @@ class NavigationPanel(tk.Frame):
             "food": PoiCategory.FOOD,
             "gas": PoiCategory.FUEL,
             "grocery": PoiCategory.GROCERY,
+            "transit": PoiCategory.TRANSIT,
         }.get(shortcut)
         if category is not None:
             self._start_poi_search(category)
