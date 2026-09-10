@@ -21,7 +21,12 @@ def enrich_poi(poi: PointOfInterest) -> PointOfInterest:
         if restaurant is not None:
             brand = restaurant.brand
             actions.append(
-                PoiAction(PoiActionKind.OPEN_URI, "ORDER", restaurant.order_url)
+                PoiAction(
+                    PoiActionKind.OPEN_APP_OR_URI,
+                    "ORDER",
+                    uri=restaurant.order_url,
+                    android_package=restaurant.android_package,
+                )
             )
 
     return replace(poi, brand=brand, actions=tuple(actions))
