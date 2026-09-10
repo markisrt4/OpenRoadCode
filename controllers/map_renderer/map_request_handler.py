@@ -8,7 +8,7 @@ from __future__ import annotations
 import math
 from collections.abc import Callable
 
-from ui.navigation import GeoPoint, MapRequestHandlerIf
+from ui.navigation import GeoPoint, MapMarker, MapRequestHandlerIf
 
 
 class MapRequestHandler(MapRequestHandlerIf):
@@ -114,6 +114,30 @@ class MapRequestHandler(MapRequestHandlerIf):
         else:
             self._poi_focus.remove(category)
         self._renderer.set_poi_focus(category, enabled)
+
+    def request_poi_results(self, markers: tuple[MapMarker, ...], category: str) -> None:
+        features: list[dict[str, object]] = []
+        for marker in markers:
+            features.append(
+                {
+                    "type": "Feature",
+                    "geometry": {
+                        "type": "Point",
+                        "coordinates": [
+                            math.degrees(marker.position.longitude_rad),
+                            math.degrees(marker.position.latitude_rad),
+                        ],
+                    },
+                    "properties": {
+                        "id": marker.marker_id,
+                        "name": marker.label or "",
+                        "category": category,
+                    },
+                }
+            )
+        self._renderer.set_poi_results(
+            {"type": "FeatureCollection", "features": features}
+        )
 
     def request_style(self, style_id: str) -> None:
         del style_id
