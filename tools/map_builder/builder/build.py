@@ -42,16 +42,33 @@ def _download(url:str,destination:Path)->None:
    if not chunk: break
    output.write(chunk); downloaded+=len(chunk); _print_download_progress(downloaded,total,started)
  print(flush=True); tmp.replace(destination)
+def _md5_file(path:Path)->str:
+ digest=hashlib.md5()
+ with path.open("rb") as stream:
+  for chunk in iter(lambda:stream.read(1024*1024),b""): digest.update(chunk)
+ return digest.hexdigest().lower()
 def _download_and_verify(region:Region)->Path:
- cached=CACHE_ROOT/"pbf"/f"{region.safe_id}.osm.pbf"; _download(region.pbf_url,cached)
+ cached=CACHE_ROOT/"pbf"/f"{region.safe_id}.osm.pbf"
  try:
   with urlopen(Request(region.pbf_url+".md5",headers={"User-Agent":"OpenRoadCode-map-builder/1.0"}),timeout=30) as response: expected=response.read().decode("utf-8",errors="replace").split()[0].lower()
-  digest=hashlib.md5()
-  with cached.open("rb") as stream:
-   for chunk in iter(lambda:stream.read(1024*1024),b""): digest.update(chunk)
-  if digest.hexdigest().lower()!=expected: raise BuildError(f"MD5 mismatch for {region.id}")
- except BuildError: raise
- except Exception as exc: print(f"Warning: could not verify Geofabrik MD5 for {region.id}: {exc}")
+ except Exception as exc:
+  print(f"Warning: could not verify Geofabrik MD5 for {region.id}: {exc}")
+  _download(region.pbf_url,cached)
+ else:
+  if cached.exists() and cached.stat().st_size>0:
+   actual=_md5_file(cached)
+   if actual==expected:
+    print(f"Using cached {cached.name}")
+   else:
+    print(f"Cached {cached.name} is stale; refreshing from Geofabrik",flush=True)
+    cached.unlink()
+    _download(region.pbf_url,cached)
+    actual=_md5_file(cached)
+    if actual!=expected: raise BuildError(f"MD5 mismatch for freshly downloaded {region.id}")
+  else:
+   _download(region.pbf_url,cached)
+   actual=_md5_file(cached)
+   if actual!=expected: raise BuildError(f"MD5 mismatch for freshly downloaded {region.id}")
  run(["osmium","fileinfo","-e",str(cached)]); return cached
 def _prepare_output_dirs(clean:bool)->None:
  if clean and OUTPUT_ROOT.exists():
