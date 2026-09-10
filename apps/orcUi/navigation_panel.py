@@ -117,6 +117,8 @@ class NavigationPanel(tk.Frame):
         if category is not None:
             self._start_poi_search(category); return
         self._poi_controller.clear(); self._request_handler.request_poi_focus(None)
+        self._active_poi_render_category = ""
+        self._request_handler.request_poi_results((), "")
         self._shortcut_status.set({"home":"Home location not configured","work":"Work location not configured"}[shortcut]); self.after(2500,lambda:self._shortcut_status.set(""))
 
     def _start_poi_search(self,category:PoiCategory,transit_mode:TransitMode=TransitMode.ALL)->None:
@@ -126,7 +128,7 @@ class NavigationPanel(tk.Frame):
             try:self.after_cancel(self._poi_search_after_id)
             except tk.TclError:pass
             self._poi_search_after_id=None
-        category_name=category.name.casefold(); self._poi_controller.clear(); self.set_follow_enabled(False); self._request_handler.request_follow(False); self._request_handler.request_poi_focus(None)
+        category_name=category.name.casefold(); self._poi_controller.clear(); self._request_handler.request_poi_focus(None)
         self._active_poi_render_category = _poi_render_category(category, transit_mode)
         self._request_handler.request_poi_results((), self._active_poi_render_category)
         detail = transit_mode.name.replace("_", " ").casefold() if category is PoiCategory.TRANSIT and transit_mode is not TransitMode.ALL else category_name
