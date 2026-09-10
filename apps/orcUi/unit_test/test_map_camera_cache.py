@@ -33,6 +33,9 @@ class FakeRenderer:
     def set_poi_focus(self, category: str | None, enabled: bool = True) -> None:
         del category, enabled
 
+    def set_poi_results(self, geojson: dict[str, object]) -> None:
+        del geojson
+
 
 class MapCameraCacheTest(unittest.TestCase):
     def test_cached_position_can_seed_camera(self) -> None:
