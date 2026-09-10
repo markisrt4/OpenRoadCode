@@ -5,7 +5,7 @@ This temporary branch audits ownership boundaries without changing product behav
 ## Completed ownership corrections
 
 - Host restart and poweroff no longer belong to the Tk shell. They flow through the toolkit-independent `ui.system.SystemLifecycleRequestHandlerIf` contract to `SystemLifecycleController`, and host actions execute only after top-level cleanup.
-- Map style installation no longer belongs to the Tk shell. Theme intent is passed through `MapRuntimeIf.set_theme()`, and the map runtime owns renderer-specific style installation.
+- Map style installation no longer belongs to the Tk shell. Theme intent is passed through `MapRuntimeIf.set_theme()`, and the map runtime owns renderer-specific style installation through `map_theme_runtime.py`; `orc_theme.py` now contains presentation-only mode helpers.
 - Shell volume buttons emit requests through `VolumeRequestHandlerIf`; `SystemVolumeHandler` bridges those semantic contracts to the audio controller and returns normalized state through `VolumeUiIf`.
 - Long-lived Spotify state synchronization and reusable local Web Player lifecycle live under `controllers/spotify`. `apps/orcUi` retains application-specific composition/factory wiring rather than compatibility re-exports of controller behavior.
 - Icons are semantic UI data. `ui.icon.IconId` is toolkit-independent; each frontend maps those identifiers to its native rendering.
