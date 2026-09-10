@@ -8,9 +8,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from apps.orcUi.core_runtime import MapRuntime, StateIngressRuntime
-from apps.orcUi.orc_ui_app import OrcUiApp
 from controllers.audio import PipewireAudioController, SystemVolumeHandler
 from controllers.system import SystemLifecycleController
+from frontends.tk.orc_ui.orc_ui_app import OrcUiApp
 
 
 @dataclass(slots=True)
@@ -35,7 +35,7 @@ class CoreComposition:
 
 
 def create_core_composition() -> CoreComposition:
-    """Create the Tk shell and inject its runtime-facing dependencies."""
+    """Create the selected frontend shell and inject runtime-facing dependencies."""
     map_runtime = MapRuntime()
     lifecycle = SystemLifecycleController()
     app = OrcUiApp(
