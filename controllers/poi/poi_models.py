@@ -70,3 +70,4 @@ class PoiSearchResult:
     west: float
     north: float
     east: float
+    pois: tuple[PointOfInterest, ...] = ()

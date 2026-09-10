@@ -7,13 +7,14 @@ import math
 import unittest
 
 from controllers.map_renderer.map_request_handler import MapRequestHandler
-from ui.navigation import GeoPoint
+from ui.navigation import GeoPoint, MapMarker, MapMarkerKind
 
 
 class FakeRenderer:
     def __init__(self) -> None:
         self.cameras: list[tuple[float, float, float, float, float]] = []
         self.poi_focus: list[tuple[str | None, bool]] = []
+        self.poi_results: list[dict[str, object]] = []
 
     def set_camera(
         self,
@@ -27,6 +28,9 @@ class FakeRenderer:
 
     def set_poi_focus(self, category: str | None, enabled: bool = True) -> None:
         self.poi_focus.append((category, enabled))
+
+    def set_poi_results(self, geojson: dict[str, object]) -> None:
+        self.poi_results.append(geojson)
 
 
 class MapRequestHandlerTest(unittest.TestCase):
@@ -159,6 +163,21 @@ class MapRequestHandlerTest(unittest.TestCase):
         self.handler.request_poi_focus("fuel")
         self.handler.request_poi_focus("fuel")
         self.assertEqual(self.renderer.poi_focus[-2:], [("fuel", True), ("fuel", False)])
+
+    def test_poi_results_are_serialized_without_changing_camera(self) -> None:
+        marker = MapMarker(
+            marker_id="poi-1",
+            position=GeoPoint(math.radians(42.8), math.radians(-83.0)),
+            kind=MapMarkerKind.SEARCH_RESULT,
+            label="Lunch",
+        )
+        self.handler.request_poi_results((marker,), "food")
+        self.assertEqual(self.renderer.cameras, [])
+        feature = self.renderer.poi_results[-1]["features"][0]
+        self.assertEqual(feature["properties"]["name"], "Lunch")
+        self.assertEqual(feature["properties"]["category"], "food")
+        self.assertAlmostEqual(feature["geometry"]["coordinates"][0], -83.0)
+        self.assertAlmostEqual(feature["geometry"]["coordinates"][1], 42.8)
 
 
 if __name__ == "__main__":

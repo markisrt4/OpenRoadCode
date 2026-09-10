@@ -8,7 +8,7 @@ from __future__ import annotations
 import math
 from collections.abc import Callable
 
-from ui.navigation import GeoPoint, MapRequestHandlerIf
+from ui.navigation import GeoPoint, MapMarker, MapRequestHandlerIf
 
 
 class MapRequestHandler(MapRequestHandlerIf):
@@ -28,6 +28,10 @@ class MapRequestHandler(MapRequestHandlerIf):
         self._follow_enabled = follow_enabled
         self._camera_initialized = camera_initialized
         self._poi_focus: set[str] = set()
+        self._poi_results_geojson: dict[str, object] = {
+            "type": "FeatureCollection",
+            "features": [],
+        }
         self._on_follow_changed = on_follow_changed
 
     @property
@@ -115,6 +119,29 @@ class MapRequestHandler(MapRequestHandlerIf):
             self._poi_focus.remove(category)
         self._renderer.set_poi_focus(category, enabled)
 
+    def request_poi_results(self, markers: tuple[MapMarker, ...], category: str) -> None:
+        features: list[dict[str, object]] = []
+        for marker in markers:
+            features.append(
+                {
+                    "type": "Feature",
+                    "geometry": {
+                        "type": "Point",
+                        "coordinates": [
+                            math.degrees(marker.position.longitude_rad),
+                            math.degrees(marker.position.latitude_rad),
+                        ],
+                    },
+                    "properties": {
+                        "id": marker.marker_id,
+                        "name": marker.label or "",
+                        "category": category,
+                    },
+                }
+            )
+        self._poi_results_geojson = {"type": "FeatureCollection", "features": features}
+        self._renderer.set_poi_results(self._poi_results_geojson)
+
     def request_style(self, style_id: str) -> None:
         del style_id
 
@@ -141,6 +168,7 @@ class MapRequestHandler(MapRequestHandlerIf):
             bearing_rad=bearing_rad,
             pitch_rad=pitch_rad,
         )
+        self._renderer.set_poi_results(self._poi_results_geojson)
         for category in self._poi_focus:
             self._renderer.set_poi_focus(category, True)
 

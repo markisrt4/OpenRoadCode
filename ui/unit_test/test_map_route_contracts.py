@@ -88,6 +88,7 @@ class MapRouteContractTest(unittest.TestCase):
                 "request_bearing",
                 "request_pitch",
                 "request_poi_focus",
+                "request_poi_results",
                 "request_style",
             },
         )

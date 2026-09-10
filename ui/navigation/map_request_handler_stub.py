@@ -4,7 +4,7 @@
 """Concrete no-op map request handler."""
 
 from ui.navigation.map_request_handler_if import MapRequestHandlerIf
-from ui.navigation.map_ui_if import GeoPoint
+from ui.navigation.map_ui_if import GeoPoint, MapMarker
 
 
 class MapRequestHandlerStub(MapRequestHandlerIf):
@@ -35,6 +35,9 @@ class MapRequestHandlerStub(MapRequestHandlerIf):
         pass
 
     def request_poi_focus(self, category: str | None) -> None:
+        pass
+
+    def request_poi_results(self, markers: tuple[MapMarker, ...], category: str) -> None:
         pass
 
     def request_style(self, style_id: str) -> None:

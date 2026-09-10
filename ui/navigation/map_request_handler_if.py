@@ -5,7 +5,7 @@
 
 from abc import ABC, abstractmethod
 
-from ui.navigation.map_ui_if import GeoPoint
+from ui.navigation.map_ui_if import GeoPoint, MapMarker
 
 
 class MapRequestHandlerIf(ABC):
@@ -80,6 +80,11 @@ class MapRequestHandlerIf(ABC):
 
         @param category Semantic POI category to highlight, or None to clear focus.
         """
+        ...
+
+    @abstractmethod
+    def request_poi_results(self, markers: tuple[MapMarker, ...], category: str) -> None:
+        """Replace the dynamic nearby-POI marker set without changing the camera."""
         ...
 
     @abstractmethod
