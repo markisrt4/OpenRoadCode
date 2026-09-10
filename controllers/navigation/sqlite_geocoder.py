@@ -86,7 +86,8 @@ class SqliteGeocoder:
         ).fetchall()
 
         requested_street = _normalize_street(query.street)
-        ranked: list[tuple[int, sqlite3.Row]] = []
+        postcode_center = self._postcode_center(query.postcode)
+        ranked: list[tuple[int, float, sqlite3.Row]] = []
         for row in rows:
             candidate_street = _normalize_street(str(row["street"] or ""))
             if not candidate_street:
@@ -120,6 +121,21 @@ class SqliteGeocoder:
             )
             for score, row in ranked[:limit]
         ]
+
+    def _postcode_center(self, postcode: str | None) -> tuple[float, float] | None:
+        if not postcode:
+            return None
+        row = self._connection.execute(
+            """
+            SELECT AVG(latitude) AS latitude, AVG(longitude) AS longitude
+            FROM address
+            WHERE postcode = ?
+            """,
+            (postcode,),
+        ).fetchone()
+        if row is None or row["latitude"] is None or row["longitude"] is None:
+            return None
+        return float(row["latitude"]), float(row["longitude"])
 
     def _street_results(self, query: _ParsedQuery, limit: int) -> list[GeocodeResult]:
         if not query.street:
@@ -156,9 +172,18 @@ class SqliteGeocoder:
                 score += 5
             if query.postcode and row["postcode"] and str(row["postcode"]).casefold() == query.postcode.casefold():
                 score += 5
-            ranked.append((score, row))
 
-        ranked.sort(key=lambda item: (-item[0], str(item[1]["name"]).casefold()))
+            distance_km = float("inf")
+            if postcode_center is not None:
+                distance_km = _distance_km(
+                    postcode_center[0],
+                    postcode_center[1],
+                    float(row["latitude"]),
+                    float(row["longitude"]),
+                )
+            ranked.append((score, distance_km, row))
+
+        ranked.sort(key=lambda item: (-item[0], item[1], str(item[2]["name"]).casefold()))
         return [
             GeocodeResult(
                 display_name=_format_street(row),
@@ -166,7 +191,7 @@ class SqliteGeocoder:
                 confidence=0.55 if query.house_number else 0.8,
                 source="street",
             )
-            for _, row in ranked[:limit]
+            for _, _, row in ranked[:limit]
         ]
 
     def _place_results(self, query: str, limit: int) -> list[GeocodeResult]:
@@ -235,21 +260,22 @@ def _parse_query(value: str) -> _ParsedQuery:
                 postcode = state_tokens[1]
     elif house_number is not None:
         tokens = street.split()
-        if len(tokens) >= 4:
-            maybe_postcode = tokens[-1]
-            maybe_state = tokens[-2]
-            if (
-                re.fullmatch(r"[0-9]{5}(?:-[0-9]{4})?", maybe_postcode)
-                and re.fullmatch(r"[A-Za-z]{2}", maybe_state)
-            ):
-                postcode = maybe_postcode
-                state = maybe_state
-                locality_tokens = tokens[1:-2]
-                street_suffix_index = _find_street_suffix_index(tokens)
-                if street_suffix_index is not None and street_suffix_index < len(tokens) - 2:
-                    street = " ".join(tokens[: street_suffix_index + 1])
-                    locality_tokens = tokens[street_suffix_index + 1 : -2]
-                    city = " ".join(locality_tokens) or None
+        street_suffix_index = _find_street_suffix_index(tokens)
+
+        if tokens and re.fullmatch(r"[0-9]{5}(?:-[0-9]{4})?", tokens[-1]):
+            postcode = tokens[-1]
+            tokens = tokens[:-1]
+
+        if tokens and re.fullmatch(r"[A-Za-z]{2}", tokens[-1]):
+            state = tokens[-1]
+            tokens = tokens[:-1]
+
+        if street_suffix_index is not None:
+            # The suffix index was computed before stripping trailing locality
+            # hints, so it still identifies the end of the street name.
+            street = " ".join(tokens[: street_suffix_index + 1])
+            locality_tokens = tokens[street_suffix_index + 1 :]
+            city = " ".join(locality_tokens) or None
 
     return _ParsedQuery(house_number, street, city, state, postcode)
 
@@ -260,6 +286,20 @@ def _find_street_suffix_index(tokens: list[str]) -> int | None:
         if token.casefold().rstrip(".") in suffixes:
             return index
     return None
+
+def _distance_km(lat1_deg: float, lon1_deg: float, lat2_deg: float, lon2_deg: float) -> float:
+    lat1 = math.radians(lat1_deg)
+    lon1 = math.radians(lon1_deg)
+    lat2 = math.radians(lat2_deg)
+    lon2 = math.radians(lon2_deg)
+    dlat = lat2 - lat1
+    dlon = lon2 - lon1
+    haversine = (
+        math.sin(dlat / 2.0) ** 2
+        + math.cos(lat1) * math.cos(lat2) * math.sin(dlon / 2.0) ** 2
+    )
+    return 2.0 * 6371.0088 * math.asin(min(1.0, math.sqrt(haversine)))
+
 
 def _point(row: sqlite3.Row) -> GeoPoint:
     return GeoPoint(
