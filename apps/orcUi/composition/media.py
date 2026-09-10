@@ -9,6 +9,7 @@ import copy
 from dataclasses import dataclass
 
 from apps.common.uiTheme.spotify import SPOTIFY_PANEL_THEME
+from apps.orcUi.frontend.tk.orc_ui_app import OrcUiApp
 from apps.orcUi.managed_browser_media_player import ManagedBrowserMediaPlayer
 from apps.orcUi.theme_runtime import theme_bundle
 from common.xdg_paths import openroadcode_cache_dir
@@ -17,7 +18,6 @@ from controllers.image import ImageCache
 from controllers.lyrics import LrclibLyricsClient
 from controllers.video import MusicVideoController, NetflixPlayer, YouTubeMusicVideo, YouTubePlayer
 from frontends.tk.media import BrowserMediaScreen, MediaNavigationBar, MediaScreen, SpotifyNowPlaying, SpotifyScreen
-from frontends.tk.orc_ui.orc_ui_app import OrcUiApp
 from ui.theme import ThemeMode
 
 MUSIC_VIDEO_PORT = 8770

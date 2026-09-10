@@ -8,9 +8,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from apps.orcUi.core_runtime import MapRuntime, StateIngressRuntime
+from apps.orcUi.frontend.tk.orc_ui_app import OrcUiApp
 from controllers.audio import PipewireAudioController, SystemVolumeHandler
 from controllers.system import SystemLifecycleController
-from frontends.tk.orc_ui.orc_ui_app import OrcUiApp
 
 
 @dataclass(slots=True)

@@ -6,7 +6,7 @@
 import unittest
 from unittest.mock import Mock
 
-from frontends.tk.orc_ui.navigation_panel import NavigationPanel
+from apps.orcUi.frontend.tk.navigation_panel import NavigationPanel
 
 
 class NavigationPanelControlTest(unittest.TestCase):

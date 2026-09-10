@@ -8,11 +8,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from apps.launchers.sdrpp_launcher import sync_sdrpp_theme
-from apps.orcUi.radio_application_service import RadioApplicationServiceIf
+from apps.orcUi.frontend.tk.orc_ui_app import OrcUiApp
 from apps.orcUi.theme_runtime import theme_bundle
 from controllers.radio.adapters.radio_browser_directory import RadioBrowserDirectory
 from controllers.radio.streaming_radio_favorites import StreamingRadioFavorites
-from frontends.tk.orc_ui.orc_ui_app import OrcUiApp
 from frontends.tk.radio import RadioScreen
 from frontends.tk.radio.radio_entry_panel import RadioEntryPanel
 from frontends.tk.radio.streaming_radio_now_playing import StreamingRadioNowPlaying

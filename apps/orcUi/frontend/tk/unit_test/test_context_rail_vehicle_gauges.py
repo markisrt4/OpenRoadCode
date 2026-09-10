@@ -5,8 +5,8 @@
 
 from unittest.mock import Mock
 
+from apps.orcUi.frontend.tk.context_rail import ContextRail
 from apps.orcUi.vehicle_presenter import VehiclePresentationState
-from frontends.tk.orc_ui.context_rail import ContextRail
 
 
 def _rail_with_gauges() -> ContextRail:

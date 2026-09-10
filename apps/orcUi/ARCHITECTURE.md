@@ -2,9 +2,9 @@
 
 ## Purpose
 
-`apps/orcUi` is the application assembly and runtime layer for the integrated OpenRoadCode UI. It is not the Tk frontend itself.
+`apps/orcUi` is the application assembly and runtime layer for the integrated OpenRoadCode UI. It also owns presentation that is specific to the orcUi application itself.
 
-OpenRoadCode deliberately separates semantic UI contracts, reusable behavior, frontend rendering, and application composition so that a feature can be presented by Tk, web, Android, or another frontend without moving its controller logic into the application shell.
+OpenRoadCode deliberately separates semantic UI contracts, reusable behavior, reusable frontend rendering, application-specific presentation, and application composition so that a feature can be presented by Tk, web, Android, or another frontend without moving its controller logic into the application shell.
 
 ## Dependency boundaries
 
@@ -12,11 +12,11 @@ OpenRoadCode deliberately separates semantic UI contracts, reusable behavior, fr
 
 `controllers/` owns reusable behavior and integration logic. Long-lived workers, state synchronization, protocol behavior, playback coordination, and similar reusable behavior do not belong in `orcUi` or in a concrete frontend.
 
-`frontends/<frontend>/` owns concrete presentation. For Tk specifically, `frontends/tk` is the reusable Tk ecosystem. Feature packages such as `frontends/tk/media`, `frontends/tk/radio`, `frontends/tk/automotive`, and `frontends/tk/games` should depend on narrow contracts rather than on one application shell.
+`frontends/<frontend>/` owns reusable concrete presentation for a toolkit or delivery surface. For Tk specifically, `frontends/tk` is the reusable Tk ecosystem. Feature packages such as `frontends/tk/media`, `frontends/tk/radio`, `frontends/tk/automotive`, and `frontends/tk/games` should depend on narrow contracts rather than on one application shell.
 
-`frontends/tk/orc_ui` is intentionally application-specific. It owns the integrated orcUi Tk root window, shell chrome, HOME layout, context rail, structural navigation/vehicle/off-road panels, power dialog, and other Tk presentation that exists specifically because of the orcUi layout.
+`apps/orcUi/frontend/tk` owns the integrated orcUi Tk root window, shell chrome, HOME layout, context rail, structural navigation/vehicle/off-road panels, power dialog, and other Tk presentation that exists specifically because of the orcUi application layout.
 
-`apps/orcUi` owns assembly, application-specific runtime adapters, presenters used by the assembly, and resource lifecycle. Composition may select a concrete frontend implementation, but Tk widgets and Tk-specific rendering do not belong in this package.
+`apps/orcUi` also owns assembly, application-specific runtime adapters, presenters used by the assembly, and resource lifecycle. Composition may select reusable frontend implementations and combine them with application-specific presentation.
 
 The intended direction is:
 
@@ -25,12 +25,14 @@ ui contracts
     ↑
 controllers / reusable application services
     ↑
-frontend implementations
+reusable frontend implementations
+    ↑
+application-specific frontend
     ↑
 application composition
 ```
 
-A concrete composition root is allowed to know which frontend it selected. Reusable controllers and UI contracts must not know which application or frontend selected them.
+A concrete application frontend and composition root are allowed to know which reusable frontend components they selected. Reusable controllers, UI contracts, and reusable frontend packages must not know which application selected them.
 
 ## Entry point and assembly
 
@@ -44,7 +46,7 @@ apps/orcUi/main.py
             -> MapRuntime
             -> SystemLifecycleController
             -> SystemVolumeHandler
-            -> frontends/tk/orc_ui/OrcUiApp
+            -> apps/orcUi/frontend/tk/OrcUiApp
             -> StateIngressRuntime
        -> composition/radio.py
             -> reusable Tk radio presentation
@@ -58,15 +60,15 @@ apps/orcUi/main.py
 
 ## Tk shell ownership
 
-`frontends/tk/orc_ui/orc_ui_app.py` owns the concrete integrated Tk shell. It creates the Tk root, arranges shell chrome and structural panels, manages Tk screen hosting/navigation, paints presentation state, and runs the Tk event loop.
+`apps/orcUi/frontend/tk/orc_ui_app.py` owns the concrete integrated Tk shell. It creates the Tk root, arranges shell chrome and structural panels, manages Tk screen hosting/navigation, paints presentation state, and runs the Tk event loop.
 
 It must not create ZeroMQ subscribers, message decoders, audio backends, Spotify synchronization workers, browser lifecycle managers, external map renderer launchers, or host restart/poweroff implementations. Those dependencies are injected through application/runtime or UI contracts.
 
-Structural orcUi widgets that are meaningful only inside that shell stay under `frontends/tk/orc_ui`. A widget that could reasonably be reused by another Tk application belongs in an appropriate feature package under `frontends/tk` instead.
+Structural orcUi widgets that are meaningful only inside that shell stay under `apps/orcUi/frontend/tk`. A widget that could reasonably be reused by another Tk application belongs in an appropriate feature package under `frontends/tk` instead.
 
 ## Reusing Tk for another application
 
-`frontends/tk` is not uniquely tailored to orcUi. A future independent Tk application should create its own application-specific package, for example:
+`frontends/tk` is not uniquely tailored to orcUi. A future independent Tk application owns its shell under its own application package:
 
 ```text
 frontends/tk/
@@ -76,18 +78,18 @@ frontends/tk/
     games/
     ... reusable Tk features ...
 
-    orc_ui/
-        orc_ui_app.py
-        ... orcUi-specific layout ...
+apps/orcUi/frontend/tk/
+    orc_ui_app.py
+    ... orcUi-specific layout ...
 
-    alternate_ui/
-        alternate_ui_app.py
-        ... alternate layout ...
+apps/alternateUi/frontend/tk/
+    alternate_ui_app.py
+    ... alternate-specific layout ...
 ```
 
 That alternate shell can reuse the existing controllers, `ui/` contracts, and generic Tk feature packages. Reusable Tk screens use `TkScreenHostIf`, so another Tk shell can host them by implementing that narrow interface rather than inheriting from or depending on `OrcUiApp`.
 
-If a generic Tk component begins importing `frontends.tk.orc_ui`, that is an architecture smell. Extract the required operation into a narrow contract rather than coupling the reusable component to the orcUi shell.
+If a reusable Tk component begins importing `apps.orcUi` or `apps.orcUi.frontend.tk`, that is an architecture smell. Extract the required operation into a narrow contract rather than coupling the reusable component to the orcUi shell.
 
 ## State flow
 
@@ -115,7 +117,7 @@ Restart and poweroff requests flow through `SystemLifecycleRequestHandlerIf`. `S
 
 `composition/games.py` registers the reusable Tk games frontend. Environment-specific launching and compatibility remain backend concerns.
 
-New features should follow the same sequence: define semantic contracts, implement reusable behavior, implement presentation per frontend, then assemble concrete choices at the application composition edge.
+New features should follow the same sequence: define semantic contracts, implement reusable behavior, implement reusable presentation per frontend where appropriate, add application-specific presentation only when necessary, then assemble concrete choices at the application composition edge.
 
 ## Theme ownership
 
@@ -144,7 +146,7 @@ python -m unittest discover -s controllers/application_runtime/unit_test -p 'tes
 python -m unittest discover -s controllers/games/unit_test -p 'test_*.py'
 python -m unittest discover -s ui/unit_test -p 'test_*.py'
 python -m unittest discover -s frontends/tk/unit_test -p 'test_*.py'
-python -m unittest discover -s frontends/tk/orc_ui/unit_test -p 'test_*.py'
+python -m unittest discover -s apps/orcUi/frontend/tk/unit_test -p 'test_*.py'
 python -m unittest discover -s frontends/tk/media/unit_test -p 'test_*.py'
 python -m unittest discover -s frontends/tk/radio/unit_test -p 'test_*.py'
 python -m unittest discover -s frontends/x11/unit_test -p 'test_*.py'
@@ -159,9 +161,9 @@ Before merging a substantial architecture change, review the complete branch dif
 
 - Keep `apps/orcUi/main.py` as a thin composition entry point.
 - Keep concrete dependency construction in composition/runtime factories.
-- Keep Tk rendering under `frontends/tk`.
-- Keep orcUi-specific Tk layout under `frontends/tk/orc_ui`.
-- Keep reusable Tk features independent of `OrcUiApp` and `frontends/tk/orc_ui`.
+- Keep reusable Tk rendering under `frontends/tk`.
+- Keep orcUi-specific Tk rendering and layout under `apps/orcUi/frontend/tk`.
+- Keep reusable Tk features independent of `OrcUiApp` and `apps/orcUi`.
 - Prefer `TkScreenHostIf` or another narrow contract when reusable Tk presentation needs host services.
 - Keep transport decoding and backend resource ownership outside concrete frontend widgets.
 - Keep shared icons semantic and frontend rendering local.

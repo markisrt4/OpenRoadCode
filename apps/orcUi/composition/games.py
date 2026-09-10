@@ -3,9 +3,9 @@
 
 """Compose the games destination."""
 
+from apps.orcUi.frontend.tk.orc_ui_app import OrcUiApp
 from apps.orcUi.theme_runtime import theme_bundle
 from frontends.tk.games import GamesScreen
-from frontends.tk.orc_ui.orc_ui_app import OrcUiApp
 
 
 def configure_games(app: OrcUiApp) -> GamesScreen:

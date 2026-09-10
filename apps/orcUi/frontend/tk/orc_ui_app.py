@@ -6,16 +6,16 @@ import signal
 import tkinter as tk
 from collections.abc import Callable
 from datetime import datetime
-from frontends.tk.orc_ui.context_rail import ContextRail
+from .context_rail import ContextRail
 from apps.orcUi.core_runtime import MapRuntimeIf
-from frontends.tk.orc_ui.home_map_panel import HomeMapPanel
-from frontends.tk.orc_ui.navigation_panel import NavigationPanel
+from .home_map_panel import HomeMapPanel
+from .navigation_panel import NavigationPanel
 from apps.orcUi.navigation_presenter import AttitudePresentationState, PositionPresentationState
-from frontends.tk.orc_ui.offroad_panel import OffRoadPanel
+from .offroad_panel import OffRoadPanel
 from apps.orcUi.orc_theme import ThemeMode, toggle, toggle_label
-from frontends.tk.orc_ui.power_dialog import PowerDialog
+from .power_dialog import PowerDialog
 from apps.orcUi.theme_runtime import theme_bundle
-from frontends.tk.orc_ui.vehicle_panel import VehiclePanel
+from .vehicle_panel import VehiclePanel
 from apps.orcUi.vehicle_presenter import VehiclePresentationState
 from ui.screen_ui_if import ScreenUiIf
 from ui.system import (

@@ -12,8 +12,8 @@ from apps.orcUi.composition.core import CoreComposition, create_core_composition
 from apps.orcUi.composition.games import configure_games
 from apps.orcUi.composition.media import MediaComposition, configure_media
 from apps.orcUi.composition.radio import RadioComposition, configure_radio
+from apps.orcUi.frontend.tk.orc_ui_app import OrcUiApp
 from frontends.tk.games import GamesScreen
-from frontends.tk.orc_ui.orc_ui_app import OrcUiApp
 
 
 @dataclass(slots=True)

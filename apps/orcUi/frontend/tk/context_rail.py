@@ -9,7 +9,7 @@ import tkinter as tk
 from collections.abc import Callable
 from dataclasses import dataclass
 
-from frontends.tk.orc_ui.context_offroad_panel import ContextOffroadPanel
+from .context_offroad_panel import ContextOffroadPanel
 from apps.orcUi.navigation_presenter import AttitudePresentationState, PositionPresentationState
 from apps.orcUi.theme_runtime import theme_bundle as packaged_theme_bundle
 from apps.orcUi.vehicle_presenter import VehiclePresentationState

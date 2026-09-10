@@ -10,10 +10,11 @@ This temporary branch audits ownership boundaries without changing product behav
 - Long-lived Spotify state synchronization and reusable local Web Player lifecycle live under `controllers/spotify`. `apps/orcUi` retains application-specific composition/factory wiring rather than compatibility re-exports of controller behavior.
 - Icons are semantic UI data. `ui.icon.IconId` is toolkit-independent; each frontend maps those identifiers to its native rendering.
 - Menu icon metadata carries semantic identifiers instead of Tk-oriented presentation.
-- The integrated Tk shell and its structural panels have moved from `apps/orcUi` to `frontends/tk/orc_ui`.
-- Radio Tk presentation has moved to `frontends/tk/radio`.
+- The integrated orcUi Tk shell and its structural panels live under `apps/orcUi/frontend/tk`, because they are both Tk-specific and application-specific.
+- `frontends/tk` is reserved for reusable Tk implementations and does not own orcUi-specific shell layout.
+- Radio Tk presentation has moved to `frontends/tk/radio`; remaining app coupling there is tracked for follow-up cleanup.
 - The obsolete app-local shifter gauge was removed in favor of the themed implementation under `frontends/tk/automotive`.
-- Tk-specific panel tests now live with `frontends/tk/orc_ui` rather than under the application package.
+- Tk-specific orcUi shell tests live with `apps/orcUi/frontend/tk`.
 - `apps/orcUi/main.py` is composition-only; the historical `OrcUiApp` export and `home_shell.py` compatibility alias were removed.
 - Feature composition no longer imports `tkinter` merely to express widget factory types. The composition root selects the concrete Tk frontend without making Tk widget types part of the application assembly API.
 
@@ -23,9 +24,9 @@ This temporary branch audits ownership boundaries without changing product behav
 
 `frontends/tk` means reusable presentation implemented with Tk. It is not synonymous with `orcUi`. Reusable Tk screens should depend on `TkScreenHostIf` or other narrow contracts, not on `OrcUiApp`.
 
-`frontends/tk/orc_ui` contains the concrete Tk implementation of the integrated orcUi shell and shell-specific layout. A future independent Tk UI should create a sibling application-specific package and reuse the generic Tk feature packages.
+`apps/orcUi/frontend/tk` contains the concrete Tk implementation of the integrated orcUi shell and shell-specific layout. A future independent Tk UI should own its shell under its own `apps/<application>/frontend/tk` package and reuse the generic Tk feature packages.
 
-Controller behavior belongs under `controllers`. Process/resource ownership belongs to the runtime or composition object that creates it. `apps/orcUi` is the application assembly/runtime layer and may select concrete frontend implementations at its composition edge.
+Controller behavior belongs under `controllers`. Process/resource ownership belongs to the runtime or composition object that creates it. `apps/orcUi` is the application assembly/runtime layer and may select reusable frontend implementations at its composition edge.
 
 ## Remaining verification
 
