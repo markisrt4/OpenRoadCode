@@ -3,9 +3,9 @@ from __future__ import annotations
 
 import subprocess
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
-from apps.launchers.android_intent_launcher import AndroidIntentLauncher
+from apps.launchers.android_intent_launcher import AndroidIntentLauncher, AndroidIntentLauncherError
 
 
 class AndroidIntentLauncherTest(unittest.TestCase):
