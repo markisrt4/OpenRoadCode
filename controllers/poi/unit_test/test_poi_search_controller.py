@@ -157,3 +157,24 @@ def test_fuel_subclass_is_classified_as_fuel() -> None:
     poi = controller.poll_selected()
     assert poi is not None
     assert poi.category is PoiCategory.FUEL
+
+
+def test_search_excludes_pois_outside_true_nearby_radius() -> None:
+    outside_circle = PointOfInterest(
+        poi_id="corner",
+        name="Bounding Box Corner",
+        category=PoiCategory.FOOD,
+        position=GeoPoint(math.radians(42.97), math.radians(-82.79)),
+    )
+    search_source = FakeSearchSource((outside_circle,))
+    controller = PoiSearchController(
+        FakeMapPoiSource(),  # type: ignore[arg-type]
+        search_source=search_source,
+        position_provider=_position,
+    )
+
+    controller.search(PoiCategory.FOOD)
+
+    result = controller.poll_search_result()
+    assert result is not None
+    assert result.count == 0
