@@ -47,6 +47,17 @@ class AndroidIntentLauncher:
             raise ValueError("Android URI must not be empty")
         self._run("start", "-a", "android.intent.action.VIEW", "-d", uri)
 
+    def open_package_or_uri(self, package: str | None, uri: str) -> str:
+        """Open an Android app when available, otherwise fall back to a URI."""
+        if package:
+            try:
+                self.launch_package(package)
+                return "app"
+            except AndroidIntentLauncherError:
+                pass
+        self.open_uri(uri)
+        return "uri"
+
     def _run(self, *arguments: str) -> None:
         try:
             result = subprocess.run(
