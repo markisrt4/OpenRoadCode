@@ -9,7 +9,7 @@ from unittest.mock import Mock
 
 from apps.orcUi.navigation_panel import NavigationPanel
 from controllers.navigation.map_favorites import MapFavorite
-from controllers.poi import PoiCategory, TransitMode
+from controllers.poi import PoiAction, PoiActionKind, PoiCategory, PointOfInterest, TransitMode
 from ui.navigation import GeoPoint
 from ui.navigation.route_types import TravelMode
 
@@ -132,3 +132,54 @@ class NavigationPanelControlTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+    def test_poi_navigate_action_starts_route_to_selected_poi(self) -> None:
+        panel = self._panel()
+        poi = PointOfInterest(
+            poi_id="panera",
+            name="Panera Bread",
+            category=PoiCategory.FOOD,
+            position=GeoPoint(math.radians(42.5), math.radians(-83.0)),
+        )
+        panel._poi_card = None
+
+        panel._execute_poi_action(
+            poi,
+            PoiAction(PoiActionKind.NAVIGATE, "NAVIGATE"),
+        )
+
+        panel._route_request_handler.request_start_route.assert_called_once_with(
+            poi.position,
+            (),
+            TravelMode.AUTO,
+        )
+        panel._shortcut_status.set.assert_called_with("Routing to Panera Bread")
+
+    def test_poi_app_order_action_uses_app_or_uri_launcher(self) -> None:
+        panel = self._panel()
+        panel._android_launcher = Mock()
+        panel._android_launcher.open_package_or_uri.return_value = "app"
+        panel._poi_card = None
+        poi = PointOfInterest(
+            poi_id="panera",
+            name="Panera Bread",
+            category=PoiCategory.FOOD,
+            position=GeoPoint(math.radians(42.5), math.radians(-83.0)),
+        )
+
+        panel._execute_poi_action(
+            poi,
+            PoiAction(
+                PoiActionKind.OPEN_APP_OR_URI,
+                "ORDER",
+                uri="https://www.panerabread.com/en-us/start-an-order.html",
+                android_package="com.panera.bread",
+            ),
+        )
+
+        panel._android_launcher.open_package_or_uri.assert_called_once_with(
+            "com.panera.bread",
+            "https://www.panerabread.com/en-us/start-an-order.html",
+        )
+        panel._shortcut_status.set.assert_called_with("Opening order in app")
