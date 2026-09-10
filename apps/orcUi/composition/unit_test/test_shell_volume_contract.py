@@ -6,7 +6,7 @@
 import unittest
 from unittest.mock import Mock
 
-from apps.orcUi.orc_ui_app import OrcUiApp
+from apps.orcUi.frontend.tk.orc_ui_app import OrcUiApp
 
 
 class OrcUiVolumeContractTest(unittest.TestCase):
