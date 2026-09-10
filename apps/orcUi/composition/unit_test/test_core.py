@@ -16,6 +16,8 @@ class CoreCompositionTest(unittest.TestCase):
         map_runtime = Mock()
         map_camera = Mock()
         ingress = Mock()
+        trip_runtime = Mock()
+        trip_publisher = Mock()
         lifecycle = Mock()
         volume = Mock()
         core = CoreComposition(
@@ -23,6 +25,8 @@ class CoreCompositionTest(unittest.TestCase):
             map_runtime=map_runtime,
             map_camera=map_camera,
             state_ingress=ingress,
+            trip_runtime=trip_runtime,
+            trip_publisher=trip_publisher,
             lifecycle=lifecycle,
             volume=volume,
         )
@@ -33,10 +37,16 @@ class CoreCompositionTest(unittest.TestCase):
         volume.refresh.assert_called_once_with()
         map_camera.start.assert_called_once_with()
         ingress.start.assert_called_once_with()
+        trip_runtime.start.assert_called_once_with()
+        trip_runtime.close.assert_called_once_with()
         ingress.close.assert_called_once_with()
+        trip_publisher.close.assert_called_once_with()
         map_camera.close.assert_called_once_with()
         map_runtime.stop.assert_called_once_with()
 
+    @patch("apps.orcUi.composition.core.ZeroMqSubscriber")
+    @patch("apps.orcUi.composition.core.ZeroMqPublisher")
+    @patch("apps.orcUi.composition.core.TripRuntime")
     @patch("apps.orcUi.composition.core.PipewireAudioController")
     @patch("apps.orcUi.composition.core.SystemVolumeHandler")
     @patch("apps.orcUi.composition.core.SystemLifecycleController")
@@ -53,6 +63,9 @@ class CoreCompositionTest(unittest.TestCase):
         lifecycle_type: Mock,
         volume_type: Mock,
         audio_type: Mock,
+        trip_runtime_type: Mock,
+        publisher_type: Mock,
+        subscriber_type: Mock,
     ) -> None:
         map_runtime = map_runtime_type.return_value
         map_camera = map_camera_type.return_value
@@ -82,6 +95,7 @@ class CoreCompositionTest(unittest.TestCase):
         ingress_type.assert_called_once_with(
             schedule_ui=app.schedule_ui_callback,
             apply_vehicle_state=app.apply_vehicle_state,
+            apply_trip_state=app.apply_trip_state,
             apply_position_state=app.apply_position_state,
             apply_attitude_state=app.apply_attitude_state,
         )
@@ -89,6 +103,8 @@ class CoreCompositionTest(unittest.TestCase):
         self.assertIs(core.map_runtime, map_runtime)
         self.assertIs(core.map_camera, map_camera)
         self.assertIs(core.state_ingress, ingress_type.return_value)
+        self.assertIs(core.trip_runtime, trip_runtime_type.return_value)
+        self.assertIs(core.trip_publisher, publisher_type.return_value)
         self.assertIs(core.lifecycle, lifecycle)
         self.assertIs(core.volume, volume)
 
