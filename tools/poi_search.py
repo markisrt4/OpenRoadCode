@@ -9,11 +9,23 @@ import argparse
 import math
 from pathlib import Path
 
-from controllers.poi import PoiCategory, PoiSearchBounds, PoiSearchQuery
+from controllers.poi import (
+    PoiCategory,
+    PoiSearchBounds,
+    PoiSearchQuery,
+    TransitMode,
+)
 from controllers.poi.sqlite_poi_search_source import SqlitePoiSearchSource
 
 _EARTH_RADIUS_M = 6_378_137.0
 _DEFAULT_DATABASE = Path("/srv/openroadcode/maps/search/openroadcode-search.sqlite")
+
+_TRANSIT_MODES = {
+    "all": TransitMode.ALL,
+    "bus": TransitMode.BUS,
+    "rail": TransitMode.RAIL,
+    "tram-subway": TransitMode.TRAM_SUBWAY,
+}
 
 
 def _bounds_from_center(latitude: float, longitude: float, radius_km: float) -> PoiSearchBounds:
@@ -29,7 +41,12 @@ def _bounds_from_center(latitude: float, longitude: float, radius_km: float) -> 
     )
 
 
-def _distance_km(latitude: float, longitude: float, poi_latitude: float, poi_longitude: float) -> float:
+def _distance_km(
+    latitude: float,
+    longitude: float,
+    poi_latitude: float,
+    poi_longitude: float,
+) -> float:
     lat1 = math.radians(latitude)
     lat2 = math.radians(poi_latitude)
     dlat = lat2 - lat1
@@ -38,17 +55,43 @@ def _distance_km(latitude: float, longitude: float, poi_latitude: float, poi_lon
         math.sin(dlat / 2.0) ** 2
         + math.cos(lat1) * math.cos(lat2) * math.sin(dlon / 2.0) ** 2
     )
-    return 2.0 * _EARTH_RADIUS_M * math.asin(min(1.0, math.sqrt(haversine))) / 1000.0
+    return (
+        2.0
+        * _EARTH_RADIUS_M
+        * math.asin(min(1.0, math.sqrt(haversine)))
+        / 1000.0
+    )
 
 
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("category", choices=("food", "fuel", "grocery", "transit"))
     parser.add_argument("--database", type=Path, default=_DEFAULT_DATABASE)
-    parser.add_argument("--lat", type=float, required=True, help="search-center latitude in degrees")
-    parser.add_argument("--lon", type=float, required=True, help="search-center longitude in degrees")
-    parser.add_argument("--radius-km", type=float, default=20.0, help="bounding search radius in km (default: 20)")
+    parser.add_argument(
+        "--lat",
+        type=float,
+        required=True,
+        help="search-center latitude in degrees",
+    )
+    parser.add_argument(
+        "--lon",
+        type=float,
+        required=True,
+        help="search-center longitude in degrees",
+    )
+    parser.add_argument(
+        "--radius-km",
+        type=float,
+        default=20.0,
+        help="bounding search radius in km (default: 20)",
+    )
     parser.add_argument("--limit", type=int, default=50)
+    parser.add_argument(
+        "--transit-mode",
+        choices=tuple(_TRANSIT_MODES),
+        default="all",
+        help="transit subtype filter: all, bus, rail, or tram-subway (default: all)",
+    )
     return parser.parse_args()
 
 
@@ -62,11 +105,14 @@ def main() -> int:
         raise SystemExit("--radius-km must be positive")
     if args.limit <= 0:
         raise SystemExit("--limit must be positive")
+    if args.category != "transit" and args.transit_mode != "all":
+        raise SystemExit("--transit-mode is only valid with the transit category")
 
     query = PoiSearchQuery(
         category=PoiCategory[args.category.upper()],
         bounds=_bounds_from_center(args.lat, args.lon, args.radius_km),
         limit=args.limit,
+        transit_mode=_TRANSIT_MODES[args.transit_mode],
     )
     source = SqlitePoiSearchSource(args.database)
     try:
@@ -74,8 +120,11 @@ def main() -> int:
     finally:
         source.close()
 
+    mode_suffix = ""
+    if args.category == "transit":
+        mode_suffix = f" mode={args.transit_mode}"
     print(
-        f"{len(results)} {args.category} POIs near "
+        f"{len(results)} {args.category} POIs{mode_suffix} near "
         f"{args.lat:.6f},{args.lon:.6f} within {args.radius_km:g} km bounding radius"
     )
     for poi in results:
