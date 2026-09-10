@@ -28,7 +28,6 @@ pkg install -y \
   less \
   python \
   python-tkinter \
-  ruff \
   termux-api \
   termux-x11-nightly \
   xfce4 \

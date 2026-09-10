@@ -41,7 +41,7 @@ class OrcUiApplicationRuntime:
         self.media.start()
 
     def close(self) -> None:
-        """Close media services before terminating managed applications."""
+        """Close feature services before terminating managed applications."""
         self.streaming_radio.stop()
         self.media.close()
         self.manager.stop_all()

@@ -12,35 +12,24 @@ from pathlib import Path
 from unittest.mock import Mock, patch
 
 from apps.launchers.sdrpp_launcher import (
-    SDRPPLauncher,
-    SDRPPProfile,
-    _is_termux,
-    _sdrpp_environment,
-    _stop_readsb_service,
-    sync_sdrpp_theme,
+    SDRPPLauncher, SDRPPProfile, _is_termux, _sdrpp_environment,
+    _stop_readsb_service, sync_sdrpp_theme,
 )
 
 
 class SDRPPLauncherTest(unittest.TestCase):
     def setUp(self) -> None:
-        self.profile = SDRPPProfile(
-            name="fm",
-            mode="WFM",
-            step_hz=100_000,
-            start_frequency_hz=101_100_000,
-        )
+        self.profile = SDRPPProfile(name="fm", mode="WFM", step_hz=100_000, start_frequency_hz=101_100_000)
 
     def test_environment_targets_requested_x11_display(self) -> None:
-        with patch.dict(
-            os.environ,
-            {"KEEP_ME": "yes", "LD_PRELOAD": "/tmp/libtermux-exec.so"},
-            clear=True,
-        ):
+        with patch.dict(os.environ, {"KEEP_ME": "yes", "LD_PRELOAD": "old.so"}, clear=True):
             environment = _sdrpp_environment(":1")
-
         self.assertEqual(":1", environment["DISPLAY"])
         self.assertEqual("yes", environment["KEEP_ME"])
         self.assertNotIn("LD_PRELOAD", environment)
+        self.assertNotIn("XDG_SESSION_TYPE", environment)
+        self.assertNotIn("GDK_BACKEND", environment)
+        self.assertNotIn("LIBGL_ALWAYS_SOFTWARE", environment)
 
     def test_termux_detection_uses_termux_version(self) -> None:
         with patch.dict(os.environ, {"TERMUX_VERSION": "0.118"}, clear=True):
@@ -56,21 +45,27 @@ class SDRPPLauncherTest(unittest.TestCase):
 
     @patch("apps.launchers.sdrpp_launcher._sdrpp_process_running", return_value=False)
     @patch("apps.launchers.sdrpp_launcher._is_termux", return_value=False)
-    def test_native_theme_sync_preserves_config(
-        self,
-        _termux: Mock,
-        _running: Mock,
-    ) -> None:
+    def test_native_theme_sync_preserves_config(self, _termux: Mock, _running: Mock) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             config = root / "config.json"
             config.write_text(json.dumps({"theme": "Dark", "keep": 42}), encoding="utf-8")
-
             self.assertTrue(sync_sdrpp_theme("light", native_root=root))
-
             document = json.loads(config.read_text(encoding="utf-8"))
             self.assertEqual("Light", document["theme"])
             self.assertEqual(42, document["keep"])
+
+    @patch("apps.launchers.sdrpp_launcher._defer_sdrpp_theme_sync")
+    @patch("apps.launchers.sdrpp_launcher._sdrpp_process_running", return_value=True)
+    def test_running_theme_sync_defers_when_remote_control_fails(self, _running: Mock, defer: Mock) -> None:
+        client = Mock()
+        client.set_theme.return_value = False
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self.assertTrue(sync_sdrpp_theme("light", native_root=root, remote_control=client))
+            defer.assert_called_once()
+            self.assertEqual("Light", defer.call_args.args[0])
+            self.assertEqual(root, defer.call_args.args[3])
 
     def test_launcher_rejects_unknown_theme(self) -> None:
         with self.assertRaisesRegex(ValueError, "Unsupported SDR\\+\\+ theme"):
@@ -85,9 +80,7 @@ class SDRPPLauncherTest(unittest.TestCase):
     @patch("apps.launchers.sdrpp_launcher._is_termux", return_value=True)
     @patch("apps.launchers.sdrpp_launcher.shutil.which")
     def test_termux_launch_command_uses_debian_proot(self, which: Mock, _termux: Mock) -> None:
-        which.side_effect = lambda command: (
-            "/data/data/com.termux/files/usr/bin/proot-distro" if command == "proot-distro" else None
-        )
+        which.side_effect = lambda command: "/data/data/com.termux/files/usr/bin/proot-distro" if command == "proot-distro" else None
         launcher = SDRPPLauncher(profile=self.profile)
         command = launcher._launch_command(":1")
         self.assertEqual("/data/data/com.termux/files/usr/bin/proot-distro", command[0])
@@ -106,13 +99,7 @@ class SDRPPLauncherTest(unittest.TestCase):
     @patch("apps.launchers.sdrpp_launcher._is_termux", return_value=True)
     @patch("apps.launchers.sdrpp_launcher.shutil.which", return_value="/usr/bin/proot-distro")
     @patch("apps.launchers.sdrpp_launcher.subprocess.run")
-    def test_termux_theme_sync_runs_inside_proot(
-        self,
-        run: Mock,
-        _which: Mock,
-        _termux: Mock,
-        _running: Mock,
-    ) -> None:
+    def test_termux_theme_sync_runs_inside_proot(self, run: Mock, _which: Mock, _termux: Mock, _running: Mock) -> None:
         run.return_value.returncode = 0
         self.assertTrue(sync_sdrpp_theme("Dark"))
         command = run.call_args.args[0]
@@ -137,47 +124,26 @@ class SDRPPLauncherTest(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, "Could not find sdrpp"):
                 launcher.launch(":1")
 
-    @patch("apps.launchers.sdrpp_launcher.subprocess.run")
     @patch("apps.launchers.sdrpp_launcher._is_termux", return_value=False)
-    def test_readsb_stop_is_skipped_outside_termux(
-        self,
-        _termux: Mock,
-        run: Mock,
-    ) -> None:
-        _stop_readsb_service()
-        run.assert_not_called()
-
     @patch("apps.launchers.sdrpp_launcher.subprocess.run")
-    @patch("apps.launchers.sdrpp_launcher.shutil.which", return_value=None)
-    @patch("apps.launchers.sdrpp_launcher._is_termux", return_value=True)
-    def test_readsb_stop_is_skipped_without_sv(
-        self,
-        _termux: Mock,
-        _which: Mock,
-        run: Mock,
-    ) -> None:
-        _stop_readsb_service()
+    def test_readsb_stop_is_skipped_outside_termux(self, run: Mock, _termux: Mock) -> None:
+        self.assertIsNone(_stop_readsb_service())
         run.assert_not_called()
 
+    @patch("apps.launchers.sdrpp_launcher._is_termux", return_value=True)
+    @patch("apps.launchers.sdrpp_launcher.shutil.which", return_value=None)
+    @patch("apps.launchers.sdrpp_launcher.subprocess.run")
+    def test_readsb_stop_is_skipped_without_sv(self, run: Mock, _which: Mock, _termux: Mock) -> None:
+        self.assertIsNone(_stop_readsb_service())
+        run.assert_not_called()
+
+    @patch("apps.launchers.sdrpp_launcher._is_termux", return_value=True)
     @patch("apps.launchers.sdrpp_launcher.subprocess.run")
     @patch("apps.launchers.sdrpp_launcher.shutil.which")
-    @patch("apps.launchers.sdrpp_launcher._is_termux", return_value=True)
-    def test_readsb_stop_uses_termux_sv(
-        self,
-        _termux: Mock,
-        which: Mock,
-        run: Mock,
-    ) -> None:
-        which.side_effect = lambda command: (
-            "/data/data/com.termux/files/usr/bin/sv" if command == "sv" else None
-        )
-        _stop_readsb_service()
-        run.assert_called_once_with(
-            ["/data/data/com.termux/files/usr/bin/sv", "down", "readsb"],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            check=False,
-        )
+    def test_readsb_stop_uses_termux_runit(self, which: Mock, run: Mock, _termux: Mock) -> None:
+        which.side_effect = lambda command: "/usr/bin/sv" if command == "sv" else None
+        self.assertIsNone(_stop_readsb_service())
+        run.assert_called_once_with(["/usr/bin/sv", "down", "readsb"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False)
 
     @patch("apps.launchers.sdrpp_launcher._stop_readsb_service")
     def test_existing_ready_process_does_not_spawn_another(self, stop_readsb: Mock) -> None:
@@ -193,13 +159,10 @@ class SDRPPLauncherTest(unittest.TestCase):
         launcher.wait_for_rigctl.assert_not_called()
         status.assert_called_with("SDR++ already ready: fm")
 
+    @patch("apps.launchers.sdrpp_launcher.time.sleep")
     @patch("apps.launchers.sdrpp_launcher._stop_readsb_service")
     @patch("apps.launchers.sdrpp_launcher.subprocess.Popen")
-    def test_existing_process_without_rigctl_is_restarted(
-        self,
-        popen: Mock,
-        _stop_readsb: Mock,
-    ) -> None:
+    def test_existing_process_without_rigctl_is_recovered(self, popen: Mock, _stop_readsb: Mock, sleep: Mock) -> None:
         process = Mock()
         process.poll.return_value = None
         popen.return_value = process
@@ -208,14 +171,18 @@ class SDRPPLauncherTest(unittest.TestCase):
         launcher.is_rigctl_ready = Mock(return_value=False)
         launcher.stop = Mock()
         launcher._launch_command = Mock(return_value=["/usr/bin/sdrpp", "--autostart"])
-        launcher._request_fullscreen = Mock()
         launcher.wait_for_rigctl = Mock()
+        launcher._request_fullscreen = Mock()
+        status = Mock()
 
-        launcher.launch(":1")
+        launcher.launch(":1", status)
 
-        launcher.stop.assert_called_once_with(":1", None)
+        launcher.stop.assert_called_once_with(":1", status)
+        sleep.assert_called_once_with(0.25)
+        launcher._launch_command.assert_called_once_with(":1")
         popen.assert_called_once()
         launcher.wait_for_rigctl.assert_called_once_with()
+        self.assertEqual("SDR++ ready: fm", status.call_args.args[0])
 
     @patch("apps.launchers.sdrpp_launcher._stop_readsb_service")
     @patch("apps.launchers.sdrpp_launcher.subprocess.Popen")

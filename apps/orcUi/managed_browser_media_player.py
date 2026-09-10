@@ -20,10 +20,12 @@ class ManagedBrowserMediaPlayer:
         key: str,
         *,
         resolve_target: Callable[[str], str],
+        preferred_color_scheme: Callable[[], str] | None = None,
     ) -> None:
         self._manager = manager
         self._key = key
         self._resolve_target = resolve_target
+        self._preferred_color_scheme = preferred_color_scheme
 
     def play(
         self,
@@ -41,6 +43,8 @@ class ManagedBrowserMediaPlayer:
         if self._manager.is_running(self._key):
             self._manager.close(self._key)
 
+        if self._preferred_color_scheme is not None:
+            launcher.set_preferred_color_scheme(self._preferred_color_scheme())
         launcher.set_url(resolved_target)
         if window_position is not None and window_size is not None:
             launcher.configure_app_window(

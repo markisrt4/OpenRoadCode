@@ -48,11 +48,9 @@ Persistent application data then resolves under `$HOME/orc-data/openroadcode`. T
 
 ## What belongs where
 
-Configuration contains user-editable settings and preferences, such as radio presets and UI layout. Persistent data contains information that should survive cache cleanup, such as browser profiles, saved favorites, and downloaded navigation data. Cache contains information that can be regenerated, such as artwork, weather snapshots, and temporary discovery results. State contains runtime-generated information such as application logs.
+Configuration contains user-editable settings and preferences. Persistent data contains information that should survive cache cleanup, such as browser profiles and saved favorites. Cache contains information that can be regenerated, such as media artwork and temporary discovery results. State contains runtime-generated information such as application logs.
 
 A browser profile is persistent data because it may contain retained sessions and preferences. It must not be treated as disposable artwork cache. Likewise, logs belong in state rather than cache. Components should use the appropriate shared helper instead of constructing home-relative paths independently.
-
-For example:
 
 ```python
 from common.xdg_paths import openroadcode_cache_dir, openroadcode_data_dir
@@ -65,29 +63,15 @@ The exact component directory names are defined by their owners. The shared help
 
 ## System paths
 
-XDG paths apply to per-user application files. System installation and runtime configuration remain separate. Typical Linux locations include:
+XDG paths apply to per-user application files. System installation and runtime configuration remain separate. Typical Linux locations include `/opt/openroadcode` and `/etc/openroadcode`. On Termux, equivalent installation paths generally live under `$PREFIX`.
 
-```text
-/opt/openroadcode
-/etc/openroadcode
-```
-
-On Termux, equivalent installation paths generally live under `$PREFIX`:
-
-```text
-$PREFIX/opt/openroadcode
-$PREFIX/etc/openroadcode
-```
-
-These are not automatically replaced by XDG user directories. Existing installation, service, and explicit configuration overrides remain separate from the per-user path policy. Do not move system configuration into a user directory merely to make every path look alike.
+These are not automatically replaced by XDG user directories. Existing installation, service, and explicit configuration overrides remain separate from the per-user path policy.
 
 ## Existing data and explicit overrides
 
-The XDG update changes default path resolution; it is not a general-purpose data migration tool. With the standard environment and no explicit overrides, most existing default locations remain unchanged. When an XDG variable is customized, a component may resolve to a different directory.
+The XDG update changes default path resolution; it is not a general-purpose data migration tool. When an XDG variable is customized, a component may resolve to a different directory.
 
-Before changing an established installation, inspect the relevant environment variables and application configuration. Preserve existing browser profiles, favorites, navigation datasets, and other durable data. Do not delete old directories until the application has been verified against the new location. Component-specific migration behavior, where implemented, is documented by that component.
-
-Explicit absolute paths in configuration or environment overrides continue to take precedence where supported. Navigation data, for example, may be deployed to a separately configured data root. XDG does not require moving large datasets into a particular filesystem.
+Before changing an established installation, inspect the relevant environment variables and application configuration. Preserve existing browser profiles, favorites, navigation datasets, and other durable data. Do not delete old directories until the application has been verified against the new location.
 
 ## Development and validation
 
@@ -96,10 +80,7 @@ The shared helper tests cover standard defaults, absolute environment overrides,
 Run the focused tests from the repository root:
 
 ```bash
-PYTHONPATH=. python -m unittest -v \
-  common.unit_test.test_xdg_paths \
-  config.unit_test.test_application_config \
-  controllers.games.unit_test.test_game_inventory_cache
+PYTHONPATH=. python -m unittest -v common.unit_test.test_xdg_paths
 ```
 
 For a broader regression check:
@@ -107,8 +88,6 @@ For a broader regression check:
 ```bash
 PYTHONPATH=. python -m unittest discover -v
 ```
-
-Tests that depend on hardware, a graphical session, external services, or network access may require their documented setup. Passing path tests verifies resolution behavior, not every platform-specific runtime integration.
 
 ## Related documentation
 

@@ -2,22 +2,18 @@ PROJECT_NAME           = "OpenRoadCode"
 PROJECT_BRIEF          = "Public API reference for OpenRoadCode"
 
 OUTPUT_DIRECTORY       = build/doxygen
-INPUT                  = README.md docs apps controllers services messaging hardware_io protocols config common ui frontends input_events
+INPUT                  = README.md CONTRIBUTING.md SECURITY.md docs apps controllers services messaging \
+                         hardware_io protocols config common ui frontends \
+                         input_events networking security development scripts tools
 FILE_PATTERNS          = *.py *.hpp *.cpp *.md
 RECURSIVE              = YES
 
-# Doxygen treats files named README.md as main-page candidates. Keep the
-# repository README as the one main page while leaving Markdown under docs/
-# available as normal generated documentation.
+# The human-facing docs index is published by the website importer rather than
+# Doxygen. Test/build artifacts remain excluded from the API reference as well.
+EXCLUDE                = docs/README.md
 EXCLUDE_PATTERNS       = */test/* */unit_test/* */component_test/* \
                          */integration_test/* */apps/qtUi/* */__pycache__/* \
-                         */build/* */build-*/* \
-                         */apps/*README.md */controllers/*README.md \
-                         */services/*README.md */messaging/*README.md \
-                         */hardware_io/*README.md */protocols/*README.md \
-                         */config/*README.md */common/*README.md \
-                         */ui/*README.md */frontends/*README.md \
-                         */input_events/*README.md
+                         */build/* */build-*/*
 EXTRACT_ALL            = NO
 EXTRACT_PRIVATE        = NO
 EXTRACT_STATIC         = NO
@@ -31,7 +27,9 @@ MULTILINE_CPP_IS_BRIEF = YES
 PYTHON_DOCSTRING        = NO
 OPTIMIZE_OUTPUT_JAVA   = YES
 MARKDOWN_SUPPORT       = YES
-USE_MDFILE_AS_MAINPAGE = README.md
+# Use a path rather than the basename so recursively discovered component
+# README.md files remain ordinary documentation pages.
+USE_MDFILE_AS_MAINPAGE = ./README.md
 
 # Graphviz is optional. Keep documentation generation dependency-free; users
 # can enable these settings locally when `dot` is installed.

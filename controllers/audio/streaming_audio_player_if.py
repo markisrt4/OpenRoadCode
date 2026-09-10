@@ -12,20 +12,20 @@ class StreamingAudioPlayerIf(ABC):
     @property
     @abstractmethod
     def is_playing(self) -> bool:
-        """Return whether a stream is currently playing.
+        """! @brief Return whether a stream is currently playing.
 
-        @return True when a stream is currently playing.
+        @return True when a stream is playing, otherwise False.
         """
 
     @abstractmethod
     def play(self, stream_url: str) -> None:
-        """Begin playback of ``stream_url``.
+        """! @brief Begin playback of a remote audio stream.
 
         Any currently playing stream may be replaced by the implementation.
 
-        @param stream_url Remote audio stream URL to play.
+        @param stream_url URL of the stream to begin playing.
         """
 
     @abstractmethod
     def stop(self) -> None:
-        """Stop current stream playback, if any."""
+        """! @brief Stop current stream playback, if any."""

@@ -46,6 +46,8 @@ class GamesScreen(TkScreen):
         self._embedder = X11WindowEmbedder()
         self._resize_callback_id: object | None = None
         self._pending_size: tuple[int, int] | None = None
+        self._loading_label: tk.Label | None = None
+        self._launch_generation = 0
 
     def show(self) -> None:
         self.hide()
@@ -70,6 +72,8 @@ class GamesScreen(TkScreen):
         controller.start()
 
     def hide(self) -> None:
+        self._launch_generation += 1
+        self._clear_loading()
         controller = self._controller
         if controller is not None:
             controller.set_games_ui(None)
@@ -80,14 +84,43 @@ class GamesScreen(TkScreen):
         self._panel = None
 
     def set_theme_mode(self, mode: ThemeMode) -> None:
-        """Apply the current CSS-derived theme bundle to Games."""
         del mode
         panel = self._panel
         if panel is not None and panel.winfo_exists():
             panel.set_theme_bundle(self._theme_bundle())
+        self._paint_loading()
+
+    def _paint_loading(self) -> None:
+        label = self._loading_label
+        if label is not None and label.winfo_exists():
+            ui = self._theme_bundle().ui
+            label.configure(bg=ui.background, fg=ui.text)
+
+    def _show_loading(self, panel: GamesPanel) -> None:
+        self._clear_loading()
+        ui = self._theme_bundle().ui
+        label = tk.Label(
+            panel, text="Now Loading ...", bg=ui.background, fg=ui.text,
+            font=("Sans", 20, "bold"), padx=24, pady=16,
+        )
+        label.place(relx=0.5, rely=0.5, anchor="center")
+        self._loading_label = label
+        label.update_idletasks()
+
+    def _clear_loading(self) -> None:
+        label = self._loading_label
+        self._loading_label = None
+        if label is not None:
+            try:
+                label.destroy()
+            except tk.TclError:
+                pass
 
     def shutdown(self) -> None:
-        self.hide()
+        """Stop any game process without depending on a live Tk hierarchy."""
+        self._launch_generation += 1
+        self._launcher.stop()
+        self._embedder.clear()
 
     @staticmethod
     def _load_games() -> list[GameDefinition]:
@@ -106,10 +139,14 @@ class GamesScreen(TkScreen):
         if panel is None:
             raise RuntimeError("Games screen is not active")
 
+        self._launch_generation += 1
+        generation = self._launch_generation
         host_id, width, height = panel.show_runtime_host(self._resize_runtime)
+        self._show_loading(panel)
         try:
             self._launcher.launch(game, backend.launch_command(game), on_exit=self._process_exited)
         except Exception:
+            self._clear_loading()
             panel.hide_runtime_host()
             raise
 
@@ -117,19 +154,57 @@ class GamesScreen(TkScreen):
         if process_id is None:
             self._stop_runtime()
             raise RuntimeError(f"{game.name} exited immediately")
+        window_name, window_class = backend.window_selectors(game)
+        relax_size_hints = backend.relax_window_size_hints(game)
         threading.Thread(
             target=self._embed_runtime,
-            args=(process_id, host_id, width, height),
+            args=(
+                process_id,
+                host_id,
+                width,
+                height,
+                generation,
+                window_name,
+                window_class,
+                relax_size_hints,
+            ),
             daemon=True,
         ).start()
 
-    def _embed_runtime(self, process_id: int, host_id: int, width: int, height: int) -> None:
+    def _embed_runtime(
+        self,
+        process_id: int,
+        host_id: int,
+        width: int,
+        height: int,
+        generation: int,
+        window_name: str | None,
+        window_class: str | None,
+        relax_size_hints: bool,
+    ) -> None:
         try:
-            self._embedder.embed(process_id, host_id, width, height)
+            self._embedder.embed(
+                process_id,
+                host_id,
+                width,
+                height,
+                window_name=window_name,
+                window_class=window_class,
+                relax_size_hints=relax_size_hints,
+            )
         except Exception:
-            self._host.schedule_ui_callback(0, self._embed_failed)
+            self._host.schedule_ui_callback(0, lambda: self._embed_failed(generation))
+        else:
+            self._host.schedule_ui_callback(0, lambda: self._embed_succeeded(generation))
 
-    def _embed_failed(self) -> None:
+    def _embed_succeeded(self, generation: int) -> None:
+        if generation == self._launch_generation and self._panel is not None:
+            self._clear_loading()
+
+    def _embed_failed(self, generation: int | None = None) -> None:
+        if generation is not None and generation != self._launch_generation:
+            return
+        self._clear_loading()
         controller = self._controller
         if controller is not None:
             controller.request_stop_game()
@@ -143,6 +218,7 @@ class GamesScreen(TkScreen):
             pass
 
     def _finish_process_exit(self) -> None:
+        self._clear_loading()
         self._embedder.clear()
         controller = self._controller
         if controller is not None:
@@ -182,6 +258,7 @@ class GamesScreen(TkScreen):
             pass
 
     def _finish_stop_runtime(self) -> None:
+        self._clear_loading()
         panel = self._panel
         if panel is not None and panel.winfo_exists():
             panel.hide_runtime_host()

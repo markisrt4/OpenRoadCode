@@ -9,12 +9,11 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 
-from common.xdg_paths import openroadcode_config_dir
 from config.radio_config_manager import RadioConfig, load_radio_config
 
 _PROJECT_ROOT = Path(__file__).resolve().parents[2]
 _RADIO_ROOT = _PROJECT_ROOT / "config" / "radio"
-_DEFAULT_USER_PRESETS = openroadcode_config_dir("radio_presets.json")
+_DEFAULT_USER_PRESETS = Path.home() / ".config" / "openroadcode" / "radio_presets.json"
 
 
 @dataclass(frozen=True)

@@ -6,6 +6,7 @@ on:
     branches:
       - master
       - automotive
+      - runtime-integration-cleanup
   workflow_dispatch:
 
 permissions:
@@ -16,10 +17,10 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  validate:
-    name: Quality checks
+  documentation:
+    name: Documentation checks
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 10
 
     steps:
       - name: Check out repository
@@ -30,30 +31,16 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install system validation tools
+      - name: Validate Markdown links
+        run: python scripts/check_markdown_links.py
+
+      - name: Validate Doxygen contracts
+        run: python scripts/check_doxygen_contracts.py
+
+      - name: Install Doxygen
         run: |
           sudo apt-get update
           sudo apt-get install --yes doxygen
-
-      - name: Install OpenRoadCode Python dependencies
-        shell: bash
-        run: |
-          source scripts/installers/installer_features.sh
-          mapfile -t features < <(get_all_features_for_target linux-dev)
-          ./scripts/installers/install_python_env.sh "${features[@]}"
-          venv/bin/python -m pip install pytest ruff
-
-      - name: Check Python quality
-        run: venv/bin/python scripts/check_python_quality.py
-
-      - name: Run unit tests
-        run: venv/bin/python scripts/run_tests.py unit
-
-      - name: Run integration tests
-        run: venv/bin/python scripts/run_tests.py integration
-
-      - name: Validate Doxygen contracts
-        run: venv/bin/python scripts/check_doxygen_contracts.py
 
       - name: Generate Doxygen documentation
         shell: bash
@@ -77,12 +64,49 @@ jobs:
 
           test ! -s build/doxygen-warnings.log
 
+  validate:
+    name: Quality checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install OpenRoadCode Python dependencies
+        shell: bash
+        run: |
+          source scripts/installers/installer_features.sh
+          mapfile -t features < <(get_all_features_for_target linux-dev)
+          ./scripts/installers/install_python_env.sh "${features[@]}"
+          venv/bin/python -m pip install pytest ruff
+
+      - name: Lint Python
+        run: venv/bin/python -m ruff check .
+
+      - name: Check Python module size
+        run: venv/bin/python scripts/check_python_module_size.py
+
+      - name: Run unit tests
+        run: venv/bin/python scripts/run_tests.py unit
+
+      - name: Run integration tests
+        run: venv/bin/python scripts/run_tests.py integration
+
       - name: Validate shell syntax
         shell: bash
         run: |
           bash -n development/termux/build_navigation_stack.sh
           bash -n scripts/runit/install_termux_services.sh
           bash -n scripts/runit/openroadcode-adsb/run
+          bash -n scripts/systemd/install_service_manager_systemd.sh
+          bash -n development/debian/install_streaming_radio.sh
+          bash -n development/termux/install_streaming_radio.sh
 
       - name: Check source-tree runtime state
         shell: bash
