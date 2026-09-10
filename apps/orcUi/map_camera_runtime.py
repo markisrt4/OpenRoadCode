@@ -47,12 +47,14 @@ class MapCameraRuntime:
             PersistentCache(DEFAULT_POSITION_CACHE_DIRECTORY)
         )
         initial_position = self._cached_position()
+        self._current_position = initial_position
         self._handler = MapRequestHandler(
             self._renderer_client,
             center=initial_position or GeoPoint(latitude_rad=0.0, longitude_rad=0.0),
             zoom_level=zoom_level,
             pitch_rad=pitch_rad,
             follow_enabled=follow_enabled,
+            camera_initialized=initial_position is not None,
         )
         self._dispatcher = MessageDispatcher(
             ZeroMqSubscriber(LOCAL_SUBSCRIBER_ENDPOINT)
@@ -75,6 +77,12 @@ class MapCameraRuntime:
         """Return the semantic camera request interface."""
 
         return self._handler
+
+    @property
+    def current_position(self) -> GeoPoint | None:
+        """Return the latest live or cached navigation position."""
+
+        return self._current_position
 
     def start(self) -> None:
         """Start receiving navigation position and motion updates."""
@@ -116,6 +124,7 @@ class MapCameraRuntime:
             longitude_rad=data.longitude_rad,
             altitude_m=data.altitude_m,
         )
+        self._current_position = point
 
         # Android location providers do not always report speed/course even
         # while position itself is updating. Derive a stable course from the
