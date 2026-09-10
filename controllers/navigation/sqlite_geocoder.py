@@ -153,7 +153,8 @@ class SqliteGeocoder:
             (f"%{query.street.split()[0]}%",),
         ).fetchall()
 
-        ranked: list[tuple[int, sqlite3.Row]] = []
+        postcode_center = self._postcode_center(query.postcode)
+        ranked: list[tuple[int, float, sqlite3.Row]] = []
         for row in rows:
             candidate = _normalize_street(str(row["name"] or ""))
             if not candidate:
