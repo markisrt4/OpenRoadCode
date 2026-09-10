@@ -6,16 +6,16 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-import tkinter as tk
 
 from apps.launchers.sdrpp_launcher import sync_sdrpp_theme
-from apps.orcUi.orc_ui_app import OrcUiApp
-from apps.orcUi.radio_entry_panel import RadioEntryPanel
-from apps.orcUi.streaming_radio_now_playing import StreamingRadioNowPlaying
+from apps.orcUi.radio_application_service import RadioApplicationServiceIf
 from apps.orcUi.theme_runtime import theme_bundle
 from controllers.radio.adapters.radio_browser_directory import RadioBrowserDirectory
 from controllers.radio.streaming_radio_favorites import StreamingRadioFavorites
+from frontends.tk.orc_ui.orc_ui_app import OrcUiApp
 from frontends.tk.radio import RadioScreen
+from frontends.tk.radio.radio_entry_panel import RadioEntryPanel
+from frontends.tk.radio.streaming_radio_now_playing import StreamingRadioNowPlaying
 from ui.theme import ThemeMode
 
 
@@ -63,7 +63,7 @@ def configure_radio(app: OrcUiApp, runtime) -> RadioComposition:
         else:
             raise ValueError(f"Unsupported radio source: {source}")
 
-    def home_radio_factory(parent: tk.Misc) -> tk.Widget:
+    def home_radio_factory(parent):
         return StreamingRadioNowPlaying(
             parent,
             controller=runtime.streaming_radio,
