@@ -372,19 +372,55 @@ class RadioEntryPanel(tk.Frame):
         ).start()
 
     def _present_rf_worker(self) -> None:
-        try:
-            # Complete managed application startup first.  In particular,
-            # SDRPPLauncher.present() does not return until RigCTL is ready.
-            # Racing PID discovery against startup allowed the X11 embed path
-            # to run while SDR++ was still creating/replacing its top-level
-            # window, which made embedding nondeterministic across launches.
-            self._radio_application.present()
-            process_id = self._radio_application.window_process_id(
-                timeout_seconds=2.0,
-            )
-        except Exception as error:
-            self.after(0, lambda exc=error: self._show_launch_error(exc))
+        presentation_error: list[Exception] = []
+
+        def present() -> None:
+            try:
+                self._radio_application.present()
+            except Exception as error:
+                presentation_error.append(error)
+
+        presentation_thread = threading.Thread(
+            target=present,
+            name="orcui-sdrpp-present-request",
+            daemon=True,
+        )
+        presentation_thread.start()
+
+        process_id: int | None = None
+        while presentation_thread.is_alive() and not presentation_error:
+            try:
+                process_id = self._radio_application.window_process_id(
+                    timeout_seconds=0.25,
+                )
+                break
+            except RuntimeError:
+                continue
+
+        if process_id is not None:
+            try:
+                # Hide the temporary standalone SDR++ top-level as soon as it
+                # exists.  Do not embed yet: presentation startup must still
+                # complete before the X11 window is reparented into the host.
+                self._embedder.hide(process_id, window_name="SDR++")
+            except RuntimeError:
+                # Visual suppression is best-effort.  The final embedder still
+                # performs its normal discovery/retry sequence after startup.
+                pass
+
+        presentation_thread.join()
+        if presentation_error:
+            self.after(0, lambda exc=presentation_error[0]: self._show_launch_error(exc))
             return
+
+        if process_id is None:
+            try:
+                process_id = self._radio_application.window_process_id(
+                    timeout_seconds=2.0,
+                )
+            except Exception as error:
+                self.after(0, lambda exc=error: self._show_launch_error(exc))
+                return
 
         self.after(0, lambda pid=process_id: self._attach_rf_radio(pid))
 
