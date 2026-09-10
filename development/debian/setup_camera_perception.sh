@@ -46,15 +46,17 @@ if [[ -z "${venv_python}" ]]; then
 fi
 
 "${venv_python}" -m pip install --upgrade pip
-"${venv_python}" -m pip install --upgrade ultralytics
+"${venv_python}" -m pip install --upgrade ultralytics pillow
 
 echo
 "${venv_python}" - <<'PY'
 import cv2
+from PIL import Image, ImageTk
 from ultralytics import YOLO
 
 print(f"OpenCV: {cv2.__version__}")
 print("Ultralytics import: OK")
+print("Pillow/ImageTk import: OK")
 print(f"YOLO class: {YOLO.__name__}")
 PY
 
