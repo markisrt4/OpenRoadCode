@@ -47,6 +47,21 @@ class WindowEmbedderIf(ABC):
         """
 
     @abstractmethod
+    def hide(
+        self,
+        process_id: int,
+        *,
+        window_name: str | None = None,
+        window_class: str | None = None,
+    ) -> int:
+        """Find and unmap a matching native application window.
+
+        This is useful during managed startup when the external application
+        must finish initializing before it is safe to embed, but its temporary
+        standalone top-level window should not flash onscreen.
+        """
+
+    @abstractmethod
     def resize(self, width: int, height: int) -> None:
         """Resize the embedded window to match its host.
 
