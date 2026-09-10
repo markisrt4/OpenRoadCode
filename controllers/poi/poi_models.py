@@ -21,6 +21,15 @@ class PoiCategory(Enum):
     OTHER = auto()
 
 
+class TransitMode(Enum):
+    """Optional public-transport filters within the TRANSIT category."""
+
+    ALL = auto()
+    BUS = auto()
+    RAIL = auto()
+    TRAM_SUBWAY = auto()
+
+
 class PoiActionKind(Enum):
     """Semantic actions that can be offered for a POI."""
 
