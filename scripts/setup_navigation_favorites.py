@@ -33,9 +33,12 @@ def _choose(label: str, geocoder: SqliteGeocoder):
         for index, result in enumerate(results, start=1):
             lat = math.degrees(result.position.latitude_rad)
             lon = math.degrees(result.position.longitude_rad)
+            qualifier = "exact address" if result.source == "address" else (
+                "approximate street location" if result.source == "street" else result.source
+            )
             print(
                 f"  {index}) {result.display_name}\n"
-                f"     {lat:.6f}, {lon:.6f}  confidence={result.confidence:.2f}"
+                f"     {lat:.6f}, {lon:.6f}  {qualifier}  confidence={result.confidence:.2f}"
             )
         print("  0) Search again")
         raw = input("Select result: ").strip()
