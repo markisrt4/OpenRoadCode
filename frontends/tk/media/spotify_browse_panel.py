@@ -12,9 +12,9 @@ from typing import Any
 
 from PIL import Image, ImageTk
 
-from apps.orcUi.spotify_local_player import SpotifyLocalPlayer, SpotifyPlaybackMode
-from apps.orcUi.spotify_state_service import SpotifyStateService
 from controllers.spotify.spotify_library import SpotifyLibraryTrack, SpotifyPlaylist
+from controllers.spotify.spotify_local_player import SpotifyLocalPlayer, SpotifyPlaybackMode
+from controllers.spotify.spotify_state_service import SpotifyStateService
 from frontends.tk.media.spotify_services_if import ArtworkProviderIf
 
 ART_SIZE = 56
