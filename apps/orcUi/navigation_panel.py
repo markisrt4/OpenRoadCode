@@ -12,8 +12,16 @@ from collections.abc import Callable
 from apps.launchers.android_intent_launcher import AndroidIntentLauncher, AndroidIntentLauncherError
 from apps.orcUi.shared_map_camera import get_shared_map_camera_runtime
 from apps.orcUi.theme_runtime import theme_bundle as packaged_theme_bundle
+from controllers.navigation.map_favorites import MapFavorites
 from controllers.poi import PoiAction, PoiActionKind, PoiCategory, PoiSearchController, PointOfInterest, TransitMode
-from ui.navigation import MapMarker, MapMarkerKind, MapRequestHandlerIf
+from ui.navigation import (
+    MapMarker,
+    MapMarkerKind,
+    MapRequestHandlerIf,
+    RouteRequestHandlerIf,
+    RouteRequestHandlerStub,
+)
+from ui.navigation.route_types import TravelMode
 from ui.theme import ThemeBundle, ThemeMode
 
 _POI_SEARCH_SETTLE_MS = 750
@@ -22,12 +30,23 @@ _POI_SEARCH_SETTLE_MS = 750
 class NavigationPanel(tk.Frame):
     """Map host, navigation controls, and nearby POI discovery."""
 
-    def __init__(self, parent: tk.Misc, *, map_request_handler: MapRequestHandlerIf | None = None, on_back: Callable[[], None] | None = None, theme_bundle: ThemeBundle | None = None) -> None:
+    def __init__(
+        self,
+        parent: tk.Misc,
+        *,
+        map_request_handler: MapRequestHandlerIf | None = None,
+        route_request_handler: RouteRequestHandlerIf | None = None,
+        map_favorites: MapFavorites | None = None,
+        on_back: Callable[[], None] | None = None,
+        theme_bundle: ThemeBundle | None = None,
+    ) -> None:
         self._theme_bundle = theme_bundle or packaged_theme_bundle(ThemeMode.DARK)
         super().__init__(parent, bg=self._theme_bundle.ui.background)
         del on_back
         runtime = get_shared_map_camera_runtime()
         self._request_handler = map_request_handler or runtime.request_handler
+        self._route_request_handler = route_request_handler or RouteRequestHandlerStub()
+        self._map_favorites = map_favorites or MapFavorites()
         self._android_launcher = AndroidIntentLauncher()
         self._poi_controller = PoiSearchController()
         self._poi_card: tk.Frame | None = None
@@ -37,6 +56,8 @@ class NavigationPanel(tk.Frame):
         self._pitch_rad = float(getattr(self._request_handler, "pitch_rad", math.radians(45.0)))
         self._follow_enabled = bool(getattr(self._request_handler, "follow_enabled", True))
         self._shortcut_status = tk.StringVar(value="")
+        self._guidance_instruction = tk.StringVar(value="")
+        self._guidance_detail = tk.StringVar(value="")
         self._active_poi_render_category = ""
         self._map_host: tk.Frame
         self._follow_button: tk.Button
@@ -74,7 +95,7 @@ class NavigationPanel(tk.Frame):
 
     def _build(self) -> None:
         ui = self._theme_bundle.ui
-        self.grid_rowconfigure(1, weight=1); self.grid_columnconfigure(0, weight=1)
+        self.grid_rowconfigure(1, weight=1); self.grid_rowconfigure(2, weight=0); self.grid_columnconfigure(0, weight=1)
         bar = tk.Frame(self, bg=ui.surface_alt, height=38, highlightthickness=1, highlightbackground=ui.border)
         bar.grid(row=0, column=0, sticky="ew", pady=(0, 4)); bar.grid_propagate(False)
         shortcuts = tk.Frame(bar, bg=ui.surface_alt); shortcuts.pack(side=tk.LEFT, padx=4, pady=3)
@@ -86,6 +107,11 @@ class NavigationPanel(tk.Frame):
             transit_menu.add_command(label=label, command=lambda selected=mode: self._start_poi_search(PoiCategory.TRANSIT, selected))
         transit.configure(menu=transit_menu); transit.pack(side=tk.LEFT, padx=(0, 4))
         tk.Label(bar, textvariable=self._shortcut_status, bg=ui.surface_alt, fg=ui.text_muted, font=("Sans", 7), anchor="e").pack(side=tk.RIGHT, padx=7)
+
+        guidance = tk.Frame(self, bg=ui.surface, highlightthickness=1, highlightbackground=ui.border)
+        guidance.grid(row=2, column=0, sticky="ew", pady=(4, 0))
+        tk.Label(guidance, textvariable=self._guidance_instruction, bg=ui.surface, fg=ui.text, font=("Sans", 10, "bold"), anchor="w").pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(8, 6), pady=4)
+        tk.Label(guidance, textvariable=self._guidance_detail, bg=ui.surface, fg=ui.text_muted, font=("Sans", 8), anchor="e").pack(side=tk.RIGHT, padx=(6, 8), pady=4)
 
         body = tk.Frame(self, bg=ui.background); body.grid(row=1, column=0, sticky="nsew"); body.grid_rowconfigure(0, weight=1); body.grid_columnconfigure(0, weight=1)
         self._map_host = tk.Frame(body, bg=ui.background, highlightthickness=1, highlightbackground=ui.border); self._map_host.grid(row=0, column=0, sticky="nsew")
@@ -119,7 +145,22 @@ class NavigationPanel(tk.Frame):
         self._poi_controller.clear(); self._request_handler.request_poi_focus(None)
         self._active_poi_render_category = ""
         self._request_handler.request_poi_results((), "")
-        self._shortcut_status.set({"home":"Home location not configured","work":"Work location not configured"}[shortcut]); self.after(2500,lambda:self._shortcut_status.set(""))
+        favorite = self._map_favorites.home if shortcut == "home" else self._map_favorites.work
+        if favorite is None:
+            self._shortcut_status.set(f"{shortcut.title()} location not configured")
+            self.after(2500, lambda:self._shortcut_status.set(""))
+            return
+        try:
+            self._route_request_handler.request_start_route(
+                favorite.position,
+                (),
+                TravelMode.AUTO,
+            )
+        except Exception as error:
+            self._shortcut_status.set(f"Route failed: {error}")
+            self.after(4000, lambda:self._shortcut_status.set(""))
+            return
+        self._shortcut_status.set(f"Routing to {favorite.name}")
 
     def _start_poi_search(self,category:PoiCategory,transit_mode:TransitMode=TransitMode.ALL)->None:
         if not bool(getattr(self._request_handler,"camera_initialized",False)):
@@ -178,6 +219,29 @@ class NavigationPanel(tk.Frame):
         if self._poi_card is not None and self._poi_card.winfo_exists():self._poi_card.destroy()
         self.after(3500,lambda:self._shortcut_status.set(""))
 
+    def set_route_guidance(
+        self,
+        *,
+        instruction: str | None,
+        distance_to_maneuver_m: float | None,
+        distance_remaining_m: float | None,
+        off_route: bool,
+        route_complete: bool,
+    ) -> None:
+        if route_complete:
+            self._guidance_instruction.set("Arrived")
+            self._guidance_detail.set("")
+            return
+        self._guidance_instruction.set(instruction or "Route active")
+        details: list[str] = []
+        if distance_to_maneuver_m is not None:
+            details.append(_format_distance(distance_to_maneuver_m))
+        if distance_remaining_m is not None:
+            details.append(f"{_format_distance(distance_remaining_m)} remaining")
+        if off_route:
+            details.append("OFF ROUTE")
+        self._guidance_detail.set("  •  ".join(details))
+
     def _toggle_follow(self)->None:
         enabled=not self._follow_enabled; self.set_follow_enabled(enabled); self._request_handler.request_follow(enabled)
 
@@ -208,3 +272,11 @@ def _poi_render_category(category: PoiCategory, transit_mode: TransitMode) -> st
     if transit_mode is TransitMode.TRAM_SUBWAY:
         return "tram-subway"
     return "transit"
+
+
+
+def _format_distance(distance_m: float) -> str:
+    if distance_m < 1609.344:
+        feet = max(0, round(distance_m * 3.28084 / 50.0) * 50)
+        return f"{feet:.0f} ft"
+    return f"{distance_m / 1609.344:.1f} mi"
