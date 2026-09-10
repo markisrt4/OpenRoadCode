@@ -243,6 +243,19 @@ int main() {
                     result.east);
                 continue;
             }
+            if (command->command == "set_poi_results") {
+                auto* source = map.getStyle().getSource("poi-results");
+                if (!source) continue;
+                auto* poiSource = static_cast<mbgl::style::GeoJSONSource*>(source);
+                try {
+                    poiSource->setGeoJSON(mapbox::geojson::parse(command->geojson));
+                    view.invalidate();
+                } catch (const std::exception& error) {
+                    std::cerr << "[map_renderer] failed to parse POI result GeoJSON: "
+                              << error.what() << '\n';
+                }
+                continue;
+            }
             if (command->command == "set_poi_focus") {
                 if (command->category == "fuel") {
                     setLayerVisible(map.getStyle(), "fuel-focus-glow", command->enabled);
