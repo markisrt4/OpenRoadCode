@@ -89,6 +89,7 @@ def terminate_process(
     @param timeout_seconds Grace period before forced termination.
     """
     if process.poll() is not None:
+        process.wait()
         return
 
     try:
@@ -98,7 +99,7 @@ def terminate_process(
         os.killpg(os.getpgid(process.pid), signal.SIGKILL)
         process.wait(timeout=timeout_seconds)
     except ProcessLookupError:
-        pass
+        process.wait()
 
 
 def close_display_apps(
