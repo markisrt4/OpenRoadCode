@@ -9,7 +9,7 @@ import unittest
 from unittest.mock import Mock, patch
 
 from apps.orcUi.composition.radio import configure_radio
-from apps.orcUi.home_shell import ComposedHomeShell
+from apps.orcUi.frontend.tk.orc_ui_app import OrcUiApp
 from ui.theme import ThemeMode
 
 
@@ -41,7 +41,7 @@ class HomeRadioCompositionTest(unittest.TestCase):
         self.assertEqual(app.navigate_to.call_count, 2)
 
     def test_home_slot_rebuilds_only_when_home_is_active(self):
-        app = ComposedHomeShell.__new__(ComposedHomeShell)
+        app = OrcUiApp.__new__(OrcUiApp)
         app._active_nav = "RADIO"
         app._show_home = Mock()
         factory = Mock()
