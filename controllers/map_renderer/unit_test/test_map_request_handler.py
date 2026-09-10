@@ -119,7 +119,7 @@ class MapRequestHandlerTest(unittest.TestCase):
         self.assertAlmostEqual(camera[0], 42.9)
         self.assertAlmostEqual(camera[1], -83.1)
 
-    def _assert_nearby_focus_camera_assist(self, category: str) -> None:
+    def _assert_poi_focus_preserves_camera(self, category: str) -> None:
         self.handler = MapRequestHandler(
             self.renderer,
             center=GeoPoint(math.radians(42.8), math.radians(-83.0)),
@@ -132,17 +132,23 @@ class MapRequestHandlerTest(unittest.TestCase):
         self.assertTrue(self.handler.follow_enabled)
         self.assertEqual(self.follow_changes, [])
         self.assertEqual(self.renderer.poi_focus[-1], (category, True))
-        camera = self.renderer.cameras[-1]
-        self.assertAlmostEqual(camera[2], 14.0)
-        self.assertAlmostEqual(camera[4], 45.0)
+        self.assertEqual(self.renderer.cameras, [])
+        self.assertAlmostEqual(self.handler.zoom_level, 12.5)
+        self.assertAlmostEqual(self.handler.pitch_rad, math.radians(45.0))
 
-    def test_fuel_focus_uses_nearby_camera_assist(self) -> None:
-        self._assert_nearby_focus_camera_assist("fuel")
+    def test_fuel_focus_preserves_camera(self) -> None:
+        self._assert_poi_focus_preserves_camera("fuel")
 
-    def test_grocery_focus_uses_nearby_camera_assist(self) -> None:
-        self._assert_nearby_focus_camera_assist("grocery")
+    def test_grocery_focus_preserves_camera(self) -> None:
+        self._assert_poi_focus_preserves_camera("grocery")
 
-    def test_nearby_focus_does_not_zoom_out(self) -> None:
+    def test_food_focus_preserves_camera(self) -> None:
+        self._assert_poi_focus_preserves_camera("food")
+
+    def test_transit_focus_preserves_camera(self) -> None:
+        self._assert_poi_focus_preserves_camera("transit")
+
+    def test_poi_focus_does_not_zoom_out(self) -> None:
         self.handler.request_zoom(16.0)
         self.renderer.cameras.clear()
         self.handler.request_poi_focus("fuel")
