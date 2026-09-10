@@ -9,8 +9,8 @@ import copy
 from dataclasses import dataclass
 
 from apps.common.uiTheme.spotify import SPOTIFY_PANEL_THEME
+from apps.orcUi.adapters.managed_browser_media_player import ManagedBrowserMediaPlayer
 from apps.orcUi.frontend.tk.orc_ui_app import OrcUiApp
-from apps.orcUi.managed_browser_media_player import ManagedBrowserMediaPlayer
 from apps.orcUi.theme_runtime import theme_bundle
 from common.xdg_paths import openroadcode_cache_dir
 from config.runtime_target import RuntimeTarget, detect_runtime_target
