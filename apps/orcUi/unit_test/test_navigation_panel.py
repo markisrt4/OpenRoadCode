@@ -80,6 +80,14 @@ class NavigationPanelControlTest(unittest.TestCase):
 
         panel._start_poi_search.assert_called_once_with(PoiCategory.FOOD)
 
+    def test_transit_shortcut_starts_transit_search(self) -> None:
+        panel = self._panel()
+        panel._start_poi_search = Mock()
+
+        panel._destination_shortcut("transit")
+
+        panel._start_poi_search.assert_called_once_with(PoiCategory.TRANSIT)
+
     def test_issue_poi_search_forwards_to_controller(self) -> None:
         panel = self._panel()
         panel._poi_controller = Mock()
