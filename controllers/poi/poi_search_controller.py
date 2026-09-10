@@ -43,7 +43,7 @@ class PoiSearchController(PoiSearchControllerIf):
         self._pending_search_result = None
         position = self._position_provider()
         if position is None:
-            self._pending_search_result = PoiSearchResult(category=category, count=0, south=0.0, west=0.0, north=0.0, east=0.0)
+            self._pending_search_result = PoiSearchResult(category=category, count=0, south=0.0, west=0.0, north=0.0, east=0.0, pois=())
             return
         pois = self._offline_source().search(PoiSearchQuery(category=category, bounds=_nearby_bounds(position, _NEARBY_RADIUS_M), limit=_NEARBY_LIMIT, transit_mode=transit_mode))
         pois = tuple(
@@ -103,10 +103,10 @@ def _nearby_bounds(position: GeoPoint, radius_m: float) -> PoiSearchBounds:
 
 def _result_for(category: PoiCategory, pois: tuple[PointOfInterest, ...]) -> PoiSearchResult:
     if not pois:
-        return PoiSearchResult(category=category, count=0, south=0.0, west=0.0, north=0.0, east=0.0)
+        return PoiSearchResult(category=category, count=0, south=0.0, west=0.0, north=0.0, east=0.0, pois=())
     latitudes = [math.degrees(poi.position.latitude_rad) for poi in pois]
     longitudes = [math.degrees(poi.position.longitude_rad) for poi in pois]
-    return PoiSearchResult(category=category, count=len(pois), south=min(latitudes), west=min(longitudes), north=max(latitudes), east=max(longitudes))
+    return PoiSearchResult(category=category, count=len(pois), south=min(latitudes), west=min(longitudes), north=max(latitudes), east=max(longitudes), pois=pois)
 
 
 def _category_for(raw: RawMapPoi) -> PoiCategory:
