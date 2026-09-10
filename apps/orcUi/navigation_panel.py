@@ -13,7 +13,7 @@ from apps.launchers.android_intent_launcher import AndroidIntentLauncher, Androi
 from apps.orcUi.shared_map_camera import get_shared_map_camera_runtime
 from apps.orcUi.theme_runtime import theme_bundle as packaged_theme_bundle
 from controllers.poi import PoiAction, PoiActionKind, PoiCategory, PoiSearchController, PointOfInterest, TransitMode
-from ui.navigation import MapRequestHandlerIf
+from ui.navigation import MapMarker, MapMarkerKind, MapRequestHandlerIf
 from ui.theme import ThemeBundle, ThemeMode
 
 _POI_SEARCH_SETTLE_MS = 750
@@ -37,6 +37,7 @@ class NavigationPanel(tk.Frame):
         self._pitch_rad = float(getattr(self._request_handler, "pitch_rad", math.radians(45.0)))
         self._follow_enabled = bool(getattr(self._request_handler, "follow_enabled", True))
         self._shortcut_status = tk.StringVar(value="")
+        self._active_poi_render_category = ""
         self._map_host: tk.Frame
         self._follow_button: tk.Button
         self._build()
@@ -125,7 +126,9 @@ class NavigationPanel(tk.Frame):
             try:self.after_cancel(self._poi_search_after_id)
             except tk.TclError:pass
             self._poi_search_after_id=None
-        category_name=category.name.casefold(); self._poi_controller.clear(); self.set_follow_enabled(False); self._request_handler.request_follow(False); self._request_handler.request_poi_focus(None); self._request_handler.request_poi_focus(category_name)
+        category_name=category.name.casefold(); self._poi_controller.clear(); self.set_follow_enabled(False); self._request_handler.request_follow(False); self._request_handler.request_poi_focus(None)
+        self._active_poi_render_category = _poi_render_category(category, transit_mode)
+        self._request_handler.request_poi_results((), self._active_poi_render_category)
         detail = transit_mode.name.replace("_", " ").casefold() if category is PoiCategory.TRANSIT and transit_mode is not TransitMode.ALL else category_name
         self._shortcut_status.set(f"Loading nearby {detail}…")
         self._poi_search_after_id=self.after(_POI_SEARCH_SETTLE_MS,lambda:self._issue_poi_search(category,transit_mode))
@@ -138,6 +141,16 @@ class NavigationPanel(tk.Frame):
     def _poll_poi_events(self)->None:
         result=self._poi_controller.poll_search_result()
         if result is not None:
+            markers = tuple(
+                MapMarker(
+                    marker_id=poi.poi_id,
+                    position=poi.position,
+                    kind=MapMarkerKind.SEARCH_RESULT,
+                    label=poi.name,
+                )
+                for poi in result.pois
+            )
+            self._request_handler.request_poi_results(markers, self._active_poi_render_category)
             if result.count>0:
                 noun=result.category.name.casefold(); suffix="s" if result.count!=1 else ""; self._shortcut_status.set(f"{result.count} {noun} result{suffix}")
             else:self._shortcut_status.set(f"No {result.category.name.casefold()} results nearby")
@@ -180,3 +193,16 @@ class NavigationPanel(tk.Frame):
 
     def _recenter(self)->None:
         self.set_follow_enabled(True); self._request_handler.request_recenter()
+
+
+
+def _poi_render_category(category: PoiCategory, transit_mode: TransitMode) -> str:
+    if category is not PoiCategory.TRANSIT:
+        return category.name.casefold()
+    if transit_mode is TransitMode.BUS:
+        return "bus"
+    if transit_mode is TransitMode.RAIL:
+        return "rail"
+    if transit_mode is TransitMode.TRAM_SUBWAY:
+        return "tram-subway"
+    return "transit"
