@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import math
+from pathlib import Path
 
 from controllers.cache import PersistentCache
 from controllers.map_renderer.map_request_handler import MapRequestHandler
@@ -44,10 +45,7 @@ class MapCameraRuntime:
         follow_enabled: bool = True,
     ) -> None:
         self._renderer_client = MapRendererClient()
-        self._position_cache = PositionSnapshotCache(
-            PersistentCache(DEFAULT_POSITION_CACHE_DIRECTORY)
-        )
-        initial_position = self._cached_position()
+        initial_position = self._load_cached_center(DEFAULT_POSITION_CACHE_DIRECTORY)
         self._current_position = initial_position
         set_current_position(initial_position)
         self._handler = MapRequestHandler(
@@ -100,9 +98,11 @@ class MapCameraRuntime:
         self._dispatcher.close()
         self._renderer_client.close()
 
-    def _cached_position(self) -> GeoPoint | None:
-        """Restore the last valid position so the map never depends on PUB/SUB timing."""
-        state = self._position_cache.load()
+    @staticmethod
+    def _load_cached_center(cache_directory: Path) -> GeoPoint | None:
+        """Load the last valid position from the persistent position cache."""
+
+        state = PositionSnapshotCache(PersistentCache(cache_directory)).load()
         if (
             state is None
             or not state.has_fix
