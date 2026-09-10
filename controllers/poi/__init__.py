@@ -9,6 +9,7 @@ from controllers.poi.poi_models import (
     PoiCategory,
     PoiSearchResult,
     PointOfInterest,
+    TransitMode,
 )
 from controllers.poi.poi_search_controller import PoiSearchController
 from controllers.poi.poi_search_controller_if import PoiSearchControllerIf
@@ -29,4 +30,5 @@ __all__ = [
     "PoiSearchResult",
     "PoiSearchSourceIf",
     "PointOfInterest",
+    "TransitMode",
 ]
