@@ -32,6 +32,8 @@ class NavigationPanelControlTest(unittest.TestCase):
         panel._simulation_active = False
         panel._simulate_button = Mock()
         panel._map_favorites = Mock()
+        panel._poi_action_executor = Mock()
+        panel._poi_card = None
         panel.after = Mock()
         panel.set_follow_enabled = Mock(side_effect=lambda enabled: setattr(panel, "_follow_enabled", enabled))
         return panel
@@ -130,10 +132,6 @@ class NavigationPanelControlTest(unittest.TestCase):
         panel._shortcut_status.set.assert_called_once_with("Searching nearby bus…")
 
 
-if __name__ == "__main__":
-    unittest.main()
-
-
     def test_poi_navigate_action_starts_route_to_selected_poi(self) -> None:
         panel = self._panel()
         poi = PointOfInterest(
@@ -156,30 +154,22 @@ if __name__ == "__main__":
         )
         panel._shortcut_status.set.assert_called_with("Routing to Panera Bread")
 
-    def test_poi_app_order_action_uses_app_or_uri_launcher(self) -> None:
+    def test_poi_order_action_delegates_to_platform_executor(self) -> None:
         panel = self._panel()
-        panel._android_launcher = Mock()
-        panel._android_launcher.open_package_or_uri.return_value = "app"
-        panel._poi_card = None
+        panel._poi_action_executor.execute.return_value = "Opening order in app"
         poi = PointOfInterest(
             poi_id="panera",
             name="Panera Bread",
             category=PoiCategory.FOOD,
             position=GeoPoint(math.radians(42.5), math.radians(-83.0)),
         )
+        action = PoiAction(PoiActionKind.ORDER, "ORDER", provider_id="panera")
 
-        panel._execute_poi_action(
-            poi,
-            PoiAction(
-                PoiActionKind.OPEN_APP_OR_URI,
-                "ORDER",
-                uri="https://www.panerabread.com/en-us/start-an-order.html",
-                android_package="com.panera.bread",
-            ),
-        )
+        panel._execute_poi_action(poi, action)
 
-        panel._android_launcher.open_package_or_uri.assert_called_once_with(
-            "com.panera.bread",
-            "https://www.panerabread.com/en-us/start-an-order.html",
-        )
+        panel._poi_action_executor.execute.assert_called_once_with(poi, action)
         panel._shortcut_status.set.assert_called_with("Opening order in app")
+
+
+if __name__ == "__main__":
+    unittest.main()
