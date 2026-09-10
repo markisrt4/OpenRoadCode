@@ -18,6 +18,23 @@ from ui.navigation import GeoPoint
 _ADDRESS_RE = re.compile(r"^\s*([^,]+?)(?:\s*,\s*(.*))?$")
 _STREET_RE = re.compile(r"^\s*([0-9]+[A-Za-z0-9-]*)\s+(.+?)\s*$")
 
+_STREET_SUFFIXES = {
+    "st": "street",
+    "rd": "road",
+    "ave": "avenue",
+    "av": "avenue",
+    "blvd": "boulevard",
+    "dr": "drive",
+    "ln": "lane",
+    "ct": "court",
+    "cir": "circle",
+    "trl": "trail",
+    "ter": "terrace",
+    "pkwy": "parkway",
+    "pl": "place",
+    "hwy": "highway",
+}
+
 
 @dataclass(frozen=True, slots=True)
 class _ParsedQuery:
@@ -56,46 +73,52 @@ class SqliteGeocoder:
         return _dedupe(results)[:limit]
 
     def _address_results(self, query: _ParsedQuery, limit: int) -> list[GeocodeResult]:
-        clauses = [
-            "house_number = ? COLLATE NOCASE",
-            "street = ? COLLATE NOCASE",
-        ]
-        params: list[object] = [query.house_number, query.street]
-
-        if query.city:
-            clauses.append("(city IS NULL OR city = ? COLLATE NOCASE)")
-            params.append(query.city)
-        if query.state:
-            clauses.append("(state IS NULL OR state = ? COLLATE NOCASE)")
-            params.append(query.state)
-        if query.postcode:
-            clauses.append("(postcode IS NULL OR postcode = ?)")
-            params.append(query.postcode)
-
-        params.append(limit)
         rows = self._connection.execute(
-            f"""
+            """
             SELECT house_number, street, unit, city, state, postcode, country,
                    latitude, longitude
             FROM address
-            WHERE {" AND ".join(clauses)}
-            ORDER BY
-                CASE WHEN city = ? COLLATE NOCASE THEN 0 ELSE 1 END,
-                CASE WHEN state = ? COLLATE NOCASE THEN 0 ELSE 1 END,
-                id
-            LIMIT ?
+            WHERE house_number = ? COLLATE NOCASE
+            ORDER BY id
+            LIMIT 500
             """,
-            [*params[:-1], query.city or "", query.state or "", params[-1]],
+            (query.house_number,),
         ).fetchall()
 
+        requested_street = _normalize_street(query.street)
+        ranked: list[tuple[int, sqlite3.Row]] = []
+        for row in rows:
+            candidate_street = _normalize_street(str(row["street"] or ""))
+            if not candidate_street:
+                continue
+
+            score = 0
+            if candidate_street == requested_street:
+                score += 100
+            elif requested_street.startswith(candidate_street + " "):
+                score += 90
+            elif candidate_street.startswith(requested_street + " "):
+                score += 80
+            else:
+                continue
+
+            if query.city and row["city"] and _normalize_words(str(row["city"])) == _normalize_words(query.city):
+                score += 10
+            if query.state and row["state"] and str(row["state"]).casefold() == query.state.casefold():
+                score += 5
+            if query.postcode and row["postcode"] and str(row["postcode"]).casefold() == query.postcode.casefold():
+                score += 5
+            ranked.append((score, row))
+
+        ranked.sort(key=lambda item: (-item[0], str(item[1]["street"]).casefold()))
         return [
             GeocodeResult(
                 display_name=_format_address(row),
                 position=_point(row),
-                confidence=1.0,
+                confidence=min(1.0, 0.75 + score / 400.0),
                 source="address",
             )
-            for row in rows
+            for score, row in ranked[:limit]
         ]
 
     def _street_results(self, query: _ParsedQuery, limit: int) -> list[GeocodeResult]:
@@ -158,6 +181,17 @@ class SqliteGeocoder:
             )
             for row in rows
         ]
+
+
+def _normalize_words(value: str) -> str:
+    return " ".join(re.findall(r"[a-z0-9]+", value.casefold()))
+
+
+def _normalize_street(value: str) -> str:
+    words = re.findall(r"[a-z0-9]+", value.casefold())
+    if words:
+        words[-1] = _STREET_SUFFIXES.get(words[-1], words[-1])
+    return " ".join(words)
 
 
 def _parse_query(value: str) -> _ParsedQuery:
