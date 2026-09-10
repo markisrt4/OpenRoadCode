@@ -70,6 +70,7 @@ class OrcUiApp(VolumeUiIf):
         self._volume_request_handler: VolumeRequestHandlerIf | None = None
         self._volume_label: tk.Label
         self._closing = False
+        self._running = False
         self._power_dialog = PowerDialog(
             self._root,
             theme=lambda: self._theme,
@@ -79,7 +80,6 @@ class OrcUiApp(VolumeUiIf):
         )
         self._map_runtime.set_theme(self._theme_mode)
         self._build_shell()
-        self._show_home()
         self._update_clock()
     @property
     def theme_mode(self) -> ThemeMode:
@@ -90,12 +90,12 @@ class OrcUiApp(VolumeUiIf):
     def set_home_radio_factory(self, factory: Callable[[tk.Misc], tk.Widget] | None) -> None:
         """Install a radio-owned Home summary without coupling the shell to radio."""
         self._home_radio_factory = factory
-        if self._active_nav == "HOME":
+        if self._running and self._active_nav == "HOME":
             self._show_home()
     def set_home_media_factory(self, factory: Callable[[tk.Misc], tk.Widget] | None) -> None:
         """Install a media-owned Home summary without coupling the shell to Spotify."""
         self._home_media_factory = factory
-        if self._active_nav == "HOME":
+        if self._running and self._active_nav == "HOME":
             self._show_home()
     def set_volume_request_handler(
         self,
@@ -191,6 +191,8 @@ class OrcUiApp(VolumeUiIf):
         self._root.protocol("WM_DELETE_WINDOW", self._on_close)
         old_signal_handler = signal.getsignal(signal.SIGINT)
         signal.signal(signal.SIGINT, self._on_sigint)
+        self._running = True
+        self._show_home()
         try:
             self._root.mainloop()
         except KeyboardInterrupt:
@@ -204,6 +206,7 @@ class OrcUiApp(VolumeUiIf):
         if self._closing:
             return
         self._closing = True
+        self._running = False
         active_screen = self._active_screen
         self._active_screen = None
         if active_screen is not None:
