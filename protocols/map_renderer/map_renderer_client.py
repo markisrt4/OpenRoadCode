@@ -67,6 +67,9 @@ class MapRendererClient:
         self._send_command({"command": MapRendererCommand.SET_POI_FOCUS,
             "category": category or "", "enabled": enabled if category else False})
 
+    def set_poi_results(self, geojson: dict[str, object]) -> None:
+        self._send_command({"command": MapRendererCommand.SET_POI_RESULTS, "geojson": geojson})
+
     def fit_bounds(self, south: float, west: float, north: float, east: float,
                    padding: float = 40.0) -> None:
         self._send_command({"command": MapRendererCommand.FIT_BOUNDS,
