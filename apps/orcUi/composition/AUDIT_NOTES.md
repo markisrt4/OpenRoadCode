@@ -7,7 +7,7 @@ This temporary branch audits ownership boundaries without changing product behav
 - Host restart and poweroff no longer belong to `OrcUiApp`. They flow through the toolkit-independent `ui.system.SystemLifecycleRequestHandlerIf` contract to `SystemLifecycleController`, and host actions execute only after top-level cleanup.
 - Map style installation no longer belongs to `OrcUiApp`. Theme intent is passed through `MapRuntimeIf.set_theme()`, and the map runtime owns renderer-specific style installation.
 - Shell volume buttons no longer mutate prototype-local state. `OrcUiApp` implements `VolumeUiIf`, emits requests through the existing `VolumeRequestHandlerIf`, and `SystemVolumeHandler` bridges those semantic contracts to the audio controller.
-- Long-lived Spotify state synchronization and local Web Player behavior now live under `controllers/spotify`. `apps/orcUi` retains compatibility imports/factory wiring rather than owning those workers and browser lifecycle details.
+- Long-lived Spotify state synchronization and reusable local Web Player lifecycle now live under `controllers/spotify`. Tk consumers import those controller-owned types directly. `apps/orcUi` retains only host-specific composition/factory wiring and no longer carries compatibility re-export modules for Spotify controller behavior.
 - Icons are semantic UI data. `ui.icon.IconId` is toolkit-independent; each frontend maps those identifiers to its own SVG, CSS, native asset, Unicode glyph, or other rendering mechanism. Tk-specific glyph choices live under `frontends/tk`, not in shared UI contracts.
 - Menu icon metadata now carries semantic icon identifiers instead of embedding Tk-oriented presentation in `ui/menu`.
 
