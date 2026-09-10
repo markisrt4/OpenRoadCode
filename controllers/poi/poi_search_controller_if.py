@@ -5,15 +5,15 @@
 
 from abc import ABC, abstractmethod
 
-from controllers.poi.poi_models import PoiCategory, PoiSearchResult, PointOfInterest
+from controllers.poi.poi_models import PoiCategory, PoiSearchResult, PointOfInterest, TransitMode
 
 
 class PoiSearchControllerIf(ABC):
     """Coordinate POI search and selection independently of any frontend."""
 
     @abstractmethod
-    def search(self, category: PoiCategory) -> None:
-        """Request discovery of places in the current geographic viewport."""
+    def search(self, category: PoiCategory, transit_mode: TransitMode = TransitMode.ALL) -> None:
+        """Request discovery of nearby places, optionally filtering public transit."""
         ...
 
     @abstractmethod
