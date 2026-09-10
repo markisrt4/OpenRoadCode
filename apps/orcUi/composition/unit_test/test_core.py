@@ -42,14 +42,12 @@ class CoreCompositionTest(unittest.TestCase):
     @patch("apps.orcUi.composition.core.SystemLifecycleController")
     @patch("apps.orcUi.composition.core.StateIngressRuntime")
     @patch("apps.orcUi.composition.core.OrcUiApp")
-    @patch("apps.orcUi.composition.core.install_shared_map_camera_runtime")
     @patch("apps.orcUi.composition.core.MapCameraRuntime")
     @patch("apps.orcUi.composition.core.MapRuntime")
     def test_factory_injects_shell_runtime_dependencies_and_ui_state_sinks(
         self,
         map_runtime_type: Mock,
         map_camera_type: Mock,
-        install_map_camera: Mock,
         app_type: Mock,
         ingress_type: Mock,
         lifecycle_type: Mock,
@@ -70,9 +68,9 @@ class CoreCompositionTest(unittest.TestCase):
             pitch_rad=math.radians(45.0),
             follow_enabled=True,
         )
-        install_map_camera.assert_called_once_with(map_camera)
         app_type.assert_called_once_with(
             map_runtime=map_runtime,
+            map_request_handler=map_camera.request_handler,
             lifecycle_handler=lifecycle,
         )
         volume_type.assert_called_once_with(
