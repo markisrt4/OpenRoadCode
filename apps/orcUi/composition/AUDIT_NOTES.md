@@ -19,6 +19,7 @@ This temporary branch audits ownership boundaries without changing product behav
 - Tk-specific orcUi shell tests live with `apps/orcUi/frontend/tk`.
 - `apps/orcUi/main.py` is composition-only; the historical `OrcUiApp` export and `home_shell.py` compatibility alias were removed.
 - Feature composition no longer imports `tkinter` merely to express widget factory types. The composition root selects the concrete Tk frontend without making Tk widget types part of the application assembly API.
+- Map-camera requests are injected explicitly from `CoreComposition` through `OrcUiApp` into HOME and NAVIGATION panels. The former `shared_map_camera.py` process-global service locator and its tests were removed.
 
 ## Boundary rules
 
