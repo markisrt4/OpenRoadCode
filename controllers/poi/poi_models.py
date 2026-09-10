@@ -34,8 +34,8 @@ class PoiActionKind(Enum):
     """Semantic actions that can be offered for a POI."""
 
     NAVIGATE = auto()
-    OPEN_URI = auto()
-    OPEN_APP_OR_URI = auto()
+    ORDER = auto()
+    OPEN_WEBSITE = auto()
 
 
 @dataclass(frozen=True, slots=True)
@@ -44,8 +44,8 @@ class PoiAction:
 
     kind: PoiActionKind
     label: str
+    provider_id: str | None = None
     uri: str | None = None
-    android_package: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
