@@ -134,10 +134,9 @@ def test_selected_restaurant_is_enriched_with_order_action() -> None:
     assert poi is not None
     assert poi.category is PoiCategory.FOOD
     order = next(action for action in poi.actions if action.label == "ORDER")
-    assert order.kind is PoiActionKind.OPEN_APP_OR_URI
-    assert order.uri is not None
-    assert order.android_package == "com.panera.bread"
-    assert "panerabread.com" in order.uri
+    assert order.kind is PoiActionKind.ORDER
+    assert order.provider_id == "panera"
+    assert order.uri is None
 
 
 def test_fuel_subclass_is_classified_as_fuel() -> None:
