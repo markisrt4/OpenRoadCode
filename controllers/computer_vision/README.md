@@ -58,3 +58,33 @@ prefers fresh road-scene data over building latency in a frame queue.
 
 Bounding boxes are normalized to `[0, 1]`, allowing inference resolution and
 preview resolution to differ without coupling the UI to model input geometry.
+
+
+## orcUi VISION evaluation screen
+
+The integrated orcUi shell now exposes an isolated `VISION` navigation
+destination for camera/perception evaluation. It intentionally does not feed
+HOME, NAVIGATION, VEHICLE, or other screens while the feature is being
+developed.
+
+Start orcUi normally:
+
+```bash
+python -m apps.orcUi
+```
+
+Select `VISION` from the side navigation. Entering the screen opens
+`/dev/video0`, starts YOLO inference, and shows the live camera image with
+normalized detection overlays. Leaving the screen stops inference and releases
+the camera.
+
+The screen provides three processing profiles:
+
+- `AUTO`: select low-light enhancement when mean scene luminance is low.
+- `DAY`: show and analyze the unmodified camera frame.
+- `LOW LIGHT`: apply CLAHE to the LAB lightness channel before preview and
+  inference.
+
+The initial low-light mode is software preprocessing only. Camera exposure,
+gain, gamma, and other V4L2 hardware controls remain separate so the software
+effect can be evaluated before hardware tuning is added.
