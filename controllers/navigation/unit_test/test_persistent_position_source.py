@@ -95,7 +95,7 @@ class PersistentPositionSourceTest(unittest.TestCase):
         source = PersistentPositionSource(
             live,
             cache,
-            persist_interval_seconds=15.0,
+            cache_interval_seconds=15.0,
             clock=lambda: current_time[0],
         )
         source.start(states.append)
@@ -144,12 +144,12 @@ class PersistentPositionSourceTest(unittest.TestCase):
 
         self.assertEqual([], states)
 
-    def test_negative_persist_interval_is_rejected(self) -> None:
-        with self.assertRaisesRegex(ValueError, "persist_interval_seconds"):
+    def test_negative_cache_interval_is_rejected(self) -> None:
+        with self.assertRaisesRegex(ValueError, "cache_interval_seconds"):
             PersistentPositionSource(
                 FakePositionSource(),
                 Mock(),
-                persist_interval_seconds=-1.0,
+                cache_interval_seconds=-1.0,
             )
 
 
