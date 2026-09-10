@@ -15,10 +15,10 @@ from ui.navigation import GeoPoint
 
 
 _CATEGORY_NAME: dict[PoiCategory, str] = {
-    PoiCategory.FOOD: "FOOD",
-    PoiCategory.FUEL: "FUEL",
-    PoiCategory.GROCERY: "GROCERY",
-    PoiCategory.TRANSIT: "TRANSIT",
+    PoiCategory.FOOD: "food",
+    PoiCategory.FUEL: "fuel",
+    PoiCategory.GROCERY: "grocery",
+    PoiCategory.TRANSIT: "transit",
 }
 
 
