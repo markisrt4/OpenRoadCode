@@ -83,7 +83,7 @@ def _parse_args() -> argparse.Namespace:
         "--radius-km",
         type=float,
         default=20.0,
-        help="bounding search radius in km (default: 20)",
+        help="strict search radius in km (default: 20)",
     )
     parser.add_argument("--limit", type=int, default=50)
     parser.add_argument(
@@ -116,7 +116,17 @@ def main() -> int:
     )
     source = SqlitePoiSearchSource(args.database)
     try:
-        results = source.search(query)
+        results = tuple(
+            poi
+            for poi in source.search(query)
+            if _distance_km(
+                args.lat,
+                args.lon,
+                math.degrees(poi.position.latitude_rad),
+                math.degrees(poi.position.longitude_rad),
+            )
+            <= args.radius_km
+        )
     finally:
         source.close()
 
@@ -125,7 +135,7 @@ def main() -> int:
         mode_suffix = f" mode={args.transit_mode}"
     print(
         f"{len(results)} {args.category} POIs{mode_suffix} near "
-        f"{args.lat:.6f},{args.lon:.6f} within {args.radius_km:g} km bounding radius"
+        f"{args.lat:.6f},{args.lon:.6f} within {args.radius_km:g} km radius"
     )
     for poi in results:
         latitude = math.degrees(poi.position.latitude_rad)

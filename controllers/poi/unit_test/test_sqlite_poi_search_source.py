@@ -111,3 +111,32 @@ def test_limit_prefers_nearest_pois_instead_of_alphabetical_order(tmp_path) -> N
         source.close()
 
     assert [poi.name for poi in results] == ["Zulu Nearby"]
+
+
+def test_transit_search_deduplicates_same_named_nearby_features(tmp_path) -> None:
+    path = _database(tmp_path)
+    connection = sqlite3.connect(path)
+    connection.executemany(
+        "INSERT INTO poi VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        [
+            ("station-a", "Bricktown", None, 42.333455, -83.041169, "transit", "public_transport", "station", "rail"),
+            ("station-b", "Bricktown", None, 42.333291, -83.041225, "transit", "public_transport", "stop_position", "rail"),
+        ],
+    )
+    connection.commit()
+    connection.close()
+
+    source = SqlitePoiSearchSource(path)
+    try:
+        results = source.search(
+            PoiSearchQuery(
+                category=PoiCategory.TRANSIT,
+                bounds=PoiSearchBounds(42.30, -83.10, 42.36, -83.00),
+                limit=50,
+                transit_mode=TransitMode.RAIL,
+            )
+        )
+    finally:
+        source.close()
+
+    assert [poi.name for poi in results].count("Bricktown") == 1

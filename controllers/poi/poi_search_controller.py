@@ -46,6 +46,11 @@ class PoiSearchController(PoiSearchControllerIf):
             self._pending_search_result = PoiSearchResult(category=category, count=0, south=0.0, west=0.0, north=0.0, east=0.0)
             return
         pois = self._offline_source().search(PoiSearchQuery(category=category, bounds=_nearby_bounds(position, _NEARBY_RADIUS_M), limit=_NEARBY_LIMIT, transit_mode=transit_mode))
+        pois = tuple(
+            poi
+            for poi in pois
+            if _distance_m(position, poi.position) <= _NEARBY_RADIUS_M
+        )
         self._pending_search_result = _result_for(category, pois)
 
     def poll_selected(self) -> PointOfInterest | None:
@@ -116,3 +121,15 @@ def _category_for(raw: RawMapPoi) -> PoiCategory:
     if source_class in {"bus", "public_transport", "railway"}:
         return PoiCategory.TRANSIT
     return PoiCategory.OTHER
+
+
+def _distance_m(first: GeoPoint, second: GeoPoint) -> float:
+    dlat = second.latitude_rad - first.latitude_rad
+    dlon = second.longitude_rad - first.longitude_rad
+    haversine = (
+        math.sin(dlat / 2.0) ** 2
+        + math.cos(first.latitude_rad)
+        * math.cos(second.latitude_rad)
+        * math.sin(dlon / 2.0) ** 2
+    )
+    return 2.0 * _EARTH_RADIUS_M * math.asin(min(1.0, math.sqrt(haversine)))
