@@ -63,3 +63,31 @@ def test_public_transit_matches_bus_stop_schema(tmp_path) -> None:
     assert [poi.name for poi in results] == ["12 Mile / Ryan"]
     assert results[0].source_class == "bus"
     assert results[0].source_subclass == "bus_stop"
+
+
+def test_limit_prefers_nearest_pois_instead_of_alphabetical_order(tmp_path) -> None:
+    path = _database(tmp_path)
+    connection = sqlite3.connect(path)
+    connection.executemany(
+        "INSERT INTO poi VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        [
+            ("near-z", "Zulu Nearby", None, 42.5005, -83.0005, "food", "restaurant", "restaurant"),
+            ("far-a", "Alpha Far", None, 42.90, -83.80, "food", "restaurant", "restaurant"),
+        ],
+    )
+    connection.commit()
+    connection.close()
+
+    source = SqlitePoiSearchSource(path)
+    try:
+        results = source.search(
+            PoiSearchQuery(
+                category=PoiCategory.FOOD,
+                bounds=PoiSearchBounds(42.0, -84.0, 43.0, -82.0),
+                limit=1,
+            )
+        )
+    finally:
+        source.close()
+
+    assert [poi.name for poi in results] == ["Zulu Nearby"]
