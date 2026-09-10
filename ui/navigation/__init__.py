@@ -38,6 +38,7 @@ from ui.navigation.route_guidance_ui_if import RouteGuidanceUiIf
 from ui.navigation.route_guidance_ui_stub import RouteGuidanceUiStub
 from ui.navigation.route_request_handler_if import RouteRequestHandlerIf
 from ui.navigation.route_request_handler_stub import RouteRequestHandlerStub
+from ui.navigation.route_simulation_request_handler_if import RouteSimulationRequestHandlerIf
 
 __all__ = [
     "AngularVelocityUiIf",
@@ -71,6 +72,7 @@ __all__ = [
     "RouteGuidanceUiStub",
     "RouteRequestHandlerIf",
     "RouteRequestHandlerStub",
+    "RouteSimulationRequestHandlerIf",
     "TravelLane",
     "TranslationUiIf",
     "TranslationUiStub",
