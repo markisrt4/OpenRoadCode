@@ -135,3 +135,32 @@ def test_numbered_address_falls_back_to_normalized_street(tmp_path):
     assert results[0].source == "street"
     assert results[0].display_name == "Cascade Circle"
     assert results[0].confidence == 0.55
+
+
+def test_postcode_only_context_ranks_nearest_street_candidate(tmp_path):
+    path = _db(tmp_path)
+    con = sqlite3.connect(path)
+    con.execute(
+        "INSERT INTO address VALUES (?,?,?,?,?,?,?,?,?,?)",
+        ("zip-anchor","1","Some Road",None,None,"MI","48065","US",42.82,-83.01),
+    )
+    con.execute(
+        "INSERT INTO street VALUES (?,?,?,?,?,?,?)",
+        ("near","Cascade Circle",None,None,None,42.817744,-83.017602),
+    )
+    con.execute(
+        "INSERT INTO street VALUES (?,?,?,?,?,?,?)",
+        ("far","Cascade Circle",None,None,None,42.6292172,-83.1442853),
+    )
+    con.commit()
+    con.close()
+
+    geocoder = SqliteGeocoder(path)
+    try:
+        results = geocoder.geocode("11711 Cascade Cir 48065")
+    finally:
+        geocoder.close()
+
+    assert results
+    assert results[0].display_name == "Cascade Circle"
+    assert math.isclose(math.degrees(results[0].position.latitude_rad), 42.817744)
