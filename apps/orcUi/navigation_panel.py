@@ -20,6 +20,7 @@ from ui.navigation import (
     MapRequestHandlerIf,
     RouteRequestHandlerIf,
     RouteRequestHandlerStub,
+    RouteSimulationRequestHandlerIf,
 )
 from ui.navigation.route_types import TravelMode
 from ui.theme import ThemeBundle, ThemeMode
@@ -36,6 +37,7 @@ class NavigationPanel(tk.Frame):
         *,
         map_request_handler: MapRequestHandlerIf | None = None,
         route_request_handler: RouteRequestHandlerIf | None = None,
+        route_simulation_handler: RouteSimulationRequestHandlerIf | None = None,
         map_favorites: MapFavorites | None = None,
         on_back: Callable[[], None] | None = None,
         theme_bundle: ThemeBundle | None = None,
@@ -46,6 +48,7 @@ class NavigationPanel(tk.Frame):
         runtime = get_shared_map_camera_runtime()
         self._request_handler = map_request_handler or runtime.request_handler
         self._route_request_handler = route_request_handler or RouteRequestHandlerStub()
+        self._route_simulation_handler = route_simulation_handler
         self._map_favorites = map_favorites or MapFavorites()
         self._android_launcher = AndroidIntentLauncher()
         self._poi_controller = PoiSearchController()
@@ -59,8 +62,11 @@ class NavigationPanel(tk.Frame):
         self._guidance_instruction = tk.StringVar(value="")
         self._guidance_detail = tk.StringVar(value="")
         self._active_poi_render_category = ""
+        self._route_active = False
+        self._simulation_active = False
         self._map_host: tk.Frame
         self._follow_button: tk.Button
+        self._simulate_button: tk.Button
         self._build()
         self._schedule_renderer_refresh()
         self.after(100, self._poll_poi_events)
@@ -111,7 +117,22 @@ class NavigationPanel(tk.Frame):
         guidance = tk.Frame(self, bg=ui.surface, highlightthickness=1, highlightbackground=ui.border)
         guidance.grid(row=2, column=0, sticky="ew", pady=(4, 0))
         tk.Label(guidance, textvariable=self._guidance_instruction, bg=ui.surface, fg=ui.text, font=("Sans", 10, "bold"), anchor="w").pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(8, 6), pady=4)
-        tk.Label(guidance, textvariable=self._guidance_detail, bg=ui.surface, fg=ui.text_muted, font=("Sans", 8), anchor="e").pack(side=tk.RIGHT, padx=(6, 8), pady=4)
+        self._simulate_button = tk.Button(
+            guidance,
+            text="SIM DRIVE",
+            command=self._toggle_route_simulation,
+            bg=ui.control_background,
+            fg=ui.accent_warning,
+            activebackground=ui.control_active,
+            activeforeground="#ffffff",
+            relief=tk.FLAT,
+            highlightthickness=1,
+            highlightbackground=ui.border,
+            font=("Sans", 8, "bold"),
+            state=tk.DISABLED,
+        )
+        self._simulate_button.pack(side=tk.RIGHT, padx=(4, 8), pady=3)
+        tk.Label(guidance, textvariable=self._guidance_detail, bg=ui.surface, fg=ui.text_muted, font=("Sans", 8), anchor="e").pack(side=tk.RIGHT, padx=(6, 4), pady=4)
 
         body = tk.Frame(self, bg=ui.background); body.grid(row=1, column=0, sticky="nsew"); body.grid_rowconfigure(0, weight=1); body.grid_columnconfigure(0, weight=1)
         self._map_host = tk.Frame(body, bg=ui.background, highlightthickness=1, highlightbackground=ui.border); self._map_host.grid(row=0, column=0, sticky="nsew")
@@ -160,6 +181,9 @@ class NavigationPanel(tk.Frame):
             self._shortcut_status.set(f"Route failed: {error}")
             self.after(4000, lambda:self._shortcut_status.set(""))
             return
+        self._route_active = True
+        self._simulation_active = False
+        self._update_simulation_button()
         self._shortcut_status.set(f"Routing to {favorite.name}")
 
     def _start_poi_search(self,category:PoiCategory,transit_mode:TransitMode=TransitMode.ALL)->None:
@@ -219,6 +243,36 @@ class NavigationPanel(tk.Frame):
         if self._poi_card is not None and self._poi_card.winfo_exists():self._poi_card.destroy()
         self.after(3500,lambda:self._shortcut_status.set(""))
 
+    def _update_simulation_button(self) -> None:
+        if not hasattr(self, "_simulate_button"):
+            return
+        if self._route_simulation_handler is None or not self._route_active:
+            self._simulate_button.configure(text="SIM DRIVE", state=tk.DISABLED)
+            return
+        self._simulate_button.configure(
+            text="STOP SIM" if self._simulation_active else "SIM DRIVE",
+            state=tk.NORMAL,
+        )
+
+    def _toggle_route_simulation(self) -> None:
+        handler = self._route_simulation_handler
+        if handler is None or not self._route_active:
+            self._shortcut_status.set("No active route to simulate")
+            return
+        try:
+            if self._simulation_active:
+                handler.request_stop_route_simulation()
+                self._simulation_active = False
+                self._shortcut_status.set("Route simulation stopped")
+            else:
+                handler.request_start_route_simulation(time_scale=60.0)
+                self._simulation_active = True
+                self._shortcut_status.set("Simulating route at 60×")
+        except Exception as error:
+            self._shortcut_status.set(f"Simulation failed: {error}")
+            self._simulation_active = False
+        self._update_simulation_button()
+
     def set_route_guidance(
         self,
         *,
@@ -229,9 +283,14 @@ class NavigationPanel(tk.Frame):
         route_complete: bool,
     ) -> None:
         if route_complete:
+            self._route_active = False
+            self._simulation_active = False
+            self._update_simulation_button()
             self._guidance_instruction.set("Arrived")
             self._guidance_detail.set("")
             return
+        self._route_active = True
+        self._update_simulation_button()
         self._guidance_instruction.set(instruction or "Route active")
         details: list[str] = []
         if distance_to_maneuver_m is not None:
