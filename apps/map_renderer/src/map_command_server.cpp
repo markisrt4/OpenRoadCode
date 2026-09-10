@@ -44,7 +44,7 @@ std::optional<MapCommand> MapCommandServer::parseCommand(const std::string& payl
     MapCommand command;
     command.command = document["command"].GetString();
 
-    if (command.command == "set_route") {
+    if (command.command == "set_route" || command.command == "set_poi_results") {
         if (!document.HasMember("geojson") || !document["geojson"].IsObject()) return std::nullopt;
         rapidjson::StringBuffer buffer;
         rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
