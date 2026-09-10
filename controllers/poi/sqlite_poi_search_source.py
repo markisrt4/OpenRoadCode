@@ -54,6 +54,10 @@ class SqlitePoiSearchSource(PoiSearchSourceIf):
             transit_clause, transit_parameters = _TRANSIT_SQL[query.transit_mode]
 
         bounds = query.bounds
+        center_latitude = (bounds.south + bounds.north) / 2.0
+        center_longitude = (bounds.west + bounds.east) / 2.0
+        longitude_scale = math.cos(math.radians(center_latitude))
+
         rows = self._connection.execute(
             """
             SELECT id, name, brand, latitude, longitude, class, subclass
@@ -61,8 +65,14 @@ class SqlitePoiSearchSource(PoiSearchSourceIf):
              WHERE category = ?
                AND latitude BETWEEN ? AND ?
                AND longitude BETWEEN ? AND ?
-            """ + transit_clause + """
-             ORDER BY name COLLATE NOCASE, id
+            """
+            + transit_clause
+            + """
+             ORDER BY
+                 ((latitude - ?) * (latitude - ?)) +
+                 (((longitude - ?) * ?) * ((longitude - ?) * ?)),
+                 name COLLATE NOCASE,
+                 id
              LIMIT ?
             """,
             (
@@ -72,6 +82,12 @@ class SqlitePoiSearchSource(PoiSearchSourceIf):
                 bounds.west,
                 bounds.east,
                 *transit_parameters,
+                center_latitude,
+                center_latitude,
+                center_longitude,
+                longitude_scale,
+                center_longitude,
+                longitude_scale,
                 query.limit,
             ),
         ).fetchall()
