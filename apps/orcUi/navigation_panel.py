@@ -232,14 +232,58 @@ class NavigationPanel(tk.Frame):
         tk.Label(card,text=poi.name,bg=ui.surface_alt,fg=ui.text,font=("Sans",12,"bold")).pack(pady=(10,5))
         buttons=tk.Frame(card,bg=ui.surface_alt); buttons.pack()
         for action in poi.actions:
-            if action.kind is PoiActionKind.OPEN_URI and action.uri:
-                tk.Button(buttons,text=action.label,command=lambda selected=action:self._execute_poi_action(selected),bg=ui.control_background,fg=ui.accent_primary,activebackground=ui.control_active,activeforeground="#ffffff",relief=tk.FLAT,highlightthickness=1,highlightbackground=ui.border,font=("Sans",10,"bold"),width=12,height=2).pack(side=tk.LEFT,padx=4)
+            if action.kind is PoiActionKind.NAVIGATE or (
+                action.kind in {PoiActionKind.OPEN_URI, PoiActionKind.OPEN_APP_OR_URI}
+                and action.uri
+            ):
+                tk.Button(
+                    buttons,
+                    text=action.label,
+                    command=lambda selected=action:self._execute_poi_action(poi, selected),
+                    bg=ui.control_background,
+                    fg=ui.accent_primary,
+                    activebackground=ui.control_active,
+                    activeforeground="#ffffff",
+                    relief=tk.FLAT,
+                    highlightthickness=1,
+                    highlightbackground=ui.border,
+                    font=("Sans",10,"bold"),
+                    width=12,
+                    height=2,
+                ).pack(side=tk.LEFT,padx=4)
         tk.Button(buttons,text="CLOSE",command=card.destroy,bg=ui.control_background,fg=ui.text_muted,activebackground=ui.control_active,activeforeground="#ffffff",relief=tk.FLAT,highlightthickness=1,highlightbackground=ui.border,font=("Sans",8,"bold"),width=8).pack(side=tk.LEFT,padx=4)
 
-    def _execute_poi_action(self,action:PoiAction)->None:
-        if action.kind is PoiActionKind.OPEN_URI and action.uri:
-            try:self._android_launcher.open_uri(action.uri); self._shortcut_status.set(f"Opening {action.label.casefold()}")
-            except AndroidIntentLauncherError as exc:self._shortcut_status.set(f"Launch failed: {exc}")
+    def _execute_poi_action(self, poi:PointOfInterest, action:PoiAction)->None:
+        if action.kind is PoiActionKind.NAVIGATE:
+            try:
+                self._route_request_handler.request_start_route(
+                    poi.position,
+                    (),
+                    TravelMode.AUTO,
+                )
+                self._route_active = True
+                self._simulation_active = False
+                self._update_simulation_button()
+                self._shortcut_status.set(f"Routing to {poi.name}")
+            except Exception as exc:
+                self._shortcut_status.set(f"Route failed: {exc}")
+        elif action.kind is PoiActionKind.OPEN_URI and action.uri:
+            try:
+                self._android_launcher.open_uri(action.uri)
+                self._shortcut_status.set(f"Opening {action.label.casefold()}")
+            except AndroidIntentLauncherError as exc:
+                self._shortcut_status.set(f"Launch failed: {exc}")
+        elif action.kind is PoiActionKind.OPEN_APP_OR_URI and action.uri:
+            try:
+                destination = self._android_launcher.open_package_or_uri(
+                    action.android_package,
+                    action.uri,
+                )
+                self._shortcut_status.set(
+                    f"Opening {action.label.casefold()} in {destination}"
+                )
+            except AndroidIntentLauncherError as exc:
+                self._shortcut_status.set(f"Launch failed: {exc}")
         if self._poi_card is not None and self._poi_card.winfo_exists():self._poi_card.destroy()
         self.after(3500,lambda:self._shortcut_status.set(""))
 
