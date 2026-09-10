@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import tkinter as tk
 
-from apps.orcUi.shared_map_camera import get_shared_map_camera_runtime
 from apps.orcUi.theme_runtime import theme_bundle as packaged_theme_bundle
 from ui.navigation import MapRequestHandlerIf
 from ui.theme import ThemeBundle, ThemeMode
@@ -20,7 +19,7 @@ class HomeMapPanel(tk.Frame):
         self,
         parent: tk.Misc,
         *,
-        map_request_handler: MapRequestHandlerIf | None = None,
+        map_request_handler: MapRequestHandlerIf,
         theme: ThemeBundle | None = None,
     ) -> None:
         self._theme = theme or packaged_theme_bundle(ThemeMode.DARK)
@@ -31,8 +30,7 @@ class HomeMapPanel(tk.Frame):
             highlightthickness=1,
             highlightbackground=ui.border,
         )
-        runtime = get_shared_map_camera_runtime()
-        self._request_handler = map_request_handler or runtime.request_handler
+        self._request_handler = map_request_handler
         self._map_host: tk.Frame
         self._build()
         self._schedule_renderer_refresh()
