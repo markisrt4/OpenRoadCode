@@ -10,10 +10,6 @@ from dataclasses import dataclass
 
 from apps.orcUi.core_runtime import MapRuntime, StateIngressRuntime
 from apps.orcUi.frontend.tk.orc_ui_app import OrcUiApp
-from apps.orcUi.shared_map_camera import (
-    clear_shared_map_camera_runtime,
-    install_shared_map_camera_runtime,
-)
 from controllers.audio import PipewireAudioController, SystemVolumeHandler
 from controllers.map_renderer.map_camera_runtime import MapCameraRuntime
 from controllers.system import SystemLifecycleController
@@ -42,7 +38,6 @@ class CoreComposition:
             try:
                 self.map_camera.close()
             finally:
-                clear_shared_map_camera_runtime(self.map_camera)
                 self.map_runtime.stop()
 
 
@@ -54,15 +49,14 @@ def create_core_composition() -> CoreComposition:
         pitch_rad=math.radians(45.0),
         follow_enabled=True,
     )
-    install_shared_map_camera_runtime(map_camera)
     lifecycle = SystemLifecycleController()
     try:
         app = OrcUiApp(
             map_runtime=map_runtime,
+            map_request_handler=map_camera.request_handler,
             lifecycle_handler=lifecycle,
         )
     except Exception:
-        clear_shared_map_camera_runtime(map_camera)
         map_camera.close()
         raise
     volume = SystemVolumeHandler(
