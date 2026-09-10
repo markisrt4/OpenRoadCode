@@ -113,3 +113,25 @@ def test_comma_less_numbered_address_can_match_street_prefix(tmp_path):
 
     assert results
     assert results[0].display_name.startswith("11711 Cascade Circle")
+
+
+def test_numbered_address_falls_back_to_normalized_street(tmp_path):
+    path = _db(tmp_path)
+    con = sqlite3.connect(path)
+    con.execute(
+        "INSERT INTO street VALUES (?,?,?,?,?,?,?)",
+        ("s2","Cascade Circle",None,None,None,42.817744,-83.017602),
+    )
+    con.commit()
+    con.close()
+
+    geocoder = SqliteGeocoder(path)
+    try:
+        results = geocoder.geocode("11711 Cascade Cir")
+    finally:
+        geocoder.close()
+
+    assert results
+    assert results[0].source == "street"
+    assert results[0].display_name == "Cascade Circle"
+    assert results[0].confidence == 0.55
