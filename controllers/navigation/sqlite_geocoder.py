@@ -306,6 +306,10 @@ def _parse_query(value: str) -> _ParsedQuery:
             street = " ".join(tokens[: street_suffix_index + 1])
             locality_tokens = tokens[street_suffix_index + 1 :]
             city = " ".join(locality_tokens) or None
+        elif postcode is not None or state is not None:
+            # With an explicit trailing locality hint but no road suffix,
+            # treat the remaining tokens as the street name.
+            street = " ".join(tokens)
 
     return _ParsedQuery(house_number, street, city, state, postcode)
 
