@@ -47,7 +47,7 @@ class OrcUiComposition:
                 finally:
                     try:
                         self.media.close()
-                finally:
+                    finally:
                         try:
                             self.core.close()
                         finally:
@@ -60,6 +60,9 @@ def create_orc_ui_composition() -> OrcUiComposition:
     """Create all shell, runtime, and feature dependencies in one place."""
     runtime = create_orc_ui_application_runtime()
     core: CoreComposition | None = None
+    games: GamesScreen | None = None
+    vision: VisionComposition | None = None
+    media: MediaComposition | None = None
     try:
         core = create_core_composition()
         app = core.app
@@ -68,6 +71,12 @@ def create_orc_ui_composition() -> OrcUiComposition:
         vision = configure_vision(app)
         media = configure_media(app, runtime)
     except Exception:
+        if vision is not None:
+            vision.close()
+        if games is not None:
+            games.shutdown()
+        if media is not None:
+            media.close()
         if core is not None:
             core.close()
         runtime.close()
