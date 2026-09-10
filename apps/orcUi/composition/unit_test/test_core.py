@@ -14,7 +14,13 @@ class CoreCompositionTest(unittest.TestCase):
         app = Mock()
         map_runtime = Mock()
         ingress = Mock()
-        core = CoreComposition(app=app, map_runtime=map_runtime, state_ingress=ingress)
+        route_handler = Mock()
+        core = CoreComposition(
+            app=app,
+            map_runtime=map_runtime,
+            route_request_handler=route_handler,
+            state_ingress=ingress,
+        )
 
         core.start()
         core.close()
@@ -24,12 +30,16 @@ class CoreCompositionTest(unittest.TestCase):
         map_runtime.stop.assert_called_once_with()
 
     @patch("apps.orcUi.composition.core.StateIngressRuntime")
+    @patch("apps.orcUi.composition.core.NavigationRouteRequestHandler")
+    @patch("apps.orcUi.composition.core.NavigationCommandClient")
     @patch("apps.orcUi.composition.core.OrcUiApp")
     @patch("apps.orcUi.composition.core.MapRuntime")
     def test_factory_injects_map_runtime_and_ui_state_sinks(
         self,
         map_runtime_type: Mock,
         app_type: Mock,
+        command_client_type: Mock,
+        route_handler_type: Mock,
         ingress_type: Mock,
     ) -> None:
         map_runtime = map_runtime_type.return_value
@@ -37,15 +47,21 @@ class CoreCompositionTest(unittest.TestCase):
 
         core = create_core_composition()
 
-        app_type.assert_called_once_with(map_runtime=map_runtime)
+        route_handler_type.assert_called_once_with(command_client_type.return_value)
+        app_type.assert_called_once_with(
+            map_runtime=map_runtime,
+            route_request_handler=route_handler_type.return_value,
+        )
         ingress_type.assert_called_once_with(
             schedule_ui=app.schedule_ui_callback,
             apply_vehicle_state=app.apply_vehicle_state,
             apply_position_state=app.apply_position_state,
             apply_attitude_state=app.apply_attitude_state,
+            apply_route_guidance_state=app.apply_route_guidance_state,
         )
         self.assertIs(core.app, app)
         self.assertIs(core.map_runtime, map_runtime)
+        self.assertIs(core.route_request_handler, route_handler_type.return_value)
         self.assertIs(core.state_ingress, ingress_type.return_value)
 
 
