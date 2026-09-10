@@ -9,6 +9,7 @@ import math
 
 from controllers.cache import PersistentCache
 from controllers.map_renderer.map_request_handler import MapRequestHandler
+from controllers.navigation.current_position import set_current_position
 from controllers.navigation.position_snapshot_cache import (
     DEFAULT_POSITION_CACHE_DIRECTORY,
     PositionSnapshotCache,
@@ -48,6 +49,7 @@ class MapCameraRuntime:
         )
         initial_position = self._cached_position()
         self._current_position = initial_position
+        set_current_position(initial_position)
         self._handler = MapRequestHandler(
             self._renderer_client,
             center=initial_position or GeoPoint(latitude_rad=0.0, longitude_rad=0.0),
@@ -125,6 +127,7 @@ class MapCameraRuntime:
             altitude_m=data.altitude_m,
         )
         self._current_position = point
+        set_current_position(point)
 
         # Android location providers do not always report speed/course even
         # while position itself is updating. Derive a stable course from the
