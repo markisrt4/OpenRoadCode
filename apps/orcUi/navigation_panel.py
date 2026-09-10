@@ -320,15 +320,6 @@ class NavigationPanel(tk.Frame):
         result = self._poi_controller.poll_search_result()
         if result is not None:
             if result.count > 0:
-                fit_bounds = getattr(self._request_handler, "request_fit_bounds", None)
-                if fit_bounds is not None:
-                    fit_bounds(
-                        result.south,
-                        result.west,
-                        result.north,
-                        result.east,
-                        60.0,
-                    )
                 noun = result.category.name.casefold()
                 suffix = "s" if result.count != 1 else ""
                 self._shortcut_status.set(
