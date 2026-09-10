@@ -1,814 +1,437 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 
+"""orcUi radio panel hosting and controlling external radio presentations."""
+
 from __future__ import annotations
 
+import os
 import tkinter as tk
-from typing import Any, Callable, Optional
+from tkinter import simpledialog
 
-from frontends.tk.radio.radio_panel_config import RadioPanelConfig
-from ui.radio.radio_formatter import (
-    compact_preset_label,
-    format_frequency,
-    format_step,
-)
-from ui.radio import (
-    PlaybackRequestHandlerIf,
-    PresetRequestHandlerIf,
-    RadioApplicationRequestHandlerIf,
-    RadioPreset,
-    RadioRefreshRequestHandlerIf,
-    RadioUiIf,
-    StationRequestHandlerIf,
-    TunedSignal,
-    TuningRequestHandlerIf,
-)
+from apps.orcUi.adsb_control import OrcUiAdsbControl
+from apps.orcUi.theme_runtime import theme_bundle
+from controllers.radio.radio_profile_controller import RadioProfileController, RadioProfileState
+from controllers.radio.radio_profiles import RadioProfile, RadioProfilePreset
+from controllers.sdr.sdr_telemetry_monitor import SDRTelemetryMonitor
+from controllers.sdr.sdr_telemetry_worker import SDRTelemetryWorker
+from controllers.sdr.sdrpp_control import SDRPPControl
+from frontends.x11 import X11WindowEmbedder
+from ui.theme import ThemeBundle, ThemeMode
+
+MAIN_GROUPS = (("FM", "♫ FM ▾"), ("WEATHER", "☁ WEATHER ▾"), ("AIR", "✈ AIR ▾"), ("HAM", "⌁ HAM ▾"), ("SCANNER", "⌁ SCANNER ▾"))
+RADIO_GROUPS = tuple(name for name, _ in MAIN_GROUPS)
 
 
-class RadioPanel(tk.Frame, RadioUiIf):
-    """Render radio state and emit semantic radio requests."""
+class RadioPanel(tk.Frame):
+    """Automotive controls wrapped around embedded SDR++ and ADS-B views."""
+
     def __init__(
         self,
-        parent: tk.Widget,
-        panel_config: RadioPanelConfig,
-        theme: dict[str, Any],
-        on_frequency_changed: Optional[Callable[[int], None]] = None,
-        presets_per_bank: int = 6,
+        parent: tk.Misc,
+        *,
+        embedder: X11WindowEmbedder | None = None,
+        radio_control: RadioProfileController | None = None,
+        sdrpp_control: SDRPPControl | None = None,
+        adsb_control: OrcUiAdsbControl | None = None,
+        theme: ThemeBundle | None = None,
     ) -> None:
-        super().__init__(parent, bg=theme["colors"]["panel_bg"], takefocus=True)
+        self._theme = theme or theme_bundle(ThemeMode.DARK)
+        ui = self._theme.ui
+        super().__init__(parent, bg=ui.background)
+        self._embedder = embedder or X11WindowEmbedder()
+        self._radio = radio_control or RadioProfileController()
+        self._sdrpp = sdrpp_control or SDRPPControl()
+        self._adsb = adsb_control or OrcUiAdsbControl()
+        self._telemetry_worker = SDRTelemetryWorker(SDRTelemetryMonitor(self._radio))
+        self._telemetry_after_id: str | None = None
+        self._display = os.environ.get("DISPLAY", ":1")
+        self._embedded_view = "sdrpp"
+        self._active_group = "FM"
+        self._group_buttons: dict[str, tk.Button] = {}
+        self._drawer_open = False
+        self._drawer: tk.Frame | None = None
+        self._display_buttons: dict[str, tk.Button] = {}
 
-        self.parent = parent
-        self.panel_config = panel_config
-        self.on_frequency_changed = on_frequency_changed
-        self.compact_ui = bool(
-            getattr(parent.winfo_toplevel(), "compact_ui", False)
-        )
-        self.theme = theme
-        self.colors = self.theme["colors"]
-        self.layout = self.theme["layout"]
-        self.style = self.theme["profiles"][
-            "compact" if self.compact_ui else "normal"
-        ]
+        self.grid_columnconfigure(0, weight=1)
+        self.grid_rowconfigure(1, weight=1)
+        self._groups = tk.Frame(self, bg=ui.surface, highlightthickness=1, highlightbackground=ui.border)
+        self._groups.grid(row=0, column=0, sticky="ew", pady=(0, 6))
+        self._build_group_bar()
+        self._body = tk.Frame(self, bg=ui.background)
+        self._body.grid(row=1, column=0, sticky="nsew")
+        self._body.grid_columnconfigure(0, weight=1)
+        self._body.grid_rowconfigure(0, weight=1)
+        self._host = tk.Frame(self._body, bg=ui.background, highlightthickness=1, highlightbackground=ui.border)
+        self._host.grid(row=0, column=0, sticky="nsew")
+        self._host.bind("<Configure>", self._on_host_resize)
 
-        self._presets: list[RadioPreset] = []
-        self._receiver_active = False
-        self._active_preset_index: int | None = None
-        self._preset_handler: PresetRequestHandlerIf | None = None
-        self._playback_handler: PlaybackRequestHandlerIf | None = None
-        self._station_handler: StationRequestHandlerIf | None = None
-        self._tuning_handler: TuningRequestHandlerIf | None = None
-        self._application_handler: RadioApplicationRequestHandlerIf | None = None
-        self._refresh_handler: RadioRefreshRequestHandlerIf | None = None
+        self._telemetry_overlay = tk.Frame(self._host, bg=ui.surface_alt, highlightthickness=1, highlightbackground=ui.border)
+        self._telemetry_overlay.place(relx=1.0, x=-8, y=8, anchor="ne")
+        self._signal_label = tk.Label(self._telemetry_overlay, text="SIGNAL --", bg=ui.surface_alt, fg=ui.text, font=("Monospace", 8, "bold"), padx=8, pady=3)
+        self._signal_label.pack(side=tk.LEFT)
+        self._snr_label = tk.Label(self._telemetry_overlay, text="SNR --", bg=ui.surface_alt, fg=ui.accent_success, font=("Monospace", 8, "bold"), padx=8, pady=3)
+        self._snr_label.pack(side=tk.LEFT)
 
-        self.preset_tiles: dict[int, tk.Frame] = {}
-        self.active_preset_frequency_hz: Optional[int] = None
+        self._controls = tk.Frame(self, bg=ui.surface, highlightthickness=1, highlightbackground=ui.border)
+        self._controls.grid(row=2, column=0, sticky="ew", pady=(6, 0))
+        self._controls.grid_columnconfigure(2, weight=1)
+        tk.Button(self._controls, text="‹ PRESET", command=self._previous_preset, bg=ui.surface, fg=ui.text, activebackground=ui.control_background, activeforeground=ui.accent_success, relief=tk.FLAT, bd=0, padx=12, pady=7).grid(row=0, column=0, rowspan=3, sticky="ns")
+        tk.Button(self._controls, text="− TUNE", command=self._tune_down, bg=ui.surface, fg=ui.text_muted, activebackground=ui.control_background, activeforeground=ui.accent_success, relief=tk.FLAT, bd=0, padx=10, pady=7).grid(row=0, column=1, rowspan=3, sticky="ns")
+        center = tk.Frame(self._controls, bg=ui.surface)
+        center.grid(row=0, column=2, rowspan=3, sticky="ew")
+        self._station_label = tk.Label(center, text="NO PRESET", bg=ui.surface, fg=ui.text, font=("Sans", 11, "bold"))
+        self._station_label.pack()
+        self._frequency_label = tk.Label(center, text="--.- MHz", bg=ui.surface, fg=ui.text_muted, font=("Monospace", 9))
+        self._frequency_label.pack()
+        self._metadata_label = tk.Label(center, text="", bg=ui.surface, fg=ui.accent_success, font=("Sans", 8))
+        self._metadata_label.pack()
+        tk.Button(self._controls, text="TUNE +", command=self._tune_up, bg=ui.surface, fg=ui.text_muted, activebackground=ui.control_background, activeforeground=ui.accent_success, relief=tk.FLAT, bd=0, padx=10, pady=7).grid(row=0, column=3, rowspan=3, sticky="ns")
+        tk.Button(self._controls, text="PRESET ›", command=self._next_preset, bg=ui.surface, fg=ui.text, activebackground=ui.control_background, activeforeground=ui.accent_success, relief=tk.FLAT, bd=0, padx=12, pady=7).grid(row=0, column=4, rowspan=3, sticky="ns")
 
-        self.presets_per_bank = max(1, presets_per_bank)
-        self.preset_bank_index = 0
-        self.preset_grid: Optional[tk.Frame] = None
-        self.preset_bank_label_var = tk.StringVar(value="Bank 1/1")
-
-        self.radio_status_widgets: dict[str, tk.Label] = {}
-        self._status_poll_after_id: Optional[str] = None
-
-        self._last_frequency_hz: Optional[int] = None
-
-        self._build_panel(self)
-
-    def start(self) -> None:
-        """Request initial state and begin periodic telemetry refreshes."""
-        self._request_refresh()
-        self.start_radio_status_polling()
+        self._apply_radio_state(self._radio.state)
+        self._telemetry_worker.start()
+        self._schedule_telemetry_refresh()
 
     def destroy(self) -> None:
-        """Stop polling and destroy the Tk panel."""
-        self.stop_radio_status_polling()
-        super().destroy()
-
-    def _build_panel(self, root: tk.Frame) -> None:
-        root.columnconfigure(self.layout["root_column"], weight=self.layout["fill_weight"])
-        root.rowconfigure(self.layout["content_row"], weight=self.layout["fill_weight"])
-        root.rowconfigure(self.layout["status_row"], weight=self.layout["fixed_weight"])
-
-        main = tk.Frame(root, bg=self.colors["panel_bg"])
-        main.grid(row=self.layout["content_row"], column=self.layout["root_column"], sticky=self.layout["fill_sticky"])
-
-        # Keep a stable left/right split on the 800x480 Pi display.
-        # Without a uniform group, oversized control labels can force the
-        # preset column into useless slivers. Because apparently widgets
-        # demand territory now.
-        left_weight, right_weight = self.style["main_column_weights"]
-        main.columnconfigure(self.layout["control_column"], weight=left_weight, uniform=f"{self.panel_config.key}_main")
-        main.columnconfigure(self.layout["preset_column"], weight=right_weight, uniform=f"{self.panel_config.key}_main")
-        main.rowconfigure(self.layout["content_row"], weight=self.layout["fill_weight"])
-
-        control_col = tk.Frame(main, bg=self.colors["panel_bg"])
-        control_col.grid(row=self.layout["content_row"], column=self.layout["control_column"], sticky=self.layout["fill_sticky"], padx=(self.layout["zero"], self.style["column_gap"]))
-
-        preset_area = tk.Frame(main, bg=self.colors["panel_bg"])
-        preset_area.grid(row=self.layout["content_row"], column=self.layout["preset_column"], sticky=self.layout["fill_sticky"], padx=(self.style["column_gap"], self.layout["zero"]))
-        preset_area.columnconfigure(self.layout["root_column"], weight=self.layout["fill_weight"])
-        preset_area.rowconfigure(self.layout["content_row"], weight=self.layout["fill_weight"])
-        preset_area.rowconfigure(self.layout["status_row"], weight=self.layout["fixed_weight"])
-
-        self.preset_grid = tk.Frame(preset_area, bg=self.colors["panel_bg"])
-        self.preset_grid.grid(row=self.layout["content_row"], column=self.layout["root_column"], sticky=self.layout["fill_sticky"])
-
-        self._build_control_tiles(control_col)
-        self._build_preset_tiles(self.preset_grid)
-        self._build_preset_bank_nav(preset_area)
-        self._build_status_row(root)
-
-    def _build_control_tiles(self, parent: tk.Frame) -> None:
-        parent.columnconfigure(self.layout["control_left_column"], weight=self.layout["fill_weight"], uniform=f"{self.panel_config.key}_control_col")
-        parent.columnconfigure(self.layout["control_right_column"], weight=self.layout["fill_weight"], uniform=f"{self.panel_config.key}_control_col")
-
-        for row in range(self.layout["control_row_count"]):
-            parent.rowconfigure(row, weight=self.layout["fill_weight"], uniform=f"{self.panel_config.key}_control_row")
-
-        step_label = format_step(self.panel_config.default_step_hz)
-
-        controls = [
-            (
-                "toggle_app",
-                "▶",
-                self.panel_config.launch_tile.label,
-                self.panel_config.launch_tile.subtitle,
-                self.panel_config.launch_tile.detail,
-                self._request_application_toggle,
-            ),
-            (
-                "toggle_radio",
-                "⏼",
-                self.panel_config.radio_toggle_tile.label,
-                self.panel_config.radio_toggle_tile.subtitle,
-                self.panel_config.radio_toggle_tile.detail,
-                self._request_playback_toggle,
-            ),
-            (
-                "freq_down",
-                "-",
-                "Tune",
-                "Down",
-                f"Step: {step_label}",
-                self._request_tune_down,
-            ),
-            (
-                "freq_up",
-                "+",
-                "Tune",
-                "Up",
-                f"Step: {step_label}",
-                self._request_tune_up,
-            ),
-            (
-                "previous_preset",
-                "←",
-                "Preset",
-                "Previous",
-                "Cycle back",
-                self._request_previous_station,
-            ),
-            (
-                "next_preset",
-                "→",
-                "Preset →",
-                "Next",
-                "Cycle forward",
-                self._request_next_station,
-            ),
-        ]
-
-        for index, (key, icon, label, subtitle, detail, callback) in enumerate(controls):
-            row = index // self.layout["control_column_count"]
-            col = index % self.layout["control_column_count"]
-
-            self._add_control_tile(
-                parent=parent,
-                row=row,
-                col=col,
-                key=key,
-                icon=icon,
-                label=label,
-                subtitle=subtitle,
-                detail=detail,
-                callback=callback,
-            )
-
-    def _build_preset_tiles(self, parent: tk.Frame) -> None:
-        self.preset_tiles.clear()
-
-        for child in parent.winfo_children():
-            child.destroy()
-
-        all_presets = self._presets
-        bank_count = self._preset_bank_count()
-        self.preset_bank_index = min(self.preset_bank_index, bank_count - 1)
-
-        start = self.preset_bank_index * self.presets_per_bank
-        end = start + self.presets_per_bank
-        presets = all_presets[start:end]
-
-        cols = max(1, self.panel_config.preset_columns)
-        rows = max(1, (len(presets) + cols - 1) // cols)
-
-        for row in range(rows):
-            parent.rowconfigure(row, weight=self.layout["fill_weight"], uniform=f"{self.panel_config.key}_preset_row")
-
-        for col in range(cols):
-            parent.columnconfigure(col, weight=self.layout["fill_weight"], uniform=f"{self.panel_config.key}_preset_col")
-
-        precision = self.layout["fm_precision"] if self.panel_config.key == self.layout["fm_panel_key"] else self.layout["default_precision"]
-        
-        for index, preset in enumerate(presets):
-            row = index // cols
-            col = index % cols
-            preset_number = start + index + 1
-
-            tile = self._create_preset_tile(
-                parent=parent,
-                key=f"{self.panel_config.key}_preset_{preset.frequency_hz}",
-                number=preset_number,
-                frequency_text=compact_preset_label(preset, precision=precision),
-                detail=preset.label,
-            )
-            self.preset_tiles[preset.frequency_hz] = tile
-            preset_pad = self.style["preset_tile_pad"]
-            tile.grid(row=row, column=col, sticky=self.layout["fill_sticky"], padx=preset_pad, pady=preset_pad)
-            preset_index = start + index
-            self._bind_click_recursive(
-                tile,
-                lambda selected=preset_index: self._request_preset(selected),
-            )
-
-        self._refresh_active_preset_tile()
-        self._update_preset_bank_label()
-
-    def _create_preset_tile(
-        self,
-        parent: tk.Widget,
-        key: str,
-        number: int,
-        frequency_text: str,
-        detail: str,
-    ) -> tk.Frame:
-        tile = tk.Frame(
-            parent,
-            bg=self.colors["tile_bg"],
-            highlightthickness=self.style["tile_border_width"],
-            highlightbackground=self.colors["tile_border"],
-            highlightcolor=self.colors["primary_value"],
-            bd=self.layout["border_width"],
-            cursor=self.layout["interactive_cursor"],
-        )
-        tile.car_tile_kind = "preset"  # type: ignore[attr-defined]
-        tile.car_tile_key = key  # type: ignore[attr-defined]
-
-        tile.columnconfigure(self.layout["tile_column"], weight=self.layout["fill_weight"])
-        tile.rowconfigure(self.layout["preset_number_row"], weight=self.layout["fixed_weight"])
-        tile.rowconfigure(self.layout["preset_value_row"], weight=self.layout["fill_weight"])
-        tile.rowconfigure(self.layout["preset_detail_row"], weight=self.layout["fixed_weight"])
-
-        number_label = tk.Label(
-            tile,
-            text=f"#{number}",
-            font=self.style["preset_number_font"],
-            bg=self.colors["tile_bg"],
-            fg=self.colors["primary_value"],
-            anchor=self.layout["left_anchor"],
-        )
-        number_label.grid(
-            row=self.layout["preset_number_row"],
-            column=self.layout["tile_column"],
-            sticky=self.layout["northwest_sticky"],
-            padx=self.style["preset_number_padx"],
-            pady=(self.style["preset_number_pady"], self.layout["zero"]),
-        )
-
-        freq_label = tk.Label(
-            tile,
-            text=frequency_text,
-            font=self.style["preset_frequency_font"],
-            bg=self.colors["tile_bg"],
-            fg=self.colors["tile_title"],
-            anchor=self.layout["center_anchor"],
-        )
-        freq_label.grid(
-            row=self.layout["preset_value_row"],
-            column=self.layout["tile_column"],
-            sticky=self.layout["fill_sticky"],
-            padx=self.style["preset_value_padx"],
-            pady=self.layout["zero_padding"],
-        )
-
-        detail_label = tk.Label(
-            tile,
-            text=detail,
-            font=self.style["preset_detail_font"],
-            bg=self.colors["tile_bg"],
-            fg=self.colors["tile_subtitle"],
-            anchor=self.layout["center_anchor"],
-        )
-        detail_label.grid(
-            row=self.layout["preset_detail_row"],
-            column=self.layout["tile_column"],
-            sticky=self.layout["horizontal_sticky"],
-            padx=self.style["preset_detail_padx"],
-            pady=(self.layout["zero"], self.style["preset_detail_pady"]),
-        )
-
-        return tile
-
-    def _build_preset_bank_nav(self, parent: tk.Frame) -> None:
-        nav = tk.Frame(parent, bg=self.colors["panel_bg"])
-        nav.grid(row=self.layout["bank_nav_row"], column=self.layout["root_column"], sticky=self.layout["horizontal_sticky"], pady=(self.style["bank_nav_top_pad"], self.layout["zero"]))
-
-        for column in range(self.layout["bank_column_count"]):
-            nav.columnconfigure(column, weight=self.layout["fill_weight"])
-
-        prev_button = tk.Button(
-            nav,
-            text="◀ Bank",
-            font=self.style["bank_button_font"],
-            bg=self.colors["bank_button_bg"],
-            fg=self.colors["bank_button_fg"],
-            activebackground=self.colors["bank_button_active_bg"],
-            activeforeground=self.colors["bank_button_active_fg"],
-            bd=self.layout["border_width"],
-            padx=self.style["bank_button_padx"],
-            pady=self.style["bank_button_pady"],
-            command=self.previous_preset_bank,
-            cursor=self.layout["interactive_cursor"],
-        )
-        prev_button.grid(row=self.layout["nav_row"], column=self.layout["bank_previous_column"], sticky=self.layout["horizontal_sticky"], padx=(self.layout["zero"], self.style["bank_button_gap"]))
-
-        label = tk.Label(
-            nav,
-            textvariable=self.preset_bank_label_var,
-            font=self.style["bank_button_font"],
-            bg=self.colors["panel_bg"],
-            fg=self.colors["primary_value"],
-            anchor=self.layout["center_anchor"],
-            padx=self.style["bank_label_padx"],
-        )
-        label.grid(row=self.layout["nav_row"], column=self.layout["bank_label_column"], sticky=self.layout["horizontal_sticky"])
-
-        next_button = tk.Button(
-            nav,
-            text="Bank ▶",
-            font=self.style["bank_button_font"],
-            bg=self.colors["bank_button_bg"],
-            fg=self.colors["bank_button_fg"],
-            activebackground=self.colors["bank_button_active_bg"],
-            activeforeground=self.colors["bank_button_active_fg"],
-            bd=self.layout["border_width"],
-            padx=self.style["bank_button_padx"],
-            pady=self.style["bank_button_pady"],
-            command=self.next_preset_bank,
-            cursor=self.layout["interactive_cursor"],
-        )
-        next_button.grid(row=self.layout["nav_row"], column=self.layout["bank_next_column"], sticky=self.layout["horizontal_sticky"], padx=(self.style["bank_button_gap"], self.layout["zero"]))
-
-    def previous_preset_bank(self) -> None:
-        """Display the previous page of presets."""
-        bank_count = self._preset_bank_count()
-        self.preset_bank_index = (self.preset_bank_index - 1) % bank_count
-        self._refresh_preset_bank()
-
-    def next_preset_bank(self) -> None:
-        """Display the next page of presets."""
-        bank_count = self._preset_bank_count()
-        self.preset_bank_index = (self.preset_bank_index + 1) % bank_count
-        self._refresh_preset_bank()
-
-    def _refresh_preset_bank(self) -> None:
-        if self.preset_grid is None:
-            return
-
-        self._build_preset_tiles(self.preset_grid)
-
-    def _preset_bank_count(self) -> int:
-        total = len(self._presets)
-        return max(1, (total + self.presets_per_bank - 1) // self.presets_per_bank)
-
-    def _update_preset_bank_label(self) -> None:
-        self.preset_bank_label_var.set(
-            f"Bank {self.preset_bank_index + 1}/{self._preset_bank_count()}"
-        )
-
-    def _add_control_tile(
-        self,
-        parent: tk.Frame,
-        row: int,
-        col: int,
-        key: str,
-        icon: str,
-        label: str,
-        subtitle: str,
-        detail: str,
-        callback: Callable[[], None],
-    ) -> None:
-        tile = self._create_control_tile(
-            parent=parent,
-            key=f"{self.panel_config.key}_{key}",
-            icon=icon,
-            label=label,
-            subtitle=subtitle,
-            detail=detail,
-        )
-        control_pad = self.style["control_tile_pad"]
-        tile.grid(row=row, column=col, sticky=self.layout["fill_sticky"], padx=control_pad, pady=control_pad)
-        self._bind_click_recursive(tile, callback)
-
-    def _create_control_tile(
-        self,
-        parent: tk.Widget,
-        key: str,
-        icon: str,
-        label: str,
-        subtitle: str,
-        detail: str,
-    ) -> tk.Frame:
-        tile = tk.Frame(
-            parent,
-            bg=self.colors["tile_bg"],
-            highlightthickness=self.style["tile_border_width"],
-            highlightbackground=self.colors["tile_border"],
-            highlightcolor=self.colors["primary_value"],
-            bd=self.layout["border_width"],
-            cursor=self.layout["interactive_cursor"],
-        )
-        tile.car_tile_kind = "control"  # type: ignore[attr-defined]
-        tile.car_tile_key = key  # type: ignore[attr-defined]
-
-        accent = tk.Frame(
-            tile,
-            bg=self.colors["control_accent"],
-            height=self.style["control_accent_height"],
-        )
-        accent.pack(fill=self.layout["horizontal_fill"], side=self.layout["top_side"])
-
-        body = tk.Frame(tile, bg=self.colors["tile_bg"])
-        body.pack(
-            fill=self.layout["both_fill"],
-            expand=self.layout["expand"],
-            padx=self.style["control_body_padx"],
-            pady=self.style["control_body_pady"],
-        )
-
-        body.columnconfigure(self.layout["icon_column"], weight=self.layout["fixed_weight"])
-        body.columnconfigure(self.layout["text_column"], weight=self.layout["fill_weight"])
-        body.rowconfigure(self.layout["body_row"], weight=self.layout["fill_weight"])
-
-        icon_label = tk.Label(
-            body,
-            text=icon,
-            font=self.style["control_icon_font"],
-            bg=self.colors["tile_bg"],
-            fg=self.colors["primary_value"],
-            width=self.style["control_icon_width"],
-            anchor=self.layout["center_anchor"],
-        )
-        icon_label.grid(
-            row=self.layout["body_row"],
-            column=self.layout["icon_column"],
-            sticky=self.layout["north_sticky"],
-            padx=(self.layout["zero"], self.style["control_icon_gap"]),
-            pady=(self.style["control_icon_pady"], self.layout["zero"]),
-        )
-
-        text_area = tk.Frame(body, bg=self.colors["tile_bg"])
-        text_area.grid(row=self.layout["body_row"], column=self.layout["text_column"], sticky=self.layout["fill_sticky"])
-
-        title = tk.Label(
-            text_area,
-            text=label,
-            font=self.style["control_title_font"],
-            bg=self.colors["tile_bg"],
-            fg=self.colors["tile_title"],
-            anchor=self.layout["left_anchor"],
-            justify=self.layout["left_justify"],
-            wraplength=self.style["control_text_wrap"],
-        )
-        title.pack(fill=self.layout["horizontal_fill"], anchor=self.layout["left_anchor"])
-
-        subtitle_label = tk.Label(
-            text_area,
-            text=subtitle,
-            font=self.style["control_subtitle_font"],
-            bg=self.colors["tile_bg"],
-            fg=self.colors["tile_subtitle"],
-            anchor=self.layout["left_anchor"],
-            justify=self.layout["left_justify"],
-            wraplength=self.style["control_text_wrap"],
-        )
-        subtitle_label.pack(fill=self.layout["horizontal_fill"], anchor=self.layout["left_anchor"], pady=(self.style["control_subtitle_pady"], self.layout["zero"]))
-
-        detail_label = tk.Label(
-            text_area,
-            text=detail,
-            font=self.style["control_detail_font"],
-            bg=self.colors["tile_bg"],
-            fg=self.colors["tile_detail"],
-            anchor=self.layout["left_anchor"],
-            justify=self.layout["left_justify"],
-            wraplength=self.style["control_text_wrap"],
-        )
-        detail_label.pack(fill=self.layout["horizontal_fill"], anchor=self.layout["left_anchor"], pady=(self.style["control_detail_pady"], self.layout["zero"]))
-
-        return tile
-
-    def _build_status_row(self, parent: tk.Frame) -> None:
-        status = tk.Frame(parent, bg=self.colors["status_bg"])
-        status.grid(
-            row=self.layout["status_row"],
-            column=self.layout["root_column"],
-            sticky=self.layout["horizontal_sticky"],
-            pady=(self.style["status_top_pad"], self.layout["zero"]),
-            ipady=self.style["status_ipady"],
-        )
-
-        fields = [
-            ("frequency", "Freq:", self.layout["empty_value"], self.colors["primary_value"]),
-            ("preset", "Preset:", self.layout["empty_value"], self.colors["primary_value"]),
-            ("mode", "Mode:", self.layout["empty_value"], self.colors["primary_value"]),
-            ("signal", "Signal:", "--", self.colors["telemetry_value"]),
-            ("snr", "SNR:", "--", self.colors["telemetry_value"]),
-            ("rds", "RDS:", self.layout["empty_value"], self.colors["telemetry_value"]),
-        ]
-
-        for col in range(len(fields)):
-            status.columnconfigure(col, weight=self.layout["fill_weight"])
-
-        for col, (key, label_text, value_text, value_fg) in enumerate(fields):
-            group = tk.Frame(status, bg=self.colors["status_bg"])
-            group.grid(
-                row=self.layout["status_content_row"],
-                column=col,
-                sticky=self.layout["fill_sticky"],
-                padx=self.style["status_group_padx"],
-            )
-
-            label = tk.Label(
-                group,
-                text=label_text,
-                bg=self.colors["status_bg"],
-                fg=self.colors["status_label"],
-                font=self.style["status_font"],
-            )
-            label.pack(side=self.layout["left_side"])
-
-            value = tk.Label(
-                group,
-                text=value_text,
-                bg=self.colors["status_bg"],
-                fg=value_fg,
-                font=self.style["status_font"],
-            )
-            value.pack(side=self.layout["left_side"], padx=(self.style["bank_button_gap"], self.layout["zero"]))
-
-            self.radio_status_widgets[key] = value
-
-    def set_signal(self, signal: TunedSignal | None) -> None:
-        """Render the current tuned signal and telemetry."""
-        empty = self.layout["empty_value"]
-
-        if signal is None:
-            self._set_radio_status_value("frequency", empty)
-            self._set_radio_status_value("mode", empty)
-            self._set_radio_status_value("signal", empty)
-            self._set_radio_status_value("snr", empty)
-            self._set_radio_status_value("rds", empty)
-            return
-        else:
-            self._set_radio_status_value(
-                "frequency",
-                format_frequency(signal.frequency_hz),
-            )
-            if (
-                self.on_frequency_changed is not None
-                and signal.frequency_hz != self._last_frequency_hz
-            ):
-                self._last_frequency_hz = signal.frequency_hz
-                self.on_frequency_changed(signal.frequency_hz)
-
-        self._set_radio_status_value("mode", signal.mode.modulation.name)
-        self._set_radio_status_value(
-            "signal",
-            self._format_status_value(signal.signal_strength_dbfs),
-        )
-        self._set_radio_status_value(
-            "snr",
-            self._format_status_value(signal.snr_db),
-        )
-        self._set_radio_status_value("rds", signal.rds_text or empty)
-
-    def add_preset(self, preset: RadioPreset) -> None:
-        self._presets.append(preset)
-        if self.preset_grid is not None:
-            self._refresh_preset_bank()
-
-    def clear_presets(self) -> None:
-        self._presets.clear()
-        self._active_preset_index = None
-        if self.preset_grid is not None:
-            self._refresh_preset_bank()
-
-    def set_receiver_active(self, active: bool) -> None:
-        self._receiver_active = bool(active)
-
-    def set_active_preset(self, preset_index: int | None) -> None:
-        self._active_preset_index = preset_index
-        if preset_index is None or not 0 <= preset_index < len(self._presets):
-            self._set_radio_status_value("preset", self.layout["empty_value"])
-            self._clear_active_preset_tile()
-            return
-        preset = self._presets[preset_index]
-        self._set_radio_status_value(
-            "preset", f"{preset_index + 1}/{len(self._presets)}"
-        )
-        self._set_active_preset_tile(preset)
-        self._ensure_preset_bank_visible(preset_index)
-
-    def set_preset_request_handler(
-        self, handler: PresetRequestHandlerIf | None
-    ) -> None:
-        self._preset_handler = handler
-
-    def set_playback_request_handler(
-        self, handler: PlaybackRequestHandlerIf | None
-    ) -> None:
-        self._playback_handler = handler
-
-    def set_station_request_handler(
-        self, handler: StationRequestHandlerIf | None
-    ) -> None:
-        self._station_handler = handler
-
-    def set_tuning_request_handler(
-        self, handler: TuningRequestHandlerIf | None
-    ) -> None:
-        self._tuning_handler = handler
-
-    def set_application_request_handler(
-        self, handler: RadioApplicationRequestHandlerIf | None
-    ) -> None:
-        self._application_handler = handler
-
-    def set_refresh_request_handler(
-        self, handler: RadioRefreshRequestHandlerIf | None
-    ) -> None:
-        self._refresh_handler = handler
-
-    def _format_status_value(self, value: object | None) -> str:
-        if value is None:
-            return self.layout["empty_value"]
-        return str(value)
-
-    def _bind_click_recursive(self, widget: tk.Widget, callback: Callable[[], None]) -> None:
-        widget.bind("<Button-1>", lambda event: callback())
-
-        for child in widget.winfo_children():
-            self._bind_click_recursive(child, callback)
-
-    def _set_active_preset_tile(self, preset: RadioPreset) -> None:
-        self.active_preset_frequency_hz = preset.frequency_hz
-        self._refresh_active_preset_tile()
-
-    def _refresh_active_preset_tile(self) -> None:
-        for frequency_hz, tile in self.preset_tiles.items():
-            active = frequency_hz == self.active_preset_frequency_hz
-            self._set_tile_active(tile, active)
-
-    def _set_tile_active(self, tile: tk.Widget, active: bool) -> None:
-        kind = getattr(tile, "car_tile_kind", "")
-        if kind != "preset":
-            return
-
-        bg = self.colors["active_preset_bg"] if active else self.colors["tile_bg"]
-        border = (
-            self.colors["active_preset_border"]
-            if active
-            else self.colors["tile_border"]
-        )
-        freq_fg = (
-            self.colors["active_preset_fg"]
-            if active
-            else self.colors["tile_title"]
-        )
-        detail_fg = (
-            self.colors["active_preset_fg"]
-            if active
-            else self.colors["tile_subtitle"]
-        )
-
-        try:
-            tile.configure(bg=bg, highlightbackground=border, highlightcolor=border)
-        except tk.TclError:
-            pass
-
-        for child in tile.winfo_children():
-            if not isinstance(child, tk.Label):
-                continue
-
-            text = str(child.cget("text"))
+        if self._telemetry_after_id is not None:
             try:
-                if text.startswith("#"):
-                    child.configure(bg=bg, fg=self.colors["primary_value"])
-                elif text == "" or text is None:
-                    child.configure(bg=bg)
-                elif self._looks_like_frequency_label(text):
-                    child.configure(bg=bg, fg=freq_fg)
-                else:
-                    child.configure(bg=bg, fg=detail_fg)
+                self.after_cancel(self._telemetry_after_id)
             except tk.TclError:
                 pass
+            self._telemetry_after_id = None
+        self._telemetry_worker.stop()
+        super().destroy()
+
+    def set_theme_bundle(self, theme: ThemeBundle) -> None:
+        """Repaint ORC radio chrome without disturbing the embedded X11 window."""
+        self._theme = theme
+        ui = theme.ui
+        self.configure(bg=ui.background)
+        self._groups.configure(bg=ui.surface, highlightbackground=ui.border)
+        self._body.configure(bg=ui.background)
+        self._host.configure(bg=ui.background, highlightbackground=ui.border)
+        self._telemetry_overlay.configure(bg=ui.surface_alt, highlightbackground=ui.border)
+        self._signal_label.configure(bg=ui.surface_alt, fg=ui.text)
+        self._snr_label.configure(bg=ui.surface_alt, fg=ui.accent_success)
+        self._controls.configure(bg=ui.surface, highlightbackground=ui.border)
+        for child in self._controls.winfo_children():
+            if isinstance(child, tk.Button):
+                child.configure(
+                    bg=ui.surface,
+                    fg=ui.text,
+                    activebackground=ui.control_background,
+                    activeforeground=ui.accent_success,
+                )
+            elif isinstance(child, tk.Frame):
+                child.configure(bg=ui.surface)
+        self._station_label.configure(bg=ui.surface, fg=ui.text)
+        self._frequency_label.configure(bg=ui.surface, fg=ui.text_muted)
+        self._metadata_label.configure(bg=ui.surface, fg=ui.accent_success)
+        if self._drawer is not None:
+            self._drawer.destroy()
+            self._drawer = None
+            self._drawer_open = False
+            self._display_buttons.clear()
+        self._controls_button.configure(
+            bg=ui.surface,
+            fg=ui.text,
+            activebackground=ui.control_background,
+            activeforeground=ui.accent_success,
+        )
+        self._paint_groups()
+
+    def _build_group_bar(self) -> None:
+        ui = self._theme.ui
+        for name, label in MAIN_GROUPS:
+            command = lambda group=name: self._show_group_menu(group)
+            button = tk.Button(self._groups, text=label, command=command, bg=ui.surface, fg=ui.text, activebackground=ui.control_background, activeforeground=ui.accent_success, relief=tk.FLAT, bd=0, font=("Sans", 9, "bold"), padx=9, pady=7)
+            button.pack(side=tk.LEFT, fill=tk.X, expand=True)
+            self._group_buttons[name] = button
+        self._controls_button = tk.Button(self._groups, text="☰ CONTROLS", command=self._toggle_drawer, bg=ui.surface, fg=ui.text, activebackground=ui.control_background, activeforeground=ui.accent_success, relief=tk.FLAT, bd=0, font=("Sans", 9, "bold"), padx=12, pady=7)
+        self._controls_button.pack(side=tk.RIGHT)
+        self._paint_groups()
+
+    def _show_group_menu(self, group: str) -> None:
+        self._active_group = group
+        self._paint_groups()
+        button = self._group_buttons[group]
+        ui = self._theme.ui
+        menu = tk.Menu(self, tearoff=False, bg=ui.surface, fg=ui.text, activebackground=ui.control_background, activeforeground=ui.accent_success, bd=1, relief=tk.FLAT, font=("Sans", 11))
+        profiles = self._radio.catalog.profiles_for_group(group)
+        for profile in profiles:
+            if len(profiles) == 1:
+                self._add_profile_presets(menu, profile)
+            else:
+                submenu = tk.Menu(menu, tearoff=False, bg=ui.surface, fg=ui.text, activebackground=ui.control_background, activeforeground=ui.accent_success, font=("Sans", 11))
+                self._add_profile_presets(submenu, profile)
+                menu.add_cascade(label=profile.label, menu=submenu)
+        if group == "AIR":
+            if profiles:
+                menu.add_separator()
+            menu.add_command(label="✈ ADS-B Aircraft Map", command=self._show_adsb)
+        if profiles:
+            menu.add_separator()
+            menu.add_command(label="＋ Add Current Preset", command=lambda: self._add_current_preset(group))
+        self._popup_menu(menu, button)
+
+    def _add_profile_presets(self, menu: tk.Menu, profile: RadioProfile) -> None:
+        if not profile.presets:
+            menu.add_command(label=profile.label, command=lambda key=profile.key: self._select_profile(key))
+            return
+        for preset in profile.presets:
+            marker = "★ " if preset.user_defined else ""
+            menu.add_command(label=f"{marker}{preset.label}", command=lambda p=profile, item=preset: self._select_preset(p, item))
+
+    def _select_profile(self, profile_key: str) -> None:
+        self._leave_adsb()
+        self._run_radio_action(lambda: self._radio.select_profile(profile_key))
+
+    def _select_preset(self, profile: RadioProfile, preset: RadioProfilePreset) -> None:
+        self._leave_adsb()
+        try:
+            if self._radio.active_profile_key != profile.key:
+                self._radio.select_profile(profile.key)
+            self._apply_radio_state(self._radio.tune_preset(preset))
+            self._active_group = profile.group
+            self._paint_groups()
+        except (OSError, RuntimeError, ValueError) as error:
+            self._frequency_label.configure(text=f"RIGCTL: {error}", fg=self._theme.ui.accent_danger)
+
+    def _add_current_preset(self, group: str) -> None:
+        profiles = self._radio.catalog.profiles_for_group(group)
+        if not profiles:
+            return
+        profile = self._radio.catalog.profile(self._radio.active_profile_key) if self._radio.active_profile_key in {p.key for p in profiles} else profiles[0]
+        state = self._radio.state
+        label = simpledialog.askstring("Add radio preset", "Preset name:", initialvalue=state.label, parent=self)
+        if label:
+            self._radio.catalog.add_user_preset(profile.key, label=label, frequency_hz=state.frequency_hz)
+
+    def _show_adsb(self) -> None:
+        ui = self._theme.ui
+        self._active_group = "AIR:ADSB"
+        self._paint_groups()
+        self._telemetry_worker.set_include_rds(False)
+        parent_window_id = int(self.winfo_toplevel().winfo_id())
+        try:
+            self._embedder.detach(parent_window_id)
+            self.update_idletasks()
+            self._adsb.configure_browser_window(position=(self._host.winfo_rootx(), self._host.winfo_rooty()), size=(max(1, self._host.winfo_width()), max(1, self._host.winfo_height())))
+            self._adsb.launch(self._display)
+            self.update_idletasks()
+            self._embedder.embed(0, self.host_window_id, self._host.winfo_width(), self._host.winfo_height(), window_class=OrcUiAdsbControl.WINDOW_CLASS)
+            self._embedded_view = "adsb"
+            self._controls.grid_remove()
+            self._telemetry_overlay.place_forget()
+            self._controls_button.configure(state=tk.DISABLED, fg=ui.text_muted)
+        except (OSError, RuntimeError, ValueError) as error:
+            self._embedded_view = "none"
+            self._frequency_label.configure(text=f"ADS-B: {error}", fg=ui.accent_danger)
+            print(f"WARNING: ADS-B launch/embed: {type(error).__name__}: {error}")
+
+    def _leave_adsb(self) -> None:
+        if self._embedded_view != "adsb":
+            return
+        parent_window_id = int(self.winfo_toplevel().winfo_id())
+        self._embedder.detach(parent_window_id)
+        try:
+            self._adsb.stop(self._display)
+        except (OSError, RuntimeError, ValueError) as error:
+            print(f"WARNING: ADS-B stop: {type(error).__name__}: {error}")
+        self._embedded_view = "none"
+        try:
+            self.attach_sdrpp()
+        except (OSError, RuntimeError, ValueError) as error:
+            print(f"WARNING: SDR++ reattach: {type(error).__name__}: {error}")
+        self._controls.grid()
+        self._telemetry_overlay.place(relx=1.0, x=-8, y=8, anchor="ne")
+        self._controls_button.configure(state=tk.NORMAL, fg=self._theme.ui.text)
+        self._telemetry_worker.set_include_rds(self._radio.active_profile_key == "fm_radio")
 
     @staticmethod
-    def _looks_like_frequency_label(text: str) -> bool:
-        return any(ch.isdigit() for ch in text) and not text.startswith("#")
-
-    def _ensure_preset_bank_visible(self, preset_index: int) -> None:
-        wanted_bank_index = preset_index // self.presets_per_bank
-        if wanted_bank_index == self.preset_bank_index:
-            return
-
-        self.preset_bank_index = wanted_bank_index
-        self._refresh_preset_bank()
-
-    def _clear_active_preset_tile(self) -> None:
-        self.active_preset_frequency_hz = None
-
-        for tile in self.preset_tiles.values():
-            self._set_tile_active(tile, False)
-
-    def _set_radio_status_value(self, key: str, value: str) -> None:
-        widget = self.radio_status_widgets.get(key)
-        if widget is not None:
-            widget.config(text=value)
-
-    def start_radio_status_polling(self, interval_ms: int | None = None) -> None:
-        """Begin periodic state refreshes at ``interval_ms``."""
-        if interval_ms is None:
-            interval_ms = self.layout["poll_interval_ms"]
-        self.stop_radio_status_polling()
-        self._poll_radio_status(interval_ms)
-
-    def stop_radio_status_polling(self) -> None:
-        """Cancel periodic radio-state refreshes."""
-        if self._status_poll_after_id is None:
-            return
-
+    def _popup_menu(menu: tk.Menu, button: tk.Button) -> None:
+        x = button.winfo_rootx()
+        y = button.winfo_rooty() + button.winfo_height()
         try:
-            self.parent.after_cancel(self._status_poll_after_id)
-        except Exception:
-            pass
+            menu.tk_popup(x, y)
+        finally:
+            menu.grab_release()
 
-        self._status_poll_after_id = None
+    @property
+    def host_window_id(self) -> int:
+        self.update_idletasks()
+        return int(self._host.winfo_id())
 
-    def _poll_radio_status(self, interval_ms: int) -> None:
-        if not self.winfo_exists():
+    @property
+    def active_group(self) -> str:
+        return self._active_group
+
+    def select_group(self, name: str) -> None:
+        if name not in RADIO_GROUPS:
+            raise ValueError(f"Unknown radio group: {name}")
+        self._leave_adsb()
+        self._active_group = name
+        self._paint_groups()
+        profiles = self._radio.catalog.profiles_for_group(name)
+        if profiles:
+            self._run_radio_action(lambda: self._radio.select_profile(profiles[0].key))
+
+    def set_station(self, label: str, frequency_hz: int, mode_name: str | None = None) -> None:
+        self._station_label.configure(text=label)
+        suffix = f"   {mode_name}" if mode_name else ""
+        self._frequency_label.configure(text=f"{frequency_hz / 1_000_000:.3f} MHz{suffix}", fg=self._theme.ui.text_muted)
+
+    def attach_sdrpp(self, process_id: int = 0) -> int:
+        self.update_idletasks()
+        window_id = self._embedder.embed(process_id, self.host_window_id, self._host.winfo_width(), self._host.winfo_height(), window_name="SDR++")
+        self._embedded_view = "sdrpp"
+        return window_id
+
+    def detach_sdrpp(self, parent_window_id: int) -> None:
+        self._embedder.detach(parent_window_id)
+        if self._embedded_view == "adsb":
+            try:
+                self._adsb.stop(self._display)
+            except (OSError, RuntimeError, ValueError) as error:
+                print(f"WARNING: ADS-B stop: {type(error).__name__}: {error}")
+        self._embedded_view = "none"
+
+    def clear_embedding(self) -> None:
+        self._embedder.clear()
+
+    def _toggle_drawer(self) -> None:
+        ui = self._theme.ui
+        if self._drawer_open:
+            if self._drawer is not None:
+                self._drawer.place_forget()
+            self._drawer_open = False
+            self._controls_button.configure(fg=ui.text, bg=ui.surface)
             return
+        if self._drawer is None:
+            self._build_drawer()
+        self._drawer.place(relx=1.0, rely=0.0, relheight=1.0, width=250, anchor="ne")
+        self._drawer.lift()
+        self._drawer_open = True
+        self._controls_button.configure(fg=ui.accent_success, bg=ui.surface_alt)
+        self._refresh_display_controls()
 
-        self._request_refresh()
+    def _build_drawer(self) -> None:
+        ui = self._theme.ui
+        self._drawer = tk.Frame(self._body, bg=ui.surface, highlightthickness=1, highlightbackground=ui.border)
+        header = tk.Frame(self._drawer, bg=ui.surface_alt)
+        header.pack(fill=tk.X)
+        tk.Label(header, text="RADIO CONTROLS", bg=ui.surface_alt, fg=ui.text, font=("Sans", 11, "bold"), padx=12, pady=10).pack(side=tk.LEFT)
+        tk.Button(header, text="✕", command=self._toggle_drawer, bg=ui.surface_alt, fg=ui.text_muted, activebackground=ui.control_background, activeforeground=ui.text, relief=tk.FLAT, bd=0, padx=12, pady=10).pack(side=tk.RIGHT)
+        for key, label, action in (("waterfall", "WATERFALL", self._toggle_waterfall), ("bandplan", "BANDPLAN", self._toggle_bandplan), ("fft_hold", "PEAK HOLD", self._toggle_fft_hold)):
+            button = tk.Button(self._drawer, text=label, command=action, anchor="w", bg=ui.surface, fg=ui.text_muted, activebackground=ui.control_background, activeforeground=ui.accent_success, relief=tk.FLAT, bd=0, font=("Sans", 10, "bold"), padx=16, pady=11)
+            button.pack(fill=tk.X)
+            self._display_buttons[key] = button
+        tk.Frame(self._drawer, bg=ui.border, height=1).pack(fill=tk.X, padx=12, pady=4)
+        tk.Button(self._drawer, text="AUTO RANGE", command=self._auto_range, anchor="w", bg=ui.surface, fg=ui.text, activebackground=ui.control_background, activeforeground=ui.text, relief=tk.FLAT, bd=0, padx=16, pady=11).pack(fill=tk.X)
+        tk.Button(self._drawer, text="THEME…", command=self._choose_theme, anchor="w", bg=ui.surface, fg=ui.text, activebackground=ui.control_background, activeforeground=ui.text, relief=tk.FLAT, bd=0, padx=16, pady=11).pack(fill=tk.X)
 
-        self._status_poll_after_id = self.parent.after(
-            interval_ms,
-            lambda: self._poll_radio_status(interval_ms),
-        )
-
-    def _request_application_toggle(self) -> None:
-        if self._application_handler is not None:
-            self._application_handler.request_toggle_radio_application()
-
-    def _request_playback_toggle(self) -> None:
-        if self._playback_handler is None:
+    def _choose_theme(self) -> None:
+        try:
+            themes = self._sdrpp.themes()
+        except (OSError, RuntimeError, ValueError):
             return
-        if self._receiver_active:
-            self._playback_handler.request_pause()
-        else:
-            self._playback_handler.request_play()
+        if not themes:
+            return
+        ui = self._theme.ui
+        menu = tk.Menu(self, tearoff=False, bg=ui.surface, fg=ui.text, activebackground=ui.control_background, activeforeground=ui.text)
+        for theme in themes:
+            menu.add_command(label=theme, command=lambda value=theme: self._sdrpp.set_theme(value))
+        try:
+            menu.tk_popup(self.winfo_pointerx(), self.winfo_pointery())
+        finally:
+            menu.grab_release()
 
-    def _request_tune_up(self) -> None:
-        if self._tuning_handler is not None:
-            self._tuning_handler.request_tune_up()
+    def _paint_toggle(self, key: str, label: str, enabled: bool) -> None:
+        ui = self._theme.ui
+        self._display_buttons[key].configure(text=f"{label}     {'ON' if enabled else 'OFF'}", fg=ui.accent_success if enabled else ui.text_muted, bg=ui.surface_alt if enabled else ui.surface)
 
-    def _request_tune_down(self) -> None:
-        if self._tuning_handler is not None:
-            self._tuning_handler.request_tune_down()
+    def _remote_toggle(self, key: str, label: str, action) -> None:
+        try:
+            self._paint_toggle(key, label, action())
+        except (OSError, RuntimeError, ValueError) as error:
+            self._display_buttons[key].configure(text=f"{label}     !", fg=self._theme.ui.accent_danger)
+            print(f"WARNING: SDR++ remote control: {type(error).__name__}: {error}")
 
-    def _request_next_station(self) -> None:
-        if self._station_handler is not None:
-            self._station_handler.request_next_station()
+    def _toggle_waterfall(self) -> None:
+        self._remote_toggle("waterfall", "WATERFALL", self._sdrpp.toggle_waterfall)
 
-    def _request_previous_station(self) -> None:
-        if self._station_handler is not None:
-            self._station_handler.request_previous_station()
+    def _toggle_bandplan(self) -> None:
+        self._remote_toggle("bandplan", "BANDPLAN", self._sdrpp.toggle_bandplan)
 
-    def _request_preset(self, preset_index: int) -> None:
-        if self._preset_handler is not None:
-            self._preset_handler.request_preset(preset_index)
+    def _toggle_fft_hold(self) -> None:
+        self._remote_toggle("fft_hold", "PEAK HOLD", self._sdrpp.toggle_fft_hold)
 
-    def _request_refresh(self) -> None:
-        if self._refresh_handler is not None:
-            self._refresh_handler.request_radio_refresh()
+    def _auto_range(self) -> None:
+        try:
+            self._sdrpp.auto_range()
+        except (OSError, RuntimeError, ValueError) as error:
+            print(f"WARNING: SDR++ auto range: {type(error).__name__}: {error}")
+
+    def _refresh_display_controls(self) -> None:
+        ui = self._theme.ui
+        for key, label, getter in (("waterfall", "WATERFALL", self._sdrpp.waterfall_visible), ("bandplan", "BANDPLAN", self._sdrpp.bandplan_visible), ("fft_hold", "PEAK HOLD", self._sdrpp.fft_hold_enabled)):
+            try:
+                self._paint_toggle(key, label, getter())
+            except (OSError, RuntimeError, ValueError):
+                self._display_buttons[key].configure(text=label, fg=ui.text_muted, bg=ui.surface)
+
+    def _previous_preset(self) -> None:
+        self._run_radio_action(self._radio.previous_preset)
+
+    def _next_preset(self) -> None:
+        self._run_radio_action(self._radio.next_preset)
+
+    def _tune_down(self) -> None:
+        self._run_radio_action(self._radio.tune_down)
+
+    def _tune_up(self) -> None:
+        self._run_radio_action(self._radio.tune_up)
+
+    def _run_radio_action(self, action) -> None:
+        self._leave_adsb()
+        try:
+            self._apply_radio_state(action())
+        except (OSError, RuntimeError, ValueError) as error:
+            self._frequency_label.configure(text=f"RIGCTL: {error}", fg=self._theme.ui.accent_danger)
+            print(f"WARNING: SDR++ rigctl: {type(error).__name__}: {error}")
+
+    def _apply_radio_state(self, state: RadioProfileState) -> None:
+        self.set_station(state.label, state.frequency_hz, state.mode_name)
+        include_rds = state.profile_key == "fm_radio"
+        self._telemetry_worker.set_include_rds(include_rds)
+        if not include_rds:
+            self._metadata_label.configure(text="")
+
+    def _schedule_telemetry_refresh(self) -> None:
+        self._refresh_telemetry()
+        self._telemetry_after_id = self.after(500, self._schedule_telemetry_refresh)
+
+    def _refresh_telemetry(self) -> None:
+        telemetry = self._telemetry_worker.latest
+        self._signal_label.configure(text=f"SIGNAL {telemetry.signal}")
+        self._snr_label.configure(text=f"SNR {telemetry.snr}")
+        if self._radio.active_profile_key == "fm_radio":
+            self._metadata_label.configure(text="" if telemetry.rds == "--" else telemetry.rds)
+        elif self._metadata_label.cget("text"):
+            self._metadata_label.configure(text="")
+
+    def _on_host_resize(self, event: tk.Event) -> None:
+        self._embedder.resize(event.width, event.height)
+
+    def _paint_groups(self) -> None:
+        ui = self._theme.ui
+        parent_active = self._active_group.split(":", 1)[0]
+        for name, button in self._group_buttons.items():
+            active = name == parent_active
+            button.configure(
+                fg=ui.accent_success if active else ui.text,
+                bg=ui.surface_alt if active else ui.surface,
+                activebackground=ui.control_background,
+                activeforeground=ui.accent_success,
+            )
