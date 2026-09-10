@@ -17,6 +17,7 @@ from .power_dialog import PowerDialog
 from apps.orcUi.theme_runtime import theme_bundle
 from .vehicle_panel import VehiclePanel
 from apps.orcUi.vehicle_presenter import VehiclePresentationState
+from ui.navigation import MapRequestHandlerIf
 from ui.screen_ui_if import ScreenUiIf
 from ui.system import (
     SystemLifecycleRequestHandlerIf,
@@ -30,9 +31,11 @@ class OrcUiApp(VolumeUiIf):
         self,
         *,
         map_runtime: MapRuntimeIf,
+        map_request_handler: MapRequestHandlerIf,
         lifecycle_handler: SystemLifecycleRequestHandlerIf,
     ) -> None:
         self._map_runtime = map_runtime
+        self._map_request_handler = map_request_handler
         self._lifecycle_handler = lifecycle_handler
         self._theme_mode = ThemeMode.DARK
         self._theme = theme_bundle(self._theme_mode)
@@ -404,7 +407,7 @@ class OrcUiApp(VolumeUiIf):
         self._content.grid_columnconfigure(1, weight=0, minsize=ContextRail.WIDTH)
         self._content.grid_rowconfigure(0, weight=3)
         self._content.grid_rowconfigure(1, weight=2)
-        self._home_map_panel = HomeMapPanel(self._content, theme=self._theme)
+        self._home_map_panel = HomeMapPanel(self._content, map_request_handler=self._map_request_handler, theme=self._theme)
         self._home_map_panel.grid(row=0, column=0, sticky="nsew", padx=(0, 5), pady=(0, 5))
         self._context_rail = ContextRail(self._content, on_expand=self._show_context_full_panel, theme=self._theme)
         self._context_rail.update_vehicle_state(self._vehicle_state)
@@ -434,7 +437,7 @@ class OrcUiApp(VolumeUiIf):
         self._clear_content()
         self._active_nav = "NAVIGATION"
         self._paint_nav()
-        self._navigation_panel = NavigationPanel(self._content, on_back=self._show_home, theme_bundle=self._theme)
+        self._navigation_panel = NavigationPanel(self._content, map_request_handler=self._map_request_handler, on_back=self._show_home, theme_bundle=self._theme)
         self._navigation_panel.pack(fill=tk.BOTH, expand=True)
         self._root.update_idletasks()
         self._start_map_renderer(self._navigation_panel.map_host_window_id)
