@@ -13,8 +13,8 @@ from pathlib import Path
 
 from PIL import ImageTk
 
-from apps.orcUi.spotify_state_service import SpotifyStateService
 from controllers.image import ImageCache
+from controllers.spotify.spotify_state_service import SpotifyStateService
 from ui.media import PlaybackState
 from ui.theme import ThemeBundle
 
