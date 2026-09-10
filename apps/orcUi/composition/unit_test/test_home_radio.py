@@ -42,6 +42,7 @@ class HomeRadioCompositionTest(unittest.TestCase):
 
     def test_home_slot_rebuilds_only_when_home_is_active(self):
         app = OrcUiApp.__new__(OrcUiApp)
+        app._running = True
         app._active_nav = "RADIO"
         app._show_home = Mock()
         factory = Mock()
