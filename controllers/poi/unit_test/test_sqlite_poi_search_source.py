@@ -26,10 +26,10 @@ def _database(tmp_path):
     connection.executemany(
         "INSERT INTO poi VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
         [
-            ("restaurant", "Lunch", None, 42.50, -83.05, "FOOD", "restaurant", "restaurant"),
-            ("fuel", "Fuel", None, 42.51, -83.04, "FUEL", "shop", "fuel"),
-            ("bus", "12 Mile / Ryan", None, 42.52, -83.03, "TRANSIT", "bus", "bus_stop"),
-            ("far", "Far Away", None, 44.00, -83.03, "TRANSIT", "bus", "bus_stop"),
+            ("restaurant", "Lunch", None, 42.50, -83.05, "food", "restaurant", "restaurant"),
+            ("fuel", "Fuel", None, 42.51, -83.04, "fuel", "shop", "fuel"),
+            ("bus", "12 Mile / Ryan", None, 42.52, -83.03, "transit", "bus", "bus_stop"),
+            ("far", "Far Away", None, 44.00, -83.03, "transit", "bus", "bus_stop"),
         ],
     )
     connection.commit()
