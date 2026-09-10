@@ -5,7 +5,7 @@
 
 from __future__ import annotations
 
-from apps.orcUi.map_camera_runtime import MapCameraRuntime
+from controllers.map_renderer.map_camera_runtime import MapCameraRuntime
 
 _runtime: MapCameraRuntime | None = None
 
