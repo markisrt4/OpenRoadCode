@@ -51,6 +51,7 @@ class CoreCompositionTest(unittest.TestCase):
         app_type.assert_called_once_with(
             map_runtime=map_runtime,
             route_request_handler=route_handler_type.return_value,
+            route_simulation_handler=route_handler_type.return_value,
         )
         ingress_type.assert_called_once_with(
             schedule_ui=app.schedule_ui_callback,
