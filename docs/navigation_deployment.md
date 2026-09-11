@@ -33,32 +33,30 @@ Map updates must not overwrite `/etc/openroadcode`.
 
 ## Architecture
 
-```text
-MAP BUILD MACHINE                         VEHICLE / RASPBERRY PI
------------------                         ----------------------
-Geofabrik OSM extracts
-        |
-        v
-tools/map_builder
-  - build MBTiles
-  - build glyph/style package
-  - build Valhalla tiles
-  - validate artifacts
-  - write build-manifest.json
-        |
-        | SSH + rsync, initiated by vehicle
-        v
-                                    /srv/openroadcode-update
-                                             |
-                                          validate
-                                             |
-                                      atomic-ish promotion
-                                             |
-                                    /srv/openroadcode
-                                             |
-                                      restart Valhalla
-                                             |
-                                      rollback on failure
+```mermaid
+flowchart LR
+    subgraph build["Map build machine"]
+      osm["Geofabrik OSM extracts"] --> builder["tools/map_builder<br/>MBTiles + styles/glyphs + Valhalla tiles<br/>validation + build-manifest.json"]
+    end
+    builder -->|"SSH + rsync<br/>initiated by vehicle"| update["/srv/openroadcode-update"]
+    subgraph vehicle["Vehicle / Raspberry Pi"]
+      update --> validate["Validate"] --> promote["Atomic-ish promotion<br/>/srv/openroadcode"]
+      promote --> restart["Restart Valhalla"]
+      restart --> health{"Healthy?"}
+      health -->|yes| active["Updated navigation data active"]
+      health -->|no| rollback["Rollback"]
+    end
+
+    classDef orcApp fill:#dbeafe,stroke:#2563eb,color:#172554;
+    classDef orcService fill:#ede9fe,stroke:#7c3aed,color:#2e1065;
+    classDef orcController fill:#dcfce7,stroke:#16a34a,color:#14532d;
+    classDef orcMessage fill:#ffedd5,stroke:#ea580c,color:#7c2d12;
+    classDef orcAdapter fill:#fee2e2,stroke:#dc2626,color:#7f1d1d;
+    classDef orcExternal fill:#f3f4f6,stroke:#6b7280,color:#1f2937;
+    class osm orcExternal;
+    class builder,validate orcController;
+    class update,promote,restart,rollback orcService;
+    class active orcApp;
 ```
 
 The map-build machine is the authoritative producer of navigation data. The vehicle controls when it consumes a new dataset.
