@@ -28,6 +28,7 @@ def test_simulated_obd_responses_produce_si_vehicle_state():
     assert state.coolant_temperature_k == pytest.approx(363.15)
     assert state.intake_air_temperature_k == pytest.approx(308.15)
     assert state.fuel_level == pytest.approx(191.0 / 255.0)
+    assert state.commanded_equivalence_ratio == pytest.approx(1.0)
     assert state.engine_fuel_rate_m3_s == pytest.approx(8.0 / 1000.0 / 3600.0)
     assert state.control_voltage_v == pytest.approx(13.8)
 
