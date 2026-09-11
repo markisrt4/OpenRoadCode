@@ -19,6 +19,10 @@ rate_hz = 10.0
 [services.automotive.input]
 source = "simulation"
 
+[services.automotive.fuel]
+engine_displacement_l = 1.6
+volumetric_efficiency = 0.85
+
 [services.automotive.publish]
 enabled = true
 source = "simulated-vehicle"
