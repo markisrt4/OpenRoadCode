@@ -147,16 +147,26 @@ flowchart TD
 
 The navigation path fans one normalized `NavigationState` sample into public domain topics:
 
-```text
-NavigationController / simulator
-              |
-       NavigationState
-              |
-   NavigationStatePublisher
-       |      |      |      |
- position  motion attitude  imu
-              |
-      ZeroMqPublisher
+```mermaid
+flowchart TD
+    nav["NavigationController / simulator"] --> state["NavigationState"] --> publisher["NavigationStatePublisher"]
+    publisher --> position["position"]
+    publisher --> motion["motion"]
+    publisher --> attitude["attitude"]
+    publisher --> imu["imu"]
+    position --> zmq["ZeroMqPublisher"]
+    motion --> zmq
+    attitude --> zmq
+    imu --> zmq
+
+    classDef orcApp fill:#dbeafe,stroke:#2563eb,color:#172554;
+    classDef orcService fill:#ede9fe,stroke:#7c3aed,color:#2e1065;
+    classDef orcController fill:#dcfce7,stroke:#16a34a,color:#14532d;
+    classDef orcMessage fill:#ffedd5,stroke:#ea580c,color:#7c2d12;
+    classDef orcAdapter fill:#fee2e2,stroke:#dc2626,color:#7f1d1d;
+    classDef orcExternal fill:#f3f4f6,stroke:#6b7280,color:#1f2937;
+    class nav,state orcController;
+    class publisher,position,motion,attitude,imu,zmq orcMessage;
 ```
 
 Attitude, IMU, and motion use the navigation sample timestamp. Position retains its GPS/source timestamp because fixes may update at a different cadence from inertial sampling.
