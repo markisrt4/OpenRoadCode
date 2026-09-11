@@ -1,237 +1,213 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 
-"""Reusable Tk system performance and diagnostics panel."""
+"""Tk dashboard for Raspberry Pi performance and capacity headroom."""
 
 from __future__ import annotations
 
 import tkinter as tk
+from collections import deque
 
 from ui.system_diagnostics import SystemDiagnosticsSnapshot
 from ui.theme import ThemeBundle
 
 
 class DiagnosticsPanel(tk.Frame):
-    """Render system health as glanceable metrics and diagnostic details."""
+    """Answer the practical question: how much more can this Pi handle?"""
+
+    _HISTORY_SAMPLES = 120
 
     def __init__(self, parent: tk.Misc, *, theme: ThemeBundle) -> None:
         self._theme = theme
         ui = theme.ui
         super().__init__(parent, bg=ui.background)
-
-        self._metric_values: dict[str, tk.Label] = {}
-        self._detail_values: dict[str, tk.Label] = {}
+        self._values: dict[str, tk.Label] = {}
+        self._history: dict[str, deque[float]] = {
+            "cpu": deque(maxlen=self._HISTORY_SAMPLES),
+            "memory": deque(maxlen=self._HISTORY_SAMPLES),
+            "temperature": deque(maxlen=self._HISTORY_SAMPLES),
+        }
+        self._graphs: dict[str, tk.Canvas] = {}
 
         for column in range(4):
             self.grid_columnconfigure(column, weight=1, uniform="metric")
         self.grid_rowconfigure(1, weight=1)
 
-        self._build_metric(0, "CPU", "cpu")
-        self._build_metric(1, "MEMORY", "memory")
-        self._build_metric(2, "STORAGE", "storage")
-        self._build_metric(3, "TEMPERATURE", "temperature")
+        self._metric(0, "CPU", "cpu", "load")
+        self._metric(1, "MEMORY", "memory", "memory_detail")
+        self._metric(2, "THERMAL", "temperature", "thermal_detail")
+        self._metric(3, "STORAGE", "storage", "storage_detail")
 
-        details = tk.Frame(
-            self,
-            bg=ui.surface,
-            highlightthickness=1,
-            highlightbackground=ui.border,
-        )
-        details.grid(row=1, column=0, columnspan=4, sticky="nsew", padx=5, pady=5)
-        details.grid_columnconfigure(0, weight=1)
-        details.grid_columnconfigure(1, weight=1)
+        center = tk.Frame(self, bg=ui.background)
+        center.grid(row=1, column=0, columnspan=4, sticky="nsew", padx=5, pady=5)
+        center.grid_columnconfigure(0, weight=3)
+        center.grid_columnconfigure(1, weight=2)
+        center.grid_rowconfigure(0, weight=1)
 
-        self._build_detail_group(
-            details,
-            0,
-            "OPENROADCODE PROCESS",
-            (
-                ("Memory", "process_memory"),
-                ("Threads", "process_threads"),
-                ("Uptime", "uptime"),
-            ),
-        )
-        self._build_detail_group(
-            details,
-            1,
-            "HOST",
-            (
-                ("Host", "hostname"),
-                ("Platform", "platform"),
-                ("Kernel", "kernel"),
-                ("Python", "python"),
-            ),
-        )
+        trends = self._panel(center, "2 MINUTE TREND")
+        trends.grid(row=0, column=0, sticky="nsew", padx=(0, 5))
+        for row, (key, label) in enumerate((
+            ("cpu", "CPU"),
+            ("memory", "RAM"),
+            ("temperature", "TEMP"),
+        )):
+            trends.grid_rowconfigure(row + 1, weight=1)
+            tk.Label(
+                trends, text=label, bg=ui.surface, fg=ui.text_muted,
+                font=("Sans", 8, "bold"), width=5,
+            ).grid(row=row + 1, column=0, sticky="w", padx=(10, 3))
+            canvas = tk.Canvas(
+                trends, height=38, bg=ui.surface_alt,
+                highlightthickness=1, highlightbackground=ui.border,
+            )
+            canvas.grid(row=row + 1, column=1, sticky="nsew", padx=(0, 10), pady=3)
+            trends.grid_columnconfigure(1, weight=1)
+            self._graphs[key] = canvas
 
-        warning_frame = tk.Frame(
-            self,
-            bg=ui.surface,
-            highlightthickness=1,
-            highlightbackground=ui.border,
+        processes = self._panel(center, "TOP RESOURCE CONSUMERS")
+        processes.grid(row=0, column=1, sticky="nsew", padx=(5, 0))
+        self._process_label = tk.Label(
+            processes, text="Collecting process samples…",
+            bg=ui.surface, fg=ui.text, font=("Monospace", 8),
+            justify=tk.LEFT, anchor="nw",
         )
-        warning_frame.grid(row=2, column=0, columnspan=4, sticky="ew", padx=5, pady=(5, 0))
-        warning_frame.grid_columnconfigure(1, weight=1)
-        tk.Label(
-            warning_frame,
-            text="HEALTH",
-            bg=ui.surface,
-            fg=ui.text_muted,
-            font=("Sans", 9, "bold"),
-        ).grid(row=0, column=0, sticky="w", padx=(12, 8), pady=10)
-        self._health_label = tk.Label(
-            warning_frame,
-            text="Collecting diagnostics…",
-            bg=ui.surface,
-            fg=ui.text_muted,
-            font=("Sans", 10, "bold"),
-            anchor="w",
-        )
-        self._health_label.grid(row=0, column=1, sticky="ew", padx=(0, 12), pady=10)
+        self._process_label.pack(fill=tk.BOTH, expand=True, padx=10, pady=(4, 10))
 
-    def _build_metric(self, column: int, title: str, key: str) -> None:
+        capacity = self._panel(self, "SYSTEM CAPACITY")
+        capacity.grid(row=2, column=0, columnspan=4, sticky="ew", padx=5, pady=(5, 0))
+        capacity.grid_columnconfigure(1, weight=1)
+        self._capacity_label = tk.Label(
+            capacity, text="UNKNOWN", bg=ui.surface, fg=ui.text_muted,
+            font=("Sans", 18, "bold"),
+        )
+        self._capacity_label.grid(row=1, column=0, rowspan=2, sticky="w", padx=12, pady=(0, 10))
+        self._headroom_label = tk.Label(
+            capacity, text="Collecting headroom…", bg=ui.surface, fg=ui.text,
+            font=("Sans", 9, "bold"), anchor="w",
+        )
+        self._headroom_label.grid(row=1, column=1, sticky="ew", padx=12)
+        self._warning_label = tk.Label(
+            capacity, text="", bg=ui.surface, fg=ui.text_muted,
+            font=("Sans", 8), anchor="w",
+        )
+        self._warning_label.grid(row=2, column=1, sticky="ew", padx=12, pady=(2, 10))
+
+    def _metric(self, column: int, title: str, key: str, detail_key: str) -> None:
         ui = self._theme.ui
         card = tk.Frame(
-            self,
-            bg=ui.surface,
-            highlightthickness=1,
-            highlightbackground=ui.border,
+            self, bg=ui.surface, highlightthickness=1, highlightbackground=ui.border,
         )
         card.grid(row=0, column=column, sticky="nsew", padx=5, pady=(0, 5))
         tk.Label(
-            card,
-            text=title,
-            bg=ui.surface,
-            fg=ui.text_muted,
+            card, text=title, bg=ui.surface, fg=ui.text_muted,
             font=("Sans", 9, "bold"),
-        ).pack(anchor="w", padx=12, pady=(10, 3))
+        ).pack(anchor="w", padx=12, pady=(9, 2))
         value = tk.Label(
-            card,
-            text="--",
-            bg=ui.surface,
-            fg=ui.text,
+            card, text="--", bg=ui.surface, fg=ui.text,
             font=("Sans", 20, "bold"),
         )
         value.pack(anchor="w", padx=12)
-        self._metric_values[key] = value
-        if key == "cpu":
-            secondary = tk.Label(
-                card,
-                text="Load --",
-                bg=ui.surface,
-                fg=ui.text_muted,
-                font=("Sans", 8),
-            )
-            secondary.pack(anchor="w", padx=12, pady=(2, 10))
-            self._metric_values["load"] = secondary
-        elif key == "memory":
-            secondary = tk.Label(
-                card,
-                text="-- / -- MiB",
-                bg=ui.surface,
-                fg=ui.text_muted,
-                font=("Sans", 8),
-            )
-            secondary.pack(anchor="w", padx=12, pady=(2, 10))
-            self._metric_values["memory_detail"] = secondary
-        elif key == "storage":
-            secondary = tk.Label(
-                card,
-                text="-- GiB free",
-                bg=ui.surface,
-                fg=ui.text_muted,
-                font=("Sans", 8),
-            )
-            secondary.pack(anchor="w", padx=12, pady=(2, 10))
-            self._metric_values["storage_detail"] = secondary
-        else:
-            tk.Label(
-                card,
-                text="CPU / SoC",
-                bg=ui.surface,
-                fg=ui.text_muted,
-                font=("Sans", 8),
-            ).pack(anchor="w", padx=12, pady=(2, 10))
+        detail = tk.Label(
+            card, text="--", bg=ui.surface, fg=ui.text_muted,
+            font=("Sans", 8),
+        )
+        detail.pack(anchor="w", padx=12, pady=(1, 9))
+        self._values[key] = value
+        self._values[detail_key] = detail
 
-    def _build_detail_group(
-        self,
-        parent: tk.Misc,
-        column: int,
-        title: str,
-        rows: tuple[tuple[str, str], ...],
-    ) -> None:
+    def _panel(self, parent: tk.Misc, title: str) -> tk.Frame:
         ui = self._theme.ui
-        group = tk.Frame(parent, bg=ui.surface)
-        group.grid(row=0, column=column, sticky="nsew", padx=14, pady=12)
-        group.grid_columnconfigure(1, weight=1)
+        panel = tk.Frame(
+            parent, bg=ui.surface, highlightthickness=1, highlightbackground=ui.border,
+        )
         tk.Label(
-            group,
-            text=title,
-            bg=ui.surface,
-            fg=ui.accent_primary,
+            panel, text=title, bg=ui.surface, fg=ui.accent_primary,
             font=("Sans", 9, "bold"),
-        ).grid(row=0, column=0, columnspan=2, sticky="w", pady=(0, 8))
-        for row, (label_text, key) in enumerate(rows, start=1):
-            tk.Label(
-                group,
-                text=label_text,
-                bg=ui.surface,
-                fg=ui.text_muted,
-                font=("Sans", 9),
-            ).grid(row=row, column=0, sticky="w", padx=(0, 16), pady=2)
-            value = tk.Label(
-                group,
-                text="--",
-                bg=ui.surface,
-                fg=ui.text,
-                font=("Monospace", 9, "bold"),
-                anchor="w",
-            )
-            value.grid(row=row, column=1, sticky="ew", pady=2)
-            self._detail_values[key] = value
+        ).pack(anchor="w", padx=10, pady=(8, 2))
+        return panel
 
     def apply_snapshot(self, snapshot: SystemDiagnosticsSnapshot) -> None:
-        """Paint one diagnostics sample."""
+        self._values["cpu"].configure(text=_percent(snapshot.cpu_percent))
+        core_text = ""
+        if snapshot.per_core_percent:
+            core_text = "  " + " ".join(
+                f"C{index}:{value:.0f}%" for index, value in enumerate(snapshot.per_core_percent)
+            )
+        freq = "" if snapshot.cpu_frequency_mhz is None else f"  {snapshot.cpu_frequency_mhz:.0f} MHz"
+        self._values["load"].configure(
+            text=f"load {_number(snapshot.load_1m, 2)}{freq}{core_text}"
+        )
 
-        self._metric_values["cpu"].configure(text=_percent(snapshot.cpu_percent))
-        self._metric_values["load"].configure(
-            text=f"Load {_number(snapshot.load_1m, 2)}"
-            + ("" if snapshot.cpu_count is None else f" / {snapshot.cpu_count} CPUs")
+        self._values["memory"].configure(text=_percent(snapshot.memory_used_percent))
+        swap = ""
+        if snapshot.swap_total_mb:
+            swap = f"  swap {_number(snapshot.swap_used_mb, 0)}/{_number(snapshot.swap_total_mb, 0)} MiB"
+        self._values["memory_detail"].configure(
+            text=f"{_number(snapshot.memory_available_mb, 0)} MiB available{swap}"
         )
-        self._metric_values["memory"].configure(text=_percent(snapshot.memory_used_percent))
-        self._metric_values["memory_detail"].configure(
-            text=f"{_number(snapshot.memory_used_mb, 0)} / {_number(snapshot.memory_total_mb, 0)} MiB"
-        )
-        self._metric_values["storage"].configure(text=_percent(snapshot.disk_used_percent))
-        self._metric_values["storage_detail"].configure(
-            text=f"{_number(snapshot.disk_free_gb, 1)} / {_number(snapshot.disk_total_gb, 1)} GiB free/total"
-        )
-        self._metric_values["temperature"].configure(
+
+        self._values["temperature"].configure(
             text="--" if snapshot.temperature_c is None else f"{snapshot.temperature_c:.0f}°C"
         )
+        throttle = snapshot.throttled_flags or "n/a"
+        self._values["thermal_detail"].configure(
+            text=f"{_number(snapshot.thermal_headroom_c, 0)}°C headroom  throttle {throttle}"
+        )
 
-        self._detail_values["process_memory"].configure(
-            text="--" if snapshot.process_rss_mb is None else f"{snapshot.process_rss_mb:.1f} MiB RSS"
+        self._values["storage"].configure(text=_percent(snapshot.disk_used_percent))
+        self._values["storage_detail"].configure(
+            text=f"{_number(snapshot.disk_free_gb, 1)} GiB free"
         )
-        self._detail_values["process_threads"].configure(
-            text="--" if snapshot.process_threads is None else str(snapshot.process_threads)
-        )
-        self._detail_values["uptime"].configure(text=_duration(snapshot.uptime_seconds))
-        self._detail_values["hostname"].configure(text=snapshot.hostname or "--")
-        self._detail_values["platform"].configure(text=snapshot.platform_name or "--")
-        self._detail_values["kernel"].configure(text=snapshot.kernel_release or "--")
-        self._detail_values["python"].configure(text=snapshot.python_version or "--")
+
+        for key, value in (
+            ("cpu", snapshot.cpu_percent),
+            ("memory", snapshot.memory_used_percent),
+            ("temperature", snapshot.temperature_c),
+        ):
+            if value is not None:
+                self._history[key].append(value)
+            self._paint_graph(key)
+
+        if snapshot.top_processes:
+            rows = ["PID     CPU    RAM      PROCESS"]
+            rows.extend(
+                f"{item.pid:<7} {item.cpu_percent:>4.0f}%  {item.memory_mb:>6.0f}M  {item.name[:18]}"
+                for item in snapshot.top_processes
+            )
+            self._process_label.configure(text="\n".join(rows))
+        else:
+            self._process_label.configure(text="Collecting process samples…")
 
         ui = self._theme.ui
-        if snapshot.warnings:
-            self._health_label.configure(
-                text="  •  ".join(snapshot.warnings),
-                fg=ui.accent_danger,
-            )
-        else:
-            self._health_label.configure(
-                text="All sampled metrics are within normal thresholds",
-                fg=ui.accent_success,
-            )
+        status_color = {
+            "HEALTHY": ui.accent_success,
+            "MODERATE": ui.accent_warning,
+            "LIMITED": ui.accent_danger,
+        }.get(snapshot.capacity_status, ui.text_muted)
+        self._capacity_label.configure(text=snapshot.capacity_status, fg=status_color)
+        self._headroom_label.configure(
+            text="  •  ".join(snapshot.capacity_reasons) or "Headroom unavailable"
+        )
+        self._warning_label.configure(
+            text="  •  ".join(snapshot.warnings) if snapshot.warnings else "No current resource-pressure warnings",
+            fg=ui.accent_danger if snapshot.warnings else ui.text_muted,
+        )
+
+    def _paint_graph(self, key: str) -> None:
+        canvas = self._graphs[key]
+        canvas.delete("all")
+        values = tuple(self._history[key])
+        if len(values) < 2:
+            return
+        width = max(1, canvas.winfo_width())
+        height = max(1, canvas.winfo_height())
+        ceiling = 100.0 if key != "temperature" else 90.0
+        points: list[float] = []
+        for index, value in enumerate(values):
+            x = index * width / max(1, self._HISTORY_SAMPLES - 1)
+            y = height - max(0.0, min(ceiling, value)) / ceiling * height
+            points.extend((x, y))
+        canvas.create_line(*points, fill=self._theme.ui.text, width=2)
 
 
 def _percent(value: float | None) -> str:
@@ -240,15 +216,3 @@ def _percent(value: float | None) -> str:
 
 def _number(value: float | None, digits: int) -> str:
     return "--" if value is None else f"{value:.{digits}f}"
-
-
-def _duration(seconds: float | None) -> str:
-    if seconds is None:
-        return "--"
-    total = max(0, int(seconds))
-    days, remainder = divmod(total, 86400)
-    hours, remainder = divmod(remainder, 3600)
-    minutes, _ = divmod(remainder, 60)
-    if days:
-        return f"{days}d {hours}h {minutes}m"
-    return f"{hours}h {minutes}m"
