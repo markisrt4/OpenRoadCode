@@ -35,8 +35,17 @@ Install the packages selected for the detected device:
 
 The first validated native Termux hardware path is Qualcomm/Adreno. On a device exposing the KGSL interface, when the Termux repository supplies `mesa-vulkan-icd-freedreno`, the selected stack is:
 
-```text
-Adreno -> KGSL -> Turnip/Freedreno -> Vulkan -> Zink -> OpenGL -> Termux:X11
+```mermaid
+flowchart LR
+    adreno["Adreno"] --> kgsl["KGSL"] --> turnip["Turnip / Freedreno"] --> vulkan["Vulkan"] --> zink["Zink"] --> opengl["OpenGL"] --> x11["Termux:X11"]
+
+    classDef orcApp fill:#dbeafe,stroke:#2563eb,color:#172554;
+    classDef orcService fill:#ede9fe,stroke:#7c3aed,color:#2e1065;
+    classDef orcController fill:#dcfce7,stroke:#16a34a,color:#14532d;
+    classDef orcMessage fill:#ffedd5,stroke:#ea580c,color:#7c2d12;
+    classDef orcAdapter fill:#fee2e2,stroke:#dc2626,color:#7f1d1d;
+    classDef orcExternal fill:#f3f4f6,stroke:#6b7280,color:#1f2937;
+    class adreno,kgsl,turnip,vulkan,zink,opengl,x11 orcExternal;
 ```
 
 For that native Termux backend, OpenGL applications should be launched with:
