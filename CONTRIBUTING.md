@@ -121,20 +121,23 @@ flowchart TD
 
 Continuously changing public telemetry is distributed through producer services and the message bus:
 
-```text
-Hardware / simulator
-      ↓
-Domain producer service
-      ↓
-SI domain state
-      ↓
-Contract publisher
-      ↓
-ZeroMQ message bus
-      ↓
-Shared application telemetry state
-      ↓
-Frontend / UI
+```mermaid
+flowchart TD
+    source["Hardware / simulator"] --> service["Domain producer service"] --> state["SI domain state"]
+    state --> publisher["Contract publisher"] --> bus["ZeroMQ message bus"]
+    bus --> appstate["Shared application telemetry state"] --> frontend["Frontend / UI"]
+
+    classDef orcApp fill:#dbeafe,stroke:#2563eb,color:#172554;
+    classDef orcService fill:#ede9fe,stroke:#7c3aed,color:#2e1065;
+    classDef orcController fill:#dcfce7,stroke:#16a34a,color:#14532d;
+    classDef orcMessage fill:#ffedd5,stroke:#ea580c,color:#7c2d12;
+    classDef orcAdapter fill:#fee2e2,stroke:#dc2626,color:#7f1d1d;
+    classDef orcExternal fill:#f3f4f6,stroke:#6b7280,color:#1f2937;
+    class source orcExternal;
+    class service orcService;
+    class state orcController;
+    class publisher,bus orcMessage;
+    class appstate,frontend orcApp;
 ```
 
 In practical terms:
