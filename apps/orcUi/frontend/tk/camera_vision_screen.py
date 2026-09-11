@@ -168,11 +168,17 @@ class CameraVisionScreen(TkScreen):
     def _start_runtime(self) -> None:
         camera = V4L2Camera(self._device, width=1920, height=1080, fps=30.0, pixel_format="MJPG")
         camera.open()
-        self._hardware_controls.restore_day_defaults()
-        detector = YoloObjectDetector(self._model_name, confidence=0.35, image_size=640)
-        worker = PerceptionWorker(detector)
-        worker.start()
         self._camera = camera
+        try:
+            self._hardware_controls.invalidate()
+            self._hardware_controls.restore_day_defaults()
+            detector = YoloObjectDetector(self._model_name, confidence=0.35, image_size=640)
+            worker = PerceptionWorker(detector)
+            worker.start()
+        except Exception:
+            camera.close()
+            self._camera = None
+            raise
         self._worker = worker
         self._last_capture_time = time.perf_counter()
         self._last_ai_time = self._last_capture_time
