@@ -108,9 +108,7 @@ class AutomotiveInputConfig:
     host: str = "127.0.0.1"
     tcp_port: int = 35000
     timeout_s: float = 1.0
-    hot_poll_hz: float = 20.0
-    standard_poll_hz: float = 5.0
-    slow_poll_interval_s: float = 5.0
+    request_rate_hz: float = 6.0
 
 
 @dataclass(frozen=True, slots=True)
@@ -213,9 +211,7 @@ class ServiceRuntimeConfigParser:
                 host=self._string(input_data.get("host", "127.0.0.1"), "services.automotive.input.host"),
                 tcp_port=tcp_port,
                 timeout_s=self._positive(input_data.get("timeout_s", 1.0), "services.automotive.input.timeout_s"),
-                hot_poll_hz=self._positive(input_data.get("hot_poll_hz", 20.0), "services.automotive.input.hot_poll_hz"),
-                standard_poll_hz=self._positive(input_data.get("standard_poll_hz", 5.0), "services.automotive.input.standard_poll_hz"),
-                slow_poll_interval_s=self._positive(input_data.get("slow_poll_interval_s", 5.0), "services.automotive.input.slow_poll_interval_s"),
+                request_rate_hz=self._positive(input_data.get("request_rate_hz", 6.0), "services.automotive.input.request_rate_hz"),
             ),
             fuel=AutomotiveFuelConfig(
                 engine_displacement_l=self._positive(
