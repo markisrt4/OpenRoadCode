@@ -40,3 +40,23 @@ Press `q` or Escape to close the preview.
 nothing about UI, recording, or computer vision. Perception consumes those
 frames through `controllers.computer_vision.ObjectDetectorIf`, allowing the
 preview, recorder, and future YOLO implementation to evolve independently.
+
+
+## Hardware control profiles
+
+The validated USB road camera also exposes V4L2 controls for exposure, gain,
+gamma, backlight compensation, white balance, sharpness, and power-line
+frequency. OpenRoadCode currently applies two conservative hardware profiles
+through `V4L2CameraProfileController`:
+
+- `DAY`: camera auto exposure, gain 1, gamma 200, backlight compensation 0.
+- `LOW_LIGHT`: shutter-priority exposure 250, gain 10, gamma 220, backlight
+  compensation 1.
+
+Both profiles select 60 Hz power-line compensation for the current U.S. test
+environment. The low-light exposure is deliberately modest so moving road
+objects retain useful detail instead of gaining brightness through excessive
+motion blur.
+
+The profile controller shells out to `v4l2-ctl`, which is installed by
+`development/debian/setup_camera_perception.sh`.
