@@ -23,6 +23,7 @@ class VehicleStateData:
     coolant_temperature_k: float | None
     intake_air_temperature_k: float | None
     fuel_level: float | None
+    engine_fuel_rate_m3_s: float | None
     control_voltage_v: float | None
 
 
