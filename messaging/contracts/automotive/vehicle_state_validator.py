@@ -35,7 +35,6 @@ RATIO_FIELDS = {
     "accelerator_pedal_position",
     "engine_load",
     "fuel_level",
-    "commanded_equivalence_ratio",
 }
 NONNEGATIVE_FIELDS = {
     "engine_speed_rad_s",
@@ -113,6 +112,10 @@ def validate_vehicle_state(payload: Mapping[str, Any]) -> None:
             continue
         if name in RATIO_FIELDS and not 0.0 <= value <= 1.0:
             raise ValueError(f"{name} must be in range 0.0..1.0")
+        if name == "commanded_equivalence_ratio" and not 0.0 <= value <= 2.0:
+            raise ValueError(
+                "commanded_equivalence_ratio must be in range 0.0..2.0"
+            )
         if name in NONNEGATIVE_FIELDS and value < 0.0:
             raise ValueError(f"{name} cannot be negative")
         if name in TEMPERATURE_FIELDS and value < 0.0:
