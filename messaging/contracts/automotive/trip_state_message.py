@@ -23,6 +23,10 @@ class TripStateData:
     instantaneous_fuel_consumption_m3_per_m: float | None
     average_fuel_consumption_m3_per_m: float | None
     estimated_range_m: float | None
+    boost_time_s: float
+    boost_distance_m: float
+    boost_fuel_used_m3: float
+    peak_boost_pa: float | None
     start_latitude_deg: float | None
     start_longitude_deg: float | None
     current_latitude_deg: float | None
