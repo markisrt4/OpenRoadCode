@@ -165,5 +165,67 @@ class Obd2ManagerTests(unittest.TestCase):
         self.assertEqual(adapter.requests.count(0x05), 1)
 
 
+    def test_hot_lane_repolls_while_standard_and_slow_values_stay_cached(self) -> None:
+        class PollingAdapter(FakeObd2Adapter):
+            def request(self, request: Obd2Request) -> tuple[Obd2Response, ...]:
+                self.requests.append(request.pid)
+                if request.pid == 0x0C:
+                    return (
+                        Obd2Response(
+                            mode=0x41,
+                            pid=0x0C,
+                            data=bytes.fromhex("09D2"),
+                            ecu_id=0x7E8,
+                        ),
+                    )
+                if request.pid == 0x0B:
+                    return (
+                        Obd2Response(
+                            mode=0x41,
+                            pid=0x0B,
+                            data=bytes([120]),
+                            ecu_id=0x7E8,
+                        ),
+                    )
+                if request.pid == 0x0D:
+                    return (
+                        Obd2Response(
+                            mode=0x41,
+                            pid=0x0D,
+                            data=bytes([80]),
+                            ecu_id=0x7E8,
+                        ),
+                    )
+                if request.pid == 0x05:
+                    return (
+                        Obd2Response(
+                            mode=0x41,
+                            pid=0x05,
+                            data=bytes([120]),
+                            ecu_id=0x7E8,
+                        ),
+                    )
+                return ()
+
+        adapter = PollingAdapter()
+        manager = Obd2Manager(
+            adapter,
+            standard_poll_hz=0.1,
+            slow_poll_interval_seconds=60.0,
+        )
+
+        first = manager.read_state()
+        second = manager.read_state()
+
+        self.assertEqual(adapter.requests.count(0x0C), 2)
+        self.assertEqual(adapter.requests.count(0x0B), 2)
+        self.assertEqual(adapter.requests.count(0x0D), 1)
+        self.assertEqual(adapter.requests.count(0x05), 1)
+        self.assertAlmostEqual(first.vehicle_speed_m_s or 0.0, 80.0 / 3.6)
+        self.assertAlmostEqual(second.vehicle_speed_m_s or 0.0, 80.0 / 3.6)
+        self.assertAlmostEqual(first.coolant_temperature_k or 0.0, 353.15)
+        self.assertAlmostEqual(second.coolant_temperature_k or 0.0, 353.15)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -62,6 +62,8 @@ transport = "serial"
 port = "/dev/rfcomm0"
 baud = 38400
 timeout_s = 1.0
+hot_poll_hz = 20.0
+standard_poll_hz = 5.0
 slow_poll_interval_s = 5.0
 
 [services.automotive.publish]
@@ -84,6 +86,8 @@ transport = "tcp"
 host = "127.0.0.1"
 tcp_port = 35000
 timeout_s = 2.0
+hot_poll_hz = 20.0
+standard_poll_hz = 5.0
 slow_poll_interval_s = 5.0
 
 [services.automotive.publish]
@@ -97,7 +101,35 @@ transport. Both feed the same `Elm327ObdAdapter`, `Obd2Manager`,
 Raspberry Pi/Linux and Termux compositions symmetric above the transport
 boundary.
 
-The manager polls RPM, vehicle speed, throttle, accelerator position, engine load, and manifold pressure on each snapshot. Slower-changing values such as barometric pressure, airflow, coolant/intake temperature, fuel level, and module voltage use `slow_poll_interval_s`.
+The manager uses three polling lanes to keep latency-sensitive gauges responsive
+without wasting ELM327 bandwidth:
+
+- **Hot** (`hot_poll_hz`, default 20 Hz): engine RPM and manifold absolute pressure.
+  Boost is derived from MAP and cached barometric pressure, so RPM and boost are
+  refreshed on every hot cycle.
+- **Standard** (`standard_poll_hz`, default 5 Hz): vehicle speed, throttle,
+  accelerator pedal, calculated load, commanded equivalence ratio, and direct
+  fuel rate when supported.
+- **Slow** (`slow_poll_interval_s`, default 5 s): barometric pressure, MAF,
+  coolant temperature, intake temperature, fuel level, and module voltage.
+
+`Obd2Manager` caches the most recent value from each lane and still returns a
+complete `VehicleState` on every hot cycle. OBD requests remain serialized
+through the single ELM327 command stream; the implementation does not issue
+concurrent PID requests.
+
+## ECU telemetry boundary
+
+`VehicleStateSourceIf` remains the hardware-facing automotive interface for
+both ordinary gauges and ECU-oriented telemetry. RPM, MAP, throttle, load,
+commanded equivalence ratio, and similar values are all decoded vehicle state,
+so they do not require a separate ECU transport contract.
+
+A dedicated ECU-domain interface should be introduced only when OpenRoadCode
+gains a controller that owns richer derived ECU concepts such as closed-loop
+state, enrichment strategy, fuel trims, knock response, or control-state
+history. Keeping that distinction avoids duplicating the same raw telemetry
+across multiple interfaces.
 
 ## Gear estimation
 
