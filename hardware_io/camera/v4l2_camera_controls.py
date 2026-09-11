@@ -83,6 +83,10 @@ class V4L2CameraProfileController:
         self._set_control("backlight_compensation", values.backlight_compensation)
         self._current_profile = selected
 
+    def invalidate(self) -> None:
+        """Forget cached profile state after the device is reopened or reset."""
+        self._current_profile = None
+
     def restore_day_defaults(self) -> None:
         """Return the camera to the conservative daytime hardware profile."""
         self.apply(V4L2CameraProfile.DAY)
