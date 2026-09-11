@@ -36,7 +36,7 @@ def test_simulated_obd_responses_produce_si_vehicle_state():
     assert not adapter.is_connected
 
 
-def test_advance_changes_raw_pid_data_and_decoded_state():
+def test_advance_updates_hot_lane_while_standard_lane_remains_cached():
     adapter = SimulatedObd2Adapter()
     manager = Obd2Manager(adapter)
     manager.connect()
@@ -50,10 +50,16 @@ def test_advance_changes_raw_pid_data_and_decoded_state():
 
     assert adapter._responses[0x0C] != rpm_bytes_before
     assert adapter._responses[0x0D] != speed_bytes_before
+
+    # Hot-lane telemetry is re-polled on every read.
     assert after.engine_speed_rad_s != before.engine_speed_rad_s
-    assert after.vehicle_speed_m_s != before.vehicle_speed_m_s
-    assert after.throttle_position != before.throttle_position
     assert after.intake_manifold_pressure_pa != before.intake_manifold_pressure_pa
+
+    # Standard-lane telemetry is intentionally served from cache until its
+    # configured polling interval expires.
+    assert after.vehicle_speed_m_s == before.vehicle_speed_m_s
+    assert after.throttle_position == before.throttle_position
+
     assert after.boost_pressure_pa == pytest.approx(
         after.intake_manifold_pressure_pa - after.barometric_pressure_pa
     )
