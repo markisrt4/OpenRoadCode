@@ -26,6 +26,7 @@ DATA_FIELDS = {
     "coolant_temperature_k",
     "intake_air_temperature_k",
     "fuel_level",
+    "engine_fuel_rate_m3_s",
     "control_voltage_v",
 }
 RATIO_FIELDS = {
@@ -40,6 +41,7 @@ NONNEGATIVE_FIELDS = {
     "intake_manifold_pressure_pa",
     "barometric_pressure_pa",
     "mass_air_flow_kg_s",
+    "engine_fuel_rate_m3_s",
     "control_voltage_v",
 }
 TEMPERATURE_FIELDS = {"coolant_temperature_k", "intake_air_temperature_k"}
