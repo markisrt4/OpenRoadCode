@@ -1,7 +1,0 @@
-# Web integrations for canonical OpenRoadCode businesses.
-
-[integration.panera]
-order = "https://www.panerabread.com/en-us/start-an-order.html"
-
-[integration.mcdonalds]
-order = "https://www.mcdonalds.com/us/en-us.html"
