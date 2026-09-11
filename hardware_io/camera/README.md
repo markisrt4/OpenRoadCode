@@ -50,13 +50,14 @@ frequency. OpenRoadCode currently applies two conservative hardware profiles
 through `V4L2CameraProfileController`:
 
 - `DAY`: camera auto exposure, gain 1, gamma 200, backlight compensation 0.
-- `LOW_LIGHT`: shutter-priority exposure 250, gain 10, gamma 220, backlight
-  compensation 1.
+- `LOW_LIGHT`: camera auto exposure, gain 10, gamma 220, backlight
+  compensation 1. The device advertises absolute exposure but reports it
+  inactive and rejects writes while streaming, so ORC does not force it.
 
 Both profiles select 60 Hz power-line compensation for the current U.S. test
-environment. The low-light exposure is deliberately modest so moving road
-objects retain useful detail instead of gaining brightness through excessive
-motion blur.
+environment. The low-light profile deliberately leaves exposure under the camera's supported
+auto mode and increases only bounded gain/gamma/backlight controls, avoiding an
+unsupported shutter override and excessive motion blur.
 
 The profile controller shells out to `v4l2-ctl`, which is installed by
 `development/debian/setup_camera_perception.sh`.
