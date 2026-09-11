@@ -74,6 +74,22 @@ class VehicleStateCodecTest(unittest.TestCase):
         self.assertEqual(payload["timestamp"]["nanoseconds"], 123_456_000)
         self.assertIsInstance(payload["timestamp"]["seconds"], int)
 
+    def test_decoder_accepts_legacy_v1_payload(self) -> None:
+        from messaging.contracts.automotive.vehicle_state_decoder import decode_vehicle_state
+
+        payload = encode_vehicle_state(
+            VehicleState(timestamp=self.timestamp, vehicle_speed_m_s=12.0),
+            source="legacy-test",
+        )
+        payload["version"] = 1
+        payload["data"].pop("engine_fuel_rate_m3_s")
+
+        message = decode_vehicle_state(payload)
+
+        self.assertEqual(message.version, 1)
+        self.assertEqual(message.data.vehicle_speed_m_s, 12.0)
+        self.assertIsNone(message.data.engine_fuel_rate_m3_s)
+
 
 if __name__ == "__main__":
     unittest.main()
