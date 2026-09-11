@@ -13,7 +13,7 @@ from controllers.poi.business_catalog import resolve_business
 
 def enrich_poi(poi: PointOfInterest) -> PointOfInterest:
     """Return a POI with actions derived from known place metadata."""
-    actions = [PoiAction(PoiActionKind.NAVIGATE, "NAVIGATE")]
+    actions: list[PoiAction] = []
     brand = poi.brand
 
     if poi.category is PoiCategory.FOOD:
