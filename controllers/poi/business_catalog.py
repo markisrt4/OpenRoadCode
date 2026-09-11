@@ -10,7 +10,7 @@ import tomllib
 from dataclasses import dataclass
 from pathlib import Path
 
-_CATALOG_DIR = Path(__file__).resolve().parents[2] / "data" / "business_catalog" / "businesses"
+_CATALOG_DIR = Path(__file__).with_name("catalog") / "businesses"
 
 
 @dataclass(frozen=True, slots=True)
