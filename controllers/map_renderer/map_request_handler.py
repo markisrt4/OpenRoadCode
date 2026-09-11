@@ -85,7 +85,6 @@ class MapRequestHandler(MapRequestHandlerIf):
 
     def request_zoom(self, zoom_level: float) -> None:
         self._zoom_level = zoom_level
-        self.request_follow(False)
         self._renderer.set_zoom(zoom_level)
 
     def request_bearing(self, bearing_rad: float) -> None:
