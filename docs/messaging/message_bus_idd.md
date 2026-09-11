@@ -129,16 +129,20 @@ UI toolkit objects must not be mutated directly from dispatcher worker threads. 
 
 Hardware and simulators should normalize data into domain state before publication. A typical automotive path is:
 
-```text
-ELM327 transport or simulated adapter
-              |
-         Obd2Manager
-              |
-      VehicleState [SI]
-              |
-   VehicleStatePublisher
-              |
-      ZeroMqPublisher
+```mermaid
+flowchart TD
+    elm["ELM327 transport / simulated adapter"] --> obd["Obd2Manager"] --> state["VehicleState [SI]"]
+    state --> publisher["VehicleStatePublisher"] --> zmq["ZeroMqPublisher"]
+
+    classDef orcApp fill:#dbeafe,stroke:#2563eb,color:#172554;
+    classDef orcService fill:#ede9fe,stroke:#7c3aed,color:#2e1065;
+    classDef orcController fill:#dcfce7,stroke:#16a34a,color:#14532d;
+    classDef orcMessage fill:#ffedd5,stroke:#ea580c,color:#7c2d12;
+    classDef orcAdapter fill:#fee2e2,stroke:#dc2626,color:#7f1d1d;
+    classDef orcExternal fill:#f3f4f6,stroke:#6b7280,color:#1f2937;
+    class elm orcExternal;
+    class obd,state orcController;
+    class publisher,zmq orcMessage;
 ```
 
 The navigation path fans one normalized `NavigationState` sample into public domain topics:
