@@ -8,13 +8,21 @@ Environmental controllers normalize physical sensor data into application-facing
 
 The Android path supports both direct component testing and the streamed sensor service:
 
-```text
-Android TYPE_LIGHT
-    -> Android sensor bridge
-    -> AndroidSensorBridgeClient
-    -> BufferedAmbientLightSensor
-    -> AmbientLightController
-    -> openroad.environmental.ambient_light
+```mermaid
+flowchart LR
+    sensor["Android TYPE_LIGHT"] --> bridge["Android sensor bridge"] --> client["AndroidSensorBridgeClient"]
+    client --> buffered["BufferedAmbientLightSensor"] --> controller["AmbientLightController"] --> topic["openroad.environmental.ambient_light"]
+
+    classDef orcApp fill:#dbeafe,stroke:#2563eb,color:#172554;
+    classDef orcService fill:#ede9fe,stroke:#7c3aed,color:#2e1065;
+    classDef orcController fill:#dcfce7,stroke:#16a34a,color:#14532d;
+    classDef orcMessage fill:#ffedd5,stroke:#ea580c,color:#7c2d12;
+    classDef orcAdapter fill:#fee2e2,stroke:#dc2626,color:#7f1d1d;
+    classDef orcExternal fill:#f3f4f6,stroke:#6b7280,color:#1f2937;
+    class sensor,bridge orcExternal;
+    class client,buffered orcAdapter;
+    class controller orcController;
+    class topic orcMessage;
 ```
 
 The buffered sensor lets `AndroidSensorService` feed values already received on `/stream/imu` through the controller without making a second HTTP request for every light sample.
