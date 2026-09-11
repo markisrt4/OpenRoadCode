@@ -16,6 +16,10 @@ from controllers.computer_vision.yolo_object_detector import YoloObjectDetector
 from frontends.tk.tk_screen import TkScreen
 from frontends.tk.tk_screen_host_if import TkScreenHostIf
 from hardware_io.camera.v4l2_camera import V4L2Camera
+from hardware_io.camera.v4l2_camera_controls import (
+    V4L2CameraProfile,
+    V4L2CameraProfileController,
+)
 from ui.screen_ui_if import ScreenId
 from ui.theme import ThemeBundle, ThemeMode
 
@@ -47,6 +51,7 @@ class CameraVisionScreen(TkScreen):
         self._camera: V4L2Camera | None = None
         self._worker: PerceptionWorker | None = None
         self._processor = CameraFrameProcessor()
+        self._hardware_controls = V4L2CameraProfileController(device)
         self._ai_enabled = True
         self._last_detection: DetectionFrame | None = None
         self._last_capture_time = 0.0
@@ -73,6 +78,10 @@ class CameraVisionScreen(TkScreen):
         camera = self._camera
         self._camera = None
         if camera is not None:
+            try:
+                self._hardware_controls.restore_day_defaults()
+            except RuntimeError:
+                pass
             camera.close()
         self._panel = None
         self._canvas = None
@@ -159,6 +168,7 @@ class CameraVisionScreen(TkScreen):
     def _start_runtime(self) -> None:
         camera = V4L2Camera(self._device, width=1920, height=1080, fps=30.0, pixel_format="MJPG")
         camera.open()
+        self._hardware_controls.restore_day_defaults()
         detector = YoloObjectDetector(self._model_name, confidence=0.35, image_size=640)
         worker = PerceptionWorker(detector)
         worker.start()
@@ -198,6 +208,7 @@ class CameraVisionScreen(TkScreen):
             self._last_capture_time = now
 
             processed_image = self._processor.process(frame.image)
+            self._sync_hardware_profile()
             if self._ai_enabled:
                 from hardware_io.camera.camera_if import CameraFrame
                 worker.submit(CameraFrame(processed_image, frame.timestamp_s, frame.sequence))
@@ -272,7 +283,20 @@ class CameraVisionScreen(TkScreen):
 
     def _set_mode(self, mode: CameraMode) -> None:
         self._processor.set_mode(mode)
+        if mode is CameraMode.DAY:
+            self._hardware_controls.apply(V4L2CameraProfile.DAY)
+        elif mode is CameraMode.LOW_LIGHT:
+            self._hardware_controls.apply(V4L2CameraProfile.LOW_LIGHT)
         self._update_mode_label()
+
+    def _sync_hardware_profile(self) -> None:
+        effective = self._processor.last_effective_mode
+        target = (
+            V4L2CameraProfile.LOW_LIGHT
+            if effective is CameraMode.LOW_LIGHT
+            else V4L2CameraProfile.DAY
+        )
+        self._hardware_controls.apply(target)
 
     def _toggle_ai(self) -> None:
         self._ai_enabled = not self._ai_enabled
@@ -282,8 +306,12 @@ class CameraVisionScreen(TkScreen):
 
     def _update_mode_label(self) -> None:
         label = self._mode_label
-        if label is not None:
-            label.configure(text=f"Mode: {self._processor.mode.value.upper().replace('_', ' ')}")
+        if label is None:
+            return
+        requested = self._processor.mode.value.upper().replace("_", " ")
+        effective = self._processor.last_effective_mode.value.upper().replace("_", " ")
+        text = f"Mode: {requested}" if self._processor.mode is not CameraMode.AUTO else f"Mode: AUTO → {effective}"
+        label.configure(text=text)
 
     def _update_status(self) -> None:
         label = self._status_label
@@ -292,12 +320,17 @@ class CameraVisionScreen(TkScreen):
         detection = self._last_detection if self._ai_enabled else None
         latency = 0.0 if detection is None else detection.inference_time_ms
         objects = 0 if detection is None else len(detection.detections)
+        self._update_mode_label()
+        hardware = self._hardware_controls.current_profile
+        hardware_name = "--" if hardware is None else hardware.value.upper().replace("_", " ")
         label.configure(
             text=(
                 f"CAM {self._camera_fps:4.1f} fps\n"
                 f"AI  {'ON ' if self._ai_enabled else 'OFF'} {self._ai_fps:4.1f} fps\n"
                 f"INF {latency:4.0f} ms\n"
                 f"OBJ {objects}\n"
+                f"LUM {self._processor.last_luminance:4.0f}\n"
+                f"HW  {hardware_name}\n"
                 f"SRC {self._device}"
             )
         )
