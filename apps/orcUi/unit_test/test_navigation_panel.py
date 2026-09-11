@@ -38,11 +38,12 @@ class NavigationPanelControlTest(unittest.TestCase):
         panel.set_follow_enabled = Mock(side_effect=lambda enabled: setattr(panel, "_follow_enabled", enabled))
         return panel
 
-    def test_manual_zoom_disables_follow_and_requests_zoom(self) -> None:
+    def test_zoom_preserves_follow_and_requests_zoom(self) -> None:
         panel = self._panel()
         panel._change_zoom(1.0)
         panel._zoom_text.set.assert_called_once_with("17.5")
-        panel.set_follow_enabled.assert_called_once_with(False)
+        panel.set_follow_enabled.assert_not_called()
+        self.assertTrue(panel._follow_enabled)
         panel._request_handler.request_zoom.assert_called_once_with(17.5)
 
     def test_north_up_disables_follow(self) -> None:
