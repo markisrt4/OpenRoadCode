@@ -131,45 +131,35 @@ def write_layout(site_root: Path) -> None:
 
     (assets / "docs-preview.css").write_text(
         """:root {
-  --orc-bg: #0b0e12;
-  --orc-surface: #171c24;
-  --orc-surface-soft: #12161d;
-  --orc-text: #f5f7fa;
-  --orc-muted: #aeb7c4;
-  --orc-line: rgba(255, 255, 255, 0.12);
   --orc-green: #84ce1f;
   --orc-blue: #168bd1;
   --orc-orange: #f15a16;
+  --orc-text: #1f2328;
+  --orc-muted: #59636e;
+  --orc-line: #d0d7de;
 }
 html { font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
-body {
-  margin: 0;
-  background:
-    radial-gradient(circle at 85% 10%, rgba(22,139,209,.13), transparent 26rem),
-    radial-gradient(circle at 15% 90%, rgba(132,206,31,.07), transparent 24rem),
-    var(--orc-bg);
-  color: var(--orc-text);
-}
+body { margin: 0; background: #f3f5f7; color: var(--orc-text); }
 .docs {
   max-width: 1040px;
   min-height: 100vh;
   margin: 0 auto;
   padding: 34px 42px 64px;
   box-sizing: border-box;
-  background: rgba(18,22,29,.92);
-  border-inline: 1px solid var(--orc-line);
+  background: #fff;
+  border-inline: 1px solid #e1e5e9;
 }
 h1, h2, h3 { line-height: 1.15; }
 h1 { border-bottom: 2px solid var(--orc-blue); padding-bottom: .45rem; }
 h2 { margin-top: 2.5rem; }
-a { color: #58b8f0; text-decoration: underline; text-underline-offset: .16em; }
-a:visited { color: #b6a3ff; }
-code { background: rgba(255,255,255,.08); padding: .15em .35em; border-radius: 4px; }
-pre { overflow-x: auto; background: #0f1319; padding: 16px; border: 1px solid var(--orc-line); border-radius: 10px; }
+a { color: #0969da; text-decoration: underline; text-underline-offset: .16em; }
+a:visited { color: #8250df; }
+code { background: #eff1f3; padding: .15em .35em; border-radius: 4px; }
+pre { overflow-x: auto; background: #f6f8fa; padding: 16px; border: 1px solid var(--orc-line); border-radius: 10px; }
 pre code { background: transparent; padding: 0; }
 table { border-collapse: collapse; max-width: 100%; display: block; overflow-x: auto; }
 th, td { border: 1px solid var(--orc-line); padding: 7px 10px; }
-th { background: rgba(255,255,255,.04); }
+th { background: #f6f8fa; }
 blockquote { border-left: 4px solid var(--orc-orange); margin-left: 0; padding-left: 16px; color: var(--orc-muted); }
 .mermaid { margin: 1.35rem 0 2rem; padding: 1rem; border-radius: 14px; background: #f7f9fb; overflow-x: auto; }
 .orc-diagram-legend {
@@ -179,15 +169,15 @@ blockquote { border-left: 4px solid var(--orc-orange); margin-left: 0; padding-l
   padding: .65rem .75rem;
   border: 1px solid var(--orc-line);
   border-radius: 10px;
-  background: var(--orc-surface);
-  box-shadow: 0 8px 24px rgba(0,0,0,.22);
+  background: #f8fafc;
+  box-shadow: 0 6px 18px rgba(31,35,40,.08);
   font-size: .72rem;
   line-height: 1.35;
 }
 .orc-diagram-legend strong {
   display: block;
   margin-bottom: .45rem;
-  color: var(--orc-green);
+  color: #39424e;
   font-size: .68rem;
   letter-spacing: .08em;
   text-transform: uppercase;
@@ -203,7 +193,7 @@ blockquote { border-left: 4px solid var(--orc-orange); margin-left: 0; padding-l
   width: .68rem;
   height: .68rem;
   flex: 0 0 .68rem;
-  border: 1px solid rgba(255,255,255,.35);
+  border: 1px solid;
   border-radius: 3px;
 }
 .orc-legend-app { background: #dbeafe; border-color: #2563eb; }
