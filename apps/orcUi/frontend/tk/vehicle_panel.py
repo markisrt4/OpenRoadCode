@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import math
 import tkinter as tk
-from dataclasses import replace
 from collections.abc import Callable
 
 from apps.orcUi.navigation_presenter import AttitudePresentationState, PositionPresentationState
@@ -148,13 +147,6 @@ class VehiclePanel(tk.Frame):
         }
         gauge_style = vehicle_gauge_theme_from_style_sheet(self._theme_bundle.style_sheet)
 
-        needle_colors = {
-            "rpm": ui.accent_danger,
-            "boost": ui.accent_primary,
-            "speed": ui.accent_success,
-            "throttle": ui.accent_warning,
-        }
-
         for column, gauge_id in enumerate(self._PERFORMANCE_IDS):
             definition = definitions[gauge_id]
             card = self._instrument_card(
@@ -180,12 +172,7 @@ class VehiclePanel(tk.Frame):
                 start_angle=definition.start_angle,
                 sweep_angle=definition.sweep_angle,
                 precision=definition.precision,
-                style=replace(
-                    gauge_style,
-                    accent_color=needle_colors[gauge_id],
-                    needle_body=needle_colors[gauge_id],
-                    needle_outline=needle_colors[gauge_id],
-                ),
+                style=gauge_style,
                 size=205,
             )
             gauge.grid(row=1, column=0, sticky="nsew", padx=2, pady=(0, 2))
