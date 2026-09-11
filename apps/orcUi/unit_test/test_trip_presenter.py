@@ -24,6 +24,10 @@ def _data(**overrides):
         instantaneous_fuel_consumption_m3_per_m=None,
         average_fuel_consumption_m3_per_m=None,
         estimated_range_m=None,
+        boost_time_s=0.0,
+        boost_distance_m=0.0,
+        boost_fuel_used_m3=0.0,
+        peak_boost_pa=None,
         start_latitude_deg=None,
         start_longitude_deg=None,
         current_latitude_deg=None,
@@ -49,3 +53,23 @@ def test_presenter_leaves_unavailable_fuel_metrics_empty() -> None:
     assert state.fuel_used_gallons is None
     assert state.economy_mpg is None
     assert state.estimated_range_miles is None
+
+
+def test_presenter_converts_boost_metrics() -> None:
+    state = TripPresenter.present(
+        _data(
+            fuel_used_m3=0.001,
+            boost_time_s=120.0,
+            boost_distance_m=1609.344,
+            boost_fuel_used_m3=0.00025,
+            peak_boost_pa=68947.57293168,
+        )
+    )
+
+    assert state.boost_time_s == pytest.approx(120.0)
+    assert state.boost_distance_miles == pytest.approx(1.0)
+    assert state.boost_fuel_gallons == pytest.approx(
+        0.00025 * 264.1720523581484
+    )
+    assert state.boost_fuel_percent == pytest.approx(25.0)
+    assert state.peak_boost_psi == pytest.approx(10.0)
