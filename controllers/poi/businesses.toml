@@ -1,0 +1,37 @@
+# OpenRoadCode canonical business catalog.
+# Physical POI locations remain in OSM/SQLite. This file only describes
+# canonical business identity, capabilities, and software integrations.
+
+[business.panera]
+name = "Panera Bread"
+aliases = [
+  "Panera",
+  "Panera Bread",
+  "Saint Louis Bread Co",
+  "St Louis Bread Co",
+]
+categories = ["food"]
+capabilities = ["order"]
+
+[business.panera.web]
+order = "https://www.panerabread.com/en-us/start-an-order.html"
+
+[business.panera.android]
+package = "com.panera.bread"
+
+
+[business.mcdonalds]
+name = "McDonald's"
+aliases = [
+  "McDonald's",
+  "McDonalds",
+  "Mc Donalds",
+]
+categories = ["food"]
+capabilities = ["order"]
+
+[business.mcdonalds.web]
+order = "https://www.mcdonalds.com/us/en-us.html"
+
+[business.mcdonalds.android]
+package = "com.mcdonalds.app"
