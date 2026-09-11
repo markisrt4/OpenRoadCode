@@ -4,29 +4,27 @@ This document describes how to build, install, run, and verify the OpenRoadCode 
 
 ## Architecture
 
-```text
-Android hardware sensors
-        |
-        v
-openroadcode-android-bridge APK
-        |
-        | localhost HTTP / NDJSON
-        | 127.0.0.1:8766
-        v
-hardware_io.android
-        |
-        v
-services.android.AndroidSensorService
-        |
-        | normalized OpenRoadCode contracts
-        v
-ZeroMQ broker
-        |
-        +--> openroad.navigation.imu
-        +--> openroad.navigation.magnetic_field
-        |
-        v
-navigation / diagnostics / UI consumers
+```mermaid
+flowchart TD
+    sensors["Android hardware sensors"] --> bridge["openroadcode-android-bridge APK"]
+    bridge -->|"localhost HTTP / NDJSON<br/>127.0.0.1:8766"| hw["hardware_io.android"]
+    hw --> service["AndroidSensorService"]
+    service -->|"Normalized ORC contracts"| broker["ZeroMQ broker"]
+    broker --> imu["openroad.navigation.imu"]
+    broker --> mag["openroad.navigation.magnetic_field"]
+    broker --> consumers["Navigation / diagnostics / UI consumers"]
+
+    classDef orcApp fill:#dbeafe,stroke:#2563eb,color:#172554;
+    classDef orcService fill:#ede9fe,stroke:#7c3aed,color:#2e1065;
+    classDef orcController fill:#dcfce7,stroke:#16a34a,color:#14532d;
+    classDef orcMessage fill:#ffedd5,stroke:#ea580c,color:#7c2d12;
+    classDef orcAdapter fill:#fee2e2,stroke:#dc2626,color:#7f1d1d;
+    classDef orcExternal fill:#f3f4f6,stroke:#6b7280,color:#1f2937;
+    class sensors,bridge orcExternal;
+    class hw orcAdapter;
+    class service orcService;
+    class broker,imu,mag orcMessage;
+    class consumers orcApp;
 ```
 
 The APK is intentionally a hardware bridge. It does not implement OpenRoadCode navigation policy or ZeroMQ contracts. The Termux-side OpenRoadCode process owns normalization and bus publication.
