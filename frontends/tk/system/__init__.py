@@ -3,6 +3,8 @@
 
 """Reusable Tk panels for persistent system presentation."""
 
+from frontends.tk.system.diagnostics_panel import DiagnosticsPanel
+from frontends.tk.system.diagnostics_screen import DiagnosticsScreen
 from frontends.tk.system.status_bar_panel import StatusBarPanel
 from frontends.tk.system.startup_splash import (
     StartupItem,
@@ -18,6 +20,8 @@ from frontends.tk.system.volume_indicator import (
 from frontends.tk.system.volume_panel import VolumePanel
 
 __all__ = [
+    "DiagnosticsPanel",
+    "DiagnosticsScreen",
     "StatusBarPanel",
     "StartupItem",
     "StartupSplash",
