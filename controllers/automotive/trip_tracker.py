@@ -8,6 +8,7 @@ from __future__ import annotations
 from dataclasses import replace
 from datetime import datetime
 
+from controllers.automotive.fuel_model import FuelModel
 from controllers.automotive.trip_if import TripIf
 from controllers.automotive.trip_state import TripState, TripStatus
 from controllers.automotive.vehicle_state import VehicleState
@@ -22,6 +23,7 @@ class TripTracker(TripIf):
         *,
         moving_threshold_m_s: float = 0.5,
         pause_after_s: float = 3.0,
+        fuel_model: FuelModel | None = None,
     ) -> None:
         if moving_threshold_m_s < 0.0:
             raise ValueError("moving_threshold_m_s must not be negative")
@@ -29,12 +31,18 @@ class TripTracker(TripIf):
             raise ValueError("pause_after_s must not be negative")
         self._moving_threshold_m_s = moving_threshold_m_s
         self._pause_after_s = pause_after_s
+        self._fuel_model = fuel_model or FuelModel()
         self.reset()
 
     def observe_vehicle_state(self, state: VehicleState) -> None:
-        """Consume vehicle speed when available."""
+        """Consume vehicle speed and fuel-flow telemetry when available."""
         if state.vehicle_speed_m_s is not None:
             self._observe_speed(state.timestamp, state.vehicle_speed_m_s)
+        self._observe_fuel(
+            state.timestamp,
+            self._fuel_model.fuel_flow_m3_s(state),
+            state.vehicle_speed_m_s,
+        )
 
     def observe_position_state(self, state: PositionState) -> None:
         """Capture usable geographic position independently of motion."""
@@ -91,6 +99,8 @@ class TripTracker(TripIf):
         self._last_speed_m_s: float | None = None
         self._pending_position: tuple[float, float] | None = None
         self._stationary_since: datetime | None = None
+        self._last_fuel_sample_at: datetime | None = None
+        self._last_fuel_flow_m3_s: float | None = None
 
     def _observe_speed(self, timestamp: datetime, speed_m_s: float) -> None:
         speed = max(0.0, speed_m_s)
@@ -152,6 +162,40 @@ class TripTracker(TripIf):
         )
         self._last_sample_at = timestamp
         self._last_speed_m_s = speed
+
+
+    def _observe_fuel(
+        self,
+        timestamp: datetime,
+        fuel_flow_m3_s: float | None,
+        speed_m_s: float | None,
+    ) -> None:
+        if fuel_flow_m3_s is None or self._state.status is TripStatus.IDLE:
+            return
+        flow = max(0.0, fuel_flow_m3_s)
+        fuel_used = self._state.fuel_used_m3 or 0.0
+
+        if self._last_fuel_sample_at is not None and self._last_fuel_flow_m3_s is not None:
+            dt_s = (timestamp - self._last_fuel_sample_at).total_seconds()
+            if dt_s > 0.0:
+                fuel_used += 0.5 * (self._last_fuel_flow_m3_s + flow) * dt_s
+
+        instantaneous = None
+        if speed_m_s is not None and speed_m_s > self._moving_threshold_m_s and flow > 0.0:
+            instantaneous = flow / speed_m_s
+
+        average = None
+        if self._state.distance_m > 0.0 and fuel_used > 0.0:
+            average = fuel_used / self._state.distance_m
+
+        self._state = replace(
+            self._state,
+            fuel_used_m3=fuel_used,
+            instantaneous_fuel_consumption_m3_per_m=instantaneous,
+            average_fuel_consumption_m3_per_m=average,
+        )
+        self._last_fuel_sample_at = timestamp
+        self._last_fuel_flow_m3_s = flow
 
     def _start(self, timestamp: datetime) -> None:
         latitude = longitude = None
