@@ -6,6 +6,8 @@ OpenRoadCode separates **domain behavior**, **process ownership**, **messaging**
 
 Applications use controller or request interfaces when they need behavior such as changing a radio frequency, controlling lighting, calculating a route, or requesting navigation calibration.
 
+The architecture diagrams use a consistent layer palette: **blue** for applications/presentation, **purple** for services/runtime ownership, **green** for controllers/domain behavior, **orange** for messaging/contracts, **red** for protocol/hardware boundaries, and **gray** for external systems or inputs.
+
 ```mermaid
 flowchart TD
     app["Application / UI"]
@@ -14,6 +16,16 @@ flowchart TD
     boundary["Protocol / hardware adapter / remote service"]
 
     app --> iface --> client --> boundary
+
+    classDef orcApp fill:#dbeafe,stroke:#2563eb,color:#172554;
+    classDef orcService fill:#ede9fe,stroke:#7c3aed,color:#2e1065;
+    classDef orcController fill:#dcfce7,stroke:#16a34a,color:#14532d;
+    classDef orcMessage fill:#ffedd5,stroke:#ea580c,color:#7c2d12;
+    classDef orcAdapter fill:#fee2e2,stroke:#dc2626,color:#7f1d1d;
+    classDef orcExternal fill:#f3f4f6,stroke:#6b7280,color:#1f2937;
+    class app orcApp;
+    class iface,client orcController;
+    class boundary orcAdapter;
 ```
 
 Controllers contain reusable domain behavior. A long-running service may own a controller and expose selected operations through an acknowledged command endpoint so multiple applications do not create competing hardware or service instances.
@@ -29,6 +41,17 @@ flowchart LR
     inputs["Configured inputs"] --> nav["NavigationController"]
     nav --> publishers["Telemetry publishers"] --> bus["Message bus"]
     client["REQ/REP client"] --> command["NavigationCommandService"] --> nav
+
+    classDef orcApp fill:#dbeafe,stroke:#2563eb,color:#172554;
+    classDef orcService fill:#ede9fe,stroke:#7c3aed,color:#2e1065;
+    classDef orcController fill:#dcfce7,stroke:#16a34a,color:#14532d;
+    classDef orcMessage fill:#ffedd5,stroke:#ea580c,color:#7c2d12;
+    classDef orcAdapter fill:#fee2e2,stroke:#dc2626,color:#7f1d1d;
+    classDef orcExternal fill:#f3f4f6,stroke:#6b7280,color:#1f2937;
+    class inputs,client orcExternal;
+    class nav orcController;
+    class command orcService;
+    class publishers,bus orcMessage;
 ```
 
 This distinction is deliberate:
@@ -51,6 +74,17 @@ flowchart TD
     frontend["Frontend / UI"]
 
     source --> state --> publisher --> bus --> decoder --> appstate --> frontend
+
+    classDef orcApp fill:#dbeafe,stroke:#2563eb,color:#172554;
+    classDef orcService fill:#ede9fe,stroke:#7c3aed,color:#2e1065;
+    classDef orcController fill:#dcfce7,stroke:#16a34a,color:#14532d;
+    classDef orcMessage fill:#ffedd5,stroke:#ea580c,color:#7c2d12;
+    classDef orcAdapter fill:#fee2e2,stroke:#dc2626,color:#7f1d1d;
+    classDef orcExternal fill:#f3f4f6,stroke:#6b7280,color:#1f2937;
+    class source orcExternal;
+    class state orcController;
+    class publisher,bus,decoder orcMessage;
+    class appstate,frontend orcApp;
 ```
 
 This lets CarUI, CarTUI, WebUI, diagnostics, recorders, and future applications consume the same telemetry without coupling themselves to the hardware implementation.
@@ -74,6 +108,19 @@ flowchart TD
     command --> result["Replacement RouteResult"]
     result --> replaceGuidance["Guidance route replacement"]
     result --> replaceMap["Map route replacement callback"]
+
+    classDef orcApp fill:#dbeafe,stroke:#2563eb,color:#172554;
+    classDef orcService fill:#ede9fe,stroke:#7c3aed,color:#2e1065;
+    classDef orcController fill:#dcfce7,stroke:#16a34a,color:#14532d;
+    classDef orcMessage fill:#ffedd5,stroke:#ea580c,color:#7c2d12;
+    classDef orcAdapter fill:#fee2e2,stroke:#dc2626,color:#7f1d1d;
+    classDef orcExternal fill:#f3f4f6,stroke:#6b7280,color:#1f2937;
+    class gps orcExternal;
+    class position,guidanceState orcMessage;
+    class guidance,session,policy orcController;
+    class command orcService;
+    class result orcMessage;
+    class map,replaceGuidance,replaceMap orcApp;
 ```
 
 Responsibilities are:
@@ -108,6 +155,17 @@ flowchart LR
     hardware["Hardware"] --> domain["SI domain state"] --> contract["SI bus contract"] --> app["Application state"] --> presentation["Presentation"]
     presentation --> imperial["Imperial display"]
     presentation --> metric["Metric display"]
+
+    classDef orcApp fill:#dbeafe,stroke:#2563eb,color:#172554;
+    classDef orcService fill:#ede9fe,stroke:#7c3aed,color:#2e1065;
+    classDef orcController fill:#dcfce7,stroke:#16a34a,color:#14532d;
+    classDef orcMessage fill:#ffedd5,stroke:#ea580c,color:#7c2d12;
+    classDef orcAdapter fill:#fee2e2,stroke:#dc2626,color:#7f1d1d;
+    classDef orcExternal fill:#f3f4f6,stroke:#6b7280,color:#1f2937;
+    class hardware orcAdapter;
+    class domain orcController;
+    class contract orcMessage;
+    class app,presentation,imperial,metric orcApp;
 ```
 
 Presentation conversions belong at the frontend boundary. Shared conversion functions and `UnitSystem` live in `common.units` so CarUI, CarTUI, WebUI, diagnostics, and future consumers use the same conversion math.
