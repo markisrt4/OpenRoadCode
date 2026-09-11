@@ -76,8 +76,8 @@ class VehiclePresenter:
             ),
             accelerator_percent=(
                 None
-                if state.accelerator_position is None
-                else state.accelerator_position * 100.0
+                if state.accelerator_pedal_position is None
+                else state.accelerator_pedal_position * 100.0
             ),
             manifold_pressure_kpa=(
                 None
