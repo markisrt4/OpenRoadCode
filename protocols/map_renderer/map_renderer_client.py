@@ -52,6 +52,22 @@ class MapRendererClient:
             "latitude": latitude, "longitude": longitude, "zoom": zoom,
             "bearing": bearing, "pitch": pitch})
 
+    def set_zoom(self, zoom: float) -> None:
+        self._send_command({"command": MapRendererCommand.SET_ZOOM, "zoom": zoom})
+
+    def set_bearing(self, bearing: float) -> None:
+        self._send_command({"command": MapRendererCommand.SET_BEARING, "bearing": bearing})
+
+    def set_pitch(self, pitch: float) -> None:
+        self._send_command({"command": MapRendererCommand.SET_PITCH, "pitch": pitch})
+
+    def pan_screen(self, right_px: float, up_px: float) -> None:
+        self._send_command({
+            "command": MapRendererCommand.PAN_SCREEN,
+            "right_px": right_px,
+            "up_px": up_px,
+        })
+
     def set_route(self, geojson: dict[str, object]) -> None:
         self._send_command({"command": MapRendererCommand.SET_ROUTE, "geojson": geojson})
 
