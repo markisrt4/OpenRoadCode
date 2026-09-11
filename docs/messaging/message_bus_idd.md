@@ -95,14 +95,28 @@ Owns current automotive telemetry. Version 1 includes:
 
 Applications should normally create one `MessageDispatcher` for one subscriber connection and register multiple topics with it.
 
-```text
-ZeroMqSubscriber
-      |
-MessageDispatcher
-   |       |       |       |       |
-position motion attitude  imu   vehicle
-   |       |       |       |       |
-       application state handlers
+```mermaid
+flowchart TD
+    subscriber["ZeroMqSubscriber"] --> dispatcher["MessageDispatcher"]
+    dispatcher --> position["position"]
+    dispatcher --> motion["motion"]
+    dispatcher --> attitude["attitude"]
+    dispatcher --> imu["imu"]
+    dispatcher --> vehicle["vehicle"]
+    position --> handlers["Application state handlers"]
+    motion --> handlers
+    attitude --> handlers
+    imu --> handlers
+    vehicle --> handlers
+
+    classDef orcApp fill:#dbeafe,stroke:#2563eb,color:#172554;
+    classDef orcService fill:#ede9fe,stroke:#7c3aed,color:#2e1065;
+    classDef orcController fill:#dcfce7,stroke:#16a34a,color:#14532d;
+    classDef orcMessage fill:#ffedd5,stroke:#ea580c,color:#7c2d12;
+    classDef orcAdapter fill:#fee2e2,stroke:#dc2626,color:#7f1d1d;
+    classDef orcExternal fill:#f3f4f6,stroke:#6b7280,color:#1f2937;
+    class subscriber,dispatcher,position,motion,attitude,imu,vehicle orcMessage;
+    class handlers orcApp;
 ```
 
 The dispatcher owns one receiver thread. Decoding occurs after receipt and handlers are submitted to an executor so slow handlers do not block bus reception.
