@@ -33,16 +33,20 @@ flowchart TD
     class main,appComposition,app,radio,games,media orcApp;
     class runtime,manager,services,core,ingress orcService;
     class map orcController;
-```
+```mermaid
+flowchart LR
+    zmq["ZeroMQ"] --> dispatcher["MessageDispatcher"] --> decoder["Contract decoder"] --> presenter["Presenter"]
+    presenter --> scheduler["Tk scheduler"] --> app["OrcUiApp.apply_*_state(...)"] --> panels["Visible structural panels"]
 
-The application runtime owns background application services and managed launchers. The core composition owns the shell-facing map and state-ingress infrastructure. Feature composition owns feature-specific screen construction and wiring. Do not move concrete service construction back into `main.py` or `OrcUiApp`.
-
-## Core shell and state flow
-
-`OrcUiApp` owns the Tk window, shell chrome, structural HOME content, screen registration and navigation, theme switching, widget placement, and UI lifecycle. It consumes `MapRuntimeIf` and UI-ready presentation states. It does not create ZeroMQ subscribers, message decoders, presenters, or map-renderer launchers.
-
-`core_runtime.py` contains the shell-facing runtime adapters. `MapRuntime` owns the external map-renderer launcher and supplies its display and parent-window arguments. `StateIngressRuntime` owns the message dispatcher and subscriber, registers automotive and navigation topic decoders, invokes the vehicle/navigation presenters, and schedules UI-ready state delivery onto the Tk thread.
-
+    classDef orcApp fill:#dbeafe,stroke:#2563eb,color:#172554;
+    classDef orcService fill:#ede9fe,stroke:#7c3aed,color:#2e1065;
+    classDef orcController fill:#dcfce7,stroke:#16a34a,color:#14532d;
+    classDef orcMessage fill:#ffedd5,stroke:#ea580c,color:#7c2d12;
+    classDef orcAdapter fill:#fee2e2,stroke:#dc2626,color:#7f1d1d;
+    classDef orcExternal fill:#f3f4f6,stroke:#6b7280,color:#1f2937;
+    class zmq,dispatcher,decoder orcMessage;
+    class presenter orcController;
+    class scheduler,app,panels orcApp;
 ```
 ZeroMQ -> MessageDispatcher -> contract decoder -> presenter
                                                    |
