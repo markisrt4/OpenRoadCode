@@ -6,17 +6,14 @@ OpenRoadCode separates **domain behavior**, **process ownership**, **messaging**
 
 Applications use controller or request interfaces when they need behavior such as changing a radio frequency, controlling lighting, calculating a route, or requesting navigation calibration.
 
-```text
-Application / UI
-      |
-      v
-Controller or request interface
-      |
-      v
-Concrete controller / service command client
-      |
-      v
-Protocol / hardware adapter / remote service
+```mermaid
+flowchart TD
+    app["Application / UI"]
+    iface["Controller or request interface"]
+    client["Concrete controller / service command client"]
+    boundary["Protocol / hardware adapter / remote service"]
+
+    app --> iface --> client --> boundary
 ```
 
 Controllers contain reusable domain behavior. A long-running service may own a controller and expose selected operations through an acknowledged command endpoint so multiple applications do not create competing hardware or service instances.
@@ -27,15 +24,11 @@ Controllers contain reusable domain behavior. A long-running service may own a c
 
 For example, the navigation service owns the active navigation controller, selected GPS/IMU sources, telemetry publication, and acknowledged navigation command handling. ZeroMQ is merely one transport used by that service.
 
-```text
-configured inputs
-      |
-      v
-NavigationController
-      |
-      +----> telemetry publishers ----> message bus
-      |
-      +<---- NavigationCommandService <---- REQ/REP client
+```mermaid
+flowchart LR
+    inputs["Configured inputs"] --> nav["NavigationController"]
+    nav --> publishers["Telemetry publishers"] --> bus["Message bus"]
+    client["REQ/REP client"] --> command["NavigationCommandService"] --> nav
 ```
 
 This distinction is deliberate:
@@ -47,26 +40,17 @@ This distinction is deliberate:
 
 Continuously changing public state is distributed through the message bus instead of requiring every application to own or directly reference the producing controller.
 
-```text
-Physical hardware / simulator
-          |
-          v
-   Domain state in SI
-          |
-          v
-    Contract publisher
-          |
-          v
-      Message bus
-          |
-          v
- Contract decoder / dispatcher
-          |
-          v
- Thread-safe application state
-          |
-          v
-     Frontend / UI
+```mermaid
+flowchart TD
+    source["Physical hardware / simulator"]
+    state["Domain state in SI"]
+    publisher["Contract publisher"]
+    bus["Message bus"]
+    decoder["Contract decoder / dispatcher"]
+    appstate["Thread-safe application state"]
+    frontend["Frontend / UI"]
+
+    source --> state --> publisher --> bus --> decoder --> appstate --> frontend
 ```
 
 This lets CarUI, CarTUI, WebUI, diagnostics, recorders, and future applications consume the same telemetry without coupling themselves to the hardware implementation.
@@ -77,32 +61,19 @@ A consumer should not need to know whether telemetry originated from physical ha
 
 Navigation is intentionally split into several responsibilities rather than one controller that gradually acquires knowledge of the entire universe.
 
-```text
-GPS / simulation
-      |
-      v
-navigation position state
-      |
-      +-----------------------> map following
-      |
-      v
-RouteGuidanceController
-      |
-      v
-route guidance state
-      |
-      v
-NavigationSessionController
-      |
-      +---- ReroutePolicy
-      |
-      +---- route calculation command
-      |
-      +---- replacement RouteResult
-      |
-      +---- guidance route replacement
-      |
-      +---- map route replacement callback
+```mermaid
+flowchart TD
+    gps["GPS / simulation"] --> position["Navigation position state"]
+    position --> map["Map following"]
+    position --> guidance["RouteGuidanceController"]
+    guidance --> guidanceState["Route guidance state"]
+    guidanceState --> session["NavigationSessionController"]
+
+    session --> policy["ReroutePolicy"]
+    session --> command["Route calculation command"]
+    command --> result["Replacement RouteResult"]
+    result --> replaceGuidance["Guidance route replacement"]
+    result --> replaceMap["Map route replacement callback"]
 ```
 
 Responsibilities are:
@@ -132,15 +103,11 @@ See [`messaging/README.md`](https://github.com/markisrt4/OpenRoadCode/blob/maste
 
 Domain state and public telemetry contracts use **SI units** unless a contract explicitly documents otherwise.
 
-```text
-hardware -> SI domain state -> SI bus contract -> application state
-                                               |
-                                               v
-                                         presentation
-                                               |
-                           +-------------------+-------------------+
-                           |                                       |
-                       imperial                                metric
+```mermaid
+flowchart LR
+    hardware["Hardware"] --> domain["SI domain state"] --> contract["SI bus contract"] --> app["Application state"] --> presentation["Presentation"]
+    presentation --> imperial["Imperial display"]
+    presentation --> metric["Metric display"]
 ```
 
 Presentation conversions belong at the frontend boundary. Shared conversion functions and `UnitSystem` live in `common.units` so CarUI, CarTUI, WebUI, diagnostics, and future consumers use the same conversion math.
