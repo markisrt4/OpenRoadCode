@@ -121,10 +121,24 @@ class VehiclePanel(tk.Frame):
         ui = self._theme_bundle.ui
         background = ui.background
         host = tk.Frame(self._view_host, bg=background)
-        host.grid(row=0, column=0, sticky="nsew")
-        host.grid_rowconfigure(0, weight=1)
+        host.grid(row=0, column=0, sticky="nsew", padx=6, pady=6)
+        host.grid_columnconfigure(0, weight=1)
+        host.grid_rowconfigure(1, weight=1)
+
+        header = self._section_header(
+            host,
+            title="PERFORMANCE",
+            subtitle="Live driving dynamics",
+            accent=ui.accent_danger,
+            symbol="◉",
+        )
+        header.grid(row=0, column=0, sticky="ew", pady=(0, 6))
+
+        cluster = tk.Frame(host, bg=background)
+        cluster.grid(row=1, column=0, sticky="nsew")
+        cluster.grid_rowconfigure(0, weight=1)
         for column in range(4):
-            host.grid_columnconfigure(column, weight=1, uniform="performance")
+            cluster.grid_columnconfigure(column, weight=1, uniform="performance")
 
         definitions = {
             definition.gauge_id: definition
@@ -133,15 +147,27 @@ class VehiclePanel(tk.Frame):
         }
         gauge_style = vehicle_gauge_theme_from_style_sheet(self._theme_bundle.style_sheet)
 
+        accents = {
+            "rpm": ui.accent_danger,
+            "boost": ui.accent_primary,
+            "speed": ui.accent_success,
+            "throttle": ui.accent_warning,
+        }
+
         for column, gauge_id in enumerate(self._PERFORMANCE_IDS):
             definition = definitions[gauge_id]
-            cell = tk.Frame(host, bg=background)
-            cell.grid(row=0, column=column, sticky="nsew", padx=5, pady=(5, 2))
-            cell.grid_columnconfigure(0, weight=1)
-            cell.grid_rowconfigure(0, weight=1)
+            card = self._instrument_card(
+                cluster,
+                title=definition.title.upper(),
+                unit=definition.unit,
+                accent=accents[gauge_id],
+            )
+            card.grid(row=0, column=column, sticky="nsew", padx=4, pady=2)
+            card.grid_columnconfigure(0, weight=1)
+            card.grid_rowconfigure(1, weight=1)
 
             gauge = RoundGauge(
-                cell,
+                card,
                 title="",
                 unit=definition.unit,
                 minimum=definition.minimum,
@@ -155,46 +181,69 @@ class VehiclePanel(tk.Frame):
                 sweep_angle=definition.sweep_angle,
                 precision=definition.precision,
                 style=gauge_style,
-                size=220,
+                size=205,
             )
-            gauge.grid(row=0, column=0, sticky="nsew")
-
-            label = tk.Frame(cell, bg=background)
-            label.grid(row=1, column=0, sticky="ew", pady=(1, 0))
-            tk.Label(
-                label,
-                text=definition.title.upper(),
-                fg=ui.text,
-                bg=background,
-                font=("Sans", 10, "bold"),
-            ).pack(side=tk.LEFT, expand=True, anchor="e")
-            if definition.unit:
-                tk.Label(
-                    label,
-                    text=definition.unit,
-                    fg=ui.text_muted,
-                    bg=background,
-                    font=("Sans", 8, "bold"),
-                ).pack(side=tk.LEFT, expand=True, anchor="w", padx=(5, 0))
-
+            gauge.grid(row=1, column=0, sticky="nsew", padx=2, pady=(0, 2))
             self._gauges[gauge_id] = gauge
 
-        shifter = ShifterGauge(host, width=280, height=58)
-        shifter.set_style_sheet(self._theme_bundle.style_sheet)
-        shifter.grid(row=1, column=0, columnspan=4, pady=(2, 3))
+        lower = tk.Frame(host, bg=background)
+        lower.grid(row=2, column=0, sticky="ew", pady=(5, 0))
+        lower.grid_columnconfigure(0, weight=1)
+        lower.grid_columnconfigure(1, weight=0)
 
+        status = tk.Frame(
+            lower,
+            bg=ui.surface_alt,
+            highlightthickness=1,
+            highlightbackground=ui.border,
+        )
+        status.grid(row=0, column=0, sticky="ew", padx=(0, 5))
+        tk.Label(
+            status,
+            text="DRIVETRAIN",
+            fg=ui.text_muted,
+            bg=ui.surface_alt,
+            font=("Sans", 8, "bold"),
+        ).pack(side=tk.LEFT, padx=(12, 8), pady=8)
+        tk.Label(
+            status,
+            text="Live OBD-II telemetry",
+            fg=ui.text,
+            bg=ui.surface_alt,
+            font=("Sans", 9, "bold"),
+        ).pack(side=tk.LEFT, pady=8)
+
+        shifter = ShifterGauge(lower, width=280, height=58)
+        shifter.set_style_sheet(self._theme_bundle.style_sheet)
+        shifter.grid(row=0, column=1, sticky="e")
         self._shifter = shifter
+
         self._view_content = host
         self._apply_state()
 
     def _show_engine(self) -> None:
-        background = self._theme_bundle.ui.background
+        ui = self._theme_bundle.ui
+        background = ui.background
         host = tk.Frame(self._view_host, bg=background)
-        host.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
-        host.grid_columnconfigure(0, weight=1, uniform="engine")
-        host.grid_columnconfigure(1, weight=1, uniform="engine")
+        host.grid(row=0, column=0, sticky="nsew", padx=6, pady=6)
+        host.grid_columnconfigure(0, weight=1)
+        host.grid_rowconfigure(1, weight=1)
+
+        header = self._section_header(
+            host,
+            title="ENGINE",
+            subtitle="Powertrain health and operating conditions",
+            accent=ui.accent_warning,
+            symbol="⌁",
+        )
+        header.grid(row=0, column=0, sticky="ew", pady=(0, 6))
+
+        grid = tk.Frame(host, bg=background)
+        grid.grid(row=1, column=0, sticky="nsew")
+        grid.grid_columnconfigure(0, weight=1, uniform="engine")
+        grid.grid_columnconfigure(1, weight=1, uniform="engine")
         for row in range(3):
-            host.grid_rowconfigure(row, weight=1)
+            grid.grid_rowconfigure(row, weight=1)
 
         definitions = {
             definition.gauge_id: definition
@@ -202,11 +251,31 @@ class VehiclePanel(tk.Frame):
             if definition.gauge_id in self._ENGINE_IDS
         }
         gauge_style = vehicle_gauge_theme_from_style_sheet(self._theme_bundle.style_sheet)
+
+        accents = {
+            "coolant": ui.accent_danger,
+            "intake": ui.accent_primary,
+            "load": ui.accent_warning,
+            "fuel": ui.accent_success,
+            "voltage": ui.accent_primary,
+        }
+
         for index, gauge_id in enumerate(self._ENGINE_IDS):
             definition = definitions[gauge_id]
+            row, column = divmod(index, 2)
+            card = self._instrument_card(
+                grid,
+                title=definition.title.upper(),
+                unit=definition.unit,
+                accent=accents[gauge_id],
+            )
+            card.grid(row=row, column=column, sticky="nsew", padx=4, pady=4)
+            card.grid_columnconfigure(0, weight=1)
+            card.grid_rowconfigure(1, weight=1)
+
             gauge = LinearGauge(
-                host,
-                title=definition.title,
+                card,
+                title="",
                 unit=definition.unit,
                 minimum=definition.minimum,
                 maximum=definition.maximum,
@@ -218,14 +287,128 @@ class VehiclePanel(tk.Frame):
                 precision=definition.precision,
                 style=gauge_style,
                 width=260,
-                height=95,
+                height=82,
             )
-            row, column = divmod(index, 2)
-            gauge.grid(row=row, column=column, sticky="nsew", padx=5, pady=5)
+            gauge.grid(row=1, column=0, sticky="nsew", padx=5, pady=(0, 5))
             self._engine_gauges[gauge_id] = gauge
+
+        summary = tk.Frame(
+            grid,
+            bg=ui.surface_alt,
+            highlightthickness=1,
+            highlightbackground=ui.border,
+        )
+        summary.grid(row=2, column=1, sticky="nsew", padx=4, pady=4)
+        tk.Label(
+            summary,
+            text="ENGINE STATUS",
+            fg=ui.text_muted,
+            bg=ui.surface_alt,
+            font=("Sans", 8, "bold"),
+        ).pack(anchor="w", padx=12, pady=(12, 4))
+        tk.Label(
+            summary,
+            text="Monitoring live sensors",
+            fg=ui.text,
+            bg=ui.surface_alt,
+            font=("Sans", 12, "bold"),
+        ).pack(anchor="w", padx=12)
+        tk.Label(
+            summary,
+            text="Coolant · Intake · Load · Fuel · Voltage",
+            fg=ui.text_muted,
+            bg=ui.surface_alt,
+            font=("Sans", 8),
+        ).pack(anchor="w", padx=12, pady=(4, 10))
 
         self._view_content = host
         self._apply_state()
+
+    def _section_header(
+        self,
+        parent: tk.Misc,
+        *,
+        title: str,
+        subtitle: str,
+        accent: str,
+        symbol: str,
+    ) -> tk.Frame:
+        ui = self._theme_bundle.ui
+        header = tk.Frame(
+            parent,
+            bg=ui.surface_alt,
+            highlightthickness=1,
+            highlightbackground=ui.border,
+        )
+        marker = tk.Frame(header, bg=accent, width=5)
+        marker.pack(side=tk.LEFT, fill=tk.Y)
+
+        icon = tk.Label(
+            header,
+            text=symbol,
+            fg=accent,
+            bg=ui.surface_alt,
+            font=("Sans", 22, "bold"),
+            width=3,
+        )
+        icon.pack(side=tk.LEFT, padx=(10, 4), pady=8)
+
+        text = tk.Frame(header, bg=ui.surface_alt)
+        text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, pady=7)
+        tk.Label(
+            text,
+            text=title,
+            fg=ui.text,
+            bg=ui.surface_alt,
+            font=("Sans", 16, "bold"),
+            anchor="w",
+        ).pack(anchor="w")
+        tk.Label(
+            text,
+            text=subtitle,
+            fg=ui.text_muted,
+            bg=ui.surface_alt,
+            font=("Sans", 8),
+            anchor="w",
+        ).pack(anchor="w")
+        return header
+
+    def _instrument_card(
+        self,
+        parent: tk.Misc,
+        *,
+        title: str,
+        unit: str,
+        accent: str,
+    ) -> tk.Frame:
+        ui = self._theme_bundle.ui
+        card = tk.Frame(
+            parent,
+            bg=ui.surface,
+            highlightthickness=1,
+            highlightbackground=ui.border,
+        )
+        top = tk.Frame(card, bg=ui.surface)
+        top.grid(row=0, column=0, sticky="ew", padx=10, pady=(7, 2))
+        top.grid_columnconfigure(1, weight=1)
+        tk.Frame(top, bg=accent, width=4, height=15).grid(row=0, column=0, sticky="ns", padx=(0, 7))
+        tk.Label(
+            top,
+            text=title,
+            fg=ui.text,
+            bg=ui.surface,
+            font=("Sans", 8, "bold"),
+            anchor="w",
+        ).grid(row=0, column=1, sticky="w")
+        if unit:
+            tk.Label(
+                top,
+                text=unit,
+                fg=ui.text_muted,
+                bg=ui.surface,
+                font=("Sans", 7, "bold"),
+            ).grid(row=0, column=2, sticky="e")
+        return card
 
     def _show_offroad(self) -> None:
         panel = OffroadDashboardPanel(
