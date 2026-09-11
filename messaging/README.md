@@ -11,24 +11,23 @@ or the producer implementation.
 
 ## Architecture
 
-```text
-hardware / simulator
-        |
-   domain state
-        |
- contract publisher
-        |
- ZeroMqPublisher
-        |
-   XSUB broker XPUB
-        |
- ZeroMqSubscriber
-        |
- MessageDispatcher
-        |
- typed message handler
-        |
- application state / UI
+```mermaid
+flowchart TD
+    source["Hardware / simulator"] --> state["Domain state"] --> contract["Contract publisher"]
+    contract --> publisher["ZeroMqPublisher"] --> broker["XSUB broker XPUB"]
+    broker --> subscriber["ZeroMqSubscriber"] --> dispatcher["MessageDispatcher"]
+    dispatcher --> handler["Typed message handler"] --> app["Application state / UI"]
+
+    classDef orcApp fill:#dbeafe,stroke:#2563eb,color:#172554;
+    classDef orcService fill:#ede9fe,stroke:#7c3aed,color:#2e1065;
+    classDef orcController fill:#dcfce7,stroke:#16a34a,color:#14532d;
+    classDef orcMessage fill:#ffedd5,stroke:#ea580c,color:#7c2d12;
+    classDef orcAdapter fill:#fee2e2,stroke:#dc2626,color:#7f1d1d;
+    classDef orcExternal fill:#f3f4f6,stroke:#6b7280,color:#1f2937;
+    class source orcExternal;
+    class state,handler orcController;
+    class contract,publisher,broker,subscriber,dispatcher orcMessage;
+    class app orcApp;
 ```
 
 The broker is intentionally dumb. Topic ownership, schema validation, units, and typed
