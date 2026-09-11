@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 
-"""Tests for shell/map/volume/state-ingress composition."""
+"""Tests for shell/map/volume/diagnostics/state-ingress composition."""
 
 import math
 import unittest
@@ -18,6 +18,7 @@ class CoreCompositionTest(unittest.TestCase):
         ingress = Mock()
         lifecycle = Mock()
         volume = Mock()
+        diagnostics = Mock()
         core = CoreComposition(
             app=app,
             map_runtime=map_runtime,
@@ -25,6 +26,7 @@ class CoreCompositionTest(unittest.TestCase):
             state_ingress=ingress,
             lifecycle=lifecycle,
             volume=volume,
+            diagnostics=diagnostics,
         )
 
         core.start()
@@ -37,6 +39,8 @@ class CoreCompositionTest(unittest.TestCase):
         map_camera.close.assert_called_once_with()
         map_runtime.stop.assert_called_once_with()
 
+    @patch("apps.orcUi.composition.core.DiagnosticsScreen")
+    @patch("apps.orcUi.composition.core.SystemDiagnosticsController")
     @patch("apps.orcUi.composition.core.PipewireAudioController")
     @patch("apps.orcUi.composition.core.SystemVolumeHandler")
     @patch("apps.orcUi.composition.core.SystemLifecycleController")
@@ -53,6 +57,8 @@ class CoreCompositionTest(unittest.TestCase):
         lifecycle_type: Mock,
         volume_type: Mock,
         audio_type: Mock,
+        diagnostics_provider_type: Mock,
+        diagnostics_screen_type: Mock,
     ) -> None:
         map_runtime = map_runtime_type.return_value
         map_camera = map_camera_type.return_value
@@ -60,6 +66,8 @@ class CoreCompositionTest(unittest.TestCase):
         audio = audio_type.return_value
         volume = volume_type.return_value
         app = app_type.return_value
+        diagnostics_provider = diagnostics_provider_type.return_value
+        diagnostics_screen = diagnostics_screen_type.return_value
 
         core = create_core_composition()
 
@@ -72,6 +80,17 @@ class CoreCompositionTest(unittest.TestCase):
             map_runtime=map_runtime,
             map_request_handler=map_camera.request_handler,
             lifecycle_handler=lifecycle,
+        )
+        diagnostics_provider_type.assert_called_once_with()
+        diagnostics_screen_type.assert_called_once()
+        diagnostics_args, diagnostics_kwargs = diagnostics_screen_type.call_args
+        self.assertEqual(diagnostics_args, (app,))
+        self.assertIs(diagnostics_kwargs["provider"], diagnostics_provider)
+        self.assertTrue(callable(diagnostics_kwargs["theme_bundle"]))
+        app.register_screen.assert_called_once_with(
+            "DIAGNOSTICS",
+            diagnostics_screen,
+            before="SETTINGS",
         )
         volume_type.assert_called_once_with(
             audio_controller=audio,
@@ -91,6 +110,7 @@ class CoreCompositionTest(unittest.TestCase):
         self.assertIs(core.state_ingress, ingress_type.return_value)
         self.assertIs(core.lifecycle, lifecycle)
         self.assertIs(core.volume, volume)
+        self.assertIs(core.diagnostics, diagnostics_screen)
 
 
 if __name__ == "__main__":
