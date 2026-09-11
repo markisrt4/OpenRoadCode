@@ -67,6 +67,33 @@ def test_speed_density_estimates_flow_from_map_rpm_and_iat() -> None:
     assert model.fuel_flow_m3_s(state) == pytest.approx(expected)
 
 
+
+def test_commanded_equivalence_ratio_increases_fuel_when_rich() -> None:
+    model = FuelModel(
+        engine_displacement_m3=0.0016,
+        volumetric_efficiency=0.85,
+    )
+    stoich_state = VehicleState(
+        timestamp=NOW,
+        intake_manifold_pressure_pa=120000.0,
+        intake_air_temperature_k=300.0,
+        engine_speed_rad_s=3500.0 * 2.0 * math.pi / 60.0,
+        commanded_equivalence_ratio=1.0,
+    )
+    rich_state = VehicleState(
+        timestamp=NOW,
+        intake_manifold_pressure_pa=120000.0,
+        intake_air_temperature_k=300.0,
+        engine_speed_rad_s=3500.0 * 2.0 * math.pi / 60.0,
+        commanded_equivalence_ratio=0.80,
+    )
+
+    stoich_flow = model.fuel_flow_m3_s(stoich_state)
+    rich_flow = model.fuel_flow_m3_s(rich_state)
+
+    assert stoich_flow is not None
+    assert rich_flow == pytest.approx(stoich_flow / 0.80)
+
 def test_speed_density_requires_configured_displacement() -> None:
     model = FuelModel()
     state = VehicleState(
