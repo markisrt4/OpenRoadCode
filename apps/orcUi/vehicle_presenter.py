@@ -26,6 +26,9 @@ class VehiclePresentationState:
     coolant_temperature_f: float | None = None
     intake_air_temperature_f: float | None = None
     throttle_percent: float | None = None
+    accelerator_percent: float | None = None
+    manifold_pressure_kpa: float | None = None
+    commanded_equivalence_ratio: float | None = None
     engine_load_percent: float | None = None
     fuel_percent: float | None = None
     control_voltage_v: float | None = None
@@ -71,6 +74,17 @@ class VehiclePresenter:
                 if state.intake_air_temperature_k is None
                 else (state.intake_air_temperature_k - 273.15) * 9.0 / 5.0 + 32.0
             ),
+            accelerator_percent=(
+                None
+                if state.accelerator_pedal_position is None
+                else state.accelerator_pedal_position * 100.0
+            ),
+            manifold_pressure_kpa=(
+                None
+                if state.intake_manifold_pressure_pa is None
+                else state.intake_manifold_pressure_pa / 1000.0
+            ),
+            commanded_equivalence_ratio=state.commanded_equivalence_ratio,
             throttle_percent=(
                 None
                 if state.throttle_position is None

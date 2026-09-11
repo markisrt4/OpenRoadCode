@@ -4,27 +4,28 @@
 from __future__ import annotations
 
 import math
-import time
 from datetime import datetime
 from typing import TypeVar
 
 from controllers.automotive.vehicle_state import VehicleState
+from controllers.automotive.obd2.obd2_poll_scheduler import Obd2PollScheduler
 from controllers.automotive.vehicle_state_source_if import VehicleStateSourceIf
 from protocols.obd2 import Obd2AdapterIf, Obd2Error, Obd2Request
 from protocols.obd2.obd_pid_decoder import ObdPidDecoder
 from protocols.obd2.obd_pids import (
     AcceleratorPedalPositionPid,
     BarometricPressurePid,
+    CommandedEquivalenceRatioPid,
     ControlModuleVoltagePid,
     CoolantTempPid,
     EngineLoadPid,
+    EngineFuelRatePid,
     EngineRpmPid,
     FuelLevelPid,
     IntakeAirTempPid,
     IntakeManifoldPressurePid,
     MassAirFlowPid,
     ThrottlePositionPid,
-    VehicleSpeedPid,
 )
 
 T = TypeVar("T")
@@ -33,16 +34,12 @@ T = TypeVar("T")
 class Obd2Manager(VehicleStateSourceIf):
     """Poll OBD-II PIDs and assemble SI-normalized vehicle snapshots."""
 
-    def __init__(self, adapter: Obd2AdapterIf, slow_poll_interval_seconds: float = 5.0) -> None:
-        if slow_poll_interval_seconds <= 0:
-            raise ValueError("slow_poll_interval_seconds must be positive")
+    def __init__(self, adapter: Obd2AdapterIf) -> None:
         self._adapter = adapter
-        self._slow_poll_interval_seconds = slow_poll_interval_seconds
-        self._last_slow_poll: float | None = None
         self._supported_pids: set[int] | None = None
+        self._scheduler: Obd2PollScheduler | None = None
 
         self._rpm_pid = EngineRpmPid()
-        self._speed_pid = VehicleSpeedPid()
         self._map_pid = IntakeManifoldPressurePid()
         self._baro_pid = BarometricPressurePid()
         self._throttle_pid = ThrottlePositionPid()
@@ -52,8 +49,17 @@ class Obd2Manager(VehicleStateSourceIf):
         self._intake_temp_pid = IntakeAirTempPid()
         self._maf_pid = MassAirFlowPid()
         self._fuel_level_pid = FuelLevelPid()
+        self._equivalence_ratio_pid = CommandedEquivalenceRatioPid()
+        self._fuel_rate_pid = EngineFuelRatePid()
         self._voltage_pid = ControlModuleVoltagePid()
 
+        self._rpm: float | None = None
+        self._map_kpa: int | None = None
+        self._throttle_pct: float | None = None
+        self._accelerator_pedal_pct: float | None = None
+        self._engine_load_pct: float | None = None
+        self._commanded_equivalence_ratio: float | None = None
+        self._fuel_rate_lph: float | None = None
         self._baro_kpa: int | None = None
         self._maf_gps: float | None = None
         self._coolant_temp_c: int | None = None
@@ -63,52 +69,125 @@ class Obd2Manager(VehicleStateSourceIf):
 
     def connect(self) -> None:
         self._adapter.connect()
-        self._last_slow_poll = None
         self._supported_pids = self._discover_supported_pids()
+        self._scheduler = Obd2PollScheduler(
+            rpm=self._rpm_pid,
+            manifold_pressure=self._map_pid,
+            standard=(
+                self._throttle_pid,
+                self._engine_load_pid,
+                self._equivalence_ratio_pid,
+                self._fuel_rate_pid,
+                self._maf_pid,
+            ),
+            slow=(
+                self._accelerator_pedal_pid,
+                self._baro_pid,
+                self._coolant_pid,
+                self._intake_temp_pid,
+                self._fuel_level_pid,
+                self._voltage_pid,
+            ),
+            supported_pids=self._supported_pids,
+        )
 
     def disconnect(self) -> None:
         self._adapter.disconnect()
 
-    def read_state(self) -> VehicleState:
-        rpm = self._read(self._rpm_pid)
-        speed_kph = self._read(self._speed_pid)
-        throttle_pct = self._read(self._throttle_pid)
-        accelerator_pedal_pct = self._read(self._accelerator_pedal_pid)
-        engine_load_pct = self._read(self._engine_load_pid)
-        map_kpa = self._read(self._map_pid)
+    @property
+    def supported_pids(self) -> frozenset[int] | None:
+        """Return the Mode 01 PID set discovered at connect time."""
+        return (
+            None
+            if self._supported_pids is None
+            else frozenset(self._supported_pids)
+        )
 
-        now = time.monotonic()
-        if self._slow_poll_is_due(now):
-            self._poll_slow_values()
-            self._last_slow_poll = now
+    def read_state(self) -> VehicleState:
+        """Perform at most one physical PID request and return cached state."""
+        scheduler = self._scheduler
+        if scheduler is None:
+            scheduler = Obd2PollScheduler(
+                rpm=self._rpm_pid,
+                manifold_pressure=self._map_pid,
+                standard=(
+                    self._throttle_pid,
+                    self._engine_load_pid,
+                    self._equivalence_ratio_pid,
+                    self._fuel_rate_pid,
+                    self._maf_pid,
+                ),
+                slow=(
+                    self._accelerator_pedal_pid,
+                    self._baro_pid,
+                    self._coolant_pid,
+                    self._intake_temp_pid,
+                    self._fuel_level_pid,
+                    self._voltage_pid,
+                ),
+                supported_pids=self._supported_pids,
+            )
+            self._scheduler = scheduler
+
+        decoder = scheduler.next_decoder()
+        if decoder is not None:
+            self._update_cached_value(decoder)
 
         return VehicleState(
             timestamp=datetime.now(),
-            engine_speed_rad_s=self._rpm_to_rad_s(rpm),
-            vehicle_speed_m_s=self._kph_to_m_s(speed_kph),
-            throttle_position=self._percent_to_fraction(throttle_pct),
-            accelerator_pedal_position=self._percent_to_fraction(accelerator_pedal_pct),
-            engine_load=self._percent_to_fraction(engine_load_pct),
-            intake_manifold_pressure_pa=self._kpa_to_pa(map_kpa),
+            engine_speed_rad_s=self._rpm_to_rad_s(self._rpm),
+            vehicle_speed_m_s=None,
+            throttle_position=self._percent_to_fraction(self._throttle_pct),
+            accelerator_pedal_position=self._percent_to_fraction(
+                self._accelerator_pedal_pct
+            ),
+            engine_load=self._percent_to_fraction(self._engine_load_pct),
+            intake_manifold_pressure_pa=self._kpa_to_pa(self._map_kpa),
             barometric_pressure_pa=self._kpa_to_pa(self._baro_kpa),
-            boost_pressure_pa=self._calculate_boost_pa(map_kpa, self._baro_kpa),
+            boost_pressure_pa=self._calculate_boost_pa(
+                self._map_kpa,
+                self._baro_kpa,
+            ),
             mass_air_flow_kg_s=self._gps_to_kg_s(self._maf_gps),
             coolant_temperature_k=self._celsius_to_kelvin(self._coolant_temp_c),
-            intake_air_temperature_k=self._celsius_to_kelvin(self._intake_temp_c),
+            intake_air_temperature_k=self._celsius_to_kelvin(
+                self._intake_temp_c
+            ),
             fuel_level=self._percent_to_fraction(self._fuel_level_pct),
+            commanded_equivalence_ratio=self._commanded_equivalence_ratio,
+            engine_fuel_rate_m3_s=self._lph_to_m3_s(self._fuel_rate_lph),
             control_voltage_v=self._control_voltage,
         )
 
-    def _slow_poll_is_due(self, now: float) -> bool:
-        return self._last_slow_poll is None or now - self._last_slow_poll >= self._slow_poll_interval_seconds
-
-    def _poll_slow_values(self) -> None:
-        self._baro_kpa = self._read(self._baro_pid)
-        self._maf_gps = self._read(self._maf_pid)
-        self._coolant_temp_c = self._read(self._coolant_pid)
-        self._intake_temp_c = self._read(self._intake_temp_pid)
-        self._fuel_level_pct = self._read(self._fuel_level_pid)
-        self._control_voltage = self._read(self._voltage_pid)
+    def _update_cached_value(self, decoder: ObdPidDecoder) -> None:
+        value = self._read(decoder)
+        pid = decoder.pid
+        if pid == self._rpm_pid.pid:
+            self._rpm = value
+        elif pid == self._map_pid.pid:
+            self._map_kpa = value
+        elif pid == self._throttle_pid.pid:
+            self._throttle_pct = value
+        elif pid == self._accelerator_pedal_pid.pid:
+            self._accelerator_pedal_pct = value
+        elif pid == self._engine_load_pid.pid:
+            self._engine_load_pct = value
+        elif pid == self._equivalence_ratio_pid.pid:
+            self._commanded_equivalence_ratio = value
+        elif pid == self._fuel_rate_pid.pid:
+            self._fuel_rate_lph = value
+        elif pid == self._maf_pid.pid:
+            self._maf_gps = value
+        elif pid == self._baro_pid.pid:
+            self._baro_kpa = value
+        elif pid == self._coolant_pid.pid:
+            self._coolant_temp_c = value
+        elif pid == self._intake_temp_pid.pid:
+            self._intake_temp_c = value
+        elif pid == self._fuel_level_pid.pid:
+            self._fuel_level_pct = value
+        elif pid == self._voltage_pid.pid:
+            self._control_voltage = value
 
     def _read(self, pid_decoder: ObdPidDecoder[T]) -> T | None:
         if self._supported_pids is not None and pid_decoder.pid not in self._supported_pids:
@@ -156,10 +235,6 @@ class Obd2Manager(VehicleStateSourceIf):
         return None if value is None else value * 2.0 * math.pi / 60.0
 
     @staticmethod
-    def _kph_to_m_s(value: int | None) -> float | None:
-        return None if value is None else value / 3.6
-
-    @staticmethod
     def _percent_to_fraction(value: float | None) -> float | None:
         return None if value is None else value / 100.0
 
@@ -170,6 +245,10 @@ class Obd2Manager(VehicleStateSourceIf):
     @staticmethod
     def _gps_to_kg_s(value: float | None) -> float | None:
         return None if value is None else value / 1000.0
+
+    @staticmethod
+    def _lph_to_m3_s(value: float | None) -> float | None:
+        return None if value is None else value / 1000.0 / 3600.0
 
     @staticmethod
     def _celsius_to_kelvin(value: int | None) -> float | None:

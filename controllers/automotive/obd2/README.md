@@ -9,10 +9,15 @@ in `protocols.obd2`.
 - `Obd2Manager` polls supported vehicle values and produces `VehicleState` for
   applications.
 
-On connection, `Obd2Manager` reads the Mode 01 supported-PID bitmaps. It polls
-fast-changing values on every `read_state()` call and caches slow-changing
-values for five seconds by default. The slow interval is configurable through
-`slow_poll_interval_seconds`.
+On connection, `Obd2Manager` reads the Mode 01 supported-PID bitmaps and
+builds a weighted scheduler containing only supported PIDs. Each
+`read_state()` performs at most one physical OBD request and returns a complete
+snapshot assembled from cached values.
+
+The default 12-slot request schedule prioritizes RPM and MAP while rotating
+standard and slow telemetry so fuel, ECU, temperature, pressure, and voltage
+data continue to refresh without blocking the hot gauges. Vehicle speed is
+owned by navigation ground motion and is not requested from OBD.
 
 Low-level serial and RFCOMM communication belongs in
 `hardware_io.automotive.elm327`. CAN and OBD-II models belong in

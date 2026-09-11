@@ -9,6 +9,7 @@ import argparse
 from pathlib import Path
 
 from config.service_runtime_config import AutomotiveServiceRuntimeConfig, ServiceRuntimeConfigParser
+from controllers.automotive.composite_vehicle_state_source import CompositeVehicleStateSource
 from controllers.automotive.gear_estimator import GearEstimator
 from controllers.automotive.navigation_motion_vehicle_state_source import NavigationMotionVehicleStateSource
 from controllers.automotive.obd2.elm327_obd_adapter import Elm327ObdAdapter
@@ -29,8 +30,8 @@ def parse_args() -> argparse.Namespace:
         "--configured-source",
         action="store_true",
         help=(
-            "use the legacy automotive source from runtime configuration; "
-            "by default vehicle speed comes from navigation ground motion"
+            "deprecated compatibility flag; configured engine telemetry is "
+            "always composed with navigation ground speed"
         ),
     )
     parser.add_argument(
@@ -69,10 +70,7 @@ def build_source(config: AutomotiveServiceRuntimeConfig):
             timeout=config.input.timeout_s,
         )
     adapter = Elm327ObdAdapter(device)
-    return Obd2Manager(
-        adapter,
-        slow_poll_interval_seconds=config.input.slow_poll_interval_s,
-    )
+    return Obd2Manager(adapter)
 
 
 def _load_gear_estimator(path: Path) -> GearEstimator | None:
@@ -92,16 +90,18 @@ def main() -> int:
         print("Automotive publishing disabled by runtime configuration")
         return 0
 
-    # Navigation owns road-motion state, so automotive consumes its ground speed
-    # by default on every platform. The configured OBD/simulation source remains
-    # available explicitly while the future composite source is being built.
-    use_navigation_motion = not args.configured_source or args.navigation_motion
-    if use_navigation_motion:
-        source = NavigationMotionVehicleStateSource(
+    if config.input.source == "device":
+        engine_source = build_source(config)
+        motion_source = NavigationMotionVehicleStateSource(
             ZeroMqSubscriber(system.messaging.subscriber_endpoint)
         )
+        source = CompositeVehicleStateSource(engine_source, motion_source)
+        source_description = "configured-engine + navigation-motion"
+        rate_hz = config.input.request_rate_hz
     else:
         source = build_source(config)
+        source_description = config.input.source
+        rate_hz = config.rate_hz
 
     gear_estimator = _load_gear_estimator(args.gear_profile)
     publisher = ZeroMqPublisher(system.messaging.publisher_endpoint)
@@ -109,17 +109,13 @@ def main() -> int:
         source,
         publisher,
         publish_source=config.publish.source,
-        rate_hz=config.rate_hz,
+        rate_hz=rate_hz,
         gear_estimator=gear_estimator,
     )
     print("OpenRoadCode automotive service")
-    print(
-        f"  input source:      "
-        f"{'navigation-motion' if use_navigation_motion else config.input.source}"
-    )
-    if use_navigation_motion:
+    print(f"  input source:      {source_description}")
+    if config.input.source == "device":
         print(f"  motion endpoint:   {system.messaging.subscriber_endpoint}")
-    elif config.input.source == "device":
         print(f"  device:            {config.input.device}")
         print(f"  transport:         {config.input.transport}")
         if config.input.transport == "tcp":
@@ -128,7 +124,10 @@ def main() -> int:
             print(f"  serial port:       {config.input.port}")
             print(f"  baud:              {config.input.baud}")
     print(f"  telemetry ingress: {system.messaging.publisher_endpoint}")
-    print(f"  publish rate:      {config.rate_hz:g} Hz")
+    print(f"  service cadence:   {rate_hz:g} Hz")
+    if config.input.source == "device":
+        print(f"  OBD request budget:{config.input.request_rate_hz:g} req/s")
+        print("  road speed:        navigation ground motion")
     print(f"  publish source:    {config.publish.source}")
     print(
         f"  gear estimation:  {args.gear_profile}"

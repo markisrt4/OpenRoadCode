@@ -65,7 +65,7 @@ def test_vehicle_state_round_trip_over_zeromq() -> None:
         message = decode_vehicle_state(payload)
 
         assert topic == VEHICLE_STATE_TOPIC
-        assert message.version == 1
+        assert message.version == 3
         assert message.source == "simulator"
         assert message.timestamp.seconds > 0
         assert message.timestamp.nanoseconds == 123_456_000

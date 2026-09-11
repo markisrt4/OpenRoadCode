@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from .context_offroad_panel import ContextOffroadPanel
 from apps.orcUi.navigation_presenter import AttitudePresentationState, PositionPresentationState
 from apps.orcUi.theme_runtime import theme_bundle as packaged_theme_bundle
+from apps.orcUi.trip_presenter import TripPresentationState
 from apps.orcUi.vehicle_presenter import VehiclePresentationState
 from frontends.tk.automotive import FuelLevelGauge
 from frontends.tk.automotive.vehicle_gauge_theme import vehicle_gauge_theme_from_style_sheet
@@ -50,9 +51,11 @@ class ContextRail(tk.Frame):
         self.pack_propagate(False)
         self._on_expand = on_expand
         self._vehicle_state = VehiclePresentationState()
+        self._trip_state = TripPresentationState()
         self._position_state = PositionPresentationState()
         self._attitude_state = AttitudePresentationState()
         self._vehicle_gauges: dict[str, RoundGauge | LinearGauge | FuelLevelGauge] = {}
+        self._trip_value_labels: dict[str, tk.Label] = {}
         self._gear_value_label: tk.Label | None = None
         self._offroad_panel: ContextOffroadPanel | None = None
         self._page_index = 0
@@ -77,6 +80,11 @@ class ContextRail(tk.Frame):
         elif self._offroad_panel is not None:
             self._offroad_panel.update_vehicle(state)
 
+    def update_trip_state(self, state: TripPresentationState) -> None:
+        self._trip_state = state
+        if self.selected_page == "TRIP":
+            self._paint_trip_values()
+
     def update_position_state(self, state: PositionPresentationState) -> None:
         self._position_state = state
         if self._offroad_panel is not None:
@@ -99,6 +107,7 @@ class ContextRail(tk.Frame):
         for child in self.winfo_children():
             child.destroy()
         self._vehicle_gauges.clear()
+        self._trip_value_labels.clear()
         self._gear_value_label = None
         self._offroad_panel = None
         self._build_header()
@@ -162,6 +171,7 @@ class ContextRail(tk.Frame):
         for child in self._body.winfo_children():
             child.destroy()
         self._vehicle_gauges.clear()
+        self._trip_value_labels.clear()
         self._gear_value_label = None
         self._offroad_panel = None
         pages = self._pages()
@@ -324,7 +334,33 @@ class ContextRail(tk.Frame):
                 ("fuel_used", "Fuel used", "gal"),
                 ("economy", "Economy", "MPG"),
             ),
+            self._trip_value_labels,
         )
+        self._paint_trip_values()
+
+    def _paint_trip_values(self) -> None:
+        if not self._trip_value_labels:
+            return
+        state = self._trip_state
+        values = {
+            "distance": f"{state.distance_miles:.1f}",
+            "elapsed": self._format_duration(state.elapsed_s),
+            "average": "--" if state.average_speed_mph is None else f"{state.average_speed_mph:.1f}",
+            "moving": self._format_duration(state.moving_s),
+            "fuel_used": "--" if state.fuel_used_gallons is None else f"{state.fuel_used_gallons:.2f}",
+            "economy": "--" if state.economy_mpg is None else f"{state.economy_mpg:.1f}",
+        }
+        for key, text in values.items():
+            label = self._trip_value_labels.get(key)
+            if label is not None:
+                label.configure(text=text)
+
+    @staticmethod
+    def _format_duration(seconds: float) -> str:
+        total = max(0, round(seconds))
+        hours, remainder = divmod(total, 3600)
+        minutes, secs = divmod(remainder, 60)
+        return f"{hours:d}:{minutes:02d}:{secs:02d}"
 
     def _build_offroad(self, parent: tk.Frame) -> None:
         self._offroad_panel = ContextOffroadPanel(

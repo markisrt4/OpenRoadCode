@@ -11,10 +11,12 @@ from collections.abc import Callable
 
 from apps.orcUi.navigation_presenter import AttitudePresentationState, PositionPresentationState
 from apps.orcUi.theme_runtime import theme_bundle as packaged_theme_bundle
+from apps.orcUi.trip_presenter import TripPresentationState
 from apps.orcUi.vehicle_presenter import VehiclePresentationState
 from frontends.tk.automotive import DEFAULT_GAUGES, OffroadDashboardPanel, ShifterGauge
 from frontends.tk.automotive.vehicle_gauge_theme import vehicle_gauge_theme_from_style_sheet
 from frontends.tk.automotive.vehicle_gauge_widgets import LinearGauge, RoundGauge
+from frontends.tk.automotive.trip_metric_card import TripMetricCard
 from ui.navigation import HeadingReference, PositionFix
 from ui.theme import ThemeBundle, ThemeMode
 
@@ -22,7 +24,7 @@ from ui.theme import ThemeBundle, ThemeMode
 class VehiclePanel(tk.Frame):
     """ORC driving dashboard backed by reusable automotive instruments."""
 
-    _TABS = ("PERFORMANCE", "ENGINE", "OFF-ROAD", "TRIP")
+    _TABS = ("PERFORMANCE", "ENGINE", "ECU", "OFF-ROAD", "TRIP")
     _PERFORMANCE_IDS = ("rpm", "boost", "speed", "throttle")
     _ENGINE_IDS = ("coolant", "intake", "load", "fuel", "voltage")
 
@@ -32,6 +34,7 @@ class VehiclePanel(tk.Frame):
         *,
         on_back: Callable[[], None],
         state: VehiclePresentationState | None = None,
+        trip_state: TripPresentationState | None = None,
         position: PositionPresentationState | None = None,
         attitude: AttitudePresentationState | None = None,
         theme_bundle: ThemeBundle | None = None,
@@ -41,6 +44,7 @@ class VehiclePanel(tk.Frame):
         super().__init__(parent, bg=ui.background)
         self._on_back = on_back
         self._state = state or VehiclePresentationState()
+        self._trip_state = trip_state or TripPresentationState()
         self._position = position or PositionPresentationState()
         self._attitude = attitude or AttitudePresentationState()
         self._current_view = "PERFORMANCE"
@@ -49,6 +53,10 @@ class VehiclePanel(tk.Frame):
         self._engine_gauges: dict[str, LinearGauge] = {}
         self._shifter: ShifterGauge | None = None
         self._offroad: OffroadDashboardPanel | None = None
+        self._trip_cards: dict[str, TripMetricCard] = {}
+        self._boost_metric_labels: dict[str, tk.Label] = {}
+        self._ecu_value_labels: dict[str, tk.Label] = {}
+        self._ecu_state_labels: dict[str, tk.Label] = {}
         self._view_content: tk.Widget | None = None
 
         self.grid_columnconfigure(0, weight=1)
@@ -101,24 +109,44 @@ class VehiclePanel(tk.Frame):
         self._engine_gauges.clear()
         self._shifter = None
         self._offroad = None
+        self._trip_cards.clear()
+        self._boost_metric_labels.clear()
+        self._ecu_value_labels.clear()
+        self._ecu_state_labels.clear()
 
         if name == "PERFORMANCE":
             self._show_performance()
         elif name == "ENGINE":
             self._show_engine()
+        elif name == "ECU":
+            self._show_ecu()
         elif name == "OFF-ROAD":
             self._show_offroad()
         else:
-            self._show_placeholder("TRIP", "Trip distance, time, economy and drive statistics will live here.")
+            self._show_trip()
 
     def _show_performance(self) -> None:
         ui = self._theme_bundle.ui
         background = ui.background
         host = tk.Frame(self._view_host, bg=background)
-        host.grid(row=0, column=0, sticky="nsew")
-        host.grid_rowconfigure(0, weight=1)
+        host.grid(row=0, column=0, sticky="nsew", padx=6, pady=6)
+        host.grid_columnconfigure(0, weight=1)
+        host.grid_rowconfigure(1, weight=1)
+
+        header = self._section_header(
+            host,
+            title="PERFORMANCE",
+            subtitle="Live driving dynamics",
+            accent=ui.accent_danger,
+            symbol="◉",
+        )
+        header.grid(row=0, column=0, sticky="ew", pady=(0, 6))
+
+        cluster = tk.Frame(host, bg=background)
+        cluster.grid(row=1, column=0, sticky="nsew")
+        cluster.grid_rowconfigure(0, weight=1)
         for column in range(4):
-            host.grid_columnconfigure(column, weight=1, uniform="performance")
+            cluster.grid_columnconfigure(column, weight=1, uniform="performance")
 
         definitions = {
             definition.gauge_id: definition
@@ -129,13 +157,17 @@ class VehiclePanel(tk.Frame):
 
         for column, gauge_id in enumerate(self._PERFORMANCE_IDS):
             definition = definitions[gauge_id]
-            cell = tk.Frame(host, bg=background)
-            cell.grid(row=0, column=column, sticky="nsew", padx=5, pady=(5, 2))
-            cell.grid_columnconfigure(0, weight=1)
-            cell.grid_rowconfigure(0, weight=1)
+            card = self._instrument_card(
+                cluster,
+                title=definition.title.upper(),
+                unit=definition.unit,
+            )
+            card.grid(row=0, column=column, sticky="nsew", padx=4, pady=2)
+            card.grid_columnconfigure(0, weight=1)
+            card.grid_rowconfigure(1, weight=1)
 
             gauge = RoundGauge(
-                cell,
+                card,
                 title="",
                 unit=definition.unit,
                 minimum=definition.minimum,
@@ -149,46 +181,46 @@ class VehiclePanel(tk.Frame):
                 sweep_angle=definition.sweep_angle,
                 precision=definition.precision,
                 style=gauge_style,
-                size=220,
+                size=205,
             )
-            gauge.grid(row=0, column=0, sticky="nsew")
-
-            label = tk.Frame(cell, bg=background)
-            label.grid(row=1, column=0, sticky="ew", pady=(1, 0))
-            tk.Label(
-                label,
-                text=definition.title.upper(),
-                fg=ui.text,
-                bg=background,
-                font=("Sans", 10, "bold"),
-            ).pack(side=tk.LEFT, expand=True, anchor="e")
-            if definition.unit:
-                tk.Label(
-                    label,
-                    text=definition.unit,
-                    fg=ui.text_muted,
-                    bg=background,
-                    font=("Sans", 8, "bold"),
-                ).pack(side=tk.LEFT, expand=True, anchor="w", padx=(5, 0))
-
+            gauge.grid(row=1, column=0, sticky="nsew", padx=2, pady=(0, 2))
             self._gauges[gauge_id] = gauge
 
-        shifter = ShifterGauge(host, width=280, height=58)
-        shifter.set_style_sheet(self._theme_bundle.style_sheet)
-        shifter.grid(row=1, column=0, columnspan=4, pady=(2, 3))
+        lower = tk.Frame(host, bg=background)
+        lower.grid(row=2, column=0, sticky="ew", pady=(5, 0))
+        lower.grid_columnconfigure(0, weight=1)
 
+        shifter = ShifterGauge(lower, width=280, height=58)
+        shifter.set_style_sheet(self._theme_bundle.style_sheet)
+        shifter.grid(row=0, column=0)
         self._shifter = shifter
+
         self._view_content = host
         self._apply_state()
 
     def _show_engine(self) -> None:
-        background = self._theme_bundle.ui.background
+        ui = self._theme_bundle.ui
+        background = ui.background
         host = tk.Frame(self._view_host, bg=background)
-        host.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
-        host.grid_columnconfigure(0, weight=1, uniform="engine")
-        host.grid_columnconfigure(1, weight=1, uniform="engine")
+        host.grid(row=0, column=0, sticky="nsew", padx=6, pady=6)
+        host.grid_columnconfigure(0, weight=1)
+        host.grid_rowconfigure(1, weight=1)
+
+        header = self._section_header(
+            host,
+            title="ENGINE",
+            subtitle="Powertrain health and operating conditions",
+            accent=ui.accent_warning,
+            symbol="⌁",
+        )
+        header.grid(row=0, column=0, sticky="ew", pady=(0, 6))
+
+        grid = tk.Frame(host, bg=background)
+        grid.grid(row=1, column=0, sticky="nsew")
+        grid.grid_columnconfigure(0, weight=1, uniform="engine")
+        grid.grid_columnconfigure(1, weight=1, uniform="engine")
         for row in range(3):
-            host.grid_rowconfigure(row, weight=1)
+            grid.grid_rowconfigure(row, weight=1)
 
         definitions = {
             definition.gauge_id: definition
@@ -196,11 +228,22 @@ class VehiclePanel(tk.Frame):
             if definition.gauge_id in self._ENGINE_IDS
         }
         gauge_style = vehicle_gauge_theme_from_style_sheet(self._theme_bundle.style_sheet)
+
         for index, gauge_id in enumerate(self._ENGINE_IDS):
             definition = definitions[gauge_id]
+            row, column = divmod(index, 2)
+            card = self._instrument_card(
+                grid,
+                title=definition.title.upper(),
+                unit=definition.unit,
+            )
+            card.grid(row=row, column=column, sticky="nsew", padx=4, pady=4)
+            card.grid_columnconfigure(0, weight=1)
+            card.grid_rowconfigure(1, weight=1)
+
             gauge = LinearGauge(
-                host,
-                title=definition.title,
+                card,
+                title="",
                 unit=definition.unit,
                 minimum=definition.minimum,
                 maximum=definition.maximum,
@@ -212,14 +255,197 @@ class VehiclePanel(tk.Frame):
                 precision=definition.precision,
                 style=gauge_style,
                 width=260,
-                height=95,
+                height=82,
             )
-            row, column = divmod(index, 2)
-            gauge.grid(row=row, column=column, sticky="nsew", padx=5, pady=5)
+            gauge.grid(row=1, column=0, sticky="nsew", padx=5, pady=(0, 5))
             self._engine_gauges[gauge_id] = gauge
+
+        summary = tk.Frame(
+            grid,
+            bg=ui.surface_alt,
+            highlightthickness=1,
+            highlightbackground=ui.border,
+        )
+        summary.grid(row=2, column=1, sticky="nsew", padx=4, pady=4)
+        tk.Label(
+            summary,
+            text="ENGINE STATUS",
+            fg=ui.text_muted,
+            bg=ui.surface_alt,
+            font=("Sans", 8, "bold"),
+        ).pack(anchor="w", padx=12, pady=(12, 4))
+        tk.Label(
+            summary,
+            text="Monitoring live sensors",
+            fg=ui.text,
+            bg=ui.surface_alt,
+            font=("Sans", 12, "bold"),
+        ).pack(anchor="w", padx=12)
+        tk.Label(
+            summary,
+            text="Coolant · Intake · Load · Fuel · Voltage",
+            fg=ui.text_muted,
+            bg=ui.surface_alt,
+            font=("Sans", 8),
+        ).pack(anchor="w", padx=12, pady=(4, 10))
 
         self._view_content = host
         self._apply_state()
+
+    def _section_header(
+        self,
+        parent: tk.Misc,
+        *,
+        title: str,
+        subtitle: str,
+        accent: str,
+        symbol: str,
+    ) -> tk.Frame:
+        ui = self._theme_bundle.ui
+        header = tk.Frame(
+            parent,
+            bg=ui.surface_alt,
+            highlightthickness=1,
+            highlightbackground=ui.border,
+        )
+        marker = tk.Frame(header, bg=accent, width=5)
+        marker.pack(side=tk.LEFT, fill=tk.Y)
+
+        icon = tk.Label(
+            header,
+            text=symbol,
+            fg=accent,
+            bg=ui.surface_alt,
+            font=("Sans", 22, "bold"),
+            width=3,
+        )
+        icon.pack(side=tk.LEFT, padx=(10, 4), pady=8)
+
+        text = tk.Frame(header, bg=ui.surface_alt)
+        text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, pady=7)
+        tk.Label(
+            text,
+            text=title,
+            fg=ui.text,
+            bg=ui.surface_alt,
+            font=("Sans", 16, "bold"),
+            anchor="w",
+        ).pack(anchor="w")
+        tk.Label(
+            text,
+            text=subtitle,
+            fg=ui.text_muted,
+            bg=ui.surface_alt,
+            font=("Sans", 8),
+            anchor="w",
+        ).pack(anchor="w")
+        return header
+
+    def _instrument_card(
+        self,
+        parent: tk.Misc,
+        *,
+        title: str,
+        unit: str,
+    ) -> tk.Frame:
+        ui = self._theme_bundle.ui
+        card = tk.Frame(
+            parent,
+            bg=ui.surface,
+            highlightthickness=1,
+            highlightbackground=ui.border,
+        )
+        top = tk.Frame(card, bg=ui.surface)
+        top.grid(row=0, column=0, sticky="ew", padx=10, pady=(7, 2))
+        top.grid_columnconfigure(1, weight=1)
+        tk.Label(
+            top,
+            text=title,
+            fg=ui.text,
+            bg=ui.surface,
+            font=("Sans", 8, "bold"),
+            anchor="w",
+        ).grid(row=0, column=0, sticky="w")
+        if unit:
+            tk.Label(
+                top,
+                text=unit,
+                fg=ui.text_muted,
+                bg=ui.surface,
+                font=("Sans", 7, "bold"),
+            ).grid(row=0, column=1, sticky="e")
+        return card
+
+
+    def _show_ecu(self) -> None:
+        ui = self._theme_bundle.ui
+        host = tk.Frame(self._view_host, bg=ui.background)
+        host.grid(row=0, column=0, sticky="nsew", padx=6, pady=6)
+        host.grid_columnconfigure(0, weight=1)
+        host.grid_rowconfigure(1, weight=1)
+        self._section_header(host, title="ECU MONITOR", subtitle="Live engine-management decisions and response", accent=ui.accent_primary, symbol="◆").grid(row=0, column=0, sticky="ew", pady=(0, 6))
+        grid = tk.Frame(host, bg=ui.background)
+        grid.grid(row=1, column=0, sticky="nsew")
+        for column in range(3):
+            grid.grid_columnconfigure(column, weight=1, uniform="ecu")
+        grid.grid_rowconfigure(0, weight=1)
+        groups = (
+            ("DRIVER REQUEST", (("accelerator", "Accelerator", "%"), ("throttle", "Throttle", "%"))),
+            ("AIR / LOAD", (("map", "Manifold pressure", "kPa"), ("boost", "Boost", "psi"), ("load", "Engine load", "%"))),
+            ("FUEL COMMAND", (("lambda", "Commanded mixture", "λ"), ("fuel", "Fuel level", "%"))),
+        )
+        for column, (title, rows) in enumerate(groups):
+            card = tk.Frame(grid, bg=ui.surface, highlightthickness=1, highlightbackground=ui.border)
+            card.grid(row=0, column=column, sticky="nsew", padx=4, pady=4)
+            card.grid_columnconfigure(1, weight=1)
+            tk.Label(card, text=title, fg=ui.text_muted, bg=ui.surface, font=("Sans", 9, "bold")).grid(row=0, column=0, columnspan=3, sticky="w", padx=12, pady=(10, 8))
+            for row, (key, label, unit) in enumerate(rows, start=1):
+                tk.Label(card, text=label, fg=ui.text_muted, bg=ui.surface, font=("Sans", 9)).grid(row=row, column=0, sticky="w", padx=(12, 6), pady=6)
+                value = tk.Label(card, text="--", fg=ui.text, bg=ui.surface, font=("Sans", 15, "bold"), anchor="e")
+                value.grid(row=row, column=1, sticky="e", padx=4, pady=6)
+                tk.Label(card, text=unit, fg=ui.text_muted, bg=ui.surface, font=("Sans", 8, "bold")).grid(row=row, column=2, sticky="w", padx=(0, 12), pady=6)
+                self._ecu_value_labels[key] = value
+        state_card = tk.Frame(grid, bg=ui.surface_alt, highlightthickness=1, highlightbackground=ui.border)
+        state_card.grid(row=1, column=0, columnspan=3, sticky="ew", padx=4, pady=4)
+        tk.Label(state_card, text="ORC DERIVED CONTROL STATE", fg=ui.text_muted, bg=ui.surface_alt, font=("Sans", 8, "bold")).pack(side=tk.LEFT, padx=(12, 10), pady=10)
+        for name in ("IDLE", "CRUISE", "ACCELERATION", "BOOST", "HIGH LOAD", "ENRICHMENT", "WARM-UP"):
+            label = tk.Label(state_card, text="○ " + name, fg=ui.text_muted, bg=ui.surface_alt, font=("Sans", 8, "bold"), padx=6)
+            label.pack(side=tk.LEFT, padx=2, pady=10)
+            self._ecu_state_labels[name] = label
+        self._view_content = host
+        self._apply_ecu_state()
+
+    def _apply_ecu_state(self) -> None:
+        if not self._ecu_value_labels:
+            return
+        ui = self._theme_bundle.ui
+        state = self._state
+        values = {
+            "accelerator": None if state.accelerator_percent is None else f"{state.accelerator_percent:.0f}",
+            "throttle": None if state.throttle_percent is None else f"{state.throttle_percent:.0f}",
+            "map": None if state.manifold_pressure_kpa is None else f"{state.manifold_pressure_kpa:.0f}",
+            "boost": None if state.boost_psi is None else f"{state.boost_psi:+.1f}",
+            "load": None if state.engine_load_percent is None else f"{state.engine_load_percent:.0f}",
+            "lambda": None if state.commanded_equivalence_ratio is None else f"{state.commanded_equivalence_ratio:.2f}",
+            "fuel": None if state.fuel_percent is None else f"{state.fuel_percent:.0f}",
+        }
+        for key, value in values.items():
+            self._ecu_value_labels[key].configure(text=value or "--")
+        rpm, speed = state.engine_speed_rpm or 0.0, state.speed_mph or 0.0
+        pedal, throttle = state.accelerator_percent or 0.0, state.throttle_percent or 0.0
+        load, boost = state.engine_load_percent or 0.0, state.boost_psi or 0.0
+        mixture, coolant = state.commanded_equivalence_ratio, state.coolant_temperature_f
+        active = {
+            "IDLE": rpm > 0.0 and speed < 2.0 and pedal < 5.0,
+            "CRUISE": speed >= 15.0 and pedal < 35.0 and load < 65.0 and boost <= 1.0,
+            "ACCELERATION": pedal >= 25.0 or throttle >= 35.0,
+            "BOOST": boost > 1.0,
+            "HIGH LOAD": load >= 75.0,
+            "ENRICHMENT": mixture is not None and mixture < 0.97,
+            "WARM-UP": coolant is not None and coolant < 160.0,
+        }
+        for name, label in self._ecu_state_labels.items():
+            label.configure(fg=ui.accent_success if active[name] else ui.text_muted, text=("● " if active[name] else "○ ") + name)
 
     def _show_offroad(self) -> None:
         panel = OffroadDashboardPanel(
@@ -262,6 +488,201 @@ class VehiclePanel(tk.Frame):
             font=("Sans", 11),
         ).pack()
         self._view_content = frame
+
+    def _show_trip(self) -> None:
+        ui = self._theme_bundle.ui
+        host = tk.Frame(self._view_host, bg=ui.background)
+        host.grid(row=0, column=0, sticky="nsew", padx=6, pady=6)
+        host.grid_columnconfigure(0, weight=1)
+        host.grid_rowconfigure(1, weight=1)
+        host.grid_rowconfigure(2, weight=0)
+
+        header = tk.Frame(
+            host,
+            bg=ui.surface_alt,
+            highlightthickness=1,
+            highlightbackground=ui.border,
+        )
+        header.grid(row=0, column=0, sticky="ew", padx=2, pady=(2, 6))
+        header.grid_columnconfigure(1, weight=1)
+
+        road = tk.Canvas(
+            header,
+            width=70,
+            height=58,
+            bg=ui.surface_alt,
+            highlightthickness=0,
+            bd=0,
+        )
+        road.grid(row=0, column=0, rowspan=2, padx=(16, 10), pady=7)
+        road.create_polygon(10, 54, 28, 7, 42, 7, 60, 54, fill=ui.accent_primary, outline="")
+        road.create_line(35, 49, 35, 37, fill=ui.surface_alt, width=4)
+        road.create_line(35, 30, 35, 21, fill=ui.surface_alt, width=3)
+        road.create_line(35, 15, 35, 11, fill=ui.surface_alt, width=2)
+
+        tk.Label(
+            header,
+            text="TRIP COMPUTER",
+            fg=ui.text,
+            bg=ui.surface_alt,
+            font=("Sans", 18, "bold"),
+            anchor="w",
+        ).grid(row=0, column=1, sticky="sw", pady=(8, 0))
+        tk.Label(
+            header,
+            text="Track your journey. Know your drive.",
+            fg=ui.text_muted,
+            bg=ui.surface_alt,
+            font=("Sans", 9),
+            anchor="w",
+        ).grid(row=1, column=1, sticky="nw", pady=(0, 8))
+
+        grid = tk.Frame(host, bg=ui.background)
+        grid.grid(row=1, column=0, sticky="nsew")
+        for column in range(3):
+            grid.grid_columnconfigure(column, weight=1, uniform="trip")
+        for row in range(3):
+            grid.grid_rowconfigure(row, weight=1, uniform="trip")
+
+        metrics = (
+            ("status", "TRIP STATUS", "", "status", ui.accent_success),
+            ("distance", "DISTANCE", "mi", "pin", ui.accent_primary),
+            ("elapsed", "ELAPSED TIME", "", "clock", ui.accent_primary),
+            ("moving", "MOVING TIME", "", "wheel", ui.accent_success),
+            ("stopped", "STOPPED TIME", "", "pause", ui.accent_danger),
+            ("average", "AVERAGE SPEED", "MPH", "speed", ui.accent_warning),
+            ("maximum", "MAXIMUM SPEED", "MPH", "speed", ui.accent_warning),
+            ("fuel_used", "FUEL USED", "gal", "fuel", ui.text_muted),
+            ("economy", "FUEL ECONOMY", "MPG", "chart", ui.text_muted),
+        )
+
+        for index, (key, title, unit, icon, accent) in enumerate(metrics):
+            row, column = divmod(index, 3)
+            card = TripMetricCard(
+                grid,
+                title=title,
+                unit=unit,
+                icon=icon,
+                background=ui.surface,
+                border=ui.border,
+                text=ui.text,
+                muted=ui.text_muted,
+                accent=accent,
+            )
+            card.grid(row=row, column=column, sticky="nsew", padx=4, pady=4)
+            self._trip_cards[key] = card
+
+        boost_band = tk.Frame(
+            host,
+            bg=ui.surface_alt,
+            highlightthickness=1,
+            highlightbackground=ui.border,
+        )
+        boost_band.grid(row=2, column=0, sticky="ew", padx=4, pady=(6, 2))
+        tk.Label(
+            boost_band,
+            text="BOOST METRICS",
+            fg=ui.text_muted,
+            bg=ui.surface_alt,
+            font=("Sans", 8, "bold"),
+        ).grid(row=0, column=0, sticky="w", padx=(12, 8), pady=9)
+
+        boost_specs = (
+            ("boost_time", "TIME", ""),
+            ("boost_distance", "DIST", "mi"),
+            ("boost_fuel", "FUEL", "gal"),
+            ("boost_share", "FUEL SHARE", "%"),
+            ("peak_boost", "PEAK", "psi"),
+        )
+        for column, (key, title, unit) in enumerate(boost_specs, start=1):
+            cell = tk.Frame(boost_band, bg=ui.surface_alt)
+            cell.grid(row=0, column=column, sticky="ew", padx=8, pady=5)
+            boost_band.grid_columnconfigure(column, weight=1)
+            tk.Label(
+                cell,
+                text=title,
+                fg=ui.text_muted,
+                bg=ui.surface_alt,
+                font=("Sans", 7, "bold"),
+            ).pack()
+            value = tk.Label(
+                cell,
+                text="--",
+                fg=ui.text,
+                bg=ui.surface_alt,
+                font=("Sans", 11, "bold"),
+            )
+            value.pack()
+            if unit:
+                tk.Label(
+                    cell,
+                    text=unit,
+                    fg=ui.text_muted,
+                    bg=ui.surface_alt,
+                    font=("Sans", 7),
+                ).pack()
+            self._boost_metric_labels[key] = value
+
+        self._view_content = host
+        self._apply_trip_state()
+
+    def show_trip_view(self) -> None:
+        """Switch the vehicle panel directly to its trip view."""
+        self._show_view("TRIP")
+
+    def update_trip_state(self, state: TripPresentationState) -> None:
+        self._trip_state = state
+        self._apply_trip_state()
+
+    def _apply_trip_state(self) -> None:
+        if not self._trip_cards:
+            return
+        state = self._trip_state
+        values = {
+            "distance": f"{state.distance_miles:.1f}",
+            "elapsed": self._format_duration(state.elapsed_s),
+            "moving": self._format_duration(state.moving_s),
+            "stopped": self._format_duration(state.stopped_s),
+            "average": "--" if state.average_speed_mph is None else f"{state.average_speed_mph:.1f}",
+            "maximum": "--" if state.maximum_speed_mph is None else f"{state.maximum_speed_mph:.1f}",
+            "fuel_used": "--" if state.fuel_used_gallons is None else f"{state.fuel_used_gallons:.2f}",
+            "economy": "--" if state.economy_mpg is None else f"{state.economy_mpg:.1f}",
+            "status": state.status.upper(),
+        }
+        boost_values = {
+            "boost_time": self._format_duration(state.boost_time_s),
+            "boost_distance": f"{state.boost_distance_miles:.1f}",
+            "boost_fuel": f"{state.boost_fuel_gallons:.2f}",
+            "boost_share": "--" if state.boost_fuel_percent is None else f"{state.boost_fuel_percent:.0f}",
+            "peak_boost": "--" if state.peak_boost_psi is None else f"{state.peak_boost_psi:.1f}",
+        }
+        for key, text in boost_values.items():
+            label = self._boost_metric_labels.get(key)
+            if label is not None:
+                label.configure(text=text)
+
+        status_colors = {
+            "active": self._theme_bundle.ui.accent_success,
+            "paused": self._theme_bundle.ui.accent_warning,
+            "complete": self._theme_bundle.ui.accent_primary,
+            "idle": self._theme_bundle.ui.text_muted,
+        }
+        for key, text in values.items():
+            card = self._trip_cards.get(key)
+            if card is not None:
+                card.set_value(
+                    text,
+                    accent=status_colors.get(state.status)
+                    if key == "status"
+                    else None,
+                )
+
+    @staticmethod
+    def _format_duration(seconds: float) -> str:
+        total = max(0, round(seconds))
+        hours, remainder = divmod(total, 3600)
+        minutes, secs = divmod(remainder, 60)
+        return f"{hours:d}:{minutes:02d}:{secs:02d}"
 
     def set_theme_bundle(self, theme_bundle: ThemeBundle) -> None:
         """Apply the active CSS theme and rebuild the active instrument view."""
@@ -312,6 +733,7 @@ class VehiclePanel(tk.Frame):
         for gauge_id, gauge in self._engine_gauges.items():
             gauge.set_connected(True)
             gauge.set_value(engine_values[gauge_id])
+        self._apply_ecu_state()
 
     def _apply_offroad_state(self) -> None:
         panel = self._offroad

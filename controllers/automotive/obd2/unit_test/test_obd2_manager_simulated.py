@@ -14,10 +14,13 @@ def test_simulated_obd_responses_produce_si_vehicle_state():
     manager = Obd2Manager(adapter)
     manager.connect()
 
-    state = manager.read_state()
+    state = None
+    for _ in range(120):
+        state = manager.read_state()
+    assert state is not None
 
     assert state.engine_speed_rad_s == pytest.approx(3000.0 * 2.0 * math.pi / 60.0)
-    assert state.vehicle_speed_m_s == pytest.approx(100.0 / 3.6)
+    assert state.vehicle_speed_m_s is None
     assert state.throttle_position == pytest.approx(102.0 / 255.0)
     assert state.accelerator_pedal_position == pytest.approx(89.0 / 255.0)
     assert state.engine_load == pytest.approx(128.0 / 255.0)
@@ -28,33 +31,25 @@ def test_simulated_obd_responses_produce_si_vehicle_state():
     assert state.coolant_temperature_k == pytest.approx(363.15)
     assert state.intake_air_temperature_k == pytest.approx(308.15)
     assert state.fuel_level == pytest.approx(191.0 / 255.0)
+    assert state.commanded_equivalence_ratio == pytest.approx(1.0)
+    assert state.engine_fuel_rate_m3_s == pytest.approx(8.0 / 1000.0 / 3600.0)
     assert state.control_voltage_v == pytest.approx(13.8)
 
     manager.disconnect()
     assert not adapter.is_connected
 
 
-def test_advance_changes_raw_pid_data_and_decoded_state():
+def test_scheduler_updates_cached_values_over_multiple_reads():
     adapter = SimulatedObd2Adapter()
     manager = Obd2Manager(adapter)
     manager.connect()
 
-    before = manager.read_state()
-    rpm_bytes_before = adapter._responses[0x0C]
-    speed_bytes_before = adapter._responses[0x0D]
+    states = [manager.read_state() for _ in range(24)]
 
-    adapter.advance()
-    after = manager.read_state()
-
-    assert adapter._responses[0x0C] != rpm_bytes_before
-    assert adapter._responses[0x0D] != speed_bytes_before
-    assert after.engine_speed_rad_s != before.engine_speed_rad_s
-    assert after.vehicle_speed_m_s != before.vehicle_speed_m_s
-    assert after.throttle_position != before.throttle_position
-    assert after.intake_manifold_pressure_pa != before.intake_manifold_pressure_pa
-    assert after.boost_pressure_pa == pytest.approx(
-        after.intake_manifold_pressure_pa - after.barometric_pressure_pa
-    )
+    assert any(state.engine_speed_rad_s is not None for state in states)
+    assert any(state.intake_manifold_pressure_pa is not None for state in states)
+    assert any(state.throttle_position is not None for state in states)
+    assert all(state.vehicle_speed_m_s is None for state in states)
 
 
 def test_dynamic_simulator_stays_inside_vehicle_ranges():
@@ -66,14 +61,21 @@ def test_dynamic_simulator_stays_inside_vehicle_ranges():
         adapter.advance()
         state = manager.read_state()
 
-        assert 0.0 <= state.vehicle_speed_m_s <= 255.0 / 3.6
-        assert 0.0 <= state.throttle_position <= 1.0
-        assert 0.0 <= state.accelerator_pedal_position <= 1.0
-        assert 0.0 <= state.engine_load <= 1.0
-        assert 0.0 <= state.fuel_level <= 1.0
-        assert state.intake_manifold_pressure_pa >= 0.0
-        assert state.barometric_pressure_pa == 101000.0
-        assert state.control_voltage_v > 0.0
+        assert state.vehicle_speed_m_s is None
+        if state.throttle_position is not None:
+            assert 0.0 <= state.throttle_position <= 1.0
+        if state.accelerator_pedal_position is not None:
+            assert 0.0 <= state.accelerator_pedal_position <= 1.0
+        if state.engine_load is not None:
+            assert 0.0 <= state.engine_load <= 1.0
+        if state.fuel_level is not None:
+            assert 0.0 <= state.fuel_level <= 1.0
+        if state.intake_manifold_pressure_pa is not None:
+            assert state.intake_manifold_pressure_pa >= 0.0
+        if state.barometric_pressure_pa is not None:
+            assert state.barometric_pressure_pa == 101000.0
+        if state.control_voltage_v is not None:
+            assert state.control_voltage_v > 0.0
 
 
 def test_unsupported_pid_is_none():

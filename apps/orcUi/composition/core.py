@@ -10,9 +10,16 @@ from dataclasses import dataclass
 
 from apps.orcUi.core_runtime import MapRuntime, StateIngressRuntime
 from apps.orcUi.frontend.tk.orc_ui_app import OrcUiApp
+from config.service_runtime_config import ServiceRuntimeConfigParser
 from controllers.audio import PipewireAudioController, SystemVolumeHandler
+from controllers.automotive import TripTracker
+from controllers.automotive.fuel_model import FuelModel
 from controllers.map_renderer.map_camera_runtime import MapCameraRuntime
 from controllers.system import SystemLifecycleController
+from messaging.zeromq import ZeroMqPublisher, ZeroMqSubscriber
+from messaging.zeromq.endpoints import LOCAL_PUBLISHER_ENDPOINT, LOCAL_SUBSCRIBER_ENDPOINT
+from services.automotive.automotive_service_cli import DEFAULT_RUNTIME_CONFIG
+from services.trip import TripRuntime
 
 
 @dataclass(slots=True)
@@ -23,6 +30,8 @@ class CoreComposition:
     map_runtime: MapRuntime
     map_camera: MapCameraRuntime
     state_ingress: StateIngressRuntime
+    trip_runtime: TripRuntime
+    trip_publisher: ZeroMqPublisher
     lifecycle: SystemLifecycleController
     volume: SystemVolumeHandler
 
@@ -30,15 +39,22 @@ class CoreComposition:
         self.volume.refresh()
         self.map_camera.start()
         self.state_ingress.start()
+        self.trip_runtime.start()
 
     def close(self) -> None:
         try:
-            self.state_ingress.close()
+            self.trip_runtime.close()
         finally:
             try:
-                self.map_camera.close()
+                self.state_ingress.close()
             finally:
-                self.map_runtime.stop()
+                try:
+                    self.trip_publisher.close()
+                finally:
+                    try:
+                        self.map_camera.close()
+                    finally:
+                        self.map_runtime.stop()
 
 
 def create_core_composition() -> CoreComposition:
@@ -68,14 +84,32 @@ def create_core_composition() -> CoreComposition:
     state_ingress = StateIngressRuntime(
         schedule_ui=app.schedule_ui_callback,
         apply_vehicle_state=app.apply_vehicle_state,
+        apply_trip_state=app.apply_trip_state,
         apply_position_state=app.apply_position_state,
         apply_attitude_state=app.apply_attitude_state,
+    )
+    runtime_config = ServiceRuntimeConfigParser(DEFAULT_RUNTIME_CONFIG).load()
+    fuel_config = runtime_config.automotive.fuel
+    trip_tracker = TripTracker(
+        fuel_model=FuelModel(
+            engine_displacement_m3=fuel_config.engine_displacement_l / 1000.0,
+            volumetric_efficiency=fuel_config.volumetric_efficiency,
+        )
+    )
+    trip_publisher = ZeroMqPublisher(LOCAL_PUBLISHER_ENDPOINT)
+    trip_runtime = TripRuntime(
+        ZeroMqSubscriber(LOCAL_SUBSCRIBER_ENDPOINT),
+        trip_publisher,
+        tracker=trip_tracker,
+        publish_source="orc-ui-trip-runtime",
     )
     return CoreComposition(
         app=app,
         map_runtime=map_runtime,
         map_camera=map_camera,
         state_ingress=state_ingress,
+        trip_runtime=trip_runtime,
+        trip_publisher=trip_publisher,
         lifecycle=lifecycle,
         volume=volume,
     )

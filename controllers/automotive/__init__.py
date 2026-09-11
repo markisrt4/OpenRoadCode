@@ -6,6 +6,9 @@
 from importlib import import_module
 from typing import Any
 
+from controllers.automotive.trip_if import TripIf
+from controllers.automotive.trip_state import TripState, TripStatus
+from controllers.automotive.trip_tracker import TripTracker
 from controllers.automotive.vehicle_state import VehicleState
 from controllers.automotive.vehicle_state_source_if import VehicleStateSourceIf
 
@@ -13,6 +16,10 @@ __all__ = [
     "Elm327ObdAdapter",
     "Obd2Manager",
     "SimulatedVehicleStateSource",
+    "TripIf",
+    "TripState",
+    "TripStatus",
+    "TripTracker",
     "VehicleState",
     "VehicleStateSourceIf",
 ]

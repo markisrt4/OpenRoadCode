@@ -109,6 +109,24 @@ class FuelLevelPid(_Mode01Pid):
         return None if len(data) < 1 else data[0] * 100.0 / 255.0
 
 
+class CommandedEquivalenceRatioPid(_Mode01Pid):
+    """Decode commanded equivalence ratio (lambda-like ratio, 1.0 = stoich)."""
+    pid = 0x44
+    unit = "ratio"
+
+    def decode(self, data: bytes) -> float | None:
+        return None if len(data) < 2 else ((data[0] << 8) | data[1]) / 32768.0
+
+
+class EngineFuelRatePid(_Mode01Pid):
+    """Decode engine fuel rate in liters per hour."""
+    pid = 0x5E
+    unit = "L/h"
+
+    def decode(self, data: bytes) -> float | None:
+        return None if len(data) < 2 else ((data[0] << 8) | data[1]) / 20.0
+
+
 class ControlModuleVoltagePid(_Mode01Pid):
     """Decode control-module supply voltage in volts."""
     pid = 0x42

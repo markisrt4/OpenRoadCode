@@ -108,7 +108,13 @@ class AutomotiveInputConfig:
     host: str = "127.0.0.1"
     tcp_port: int = 35000
     timeout_s: float = 1.0
-    slow_poll_interval_s: float = 5.0
+    request_rate_hz: float = 6.0
+
+
+@dataclass(frozen=True, slots=True)
+class AutomotiveFuelConfig:
+    engine_displacement_l: float = 1.6
+    volumetric_efficiency: float = 0.85
 
 
 @dataclass(frozen=True, slots=True)
@@ -122,6 +128,7 @@ class AutomotiveServiceRuntimeConfig:
     enabled: bool = True
     rate_hz: float = 10.0
     input: AutomotiveInputConfig = AutomotiveInputConfig()
+    fuel: AutomotiveFuelConfig = AutomotiveFuelConfig()
     publish: AutomotivePublishConfig = AutomotivePublishConfig()
 
 
@@ -177,6 +184,7 @@ class ServiceRuntimeConfigParser:
     def _parse_automotive(self, value) -> AutomotiveServiceRuntimeConfig:
         data = self._table(value, "services.automotive")
         input_data = self._table(data.get("input", {}), "services.automotive.input")
+        fuel_data = self._table(data.get("fuel", {}), "services.automotive.fuel")
         publish_data = self._table(data.get("publish", {}), "services.automotive.publish")
         source = self._source(input_data.get("source", "simulation"), "services.automotive.input.source")
         device = self._string(input_data.get("device", "elm327"), "services.automotive.input.device").lower()
@@ -203,7 +211,17 @@ class ServiceRuntimeConfigParser:
                 host=self._string(input_data.get("host", "127.0.0.1"), "services.automotive.input.host"),
                 tcp_port=tcp_port,
                 timeout_s=self._positive(input_data.get("timeout_s", 1.0), "services.automotive.input.timeout_s"),
-                slow_poll_interval_s=self._positive(input_data.get("slow_poll_interval_s", 5.0), "services.automotive.input.slow_poll_interval_s"),
+                request_rate_hz=self._positive(input_data.get("request_rate_hz", 6.0), "services.automotive.input.request_rate_hz"),
+            ),
+            fuel=AutomotiveFuelConfig(
+                engine_displacement_l=self._positive(
+                    fuel_data.get("engine_displacement_l", 1.6),
+                    "services.automotive.fuel.engine_displacement_l",
+                ),
+                volumetric_efficiency=self._positive(
+                    fuel_data.get("volumetric_efficiency", 0.85),
+                    "services.automotive.fuel.volumetric_efficiency",
+                ),
             ),
             publish=AutomotivePublishConfig(
                 enabled=self._bool(publish_data.get("enabled", True), "services.automotive.publish.enabled"),

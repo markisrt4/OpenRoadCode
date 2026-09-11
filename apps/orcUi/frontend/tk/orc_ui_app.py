@@ -15,6 +15,7 @@ from .offroad_panel import OffRoadPanel
 from apps.orcUi.orc_theme import ThemeMode, toggle, toggle_label
 from .power_dialog import PowerDialog
 from apps.orcUi.theme_runtime import theme_bundle
+from apps.orcUi.trip_presenter import TripPresentationState
 from .vehicle_panel import VehiclePanel
 from apps.orcUi.vehicle_presenter import VehiclePresentationState
 from ui.navigation import MapRequestHandlerIf
@@ -66,6 +67,7 @@ class OrcUiApp(VolumeUiIf):
         self._vehicle_panel: VehiclePanel | None = None
         self._offroad_panel: OffRoadPanel | None = None
         self._vehicle_state = VehiclePresentationState()
+        self._trip_state = TripPresentationState()
         self._position_state = PositionPresentationState()
         self._attitude_state = AttitudePresentationState()
         self._volume_percent: float | None = None
@@ -172,6 +174,15 @@ class OrcUiApp(VolumeUiIf):
             self._context_rail.update_vehicle_state(state)
         if self._vehicle_panel is not None and self._vehicle_panel.winfo_exists():
             self._vehicle_panel.update_state(state)
+    def apply_trip_state(self, state: TripPresentationState) -> None:
+        """Apply already-presented trip state to mounted shell widgets."""
+        if self._closing:
+            return
+        self._trip_state = state
+        if self._context_rail is not None and self._context_rail.winfo_exists():
+            self._context_rail.update_trip_state(state)
+        if self._vehicle_panel is not None and self._vehicle_panel.winfo_exists():
+            self._vehicle_panel.update_trip_state(state)
     def apply_position_state(self, state: PositionPresentationState) -> None:
         """Apply already-presented position state to mounted shell widgets."""
         if self._closing:
@@ -411,6 +422,7 @@ class OrcUiApp(VolumeUiIf):
         self._home_map_panel.grid(row=0, column=0, sticky="nsew", padx=(0, 5), pady=(0, 5))
         self._context_rail = ContextRail(self._content, on_expand=self._show_context_full_panel, theme=self._theme)
         self._context_rail.update_vehicle_state(self._vehicle_state)
+        self._context_rail.update_trip_state(self._trip_state)
         self._context_rail.update_position_state(self._position_state)
         self._context_rail.update_attitude_state(self._attitude_state)
         self._context_rail.grid(row=0, column=1, rowspan=2, sticky="nsew", padx=(5, 0))
@@ -450,7 +462,7 @@ class OrcUiApp(VolumeUiIf):
         self._clear_content()
         self._active_nav = "VEHICLE"
         self._paint_nav()
-        self._vehicle_panel = VehiclePanel(self._content, on_back=self._show_home, state=self._vehicle_state, theme_bundle=self._theme)
+        self._vehicle_panel = VehiclePanel(self._content, on_back=self._show_home, state=self._vehicle_state, trip_state=self._trip_state, theme_bundle=self._theme)
         self._vehicle_panel.pack(fill=tk.BOTH, expand=True)
     def _show_offroad_panel(self) -> None:
         self._clear_content()
@@ -459,8 +471,10 @@ class OrcUiApp(VolumeUiIf):
     def _on_close(self) -> None:
         self._shutdown()
     def _show_context_full_panel(self, name: str) -> None:
-        if name == "VEHICLE":
+        if name == "VEHICLE" or name == "TRIP":
             self._show_vehicle_panel()
+            if name == "TRIP" and self._vehicle_panel is not None:
+                self._vehicle_panel.show_trip_view()
         elif name == "OFF-ROAD":
             self._show_offroad_panel()
         else:

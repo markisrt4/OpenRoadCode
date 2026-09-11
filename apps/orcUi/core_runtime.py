@@ -21,8 +21,14 @@ from apps.orcUi.navigation_presenter import (
     NavigationPresenter,
     PositionPresentationState,
 )
+from apps.orcUi.trip_presenter import TripPresenter, TripPresentationState
 from apps.orcUi.vehicle_presenter import VehiclePresenter, VehiclePresentationState
-from messaging.contracts.automotive import VEHICLE_STATE_TOPIC, decode_vehicle_state
+from messaging.contracts.automotive import (
+    TRIP_STATE_TOPIC,
+    VEHICLE_STATE_TOPIC,
+    decode_trip_state,
+    decode_vehicle_state,
+)
 from messaging.contracts.navigation import (
     ATTITUDE_STATE_TOPIC,
     POSITION_STATE_TOPIC,
@@ -75,12 +81,14 @@ class StateIngressRuntime:
         *,
         schedule_ui: Callable[[int, Callable[[], None]], object],
         apply_vehicle_state: Callable[[VehiclePresentationState], None],
+        apply_trip_state: Callable[[TripPresentationState], None],
         apply_position_state: Callable[[PositionPresentationState], None],
         apply_attitude_state: Callable[[AttitudePresentationState], None],
         dispatcher: MessageDispatcher | None = None,
     ) -> None:
         self._schedule_ui = schedule_ui
         self._apply_vehicle_state = apply_vehicle_state
+        self._apply_trip_state = apply_trip_state
         self._apply_position_state = apply_position_state
         self._apply_attitude_state = apply_attitude_state
         self._pending_ui: SimpleQueue[Callable[[], None]] = SimpleQueue()
@@ -93,6 +101,11 @@ class StateIngressRuntime:
             VEHICLE_STATE_TOPIC,
             decode_vehicle_state,
             self._on_vehicle_message,
+        )
+        self._dispatcher.register(
+            TRIP_STATE_TOPIC,
+            decode_trip_state,
+            self._on_trip_message,
         )
         self._dispatcher.register(
             POSITION_STATE_TOPIC,
@@ -154,6 +167,10 @@ class StateIngressRuntime:
     def _on_vehicle_message(self, message) -> None:
         state = VehiclePresenter.present(message.data)
         self._schedule_state(lambda: self._apply_vehicle_state(state))
+
+    def _on_trip_message(self, message) -> None:
+        state = TripPresenter.present(message.data)
+        self._schedule_state(lambda: self._apply_trip_state(state))
 
     def _on_position_message(self, message) -> None:
         state = NavigationPresenter.present_position(message.data)
