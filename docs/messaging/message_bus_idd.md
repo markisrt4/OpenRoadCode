@@ -8,6 +8,16 @@ For copy/paste producer and subscriber examples, see `messaging/README.md`.
 
 ## Topology
 
+<aside class="orc-diagram-legend" aria-label="Architecture diagram legend">
+  <strong>Diagram key</strong>
+  <span><i class="orc-legend-swatch orc-legend-app"></i>App / UI</span>
+  <span><i class="orc-legend-swatch orc-legend-service"></i>Service / runtime</span>
+  <span><i class="orc-legend-swatch orc-legend-controller"></i>Controller / domain</span>
+  <span><i class="orc-legend-swatch orc-legend-message"></i>Messaging / contract</span>
+  <span><i class="orc-legend-swatch orc-legend-adapter"></i>Protocol / hardware</span>
+  <span><i class="orc-legend-swatch orc-legend-external"></i>External / input</span>
+</aside>
+
 ```mermaid
 flowchart LR
     publishers["Publishers"] -->|"connect"| ingress["tcp://127.0.0.1:5556<br/>XSUB"]
