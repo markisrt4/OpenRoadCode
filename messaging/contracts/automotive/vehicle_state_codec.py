@@ -26,6 +26,7 @@ def encode_vehicle_state(state: VehicleState, *, source: str = "obd2") -> dict[s
             "coolant_temperature_k": state.coolant_temperature_k,
             "intake_air_temperature_k": state.intake_air_temperature_k,
             "fuel_level": state.fuel_level,
+            "engine_fuel_rate_m3_s": state.engine_fuel_rate_m3_s,
             "control_voltage_v": state.control_voltage_v,
         },
     }
