@@ -53,6 +53,26 @@ ADS-B and Weather belong to the same exclusive auxiliary-dashboard browser
 group. Launching either dashboard closes the other browser window on that X
 display, while leaving independently managed backend services available.
 
+
+## Map renderer
+
+`MapRendererLauncher` selects the native map renderer launcher for the current
+runtime environment:
+
+- Termux uses `development/termux/start_map_renderer.sh`.
+- Native Linux uses `scripts/runtime/start_map_renderer.sh`.
+- `OPENROADCODE_MAP_RENDERER_COMMAND` overrides automatic launcher selection.
+
+The native Linux launcher uses these defaults:
+
+- navigation installation: `/opt/openroadcode/navigation`;
+- runtime configuration: `/etc/openroadcode/navigation.toml`;
+- map data: `/srv/openroadcode`;
+- runtime cache: `~/.cache/openroadcode`.
+
+These locations can be overridden with the corresponding `OPENROADCODE_*`
+environment variables.
+
 ## Runtime dependencies
 
 Browser kiosk support requires one of:
