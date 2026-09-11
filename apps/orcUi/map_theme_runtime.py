@@ -6,14 +6,15 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 from typing import Any
 
 from ui.theme import ThemeMode
 
 _MAP_DARK = {
-    "background": "#0b151b", "wood": "#164a35", "grass": "#28523a", "scrub": "#314b3b", "farmland": "#3b5140",
-    "land_default": "#17262d", "residential": "#22343d", "commercial": "#40334d", "industrial": "#33444a", "cemetery": "#24513b", "hospital": "#4b3349", "school": "#354b52", "landuse_default": "#293940", "park": "#17613b",
+    "background": "#0b151b", "wood": "#164a35", "grass": "#28523a", "scrub": "#314b3b", "farmland": "#51482b",
+    "land_default": "#17262d", "residential": "#22343d", "commercial": "#493044", "industrial": "#33444a", "cemetery": "#24513b", "hospital": "#542f42", "school": "#564d29", "landuse_default": "#293940", "park": "#17613b",
     "water": "#075078", "waterway": "#21b8ed", "boundary": "#73858e", "rail": "#718087", "path": "#7b898f", "service_casing": "#39484f", "service": "#718087", "residential_casing": "#46565d", "residential_road": "#8d9ba1", "secondary_casing": "#275e78", "secondary_road": "#73b7d8", "primary_casing": "#075d8d", "primary_road": "#31ace9", "motorway_casing": "#034c79", "motorway": "#00a9ff", "aeroway": "#75848b", "building": "#3b494f", "building_outline": "#596970", "route_casing": "#ffffff", "route": "#ff4935", "label": "#e1e9ec", "label_major": "#ffffff", "label_minor": "#c5d0d5", "label_halo": "#081116", "water_label": "#76ddff", "road_ref": "#b1e3f5", "poi": "#bfff55", "poi_food": "#ff7448", "house": "#a8b6bc",
 }
 _MAP_LIGHT = {
@@ -25,7 +26,7 @@ def install_map_style(mode: ThemeMode, data_root: str | Path | None = None) -> P
     """Install the generated MapLibre style for the requested presentation mode."""
     repo_root = Path(__file__).resolve().parents[2]
     template = repo_root / "tools" / "map_builder" / "templates" / "openroadcode-style.json"
-    root = Path(data_root or Path.home() / ".local" / "share" / "openroadcode")
+    root = Path(data_root) if data_root is not None else _default_data_root()
     destination = root / "maps" / "styles" / "openroadcode.json"
     if not template.is_file() or not destination.parent.is_dir():
         return None
@@ -33,6 +34,18 @@ def install_map_style(mode: ThemeMode, data_root: str | Path | None = None) -> P
     _apply_map_palette(document, _MAP_DARK if mode is ThemeMode.DARK else _MAP_LIGHT)
     destination.write_text(json.dumps(document, separators=(",", ":")), encoding="utf-8")
     return destination
+
+
+def _default_data_root() -> Path:
+    configured = os.environ.get("OPENROADCODE_DATA_ROOT")
+    if configured:
+        return Path(configured).expanduser()
+
+    legacy_root = Path("/srv/openroadcode")
+    if (legacy_root / "maps" / "styles").is_dir():
+        return legacy_root
+
+    return Path.home() / ".local" / "share" / "openroadcode"
 
 
 def _apply_map_palette(document: dict[str, Any], colors: dict[str, str]) -> None:
