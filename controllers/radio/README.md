@@ -52,6 +52,16 @@ RDS is radio metadata and belongs in the radio path rather than the generic SDR+
 
 The current ORC path is:
 
+<aside class="orc-diagram-legend" aria-label="Architecture diagram legend">
+  <strong>Diagram key</strong>
+  <span><i class="orc-legend-swatch orc-legend-app"></i>App / UI</span>
+  <span><i class="orc-legend-swatch orc-legend-service"></i>Service / runtime</span>
+  <span><i class="orc-legend-swatch orc-legend-controller"></i>Controller / domain</span>
+  <span><i class="orc-legend-swatch orc-legend-message"></i>Messaging / contract</span>
+  <span><i class="orc-legend-swatch orc-legend-adapter"></i>Protocol / hardware</span>
+  <span><i class="orc-legend-swatch orc-legend-external"></i>External / input</span>
+</aside>
+
 ```mermaid
 flowchart TD
     sdr["SDR++ / Rigctl :4532"] --> protocol["protocols/rigctl"] --> backend["RigctlRadioBackend"]
