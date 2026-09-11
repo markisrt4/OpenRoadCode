@@ -69,7 +69,7 @@ class VehicleStateCodecTest(unittest.TestCase):
         payload = encode_vehicle_state(
             VehicleState(timestamp=self.timestamp), source="simulator"
         )
-        self.assertEqual(payload["version"], 1)
+        self.assertEqual(payload["version"], 2)
         self.assertEqual(payload["source"], "simulator")
         self.assertEqual(payload["timestamp"]["nanoseconds"], 123_456_000)
         self.assertIsInstance(payload["timestamp"]["seconds"], int)
