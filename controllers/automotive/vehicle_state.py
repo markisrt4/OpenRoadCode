@@ -34,4 +34,5 @@ class VehicleState:
     intake_air_temperature_k: float | None = None
 
     fuel_level: float | None = None
+    engine_fuel_rate_m3_s: float | None = None
     control_voltage_v: float | None = None
