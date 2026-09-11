@@ -1,14 +1,13 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 
-"""OpenRoadCode automotive UI entry point."""
+"""OpenRoadCode automotive UI composition entry point."""
 
 from __future__ import annotations
 
 from apps.orcUi.composition.application import create_orc_ui_composition
-from apps.orcUi.orc_ui_app import OrcUiApp
 
-__all__ = ["OrcUiApp", "main"]
+__all__ = ["main"]
 
 
 def main() -> None:

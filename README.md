@@ -206,7 +206,7 @@ orcUi / carUi / carTui / webUi / demos
 
 Producer services own physical devices or simulation sources, domain processing, and publication lifecycle. Applications consume public telemetry instead of constructing competing GPS, IMU, or OBD-II instances merely to display state.
 
-Map presentation follows the same separation. Navigation owns normalized position and route information, application-side map logic owns camera policy, and `MapRendererClient` publishes renderer commands through the message bus. The native MapLibre renderer therefore does not need to know whether a position originated from USB GNSS, Android, browser-based development input, or simulation.
+Map presentation follows the same separation. Navigation owns normalized position and route information, `controllers/map_renderer` owns reusable camera policy and renderer requests, and `MapRendererClient` publishes renderer commands through the message bus. In `orcUi`, `CoreComposition` owns the `MapCameraRuntime` and explicitly injects its `MapRequestHandlerIf` through the shell to HOME and NAVIGATION; there is no process-global map-camera registry. The native MapLibre renderer therefore does not need to know whether a position originated from USB GNSS, Android, browser-based development input, or simulation.
 
 The games feature follows the same boundary rule: toolkit-independent game state and requests live under `ui/games`, lifecycle and package policy live under `controllers/games`, Tk rendering lives under `frontends/tk/games`, and generic X11 window hosting lives under `frontends/x11`.
 

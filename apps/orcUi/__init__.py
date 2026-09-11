@@ -1,4 +1,4 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 
-"""OpenRoadCode integrated automotive user interface."""
+"""Application assembly and runtime for the integrated OpenRoadCode UI."""

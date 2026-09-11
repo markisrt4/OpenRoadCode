@@ -12,7 +12,7 @@ from apps.orcUi.composition.core import CoreComposition, create_core_composition
 from apps.orcUi.composition.games import configure_games
 from apps.orcUi.composition.media import MediaComposition, configure_media
 from apps.orcUi.composition.radio import RadioComposition, configure_radio
-from apps.orcUi.orc_ui_app import OrcUiApp
+from apps.orcUi.frontend.tk.orc_ui_app import OrcUiApp
 from frontends.tk.games import GamesScreen
 
 
@@ -31,16 +31,13 @@ class OrcUiComposition:
         return self.core.app
 
     def run(self) -> None:
-        """Start ingress/services, run Tk, and close resources in reverse order."""
+        """Run Tk, close every owned resource, then honor host lifecycle intent."""
         try:
             self.app.schedule_ui_callback(1500, self.runtime.start_background_apps)
             self.core.start()
             self.app.run()
         finally:
             try:
-                # Games can own proot/GTK child processes. Shut them down before
-                # closing media or state ingress so teardown does not race a live
-                # embedded game session.
                 self.games.shutdown()
             finally:
                 try:
@@ -50,6 +47,8 @@ class OrcUiComposition:
                         self.core.close()
                     finally:
                         self.runtime.close()
+
+        self.core.lifecycle.execute_requested_action()
 
 
 def create_orc_ui_composition() -> OrcUiComposition:

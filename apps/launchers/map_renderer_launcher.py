@@ -47,8 +47,14 @@ class MapRendererLauncher:
         if self.is_running():
             return
 
-        command = self._command or _default_command()
+        # A renderer left behind by an interrupted/restarted UI is not owned by
+        # this launcher instance. Kill it before starting the renderer that will
+        # consume the freshly generated theme style. Otherwise the stale process
+        # can keep displaying the previous style and make theme changes appear
+        # to have been ignored.
         self._terminate_stale_renderers()
+
+        command = self._command or _default_command()
         environment = os.environ.copy()
         environment.update(
             {
@@ -101,6 +107,9 @@ def _default_command() -> list[str]:
     repo_root = Path(__file__).resolve().parents[2]
     prefix = os.environ.get("PREFIX", "")
     if prefix.startswith("/data/data/com.termux/files/usr"):
-        return ["bash", str(repo_root / "development" / "termux" / "start_map_renderer.sh")]
+        return [
+            "bash",
+            str(repo_root / "development" / "termux" / "start_map_renderer.sh"),
+        ]
 
     return ["bash", str(repo_root / "scripts" / "runtime" / "start_map_renderer.sh")]

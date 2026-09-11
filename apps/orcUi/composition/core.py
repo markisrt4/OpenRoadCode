@@ -1,15 +1,21 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 
-"""Compose the ORC shell with map and state-ingress infrastructure."""
+"""Compose the ORC shell with map, navigation, volume, and state-ingress infrastructure."""
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 
 from apps.orcUi.core_runtime import MapRuntime, StateIngressRuntime
-from apps.orcUi.orc_ui_app import OrcUiApp
-from controllers.navigation.navigation_route_request_handler import NavigationRouteRequestHandler
+from apps.orcUi.frontend.tk.orc_ui_app import OrcUiApp
+from controllers.audio import PipewireAudioController, SystemVolumeHandler
+from controllers.map_renderer.map_camera_runtime import MapCameraRuntime
+from controllers.navigation.navigation_route_request_handler import (
+    NavigationRouteRequestHandler,
+)
+from controllers.system import SystemLifecycleController
 from services.navigation.navigation_command_client import NavigationCommandClient
 
 
@@ -19,10 +25,15 @@ class CoreComposition:
 
     app: OrcUiApp
     map_runtime: MapRuntime
+    map_camera: MapCameraRuntime
     route_request_handler: NavigationRouteRequestHandler
     state_ingress: StateIngressRuntime
+    lifecycle: SystemLifecycleController
+    volume: SystemVolumeHandler
 
     def start(self) -> None:
+        self.volume.refresh()
+        self.map_camera.start()
         self.state_ingress.start()
 
     def close(self) -> None:
@@ -32,18 +43,49 @@ class CoreComposition:
             try:
                 self.route_request_handler.close()
             finally:
-                self.map_runtime.stop()
+                try:
+                    self.map_camera.close()
+                finally:
+                    self.map_runtime.stop()
 
 
 def create_core_composition() -> CoreComposition:
-    """Create the Tk shell and inject its runtime-facing dependencies."""
+    """Create the selected frontend shell and inject runtime-facing dependencies."""
+
     map_runtime = MapRuntime()
-    route_request_handler = NavigationRouteRequestHandler(NavigationCommandClient())
-    app = OrcUiApp(
-        map_runtime=map_runtime,
-        route_request_handler=route_request_handler,
-        route_simulation_handler=route_request_handler,
+
+    map_camera = MapCameraRuntime(
+        zoom_level=16.5,
+        pitch_rad=math.radians(45.0),
+        follow_enabled=True,
     )
+
+    route_request_handler = NavigationRouteRequestHandler(
+        NavigationCommandClient()
+    )
+
+    lifecycle = SystemLifecycleController()
+
+    try:
+        app = OrcUiApp(
+            map_runtime=map_runtime,
+            map_request_handler=map_camera.request_handler,
+            route_request_handler=route_request_handler,
+            route_simulation_handler=route_request_handler,
+            lifecycle_handler=lifecycle,
+        )
+    except Exception:
+        route_request_handler.close()
+        map_camera.close()
+        raise
+
+    volume = SystemVolumeHandler(
+        audio_controller=PipewireAudioController(),
+        volume_ui=app,
+        set_status=app.set_screen_status,
+    )
+    app.set_volume_request_handler(volume)
+
     state_ingress = StateIngressRuntime(
         schedule_ui=app.schedule_ui_callback,
         apply_vehicle_state=app.apply_vehicle_state,
@@ -51,9 +93,13 @@ def create_core_composition() -> CoreComposition:
         apply_attitude_state=app.apply_attitude_state,
         apply_route_guidance_state=app.apply_route_guidance_state,
     )
+
     return CoreComposition(
         app=app,
         map_runtime=map_runtime,
+        map_camera=map_camera,
         route_request_handler=route_request_handler,
         state_ingress=state_ingress,
+        lifecycle=lifecycle,
+        volume=volume,
     )

@@ -7,19 +7,17 @@ from __future__ import annotations
 
 import copy
 from dataclasses import dataclass
-import tkinter as tk
 
 from apps.common.uiTheme.spotify import SPOTIFY_PANEL_THEME
-from apps.orcUi.managed_browser_media_player import ManagedBrowserMediaPlayer
-from apps.orcUi.orc_ui_app import OrcUiApp
-from apps.orcUi.spotify_now_playing import SpotifyNowPlaying
+from apps.orcUi.adapters.managed_browser_media_player import ManagedBrowserMediaPlayer
+from apps.orcUi.frontend.tk.orc_ui_app import OrcUiApp
 from apps.orcUi.theme_runtime import theme_bundle
 from common.xdg_paths import openroadcode_cache_dir
 from config.runtime_target import RuntimeTarget, detect_runtime_target
 from controllers.image import ImageCache
 from controllers.lyrics import LrclibLyricsClient
 from controllers.video import MusicVideoController, NetflixPlayer, YouTubeMusicVideo, YouTubePlayer
-from frontends.tk.media import BrowserMediaScreen, MediaNavigationBar, MediaScreen, SpotifyScreen
+from frontends.tk.media import BrowserMediaScreen, MediaNavigationBar, MediaScreen, SpotifyNowPlaying, SpotifyScreen
 from ui.theme import ThemeMode
 
 MUSIC_VIDEO_PORT = 8770
@@ -71,7 +69,7 @@ def configure_media(app: OrcUiApp, runtime) -> MediaComposition:
     )
     music_video_controller = MusicVideoController(spotify_controller=media.spotify.controller, music_video=music_video)
 
-    def media_navigation(parent: tk.Misc, active: str) -> tk.Widget:
+    def media_navigation(parent, active: str):
         return MediaNavigationBar(
             parent, theme_bundle=lambda: theme_bundle(app.theme_mode), active=active,
             show_media=lambda: media_screen.show(), show_home=lambda: app.navigate_to("HOME"),

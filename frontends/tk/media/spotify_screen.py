@@ -11,8 +11,8 @@ import tkinter as tk
 from collections.abc import Callable
 from typing import Any
 
-from apps.orcUi.spotify_local_player import SpotifyLocalPlayer
-from apps.orcUi.spotify_state_service import SpotifyStateService
+from controllers.spotify.spotify_local_player import SpotifyLocalPlayer
+from controllers.spotify.spotify_state_service import SpotifyStateService
 from frontends.tk.media.spotify_browse_panel import SpotifyBrowsePanel
 from frontends.tk.media.spotify_playback_panel import SpotifyPlaybackPanel
 from frontends.tk.media.spotify_services_if import ArtworkProviderIf, LyricsProviderIf, MusicVideoPresentationIf, MusicVideoRequestHandlerIf

@@ -3,7 +3,7 @@
 
 """Compose the games destination."""
 
-from apps.orcUi.orc_ui_app import OrcUiApp
+from apps.orcUi.frontend.tk.orc_ui_app import OrcUiApp
 from apps.orcUi.theme_runtime import theme_bundle
 from frontends.tk.games import GamesScreen
 

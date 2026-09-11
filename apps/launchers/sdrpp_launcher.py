@@ -64,6 +64,7 @@ class SDRPPLauncher(AppLauncherIf):
         if self._process is not None:
             if self._process.poll() is None:
                 return True
+            self._process.wait()
             self._process = None
         return _sdrpp_process_running()
 
@@ -161,6 +162,8 @@ class SDRPPLauncher(AppLauncherIf):
         last_error: OSError | None = None
         while time.monotonic() < deadline:
             if self._process is not None and self._process.poll() is not None:
+                self._process.wait()
+                self._process = None
                 raise RuntimeError(f"SDR++ exited before RigCTL became ready. Check log: {self.log_file}")
             try:
                 with socket.create_connection((self.rigctl_host, self.rigctl_port), timeout=0.5):

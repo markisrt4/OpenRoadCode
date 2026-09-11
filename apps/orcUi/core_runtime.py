@@ -15,6 +15,7 @@ from queue import Empty, SimpleQueue
 from typing import Protocol
 
 from apps.launchers.map_renderer_launcher import MapRendererLauncher
+from apps.orcUi.map_theme_runtime import install_map_style
 from apps.orcUi.navigation_presenter import (
     AttitudePresentationState,
     NavigationPresenter,
@@ -36,10 +37,13 @@ from messaging.contracts.route_guidance import (
 from messaging.message_dispatcher import MessageDispatcher
 from messaging.zeromq import ZeroMqSubscriber
 from messaging.zeromq.endpoints import LOCAL_SUBSCRIBER_ENDPOINT
+from ui.theme import ThemeMode
 
 
 class MapRuntimeIf(Protocol):
     """Map-process behavior required by the Tk shell."""
+
+    def set_theme(self, mode: ThemeMode) -> None: ...
 
     def launch(self, parent_window_id: int) -> None: ...
 
@@ -47,10 +51,14 @@ class MapRuntimeIf(Protocol):
 
 
 class MapRuntime:
-    """Own the external map-renderer process and X11 launch details."""
+    """Own the external map-renderer process, style, and X11 launch details."""
 
     def __init__(self, renderer: MapRendererLauncher | None = None) -> None:
         self._renderer = renderer or MapRendererLauncher()
+
+    def set_theme(self, mode: ThemeMode) -> None:
+        """Install map presentation assets for the requested ORC theme."""
+        install_map_style(mode)
 
     def launch(self, parent_window_id: int) -> None:
         self._renderer.launch(
