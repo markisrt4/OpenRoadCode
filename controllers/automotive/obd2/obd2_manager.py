@@ -71,6 +71,15 @@ class Obd2Manager(VehicleStateSourceIf):
     def disconnect(self) -> None:
         self._adapter.disconnect()
 
+    @property
+    def supported_pids(self) -> frozenset[int] | None:
+        """Return the Mode 01 PID set discovered at connect time."""
+        return (
+            None
+            if self._supported_pids is None
+            else frozenset(self._supported_pids)
+        )
+
     def read_state(self) -> VehicleState:
         rpm = self._read(self._rpm_pid)
         speed_kph = self._read(self._speed_pid)
