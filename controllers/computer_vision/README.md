@@ -85,6 +85,13 @@ The screen provides three processing profiles:
 - `LOW LIGHT`: apply CLAHE to the LAB lightness channel before preview and
   inference.
 
-The initial low-light mode is software preprocessing only. Camera exposure,
-gain, gamma, and other V4L2 hardware controls remain separate so the software
-effect can be evaluated before hardware tuning is added.
+The VISION screen now combines software and hardware profiles. DAY restores the
+camera's conservative auto-exposure profile. LOW LIGHT selects a bounded
+shutter-priority exposure plus modest gain/gamma adjustment and then applies
+CLAHE. AUTO uses scene luminance with hysteresis: it enters low-light below a
+mean luma of 65 and returns to day above 85, avoiding rapid mode flapping near
+the threshold.
+
+The VISION status panel reports the measured scene luminance and the active
+hardware profile so profile transitions can be evaluated directly on the VM
+before road testing.
