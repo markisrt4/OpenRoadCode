@@ -26,6 +26,23 @@ def vehicle_gauge_theme_from_style_sheet(
     tick = values.get("--gauge-tick", foreground)
     needle = values.get("--gauge-needle", VEHICLE_GAUGE_THEME.needle_body)
 
+    # Use luminance to choose a neutral normal-value segment that contrasts
+    # with the active gauge background. Semantic colors remain reserved for
+    # caution and danger states.
+    hex_background = background.lstrip("#")
+    if len(hex_background) == 6:
+        red, green, blue = (
+            int(hex_background[index:index + 2], 16) / 255.0
+            for index in (0, 2, 4)
+        )
+        luminance = 0.2126 * red + 0.7152 * green + 0.0722 * blue
+    else:
+        luminance = 0.0
+    normal_value = values.get(
+        "--gauge-bar-normal",
+        "#303438" if luminance > 0.55 else "#f0f0ed",
+    )
+
     # Component-specific card colors are optional. When a stylesheet does not
     # provide them, inherit the active application surface instead of falling
     # back to the legacy dark-only gauge palette. This keeps linear gauges and
@@ -55,10 +72,7 @@ def vehicle_gauge_theme_from_style_sheet(
         face_color=face,
         foreground_color=tick,
         primary_text=foreground,
-        # Segmented engine bars need stronger contrast than body text in light
-        # mode. The gauge accent is theme-aware and remains readable on both
-        # light and dark surfaces.
-        normal_value=values.get("--gauge-bar-normal", root.get("--accent-primary", foreground)),
+        normal_value=normal_value,
         endpoint_text=tick,
         performance_label=tick,
         bezel_mid=bezel,
