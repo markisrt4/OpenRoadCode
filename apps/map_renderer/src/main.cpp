@@ -232,6 +232,22 @@ int main() {
                 view.showWindow();
                 continue;
             }
+            if (command->command == "set_zoom") {
+                map.jumpTo(mbgl::CameraOptions().withZoom(command->zoom));
+                continue;
+            }
+            if (command->command == "set_bearing") {
+                map.jumpTo(mbgl::CameraOptions().withBearing(command->bearing));
+                continue;
+            }
+            if (command->command == "set_pitch") {
+                map.jumpTo(mbgl::CameraOptions().withPitch(command->pitch));
+                continue;
+            }
+            if (command->command == "pan_screen") {
+                map.moveBy({command->rightPx, -command->upPx});
+                continue;
+            }
             if (command->command == "search_pois") {
                 const auto result = view.searchVisiblePois(command->category);
                 eventPublisher.publishPoiSearchResult(
