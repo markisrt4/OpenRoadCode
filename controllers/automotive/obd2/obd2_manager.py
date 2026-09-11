@@ -18,6 +18,7 @@ from protocols.obd2.obd_pids import (
     ControlModuleVoltagePid,
     CoolantTempPid,
     EngineLoadPid,
+    EngineFuelRatePid,
     EngineRpmPid,
     FuelLevelPid,
     IntakeAirTempPid,
@@ -52,6 +53,7 @@ class Obd2Manager(VehicleStateSourceIf):
         self._intake_temp_pid = IntakeAirTempPid()
         self._maf_pid = MassAirFlowPid()
         self._fuel_level_pid = FuelLevelPid()
+        self._fuel_rate_pid = EngineFuelRatePid()
         self._voltage_pid = ControlModuleVoltagePid()
 
         self._baro_kpa: int | None = None
@@ -59,6 +61,7 @@ class Obd2Manager(VehicleStateSourceIf):
         self._coolant_temp_c: int | None = None
         self._intake_temp_c: int | None = None
         self._fuel_level_pct: float | None = None
+        self._fuel_rate_lph: float | None = None
         self._control_voltage: float | None = None
 
     def connect(self) -> None:
@@ -96,6 +99,7 @@ class Obd2Manager(VehicleStateSourceIf):
             coolant_temperature_k=self._celsius_to_kelvin(self._coolant_temp_c),
             intake_air_temperature_k=self._celsius_to_kelvin(self._intake_temp_c),
             fuel_level=self._percent_to_fraction(self._fuel_level_pct),
+            engine_fuel_rate_m3_s=self._lph_to_m3_s(self._fuel_rate_lph),
             control_voltage_v=self._control_voltage,
         )
 
@@ -108,6 +112,7 @@ class Obd2Manager(VehicleStateSourceIf):
         self._coolant_temp_c = self._read(self._coolant_pid)
         self._intake_temp_c = self._read(self._intake_temp_pid)
         self._fuel_level_pct = self._read(self._fuel_level_pid)
+        self._fuel_rate_lph = self._read(self._fuel_rate_pid)
         self._control_voltage = self._read(self._voltage_pid)
 
     def _read(self, pid_decoder: ObdPidDecoder[T]) -> T | None:
@@ -170,6 +175,10 @@ class Obd2Manager(VehicleStateSourceIf):
     @staticmethod
     def _gps_to_kg_s(value: float | None) -> float | None:
         return None if value is None else value / 1000.0
+
+    @staticmethod
+    def _lph_to_m3_s(value: float | None) -> float | None:
+        return None if value is None else value / 1000.0 / 3600.0
 
     @staticmethod
     def _celsius_to_kelvin(value: int | None) -> float | None:
