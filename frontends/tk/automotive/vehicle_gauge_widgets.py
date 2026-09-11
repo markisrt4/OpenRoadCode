@@ -306,17 +306,6 @@ class RoundGauge(_ValueGauge):
         value_text = "--" if self._value is None else f"{self._value:.{self._precision}f}"
         if not self._connected:
             value_text = "OFF"
-        self.create_text(
-            cx,
-            cy + radius * 0.13,
-            text="PERFORMANCE",
-            fill=self._style.performance_label,
-            font=(
-                self._style.condensed_font_family,
-                max(5, int(radius * 0.055)),
-                "bold",
-            ),
-        )
         box_w, box_h = radius * 0.58, radius * 0.18
         box_y = cy + radius * 0.61
         self.create_rectangle(
