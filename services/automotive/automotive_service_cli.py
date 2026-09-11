@@ -30,8 +30,8 @@ def parse_args() -> argparse.Namespace:
         "--configured-source",
         action="store_true",
         help=(
-            "use the legacy automotive source from runtime configuration; "
-            "by default vehicle speed comes from navigation ground motion"
+            "deprecated compatibility flag; configured engine telemetry is "
+            "always composed with navigation ground speed"
         ),
     )
     parser.add_argument(
