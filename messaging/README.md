@@ -35,9 +35,21 @@ decoding belong to `messaging/contracts`.
 
 The intended boundary is:
 
-```text
-producer implementation  -> SI domain state -> public contract -> bus
-bus -> public contract decoder -> application state -> presentation units/UI
+```mermaid
+flowchart LR
+    producer["Producer implementation"] --> state["SI domain state"] --> contract["Public contract"] --> bus["Bus"]
+    bus --> decoder["Public contract decoder"] --> appstate["Application state"] --> ui["Presentation units / UI"]
+
+    classDef orcApp fill:#dbeafe,stroke:#2563eb,color:#172554;
+    classDef orcService fill:#ede9fe,stroke:#7c3aed,color:#2e1065;
+    classDef orcController fill:#dcfce7,stroke:#16a34a,color:#14532d;
+    classDef orcMessage fill:#ffedd5,stroke:#ea580c,color:#7c2d12;
+    classDef orcAdapter fill:#fee2e2,stroke:#dc2626,color:#7f1d1d;
+    classDef orcExternal fill:#f3f4f6,stroke:#6b7280,color:#1f2937;
+    class producer orcAdapter;
+    class state,decoder orcController;
+    class contract,bus orcMessage;
+    class appstate,ui orcApp;
 ```
 
 A subscriber therefore does not need to know whether a message came from physical
