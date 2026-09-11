@@ -71,7 +71,7 @@ class DiagnosticsPanel(tk.Frame):
             bg=ui.surface, fg=ui.text, font=("Monospace", 8),
             justify=tk.LEFT, anchor="nw",
         )
-        self._process_label.pack(fill=tk.BOTH, expand=True, padx=10, pady=(4, 10))
+        self._process_label.grid(row=1, column=0, sticky="nsew", padx=10, pady=(4, 10))\n        processes.grid_rowconfigure(1, weight=1)\n        processes.grid_columnconfigure(0, weight=1)
 
         capacity = self._panel(self, "SYSTEM CAPACITY")
         capacity.grid(row=2, column=0, columnspan=4, sticky="ew", padx=5, pady=(5, 0))
