@@ -8,37 +8,31 @@ Map generation and deployment are documented separately in `docs/navigation_depl
 
 ## Runtime architecture
 
-```text
-                         vehicle startup
-                               |
-             +-----------------+-----------------+
-             |                                   |
-             v                                   v
-          gpsd                         openroadcode-zmq.service
-             |                         publisher ingress :5556
-             |                         subscriber egress :5557
-             |                                   |
-             +-------------------+---------------+
-                                 |
-                         valhalla.service
-                                 |
-                                 v
-                  openroadcode-navigation.service
-                                 |
-              +------------------+------------------+
-              |                  |                  |
-              v                  v                  v
-      navigation solution   route planning    navigation session
-      position/attitude       Valhalla        route + rerouting
-              |                                     |
-              +------------------+------------------+
-                                 |
-                                 v
-                       route guidance state
-                                 |
-                                 v
-                         ZeroMQ subscribers
-                         CarUi / CarTui / logs
+```mermaid
+flowchart TD
+    startup["Vehicle startup"] --> gpsd["gpsd"]
+    startup --> broker["openroadcode-zmq.service<br/>:5556 ingress / :5557 egress"]
+    gpsd --> valhalla["valhalla.service"]
+    broker --> valhalla
+    valhalla --> navService["openroadcode-navigation.service"]
+    navService --> solution["Navigation solution<br/>position / attitude"]
+    navService --> planning["Route planning<br/>Valhalla"]
+    navService --> session["Navigation session<br/>route + rerouting"]
+    solution --> guidance["Route guidance state"]
+    session --> guidance
+    guidance --> subscribers["ZeroMQ subscribers<br/>CarUi / CarTui / logs"]
+
+    classDef orcApp fill:#dbeafe,stroke:#2563eb,color:#172554;
+    classDef orcService fill:#ede9fe,stroke:#7c3aed,color:#2e1065;
+    classDef orcController fill:#dcfce7,stroke:#16a34a,color:#14532d;
+    classDef orcMessage fill:#ffedd5,stroke:#ea580c,color:#7c2d12;
+    classDef orcAdapter fill:#fee2e2,stroke:#dc2626,color:#7f1d1d;
+    classDef orcExternal fill:#f3f4f6,stroke:#6b7280,color:#1f2937;
+    class startup,gpsd,valhalla orcExternal;
+    class broker,guidance orcMessage;
+    class navService orcService;
+    class solution,planning,session orcController;
+    class subscribers orcApp;
 ```
 
 ## Service ownership
