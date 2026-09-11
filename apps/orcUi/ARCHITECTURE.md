@@ -10,19 +10,29 @@ OpenRoadCode separates contracts for behavior, CSS for presentation, and composi
 
 `composition/application.py` is the top-level composition root. It creates `OrcUiApplicationRuntime`, then `CoreComposition`, and configures RADIO, GAMES, and MEDIA. It returns `OrcUiComposition`, which owns the core, application runtime, and media composition.
 
-```
-main.py
-  -> composition/application.py
-       -> OrcUiApplicationRuntime
-            -> application runtime manager
-            -> radio and media application services
-       -> composition/core.py
-            -> MapRuntime
-            -> OrcUiApp(map_runtime=...)
-            -> StateIngressRuntime
-       -> composition/radio.py
-       -> composition/games.py
-       -> composition/media.py
+```mermaid
+flowchart TD
+    main["main.py"] --> appComposition["composition/application.py"]
+    appComposition --> runtime["OrcUiApplicationRuntime"]
+    runtime --> manager["Application runtime manager"]
+    runtime --> services["Radio + media application services"]
+    appComposition --> core["composition/core.py"]
+    core --> map["MapRuntime"]
+    core --> app["OrcUiApp(map_runtime=...)"]
+    core --> ingress["StateIngressRuntime"]
+    appComposition --> radio["composition/radio.py"]
+    appComposition --> games["composition/games.py"]
+    appComposition --> media["composition/media.py"]
+
+    classDef orcApp fill:#dbeafe,stroke:#2563eb,color:#172554;
+    classDef orcService fill:#ede9fe,stroke:#7c3aed,color:#2e1065;
+    classDef orcController fill:#dcfce7,stroke:#16a34a,color:#14532d;
+    classDef orcMessage fill:#ffedd5,stroke:#ea580c,color:#7c2d12;
+    classDef orcAdapter fill:#fee2e2,stroke:#dc2626,color:#7f1d1d;
+    classDef orcExternal fill:#f3f4f6,stroke:#6b7280,color:#1f2937;
+    class main,appComposition,app,radio,games,media orcApp;
+    class runtime,manager,services,core,ingress orcService;
+    class map orcController;
 ```
 
 The application runtime owns background application services and managed launchers. The core composition owns the shell-facing map and state-ingress infrastructure. Feature composition owns feature-specific screen construction and wiring. Do not move concrete service construction back into `main.py` or `OrcUiApp`.
