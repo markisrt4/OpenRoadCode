@@ -66,11 +66,16 @@ def validate_trip_state(payload: Mapping[str, Any]) -> None:
             raise ValueError(f"{name} cannot be negative")
     for name in OPTIONAL_NUMERIC_FIELDS & expected_fields:
         _number(name, data[name])
-    for name in ("average_speed_m_s", "maximum_speed_m_s", "fuel_used_m3",
-                 "instantaneous_fuel_consumption_m3_per_m",
-                 "average_fuel_consumption_m3_per_m", "estimated_range_m",
-                 "boost_time_s", "boost_distance_m", "boost_fuel_used_m3",
-                 "peak_boost_pa"):
+    for name in (
+        {
+            "average_speed_m_s", "maximum_speed_m_s", "fuel_used_m3",
+            "instantaneous_fuel_consumption_m3_per_m",
+            "average_fuel_consumption_m3_per_m", "estimated_range_m",
+            "boost_time_s", "boost_distance_m", "boost_fuel_used_m3",
+            "peak_boost_pa",
+        }
+        & expected_fields
+    ):
         if data[name] is not None and data[name] < 0.0:
             raise ValueError(f"{name} cannot be negative")
     for name in ("start_latitude_deg", "current_latitude_deg", "end_latitude_deg"):
