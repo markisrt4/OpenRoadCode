@@ -43,17 +43,29 @@ class FuelModel:
 
         maf = state.mass_air_flow_kg_s
         if maf is not None and maf >= 0.0:
-            return self._fuel_flow_from_air_mass(maf)
+            return self._fuel_flow_from_air_mass(
+                maf,
+                state.commanded_equivalence_ratio,
+            )
 
         estimated_maf = self._speed_density_air_mass_flow_kg_s(state)
         if estimated_maf is None:
             return None
-        return self._fuel_flow_from_air_mass(estimated_maf)
-
-    def _fuel_flow_from_air_mass(self, air_mass_flow_kg_s: float) -> float:
-        fuel_mass_flow_kg_s = (
-            air_mass_flow_kg_s / self.stoichiometric_air_fuel_ratio
+        return self._fuel_flow_from_air_mass(
+            estimated_maf,
+            state.commanded_equivalence_ratio,
         )
+
+    def _fuel_flow_from_air_mass(
+        self,
+        air_mass_flow_kg_s: float,
+        commanded_equivalence_ratio: float | None = None,
+    ) -> float:
+        ratio = commanded_equivalence_ratio
+        if ratio is None or ratio <= 0.0:
+            ratio = 1.0
+        actual_air_fuel_ratio = self.stoichiometric_air_fuel_ratio * ratio
+        fuel_mass_flow_kg_s = air_mass_flow_kg_s / actual_air_fuel_ratio
         return fuel_mass_flow_kg_s / self.fuel_density_kg_m3
 
     def _speed_density_air_mass_flow_kg_s(
