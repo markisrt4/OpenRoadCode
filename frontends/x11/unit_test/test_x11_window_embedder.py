@@ -69,6 +69,26 @@ class X11WindowEmbedderTest(unittest.TestCase):
         self.assertIn(["xdotool", "windowmove", "222", "0", "0"], commands)
 
     @patch("frontends.x11.x11_window_embedder.subprocess.run")
+    @patch("frontends.x11.x11_window_embedder.shutil.which", return_value="/usr/bin/xdotool")
+    def test_hide_unmaps_matching_window_without_claiming_it(
+        self, _which: Mock, run: Mock
+    ) -> None:
+        def fake_run(command, **_kwargs):
+            if command[:3] == ["xdotool", "search", "--pid"]:
+                return subprocess.CompletedProcess(command, 0, stdout="222\n", stderr="")
+            return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
+
+        run.side_effect = fake_run
+        embedder = X11WindowEmbedder(timeout_seconds=0.1)
+
+        window_id = embedder.hide(1234, window_name="SDR++")
+
+        self.assertEqual(222, window_id)
+        self.assertIsNone(embedder.window_id)
+        commands = [call.args[0] for call in run.call_args_list]
+        self.assertIn(["xdotool", "windowunmap", "222"], commands)
+
+    @patch("frontends.x11.x11_window_embedder.subprocess.run")
     def test_best_window_id_falls_back_to_last_when_geometry_is_empty(self, run: Mock) -> None:
         run.return_value = subprocess.CompletedProcess([], 0, stdout=None, stderr=None)
         result = subprocess.CompletedProcess([], 0, stdout="111\n222\n", stderr="")

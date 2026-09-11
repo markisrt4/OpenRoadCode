@@ -167,14 +167,19 @@ cp -f "$REMOTE_CONTROL_MODULE" "$SDRPP_ROOT/modules/remote_control.so"
 cp -f "$TELEMETRY_MODULE" "$SDRPP_ROOT/modules/telemetry.so"
 
 if [[ -f "$SDRPP_ROOT/config.json" ]]; then
-  echo "[*] Enabling SDR++ integration module instances"
-  python3 - "$SDRPP_ROOT/config.json" <<'PY'
+  echo "[*] Configuring SDR++ development root and integration modules"
+  python3 - "$SDRPP_ROOT/config.json" "$SDRPP_ROOT" <<'PY'
 import json
 import sys
 from pathlib import Path
 
 path = Path(sys.argv[1])
+root = Path(sys.argv[2]).resolve()
 data = json.loads(path.read_text())
+
+data["resourcesDirectory"] = str(root / "res")
+data["modulesDirectory"] = str(root / "modules")
+
 instances = data.setdefault("moduleInstances", {})
 instances.pop("ORC Telemetry", None)
 instances["Remote Control"] = {"module": "remote_control", "enabled": True}
@@ -182,6 +187,15 @@ instances["Telemetry"] = {"module": "telemetry", "enabled": True}
 path.write_text(json.dumps(data, indent=4) + "\n")
 PY
 fi
+
+[[ -d "$SDRPP_ROOT/res" ]] || {
+  echo "SDR++ resource directory was not prepared at $SDRPP_ROOT/res" >&2
+  exit 1
+}
+[[ -d "$SDRPP_ROOT/modules" ]] || {
+  echo "SDR++ module directory was not prepared at $SDRPP_ROOT/modules" >&2
+  exit 1
+}
 
 cat > "$SDRPP_ROOT/rigctl_server_config.json" <<'JSON'
 {
@@ -213,7 +227,8 @@ cat <<EOF
     source:         $SDRPP_SRC
     binary:         $SDRPP_BUILD/sdrpp
     launcher:       /usr/local/bin/sdrpp
-    resources:      $SDRPP_ROOT
+    resources:      $SDRPP_ROOT/res
+    module root:    $SDRPP_ROOT/modules
     modules:        rigctl_server.so, remote_control.so, telemetry.so
     rigctl:         127.0.0.1:4532
     remote control: 127.0.0.1:4533

@@ -109,6 +109,41 @@ class X11WindowEmbedder(WindowEmbedderIf):
         detail = f"; last X11 error: {last_error}" if last_error else ""
         raise RuntimeError(f"no usable X11 window found for {target}{detail}")
 
+
+    def hide(
+        self,
+        process_id: int,
+        *,
+        window_name: str | None = None,
+        window_class: str | None = None,
+    ) -> int:
+        """Find and unmap a matching X11 window without claiming it as embedded."""
+        if not self.supported():
+            raise RuntimeError("xdotool is required for embedded X11 windows")
+
+        deadline = time.monotonic() + self._timeout_seconds
+        while time.monotonic() < deadline:
+            window_id = self._find_by_process(process_id)
+            if window_id is None and window_class:
+                window_id = self._find_by_class(window_class)
+            if window_id is None and window_name:
+                window_id = self._find_by_name(window_name)
+            if window_id is None:
+                time.sleep(0.05)
+                continue
+
+            result = subprocess.run(
+                ["xdotool", "windowunmap", str(window_id)],
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+            if result.returncode == 0:
+                return window_id
+            time.sleep(0.05)
+
+        raise RuntimeError("no usable X11 window found to hide")
+
     def detach(self, parent_window_id: int) -> None:
         if self._window_id is None:
             return
