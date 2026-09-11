@@ -12,6 +12,16 @@ Included destinations include:
 
 Car TUI is a consumer of the OpenRoadCode message bus. Navigation and vehicle state are supplied by producer services rather than by constructing navigation or OBD-II hardware inside the TUI.
 
+<aside class="orc-diagram-legend" aria-label="Architecture diagram legend">
+  <strong>Diagram key</strong>
+  <span><i class="orc-legend-swatch orc-legend-app"></i>App / UI</span>
+  <span><i class="orc-legend-swatch orc-legend-service"></i>Service / runtime</span>
+  <span><i class="orc-legend-swatch orc-legend-controller"></i>Controller / domain</span>
+  <span><i class="orc-legend-swatch orc-legend-message"></i>Messaging / contract</span>
+  <span><i class="orc-legend-swatch orc-legend-adapter"></i>Protocol / hardware</span>
+  <span><i class="orc-legend-swatch orc-legend-external"></i>External / input</span>
+</aside>
+
 ```mermaid
 flowchart LR
     nav["Navigation service"] --> broker["ZeroMQ broker"]
