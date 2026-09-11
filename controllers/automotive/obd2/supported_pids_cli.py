@@ -6,10 +6,13 @@
 from __future__ import annotations
 
 import argparse
+import os
 from pathlib import Path
 
 from config.service_runtime_config import ServiceRuntimeConfigParser
+from controllers.automotive.obd2.elm327_obd_adapter import Elm327ObdAdapter
 from controllers.automotive.obd2.obd2_manager import Obd2Manager
+from hardware_io.automotive.elm327.elm327_tcp_device import Elm327TcpDevice
 from services.automotive.automotive_service_cli import DEFAULT_RUNTIME_CONFIG, build_source
 
 PID_NAMES = {
@@ -47,10 +50,41 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+
+def _is_termux() -> bool:
+    prefix = os.environ.get("PREFIX", "")
+    return "com.termux" in prefix or prefix.endswith("/com.termux/files/usr")
+
+
+def _build_scan_source(config):
+    """Build the configured source, with the documented Termux TCP bridge fallback."""
+    input_config = config.input
+    if (
+        _is_termux()
+        and input_config.source == "device"
+        and input_config.device == "elm327"
+        and input_config.transport == "serial"
+    ):
+        device = Elm327TcpDevice(
+            host="127.0.0.1",
+            port=35000,
+            timeout=2.0,
+        )
+        return Obd2Manager(
+            Elm327ObdAdapter(device),
+            slow_poll_interval_seconds=input_config.slow_poll_interval_s,
+        ), "termux-android-bridge tcp://127.0.0.1:35000"
+
+    return build_source(config), (
+        f"{input_config.transport}"
+        if input_config.source == "device"
+        else input_config.source
+    )
+
 def main() -> int:
     args = parse_args()
     system = ServiceRuntimeConfigParser(args.config).load()
-    source = build_source(system.automotive)
+    source, transport_description = _build_scan_source(system.automotive)
 
     if not isinstance(source, Obd2Manager):
         raise RuntimeError(
@@ -60,6 +94,7 @@ def main() -> int:
 
     print("OpenRoadCode OBD-II supported PID scan")
     print(f"  config: {args.config}")
+    print(f"  transport: {transport_description}")
 
     source.connect()
     try:
