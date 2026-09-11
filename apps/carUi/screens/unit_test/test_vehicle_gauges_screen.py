@@ -51,6 +51,7 @@ def _message() -> VehicleStateMessage:
             coolant_temperature_k=360.0,
             intake_air_temperature_k=300.0,
             fuel_level=0.75,
+            engine_fuel_rate_m3_s=1.0e-6,
             control_voltage_v=13.8,
         ),
     )
