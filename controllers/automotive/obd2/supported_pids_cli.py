@@ -27,6 +27,7 @@ PID_NAMES = {
     0x2F: "Fuel tank level input",
     0x33: "Absolute barometric pressure",
     0x42: "Control module voltage",
+    0x44: "Commanded equivalence ratio",
     0x49: "Accelerator pedal position D",
     0x5E: "Engine fuel rate",
 }
@@ -113,8 +114,12 @@ def main() -> int:
 
         print()
         print(
-            "  Engine fuel rate (0x5E): "
+            "  Engine fuel rate (0x5E):       "
             + ("SUPPORTED" if 0x5E in supported else "NOT SUPPORTED")
+        )
+        print(
+            "  Commanded equivalence (0x44):  "
+            + ("SUPPORTED" if 0x44 in supported else "NOT SUPPORTED")
         )
         print(
             "  Mass air flow (0x10):   "
