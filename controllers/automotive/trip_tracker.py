@@ -17,10 +17,18 @@ from controllers.navigation.navigation_state import GroundMotionState, PositionS
 class TripTracker(TripIf):
     """Accumulate normalized observations into an immutable trip snapshot."""
 
-    def __init__(self, *, moving_threshold_m_s: float = 0.5) -> None:
+    def __init__(
+        self,
+        *,
+        moving_threshold_m_s: float = 0.5,
+        pause_after_s: float = 3.0,
+    ) -> None:
         if moving_threshold_m_s < 0.0:
             raise ValueError("moving_threshold_m_s must not be negative")
+        if pause_after_s < 0.0:
+            raise ValueError("pause_after_s must not be negative")
         self._moving_threshold_m_s = moving_threshold_m_s
+        self._pause_after_s = pause_after_s
         self.reset()
 
     def observe_vehicle_state(self, state: VehicleState) -> None:
@@ -82,6 +90,7 @@ class TripTracker(TripIf):
         self._last_sample_at: datetime | None = None
         self._last_speed_m_s: float | None = None
         self._pending_position: tuple[float, float] | None = None
+        self._stationary_since: datetime | None = None
 
     def _observe_speed(self, timestamp: datetime, speed_m_s: float) -> None:
         speed = max(0.0, speed_m_s)
@@ -123,9 +132,22 @@ class TripTracker(TripIf):
         if maximum is None or speed > maximum:
             maximum = speed
 
+        if moving:
+            self._stationary_since = None
+            status = TripStatus.ACTIVE
+        else:
+            if self._stationary_since is None:
+                self._stationary_since = timestamp
+            stationary_s = (timestamp - self._stationary_since).total_seconds()
+            status = (
+                TripStatus.PAUSED
+                if stationary_s >= self._pause_after_s
+                else TripStatus.ACTIVE
+            )
+
         self._state = replace(
             self._state,
-            status=TripStatus.ACTIVE if moving else TripStatus.PAUSED,
+            status=status,
             maximum_speed_m_s=maximum,
         )
         self._last_sample_at = timestamp
