@@ -18,23 +18,47 @@ class CameraMode(str, Enum):
 
 
 class CameraFrameProcessor:
-    """Apply lightweight camera preprocessing without owning camera hardware."""
+    """Apply lightweight preprocessing with hysteretic automatic mode selection."""
 
-    def __init__(self, mode: CameraMode = CameraMode.AUTO, *, auto_threshold: float = 70.0) -> None:
-        if not 0.0 <= auto_threshold <= 255.0:
-            raise ValueError("auto_threshold must be between 0 and 255")
-        self._mode = mode
-        self._auto_threshold = float(auto_threshold)
+    def __init__(
+        self,
+        mode: CameraMode = CameraMode.AUTO,
+        *,
+        auto_enter_low_light: float = 65.0,
+        auto_exit_low_light: float = 85.0,
+    ) -> None:
+        if not 0.0 <= auto_enter_low_light <= 255.0:
+            raise ValueError("auto_enter_low_light must be between 0 and 255")
+        if not 0.0 <= auto_exit_low_light <= 255.0:
+            raise ValueError("auto_exit_low_light must be between 0 and 255")
+        if auto_enter_low_light >= auto_exit_low_light:
+            raise ValueError("auto_enter_low_light must be below auto_exit_low_light")
+
+        self._mode = CameraMode(mode)
+        self._auto_enter_low_light = float(auto_enter_low_light)
+        self._auto_exit_low_light = float(auto_exit_low_light)
+        self._auto_effective_mode = CameraMode.DAY
+        self._last_effective_mode = CameraMode.DAY
+        self._last_luminance = 0.0
 
     @property
     def mode(self) -> CameraMode:
         return self._mode
+
+    @property
+    def last_effective_mode(self) -> CameraMode:
+        return self._last_effective_mode
+
+    @property
+    def last_luminance(self) -> float:
+        return self._last_luminance
 
     def set_mode(self, mode: CameraMode) -> None:
         self._mode = CameraMode(mode)
 
     def effective_mode(self, image: Any) -> CameraMode:
         if self._mode is not CameraMode.AUTO:
+            self._last_effective_mode = self._mode
             return self._mode
 
         try:
@@ -43,7 +67,17 @@ class CameraFrameProcessor:
             raise RuntimeError("OpenCV is required for camera preprocessing") from exc
 
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-        return CameraMode.LOW_LIGHT if float(gray.mean()) < self._auto_threshold else CameraMode.DAY
+        luminance = float(gray.mean())
+        self._last_luminance = luminance
+
+        if self._auto_effective_mode is CameraMode.DAY:
+            if luminance < self._auto_enter_low_light:
+                self._auto_effective_mode = CameraMode.LOW_LIGHT
+        elif luminance > self._auto_exit_low_light:
+            self._auto_effective_mode = CameraMode.DAY
+
+        self._last_effective_mode = self._auto_effective_mode
+        return self._auto_effective_mode
 
     def process(self, image: Any) -> Any:
         """Return a processed BGR image suitable for preview or inference."""
