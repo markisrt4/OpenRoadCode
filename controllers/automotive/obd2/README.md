@@ -9,19 +9,15 @@ in `protocols.obd2`.
 - `Obd2Manager` polls supported vehicle values and produces `VehicleState` for
   applications.
 
-On connection, `Obd2Manager` reads the Mode 01 supported-PID bitmaps and then
-uses priority polling with cached state:
+On connection, `Obd2Manager` reads the Mode 01 supported-PID bitmaps and
+builds a weighted scheduler containing only supported PIDs. Each
+`read_state()` performs at most one physical OBD request and returns a complete
+snapshot assembled from cached values.
 
-- hot: RPM and MAP on every `read_state()`;
-- standard: speed, throttle, pedal, load, equivalence ratio, and fuel rate at
-  `standard_poll_hz`;
-- slow: barometric pressure, MAF, coolant/intake temperature, fuel level, and
-  voltage at `slow_poll_interval_seconds`.
-
-The automotive service calls `read_state()` at `hot_poll_hz`, so RPM and
-boost can update substantially faster than the rest of the dashboard while
-every published `VehicleState` remains complete. The ELM327 request stream is
-kept strictly serial rather than polling lanes concurrently.
+The default 12-slot request schedule prioritizes RPM and MAP while rotating
+standard and slow telemetry so fuel, ECU, temperature, pressure, and voltage
+data continue to refresh without blocking the hot gauges. Vehicle speed is
+owned by navigation ground motion and is not requested from OBD.
 
 Low-level serial and RFCOMM communication belongs in
 `hardware_io.automotive.elm327`. CAN and OBD-II models belong in
