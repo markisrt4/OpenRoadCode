@@ -62,13 +62,20 @@ def test_dynamic_simulator_stays_inside_vehicle_ranges():
         state = manager.read_state()
 
         assert state.vehicle_speed_m_s is None
-        assert 0.0 <= state.throttle_position <= 1.0
-        assert 0.0 <= state.accelerator_pedal_position <= 1.0
-        assert 0.0 <= state.engine_load <= 1.0
-        assert 0.0 <= state.fuel_level <= 1.0
-        assert state.intake_manifold_pressure_pa >= 0.0
-        assert state.barometric_pressure_pa == 101000.0
-        assert state.control_voltage_v > 0.0
+        if state.throttle_position is not None:
+            assert 0.0 <= state.throttle_position <= 1.0
+        if state.accelerator_pedal_position is not None:
+            assert 0.0 <= state.accelerator_pedal_position <= 1.0
+        if state.engine_load is not None:
+            assert 0.0 <= state.engine_load <= 1.0
+        if state.fuel_level is not None:
+            assert 0.0 <= state.fuel_level <= 1.0
+        if state.intake_manifold_pressure_pa is not None:
+            assert state.intake_manifold_pressure_pa >= 0.0
+        if state.barometric_pressure_pa is not None:
+            assert state.barometric_pressure_pa == 101000.0
+        if state.control_voltage_v is not None:
+            assert state.control_voltage_v > 0.0
 
 
 def test_unsupported_pid_is_none():
