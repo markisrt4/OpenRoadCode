@@ -8,20 +8,22 @@ those concerns.
 
 ## Flow
 
-```text
-station directory/provider
-        |
-        v
-StreamingStationProviderIf
-        |
-        v
-StreamingRadioController ----> artwork cache
-        |
-        v
-StreamingAudioPlayerIf
-        |
-        v
-system audio
+```mermaid
+flowchart TD
+    provider["Station directory / provider"] --> providerIf["StreamingStationProviderIf"]
+    providerIf --> controller["StreamingRadioController"]
+    controller --> artwork["Artwork cache"]
+    controller --> player["StreamingAudioPlayerIf"] --> audio["System audio"]
+
+    classDef orcApp fill:#dbeafe,stroke:#2563eb,color:#172554;
+    classDef orcService fill:#ede9fe,stroke:#7c3aed,color:#2e1065;
+    classDef orcController fill:#dcfce7,stroke:#16a34a,color:#14532d;
+    classDef orcMessage fill:#ffedd5,stroke:#ea580c,color:#7c2d12;
+    classDef orcAdapter fill:#fee2e2,stroke:#dc2626,color:#7f1d1d;
+    classDef orcExternal fill:#f3f4f6,stroke:#6b7280,color:#1f2937;
+    class provider,audio orcExternal;
+    class providerIf,player orcMessage;
+    class controller,artwork orcController;
 ```
 
 `StreamingStation` is the provider-independent station record used by frontends.

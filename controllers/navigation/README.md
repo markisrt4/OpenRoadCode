@@ -42,11 +42,22 @@ venv/bin/python -m apps.carTui.main --demo
 `NavigationController` depends on navigation-facing interfaces rather than
 hardware drivers:
 
-```text
-Mpu6050Imu         -> Mpu6050NavigationAdapter   -> NavigationSensorIf
-AndroidImu         -> AndroidNavigationSensor    -> NavigationSensorIf
-AndroidMagnetometer -> AndroidMagnetometerAdapter -> MagnetometerSourceIf
-GpsReader          -> GpsdPositionSource         -> PositionSourceIf
+```mermaid
+flowchart LR
+    mpu["Mpu6050Imu"] --> mpuAdapter["Mpu6050NavigationAdapter"] --> navIf["NavigationSensorIf"]
+    androidImu["AndroidImu"] --> androidNav["AndroidNavigationSensor"] --> navIf
+    mag["AndroidMagnetometer"] --> magAdapter["AndroidMagnetometerAdapter"] --> magIf["MagnetometerSourceIf"]
+    gps["GpsReader"] --> gpsAdapter["GpsdPositionSource"] --> posIf["PositionSourceIf"]
+
+    classDef orcApp fill:#dbeafe,stroke:#2563eb,color:#172554;
+    classDef orcService fill:#ede9fe,stroke:#7c3aed,color:#2e1065;
+    classDef orcController fill:#dcfce7,stroke:#16a34a,color:#14532d;
+    classDef orcMessage fill:#ffedd5,stroke:#ea580c,color:#7c2d12;
+    classDef orcAdapter fill:#fee2e2,stroke:#dc2626,color:#7f1d1d;
+    classDef orcExternal fill:#f3f4f6,stroke:#6b7280,color:#1f2937;
+    class mpu,androidImu,mag,gps orcExternal;
+    class mpuAdapter,androidNav,magAdapter,gpsAdapter orcAdapter;
+    class navIf,magIf,posIf orcMessage;
 ```
 
 `Mpu6050NavigationAdapter` converts the MPU-6050 acceleration and angular

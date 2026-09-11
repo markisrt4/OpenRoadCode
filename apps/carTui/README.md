@@ -12,10 +12,21 @@ Included destinations include:
 
 Car TUI is a consumer of the OpenRoadCode message bus. Navigation and vehicle state are supplied by producer services rather than by constructing navigation or OBD-II hardware inside the TUI.
 
-```text
-navigation service --\
-                     > ZeroMQ broker -> MessageDispatcher -> Car TUI
- automotive service -/
+```mermaid
+flowchart LR
+    nav["Navigation service"] --> broker["ZeroMQ broker"]
+    auto["Automotive service"] --> broker
+    broker --> dispatcher["MessageDispatcher"] --> tui["Car TUI"]
+
+    classDef orcApp fill:#dbeafe,stroke:#2563eb,color:#172554;
+    classDef orcService fill:#ede9fe,stroke:#7c3aed,color:#2e1065;
+    classDef orcController fill:#dcfce7,stroke:#16a34a,color:#14532d;
+    classDef orcMessage fill:#ffedd5,stroke:#ea580c,color:#7c2d12;
+    classDef orcAdapter fill:#fee2e2,stroke:#dc2626,color:#7f1d1d;
+    classDef orcExternal fill:#f3f4f6,stroke:#6b7280,color:#1f2937;
+    class nav,auto orcService;
+    class broker,dispatcher orcMessage;
+    class tui orcApp;
 ```
 
 `NavigationBusState` and `VehicleBusState` cache the latest decoded snapshots for the UI thread.

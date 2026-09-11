@@ -52,18 +52,21 @@ RDS is radio metadata and belongs in the radio path rather than the generic SDR+
 
 The current ORC path is:
 
-```text
-SDR++ / Rigctl :4532
-        ↓
-protocols/rigctl
-        ↓
-RigctlRadioBackend
-        ↓
-RadioController.get_rds()
-        ↓
-RadioProfileController.read_rds()
-        ↓
-frontend presentation
+```mermaid
+flowchart TD
+    sdr["SDR++ / Rigctl :4532"] --> protocol["protocols/rigctl"] --> backend["RigctlRadioBackend"]
+    backend --> radio["RadioController.get_rds()"] --> profile["RadioProfileController.read_rds()"] --> frontend["Frontend presentation"]
+
+    classDef orcApp fill:#dbeafe,stroke:#2563eb,color:#172554;
+    classDef orcService fill:#ede9fe,stroke:#7c3aed,color:#2e1065;
+    classDef orcController fill:#dcfce7,stroke:#16a34a,color:#14532d;
+    classDef orcMessage fill:#ffedd5,stroke:#ea580c,color:#7c2d12;
+    classDef orcAdapter fill:#fee2e2,stroke:#dc2626,color:#7f1d1d;
+    classDef orcExternal fill:#f3f4f6,stroke:#6b7280,color:#1f2937;
+    class sdr orcExternal;
+    class protocol,backend orcAdapter;
+    class radio,profile orcController;
+    class frontend orcApp;
 ```
 
 RDS should be requested asynchronously by graphical frontends. Reading ordinary controller state must not cause hidden network I/O.

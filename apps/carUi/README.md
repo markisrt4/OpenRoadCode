@@ -6,15 +6,23 @@ display and request contracts live under `ui`.
 
 ## Architecture
 
-```text
-main.py
-  -> car_ui_startup.py          startup policy and dependency construction
-  -> CarUiDependencies          ownership and cleanup
-  -> CarUiFrontend              Tk shell, navigation, and event loop
-       -> CarUiComposition      screens, presenters, managers, inputs, bus consumers
-       -> CarUiScreenFactoryIf  frontend-specific screen construction
-       -> car_ui_routes.py      application destinations
-       -> car_ui_menu_catalog.py
+```mermaid
+flowchart TD
+    main["main.py"] --> startup["car_ui_startup.py<br/>startup policy + dependency construction"]
+    startup --> deps["CarUiDependencies<br/>ownership + cleanup"]
+    deps --> frontend["CarUiFrontend<br/>Tk shell + navigation + event loop"]
+    frontend --> composition["CarUiComposition<br/>screens + presenters + managers + inputs + bus consumers"]
+    frontend --> factory["CarUiScreenFactoryIf"]
+    frontend --> routes["car_ui_routes.py"]
+    frontend --> catalog["car_ui_menu_catalog.py"]
+
+    classDef orcApp fill:#dbeafe,stroke:#2563eb,color:#172554;
+    classDef orcService fill:#ede9fe,stroke:#7c3aed,color:#2e1065;
+    classDef orcController fill:#dcfce7,stroke:#16a34a,color:#14532d;
+    classDef orcMessage fill:#ffedd5,stroke:#ea580c,color:#7c2d12;
+    classDef orcAdapter fill:#fee2e2,stroke:#dc2626,color:#7f1d1d;
+    classDef orcExternal fill:#f3f4f6,stroke:#6b7280,color:#1f2937;
+    class main,startup,deps,frontend,composition,factory,routes,catalog orcApp;
 ```
 
 Public vehicle and navigation telemetry enters Car UI through `messaging`
@@ -23,10 +31,27 @@ the purpose of rendering gauges.
 
 The dependency direction remains:
 
-```text
-apps/carUi -> frontends + ui + input_events + controllers + hardware_io + messaging
-frontends  -> ui + input_events
-controllers -> ui + input_events + hardware_io
+```mermaid
+flowchart TD
+    app["apps/carUi"] --> frontends["frontends"]
+    app --> controllers["controllers"]
+    app --> contracts["ui + input_events"]
+    app --> hardware["hardware_io"]
+    app --> messaging["messaging"]
+    frontends --> contracts
+    controllers --> contracts
+    controllers --> hardware
+
+    classDef orcApp fill:#dbeafe,stroke:#2563eb,color:#172554;
+    classDef orcService fill:#ede9fe,stroke:#7c3aed,color:#2e1065;
+    classDef orcController fill:#dcfce7,stroke:#16a34a,color:#14532d;
+    classDef orcMessage fill:#ffedd5,stroke:#ea580c,color:#7c2d12;
+    classDef orcAdapter fill:#fee2e2,stroke:#dc2626,color:#7f1d1d;
+    classDef orcExternal fill:#f3f4f6,stroke:#6b7280,color:#1f2937;
+    class app,frontends orcApp;
+    class controllers orcController;
+    class contracts,messaging orcMessage;
+    class hardware orcAdapter;
 ```
 
 `frontends` must not import `apps.carUi`, controllers, hardware implementations,
