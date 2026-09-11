@@ -22,7 +22,8 @@ class DiagnosticsPanel(tk.Frame):
         self._metric_values: dict[str, tk.Label] = {}
         self._detail_values: dict[str, tk.Label] = {}
 
-        self.grid_columnconfigure((0, 1, 2, 3), weight=1, uniform="metric")
+        for column in range(4):
+            self.grid_columnconfigure(column, weight=1, uniform="metric")
         self.grid_rowconfigure(1, weight=1)
 
         self._build_metric(0, "CPU", "cpu")
