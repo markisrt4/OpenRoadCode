@@ -224,28 +224,24 @@ The native MapLibre renderer uses offline vector tiles under `~/.local/share/ope
 
 The active navigation/map path is:
 
-```text
-Android location
-        |
-        v
-Android sensor bridge :8766
-        |
-        v
-AndroidPositionSource
-        |
-        v
-navigation service -> normalized position telemetry
-        |
-        v
-OpenRoadCode ZeroMQ broker
-        |
-        +--------------------> ORC UI map-follow camera
-        |
-        v
-MapRendererClient -> map.command
-        |
-        v
-native MapLibre renderer -> offline map + vehicle marker / route
+```mermaid
+flowchart TD
+    location["Android location"] --> bridge["Android sensor bridge :8766"] --> source["AndroidPositionSource"]
+    source --> nav["Navigation service"] --> telemetry["Normalized position telemetry"] --> broker["OpenRoadCode ZeroMQ broker"]
+    broker --> ui["ORC UI map-follow camera"]
+    broker --> client["MapRendererClient"] --> command["map.command"] --> renderer["Native MapLibre renderer<br/>offline map + vehicle marker / route"]
+
+    classDef orcApp fill:#dbeafe,stroke:#2563eb,color:#172554;
+    classDef orcService fill:#ede9fe,stroke:#7c3aed,color:#2e1065;
+    classDef orcController fill:#dcfce7,stroke:#16a34a,color:#14532d;
+    classDef orcMessage fill:#ffedd5,stroke:#ea580c,color:#7c2d12;
+    classDef orcAdapter fill:#fee2e2,stroke:#dc2626,color:#7f1d1d;
+    classDef orcExternal fill:#f3f4f6,stroke:#6b7280,color:#1f2937;
+    class location,bridge,renderer orcExternal;
+    class source,client orcAdapter;
+    class nav orcService;
+    class telemetry,broker,command orcMessage;
+    class ui orcApp;
 ```
 
 Route planning uses the local Valhalla HTTP service on port `8002`. The route-to-map component test can use the real Valhalla service while recording renderer commands:
