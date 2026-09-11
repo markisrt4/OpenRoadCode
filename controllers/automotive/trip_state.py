@@ -46,6 +46,11 @@ class TripState:
     average_fuel_consumption_m3_per_m: float | None = None
     estimated_range_m: float | None = None
 
+    boost_time_s: float = 0.0
+    boost_distance_m: float = 0.0
+    boost_fuel_used_m3: float = 0.0
+    peak_boost_pa: float | None = None
+
     start_latitude_deg: float | None = None
     start_longitude_deg: float | None = None
     current_latitude_deg: float | None = None
