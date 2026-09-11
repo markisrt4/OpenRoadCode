@@ -5,6 +5,16 @@
 
 It uses `evdev` to monitor keyboard events and reports the Linux key name when a key is pressed.
 
+<aside class="orc-diagram-legend" aria-label="Architecture diagram legend">
+  <strong>Diagram key</strong>
+  <span><i class="orc-legend-swatch orc-legend-app"></i>App / UI</span>
+  <span><i class="orc-legend-swatch orc-legend-service"></i>Service / runtime</span>
+  <span><i class="orc-legend-swatch orc-legend-controller"></i>Controller / domain</span>
+  <span><i class="orc-legend-swatch orc-legend-message"></i>Messaging / contract</span>
+  <span><i class="orc-legend-swatch orc-legend-adapter"></i>Protocol / hardware</span>
+  <span><i class="orc-legend-swatch orc-legend-external"></i>External / input</span>
+</aside>
+
 ```mermaid
 flowchart LR
     device["Linux input device"] --> reader["KeyboardReader"] --> iface["KeyboardReaderIf"] --> adapter["KeyboardInputAdapter"]
