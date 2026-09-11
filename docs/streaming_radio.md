@@ -10,24 +10,26 @@ Radio Browser supplies station discovery and current metadata. mpv supplies audi
 
 The current composition architecture separates runtime ownership from presentation ownership:
 
-```text
-apps/orcUi/application_runtime.py
-  └── StreamingRadioController
-        └── StreamingAudioPlayerIf
-              └── MpvStreamingAudioPlayer
+```mermaid
+flowchart TD
+    runtime["application_runtime.py"] --> controller["StreamingRadioController"] --> playerIf["StreamingAudioPlayerIf"] --> player["MpvStreamingAudioPlayer"]
+    composition["composition/radio.py"] --> screen["RadioScreen"]
+    composition --> directory["RadioBrowserDirectory"]
+    composition --> favorites["StreamingRadioFavorites"]
+    composition --> homeFactory["Home radio presentation factory"]
+    screen --> entry["RadioEntryPanel"] --> persistent["PersistentStreamingRadioPanel"]
+    home["Home RADIO tile"] --> controller
 
-apps/orcUi/composition/radio.py
-  ├── RadioScreen
-  ├── RadioBrowserDirectory
-  ├── StreamingRadioFavorites
-  └── Home radio presentation factory
-
-RadioScreen
-  └── RadioEntryPanel
-        └── PersistentStreamingRadioPanel
-
-Home RADIO tile
-  └── same runtime-owned StreamingRadioController
+    classDef orcApp fill:#dbeafe,stroke:#2563eb,color:#172554;
+    classDef orcService fill:#ede9fe,stroke:#7c3aed,color:#2e1065;
+    classDef orcController fill:#dcfce7,stroke:#16a34a,color:#14532d;
+    classDef orcMessage fill:#ffedd5,stroke:#ea580c,color:#7c2d12;
+    classDef orcAdapter fill:#fee2e2,stroke:#dc2626,color:#7f1d1d;
+    classDef orcExternal fill:#f3f4f6,stroke:#6b7280,color:#1f2937;
+    class runtime,composition,screen,entry,persistent,home,homeFactory orcApp;
+    class controller,directory,favorites orcController;
+    class playerIf orcMessage;
+    class player orcAdapter;
 ```
 
 `OrcUiApplicationRuntime` owns playback lifetime and stops streaming playback during application cleanup. `RadioComposition` owns feature-scoped presentation dependencies such as the directory, favorites store, and screen. The shell exposes neutral Home and screen-host contracts; it does not construct Radio Browser, mpv, favorites, or SDR++ services itself.
