@@ -39,8 +39,11 @@ DAY_PROFILE = V4L2ControlProfile(
 )
 
 LOW_LIGHT_PROFILE = V4L2ControlProfile(
-    auto_exposure=2,
-    exposure_time_absolute=250,
+    # This camera reports exposure_time_absolute as inactive and rejects writes
+    # while streaming, so keep its supported auto-exposure mode and improve
+    # low-light response with controls the device actually accepts.
+    auto_exposure=0,
+    exposure_time_absolute=None,
     gain=10,
     gamma=220,
     backlight_compensation=1,
@@ -51,10 +54,11 @@ LOW_LIGHT_PROFILE = V4L2ControlProfile(
 class V4L2CameraProfileController:
     """Apply repeatable hardware profiles through v4l2-ctl.
 
-    The profile values target the USB camera validated for OpenRoadCode. The
-    exposure value uses the UVC/V4L2 absolute-exposure unit reported by the
-    device; 250 is roughly 25 ms, which preserves useful motion detail while
-    allowing more light than the camera's 15.6 ms default.
+    The profile values target the USB camera validated for OpenRoadCode.
+    Although the device advertises exposure_time_absolute, it reports that
+    control inactive and rejects writes while streaming. Low-light mode
+    therefore leaves exposure automatic and uses supported gain, gamma, and
+    backlight controls instead.
     """
 
     def __init__(self, device: str = "/dev/video0") -> None:
