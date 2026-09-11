@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 
-"""Toolkit-independent system performance presentation contract."""
+"""Toolkit-independent Raspberry Pi performance presentation contract."""
 
 from __future__ import annotations
 
@@ -10,18 +10,8 @@ from typing import Protocol
 
 
 @dataclass(frozen=True, slots=True)
-class ProcessResourceUsage:
-    """One process entry that is materially consuming system capacity."""
-
-    pid: int
-    name: str
-    cpu_percent: float
-    memory_mb: float
-
-
-@dataclass(frozen=True, slots=True)
 class SystemDiagnosticsSnapshot:
-    """One read-only snapshot of Raspberry Pi system capacity and headroom."""
+    """One read-only snapshot of Raspberry Pi performance state."""
 
     cpu_percent: float | None = None
     per_core_percent: tuple[float, ...] = ()
@@ -33,6 +23,7 @@ class SystemDiagnosticsSnapshot:
     memory_available_mb: float | None = None
     memory_used_mb: float | None = None
     memory_total_mb: float | None = None
+
     swap_used_mb: float | None = None
     swap_total_mb: float | None = None
 
@@ -45,15 +36,10 @@ class SystemDiagnosticsSnapshot:
     throttled_flags: str | None = None
     uptime_seconds: float | None = None
 
-    top_processes: tuple[ProcessResourceUsage, ...] = ()
-    capacity_status: str = "UNKNOWN"
-    capacity_reasons: tuple[str, ...] = ()
-    warnings: tuple[str, ...] = ()
-
 
 class SystemDiagnosticsProviderIf(Protocol):
     """Provider consumed by system-performance frontends."""
 
     def snapshot(self) -> SystemDiagnosticsSnapshot:
-        """Return the latest system-capacity snapshot."""
+        """Return the latest system-performance snapshot."""
         ...
