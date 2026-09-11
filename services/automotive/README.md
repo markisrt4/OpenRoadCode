@@ -6,25 +6,26 @@ Applications such as Car TUI consume the public vehicle-state topic. They do not
 
 ## Data flow
 
-```text
-simulation ------------------------------\
-                                         > VehicleStateSourceIf
-ELM327 -> Elm327ObdAdapter -> Obd2Manager /
-                    |
-                    v
-             AutomotiveRuntime
-                    |
-           VehicleStatePublisher
-                    |
-              ZeroMqPublisher
-                    |
-               ZeroMQ broker
-                    |
-            MessageDispatcher
-                    |
-             VehicleBusState
-                    |
-          Car TUI / other apps
+```mermaid
+flowchart TD
+    sim["Simulation"] --> sourceIf["VehicleStateSourceIf"]
+    elm["ELM327"] --> adapter["Elm327ObdAdapter"] --> obd["Obd2Manager"] --> sourceIf
+    sourceIf --> runtime["AutomotiveRuntime"] --> publisher["VehicleStatePublisher"]
+    publisher --> zmqPub["ZeroMqPublisher"] --> broker["ZeroMQ broker"]
+    broker --> dispatcher["MessageDispatcher"] --> state["VehicleBusState"] --> apps["Car TUI / other apps"]
+
+    classDef orcApp fill:#dbeafe,stroke:#2563eb,color:#172554;
+    classDef orcService fill:#ede9fe,stroke:#7c3aed,color:#2e1065;
+    classDef orcController fill:#dcfce7,stroke:#16a34a,color:#14532d;
+    classDef orcMessage fill:#ffedd5,stroke:#ea580c,color:#7c2d12;
+    classDef orcAdapter fill:#fee2e2,stroke:#dc2626,color:#7f1d1d;
+    classDef orcExternal fill:#f3f4f6,stroke:#6b7280,color:#1f2937;
+    class sim,elm orcExternal;
+    class adapter orcAdapter;
+    class obd,state orcController;
+    class sourceIf,publisher,zmqPub,broker,dispatcher orcMessage;
+    class runtime orcService;
+    class apps orcApp;
 ```
 
 The telemetry contract remains SI regardless of how a UI displays values. Metric/imperial conversion belongs at the presentation layer and uses `common.units`.
