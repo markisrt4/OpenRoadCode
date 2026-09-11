@@ -7,8 +7,29 @@ The module does **not** open a USB serial device directly. `gpsd` owns the
 physical GPS device, such as `/dev/ttyACM0`, and `GpsReader` connects to the
 `gpsd` service over TCP at `127.0.0.1:2947` by default.
 
-```text
-USB GPS (/dev/ttyACM0) -> gpsd -> GpsReader -> callback
+<aside class="orc-diagram-legend" aria-label="Architecture diagram legend">
+  <strong>Diagram key</strong>
+  <span><i class="orc-legend-swatch orc-legend-app"></i>App / UI</span>
+  <span><i class="orc-legend-swatch orc-legend-service"></i>Service / runtime</span>
+  <span><i class="orc-legend-swatch orc-legend-controller"></i>Controller / domain</span>
+  <span><i class="orc-legend-swatch orc-legend-message"></i>Messaging / contract</span>
+  <span><i class="orc-legend-swatch orc-legend-adapter"></i>Protocol / hardware</span>
+  <span><i class="orc-legend-swatch orc-legend-external"></i>External / input</span>
+</aside>
+
+```mermaid
+flowchart LR
+    gps["USB GPS /dev/ttyACM0"] --> gpsd["gpsd"] --> reader["GpsReader"] --> callback["Callback"]
+
+    classDef orcApp fill:#dbeafe,stroke:#2563eb,color:#172554;
+    classDef orcService fill:#ede9fe,stroke:#7c3aed,color:#2e1065;
+    classDef orcController fill:#dcfce7,stroke:#16a34a,color:#14532d;
+    classDef orcMessage fill:#ffedd5,stroke:#ea580c,color:#7c2d12;
+    classDef orcAdapter fill:#fee2e2,stroke:#dc2626,color:#7f1d1d;
+    classDef orcExternal fill:#f3f4f6,stroke:#6b7280,color:#1f2937;
+    class gps,gpsd orcExternal;
+    class reader orcAdapter;
+    class callback orcController;
 ```
 
 This keeps USB device discovery and serial protocol handling outside the Python

@@ -6,25 +6,36 @@ Applications such as Car TUI consume the public vehicle-state topic. They do not
 
 ## Data flow
 
-```text
-simulation ------------------------------\
-                                         > VehicleStateSourceIf
-ELM327 -> Elm327ObdAdapter -> Obd2Manager /
-                    |
-                    v
-             AutomotiveRuntime
-                    |
-           VehicleStatePublisher
-                    |
-              ZeroMqPublisher
-                    |
-               ZeroMQ broker
-                    |
-            MessageDispatcher
-                    |
-             VehicleBusState
-                    |
-          Car TUI / other apps
+<aside class="orc-diagram-legend" aria-label="Architecture diagram legend">
+  <strong>Diagram key</strong>
+  <span><i class="orc-legend-swatch orc-legend-app"></i>App / UI</span>
+  <span><i class="orc-legend-swatch orc-legend-service"></i>Service / runtime</span>
+  <span><i class="orc-legend-swatch orc-legend-controller"></i>Controller / domain</span>
+  <span><i class="orc-legend-swatch orc-legend-message"></i>Messaging / contract</span>
+  <span><i class="orc-legend-swatch orc-legend-adapter"></i>Protocol / hardware</span>
+  <span><i class="orc-legend-swatch orc-legend-external"></i>External / input</span>
+</aside>
+
+```mermaid
+flowchart TD
+    sim["Simulation"] --> sourceIf["VehicleStateSourceIf"]
+    elm["ELM327"] --> adapter["Elm327ObdAdapter"] --> obd["Obd2Manager"] --> sourceIf
+    sourceIf --> runtime["AutomotiveRuntime"] --> publisher["VehicleStatePublisher"]
+    publisher --> zmqPub["ZeroMqPublisher"] --> broker["ZeroMQ broker"]
+    broker --> dispatcher["MessageDispatcher"] --> state["VehicleBusState"] --> apps["Car TUI / other apps"]
+
+    classDef orcApp fill:#dbeafe,stroke:#2563eb,color:#172554;
+    classDef orcService fill:#ede9fe,stroke:#7c3aed,color:#2e1065;
+    classDef orcController fill:#dcfce7,stroke:#16a34a,color:#14532d;
+    classDef orcMessage fill:#ffedd5,stroke:#ea580c,color:#7c2d12;
+    classDef orcAdapter fill:#fee2e2,stroke:#dc2626,color:#7f1d1d;
+    classDef orcExternal fill:#f3f4f6,stroke:#6b7280,color:#1f2937;
+    class sim,elm orcExternal;
+    class adapter orcAdapter;
+    class obd,state orcController;
+    class sourceIf,publisher,zmqPub,broker,dispatcher orcMessage;
+    class runtime orcService;
+    class apps orcApp;
 ```
 
 The telemetry contract remains SI regardless of how a UI displays values. Metric/imperial conversion belongs at the presentation layer and uses `common.units`.
@@ -197,10 +208,22 @@ The Vehicle screen updates as new `VehicleState` messages arrive. No automotive 
 
 Producer services own hardware and simulation sources. Applications consume messaging contracts. This keeps the consumer path identical between bench simulation and the vehicle:
 
-```text
-simulation source --\
-                    > AutomotiveRuntime -> ZeroMQ -> application
-physical source ---/
+```mermaid
+flowchart LR
+    sim["Simulation source"] --> runtime["AutomotiveRuntime"]
+    physical["Physical source"] --> runtime
+    runtime --> bus["ZeroMQ"] --> app["Application"]
+
+    classDef orcApp fill:#dbeafe,stroke:#2563eb,color:#172554;
+    classDef orcService fill:#ede9fe,stroke:#7c3aed,color:#2e1065;
+    classDef orcController fill:#dcfce7,stroke:#16a34a,color:#14532d;
+    classDef orcMessage fill:#ffedd5,stroke:#ea580c,color:#7c2d12;
+    classDef orcAdapter fill:#fee2e2,stroke:#dc2626,color:#7f1d1d;
+    classDef orcExternal fill:#f3f4f6,stroke:#6b7280,color:#1f2937;
+    class sim,physical orcExternal;
+    class runtime orcService;
+    class bus orcMessage;
+    class app orcApp;
 ```
 
 Switching between simulation and physical hardware therefore changes service composition, not application code or the wire contract.

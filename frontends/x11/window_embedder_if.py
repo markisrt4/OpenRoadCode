@@ -59,6 +59,11 @@ class WindowEmbedderIf(ABC):
         This is useful during managed startup when the external application
         must finish initializing before it is safe to embed, but its temporary
         standalone top-level window should not flash onscreen.
+
+        @param process_id Process identifier of the application whose window should be hidden.
+        @param window_name Optional native window-name match used during discovery.
+        @param window_class Optional native window-class match used during discovery.
+        @return The native identifier of the hidden application window.
         """
 
     @abstractmethod

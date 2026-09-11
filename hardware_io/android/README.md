@@ -6,14 +6,31 @@ localhost interface, currently at `http://127.0.0.1:8766`.
 
 The layering is intentionally:
 
-```text
-Android hardware / bridge
-        |
-hardware_io.android
-        |
-controllers / services
-        |
-messaging / applications
+<aside class="orc-diagram-legend" aria-label="Architecture diagram legend">
+  <strong>Diagram key</strong>
+  <span><i class="orc-legend-swatch orc-legend-app"></i>App / UI</span>
+  <span><i class="orc-legend-swatch orc-legend-service"></i>Service / runtime</span>
+  <span><i class="orc-legend-swatch orc-legend-controller"></i>Controller / domain</span>
+  <span><i class="orc-legend-swatch orc-legend-message"></i>Messaging / contract</span>
+  <span><i class="orc-legend-swatch orc-legend-adapter"></i>Protocol / hardware</span>
+  <span><i class="orc-legend-swatch orc-legend-external"></i>External / input</span>
+</aside>
+
+```mermaid
+flowchart TD
+    android["Android hardware / bridge"] --> adapter["hardware_io.android"]
+    adapter --> domain["Controllers / services"] --> consumers["Messaging / applications"]
+
+    classDef orcApp fill:#dbeafe,stroke:#2563eb,color:#172554;
+    classDef orcService fill:#ede9fe,stroke:#7c3aed,color:#2e1065;
+    classDef orcController fill:#dcfce7,stroke:#16a34a,color:#14532d;
+    classDef orcMessage fill:#ffedd5,stroke:#ea580c,color:#7c2d12;
+    classDef orcAdapter fill:#fee2e2,stroke:#dc2626,color:#7f1d1d;
+    classDef orcExternal fill:#f3f4f6,stroke:#6b7280,color:#1f2937;
+    class android orcExternal;
+    class adapter orcAdapter;
+    class domain orcController;
+    class consumers orcMessage;
 ```
 
 `AndroidSensorBridgeClient` is the low-level bridge client. Its IMU snapshot

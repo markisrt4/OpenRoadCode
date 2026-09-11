@@ -35,8 +35,27 @@ Install the packages selected for the detected device:
 
 The first validated native Termux hardware path is Qualcomm/Adreno. On a device exposing the KGSL interface, when the Termux repository supplies `mesa-vulkan-icd-freedreno`, the selected stack is:
 
-```text
-Adreno -> KGSL -> Turnip/Freedreno -> Vulkan -> Zink -> OpenGL -> Termux:X11
+<aside class="orc-diagram-legend" aria-label="Architecture diagram legend">
+  <strong>Diagram key</strong>
+  <span><i class="orc-legend-swatch orc-legend-app"></i>App / UI</span>
+  <span><i class="orc-legend-swatch orc-legend-service"></i>Service / runtime</span>
+  <span><i class="orc-legend-swatch orc-legend-controller"></i>Controller / domain</span>
+  <span><i class="orc-legend-swatch orc-legend-message"></i>Messaging / contract</span>
+  <span><i class="orc-legend-swatch orc-legend-adapter"></i>Protocol / hardware</span>
+  <span><i class="orc-legend-swatch orc-legend-external"></i>External / input</span>
+</aside>
+
+```mermaid
+flowchart LR
+    adreno["Adreno"] --> kgsl["KGSL"] --> turnip["Turnip / Freedreno"] --> vulkan["Vulkan"] --> zink["Zink"] --> opengl["OpenGL"] --> x11["Termux:X11"]
+
+    classDef orcApp fill:#dbeafe,stroke:#2563eb,color:#172554;
+    classDef orcService fill:#ede9fe,stroke:#7c3aed,color:#2e1065;
+    classDef orcController fill:#dcfce7,stroke:#16a34a,color:#14532d;
+    classDef orcMessage fill:#ffedd5,stroke:#ea580c,color:#7c2d12;
+    classDef orcAdapter fill:#fee2e2,stroke:#dc2626,color:#7f1d1d;
+    classDef orcExternal fill:#f3f4f6,stroke:#6b7280,color:#1f2937;
+    class adreno,kgsl,turnip,vulkan,zink,opengl,x11 orcExternal;
 ```
 
 For that native Termux backend, OpenGL applications should be launched with:
@@ -61,20 +80,20 @@ Chromium launched under Termux:X11 should use `--password-store=basic` so it doe
 
 Debian applications running under `proot-distro` use glibc and cannot safely load Termux/Bionic Turnip libraries directly. For graphical Debian games, OpenRoadCode instead supports Mesa `virpipe` with Termux `virglrenderer-android`:
 
-```text
-Debian game / OpenGL
-        |
-        v
-Debian Mesa virpipe
-        |
-        v
-shared /tmp/.virgl_test socket
-        |
-        v
-Termux virgl_test_server_android
-        |
-        v
-Android graphics stack / GPU
+```mermaid
+flowchart TD
+    game["Debian game / OpenGL"] --> mesa["Debian Mesa virpipe"] --> socket["Shared /tmp/.virgl_test socket"]
+    socket --> server["Termux virgl_test_server_android"] --> gpu["Android graphics stack / GPU"]
+
+    classDef orcApp fill:#dbeafe,stroke:#2563eb,color:#172554;
+    classDef orcService fill:#ede9fe,stroke:#7c3aed,color:#2e1065;
+    classDef orcController fill:#dcfce7,stroke:#16a34a,color:#14532d;
+    classDef orcMessage fill:#ffedd5,stroke:#ea580c,color:#7c2d12;
+    classDef orcAdapter fill:#fee2e2,stroke:#dc2626,color:#7f1d1d;
+    classDef orcExternal fill:#f3f4f6,stroke:#6b7280,color:#1f2937;
+    class game orcApp;
+    class mesa,socket,server orcAdapter;
+    class gpu orcExternal;
 ```
 
 Install the Android VirGL server package when using this path:
@@ -215,28 +234,24 @@ The native MapLibre renderer uses offline vector tiles under `~/.local/share/ope
 
 The active navigation/map path is:
 
-```text
-Android location
-        |
-        v
-Android sensor bridge :8766
-        |
-        v
-AndroidPositionSource
-        |
-        v
-navigation service -> normalized position telemetry
-        |
-        v
-OpenRoadCode ZeroMQ broker
-        |
-        +--------------------> ORC UI map-follow camera
-        |
-        v
-MapRendererClient -> map.command
-        |
-        v
-native MapLibre renderer -> offline map + vehicle marker / route
+```mermaid
+flowchart TD
+    location["Android location"] --> bridge["Android sensor bridge :8766"] --> source["AndroidPositionSource"]
+    source --> nav["Navigation service"] --> telemetry["Normalized position telemetry"] --> broker["OpenRoadCode ZeroMQ broker"]
+    broker --> ui["ORC UI map-follow camera"]
+    broker --> client["MapRendererClient"] --> command["map.command"] --> renderer["Native MapLibre renderer<br/>offline map + vehicle marker / route"]
+
+    classDef orcApp fill:#dbeafe,stroke:#2563eb,color:#172554;
+    classDef orcService fill:#ede9fe,stroke:#7c3aed,color:#2e1065;
+    classDef orcController fill:#dcfce7,stroke:#16a34a,color:#14532d;
+    classDef orcMessage fill:#ffedd5,stroke:#ea580c,color:#7c2d12;
+    classDef orcAdapter fill:#fee2e2,stroke:#dc2626,color:#7f1d1d;
+    classDef orcExternal fill:#f3f4f6,stroke:#6b7280,color:#1f2937;
+    class location,bridge,renderer orcExternal;
+    class source,client orcAdapter;
+    class nav orcService;
+    class telemetry,broker,command orcMessage;
+    class ui orcApp;
 ```
 
 Route planning uses the local Valhalla HTTP service on port `8002`. The route-to-map component test can use the real Valhalla service while recording renderer commands:
