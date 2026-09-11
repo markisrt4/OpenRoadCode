@@ -71,6 +71,7 @@ def build_source(config: AutomotiveServiceRuntimeConfig):
     adapter = Elm327ObdAdapter(device)
     return Obd2Manager(
         adapter,
+        standard_poll_hz=config.input.standard_poll_hz,
         slow_poll_interval_seconds=config.input.slow_poll_interval_s,
     )
 
@@ -109,7 +110,11 @@ def main() -> int:
         source,
         publisher,
         publish_source=config.publish.source,
-        rate_hz=config.rate_hz,
+        rate_hz=(
+            config.input.hot_poll_hz
+            if isinstance(source, Obd2Manager)
+            else config.rate_hz
+        ),
         gear_estimator=gear_estimator,
     )
     print("OpenRoadCode automotive service")
@@ -128,7 +133,16 @@ def main() -> int:
             print(f"  serial port:       {config.input.port}")
             print(f"  baud:              {config.input.baud}")
     print(f"  telemetry ingress: {system.messaging.publisher_endpoint}")
-    print(f"  publish rate:      {config.rate_hz:g} Hz")
+    effective_rate_hz = (
+        config.input.hot_poll_hz
+        if isinstance(source, Obd2Manager)
+        else config.rate_hz
+    )
+    print(f"  publish rate:      {effective_rate_hz:g} Hz")
+    if isinstance(source, Obd2Manager):
+        print(f"  hot poll:          {config.input.hot_poll_hz:g} Hz (RPM, MAP)")
+        print(f"  standard poll:     {config.input.standard_poll_hz:g} Hz")
+        print(f"  slow poll:         every {config.input.slow_poll_interval_s:g} s")
     print(f"  publish source:    {config.publish.source}")
     print(
         f"  gear estimation:  {args.gear_profile}"
