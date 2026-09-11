@@ -70,20 +70,20 @@ Chromium launched under Termux:X11 should use `--password-store=basic` so it doe
 
 Debian applications running under `proot-distro` use glibc and cannot safely load Termux/Bionic Turnip libraries directly. For graphical Debian games, OpenRoadCode instead supports Mesa `virpipe` with Termux `virglrenderer-android`:
 
-```text
-Debian game / OpenGL
-        |
-        v
-Debian Mesa virpipe
-        |
-        v
-shared /tmp/.virgl_test socket
-        |
-        v
-Termux virgl_test_server_android
-        |
-        v
-Android graphics stack / GPU
+```mermaid
+flowchart TD
+    game["Debian game / OpenGL"] --> mesa["Debian Mesa virpipe"] --> socket["Shared /tmp/.virgl_test socket"]
+    socket --> server["Termux virgl_test_server_android"] --> gpu["Android graphics stack / GPU"]
+
+    classDef orcApp fill:#dbeafe,stroke:#2563eb,color:#172554;
+    classDef orcService fill:#ede9fe,stroke:#7c3aed,color:#2e1065;
+    classDef orcController fill:#dcfce7,stroke:#16a34a,color:#14532d;
+    classDef orcMessage fill:#ffedd5,stroke:#ea580c,color:#7c2d12;
+    classDef orcAdapter fill:#fee2e2,stroke:#dc2626,color:#7f1d1d;
+    classDef orcExternal fill:#f3f4f6,stroke:#6b7280,color:#1f2937;
+    class game orcApp;
+    class mesa,socket,server orcAdapter;
+    class gpu orcExternal;
 ```
 
 Install the Android VirGL server package when using this path:
