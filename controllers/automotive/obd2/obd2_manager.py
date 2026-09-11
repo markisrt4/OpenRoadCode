@@ -15,6 +15,7 @@ from protocols.obd2.obd_pid_decoder import ObdPidDecoder
 from protocols.obd2.obd_pids import (
     AcceleratorPedalPositionPid,
     BarometricPressurePid,
+    CommandedEquivalenceRatioPid,
     ControlModuleVoltagePid,
     CoolantTempPid,
     EngineLoadPid,
@@ -53,6 +54,7 @@ class Obd2Manager(VehicleStateSourceIf):
         self._intake_temp_pid = IntakeAirTempPid()
         self._maf_pid = MassAirFlowPid()
         self._fuel_level_pid = FuelLevelPid()
+        self._equivalence_ratio_pid = CommandedEquivalenceRatioPid()
         self._fuel_rate_pid = EngineFuelRatePid()
         self._voltage_pid = ControlModuleVoltagePid()
 
@@ -88,6 +90,7 @@ class Obd2Manager(VehicleStateSourceIf):
         engine_load_pct = self._read(self._engine_load_pid)
         map_kpa = self._read(self._map_pid)
         fuel_rate_lph = self._read(self._fuel_rate_pid)
+        commanded_equivalence_ratio = self._read(self._equivalence_ratio_pid)
 
         now = time.monotonic()
         if self._slow_poll_is_due(now):
@@ -108,6 +111,7 @@ class Obd2Manager(VehicleStateSourceIf):
             coolant_temperature_k=self._celsius_to_kelvin(self._coolant_temp_c),
             intake_air_temperature_k=self._celsius_to_kelvin(self._intake_temp_c),
             fuel_level=self._percent_to_fraction(self._fuel_level_pct),
+            commanded_equivalence_ratio=commanded_equivalence_ratio,
             engine_fuel_rate_m3_s=self._lph_to_m3_s(fuel_rate_lph),
             control_voltage_v=self._control_voltage,
         )
