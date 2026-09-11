@@ -245,7 +245,9 @@ int main() {
                 continue;
             }
             if (command->command == "pan_screen") {
-                map.moveBy({command->rightPx, -command->upPx});
+                // moveBy() translates the rendered map, which is the inverse of
+                // the semantic direction requested by the UI pan controls.
+                map.moveBy({-command->rightPx, command->upPx});
                 continue;
             }
             if (command->command == "search_pois") {
