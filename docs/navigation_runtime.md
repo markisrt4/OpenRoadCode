@@ -100,30 +100,29 @@ journalctl -u openroadcode-navigation -b
 
 The intended production lifecycle is:
 
-```text
-UI/client requests destination
-          |
-          v
-navigation command service
-          |
-          v
-route planning controller -> Valhalla HTTP API
-          |
-          v
-NavigationSessionController
-  owns destination + travel mode + active route
-          |
-          v
-RouteGuidanceController
-  consumes normalized geographic position
-          |
-          +--> maneuver + distance-to-turn
-          +--> route progress
-          +--> off-route state
-          +--> arrival state
-          |
-          v
-route_guidance.state -> ZeroMQ -> presentation clients
+```mermaid
+flowchart TD
+    client["UI / client requests destination"] --> command["Navigation command service"]
+    command --> planner["Route planning controller"] --> valhalla["Valhalla HTTP API"]
+    planner --> session["NavigationSessionController<br/>destination + travel mode + active route"]
+    session --> guidance["RouteGuidanceController<br/>normalized geographic position"]
+    guidance --> maneuver["Maneuver + distance-to-turn"]
+    guidance --> progress["Route progress"]
+    guidance --> offroute["Off-route state"]
+    guidance --> arrival["Arrival state"]
+    guidance --> topic["route_guidance.state"] --> bus["ZeroMQ"] --> presentation["Presentation clients"]
+
+    classDef orcApp fill:#dbeafe,stroke:#2563eb,color:#172554;
+    classDef orcService fill:#ede9fe,stroke:#7c3aed,color:#2e1065;
+    classDef orcController fill:#dcfce7,stroke:#16a34a,color:#14532d;
+    classDef orcMessage fill:#ffedd5,stroke:#ea580c,color:#7c2d12;
+    classDef orcAdapter fill:#fee2e2,stroke:#dc2626,color:#7f1d1d;
+    classDef orcExternal fill:#f3f4f6,stroke:#6b7280,color:#1f2937;
+    class client,presentation orcApp;
+    class command orcService;
+    class planner,session,guidance orcController;
+    class valhalla orcExternal;
+    class maneuver,progress,offroute,arrival,topic,bus orcMessage;
 ```
 
 `NavigationSessionController` owns rerouting policy. `RouteGuidanceController` derives route-relative state but does not decide when a replacement route should be calculated.
