@@ -12,7 +12,7 @@ from messaging.contracts.common import validate_timestamp
 from .vehicle_state_codec import SCHEMA_VERSION
 
 TOP_LEVEL_FIELDS = {"version", "timestamp", "source", "data"}
-DATA_FIELDS = {
+V1_DATA_FIELDS = {
     "engine_speed_rad_s",
     "vehicle_speed_m_s",
     "transmission_gear",
@@ -26,9 +26,9 @@ DATA_FIELDS = {
     "coolant_temperature_k",
     "intake_air_temperature_k",
     "fuel_level",
-    "engine_fuel_rate_m3_s",
     "control_voltage_v",
 }
+DATA_FIELDS = V1_DATA_FIELDS | {"engine_fuel_rate_m3_s"}
 RATIO_FIELDS = {
     "throttle_position",
     "accelerator_pedal_position",
@@ -67,7 +67,7 @@ def validate_vehicle_state(payload: Mapping[str, Any]) -> None:
     version = payload["version"]
     if isinstance(version, bool) or not isinstance(version, int):
         raise ValueError("vehicle state version must be an integer")
-    if version != SCHEMA_VERSION:
+    if version not in {1, SCHEMA_VERSION}:
         raise ValueError(f"unsupported vehicle state version: {version}")
 
     timestamp = payload["timestamp"]
@@ -82,10 +82,11 @@ def validate_vehicle_state(payload: Mapping[str, Any]) -> None:
     data = payload["data"]
     if not isinstance(data, Mapping):
         raise ValueError("vehicle state data must be an object")
+    expected_fields = V1_DATA_FIELDS if version == 1 else DATA_FIELDS
     actual_fields = set(data)
-    if actual_fields != DATA_FIELDS:
-        missing = sorted(DATA_FIELDS - actual_fields)
-        unknown = sorted(actual_fields - DATA_FIELDS)
+    if actual_fields != expected_fields:
+        missing = sorted(expected_fields - actual_fields)
+        unknown = sorted(actual_fields - expected_fields)
         raise ValueError(
             "vehicle state data schema mismatch: "
             f"missing={missing}, unknown={unknown}"
@@ -99,7 +100,7 @@ def validate_vehicle_state(payload: Mapping[str, Any]) -> None:
     ):
         raise ValueError("transmission_gear must be null, -1, 0, or 1..6")
 
-    for name in DATA_FIELDS - {"transmission_gear"}:
+    for name in expected_fields - {"transmission_gear"}:
         value = data[name]
         _validate_number(name, value)
         if value is None:
