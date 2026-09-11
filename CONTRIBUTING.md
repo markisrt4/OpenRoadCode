@@ -260,6 +260,8 @@ python scripts/check_doxygen_contracts.py
 Docstrings and comments should explain intent, constraints, or surprising
 behavior. They do not need to narrate obvious Python one line at a time.
 
+Use Mermaid for architecture, topology, dependency, sequence, and data-flow diagrams in Markdown. Use the OpenRoadCode layer palette established in `docs/architecture.md` when the nodes map to those layers. Keep literal terminal output, directory trees, filesystem paths, equations/transforms, and protocol payload examples as normal fenced text or code rather than forcing them into diagrams.
+
 When adding or changing a public message contract:
 
 1. define a stable topic or command name and schema version where applicable;
