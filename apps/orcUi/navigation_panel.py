@@ -108,7 +108,7 @@ class NavigationPanel(tk.Frame):
         bar = tk.Frame(self, bg=ui.surface_alt, height=38, highlightthickness=1, highlightbackground=ui.border)
         bar.grid(row=0, column=0, sticky="ew", pady=(0, 4)); bar.grid_propagate(False)
         shortcuts = tk.Frame(bar, bg=ui.surface_alt); shortcuts.pack(side=tk.LEFT, padx=4, pady=3)
-        for label, accent, key in (("⌂ HOME", ui.accent_primary, "home"), ("▣ WORK", ui.accent_warning, "work"), ("⛽ GAS", ui.accent_danger, "gas"), ("▣ GROCERY", ui.accent_success, "grocery"), ("♨ FOOD", ui.accent_danger, "food")):
+        for label, accent, key in (("⌂ HOME", ui.accent_primary, "home"), ("▣ WORK", ui.accent_warning, "work"), ("⛽ GAS", ui.accent_danger, "gas"), ("▣ GROCERY", ui.accent_success, "grocery"), ("♨ FOOD", ui.accent_warning, "food")):
             tk.Button(shortcuts, text=label, command=lambda selected=key: self._destination_shortcut(selected), bg=ui.control_background, fg=accent, activebackground=ui.control_active, activeforeground="#ffffff", relief=tk.FLAT, highlightthickness=1, highlightbackground=ui.border, font=("Sans", 8, "bold"), width=9, height=1, padx=3, pady=1).pack(side=tk.LEFT, padx=(0, 4))
         transit = tk.Menubutton(shortcuts, text="▰ TRANSIT ▾", bg=ui.control_background, fg=ui.accent_primary, activebackground=ui.control_active, activeforeground="#ffffff", relief=tk.FLAT, highlightthickness=1, highlightbackground=ui.border, font=("Sans", 8, "bold"), width=11, height=1, padx=3, pady=1)
         transit_menu = tk.Menu(transit, tearoff=False, bg=ui.control_background, fg=ui.control_text)
