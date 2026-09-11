@@ -57,9 +57,10 @@ class SystemDiagnosticsControllerTest(unittest.TestCase):
             )
 
             with (
-                patch(
-                    "controllers.system.system_diagnostics_controller.os.getloadavg",
-                    return_value=(2.0, 1.5, 1.0),
+                patch.object(
+                    controller,
+                    "_read_load_1m",
+                    return_value=2.0,
                 ),
                 patch(
                     "controllers.system.system_diagnostics_controller.os.cpu_count",
