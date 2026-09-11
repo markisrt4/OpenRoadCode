@@ -119,7 +119,16 @@ def write_layout(site_root: Path) -> None:
     mermaid.initialize({
       startOnLoad: false,
       securityLevel: "strict",
-      theme: "neutral"
+      theme: "neutral",
+      themeVariables: {
+        fontSize: "17px",
+        fontFamily: "Inter, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif"
+      },
+      flowchart: {
+        htmlLabels: true,
+        nodeSpacing: 38,
+        rankSpacing: 48
+      }
     });
     await mermaid.run({ nodes: document.querySelectorAll(".mermaid") });
   </script>
@@ -162,6 +171,8 @@ th, td { border: 1px solid var(--orc-line); padding: 7px 10px; }
 th { background: #f6f8fa; }
 blockquote { border-left: 4px solid var(--orc-orange); margin-left: 0; padding-left: 16px; color: var(--orc-muted); }
 .mermaid { margin: 1.35rem 0 2rem; padding: 1rem; border-radius: 14px; background: #f7f9fb; overflow-x: auto; }
+.mermaid svg { min-width: 760px; max-width: none !important; height: auto; }
+.mermaid .nodeLabel, .mermaid .edgeLabel { font-size: 17px !important; line-height: 1.3; }
 .orc-diagram-legend {
   float: right;
   width: 180px;
@@ -205,6 +216,8 @@ blockquote { border-left: 4px solid var(--orc-orange); margin-left: 0; padding-l
 @media (max-width: 700px) {
   .docs { padding: 22px 18px 48px; border-inline: 0; }
   .orc-diagram-legend { float: none; width: auto; max-width: 240px; margin: .75rem 0 1.25rem auto; }
+  .mermaid { padding: .75rem; }
+  .mermaid svg { min-width: 680px; }
 }
 """,
         encoding="utf-8",
