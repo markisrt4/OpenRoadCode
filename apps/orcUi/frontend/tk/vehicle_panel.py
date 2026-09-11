@@ -24,7 +24,7 @@ from ui.theme import ThemeBundle, ThemeMode
 class VehiclePanel(tk.Frame):
     """ORC driving dashboard backed by reusable automotive instruments."""
 
-    _TABS = ("PERFORMANCE", "ENGINE", "OFF-ROAD", "TRIP")
+    _TABS = ("PERFORMANCE", "ENGINE", "ECU", "OFF-ROAD", "TRIP")
     _PERFORMANCE_IDS = ("rpm", "boost", "speed", "throttle")
     _ENGINE_IDS = ("coolant", "intake", "load", "fuel", "voltage")
 
@@ -54,6 +54,8 @@ class VehiclePanel(tk.Frame):
         self._shifter: ShifterGauge | None = None
         self._offroad: OffroadDashboardPanel | None = None
         self._trip_cards: dict[str, TripMetricCard] = {}
+        self._ecu_value_labels: dict[str, tk.Label] = {}
+        self._ecu_state_labels: dict[str, tk.Label] = {}
         self._view_content: tk.Widget | None = None
 
         self.grid_columnconfigure(0, weight=1)
@@ -107,11 +109,15 @@ class VehiclePanel(tk.Frame):
         self._shifter = None
         self._offroad = None
         self._trip_cards.clear()
+        self._ecu_value_labels.clear()
+        self._ecu_state_labels.clear()
 
         if name == "PERFORMANCE":
             self._show_performance()
         elif name == "ENGINE":
             self._show_engine()
+        elif name == "ECU":
+            self._show_ecu()
         elif name == "OFF-ROAD":
             self._show_offroad()
         else:
@@ -368,6 +374,77 @@ class VehiclePanel(tk.Frame):
             ).grid(row=0, column=1, sticky="e")
         return card
 
+
+    def _show_ecu(self) -> None:
+        ui = self._theme_bundle.ui
+        host = tk.Frame(self._view_host, bg=ui.background)
+        host.grid(row=0, column=0, sticky="nsew", padx=6, pady=6)
+        host.grid_columnconfigure(0, weight=1)
+        host.grid_rowconfigure(1, weight=1)
+        self._section_header(host, title="ECU MONITOR", subtitle="Live engine-management decisions and response", accent=ui.accent_primary, symbol="◆").grid(row=0, column=0, sticky="ew", pady=(0, 6))
+        grid = tk.Frame(host, bg=ui.background)
+        grid.grid(row=1, column=0, sticky="nsew")
+        for column in range(3):
+            grid.grid_columnconfigure(column, weight=1, uniform="ecu")
+        grid.grid_rowconfigure(0, weight=1)
+        groups = (
+            ("DRIVER REQUEST", (("accelerator", "Accelerator", "%"), ("throttle", "Throttle", "%"))),
+            ("AIR / LOAD", (("map", "Manifold pressure", "kPa"), ("boost", "Boost", "psi"), ("load", "Engine load", "%"))),
+            ("FUEL COMMAND", (("lambda", "Commanded mixture", "λ"), ("fuel", "Fuel level", "%"))),
+        )
+        for column, (title, rows) in enumerate(groups):
+            card = tk.Frame(grid, bg=ui.surface, highlightthickness=1, highlightbackground=ui.border)
+            card.grid(row=0, column=column, sticky="nsew", padx=4, pady=4)
+            card.grid_columnconfigure(1, weight=1)
+            tk.Label(card, text=title, fg=ui.text_muted, bg=ui.surface, font=("Sans", 9, "bold")).grid(row=0, column=0, columnspan=3, sticky="w", padx=12, pady=(10, 8))
+            for row, (key, label, unit) in enumerate(rows, start=1):
+                tk.Label(card, text=label, fg=ui.text_muted, bg=ui.surface, font=("Sans", 9)).grid(row=row, column=0, sticky="w", padx=(12, 6), pady=6)
+                value = tk.Label(card, text="--", fg=ui.text, bg=ui.surface, font=("Sans", 15, "bold"), anchor="e")
+                value.grid(row=row, column=1, sticky="e", padx=4, pady=6)
+                tk.Label(card, text=unit, fg=ui.text_muted, bg=ui.surface, font=("Sans", 8, "bold")).grid(row=row, column=2, sticky="w", padx=(0, 12), pady=6)
+                self._ecu_value_labels[key] = value
+        state_card = tk.Frame(grid, bg=ui.surface_alt, highlightthickness=1, highlightbackground=ui.border)
+        state_card.grid(row=1, column=0, columnspan=3, sticky="ew", padx=4, pady=4)
+        tk.Label(state_card, text="ORC DERIVED CONTROL STATE", fg=ui.text_muted, bg=ui.surface_alt, font=("Sans", 8, "bold")).pack(side=tk.LEFT, padx=(12, 10), pady=10)
+        for name in ("IDLE", "CRUISE", "ACCELERATION", "BOOST", "HIGH LOAD", "ENRICHMENT", "WARM-UP"):
+            label = tk.Label(state_card, text="○ " + name, fg=ui.text_muted, bg=ui.surface_alt, font=("Sans", 8, "bold"), padx=6)
+            label.pack(side=tk.LEFT, padx=2, pady=10)
+            self._ecu_state_labels[name] = label
+        self._view_content = host
+        self._apply_ecu_state()
+
+    def _apply_ecu_state(self) -> None:
+        if not self._ecu_value_labels:
+            return
+        ui = self._theme_bundle.ui
+        state = self._state
+        values = {
+            "accelerator": None if state.accelerator_percent is None else f"{state.accelerator_percent:.0f}",
+            "throttle": None if state.throttle_percent is None else f"{state.throttle_percent:.0f}",
+            "map": None if state.manifold_pressure_kpa is None else f"{state.manifold_pressure_kpa:.0f}",
+            "boost": None if state.boost_psi is None else f"{state.boost_psi:+.1f}",
+            "load": None if state.engine_load_percent is None else f"{state.engine_load_percent:.0f}",
+            "lambda": None if state.commanded_equivalence_ratio is None else f"{state.commanded_equivalence_ratio:.2f}",
+            "fuel": None if state.fuel_percent is None else f"{state.fuel_percent:.0f}",
+        }
+        for key, value in values.items():
+            self._ecu_value_labels[key].configure(text=value or "--")
+        rpm, speed = state.engine_speed_rpm or 0.0, state.speed_mph or 0.0
+        pedal, throttle = state.accelerator_percent or 0.0, state.throttle_percent or 0.0
+        load, boost = state.engine_load_percent or 0.0, state.boost_psi or 0.0
+        mixture, coolant = state.commanded_equivalence_ratio, state.coolant_temperature_f
+        active = {
+            "IDLE": rpm > 0.0 and speed < 2.0 and pedal < 5.0,
+            "CRUISE": speed >= 15.0 and pedal < 35.0 and load < 65.0 and boost <= 1.0,
+            "ACCELERATION": pedal >= 25.0 or throttle >= 35.0,
+            "BOOST": boost > 1.0,
+            "HIGH LOAD": load >= 75.0,
+            "ENRICHMENT": mixture is not None and mixture < 0.97,
+            "WARM-UP": coolant is not None and coolant < 160.0,
+        }
+        for name, label in self._ecu_state_labels.items():
+            label.configure(fg=ui.accent_success if active[name] else ui.text_muted, text=("● " if active[name] else "○ ") + name)
+
     def _show_offroad(self) -> None:
         panel = OffroadDashboardPanel(
             self._view_host,
@@ -590,6 +667,7 @@ class VehiclePanel(tk.Frame):
         for gauge_id, gauge in self._engine_gauges.items():
             gauge.set_connected(True)
             gauge.set_value(engine_values[gauge_id])
+        self._apply_ecu_state()
 
     def _apply_offroad_state(self) -> None:
         panel = self._offroad
