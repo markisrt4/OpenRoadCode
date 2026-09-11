@@ -234,12 +234,23 @@ class NavigationPanel(tk.Frame):
         card=tk.Frame(self,bg=ui.surface_alt,highlightthickness=1,highlightbackground=ui.accent_primary); card.place(relx=0.5,rely=0.78,anchor=tk.CENTER,width=390,height=112); self._poi_card=card
         tk.Label(card,text=poi.name,bg=ui.surface_alt,fg=ui.text,font=("Sans",12,"bold")).pack(pady=(10,5))
         buttons=tk.Frame(card,bg=ui.surface_alt); buttons.pack()
+        tk.Button(
+            buttons,
+            text="NAVIGATE",
+            command=lambda:self._navigate_to_poi(poi),
+            bg=ui.control_background,
+            fg=ui.accent_primary,
+            activebackground=ui.control_active,
+            activeforeground="#ffffff",
+            relief=tk.FLAT,
+            highlightthickness=1,
+            highlightbackground=ui.border,
+            font=("Sans",10,"bold"),
+            width=12,
+            height=2,
+        ).pack(side=tk.LEFT,padx=4)
         for action in poi.actions:
-            if action.kind in {
-                PoiActionKind.NAVIGATE,
-                PoiActionKind.ORDER,
-                PoiActionKind.OPEN_WEBSITE,
-            }:
+            if action.kind in {PoiActionKind.ORDER, PoiActionKind.OPEN_WEBSITE}:
                 tk.Button(
                     buttons,
                     text=action.label,
@@ -257,27 +268,30 @@ class NavigationPanel(tk.Frame):
                 ).pack(side=tk.LEFT,padx=4)
         tk.Button(buttons,text="CLOSE",command=card.destroy,bg=ui.control_background,fg=ui.text_muted,activebackground=ui.control_active,activeforeground="#ffffff",relief=tk.FLAT,highlightthickness=1,highlightbackground=ui.border,font=("Sans",8,"bold"),width=8).pack(side=tk.LEFT,padx=4)
 
+    def _navigate_to_poi(self, poi:PointOfInterest)->None:
+        try:
+            self._route_request_handler.request_start_route(
+                poi.position,
+                (),
+                TravelMode.AUTO,
+            )
+            self._route_active = True
+            self._simulation_active = False
+            self._update_simulation_button()
+            self._shortcut_status.set(f"Routing to {poi.name}")
+        except Exception as exc:
+            self._shortcut_status.set(f"Route failed: {exc}")
+        if self._poi_card is not None and self._poi_card.winfo_exists():
+            self._poi_card.destroy()
+
     def _execute_poi_action(self, poi:PointOfInterest, action:PoiAction)->None:
-        if action.kind is PoiActionKind.NAVIGATE:
-            try:
-                self._route_request_handler.request_start_route(
-                    poi.position,
-                    (),
-                    TravelMode.AUTO,
-                )
-                self._route_active = True
-                self._simulation_active = False
-                self._update_simulation_button()
-                self._shortcut_status.set(f"Routing to {poi.name}")
-            except Exception as exc:
-                self._shortcut_status.set(f"Route failed: {exc}")
-        else:
-            try:
-                status = self._poi_action_executor.execute(poi, action)
-                self._shortcut_status.set(status)
-            except (AndroidIntentLauncherError, ValueError) as exc:
-                self._shortcut_status.set(f"Launch failed: {exc}")
-        if self._poi_card is not None and self._poi_card.winfo_exists():self._poi_card.destroy()
+        try:
+            status = self._poi_action_executor.execute(poi, action)
+            self._shortcut_status.set(status)
+        except (AndroidIntentLauncherError, ValueError) as exc:
+            self._shortcut_status.set(f"Launch failed: {exc}")
+        if self._poi_card is not None and self._poi_card.winfo_exists():
+            self._poi_card.destroy()
         self.after(3500,lambda:self._shortcut_status.set(""))
 
     def _update_simulation_button(self) -> None:
