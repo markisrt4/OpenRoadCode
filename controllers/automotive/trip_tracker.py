@@ -24,20 +24,29 @@ class TripTracker(TripIf):
         moving_threshold_m_s: float = 0.5,
         pause_after_s: float = 3.0,
         fuel_model: FuelModel | None = None,
+        boost_threshold_pa: float = 5000.0,
     ) -> None:
         if moving_threshold_m_s < 0.0:
             raise ValueError("moving_threshold_m_s must not be negative")
         if pause_after_s < 0.0:
             raise ValueError("pause_after_s must not be negative")
+        if boost_threshold_pa < 0.0:
+            raise ValueError("boost_threshold_pa must not be negative")
         self._moving_threshold_m_s = moving_threshold_m_s
         self._pause_after_s = pause_after_s
         self._fuel_model = fuel_model or FuelModel()
+        self._boost_threshold_pa = boost_threshold_pa
         self.reset()
 
     def observe_vehicle_state(self, state: VehicleState) -> None:
         """Consume vehicle speed and fuel-flow telemetry when available."""
         if state.vehicle_speed_m_s is not None:
             self._observe_speed(state.timestamp, state.vehicle_speed_m_s)
+        self._observe_boost(
+            state.timestamp,
+            state.boost_pressure_pa,
+            state.vehicle_speed_m_s,
+        )
         self._observe_fuel(
             state.timestamp,
             self._fuel_model.fuel_flow_m3_s(state),
@@ -101,6 +110,10 @@ class TripTracker(TripIf):
         self._stationary_since: datetime | None = None
         self._last_fuel_sample_at: datetime | None = None
         self._last_fuel_flow_m3_s: float | None = None
+        self._last_fuel_boost_active: bool | None = None
+        self._last_boost_sample_at: datetime | None = None
+        self._last_boost_speed_m_s: float | None = None
+        self._last_boost_active: bool | None = None
 
     def _observe_speed(self, timestamp: datetime, speed_m_s: float) -> None:
         speed = max(0.0, speed_m_s)
@@ -164,6 +177,47 @@ class TripTracker(TripIf):
         self._last_speed_m_s = speed
 
 
+
+    def _observe_boost(
+        self,
+        timestamp: datetime,
+        boost_pressure_pa: float | None,
+        speed_m_s: float | None,
+    ) -> None:
+        if boost_pressure_pa is None or self._state.status is TripStatus.IDLE:
+            return
+
+        boost_pa = max(0.0, boost_pressure_pa)
+        active = boost_pa > self._boost_threshold_pa
+        peak = self._state.peak_boost_pa
+        if peak is None or boost_pa > peak:
+            peak = boost_pa
+
+        boost_time_s = self._state.boost_time_s
+        boost_distance_m = self._state.boost_distance_m
+
+        if self._last_boost_sample_at is not None:
+            dt_s = (timestamp - self._last_boost_sample_at).total_seconds()
+            if dt_s > 0.0 and (self._last_boost_active or active):
+                boost_time_s += dt_s
+                current_speed = max(0.0, speed_m_s or 0.0)
+                previous_speed = (
+                    current_speed
+                    if self._last_boost_speed_m_s is None
+                    else self._last_boost_speed_m_s
+                )
+                boost_distance_m += 0.5 * (previous_speed + current_speed) * dt_s
+
+        self._state = replace(
+            self._state,
+            boost_time_s=boost_time_s,
+            boost_distance_m=boost_distance_m,
+            peak_boost_pa=peak,
+        )
+        self._last_boost_sample_at = timestamp
+        self._last_boost_speed_m_s = max(0.0, speed_m_s or 0.0)
+        self._last_boost_active = active
+
     def _observe_fuel(
         self,
         timestamp: datetime,
@@ -174,11 +228,16 @@ class TripTracker(TripIf):
             return
         flow = max(0.0, fuel_flow_m3_s)
         fuel_used = self._state.fuel_used_m3 or 0.0
+        boost_fuel_used = self._state.boost_fuel_used_m3
+        boost_active = bool(self._last_boost_active)
 
         if self._last_fuel_sample_at is not None and self._last_fuel_flow_m3_s is not None:
             dt_s = (timestamp - self._last_fuel_sample_at).total_seconds()
             if dt_s > 0.0:
-                fuel_used += 0.5 * (self._last_fuel_flow_m3_s + flow) * dt_s
+                interval_fuel = 0.5 * (self._last_fuel_flow_m3_s + flow) * dt_s
+                fuel_used += interval_fuel
+                if self._last_fuel_boost_active or boost_active:
+                    boost_fuel_used += interval_fuel
 
         instantaneous = None
         if speed_m_s is not None and speed_m_s > self._moving_threshold_m_s and flow > 0.0:
@@ -193,9 +252,11 @@ class TripTracker(TripIf):
             fuel_used_m3=fuel_used,
             instantaneous_fuel_consumption_m3_per_m=instantaneous,
             average_fuel_consumption_m3_per_m=average,
+            boost_fuel_used_m3=boost_fuel_used,
         )
         self._last_fuel_sample_at = timestamp
         self._last_fuel_flow_m3_s = flow
+        self._last_fuel_boost_active = boost_active
 
     def _start(self, timestamp: datetime) -> None:
         latitude = longitude = None
