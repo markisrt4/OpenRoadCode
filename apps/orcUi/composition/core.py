@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 
-"""Compose the ORC shell with map, volume, and state-ingress infrastructure."""
+"""Compose the ORC shell with map, volume, diagnostics, and state ingress."""
 
 from __future__ import annotations
 
@@ -10,9 +10,11 @@ from dataclasses import dataclass
 
 from apps.orcUi.core_runtime import MapRuntime, StateIngressRuntime
 from apps.orcUi.frontend.tk.orc_ui_app import OrcUiApp
+from apps.orcUi.theme_runtime import theme_bundle as resolve_theme_bundle
 from controllers.audio import PipewireAudioController, SystemVolumeHandler
 from controllers.map_renderer.map_camera_runtime import MapCameraRuntime
-from controllers.system import SystemLifecycleController
+from controllers.system import SystemDiagnosticsController, SystemLifecycleController
+from frontends.tk.system import DiagnosticsScreen
 
 
 @dataclass(slots=True)
@@ -25,6 +27,7 @@ class CoreComposition:
     state_ingress: StateIngressRuntime
     lifecycle: SystemLifecycleController
     volume: SystemVolumeHandler
+    diagnostics: DiagnosticsScreen
 
     def start(self) -> None:
         self.volume.refresh()
@@ -59,6 +62,14 @@ def create_core_composition() -> CoreComposition:
     except Exception:
         map_camera.close()
         raise
+
+    diagnostics = DiagnosticsScreen(
+        app,
+        provider=SystemDiagnosticsController(),
+        theme_bundle=lambda: resolve_theme_bundle(app.theme_mode),
+    )
+    app.register_screen("DIAGNOSTICS", diagnostics, before="SETTINGS")
+
     volume = SystemVolumeHandler(
         audio_controller=PipewireAudioController(),
         volume_ui=app,
@@ -78,4 +89,5 @@ def create_core_composition() -> CoreComposition:
         state_ingress=state_ingress,
         lifecycle=lifecycle,
         volume=volume,
+        diagnostics=diagnostics,
     )
