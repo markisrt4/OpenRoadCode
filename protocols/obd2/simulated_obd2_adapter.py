@@ -48,11 +48,13 @@ class SimulatedObd2Adapter(Obd2AdapterIf):
         fuel_pct = max(5.0, 75.0 - self._phase * 0.05)
         voltage_v = 13.8 + 0.15 * math.sin(self._phase * 0.5)
         fuel_rate_lph = 2.0 + 10.0 * wave
+        equivalence_ratio = 1.0 - 0.15 * max(0.0, (wave - 0.7) / 0.3)
 
         rpm_raw = max(0, min(0xFFFF, round(rpm * 4.0)))
         maf_raw = max(0, min(0xFFFF, round(maf_gps * 100.0)))
         voltage_raw = max(0, min(0xFFFF, round(voltage_v * 1000.0)))
         fuel_rate_raw = max(0, min(0xFFFF, round(fuel_rate_lph * 20.0)))
+        equivalence_raw = max(0, min(0xFFFF, round(equivalence_ratio * 32768.0)))
 
         self._responses.update(
             {
@@ -67,6 +69,7 @@ class SimulatedObd2Adapter(Obd2AdapterIf):
                 0x2F: bytes([_percent_byte(fuel_pct)]),
                 0x33: bytes([101]),
                 0x42: voltage_raw.to_bytes(2, "big"),
+                0x44: equivalence_raw.to_bytes(2, "big"),
                 0x49: bytes([_percent_byte(pedal_pct)]),
                 0x5E: fuel_rate_raw.to_bytes(2, "big"),
             }
@@ -89,7 +92,7 @@ class SimulatedObd2Adapter(Obd2AdapterIf):
         return {
             0x00: bytes.fromhex("183B8001"),  # 04,05,0B,0C,0D,0F,10,11,20
             0x20: bytes.fromhex("00022001"),  # 2F,33,40
-            0x40: bytes.fromhex("40800004"),  # 42,49,5E
+            0x40: bytes.fromhex("50800004"),  # 42,44,49,5E
             0x04: bytes([128]),               # ~50.2 % load
             0x05: bytes([130]),               # 90 C
             0x0B: bytes([135]),               # 135 kPa MAP
@@ -101,6 +104,7 @@ class SimulatedObd2Adapter(Obd2AdapterIf):
             0x2F: bytes([191]),               # ~74.9 % fuel
             0x33: bytes([101]),               # 101 kPa baro
             0x42: bytes.fromhex("35E8"),      # 13.800 V
+            0x44: bytes.fromhex("8000"),      # 1.0 commanded equivalence
             0x49: bytes([89]),                 # ~34.9 % pedal
             0x5E: bytes.fromhex("00A0"),       # 8.0 L/h fuel rate
         }
