@@ -357,27 +357,26 @@ class NavigationPanel(tk.Frame):
 
     def _pan(self,up:float,right:float)->None:
         self._map_host.update_idletasks()
+        self.set_follow_enabled(False)
         self._request_handler.request_pan_screen(
             right_px=right*max(48,self._map_host.winfo_width()*0.25),
             up_px=up*max(48,self._map_host.winfo_height()*0.25),
         )
-        self.set_follow_enabled(bool(getattr(self._request_handler, "follow_enabled", False)))
 
     def _change_zoom(self,delta:float)->None:
         self._zoom_level=max(1,min(22,self._zoom_level+delta))
         self._zoom_text.set(f"{self._zoom_level:.1f}")
         self._request_handler.request_zoom(self._zoom_level)
-        self.set_follow_enabled(bool(getattr(self._request_handler, "follow_enabled", False)))
 
     def _change_pitch(self,delta_deg:float)->None:
         pitch_deg=max(0,min(60,math.degrees(self._pitch_rad)+delta_deg))
         self._pitch_rad=math.radians(pitch_deg)
+        self.set_follow_enabled(False)
         self._request_handler.request_pitch(self._pitch_rad)
-        self.set_follow_enabled(bool(getattr(self._request_handler, "follow_enabled", False)))
 
     def _north_up(self)->None:
+        self.set_follow_enabled(False)
         self._request_handler.request_bearing(0.0)
-        self.set_follow_enabled(bool(getattr(self._request_handler, "follow_enabled", False)))
 
     def _recenter(self)->None:
         self.set_follow_enabled(True); self._request_handler.request_recenter()
