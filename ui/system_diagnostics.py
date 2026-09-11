@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 
-"""Toolkit-independent system diagnostics presentation contract."""
+"""Toolkit-independent system performance presentation contract."""
 
 from __future__ import annotations
 
@@ -10,38 +10,50 @@ from typing import Protocol
 
 
 @dataclass(frozen=True, slots=True)
+class ProcessResourceUsage:
+    """One process entry that is materially consuming system capacity."""
+
+    pid: int
+    name: str
+    cpu_percent: float
+    memory_mb: float
+
+
+@dataclass(frozen=True, slots=True)
 class SystemDiagnosticsSnapshot:
-    """One read-only snapshot of host and OpenRoadCode process health."""
+    """One read-only snapshot of Raspberry Pi system capacity and headroom."""
 
     cpu_percent: float | None = None
+    per_core_percent: tuple[float, ...] = ()
     load_1m: float | None = None
     cpu_count: int | None = None
+    cpu_frequency_mhz: float | None = None
 
     memory_used_percent: float | None = None
+    memory_available_mb: float | None = None
     memory_used_mb: float | None = None
     memory_total_mb: float | None = None
+    swap_used_mb: float | None = None
+    swap_total_mb: float | None = None
 
     disk_used_percent: float | None = None
     disk_free_gb: float | None = None
     disk_total_gb: float | None = None
 
     temperature_c: float | None = None
+    thermal_headroom_c: float | None = None
+    throttled_flags: str | None = None
     uptime_seconds: float | None = None
 
-    process_rss_mb: float | None = None
-    process_threads: int | None = None
-
-    hostname: str = ""
-    platform_name: str = ""
-    kernel_release: str = ""
-    python_version: str = ""
-
+    top_processes: tuple[ProcessResourceUsage, ...] = ()
+    capacity_status: str = "UNKNOWN"
+    capacity_reasons: tuple[str, ...] = ()
     warnings: tuple[str, ...] = ()
 
 
 class SystemDiagnosticsProviderIf(Protocol):
-    """Provider consumed by diagnostics frontends."""
+    """Provider consumed by system-performance frontends."""
 
     def snapshot(self) -> SystemDiagnosticsSnapshot:
-        """Return the latest system diagnostics snapshot."""
+        """Return the latest system-capacity snapshot."""
         ...
