@@ -16,8 +16,19 @@ from controllers.navigation.navigation_state import GroundMotionState, PositionS
 BASE = datetime(2026, 9, 10, 16, 0, tzinfo=timezone.utc)
 
 
-def vehicle(seconds: float, speed_m_s: float | None) -> VehicleState:
-    return VehicleState(timestamp=BASE + timedelta(seconds=seconds), vehicle_speed_m_s=speed_m_s)
+def vehicle(
+    seconds: float,
+    speed_m_s: float | None,
+    *,
+    fuel_rate_m3_s: float | None = None,
+    maf_kg_s: float | None = None,
+) -> VehicleState:
+    return VehicleState(
+        timestamp=BASE + timedelta(seconds=seconds),
+        vehicle_speed_m_s=speed_m_s,
+        engine_fuel_rate_m3_s=fuel_rate_m3_s,
+        mass_air_flow_kg_s=maf_kg_s,
+    )
 
 
 def motion(seconds: float, speed_m_s: float | None) -> GroundMotionState:
@@ -92,6 +103,45 @@ def test_motion_resumes_before_pause_dwell_expires() -> None:
     tracker.observe_ground_motion_state(motion(2, 5.0))
 
     assert tracker.snapshot().status is TripStatus.ACTIVE
+
+
+def test_tracker_integrates_direct_fuel_rate_and_calculates_consumption() -> None:
+    tracker = TripTracker()
+
+    tracker.observe_vehicle_state(vehicle(0, 10.0, fuel_rate_m3_s=2.0e-6))
+    tracker.observe_vehicle_state(vehicle(10, 10.0, fuel_rate_m3_s=2.0e-6))
+
+    state = tracker.snapshot()
+    assert state.fuel_used_m3 == pytest.approx(2.0e-5)
+    assert state.instantaneous_fuel_consumption_m3_per_m == pytest.approx(2.0e-7)
+    assert state.average_fuel_consumption_m3_per_m == pytest.approx(2.0e-7)
+
+
+def test_tracker_falls_back_to_maf_when_direct_fuel_rate_is_unavailable() -> None:
+    tracker = TripTracker()
+
+    tracker.observe_vehicle_state(vehicle(0, 10.0, maf_kg_s=0.0147))
+    tracker.observe_vehicle_state(vehicle(10, 10.0, maf_kg_s=0.0147))
+
+    state = tracker.snapshot()
+    expected_flow = 0.0147 / 14.7 / 745.0
+    assert state.fuel_used_m3 == pytest.approx(expected_flow * 10.0)
+    assert state.instantaneous_fuel_consumption_m3_per_m == pytest.approx(
+        expected_flow / 10.0
+    )
+
+
+def test_direct_fuel_rate_takes_priority_over_maf_fallback() -> None:
+    tracker = TripTracker()
+
+    tracker.observe_vehicle_state(
+        vehicle(0, 10.0, fuel_rate_m3_s=3.0e-6, maf_kg_s=0.0147)
+    )
+    tracker.observe_vehicle_state(
+        vehicle(10, 10.0, fuel_rate_m3_s=3.0e-6, maf_kg_s=0.0147)
+    )
+
+    assert tracker.snapshot().fuel_used_m3 == pytest.approx(3.0e-5)
 
 def test_tracker_captures_start_current_and_end_position() -> None:
     tracker = TripTracker()
