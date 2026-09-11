@@ -61,11 +61,12 @@ def test_tracker_integrates_distance_time_and_speed() -> None:
 
 
 def test_tracker_marks_stationary_trip_paused_and_counts_stopped_time() -> None:
-    tracker = TripTracker()
+    tracker = TripTracker(pause_after_s=3.0)
 
     tracker.observe_ground_motion_state(motion(0, 5.0))
     tracker.observe_ground_motion_state(motion(10, 5.0))
     tracker.observe_ground_motion_state(motion(20, 0.0))
+    tracker.observe_ground_motion_state(motion(24, 0.0))
     tracker.observe_ground_motion_state(motion(30, 0.0))
 
     state = tracker.snapshot()
@@ -74,6 +75,23 @@ def test_tracker_marks_stationary_trip_paused_and_counts_stopped_time() -> None:
     assert state.moving_s == pytest.approx(20.0)
     assert state.stopped_s == pytest.approx(10.0)
 
+
+
+def test_single_stationary_sample_does_not_pause_active_trip() -> None:
+    tracker = TripTracker(pause_after_s=3.0)
+    tracker.observe_ground_motion_state(motion(0, 5.0))
+    tracker.observe_ground_motion_state(motion(1, 0.0))
+
+    assert tracker.snapshot().status is TripStatus.ACTIVE
+
+
+def test_motion_resumes_before_pause_dwell_expires() -> None:
+    tracker = TripTracker(pause_after_s=3.0)
+    tracker.observe_ground_motion_state(motion(0, 5.0))
+    tracker.observe_ground_motion_state(motion(1, 0.0))
+    tracker.observe_ground_motion_state(motion(2, 5.0))
+
+    assert tracker.snapshot().status is TripStatus.ACTIVE
 
 def test_tracker_captures_start_current_and_end_position() -> None:
     tracker = TripTracker()
@@ -130,3 +148,8 @@ def test_negative_motion_is_clamped_to_zero() -> None:
 def test_rejects_negative_moving_threshold() -> None:
     with pytest.raises(ValueError):
         TripTracker(moving_threshold_m_s=-0.1)
+
+
+def test_rejects_negative_pause_delay() -> None:
+    with pytest.raises(ValueError):
+        TripTracker(pause_after_s=-0.1)
