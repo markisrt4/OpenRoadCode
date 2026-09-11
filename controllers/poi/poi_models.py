@@ -33,7 +33,6 @@ class TransitMode(Enum):
 class PoiActionKind(Enum):
     """Semantic actions that can be offered for a POI."""
 
-    NAVIGATE = auto()
     ORDER = auto()
     OPEN_WEBSITE = auto()
 
