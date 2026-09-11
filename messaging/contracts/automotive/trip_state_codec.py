@@ -9,7 +9,7 @@ from typing import Any
 from controllers.automotive.trip_state import TripState
 from messaging.contracts.common import encode_timestamp
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 
 def encode_trip_state(
@@ -38,6 +38,10 @@ def encode_trip_state(
             "instantaneous_fuel_consumption_m3_per_m": state.instantaneous_fuel_consumption_m3_per_m,
             "average_fuel_consumption_m3_per_m": state.average_fuel_consumption_m3_per_m,
             "estimated_range_m": state.estimated_range_m,
+            "boost_time_s": state.boost_time_s,
+            "boost_distance_m": state.boost_distance_m,
+            "boost_fuel_used_m3": state.boost_fuel_used_m3,
+            "peak_boost_pa": state.peak_boost_pa,
             "start_latitude_deg": state.start_latitude_deg,
             "start_longitude_deg": state.start_longitude_deg,
             "current_latitude_deg": state.current_latitude_deg,
