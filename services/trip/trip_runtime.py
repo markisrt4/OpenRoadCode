@@ -86,6 +86,7 @@ class TripRuntime:
             coolant_temperature_k=data.coolant_temperature_k,
             intake_air_temperature_k=data.intake_air_temperature_k,
             fuel_level=data.fuel_level,
+            engine_fuel_rate_m3_s=data.engine_fuel_rate_m3_s,
             control_voltage_v=data.control_voltage_v,
         )
         self._publish_after(lambda: self._tracker.observe_vehicle_state(state))
