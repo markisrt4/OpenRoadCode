@@ -1,7 +1,0 @@
-# Android integrations for canonical OpenRoadCode businesses.
-
-[integration.panera]
-package = "com.panera.bread"
-
-[integration.mcdonalds]
-package = "com.mcdonalds.app"
