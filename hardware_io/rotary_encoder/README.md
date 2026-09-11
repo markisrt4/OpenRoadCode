@@ -454,14 +454,21 @@ those actions to the active `ScreenUiIf` before applying shell-level behavior.
 Screens never receive physical encoder addresses, pins, callbacks, or device
 objects. The volume encoder remains globally mapped to volume and mute actions.
 
-```text
-RotaryEncoderIf
-    -> RotaryEncoderInputAdapter
-    -> InputEvent
-    -> UiInputEventDispatcher
-    -> InputMapper
-    -> UiAction
-    -> active ScreenUiIf / CarUiFrontend
+```mermaid
+flowchart LR
+    encoder["RotaryEncoderIf"] --> adapter["RotaryEncoderInputAdapter"] --> event["InputEvent"]
+    event --> dispatcher["UiInputEventDispatcher"] --> mapper["InputMapper"] --> action["UiAction"] --> ui["Active ScreenUiIf / CarUiFrontend"]
+
+    classDef orcApp fill:#dbeafe,stroke:#2563eb,color:#172554;
+    classDef orcService fill:#ede9fe,stroke:#7c3aed,color:#2e1065;
+    classDef orcController fill:#dcfce7,stroke:#16a34a,color:#14532d;
+    classDef orcMessage fill:#ffedd5,stroke:#ea580c,color:#7c2d12;
+    classDef orcAdapter fill:#fee2e2,stroke:#dc2626,color:#7f1d1d;
+    classDef orcExternal fill:#f3f4f6,stroke:#6b7280,color:#1f2937;
+    class encoder,adapter orcAdapter;
+    class event,dispatcher,action orcMessage;
+    class mapper orcController;
+    class ui orcApp;
 ```
 
 The configured encoder list and volume role are set in
