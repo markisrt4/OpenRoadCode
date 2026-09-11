@@ -142,10 +142,7 @@ class NavigationPanelControlTest(unittest.TestCase):
         )
         panel._poi_card = None
 
-        panel._execute_poi_action(
-            poi,
-            PoiAction(PoiActionKind.NAVIGATE, "NAVIGATE"),
-        )
+        panel._navigate_to_poi(poi)
 
         panel._route_request_handler.request_start_route.assert_called_once_with(
             poi.position,
