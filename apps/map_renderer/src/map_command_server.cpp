@@ -76,6 +76,23 @@ std::optional<MapCommand> MapCommandServer::parseCommand(const std::string& payl
         command.zoom = document["zoom"].GetDouble(); command.bearing = document["bearing"].GetDouble();
         command.pitch = document["pitch"].GetDouble(); return command;
     }
+    if (command.command == "set_zoom" || command.command == "set_bearing" ||
+        command.command == "set_pitch") {
+        const char* key = command.command == "set_zoom" ? "zoom" :
+                          command.command == "set_bearing" ? "bearing" : "pitch";
+        if (!document.HasMember(key) || !document[key].IsNumber()) return std::nullopt;
+        if (command.command == "set_zoom") command.zoom = document[key].GetDouble();
+        else if (command.command == "set_bearing") command.bearing = document[key].GetDouble();
+        else command.pitch = document[key].GetDouble();
+        return command;
+    }
+    if (command.command == "pan_screen") {
+        if (!document.HasMember("right_px") || !document["right_px"].IsNumber() ||
+            !document.HasMember("up_px") || !document["up_px"].IsNumber()) return std::nullopt;
+        command.rightPx = document["right_px"].GetDouble();
+        command.upPx = document["up_px"].GetDouble();
+        return command;
+    }
     if (command.command == "fit_bounds") {
         if (!document.HasMember("south") || !document["south"].IsNumber() ||
             !document.HasMember("west") || !document["west"].IsNumber() ||
