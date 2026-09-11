@@ -79,9 +79,7 @@ class DiagnosticsScreen(TkScreen):
             )
         else:
             panel.apply_snapshot(snapshot)
-            self._host.set_screen_status(
-                "System healthy" if not snapshot.warnings else snapshot.warnings[0]
-            )
+            self._host.set_screen_status("Live system performance")
         if self._panel is panel:
             self._refresh_callback_id = self._host.schedule_ui_callback(
                 self._REFRESH_MS,
