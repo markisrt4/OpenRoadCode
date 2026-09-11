@@ -65,6 +65,8 @@ transport = "tcp"
 host = "127.0.0.1"
 tcp_port = 35000
 timeout_s = 1.0
+hot_poll_hz = 20.0
+standard_poll_hz = 5.0
 slow_poll_interval_s = 5.0
 
 [services.automotive.publish]
