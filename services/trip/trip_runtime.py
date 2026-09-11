@@ -86,6 +86,7 @@ class TripRuntime:
             coolant_temperature_k=data.coolant_temperature_k,
             intake_air_temperature_k=data.intake_air_temperature_k,
             fuel_level=data.fuel_level,
+            commanded_equivalence_ratio=data.commanded_equivalence_ratio,
             engine_fuel_rate_m3_s=data.engine_fuel_rate_m3_s,
             control_voltage_v=data.control_voltage_v,
         )
