@@ -12,7 +12,6 @@ import time
 from messaging.contracts.automotive import TRIP_STATE_TOPIC, decode_trip_state
 from messaging.zeromq import ZeroMqBroker, ZeroMqPublisher, ZeroMqSubscriber
 from messaging.zeromq.endpoints import LOCAL_PUBLISHER_ENDPOINT, LOCAL_SUBSCRIBER_ENDPOINT
-from messaging.component_test.obd2_vehicle_state_publisher_cli import main as _unused
 from controllers.automotive import SimulatedVehicleStateSource
 from messaging.contracts.automotive import VehicleStatePublisher
 from services.trip import TripRuntime
