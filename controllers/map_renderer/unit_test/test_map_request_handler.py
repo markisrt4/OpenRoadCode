@@ -15,6 +15,10 @@ class FakeRenderer:
         self.cameras: list[tuple[float, float, float, float, float]] = []
         self.poi_focus: list[tuple[str | None, bool]] = []
         self.poi_results: list[dict[str, object]] = []
+        self.zooms: list[float] = []
+        self.bearings: list[float] = []
+        self.pitches: list[float] = []
+        self.screen_pans: list[tuple[float, float]] = []
 
     def set_camera(
         self,
@@ -25,6 +29,18 @@ class FakeRenderer:
         pitch: float = 0.0,
     ) -> None:
         self.cameras.append((latitude, longitude, zoom, bearing, pitch))
+
+    def set_zoom(self, zoom: float) -> None:
+        self.zooms.append(zoom)
+
+    def set_bearing(self, bearing: float) -> None:
+        self.bearings.append(bearing)
+
+    def set_pitch(self, pitch: float) -> None:
+        self.pitches.append(pitch)
+
+    def pan_screen(self, right_px: float, up_px: float) -> None:
+        self.screen_pans.append((right_px, up_px))
 
     def set_poi_focus(self, category: str | None, enabled: bool = True) -> None:
         self.poi_focus.append((category, enabled))
@@ -47,7 +63,7 @@ class MapRequestHandlerTest(unittest.TestCase):
         self.handler.request_zoom(14.0)
         self.assertTrue(self.handler.follow_enabled)
         self.assertEqual(self.follow_changes, [])
-        self.assertAlmostEqual(self.renderer.cameras[-1][2], 14.0)
+        self.assertEqual(self.renderer.zooms[-1], 14.0)
 
     def test_zoom_preserves_manual_mode(self) -> None:
         self.handler.request_follow(False)
@@ -55,7 +71,25 @@ class MapRequestHandlerTest(unittest.TestCase):
         self.handler.request_zoom(14.0)
         self.assertFalse(self.handler.follow_enabled)
         self.assertEqual(self.follow_changes, [])
-        self.assertAlmostEqual(self.renderer.cameras[-1][2], 14.0)
+        self.assertEqual(self.renderer.zooms[-1], 14.0)
+
+    def test_screen_pan_is_relative_and_disables_follow(self) -> None:
+        self.handler.request_pan_screen(right_px=100.0, up_px=50.0)
+        self.assertFalse(self.handler.follow_enabled)
+        self.assertEqual(self.renderer.screen_pans, [(100.0, 50.0)])
+        self.assertEqual(self.renderer.cameras, [])
+
+    def test_pitch_is_renderer_relative(self) -> None:
+        self.handler.request_pitch(math.radians(30.0))
+        self.assertFalse(self.handler.follow_enabled)
+        self.assertAlmostEqual(self.renderer.pitches[-1], 30.0)
+        self.assertEqual(self.renderer.cameras, [])
+
+    def test_bearing_is_renderer_relative(self) -> None:
+        self.handler.request_bearing(math.radians(90.0))
+        self.assertFalse(self.handler.follow_enabled)
+        self.assertAlmostEqual(self.renderer.bearings[-1], 90.0)
+        self.assertEqual(self.renderer.cameras, [])
 
     def test_recenter_restores_follow(self) -> None:
         self.handler.request_follow(False)
