@@ -31,6 +31,7 @@ class VehicleStateCodecTest(unittest.TestCase):
             coolant_temperature_k=273.15,
             intake_air_temperature_k=373.15,
             fuel_level=0.4,
+            engine_fuel_rate_m3_s=2.0e-6,
             control_voltage_v=14.2,
         )
         payload = encode_vehicle_state(state)
@@ -49,6 +50,7 @@ class VehicleStateCodecTest(unittest.TestCase):
         self.assertAlmostEqual(data["coolant_temperature_k"], 273.15)
         self.assertAlmostEqual(data["intake_air_temperature_k"], 373.15)
         self.assertEqual(data["fuel_level"], 0.4)
+        self.assertEqual(data["engine_fuel_rate_m3_s"], 2.0e-6)
         self.assertEqual(data["control_voltage_v"], 14.2)
 
     def test_all_data_fields_are_present_and_nullable(self) -> None:
@@ -58,7 +60,7 @@ class VehicleStateCodecTest(unittest.TestCase):
             "throttle_position", "accelerator_pedal_position", "engine_load",
             "intake_manifold_pressure_pa", "barometric_pressure_pa",
             "boost_pressure_pa", "mass_air_flow_kg_s", "coolant_temperature_k",
-            "intake_air_temperature_k", "fuel_level", "control_voltage_v",
+            "intake_air_temperature_k", "fuel_level", "engine_fuel_rate_m3_s", "control_voltage_v",
         }
         self.assertEqual(set(payload["data"]), expected_fields)
         self.assertTrue(all(value is None for value in payload["data"].values()))
