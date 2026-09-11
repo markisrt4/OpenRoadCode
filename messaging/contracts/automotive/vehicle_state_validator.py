@@ -28,12 +28,14 @@ V1_DATA_FIELDS = {
     "fuel_level",
     "control_voltage_v",
 }
-DATA_FIELDS = V1_DATA_FIELDS | {"engine_fuel_rate_m3_s"}
+V2_DATA_FIELDS = V1_DATA_FIELDS | {"engine_fuel_rate_m3_s"}
+DATA_FIELDS = V2_DATA_FIELDS | {"commanded_equivalence_ratio"}
 RATIO_FIELDS = {
     "throttle_position",
     "accelerator_pedal_position",
     "engine_load",
     "fuel_level",
+    "commanded_equivalence_ratio",
 }
 NONNEGATIVE_FIELDS = {
     "engine_speed_rad_s",
@@ -67,7 +69,7 @@ def validate_vehicle_state(payload: Mapping[str, Any]) -> None:
     version = payload["version"]
     if isinstance(version, bool) or not isinstance(version, int):
         raise ValueError("vehicle state version must be an integer")
-    if version not in {1, SCHEMA_VERSION}:
+    if version not in {1, 2, SCHEMA_VERSION}:
         raise ValueError(f"unsupported vehicle state version: {version}")
 
     timestamp = payload["timestamp"]
@@ -82,7 +84,11 @@ def validate_vehicle_state(payload: Mapping[str, Any]) -> None:
     data = payload["data"]
     if not isinstance(data, Mapping):
         raise ValueError("vehicle state data must be an object")
-    expected_fields = V1_DATA_FIELDS if version == 1 else DATA_FIELDS
+    expected_fields = (
+        V1_DATA_FIELDS if version == 1 else
+        V2_DATA_FIELDS if version == 2 else
+        DATA_FIELDS
+    )
     actual_fields = set(data)
     if actual_fields != expected_fields:
         missing = sorted(expected_fields - actual_fields)
