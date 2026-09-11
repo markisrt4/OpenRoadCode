@@ -80,31 +80,22 @@ class MapRequestHandler(MapRequestHandlerIf):
         self._pan_geographic(north_m=north_m, east_m=east_m)
 
     def request_pan_screen(self, right_px: float, up_px: float) -> None:
-        earth_circumference_m = 2.0 * math.pi * 6_378_137.0
-        metres_per_pixel = (earth_circumference_m * max(0.01, math.cos(self._center.latitude_rad))
-                            / (512.0 * (2.0**self._zoom_level)))
-        screen_right_m = right_px * metres_per_pixel
-        screen_up_m = up_px * metres_per_pixel
-        cos_bearing = math.cos(self._bearing_rad)
-        sin_bearing = math.sin(self._bearing_rad)
-        self._pan_geographic(
-            north_m=screen_up_m * cos_bearing - screen_right_m * sin_bearing,
-            east_m=screen_up_m * sin_bearing + screen_right_m * cos_bearing,
-        )
+        self.request_follow(False)
+        self._renderer.pan_screen(right_px, up_px)
 
     def request_zoom(self, zoom_level: float) -> None:
         self._zoom_level = zoom_level
-        self._send_camera()
+        self._renderer.set_zoom(zoom_level)
 
     def request_bearing(self, bearing_rad: float) -> None:
         self._bearing_rad = bearing_rad
         self.request_follow(False)
-        self._send_camera()
+        self._renderer.set_bearing(math.degrees(bearing_rad))
 
     def request_pitch(self, pitch_rad: float) -> None:
         self._pitch_rad = pitch_rad
         self.request_follow(False)
-        self._send_camera()
+        self._renderer.set_pitch(math.degrees(pitch_rad))
 
     def request_poi_focus(self, category: str | None) -> None:
         if category is None:
