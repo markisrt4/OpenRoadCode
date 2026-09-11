@@ -35,11 +35,21 @@ T = TypeVar("T")
 class Obd2Manager(VehicleStateSourceIf):
     """Poll OBD-II PIDs and assemble SI-normalized vehicle snapshots."""
 
-    def __init__(self, adapter: Obd2AdapterIf, slow_poll_interval_seconds: float = 5.0) -> None:
+    def __init__(
+        self,
+        adapter: Obd2AdapterIf,
+        *,
+        standard_poll_hz: float = 5.0,
+        slow_poll_interval_seconds: float = 5.0,
+    ) -> None:
+        if standard_poll_hz <= 0:
+            raise ValueError("standard_poll_hz must be positive")
         if slow_poll_interval_seconds <= 0:
             raise ValueError("slow_poll_interval_seconds must be positive")
         self._adapter = adapter
+        self._standard_poll_interval_seconds = 1.0 / standard_poll_hz
         self._slow_poll_interval_seconds = slow_poll_interval_seconds
+        self._last_standard_poll: float | None = None
         self._last_slow_poll: float | None = None
         self._supported_pids: set[int] | None = None
 
@@ -58,6 +68,14 @@ class Obd2Manager(VehicleStateSourceIf):
         self._fuel_rate_pid = EngineFuelRatePid()
         self._voltage_pid = ControlModuleVoltagePid()
 
+        self._rpm: float | None = None
+        self._speed_kph: int | None = None
+        self._map_kpa: int | None = None
+        self._throttle_pct: float | None = None
+        self._accelerator_pedal_pct: float | None = None
+        self._engine_load_pct: float | None = None
+        self._commanded_equivalence_ratio: float | None = None
+        self._fuel_rate_lph: float | None = None
         self._baro_kpa: int | None = None
         self._maf_gps: float | None = None
         self._coolant_temp_c: int | None = None
@@ -67,6 +85,7 @@ class Obd2Manager(VehicleStateSourceIf):
 
     def connect(self) -> None:
         self._adapter.connect()
+        self._last_standard_poll = None
         self._last_slow_poll = None
         self._supported_pids = self._discover_supported_pids()
 
@@ -83,37 +102,60 @@ class Obd2Manager(VehicleStateSourceIf):
         )
 
     def read_state(self) -> VehicleState:
-        rpm = self._read(self._rpm_pid)
-        speed_kph = self._read(self._speed_pid)
-        throttle_pct = self._read(self._throttle_pid)
-        accelerator_pedal_pct = self._read(self._accelerator_pedal_pid)
-        engine_load_pct = self._read(self._engine_load_pid)
-        map_kpa = self._read(self._map_pid)
-        fuel_rate_lph = self._read(self._fuel_rate_pid)
-        commanded_equivalence_ratio = self._read(self._equivalence_ratio_pid)
+        """Poll priority lanes and return the latest complete cached snapshot."""
+        # HOT lane: RPM and MAP directly drive the most latency-sensitive
+        # performance gauges, so they are queried on every source read.
+        self._rpm = self._read(self._rpm_pid)
+        self._map_kpa = self._read(self._map_pid)
 
         now = time.monotonic()
+        if self._standard_poll_is_due(now):
+            self._poll_standard_values()
+            self._last_standard_poll = now
         if self._slow_poll_is_due(now):
             self._poll_slow_values()
             self._last_slow_poll = now
 
         return VehicleState(
             timestamp=datetime.now(),
-            engine_speed_rad_s=self._rpm_to_rad_s(rpm),
-            vehicle_speed_m_s=self._kph_to_m_s(speed_kph),
-            throttle_position=self._percent_to_fraction(throttle_pct),
-            accelerator_pedal_position=self._percent_to_fraction(accelerator_pedal_pct),
-            engine_load=self._percent_to_fraction(engine_load_pct),
-            intake_manifold_pressure_pa=self._kpa_to_pa(map_kpa),
+            engine_speed_rad_s=self._rpm_to_rad_s(self._rpm),
+            vehicle_speed_m_s=self._kph_to_m_s(self._speed_kph),
+            throttle_position=self._percent_to_fraction(self._throttle_pct),
+            accelerator_pedal_position=self._percent_to_fraction(
+                self._accelerator_pedal_pct
+            ),
+            engine_load=self._percent_to_fraction(self._engine_load_pct),
+            intake_manifold_pressure_pa=self._kpa_to_pa(self._map_kpa),
             barometric_pressure_pa=self._kpa_to_pa(self._baro_kpa),
-            boost_pressure_pa=self._calculate_boost_pa(map_kpa, self._baro_kpa),
+            boost_pressure_pa=self._calculate_boost_pa(
+                self._map_kpa,
+                self._baro_kpa,
+            ),
             mass_air_flow_kg_s=self._gps_to_kg_s(self._maf_gps),
             coolant_temperature_k=self._celsius_to_kelvin(self._coolant_temp_c),
-            intake_air_temperature_k=self._celsius_to_kelvin(self._intake_temp_c),
+            intake_air_temperature_k=self._celsius_to_kelvin(
+                self._intake_temp_c
+            ),
             fuel_level=self._percent_to_fraction(self._fuel_level_pct),
-            commanded_equivalence_ratio=commanded_equivalence_ratio,
-            engine_fuel_rate_m3_s=self._lph_to_m3_s(fuel_rate_lph),
+            commanded_equivalence_ratio=self._commanded_equivalence_ratio,
+            engine_fuel_rate_m3_s=self._lph_to_m3_s(self._fuel_rate_lph),
             control_voltage_v=self._control_voltage,
+        )
+
+    def _standard_poll_is_due(self, now: float) -> bool:
+        return (
+            self._last_standard_poll is None
+            or now - self._last_standard_poll >= self._standard_poll_interval_seconds
+        )
+
+    def _poll_standard_values(self) -> None:
+        self._speed_kph = self._read(self._speed_pid)
+        self._throttle_pct = self._read(self._throttle_pid)
+        self._accelerator_pedal_pct = self._read(self._accelerator_pedal_pid)
+        self._engine_load_pct = self._read(self._engine_load_pid)
+        self._fuel_rate_lph = self._read(self._fuel_rate_pid)
+        self._commanded_equivalence_ratio = self._read(
+            self._equivalence_ratio_pid
         )
 
     def _slow_poll_is_due(self, now: float) -> bool:
