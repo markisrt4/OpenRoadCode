@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 import argparse
-import html
+import json
 import re
 import shutil
 from pathlib import Path
@@ -105,6 +105,24 @@ def write_layout(site_root: Path) -> None:
   <main class="docs">
     {{ content }}
   </main>
+  <script type="module">
+    import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs";
+
+    const blocks = document.querySelectorAll("pre > code.language-mermaid");
+    for (const block of blocks) {
+      const diagram = document.createElement("div");
+      diagram.className = "mermaid";
+      diagram.textContent = block.textContent;
+      block.parentElement.replaceWith(diagram);
+    }
+
+    mermaid.initialize({
+      startOnLoad: false,
+      securityLevel: "strict",
+      theme: "neutral"
+    });
+    await mermaid.run({ nodes: document.querySelectorAll(".mermaid") });
+  </script>
 </body>
 </html>
 """,
@@ -163,7 +181,7 @@ def build_site(source_root: Path, site_root: Path) -> int:
         (output_dir / "index.md").write_text(
             "---\n"
             "layout: default\n"
-            f"title: {html.escape(title)!r}\n"
+            f"title: {json.dumps(title)}\n"
             f"permalink: {url!r}\n"
             "---\n\n"
             + markdown
