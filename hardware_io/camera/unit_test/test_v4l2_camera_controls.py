@@ -18,9 +18,9 @@ class V4L2CameraProfileTest(unittest.TestCase):
         self.assertIsNone(DAY_PROFILE.exposure_time_absolute)
         self.assertEqual(DAY_PROFILE.power_line_frequency, 2)
 
-    def test_low_light_profile_caps_exposure_for_motion(self) -> None:
-        self.assertEqual(LOW_LIGHT_PROFILE.auto_exposure, 2)
-        self.assertEqual(LOW_LIGHT_PROFILE.exposure_time_absolute, 250)
+    def test_low_light_profile_uses_supported_auto_exposure(self) -> None:
+        self.assertEqual(LOW_LIGHT_PROFILE.auto_exposure, 0)
+        self.assertIsNone(LOW_LIGHT_PROFILE.exposure_time_absolute)
         self.assertLessEqual(LOW_LIGHT_PROFILE.gain, 10)
 
     def test_profile_values_are_stable(self) -> None:
