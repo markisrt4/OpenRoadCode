@@ -32,14 +32,8 @@ def vehicle_gauge_theme_from_style_sheet(
     # the spaces between performance gauges correct in light mode.
     # LinearGauge already draws its own card. Keep that card visually distinct
     # from the application surface in both dark and light themes.
-    card_background = values.get(
-        "--linear-card-background",
-        root.get("--surface-alt", background),
-    )
-    card_inner = values.get(
-        "--linear-card-inner",
-        root.get("--surface", background),
-    )
+    card_background = values.get("--linear-card-background", background)
+    card_inner = values.get("--linear-card-inner", background)
     card_border = values.get(
         "--linear-card-border",
         root.get("--border", tick),
@@ -61,7 +55,10 @@ def vehicle_gauge_theme_from_style_sheet(
         face_color=face,
         foreground_color=tick,
         primary_text=foreground,
-        normal_value=foreground,
+        # Segmented engine bars need stronger contrast than body text in light
+        # mode. The gauge accent is theme-aware and remains readable on both
+        # light and dark surfaces.
+        normal_value=values.get("--gauge-bar-normal", root.get("--accent-primary", foreground)),
         endpoint_text=tick,
         performance_label=tick,
         bezel_mid=bezel,
