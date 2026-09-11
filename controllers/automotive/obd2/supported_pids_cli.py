@@ -73,6 +73,7 @@ def _build_scan_source(config):
         )
         return Obd2Manager(
             Elm327ObdAdapter(device),
+            standard_poll_hz=input_config.standard_poll_hz,
             slow_poll_interval_seconds=input_config.slow_poll_interval_s,
         ), "termux-android-bridge tcp://127.0.0.1:35000"
 
