@@ -180,6 +180,8 @@ int main() {
             const auto command = commandServer.poll();
             if (!command) break;
 
+            std::cout << "[map_renderer] command: " << command->command << '\n';
+
             if (command->command == "set_center") {
                 map.jumpTo(mbgl::CameraOptions().withCenter(
                     mbgl::LatLng{command->latitude, command->longitude}));
