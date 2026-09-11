@@ -10,11 +10,15 @@ from dataclasses import dataclass
 
 from apps.orcUi.core_runtime import MapRuntime, StateIngressRuntime
 from apps.orcUi.frontend.tk.orc_ui_app import OrcUiApp
+from config.service_runtime_config import ServiceRuntimeConfigParser
 from controllers.audio import PipewireAudioController, SystemVolumeHandler
+from controllers.automotive import TripTracker
+from controllers.automotive.fuel_model import FuelModel
 from controllers.map_renderer.map_camera_runtime import MapCameraRuntime
 from controllers.system import SystemLifecycleController
 from messaging.zeromq import ZeroMqPublisher, ZeroMqSubscriber
 from messaging.zeromq.endpoints import LOCAL_PUBLISHER_ENDPOINT, LOCAL_SUBSCRIBER_ENDPOINT
+from services.automotive.automotive_service_cli import DEFAULT_RUNTIME_CONFIG
 from services.trip import TripRuntime
 
 
@@ -84,10 +88,19 @@ def create_core_composition() -> CoreComposition:
         apply_position_state=app.apply_position_state,
         apply_attitude_state=app.apply_attitude_state,
     )
+    runtime_config = ServiceRuntimeConfigParser(DEFAULT_RUNTIME_CONFIG).load()
+    fuel_config = runtime_config.automotive.fuel
+    trip_tracker = TripTracker(
+        fuel_model=FuelModel(
+            engine_displacement_m3=fuel_config.engine_displacement_l / 1000.0,
+            volumetric_efficiency=fuel_config.volumetric_efficiency,
+        )
+    )
     trip_publisher = ZeroMqPublisher(LOCAL_PUBLISHER_ENDPOINT)
     trip_runtime = TripRuntime(
         ZeroMqSubscriber(LOCAL_SUBSCRIBER_ENDPOINT),
         trip_publisher,
+        tracker=trip_tracker,
         publish_source="orc-ui-trip-runtime",
     )
     return CoreComposition(
