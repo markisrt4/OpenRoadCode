@@ -27,6 +27,10 @@ def test_trip_state_round_trip() -> None:
         distance_m=1000.0,
         average_speed_m_s=1000.0 / 55.0,
         maximum_speed_m_s=25.0,
+        boost_time_s=12.0,
+        boost_distance_m=150.0,
+        boost_fuel_used_m3=0.0001,
+        peak_boost_pa=55000.0,
         current_latitude_deg=42.8,
         current_longitude_deg=-83.0,
     )
@@ -35,11 +39,15 @@ def test_trip_state_round_trip() -> None:
     message = decode_trip_state(payload)
 
     assert TRIP_STATE_TOPIC == "openroad.vehicle.trip.state"
-    assert message.version == 1
+    assert message.version == 2
     assert message.source == "test"
     assert message.data.status == "active"
     assert message.data.distance_m == pytest.approx(1000.0)
     assert message.data.current_latitude_deg == pytest.approx(42.8)
+    assert message.data.boost_time_s == pytest.approx(12.0)
+    assert message.data.boost_distance_m == pytest.approx(150.0)
+    assert message.data.boost_fuel_used_m3 == pytest.approx(0.0001)
+    assert message.data.peak_boost_pa == pytest.approx(55000.0)
 
 
 def test_validator_rejects_unknown_fields() -> None:
@@ -64,3 +72,24 @@ def test_validator_rejects_invalid_coordinates() -> None:
 
     with pytest.raises(ValueError):
         validate_trip_state(payload)
+
+
+def test_decoder_accepts_legacy_v1_trip_payload() -> None:
+    timestamp = datetime(2026, 9, 10, tzinfo=timezone.utc)
+    payload = encode_trip_state(TripState(), source="legacy", timestamp=timestamp)
+    payload["version"] = 1
+    for field in (
+        "boost_time_s",
+        "boost_distance_m",
+        "boost_fuel_used_m3",
+        "peak_boost_pa",
+    ):
+        payload["data"].pop(field)
+
+    message = decode_trip_state(payload)
+
+    assert message.version == 1
+    assert message.data.boost_time_s == pytest.approx(0.0)
+    assert message.data.boost_distance_m == pytest.approx(0.0)
+    assert message.data.boost_fuel_used_m3 == pytest.approx(0.0)
+    assert message.data.peak_boost_pa is None
