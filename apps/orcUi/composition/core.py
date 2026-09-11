@@ -10,6 +10,7 @@ from dataclasses import dataclass
 
 from apps.orcUi.core_runtime import MapRuntime, StateIngressRuntime
 from apps.orcUi.frontend.tk.orc_ui_app import OrcUiApp
+from apps.orcUi.theme_runtime import theme_bundle as resolve_theme_bundle
 from controllers.audio import PipewireAudioController, SystemVolumeHandler
 from controllers.map_renderer.map_camera_runtime import MapCameraRuntime
 from controllers.system import SystemDiagnosticsController, SystemLifecycleController
@@ -65,7 +66,7 @@ def create_core_composition() -> CoreComposition:
     diagnostics = DiagnosticsScreen(
         app,
         provider=SystemDiagnosticsController(),
-        theme_bundle=lambda: app._theme,
+        theme_bundle=lambda: resolve_theme_bundle(app.theme_mode),
     )
     app.register_screen("DIAGNOSTICS", diagnostics, before="SETTINGS")
 
