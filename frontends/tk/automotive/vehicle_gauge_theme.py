@@ -30,8 +30,16 @@ def vehicle_gauge_theme_from_style_sheet(
     # provide them, inherit the active application surface instead of falling
     # back to the legacy dark-only gauge palette. This keeps linear gauges and
     # the spaces between performance gauges correct in light mode.
-    card_background = values.get("--linear-card-background", background)
-    card_inner = values.get("--linear-card-inner", background)
+    # LinearGauge already draws its own card. Keep that card visually distinct
+    # from the application surface in both dark and light themes.
+    card_background = values.get(
+        "--linear-card-background",
+        root.get("--surface-alt", background),
+    )
+    card_inner = values.get(
+        "--linear-card-inner",
+        root.get("--surface", background),
+    )
     card_border = values.get(
         "--linear-card-border",
         root.get("--border", tick),
