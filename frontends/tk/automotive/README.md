@@ -9,6 +9,16 @@ construct, poll, calibrate, or stop controllers and hardware.
 Automotive presentation uses the shared OpenRoadCode theme pipeline rather than
 application-local color rewriting:
 
+<aside class="orc-diagram-legend" aria-label="Architecture diagram legend">
+  <strong>Diagram key</strong>
+  <span><i class="orc-legend-swatch orc-legend-app"></i>App / UI</span>
+  <span><i class="orc-legend-swatch orc-legend-service"></i>Service / runtime</span>
+  <span><i class="orc-legend-swatch orc-legend-controller"></i>Controller / domain</span>
+  <span><i class="orc-legend-swatch orc-legend-message"></i>Messaging / contract</span>
+  <span><i class="orc-legend-swatch orc-legend-adapter"></i>Protocol / hardware</span>
+  <span><i class="orc-legend-swatch orc-legend-external"></i>External / input</span>
+</aside>
+
 ```mermaid
 flowchart TD
     css["orc-dark.css / orc-light.css"] --> sheet["StyleSheet"]
