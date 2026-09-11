@@ -40,6 +40,9 @@ jobs:
       - name: Validate Markdown links
         run: python scripts/check_markdown_links.py
 
+      - name: Validate Mermaid legends
+        run: python scripts/check_mermaid_legends.py
+
       - name: Validate Doxygen contracts
         run: python scripts/check_doxygen_contracts.py
 
