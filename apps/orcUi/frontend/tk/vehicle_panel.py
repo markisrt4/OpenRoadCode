@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import math
 import tkinter as tk
+from dataclasses import replace
 from collections.abc import Callable
 
 from apps.orcUi.navigation_presenter import AttitudePresentationState, PositionPresentationState
@@ -147,7 +148,7 @@ class VehiclePanel(tk.Frame):
         }
         gauge_style = vehicle_gauge_theme_from_style_sheet(self._theme_bundle.style_sheet)
 
-        accents = {
+        needle_colors = {
             "rpm": ui.accent_danger,
             "boost": ui.accent_primary,
             "speed": ui.accent_success,
@@ -160,7 +161,6 @@ class VehiclePanel(tk.Frame):
                 cluster,
                 title=definition.title.upper(),
                 unit=definition.unit,
-                accent=accents[gauge_id],
             )
             card.grid(row=0, column=column, sticky="nsew", padx=4, pady=2)
             card.grid_columnconfigure(0, weight=1)
@@ -180,7 +180,12 @@ class VehiclePanel(tk.Frame):
                 start_angle=definition.start_angle,
                 sweep_angle=definition.sweep_angle,
                 precision=definition.precision,
-                style=gauge_style,
+                style=replace(
+                    gauge_style,
+                    accent_color=needle_colors[gauge_id],
+                    needle_body=needle_colors[gauge_id],
+                    needle_outline=needle_colors[gauge_id],
+                ),
                 size=205,
             )
             gauge.grid(row=1, column=0, sticky="nsew", padx=2, pady=(0, 2))
@@ -189,33 +194,10 @@ class VehiclePanel(tk.Frame):
         lower = tk.Frame(host, bg=background)
         lower.grid(row=2, column=0, sticky="ew", pady=(5, 0))
         lower.grid_columnconfigure(0, weight=1)
-        lower.grid_columnconfigure(1, weight=0)
-
-        status = tk.Frame(
-            lower,
-            bg=ui.surface_alt,
-            highlightthickness=1,
-            highlightbackground=ui.border,
-        )
-        status.grid(row=0, column=0, sticky="ew", padx=(0, 5))
-        tk.Label(
-            status,
-            text="DRIVETRAIN",
-            fg=ui.text_muted,
-            bg=ui.surface_alt,
-            font=("Sans", 8, "bold"),
-        ).pack(side=tk.LEFT, padx=(12, 8), pady=8)
-        tk.Label(
-            status,
-            text="Live OBD-II telemetry",
-            fg=ui.text,
-            bg=ui.surface_alt,
-            font=("Sans", 9, "bold"),
-        ).pack(side=tk.LEFT, pady=8)
 
         shifter = ShifterGauge(lower, width=280, height=58)
         shifter.set_style_sheet(self._theme_bundle.style_sheet)
-        shifter.grid(row=0, column=1, sticky="e")
+        shifter.grid(row=0, column=0)
         self._shifter = shifter
 
         self._view_content = host
@@ -252,14 +234,6 @@ class VehiclePanel(tk.Frame):
         }
         gauge_style = vehicle_gauge_theme_from_style_sheet(self._theme_bundle.style_sheet)
 
-        accents = {
-            "coolant": ui.accent_danger,
-            "intake": ui.accent_primary,
-            "load": ui.accent_warning,
-            "fuel": ui.accent_success,
-            "voltage": ui.accent_primary,
-        }
-
         for index, gauge_id in enumerate(self._ENGINE_IDS):
             definition = definitions[gauge_id]
             row, column = divmod(index, 2)
@@ -267,7 +241,6 @@ class VehiclePanel(tk.Frame):
                 grid,
                 title=definition.title.upper(),
                 unit=definition.unit,
-                accent=accents[gauge_id],
             )
             card.grid(row=row, column=column, sticky="nsew", padx=4, pady=4)
             card.grid_columnconfigure(0, weight=1)
@@ -379,7 +352,6 @@ class VehiclePanel(tk.Frame):
         *,
         title: str,
         unit: str,
-        accent: str,
     ) -> tk.Frame:
         ui = self._theme_bundle.ui
         card = tk.Frame(
@@ -391,7 +363,6 @@ class VehiclePanel(tk.Frame):
         top = tk.Frame(card, bg=ui.surface)
         top.grid(row=0, column=0, sticky="ew", padx=10, pady=(7, 2))
         top.grid_columnconfigure(1, weight=1)
-        tk.Frame(top, bg=accent, width=4, height=15).grid(row=0, column=0, sticky="ns", padx=(0, 7))
         tk.Label(
             top,
             text=title,
@@ -399,7 +370,7 @@ class VehiclePanel(tk.Frame):
             bg=ui.surface,
             font=("Sans", 8, "bold"),
             anchor="w",
-        ).grid(row=0, column=1, sticky="w")
+        ).grid(row=0, column=0, sticky="w")
         if unit:
             tk.Label(
                 top,
@@ -407,7 +378,7 @@ class VehiclePanel(tk.Frame):
                 fg=ui.text_muted,
                 bg=ui.surface,
                 font=("Sans", 7, "bold"),
-            ).grid(row=0, column=2, sticky="e")
+            ).grid(row=0, column=1, sticky="e")
         return card
 
     def _show_offroad(self) -> None:
