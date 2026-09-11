@@ -4,16 +4,23 @@ The navigation service is the single owner of the active navigation sensor pipel
 
 ## Runtime ownership
 
-```text
-configured IMU + GPS sources
-          |
-NavigationController
-          |
-          +--> NavigationStatePublisher --> ZeroMQ telemetry bus
-          |
-          +--> NavigationCommandService <-- ZeroMQ REQ/REP clients
-                                      |
-                                      +--> RoutePlanningControllerIf
+```mermaid
+flowchart TD
+    sources["Configured IMU + GPS sources"] --> nav["NavigationController"]
+    nav --> publisher["NavigationStatePublisher"] --> bus["ZeroMQ telemetry bus"]
+    clients["ZeroMQ REQ/REP clients"] --> command["NavigationCommandService"] --> nav
+    command --> planner["RoutePlanningControllerIf"]
+
+    classDef orcApp fill:#dbeafe,stroke:#2563eb,color:#172554;
+    classDef orcService fill:#ede9fe,stroke:#7c3aed,color:#2e1065;
+    classDef orcController fill:#dcfce7,stroke:#16a34a,color:#14532d;
+    classDef orcMessage fill:#ffedd5,stroke:#ea580c,color:#7c2d12;
+    classDef orcAdapter fill:#fee2e2,stroke:#dc2626,color:#7f1d1d;
+    classDef orcExternal fill:#f3f4f6,stroke:#6b7280,color:#1f2937;
+    class sources,clients orcExternal;
+    class nav,planner orcController;
+    class command orcService;
+    class publisher,bus orcMessage;
 ```
 
 Applications should subscribe to public navigation topics for state and use command/request interfaces for acknowledged operations. They should not construct navigation hardware merely to display telemetry, request calibration, or calculate a route.
