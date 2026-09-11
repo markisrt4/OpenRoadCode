@@ -16,3 +16,10 @@ def test_explicit_brand_is_preferred_over_name() -> None:
     business = resolve_business(brand="Panera", name="McDonald's")
     assert business is not None
     assert business.provider_id == "panera"
+
+
+def test_catalog_loads_capabilities_from_toml() -> None:
+    business = resolve_business(name="Panera Bread")
+    assert business is not None
+    assert business.categories == frozenset({"food"})
+    assert business.capabilities == frozenset({"order"})
