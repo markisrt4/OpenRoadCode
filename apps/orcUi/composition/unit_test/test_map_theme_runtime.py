@@ -37,6 +37,10 @@ class MapThemeRuntimeTest(unittest.TestCase):
             self.assertIn('"commercial","#493044"', style)
             self.assertIn('"hospital","#542f42"', style)
             self.assertIn('"school","#564d29"', style)
+            self.assertIn('"poi-results":{"type":"geojson"', style)
+            self.assertIn('"id":"poi-results-glow"', style)
+            self.assertIn('"id":"poi-results-icon"', style)
+            self.assertIn('"id":"poi-results-label"', style)
 
 
 if __name__ == "__main__":
