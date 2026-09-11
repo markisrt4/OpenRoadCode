@@ -76,9 +76,7 @@ transport = "serial"
 port = "/dev/rfcomm0"
 baud = 38400
 timeout_s = 1.0
-hot_poll_hz = 20.0
-standard_poll_hz = 5.0
-slow_poll_interval_s = 5.0
+request_rate_hz = 6.0
 
 [services.automotive.fuel]
 engine_displacement_l = 1.6
