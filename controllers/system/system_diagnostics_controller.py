@@ -9,7 +9,6 @@ import os
 import platform
 import shutil
 import socket
-import sys
 from pathlib import Path
 
 from ui.system_diagnostics import SystemDiagnosticsSnapshot
