@@ -54,6 +54,7 @@ class VehiclePanel(tk.Frame):
         self._shifter: ShifterGauge | None = None
         self._offroad: OffroadDashboardPanel | None = None
         self._trip_cards: dict[str, TripMetricCard] = {}
+        self._boost_metric_labels: dict[str, tk.Label] = {}
         self._ecu_value_labels: dict[str, tk.Label] = {}
         self._ecu_state_labels: dict[str, tk.Label] = {}
         self._view_content: tk.Widget | None = None
@@ -109,6 +110,7 @@ class VehiclePanel(tk.Frame):
         self._shifter = None
         self._offroad = None
         self._trip_cards.clear()
+        self._boost_metric_labels.clear()
         self._ecu_value_labels.clear()
         self._ecu_state_labels.clear()
 
@@ -493,6 +495,7 @@ class VehiclePanel(tk.Frame):
         host.grid(row=0, column=0, sticky="nsew", padx=6, pady=6)
         host.grid_columnconfigure(0, weight=1)
         host.grid_rowconfigure(1, weight=1)
+        host.grid_rowconfigure(2, weight=0)
 
         header = tk.Frame(
             host,
@@ -569,6 +572,57 @@ class VehiclePanel(tk.Frame):
             card.grid(row=row, column=column, sticky="nsew", padx=4, pady=4)
             self._trip_cards[key] = card
 
+        boost_band = tk.Frame(
+            host,
+            bg=ui.surface_alt,
+            highlightthickness=1,
+            highlightbackground=ui.border,
+        )
+        boost_band.grid(row=2, column=0, sticky="ew", padx=4, pady=(6, 2))
+        tk.Label(
+            boost_band,
+            text="BOOST METRICS",
+            fg=ui.text_muted,
+            bg=ui.surface_alt,
+            font=("Sans", 8, "bold"),
+        ).grid(row=0, column=0, sticky="w", padx=(12, 8), pady=9)
+
+        boost_specs = (
+            ("boost_time", "TIME", ""),
+            ("boost_distance", "DIST", "mi"),
+            ("boost_fuel", "FUEL", "gal"),
+            ("boost_share", "FUEL SHARE", "%"),
+            ("peak_boost", "PEAK", "psi"),
+        )
+        for column, (key, title, unit) in enumerate(boost_specs, start=1):
+            cell = tk.Frame(boost_band, bg=ui.surface_alt)
+            cell.grid(row=0, column=column, sticky="ew", padx=8, pady=5)
+            boost_band.grid_columnconfigure(column, weight=1)
+            tk.Label(
+                cell,
+                text=title,
+                fg=ui.text_muted,
+                bg=ui.surface_alt,
+                font=("Sans", 7, "bold"),
+            ).pack()
+            value = tk.Label(
+                cell,
+                text="--",
+                fg=ui.text,
+                bg=ui.surface_alt,
+                font=("Sans", 11, "bold"),
+            )
+            value.pack()
+            if unit:
+                tk.Label(
+                    cell,
+                    text=unit,
+                    fg=ui.text_muted,
+                    bg=ui.surface_alt,
+                    font=("Sans", 7),
+                ).pack()
+            self._boost_metric_labels[key] = value
+
         self._view_content = host
         self._apply_trip_state()
 
@@ -595,6 +649,18 @@ class VehiclePanel(tk.Frame):
             "economy": "--" if state.economy_mpg is None else f"{state.economy_mpg:.1f}",
             "status": state.status.upper(),
         }
+        boost_values = {
+            "boost_time": self._format_duration(state.boost_time_s),
+            "boost_distance": f"{state.boost_distance_miles:.1f}",
+            "boost_fuel": f"{state.boost_fuel_gallons:.2f}",
+            "boost_share": "--" if state.boost_fuel_percent is None else f"{state.boost_fuel_percent:.0f}",
+            "peak_boost": "--" if state.peak_boost_psi is None else f"{state.peak_boost_psi:.1f}",
+        }
+        for key, text in boost_values.items():
+            label = self._boost_metric_labels.get(key)
+            if label is not None:
+                label.configure(text=text)
+
         status_colors = {
             "active": self._theme_bundle.ui.accent_success,
             "paused": self._theme_bundle.ui.accent_warning,
