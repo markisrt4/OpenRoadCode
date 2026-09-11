@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 import math
-from datetime import timedelta, timezone
+from datetime import timedelta
 from threading import Lock
 
 from controllers.automotive import TripIf, TripTracker, VehicleState
