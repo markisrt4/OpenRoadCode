@@ -13,7 +13,7 @@ from apps.orcUi.navigation_presenter import AttitudePresentationState, PositionP
 from apps.orcUi.theme_runtime import theme_bundle as packaged_theme_bundle
 from apps.orcUi.trip_presenter import TripPresentationState
 from apps.orcUi.vehicle_presenter import VehiclePresentationState
-from controllers.automotive import AutomotiveTelemetryProfile
+from controllers.automotive import AutomotiveTelemetryProfile, VehicleConfiguration
 from frontends.tk.automotive import DEFAULT_GAUGES, OffroadDashboardPanel, ShifterGauge
 from frontends.tk.automotive.vehicle_gauge_theme import vehicle_gauge_theme_from_style_sheet
 from frontends.tk.automotive.vehicle_gauge_widgets import LinearGauge, RoundGauge
@@ -40,8 +40,10 @@ class VehiclePanel(tk.Frame):
         position: PositionPresentationState | None = None,
         attitude: AttitudePresentationState | None = None,
         theme_bundle: ThemeBundle | None = None,
+        vehicle_configuration: VehicleConfiguration = VehicleConfiguration(),
     ) -> None:
         self._theme_bundle = theme_bundle or packaged_theme_bundle(ThemeMode.DARK)
+        self._vehicle_configuration = vehicle_configuration
         ui = self._theme_bundle.ui
         super().__init__(parent, bg=ui.background)
         self._on_back = on_back
@@ -177,9 +179,12 @@ class VehiclePanel(tk.Frame):
 
         for column, gauge_id in enumerate(self._PERFORMANCE_IDS):
             definition = definitions[gauge_id]
+            title = definition.title.upper()
+            if gauge_id == "boost" and not self._vehicle_configuration.induction.is_forced_induction:
+                title = "MANIFOLD"
             card = self._instrument_card(
                 cluster,
-                title=definition.title.upper(),
+                title=title,
                 unit=definition.unit,
             )
             card.grid(row=0, column=column, sticky="nsew", padx=4, pady=2)
@@ -428,7 +433,10 @@ class VehiclePanel(tk.Frame):
         state_card = tk.Frame(grid, bg=ui.surface_alt, highlightthickness=1, highlightbackground=ui.border)
         state_card.grid(row=1, column=0, columnspan=3, sticky="ew", padx=4, pady=4)
         tk.Label(state_card, text="ORC DERIVED CONTROL STATE", fg=ui.text_muted, bg=ui.surface_alt, font=("Sans", 8, "bold")).pack(side=tk.LEFT, padx=(12, 10), pady=10)
-        for name in ("IDLE", "CRUISE", "ACCELERATION", "BOOST", "HIGH LOAD", "ENRICHMENT", "WARM-UP"):
+        state_names = ["IDLE", "CRUISE", "ACCELERATION", "HIGH LOAD", "ENRICHMENT", "WARM-UP"]
+        if self._vehicle_configuration.induction.is_forced_induction:
+            state_names.insert(3, "BOOST")
+        for name in state_names:
             label = tk.Label(state_card, text="○ " + name, fg=ui.text_muted, bg=ui.surface_alt, font=("Sans", 8, "bold"), padx=6)
             label.pack(side=tk.LEFT, padx=2, pady=10)
             self._ecu_state_labels[name] = label
@@ -592,56 +600,57 @@ class VehiclePanel(tk.Frame):
             card.grid(row=row, column=column, sticky="nsew", padx=4, pady=4)
             self._trip_cards[key] = card
 
-        boost_band = tk.Frame(
-            host,
-            bg=ui.surface_alt,
-            highlightthickness=1,
-            highlightbackground=ui.border,
-        )
-        boost_band.grid(row=2, column=0, sticky="ew", padx=4, pady=(6, 2))
-        tk.Label(
-            boost_band,
-            text="BOOST METRICS",
-            fg=ui.text_muted,
-            bg=ui.surface_alt,
-            font=("Sans", 8, "bold"),
-        ).grid(row=0, column=0, sticky="w", padx=(12, 8), pady=9)
-
-        boost_specs = (
-            ("boost_time", "TIME", ""),
-            ("boost_distance", "DIST", "mi"),
-            ("boost_fuel", "FUEL", "gal"),
-            ("boost_share", "FUEL SHARE", "%"),
-            ("peak_boost", "PEAK", "psi"),
-        )
-        for column, (key, title, unit) in enumerate(boost_specs, start=1):
-            cell = tk.Frame(boost_band, bg=ui.surface_alt)
-            cell.grid(row=0, column=column, sticky="ew", padx=8, pady=5)
-            boost_band.grid_columnconfigure(column, weight=1)
+        if self._vehicle_configuration.induction.is_forced_induction:
+            boost_band = tk.Frame(
+                host,
+                bg=ui.surface_alt,
+                highlightthickness=1,
+                highlightbackground=ui.border,
+            )
+            boost_band.grid(row=2, column=0, sticky="ew", padx=4, pady=(6, 2))
             tk.Label(
-                cell,
-                text=title,
+                boost_band,
+                text="BOOST METRICS",
                 fg=ui.text_muted,
                 bg=ui.surface_alt,
-                font=("Sans", 7, "bold"),
-            ).pack()
-            value = tk.Label(
-                cell,
-                text="--",
-                fg=ui.text,
-                bg=ui.surface_alt,
-                font=("Sans", 11, "bold"),
+                font=("Sans", 8, "bold"),
+            ).grid(row=0, column=0, sticky="w", padx=(12, 8), pady=9)
+
+            boost_specs = (
+                ("boost_time", "TIME", ""),
+                ("boost_distance", "DIST", "mi"),
+                ("boost_fuel", "FUEL", "gal"),
+                ("boost_share", "FUEL SHARE", "%"),
+                ("peak_boost", "PEAK", "psi"),
             )
-            value.pack()
-            if unit:
+            for column, (key, title, unit) in enumerate(boost_specs, start=1):
+                cell = tk.Frame(boost_band, bg=ui.surface_alt)
+                cell.grid(row=0, column=column, sticky="ew", padx=8, pady=5)
+                boost_band.grid_columnconfigure(column, weight=1)
                 tk.Label(
                     cell,
-                    text=unit,
+                    text=title,
                     fg=ui.text_muted,
                     bg=ui.surface_alt,
-                    font=("Sans", 7),
+                    font=("Sans", 7, "bold"),
                 ).pack()
-            self._boost_metric_labels[key] = value
+                value = tk.Label(
+                    cell,
+                    text="--",
+                    fg=ui.text,
+                    bg=ui.surface_alt,
+                    font=("Sans", 11, "bold"),
+                )
+                value.pack()
+                if unit:
+                    tk.Label(
+                        cell,
+                        text=unit,
+                        fg=ui.text_muted,
+                        bg=ui.surface_alt,
+                        font=("Sans", 7),
+                    ).pack()
+                self._boost_metric_labels[key] = value
 
         self._view_content = host
         self._apply_trip_state()
@@ -703,6 +712,15 @@ class VehiclePanel(tk.Frame):
         hours, remainder = divmod(total, 3600)
         minutes, secs = divmod(remainder, 60)
         return f"{hours:d}:{minutes:02d}:{secs:02d}"
+
+    def set_vehicle_configuration(
+        self,
+        configuration: VehicleConfiguration,
+    ) -> None:
+        if configuration == self._vehicle_configuration:
+            return
+        self._vehicle_configuration = configuration
+        self._show_view(self._current_view)
 
     def set_theme_bundle(self, theme_bundle: ThemeBundle) -> None:
         """Apply the active CSS theme and rebuild the active instrument view."""
