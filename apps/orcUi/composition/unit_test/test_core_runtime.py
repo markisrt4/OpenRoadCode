@@ -41,6 +41,7 @@ class StateIngressRuntimeTest(unittest.TestCase):
     def setUp(self) -> None:
         self.schedule_ui = Mock()
         self.vehicle_sink = Mock()
+        self.analysis_sink = Mock()
         self.trip_sink = Mock()
         self.position_sink = Mock()
         self.attitude_sink = Mock()
@@ -48,6 +49,7 @@ class StateIngressRuntimeTest(unittest.TestCase):
         self.runtime = StateIngressRuntime(
             schedule_ui=self.schedule_ui,
             apply_vehicle_state=self.vehicle_sink,
+            apply_engine_analysis=self.analysis_sink,
             apply_trip_state=self.trip_sink,
             apply_position_state=self.position_sink,
             apply_attitude_state=self.attitude_sink,
@@ -92,18 +94,27 @@ class StateIngressRuntimeTest(unittest.TestCase):
             self.runtime._drain_ui_queue,
         )
 
+    @patch("apps.orcUi.core_runtime.EngineAnalyzer.analyze")
     @patch("apps.orcUi.core_runtime.VehiclePresenter.present")
-    def test_vehicle_message_is_presented_before_ui_drain(self, present: Mock) -> None:
+    def test_vehicle_message_is_presented_before_ui_drain(
+        self,
+        present: Mock,
+        analyze: Mock,
+    ) -> None:
         message = Mock()
         state = present.return_value
+        analysis = analyze.return_value
 
         self.runtime._on_vehicle_message(message)
 
         present.assert_called_once_with(message.data)
+        analyze.assert_called_once_with(message.data)
         self.schedule_ui.assert_not_called()
         self.vehicle_sink.assert_not_called()
+        self.analysis_sink.assert_not_called()
         self.runtime._drain_ui_queue()
         self.vehicle_sink.assert_called_once_with(state)
+        self.analysis_sink.assert_called_once_with(analysis)
 
     @patch("apps.orcUi.core_runtime.TripPresenter.present")
     def test_trip_message_is_presented_before_ui_drain(self, present: Mock) -> None:
