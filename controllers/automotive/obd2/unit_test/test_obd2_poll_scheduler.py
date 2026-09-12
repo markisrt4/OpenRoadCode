@@ -1,56 +1,80 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 
-from controllers.automotive.obd2.obd2_poll_scheduler import Obd2PollScheduler
+from controllers.automotive.obd2.obd2_poll_scheduler import (
+    Obd2PollingProfile,
+    Obd2PollScheduler,
+)
 from protocols.obd2.obd_pids import (
     CoolantTempPid,
     EngineLoadPid,
     EngineRpmPid,
+    IgnitionTimingAdvancePid,
     IntakeManifoldPressurePid,
+    ShortTermFuelTrimBank1Pid,
     ThrottlePositionPid,
 )
 
 
-def test_weighted_schedule_matches_expected_request_allocation() -> None:
+def _scheduler() -> Obd2PollScheduler:
     rpm = EngineRpmPid()
     map_pid = IntakeManifoldPressurePid()
     throttle = ThrottlePositionPid()
     load = EngineLoadPid()
     coolant = CoolantTempPid()
-    scheduler = Obd2PollScheduler(
+    timing = IgnitionTimingAdvancePid()
+    trim = ShortTermFuelTrimBank1Pid()
+    supported = {p.pid for p in (rpm, map_pid, throttle, load, coolant, timing, trim)}
+    return Obd2PollScheduler(
         rpm=rpm,
         manifold_pressure=map_pid,
         standard=(throttle, load),
         slow=(coolant,),
-        supported_pids={rpm.pid, map_pid.pid, throttle.pid, load.pid, coolant.pid},
+        performance=(throttle, timing),
+        engine=(load, coolant, timing),
+        ecu=(trim, timing),
+        trip=(load,),
+        supported_pids=supported,
     )
 
+
+def test_normal_profile_preserves_original_weighting() -> None:
+    scheduler = _scheduler()
+    pids = [scheduler.next_decoder().pid for _ in range(12)]
+    assert pids == [
+        0x0C, 0x0B, 0x0C, 0x11, 0x0C, 0x0B,
+        0x04, 0x0C, 0x05, 0x0B, 0x11, 0x0C,
+    ]
+
+
+def test_ecu_profile_prioritizes_ecu_group() -> None:
+    scheduler = _scheduler()
+    scheduler.set_profile(Obd2PollingProfile.ECU)
     pids = [scheduler.next_decoder().pid for _ in range(12)]
 
-    assert pids == [
-        rpm.pid,
-        map_pid.pid,
-        rpm.pid,
-        throttle.pid,
-        rpm.pid,
-        map_pid.pid,
-        load.pid,
-        rpm.pid,
-        coolant.pid,
-        map_pid.pid,
-        throttle.pid,
-        rpm.pid,
-    ]
+    assert pids.count(0x06) >= 2
+    assert pids.count(0x0E) >= 2
+    assert 0x0C in pids
+    assert 0x0B in pids
+
+
+def test_profile_change_resets_schedule_position() -> None:
+    scheduler = _scheduler()
+    scheduler.next_decoder()
+    scheduler.next_decoder()
+
+    scheduler.set_profile(Obd2PollingProfile.ECU)
+
+    assert scheduler.profile is Obd2PollingProfile.ECU
+    assert scheduler.next_decoder().pid == 0x0C
 
 
 def test_unsupported_pids_are_never_returned() -> None:
     rpm = EngineRpmPid()
-    map_pid = IntakeManifoldPressurePid()
-    throttle = ThrottlePositionPid()
     scheduler = Obd2PollScheduler(
         rpm=rpm,
-        manifold_pressure=map_pid,
-        standard=(throttle,),
+        manifold_pressure=IntakeManifoldPressurePid(),
+        standard=(ThrottlePositionPid(),),
         slow=(),
         supported_pids={rpm.pid},
     )
