@@ -18,6 +18,7 @@ from controllers.automotive.simulated_vehicle_state_source import SimulatedVehic
 from hardware_io.automotive.elm327.elm327_tcp_device import Elm327TcpDevice
 from messaging.zeromq import ZeroMqPublisher, ZeroMqSubscriber
 from services.automotive.automotive_runtime import AutomotiveRuntime
+from services.automotive.automotive_telemetry_profile_runtime import AutomotiveTelemetryProfileRuntime
 
 DEFAULT_RUNTIME_CONFIG = Path(__file__).resolve().parents[2] / "config" / "runtime.toml"
 DEFAULT_GEAR_PROFILE = Path(__file__).resolve().parents[2] / "vehicle_gears.learned.toml"
@@ -112,6 +113,10 @@ def main() -> int:
         rate_hz=rate_hz,
         gear_estimator=gear_estimator,
     )
+    profile_runtime = AutomotiveTelemetryProfileRuntime(
+        ZeroMqSubscriber(system.messaging.subscriber_endpoint),
+        source,
+    )
     print("OpenRoadCode automotive service")
     print(f"  input source:      {source_description}")
     if config.input.source == "device":
@@ -135,11 +140,13 @@ def main() -> int:
         else "  gear estimation:  disabled (no learned profile)"
     )
     print("Ctrl+C to stop")
+    profile_runtime.start()
     try:
         runtime.run()
     except KeyboardInterrupt:
         pass
     finally:
+        profile_runtime.close()
         runtime.close()
         publisher.close()
     return 0
