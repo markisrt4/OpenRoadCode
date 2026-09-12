@@ -53,7 +53,7 @@ class NavigationPanel(tk.Frame):
         self._map_favorites = map_favorites or MapFavorites()
         self._poi_action_executor = poi_action_executor or AndroidPoiActionExecutor()
         self._poi_controller = PoiSearchController()
-        self._poi_card: tk.Frame | None = None
+        self._poi_card: tk.Toplevel | None = None
         self._poi_search_after_id: str | None = None
         self._zoom_level = float(getattr(self._request_handler, "zoom_level", 16.5))
         self._zoom_text = tk.StringVar(value=f"{self._zoom_level:.1f}")
@@ -242,21 +242,63 @@ class NavigationPanel(tk.Frame):
         if poi is not None:self._show_poi_card(poi)
         if self.winfo_exists():self.after(100,self._poll_poi_events)
 
-    def _show_poi_card(self,poi:PointOfInterest)->None:
-        ui=self._theme_bundle.ui
-        if self._poi_card is not None and self._poi_card.winfo_exists():self._poi_card.destroy()
-        card=tk.Frame(self,bg=ui.surface_alt,highlightthickness=2,highlightbackground=ui.accent_primary); card.place(relx=0.5,rely=0.72,anchor=tk.CENTER,width=470,height=150); self._poi_card=card
-        tk.Label(card,text=poi.name,bg=ui.surface_alt,fg=ui.text,font=("Sans",15,"bold")).pack(pady=(12,2))
-        details = []
+    def _show_poi_card(self, poi: PointOfInterest) -> None:
+        """Show selected business information above the native map window."""
+        ui = self._theme_bundle.ui
+        if self._poi_card is not None and self._poi_card.winfo_exists():
+            self._poi_card.destroy()
+
+        popup = tk.Toplevel(self)
+        popup.title(poi.name)
+        popup.configure(bg=ui.surface_alt)
+        popup.transient(self.winfo_toplevel())
+        popup.resizable(False, False)
+        popup.attributes("-topmost", True)
+        self._poi_card = popup
+
+        width = 480
+        height = 170
+        self.update_idletasks()
+        x = self.winfo_rootx() + max(0, (self.winfo_width() - width) // 2)
+        y = self.winfo_rooty() + max(0, (self.winfo_height() - height) // 2)
+        popup.geometry(f"{width}x{height}+{x}+{y}")
+
+        frame = tk.Frame(
+            popup,
+            bg=ui.surface_alt,
+            highlightthickness=2,
+            highlightbackground=ui.accent_primary,
+        )
+        frame.pack(fill=tk.BOTH, expand=True)
+
+        tk.Label(
+            frame,
+            text=poi.name,
+            bg=ui.surface_alt,
+            fg=ui.text,
+            font=("Sans", 15, "bold"),
+        ).pack(pady=(14, 2))
+
+        details: list[str] = []
         if poi.brand and poi.brand.casefold() != poi.name.casefold():
             details.append(poi.brand)
         details.append(poi.category.name.replace("_", " ").title())
-        tk.Label(card,text="  •  ".join(details),bg=ui.surface_alt,fg=ui.text_muted,font=("Sans",9)).pack(pady=(0,8))
-        buttons=tk.Frame(card,bg=ui.surface_alt); buttons.pack()
+
+        tk.Label(
+            frame,
+            text="  •  ".join(details),
+            bg=ui.surface_alt,
+            fg=ui.text_muted,
+            font=("Sans", 9),
+        ).pack(pady=(0, 10))
+
+        buttons = tk.Frame(frame, bg=ui.surface_alt)
+        buttons.pack()
+
         tk.Button(
             buttons,
             text="NAVIGATE",
-            command=lambda:self._navigate_to_poi(poi),
+            command=lambda: self._navigate_to_poi(poi),
             bg=ui.control_background,
             fg=ui.accent_primary,
             activebackground=ui.control_active,
@@ -264,16 +306,17 @@ class NavigationPanel(tk.Frame):
             relief=tk.FLAT,
             highlightthickness=1,
             highlightbackground=ui.border,
-            font=("Sans",10,"bold"),
+            font=("Sans", 10, "bold"),
             width=12,
             height=2,
-        ).pack(side=tk.LEFT,padx=4)
+        ).pack(side=tk.LEFT, padx=4)
+
         for action in poi.actions:
             if action.kind in {PoiActionKind.ORDER, PoiActionKind.OPEN_WEBSITE}:
                 tk.Button(
                     buttons,
                     text=action.label,
-                    command=lambda selected=action:self._execute_poi_action(poi, selected),
+                    command=lambda selected=action: self._execute_poi_action(poi, selected),
                     bg=ui.control_background,
                     fg=ui.accent_primary,
                     activebackground=ui.control_active,
@@ -281,11 +324,28 @@ class NavigationPanel(tk.Frame):
                     relief=tk.FLAT,
                     highlightthickness=1,
                     highlightbackground=ui.border,
-                    font=("Sans",10,"bold"),
+                    font=("Sans", 10, "bold"),
                     width=12,
                     height=2,
-                ).pack(side=tk.LEFT,padx=4)
-        tk.Button(buttons,text="CLOSE",command=card.destroy,bg=ui.control_background,fg=ui.text_muted,activebackground=ui.control_active,activeforeground="#ffffff",relief=tk.FLAT,highlightthickness=1,highlightbackground=ui.border,font=("Sans",8,"bold"),width=8).pack(side=tk.LEFT,padx=4)
+                ).pack(side=tk.LEFT, padx=4)
+
+        tk.Button(
+            buttons,
+            text="CLOSE",
+            command=popup.destroy,
+            bg=ui.control_background,
+            fg=ui.text_muted,
+            activebackground=ui.control_active,
+            activeforeground="#ffffff",
+            relief=tk.FLAT,
+            highlightthickness=1,
+            highlightbackground=ui.border,
+            font=("Sans", 8, "bold"),
+            width=8,
+        ).pack(side=tk.LEFT, padx=4)
+
+        popup.lift()
+        popup.focus_force()
 
     def _navigate_to_poi(self, poi:PointOfInterest)->None:
         try:
