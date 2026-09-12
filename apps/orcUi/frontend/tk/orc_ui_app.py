@@ -14,11 +14,12 @@ from apps.orcUi.navigation_presenter import AttitudePresentationState, PositionP
 from .offroad_panel import OffRoadPanel
 from apps.orcUi.orc_theme import ThemeMode, toggle, toggle_label
 from .power_dialog import PowerDialog
+from .settings_panel import SettingsPanel
 from apps.orcUi.theme_runtime import theme_bundle
 from apps.orcUi.trip_presenter import TripPresentationState
 from .vehicle_panel import VehiclePanel
 from apps.orcUi.vehicle_presenter import VehiclePresentationState
-from controllers.automotive import AutomotiveTelemetryProfile
+from controllers.automotive import AutomotiveTelemetryProfile, VehicleConfiguration
 from ui.navigation import MapRequestHandlerIf
 from ui.screen_ui_if import ScreenUiIf
 from ui.system import (
@@ -36,11 +37,15 @@ class OrcUiApp(VolumeUiIf):
         map_request_handler: MapRequestHandlerIf,
         lifecycle_handler: SystemLifecycleRequestHandlerIf,
         telemetry_profile_request: Callable[[AutomotiveTelemetryProfile], None] | None = None,
+        vehicle_configuration: VehicleConfiguration = VehicleConfiguration(),
+        save_vehicle_configuration: Callable[[VehicleConfiguration], None] | None = None,
     ) -> None:
         self._map_runtime = map_runtime
         self._map_request_handler = map_request_handler
         self._lifecycle_handler = lifecycle_handler
         self._telemetry_profile_request = telemetry_profile_request
+        self._vehicle_configuration = vehicle_configuration
+        self._save_vehicle_configuration = save_vehicle_configuration
         self._theme_mode = ThemeMode.DARK
         self._theme = theme_bundle(self._theme_mode)
         ui = self._theme.ui
@@ -69,6 +74,7 @@ class OrcUiApp(VolumeUiIf):
         self._navigation_panel: NavigationPanel | None = None
         self._vehicle_panel: VehiclePanel | None = None
         self._offroad_panel: OffRoadPanel | None = None
+        self._settings_panel: SettingsPanel | None = None
         self._vehicle_state = VehiclePresentationState()
         self._trip_state = TripPresentationState()
         self._position_state = PositionPresentationState()
@@ -146,7 +152,12 @@ class OrcUiApp(VolumeUiIf):
             screen.show()
             return
         self._deactivate_active_screen()
-        handler = {"HOME": self._show_home, "NAVIGATION": self._show_navigation_panel, "VEHICLE": self._show_vehicle_panel}.get(nav_name)
+        handler = {
+            "HOME": self._show_home,
+            "NAVIGATION": self._show_navigation_panel,
+            "VEHICLE": self._show_vehicle_panel,
+            "SETTINGS": self._show_settings_panel,
+        }.get(nav_name)
         self._show_placeholder(nav_name) if handler is None else handler()
     def activate_screen(self, screen: ScreenUiIf) -> None:
         previous = self._active_screen
@@ -412,6 +423,7 @@ class OrcUiApp(VolumeUiIf):
         self._navigation_panel = None
         self._vehicle_panel = None
         self._offroad_panel = None
+        self._settings_panel = None
         for child in self._content.winfo_children():
             child.destroy()
     def _show_home(self) -> None:
@@ -474,8 +486,32 @@ class OrcUiApp(VolumeUiIf):
             state=self._vehicle_state,
             trip_state=self._trip_state,
             theme_bundle=self._theme,
+            vehicle_configuration=self._vehicle_configuration,
         )
         self._vehicle_panel.pack(fill=tk.BOTH, expand=True)
+    def _show_settings_panel(self) -> None:
+        self._clear_content()
+        self._active_nav = "SETTINGS"
+        self._paint_nav()
+        self._settings_panel = SettingsPanel(
+            self._content,
+            vehicle_configuration=self._vehicle_configuration,
+            on_vehicle_configuration_changed=self._apply_vehicle_configuration,
+            on_back=self._show_home,
+            theme_bundle=self._theme,
+        )
+        self._settings_panel.pack(fill=tk.BOTH, expand=True)
+
+    def _apply_vehicle_configuration(
+        self,
+        configuration: VehicleConfiguration,
+    ) -> None:
+        self._vehicle_configuration = configuration
+        if self._save_vehicle_configuration is not None:
+            self._save_vehicle_configuration(configuration)
+        if self._vehicle_panel is not None and self._vehicle_panel.winfo_exists():
+            self._vehicle_panel.set_vehicle_configuration(configuration)
+
     def _show_offroad_panel(self) -> None:
         self._clear_content()
         self._offroad_panel = OffRoadPanel(self._content, on_back=self._show_home, position=self._position_state, attitude=self._attitude_state, theme=self._theme.ui)
