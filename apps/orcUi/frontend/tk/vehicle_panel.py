@@ -443,6 +443,7 @@ class VehiclePanel(tk.Frame):
         groups = (
             (
                 "FUEL CONTROL",
+                ui.accent_warning,
                 (
                     ("fuel_mode", "Mode", ""),
                     ("stft", "STFT", "%"),
@@ -452,6 +453,7 @@ class VehiclePanel(tk.Frame):
             ),
             (
                 "MIXTURE / LOAD",
+                ui.accent_primary,
                 (
                     ("lambda_cmd", "Commanded λ", ""),
                     ("lambda_measured", "Measured λ", ""),
@@ -461,6 +463,7 @@ class VehiclePanel(tk.Frame):
             ),
             (
                 "THROTTLE / IGNITION",
+                ui.accent_danger,
                 (
                     ("throttle_cmd", "Commanded throttle", "%"),
                     ("throttle_actual", "Actual throttle", "%"),
@@ -470,7 +473,7 @@ class VehiclePanel(tk.Frame):
             ),
         )
 
-        for column, (title, rows) in enumerate(groups):
+        for column, (title, accent, rows) in enumerate(groups):
             card = tk.Frame(
                 grid,
                 bg=ui.surface,
@@ -481,14 +484,16 @@ class VehiclePanel(tk.Frame):
             card.grid_columnconfigure(0, weight=1)
             card.grid_columnconfigure(1, weight=0, minsize=120)
             card.grid_columnconfigure(2, weight=0, minsize=24)
+            accent_bar = tk.Frame(card, bg=accent, height=4)
+            accent_bar.grid(row=0, column=0, columnspan=3, sticky="ew")
             tk.Label(
                 card,
                 text=title,
-                fg=ui.text_muted,
+                fg=accent,
                 bg=ui.surface,
                 font=("Sans", 9, "bold"),
-            ).grid(row=0, column=0, columnspan=3, sticky="w", padx=12, pady=(10, 8))
-            for row, (key, label, unit) in enumerate(rows, start=1):
+            ).grid(row=1, column=0, columnspan=3, sticky="w", padx=12, pady=(9, 7))
+            for row, (key, label, unit) in enumerate(rows, start=2):
                 tk.Label(
                     card,
                     text=label,
@@ -522,34 +527,63 @@ class VehiclePanel(tk.Frame):
             highlightbackground=ui.border,
         )
         state_card.grid(row=1, column=0, columnspan=3, sticky="ew", padx=4, pady=4)
+        state_card.grid_columnconfigure(1, weight=1)
+
         tk.Label(
             state_card,
             text="ORC ENGINE ANALYSIS",
             fg=ui.text_muted,
             bg=ui.surface_alt,
             font=("Sans", 8, "bold"),
-        ).pack(side=tk.LEFT, padx=(12, 10), pady=10)
+        ).grid(row=0, column=0, sticky="w", padx=(12, 14), pady=(8, 3))
 
-        names = [
-            "IDLE",
-            "CRUISE",
-            "ACCELERATION",
-            "HIGH LOAD",
-            "ENRICHMENT",
-            "WARM-UP",
-        ]
-        if self._vehicle_configuration.induction.is_forced_induction:
-            names.insert(3, "BOOST")
-        for name in names:
+        tk.Label(
+            state_card,
+            text="OPERATING MODE",
+            fg=ui.accent_primary,
+            bg=ui.surface_alt,
+            font=("Sans", 7, "bold"),
+        ).grid(row=1, column=0, sticky="w", padx=(12, 14), pady=(2, 8))
+
+        mode_host = tk.Frame(state_card, bg=ui.surface_alt)
+        mode_host.grid(row=1, column=1, sticky="w", pady=(2, 8))
+        for name in ("IDLE", "CRUISE", "ACCELERATION", "HIGH LOAD"):
             label = tk.Label(
-                state_card,
+                mode_host,
                 text="○ " + name,
                 fg=ui.text_muted,
                 bg=ui.surface_alt,
                 font=("Sans", 8, "bold"),
-                padx=6,
+                width=15 if name == "ACCELERATION" else 11,
+                anchor="w",
             )
-            label.pack(side=tk.LEFT, padx=2, pady=10)
+            label.pack(side=tk.LEFT, padx=2)
+            self._ecu_state_labels[name] = label
+
+        tk.Label(
+            state_card,
+            text="CONDITIONS",
+            fg=ui.accent_warning,
+            bg=ui.surface_alt,
+            font=("Sans", 7, "bold"),
+        ).grid(row=2, column=0, sticky="w", padx=(12, 14), pady=(0, 8))
+
+        condition_host = tk.Frame(state_card, bg=ui.surface_alt)
+        condition_host.grid(row=2, column=1, sticky="w", pady=(0, 8))
+        conditions = ["ENRICHMENT", "WARM-UP"]
+        if self._vehicle_configuration.induction.is_forced_induction:
+            conditions.insert(0, "BOOST")
+        for name in conditions:
+            label = tk.Label(
+                condition_host,
+                text="○ " + name,
+                fg=ui.text_muted,
+                bg=ui.surface_alt,
+                font=("Sans", 8, "bold"),
+                width=14,
+                anchor="w",
+            )
+            label.pack(side=tk.LEFT, padx=2)
             self._ecu_state_labels[name] = label
 
         self._view_content = host
@@ -632,7 +666,36 @@ class VehiclePanel(tk.Frame):
         }
 
         for key, value in values.items():
-            self._ecu_value_labels[key].configure(text=value or "--")
+            color = ui.text
+            if key == "fuel_mode":
+                if analysis.fuel_control_mode is FuelControlMode.CLOSED_LOOP:
+                    color = ui.accent_success
+                elif analysis.fuel_control_mode in {
+                    FuelControlMode.OPEN_LOOP_WARMUP,
+                    FuelControlMode.OPEN_LOOP_LOAD_OR_DECEL,
+                }:
+                    color = ui.accent_warning
+                elif analysis.fuel_control_mode in {
+                    FuelControlMode.OPEN_LOOP_FAULT,
+                    FuelControlMode.CLOSED_LOOP_FAULT,
+                }:
+                    color = ui.accent_danger
+            elif key in {"lambda_error", "throttle_error"} and value is not None:
+                error = (
+                    abs(analysis.mixture_tracking_error)
+                    if key == "lambda_error"
+                    else abs(analysis.throttle_tracking_error)
+                )
+                if error <= 0.03:
+                    color = ui.accent_success
+                elif error <= 0.08:
+                    color = ui.accent_warning
+                else:
+                    color = ui.accent_danger
+            self._ecu_value_labels[key].configure(
+                text=value or "--",
+                fg=color,
+            )
 
         active = {
             "IDLE": analysis.operating_mode is EngineOperatingMode.IDLE,
