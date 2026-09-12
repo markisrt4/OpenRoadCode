@@ -71,8 +71,23 @@ class PoiSearchController(PoiSearchControllerIf):
             "[poi-controller] resolving click "
             f"against {len(self._visible_pois)} visible POIs "
             f"radius_m={click.selection_radius_m:.1f} "
-            f"marker_id={click.marker_id!r}"
+            f"marker_id={click.marker_id!r} "
+            f"marker_index={click.marker_index!r}"
         )
+        if click.marker_index is not None:
+            if 0 <= click.marker_index < len(self._visible_pois):
+                poi = self._visible_pois[click.marker_index]
+                if click.marker_id is None or poi.poi_id == click.marker_id:
+                    print(
+                        f"[poi-controller] selected by marker index "
+                        f"{click.marker_index}: {poi.name!r}"
+                    )
+                    return enrich_poi(poi)
+            print(
+                "[poi-controller] marker index mismatch "
+                f"index={click.marker_index!r} id={click.marker_id!r}"
+            )
+
         if click.marker_id is not None:
             for poi in self._visible_pois:
                 if poi.poi_id == click.marker_id:
