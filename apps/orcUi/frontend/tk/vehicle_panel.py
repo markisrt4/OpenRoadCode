@@ -13,6 +13,7 @@ from apps.orcUi.navigation_presenter import AttitudePresentationState, PositionP
 from apps.orcUi.theme_runtime import theme_bundle as packaged_theme_bundle
 from apps.orcUi.trip_presenter import TripPresentationState
 from apps.orcUi.vehicle_presenter import VehiclePresentationState
+from controllers.automotive import AutomotiveTelemetryProfile
 from frontends.tk.automotive import DEFAULT_GAUGES, OffroadDashboardPanel, ShifterGauge
 from frontends.tk.automotive.vehicle_gauge_theme import vehicle_gauge_theme_from_style_sheet
 from frontends.tk.automotive.vehicle_gauge_widgets import LinearGauge, RoundGauge
@@ -33,6 +34,7 @@ class VehiclePanel(tk.Frame):
         parent: tk.Misc,
         *,
         on_back: Callable[[], None],
+        on_telemetry_profile: Callable[[AutomotiveTelemetryProfile], None] | None = None,
         state: VehiclePresentationState | None = None,
         trip_state: TripPresentationState | None = None,
         position: PositionPresentationState | None = None,
@@ -43,6 +45,7 @@ class VehiclePanel(tk.Frame):
         ui = self._theme_bundle.ui
         super().__init__(parent, bg=ui.background)
         self._on_back = on_back
+        self._on_telemetry_profile = on_telemetry_profile
         self._state = state or VehiclePresentationState()
         self._trip_state = trip_state or TripPresentationState()
         self._position = position or PositionPresentationState()
@@ -92,6 +95,7 @@ class VehiclePanel(tk.Frame):
         if name not in self._TABS:
             raise ValueError(f"Unknown vehicle view: {name}")
         self._current_view = name
+        self._request_telemetry_profile(name)
         ui = self._theme_bundle.ui
         for view_name, button in self._view_buttons.items():
             active = view_name == name
@@ -124,6 +128,22 @@ class VehiclePanel(tk.Frame):
             self._show_offroad()
         else:
             self._show_trip()
+
+    def release_telemetry_profile(self) -> None:
+        if self._on_telemetry_profile is not None:
+            self._on_telemetry_profile(AutomotiveTelemetryProfile.NORMAL)
+
+    def _request_telemetry_profile(self, view_name: str) -> None:
+        if self._on_telemetry_profile is None:
+            return
+        profile = {
+            "PERFORMANCE": AutomotiveTelemetryProfile.PERFORMANCE,
+            "ENGINE": AutomotiveTelemetryProfile.ENGINE,
+            "ECU": AutomotiveTelemetryProfile.ECU,
+            "TRIP": AutomotiveTelemetryProfile.TRIP,
+            "OFF-ROAD": AutomotiveTelemetryProfile.NORMAL,
+        }[view_name]
+        self._on_telemetry_profile(profile)
 
     def _show_performance(self) -> None:
         ui = self._theme_bundle.ui
