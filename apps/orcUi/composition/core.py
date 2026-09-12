@@ -102,9 +102,14 @@ def create_core_composition() -> CoreComposition:
     state_ingress = StateIngressRuntime(
         schedule_ui=app.schedule_ui_callback,
         apply_vehicle_state=app.apply_vehicle_state,
+        apply_engine_analysis=app.apply_engine_analysis,
         apply_trip_state=app.apply_trip_state,
         apply_position_state=app.apply_position_state,
         apply_attitude_state=app.apply_attitude_state,
+        vehicle_configuration=vehicle_configuration,
+    )
+    app.set_vehicle_configuration_observer(
+        state_ingress.set_vehicle_configuration
     )
     fuel_config = runtime_config.automotive.fuel
     trip_tracker = TripTracker(
