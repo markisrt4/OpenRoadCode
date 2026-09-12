@@ -245,8 +245,13 @@ class NavigationPanel(tk.Frame):
     def _show_poi_card(self,poi:PointOfInterest)->None:
         ui=self._theme_bundle.ui
         if self._poi_card is not None and self._poi_card.winfo_exists():self._poi_card.destroy()
-        card=tk.Frame(self,bg=ui.surface_alt,highlightthickness=1,highlightbackground=ui.accent_primary); card.place(relx=0.5,rely=0.78,anchor=tk.CENTER,width=390,height=112); self._poi_card=card
-        tk.Label(card,text=poi.name,bg=ui.surface_alt,fg=ui.text,font=("Sans",12,"bold")).pack(pady=(10,5))
+        card=tk.Frame(self,bg=ui.surface_alt,highlightthickness=2,highlightbackground=ui.accent_primary); card.place(relx=0.5,rely=0.72,anchor=tk.CENTER,width=470,height=150); self._poi_card=card
+        tk.Label(card,text=poi.name,bg=ui.surface_alt,fg=ui.text,font=("Sans",15,"bold")).pack(pady=(12,2))
+        details = []
+        if poi.brand and poi.brand.casefold() != poi.name.casefold():
+            details.append(poi.brand)
+        details.append(poi.category.name.replace("_", " ").title())
+        tk.Label(card,text="  •  ".join(details),bg=ui.surface_alt,fg=ui.text_muted,font=("Sans",9)).pack(pady=(0,8))
         buttons=tk.Frame(card,bg=ui.surface_alt); buttons.pack()
         tk.Button(
             buttons,

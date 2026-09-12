@@ -160,6 +160,11 @@ int main() {
 
     MapCommandServer commandServer(subscriberEndpoint);
     MapEventPublisher eventPublisher(publisherEndpoint);
+    view.setManualCameraCallback(
+        [&eventPublisher]() {
+            eventPublisher.publishManualCameraInteraction();
+        });
+
     view.setPoiSelectedCallback(
         [&eventPublisher](const std::string& name,
                           const std::string& brand,

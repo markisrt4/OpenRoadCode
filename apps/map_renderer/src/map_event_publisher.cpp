@@ -11,6 +11,7 @@
 namespace {
 constexpr const char* kPoiSelectedTopic = "map.poi.selected";
 constexpr const char* kPoiSearchResultTopic = "map.poi.search_result";
+constexpr const char* kManualCameraTopic = "map.camera.manual";
 
 std::string jsonString(rapidjson::Document& document)
 {
@@ -51,6 +52,13 @@ void MapEventPublisher::publishPoiSelected(
     document.AddMember("latitude", latitude, allocator);
     document.AddMember("longitude", longitude, allocator);
     publishJson(kPoiSelectedTopic, jsonString(document));
+}
+
+void MapEventPublisher::publishManualCameraInteraction()
+{
+    rapidjson::Document document;
+    document.SetObject();
+    publishJson(kManualCameraTopic, jsonString(document));
 }
 
 void MapEventPublisher::publishPoiSearchResult(

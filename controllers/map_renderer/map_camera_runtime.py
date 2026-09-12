@@ -32,6 +32,7 @@ from ui.navigation import GeoPoint, MapRequestHandlerIf
 _MIN_COURSE_UP_SPEED_M_S = 1.5
 _MIN_COURSE_POSITION_DELTA_M = 4.0
 _EARTH_RADIUS_M = 6_378_137.0
+_MAP_CAMERA_MANUAL_TOPIC = "map.camera.manual"
 
 
 class MapCameraRuntime:
@@ -68,6 +69,11 @@ class MapCameraRuntime:
             MOTION_STATE_TOPIC,
             decode_motion_state,
             self._on_motion_message,
+        )
+        self._dispatcher.register(
+            _MAP_CAMERA_MANUAL_TOPIC,
+            lambda payload: payload,
+            self._on_manual_camera_interaction,
         )
         self._course_reference: GeoPoint | None = initial_position
         self._closed = False
@@ -151,6 +157,10 @@ class MapCameraRuntime:
             latitude=math.degrees(data.latitude_rad),
             longitude=math.degrees(data.longitude_rad),
         )
+
+    def _on_manual_camera_interaction(self, _payload) -> None:
+        """Suspend follow when the user directly manipulates the native map."""
+        self._handler.request_follow(False)
 
     def _on_motion_message(self, message: MotionStateMessage) -> None:
         """Keep a followed map course-up while the vehicle is moving."""
