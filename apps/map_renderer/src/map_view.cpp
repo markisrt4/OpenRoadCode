@@ -8,6 +8,7 @@
 #include <mbgl/renderer/renderer.hpp>
 #include <mbgl/renderer/query.hpp>
 #include <mbgl/util/logging.hpp>
+#include <rapidjson/document.h>
 #define GLFW_INCLUDE_ES3
 #define GLFW_EXPOSE_NATIVE_X11
 #define GL_GLEXT_PROTOTYPES
@@ -23,7 +24,6 @@
 #include <iostream>
 #include <limits>
 #include <optional>
-#include <rapidjson/document.h>
 #include <string>
 
 namespace {
