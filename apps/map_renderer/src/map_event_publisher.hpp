@@ -25,7 +25,8 @@ public:
         double latitude,
         double longitude,
         double selectionRadiusM,
-        const std::string& markerId
+        const std::string& markerId,
+        std::size_t markerIndex
     );
 
     void publishPoiSearchResult(
