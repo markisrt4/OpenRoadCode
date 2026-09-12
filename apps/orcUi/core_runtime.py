@@ -93,7 +93,6 @@ class StateIngressRuntime:
         self._apply_vehicle_state = apply_vehicle_state
         self._apply_engine_analysis = apply_engine_analysis
         self._engine_analyzer = EngineAnalyzer(vehicle_configuration)
-        self._trip_state = None
         self._apply_trip_state = apply_trip_state
         self._apply_position_state = apply_position_state
         self._apply_attitude_state = apply_attitude_state
@@ -123,6 +122,13 @@ class StateIngressRuntime:
             decode_attitude_state,
             self._on_attitude_message,
         )
+
+    def set_vehicle_configuration(
+        self,
+        configuration: VehicleConfiguration,
+    ) -> None:
+        """Apply vehicle-specific interpretation settings to future snapshots."""
+        self._engine_analyzer = EngineAnalyzer(configuration)
 
     def start(self) -> None:
         """Start UI draining on the Tk thread, then start transport ingress."""
