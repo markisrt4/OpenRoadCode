@@ -11,19 +11,28 @@ from controllers.poi import (
     PoiSearchQuery,
     PointOfInterest,
 )
-from protocols.map_renderer.map_poi_source import RawMapPoi
+from protocols.map_renderer.map_poi_source import RawMapClick, RawMapPoi
 from ui.navigation import GeoPoint
 
 
 class FakeMapPoiSource:
-    def __init__(self, selected: RawMapPoi | None = None) -> None:
+    def __init__(
+        self,
+        selected: RawMapPoi | None = None,
+        click: RawMapClick | None = None,
+    ) -> None:
         self.selected = selected
+        self.click = click
         self.cleared = False
         self.closed = False
 
     def poll_selected(self) -> RawMapPoi | None:
         selected, self.selected = self.selected, None
         return selected
+
+    def poll_click(self) -> RawMapClick | None:
+        click, self.click = self.click, None
+        return click
 
     def clear(self) -> None:
         self.cleared = True
@@ -137,6 +146,41 @@ def test_selected_restaurant_is_enriched_with_order_action() -> None:
     assert order.kind is PoiActionKind.ORDER
     assert order.provider_id == "panera"
     assert order.uri is None
+
+
+def test_map_click_selects_nearest_visible_poi_and_enriches_business() -> None:
+    panera = PointOfInterest(
+        poi_id="panera",
+        name="Panera Bread",
+        category=PoiCategory.FOOD,
+        position=GeoPoint(math.radians(42.8000), math.radians(-83.0000)),
+    )
+    other = PointOfInterest(
+        poi_id="other",
+        name="Other Cafe",
+        category=PoiCategory.FOOD,
+        position=GeoPoint(math.radians(42.8020), math.radians(-83.0020)),
+    )
+    source = FakeMapPoiSource(
+        click=RawMapClick(
+            position=GeoPoint(math.radians(42.80005), math.radians(-83.00005)),
+            selection_radius_m=100.0,
+        )
+    )
+    controller = PoiSearchController(
+        source,  # type: ignore[arg-type]
+        search_source=FakeSearchSource((panera, other)),
+        position_provider=_position,
+    )
+
+    controller.search(PoiCategory.FOOD)
+    controller.poll_search_result()
+    selected = controller.poll_selected()
+
+    assert selected is not None
+    assert selected.poi_id == "panera"
+    order = next(action for action in selected.actions if action.label == "ORDER")
+    assert order.provider_id == "panera"
 
 
 def test_fuel_subclass_is_classified_as_fuel() -> None:
