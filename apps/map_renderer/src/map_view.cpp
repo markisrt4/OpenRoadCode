@@ -93,23 +93,42 @@ void MapView::setPoiResultsJson(const std::string& geojson){
 void MapView::selectPoiAt(double x,double y){
     if(!map||!poiSelectedCallback)return;
 
+    const auto clickCoordinate=map->latLngForPixel({x,y});
+    const auto edgeCoordinate=map->latLngForPixel({x+40.0,y});
+
+    auto distanceMeters=[](const mbgl::LatLng& a,const mbgl::LatLng& b){
+        constexpr double earthRadiusM=6378137.0;
+        const double lat1=a.latitude()*M_PI/180.0;
+        const double lat2=b.latitude()*M_PI/180.0;
+        const double dLat=(b.latitude()-a.latitude())*M_PI/180.0;
+        const double dLon=(b.longitude()-a.longitude())*M_PI/180.0;
+        const double h=std::sin(dLat/2.0)*std::sin(dLat/2.0)+
+            std::cos(lat1)*std::cos(lat2)*std::sin(dLon/2.0)*std::sin(dLon/2.0);
+        return 2.0*earthRadiusM*std::asin(std::min(1.0,std::sqrt(h)));
+    };
+
+    const double selectionRadiusM=std::max(8.0,distanceMeters(clickCoordinate,edgeCoordinate));
     const CachedPoiResult* nearest=nullptr;
-    double nearestDistancePx=32.0;
+    double nearestDistanceM=selectionRadiusM;
 
     for(const auto& result:poiResults){
-        const auto pixel=map->pixelForLatLng({result.latitude,result.longitude});
-        const double distancePx=std::hypot(pixel.x-x,pixel.y-y);
-        if(distancePx>nearestDistancePx)continue;
+        const mbgl::LatLng poiCoordinate{result.latitude,result.longitude};
+        const double distanceM=distanceMeters(clickCoordinate,poiCoordinate);
+        if(distanceM>nearestDistanceM)continue;
         nearest=&result;
-        nearestDistancePx=distancePx;
+        nearestDistanceM=distanceM;
     }
 
     if(nearest==nullptr){
-        std::cout<<"[map_renderer] POI click miss x="<<x<<" y="<<y<<" cached="<<poiResults.size()<<'\n';
+        std::cout<<"[map_renderer] POI click miss lat="<<clickCoordinate.latitude()
+                 <<" lon="<<clickCoordinate.longitude()
+                 <<" radius_m="<<selectionRadiusM
+                 <<" cached="<<poiResults.size()<<'\n';
         return;
     }
 
-    std::cout<<"[map_renderer] selected POI: "<<nearest->name<<'\n';
+    std::cout<<"[map_renderer] selected POI: "<<nearest->name
+             <<" distance_m="<<nearestDistanceM<<'\n';
     poiSelectedCallback(
         nearest->name,
         nearest->brand,
