@@ -170,9 +170,10 @@ int main() {
             double latitude,
             double longitude,
             double selectionRadiusM,
-            const std::string& markerId) {
+            const std::string& markerId,
+            std::size_t markerIndex) {
             eventPublisher.publishMapClick(
-                latitude, longitude, selectionRadiusM, markerId);
+                latitude, longitude, selectionRadiusM, markerId, markerIndex);
         });
 
     view.setPoiSelectedCallback(
