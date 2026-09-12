@@ -166,8 +166,13 @@ int main() {
         });
 
     view.setMapClickCallback(
-        [&eventPublisher](double latitude, double longitude, double selectionRadiusM) {
-            eventPublisher.publishMapClick(latitude, longitude, selectionRadiusM);
+        [&eventPublisher](
+            double latitude,
+            double longitude,
+            double selectionRadiusM,
+            const std::string& markerId) {
+            eventPublisher.publishMapClick(
+                latitude, longitude, selectionRadiusM, markerId);
         });
 
     view.setPoiSelectedCallback(
