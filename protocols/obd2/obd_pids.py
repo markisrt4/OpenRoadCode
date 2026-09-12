@@ -9,6 +9,81 @@ class _Mode01Pid:
     unit = ""
 
 
+class FuelSystemStatusPid(_Mode01Pid):
+    """Decode raw fuel-system status bytes for bank/system 1 and 2."""
+    pid = 0x03
+    unit = "encoded"
+
+    def decode(self, data: bytes) -> tuple[int, int | None] | None:
+        if len(data) < 1:
+            return None
+        second = data[1] if len(data) >= 2 else None
+        return data[0], second
+
+
+class ShortTermFuelTrimBank1Pid(_Mode01Pid):
+    """Decode short-term fuel trim for bank 1 as a percentage."""
+    pid = 0x06
+    unit = "%"
+
+    def decode(self, data: bytes) -> float | None:
+        return None if len(data) < 1 else data[0] / 1.28 - 100.0
+
+
+class LongTermFuelTrimBank1Pid(_Mode01Pid):
+    """Decode long-term fuel trim for bank 1 as a percentage."""
+    pid = 0x07
+    unit = "%"
+
+    def decode(self, data: bytes) -> float | None:
+        return None if len(data) < 1 else data[0] / 1.28 - 100.0
+
+
+class IgnitionTimingAdvancePid(_Mode01Pid):
+    """Decode ignition timing advance in crankshaft degrees."""
+    pid = 0x0E
+    unit = "deg"
+
+    def decode(self, data: bytes) -> float | None:
+        return None if len(data) < 1 else data[0] / 2.0 - 64.0
+
+
+class FuelRailGaugePressurePid(_Mode01Pid):
+    """Decode fuel-rail gauge pressure in kilopascals."""
+    pid = 0x23
+    unit = "kPa"
+
+    def decode(self, data: bytes) -> float | None:
+        return None if len(data) < 2 else ((data[0] << 8) | data[1]) * 10.0
+
+
+class OxygenSensor1EquivalenceRatioPid(_Mode01Pid):
+    """Decode wideband oxygen sensor 1 air/fuel equivalence ratio."""
+    pid = 0x34
+    unit = "ratio"
+
+    def decode(self, data: bytes) -> float | None:
+        return None if len(data) < 2 else ((data[0] << 8) | data[1]) / 32768.0
+
+
+class AbsoluteEngineLoadPid(_Mode01Pid):
+    """Decode absolute engine load as a percentage."""
+    pid = 0x43
+    unit = "%"
+
+    def decode(self, data: bytes) -> float | None:
+        return None if len(data) < 2 else ((data[0] << 8) | data[1]) / 2.55
+
+
+class CommandedThrottleActuatorPid(_Mode01Pid):
+    """Decode commanded throttle actuator position as a percentage."""
+    pid = 0x4C
+    unit = "%"
+
+    def decode(self, data: bytes) -> float | None:
+        return None if len(data) < 1 else data[0] * 100.0 / 255.0
+
+
 class EngineLoadPid(_Mode01Pid):
     """Decode calculated engine load as a percentage."""
     pid = 0x04
