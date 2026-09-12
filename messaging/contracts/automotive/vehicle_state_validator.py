@@ -27,7 +27,6 @@ V1_DATA_FIELDS = {
     "intake_air_temperature_k",
     "fuel_level",
     "control_voltage_v",
-    "fuel_rail_pressure_pa",
 }
 V2_DATA_FIELDS = V1_DATA_FIELDS | {"engine_fuel_rate_m3_s"}
 V3_DATA_FIELDS = V2_DATA_FIELDS | {"commanded_equivalence_ratio"}
@@ -58,6 +57,7 @@ NONNEGATIVE_FIELDS = {
     "mass_air_flow_kg_s",
     "engine_fuel_rate_m3_s",
     "control_voltage_v",
+    "fuel_rail_pressure_pa",
 }
 TEMPERATURE_FIELDS = {"coolant_temperature_k", "intake_air_temperature_k"}
 VALID_GEARS = {-1, 0, 1, 2, 3, 4, 5, 6}
@@ -73,7 +73,7 @@ def _validate_number(name: str, value: Any) -> None:
 
 
 def validate_vehicle_state(payload: Mapping[str, Any]) -> None:
-    """Raise ValueError unless payload exactly satisfies contract version 1."""
+    """Raise ValueError unless payload exactly satisfies a supported contract version."""
     if not isinstance(payload, Mapping):
         raise ValueError("vehicle state payload must be an object")
     if set(payload) != TOP_LEVEL_FIELDS:
