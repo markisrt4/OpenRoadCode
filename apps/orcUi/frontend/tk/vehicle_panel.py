@@ -16,8 +16,12 @@ from apps.orcUi.vehicle_presenter import VehiclePresentationState
 from controllers.automotive import (
     AutomotiveTelemetryProfile,
     EngineAnalysis,
+    EngineLoadLevel,
     EngineOperatingMode,
     FuelControlMode,
+    FuelCorrectionStatus,
+    MixtureMode,
+    TrackingQuality,
     VehicleConfiguration,
 )
 from frontends.tk.automotive import DEFAULT_GAUGES, OffroadDashboardPanel, ShifterGauge
@@ -54,6 +58,11 @@ class VehiclePanel(tk.Frame):
         self._engine_analysis = engine_analysis or EngineAnalysis(
             operating_mode=EngineOperatingMode.UNKNOWN,
             fuel_control_mode=FuelControlMode.UNKNOWN,
+            mixture_mode=MixtureMode.UNKNOWN,
+            mixture_tracking=TrackingQuality.UNKNOWN,
+            throttle_tracking=TrackingQuality.UNKNOWN,
+            fuel_correction_status=FuelCorrectionStatus.UNKNOWN,
+            load_level=EngineLoadLevel.UNKNOWN,
             engine_running=None,
             warmed_up=None,
             enrichment_active=None,
@@ -430,50 +439,23 @@ class VehiclePanel(tk.Frame):
         self._section_header(
             host,
             title="ECU MONITOR",
-            subtitle="Live engine-management decisions and ORC interpretation",
+            subtitle="What the engine computer is doing right now",
             accent=ui.accent_primary,
             symbol="◆",
         ).grid(row=0, column=0, sticky="ew", pady=(0, 6))
 
         grid = tk.Frame(host, bg=ui.background)
         grid.grid(row=1, column=0, sticky="nsew")
+        grid.grid_rowconfigure(0, weight=1)
         for column in range(3):
             grid.grid_columnconfigure(column, weight=1, uniform="ecu")
 
-        groups = (
-            (
-                "FUEL CONTROL",
-                ui.accent_warning,
-                (
-                    ("fuel_mode", "Mode", ""),
-                    ("stft", "STFT", "%"),
-                    ("ltft", "LTFT", "%"),
-                    ("trim_total", "Total correction", "%"),
-                ),
-            ),
-            (
-                "MIXTURE / LOAD",
-                ui.accent_primary,
-                (
-                    ("lambda_cmd", "Commanded λ", ""),
-                    ("lambda_measured", "Measured λ", ""),
-                    ("lambda_error", "Tracking error", ""),
-                    ("load_absolute", "Absolute load", "%"),
-                ),
-            ),
-            (
-                "THROTTLE / IGNITION",
-                ui.accent_danger,
-                (
-                    ("throttle_cmd", "Commanded throttle", "%"),
-                    ("throttle_actual", "Actual throttle", "%"),
-                    ("throttle_error", "Tracking error", "%"),
-                    ("timing", "Timing advance", "°"),
-                ),
-            ),
+        cards = (
+            ("FUEL CONTROL", ui.accent_warning, "fuel"),
+            ("MIXTURE", ui.accent_primary, "mixture"),
+            ("ENGINE LOAD", ui.accent_danger, "load"),
         )
-
-        for column, (title, accent, rows) in enumerate(groups):
+        for column, (title, accent, key) in enumerate(cards):
             card = tk.Frame(
                 grid,
                 bg=ui.surface,
@@ -482,104 +464,88 @@ class VehiclePanel(tk.Frame):
             )
             card.grid(row=0, column=column, sticky="nsew", padx=4, pady=4)
             card.grid_columnconfigure(0, weight=1)
-            card.grid_columnconfigure(1, weight=0, minsize=120)
-            card.grid_columnconfigure(2, weight=0, minsize=24)
-            accent_bar = tk.Frame(card, bg=accent, height=4)
-            accent_bar.grid(row=0, column=0, columnspan=3, sticky="ew")
+            tk.Frame(card, bg=accent, height=4).grid(row=0, column=0, sticky="ew")
             tk.Label(
                 card,
                 text=title,
                 fg=accent,
                 bg=ui.surface,
-                font=("Sans", 9, "bold"),
-            ).grid(row=1, column=0, columnspan=3, sticky="w", padx=12, pady=(9, 7))
-            for row, (key, label, unit) in enumerate(rows, start=2):
-                tk.Label(
-                    card,
-                    text=label,
-                    fg=ui.text_muted,
-                    bg=ui.surface,
-                    font=("Sans", 9),
-                ).grid(row=row, column=0, sticky="w", padx=(12, 6), pady=5)
-                value = tk.Label(
-                    card,
-                    text="--",
-                    fg=ui.text,
-                    bg=ui.surface,
-                    font=("Sans", 13, "bold"),
-                    anchor="e",
-                    width=18 if key == "fuel_mode" else 8,
-                )
-                value.grid(row=row, column=1, sticky="e", padx=4, pady=5)
-                tk.Label(
-                    card,
-                    text=unit,
-                    fg=ui.text_muted,
-                    bg=ui.surface,
-                    font=("Sans", 8, "bold"),
-                ).grid(row=row, column=2, sticky="w", padx=(0, 12), pady=5)
-                self._ecu_value_labels[key] = value
+                font=("Sans", 10, "bold"),
+            ).grid(row=1, column=0, sticky="w", padx=14, pady=(10, 4))
+
+            primary = tk.Label(
+                card,
+                text="--",
+                fg=ui.text,
+                bg=ui.surface,
+                font=("Sans", 20, "bold"),
+                anchor="w",
+            )
+            primary.grid(row=2, column=0, sticky="ew", padx=14, pady=(4, 0))
+            secondary = tk.Label(
+                card,
+                text="--",
+                fg=ui.text_muted,
+                bg=ui.surface,
+                font=("Sans", 12, "bold"),
+                anchor="w",
+            )
+            secondary.grid(row=3, column=0, sticky="ew", padx=14, pady=(0, 12))
+            detail = tk.Label(
+                card,
+                text="",
+                fg=ui.text_muted,
+                bg=ui.surface,
+                font=("Sans", 11),
+                justify=tk.LEFT,
+                anchor="w",
+            )
+            detail.grid(row=4, column=0, sticky="sw", padx=14, pady=(4, 14))
+            self._ecu_value_labels[f"{key}_primary"] = primary
+            self._ecu_value_labels[f"{key}_secondary"] = secondary
+            self._ecu_value_labels[f"{key}_detail"] = detail
 
         state_card = tk.Frame(
-            grid,
+            host,
             bg=ui.surface_alt,
             highlightthickness=1,
             highlightbackground=ui.border,
         )
-        state_card.grid(row=1, column=0, columnspan=3, sticky="ew", padx=4, pady=4)
+        state_card.grid(row=2, column=0, sticky="ew", padx=4, pady=(4, 2))
         state_card.grid_columnconfigure(1, weight=1)
 
         tk.Label(
             state_card,
-            text="ORC ENGINE ANALYSIS",
+            text="ENGINE STATE",
             fg=ui.text_muted,
             bg=ui.surface_alt,
-            font=("Sans", 8, "bold"),
-        ).grid(row=0, column=0, sticky="w", padx=(12, 14), pady=(8, 3))
+            font=("Sans", 9, "bold"),
+        ).grid(row=0, column=0, rowspan=2, sticky="w", padx=(14, 18), pady=10)
 
-        tk.Label(
+        mode = tk.Label(
             state_card,
-            text="OPERATING MODE",
+            text="--",
             fg=ui.accent_primary,
             bg=ui.surface_alt,
-            font=("Sans", 7, "bold"),
-        ).grid(row=1, column=0, sticky="w", padx=(12, 14), pady=(2, 8))
-
-        mode_host = tk.Frame(state_card, bg=ui.surface_alt)
-        mode_host.grid(row=1, column=1, sticky="w", pady=(2, 8))
-        for name in ("IDLE", "CRUISE", "ACCELERATION", "HIGH LOAD"):
-            label = tk.Label(
-                mode_host,
-                text="○ " + name,
-                fg=ui.text_muted,
-                bg=ui.surface_alt,
-                font=("Sans", 8, "bold"),
-                width=15 if name == "ACCELERATION" else 11,
-                anchor="w",
-            )
-            label.pack(side=tk.LEFT, padx=2)
-            self._ecu_state_labels[name] = label
-
-        tk.Label(
-            state_card,
-            text="CONDITIONS",
-            fg=ui.accent_warning,
-            bg=ui.surface_alt,
-            font=("Sans", 7, "bold"),
-        ).grid(row=2, column=0, sticky="w", padx=(12, 14), pady=(0, 8))
+            font=("Sans", 15, "bold"),
+            width=14,
+            anchor="w",
+        )
+        mode.grid(row=0, column=1, sticky="w", pady=(8, 0))
+        self._ecu_value_labels["operating_mode"] = mode
 
         condition_host = tk.Frame(state_card, bg=ui.surface_alt)
-        condition_host.grid(row=2, column=1, sticky="w", pady=(0, 8))
-        conditions = ["ENRICHMENT", "WARM-UP"]
+        condition_host.grid(row=1, column=1, sticky="w", pady=(0, 8))
+        conditions = ["HIGH LOAD", "ENRICHMENT", "WARM-UP"]
         if self._vehicle_configuration.induction.is_forced_induction:
-            conditions.insert(0, "BOOST")
+            conditions.insert(1, "BOOST")
         for name in conditions:
             label = tk.Label(
                 condition_host,
                 text="○ " + name,
                 fg=ui.text_muted,
                 bg=ui.surface_alt,
-                font=("Sans", 8, "bold"),
+                font=("Sans", 9, "bold"),
                 width=14,
                 anchor="w",
             )
@@ -597,112 +563,107 @@ class VehiclePanel(tk.Frame):
         state = self._state
         analysis = self._engine_analysis
 
-        fuel_mode_labels = {
-            FuelControlMode.OPEN_LOOP_WARMUP: "OPEN LOOP / WARM-UP",
+        fuel_mode = {
+            FuelControlMode.OPEN_LOOP_WARMUP: "OPEN LOOP",
             FuelControlMode.CLOSED_LOOP: "CLOSED LOOP",
-            FuelControlMode.OPEN_LOOP_LOAD_OR_DECEL: "OPEN LOOP / LOAD",
-            FuelControlMode.OPEN_LOOP_FAULT: "OPEN LOOP / FAULT",
-            FuelControlMode.CLOSED_LOOP_FAULT: "CLOSED LOOP / FAULT",
+            FuelControlMode.OPEN_LOOP_LOAD_OR_DECEL: "OPEN LOOP",
+            FuelControlMode.OPEN_LOOP_FAULT: "FAULT",
+            FuelControlMode.CLOSED_LOOP_FAULT: "FAULT",
             FuelControlMode.UNKNOWN: "--",
-        }
+        }[analysis.fuel_control_mode]
+        correction = {
+            FuelCorrectionStatus.NORMAL: "NORMAL",
+            FuelCorrectionStatus.ADDING_FUEL: "ADDING FUEL",
+            FuelCorrectionStatus.REMOVING_FUEL: "REMOVING FUEL",
+            FuelCorrectionStatus.UNKNOWN: "--",
+        }[analysis.fuel_correction_status]
+        mixture = {
+            MixtureMode.RICH: "RICH",
+            MixtureMode.STOICHIOMETRIC: "STOICHIOMETRIC",
+            MixtureMode.LEAN: "LEAN",
+            MixtureMode.UNKNOWN: "--",
+        }[analysis.mixture_mode]
+        tracking = {
+            TrackingQuality.GOOD: "TRACKING GOOD",
+            TrackingQuality.MODERATE: "TRACKING FAIR",
+            TrackingQuality.POOR: "TRACKING POOR",
+            TrackingQuality.UNKNOWN: "--",
+        }[analysis.mixture_tracking]
+        load = {
+            EngineLoadLevel.LOW: "LOW",
+            EngineLoadLevel.MODERATE: "MODERATE",
+            EngineLoadLevel.HIGH: "HIGH",
+            EngineLoadLevel.UNKNOWN: "--",
+        }[analysis.load_level]
+
+        trim = (
+            "--"
+            if analysis.fuel_trim_total is None
+            else f"Fuel correction {analysis.fuel_trim_total * 100.0:+.1f}%"
+        )
+        trims = (
+            f"ST {state.short_term_fuel_trim_percent:+.1f}%  ·  "
+            f"LT {state.long_term_fuel_trim_percent:+.1f}%"
+            if state.short_term_fuel_trim_percent is not None
+            and state.long_term_fuel_trim_percent is not None
+            else ""
+        )
+        lambda_detail = (
+            f"Target {state.commanded_equivalence_ratio:.3f}  ·  "
+            f"Actual {state.measured_equivalence_ratio:.3f}"
+            if state.commanded_equivalence_ratio is not None
+            and state.measured_equivalence_ratio is not None
+            else ""
+        )
+        load_detail = (
+            f"{state.absolute_engine_load_percent:.0f}% absolute load"
+            if state.absolute_engine_load_percent is not None
+            else ""
+        )
+        if analysis.forced_induction_active is True:
+            load_detail += "  ·  BOOST ACTIVE"
 
         values = {
-            "fuel_mode": fuel_mode_labels[analysis.fuel_control_mode],
-            "stft": (
-                None
-                if state.short_term_fuel_trim_percent is None
-                else f"{state.short_term_fuel_trim_percent:+.1f}"
+            "fuel_primary": fuel_mode,
+            "fuel_secondary": correction,
+            "fuel_detail": trim + (("\n" + trims) if trims else ""),
+            "mixture_primary": mixture,
+            "mixture_secondary": tracking,
+            "mixture_detail": lambda_detail,
+            "load_primary": load,
+            "load_secondary": (
+                "BOOST ACTIVE"
+                if analysis.forced_induction_active is True
+                else "ENGINE DEMAND"
             ),
-            "ltft": (
-                None
-                if state.long_term_fuel_trim_percent is None
-                else f"{state.long_term_fuel_trim_percent:+.1f}"
-            ),
-            "trim_total": (
-                None
-                if analysis.fuel_trim_total is None
-                else f"{analysis.fuel_trim_total * 100.0:+.1f}"
-            ),
-            "lambda_cmd": (
-                None
-                if state.commanded_equivalence_ratio is None
-                else f"{state.commanded_equivalence_ratio:.3f}"
-            ),
-            "lambda_measured": (
-                None
-                if state.measured_equivalence_ratio is None
-                else f"{state.measured_equivalence_ratio:.3f}"
-            ),
-            "lambda_error": (
-                None
-                if analysis.mixture_tracking_error is None
-                else f"{analysis.mixture_tracking_error:+.3f}"
-            ),
-            "load_absolute": (
-                None
-                if state.absolute_engine_load_percent is None
-                else f"{state.absolute_engine_load_percent:.0f}"
-            ),
-            "throttle_cmd": (
-                None
-                if state.commanded_throttle_percent is None
-                else f"{state.commanded_throttle_percent:.0f}"
-            ),
-            "throttle_actual": (
-                None
-                if state.throttle_percent is None
-                else f"{state.throttle_percent:.0f}"
-            ),
-            "throttle_error": (
-                None
-                if analysis.throttle_tracking_error is None
-                else f"{analysis.throttle_tracking_error * 100.0:+.1f}"
-            ),
-            "timing": (
-                None
-                if state.ignition_timing_advance_deg is None
-                else f"{state.ignition_timing_advance_deg:+.1f}"
-            ),
+            "load_detail": load_detail,
+            "operating_mode": analysis.operating_mode.value.replace("_", " ").upper(),
         }
+        for key, text in values.items():
+            label = self._ecu_value_labels.get(key)
+            if label is not None:
+                label.configure(text=text)
 
-        for key, value in values.items():
-            color = ui.text
-            if key == "fuel_mode":
-                if analysis.fuel_control_mode is FuelControlMode.CLOSED_LOOP:
-                    color = ui.accent_success
-                elif analysis.fuel_control_mode in {
-                    FuelControlMode.OPEN_LOOP_WARMUP,
-                    FuelControlMode.OPEN_LOOP_LOAD_OR_DECEL,
-                }:
-                    color = ui.accent_warning
-                elif analysis.fuel_control_mode in {
-                    FuelControlMode.OPEN_LOOP_FAULT,
-                    FuelControlMode.CLOSED_LOOP_FAULT,
-                }:
-                    color = ui.accent_danger
-            elif key in {"lambda_error", "throttle_error"} and value is not None:
-                error = (
-                    abs(analysis.mixture_tracking_error)
-                    if key == "lambda_error"
-                    else abs(analysis.throttle_tracking_error)
-                )
-                if error <= 0.03:
-                    color = ui.accent_success
-                elif error <= 0.08:
-                    color = ui.accent_warning
-                else:
-                    color = ui.accent_danger
-            self._ecu_value_labels[key].configure(
-                text=value or "--",
-                fg=color,
-            )
+        fuel_color = ui.text
+        if analysis.fuel_control_mode in {
+            FuelControlMode.OPEN_LOOP_FAULT,
+            FuelControlMode.CLOSED_LOOP_FAULT,
+        }:
+            fuel_color = ui.accent_danger
+        elif analysis.fuel_control_mode is FuelControlMode.CLOSED_LOOP:
+            fuel_color = ui.accent_success
+        self._ecu_value_labels["fuel_primary"].configure(fg=fuel_color)
+
+        tracking_color = {
+            TrackingQuality.GOOD: ui.accent_success,
+            TrackingQuality.MODERATE: ui.accent_warning,
+            TrackingQuality.POOR: ui.accent_danger,
+        }.get(analysis.mixture_tracking, ui.text_muted)
+        self._ecu_value_labels["mixture_secondary"].configure(fg=tracking_color)
 
         active = {
-            "IDLE": analysis.operating_mode is EngineOperatingMode.IDLE,
-            "CRUISE": analysis.operating_mode is EngineOperatingMode.CRUISE,
-            "ACCELERATION": analysis.operating_mode is EngineOperatingMode.ACCELERATION,
-            "BOOST": analysis.forced_induction_active is True,
             "HIGH LOAD": analysis.high_load is True,
+            "BOOST": analysis.forced_induction_active is True,
             "ENRICHMENT": analysis.enrichment_active is True,
             "WARM-UP": analysis.warmed_up is False,
         }
