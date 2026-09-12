@@ -24,7 +24,8 @@ public:
     void publishMapClick(
         double latitude,
         double longitude,
-        double selectionRadiusM
+        double selectionRadiusM,
+        const std::string& markerId
     );
 
     void publishPoiSearchResult(
