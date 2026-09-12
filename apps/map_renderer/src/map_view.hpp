@@ -40,7 +40,7 @@ struct PoiSearchResult {
 class MapView : public mbgl::MapObserver {
 public:
     using ManualCameraCallback = std::function<void()>;
-    using MapClickCallback = std::function<void(double, double, double)>;
+    using MapClickCallback = std::function<void(double, double, double, const std::string&)>;
 
     using PoiSelectedCallback = std::function<void(
         const std::string& name,
