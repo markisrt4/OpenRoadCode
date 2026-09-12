@@ -22,8 +22,12 @@ from apps.orcUi.vehicle_presenter import VehiclePresentationState
 from controllers.automotive import (
     AutomotiveTelemetryProfile,
     EngineAnalysis,
+    EngineLoadLevel,
     EngineOperatingMode,
     FuelControlMode,
+    FuelCorrectionStatus,
+    MixtureMode,
+    TrackingQuality,
     VehicleConfiguration,
 )
 from ui.navigation import MapRequestHandlerIf
@@ -56,6 +60,11 @@ class OrcUiApp(VolumeUiIf):
         self._engine_analysis = EngineAnalysis(
             operating_mode=EngineOperatingMode.UNKNOWN,
             fuel_control_mode=FuelControlMode.UNKNOWN,
+            mixture_mode=MixtureMode.UNKNOWN,
+            mixture_tracking=TrackingQuality.UNKNOWN,
+            throttle_tracking=TrackingQuality.UNKNOWN,
+            fuel_correction_status=FuelCorrectionStatus.UNKNOWN,
+            load_level=EngineLoadLevel.UNKNOWN,
             engine_running=None,
             warmed_up=None,
             enrichment_active=None,
