@@ -37,6 +37,7 @@ class PoiSearchController(PoiSearchControllerIf):
         self._position_provider = position_provider or self._default_position
         self._active_category: PoiCategory | None = None
         self._pending_search_result: PoiSearchResult | None = None
+        self._visible_pois: tuple[PointOfInterest, ...] = ()
 
     def search(self, category: PoiCategory, transit_mode: TransitMode = TransitMode.ALL) -> None:
         self._active_category = category
@@ -51,11 +52,29 @@ class PoiSearchController(PoiSearchControllerIf):
             for poi in pois
             if _distance_m(position, poi.position) <= _NEARBY_RADIUS_M
         )
+        self._visible_pois = pois
         self._pending_search_result = _result_for(category, pois)
 
     def poll_selected(self) -> PointOfInterest | None:
         raw = self._source.poll_selected()
-        return None if raw is None else enrich_poi(self._to_poi(raw))
+        if raw is not None:
+            return enrich_poi(self._to_poi(raw))
+
+        poll_click = getattr(self._source, "poll_click", None)
+        if poll_click is None:
+            return None
+        click = poll_click()
+        if click is None:
+            return None
+
+        nearest: PointOfInterest | None = None
+        nearest_distance_m = click.selection_radius_m
+        for poi in self._visible_pois:
+            distance_m = _distance_m(click.position, poi.position)
+            if distance_m <= nearest_distance_m:
+                nearest = poi
+                nearest_distance_m = distance_m
+        return None if nearest is None else enrich_poi(nearest)
 
     def poll_search_result(self) -> PoiSearchResult | None:
         result, self._pending_search_result = self._pending_search_result, None
@@ -64,6 +83,7 @@ class PoiSearchController(PoiSearchControllerIf):
     def clear(self) -> None:
         self._active_category = None
         self._pending_search_result = None
+        self._visible_pois = ()
         self._source.clear()
 
     def close(self) -> None:
