@@ -13,6 +13,7 @@ from apps.orcUi.frontend.tk.orc_ui_app import OrcUiApp
 from config.service_runtime_config import ServiceRuntimeConfigParser
 from controllers.audio import PipewireAudioController, SystemVolumeHandler
 from controllers.automotive import TripTracker
+from controllers.automotive.vehicle_settings_store import VehicleSettingsStore
 from controllers.automotive.fuel_model import FuelModel
 from controllers.map_renderer.map_camera_runtime import MapCameraRuntime
 from controllers.system import SystemLifecycleController
@@ -71,6 +72,9 @@ def create_core_composition() -> CoreComposition:
         follow_enabled=True,
     )
     lifecycle = SystemLifecycleController()
+    runtime_config = ServiceRuntimeConfigParser(DEFAULT_RUNTIME_CONFIG).load()
+    vehicle_settings = VehicleSettingsStore(default=runtime_config.vehicle)
+    vehicle_configuration = vehicle_settings.load()
     telemetry_profile_publisher = ZeroMqPublisher(LOCAL_PUBLISHER_ENDPOINT)
     telemetry_profile_requests = AutomotiveTelemetryProfileRequestPublisher(
         telemetry_profile_publisher,
@@ -82,6 +86,8 @@ def create_core_composition() -> CoreComposition:
             map_request_handler=map_camera.request_handler,
             lifecycle_handler=lifecycle,
             telemetry_profile_request=telemetry_profile_requests.publish,
+            vehicle_configuration=vehicle_configuration,
+            save_vehicle_configuration=vehicle_settings.save,
         )
     except Exception:
         telemetry_profile_publisher.close()
@@ -100,7 +106,6 @@ def create_core_composition() -> CoreComposition:
         apply_position_state=app.apply_position_state,
         apply_attitude_state=app.apply_attitude_state,
     )
-    runtime_config = ServiceRuntimeConfigParser(DEFAULT_RUNTIME_CONFIG).load()
     fuel_config = runtime_config.automotive.fuel
     trip_tracker = TripTracker(
         fuel_model=FuelModel(
