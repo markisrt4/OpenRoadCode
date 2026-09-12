@@ -9,8 +9,12 @@ from typing import Any
 from controllers.automotive.automotive_telemetry_profile import AutomotiveTelemetryProfile
 from controllers.automotive.engine_analysis import (
     EngineAnalysis,
+    EngineLoadLevel,
     EngineOperatingMode,
     FuelControlMode,
+    FuelCorrectionStatus,
+    MixtureMode,
+    TrackingQuality,
 )
 from controllers.automotive.engine_analyzer import EngineAnalyzer
 from controllers.automotive.trip_if import TripIf
@@ -27,8 +31,12 @@ __all__ = [
     "AutomotiveTelemetryProfile",
     "EngineAnalysis",
     "EngineAnalyzer",
+    "EngineLoadLevel",
     "EngineOperatingMode",
     "FuelControlMode",
+    "FuelCorrectionStatus",
+    "MixtureMode",
+    "TrackingQuality",
     "Elm327ObdAdapter",
     "EngineInductionType",
     "Obd2Manager",
