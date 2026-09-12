@@ -29,6 +29,19 @@ struct CachedPoiResult {
     double longitude = 0.0;
 };
 
+struct InteractivePoiMarker {
+    std::size_t index = 0;
+    std::string id;
+    double left = 0.0;
+    double top = 0.0;
+    double right = 0.0;
+    double bottom = 0.0;
+
+    bool contains(double x, double y) const {
+        return x >= left && x <= right && y >= top && y <= bottom;
+    }
+};
+
 struct PoiSearchResult {
     int count = 0;
     double south = 0.0;
@@ -40,7 +53,8 @@ struct PoiSearchResult {
 class MapView : public mbgl::MapObserver {
 public:
     using ManualCameraCallback = std::function<void()>;
-    using MapClickCallback = std::function<void(double, double, double, const std::string&)>;
+    using MapClickCallback = std::function<void(
+        double, double, double, const std::string&, std::size_t)>;
 
     using PoiSelectedCallback = std::function<void(
         const std::string& name,
@@ -75,7 +89,7 @@ private:
     static void onScroll(GLFWwindow* window, double xOffset, double yOffset);
     static void onMouseClick(GLFWwindow* window, int button, int action, int modifiers);
     static void onMouseMove(GLFWwindow* window, double x, double y);
-    void selectPoiAt(double x, double y);
+    std::vector<InteractivePoiMarker> interactivePoiMarkers() const;
     void render();
 
     mbgl::Map* map = nullptr;
