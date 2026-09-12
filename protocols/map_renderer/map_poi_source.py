@@ -107,7 +107,15 @@ class MapPoiSource:
             elif topic == MAP_CLICK_TOPIC:
                 click = self._decode_click(payload)
                 if click is not None:
+                    print(
+                        "[map-poi] received click "
+                        f"lat={math.degrees(click.position.latitude_rad):.7f} "
+                        f"lon={math.degrees(click.position.longitude_rad):.7f} "
+                        f"radius_m={click.selection_radius_m:.1f}"
+                    )
                     self._click_queue.put(click)
+                else:
+                    print(f"[map-poi] rejected click payload: {payload!r}")
             elif topic == POI_SEARCH_RESULT_TOPIC:
                 result = self._decode_search_result(payload)
                 if result is not None:
