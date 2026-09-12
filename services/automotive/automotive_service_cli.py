@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import argparse
+from dataclasses import replace
 from pathlib import Path
 
 from config.service_runtime_config import AutomotiveServiceRuntimeConfig, ServiceRuntimeConfigParser
@@ -40,6 +41,14 @@ def parse_args() -> argparse.Namespace:
         "--navigation-motion",
         action="store_true",
         help=argparse.SUPPRESS,
+    )
+    parser.add_argument(
+        "--obd-simulation",
+        action="store_true",
+        help=(
+            "run the production OBD manager and adaptive scheduler against "
+            "the simulated ECU instead of configured hardware"
+        ),
     )
     parser.add_argument(
         "--gear-profile",
@@ -87,6 +96,11 @@ def main() -> int:
     args = parse_args()
     system = ServiceRuntimeConfigParser(args.config).load()
     config = system.automotive
+    if args.obd_simulation:
+        config = replace(
+            config,
+            input=replace(config.input, source="obd_simulation"),
+        )
     if not config.enabled:
         print("Automotive service disabled by runtime configuration")
         return 0
