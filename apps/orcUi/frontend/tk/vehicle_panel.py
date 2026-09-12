@@ -478,7 +478,9 @@ class VehiclePanel(tk.Frame):
                 highlightbackground=ui.border,
             )
             card.grid(row=0, column=column, sticky="nsew", padx=4, pady=4)
-            card.grid_columnconfigure(1, weight=1)
+            card.grid_columnconfigure(0, weight=1)
+            card.grid_columnconfigure(1, weight=0, minsize=120)
+            card.grid_columnconfigure(2, weight=0, minsize=24)
             tk.Label(
                 card,
                 text=title,
@@ -501,6 +503,7 @@ class VehiclePanel(tk.Frame):
                     bg=ui.surface,
                     font=("Sans", 13, "bold"),
                     anchor="e",
+                    width=18 if key == "fuel_mode" else 8,
                 )
                 value.grid(row=row, column=1, sticky="e", padx=4, pady=5)
                 tk.Label(
