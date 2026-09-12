@@ -27,13 +27,27 @@ V1_DATA_FIELDS = {
     "intake_air_temperature_k",
     "fuel_level",
     "control_voltage_v",
+    "fuel_rail_pressure_pa",
 }
 V2_DATA_FIELDS = V1_DATA_FIELDS | {"engine_fuel_rate_m3_s"}
-DATA_FIELDS = V2_DATA_FIELDS | {"commanded_equivalence_ratio"}
+V3_DATA_FIELDS = V2_DATA_FIELDS | {"commanded_equivalence_ratio"}
+DATA_FIELDS = V3_DATA_FIELDS | {
+    "commanded_throttle_position",
+    "absolute_engine_load",
+    "fuel_system_status_1",
+    "fuel_system_status_2",
+    "short_term_fuel_trim_bank1",
+    "long_term_fuel_trim_bank1",
+    "ignition_timing_advance_deg",
+    "fuel_rail_pressure_pa",
+    "measured_equivalence_ratio",
+}
 RATIO_FIELDS = {
     "throttle_position",
     "accelerator_pedal_position",
     "engine_load",
+    "absolute_engine_load",
+    "commanded_throttle_position",
     "fuel_level",
 }
 NONNEGATIVE_FIELDS = {
@@ -68,7 +82,7 @@ def validate_vehicle_state(payload: Mapping[str, Any]) -> None:
     version = payload["version"]
     if isinstance(version, bool) or not isinstance(version, int):
         raise ValueError("vehicle state version must be an integer")
-    if version not in {1, 2, SCHEMA_VERSION}:
+    if version not in {1, 2, 3, SCHEMA_VERSION}:
         raise ValueError(f"unsupported vehicle state version: {version}")
 
     timestamp = payload["timestamp"]
@@ -86,6 +100,7 @@ def validate_vehicle_state(payload: Mapping[str, Any]) -> None:
     expected_fields = (
         V1_DATA_FIELDS if version == 1 else
         V2_DATA_FIELDS if version == 2 else
+        V3_DATA_FIELDS if version == 3 else
         DATA_FIELDS
     )
     actual_fields = set(data)
@@ -97,6 +112,16 @@ def validate_vehicle_state(payload: Mapping[str, Any]) -> None:
             f"missing={missing}, unknown={unknown}"
         )
 
+    for name in ("fuel_system_status_1", "fuel_system_status_2"):
+        if name in expected_fields:
+            value = data[name]
+            if value is not None and (
+                isinstance(value, bool)
+                or not isinstance(value, int)
+                or not 0 <= value <= 0xFF
+            ):
+                raise ValueError(f"{name} must be null or an 8-bit integer")
+
     gear = data["transmission_gear"]
     if gear is not None and (
         isinstance(gear, bool)
@@ -105,14 +130,18 @@ def validate_vehicle_state(payload: Mapping[str, Any]) -> None:
     ):
         raise ValueError("transmission_gear must be null, -1, 0, or 1..6")
 
-    for name in expected_fields - {"transmission_gear"}:
+    for name in expected_fields - {
+        "transmission_gear",
+        "fuel_system_status_1",
+        "fuel_system_status_2",
+    }:
         value = data[name]
         _validate_number(name, value)
         if value is None:
             continue
         if name in RATIO_FIELDS and not 0.0 <= value <= 1.0:
             raise ValueError(f"{name} must be in range 0.0..1.0")
-        if name == "commanded_equivalence_ratio" and not 0.0 <= value <= 2.0:
+        if name in {"commanded_equivalence_ratio", "measured_equivalence_ratio"} and not 0.0 <= value <= 2.0:
             raise ValueError(
                 "commanded_equivalence_ratio must be in range 0.0..2.0"
             )
