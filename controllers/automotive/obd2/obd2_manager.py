@@ -7,6 +7,7 @@ import math
 from datetime import datetime
 from typing import TypeVar
 
+from controllers.automotive.automotive_telemetry_profile import AutomotiveTelemetryProfile
 from controllers.automotive.vehicle_state import VehicleState
 from controllers.automotive.obd2.obd2_poll_scheduler import (
     Obd2PollingProfile,
@@ -162,9 +163,13 @@ class Obd2Manager(VehicleStateSourceIf):
         )
 
     def set_polling_profile(self, profile: Obd2PollingProfile) -> None:
-        """Apply a telemetry-priority hint without changing request rate."""
+        """Apply an OBD-specific polling profile without changing request rate."""
         if self._scheduler is not None:
             self._scheduler.set_profile(profile)
+
+    def set_telemetry_profile(self, profile: AutomotiveTelemetryProfile) -> None:
+        """Apply a domain-level telemetry-priority hint."""
+        self.set_polling_profile(Obd2PollingProfile(profile.value))
 
     @property
     def supported_pids(self) -> frozenset[int] | None:
