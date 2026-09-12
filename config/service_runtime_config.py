@@ -363,6 +363,8 @@ class ServiceRuntimeConfigParser:
 
     def _source(self, value, name: str) -> str:
         source = self._string(value, name).lower()
-        if source not in {"device", "simulation"}:
-            raise ServiceRuntimeConfigError(f"{name} must be device or simulation")
+        if source not in {"device", "simulation", "obd_simulation"}:
+            raise ServiceRuntimeConfigError(
+                f"{name} must be device, simulation, or obd_simulation"
+            )
         return source
