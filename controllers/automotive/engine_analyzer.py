@@ -5,8 +5,12 @@ from __future__ import annotations
 
 from controllers.automotive.engine_analysis import (
     EngineAnalysis,
+    EngineLoadLevel,
     EngineOperatingMode,
     FuelControlMode,
+    FuelCorrectionStatus,
+    MixtureMode,
+    TrackingQuality,
 )
 from controllers.automotive.vehicle_configuration import VehicleConfiguration
 from controllers.automotive.vehicle_state import VehicleState
@@ -26,6 +30,11 @@ class EngineAnalyzer:
     _WARM_COOLANT_K = 344.15  # 160 F
     _ENRICHMENT_LAMBDA = 0.97
     _BOOST_THRESHOLD_PA = 6_894.757  # ~1 psi
+    _MIXTURE_BAND = 0.03
+    _TRACKING_GOOD = 0.03
+    _TRACKING_MODERATE = 0.08
+    _FUEL_CORRECTION_NORMAL = 0.05
+    _LOAD_LOW = 0.35
 
     def __init__(self, configuration: VehicleConfiguration) -> None:
         self._configuration = configuration
@@ -37,30 +46,38 @@ class EngineAnalyzer:
         enrichment = self._enrichment_active(state)
         forced_induction = self._forced_induction_active(state)
 
+        fuel_trim_total = self._sum_optional(
+            state.short_term_fuel_trim_bank1,
+            state.long_term_fuel_trim_bank1,
+        )
+        mixture_error = self._difference_optional(
+            state.measured_equivalence_ratio,
+            state.commanded_equivalence_ratio,
+        )
+        throttle_error = self._difference_optional(
+            state.throttle_position,
+            state.commanded_throttle_position,
+        )
+
         return EngineAnalysis(
             operating_mode=self._operating_mode(
                 state,
                 engine_running=engine_running,
-                high_load=high_load,
             ),
             fuel_control_mode=self._fuel_control_mode(state.fuel_system_status_1),
+            mixture_mode=self._mixture_mode(state.commanded_equivalence_ratio),
+            mixture_tracking=self._tracking_quality(mixture_error),
+            throttle_tracking=self._tracking_quality(throttle_error),
+            fuel_correction_status=self._fuel_correction_status(fuel_trim_total),
+            load_level=self._load_level(state),
             engine_running=engine_running,
             warmed_up=warmed_up,
             enrichment_active=enrichment,
             high_load=high_load,
             forced_induction_active=forced_induction,
-            fuel_trim_total=self._sum_optional(
-                state.short_term_fuel_trim_bank1,
-                state.long_term_fuel_trim_bank1,
-            ),
-            mixture_tracking_error=self._difference_optional(
-                state.measured_equivalence_ratio,
-                state.commanded_equivalence_ratio,
-            ),
-            throttle_tracking_error=self._difference_optional(
-                state.throttle_position,
-                state.commanded_throttle_position,
-            ),
+            fuel_trim_total=fuel_trim_total,
+            mixture_tracking_error=mixture_error,
+            throttle_tracking_error=throttle_error,
         )
 
     @classmethod
@@ -105,7 +122,6 @@ class EngineAnalyzer:
         state: VehicleState,
         *,
         engine_running: bool | None,
-        high_load: bool | None,
     ) -> EngineOperatingMode:
         if engine_running is False:
             return EngineOperatingMode.OFF
@@ -124,9 +140,6 @@ class EngineAnalyzer:
         ):
             return EngineOperatingMode.IDLE
 
-        if high_load is True:
-            return EngineOperatingMode.HIGH_LOAD
-
         if (
             (pedal is not None and pedal >= cls._ACCELERATOR_THRESHOLD)
             or (throttle is not None and throttle >= cls._THROTTLE_THRESHOLD)
@@ -138,11 +151,59 @@ class EngineAnalyzer:
             and speed >= cls._CRUISE_SPEED_M_S
             and pedal is not None
             and pedal < cls._CRUISE_PEDAL_MAX
-            and high_load is not True
         ):
             return EngineOperatingMode.CRUISE
 
         return EngineOperatingMode.UNKNOWN
+
+    @classmethod
+    def _mixture_mode(cls, commanded_lambda: float | None) -> MixtureMode:
+        if commanded_lambda is None:
+            return MixtureMode.UNKNOWN
+        if commanded_lambda < 1.0 - cls._MIXTURE_BAND:
+            return MixtureMode.RICH
+        if commanded_lambda > 1.0 + cls._MIXTURE_BAND:
+            return MixtureMode.LEAN
+        return MixtureMode.STOICHIOMETRIC
+
+    @classmethod
+    def _tracking_quality(cls, error: float | None) -> TrackingQuality:
+        if error is None:
+            return TrackingQuality.UNKNOWN
+        magnitude = abs(error)
+        if magnitude <= cls._TRACKING_GOOD:
+            return TrackingQuality.GOOD
+        if magnitude <= cls._TRACKING_MODERATE:
+            return TrackingQuality.MODERATE
+        return TrackingQuality.POOR
+
+    @classmethod
+    def _fuel_correction_status(
+        cls,
+        total: float | None,
+    ) -> FuelCorrectionStatus:
+        if total is None:
+            return FuelCorrectionStatus.UNKNOWN
+        if abs(total) <= cls._FUEL_CORRECTION_NORMAL:
+            return FuelCorrectionStatus.NORMAL
+        if total > 0.0:
+            return FuelCorrectionStatus.ADDING_FUEL
+        return FuelCorrectionStatus.REMOVING_FUEL
+
+    @classmethod
+    def _load_level(cls, state: VehicleState) -> EngineLoadLevel:
+        load = (
+            state.absolute_engine_load
+            if state.absolute_engine_load is not None
+            else state.engine_load
+        )
+        if load is None:
+            return EngineLoadLevel.UNKNOWN
+        if load >= cls._HIGH_LOAD_THRESHOLD:
+            return EngineLoadLevel.HIGH
+        if load < cls._LOAD_LOW:
+            return EngineLoadLevel.LOW
+        return EngineLoadLevel.MODERATE
 
     @staticmethod
     def _fuel_control_mode(status: int | None) -> FuelControlMode:
