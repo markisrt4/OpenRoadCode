@@ -18,6 +18,7 @@ from ui.navigation import GeoPoint
 MAP_COMMAND_TOPIC = "map.command"
 POI_SELECTED_TOPIC = "map.poi.selected"
 POI_SEARCH_RESULT_TOPIC = "map.poi.search_result"
+MAP_CLICK_TOPIC = "map.click"
 
 
 @dataclass(frozen=True, slots=True)
@@ -28,6 +29,12 @@ class RawMapPoi:
     brand: str | None = None
     source_class: str | None = None
     source_subclass: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class RawMapClick:
+    position: GeoPoint
+    selection_radius_m: float
 
 
 @dataclass(frozen=True, slots=True)
@@ -48,14 +55,22 @@ class MapPoiSource:
         self._subscriber = ZeroMqSubscriber()
         self._subscriber.subscribe(POI_SELECTED_TOPIC)
         self._subscriber.subscribe(POI_SEARCH_RESULT_TOPIC)
+        self._subscriber.subscribe(MAP_CLICK_TOPIC)
         self._queue: SimpleQueue[RawMapPoi] = SimpleQueue()
         self._search_queue: SimpleQueue[RawPoiSearchResult] = SimpleQueue()
+        self._click_queue: SimpleQueue[RawMapClick] = SimpleQueue()
         self._thread = Thread(target=self._receive, name="map-poi-source", daemon=True)
         self._thread.start()
 
     def poll_selected(self) -> RawMapPoi | None:
         try:
             return self._queue.get_nowait()
+        except Empty:
+            return None
+
+    def poll_click(self) -> RawMapClick | None:
+        try:
+            return self._click_queue.get_nowait()
         except Empty:
             return None
 
@@ -89,6 +104,10 @@ class MapPoiSource:
                 poi = self._decode(payload)
                 if poi is not None:
                     self._queue.put(poi)
+            elif topic == MAP_CLICK_TOPIC:
+                click = self._decode_click(payload)
+                if click is not None:
+                    self._click_queue.put(click)
             elif topic == POI_SEARCH_RESULT_TOPIC:
                 result = self._decode_search_result(payload)
                 if result is not None:
@@ -121,6 +140,25 @@ class MapPoiSource:
             brand=optional_string("brand"),
             source_class=optional_string("class"),
             source_subclass=optional_string("subclass"),
+        )
+
+    @staticmethod
+    def _decode_click(payload: Any) -> RawMapClick | None:
+        if not isinstance(payload, dict):
+            return None
+        latitude = payload.get("latitude")
+        longitude = payload.get("longitude")
+        radius = payload.get("selection_radius_m")
+        if not isinstance(latitude, (int, float)) or not isinstance(longitude, (int, float)):
+            return None
+        if not isinstance(radius, (int, float)) or float(radius) <= 0.0:
+            return None
+        return RawMapClick(
+            position=GeoPoint(
+                latitude_rad=math.radians(float(latitude)),
+                longitude_rad=math.radians(float(longitude)),
+            ),
+            selection_radius_m=float(radius),
         )
 
     @staticmethod
