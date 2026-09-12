@@ -53,13 +53,33 @@ float MapView::getPixelRatio()const{return pixelRatio;} mbgl::Size MapView::getS
 void MapView::onWindowResize(GLFWwindow* window,int w,int h){auto* v=static_cast<MapView*>(glfwGetWindowUserPointer(window));if(!v)return;v->width=w;v->height=h;if(v->map)v->map->setSize({static_cast<uint32_t>(w),static_cast<uint32_t>(h)});}
 void MapView::onFramebufferResize(GLFWwindow* window,int w,int h){auto* v=static_cast<MapView*>(glfwGetWindowUserPointer(window));if(!v)return;v->backend->setSize({static_cast<uint32_t>(w),static_cast<uint32_t>(h)});v->invalidate();}
 void MapView::onScroll(GLFWwindow* window,double,double y){auto* v=static_cast<MapView*>(glfwGetWindowUserPointer(window));if(!v||!v->map)return;if(v->manualCameraCallback)v->manualCameraCallback();const double delta=y*40.0;double scale=2.0/(1.0+std::exp(-std::abs(delta)/100.0));if(delta<0)scale=1.0/scale;const mbgl::ScreenCoordinate anchor{static_cast<double>(v->width)/2.0,static_cast<double>(v->height)/2.0};v->map->scaleBy(scale,anchor);}
+std::vector<InteractivePoiMarker> MapView::interactivePoiMarkers() const {
+    std::vector<InteractivePoiMarker> markers;
+    if(!map)return markers;
+    markers.reserve(poiResults.size());
+    constexpr double halfSize=30.0;
+    for(std::size_t index=0;index<poiResults.size();++index){
+        const auto& result=poiResults[index];
+        const auto pixel=map->pixelForLatLng({result.latitude,result.longitude});
+        markers.push_back(InteractivePoiMarker{
+            index,
+            result.id,
+            pixel.x-halfSize,
+            pixel.y-halfSize,
+            pixel.x+halfSize,
+            pixel.y+halfSize,
+        });
+    }
+    return markers;
+}
+
 void MapView::onMouseClick(GLFWwindow* window,int button,int action,int modifiers){auto* v=static_cast<MapView*>(glfwGetWindowUserPointer(window));if(!v||!v->map||button!=GLFW_MOUSE_BUTTON_LEFT)return;double clickX=v->lastX,clickY=v->lastY;
 #if defined(__linux__)
 Display* display=glfwGetX11Display();const Window child=glfwGetX11Window(window);if(display&&child!=0){Window rootReturn=0,childReturn=0;int rootX=0,rootY=0,winX=0,winY=0;unsigned int mask=0;XWindowAttributes childAttributes{};if(XQueryPointer(display,child,&rootReturn,&childReturn,&rootX,&rootY,&winX,&winY,&mask)){double scaleX=1.0,scaleY=1.0;if(XGetWindowAttributes(display,child,&childAttributes)&&childAttributes.width>0&&childAttributes.height>0){scaleX=static_cast<double>(v->width)/static_cast<double>(childAttributes.width);scaleY=static_cast<double>(v->height)/static_cast<double>(childAttributes.height);}clickX=static_cast<double>(winX)*scaleX;clickY=static_cast<double>(winY)*scaleY;std::cout<<"[map_renderer] pointer raw="<<winX<<","<<winY<<" child="<<childAttributes.width<<"x"<<childAttributes.height<<" map="<<v->width<<"x"<<v->height<<" scale="<<scaleX<<","<<scaleY<<" normalized="<<clickX<<","<<clickY<<'\n';}}
 #else
 glfwGetCursorPos(window,&clickX,&clickY);
 #endif
-if(action==GLFW_PRESS){v->pressX=clickX;v->pressY=clickY;v->manualGesturePublished=false;}v->tracking=action==GLFW_PRESS;v->map->setGestureInProgress(v->tracking);if(action==GLFW_RELEASE){const double moved=std::hypot(clickX-v->pressX,clickY-v->pressY);const double now=glfwGetTime();if(now-v->lastClick<0.4){if(v->manualCameraCallback)v->manualCameraCallback();const mbgl::ScreenCoordinate anchor{clickX,clickY};v->map->scaleBy(modifiers&GLFW_MOD_SHIFT?0.5:2.0,anchor,mbgl::AnimationOptions{{mbgl::Milliseconds(500)}});}else if(moved<8.0&&v->mapClickCallback){const auto click=v->map->latLngForPixel({clickX,clickY});const auto edge=v->map->latLngForPixel({clickX+48.0,clickY});constexpr double earthRadiusM=6378137.0;const double lat1=click.latitude()*M_PI/180.0;const double lat2=edge.latitude()*M_PI/180.0;const double dLat=(edge.latitude()-click.latitude())*M_PI/180.0;const double dLon=(edge.longitude()-click.longitude())*M_PI/180.0;const double h=std::sin(dLat/2.0)*std::sin(dLat/2.0)+std::cos(lat1)*std::cos(lat2)*std::sin(dLon/2.0)*std::sin(dLon/2.0);const double radius=std::max(10.0,2.0*earthRadiusM*std::asin(std::min(1.0,std::sqrt(h))));std::string markerId;double nearestPx=std::numeric_limits<double>::max();for(const auto& result:v->poiResults){const auto pixel=v->map->pixelForLatLng({result.latitude,result.longitude});const double distancePx=std::hypot(pixel.x-clickX,pixel.y-clickY);if(distancePx<nearestPx){nearestPx=distancePx;markerId=result.id;}}if(nearestPx>56.0)markerId.clear();std::cout<<"[map_renderer] map click x="<<clickX<<" y="<<clickY<<" lat="<<click.latitude()<<" lon="<<click.longitude()<<" radius_m="<<radius<<" marker_id="<<(markerId.empty()?"<none>":markerId)<<" nearest_px="<<nearestPx<<'\n';v->mapClickCallback(click.latitude(),click.longitude(),radius,markerId);}v->lastClick=now;}}
+if(action==GLFW_PRESS){v->pressX=clickX;v->pressY=clickY;v->manualGesturePublished=false;}v->tracking=action==GLFW_PRESS;v->map->setGestureInProgress(v->tracking);if(action==GLFW_RELEASE){const double moved=std::hypot(clickX-v->pressX,clickY-v->pressY);const double now=glfwGetTime();if(now-v->lastClick<0.4){if(v->manualCameraCallback)v->manualCameraCallback();const mbgl::ScreenCoordinate anchor{clickX,clickY};v->map->scaleBy(modifiers&GLFW_MOD_SHIFT?0.5:2.0,anchor,mbgl::AnimationOptions{{mbgl::Milliseconds(500)}});}else if(moved<8.0&&v->mapClickCallback){const auto click=v->map->latLngForPixel({clickX,clickY});const auto edge=v->map->latLngForPixel({clickX+48.0,clickY});constexpr double earthRadiusM=6378137.0;const double lat1=click.latitude()*M_PI/180.0;const double lat2=edge.latitude()*M_PI/180.0;const double dLat=(edge.latitude()-click.latitude())*M_PI/180.0;const double dLon=(edge.longitude()-click.longitude())*M_PI/180.0;const double h=std::sin(dLat/2.0)*std::sin(dLat/2.0)+std::cos(lat1)*std::cos(lat2)*std::sin(dLon/2.0)*std::sin(dLon/2.0);const double radius=std::max(10.0,2.0*earthRadiusM*std::asin(std::min(1.0,std::sqrt(h))));std::string markerId;std::size_t markerIndex=std::numeric_limits<std::size_t>::max();double nearestCenterPx=std::numeric_limits<double>::max();for(const auto& marker:v->interactivePoiMarkers()){if(!marker.contains(clickX,clickY))continue;const double centerX=(marker.left+marker.right)/2.0;const double centerY=(marker.top+marker.bottom)/2.0;const double centerDistance=std::hypot(centerX-clickX,centerY-clickY);if(centerDistance<nearestCenterPx){nearestCenterPx=centerDistance;markerId=marker.id;markerIndex=marker.index;}}std::cout<<"[map_renderer] map click x="<<clickX<<" y="<<clickY<<" lat="<<click.latitude()<<" lon="<<click.longitude()<<" radius_m="<<radius<<" marker_id="<<(markerId.empty()?"<none>":markerId)<<" marker_index="<<(markerIndex==std::numeric_limits<std::size_t>::max()?-1:static_cast<long long>(markerIndex))<<'\n';v->mapClickCallback(click.latitude(),click.longitude(),radius,markerId,markerIndex);}v->lastClick=now;}}
 void MapView::setPoiResultsJson(const std::string& geojson){
     poiResults.clear();
 
@@ -96,53 +116,6 @@ void MapView::setPoiResultsJson(const std::string& geojson){
     }
 }
 
-void MapView::selectPoiAt(double x,double y){
-    if(!map||!poiSelectedCallback)return;
-
-    const auto clickCoordinate=map->latLngForPixel({x,y});
-    const auto edgeCoordinate=map->latLngForPixel({x+40.0,y});
-
-    auto distanceMeters=[](const mbgl::LatLng& a,const mbgl::LatLng& b){
-        constexpr double earthRadiusM=6378137.0;
-        const double lat1=a.latitude()*M_PI/180.0;
-        const double lat2=b.latitude()*M_PI/180.0;
-        const double dLat=(b.latitude()-a.latitude())*M_PI/180.0;
-        const double dLon=(b.longitude()-a.longitude())*M_PI/180.0;
-        const double h=std::sin(dLat/2.0)*std::sin(dLat/2.0)+
-            std::cos(lat1)*std::cos(lat2)*std::sin(dLon/2.0)*std::sin(dLon/2.0);
-        return 2.0*earthRadiusM*std::asin(std::min(1.0,std::sqrt(h)));
-    };
-
-    const double selectionRadiusM=std::max(8.0,distanceMeters(clickCoordinate,edgeCoordinate));
-    const CachedPoiResult* nearest=nullptr;
-    double nearestDistanceM=selectionRadiusM;
-
-    for(const auto& result:poiResults){
-        const mbgl::LatLng poiCoordinate{result.latitude,result.longitude};
-        const double distanceM=distanceMeters(clickCoordinate,poiCoordinate);
-        if(distanceM>nearestDistanceM)continue;
-        nearest=&result;
-        nearestDistanceM=distanceM;
-    }
-
-    if(nearest==nullptr){
-        std::cout<<"[map_renderer] POI click miss lat="<<clickCoordinate.latitude()
-                 <<" lon="<<clickCoordinate.longitude()
-                 <<" radius_m="<<selectionRadiusM
-                 <<" cached="<<poiResults.size()<<'\n';
-        return;
-    }
-
-    std::cout<<"[map_renderer] selected POI: "<<nearest->name
-             <<" distance_m="<<nearestDistanceM<<'\n';
-    poiSelectedCallback(
-        nearest->name,
-        nearest->brand,
-        nearest->sourceClass.empty()?nearest->category:nearest->sourceClass,
-        nearest->sourceSubclass,
-        nearest->latitude,
-        nearest->longitude);
-}
 PoiSearchResult MapView::searchVisiblePois(const std::string& category)const{PoiSearchResult result;if(!map||!rendererFrontend||!rendererFrontend->getRenderer())return result;const auto topLeft=map->latLngForPixel({0.0,0.0});const auto bottomRight=map->latLngForPixel({static_cast<double>(width),static_cast<double>(height)});const double viewportSouth=std::min(topLeft.latitude(),bottomRight.latitude());const double viewportNorth=std::max(topLeft.latitude(),bottomRight.latitude());const double viewportWest=std::min(topLeft.longitude(),bottomRight.longitude());const double viewportEast=std::max(topLeft.longitude(),bottomRight.longitude());const mbgl::SourceQueryOptions options{{{"poi"}}, {}};const auto features=rendererFrontend->getRenderer()->querySourceFeatures("openroad",options);double south=std::numeric_limits<double>::max(),west=std::numeric_limits<double>::max(),north=std::numeric_limits<double>::lowest(),east=std::numeric_limits<double>::lowest();std::size_t sampleCount=0;for(const auto& feature:features){const auto coordinate=pointCoordinate(feature);if(!coordinate)continue;const double lat=coordinate->latitude(),lon=coordinate->longitude();if(lat<viewportSouth||lat>viewportNorth||lon<viewportWest||lon>viewportEast)continue;if(sampleCount<kPoiSampleLimit){++sampleCount;logPoiSample(feature,sampleCount);}if(!categoryMatches(feature,category))continue;++result.count;south=std::min(south,lat);north=std::max(north,lat);west=std::min(west,lon);east=std::max(east,lon);}if(result.count>0){result.south=south;result.west=west;result.north=north;result.east=east;}std::cout<<"[map_renderer] POI search category="<<category<<" source_features="<<features.size()<<" visible_samples="<<sampleCount<<" matches="<<result.count<<'\n';return result;}
 void MapView::onMouseMove(GLFWwindow* window,double x,double y){auto* v=static_cast<MapView*>(glfwGetWindowUserPointer(window));if(!v||!v->map)return;if(v->tracking){const double dx=x-v->lastX,dy=y-v->lastY;if(dx!=0||dy!=0){if(!v->manualGesturePublished&&v->manualCameraCallback){v->manualCameraCallback();v->manualGesturePublished=true;}v->map->moveBy({dx,dy});}}v->lastX=x;v->lastY=y;}
 void MapView::render(){if(!dirty||!rendererFrontend)return;dirty=false;mbgl::gfx::BackendScope scope{backend->getRendererBackend()};rendererFrontend->render();}
