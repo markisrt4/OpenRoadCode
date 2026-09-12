@@ -23,8 +23,12 @@ if [[ ! -d "$DATA_ROOT/maps" ]]; then
   exit 0
 fi
 
+RUNTIME_USER="${SUDO_USER:-${USER:-$(id -un)}}"
+RUNTIME_GROUP="$(id -gn "$RUNTIME_USER")"
+
 sudo install -d -m 0755 "$(dirname -- "$STYLE_DESTINATION")"
-sudo install -m 0644 "$STYLE_TEMPLATE" "$STYLE_DESTINATION"
+sudo install -o "$RUNTIME_USER" -g "$RUNTIME_GROUP" -m 0644 \
+  "$STYLE_TEMPLATE" "$STYLE_DESTINATION"
 
 echo "[+] Navigation map style installed"
 echo "    source:      $STYLE_TEMPLATE"
