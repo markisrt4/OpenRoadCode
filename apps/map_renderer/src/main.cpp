@@ -165,6 +165,11 @@ int main() {
             eventPublisher.publishManualCameraInteraction();
         });
 
+    view.setMapClickCallback(
+        [&eventPublisher](double latitude, double longitude, double selectionRadiusM) {
+            eventPublisher.publishMapClick(latitude, longitude, selectionRadiusM);
+        });
+
     view.setPoiSelectedCallback(
         [&eventPublisher](const std::string& name,
                           const std::string& brand,
