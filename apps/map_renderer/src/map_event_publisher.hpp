@@ -21,6 +21,12 @@ public:
 
     void publishManualCameraInteraction();
 
+    void publishMapClick(
+        double latitude,
+        double longitude,
+        double selectionRadiusM
+    );
+
     void publishPoiSearchResult(
         const std::string& category,
         int count,
