@@ -39,6 +39,8 @@ struct PoiSearchResult {
 
 class MapView : public mbgl::MapObserver {
 public:
+    using ManualCameraCallback = std::function<void()>;
+
     using PoiSelectedCallback = std::function<void(
         const std::string& name,
         const std::string& brand,
@@ -61,6 +63,7 @@ public:
     void onWillStartRenderingFrame() override;
     void setUpdateCallback(std::function<void()> callback);
     void setPoiSelectedCallback(PoiSelectedCallback callback);
+    void setManualCameraCallback(ManualCameraCallback callback);
     void setPoiResultsJson(const std::string& geojson);
     PoiSearchResult searchVisiblePois(const std::string& category) const;
 
@@ -86,10 +89,12 @@ private:
     double pressY = 0.0;
     double lastClick = -1.0;
     bool tracking = false;
+    bool manualGesturePublished = false;
     bool dirty = false;
     mbgl::util::RunLoop runLoop;
     mbgl::util::Timer frameTick;
     std::function<void()> updateCallback;
     PoiSelectedCallback poiSelectedCallback;
+    ManualCameraCallback manualCameraCallback;
     std::vector<CachedPoiResult> poiResults;
 };
