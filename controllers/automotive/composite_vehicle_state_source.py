@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 
+from controllers.automotive.automotive_telemetry_profile import AutomotiveTelemetryProfile
 from controllers.automotive.vehicle_state import VehicleState
 from controllers.automotive.vehicle_state_source_if import VehicleStateSourceIf
 
@@ -35,6 +36,12 @@ class CompositeVehicleStateSource(VehicleStateSourceIf):
             self._motion_source.disconnect()
         finally:
             self._engine_source.disconnect()
+
+    def set_telemetry_profile(self, profile: AutomotiveTelemetryProfile) -> None:
+        """Forward telemetry-priority hints to the engine source when supported."""
+        setter = getattr(self._engine_source, "set_telemetry_profile", None)
+        if callable(setter):
+            setter(profile)
 
     def read_state(self) -> VehicleState:
         engine = self._engine_source.read_state()
