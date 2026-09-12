@@ -18,6 +18,7 @@ from apps.orcUi.theme_runtime import theme_bundle
 from apps.orcUi.trip_presenter import TripPresentationState
 from .vehicle_panel import VehiclePanel
 from apps.orcUi.vehicle_presenter import VehiclePresentationState
+from controllers.automotive import AutomotiveTelemetryProfile
 from ui.navigation import MapRequestHandlerIf
 from ui.screen_ui_if import ScreenUiIf
 from ui.system import (
@@ -34,10 +35,12 @@ class OrcUiApp(VolumeUiIf):
         map_runtime: MapRuntimeIf,
         map_request_handler: MapRequestHandlerIf,
         lifecycle_handler: SystemLifecycleRequestHandlerIf,
+        telemetry_profile_request: Callable[[AutomotiveTelemetryProfile], None] | None = None,
     ) -> None:
         self._map_runtime = map_runtime
         self._map_request_handler = map_request_handler
         self._lifecycle_handler = lifecycle_handler
+        self._telemetry_profile_request = telemetry_profile_request
         self._theme_mode = ThemeMode.DARK
         self._theme = theme_bundle(self._theme_mode)
         ui = self._theme.ui
@@ -402,6 +405,8 @@ class OrcUiApp(VolumeUiIf):
             button.configure(fg="#ffffff" if selected else ui.control_text, bg=ui.control_active if selected else ui.control_background, activebackground=ui.control_active, activeforeground="#ffffff", highlightbackground=ui.border)
     def _clear_content(self) -> None:
         self._map_runtime.stop()
+        if self._vehicle_panel is not None and self._vehicle_panel.winfo_exists():
+            self._vehicle_panel.release_telemetry_profile()
         self._context_rail = None
         self._home_map_panel = None
         self._navigation_panel = None
@@ -462,7 +467,14 @@ class OrcUiApp(VolumeUiIf):
         self._clear_content()
         self._active_nav = "VEHICLE"
         self._paint_nav()
-        self._vehicle_panel = VehiclePanel(self._content, on_back=self._show_home, state=self._vehicle_state, trip_state=self._trip_state, theme_bundle=self._theme)
+        self._vehicle_panel = VehiclePanel(
+            self._content,
+            on_back=self._show_home,
+            on_telemetry_profile=self._telemetry_profile_request,
+            state=self._vehicle_state,
+            trip_state=self._trip_state,
+            theme_bundle=self._theme,
+        )
         self._vehicle_panel.pack(fill=tk.BOTH, expand=True)
     def _show_offroad_panel(self) -> None:
         self._clear_content()
