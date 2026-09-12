@@ -31,6 +31,7 @@ class NavigationPanelControlTest(unittest.TestCase):
         panel._route_active = False
         panel._simulation_active = False
         panel._simulate_button = Mock()
+        panel._cancel_route_button = Mock()
         panel._map_favorites = Mock()
         panel._poi_action_executor = Mock()
         panel._poi_card = None
@@ -118,6 +119,23 @@ class NavigationPanelControlTest(unittest.TestCase):
         panel._route_simulation_handler.request_stop_route_simulation.assert_called_once_with()
         self.assertFalse(panel._simulation_active)
         panel._shortcut_status.set.assert_called_with("Route simulation stopped")
+
+    def test_cancel_route_stops_simulation_and_clears_active_route(self) -> None:
+        panel = self._panel()
+        panel._route_active = True
+        panel._simulation_active = True
+        panel._guidance_instruction = Mock()
+        panel._guidance_detail = Mock()
+
+        panel._cancel_route()
+
+        panel._route_simulation_handler.request_stop_route_simulation.assert_called_once_with()
+        panel._route_request_handler.request_cancel_route.assert_called_once_with()
+        self.assertFalse(panel._route_active)
+        self.assertFalse(panel._simulation_active)
+        panel._guidance_instruction.set.assert_called_once_with("")
+        panel._guidance_detail.set.assert_called_once_with("")
+        panel._shortcut_status.set.assert_called_with("Route cancelled")
 
     def test_issue_poi_search_forwards_default_mode(self) -> None:
         panel = self._panel(); panel._poi_controller = Mock(); panel._shortcut_status = Mock(); panel._poi_search_after_id = "pending"
