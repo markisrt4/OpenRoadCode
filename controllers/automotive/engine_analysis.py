@@ -19,7 +19,34 @@ class EngineOperatingMode(str, Enum):
     IDLE = "idle"
     CRUISE = "cruise"
     ACCELERATION = "acceleration"
-    HIGH_LOAD = "high_load"
+    UNKNOWN = "unknown"
+
+
+class MixtureMode(str, Enum):
+    LEAN = "lean"
+    STOICHIOMETRIC = "stoichiometric"
+    RICH = "rich"
+    UNKNOWN = "unknown"
+
+
+class TrackingQuality(str, Enum):
+    GOOD = "good"
+    MODERATE = "moderate"
+    POOR = "poor"
+    UNKNOWN = "unknown"
+
+
+class FuelCorrectionStatus(str, Enum):
+    NORMAL = "normal"
+    ADDING_FUEL = "adding_fuel"
+    REMOVING_FUEL = "removing_fuel"
+    UNKNOWN = "unknown"
+
+
+class EngineLoadLevel(str, Enum):
+    LOW = "low"
+    MODERATE = "moderate"
+    HIGH = "high"
     UNKNOWN = "unknown"
 
 
@@ -29,6 +56,11 @@ class EngineAnalysis:
 
     operating_mode: EngineOperatingMode
     fuel_control_mode: FuelControlMode
+    mixture_mode: MixtureMode
+    mixture_tracking: TrackingQuality
+    throttle_tracking: TrackingQuality
+    fuel_correction_status: FuelCorrectionStatus
+    load_level: EngineLoadLevel
 
     engine_running: bool | None
     warmed_up: bool | None
