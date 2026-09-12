@@ -7,6 +7,12 @@ from importlib import import_module
 from typing import Any
 
 from controllers.automotive.automotive_telemetry_profile import AutomotiveTelemetryProfile
+from controllers.automotive.engine_analysis import (
+    EngineAnalysis,
+    EngineOperatingMode,
+    FuelControlMode,
+)
+from controllers.automotive.engine_analyzer import EngineAnalyzer
 from controllers.automotive.trip_if import TripIf
 from controllers.automotive.trip_state import TripState, TripStatus
 from controllers.automotive.trip_tracker import TripTracker
@@ -19,6 +25,10 @@ from controllers.automotive.vehicle_state_source_if import VehicleStateSourceIf
 
 __all__ = [
     "AutomotiveTelemetryProfile",
+    "EngineAnalysis",
+    "EngineAnalyzer",
+    "EngineOperatingMode",
+    "FuelControlMode",
     "Elm327ObdAdapter",
     "EngineInductionType",
     "Obd2Manager",
