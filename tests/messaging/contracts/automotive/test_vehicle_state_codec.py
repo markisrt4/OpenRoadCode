@@ -71,6 +71,15 @@ class VehicleStateCodecTest(unittest.TestCase):
         self.assertEqual(data["engine_fuel_rate_m3_s"], 2.0e-6)
         self.assertEqual(data["control_voltage_v"], 14.2)
 
+    def test_absolute_engine_load_may_exceed_one(self) -> None:
+        payload = encode_vehicle_state(
+            VehicleState(
+                timestamp=self.timestamp,
+                absolute_engine_load=1.35,
+            )
+        )
+        self.assertEqual(payload["data"]["absolute_engine_load"], 1.35)
+
     def test_all_data_fields_are_present_and_nullable(self) -> None:
         payload = encode_vehicle_state(VehicleState(timestamp=self.timestamp))
         expected_fields = {
