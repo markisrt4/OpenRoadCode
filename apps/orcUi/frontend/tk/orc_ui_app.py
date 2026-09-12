@@ -19,7 +19,13 @@ from apps.orcUi.theme_runtime import theme_bundle
 from apps.orcUi.trip_presenter import TripPresentationState
 from .vehicle_panel import VehiclePanel
 from apps.orcUi.vehicle_presenter import VehiclePresentationState
-from controllers.automotive import AutomotiveTelemetryProfile, VehicleConfiguration
+from controllers.automotive import (
+    AutomotiveTelemetryProfile,
+    EngineAnalysis,
+    EngineOperatingMode,
+    FuelControlMode,
+    VehicleConfiguration,
+)
 from ui.navigation import MapRequestHandlerIf
 from ui.screen_ui_if import ScreenUiIf
 from ui.system import (
@@ -46,6 +52,19 @@ class OrcUiApp(VolumeUiIf):
         self._telemetry_profile_request = telemetry_profile_request
         self._vehicle_configuration = vehicle_configuration
         self._save_vehicle_configuration = save_vehicle_configuration
+        self._vehicle_configuration_observer: Callable[[VehicleConfiguration], None] | None = None
+        self._engine_analysis = EngineAnalysis(
+            operating_mode=EngineOperatingMode.UNKNOWN,
+            fuel_control_mode=FuelControlMode.UNKNOWN,
+            engine_running=None,
+            warmed_up=None,
+            enrichment_active=None,
+            high_load=None,
+            forced_induction_active=None,
+            fuel_trim_total=None,
+            mixture_tracking_error=None,
+            throttle_tracking_error=None,
+        )
         self._theme_mode = ThemeMode.DARK
         self._theme = theme_bundle(self._theme_mode)
         ui = self._theme.ui
@@ -111,6 +130,12 @@ class OrcUiApp(VolumeUiIf):
         self._home_media_factory = factory
         if self._running and self._active_nav == "HOME":
             self._show_home()
+    def set_vehicle_configuration_observer(
+        self,
+        observer: Callable[[VehicleConfiguration], None] | None,
+    ) -> None:
+        self._vehicle_configuration_observer = observer
+
     def set_volume_request_handler(
         self,
         handler: VolumeRequestHandlerIf | None,
@@ -188,6 +213,13 @@ class OrcUiApp(VolumeUiIf):
             self._context_rail.update_vehicle_state(state)
         if self._vehicle_panel is not None and self._vehicle_panel.winfo_exists():
             self._vehicle_panel.update_state(state)
+    def apply_engine_analysis(self, analysis: EngineAnalysis) -> None:
+        if self._closing:
+            return
+        self._engine_analysis = analysis
+        if self._vehicle_panel is not None and self._vehicle_panel.winfo_exists():
+            self._vehicle_panel.update_engine_analysis(analysis)
+
     def apply_trip_state(self, state: TripPresentationState) -> None:
         """Apply already-presented trip state to mounted shell widgets."""
         if self._closing:
@@ -487,6 +519,7 @@ class OrcUiApp(VolumeUiIf):
             trip_state=self._trip_state,
             theme_bundle=self._theme,
             vehicle_configuration=self._vehicle_configuration,
+            engine_analysis=self._engine_analysis,
         )
         self._vehicle_panel.pack(fill=tk.BOTH, expand=True)
     def _show_settings_panel(self) -> None:
@@ -509,6 +542,8 @@ class OrcUiApp(VolumeUiIf):
         self._vehicle_configuration = configuration
         if self._save_vehicle_configuration is not None:
             self._save_vehicle_configuration(configuration)
+        if self._vehicle_configuration_observer is not None:
+            self._vehicle_configuration_observer(configuration)
         if self._vehicle_panel is not None and self._vehicle_panel.winfo_exists():
             self._vehicle_panel.set_vehicle_configuration(configuration)
 
