@@ -15,11 +15,17 @@ from protocols.obd2.obd2_response import Obd2Response
 class SimulatedObd2Adapter(Obd2AdapterIf):
     """Return configurable raw PID payloads through the production adapter API."""
 
-    def __init__(self, responses: dict[int, bytes] | None = None) -> None:
+    def __init__(
+        self,
+        responses: dict[int, bytes] | None = None,
+        *,
+        auto_advance: bool = False,
+    ) -> None:
         self._connected = False
         self._responses = dict(responses or self.default_responses())
         self.requests: list[Obd2Request] = []
         self._phase = 0.0
+        self._auto_advance = auto_advance
 
     @property
     def is_connected(self) -> bool:
@@ -107,6 +113,17 @@ class SimulatedObd2Adapter(Obd2AdapterIf):
         if not self._connected:
             raise RuntimeError("simulated OBD-II adapter is not connected")
         self.requests.append(request)
+        if self._auto_advance and request.mode == 0x01 and request.pid not in {
+            0x00,
+            0x20,
+            0x40,
+            0x60,
+            0x80,
+            0xA0,
+            0xC0,
+            0xE0,
+        }:
+            self.advance(step_radians=0.05)
         if request.mode != 0x01 or request.pid is None:
             return ()
         data = self._responses.get(request.pid)
