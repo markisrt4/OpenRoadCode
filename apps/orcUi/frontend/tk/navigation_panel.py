@@ -68,6 +68,7 @@ class NavigationPanel(tk.Frame):
         self._map_host: tk.Frame
         self._follow_button: tk.Button
         self._simulate_button: tk.Button
+        self._cancel_route_button: tk.Button
         self._build()
         self._schedule_renderer_refresh()
         self.after(100, self._poll_poi_events)
@@ -133,6 +134,21 @@ class NavigationPanel(tk.Frame):
             state=tk.DISABLED,
         )
         self._simulate_button.pack(side=tk.RIGHT, padx=(4, 8), pady=3)
+        self._cancel_route_button = tk.Button(
+            guidance,
+            text="CANCEL ROUTE",
+            command=self._cancel_route,
+            bg=ui.control_background,
+            fg=ui.accent_danger,
+            activebackground=ui.control_active,
+            activeforeground="#ffffff",
+            relief=tk.FLAT,
+            highlightthickness=1,
+            highlightbackground=ui.border,
+            font=("Sans", 8, "bold"),
+            state=tk.DISABLED,
+        )
+        self._cancel_route_button.pack(side=tk.RIGHT, padx=(4, 2), pady=3)
         tk.Label(guidance, textvariable=self._guidance_detail, bg=ui.surface, fg=ui.text_muted, font=("Sans", 8), anchor="e").pack(side=tk.RIGHT, padx=(6, 4), pady=4)
 
         body = tk.Frame(self, bg=ui.background); body.grid(row=1, column=0, sticky="nsew"); body.grid_rowconfigure(0, weight=1); body.grid_columnconfigure(0, weight=1)
@@ -293,6 +309,10 @@ class NavigationPanel(tk.Frame):
         self.after(3500,lambda:self._shortcut_status.set(""))
 
     def _update_simulation_button(self) -> None:
+        if hasattr(self, "_cancel_route_button"):
+            self._cancel_route_button.configure(
+                state=tk.NORMAL if self._route_active else tk.DISABLED
+            )
         if not hasattr(self, "_simulate_button"):
             return
         if self._route_simulation_handler is None or not self._route_active:
@@ -302,6 +322,21 @@ class NavigationPanel(tk.Frame):
             text="STOP SIM" if self._simulation_active else "SIM DRIVE",
             state=tk.NORMAL,
         )
+
+    def _cancel_route(self) -> None:
+        try:
+            if self._simulation_active and self._route_simulation_handler is not None:
+                self._route_simulation_handler.request_stop_route_simulation()
+            self._route_request_handler.request_cancel_route()
+        except Exception as error:
+            self._shortcut_status.set(f"Cancel route failed: {error}")
+            return
+        self._route_active = False
+        self._simulation_active = False
+        self._guidance_instruction.set("")
+        self._guidance_detail.set("")
+        self._shortcut_status.set("Route cancelled")
+        self._update_simulation_button()
 
     def _toggle_route_simulation(self) -> None:
         handler = self._route_simulation_handler
