@@ -267,6 +267,7 @@ int main() {
                 auto* poiSource = static_cast<mbgl::style::GeoJSONSource*>(source);
                 try {
                     poiSource->setGeoJSON(mapbox::geojson::parse(command->geojson));
+                    view.setPoiResultsJson(command->geojson);
                     view.invalidate();
                 } catch (const std::exception& error) {
                     std::cerr << "[map_renderer] failed to parse POI result GeoJSON: "
