@@ -19,6 +19,8 @@ public:
         double longitude
     );
 
+    void publishManualCameraInteraction();
+
     void publishPoiSearchResult(
         const std::string& category,
         int count,
