@@ -8,7 +8,10 @@ from datetime import datetime
 from typing import TypeVar
 
 from controllers.automotive.vehicle_state import VehicleState
-from controllers.automotive.obd2.obd2_poll_scheduler import Obd2PollScheduler
+from controllers.automotive.obd2.obd2_poll_scheduler import (
+    Obd2PollingProfile,
+    Obd2PollScheduler,
+)
 from controllers.automotive.vehicle_state_source_if import VehicleStateSourceIf
 from protocols.obd2 import Obd2AdapterIf, Obd2Error, Obd2Request
 from protocols.obd2.obd_pid_decoder import ObdPidDecoder
@@ -100,18 +103,40 @@ class Obd2Manager(VehicleStateSourceIf):
             manifold_pressure=self._map_pid,
             standard=(
                 self._throttle_pid,
-                self._commanded_throttle_pid,
+                self._engine_load_pid,
+                self._equivalence_ratio_pid,
+                self._fuel_rate_pid,
+                self._maf_pid,
+            ),
+            performance=(
+                self._throttle_pid,
+                self._engine_load_pid,
+                self._ignition_timing_pid,
+            ),
+            engine=(
                 self._engine_load_pid,
                 self._absolute_engine_load_pid,
+                self._coolant_pid,
+                self._intake_temp_pid,
+                self._ignition_timing_pid,
+                self._voltage_pid,
+            ),
+            ecu=(
                 self._fuel_system_status_pid,
                 self._short_term_fuel_trim_pid,
                 self._long_term_fuel_trim_pid,
                 self._ignition_timing_pid,
                 self._equivalence_ratio_pid,
                 self._measured_equivalence_ratio_pid,
+                self._absolute_engine_load_pid,
+                self._commanded_throttle_pid,
                 self._fuel_rail_pressure_pid,
+            ),
+            trip=(
                 self._fuel_rate_pid,
-                self._maf_pid,
+                self._equivalence_ratio_pid,
+                self._engine_load_pid,
+                self._fuel_level_pid,
             ),
             slow=(
                 self._accelerator_pedal_pid,
@@ -126,6 +151,20 @@ class Obd2Manager(VehicleStateSourceIf):
 
     def disconnect(self) -> None:
         self._adapter.disconnect()
+
+    @property
+    def polling_profile(self) -> Obd2PollingProfile:
+        scheduler = self._scheduler
+        return (
+            Obd2PollingProfile.NORMAL
+            if scheduler is None
+            else scheduler.profile
+        )
+
+    def set_polling_profile(self, profile: Obd2PollingProfile) -> None:
+        """Apply a telemetry-priority hint without changing request rate."""
+        if self._scheduler is not None:
+            self._scheduler.set_profile(profile)
 
     @property
     def supported_pids(self) -> frozenset[int] | None:
