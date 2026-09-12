@@ -7,6 +7,7 @@
 #include <rapidjson/stringbuffer.h>
 #include <rapidjson/writer.h>
 #include <utility>
+#include <limits>
 
 namespace {
 constexpr const char* kPoiSelectedTopic = "map.poi.selected";
@@ -66,7 +67,8 @@ void MapEventPublisher::publishMapClick(
     double latitude,
     double longitude,
     double selectionRadiusM,
-    const std::string& markerId)
+    const std::string& markerId,
+    std::size_t markerIndex)
 {
     rapidjson::Document document;
     document.SetObject();
@@ -75,6 +77,9 @@ void MapEventPublisher::publishMapClick(
     document.AddMember("longitude", longitude, allocator);
     document.AddMember("selection_radius_m", selectionRadiusM, allocator);
     document.AddMember("marker_id", rapidjson::Value(markerId.c_str(), allocator), allocator);
+    if (markerIndex != std::numeric_limits<std::size_t>::max()) {
+        document.AddMember("marker_index", static_cast<uint64_t>(markerIndex), allocator);
+    }
     publishJson(kMapClickTopic, jsonString(document));
 }
 
