@@ -65,7 +65,8 @@ void MapEventPublisher::publishManualCameraInteraction()
 void MapEventPublisher::publishMapClick(
     double latitude,
     double longitude,
-    double selectionRadiusM)
+    double selectionRadiusM,
+    const std::string& markerId)
 {
     rapidjson::Document document;
     document.SetObject();
@@ -73,6 +74,7 @@ void MapEventPublisher::publishMapClick(
     document.AddMember("latitude", latitude, allocator);
     document.AddMember("longitude", longitude, allocator);
     document.AddMember("selection_radius_m", selectionRadiusM, allocator);
+    document.AddMember("marker_id", rapidjson::Value(markerId.c_str(), allocator), allocator);
     publishJson(kMapClickTopic, jsonString(document));
 }
 
