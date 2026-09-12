@@ -239,7 +239,9 @@ class NavigationPanel(tk.Frame):
                 noun=result.category.name.casefold(); suffix="s" if result.count!=1 else ""; self._shortcut_status.set(f"{result.count} {noun} result{suffix}")
             else:self._shortcut_status.set(f"No {result.category.name.casefold()} results nearby")
         poi=self._poi_controller.poll_selected()
-        if poi is not None:self._show_poi_card(poi)
+        if poi is not None:
+            print(f"[orcUi] showing POI business popup for {poi.name!r}")
+            self._show_poi_card(poi)
         if self.winfo_exists():self.after(100,self._poll_poi_events)
 
     def _show_poi_card(self, poi: PointOfInterest) -> None:
