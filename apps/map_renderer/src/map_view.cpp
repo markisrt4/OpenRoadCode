@@ -23,6 +23,7 @@
 #include <iostream>
 #include <limits>
 #include <optional>
+#include <rapidjson/document.h>
 #include <string>
 
 namespace {
@@ -51,48 +52,71 @@ MapView::~MapView(){if(window){glfwDestroyWindow(window);window=nullptr;}glfwTer
 float MapView::getPixelRatio()const{return pixelRatio;} mbgl::Size MapView::getSize()const{return{static_cast<uint32_t>(width),static_cast<uint32_t>(height)};} mbgl::gfx::RendererBackend& MapView::getRendererBackend(){return backend->getRendererBackend();} void MapView::setMap(mbgl::Map* value){map=value;} void MapView::setRendererFrontend(MapRendererFrontend* value){rendererFrontend=value;} void MapView::showWindow(){} void MapView::setShouldClose(){glfwSetWindowShouldClose(window,GLFW_TRUE);glfwPostEmptyEvent();}
 void MapView::onWindowResize(GLFWwindow* window,int w,int h){auto* v=static_cast<MapView*>(glfwGetWindowUserPointer(window));if(!v)return;v->width=w;v->height=h;if(v->map)v->map->setSize({static_cast<uint32_t>(w),static_cast<uint32_t>(h)});}
 void MapView::onFramebufferResize(GLFWwindow* window,int w,int h){auto* v=static_cast<MapView*>(glfwGetWindowUserPointer(window));if(!v)return;v->backend->setSize({static_cast<uint32_t>(w),static_cast<uint32_t>(h)});v->invalidate();}
-void MapView::onScroll(GLFWwindow* window,double,double y){auto* v=static_cast<MapView*>(glfwGetWindowUserPointer(window));if(!v||!v->map)return;const double delta=y*40.0;double scale=2.0/(1.0+std::exp(-std::abs(delta)/100.0));if(delta<0)scale=1.0/scale;const mbgl::ScreenCoordinate anchor{v->lastX,v->lastY};v->map->scaleBy(scale,anchor);}
+void MapView::onScroll(GLFWwindow* window,double,double y){auto* v=static_cast<MapView*>(glfwGetWindowUserPointer(window));if(!v||!v->map)return;const double delta=y*40.0;double scale=2.0/(1.0+std::exp(-std::abs(delta)/100.0));if(delta<0)scale=1.0/scale;const mbgl::ScreenCoordinate anchor{static_cast<double>(v->width)/2.0,static_cast<double>(v->height)/2.0};v->map->scaleBy(scale,anchor);}
 void MapView::onMouseClick(GLFWwindow* window,int button,int action,int modifiers){auto* v=static_cast<MapView*>(glfwGetWindowUserPointer(window));if(!v||!v->map||button!=GLFW_MOUSE_BUTTON_LEFT)return;if(action==GLFW_PRESS){v->pressX=v->lastX;v->pressY=v->lastY;}v->tracking=action==GLFW_PRESS;v->map->setGestureInProgress(v->tracking);if(action==GLFW_RELEASE){const double moved=std::hypot(v->lastX-v->pressX,v->lastY-v->pressY);const double now=glfwGetTime();if(now-v->lastClick<0.4){const mbgl::ScreenCoordinate anchor{v->lastX,v->lastY};v->map->scaleBy(modifiers&GLFW_MOD_SHIFT?0.5:2.0,anchor,mbgl::AnimationOptions{{mbgl::Milliseconds(500)}});}else if(moved<8.0)v->selectPoiAt(v->lastX,v->lastY);v->lastClick=now;}}
+void MapView::setPoiResultsJson(const std::string& geojson){
+    poiResults.clear();
+
+    rapidjson::Document document;
+    document.Parse(geojson.c_str());
+    if(document.HasParseError()||!document.IsObject()||!document.HasMember("features")||!document["features"].IsArray())return;
+
+    for(const auto& feature:document["features"].GetArray()){
+        if(!feature.IsObject()||!feature.HasMember("geometry")||!feature["geometry"].IsObject())continue;
+        const auto& geometry=feature["geometry"];
+        if(!geometry.HasMember("type")||!geometry["type"].IsString()||std::string(geometry["type"].GetString())!="Point")continue;
+        if(!geometry.HasMember("coordinates")||!geometry["coordinates"].IsArray())continue;
+        const auto& coordinates=geometry["coordinates"];
+        if(coordinates.Size()<2||!coordinates[0].IsNumber()||!coordinates[1].IsNumber())continue;
+
+        CachedPoiResult result;
+        result.longitude=coordinates[0].GetDouble();
+        result.latitude=coordinates[1].GetDouble();
+
+        if(feature.HasMember("properties")&&feature["properties"].IsObject()){
+            const auto& properties=feature["properties"];
+            auto readString=[&properties](const char* key)->std::string{
+                return properties.HasMember(key)&&properties[key].IsString()?properties[key].GetString():"";
+            };
+            result.id=readString("id");
+            result.name=readString("name");
+            result.category=readString("category");
+            result.brand=readString("brand");
+            result.sourceClass=readString("class");
+            result.sourceSubclass=readString("subclass");
+        }
+
+        if(!result.name.empty())poiResults.push_back(std::move(result));
+    }
+}
+
 void MapView::selectPoiAt(double x,double y){
-    if(!map||!rendererFrontend||!rendererFrontend->getRenderer()||!poiSelectedCallback)return;
+    if(!map||!poiSelectedCallback)return;
 
-    const mbgl::SourceQueryOptions options{{}, {}};
-    const auto features=rendererFrontend->getRenderer()->querySourceFeatures("poi-results",options);
+    const CachedPoiResult* nearest=nullptr;
+    double nearestDistancePx=32.0;
 
-    const mbgl::Feature* nearest=nullptr;
-    std::optional<mbgl::LatLng> nearestCoordinate;
-    double nearestDistancePx=28.0;
-
-    for(const auto& feature:features){
-        const auto coordinate=pointCoordinate(feature);
-        if(!coordinate)continue;
-        const auto pixel=map->pixelForLatLng(*coordinate);
+    for(const auto& result:poiResults){
+        const auto pixel=map->pixelForLatLng({result.latitude,result.longitude});
         const double distancePx=std::hypot(pixel.x-x,pixel.y-y);
         if(distancePx>nearestDistancePx)continue;
-        nearest=&feature;
-        nearestCoordinate=coordinate;
+        nearest=&result;
         nearestDistancePx=distancePx;
     }
 
-    if(nearest==nullptr||!nearestCoordinate){
-        std::cout<<"[map_renderer] POI click miss x="<<x<<" y="<<y<<'\n';
+    if(nearest==nullptr){
+        std::cout<<"[map_renderer] POI click miss x="<<x<<" y="<<y<<" cached="<<poiResults.size()<<'\n';
         return;
     }
 
-    std::string name=stringProperty(*nearest,"name");
-    if(name.empty())return;
-    const auto brand=stringProperty(*nearest,"brand");
-    auto sourceClass=stringProperty(*nearest,"class");
-    if(sourceClass.empty())sourceClass=stringProperty(*nearest,"category");
-    const auto sourceSubclass=stringProperty(*nearest,"subclass");
-    std::cout<<"[map_renderer] selected POI: "<<name<<'\n';
+    std::cout<<"[map_renderer] selected POI: "<<nearest->name<<'\n';
     poiSelectedCallback(
-        name,
-        brand,
-        sourceClass,
-        sourceSubclass,
-        nearestCoordinate->latitude(),
-        nearestCoordinate->longitude());
+        nearest->name,
+        nearest->brand,
+        nearest->sourceClass.empty()?nearest->category:nearest->sourceClass,
+        nearest->sourceSubclass,
+        nearest->latitude,
+        nearest->longitude);
 }
 PoiSearchResult MapView::searchVisiblePois(const std::string& category)const{PoiSearchResult result;if(!map||!rendererFrontend||!rendererFrontend->getRenderer())return result;const auto topLeft=map->latLngForPixel({0.0,0.0});const auto bottomRight=map->latLngForPixel({static_cast<double>(width),static_cast<double>(height)});const double viewportSouth=std::min(topLeft.latitude(),bottomRight.latitude());const double viewportNorth=std::max(topLeft.latitude(),bottomRight.latitude());const double viewportWest=std::min(topLeft.longitude(),bottomRight.longitude());const double viewportEast=std::max(topLeft.longitude(),bottomRight.longitude());const mbgl::SourceQueryOptions options{{{"poi"}}, {}};const auto features=rendererFrontend->getRenderer()->querySourceFeatures("openroad",options);double south=std::numeric_limits<double>::max(),west=std::numeric_limits<double>::max(),north=std::numeric_limits<double>::lowest(),east=std::numeric_limits<double>::lowest();std::size_t sampleCount=0;for(const auto& feature:features){const auto coordinate=pointCoordinate(feature);if(!coordinate)continue;const double lat=coordinate->latitude(),lon=coordinate->longitude();if(lat<viewportSouth||lat>viewportNorth||lon<viewportWest||lon>viewportEast)continue;if(sampleCount<kPoiSampleLimit){++sampleCount;logPoiSample(feature,sampleCount);}if(!categoryMatches(feature,category))continue;++result.count;south=std::min(south,lat);north=std::max(north,lat);west=std::min(west,lon);east=std::max(east,lon);}if(result.count>0){result.south=south;result.west=west;result.north=north;result.east=east;}std::cout<<"[map_renderer] POI search category="<<category<<" source_features="<<features.size()<<" visible_samples="<<sampleCount<<" matches="<<result.count<<'\n';return result;}
 void MapView::onMouseMove(GLFWwindow* window,double x,double y){auto* v=static_cast<MapView*>(glfwGetWindowUserPointer(window));if(!v||!v->map)return;if(v->tracking){const double dx=x-v->lastX,dy=y-v->lastY;if(dx!=0||dy!=0)v->map->moveBy({dx,dy});}v->lastX=x;v->lastY=y;}
