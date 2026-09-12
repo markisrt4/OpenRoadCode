@@ -7,6 +7,7 @@
 #include <mbgl/util/run_loop.hpp>
 #include <mbgl/util/timer.hpp>
 
+#include <cstddef>
 #include <functional>
 #include <memory>
 #include <string>
