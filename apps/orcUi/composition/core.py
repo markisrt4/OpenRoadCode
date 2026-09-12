@@ -58,7 +58,7 @@ class CoreComposition:
                     finally:
                         try:
                             self.map_camera.close()
-                    finally:
+                        finally:
                             self.map_runtime.stop()
 
 
