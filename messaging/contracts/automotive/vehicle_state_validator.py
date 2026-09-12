@@ -45,7 +45,6 @@ RATIO_FIELDS = {
     "throttle_position",
     "accelerator_pedal_position",
     "engine_load",
-    "absolute_engine_load",
     "commanded_throttle_position",
     "fuel_level",
 }
@@ -58,6 +57,7 @@ NONNEGATIVE_FIELDS = {
     "engine_fuel_rate_m3_s",
     "control_voltage_v",
     "fuel_rail_pressure_pa",
+    "absolute_engine_load",
 }
 TEMPERATURE_FIELDS = {"coolant_temperature_k", "intake_air_temperature_k"}
 VALID_GEARS = {-1, 0, 1, 2, 3, 4, 5, 6}
