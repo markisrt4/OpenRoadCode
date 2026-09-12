@@ -7,8 +7,12 @@ import pytest
 
 from controllers.automotive import EngineInductionType, VehicleConfiguration
 from controllers.automotive.engine_analysis import (
+    EngineLoadLevel,
     EngineOperatingMode,
     FuelControlMode,
+    FuelCorrectionStatus,
+    MixtureMode,
+    TrackingQuality,
 )
 from controllers.automotive.engine_analyzer import EngineAnalyzer
 from controllers.automotive.vehicle_state import VehicleState
@@ -43,6 +47,11 @@ def test_cruise_analysis_combines_reported_ecu_facts() -> None:
 
     assert analysis.operating_mode is EngineOperatingMode.CRUISE
     assert analysis.fuel_control_mode is FuelControlMode.CLOSED_LOOP
+    assert analysis.mixture_mode is MixtureMode.STOICHIOMETRIC
+    assert analysis.mixture_tracking is TrackingQuality.GOOD
+    assert analysis.throttle_tracking is TrackingQuality.GOOD
+    assert analysis.fuel_correction_status is FuelCorrectionStatus.NORMAL
+    assert analysis.load_level is EngineLoadLevel.MODERATE
     assert analysis.engine_running is True
     assert analysis.warmed_up is True
     assert analysis.high_load is False
@@ -67,7 +76,9 @@ def test_high_load_and_enrichment_are_derived() -> None:
         )
     )
 
-    assert analysis.operating_mode is EngineOperatingMode.HIGH_LOAD
+    assert analysis.operating_mode is EngineOperatingMode.ACCELERATION
+    assert analysis.load_level is EngineLoadLevel.HIGH
+    assert analysis.mixture_mode is MixtureMode.RICH
     assert analysis.high_load is True
     assert analysis.enrichment_active is True
     assert analysis.forced_induction_active is True
@@ -111,6 +122,11 @@ def test_missing_telemetry_remains_unknown_instead_of_invented() -> None:
 
     assert analysis.operating_mode is EngineOperatingMode.UNKNOWN
     assert analysis.fuel_control_mode is FuelControlMode.UNKNOWN
+    assert analysis.mixture_mode is MixtureMode.UNKNOWN
+    assert analysis.mixture_tracking is TrackingQuality.UNKNOWN
+    assert analysis.throttle_tracking is TrackingQuality.UNKNOWN
+    assert analysis.fuel_correction_status is FuelCorrectionStatus.UNKNOWN
+    assert analysis.load_level is EngineLoadLevel.UNKNOWN
     assert analysis.engine_running is None
     assert analysis.warmed_up is None
     assert analysis.high_load is None
