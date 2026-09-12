@@ -148,6 +148,41 @@ def test_selected_restaurant_is_enriched_with_order_action() -> None:
     assert order.uri is None
 
 
+def test_map_click_marker_index_selects_exact_visible_poi() -> None:
+    panera = PointOfInterest(
+        poi_id="panera",
+        name="Panera Bread",
+        category=PoiCategory.FOOD,
+        position=GeoPoint(math.radians(42.8000), math.radians(-83.0000)),
+    )
+    other = PointOfInterest(
+        poi_id="other",
+        name="Other Cafe",
+        category=PoiCategory.FOOD,
+        position=GeoPoint(math.radians(42.8020), math.radians(-83.0020)),
+    )
+    source = FakeMapPoiSource(
+        click=RawMapClick(
+            position=GeoPoint(0.0, 0.0),
+            selection_radius_m=1.0,
+            marker_id="panera",
+            marker_index=0,
+        )
+    )
+    controller = PoiSearchController(
+        source,  # type: ignore[arg-type]
+        search_source=FakeSearchSource((panera, other)),
+        position_provider=_position,
+    )
+
+    controller.search(PoiCategory.FOOD)
+    controller.poll_search_result()
+    selected = controller.poll_selected()
+
+    assert selected is not None
+    assert selected.poi_id == "panera"
+
+
 def test_map_click_selects_nearest_visible_poi_and_enriches_business() -> None:
     panera = PointOfInterest(
         poi_id="panera",
