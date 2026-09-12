@@ -255,6 +255,8 @@ class Obd2Manager(VehicleStateSourceIf):
 
     def _update_cached_value(self, decoder: ObdPidDecoder) -> None:
         value = self._read(decoder)
+        if value is None:
+            return
         pid = decoder.pid
         if pid == self._rpm_pid.pid:
             self._rpm = value
@@ -271,11 +273,7 @@ class Obd2Manager(VehicleStateSourceIf):
         elif pid == self._absolute_engine_load_pid.pid:
             self._absolute_engine_load_pct = value
         elif pid == self._fuel_system_status_pid.pid:
-            if value is None:
-                self._fuel_system_status_1 = None
-                self._fuel_system_status_2 = None
-            else:
-                self._fuel_system_status_1, self._fuel_system_status_2 = value
+            self._fuel_system_status_1, self._fuel_system_status_2 = value
         elif pid == self._short_term_fuel_trim_pid.pid:
             self._short_term_fuel_trim_pct = value
         elif pid == self._long_term_fuel_trim_pid.pid:
