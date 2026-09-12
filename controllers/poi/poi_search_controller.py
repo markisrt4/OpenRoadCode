@@ -70,8 +70,16 @@ class PoiSearchController(PoiSearchControllerIf):
         print(
             "[poi-controller] resolving click "
             f"against {len(self._visible_pois)} visible POIs "
-            f"radius_m={click.selection_radius_m:.1f}"
+            f"radius_m={click.selection_radius_m:.1f} "
+            f"marker_id={click.marker_id!r}"
         )
+        if click.marker_id is not None:
+            for poi in self._visible_pois:
+                if poi.poi_id == click.marker_id:
+                    print(f"[poi-controller] selected by marker id {poi.name!r}")
+                    return enrich_poi(poi)
+            print(f"[poi-controller] marker id not found: {click.marker_id!r}")
+
         nearest: PointOfInterest | None = None
         nearest_distance_m = click.selection_radius_m
         for poi in self._visible_pois:
