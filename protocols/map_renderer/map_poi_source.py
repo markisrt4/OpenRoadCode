@@ -35,6 +35,7 @@ class RawMapPoi:
 class RawMapClick:
     position: GeoPoint
     selection_radius_m: float
+    marker_id: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -111,7 +112,8 @@ class MapPoiSource:
                         "[map-poi] received click "
                         f"lat={math.degrees(click.position.latitude_rad):.7f} "
                         f"lon={math.degrees(click.position.longitude_rad):.7f} "
-                        f"radius_m={click.selection_radius_m:.1f}"
+                        f"radius_m={click.selection_radius_m:.1f} "
+                        f"marker_id={click.marker_id!r}"
                     )
                     self._click_queue.put(click)
                 else:
@@ -157,6 +159,7 @@ class MapPoiSource:
         latitude = payload.get("latitude")
         longitude = payload.get("longitude")
         radius = payload.get("selection_radius_m")
+        marker_id = payload.get("marker_id")
         if not isinstance(latitude, (int, float)) or not isinstance(longitude, (int, float)):
             return None
         if not isinstance(radius, (int, float)) or float(radius) <= 0.0:
@@ -167,6 +170,7 @@ class MapPoiSource:
                 longitude_rad=math.radians(float(longitude)),
             ),
             selection_radius_m=float(radius),
+            marker_id=marker_id if isinstance(marker_id, str) and marker_id else None,
         )
 
     @staticmethod
