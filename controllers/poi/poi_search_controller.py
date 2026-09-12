@@ -67,6 +67,11 @@ class PoiSearchController(PoiSearchControllerIf):
         if click is None:
             return None
 
+        print(
+            "[poi-controller] resolving click "
+            f"against {len(self._visible_pois)} visible POIs "
+            f"radius_m={click.selection_radius_m:.1f}"
+        )
         nearest: PointOfInterest | None = None
         nearest_distance_m = click.selection_radius_m
         for poi in self._visible_pois:
@@ -74,7 +79,14 @@ class PoiSearchController(PoiSearchControllerIf):
             if distance_m <= nearest_distance_m:
                 nearest = poi
                 nearest_distance_m = distance_m
-        return None if nearest is None else enrich_poi(nearest)
+        if nearest is None:
+            print("[poi-controller] click matched no visible POI")
+            return None
+        print(
+            f"[poi-controller] selected {nearest.name!r} "
+            f"distance_m={nearest_distance_m:.1f}"
+        )
+        return enrich_poi(nearest)
 
     def poll_search_result(self) -> PoiSearchResult | None:
         result, self._pending_search_result = self._pending_search_result, None
