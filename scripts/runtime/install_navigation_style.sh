@@ -23,8 +23,19 @@ if [[ ! -d "$DATA_ROOT/maps" ]]; then
   exit 0
 fi
 
+# Keep the complete style path traversable by the non-root ORC runtime user.
+# Existing map data may be root-owned, but the renderer must be able to walk
+# DATA_ROOT/maps/styles and read the style JSON.
+sudo install -d -m 0755 "$DATA_ROOT"
+sudo install -d -m 0755 "$DATA_ROOT/maps"
 sudo install -d -m 0755 "$(dirname -- "$STYLE_DESTINATION")"
+sudo chmod 0755 "$DATA_ROOT" "$DATA_ROOT/maps" "$(dirname -- "$STYLE_DESTINATION")"
 sudo install -m 0644 "$STYLE_TEMPLATE" "$STYLE_DESTINATION"
+
+if [[ ! -r "$STYLE_DESTINATION" ]]; then
+  echo "Navigation style is not readable by $(id -un): $STYLE_DESTINATION" >&2
+  exit 1
+fi
 
 echo "[+] Navigation map style installed"
 echo "    source:      $STYLE_TEMPLATE"
