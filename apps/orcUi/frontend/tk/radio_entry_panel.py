@@ -29,12 +29,14 @@ class LaunchAwareRadioPanel(RadioPanel):
         embedder: X11WindowEmbedder,
         theme: ThemeBundle,
         rf_active: Callable[[], bool] | None = None,
+        release_rf: Callable[[], None] | None = None,
     ) -> None:
         super().__init__(
             parent,
             embedder=embedder,
             theme=theme,
             rf_active=rf_active,
+            release_rf=release_rf,
         )
         self._launch_status = tk.Label(
             self._host,
@@ -128,6 +130,8 @@ class RadioEntryPanel(tk.Frame):
                 embedder=self._embedder,
                 theme=self._theme,
                 rf_active=lambda: self._radio_application.presented,
+            release_rf=self._radio_application.relinquish_for_adsb,
+            release_rf=self._radio_application.relinquish_for_adsb,
             )
             self._radio_panel.grid(row=0, column=0, sticky="nsew")
             self._radio_panel.hide_loading()
