@@ -5,6 +5,7 @@ import math
 import unittest
 from unittest.mock import patch
 
+from controllers.automotive import AutomotiveTelemetryProfile
 from controllers.automotive.obd2.elm327_obd_adapter import Elm327ObdAdapter
 from controllers.automotive.obd2.obd2_manager import Obd2Manager
 from hardware_io.automotive.elm327 import (
@@ -129,6 +130,7 @@ class Obd2ManagerTests(unittest.TestCase):
     def test_read_state_performs_one_physical_pid_request(self) -> None:
         adapter = FakeObd2Adapter()
         manager = Obd2Manager(adapter)
+        manager.set_telemetry_profile(AutomotiveTelemetryProfile.PERFORMANCE)
 
         state = manager.read_state()
 
