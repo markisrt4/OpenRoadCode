@@ -200,6 +200,7 @@ class RadioPanel(tk.Frame):
 
     def _show_adsb(self) -> None:
         ui = self._theme.ui
+        scheme = "light" if self._theme == theme_bundle(ThemeMode.LIGHT) else "dark"
         self._active_group = "AIR:ADSB"
         self._paint_groups()
         self._telemetry_worker.set_include_rds(False)
@@ -207,6 +208,7 @@ class RadioPanel(tk.Frame):
         try:
             self._embedder.detach(parent_window_id)
             self.update_idletasks()
+            self._adsb.set_preferred_color_scheme(scheme)
             self._adsb.configure_browser_window(position=(self._host.winfo_rootx(), self._host.winfo_rooty()), size=(max(1, self._host.winfo_width()), max(1, self._host.winfo_height())))
             self._adsb.launch(self._display)
             self.update_idletasks()
