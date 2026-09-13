@@ -113,15 +113,27 @@ KONNWEI path measured about 170 ms per request, or roughly six physical OBD
 transactions per second. `request_rate_hz` therefore represents a physical
 request budget, not a per-signal refresh rate.
 
-`Obd2Manager` performs at most one PID request per service tick and uses a
-weighted 12-slot schedule:
+`Obd2Manager` performs at most one PID request per service tick and returns a
+complete snapshot from cached values. The active `AutomotiveTelemetryProfile`
+changes how that scarce request budget is spent:
 
-`RPM, MAP, RPM, STANDARD, RPM, MAP, STANDARD, RPM, SLOW, MAP, STANDARD, RPM`
+- `HOME` keeps glance telemetry fresh while preserving Trip inputs.
+- `PERFORMANCE` strongly favors RPM and MAP/boost.
+- `ENGINE` favors temperatures, load, and engine-health measurements.
+- `ECU` favors trims, lambda, load, throttle-control, timing, and fuel-control data.
+- `TRIP` favors fuel and trip-accounting inputs.
+- `BACKGROUND` is deliberately Trip-biased while keeping low-rate engine context.
 
-At six requests/second this targets approximately 2.5 Hz RPM, 1.5 Hz MAP,
-1.5 standard-lane requests/second, and 0.5 slow-lane requests/second.
-STANDARD and SLOW independently rotate through supported PIDs, and unsupported
-PIDs discovered during Mode 01 capability discovery are omitted entirely.
+Unsupported PIDs discovered during Mode 01 capability discovery are omitted
+entirely. A transient missing response does not erase the last valid cached
+measurement.
+
+The profile is a semantic priority hint, not an ELM327 contract. A future
+passive-CAN or other automotive source may interpret the same profile
+differently or ignore it when all signals are already available continuously.
+
+See [Automotive Architecture](../../docs/automotive_architecture.md) for the
+full source, domain, scheduling, ECU-analysis, Trip, and UI boundaries.
 
 Road speed is not polled from OBD. Navigation ground motion owns vehicle speed
 and is composed with the cached OBD engine state before publication.

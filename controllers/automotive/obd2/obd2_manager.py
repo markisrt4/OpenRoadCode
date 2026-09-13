@@ -7,24 +7,36 @@ import math
 from datetime import datetime
 from typing import TypeVar
 
+from controllers.automotive.automotive_telemetry_profile import AutomotiveTelemetryProfile
 from controllers.automotive.vehicle_state import VehicleState
-from controllers.automotive.obd2.obd2_poll_scheduler import Obd2PollScheduler
+from controllers.automotive.obd2.obd2_poll_scheduler import (
+    Obd2PollingProfile,
+    Obd2PollScheduler,
+)
 from controllers.automotive.vehicle_state_source_if import VehicleStateSourceIf
 from protocols.obd2 import Obd2AdapterIf, Obd2Error, Obd2Request
 from protocols.obd2.obd_pid_decoder import ObdPidDecoder
 from protocols.obd2.obd_pids import (
+    AbsoluteEngineLoadPid,
     AcceleratorPedalPositionPid,
     BarometricPressurePid,
+    CommandedThrottleActuatorPid,
     CommandedEquivalenceRatioPid,
     ControlModuleVoltagePid,
     CoolantTempPid,
+    FuelRailGaugePressurePid,
+    FuelSystemStatusPid,
     EngineLoadPid,
+    IgnitionTimingAdvancePid,
+    LongTermFuelTrimBank1Pid,
     EngineFuelRatePid,
     EngineRpmPid,
     FuelLevelPid,
     IntakeAirTempPid,
     IntakeManifoldPressurePid,
     MassAirFlowPid,
+    OxygenSensor1EquivalenceRatioPid,
+    ShortTermFuelTrimBank1Pid,
     ThrottlePositionPid,
 )
 
@@ -37,14 +49,23 @@ class Obd2Manager(VehicleStateSourceIf):
     def __init__(self, adapter: Obd2AdapterIf) -> None:
         self._adapter = adapter
         self._supported_pids: set[int] | None = None
+        self._polling_profile = Obd2PollingProfile.BACKGROUND
         self._scheduler: Obd2PollScheduler | None = None
 
         self._rpm_pid = EngineRpmPid()
         self._map_pid = IntakeManifoldPressurePid()
         self._baro_pid = BarometricPressurePid()
         self._throttle_pid = ThrottlePositionPid()
+        self._commanded_throttle_pid = CommandedThrottleActuatorPid()
         self._accelerator_pedal_pid = AcceleratorPedalPositionPid()
         self._engine_load_pid = EngineLoadPid()
+        self._absolute_engine_load_pid = AbsoluteEngineLoadPid()
+        self._fuel_system_status_pid = FuelSystemStatusPid()
+        self._short_term_fuel_trim_pid = ShortTermFuelTrimBank1Pid()
+        self._long_term_fuel_trim_pid = LongTermFuelTrimBank1Pid()
+        self._ignition_timing_pid = IgnitionTimingAdvancePid()
+        self._fuel_rail_pressure_pid = FuelRailGaugePressurePid()
+        self._measured_equivalence_ratio_pid = OxygenSensor1EquivalenceRatioPid()
         self._coolant_pid = CoolantTempPid()
         self._intake_temp_pid = IntakeAirTempPid()
         self._maf_pid = MassAirFlowPid()
@@ -56,8 +77,17 @@ class Obd2Manager(VehicleStateSourceIf):
         self._rpm: float | None = None
         self._map_kpa: int | None = None
         self._throttle_pct: float | None = None
+        self._commanded_throttle_pct: float | None = None
         self._accelerator_pedal_pct: float | None = None
         self._engine_load_pct: float | None = None
+        self._absolute_engine_load_pct: float | None = None
+        self._fuel_system_status_1: int | None = None
+        self._fuel_system_status_2: int | None = None
+        self._short_term_fuel_trim_pct: float | None = None
+        self._long_term_fuel_trim_pct: float | None = None
+        self._ignition_timing_advance_deg: float | None = None
+        self._fuel_rail_pressure_kpa: float | None = None
+        self._measured_equivalence_ratio: float | None = None
         self._commanded_equivalence_ratio: float | None = None
         self._fuel_rate_lph: float | None = None
         self._baro_kpa: int | None = None
@@ -70,29 +100,24 @@ class Obd2Manager(VehicleStateSourceIf):
     def connect(self) -> None:
         self._adapter.connect()
         self._supported_pids = self._discover_supported_pids()
-        self._scheduler = Obd2PollScheduler(
-            rpm=self._rpm_pid,
-            manifold_pressure=self._map_pid,
-            standard=(
-                self._throttle_pid,
-                self._engine_load_pid,
-                self._equivalence_ratio_pid,
-                self._fuel_rate_pid,
-                self._maf_pid,
-            ),
-            slow=(
-                self._accelerator_pedal_pid,
-                self._baro_pid,
-                self._coolant_pid,
-                self._intake_temp_pid,
-                self._fuel_level_pid,
-                self._voltage_pid,
-            ),
-            supported_pids=self._supported_pids,
-        )
+        self._scheduler = self._create_scheduler()
 
     def disconnect(self) -> None:
         self._adapter.disconnect()
+
+    @property
+    def polling_profile(self) -> Obd2PollingProfile:
+        return self._polling_profile
+
+    def set_polling_profile(self, profile: Obd2PollingProfile) -> None:
+        """Apply an OBD-specific polling profile without changing request rate."""
+        self._polling_profile = profile
+        if self._scheduler is not None:
+            self._scheduler.set_profile(profile)
+
+    def set_telemetry_profile(self, profile: AutomotiveTelemetryProfile) -> None:
+        """Apply a domain-level telemetry-priority hint."""
+        self.set_polling_profile(Obd2PollingProfile(profile.value))
 
     @property
     def supported_pids(self) -> frozenset[int] | None:
@@ -107,26 +132,7 @@ class Obd2Manager(VehicleStateSourceIf):
         """Perform at most one physical PID request and return cached state."""
         scheduler = self._scheduler
         if scheduler is None:
-            scheduler = Obd2PollScheduler(
-                rpm=self._rpm_pid,
-                manifold_pressure=self._map_pid,
-                standard=(
-                    self._throttle_pid,
-                    self._engine_load_pid,
-                    self._equivalence_ratio_pid,
-                    self._fuel_rate_pid,
-                    self._maf_pid,
-                ),
-                slow=(
-                    self._accelerator_pedal_pid,
-                    self._baro_pid,
-                    self._coolant_pid,
-                    self._intake_temp_pid,
-                    self._fuel_level_pid,
-                    self._voltage_pid,
-                ),
-                supported_pids=self._supported_pids,
-            )
+            scheduler = self._create_scheduler()
             self._scheduler = scheduler
 
         decoder = scheduler.next_decoder()
@@ -138,10 +144,25 @@ class Obd2Manager(VehicleStateSourceIf):
             engine_speed_rad_s=self._rpm_to_rad_s(self._rpm),
             vehicle_speed_m_s=None,
             throttle_position=self._percent_to_fraction(self._throttle_pct),
+            commanded_throttle_position=self._percent_to_fraction(
+                self._commanded_throttle_pct
+            ),
             accelerator_pedal_position=self._percent_to_fraction(
                 self._accelerator_pedal_pct
             ),
             engine_load=self._percent_to_fraction(self._engine_load_pct),
+            absolute_engine_load=self._percent_to_fraction(
+                self._absolute_engine_load_pct
+            ),
+            fuel_system_status_1=self._fuel_system_status_1,
+            fuel_system_status_2=self._fuel_system_status_2,
+            short_term_fuel_trim_bank1=self._percent_to_fraction(
+                self._short_term_fuel_trim_pct
+            ),
+            long_term_fuel_trim_bank1=self._percent_to_fraction(
+                self._long_term_fuel_trim_pct
+            ),
+            ignition_timing_advance_deg=self._ignition_timing_advance_deg,
             intake_manifold_pressure_pa=self._kpa_to_pa(self._map_kpa),
             barometric_pressure_pa=self._kpa_to_pa(self._baro_kpa),
             boost_pressure_pa=self._calculate_boost_pa(
@@ -154,13 +175,71 @@ class Obd2Manager(VehicleStateSourceIf):
                 self._intake_temp_c
             ),
             fuel_level=self._percent_to_fraction(self._fuel_level_pct),
+            fuel_rail_pressure_pa=self._kpa_to_pa(self._fuel_rail_pressure_kpa),
             commanded_equivalence_ratio=self._commanded_equivalence_ratio,
+            measured_equivalence_ratio=self._measured_equivalence_ratio,
             engine_fuel_rate_m3_s=self._lph_to_m3_s(self._fuel_rate_lph),
             control_voltage_v=self._control_voltage,
         )
 
+    def _create_scheduler(self) -> Obd2PollScheduler:
+        """Create the OBD scheduler using the currently requested profile."""
+        return Obd2PollScheduler(
+            rpm=self._rpm_pid,
+            manifold_pressure=self._map_pid,
+            standard=(
+                self._throttle_pid,
+                self._engine_load_pid,
+                self._equivalence_ratio_pid,
+                self._fuel_rate_pid,
+                self._maf_pid,
+            ),
+            performance=(
+                self._throttle_pid,
+                self._engine_load_pid,
+                self._ignition_timing_pid,
+            ),
+            engine=(
+                self._engine_load_pid,
+                self._absolute_engine_load_pid,
+                self._coolant_pid,
+                self._intake_temp_pid,
+                self._ignition_timing_pid,
+                self._voltage_pid,
+            ),
+            ecu=(
+                self._fuel_system_status_pid,
+                self._short_term_fuel_trim_pid,
+                self._long_term_fuel_trim_pid,
+                self._ignition_timing_pid,
+                self._equivalence_ratio_pid,
+                self._measured_equivalence_ratio_pid,
+                self._absolute_engine_load_pid,
+                self._commanded_throttle_pid,
+                self._fuel_rail_pressure_pid,
+            ),
+            trip=(
+                self._fuel_rate_pid,
+                self._equivalence_ratio_pid,
+                self._engine_load_pid,
+                self._fuel_level_pid,
+            ),
+            slow=(
+                self._accelerator_pedal_pid,
+                self._baro_pid,
+                self._coolant_pid,
+                self._intake_temp_pid,
+                self._fuel_level_pid,
+                self._voltage_pid,
+            ),
+            supported_pids=self._supported_pids,
+            profile=self._polling_profile,
+        )
+
     def _update_cached_value(self, decoder: ObdPidDecoder) -> None:
         value = self._read(decoder)
+        if value is None:
+            return
         pid = decoder.pid
         if pid == self._rpm_pid.pid:
             self._rpm = value
@@ -168,12 +247,28 @@ class Obd2Manager(VehicleStateSourceIf):
             self._map_kpa = value
         elif pid == self._throttle_pid.pid:
             self._throttle_pct = value
+        elif pid == self._commanded_throttle_pid.pid:
+            self._commanded_throttle_pct = value
         elif pid == self._accelerator_pedal_pid.pid:
             self._accelerator_pedal_pct = value
         elif pid == self._engine_load_pid.pid:
             self._engine_load_pct = value
+        elif pid == self._absolute_engine_load_pid.pid:
+            self._absolute_engine_load_pct = value
+        elif pid == self._fuel_system_status_pid.pid:
+            self._fuel_system_status_1, self._fuel_system_status_2 = value
+        elif pid == self._short_term_fuel_trim_pid.pid:
+            self._short_term_fuel_trim_pct = value
+        elif pid == self._long_term_fuel_trim_pid.pid:
+            self._long_term_fuel_trim_pct = value
+        elif pid == self._ignition_timing_pid.pid:
+            self._ignition_timing_advance_deg = value
         elif pid == self._equivalence_ratio_pid.pid:
             self._commanded_equivalence_ratio = value
+        elif pid == self._measured_equivalence_ratio_pid.pid:
+            self._measured_equivalence_ratio = value
+        elif pid == self._fuel_rail_pressure_pid.pid:
+            self._fuel_rail_pressure_kpa = value
         elif pid == self._fuel_rate_pid.pid:
             self._fuel_rate_lph = value
         elif pid == self._maf_pid.pid:

@@ -14,10 +14,15 @@ builds a weighted scheduler containing only supported PIDs. Each
 `read_state()` performs at most one physical OBD request and returns a complete
 snapshot assembled from cached values.
 
-The default 12-slot request schedule prioritizes RPM and MAP while rotating
-standard and slow telemetry so fuel, ECU, temperature, pressure, and voltage
-data continue to refresh without blocking the hot gauges. Vehicle speed is
-owned by navigation ground motion and is not requested from OBD.
+The scheduler is profile-aware. PERFORMANCE prioritizes RPM and MAP/boost,
+ECU prioritizes engine-management telemetry, HOME keeps glance metrics fresh,
+and BACKGROUND is Trip-biased so accumulated drive analytics remain useful
+while another application screen is visible. Vehicle speed is owned by
+navigation ground motion and is not requested from OBD.
+
+These schedules are an OBD-link implementation detail rather than a universal
+automotive contract. See
+[Automotive Architecture](../../../docs/automotive_architecture.md).
 
 Low-level serial and RFCOMM communication belongs in
 `hardware_io.automotive.elm327`. CAN and OBD-II models belong in

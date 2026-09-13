@@ -14,10 +14,22 @@ from apps.orcUi.navigation_presenter import AttitudePresentationState, PositionP
 from .offroad_panel import OffRoadPanel
 from apps.orcUi.orc_theme import ThemeMode, toggle, toggle_label
 from .power_dialog import PowerDialog
+from .settings_panel import SettingsPanel
 from apps.orcUi.theme_runtime import theme_bundle
 from apps.orcUi.trip_presenter import TripPresentationState
 from .vehicle_panel import VehiclePanel
 from apps.orcUi.vehicle_presenter import VehiclePresentationState
+from controllers.automotive import (
+    AutomotiveTelemetryProfile,
+    EngineAnalysis,
+    EngineLoadLevel,
+    EngineOperatingMode,
+    FuelControlMode,
+    FuelCorrectionStatus,
+    MixtureMode,
+    TrackingQuality,
+    VehicleConfiguration,
+)
 from ui.navigation import MapRequestHandlerIf
 from ui.screen_ui_if import ScreenUiIf
 from ui.system import (
@@ -34,10 +46,34 @@ class OrcUiApp(VolumeUiIf):
         map_runtime: MapRuntimeIf,
         map_request_handler: MapRequestHandlerIf,
         lifecycle_handler: SystemLifecycleRequestHandlerIf,
+        telemetry_profile_request: Callable[[AutomotiveTelemetryProfile], None] | None = None,
+        vehicle_configuration: VehicleConfiguration = VehicleConfiguration(),
+        save_vehicle_configuration: Callable[[VehicleConfiguration], None] | None = None,
     ) -> None:
         self._map_runtime = map_runtime
         self._map_request_handler = map_request_handler
         self._lifecycle_handler = lifecycle_handler
+        self._telemetry_profile_request = telemetry_profile_request
+        self._vehicle_configuration = vehicle_configuration
+        self._save_vehicle_configuration = save_vehicle_configuration
+        self._vehicle_configuration_observer: Callable[[VehicleConfiguration], None] | None = None
+        self._engine_analysis = EngineAnalysis(
+            operating_mode=EngineOperatingMode.UNKNOWN,
+            fuel_control_mode=FuelControlMode.UNKNOWN,
+            mixture_mode=MixtureMode.UNKNOWN,
+            mixture_tracking=TrackingQuality.UNKNOWN,
+            throttle_tracking=TrackingQuality.UNKNOWN,
+            fuel_correction_status=FuelCorrectionStatus.UNKNOWN,
+            load_level=EngineLoadLevel.UNKNOWN,
+            engine_running=None,
+            warmed_up=None,
+            enrichment_active=None,
+            high_load=None,
+            forced_induction_active=None,
+            fuel_trim_total=None,
+            mixture_tracking_error=None,
+            throttle_tracking_error=None,
+        )
         self._theme_mode = ThemeMode.DARK
         self._theme = theme_bundle(self._theme_mode)
         ui = self._theme.ui
@@ -66,6 +102,7 @@ class OrcUiApp(VolumeUiIf):
         self._navigation_panel: NavigationPanel | None = None
         self._vehicle_panel: VehiclePanel | None = None
         self._offroad_panel: OffRoadPanel | None = None
+        self._settings_panel: SettingsPanel | None = None
         self._vehicle_state = VehiclePresentationState()
         self._trip_state = TripPresentationState()
         self._position_state = PositionPresentationState()
@@ -102,6 +139,12 @@ class OrcUiApp(VolumeUiIf):
         self._home_media_factory = factory
         if self._running and self._active_nav == "HOME":
             self._show_home()
+    def set_vehicle_configuration_observer(
+        self,
+        observer: Callable[[VehicleConfiguration], None] | None,
+    ) -> None:
+        self._vehicle_configuration_observer = observer
+
     def set_volume_request_handler(
         self,
         handler: VolumeRequestHandlerIf | None,
@@ -143,7 +186,12 @@ class OrcUiApp(VolumeUiIf):
             screen.show()
             return
         self._deactivate_active_screen()
-        handler = {"HOME": self._show_home, "NAVIGATION": self._show_navigation_panel, "VEHICLE": self._show_vehicle_panel}.get(nav_name)
+        handler = {
+            "HOME": self._show_home,
+            "NAVIGATION": self._show_navigation_panel,
+            "VEHICLE": self._show_vehicle_panel,
+            "SETTINGS": self._show_settings_panel,
+        }.get(nav_name)
         self._show_placeholder(nav_name) if handler is None else handler()
     def activate_screen(self, screen: ScreenUiIf) -> None:
         previous = self._active_screen
@@ -174,6 +222,13 @@ class OrcUiApp(VolumeUiIf):
             self._context_rail.update_vehicle_state(state)
         if self._vehicle_panel is not None and self._vehicle_panel.winfo_exists():
             self._vehicle_panel.update_state(state)
+    def apply_engine_analysis(self, analysis: EngineAnalysis) -> None:
+        if self._closing:
+            return
+        self._engine_analysis = analysis
+        if self._vehicle_panel is not None and self._vehicle_panel.winfo_exists():
+            self._vehicle_panel.update_engine_analysis(analysis)
+
     def apply_trip_state(self, state: TripPresentationState) -> None:
         """Apply already-presented trip state to mounted shell widgets."""
         if self._closing:
@@ -402,11 +457,14 @@ class OrcUiApp(VolumeUiIf):
             button.configure(fg="#ffffff" if selected else ui.control_text, bg=ui.control_active if selected else ui.control_background, activebackground=ui.control_active, activeforeground="#ffffff", highlightbackground=ui.border)
     def _clear_content(self) -> None:
         self._map_runtime.stop()
+        if self._vehicle_panel is not None and self._vehicle_panel.winfo_exists():
+            self._vehicle_panel.release_telemetry_profile()
         self._context_rail = None
         self._home_map_panel = None
         self._navigation_panel = None
         self._vehicle_panel = None
         self._offroad_panel = None
+        self._settings_panel = None
         for child in self._content.winfo_children():
             child.destroy()
     def _show_home(self) -> None:
@@ -443,10 +501,14 @@ class OrcUiApp(VolumeUiIf):
             self._summary(media, "No media", "Playback service")
         else:
             self._home_media_factory(media).pack(fill=tk.BOTH, expand=True)
+        if self._telemetry_profile_request is not None:
+            self._telemetry_profile_request(AutomotiveTelemetryProfile.HOME)
         self._root.update_idletasks()
         self._start_map_renderer(self._home_map_panel.map_host_window_id)
     def _show_navigation_panel(self) -> None:
         self._clear_content()
+        if self._telemetry_profile_request is not None:
+            self._telemetry_profile_request(AutomotiveTelemetryProfile.BACKGROUND)
         self._active_nav = "NAVIGATION"
         self._paint_nav()
         self._navigation_panel = NavigationPanel(self._content, map_request_handler=self._map_request_handler, on_back=self._show_home, theme_bundle=self._theme)
@@ -462,8 +524,44 @@ class OrcUiApp(VolumeUiIf):
         self._clear_content()
         self._active_nav = "VEHICLE"
         self._paint_nav()
-        self._vehicle_panel = VehiclePanel(self._content, on_back=self._show_home, state=self._vehicle_state, trip_state=self._trip_state, theme_bundle=self._theme)
+        self._vehicle_panel = VehiclePanel(
+            self._content,
+            on_back=self._show_home,
+            on_telemetry_profile=self._telemetry_profile_request,
+            state=self._vehicle_state,
+            trip_state=self._trip_state,
+            theme_bundle=self._theme,
+            vehicle_configuration=self._vehicle_configuration,
+            engine_analysis=self._engine_analysis,
+        )
         self._vehicle_panel.pack(fill=tk.BOTH, expand=True)
+    def _show_settings_panel(self) -> None:
+        self._clear_content()
+        if self._telemetry_profile_request is not None:
+            self._telemetry_profile_request(AutomotiveTelemetryProfile.BACKGROUND)
+        self._active_nav = "SETTINGS"
+        self._paint_nav()
+        self._settings_panel = SettingsPanel(
+            self._content,
+            vehicle_configuration=self._vehicle_configuration,
+            on_vehicle_configuration_changed=self._apply_vehicle_configuration,
+            on_back=self._show_home,
+            theme_bundle=self._theme,
+        )
+        self._settings_panel.pack(fill=tk.BOTH, expand=True)
+
+    def _apply_vehicle_configuration(
+        self,
+        configuration: VehicleConfiguration,
+    ) -> None:
+        self._vehicle_configuration = configuration
+        if self._save_vehicle_configuration is not None:
+            self._save_vehicle_configuration(configuration)
+        if self._vehicle_configuration_observer is not None:
+            self._vehicle_configuration_observer(configuration)
+        if self._vehicle_panel is not None and self._vehicle_panel.winfo_exists():
+            self._vehicle_panel.set_vehicle_configuration(configuration)
+
     def _show_offroad_panel(self) -> None:
         self._clear_content()
         self._offroad_panel = OffRoadPanel(self._content, on_back=self._show_home, position=self._position_state, attitude=self._attitude_state, theme=self._theme.ui)

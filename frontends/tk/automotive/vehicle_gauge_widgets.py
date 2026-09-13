@@ -324,7 +324,7 @@ class RoundGauge(_ValueGauge):
             fill=self._style.display_text if self._connected else self._style.muted_color,
             font=(
                 self._style.mono_font_family,
-                max(8, int(radius * 0.12)),
+                max(10, int(radius * 0.14)),
                 "bold",
             ),
         )

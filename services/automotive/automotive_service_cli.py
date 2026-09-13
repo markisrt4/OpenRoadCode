@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import argparse
+from dataclasses import replace
 from pathlib import Path
 
 from config.service_runtime_config import AutomotiveServiceRuntimeConfig, ServiceRuntimeConfigParser
@@ -17,7 +18,9 @@ from controllers.automotive.obd2.obd2_manager import Obd2Manager
 from controllers.automotive.simulated_vehicle_state_source import SimulatedVehicleStateSource
 from hardware_io.automotive.elm327.elm327_tcp_device import Elm327TcpDevice
 from messaging.zeromq import ZeroMqPublisher, ZeroMqSubscriber
+from protocols.obd2.simulated_obd2_adapter import SimulatedObd2Adapter
 from services.automotive.automotive_runtime import AutomotiveRuntime
+from services.automotive.automotive_telemetry_profile_runtime import AutomotiveTelemetryProfileRuntime
 
 DEFAULT_RUNTIME_CONFIG = Path(__file__).resolve().parents[2] / "config" / "runtime.toml"
 DEFAULT_GEAR_PROFILE = Path(__file__).resolve().parents[2] / "vehicle_gears.learned.toml"
@@ -40,6 +43,14 @@ def parse_args() -> argparse.Namespace:
         help=argparse.SUPPRESS,
     )
     parser.add_argument(
+        "--obd-simulation",
+        action="store_true",
+        help=(
+            "run the production OBD manager and adaptive scheduler against "
+            "the simulated ECU instead of configured hardware"
+        ),
+    )
+    parser.add_argument(
         "--gear-profile",
         type=Path,
         default=DEFAULT_GEAR_PROFILE,
@@ -52,6 +63,8 @@ def build_source(config: AutomotiveServiceRuntimeConfig):
     """Build the configured complete vehicle-state source."""
     if config.input.source == "simulation":
         return SimulatedVehicleStateSource()
+    if config.input.source == "obd_simulation":
+        return Obd2Manager(SimulatedObd2Adapter(auto_advance=True))
     if config.input.device != "elm327":
         raise ValueError(f"Unsupported automotive device: {config.input.device}")
 
@@ -83,6 +96,11 @@ def main() -> int:
     args = parse_args()
     system = ServiceRuntimeConfigParser(args.config).load()
     config = system.automotive
+    if args.obd_simulation:
+        config = replace(
+            config,
+            input=replace(config.input, source="obd_simulation"),
+        )
     if not config.enabled:
         print("Automotive service disabled by runtime configuration")
         return 0
@@ -90,13 +108,17 @@ def main() -> int:
         print("Automotive publishing disabled by runtime configuration")
         return 0
 
-    if config.input.source == "device":
+    if config.input.source in {"device", "obd_simulation"}:
         engine_source = build_source(config)
         motion_source = NavigationMotionVehicleStateSource(
             ZeroMqSubscriber(system.messaging.subscriber_endpoint)
         )
         source = CompositeVehicleStateSource(engine_source, motion_source)
-        source_description = "configured-engine + navigation-motion"
+        source_description = (
+            "configured-engine + navigation-motion"
+            if config.input.source == "device"
+            else "simulated-obd-engine + navigation-motion"
+        )
         rate_hz = config.input.request_rate_hz
     else:
         source = build_source(config)
@@ -112,10 +134,15 @@ def main() -> int:
         rate_hz=rate_hz,
         gear_estimator=gear_estimator,
     )
+    profile_runtime = AutomotiveTelemetryProfileRuntime(
+        ZeroMqSubscriber(system.messaging.subscriber_endpoint),
+        source,
+    )
     print("OpenRoadCode automotive service")
     print(f"  input source:      {source_description}")
-    if config.input.source == "device":
+    if config.input.source in {"device", "obd_simulation"}:
         print(f"  motion endpoint:   {system.messaging.subscriber_endpoint}")
+    if config.input.source == "device":
         print(f"  device:            {config.input.device}")
         print(f"  transport:         {config.input.transport}")
         if config.input.transport == "tcp":
@@ -123,9 +150,11 @@ def main() -> int:
         else:
             print(f"  serial port:       {config.input.port}")
             print(f"  baud:              {config.input.baud}")
+    elif config.input.source == "obd_simulation":
+        print("  device:            simulated ELM327 / ECU")
     print(f"  telemetry ingress: {system.messaging.publisher_endpoint}")
     print(f"  service cadence:   {rate_hz:g} Hz")
-    if config.input.source == "device":
+    if config.input.source in {"device", "obd_simulation"}:
         print(f"  OBD request budget:{config.input.request_rate_hz:g} req/s")
         print("  road speed:        navigation ground motion")
     print(f"  publish source:    {config.publish.source}")
@@ -135,11 +164,13 @@ def main() -> int:
         else "  gear estimation:  disabled (no learned profile)"
     )
     print("Ctrl+C to stop")
+    profile_runtime.start()
     try:
         runtime.run()
     except KeyboardInterrupt:
         pass
     finally:
+        profile_runtime.close()
         runtime.close()
         publisher.close()
     return 0

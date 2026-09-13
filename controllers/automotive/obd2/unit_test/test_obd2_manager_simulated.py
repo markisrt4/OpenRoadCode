@@ -5,6 +5,7 @@ import math
 
 import pytest
 
+from controllers.automotive import AutomotiveTelemetryProfile
 from controllers.automotive.obd2.obd2_manager import Obd2Manager
 from protocols.obd2.simulated_obd2_adapter import SimulatedObd2Adapter
 
@@ -51,6 +52,33 @@ def test_scheduler_updates_cached_values_over_multiple_reads():
     assert any(state.throttle_position is not None for state in states)
     assert all(state.vehicle_speed_m_s is None for state in states)
 
+
+
+def test_transient_missing_response_preserves_cached_value():
+    adapter = SimulatedObd2Adapter()
+    manager = Obd2Manager(adapter)
+    manager.connect()
+
+    manager.set_telemetry_profile(AutomotiveTelemetryProfile.ECU)
+
+    # Advance until STFT has been sampled into the cache.
+    cached = None
+    for _ in range(40):
+        state = manager.read_state()
+        if state.short_term_fuel_trim_bank1 is not None:
+            cached = state.short_term_fuel_trim_bank1
+            break
+
+    assert cached is not None
+
+    # Simulate a transient empty response on the next STFT poll.
+    original = adapter._responses.pop(0x06)
+    try:
+        for _ in range(40):
+            state = manager.read_state()
+            assert state.short_term_fuel_trim_bank1 == cached
+    finally:
+        adapter._responses[0x06] = original
 
 def test_dynamic_simulator_stays_inside_vehicle_ranges():
     adapter = SimulatedObd2Adapter()

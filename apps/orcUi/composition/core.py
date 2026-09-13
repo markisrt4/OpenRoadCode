@@ -13,9 +13,11 @@ from apps.orcUi.frontend.tk.orc_ui_app import OrcUiApp
 from config.service_runtime_config import ServiceRuntimeConfigParser
 from controllers.audio import PipewireAudioController, SystemVolumeHandler
 from controllers.automotive import TripTracker
+from controllers.automotive.vehicle_settings_store import VehicleSettingsStore
 from controllers.automotive.fuel_model import FuelModel
 from controllers.map_renderer.map_camera_runtime import MapCameraRuntime
 from controllers.system import SystemLifecycleController
+from messaging.contracts.automotive import AutomotiveTelemetryProfileRequestPublisher
 from messaging.zeromq import ZeroMqPublisher, ZeroMqSubscriber
 from messaging.zeromq.endpoints import LOCAL_PUBLISHER_ENDPOINT, LOCAL_SUBSCRIBER_ENDPOINT
 from services.automotive.automotive_service_cli import DEFAULT_RUNTIME_CONFIG
@@ -32,6 +34,7 @@ class CoreComposition:
     state_ingress: StateIngressRuntime
     trip_runtime: TripRuntime
     trip_publisher: ZeroMqPublisher
+    telemetry_profile_publisher: ZeroMqPublisher
     lifecycle: SystemLifecycleController
     volume: SystemVolumeHandler
 
@@ -52,9 +55,12 @@ class CoreComposition:
                     self.trip_publisher.close()
                 finally:
                     try:
-                        self.map_camera.close()
+                        self.telemetry_profile_publisher.close()
                     finally:
-                        self.map_runtime.stop()
+                        try:
+                            self.map_camera.close()
+                        finally:
+                            self.map_runtime.stop()
 
 
 def create_core_composition() -> CoreComposition:
@@ -66,13 +72,25 @@ def create_core_composition() -> CoreComposition:
         follow_enabled=True,
     )
     lifecycle = SystemLifecycleController()
+    runtime_config = ServiceRuntimeConfigParser(DEFAULT_RUNTIME_CONFIG).load()
+    vehicle_settings = VehicleSettingsStore(default=runtime_config.vehicle)
+    vehicle_configuration = vehicle_settings.load()
+    telemetry_profile_publisher = ZeroMqPublisher(LOCAL_PUBLISHER_ENDPOINT)
+    telemetry_profile_requests = AutomotiveTelemetryProfileRequestPublisher(
+        telemetry_profile_publisher,
+        source="orc-ui",
+    )
     try:
         app = OrcUiApp(
             map_runtime=map_runtime,
             map_request_handler=map_camera.request_handler,
             lifecycle_handler=lifecycle,
+            telemetry_profile_request=telemetry_profile_requests.publish,
+            vehicle_configuration=vehicle_configuration,
+            save_vehicle_configuration=vehicle_settings.save,
         )
     except Exception:
+        telemetry_profile_publisher.close()
         map_camera.close()
         raise
     volume = SystemVolumeHandler(
@@ -84,11 +102,15 @@ def create_core_composition() -> CoreComposition:
     state_ingress = StateIngressRuntime(
         schedule_ui=app.schedule_ui_callback,
         apply_vehicle_state=app.apply_vehicle_state,
+        apply_engine_analysis=app.apply_engine_analysis,
         apply_trip_state=app.apply_trip_state,
         apply_position_state=app.apply_position_state,
         apply_attitude_state=app.apply_attitude_state,
+        vehicle_configuration=vehicle_configuration,
     )
-    runtime_config = ServiceRuntimeConfigParser(DEFAULT_RUNTIME_CONFIG).load()
+    app.set_vehicle_configuration_observer(
+        state_ingress.set_vehicle_configuration
+    )
     fuel_config = runtime_config.automotive.fuel
     trip_tracker = TripTracker(
         fuel_model=FuelModel(
@@ -110,6 +132,7 @@ def create_core_composition() -> CoreComposition:
         state_ingress=state_ingress,
         trip_runtime=trip_runtime,
         trip_publisher=trip_publisher,
+        telemetry_profile_publisher=telemetry_profile_publisher,
         lifecycle=lifecycle,
         volume=volume,
     )

@@ -22,8 +22,16 @@ class VehicleState:
     transmission_gear: int | None = None
 
     throttle_position: float | None = None
+    commanded_throttle_position: float | None = None
     accelerator_pedal_position: float | None = None
     engine_load: float | None = None
+    absolute_engine_load: float | None = None
+
+    fuel_system_status_1: int | None = None
+    fuel_system_status_2: int | None = None
+    short_term_fuel_trim_bank1: float | None = None
+    long_term_fuel_trim_bank1: float | None = None
+    ignition_timing_advance_deg: float | None = None
 
     intake_manifold_pressure_pa: float | None = None
     barometric_pressure_pa: float | None = None
@@ -34,6 +42,8 @@ class VehicleState:
     intake_air_temperature_k: float | None = None
 
     fuel_level: float | None = None
+    fuel_rail_pressure_pa: float | None = None
     commanded_equivalence_ratio: float | None = None
+    measured_equivalence_ratio: float | None = None
     engine_fuel_rate_m3_s: float | None = None
     control_voltage_v: float | None = None

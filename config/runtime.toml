@@ -65,6 +65,9 @@ timeout_seconds = 10.0
 # -----------------------------------------------------------------------------
 # Automotive service pipeline
 # -----------------------------------------------------------------------------
+[vehicle.engine]
+induction = "turbocharged"
+
 [services.automotive]
 enabled = true
 rate_hz = 10.0

@@ -6,6 +6,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+
+from controllers.automotive.vehicle_configuration import EngineInductionType, VehicleConfiguration
 from pathlib import Path
 
 try:
@@ -137,6 +139,7 @@ class ServiceRuntimeConfig:
     messaging: MessagingRuntimeConfig = MessagingRuntimeConfig()
     navigation: NavigationServiceRuntimeConfig = NavigationServiceRuntimeConfig()
     automotive: AutomotiveServiceRuntimeConfig = AutomotiveServiceRuntimeConfig()
+    vehicle: VehicleConfiguration = VehicleConfiguration()
 
 
 class ServiceRuntimeConfigParser:
@@ -158,7 +161,29 @@ class ServiceRuntimeConfigParser:
         services = self._table(data.get("services", {}), "services")
         navigation = self._parse_navigation(services.get("navigation", {}))
         automotive = self._parse_automotive(services.get("automotive", {}))
-        return ServiceRuntimeConfig(messaging=messaging, navigation=navigation, automotive=automotive)
+        vehicle = self._parse_vehicle(data.get("vehicle", {}))
+        return ServiceRuntimeConfig(
+            messaging=messaging,
+            navigation=navigation,
+            automotive=automotive,
+            vehicle=vehicle,
+        )
+
+    def _parse_vehicle(self, value) -> VehicleConfiguration:
+        data = self._table(value, "vehicle")
+        engine = self._table(data.get("engine", {}), "vehicle.engine")
+        raw_induction = self._string(
+            engine.get("induction", EngineInductionType.UNKNOWN.value),
+            "vehicle.engine.induction",
+        ).lower()
+        try:
+            induction = EngineInductionType(raw_induction)
+        except ValueError as exc:
+            allowed = ", ".join(item.value for item in EngineInductionType)
+            raise ServiceRuntimeConfigError(
+                f"vehicle.engine.induction must be one of: {allowed}"
+            ) from exc
+        return VehicleConfiguration(induction=induction)
 
     def _parse_messaging(self, value) -> MessagingRuntimeConfig:
         data = self._table(value, "messaging")
@@ -338,6 +363,8 @@ class ServiceRuntimeConfigParser:
 
     def _source(self, value, name: str) -> str:
         source = self._string(value, name).lower()
-        if source not in {"device", "simulation"}:
-            raise ServiceRuntimeConfigError(f"{name} must be device or simulation")
+        if source not in {"device", "simulation", "obd_simulation"}:
+            raise ServiceRuntimeConfigError(
+                f"{name} must be device, simulation, or obd_simulation"
+            )
         return source

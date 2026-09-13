@@ -18,6 +18,7 @@ class CoreCompositionTest(unittest.TestCase):
         ingress = Mock()
         trip_runtime = Mock()
         trip_publisher = Mock()
+        telemetry_profile_publisher = Mock()
         lifecycle = Mock()
         volume = Mock()
         core = CoreComposition(
@@ -27,6 +28,7 @@ class CoreCompositionTest(unittest.TestCase):
             state_ingress=ingress,
             trip_runtime=trip_runtime,
             trip_publisher=trip_publisher,
+            telemetry_profile_publisher=telemetry_profile_publisher,
             lifecycle=lifecycle,
             volume=volume,
         )
@@ -41,6 +43,7 @@ class CoreCompositionTest(unittest.TestCase):
         trip_runtime.close.assert_called_once_with()
         ingress.close.assert_called_once_with()
         trip_publisher.close.assert_called_once_with()
+        telemetry_profile_publisher.close.assert_called_once_with()
         map_camera.close.assert_called_once_with()
         map_runtime.stop.assert_called_once_with()
 
@@ -81,23 +84,31 @@ class CoreCompositionTest(unittest.TestCase):
             pitch_rad=math.radians(45.0),
             follow_enabled=True,
         )
-        app_type.assert_called_once_with(
-            map_runtime=map_runtime,
-            map_request_handler=map_camera.request_handler,
-            lifecycle_handler=lifecycle,
-        )
+        app_type.assert_called_once()
+        app_kwargs = app_type.call_args.kwargs
+        self.assertIs(app_kwargs["map_runtime"], map_runtime)
+        self.assertIs(app_kwargs["map_request_handler"], map_camera.request_handler)
+        self.assertIs(app_kwargs["lifecycle_handler"], lifecycle)
+        self.assertTrue(callable(app_kwargs["telemetry_profile_request"]))
+        self.assertIsNotNone(app_kwargs["vehicle_configuration"])
+        self.assertTrue(callable(app_kwargs["save_vehicle_configuration"]))
         volume_type.assert_called_once_with(
             audio_controller=audio,
             volume_ui=app,
             set_status=app.set_screen_status,
         )
         app.set_volume_request_handler.assert_called_once_with(volume)
-        ingress_type.assert_called_once_with(
-            schedule_ui=app.schedule_ui_callback,
-            apply_vehicle_state=app.apply_vehicle_state,
-            apply_trip_state=app.apply_trip_state,
-            apply_position_state=app.apply_position_state,
-            apply_attitude_state=app.apply_attitude_state,
+        ingress_type.assert_called_once()
+        ingress_kwargs = ingress_type.call_args.kwargs
+        self.assertIs(ingress_kwargs["schedule_ui"], app.schedule_ui_callback)
+        self.assertIs(ingress_kwargs["apply_vehicle_state"], app.apply_vehicle_state)
+        self.assertIs(ingress_kwargs["apply_engine_analysis"], app.apply_engine_analysis)
+        self.assertIs(ingress_kwargs["apply_trip_state"], app.apply_trip_state)
+        self.assertIs(ingress_kwargs["apply_position_state"], app.apply_position_state)
+        self.assertIs(ingress_kwargs["apply_attitude_state"], app.apply_attitude_state)
+        self.assertIsNotNone(ingress_kwargs["vehicle_configuration"])
+        app.set_vehicle_configuration_observer.assert_called_once_with(
+            ingress_type.return_value.set_vehicle_configuration
         )
         self.assertIs(core.app, app)
         self.assertIs(core.map_runtime, map_runtime)
