@@ -18,6 +18,7 @@ class CoreCompositionTest(unittest.TestCase):
         ingress = Mock()
         trip_runtime = Mock()
         trip_publisher = Mock()
+        telemetry_profile_publisher = Mock()
         lifecycle = Mock()
         volume = Mock()
         core = CoreComposition(
@@ -27,6 +28,7 @@ class CoreCompositionTest(unittest.TestCase):
             state_ingress=ingress,
             trip_runtime=trip_runtime,
             trip_publisher=trip_publisher,
+            telemetry_profile_publisher=telemetry_profile_publisher,
             lifecycle=lifecycle,
             volume=volume,
         )
@@ -41,6 +43,7 @@ class CoreCompositionTest(unittest.TestCase):
         trip_runtime.close.assert_called_once_with()
         ingress.close.assert_called_once_with()
         trip_publisher.close.assert_called_once_with()
+        telemetry_profile_publisher.close.assert_called_once_with()
         map_camera.close.assert_called_once_with()
         map_runtime.stop.assert_called_once_with()
 
