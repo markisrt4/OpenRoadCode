@@ -10,6 +10,7 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd -- "$SCRIPT_DIR/../.." && pwd)"
 WRAPPER_SCRIPT="$PROJECT_ROOT/scripts/runtime/start_automotive_service.sh"
 RUN_USER="${SUDO_USER:-${USER:-}}"
+RUNTIME_CONFIG="${OPENROADCODE_RUNTIME_CONFIG:-$PROJECT_ROOT/config/runtime.toml}"
 
 if [[ ! -f "$WRAPPER_SCRIPT" ]]; then
     echo "Wrapper script not found: $WRAPPER_SCRIPT" >&2
@@ -44,6 +45,7 @@ Type=simple
 User=$RUN_USER
 WorkingDirectory=$PROJECT_ROOT
 Environment=PYTHONUNBUFFERED=1
+Environment=OPENROADCODE_RUNTIME_CONFIG=$RUNTIME_CONFIG
 ExecStart=$WRAPPER_SCRIPT
 Restart=on-failure
 RestartSec=2
