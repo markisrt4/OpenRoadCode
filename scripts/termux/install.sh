@@ -78,7 +78,7 @@ fi
 deactivate
 
 echo
-bash "$SCRIPT_DIR/check_termux.sh"
+bash "$SCRIPT_DIR/check_termux.sh" "$VENV_DIR" "${FEATURES[@]}"
 echo
 echo "[+] Termux development environment is ready."
 echo "    X11 desktop command: termux-x11 :1 -xstartup \"xfce4-session\""
