@@ -111,6 +111,21 @@ class RadioEntryPanel(tk.Frame):
         """Launch and present the RF radio directly."""
         self._launch_rf_radio()
 
+    def open_adsb(self) -> None:
+        """Present the ADS-B aircraft dashboard without starting SDR++ first."""
+        self._chooser.grid_remove()
+        if self._streaming_page is not None and self._streaming_page.winfo_exists():
+            self._streaming_page.grid_remove()
+        if self._radio_panel is None or not self._radio_panel.winfo_exists():
+            self._radio_panel = LaunchAwareRadioPanel(
+                self,
+                embedder=self._embedder,
+                theme=self._theme,
+            )
+            self._radio_panel.grid(row=0, column=0, sticky="nsew")
+            self._radio_panel.hide_loading()
+        self._radio_panel.show_adsb()
+
     def _build_choice_buttons(self) -> None:
         ui = self._theme.ui
         rf_card, self._rf_button = self._build_source_card(
