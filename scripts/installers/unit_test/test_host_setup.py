@@ -216,6 +216,42 @@ class HostSetupPlanTests(unittest.TestCase):
         self.assertNotIn("mpu6050", result.stdout)
         self.assertNotIn("bmp390", result.stdout)
 
+    def test_navigation_depends_on_desktop_ui_and_gps(self) -> None:
+        result = subprocess.run(
+            [
+                "bash",
+                "-c",
+                'source "$1"; get_feature_dependencies navigation',
+                "feature-test",
+                str(FEATURES),
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+        self.assertEqual(0, result.returncode, result.stderr)
+        dependencies = result.stdout.split()
+        self.assertIn("desktop-ui", dependencies)
+        self.assertIn("gps", dependencies)
+
+    def test_sdrpp_feature_does_not_request_distro_package(self) -> None:
+        result = subprocess.run(
+            [
+                "bash",
+                "-c",
+                'source "$1"; get_feature_packages sdrpp',
+                "feature-test",
+                str(FEATURES),
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+        self.assertEqual(0, result.returncode, result.stderr)
+        self.assertEqual("", result.stdout.strip())
+
     def test_all_features_on_raspberry_pi_includes_sensor_support(self) -> None:
         result = self.run_installer(
             "--target",
@@ -231,6 +267,7 @@ class HostSetupPlanTests(unittest.TestCase):
         self.assertIn("raspberry-pi", result.stdout)
         self.assertIn("imu", result.stdout)
         self.assertIn("environmental", result.stdout)
+        self.assertIn("navigation", result.stdout)
         self.assertNotIn("mpu6050", result.stdout)
         self.assertNotIn("bmp388", result.stdout)
 
