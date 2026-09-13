@@ -37,6 +37,7 @@ class RadioPanel(tk.Frame):
         adsb_control: OrcUiAdsbControl | None = None,
         theme: ThemeBundle | None = None,
         rf_active: Callable[[], bool] | None = None,
+        release_rf: Callable[[], None] | None = None,
     ) -> None:
         self._theme = theme or theme_bundle(ThemeMode.DARK)
         ui = self._theme.ui
@@ -46,6 +47,7 @@ class RadioPanel(tk.Frame):
         self._sdrpp = sdrpp_control or SDRPPControl()
         self._adsb = adsb_control or OrcUiAdsbControl()
         self._rf_active = rf_active or (lambda: False)
+        self._release_rf = release_rf or (lambda: None)
         self._telemetry_worker = SDRTelemetryWorker(SDRTelemetryMonitor(self._radio))
         self._telemetry_after_id: str | None = None
         self._display = os.environ.get("DISPLAY", ":1")
@@ -214,9 +216,7 @@ class RadioPanel(tk.Frame):
         parent_window_id = int(self.winfo_toplevel().winfo_id())
         try:
             if self._rf_active():
-                raise RuntimeError(
-                    "RF radio is active; ADS-B will not take control of the SDR"
-                )
+                self._release_rf()
             self._adsb.assert_available()
             self._adsb.set_preferred_color_scheme(scheme)
             self._embedder.detach(parent_window_id)
