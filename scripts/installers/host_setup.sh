@@ -247,7 +247,7 @@ if (( SHOW_PLAN )); then echo "[*] Plan only; no system changes were made."; exi
 
 if [[ "$TARGET" == "termux" ]]; then
   if (( ! SKIP_INSTALLS )); then
-    bash "$PROJECT_DIR/scripts/termux/install.sh"
+    bash "$PROJECT_DIR/scripts/termux/install.sh" "${FEATURES[@]}"
   fi
   if [[ " ${FEATURES[*]} " == *" navigation "* ]]; then
     bash "$SCRIPT_DIR/install_navigation_stack.sh" --target termux
@@ -264,6 +264,17 @@ if (( SKIP_INSTALLS )); then echo "[*] Skipping package, Python, and user-group 
 if (( RUN_SYSTEM_PACKAGES )) && (( ! SKIP_INSTALLS )); then bash "$PROJECT_DIR/scripts/installers/install_system_packages.sh" "${FEATURES[@]}"; fi
 if (( RUN_PYTHON_ENV )) && (( ! SKIP_INSTALLS )); then bash "$PROJECT_DIR/scripts/installers/install_python_env.sh" "${FEATURES[@]}"; fi
 if (( ! SKIP_INSTALLS )); then bash "$PROJECT_DIR/scripts/installers/configure_user_permissions.sh" "${FEATURES[@]}"; fi
+
+if (( ! SKIP_INSTALLS )) && [[ "$TARGET" == "rpi4" || "$TARGET" == "rpi5" ]]; then
+  if [[ " ${FEATURES[*]} " == *" raspberry-pi "* || " ${FEATURES[*]} " == *" imu "* || " ${FEATURES[*]} " == *" environmental "* ]]; then
+    if command -v raspi-config >/dev/null 2>&1; then
+      echo "[*] Enabling Raspberry Pi I2C interface..."
+      sudo raspi-config nonint do_i2c 0
+    else
+      echo "[!] raspi-config is unavailable; enable I2C manually before using configured sensors." >&2
+    fi
+  fi
+fi
 
 if (( RUN_VNC )) || (( RUN_GPSD_SERVICE )) || (( RUN_TELEMETRY_SERVICES )); then
   service_args=()
@@ -292,7 +303,11 @@ fi
 
 echo
 echo "[*] Verifying runtime health..."
-runtime_args=("${FEATURES[@]}" --config "$PROJECT_DIR/config/runtime.toml")
+runtime_config="$PROJECT_DIR/config/runtime.toml"
+if [[ "$TARGET" == "linux-dev" ]]; then
+  runtime_config="$PROJECT_DIR/config/runtime.simulated.toml"
+fi
+runtime_args=("${FEATURES[@]}" --config "$runtime_config")
 (( RUN_TELEMETRY_SERVICES )) && runtime_args+=(--telemetry-services)
 (( RUN_GPSD_SERVICE )) && runtime_args+=(--gpsd-service)
 "$VERIFY_PYTHON" "$SCRIPT_DIR/verify_runtime.py" "${runtime_args[@]}"
