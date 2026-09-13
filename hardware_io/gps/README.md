@@ -109,14 +109,12 @@ hardware_io/gps/component_test/start_gpsd.sh /dev/ttyACM0
 The device argument is optional. It defaults to `/dev/ttyACM0`:
 
 ```bash
-hardware_io/gps/start_gpsd.sh
+scripts/runtime/start_gpsd.sh
 ```
 
 Keep this terminal open while testing. Press `Ctrl+C` to stop `gpsd`.
 
-This script is intended for component testing and VM development. A deployed
-system should configure and manage `gpsd` through the operating system's service
-configuration.
+The deployed OpenRoadCode systemd unit also uses `scripts/runtime/start_gpsd.sh`, with the GPS device supplied through service configuration.
 
 ### Verify gpsd directly
 
