@@ -155,8 +155,58 @@ if [[ "$TARGET" == "termux" ]]; then
 fi
 
 command -v git >/dev/null 2>&1 || { echo "git is required" >&2; exit 1; }
-command -v "$CONTAINER_ENGINE" >/dev/null 2>&1 || { echo "Container engine not found: $CONTAINER_ENGINE" >&2; exit 1; }
 mkdir -p "$BUILD_ROOT" "$HOST_SRC"
+
+CONTAINER_ENGINE_STARTED_BY_ORC=0
+
+restore_container_engine_state() {
+  if [[ "$CONTAINER_ENGINE" != "docker" ]]; then
+    return 0
+  fi
+
+  if (( CONTAINER_ENGINE_STARTED_BY_ORC )); then
+    echo "[*] Stopping Docker build service..."
+    sudo systemctl stop docker || true
+  fi
+}
+
+ensure_container_engine() {
+  if command -v "$CONTAINER_ENGINE" >/dev/null 2>&1; then
+    :
+  elif [[ "$CONTAINER_ENGINE" == "docker" ]]; then
+    echo "[*] Installing Docker build engine..."
+    sudo apt-get update
+    sudo apt-get install -y docker.io
+  else
+    echo "Container engine not found: $CONTAINER_ENGINE" >&2
+    exit 1
+  fi
+
+  if [[ "$CONTAINER_ENGINE" == "docker" ]]; then
+    command -v systemctl >/dev/null 2>&1 || {
+      echo "systemctl is required to manage Docker on Linux targets." >&2
+      exit 1
+    }
+
+    if ! systemctl is-active --quiet docker; then
+      echo "[*] Starting Docker for navigation build..."
+      sudo systemctl start docker
+      CONTAINER_ENGINE_STARTED_BY_ORC=1
+    fi
+  fi
+
+  if ! "$CONTAINER_ENGINE" info >/dev/null 2>&1; then
+    echo "[!] $CONTAINER_ENGINE is installed but not usable by $(id -un)." >&2
+    echo "[!] Verify daemon status and socket permissions." >&2
+    exit 1
+  fi
+}
+
+trap restore_container_engine_state EXIT
+
+if (( ! SKIP_MAPLIBRE || ! SKIP_VALHALLA )); then
+  ensure_container_engine
+fi
 
 ensure_user_owned_checkout() {
   local dir="$1" label="$2"
