@@ -28,8 +28,14 @@ class LaunchAwareRadioPanel(RadioPanel):
         *,
         embedder: X11WindowEmbedder,
         theme: ThemeBundle,
+        rf_active: Callable[[], bool] | None = None,
     ) -> None:
-        super().__init__(parent, embedder=embedder, theme=theme)
+        super().__init__(
+            parent,
+            embedder=embedder,
+            theme=theme,
+            rf_active=rf_active,
+        )
         self._launch_status = tk.Label(
             self._host,
             text="Loading SDR++…",
@@ -121,6 +127,7 @@ class RadioEntryPanel(tk.Frame):
                 self,
                 embedder=self._embedder,
                 theme=self._theme,
+                rf_active=lambda: self._radio_application.presented,
             )
             self._radio_panel.grid(row=0, column=0, sticky="nsew")
             self._radio_panel.hide_loading()
@@ -376,6 +383,7 @@ class RadioEntryPanel(tk.Frame):
             self,
             embedder=self._embedder,
             theme=self._theme,
+            rf_active=lambda: self._radio_application.presented,
         )
         self._radio_panel.grid(row=0, column=0, sticky="nsew")
         self._radio_panel.show_loading("Loading SDR++…")
