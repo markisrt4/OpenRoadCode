@@ -82,11 +82,16 @@ is_known_feature() {
 
 get_feature_dependencies() {
   local feature="$1"
+  local target="${OPENROAD_INSTALL_TARGET:-linux-dev}"
   case "$feature" in
     vnc) echo "desktop-ui" ;;
-    spotify) echo "audio" ;;
+    spotify)
+      [[ "$target" == "termux" ]] && echo "" || echo "audio"
+      ;;
     sdrpp) echo "rtl-sdr desktop-ui audio" ;;
-    navigation) echo "desktop-ui gps" ;;
+    navigation)
+      [[ "$target" == "termux" ]] && echo "desktop-ui" || echo "desktop-ui gps"
+      ;;
     adsb) echo "rtl-sdr" ;;
     *) echo "" ;;
   esac
