@@ -241,6 +241,14 @@ fi
 VERIFY_PYTHON="python3"
 [[ -x "$VENV_DIR/bin/python" ]] && VERIFY_PYTHON="$VENV_DIR/bin/python"
 
+if (( ! SKIP_INSTALLS )) && [[ " ${FEATURES[*]} " == *" navigation "* ]]; then
+  echo
+  echo "[*] Installing navigation software stack..."
+  bash "$SCRIPT_DIR/install_navigation_stack.sh" \
+    --target "$TARGET" \
+    --skip-host-packages
+fi
+
 if (( ! SKIP_INSTALLS )); then
   echo
   echo "[*] Verifying installed dependencies..."
