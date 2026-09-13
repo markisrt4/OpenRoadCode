@@ -501,10 +501,14 @@ class OrcUiApp(VolumeUiIf):
             self._summary(media, "No media", "Playback service")
         else:
             self._home_media_factory(media).pack(fill=tk.BOTH, expand=True)
+        if self._telemetry_profile_request is not None:
+            self._telemetry_profile_request(AutomotiveTelemetryProfile.HOME)
         self._root.update_idletasks()
         self._start_map_renderer(self._home_map_panel.map_host_window_id)
     def _show_navigation_panel(self) -> None:
         self._clear_content()
+        if self._telemetry_profile_request is not None:
+            self._telemetry_profile_request(AutomotiveTelemetryProfile.BACKGROUND)
         self._active_nav = "NAVIGATION"
         self._paint_nav()
         self._navigation_panel = NavigationPanel(self._content, map_request_handler=self._map_request_handler, on_back=self._show_home, theme_bundle=self._theme)
@@ -533,6 +537,8 @@ class OrcUiApp(VolumeUiIf):
         self._vehicle_panel.pack(fill=tk.BOTH, expand=True)
     def _show_settings_panel(self) -> None:
         self._clear_content()
+        if self._telemetry_profile_request is not None:
+            self._telemetry_profile_request(AutomotiveTelemetryProfile.BACKGROUND)
         self._active_nav = "SETTINGS"
         self._paint_nav()
         self._settings_panel = SettingsPanel(
