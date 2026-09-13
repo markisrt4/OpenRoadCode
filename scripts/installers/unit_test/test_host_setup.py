@@ -67,6 +67,39 @@ class HostSetupPlanTests(unittest.TestCase):
         self.assertNotEqual(0, result.returncode)
         self.assertIn("--target is required", result.stderr)
 
+    def test_termux_all_features_plan_is_supported_and_scoped(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            environment = os.environ.copy()
+            environment.update(
+                {
+                    "PREFIX": "/data/data/com.termux/files/usr",
+                    "HOME": temp_dir,
+                }
+            )
+            result = subprocess.run(
+                [
+                    str(INSTALLER),
+                    "--target",
+                    "termux",
+                    "--all-features",
+                    "--show-plan",
+                ],
+                cwd=PROJECT_ROOT,
+                env=environment,
+                stdin=subprocess.DEVNULL,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+
+        self.assertEqual(0, result.returncode, result.stderr)
+        self.assertIn("Detected target:       termux", result.stdout)
+        self.assertIn("navigation", result.stdout)
+        self.assertIn("browser", result.stdout)
+        self.assertNotIn("raspberry-pi", result.stdout)
+        self.assertNotIn("adsb", result.stdout)
+        self.assertNotIn("sdrpp", result.stdout)
+
     def test_linux_development_plan_excludes_raspberry_pi_support(self) -> None:
         result = self.run_installer("--target", "linux-dev", "--show-plan")
 
