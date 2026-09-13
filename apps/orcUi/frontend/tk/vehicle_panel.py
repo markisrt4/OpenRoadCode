@@ -90,6 +90,7 @@ class VehiclePanel(tk.Frame):
         self._boost_metric_labels: dict[str, tk.Label] = {}
         self._ecu_value_labels: dict[str, tk.Label] = {}
         self._ecu_state_labels: dict[str, tk.Label] = {}
+        self._ecu_canvases: dict[str, tk.Canvas] = {}
         self._view_content: tk.Widget | None = None
 
         self.grid_columnconfigure(0, weight=1)
@@ -147,6 +148,7 @@ class VehiclePanel(tk.Frame):
         self._boost_metric_labels.clear()
         self._ecu_value_labels.clear()
         self._ecu_state_labels.clear()
+        self._ecu_canvases.clear()
 
         if name == "PERFORMANCE":
             self._show_performance()
@@ -500,7 +502,16 @@ class VehiclePanel(tk.Frame):
                 justify=tk.LEFT,
                 anchor="w",
             )
-            detail.grid(row=4, column=0, sticky="sw", padx=14, pady=(4, 14))
+            detail.grid(row=4, column=0, sticky="sw", padx=14, pady=(4, 8))
+            visual = tk.Canvas(
+                card,
+                height=34,
+                bg=ui.surface,
+                highlightthickness=0,
+                bd=0,
+            )
+            visual.grid(row=5, column=0, sticky="ew", padx=14, pady=(0, 10))
+            self._ecu_canvases[key] = visual
             self._ecu_value_labels[f"{key}_primary"] = primary
             self._ecu_value_labels[f"{key}_secondary"] = secondary
             self._ecu_value_labels[f"{key}_detail"] = detail
@@ -661,6 +672,8 @@ class VehiclePanel(tk.Frame):
         }.get(analysis.mixture_tracking, ui.text_muted)
         self._ecu_value_labels["mixture_secondary"].configure(fg=tracking_color)
 
+        self._draw_ecu_visuals()
+
         active = {
             "HIGH LOAD": analysis.high_load is True,
             "BOOST": analysis.forced_induction_active is True,
@@ -673,6 +686,56 @@ class VehiclePanel(tk.Frame):
                 fg=ui.accent_success if enabled else ui.text_muted,
                 text=("● " if enabled else "○ ") + name,
             )
+
+    def _draw_ecu_visuals(self) -> None:
+        ui = self._theme_bundle.ui
+        state = self._state
+        analysis = self._engine_analysis
+
+        for canvas in self._ecu_canvases.values():
+            canvas.delete("all")
+            canvas.update_idletasks()
+
+        fuel = self._ecu_canvases.get("fuel")
+        if fuel is not None:
+            width = max(180, fuel.winfo_width())
+            y = 17
+            fuel.create_line(10, y, width - 10, y, fill=ui.border, width=3)
+            fuel.create_line(width / 2, 8, width / 2, 26, fill=ui.text_muted, width=2)
+            if analysis.fuel_trim_total is not None:
+                trim = max(-0.20, min(0.20, analysis.fuel_trim_total))
+                x = 10 + ((trim + 0.20) / 0.40) * (width - 20)
+                fuel.create_oval(x - 5, y - 5, x + 5, y + 5, fill=ui.accent_warning, outline="")
+
+        mixture = self._ecu_canvases.get("mixture")
+        if mixture is not None:
+            width = max(180, mixture.winfo_width())
+            y = 17
+            mixture.create_line(10, y, width - 10, y, fill=ui.border, width=3)
+            stoich_x = 10 + ((1.0 - 0.70) / 0.60) * (width - 20)
+            mixture.create_line(stoich_x, 7, stoich_x, 27, fill=ui.text_muted, width=2)
+            for value, color, radius in (
+                (state.commanded_equivalence_ratio, ui.accent_primary, 6),
+                (state.measured_equivalence_ratio, ui.accent_success, 4),
+            ):
+                if value is not None:
+                    value = max(0.70, min(1.30, value))
+                    x = 10 + ((value - 0.70) / 0.60) * (width - 20)
+                    mixture.create_oval(
+                        x - radius, y - radius, x + radius, y + radius,
+                        fill=color, outline="",
+                    )
+
+        load = self._ecu_canvases.get("load")
+        if load is not None:
+            width = max(180, load.winfo_width())
+            load.create_rectangle(10, 11, width - 10, 23, outline=ui.border)
+            if state.absolute_engine_load_percent is not None:
+                fraction = max(0.0, min(1.0, state.absolute_engine_load_percent / 150.0))
+                load.create_rectangle(
+                    11, 12, 11 + fraction * (width - 22), 22,
+                    fill=ui.accent_danger, outline="",
+                )
 
     def update_engine_analysis(self, analysis: EngineAnalysis) -> None:
         self._engine_analysis = analysis
