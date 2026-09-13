@@ -52,6 +52,19 @@ class ADSBLauncher(AppLauncherIf):
     def is_running(self) -> bool:
         return self.browser.is_running()
 
+    def assert_available(self) -> None:
+        """Reject ADS-B when an RF application already owns the shared receiver."""
+        if self.data_source != RTLSDR_DATA_SOURCE:
+            return
+        if is_process_running(r"(^|/)(sdrpp|sdr\\+\\+)( |$)"):
+            raise RuntimeError("RF radio is active; ADS-B will not take control of the SDR")
+        if self.resource_manager is not None:
+            owner = self.resource_manager.get_owner()
+            if owner not in (None, self.owner_name):
+                raise RuntimeError(
+                    f"SDR is in use by {owner}; RF radio has priority"
+                )
+
     def set_preferred_color_scheme(self, scheme: str) -> None:
         """Apply ORC's preferred light/dark scheme to Chromium and tar1090."""
         normalized = scheme.strip().lower()
@@ -91,8 +104,7 @@ class ADSBLauncher(AppLauncherIf):
         receiver_ready = False
 
         if self.data_source == RTLSDR_DATA_SOURCE:
-            if is_process_running(r"(^|/)(sdrpp|sdr\\+\\+)( |$)"):
-                raise RuntimeError("RF radio is active; ADS-B will not take control of the SDR")
+            self.assert_available()
             if self.resource_manager is not None:
                 acquired = self.resource_manager.acquire(
                     self.owner_name,
