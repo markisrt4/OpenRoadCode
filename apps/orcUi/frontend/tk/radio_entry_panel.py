@@ -130,8 +130,7 @@ class RadioEntryPanel(tk.Frame):
                 embedder=self._embedder,
                 theme=self._theme,
                 rf_active=lambda: self._radio_application.presented,
-            release_rf=self._radio_application.relinquish_for_adsb,
-            release_rf=self._radio_application.relinquish_for_adsb,
+                release_rf=self._radio_application.relinquish_for_adsb,
             )
             self._radio_panel.grid(row=0, column=0, sticky="nsew")
             self._radio_panel.hide_loading()
@@ -388,6 +387,7 @@ class RadioEntryPanel(tk.Frame):
             embedder=self._embedder,
             theme=self._theme,
             rf_active=lambda: self._radio_application.presented,
+            release_rf=self._radio_application.relinquish_for_adsb,
         )
         self._radio_panel.grid(row=0, column=0, sticky="nsew")
         self._radio_panel.show_loading("Loading SDR++…")
