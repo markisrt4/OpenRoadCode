@@ -38,13 +38,25 @@ def _scheduler() -> Obd2PollScheduler:
     )
 
 
-def test_normal_profile_preserves_original_weighting() -> None:
+def test_background_profile_is_trip_biased() -> None:
     scheduler = _scheduler()
     pids = [scheduler.next_decoder().pid for _ in range(12)]
     assert pids == [
-        0x0C, 0x0B, 0x0C, 0x11, 0x0C, 0x0B,
-        0x04, 0x0C, 0x05, 0x0B, 0x11, 0x0C,
+        0x04, 0x11, 0x04, 0x0C, 0x04, 0x05,
+        0x04, 0x0B, 0x04, 0x04, 0x11, 0x04,
     ]
+
+
+
+def test_home_profile_keeps_glance_metrics_fresh() -> None:
+    scheduler = _scheduler()
+    scheduler.set_profile(Obd2PollingProfile.HOME)
+    pids = [scheduler.next_decoder().pid for _ in range(12)]
+
+    assert pids.count(0x0C) == 3
+    assert pids.count(0x0B) == 2
+    assert 0x04 in pids
+    assert 0x05 in pids
 
 
 def test_ecu_profile_prioritizes_ecu_group() -> None:
@@ -66,7 +78,7 @@ def test_profile_change_resets_schedule_position() -> None:
     scheduler.set_profile(Obd2PollingProfile.ECU)
 
     assert scheduler.profile is Obd2PollingProfile.ECU
-    assert scheduler.next_decoder().pid == 0x0C
+    assert scheduler.next_decoder().pid == 0x06
 
 
 def test_unsupported_pids_are_never_returned() -> None:
