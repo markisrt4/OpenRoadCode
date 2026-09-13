@@ -59,6 +59,8 @@ def configure_radio(app: OrcUiApp, runtime) -> RadioComposition:
             screen.open_rf()
         elif source == "streaming":
             screen.open_streaming()
+        elif source == "adsb":
+            screen.open_adsb()
         else:
             raise ValueError(f"Unsupported radio source: {source}")
 
@@ -69,6 +71,7 @@ def configure_radio(app: OrcUiApp, runtime) -> RadioComposition:
             theme=theme_bundle(app.theme_mode),
             on_open_rf=lambda: show_radio_source("rf"),
             on_open_streaming=lambda: show_radio_source("streaming"),
+            on_open_adsb=lambda: show_radio_source("adsb"),
         )
 
     app.set_home_radio_factory(home_radio_factory)
