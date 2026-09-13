@@ -692,11 +692,31 @@ class VehiclePanel(tk.Frame):
         state = self._state
         analysis = self._engine_analysis
 
-        for canvas in self._ecu_canvases.values():
-            canvas.delete("all")
-            canvas.update_idletasks()
+        def ensure_segment_background(
+            canvas: tk.Canvas,
+            *,
+            y: float,
+            x1: float,
+            x2: float,
+            segments: int,
+            tag_prefix: str,
+        ) -> tuple[float, float]:
+            gap = 3
+            usable = x2 - x1
+            segment_width = (usable - gap * (segments - 1)) / segments
+            if not canvas.find_withtag(f"{tag_prefix}-static"):
+                for index in range(segments):
+                    sx1 = x1 + index * (segment_width + gap)
+                    sx2 = sx1 + segment_width
+                    canvas.create_rectangle(
+                        sx1, y - 6, sx2, y + 6,
+                        fill=ui.surface_alt,
+                        outline=ui.border,
+                        tags=(f"{tag_prefix}-static", "static"),
+                    )
+            return segment_width, gap
 
-        def draw_segmented_bar(
+        def draw_active_segments(
             canvas: tk.Canvas,
             *,
             y: float,
@@ -704,52 +724,72 @@ class VehiclePanel(tk.Frame):
             x2: float,
             active_fraction: float | None,
             active_color: str,
-            segments: int = 18,
+            segments: int,
+            tag_prefix: str,
         ) -> None:
-            gap = 3
-            usable = x2 - x1
-            segment_width = (usable - gap * (segments - 1)) / segments
-            for index in range(segments):
+            canvas.delete(f"{tag_prefix}-dynamic")
+            segment_width, gap = ensure_segment_background(
+                canvas,
+                y=y,
+                x1=x1,
+                x2=x2,
+                segments=segments,
+                tag_prefix=tag_prefix,
+            )
+            if active_fraction is None:
+                return
+            active_count = max(0, min(segments, round(active_fraction * segments)))
+            for index in range(active_count):
                 sx1 = x1 + index * (segment_width + gap)
                 sx2 = sx1 + segment_width
-                active = (
-                    active_fraction is not None
-                    and (index + 1) / segments <= active_fraction + 1 / segments
-                )
                 canvas.create_rectangle(
-                    sx1,
-                    y - 6,
-                    sx2,
-                    y + 6,
-                    fill=active_color if active else ui.surface_alt,
-                    outline=ui.border,
+                    sx1, y - 6, sx2, y + 6,
+                    fill=active_color,
+                    outline=active_color,
+                    tags=(f"{tag_prefix}-dynamic", "dynamic"),
                 )
 
         fuel = self._ecu_canvases.get("fuel")
         if fuel is not None:
             width = max(220, fuel.winfo_width())
             x1, x2, y = 16, width - 16, 44
-            fuel.create_text(
-                x1, 11, anchor="w", text="REMOVE",
-                fill=ui.text_muted, font=("Sans", 8, "bold"),
-            )
-            fuel.create_text(
-                width / 2, 11, text="NORMAL",
-                fill=ui.text_muted, font=("Sans", 8, "bold"),
-            )
-            fuel.create_text(
-                x2, 11, anchor="e", text="ADD",
-                fill=ui.text_muted, font=("Sans", 8, "bold"),
-            )
-            fuel.create_line(x1, y, x2, y, fill=ui.border, width=3)
-            center = width / 2
-            fuel.create_line(center, 27, center, 61, fill=ui.text, width=2)
-            for pct, label in ((-20, "-20"), (0, "0"), (20, "+20%")):
-                x = x1 + ((pct + 20) / 40) * (x2 - x1)
-                fuel.create_line(x, y - 5, x, y + 5, fill=ui.text_muted)
+            if not fuel.find_withtag("static"):
                 fuel.create_text(
-                    x, 75, text=label, fill=ui.text_muted, font=("Sans", 8),
+                    x1, 11, anchor="w", text="REMOVE",
+                    fill=ui.text_muted, font=("Sans", 8, "bold"),
+                    tags="static",
                 )
+                fuel.create_text(
+                    width / 2, 11, text="NORMAL",
+                    fill=ui.text_muted, font=("Sans", 8, "bold"),
+                    tags="static",
+                )
+                fuel.create_text(
+                    x2, 11, anchor="e", text="ADD",
+                    fill=ui.text_muted, font=("Sans", 8, "bold"),
+                    tags="static",
+                )
+                fuel.create_line(
+                    x1, y, x2, y, fill=ui.border, width=3, tags="static"
+                )
+                center = width / 2
+                fuel.create_line(
+                    center, 27, center, 61, fill=ui.text, width=2, tags="static"
+                )
+                for pct, label in ((-20, "-20"), (0, "0"), (20, "+20%")):
+                    x = x1 + ((pct + 20) / 40) * (x2 - x1)
+                    fuel.create_line(
+                        x, y - 5, x, y + 5,
+                        fill=ui.text_muted, tags="static",
+                    )
+                    fuel.create_text(
+                        x, 75, text=label,
+                        fill=ui.text_muted,
+                        font=("Sans", 8),
+                        tags="static",
+                    )
+
+            fuel.delete("dynamic")
             if analysis.fuel_trim_total is not None:
                 trim_pct = max(-20.0, min(20.0, analysis.fuel_trim_total * 100.0))
                 x = x1 + ((trim_pct + 20.0) / 40.0) * (x2 - x1)
@@ -759,35 +799,51 @@ class VehiclePanel(tk.Frame):
                     x + 7, y - 24,
                     fill=ui.accent_warning,
                     outline="",
+                    tags="dynamic",
                 )
                 fuel.create_oval(
                     x - 6, y - 6, x + 6, y + 6,
-                    fill=ui.accent_warning, outline="",
+                    fill=ui.accent_warning,
+                    outline="",
+                    tags="dynamic",
                 )
 
         mixture = self._ecu_canvases.get("mixture")
         if mixture is not None:
             width = max(220, mixture.winfo_width())
             x1, x2, y = 16, width - 16, 44
-            mixture.create_text(
-                x1, 11, anchor="w", text="RICH",
-                fill=ui.accent_warning, font=("Sans", 8, "bold"),
-            )
-            mixture.create_text(
-                width / 2, 11, text="STOICH",
-                fill=ui.text, font=("Sans", 8, "bold"),
-            )
-            mixture.create_text(
-                x2, 11, anchor="e", text="LEAN",
-                fill=ui.accent_primary, font=("Sans", 8, "bold"),
-            )
-            mixture.create_line(x1, y, x2, y, fill=ui.border, width=4)
-            stoich_x = x1 + ((1.0 - 0.70) / 0.60) * (x2 - x1)
-            mixture.create_line(stoich_x, 24, stoich_x, 64, fill=ui.text, width=2)
-            mixture.create_text(
-                stoich_x, 75, text="1.00",
-                fill=ui.text_muted, font=("Sans", 8, "bold"),
-            )
+            if not mixture.find_withtag("static"):
+                mixture.create_text(
+                    x1, 11, anchor="w", text="RICH",
+                    fill=ui.accent_warning, font=("Sans", 8, "bold"),
+                    tags="static",
+                )
+                mixture.create_text(
+                    width / 2, 11, text="STOICH",
+                    fill=ui.text, font=("Sans", 8, "bold"),
+                    tags="static",
+                )
+                mixture.create_text(
+                    x2, 11, anchor="e", text="LEAN",
+                    fill=ui.accent_primary, font=("Sans", 8, "bold"),
+                    tags="static",
+                )
+                mixture.create_line(
+                    x1, y, x2, y, fill=ui.border, width=4, tags="static"
+                )
+                stoich_x = x1 + ((1.0 - 0.70) / 0.60) * (x2 - x1)
+                mixture.create_line(
+                    stoich_x, 24, stoich_x, 64,
+                    fill=ui.text, width=2, tags="static",
+                )
+                mixture.create_text(
+                    stoich_x, 75, text="1.00",
+                    fill=ui.text_muted,
+                    font=("Sans", 8, "bold"),
+                    tags="static",
+                )
+
+            mixture.delete("dynamic")
             markers = (
                 ("T", state.commanded_equivalence_ratio, ui.accent_primary, -13),
                 ("A", state.measured_equivalence_ratio, ui.accent_success, 13),
@@ -797,74 +853,95 @@ class VehiclePanel(tk.Frame):
                     continue
                 clamped = max(0.70, min(1.30, value))
                 x = x1 + ((clamped - 0.70) / 0.60) * (x2 - x1)
-                mixture.create_line(x, y + offset, x, y, fill=color, width=3)
+                mixture.create_line(
+                    x, y + offset, x, y,
+                    fill=color, width=3, tags="dynamic",
+                )
                 mixture.create_oval(
                     x - 6, y - 6, x + 6, y + 6,
-                    fill=color, outline="",
+                    fill=color, outline="", tags="dynamic",
                 )
                 mixture.create_text(
                     x, y + offset * 1.9, text=label,
-                    fill=color, font=("Sans", 8, "bold"),
+                    fill=color,
+                    font=("Sans", 8, "bold"),
+                    tags="dynamic",
                 )
 
         load = self._ecu_canvases.get("load")
         if load is not None:
             width = max(220, load.winfo_width())
             x1, x2 = 16, width - 16
-            load.create_text(
-                x1, 10, anchor="w", text="ENGINE LOAD",
-                fill=ui.text_muted, font=("Sans", 8, "bold"),
-            )
+
+            if not load.find_withtag("load-static"):
+                load.create_text(
+                    x1, 10, anchor="w", text="ENGINE LOAD",
+                    fill=ui.text_muted,
+                    font=("Sans", 8, "bold"),
+                    tags=("load-static", "static"),
+                )
+                for fraction, label in ((0.0, "0"), (0.5, "75"), (1.0, "150%")):
+                    load.create_text(
+                        x1 + fraction * (x2 - x1),
+                        48,
+                        anchor=(
+                            "w" if fraction == 0.0
+                            else "e" if fraction == 1.0
+                            else "center"
+                        ),
+                        text=label,
+                        fill=ui.text_muted,
+                        font=("Sans", 8),
+                        tags=("load-static", "static"),
+                    )
+
             load_fraction = (
                 None
                 if state.absolute_engine_load_percent is None
                 else max(0.0, min(1.0, state.absolute_engine_load_percent / 150.0))
             )
-            draw_segmented_bar(
+            draw_active_segments(
                 load,
                 y=29,
                 x1=x1,
                 x2=x2,
                 active_fraction=load_fraction,
                 active_color=ui.accent_danger,
+                segments=18,
+                tag_prefix="load",
             )
-            for fraction, label in ((0.0, "0"), (0.5, "75"), (1.0, "150%")):
-                load.create_text(
-                    x1 + fraction * (x2 - x1),
-                    48,
-                    anchor="w" if fraction == 0.0 else "e" if fraction == 1.0 else "center",
-                    text=label,
-                    fill=ui.text_muted,
-                    font=("Sans", 8),
-                )
 
             if self._vehicle_configuration.induction.is_forced_induction:
-                load.create_text(
-                    x1, 63, anchor="w", text="BOOST",
-                    fill=ui.text_muted, font=("Sans", 8, "bold"),
-                )
+                if not load.find_withtag("boost-static"):
+                    load.create_text(
+                        x1, 63, anchor="w", text="BOOST",
+                        fill=ui.text_muted,
+                        font=("Sans", 8, "bold"),
+                        tags=("boost-static", "static"),
+                    )
+                    load.create_text(
+                        x2, 63, anchor="e", text="-- psi",
+                        fill=ui.text,
+                        font=("Sans", 8, "bold"),
+                        tags=("boost-static", "static", "boost-value"),
+                    )
+
                 boost = state.boost_psi
-                boost_fraction = (
-                    None
-                    if boost is None
-                    else max(0.0, min(1.0, boost / 20.0))
-                )
-                draw_segmented_bar(
+                draw_active_segments(
                     load,
                     y=76,
                     x1=x1 + 54,
                     x2=x2,
-                    active_fraction=boost_fraction,
+                    active_fraction=(
+                        None if boost is None else max(0.0, min(1.0, boost / 20.0))
+                    ),
                     active_color=ui.accent_primary,
                     segments=12,
+                    tag_prefix="boost",
                 )
-                load.create_text(
-                    x2,
-                    63,
-                    anchor="e",
+                load.itemconfigure(
+                    "boost-value",
                     text="-- psi" if boost is None else f"{boost:+.1f} psi",
-                    fill=ui.text,
-                    font=("Sans", 8, "bold"),
                 )
 
     def update_engine_analysis(self, analysis: EngineAnalysis) -> None:
