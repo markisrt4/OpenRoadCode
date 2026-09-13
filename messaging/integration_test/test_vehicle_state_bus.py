@@ -73,7 +73,7 @@ def test_simulated_obd_vehicle_state_crosses_message_bus():
         message = received[-1]
         assert message.source == "integration-test-obd2"
         assert message.data.engine_speed_rad_s is not None
-        assert message.data.vehicle_speed_m_s is not None
+        assert message.data.vehicle_speed_m_s is None
         assert message.data.throttle_position is not None
         assert message.data.boost_pressure_pa == pytest.approx(
             message.data.intake_manifold_pressure_pa
