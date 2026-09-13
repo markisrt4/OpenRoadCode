@@ -51,6 +51,10 @@ class ADSBLauncher(AppLauncherIf):
     def is_running(self) -> bool:
         return self.browser.is_running()
 
+    def set_preferred_color_scheme(self, scheme: str) -> None:
+        """Apply ORC's preferred light/dark scheme to the ADS-B browser."""
+        self.browser.set_preferred_color_scheme(scheme)
+
     def configure_browser_window(self, *, position: tuple[int, int], size: tuple[int, int]) -> None:
         self.browser.configure_app_window(position=position, size=size)
 
