@@ -418,7 +418,7 @@ class VehiclePanel(tk.Frame):
             text=title,
             fg=ui.text,
             bg=ui.surface,
-            font=("Sans", 8, "bold"),
+            font=("Sans", 11, "bold"),
             anchor="w",
         ).grid(row=0, column=0, sticky="w")
         if unit:
@@ -427,7 +427,7 @@ class VehiclePanel(tk.Frame):
                 text=unit,
                 fg=ui.text_muted,
                 bg=ui.surface,
-                font=("Sans", 7, "bold"),
+                font=("Sans", 9, "bold"),
             ).grid(row=0, column=1, sticky="e")
         return card
 
@@ -505,7 +505,7 @@ class VehiclePanel(tk.Frame):
             detail.grid(row=4, column=0, sticky="sw", padx=14, pady=(4, 8))
             visual = tk.Canvas(
                 card,
-                height=34,
+                height=88,
                 bg=ui.surface,
                 highlightthickness=0,
                 bd=0,
@@ -696,45 +696,175 @@ class VehiclePanel(tk.Frame):
             canvas.delete("all")
             canvas.update_idletasks()
 
+        def draw_segmented_bar(
+            canvas: tk.Canvas,
+            *,
+            y: float,
+            x1: float,
+            x2: float,
+            active_fraction: float | None,
+            active_color: str,
+            segments: int = 18,
+        ) -> None:
+            gap = 3
+            usable = x2 - x1
+            segment_width = (usable - gap * (segments - 1)) / segments
+            for index in range(segments):
+                sx1 = x1 + index * (segment_width + gap)
+                sx2 = sx1 + segment_width
+                active = (
+                    active_fraction is not None
+                    and (index + 1) / segments <= active_fraction + 1 / segments
+                )
+                canvas.create_rectangle(
+                    sx1,
+                    y - 6,
+                    sx2,
+                    y + 6,
+                    fill=active_color if active else ui.surface_alt,
+                    outline=ui.border,
+                )
+
         fuel = self._ecu_canvases.get("fuel")
         if fuel is not None:
-            width = max(180, fuel.winfo_width())
-            y = 17
-            fuel.create_line(10, y, width - 10, y, fill=ui.border, width=3)
-            fuel.create_line(width / 2, 8, width / 2, 26, fill=ui.text_muted, width=2)
+            width = max(220, fuel.winfo_width())
+            x1, x2, y = 16, width - 16, 44
+            fuel.create_text(
+                x1, 11, anchor="w", text="REMOVE",
+                fill=ui.text_muted, font=("Sans", 8, "bold"),
+            )
+            fuel.create_text(
+                width / 2, 11, text="NORMAL",
+                fill=ui.text_muted, font=("Sans", 8, "bold"),
+            )
+            fuel.create_text(
+                x2, 11, anchor="e", text="ADD",
+                fill=ui.text_muted, font=("Sans", 8, "bold"),
+            )
+            fuel.create_line(x1, y, x2, y, fill=ui.border, width=3)
+            center = width / 2
+            fuel.create_line(center, 27, center, 61, fill=ui.text, width=2)
+            for pct, label in ((-20, "-20"), (0, "0"), (20, "+20%")):
+                x = x1 + ((pct + 20) / 40) * (x2 - x1)
+                fuel.create_line(x, y - 5, x, y + 5, fill=ui.text_muted)
+                fuel.create_text(
+                    x, 75, text=label, fill=ui.text_muted, font=("Sans", 8),
+                )
             if analysis.fuel_trim_total is not None:
-                trim = max(-0.20, min(0.20, analysis.fuel_trim_total))
-                x = 10 + ((trim + 0.20) / 0.40) * (width - 20)
-                fuel.create_oval(x - 5, y - 5, x + 5, y + 5, fill=ui.accent_warning, outline="")
+                trim_pct = max(-20.0, min(20.0, analysis.fuel_trim_total * 100.0))
+                x = x1 + ((trim_pct + 20.0) / 40.0) * (x2 - x1)
+                fuel.create_polygon(
+                    x, y - 13,
+                    x - 7, y - 24,
+                    x + 7, y - 24,
+                    fill=ui.accent_warning,
+                    outline="",
+                )
+                fuel.create_oval(
+                    x - 6, y - 6, x + 6, y + 6,
+                    fill=ui.accent_warning, outline="",
+                )
 
         mixture = self._ecu_canvases.get("mixture")
         if mixture is not None:
-            width = max(180, mixture.winfo_width())
-            y = 17
-            mixture.create_line(10, y, width - 10, y, fill=ui.border, width=3)
-            stoich_x = 10 + ((1.0 - 0.70) / 0.60) * (width - 20)
-            mixture.create_line(stoich_x, 7, stoich_x, 27, fill=ui.text_muted, width=2)
-            for value, color, radius in (
-                (state.commanded_equivalence_ratio, ui.accent_primary, 6),
-                (state.measured_equivalence_ratio, ui.accent_success, 4),
-            ):
-                if value is not None:
-                    value = max(0.70, min(1.30, value))
-                    x = 10 + ((value - 0.70) / 0.60) * (width - 20)
-                    mixture.create_oval(
-                        x - radius, y - radius, x + radius, y + radius,
-                        fill=color, outline="",
-                    )
+            width = max(220, mixture.winfo_width())
+            x1, x2, y = 16, width - 16, 44
+            mixture.create_text(
+                x1, 11, anchor="w", text="RICH",
+                fill=ui.accent_warning, font=("Sans", 8, "bold"),
+            )
+            mixture.create_text(
+                width / 2, 11, text="STOICH",
+                fill=ui.text, font=("Sans", 8, "bold"),
+            )
+            mixture.create_text(
+                x2, 11, anchor="e", text="LEAN",
+                fill=ui.accent_primary, font=("Sans", 8, "bold"),
+            )
+            mixture.create_line(x1, y, x2, y, fill=ui.border, width=4)
+            stoich_x = x1 + ((1.0 - 0.70) / 0.60) * (x2 - x1)
+            mixture.create_line(stoich_x, 24, stoich_x, 64, fill=ui.text, width=2)
+            mixture.create_text(
+                stoich_x, 75, text="1.00",
+                fill=ui.text_muted, font=("Sans", 8, "bold"),
+            )
+            markers = (
+                ("T", state.commanded_equivalence_ratio, ui.accent_primary, -13),
+                ("A", state.measured_equivalence_ratio, ui.accent_success, 13),
+            )
+            for label, value, color, offset in markers:
+                if value is None:
+                    continue
+                clamped = max(0.70, min(1.30, value))
+                x = x1 + ((clamped - 0.70) / 0.60) * (x2 - x1)
+                mixture.create_line(x, y + offset, x, y, fill=color, width=3)
+                mixture.create_oval(
+                    x - 6, y - 6, x + 6, y + 6,
+                    fill=color, outline="",
+                )
+                mixture.create_text(
+                    x, y + offset * 1.9, text=label,
+                    fill=color, font=("Sans", 8, "bold"),
+                )
 
         load = self._ecu_canvases.get("load")
         if load is not None:
-            width = max(180, load.winfo_width())
-            load.create_rectangle(10, 11, width - 10, 23, outline=ui.border)
-            if state.absolute_engine_load_percent is not None:
-                fraction = max(0.0, min(1.0, state.absolute_engine_load_percent / 150.0))
-                load.create_rectangle(
-                    11, 12, 11 + fraction * (width - 22), 22,
-                    fill=ui.accent_danger, outline="",
+            width = max(220, load.winfo_width())
+            x1, x2 = 16, width - 16
+            load.create_text(
+                x1, 10, anchor="w", text="ENGINE LOAD",
+                fill=ui.text_muted, font=("Sans", 8, "bold"),
+            )
+            load_fraction = (
+                None
+                if state.absolute_engine_load_percent is None
+                else max(0.0, min(1.0, state.absolute_engine_load_percent / 150.0))
+            )
+            draw_segmented_bar(
+                load,
+                y=29,
+                x1=x1,
+                x2=x2,
+                active_fraction=load_fraction,
+                active_color=ui.accent_danger,
+            )
+            for fraction, label in ((0.0, "0"), (0.5, "75"), (1.0, "150%")):
+                load.create_text(
+                    x1 + fraction * (x2 - x1),
+                    48,
+                    anchor="w" if fraction == 0.0 else "e" if fraction == 1.0 else "center",
+                    text=label,
+                    fill=ui.text_muted,
+                    font=("Sans", 8),
+                )
+
+            if self._vehicle_configuration.induction.is_forced_induction:
+                load.create_text(
+                    x1, 63, anchor="w", text="BOOST",
+                    fill=ui.text_muted, font=("Sans", 8, "bold"),
+                )
+                boost = state.boost_psi
+                boost_fraction = (
+                    None
+                    if boost is None
+                    else max(0.0, min(1.0, boost / 20.0))
+                )
+                draw_segmented_bar(
+                    load,
+                    y=76,
+                    x1=x1 + 54,
+                    x2=x2,
+                    active_fraction=boost_fraction,
+                    active_color=ui.accent_primary,
+                    segments=12,
+                )
+                load.create_text(
+                    x2,
+                    63,
+                    anchor="e",
+                    text="-- psi" if boost is None else f"{boost:+.1f} psi",
+                    fill=ui.text,
+                    font=("Sans", 8, "bold"),
                 )
 
     def update_engine_analysis(self, analysis: EngineAnalysis) -> None:
