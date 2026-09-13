@@ -7,6 +7,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd -- "$SCRIPT_DIR/../.." && pwd)"
 PROJECT_DIR="${PROJECT_DIR:-$PROJECT_ROOT}"
+VENV_DIR_WAS_SET="${VENV_DIR+x}"
 VENV_DIR="${VENV_DIR:-$PROJECT_DIR/venv}"
 export PROJECT_DIR VENV_DIR
 
@@ -182,7 +183,9 @@ if [[ "$TARGET" == "termux" ]]; then
     echo "[!] --target termux must be run from native Termux." >&2
     exit 1
   }
-  VENV_DIR="${VENV_DIR:-$PROJECT_DIR/venv-termux}"
+  if [[ -z "$VENV_DIR_WAS_SET" ]]; then
+    VENV_DIR="$PROJECT_DIR/venv-termux"
+  fi
   export VENV_DIR
   HOST_ARCH="$(uname -m)"
   RPI_MODEL=""
