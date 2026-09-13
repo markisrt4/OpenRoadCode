@@ -27,6 +27,7 @@ imu
 environmental
 spotify
 sdrpp
+navigation
 raspberry-pi
 EOF
 }
@@ -74,6 +75,7 @@ get_feature_dependencies() {
     vnc) echo "desktop-ui" ;;
     spotify) echo "audio" ;;
     sdrpp) echo "rtl-sdr desktop-ui audio" ;;
+    navigation) echo "desktop-ui gps" ;;
     adsb) echo "rtl-sdr" ;;
     *) echo "" ;;
   esac
@@ -122,8 +124,8 @@ get_feature_packages() {
     spotify)
       echo ""
       ;;
-    sdrpp)
-      echo "sdrpp"
+    sdrpp|navigation)
+      echo ""
       ;;
     *)
       echo ""
@@ -143,7 +145,7 @@ get_feature_python_packages() {
     web-ui)
       printf '%s\n' Flask
       ;;
-    browser|vnc|adsb|audio|spotify|sdrpp)
+    browser|vnc|adsb|audio|spotify|sdrpp|navigation)
       echo ""
       ;;
     input)
@@ -202,6 +204,7 @@ Available features:
   environmental BMP3XX and Adafruit Blinka I2C support
   spotify       Spotify integration extras (includes audio)
   sdrpp         SDR++ support (includes RTL-SDR, desktop-ui, and audio)
+  navigation    MapLibre renderer + Valhalla navigation stack (includes desktop-ui and gps)
   raspberry-pi  Raspberry Pi GPIO, I2C, Blinka, and Seesaw support
 EOF
 }
