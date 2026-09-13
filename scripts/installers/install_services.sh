@@ -68,5 +68,11 @@ fi
 
 if (( RUN_TELEMETRY_SERVICES )); then
   echo "[*] Installing OpenRoadCode telemetry services..."
-  sudo bash "$PROJECT_ROOT/scripts/systemd/install_telemetry_services_systemd.sh"
+  runtime_config="$PROJECT_ROOT/config/runtime.toml"
+  if [[ "${OPENROAD_INSTALL_TARGET:-}" == "linux-dev" ]]; then
+    runtime_config="$PROJECT_ROOT/config/runtime.simulated.toml"
+    echo "[*] linux-dev target: using simulated telemetry runtime: $runtime_config"
+  fi
+  sudo env OPENROADCODE_RUNTIME_CONFIG="$runtime_config" \
+    bash "$PROJECT_ROOT/scripts/systemd/install_telemetry_services_systemd.sh"
 fi
