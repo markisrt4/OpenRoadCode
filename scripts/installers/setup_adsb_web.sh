@@ -42,6 +42,14 @@ else
     trap - EXIT
 fi
 
+tar1090_config="/usr/local/share/tar1090/html/config.js"
+if [[ -f "$tar1090_config" ]]; then
+    runtime_user="${SUDO_USER:-$(id -un)}"
+    runtime_group="$(id -gn "$runtime_user")"
+    echo "[*] Allowing $runtime_user to manage tar1090 UI preferences..."
+    sudo chown "$runtime_user:$runtime_group" "$tar1090_config"
+fi
+
 if command -v systemctl >/dev/null 2>&1; then
     # readsb owns the RTL-SDR while running. OpenRoadCode starts it on demand
     # through ADSBLauncher so the receiver remains available to SDR++/radio.
