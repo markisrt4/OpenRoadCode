@@ -44,6 +44,7 @@ Targets:
   rpi4       Raspberry Pi 4 or Compute Module 4 runtime
   rpi5       Raspberry Pi 5, Pi 500, or Compute Module 5 runtime
   linux-dev  Debian/Ubuntu development workstation or VM
+  termux     Native Termux/Android runtime
 
 Options:
   --target TARGET         Required installation target
@@ -174,22 +175,36 @@ while (( $# > 0 )); do
 done
 
 [[ -n "$TARGET" ]] || { echo "[!] --target is required" >&2; usage >&2; exit 1; }
-case "$TARGET" in rpi4|rpi5|linux-dev) ;; *) echo "[!] Unknown target: $TARGET" >&2; usage >&2; exit 1 ;; esac
+case "$TARGET" in rpi4|rpi5|linux-dev|termux) ;; *) echo "[!] Unknown target: $TARGET" >&2; usage >&2; exit 1 ;; esac
 
-HOST_ARCH="$(detect_host_arch)"
+if [[ "$TARGET" == "termux" ]]; then
+  [[ "${PREFIX:-}" == /data/data/com.termux/files/usr* ]] || {
+    echo "[!] --target termux must be run from native Termux." >&2
+    exit 1
+  }
+  VENV_DIR="${VENV_DIR:-$PROJECT_DIR/venv-termux}"
+  export VENV_DIR
+  HOST_ARCH="$(uname -m)"
+  RPI_MODEL=""
+  DETECTED_TARGET="termux"
+  DISTRO_ID="termux"
+  DISTRO_LIKE=""
+else
+  HOST_ARCH="$(detect_host_arch)"
 RPI_MODEL="$(detect_raspberry_pi_model)"
 DETECTED_TARGET="$(detect_system_target "$RPI_MODEL")"
 DISTRO_ID="$(read_os_release_value ID)"
 DISTRO_LIKE="$(read_os_release_value ID_LIKE)"
 validate_distribution "$DISTRO_ID" "$DISTRO_LIKE"
 confirm_target_mismatch "$TARGET" "$DETECTED_TARGET" "$RPI_MODEL"
+fi
 
 FEATURES=()
 if (( INSTALL_ALL_FEATURES )); then mapfile -t FEATURES < <(get_all_features_for_target "$TARGET"); elif (( USE_DEFAULT_FEATURES )); then FEATURES=(base); fi
 case "$TARGET" in
   rpi4) GPIO_BACKEND="RPi.GPIO"; append_feature raspberry-pi ;;
   rpi5) GPIO_BACKEND="rpi-lgpio"; append_feature raspberry-pi ;;
-  linux-dev) GPIO_BACKEND="" ;;
+  linux-dev|termux) GPIO_BACKEND="" ;;
 esac
 : "${RUN_VNC:=0}"
 : "${RUN_GPSD_SERVICE:=0}"
@@ -225,6 +240,22 @@ echo "[*] GPSD service setup:    $RUN_GPSD_SERVICE"
 echo "[*] Telemetry services:    $RUN_TELEMETRY_SERVICES"
 
 if (( SHOW_PLAN )); then echo "[*] Plan only; no system changes were made."; exit 0; fi
+
+if [[ "$TARGET" == "termux" ]]; then
+  if (( ! SKIP_INSTALLS )); then
+    bash "$PROJECT_DIR/scripts/termux/install.sh"
+  fi
+  if [[ " ${FEATURES[*]} " == *" navigation "* ]]; then
+    bash "$SCRIPT_DIR/install_navigation_stack.sh" --target termux
+  fi
+  echo
+  echo "[+] termux setup complete."
+  echo "    Project dir: $PROJECT_DIR"
+  echo "    Arch:        $HOST_ARCH"
+  echo "    Venv:        $VENV_DIR"
+  exit 0
+fi
+
 if (( SKIP_INSTALLS )); then echo "[*] Skipping package, Python, and user-group changes per request."; fi
 if (( RUN_SYSTEM_PACKAGES )) && (( ! SKIP_INSTALLS )); then bash "$PROJECT_DIR/scripts/installers/install_system_packages.sh" "${FEATURES[@]}"; fi
 if (( RUN_PYTHON_ENV )) && (( ! SKIP_INSTALLS )); then bash "$PROJECT_DIR/scripts/installers/install_python_env.sh" "${FEATURES[@]}"; fi
