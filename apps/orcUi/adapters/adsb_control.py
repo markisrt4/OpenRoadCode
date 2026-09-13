@@ -48,6 +48,10 @@ class OrcUiAdsbControl:
     def running(self) -> bool:
         return self._launcher.is_running()
 
+    def assert_available(self) -> None:
+        """Raise when RF currently has priority over the ADS-B receiver."""
+        self._launcher.assert_available()
+
     def set_preferred_color_scheme(self, scheme: str) -> None:
         """Apply ORC's preferred light/dark scheme to the ADS-B browser."""
         self._launcher.set_preferred_color_scheme(scheme)
