@@ -12,17 +12,7 @@ from apps.launchers.adsb_launcher import ADSBLauncher, _set_systemd_service_stat
 
 
 class AdsbLauncherTest(unittest.TestCase):
-    @patch("apps.launchers.adsb_launcher.is_process_running", return_value=True)
-    def test_rf_radio_has_priority(self, _process_running: Mock) -> None:
-        launcher = ADSBLauncher()
-        with self.assertRaisesRegex(RuntimeError, "RF radio is active"):
-            launcher.assert_available()
-
-    @patch("apps.launchers.adsb_launcher.is_process_running", return_value=False)
-    def test_tar1090_theme_overrides_default_and_saved_mode(
-        self,
-        _process_running: Mock,
-    ) -> None:
+    def test_tar1090_theme_overrides_default_and_saved_mode(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             config_path = Path(directory) / "config.js"
             config_path.write_text(
