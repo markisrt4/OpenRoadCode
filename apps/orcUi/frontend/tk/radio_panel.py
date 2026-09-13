@@ -210,9 +210,10 @@ class RadioPanel(tk.Frame):
         self._telemetry_worker.set_include_rds(False)
         parent_window_id = int(self.winfo_toplevel().winfo_id())
         try:
+            self._adsb.assert_available()
+            self._adsb.set_preferred_color_scheme(scheme)
             self._embedder.detach(parent_window_id)
             self.update_idletasks()
-            self._adsb.set_preferred_color_scheme(scheme)
             self._adsb.configure_browser_window(position=(self._host.winfo_rootx(), self._host.winfo_rooty()), size=(max(1, self._host.winfo_width()), max(1, self._host.winfo_height())))
             self._adsb.launch(self._display)
             self.update_idletasks()
