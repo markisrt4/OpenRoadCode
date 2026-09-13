@@ -198,6 +198,10 @@ class RadioPanel(tk.Frame):
         if label:
             self._radio.catalog.add_user_preset(profile.key, label=label, frequency_hz=state.frequency_hz)
 
+    def show_adsb(self) -> None:
+        """Present ADS-B without allowing it to preempt an active RF receiver."""
+        self._show_adsb()
+
     def _show_adsb(self) -> None:
         ui = self._theme.ui
         scheme = "light" if self._theme == theme_bundle(ThemeMode.LIGHT) else "dark"
