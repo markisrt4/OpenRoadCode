@@ -23,6 +23,7 @@ class StreamingRadioNowPlaying(tk.Frame):
         theme: ThemeBundle,
         on_open_rf: Callable[[], None],
         on_open_streaming: Callable[[], None],
+        on_open_adsb: Callable[[], None],
     ) -> None:
         ui = theme.ui
         super().__init__(parent, bg=ui.surface)
@@ -46,6 +47,23 @@ class StreamingRadioNowPlaying(tk.Frame):
         source_shortcuts = tk.Frame(self, bg=ui.surface)
         source_shortcuts.grid(row=0, column=1, sticky="e", padx=(4, 10), pady=(7, 0))
 
+        self._adsb_button = tk.Button(
+            source_shortcuts,
+            text="✈  ADS-B",
+            command=on_open_adsb,
+            bg=ui.surface,
+            fg=ui.accent_warning,
+            activebackground=ui.control_active,
+            activeforeground="#ffffff",
+            relief=tk.FLAT,
+            bd=0,
+            highlightthickness=0,
+            font=("Sans", 8, "bold"),
+            padx=6,
+            pady=3,
+        )
+        self._adsb_button.grid(row=0, column=0, padx=(0, 4))
+
         self._rf_button = tk.Button(
             source_shortcuts,
             text="⌁  RF",
@@ -61,7 +79,7 @@ class StreamingRadioNowPlaying(tk.Frame):
             padx=6,
             pady=3,
         )
-        self._rf_button.grid(row=0, column=0, padx=(0, 4))
+        self._rf_button.grid(row=0, column=1, padx=(0, 4))
 
         self._stream_button = tk.Button(
             source_shortcuts,
@@ -78,7 +96,7 @@ class StreamingRadioNowPlaying(tk.Frame):
             padx=6,
             pady=3,
         )
-        self._stream_button.grid(row=0, column=1)
+        self._stream_button.grid(row=0, column=2)
 
         self._station = tk.Label(
             self,
