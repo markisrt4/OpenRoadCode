@@ -202,6 +202,8 @@ validate_distribution "$DISTRO_ID" "$DISTRO_LIKE"
 confirm_target_mismatch "$TARGET" "$DETECTED_TARGET" "$RPI_MODEL"
 fi
 
+export OPENROAD_INSTALL_TARGET="$TARGET"
+
 FEATURES=()
 if (( INSTALL_ALL_FEATURES )); then mapfile -t FEATURES < <(get_all_features_for_target "$TARGET"); elif (( USE_DEFAULT_FEATURES )); then FEATURES=(base); fi
 case "$TARGET" in
@@ -228,7 +230,6 @@ while (( feature_index < ${#FEATURES[@]} )); do
 done
 for feature in "${FEATURES[@]}"; do is_known_feature "$feature" || { echo "[!] Internal error: unknown resolved feature '$feature'" >&2; exit 1; }; done
 
-export OPENROAD_INSTALL_TARGET="$TARGET"
 export OPENROAD_RPI_GPIO_BACKEND="$GPIO_BACKEND"
 
 echo "[*] Requested target:      $TARGET"
