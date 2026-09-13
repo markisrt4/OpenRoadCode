@@ -7,7 +7,8 @@ from enum import Enum
 class AutomotiveTelemetryProfile(str, Enum):
     """Semantic telemetry-priority hint for the automotive producer."""
 
-    NORMAL = "normal"
+    BACKGROUND = "background"
+    HOME = "home"
     PERFORMANCE = "performance"
     ENGINE = "engine"
     ECU = "ecu"
