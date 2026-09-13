@@ -4,7 +4,7 @@
 
 set -euo pipefail
 
-GPS_DEVICE="${1:-/dev/ttyACM0}"
+GPS_DEVICE="${1:-${GPS_DEVICE:-/dev/ttyACM0}}"
 GPSD_PORT="${GPSD_PORT:-2947}"
 
 if ! command -v gpsd >/dev/null 2>&1; then
