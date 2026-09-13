@@ -382,7 +382,12 @@ if (( ! SKIP_SMOKE )); then
   (( SKIP_VALHALLA )) || test -x "$INSTALL_ROOT/valhalla/bin/valhalla_service"
   test -f "$CONFIG_ROOT/navigation.toml"
   if [[ -d "$DATA_ROOT/maps" ]]; then
-    test -s "$DATA_ROOT/maps/styles/openroadcode.json"
+    style_path="$DATA_ROOT/maps/styles/openroadcode.json"
+    test -s "$style_path"
+    test -r "$style_path" || {
+      echo "[!] Navigation style exists but is not readable by $(id -un): $style_path" >&2
+      exit 1
+    }
   fi
 fi
 
