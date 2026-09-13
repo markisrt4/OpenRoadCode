@@ -57,6 +57,17 @@ spotify
 sdrpp
 EOF
       ;;
+    termux)
+      cat <<'EOF'
+base
+desktop-ui
+web-ui
+browser
+streamlit
+spotify
+navigation
+EOF
+      ;;
     *) return 1 ;;
   esac
 }
