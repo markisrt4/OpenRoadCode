@@ -53,11 +53,9 @@ class ADSBLauncher(AppLauncherIf):
         return self.browser.is_running()
 
     def assert_available(self) -> None:
-        """Reject ADS-B when an RF application already owns the shared receiver."""
+        """Reject ADS-B when another component owns the shared receiver."""
         if self.data_source != RTLSDR_DATA_SOURCE:
             return
-        if is_process_running(r"(^|/)(sdrpp|sdr\\+\\+)( |$)"):
-            raise RuntimeError("RF radio is active; ADS-B will not take control of the SDR")
         if self.resource_manager is not None:
             owner = self.resource_manager.get_owner()
             if owner not in (None, self.owner_name):
