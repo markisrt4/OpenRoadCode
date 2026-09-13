@@ -23,6 +23,7 @@ type = "native"
 enabled = true
 startup = "preload"
 target = "primary"
+fullscreen = false
 
 [apps.weather]
 type = "browser"
