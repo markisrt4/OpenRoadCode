@@ -17,7 +17,12 @@ if [[ -d /usr/local/share/tar1090/html || -d /var/www/html/tar1090 ]]; then
     echo "[*] tar1090 appears to be installed already; leaving the existing installation in place."
 else
     echo "[*] Installing tar1090..."
-    sudo bash -c "$(wget -q -O - https://github.com/wiedehopf/tar1090/raw/master/install.sh)"
+    installer="$(mktemp)"
+    trap 'rm -f "$installer"' EXIT
+    wget -q -O "$installer" https://github.com/wiedehopf/tar1090/raw/master/install.sh
+    sudo bash "$installer" /run/readsb
+    rm -f "$installer"
+    trap - EXIT
 fi
 
 if command -v systemctl >/dev/null 2>&1; then
