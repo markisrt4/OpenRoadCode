@@ -3,13 +3,44 @@
 
 """Tests for ADS-B dashboard launch behavior."""
 
+import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import Mock, patch
 
 from apps.launchers.adsb_launcher import ADSBLauncher, _set_systemd_service_state
 
 
 class AdsbLauncherTest(unittest.TestCase):
+    @patch("apps.launchers.adsb_launcher.is_process_running", return_value=True)
+    def test_rf_radio_has_priority(self, _process_running: Mock) -> None:
+        launcher = ADSBLauncher()
+        with self.assertRaisesRegex(RuntimeError, "RF radio is active"):
+            launcher.assert_available()
+
+    @patch("apps.launchers.adsb_launcher.is_process_running", return_value=False)
+    def test_tar1090_theme_overrides_default_and_saved_mode(
+        self,
+        _process_running: Mock,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            config_path = Path(directory) / "config.js"
+            config_path.write_text(
+                "//darkModeDefault = true;\n",
+                encoding="utf-8",
+            )
+            launcher = ADSBLauncher(tar1090_config_path=config_path)
+            launcher.browser = Mock()
+
+            launcher.set_preferred_color_scheme("light")
+
+            content = config_path.read_text(encoding="utf-8")
+            self.assertIn("darkModeDefault = false;", content)
+            self.assertIn("loStore.darkMode = false;", content)
+            launcher.browser.set_preferred_color_scheme.assert_called_once_with(
+                "light"
+            )
+
     @patch("apps.launchers.adsb_launcher._set_systemd_service_state")
     def test_reachable_dashboard_opens_without_receiver_hardware(
         self,
