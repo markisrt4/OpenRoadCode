@@ -157,6 +157,68 @@ fi
 command -v git >/dev/null 2>&1 || { echo "git is required" >&2; exit 1; }
 mkdir -p "$BUILD_ROOT" "$HOST_SRC"
 
+NAV_STATE_ROOT="${NAV_STATE_ROOT:-/var/lib/openroadcode/install-state}"
+MAPLIBRE_STATE_FILE="$NAV_STATE_ROOT/maplibre-renderer.sha256"
+VALHALLA_STATE_FILE="$NAV_STATE_ROOT/valhalla.sha256"
+
+hash_inputs() {
+  {
+    printf 'target=%s\n' "$TARGET"
+    printf 'arch=%s\n' "$(uname -m)"
+    printf 'build_image=%s\n' "$BUILD_BASE_IMAGE"
+    for path in "$@"; do
+      if [[ -f "$path" ]]; then
+        printf 'file=%s\n' "$path"
+        sha256sum "$path"
+      elif [[ -d "$path" ]]; then
+        find "$path" -type f -print0 | sort -z | xargs -0 -r sha256sum
+      fi
+    done
+  } | sha256sum | awk '{print $1}'
+}
+
+read_state_hash() {
+  local state_file="$1"
+  sudo test -f "$state_file" && sudo cat "$state_file" || true
+}
+
+write_state_hash() {
+  local state_file="$1" hash="$2"
+  sudo install -d "$NAV_STATE_ROOT"
+  printf '%s\n' "$hash" | sudo tee "$state_file" >/dev/null
+}
+
+MAPLIBRE_FINGERPRINT="$( {
+  printf 'maplibre_ref=%s\n' "$MAPLIBRE_REF"
+  hash_inputs \
+    "$PROJECT_ROOT/apps/map_renderer" \
+    "$PROJECT_ROOT/development/containers/maplibre" \
+    "$PROJECT_ROOT/scripts/runtime/install_navigation_style.sh"
+} | sha256sum | awk '{print $1}' )"
+
+VALHALLA_FINGERPRINT="$( {
+  printf 'valhalla_ref=%s\n' "$VALHALLA_REF"
+  printf 'prime_server_ref=%s\n' "$PRIME_SERVER_REF"
+  hash_inputs \
+    "$PROJECT_ROOT/development/containers/valhalla" \
+    "$TOOLCHAIN_LOCK"
+} | sha256sum | awk '{print $1}' )"
+
+MAPLIBRE_BUILD_REQUIRED=1
+VALHALLA_BUILD_REQUIRED=1
+
+if [[ "${FORCE_NAVIGATION_REBUILD:-0}" != "1" && "${FORCE_MAPLIBRE_REBUILD:-0}" != "1" ]] \
+   && [[ "$(read_state_hash "$MAPLIBRE_STATE_FILE")" == "$MAPLIBRE_FINGERPRINT" ]] \
+   && [[ -x "$INSTALL_ROOT/bin/openroadcode-map-renderer" ]]; then
+  MAPLIBRE_BUILD_REQUIRED=0
+fi
+
+if [[ "${FORCE_NAVIGATION_REBUILD:-0}" != "1" && "${FORCE_VALHALLA_REBUILD:-0}" != "1" ]] \
+   && [[ "$(read_state_hash "$VALHALLA_STATE_FILE")" == "$VALHALLA_FINGERPRINT" ]] \
+   && [[ -x "$INSTALL_ROOT/valhalla/bin/valhalla_service" ]]; then
+  VALHALLA_BUILD_REQUIRED=0
+fi
+
 CONTAINER_ENGINE_STARTED_BY_ORC=0
 
 restore_container_engine_state() {
@@ -204,7 +266,7 @@ ensure_container_engine() {
 
 trap restore_container_engine_state EXIT
 
-if (( ! SKIP_MAPLIBRE || ! SKIP_VALHALLA )); then
+if (( (! SKIP_MAPLIBRE && MAPLIBRE_BUILD_REQUIRED) || (! SKIP_VALHALLA && VALHALLA_BUILD_REQUIRED) )); then
   ensure_container_engine
 fi
 
@@ -264,7 +326,8 @@ if [[ ! -f "$CONFIG_ROOT/navigation.toml" ]]; then
   sudo install -m 0644 "$PROJECT_ROOT/config/navigation.toml" "$CONFIG_ROOT/navigation.toml"
 fi
 
-if (( ! SKIP_MAPLIBRE )); then
+if (( ! SKIP_MAPLIBRE && MAPLIBRE_BUILD_REQUIRED )); then
+  echo "[*] MapLibre renderer inputs changed; rebuilding..."
   checkout_repo "https://github.com/maplibre/maplibre-native.git" "$MAPLIBRE_SRC" "$MAPLIBRE_REF" "MapLibre Native"
   BASE_IMAGE="$BUILD_BASE_IMAGE" bash "$PROJECT_ROOT/development/containers/maplibre/build.sh"
   "$CONTAINER_ENGINE" run --rm --volume "$HOST_SRC:/src" --workdir /src -e BUILD_JOBS="${BUILD_JOBS:-4}" openroadcode-maplibre-builder /bin/bash -lc "set -euo pipefail; /src/OpenRoadCode/development/containers/maplibre/scripts/build_maplibre.sh; /src/OpenRoadCode/development/containers/maplibre/scripts/build_map_renderer.sh"
@@ -273,6 +336,9 @@ if (( ! SKIP_MAPLIBRE )); then
   sudo install -d "$INSTALL_ROOT/bin"
   sudo install -m 0755 "$renderer" "$INSTALL_ROOT/bin/openroadcode-map-renderer"
   check_runtime_libraries "MapLibre renderer" "$INSTALL_ROOT/bin/openroadcode-map-renderer"
+  write_state_hash "$MAPLIBRE_STATE_FILE" "$MAPLIBRE_FINGERPRINT"
+elif (( ! SKIP_MAPLIBRE )); then
+  echo "[+] MapLibre renderer is current; skipping rebuild."
 fi
 
 # Map/routing geometry is deployed independently, but the visual style belongs
@@ -280,7 +346,8 @@ fi
 # so style-only improvements do not require rebuilding the MBTiles dataset.
 DATA_ROOT="$DATA_ROOT" bash "$PROJECT_ROOT/scripts/runtime/install_navigation_style.sh"
 
-if (( ! SKIP_VALHALLA )); then
+if (( ! SKIP_VALHALLA && VALHALLA_BUILD_REQUIRED )); then
+  echo "[*] Valhalla inputs changed; rebuilding..."
   checkout_repo "https://github.com/kevinkreiser/prime_server.git" "$PRIME_SERVER_SRC" "$PRIME_SERVER_REF" "prime_server"
   checkout_repo "https://github.com/valhalla/valhalla.git" "$VALHALLA_SRC" "$VALHALLA_REF" "Valhalla"
   BASE_IMAGE="$BUILD_BASE_IMAGE" bash "$PROJECT_ROOT/development/containers/valhalla/build.sh"
@@ -296,6 +363,9 @@ if (( ! SKIP_VALHALLA )); then
   printf '%s\n' "$INSTALL_ROOT/valhalla/lib" | sudo tee /etc/ld.so.conf.d/openroadcode-navigation.conf >/dev/null
   sudo ldconfig
   check_runtime_libraries "Valhalla" "$INSTALL_ROOT/valhalla/bin/valhalla_service"
+  write_state_hash "$VALHALLA_STATE_FILE" "$VALHALLA_FINGERPRINT"
+elif (( ! SKIP_VALHALLA )); then
+  echo "[+] Valhalla is current; skipping rebuild."
 fi
 
 if (( ! SKIP_SERVICES )) && (( ! SKIP_VALHALLA )); then
