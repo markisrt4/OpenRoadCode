@@ -157,7 +157,7 @@ class Obd2Manager(VehicleStateSourceIf):
     def polling_profile(self) -> Obd2PollingProfile:
         scheduler = self._scheduler
         return (
-            Obd2PollingProfile.NORMAL
+            Obd2PollingProfile.BACKGROUND
             if scheduler is None
             else scheduler.profile
         )
