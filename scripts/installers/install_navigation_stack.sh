@@ -388,6 +388,10 @@ if (( ! SKIP_SMOKE )); then
       echo "[!] Navigation style exists but is not readable by $(id -un): $style_path" >&2
       exit 1
     }
+    test -w "$style_path" || {
+      echo "[!] Navigation style exists but is not writable by $(id -un): $style_path" >&2
+      exit 1
+    }
   fi
 fi
 
