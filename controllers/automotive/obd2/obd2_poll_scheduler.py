@@ -13,7 +13,8 @@ from protocols.obd2.obd_pid_decoder import ObdPidDecoder
 
 
 class Obd2PollingProfile(str, Enum):
-    NORMAL = "normal"
+    BACKGROUND = "background"
+    HOME = "home"
     PERFORMANCE = "performance"
     ENGINE = "engine"
     ECU = "ecu"
@@ -21,9 +22,13 @@ class Obd2PollingProfile(str, Enum):
 
 
 PROFILE_SCHEDULES: dict[Obd2PollingProfile, tuple[str, ...]] = {
-    Obd2PollingProfile.NORMAL: (
-        "rpm", "map", "rpm", "standard", "rpm", "map",
-        "standard", "rpm", "slow", "map", "standard", "rpm",
+    Obd2PollingProfile.BACKGROUND: (
+        "trip", "standard", "trip", "rpm", "trip", "slow",
+        "trip", "map", "standard", "trip", "slow", "trip",
+    ),
+    Obd2PollingProfile.HOME: (
+        "rpm", "map", "trip", "rpm", "standard", "trip",
+        "map", "rpm", "trip", "slow", "standard", "trip",
     ),
     Obd2PollingProfile.PERFORMANCE: (
         "rpm", "map", "rpm", "map", "rpm", "performance",
@@ -34,8 +39,8 @@ PROFILE_SCHEDULES: dict[Obd2PollingProfile, tuple[str, ...]] = {
         "engine", "rpm", "standard", "engine", "map", "slow",
     ),
     Obd2PollingProfile.ECU: (
-        "rpm", "ecu", "map", "ecu", "rpm", "ecu",
-        "standard", "ecu", "map", "ecu", "rpm", "slow",
+        "ecu", "ecu", "map", "ecu", "standard", "ecu",
+        "rpm", "ecu", "ecu", "standard", "slow", "ecu",
     ),
     Obd2PollingProfile.TRIP: (
         "rpm", "map", "trip", "rpm", "trip", "map",
@@ -59,7 +64,7 @@ class Obd2PollScheduler:
         ecu: Sequence[ObdPidDecoder] = (),
         trip: Sequence[ObdPidDecoder] = (),
         supported_pids: set[int] | None,
-        profile: Obd2PollingProfile = Obd2PollingProfile.NORMAL,
+        profile: Obd2PollingProfile = Obd2PollingProfile.BACKGROUND,
     ) -> None:
         self._rpm = rpm
         self._map = manifold_pressure
