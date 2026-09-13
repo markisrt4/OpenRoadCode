@@ -93,7 +93,10 @@ detect_host_arch() {
 
 detect_raspberry_pi_model() {
   local model_file="${OPENROAD_RPI_MODEL_FILE:-/proc/device-tree/model}"
-  [[ -r "$model_file" ]] && tr -d '\0' < "$model_file"
+  if [[ -r "$model_file" ]]; then
+    tr -d '\0' < "$model_file"
+  fi
+  return 0
 }
 
 detect_system_target() {
