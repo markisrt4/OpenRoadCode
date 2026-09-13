@@ -20,6 +20,10 @@ class RadioApplicationServiceIf(Protocol):
     def window_process_id(self, *, timeout_seconds: float) -> int:
         """Return the X11 client process id used for embedding."""
 
+    @property
+    def presented(self) -> bool:
+        """Return whether RF radio is currently presented to the user."""
+
 
 class ManagedRadioApplicationService:
     """Bridge radio presentation requests into shared application lifecycle policy."""
@@ -39,3 +43,7 @@ class ManagedRadioApplicationService:
 
     def window_process_id(self, *, timeout_seconds: float) -> int:
         return self._launcher.window_process_id(timeout_seconds=timeout_seconds)
+
+    @property
+    def presented(self) -> bool:
+        return self._manager.is_visible(self.APP_KEY)
