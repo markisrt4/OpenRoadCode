@@ -46,11 +46,25 @@ BUILD_FINGERPRINT="$(compute_build_fingerprint)"
 INSTALLED_FINGERPRINT=""
 [[ -f "$STATE_FILE" ]] && INSTALLED_FINGERPRINT="$(cat "$STATE_FILE")"
 
+SDRPP_SRC_DIR="${SDRPP_SRC:-$HOME/SDRPlusPlus}"
+SDRPP_ROOT_DIR="$SDRPP_SRC_DIR/root_dev"
+
+sdrpp_runtime_ready() {
+  command -v sdrpp >/dev/null 2>&1 \
+    && [[ -x "$SDRPP_SRC_DIR/build/sdrpp" ]] \
+    && [[ -f "$SDRPP_ROOT_DIR/config.json" ]] \
+    && [[ -d "$SDRPP_ROOT_DIR/res" ]] \
+    && [[ -d "$SDRPP_ROOT_DIR/modules" ]]
+}
+
 if [[ "${FORCE_SDRPP_REBUILD:-0}" != "1" ]] \
-   && command -v sdrpp >/dev/null 2>&1 \
+   && sdrpp_runtime_ready \
    && [[ "$INSTALLED_FINGERPRINT" == "$BUILD_FINGERPRINT" ]]; then
-  echo "[+] OpenRoadCode SDR++ build is current; skipping rebuild."
+  echo "[+] OpenRoadCode SDR++ build and runtime resources are current; skipping rebuild."
 else
+  if command -v sdrpp >/dev/null 2>&1 && [[ "$INSTALLED_FINGERPRINT" == "$BUILD_FINGERPRINT" ]]; then
+    echo "[!] SDR++ build fingerprint matches, but runtime resources are incomplete; repairing..."
+  fi
   echo "[*] Building SDR++ from source with the OpenRoadCode modules"
   echo "    remote_control.so"
   echo "    telemetry.so"
