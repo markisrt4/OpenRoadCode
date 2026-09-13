@@ -38,7 +38,9 @@ class HomeRadioCompositionTest(unittest.TestCase):
         composition.screen.open_rf.assert_called_once_with()
         kwargs["on_open_streaming"]()
         composition.screen.open_streaming.assert_called_once_with()
-        self.assertEqual(app.navigate_to.call_count, 2)
+        kwargs["on_open_adsb"]()
+        composition.screen.open_adsb.assert_called_once_with()
+        self.assertEqual(app.navigate_to.call_count, 3)
 
     def test_home_slot_rebuilds_only_when_home_is_active(self):
         app = OrcUiApp.__new__(OrcUiApp)
