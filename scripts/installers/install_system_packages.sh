@@ -75,7 +75,7 @@ for feature in "${FEATURES[@]}"; do
   while read -r pkg; do
     [[ -z "$pkg" ]] && continue
     base_packages+=("$pkg")
-  done < <(get_feature_packages "$feature")
+  done < <(get_feature_packages "$feature" | tr ' ' '\n')
 done
 
 # Deduplicate while preserving order
