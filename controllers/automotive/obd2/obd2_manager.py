@@ -49,6 +49,7 @@ class Obd2Manager(VehicleStateSourceIf):
     def __init__(self, adapter: Obd2AdapterIf) -> None:
         self._adapter = adapter
         self._supported_pids: set[int] | None = None
+        self._polling_profile = Obd2PollingProfile.BACKGROUND
         self._scheduler: Obd2PollScheduler | None = None
 
         self._rpm_pid = EngineRpmPid()
@@ -99,7 +100,91 @@ class Obd2Manager(VehicleStateSourceIf):
     def connect(self) -> None:
         self._adapter.connect()
         self._supported_pids = self._discover_supported_pids()
-        self._scheduler = Obd2PollScheduler(
+        self._scheduler = self._create_scheduler()
+
+    def disconnect(self) -> None:
+        self._adapter.disconnect()
+
+    @property
+    def polling_profile(self) -> Obd2PollingProfile:
+        return self._polling_profile
+
+    def set_polling_profile(self, profile: Obd2PollingProfile) -> None:
+        """Apply an OBD-specific polling profile without changing request rate."""
+        self._polling_profile = profile
+        if self._scheduler is not None:
+            self._scheduler.set_profile(profile)
+
+    def set_telemetry_profile(self, profile: AutomotiveTelemetryProfile) -> None:
+        """Apply a domain-level telemetry-priority hint."""
+        self.set_polling_profile(Obd2PollingProfile(profile.value))
+
+    @property
+    def supported_pids(self) -> frozenset[int] | None:
+        """Return the Mode 01 PID set discovered at connect time."""
+        return (
+            None
+            if self._supported_pids is None
+            else frozenset(self._supported_pids)
+        )
+
+    def read_state(self) -> VehicleState:
+        """Perform at most one physical PID request and return cached state."""
+        scheduler = self._scheduler
+        if scheduler is None:
+            scheduler = self._create_scheduler()
+            self._scheduler = scheduler
+
+        decoder = scheduler.next_decoder()
+        if decoder is not None:
+            self._update_cached_value(decoder)
+
+        return VehicleState(
+            timestamp=datetime.now(),
+            engine_speed_rad_s=self._rpm_to_rad_s(self._rpm),
+            vehicle_speed_m_s=None,
+            throttle_position=self._percent_to_fraction(self._throttle_pct),
+            commanded_throttle_position=self._percent_to_fraction(
+                self._commanded_throttle_pct
+            ),
+            accelerator_pedal_position=self._percent_to_fraction(
+                self._accelerator_pedal_pct
+            ),
+            engine_load=self._percent_to_fraction(self._engine_load_pct),
+            absolute_engine_load=self._percent_to_fraction(
+                self._absolute_engine_load_pct
+            ),
+            fuel_system_status_1=self._fuel_system_status_1,
+            fuel_system_status_2=self._fuel_system_status_2,
+            short_term_fuel_trim_bank1=self._percent_to_fraction(
+                self._short_term_fuel_trim_pct
+            ),
+            long_term_fuel_trim_bank1=self._percent_to_fraction(
+                self._long_term_fuel_trim_pct
+            ),
+            ignition_timing_advance_deg=self._ignition_timing_advance_deg,
+            intake_manifold_pressure_pa=self._kpa_to_pa(self._map_kpa),
+            barometric_pressure_pa=self._kpa_to_pa(self._baro_kpa),
+            boost_pressure_pa=self._calculate_boost_pa(
+                self._map_kpa,
+                self._baro_kpa,
+            ),
+            mass_air_flow_kg_s=self._gps_to_kg_s(self._maf_gps),
+            coolant_temperature_k=self._celsius_to_kelvin(self._coolant_temp_c),
+            intake_air_temperature_k=self._celsius_to_kelvin(
+                self._intake_temp_c
+            ),
+            fuel_level=self._percent_to_fraction(self._fuel_level_pct),
+            fuel_rail_pressure_pa=self._kpa_to_pa(self._fuel_rail_pressure_kpa),
+            commanded_equivalence_ratio=self._commanded_equivalence_ratio,
+            measured_equivalence_ratio=self._measured_equivalence_ratio,
+            engine_fuel_rate_m3_s=self._lph_to_m3_s(self._fuel_rate_lph),
+            control_voltage_v=self._control_voltage,
+        )
+
+    def _create_scheduler(self) -> Obd2PollScheduler:
+        """Create the OBD scheduler using the currently requested profile."""
+        return Obd2PollScheduler(
             rpm=self._rpm_pid,
             manifold_pressure=self._map_pid,
             standard=(
@@ -148,109 +233,7 @@ class Obd2Manager(VehicleStateSourceIf):
                 self._voltage_pid,
             ),
             supported_pids=self._supported_pids,
-        )
-
-    def disconnect(self) -> None:
-        self._adapter.disconnect()
-
-    @property
-    def polling_profile(self) -> Obd2PollingProfile:
-        scheduler = self._scheduler
-        return (
-            Obd2PollingProfile.BACKGROUND
-            if scheduler is None
-            else scheduler.profile
-        )
-
-    def set_polling_profile(self, profile: Obd2PollingProfile) -> None:
-        """Apply an OBD-specific polling profile without changing request rate."""
-        if self._scheduler is not None:
-            self._scheduler.set_profile(profile)
-
-    def set_telemetry_profile(self, profile: AutomotiveTelemetryProfile) -> None:
-        """Apply a domain-level telemetry-priority hint."""
-        self.set_polling_profile(Obd2PollingProfile(profile.value))
-
-    @property
-    def supported_pids(self) -> frozenset[int] | None:
-        """Return the Mode 01 PID set discovered at connect time."""
-        return (
-            None
-            if self._supported_pids is None
-            else frozenset(self._supported_pids)
-        )
-
-    def read_state(self) -> VehicleState:
-        """Perform at most one physical PID request and return cached state."""
-        scheduler = self._scheduler
-        if scheduler is None:
-            scheduler = Obd2PollScheduler(
-                rpm=self._rpm_pid,
-                manifold_pressure=self._map_pid,
-                standard=(
-                    self._throttle_pid,
-                    self._engine_load_pid,
-                    self._equivalence_ratio_pid,
-                    self._fuel_rate_pid,
-                    self._maf_pid,
-                ),
-                slow=(
-                    self._accelerator_pedal_pid,
-                    self._baro_pid,
-                    self._coolant_pid,
-                    self._intake_temp_pid,
-                    self._fuel_level_pid,
-                    self._voltage_pid,
-                ),
-                supported_pids=self._supported_pids,
-            )
-            self._scheduler = scheduler
-
-        decoder = scheduler.next_decoder()
-        if decoder is not None:
-            self._update_cached_value(decoder)
-
-        return VehicleState(
-            timestamp=datetime.now(),
-            engine_speed_rad_s=self._rpm_to_rad_s(self._rpm),
-            vehicle_speed_m_s=None,
-            throttle_position=self._percent_to_fraction(self._throttle_pct),
-            commanded_throttle_position=self._percent_to_fraction(
-                self._commanded_throttle_pct
-            ),
-            accelerator_pedal_position=self._percent_to_fraction(
-                self._accelerator_pedal_pct
-            ),
-            engine_load=self._percent_to_fraction(self._engine_load_pct),
-            absolute_engine_load=self._percent_to_fraction(
-                self._absolute_engine_load_pct
-            ),
-            fuel_system_status_1=self._fuel_system_status_1,
-            fuel_system_status_2=self._fuel_system_status_2,
-            short_term_fuel_trim_bank1=self._percent_to_fraction(
-                self._short_term_fuel_trim_pct
-            ),
-            long_term_fuel_trim_bank1=self._percent_to_fraction(
-                self._long_term_fuel_trim_pct
-            ),
-            ignition_timing_advance_deg=self._ignition_timing_advance_deg,
-            intake_manifold_pressure_pa=self._kpa_to_pa(self._map_kpa),
-            barometric_pressure_pa=self._kpa_to_pa(self._baro_kpa),
-            boost_pressure_pa=self._calculate_boost_pa(
-                self._map_kpa,
-                self._baro_kpa,
-            ),
-            mass_air_flow_kg_s=self._gps_to_kg_s(self._maf_gps),
-            coolant_temperature_k=self._celsius_to_kelvin(self._coolant_temp_c),
-            intake_air_temperature_k=self._celsius_to_kelvin(
-                self._intake_temp_c
-            ),
-            fuel_level=self._percent_to_fraction(self._fuel_level_pct),
-            fuel_rail_pressure_pa=self._kpa_to_pa(self._fuel_rail_pressure_kpa),
-            commanded_equivalence_ratio=self._commanded_equivalence_ratio,
-            measured_equivalence_ratio=self._measured_equivalence_ratio,
-            engine_fuel_rate_m3_s=self._lph_to_m3_s(self._fuel_rate_lph),
-            control_voltage_v=self._control_voltage,
+            profile=self._polling_profile,
         )
 
     def _update_cached_value(self, decoder: ObdPidDecoder) -> None:
