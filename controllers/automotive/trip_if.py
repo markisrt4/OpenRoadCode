@@ -20,27 +20,43 @@ class TripIf(ABC):
 
     @abstractmethod
     def observe_vehicle_state(self, state: VehicleState) -> None:
-        """Consume one normalized vehicle telemetry snapshot."""
+        """Consume one normalized vehicle telemetry snapshot.
+
+        @param state SI-normalized vehicle telemetry snapshot.
+        """
         ...
 
     @abstractmethod
     def observe_position_state(self, state: PositionState) -> None:
-        """Consume one normalized geographic position snapshot."""
+        """Consume one normalized geographic position snapshot.
+
+        @param state Normalized geographic position snapshot.
+        """
         ...
 
     @abstractmethod
     def observe_ground_motion_state(self, state: GroundMotionState) -> None:
-        """Consume one normalized ground-motion snapshot."""
+        """Consume one normalized ground-motion snapshot.
+
+        @param state Normalized ground-motion snapshot.
+        """
         ...
 
     @abstractmethod
     def snapshot(self) -> TripState:
-        """Return the current immutable trip snapshot."""
+        """Return the current immutable trip snapshot.
+
+        @return Current immutable trip state.
+        """
         ...
 
     @abstractmethod
     def finish(self, ended_at: datetime | None = None) -> TripState:
-        """Finish the current trip and return its final snapshot."""
+        """Finish the current trip and return its final snapshot.
+
+        @param ended_at Explicit trip end time, or None to use the implementation's current time.
+        @return Final immutable trip state.
+        """
         ...
 
     @abstractmethod
