@@ -158,8 +158,22 @@ command -v git >/dev/null 2>&1 || { echo "git is required" >&2; exit 1; }
 command -v "$CONTAINER_ENGINE" >/dev/null 2>&1 || { echo "Container engine not found: $CONTAINER_ENGINE" >&2; exit 1; }
 mkdir -p "$BUILD_ROOT" "$HOST_SRC"
 
+ensure_user_owned_checkout() {
+  local dir="$1" label="$2"
+  [[ -e "$dir" ]] || return 0
+
+  local owner
+  owner="$(stat -c '%u' "$dir")"
+  if [[ "$owner" != "$(id -u)" ]]; then
+    echo "[!] $label checkout is not owned by $(id -un): $dir"
+    echo "[*] Repairing checkout ownership..."
+    sudo chown -R "$(id -u):$(id -g)" "$dir"
+  fi
+}
+
 checkout_repo() {
   local url="$1" dir="$2" ref="$3" label="$4"
+  ensure_user_owned_checkout "$dir" "$label"
   if [[ ! -d "$dir/.git" ]]; then git clone "$url" "$dir"; fi
   if [[ -n "$ref" ]]; then
     git -C "$dir" fetch --tags --prune origin
