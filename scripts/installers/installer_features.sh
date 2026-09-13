@@ -108,7 +108,7 @@ get_feature_packages() {
       echo "rtl-sdr soapysdr-tools soapysdr-module-rtlsdr"
       ;;
     adsb)
-      echo "readsb"
+      echo "readsb lighttpd"
       ;;
     bluetooth)
       echo "bluez libbluetooth-dev python3-bluez"
