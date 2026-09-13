@@ -29,17 +29,40 @@ echo "[*] Architecture:           $ARCH"
 echo "[*] SDR++ source ref:       ${SDRPP_REF:-master}"
 echo
 
-echo "[*] Building SDR++ from source with the OpenRoadCode modules"
-echo "    remote_control.so"
-echo "    telemetry.so"
-echo "    rigctl_server.so"
-echo
+STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/openroadcode"
+STATE_FILE="$STATE_DIR/sdrpp-build.sha256"
 
-# development/debian/setup_sdrpp.sh is the canonical Linux source-build path.
-# It stages the ORC modules into SDR++ before CMake configuration, validates
-# their exported SDR++ ABI symbols, prepares root_dev, and installs the
-# /usr/local/bin/sdrpp wrapper that launches against those resources.
-"$SETUP_SCRIPT"
+compute_build_fingerprint() {
+  {
+    printf 'SDRPP_REF=%s\n' "${SDRPP_REF:-master}"
+    find "$ORC_ROOT/development/sdrpp/remote_control" \
+         "$ORC_ROOT/development/sdrpp/telemetry" \
+         -type f -print0 | sort -z | xargs -0 sha256sum
+    sha256sum "$SETUP_SCRIPT"
+  } | sha256sum | awk '{print $1}'
+}
+
+BUILD_FINGERPRINT="$(compute_build_fingerprint)"
+INSTALLED_FINGERPRINT=""
+[[ -f "$STATE_FILE" ]] && INSTALLED_FINGERPRINT="$(cat "$STATE_FILE")"
+
+if [[ "${FORCE_SDRPP_REBUILD:-0}" != "1" ]] \
+   && command -v sdrpp >/dev/null 2>&1 \
+   && [[ "$INSTALLED_FINGERPRINT" == "$BUILD_FINGERPRINT" ]]; then
+  echo "[+] OpenRoadCode SDR++ build is current; skipping rebuild."
+else
+  echo "[*] Building SDR++ from source with the OpenRoadCode modules"
+  echo "    remote_control.so"
+  echo "    telemetry.so"
+  echo "    rigctl_server.so"
+  echo
+
+  # development/debian/setup_sdrpp.sh is the canonical Linux source-build path.
+  "$SETUP_SCRIPT"
+
+  mkdir -p "$STATE_DIR"
+  printf '%s\n' "$BUILD_FINGERPRINT" > "$STATE_FILE"
+fi
 
 if command -v udevadm >/dev/null 2>&1; then
   if [[ "${EUID:-$(id -u)}" -ne 0 ]]; then
