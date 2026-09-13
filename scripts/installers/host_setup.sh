@@ -33,6 +33,9 @@ RUN_PYTHON_ENV=1
 RUN_VNC=""
 RUN_GPSD_SERVICE=""
 RUN_TELEMETRY_SERVICES=""
+BLUETOOTH_SPP_ADDRESS=""
+BLUETOOTH_SPP_CHANNEL=""
+BLUETOOTH_RFCOMM_ID="0"
 REQUESTED_FEATURES=()
 USE_DEFAULT_FEATURES=1
 INSTALL_ALL_FEATURES=0
@@ -60,6 +63,9 @@ Options:
   --no-gpsd-service       Disable GPSD service setup
   --with-telemetry-services Enable broker/navigation/automotive services
   --no-telemetry-services Disable OpenRoadCode telemetry service setup
+  --bluetooth-spp-address MAC Pair/bind a Bluetooth SPP device after package setup
+  --bluetooth-spp-channel N   Override Bluetooth SPP RFCOMM channel discovery
+  --bluetooth-rfcomm-id N     RFCOMM device number (default: 0)
   --feature NAME          Add a feature bundle to the target profile
   --all-features          Install every feature compatible with the target
   --no-default-features   Start with no optional target-profile features
@@ -166,6 +172,9 @@ while (( $# > 0 )); do
     --no-gpsd-service) RUN_GPSD_SERVICE=0 ;;
     --with-telemetry-services) RUN_TELEMETRY_SERVICES=1 ;;
     --no-telemetry-services) RUN_TELEMETRY_SERVICES=0 ;;
+    --bluetooth-spp-address) shift; (( $# > 0 )) || { echo "[!] --bluetooth-spp-address requires a value" >&2; exit 1; }; BLUETOOTH_SPP_ADDRESS="$1" ;;
+    --bluetooth-spp-channel) shift; (( $# > 0 )) || { echo "[!] --bluetooth-spp-channel requires a value" >&2; exit 1; }; BLUETOOTH_SPP_CHANNEL="$1" ;;
+    --bluetooth-rfcomm-id) shift; (( $# > 0 )) || { echo "[!] --bluetooth-rfcomm-id requires a value" >&2; exit 1; }; BLUETOOTH_RFCOMM_ID="$1" ;;
     --no-default-features) USE_DEFAULT_FEATURES=0 ;;
     --all-features) INSTALL_ALL_FEATURES=1 ;;
     --feature) option="$1"; shift; (( $# > 0 )) || { echo "[!] $option requires a value" >&2; exit 1; }; REQUESTED_FEATURES+=("$1") ;;
@@ -179,6 +188,10 @@ done
 case "$TARGET" in rpi4|rpi5|linux-dev|termux) ;; *) echo "[!] Unknown target: $TARGET" >&2; usage >&2; exit 1 ;; esac
 
 if [[ "$TARGET" == "termux" ]]; then
+  if [[ -n "$BLUETOOTH_SPP_ADDRESS" ]]; then
+    echo "[!] --bluetooth-spp-address is for Linux/Raspberry Pi RFCOMM; Termux uses the Android bridge." >&2
+    exit 1
+  fi
   [[ "${PREFIX:-}" == /data/data/com.termux/files/usr* ]] || {
     echo "[!] --target termux must be run from native Termux." >&2
     exit 1
@@ -242,6 +255,9 @@ echo "[*] Features:              ${FEATURES[*]}"
 echo "[*] VNC service setup:     $RUN_VNC"
 echo "[*] GPSD service setup:    $RUN_GPSD_SERVICE"
 echo "[*] Telemetry services:    $RUN_TELEMETRY_SERVICES"
+if [[ -n "$BLUETOOTH_SPP_ADDRESS" ]]; then
+  echo "[*] Bluetooth SPP:         $BLUETOOTH_SPP_ADDRESS (rfcomm$BLUETOOTH_RFCOMM_ID)"
+fi
 
 if (( SHOW_PLAN )); then echo "[*] Plan only; no system changes were made."; exit 0; fi
 
@@ -274,6 +290,12 @@ if (( ! SKIP_INSTALLS )) && [[ "$TARGET" == "rpi4" || "$TARGET" == "rpi5" ]]; th
       echo "[!] raspi-config is unavailable; enable I2C manually before using configured sensors." >&2
     fi
   fi
+fi
+
+if [[ -n "$BLUETOOTH_SPP_ADDRESS" ]] && (( ! SKIP_INSTALLS )); then
+  spp_args=(--address "$BLUETOOTH_SPP_ADDRESS" --rfcomm-id "$BLUETOOTH_RFCOMM_ID")
+  [[ -z "$BLUETOOTH_SPP_CHANNEL" ]] || spp_args+=(--channel "$BLUETOOTH_SPP_CHANNEL")
+  bash "$PROJECT_DIR/scripts/installers/setup_bluetooth_spp.sh" "${spp_args[@]}"
 fi
 
 if (( RUN_VNC )) || (( RUN_GPSD_SERVICE )) || (( RUN_TELEMETRY_SERVICES )); then
