@@ -11,6 +11,7 @@ PROJECT_ROOT="$(cd -- "$SCRIPT_DIR/../.." && pwd)"
 WRAPPER_SCRIPT="$PROJECT_ROOT/scripts/runtime/start_navigation_service.sh"
 RUN_USER="${SUDO_USER:-${USER:-}}"
 PYTHON_BIN="${OPENROADCODE_PYTHON:-python3}"
+RUNTIME_CONFIG="${OPENROADCODE_RUNTIME_CONFIG:-$PROJECT_ROOT/config/runtime.toml}"
 
 if [[ ! -f "$WRAPPER_SCRIPT" ]]; then
     echo "Wrapper script not found: $WRAPPER_SCRIPT" >&2
@@ -45,6 +46,7 @@ User=$RUN_USER
 WorkingDirectory=$PROJECT_ROOT
 Environment=PYTHONUNBUFFERED=1
 Environment=OPENROADCODE_PYTHON=$PYTHON_BIN
+Environment=OPENROADCODE_RUNTIME_CONFIG=$RUNTIME_CONFIG
 ExecStart=$WRAPPER_SCRIPT
 Restart=on-failure
 RestartSec=2
