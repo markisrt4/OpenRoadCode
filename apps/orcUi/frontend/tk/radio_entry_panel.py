@@ -440,6 +440,10 @@ class RadioEntryPanel(tk.Frame):
             self.after(0, lambda exc=presentation_error[0]: self._show_launch_error(exc))
             return
 
+        if self._radio_application.fullscreen:
+            self.after(0, self._finish_fullscreen_rf_launch)
+            return
+
         if process_id is None:
             try:
                 process_id = self._radio_application.window_process_id(
@@ -450,6 +454,11 @@ class RadioEntryPanel(tk.Frame):
                 return
 
         self.after(0, lambda pid=process_id: self._attach_rf_radio(pid))
+
+    def _finish_fullscreen_rf_launch(self) -> None:
+        self._launching = False
+        if self._radio_panel is not None and self._radio_panel.winfo_exists():
+            self._radio_panel.hide_loading()
 
     def _attach_rf_radio(self, process_id: int) -> None:
         panel = self._radio_panel
