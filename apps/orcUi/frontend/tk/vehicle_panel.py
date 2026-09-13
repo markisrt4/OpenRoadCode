@@ -161,7 +161,7 @@ class VehiclePanel(tk.Frame):
 
     def release_telemetry_profile(self) -> None:
         if self._on_telemetry_profile is not None:
-            self._on_telemetry_profile(AutomotiveTelemetryProfile.NORMAL)
+            self._on_telemetry_profile(AutomotiveTelemetryProfile.BACKGROUND)
 
     def _request_telemetry_profile(self, view_name: str) -> None:
         if self._on_telemetry_profile is None:
@@ -171,7 +171,7 @@ class VehiclePanel(tk.Frame):
             "ENGINE": AutomotiveTelemetryProfile.ENGINE,
             "ECU": AutomotiveTelemetryProfile.ECU,
             "TRIP": AutomotiveTelemetryProfile.TRIP,
-            "OFF-ROAD": AutomotiveTelemetryProfile.NORMAL,
+            "OFF-ROAD": AutomotiveTelemetryProfile.BACKGROUND,
         }[view_name]
         self._on_telemetry_profile(profile)
 
