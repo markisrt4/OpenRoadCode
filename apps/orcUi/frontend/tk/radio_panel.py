@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import os
+from collections.abc import Callable
 import tkinter as tk
 from tkinter import simpledialog
 
@@ -35,6 +36,7 @@ class RadioPanel(tk.Frame):
         sdrpp_control: SDRPPControl | None = None,
         adsb_control: OrcUiAdsbControl | None = None,
         theme: ThemeBundle | None = None,
+        rf_active: Callable[[], bool] | None = None,
     ) -> None:
         self._theme = theme or theme_bundle(ThemeMode.DARK)
         ui = self._theme.ui
@@ -43,6 +45,7 @@ class RadioPanel(tk.Frame):
         self._radio = radio_control or RadioProfileController()
         self._sdrpp = sdrpp_control or SDRPPControl()
         self._adsb = adsb_control or OrcUiAdsbControl()
+        self._rf_active = rf_active or (lambda: False)
         self._telemetry_worker = SDRTelemetryWorker(SDRTelemetryMonitor(self._radio))
         self._telemetry_after_id: str | None = None
         self._display = os.environ.get("DISPLAY", ":1")
@@ -210,6 +213,10 @@ class RadioPanel(tk.Frame):
         self._telemetry_worker.set_include_rds(False)
         parent_window_id = int(self.winfo_toplevel().winfo_id())
         try:
+            if self._rf_active():
+                raise RuntimeError(
+                    "RF radio is active; ADS-B will not take control of the SDR"
+                )
             self._adsb.assert_available()
             self._adsb.set_preferred_color_scheme(scheme)
             self._embedder.detach(parent_window_id)
