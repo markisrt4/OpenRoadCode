@@ -30,10 +30,14 @@ sudo install -d -m 0755 "$DATA_ROOT"
 sudo install -d -m 0755 "$DATA_ROOT/maps"
 sudo install -d -m 0755 "$(dirname -- "$STYLE_DESTINATION")"
 sudo chmod 0755 "$DATA_ROOT" "$DATA_ROOT/maps" "$(dirname -- "$STYLE_DESTINATION")"
-sudo install -m 0644 "$STYLE_TEMPLATE" "$STYLE_DESTINATION"
+sudo install -m 0644 -o "$(id -u)" -g "$(id -g)" "$STYLE_TEMPLATE" "$STYLE_DESTINATION"
 
 if [[ ! -r "$STYLE_DESTINATION" ]]; then
   echo "Navigation style is not readable by $(id -un): $STYLE_DESTINATION" >&2
+  exit 1
+fi
+if [[ ! -w "$STYLE_DESTINATION" ]]; then
+  echo "Navigation style is not writable by $(id -un): $STYLE_DESTINATION" >&2
   exit 1
 fi
 
