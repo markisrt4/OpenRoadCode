@@ -128,12 +128,6 @@ if [[ " ${FEATURES[*]} " == *" adsb "* ]]; then
 fi
 
 if [[ " ${FEATURES[*]} " == *" sdrpp "* ]]; then
-  echo "[*] Installing SDR++ if available..."
-  if dpkg -s sdrpp >/dev/null 2>&1; then
-    echo "[*] Already installed: sdrpp"
-  elif apt-cache show sdrpp >/dev/null 2>&1; then
-    sudo apt install -y --no-install-recommends sdrpp
-  else
-    echo "[!] Package not available, skipping: sdrpp"
-  fi
+  echo "[*] Installing OpenRoadCode SDR++ build..."
+  bash "$SCRIPT_DIR/install_sdrpp_nightly.sh"
 fi
