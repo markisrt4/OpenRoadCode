@@ -24,6 +24,9 @@ class RadioApplicationServiceIf(Protocol):
     def presented(self) -> bool:
         """Return whether RF radio is currently presented to the user."""
 
+    def relinquish_for_adsb(self) -> None:
+        """Stop RF presentation so an explicit ADS-B request can use the SDR."""
+
 
 class ManagedRadioApplicationService:
     """Bridge radio presentation requests into shared application lifecycle policy."""
@@ -47,3 +50,6 @@ class ManagedRadioApplicationService:
     @property
     def presented(self) -> bool:
         return self._manager.is_visible(self.APP_KEY)
+
+    def relinquish_for_adsb(self) -> None:
+        self._manager.stop(self.APP_KEY)
