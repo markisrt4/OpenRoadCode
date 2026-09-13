@@ -13,6 +13,12 @@ if ! command -v wget >/dev/null 2>&1; then
     exit 1
 fi
 
+if ! command -v lighttpd >/dev/null 2>&1; then
+    echo "[*] Installing lighttpd..."
+    sudo apt update
+    sudo apt install -y --no-install-recommends lighttpd
+fi
+
 dashboard_url="http://127.0.0.1/tar1090/"
 
 dashboard_reachable() {
