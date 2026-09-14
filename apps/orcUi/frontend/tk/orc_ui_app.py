@@ -83,7 +83,7 @@ class OrcUiApp(VolumeUiIf):
         self._adsb_toggle_handler: Callable[[bool], bool] | None = None
         self._adsb_view_handler: Callable[[], None] | None = None
         self._active_nav = "HOME"
-        self._nav_items = ["HOME", "NAVIGATION", "RADIO", "VEHICLE", "LIGHTING", "CONTROLS"]
+        self._nav_items = ["HOME", "NAVIGATION", "RADIO", "VEHICLE", "LIGHTING"]
         self._screen_registry: dict[str, ScreenUiIf] = {}
         self._active_screen: ScreenUiIf | None = None
         self._screen_back_action: Callable[[], None] | None = None
@@ -151,7 +151,7 @@ class OrcUiApp(VolumeUiIf):
         """Display system mute state in the shell."""
         self._volume_muted = muted
         self._paint_volume()
-    def register_screen(self, label: str, screen: ScreenUiIf, *, before: str | None = "CONTROLS") -> None:
+    def register_screen(self, label: str, screen: ScreenUiIf, *, before: str | None = None) -> None:
         nav_label = label.strip().upper()
         if not nav_label:
             raise ValueError("Screen navigation label must not be empty")
