@@ -18,6 +18,7 @@ from frontends.tk.automotive import FuelLevelGauge
 from frontends.tk.automotive.vehicle_gauge_theme import vehicle_gauge_theme_from_style_sheet
 from frontends.tk.automotive.vehicle_gauge_widgets import LinearGauge, RoundGauge
 from ui.theme import ThemeBundle, ThemeMode
+from .shell_metrics import CONTEXT_RAIL_WIDTH, FONT_CONTROL
 
 
 @dataclass(frozen=True)
@@ -30,7 +31,7 @@ class ContextPage:
 class ContextRail(tk.Frame):
     """Compact, user-switchable secondary information panel."""
 
-    WIDTH = 300
+    WIDTH = CONTEXT_RAIL_WIDTH
 
     def __init__(
         self,
@@ -120,7 +121,7 @@ class ContextRail(tk.Frame):
         header = tk.Frame(self, bg=ui.surface)
         header.pack(fill=tk.X, padx=8, pady=(7, 3))
         header.grid_columnconfigure(1, weight=1)
-        self._title = tk.Label(header, text="", bg=ui.surface, font=("Sans", 10, "bold"))
+        self._title = tk.Label(header, text="", bg=ui.surface, font=("Sans", FONT_CONTROL + 1, "bold"))
         self._nav_button(header, "‹", self._previous_page).grid(row=0, column=0, sticky="w")
         self._title.grid(row=0, column=1)
         controls = tk.Frame(header, bg=ui.surface)
