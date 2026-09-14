@@ -1,0 +1,16 @@
+# Navigation input supplied by the Android phone bridge.
+[services.navigation]
+rate_hz = 20.0
+
+[services.navigation.inputs.imu]
+source = "device"
+device = "android"
+bridge_url = "http://127.0.0.1:8766"
+
+[services.navigation.inputs.gps]
+source = "device"
+device = "android"
+bridge_url = "http://127.0.0.1:8766"
+
+[services.navigation.publish]
+source = "navigation-service-phone"
