@@ -6,7 +6,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 import subprocess
+
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+PROFILE_DIR = Path.home() / ".config/openroadcode/service-profiles"
 
 
 @dataclass(frozen=True, slots=True)
@@ -16,6 +21,8 @@ class ServiceStatus:
     name: str
     state: str
     detail: str
+    profile: str | None = None
+    available_profiles: tuple[str, ...] = ()
 
 
 class RunitServiceManager:
@@ -32,6 +39,16 @@ class RunitServiceManager:
         "openroadcode-navigation",
         "openroadcode-automotive",
     )
+    PROFILE_CONFIGS = {
+        "openroadcode-navigation": {
+            "live": PROJECT_ROOT / "config/runtime.termux.toml",
+            "simulated": PROJECT_ROOT / "config/runtime.simulated.toml",
+        },
+        "openroadcode-automotive": {
+            "live": PROJECT_ROOT / "config/runtime.termux.toml",
+            "simulated": PROJECT_ROOT / "config/runtime.simulated.toml",
+        },
+    }
 
     def status(self, name: str) -> ServiceStatus:
         self._validate(name)
@@ -43,10 +60,61 @@ class RunitServiceManager:
             state = "stopped"
         else:
             state = "unknown"
-        return ServiceStatus(name=name, state=state, detail=detail)
+        return ServiceStatus(
+            name=name,
+            state=state,
+            detail=detail,
+            profile=self.profile(name),
+            available_profiles=self.available_profiles(name),
+        )
 
     def all_status(self) -> tuple[ServiceStatus, ...]:
         return tuple(self.status(name) for name in self.SERVICES)
+
+    def available_profiles(self, name: str) -> tuple[str, ...]:
+        self._validate(name)
+        return tuple(self.PROFILE_CONFIGS.get(name, ()))
+
+    def profile(self, name: str) -> str | None:
+        profiles = self.PROFILE_CONFIGS.get(name)
+        if not profiles:
+            return None
+        profile_file = self._profile_file(name)
+        if not profile_file.exists():
+            return "live"
+        content = profile_file.read_text(encoding="utf-8")
+        for profile, config_path in profiles.items():
+            if str(config_path) in content:
+                return profile
+        return "custom"
+
+    def set_profile(self, name: str, profile: str) -> ServiceStatus:
+        self._validate(name)
+        profiles = self.PROFILE_CONFIGS.get(name)
+        if not profiles:
+            raise ValueError(f"Service does not support profiles: {name}")
+        try:
+            config_path = profiles[profile]
+        except KeyError as exc:
+            raise ValueError(f"Unsupported profile for {name}: {profile}") from exc
+
+        if profile == "live" and name == "openroadcode-automotive":
+            local_config = PROJECT_ROOT / "config/runtime.termux.local.toml"
+            if local_config.is_file():
+                config_path = local_config
+        if not config_path.is_file():
+            raise ValueError(f"Runtime profile config not found: {config_path}")
+
+        was_running = self.status(name).state == "running"
+        PROFILE_DIR.mkdir(parents=True, exist_ok=True)
+        profile_file = self._profile_file(name)
+        profile_file.write_text(
+            f'export OPENROADCODE_RUNTIME_CONFIG="{config_path}"\n',
+            encoding="utf-8",
+        )
+        if was_running:
+            self._sv("restart", name)
+        return self.status(name)
 
     def start(self, name: str) -> ServiceStatus:
         self._validate(name)
@@ -69,7 +137,6 @@ class RunitServiceManager:
         return tuple(self.status(name) for name in self.CORE_STACK)
 
     def stop_core(self) -> tuple[ServiceStatus, ...]:
-        # Stop consumers before the infrastructure they consume.
         for name in reversed(self.CORE_STACK):
             self._sv("down", name)
         return tuple(self.status(name) for name in self.CORE_STACK)
@@ -78,6 +145,10 @@ class RunitServiceManager:
     def _validate(cls, name: str) -> None:
         if name not in cls.SERVICES:
             raise ValueError(f"Unsupported OpenRoadCode service: {name}")
+
+    @staticmethod
+    def _profile_file(name: str) -> Path:
+        return PROFILE_DIR / f"{name}.env"
 
     @staticmethod
     def _sv(action: str, name: str, *, check: bool = True) -> subprocess.CompletedProcess[str]:
