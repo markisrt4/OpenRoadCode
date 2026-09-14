@@ -20,6 +20,7 @@ from apps.orcUi.theme_runtime import theme_bundle
 from apps.orcUi.trip_presenter import TripPresentationState
 from .vehicle_panel import VehiclePanel
 from apps.orcUi.vehicle_presenter import VehiclePresentationState
+from common.host_config import orcui_fullscreen_default
 from controllers.automotive import (
     AutomotiveTelemetryProfile,
     EngineAnalysis,
@@ -80,12 +81,7 @@ class OrcUiApp(VolumeUiIf):
         ui = self._theme.ui
         self._root = tk.Tk()
         self._root.title("OpenRoadCode")
-        fullscreen = os.environ.get("ORCUI_FULLSCREEN", "0").strip().lower() in {
-            "1",
-            "true",
-            "yes",
-            "on",
-        }
+        fullscreen = orcui_fullscreen_default()
         geometry = os.environ.get("ORCUI_GEOMETRY", "1024x600")
         if fullscreen:
             self._root.attributes("-fullscreen", True)
