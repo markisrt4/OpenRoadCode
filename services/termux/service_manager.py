@@ -86,6 +86,8 @@ class RunitServiceManager:
         for profile, config_path in profiles.items():
             if str(config_path) in content:
                 return profile
+        if name == "openroadcode-automotive" and "runtime.termux.local.toml" in content:
+            return "live"
         return "custom"
 
     def set_profile(self, name: str, profile: str) -> ServiceStatus:
