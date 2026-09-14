@@ -127,7 +127,7 @@ class ContextRail(tk.Frame):
         controls = tk.Frame(header, bg=ui.surface)
         controls.grid(row=0, column=2, sticky="e")
         if self._on_expand is not None:
-            self._nav_button(controls, "□", self._expand_page, width=2, font_size=12).pack(side=tk.LEFT)
+            self._nav_button(controls, "OPEN", self._expand_page, width=4, font_size=9).pack(side=tk.LEFT)
         self._nav_button(controls, "›", self._next_page).pack(side=tk.LEFT)
 
     def _nav_button(
