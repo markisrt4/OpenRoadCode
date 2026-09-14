@@ -26,7 +26,18 @@ class VehiclePresentationState:
     coolant_temperature_f: float | None = None
     intake_air_temperature_f: float | None = None
     throttle_percent: float | None = None
+    commanded_throttle_percent: float | None = None
+    accelerator_percent: float | None = None
+    manifold_pressure_kpa: float | None = None
+    commanded_equivalence_ratio: float | None = None
+    measured_equivalence_ratio: float | None = None
     engine_load_percent: float | None = None
+    absolute_engine_load_percent: float | None = None
+    short_term_fuel_trim_percent: float | None = None
+    long_term_fuel_trim_percent: float | None = None
+    ignition_timing_advance_deg: float | None = None
+    fuel_rail_pressure_kpa: float | None = None
+    fuel_system_status_1: int | None = None
     fuel_percent: float | None = None
     control_voltage_v: float | None = None
     gear: str | None = None
@@ -71,14 +82,53 @@ class VehiclePresenter:
                 if state.intake_air_temperature_k is None
                 else (state.intake_air_temperature_k - 273.15) * 9.0 / 5.0 + 32.0
             ),
+            accelerator_percent=(
+                None
+                if state.accelerator_pedal_position is None
+                else state.accelerator_pedal_position * 100.0
+            ),
+            manifold_pressure_kpa=(
+                None
+                if state.intake_manifold_pressure_pa is None
+                else state.intake_manifold_pressure_pa / 1000.0
+            ),
+            commanded_equivalence_ratio=state.commanded_equivalence_ratio,
+            measured_equivalence_ratio=state.measured_equivalence_ratio,
             throttle_percent=(
                 None
                 if state.throttle_position is None
                 else state.throttle_position * 100.0
             ),
+            commanded_throttle_percent=(
+                None
+                if state.commanded_throttle_position is None
+                else state.commanded_throttle_position * 100.0
+            ),
             engine_load_percent=(
                 None if state.engine_load is None else state.engine_load * 100.0
             ),
+            absolute_engine_load_percent=(
+                None
+                if state.absolute_engine_load is None
+                else state.absolute_engine_load * 100.0
+            ),
+            short_term_fuel_trim_percent=(
+                None
+                if state.short_term_fuel_trim_bank1 is None
+                else state.short_term_fuel_trim_bank1 * 100.0
+            ),
+            long_term_fuel_trim_percent=(
+                None
+                if state.long_term_fuel_trim_bank1 is None
+                else state.long_term_fuel_trim_bank1 * 100.0
+            ),
+            ignition_timing_advance_deg=state.ignition_timing_advance_deg,
+            fuel_rail_pressure_kpa=(
+                None
+                if state.fuel_rail_pressure_pa is None
+                else state.fuel_rail_pressure_pa / 1000.0
+            ),
+            fuel_system_status_1=state.fuel_system_status_1,
             fuel_percent=(
                 None if state.fuel_level is None else state.fuel_level * 100.0
             ),

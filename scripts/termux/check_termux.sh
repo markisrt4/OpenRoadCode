@@ -5,6 +5,11 @@
 set -euo pipefail
 
 fail=0
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd -- "$SCRIPT_DIR/../.." && pwd)"
+VENV_DIR="${1:-$PROJECT_ROOT/venv-termux}"
+shift || true
+FEATURES=("$@")
 
 check_command() {
   local command_name="$1"
@@ -30,6 +35,10 @@ check_command xfce4-session
 check_command dbus-launch
 check_command xrandr
 
+if [[ " ${FEATURES[*]} " == *" browser "* ]]; then
+  check_command chromium
+fi
+
 if python - <<'PY' >/dev/null 2>&1
 import tkinter
 PY
@@ -37,6 +46,20 @@ then
   echo "[+] tkinter        import succeeded"
 else
   echo "[!] tkinter        import failed" >&2
+  fail=1
+fi
+
+if [[ -x "$VENV_DIR/bin/python" ]]; then
+  if [[ " ${FEATURES[*]} " == *" web-ui "* ]] && ! "$VENV_DIR/bin/python" -m pip show Flask >/dev/null 2>&1; then
+    echo "[!] Flask           missing from $VENV_DIR" >&2
+    fail=1
+  fi
+  if [[ " ${FEATURES[*]} " == *" streamlit "* ]] && ! "$VENV_DIR/bin/python" -m pip show streamlit >/dev/null 2>&1; then
+    echo "[!] streamlit       missing from $VENV_DIR" >&2
+    fail=1
+  fi
+else
+  echo "[!] Termux venv missing: $VENV_DIR" >&2
   fail=1
 fi
 

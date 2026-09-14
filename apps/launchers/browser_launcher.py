@@ -42,17 +42,38 @@ class BrowserKioskLauncher(AppLauncherIf):
         self._hidden = False
 
     def set_url(self, url: str) -> None:
-        """Change the URL used by the next browser launch.
-
-        A running Chromium instance is intentionally not navigated implicitly;
-        callers that need a different page must stop it first so lifecycle and
-        visibility state remain deterministic.
-        """
+        """Change the URL used by the next browser launch."""
         if not url.strip():
             raise ValueError("url must be non-empty")
         if self.is_running():
             raise RuntimeError("Cannot change browser URL while it is running")
         self.url = url
+
+    def set_preferred_color_scheme(self, scheme: str) -> None:
+        """Tell Chromium which CSS/browser color scheme ORC currently uses."""
+        normalized = scheme.strip().lower()
+        if normalized not in {"dark", "light"}:
+            raise ValueError(f"Unsupported browser color scheme: {scheme}")
+        if self.is_running():
+            raise RuntimeError("Cannot change browser color scheme while it is running")
+
+        arguments = [
+            argument
+            for argument in self.extra_arguments
+            if not argument.startswith("--blink-settings=preferredColorScheme=")
+            and argument != "--force-dark-mode"
+        ]
+        # Blink's PreferredColorScheme enum is dark=0, light=1. This drives
+        # prefers-color-scheme for sites such as YouTube. Chromium's own chrome
+        # also needs force-dark-mode when ORC is dark.
+        arguments.append(
+            "--blink-settings=preferredColorScheme=0"
+            if normalized == "dark"
+            else "--blink-settings=preferredColorScheme=1"
+        )
+        if normalized == "dark":
+            arguments.append("--force-dark-mode")
+        self.extra_arguments = tuple(arguments)
 
     def is_running(self) -> bool:
         if self._process is not None:
@@ -183,7 +204,6 @@ class BrowserKioskLauncher(AppLauncherIf):
             pass
 
     def _remove_stale_profile_singleton(self) -> None:
-        """Remove Chromium singleton links only when its socket target is gone."""
         if self.profile_path is None:
             return
         socket_path = self.profile_path / "SingletonSocket"

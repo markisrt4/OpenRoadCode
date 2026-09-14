@@ -7,6 +7,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd -- "$SCRIPT_DIR/../.." && pwd)"
 PROJECT_DIR="${PROJECT_DIR:-$PROJECT_ROOT}"
+VENV_DIR_WAS_SET="${VENV_DIR+x}"
 VENV_DIR="${VENV_DIR:-$PROJECT_DIR/venv}"
 export PROJECT_DIR VENV_DIR
 
@@ -32,6 +33,9 @@ RUN_PYTHON_ENV=1
 RUN_VNC=""
 RUN_GPSD_SERVICE=""
 RUN_TELEMETRY_SERVICES=""
+BLUETOOTH_SPP_ADDRESS=""
+BLUETOOTH_SPP_CHANNEL=""
+BLUETOOTH_RFCOMM_ID="0"
 REQUESTED_FEATURES=()
 USE_DEFAULT_FEATURES=1
 INSTALL_ALL_FEATURES=0
@@ -44,6 +48,7 @@ Targets:
   rpi4       Raspberry Pi 4 or Compute Module 4 runtime
   rpi5       Raspberry Pi 5, Pi 500, or Compute Module 5 runtime
   linux-dev  Debian/Ubuntu development workstation or VM
+  termux     Native Termux/Android runtime
 
 Options:
   --target TARGET         Required installation target
@@ -58,6 +63,9 @@ Options:
   --no-gpsd-service       Disable GPSD service setup
   --with-telemetry-services Enable broker/navigation/automotive services
   --no-telemetry-services Disable OpenRoadCode telemetry service setup
+  --bluetooth-spp-address MAC Pair/bind a Bluetooth SPP device after package setup
+  --bluetooth-spp-channel N   Override Bluetooth SPP RFCOMM channel discovery
+  --bluetooth-rfcomm-id N     RFCOMM device number (default: 0)
   --feature NAME          Add a feature bundle to the target profile
   --all-features          Install every feature compatible with the target
   --no-default-features   Start with no optional target-profile features
@@ -93,7 +101,10 @@ detect_host_arch() {
 
 detect_raspberry_pi_model() {
   local model_file="${OPENROAD_RPI_MODEL_FILE:-/proc/device-tree/model}"
-  [[ -r "$model_file" ]] && tr -d '\0' < "$model_file"
+  if [[ -r "$model_file" ]]; then
+    tr -d '\0' < "$model_file"
+  fi
+  return 0
 }
 
 detect_system_target() {
@@ -147,6 +158,15 @@ append_feature() {
   [[ " ${FEATURES[*]} " == *" $feature "* ]] || FEATURES+=("$feature")
 }
 
+persist_host_target() {
+  local target="$1"
+  local config_home="${XDG_CONFIG_HOME:-$HOME/.config}"
+  local config_dir="$config_home/openroadcode"
+  mkdir -p "$config_dir"
+  printf 'target = "%s"\n' "$target" > "$config_dir/host.toml"
+  echo "[*] Persisted OpenRoadCode host target: $target"
+}
+
 while (( $# > 0 )); do
   case "$1" in
     --target) shift; (( $# > 0 )) || { echo "[!] --target requires a value" >&2; exit 1; }; TARGET="$1" ;;
@@ -161,6 +181,9 @@ while (( $# > 0 )); do
     --no-gpsd-service) RUN_GPSD_SERVICE=0 ;;
     --with-telemetry-services) RUN_TELEMETRY_SERVICES=1 ;;
     --no-telemetry-services) RUN_TELEMETRY_SERVICES=0 ;;
+    --bluetooth-spp-address) shift; (( $# > 0 )) || { echo "[!] --bluetooth-spp-address requires a value" >&2; exit 1; }; BLUETOOTH_SPP_ADDRESS="$1" ;;
+    --bluetooth-spp-channel) shift; (( $# > 0 )) || { echo "[!] --bluetooth-spp-channel requires a value" >&2; exit 1; }; BLUETOOTH_SPP_CHANNEL="$1" ;;
+    --bluetooth-rfcomm-id) shift; (( $# > 0 )) || { echo "[!] --bluetooth-rfcomm-id requires a value" >&2; exit 1; }; BLUETOOTH_RFCOMM_ID="$1" ;;
     --no-default-features) USE_DEFAULT_FEATURES=0 ;;
     --all-features) INSTALL_ALL_FEATURES=1 ;;
     --feature) option="$1"; shift; (( $# > 0 )) || { echo "[!] $option requires a value" >&2; exit 1; }; REQUESTED_FEATURES+=("$1") ;;
@@ -171,22 +194,44 @@ while (( $# > 0 )); do
 done
 
 [[ -n "$TARGET" ]] || { echo "[!] --target is required" >&2; usage >&2; exit 1; }
-case "$TARGET" in rpi4|rpi5|linux-dev) ;; *) echo "[!] Unknown target: $TARGET" >&2; usage >&2; exit 1 ;; esac
+case "$TARGET" in rpi4|rpi5|linux-dev|termux) ;; *) echo "[!] Unknown target: $TARGET" >&2; usage >&2; exit 1 ;; esac
 
-HOST_ARCH="$(detect_host_arch)"
+if [[ "$TARGET" == "termux" ]]; then
+  if [[ -n "$BLUETOOTH_SPP_ADDRESS" ]]; then
+    echo "[!] --bluetooth-spp-address is for Linux/Raspberry Pi RFCOMM; Termux uses the Android bridge." >&2
+    exit 1
+  fi
+  [[ "${PREFIX:-}" == /data/data/com.termux/files/usr* ]] || {
+    echo "[!] --target termux must be run from native Termux." >&2
+    exit 1
+  }
+  if [[ -z "$VENV_DIR_WAS_SET" ]]; then
+    VENV_DIR="$PROJECT_DIR/venv-termux"
+  fi
+  export VENV_DIR
+  HOST_ARCH="$(uname -m)"
+  RPI_MODEL=""
+  DETECTED_TARGET="termux"
+  DISTRO_ID="termux"
+  DISTRO_LIKE=""
+else
+  HOST_ARCH="$(detect_host_arch)"
 RPI_MODEL="$(detect_raspberry_pi_model)"
 DETECTED_TARGET="$(detect_system_target "$RPI_MODEL")"
 DISTRO_ID="$(read_os_release_value ID)"
 DISTRO_LIKE="$(read_os_release_value ID_LIKE)"
 validate_distribution "$DISTRO_ID" "$DISTRO_LIKE"
 confirm_target_mismatch "$TARGET" "$DETECTED_TARGET" "$RPI_MODEL"
+fi
+
+export OPENROAD_INSTALL_TARGET="$TARGET"
 
 FEATURES=()
 if (( INSTALL_ALL_FEATURES )); then mapfile -t FEATURES < <(get_all_features_for_target "$TARGET"); elif (( USE_DEFAULT_FEATURES )); then FEATURES=(base); fi
 case "$TARGET" in
   rpi4) GPIO_BACKEND="RPi.GPIO"; append_feature raspberry-pi ;;
   rpi5) GPIO_BACKEND="rpi-lgpio"; append_feature raspberry-pi ;;
-  linux-dev) GPIO_BACKEND="" ;;
+  linux-dev|termux) GPIO_BACKEND="" ;;
 esac
 : "${RUN_VNC:=0}"
 : "${RUN_GPSD_SERVICE:=0}"
@@ -207,7 +252,6 @@ while (( feature_index < ${#FEATURES[@]} )); do
 done
 for feature in "${FEATURES[@]}"; do is_known_feature "$feature" || { echo "[!] Internal error: unknown resolved feature '$feature'" >&2; exit 1; }; done
 
-export OPENROAD_INSTALL_TARGET="$TARGET"
 export OPENROAD_RPI_GPIO_BACKEND="$GPIO_BACKEND"
 
 echo "[*] Requested target:      $TARGET"
@@ -220,12 +264,50 @@ echo "[*] Features:              ${FEATURES[*]}"
 echo "[*] VNC service setup:     $RUN_VNC"
 echo "[*] GPSD service setup:    $RUN_GPSD_SERVICE"
 echo "[*] Telemetry services:    $RUN_TELEMETRY_SERVICES"
+if [[ -n "$BLUETOOTH_SPP_ADDRESS" ]]; then
+  echo "[*] Bluetooth SPP:         $BLUETOOTH_SPP_ADDRESS (rfcomm$BLUETOOTH_RFCOMM_ID)"
+fi
 
 if (( SHOW_PLAN )); then echo "[*] Plan only; no system changes were made."; exit 0; fi
+
+persist_host_target "$TARGET"
+
+if [[ "$TARGET" == "termux" ]]; then
+  if (( ! SKIP_INSTALLS )); then
+    bash "$PROJECT_DIR/scripts/termux/install.sh" "${FEATURES[@]}"
+  fi
+  if [[ " ${FEATURES[*]} " == *" navigation "* ]]; then
+    bash "$SCRIPT_DIR/install_navigation_stack.sh" --target termux
+  fi
+  echo
+  echo "[+] termux setup complete."
+  echo "    Project dir: $PROJECT_DIR"
+  echo "    Arch:        $HOST_ARCH"
+  echo "    Venv:        $VENV_DIR"
+  exit 0
+fi
+
 if (( SKIP_INSTALLS )); then echo "[*] Skipping package, Python, and user-group changes per request."; fi
 if (( RUN_SYSTEM_PACKAGES )) && (( ! SKIP_INSTALLS )); then bash "$PROJECT_DIR/scripts/installers/install_system_packages.sh" "${FEATURES[@]}"; fi
 if (( RUN_PYTHON_ENV )) && (( ! SKIP_INSTALLS )); then bash "$PROJECT_DIR/scripts/installers/install_python_env.sh" "${FEATURES[@]}"; fi
 if (( ! SKIP_INSTALLS )); then bash "$PROJECT_DIR/scripts/installers/configure_user_permissions.sh" "${FEATURES[@]}"; fi
+
+if (( ! SKIP_INSTALLS )) && [[ "$TARGET" == "rpi4" || "$TARGET" == "rpi5" ]]; then
+  if [[ " ${FEATURES[*]} " == *" raspberry-pi "* || " ${FEATURES[*]} " == *" imu "* || " ${FEATURES[*]} " == *" environmental "* ]]; then
+    if command -v raspi-config >/dev/null 2>&1; then
+      echo "[*] Enabling Raspberry Pi I2C interface..."
+      sudo raspi-config nonint do_i2c 0
+    else
+      echo "[!] raspi-config is unavailable; enable I2C manually before using configured sensors." >&2
+    fi
+  fi
+fi
+
+if [[ -n "$BLUETOOTH_SPP_ADDRESS" ]] && (( ! SKIP_INSTALLS )); then
+  spp_args=(--address "$BLUETOOTH_SPP_ADDRESS" --rfcomm-id "$BLUETOOTH_RFCOMM_ID")
+  [[ -z "$BLUETOOTH_SPP_CHANNEL" ]] || spp_args+=(--channel "$BLUETOOTH_SPP_CHANNEL")
+  bash "$PROJECT_DIR/scripts/installers/setup_bluetooth_spp.sh" "${spp_args[@]}"
+fi
 
 if (( RUN_VNC )) || (( RUN_GPSD_SERVICE )) || (( RUN_TELEMETRY_SERVICES )); then
   service_args=()
@@ -238,6 +320,14 @@ fi
 VERIFY_PYTHON="python3"
 [[ -x "$VENV_DIR/bin/python" ]] && VERIFY_PYTHON="$VENV_DIR/bin/python"
 
+if (( ! SKIP_INSTALLS )) && [[ " ${FEATURES[*]} " == *" navigation "* ]]; then
+  echo
+  echo "[*] Installing navigation software stack..."
+  bash "$SCRIPT_DIR/install_navigation_stack.sh" \
+    --target "$TARGET" \
+    --skip-host-packages
+fi
+
 if (( ! SKIP_INSTALLS )); then
   echo
   echo "[*] Verifying installed dependencies..."
@@ -246,7 +336,11 @@ fi
 
 echo
 echo "[*] Verifying runtime health..."
-runtime_args=("${FEATURES[@]}" --config "$PROJECT_DIR/config/runtime.toml")
+runtime_config="$PROJECT_DIR/config/runtime.toml"
+if [[ "$TARGET" == "linux-dev" ]]; then
+  runtime_config="$PROJECT_DIR/config/runtime.simulated.toml"
+fi
+runtime_args=("${FEATURES[@]}" --config "$runtime_config")
 (( RUN_TELEMETRY_SERVICES )) && runtime_args+=(--telemetry-services)
 (( RUN_GPSD_SERVICE )) && runtime_args+=(--gpsd-service)
 "$VERIFY_PYTHON" "$SCRIPT_DIR/verify_runtime.py" "${runtime_args[@]}"

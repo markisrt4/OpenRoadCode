@@ -13,11 +13,11 @@ from apps.carUi.runtime.car_ui_runtime import CarUiRuntime, RadioRuntime
 from apps.carUi.runtime.radio_runtime_registry import RadioRuntimeRegistry
 from apps.carUi.runtime.weather_location_provider import CarUiWeatherLocationProvider
 from apps.launchers.adsb_launcher import ADSBLauncher
-from apps.launchers.app_runtime_manager import AppRuntimeManager
 from apps.launchers.browser_app_factory import BrowserApplicationFactory
 from apps.launchers.google_earth_launcher import GoogleEarthLauncher
 from apps.launchers.sdrpp_launcher import SDRPPLauncher, SDRPPProfile
 from apps.launchers.weather_dash_launcher import WeatherDashLauncher
+from controllers.application_runtime import AppRuntimeManager
 from controllers.cache import PersistentCache
 from controllers.weather import DEFAULT_WEATHER_CACHE_DIRECTORY, GpsdWeatherLocationProvider, OpenMeteoWeatherController, WeatherSnapshotCache
 from controllers.navigation import PositionSnapshotCache

@@ -6,6 +6,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+
+from controllers.automotive.vehicle_configuration import EngineInductionType, VehicleConfiguration
 from pathlib import Path
 
 try:
@@ -108,7 +110,13 @@ class AutomotiveInputConfig:
     host: str = "127.0.0.1"
     tcp_port: int = 35000
     timeout_s: float = 1.0
-    slow_poll_interval_s: float = 5.0
+    request_rate_hz: float = 6.0
+
+
+@dataclass(frozen=True, slots=True)
+class AutomotiveFuelConfig:
+    engine_displacement_l: float = 1.6
+    volumetric_efficiency: float = 0.85
 
 
 @dataclass(frozen=True, slots=True)
@@ -122,6 +130,7 @@ class AutomotiveServiceRuntimeConfig:
     enabled: bool = True
     rate_hz: float = 10.0
     input: AutomotiveInputConfig = AutomotiveInputConfig()
+    fuel: AutomotiveFuelConfig = AutomotiveFuelConfig()
     publish: AutomotivePublishConfig = AutomotivePublishConfig()
 
 
@@ -130,6 +139,7 @@ class ServiceRuntimeConfig:
     messaging: MessagingRuntimeConfig = MessagingRuntimeConfig()
     navigation: NavigationServiceRuntimeConfig = NavigationServiceRuntimeConfig()
     automotive: AutomotiveServiceRuntimeConfig = AutomotiveServiceRuntimeConfig()
+    vehicle: VehicleConfiguration = VehicleConfiguration()
 
 
 class ServiceRuntimeConfigParser:
@@ -151,7 +161,29 @@ class ServiceRuntimeConfigParser:
         services = self._table(data.get("services", {}), "services")
         navigation = self._parse_navigation(services.get("navigation", {}))
         automotive = self._parse_automotive(services.get("automotive", {}))
-        return ServiceRuntimeConfig(messaging=messaging, navigation=navigation, automotive=automotive)
+        vehicle = self._parse_vehicle(data.get("vehicle", {}))
+        return ServiceRuntimeConfig(
+            messaging=messaging,
+            navigation=navigation,
+            automotive=automotive,
+            vehicle=vehicle,
+        )
+
+    def _parse_vehicle(self, value) -> VehicleConfiguration:
+        data = self._table(value, "vehicle")
+        engine = self._table(data.get("engine", {}), "vehicle.engine")
+        raw_induction = self._string(
+            engine.get("induction", EngineInductionType.UNKNOWN.value),
+            "vehicle.engine.induction",
+        ).lower()
+        try:
+            induction = EngineInductionType(raw_induction)
+        except ValueError as exc:
+            allowed = ", ".join(item.value for item in EngineInductionType)
+            raise ServiceRuntimeConfigError(
+                f"vehicle.engine.induction must be one of: {allowed}"
+            ) from exc
+        return VehicleConfiguration(induction=induction)
 
     def _parse_messaging(self, value) -> MessagingRuntimeConfig:
         data = self._table(value, "messaging")
@@ -177,6 +209,7 @@ class ServiceRuntimeConfigParser:
     def _parse_automotive(self, value) -> AutomotiveServiceRuntimeConfig:
         data = self._table(value, "services.automotive")
         input_data = self._table(data.get("input", {}), "services.automotive.input")
+        fuel_data = self._table(data.get("fuel", {}), "services.automotive.fuel")
         publish_data = self._table(data.get("publish", {}), "services.automotive.publish")
         source = self._source(input_data.get("source", "simulation"), "services.automotive.input.source")
         device = self._string(input_data.get("device", "elm327"), "services.automotive.input.device").lower()
@@ -203,7 +236,17 @@ class ServiceRuntimeConfigParser:
                 host=self._string(input_data.get("host", "127.0.0.1"), "services.automotive.input.host"),
                 tcp_port=tcp_port,
                 timeout_s=self._positive(input_data.get("timeout_s", 1.0), "services.automotive.input.timeout_s"),
-                slow_poll_interval_s=self._positive(input_data.get("slow_poll_interval_s", 5.0), "services.automotive.input.slow_poll_interval_s"),
+                request_rate_hz=self._positive(input_data.get("request_rate_hz", 6.0), "services.automotive.input.request_rate_hz"),
+            ),
+            fuel=AutomotiveFuelConfig(
+                engine_displacement_l=self._positive(
+                    fuel_data.get("engine_displacement_l", 1.6),
+                    "services.automotive.fuel.engine_displacement_l",
+                ),
+                volumetric_efficiency=self._positive(
+                    fuel_data.get("volumetric_efficiency", 0.85),
+                    "services.automotive.fuel.volumetric_efficiency",
+                ),
             ),
             publish=AutomotivePublishConfig(
                 enabled=self._bool(publish_data.get("enabled", True), "services.automotive.publish.enabled"),
@@ -320,6 +363,8 @@ class ServiceRuntimeConfigParser:
 
     def _source(self, value, name: str) -> str:
         source = self._string(value, name).lower()
-        if source not in {"device", "simulation"}:
-            raise ServiceRuntimeConfigError(f"{name} must be device or simulation")
+        if source not in {"device", "simulation", "obd_simulation"}:
+            raise ServiceRuntimeConfigError(
+                f"{name} must be device, simulation, or obd_simulation"
+            )
         return source

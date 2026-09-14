@@ -25,15 +25,20 @@ class PersistentPositionSource(PositionSourceIf):
         cache: PositionSnapshotCache,
         *,
         max_age_seconds: float = 604800.0,
+        cache_interval_seconds: float = 900.0,
         clock: Callable[[], datetime] = datetime.now,
     ) -> None:
         if max_age_seconds < 0:
             raise ValueError("max_age_seconds cannot be negative")
+        if cache_interval_seconds < 0:
+            raise ValueError("cache_interval_seconds cannot be negative")
         self._source = source
         self._cache = cache
         self._max_age_seconds = max_age_seconds
+        self._cache_interval_seconds = cache_interval_seconds
         self._clock = clock
         self._callback: PositionStateCallback | None = None
+        self._last_cache_write_at: datetime | None = None
 
     def start(self, callback: PositionStateCallback) -> None:
         """Publish a recent cached fix, then start the live source."""
@@ -42,6 +47,7 @@ class PersistentPositionSource(PositionSourceIf):
         if cached is not None:
             age = (self._clock() - cached.received_at).total_seconds()
             if 0 <= age <= self._max_age_seconds:
+                self._last_cache_write_at = cached.received_at
                 callback(cached)
         try:
             self._source.start(self._position_received)
@@ -60,11 +66,19 @@ class PersistentPositionSource(PositionSourceIf):
             and state.has_fix
             and state.latitude_deg is not None
             and state.longitude_deg is not None
+            and self._cache_write_due()
         ):
             try:
                 self._cache.store(state)
+                self._last_cache_write_at = self._clock()
             except OSError:
                 pass
         callback = self._callback
         if callback is not None:
             callback(state)
+
+    def _cache_write_due(self) -> bool:
+        if self._last_cache_write_at is None:
+            return True
+        elapsed = (self._clock() - self._last_cache_write_at).total_seconds()
+        return elapsed >= self._cache_interval_seconds

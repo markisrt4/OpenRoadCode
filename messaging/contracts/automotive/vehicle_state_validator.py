@@ -12,7 +12,7 @@ from messaging.contracts.common import validate_timestamp
 from .vehicle_state_codec import SCHEMA_VERSION
 
 TOP_LEVEL_FIELDS = {"version", "timestamp", "source", "data"}
-DATA_FIELDS = {
+V1_DATA_FIELDS = {
     "engine_speed_rad_s",
     "vehicle_speed_m_s",
     "transmission_gear",
@@ -28,10 +28,24 @@ DATA_FIELDS = {
     "fuel_level",
     "control_voltage_v",
 }
+V2_DATA_FIELDS = V1_DATA_FIELDS | {"engine_fuel_rate_m3_s"}
+V3_DATA_FIELDS = V2_DATA_FIELDS | {"commanded_equivalence_ratio"}
+DATA_FIELDS = V3_DATA_FIELDS | {
+    "commanded_throttle_position",
+    "absolute_engine_load",
+    "fuel_system_status_1",
+    "fuel_system_status_2",
+    "short_term_fuel_trim_bank1",
+    "long_term_fuel_trim_bank1",
+    "ignition_timing_advance_deg",
+    "fuel_rail_pressure_pa",
+    "measured_equivalence_ratio",
+}
 RATIO_FIELDS = {
     "throttle_position",
     "accelerator_pedal_position",
     "engine_load",
+    "commanded_throttle_position",
     "fuel_level",
 }
 NONNEGATIVE_FIELDS = {
@@ -40,7 +54,10 @@ NONNEGATIVE_FIELDS = {
     "intake_manifold_pressure_pa",
     "barometric_pressure_pa",
     "mass_air_flow_kg_s",
+    "engine_fuel_rate_m3_s",
     "control_voltage_v",
+    "fuel_rail_pressure_pa",
+    "absolute_engine_load",
 }
 TEMPERATURE_FIELDS = {"coolant_temperature_k", "intake_air_temperature_k"}
 VALID_GEARS = {-1, 0, 1, 2, 3, 4, 5, 6}
@@ -56,7 +73,7 @@ def _validate_number(name: str, value: Any) -> None:
 
 
 def validate_vehicle_state(payload: Mapping[str, Any]) -> None:
-    """Raise ValueError unless payload exactly satisfies contract version 1."""
+    """Raise ValueError unless payload exactly satisfies a supported contract version."""
     if not isinstance(payload, Mapping):
         raise ValueError("vehicle state payload must be an object")
     if set(payload) != TOP_LEVEL_FIELDS:
@@ -65,7 +82,7 @@ def validate_vehicle_state(payload: Mapping[str, Any]) -> None:
     version = payload["version"]
     if isinstance(version, bool) or not isinstance(version, int):
         raise ValueError("vehicle state version must be an integer")
-    if version != SCHEMA_VERSION:
+    if version not in {1, 2, 3, SCHEMA_VERSION}:
         raise ValueError(f"unsupported vehicle state version: {version}")
 
     timestamp = payload["timestamp"]
@@ -80,14 +97,30 @@ def validate_vehicle_state(payload: Mapping[str, Any]) -> None:
     data = payload["data"]
     if not isinstance(data, Mapping):
         raise ValueError("vehicle state data must be an object")
+    expected_fields = (
+        V1_DATA_FIELDS if version == 1 else
+        V2_DATA_FIELDS if version == 2 else
+        V3_DATA_FIELDS if version == 3 else
+        DATA_FIELDS
+    )
     actual_fields = set(data)
-    if actual_fields != DATA_FIELDS:
-        missing = sorted(DATA_FIELDS - actual_fields)
-        unknown = sorted(actual_fields - DATA_FIELDS)
+    if actual_fields != expected_fields:
+        missing = sorted(expected_fields - actual_fields)
+        unknown = sorted(actual_fields - expected_fields)
         raise ValueError(
             "vehicle state data schema mismatch: "
             f"missing={missing}, unknown={unknown}"
         )
+
+    for name in ("fuel_system_status_1", "fuel_system_status_2"):
+        if name in expected_fields:
+            value = data[name]
+            if value is not None and (
+                isinstance(value, bool)
+                or not isinstance(value, int)
+                or not 0 <= value <= 0xFF
+            ):
+                raise ValueError(f"{name} must be null or an 8-bit integer")
 
     gear = data["transmission_gear"]
     if gear is not None and (
@@ -97,13 +130,21 @@ def validate_vehicle_state(payload: Mapping[str, Any]) -> None:
     ):
         raise ValueError("transmission_gear must be null, -1, 0, or 1..6")
 
-    for name in DATA_FIELDS - {"transmission_gear"}:
+    for name in expected_fields - {
+        "transmission_gear",
+        "fuel_system_status_1",
+        "fuel_system_status_2",
+    }:
         value = data[name]
         _validate_number(name, value)
         if value is None:
             continue
         if name in RATIO_FIELDS and not 0.0 <= value <= 1.0:
             raise ValueError(f"{name} must be in range 0.0..1.0")
+        if name in {"commanded_equivalence_ratio", "measured_equivalence_ratio"} and not 0.0 <= value <= 2.0:
+            raise ValueError(
+                "commanded_equivalence_ratio must be in range 0.0..2.0"
+            )
         if name in NONNEGATIVE_FIELDS and value < 0.0:
             raise ValueError(f"{name} cannot be negative")
         if name in TEMPERATURE_FIELDS and value < 0.0:

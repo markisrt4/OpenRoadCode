@@ -5,10 +5,12 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
 from typing import Any
+
+from common.xdg_paths import openroadcode_data_dir
 
 try:
     import tomllib
@@ -54,7 +56,7 @@ class PresentationTargetConfig:
 
 @dataclass(frozen=True, slots=True)
 class BrowserConfig:
-    profile_root: Path = Path.home() / ".local" / "share" / "openroadcode" / "browser"
+    profile_root: Path = field(default_factory=lambda: openroadcode_data_dir("browser"))
 
 
 @dataclass(frozen=True, slots=True)
@@ -68,6 +70,7 @@ class ApplicationConfig:
     exclusive_group: str | None = None
     target: str | None = None
     adsb_data_source: AdsbDataSource | None = None
+    fullscreen: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -129,7 +132,9 @@ class ApplicationsConfigParser:
 
     def _parse_browser(self, data: Any) -> BrowserConfig:
         section = self._expect_table(data, "browser")
-        raw_root = section.get("profile_root", "~/.local/share/openroadcode/browser")
+        raw_root = section.get("profile_root")
+        if raw_root is None:
+            return BrowserConfig()
         if not isinstance(raw_root, str) or not raw_root.strip():
             raise ApplicationConfigError("browser.profile_root must be a non-empty string")
         return BrowserConfig(profile_root=Path(raw_root).expanduser())
@@ -158,6 +163,9 @@ class ApplicationsConfigParser:
             enabled = app.get("enabled", True)
             if not isinstance(enabled, bool):
                 raise ApplicationConfigError(f"apps.{key}.enabled must be a boolean")
+            fullscreen = app.get("fullscreen", False)
+            if not isinstance(fullscreen, bool):
+                raise ApplicationConfigError(f"apps.{key}.fullscreen must be a boolean")
             url = self._optional_string(app, "url", f"apps.{key}.url")
             profile = self._optional_string(app, "profile", f"apps.{key}.profile")
             exclusive_group = self._optional_string(app, "exclusive_group", f"apps.{key}.exclusive_group")
@@ -170,7 +178,7 @@ class ApplicationsConfigParser:
                 raise ApplicationConfigError(f"apps.{key}.url is required for {app_type.value} applications")
             if app_type is ApplicationType.BROWSER and profile is None:
                 raise ApplicationConfigError(f"apps.{key}.profile is required for browser applications")
-            apps.append(ApplicationConfig(key=key, type=app_type, enabled=enabled, startup=startup, url=url, profile=profile, exclusive_group=exclusive_group, target=target, adsb_data_source=adsb_data_source))
+            apps.append(ApplicationConfig(key=key, type=app_type, enabled=enabled, startup=startup, url=url, profile=profile, exclusive_group=exclusive_group, target=target, adsb_data_source=adsb_data_source, fullscreen=fullscreen))
         return tuple(apps)
 
     @staticmethod

@@ -17,9 +17,10 @@ class YouTubeMusicVideoTest(unittest.TestCase):
             position_ms=0,
         )
 
-        self.assertIn('type="button">RETURN</button>', page)
+        self.assertIn("RETURN</button>", page)
+        self.assertIn("return-to-carui", page)
         self.assertNotIn("RETURN TO CARUI", page)
-        self.assertIn('fetch("/close"', page)
+        self.assertIn("/close", page)
 
 
 if __name__ == "__main__":

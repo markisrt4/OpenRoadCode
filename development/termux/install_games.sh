@@ -41,6 +41,21 @@ install_if_available() {
     fi
 }
 
+install_debian_game_runtime_dependencies() {
+    if ! command -v proot-distro >/dev/null 2>&1; then
+        log 'proot-distro not installed; skipping Debian game runtime dependencies'
+        return 0
+    fi
+    if ! proot-distro login debian -- true >/dev/null 2>&1; then
+        log 'Debian proot is not installed; skipping Debian game runtime dependencies'
+        return 0
+    fi
+
+    log 'installing Debian GNOME runtime dependency: dbus-x11'
+    proot-distro login debian -- apt-get update
+    proot-distro login debian -- apt-get install -y dbus-x11
+}
+
 if ! command -v pkg >/dev/null 2>&1; then
     echo 'This installer must be run inside Termux.' >&2
     exit 1
@@ -51,7 +66,8 @@ pkg install -y x11-repo
 log 'refreshing package metadata'
 pkg update -y
 log 'installing X11 embedding and Debian OpenGL helpers'
-pkg install -y xdotool virglrenderer-android
+pkg install -y xdotool xorg-xprop virglrenderer-android
+install_debian_game_runtime_dependencies
 
 INSTALLED=()
 UNAVAILABLE=()

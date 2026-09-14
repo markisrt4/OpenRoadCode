@@ -65,6 +65,9 @@ timeout_seconds = 10.0
 # -----------------------------------------------------------------------------
 # Automotive service pipeline
 # -----------------------------------------------------------------------------
+[vehicle.engine]
+induction = "turbocharged"
+
 [services.automotive]
 enabled = true
 rate_hz = 10.0
@@ -76,7 +79,11 @@ transport = "serial"
 port = "/dev/rfcomm0"
 baud = 38400
 timeout_s = 1.0
-slow_poll_interval_s = 5.0
+request_rate_hz = 6.0
+
+[services.automotive.fuel]
+engine_displacement_l = 1.6
+volumetric_efficiency = 0.85
 
 [services.automotive.publish]
 enabled = true

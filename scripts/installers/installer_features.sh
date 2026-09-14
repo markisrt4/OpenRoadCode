@@ -27,6 +27,7 @@ imu
 environmental
 spotify
 sdrpp
+navigation
 raspberry-pi
 EOF
 }
@@ -56,6 +57,17 @@ spotify
 sdrpp
 EOF
       ;;
+    termux)
+      cat <<'EOF'
+base
+desktop-ui
+web-ui
+browser
+streamlit
+spotify
+navigation
+EOF
+      ;;
     *) return 1 ;;
   esac
 }
@@ -70,10 +82,16 @@ is_known_feature() {
 
 get_feature_dependencies() {
   local feature="$1"
+  local target="${OPENROAD_INSTALL_TARGET:-linux-dev}"
   case "$feature" in
     vnc) echo "desktop-ui" ;;
-    spotify) echo "audio" ;;
+    spotify)
+      [[ "$target" == "termux" ]] && echo "" || echo "audio"
+      ;;
     sdrpp) echo "rtl-sdr desktop-ui audio" ;;
+    navigation)
+      [[ "$target" == "termux" ]] && echo "desktop-ui" || echo "desktop-ui gps"
+      ;;
     adsb) echo "rtl-sdr" ;;
     *) echo "" ;;
   esac
@@ -108,7 +126,7 @@ get_feature_packages() {
       echo "rtl-sdr soapysdr-tools soapysdr-module-rtlsdr"
       ;;
     adsb)
-      echo "readsb"
+      echo "readsb lighttpd"
       ;;
     bluetooth)
       echo "bluez libbluetooth-dev python3-bluez"
@@ -122,8 +140,8 @@ get_feature_packages() {
     spotify)
       echo ""
       ;;
-    sdrpp)
-      echo "sdrpp"
+    sdrpp|navigation)
+      echo ""
       ;;
     *)
       echo ""
@@ -143,7 +161,7 @@ get_feature_python_packages() {
     web-ui)
       printf '%s\n' Flask
       ;;
-    browser|vnc|adsb|audio|spotify|sdrpp)
+    browser|vnc|adsb|audio|spotify|sdrpp|navigation)
       echo ""
       ;;
     input)
@@ -202,6 +220,7 @@ Available features:
   environmental BMP3XX and Adafruit Blinka I2C support
   spotify       Spotify integration extras (includes audio)
   sdrpp         SDR++ support (includes RTL-SDR, desktop-ui, and audio)
+  navigation    MapLibre renderer + Valhalla navigation stack (includes desktop-ui and gps)
   raspberry-pi  Raspberry Pi GPIO, I2C, Blinka, and Seesaw support
 EOF
 }

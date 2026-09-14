@@ -3,6 +3,8 @@
 
 from dataclasses import dataclass
 
+from ui.icon import IconId
+
 
 @dataclass(frozen=True, slots=True)
 class MenuTile:
@@ -12,3 +14,4 @@ class MenuTile:
     title: str
     subtitle: str
     detail: str
+    icon: IconId | None = None

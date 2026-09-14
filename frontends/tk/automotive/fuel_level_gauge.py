@@ -18,10 +18,19 @@ class FuelLevelGauge(tk.Canvas):
     START_ANGLE_DEG = 145.0
     SWEEP_ANGLE_DEG = 250.0
 
-    def __init__(self, master: tk.Misc, *, style: VehicleGaugeTheme | None = None, size: int = 122, **kwargs: object) -> None:
+    def __init__(
+        self,
+        master: tk.Misc,
+        *,
+        style: VehicleGaugeTheme | None = None,
+        size: int = 122,
+        show_title: bool = True,
+        **kwargs: object,
+    ) -> None:
         self._style = style or VEHICLE_GAUGE_THEME
         self._value: float | None = None
         self._connected = True
+        self._show_title = show_title
         super().__init__(master, width=size, height=size, background=self._style.background_color, highlightthickness=0, **kwargs)
         self.bind("<Configure>", self._on_resize)
         self.after_idle(self._draw)
@@ -97,7 +106,8 @@ class FuelLevelGauge(tk.Canvas):
             color = self._style.danger_value if percent == 0 else self._style.foreground_color
             self.create_text(tx, ty, text=label, fill=color, font=(self._style.condensed_font_family, max(7, int(radius * 0.105)), "bold"))
 
-        self.create_text(cx, cy - radius * 0.24, text="FUEL", fill=self._style.foreground_color, font=(self._style.condensed_font_family, max(8, int(radius * 0.13)), "bold"))
+        if self._show_title:
+            self.create_text(cx, cy - radius * 0.24, text="FUEL", fill=self._style.foreground_color, font=(self._style.condensed_font_family, max(8, int(radius * 0.13)), "bold"))
 
         needle_value = 0.0 if self._value is None or not self._connected else self._value
         needle_angle = self.START_ANGLE_DEG + (needle_value / 100.0) * self.SWEEP_ANGLE_DEG

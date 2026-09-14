@@ -89,6 +89,18 @@ MapView::MapView(
 {
     glfwSetErrorCallback(glfwError);
 
+#if defined(__linux__) && defined(GLFW_PLATFORM_X11)
+    // OrcUI embeds the renderer into a Tk/X11 host window. On Wayland/XWayland
+    // desktops GLFW may otherwise auto-select Wayland, which makes
+    // glfwGetX11Display()/glfwGetX11Window() unavailable even though DISPLAY is
+    // valid. Force X11 only for the embedded-window path; standalone renderer
+    // launches retain GLFW's normal platform selection.
+    if (const char* parent = std::getenv("OPENROADCODE_MAP_PARENT_WINDOW");
+        parent && *parent) {
+        glfwInitHint(GLFW_PLATFORM, GLFW_PLATFORM_X11);
+    }
+#endif
+
     if (!glfwInit()) {
         mbgl::Log::Error(mbgl::Event::OpenGL, "Failed to initialize GLFW");
         std::exit(1);

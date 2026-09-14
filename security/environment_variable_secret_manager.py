@@ -7,6 +7,7 @@ import os
 from collections.abc import Mapping
 from pathlib import Path
 
+from common.xdg_paths import openroadcode_config_dir
 from .secret_manager_if import SecretManagerIf
 
 DEFAULT_SECRETS_FILE = Path("/etc/openroadcode/secrets.env")
@@ -21,10 +22,7 @@ def resolve_default_secrets_file() -> Path:
 
     prefix = os.environ.get("PREFIX", "")
     if prefix.endswith("/com.termux/files/usr"):
-        config_home = Path(
-            os.environ.get("XDG_CONFIG_HOME", str(Path.home() / ".config"))
-        ).expanduser()
-        return config_home / "openroadcode" / "secrets.env"
+        return openroadcode_config_dir("secrets.env")
 
     return DEFAULT_SECRETS_FILE
 
