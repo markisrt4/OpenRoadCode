@@ -18,6 +18,7 @@ from apps.orcUi.orc_theme import ThemeMode, toggle, toggle_label
 from .power_dialog import PowerDialog
 from .settings_panel import SettingsPanel
 from .shell_chrome import build_footer, build_top_bar
+from .side_nav import OrcUiSideNav
 from apps.orcUi.theme_runtime import theme_bundle
 from apps.orcUi.trip_presenter import TripPresentationState
 from .vehicle_panel import VehiclePanel
@@ -98,14 +99,13 @@ class OrcUiApp(VolumeUiIf):
         self._adsb_view_handler: Callable[[], None] | None = None
         self._active_nav = "HOME"
         self._nav_items = ["HOME", "NAVIGATION", "RADIO", "VEHICLE", "LIGHTING", "CONTROLS"]
-        self._nav_buttons: dict[str, tk.Button] = {}
+        self._side_nav: OrcUiSideNav | None = None
         self._screen_registry: dict[str, ScreenUiIf] = {}
         self._active_screen: ScreenUiIf | None = None
         self._screen_back_action: Callable[[], None] | None = None
         self._screen_status = ""
         self._home_radio_factory: Callable[[tk.Misc], tk.Widget] | None = None
         self._home_media_factory: Callable[[tk.Misc], tk.Widget] | None = None
-        self._nav_frame: tk.Frame
         self._clock_label: tk.Label
         self._clock_after_id: str | None = None
         self._content: tk.Frame
@@ -313,23 +313,23 @@ class OrcUiApp(VolumeUiIf):
             on_power=self._power_dialog.show,
         )
     def _build_side_nav(self) -> None:
-        self._nav_frame = tk.Frame(self._root, bg=self._theme.ui.background, width=112)
-        self._nav_frame.grid(row=1, column=0, sticky="ns", padx=(8, 0), pady=6)
-        self._nav_frame.grid_propagate(False)
-        self._rebuild_side_nav()
+        self._side_nav = OrcUiSideNav(
+            self._root,
+            theme=self._theme,
+            items=self._nav_items,
+            active=self._active_nav,
+            on_navigate=self.navigate_to,
+        )
+        self._side_nav.grid(row=1, column=0, sticky="ns", padx=(8, 0), pady=6)
+        self._side_nav.grid_propagate(False)
+
     def _rebuild_side_nav(self) -> None:
-        if not hasattr(self, "_nav_frame"):
-            return
-        ui = self._theme.ui
-        self._nav_frame.configure(bg=ui.background)
-        for child in self._nav_frame.winfo_children():
-            child.destroy()
-        self._nav_buttons.clear()
-        for item in self._nav_items:
-            button = tk.Button(self._nav_frame, text=item, command=lambda name=item: self.navigate_to(name), bg=ui.control_background, fg=ui.control_text, activebackground=ui.control_active, activeforeground="#ffffff", relief=tk.FLAT, bd=0, font=("Sans", 9), height=3)
-            button.pack(fill=tk.X, padx=4, pady=2)
-            self._nav_buttons[item] = button
-        self._paint_nav()
+        if self._side_nav is not None and self._side_nav.winfo_exists():
+            self._side_nav.rebuild(
+                theme=self._theme,
+                items=self._nav_items,
+                active=self._active_nav,
+            )
     def _build_bottom_bar(self) -> None:
         self._bottom_bar = OrcUiBottomBar(
             self._root,
@@ -386,7 +386,6 @@ class OrcUiApp(VolumeUiIf):
             if child is self._content:
                 continue
             child.destroy()
-        self._nav_buttons.clear()
         self._root.configure(bg=self._theme.ui.background)
         self._content.configure(bg=self._theme.ui.background)
         self._build_top_bar()
@@ -462,11 +461,8 @@ class OrcUiApp(VolumeUiIf):
         self._screen_status = ""
         self._root.title("OpenRoadCode")
     def _paint_nav(self) -> None:
-        ui = self._theme.ui
-        self._nav_frame.configure(bg=ui.background)
-        for name, button in self._nav_buttons.items():
-            selected = name == self._active_nav
-            button.configure(fg="#ffffff" if selected else ui.control_text, bg=ui.control_active if selected else ui.control_background, activebackground=ui.control_active, activeforeground="#ffffff", highlightbackground=ui.border)
+        if self._side_nav is not None and self._side_nav.winfo_exists():
+            self._side_nav.set_active(active=self._active_nav, theme=self._theme)
     def _clear_content(self) -> None:
         self._map_runtime.stop()
         if self._vehicle_panel is not None and self._vehicle_panel.winfo_exists():
