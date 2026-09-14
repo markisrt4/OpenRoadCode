@@ -17,6 +17,7 @@ from controllers.radio.streaming_radio_favorites import StreamingRadioFavorites
 from frontends.tk.radio.persistent_streaming_radio_panel import PersistentStreamingRadioPanel
 from frontends.x11 import X11WindowEmbedder
 from ui.theme import ThemeBundle
+from .shell_metrics import FONT_BODY, FONT_CONTROL, FONT_SMALL
 
 
 class LaunchAwareRadioPanel(RadioPanel):
@@ -174,7 +175,7 @@ class RadioEntryPanel(tk.Frame):
             text="Choose a radio source",
             bg=ui.background,
             fg=ui.text_muted,
-            font=("Sans", 10),
+            font=("Sans", FONT_BODY),
         )
         self._status.grid(row=1, column=0, columnspan=2, pady=(0, 10))
 
@@ -223,7 +224,7 @@ class RadioEntryPanel(tk.Frame):
             text=eyebrow,
             bg=ui.surface,
             fg=accent,
-            font=("Sans", 9, "bold"),
+            font=("Sans", FONT_CONTROL, "bold"),
             anchor="w",
         ).grid(row=0, column=1, sticky="sw", pady=(8, 2))
         tk.Label(
@@ -244,7 +245,7 @@ class RadioEntryPanel(tk.Frame):
             text=description,
             bg=ui.surface,
             fg=ui.text_muted,
-            font=("Sans", 11),
+            font=("Sans", FONT_BODY + 1),
             justify=tk.LEFT,
             anchor="nw",
             wraplength=390,
@@ -254,7 +255,7 @@ class RadioEntryPanel(tk.Frame):
             text=features,
             bg=ui.surface,
             fg=ui.text,
-            font=("Sans", 9, "bold"),
+            font=("Sans", FONT_CONTROL, "bold"),
             anchor="w",
         ).grid(row=1, column=0, sticky="ew", pady=(14, 8))
         button = tk.Button(
@@ -269,7 +270,7 @@ class RadioEntryPanel(tk.Frame):
             bd=0,
             highlightthickness=1,
             highlightbackground=ui.border,
-            font=("Sans", 11, "bold"),
+            font=("Sans", FONT_CONTROL + 2, "bold"),
             padx=16,
             pady=10,
             cursor="hand2",
