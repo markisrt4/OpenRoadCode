@@ -9,6 +9,7 @@ import tkinter as tk
 from collections.abc import Callable
 from dataclasses import dataclass
 
+from .canvas_icon_button import CanvasIconButton
 from .context_offroad_panel import ContextOffroadPanel
 from apps.orcUi.navigation_presenter import AttitudePresentationState, PositionPresentationState
 from apps.orcUi.theme_runtime import theme_bundle as packaged_theme_bundle
@@ -127,7 +128,14 @@ class ContextRail(tk.Frame):
         controls = tk.Frame(header, bg=ui.surface)
         controls.grid(row=0, column=2, sticky="e")
         if self._on_expand is not None:
-            self._nav_button(controls, "OPEN", self._expand_page, width=4, font_size=9).pack(side=tk.LEFT)
+            CanvasIconButton(
+                controls,
+                theme=self._theme,
+                icon="external",
+                command=self._expand_page,
+                width=38,
+                height=32,
+            ).pack(side=tk.LEFT)
         self._nav_button(controls, "›", self._next_page).pack(side=tk.LEFT)
 
     def _nav_button(
