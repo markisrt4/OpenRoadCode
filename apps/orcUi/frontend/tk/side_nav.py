@@ -12,6 +12,17 @@ from ui.theme import ThemeBundle
 from .shell_metrics import FONT_CONTROL, SIDE_NAV_WIDTH
 
 
+_NAV_ICONS = {
+    "HOME": "⌂",
+    "NAVIGATION": "➤",
+    "RADIO": "⌁",
+    "VEHICLE": "◆",
+    "LIGHTING": "☀",
+    "GAMES": "◇",
+    "MEDIA": "▶",
+}
+
+
 class OrcUiSideNav(tk.Frame):
     """Render and update the shell's primary navigation destinations."""
 
@@ -40,7 +51,7 @@ class OrcUiSideNav(tk.Frame):
         for item in items:
             button = tk.Button(
                 self,
-                text=item,
+                text=f"{_NAV_ICONS.get(item, '•')}  {item}",
                 command=lambda name=item: self._on_navigate(name),
                 bg=ui.control_background,
                 fg=ui.control_text,
@@ -66,5 +77,6 @@ class OrcUiSideNav(tk.Frame):
                 bg=ui.control_active if selected else ui.control_background,
                 activebackground=ui.control_active,
                 activeforeground="#ffffff",
-                highlightbackground=ui.border,
+                highlightthickness=2 if selected else 1,
+                highlightbackground=ui.accent_primary if selected else ui.border,
             )
