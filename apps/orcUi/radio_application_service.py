@@ -55,7 +55,7 @@ class ManagedRadioApplicationService:
         # applications, which is correct for standalone mode but wrong here.
         if not self._fullscreen:
             if not self._manager.is_running(self.APP_KEY):
-                self._launcher.launch(self._manager.display_for(self.APP_KEY))
+                self._launcher.prepare(self._manager.display_for(self.APP_KEY))
             return
         self._manager.show(self.APP_KEY)
 
