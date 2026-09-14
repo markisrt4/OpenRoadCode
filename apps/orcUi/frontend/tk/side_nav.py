@@ -25,6 +25,85 @@ _NAV_ICONS = {
 }
 
 
+class _NavTile(tk.Canvas):
+    """Compact nav tile with a muted watermark icon behind the label."""
+
+    HEIGHT = 64
+
+    def __init__(
+        self,
+        parent: tk.Misc,
+        *,
+        name: str,
+        theme: ThemeBundle,
+        on_navigate: Callable[[str], None],
+    ) -> None:
+        self._name = name
+        self._theme = theme
+        self._on_navigate = on_navigate
+        self._selected = False
+        self._hovered = False
+        super().__init__(
+            parent,
+            height=self.HEIGHT,
+            highlightthickness=1,
+            bd=0,
+            cursor="hand2",
+        )
+        self.bind("<Configure>", lambda _event: self._paint())
+        self.bind("<Enter>", self._on_enter)
+        self.bind("<Leave>", self._on_leave)
+        self.bind("<ButtonRelease-1>", self._on_click)
+        self._paint()
+
+    def set_state(self, *, selected: bool, theme: ThemeBundle) -> None:
+        self._selected = selected
+        self._theme = theme
+        self._paint()
+
+    def _on_enter(self, _event: tk.Event) -> None:
+        self._hovered = True
+        self._paint()
+
+    def _on_leave(self, _event: tk.Event) -> None:
+        self._hovered = False
+        self._paint()
+
+    def _on_click(self, _event: tk.Event) -> None:
+        self._on_navigate(self._name)
+
+    def _paint(self) -> None:
+        ui = self._theme.ui
+        width = max(1, self.winfo_width())
+        height = max(self.HEIGHT, self.winfo_height())
+        background = (
+            ui.control_active
+            if self._selected
+            else ui.surface_alt if self._hovered
+            else ui.control_background
+        )
+        border = ui.accent_primary if self._selected else ui.border
+        foreground = "#ffffff" if self._selected else ui.control_text
+        watermark = "#ffffff" if self._selected else ui.text_muted
+
+        self.configure(bg=background, highlightbackground=border)
+        self.delete("all")
+        self.create_text(
+            width / 2,
+            height / 2 - 1,
+            text=_NAV_ICONS.get(self._name, "•"),
+            fill=watermark,
+            font=("Sans", 30, "bold"),
+        )
+        self.create_text(
+            width / 2,
+            height / 2,
+            text=_NAV_LABELS.get(self._name, self._name),
+            fill=foreground,
+            font=("Sans", FONT_CONTROL, "bold"),
+        )
+
+
 class OrcUiSideNav(tk.Frame):
     """Render and update the shell's primary navigation destinations."""
 
@@ -41,7 +120,7 @@ class OrcUiSideNav(tk.Frame):
     ) -> None:
         super().__init__(parent, width=self.WIDTH)
         self._on_navigate = on_navigate
-        self._buttons: dict[str, tk.Button] = {}
+        self._tiles: dict[str, _NavTile] = {}
         self.pack_propagate(False)
         self.rebuild(theme=theme, items=items, active=active)
 
@@ -50,36 +129,19 @@ class OrcUiSideNav(tk.Frame):
         self.configure(bg=ui.background)
         for child in self.winfo_children():
             child.destroy()
-        self._buttons.clear()
+        self._tiles.clear()
         for item in items:
-            button = tk.Button(
+            tile = _NavTile(
                 self,
-                text=f"{_NAV_ICONS.get(item, '•')}  {_NAV_LABELS.get(item, item)}",
-                command=lambda name=item: self._on_navigate(name),
-                bg=ui.control_background,
-                fg=ui.control_text,
-                activebackground=ui.control_active,
-                activeforeground="#ffffff",
-                relief=tk.FLAT,
-                bd=0,
-                font=("Sans", FONT_CONTROL, "bold"),
-                height=3,
-                pady=2,
+                name=item,
+                theme=theme,
+                on_navigate=self._on_navigate,
             )
-            button.pack(fill=tk.X, padx=4, pady=2)
-            self._buttons[item] = button
+            tile.pack(fill=tk.X, padx=4, pady=2)
+            self._tiles[item] = tile
         self.set_active(active=active, theme=theme)
 
     def set_active(self, *, active: str, theme: ThemeBundle) -> None:
-        ui = theme.ui
-        self.configure(bg=ui.background)
-        for name, button in self._buttons.items():
-            selected = name == active
-            button.configure(
-                fg="#ffffff" if selected else ui.control_text,
-                bg=ui.control_active if selected else ui.control_background,
-                activebackground=ui.control_active,
-                activeforeground="#ffffff",
-                highlightthickness=2 if selected else 1,
-                highlightbackground=ui.accent_primary if selected else ui.border,
-            )
+        self.configure(bg=theme.ui.background)
+        for name, tile in self._tiles.items():
+            tile.set_state(selected=name == active, theme=theme)
