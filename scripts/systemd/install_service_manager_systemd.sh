@@ -9,6 +9,7 @@ SERVICE_USER="openroadcode-service-manager"
 SERVICE_FILE="/etc/systemd/system/${SERVICE_NAME}.service"
 ENV_DIR="/etc/openroadcode"
 ENV_FILE="$ENV_DIR/service-manager.env"
+PROFILE_DIR="/var/lib/openroadcode/service-profiles"
 SUDOERS_FILE="/etc/sudoers.d/${SERVICE_NAME}"
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd -- "$SCRIPT_DIR/../.." && pwd)"
@@ -46,6 +47,9 @@ fi
 
 mkdir -p "$ENV_DIR"
 chmod 700 "$ENV_DIR"
+mkdir -p "$PROFILE_DIR"
+chown "$SERVICE_USER:$SERVICE_USER" "$PROFILE_DIR"
+chmod 755 "$PROFILE_DIR"
 
 if [[ -z "$TOKEN" && -f "$ENV_FILE" ]]; then
     TOKEN="$(sed -n 's/^OPENROADCODE_SERVICE_MANAGER_TOKEN=//p' "$ENV_FILE" | head -n 1)"
@@ -62,6 +66,7 @@ umask 077
 cat > "$ENV_FILE" <<EOF
 OPENROADCODE_SERVICE_MANAGER_TOKEN=$TOKEN
 OPENROADCODE_SYSTEMCTL=$SYSTEMCTL_BIN
+OPENROADCODE_SERVICE_PROFILE_DIR=$PROFILE_DIR
 EOF
 chmod 600 "$ENV_FILE"
 
@@ -100,6 +105,7 @@ PrivateTmp=true
 PrivateDevices=true
 ProtectHome=read-only
 ProtectSystem=strict
+ReadWritePaths=$PROFILE_DIR
 ProtectKernelTunables=true
 ProtectKernelModules=true
 ProtectControlGroups=true
