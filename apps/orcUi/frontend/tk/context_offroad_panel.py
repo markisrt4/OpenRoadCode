@@ -58,11 +58,11 @@ class ContextOffroadPanel(tk.Frame):
         status = self._card()
         status.grid(row=0, column=0, columnspan=2, sticky="ew", pady=(2, 6))
         status.grid_columnconfigure(1, weight=1)
-        tk.Label(status, text="GPS", fg=ui.text_muted, bg=ui.surface, font=("Sans", 8, "bold")).grid(
+        tk.Label(status, text="GPS", fg=ui.text_muted, bg=ui.surface, font=("Sans", FONT_CONTROL, "bold")).grid(
             row=0, column=0, padx=(8, 4), pady=5
         )
         self._value_labels["fix"] = tk.Label(
-            status, text="NO FIX", fg=ui.accent_danger, bg=ui.surface, font=("Sans", 10, "bold")
+            status, text="NO FIX", fg=ui.accent_danger, bg=ui.surface, font=("Sans", FONT_BODY, "bold")
         )
         self._value_labels["fix"].grid(row=0, column=1, sticky="w", pady=5)
         self._value_labels["accuracy"] = tk.Label(
@@ -112,7 +112,7 @@ class ContextOffroadPanel(tk.Frame):
         )
         self._value_labels["coordinates"].grid(row=0, column=0, sticky="ew", padx=(8, 4), pady=6)
         self._value_labels["satellites"] = tk.Label(
-            footer, text="-- sat", fg=ui.text_muted, bg=ui.surface, font=("Sans", 8, "bold")
+            footer, text="-- sat", fg=ui.text_muted, bg=ui.surface, font=("Sans", FONT_CONTROL, "bold")
         )
         self._value_labels["satellites"].grid(row=0, column=1, sticky="e", padx=(4, 8), pady=6)
 
