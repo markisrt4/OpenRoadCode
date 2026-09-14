@@ -247,6 +247,38 @@ class NavigationControllerTests(unittest.TestCase):
         self.assertTrue(gps_state.has_fix)
         self.assertFalse(gps_source.started)
 
+
+    def test_missing_imu_degrades_to_gps_navigation(self) -> None:
+        class MissingNavigationSensor(FakeNavigationSensor):
+            def connect(self) -> None:
+                raise RuntimeError("No I2C device at address: 0x68")
+
+        gps_state = GpsState(
+            latitude_deg=42.5,
+            longitude_deg=-83.0,
+            speed_mps=12.0,
+            course_deg=135.0,
+            fix_mode=3,
+        )
+        gps_source = FakeGpsSource(gps_state)
+        controller = NavigationController(
+            MissingNavigationSensor(),
+            gps_source=gps_source,  # type: ignore[arg-type]
+        )
+
+        controller.start()
+        state = controller.read_state()
+
+        self.assertTrue(controller.is_started)
+        self.assertIn("IMU unavailable", controller.status_message or "")
+        self.assertEqual(state.position, gps_state)
+        self.assertEqual(state.heading_deg, 135.0)
+        self.assertEqual(state.pitch_deg, 0.0)
+        self.assertEqual(state.roll_deg, 0.0)
+        self.assertEqual(state.acceleration_mps2, Vector3(0.0, 0.0, 0.0))
+        controller.stop()
+        self.assertFalse(gps_source.started)
+
     def test_gps_state_can_be_updated_without_managed_source(self) -> None:
         controller = NavigationController(FakeNavigationSensor())
         gps_state = GpsState(fix_mode=2, latitude_deg=42.0)
