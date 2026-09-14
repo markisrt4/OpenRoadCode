@@ -14,6 +14,11 @@ PROJECT_ROOT="$(cd -- "$SCRIPT_DIR/../.." && pwd)"
 VENV_DIR="${VENV_DIR:-$PROJECT_ROOT/venv-termux}"
 FEATURES_FILE="$PROJECT_ROOT/scripts/installers/installer_features.sh"
 
+config_home="${XDG_CONFIG_HOME:-$HOME/.config}"
+mkdir -p "$config_home/openroadcode"
+printf 'target = "termux"\n' > "$config_home/openroadcode/host.toml"
+echo "[*] Persisted OpenRoadCode host target: termux"
+
 if [[ ! -f "$FEATURES_FILE" ]]; then
   echo "[!] Feature definitions not found: $FEATURES_FILE" >&2
   exit 1
