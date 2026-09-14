@@ -91,9 +91,13 @@ class SDRPPLauncher(AppLauncherIf):
         if self.is_running():
             if self.is_rigctl_ready():
                 _status(set_status, f"SDR++ already ready: {self.profile.name}")
-            else:
-                _status(set_status, f"SDR++ already running; RigCTL unavailable: {self.profile.name}")
-            return
+                return
+            _status(
+                set_status,
+                f"SDR++ already running; RigCTL unavailable, restarting: {self.profile.name}",
+            )
+            self.stop(remote_display, set_status)
+            time.sleep(0.25)
 
         if self.theme is not None:
             self.sync_theme()
