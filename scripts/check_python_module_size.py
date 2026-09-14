@@ -16,9 +16,6 @@ EXCLUDED_PARTS = {"__pycache__", "unit_test"}
 # This ceiling prevents regression while allowing the staged extraction to land.
 LEGACY_LIMITS = {
     Path("apps/orcUi/main.py"): 700,
-    # vehicle_panel.py is still legacy-sized, but the ECU extraction reduced
-    # it substantially. Freeze the new baseline so that debt cannot regrow.
-    Path("apps/orcUi/frontend/tk/vehicle_panel.py"): 778,
 }
 
 
