@@ -11,6 +11,7 @@ from .bottom_bar import OrcUiBottomBar
 from .context_rail import ContextRail
 from apps.orcUi.core_runtime import MapRuntimeIf
 from .home_map_panel import HomeMapPanel
+from .home_screen import build_home_screen
 from .navigation_panel import NavigationPanel
 from apps.orcUi.navigation_presenter import AttitudePresentationState, PositionPresentationState
 from .offroad_panel import OffRoadPanel
@@ -18,7 +19,13 @@ from apps.orcUi.orc_theme import ThemeMode, toggle, toggle_label
 from .power_dialog import PowerDialog
 from .settings_panel import SettingsPanel
 from .shell_chrome import build_footer, build_top_bar
-from .shell_content import add_summary, panel
+from .screen_builders import (
+    build_navigation_screen,
+    build_offroad_screen,
+    build_placeholder,
+    build_settings_screen,
+    build_vehicle_screen,
+)
 from .shell_metrics import (
     SHELL_PAD_X,
     SHELL_PAD_Y,
@@ -499,36 +506,18 @@ class OrcUiApp(VolumeUiIf):
         self._clear_content()
         self._active_nav = "HOME"
         self._paint_nav()
-        ui = self._theme.ui
-        self._content.grid_columnconfigure(0, weight=1)
-        self._content.grid_columnconfigure(1, weight=0, minsize=ContextRail.WIDTH)
-        self._content.grid_rowconfigure(0, weight=3)
-        self._content.grid_rowconfigure(1, weight=2)
-        self._home_map_panel = HomeMapPanel(self._content, map_request_handler=self._map_request_handler, theme=self._theme)
-        self._home_map_panel.grid(row=0, column=0, sticky="nsew", padx=(0, 5), pady=(0, 5))
-        self._context_rail = ContextRail(self._content, on_expand=self._show_context_full_panel, theme=self._theme)
-        self._context_rail.update_vehicle_state(self._vehicle_state)
-        self._context_rail.update_trip_state(self._trip_state)
-        self._context_rail.update_position_state(self._position_state)
-        self._context_rail.update_attitude_state(self._attitude_state)
-        self._context_rail.grid(row=0, column=1, rowspan=2, sticky="nsew", padx=(5, 0))
-        lower = tk.Frame(self._content, bg=ui.background)
-        lower.grid(row=1, column=0, sticky="nsew", padx=(0, 5), pady=(5, 0))
-        lower.grid_columnconfigure(0, weight=4)
-        lower.grid_columnconfigure(1, weight=1)
-        lower.grid_rowconfigure(0, weight=1)
-        radio = panel(lower, "RADIO", ui.accent_warning, theme=self._theme)
-        radio.grid(row=0, column=0, sticky="nsew", padx=(0, 5))
-        if self._home_radio_factory is None:
-            add_summary(radio, "No radio active", "Choose RF or streaming", theme=self._theme)
-        else:
-            self._home_radio_factory(radio).pack(fill=tk.BOTH, expand=True)
-        media = self._panel(lower, "MEDIA", ui.accent_primary, theme=self._theme)
-        media.grid(row=0, column=1, sticky="nsew", padx=(5, 0))
-        if self._home_media_factory is None:
-            self._summary(media, "No media", "Playback service")
-        else:
-            self._home_media_factory(media).pack(fill=tk.BOTH, expand=True)
+        self._home_map_panel, self._context_rail = build_home_screen(
+            self._content,
+            map_request_handler=self._map_request_handler,
+            theme=self._theme,
+            vehicle_state=self._vehicle_state,
+            trip_state=self._trip_state,
+            position_state=self._position_state,
+            attitude_state=self._attitude_state,
+            on_expand_context=self._show_context_full_panel,
+            radio_factory=self._home_radio_factory,
+            media_factory=self._home_media_factory,
+        )
         if self._telemetry_profile_request is not None:
             self._telemetry_profile_request(AutomotiveTelemetryProfile.HOME)
         self._root.update_idletasks()
@@ -539,8 +528,12 @@ class OrcUiApp(VolumeUiIf):
             self._telemetry_profile_request(AutomotiveTelemetryProfile.BACKGROUND)
         self._active_nav = "NAVIGATION"
         self._paint_nav()
-        self._navigation_panel = NavigationPanel(self._content, map_request_handler=self._map_request_handler, on_back=self._show_home, theme_bundle=self._theme)
-        self._navigation_panel.pack(fill=tk.BOTH, expand=True)
+        self._navigation_panel = build_navigation_screen(
+            self._content,
+            map_request_handler=self._map_request_handler,
+            on_back=self._show_home,
+            theme=self._theme,
+        )
         self._root.update_idletasks()
         self._start_map_renderer(self._navigation_panel.map_host_window_id)
     def _start_map_renderer(self, parent_window_id: int) -> None:
@@ -552,31 +545,29 @@ class OrcUiApp(VolumeUiIf):
         self._clear_content()
         self._active_nav = "VEHICLE"
         self._paint_nav()
-        self._vehicle_panel = VehiclePanel(
+        self._vehicle_panel = build_vehicle_screen(
             self._content,
             on_back=self._show_home,
             on_telemetry_profile=self._telemetry_profile_request,
             state=self._vehicle_state,
             trip_state=self._trip_state,
-            theme_bundle=self._theme,
+            theme=self._theme,
             vehicle_configuration=self._vehicle_configuration,
             engine_analysis=self._engine_analysis,
         )
-        self._vehicle_panel.pack(fill=tk.BOTH, expand=True)
     def _show_settings_panel(self) -> None:
         self._clear_content()
         if self._telemetry_profile_request is not None:
             self._telemetry_profile_request(AutomotiveTelemetryProfile.BACKGROUND)
         self._active_nav = "SETTINGS"
         self._paint_nav()
-        self._settings_panel = SettingsPanel(
+        self._settings_panel = build_settings_screen(
             self._content,
             vehicle_configuration=self._vehicle_configuration,
             on_vehicle_configuration_changed=self._apply_vehicle_configuration,
             on_back=self._show_home,
-            theme_bundle=self._theme,
+            theme=self._theme,
         )
-        self._settings_panel.pack(fill=tk.BOTH, expand=True)
 
     def _apply_vehicle_configuration(
         self,
@@ -592,8 +583,13 @@ class OrcUiApp(VolumeUiIf):
 
     def _show_offroad_panel(self) -> None:
         self._clear_content()
-        self._offroad_panel = OffRoadPanel(self._content, on_back=self._show_home, position=self._position_state, attitude=self._attitude_state, theme=self._theme.ui)
-        self._offroad_panel.pack(fill=tk.BOTH, expand=True)
+        self._offroad_panel = build_offroad_screen(
+            self._content,
+            on_back=self._show_home,
+            position=self._position_state,
+            attitude=self._attitude_state,
+            theme=self._theme,
+        )
     def _on_close(self) -> None:
         self._shutdown()
     def _show_context_full_panel(self, name: str) -> None:
@@ -607,10 +603,7 @@ class OrcUiApp(VolumeUiIf):
             self._show_placeholder(name)
     def _show_placeholder(self, name: str) -> None:
         self._clear_content()
-        ui = self._theme.ui
-        panel = self._panel(self._content, name, ui.accent_success, theme=self._theme)
-        panel.pack(fill=tk.BOTH, expand=True)
-        tk.Label(panel, text=f"{name}\nCOMING NEXT", fg=ui.text, bg=ui.surface, font=("Sans", 24, "bold")).place(relx=0.5, rely=0.5, anchor="center")
+        build_placeholder(self._content, name, theme=self._theme)
     def _paint_clock(self) -> None:
         if self._closing:
             return
