@@ -14,17 +14,6 @@ from .shell_metrics import FONT_CONTROL, SIDE_NAV_WIDTH
 
 _NAV_LABELS = {"NAVIGATION": "NAV"}
 
-_NAV_ICONS = {
-    "HOME": "⌂",
-    "NAVIGATION": "➤",
-    "RADIO": "⌁",
-    "VEHICLE": "◆",
-    "LIGHTING": "☀",
-    "GAMES": "◇",
-    "MEDIA": "▶",
-}
-
-
 class _NavTile(tk.Canvas):
     """Compact nav tile with a muted watermark icon behind the label."""
 
@@ -84,17 +73,19 @@ class _NavTile(tk.Canvas):
         )
         border = ui.accent_primary if self._selected else ui.border
         foreground = "#ffffff" if self._selected else ui.control_text
-        watermark = "#ffffff" if self._selected else ui.text_muted
-
         self.configure(bg=background, highlightbackground=border)
         self.delete("all")
-        self.create_text(
-            width / 2,
-            height / 2 - 1,
-            text=_NAV_ICONS.get(self._nav_name, "•"),
-            fill=watermark,
-            font=("Sans", 30, "bold"),
-        )
+
+        if self._selected:
+            self.create_rectangle(
+                0,
+                0,
+                5,
+                height,
+                fill=ui.accent_primary,
+                outline="",
+            )
+
         self.create_text(
             width / 2,
             height / 2,
