@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: MIT
 """Integrated OpenRoadCode automotive application shell."""
 from __future__ import annotations
+import os
 import signal
 import tkinter as tk
 from collections.abc import Callable
@@ -79,8 +80,18 @@ class OrcUiApp(VolumeUiIf):
         ui = self._theme.ui
         self._root = tk.Tk()
         self._root.title("OpenRoadCode")
-        self._root.geometry("1024x600")
-        self._root.minsize(1024, 600)
+        fullscreen = os.environ.get("ORCUI_FULLSCREEN", "0").strip().lower() in {
+            "1",
+            "true",
+            "yes",
+            "on",
+        }
+        geometry = os.environ.get("ORCUI_GEOMETRY", "1024x600")
+        if fullscreen:
+            self._root.attributes("-fullscreen", True)
+        else:
+            self._root.geometry(geometry)
+            self._root.minsize(1024, 600)
         self._root.configure(bg=ui.background)
         self._theme_button: tk.Button
         self._power_button: tk.Button
