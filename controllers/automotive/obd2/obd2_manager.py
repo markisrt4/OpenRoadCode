@@ -38,6 +38,7 @@ from protocols.obd2.obd_pids import (
     OxygenSensor1EquivalenceRatioPid,
     ShortTermFuelTrimBank1Pid,
     ThrottlePositionPid,
+    VehicleSpeedPid,
 )
 
 T = TypeVar("T")
@@ -53,6 +54,7 @@ class Obd2Manager(VehicleStateSourceIf):
         self._scheduler: Obd2PollScheduler | None = None
 
         self._rpm_pid = EngineRpmPid()
+        self._speed_pid = VehicleSpeedPid()
         self._map_pid = IntakeManifoldPressurePid()
         self._baro_pid = BarometricPressurePid()
         self._throttle_pid = ThrottlePositionPid()
@@ -75,6 +77,7 @@ class Obd2Manager(VehicleStateSourceIf):
         self._voltage_pid = ControlModuleVoltagePid()
 
         self._rpm: float | None = None
+        self._speed_kph: float | None = None
         self._map_kpa: int | None = None
         self._throttle_pct: float | None = None
         self._commanded_throttle_pct: float | None = None
@@ -142,7 +145,7 @@ class Obd2Manager(VehicleStateSourceIf):
         return VehicleState(
             timestamp=datetime.now(),
             engine_speed_rad_s=self._rpm_to_rad_s(self._rpm),
-            vehicle_speed_m_s=None,
+            vehicle_speed_m_s=self._kph_to_m_s(self._speed_kph),
             throttle_position=self._percent_to_fraction(self._throttle_pct),
             commanded_throttle_position=self._percent_to_fraction(
                 self._commanded_throttle_pct
@@ -188,6 +191,7 @@ class Obd2Manager(VehicleStateSourceIf):
             rpm=self._rpm_pid,
             manifold_pressure=self._map_pid,
             standard=(
+                self._speed_pid,
                 self._throttle_pid,
                 self._engine_load_pid,
                 self._equivalence_ratio_pid,
@@ -195,6 +199,7 @@ class Obd2Manager(VehicleStateSourceIf):
                 self._maf_pid,
             ),
             performance=(
+                self._speed_pid,
                 self._throttle_pid,
                 self._engine_load_pid,
                 self._ignition_timing_pid,
@@ -219,6 +224,7 @@ class Obd2Manager(VehicleStateSourceIf):
                 self._fuel_rail_pressure_pid,
             ),
             trip=(
+                self._speed_pid,
                 self._fuel_rate_pid,
                 self._equivalence_ratio_pid,
                 self._engine_load_pid,
@@ -243,6 +249,8 @@ class Obd2Manager(VehicleStateSourceIf):
         pid = decoder.pid
         if pid == self._rpm_pid.pid:
             self._rpm = value
+        elif pid == self._speed_pid.pid:
+            self._speed_kph = value
         elif pid == self._map_pid.pid:
             self._map_kpa = value
         elif pid == self._throttle_pid.pid:
@@ -328,6 +336,10 @@ class Obd2Manager(VehicleStateSourceIf):
     @staticmethod
     def _rpm_to_rad_s(value: float | None) -> float | None:
         return None if value is None else value * 2.0 * math.pi / 60.0
+
+    @staticmethod
+    def _kph_to_m_s(value: float | None) -> float | None:
+        return None if value is None else value / 3.6
 
     @staticmethod
     def _percent_to_fraction(value: float | None) -> float | None:
