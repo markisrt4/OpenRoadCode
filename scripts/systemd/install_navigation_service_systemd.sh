@@ -10,9 +10,13 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd -- "$SCRIPT_DIR/../.." && pwd)"
 WRAPPER_SCRIPT="$PROJECT_ROOT/scripts/runtime/start_navigation_service.sh"
 RUN_USER="${SUDO_USER:-${USER:-}}"
-PYTHON_BIN="${OPENROADCODE_PYTHON:-python3}"
+PYTHON_BIN="${OPENROADCODE_PYTHON:-$PROJECT_ROOT/venv/bin/python}"
 RUNTIME_CONFIG="${OPENROADCODE_RUNTIME_CONFIG:-$PROJECT_ROOT/config/runtime.toml}"
 
+if [[ ! -x "$PYTHON_BIN" ]]; then
+    echo "OpenRoadCode Python interpreter is unavailable: $PYTHON_BIN" >&2
+    exit 1
+fi
 if [[ ! -f "$WRAPPER_SCRIPT" ]]; then
     echo "Wrapper script not found: $WRAPPER_SCRIPT" >&2
     exit 1
