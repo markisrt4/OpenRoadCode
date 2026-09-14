@@ -16,10 +16,8 @@ EXCLUDED_PARTS = {"__pycache__", "unit_test"}
 # This ceiling prevents regression while allowing the staged extraction to land.
 LEGACY_LIMITS = {
     Path("apps/orcUi/main.py"): 700,
-    # These modules already exceeded the 500-line ceiling before the ADS-B
-    # integration work. Freeze them at that baseline so existing debt is
-    # visible without allowing further growth.
-    Path("apps/orcUi/frontend/tk/orc_ui_app.py"): 605,
+    # vehicle_panel.py predates the current architecture ceiling. Freeze it
+    # at its existing baseline while its own focused decomposition is pending.
     Path("apps/orcUi/frontend/tk/vehicle_panel.py"): 1276,
 }
 
