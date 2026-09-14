@@ -37,13 +37,29 @@ def installed_target(config_path: str | Path | None = None) -> str | None:
         with path.open("rb") as stream:
             document = tomllib.load(stream)
     except (FileNotFoundError, OSError, tomllib.TOMLDecodeError):
-        return None
+        document = {}
 
     target = document.get("target")
-    if not isinstance(target, str):
+    if isinstance(target, str):
+        normalized = target.strip().lower()
+        if normalized:
+            return normalized
+
+    prefix = os.environ.get("PREFIX", "")
+    if os.environ.get("TERMUX_VERSION") or prefix.startswith("/data/data/com.termux/"):
+        return "termux"
+
+    try:
+        model = Path("/proc/device-tree/model").read_text(
+            encoding="utf-8", errors="ignore"
+        ).replace("\x00", "")
+    except OSError:
         return None
-    normalized = target.strip().lower()
-    return normalized or None
+    if "Raspberry Pi 5" in model or "Raspberry Pi 500" in model or "Compute Module 5" in model:
+        return "rpi5"
+    if "Raspberry Pi 4" in model or "Compute Module 4" in model:
+        return "rpi4"
+    return None
 
 
 def orcui_fullscreen_default(config_path: str | Path | None = None) -> bool:
