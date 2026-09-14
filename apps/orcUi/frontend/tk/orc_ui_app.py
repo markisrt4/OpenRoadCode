@@ -313,7 +313,6 @@ class OrcUiApp(VolumeUiIf):
     def _rebuild_shell_theme(self) -> None:
         if self._shell is not None:
             self._shell.rebuild(theme=self._theme, theme_mode=self._theme_mode)
-        self._paint_clock()
     def _request_volume_up(self) -> None:
         handler = self._volume_request_handler
         if handler is not None:
