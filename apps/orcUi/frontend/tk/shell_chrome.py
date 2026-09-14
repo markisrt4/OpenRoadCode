@@ -9,6 +9,7 @@ import tkinter as tk
 from collections.abc import Callable
 
 from ui.theme import ThemeBundle
+from .canvas_icon_button import CanvasIconButton
 from .shell_metrics import (
     FONT_BRAND,
     FONT_CLOCK,
@@ -84,19 +85,13 @@ def build_top_bar(
         bg=ui.surface_alt,
         font=("Sans", FONT_STATUS),
     ).pack(side=tk.LEFT, padx=(0, 10))
-    tk.Button(
+    CanvasIconButton(
         status,
-        text="PWR",
+        theme=theme,
+        icon="power",
         command=on_power,
-        bg=ui.control_background,
-        fg=ui.control_text,
-        activebackground=ui.control_active,
-        activeforeground="#ffffff",
-        relief=tk.FLAT,
-        bd=0,
-        font=("Sans", FONT_STATUS, "bold"),
-        padx=9,
-        pady=2,
+        width=42,
+        height=34,
     ).pack(side=tk.LEFT)
     return clock
 
