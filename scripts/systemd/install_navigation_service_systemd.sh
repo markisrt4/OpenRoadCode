@@ -45,6 +45,7 @@ User=$RUN_USER
 WorkingDirectory=$PROJECT_ROOT
 Environment=PYTHONUNBUFFERED=1
 Environment=OPENROADCODE_PYTHON=$PYTHON_BIN
+EnvironmentFile=-/var/lib/openroadcode/service-profiles/openroadcode-navigation.env
 ExecStart=$WRAPPER_SCRIPT
 Restart=on-failure
 RestartSec=2
