@@ -9,6 +9,12 @@ import tkinter as tk
 from collections.abc import Callable
 
 from ui.theme import ThemeBundle
+from .shell_metrics import (
+    BOTTOM_BAR_HEIGHT,
+    CONTROL_PAD_X,
+    FONT_CONTROL,
+    FONT_STATUS,
+)
 
 
 class OrcUiBottomBar(tk.Frame):
@@ -27,7 +33,7 @@ class OrcUiBottomBar(tk.Frame):
         on_theme_toggle: Callable[[], None],
     ) -> None:
         ui = theme.ui
-        super().__init__(parent, bg=ui.background, height=55)
+        super().__init__(parent, bg=ui.background, height=BOTTOM_BAR_HEIGHT)
         self._theme = theme
         self._adsb_enabled = False
         self._aircraft_count = 0
@@ -45,7 +51,7 @@ class OrcUiBottomBar(tk.Frame):
             highlightthickness=1,
             highlightbackground=ui.border,
         )
-        volume.grid(row=0, column=0, sticky="nsew", padx=3)
+        volume.grid(row=0, column=0, sticky="nsew", padx=CONTROL_PAD_X)
         volume.grid_columnconfigure(1, weight=1)
         tk.Button(
             volume,
@@ -57,14 +63,14 @@ class OrcUiBottomBar(tk.Frame):
             activeforeground="#ffffff",
             relief=tk.FLAT,
             bd=0,
-            font=("Sans", 16, "bold"),
+            font=("Sans", FONT_STATUS + 5, "bold"),
         ).grid(row=0, column=0, sticky="ns", padx=4)
         self._volume_label = tk.Label(
             volume,
             text=volume_text,
             bg=ui.surface,
             fg=ui.text,
-            font=("Sans", 10, "bold"),
+            font=("Sans", FONT_STATUS, "bold"),
         )
         self._volume_label.grid(row=0, column=1)
         tk.Button(
@@ -77,19 +83,19 @@ class OrcUiBottomBar(tk.Frame):
             activeforeground="#ffffff",
             relief=tk.FLAT,
             bd=0,
-            font=("Sans", 15, "bold"),
+            font=("Sans", FONT_STATUS + 4, "bold"),
         ).grid(row=0, column=2, sticky="ns", padx=4)
 
         self._adsb_toggle_button = self._button(self._toggle_adsb, bold=True)
-        self._adsb_toggle_button.grid(row=0, column=1, sticky="nsew", padx=3)
+        self._adsb_toggle_button.grid(row=0, column=1, sticky="nsew", padx=CONTROL_PAD_X)
         self._aircraft_button = self._button(self._show_aircraft, bold=True)
-        self._aircraft_button.grid(row=0, column=2, sticky="nsew", padx=3)
+        self._aircraft_button.grid(row=0, column=2, sticky="nsew", padx=CONTROL_PAD_X)
         settings = self._button(on_settings, bold=True)
         settings.configure(text="⚙  SETTINGS")
-        settings.grid(row=0, column=3, sticky="nsew", padx=3)
+        settings.grid(row=0, column=3, sticky="nsew", padx=CONTROL_PAD_X)
         theme_button = self._button(on_theme_toggle, bold=True)
         theme_button.configure(text=theme_label)
-        theme_button.grid(row=0, column=4, columnspan=2, sticky="nsew", padx=3)
+        theme_button.grid(row=0, column=4, columnspan=2, sticky="nsew", padx=CONTROL_PAD_X)
         self._paint_adsb()
 
     def _button(self, command: Callable[[], None], *, bold: bool) -> tk.Button:
@@ -105,7 +111,7 @@ class OrcUiBottomBar(tk.Frame):
             relief=tk.FLAT,
             highlightthickness=1,
             highlightbackground=ui.border,
-            font=("Sans", 9, weight),
+            font=("Sans", FONT_CONTROL, weight),
         )
 
     def set_volume_text(self, text: str) -> None:
