@@ -11,7 +11,12 @@ PROJECT_ROOT="$(cd -- "$SCRIPT_DIR/../.." && pwd)"
 WRAPPER_SCRIPT="$PROJECT_ROOT/scripts/runtime/start_automotive_service.sh"
 RUN_USER="${SUDO_USER:-${USER:-}}"
 RUNTIME_CONFIG="${OPENROADCODE_RUNTIME_CONFIG:-$PROJECT_ROOT/config/runtime.toml}"
+PYTHON_BIN="${OPENROADCODE_PYTHON:-$PROJECT_ROOT/venv/bin/python}"
 
+if [[ ! -x "$PYTHON_BIN" ]]; then
+    echo "OpenRoadCode Python interpreter is unavailable: $PYTHON_BIN" >&2
+    exit 1
+fi
 if [[ ! -f "$WRAPPER_SCRIPT" ]]; then
     echo "Wrapper script not found: $WRAPPER_SCRIPT" >&2
     exit 1
@@ -45,6 +50,7 @@ Type=simple
 User=$RUN_USER
 WorkingDirectory=$PROJECT_ROOT
 Environment=PYTHONUNBUFFERED=1
+Environment=OPENROADCODE_PYTHON=$PYTHON_BIN
 Environment=OPENROADCODE_RUNTIME_CONFIG=$RUNTIME_CONFIG
 ExecStart=$WRAPPER_SCRIPT
 Restart=on-failure
