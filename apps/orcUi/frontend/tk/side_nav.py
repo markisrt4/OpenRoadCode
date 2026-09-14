@@ -38,7 +38,7 @@ class _NavTile(tk.Canvas):
         theme: ThemeBundle,
         on_navigate: Callable[[str], None],
     ) -> None:
-        self._name = name
+        self._nav_name = name
         self._theme = theme
         self._on_navigate = on_navigate
         self._selected = False
@@ -70,7 +70,7 @@ class _NavTile(tk.Canvas):
         self._paint()
 
     def _on_click(self, _event: tk.Event) -> None:
-        self._on_navigate(self._name)
+        self._on_navigate(self._nav_name)
 
     def _paint(self) -> None:
         ui = self._theme.ui
@@ -91,14 +91,14 @@ class _NavTile(tk.Canvas):
         self.create_text(
             width / 2,
             height / 2 - 1,
-            text=_NAV_ICONS.get(self._name, "•"),
+            text=_NAV_ICONS.get(self._nav_name, "•"),
             fill=watermark,
             font=("Sans", 30, "bold"),
         )
         self.create_text(
             width / 2,
             height / 2,
-            text=_NAV_LABELS.get(self._name, self._name),
+            text=_NAV_LABELS.get(self._nav_name, self._nav_name),
             fill=foreground,
             font=("Sans", FONT_CONTROL, "bold"),
         )
