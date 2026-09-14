@@ -90,8 +90,8 @@ def build_top_bar(
         theme=theme,
         icon="power",
         command=on_power,
-        width=42,
-        height=34,
+        width=46,
+        height=38,
     ).pack(side=tk.LEFT)
     return clock
 
