@@ -24,6 +24,10 @@ _FALSE_VALUES = {"0", "false", "no", "off"}
 
 def installed_target(config_path: str | Path | None = None) -> str | None:
     """Return the selected installation target, if one has been persisted."""
+    prefix = os.environ.get("PREFIX", "")
+    if os.environ.get("TERMUX_VERSION") or prefix.startswith("/data/data/com.termux/"):
+        return "termux"
+
     environment_target = os.environ.get("OPENROAD_INSTALL_TARGET", "").strip().lower()
     if environment_target:
         return environment_target
@@ -44,10 +48,6 @@ def installed_target(config_path: str | Path | None = None) -> str | None:
         normalized = target.strip().lower()
         if normalized:
             return normalized
-
-    prefix = os.environ.get("PREFIX", "")
-    if os.environ.get("TERMUX_VERSION") or prefix.startswith("/data/data/com.termux/"):
-        return "termux"
 
     try:
         model = Path("/proc/device-tree/model").read_text(
