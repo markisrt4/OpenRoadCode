@@ -19,6 +19,13 @@ from .power_dialog import PowerDialog
 from .settings_panel import SettingsPanel
 from .shell_chrome import build_footer, build_top_bar
 from .shell_content import add_summary, panel
+from .shell_metrics import (
+    SHELL_PAD_X,
+    SHELL_PAD_Y,
+    TARGET_GEOMETRY,
+    TARGET_HEIGHT,
+    TARGET_WIDTH,
+)
 from .side_nav import OrcUiSideNav
 from apps.orcUi.theme_runtime import theme_bundle
 from apps.orcUi.trip_presenter import TripPresentationState
@@ -86,12 +93,12 @@ class OrcUiApp(VolumeUiIf):
         self._root = tk.Tk()
         self._root.title("OpenRoadCode")
         fullscreen = orcui_fullscreen_default()
-        geometry = os.environ.get("ORCUI_GEOMETRY", "1024x600")
+        geometry = os.environ.get("ORCUI_GEOMETRY", TARGET_GEOMETRY)
         if fullscreen:
             self._root.attributes("-fullscreen", True)
         else:
             self._root.geometry(geometry)
-            self._root.minsize(1024, 600)
+            self._root.minsize(TARGET_WIDTH, TARGET_HEIGHT)
         self._root.configure(bg=ui.background)
         self._bottom_bar: OrcUiBottomBar | None = None
         self._adsb_enabled = False
@@ -304,7 +311,13 @@ class OrcUiApp(VolumeUiIf):
         self._build_top_bar()
         self._build_side_nav()
         self._content = tk.Frame(self._root, bg=ui.background)
-        self._content.grid(row=1, column=1, sticky="nsew", padx=(6, 8), pady=6)
+        self._content.grid(
+            row=1,
+            column=1,
+            sticky="nsew",
+            padx=(SHELL_PAD_Y, SHELL_PAD_X),
+            pady=SHELL_PAD_Y,
+        )
         self._build_bottom_bar()
         self._build_footer()
     def _build_top_bar(self) -> None:
@@ -321,7 +334,13 @@ class OrcUiApp(VolumeUiIf):
             active=self._active_nav,
             on_navigate=self.navigate_to,
         )
-        self._side_nav.grid(row=1, column=0, sticky="ns", padx=(8, 0), pady=6)
+        self._side_nav.grid(
+            row=1,
+            column=0,
+            sticky="ns",
+            padx=(SHELL_PAD_X, 0),
+            pady=SHELL_PAD_Y,
+        )
         self._side_nav.grid_propagate(False)
 
     def _rebuild_side_nav(self) -> None:
@@ -347,8 +366,8 @@ class OrcUiApp(VolumeUiIf):
             column=0,
             columnspan=2,
             sticky="ew",
-            padx=8,
-            pady=(0, 5),
+            padx=SHELL_PAD_X,
+            pady=(0, SHELL_PAD_Y),
         )
         if self._adsb_toggle_handler is not None and self._adsb_view_handler is not None:
             self._bottom_bar.set_adsb_handlers(
