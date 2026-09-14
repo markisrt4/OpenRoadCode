@@ -13,7 +13,7 @@ from .home_screen import build_home_screen
 from .navigation_panel import NavigationPanel
 from apps.orcUi.navigation_presenter import AttitudePresentationState, PositionPresentationState
 from .offroad_panel import OffRoadPanel
-from apps.orcUi.orc_theme import ThemeMode, toggle, toggle_label
+from apps.orcUi.orc_theme import ThemeMode, toggle
 from .power_dialog import PowerDialog
 from .presentation_state import OrcUiPresentationState
 from .settings_panel import SettingsPanel
@@ -31,18 +31,10 @@ from apps.orcUi.trip_presenter import TripPresentationState
 from .vehicle_panel import VehiclePanel
 from apps.orcUi.vehicle_presenter import VehiclePresentationState
 from common.host_config import installed_target, orcui_fullscreen_default
-from controllers.automotive import (
-    AutomotiveTelemetryProfile,
-    EngineAnalysis,
-    VehicleConfiguration,
-)
+from controllers.automotive import AutomotiveTelemetryProfile, EngineAnalysis, VehicleConfiguration
 from ui.navigation import MapRequestHandlerIf
 from ui.screen_ui_if import ScreenUiIf
-from ui.system import (
-    SystemLifecycleRequestHandlerIf,
-    VolumeRequestHandlerIf,
-    VolumeUiIf,
-)
+from ui.system import SystemLifecycleRequestHandlerIf, VolumeRequestHandlerIf, VolumeUiIf
 
 class OrcUiApp(VolumeUiIf):
     """Own the integrated Tk shell and presentation state."""
