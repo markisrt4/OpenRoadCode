@@ -86,7 +86,7 @@ def build_top_bar(
     ).pack(side=tk.LEFT, padx=(0, 10))
     tk.Button(
         status,
-        text="⏻",
+        text="PWR",
         command=on_power,
         bg=ui.control_background,
         fg=ui.control_text,
@@ -94,8 +94,8 @@ def build_top_bar(
         activeforeground="#ffffff",
         relief=tk.FLAT,
         bd=0,
-        font=("Sans", FONT_POWER, "bold"),
-        padx=10,
+        font=("Sans", FONT_STATUS, "bold"),
+        padx=9,
         pady=2,
     ).pack(side=tk.LEFT)
     return clock
