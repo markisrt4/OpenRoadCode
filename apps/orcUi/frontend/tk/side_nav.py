@@ -12,6 +12,8 @@ from ui.theme import ThemeBundle
 from .shell_metrics import FONT_CONTROL, SIDE_NAV_WIDTH
 
 
+_NAV_LABELS = {"NAVIGATION": "NAV"}
+
 _NAV_ICONS = {
     "HOME": "⌂",
     "NAVIGATION": "➤",
@@ -40,6 +42,7 @@ class OrcUiSideNav(tk.Frame):
         super().__init__(parent, width=self.WIDTH)
         self._on_navigate = on_navigate
         self._buttons: dict[str, tk.Button] = {}
+        self.pack_propagate(False)
         self.rebuild(theme=theme, items=items, active=active)
 
     def rebuild(self, *, theme: ThemeBundle, items: list[str], active: str) -> None:
@@ -51,7 +54,7 @@ class OrcUiSideNav(tk.Frame):
         for item in items:
             button = tk.Button(
                 self,
-                text=f"{_NAV_ICONS.get(item, '•')}  {item}",
+                text=f"{_NAV_ICONS.get(item, '•')}  {_NAV_LABELS.get(item, item)}",
                 command=lambda name=item: self._on_navigate(name),
                 bg=ui.control_background,
                 fg=ui.control_text,
