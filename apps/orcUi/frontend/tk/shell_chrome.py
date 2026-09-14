@@ -107,6 +107,7 @@ def build_footer(root: tk.Misc, *, theme: ThemeBundle) -> None:
     footer = tk.Frame(root, bg=ui.surface_alt, height=FOOTER_HEIGHT)
     footer.grid(row=3, column=0, columnspan=2, sticky="ew")
     footer.grid_propagate(False)
+    footer.grid_rowconfigure(0, weight=1)
     footer.grid_columnconfigure(1, weight=1)
     tk.Label(
         footer,
@@ -114,21 +115,21 @@ def build_footer(root: tk.Misc, *, theme: ThemeBundle) -> None:
         fg=ui.text_muted,
         bg=ui.surface_alt,
         font=("Sans", FONT_SMALL),
-    ).grid(row=0, column=0, padx=10)
+    ).grid(row=0, column=0, padx=10, pady=2)
     tk.Label(
         footer,
         text="GPS --   |   ADS-B --   |   RF --   |   OBD --",
         fg=ui.text_muted,
         bg=ui.surface_alt,
         font=("Sans", FONT_SMALL),
-    ).grid(row=0, column=1)
+    ).grid(row=0, column=1, pady=2)
     tk.Label(
         footer,
         text="1280×720",
         fg=ui.text_muted,
         bg=ui.surface_alt,
         font=("Sans", FONT_SMALL),
-    ).grid(row=0, column=2, padx=10)
+    ).grid(row=0, column=2, padx=10, pady=2)
 
 
 def _build_logo_mark(parent: tk.Misc, theme: ThemeBundle) -> None:
