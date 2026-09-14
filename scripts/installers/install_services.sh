@@ -69,10 +69,18 @@ fi
 if (( RUN_TELEMETRY_SERVICES )); then
   echo "[*] Installing OpenRoadCode telemetry services..."
   runtime_config="$PROJECT_ROOT/config/runtime.toml"
+  python_bin="${OPENROADCODE_PYTHON:-${VENV_DIR:-$PROJECT_ROOT/venv}/bin/python}"
+  if [[ ! -x "$python_bin" ]]; then
+    echo "[!] OpenRoadCode service Python is missing or not executable: $python_bin" >&2
+    echo "    Run the Python environment installer before installing telemetry services." >&2
+    exit 1
+  fi
   if [[ "${OPENROAD_INSTALL_TARGET:-}" == "linux-dev" ]]; then
     runtime_config="$PROJECT_ROOT/config/runtime.simulated.toml"
     echo "[*] linux-dev target: using simulated telemetry runtime: $runtime_config"
   fi
-  sudo env OPENROADCODE_RUNTIME_CONFIG="$runtime_config" \
+  sudo env \
+    OPENROADCODE_RUNTIME_CONFIG="$runtime_config" \
+    OPENROADCODE_PYTHON="$python_bin" \
     bash "$PROJECT_ROOT/scripts/systemd/install_telemetry_services_systemd.sh"
 fi
