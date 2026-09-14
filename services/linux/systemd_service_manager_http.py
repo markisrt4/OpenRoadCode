@@ -64,6 +64,12 @@ class SystemdServiceManagerHandler(BaseHTTPRequestHandler):
                 statuses = self.manager.start_core()
             elif parts == ["stack", "core", "stop"]:
                 statuses = self.manager.stop_core()
+            elif (
+                len(parts) == 4
+                and parts[0] == "services"
+                and parts[2] == "profile"
+            ):
+                statuses = (self.manager.set_profile(parts[1], parts[3]),)
             elif len(parts) == 3 and parts[0] == "services" and parts[2] in {
                 "start",
                 "stop",
