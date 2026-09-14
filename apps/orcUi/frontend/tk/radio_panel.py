@@ -19,6 +19,7 @@ from controllers.sdr.sdr_telemetry_worker import SDRTelemetryWorker
 from controllers.sdr.sdrpp_control import SDRPPControl
 from frontends.x11 import X11WindowEmbedder
 from ui.theme import ThemeBundle, ThemeMode
+from .shell_metrics import FONT_CONTROL, FONT_SMALL
 
 MAIN_GROUPS = (("FM", "♫ FM ▾"), ("WEATHER", "☁ WEATHER ▾"), ("AIR", "✈ AIR ▾"), ("HAM", "⌁ HAM ▾"), ("SCANNER", "⌁ SCANNER ▾"))
 RADIO_GROUPS = tuple(name for name, _ in MAIN_GROUPS)
