@@ -44,6 +44,7 @@ Type=simple
 User=$RUN_USER
 WorkingDirectory=$PROJECT_ROOT
 Environment=PYTHONUNBUFFERED=1
+EnvironmentFile=-/var/lib/openroadcode/service-profiles/openroadcode-automotive.env
 ExecStart=$WRAPPER_SCRIPT
 Restart=on-failure
 RestartSec=2
