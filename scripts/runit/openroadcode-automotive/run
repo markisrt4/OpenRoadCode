@@ -14,6 +14,11 @@ if [[ -f "$PROJECT_ROOT/config/runtime.termux.local.toml" ]]; then
 else
     export OPENROADCODE_RUNTIME_CONFIG="$PROJECT_ROOT/config/runtime.termux.toml"
 fi
+PROFILE_FILE="$HOME/.config/openroadcode/service-profiles/openroadcode-automotive.env"
+if [[ -f "$PROFILE_FILE" ]]; then
+    # shellcheck disable=SC1090
+    source "$PROFILE_FILE"
+fi
 if [[ -x "$PROJECT_ROOT/venv-termux/bin/python" ]]; then
     export OPENROADCODE_PYTHON="$PROJECT_ROOT/venv-termux/bin/python"
 fi
