@@ -172,7 +172,6 @@ class OrcUiShellView:
             columnspan=2,
             sticky="ew",
             padx=SHELL_PAD_X,
-            pady=(0, SHELL_PAD_Y),
         )
         if self._adsb_toggle_handler is not None and self._adsb_view_handler is not None:
             self._bottom_bar.set_adsb_handlers(
