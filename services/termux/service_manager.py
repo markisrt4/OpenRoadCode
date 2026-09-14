@@ -40,14 +40,8 @@ class RunitServiceManager:
         "openroadcode-automotive",
     )
     PROFILE_CONFIGS = {
-        "openroadcode-navigation": {
-            "live": PROJECT_ROOT / "config/runtime.termux.toml",
-            "simulated": PROJECT_ROOT / "config/runtime.simulated.toml",
-        },
-        "openroadcode-automotive": {
-            "live": PROJECT_ROOT / "config/runtime.termux.toml",
-            "simulated": PROJECT_ROOT / "config/runtime.simulated.toml",
-        },
+        "openroadcode-navigation": ("phone", "target", "simulated"),
+        "openroadcode-automotive": ("phone", "target", "simulated"),
     }
 
     def status(self, name: str) -> ServiceStatus:
@@ -79,15 +73,15 @@ class RunitServiceManager:
         profiles = self.PROFILE_CONFIGS.get(name)
         if not profiles:
             return None
-        profile_file = self._profile_file(name)
-        if not profile_file.exists():
-            return "live"
-        content = profile_file.read_text(encoding="utf-8")
-        for profile, config_path in profiles.items():
-            if str(config_path) in content:
+        selected = self._profile_file(name)
+        if not selected.exists():
+            return "target"
+        content = selected.read_text(encoding="utf-8")
+        for profile in profiles:
+            if f"OPENROADCODE_RUNTIME_PROFILE={profile}" in content:
                 return profile
-        if name == "openroadcode-automotive" and "runtime.termux.local.toml" in content:
-            return "live"
+            if f'OPENROADCODE_RUNTIME_PROFILE="{profile}"' in content:
+                return profile
         return "custom"
 
     def set_profile(self, name: str, profile: str) -> ServiceStatus:
@@ -95,23 +89,14 @@ class RunitServiceManager:
         profiles = self.PROFILE_CONFIGS.get(name)
         if not profiles:
             raise ValueError(f"Service does not support profiles: {name}")
-        try:
-            config_path = profiles[profile]
-        except KeyError as exc:
-            raise ValueError(f"Unsupported profile for {name}: {profile}") from exc
-
-        if profile == "live" and name == "openroadcode-automotive":
-            local_config = PROJECT_ROOT / "config/runtime.termux.local.toml"
-            if local_config.is_file():
-                config_path = local_config
-        if not config_path.is_file():
-            raise ValueError(f"Runtime profile config not found: {config_path}")
+        if profile not in profiles:
+            raise ValueError(f"Unsupported profile for {name}: {profile}")
 
         was_running = self.status(name).state == "running"
         PROFILE_DIR.mkdir(parents=True, exist_ok=True)
         profile_file = self._profile_file(name)
         profile_file.write_text(
-            f'export OPENROADCODE_RUNTIME_CONFIG="{config_path}"\n',
+            f'export OPENROADCODE_RUNTIME_PROFILE="{profile}"\n',
             encoding="utf-8",
         )
         if was_running:
