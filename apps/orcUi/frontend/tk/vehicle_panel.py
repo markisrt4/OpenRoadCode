@@ -13,6 +13,7 @@ from apps.orcUi.navigation_presenter import AttitudePresentationState, PositionP
 from .ecu_panel import EcuPanel
 from .trip_panel import TripPanel
 from .performance_panel import PerformancePanel
+from .engine_panel import EnginePanel
 from apps.orcUi.theme_runtime import theme_bundle as packaged_theme_bundle
 from apps.orcUi.trip_presenter import TripPresentationState
 from apps.orcUi.vehicle_presenter import VehiclePresentationState
@@ -27,8 +28,7 @@ from controllers.automotive import (
     TrackingQuality,
     VehicleConfiguration,
 )
-from frontends.tk.automotive import DEFAULT_GAUGES, OffroadDashboardPanel
-from frontends.tk.automotive.vehicle_gauge_widgets import LinearGauge
+from frontends.tk.automotive import OffroadDashboardPanel
 from ui.navigation import HeadingReference, PositionFix
 from ui.theme import ThemeBundle, ThemeMode
 
@@ -37,7 +37,6 @@ class VehiclePanel(tk.Frame):
     """ORC driving dashboard backed by reusable automotive instruments."""
 
     _TABS = ("PERFORMANCE", "ENGINE", "ECU", "OFF-ROAD", "TRIP")
-    _ENGINE_IDS = ("coolant", "intake", "load", "fuel", "voltage")
 
     def __init__(
         self,
@@ -83,7 +82,7 @@ class VehiclePanel(tk.Frame):
         self._current_view = "PERFORMANCE"
         self._view_buttons: dict[str, tk.Button] = {}
         self._performance_panel: PerformancePanel | None = None
-        self._engine_gauges: dict[str, LinearGauge] = {}
+        self._engine_panel: EnginePanel | None = None
         self._offroad: OffroadDashboardPanel | None = None
         self._trip_panel: TripPanel | None = None
         self._ecu_panel: EcuPanel | None = None
@@ -137,7 +136,7 @@ class VehiclePanel(tk.Frame):
             self._view_content.destroy()
         self._view_content = None
         self._performance_panel = None
-        self._engine_gauges.clear()
+        self._engine_panel = None
         self._offroad = None
         self._trip_panel = None
         self._ecu_panel = None
@@ -181,183 +180,14 @@ class VehiclePanel(tk.Frame):
         self._view_content = panel
 
     def _show_engine(self) -> None:
-        ui = self._theme_bundle.ui
-        background = ui.background
-        host = tk.Frame(self._view_host, bg=background)
-        host.grid(row=0, column=0, sticky="nsew", padx=6, pady=6)
-        host.grid_columnconfigure(0, weight=1)
-        host.grid_rowconfigure(1, weight=1)
-
-        header = self._section_header(
-            host,
-            title="ENGINE",
-            subtitle="Powertrain health and operating conditions",
-            accent=ui.accent_warning,
-            symbol="⌁",
+        panel = EnginePanel(
+            self._view_host,
+            theme=self._theme_bundle,
+            state=self._state,
         )
-        header.grid(row=0, column=0, sticky="ew", pady=(0, 6))
-
-        grid = tk.Frame(host, bg=background)
-        grid.grid(row=1, column=0, sticky="nsew")
-        grid.grid_columnconfigure(0, weight=1, uniform="engine")
-        grid.grid_columnconfigure(1, weight=1, uniform="engine")
-        for row in range(3):
-            grid.grid_rowconfigure(row, weight=1)
-
-        definitions = {
-            definition.gauge_id: definition
-            for definition in DEFAULT_GAUGES
-            if definition.gauge_id in self._ENGINE_IDS
-        }
-        gauge_style = vehicle_gauge_theme_from_style_sheet(self._theme_bundle.style_sheet)
-
-        for index, gauge_id in enumerate(self._ENGINE_IDS):
-            definition = definitions[gauge_id]
-            row, column = divmod(index, 2)
-            card = self._instrument_card(
-                grid,
-                title=definition.title.upper(),
-                unit=definition.unit,
-            )
-            card.grid(row=row, column=column, sticky="nsew", padx=4, pady=4)
-            card.grid_columnconfigure(0, weight=1)
-            card.grid_rowconfigure(1, weight=1)
-
-            gauge = LinearGauge(
-                card,
-                title="",
-                unit=definition.unit,
-                minimum=definition.minimum,
-                maximum=definition.maximum,
-                caution_low=definition.caution_low,
-                danger_low=definition.danger_low,
-                caution_high=definition.caution_high,
-                danger_high=definition.danger_high,
-                icon=definition.icon,
-                precision=definition.precision,
-                style=gauge_style,
-                width=260,
-                height=82,
-            )
-            gauge.grid(row=1, column=0, sticky="nsew", padx=5, pady=(0, 5))
-            self._engine_gauges[gauge_id] = gauge
-
-        summary = tk.Frame(
-            grid,
-            bg=ui.surface_alt,
-            highlightthickness=1,
-            highlightbackground=ui.border,
-        )
-        summary.grid(row=2, column=1, sticky="nsew", padx=4, pady=4)
-        tk.Label(
-            summary,
-            text="ENGINE STATUS",
-            fg=ui.text_muted,
-            bg=ui.surface_alt,
-            font=("Sans", 8, "bold"),
-        ).pack(anchor="w", padx=12, pady=(12, 4))
-        tk.Label(
-            summary,
-            text="Monitoring live sensors",
-            fg=ui.text,
-            bg=ui.surface_alt,
-            font=("Sans", 12, "bold"),
-        ).pack(anchor="w", padx=12)
-        tk.Label(
-            summary,
-            text="Coolant · Intake · Load · Fuel · Voltage",
-            fg=ui.text_muted,
-            bg=ui.surface_alt,
-            font=("Sans", 8),
-        ).pack(anchor="w", padx=12, pady=(4, 10))
-
-        self._view_content = host
-        self._apply_state()
-
-    def _section_header(
-        self,
-        parent: tk.Misc,
-        *,
-        title: str,
-        subtitle: str,
-        accent: str,
-        symbol: str,
-    ) -> tk.Frame:
-        ui = self._theme_bundle.ui
-        header = tk.Frame(
-            parent,
-            bg=ui.surface_alt,
-            highlightthickness=1,
-            highlightbackground=ui.border,
-        )
-        marker = tk.Frame(header, bg=accent, width=5)
-        marker.pack(side=tk.LEFT, fill=tk.Y)
-
-        icon = tk.Label(
-            header,
-            text=symbol,
-            fg=accent,
-            bg=ui.surface_alt,
-            font=("Sans", 22, "bold"),
-            width=3,
-        )
-        icon.pack(side=tk.LEFT, padx=(10, 4), pady=8)
-
-        text = tk.Frame(header, bg=ui.surface_alt)
-        text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, pady=7)
-        tk.Label(
-            text,
-            text=title,
-            fg=ui.text,
-            bg=ui.surface_alt,
-            font=("Sans", 16, "bold"),
-            anchor="w",
-        ).pack(anchor="w")
-        tk.Label(
-            text,
-            text=subtitle,
-            fg=ui.text_muted,
-            bg=ui.surface_alt,
-            font=("Sans", 8),
-            anchor="w",
-        ).pack(anchor="w")
-        return header
-
-    def _instrument_card(
-        self,
-        parent: tk.Misc,
-        *,
-        title: str,
-        unit: str,
-    ) -> tk.Frame:
-        ui = self._theme_bundle.ui
-        card = tk.Frame(
-            parent,
-            bg=ui.surface,
-            highlightthickness=1,
-            highlightbackground=ui.border,
-        )
-        top = tk.Frame(card, bg=ui.surface)
-        top.grid(row=0, column=0, sticky="ew", padx=10, pady=(7, 2))
-        top.grid_columnconfigure(1, weight=1)
-        tk.Label(
-            top,
-            text=title,
-            fg=ui.text,
-            bg=ui.surface,
-            font=("Sans", 11, "bold"),
-            anchor="w",
-        ).grid(row=0, column=0, sticky="w")
-        if unit:
-            tk.Label(
-                top,
-                text=unit,
-                fg=ui.text_muted,
-                bg=ui.surface,
-                font=("Sans", 9, "bold"),
-            ).grid(row=0, column=1, sticky="e")
-        return card
-
+        panel.grid(row=0, column=0, sticky="nsew", padx=6, pady=6)
+        self._engine_panel = panel
+        self._view_content = panel
 
     def _show_ecu(self) -> None:
         panel = EcuPanel(
@@ -479,16 +309,8 @@ class VehiclePanel(tk.Frame):
         if self._performance_panel is not None:
             self._performance_panel.update_state(self._state)
 
-        engine_values = {
-            "coolant": self._state.coolant_temperature_f,
-            "intake": self._state.intake_air_temperature_f,
-            "load": self._state.engine_load_percent,
-            "fuel": self._state.fuel_percent,
-            "voltage": self._state.control_voltage_v,
-        }
-        for gauge_id, gauge in self._engine_gauges.items():
-            gauge.set_connected(True)
-            gauge.set_value(engine_values[gauge_id])
+        if self._engine_panel is not None:
+            self._engine_panel.update_state(self._state)
         if self._ecu_panel is not None:
             self._ecu_panel.update_vehicle(self._state)
 
