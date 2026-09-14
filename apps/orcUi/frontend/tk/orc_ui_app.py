@@ -343,6 +343,8 @@ class OrcUiApp(VolumeUiIf):
         self._rebuild_shell_theme()
         if self._active_nav == "HOME":
             self._show_home()
+        elif self._active_nav == "SETTINGS":
+            self._show_settings_panel()
         else:
             self._apply_theme_to_content()
         active_screen = self._active_screen
