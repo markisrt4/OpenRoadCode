@@ -9,12 +9,13 @@ import tkinter as tk
 from collections.abc import Callable
 
 from ui.theme import ThemeBundle
+from .shell_metrics import FONT_CONTROL, SIDE_NAV_WIDTH
 
 
 class OrcUiSideNav(tk.Frame):
     """Render and update the shell's primary navigation destinations."""
 
-    WIDTH = 112
+    WIDTH = SIDE_NAV_WIDTH
 
     def __init__(
         self,
@@ -47,8 +48,9 @@ class OrcUiSideNav(tk.Frame):
                 activeforeground="#ffffff",
                 relief=tk.FLAT,
                 bd=0,
-                font=("Sans", 9),
+                font=("Sans", FONT_CONTROL, "bold"),
                 height=3,
+                pady=2,
             )
             button.pack(fill=tk.X, padx=4, pady=2)
             self._buttons[item] = button
