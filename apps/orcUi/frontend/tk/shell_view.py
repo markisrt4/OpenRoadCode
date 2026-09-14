@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import tkinter as tk
 from collections.abc import Callable
+from datetime import datetime
 
 from apps.orcUi.orc_theme import ThemeMode, toggle_label
 from ui.theme import ThemeBundle
@@ -53,6 +54,7 @@ class OrcUiShellView:
         self._side_nav: OrcUiSideNav | None = None
         self._bottom_bar: OrcUiBottomBar | None = None
         self._clock_label: tk.Label | None = None
+        self._clock_after_id: str | None = None
 
         root.grid_rowconfigure(1, weight=1)
         root.grid_columnconfigure(1, weight=1)
@@ -65,6 +67,7 @@ class OrcUiShellView:
             pady=SHELL_PAD_Y,
         )
         self._build_chrome()
+        self._update_clock()
 
     def rebuild(self, *, theme: ThemeBundle, theme_mode: ThemeMode) -> None:
         self._theme = theme
@@ -90,9 +93,13 @@ class OrcUiShellView:
         if self._side_nav is not None and self._side_nav.winfo_exists():
             self._side_nav.set_active(active=name, theme=self._theme)
 
-    def set_clock_text(self, text: str) -> None:
-        if self._clock_label is not None and self._clock_label.winfo_exists():
-            self._clock_label.configure(text=text)
+    def close(self) -> None:
+        if self._clock_after_id is not None:
+            try:
+                self._root.after_cancel(self._clock_after_id)
+            except tk.TclError:
+                pass
+            self._clock_after_id = None
 
     def set_volume_text(self, text: str) -> None:
         self._volume_text = text
@@ -118,6 +125,14 @@ class OrcUiShellView:
                 enabled=self._adsb_enabled,
                 aircraft_count=self._aircraft_count,
             )
+
+    def _update_clock(self) -> None:
+        if not self._root.winfo_exists():
+            return
+        text = datetime.now().strftime("%I:%M %p     %a, %b %d").lstrip("0")
+        if self._clock_label is not None and self._clock_label.winfo_exists():
+            self._clock_label.configure(text=text)
+        self._clock_after_id = self._root.after(1000, self._update_clock)
 
     def _build_chrome(self) -> None:
         self._clock_label = build_top_bar(
