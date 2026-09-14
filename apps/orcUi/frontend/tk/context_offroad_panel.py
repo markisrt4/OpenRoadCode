@@ -32,7 +32,6 @@ class ContextOffroadPanel(tk.Frame):
         self._attitude = attitude
         self._value_labels: dict[str, tk.Label] = {}
         self._heading_canvas: tk.Canvas | None = None
-        self._attitude_canvas: tk.Canvas | None = None
         super().__init__(parent, bg=theme.ui.surface)
         self._build()
         self._paint()
@@ -85,19 +84,24 @@ class ContextOffroadPanel(tk.Frame):
         )
         self._value_labels["heading"].pack(pady=(0, 5))
 
-        attitude_card = self._card()
-        attitude_card.grid(row=1, column=1, sticky="nsew", padx=(3, 0), pady=(0, 6))
-        tk.Label(attitude_card, text="ATTITUDE", fg=ui.accent_primary, bg=ui.surface, font=("Sans", FONT_SMALL, "bold")).pack(
-            pady=(5, 0)
+        slope_card = self._card()
+        slope_card.grid(row=1, column=1, sticky="nsew", padx=(3, 0), pady=(0, 6))
+        tk.Label(
+            slope_card,
+            text="ROLL / GRADE",
+            fg=ui.accent_primary,
+            bg=ui.surface,
+            font=("Sans", FONT_SMALL, "bold"),
+        ).pack(pady=(7, 4))
+        self._value_labels["roll"] = self._slope_value(
+            slope_card, "ROLL", "°"
         )
-        self._attitude_canvas = tk.Canvas(
-            attitude_card, width=118, height=86, bg=ui.surface, highlightthickness=0
+        self._value_labels["pitch"] = self._slope_value(
+            slope_card, "PITCH", "°"
         )
-        self._attitude_canvas.pack(fill=tk.BOTH, expand=True, padx=4)
-        values = tk.Frame(attitude_card, bg=ui.surface)
-        values.pack(fill=tk.X, pady=(0, 5))
-        self._value_labels["pitch"] = self._small_attitude_value(values, "P", side=tk.LEFT)
-        self._value_labels["roll"] = self._small_attitude_value(values, "R", side=tk.RIGHT)
+        self._value_labels["grade"] = self._slope_value(
+            slope_card, "GRADE", "%"
+        )
 
         self._metric_card("ALTITUDE", "altitude", "ft").grid(
             row=2, column=0, sticky="nsew", padx=(0, 3), pady=(0, 6)
@@ -121,15 +125,25 @@ class ContextOffroadPanel(tk.Frame):
         ui = self._theme.ui
         return tk.Frame(self, bg=ui.surface, highlightthickness=1, highlightbackground=ui.border)
 
-    def _small_attitude_value(self, parent: tk.Misc, prefix: str, *, side: str) -> tk.Label:
+    def _slope_value(self, parent: tk.Misc, label: str, unit: str) -> tk.Label:
         ui = self._theme.ui
-        holder = tk.Frame(parent, bg=ui.surface)
-        holder.pack(side=side, padx=7)
-        tk.Label(holder, text=prefix, fg=ui.text_muted, bg=ui.surface, font=("Sans", FONT_SMALL, "bold")).pack(
-            side=tk.LEFT, padx=(0, 2)
+        row = tk.Frame(parent, bg=ui.surface)
+        row.pack(fill=tk.X, padx=10, pady=2)
+        tk.Label(
+            row,
+            text=label,
+            fg=ui.text_muted,
+            bg=ui.surface,
+            font=("Sans", FONT_SMALL, "bold"),
+        ).pack(side=tk.LEFT)
+        value = tk.Label(
+            row,
+            text=f"-- {unit}",
+            fg=ui.text,
+            bg=ui.surface,
+            font=("Sans", FONT_BODY + 1, "bold"),
         )
-        value = tk.Label(holder, text="--", fg=ui.text, bg=ui.surface, font=("Sans", FONT_SMALL, "bold"))
-        value.pack(side=tk.LEFT)
+        value.pack(side=tk.RIGHT)
         return value
 
     def _metric_card(self, title: str, key: str, unit: str) -> tk.Frame:
@@ -155,10 +169,13 @@ class ContextOffroadPanel(tk.Frame):
             if self._position.latitude_deg is None or self._position.longitude_deg is None
             else f"{self._position.latitude_deg:.5f}°  {self._position.longitude_deg:.5f}°"
         )
+        pitch = self._attitude.pitch_deg
+        grade = None if pitch is None else math.tan(math.radians(pitch)) * 100.0
         values = {
             "heading": heading_text,
-            "pitch": _signed(self._attitude.pitch_deg),
+            "pitch": _signed(pitch),
             "roll": _signed(self._attitude.roll_deg),
+            "grade": "--" if grade is None else f"{grade:+.1f}%",
             "altitude": _format(self._position.altitude_ft, ".0f"),
             "speed": _format(self._vehicle.speed_mph, ".0f"),
             "fix": _fix_text(self._position.fix_mode),
@@ -174,7 +191,6 @@ class ContextOffroadPanel(tk.Frame):
                 fg=ui.accent_danger if value is not None and abs(value) >= 20.0 else ui.text
             )
         self._paint_compass(heading)
-        self._paint_attitude(self._attitude.pitch_deg, self._attitude.roll_deg)
 
     def _paint_compass(self, heading: float | None) -> None:
         canvas = self._heading_canvas
@@ -200,27 +216,6 @@ class ContextOffroadPanel(tk.Frame):
             fill=ui.accent_warning, width=3, arrow=tk.LAST,
         )
         canvas.create_oval(cx - 3, cy - 3, cx + 3, cy + 3, fill=ui.accent_warning, outline="")
-
-    def _paint_attitude(self, pitch: float | None, roll: float | None) -> None:
-        canvas = self._attitude_canvas
-        if canvas is None:
-            return
-        ui = self._theme.ui
-        canvas.delete("all")
-        width, height = max(90, canvas.winfo_width()), max(70, canvas.winfo_height())
-        cx, cy = width / 2, height / 2
-        canvas.create_line(12, cy, width - 12, cy, fill=ui.border, width=1)
-        if pitch is None or roll is None:
-            return
-        pitch_offset = max(-25.0, min(25.0, pitch)) * (height / 100.0)
-        angle, half = math.radians(-roll), width * 0.33
-        dx, dy = half * math.cos(angle), half * math.sin(angle)
-        horizon_y = cy + pitch_offset
-        color = ui.accent_danger if abs(pitch) >= 20.0 or abs(roll) >= 20.0 else ui.accent_primary
-        canvas.create_line(cx - dx, horizon_y - dy, cx + dx, horizon_y + dy, fill=color, width=3)
-        canvas.create_line(cx - 12, cy, cx + 12, cy, fill=ui.text, width=2)
-        canvas.create_line(cx, cy - 5, cx, cy + 5, fill=ui.text, width=2)
-
 
 def _fix_text(fix_mode: int | None) -> str:
     return {1: "NO FIX", 2: "2D FIX", 3: "3D FIX"}.get(fix_mode, "NO FIX")
