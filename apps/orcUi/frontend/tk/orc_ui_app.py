@@ -18,6 +18,7 @@ from apps.orcUi.orc_theme import ThemeMode, toggle, toggle_label
 from .power_dialog import PowerDialog
 from .settings_panel import SettingsPanel
 from .shell_chrome import build_footer, build_top_bar
+from .shell_content import add_summary, panel
 from .side_nav import OrcUiSideNav
 from apps.orcUi.theme_runtime import theme_bundle
 from apps.orcUi.trip_presenter import TripPresentationState
@@ -497,13 +498,13 @@ class OrcUiApp(VolumeUiIf):
         lower.grid_columnconfigure(0, weight=4)
         lower.grid_columnconfigure(1, weight=1)
         lower.grid_rowconfigure(0, weight=1)
-        radio = self._panel(lower, "RADIO", ui.accent_warning)
+        radio = panel(lower, "RADIO", ui.accent_warning, theme=self._theme)
         radio.grid(row=0, column=0, sticky="nsew", padx=(0, 5))
         if self._home_radio_factory is None:
-            self._summary(radio, "No radio active", "Choose RF or streaming")
+            add_summary(radio, "No radio active", "Choose RF or streaming", theme=self._theme)
         else:
             self._home_radio_factory(radio).pack(fill=tk.BOTH, expand=True)
-        media = self._panel(lower, "MEDIA", ui.accent_primary)
+        media = self._panel(lower, "MEDIA", ui.accent_primary, theme=self._theme)
         media.grid(row=0, column=1, sticky="nsew", padx=(5, 0))
         if self._home_media_factory is None:
             self._summary(media, "No media", "Playback service")
@@ -588,18 +589,9 @@ class OrcUiApp(VolumeUiIf):
     def _show_placeholder(self, name: str) -> None:
         self._clear_content()
         ui = self._theme.ui
-        panel = self._panel(self._content, name, ui.accent_success)
+        panel = self._panel(self._content, name, ui.accent_success, theme=self._theme)
         panel.pack(fill=tk.BOTH, expand=True)
         tk.Label(panel, text=f"{name}\nCOMING NEXT", fg=ui.text, bg=ui.surface, font=("Sans", 24, "bold")).place(relx=0.5, rely=0.5, anchor="center")
-    def _panel(self, parent: tk.Misc, title: str, accent: str) -> tk.Frame:
-        ui = self._theme.ui
-        frame = tk.Frame(parent, bg=ui.surface, highlightthickness=1, highlightbackground=ui.border)
-        tk.Label(frame, text=title, fg=accent, bg=ui.surface, font=("Sans", 10, "bold")).pack(anchor="nw", padx=14, pady=(11, 4))
-        return frame
-    def _summary(self, parent: tk.Misc, primary: str, secondary: str) -> None:
-        ui = self._theme.ui
-        tk.Label(parent, text=primary, fg=ui.text, bg=ui.surface, font=("Sans", 14, "bold")).pack(anchor="w", padx=16, pady=(12, 2))
-        tk.Label(parent, text=secondary, fg=ui.text_muted, bg=ui.surface, font=("Sans", 9)).pack(anchor="w", padx=16)
     def _paint_clock(self) -> None:
         if self._closing:
             return
