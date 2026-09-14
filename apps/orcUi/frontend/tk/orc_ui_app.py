@@ -7,7 +7,6 @@ import signal
 import tkinter as tk
 from collections.abc import Callable
 from datetime import datetime
-from .bottom_bar import OrcUiBottomBar
 from .context_rail import ContextRail
 from apps.orcUi.core_runtime import MapRuntimeIf
 from .home_map_panel import HomeMapPanel
@@ -19,7 +18,6 @@ from apps.orcUi.orc_theme import ThemeMode, toggle, toggle_label
 from .power_dialog import PowerDialog
 from .presentation_state import OrcUiPresentationState
 from .settings_panel import SettingsPanel
-from .shell_chrome import build_footer, build_top_bar
 from .screen_builders import (
     build_navigation_screen,
     build_offroad_screen,
@@ -27,14 +25,8 @@ from .screen_builders import (
     build_settings_screen,
     build_vehicle_screen,
 )
-from .shell_metrics import (
-    SHELL_PAD_X,
-    SHELL_PAD_Y,
-    TARGET_GEOMETRY,
-    TARGET_HEIGHT,
-    TARGET_WIDTH,
-)
-from .side_nav import OrcUiSideNav
+from .shell_metrics import TARGET_GEOMETRY, TARGET_HEIGHT, TARGET_WIDTH
+from .shell_view import OrcUiShellView
 from apps.orcUi.theme_runtime import theme_bundle
 from apps.orcUi.trip_presenter import TripPresentationState
 from .vehicle_panel import VehiclePanel
@@ -86,21 +78,19 @@ class OrcUiApp(VolumeUiIf):
             self._root.geometry(geometry)
             self._root.minsize(TARGET_WIDTH, TARGET_HEIGHT)
         self._root.configure(bg=ui.background)
-        self._bottom_bar: OrcUiBottomBar | None = None
+        self._shell: OrcUiShellView | None = None
         self._adsb_enabled = False
         self._aircraft_count = 0
         self._adsb_toggle_handler: Callable[[bool], bool] | None = None
         self._adsb_view_handler: Callable[[], None] | None = None
         self._active_nav = "HOME"
         self._nav_items = ["HOME", "NAVIGATION", "RADIO", "VEHICLE", "LIGHTING", "CONTROLS"]
-        self._side_nav: OrcUiSideNav | None = None
         self._screen_registry: dict[str, ScreenUiIf] = {}
         self._active_screen: ScreenUiIf | None = None
         self._screen_back_action: Callable[[], None] | None = None
         self._screen_status = ""
         self._home_radio_factory: Callable[[tk.Misc], tk.Widget] | None = None
         self._home_media_factory: Callable[[tk.Misc], tk.Widget] | None = None
-        self._clock_label: tk.Label
         self._clock_after_id: str | None = None
         self._content: tk.Frame
         self._context_rail: ContextRail | None = None
@@ -282,113 +272,48 @@ class OrcUiApp(VolumeUiIf):
         except tk.TclError:
             pass
     def _build_shell(self) -> None:
-        ui = self._theme.ui
-        self._root.grid_rowconfigure(1, weight=1)
-        self._root.grid_columnconfigure(1, weight=1)
-        self._build_top_bar()
-        self._build_side_nav()
-        self._content = tk.Frame(self._root, bg=ui.background)
-        self._content.grid(
-            row=1,
-            column=1,
-            sticky="nsew",
-            padx=(SHELL_PAD_Y, SHELL_PAD_X),
-            pady=SHELL_PAD_Y,
-        )
-        self._build_bottom_bar()
-        self._build_footer()
-    def _build_top_bar(self) -> None:
-        self._clock_label = build_top_bar(
+        self._shell = OrcUiShellView(
             self._root,
             theme=self._theme,
-            on_power=self._power_dialog.show,
-        )
-    def _build_side_nav(self) -> None:
-        self._side_nav = OrcUiSideNav(
-            self._root,
-            theme=self._theme,
-            items=self._nav_items,
-            active=self._active_nav,
+            theme_mode=self._theme_mode,
+            nav_items=self._nav_items,
+            active_nav=self._active_nav,
             on_navigate=self.navigate_to,
-        )
-        self._side_nav.grid(
-            row=1,
-            column=0,
-            sticky="ns",
-            padx=(SHELL_PAD_X, 0),
-            pady=SHELL_PAD_Y,
-        )
-        self._side_nav.grid_propagate(False)
-
-    def _rebuild_side_nav(self) -> None:
-        if self._side_nav is not None and self._side_nav.winfo_exists():
-            self._side_nav.rebuild(
-                theme=self._theme,
-                items=self._nav_items,
-                active=self._active_nav,
-            )
-    def _build_bottom_bar(self) -> None:
-        self._bottom_bar = OrcUiBottomBar(
-            self._root,
-            theme=self._theme,
-            volume_text=self._volume_text(),
-            theme_label=toggle_label(self._theme_mode),
+            on_power=self._power_dialog.show,
+            on_theme_toggle=self._toggle_theme,
             on_volume_down=self._request_volume_down,
             on_volume_up=self._request_volume_up,
-            on_settings=lambda: self.navigate_to("SETTINGS"),
-            on_theme_toggle=self._toggle_theme,
+            volume_text=self._volume_text(),
         )
-        self._bottom_bar.grid(
-            row=2,
-            column=0,
-            columnspan=2,
-            sticky="ew",
-            padx=SHELL_PAD_X,
-            pady=(0, SHELL_PAD_Y),
-        )
-        if self._adsb_toggle_handler is not None and self._adsb_view_handler is not None:
-            self._bottom_bar.set_adsb_handlers(
-                on_toggle=self._adsb_toggle_handler,
-                on_view=self._adsb_view_handler,
-            )
-        self._bottom_bar.set_adsb_state(
-            enabled=self._adsb_enabled,
-            aircraft_count=self._aircraft_count,
-        )
+        self._content = self._shell.content
+
+    def _rebuild_side_nav(self) -> None:
+        if self._shell is not None:
+            self._shell.rebuild_navigation()
+
     def set_adsb_handlers(
         self,
         *,
         on_toggle: Callable[[bool], bool],
         on_view: Callable[[], None],
     ) -> None:
-        """Bind shell ADS-B controls without coupling Tk to launcher details."""
         self._adsb_toggle_handler = on_toggle
         self._adsb_view_handler = on_view
-        if self._bottom_bar is not None and self._bottom_bar.winfo_exists():
-            self._bottom_bar.set_adsb_handlers(on_toggle=on_toggle, on_view=on_view)
+        if self._shell is not None:
+            self._shell.set_adsb_handlers(on_toggle=on_toggle, on_view=on_view)
 
     def set_adsb_state(self, *, enabled: bool, aircraft_count: int = 0) -> None:
         self._adsb_enabled = bool(enabled)
         self._aircraft_count = max(0, int(aircraft_count))
-        if self._bottom_bar is not None and self._bottom_bar.winfo_exists():
-            self._bottom_bar.set_adsb_state(
+        if self._shell is not None:
+            self._shell.set_adsb_state(
                 enabled=self._adsb_enabled,
                 aircraft_count=self._aircraft_count,
             )
 
-    def _build_footer(self) -> None:
-        build_footer(self._root, theme=self._theme)
     def _rebuild_shell_theme(self) -> None:
-        for child in self._root.winfo_children():
-            if child is self._content:
-                continue
-            child.destroy()
-        self._root.configure(bg=self._theme.ui.background)
-        self._content.configure(bg=self._theme.ui.background)
-        self._build_top_bar()
-        self._build_side_nav()
-        self._build_bottom_bar()
-        self._build_footer()
+        if self._shell is not None:
+            self._shell.rebuild(theme=self._theme, theme_mode=self._theme_mode)
         self._paint_clock()
     def _request_volume_up(self) -> None:
         handler = self._volume_request_handler
@@ -404,8 +329,8 @@ class OrcUiApp(VolumeUiIf):
             return f"{icon} --"
         return f"{icon} {round(self._volume_percent)}%"
     def _paint_volume(self) -> None:
-        if self._bottom_bar is not None and self._bottom_bar.winfo_exists():
-            self._bottom_bar.set_volume_text(self._volume_text())
+        if self._shell is not None:
+            self._shell.set_volume_text(self._volume_text())
     def _restart_ui(self) -> None:
         self._lifecycle_handler.request_restart_ui()
         self._shutdown()
@@ -458,8 +383,8 @@ class OrcUiApp(VolumeUiIf):
         self._screen_status = ""
         self._root.title("OpenRoadCode")
     def _paint_nav(self) -> None:
-        if self._side_nav is not None and self._side_nav.winfo_exists():
-            self._side_nav.set_active(active=self._active_nav, theme=self._theme)
+        if self._shell is not None:
+            self._shell.set_active_navigation(self._active_nav)
     def _clear_content(self) -> None:
         self._map_runtime.stop()
         if self._vehicle_panel is not None and self._vehicle_panel.winfo_exists():
@@ -578,7 +503,8 @@ class OrcUiApp(VolumeUiIf):
         if self._closing:
             return
         text = datetime.now().strftime("%I:%M %p     %a, %b %d").lstrip("0")
-        self._clock_label.configure(text=text)
+        if self._shell is not None:
+            self._shell.set_clock_text(text)
     def _update_clock(self) -> None:
         if self._closing:
             return
