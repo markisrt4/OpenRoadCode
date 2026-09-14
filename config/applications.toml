@@ -21,7 +21,7 @@ display = ":2"
 [apps.sdrpp]
 type = "native"
 enabled = true
-startup = "preload"
+startup = "lazy"
 target = "primary"
 fullscreen = false
 
