@@ -12,6 +12,7 @@ from collections.abc import Callable
 from apps.orcUi.navigation_presenter import AttitudePresentationState, PositionPresentationState
 from .ecu_panel import EcuPanel
 from .trip_panel import TripPanel
+from .performance_panel import PerformancePanel
 from apps.orcUi.theme_runtime import theme_bundle as packaged_theme_bundle
 from apps.orcUi.trip_presenter import TripPresentationState
 from apps.orcUi.vehicle_presenter import VehiclePresentationState
@@ -26,9 +27,8 @@ from controllers.automotive import (
     TrackingQuality,
     VehicleConfiguration,
 )
-from frontends.tk.automotive import DEFAULT_GAUGES, OffroadDashboardPanel, ShifterGauge
-from frontends.tk.automotive.vehicle_gauge_theme import vehicle_gauge_theme_from_style_sheet
-from frontends.tk.automotive.vehicle_gauge_widgets import LinearGauge, RoundGauge
+from frontends.tk.automotive import DEFAULT_GAUGES, OffroadDashboardPanel
+from frontends.tk.automotive.vehicle_gauge_widgets import LinearGauge
 from ui.navigation import HeadingReference, PositionFix
 from ui.theme import ThemeBundle, ThemeMode
 
@@ -37,7 +37,6 @@ class VehiclePanel(tk.Frame):
     """ORC driving dashboard backed by reusable automotive instruments."""
 
     _TABS = ("PERFORMANCE", "ENGINE", "ECU", "OFF-ROAD", "TRIP")
-    _PERFORMANCE_IDS = ("rpm", "boost", "speed", "throttle")
     _ENGINE_IDS = ("coolant", "intake", "load", "fuel", "voltage")
 
     def __init__(
@@ -83,9 +82,8 @@ class VehiclePanel(tk.Frame):
         self._attitude = attitude or AttitudePresentationState()
         self._current_view = "PERFORMANCE"
         self._view_buttons: dict[str, tk.Button] = {}
-        self._gauges: dict[str, RoundGauge] = {}
+        self._performance_panel: PerformancePanel | None = None
         self._engine_gauges: dict[str, LinearGauge] = {}
-        self._shifter: ShifterGauge | None = None
         self._offroad: OffroadDashboardPanel | None = None
         self._trip_panel: TripPanel | None = None
         self._ecu_panel: EcuPanel | None = None
@@ -138,9 +136,8 @@ class VehiclePanel(tk.Frame):
         if self._view_content is not None:
             self._view_content.destroy()
         self._view_content = None
-        self._gauges.clear()
+        self._performance_panel = None
         self._engine_gauges.clear()
-        self._shifter = None
         self._offroad = None
         self._trip_panel = None
         self._ecu_panel = None
@@ -173,80 +170,15 @@ class VehiclePanel(tk.Frame):
         self._on_telemetry_profile(profile)
 
     def _show_performance(self) -> None:
-        ui = self._theme_bundle.ui
-        background = ui.background
-        host = tk.Frame(self._view_host, bg=background)
-        host.grid(row=0, column=0, sticky="nsew", padx=6, pady=6)
-        host.grid_columnconfigure(0, weight=1)
-        host.grid_rowconfigure(1, weight=1)
-
-        header = self._section_header(
-            host,
-            title="PERFORMANCE",
-            subtitle="Live driving dynamics",
-            accent=ui.accent_danger,
-            symbol="◉",
+        panel = PerformancePanel(
+            self._view_host,
+            theme=self._theme_bundle,
+            vehicle_configuration=self._vehicle_configuration,
+            state=self._state,
         )
-        header.grid(row=0, column=0, sticky="ew", pady=(0, 6))
-
-        cluster = tk.Frame(host, bg=background)
-        cluster.grid(row=1, column=0, sticky="nsew")
-        cluster.grid_rowconfigure(0, weight=1)
-        for column in range(4):
-            cluster.grid_columnconfigure(column, weight=1, uniform="performance")
-
-        definitions = {
-            definition.gauge_id: definition
-            for definition in DEFAULT_GAUGES
-            if definition.gauge_id in self._PERFORMANCE_IDS
-        }
-        gauge_style = vehicle_gauge_theme_from_style_sheet(self._theme_bundle.style_sheet)
-
-        for column, gauge_id in enumerate(self._PERFORMANCE_IDS):
-            definition = definitions[gauge_id]
-            title = definition.title.upper()
-            if gauge_id == "boost" and not self._vehicle_configuration.induction.is_forced_induction:
-                title = "MANIFOLD"
-            card = self._instrument_card(
-                cluster,
-                title=title,
-                unit=definition.unit,
-            )
-            card.grid(row=0, column=column, sticky="nsew", padx=4, pady=2)
-            card.grid_columnconfigure(0, weight=1)
-            card.grid_rowconfigure(1, weight=1)
-
-            gauge = RoundGauge(
-                card,
-                title="",
-                unit=definition.unit,
-                minimum=definition.minimum,
-                maximum=definition.maximum,
-                major_step=definition.major_step,
-                caution_start=definition.caution_high,
-                danger_start=definition.danger_high,
-                intense_redline=definition.intense_redline,
-                redline_style=definition.redline_style,
-                start_angle=definition.start_angle,
-                sweep_angle=definition.sweep_angle,
-                precision=definition.precision,
-                style=gauge_style,
-                size=205,
-            )
-            gauge.grid(row=1, column=0, sticky="nsew", padx=2, pady=(0, 2))
-            self._gauges[gauge_id] = gauge
-
-        lower = tk.Frame(host, bg=background)
-        lower.grid(row=2, column=0, sticky="ew", pady=(5, 0))
-        lower.grid_columnconfigure(0, weight=1)
-
-        shifter = ShifterGauge(lower, width=280, height=58)
-        shifter.set_style_sheet(self._theme_bundle.style_sheet)
-        shifter.grid(row=0, column=0)
-        self._shifter = shifter
-
-        self._view_content = host
-        self._apply_state()
+        panel.grid(row=0, column=0, sticky="nsew", padx=6, pady=6)
+        self._performance_panel = panel
+        self._view_content = panel
 
     def _show_engine(self) -> None:
         ui = self._theme_bundle.ui
@@ -544,18 +476,8 @@ class VehiclePanel(tk.Frame):
         self._apply_offroad_state()
 
     def _apply_state(self) -> None:
-        performance_values = {
-            "rpm": None if self._state.engine_speed_rpm is None else self._state.engine_speed_rpm / 1000.0,
-            "boost": self._state.boost_psi,
-            "speed": self._state.speed_mph,
-            "throttle": self._state.throttle_percent,
-        }
-        for gauge_id, gauge in self._gauges.items():
-            gauge.set_connected(True)
-            gauge.set_value(performance_values[gauge_id])
-
-        if self._shifter is not None:
-            self._shifter.set_gear(self._state.gear)
+        if self._performance_panel is not None:
+            self._performance_panel.update_state(self._state)
 
         engine_values = {
             "coolant": self._state.coolant_temperature_f,
