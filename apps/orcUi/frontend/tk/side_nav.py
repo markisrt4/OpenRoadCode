@@ -14,6 +14,16 @@ from .shell_metrics import FONT_CONTROL, SIDE_NAV_WIDTH
 
 _NAV_LABELS = {"NAVIGATION": "NAV"}
 
+_NAV_ICONS = {
+    "HOME": "⌂",
+    "NAVIGATION": "➤",
+    "RADIO": "⌁",
+    "VEHICLE": "◆",
+    "LIGHTING": "☀",
+    "GAMES": "◇",
+    "MEDIA": "▶",
+}
+
 class _NavTile(tk.Canvas):
     """Compact nav tile with a muted watermark icon behind the label."""
 
@@ -87,11 +97,20 @@ class _NavTile(tk.Canvas):
             )
 
         self.create_text(
-            width / 2,
+            16,
+            height / 2,
+            text=_NAV_ICONS.get(self._nav_name, "•"),
+            fill=foreground,
+            font=("Sans", FONT_CONTROL + 2, "bold"),
+            anchor="center",
+        )
+        self.create_text(
+            30,
             height / 2,
             text=_NAV_LABELS.get(self._nav_name, self._nav_name),
             fill=foreground,
             font=("Sans", FONT_CONTROL, "bold"),
+            anchor="w",
         )
 
 
