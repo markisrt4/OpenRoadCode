@@ -371,6 +371,8 @@ class GpsdNavigationAdapterTests(unittest.TestCase):
         self.assertEqual(received[0].latitude_deg, 42.5)
         self.assertEqual(received[0].longitude_deg, -83.0)
         self.assertEqual(received[0].altitude_m, 200.0)
+        self.assertEqual(received[0].speed_mps, 15.0)
+        self.assertEqual(received[0].course_deg, 180.0)
         self.assertTrue(received[0].has_fix)
         self.assertTrue(reader.stopped)
 
