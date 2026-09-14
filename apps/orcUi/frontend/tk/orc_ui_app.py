@@ -17,6 +17,7 @@ from apps.orcUi.navigation_presenter import AttitudePresentationState, PositionP
 from .offroad_panel import OffRoadPanel
 from apps.orcUi.orc_theme import ThemeMode, toggle, toggle_label
 from .power_dialog import PowerDialog
+from .presentation_state import OrcUiPresentationState
 from .settings_panel import SettingsPanel
 from .shell_chrome import build_footer, build_top_bar
 from .screen_builders import (
@@ -42,12 +43,6 @@ from common.host_config import orcui_fullscreen_default
 from controllers.automotive import (
     AutomotiveTelemetryProfile,
     EngineAnalysis,
-    EngineLoadLevel,
-    EngineOperatingMode,
-    FuelControlMode,
-    FuelCorrectionStatus,
-    MixtureMode,
-    TrackingQuality,
     VehicleConfiguration,
 )
 from ui.navigation import MapRequestHandlerIf
@@ -77,23 +72,7 @@ class OrcUiApp(VolumeUiIf):
         self._vehicle_configuration = vehicle_configuration
         self._save_vehicle_configuration = save_vehicle_configuration
         self._vehicle_configuration_observer: Callable[[VehicleConfiguration], None] | None = None
-        self._engine_analysis = EngineAnalysis(
-            operating_mode=EngineOperatingMode.UNKNOWN,
-            fuel_control_mode=FuelControlMode.UNKNOWN,
-            mixture_mode=MixtureMode.UNKNOWN,
-            mixture_tracking=TrackingQuality.UNKNOWN,
-            throttle_tracking=TrackingQuality.UNKNOWN,
-            fuel_correction_status=FuelCorrectionStatus.UNKNOWN,
-            load_level=EngineLoadLevel.UNKNOWN,
-            engine_running=None,
-            warmed_up=None,
-            enrichment_active=None,
-            high_load=None,
-            forced_induction_active=None,
-            fuel_trim_total=None,
-            mixture_tracking_error=None,
-            throttle_tracking_error=None,
-        )
+        self._presentation = OrcUiPresentationState()
         self._theme_mode = ThemeMode.DARK
         self._theme = theme_bundle(self._theme_mode)
         ui = self._theme.ui
@@ -130,10 +109,6 @@ class OrcUiApp(VolumeUiIf):
         self._vehicle_panel: VehiclePanel | None = None
         self._offroad_panel: OffRoadPanel | None = None
         self._settings_panel: SettingsPanel | None = None
-        self._vehicle_state = VehiclePresentationState()
-        self._trip_state = TripPresentationState()
-        self._position_state = PositionPresentationState()
-        self._attitude_state = AttitudePresentationState()
         self._volume_percent: float | None = None
         self._volume_muted: bool | None = None
         self._volume_request_handler: VolumeRequestHandlerIf | None = None
@@ -240,48 +215,43 @@ class OrcUiApp(VolumeUiIf):
     def cancel_ui_callback(self, callback_id: object) -> None:
         self._root.after_cancel(callback_id)
     def apply_vehicle_state(self, state: VehiclePresentationState) -> None:
-        """Apply already-presented vehicle state to mounted shell widgets."""
-        if self._closing:
-            return
-        self._vehicle_state = state
-        if self._context_rail is not None and self._context_rail.winfo_exists():
-            self._context_rail.update_vehicle_state(state)
-        if self._vehicle_panel is not None and self._vehicle_panel.winfo_exists():
-            self._vehicle_panel.update_state(state)
+        if not self._closing:
+            self._presentation.apply_vehicle(
+                state,
+                context=self._context_rail,
+                vehicle_panel=self._vehicle_panel,
+            )
+
     def apply_engine_analysis(self, analysis: EngineAnalysis) -> None:
-        if self._closing:
-            return
-        self._engine_analysis = analysis
-        if self._vehicle_panel is not None and self._vehicle_panel.winfo_exists():
-            self._vehicle_panel.update_engine_analysis(analysis)
+        if not self._closing:
+            self._presentation.apply_engine_analysis(
+                analysis,
+                vehicle_panel=self._vehicle_panel,
+            )
 
     def apply_trip_state(self, state: TripPresentationState) -> None:
-        """Apply already-presented trip state to mounted shell widgets."""
-        if self._closing:
-            return
-        self._trip_state = state
-        if self._context_rail is not None and self._context_rail.winfo_exists():
-            self._context_rail.update_trip_state(state)
-        if self._vehicle_panel is not None and self._vehicle_panel.winfo_exists():
-            self._vehicle_panel.update_trip_state(state)
+        if not self._closing:
+            self._presentation.apply_trip(
+                state,
+                context=self._context_rail,
+                vehicle_panel=self._vehicle_panel,
+            )
+
     def apply_position_state(self, state: PositionPresentationState) -> None:
-        """Apply already-presented position state to mounted shell widgets."""
-        if self._closing:
-            return
-        self._position_state = state
-        if self._context_rail is not None and self._context_rail.winfo_exists():
-            self._context_rail.update_position_state(state)
-        if self._offroad_panel is not None and self._offroad_panel.winfo_exists():
-            self._offroad_panel.update_position(state)
+        if not self._closing:
+            self._presentation.apply_position(
+                state,
+                context=self._context_rail,
+                offroad_panel=self._offroad_panel,
+            )
+
     def apply_attitude_state(self, state: AttitudePresentationState) -> None:
-        """Apply already-presented attitude state to mounted shell widgets."""
-        if self._closing:
-            return
-        self._attitude_state = state
-        if self._context_rail is not None and self._context_rail.winfo_exists():
-            self._context_rail.update_attitude_state(state)
-        if self._offroad_panel is not None and self._offroad_panel.winfo_exists():
-            self._offroad_panel.update_attitude(state)
+        if not self._closing:
+            self._presentation.apply_attitude(
+                state,
+                context=self._context_rail,
+                offroad_panel=self._offroad_panel,
+            )
     def run(self) -> None:
         self._root.protocol("WM_DELETE_WINDOW", self._on_close)
         old_signal_handler = signal.getsignal(signal.SIGINT)
@@ -510,10 +480,10 @@ class OrcUiApp(VolumeUiIf):
             self._content,
             map_request_handler=self._map_request_handler,
             theme=self._theme,
-            vehicle_state=self._vehicle_state,
-            trip_state=self._trip_state,
-            position_state=self._position_state,
-            attitude_state=self._attitude_state,
+            vehicle_state=self._presentation.vehicle,
+            trip_state=self._presentation.trip,
+            position_state=self._presentation.position,
+            attitude_state=self._presentation.attitude,
             on_expand_context=self._show_context_full_panel,
             radio_factory=self._home_radio_factory,
             media_factory=self._home_media_factory,
@@ -549,11 +519,11 @@ class OrcUiApp(VolumeUiIf):
             self._content,
             on_back=self._show_home,
             on_telemetry_profile=self._telemetry_profile_request,
-            state=self._vehicle_state,
-            trip_state=self._trip_state,
+            state=self._presentation.vehicle,
+            trip_state=self._presentation.trip,
             theme=self._theme,
             vehicle_configuration=self._vehicle_configuration,
-            engine_analysis=self._engine_analysis,
+            engine_analysis=self._presentation.engine_analysis,
         )
     def _show_settings_panel(self) -> None:
         self._clear_content()
@@ -586,8 +556,8 @@ class OrcUiApp(VolumeUiIf):
         self._offroad_panel = build_offroad_screen(
             self._content,
             on_back=self._show_home,
-            position=self._position_state,
-            attitude=self._attitude_state,
+            position=self._presentation.position,
+            attitude=self._presentation.attitude,
             theme=self._theme,
         )
     def _on_close(self) -> None:
