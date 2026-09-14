@@ -288,7 +288,15 @@ class RadioPanel(tk.Frame):
 
     def attach_sdrpp(self, process_id: int = 0) -> int:
         self.update_idletasks()
-        window_id = self._embedder.embed(process_id, self.host_window_id, self._host.winfo_width(), self._host.winfo_height(), window_name="SDR++")
+        window_id = self._embedder.embed(
+            process_id,
+            self.host_window_id,
+            self._host.winfo_width(),
+            self._host.winfo_height(),
+            window_name="SDR++",
+            window_class="sdrpp",
+            relax_size_hints=True,
+        )
         self._embedded_view = "sdrpp"
         return window_id
 
