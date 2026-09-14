@@ -46,14 +46,8 @@ class SystemdServiceManager:
         "openroadcode-automotive",
     )
     PROFILE_CONFIGS = {
-        "openroadcode-navigation": {
-            "live": PROJECT_ROOT / "config/runtime.toml",
-            "simulated": PROJECT_ROOT / "config/runtime.simulated.toml",
-        },
-        "openroadcode-automotive": {
-            "live": PROJECT_ROOT / "config/runtime.toml",
-            "simulated": PROJECT_ROOT / "config/runtime.simulated.toml",
-        },
+        "openroadcode-navigation": ("phone", "target", "simulated"),
+        "openroadcode-automotive": ("phone", "target", "simulated"),
     }
 
     def status(self, name: str) -> ServiceStatus:
@@ -100,10 +94,12 @@ class SystemdServiceManager:
             return None
         selected = self._profile_file(name)
         if not selected.exists():
-            return "live"
+            return "target"
         content = selected.read_text(encoding="utf-8")
-        for profile, config_path in profiles.items():
-            if str(config_path) in content:
+        for profile in profiles:
+            if f"OPENROADCODE_RUNTIME_PROFILE={profile}" in content:
+                return profile
+            if f'OPENROADCODE_RUNTIME_PROFILE="{profile}"' in content:
                 return profile
         return "custom"
 
@@ -111,20 +107,15 @@ class SystemdServiceManager:
         profiles = self.PROFILE_CONFIGS.get(name)
         if not profiles:
             raise ValueError(f"Service does not support profiles: {name}")
-        try:
-            config_path = profiles[profile]
-        except KeyError as exc:
-            raise ValueError(f"Unsupported profile for {name}: {profile}") from exc
-        if not config_path.is_file():
-            raise ValueError(f"Runtime profile config not found: {config_path}")
+        if profile not in profiles:
+            raise ValueError(f"Unsupported profile for {name}: {profile}")
 
         was_running = self.status(name).state == "running"
         PROFILE_DIR.mkdir(parents=True, exist_ok=True)
         profile_file = self._profile_file(name)
         temporary = profile_file.with_suffix(".tmp")
-        escaped = str(config_path).replace("\\", "\\\\").replace('"', '\\"')
         temporary.write_text(
-            f'OPENROADCODE_RUNTIME_CONFIG="{escaped}"\n',
+            f'OPENROADCODE_RUNTIME_PROFILE="{profile}"\n',
             encoding="utf-8",
         )
         temporary.chmod(0o644)
