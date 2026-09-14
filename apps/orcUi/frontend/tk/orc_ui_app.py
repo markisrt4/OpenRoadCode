@@ -91,8 +91,14 @@ class OrcUiApp(VolumeUiIf):
         self._root.configure(bg=ui.background)
         self._theme_button: tk.Button
         self._power_button: tk.Button
+        self._adsb_toggle_button: tk.Button
+        self._aircraft_button: tk.Button
+        self._adsb_enabled = False
+        self._aircraft_count = 0
+        self._adsb_toggle_handler: Callable[[bool], bool] | None = None
+        self._adsb_view_handler: Callable[[], None] | None = None
         self._active_nav = "HOME"
-        self._nav_items = ["HOME", "NAVIGATION", "RADIO", "VEHICLE", "LIGHTING", "CONTROLS", "SETTINGS"]
+        self._nav_items = ["HOME", "NAVIGATION", "RADIO", "VEHICLE", "LIGHTING", "CONTROLS"]
         self._nav_buttons: dict[str, tk.Button] = {}
         self._screen_registry: dict[str, ScreenUiIf] = {}
         self._active_screen: ScreenUiIf | None = None
@@ -363,10 +369,58 @@ class OrcUiApp(VolumeUiIf):
         self._volume_label = tk.Label(volume, text=self._volume_text(), bg=ui.surface, fg=ui.text, font=("Sans", 10, "bold"))
         self._volume_label.grid(row=0, column=1)
         tk.Button(volume, text="+", command=self._request_volume_up, bg=ui.control_background, fg=ui.control_text, activebackground=ui.control_active, activeforeground="#ffffff", relief=tk.FLAT, bd=0, font=("Sans", 15, "bold")).grid(row=0, column=2, sticky="ns", padx=4)
-        for column, text in enumerate(("🎙  Push to Talk", "▣  Front Cam", "▣  SCREEN\nAuto", "☀  BRIGHTNESS\n70%"), start=1):
-            tk.Button(bar, text=text, bg=ui.control_background, fg=ui.control_text, activebackground=ui.control_active, activeforeground="#ffffff", relief=tk.FLAT, highlightthickness=1, highlightbackground=ui.border, font=("Sans", 9)).grid(row=0, column=column, sticky="nsew", padx=3)
+        self._adsb_toggle_button = tk.Button(bar, command=self._toggle_adsb, bg=ui.control_background, fg=ui.control_text, activebackground=ui.control_active, activeforeground="#ffffff", relief=tk.FLAT, highlightthickness=1, highlightbackground=ui.border, font=("Sans", 9, "bold"))
+        self._adsb_toggle_button.grid(row=0, column=1, sticky="nsew", padx=3)
+        self._aircraft_button = tk.Button(bar, command=self._show_aircraft, bg=ui.control_background, fg=ui.text_muted, activebackground=ui.control_active, activeforeground="#ffffff", relief=tk.FLAT, highlightthickness=1, highlightbackground=ui.border, font=("Sans", 9, "bold"))
+        self._aircraft_button.grid(row=0, column=2, sticky="nsew", padx=3)
+        tk.Button(bar, text="⚙  SETTINGS", command=lambda: self.navigate_to("SETTINGS"), bg=ui.control_background, fg=ui.control_text, activebackground=ui.control_active, activeforeground="#ffffff", relief=tk.FLAT, highlightthickness=1, highlightbackground=ui.border, font=("Sans", 9, "bold")).grid(row=0, column=3, sticky="nsew", padx=3)
+        tk.Button(bar, text="☀  LIGHT", command=lambda: self.navigate_to("LIGHTING"), bg=ui.control_background, fg=ui.control_text, activebackground=ui.control_active, activeforeground="#ffffff", relief=tk.FLAT, highlightthickness=1, highlightbackground=ui.border, font=("Sans", 9, "bold")).grid(row=0, column=4, sticky="nsew", padx=3)
         self._theme_button = tk.Button(bar, text=toggle_label(self._theme_mode), command=self._toggle_theme, bg=ui.control_background, fg=ui.control_text, activebackground=ui.control_active, activeforeground="#ffffff", relief=tk.FLAT, highlightthickness=1, highlightbackground=ui.border, font=("Sans", 9, "bold"))
         self._theme_button.grid(row=0, column=5, sticky="nsew", padx=3)
+        self._paint_adsb_controls()
+    def set_adsb_handlers(
+        self,
+        *,
+        on_toggle: Callable[[bool], bool],
+        on_view: Callable[[], None],
+    ) -> None:
+        """Bind shell ADS-B controls without coupling Tk to launcher details."""
+        self._adsb_toggle_handler = on_toggle
+        self._adsb_view_handler = on_view
+
+    def set_adsb_state(self, *, enabled: bool, aircraft_count: int = 0) -> None:
+        self._adsb_enabled = bool(enabled)
+        self._aircraft_count = max(0, int(aircraft_count))
+        if hasattr(self, "_adsb_toggle_button"):
+            self._paint_adsb_controls()
+
+    def _toggle_adsb(self) -> None:
+        handler = self._adsb_toggle_handler
+        if handler is None:
+            return
+        self.set_adsb_state(
+            enabled=handler(not self._adsb_enabled),
+            aircraft_count=self._aircraft_count,
+        )
+
+    def _show_aircraft(self) -> None:
+        if not self._adsb_enabled or self._adsb_view_handler is None:
+            return
+        self._adsb_view_handler()
+
+    def _paint_adsb_controls(self) -> None:
+        ui = self._theme.ui
+        enabled = self._adsb_enabled
+        self._adsb_toggle_button.configure(
+            text="✈  ADS-B ON" if enabled else "✈  ADS-B OFF",
+            fg=ui.accent_success if enabled else ui.control_text,
+        )
+        self._aircraft_button.configure(
+            text=f"AIRCRAFT {self._aircraft_count}" if enabled else "AIRCRAFT --",
+            state=tk.NORMAL if enabled else tk.DISABLED,
+            fg=ui.control_text if enabled else ui.text_muted,
+        )
+
     def _build_footer(self) -> None:
         ui = self._theme.ui
         footer = tk.Frame(self._root, bg=ui.surface_alt, height=25)
