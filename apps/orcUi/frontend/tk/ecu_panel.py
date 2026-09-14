@@ -22,6 +22,25 @@ from ui.theme import ThemeBundle
 from .shell_metrics import FONT_BODY, FONT_CONTROL, FONT_SMALL
 
 
+def bounded_marker_x(
+    value: float,
+    *,
+    minimum: float,
+    maximum: float,
+    rail_start: float,
+    rail_end: float,
+    radius: float,
+) -> float:
+    """Map a bounded value so the marker body stays completely on the rail."""
+    clamped = max(minimum, min(maximum, value))
+    start = rail_start + radius
+    end = rail_end - radius
+    if maximum <= minimum:
+        return (start + end) / 2.0
+    fraction = (clamped - minimum) / (maximum - minimum)
+    return start + fraction * (end - start)
+
+
 class EcuPanel(tk.Frame):
     """Driver-facing interpretation of ECU state, not a raw PID viewer."""
 
@@ -325,8 +344,14 @@ class EcuPanel(tk.Frame):
         if analysis.fuel_trim_total is None:
             return
         trim_pct = max(-20.0, min(20.0, analysis.fuel_trim_total * 100.0))
-        marker_x1, marker_x2 = x1 + 7, x2 - 7
-        x = marker_x1 + ((trim_pct + 20.0) / 40.0) * (marker_x2 - marker_x1)
+        x = bounded_marker_x(
+            trim_pct,
+            minimum=-20.0,
+            maximum=20.0,
+            rail_start=x1,
+            rail_end=x2,
+            radius=7.0,
+        )
         canvas.create_oval(
             x - 7, y - 7, x + 7, y + 7,
             fill=ui.accent_warning, outline=ui.surface, width=2,
@@ -348,7 +373,6 @@ class EcuPanel(tk.Frame):
         canvas.create_text((x1 + x2) / 2, 9, text="STOICH", fill=ui.text, font=("Sans", FONT_SMALL, "bold"))
         canvas.create_text(x2, 9, anchor="e", text="LEAN", fill=ui.accent_primary, font=("Sans", FONT_SMALL, "bold"))
         canvas.create_line(x1, y, x2, y, fill=ui.border, width=4)
-        marker_x1, marker_x2 = x1 + 7, x2 - 7
         markers = (
             ("T", state.commanded_equivalence_ratio, ui.accent_primary, -16),
             ("A", state.measured_equivalence_ratio, ui.accent_success, 16),
@@ -356,8 +380,14 @@ class EcuPanel(tk.Frame):
         for label, value, color, offset in markers:
             if value is None:
                 continue
-            clamped = max(0.70, min(1.30, value))
-            x = marker_x1 + ((clamped - 0.70) / 0.60) * (marker_x2 - marker_x1)
+            x = bounded_marker_x(
+                value,
+                minimum=0.70,
+                maximum=1.30,
+                rail_start=x1,
+                rail_end=x2,
+                radius=7.0,
+            )
             canvas.create_line(x, y, x, y + offset, fill=color, width=2)
             canvas.create_oval(
                 x - 7, y - 7, x + 7, y + 7,
