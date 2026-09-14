@@ -42,8 +42,7 @@ class OrcUiBottomBar(tk.Frame):
 
         self.grid_propagate(False)
         self.grid_rowconfigure(0, weight=1)
-        self.grid_columnconfigure(0, weight=2)
-        for column in range(1, 6):
+        for column in range(6):
             self.grid_columnconfigure(column, weight=1)
 
         volume = tk.Frame(
@@ -53,7 +52,9 @@ class OrcUiBottomBar(tk.Frame):
             highlightbackground=ui.border,
         )
         volume.grid(row=0, column=0, sticky="nsew", padx=CONTROL_PAD_X)
+        volume.grid_columnconfigure(0, minsize=42)
         volume.grid_columnconfigure(1, weight=1)
+        volume.grid_columnconfigure(2, minsize=42)
         tk.Button(
             volume,
             text="−",
@@ -64,8 +65,10 @@ class OrcUiBottomBar(tk.Frame):
             activeforeground="#ffffff",
             relief=tk.FLAT,
             bd=0,
-            font=("Sans", FONT_STATUS + 5, "bold"),
-        ).grid(row=0, column=0, sticky="ns", padx=4)
+            highlightthickness=1,
+            highlightbackground=ui.border,
+            font=("Sans", FONT_STATUS + 3, "bold"),
+        ).grid(row=0, column=0, sticky="nsew", padx=(3, 2), pady=3)
         self._volume_label = tk.Label(
             volume,
             text=volume_text,
@@ -73,7 +76,7 @@ class OrcUiBottomBar(tk.Frame):
             fg=ui.text,
             font=("Sans", FONT_STATUS, "bold"),
         )
-        self._volume_label.grid(row=0, column=1)
+        self._volume_label.grid(row=0, column=1, sticky="nsew", pady=3)
         tk.Button(
             volume,
             text="+",
@@ -84,8 +87,10 @@ class OrcUiBottomBar(tk.Frame):
             activeforeground="#ffffff",
             relief=tk.FLAT,
             bd=0,
-            font=("Sans", FONT_STATUS + 4, "bold"),
-        ).grid(row=0, column=2, sticky="ns", padx=4)
+            highlightthickness=1,
+            highlightbackground=ui.border,
+            font=("Sans", FONT_STATUS + 3, "bold"),
+        ).grid(row=0, column=2, sticky="nsew", padx=(2, 3), pady=3)
 
         self._adsb_toggle_button = self._button(self._toggle_adsb, bold=True)
         self._adsb_toggle_button.grid(row=0, column=1, sticky="nsew", padx=CONTROL_PAD_X)
