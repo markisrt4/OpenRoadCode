@@ -7,6 +7,7 @@ import signal
 import tkinter as tk
 from collections.abc import Callable
 from datetime import datetime
+from .bottom_bar import OrcUiBottomBar
 from .context_rail import ContextRail
 from apps.orcUi.core_runtime import MapRuntimeIf
 from .home_map_panel import HomeMapPanel
@@ -89,10 +90,8 @@ class OrcUiApp(VolumeUiIf):
             self._root.geometry(geometry)
             self._root.minsize(1024, 600)
         self._root.configure(bg=ui.background)
-        self._theme_button: tk.Button
         self._power_button: tk.Button
-        self._adsb_toggle_button: tk.Button
-        self._aircraft_button: tk.Button
+        self._bottom_bar: OrcUiBottomBar | None = None
         self._adsb_enabled = False
         self._aircraft_count = 0
         self._adsb_toggle_handler: Callable[[bool], bool] | None = None
@@ -123,7 +122,6 @@ class OrcUiApp(VolumeUiIf):
         self._volume_percent: float | None = None
         self._volume_muted: bool | None = None
         self._volume_request_handler: VolumeRequestHandlerIf | None = None
-        self._volume_label: tk.Label
         self._closing = False
         self._running = False
         self._power_dialog = PowerDialog(
@@ -355,28 +353,33 @@ class OrcUiApp(VolumeUiIf):
             self._nav_buttons[item] = button
         self._paint_nav()
     def _build_bottom_bar(self) -> None:
-        ui = self._theme.ui
-        bar = tk.Frame(self._root, bg=ui.background, height=55)
-        bar.grid(row=2, column=0, columnspan=2, sticky="ew", padx=8, pady=(0, 5))
-        bar.grid_propagate(False)
-        bar.grid_columnconfigure(0, weight=2)
-        for column in range(1, 6):
-            bar.grid_columnconfigure(column, weight=1)
-        volume = tk.Frame(bar, bg=ui.surface, highlightthickness=1, highlightbackground=ui.border)
-        volume.grid(row=0, column=0, sticky="nsew", padx=3)
-        volume.grid_columnconfigure(1, weight=1)
-        tk.Button(volume, text="−", command=self._request_volume_down, bg=ui.control_background, fg=ui.control_text, activebackground=ui.control_active, activeforeground="#ffffff", relief=tk.FLAT, bd=0, font=("Sans", 16, "bold")).grid(row=0, column=0, sticky="ns", padx=4)
-        self._volume_label = tk.Label(volume, text=self._volume_text(), bg=ui.surface, fg=ui.text, font=("Sans", 10, "bold"))
-        self._volume_label.grid(row=0, column=1)
-        tk.Button(volume, text="+", command=self._request_volume_up, bg=ui.control_background, fg=ui.control_text, activebackground=ui.control_active, activeforeground="#ffffff", relief=tk.FLAT, bd=0, font=("Sans", 15, "bold")).grid(row=0, column=2, sticky="ns", padx=4)
-        self._adsb_toggle_button = tk.Button(bar, command=self._toggle_adsb, bg=ui.control_background, fg=ui.control_text, activebackground=ui.control_active, activeforeground="#ffffff", relief=tk.FLAT, highlightthickness=1, highlightbackground=ui.border, font=("Sans", 9, "bold"))
-        self._adsb_toggle_button.grid(row=0, column=1, sticky="nsew", padx=3)
-        self._aircraft_button = tk.Button(bar, command=self._show_aircraft, bg=ui.control_background, fg=ui.text_muted, activebackground=ui.control_active, activeforeground="#ffffff", relief=tk.FLAT, highlightthickness=1, highlightbackground=ui.border, font=("Sans", 9, "bold"))
-        self._aircraft_button.grid(row=0, column=2, sticky="nsew", padx=3)
-        tk.Button(bar, text="⚙  SETTINGS", command=lambda: self.navigate_to("SETTINGS"), bg=ui.control_background, fg=ui.control_text, activebackground=ui.control_active, activeforeground="#ffffff", relief=tk.FLAT, highlightthickness=1, highlightbackground=ui.border, font=("Sans", 9, "bold")).grid(row=0, column=3, sticky="nsew", padx=3)
-        self._theme_button = tk.Button(bar, text=toggle_label(self._theme_mode), command=self._toggle_theme, bg=ui.control_background, fg=ui.control_text, activebackground=ui.control_active, activeforeground="#ffffff", relief=tk.FLAT, highlightthickness=1, highlightbackground=ui.border, font=("Sans", 9, "bold"))
-        self._theme_button.grid(row=0, column=4, columnspan=2, sticky="nsew", padx=3)
-        self._paint_adsb_controls()
+        self._bottom_bar = OrcUiBottomBar(
+            self._root,
+            theme=self._theme,
+            volume_text=self._volume_text(),
+            theme_label=toggle_label(self._theme_mode),
+            on_volume_down=self._request_volume_down,
+            on_volume_up=self._request_volume_up,
+            on_settings=lambda: self.navigate_to("SETTINGS"),
+            on_theme_toggle=self._toggle_theme,
+        )
+        self._bottom_bar.grid(
+            row=2,
+            column=0,
+            columnspan=2,
+            sticky="ew",
+            padx=8,
+            pady=(0, 5),
+        )
+        if self._adsb_toggle_handler is not None and self._adsb_view_handler is not None:
+            self._bottom_bar.set_adsb_handlers(
+                on_toggle=self._adsb_toggle_handler,
+                on_view=self._adsb_view_handler,
+            )
+        self._bottom_bar.set_adsb_state(
+            enabled=self._adsb_enabled,
+            aircraft_count=self._aircraft_count,
+        )
     def set_adsb_handlers(
         self,
         *,
@@ -386,39 +389,17 @@ class OrcUiApp(VolumeUiIf):
         """Bind shell ADS-B controls without coupling Tk to launcher details."""
         self._adsb_toggle_handler = on_toggle
         self._adsb_view_handler = on_view
+        if self._bottom_bar is not None and self._bottom_bar.winfo_exists():
+            self._bottom_bar.set_adsb_handlers(on_toggle=on_toggle, on_view=on_view)
 
     def set_adsb_state(self, *, enabled: bool, aircraft_count: int = 0) -> None:
         self._adsb_enabled = bool(enabled)
         self._aircraft_count = max(0, int(aircraft_count))
-        if hasattr(self, "_adsb_toggle_button"):
-            self._paint_adsb_controls()
-
-    def _toggle_adsb(self) -> None:
-        handler = self._adsb_toggle_handler
-        if handler is None:
-            return
-        self.set_adsb_state(
-            enabled=handler(not self._adsb_enabled),
-            aircraft_count=self._aircraft_count,
-        )
-
-    def _show_aircraft(self) -> None:
-        if not self._adsb_enabled or self._adsb_view_handler is None:
-            return
-        self._adsb_view_handler()
-
-    def _paint_adsb_controls(self) -> None:
-        ui = self._theme.ui
-        enabled = self._adsb_enabled
-        self._adsb_toggle_button.configure(
-            text="✈  ADS-B ON" if enabled else "✈  ADS-B OFF",
-            fg=ui.accent_success if enabled else ui.control_text,
-        )
-        self._aircraft_button.configure(
-            text=f"▣  AIRCRAFT {self._aircraft_count}" if enabled else "▣  AIRCRAFT --",
-            state=tk.NORMAL if enabled else tk.DISABLED,
-            fg=ui.control_text if enabled else ui.text_muted,
-        )
+        if self._bottom_bar is not None and self._bottom_bar.winfo_exists():
+            self._bottom_bar.set_adsb_state(
+                enabled=self._adsb_enabled,
+                aircraft_count=self._aircraft_count,
+            )
 
     def _build_footer(self) -> None:
         ui = self._theme.ui
@@ -456,8 +437,8 @@ class OrcUiApp(VolumeUiIf):
             return f"{icon} --"
         return f"{icon} {round(self._volume_percent)}%"
     def _paint_volume(self) -> None:
-        if hasattr(self, "_volume_label") and self._volume_label.winfo_exists():
-            self._volume_label.configure(text=self._volume_text())
+        if self._bottom_bar is not None and self._bottom_bar.winfo_exists():
+            self._bottom_bar.set_volume_text(self._volume_text())
     def _restart_ui(self) -> None:
         self._lifecycle_handler.request_restart_ui()
         self._shutdown()
