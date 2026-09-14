@@ -1,0 +1,14 @@
+# Navigation input supplied by hardware attached to the runtime target.
+[services.navigation.inputs.imu]
+source = "device"
+device = "mpu6050"
+address = 0x68
+
+[services.navigation.inputs.gps]
+source = "device"
+device = "gpsd"
+host = "127.0.0.1"
+port = "2947"
+
+[services.navigation.publish]
+source = "navigation-service-target"
