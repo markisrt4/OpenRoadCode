@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 from pathlib import Path
 
 from config.service_runtime_config import (
@@ -35,9 +36,11 @@ from messaging.zeromq import ZeroMqPublisher
 from protocols.valhalla.valhalla_http_client import ValhallaHttpClient
 from services.navigation.navigation_runtime import NavigationRuntime
 
-DEFAULT_RUNTIME_CONFIG = (
-    Path(__file__).resolve().parents[2] / "config" / "runtime.toml"
-)
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+DEFAULT_RUNTIME_CONFIG = PROJECT_ROOT / "config" / "runtime.toml"
+NAVIGATION_PROFILE_DIR = PROJECT_ROOT / "config" / "profiles" / "navigation"
+NAVIGATION_PROFILES = ("phone", "target", "simulated")
+DEFAULT_RUNTIME_PROFILE = "target"
 
 
 def parse_args() -> argparse.Namespace:
@@ -45,7 +48,27 @@ def parse_args() -> argparse.Namespace:
         description="Publish navigation telemetry and serve navigation commands."
     )
     parser.add_argument("--config", default=str(DEFAULT_RUNTIME_CONFIG))
+    parser.add_argument(
+        "--profile",
+        choices=NAVIGATION_PROFILES,
+        default=None,
+        help=(
+            "Navigation input profile. Defaults to OPENROADCODE_RUNTIME_PROFILE "
+            f"or {DEFAULT_RUNTIME_PROFILE!r}."
+        ),
+    )
     return parser.parse_args()
+
+
+def resolve_runtime_profile(requested: str | None = None) -> tuple[str, Path]:
+    """Resolve the semantic navigation input profile to its TOML overlay."""
+    profile = requested or os.environ.get(
+        "OPENROADCODE_RUNTIME_PROFILE",
+        DEFAULT_RUNTIME_PROFILE,
+    )
+    if profile not in NAVIGATION_PROFILES:
+        raise ValueError(f"Unsupported navigation runtime profile: {profile}")
+    return profile, NAVIGATION_PROFILE_DIR / f"{profile}.toml"
 
 
 def _create_gps_reader(host: str, port: str):
@@ -152,7 +175,11 @@ def build_route_planning_controller(
 
 def main() -> int:
     args = parse_args()
-    system = ServiceRuntimeConfigParser(args.config).load()
+    profile, profile_path = resolve_runtime_profile(args.profile)
+    system = ServiceRuntimeConfigParser(
+        args.config,
+        overlays=(profile_path,),
+    ).load()
     config = system.navigation
 
     if not config.enabled:
@@ -175,6 +202,7 @@ def main() -> int:
     )
 
     print("OpenRoadCode navigation service")
+    print(f"  input profile:     {profile}")
     print(f"  IMU source:        {config.imu.source}/{config.imu.device}")
     print(f"  GPS source:        {config.gps.source}/{config.gps.device}")
     print(f"  solution:          {config.solution.algorithm}")
