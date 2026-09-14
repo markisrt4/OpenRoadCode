@@ -154,3 +154,58 @@ def test_invalid_navigation_configuration_is_rejected(
 ) -> None:
     with pytest.raises(ServiceRuntimeConfigError, match=message):
         ServiceRuntimeConfigParser(_write(tmp_path, text)).load()
+
+
+def test_service_runtime_parser_applies_profile_overlay(tmp_path: Path) -> None:
+    base = tmp_path / "base.toml"
+    profile = tmp_path / "navigation-phone.toml"
+    base.write_text(
+        """
+[messaging]
+publisher_endpoint = "tcp://127.0.0.1:5556"
+
+[services.navigation]
+rate_hz = 10.0
+
+[services.navigation.inputs.imu]
+source = "device"
+device = "mpu6050"
+
+[services.navigation.inputs.gps]
+source = "device"
+device = "gpsd"
+
+[services.navigation.publish]
+source = "navigation-service"
+""",
+        encoding="utf-8",
+    )
+    profile.write_text(
+        """
+[services.navigation]
+rate_hz = 20.0
+
+[services.navigation.inputs.imu]
+source = "device"
+device = "android"
+bridge_url = "http://127.0.0.1:8766"
+
+[services.navigation.inputs.gps]
+source = "device"
+device = "android"
+bridge_url = "http://127.0.0.1:8766"
+
+[services.navigation.publish]
+source = "navigation-service-android"
+""",
+        encoding="utf-8",
+    )
+
+    config = ServiceRuntimeConfigParser(base, overlays=(profile,)).load()
+
+    assert config.messaging.publisher_endpoint == "tcp://127.0.0.1:5556"
+    assert config.navigation.rate_hz == 20.0
+    assert config.navigation.imu.device == "android"
+    assert config.navigation.gps.device == "android"
+    assert config.navigation.gps.bridge_url == "http://127.0.0.1:8766"
+    assert config.navigation.publish.source == "navigation-service-android"
