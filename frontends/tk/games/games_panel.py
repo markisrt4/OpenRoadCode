@@ -141,7 +141,7 @@ class GamesPanel(tk.Frame, GamesUiIf):
                 text=label,
                 command=lambda selected=category: self._set_filter(selected),
                 relief=tk.FLAT,
-                font=("Sans", 9, "bold"),
+                font=("Sans", 11, "bold"),
                 padx=11,
                 pady=6,
                 cursor="hand2",
@@ -152,7 +152,7 @@ class GamesPanel(tk.Frame, GamesUiIf):
             self._toolbar,
             text=self._status_message,
             bg=ui.background,
-            font=("Sans", 10),
+            font=("Sans", 12),
         )
         self._status.pack(side=tk.RIGHT, padx=8)
         self._body = tk.Frame(self, bg=ui.background)
@@ -168,7 +168,7 @@ class GamesPanel(tk.Frame, GamesUiIf):
             text="",
             fg=ui.text_muted,
             bg=ui.background,
-            font=("Sans", 9, "bold"),
+            font=("Sans", 11, "bold"),
         )
         self._page_label.pack(expand=True)
         self._update_filter_buttons()
@@ -186,7 +186,7 @@ class GamesPanel(tk.Frame, GamesUiIf):
             activebackground=ui.control_active,
             activeforeground="#ffffff",
             relief=tk.FLAT,
-            font=("Sans", 9, "bold"),
+            font=("Sans", 11, "bold"),
             padx=16,
             pady=4,
         )
@@ -352,14 +352,14 @@ class GamesPanel(tk.Frame, GamesUiIf):
             text=game.name,
             fg=ui.text if actionable or available else ui.text_muted,
             bg=ui.surface,
-            font=("Sans", 13, "bold"),
+            font=("Sans", 15, "bold"),
         ).grid(row=0, column=1, sticky="sw", padx=6, pady=(5, 0))
         tk.Label(
             card,
             text=game.description,
             fg=ui.text_muted,
             bg=ui.surface,
-            font=("Sans", 8),
+            font=("Sans", 10),
             anchor="w",
         ).grid(row=1, column=1, sticky="ew", padx=6)
         tk.Label(
@@ -367,7 +367,7 @@ class GamesPanel(tk.Frame, GamesUiIf):
             text=game.status.name,
             fg=accent,
             bg=ui.surface,
-            font=("Sans", 8, "bold"),
+            font=("Sans", 10, "bold"),
         ).grid(row=2, column=1, sticky="nw", padx=6, pady=(1, 5))
         tk.Button(
             card,
@@ -382,7 +382,7 @@ class GamesPanel(tk.Frame, GamesUiIf):
             relief=tk.FLAT,
             highlightthickness=1,
             highlightbackground=accent if actionable else ui.border,
-            font=("Sans", 9, "bold"),
+            font=("Sans", 11, "bold"),
             width=11,
             padx=5,
             pady=5,
