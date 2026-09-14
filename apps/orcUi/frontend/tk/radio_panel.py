@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import os
+from collections.abc import Callable
 import tkinter as tk
 from tkinter import simpledialog
 
@@ -35,6 +36,8 @@ class RadioPanel(tk.Frame):
         sdrpp_control: SDRPPControl | None = None,
         adsb_control: OrcUiAdsbControl | None = None,
         theme: ThemeBundle | None = None,
+        rf_active: Callable[[], bool] | None = None,
+        release_rf: Callable[[], None] | None = None,
     ) -> None:
         self._theme = theme or theme_bundle(ThemeMode.DARK)
         ui = self._theme.ui
@@ -43,6 +46,8 @@ class RadioPanel(tk.Frame):
         self._radio = radio_control or RadioProfileController()
         self._sdrpp = sdrpp_control or SDRPPControl()
         self._adsb = adsb_control or OrcUiAdsbControl()
+        self._rf_active = rf_active or (lambda: False)
+        self._release_rf = release_rf or (lambda: None)
         self._telemetry_worker = SDRTelemetryWorker(SDRTelemetryMonitor(self._radio))
         self._telemetry_after_id: str | None = None
         self._display = os.environ.get("DISPLAY", ":1")
@@ -198,13 +203,22 @@ class RadioPanel(tk.Frame):
         if label:
             self._radio.catalog.add_user_preset(profile.key, label=label, frequency_hz=state.frequency_hz)
 
+    def show_adsb(self) -> None:
+        """Present ADS-B without allowing it to preempt an active RF receiver."""
+        self._show_adsb()
+
     def _show_adsb(self) -> None:
         ui = self._theme.ui
+        scheme = "light" if self._theme == theme_bundle(ThemeMode.LIGHT) else "dark"
         self._active_group = "AIR:ADSB"
         self._paint_groups()
         self._telemetry_worker.set_include_rds(False)
         parent_window_id = int(self.winfo_toplevel().winfo_id())
         try:
+            if self._rf_active():
+                self._release_rf()
+            self._adsb.assert_available()
+            self._adsb.set_preferred_color_scheme(scheme)
             self._embedder.detach(parent_window_id)
             self.update_idletasks()
             self._adsb.configure_browser_window(position=(self._host.winfo_rootx(), self._host.winfo_rooty()), size=(max(1, self._host.winfo_width()), max(1, self._host.winfo_height())))
@@ -274,7 +288,15 @@ class RadioPanel(tk.Frame):
 
     def attach_sdrpp(self, process_id: int = 0) -> int:
         self.update_idletasks()
-        window_id = self._embedder.embed(process_id, self.host_window_id, self._host.winfo_width(), self._host.winfo_height(), window_name="SDR++")
+        window_id = self._embedder.embed(
+            process_id,
+            self.host_window_id,
+            self._host.winfo_width(),
+            self._host.winfo_height(),
+            window_name="SDR++",
+            window_class="sdrpp",
+            relax_size_hints=True,
+        )
         self._embedded_view = "sdrpp"
         return window_id
 

@@ -21,7 +21,7 @@ from urllib.request import urlopen
 
 from apps.launchers.app_launcher_if import AppLauncherIf, StatusCallback
 from apps.launchers.browser_launcher import BrowserKioskLauncher
-from apps.launchers.process_manager import close_matching_display_apps, is_process_running
+from apps.launchers.process_manager import is_process_running
 from common.logging.logging_paths import logging_file_path
 
 RTLSDR_DATA_SOURCE = "rtlsdr"
@@ -37,7 +37,7 @@ class ADSBLauncher(AppLauncherIf):
     hardware-independent path used by Termux presentation testing.
     """
 
-    def __init__(self, *, url: str = "http://127.0.0.1/tar1090", data_source: str = RTLSDR_DATA_SOURCE, browser_log_file: str | Path | None = None, resource_manager=None, owner_name: str = "adsb", readsb_service: str = "readsb", startup_timeout_seconds: float = 5.0) -> None:
+    def __init__(self, *, url: str = "http://127.0.0.1/tar1090", data_source: str = RTLSDR_DATA_SOURCE, browser_log_file: str | Path | None = None, resource_manager=None, owner_name: str = "adsb", readsb_service: str = "readsb", startup_timeout_seconds: float = 5.0, tar1090_config_path: str | Path = "/usr/local/share/tar1090/html/config.js") -> None:
         if data_source not in (RTLSDR_DATA_SOURCE, SIMULATION_DATA_SOURCE):
             raise ValueError(f"Unsupported ADS-B data source: {data_source}")
         self.url = url
@@ -46,10 +46,53 @@ class ADSBLauncher(AppLauncherIf):
         self.owner_name = owner_name
         self.readsb_service = readsb_service
         self.startup_timeout_seconds = startup_timeout_seconds
+        self.tar1090_config_path = Path(tar1090_config_path)
         self.browser = BrowserKioskLauncher(url=url, process_pattern=url, profile_path=Path.home() / ".local" / "share" / "openroadcode" / "browser" / "adsb", window_class="OpenRoadCodeADSB", exclusive_group="openroadcode-auxiliary-dashboard", log_file=browser_log_file or logging_file_path("openroadcode", "adsb-browser.log"))
 
     def is_running(self) -> bool:
         return self.browser.is_running()
+
+    def assert_available(self) -> None:
+        """Reject ADS-B when another component owns the shared receiver."""
+        if self.data_source != RTLSDR_DATA_SOURCE:
+            return
+        if self.resource_manager is not None:
+            owner = self.resource_manager.get_owner()
+            if owner not in (None, self.owner_name):
+                raise RuntimeError(
+                    f"SDR is in use by {owner}; RF radio has priority"
+                )
+
+    def set_preferred_color_scheme(self, scheme: str) -> None:
+        """Apply ORC's preferred light/dark scheme to Chromium and tar1090."""
+        normalized = scheme.strip().lower()
+        self.browser.set_preferred_color_scheme(normalized)
+        self._set_tar1090_color_scheme(normalized)
+
+    def _set_tar1090_color_scheme(self, scheme: str) -> None:
+        if scheme not in {"dark", "light"}:
+            raise ValueError(f"Unsupported ADS-B color scheme: {scheme}")
+        path = self.tar1090_config_path
+        if not path.is_file():
+            return
+        enabled = "true" if scheme == "dark" else "false"
+        marker_start = "// OPENROADCODE THEME START"
+        marker_end = "// OPENROADCODE THEME END"
+        block = (
+            f"{marker_start}\n"
+            f"darkModeDefault = {enabled};\n"
+            f"loStore.darkMode = {enabled};\n"
+            f"{marker_end}"
+        )
+        content = path.read_text(encoding="utf-8")
+        start = content.find(marker_start)
+        end = content.find(marker_end)
+        if start >= 0 and end >= start:
+            end += len(marker_end)
+            content = content[:start] + block + content[end:]
+        else:
+            content = content.rstrip() + "\n\n" + block + "\n"
+        path.write_text(content, encoding="utf-8")
 
     def configure_browser_window(self, *, position: tuple[int, int], size: tuple[int, int]) -> None:
         self.browser.configure_app_window(position=position, size=size)
@@ -59,9 +102,18 @@ class ADSBLauncher(AppLauncherIf):
         receiver_ready = False
 
         if self.data_source == RTLSDR_DATA_SOURCE:
+            self.assert_available()
             if self.resource_manager is not None:
-                self.resource_manager.acquire(self.owner_name, force=True, set_status=set_status)
-            close_matching_display_apps(display=remote_display, patterns=("sdrpp", "sdr\\+\\+"))
+                acquired = self.resource_manager.acquire(
+                    self.owner_name,
+                    force=False,
+                    set_status=set_status,
+                )
+                if not acquired:
+                    owner = self.resource_manager.get_owner()
+                    raise RuntimeError(
+                        f"SDR is in use by {owner or 'another application'}; RF radio has priority"
+                    )
             _set_systemd_service_state(self.readsb_service, "start")
             receiver_ready = self._readsb_is_running()
 

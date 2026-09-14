@@ -28,8 +28,16 @@ class LaunchAwareRadioPanel(RadioPanel):
         *,
         embedder: X11WindowEmbedder,
         theme: ThemeBundle,
+        rf_active: Callable[[], bool] | None = None,
+        release_rf: Callable[[], None] | None = None,
     ) -> None:
-        super().__init__(parent, embedder=embedder, theme=theme)
+        super().__init__(
+            parent,
+            embedder=embedder,
+            theme=theme,
+            rf_active=rf_active,
+            release_rf=release_rf,
+        )
         self._launch_status = tk.Label(
             self._host,
             text="Loading SDR++…",
@@ -110,6 +118,23 @@ class RadioEntryPanel(tk.Frame):
     def open_rf_radio(self) -> None:
         """Launch and present the RF radio directly."""
         self._launch_rf_radio()
+
+    def open_adsb(self) -> None:
+        """Present the ADS-B aircraft dashboard without starting SDR++ first."""
+        self._chooser.grid_remove()
+        if self._streaming_page is not None and self._streaming_page.winfo_exists():
+            self._streaming_page.grid_remove()
+        if self._radio_panel is None or not self._radio_panel.winfo_exists():
+            self._radio_panel = LaunchAwareRadioPanel(
+                self,
+                embedder=self._embedder,
+                theme=self._theme,
+                rf_active=lambda: self._radio_application.presented,
+                release_rf=self._radio_application.relinquish_for_adsb,
+            )
+            self._radio_panel.grid(row=0, column=0, sticky="nsew")
+            self._radio_panel.hide_loading()
+        self._radio_panel.show_adsb()
 
     def _build_choice_buttons(self) -> None:
         ui = self._theme.ui
@@ -361,6 +386,8 @@ class RadioEntryPanel(tk.Frame):
             self,
             embedder=self._embedder,
             theme=self._theme,
+            rf_active=lambda: self._radio_application.presented,
+            release_rf=self._radio_application.relinquish_for_adsb,
         )
         self._radio_panel.grid(row=0, column=0, sticky="nsew")
         self._radio_panel.show_loading("Loading SDR++…")
@@ -413,6 +440,10 @@ class RadioEntryPanel(tk.Frame):
             self.after(0, lambda exc=presentation_error[0]: self._show_launch_error(exc))
             return
 
+        if self._radio_application.fullscreen:
+            self.after(0, self._finish_fullscreen_rf_launch)
+            return
+
         if process_id is None:
             try:
                 process_id = self._radio_application.window_process_id(
@@ -423,6 +454,11 @@ class RadioEntryPanel(tk.Frame):
                 return
 
         self.after(0, lambda pid=process_id: self._attach_rf_radio(pid))
+
+    def _finish_fullscreen_rf_launch(self) -> None:
+        self._launching = False
+        if self._radio_panel is not None and self._radio_panel.winfo_exists():
+            self._radio_panel.hide_loading()
 
     def _attach_rf_radio(self, process_id: int) -> None:
         panel = self._radio_panel

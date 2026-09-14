@@ -40,6 +40,8 @@ class GpsdPositionSource(PositionSourceIf):
             latitude_deg=data.latitude,
             longitude_deg=data.longitude,
             altitude_m=data.altitude,
+            speed_mps=data.speed,
+            course_deg=data.track,
             fix_mode=data.mode,
             satellites_visible=data.satellites_visible,
             satellites_used=data.satellites_used,

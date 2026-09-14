@@ -62,6 +62,10 @@ class RadioScreen(TkScreen):
         """Enter the streaming browser on the already mounted radio screen."""
         self._invoke_panel_action("open_streaming_radio")
 
+    def open_adsb(self) -> None:
+        """Enter the ADS-B aircraft dashboard on the mounted radio screen."""
+        self._invoke_panel_action("open_adsb")
+
     def show_rf(self) -> None:
         """Open Radio and immediately enter the RF presentation."""
         self.show()
