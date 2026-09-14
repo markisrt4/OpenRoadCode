@@ -8,6 +8,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from apps.launchers.sdrpp_launcher import sync_sdrpp_theme
+from apps.orcUi.adapters.adsb_control import OrcUiAdsbControl
 from apps.orcUi.frontend.tk.orc_ui_app import OrcUiApp
 from apps.orcUi.frontend.tk.radio_entry_panel import RadioEntryPanel
 from apps.orcUi.theme_runtime import theme_bundle
@@ -75,4 +76,27 @@ def configure_radio(app: OrcUiApp, runtime) -> RadioComposition:
         )
 
     app.set_home_radio_factory(home_radio_factory)
+    adsb = OrcUiAdsbControl()
+
+    def toggle_adsb(enabled: bool) -> bool:
+        # An explicit ADS-B selection wins the shared SDR. Relinquish RF first.
+        if enabled and runtime.radio.presented:
+            runtime.radio.relinquish_for_adsb()
+        try:
+            return adsb.set_tracking(enabled)
+        except (OSError, RuntimeError, ValueError) as error:
+            app.set_screen_status(f"ADS-B: {error}")
+            return adsb.tracking
+
+    app.set_adsb_handlers(
+        on_toggle=toggle_adsb,
+        on_view=lambda: show_radio_source("adsb"),
+    )
+    app.set_adsb_state(enabled=adsb.tracking, aircraft_count=adsb.aircraft_count)
+
+    def refresh_adsb_status() -> None:
+        app.set_adsb_state(enabled=adsb.tracking, aircraft_count=adsb.aircraft_count)
+        app.schedule_ui_callback(1000, refresh_adsb_status)
+
+    app.schedule_ui_callback(1000, refresh_adsb_status)
     return RadioComposition(screen=screen, directory=directory, favorites=favorites)
