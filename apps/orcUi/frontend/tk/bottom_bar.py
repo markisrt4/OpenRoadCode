@@ -41,6 +41,7 @@ class OrcUiBottomBar(tk.Frame):
         self._adsb_view_handler: Callable[[], None] | None = None
 
         self.grid_propagate(False)
+        self.grid_rowconfigure(0, weight=1)
         self.grid_columnconfigure(0, weight=2)
         for column in range(1, 6):
             self.grid_columnconfigure(column, weight=1)
@@ -139,6 +140,14 @@ class OrcUiBottomBar(tk.Frame):
         self.set_adsb_state(enabled=enabled, aircraft_count=self._aircraft_count)
 
     def _show_aircraft(self) -> None:
+        if not self._adsb_enabled:
+            handler = self._adsb_toggle_handler
+            if handler is None:
+                return
+            self.set_adsb_state(
+                enabled=handler(True),
+                aircraft_count=self._aircraft_count,
+            )
         if self._adsb_enabled and self._adsb_view_handler is not None:
             self._adsb_view_handler()
 
@@ -150,10 +159,10 @@ class OrcUiBottomBar(tk.Frame):
         )
         self._aircraft_button.configure(
             text=(
-                f"▣  AIRCRAFT {self._aircraft_count}"
+                f"↗  AIRCRAFT {self._aircraft_count}"
                 if self._adsb_enabled
-                else "▣  AIRCRAFT --"
+                else "↗  AIRCRAFT --"
             ),
-            state=tk.NORMAL if self._adsb_enabled else tk.DISABLED,
-            fg=ui.control_text if self._adsb_enabled else ui.text_muted,
+            state=tk.NORMAL,
+            fg=ui.control_text,
         )
