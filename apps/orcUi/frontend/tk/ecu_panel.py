@@ -235,8 +235,8 @@ class EcuPanel(tk.Frame):
             FuelControlMode.OPEN_LOOP_WARMUP: "OPEN LOOP",
             FuelControlMode.CLOSED_LOOP: "CLOSED LOOP",
             FuelControlMode.OPEN_LOOP_LOAD_OR_DECEL: "OPEN LOOP",
-            FuelControlMode.OPEN_LOOP_FAULT: "FAULT",
-            FuelControlMode.CLOSED_LOOP_FAULT: "FAULT",
+            FuelControlMode.OPEN_LOOP_FAULT: "OPEN LOOP",
+            FuelControlMode.CLOSED_LOOP_FAULT: "CLOSED LOOP",
             FuelControlMode.UNKNOWN: "--",
         }[analysis.fuel_control_mode]
         correction = {
@@ -265,9 +265,19 @@ class EcuPanel(tk.Frame):
         }[analysis.load_level]
 
         economy = self._trip_state.instantaneous_economy_mpg
+        fuel_fault_flag = analysis.fuel_control_mode in {
+            FuelControlMode.OPEN_LOOP_FAULT,
+            FuelControlMode.CLOSED_LOOP_FAULT,
+        }
+        fuel_secondary = (
+            f"FAULT FLAG · {correction}"
+            if fuel_fault_flag and correction != "--"
+            else "FAULT FLAG" if fuel_fault_flag
+            else correction
+        )
         values = {
             "fuel_primary": fuel_mode,
-            "fuel_secondary": correction,
+            "fuel_secondary": fuel_secondary,
             "mixture_primary": mixture,
             "mixture_secondary": tracking,
             "load_primary": load,
@@ -284,14 +294,14 @@ class EcuPanel(tk.Frame):
             self._labels[key].configure(text=text)
 
         fuel_color = ui.text
-        if analysis.fuel_control_mode in {
-            FuelControlMode.OPEN_LOOP_FAULT,
-            FuelControlMode.CLOSED_LOOP_FAULT,
-        }:
-            fuel_color = ui.accent_danger
+        if fuel_fault_flag:
+            fuel_color = ui.accent_warning
         elif analysis.fuel_control_mode is FuelControlMode.CLOSED_LOOP:
             fuel_color = ui.accent_success
         self._labels["fuel_primary"].configure(fg=fuel_color)
+        self._labels["fuel_secondary"].configure(
+            fg=ui.accent_warning if fuel_fault_flag else ui.text_muted
+        )
 
         tracking_color = {
             TrackingQuality.GOOD: ui.accent_success,
