@@ -230,7 +230,7 @@ class RadioEntryPanel(tk.Frame):
             text=eyebrow,
             bg=ui.surface,
             fg=accent,
-            font=("Sans", FONT_CONTROL, "bold"),
+            font=("Sans", FONT_CONTROL + 2, "bold"),
             anchor="w",
         ).grid(row=0, column=1, sticky="sw", pady=(8, 2))
         tk.Label(
@@ -238,7 +238,7 @@ class RadioEntryPanel(tk.Frame):
             text=title,
             bg=ui.surface,
             fg=ui.text,
-            font=("Sans", 18, "bold"),
+            font=("Sans", 21, "bold"),
             anchor="w",
         ).grid(row=1, column=1, sticky="nw")
 
@@ -251,7 +251,7 @@ class RadioEntryPanel(tk.Frame):
             text=description,
             bg=ui.surface,
             fg=ui.text_muted,
-            font=("Sans", FONT_BODY + 1),
+            font=("Sans", FONT_BODY + 3),
             justify=tk.LEFT,
             anchor="nw",
             wraplength=390,
@@ -261,7 +261,7 @@ class RadioEntryPanel(tk.Frame):
             text=features,
             bg=ui.surface,
             fg=ui.text,
-            font=("Sans", FONT_CONTROL, "bold"),
+            font=("Sans", FONT_CONTROL + 2, "bold"),
             anchor="w",
         ).grid(row=1, column=0, sticky="ew", pady=(14, 8))
         button = tk.Button(
