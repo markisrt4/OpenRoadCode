@@ -142,8 +142,8 @@ class GamesPanel(tk.Frame, GamesUiIf):
                 command=lambda selected=category: self._set_filter(selected),
                 relief=tk.FLAT,
                 font=("Sans", 14, "bold"),
-                padx=11,
-                pady=6,
+                padx=8,
+                pady=5,
                 cursor="hand2",
             )
             button.pack(side=tk.LEFT, padx=(0, 5))
@@ -154,7 +154,7 @@ class GamesPanel(tk.Frame, GamesUiIf):
             bg=ui.background,
             font=("Sans", 15),
         )
-        self._status.pack(side=tk.RIGHT, padx=8)
+        self._status.pack(side=tk.RIGHT, padx=(6, 2))
         self._body = tk.Frame(self, bg=ui.background)
         self._body.pack(fill=tk.BOTH, expand=True)
         self._pager = tk.Frame(self, bg=ui.background)
@@ -332,13 +332,22 @@ class GamesPanel(tk.Frame, GamesUiIf):
 
     def _game_card(self, parent: tk.Misc, game: GameUiState) -> tk.Frame:
         ui = self._theme.ui
-        card = tk.Frame(parent, bg=ui.surface, highlightthickness=1, highlightbackground=ui.border)
-        card.grid_columnconfigure(1, weight=1)
+        card = tk.Frame(
+            parent,
+            bg=ui.surface,
+            highlightthickness=1,
+            highlightbackground=ui.border,
+        )
+        card.grid_columnconfigure(0, minsize=70)
+        card.grid_columnconfigure(1, weight=1, minsize=150)
+        card.grid_columnconfigure(2, minsize=108)
+
         label, command, accent = self._action_for(game)
         actionable = command is not None
         icon = self._icon_for(game)
-        icon_box = tk.Frame(card, bg=ui.surface, width=64, height=56)
-        icon_box.grid(row=0, column=0, rowspan=3, padx=(10, 3), pady=5)
+
+        icon_box = tk.Frame(card, bg=ui.surface, width=58, height=56)
+        icon_box.grid(row=0, column=0, rowspan=3, padx=(8, 2), pady=5)
         icon_box.grid_propagate(False)
         icon_label = tk.Label(icon_box, bg=ui.surface)
         if icon is not None:
@@ -346,30 +355,43 @@ class GamesPanel(tk.Frame, GamesUiIf):
         else:
             icon_label.configure(text="◈", fg=accent, font=("Sans", 25, "bold"))
         icon_label.place(relx=0.5, rely=0.5, anchor="center")
-        available = game.status in (GameStatus.READY, GameStatus.INSTALLING, GameStatus.RUNNING)
-        tk.Label(
+
+        available = game.status in (
+            GameStatus.READY,
+            GameStatus.INSTALLING,
+            GameStatus.RUNNING,
+        )
+        name_label = tk.Label(
             card,
             text=game.name,
             fg=ui.text if actionable or available else ui.text_muted,
             bg=ui.surface,
             font=("Sans", 18, "bold"),
-        ).grid(row=0, column=1, sticky="sw", padx=6, pady=(5, 0))
-        tk.Label(
+            anchor="w",
+        )
+        name_label.grid(row=0, column=1, sticky="ew", padx=(4, 6), pady=(5, 0))
+
+        description_label = tk.Label(
             card,
             text=game.description,
             fg=ui.text_muted,
             bg=ui.surface,
             font=("Sans", 15),
-            anchor="w",
-        ).grid(row=1, column=1, sticky="ew", padx=6)
+            anchor="nw",
+            justify=tk.LEFT,
+        )
+        description_label.grid(row=1, column=1, sticky="nsew", padx=(4, 6))
+
         tk.Label(
             card,
             text=game.status.name,
             fg=accent,
             bg=ui.surface,
             font=("Sans", 14, "bold"),
-        ).grid(row=2, column=1, sticky="nw", padx=6, pady=(1, 5))
-        tk.Button(
+            anchor="w",
+        ).grid(row=2, column=1, sticky="ew", padx=(4, 6), pady=(1, 5))
+
+        action = tk.Button(
             card,
             text=label,
             command=command,
@@ -378,16 +400,33 @@ class GamesPanel(tk.Frame, GamesUiIf):
             fg=accent,
             activebackground=ui.control_active,
             activeforeground="#ffffff",
-            disabledforeground=accent if game.status in (GameStatus.CHECKING, GameStatus.INSTALLING) else ui.text_muted,
+            disabledforeground=(
+                accent
+                if game.status in (GameStatus.CHECKING, GameStatus.INSTALLING)
+                else ui.text_muted
+            ),
             relief=tk.FLAT,
             highlightthickness=1,
             highlightbackground=accent if actionable else ui.border,
             font=("Sans", 14, "bold"),
-            width=11,
-            padx=5,
+            padx=12,
             pady=5,
             cursor="hand2" if actionable else "",
-        ).grid(row=0, column=2, rowspan=3, padx=10, pady=9, sticky="e")
+        )
+        action.grid(
+            row=0,
+            column=2,
+            rowspan=3,
+            padx=(4, 8),
+            pady=9,
+            sticky="ew",
+        )
+
+        def wrap_text(event: tk.Event) -> None:
+            available_width = max(120, event.width - 70 - 108 - 30)
+            description_label.configure(wraplength=available_width)
+
+        card.bind("<Configure>", wrap_text)
         return card
 
     def _action_for(self, game: GameUiState) -> tuple[str, Callable[[], None] | None, str]:
