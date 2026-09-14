@@ -49,9 +49,13 @@ class ManagedRadioApplicationService:
         self._fullscreen = fullscreen
 
     def present(self) -> None:
-        # A preloaded SDR++ window must remain hidden until the X11 embedder
-        # reparents it. Mapping it here creates a competing top-level window.
-        if self._manager.is_running(self.APP_KEY) and not self._fullscreen:
+        # Embedded SDR++ must never be presented as a normal top-level window.
+        # Start it directly and let RadioPanel reparent the X11 client once it
+        # appears. AppRuntimeManager.show() intentionally marks/maps windowed
+        # applications, which is correct for standalone mode but wrong here.
+        if not self._fullscreen:
+            if not self._manager.is_running(self.APP_KEY):
+                self._launcher.launch(self._manager.display_for(self.APP_KEY))
             return
         self._manager.show(self.APP_KEY)
 
