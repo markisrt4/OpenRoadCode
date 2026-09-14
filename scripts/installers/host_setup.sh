@@ -158,6 +158,15 @@ append_feature() {
   [[ " ${FEATURES[*]} " == *" $feature "* ]] || FEATURES+=("$feature")
 }
 
+persist_host_target() {
+  local target="$1"
+  local config_home="${XDG_CONFIG_HOME:-$HOME/.config}"
+  local config_dir="$config_home/openroadcode"
+  mkdir -p "$config_dir"
+  printf 'target = "%s"\n' "$target" > "$config_dir/host.toml"
+  echo "[*] Persisted OpenRoadCode host target: $target"
+}
+
 while (( $# > 0 )); do
   case "$1" in
     --target) shift; (( $# > 0 )) || { echo "[!] --target requires a value" >&2; exit 1; }; TARGET="$1" ;;
@@ -260,6 +269,8 @@ if [[ -n "$BLUETOOTH_SPP_ADDRESS" ]]; then
 fi
 
 if (( SHOW_PLAN )); then echo "[*] Plan only; no system changes were made."; exit 0; fi
+
+persist_host_target "$TARGET"
 
 if [[ "$TARGET" == "termux" ]]; then
   if (( ! SKIP_INSTALLS )); then
