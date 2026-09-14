@@ -6,7 +6,6 @@ import os
 import signal
 import tkinter as tk
 from collections.abc import Callable
-from datetime import datetime
 from .context_rail import ContextRail
 from apps.orcUi.core_runtime import MapRuntimeIf
 from .home_map_panel import HomeMapPanel
@@ -91,7 +90,6 @@ class OrcUiApp(VolumeUiIf):
         self._screen_status = ""
         self._home_radio_factory: Callable[[tk.Misc], tk.Widget] | None = None
         self._home_media_factory: Callable[[tk.Misc], tk.Widget] | None = None
-        self._clock_after_id: str | None = None
         self._content: tk.Frame
         self._context_rail: ContextRail | None = None
         self._home_map_panel: HomeMapPanel | None = None
@@ -113,7 +111,6 @@ class OrcUiApp(VolumeUiIf):
         )
         self._map_runtime.set_theme(self._theme_mode)
         self._build_shell()
-        self._update_clock()
     @property
     def theme_mode(self) -> ThemeMode:
         return self._theme_mode
@@ -267,6 +264,8 @@ class OrcUiApp(VolumeUiIf):
         if active_screen is not None:
             active_screen.hide()
         self._map_runtime.stop()
+        if self._shell is not None:
+            self._shell.close()
         try:
             self._root.destroy()
         except tk.TclError:
@@ -499,15 +498,3 @@ class OrcUiApp(VolumeUiIf):
     def _show_placeholder(self, name: str) -> None:
         self._clear_content()
         build_placeholder(self._content, name, theme=self._theme)
-    def _paint_clock(self) -> None:
-        if self._closing:
-            return
-        text = datetime.now().strftime("%I:%M %p     %a, %b %d").lstrip("0")
-        if self._shell is not None:
-            self._shell.set_clock_text(text)
-    def _update_clock(self) -> None:
-        if self._closing:
-            return
-        self._clock_after_id = None
-        self._paint_clock()
-        self._clock_after_id = self._root.after(1000, self._update_clock)
