@@ -12,6 +12,7 @@ from collections.abc import Callable
 from apps.orcUi.theme_runtime import theme_bundle as packaged_theme_bundle
 from ui.navigation import MapRequestHandlerIf
 from ui.theme import ThemeBundle, ThemeMode
+from .shell_metrics import FONT_CONTROL, FONT_SMALL, FONT_TINY
 
 
 class NavigationPanel(tk.Frame):
@@ -77,7 +78,7 @@ class NavigationPanel(tk.Frame):
         bar = tk.Frame(
             self,
             bg=ui.surface_alt,
-            height=38,
+            height=46,
             highlightthickness=1,
             highlightbackground=ui.border,
         )
@@ -105,7 +106,7 @@ class NavigationPanel(tk.Frame):
                 relief=tk.FLAT,
                 highlightthickness=1,
                 highlightbackground=ui.border,
-                font=("Sans", 8, "bold"),
+                font=("Sans", FONT_CONTROL, "bold"),
                 width=9,
                 height=1,
                 padx=3,
@@ -117,7 +118,7 @@ class NavigationPanel(tk.Frame):
             textvariable=self._shortcut_status,
             bg=ui.surface_alt,
             fg=ui.text_muted,
-            font=("Sans", 7),
+            font=("Sans", FONT_SMALL),
             anchor="e",
         ).pack(side=tk.RIGHT, padx=7)
 
@@ -137,7 +138,7 @@ class NavigationPanel(tk.Frame):
         controls = tk.Frame(
             body,
             bg=ui.surface_alt,
-            width=62,
+            width=74,
             highlightthickness=1,
             highlightbackground=ui.border,
         )
@@ -172,7 +173,7 @@ class NavigationPanel(tk.Frame):
                 relief=tk.FLAT,
                 highlightthickness=1,
                 highlightbackground=ui.border,
-                font=("Sans", 9, "bold"),
+                font=("Sans", FONT_CONTROL + 1, "bold"),
                 width=1,
                 height=1,
                 padx=2,
@@ -198,7 +199,7 @@ class NavigationPanel(tk.Frame):
             text="ZOOM\nTILT\nNORTH\nCENTER",
             bg=ui.surface_alt,
             fg=ui.text_muted,
-            font=("Sans", 6),
+            font=("Sans", FONT_TINY),
             justify=tk.CENTER,
         ).pack(side=tk.BOTTOM, pady=5)
 
@@ -221,7 +222,7 @@ class NavigationPanel(tk.Frame):
             relief=tk.FLAT,
             highlightthickness=1,
             highlightbackground=ui.border,
-            font=("Sans", 11, "bold"),
+            font=("Sans", FONT_CONTROL + 2, "bold"),
             height=1,
         )
 
