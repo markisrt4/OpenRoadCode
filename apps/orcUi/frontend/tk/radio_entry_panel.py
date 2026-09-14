@@ -9,6 +9,7 @@ import threading
 import tkinter as tk
 from collections.abc import Callable
 
+from apps.orcUi.adapters.adsb_control import OrcUiAdsbControl
 from apps.orcUi.radio_application_service import RadioApplicationServiceIf
 from apps.orcUi.frontend.tk.radio_panel import RadioPanel
 from controllers.radio.streaming_radio_controller import StreamingRadioController
@@ -31,6 +32,7 @@ class LaunchAwareRadioPanel(RadioPanel):
         theme: ThemeBundle,
         rf_active: Callable[[], bool] | None = None,
         release_rf: Callable[[], None] | None = None,
+        adsb_control: OrcUiAdsbControl | None = None,
     ) -> None:
         super().__init__(
             parent,
@@ -38,6 +40,7 @@ class LaunchAwareRadioPanel(RadioPanel):
             theme=theme,
             rf_active=rf_active,
             release_rf=release_rf,
+            adsb_control=adsb_control,
         )
         self._launch_status = tk.Label(
             self._host,
@@ -77,11 +80,13 @@ class RadioEntryPanel(tk.Frame):
         favorites: StreamingRadioFavorites,
         theme: ThemeBundle,
         embedder: X11WindowEmbedder | None = None,
+        adsb_control: OrcUiAdsbControl | None = None,
     ) -> None:
         self._theme = theme
         ui = theme.ui
         super().__init__(parent, bg=ui.background)
         self._embedder = embedder or X11WindowEmbedder()
+        self._adsb_control = adsb_control or OrcUiAdsbControl()
         self._radio_application = radio_application
         self._streaming_radio = streaming_radio
         self._directory = directory
@@ -132,6 +137,7 @@ class RadioEntryPanel(tk.Frame):
                 theme=self._theme,
                 rf_active=lambda: self._radio_application.presented,
                 release_rf=self._radio_application.relinquish_for_adsb,
+                adsb_control=self._adsb_control,
             )
             self._radio_panel.grid(row=0, column=0, sticky="nsew")
             self._radio_panel.hide_loading()
