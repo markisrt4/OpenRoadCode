@@ -18,7 +18,7 @@ from frontends.tk.automotive import FuelLevelGauge
 from frontends.tk.automotive.vehicle_gauge_theme import vehicle_gauge_theme_from_style_sheet
 from frontends.tk.automotive.vehicle_gauge_widgets import LinearGauge, RoundGauge
 from ui.theme import ThemeBundle, ThemeMode
-from .shell_metrics import CONTEXT_RAIL_WIDTH, FONT_CONTROL
+from .shell_metrics import CONTEXT_RAIL_WIDTH, FONT_BODY, FONT_CONTROL, FONT_SMALL
 
 
 @dataclass(frozen=True)
@@ -187,7 +187,7 @@ class ContextRail(tk.Frame):
                 text="●" if index == self._page_index else "·",
                 fg=page.accent if index == self._page_index else ui.text_muted,
                 bg=ui.surface,
-                font=("Sans", 9),
+                font=("Sans", FONT_SMALL),
             ).pack(side=tk.LEFT, padx=2)
 
     def _build_vehicle(self, parent: tk.Frame) -> None:
@@ -271,7 +271,7 @@ class ContextRail(tk.Frame):
         coolant.grid(row=0, column=0, sticky="nsew", padx=(0, 4))
         gear = self._card(status)
         gear.grid(row=0, column=1, sticky="nsew", padx=(4, 0))
-        tk.Label(gear, text="GEAR", fg=ui.text_muted, bg=ui.surface, font=("Sans", 7, "bold")).pack(
+        tk.Label(gear, text="GEAR", fg=ui.text_muted, bg=ui.surface, font=("Sans", FONT_SMALL, "bold")).pack(
             padx=10, pady=(4, 0)
         )
         self._gear_value_label = tk.Label(
@@ -300,10 +300,10 @@ class ContextRail(tk.Frame):
         cell.grid(row=row, column=column, sticky="nsew", padx=padx, pady=pady)
         label = tk.Frame(cell, bg=ui.surface)
         label.pack(side=tk.BOTTOM, fill=tk.X, pady=(0, 1))
-        tk.Label(label, text=title, fg=ui.text, bg=ui.surface, font=("Sans", 8, "bold")).pack(
+        tk.Label(label, text=title, fg=ui.text, bg=ui.surface, font=("Sans", FONT_CONTROL, "bold")).pack(
             side=tk.LEFT, expand=True, anchor="e"
         )
-        tk.Label(label, text=unit, fg=ui.text_muted, bg=ui.surface, font=("Sans", 7)).pack(
+        tk.Label(label, text=unit, fg=ui.text_muted, bg=ui.surface, font=("Sans", FONT_SMALL)).pack(
             side=tk.LEFT, expand=True, anchor="w", padx=(4, 0)
         )
         return cell
@@ -399,7 +399,7 @@ class ContextRail(tk.Frame):
                 text=label,
                 fg=ui.text_muted,
                 bg=ui.surface,
-                font=("Sans", 9),
+                font=("Sans", FONT_SMALL),
                 anchor="w",
             ).grid(row=row, column=0, sticky="w", padx=(2, 4), pady=3)
             value = tk.Label(
@@ -407,7 +407,7 @@ class ContextRail(tk.Frame):
                 text="--",
                 fg=ui.text,
                 bg=ui.surface,
-                font=("Sans", 12, "bold"),
+                font=("Sans", FONT_BODY + 2, "bold"),
                 anchor="e",
             )
             value.grid(row=row, column=1, sticky="e", padx=4, pady=3)
@@ -418,6 +418,6 @@ class ContextRail(tk.Frame):
                 text=unit,
                 fg=ui.text_muted,
                 bg=ui.surface,
-                font=("Sans", 8),
+                font=("Sans", FONT_SMALL),
                 anchor="w",
             ).grid(row=row, column=2, sticky="w", padx=(0, 2), pady=3)
