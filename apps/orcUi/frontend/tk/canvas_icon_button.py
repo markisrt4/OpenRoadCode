@@ -28,6 +28,7 @@ class CanvasIconButton(tk.Canvas):
         self._icon = icon
         self._command = command
         self._pressed = False
+        self._hovered = False
         ui = theme.ui
         super().__init__(
             parent,
@@ -41,9 +42,14 @@ class CanvasIconButton(tk.Canvas):
         )
         self._width = width
         self._height = height
+        self.bind("<Enter>", self._on_enter)
         self.bind("<ButtonPress-1>", self._on_press)
         self.bind("<ButtonRelease-1>", self._on_release)
         self.bind("<Leave>", self._on_leave)
+        self._paint()
+
+    def _on_enter(self, _event: tk.Event) -> None:
+        self._hovered = True
         self._paint()
 
     def _on_press(self, _event: tk.Event) -> None:
@@ -62,17 +68,25 @@ class CanvasIconButton(tk.Canvas):
             self._command()
 
     def _on_leave(self, _event: tk.Event) -> None:
-        if self._pressed:
-            self._pressed = False
-            self._paint()
+        self._hovered = False
+        self._pressed = False
+        self._paint()
 
     def _paint(self) -> None:
         ui = self._theme.ui
-        background = ui.control_active if self._pressed else ui.control_background
-        self.configure(bg=background, highlightbackground=ui.border)
+        background = (
+            ui.control_active
+            if self._pressed
+            else ui.surface_alt if self._hovered
+            else ui.control_background
+        )
+        border = ui.accent_danger if self._icon == "power" and self._hovered else ui.border
+        self.configure(bg=background, highlightbackground=border)
         self.delete("all")
         if self._icon == "power":
-            self._draw_power(ui.control_text)
+            self._draw_power(
+                ui.accent_danger if self._hovered or self._pressed else ui.control_text
+            )
         elif self._icon == "external":
             self._draw_external(ui.control_text)
         else:
@@ -80,27 +94,37 @@ class CanvasIconButton(tk.Canvas):
 
     def _draw_power(self, color: str) -> None:
         cx = self._width / 2
-        cy = self._height / 2 + 1
-        radius = min(self._width, self._height) * 0.27
+        cy = self._height / 2 + 2
+        radius = min(self._width, self._height) * 0.29
         self.create_arc(
             cx - radius,
             cy - radius,
             cx + radius,
             cy + radius,
-            start=45,
-            extent=270,
+            start=38,
+            extent=284,
             style=tk.ARC,
             outline=color,
             width=3,
         )
+        stem_top = cy - radius - 5
+        stem_bottom = cy - 1
         self.create_line(
             cx,
-            cy - radius - 4,
+            stem_top,
             cx,
-            cy + 1,
+            stem_bottom,
             fill=color,
-            width=3,
+            width=4,
             capstyle=tk.ROUND,
+        )
+        self.create_oval(
+            cx - 2,
+            stem_top - 2,
+            cx + 2,
+            stem_top + 2,
+            fill=color,
+            outline=color,
         )
 
     def _draw_external(self, color: str) -> None:
