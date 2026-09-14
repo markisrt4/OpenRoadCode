@@ -71,7 +71,7 @@ class MediaScreen(TkScreen):
             text="Music, video, and streaming",
             bg=theme.background,
             fg=theme.text_muted,
-            font=("Sans", 10),
+            font=("Sans", 13),
         ).pack(anchor="w")
 
         grid = tk.Frame(root, bg=theme.background)
@@ -168,14 +168,14 @@ class MediaScreen(TkScreen):
             text=title,
             bg=theme.surface,
             fg=title_fg,
-            font=("Sans", 16, "bold"),
+            font=("Sans", 18, "bold"),
         ).pack(anchor="w")
         tk.Label(
             identity,
             text=category,
             bg=theme.surface,
             fg=accent,
-            font=("Sans", 8, "bold"),
+            font=("Sans", 10, "bold"),
         ).pack(anchor="w", pady=(2, 0))
 
         if feature == "youtube":
@@ -188,7 +188,7 @@ class MediaScreen(TkScreen):
             text=subtitle,
             bg=theme.surface,
             fg=theme.text,
-            font=("Sans", 12, "bold"),
+            font=("Sans", 14, "bold"),
         ).pack(anchor="w", pady=(16, 5))
         tk.Label(
             body,
@@ -211,7 +211,7 @@ class MediaScreen(TkScreen):
                 activeforeground="#FFFFFF",
                 relief=tk.FLAT,
                 bd=0,
-                font=("Sans", 9, "bold"),
+                font=("Sans", 11, "bold"),
                 padx=12,
                 pady=9,
                 cursor="hand2",
@@ -265,7 +265,7 @@ class MediaScreen(TkScreen):
             text="CINEMA",
             bg=theme.surface_alt,
             fg=theme.text_muted,
-            font=("Sans", 9, "bold"),
+            font=("Sans", 11, "bold"),
         ).pack(side=tk.LEFT)
 
     def _spotify_card_actions(self, card: tk.Frame) -> None:
@@ -285,7 +285,7 @@ class MediaScreen(TkScreen):
             activeforeground="#FFFFFF",
             relief=tk.FLAT,
             bd=0,
-            font=("Sans", 9, "bold"),
+            font=("Sans", 11, "bold"),
             pady=9,
         ).grid(row=0, column=0, sticky="ew", padx=(0, 3))
         tk.Button(
@@ -299,7 +299,7 @@ class MediaScreen(TkScreen):
             disabledforeground=theme.text_muted,
             relief=tk.FLAT,
             bd=0,
-            font=("Sans", 9, "bold"),
+            font=("Sans", 11, "bold"),
             pady=9,
             state=tk.NORMAL if self._spotify_local_available() else tk.DISABLED,
         ).grid(row=0, column=1, sticky="ew", padx=(3, 0))
