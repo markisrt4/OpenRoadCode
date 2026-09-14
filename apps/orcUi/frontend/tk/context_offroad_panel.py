@@ -11,6 +11,7 @@ import tkinter as tk
 from apps.orcUi.navigation_presenter import AttitudePresentationState, PositionPresentationState
 from apps.orcUi.vehicle_presenter import VehiclePresentationState
 from ui.theme import ThemeBundle
+from .shell_metrics import FONT_BODY, FONT_CONTROL, FONT_SMALL
 
 
 class ContextOffroadPanel(tk.Frame):
@@ -66,13 +67,13 @@ class ContextOffroadPanel(tk.Frame):
         )
         self._value_labels["fix"].grid(row=0, column=1, sticky="w", pady=5)
         self._value_labels["accuracy"] = tk.Label(
-            status, text="± -- m", fg=ui.text_muted, bg=ui.surface, font=("Sans", 9, "bold")
+            status, text="± -- m", fg=ui.text_muted, bg=ui.surface, font=("Sans", FONT_SMALL, "bold")
         )
         self._value_labels["accuracy"].grid(row=0, column=2, padx=(4, 8), pady=5)
 
         heading_card = self._card()
         heading_card.grid(row=1, column=0, sticky="nsew", padx=(0, 3), pady=(0, 6))
-        tk.Label(heading_card, text="HEADING", fg=ui.accent_warning, bg=ui.surface, font=("Sans", 7, "bold")).pack(
+        tk.Label(heading_card, text="HEADING", fg=ui.accent_warning, bg=ui.surface, font=("Sans", FONT_SMALL, "bold")).pack(
             pady=(5, 0)
         )
         self._heading_canvas = tk.Canvas(
@@ -80,13 +81,13 @@ class ContextOffroadPanel(tk.Frame):
         )
         self._heading_canvas.pack(fill=tk.BOTH, expand=True, padx=4)
         self._value_labels["heading"] = tk.Label(
-            heading_card, text="--", fg=ui.text, bg=ui.surface, font=("Sans", 13, "bold")
+            heading_card, text="--", fg=ui.text, bg=ui.surface, font=("Sans", FONT_BODY + 2, "bold")
         )
         self._value_labels["heading"].pack(pady=(0, 5))
 
         attitude_card = self._card()
         attitude_card.grid(row=1, column=1, sticky="nsew", padx=(3, 0), pady=(0, 6))
-        tk.Label(attitude_card, text="ATTITUDE", fg=ui.accent_primary, bg=ui.surface, font=("Sans", 7, "bold")).pack(
+        tk.Label(attitude_card, text="ATTITUDE", fg=ui.accent_primary, bg=ui.surface, font=("Sans", FONT_SMALL, "bold")).pack(
             pady=(5, 0)
         )
         self._attitude_canvas = tk.Canvas(
@@ -108,7 +109,7 @@ class ContextOffroadPanel(tk.Frame):
         footer.grid(row=3, column=0, columnspan=2, sticky="ew")
         footer.grid_columnconfigure(0, weight=1)
         self._value_labels["coordinates"] = tk.Label(
-            footer, text="--", fg=ui.text, bg=ui.surface, font=("Monospace", 8, "bold"), anchor="w"
+            footer, text="--", fg=ui.text, bg=ui.surface, font=("Monospace", FONT_SMALL, "bold"), anchor="w"
         )
         self._value_labels["coordinates"].grid(row=0, column=0, sticky="ew", padx=(8, 4), pady=6)
         self._value_labels["satellites"] = tk.Label(
@@ -124,22 +125,22 @@ class ContextOffroadPanel(tk.Frame):
         ui = self._theme.ui
         holder = tk.Frame(parent, bg=ui.surface)
         holder.pack(side=side, padx=7)
-        tk.Label(holder, text=prefix, fg=ui.text_muted, bg=ui.surface, font=("Sans", 7, "bold")).pack(
+        tk.Label(holder, text=prefix, fg=ui.text_muted, bg=ui.surface, font=("Sans", FONT_SMALL, "bold")).pack(
             side=tk.LEFT, padx=(0, 2)
         )
-        value = tk.Label(holder, text="--", fg=ui.text, bg=ui.surface, font=("Sans", 9, "bold"))
+        value = tk.Label(holder, text="--", fg=ui.text, bg=ui.surface, font=("Sans", FONT_SMALL, "bold"))
         value.pack(side=tk.LEFT)
         return value
 
     def _metric_card(self, title: str, key: str, unit: str) -> tk.Frame:
         ui = self._theme.ui
         card = self._card()
-        tk.Label(card, text=title, fg=ui.text_muted, bg=ui.surface, font=("Sans", 7, "bold")).pack(pady=(5, 0))
+        tk.Label(card, text=title, fg=ui.text_muted, bg=ui.surface, font=("Sans", FONT_SMALL, "bold")).pack(pady=(5, 0))
         row = tk.Frame(card, bg=ui.surface)
         row.pack(pady=(0, 5))
-        value = tk.Label(row, text="--", fg=ui.text, bg=ui.surface, font=("Sans", 15, "bold"))
+        value = tk.Label(row, text="--", fg=ui.text, bg=ui.surface, font=("Sans", FONT_BODY + 4, "bold"))
         value.pack(side=tk.LEFT)
-        tk.Label(row, text=unit, fg=ui.text_muted, bg=ui.surface, font=("Sans", 7)).pack(
+        tk.Label(row, text=unit, fg=ui.text_muted, bg=ui.surface, font=("Sans", FONT_SMALL)).pack(
             side=tk.LEFT, padx=(3, 0), pady=(6, 0)
         )
         self._value_labels[key] = value
@@ -189,7 +190,7 @@ class ContextOffroadPanel(tk.Frame):
             canvas.create_text(
                 cx + radius * 0.72 * math.cos(angle), cy + radius * 0.72 * math.sin(angle),
                 text=label, fill=ui.accent_warning if label == "N" else ui.text_muted,
-                font=("Sans", 7, "bold"),
+                font=("Sans", FONT_SMALL, "bold"),
             )
         if heading is None:
             return
