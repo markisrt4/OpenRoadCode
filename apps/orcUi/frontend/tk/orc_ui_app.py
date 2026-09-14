@@ -374,9 +374,8 @@ class OrcUiApp(VolumeUiIf):
         self._aircraft_button = tk.Button(bar, command=self._show_aircraft, bg=ui.control_background, fg=ui.text_muted, activebackground=ui.control_active, activeforeground="#ffffff", relief=tk.FLAT, highlightthickness=1, highlightbackground=ui.border, font=("Sans", 9, "bold"))
         self._aircraft_button.grid(row=0, column=2, sticky="nsew", padx=3)
         tk.Button(bar, text="⚙  SETTINGS", command=lambda: self.navigate_to("SETTINGS"), bg=ui.control_background, fg=ui.control_text, activebackground=ui.control_active, activeforeground="#ffffff", relief=tk.FLAT, highlightthickness=1, highlightbackground=ui.border, font=("Sans", 9, "bold")).grid(row=0, column=3, sticky="nsew", padx=3)
-        tk.Button(bar, text="☀  LIGHT", command=lambda: self.navigate_to("LIGHTING"), bg=ui.control_background, fg=ui.control_text, activebackground=ui.control_active, activeforeground="#ffffff", relief=tk.FLAT, highlightthickness=1, highlightbackground=ui.border, font=("Sans", 9, "bold")).grid(row=0, column=4, sticky="nsew", padx=3)
         self._theme_button = tk.Button(bar, text=toggle_label(self._theme_mode), command=self._toggle_theme, bg=ui.control_background, fg=ui.control_text, activebackground=ui.control_active, activeforeground="#ffffff", relief=tk.FLAT, highlightthickness=1, highlightbackground=ui.border, font=("Sans", 9, "bold"))
-        self._theme_button.grid(row=0, column=5, sticky="nsew", padx=3)
+        self._theme_button.grid(row=0, column=4, columnspan=2, sticky="nsew", padx=3)
         self._paint_adsb_controls()
     def set_adsb_handlers(
         self,
@@ -416,7 +415,7 @@ class OrcUiApp(VolumeUiIf):
             fg=ui.accent_success if enabled else ui.control_text,
         )
         self._aircraft_button.configure(
-            text=f"AIRCRAFT {self._aircraft_count}" if enabled else "AIRCRAFT --",
+            text=f"▣  AIRCRAFT {self._aircraft_count}" if enabled else "▣  AIRCRAFT --",
             state=tk.NORMAL if enabled else tk.DISABLED,
             fg=ui.control_text if enabled else ui.text_muted,
         )
