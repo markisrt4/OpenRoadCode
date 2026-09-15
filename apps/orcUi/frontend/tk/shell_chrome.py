@@ -9,7 +9,6 @@ import tkinter as tk
 from collections.abc import Callable
 
 from ui.theme import ThemeBundle
-from .canvas_icon_button import CanvasIconButton
 from .shell_metrics import (
     FONT_BRAND,
     FONT_CLOCK,
@@ -85,46 +84,37 @@ def build_top_bar(
         bg=ui.surface_alt,
         font=("Sans", FONT_STATUS),
     ).pack(side=tk.LEFT, padx=(0, 10))
-    CanvasIconButton(
+    tk.Button(
         status,
-        theme=theme,
-        icon="power",
+        text="⏻",
         command=on_power,
-        width=46,
-        height=38,
+        bg=ui.control_background,
+        fg=ui.control_text,
+        activebackground=ui.control_active,
+        activeforeground=ui.accent_danger,
+        relief=tk.FLAT,
+        bd=0,
+        width=3,
+        font=("Sans", FONT_POWER, "bold"),
+        cursor="hand2",
     ).pack(side=tk.LEFT)
     return clock
 
 
 def build_footer(root: tk.Misc, *, theme: ThemeBundle) -> None:
-    """Build the persistent status footer."""
+    """Build the persistent service-status footer."""
     ui = theme.ui
     footer = tk.Frame(root, bg=ui.surface_alt, height=FOOTER_HEIGHT)
     footer.grid(row=3, column=0, columnspan=2, sticky="ew")
     footer.grid_propagate(False)
-    footer.grid_rowconfigure(0, weight=1)
-    footer.grid_columnconfigure(1, weight=1)
-    tk.Label(
-        footer,
-        text="OpenRoadCode",
-        fg=ui.text_muted,
-        bg=ui.surface_alt,
-        font=("Sans", FONT_SMALL),
-    ).grid(row=0, column=0, padx=10, pady=2)
+    footer.grid_columnconfigure(0, weight=1)
     tk.Label(
         footer,
         text="GPS --   |   ADS-B --   |   RF --   |   OBD --",
         fg=ui.text_muted,
         bg=ui.surface_alt,
         font=("Sans", FONT_SMALL),
-    ).grid(row=0, column=1, pady=2)
-    tk.Label(
-        footer,
-        text="1280×720",
-        fg=ui.text_muted,
-        bg=ui.surface_alt,
-        font=("Sans", FONT_SMALL),
-    ).grid(row=0, column=2, padx=10, pady=2)
+    ).grid(row=0, column=0, pady=2)
 
 
 def _build_logo_mark(parent: tk.Misc, theme: ThemeBundle) -> None:
