@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import tkinter as tk
 
-from apps.orcUi.trip_presenter import TripPresentationState
 from apps.orcUi.vehicle_presenter import VehiclePresentationState
 from controllers.automotive import (
     EngineAnalysis,
@@ -51,13 +50,11 @@ class EcuPanel(tk.Frame):
         theme: ThemeBundle,
         vehicle_configuration: VehicleConfiguration,
         vehicle_state: VehiclePresentationState,
-        trip_state: TripPresentationState,
         engine_analysis: EngineAnalysis,
     ) -> None:
         self._theme = theme
         self._vehicle_configuration = vehicle_configuration
         self._vehicle_state = vehicle_state
-        self._trip_state = trip_state
         self._analysis = engine_analysis
         self._labels: dict[str, tk.Label] = {}
         self._canvases: dict[str, tk.Canvas] = {}
@@ -68,10 +65,6 @@ class EcuPanel(tk.Frame):
 
     def update_vehicle(self, state: VehiclePresentationState) -> None:
         self._vehicle_state = state
-        self._paint()
-
-    def update_trip(self, state: TripPresentationState) -> None:
-        self._trip_state = state
         self._paint()
 
     def update_analysis(self, analysis: EngineAnalysis) -> None:
@@ -122,7 +115,7 @@ class EcuPanel(tk.Frame):
             (0, 0, "FUEL CONTROL", ui.accent_warning, "fuel"),
             (0, 1, "MIXTURE", ui.accent_primary, "mixture"),
             (1, 0, "ENGINE LOAD", ui.accent_danger, "load"),
-            (1, 1, "INSTANT ECONOMY", ui.accent_success, "economy"),
+            (1, 1, "IGNITION", ui.accent_success, "ignition"),
         )
         for row, column, title, accent, key in specs:
             card = self._card(grid, title, accent)
@@ -198,7 +191,7 @@ class EcuPanel(tk.Frame):
             text="--",
             fg=ui.text,
             bg=ui.surface,
-            font=("Sans", 18 if key != "economy" else 26, "bold"),
+            font=("Sans", 18, "bold"),
             anchor="w",
         )
         primary.grid(row=2, column=0, sticky="ew", padx=14)
@@ -264,7 +257,6 @@ class EcuPanel(tk.Frame):
             EngineLoadLevel.UNKNOWN: "--",
         }[analysis.load_level]
 
-        economy = self._trip_state.instantaneous_economy_mpg
         fuel_fault_flag = analysis.fuel_control_mode in {
             FuelControlMode.OPEN_LOOP_FAULT,
             FuelControlMode.CLOSED_LOOP_FAULT,
@@ -286,8 +278,12 @@ class EcuPanel(tk.Frame):
                 if analysis.forced_induction_active is True
                 else "ENGINE DEMAND"
             ),
-            "economy_primary": "-- MPG" if economy is None else f"{economy:.1f} MPG",
-            "economy_secondary": "LIVE FUEL ECONOMY",
+            "ignition_primary": (
+                "--"
+                if state.ignition_timing_advance_deg is None
+                else f"{state.ignition_timing_advance_deg:.1f}°"
+            ),
+            "ignition_secondary": "TIMING ADVANCE",
             "operating_mode": analysis.operating_mode.value.replace("_", " ").upper(),
         }
         for key, text in values.items():
@@ -328,7 +324,7 @@ class EcuPanel(tk.Frame):
         self._paint_fuel()
         self._paint_mixture()
         self._paint_load()
-        self._paint_economy()
+        self._paint_ignition()
 
     def _rail_geometry(self, canvas: tk.Canvas) -> tuple[float, float, float]:
         width = max(180, canvas.winfo_width())
@@ -443,23 +439,35 @@ class EcuPanel(tk.Frame):
             fill=ui.text, font=("Sans", FONT_SMALL, "bold"),
         )
 
-    def _paint_economy(self) -> None:
-        canvas = self._canvases.get("economy")
+    def _paint_ignition(self) -> None:
+        canvas = self._canvases.get("ignition")
         if canvas is None:
             return
         ui = self._theme.ui
-        economy = self._trip_state.instantaneous_economy_mpg
+        timing = self._vehicle_state.ignition_timing_advance_deg
         canvas.delete("all")
         x1, x2, y = self._rail_geometry(canvas)
-        canvas.create_text(x1, 9, anchor="w", text="0", fill=ui.text_muted, font=("Sans", FONT_SMALL))
-        canvas.create_text(x2, 9, anchor="e", text="50+ MPG", fill=ui.text_muted, font=("Sans", FONT_SMALL))
-        canvas.create_line(x1, y, x2, y, fill=ui.border, width=6)
-        if economy is None:
+        canvas.create_text(x1, 9, anchor="w", text="-20°", fill=ui.text_muted, font=("Sans", FONT_SMALL))
+        canvas.create_text((x1 + x2) / 2, 9, text="0°", fill=ui.text_muted, font=("Sans", FONT_SMALL))
+        canvas.create_text(x2, 9, anchor="e", text="+60°", fill=ui.text_muted, font=("Sans", FONT_SMALL))
+        canvas.create_line(x1, y, x2, y, fill=ui.border, width=5)
+        zero_x = x1 + 0.25 * (x2 - x1)
+        canvas.create_line(zero_x, y - 11, zero_x, y + 11, fill=ui.text_muted, width=2)
+        if timing is None:
             return
-        fraction = max(0.0, min(1.0, economy / 50.0))
-        x = x1 + fraction * (x2 - x1)
-        canvas.create_line(x1, y, x, y, fill=ui.accent_success, width=6)
+        x = bounded_marker_x(
+            timing,
+            minimum=-20.0,
+            maximum=60.0,
+            rail_start=x1,
+            rail_end=x2,
+            radius=7.0,
+        )
         canvas.create_oval(
-            x - 6, y - 6, x + 6, y + 6,
+            x - 7, y - 7, x + 7, y + 7,
             fill=ui.accent_success, outline=ui.surface, width=2,
+        )
+        canvas.create_text(
+            x, y + 22, text=f"{timing:+.1f}°",
+            fill=ui.text, font=("Sans", FONT_SMALL, "bold"),
         )
