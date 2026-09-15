@@ -21,7 +21,7 @@ def test_simulated_obd_responses_produce_si_vehicle_state():
     assert state is not None
 
     assert state.engine_speed_rad_s == pytest.approx(3000.0 * 2.0 * math.pi / 60.0)
-    assert state.vehicle_speed_m_s == pytest.approx(100.0 / 3.6)
+    assert state.vehicle_speed_m_s is None
     assert state.throttle_position == pytest.approx(102.0 / 255.0)
     assert state.accelerator_pedal_position == pytest.approx(89.0 / 255.0)
     assert state.engine_load == pytest.approx(128.0 / 255.0)
@@ -50,7 +50,7 @@ def test_scheduler_updates_cached_values_over_multiple_reads():
     assert any(state.engine_speed_rad_s is not None for state in states)
     assert any(state.intake_manifold_pressure_pa is not None for state in states)
     assert any(state.throttle_position is not None for state in states)
-    assert any(state.vehicle_speed_m_s is not None for state in states)
+    assert all(state.vehicle_speed_m_s is None for state in states)
 
 
 
@@ -89,8 +89,7 @@ def test_dynamic_simulator_stays_inside_vehicle_ranges():
         adapter.advance()
         state = manager.read_state()
 
-        if state.vehicle_speed_m_s is not None:
-            assert state.vehicle_speed_m_s >= 0.0
+        assert state.vehicle_speed_m_s is None
         if state.throttle_position is not None:
             assert 0.0 <= state.throttle_position <= 1.0
         if state.accelerator_pedal_position is not None:
