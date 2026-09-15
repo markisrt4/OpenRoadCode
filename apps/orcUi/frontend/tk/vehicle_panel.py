@@ -36,7 +36,7 @@ from ui.theme import ThemeBundle, ThemeMode
 class VehiclePanel(tk.Frame):
     """ORC driving dashboard backed by reusable automotive instruments."""
 
-    _TABS = ("PERFORMANCE", "ENGINE", "ECU", "OFF-ROAD", "TRIP")
+    _TABS = ("PERFORMANCE", "HEALTH", "ECU", "OFF-ROAD", "TRIP")
 
     def __init__(
         self,
@@ -143,7 +143,7 @@ class VehiclePanel(tk.Frame):
 
         if name == "PERFORMANCE":
             self._show_performance()
-        elif name == "ENGINE":
+        elif name == "HEALTH":
             self._show_engine()
         elif name == "ECU":
             self._show_ecu()
@@ -161,7 +161,7 @@ class VehiclePanel(tk.Frame):
             return
         profile = {
             "PERFORMANCE": AutomotiveTelemetryProfile.PERFORMANCE,
-            "ENGINE": AutomotiveTelemetryProfile.ENGINE,
+            "HEALTH": AutomotiveTelemetryProfile.ENGINE,
             "ECU": AutomotiveTelemetryProfile.ECU,
             "TRIP": AutomotiveTelemetryProfile.TRIP,
             "OFF-ROAD": AutomotiveTelemetryProfile.BACKGROUND,
@@ -174,6 +174,7 @@ class VehiclePanel(tk.Frame):
             theme=self._theme_bundle,
             vehicle_configuration=self._vehicle_configuration,
             state=self._state,
+            trip_state=self._trip_state,
         )
         panel.grid(row=0, column=0, sticky="nsew", padx=6, pady=6)
         self._performance_panel = panel
@@ -266,8 +267,8 @@ class VehiclePanel(tk.Frame):
 
     def update_trip_state(self, state: TripPresentationState) -> None:
         self._trip_state = state
-        if self._ecu_panel is not None:
-            self._ecu_panel.update_trip(state)
+        if self._performance_panel is not None:
+            self._performance_panel.update_trip(state)
         if self._trip_panel is not None:
             self._trip_panel.update_state(state)
 
