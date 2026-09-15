@@ -206,7 +206,7 @@ class EcuPanel(tk.Frame):
         secondary.grid(row=3, column=0, sticky="ew", padx=14, pady=(0, 2))
         canvas = tk.Canvas(
             card,
-            height=78,
+            height=60,
             bg=ui.surface,
             highlightthickness=0,
             bd=0,
@@ -269,11 +269,11 @@ class EcuPanel(tk.Frame):
         )
         values = {
             "fuel_primary": fuel_mode,
-            "fuel_secondary": self._fuel_summary(fuel_secondary),
+            "fuel_secondary": fuel_secondary,
             "mixture_primary": mixture,
-            "mixture_secondary": self._mixture_summary(tracking),
+            "mixture_secondary": tracking,
             "load_primary": load,
-            "load_secondary": self._load_summary(),
+            "load_secondary": "ENGINE DEMAND",
             "ignition_primary": (
                 "--"
                 if state.ignition_timing_advance_deg is None
@@ -354,7 +354,7 @@ class EcuPanel(tk.Frame):
 
     def _rail_geometry(self, canvas: tk.Canvas) -> tuple[float, float, float]:
         width = max(180, canvas.winfo_width())
-        return 22.0, width - 22.0, 39.0
+        return 22.0, width - 22.0, 31.0
 
     def _paint_fuel(self) -> None:
         canvas = self._canvases.get("fuel")
@@ -370,7 +370,7 @@ class EcuPanel(tk.Frame):
             ("STFT", state.short_term_fuel_trim_percent, ui.accent_success),
             ("LTFT", state.long_term_fuel_trim_percent, ui.accent_primary),
         )):
-            y = 22.0 + row * 34.0
+            y = 17.0 + row * 27.0
             canvas.create_text(4, y, anchor="w", text=label, fill=ui.text_muted, font=("Sans", FONT_SMALL, "bold"))
             canvas.create_line(x1, y, x2, y, fill=ui.border, width=5)
             center = (x1 + x2) / 2.0
@@ -379,7 +379,7 @@ class EcuPanel(tk.Frame):
                 continue
             x = bounded_marker_x(value, minimum=-25.0, maximum=25.0, rail_start=x1, rail_end=x2, radius=6.0)
             canvas.create_oval(x - 6, y - 6, x + 6, y + 6, fill=color, outline=ui.surface, width=2)
-            canvas.create_text(x2, y - 11, anchor="e", text=f"{value:+.1f}%", fill=color, font=("Sans", FONT_SMALL, "bold"))
+            canvas.create_text(x2, y - 9, anchor="e", text=f"{value:+.1f}%", fill=color, font=("Sans", FONT_SMALL, "bold"))
 
     def _paint_mixture(self) -> None:
         canvas = self._canvases.get("mixture")
