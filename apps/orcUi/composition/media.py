@@ -23,6 +23,7 @@ from ui.theme import ThemeMode
 MUSIC_VIDEO_PORT = 8770
 MUSIC_VIDEO_WINDOW_CLASS = "OpenRoadCodeMusicVideo"
 YOUTUBE_WINDOW_CLASS = "openroadcode-youtube"
+YOUTUBE_MUSIC_WINDOW_CLASS = "openroadcode-youtube-music"
 NETFLIX_WINDOW_CLASS = "openroadcode-netflix"
 SPOTIFY_GREEN = "#1DB954"
 
@@ -94,6 +95,10 @@ def configure_media(app: OrcUiApp, runtime) -> MediaComposition:
         runtime.manager, "youtube", resolve_target=YouTubePlayer.resolve_target,
         preferred_color_scheme=browser_color_scheme,
     )
+    youtube_music_player = ManagedBrowserMediaPlayer(
+        runtime.manager, "youtube_music", resolve_target=YouTubePlayer.resolve_target,
+        preferred_color_scheme=browser_color_scheme,
+    )
     netflix_player = ManagedBrowserMediaPlayer(
         runtime.manager, "netflix", resolve_target=NetflixPlayer.validate_url,
         preferred_color_scheme=browser_color_scheme,
@@ -101,6 +106,12 @@ def configure_media(app: OrcUiApp, runtime) -> MediaComposition:
     youtube_screen = BrowserMediaScreen(
         "youtube", app, title="YouTube", player=youtube_player,
         default_target="https://www.youtube.com/", window_class=YOUTUBE_WINDOW_CLASS,
+        back_action=lambda: media_screen.show(), media_navigation_factory=media_navigation,
+        theme_bundle=lambda: theme_bundle(app.theme_mode),
+    )
+    youtube_music_screen = BrowserMediaScreen(
+        "youtube_music", app, title="YouTube Music", player=youtube_music_player,
+        default_target="https://music.youtube.com/", window_class=YOUTUBE_MUSIC_WINDOW_CLASS,
         back_action=lambda: media_screen.show(), media_navigation_factory=media_navigation,
         theme_bundle=lambda: theme_bundle(app.theme_mode),
     )
@@ -122,7 +133,8 @@ def configure_media(app: OrcUiApp, runtime) -> MediaComposition:
 
     media_screen = MediaScreen(
         app, theme_bundle=lambda: theme_bundle(app.theme_mode),
-        show_spotify=spotify_screen.show, show_youtube=youtube_screen.show, show_netflix=netflix_screen.show,
+        show_spotify=spotify_screen.show, show_youtube=youtube_screen.show,
+        show_youtube_music=youtube_music_screen.show, show_netflix=netflix_screen.show,
         show_spotify_remote=show_spotify_remote, show_spotify_local=show_spotify_local,
         spotify_local_available=lambda: media.spotify_local_player.state().available,
     )
