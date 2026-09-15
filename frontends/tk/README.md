@@ -70,11 +70,12 @@ The integrated cockpit UI is owned by `apps/orcUi/frontend/tk`. The shell is del
 
 - `shell_view.py`, `shell_chrome.py`, and `shell_content.py` own shell layout and chrome.
 - `side_nav.py` and `bottom_bar.py` own the persistent driver controls.
+- The footer carries subtle shell-owned breadcrumbs alongside service status, so feature panels do not spend vertical space repeating their location.
 - `screen_builders.py` assembles application-owned screens.
 - `presentation_state.py` keeps shell presentation state separate from widget construction.
 - Vehicle views are split into dedicated Performance, Health, ECU, Off-Road, and Trip panels.
 
-The target cockpit canvas is 1280x720, while the same shell must remain usable in the smaller effective viewport presented by Termux/X11. Persistent navigation and bottom controls therefore use shared metrics rather than screen-specific hard-coded sizing. New panels should fit inside the existing shell allocation rather than increasing the minimum window size.
+The target cockpit canvas is 1280x720, while the same shell must remain usable in the smaller effective viewport presented by Termux/X11. Persistent navigation and bottom controls therefore use shared metrics rather than screen-specific hard-coded sizing. New panels should fit inside the existing shell allocation rather than increasing the minimum window size. Breadcrumbs are derived from primary navigation plus the active screen/subview (for example `VEHICLE › ECU` or `MEDIA › SPOTIFY`) and belong to the shell rather than individual panel headers.
 
 ### Vehicle presentation
 
