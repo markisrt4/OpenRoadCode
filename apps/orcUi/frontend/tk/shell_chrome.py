@@ -101,20 +101,30 @@ def build_top_bar(
     return clock
 
 
-def build_footer(root: tk.Misc, *, theme: ThemeBundle) -> None:
-    """Build the persistent service-status footer."""
+def build_footer(root: tk.Misc, *, theme: ThemeBundle) -> tuple[tk.Label, tk.Label]:
+    """Build the persistent breadcrumb/service-status footer."""
     ui = theme.ui
     footer = tk.Frame(root, bg=ui.surface_alt, height=FOOTER_HEIGHT)
     footer.grid(row=3, column=0, columnspan=2, sticky="ew")
     footer.grid_propagate(False)
-    footer.grid_columnconfigure(0, weight=1)
-    tk.Label(
+    footer.grid_columnconfigure(1, weight=1)
+    breadcrumb = tk.Label(
+        footer,
+        text="HOME",
+        fg=ui.text_muted,
+        bg=ui.surface_alt,
+        font=("Sans", FONT_SMALL, "bold"),
+    )
+    breadcrumb.grid(row=0, column=0, sticky="w", padx=(10, 8), pady=2)
+    status = tk.Label(
         footer,
         text="GPS --   |   ADS-B --   |   RF --   |   OBD --",
         fg=ui.text_muted,
         bg=ui.surface_alt,
         font=("Sans", FONT_SMALL),
-    ).grid(row=0, column=0, pady=2)
+    )
+    status.grid(row=0, column=1, pady=2)
+    return breadcrumb, status
 
 
 def _build_logo_mark(parent: tk.Misc, theme: ThemeBundle) -> None:
