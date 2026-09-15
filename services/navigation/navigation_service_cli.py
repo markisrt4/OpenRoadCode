@@ -39,8 +39,8 @@ from services.navigation.navigation_runtime import NavigationRuntime
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_RUNTIME_CONFIG = PROJECT_ROOT / "config" / "runtime.toml"
 NAVIGATION_PROFILE_DIR = PROJECT_ROOT / "config" / "profiles" / "navigation"
-NAVIGATION_PROFILES = ("phone", "target", "simulated")
-DEFAULT_RUNTIME_PROFILE = "target"
+NAVIGATION_PROFILES = ("local", "remote", "simulated")
+DEFAULT_RUNTIME_PROFILE = "local"
 
 
 def parse_args() -> argparse.Namespace:
