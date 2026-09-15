@@ -288,7 +288,7 @@ class OrcUiApp(VolumeUiIf):
         )
         self._content = self._shell.content
 
-    def _set_breadcrumb(self, *parts: str) -> None:
+    def set_breadcrumb(self, *parts: str) -> None:
         if self._shell is not None:
             self._shell.set_breadcrumb(*parts)
 
@@ -449,7 +449,7 @@ class OrcUiApp(VolumeUiIf):
         self._vehicle_panel = build_vehicle_screen(
             self._content,
             on_back=self._show_home,
-            on_view_changed=lambda view: self._set_breadcrumb("VEHICLE", view),
+            on_view_changed=lambda view: self.set_breadcrumb("VEHICLE", view),
             on_telemetry_profile=self._telemetry_profile_request,
             state=self._presentation.vehicle,
             trip_state=self._presentation.trip,
