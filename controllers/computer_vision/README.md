@@ -86,11 +86,13 @@ The screen provides three processing profiles:
   inference.
 
 The VISION screen now combines software and hardware profiles. DAY restores the
-camera's conservative auto-exposure profile. LOW LIGHT selects a bounded
-shutter-priority exposure plus modest gain/gamma adjustment and then applies
-CLAHE. AUTO uses scene luminance with hysteresis: it enters low-light below a
-mean luma of 65 and returns to day above 85, avoiding rapid mode flapping near
-the threshold.
+camera's conservative auto-exposure profile. LOW LIGHT keeps the camera in its
+supported auto-exposure mode, applies modest gain/gamma/backlight adjustment,
+and then applies CLAHE. The validated camera advertises absolute exposure but
+reports that control inactive and rejects writes while streaming, so ORC does
+not force it. AUTO uses scene luminance with hysteresis: it enters low-light
+below a mean luma of 65 and returns to day above 85, avoiding rapid mode
+flapping near the threshold.
 
 The VISION status panel reports the measured scene luminance and the active
 hardware profile so profile transitions can be evaluated directly on the VM
