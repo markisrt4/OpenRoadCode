@@ -16,6 +16,7 @@ from ui.theme import ThemeBundle, ThemeMode
 SPOTIFY_GREEN = "#1DB954"
 YOUTUBE_RED = "#FF0033"
 NETFLIX_RED = "#E50914"
+YOUTUBE_MUSIC_RED = "#FF0000"
 
 
 class MediaScreen(TkScreen):
@@ -28,6 +29,7 @@ class MediaScreen(TkScreen):
         theme_bundle: Callable[[], ThemeBundle],
         show_spotify: Callable[[], None],
         show_youtube: Callable[[], None],
+        show_youtube_music: Callable[[], None],
         show_netflix: Callable[[], None],
         show_spotify_remote: Callable[[], None] | None = None,
         show_spotify_local: Callable[[], None] | None = None,
@@ -38,6 +40,7 @@ class MediaScreen(TkScreen):
         self._theme_bundle = theme_bundle
         self._show_spotify = show_spotify
         self._show_youtube = show_youtube
+        self._show_youtube_music = show_youtube_music
         self._show_netflix = show_netflix
         self._show_spotify_remote = show_spotify_remote or show_spotify
         self._show_spotify_local = show_spotify_local or show_spotify
@@ -76,9 +79,10 @@ class MediaScreen(TkScreen):
 
         grid = tk.Frame(root, bg=theme.background)
         grid.pack(fill=tk.BOTH, expand=True, padx=6, pady=(2, 8))
-        for column in range(3):
+        for column in range(2):
             grid.grid_columnconfigure(column, weight=1, uniform="media")
-        grid.grid_rowconfigure(0, weight=1)
+        grid.grid_rowconfigure(0, weight=1, uniform="media")
+        grid.grid_rowconfigure(1, weight=1, uniform="media")
 
         spotify = self._media_card(
             grid,
@@ -107,6 +111,20 @@ class MediaScreen(TkScreen):
         )
         youtube.grid(row=0, column=1, sticky="nsew", padx=6, pady=4)
 
+        youtube_music = self._media_card(
+            grid,
+            glyph="youtube_music",
+            title="YOUTUBE MUSIC",
+            category="MUSIC",
+            subtitle="Your music, mixes & library",
+            detail="Open YouTube Music with your retained Google profile.",
+            accent=YOUTUBE_MUSIC_RED,
+            command=self._show_youtube_music,
+            action="OPEN YOUTUBE MUSIC",
+            feature="youtube_music",
+        )
+        youtube_music.grid(row=1, column=0, sticky="nsew", padx=6, pady=4)
+
         netflix = self._media_card(
             grid,
             glyph="netflix",
@@ -119,7 +137,7 @@ class MediaScreen(TkScreen):
             action="OPEN NETFLIX",
             feature="netflix",
         )
-        netflix.grid(row=0, column=2, sticky="nsew", padx=6, pady=4)
+        netflix.grid(row=1, column=1, sticky="nsew", padx=6, pady=4)
 
     def _media_card(
         self,
@@ -168,18 +186,20 @@ class MediaScreen(TkScreen):
             text=title,
             bg=theme.surface,
             fg=title_fg,
-            font=("Sans", 22, "bold"),
+            font=("Sans", 18, "bold"),
         ).pack(anchor="w")
         tk.Label(
             identity,
             text=category,
             bg=theme.surface,
             fg=accent,
-            font=("Sans", 15, "bold"),
-        ).pack(anchor="w", pady=(2, 0))
+            font=("Sans", 12, "bold"),
+        ).pack(anchor="w", pady=(1, 0))
 
         if feature == "youtube":
             self._youtube_feature(body)
+        elif feature == "youtube_music":
+            self._youtube_music_feature(body)
         elif feature == "netflix":
             self._netflix_feature(body)
 
@@ -188,16 +208,16 @@ class MediaScreen(TkScreen):
             text=subtitle,
             bg=theme.surface,
             fg=theme.text,
-            font=("Sans", 15, "bold"),
-        ).pack(anchor="w", pady=(16, 5))
+            font=("Sans", 13, "bold"),
+        ).pack(anchor="w", pady=(9, 3))
         tk.Label(
             body,
             text=detail,
             bg=theme.surface,
             fg=theme.text_muted,
-            font=("Sans", 13),
+            font=("Sans", 11),
             justify=tk.LEFT,
-            wraplength=220,
+            wraplength=360,
         ).pack(anchor="w")
 
         if action is not None:
@@ -211,9 +231,9 @@ class MediaScreen(TkScreen):
                 activeforeground="#FFFFFF",
                 relief=tk.FLAT,
                 bd=0,
-                font=("Sans", 15, "bold"),
-                padx=12,
-                pady=9,
+                font=("Sans", 12, "bold"),
+                padx=10,
+                pady=6,
                 cursor="hand2",
             )
             button.pack(fill=tk.X, side=tk.BOTTOM, pady=(14, 0))
@@ -231,16 +251,24 @@ class MediaScreen(TkScreen):
             bd=0,
         )
         preview.pack(fill=tk.X, pady=(18, 0))
-        preview.create_rectangle(10, 9, 70, 45, fill=YOUTUBE_RED, outline=YOUTUBE_RED)
-        preview.create_polygon(35, 17, 35, 37, 52, 27, fill="#FFFFFF", outline="#FFFFFF")
+        preview.create_rectangle(10, 6, 58, 32, fill=YOUTUBE_RED, outline=YOUTUBE_RED)
+        preview.create_polygon(29, 11, 29, 27, 43, 19, fill="#FFFFFF", outline="#FFFFFF")
         preview.create_text(
-            84,
-            27,
+            70,
+            19,
             text="WATCH",
             anchor="w",
             fill="#FFFFFF",
             font=("Sans", 15, "bold"),
         )
+
+    def _youtube_music_feature(self, parent: tk.Widget) -> None:
+        preview = tk.Canvas(parent, height=38, bg="#111111", highlightthickness=0, bd=0)
+        preview.pack(fill=tk.X, pady=(8, 0))
+        preview.create_oval(10, 3, 44, 37, fill=YOUTUBE_MUSIC_RED, outline=YOUTUBE_MUSIC_RED)
+        preview.create_oval(16, 9, 38, 31, fill="#111111", outline="#FFFFFF", width=2)
+        preview.create_polygon(25, 14, 25, 26, 34, 20, fill="#FFFFFF", outline="#FFFFFF")
+        preview.create_text(55, 20, text="MUSIC", anchor="w", fill="#FFFFFF", font=("Sans", 12, "bold"))
 
     def _netflix_feature(self, parent: tk.Widget) -> None:
         theme = self._theme_bundle().ui
@@ -329,6 +357,13 @@ class MediaScreen(TkScreen):
                     outline="#000000",
                     width=width,
                 )
+            return
+        if glyph == "youtube_music":
+            canvas = tk.Canvas(parent, width=58, height=58, bg="#111111", highlightthickness=0, bd=0)
+            canvas.pack(fill=tk.BOTH, expand=True)
+            canvas.create_oval(7, 7, 51, 51, fill=YOUTUBE_MUSIC_RED, outline=YOUTUBE_MUSIC_RED)
+            canvas.create_oval(14, 14, 44, 44, fill="#111111", outline="#FFFFFF", width=2)
+            canvas.create_polygon(25, 20, 25, 38, 39, 29, fill="#FFFFFF", outline="#FFFFFF")
             return
         if glyph == "youtube":
             canvas = tk.Canvas(
