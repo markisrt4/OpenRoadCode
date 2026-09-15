@@ -259,6 +259,8 @@ class OrcUiApp(VolumeUiIf):
             self._context_rail.update_position_state(state)
         if self._offroad_panel is not None and self._offroad_panel.winfo_exists():
             self._offroad_panel.update_position(state)
+        if self._vehicle_panel is not None and self._vehicle_panel.winfo_exists():
+            self._vehicle_panel.update_position(state)
     def apply_attitude_state(self, state: AttitudePresentationState) -> None:
         """Apply already-presented attitude state to mounted shell widgets."""
         if self._closing:
@@ -268,6 +270,8 @@ class OrcUiApp(VolumeUiIf):
             self._context_rail.update_attitude_state(state)
         if self._offroad_panel is not None and self._offroad_panel.winfo_exists():
             self._offroad_panel.update_attitude(state)
+        if self._vehicle_panel is not None and self._vehicle_panel.winfo_exists():
+            self._vehicle_panel.update_attitude(state)
     def run(self) -> None:
         self._root.protocol("WM_DELETE_WINDOW", self._on_close)
         old_signal_handler = signal.getsignal(signal.SIGINT)
@@ -539,6 +543,8 @@ class OrcUiApp(VolumeUiIf):
             on_telemetry_profile=self._telemetry_profile_request,
             state=self._vehicle_state,
             trip_state=self._trip_state,
+            position=self._position_state,
+            attitude=self._attitude_state,
             theme_bundle=self._theme,
             vehicle_configuration=self._vehicle_configuration,
             engine_analysis=self._engine_analysis,
