@@ -132,7 +132,7 @@ class _NavTile(tk.Canvas):
         )
 
         self.create_text(
-            39,
+            38,
             height / 2,
             text=_NAV_LABELS.get(self._nav_name, self._nav_name),
             fill=label_color,
@@ -176,6 +176,8 @@ class _NavTile(tk.Canvas):
             self._draw_games(x, y, color)
         elif name == "MEDIA":
             self._draw_media(x, y, color)
+        elif name == "VISION":
+            self._draw_vision(x, y, color)
 
     def _draw_home(self, x: float, y: float, color: str) -> None:
         self.create_polygon(
@@ -242,6 +244,11 @@ class _NavTile(tk.Canvas):
         self.create_line(x - 3, y - 1, x - 3, y + 3, fill=color, width=2)
         self.create_oval(x + 3, y, x + 5, y + 2, fill=color, outline=color)
         self.create_oval(x + 6, y + 3, x + 8, y + 5, fill=color, outline=color)
+
+    def _draw_vision(self, x: float, y: float, color: str) -> None:
+        self.create_oval(x - 10, y - 6, x + 10, y + 6, outline=color, width=2)
+        self.create_oval(x - 4, y - 4, x + 4, y + 4, outline=color, width=2)
+        self.create_oval(x - 1.5, y - 1.5, x + 1.5, y + 1.5, fill=color, outline=color)
 
     def _draw_media(self, x: float, y: float, color: str) -> None:
         self.create_polygon(
