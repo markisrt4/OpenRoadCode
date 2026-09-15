@@ -90,20 +90,20 @@ class EcuPanel(tk.Frame):
         for row in range(2):
             grid.grid_rowconfigure(row, weight=1, uniform="ecu")
 
-        self._build_fuel(self._card(grid, 0, 0, "⛽", "FUEL CONTROL", "Fuel system status and trims"))
-        self._build_mixture(self._card(grid, 0, 1, "λ", "MIXTURE", "Air/fuel mixture and lambda control"))
-        self._build_load(self._card(grid, 1, 0, "◆", "ENGINE LOAD", "Engine demand and operating condition"))
-        self._build_ignition(self._card(grid, 1, 1, "ϟ", "IGNITION TIMING", "Spark advance and ignition control"))
+        self._build_fuel(self._card(grid, 0, 0, "⛽", "FUEL CONTROL", "Fuel system status and trims", "#D6A800"))
+        self._build_mixture(self._card(grid, 0, 1, "λ", "MIXTURE", "Air/fuel mixture and lambda control", ui.accent_primary))
+        self._build_load(self._card(grid, 1, 0, "◆", "ENGINE LOAD", "Engine demand and operating condition", "#D96A2B"))
+        self._build_ignition(self._card(grid, 1, 1, "ϟ", "IGNITION TIMING", "Spark advance and ignition control", ui.accent_success))
 
-    def _card(self, parent: tk.Misc, row: int, col: int, icon: str, title: str, subtitle: str) -> tk.Frame:
+    def _card(\n        self, parent: tk.Misc, row: int, col: int, icon: str, title: str, subtitle: str, accent: str\n    ) -> tk.Frame:
         ui = self._theme.ui
-        card = tk.Frame(parent, bg=ui.surface, highlightthickness=1, highlightbackground=ui.accent_primary)
-        card.grid(row=row, column=col, sticky="nsew", padx=5, pady=5)
+        card = tk.Frame(parent, bg=ui.surface, highlightthickness=1, highlightbackground=ui.border)
+        card.grid(row=row, column=col, sticky="nsew", padx=5, pady=5)\n        tk.Frame(card, bg=accent, width=3).grid(row=0, column=0, rowspan=3, sticky="nsw")
         card.grid_columnconfigure(1, weight=1)
-        tk.Label(card, text=icon, fg=ui.accent_primary, bg=ui.surface, font=("Sans", 23, "bold")).grid(
+        tk.Label(card, text=icon, fg=accent, bg=ui.surface, font=("Sans", 23, "bold")).grid(
             row=0, column=0, rowspan=2, sticky="n", padx=(14, 10), pady=(9, 0)
         )
-        tk.Label(card, text=title, fg=ui.accent_primary, bg=ui.surface, font=("Sans", 16, "bold"), anchor="w").grid(
+        tk.Label(card, text=title, fg=accent, bg=ui.surface, font=("Sans", 16, "bold"), anchor="w").grid(
             row=0, column=1, sticky="ew", pady=(8, 0)
         )
         tk.Label(card, text=subtitle, fg=ui.text_muted, bg=ui.surface, font=("Sans", FONT_SMALL), anchor="w").grid(
