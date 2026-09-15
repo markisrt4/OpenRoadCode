@@ -54,6 +54,8 @@ class OrcUiShellView:
         self._side_nav: OrcUiSideNav | None = None
         self._bottom_bar: OrcUiBottomBar | None = None
         self._clock_label: tk.Label | None = None
+        self._breadcrumb_label: tk.Label | None = None
+        self._breadcrumb = active_nav
         self._clock_after_id: str | None = None
 
         root.grid_rowconfigure(1, weight=1)
@@ -90,8 +92,15 @@ class OrcUiShellView:
 
     def set_active_navigation(self, name: str) -> None:
         self._active_nav = name
+        self.set_breadcrumb(name)
         if self._side_nav is not None and self._side_nav.winfo_exists():
             self._side_nav.set_active(active=name, theme=self._theme)
+
+    def set_breadcrumb(self, *parts: str) -> None:
+        normalized = [part.strip().upper() for part in parts if part and part.strip()]
+        self._breadcrumb = "  ›  ".join(normalized) if normalized else self._active_nav
+        if self._breadcrumb_label is not None and self._breadcrumb_label.winfo_exists():
+            self._breadcrumb_label.configure(text=self._breadcrumb)
 
     def close(self) -> None:
         if self._clock_after_id is not None:
@@ -182,4 +191,5 @@ class OrcUiShellView:
             enabled=self._adsb_enabled,
             aircraft_count=self._aircraft_count,
         )
-        build_footer(self._root, theme=self._theme)
+        self._breadcrumb_label, _status_label = build_footer(self._root, theme=self._theme)
+        self._breadcrumb_label.configure(text=self._breadcrumb)
