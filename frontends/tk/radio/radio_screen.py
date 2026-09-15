@@ -49,7 +49,6 @@ class RadioScreen(TkScreen):
         self._host.activate_screen(self)
         self._host.clear_screen_content()
         self._host.set_screen_title("RADIO")
-        self._set_location("RADIO")
 
         theme = self._theme_bundle()
         self._sync_external_theme(self._theme_mode())
