@@ -595,7 +595,12 @@ class OrcUiApp(VolumeUiIf):
     def _show_placeholder(self, name: str) -> None:
         self._clear_content()
         ui = self._theme.ui
-        panel = self._panel(self._content, name, ui.accent_success, theme=self._theme)
+        panel = tk.Frame(
+            self._content,
+            bg=ui.surface,
+            highlightthickness=1,
+            highlightbackground=ui.border,
+        )
         panel.pack(fill=tk.BOTH, expand=True)
         tk.Label(panel, text=f"{name}\nCOMING NEXT", fg=ui.text, bg=ui.surface, font=("Sans", 24, "bold")).place(relx=0.5, rely=0.5, anchor="center")
     def _paint_clock(self) -> None:
