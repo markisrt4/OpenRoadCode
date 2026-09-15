@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 
-"""Engine-health dashboard for the orcUi vehicle screen."""
+"""Vehicle-health dashboard for the orcUi vehicle screen."""
 
 from __future__ import annotations
 
@@ -15,9 +15,9 @@ from ui.theme import ThemeBundle
 
 
 class EnginePanel(tk.Frame):
-    """Render live powertrain-health instrumentation."""
+    """Render live vehicle-health instrumentation."""
 
-    _GAUGE_IDS = ("coolant", "intake", "load", "fuel", "voltage")
+    _GAUGE_IDS = ("coolant", "intake", "load", "voltage")
 
     def __init__(
         self,
@@ -39,7 +39,6 @@ class EnginePanel(tk.Frame):
             "coolant": state.coolant_temperature_f,
             "intake": state.intake_air_temperature_f,
             "load": state.engine_load_percent,
-            "fuel": state.fuel_percent,
             "voltage": state.control_voltage_v,
         }
         for gauge_id, gauge in self._gauges.items():
@@ -63,7 +62,7 @@ class EnginePanel(tk.Frame):
         text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=14, pady=7)
         tk.Label(
             text,
-            text="ENGINE",
+            text="HEALTH",
             fg=ui.text,
             bg=ui.surface_alt,
             font=("Sans", 16, "bold"),
@@ -71,7 +70,7 @@ class EnginePanel(tk.Frame):
         ).pack(anchor="w")
         tk.Label(
             text,
-            text="Powertrain health and operating conditions",
+            text="Vehicle health and operating conditions",
             fg=ui.text_muted,
             bg=ui.surface_alt,
             font=("Sans", 11),
@@ -132,7 +131,7 @@ class EnginePanel(tk.Frame):
         summary.grid(row=2, column=1, sticky="nsew", padx=4, pady=4)
         tk.Label(
             summary,
-            text="ENGINE STATUS",
+            text="HEALTH STATUS",
             fg=ui.text_muted,
             bg=ui.surface_alt,
             font=("Sans", 10, "bold"),
@@ -146,7 +145,7 @@ class EnginePanel(tk.Frame):
         ).pack(anchor="w", padx=12)
         tk.Label(
             summary,
-            text="Coolant · Intake · Load · Fuel · Voltage",
+            text="Coolant · Intake · Load · Voltage",
             fg=ui.text_muted,
             bg=ui.surface_alt,
             font=("Sans", 10),
