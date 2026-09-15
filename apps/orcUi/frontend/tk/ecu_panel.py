@@ -69,22 +69,10 @@ class EcuPanel(tk.Frame):
     def _build(self) -> None:
         ui = self._theme.ui
         self.grid_columnconfigure(0, weight=1)
-        self.grid_rowconfigure(1, weight=1)
-
-        header = tk.Frame(self, bg=ui.surface_alt, highlightthickness=1, highlightbackground=ui.border)
-        header.grid(row=0, column=0, sticky="ew", padx=3, pady=(2, 6))
-        header.grid_columnconfigure(1, weight=1)
-        tk.Label(
-            header, text="VEHICLE  ›  ECU", fg=ui.accent_primary, bg=ui.surface_alt,
-            font=("Sans", 15, "bold"),
-        ).grid(row=0, column=0, sticky="w", padx=16, pady=9)
-        tk.Label(
-            header, text="Engine control and fuel management", fg=ui.text_muted,
-            bg=ui.surface_alt, font=("Sans", FONT_SMALL),
-        ).grid(row=0, column=1, sticky="e", padx=16)
+        self.grid_rowconfigure(0, weight=1)
 
         grid = tk.Frame(self, bg=ui.background)
-        grid.grid(row=1, column=0, sticky="nsew")
+        grid.grid(row=0, column=0, sticky="nsew")
         for col in range(2):
             grid.grid_columnconfigure(col, weight=1, uniform="ecu")
         for row in range(2):
