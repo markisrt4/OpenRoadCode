@@ -115,7 +115,7 @@ class EcuPanel(tk.Frame):
             (0, 0, "FUEL CONTROL", ui.accent_warning, "fuel"),
             (0, 1, "MIXTURE", ui.accent_primary, "mixture"),
             (1, 0, "ENGINE LOAD", ui.accent_danger, "load"),
-            (1, 1, "IGNITION", ui.accent_success, "ignition"),
+            (1, 1, "IGNITION TIMING", ui.accent_success, "ignition"),
         )
         for row, column, title, accent, key in specs:
             card = self._card(grid, title, accent)
@@ -269,21 +269,17 @@ class EcuPanel(tk.Frame):
         )
         values = {
             "fuel_primary": fuel_mode,
-            "fuel_secondary": fuel_secondary,
+            "fuel_secondary": self._fuel_summary(fuel_secondary),
             "mixture_primary": mixture,
-            "mixture_secondary": tracking,
+            "mixture_secondary": self._mixture_summary(tracking),
             "load_primary": load,
-            "load_secondary": (
-                "BOOST ACTIVE"
-                if analysis.forced_induction_active is True
-                else "ENGINE DEMAND"
-            ),
+            "load_secondary": self._load_summary(),
             "ignition_primary": (
                 "--"
                 if state.ignition_timing_advance_deg is None
                 else f"{state.ignition_timing_advance_deg:.1f}°"
             ),
-            "ignition_secondary": "TIMING ADVANCE",
+            "ignition_secondary": "SPARK ADVANCE",
             "operating_mode": analysis.operating_mode.value.replace("_", " ").upper(),
         }
         for key, text in values.items():
@@ -320,6 +316,36 @@ class EcuPanel(tk.Frame):
             )
         self._paint_visuals()
 
+    @staticmethod
+    def _fmt_percent(value: float | None) -> str:
+        return "--" if value is None else f"{value:+.1f}%"
+
+    def _fuel_summary(self, status: str) -> str:
+        state = self._vehicle_state
+        return (
+            f"{status}   ·   STFT {self._fmt_percent(state.short_term_fuel_trim_percent)}"
+            f"   ·   LTFT {self._fmt_percent(state.long_term_fuel_trim_percent)}"
+        )
+
+    def _mixture_summary(self, tracking: str) -> str:
+        state = self._vehicle_state
+        commanded = (
+            "--" if state.commanded_equivalence_ratio is None
+            else f"{state.commanded_equivalence_ratio:.3f}"
+        )
+        measured = (
+            "--" if state.measured_equivalence_ratio is None
+            else f"{state.measured_equivalence_ratio:.3f}"
+        )
+        return f"{tracking}   ·   CMD λ {commanded}   ·   ACT λ {measured}"
+
+    def _load_summary(self) -> str:
+        state = self._vehicle_state
+        load = "--" if state.absolute_engine_load_percent is None else f"{state.absolute_engine_load_percent:.0f}%"
+        map_kpa = "--" if state.manifold_pressure_kpa is None else f"{state.manifold_pressure_kpa:.0f} kPa"
+        throttle = "--" if state.throttle_percent is None else f"{state.throttle_percent:.0f}%"
+        return f"LOAD {load}   ·   MAP {map_kpa}   ·   THROTTLE {throttle}"
+
     def _paint_visuals(self) -> None:
         self._paint_fuel()
         self._paint_mixture()
@@ -335,37 +361,25 @@ class EcuPanel(tk.Frame):
         if canvas is None:
             return
         ui = self._theme.ui
-        analysis = self._analysis
+        state = self._vehicle_state
         canvas.delete("all")
-        x1, x2, y = self._rail_geometry(canvas)
-        canvas.create_text(x1, 9, anchor="w", text="REMOVE", fill=ui.text_muted, font=("Sans", FONT_SMALL, "bold"))
-        canvas.create_text((x1 + x2) / 2, 9, text="NORMAL", fill=ui.text_muted, font=("Sans", FONT_SMALL, "bold"))
-        canvas.create_text(x2, 9, anchor="e", text="ADD", fill=ui.text_muted, font=("Sans", FONT_SMALL, "bold"))
-        canvas.create_line(x1, y, x2, y, fill=ui.border, width=4)
-        center = (x1 + x2) / 2
-        canvas.create_line(center, y - 13, center, y + 13, fill=ui.text, width=2)
-        for pct in (-20, 0, 20):
-            x = x1 + ((pct + 20) / 40) * (x2 - x1)
-            canvas.create_line(x, y - 5, x, y + 5, fill=ui.text_muted)
-        if analysis.fuel_trim_total is None:
-            return
-        trim_pct = max(-20.0, min(20.0, analysis.fuel_trim_total * 100.0))
-        x = bounded_marker_x(
-            trim_pct,
-            minimum=-20.0,
-            maximum=20.0,
-            rail_start=x1,
-            rail_end=x2,
-            radius=7.0,
-        )
-        canvas.create_oval(
-            x - 7, y - 7, x + 7, y + 7,
-            fill=ui.accent_warning, outline=ui.surface, width=2,
-        )
-        canvas.create_text(
-            x, y + 22, text=f"{trim_pct:+.1f}%",
-            fill=ui.text, font=("Sans", FONT_SMALL, "bold"),
-        )
+        width = max(180, canvas.winfo_width())
+        x1, x2 = 82.0, width - 22.0
+
+        for row, (label, value, color) in enumerate((
+            ("STFT", state.short_term_fuel_trim_percent, ui.accent_success),
+            ("LTFT", state.long_term_fuel_trim_percent, ui.accent_primary),
+        )):
+            y = 22.0 + row * 34.0
+            canvas.create_text(4, y, anchor="w", text=label, fill=ui.text_muted, font=("Sans", FONT_SMALL, "bold"))
+            canvas.create_line(x1, y, x2, y, fill=ui.border, width=5)
+            center = (x1 + x2) / 2.0
+            canvas.create_line(center, y - 9, center, y + 9, fill=ui.text, width=2)
+            if value is None:
+                continue
+            x = bounded_marker_x(value, minimum=-25.0, maximum=25.0, rail_start=x1, rail_end=x2, radius=6.0)
+            canvas.create_oval(x - 6, y - 6, x + 6, y + 6, fill=color, outline=ui.surface, width=2)
+            canvas.create_text(x2, y - 11, anchor="e", text=f"{value:+.1f}%", fill=color, font=("Sans", FONT_SMALL, "bold"))
 
     def _paint_mixture(self) -> None:
         canvas = self._canvases.get("mixture")
