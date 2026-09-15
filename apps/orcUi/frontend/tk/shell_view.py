@@ -98,7 +98,11 @@ class OrcUiShellView:
 
     def set_breadcrumb(self, *parts: str) -> None:
         normalized = [part.strip().upper() for part in parts if part and part.strip()]
-        self._breadcrumb = "  ›  ".join(normalized) if normalized else self._active_nav
+        deduplicated = [
+            part for index, part in enumerate(normalized)
+            if index == 0 or part != normalized[index - 1]
+        ]
+        self._breadcrumb = "  ›  ".join(deduplicated) if deduplicated else self._active_nav
         if self._breadcrumb_label is not None and self._breadcrumb_label.winfo_exists():
             self._breadcrumb_label.configure(text=self._breadcrumb)
 
