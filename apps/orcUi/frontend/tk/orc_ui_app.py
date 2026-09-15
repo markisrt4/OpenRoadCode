@@ -504,10 +504,10 @@ class OrcUiApp(VolumeUiIf):
             add_summary(radio, "No radio active", "Choose RF or streaming", theme=self._theme)
         else:
             self._home_radio_factory(radio).pack(fill=tk.BOTH, expand=True)
-        media = self._panel(lower, "MEDIA", ui.accent_primary, theme=self._theme)
+        media = panel(lower, "MEDIA", ui.accent_primary, theme=self._theme)
         media.grid(row=0, column=1, sticky="nsew", padx=(5, 0))
         if self._home_media_factory is None:
-            self._summary(media, "No media", "Playback service")
+            add_summary(media, "No media", "Playback service", theme=self._theme)
         else:
             self._home_media_factory(media).pack(fill=tk.BOTH, expand=True)
         if self._telemetry_profile_request is not None:
