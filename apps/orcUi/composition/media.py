@@ -18,6 +18,7 @@ from controllers.image import ImageCache
 from controllers.lyrics import LrclibLyricsClient
 from controllers.video import MusicVideoController, NetflixPlayer, YouTubeMusicVideo, YouTubePlayer
 from frontends.tk.media import BrowserMediaScreen, MediaNavigationBar, MediaScreen, SpotifyNowPlaying, SpotifyScreen
+from frontends.tk.media.youtube_music_coming_soon_screen import YouTubeMusicComingSoonScreen
 from ui.theme import ThemeMode
 
 MUSIC_VIDEO_PORT = 8770
@@ -95,10 +96,6 @@ def configure_media(app: OrcUiApp, runtime) -> MediaComposition:
         runtime.manager, "youtube", resolve_target=YouTubePlayer.resolve_target,
         preferred_color_scheme=browser_color_scheme,
     )
-    youtube_music_player = ManagedBrowserMediaPlayer(
-        runtime.manager, "youtube_music", resolve_target=YouTubePlayer.resolve_target,
-        preferred_color_scheme=browser_color_scheme,
-    )
     netflix_player = ManagedBrowserMediaPlayer(
         runtime.manager, "netflix", resolve_target=NetflixPlayer.validate_url,
         preferred_color_scheme=browser_color_scheme,
@@ -109,10 +106,9 @@ def configure_media(app: OrcUiApp, runtime) -> MediaComposition:
         back_action=lambda: media_screen.show(), media_navigation_factory=media_navigation,
         theme_bundle=lambda: theme_bundle(app.theme_mode),
     )
-    youtube_music_screen = BrowserMediaScreen(
-        "youtube_music", app, title="YouTube Music", player=youtube_music_player,
-        default_target="https://music.youtube.com/", window_class=YOUTUBE_MUSIC_WINDOW_CLASS,
-        back_action=lambda: media_screen.show(), media_navigation_factory=media_navigation,
+    youtube_music_screen = YouTubeMusicComingSoonScreen(
+        app,
+        back_action=lambda: media_screen.show(),
         theme_bundle=lambda: theme_bundle(app.theme_mode),
     )
     netflix_screen = BrowserMediaScreen(
