@@ -27,7 +27,7 @@ def _blend(first: str, second: str, amount: float) -> str:
 class _NavTile(tk.Canvas):
     """Compact navigation tile with drawn iconography and active styling."""
 
-    HEIGHT = 56
+    HEIGHT = 50
 
     def __init__(
         self,
