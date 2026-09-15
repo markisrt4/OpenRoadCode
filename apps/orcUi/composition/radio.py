@@ -50,6 +50,7 @@ def configure_radio(app: OrcUiApp, runtime) -> RadioComposition:
             directory=directory,
             favorites=favorites,
             adsb_control=adsb,
+            on_location_changed=lambda leaf: app.set_breadcrumb("RADIO", leaf),
         ),
         sync_theme=sync_theme,
         on_location_changed=lambda leaf: app.set_breadcrumb("RADIO", leaf),
