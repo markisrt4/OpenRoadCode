@@ -46,8 +46,8 @@ class SystemdServiceManager:
         "openroadcode-automotive",
     )
     PROFILE_CONFIGS = {
-        "openroadcode-navigation": ("phone", "target", "simulated"),
-        "openroadcode-automotive": ("phone", "target", "simulated"),
+        "openroadcode-navigation": ("local", "remote", "simulated"),
+        "openroadcode-automotive": ("local", "remote", "simulated"),
     }
 
     def status(self, name: str) -> ServiceStatus:
@@ -94,7 +94,7 @@ class SystemdServiceManager:
             return None
         selected = self._profile_file(name)
         if not selected.exists():
-            return "target"
+            return "local"
         content = selected.read_text(encoding="utf-8")
         for profile in profiles:
             if f"OPENROADCODE_RUNTIME_PROFILE={profile}" in content:
