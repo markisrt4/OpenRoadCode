@@ -75,7 +75,7 @@ class RunitServiceManager:
             return None
         selected = self._profile_file(name)
         if not selected.exists():
-            return "target"
+            return "phone"
         content = selected.read_text(encoding="utf-8")
         for profile in profiles:
             if f"OPENROADCODE_RUNTIME_PROFILE={profile}" in content:
