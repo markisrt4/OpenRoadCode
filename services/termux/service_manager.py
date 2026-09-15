@@ -40,8 +40,8 @@ class RunitServiceManager:
         "openroadcode-automotive",
     )
     PROFILE_CONFIGS = {
-        "openroadcode-navigation": ("phone", "target", "simulated"),
-        "openroadcode-automotive": ("phone", "target", "simulated"),
+        "openroadcode-navigation": ("local", "remote", "simulated"),
+        "openroadcode-automotive": ("local", "remote", "simulated"),
     }
 
     def status(self, name: str) -> ServiceStatus:
@@ -75,7 +75,7 @@ class RunitServiceManager:
             return None
         selected = self._profile_file(name)
         if not selected.exists():
-            return "phone"
+            return "local"
         content = selected.read_text(encoding="utf-8")
         for profile in profiles:
             if f"OPENROADCODE_RUNTIME_PROFILE={profile}" in content:
