@@ -304,7 +304,14 @@ class MediaScreen(TkScreen):
 
     def _spotify_card_actions(self, card: tk.Frame) -> None:
         theme = self._theme_bundle().ui
-        body = card.winfo_children()[-1]
+        # _media_card creates the body first and then overlays the accent strip,
+        # so indexing the last child can accidentally select the accent. Find the
+        # actual packed body instead.
+        body = next(
+            child
+            for child in card.winfo_children()
+            if child.pack_info()
+        )
         actions = tk.Frame(body, bg=theme.surface)
         actions.pack(fill=tk.X, side=tk.BOTTOM, pady=(14, 0))
         actions.grid_columnconfigure(0, weight=1)
@@ -330,7 +337,7 @@ class MediaScreen(TkScreen):
             fg="#FFFFFF",
             activebackground=SPOTIFY_GREEN,
             activeforeground="#FFFFFF",
-            disabledforeground=theme.text_muted,
+            disabledforeground="#FFFFFF",
             relief=tk.FLAT,
             bd=0,
             font=("Sans", 15, "bold"),
