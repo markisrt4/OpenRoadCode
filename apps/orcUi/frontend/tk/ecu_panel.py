@@ -95,10 +95,13 @@ class EcuPanel(tk.Frame):
         self._build_load(self._card(grid, 1, 0, "◆", "ENGINE LOAD", "Engine demand and operating condition", "#D96A2B"))
         self._build_ignition(self._card(grid, 1, 1, "ϟ", "IGNITION TIMING", "Spark advance and ignition control", ui.accent_success))
 
-    def _card(\n        self, parent: tk.Misc, row: int, col: int, icon: str, title: str, subtitle: str, accent: str\n    ) -> tk.Frame:
+    def _card(
+        self, parent: tk.Misc, row: int, col: int, icon: str, title: str, subtitle: str, accent: str
+    ) -> tk.Frame:
         ui = self._theme.ui
         card = tk.Frame(parent, bg=ui.surface, highlightthickness=1, highlightbackground=ui.border)
-        card.grid(row=row, column=col, sticky="nsew", padx=5, pady=5)\n        tk.Frame(card, bg=accent, width=3).grid(row=0, column=0, rowspan=3, sticky="nsw")
+        card.grid(row=row, column=col, sticky="nsew", padx=5, pady=5)
+        tk.Frame(card, bg=accent, width=3).grid(row=0, column=0, rowspan=3, sticky="nsw")
         card.grid_columnconfigure(1, weight=1)
         tk.Label(card, text=icon, fg=accent, bg=ui.surface, font=("Sans", 23, "bold")).grid(
             row=0, column=0, rowspan=2, sticky="n", padx=(14, 10), pady=(9, 0)
