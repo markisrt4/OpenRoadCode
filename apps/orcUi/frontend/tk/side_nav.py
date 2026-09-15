@@ -27,7 +27,7 @@ def _blend(first: str, second: str, amount: float) -> str:
 class _NavTile(tk.Canvas):
     """Compact navigation tile with drawn iconography and active styling."""
 
-    HEIGHT = 64
+    HEIGHT = 56
 
     def __init__(
         self,
@@ -292,7 +292,7 @@ class OrcUiSideNav(tk.Frame):
                 theme=theme,
                 on_navigate=self._on_navigate,
             )
-            tile.pack(fill=tk.X, padx=4, pady=2)
+            tile.pack(fill=tk.X, padx=4, pady=1)
             self._tiles[item] = tile
         self.set_active(active=active, theme=theme)
 
