@@ -8,6 +8,7 @@ from __future__ import annotations
 import time
 import tkinter as tk
 from collections.abc import Callable
+from typing import Any
 
 from controllers.computer_vision.camera_frame_processor import CameraFrameProcessor, CameraMode
 from controllers.computer_vision.object_detector_if import DetectionFrame
@@ -36,12 +37,14 @@ class CameraVisionScreen(TkScreen):
         theme_bundle: Callable[[], ThemeBundle],
         device: str = "/dev/video0",
         model_name: str = "yolo11n.pt",
+        prepared_model: Any | None = None,
     ) -> None:
         super().__init__(ScreenId("camera-vision"))
         self._host = host
         self._theme_bundle = theme_bundle
         self._device = device
         self._model_name = model_name
+        self._prepared_model = prepared_model
         self._panel: tk.Frame | None = None
         self._canvas: tk.Canvas | None = None
         self._status_label: tk.Label | None = None
@@ -172,7 +175,12 @@ class CameraVisionScreen(TkScreen):
         try:
             self._hardware_controls.invalidate()
             self._hardware_controls.restore_day_defaults()
-            detector = YoloObjectDetector(self._model_name, confidence=0.35, image_size=640)
+            detector = YoloObjectDetector(
+                self._model_name,
+                confidence=0.35,
+                image_size=640,
+                model=self._prepared_model,
+            )
             worker = PerceptionWorker(detector)
             worker.start()
         except Exception:
