@@ -33,6 +33,7 @@ class LaunchAwareRadioPanel(RadioPanel):
         rf_active: Callable[[], bool] | None = None,
         release_rf: Callable[[], None] | None = None,
         adsb_control: OrcUiAdsbControl | None = None,
+        on_location_changed: Callable[[str], None] | None = None,
     ) -> None:
         super().__init__(
             parent,
@@ -94,6 +95,7 @@ class RadioEntryPanel(tk.Frame):
         self._radio_panel: LaunchAwareRadioPanel | None = None
         self._streaming_page: PersistentStreamingRadioPanel | None = None
         self._launching = False
+        self._on_location_changed = on_location_changed
 
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(0, weight=1)
@@ -120,10 +122,12 @@ class RadioEntryPanel(tk.Frame):
     def open_streaming_radio(self) -> None:
         """Present the streaming-radio browser directly."""
         self._show_streaming_radio()
+        self._set_location("STREAMING")
 
     def open_rf_radio(self) -> None:
         """Launch and present the RF radio directly."""
         self._launch_rf_radio()
+        self._set_location("RF")
 
     def open_adsb(self) -> None:
         """Present the ADS-B aircraft dashboard without starting SDR++ first."""
@@ -142,6 +146,7 @@ class RadioEntryPanel(tk.Frame):
             self._radio_panel.grid(row=0, column=0, sticky="nsew")
             self._radio_panel.hide_loading()
         self._radio_panel.show_adsb()
+        self._set_location("AIRCRAFT")
 
     def _build_choice_buttons(self) -> None:
         ui = self._theme.ui
@@ -154,7 +159,7 @@ class RadioEntryPanel(tk.Frame):
             action_text="OPEN RF RADIO  ›",
             accent=ui.accent_success,
             icon_kind="rf",
-            command=self._launch_rf_radio,
+            command=self.open_rf_radio,
         )
         rf_card.grid(row=0, column=0, sticky="nsew", padx=(12, 6), pady=(18, 12))
 
@@ -167,7 +172,7 @@ class RadioEntryPanel(tk.Frame):
             action_text="BROWSE STATIONS  ›",
             accent=ui.accent_primary,
             icon_kind="stream",
-            command=self._show_streaming_radio,
+            command=self.open_streaming_radio,
         )
         streaming_card.grid(
             row=0,
@@ -383,6 +388,12 @@ class RadioEntryPanel(tk.Frame):
         if self._streaming_page is not None and self._streaming_page.winfo_exists():
             self._streaming_page.grid_remove()
         self._chooser.grid(row=0, column=0, sticky="nsew")
+        self._set_location("RADIO")
+
+    def _set_location(self, leaf: str) -> None:
+        handler = self._on_location_changed
+        if handler is not None:
+            handler(leaf)
 
     def _launch_rf_radio(self) -> None:
         if self._launching:
