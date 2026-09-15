@@ -241,12 +241,12 @@ class MediaScreen(TkScreen):
         self._bind_card(card, command)
         return card
 
-    @staticmethod
-    def _youtube_feature(parent: tk.Widget) -> None:
+    def _youtube_feature(self, parent: tk.Widget) -> None:
+        theme = self._theme_bundle().ui
         preview = tk.Canvas(
             parent,
             height=54,
-            bg="#111111",
+            bg=theme.surface_alt,
             highlightthickness=0,
             bd=0,
         )
@@ -258,17 +258,18 @@ class MediaScreen(TkScreen):
             19,
             text="WATCH",
             anchor="w",
-            fill="#FFFFFF",
+            fill=theme.text,
             font=("Sans", 15, "bold"),
         )
 
     def _youtube_music_feature(self, parent: tk.Widget) -> None:
-        preview = tk.Canvas(parent, height=38, bg="#111111", highlightthickness=0, bd=0)
+        theme = self._theme_bundle().ui
+        preview = tk.Canvas(parent, height=38, bg=theme.surface_alt, highlightthickness=0, bd=0)
         preview.pack(fill=tk.X, pady=(8, 0))
         preview.create_oval(10, 3, 44, 37, fill=YOUTUBE_MUSIC_RED, outline=YOUTUBE_MUSIC_RED)
-        preview.create_oval(16, 9, 38, 31, fill="#111111", outline="#FFFFFF", width=2)
+        preview.create_oval(16, 9, 38, 31, fill=theme.surface_alt, outline=theme.text, width=2)
         preview.create_polygon(25, 14, 25, 26, 34, 20, fill="#FFFFFF", outline="#FFFFFF")
-        preview.create_text(55, 20, text="MUSIC", anchor="w", fill="#FFFFFF", font=("Sans", 12, "bold"))
+        preview.create_text(55, 20, text="MUSIC", anchor="w", fill=theme.text, font=("Sans", 12, "bold"))
 
     def _netflix_feature(self, parent: tk.Widget) -> None:
         theme = self._theme_bundle().ui
