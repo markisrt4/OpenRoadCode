@@ -131,7 +131,7 @@ class EcuPanel(tk.Frame):
 
     def _bar(self, parent: tk.Misc, row: int, key: str, *, height: int = 24) -> None:
         ui = self._theme.ui
-        canvas = tk.Canvas(parent, height=height, bg=ui.surface, highlightthickness=0, bd=0)
+        canvas = tk.Canvas(parent, height=max(height, 34), bg=ui.surface, highlightthickness=0, bd=0)
         canvas.grid(row=row, column=2, sticky="ew", pady=3)
         canvas.bind("<Configure>", lambda _e: self._paint_bars())
         self._bars[key] = canvas
@@ -251,7 +251,7 @@ class EcuPanel(tk.Frame):
         ui = self._theme.ui
         canvas.delete("all")
         width = max(180, canvas.winfo_width())
-        x1, x2, y = 4.0, width - 4.0, 8.0
+        x1, x2, y = 4.0, width - 4.0, 9.0
         segments, gap = 14, 2
         sw = ((x2 - x1) - gap * (segments - 1)) / segments
         fraction = None if value is None else max(0.0, min(1.0, (value - minimum) / (maximum - minimum)))
@@ -266,6 +266,6 @@ class EcuPanel(tk.Frame):
         if value is not None:
             mx = bounded_marker_x(value, minimum=minimum, maximum=maximum, rail_start=x1, rail_end=x2, radius=2)
             canvas.create_line(mx, y - 9, mx, y + 9, fill=ui.text, width=3)
-        canvas.create_text(x1, 22, text=ticks[0], anchor="w", fill=ui.text_muted, font=("Sans", 8))
-        canvas.create_text((x1 + x2) / 2, 22, text=ticks[1], fill=ui.text_muted, font=("Sans", 8))
-        canvas.create_text(x2, 22, text=ticks[2], anchor="e", fill=ui.text_muted, font=("Sans", 8))
+        canvas.create_text(x1, 27, text=ticks[0], anchor="w", fill=ui.text_muted, font=("Sans", 8))
+        canvas.create_text((x1 + x2) / 2, 27, text=ticks[1], fill=ui.text_muted, font=("Sans", 8))
+        canvas.create_text(x2, 27, text=ticks[2], anchor="e", fill=ui.text_muted, font=("Sans", 8))
