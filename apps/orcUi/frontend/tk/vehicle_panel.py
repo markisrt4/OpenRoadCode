@@ -43,6 +43,7 @@ class VehiclePanel(tk.Frame):
         parent: tk.Misc,
         *,
         on_back: Callable[[], None],
+        on_view_changed: Callable[[str], None] | None = None,
         on_telemetry_profile: Callable[[AutomotiveTelemetryProfile], None] | None = None,
         state: VehiclePresentationState | None = None,
         trip_state: TripPresentationState | None = None,
@@ -74,6 +75,7 @@ class VehiclePanel(tk.Frame):
         ui = self._theme_bundle.ui
         super().__init__(parent, bg=ui.background)
         self._on_back = on_back
+        self._on_view_changed = on_view_changed
         self._on_telemetry_profile = on_telemetry_profile
         self._state = state or VehiclePresentationState()
         self._trip_state = trip_state or TripPresentationState()
@@ -121,6 +123,8 @@ class VehiclePanel(tk.Frame):
         if name not in self._TABS:
             raise ValueError(f"Unknown vehicle view: {name}")
         self._current_view = name
+        if self._on_view_changed is not None:
+            self._on_view_changed(name)
         self._request_telemetry_profile(name)
         ui = self._theme_bundle.ui
         for view_name, button in self._view_buttons.items():
