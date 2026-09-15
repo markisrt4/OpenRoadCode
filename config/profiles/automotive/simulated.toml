@@ -1,0 +1,6 @@
+# Automotive input generated entirely in software.
+[services.automotive.input]
+source = "simulation"
+
+[services.automotive.publish]
+source = "automotive-service-simulated"
