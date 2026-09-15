@@ -164,6 +164,11 @@ class MediaScreen(TkScreen):
         body = tk.Frame(card, bg=theme.surface)
         body.pack(fill=tk.BOTH, expand=True, padx=16, pady=14)
 
+        # Give dark-mode cards some depth without turning them into black slabs.
+        # Light mode already gets this separation naturally from its borders.
+        card_accent = tk.Frame(card, bg=accent, height=3)
+        card_accent.place(x=0, y=0, relwidth=1.0)
+
         top = tk.Frame(body, bg=theme.surface)
         top.pack(fill=tk.X)
         glyph_box = tk.Frame(
@@ -246,7 +251,7 @@ class MediaScreen(TkScreen):
         preview = tk.Canvas(
             parent,
             height=54,
-            bg=theme.surface_alt,
+            bg=theme.control_background,
             highlightthickness=0,
             bd=0,
         )
@@ -264,10 +269,10 @@ class MediaScreen(TkScreen):
 
     def _youtube_music_feature(self, parent: tk.Widget) -> None:
         theme = self._theme_bundle().ui
-        preview = tk.Canvas(parent, height=38, bg=theme.surface_alt, highlightthickness=0, bd=0)
+        preview = tk.Canvas(parent, height=38, bg=theme.control_background, highlightthickness=0, bd=0)
         preview.pack(fill=tk.X, pady=(8, 0))
         preview.create_oval(10, 3, 44, 37, fill=YOUTUBE_MUSIC_RED, outline=YOUTUBE_MUSIC_RED)
-        preview.create_oval(16, 9, 38, 31, fill=theme.surface_alt, outline=theme.text, width=2)
+        preview.create_oval(16, 9, 38, 31, fill=theme.control_background, outline=theme.text, width=2)
         preview.create_polygon(25, 14, 25, 26, 34, 20, fill="#FFFFFF", outline="#FFFFFF")
         preview.create_text(55, 20, text="MUSIC", anchor="w", fill=theme.text, font=("Sans", 12, "bold"))
 
