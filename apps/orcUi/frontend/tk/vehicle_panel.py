@@ -196,7 +196,6 @@ class VehiclePanel(tk.Frame):
             theme=self._theme_bundle,
             vehicle_configuration=self._vehicle_configuration,
             vehicle_state=self._state,
-            trip_state=self._trip_state,
             engine_analysis=self._engine_analysis,
         )
         panel.grid(row=0, column=0, sticky="nsew")
