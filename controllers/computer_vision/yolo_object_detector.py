@@ -29,21 +29,24 @@ class YoloObjectDetector(ObjectDetectorIf):
         confidence: float = 0.35,
         image_size: int = 640,
         labels: Iterable[str] = DEFAULT_ROAD_CLASSES,
+        model: Any | None = None,
     ) -> None:
         if not 0.0 <= confidence <= 1.0:
             raise ValueError("confidence must be between 0 and 1")
         if image_size <= 0:
             raise ValueError("image_size must be positive")
 
-        try:
-            from ultralytics import YOLO
-        except ModuleNotFoundError as exc:
-            raise RuntimeError(
-                "Ultralytics is required for YOLO detection; install it with "
-                "'python -m pip install ultralytics'"
-            ) from exc
+        if model is None:
+            try:
+                from ultralytics import YOLO
+            except ModuleNotFoundError as exc:
+                raise RuntimeError(
+                    "Ultralytics is required for YOLO detection; install it with "
+                    "'python -m pip install ultralytics'"
+                ) from exc
+            model = YOLO(model_name)
 
-        self._model: Any = YOLO(model_name)
+        self._model: Any = model
         self._confidence = confidence
         self._image_size = image_size
         self._labels = frozenset(labels)
