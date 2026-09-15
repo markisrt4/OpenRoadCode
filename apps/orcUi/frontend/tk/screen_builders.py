@@ -47,6 +47,7 @@ def build_vehicle_screen(
     parent: tk.Misc,
     *,
     on_back: Callable[[], None],
+    on_view_changed: Callable[[str], None] | None = None,
     on_telemetry_profile: Callable[[AutomotiveTelemetryProfile], None] | None,
     state: VehiclePresentationState,
     trip_state: TripPresentationState,
@@ -57,6 +58,7 @@ def build_vehicle_screen(
     screen = VehiclePanel(
         parent,
         on_back=on_back,
+        on_view_changed=on_view_changed,
         on_telemetry_profile=on_telemetry_profile,
         state=state,
         trip_state=trip_state,
