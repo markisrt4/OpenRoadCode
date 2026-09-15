@@ -9,8 +9,6 @@ from .radio_controller_if import RadioControllerIf
 from .radio_controller_stub import RadioControllerStub
 from .radio_input_adapter_if import RadioInputAdapterIf
 from .radio_types import RadioMode, RadioPreset, RadioRange
-from .streaming_radio_directory_if import StreamingRadioDirectoryIf
-from .streaming_radio_types import StreamingRadioStation
 from .unconfigured_radio_controller import UnconfiguredRadioController
 
 __all__ = [
@@ -23,7 +21,5 @@ __all__ = [
     "RadioMode",
     "RadioPreset",
     "RadioRange",
-    "StreamingRadioDirectoryIf",
-    "StreamingRadioStation",
     "UnconfiguredRadioController",
 ]

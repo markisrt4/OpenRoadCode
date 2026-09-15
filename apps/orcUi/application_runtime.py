@@ -9,6 +9,7 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
+from apps.common.spotify_controller_factory import create_spotify_controller
 from apps.launchers.browser_app_factory import BrowserApplicationFactory
 from apps.launchers.managed_sdrpp_launcher import ManagedSDRPPLauncher
 from apps.launchers.sdrpp_launcher import SDRPPProfile
@@ -41,7 +42,7 @@ class OrcUiApplicationRuntime:
         self.media.start()
 
     def close(self) -> None:
-        """Close media services before terminating managed applications."""
+        """Close feature services before terminating managed applications."""
         self.streaming_radio.stop()
         self.media.close()
         self.manager.stop_all()
@@ -66,7 +67,7 @@ def create_orc_ui_application_runtime() -> OrcUiApplicationRuntime:
 
     radio = ManagedRadioApplicationService(manager, sdrpp)
     streaming_radio = StreamingRadioController(MpvStreamingAudioPlayer())
-    media = MediaApplicationService()
+    media = MediaApplicationService(create_spotify_controller())
     return OrcUiApplicationRuntime(
         manager=manager,
         radio=radio,

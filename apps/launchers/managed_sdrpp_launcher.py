@@ -58,7 +58,7 @@ class ManagedSDRPPLauncher(SDRPPLauncher):
         window_id = self._window_id()
         if window_id is None:
             return False
-        subprocess.run(["xdotool", "windowunmap", str(window_id)], check=False)
+        self._lower_and_hide(window_id)
         if set_status is not None:
             set_status("SDR++ preloaded")
         return True
@@ -68,14 +68,25 @@ class ManagedSDRPPLauncher(SDRPPLauncher):
         while time.monotonic() < deadline:
             window_id = self._window_id()
             if window_id is not None:
-                subprocess.run(
-                    ["xdotool", "windowunmap", str(window_id)],
-                    check=False,
-                    stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL,
-                )
+                self._lower_and_hide(window_id)
                 return
             time.sleep(0.01)
+
+    @staticmethod
+    def _lower_and_hide(window_id: int) -> None:
+        """Drop a preload window behind ORC before removing it from view."""
+        subprocess.run(
+            ["xdotool", "windowlower", str(window_id)],
+            check=False,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        subprocess.run(
+            ["xdotool", "windowunmap", str(window_id)],
+            check=False,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
 
     def _window_id(self) -> int | None:
         if shutil.which("xdotool") is None:

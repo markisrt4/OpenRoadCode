@@ -1,8 +1,8 @@
 # OpenRoadCode Termux user-facing application configuration
 #
 # Termux X11 presents all OpenRoadCode application windows on the same X11
-# display. Application lifecycle policy intentionally mirrors applications.toml;
-# only presentation routing differs for the Android/Termux runtime.
+# display. SDR++ starts on Radio selection to avoid covering ORC at startup;
+# other application lifecycle policy mirrors applications.toml.
 
 [browser]
 profile_root = "~/.local/share/openroadcode/browser"
@@ -21,7 +21,7 @@ display = ":1"
 [apps.sdrpp]
 type = "native"
 enabled = true
-startup = "preload"
+startup = "lazy"
 target = "primary"
 
 [apps.weather]

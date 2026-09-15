@@ -54,15 +54,23 @@ class RadioScreen(TkScreen):
         panel.pack(fill=tk.BOTH, expand=True)
         self._panel = panel
 
+    def open_rf(self) -> None:
+        """Enter RF presentation on the already mounted radio screen."""
+        self._invoke_panel_action("open_rf_radio")
+
+    def open_streaming(self) -> None:
+        """Enter the streaming browser on the already mounted radio screen."""
+        self._invoke_panel_action("open_streaming_radio")
+
     def show_rf(self) -> None:
         """Open Radio and immediately enter the RF presentation."""
         self.show()
-        self._invoke_panel_action("open_rf_radio")
+        self.open_rf()
 
     def show_streaming(self) -> None:
         """Open Radio and immediately enter the streaming browser."""
         self.show()
-        self._invoke_panel_action("open_streaming_radio")
+        self.open_streaming()
 
     def hide(self) -> None:
         """Detach any embedded SDR window before the host destroys content."""
@@ -78,7 +86,12 @@ class RadioScreen(TkScreen):
         self._embedder.clear()
 
     def set_theme_mode(self, mode: ThemeMode) -> None:
-        """Keep external SDR presentation aligned with the application theme."""
+        """Apply live ORC and external SDR theme changes without restarting radio."""
+        panel = self._panel
+        if panel is not None and panel.winfo_exists():
+            set_theme_bundle = getattr(panel, "set_theme_bundle", None)
+            if callable(set_theme_bundle):
+                set_theme_bundle(self._theme_bundle())
         self._sync_external_theme(mode)
 
     def _invoke_panel_action(self, action_name: str) -> None:

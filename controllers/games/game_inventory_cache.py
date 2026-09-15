@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import json
-import os
 from pathlib import Path
+
+from common.xdg_paths import openroadcode_cache_dir
 
 
 class GameInventoryCache:
@@ -13,8 +14,7 @@ class GameInventoryCache:
     VERSION = 1
 
     def __init__(self, path: Path | None = None) -> None:
-        cache_home = Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache"))
-        self._path = path or cache_home / "openroadcode" / "games" / "inventory.json"
+        self._path = path or openroadcode_cache_dir("games", "inventory.json")
 
     def load(self) -> dict[str, str]:
         """Return cached game name to backend ID mappings."""

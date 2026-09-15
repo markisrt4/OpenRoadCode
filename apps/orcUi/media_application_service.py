@@ -3,26 +3,24 @@
 
 """Application-level ownership for ORC media services.
 
-This module is the composition boundary between the portable/controller media
-stack and Tk presentation.  It deliberately owns long-lived Spotify state and
-local-player lifecycles so individual screens do not construct backend
-services or decide when they should be started and stopped.
+This module owns the lifecycle of media services shared by ORC screens while
+portable Spotify behavior lives below the application package.
 """
 
 from __future__ import annotations
 
-from apps.orcUi.spotify_local_player import SpotifyLocalPlayer
-from apps.orcUi.spotify_state_service import SpotifyStateService
+from apps.orcUi.adapters.spotify_local_player_factory import create_spotify_local_player
+from controllers.spotify.spotify_controller_if import SpotifyControllerIf
+from controllers.spotify.spotify_local_player import SpotifyLocalPlayer
+from controllers.spotify.spotify_state_service import SpotifyStateService
 
 
 class MediaApplicationService:
     """Own long-lived media services shared by ORC UI screens."""
 
-    def __init__(self) -> None:
-        self._spotify = SpotifyStateService()
-        self._spotify_local_player = SpotifyLocalPlayer(
-            spotify_service=self._spotify,
-        )
+    def __init__(self, spotify_controller: SpotifyControllerIf) -> None:
+        self._spotify = SpotifyStateService(spotify_controller)
+        self._spotify_local_player = create_spotify_local_player(self._spotify)
         self._started = False
 
     @property

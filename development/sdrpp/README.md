@@ -7,9 +7,7 @@ OpenRoadCode uses SDR++ as its native RF engine and spectrum/waterfall presentat
 The `orcUi` RADIO item opens `RadioEntryPanel`, which presents two sources:
 
 - **RF RADIO** launches SDR++ and constructs the ORC RF controls.
-- **STREAMING RADIO** opens the native streaming-radio browser, including local/regional discovery, favorites, artwork and mpv-backed playback.
-
-The chooser deliberately keeps RF and streaming radio as separate source paths. Streaming radio does not depend on SDR++ or RTL-SDR hardware; the detailed streaming architecture and validation notes live in `docs/streaming_radio.md`.
+- **STREAMING RADIO** currently opens a Coming Soon page while the streaming-radio provider/controller work remains under development.
 
 For RF Radio, `SDRPPLauncher` starts SDR++ and `X11WindowEmbedder` discovers and reparents the SDR++ X11 client into the radio panel. The ORC controls remain outside the embedded SDR++ client and communicate through the controller/protocol layers below.
 
@@ -50,7 +48,7 @@ The C++ directories are built as SDR++ modules. The Python test servers implemen
 - `protocols/rigctl` owns RF/RigCTL communication on port 4532.
 - `protocols/sdrpp_remote_control` owns the Python client for port 4533.
 - `protocols/sdrpp_telemetry` owns the Python client for port 4534.
-- `controllers/radio` owns radio-domain behavior such as profiles, tuning, presets, streaming station discovery and streaming playback coordination.
+- `controllers/radio` owns radio-domain behavior such as profiles, tuning, presets, and RDS access.
 - `controllers/sdr` exposes SDR++ application controls and best-effort telemetry to frontends.
 - `apps/launchers/sdrpp_launcher.py` owns SDR++ process lifecycle and native-versus-Termux launch selection.
 - `frontends/x11` owns foreign-window discovery, reparenting, and resize behavior.
