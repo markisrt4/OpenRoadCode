@@ -136,7 +136,7 @@ class _NavTile(tk.Canvas):
             height / 2,
             text=_NAV_LABELS.get(self._nav_name, self._nav_name),
             fill=label_color,
-            font=("Sans", FONT_CONTROL, "bold"),
+            font=("Sans", FONT_CONTROL - 1, "bold"),
             anchor="w",
         )
 
