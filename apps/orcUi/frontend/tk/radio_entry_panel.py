@@ -82,6 +82,7 @@ class RadioEntryPanel(tk.Frame):
         theme: ThemeBundle,
         embedder: X11WindowEmbedder | None = None,
         adsb_control: OrcUiAdsbControl | None = None,
+        on_location_changed: Callable[[str], None] | None = None,
     ) -> None:
         self._theme = theme
         ui = theme.ui
