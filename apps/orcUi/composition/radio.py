@@ -52,6 +52,7 @@ def configure_radio(app: OrcUiApp, runtime) -> RadioComposition:
             adsb_control=adsb,
         ),
         sync_theme=sync_theme,
+        on_location_changed=lambda leaf: app.set_breadcrumb("RADIO", leaf),
     )
     app.register_screen("RADIO", screen)
 
