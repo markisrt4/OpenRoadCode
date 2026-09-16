@@ -77,6 +77,7 @@ build-output/
 │   ├── source/
 │   ├── vector/openroadcode.mbtiles
 │   ├── glyphs/
+│   ├── search/openroadcode-search.sqlite
 │   ├── styles/openroadcode.json
 │   └── routes/
 └── valhalla/
@@ -111,7 +112,7 @@ The recommended vehicle-pull model publishes the latest validated dataset at `/s
 ./scripts/deploy-to-srv.sh
 ```
 
-The deployment script refuses to install an output tree without a validated `build-manifest.json`. It synchronizes generated data into `/srv/openroadcode` while preserving `maps/routes/` as runtime/debug space.
+The deployment script refuses to install an output tree without a validated `build-manifest.json`. It synchronizes generated data into `/srv/openroadcode` while preserving `maps/routes/` as runtime/debug space. The POI search index is deployed at the canonical runtime path `maps/search/openroadcode-search.sqlite`; legacy `maps/poi/openroadcode-poi.sqlite` outputs are migrated during deployment.
 
 The vehicle can then preview and pull that dataset over SSH:
 
