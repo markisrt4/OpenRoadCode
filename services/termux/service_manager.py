@@ -7,7 +7,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+import json
 import subprocess
+from urllib.request import urlopen
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -23,6 +25,8 @@ class ServiceStatus:
     detail: str
     profile: str | None = None
     available_profiles: tuple[str, ...] = ()
+    input_state: str | None = None
+    input_detail: str | None = None
 
 
 class RunitServiceManager:
@@ -54,12 +58,16 @@ class RunitServiceManager:
             state = "stopped"
         else:
             state = "unknown"
+        profile = self.profile(name)
+        input_state, input_detail = self._input_health(name, state, profile)
         return ServiceStatus(
             name=name,
             state=state,
             detail=detail,
-            profile=self.profile(name),
+            profile=profile,
             available_profiles=self.available_profiles(name),
+            input_state=input_state,
+            input_detail=input_detail,
         )
 
     def all_status(self) -> tuple[ServiceStatus, ...]:
@@ -127,6 +135,34 @@ class RunitServiceManager:
         for name in reversed(self.CORE_STACK):
             self._sv("down", name)
         return tuple(self.status(name) for name in self.CORE_STACK)
+
+
+    @staticmethod
+    def _input_health(name: str, state: str, profile: str | None) -> tuple[str | None, str | None]:
+        if name != "openroadcode-navigation" or profile != "local":
+            return None, None
+        if state != "running":
+            return "stopped", "Local phone input not in use"
+        try:
+            with urlopen("http://127.0.0.1:8766/health", timeout=0.5) as response:
+                payload = json.load(response)
+        except (OSError, ValueError, json.JSONDecodeError):
+            return "waiting", "Waiting for Android Sensor Bridge"
+        if payload.get("status") != "ready":
+            return "waiting", "Android Sensor Bridge is not ready"
+        imu_ready = (
+            int(payload.get("accelerometer_samples", 0) or 0) > 0
+            and int(payload.get("gyroscope_samples", 0) or 0) > 0
+        )
+        location_ready = payload.get("location_ready") is True
+        if imu_ready and location_ready:
+            return "connected", "Phone motion + GPS connected"
+        missing = []
+        if not imu_ready:
+            missing.append("motion")
+        if not location_ready:
+            missing.append("GPS")
+        return "waiting", "Waiting for " + " + ".join(missing)
 
     @classmethod
     def _validate(cls, name: str) -> None:
