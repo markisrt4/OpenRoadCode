@@ -43,6 +43,15 @@ esac
   exit 2
 }
 
+SEARCH_DB_REL="maps/search/openroadcode-search.sqlite"
+LEGACY_POI_DB_REL="maps/poi/openroadcode-poi.sqlite"
+
+if [[ ! -s "$SOURCE$SEARCH_DB_REL" && ! -s "$SOURCE$LEGACY_POI_DB_REL" ]]; then
+  echo "Validated output is missing the POI search database." >&2
+  echo "Expected $SEARCH_DB_REL (or legacy $LEGACY_POI_DB_REL)." >&2
+  exit 2
+fi
+
 RSYNC_OPTIONS=(
   --archive
   --delete-delay
@@ -56,6 +65,12 @@ if [[ -z "$REMOTE" ]]; then
   sudo mkdir -p "$DEST/maps/routes"
   echo "Deploying validated OpenRoadCode map data to $DEST"
   sudo rsync "${RSYNC_OPTIONS[@]}" "$SOURCE" "$DEST"
+  if [[ ! -s "$DEST$SEARCH_DB_REL" && -s "$DEST$LEGACY_POI_DB_REL" ]]; then
+    echo "Installing legacy POI index at canonical runtime path"
+    sudo mkdir -p "$DEST/maps/search"
+    sudo install -m 0644 "$DEST$LEGACY_POI_DB_REL" "$DEST$SEARCH_DB_REL"
+  fi
+  sudo test -s "$DEST$SEARCH_DB_REL"
 else
   echo "Checking remote deployment prerequisites on $REMOTE"
   if ! ssh "$REMOTE" "command -v rsync >/dev/null && sudo -n mkdir -p '$DEST/maps/routes'"; then
@@ -67,6 +82,7 @@ else
     --rsync-path="sudo -n rsync" \
     "$SOURCE" \
     "$REMOTE:$DEST"
+  ssh "$REMOTE" "if [[ ! -s '$DEST$SEARCH_DB_REL' && -s '$DEST$LEGACY_POI_DB_REL' ]]; then sudo -n mkdir -p '$DEST/maps/search' && sudo -n install -m 0644 '$DEST$LEGACY_POI_DB_REL' '$DEST$SEARCH_DB_REL'; fi; sudo -n test -s '$DEST$SEARCH_DB_REL'"
 fi
 
 echo "Deployment complete. Runtime routes in ${DEST}maps/routes/ were preserved."
