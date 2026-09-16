@@ -10,8 +10,23 @@ from collections.abc import Callable
 
 import requests
 
+from common.units import (
+    celsius_to_kelvin,
+    hectopascals_to_pascals,
+    kilometers_per_hour_to_meters_per_second,
+    millimeters_to_meters,
+    percent_to_ratio,
+)
 from controllers.weather.weather_provider_if import WeatherProviderIf
-from controllers.weather.weather_state import WeatherLocation, WeatherSource, WeatherState
+from controllers.weather.weather_state import (
+    CurrentWeather,
+    DailyForecast,
+    HourlyForecast,
+    WeatherCondition,
+    WeatherLocation,
+    WeatherSource,
+    WeatherState,
+)
 
 
 class OpenMeteoWeatherProvider(WeatherProviderIf):
@@ -53,10 +68,92 @@ class OpenMeteoWeatherProvider(WeatherProviderIf):
             location_source=location.source,
             source=WeatherSource("open_meteo", "Open-Meteo"),
             fetched_at=self._clock(),
-            current=forecast["current"],
-            hourly=forecast["hourly"],
-            daily=forecast["daily"],
+            current=self._current_weather(forecast["current"]),
+            hourly=self._hourly_forecast(forecast["hourly"]),
+            daily=self._daily_forecast(forecast["daily"]),
         )
+
+    @staticmethod
+    def _condition(code: int | None) -> WeatherCondition:
+        if code == 0:
+            return WeatherCondition.CLEAR
+        if code in (1, 2):
+            return WeatherCondition.PARTLY_CLOUDY
+        if code == 3:
+            return WeatherCondition.CLOUDY
+        if code in (45, 48):
+            return WeatherCondition.FOG
+        if code in (51, 53, 55, 56, 57):
+            return WeatherCondition.DRIZZLE
+        if code in (61, 63, 65, 80, 81, 82):
+            return WeatherCondition.RAIN
+        if code in (66, 67):
+            return WeatherCondition.FREEZING_RAIN
+        if code in (71, 73, 75, 77, 85, 86):
+            return WeatherCondition.SNOW
+        if code in (95, 96, 99):
+            return WeatherCondition.THUNDERSTORM
+        return WeatherCondition.UNKNOWN
+
+    @classmethod
+    def _current_weather(cls, data: dict) -> CurrentWeather:
+        return CurrentWeather(
+            temperature_k=celsius_to_kelvin(data.get("temperature_2m")),
+            apparent_temperature_k=celsius_to_kelvin(data.get("apparent_temperature")),
+            relative_humidity=percent_to_ratio(data.get("relative_humidity_2m")),
+            condition=cls._condition(data.get("weather_code")),
+            precipitation_m=millimeters_to_meters(data.get("precipitation")),
+            rain_m=millimeters_to_meters(data.get("rain")),
+            showers_m=millimeters_to_meters(data.get("showers")),
+            snowfall_m=millimeters_to_meters(data.get("snowfall")),
+            cloud_cover=percent_to_ratio(data.get("cloud_cover")),
+            pressure_msl_pa=hectopascals_to_pascals(data.get("pressure_msl")),
+            surface_pressure_pa=hectopascals_to_pascals(data.get("surface_pressure")),
+            wind_speed_m_s=kilometers_per_hour_to_meters_per_second(data.get("wind_speed_10m")),
+            wind_direction_deg=data.get("wind_direction_10m"),
+            wind_gust_m_s=kilometers_per_hour_to_meters_per_second(data.get("wind_gusts_10m")),
+        )
+
+    @classmethod
+    def _hourly_forecast(cls, data: dict) -> tuple[HourlyForecast, ...]:
+        times = data.get("time", [])
+        result = []
+        for index, timestamp in enumerate(times):
+            result.append(HourlyForecast(
+                timestamp=__import__("datetime").datetime.fromisoformat(timestamp),
+                temperature_k=celsius_to_kelvin(cls._at(data, "temperature_2m", index)),
+                apparent_temperature_k=celsius_to_kelvin(cls._at(data, "apparent_temperature", index)),
+                precipitation_probability=percent_to_ratio(cls._at(data, "precipitation_probability", index)),
+                precipitation_m=millimeters_to_meters(cls._at(data, "precipitation", index)),
+                condition=cls._condition(cls._at(data, "weather_code", index)),
+                cloud_cover=percent_to_ratio(cls._at(data, "cloud_cover", index)),
+                wind_speed_m_s=kilometers_per_hour_to_meters_per_second(cls._at(data, "wind_speed_10m", index)),
+            ))
+        return tuple(result)
+
+    @classmethod
+    def _daily_forecast(cls, data: dict) -> tuple[DailyForecast, ...]:
+        from datetime import date, datetime
+        result = []
+        for index, day in enumerate(data.get("time", [])):
+            sunrise = cls._at(data, "sunrise", index)
+            sunset = cls._at(data, "sunset", index)
+            result.append(DailyForecast(
+                date=date.fromisoformat(day),
+                condition=cls._condition(cls._at(data, "weather_code", index)),
+                temperature_high_k=celsius_to_kelvin(cls._at(data, "temperature_2m_max", index)),
+                temperature_low_k=celsius_to_kelvin(cls._at(data, "temperature_2m_min", index)),
+                sunrise=datetime.fromisoformat(sunrise) if sunrise else None,
+                sunset=datetime.fromisoformat(sunset) if sunset else None,
+                precipitation_probability=percent_to_ratio(cls._at(data, "precipitation_probability_max", index)),
+                wind_speed_max_m_s=kilometers_per_hour_to_meters_per_second(cls._at(data, "wind_speed_10m_max", index)),
+            ))
+        return tuple(result)
+
+    @staticmethod
+    def _at(data: dict, key: str, index: int):
+        values = data.get(key, [])
+        return values[index] if index < len(values) else None
 
     @staticmethod
     def _request_params(location: WeatherLocation) -> dict[str, str | float | int]:
