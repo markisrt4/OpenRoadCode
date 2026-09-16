@@ -17,8 +17,6 @@ __all__ = [
     "SDRPPLauncher",
     "SDRPPProfile",
     "StatusCallback",
-    "StreamlitLauncher",
-    "WeatherDashLauncher",
 ]
 
 _LAZY_EXPORTS = {
@@ -26,8 +24,6 @@ _LAZY_EXPORTS = {
     "BrowserKioskLauncher": ("apps.launchers.browser_launcher", "BrowserKioskLauncher"),
     "SDRPPLauncher": ("apps.launchers.sdrpp_launcher", "SDRPPLauncher"),
     "SDRPPProfile": ("apps.launchers.sdrpp_launcher", "SDRPPProfile"),
-    "StreamlitLauncher": ("apps.launchers.streamlit_launcher", "StreamlitLauncher"),
-    "WeatherDashLauncher": ("apps.launchers.weather_dash_launcher", "WeatherDashLauncher"),
 }
 
 

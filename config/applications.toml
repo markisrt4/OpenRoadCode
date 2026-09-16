@@ -25,13 +25,6 @@ startup = "lazy"
 target = "primary"
 fullscreen = false
 
-[apps.weather]
-type = "browser"
-enabled = true
-url = "http://127.0.0.1:8501"
-profile = "weather"
-startup = "preload"
-exclusive_group = "auxiliary"
 
 [apps.adsb]
 type = "adsb"
