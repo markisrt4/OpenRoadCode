@@ -14,6 +14,7 @@ import os
 import subprocess
 
 from services.common.service_manager_auth import TOKEN_ENV, authorized, binding_allowed
+from services.common.service_manager_pairing import ServiceManagerPairing
 from services.termux.service_manager import RunitServiceManager, ServiceStatus
 
 DEFAULT_HOST = "127.0.0.1"
@@ -29,6 +30,7 @@ class ServiceManagerHandler(BaseHTTPRequestHandler):
 
     manager = RunitServiceManager()
     auth_token: str | None = None
+    pairing = ServiceManagerPairing()
 
     def do_GET(self) -> None:  # noqa: N802 - BaseHTTPRequestHandler API
         if not self._authenticate():
@@ -39,9 +41,12 @@ class ServiceManagerHandler(BaseHTTPRequestHandler):
         self._json(HTTPStatus.OK, _payload(self.manager.all_status()))
 
     def do_POST(self) -> None:  # noqa: N802 - BaseHTTPRequestHandler API
+        parts = [part for part in self.path.split("/") if part]
+        if parts == ["pair"]:
+            self._pair()
+            return
         if not self._authenticate():
             return
-        parts = [part for part in self.path.split("/") if part]
         try:
             if parts == ["stack", "core", "start"]:
                 statuses = self.manager.start_core()
@@ -60,8 +65,24 @@ class ServiceManagerHandler(BaseHTTPRequestHandler):
             return
         self._json(HTTPStatus.OK, _payload(statuses))
 
+    def _pair(self) -> None:
+        try:
+            length = int(self.headers.get("Content-Length", "0"))
+            payload = json.loads(self.rfile.read(length) or b"{}")
+            client_id, token = self.pairing.pair(
+                str(payload.get("pin", "")),
+                str(payload.get("client_name", "")),
+            )
+        except (ValueError, json.JSONDecodeError) as exc:
+            self._json(HTTPStatus.BAD_REQUEST, {"error": str(exc)})
+            return
+        self._json(HTTPStatus.OK, {"client_id": client_id, "access_token": token})
+
     def _authenticate(self) -> bool:
-        if authorized(self.headers.get("Authorization"), self.auth_token):
+        header = self.headers.get("Authorization")
+        if authorized(header, self.auth_token):
+            return True
+        if header and header.startswith("Bearer ") and self.pairing.authorized(header.removeprefix("Bearer ")):
             return True
         self._json(HTTPStatus.UNAUTHORIZED, {"error": "unauthorized"})
         return False
@@ -83,7 +104,13 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Control OpenRoadCode Termux runit services.")
     parser.add_argument("--host", default=DEFAULT_HOST)
     parser.add_argument("--port", type=int, default=DEFAULT_PORT)
+    parser.add_argument("--pair", action="store_true", help="Generate a single-use pairing PIN and exit.")
     args = parser.parse_args()
+    if args.pair:
+        pin, expires_at = ServiceManagerHandler.pairing.begin()
+        print(f"Pairing PIN: {pin}")
+        print(f"Expires at Unix time: {expires_at:.0f}")
+        return 0
     token = os.environ.get(TOKEN_ENV, "").strip() or None
     if not binding_allowed(args.host, token):
         parser.error(f"non-loopback service manager requires {TOKEN_ENV}")
