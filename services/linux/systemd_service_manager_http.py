@@ -7,13 +7,13 @@ from __future__ import annotations
 
 import argparse
 from dataclasses import asdict
-import hmac
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 import os
 import subprocess
 
+from services.common.service_manager_auth import TOKEN_ENV, authorized as _authorized, binding_allowed as _binding_allowed
 from services.linux.systemd_service_manager import ServiceStatus, SystemdServiceManager
 
 DEFAULT_HOST = "127.0.0.1"
@@ -25,20 +25,6 @@ LOOPBACK_HOSTS = {"127.0.0.1", "localhost", "::1"}
 def _payload(statuses: tuple[ServiceStatus, ...] | list[ServiceStatus]) -> dict[str, object]:
     return {"services": [asdict(status) for status in statuses]}
 
-
-def _authorized(header_value: str | None, token: str | None) -> bool:
-    """Return whether the request satisfies the configured bearer-token policy."""
-    if not token:
-        return True
-    if not header_value or not header_value.startswith("Bearer "):
-        return False
-    supplied = header_value.removeprefix("Bearer ")
-    return hmac.compare_digest(supplied, token)
-
-
-def _binding_allowed(host: str, token: str | None) -> bool:
-    """Require authentication whenever the manager is reachable off-host."""
-    return host in LOOPBACK_HOSTS or bool(token)
 
 
 class SystemdServiceManagerHandler(BaseHTTPRequestHandler):
