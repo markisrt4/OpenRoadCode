@@ -1,44 +1,32 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 
-"""Toolkit-independent weather retrieval and snapshot caching."""
+"""Toolkit-independent weather domain and provider contracts."""
 
-from importlib import import_module
-from typing import Any
-
-from common.xdg_paths import openroadcode_cache_dir
-from controllers.weather.weather_snapshot import WeatherLocation, WeatherSnapshot
-from controllers.weather.weather_snapshot_cache import WeatherSnapshotCache
-
-DEFAULT_WEATHER_CACHE_DIRECTORY = openroadcode_cache_dir("weather")
+from controllers.weather.gpsd_weather_location_provider import GpsdWeatherLocationProvider
+from controllers.weather.providers import OpenMeteoWeatherProvider
+from controllers.weather.weather_controller import WeatherController
+from controllers.weather.weather_provider_if import WeatherProviderIf
+from controllers.weather.weather_state import (
+    CurrentWeather,
+    DailyForecast,
+    HourlyForecast,
+    WeatherCondition,
+    WeatherLocation,
+    WeatherSource,
+    WeatherState,
+)
 
 __all__ = [
-    "OpenMeteoWeatherController",
-    "DEFAULT_WEATHER_CACHE_DIRECTORY",
+    "CurrentWeather",
+    "DailyForecast",
     "GpsdWeatherLocationProvider",
+    "HourlyForecast",
+    "OpenMeteoWeatherProvider",
+    "WeatherCondition",
+    "WeatherController",
     "WeatherLocation",
-    "WeatherSnapshot",
-    "WeatherSnapshotCache",
+    "WeatherProviderIf",
+    "WeatherSource",
+    "WeatherState",
 ]
-
-_LAZY_EXPORTS = {
-    "OpenMeteoWeatherController": (
-        "controllers.weather.open_meteo_weather_controller",
-        "OpenMeteoWeatherController",
-    ),
-    "GpsdWeatherLocationProvider": (
-        "controllers.weather.gpsd_weather_location_provider",
-        "GpsdWeatherLocationProvider",
-    ),
-}
-
-
-def __getattr__(name: str) -> Any:
-    """Load optional weather providers only when explicitly requested."""
-    target = _LAZY_EXPORTS.get(name)
-    if target is None:
-        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
-    module_name, attribute_name = target
-    value = getattr(import_module(module_name), attribute_name)
-    globals()[name] = value
-    return value
