@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 
-from controllers.weather.weather_snapshot import WeatherLocation, WeatherSnapshot
+from controllers.weather.weather_state import WeatherLocation, WeatherState
 
 
 class WeatherProviderIf(ABC):
@@ -19,5 +19,5 @@ class WeatherProviderIf(ABC):
         """Return the stable provider identifier."""
 
     @abstractmethod
-    def refresh(self, location: WeatherLocation | None = None) -> WeatherSnapshot:
-        """Fetch and return a fresh normalized weather snapshot."""
+    def refresh(self, location: WeatherLocation) -> WeatherState:
+        """Fetch and return a fresh normalized weather state."""
