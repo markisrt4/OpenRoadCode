@@ -297,6 +297,24 @@ def validate_style(path, available_layers=None):
             )
 
 
+def validate_search_index(path):
+    if not path.is_file() or path.stat().st_size == 0:
+        raise ValidationError(f"Missing/empty POI search index: {path}")
+    with sqlite3.connect(path) as db:
+        integrity = db.execute("PRAGMA integrity_check").fetchone()[0]
+        if integrity != "ok":
+            raise ValidationError(f"POI search index integrity failed: {integrity}")
+        tables = {
+            row[0]
+            for row in db.execute(
+                "SELECT name FROM sqlite_master WHERE type='table'"
+            )
+        }
+        if not tables:
+            raise ValidationError("POI search index contains no tables")
+    return {"bytes": path.stat().st_size, "tables": sorted(tables)}
+
+
 def validate_glyphs(path):
     files = list(path.rglob("*.pbf")) if path.exists() else []
     if len(files) < 10 or not any(item.name == "0-255.pbf" for item in files):
@@ -359,10 +377,12 @@ def validate_output(root, *, service_smoke=False):
     mbtiles = root / "maps/vector/openroadcode.mbtiles"
     style = root / "maps/styles/openroadcode.json"
     valhalla = root / "valhalla"
+    search_index = root / "maps/search/openroadcode-search.sqlite"
     result = {
         "source_pbfs": len(pbfs),
         "mbtiles": validate_mbtiles(mbtiles),
         "glyph_files": validate_glyphs(root / "maps/glyphs"),
+        "search_index": validate_search_index(search_index),
         "valhalla": validate_valhalla(valhalla, service_smoke=service_smoke),
     }
     validate_style(style, result["mbtiles"]["layers"])
@@ -370,5 +390,6 @@ def validate_output(root, *, service_smoke=False):
         "mbtiles": sha256(mbtiles),
         "style": sha256(style),
         "valhalla_extract": sha256(valhalla / "tiles.tar"),
+        "search_index": sha256(search_index),
     }
     return result
