@@ -10,8 +10,10 @@ import tkinter as tk
 from collections.abc import Callable
 from typing import Any
 
+from controllers.computer_vision.byte_track_object_tracker import ByteTrackObjectTracker
 from controllers.computer_vision.camera_frame_processor import CameraFrameProcessor, CameraMode
 from controllers.computer_vision.object_detector_if import DetectionFrame
+from controllers.computer_vision.object_tracker_if import TrackFrame
 from controllers.computer_vision.perception_worker import PerceptionWorker
 from controllers.computer_vision.yolo_object_detector import YoloObjectDetector
 from frontends.tk.tk_screen import TkScreen
@@ -57,6 +59,7 @@ class CameraVisionScreen(TkScreen):
         self._hardware_controls = V4L2CameraProfileController(device)
         self._ai_enabled = True
         self._last_detection: DetectionFrame | None = None
+        self._last_tracks: TrackFrame | None = None
         self._last_capture_time = 0.0
         self._camera_fps = 0.0
         self._last_ai_count = 0
@@ -92,6 +95,7 @@ class CameraVisionScreen(TkScreen):
         self._mode_label = None
         self._photo = None
         self._last_detection = None
+        self._last_tracks = None
 
     def set_theme_mode(self, mode: ThemeMode) -> None:
         del mode
@@ -181,7 +185,8 @@ class CameraVisionScreen(TkScreen):
                 image_size=640,
                 model=self._prepared_model,
             )
-            worker = PerceptionWorker(detector)
+            tracker = ByteTrackObjectTracker(frame_rate=30)
+            worker = PerceptionWorker(detector, tracker)
             worker.start()
         except Exception:
             camera.close()
@@ -230,6 +235,9 @@ class CameraVisionScreen(TkScreen):
             detection = worker.latest_result
             if detection is not None:
                 self._last_detection = detection
+            tracks = worker.latest_tracks
+            if tracks is not None:
+                self._last_tracks = tracks
 
             processed_count = worker.processed_frames
             if processed_count != self._last_ai_count:
@@ -241,7 +249,7 @@ class CameraVisionScreen(TkScreen):
                 self._last_ai_count = processed_count
                 self._last_ai_time = now
 
-            self._draw(processed_image, self._last_detection if self._ai_enabled else None)
+            self._draw(processed_image, self._last_detection if self._ai_enabled else None, self._last_tracks if self._ai_enabled else None)
             self._update_status()
         except Exception as exc:
             if self._status_label is not None:
@@ -250,7 +258,7 @@ class CameraVisionScreen(TkScreen):
             if self._camera is not None:
                 self._schedule_poll()
 
-    def _draw(self, image, detection_frame: DetectionFrame | None) -> None:
+    def _draw(self, image, detection_frame: DetectionFrame | None, track_frame: TrackFrame | None) -> None:
         canvas = self._canvas
         if canvas is None:
             return
@@ -279,21 +287,34 @@ class CameraVisionScreen(TkScreen):
         canvas.delete("all")
         canvas.create_image(offset_x, offset_y, anchor=tk.NW, image=photo)
 
-        if detection_frame is None:
+        if track_frame is not None and track_frame.tracks:
+            for track in track_frame.tracks:
+                x1 = offset_x + int(track.x * draw_w)
+                y1 = offset_y + int(track.y * draw_h)
+                x2 = x1 + int(track.width * draw_w)
+                y2 = y1 + int(track.height * draw_h)
+                canvas.create_rectangle(x1, y1, x2, y2, outline="#00ff77", width=2)
+                label = f"{track.label.upper()} #{track.track_id} {track.confidence:.0%}  {track.age_s:.1f}s"
+                canvas.create_text(
+                    x1 + 4, max(offset_y + 8, y1 - 4),
+                    text=label, anchor=tk.SW, fill="#00ff77",
+                    font=("Sans", 9, "bold"),
+                )
             return
 
-        for detection in detection_frame.detections:
-            x1 = offset_x + int(detection.x * draw_w)
-            y1 = offset_y + int(detection.y * draw_h)
-            x2 = x1 + int(detection.width * draw_w)
-            y2 = y1 + int(detection.height * draw_h)
-            canvas.create_rectangle(x1, y1, x2, y2, outline="#00ff77", width=2)
-            label = f"{detection.label.upper()} {detection.confidence:.0%}"
-            canvas.create_text(
-                x1 + 4, max(offset_y + 8, y1 - 4),
-                text=label, anchor=tk.SW, fill="#00ff77",
-                font=("Sans", 9, "bold"),
-            )
+        if detection_frame is not None:
+            for detection in detection_frame.detections:
+                x1 = offset_x + int(detection.x * draw_w)
+                y1 = offset_y + int(detection.y * draw_h)
+                x2 = x1 + int(detection.width * draw_w)
+                y2 = y1 + int(detection.height * draw_h)
+                canvas.create_rectangle(x1, y1, x2, y2, outline="#00ff77", width=2)
+                label = f"{detection.label.upper()} {detection.confidence:.0%}"
+                canvas.create_text(
+                    x1 + 4, max(offset_y + 8, y1 - 4),
+                    text=label, anchor=tk.SW, fill="#00ff77",
+                    font=("Sans", 9, "bold"),
+                )
 
     def _set_mode(self, mode: CameraMode) -> None:
         self._processor.set_mode(mode)
@@ -334,6 +355,9 @@ class CameraVisionScreen(TkScreen):
         detection = self._last_detection if self._ai_enabled else None
         latency = 0.0 if detection is None else detection.inference_time_ms
         objects = 0 if detection is None else len(detection.detections)
+        tracks = self._last_tracks if self._ai_enabled else None
+        track_count = 0 if tracks is None else len(tracks.tracks)
+        oldest = 0.0 if tracks is None or not tracks.tracks else max(track.age_s for track in tracks.tracks)
         self._update_mode_label()
         hardware = self._hardware_controls.current_profile
         hardware_name = "--" if hardware is None else hardware.value.upper().replace("_", " ")
@@ -343,6 +367,8 @@ class CameraVisionScreen(TkScreen):
                 f"AI  {'ON ' if self._ai_enabled else 'OFF'} {self._ai_fps:4.1f} fps\n"
                 f"INF {latency:4.0f} ms\n"
                 f"OBJ {objects}\n"
+                f"TRK {track_count}\n"
+                f"AGE {oldest:4.1f}s\n"
                 f"LUM {self._processor.last_luminance:4.0f}\n"
                 f"HW  {hardware_name}\n"
                 f"SRC {self._device}"
