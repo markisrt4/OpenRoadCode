@@ -97,3 +97,19 @@ flapping near the threshold.
 The VISION status panel reports the measured scene luminance and the active
 hardware profile so profile transitions can be evaluated directly on the VM
 before road testing.
+
+
+## Persistent object tracking
+
+VISION passes YOLO detections through an `ObjectTrackerIf` abstraction backed
+initially by ByteTrack. Detection remains independent of tracking: YOLO reports
+frame-local observations while the tracker assigns persistent identities over
+time.
+
+The VISION overlay renders tracked objects as `LABEL #ID confidence age`, and
+the status panel reports active track count and oldest-track age. YOLO uses a
+lower candidate threshold in VISION so ByteTrack can use weaker detections to
+maintain an existing identity through brief confidence drops.
+
+Tracking state is owned by the perception worker and reset whenever VISION is
+started, so IDs are session-local rather than permanent object identities.
