@@ -51,6 +51,14 @@ def main() -> int:
             [sys.executable, "scripts/check_python_module_size.py"],
         ),
         _run(
+            "Doxygen interface contracts",
+            [sys.executable, "scripts/check_doxygen_contracts.py"],
+        ),
+        _run(
+            "Mermaid diagram legends",
+            [sys.executable, "scripts/check_mermaid_legends.py"],
+        ),
+        _run(
             "Unit tests",
             [sys.executable, "scripts/run_tests.py", "unit"],
         ),
