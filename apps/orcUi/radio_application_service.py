@@ -20,6 +20,17 @@ class RadioApplicationServiceIf(Protocol):
     def window_process_id(self, *, timeout_seconds: float) -> int:
         """Return the X11 client process id used for embedding."""
 
+    @property
+    def presented(self) -> bool:
+        """Return whether RF radio is currently presented to the user."""
+
+    @property
+    def fullscreen(self) -> bool:
+        """Return whether RF is configured for native fullscreen presentation."""
+
+    def relinquish_for_adsb(self) -> None:
+        """Stop RF presentation so an explicit ADS-B request can use the SDR."""
+
 
 class ManagedRadioApplicationService:
     """Bridge radio presentation requests into shared application lifecycle policy."""
@@ -30,12 +41,34 @@ class ManagedRadioApplicationService:
         self,
         manager: AppRuntimeManager,
         launcher: ManagedSDRPPLauncher,
+        *,
+        fullscreen: bool = False,
     ) -> None:
         self._manager = manager
         self._launcher = launcher
+        self._fullscreen = fullscreen
 
     def present(self) -> None:
+        # Embedded SDR++ must never be presented as a normal top-level window.
+        # Start it directly and let RadioPanel reparent the X11 client once it
+        # appears. AppRuntimeManager.show() intentionally marks/maps windowed
+        # applications, which is correct for standalone mode but wrong here.
+        if not self._fullscreen:
+            if not self._manager.is_running(self.APP_KEY):
+                self._launcher.prepare(self._manager.display_for(self.APP_KEY))
+            return
         self._manager.show(self.APP_KEY)
 
     def window_process_id(self, *, timeout_seconds: float) -> int:
         return self._launcher.window_process_id(timeout_seconds=timeout_seconds)
+
+    @property
+    def presented(self) -> bool:
+        return self._manager.is_visible(self.APP_KEY)
+
+    @property
+    def fullscreen(self) -> bool:
+        return self._fullscreen
+
+    def relinquish_for_adsb(self) -> None:
+        self._manager.stop(self.APP_KEY)

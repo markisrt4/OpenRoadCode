@@ -10,3 +10,6 @@ build-container
 # runit creates runtime supervision state beside service definitions.
 # Never track supervise directories, regardless of where a service tree lives.
 **/supervise/
+
+# MapLibre runtime cache
+/maplibre.db

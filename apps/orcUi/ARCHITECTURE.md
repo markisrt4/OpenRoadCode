@@ -22,16 +22,36 @@ OpenRoadCode deliberately separates semantic UI contracts, reusable behavior, re
 
 The intended direction is:
 
-```text
-ui contracts
-    ↑
-controllers / reusable application services
-    ↑
-reusable frontend implementations
-    ↑
-application-specific frontend + host adapters
-    ↑
-application composition
+<aside class="orc-diagram-legend" aria-label="Architecture diagram legend">
+  <strong>Diagram key</strong>
+  <span><i class="orc-legend-swatch orc-legend-app"></i>App / UI</span>
+  <span><i class="orc-legend-swatch orc-legend-service"></i>Service / runtime</span>
+  <span><i class="orc-legend-swatch orc-legend-controller"></i>Controller / domain</span>
+  <span><i class="orc-legend-swatch orc-legend-message"></i>Messaging / contract</span>
+  <span><i class="orc-legend-swatch orc-legend-adapter"></i>Protocol / hardware</span>
+  <span><i class="orc-legend-swatch orc-legend-external"></i>External / input</span>
+</aside>
+
+```mermaid
+flowchart BT
+    ui["ui contracts"]
+    controllers["Controllers / reusable application services"]
+    frontends["Reusable frontend implementations"]
+    appFrontend["Application-specific frontend + host adapters"]
+    composition["Application composition"]
+
+    composition --> appFrontend --> frontends --> controllers --> ui
+
+    classDef orcApp fill:#dbeafe,stroke:#2563eb,color:#172554;
+    classDef orcService fill:#ede9fe,stroke:#7c3aed,color:#2e1065;
+    classDef orcController fill:#dcfce7,stroke:#16a34a,color:#14532d;
+    classDef orcMessage fill:#ffedd5,stroke:#ea580c,color:#7c2d12;
+    classDef orcAdapter fill:#fee2e2,stroke:#dc2626,color:#7f1d1d;
+    classDef orcExternal fill:#f3f4f6,stroke:#6b7280,color:#1f2937;
+
+    class ui orcMessage;
+    class controllers orcController;
+    class frontends,appFrontend,composition orcApp;
 ```
 
 A concrete application frontend and composition root are allowed to know which reusable frontend components and host adapters they selected. Reusable controllers, UI contracts, and reusable frontend packages must not know which application selected them.
@@ -40,25 +60,42 @@ A concrete application frontend and composition root are allowed to know which r
 
 `python -m apps.orcUi` enters `main.py`, which does one thing: create the application composition and run it. It does not re-export the concrete Tk shell.
 
-```text
-apps/orcUi/main.py
-  -> composition/application.py
-       -> OrcUiApplicationRuntime
-       -> composition/core.py
-            -> MapRuntime
-            -> SystemLifecycleController
-            -> SystemVolumeHandler
-            -> apps/orcUi/frontend/tk/OrcUiApp
-            -> StateIngressRuntime
-       -> composition/radio.py
-            -> reusable Tk radio presentation
-            -> apps/orcUi/frontend/tk radio shell
-            -> apps/orcUi/adapters/ADS-B lifecycle
-       -> composition/games.py
-            -> reusable Tk games presentation
-       -> composition/media.py
-            -> reusable Tk media presentation
-            -> apps/orcUi/adapters/browser lifecycle
+```mermaid
+flowchart TD
+    main["apps/orcUi/main.py"] --> appComposition["composition/application.py"]
+
+    appComposition --> runtime["OrcUiApplicationRuntime"]
+    appComposition --> core["composition/core.py"]
+    appComposition --> radio["composition/radio.py"]
+    appComposition --> games["composition/games.py"]
+    appComposition --> media["composition/media.py"]
+
+    core --> map["MapRuntime"]
+    core --> lifecycle["SystemLifecycleController"]
+    core --> volume["SystemVolumeHandler"]
+    core --> app["apps/orcUi/frontend/tk/OrcUiApp"]
+    core --> ingress["StateIngressRuntime"]
+
+    radio --> reusableRadio["Reusable Tk radio presentation"]
+    radio --> radioShell["orcUi Tk radio shell"]
+    radio --> adsb["apps/orcUi/adapters/ADS-B lifecycle"]
+
+    games --> reusableGames["Reusable Tk games presentation"]
+
+    media --> reusableMedia["Reusable Tk media presentation"]
+    media --> browser["apps/orcUi/adapters/browser lifecycle"]
+
+    classDef orcApp fill:#dbeafe,stroke:#2563eb,color:#172554;
+    classDef orcService fill:#ede9fe,stroke:#7c3aed,color:#2e1065;
+    classDef orcController fill:#dcfce7,stroke:#16a34a,color:#14532d;
+    classDef orcMessage fill:#ffedd5,stroke:#ea580c,color:#7c2d12;
+    classDef orcAdapter fill:#fee2e2,stroke:#dc2626,color:#7f1d1d;
+    classDef orcExternal fill:#f3f4f6,stroke:#6b7280,color:#1f2937;
+
+    class main,appComposition,app,radioShell,reusableRadio,reusableGames,reusableMedia orcApp;
+    class runtime,core,ingress orcService;
+    class map,lifecycle,volume orcController;
+    class adsb,browser orcAdapter;
 ```
 
 `OrcUiComposition` owns the top-level graph and shutdown order. Application/runtime objects own the resources they create. The Tk shell consumes injected runtime interfaces and semantic contracts rather than constructing backend infrastructure itself. `CoreComposition` owns `MapCameraRuntime` and injects its `MapRequestHandlerIf` explicitly through `OrcUiApp` to the HOME and NAVIGATION panels; no process-global map-camera registry is used.
@@ -100,8 +137,20 @@ If a reusable Tk component begins importing `apps.orcUi` or `apps.orcUi.frontend
 
 `core_runtime.py` contains shell-facing runtime adapters. `MapRuntime` owns the external map-renderer lifecycle and renderer-specific theme consequences. `StateIngressRuntime` owns message ingress, decoders, presenter invocation, and scheduling already-presented state onto the UI thread.
 
-```text
-transport -> decoder -> presenter -> UI-thread scheduler -> concrete frontend
+```mermaid
+flowchart LR
+    transport["Transport"] --> decoder["Decoder"] --> presenter["Presenter"] --> scheduler["UI-thread scheduler"] --> frontend["Concrete frontend"]
+
+    classDef orcApp fill:#dbeafe,stroke:#2563eb,color:#172554;
+    classDef orcService fill:#ede9fe,stroke:#7c3aed,color:#2e1065;
+    classDef orcController fill:#dcfce7,stroke:#16a34a,color:#14532d;
+    classDef orcMessage fill:#ffedd5,stroke:#ea580c,color:#7c2d12;
+    classDef orcAdapter fill:#fee2e2,stroke:#dc2626,color:#7f1d1d;
+    classDef orcExternal fill:#f3f4f6,stroke:#6b7280,color:#1f2937;
+
+    class transport,decoder orcMessage;
+    class presenter orcController;
+    class scheduler,frontend orcApp;
 ```
 
 Vehicle, position, and attitude remain distinct presentation states. Concrete frontend widgets receive those already-presented states. They do not decode transport payloads or assume a particular sensor implementation.

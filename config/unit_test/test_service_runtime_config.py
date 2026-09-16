@@ -131,7 +131,7 @@ def test_defaults_build_a_device_navigation_pipeline(tmp_path: Path) -> None:
     [
         (
             "[services.navigation.inputs.imu]\nsource = 'magic'\n",
-            "services.navigation.inputs.imu.source must be device or simulation",
+            "services.navigation.inputs.imu.source must be device, simulation, or obd_simulation",
         ),
         (
             "[services.navigation]\nrate_hz = 0\n",

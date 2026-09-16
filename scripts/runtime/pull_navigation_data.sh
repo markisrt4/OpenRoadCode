@@ -104,7 +104,7 @@ fi
 echo "[*] Preparing staging directory: $STAGING_ROOT"
 sudo rm -rf "$STAGING_ROOT"
 sudo mkdir -p "$STAGING_ROOT/maps/routes"
-sudo chown "$(id -u):$(id -g)" "$STAGING_ROOT"
+sudo chown -R "$(id -u):$(id -g)" "$STAGING_ROOT"
 
 # Preserve locally generated route artifacts in staging so promotion cannot
 # erase them. They remain vehicle-owned rather than map-builder-owned.

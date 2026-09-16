@@ -55,13 +55,10 @@ for feature in "${FEATURES[@]}"; do
     echo "[!] Unknown feature: $feature" >&2
     exit 1
   fi
-  while read -r package_line; do
-    [[ -z "$package_line" ]] && continue
-    read -r -a package_words <<< "$package_line"
-    for pkg in "${package_words[@]}"; do
-      [[ -z "$pkg" ]] || base_packages+=("$pkg")
-    done
-  done < <(get_feature_packages "$feature")
+  while read -r pkg; do
+    [[ -z "$pkg" ]] && continue
+    base_packages+=("$pkg")
+  done < <(get_feature_packages "$feature" | tr ' ' '\n')
 done
 
 unique_packages=()
@@ -128,16 +125,6 @@ if [[ " ${FEATURES[*]} " == *" adsb "* ]]; then
 fi
 
 if [[ " ${FEATURES[*]} " == *" sdrpp "* ]]; then
-  echo "[*] Checking SDR++..."
-  if dpkg -s sdrpp >/dev/null 2>&1; then
-    echo "[*] Already installed: sdrpp"
-  else
-    echo "[*] SDR++ is missing; updating apt metadata..."
-    sudo apt update
-    if apt-cache show sdrpp >/dev/null 2>&1; then
-      sudo apt install -y --no-install-recommends sdrpp
-    else
-      echo "[!] Package not available, skipping: sdrpp"
-    fi
-  fi
+  echo "[*] Installing OpenRoadCode SDR++ build..."
+  bash "$SCRIPT_DIR/install_sdrpp_nightly.sh"
 fi

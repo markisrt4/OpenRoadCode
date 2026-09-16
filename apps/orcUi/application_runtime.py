@@ -54,10 +54,11 @@ def create_orc_ui_application_runtime() -> OrcUiApplicationRuntime:
     fallback_display = os.environ.get("DISPLAY", ":1" if _is_termux() else ":0")
     manager = AppRuntimeManager(config, remote_display=fallback_display)
 
+    sdrpp_app = config.app("sdrpp")
     sdrpp = ManagedSDRPPLauncher(
         profile=_default_sdrpp_profile(),
-        fullscreen=False,
-        embedded=True,
+        fullscreen=sdrpp_app.fullscreen,
+        embedded=not sdrpp_app.fullscreen,
     )
     manager.register("sdrpp", sdrpp)
 
@@ -65,7 +66,11 @@ def create_orc_ui_application_runtime() -> OrcUiApplicationRuntime:
     manager.register("youtube", browser_factory.create("youtube"))
     manager.register("netflix", browser_factory.create("netflix"))
 
-    radio = ManagedRadioApplicationService(manager, sdrpp)
+    radio = ManagedRadioApplicationService(
+        manager,
+        sdrpp,
+        fullscreen=sdrpp_app.fullscreen,
+    )
     streaming_radio = StreamingRadioController(MpvStreamingAudioPlayer())
     media = MediaApplicationService(create_spotify_controller())
     return OrcUiApplicationRuntime(

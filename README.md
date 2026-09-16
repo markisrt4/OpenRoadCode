@@ -185,23 +185,32 @@ OpenRoadCode/
 
 Continuously changing public telemetry is distributed through producer services and the ZeroMQ message bus:
 
-```text
-Hardware / simulation
-        │
-        ▼
-Domain producer service
-        │
-        ▼
-SI-normalized public contracts
-        │
-        ▼
-ZeroMQ XSUB/XPUB broker
-        │
-        ▼
-Shared application telemetry state
-        │
-        ▼
-orcUi / carUi / carTui / webUi / demos
+<aside class="orc-diagram-legend" aria-label="Architecture diagram legend">
+  <strong>Diagram key</strong>
+  <span><i class="orc-legend-swatch orc-legend-app"></i>App / UI</span>
+  <span><i class="orc-legend-swatch orc-legend-service"></i>Service / runtime</span>
+  <span><i class="orc-legend-swatch orc-legend-controller"></i>Controller / domain</span>
+  <span><i class="orc-legend-swatch orc-legend-message"></i>Messaging / contract</span>
+  <span><i class="orc-legend-swatch orc-legend-adapter"></i>Protocol / hardware</span>
+  <span><i class="orc-legend-swatch orc-legend-external"></i>External / input</span>
+</aside>
+
+```mermaid
+flowchart TD
+    source["Hardware / simulation"] --> service["Domain producer service"] --> contracts["SI-normalized public contracts"]
+    contracts --> broker["ZeroMQ XSUB/XPUB broker"] --> state["Shared application telemetry state"]
+    state --> apps["orcUi / carUi / carTui / webUi / demos"]
+
+    classDef orcApp fill:#dbeafe,stroke:#2563eb,color:#172554;
+    classDef orcService fill:#ede9fe,stroke:#7c3aed,color:#2e1065;
+    classDef orcController fill:#dcfce7,stroke:#16a34a,color:#14532d;
+    classDef orcMessage fill:#ffedd5,stroke:#ea580c,color:#7c2d12;
+    classDef orcAdapter fill:#fee2e2,stroke:#dc2626,color:#7f1d1d;
+    classDef orcExternal fill:#f3f4f6,stroke:#6b7280,color:#1f2937;
+    class source orcExternal;
+    class service orcService;
+    class contracts,broker orcMessage;
+    class state,apps orcApp;
 ```
 
 Producer services own physical devices or simulation sources, domain processing, and publication lifecycle. Applications consume public telemetry instead of constructing competing GPS, IMU, or OBD-II instances merely to display state.

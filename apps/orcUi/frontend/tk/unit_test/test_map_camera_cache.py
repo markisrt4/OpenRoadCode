@@ -9,7 +9,7 @@ from datetime import datetime
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from apps.orcUi.map_camera_runtime import MapCameraRuntime
+from controllers.map_renderer.map_camera_runtime import MapCameraRuntime
 from controllers.cache import PersistentCache
 from controllers.map_renderer.map_request_handler import MapRequestHandler
 from controllers.navigation import PositionSnapshotCache, PositionState
@@ -29,6 +29,9 @@ class FakeRenderer:
         pitch: float = 0.0,
     ) -> None:
         self.cameras.append((latitude, longitude, zoom, bearing, pitch))
+
+    def set_zoom(self, zoom_level: float) -> None:
+        del zoom_level
 
     def set_poi_focus(self, category: str | None, enabled: bool = True) -> None:
         del category, enabled

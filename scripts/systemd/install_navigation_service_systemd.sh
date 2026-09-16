@@ -10,7 +10,8 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd -- "$SCRIPT_DIR/../.." && pwd)"
 WRAPPER_SCRIPT="$PROJECT_ROOT/scripts/runtime/start_navigation_service.sh"
 RUN_USER="${SUDO_USER:-${USER:-}}"
-PYTHON_BIN="${OPENROADCODE_PYTHON:-python3}"
+PYTHON_BIN="${OPENROADCODE_PYTHON:-$PROJECT_ROOT/venv/bin/python}"
+RUNTIME_CONFIG="${OPENROADCODE_RUNTIME_CONFIG:-$PROJECT_ROOT/config/runtime.toml}"
 NAVIGATION_TARGET="${OPENROADCODE_NAVIGATION_TARGET:-rpi5}"
 SEARCH_DATABASE="${OPENROADCODE_SEARCH_DATABASE:-}"
 
@@ -29,6 +30,10 @@ case "$NAVIGATION_TARGET" in
         ;;
 esac
 
+if [[ ! -x "$PYTHON_BIN" ]]; then
+    echo "OpenRoadCode Python interpreter is unavailable: $PYTHON_BIN" >&2
+    exit 1
+fi
 if [[ ! -f "$WRAPPER_SCRIPT" ]]; then
     echo "Wrapper script not found: $WRAPPER_SCRIPT" >&2
     exit 1
@@ -62,6 +67,7 @@ User=$RUN_USER
 WorkingDirectory=$PROJECT_ROOT
 Environment=PYTHONUNBUFFERED=1
 Environment=OPENROADCODE_PYTHON=$PYTHON_BIN
+Environment=OPENROADCODE_RUNTIME_CONFIG=$RUNTIME_CONFIG
 Environment=OPENROADCODE_NAV_IMU_SOURCE=$NAV_IMU_SOURCE
 Environment=OPENROADCODE_NAV_GPS_SOURCE=$NAV_GPS_SOURCE
 EOF

@@ -11,6 +11,8 @@ set -euo pipefail
 get_known_features() {
   cat <<'EOF'
 base
+development
+native-navigation-development
 desktop-ui
 web-ui
 browser
@@ -27,6 +29,7 @@ imu
 environmental
 spotify
 sdrpp
+navigation
 raspberry-pi
 EOF
 }
@@ -38,6 +41,8 @@ get_all_features_for_target() {
     linux-dev)
       cat <<'EOF'
 base
+development
+native-navigation-development
 desktop-ui
 web-ui
 browser
@@ -54,6 +59,17 @@ imu
 environmental
 spotify
 sdrpp
+EOF
+      ;;
+    termux)
+      cat <<'EOF'
+base
+desktop-ui
+web-ui
+browser
+streamlit
+spotify
+navigation
 EOF
       ;;
     *) return 1 ;;
@@ -70,10 +86,16 @@ is_known_feature() {
 
 get_feature_dependencies() {
   local feature="$1"
+  local target="${OPENROAD_INSTALL_TARGET:-linux-dev}"
   case "$feature" in
     vnc) echo "desktop-ui" ;;
-    spotify) echo "audio" ;;
+    spotify)
+      [[ "$target" == "termux" ]] && echo "" || echo "audio"
+      ;;
     sdrpp) echo "rtl-sdr desktop-ui audio" ;;
+    navigation)
+      [[ "$target" == "termux" ]] && echo "desktop-ui" || echo "desktop-ui gps"
+      ;;
     adsb) echo "rtl-sdr" ;;
     *) echo "" ;;
   esac
@@ -85,6 +107,22 @@ get_feature_packages() {
     base)
       echo "git curl wget ca-certificates sudo procps python3 python3-venv python3-pip"
       ;;
+    development)
+      echo "build-essential cmake ninja-build pkg-config"
+      echo "clang-format clang-tidy shellcheck"
+      ;;
+
+    native-navigation-development)
+      echo "libzmq3-dev"
+      echo "libx11-dev libxext-dev"
+      echo "libglfw3-dev"
+      echo "libegl1-mesa-dev libgles2-mesa-dev libgl-dev libglx-dev"
+      echo "libcurl4-openssl-dev"
+      echo "libjpeg-dev libpng-dev libwebp-dev zlib1g-dev"
+      echo "libuv1-dev"
+      echo "libicu-dev"
+      ;;
+
     desktop-ui)
       echo "python3-tk dbus-x11 xauth xterm x11-apps x11-utils wmctrl openbox xfce4 xfce4-goodies"
       ;;
@@ -108,7 +146,7 @@ get_feature_packages() {
       echo "rtl-sdr soapysdr-tools soapysdr-module-rtlsdr"
       ;;
     adsb)
-      echo "readsb"
+      echo "readsb lighttpd"
       ;;
     bluetooth)
       echo "bluez libbluetooth-dev python3-bluez"
@@ -122,8 +160,8 @@ get_feature_packages() {
     spotify)
       echo ""
       ;;
-    sdrpp)
-      echo "sdrpp"
+    sdrpp|navigation)
+      echo ""
       ;;
     *)
       echo ""
@@ -143,7 +181,7 @@ get_feature_python_packages() {
     web-ui)
       printf '%s\n' Flask
       ;;
-    browser|vnc|adsb|audio|spotify|sdrpp)
+    browser|vnc|adsb|audio|spotify|sdrpp|navigation)
       echo ""
       ;;
     input)
@@ -202,6 +240,7 @@ Available features:
   environmental BMP3XX and Adafruit Blinka I2C support
   spotify       Spotify integration extras (includes audio)
   sdrpp         SDR++ support (includes RTL-SDR, desktop-ui, and audio)
+  navigation    MapLibre renderer + Valhalla navigation stack (includes desktop-ui and gps)
   raspberry-pi  Raspberry Pi GPIO, I2C, Blinka, and Seesaw support
 EOF
 }

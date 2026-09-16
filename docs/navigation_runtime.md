@@ -8,37 +8,41 @@ Map generation and deployment are documented separately in `docs/navigation_depl
 
 ## Runtime architecture
 
-```text
-                         vehicle startup
-                               |
-             +-----------------+-----------------+
-             |                                   |
-             v                                   v
-          gpsd                         openroadcode-zmq.service
-             |                         publisher ingress :5556
-             |                         subscriber egress :5557
-             |                                   |
-             +-------------------+---------------+
-                                 |
-                         valhalla.service
-                                 |
-                                 v
-                  openroadcode-navigation.service
-                                 |
-              +------------------+------------------+
-              |                  |                  |
-              v                  v                  v
-      navigation solution   route planning    navigation session
-      position/attitude       Valhalla        route + rerouting
-              |                                     |
-              +------------------+------------------+
-                                 |
-                                 v
-                       route guidance state
-                                 |
-                                 v
-                         ZeroMQ subscribers
-                         CarUi / CarTui / logs
+<aside class="orc-diagram-legend" aria-label="Architecture diagram legend">
+  <strong>Diagram key</strong>
+  <span><i class="orc-legend-swatch orc-legend-app"></i>App / UI</span>
+  <span><i class="orc-legend-swatch orc-legend-service"></i>Service / runtime</span>
+  <span><i class="orc-legend-swatch orc-legend-controller"></i>Controller / domain</span>
+  <span><i class="orc-legend-swatch orc-legend-message"></i>Messaging / contract</span>
+  <span><i class="orc-legend-swatch orc-legend-adapter"></i>Protocol / hardware</span>
+  <span><i class="orc-legend-swatch orc-legend-external"></i>External / input</span>
+</aside>
+
+```mermaid
+flowchart TD
+    startup["Vehicle startup"] --> gpsd["gpsd"]
+    startup --> broker["openroadcode-zmq.service<br/>:5556 ingress / :5557 egress"]
+    gpsd --> valhalla["valhalla.service"]
+    broker --> valhalla
+    valhalla --> navService["openroadcode-navigation.service"]
+    navService --> solution["Navigation solution<br/>position / attitude"]
+    navService --> planning["Route planning<br/>Valhalla"]
+    navService --> session["Navigation session<br/>route + rerouting"]
+    solution --> guidance["Route guidance state"]
+    session --> guidance
+    guidance --> subscribers["ZeroMQ subscribers<br/>CarUi / CarTui / logs"]
+
+    classDef orcApp fill:#dbeafe,stroke:#2563eb,color:#172554;
+    classDef orcService fill:#ede9fe,stroke:#7c3aed,color:#2e1065;
+    classDef orcController fill:#dcfce7,stroke:#16a34a,color:#14532d;
+    classDef orcMessage fill:#ffedd5,stroke:#ea580c,color:#7c2d12;
+    classDef orcAdapter fill:#fee2e2,stroke:#dc2626,color:#7f1d1d;
+    classDef orcExternal fill:#f3f4f6,stroke:#6b7280,color:#1f2937;
+    class startup,gpsd,valhalla orcExternal;
+    class broker,guidance orcMessage;
+    class navService orcService;
+    class solution,planning,session orcController;
+    class subscribers orcApp;
 ```
 
 ## Service ownership
@@ -106,30 +110,29 @@ journalctl -u openroadcode-navigation -b
 
 The intended production lifecycle is:
 
-```text
-UI/client requests destination
-          |
-          v
-navigation command service
-          |
-          v
-route planning controller -> Valhalla HTTP API
-          |
-          v
-NavigationSessionController
-  owns destination + travel mode + active route
-          |
-          v
-RouteGuidanceController
-  consumes normalized geographic position
-          |
-          +--> maneuver + distance-to-turn
-          +--> route progress
-          +--> off-route state
-          +--> arrival state
-          |
-          v
-route_guidance.state -> ZeroMQ -> presentation clients
+```mermaid
+flowchart TD
+    client["UI / client requests destination"] --> command["Navigation command service"]
+    command --> planner["Route planning controller"] --> valhalla["Valhalla HTTP API"]
+    planner --> session["NavigationSessionController<br/>destination + travel mode + active route"]
+    session --> guidance["RouteGuidanceController<br/>normalized geographic position"]
+    guidance --> maneuver["Maneuver + distance-to-turn"]
+    guidance --> progress["Route progress"]
+    guidance --> offroute["Off-route state"]
+    guidance --> arrival["Arrival state"]
+    guidance --> topic["route_guidance.state"] --> bus["ZeroMQ"] --> presentation["Presentation clients"]
+
+    classDef orcApp fill:#dbeafe,stroke:#2563eb,color:#172554;
+    classDef orcService fill:#ede9fe,stroke:#7c3aed,color:#2e1065;
+    classDef orcController fill:#dcfce7,stroke:#16a34a,color:#14532d;
+    classDef orcMessage fill:#ffedd5,stroke:#ea580c,color:#7c2d12;
+    classDef orcAdapter fill:#fee2e2,stroke:#dc2626,color:#7f1d1d;
+    classDef orcExternal fill:#f3f4f6,stroke:#6b7280,color:#1f2937;
+    class client,presentation orcApp;
+    class command orcService;
+    class planner,session,guidance orcController;
+    class valhalla orcExternal;
+    class maneuver,progress,offroute,arrival,topic,bus orcMessage;
 ```
 
 `NavigationSessionController` owns rerouting policy. `RouteGuidanceController` derives route-relative state but does not decide when a replacement route should be calculated.

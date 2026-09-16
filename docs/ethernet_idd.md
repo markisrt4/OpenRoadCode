@@ -6,6 +6,8 @@ The registry covers ports that OpenRoadCode assigns, binds, connects to, or expl
 
 Unless a row explicitly says otherwise, the values below are defaults and may be overridden by runtime configuration, environment variables, command-line arguments, or external-service configuration.
 
+Interface names and roles describe the capability exposed on the network. Application or module paths may appear in implementation notes and tests when they identify the current owner or composition point, but those implementation locations are not part of the interface contract unless explicitly stated.
+
 ## Port registry
 
 | Port | Default address / endpoint | Owner | Role | Transport | Application protocol | Unit test(s) | Scope / notes |
@@ -21,7 +23,7 @@ Unless a row explicitly says otherwise, the values below are defaults and may be
 | 8002 | `http://127.0.0.1:8002` | Valhalla service | Offline route-planning API | TCP | HTTP / Valhalla JSON API | No direct unit test located | Current navigation route-planning default in `config/runtime.toml`. |
 | 8081 | `127.0.0.1:8081` | tar1090 presentation server | ADS-B aircraft web presentation | TCP | HTTP | No direct unit test located | Termux/runit default. `TAR1090_PORT` can override it. |
 | 8501 | `127.0.0.1:8501` client URL | Weather dashboard / Streamlit | Weather dashboard web application | TCP | Streamlit HTTP/WebSocket | No direct unit test located | Default in `WeatherDashLauncher` / `StreamlitLauncher`. Streamlit owns the server process. |
-| 8765 | `127.0.0.1:8765` | CarUI browser position source | Browser-provided geographic position for development | TCP | HTTP + JSON | [browser position source](../controllers/navigation/unit_test/test_browser_position_source.py); [position source factory](../apps/carUi/unit_test/test_position_source_factory.py) | Development/application-owned server. Configurable with `CARUI_BROWSER_POSITION_HOST` / `CARUI_BROWSER_POSITION_PORT`. |
+| 8765 | `127.0.0.1:8765` | Browser position development source | Browser-provided geographic position ingress for development and component testing | TCP | HTTP + JSON | [browser position source](../controllers/navigation/unit_test/test_browser_position_source.py); [position source factory](../apps/carUi/unit_test/test_position_source_factory.py) | Development position-ingress endpoint. The current composition lives under `apps/carUi`, which also exposes the legacy `CARUI_BROWSER_POSITION_HOST` / `CARUI_BROWSER_POSITION_PORT` overrides; those implementation details do not make the interface CarUI-specific. |
 | 8766 | `http://127.0.0.1:8766` | OpenRoadCode Android sensor bridge | Android location/IMU/sensor bridge consumed by Termux runtime | TCP | HTTP + JSON/NDJSON | No direct unit test located | Dedicated Android sensor bridge port. |
 | 8767 | `127.0.0.1:8767` | Navigation `BrowserMotionSource` | Browser DeviceMotion development input | TCP | HTTP + JSON | No direct unit test located | Dedicated browser-motion development/component port. |
 | 8768 | `127.0.0.1:8768` | `YouTubeMusicVideo` local player server | Serves the temporary local YouTube player page and close callback | TCP | HTTP | No direct unit test located | Dedicated transient music-video player port; listener exists only while playback is active. |
@@ -42,7 +44,7 @@ Loopback-only defaults should remain loopback-only unless remote access is an in
 
 The adjacent `8765`-`8768` range is intentionally allocated by function so independently enabled components do not compete for a socket:
 
-1. `8765` - CarUI browser position source;
+1. `8765` - browser position development source;
 2. `8766` - Android sensor bridge;
 3. `8767` - navigation browser motion source; and
 4. `8768` - YouTube music-video local player.

@@ -8,6 +8,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from apps.launchers.sdrpp_launcher import sync_sdrpp_theme
+from apps.orcUi.adapters.adsb_control import OrcUiAdsbControl
 from apps.orcUi.frontend.tk.orc_ui_app import OrcUiApp
 from apps.orcUi.frontend.tk.radio_entry_panel import RadioEntryPanel
 from apps.orcUi.theme_runtime import theme_bundle
@@ -35,6 +36,7 @@ def configure_radio(app: OrcUiApp, runtime) -> RadioComposition:
 
     directory = RadioBrowserDirectory(timeout_s=10.0)
     favorites = StreamingRadioFavorites()
+    adsb = OrcUiAdsbControl()
     screen = RadioScreen(
         app,
         theme_bundle=lambda: theme_bundle(app.theme_mode),
@@ -47,8 +49,11 @@ def configure_radio(app: OrcUiApp, runtime) -> RadioComposition:
             streaming_radio=runtime.streaming_radio,
             directory=directory,
             favorites=favorites,
+            adsb_control=adsb,
+            on_location_changed=lambda leaf: app.set_breadcrumb("RADIO", leaf),
         ),
         sync_theme=sync_theme,
+        on_location_changed=lambda leaf: app.set_breadcrumb("RADIO", leaf),
     )
     app.register_screen("RADIO", screen)
 
@@ -59,6 +64,8 @@ def configure_radio(app: OrcUiApp, runtime) -> RadioComposition:
             screen.open_rf()
         elif source == "streaming":
             screen.open_streaming()
+        elif source == "adsb":
+            screen.open_adsb()
         else:
             raise ValueError(f"Unsupported radio source: {source}")
 
@@ -69,7 +76,29 @@ def configure_radio(app: OrcUiApp, runtime) -> RadioComposition:
             theme=theme_bundle(app.theme_mode),
             on_open_rf=lambda: show_radio_source("rf"),
             on_open_streaming=lambda: show_radio_source("streaming"),
+            on_open_adsb=lambda: show_radio_source("adsb"),
         )
 
     app.set_home_radio_factory(home_radio_factory)
+    def toggle_adsb(enabled: bool) -> bool:
+        # An explicit ADS-B selection wins the shared SDR. Relinquish RF first.
+        if enabled and runtime.radio.presented:
+            runtime.radio.relinquish_for_adsb()
+        try:
+            return adsb.set_tracking(enabled)
+        except (OSError, RuntimeError, ValueError) as error:
+            app.set_screen_status(f"ADS-B: {error}")
+            return adsb.tracking
+
+    app.set_adsb_handlers(
+        on_toggle=toggle_adsb,
+        on_view=lambda: show_radio_source("adsb"),
+    )
+    app.set_adsb_state(enabled=adsb.tracking, aircraft_count=adsb.aircraft_count)
+
+    def refresh_adsb_status() -> None:
+        app.set_adsb_state(enabled=adsb.tracking, aircraft_count=adsb.aircraft_count)
+        app.schedule_ui_callback(1000, refresh_adsb_status)
+
+    app.schedule_ui_callback(1000, refresh_adsb_status)
     return RadioComposition(screen=screen, directory=directory, favorites=favorites)

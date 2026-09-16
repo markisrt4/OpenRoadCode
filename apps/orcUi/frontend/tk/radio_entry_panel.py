@@ -9,6 +9,7 @@ import threading
 import tkinter as tk
 from collections.abc import Callable
 
+from apps.orcUi.adapters.adsb_control import OrcUiAdsbControl
 from apps.orcUi.radio_application_service import RadioApplicationServiceIf
 from apps.orcUi.frontend.tk.radio_panel import RadioPanel
 from controllers.radio.streaming_radio_controller import StreamingRadioController
@@ -17,6 +18,7 @@ from controllers.radio.streaming_radio_favorites import StreamingRadioFavorites
 from frontends.tk.radio.persistent_streaming_radio_panel import PersistentStreamingRadioPanel
 from frontends.x11 import X11WindowEmbedder
 from ui.theme import ThemeBundle
+from .shell_metrics import FONT_BODY, FONT_CONTROL, FONT_SMALL
 
 
 class LaunchAwareRadioPanel(RadioPanel):
@@ -28,8 +30,19 @@ class LaunchAwareRadioPanel(RadioPanel):
         *,
         embedder: X11WindowEmbedder,
         theme: ThemeBundle,
+        rf_active: Callable[[], bool] | None = None,
+        release_rf: Callable[[], None] | None = None,
+        adsb_control: OrcUiAdsbControl | None = None,
+        on_location_changed: Callable[[str], None] | None = None,
     ) -> None:
-        super().__init__(parent, embedder=embedder, theme=theme)
+        super().__init__(
+            parent,
+            embedder=embedder,
+            theme=theme,
+            rf_active=rf_active,
+            release_rf=release_rf,
+            adsb_control=adsb_control,
+        )
         self._launch_status = tk.Label(
             self._host,
             text="Loading SDR++…",
@@ -68,11 +81,14 @@ class RadioEntryPanel(tk.Frame):
         favorites: StreamingRadioFavorites,
         theme: ThemeBundle,
         embedder: X11WindowEmbedder | None = None,
+        adsb_control: OrcUiAdsbControl | None = None,
+        on_location_changed: Callable[[str], None] | None = None,
     ) -> None:
         self._theme = theme
         ui = theme.ui
         super().__init__(parent, bg=ui.background)
         self._embedder = embedder or X11WindowEmbedder()
+        self._adsb_control = adsb_control or OrcUiAdsbControl()
         self._radio_application = radio_application
         self._streaming_radio = streaming_radio
         self._directory = directory
@@ -80,6 +96,7 @@ class RadioEntryPanel(tk.Frame):
         self._radio_panel: LaunchAwareRadioPanel | None = None
         self._streaming_page: PersistentStreamingRadioPanel | None = None
         self._launching = False
+        self._on_location_changed = on_location_changed
 
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(0, weight=1)
@@ -106,10 +123,31 @@ class RadioEntryPanel(tk.Frame):
     def open_streaming_radio(self) -> None:
         """Present the streaming-radio browser directly."""
         self._show_streaming_radio()
+        self._set_location("STREAMING")
 
     def open_rf_radio(self) -> None:
         """Launch and present the RF radio directly."""
         self._launch_rf_radio()
+        self._set_location("RF")
+
+    def open_adsb(self) -> None:
+        """Present the ADS-B aircraft dashboard without starting SDR++ first."""
+        self._chooser.grid_remove()
+        if self._streaming_page is not None and self._streaming_page.winfo_exists():
+            self._streaming_page.grid_remove()
+        if self._radio_panel is None or not self._radio_panel.winfo_exists():
+            self._radio_panel = LaunchAwareRadioPanel(
+                self,
+                embedder=self._embedder,
+                theme=self._theme,
+                rf_active=lambda: self._radio_application.presented,
+                release_rf=self._radio_application.relinquish_for_adsb,
+                adsb_control=self._adsb_control,
+            )
+            self._radio_panel.grid(row=0, column=0, sticky="nsew")
+            self._radio_panel.hide_loading()
+        self._radio_panel.show_adsb()
+        self._set_location("AIRCRAFT")
 
     def _build_choice_buttons(self) -> None:
         ui = self._theme.ui
@@ -122,7 +160,7 @@ class RadioEntryPanel(tk.Frame):
             action_text="OPEN RF RADIO  ›",
             accent=ui.accent_success,
             icon_kind="rf",
-            command=self._launch_rf_radio,
+            command=self.open_rf_radio,
         )
         rf_card.grid(row=0, column=0, sticky="nsew", padx=(12, 6), pady=(18, 12))
 
@@ -135,7 +173,7 @@ class RadioEntryPanel(tk.Frame):
             action_text="BROWSE STATIONS  ›",
             accent=ui.accent_primary,
             icon_kind="stream",
-            command=self._show_streaming_radio,
+            command=self.open_streaming_radio,
         )
         streaming_card.grid(
             row=0,
@@ -149,7 +187,7 @@ class RadioEntryPanel(tk.Frame):
             text="Choose a radio source",
             bg=ui.background,
             fg=ui.text_muted,
-            font=("Sans", 10),
+            font=("Sans", FONT_BODY),
         )
         self._status.grid(row=1, column=0, columnspan=2, pady=(0, 10))
 
@@ -198,7 +236,7 @@ class RadioEntryPanel(tk.Frame):
             text=eyebrow,
             bg=ui.surface,
             fg=accent,
-            font=("Sans", 9, "bold"),
+            font=("Sans", FONT_CONTROL + 2, "bold"),
             anchor="w",
         ).grid(row=0, column=1, sticky="sw", pady=(8, 2))
         tk.Label(
@@ -206,7 +244,7 @@ class RadioEntryPanel(tk.Frame):
             text=title,
             bg=ui.surface,
             fg=ui.text,
-            font=("Sans", 18, "bold"),
+            font=("Sans", 21, "bold"),
             anchor="w",
         ).grid(row=1, column=1, sticky="nw")
 
@@ -219,7 +257,7 @@ class RadioEntryPanel(tk.Frame):
             text=description,
             bg=ui.surface,
             fg=ui.text_muted,
-            font=("Sans", 11),
+            font=("Sans", FONT_BODY + 3),
             justify=tk.LEFT,
             anchor="nw",
             wraplength=390,
@@ -229,7 +267,7 @@ class RadioEntryPanel(tk.Frame):
             text=features,
             bg=ui.surface,
             fg=ui.text,
-            font=("Sans", 9, "bold"),
+            font=("Sans", FONT_CONTROL + 2, "bold"),
             anchor="w",
         ).grid(row=1, column=0, sticky="ew", pady=(14, 8))
         button = tk.Button(
@@ -244,7 +282,7 @@ class RadioEntryPanel(tk.Frame):
             bd=0,
             highlightthickness=1,
             highlightbackground=ui.border,
-            font=("Sans", 11, "bold"),
+            font=("Sans", FONT_CONTROL + 2, "bold"),
             padx=16,
             pady=10,
             cursor="hand2",
@@ -351,6 +389,12 @@ class RadioEntryPanel(tk.Frame):
         if self._streaming_page is not None and self._streaming_page.winfo_exists():
             self._streaming_page.grid_remove()
         self._chooser.grid(row=0, column=0, sticky="nsew")
+        self._set_location("RADIO")
+
+    def _set_location(self, leaf: str) -> None:
+        handler = self._on_location_changed
+        if handler is not None:
+            handler(leaf)
 
     def _launch_rf_radio(self) -> None:
         if self._launching:
@@ -361,6 +405,8 @@ class RadioEntryPanel(tk.Frame):
             self,
             embedder=self._embedder,
             theme=self._theme,
+            rf_active=lambda: self._radio_application.presented,
+            release_rf=self._radio_application.relinquish_for_adsb,
         )
         self._radio_panel.grid(row=0, column=0, sticky="nsew")
         self._radio_panel.show_loading("Loading SDR++…")
@@ -413,6 +459,10 @@ class RadioEntryPanel(tk.Frame):
             self.after(0, lambda exc=presentation_error[0]: self._show_launch_error(exc))
             return
 
+        if self._radio_application.fullscreen:
+            self.after(0, self._finish_fullscreen_rf_launch)
+            return
+
         if process_id is None:
             try:
                 process_id = self._radio_application.window_process_id(
@@ -423,6 +473,11 @@ class RadioEntryPanel(tk.Frame):
                 return
 
         self.after(0, lambda pid=process_id: self._attach_rf_radio(pid))
+
+    def _finish_fullscreen_rf_launch(self) -> None:
+        self._launching = False
+        if self._radio_panel is not None and self._radio_panel.winfo_exists():
+            self._radio_panel.hide_loading()
 
     def _attach_rf_radio(self, process_id: int) -> None:
         panel = self._radio_panel

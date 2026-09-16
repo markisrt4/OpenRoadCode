@@ -31,8 +31,17 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Test documentation inventory
+        run: python -m unittest discover -s scripts/unit_test -p 'test_docs_inventory.py'
+
+      - name: Validate generated documentation index
+        run: python scripts/docs_inventory.py --check
+
       - name: Validate Markdown links
         run: python scripts/check_markdown_links.py
+
+      - name: Validate Mermaid legends
+        run: python scripts/check_mermaid_legends.py
 
       - name: Validate Doxygen contracts
         run: python scripts/check_doxygen_contracts.py
@@ -107,6 +116,7 @@ jobs:
           bash -n scripts/systemd/install_service_manager_systemd.sh
           bash -n development/debian/install_streaming_radio.sh
           bash -n development/termux/install_streaming_radio.sh
+          bash -n scripts/docs-preview.sh
 
       - name: Check source-tree runtime state
         shell: bash

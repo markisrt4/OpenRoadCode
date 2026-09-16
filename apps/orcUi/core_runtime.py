@@ -21,8 +21,15 @@ from apps.orcUi.navigation_presenter import (
     NavigationPresenter,
     PositionPresentationState,
 )
+from apps.orcUi.trip_presenter import TripPresenter, TripPresentationState
 from apps.orcUi.vehicle_presenter import VehiclePresenter, VehiclePresentationState
-from messaging.contracts.automotive import VEHICLE_STATE_TOPIC, decode_vehicle_state
+from controllers.automotive import EngineAnalysis, EngineAnalyzer, VehicleConfiguration
+from messaging.contracts.automotive import (
+    TRIP_STATE_TOPIC,
+    VEHICLE_STATE_TOPIC,
+    decode_trip_state,
+    decode_vehicle_state,
+)
 from messaging.contracts.navigation import (
     ATTITUDE_STATE_TOPIC,
     POSITION_STATE_TOPIC,
@@ -80,6 +87,9 @@ class StateIngressRuntime:
         *,
         schedule_ui: Callable[[int, Callable[[], None]], object],
         apply_vehicle_state: Callable[[VehiclePresentationState], None],
+        apply_engine_analysis: Callable[[EngineAnalysis], None],
+        apply_trip_state: Callable[[TripPresentationState], None],
+        vehicle_configuration: VehicleConfiguration = VehicleConfiguration(),
         apply_position_state: Callable[[PositionPresentationState], None],
         apply_attitude_state: Callable[[AttitudePresentationState], None],
         apply_route_guidance_state: Callable[[RouteGuidanceStateMessage], None],
@@ -87,6 +97,9 @@ class StateIngressRuntime:
     ) -> None:
         self._schedule_ui = schedule_ui
         self._apply_vehicle_state = apply_vehicle_state
+        self._apply_engine_analysis = apply_engine_analysis
+        self._engine_analyzer = EngineAnalyzer(vehicle_configuration)
+        self._apply_trip_state = apply_trip_state
         self._apply_position_state = apply_position_state
         self._apply_attitude_state = apply_attitude_state
         self._apply_route_guidance_state = apply_route_guidance_state
@@ -100,6 +113,11 @@ class StateIngressRuntime:
             VEHICLE_STATE_TOPIC,
             decode_vehicle_state,
             self._on_vehicle_message,
+        )
+        self._dispatcher.register(
+            TRIP_STATE_TOPIC,
+            decode_trip_state,
+            self._on_trip_message,
         )
         self._dispatcher.register(
             POSITION_STATE_TOPIC,
@@ -116,6 +134,13 @@ class StateIngressRuntime:
             decode_route_guidance_state,
             self._on_route_guidance_message,
         )
+
+    def set_vehicle_configuration(
+        self,
+        configuration: VehicleConfiguration,
+    ) -> None:
+        """Apply vehicle-specific interpretation settings to future snapshots."""
+        self._engine_analyzer = EngineAnalyzer(configuration)
 
     def start(self) -> None:
         """Start UI draining on the Tk thread, then start transport ingress."""
@@ -165,7 +190,17 @@ class StateIngressRuntime:
 
     def _on_vehicle_message(self, message) -> None:
         state = VehiclePresenter.present(message.data)
-        self._schedule_state(lambda: self._apply_vehicle_state(state))
+        analysis = self._engine_analyzer.analyze(message.data)
+        self._schedule_state(
+            lambda: (
+                self._apply_vehicle_state(state),
+                self._apply_engine_analysis(analysis),
+            )
+        )
+
+    def _on_trip_message(self, message) -> None:
+        state = TripPresenter.present(message.data)
+        self._schedule_state(lambda: self._apply_trip_state(state))
 
     def _on_position_message(self, message) -> None:
         state = NavigationPresenter.present_position(message.data)

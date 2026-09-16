@@ -12,7 +12,27 @@ fi
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd -- "$SCRIPT_DIR/../.." && pwd)"
 VENV_DIR="${VENV_DIR:-$PROJECT_ROOT/venv-termux}"
+FEATURES_FILE="$PROJECT_ROOT/scripts/installers/installer_features.sh"
 
+config_home="${XDG_CONFIG_HOME:-$HOME/.config}"
+mkdir -p "$config_home/openroadcode"
+printf 'target = "termux"\n' > "$config_home/openroadcode/host.toml"
+echo "[*] Persisted OpenRoadCode host target: termux"
+
+if [[ ! -f "$FEATURES_FILE" ]]; then
+  echo "[!] Feature definitions not found: $FEATURES_FILE" >&2
+  exit 1
+fi
+# shellcheck disable=SC1091
+source "$FEATURES_FILE"
+
+if (( $# > 0 )); then
+  FEATURES=("$@")
+else
+  FEATURES=(base desktop-ui web-ui browser streamlit spotify navigation)
+fi
+
+echo "[*] Termux features: ${FEATURES[*]}"
 echo "[*] Updating Termux packages..."
 pkg update
 
@@ -41,15 +61,29 @@ python -m venv "$VENV_DIR"
 source "$VENV_DIR/bin/activate"
 python -m pip install --upgrade pip wheel setuptools
 
-# Portable OpenRoadCode runtime dependencies needed by the current car UI path.
-# Automotive communication on Termux is provided by the Android bridge over TCP,
-# so pyserial belongs to the Linux/Raspberry Pi installer rather than this one.
-python -m pip install requests tomli Pillow pyzmq tinycss2
+python_packages=()
+for feature in "${FEATURES[@]}"; do
+  if ! is_known_feature "$feature"; then
+    echo "[!] Unknown Termux feature: $feature" >&2
+    exit 1
+  fi
+  while read -r package; do
+    [[ -z "$package" ]] && continue
+    if [[ " ${python_packages[*]} " != *" $package "* ]]; then
+      python_packages+=("$package")
+    fi
+  done < <(get_feature_python_packages "$feature")
+done
+
+if (( ${#python_packages[@]} > 0 )); then
+  echo "[*] Installing feature-selected Python packages..."
+  python -m pip install "${python_packages[@]}"
+fi
 
 deactivate
 
 echo
-bash "$SCRIPT_DIR/check_termux.sh"
+bash "$SCRIPT_DIR/check_termux.sh" "$VENV_DIR" "${FEATURES[@]}"
 echo
 echo "[+] Termux development environment is ready."
 echo "    X11 desktop command: termux-x11 :1 -xstartup \"xfce4-session\""
