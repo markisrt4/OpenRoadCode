@@ -10,8 +10,10 @@ from dataclasses import asdict
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
+import os
 import subprocess
 
+from services.common.service_manager_auth import TOKEN_ENV, authorized, binding_allowed
 from services.termux.service_manager import RunitServiceManager, ServiceStatus
 
 DEFAULT_HOST = "127.0.0.1"
@@ -26,14 +28,19 @@ class ServiceManagerHandler(BaseHTTPRequestHandler):
     """Serve a deliberately small localhost-only service-management API."""
 
     manager = RunitServiceManager()
+    auth_token: str | None = None
 
     def do_GET(self) -> None:  # noqa: N802 - BaseHTTPRequestHandler API
+        if not self._authenticate():
+            return
         if self.path.rstrip("/") != "/services":
             self._json(HTTPStatus.NOT_FOUND, {"error": "not found"})
             return
         self._json(HTTPStatus.OK, _payload(self.manager.all_status()))
 
     def do_POST(self) -> None:  # noqa: N802 - BaseHTTPRequestHandler API
+        if not self._authenticate():
+            return
         parts = [part for part in self.path.split("/") if part]
         try:
             if parts == ["stack", "core", "start"]:
@@ -53,6 +60,12 @@ class ServiceManagerHandler(BaseHTTPRequestHandler):
             return
         self._json(HTTPStatus.OK, _payload(statuses))
 
+    def _authenticate(self) -> bool:
+        if authorized(self.headers.get("Authorization"), self.auth_token):
+            return True
+        self._json(HTTPStatus.UNAUTHORIZED, {"error": "unauthorized"})
+        return False
+
     def log_message(self, format: str, *args: object) -> None:
         return
 
@@ -60,6 +73,7 @@ class ServiceManagerHandler(BaseHTTPRequestHandler):
         body = json.dumps(payload).encode("utf-8")
         self.send_response(status.value)
         self.send_header("Content-Type", "application/json")
+        self.send_header("Cache-Control", "no-store")
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
         self.wfile.write(body)
@@ -70,10 +84,13 @@ def main() -> int:
     parser.add_argument("--host", default=DEFAULT_HOST)
     parser.add_argument("--port", type=int, default=DEFAULT_PORT)
     args = parser.parse_args()
-    if args.host not in {"127.0.0.1", "localhost", "::1"}:
-        parser.error("service manager must remain bound to localhost")
+    token = os.environ.get(TOKEN_ENV, "").strip() or None
+    if not binding_allowed(args.host, token):
+        parser.error(f"non-loopback service manager requires {TOKEN_ENV}")
+    ServiceManagerHandler.auth_token = token
     server = ThreadingHTTPServer((args.host, args.port), ServiceManagerHandler)
-    print(f"OpenRoadCode Termux service manager listening on {args.host}:{args.port}")
+    auth_mode = "bearer token" if token else "localhost only"
+    print(f"OpenRoadCode Termux service manager listening on {args.host}:{args.port} ({auth_mode})")
     try:
         server.serve_forever()
     except KeyboardInterrupt:
