@@ -139,6 +139,8 @@ class RunitServiceManager:
 
     @staticmethod
     def _input_health(name: str, state: str, profile: str | None) -> tuple[str | None, str | None]:
+        if name == "openroadcode-automotive":
+            return RunitServiceManager._automotive_input_health(state, profile)
         if name != "openroadcode-navigation" or profile != "local":
             return None, None
         if state != "running":
@@ -163,6 +165,22 @@ class RunitServiceManager:
         if not location_ready:
             missing.append("GPS")
         return "waiting", "Waiting for " + " + ".join(missing)
+
+    @staticmethod
+    def _automotive_input_health(state: str, profile: str | None) -> tuple[str | None, str | None]:
+        if state != "running":
+            return "stopped", "Automotive input not in use"
+        if profile == "simulated":
+            return "connected", "Simulated vehicle data active"
+        if profile != "local":
+            return None, None
+        import socket
+        try:
+            with socket.create_connection(("127.0.0.1", 35000), timeout=0.5):
+                pass
+        except OSError:
+            return "waiting", "Waiting for local ELM327 bridge"
+        return "connected", "Local ELM327 bridge connected"
 
     @classmethod
     def _validate(cls, name: str) -> None:
