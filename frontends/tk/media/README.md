@@ -1,6 +1,6 @@
 # ORC Media Integration
 
-The `orcUi` Media surface integrates Spotify, YouTube, and Netflix while keeping service protocols, browser lifecycle, X11 mechanics, and Tk presentation separated. See [`apps/orcUi/ARCHITECTURE.md`](../../../apps/orcUi/ARCHITECTURE.md) for the complete application composition and ownership model.
+The `orcUi` Media surface integrates Spotify, YouTube, YouTube Music, and Netflix while keeping service protocols, browser lifecycle, X11 mechanics, and Tk presentation separated. See [`apps/orcUi/ARCHITECTURE.md`](../../../apps/orcUi/ARCHITECTURE.md) for the complete application composition and ownership model.
 
 ## Composition and ownership
 
@@ -32,6 +32,12 @@ The Spotify theme adapter in `apps/orcUi/composition/media.py` derives chrome co
 `SpotifyLocalPlayer` owns the local SDK host and browser backend. The browser is an audio implementation detail and is hidden after the SDK registers the `OpenRoadCode` Connect device. PLAYER mode is currently verified with Google Chrome stable on Debian/Ubuntu AMD64. Spotify Premium is required by the Web Playback SDK.
 
 Termux remains REMOTE-only because its current Chromium environment does not provide the required Web Playback/EME capability.
+
+## Media hub and YouTube Music
+
+The Media landing page is a four-card hub for Spotify, YouTube, YouTube Music, and Netflix. Provider identity colors are accents, not replacement theme surfaces: card backgrounds, text, and ordinary controls continue to follow the active ORC light/dark theme.
+
+YouTube Music is intentionally advertised ahead of its runtime integration. Selecting it opens a dedicated **Coming Soon** screen. It must not construct a managed browser player or reference an `youtube_music` application-runtime key until that launcher is actually registered. This keeps the planned feature visible without creating a false runtime dependency.
 
 ## YouTube and Netflix
 

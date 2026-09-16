@@ -134,7 +134,7 @@ class StreamingRadioPanel(tk.Frame):
         header.grid(row=0, column=0, sticky="ew", padx=12, pady=(10, 6))
         header.grid_columnconfigure(0, weight=1)
         tk.Label(header, text="STREAMING RADIO", bg=BG, fg=BLUE, font=("Sans", 18, "bold")).grid(row=0, column=0, sticky="w")
-        tk.Button(header, text="‹ BACK", command=self._on_back, bg=PANEL, fg=TEXT, activebackground=CARD_SELECTED, activeforeground=BLUE, relief=tk.FLAT, bd=0, font=("Sans", 10, "bold"), padx=14, pady=7).grid(row=0, column=1, sticky="e")
+        tk.Button(header, text="‹ BACK", command=self._on_back, bg=PANEL, fg=TEXT, activebackground=CARD_SELECTED, activeforeground=BLUE, relief=tk.FLAT, bd=0, font=("Sans", 14, "bold"), padx=14, pady=7).grid(row=0, column=1, sticky="e")
 
     def _build_filters(self) -> None:
         filters = tk.Frame(self, bg=PANEL, highlightthickness=1, highlightbackground=BORDER)
@@ -143,10 +143,10 @@ class StreamingRadioPanel(tk.Frame):
             filters.grid_columnconfigure(column, weight=1)
         self._mode_buttons: dict[str, tk.Button] = {}
         for column, (mode, label) in enumerate((("local", "LOCAL"), ("regional", "REGIONAL"), ("favorites", "★ FAVORITES"))):
-            button = tk.Button(filters, text=label, command=lambda selected=mode: self._set_mode(selected), bg=PANEL, fg=TEXT, activebackground=CARD_SELECTED, activeforeground=GREEN, relief=tk.FLAT, bd=0, font=("Sans", 10, "bold"), padx=10, pady=8)
+            button = tk.Button(filters, text=label, command=lambda selected=mode: self._set_mode(selected), bg=PANEL, fg=TEXT, activebackground=CARD_SELECTED, activeforeground=GREEN, relief=tk.FLAT, bd=0, font=("Sans", 14, "bold"), padx=10, pady=8)
             button.grid(row=0, column=column, sticky="ew")
             self._mode_buttons[mode] = button
-        self._filters_button = tk.Button(filters, text="☰ FILTERS", command=self._toggle_filter_drawer, bg=PANEL, fg=TEXT, activebackground=CARD_SELECTED, activeforeground=GREEN, relief=tk.FLAT, bd=0, font=("Sans", 9, "bold"), padx=8, pady=8)
+        self._filters_button = tk.Button(filters, text="☰ FILTERS", command=self._toggle_filter_drawer, bg=PANEL, fg=TEXT, activebackground=CARD_SELECTED, activeforeground=GREEN, relief=tk.FLAT, bd=0, font=("Sans", 15, "bold"), padx=8, pady=8)
         self._filters_button.grid(row=0, column=3, sticky="ew")
         self._paint_filters()
 
@@ -172,9 +172,9 @@ class StreamingRadioPanel(tk.Frame):
         footer = tk.Frame(self, bg=PANEL, highlightthickness=1, highlightbackground=BORDER)
         footer.grid(row=3, column=0, sticky="ew", padx=12, pady=(0, 10))
         footer.grid_columnconfigure(0, weight=1)
-        self._selection_label = tk.Label(footer, text="Select a station", bg=PANEL, fg=MUTED, font=("Sans", 10, "bold"), anchor="w", padx=12, pady=8)
+        self._selection_label = tk.Label(footer, text="Select a station", bg=PANEL, fg=MUTED, font=("Sans", 14, "bold"), anchor="w", padx=12, pady=8)
         self._selection_label.grid(row=0, column=0, sticky="ew")
-        self._stop_button = tk.Button(footer, text="■ STOP", command=self._request_stop, state=tk.NORMAL if self._controller.is_playing else tk.DISABLED, bg=PANEL, fg=TEXT, activebackground=CARD_SELECTED, activeforeground=DANGER, disabledforeground=MUTED, relief=tk.FLAT, bd=0, font=("Sans", 10, "bold"), padx=14, pady=8)
+        self._stop_button = tk.Button(footer, text="■ STOP", command=self._request_stop, state=tk.NORMAL if self._controller.is_playing else tk.DISABLED, bg=PANEL, fg=TEXT, activebackground=CARD_SELECTED, activeforeground=DANGER, disabledforeground=MUTED, relief=tk.FLAT, bd=0, font=("Sans", 14, "bold"), padx=14, pady=8)
         self._stop_button.grid(row=0, column=1, sticky="e")
         self._paint_playback_status()
 
@@ -226,8 +226,8 @@ class StreamingRadioPanel(tk.Frame):
         header = tk.Frame(drawer, bg=CARD)
         header.grid(row=0, column=0, sticky="ew")
         header.grid_columnconfigure(0, weight=1)
-        tk.Label(header, text="STATION FILTERS", bg=CARD, fg=TEXT, font=("Sans", 13, "bold"), anchor="w", padx=12, pady=11).grid(row=0, column=0, sticky="ew")
-        tk.Button(header, text="✕", command=self._close_filter_drawer, bg=CARD, fg=MUTED, activebackground=CARD_SELECTED, activeforeground=TEXT, relief=tk.FLAT, bd=0, font=("Sans", 13, "bold"), padx=12, pady=8).grid(row=0, column=1)
+        tk.Label(header, text="STATION FILTERS", bg=CARD, fg=TEXT, font=("Sans", 15, "bold"), anchor="w", padx=12, pady=11).grid(row=0, column=0, sticky="ew")
+        tk.Button(header, text="✕", command=self._close_filter_drawer, bg=CARD, fg=MUTED, activebackground=CARD_SELECTED, activeforeground=TEXT, relief=tk.FLAT, bd=0, font=("Sans", 15, "bold"), padx=12, pady=8).grid(row=0, column=1)
         body = tk.Frame(drawer, bg=PANEL, padx=12, pady=10)
         body.grid(row=1, column=0, sticky="nsew")
         body.grid_columnconfigure(0, weight=1, uniform="filter-drawer")
@@ -235,15 +235,15 @@ class StreamingRadioPanel(tk.Frame):
         self._build_filter_group(body, row=0, column=0, title="MUSIC / CONTENT", key="genre", values=GENRE_FILTERS)
         self._build_filter_group(body, row=0, column=1, title="STREAM QUALITY", key="quality", values=QUALITY_FILTERS, helper="Low <96   Mid 96–191   High ≥192 kbps")
         self._build_filter_group(body, row=1, column=1, title="BAND / ORIGIN", key="band", values=BAND_FILTERS, helper="Internet-only lives here; broadcast band is best-effort metadata.")
-        tk.Button(body, text="CLEAR FILTERS", command=self._clear_station_filters, bg=CARD, fg=TEXT, activebackground=CARD_SELECTED, activeforeground=GREEN, relief=tk.FLAT, bd=0, font=("Sans", 9, "bold"), pady=8).grid(row=2, column=0, columnspan=2, sticky="ew", pady=(10, 4))
+        tk.Button(body, text="CLEAR FILTERS", command=self._clear_station_filters, bg=CARD, fg=TEXT, activebackground=CARD_SELECTED, activeforeground=GREEN, relief=tk.FLAT, bd=0, font=("Sans", 15, "bold"), pady=8).grid(row=2, column=0, columnspan=2, sticky="ew", pady=(10, 4))
 
     def _build_filter_group(self, parent: tk.Misc, *, row: int, column: int, title: str, key: str, values: tuple[str, ...], helper: str | None = None) -> None:
         group = tk.Frame(parent, bg=PANEL)
         group.grid(row=row, column=column, sticky="new", padx=(0, 6) if column == 0 else (6, 0), pady=(0, 10))
         group.grid_columnconfigure(0, weight=1)
-        tk.Label(group, text=title, bg=PANEL, fg=BLUE, font=("Sans", 9, "bold"), anchor="w").grid(row=0, column=0, sticky="ew")
+        tk.Label(group, text=title, bg=PANEL, fg=BLUE, font=("Sans", 15, "bold"), anchor="w").grid(row=0, column=0, sticky="ew")
         current = {"genre": self._genre_filter, "quality": self._quality_filter, "band": self._band_filter}[key]
-        value_label = tk.Label(group, text=current, bg=PANEL, fg=GREEN if current != "All" else MUTED, font=("Sans", 9, "bold"), anchor="e")
+        value_label = tk.Label(group, text=current, bg=PANEL, fg=GREEN if current != "All" else MUTED, font=("Sans", 15, "bold"), anchor="e")
         value_label.grid(row=0, column=1, sticky="e")
         self._filter_value_labels[key] = value_label
         choices = tk.Frame(group, bg=PANEL)
@@ -252,9 +252,9 @@ class StreamingRadioPanel(tk.Frame):
         for choice_column in range(columns):
             choices.grid_columnconfigure(choice_column, weight=1)
         for index, value in enumerate(values):
-            tk.Button(choices, text=value.upper(), command=lambda selected=value, filter_key=key: self._set_station_filter(filter_key, selected), bg=CARD, fg=TEXT, activebackground=CARD_SELECTED, activeforeground=GREEN, relief=tk.FLAT, bd=0, font=("Sans", 8, "bold"), padx=5, pady=6).grid(row=index // columns, column=index % columns, sticky="ew", padx=2, pady=2)
+            tk.Button(choices, text=value.upper(), command=lambda selected=value, filter_key=key: self._set_station_filter(filter_key, selected), bg=CARD, fg=TEXT, activebackground=CARD_SELECTED, activeforeground=GREEN, relief=tk.FLAT, bd=0, font=("Sans", 14, "bold"), padx=5, pady=6).grid(row=index // columns, column=index % columns, sticky="ew", padx=2, pady=2)
         if helper:
-            tk.Label(group, text=helper, bg=PANEL, fg=MUTED, font=("Sans", 7), anchor="w", justify=tk.LEFT, wraplength=220).grid(row=2, column=0, columnspan=2, sticky="ew", pady=(4, 0))
+            tk.Label(group, text=helper, bg=PANEL, fg=MUTED, font=("Sans", 14), anchor="w", justify=tk.LEFT, wraplength=220).grid(row=2, column=0, columnspan=2, sticky="ew", pady=(4, 0))
 
     def _set_station_filter(self, key: str, value: str) -> None:
         if key == "genre":
@@ -362,13 +362,13 @@ class StreamingRadioPanel(tk.Frame):
         card.grid(row=row, column=column, sticky="nsew", padx=5, pady=5)
         card.grid_columnconfigure(1, weight=1)
         if playing:
-            banner = tk.Label(card, text="●  NOW PLAYING", bg=GREEN, fg="#071006", font=("Sans", 9, "bold"), anchor="w", padx=8, pady=3)
+            banner = tk.Label(card, text="●  NOW PLAYING", bg=GREEN, fg="#071006", font=("Sans", 15, "bold"), anchor="w", padx=8, pady=3)
             banner.grid(row=0, column=0, columnspan=3, sticky="ew")
             content_row = 1
         else:
             banner = None
             content_row = 0
-        artwork = tk.Label(card, text="RADIO", bg="#081018", fg=MUTED, width=8, height=4, font=("Sans", 8, "bold"))
+        artwork = tk.Label(card, text="RADIO", bg="#081018", fg=MUTED, width=8, height=4, font=("Sans", 14, "bold"))
         artwork.grid(row=content_row, column=0, rowspan=3, padx=(8, 7), pady=8, sticky="w")
         self._apply_or_load_artwork(station, artwork)
         name = tk.Label(card, text=station.name, bg=card_bg, fg=GREEN if playing else TEXT, font=("Sans", 14 if playing else 11, "bold"), anchor="w", justify=tk.LEFT, wraplength=250)
@@ -376,7 +376,7 @@ class StreamingRadioPanel(tk.Frame):
         details = _station_details(station)
         if is_explicit_internet_only(station):
             details = f"INTERNET ONLY • {details}"
-        detail_label = tk.Label(card, text=details, bg=card_bg, fg=BLUE if is_explicit_internet_only(station) else MUTED, font=("Sans", 8), anchor="w", justify=tk.LEFT, wraplength=245)
+        detail_label = tk.Label(card, text=details, bg=card_bg, fg=BLUE if is_explicit_internet_only(station) else MUTED, font=("Sans", 14), anchor="w", justify=tk.LEFT, wraplength=245)
         detail_label.grid(row=content_row + 1, column=1, columnspan=2, sticky="ew", padx=(0, 6), pady=(0, 4))
         favorite = station.station_id in self._favorites
         favorite_button = tk.Button(card, text="★" if favorite else "☆", command=lambda item=station: self._toggle_station_favorite(item), bg=card_bg, fg=GREEN if favorite else MUTED, activebackground=card_bg, activeforeground=GREEN, relief=tk.FLAT, bd=0, font=("Sans", 15), padx=5, pady=2)
@@ -483,7 +483,7 @@ class StreamingRadioPanel(tk.Frame):
     def _show_status(self, text: str, *, danger: bool = False) -> None:
         for child in self._list.winfo_children():
             child.destroy()
-        tk.Label(self._list, text=text, bg=PANEL, fg=DANGER if danger else MUTED, font=("Sans", 11), pady=30).grid(row=0, column=0, columnspan=CARD_COLUMNS, sticky="ew")
+        tk.Label(self._list, text=text, bg=PANEL, fg=DANGER if danger else MUTED, font=("Sans", 14), pady=30).grid(row=0, column=0, columnspan=CARD_COLUMNS, sticky="ew")
 
     def _on_list_configure(self, _event: tk.Event[tk.Misc]) -> None:
         self._canvas.configure(scrollregion=self._canvas.bbox("all"))

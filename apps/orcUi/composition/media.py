@@ -18,11 +18,13 @@ from controllers.image import ImageCache
 from controllers.lyrics import LrclibLyricsClient
 from controllers.video import MusicVideoController, NetflixPlayer, YouTubeMusicVideo, YouTubePlayer
 from frontends.tk.media import BrowserMediaScreen, MediaNavigationBar, MediaScreen, SpotifyNowPlaying, SpotifyScreen
+from frontends.tk.media.youtube_music_coming_soon_screen import YouTubeMusicComingSoonScreen
 from ui.theme import ThemeMode
 
 MUSIC_VIDEO_PORT = 8770
 MUSIC_VIDEO_WINDOW_CLASS = "OpenRoadCodeMusicVideo"
 YOUTUBE_WINDOW_CLASS = "openroadcode-youtube"
+YOUTUBE_MUSIC_WINDOW_CLASS = "openroadcode-youtube-music"
 NETFLIX_WINDOW_CLASS = "openroadcode-netflix"
 SPOTIFY_GREEN = "#1DB954"
 
@@ -104,6 +106,11 @@ def configure_media(app: OrcUiApp, runtime) -> MediaComposition:
         back_action=lambda: media_screen.show(), media_navigation_factory=media_navigation,
         theme_bundle=lambda: theme_bundle(app.theme_mode),
     )
+    youtube_music_screen = YouTubeMusicComingSoonScreen(
+        app,
+        back_action=lambda: media_screen.show(),
+        theme_bundle=lambda: theme_bundle(app.theme_mode),
+    )
     netflix_screen = BrowserMediaScreen(
         "netflix", app, title="Netflix", player=netflix_player,
         default_target="https://www.netflix.com/browse", window_class=NETFLIX_WINDOW_CLASS,
@@ -122,7 +129,8 @@ def configure_media(app: OrcUiApp, runtime) -> MediaComposition:
 
     media_screen = MediaScreen(
         app, theme_bundle=lambda: theme_bundle(app.theme_mode),
-        show_spotify=spotify_screen.show, show_youtube=youtube_screen.show, show_netflix=netflix_screen.show,
+        show_spotify=spotify_screen.show, show_youtube=youtube_screen.show,
+        show_youtube_music=youtube_music_screen.show, show_netflix=netflix_screen.show,
         show_spotify_remote=show_spotify_remote, show_spotify_local=show_spotify_local,
         spotify_local_available=lambda: media.spotify_local_player.state().available,
     )

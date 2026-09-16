@@ -9,6 +9,7 @@ from collections.abc import Callable
 from apps.orcUi.theme_runtime import theme_bundle as packaged_theme_bundle
 from controllers.automotive import EngineInductionType, VehicleConfiguration
 from ui.theme import ThemeBundle, ThemeMode
+from .shell_metrics import FONT_BODY, FONT_CONTROL, FONT_SMALL
 
 
 class SettingsPanel(tk.Frame):
@@ -58,7 +59,7 @@ class SettingsPanel(tk.Frame):
             activeforeground="#ffffff",
             relief=tk.FLAT,
             bd=0,
-            font=("Sans", 9, "bold"),
+            font=("Sans", FONT_CONTROL, "bold"),
             padx=14,
             pady=6,
         ).pack(side=tk.RIGHT, padx=10, pady=8)
@@ -88,14 +89,14 @@ class SettingsPanel(tk.Frame):
             text="Engine induction",
             bg=ui.surface,
             fg=ui.text,
-            font=("Sans", 12, "bold"),
+            font=("Sans", FONT_BODY + 1, "bold"),
         ).grid(row=1, column=0, sticky="nw", padx=14, pady=(8, 2))
         tk.Label(
             vehicle,
             text="Controls boost/vacuum presentation and forced-induction analysis.",
             bg=ui.surface,
             fg=ui.text_muted,
-            font=("Sans", 8),
+            font=("Sans", FONT_SMALL),
             justify=tk.LEFT,
         ).grid(row=2, column=0, sticky="nw", padx=14, pady=(0, 12))
 
@@ -114,7 +115,7 @@ class SettingsPanel(tk.Frame):
                 activebackground=ui.surface,
                 activeforeground=ui.text,
                 selectcolor=ui.control_background,
-                font=("Sans", 9),
+                font=("Sans", FONT_CONTROL),
                 anchor="w",
             ).grid(row=row, column=0, sticky="w", pady=2)
 

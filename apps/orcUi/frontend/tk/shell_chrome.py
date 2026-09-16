@@ -9,6 +9,15 @@ import tkinter as tk
 from collections.abc import Callable
 
 from ui.theme import ThemeBundle
+from .shell_metrics import (
+    FONT_BRAND,
+    FONT_CLOCK,
+    FONT_POWER,
+    FONT_SMALL,
+    FONT_STATUS,
+    FOOTER_HEIGHT,
+    TOP_BAR_HEIGHT,
+)
 
 
 def build_top_bar(
@@ -19,7 +28,7 @@ def build_top_bar(
 ) -> tk.Label:
     """Build the branded top bar and return its clock label."""
     ui = theme.ui
-    bar = tk.Frame(root, bg=ui.surface_alt, height=50)
+    bar = tk.Frame(root, bg=ui.surface_alt, height=TOP_BAR_HEIGHT)
     bar.grid(row=0, column=0, columnspan=2, sticky="ew")
     bar.grid_propagate(False)
     bar.grid_columnconfigure(1, weight=1)
@@ -37,7 +46,7 @@ def build_top_bar(
             text=letter,
             fg=color,
             bg=ui.surface_alt,
-            font=("Sans", 21, "bold"),
+            font=("Sans", FONT_BRAND, "bold"),
             padx=0,
             pady=0,
             bd=0,
@@ -47,7 +56,7 @@ def build_top_bar(
         text="ui",
         fg=ui.text_muted,
         bg=ui.surface_alt,
-        font=("Monospace", 12),
+        font=("Monospace", FONT_STATUS),
         padx=0,
     ).pack(side=tk.LEFT, padx=(3, 0), pady=(5, 0))
 
@@ -55,7 +64,7 @@ def build_top_bar(
         bar,
         fg=ui.text,
         bg=ui.surface_alt,
-        font=("Sans", 17, "bold"),
+        font=("Sans", FONT_CLOCK, "bold"),
     )
     clock.grid(row=0, column=1)
 
@@ -66,14 +75,14 @@ def build_top_bar(
         text="☁  --°F",
         fg=ui.text,
         bg=ui.surface_alt,
-        font=("Sans", 11, "bold"),
+        font=("Sans", FONT_STATUS, "bold"),
     ).pack(side=tk.LEFT, padx=(0, 10))
     tk.Label(
         status,
         text="GPS  ▮▮▮   WiFi   BT   🚗",
         fg=ui.text_muted,
         bg=ui.surface_alt,
-        font=("Sans", 11),
+        font=("Sans", FONT_STATUS),
     ).pack(side=tk.LEFT, padx=(0, 10))
     tk.Button(
         status,
@@ -82,44 +91,40 @@ def build_top_bar(
         bg=ui.control_background,
         fg=ui.control_text,
         activebackground=ui.control_active,
-        activeforeground="#ffffff",
+        activeforeground=ui.accent_danger,
         relief=tk.FLAT,
         bd=0,
-        font=("Sans", 16, "bold"),
-        padx=10,
-        pady=2,
+        width=3,
+        font=("Sans", FONT_POWER, "bold"),
+        cursor="hand2",
     ).pack(side=tk.LEFT)
     return clock
 
 
-def build_footer(root: tk.Misc, *, theme: ThemeBundle) -> None:
-    """Build the persistent status footer."""
+def build_footer(root: tk.Misc, *, theme: ThemeBundle) -> tuple[tk.Label, tk.Label]:
+    """Build the persistent breadcrumb/service-status footer."""
     ui = theme.ui
-    footer = tk.Frame(root, bg=ui.surface_alt, height=25)
+    footer = tk.Frame(root, bg=ui.surface_alt, height=FOOTER_HEIGHT)
     footer.grid(row=3, column=0, columnspan=2, sticky="ew")
     footer.grid_propagate(False)
     footer.grid_columnconfigure(1, weight=1)
-    tk.Label(
+    breadcrumb = tk.Label(
         footer,
-        text="OpenRoadCode",
+        text="HOME",
         fg=ui.text_muted,
         bg=ui.surface_alt,
-        font=("Sans", 8),
-    ).grid(row=0, column=0, padx=10)
-    tk.Label(
+        font=("Sans", FONT_SMALL, "bold"),
+    )
+    breadcrumb.grid(row=0, column=0, sticky="w", padx=(10, 8), pady=2)
+    status = tk.Label(
         footer,
-        text="Services: --   |   ZMQ: --",
+        text="GPS --   |   ADS-B --   |   RF --   |   OBD --",
         fg=ui.text_muted,
         bg=ui.surface_alt,
-        font=("Sans", 8),
-    ).grid(row=0, column=1)
-    tk.Label(
-        footer,
-        text="orcUi prototype",
-        fg=ui.text_muted,
-        bg=ui.surface_alt,
-        font=("Sans", 8),
-    ).grid(row=0, column=2, padx=10)
+        font=("Sans", FONT_SMALL),
+    )
+    status.grid(row=0, column=1, pady=2)
+    return breadcrumb, status
 
 
 def _build_logo_mark(parent: tk.Misc, theme: ThemeBundle) -> None:

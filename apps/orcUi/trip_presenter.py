@@ -27,6 +27,7 @@ class TripPresentationState:
     maximum_speed_mph: float | None = None
     fuel_used_gallons: float | None = None
     economy_mpg: float | None = None
+    instantaneous_economy_mpg: float | None = None
     estimated_range_miles: float | None = None
     boost_time_s: float = 0.0
     boost_distance_miles: float = 0.0
@@ -52,6 +53,19 @@ class TripPresenter:
             )
             if gallons_per_mile > 0.0:
                 economy_mpg = 1.0 / gallons_per_mile
+
+        instantaneous_economy_mpg = None
+        if (
+            state.instantaneous_fuel_consumption_m3_per_m is not None
+            and state.instantaneous_fuel_consumption_m3_per_m > 0.0
+        ):
+            gallons_per_mile = (
+                state.instantaneous_fuel_consumption_m3_per_m
+                * GALLONS_PER_CUBIC_METRE
+                / MILES_PER_METRE
+            )
+            if gallons_per_mile > 0.0:
+                instantaneous_economy_mpg = 1.0 / gallons_per_mile
 
         boost_fuel_percent = None
         if state.fuel_used_m3 is not None and state.fuel_used_m3 > 0.0:
@@ -79,6 +93,7 @@ class TripPresenter:
                 else state.fuel_used_m3 * GALLONS_PER_CUBIC_METRE
             ),
             economy_mpg=economy_mpg,
+            instantaneous_economy_mpg=instantaneous_economy_mpg,
             estimated_range_miles=(
                 None
                 if state.estimated_range_m is None

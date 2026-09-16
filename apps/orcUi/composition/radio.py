@@ -36,6 +36,7 @@ def configure_radio(app: OrcUiApp, runtime) -> RadioComposition:
 
     directory = RadioBrowserDirectory(timeout_s=10.0)
     favorites = StreamingRadioFavorites()
+    adsb = OrcUiAdsbControl()
     screen = RadioScreen(
         app,
         theme_bundle=lambda: theme_bundle(app.theme_mode),
@@ -48,8 +49,11 @@ def configure_radio(app: OrcUiApp, runtime) -> RadioComposition:
             streaming_radio=runtime.streaming_radio,
             directory=directory,
             favorites=favorites,
+            adsb_control=adsb,
+            on_location_changed=lambda leaf: app.set_breadcrumb("RADIO", leaf),
         ),
         sync_theme=sync_theme,
+        on_location_changed=lambda leaf: app.set_breadcrumb("RADIO", leaf),
     )
     app.register_screen("RADIO", screen)
 
@@ -76,8 +80,6 @@ def configure_radio(app: OrcUiApp, runtime) -> RadioComposition:
         )
 
     app.set_home_radio_factory(home_radio_factory)
-    adsb = OrcUiAdsbControl()
-
     def toggle_adsb(enabled: bool) -> bool:
         # An explicit ADS-B selection wins the shared SDR. Relinquish RF first.
         if enabled and runtime.radio.presented:
