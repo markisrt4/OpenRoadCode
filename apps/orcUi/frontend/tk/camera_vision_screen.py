@@ -181,7 +181,9 @@ class CameraVisionScreen(TkScreen):
             self._hardware_controls.restore_day_defaults()
             detector = YoloObjectDetector(
                 self._model_name,
-                confidence=0.35,
+                # Keep lower-confidence candidates for ByteTrack association;
+                # the tracker decides which detections become persistent tracks.
+                confidence=0.10,
                 image_size=640,
                 model=self._prepared_model,
             )
