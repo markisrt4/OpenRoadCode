@@ -8,6 +8,11 @@ import math
 import pytest
 
 from common.units import (
+    celsius_to_kelvin,
+    hectopascals_to_pascals,
+    kilometers_per_hour_to_meters_per_second,
+    millimeters_to_meters,
+    percent_to_ratio,
     kelvin_to_celsius,
     kelvin_to_fahrenheit,
     kilograms_per_second_to_grams_per_second,
@@ -26,6 +31,11 @@ from common.units import (
 @pytest.mark.parametrize(
     ("converter", "value", "expected"),
     [
+        (celsius_to_kelvin, 0.0, 273.15),
+        (hectopascals_to_pascals, 1013.25, 101325.0),
+        (kilometers_per_hour_to_meters_per_second, 36.0, 10.0),
+        (millimeters_to_meters, 1000.0, 1.0),
+        (percent_to_ratio, 84.0, 0.84),
         (meters_per_second_to_miles_per_hour, 1.0, 2.2369362920544),
         (meters_per_second_to_kilometers_per_hour, 10.0, 36.0),
         (meters_per_second_squared_to_feet_per_second_squared, 1.0, 3.280839895013123),
@@ -47,6 +57,11 @@ def test_conversion_reference_values(converter, value, expected):
 @pytest.mark.parametrize(
     "converter",
     [
+        celsius_to_kelvin,
+        hectopascals_to_pascals,
+        kilometers_per_hour_to_meters_per_second,
+        millimeters_to_meters,
+        percent_to_ratio,
         meters_per_second_to_miles_per_hour,
         meters_per_second_to_kilometers_per_hour,
         meters_per_second_squared_to_feet_per_second_squared,
