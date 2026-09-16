@@ -23,6 +23,8 @@ from apps.common.uiTheme.spotify import SPOTIFY_PANEL_THEME
 from controllers.lighting import LightingPresenter
 from controllers.audio import MediaVolumeHandler
 from controllers.spotify import SpotifyMediaPresenter
+from controllers.weather.weather_presenter import WeatherPresenter
+from controllers.weather.weather_presentation_controller import WeatherPresentationController
 from frontends.tk.lighting import LightingScreen
 from frontends.tk.media import SpotifyScreen
 from frontends.tk.tk_screen_host_if import TkScreenHostIf
@@ -43,7 +45,7 @@ class TkCarUiScreenFactory:
         runtime = dependencies.runtime
         common = {"remote_display": runtime.remote_display, "on_frequency_changed": on_frequency_changed, "create_menu_tile": self._create_menu_tile, "binding_factory": create_radio_screen_binding}
         aircraft = AircraftScreen(self._host, airband_runtime=lambda: runtime.radios.get("airband"), app_runtime_manager=runtime.app_runtime_manager, auxiliary_display=runtime.auxiliary_display, home_action=self._show_main_menu, **common)
-        weather = WeatherScreen(self._host, weather_radio_runtime=lambda: runtime.radios.get("weather_band"), app_runtime_manager=runtime.app_runtime_manager, auxiliary_display=runtime.auxiliary_display, home_action=self._show_main_menu, **common)
+        weather = WeatherScreen(self._host, weather_radio_runtime=lambda: runtime.radios.get("weather_band"), weather_controller=runtime.weather_controller, home_action=self._show_main_menu, **common)
         fm_radio = FMRadioScreen(self._host, runtime=lambda: runtime.radios.get("fm_radio"), back_action=lambda: self._show_menu("radio"), **common)
         scanner = ScannerScreen(self._host, radio_runtimes=runtime.radios, radio_menu_action=lambda: self._show_menu("radio"), compact_ui=self._compact_ui, **common)
 
