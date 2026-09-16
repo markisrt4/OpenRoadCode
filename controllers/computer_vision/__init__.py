@@ -8,5 +8,17 @@ from controllers.computer_vision.object_detector_if import (
     DetectionFrame,
     ObjectDetectorIf,
 )
+from controllers.computer_vision.object_tracker_if import (
+    ObjectTrack,
+    ObjectTrackerIf,
+    TrackFrame,
+)
 
-__all__ = ["Detection", "DetectionFrame", "ObjectDetectorIf"]
+__all__ = [
+    "Detection",
+    "DetectionFrame",
+    "ObjectDetectorIf",
+    "ObjectTrack",
+    "ObjectTrackerIf",
+    "TrackFrame",
+]
