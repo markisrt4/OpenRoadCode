@@ -8,17 +8,24 @@ from __future__ import annotations
 import threading
 
 from controllers.computer_vision.object_detector_if import DetectionFrame, ObjectDetectorIf
+from controllers.computer_vision.object_tracker_if import ObjectTrackerIf, TrackFrame
 from hardware_io.camera.camera_if import CameraFrame
 
 
 class PerceptionWorker:
-    """Run inference off the capture thread while dropping stale frames."""
+    """Run detection/tracking off the capture thread while dropping stale frames."""
 
-    def __init__(self, detector: ObjectDetectorIf) -> None:
+    def __init__(
+        self,
+        detector: ObjectDetectorIf,
+        tracker: ObjectTrackerIf | None = None,
+    ) -> None:
         self._detector = detector
+        self._tracker = tracker
         self._condition = threading.Condition()
         self._pending: CameraFrame | None = None
         self._latest: DetectionFrame | None = None
+        self._latest_tracks: TrackFrame | None = None
         self._running = False
         self._thread: threading.Thread | None = None
         self._processed = 0
@@ -36,9 +43,16 @@ class PerceptionWorker:
         with self._condition:
             return self._latest
 
+    @property
+    def latest_tracks(self) -> TrackFrame | None:
+        with self._condition:
+            return self._latest_tracks
+
     def start(self) -> None:
         if self._running:
             return
+        if self._tracker is not None:
+            self._tracker.reset()
         self._running = True
         self._thread = threading.Thread(target=self._run, name="PerceptionWorker", daemon=True)
         self._thread.start()
@@ -72,6 +86,8 @@ class PerceptionWorker:
 
             assert frame is not None
             result = self._detector.detect(frame)
+            tracks = self._tracker.update(result) if self._tracker is not None else None
             with self._condition:
                 self._latest = result
+                self._latest_tracks = tracks
                 self._processed += 1
