@@ -5,8 +5,6 @@
 
 from __future__ import annotations
 
-from collections import Counter
-
 from controllers.computer_vision.object_detector_if import DetectionFrame
 from controllers.computer_vision.object_tracker_if import ObjectTrack, ObjectTrackerIf, TrackFrame
 
