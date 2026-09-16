@@ -31,15 +31,15 @@ def main() -> int:
     print(f"Provider: {state.source.display_name} ({state.source.provider_id})")
     print(f"Location: {state.location_name}")
     print(f"Position: {state.latitude:.5f}, {state.longitude:.5f}")
-    print(f"Temperature: {state.current.get('temperature_2m', '--')}")
-    print(f"Feels like: {state.current.get('apparent_temperature', '--')}")
-    print(f"Humidity: {state.current.get('relative_humidity_2m', '--')}")
-    print(f"Weather code: {state.current.get('weather_code', '--')}")
-    print(f"Wind: {state.current.get('wind_speed_10m', '--')}")
-    print(f"Hourly points: {len(state.hourly.get('time', []))}")
-    print(f"Daily points: {len(state.daily.get('time', []))}")
+    print(f"Temperature: {state.current.temperature_k} K")
+    print(f"Feels like: {state.current.apparent_temperature_k} K")
+    print(f"Humidity: {state.current.relative_humidity}")
+    print(f"Condition: {state.current.condition.value}")
+    print(f"Wind: {state.current.wind_speed_m_s} m/s")
+    print(f"Hourly forecasts: {len(state.hourly)}")
+    print(f"Daily forecasts: {len(state.daily)}")
 
-    if not state.current or not state.hourly or not state.daily:
+    if not state.hourly or not state.daily:
         raise RuntimeError("Provider returned incomplete weather state")
     return 0
 
