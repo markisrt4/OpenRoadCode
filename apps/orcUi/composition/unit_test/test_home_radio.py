@@ -40,6 +40,16 @@ class HomeRadioCompositionTest(unittest.TestCase):
         composition.screen.open_adsb.assert_called_once_with()
         self.assertEqual(app.navigate_to.call_count, 3)
 
+    @patch("apps.orcUi.composition.radio.StreamingRadioNowPlaying")
+    @patch("apps.orcUi.composition.radio.RadioScreen")
+    @patch("apps.orcUi.composition.radio.StreamingRadioFavorites")
+    @patch("apps.orcUi.composition.radio.RadioBrowserDirectory")
+    def test_home_factory_stays_in_composition(self, _directory_type, _favorites_type, _screen_type, _now_playing_type):
+        app = Mock()
+        app.theme_mode = ThemeMode.DARK
+        configure_radio(app, Mock())
+        app.set_home_radio_factory.assert_not_called()
+
 
 if __name__ == "__main__":
     unittest.main()
