@@ -6,6 +6,7 @@
 from controllers.weather.gpsd_weather_location_provider import GpsdWeatherLocationProvider
 from controllers.weather.providers import OpenMeteoWeatherProvider
 from controllers.weather.weather_controller import WeatherController
+from controllers.weather.weather_presenter import WeatherPresenter
 from controllers.weather.weather_provider_if import WeatherProviderIf
 from controllers.weather.weather_state import (
     CurrentWeather,
@@ -26,6 +27,7 @@ __all__ = [
     "WeatherCondition",
     "WeatherController",
     "WeatherLocation",
+    "WeatherPresenter",
     "WeatherProviderIf",
     "WeatherSource",
     "WeatherState",
