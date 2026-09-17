@@ -10,6 +10,7 @@ from dataclasses import dataclass
 
 from apps.orcUi.core_runtime import MapRuntime, StateIngressRuntime
 from apps.orcUi.frontend.tk.orc_ui_app import OrcUiApp
+from apps.orcUi.frontend.tk.presentation_state import OrcUiPresentationState
 from config.service_runtime_config import ServiceRuntimeConfigParser
 from controllers.audio import PipewireAudioController, SystemVolumeHandler
 from controllers.automotive import TripTracker
@@ -29,6 +30,7 @@ class CoreComposition:
     """Own the shell-facing infrastructure for one ORC UI process."""
 
     app: OrcUiApp
+    presentation: OrcUiPresentationState
     map_runtime: MapRuntime
     map_camera: MapCameraRuntime
     state_ingress: StateIngressRuntime
@@ -72,6 +74,7 @@ def create_core_composition() -> CoreComposition:
         follow_enabled=True,
     )
     lifecycle = SystemLifecycleController()
+    presentation = OrcUiPresentationState()
     runtime_config = ServiceRuntimeConfigParser(DEFAULT_RUNTIME_CONFIG).load()
     vehicle_settings = VehicleSettingsStore(default=runtime_config.vehicle)
     vehicle_configuration = vehicle_settings.load()
@@ -85,6 +88,7 @@ def create_core_composition() -> CoreComposition:
             map_runtime=map_runtime,
             map_request_handler=map_camera.request_handler,
             lifecycle_handler=lifecycle,
+            presentation=presentation,
             telemetry_profile_request=telemetry_profile_requests.publish,
             vehicle_configuration=vehicle_configuration,
             save_vehicle_configuration=vehicle_settings.save,
@@ -127,6 +131,7 @@ def create_core_composition() -> CoreComposition:
     )
     return CoreComposition(
         app=app,
+        presentation=presentation,
         map_runtime=map_runtime,
         map_camera=map_camera,
         state_ingress=state_ingress,
