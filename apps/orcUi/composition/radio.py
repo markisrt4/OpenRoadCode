@@ -74,11 +74,11 @@ def configure_radio(app: OrcUiApp, runtime) -> RadioComposition:
 
     def open_weather_radio() -> None:
         """Start NOAA RF audio while leaving the requesting screen visible."""
-        app.set_screen_status("NOAA Weather Radio: starting receiver")
+        app.set_screen_status("RF: starting NOAA Weather Radio")
         controller = RadioProfileController()
         profile = controller.catalog.profile("weather_band")
         if not profile.presets:
-            app.set_screen_status("NOAA Weather Radio: no weather presets configured")
+            app.set_screen_status("RF: no NOAA weather presets configured")
             return
         preset = profile.presets[0]
 
@@ -88,7 +88,7 @@ def configure_radio(app: OrcUiApp, runtime) -> RadioComposition:
         try:
             runtime.radio.present()
         except (OSError, RuntimeError, ValueError) as error:
-            app.set_screen_status(f"NOAA Weather Radio: {error}")
+            app.set_screen_status(f"RF: {error}")
             return
 
         def tune_when_ready(attempts_remaining: int = 24) -> None:
@@ -103,9 +103,11 @@ def configure_radio(app: OrcUiApp, runtime) -> RadioComposition:
                         lambda: tune_when_ready(attempts_remaining - 1),
                     )
                     return
-                app.set_screen_status(f"NOAA Weather Radio: {error}")
+                app.set_screen_status(f"RF: {error}")
                 return
-            app.set_screen_status(f"NOAA Weather Radio: {state.label}")
+            app.set_screen_status(
+                f"RF: Playing {preset.frequency_hz / 1_000_000:.3f} MHz · {state.label}"
+            )
 
         app.schedule_ui_callback(250, tune_when_ready)
 
