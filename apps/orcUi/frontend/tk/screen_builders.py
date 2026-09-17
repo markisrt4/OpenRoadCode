@@ -11,6 +11,7 @@ from collections.abc import Callable
 from apps.orcUi.navigation_presenter import AttitudePresentationState, PositionPresentationState
 from apps.orcUi.trip_presenter import TripPresentationState
 from apps.orcUi.vehicle_presenter import VehiclePresentationState
+from common.units import UnitSystem
 from controllers.automotive import (
     AutomotiveTelemetryProfile,
     EngineAnalysis,
@@ -75,6 +76,8 @@ def build_settings_screen(
     *,
     vehicle_configuration: VehicleConfiguration,
     on_vehicle_configuration_changed: Callable[[VehicleConfiguration], None],
+    unit_system: UnitSystem,
+    on_unit_system_changed: Callable[[UnitSystem], None],
     on_back: Callable[[], None],
     theme: ThemeBundle,
 ) -> SettingsPanel:
@@ -82,6 +85,8 @@ def build_settings_screen(
         parent,
         vehicle_configuration=vehicle_configuration,
         on_vehicle_configuration_changed=on_vehicle_configuration_changed,
+        unit_system=unit_system,
+        on_unit_system_changed=on_unit_system_changed,
         on_back=on_back,
         theme_bundle=theme,
     )
