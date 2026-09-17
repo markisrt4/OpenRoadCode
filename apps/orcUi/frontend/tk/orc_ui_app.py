@@ -44,6 +44,7 @@ class OrcUiApp(VolumeUiIf):
         map_runtime: MapRuntimeIf,
         map_request_handler: MapRequestHandlerIf,
         lifecycle_handler: SystemLifecycleRequestHandlerIf,
+        presentation: OrcUiPresentationState,
         telemetry_profile_request: Callable[[AutomotiveTelemetryProfile], None] | None = None,
         vehicle_configuration: VehicleConfiguration = VehicleConfiguration(),
         save_vehicle_configuration: Callable[[VehicleConfiguration], None] | None = None,
@@ -55,7 +56,7 @@ class OrcUiApp(VolumeUiIf):
         self._vehicle_configuration = vehicle_configuration
         self._save_vehicle_configuration = save_vehicle_configuration
         self._vehicle_configuration_observer: Callable[[VehicleConfiguration], None] | None = None
-        self._presentation = OrcUiPresentationState()
+        self._presentation = presentation
         self._theme_mode = ThemeMode.DARK
         self._theme = theme_bundle(self._theme_mode)
         ui = self._theme.ui
