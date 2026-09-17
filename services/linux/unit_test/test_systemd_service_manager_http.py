@@ -10,6 +10,7 @@ import threading
 import unittest
 from unittest.mock import Mock
 
+from services.common.service_manager_pairing import ServiceManagerPairing
 from services.linux.systemd_service_manager import ServiceStatus
 from services.linux.systemd_service_manager_http import (
     SystemdServiceManagerHandler,
@@ -64,6 +65,7 @@ class SystemdServiceManagerHttpRequestTest(unittest.TestCase):
 
         SystemdServiceManagerHandler.manager = self.manager
         SystemdServiceManagerHandler.auth_token = "secret"
+        SystemdServiceManagerHandler.pairing = ServiceManagerPairing()
         self.server = ThreadingHTTPServer(("127.0.0.1", 0), SystemdServiceManagerHandler)
         self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
         self.thread.start()
@@ -74,17 +76,28 @@ class SystemdServiceManagerHttpRequestTest(unittest.TestCase):
         self.server.server_close()
         self.thread.join(timeout=2.0)
         SystemdServiceManagerHandler.auth_token = None
+        SystemdServiceManagerHandler.pairing = ServiceManagerPairing()
 
-    def request(self, method: str, path: str, token: str | None = "secret"):
+    def request(
+        self,
+        method: str,
+        path: str,
+        token: str | None = "secret",
+        payload: dict[str, object] | None = None,
+    ):
         headers = {}
         if token is not None:
             headers["Authorization"] = f"Bearer {token}"
+        body = None
+        if payload is not None:
+            body = json.dumps(payload)
+            headers["Content-Type"] = "application/json"
         connection = HTTPConnection(self.host, self.port, timeout=2.0)
         try:
-            connection.request(method, path, headers=headers)
+            connection.request(method, path, body=body, headers=headers)
             response = connection.getresponse()
-            payload = json.loads(response.read().decode("utf-8"))
-            return response.status, payload
+            response_payload = json.loads(response.read().decode("utf-8"))
+            return response.status, response_payload
         finally:
             connection.close()
 
@@ -130,6 +143,46 @@ class SystemdServiceManagerHttpRequestTest(unittest.TestCase):
 
         self.assertEqual(status, 400)
         self.assertIn("returned non-zero exit status", payload["error"])
+
+    def test_pairing_start_requires_bootstrap_token(self) -> None:
+        status, payload = self.request("POST", "/pairing/start", token=None)
+
+        self.assertEqual(status, 401)
+        self.assertEqual(payload, {"error": "unauthorized"})
+
+    def test_pairing_exchange_authorizes_new_client(self) -> None:
+        status, started = self.request("POST", "/pairing/start")
+        self.assertEqual(status, 200)
+        self.assertRegex(started["pin"], r"^\d{6}$")
+
+        status, paired = self.request(
+            "POST",
+            "/pair",
+            token=None,
+            payload={"pin": started["pin"], "client_name": "Test Android"},
+        )
+        self.assertEqual(status, 200)
+        self.assertTrue(paired["client_id"])
+        self.assertTrue(paired["access_token"])
+
+        status, services = self.request("GET", "/services", token=paired["access_token"])
+        self.assertEqual(status, 200)
+        self.assertEqual(services["services"][0]["name"], "openroadcode-navigation")
+
+    def test_paired_client_cannot_start_another_pairing(self) -> None:
+        _, started = self.request("POST", "/pairing/start")
+        _, paired = self.request(
+            "POST",
+            "/pair",
+            token=None,
+            payload={"pin": started["pin"], "client_name": "Test Android"},
+        )
+
+        status, payload = self.request(
+            "POST", "/pairing/start", token=paired["access_token"]
+        )
+        self.assertEqual(status, 401)
+        self.assertEqual(payload, {"error": "unauthorized"})
 
 
 if __name__ == "__main__":
