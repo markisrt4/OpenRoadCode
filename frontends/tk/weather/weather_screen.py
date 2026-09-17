@@ -29,12 +29,14 @@ class WeatherScreen(TkScreen, WeatherRequestHandlerIf):
         controller: WeatherController,
         theme_bundle: Callable[[], ThemeBundle],
         unit_system: Callable[[], UnitSystem] = lambda: UnitSystem.IMPERIAL,
+        on_weather_radio: Callable[[], None] | None = None,
     ) -> None:
         super().__init__(ScreenId("weather"))
         self._host = host
         self._controller = controller
         self._theme_bundle = theme_bundle
         self._unit_system = unit_system
+        self._on_weather_radio = on_weather_radio
         self._panel: OrcWeatherPanel | None = None
         self._presenter: WeatherPresenter | None = None
         self._generation = 0
@@ -48,6 +50,7 @@ class WeatherScreen(TkScreen, WeatherRequestHandlerIf):
             self._host.screen_parent,
             theme_bundle=self._theme_bundle,
             unit_system=self._unit_system,
+            on_weather_radio=self._on_weather_radio,
         )
         panel.pack(fill="both", expand=True)
         panel.set_weather_request_handler(self)
