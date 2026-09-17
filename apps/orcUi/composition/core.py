@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import math
+from collections.abc import Callable
 from dataclasses import dataclass
 
 from apps.orcUi.core_runtime import MapRuntime, StateIngressRuntime
@@ -13,7 +14,7 @@ from apps.orcUi.frontend.tk.orc_ui_app import OrcUiApp
 from apps.orcUi.frontend.tk.presentation_state import OrcUiPresentationState
 from config.service_runtime_config import ServiceRuntimeConfigParser
 from controllers.audio import PipewireAudioController, SystemVolumeHandler
-from controllers.automotive import TripTracker
+from controllers.automotive import AutomotiveTelemetryProfile, TripTracker
 from controllers.automotive.vehicle_settings_store import VehicleSettingsStore
 from controllers.automotive.fuel_model import FuelModel
 from controllers.map_renderer.map_camera_runtime import MapCameraRuntime
@@ -33,6 +34,7 @@ class CoreComposition:
     presentation: OrcUiPresentationState
     map_runtime: MapRuntime
     map_camera: MapCameraRuntime
+    telemetry_profile_request: Callable[[AutomotiveTelemetryProfile], None]
     state_ingress: StateIngressRuntime
     trip_runtime: TripRuntime
     trip_publisher: ZeroMqPublisher
@@ -83,13 +85,14 @@ def create_core_composition() -> CoreComposition:
         telemetry_profile_publisher,
         source="orc-ui",
     )
+    telemetry_profile_request = telemetry_profile_requests.publish
     try:
         app = OrcUiApp(
             map_runtime=map_runtime,
             map_request_handler=map_camera.request_handler,
             lifecycle_handler=lifecycle,
             presentation=presentation,
-            telemetry_profile_request=telemetry_profile_requests.publish,
+            telemetry_profile_request=telemetry_profile_request,
             vehicle_configuration=vehicle_configuration,
             save_vehicle_configuration=vehicle_settings.save,
         )
@@ -134,6 +137,7 @@ def create_core_composition() -> CoreComposition:
         presentation=presentation,
         map_runtime=map_runtime,
         map_camera=map_camera,
+        telemetry_profile_request=telemetry_profile_request,
         state_ingress=state_ingress,
         trip_runtime=trip_runtime,
         trip_publisher=trip_publisher,
