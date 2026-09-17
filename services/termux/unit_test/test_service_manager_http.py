@@ -9,6 +9,7 @@ import threading
 import unittest
 from unittest.mock import Mock
 
+from services.common.service_manager_pairing import ServiceManagerPairing
 from services.termux.service_manager import ServiceStatus
 from services.termux.service_manager_http import ServiceManagerHandler, ThreadingHTTPServer
 
@@ -29,6 +30,7 @@ class ServiceManagerHttpRequestTest(unittest.TestCase):
 
         ServiceManagerHandler.manager = self.manager
         ServiceManagerHandler.auth_token = "secret"
+        ServiceManagerHandler.pairing = ServiceManagerPairing()
         self.server = ThreadingHTTPServer(("127.0.0.1", 0), ServiceManagerHandler)
         self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
         self.thread.start()
@@ -40,13 +42,17 @@ class ServiceManagerHttpRequestTest(unittest.TestCase):
         self.thread.join(timeout=2.0)
         ServiceManagerHandler.auth_token = None
 
-    def request(self, method: str, path: str, token: str | None = "secret"):
+    def request(self, method: str, path: str, token: str | None = "secret", body=None):
         headers = {}
         if token is not None:
             headers["Authorization"] = f"Bearer {token}"
         connection = HTTPConnection(self.host, self.port, timeout=2.0)
         try:
-            connection.request(method, path, headers=headers)
+            encoded = None
+            if body is not None:
+                encoded = json.dumps(body)
+                headers["Content-Type"] = "application/json"
+            connection.request(method, path, body=encoded, headers=headers)
             response = connection.getresponse()
             payload = json.loads(response.read().decode("utf-8"))
             return response.status, payload
@@ -75,6 +81,36 @@ class ServiceManagerHttpRequestTest(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertEqual(payload["services"][0]["state"], "running")
         self.manager.restart.assert_called_once_with("openroadcode-navigation")
+
+
+    def test_pairing_start_requires_authentication(self) -> None:
+        status, payload = self.request("POST", "/pairing/start", token=None)
+        self.assertEqual(status, 401)
+        self.assertEqual(payload, {"error": "unauthorized"})
+
+    def test_pairing_start_and_exchange_issue_working_client_token(self) -> None:
+        status, payload = self.request("POST", "/pairing/start")
+        self.assertEqual(status, 200)
+        pin = payload["pin"]
+        self.assertEqual(len(pin), 6)
+        self.assertTrue(pin.isdigit())
+        self.assertIn("expires_at", payload)
+
+        status, paired = self.request(
+            "POST", "/pair", token=None,
+            body={"pin": pin, "client_name": "Test phone"},
+        )
+        self.assertEqual(status, 200)
+        self.assertTrue(paired["client_id"])
+        self.assertTrue(paired["access_token"])
+
+        status, services = self.request(
+            "GET", "/services", token=paired["access_token"]
+        )
+        self.assertEqual(status, 200)
+        self.assertEqual(
+            services["services"][0]["name"], "openroadcode-navigation"
+        )
 
 
 if __name__ == "__main__":
