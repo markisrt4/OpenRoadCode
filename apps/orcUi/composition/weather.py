@@ -9,6 +9,7 @@ from dataclasses import dataclass
 
 from apps.orcUi.frontend.tk.orc_ui_app import OrcUiApp
 from apps.orcUi.theme_runtime import theme_bundle
+from common.app_settings import AppSettingsStore
 from config.service_runtime_config import ServiceRuntimeConfigParser
 from controllers.weather import (
     GpsdWeatherLocationProvider,
@@ -29,7 +30,7 @@ class WeatherComposition:
 
 
 def configure_weather(app: OrcUiApp) -> WeatherComposition:
-    """Compose GPS-backed Open-Meteo Weather with a configured location fallback."""
+    """Compose GPS-backed Open-Meteo Weather with shared display preferences."""
     runtime_config = ServiceRuntimeConfigParser(DEFAULT_RUNTIME_CONFIG).load()
     simulated_fix = runtime_config.navigation.gps.simulation
     fallback_location = WeatherLocation(
@@ -43,10 +44,12 @@ def configure_weather(app: OrcUiApp) -> WeatherComposition:
         location_provider=GpsdWeatherLocationProvider(),
         fallback_location=fallback_location,
     )
+    settings = AppSettingsStore()
     screen = WeatherScreen(
         app,
         controller=controller,
         theme_bundle=lambda: theme_bundle(app.theme_mode),
+        unit_system=lambda: settings.load().unit_system,
     )
     app.register_screen("WEATHER", screen, before="VISION")
     return WeatherComposition(screen=screen, controller=controller)
