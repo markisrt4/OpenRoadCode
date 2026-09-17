@@ -178,6 +178,21 @@ class OrcUiApp(VolumeUiIf):
             "SETTINGS": self._show_settings_panel,
         }.get(nav_name)
         self._show_placeholder(nav_name) if handler is None else handler()
+    def navigate_to_context(self, name: str) -> None:
+        """Open a Home context destination through semantic shell navigation."""
+        context_name = name.strip().upper()
+        if not context_name:
+            raise ValueError("Context destination must not be empty")
+        if context_name in {"VEHICLE", "TRIP"}:
+            self.navigate_to("VEHICLE")
+            if context_name == "TRIP" and self._vehicle_panel is not None:
+                self._vehicle_panel.show_trip_view()
+        elif context_name == "OFF-ROAD":
+            self._deactivate_active_screen()
+            self._show_offroad_panel()
+        else:
+            self._deactivate_active_screen()
+            self._show_placeholder(context_name)
     def activate_screen(self, screen: ScreenUiIf) -> None:
         previous = self._active_screen
         if previous is screen:
@@ -416,7 +431,7 @@ class OrcUiApp(VolumeUiIf):
             trip_state=self._presentation.trip,
             position_state=self._presentation.position,
             attitude_state=self._presentation.attitude,
-            on_expand_context=self._show_context_full_panel,
+            on_expand_context=self.navigate_to_context,
             radio_factory=self._home_radio_factory,
             media_factory=self._home_media_factory,
         )
@@ -495,15 +510,6 @@ class OrcUiApp(VolumeUiIf):
         )
     def _on_close(self) -> None:
         self._shutdown()
-    def _show_context_full_panel(self, name: str) -> None:
-        if name == "VEHICLE" or name == "TRIP":
-            self._show_vehicle_panel()
-            if name == "TRIP" and self._vehicle_panel is not None:
-                self._vehicle_panel.show_trip_view()
-        elif name == "OFF-ROAD":
-            self._show_offroad_panel()
-        else:
-            self._show_placeholder(name)
     def _show_placeholder(self, name: str) -> None:
         self._clear_content()
         build_placeholder(self._content, name, theme=self._theme)
