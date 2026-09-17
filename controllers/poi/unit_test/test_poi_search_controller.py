@@ -11,7 +11,11 @@ from controllers.poi import (
     PoiSearchQuery,
     PointOfInterest,
 )
-from protocols.map_renderer.map_poi_source import RawMapClick, RawMapPoi
+from protocols.map_renderer.map_poi_source import (
+    RawMapClick,
+    RawMapPoi,
+    RawPoiSearchResult,
+)
 from ui.navigation import GeoPoint
 
 
@@ -39,6 +43,20 @@ class FakeMapPoiSource:
 
     def close(self) -> None:
         self.closed = True
+
+
+class FakeViewportMapPoiSource(FakeMapPoiSource):
+    def __init__(self) -> None:
+        super().__init__()
+        self.requested_categories: list[str] = []
+        self.search_result: RawPoiSearchResult | None = None
+
+    def request_search(self, category: str) -> None:
+        self.requested_categories.append(category)
+
+    def poll_search_result(self) -> RawPoiSearchResult | None:
+        result, self.search_result = self.search_result, None
+        return result
 
 
 class FakeSearchSource:
@@ -257,3 +275,66 @@ def test_search_excludes_pois_outside_true_nearby_radius() -> None:
     result = controller.poll_search_result()
     assert result is not None
     assert result.count == 0
+
+
+def test_renderer_viewport_bounds_drive_offline_search() -> None:
+    source = FakeViewportMapPoiSource()
+    poi = PointOfInterest(
+        poi_id="food-1",
+        name="Visible Cafe",
+        category=PoiCategory.FOOD,
+        position=GeoPoint(math.radians(42.805), math.radians(-83.005)),
+    )
+    search_source = FakeSearchSource((poi,))
+    controller = PoiSearchController(
+        source,  # type: ignore[arg-type]
+        search_source=search_source,
+        position_provider=lambda: None,
+    )
+
+    controller.search(PoiCategory.FOOD)
+    assert source.requested_categories == ["food"]
+    assert search_source.queries == []
+
+    source.search_result = RawPoiSearchResult(
+        category="food",
+        count=0,
+        south=42.79,
+        west=-83.03,
+        north=42.82,
+        east=-82.99,
+    )
+    result = controller.poll_search_result()
+
+    assert result is not None
+    assert result.count == 1
+    assert len(search_source.queries) == 1
+    assert search_source.queries[0].bounds == PoiSearchBounds(
+        south=42.79,
+        west=-83.03,
+        north=42.82,
+        east=-82.99,
+    )
+
+
+def test_clear_discards_late_renderer_viewport_reply() -> None:
+    source = FakeViewportMapPoiSource()
+    search_source = FakeSearchSource()
+    controller = PoiSearchController(
+        source,  # type: ignore[arg-type]
+        search_source=search_source,
+    )
+
+    controller.search(PoiCategory.FUEL)
+    controller.clear()
+    source.search_result = RawPoiSearchResult(
+        category="fuel",
+        count=3,
+        south=42.79,
+        west=-83.03,
+        north=42.82,
+        east=-82.99,
+    )
+
+    assert controller.poll_search_result() is None
+    assert search_source.queries == []
