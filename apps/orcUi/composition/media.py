@@ -6,6 +6,8 @@
 from __future__ import annotations
 
 import copy
+import tkinter as tk
+from collections.abc import Callable
 from dataclasses import dataclass
 
 from apps.common.uiTheme.spotify import SPOTIFY_PANEL_THEME
@@ -32,6 +34,7 @@ SPOTIFY_GREEN = "#1DB954"
 @dataclass(slots=True)
 class MediaComposition:
     music_video_controller: MusicVideoController
+    home_factory: Callable[[tk.Misc], tk.Widget]
 
     def close(self) -> None:
         self.music_video_controller.stop_video()
@@ -135,12 +138,17 @@ def configure_media(app: OrcUiApp, runtime) -> MediaComposition:
         spotify_local_available=lambda: media.spotify_local_player.state().available,
     )
     app.register_screen("MEDIA", media_screen)
-    app.set_home_media_factory(
-        lambda parent: SpotifyNowPlaying(
+
+    def home_media_factory(parent: tk.Misc) -> tk.Widget:
+        return SpotifyNowPlaying(
             parent,
             service=media.spotify,
             on_open=spotify_screen.show,
             theme_bundle=lambda: theme_bundle(app.theme_mode),
         )
+
+    app.set_home_media_factory(home_media_factory)
+    return MediaComposition(
+        music_video_controller=music_video_controller,
+        home_factory=home_media_factory,
     )
-    return MediaComposition(music_video_controller)
