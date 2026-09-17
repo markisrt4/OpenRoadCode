@@ -6,6 +6,7 @@ set -euo pipefail
 
 CONTAINER_ENGINE="${CONTAINER_ENGINE:-docker}"
 IMAGE_NAME="${IMAGE_NAME:-openroadcode-maplibre-builder}"
+CONTAINER_BUILD_NETWORK="${CONTAINER_BUILD_NETWORK:-}"
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 
@@ -64,12 +65,20 @@ resolve_base_image() {
 }
 
 BASE_IMAGE="$(resolve_base_image)"
+BUILD_NETWORK_ARGS=()
+if [[ -n "$CONTAINER_BUILD_NETWORK" ]]; then
+    BUILD_NETWORK_ARGS+=(--network="$CONTAINER_BUILD_NETWORK")
+fi
 
 echo "Building $IMAGE_NAME using ${CONTAINER_CMD[*]}"
 echo "  host:  $(. /etc/os-release; printf '%s %s' "${ID:-unknown}" "${VERSION_ID:-unknown}")"
 echo "  base:  $BASE_IMAGE"
+if [[ -n "$CONTAINER_BUILD_NETWORK" ]]; then
+    echo "  build network: $CONTAINER_BUILD_NETWORK"
+fi
 
 "${CONTAINER_CMD[@]}" build \
+    "${BUILD_NETWORK_ARGS[@]}" \
     --build-arg "BASE_IMAGE=$BASE_IMAGE" \
     --tag "$IMAGE_NAME" \
     "$SCRIPT_DIR"
