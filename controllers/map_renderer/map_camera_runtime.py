@@ -31,6 +31,8 @@ from ui.navigation import GeoPoint, MapRequestHandlerIf
 
 _MIN_COURSE_UP_SPEED_M_S = 1.5
 _MIN_COURSE_POSITION_DELTA_M = 4.0
+_COURSE_DEADBAND_RAD = math.radians(3.0)
+_COURSE_SMOOTHING_FACTOR = 0.35
 _EARTH_RADIUS_M = 6_378_137.0
 _MAP_CAMERA_MANUAL_TOPIC = "map.camera.manual"
 
@@ -76,6 +78,8 @@ class MapCameraRuntime:
             self._on_manual_camera_interaction,
         )
         self._course_reference: GeoPoint | None = initial_position
+        self._motion_course_available = False
+        self._filtered_bearing_rad: float | None = None
         self._closed = False
 
     @property
@@ -132,12 +136,9 @@ class MapCameraRuntime:
         self._current_position = point
         set_current_position(point)
 
-        # Android location providers do not always report speed/course even
-        # while position itself is updating. Derive a stable course from the
-        # displacement between sufficiently separated fixes so course-up still
-        # works on those providers without letting stationary GPS noise spin
-        # the map. When a new course is available, apply it with the new center
-        # in one camera command rather than rendering two successive jumps.
+        # Derive course from position only when motion telemetry is not already
+        # providing a usable course. This prevents two independent bearing
+        # sources from alternately steering the followed camera.
         bearing_rad: float | None = None
         reference = self._course_reference
         if reference is None:
@@ -145,7 +146,8 @@ class MapCameraRuntime:
         else:
             distance_m = self._distance_m(reference, point)
             if distance_m >= _MIN_COURSE_POSITION_DELTA_M:
-                bearing_rad = self._bearing_rad(reference, point)
+                if not self._motion_course_available:
+                    bearing_rad = self._filter_bearing(self._bearing_rad(reference, point))
                 self._course_reference = point
 
         self._handler.update_follow_camera(point, bearing_rad)
@@ -167,15 +169,45 @@ class MapCameraRuntime:
         data = message.data
         speed_m_s = data.ground_speed_m_s
         if speed_m_s is None or speed_m_s < _MIN_COURSE_UP_SPEED_M_S:
+            self._motion_course_available = False
             return
 
         bearing_rad = data.course_rad
         if bearing_rad is None:
             bearing_rad = data.heading_rad
         if bearing_rad is None:
+            self._motion_course_available = False
             return
 
-        self._handler.update_follow_bearing(bearing_rad)
+        self._motion_course_available = True
+        filtered_bearing = self._filter_bearing(bearing_rad)
+        if filtered_bearing is not None:
+            self._handler.update_follow_bearing(filtered_bearing)
+
+    def _filter_bearing(self, bearing_rad: float) -> float | None:
+        """Suppress small course jitter and smooth real turns across north."""
+        bearing_rad = self._normalize_angle(bearing_rad)
+        current = self._filtered_bearing_rad
+        if current is None:
+            self._filtered_bearing_rad = bearing_rad
+            return bearing_rad
+
+        delta = self._angular_delta(current, bearing_rad)
+        if abs(delta) < _COURSE_DEADBAND_RAD:
+            return None
+
+        filtered = self._normalize_angle(current + delta * _COURSE_SMOOTHING_FACTOR)
+        self._filtered_bearing_rad = filtered
+        return filtered
+
+    @staticmethod
+    def _normalize_angle(angle_rad: float) -> float:
+        return angle_rad % (2.0 * math.pi)
+
+    @staticmethod
+    def _angular_delta(start_rad: float, end_rad: float) -> float:
+        """Return the shortest signed angular difference from start to end."""
+        return (end_rad - start_rad + math.pi) % (2.0 * math.pi) - math.pi
 
     @staticmethod
     def _distance_m(start: GeoPoint, end: GeoPoint) -> float:
