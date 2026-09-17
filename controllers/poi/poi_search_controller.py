@@ -36,12 +36,25 @@ class PoiSearchController(PoiSearchControllerIf):
         self._owns_search_source = search_source is None
         self._position_provider = position_provider or self._default_position
         self._active_category: PoiCategory | None = None
+        self._pending_viewport_search: tuple[PoiCategory, TransitMode] | None = None
         self._pending_search_result: PoiSearchResult | None = None
         self._visible_pois: tuple[PointOfInterest, ...] = ()
 
     def search(self, category: PoiCategory, transit_mode: TransitMode = TransitMode.ALL) -> None:
         self._active_category = category
         self._pending_search_result = None
+        self._visible_pois = ()
+
+        request_viewport = getattr(self._source, "request_search", None)
+        poll_viewport = getattr(self._source, "poll_search_result", None)
+        if request_viewport is not None and poll_viewport is not None:
+            self._pending_viewport_search = (category, transit_mode)
+            request_viewport(category.name.casefold())
+            return
+
+        # Compatibility path for headless/non-renderer sources. Runtime ORC uses
+        # the renderer viewport path above.
+        self._pending_viewport_search = None
         position = self._position_provider()
         if position is None:
             self._pending_search_result = PoiSearchResult(category=category, count=0, south=0.0, west=0.0, north=0.0, east=0.0, pois=())
@@ -89,11 +102,38 @@ class PoiSearchController(PoiSearchControllerIf):
         return enrich_poi(nearest)
 
     def poll_search_result(self) -> PoiSearchResult | None:
+        poll_viewport = getattr(self._source, "poll_search_result", None)
+        if poll_viewport is not None:
+            viewport = poll_viewport()
+            if viewport is not None:
+                pending = self._pending_viewport_search
+                if pending is not None and viewport.category == pending[0].name.casefold():
+                    category, transit_mode = pending
+                    self._pending_viewport_search = None
+                    pois = self._offline_source().search(
+                        PoiSearchQuery(
+                            category=category,
+                            bounds=PoiSearchBounds(
+                                south=viewport.south,
+                                west=viewport.west,
+                                north=viewport.north,
+                                east=viewport.east,
+                            ),
+                            limit=_NEARBY_LIMIT,
+                            transit_mode=transit_mode,
+                        )
+                    )
+                    self._visible_pois = pois
+                    self._pending_search_result = _result_for(category, pois)
+                # Replies arriving after clear(), or from an older category, are
+                # deliberately consumed and discarded instead of redrawing POIs.
+
         result, self._pending_search_result = self._pending_search_result, None
         return result
 
     def clear(self) -> None:
         self._active_category = None
+        self._pending_viewport_search = None
         self._pending_search_result = None
         self._visible_pois = ()
         self._source.clear()
