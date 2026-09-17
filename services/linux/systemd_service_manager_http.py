@@ -138,7 +138,7 @@ def main() -> int:
     client_store_path = Path(os.environ.get(CLIENT_STORE_ENV, DEFAULT_CLIENT_STORE))
     SystemdServiceManagerHandler.auth_token = token
     SystemdServiceManagerHandler.pairing = ServiceManagerPairing(
-        store=ServiceManagerClientStore(client_store_path)
+        client_store=ServiceManagerClientStore(client_store_path)
     )
     server = ThreadingHTTPServer((args.host, args.port), SystemdServiceManagerHandler)
     auth_mode = "bearer token" if token else "localhost only"
