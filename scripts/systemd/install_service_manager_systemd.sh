@@ -10,6 +10,8 @@ SERVICE_FILE="/etc/systemd/system/${SERVICE_NAME}.service"
 INSTALL_ROOT="${OPENROADCODE_SERVICE_MANAGER_INSTALL_ROOT:-/opt/openroadcode}"
 ENV_DIR="/etc/openroadcode"
 ENV_FILE="$ENV_DIR/service-manager.env"
+STATE_DIR="/var/lib/openroadcode/service-manager"
+CLIENT_STORE="$STATE_DIR/authorized-clients.json"
 PROFILE_DIR="/var/lib/openroadcode/service-profiles"
 SUDOERS_FILE="/etc/sudoers.d/${SERVICE_NAME}"
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
@@ -70,6 +72,7 @@ chmod 700 "$ENV_DIR"
 mkdir -p "$PROFILE_DIR"
 chown "$SERVICE_USER:$SERVICE_USER" "$PROFILE_DIR"
 chmod 755 "$PROFILE_DIR"
+install -d -o "$SERVICE_USER" -g "$SERVICE_USER" -m 700 "$STATE_DIR"
 
 if [[ -z "$TOKEN" && -f "$ENV_FILE" ]]; then
     TOKEN="$(sed -n 's/^OPENROADCODE_SERVICE_MANAGER_TOKEN=//p' "$ENV_FILE" | head -n 1)"
@@ -87,6 +90,7 @@ cat > "$ENV_FILE" <<EOF
 OPENROADCODE_SERVICE_MANAGER_TOKEN=$TOKEN
 OPENROADCODE_SYSTEMCTL=$SYSTEMCTL_BIN
 OPENROADCODE_SERVICE_PROFILE_DIR=$PROFILE_DIR
+OPENROADCODE_SERVICE_MANAGER_CLIENT_STORE=$CLIENT_STORE
 EOF
 chmod 600 "$ENV_FILE"
 
@@ -125,7 +129,7 @@ PrivateTmp=true
 PrivateDevices=true
 ProtectHome=read-only
 ProtectSystem=strict
-ReadWritePaths=$PROFILE_DIR
+ReadWritePaths=$PROFILE_DIR $STATE_DIR
 ProtectKernelTunables=true
 ProtectKernelModules=true
 ProtectControlGroups=true
@@ -142,6 +146,7 @@ systemctl restart "$SERVICE_NAME.service"
 echo "Installed and enabled $SERVICE_FILE"
 echo "Service user: $SERVICE_USER"
 echo "Runtime installed in: $INSTALL_ROOT"
+echo "Pairing state: $CLIENT_STORE"
 echo "Restricted sudo policy: $SUDOERS_FILE"
 echo "Service API: http://$HOST:$PORT/services"
 echo "Bearer token stored in: $ENV_FILE"
