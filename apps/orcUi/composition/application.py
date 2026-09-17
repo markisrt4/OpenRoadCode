@@ -63,7 +63,10 @@ def create_orc_ui_composition() -> OrcUiComposition:
         radio = configure_radio(app, runtime)
         games = configure_games(app)
         media = configure_media(app, runtime)
-        weather = configure_weather(app)
+        weather = configure_weather(
+            app,
+            on_weather_radio=radio.open_weather_radio,
+        )
     except Exception:
         if core is not None:
             core.close()
