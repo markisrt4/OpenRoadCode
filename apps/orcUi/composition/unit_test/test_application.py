@@ -168,7 +168,10 @@ class OrcUiCompositionTest(unittest.TestCase):
         configure_radio.assert_called_once_with(app, runtime)
         configure_games.assert_called_once_with(app)
         configure_media.assert_called_once_with(app, runtime)
-        configure_weather.assert_called_once_with(app)
+        configure_weather.assert_called_once_with(
+            app,
+            on_weather_radio=radio.open_weather_radio,
+        )
 
     @patch("apps.orcUi.composition.application.configure_radio")
     @patch("apps.orcUi.composition.application.create_core_composition")
