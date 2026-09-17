@@ -141,6 +141,30 @@ class HomeScreen(TkScreen):
         """Install the media-owned HOME presentation factory."""
         self._media_factory = factory
 
+    def apply_vehicle_state(self, state: VehiclePresentationState) -> None:
+        """Refresh the mounted HOME vehicle summary."""
+        context = self._context_rail
+        if context is not None and context.winfo_exists():
+            context.update_vehicle_state(state)
+
+    def apply_trip_state(self, state: TripPresentationState) -> None:
+        """Refresh the mounted HOME trip summary."""
+        context = self._context_rail
+        if context is not None and context.winfo_exists():
+            context.update_trip_state(state)
+
+    def apply_position_state(self, state: PositionPresentationState) -> None:
+        """Refresh the mounted HOME position summary."""
+        context = self._context_rail
+        if context is not None and context.winfo_exists():
+            context.update_position_state(state)
+
+    def apply_attitude_state(self, state: AttitudePresentationState) -> None:
+        """Refresh the mounted HOME attitude summary."""
+        context = self._context_rail
+        if context is not None and context.winfo_exists():
+            context.update_attitude_state(state)
+
     def show(self) -> None:
         """Build HOME content and start its embedded map renderer."""
         self._host.activate_screen(self)
