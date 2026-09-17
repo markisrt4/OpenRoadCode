@@ -5,36 +5,21 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from datetime import datetime
 
 from messaging.contracts.weather import WeatherAlertData
+from ui.weather import WeatherAlertUiEvent
 
-
-@dataclass(frozen=True, slots=True)
-class WeatherAlertPresentationState:
-    """Toolkit-neutral weather-alert state ready for shell presentation."""
-
-    alert_id: str
-    event: str
-    headline: str
-    description: str
-    instruction: str | None
-    severity: str
-    urgency: str
-    certainty: str
-    effective_at: datetime
-    onset_at: datetime | None
-    expires_at: datetime | None
-    sender: str
+# Backward-compatible local name while ingress callers migrate to the UI contract.
+WeatherAlertPresentationState = WeatherAlertUiEvent
 
 
 class WeatherAlertPresenter:
-    """Map a public weather-alert message into shell presentation state."""
+    """Map a public weather-alert message into a driver-facing UI event."""
 
     @staticmethod
-    def present(data: WeatherAlertData) -> WeatherAlertPresentationState:
-        return WeatherAlertPresentationState(
+    def present(data: WeatherAlertData) -> WeatherAlertUiEvent:
+        return WeatherAlertUiEvent(
             alert_id=data.alert_id,
             event=data.event,
             headline=data.headline,
