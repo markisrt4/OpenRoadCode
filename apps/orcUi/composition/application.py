@@ -79,6 +79,7 @@ def create_orc_ui_composition() -> OrcUiComposition:
         core.presentation.observe_trip(home.apply_trip_state)
         core.presentation.observe_position(home.apply_position_state)
         core.presentation.observe_attitude(home.apply_attitude_state)
+        app.register_screen("HOME", home)
     except Exception:
         if core is not None:
             core.close()
