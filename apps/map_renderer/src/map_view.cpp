@@ -112,11 +112,6 @@ MapView::MapView(const mbgl::ResourceOptions&, const mbgl::ClientOptions&) {
     glfwSetErrorCallback(glfwError);
 
 #if defined(__linux__) && defined(GLFW_PLATFORM_X11)
-    // OrcUI embeds the renderer into a Tk/X11 host window. On Wayland/XWayland
-    // desktops GLFW may otherwise auto-select Wayland, which makes
-    // glfwGetX11Display()/glfwGetX11Window() unavailable even though DISPLAY is
-    // valid. Force X11 only for the embedded-window path; standalone renderer
-    // launches retain GLFW's normal platform selection.
     if (const char* parent = std::getenv("OPENROADCODE_MAP_PARENT_WINDOW"); parent && *parent) {
         glfwInitHint(GLFW_PLATFORM, GLFW_PLATFORM_X11);
     }
@@ -399,11 +394,18 @@ PoiSearchResult MapView::searchVisiblePois(const std::string& category) const {
     const double viewportNorth = std::max(topLeft.latitude(), bottomRight.latitude());
     const double viewportWest = std::min(topLeft.longitude(), bottomRight.longitude());
     const double viewportEast = std::max(topLeft.longitude(), bottomRight.longitude());
+
+    // The search-result bounds are a viewport contract. The Python POI controller
+    // uses them to query the offline SQLite index, so they must describe what the
+    // driver can actually see rather than the extent of whatever vector-tile POIs
+    // happened to match this category.
+    result.south = viewportSouth;
+    result.west = viewportWest;
+    result.north = viewportNorth;
+    result.east = viewportEast;
+
     const mbgl::SourceQueryOptions options{{{"poi"}}, {}};
     const auto features = rendererFrontend->getRenderer()->querySourceFeatures("openroad", options);
-    double south = std::numeric_limits<double>::max(), west = std::numeric_limits<double>::max(),
-           north = std::numeric_limits<double>::lowest(),
-           east = std::numeric_limits<double>::lowest();
     std::size_t sampleCount = 0;
     for (const auto& feature : features) {
         const auto coordinate = pointCoordinate(feature);
@@ -416,23 +418,14 @@ PoiSearchResult MapView::searchVisiblePois(const std::string& category) const {
             ++sampleCount;
             logPoiSample(feature, sampleCount);
         }
-        if (!categoryMatches(feature, category))
-            continue;
-        ++result.count;
-        south = std::min(south, lat);
-        north = std::max(north, lat);
-        west = std::min(west, lon);
-        east = std::max(east, lon);
+        if (categoryMatches(feature, category))
+            ++result.count;
     }
-    if (result.count > 0) {
-        result.south = south;
-        result.west = west;
-        result.north = north;
-        result.east = east;
-    }
-    std::cout << "[map_renderer] POI search category=" << category
+    std::cout << "[map_renderer] POI viewport category=" << category
               << " source_features=" << features.size() << " visible_samples=" << sampleCount
-              << " matches=" << result.count << '\n';
+              << " vector_matches=" << result.count
+              << " bounds=" << result.west << ',' << result.south << ',' << result.east << ','
+              << result.north << '\n';
     return result;
 }
 void MapView::onMouseMove(GLFWwindow* window, double x, double y) {
