@@ -3,7 +3,7 @@
 
 REPO_ROOT := $(abspath $(dir $(lastword $(MAKEFILE_LIST)))/../..)
 
-.PHONY: image tui validate deploy test
+.PHONY: image tui validate search-index deploy test
 
 image:
 	./scripts/build-image.sh
@@ -13,6 +13,9 @@ tui:
 
 validate:
 	./scripts/validate-host.sh
+
+search-index:
+	./scripts/rebuild-search-index.sh
 
 deploy:
 	./scripts/deploy-to-srv.sh $(if $(REMOTE),--remote $(REMOTE))

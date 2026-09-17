@@ -371,6 +371,25 @@ class NavigationPanel(tk.Frame):
         self._update_simulation_button()
         self._shortcut_status.set(f"Routing to {favorite.name}")
 
+    def _clear_poi_search(self) -> None:
+        """Clear the active POI search and remove its rendered markers."""
+        if self._poi_search_after_id is not None:
+            try:
+                self.after_cancel(self._poi_search_after_id)
+            except tk.TclError:
+                pass
+            self._poi_search_after_id = None
+
+        self._poi_controller.clear()
+        self._request_handler.request_poi_focus(None)
+        self._active_poi_render_category = ""
+        self._request_handler.request_poi_results((), "")
+        self._shortcut_status.set("")
+
+        if self._poi_card is not None and self._poi_card.winfo_exists():
+            self._poi_card.destroy()
+        self._poi_card = None
+
     def _start_poi_search(
         self, category: PoiCategory, transit_mode: TransitMode = TransitMode.ALL
     ) -> None:
