@@ -47,6 +47,10 @@ class ServiceManagerHandler(BaseHTTPRequestHandler):
             return
         if not self._authenticate():
             return
+        if parts == ["pairing", "start"]:
+            pin, expires_at = self.pairing.begin()
+            self._json(HTTPStatus.OK, {"pin": pin, "expires_at": expires_at})
+            return
         try:
             if parts == ["stack", "core", "start"]:
                 statuses = self.manager.start_core()
@@ -104,13 +108,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Control OpenRoadCode Termux runit services.")
     parser.add_argument("--host", default=DEFAULT_HOST)
     parser.add_argument("--port", type=int, default=DEFAULT_PORT)
-    parser.add_argument("--pair", action="store_true", help="Generate a single-use pairing PIN and exit.")
     args = parser.parse_args()
-    if args.pair:
-        pin, expires_at = ServiceManagerHandler.pairing.begin()
-        print(f"Pairing PIN: {pin}")
-        print(f"Expires at Unix time: {expires_at:.0f}")
-        return 0
     token = os.environ.get(TOKEN_ENV, "").strip() or None
     if not binding_allowed(args.host, token):
         parser.error(f"non-loopback service manager requires {TOKEN_ENV}")
