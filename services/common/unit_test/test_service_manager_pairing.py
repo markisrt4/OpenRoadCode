@@ -1,10 +1,13 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 
+from pathlib import Path
+import tempfile
 from unittest.mock import patch
 
 import pytest
 
+from services.common.service_manager_client_store import ServiceManagerClientStore
 from services.common.service_manager_pairing import ServiceManagerPairing
 
 
@@ -49,3 +52,23 @@ def test_multiple_clients_have_unique_independently_revocable_tokens():
     assert pairing.revoke(id_a)
     assert not pairing.authorized(token_a)
     assert pairing.authorized(token_b)
+
+
+def test_paired_clients_survive_reconstruction_and_revocation_persists():
+    with tempfile.TemporaryDirectory() as directory:
+        store = ServiceManagerClientStore(Path(directory) / "clients.json")
+        first = ServiceManagerPairing(client_store=store)
+
+        pin_a, _ = first.begin()
+        id_a, token_a = first.pair(pin_a, "Phone")
+        pin_b, _ = first.begin()
+        _, token_b = first.pair(pin_b, "Tablet")
+
+        restarted = ServiceManagerPairing(client_store=store)
+        assert restarted.authorized(token_a)
+        assert restarted.authorized(token_b)
+
+        assert restarted.revoke(id_a)
+        after_revoke = ServiceManagerPairing(client_store=store)
+        assert not after_revoke.authorized(token_a)
+        assert after_revoke.authorized(token_b)
