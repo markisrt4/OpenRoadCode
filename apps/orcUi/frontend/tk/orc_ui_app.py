@@ -6,10 +6,7 @@ import os
 import signal
 import tkinter as tk
 from collections.abc import Callable
-from .context_rail import ContextRail
 from apps.orcUi.core_runtime import MapRuntimeIf
-from .home_map_panel import HomeMapPanel
-from .home_screen import build_home_screen
 from .navigation_panel import NavigationPanel
 from apps.orcUi.navigation_presenter import AttitudePresentationState, PositionPresentationState
 from .offroad_panel import OffRoadPanel
@@ -37,7 +34,7 @@ from ui.screen_ui_if import ScreenUiIf
 from ui.system import SystemLifecycleRequestHandlerIf, VolumeRequestHandlerIf, VolumeUiIf
 
 class OrcUiApp(VolumeUiIf):
-    """Own the integrated Tk shell and presentation state."""
+    """Own the integrated Tk application shell."""
     def __init__(
         self,
         *,
@@ -85,11 +82,7 @@ class OrcUiApp(VolumeUiIf):
         self._active_screen: ScreenUiIf | None = None
         self._screen_back_action: Callable[[], None] | None = None
         self._screen_status = ""
-        self._home_radio_factory: Callable[[tk.Misc], tk.Widget] | None = None
-        self._home_media_factory: Callable[[tk.Misc], tk.Widget] | None = None
         self._content: tk.Frame
-        self._context_rail: ContextRail | None = None
-        self._home_map_panel: HomeMapPanel | None = None
         self._navigation_panel: NavigationPanel | None = None
         self._vehicle_panel: VehiclePanel | None = None
         self._offroad_panel: OffRoadPanel | None = None
@@ -114,16 +107,6 @@ class OrcUiApp(VolumeUiIf):
     @property
     def screen_parent(self) -> tk.Misc:
         return self._content
-    def set_home_radio_factory(self, factory: Callable[[tk.Misc], tk.Widget] | None) -> None:
-        """Install a radio-owned Home summary without coupling the shell to radio."""
-        self._home_radio_factory = factory
-        if self._running and self._active_nav == "HOME":
-            self.navigate_to("HOME")
-    def set_home_media_factory(self, factory: Callable[[tk.Misc], tk.Widget] | None) -> None:
-        """Install a media-owned Home summary without coupling the shell to Spotify."""
-        self._home_media_factory = factory
-        if self._running and self._active_nav == "HOME":
-            self.navigate_to("HOME")
     def set_vehicle_configuration_observer(
         self,
         observer: Callable[[VehicleConfiguration], None] | None,
@@ -172,7 +155,6 @@ class OrcUiApp(VolumeUiIf):
             return
         self._deactivate_active_screen()
         handler = {
-            "HOME": self._show_home,
             "NAVIGATION": self._show_navigation_panel,
             "VEHICLE": self._show_vehicle_panel,
             "SETTINGS": self._show_settings_panel,
@@ -221,11 +203,7 @@ class OrcUiApp(VolumeUiIf):
         self._root.after_cancel(callback_id)
     def apply_vehicle_state(self, state: VehiclePresentationState) -> None:
         if not self._closing:
-            self._presentation.apply_vehicle(
-                state,
-                context=self._context_rail,
-                vehicle_panel=self._vehicle_panel,
-            )
+            self._presentation.apply_vehicle(state, vehicle_panel=self._vehicle_panel)
 
     def apply_engine_analysis(self, analysis: EngineAnalysis) -> None:
         if not self._closing:
@@ -236,27 +214,15 @@ class OrcUiApp(VolumeUiIf):
 
     def apply_trip_state(self, state: TripPresentationState) -> None:
         if not self._closing:
-            self._presentation.apply_trip(
-                state,
-                context=self._context_rail,
-                vehicle_panel=self._vehicle_panel,
-            )
+            self._presentation.apply_trip(state, vehicle_panel=self._vehicle_panel)
 
     def apply_position_state(self, state: PositionPresentationState) -> None:
         if not self._closing:
-            self._presentation.apply_position(
-                state,
-                context=self._context_rail,
-                offroad_panel=self._offroad_panel,
-            )
+            self._presentation.apply_position(state, offroad_panel=self._offroad_panel)
 
     def apply_attitude_state(self, state: AttitudePresentationState) -> None:
         if not self._closing:
-            self._presentation.apply_attitude(
-                state,
-                context=self._context_rail,
-                offroad_panel=self._offroad_panel,
-            )
+            self._presentation.apply_attitude(state, offroad_panel=self._offroad_panel)
     def run(self) -> None:
         self._root.protocol("WM_DELETE_WINDOW", self._on_close)
         old_signal_handler = signal.getsignal(signal.SIGINT)
@@ -377,10 +343,6 @@ class OrcUiApp(VolumeUiIf):
             self._reload_active_map()
     def _apply_theme_to_content(self) -> None:
         bundle = self._theme
-        if self._home_map_panel is not None and self._home_map_panel.winfo_exists():
-            self._home_map_panel.set_theme_bundle(bundle)
-        if self._context_rail is not None and self._context_rail.winfo_exists():
-            self._context_rail.set_theme_bundle(bundle)
         if self._navigation_panel is not None and self._navigation_panel.winfo_exists():
             self._navigation_panel.set_theme_bundle(bundle)
         if self._vehicle_panel is not None and self._vehicle_panel.winfo_exists():
@@ -388,12 +350,9 @@ class OrcUiApp(VolumeUiIf):
         if self._offroad_panel is not None and self._offroad_panel.winfo_exists():
             self._offroad_panel.set_theme(bundle.ui)
     def _reload_active_map(self) -> None:
-        if self._home_map_panel is not None and self._home_map_panel.winfo_exists():
-            parent_window_id = self._home_map_panel.map_host_window_id
-        elif self._navigation_panel is not None and self._navigation_panel.winfo_exists():
-            parent_window_id = self._navigation_panel.map_host_window_id
-        else:
+        if self._navigation_panel is None or not self._navigation_panel.winfo_exists():
             return
+        parent_window_id = self._navigation_panel.map_host_window_id
         self._map_runtime.stop()
         self._root.after(100, lambda: self._start_map_renderer(parent_window_id))
     def _deactivate_active_screen(self) -> None:
@@ -411,34 +370,12 @@ class OrcUiApp(VolumeUiIf):
         self._map_runtime.stop()
         if self._vehicle_panel is not None and self._vehicle_panel.winfo_exists():
             self._vehicle_panel.release_telemetry_profile()
-        self._context_rail = None
-        self._home_map_panel = None
         self._navigation_panel = None
         self._vehicle_panel = None
         self._offroad_panel = None
         self._settings_panel = None
         for child in self._content.winfo_children():
             child.destroy()
-    def _show_home(self) -> None:
-        self._clear_content()
-        self._active_nav = "HOME"
-        self._paint_nav()
-        self._home_map_panel, self._context_rail = build_home_screen(
-            self._content,
-            map_request_handler=self._map_request_handler,
-            theme=self._theme,
-            vehicle_state=self._presentation.vehicle,
-            trip_state=self._presentation.trip,
-            position_state=self._presentation.position,
-            attitude_state=self._presentation.attitude,
-            on_expand_context=self.navigate_to_context,
-            radio_factory=self._home_radio_factory,
-            media_factory=self._home_media_factory,
-        )
-        if self._telemetry_profile_request is not None:
-            self._telemetry_profile_request(AutomotiveTelemetryProfile.HOME)
-        self._root.update_idletasks()
-        self._start_map_renderer(self._home_map_panel.map_host_window_id)
     def _show_navigation_panel(self) -> None:
         self._clear_content()
         if self._telemetry_profile_request is not None:
