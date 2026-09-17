@@ -9,7 +9,6 @@ from dataclasses import dataclass
 
 from apps.orcUi.frontend.tk.orc_ui_app import OrcUiApp
 from apps.orcUi.theme_runtime import theme_bundle
-from common.app_settings import AppSettingsStore
 from config.service_runtime_config import ServiceRuntimeConfigParser
 from controllers.weather import (
     GpsdWeatherLocationProvider,
@@ -44,12 +43,11 @@ def configure_weather(app: OrcUiApp) -> WeatherComposition:
         location_provider=GpsdWeatherLocationProvider(),
         fallback_location=fallback_location,
     )
-    settings = AppSettingsStore()
     screen = WeatherScreen(
         app,
         controller=controller,
         theme_bundle=lambda: theme_bundle(app.theme_mode),
-        unit_system=lambda: settings.load().unit_system,
+        unit_system=lambda: app.unit_system,
     )
     app.register_screen("WEATHER", screen, before="VISION")
     return WeatherComposition(screen=screen, controller=controller)
