@@ -46,14 +46,14 @@ class HomeRadioCompositionTest(unittest.TestCase):
         app = OrcUiApp.__new__(OrcUiApp)
         app._running = True
         app._active_nav = "RADIO"
-        app._show_home = Mock()
+        app.navigate_to = Mock()
         factory = Mock()
         app.set_home_radio_factory(factory)
         self.assertIs(app._home_radio_factory, factory)
-        app._show_home.assert_not_called()
+        app.navigate_to.assert_not_called()
         app._active_nav = "HOME"
         app.set_home_radio_factory(factory)
-        app._show_home.assert_called_once_with()
+        app.navigate_to.assert_called_once_with("HOME")
 
 
 if __name__ == "__main__":
