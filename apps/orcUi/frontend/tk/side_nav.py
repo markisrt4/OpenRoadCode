@@ -103,50 +103,26 @@ class _NavTile(tk.Canvas):
         self._draw_gradient(width, height, top, bottom)
 
         if self._selected:
-            self.create_rectangle(
-                0,
-                0,
-                4,
-                height,
-                fill=ui.accent_primary,
-                outline="",
-            )
+            self.create_rectangle(0, 0, 4, height, fill=ui.accent_primary, outline="")
 
         badge_x = 20
         badge_y = height / 2
         badge_radius = 13
         self.create_oval(
-            badge_x - badge_radius,
-            badge_y - badge_radius,
-            badge_x + badge_radius,
-            badge_y + badge_radius,
-            fill=badge_fill,
-            outline=border,
-            width=1,
+            badge_x - badge_radius, badge_y - badge_radius,
+            badge_x + badge_radius, badge_y + badge_radius,
+            fill=badge_fill, outline=border, width=1,
         )
-        self._draw_icon(
-            self._nav_name,
-            badge_x,
-            badge_y,
-            icon_color,
-        )
-
+        self._draw_icon(self._nav_name, badge_x, badge_y, icon_color)
         self.create_text(
-            38,
-            height / 2,
+            38, height / 2,
             text=_NAV_LABELS.get(self._nav_name, self._nav_name),
             fill=label_color,
             font=("Sans", FONT_CONTROL - 1, "bold"),
             anchor="w",
         )
 
-    def _draw_gradient(
-        self,
-        width: int,
-        height: int,
-        top: str,
-        bottom: str,
-    ) -> None:
+    def _draw_gradient(self, width: int, height: int, top: str, bottom: str) -> None:
         steps = 12
         step_height = height / steps
         for index in range(steps):
@@ -155,53 +131,23 @@ class _NavTile(tk.Canvas):
             y2 = round((index + 1) * step_height) + 1
             self.create_rectangle(0, y1, width, y2, fill=color, outline="")
 
-    def _draw_icon(
-        self,
-        name: str,
-        x: float,
-        y: float,
-        color: str,
-    ) -> None:
-        if name == "HOME":
-            self._draw_home(x, y, color)
-        elif name == "NAVIGATION":
-            self._draw_navigation(x, y, color)
-        elif name == "RADIO":
-            self._draw_radio(x, y, color)
-        elif name == "VEHICLE":
-            self._draw_vehicle(x, y, color)
-        elif name == "LIGHTING":
-            self._draw_light(x, y, color)
-        elif name == "GAMES":
-            self._draw_games(x, y, color)
-        elif name == "MEDIA":
-            self._draw_media(x, y, color)
-        elif name == "VISION":
-            self._draw_vision(x, y, color)
+    def _draw_icon(self, name: str, x: float, y: float, color: str) -> None:
+        if name == "HOME": self._draw_home(x, y, color)
+        elif name == "NAVIGATION": self._draw_navigation(x, y, color)
+        elif name == "RADIO": self._draw_radio(x, y, color)
+        elif name == "VEHICLE": self._draw_vehicle(x, y, color)
+        elif name == "LIGHTING": self._draw_light(x, y, color)
+        elif name == "GAMES": self._draw_games(x, y, color)
+        elif name == "MEDIA": self._draw_media(x, y, color)
+        elif name == "VISION": self._draw_vision(x, y, color)
 
     def _draw_home(self, x: float, y: float, color: str) -> None:
-        self.create_polygon(
-            x - 8, y - 1,
-            x, y - 8,
-            x + 8, y - 1,
-            outline=color,
-            fill="",
-            width=2,
-        )
+        self.create_polygon(x - 8, y - 1, x, y - 8, x + 8, y - 1, outline=color, fill="", width=2)
         self.create_rectangle(x - 6, y - 1, x + 6, y + 7, outline=color, width=2)
         self.create_rectangle(x - 2, y + 2, x + 2, y + 7, outline=color, width=1)
 
     def _draw_navigation(self, x: float, y: float, color: str) -> None:
-        self.create_polygon(
-            x - 7, y + 7,
-            x - 1, y - 8,
-            x + 8, y - 4,
-            x + 2, y,
-            x + 5, y + 7,
-            x, y + 3,
-            fill=color,
-            outline=color,
-        )
+        self.create_polygon(x - 7, y + 7, x - 1, y - 8, x + 8, y - 4, x + 2, y, x + 5, y + 7, x, y + 3, fill=color, outline=color)
 
     def _draw_radio(self, x: float, y: float, color: str) -> None:
         self.create_oval(x - 2, y - 2, x + 2, y + 2, fill=color, outline=color)
@@ -209,17 +155,7 @@ class _NavTile(tk.Canvas):
         self.create_arc(x - 11, y - 11, x + 11, y + 11, start=300, extent=120, style=tk.ARC, outline=color, width=1)
 
     def _draw_vehicle(self, x: float, y: float, color: str) -> None:
-        self.create_polygon(
-            x - 8, y + 3,
-            x - 5, y - 4,
-            x + 5, y - 4,
-            x + 8, y + 3,
-            x + 7, y + 6,
-            x - 7, y + 6,
-            outline=color,
-            fill="",
-            width=2,
-        )
+        self.create_polygon(x - 8, y + 3, x - 5, y - 4, x + 5, y - 4, x + 8, y + 3, x + 7, y + 6, x - 7, y + 6, outline=color, fill="", width=2)
         self.create_oval(x - 6, y + 4, x - 2, y + 8, fill=color, outline=color)
         self.create_oval(x + 2, y + 4, x + 6, y + 8, fill=color, outline=color)
 
@@ -227,14 +163,7 @@ class _NavTile(tk.Canvas):
         self.create_oval(x - 4, y - 4, x + 4, y + 4, outline=color, width=2)
         for dx, dy in ((0, -10), (0, 10), (-10, 0), (10, 0), (-7, -7), (7, -7), (-7, 7), (7, 7)):
             scale = 0.55
-            self.create_line(
-                x + dx * scale,
-                y + dy * scale,
-                x + dx,
-                y + dy,
-                fill=color,
-                width=1,
-            )
+            self.create_line(x + dx * scale, y + dy * scale, x + dx, y + dy, fill=color, width=1)
 
     def _draw_games(self, x: float, y: float, color: str) -> None:
         self.create_arc(x - 9, y - 5, x + 9, y + 10, start=0, extent=180, style=tk.ARC, outline=color, width=2)
@@ -251,19 +180,15 @@ class _NavTile(tk.Canvas):
         self.create_oval(x - 1.5, y - 1.5, x + 1.5, y + 1.5, fill=color, outline=color)
 
     def _draw_media(self, x: float, y: float, color: str) -> None:
-        self.create_polygon(
-            x - 5, y - 8,
-            x + 8, y,
-            x - 5, y + 8,
-            fill=color,
-            outline=color,
-        )
+        self.create_polygon(x - 5, y - 8, x + 8, y, x - 5, y + 8, fill=color, outline=color)
 
 
 class OrcUiSideNav(tk.Frame):
-    """Render and update the shell's primary navigation destinations."""
+    """Render a fixed-size viewport over the shell's navigation destinations."""
 
     WIDTH = SIDE_NAV_WIDTH
+    VISIBLE_ITEMS = 6
+    SCROLL_HEIGHT = 28
 
     def __init__(
         self,
@@ -276,16 +201,72 @@ class OrcUiSideNav(tk.Frame):
     ) -> None:
         super().__init__(parent, width=self.WIDTH)
         self._on_navigate = on_navigate
+        self._theme = theme
+        self._items: list[str] = []
+        self._active = active
+        self._offset = 0
         self._tiles: dict[str, _NavTile] = {}
+        self._up_button: tk.Button | None = None
+        self._down_button: tk.Button | None = None
         self.pack_propagate(False)
         self.rebuild(theme=theme, items=items, active=active)
 
     def rebuild(self, *, theme: ThemeBundle, items: list[str], active: str) -> None:
+        self._theme = theme
+        self._items = list(items)
+        self._active = active
+        self._ensure_active_visible()
+        self._render()
+
+    def set_active(self, *, active: str, theme: ThemeBundle) -> None:
+        self._theme = theme
+        self._active = active
+        old_offset = self._offset
+        self._ensure_active_visible()
+        if old_offset != self._offset or active not in self._tiles:
+            self._render()
+            return
+        self.configure(bg=theme.ui.background)
+        for name, tile in self._tiles.items():
+            tile.set_state(selected=name == active, theme=theme)
+        self._paint_scroll_buttons()
+
+    def _scroll(self, delta: int) -> None:
+        maximum = max(0, len(self._items) - self.VISIBLE_ITEMS)
+        new_offset = max(0, min(maximum, self._offset + delta))
+        if new_offset == self._offset:
+            return
+        self._offset = new_offset
+        self._render()
+
+    def _ensure_active_visible(self) -> None:
+        maximum = max(0, len(self._items) - self.VISIBLE_ITEMS)
+        self._offset = max(0, min(maximum, self._offset))
+        try:
+            index = self._items.index(self._active)
+        except ValueError:
+            return
+        if index < self._offset:
+            self._offset = index
+        elif index >= self._offset + self.VISIBLE_ITEMS:
+            self._offset = index - self.VISIBLE_ITEMS + 1
+        self._offset = max(0, min(maximum, self._offset))
+
+    def _render(self) -> None:
+        theme = self._theme
         self.configure(bg=theme.ui.background)
         for child in self.winfo_children():
             child.destroy()
         self._tiles.clear()
-        for item in items:
+
+        if len(self._items) > self.VISIBLE_ITEMS:
+            self._up_button = self._make_scroll_button("▲", lambda: self._scroll(-1))
+            self._up_button.pack(fill=tk.X, padx=4, pady=(0, 1))
+        else:
+            self._up_button = None
+
+        visible = self._items[self._offset:self._offset + self.VISIBLE_ITEMS]
+        for item in visible:
             tile = _NavTile(
                 self,
                 name=item,
@@ -293,10 +274,42 @@ class OrcUiSideNav(tk.Frame):
                 on_navigate=self._on_navigate,
             )
             tile.pack(fill=tk.X, padx=4, pady=1)
+            tile.set_state(selected=item == self._active, theme=theme)
             self._tiles[item] = tile
-        self.set_active(active=active, theme=theme)
 
-    def set_active(self, *, active: str, theme: ThemeBundle) -> None:
-        self.configure(bg=theme.ui.background)
-        for name, tile in self._tiles.items():
-            tile.set_state(selected=name == active, theme=theme)
+        if len(self._items) > self.VISIBLE_ITEMS:
+            self._down_button = self._make_scroll_button("▼", lambda: self._scroll(1))
+            self._down_button.pack(fill=tk.X, padx=4, pady=(1, 0))
+        else:
+            self._down_button = None
+        self._paint_scroll_buttons()
+
+    def _make_scroll_button(self, text: str, command: Callable[[], None]) -> tk.Button:
+        return tk.Button(
+            self,
+            text=text,
+            command=command,
+            height=1,
+            relief=tk.FLAT,
+            bd=0,
+            cursor="hand2",
+            font=("Sans", FONT_CONTROL, "bold"),
+        )
+
+    def _paint_scroll_buttons(self) -> None:
+        ui = self._theme.ui
+        maximum = max(0, len(self._items) - self.VISIBLE_ITEMS)
+        for button, enabled in (
+            (self._up_button, self._offset > 0),
+            (self._down_button, self._offset < maximum),
+        ):
+            if button is None:
+                continue
+            button.configure(
+                state=tk.NORMAL if enabled else tk.DISABLED,
+                bg=ui.control_background,
+                fg=ui.control_text if enabled else ui.text_muted,
+                activebackground=ui.control_active,
+                activeforeground=ui.text,
+                disabledforeground=ui.text_muted,
+            )
