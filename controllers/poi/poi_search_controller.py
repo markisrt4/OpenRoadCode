@@ -22,7 +22,8 @@ from protocols.map_renderer.map_poi_source import MapPoiSource, RawMapPoi
 from ui.navigation import GeoPoint
 
 _EARTH_RADIUS_M = 6_378_137.0
-_VIEWPORT_LIMIT = 250
+_NEARBY_RADIUS_M = 20_000.0
+_NEARBY_LIMIT = 50
 _DEFAULT_SEARCH_DATABASE = Path(os.environ.get("OPENROADCODE_DATA_ROOT", "/srv/openroadcode")) / "maps" / "search" / "openroadcode-search.sqlite"
 
 
@@ -35,51 +36,45 @@ class PoiSearchController(PoiSearchControllerIf):
         self._owns_search_source = search_source is None
         self._position_provider = position_provider or self._default_position
         self._active_category: PoiCategory | None = None
-        self._active_transit_mode = TransitMode.ALL
         self._pending_search_result: PoiSearchResult | None = None
         self._visible_pois: tuple[PointOfInterest, ...] = ()
 
     def search(self, category: PoiCategory, transit_mode: TransitMode = TransitMode.ALL) -> None:
-        """Request the renderer's current viewport before querying the offline index."""
         self._active_category = category
-        self._active_transit_mode = transit_mode
         self._pending_search_result = None
-        self._source.request_search(category.name.casefold())
+        position = self._position_provider()
+        if position is None:
+            self._pending_search_result = PoiSearchResult(category=category, count=0, south=0.0, west=0.0, north=0.0, east=0.0, pois=())
+            return
+        pois = self._offline_source().search(PoiSearchQuery(category=category, bounds=_nearby_bounds(position, _NEARBY_RADIUS_M), limit=_NEARBY_LIMIT, transit_mode=transit_mode))
+        pois = tuple(poi for poi in pois if _distance_m(position, poi.position) <= _NEARBY_RADIUS_M)
+        self._visible_pois = pois
+        self._pending_search_result = _result_for(category, pois)
 
     def poll_selected(self) -> PointOfInterest | None:
         raw = self._source.poll_selected()
         if raw is not None:
             return enrich_poi(self._to_poi(raw))
-
         poll_click = getattr(self._source, "poll_click", None)
         if poll_click is None:
             return None
         click = poll_click()
         if click is None:
             return None
-
-        print(
-            "[poi-controller] resolving click "
-            f"against {len(self._visible_pois)} visible POIs "
-            f"radius_m={click.selection_radius_m:.1f} "
-            f"marker_id={click.marker_id!r} "
-            f"marker_index={click.marker_index!r}"
-        )
+        print("[poi-controller] resolving click " f"against {len(self._visible_pois)} visible POIs " f"radius_m={click.selection_radius_m:.1f} " f"marker_id={click.marker_id!r} " f"marker_index={click.marker_index!r}")
         if click.marker_index is not None:
             if 0 <= click.marker_index < len(self._visible_pois):
                 poi = self._visible_pois[click.marker_index]
                 if click.marker_id is None or poi.poi_id == click.marker_id:
-                    print(f"[poi-controller] selected by marker index {click.marker_index}: {poi.name!r}")
+                    print(f"[poi-controller] selected by marker index " f"{click.marker_index}: {poi.name!r}")
                     return enrich_poi(poi)
-            print(f"[poi-controller] marker index mismatch index={click.marker_index!r} id={click.marker_id!r}")
-
+            print("[poi-controller] marker index mismatch " f"index={click.marker_index!r} id={click.marker_id!r}")
         if click.marker_id is not None:
             for poi in self._visible_pois:
                 if poi.poi_id == click.marker_id:
                     print(f"[poi-controller] selected by marker id {poi.name!r}")
                     return enrich_poi(poi)
             print(f"[poi-controller] marker id not found: {click.marker_id!r}")
-
         nearest: PointOfInterest | None = None
         nearest_distance_m = click.selection_radius_m
         for poi in self._visible_pois:
@@ -90,39 +85,15 @@ class PoiSearchController(PoiSearchControllerIf):
         if nearest is None:
             print("[poi-controller] click matched no visible POI")
             return None
-        print(f"[poi-controller] selected {nearest.name!r} distance_m={nearest_distance_m:.1f}")
+        print(f"[poi-controller] selected {nearest.name!r} " f"distance_m={nearest_distance_m:.1f}")
         return enrich_poi(nearest)
 
     def poll_search_result(self) -> PoiSearchResult | None:
-        raw_result = self._source.poll_search_result()
-        category = self._active_category
-        if raw_result is not None and category is not None:
-            bounds = PoiSearchBounds(
-                south=raw_result.south,
-                west=raw_result.west,
-                north=raw_result.north,
-                east=raw_result.east,
-            )
-            if bounds.south < bounds.north and bounds.west < bounds.east:
-                pois = self._offline_source().search(
-                    PoiSearchQuery(
-                        category=category,
-                        bounds=bounds,
-                        limit=_VIEWPORT_LIMIT,
-                        transit_mode=self._active_transit_mode,
-                    )
-                )
-            else:
-                pois = ()
-            self._visible_pois = pois
-            self._pending_search_result = _result_for(category, pois)
-
         result, self._pending_search_result = self._pending_search_result, None
         return result
 
     def clear(self) -> None:
         self._active_category = None
-        self._active_transit_mode = TransitMode.ALL
         self._pending_search_result = None
         self._visible_pois = ()
         self._source.clear()
@@ -153,6 +124,15 @@ class PoiSearchController(PoiSearchControllerIf):
         return PointOfInterest(poi_id=raw.poi_id, name=raw.name, category=_category_for(raw), position=raw.position, brand=raw.brand, source_class=raw.source_class, source_subclass=raw.source_subclass)
 
 
+def _nearby_bounds(position: GeoPoint, radius_m: float) -> PoiSearchBounds:
+    latitude_deg = math.degrees(position.latitude_rad)
+    longitude_deg = math.degrees(position.longitude_rad)
+    latitude_delta = math.degrees(radius_m / _EARTH_RADIUS_M)
+    cos_latitude = max(1.0e-6, abs(math.cos(position.latitude_rad)))
+    longitude_delta = math.degrees(radius_m / (_EARTH_RADIUS_M * cos_latitude))
+    return PoiSearchBounds(south=max(-90.0, latitude_deg - latitude_delta), west=max(-180.0, longitude_deg - longitude_delta), north=min(90.0, latitude_deg + latitude_delta), east=min(180.0, longitude_deg + longitude_delta))
+
+
 def _result_for(category: PoiCategory, pois: tuple[PointOfInterest, ...]) -> PoiSearchResult:
     if not pois:
         return PoiSearchResult(category=category, count=0, south=0.0, west=0.0, north=0.0, east=0.0, pois=())
@@ -178,5 +158,5 @@ def _category_for(raw: RawMapPoi) -> PoiCategory:
 def _distance_m(first: GeoPoint, second: GeoPoint) -> float:
     dlat = second.latitude_rad - first.latitude_rad
     dlon = second.longitude_rad - first.longitude_rad
-    haversine = math.sin(dlat / 2.0) ** 2 + math.cos(first.latitude_rad) * math.cos(second.latitude_rad) * math.sin(dlon / 2.0) ** 2
+    haversine = (math.sin(dlat / 2.0) ** 2 + math.cos(first.latitude_rad) * math.cos(second.latitude_rad) * math.sin(dlon / 2.0) ** 2)
     return 2.0 * _EARTH_RADIUS_M * math.asin(min(1.0, math.sqrt(haversine)))
