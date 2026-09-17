@@ -12,6 +12,13 @@ import secrets
 import time
 import uuid
 
+from typing import Protocol
+
+
+class ClientStoreIf(Protocol):
+    def load(self) -> tuple["AuthorizedClient", ...]: ...
+    def save(self, clients: tuple["AuthorizedClient", ...]) -> None: ...
+
 
 @dataclass(frozen=True)
 class AuthorizedClient:
@@ -24,11 +31,17 @@ class AuthorizedClient:
 class ServiceManagerPairing:
     """Own temporary PINs and independently revocable client credentials."""
 
-    def __init__(self, pin_ttl_seconds: float = 300.0) -> None:
+    def __init__(
+        self,
+        pin_ttl_seconds: float = 300.0,
+        client_store: ClientStoreIf | None = None,
+    ) -> None:
         self._pin_ttl_seconds = pin_ttl_seconds
+        self._client_store = client_store
         self._pin_hash: str | None = None
         self._pin_expires_at = 0.0
-        self._clients: dict[str, AuthorizedClient] = {}
+        stored_clients = client_store.load() if client_store is not None else ()
+        self._clients = {client.client_id: client for client in stored_clients}
 
     def begin(self) -> tuple[str, float]:
         pin = f"{secrets.randbelow(1_000_000):06d}"
@@ -54,6 +67,7 @@ class ServiceManagerPairing:
             token_hash=self._digest(token),
             created_at=time.time(),
         )
+        self._persist_clients()
         return client_id, token
 
     def authorized(self, token: str) -> bool:
@@ -64,7 +78,14 @@ class ServiceManagerPairing:
         return tuple(self._clients.values())
 
     def revoke(self, client_id: str) -> bool:
-        return self._clients.pop(client_id, None) is not None
+        removed = self._clients.pop(client_id, None) is not None
+        if removed:
+            self._persist_clients()
+        return removed
+
+    def _persist_clients(self) -> None:
+        if self._client_store is not None:
+            self._client_store.save(tuple(self._clients.values()))
 
     def _clear_pin(self) -> None:
         self._pin_hash = None
