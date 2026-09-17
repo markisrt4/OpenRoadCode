@@ -118,12 +118,12 @@ class OrcUiApp(VolumeUiIf):
         """Install a radio-owned Home summary without coupling the shell to radio."""
         self._home_radio_factory = factory
         if self._running and self._active_nav == "HOME":
-            self._show_home()
+            self.navigate_to("HOME")
     def set_home_media_factory(self, factory: Callable[[tk.Misc], tk.Widget] | None) -> None:
         """Install a media-owned Home summary without coupling the shell to Spotify."""
         self._home_media_factory = factory
         if self._running and self._active_nav == "HOME":
-            self._show_home()
+            self.navigate_to("HOME")
     def set_vehicle_configuration_observer(
         self,
         observer: Callable[[VehicleConfiguration], None] | None,
@@ -262,7 +262,7 @@ class OrcUiApp(VolumeUiIf):
         old_signal_handler = signal.getsignal(signal.SIGINT)
         signal.signal(signal.SIGINT, self._on_sigint)
         self._running = True
-        self._show_home()
+        self.navigate_to("HOME")
         try:
             self._root.mainloop()
         except KeyboardInterrupt:
@@ -364,7 +364,7 @@ class OrcUiApp(VolumeUiIf):
         self._power_dialog.close()
         self._rebuild_shell_theme()
         if self._active_nav == "HOME":
-            self._show_home()
+            self.navigate_to("HOME")
         elif self._active_nav == "SETTINGS":
             self._show_settings_panel()
         else:
@@ -448,7 +448,7 @@ class OrcUiApp(VolumeUiIf):
         self._navigation_panel = build_navigation_screen(
             self._content,
             map_request_handler=self._map_request_handler,
-            on_back=self._show_home,
+            on_back=lambda: self.navigate_to("HOME"),
             theme=self._theme,
         )
         self._root.update_idletasks()
@@ -464,7 +464,7 @@ class OrcUiApp(VolumeUiIf):
         self._paint_nav()
         self._vehicle_panel = build_vehicle_screen(
             self._content,
-            on_back=self._show_home,
+            on_back=lambda: self.navigate_to("HOME"),
             on_view_changed=lambda view: self.set_breadcrumb("VEHICLE", view),
             on_telemetry_profile=self._telemetry_profile_request,
             state=self._presentation.vehicle,
@@ -483,7 +483,7 @@ class OrcUiApp(VolumeUiIf):
             self._content,
             vehicle_configuration=self._vehicle_configuration,
             on_vehicle_configuration_changed=self._apply_vehicle_configuration,
-            on_back=self._show_home,
+            on_back=lambda: self.navigate_to("HOME"),
             theme=self._theme,
         )
 
@@ -503,7 +503,7 @@ class OrcUiApp(VolumeUiIf):
         self._clear_content()
         self._offroad_panel = build_offroad_screen(
             self._content,
-            on_back=self._show_home,
+            on_back=lambda: self.navigate_to("HOME"),
             position=self._presentation.position,
             attitude=self._presentation.attitude,
             theme=self._theme,
