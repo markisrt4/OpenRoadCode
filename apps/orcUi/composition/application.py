@@ -13,6 +13,7 @@ from apps.orcUi.composition.games import configure_games
 from apps.orcUi.composition.media import MediaComposition, configure_media
 from apps.orcUi.composition.radio import RadioComposition, configure_radio
 from apps.orcUi.frontend.tk.home_screen import HomeScreen
+from apps.orcUi.frontend.tk.navigation_screen import NavigationScreen
 from apps.orcUi.frontend.tk.orc_ui_app import OrcUiApp
 from apps.orcUi.theme_runtime import theme_bundle
 from frontends.tk.games import GamesScreen
@@ -28,6 +29,7 @@ class OrcUiComposition:
     media: MediaComposition
     games: GamesScreen
     home: HomeScreen | None = None
+    navigation: NavigationScreen | None = None
 
     @property
     def app(self) -> OrcUiApp:
@@ -73,6 +75,14 @@ def create_orc_ui_composition() -> OrcUiComposition:
             telemetry_profile_request=core.telemetry_profile_request,
             on_expand_context=app.navigate_to_context,
         )
+        navigation = NavigationScreen(
+            app,
+            map_runtime=core.map_runtime,
+            map_request_handler=core.map_camera.request_handler,
+            theme_bundle=lambda: theme_bundle(app.theme_mode),
+            telemetry_profile_request=core.telemetry_profile_request,
+            on_back=lambda: app.navigate_to("HOME"),
+        )
         home.set_radio_factory(radio.home_factory)
         home.set_media_factory(media.home_factory)
         core.presentation.observe_vehicle(home.apply_vehicle_state)
@@ -80,6 +90,7 @@ def create_orc_ui_composition() -> OrcUiComposition:
         core.presentation.observe_position(home.apply_position_state)
         core.presentation.observe_attitude(home.apply_attitude_state)
         app.register_screen("HOME", home)
+        app.register_screen("NAVIGATION", navigation)
     except Exception:
         if core is not None:
             core.close()
@@ -92,4 +103,5 @@ def create_orc_ui_composition() -> OrcUiComposition:
         media=media,
         games=games,
         home=home,
+        navigation=navigation,
     )
