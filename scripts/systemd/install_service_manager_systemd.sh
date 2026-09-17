@@ -7,6 +7,7 @@ set -euo pipefail
 SERVICE_NAME="openroadcode-service-manager"
 SERVICE_USER="openroadcode-service-manager"
 SERVICE_FILE="/etc/systemd/system/${SERVICE_NAME}.service"
+INSTALL_ROOT="${OPENROADCODE_SERVICE_MANAGER_INSTALL_ROOT:-/opt/openroadcode}"
 ENV_DIR="/etc/openroadcode"
 ENV_FILE="$ENV_DIR/service-manager.env"
 PROFILE_DIR="/var/lib/openroadcode/service-profiles"
@@ -44,6 +45,25 @@ fi
 if ! id -u "$SERVICE_USER" >/dev/null 2>&1; then
     useradd --system --no-create-home --shell /usr/sbin/nologin "$SERVICE_USER"
 fi
+
+# Install only the Python packages required by the restricted service manager.
+# The system service must not depend on a developer checkout under $HOME.
+install -d -o root -g root -m 755 "$INSTALL_ROOT"
+rm -rf "$INSTALL_ROOT/services" "$INSTALL_ROOT/protocols"
+install -d -o root -g root -m 755 \
+    "$INSTALL_ROOT/services" \
+    "$INSTALL_ROOT/services/common" \
+    "$INSTALL_ROOT/services/linux" \
+    "$INSTALL_ROOT/protocols" \
+    "$INSTALL_ROOT/protocols/auth"
+
+for package in services services/common services/linux protocols protocols/auth; do
+    while IFS= read -r -d '' source_file; do
+        relative_path="${source_file#$PROJECT_ROOT/}"
+        destination="$INSTALL_ROOT/$relative_path"
+        install -D -o root -g root -m 644 "$source_file" "$destination"
+    done < <(find "$PROJECT_ROOT/$package" -maxdepth 1 -type f -name '*.py' -print0)
+done
 
 mkdir -p "$ENV_DIR"
 chmod 700 "$ENV_DIR"
@@ -95,7 +115,7 @@ Wants=network.target
 Type=simple
 User=$SERVICE_USER
 Group=$SERVICE_USER
-WorkingDirectory=$PROJECT_ROOT
+WorkingDirectory=$INSTALL_ROOT
 Environment=PYTHONUNBUFFERED=1
 EnvironmentFile=$ENV_FILE
 ExecStart=$PYTHON_BIN -m services.linux.systemd_service_manager_http --host $HOST --port $PORT
@@ -121,6 +141,7 @@ systemctl restart "$SERVICE_NAME.service"
 
 echo "Installed and enabled $SERVICE_FILE"
 echo "Service user: $SERVICE_USER"
+echo "Runtime installed in: $INSTALL_ROOT"
 echo "Restricted sudo policy: $SUDOERS_FILE"
 echo "Service API: http://$HOST:$PORT/services"
 echo "Bearer token stored in: $ENV_FILE"
