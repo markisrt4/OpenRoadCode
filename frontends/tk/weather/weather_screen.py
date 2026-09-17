@@ -73,9 +73,16 @@ class WeatherScreen(TkScreen, WeatherRequestHandlerIf):
         try:
             state = self._controller.refresh_if_stale(300.0)
         except Exception as error:
-            self._host.schedule_ui_callback(0, lambda: self._refresh_failed(generation, str(error)))
+            detail = str(error)
+            self._host.schedule_ui_callback(
+                0,
+                lambda detail=detail: self._refresh_failed(generation, detail),
+            )
             return
-        self._host.schedule_ui_callback(0, lambda: self._refresh_succeeded(generation, state))
+        self._host.schedule_ui_callback(
+            0,
+            lambda state=state: self._refresh_succeeded(generation, state),
+        )
 
     def _refresh_succeeded(self, generation: int, state) -> None:
         if generation != self._generation or self._presenter is None:
