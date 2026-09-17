@@ -30,7 +30,9 @@ from apps.orcUi.theme_runtime import theme_bundle
 from apps.orcUi.trip_presenter import TripPresentationState
 from .vehicle_panel import VehiclePanel
 from apps.orcUi.vehicle_presenter import VehiclePresentationState
+from common.app_settings import AppSettings, AppSettingsStore
 from common.host_config import installed_target, orcui_fullscreen_default
+from common.units import UnitSystem
 from controllers.automotive import AutomotiveTelemetryProfile, EngineAnalysis, VehicleConfiguration
 from ui.navigation import MapRequestHandlerIf
 from ui.screen_ui_if import ScreenUiIf
@@ -55,6 +57,8 @@ class OrcUiApp(VolumeUiIf):
         self._vehicle_configuration = vehicle_configuration
         self._save_vehicle_configuration = save_vehicle_configuration
         self._vehicle_configuration_observer: Callable[[VehicleConfiguration], None] | None = None
+        self._app_settings_store = AppSettingsStore()
+        self._app_settings = self._app_settings_store.load()
         self._presentation = OrcUiPresentationState()
         self._theme_mode = ThemeMode.DARK
         self._theme = theme_bundle(self._theme_mode)
@@ -110,6 +114,9 @@ class OrcUiApp(VolumeUiIf):
     @property
     def theme_mode(self) -> ThemeMode:
         return self._theme_mode
+    @property
+    def unit_system(self) -> UnitSystem:
+        return self._app_settings.unit_system
     @property
     def screen_parent(self) -> tk.Misc:
         return self._content
@@ -467,9 +474,15 @@ class OrcUiApp(VolumeUiIf):
             self._content,
             vehicle_configuration=self._vehicle_configuration,
             on_vehicle_configuration_changed=self._apply_vehicle_configuration,
+            unit_system=self._app_settings.unit_system,
+            on_unit_system_changed=self._apply_unit_system,
             on_back=self._show_home,
             theme=self._theme,
         )
+
+    def _apply_unit_system(self, unit_system: UnitSystem) -> None:
+        self._app_settings = AppSettings(unit_system=unit_system)
+        self._app_settings_store.save(self._app_settings)
 
     def _apply_vehicle_configuration(
         self,
