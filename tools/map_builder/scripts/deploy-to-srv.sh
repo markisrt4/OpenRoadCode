@@ -52,6 +52,29 @@ if [[ ! -s "$SOURCE$SEARCH_DB_REL" && ! -s "$SOURCE$LEGACY_POI_DB_REL" ]]; then
   exit 2
 fi
 
+REPO_ROOT="$(cd -- "$ROOT/../.." && pwd)"
+
+if [[ -s "$SOURCE$SEARCH_DB_REL" ]]; then
+  SEARCH_DB="$SOURCE$SEARCH_DB_REL"
+else
+  SEARCH_DB="$SOURCE$LEGACY_POI_DB_REL"
+fi
+
+echo "Validating POI search database schema"
+PYTHONPATH="$REPO_ROOT${PYTHONPATH:+:$PYTHONPATH}" \
+python3 - "$SEARCH_DB" <<'PYVALIDATE'
+from pathlib import Path
+import sys
+
+from tools.map_builder.builder.validate import validate_search_index
+
+database = Path(sys.argv[1])
+result = validate_search_index(database)
+
+print(f"Validated search index: {database}")
+print(f"POI columns: {', '.join(result['poi_columns'])}")
+PYVALIDATE
+
 RSYNC_OPTIONS=(
   --archive
   --delete-delay
@@ -73,6 +96,8 @@ if [[ -z "$REMOTE" ]]; then
   sudo test -s "$DEST$SEARCH_DB_REL"
 else
   echo "Checking remote deployment prerequisites on $REMOTE"
+  # Paths are intentionally expanded locally before being sent to the remote host.
+  # shellcheck disable=SC2029
   if ! ssh "$REMOTE" "command -v rsync >/dev/null && sudo -n mkdir -p '$DEST/maps/routes'"; then
     echo "Remote deployment requires rsync and passwordless sudo for $REMOTE." >&2
     exit 2
@@ -82,6 +107,7 @@ else
     --rsync-path="sudo -n rsync" \
     "$SOURCE" \
     "$REMOTE:$DEST"
+  # shellcheck disable=SC2029
   ssh "$REMOTE" "if [[ ! -s '$DEST$SEARCH_DB_REL' && -s '$DEST$LEGACY_POI_DB_REL' ]]; then sudo -n mkdir -p '$DEST/maps/search' && sudo -n install -m 0644 '$DEST$LEGACY_POI_DB_REL' '$DEST$SEARCH_DB_REL'; fi; sudo -n test -s '$DEST$SEARCH_DB_REL'"
 fi
 

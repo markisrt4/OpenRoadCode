@@ -201,6 +201,21 @@ class NavigationPanel(tk.Frame):
             font=("Sans", 10, "bold"),
             anchor="w",
         ).pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(8, 6), pady=4)
+        self._clear_poi_button = tk.Button(
+            guidance,
+            text="CLEAR POIs",
+            command=self._clear_poi_search,
+            bg=ui.control_background,
+            fg=ui.text_muted,
+            activebackground=ui.control_active,
+            activeforeground="#ffffff",
+            relief=tk.FLAT,
+            highlightthickness=1,
+            highlightbackground=ui.border,
+            font=("Sans", 8, "bold"),
+        )
+        self._clear_poi_button.pack(side=tk.RIGHT, padx=(4, 8), pady=3)
+
         self._simulate_button = tk.Button(
             guidance,
             text="SIM DRIVE",
@@ -370,6 +385,25 @@ class NavigationPanel(tk.Frame):
         self._simulation_active = False
         self._update_simulation_button()
         self._shortcut_status.set(f"Routing to {favorite.name}")
+
+    def _clear_poi_search(self) -> None:
+        """Clear the active POI search and remove its rendered markers."""
+        if self._poi_search_after_id is not None:
+            try:
+                self.after_cancel(self._poi_search_after_id)
+            except tk.TclError:
+                pass
+            self._poi_search_after_id = None
+
+        self._poi_controller.clear()
+        self._request_handler.request_poi_focus(None)
+        self._active_poi_render_category = ""
+        self._request_handler.request_poi_results((), "")
+        self._shortcut_status.set("")
+
+        if self._poi_card is not None and self._poi_card.winfo_exists():
+            self._poi_card.destroy()
+        self._poi_card = None
 
     def _start_poi_search(
         self, category: PoiCategory, transit_mode: TransitMode = TransitMode.ALL
