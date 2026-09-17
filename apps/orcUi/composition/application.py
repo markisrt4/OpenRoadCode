@@ -12,6 +12,7 @@ from apps.orcUi.composition.core import CoreComposition, create_core_composition
 from apps.orcUi.composition.games import configure_games
 from apps.orcUi.composition.media import MediaComposition, configure_media
 from apps.orcUi.composition.radio import RadioComposition, configure_radio
+from apps.orcUi.composition.weather import WeatherComposition, configure_weather
 from apps.orcUi.frontend.tk.orc_ui_app import OrcUiApp
 from frontends.tk.games import GamesScreen
 
@@ -24,6 +25,7 @@ class OrcUiComposition:
     runtime: OrcUiApplicationRuntime
     radio: RadioComposition
     media: MediaComposition
+    weather: WeatherComposition
     games: GamesScreen
 
     @property
@@ -61,6 +63,7 @@ def create_orc_ui_composition() -> OrcUiComposition:
         radio = configure_radio(app, runtime)
         games = configure_games(app)
         media = configure_media(app, runtime)
+        weather = configure_weather(app)
     except Exception:
         if core is not None:
             core.close()
@@ -71,5 +74,6 @@ def create_orc_ui_composition() -> OrcUiComposition:
         runtime=runtime,
         radio=radio,
         media=media,
+        weather=weather,
         games=games,
     )
