@@ -147,7 +147,6 @@ def configure_media(app: OrcUiApp, runtime) -> MediaComposition:
             theme_bundle=lambda: theme_bundle(app.theme_mode),
         )
 
-    app.set_home_media_factory(home_media_factory)
     return MediaComposition(
         music_video_controller=music_video_controller,
         home_factory=home_media_factory,
