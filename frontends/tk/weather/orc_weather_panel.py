@@ -28,9 +28,11 @@ class OrcWeatherPanel(tk.Frame, WeatherUiIf):
         *,
         theme_bundle: Callable[[], ThemeBundle],
         unit_system: Callable[[], UnitSystem] = lambda: UnitSystem.IMPERIAL,
+        on_weather_radio: Callable[[], None] | None = None,
     ) -> None:
         self._theme_bundle = theme_bundle
         self._unit_system = unit_system
+        self._on_weather_radio = on_weather_radio
         self._handler: WeatherRequestHandlerIf | None = None
         self._state: WeatherUiState | None = None
         ui = theme_bundle().ui
@@ -44,6 +46,14 @@ class OrcWeatherPanel(tk.Frame, WeatherUiIf):
         self._provider.pack(side=tk.RIGHT, padx=(12, 0))
         self._refresh = tk.Button(self._header, text="Refresh", command=self._request_refresh, padx=14, pady=6)
         self._refresh.pack(side=tk.RIGHT)
+        self._weather_radio = tk.Button(
+            self._header,
+            text="NOAA WEATHER RADIO",
+            command=self._request_weather_radio,
+            padx=14,
+            pady=6,
+        )
+        self._weather_radio.pack(side=tk.RIGHT, padx=(0, 8))
 
         self._current_card = tk.Frame(self, bd=1, highlightthickness=1)
         self._current_card.pack(fill=tk.X, padx=24, pady=8)
@@ -80,11 +90,12 @@ class OrcWeatherPanel(tk.Frame, WeatherUiIf):
         self._header.configure(bg=ui.background)
         self._location.configure(bg=ui.background, fg=ui.text)
         self._provider.configure(bg=ui.background, fg=ui.text_muted)
-        self._refresh.configure(
-            bg=ui.control_background, fg=ui.control_text,
-            activebackground=ui.border, activeforeground=ui.text,
-            relief=tk.FLAT,
-        )
+        for button in (self._refresh, self._weather_radio):
+            button.configure(
+                bg=ui.control_background, fg=ui.control_text,
+                activebackground=ui.border, activeforeground=ui.text,
+                relief=tk.FLAT,
+            )
         self._current_card.configure(bg=ui.surface, highlightbackground=ui.border)
         for widget in (self._temperature, self._condition, self._details):
             widget.configure(bg=ui.surface)
@@ -100,6 +111,10 @@ class OrcWeatherPanel(tk.Frame, WeatherUiIf):
     def _request_refresh(self) -> None:
         if self._handler is not None:
             self._handler.request_refresh()
+
+    def _request_weather_radio(self) -> None:
+        if self._on_weather_radio is not None:
+            self._on_weather_radio()
 
     def _render(self) -> None:
         state = self._state
