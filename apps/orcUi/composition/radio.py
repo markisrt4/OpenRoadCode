@@ -82,8 +82,6 @@ def configure_radio(app: OrcUiApp, runtime) -> RadioComposition:
             on_open_adsb=lambda: show_radio_source("adsb"),
         )
 
-    app.set_home_radio_factory(home_radio_factory)
-
     def toggle_adsb(enabled: bool) -> bool:
         # An explicit ADS-B selection wins the shared SDR. Relinquish RF first.
         if enabled and runtime.radio.presented:
