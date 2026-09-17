@@ -22,7 +22,14 @@ if (( ${#SOURCE_PBFS[@]} == 0 )); then
   exit 2
 fi
 
-mkdir -p "$(dirname -- "$SEARCH_DB")"
+SEARCH_DIR="$(dirname -- "$SEARCH_DB")"
+mkdir -p "$SEARCH_DIR"
+
+if [[ ! -w "$SEARCH_DIR" ]]; then
+  echo "Search-index output directory is not writable: $SEARCH_DIR" >&2
+  echo "Fix its ownership rather than running this build with sudo." >&2
+  exit 2
+fi
 
 echo "[*] Rebuilding OpenRoadCode search index"
 echo "    source directory: $SOURCE_DIR"

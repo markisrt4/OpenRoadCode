@@ -201,6 +201,21 @@ class NavigationPanel(tk.Frame):
             font=("Sans", 10, "bold"),
             anchor="w",
         ).pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(8, 6), pady=4)
+        self._clear_poi_button = tk.Button(
+            guidance,
+            text="CLEAR POIs",
+            command=self._clear_poi_search,
+            bg=ui.control_background,
+            fg=ui.text_muted,
+            activebackground=ui.control_active,
+            activeforeground="#ffffff",
+            relief=tk.FLAT,
+            highlightthickness=1,
+            highlightbackground=ui.border,
+            font=("Sans", 8, "bold"),
+        )
+        self._clear_poi_button.pack(side=tk.RIGHT, padx=(4, 8), pady=3)
+
         self._simulate_button = tk.Button(
             guidance,
             text="SIM DRIVE",
