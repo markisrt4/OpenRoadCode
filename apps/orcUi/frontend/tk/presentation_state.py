@@ -103,37 +103,29 @@ class OrcUiPresentationState:
         """Subscribe to future attitude presentation updates."""
         self._attitude_observers.append(observer)
 
-    def apply_vehicle(self, state: VehiclePresentationState, *, context, vehicle_panel) -> None:
+    def apply_vehicle(self, state: VehiclePresentationState, *, vehicle_panel) -> None:
         self.vehicle = state
-        if context is not None and context.winfo_exists():
-            context.update_vehicle_state(state)
         if vehicle_panel is not None and vehicle_panel.winfo_exists():
             vehicle_panel.update_state(state)
         for observer in tuple(self._vehicle_observers):
             observer(state)
 
-    def apply_trip(self, state: TripPresentationState, *, context, vehicle_panel) -> None:
+    def apply_trip(self, state: TripPresentationState, *, vehicle_panel) -> None:
         self.trip = state
-        if context is not None and context.winfo_exists():
-            context.update_trip_state(state)
         if vehicle_panel is not None and vehicle_panel.winfo_exists():
             vehicle_panel.update_trip_state(state)
         for observer in tuple(self._trip_observers):
             observer(state)
 
-    def apply_position(self, state: PositionPresentationState, *, context, offroad_panel) -> None:
+    def apply_position(self, state: PositionPresentationState, *, offroad_panel) -> None:
         self.position = state
-        if context is not None and context.winfo_exists():
-            context.update_position_state(state)
         if offroad_panel is not None and offroad_panel.winfo_exists():
             offroad_panel.update_position(state)
         for observer in tuple(self._position_observers):
             observer(state)
 
-    def apply_attitude(self, state: AttitudePresentationState, *, context, offroad_panel) -> None:
+    def apply_attitude(self, state: AttitudePresentationState, *, offroad_panel) -> None:
         self.attitude = state
-        if context is not None and context.winfo_exists():
-            context.update_attitude_state(state)
         if offroad_panel is not None and offroad_panel.winfo_exists():
             offroad_panel.update_attitude(state)
         for observer in tuple(self._attitude_observers):
