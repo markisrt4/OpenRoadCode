@@ -3,6 +3,7 @@
 
 """Toolkit-independent weather presentation contracts."""
 
+from ui.weather.weather_alert_ui_if import WeatherAlertUiEvent, WeatherAlertUiIf
 from ui.weather.weather_request_handler_if import WeatherRequestHandlerIf
 from ui.weather.weather_ui_if import (
     WeatherCurrentUiState,
@@ -13,6 +14,8 @@ from ui.weather.weather_ui_if import (
 )
 
 __all__ = [
+    "WeatherAlertUiEvent",
+    "WeatherAlertUiIf",
     "WeatherCurrentUiState",
     "WeatherDailyUiState",
     "WeatherHourlyUiState",
