@@ -5,6 +5,12 @@
 
 from controllers.weather.gpsd_weather_location_provider import GpsdWeatherLocationProvider
 from controllers.weather.providers import OpenMeteoWeatherProvider
+from controllers.weather.weather_alert import (
+    WeatherAlert,
+    WeatherAlertCertainty,
+    WeatherAlertSeverity,
+    WeatherAlertUrgency,
+)
 from controllers.weather.weather_controller import WeatherController
 from controllers.weather.weather_presenter import WeatherPresenter
 from controllers.weather.weather_provider_if import WeatherProviderIf
@@ -24,6 +30,10 @@ __all__ = [
     "GpsdWeatherLocationProvider",
     "HourlyForecast",
     "OpenMeteoWeatherProvider",
+    "WeatherAlert",
+    "WeatherAlertCertainty",
+    "WeatherAlertSeverity",
+    "WeatherAlertUrgency",
     "WeatherCondition",
     "WeatherController",
     "WeatherLocation",
