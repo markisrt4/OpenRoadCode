@@ -35,8 +35,12 @@ class NavigationPanelControlTest(unittest.TestCase):
         panel._map_favorites = Mock()
         panel._poi_action_executor = Mock()
         panel._poi_card = None
+        panel._poi_search_after_id = None
         panel.after = Mock()
-        panel.set_follow_enabled = Mock(side_effect=lambda enabled: setattr(panel, "_follow_enabled", enabled))
+        panel.after_cancel = Mock()
+        panel.set_follow_enabled = Mock(
+            side_effect=lambda enabled: setattr(panel, "_follow_enabled", enabled)
+        )
         return panel
 
     def test_zoom_preserves_follow_and_requests_zoom(self) -> None:
@@ -48,30 +52,40 @@ class NavigationPanelControlTest(unittest.TestCase):
         panel._request_handler.request_zoom.assert_called_once_with(17.5)
 
     def test_north_up_disables_follow(self) -> None:
-        panel = self._panel(); panel._north_up()
+        panel = self._panel()
+        panel._north_up()
         panel.set_follow_enabled.assert_called_once_with(False)
         panel._request_handler.request_bearing.assert_called_once_with(0.0)
 
     def test_recenter_restores_follow(self) -> None:
-        panel = self._panel(); panel._follow_enabled = False; panel._recenter()
+        panel = self._panel()
+        panel._follow_enabled = False
+        panel._recenter()
         panel.set_follow_enabled.assert_called_once_with(True)
         panel._request_handler.request_recenter.assert_called_once_with()
 
     def test_toggle_follow_emits_semantic_request(self) -> None:
-        panel = self._panel(); panel._toggle_follow()
+        panel = self._panel()
+        panel._toggle_follow()
         panel.set_follow_enabled.assert_called_once_with(False)
         panel._request_handler.request_follow.assert_called_once_with(False)
 
     def test_gas_shortcut_starts_fuel_search(self) -> None:
-        panel = self._panel(); panel._start_poi_search = Mock(); panel._destination_shortcut("gas")
+        panel = self._panel()
+        panel._start_poi_search = Mock()
+        panel._destination_shortcut("gas")
         panel._start_poi_search.assert_called_once_with(PoiCategory.FUEL)
 
     def test_grocery_shortcut_starts_grocery_search(self) -> None:
-        panel = self._panel(); panel._start_poi_search = Mock(); panel._destination_shortcut("grocery")
+        panel = self._panel()
+        panel._start_poi_search = Mock()
+        panel._destination_shortcut("grocery")
         panel._start_poi_search.assert_called_once_with(PoiCategory.GROCERY)
 
     def test_food_shortcut_starts_food_search(self) -> None:
-        panel = self._panel(); panel._start_poi_search = Mock(); panel._destination_shortcut("food")
+        panel = self._panel()
+        panel._start_poi_search = Mock()
+        panel._destination_shortcut("food")
         panel._start_poi_search.assert_called_once_with(PoiCategory.FOOD)
 
     def test_home_shortcut_starts_route_to_saved_home(self) -> None:
@@ -137,19 +151,46 @@ class NavigationPanelControlTest(unittest.TestCase):
         panel._guidance_detail.set.assert_called_once_with("")
         panel._shortcut_status.set.assert_called_with("Route cancelled")
 
+    def test_clear_poi_search_removes_rendered_results(self) -> None:
+        panel = self._panel()
+        panel._active_poi_render_category = "transit"
+
+        panel._clear_poi_search()
+
+        panel._poi_controller.clear.assert_called_once_with()
+        panel._request_handler.request_poi_focus.assert_called_once_with(None)
+        panel._request_handler.request_poi_results.assert_called_once_with((), "")
+        self.assertEqual("", panel._active_poi_render_category)
+        panel._shortcut_status.set.assert_called_once_with("")
+
+    def test_clear_poi_search_cancels_pending_search(self) -> None:
+        panel = self._panel()
+        panel._poi_search_after_id = "pending-search"
+
+        panel._clear_poi_search()
+
+        panel.after_cancel.assert_called_once_with("pending-search")
+        self.assertIsNone(panel._poi_search_after_id)
+        panel._poi_controller.clear.assert_called_once_with()
+
     def test_issue_poi_search_forwards_default_mode(self) -> None:
-        panel = self._panel(); panel._poi_controller = Mock(); panel._shortcut_status = Mock(); panel._poi_search_after_id = "pending"
+        panel = self._panel()
+        panel._poi_controller = Mock()
+        panel._shortcut_status = Mock()
+        panel._poi_search_after_id = "pending"
         panel._issue_poi_search(PoiCategory.FUEL)
         self.assertIsNone(panel._poi_search_after_id)
         panel._poi_controller.search.assert_called_once_with(PoiCategory.FUEL, TransitMode.ALL)
         panel._shortcut_status.set.assert_called_once_with("Searching nearby fuel…")
 
     def test_issue_poi_search_forwards_transit_mode(self) -> None:
-        panel = self._panel(); panel._poi_controller = Mock(); panel._shortcut_status = Mock(); panel._poi_search_after_id = "pending"
+        panel = self._panel()
+        panel._poi_controller = Mock()
+        panel._shortcut_status = Mock()
+        panel._poi_search_after_id = "pending"
         panel._issue_poi_search(PoiCategory.TRANSIT, TransitMode.BUS)
         panel._poi_controller.search.assert_called_once_with(PoiCategory.TRANSIT, TransitMode.BUS)
         panel._shortcut_status.set.assert_called_once_with("Searching nearby bus…")
-
 
     def test_poi_navigate_action_starts_route_to_selected_poi(self) -> None:
         panel = self._panel()
