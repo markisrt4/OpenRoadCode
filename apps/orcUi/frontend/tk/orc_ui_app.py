@@ -214,6 +214,8 @@ class OrcUiApp(VolumeUiIf, WeatherAlertUiIf):
             return
         self._latest_weather_alert = alert
         self.set_screen_status(f"WEATHER: {alert.event} · {alert.severity.upper()}")
+        if self._shell is not None:
+            self._shell.show_weather_alert(alert)
     def schedule_ui_callback(self, delay_ms: int, callback: Callable[[], None]) -> object:
         return self._root.after(delay_ms, callback)
     def cancel_ui_callback(self, callback_id: object) -> None:
@@ -396,7 +398,7 @@ class OrcUiApp(VolumeUiIf, WeatherAlertUiIf):
         self._map_runtime.launch(parent_window_id)
     def _paint_nav(self) -> None:
         if self._shell is not None:
-            self._shell.set_active_nav(self._active_nav)
+            self._shell.set_active_navigation(self._active_nav)
     def _show_home(self) -> None:
         self._deactivate_active_screen()
         self._clear_content()
