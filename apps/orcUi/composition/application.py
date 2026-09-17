@@ -75,6 +75,10 @@ def create_orc_ui_composition() -> OrcUiComposition:
         )
         home.set_radio_factory(radio.home_factory)
         home.set_media_factory(media.home_factory)
+        core.presentation.observe_vehicle(home.apply_vehicle_state)
+        core.presentation.observe_trip(home.apply_trip_state)
+        core.presentation.observe_position(home.apply_position_state)
+        core.presentation.observe_attitude(home.apply_attitude_state)
     except Exception:
         if core is not None:
             core.close()
