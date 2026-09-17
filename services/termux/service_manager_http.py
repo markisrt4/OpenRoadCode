@@ -13,12 +13,15 @@ import json
 import os
 import subprocess
 
+from common.xdg_paths import xdg_config_home
 from services.common.service_manager_auth import TOKEN_ENV, authorized, binding_allowed
+from services.common.service_manager_client_store import ServiceManagerClientStore
 from services.common.service_manager_pairing import ServiceManagerPairing
 from services.termux.service_manager import RunitServiceManager, ServiceStatus
 
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 8768
+DEFAULT_CLIENT_STORE_PATH = xdg_config_home() / "openroadcode" / "service-manager" / "clients.json"
 
 
 def _payload(statuses: tuple[ServiceStatus, ...] | list[ServiceStatus]) -> dict[str, object]:
@@ -26,7 +29,7 @@ def _payload(statuses: tuple[ServiceStatus, ...] | list[ServiceStatus]) -> dict[
 
 
 class ServiceManagerHandler(BaseHTTPRequestHandler):
-    """Serve a deliberately small localhost-only service-management API."""
+    """Serve a deliberately small service-management API."""
 
     manager = RunitServiceManager()
     auth_token: str | None = None
@@ -113,6 +116,9 @@ def main() -> int:
     if not binding_allowed(args.host, token):
         parser.error(f"non-loopback service manager requires {TOKEN_ENV}")
     ServiceManagerHandler.auth_token = token
+    ServiceManagerHandler.pairing = ServiceManagerPairing(
+        client_store=ServiceManagerClientStore(DEFAULT_CLIENT_STORE_PATH)
+    )
     server = ThreadingHTTPServer((args.host, args.port), ServiceManagerHandler)
     auth_mode = "bearer token" if token else "localhost only"
     print(f"OpenRoadCode Termux service manager listening on {args.host}:{args.port} ({auth_mode})")
