@@ -73,9 +73,7 @@ def configure_radio(app: OrcUiApp, runtime) -> RadioComposition:
             raise ValueError(f"Unsupported radio source: {source}")
 
     def open_weather_radio() -> None:
-        """Present RF and tune NOAA once SDR++/rigctl is ready."""
-        show_radio_source("rf")
-        app.set_breadcrumb("RADIO", "WEATHER")
+        """Start NOAA RF audio while leaving the requesting screen visible."""
         app.set_screen_status("NOAA Weather Radio: starting receiver")
         controller = RadioProfileController()
         profile = controller.catalog.profile("weather_band")
@@ -83,6 +81,15 @@ def configure_radio(app: OrcUiApp, runtime) -> RadioComposition:
             app.set_screen_status("NOAA Weather Radio: no weather presets configured")
             return
         preset = profile.presets[0]
+
+        # Embedded presentation uses ManagedSDRPPLauncher.prepare(), which
+        # starts SDR++ and deliberately keeps its X11 window hidden.  Radio can
+        # therefore provide audio without forcing a navigation change.
+        try:
+            runtime.radio.present()
+        except (OSError, RuntimeError, ValueError) as error:
+            app.set_screen_status(f"NOAA Weather Radio: {error}")
+            return
 
         def tune_when_ready(attempts_remaining: int = 24) -> None:
             try:
