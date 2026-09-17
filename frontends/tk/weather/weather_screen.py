@@ -5,8 +5,10 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 import threading
 
+from common.units import UnitSystem
 from controllers.weather import WeatherController, WeatherPresenter
 from frontends.tk.tk_screen import TkScreen
 from frontends.tk.tk_screen_host_if import TkScreenHostIf
@@ -25,12 +27,14 @@ class WeatherScreen(TkScreen, WeatherRequestHandlerIf):
         host: TkScreenHostIf,
         *,
         controller: WeatherController,
-        theme_bundle,
+        theme_bundle: Callable[[], ThemeBundle],
+        unit_system: Callable[[], UnitSystem] = lambda: UnitSystem.IMPERIAL,
     ) -> None:
         super().__init__(ScreenId("weather"))
         self._host = host
         self._controller = controller
         self._theme_bundle = theme_bundle
+        self._unit_system = unit_system
         self._panel: OrcWeatherPanel | None = None
         self._presenter: WeatherPresenter | None = None
         self._generation = 0
@@ -40,7 +44,11 @@ class WeatherScreen(TkScreen, WeatherRequestHandlerIf):
         self._host.activate_screen(self)
         self._host.clear_screen_content()
         self._host.set_screen_title("WEATHER")
-        panel = OrcWeatherPanel(self._host.screen_parent, theme_bundle=self._theme_bundle)
+        panel = OrcWeatherPanel(
+            self._host.screen_parent,
+            theme_bundle=self._theme_bundle,
+            unit_system=self._unit_system,
+        )
         panel.pack(fill="both", expand=True)
         panel.set_weather_request_handler(self)
         self._panel = panel
