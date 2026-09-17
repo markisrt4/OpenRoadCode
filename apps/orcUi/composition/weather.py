@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 
 from apps.orcUi.frontend.tk.orc_ui_app import OrcUiApp
@@ -28,7 +29,11 @@ class WeatherComposition:
     controller: WeatherController
 
 
-def configure_weather(app: OrcUiApp) -> WeatherComposition:
+def configure_weather(
+    app: OrcUiApp,
+    *,
+    on_weather_radio: Callable[[], None] | None = None,
+) -> WeatherComposition:
     """Compose GPS-backed Open-Meteo Weather with shared display preferences."""
     runtime_config = ServiceRuntimeConfigParser(DEFAULT_RUNTIME_CONFIG).load()
     simulated_fix = runtime_config.navigation.gps.simulation
@@ -48,6 +53,7 @@ def configure_weather(app: OrcUiApp) -> WeatherComposition:
         controller=controller,
         theme_bundle=lambda: theme_bundle(app.theme_mode),
         unit_system=lambda: app.unit_system,
+        on_weather_radio=on_weather_radio,
     )
     app.register_screen("WEATHER", screen, before="VISION")
     return WeatherComposition(screen=screen, controller=controller)
