@@ -17,6 +17,7 @@ class CoreCompositionTest(unittest.TestCase):
         presentation = Mock(spec=OrcUiPresentationState)
         map_runtime = Mock()
         map_camera = Mock()
+        telemetry_profile_request = Mock()
         ingress = Mock()
         trip_runtime = Mock()
         trip_publisher = Mock()
@@ -28,6 +29,7 @@ class CoreCompositionTest(unittest.TestCase):
             presentation=presentation,
             map_runtime=map_runtime,
             map_camera=map_camera,
+            telemetry_profile_request=telemetry_profile_request,
             state_ingress=ingress,
             trip_runtime=trip_runtime,
             trip_publisher=trip_publisher,
@@ -94,7 +96,8 @@ class CoreCompositionTest(unittest.TestCase):
         self.assertIs(app_kwargs["lifecycle_handler"], lifecycle)
         self.assertIs(app_kwargs["presentation"], core.presentation)
         self.assertIsInstance(core.presentation, OrcUiPresentationState)
-        self.assertTrue(callable(app_kwargs["telemetry_profile_request"]))
+        self.assertIs(app_kwargs["telemetry_profile_request"], core.telemetry_profile_request)
+        self.assertTrue(callable(core.telemetry_profile_request))
         self.assertIsNotNone(app_kwargs["vehicle_configuration"])
         self.assertTrue(callable(app_kwargs["save_vehicle_configuration"]))
         volume_type.assert_called_once_with(
