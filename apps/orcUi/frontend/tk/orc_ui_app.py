@@ -37,8 +37,9 @@ from controllers.automotive import AutomotiveTelemetryProfile, EngineAnalysis, V
 from ui.navigation import MapRequestHandlerIf
 from ui.screen_ui_if import ScreenUiIf
 from ui.system import SystemLifecycleRequestHandlerIf, VolumeRequestHandlerIf, VolumeUiIf
+from ui.weather import WeatherAlertUiEvent, WeatherAlertUiIf
 
-class OrcUiApp(VolumeUiIf):
+class OrcUiApp(VolumeUiIf, WeatherAlertUiIf):
     """Own the integrated Tk shell and presentation state."""
     def __init__(
         self,
@@ -88,6 +89,7 @@ class OrcUiApp(VolumeUiIf):
         self._active_screen: ScreenUiIf | None = None
         self._screen_back_action: Callable[[], None] | None = None
         self._screen_status = ""
+        self._latest_weather_alert: WeatherAlertUiEvent | None = None
         self._home_radio_factory: Callable[[tk.Misc], tk.Widget] | None = None
         self._home_media_factory: Callable[[tk.Misc], tk.Widget] | None = None
         self._content: tk.Frame
@@ -206,6 +208,12 @@ class OrcUiApp(VolumeUiIf):
         self._screen_back_action = action
     def set_screen_status(self, message: str) -> None:
         self._screen_status = message
+    def present_weather_alert(self, alert: WeatherAlertUiEvent) -> None:
+        """Receive one asynchronous weather-alert event on the UI thread."""
+        if self._closing:
+            return
+        self._latest_weather_alert = alert
+        self.set_screen_status(f"WEATHER: {alert.event} · {alert.severity.upper()}")
     def schedule_ui_callback(self, delay_ms: int, callback: Callable[[], None]) -> object:
         return self._root.after(delay_ms, callback)
     def cancel_ui_callback(self, callback_id: object) -> None:
@@ -385,137 +393,120 @@ class OrcUiApp(VolumeUiIf):
             parent_window_id = self._navigation_panel.map_host_window_id
         else:
             return
-        self._map_runtime.stop()
-        self._root.after(100, lambda: self._start_map_renderer(parent_window_id))
-    def _deactivate_active_screen(self) -> None:
-        active_screen = self._active_screen
-        self._active_screen = None
-        if active_screen is not None:
-            active_screen.hide()
-        self._screen_back_action = None
-        self._screen_status = ""
-        self._root.title("OpenRoadCode")
+        self._map_runtime.launch(parent_window_id)
     def _paint_nav(self) -> None:
         if self._shell is not None:
-            self._shell.set_active_navigation(self._active_nav)
+            self._shell.set_active_nav(self._active_nav)
+    def _show_home(self) -> None:
+        self._deactivate_active_screen()
+        self._clear_content()
+        self._context_rail, self._home_map_panel = build_home_screen(
+            self._content,
+            theme=self._theme,
+            map_request_handler=self._map_request_handler,
+            radio_factory=self._home_radio_factory,
+            media_factory=self._home_media_factory,
+        )
+        self._presentation.replay(
+            context=self._context_rail,
+            vehicle_panel=self._vehicle_panel,
+            offroad_panel=self._offroad_panel,
+        )
+        self._root.update_idletasks()
+        self._map_runtime.launch(self._home_map_panel.map_host_window_id)
+    def _show_navigation_panel(self) -> None:
+        self._deactivate_active_screen()
+        self._clear_content()
+        self._context_rail, self._navigation_panel = build_navigation_screen(
+            self._content,
+            theme=self._theme,
+            map_request_handler=self._map_request_handler,
+        )
+        self._presentation.replay(
+            context=self._context_rail,
+            vehicle_panel=self._vehicle_panel,
+            offroad_panel=self._offroad_panel,
+        )
+        self._root.update_idletasks()
+        self._map_runtime.launch(self._navigation_panel.map_host_window_id)
+    def _show_vehicle_panel(self) -> None:
+        self._deactivate_active_screen()
+        self._clear_content()
+        self._context_rail, self._vehicle_panel = build_vehicle_screen(
+            self._content,
+            theme=self._theme,
+        )
+        self._presentation.replay(
+            context=self._context_rail,
+            vehicle_panel=self._vehicle_panel,
+            offroad_panel=self._offroad_panel,
+        )
+    def _show_offroad_panel(self) -> None:
+        self._deactivate_active_screen()
+        self._clear_content()
+        self._context_rail, self._offroad_panel = build_offroad_screen(
+            self._content,
+            theme=self._theme,
+        )
+        self._presentation.replay(
+            context=self._context_rail,
+            vehicle_panel=self._vehicle_panel,
+            offroad_panel=self._offroad_panel,
+        )
+    def _show_settings_panel(self) -> None:
+        self._deactivate_active_screen()
+        self._clear_content()
+        self._settings_panel = build_settings_screen(
+            self._content,
+            theme=self._theme,
+            theme_mode=self._theme_mode,
+            on_theme_change=self._apply_theme_mode,
+            unit_system=self._app_settings.unit_system,
+            on_unit_system_change=self._apply_unit_system,
+        )
+    def _show_placeholder(self, nav_name: str) -> None:
+        self._deactivate_active_screen()
+        self._clear_content()
+        build_placeholder(self._content, nav_name, theme=self._theme.ui)
     def _clear_content(self) -> None:
         self._map_runtime.stop()
-        if self._vehicle_panel is not None and self._vehicle_panel.winfo_exists():
-            self._vehicle_panel.release_telemetry_profile()
+        for child in self._content.winfo_children():
+            child.destroy()
         self._context_rail = None
         self._home_map_panel = None
         self._navigation_panel = None
         self._vehicle_panel = None
         self._offroad_panel = None
         self._settings_panel = None
-        for child in self._content.winfo_children():
-            child.destroy()
-    def _show_home(self) -> None:
-        self._clear_content()
-        self._active_nav = "HOME"
-        self._paint_nav()
-        self._home_map_panel, self._context_rail = build_home_screen(
-            self._content,
-            map_request_handler=self._map_request_handler,
-            theme=self._theme,
-            vehicle_state=self._presentation.vehicle,
-            trip_state=self._presentation.trip,
-            position_state=self._presentation.position,
-            attitude_state=self._presentation.attitude,
-            on_expand_context=self._show_context_full_panel,
-            radio_factory=self._home_radio_factory,
-            media_factory=self._home_media_factory,
-        )
-        if self._telemetry_profile_request is not None:
-            self._telemetry_profile_request(AutomotiveTelemetryProfile.HOME)
-        self._root.update_idletasks()
-        self._start_map_renderer(self._home_map_panel.map_host_window_id)
-    def _show_navigation_panel(self) -> None:
-        self._clear_content()
-        if self._telemetry_profile_request is not None:
-            self._telemetry_profile_request(AutomotiveTelemetryProfile.BACKGROUND)
-        self._active_nav = "NAVIGATION"
-        self._paint_nav()
-        self._navigation_panel = build_navigation_screen(
-            self._content,
-            map_request_handler=self._map_request_handler,
-            on_back=self._show_home,
-            theme=self._theme,
-        )
-        self._root.update_idletasks()
-        self._start_map_renderer(self._navigation_panel.map_host_window_id)
-    def _start_map_renderer(self, parent_window_id: int) -> None:
-        try:
-            self._map_runtime.launch(parent_window_id)
-        except (OSError, RuntimeError) as error:
-            print(f"WARNING: map renderer: {type(error).__name__}: {error}")
-    def _show_vehicle_panel(self) -> None:
-        self._clear_content()
-        self._active_nav = "VEHICLE"
-        self._paint_nav()
-        self._vehicle_panel = build_vehicle_screen(
-            self._content,
-            on_back=self._show_home,
-            on_view_changed=lambda view: self.set_breadcrumb("VEHICLE", view),
-            on_telemetry_profile=self._telemetry_profile_request,
-            state=self._presentation.vehicle,
-            trip_state=self._presentation.trip,
-            theme=self._theme,
-            vehicle_configuration=self._vehicle_configuration,
-            engine_analysis=self._presentation.engine_analysis,
-        )
-    def _show_settings_panel(self) -> None:
-        self._clear_content()
-        if self._telemetry_profile_request is not None:
-            self._telemetry_profile_request(AutomotiveTelemetryProfile.BACKGROUND)
-        self._active_nav = "SETTINGS"
-        self._paint_nav()
-        self._settings_panel = build_settings_screen(
-            self._content,
-            vehicle_configuration=self._vehicle_configuration,
-            on_vehicle_configuration_changed=self._apply_vehicle_configuration,
-            unit_system=self._app_settings.unit_system,
-            on_unit_system_changed=self._apply_unit_system,
-            on_back=self._show_home,
-            theme=self._theme,
-        )
-
-    def _apply_unit_system(self, unit_system: UnitSystem) -> None:
-        self._app_settings = AppSettings(unit_system=unit_system)
-        self._app_settings_store.save(self._app_settings)
-
-    def _apply_vehicle_configuration(
-        self,
-        configuration: VehicleConfiguration,
-    ) -> None:
-        self._vehicle_configuration = configuration
-        if self._save_vehicle_configuration is not None:
-            self._save_vehicle_configuration(configuration)
-        if self._vehicle_configuration_observer is not None:
-            self._vehicle_configuration_observer(configuration)
-        if self._vehicle_panel is not None and self._vehicle_panel.winfo_exists():
-            self._vehicle_panel.set_vehicle_configuration(configuration)
-
-    def _show_offroad_panel(self) -> None:
-        self._clear_content()
-        self._offroad_panel = build_offroad_screen(
-            self._content,
-            on_back=self._show_home,
-            position=self._presentation.position,
-            attitude=self._presentation.attitude,
-            theme=self._theme,
-        )
+    def _deactivate_active_screen(self) -> None:
+        screen = self._active_screen
+        self._active_screen = None
+        if screen is not None:
+            screen.hide()
     def _on_close(self) -> None:
         self._shutdown()
-    def _show_context_full_panel(self, name: str) -> None:
-        if name == "VEHICLE" or name == "TRIP":
-            self._show_vehicle_panel()
-            if name == "TRIP" and self._vehicle_panel is not None:
-                self._vehicle_panel.show_trip_view()
-        elif name == "OFF-ROAD":
-            self._show_offroad_panel()
+    def _apply_theme_mode(self, mode: ThemeMode) -> None:
+        if mode is self._theme_mode:
+            return
+        self._theme_mode = mode
+        self._theme = theme_bundle(self._theme_mode)
+        self._map_runtime.set_theme(self._theme_mode)
+        self._power_dialog.close()
+        self._rebuild_shell_theme()
+        if self._active_nav == "HOME":
+            self._show_home()
+        elif self._active_nav == "SETTINGS":
+            self._show_settings_panel()
         else:
-            self._show_placeholder(name)
-    def _show_placeholder(self, name: str) -> None:
-        self._clear_content()
-        build_placeholder(self._content, name, theme=self._theme)
+            self._apply_theme_to_content()
+        active_screen = self._active_screen
+        set_theme_mode = getattr(active_screen, "set_theme_mode", None)
+        if callable(set_theme_mode):
+            set_theme_mode(self._theme_mode)
+        if self._active_nav != "HOME":
+            self._reload_active_map()
+    def _apply_unit_system(self, unit_system: UnitSystem) -> None:
+        if unit_system is self._app_settings.unit_system:
+            return
+        self._app_settings = AppSettings(unit_system=unit_system)
+        self._app_settings_store.save(self._app_settings)
