@@ -163,8 +163,11 @@ class OrcUiApp(VolumeUiIf):
             raise ValueError("Context destination must not be empty")
         if context_name in {"VEHICLE", "TRIP"}:
             self.navigate_to("VEHICLE")
-            if context_name == "TRIP" and self._vehicle_panel is not None:
-                self._vehicle_panel.show_trip_view()
+            if context_name == "TRIP":
+                screen = self._screen_registry.get("VEHICLE")
+                show_trip_view = getattr(screen, "show_trip_view", None)
+                if callable(show_trip_view):
+                    show_trip_view()
         elif context_name == "OFF-ROAD":
             self._deactivate_active_screen()
             self._show_offroad_panel()
