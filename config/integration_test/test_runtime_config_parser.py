@@ -118,6 +118,30 @@ class RuntimeConfigTestAppTest(unittest.TestCase):
         self.assertEqual((self.project_root / "var" / "position").resolve(), config.position_cache.directory)
         self.assertEqual(3600.0, config.position_cache.max_age_seconds)
 
+    def test_sdr_defaults_to_native_rtl_sdr(self) -> None:
+        config = RuntimeConfigParser(self.config_path, project_root=self.project_root).load()
+        self.assertEqual("rtl_sdr", config.sdr.source)
+        self.assertEqual("127.0.0.1", config.sdr.rtl_tcp.host)
+        self.assertEqual(1234, config.sdr.rtl_tcp.port)
+
+    def test_rtl_tcp_source_is_configurable(self) -> None:
+        self.config_path.write_text(
+            VALID_TOML + '\n[sdr]\nsource = "rtl_tcp"\n\n[sdr.rtl_tcp]\nhost = "192.168.1.50"\nport = 2345\n',
+            encoding="utf-8",
+        )
+        config = RuntimeConfigParser(self.config_path, project_root=self.project_root).load()
+        self.assertEqual("rtl_tcp", config.sdr.source)
+        self.assertEqual("192.168.1.50", config.sdr.rtl_tcp.host)
+        self.assertEqual(2345, config.sdr.rtl_tcp.port)
+
+    def test_invalid_sdr_source_is_rejected(self) -> None:
+        self.config_path.write_text(
+            VALID_TOML + '\n[sdr]\nsource = "crystal_radio"\n',
+            encoding="utf-8",
+        )
+        result = main([str(self.config_path), "--project-root", str(self.project_root), "--quiet"])
+        self.assertEqual(1, result)
+
     def test_rotary_encoder_config_is_parsed(self) -> None:
         from config.component_test.runtime_config_test_app import validate_config
         config = validate_config(self.config_path, project_root=self.project_root)
