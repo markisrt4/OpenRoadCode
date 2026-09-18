@@ -202,7 +202,7 @@ class OrcUiSideNav(tk.Frame):
 
     WIDTH = SIDE_NAV_WIDTH
     VISIBLE_ITEMS = 6
-    SCROLL_HEIGHT = 28
+    SCROLL_HEIGHT = 22
 
     def __init__(
         self,
@@ -282,7 +282,7 @@ class OrcUiSideNav(tk.Frame):
 
         if len(self._items) > self.VISIBLE_ITEMS:
             self._up_button = self._make_scroll_button("▲", lambda: self._scroll(-1))
-            self._up_button.pack(fill=tk.X, padx=4, pady=(0, 1))
+            self._up_button.pack(fill=tk.X, padx=8, pady=(0, 2))
         else:
             self._up_button = None
 
@@ -301,7 +301,7 @@ class OrcUiSideNav(tk.Frame):
 
         if len(self._items) > self.VISIBLE_ITEMS:
             self._down_button = self._make_scroll_button("▼", lambda: self._scroll(1))
-            self._down_button.pack(fill=tk.X, padx=4, pady=(1, 0))
+            self._down_button.pack(side=tk.BOTTOM, fill=tk.X, padx=8, pady=(2, 0))
         else:
             self._down_button = None
         self._paint_scroll_buttons()
@@ -314,8 +314,9 @@ class OrcUiSideNav(tk.Frame):
             height=1,
             relief=tk.FLAT,
             bd=0,
+            highlightthickness=0,
             cursor="hand2",
-            font=("Sans", FONT_CONTROL, "bold"),
+            font=("Sans", max(8, FONT_CONTROL - 2), "bold"),
         )
 
     def _paint_scroll_buttons(self) -> None:
