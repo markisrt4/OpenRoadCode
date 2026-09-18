@@ -121,8 +121,17 @@ class RuntimeConfigTestAppTest(unittest.TestCase):
     def test_sdr_defaults_to_native_rtl_sdr(self) -> None:
         config = RuntimeConfigParser(self.config_path, project_root=self.project_root).load()
         self.assertEqual("rtl_sdr", config.sdr.source)
+        self.assertIsNone(config.sdr.rtl_sdr.serial)
         self.assertEqual("127.0.0.1", config.sdr.rtl_tcp.host)
         self.assertEqual(1234, config.sdr.rtl_tcp.port)
+
+    def test_rtl_sdr_serial_is_configurable(self) -> None:
+        self.config_path.write_text(
+            VALID_TOML + '\n[sdr]\nsource = "rtl_sdr"\n\n[sdr.rtl_sdr]\nserial = "66044186"\n',
+            encoding="utf-8",
+        )
+        config = RuntimeConfigParser(self.config_path, project_root=self.project_root).load()
+        self.assertEqual("66044186", config.sdr.rtl_sdr.serial)
 
     def test_rtl_tcp_source_is_configurable(self) -> None:
         self.config_path.write_text(
