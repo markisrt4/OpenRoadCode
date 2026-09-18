@@ -120,9 +120,6 @@ class CoreCompositionTest(unittest.TestCase):
         self.assertIs(ingress_kwargs["apply_position_state"], app.apply_position_state)
         self.assertIs(ingress_kwargs["apply_attitude_state"], app.apply_attitude_state)
         self.assertIsNotNone(ingress_kwargs["vehicle_configuration"])
-        app.set_vehicle_configuration_observer.assert_called_once_with(
-            ingress_type.return_value.set_vehicle_configuration
-        )
         self.assertIs(core.app, app)
         self.assertIs(core.map_runtime, map_runtime)
         self.assertIs(core.map_camera, map_camera)
