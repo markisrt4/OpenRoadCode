@@ -295,13 +295,13 @@ class OrcUiSideNav(tk.Frame):
                 on_navigate=self._on_navigate,
                 on_swipe=self._scroll,
             )
-            tile.pack(fill=tk.X, padx=4, pady=1)
+            tile.pack(fill=tk.BOTH, expand=True, padx=4, pady=1)
             tile.set_state(selected=item == self._active, theme=theme)
             self._tiles[item] = tile
 
         if len(self._items) > self.VISIBLE_ITEMS:
             self._down_button = self._make_scroll_button("▼", lambda: self._scroll(1))
-            self._down_button.pack(fill=tk.X, padx=8, pady=(2, 0), expand=True, anchor="s")
+            self._down_button.pack(fill=tk.X, padx=8, pady=(2, 0))
         else:
             self._down_button = None
         self._paint_scroll_buttons()
