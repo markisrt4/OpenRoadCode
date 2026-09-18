@@ -15,6 +15,7 @@ from apps.orcUi.composition.radio import RadioComposition, configure_radio
 from apps.orcUi.frontend.tk.home_screen import HomeScreen
 from apps.orcUi.frontend.tk.navigation_screen import NavigationScreen
 from apps.orcUi.frontend.tk.orc_ui_app import OrcUiApp
+from apps.orcUi.frontend.tk.settings_screen import SettingsScreen
 from apps.orcUi.frontend.tk.vehicle_screen import VehicleScreen
 from apps.orcUi.theme_runtime import theme_bundle
 from frontends.tk.games import GamesScreen
@@ -32,6 +33,7 @@ class OrcUiComposition:
     home: HomeScreen | None = None
     navigation: NavigationScreen | None = None
     vehicle: VehicleScreen | None = None
+    settings: SettingsScreen | None = None
 
     @property
     def app(self) -> OrcUiApp:
@@ -93,6 +95,14 @@ def create_orc_ui_composition() -> OrcUiComposition:
             vehicle_configuration=lambda: core.vehicle_configuration.configuration,
             on_back=lambda: app.navigate_to("HOME"),
         )
+        settings = SettingsScreen(
+            app,
+            theme_bundle=lambda: theme_bundle(app.theme_mode),
+            telemetry_profile_request=core.telemetry_profile_request,
+            vehicle_configuration=lambda: core.vehicle_configuration.configuration,
+            on_vehicle_configuration_changed=core.vehicle_configuration.update,
+            on_back=lambda: app.navigate_to("HOME"),
+        )
         home.set_radio_factory(radio.home_factory)
         home.set_media_factory(media.home_factory)
         core.presentation.observe_vehicle(home.apply_vehicle_state)
@@ -108,6 +118,7 @@ def create_orc_ui_composition() -> OrcUiComposition:
         app.register_screen("HOME", home)
         app.register_screen("NAVIGATION", navigation)
         app.register_screen("VEHICLE", vehicle)
+        app.register_screen("SETTINGS", settings)
     except Exception:
         if core is not None:
             core.close()
@@ -122,4 +133,5 @@ def create_orc_ui_composition() -> OrcUiComposition:
         home=home,
         navigation=navigation,
         vehicle=vehicle,
+        settings=settings,
     )
