@@ -7,7 +7,6 @@ import signal
 import tkinter as tk
 from collections.abc import Callable
 from apps.orcUi.core_runtime import MapRuntimeIf
-from .navigation_panel import NavigationPanel
 from apps.orcUi.navigation_presenter import AttitudePresentationState, PositionPresentationState
 from .offroad_panel import OffRoadPanel
 from apps.orcUi.orc_theme import ThemeMode, toggle
@@ -15,7 +14,6 @@ from .power_dialog import PowerDialog
 from .presentation_state import OrcUiPresentationState
 from .settings_panel import SettingsPanel
 from .screen_builders import (
-    build_navigation_screen,
     build_offroad_screen,
     build_placeholder,
     build_settings_screen,
@@ -83,7 +81,6 @@ class OrcUiApp(VolumeUiIf):
         self._screen_back_action: Callable[[], None] | None = None
         self._screen_status = ""
         self._content: tk.Frame
-        self._navigation_panel: NavigationPanel | None = None
         self._vehicle_panel: VehiclePanel | None = None
         self._offroad_panel: OffRoadPanel | None = None
         self._settings_panel: SettingsPanel | None = None
@@ -155,7 +152,6 @@ class OrcUiApp(VolumeUiIf):
             return
         self._deactivate_active_screen()
         handler = {
-            "NAVIGATION": self._show_navigation_panel,
             "VEHICLE": self._show_vehicle_panel,
             "SETTINGS": self._show_settings_panel,
         }.get(nav_name)
@@ -339,22 +335,12 @@ class OrcUiApp(VolumeUiIf):
         set_theme_mode = getattr(active_screen, "set_theme_mode", None)
         if callable(set_theme_mode):
             set_theme_mode(self._theme_mode)
-        if self._active_nav != "HOME":
-            self._reload_active_map()
     def _apply_theme_to_content(self) -> None:
         bundle = self._theme
-        if self._navigation_panel is not None and self._navigation_panel.winfo_exists():
-            self._navigation_panel.set_theme_bundle(bundle)
         if self._vehicle_panel is not None and self._vehicle_panel.winfo_exists():
             self._vehicle_panel.set_theme_bundle(bundle)
         if self._offroad_panel is not None and self._offroad_panel.winfo_exists():
             self._offroad_panel.set_theme(bundle.ui)
-    def _reload_active_map(self) -> None:
-        if self._navigation_panel is None or not self._navigation_panel.winfo_exists():
-            return
-        parent_window_id = self._navigation_panel.map_host_window_id
-        self._map_runtime.stop()
-        self._root.after(100, lambda: self._start_map_renderer(parent_window_id))
     def _deactivate_active_screen(self) -> None:
         active_screen = self._active_screen
         self._active_screen = None
@@ -370,31 +356,11 @@ class OrcUiApp(VolumeUiIf):
         self._map_runtime.stop()
         if self._vehicle_panel is not None and self._vehicle_panel.winfo_exists():
             self._vehicle_panel.release_telemetry_profile()
-        self._navigation_panel = None
         self._vehicle_panel = None
         self._offroad_panel = None
         self._settings_panel = None
         for child in self._content.winfo_children():
             child.destroy()
-    def _show_navigation_panel(self) -> None:
-        self._clear_content()
-        if self._telemetry_profile_request is not None:
-            self._telemetry_profile_request(AutomotiveTelemetryProfile.BACKGROUND)
-        self._active_nav = "NAVIGATION"
-        self._paint_nav()
-        self._navigation_panel = build_navigation_screen(
-            self._content,
-            map_request_handler=self._map_request_handler,
-            on_back=lambda: self.navigate_to("HOME"),
-            theme=self._theme,
-        )
-        self._root.update_idletasks()
-        self._start_map_renderer(self._navigation_panel.map_host_window_id)
-    def _start_map_renderer(self, parent_window_id: int) -> None:
-        try:
-            self._map_runtime.launch(parent_window_id)
-        except (OSError, RuntimeError) as error:
-            print(f"WARNING: map renderer: {type(error).__name__}: {error}")
     def _show_vehicle_panel(self) -> None:
         self._clear_content()
         self._active_nav = "VEHICLE"
