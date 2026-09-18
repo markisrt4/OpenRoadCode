@@ -58,6 +58,20 @@ class RigctlConfig:
 
 
 @dataclass(frozen=True, slots=True)
+class RtlTcpSourceConfig:
+    """Configure an RTL-TCP network SDR source."""
+    host: str = "127.0.0.1"
+    port: int = 1234
+
+
+@dataclass(frozen=True, slots=True)
+class SdrConfig:
+    """Configure the SDR source used by SDR++."""
+    source: str = "rtl_sdr"
+    rtl_tcp: RtlTcpSourceConfig = RtlTcpSourceConfig()
+
+
+@dataclass(frozen=True, slots=True)
 class SeesawEncoderConfig:
     """Configure one I2C Seesaw rotary encoder."""
     address: int
@@ -137,6 +151,7 @@ class RuntimeConfig:
     """Contain validated system-wide runtime composition."""
     runtime: RuntimeDisplayConfig
     rigctl: RigctlConfig
+    sdr: SdrConfig
     input: InputConfig
     radios: tuple[RadioStackConfig, ...]
     environmental: EnvironmentalConfig = EnvironmentalConfig()
@@ -182,6 +197,7 @@ class RuntimeConfigParser:
         return RuntimeConfig(
             runtime=self._parse_runtime(data.get("runtime", {})),
             rigctl=self._parse_rigctl(data.get("rigctl", {})),
+            sdr=self._parse_sdr(data.get("sdr", {})),
             input=self._parse_input(data.get("input", {})),
             radios=self._parse_radios(data.get("radios", [])),
             environmental=self._parse_environmental(data.get("environmental", {})),
@@ -254,6 +270,18 @@ class RuntimeConfigParser:
         if not 1 <= port <= 65535:
             raise RuntimeConfigError("rigctl.port must be between 1 and 65535")
         return RigctlConfig(host=host, port=port)
+
+    def _parse_sdr(self, data: Any) -> SdrConfig:
+        section = self._expect_table(data, "sdr")
+        source = self._optional_string(section, "source", default="rtl_sdr", section_name="sdr").lower()
+        if source not in {"rtl_sdr", "rtl_tcp"}:
+            raise RuntimeConfigError("sdr.source must be 'rtl_sdr' or 'rtl_tcp'")
+        rtl_tcp_data = self._expect_table(section.get("rtl_tcp", {}), "sdr.rtl_tcp")
+        host = self._optional_string(rtl_tcp_data, "host", default="127.0.0.1", section_name="sdr.rtl_tcp")
+        port = rtl_tcp_data.get("port", 1234)
+        if not isinstance(port, int) or isinstance(port, bool) or not 1 <= port <= 65535:
+            raise RuntimeConfigError("sdr.rtl_tcp.port must be an integer between 1 and 65535")
+        return SdrConfig(source=source, rtl_tcp=RtlTcpSourceConfig(host=host, port=port))
 
     def _parse_input(self, data: Any) -> InputConfig:
         section = self._expect_table(data, "input")
