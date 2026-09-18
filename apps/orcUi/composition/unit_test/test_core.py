@@ -9,12 +9,15 @@ from unittest.mock import Mock, patch
 
 from apps.orcUi.composition.core import CoreComposition, create_core_composition
 from apps.orcUi.frontend.tk.presentation_state import OrcUiPresentationState
+from apps.orcUi.vehicle_configuration_state import VehicleConfigurationState
+from controllers.automotive import VehicleConfiguration
 
 
 class CoreCompositionTest(unittest.TestCase):
     def test_lifecycle_refreshes_volume_starts_ingress_and_closes_map(self) -> None:
         app = Mock()
         presentation = Mock(spec=OrcUiPresentationState)
+        vehicle_configuration = VehicleConfigurationState(VehicleConfiguration())
         map_runtime = Mock()
         map_camera = Mock()
         telemetry_profile_request = Mock()
@@ -27,6 +30,7 @@ class CoreCompositionTest(unittest.TestCase):
         core = CoreComposition(
             app=app,
             presentation=presentation,
+            vehicle_configuration=vehicle_configuration,
             map_runtime=map_runtime,
             map_camera=map_camera,
             telemetry_profile_request=telemetry_profile_request,
@@ -96,6 +100,7 @@ class CoreCompositionTest(unittest.TestCase):
         self.assertIs(app_kwargs["lifecycle_handler"], lifecycle)
         self.assertIs(app_kwargs["presentation"], core.presentation)
         self.assertIsInstance(core.presentation, OrcUiPresentationState)
+        self.assertIsInstance(core.vehicle_configuration, VehicleConfigurationState)
         self.assertIs(app_kwargs["telemetry_profile_request"], core.telemetry_profile_request)
         self.assertTrue(callable(core.telemetry_profile_request))
         self.assertIsNotNone(app_kwargs["vehicle_configuration"])
