@@ -106,6 +106,15 @@ max_age_seconds = 604800
 host = "127.0.0.1"
 port = 4532
 
+[sdr]
+# Direct USB RTL-SDR is the default. Set source = "rtl_tcp" to use a
+# network-provided RTL-SDR without coupling that transport to a platform.
+source = "rtl_sdr"
+
+[sdr.rtl_tcp]
+host = "127.0.0.1"
+port = 1234
+
 [environmental.barometric_sensor]
 driver = "bmp388"
 address = 0x77
