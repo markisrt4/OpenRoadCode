@@ -74,6 +74,11 @@ class OrcUiPresentationState:
         init=False,
         repr=False,
     )
+    _engine_analysis_observers: list[Callable[[EngineAnalysis], None]] = field(
+        default_factory=list,
+        init=False,
+        repr=False,
+    )
 
     def observe_vehicle(
         self,
@@ -102,6 +107,13 @@ class OrcUiPresentationState:
     ) -> None:
         """Subscribe to future attitude presentation updates."""
         self._attitude_observers.append(observer)
+
+    def observe_engine_analysis(
+        self,
+        observer: Callable[[EngineAnalysis], None],
+    ) -> None:
+        """Subscribe to future engine-analysis presentation updates."""
+        self._engine_analysis_observers.append(observer)
 
     def apply_vehicle(self, state: VehiclePresentationState, *, vehicle_panel) -> None:
         self.vehicle = state
@@ -135,3 +147,5 @@ class OrcUiPresentationState:
         self.engine_analysis = analysis
         if vehicle_panel is not None and vehicle_panel.winfo_exists():
             vehicle_panel.update_engine_analysis(analysis)
+        for observer in tuple(self._engine_analysis_observers):
+            observer(analysis)
