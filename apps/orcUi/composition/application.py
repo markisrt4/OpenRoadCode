@@ -15,6 +15,7 @@ from apps.orcUi.composition.radio import RadioComposition, configure_radio
 from apps.orcUi.frontend.tk.home_screen import HomeScreen
 from apps.orcUi.frontend.tk.navigation_screen import NavigationScreen
 from apps.orcUi.frontend.tk.orc_ui_app import OrcUiApp
+from apps.orcUi.frontend.tk.vehicle_screen import VehicleScreen
 from apps.orcUi.theme_runtime import theme_bundle
 from frontends.tk.games import GamesScreen
 
@@ -30,6 +31,7 @@ class OrcUiComposition:
     games: GamesScreen
     home: HomeScreen | None = None
     navigation: NavigationScreen | None = None
+    vehicle: VehicleScreen | None = None
 
     @property
     def app(self) -> OrcUiApp:
@@ -83,14 +85,29 @@ def create_orc_ui_composition() -> OrcUiComposition:
             telemetry_profile_request=core.telemetry_profile_request,
             on_back=lambda: app.navigate_to("HOME"),
         )
+        vehicle = VehicleScreen(
+            app,
+            theme_bundle=lambda: theme_bundle(app.theme_mode),
+            presentation=core.presentation,
+            telemetry_profile_request=core.telemetry_profile_request,
+            vehicle_configuration=lambda: core.vehicle_configuration.configuration,
+            on_back=lambda: app.navigate_to("HOME"),
+        )
         home.set_radio_factory(radio.home_factory)
         home.set_media_factory(media.home_factory)
         core.presentation.observe_vehicle(home.apply_vehicle_state)
         core.presentation.observe_trip(home.apply_trip_state)
         core.presentation.observe_position(home.apply_position_state)
         core.presentation.observe_attitude(home.apply_attitude_state)
+        core.presentation.observe_vehicle(vehicle.apply_vehicle_state)
+        core.presentation.observe_trip(vehicle.apply_trip_state)
+        core.presentation.observe_engine_analysis(vehicle.apply_engine_analysis)
+        core.presentation.observe_position(vehicle.apply_position_state)
+        core.presentation.observe_attitude(vehicle.apply_attitude_state)
+        core.vehicle_configuration.observe(vehicle.set_vehicle_configuration)
         app.register_screen("HOME", home)
         app.register_screen("NAVIGATION", navigation)
+        app.register_screen("VEHICLE", vehicle)
     except Exception:
         if core is not None:
             core.close()
@@ -104,4 +121,5 @@ def create_orc_ui_composition() -> OrcUiComposition:
         games=games,
         home=home,
         navigation=navigation,
+        vehicle=vehicle,
     )
