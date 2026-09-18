@@ -36,12 +36,15 @@ class _NavTile(tk.Canvas):
         name: str,
         theme: ThemeBundle,
         on_navigate: Callable[[str], None],
+        on_swipe: Callable[[int], None] | None = None,
     ) -> None:
         self._nav_name = name
         self._theme = theme
         self._on_navigate = on_navigate
+        self._on_swipe = on_swipe
         self._selected = False
         self._hovered = False
+        self._press_y: int | None = None
         super().__init__(
             parent,
             height=self.HEIGHT,
@@ -52,6 +55,7 @@ class _NavTile(tk.Canvas):
         self.bind("<Configure>", lambda _event: self._paint())
         self.bind("<Enter>", self._on_enter)
         self.bind("<Leave>", self._on_leave)
+        self.bind("<ButtonPress-1>", self._on_press)
         self.bind("<ButtonRelease-1>", self._on_click)
         self._paint()
 
@@ -68,7 +72,17 @@ class _NavTile(tk.Canvas):
         self._hovered = False
         self._paint()
 
-    def _on_click(self, _event: tk.Event) -> None:
+    def _on_press(self, event: tk.Event) -> None:
+        self._press_y = event.y_root
+
+    def _on_click(self, event: tk.Event) -> None:
+        press_y = self._press_y
+        self._press_y = None
+        if press_y is not None and self._on_swipe is not None:
+            delta_y = event.y_root - press_y
+            if abs(delta_y) >= 24:
+                self._on_swipe(1 if delta_y < 0 else -1)
+                return
         self._on_navigate(self._nav_name)
 
     def _paint(self) -> None:
@@ -209,6 +223,9 @@ class OrcUiSideNav(tk.Frame):
         self._up_button: tk.Button | None = None
         self._down_button: tk.Button | None = None
         self.pack_propagate(False)
+        self.bind("<Button-4>", lambda _event: self._scroll(-1))
+        self.bind("<Button-5>", lambda _event: self._scroll(1))
+        self.bind("<MouseWheel>", self._on_mouse_wheel)
         self.rebuild(theme=theme, items=items, active=active)
 
     def rebuild(self, *, theme: ThemeBundle, items: list[str], active: str) -> None:
@@ -230,6 +247,10 @@ class OrcUiSideNav(tk.Frame):
         for name, tile in self._tiles.items():
             tile.set_state(selected=name == active, theme=theme)
         self._paint_scroll_buttons()
+
+    def _on_mouse_wheel(self, event: tk.Event) -> None:
+        if event.delta:
+            self._scroll(-1 if event.delta > 0 else 1)
 
     def _scroll(self, delta: int) -> None:
         maximum = max(0, len(self._items) - self.VISIBLE_ITEMS)
@@ -272,6 +293,7 @@ class OrcUiSideNav(tk.Frame):
                 name=item,
                 theme=theme,
                 on_navigate=self._on_navigate,
+                on_swipe=self._scroll,
             )
             tile.pack(fill=tk.X, padx=4, pady=1)
             tile.set_state(selected=item == self._active, theme=theme)
