@@ -98,8 +98,6 @@ def create_core_composition() -> CoreComposition:
             lifecycle_handler=lifecycle,
             presentation=presentation,
             telemetry_profile_request=telemetry_profile_request,
-            vehicle_configuration=vehicle_configuration.configuration,
-            save_vehicle_configuration=vehicle_configuration.update,
         )
     except Exception:
         telemetry_profile_publisher.close()
