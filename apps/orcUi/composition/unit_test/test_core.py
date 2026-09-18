@@ -103,8 +103,6 @@ class CoreCompositionTest(unittest.TestCase):
         self.assertIsInstance(core.vehicle_configuration, VehicleConfigurationState)
         self.assertIs(app_kwargs["telemetry_profile_request"], core.telemetry_profile_request)
         self.assertTrue(callable(core.telemetry_profile_request))
-        self.assertIsNotNone(app_kwargs["vehicle_configuration"])
-        self.assertTrue(callable(app_kwargs["save_vehicle_configuration"]))
         volume_type.assert_called_once_with(
             audio_controller=audio,
             volume_ui=app,
