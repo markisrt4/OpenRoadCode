@@ -121,9 +121,6 @@ def create_core_composition() -> CoreComposition:
         vehicle_configuration=vehicle_configuration.configuration,
     )
     vehicle_configuration.observe(state_ingress.set_vehicle_configuration)
-    app.set_vehicle_configuration_observer(
-        state_ingress.set_vehicle_configuration
-    )
     fuel_config = runtime_config.automotive.fuel
     trip_tracker = TripTracker(
         fuel_model=FuelModel(
