@@ -301,7 +301,7 @@ class OrcUiSideNav(tk.Frame):
 
         if len(self._items) > self.VISIBLE_ITEMS:
             self._down_button = self._make_scroll_button("▼", lambda: self._scroll(1))
-            self._down_button.pack(fill=tk.X, padx=8, pady=(2, 0))
+            self._down_button.pack(fill=tk.X, padx=8, pady=(2, 0), expand=True, anchor="s")
         else:
             self._down_button = None
         self._paint_scroll_buttons()
