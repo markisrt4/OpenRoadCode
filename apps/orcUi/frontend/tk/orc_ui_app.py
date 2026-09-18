@@ -12,11 +12,9 @@ from .offroad_panel import OffRoadPanel
 from apps.orcUi.orc_theme import ThemeMode, toggle
 from .power_dialog import PowerDialog
 from .presentation_state import OrcUiPresentationState
-from .settings_panel import SettingsPanel
 from .screen_builders import (
     build_offroad_screen,
     build_placeholder,
-    build_settings_screen,
 )
 from .shell_metrics import TARGET_GEOMETRY, TARGET_HEIGHT, TARGET_WIDTH
 from .shell_view import OrcUiShellView
@@ -24,7 +22,7 @@ from apps.orcUi.theme_runtime import theme_bundle
 from apps.orcUi.trip_presenter import TripPresentationState
 from apps.orcUi.vehicle_presenter import VehiclePresentationState
 from common.host_config import installed_target, orcui_fullscreen_default
-from controllers.automotive import AutomotiveTelemetryProfile, EngineAnalysis, VehicleConfiguration
+from controllers.automotive import AutomotiveTelemetryProfile, EngineAnalysis
 from ui.navigation import MapRequestHandlerIf
 from ui.screen_ui_if import ScreenUiIf
 from ui.system import SystemLifecycleRequestHandlerIf, VolumeRequestHandlerIf, VolumeUiIf
@@ -39,16 +37,11 @@ class OrcUiApp(VolumeUiIf):
         lifecycle_handler: SystemLifecycleRequestHandlerIf,
         presentation: OrcUiPresentationState,
         telemetry_profile_request: Callable[[AutomotiveTelemetryProfile], None] | None = None,
-        vehicle_configuration: VehicleConfiguration = VehicleConfiguration(),
-        save_vehicle_configuration: Callable[[VehicleConfiguration], None] | None = None,
     ) -> None:
         self._map_runtime = map_runtime
         self._map_request_handler = map_request_handler
         self._lifecycle_handler = lifecycle_handler
         self._telemetry_profile_request = telemetry_profile_request
-        self._vehicle_configuration = vehicle_configuration
-        self._save_vehicle_configuration = save_vehicle_configuration
-        self._vehicle_configuration_observer: Callable[[VehicleConfiguration], None] | None = None
         self._presentation = presentation
         self._theme_mode = ThemeMode.DARK
         self._theme = theme_bundle(self._theme_mode)
@@ -80,7 +73,6 @@ class OrcUiApp(VolumeUiIf):
         self._screen_status = ""
         self._content: tk.Frame
         self._offroad_panel: OffRoadPanel | None = None
-        self._settings_panel: SettingsPanel | None = None
         self._volume_percent: float | None = None
         self._volume_muted: bool | None = None
         self._volume_request_handler: VolumeRequestHandlerIf | None = None
@@ -101,12 +93,6 @@ class OrcUiApp(VolumeUiIf):
     @property
     def screen_parent(self) -> tk.Misc:
         return self._content
-    def set_vehicle_configuration_observer(
-        self,
-        observer: Callable[[VehicleConfiguration], None] | None,
-    ) -> None:
-        self._vehicle_configuration_observer = observer
-
     def set_volume_request_handler(
         self,
         handler: VolumeRequestHandlerIf | None,
@@ -148,10 +134,7 @@ class OrcUiApp(VolumeUiIf):
             screen.show()
             return
         self._deactivate_active_screen()
-        handler = {
-            "SETTINGS": self._show_settings_panel,
-        }.get(nav_name)
-        self._show_placeholder(nav_name) if handler is None else handler()
+        self._show_placeholder(nav_name)
     def navigate_to_context(self, name: str) -> None:
         """Open a Home context destination through semantic shell navigation."""
         context_name = name.strip().upper()
@@ -326,8 +309,6 @@ class OrcUiApp(VolumeUiIf):
         self._rebuild_shell_theme()
         if self._active_nav == "HOME":
             self.navigate_to("HOME")
-        elif self._active_nav == "SETTINGS":
-            self._show_settings_panel()
         else:
             self._apply_theme_to_content()
         active_screen = self._active_screen
@@ -352,33 +333,8 @@ class OrcUiApp(VolumeUiIf):
     def _clear_content(self) -> None:
         self._map_runtime.stop()
         self._offroad_panel = None
-        self._settings_panel = None
         for child in self._content.winfo_children():
             child.destroy()
-    def _show_settings_panel(self) -> None:
-        self._clear_content()
-        if self._telemetry_profile_request is not None:
-            self._telemetry_profile_request(AutomotiveTelemetryProfile.BACKGROUND)
-        self._active_nav = "SETTINGS"
-        self._paint_nav()
-        self._settings_panel = build_settings_screen(
-            self._content,
-            vehicle_configuration=self._vehicle_configuration,
-            on_vehicle_configuration_changed=self._apply_vehicle_configuration,
-            on_back=lambda: self.navigate_to("HOME"),
-            theme=self._theme,
-        )
-
-    def _apply_vehicle_configuration(
-        self,
-        configuration: VehicleConfiguration,
-    ) -> None:
-        self._vehicle_configuration = configuration
-        if self._save_vehicle_configuration is not None:
-            self._save_vehicle_configuration(configuration)
-        if self._vehicle_configuration_observer is not None:
-            self._vehicle_configuration_observer(configuration)
-
     def _show_offroad_panel(self) -> None:
         self._clear_content()
         self._offroad_panel = build_offroad_screen(
