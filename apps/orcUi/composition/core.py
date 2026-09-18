@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from apps.orcUi.core_runtime import MapRuntime, StateIngressRuntime
 from apps.orcUi.frontend.tk.orc_ui_app import OrcUiApp
 from apps.orcUi.frontend.tk.presentation_state import OrcUiPresentationState
+from apps.orcUi.vehicle_configuration_state import VehicleConfigurationState
 from config.service_runtime_config import ServiceRuntimeConfigParser
 from controllers.audio import PipewireAudioController, SystemVolumeHandler
 from controllers.automotive import AutomotiveTelemetryProfile, TripTracker
@@ -32,6 +33,7 @@ class CoreComposition:
 
     app: OrcUiApp
     presentation: OrcUiPresentationState
+    vehicle_configuration: VehicleConfigurationState
     map_runtime: MapRuntime
     map_camera: MapCameraRuntime
     telemetry_profile_request: Callable[[AutomotiveTelemetryProfile], None]
@@ -79,7 +81,10 @@ def create_core_composition() -> CoreComposition:
     presentation = OrcUiPresentationState()
     runtime_config = ServiceRuntimeConfigParser(DEFAULT_RUNTIME_CONFIG).load()
     vehicle_settings = VehicleSettingsStore(default=runtime_config.vehicle)
-    vehicle_configuration = vehicle_settings.load()
+    vehicle_configuration = VehicleConfigurationState(
+        vehicle_settings.load(),
+        save=vehicle_settings.save,
+    )
     telemetry_profile_publisher = ZeroMqPublisher(LOCAL_PUBLISHER_ENDPOINT)
     telemetry_profile_requests = AutomotiveTelemetryProfileRequestPublisher(
         telemetry_profile_publisher,
@@ -93,8 +98,8 @@ def create_core_composition() -> CoreComposition:
             lifecycle_handler=lifecycle,
             presentation=presentation,
             telemetry_profile_request=telemetry_profile_request,
-            vehicle_configuration=vehicle_configuration,
-            save_vehicle_configuration=vehicle_settings.save,
+            vehicle_configuration=vehicle_configuration.configuration,
+            save_vehicle_configuration=vehicle_configuration.update,
         )
     except Exception:
         telemetry_profile_publisher.close()
@@ -113,8 +118,9 @@ def create_core_composition() -> CoreComposition:
         apply_trip_state=app.apply_trip_state,
         apply_position_state=app.apply_position_state,
         apply_attitude_state=app.apply_attitude_state,
-        vehicle_configuration=vehicle_configuration,
+        vehicle_configuration=vehicle_configuration.configuration,
     )
+    vehicle_configuration.observe(state_ingress.set_vehicle_configuration)
     app.set_vehicle_configuration_observer(
         state_ingress.set_vehicle_configuration
     )
@@ -135,6 +141,7 @@ def create_core_composition() -> CoreComposition:
     return CoreComposition(
         app=app,
         presentation=presentation,
+        vehicle_configuration=vehicle_configuration,
         map_runtime=map_runtime,
         map_camera=map_camera,
         telemetry_profile_request=telemetry_profile_request,
