@@ -4,7 +4,7 @@
 """Toolkit-independent weather domain and provider contracts."""
 
 from controllers.weather.gpsd_weather_location_provider import GpsdWeatherLocationProvider
-from controllers.weather.providers import OpenMeteoWeatherProvider
+from controllers.weather.providers import NwsWeatherAlertProvider, OpenMeteoWeatherProvider
 from controllers.weather.weather_alert import (
     WeatherAlert,
     WeatherAlertCertainty,
@@ -29,6 +29,7 @@ __all__ = [
     "DailyForecast",
     "GpsdWeatherLocationProvider",
     "HourlyForecast",
+    "NwsWeatherAlertProvider",
     "OpenMeteoWeatherProvider",
     "WeatherAlert",
     "WeatherAlertCertainty",
