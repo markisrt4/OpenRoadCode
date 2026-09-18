@@ -111,6 +111,10 @@ port = 4532
 # network-provided RTL-SDR without coupling that transport to a platform.
 source = "rtl_sdr"
 
+[sdr.rtl_sdr]
+# Optional stable device selection when multiple RTL-SDRs are attached.
+# serial = "66044186"
+
 [sdr.rtl_tcp]
 host = "127.0.0.1"
 port = 1234
