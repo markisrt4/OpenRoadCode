@@ -116,7 +116,8 @@ class OrcWeatherPanel(tk.Frame, WeatherUiIf):
 
         self._hero = tk.Frame(self, bd=0, highlightthickness=1)
         self._hero.grid(row=1, column=0, sticky="ew", padx=22, pady=(0, 12))
-        self._hero.grid_columnconfigure(2, weight=1, minsize=210)
+        self._hero.grid_columnconfigure(2, weight=1, minsize=170)
+        self._hero.grid_columnconfigure(3, weight=0)
 
         self._symbol = tk.Label(
             self._hero, text="◌", width=2, font=("Sans", 48), anchor="center"
@@ -137,16 +138,16 @@ class OrcWeatherPanel(tk.Frame, WeatherUiIf):
         self._summary.grid(row=1, column=2, sticky="nw", pady=(1, 12))
 
         self._metrics = tk.Frame(self._hero)
-        self._metrics.grid(row=0, column=3, rowspan=2, sticky="nsew", padx=(12, 14), pady=10)
+        self._metrics.grid(row=0, column=3, rowspan=2, sticky="e", padx=(8, 10), pady=10)
         self._metric_cards: list[tuple[tk.Frame, tk.Label, tk.Label]] = []
         for column, heading in enumerate(("HUMIDITY", "WIND", "PRESSURE")):
             card = tk.Frame(self._metrics, bd=0, highlightthickness=0)
             card.grid(row=0, column=column, sticky="nsew", padx=(0 if column == 0 else 4, 0))
             self._metrics.grid_columnconfigure(column, weight=1, uniform="metric")
             title = tk.Label(card, text=heading, font=("Sans", 9, "bold"))
-            title.pack(padx=10, pady=(7, 1))
+            title.pack(padx=7, pady=(7, 1))
             value = tk.Label(card, text="--", font=("Sans", 13, "bold"))
-            value.pack(padx=10, pady=(0, 7))
+            value.pack(padx=7, pady=(0, 7))
             self._metric_cards.append((card, title, value))
 
         self._forecast_area = tk.Frame(self)
@@ -175,6 +176,19 @@ class OrcWeatherPanel(tk.Frame, WeatherUiIf):
         self, handler: WeatherRequestHandlerIf | None
     ) -> None:
         self._handler = handler
+
+    def set_loading(self, loading: bool) -> None:
+        """Render an explicit initial-loading state without discarding cached data."""
+        if not loading or self._state is not None:
+            return
+        self._location.configure(text="WEATHER")
+        self._provider.configure(text="Loading current conditions…")
+        self._symbol.configure(text="◌")
+        self._temperature.configure(text="--°")
+        self._condition.configure(text="Loading…")
+        self._summary.configure(text="Waiting for weather data")
+        for _, _, value in self._metric_cards:
+            value.configure(text="--")
 
     def set_weather_state(self, state: WeatherUiState | None) -> None:
         self._state = state
@@ -230,8 +244,8 @@ class OrcWeatherPanel(tk.Frame, WeatherUiIf):
             self._provider.configure(text="")
             self._symbol.configure(text="◌")
             self._temperature.configure(text="--°")
-            self._condition.configure(text="Weather unavailable")
-            self._summary.configure(text="Waiting for location and forecast")
+            self._condition.configure(text="Loading…")
+            self._summary.configure(text="Waiting for weather data")
             for _, _, value in self._metric_cards:
                 value.configure(text="--")
             self._render_forecasts()
