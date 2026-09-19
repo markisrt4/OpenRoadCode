@@ -15,6 +15,7 @@ from apps.orcUi.composition.radio import RadioComposition, configure_radio
 from apps.orcUi.frontend.tk.home_screen import HomeScreen
 from apps.orcUi.frontend.tk.navigation_screen import NavigationScreen
 from apps.orcUi.frontend.tk.orc_ui_app import OrcUiApp
+from apps.orcUi.frontend.tk.offroad_screen import OffRoadScreen
 from apps.orcUi.frontend.tk.settings_screen import SettingsScreen
 from apps.orcUi.frontend.tk.vehicle_screen import VehicleScreen
 from apps.orcUi.theme_runtime import theme_bundle
@@ -33,6 +34,7 @@ class OrcUiComposition:
     home: HomeScreen | None = None
     navigation: NavigationScreen | None = None
     vehicle: VehicleScreen | None = None
+    offroad: OffRoadScreen | None = None
     settings: SettingsScreen | None = None
 
     @property
@@ -95,6 +97,12 @@ def create_orc_ui_composition() -> OrcUiComposition:
             vehicle_configuration=lambda: core.vehicle_configuration.configuration,
             on_back=lambda: app.navigate_to("HOME"),
         )
+        offroad = OffRoadScreen(
+            app,
+            theme_bundle=lambda: theme_bundle(app.theme_mode),
+            presentation=core.presentation,
+            on_back=lambda: app.navigate_to("HOME"),
+        )
         settings = SettingsScreen(
             app,
             theme_bundle=lambda: theme_bundle(app.theme_mode),
@@ -114,10 +122,13 @@ def create_orc_ui_composition() -> OrcUiComposition:
         core.presentation.observe_engine_analysis(vehicle.apply_engine_analysis)
         core.presentation.observe_position(vehicle.apply_position_state)
         core.presentation.observe_attitude(vehicle.apply_attitude_state)
+        core.presentation.observe_position(offroad.apply_position_state)
+        core.presentation.observe_attitude(offroad.apply_attitude_state)
         core.vehicle_configuration.observe(vehicle.set_vehicle_configuration)
         app.register_screen("HOME", home)
         app.register_screen("NAVIGATION", navigation)
         app.register_screen("VEHICLE", vehicle)
+        app.register_screen("OFF-ROAD", offroad, show_in_navigation=False)
         app.register_screen("SETTINGS", settings, show_in_navigation=False)
     except Exception:
         if core is not None:
@@ -133,5 +144,6 @@ def create_orc_ui_composition() -> OrcUiComposition:
         home=home,
         navigation=navigation,
         vehicle=vehicle,
+        offroad=offroad,
         settings=settings,
     )
