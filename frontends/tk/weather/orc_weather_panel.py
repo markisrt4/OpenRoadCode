@@ -25,17 +25,17 @@ def weather_symbol(condition: str, *, nighttime: bool = False) -> str:
     """Return a compact Unicode symbol for a normalized condition label."""
     text = condition.lower()
     if "thunder" in text:
-        return "⚡"
+        return "ϟ"
     if "snow" in text or "sleet" in text:
-        return "❄"
+        return "✣"
     if "rain" in text or "drizzle" in text or "shower" in text:
-        return "☂"
+        return "●≋"
     if "fog" in text or "mist" in text:
-        return "≋"
+        return "≋≋"
     if "clear" in text or "sun" in text:
-        return "☾" if nighttime else "☀"
+        return "◒" if nighttime else "✹"
     if "partly" in text:
-        return "☾☁" if nighttime else "☀☁"
+        return "◒☁" if nighttime else "✹☁"
     if "cloud" in text or "overcast" in text:
         return "☁"
     return "◌"
@@ -303,7 +303,7 @@ class OrcWeatherPanel(tk.Frame, WeatherUiIf):
         for column, item in enumerate(upcoming[:6]):
             precipitation = (
                 "" if item.precipitation_probability is None
-                else f"☂ {self._percent(item.precipitation_probability)}"
+                else f"PRECIP {self._percent(item.precipitation_probability)}"
             )
             self._forecast_cell(
                 self._hourly,
@@ -321,11 +321,11 @@ class OrcWeatherPanel(tk.Frame, WeatherUiIf):
         for column, item in enumerate(state.daily[:6]):
             precipitation = (
                 "" if item.precipitation_probability is None
-                else f"☂ {self._percent(item.precipitation_probability)}"
+                else f"PRECIP {self._percent(item.precipitation_probability)}"
             )
             temperatures = (
-                self._temperature_text(item.temperature_low_k),
-                self._temperature_text(item.temperature_high_k),
+                ("LOW", self._temperature_text(item.temperature_low_k), "#2878b8"),
+                ("HIGH", self._temperature_text(item.temperature_high_k), "#c84b45"),
             )
             self._forecast_cell(
                 self._daily,
@@ -343,7 +343,7 @@ class OrcWeatherPanel(tk.Frame, WeatherUiIf):
         column: int,
         heading: str,
         symbol: str,
-        value: str | tuple[str, str],
+        value: str | tuple[tuple[str, str, str], tuple[str, str, str]],
         detail: str,
         footer: str,
     ) -> None:
@@ -364,21 +364,23 @@ class OrcWeatherPanel(tk.Frame, WeatherUiIf):
 
         tk.Label(
             cell, text=heading, bg=ui.surface, fg=ui.text_muted, font=("Sans", 9, "bold")
-        ).pack(pady=(6, 0))
+        ).pack(pady=(5, 0))
+        icon_slot = tk.Frame(cell, bg=ui.surface, height=34)
+        icon_slot.pack(fill=tk.X)
+        icon_slot.pack_propagate(False)
         tk.Label(
-            cell, text=symbol, bg=ui.surface, fg=accent, font=("Sans", 23)
-        ).pack(pady=(0, 0))
+            icon_slot, text=symbol, bg=ui.surface, fg=accent, font=("Sans", 22)
+        ).place(relx=0.5, rely=0.5, anchor="center")
         if isinstance(value, tuple):
             temperatures = tk.Frame(cell, bg=ui.surface)
-            temperatures.pack()
-            tk.Label(
-                temperatures, text=value[0], bg=ui.surface, fg="#2878b8",
-                font=("Sans", 13, "bold"),
-            ).pack(side=tk.LEFT, padx=(0, 5))
-            tk.Label(
-                temperatures, text=value[1], bg=ui.surface, fg="#c84b45",
-                font=("Sans", 13, "bold"),
-            ).pack(side=tk.LEFT, padx=(5, 0))
+            temperatures.pack(pady=(1, 1))
+            for index, (label, temperature, color) in enumerate(value):
+                badge = tk.Frame(temperatures, bg=color, bd=0)
+                badge.pack(side=tk.LEFT, padx=(0 if index == 0 else 3, 3 if index == 0 else 0))
+                tk.Label(
+                    badge, text=f"{label} {temperature}", bg=color, fg="#ffffff",
+                    font=("Sans", 8, "bold"), padx=5, pady=2,
+                ).pack()
         else:
             tk.Label(
                 cell, text=value, bg=ui.surface, fg=ui.text, font=("Sans", 13, "bold")
