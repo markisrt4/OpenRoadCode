@@ -58,6 +58,7 @@ class OrcUiApp(VolumeUiIf):
         self._volume_muted: bool | None = None
         self._volume_request_handler: VolumeRequestHandlerIf | None = None
         self._theme_change_handler: Callable[[ThemeMode], None] | None = None
+        self._settings_action: Callable[[], None] | None = None
         self._closing = False
         self._power_dialog = PowerDialog(
             self._root,
@@ -79,6 +80,10 @@ class OrcUiApp(VolumeUiIf):
     ) -> None:
         """Connect semantic theme changes to composition-owned consumers."""
         self._theme_change_handler = handler
+
+    def set_settings_action(self, action: Callable[[], None]) -> None:
+        """Connect the shell settings control to composition-owned navigation."""
+        self._settings_action = action
 
     def set_volume_request_handler(
         self,
@@ -207,6 +212,7 @@ class OrcUiApp(VolumeUiIf):
             on_navigate=self.navigate_to,
             on_power=self._power_dialog.show,
             on_theme_toggle=self._toggle_theme,
+            on_settings=self._open_settings,
             on_volume_down=self._request_volume_down,
             on_volume_up=self._request_volume_up,
             volume_text=self._volume_text(),
@@ -244,6 +250,11 @@ class OrcUiApp(VolumeUiIf):
     def _rebuild_shell_theme(self) -> None:
         if self._shell is not None:
             self._shell.rebuild(theme=self._theme, theme_mode=self._theme_mode)
+    def _open_settings(self) -> None:
+        action = self._settings_action
+        if action is not None:
+            action()
+
     def _request_volume_up(self) -> None:
         handler = self._volume_request_handler
         if handler is not None:
