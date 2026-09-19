@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import argparse
+import html
 from dataclasses import asdict
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -63,12 +64,7 @@ class SystemdServiceManagerHandler(BaseHTTPRequestHandler):
             self._browser_pairing_start()
             return
         if len(parts) == 4 and parts[:3] == ["pairing", "browser", "approve"]:
-            if not self._authenticate_admin():
-                return
-            if not self.browser_pairing.approve(parts[3]):
-                self._json(HTTPStatus.NOT_FOUND, {"error": "pairing session not found or expired"})
-                return
-            self._json(HTTPStatus.OK, {"approved": True})
+            self._browser_pairing_approve(parts[3])
             return
         if parts == ["pairing", "start"]:
             if not self._authenticate_admin():
@@ -139,14 +135,46 @@ class SystemdServiceManagerHandler(BaseHTTPRequestHandler):
         if session is None:
             self._html(HTTPStatus.NOT_FOUND, "<h1>Pairing session expired</h1>")
             return
+        client_name = html.escape(session.client_name)
         body = (
             "<h1>OpenRoadCode pairing</h1>"
-            f"<p><strong>{session.client_name}</strong> wants permission to control this runtime.</p>"
-            "<p>Approve this request from an authenticated administrator client.</p>"
+            f"<p><strong>{client_name}</strong> wants permission to control this runtime.</p>"
+            "<p>Enter the service-manager administrator token to approve this device.</p>"
             f"<form method='post' action='/pairing/browser/approve/{session.session_id}'>"
+            "<label>Administrator token<br><input type='password' name='admin_token' "
+            "autocomplete='current-password' required></label><br><br>"
             "<button type='submit'>Approve device</button></form>"
         )
         self._html(HTTPStatus.OK, body)
+
+    def _browser_pairing_approve(self, session_id: str) -> None:
+        session = self.browser_pairing.get(session_id)
+        if session is None:
+            self._html(HTTPStatus.NOT_FOUND, "<h1>Pairing session expired</h1>")
+            return
+        try:
+            length = int(self.headers.get("Content-Length", "0"))
+            raw = self.rfile.read(length).decode("utf-8")
+            from urllib.parse import parse_qs
+            admin_token = parse_qs(raw).get("admin_token", [""])[0]
+        except (ValueError, UnicodeDecodeError):
+            admin_token = ""
+        if not _authorized(f"Bearer {admin_token}", self.auth_token):
+            self._html(
+                HTTPStatus.UNAUTHORIZED,
+                "<h1>OpenRoadCode pairing</h1><p>Administrator token was not accepted.</p>"
+                f"<p><a href='/pairing/browser/approve/{session_id}'>Try again</a></p>",
+            )
+            return
+        if not self.browser_pairing.approve(session_id):
+            self._html(HTTPStatus.NOT_FOUND, "<h1>Pairing session expired</h1>")
+            return
+        self._html(
+            HTTPStatus.OK,
+            "<h1>Device approved</h1>"
+            "<p>OpenRoadCode Android Bridge has been authorized.</p>"
+            "<p>You may return to the app.</p>",
+        )
 
     def _html(self, status: HTTPStatus, body: str) -> None:
         encoded = ("<!doctype html><meta name='viewport' content='width=device-width'>"
