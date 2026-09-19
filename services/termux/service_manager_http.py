@@ -48,11 +48,13 @@ class ServiceManagerHandler(BaseHTTPRequestHandler):
         if parts == ["pair"]:
             self._pair()
             return
-        if not self._authenticate():
-            return
         if parts == ["pairing", "start"]:
+            if not self._authenticate_admin():
+                return
             pin, expires_at = self.pairing.begin()
             self._json(HTTPStatus.OK, {"pin": pin, "expires_at": expires_at})
+            return
+        if not self._authenticate():
             return
         try:
             if parts == ["stack", "core", "start"]:
@@ -84,6 +86,12 @@ class ServiceManagerHandler(BaseHTTPRequestHandler):
             self._json(HTTPStatus.BAD_REQUEST, {"error": str(exc)})
             return
         self._json(HTTPStatus.OK, {"client_id": client_id, "access_token": token})
+
+    def _authenticate_admin(self) -> bool:
+        if authorized(self.headers.get("Authorization"), self.auth_token):
+            return True
+        self._json(HTTPStatus.UNAUTHORIZED, {"error": "unauthorized"})
+        return False
 
     def _authenticate(self) -> bool:
         header = self.headers.get("Authorization")
