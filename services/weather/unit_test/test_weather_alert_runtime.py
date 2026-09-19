@@ -41,7 +41,7 @@ class _Publisher:
 
 def _alert(headline="Warning"):
     return WeatherAlert(
-        alert_id="alert-1",
+        identifier="alert-1",
         event="Severe Thunderstorm Warning",
         headline=headline,
         description="Storm",
@@ -71,7 +71,7 @@ def test_poll_publishes_new_alert_only_once():
 
     assert runtime.poll_once(location) == 1
     assert runtime.poll_once(location) == 0
-    assert publisher.alerts == [_alert()]
+    assert len(publisher.alerts) == 1\n    assert publisher.alerts[0].alert == _alert()\n    assert publisher.alerts[0].operation.value == \"active\"
 
 
 def test_poll_republishes_changed_alert():
@@ -82,7 +82,7 @@ def test_poll_republishes_changed_alert():
     provider.alerts = (_alert("Updated"),)
 
     assert runtime.poll_once(location) == 1
-    assert [alert.headline for alert in publisher.alerts] == ["First", "Updated"]
+    assert [event.alert.headline for event in publisher.alerts] == ["First", "Updated"]
 
 
 def test_alert_can_be_published_again_after_leaving_active_set():
@@ -95,7 +95,7 @@ def test_alert_can_be_published_again_after_leaving_active_set():
     provider.alerts = (_alert(),)
 
     assert runtime.poll_once(location) == 1
-    assert len(publisher.alerts) == 2
+    assert len(publisher.alerts) == 3\n    assert publisher.alerts[1].operation.value == \"cleared\"\n    assert publisher.alerts[2].operation.value == \"active\"\n    assert publisher.alerts[0].correlation_id != publisher.alerts[2].correlation_id
 
 
 def test_rejects_polling_faster_than_nws_guidance():
