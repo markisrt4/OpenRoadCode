@@ -41,6 +41,10 @@ class SettingsScreen(TkScreen):
         self._on_vehicle_configuration_changed = on_vehicle_configuration_changed
         self._on_back = on_back
 
+    def set_theme_mode(self, _mode: object) -> None:
+        """Rebuild active Settings content using the host's current theme."""
+        self.show()
+
     def show(self) -> None:
         """Build SETTINGS content from the current shared configuration."""
         self._host.activate_screen(self)
