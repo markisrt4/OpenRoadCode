@@ -207,7 +207,8 @@ def main() -> int:
         client_store=ServiceManagerClientStore(DEFAULT_CLIENT_STORE_PATH)
     )
 
-    ServiceManagerHandler.browser_pairing = ServiceManagerBrowserPairing(ServiceManagerHandler.pairing)    server = ThreadingHTTPServer((args.host, args.port), ServiceManagerHandler)
+    ServiceManagerHandler.browser_pairing = ServiceManagerBrowserPairing(ServiceManagerHandler.pairing)
+    server = ThreadingHTTPServer((args.host, args.port), ServiceManagerHandler)
     auth_mode = "bearer token" if token else "localhost only"
     print(f"OpenRoadCode Termux service manager listening on {args.host}:{args.port} ({auth_mode})")
     try:
