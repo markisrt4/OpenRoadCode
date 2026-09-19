@@ -8,7 +8,7 @@ import pytest
 
 from controllers.weather import (
     WeatherAlert,
-    WeatherAlertCertainty,
+    WeatherAlertCertainty,\n    WeatherAlertEvent,\n    WeatherAlertOperation,\n    WeatherAlertClearReason,
     WeatherAlertSeverity,
     WeatherAlertUrgency,
 )
@@ -40,11 +40,11 @@ def _alert() -> WeatherAlert:
 
 
 def test_encode_preserves_normalized_alert_fields() -> None:
-    payload = encode_weather_alert(_alert())
+    payload = encode_weather_alert(WeatherAlertEvent(_alert(), "corr-1", WeatherAlertOperation.ACTIVE))
 
     assert payload["version"] == 1
     assert payload["source"] == "nws"
-    assert payload["data"]["event"] == "Severe Thunderstorm Warning"
+    assert payload["data"]["identifier"] == "urn:nws:alert:test-123"\n    assert payload["data"]["correlation_id"] == "corr-1"\n    assert payload["data"]["operation"] == "active"\n    assert payload["data"]["clear_reason"] is None\n    assert payload["data"]["event"] == "Severe Thunderstorm Warning"
     assert payload["data"]["severity"] == "severe"
     assert payload["data"]["urgency"] == "immediate"
     assert payload["data"]["certainty"] == "observed"
@@ -52,7 +52,7 @@ def test_encode_preserves_normalized_alert_fields() -> None:
 
 
 def test_decode_returns_typed_message() -> None:
-    message = decode_weather_alert(encode_weather_alert(_alert()))
+    message = decode_weather_alert(encode_weather_alert(WeatherAlertEvent(_alert(), "corr-1", WeatherAlertOperation.ACTIVE)))
 
     assert message.source == "nws"
     assert message.data.alert_id == "urn:nws:alert:test-123"
@@ -86,7 +86,7 @@ def test_nullable_instruction_onset_and_expiration_are_supported() -> None:
 
 
 def test_validator_rejects_unknown_severity() -> None:
-    payload = encode_weather_alert(_alert())
+    payload = encode_weather_alert(WeatherAlertEvent(_alert(), "corr-1", WeatherAlertOperation.ACTIVE))
     payload["data"]["severity"] = "catastrophically-inconvenient"
 
     with pytest.raises(ValueError):
@@ -94,7 +94,7 @@ def test_validator_rejects_unknown_severity() -> None:
 
 
 def test_validator_rejects_naive_timestamp() -> None:
-    payload = encode_weather_alert(_alert())
+    payload = encode_weather_alert(WeatherAlertEvent(_alert(), "corr-1", WeatherAlertOperation.ACTIVE))
     payload["data"]["effective_at"] = "2026-09-17T18:00:00"
 
     with pytest.raises(ValueError):
@@ -105,7 +105,7 @@ def test_publisher_uses_weather_alert_topic() -> None:
     transport = Mock()
     publisher = WeatherAlertPublisher(transport)
 
-    publisher.publish(_alert())
+    publisher.publish(WeatherAlertEvent(_alert(), "corr-1", WeatherAlertOperation.ACTIVE))
 
     topic, payload = transport.publish.call_args.args
     assert topic == WEATHER_ALERT_TOPIC
