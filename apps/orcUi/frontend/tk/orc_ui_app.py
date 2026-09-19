@@ -132,23 +132,6 @@ class OrcUiApp(VolumeUiIf):
             return
         self._deactivate_active_screen()
         self._show_placeholder(nav_name)
-    def navigate_to_context(self, name: str) -> None:
-        """Open a Home context destination through semantic shell navigation."""
-        context_name = name.strip().upper()
-        if not context_name:
-            raise ValueError("Context destination must not be empty")
-        if context_name in {"VEHICLE", "TRIP"}:
-            self.navigate_to("VEHICLE")
-            if context_name == "TRIP":
-                screen = self._screen_registry.get("VEHICLE")
-                show_trip_view = getattr(screen, "show_trip_view", None)
-                if callable(show_trip_view):
-                    show_trip_view()
-        elif context_name == "OFF-ROAD":
-            self.navigate_to("OFF-ROAD")
-        else:
-            self._deactivate_active_screen()
-            self._show_placeholder(context_name)
     def activate_screen(self, screen: ScreenUiIf) -> None:
         previous = self._active_screen
         if previous is screen:
