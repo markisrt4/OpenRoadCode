@@ -21,7 +21,7 @@ from ui.theme import ThemeBundle
 from ui.weather import WeatherRequestHandlerIf, WeatherUiIf, WeatherUiState
 
 
-def weather_symbol(condition: str) -> str:
+def weather_symbol(condition: str, *, nighttime: bool = False) -> str:
     """Return a compact Unicode symbol for a normalized condition label."""
     text = condition.lower()
     if "thunder" in text:
@@ -33,9 +33,9 @@ def weather_symbol(condition: str) -> str:
     if "fog" in text or "mist" in text:
         return "≋"
     if "clear" in text or "sun" in text:
-        return "☀"
+        return "☾" if nighttime else "☀"
     if "partly" in text:
-        return "◑"
+        return "☾☁" if nighttime else "☀☁"
     if "cloud" in text or "overcast" in text:
         return "☁"
     return "◌"
@@ -67,7 +67,7 @@ class OrcWeatherPanel(tk.Frame, WeatherUiIf):
         self._header.grid(row=0, column=0, sticky="ew", padx=22, pady=(12, 7))
         self._header.grid_columnconfigure(0, weight=1)
         self._location = tk.Label(
-            self._header, text="Weather", anchor="w", font=("Sans", 21, "bold")
+            self._header, text="WEATHER", anchor="w", font=("Sans", 13, "bold")
         )
         self._location.grid(row=0, column=0, sticky="w")
         self._provider = tk.Label(
@@ -205,7 +205,7 @@ class OrcWeatherPanel(tk.Frame, WeatherUiIf):
     def _render(self) -> None:
         state = self._state
         if state is None:
-            self._location.configure(text="Weather")
+            self._location.configure(text="WEATHER")
             self._provider.configure(text="")
             self._symbol.configure(text="◌")
             self._temperature.configure(text="--°")
@@ -217,7 +217,10 @@ class OrcWeatherPanel(tk.Frame, WeatherUiIf):
             return
 
         current = state.current
-        self._location.configure(text=state.location_name or "Current Location")
+        location = state.location_name.strip()
+        self._location.configure(
+            text="WEATHER" if not location or location.lower() == "configured fallback" else location
+        )
         self._provider.configure(text=self._provider_text(state))
         self._symbol.configure(text=weather_symbol(current.condition_label))
         self._temperature.configure(text=self._temperature_text(current.temperature_k))
@@ -249,7 +252,13 @@ class OrcWeatherPanel(tk.Frame, WeatherUiIf):
         if state is None:
             return
 
-        for column, item in enumerate(state.hourly[:6]):
+        now = datetime.now().astimezone()
+        current_hour = now.replace(minute=0, second=0, microsecond=0)
+        upcoming = [
+            item for item in state.hourly
+            if self._local_timestamp(item.timestamp) >= current_hour
+        ]
+        for column, item in enumerate(upcoming[:6]):
             precipitation = (
                 "" if item.precipitation_probability is None
                 else f"☂ {self._percent(item.precipitation_probability)}"
@@ -257,8 +266,11 @@ class OrcWeatherPanel(tk.Frame, WeatherUiIf):
             self._forecast_cell(
                 self._hourly,
                 column,
-                item.timestamp.strftime("%I %p").lstrip("0"),
-                weather_symbol(item.condition_label),
+                self._local_timestamp(item.timestamp).strftime("%I %p").lstrip("0"),
+                weather_symbol(
+                    item.condition_label,
+                    nighttime=self._is_night(self._local_timestamp(item.timestamp)),
+                ),
                 self._temperature_text(item.temperature_k),
                 item.condition_label,
                 precipitation,
@@ -320,12 +332,21 @@ class OrcWeatherPanel(tk.Frame, WeatherUiIf):
             text=detail,
             bg=ui.surface,
             fg=ui.text_muted,
-            font=("Sans", 8),
-            wraplength=110,
+            font=("Sans", 7),
+            wraplength=92,
+            height=2,
         ).pack(padx=3, pady=(1, 0))
         tk.Label(
             cell, text=footer, bg=ui.surface, fg=ui.accent_primary, font=("Sans", 8, "bold")
         ).pack(pady=(1, 6))
+
+    @staticmethod
+    def _local_timestamp(value: datetime) -> datetime:
+        return value.astimezone()
+
+    @staticmethod
+    def _is_night(value: datetime) -> bool:
+        return value.hour < 6 or value.hour >= 20
 
     def _temperature_text(self, value: float | None) -> str:
         if value is None:
