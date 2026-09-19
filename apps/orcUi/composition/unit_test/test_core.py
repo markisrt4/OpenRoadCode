@@ -95,8 +95,8 @@ class CoreCompositionTest(unittest.TestCase):
         )
         app_type.assert_called_once()
         app_kwargs = app_type.call_args.kwargs
-        self.assertIs(app_kwargs["map_runtime"], map_runtime)
         self.assertIs(app_kwargs["lifecycle_handler"], lifecycle)
+        map_runtime.set_theme.assert_called_once()
         self.assertIsInstance(core.presentation, OrcUiPresentationState)
         self.assertIsInstance(core.vehicle_configuration, VehicleConfigurationState)
         self.assertTrue(callable(core.telemetry_profile_request))
