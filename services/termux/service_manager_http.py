@@ -16,6 +16,7 @@ import subprocess
 from common.xdg_paths import xdg_config_home
 from services.common.service_manager_auth import TOKEN_ENV, authorized, binding_allowed
 from services.common.service_manager_client_store import ServiceManagerClientStore
+from services.common.service_manager_browser_pairing import ServiceManagerBrowserPairing
 from services.common.service_manager_pairing import ServiceManagerPairing
 from services.termux.service_manager import RunitServiceManager, ServiceStatus
 
@@ -34,8 +35,16 @@ class ServiceManagerHandler(BaseHTTPRequestHandler):
     manager = RunitServiceManager()
     auth_token: str | None = None
     pairing = ServiceManagerPairing()
+    browser_pairing = ServiceManagerBrowserPairing(pairing)
 
     def do_GET(self) -> None:  # noqa: N802 - BaseHTTPRequestHandler API
+        parts = [part for part in self.path.split("/") if part]
+        if len(parts) == 4 and parts[:3] == ["pairing", "browser", "approve"]:
+            self._browser_approval_page(parts[3])
+            return
+        if len(parts) == 4 and parts[:3] == ["pairing", "browser", "status"]:
+            self._browser_pairing_status(parts[3])
+            return
         if not self._authenticate():
             return
         if self.path.rstrip("/") != "/services":
@@ -47,6 +56,17 @@ class ServiceManagerHandler(BaseHTTPRequestHandler):
         parts = [part for part in self.path.split("/") if part]
         if parts == ["pair"]:
             self._pair()
+            return
+        if parts == ["pairing", "browser", "start"]:
+            self._browser_pairing_start()
+            return
+        if len(parts) == 4 and parts[:3] == ["pairing", "browser", "approve"]:
+            if not self._authenticate_admin():
+                return
+            if not self.browser_pairing.approve(parts[3]):
+                self._json(HTTPStatus.NOT_FOUND, {"error": "pairing session not found or expired"})
+                return
+            self._json(HTTPStatus.OK, {"approved": True})
             return
         if parts == ["pairing", "start"]:
             if not self._authenticate_admin():
@@ -73,6 +93,60 @@ class ServiceManagerHandler(BaseHTTPRequestHandler):
             self._json(HTTPStatus.BAD_REQUEST, {"error": str(exc)})
             return
         self._json(HTTPStatus.OK, _payload(statuses))
+
+    def _browser_pairing_start(self) -> None:
+        try:
+            length = int(self.headers.get("Content-Length", "0"))
+            payload = json.loads(self.rfile.read(length) or b"{}")
+            session = self.browser_pairing.begin(str(payload.get("client_name", "")))
+        except (ValueError, json.JSONDecodeError) as exc:
+            self._json(HTTPStatus.BAD_REQUEST, {"error": str(exc)})
+            return
+        host = self.headers.get("Host", f"127.0.0.1:{self.server.server_port}")
+        approval_url = f"http://{host}/pairing/browser/approve/{session.session_id}"
+        self._json(HTTPStatus.OK, {
+            "session_id": session.session_id,
+            "approval_url": approval_url,
+            "expires_at": session.expires_at,
+        })
+
+    def _browser_pairing_status(self, session_id: str) -> None:
+        session = self.browser_pairing.get(session_id)
+        if session is None:
+            self._json(HTTPStatus.NOT_FOUND, {"error": "pairing session not found or expired"})
+            return
+        credentials = self.browser_pairing.complete(session_id)
+        if credentials is None:
+            self._json(HTTPStatus.OK, {"status": "pending"})
+            return
+        client_id, token = credentials
+        self._json(HTTPStatus.OK, {
+            "status": "approved", "client_id": client_id, "access_token": token
+        })
+
+    def _browser_approval_page(self, session_id: str) -> None:
+        session = self.browser_pairing.get(session_id)
+        if session is None:
+            self._html(HTTPStatus.NOT_FOUND, "<h1>Pairing session expired</h1>")
+            return
+        body = (
+            "<h1>OpenRoadCode pairing</h1>"
+            f"<p><strong>{session.client_name}</strong> wants permission to control this runtime.</p>"
+            "<p>Approve this request from an authenticated administrator client.</p>"
+            f"<form method='post' action='/pairing/browser/approve/{session.session_id}'>"
+            "<button type='submit'>Approve device</button></form>"
+        )
+        self._html(HTTPStatus.OK, body)
+
+    def _html(self, status: HTTPStatus, body: str) -> None:
+        encoded = ("<!doctype html><meta name='viewport' content='width=device-width'>"
+                   "<title>OpenRoadCode pairing</title>" + body).encode("utf-8")
+        self.send_response(status.value)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("Content-Length", str(len(encoded)))
+        self.end_headers()
+        self.wfile.write(encoded)
 
     def _pair(self) -> None:
         try:
@@ -132,7 +206,8 @@ def main() -> int:
     ServiceManagerHandler.pairing = ServiceManagerPairing(
         client_store=ServiceManagerClientStore(DEFAULT_CLIENT_STORE_PATH)
     )
-    server = ThreadingHTTPServer((args.host, args.port), ServiceManagerHandler)
+
+    ServiceManagerHandler.browser_pairing = ServiceManagerBrowserPairing(ServiceManagerHandler.pairing)    server = ThreadingHTTPServer((args.host, args.port), ServiceManagerHandler)
     auth_mode = "bearer token" if token else "localhost only"
     print(f"OpenRoadCode Termux service manager listening on {args.host}:{args.port} ({auth_mode})")
     try:
