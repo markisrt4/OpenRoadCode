@@ -324,8 +324,8 @@ class OrcWeatherPanel(tk.Frame, WeatherUiIf):
                 else f"☂ {self._percent(item.precipitation_probability)}"
             )
             temperatures = (
-                f"{self._temperature_text(item.temperature_high_k)}  "
-                f"{self._temperature_text(item.temperature_low_k)}"
+                self._temperature_text(item.temperature_low_k),
+                self._temperature_text(item.temperature_high_k),
             )
             self._forecast_cell(
                 self._daily,
@@ -343,7 +343,7 @@ class OrcWeatherPanel(tk.Frame, WeatherUiIf):
         column: int,
         heading: str,
         symbol: str,
-        value: str,
+        value: str | tuple[str, str],
         detail: str,
         footer: str,
     ) -> None:
@@ -368,9 +368,21 @@ class OrcWeatherPanel(tk.Frame, WeatherUiIf):
         tk.Label(
             cell, text=symbol, bg=ui.surface, fg=accent, font=("Sans", 23)
         ).pack(pady=(0, 0))
-        tk.Label(
-            cell, text=value, bg=ui.surface, fg=ui.text, font=("Sans", 13, "bold")
-        ).pack()
+        if isinstance(value, tuple):
+            temperatures = tk.Frame(cell, bg=ui.surface)
+            temperatures.pack()
+            tk.Label(
+                temperatures, text=value[0], bg=ui.surface, fg="#2878b8",
+                font=("Sans", 13, "bold"),
+            ).pack(side=tk.LEFT, padx=(0, 5))
+            tk.Label(
+                temperatures, text=value[1], bg=ui.surface, fg="#c84b45",
+                font=("Sans", 13, "bold"),
+            ).pack(side=tk.LEFT, padx=(5, 0))
+        else:
+            tk.Label(
+                cell, text=value, bg=ui.surface, fg=ui.text, font=("Sans", 13, "bold")
+            ).pack()
         tk.Label(
             cell,
             text=detail,
