@@ -30,6 +30,7 @@ class WeatherScreen(TkScreen, WeatherRequestHandlerIf):
         theme_bundle: Callable[[], ThemeBundle],
         unit_system: Callable[[], UnitSystem] = lambda: UnitSystem.IMPERIAL,
         on_weather_radio: Callable[[], None] | None = None,
+        on_weather_state: Callable[[object], None] | None = None,
     ) -> None:
         super().__init__(ScreenId("weather"))
         self._host = host
@@ -37,6 +38,7 @@ class WeatherScreen(TkScreen, WeatherRequestHandlerIf):
         self._theme_bundle = theme_bundle
         self._unit_system = unit_system
         self._on_weather_radio = on_weather_radio
+        self._on_weather_state = on_weather_state
         self._panel: OrcWeatherPanel | None = None
         self._presenter: WeatherPresenter | None = None
         self._generation = 0
@@ -98,7 +100,9 @@ class WeatherScreen(TkScreen, WeatherRequestHandlerIf):
     def _refresh_succeeded(self, generation: int, state) -> None:
         if generation != self._generation or self._presenter is None:
             return
-        self._presenter.present(state)
+        ui_state = self._presenter.present(state)
+        if self._on_weather_state is not None:
+            self._on_weather_state(ui_state)
         self._host.set_screen_status("")
 
     def _refresh_failed(self, generation: int, detail: str) -> None:
