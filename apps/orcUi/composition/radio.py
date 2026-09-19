@@ -15,6 +15,7 @@ from apps.orcUi.frontend.tk.orc_ui_app import OrcUiApp
 from apps.orcUi.frontend.tk.radio_entry_panel import RadioEntryPanel
 from apps.orcUi.theme_runtime import theme_bundle
 from controllers.radio.adapters.radio_browser_directory import RadioBrowserDirectory
+from controllers.radio.radio_profile_controller import RadioProfileController
 from controllers.radio.streaming_radio_favorites import StreamingRadioFavorites
 from frontends.tk.radio import RadioScreen
 from frontends.tk.radio.streaming_radio_now_playing import StreamingRadioNowPlaying
@@ -29,6 +30,7 @@ class RadioComposition:
     directory: RadioBrowserDirectory
     favorites: StreamingRadioFavorites
     home_factory: Callable[[tk.Misc], tk.Widget]
+    open_weather_radio: Callable[[], None]
 
 
 def configure_radio(app: OrcUiApp, runtime) -> RadioComposition:
@@ -72,6 +74,41 @@ def configure_radio(app: OrcUiApp, runtime) -> RadioComposition:
         else:
             raise ValueError(f"Unsupported radio source: {source}")
 
+    def open_weather_radio() -> None:
+        """Start NOAA RF audio while leaving the requesting screen visible."""
+        app.set_screen_status("RF: starting NOAA Weather Radio")
+        controller = RadioProfileController()
+        profile = controller.catalog.profile("weather_band")
+        if not profile.presets:
+            app.set_screen_status("RF: no NOAA weather presets configured")
+            return
+        preset = profile.presets[0]
+        try:
+            runtime.radio.present()
+        except (OSError, RuntimeError, ValueError) as error:
+            app.set_screen_status(f"RF: {error}")
+            return
+
+        def tune_when_ready(attempts_remaining: int = 24) -> None:
+            try:
+                if controller.active_profile_key != profile.key:
+                    controller.select_profile(profile.key)
+                state = controller.tune_preset(preset)
+            except (OSError, RuntimeError, ValueError) as error:
+                if attempts_remaining > 0:
+                    app.schedule_ui_callback(
+                        250,
+                        lambda: tune_when_ready(attempts_remaining - 1),
+                    )
+                    return
+                app.set_screen_status(f"RF: {error}")
+                return
+            app.set_screen_status(
+                f"RF: Playing {preset.frequency_hz / 1_000_000:.3f} MHz · {state.label}"
+            )
+
+        app.schedule_ui_callback(250, tune_when_ready)
+
     def home_radio_factory(parent):
         return StreamingRadioNowPlaying(
             parent,
@@ -108,4 +145,5 @@ def configure_radio(app: OrcUiApp, runtime) -> RadioComposition:
         directory=directory,
         favorites=favorites,
         home_factory=home_radio_factory,
+        open_weather_radio=open_weather_radio,
     )
