@@ -169,7 +169,10 @@ class OrcUiCompositionTest(unittest.TestCase):
         configure_radio.assert_called_once_with(app, runtime)
         configure_games.assert_called_once_with(app)
         configure_media.assert_called_once_with(app, runtime)
-        configure_weather.assert_called_once_with(app)
+        configure_weather.assert_called_once()
+        self.assertIs(configure_weather.call_args.args[0], app)
+        unit_system = configure_weather.call_args.kwargs["unit_system"]
+        self.assertTrue(callable(unit_system))
         app.set_initial_destination.assert_called_once_with("HOME")
         app.set_settings_action.assert_called_once()
 
