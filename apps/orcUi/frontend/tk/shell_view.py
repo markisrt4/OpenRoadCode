@@ -32,6 +32,7 @@ class OrcUiShellView:
         on_navigate: Callable[[str], None],
         on_power: Callable[[], None],
         on_theme_toggle: Callable[[], None],
+        on_settings: Callable[[], None],
         on_volume_down: Callable[[], None],
         on_volume_up: Callable[[], None],
         volume_text: str,
@@ -44,6 +45,7 @@ class OrcUiShellView:
         self._on_navigate = on_navigate
         self._on_power = on_power
         self._on_theme_toggle = on_theme_toggle
+        self._on_settings = on_settings
         self._on_volume_down = on_volume_down
         self._on_volume_up = on_volume_up
         self._volume_text = volume_text
@@ -183,7 +185,7 @@ class OrcUiShellView:
             theme_label=toggle_label(self._theme_mode),
             on_volume_down=self._on_volume_down,
             on_volume_up=self._on_volume_up,
-            on_settings=lambda: self._on_navigate("SETTINGS"),
+            on_settings=self._on_settings,
             on_theme_toggle=self._on_theme_toggle,
         )
         self._bottom_bar.grid(
