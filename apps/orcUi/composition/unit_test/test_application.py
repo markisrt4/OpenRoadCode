@@ -18,12 +18,14 @@ class OrcUiCompositionTest(unittest.TestCase):
         radio = Mock()
         media = Mock()
         games = Mock()
+        weather = Mock()
         composition = OrcUiComposition(
             core=core,
             runtime=runtime,
             radio=radio,
             media=media,
             games=games,
+            weather=weather,
         )
 
         composition.run()
@@ -57,6 +59,7 @@ class OrcUiCompositionTest(unittest.TestCase):
             radio=radio,
             media=media,
             games=games,
+            weather=weather,
         )
 
         composition.run()
@@ -81,12 +84,14 @@ class OrcUiCompositionTest(unittest.TestCase):
         radio = Mock()
         media = Mock()
         games = Mock()
+        weather = Mock()
         composition = OrcUiComposition(
             core=core,
             runtime=runtime,
             radio=radio,
             media=media,
             games=games,
+            weather=weather,
         )
 
         with self.assertRaisesRegex(RuntimeError, "boom"):
@@ -107,12 +112,14 @@ class OrcUiCompositionTest(unittest.TestCase):
         radio = Mock()
         media = Mock()
         games = Mock()
+        weather = Mock()
         composition = OrcUiComposition(
             core=core,
             runtime=runtime,
             radio=radio,
             media=media,
             games=games,
+            weather=weather,
         )
 
         with self.assertRaisesRegex(RuntimeError, "ingress failed"):
@@ -125,6 +132,7 @@ class OrcUiCompositionTest(unittest.TestCase):
         runtime.close.assert_called_once_with()
         core.lifecycle.execute_requested_action.assert_not_called()
 
+    @patch("apps.orcUi.composition.application.configure_weather")
     @patch("apps.orcUi.composition.application.configure_media")
     @patch("apps.orcUi.composition.application.configure_games")
     @patch("apps.orcUi.composition.application.configure_radio")
@@ -137,6 +145,7 @@ class OrcUiCompositionTest(unittest.TestCase):
         configure_radio: Mock,
         configure_games: Mock,
         configure_media: Mock,
+        configure_weather: Mock,
     ) -> None:
         runtime = create_runtime.return_value
         core = create_core.return_value
@@ -144,6 +153,7 @@ class OrcUiCompositionTest(unittest.TestCase):
         radio = configure_radio.return_value
         games = configure_games.return_value
         media = configure_media.return_value
+        weather = configure_weather.return_value
 
         composition = create_orc_ui_composition()
 
@@ -153,10 +163,12 @@ class OrcUiCompositionTest(unittest.TestCase):
         self.assertIs(composition.radio, radio)
         self.assertIs(composition.games, games)
         self.assertIs(composition.media, media)
+        self.assertIs(composition.weather, weather)
         app.set_theme_change_handler.assert_called_once_with(core.map_runtime.set_theme)
         configure_radio.assert_called_once_with(app, runtime)
         configure_games.assert_called_once_with(app)
         configure_media.assert_called_once_with(app, runtime)
+        configure_weather.assert_called_once_with(app)
         app.set_initial_destination.assert_called_once_with("HOME")
         app.set_settings_action.assert_called_once()
 
