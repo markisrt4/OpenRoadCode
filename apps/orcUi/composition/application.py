@@ -70,6 +70,8 @@ def create_orc_ui_composition() -> OrcUiComposition:
         core = create_core_composition()
         app = core.app
         app.set_theme_change_handler(core.map_runtime.set_theme)
+        for destination in ("HOME", "NAVIGATION", "RADIO", "VEHICLE", "VISION", "LIGHTING", "GAMES", "MEDIA"):
+            app.register_navigation_destination(destination)
         radio = configure_radio(app, runtime)
         games = configure_games(app)
         media = configure_media(app, runtime)
@@ -143,8 +145,6 @@ def create_orc_ui_composition() -> OrcUiComposition:
         app.register_screen("SETTINGS", settings, show_in_navigation=False)
         app.set_initial_destination("HOME")
         app.set_settings_action(lambda: app.navigate_to("SETTINGS"))
-        for placeholder in ("VISION", "LIGHTING"):
-            app.register_navigation_destination(placeholder)
     except Exception:
         if core is not None:
             core.close()
