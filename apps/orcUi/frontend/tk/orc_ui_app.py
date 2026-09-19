@@ -17,6 +17,7 @@ from apps.orcUi.theme_runtime import theme_bundle
 from common.host_config import installed_target, orcui_fullscreen_default
 from ui.screen_ui_if import ScreenUiIf
 from ui.system import SystemLifecycleRequestHandlerIf, VolumeRequestHandlerIf, VolumeUiIf
+from ui.weather import WeatherAlertUiEvent
 
 class OrcUiApp(VolumeUiIf):
     """Own the integrated Tk application shell."""
@@ -218,6 +219,11 @@ class OrcUiApp(VolumeUiIf):
             volume_text=self._volume_text(),
         )
         self._content = self._shell.content
+
+    def present_weather_alert(self, alert: WeatherAlertUiEvent | None) -> None:
+        """Forward shell-level Weather alert state to persistent chrome."""
+        if self._shell is not None:
+            self._shell.show_weather_alert(alert)
 
     def set_breadcrumb(self, *parts: str) -> None:
         if self._shell is not None:
