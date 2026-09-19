@@ -102,18 +102,18 @@ class ServiceManagerHttpRequestTest(unittest.TestCase):
         self.assertTrue(payload["session_id"])
         self.assertIn("/pairing/browser/approve/", payload["approval_url"])
 
-    def test_browser_pairing_requires_admin_to_approve(self) -> None:
+    def test_same_device_browser_pairing_does_not_require_admin_token(self) -> None:
         _, started = self.request(
             "POST", "/pairing/browser/start", token=None,
             body={"client_name": "Test Android"},
         )
-        status, payload = self.request(
+        status, approved = self.request(
             "POST",
             f"/pairing/browser/approve/{started['session_id']}",
             token=None,
         )
-        self.assertEqual(status, 401)
-        self.assertIn("Administrator token was not accepted", payload)
+        self.assertEqual(status, 200)
+        self.assertIn("Device approved", approved)
 
     def test_browser_pairing_issues_credentials_once_after_approval(self) -> None:
         _, started = self.request(
