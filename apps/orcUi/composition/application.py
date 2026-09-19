@@ -118,7 +118,7 @@ def create_orc_ui_composition() -> OrcUiComposition:
         app.register_screen("HOME", home)
         app.register_screen("NAVIGATION", navigation)
         app.register_screen("VEHICLE", vehicle)
-        app.register_screen("SETTINGS", settings)
+        app.register_screen("SETTINGS", settings, show_in_navigation=False)
     except Exception:
         if core is not None:
             core.close()
