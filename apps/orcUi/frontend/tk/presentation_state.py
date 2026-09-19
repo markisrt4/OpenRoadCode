@@ -14,6 +14,7 @@ from apps.orcUi.navigation_presenter import (
 )
 from apps.orcUi.trip_presenter import TripPresentationState
 from apps.orcUi.vehicle_presenter import VehiclePresentationState
+from ui.weather import WeatherAlertUiEvent
 from controllers.automotive import (
     EngineAnalysis,
     EngineLoadLevel,
@@ -54,6 +55,7 @@ class OrcUiPresentationState:
     position: PositionPresentationState = field(default_factory=PositionPresentationState)
     attitude: AttitudePresentationState = field(default_factory=AttitudePresentationState)
     engine_analysis: EngineAnalysis = field(default_factory=_empty_engine_analysis)
+    weather_alert: WeatherAlertUiEvent | None = None
     _vehicle_observers: list[Callable[[VehiclePresentationState], None]] = field(
         default_factory=list,
         init=False,
@@ -70,6 +72,11 @@ class OrcUiPresentationState:
         repr=False,
     )
     _attitude_observers: list[Callable[[AttitudePresentationState], None]] = field(
+        default_factory=list,
+        init=False,
+        repr=False,
+    )
+    _weather_alert_observers: list[Callable[[WeatherAlertUiEvent | None], None]] = field(
         default_factory=list,
         init=False,
         repr=False,
@@ -108,6 +115,13 @@ class OrcUiPresentationState:
         """Subscribe to future attitude presentation updates."""
         self._attitude_observers.append(observer)
 
+    def observe_weather_alert(
+        self,
+        observer: Callable[[WeatherAlertUiEvent | None], None],
+    ) -> None:
+        """Subscribe to future shell-level Weather alert changes."""
+        self._weather_alert_observers.append(observer)
+
     def observe_engine_analysis(
         self,
         observer: Callable[[EngineAnalysis], None],
@@ -134,6 +148,21 @@ class OrcUiPresentationState:
         self.attitude = state
         for observer in tuple(self._attitude_observers):
             observer(state)
+
+    def apply_weather_alert(self, event: WeatherAlertUiEvent) -> None:
+        """Apply correlated Weather alert lifecycle semantics."""
+        if event.operation == "active":
+            self.weather_alert = event
+        elif (
+            event.operation == "cleared"
+            and self.weather_alert is not None
+            and self.weather_alert.correlation_id == event.correlation_id
+        ):
+            self.weather_alert = None
+        else:
+            return
+        for observer in tuple(self._weather_alert_observers):
+            observer(self.weather_alert)
 
     def apply_engine_analysis(self, analysis: EngineAnalysis) -> None:
         self.engine_analysis = analysis
