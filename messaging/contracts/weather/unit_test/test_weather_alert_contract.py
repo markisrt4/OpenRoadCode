@@ -23,7 +23,7 @@ from messaging.contracts.weather import (
 
 def _alert() -> WeatherAlert:
     return WeatherAlert(
-        alert_id="urn:nws:alert:test-123",
+        identifier="urn:nws:alert:test-123",
         event="Severe Thunderstorm Warning",
         headline="Severe Thunderstorm Warning issued for test area",
         description="Severe thunderstorms are occurring in the warned area.",
@@ -63,7 +63,7 @@ def test_decode_returns_typed_message() -> None:
 def test_nullable_instruction_onset_and_expiration_are_supported() -> None:
     alert = _alert()
     alert = WeatherAlert(
-        alert_id=alert.alert_id,
+        identifier=alert.identifier,
         event=alert.event,
         headline=alert.headline,
         description=alert.description,
@@ -109,4 +109,4 @@ def test_publisher_uses_weather_alert_topic() -> None:
 
     topic, payload = transport.publish.call_args.args
     assert topic == WEATHER_ALERT_TOPIC
-    assert payload["data"]["alert_id"] == "urn:nws:alert:test-123"
+    assert payload["data"]["identifier"] == "urn:nws:alert:test-123"
