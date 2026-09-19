@@ -32,6 +32,7 @@ class OrcUiShellView:
         on_navigate: Callable[[str], None],
         on_power: Callable[[], None],
         on_theme_toggle: Callable[[], None],
+        on_settings: Callable[[], None],
         on_volume_down: Callable[[], None],
         on_volume_up: Callable[[], None],
         volume_text: str,
@@ -44,6 +45,7 @@ class OrcUiShellView:
         self._on_navigate = on_navigate
         self._on_power = on_power
         self._on_theme_toggle = on_theme_toggle
+        self._on_settings = on_settings
         self._on_volume_down = on_volume_down
         self._on_volume_up = on_volume_up
         self._volume_text = volume_text
@@ -55,6 +57,8 @@ class OrcUiShellView:
         self._bottom_bar: OrcUiBottomBar | None = None
         self._clock_label: tk.Label | None = None
         self._breadcrumb_label: tk.Label | None = None
+        self._status_label: tk.Label | None = None
+        self._status_text = ""
         self._breadcrumb = active_nav
         self._clock_after_id: str | None = None
 
@@ -113,6 +117,11 @@ class OrcUiShellView:
             except tk.TclError:
                 pass
             self._clock_after_id = None
+
+    def set_status(self, text: str) -> None:
+        self._status_text = text
+        if self._status_label is not None and self._status_label.winfo_exists():
+            self._status_label.configure(text=text)
 
     def set_volume_text(self, text: str) -> None:
         self._volume_text = text
@@ -176,7 +185,7 @@ class OrcUiShellView:
             theme_label=toggle_label(self._theme_mode),
             on_volume_down=self._on_volume_down,
             on_volume_up=self._on_volume_up,
-            on_settings=lambda: self._on_navigate("SETTINGS"),
+            on_settings=self._on_settings,
             on_theme_toggle=self._on_theme_toggle,
         )
         self._bottom_bar.grid(
@@ -195,5 +204,6 @@ class OrcUiShellView:
             enabled=self._adsb_enabled,
             aircraft_count=self._aircraft_count,
         )
-        self._breadcrumb_label, _status_label = build_footer(self._root, theme=self._theme)
+        self._breadcrumb_label, self._status_label = build_footer(self._root, theme=self._theme)
         self._breadcrumb_label.configure(text=self._breadcrumb)
+        self._status_label.configure(text=self._status_text)

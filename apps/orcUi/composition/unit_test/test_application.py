@@ -153,9 +153,12 @@ class OrcUiCompositionTest(unittest.TestCase):
         self.assertIs(composition.radio, radio)
         self.assertIs(composition.games, games)
         self.assertIs(composition.media, media)
+        app.set_theme_change_handler.assert_called_once_with(core.map_runtime.set_theme)
         configure_radio.assert_called_once_with(app, runtime)
         configure_games.assert_called_once_with(app)
         configure_media.assert_called_once_with(app, runtime)
+        app.set_initial_destination.assert_called_once_with("HOME")
+        app.set_settings_action.assert_called_once()
 
     @patch("apps.orcUi.composition.application.configure_radio")
     @patch("apps.orcUi.composition.application.create_core_composition")

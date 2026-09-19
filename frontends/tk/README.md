@@ -43,6 +43,8 @@ apps/diagnosticUi/frontend/tk/
 
 Each application can reuse feature widgets and screens from `frontends/tk`, controllers from `controllers/`, and semantic contracts from `ui/`. An application shell should implement `TkScreenHostIf` when it wants to host reusable Tk screens.
 
+`TkScreenHostIf` deliberately describes host services rather than an application type. A reusable screen owns its feature behavior and uses the host only for its Tk parent, activation/lifecycle handoff, shell title and status, optional back intent, and event-loop scheduling. Feature dependencies belong in the screen constructor and are supplied by application composition.
+
 Do not make reusable `frontends/tk` packages import `apps.orcUi`, `OrcUiApp`, or any other application-specific frontend. If a reusable component needs another operation, prefer adding the narrowest appropriate contract rather than importing an application shell.
 
 ## Dependency direction
@@ -61,7 +63,7 @@ apps/<application>/frontend/tk
 application composition root
 ```
 
-The application composition root may select Tk and assemble reusable Tk features into its concrete shell. The reusable frontend packages should not know which application selected them.
+The application composition root may select Tk and assemble reusable Tk features into its concrete shell. The reusable frontend packages should not know which application selected them. For orcUi specifically, composition also owns which destinations exist, which one opens first, and feature-specific shell actions; `OrcUiApp` only hosts what it is given.
 
 
 ## orcUi cockpit shell

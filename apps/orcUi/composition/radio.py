@@ -5,6 +5,8 @@
 
 from __future__ import annotations
 
+import tkinter as tk
+from collections.abc import Callable
 from dataclasses import dataclass
 
 from apps.launchers.sdrpp_launcher import sync_sdrpp_theme
@@ -26,6 +28,7 @@ class RadioComposition:
     screen: RadioScreen
     directory: RadioBrowserDirectory
     favorites: StreamingRadioFavorites
+    home_factory: Callable[[tk.Misc], tk.Widget]
 
 
 def configure_radio(app: OrcUiApp, runtime) -> RadioComposition:
@@ -79,7 +82,6 @@ def configure_radio(app: OrcUiApp, runtime) -> RadioComposition:
             on_open_adsb=lambda: show_radio_source("adsb"),
         )
 
-    app.set_home_radio_factory(home_radio_factory)
     def toggle_adsb(enabled: bool) -> bool:
         # An explicit ADS-B selection wins the shared SDR. Relinquish RF first.
         if enabled and runtime.radio.presented:
@@ -101,4 +103,9 @@ def configure_radio(app: OrcUiApp, runtime) -> RadioComposition:
         app.schedule_ui_callback(1000, refresh_adsb_status)
 
     app.schedule_ui_callback(1000, refresh_adsb_status)
-    return RadioComposition(screen=screen, directory=directory, favorites=favorites)
+    return RadioComposition(
+        screen=screen,
+        directory=directory,
+        favorites=favorites,
+        home_factory=home_radio_factory,
+    )

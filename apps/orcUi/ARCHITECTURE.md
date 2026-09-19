@@ -98,17 +98,17 @@ flowchart TD
     class adsb,browser orcAdapter;
 ```
 
-`OrcUiComposition` owns the top-level graph and shutdown order. Application/runtime objects own the resources they create. The Tk shell consumes injected runtime interfaces and semantic contracts rather than constructing backend infrastructure itself. `CoreComposition` owns `MapCameraRuntime` and injects its `MapRequestHandlerIf` explicitly through `OrcUiApp` to the HOME and NAVIGATION panels; no process-global map-camera registry is used.
+`OrcUiComposition` owns the top-level graph, feature catalog, navigation destinations, and shutdown order. Application/runtime objects own the resources they create. The Tk shell consumes injected runtime interfaces and semantic contracts rather than constructing backend infrastructure itself. `CoreComposition` owns `MapCameraRuntime`; application composition passes its `MapRequestHandlerIf` to the HOME and NAVIGATION screens. No process-global map-camera registry is used.
 
 ## Tk shell ownership
 
-`apps/orcUi/frontend/tk/orc_ui_app.py` owns the concrete integrated Tk shell. It creates the Tk root, arranges shell chrome and structural panels, manages Tk screen hosting/navigation, paints presentation state, and runs the Tk event loop.
+`apps/orcUi/frontend/tk/orc_ui_app.py` owns the concrete integrated Tk shell. It creates the Tk root, arranges shell chrome, hosts registered screens, manages generic navigation, and runs the Tk event loop. It does not own the feature catalog or choose feature destinations. Composition registers screens and navigation destinations, selects the initial destination, and supplies actions for shell controls such as Settings.
 
 It must not create ZeroMQ subscribers, message decoders, audio backends, Spotify synchronization workers, browser lifecycle managers, external map renderer launchers, or host restart/poweroff implementations. Those dependencies are injected through application/runtime or UI contracts.
 
 Structural orcUi widgets that are meaningful only inside that shell stay under `apps/orcUi/frontend/tk`. A widget that could reasonably be reused by another Tk application belongs in an appropriate feature package under `frontends/tk` instead.
 
-## Reusing Tk for another application
+## Screen hosting and navigation\n\nThe screen boundary follows one rule: **composition owns dependencies, screens own feature behavior, and `OrcUiApp` owns the shell**. `OrcUiApp` maintains a generic screen registry and navigation list but contains no built-in feature catalog. A new feature should be addable by composition without editing `OrcUiApp`.\n\n```mermaid\nflowchart TD\n    composition["Application composition"] -->|constructs + injects dependencies| screens["ScreenUiIf implementations"]\n    composition -->|registers destinations + initial route| shell["OrcUiApp"]\n    screens -->|TkScreenHostIf| shell\n    shell --> shellView["OrcUiShellView"]\n    shellView --> chrome["Side nav / bottom bar / footer"]\n    shell --> content["Screen content host"]\n\n    classDef orcApp fill:#dbeafe,stroke:#2563eb,color:#172554;\n    classDef orcMessage fill:#ffedd5,stroke:#ea580c,color:#7c2d12;\n    class composition,screens,shell,shellView,chrome,content orcApp;\n```\n\nRegistered screens may be visible or hidden from primary navigation. Composition may also register a destination without a screen when the integrated shell should expose a generic placeholder. The shell renders that fallback generically; it does not know which feature the destination represents.\n\nReusable Tk screens depend on `TkScreenHostIf`, not `OrcUiApp`. The host contract provides a content parent, screen activation and clearing, title/status updates, UI-thread scheduling, and a back-action hook. orcUi currently relies on persistent destination navigation rather than rendering a dedicated back control, so back-action presentation remains a host capability to revisit separately rather than a reason for screens to depend on the concrete shell.\n\n## Reusing Tk for another application
 
 `frontends/tk` is not uniquely tailored to orcUi. A future independent Tk application owns its shell under its own application package:
 
@@ -215,6 +215,8 @@ Before merging a substantial architecture change, review the complete branch dif
 
 - Keep `apps/orcUi/main.py` as a thin composition entry point.
 - Keep concrete dependency construction in composition/runtime factories.
+- Keep the feature catalog, initial destination, and feature-specific shell actions in composition rather than `OrcUiApp` or `OrcUiShellView`.
+- A new screen or primary destination should be addable without modifying `OrcUiApp`.
 - Keep reusable Tk rendering under `frontends/tk`.
 - Keep orcUi-specific Tk rendering and layout under `apps/orcUi/frontend/tk`.
 - Keep ORC-selected host/platform bridges under `apps/orcUi/adapters`.
