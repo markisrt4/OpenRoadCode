@@ -15,7 +15,7 @@ import os
 import subprocess
 
 from common.xdg_paths import xdg_config_home
-from services.common.service_manager_auth import TOKEN_ENV, authorized, binding_allowed
+from services.common.service_manager_auth import TOKEN_ENV, authorized, binding_allowed, same_device_request
 from services.common.service_manager_client_store import ServiceManagerClientStore
 from services.common.service_manager_browser_pairing import ServiceManagerBrowserPairing
 from services.common.service_manager_pairing import ServiceManagerPairing
@@ -126,13 +126,19 @@ class ServiceManagerHandler(BaseHTTPRequestHandler):
             self._html(HTTPStatus.NOT_FOUND, "<h1>Pairing session expired</h1>")
             return
         client_name = html.escape(session.client_name)
+        local = self._same_device_request()
+        authentication = (
+            "<p>This approval is being made on the OpenRoadCode device.</p>"
+            if local else
+            "<p>Enter the service-manager administrator token to approve this device.</p>"
+            "<label>Administrator token<br><input type='password' name='admin_token' "
+            "autocomplete='current-password' required></label><br><br>"
+        )
         body = (
             "<h1>OpenRoadCode pairing</h1>"
             f"<p><strong>{client_name}</strong> wants permission to control this runtime.</p>"
-            "<p>Enter the service-manager administrator token to approve this device.</p>"
+            f"{authentication}"
             f"<form method='post' action='/pairing/browser/approve/{session.session_id}'>"
-            "<label>Administrator token<br><input type='password' name='admin_token' "
-            "autocomplete='current-password' required></label><br><br>"
             "<button type='submit'>Approve device</button></form>"
         )
         self._html(HTTPStatus.OK, body)
@@ -149,7 +155,7 @@ class ServiceManagerHandler(BaseHTTPRequestHandler):
             admin_token = parse_qs(raw).get("admin_token", [""])[0]
         except (ValueError, UnicodeDecodeError):
             admin_token = ""
-        if not authorized(f"Bearer {admin_token}", self.auth_token):
+        if not self._same_device_request() and not authorized(f"Bearer {admin_token}", self.auth_token):
             self._html(
                 HTTPStatus.UNAUTHORIZED,
                 "<h1>OpenRoadCode pairing</h1><p>Administrator token was not accepted.</p>"
@@ -165,6 +171,9 @@ class ServiceManagerHandler(BaseHTTPRequestHandler):
             "<p>OpenRoadCode Android Bridge has been authorized.</p>"
             "<p>You may return to the app.</p>",
         )
+
+    def _same_device_request(self) -> bool:
+        return same_device_request(self.client_address[0], self.connection.getsockname()[0])
 
     def _html(self, status: HTTPStatus, body: str) -> None:
         encoded = ("<!doctype html><meta name='viewport' content='width=device-width'>"
