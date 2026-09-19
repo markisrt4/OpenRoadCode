@@ -19,6 +19,7 @@ from services.linux.systemd_service_manager_http import (
     _authorized,
     _binding_allowed,
 )
+from services.common.service_manager_auth import same_device_request
 
 
 class SystemdServiceManagerHttpPolicyTest(unittest.TestCase):
@@ -39,6 +40,13 @@ class SystemdServiceManagerHttpPolicyTest(unittest.TestCase):
         self.assertTrue(_binding_allowed("127.0.0.1", None))
         self.assertTrue(_binding_allowed("localhost", None))
         self.assertTrue(_binding_allowed("::1", None))
+
+    def test_same_device_request_accepts_local_interface_connection(self) -> None:
+        self.assertTrue(same_device_request("192.168.0.217", "192.168.0.217"))
+        self.assertTrue(same_device_request("127.0.0.1", "127.0.0.1"))
+
+    def test_same_device_request_rejects_remote_client(self) -> None:
+        self.assertFalse(same_device_request("192.168.0.50", "192.168.0.217"))
 
     def test_remote_binding_requires_token(self) -> None:
         self.assertFalse(_binding_allowed("0.0.0.0", None))
@@ -162,18 +170,18 @@ class SystemdServiceManagerHttpRequestTest(unittest.TestCase):
         self.assertTrue(payload["session_id"])
         self.assertIn("/pairing/browser/approve/", payload["approval_url"])
 
-    def test_browser_pairing_requires_admin_to_approve(self) -> None:
+    def test_same_device_browser_pairing_does_not_require_admin_token(self) -> None:
         _, started = self.request(
             "POST", "/pairing/browser/start", token=None,
             payload={"client_name": "Test Android"},
         )
-        status, payload = self.request(
+        status, approved = self.request(
             "POST",
             f"/pairing/browser/approve/{started['session_id']}",
             token=None,
         )
-        self.assertEqual(status, 401)
-        self.assertIn("Administrator token was not accepted", payload)
+        self.assertEqual(status, 200)
+        self.assertIn("Device approved", approved)
 
     def test_browser_pairing_issues_credentials_once_after_approval(self) -> None:
         _, started = self.request(
