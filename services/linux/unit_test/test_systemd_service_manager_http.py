@@ -114,7 +114,7 @@ class SystemdServiceManagerHttpRequestTest(unittest.TestCase):
         status, payload = self.request("GET", "/services", token=None)
 
         self.assertEqual(status, 401)
-        self.assertIn("Administrator token was not accepted", payload)
+        self.assertEqual(payload, {"error": "unauthorized"})
         self.manager.all_status.assert_not_called()
 
     def test_wrong_token_is_rejected(self) -> None:
@@ -173,7 +173,7 @@ class SystemdServiceManagerHttpRequestTest(unittest.TestCase):
             token=None,
         )
         self.assertEqual(status, 401)
-        self.assertEqual(payload, {"error": "unauthorized"})
+        self.assertIn("Administrator token was not accepted", payload)
 
     def test_browser_pairing_issues_credentials_once_after_approval(self) -> None:
         _, started = self.request(
