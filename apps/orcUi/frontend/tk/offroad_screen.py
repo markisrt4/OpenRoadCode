@@ -5,15 +5,15 @@
 
 from __future__ import annotations
 
-import math
 from collections.abc import Callable
 
 from apps.orcUi.frontend.tk.presentation_state import OrcUiPresentationState
 from apps.orcUi.navigation_presenter import AttitudePresentationState, PositionPresentationState
 from frontends.tk.automotive import OffroadDashboardPanel
 from frontends.tk.tk_screen import TkScreen
+
+from .offroad_dashboard_presenter import apply_offroad_dashboard_state
 from frontends.tk.tk_screen_host_if import TkScreenHostIf
-from ui.navigation import HeadingReference, PositionFix
 from ui.screen_ui_if import ScreenId
 from ui.theme import ThemeBundle
 
@@ -68,26 +68,8 @@ class OffRoadScreen(TkScreen):
         panel = self._panel
         if panel is None or not panel.winfo_exists():
             return
-        attitude = self._presentation.attitude
-        panel.set_heading(
-            None if attitude.heading_deg is None else math.radians(attitude.heading_deg),
-            HeadingReference.RELATIVE,
-        )
-        panel.set_pitch(None if attitude.pitch_deg is None else math.radians(attitude.pitch_deg))
-        panel.set_roll(None if attitude.roll_deg is None else math.radians(attitude.roll_deg))
-        position = self._presentation.position
-        if position.latitude_deg is None or position.longitude_deg is None:
-            panel.set_position(None)
-            return
-        panel.set_position(
-            PositionFix(
-                latitude_rad=math.radians(position.latitude_deg),
-                longitude_rad=math.radians(position.longitude_deg),
-                altitude_m=(
-                    None
-                    if position.altitude_ft is None
-                    else position.altitude_ft / 3.280839895013123
-                ),
-                pfom_m=position.accuracy_m,
-            )
+        apply_offroad_dashboard_state(
+            panel,
+            position=self._presentation.position,
+            attitude=self._presentation.attitude,
         )
