@@ -61,6 +61,7 @@ class OrcUiShellView:
         self._clock_after_id: str | None = None
         self._weather_alert: WeatherAlertUiEvent | None = None
         self._weather_alert_banner: WeatherAlertBanner | None = None
+        self._weather_alert_after_id: str | None = None
 
         root.grid_rowconfigure(1, weight=1)
         root.grid_columnconfigure(1, weight=1)
@@ -113,6 +114,7 @@ class OrcUiShellView:
             self._breadcrumb_label.configure(text=self._breadcrumb)
 
     def close(self) -> None:
+        self._cancel_weather_alert_timer()
         if self._clock_after_id is not None:
             try:
                 self._root.after_cancel(self._clock_after_id)
@@ -160,9 +162,34 @@ class OrcUiShellView:
         banner.set_alert(alert)
         banner.place(relx=0.5, y=52, anchor="n", relwidth=0.78)
         banner.lift()
+        self._schedule_weather_alert_tick()
+
+    def _schedule_weather_alert_tick(self) -> None:
+        self._cancel_weather_alert_timer()
+        alert = self._weather_alert
+        if alert is None:
+            return
+        now = datetime.now().astimezone()
+        if alert.expires_at is not None and alert.expires_at <= now:
+            self.dismiss_weather_alert()
+            return
+        banner = self._weather_alert_banner
+        if banner is not None and banner.winfo_exists():
+            banner.update_expiration(now)
+        self._weather_alert_after_id = self._root.after(1000, self._schedule_weather_alert_tick)
+
+    def _cancel_weather_alert_timer(self) -> None:
+        if self._weather_alert_after_id is None:
+            return
+        try:
+            self._root.after_cancel(self._weather_alert_after_id)
+        except tk.TclError:
+            pass
+        self._weather_alert_after_id = None
 
     def dismiss_weather_alert(self) -> None:
         """Dismiss the currently visible weather alert from this shell."""
+        self._cancel_weather_alert_timer()
         self._weather_alert = None
         banner = self._weather_alert_banner
         if banner is not None and banner.winfo_exists():
