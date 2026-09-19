@@ -139,6 +139,12 @@ class OrcUiApp(VolumeUiIf, WeatherAlertUiIf):
     def set_screen_status(self, message: str): self._screen_status = message
     def present_weather_alert(self, alert: WeatherAlertUiEvent) -> None:
         if self._closing: return
+        if alert.operation == "cleared":
+            if self._latest_weather_alert is not None and self._latest_weather_alert.correlation_id == alert.correlation_id:
+                self._latest_weather_alert = None
+                self.set_screen_status("")
+                if self._shell is not None: self._shell.dismiss_weather_alert()
+            return
         self._latest_weather_alert = alert
         self.set_screen_status(f"WEATHER: {alert.event} · {alert.severity.upper()}")
         if self._shell is not None: self._shell.show_weather_alert(alert)
