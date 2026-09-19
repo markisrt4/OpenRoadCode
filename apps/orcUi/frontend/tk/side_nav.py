@@ -178,6 +178,8 @@ class _NavTile(tk.Canvas):
             self._draw_media(x, y, color)
         elif name == "VISION":
             self._draw_vision(x, y, color)
+        elif name == "WEATHER":
+            self._draw_weather(x, y, color)
 
     def _draw_home(self, x: float, y: float, color: str) -> None:
         self.create_polygon(
@@ -222,6 +224,12 @@ class _NavTile(tk.Canvas):
         )
         self.create_oval(x - 6, y + 4, x - 2, y + 8, fill=color, outline=color)
         self.create_oval(x + 2, y + 4, x + 6, y + 8, fill=color, outline=color)
+
+    def _draw_weather(self, x: float, y: float, color: str) -> None:
+        self.create_oval(x - 8, y - 7, x, y + 1, outline=color, width=2)
+        self.create_oval(x - 2, y - 4, x + 7, y + 5, outline=color, width=2)
+        self.create_line(x - 9, y + 5, x + 9, y + 5, fill=color, width=2)
+        self.create_line(x - 7, y + 2, x + 6, y + 2, fill=color, width=2)
 
     def _draw_light(self, x: float, y: float, color: str) -> None:
         self.create_oval(x - 4, y - 4, x + 4, y + 4, outline=color, width=2)
