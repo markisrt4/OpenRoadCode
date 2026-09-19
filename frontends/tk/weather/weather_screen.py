@@ -61,6 +61,8 @@ class WeatherScreen(TkScreen, WeatherRequestHandlerIf):
         latest = self._controller.latest()
         if latest is not None:
             self._presenter.present(latest)
+        else:
+            panel.set_loading(True)
         self.request_refresh()
 
     def hide(self) -> None:
