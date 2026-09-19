@@ -59,6 +59,8 @@ class OrcUiShellView:
         self._side_nav: OrcUiSideNav | None = None
         self._bottom_bar: OrcUiBottomBar | None = None
         self._clock_label: tk.Label | None = None
+        self._weather_status_label: tk.Label | None = None
+        self._weather_status_text = "☁  --°"
         self._breadcrumb_label: tk.Label | None = None
         self._status_label: tk.Label | None = None
         self._status_text = ""
@@ -204,6 +206,11 @@ class OrcUiShellView:
                   activebackground=ui.control_active, activeforeground=ui.text,
                   relief=tk.FLAT, bd=0, font=("Sans", 10, "bold")).pack(pady=(0, 16))
 
+    def set_weather_status(self, text: str) -> None:
+        self._weather_status_text = text
+        if self._weather_status_label is not None and self._weather_status_label.winfo_exists():
+            self._weather_status_label.configure(text=text)
+
     def set_status(self, text: str) -> None:
         self._status_text = text
         if self._status_label is not None and self._status_label.winfo_exists():
@@ -244,11 +251,12 @@ class OrcUiShellView:
 
     def _build_chrome(self) -> None:
         self._weather_alert_banner = None
-        self._clock_label = build_top_bar(
+        self._clock_label, self._weather_status_label = build_top_bar(
             self._root,
             theme=self._theme,
             on_power=self._on_power,
         )
+        self._weather_status_label.configure(text=self._weather_status_text)
         self._side_nav = OrcUiSideNav(
             self._root,
             theme=self._theme,
