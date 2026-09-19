@@ -252,11 +252,10 @@ class OrcUiApp(VolumeUiIf):
         self._map_runtime.set_theme(self._theme_mode)
         self._power_dialog.close()
         self._rebuild_shell_theme()
+        active_screen = self._active_screen
         if self._active_nav == "HOME":
             self.navigate_to("HOME")
-        else:
-            pass
-        active_screen = self._active_screen
+            return
         set_theme_mode = getattr(active_screen, "set_theme_mode", None)
         if callable(set_theme_mode):
             set_theme_mode(self._theme_mode)
