@@ -74,6 +74,7 @@ def create_orc_ui_composition() -> OrcUiComposition:
         core = create_core_composition()
         app = core.app
         app.set_theme_change_handler(core.map_runtime.set_theme)
+        core.presentation.observe_weather_alert(app.present_weather_alert)
         for destination in ("HOME", "NAVIGATION", "RADIO", "VEHICLE", "VISION", "LIGHTING", "GAMES", "MEDIA"):
             app.register_navigation_destination(destination)
         radio = configure_radio(app, runtime)
