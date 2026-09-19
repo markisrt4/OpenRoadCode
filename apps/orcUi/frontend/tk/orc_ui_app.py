@@ -148,8 +148,7 @@ class OrcUiApp(VolumeUiIf):
                 if callable(show_trip_view):
                     show_trip_view()
         elif context_name == "OFF-ROAD":
-            self._deactivate_active_screen()
-            self._show_offroad_panel()
+            self.navigate_to("OFF-ROAD")
         else:
             self._deactivate_active_screen()
             self._show_placeholder(context_name)
