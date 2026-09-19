@@ -12,6 +12,7 @@ from apps.orcUi.composition.core import CoreComposition, create_core_composition
 from apps.orcUi.composition.games import configure_games
 from apps.orcUi.composition.media import MediaComposition, configure_media
 from apps.orcUi.composition.radio import RadioComposition, configure_radio
+from apps.orcUi.composition.weather import WeatherComposition, configure_weather
 from apps.orcUi.frontend.tk.home_screen import HomeScreen
 from apps.orcUi.frontend.tk.navigation_screen import NavigationScreen
 from apps.orcUi.frontend.tk.orc_ui_app import OrcUiApp
@@ -31,6 +32,7 @@ class OrcUiComposition:
     radio: RadioComposition
     media: MediaComposition
     games: GamesScreen
+    weather: WeatherComposition
     home: HomeScreen | None = None
     navigation: NavigationScreen | None = None
     vehicle: VehicleScreen | None = None
@@ -75,6 +77,7 @@ def create_orc_ui_composition() -> OrcUiComposition:
         radio = configure_radio(app, runtime)
         games = configure_games(app)
         media = configure_media(app, runtime)
+        weather = configure_weather(app)
         def navigate_home_context(name: str) -> None:
             context_name = name.strip().upper()
             if not context_name:
@@ -156,6 +159,7 @@ def create_orc_ui_composition() -> OrcUiComposition:
         radio=radio,
         media=media,
         games=games,
+        weather=weather,
         home=home,
         navigation=navigation,
         vehicle=vehicle,
