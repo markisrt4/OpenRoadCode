@@ -94,6 +94,11 @@ class ServiceManagerHandler(BaseHTTPRequestHandler):
         return False
 
     def _authenticate(self) -> bool:
+        # Ordinary control requests originating on this device do not need the
+        # bootstrap/admin credential. Keep privileged pairing administration
+        # behind _authenticate_admin().
+        if self.client_address[0] in {"127.0.0.1", "::1"}:
+            return True
         header = self.headers.get("Authorization")
         if authorized(header, self.auth_token):
             return True
