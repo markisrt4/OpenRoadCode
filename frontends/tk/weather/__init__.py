@@ -5,7 +5,6 @@
 
 from frontends.tk.weather.orc_weather_panel import OrcWeatherPanel
 from frontends.tk.weather.weather_menu_panel import WeatherMenuPanel
-from frontends.tk.weather.weather_panel import WeatherPanel
 from frontends.tk.weather.weather_screen import WeatherScreen
 
-__all__ = ["OrcWeatherPanel", "WeatherMenuPanel", "WeatherPanel", "WeatherScreen"]
+__all__ = ["OrcWeatherPanel", "WeatherMenuPanel", "WeatherScreen"]
