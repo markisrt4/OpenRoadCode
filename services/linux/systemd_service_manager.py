@@ -28,6 +28,7 @@ class ServiceStatus:
     detail: str
     profile: str | None = None
     available_profiles: tuple[str, ...] = ()
+    profile_labels: dict[str, str] | None = None
 
 
 class SystemdServiceManager:
@@ -48,6 +49,11 @@ class SystemdServiceManager:
     PROFILE_CONFIGS = {
         "openroadcode-navigation": ("local", "remote", "simulated"),
         "openroadcode-automotive": ("local", "remote", "simulated"),
+    }
+    PROFILE_LABELS = {
+        "local": "Android Bridge",
+        "remote": "Device Hardware",
+        "simulated": "Simulated",
     }
 
     def status(self, name: str) -> ServiceStatus:
@@ -79,6 +85,7 @@ class SystemdServiceManager:
             detail=detail,
             profile=self.profile(name),
             available_profiles=self.available_profiles(name),
+            profile_labels=(dict(self.PROFILE_LABELS) if self.available_profiles(name) else None),
         )
 
     def all_status(self) -> tuple[ServiceStatus, ...]:
