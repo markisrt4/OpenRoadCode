@@ -286,12 +286,11 @@ class OrcUiApp(VolumeUiIf):
         self._power_dialog.close()
         self._rebuild_shell_theme()
         active_screen = self._active_screen
-        if active_screen is not None:
-            self.navigate_to(self._active_nav)
-            return
         set_theme_mode = getattr(active_screen, "set_theme_mode", None)
         if callable(set_theme_mode):
             set_theme_mode(self._theme_mode)
+        elif active_screen is not None:
+            self.navigate_to(self._active_nav)
     def _deactivate_active_screen(self) -> None:
         active_screen = self._active_screen
         self._active_screen = None
