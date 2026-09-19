@@ -48,6 +48,7 @@ class OrcUiCompositionTest(unittest.TestCase):
         radio = Mock()
         media = Mock()
         games = Mock()
+        weather = Mock()
         games.shutdown.side_effect = lambda: events("games")
         media.close.side_effect = lambda: events("media")
         core.close.side_effect = lambda: events("core")
