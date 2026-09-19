@@ -49,7 +49,7 @@ class OrcUiApp(VolumeUiIf):
         self._adsb_toggle_handler: Callable[[bool], bool] | None = None
         self._adsb_view_handler: Callable[[], None] | None = None
         self._active_nav = "HOME"
-        self._nav_items = ["HOME", "NAVIGATION", "RADIO", "VEHICLE", "VISION", "LIGHTING"]
+        self._nav_items: list[str] = []
         self._screen_registry: dict[str, ScreenUiIf] = {}
         self._active_screen: ScreenUiIf | None = None
         self._content: tk.Frame
