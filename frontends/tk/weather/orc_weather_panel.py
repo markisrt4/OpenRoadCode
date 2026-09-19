@@ -41,6 +41,21 @@ def weather_symbol(condition: str, *, nighttime: bool = False) -> str:
     return "◌"
 
 
+def weather_accent(condition: str, theme: ThemeBundle) -> str:
+    """Choose a semantic accent while staying inside the ORC theme palette."""
+    text = condition.lower()
+    ui = theme.ui
+    if "thunder" in text:
+        return ui.accent_danger
+    if "rain" in text or "drizzle" in text or "shower" in text:
+        return ui.accent_primary
+    if "snow" in text or "sleet" in text or "fog" in text or "mist" in text:
+        return ui.text
+    if "clear" in text or "sun" in text or "partly" in text:
+        return ui.accent_success
+    return ui.text_muted
+
+
 class OrcWeatherPanel(tk.Frame, WeatherUiIf):
     """Render weather as a glanceable, touch-friendly automotive dashboard."""
 
@@ -67,11 +82,11 @@ class OrcWeatherPanel(tk.Frame, WeatherUiIf):
         self._header.grid(row=0, column=0, sticky="ew", padx=22, pady=(12, 7))
         self._header.grid_columnconfigure(0, weight=1)
         self._location = tk.Label(
-            self._header, text="WEATHER", anchor="w", font=("Sans", 13, "bold")
+            self._header, text="WEATHER", anchor="w", font=("Sans", 16, "bold")
         )
         self._location.grid(row=0, column=0, sticky="w")
         self._provider = tk.Label(
-            self._header, text="", anchor="w", font=("Sans", 9)
+            self._header, text="", anchor="w", font=("Sans", 10)
         )
         self._provider.grid(row=1, column=0, sticky="w", pady=(1, 0))
         self._weather_radio = tk.Button(
@@ -94,24 +109,24 @@ class OrcWeatherPanel(tk.Frame, WeatherUiIf):
         self._refresh.grid(row=0, column=2, rowspan=2)
 
         self._hero = tk.Frame(self, bd=0, highlightthickness=1)
-        self._hero.grid(row=1, column=0, sticky="ew", padx=22, pady=(0, 9))
+        self._hero.grid(row=1, column=0, sticky="ew", padx=22, pady=(0, 12))
         self._hero.grid_columnconfigure(2, weight=1)
 
         self._symbol = tk.Label(
-            self._hero, text="◌", width=3, font=("Sans", 46), anchor="center"
+            self._hero, text="◌", width=3, font=("Sans", 58), anchor="center"
         )
         self._symbol.grid(row=0, column=0, rowspan=2, padx=(16, 4), pady=10)
         self._temperature = tk.Label(
-            self._hero, text="--°", font=("Sans", 48, "bold"), anchor="w"
+            self._hero, text="--°", font=("Sans", 56, "bold"), anchor="w"
         )
         self._temperature.grid(row=0, column=1, rowspan=2, sticky="w", padx=(0, 20), pady=8)
 
         self._condition = tk.Label(
-            self._hero, text="Weather unavailable", font=("Sans", 20, "bold"), anchor="w"
+            self._hero, text="Weather unavailable", font=("Sans", 22, "bold"), anchor="w"
         )
         self._condition.grid(row=0, column=2, sticky="sw", pady=(12, 1))
         self._summary = tk.Label(
-            self._hero, text="Waiting for location and forecast", font=("Sans", 10), anchor="w"
+            self._hero, text="Waiting for location and forecast", font=("Sans", 11), anchor="w"
         )
         self._summary.grid(row=1, column=2, sticky="nw", pady=(1, 12))
 
@@ -119,12 +134,12 @@ class OrcWeatherPanel(tk.Frame, WeatherUiIf):
         self._metrics.grid(row=0, column=3, rowspan=2, sticky="nsew", padx=(12, 14), pady=10)
         self._metric_cards: list[tuple[tk.Frame, tk.Label, tk.Label]] = []
         for column, heading in enumerate(("HUMIDITY", "WIND", "PRESSURE")):
-            card = tk.Frame(self._metrics, bd=0, highlightthickness=1)
+            card = tk.Frame(self._metrics, bd=0, highlightthickness=0)
             card.grid(row=0, column=column, sticky="nsew", padx=(0 if column == 0 else 4, 0))
             self._metrics.grid_columnconfigure(column, weight=1, uniform="metric")
-            title = tk.Label(card, text=heading, font=("Sans", 8, "bold"))
+            title = tk.Label(card, text=heading, font=("Sans", 9, "bold"))
             title.pack(padx=10, pady=(7, 1))
-            value = tk.Label(card, text="--", font=("Sans", 11, "bold"))
+            value = tk.Label(card, text="--", font=("Sans", 13, "bold"))
             value.pack(padx=10, pady=(0, 7))
             self._metric_cards.append((card, title, value))
 
@@ -148,7 +163,7 @@ class OrcWeatherPanel(tk.Frame, WeatherUiIf):
 
     @staticmethod
     def _section_title(parent: tk.Misc, text: str) -> tk.Label:
-        return tk.Label(parent, text=text, font=("Sans", 9, "bold"), anchor="w")
+        return tk.Label(parent, text=text, font=("Sans", 10, "bold"), anchor="w")
 
     def set_weather_request_handler(
         self, handler: WeatherRequestHandlerIf | None
@@ -222,7 +237,10 @@ class OrcWeatherPanel(tk.Frame, WeatherUiIf):
             text="WEATHER" if not location or location.lower() == "configured fallback" else location
         )
         self._provider.configure(text=self._provider_text(state))
-        self._symbol.configure(text=weather_symbol(current.condition_label))
+        self._symbol.configure(
+            text=weather_symbol(current.condition_label),
+            fg=weather_accent(current.condition_label, self._theme_bundle()),
+        )
         self._temperature.configure(text=self._temperature_text(current.temperature_k))
         self._condition.configure(text=current.condition_label or "Unknown")
         self._summary.configure(
@@ -305,7 +323,9 @@ class OrcWeatherPanel(tk.Frame, WeatherUiIf):
         detail: str,
         footer: str,
     ) -> None:
-        ui = self._theme_bundle().ui
+        theme = self._theme_bundle()
+        ui = theme.ui
+        accent = weather_accent(detail, theme)
         cell = tk.Frame(
             parent, bg=ui.surface, bd=0, highlightthickness=1, highlightbackground=ui.border
         )
@@ -319,25 +339,25 @@ class OrcWeatherPanel(tk.Frame, WeatherUiIf):
         parent.grid_rowconfigure(0, weight=1)
 
         tk.Label(
-            cell, text=heading, bg=ui.surface, fg=ui.text_muted, font=("Sans", 8, "bold")
+            cell, text=heading, bg=ui.surface, fg=ui.text_muted, font=("Sans", 9, "bold")
         ).pack(pady=(6, 0))
         tk.Label(
-            cell, text=symbol, bg=ui.surface, fg=ui.accent_primary, font=("Sans", 22)
+            cell, text=symbol, bg=ui.surface, fg=accent, font=("Sans", 28)
         ).pack(pady=(0, 0))
         tk.Label(
-            cell, text=value, bg=ui.surface, fg=ui.text, font=("Sans", 13, "bold")
+            cell, text=value, bg=ui.surface, fg=ui.text, font=("Sans", 15, "bold")
         ).pack()
         tk.Label(
             cell,
             text=detail,
             bg=ui.surface,
             fg=ui.text_muted,
-            font=("Sans", 7),
-            wraplength=92,
+            font=("Sans", 8),
+            wraplength=120,
             height=2,
         ).pack(padx=3, pady=(1, 0))
         tk.Label(
-            cell, text=footer, bg=ui.surface, fg=ui.accent_primary, font=("Sans", 8, "bold")
+            cell, text=footer, bg=ui.surface, fg=accent, font=("Sans", 9, "bold")
         ).pack(pady=(1, 6))
 
     @staticmethod
