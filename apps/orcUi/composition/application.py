@@ -95,6 +95,7 @@ def create_orc_ui_composition() -> OrcUiComposition:
             app,
             unit_system=unit_system,
             on_weather_radio=radio.open_weather_radio,
+            on_weather_status=app.set_weather_status,
         )
         def navigate_home_context(name: str) -> None:
             context_name = name.strip().upper()
