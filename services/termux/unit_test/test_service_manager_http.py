@@ -112,6 +112,18 @@ class ServiceManagerHttpRequestTest(unittest.TestCase):
             services["services"][0]["name"], "openroadcode-navigation"
         )
 
+    def test_paired_client_cannot_start_another_pairing(self) -> None:
+        _, started = self.request("POST", "/pairing/start")
+        _, paired = self.request(
+            "POST", "/pair", token=None,
+            body={"pin": started["pin"], "client_name": "Test phone"},
+        )
+        status, payload = self.request(
+            "POST", "/pairing/start", token=paired["access_token"]
+        )
+        self.assertEqual(status, 401)
+        self.assertEqual(payload, {"error": "unauthorized"})
+
 
 if __name__ == "__main__":
     unittest.main()
