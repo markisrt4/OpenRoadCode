@@ -59,6 +59,13 @@ class ServiceManagerPairing:
         if not hmac.compare_digest(self._digest(pin), self._pin_hash):
             raise ValueError("invalid pairing PIN")
         self._clear_pin()
+        return self.issue_client(name)
+
+    def issue_client(self, client_name: str) -> tuple[str, str]:
+        """Issue a persistent client credential after an approved pairing flow."""
+        name = client_name.strip()
+        if not name:
+            raise ValueError("client_name is required")
         client_id = str(uuid.uuid4())
         token = secrets.token_urlsafe(32)
         self._clients[client_id] = AuthorizedClient(
