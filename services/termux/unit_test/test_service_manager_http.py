@@ -59,16 +59,18 @@ class ServiceManagerHttpRequestTest(unittest.TestCase):
         finally:
             connection.close()
 
-    def test_missing_token_is_rejected(self) -> None:
+    def test_loopback_service_status_does_not_require_token(self) -> None:
         status, payload = self.request("GET", "/services", token=None)
-        self.assertEqual(status, 401)
-        self.assertEqual(payload, {"error": "unauthorized"})
-        self.manager.all_status.assert_not_called()
+        self.assertEqual(status, 200)
+        self.assertEqual(payload["services"][0]["name"], "openroadcode-navigation")
 
-    def test_wrong_token_is_rejected(self) -> None:
-        status, payload = self.request("GET", "/services", token="wrong")
-        self.assertEqual(status, 401)
-        self.assertEqual(payload, {"error": "unauthorized"})
+    def test_loopback_service_action_does_not_require_token(self) -> None:
+        status, payload = self.request(
+            "POST", "/services/openroadcode-navigation/restart", token=None
+        )
+        self.assertEqual(status, 200)
+        self.assertEqual(payload["services"][0]["state"], "running")
+        self.manager.restart.assert_called_once_with("openroadcode-navigation")
 
     def test_valid_token_returns_service_status(self) -> None:
         status, payload = self.request("GET", "/services")
