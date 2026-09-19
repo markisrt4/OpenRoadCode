@@ -25,6 +25,7 @@ from messaging.zeromq import ZeroMqPublisher, ZeroMqSubscriber
 from messaging.zeromq.endpoints import LOCAL_PUBLISHER_ENDPOINT, LOCAL_SUBSCRIBER_ENDPOINT
 from services.automotive.automotive_service_cli import DEFAULT_RUNTIME_CONFIG
 from services.trip import TripRuntime
+from ui.theme import ThemeMode
 
 
 @dataclass(slots=True)
@@ -91,9 +92,9 @@ def create_core_composition() -> CoreComposition:
         source="orc-ui",
     )
     telemetry_profile_request = telemetry_profile_requests.publish
+    map_runtime.set_theme(ThemeMode.DARK)
     try:
         app = OrcUiApp(
-            map_runtime=map_runtime,
             lifecycle_handler=lifecycle,
         )
     except Exception:
