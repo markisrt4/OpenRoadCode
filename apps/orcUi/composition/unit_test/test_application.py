@@ -166,6 +166,7 @@ class OrcUiCompositionTest(unittest.TestCase):
         self.assertIs(composition.media, media)
         self.assertIs(composition.weather, weather)
         app.set_theme_change_handler.assert_called_once_with(core.map_runtime.set_theme)
+        core.presentation.observe_weather_alert.assert_called_once_with(app.present_weather_alert)
         configure_radio.assert_called_once_with(app, runtime)
         configure_games.assert_called_once_with(app)
         configure_media.assert_called_once_with(app, runtime)
