@@ -157,6 +157,8 @@ class OrcUiCompositionTest(unittest.TestCase):
         configure_radio.assert_called_once_with(app, runtime)
         configure_games.assert_called_once_with(app)
         configure_media.assert_called_once_with(app, runtime)
+        app.set_initial_destination.assert_called_once_with("HOME")
+        app.set_settings_action.assert_called_once()
 
     @patch("apps.orcUi.composition.application.configure_radio")
     @patch("apps.orcUi.composition.application.create_core_composition")
