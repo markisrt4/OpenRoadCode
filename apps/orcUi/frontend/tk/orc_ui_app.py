@@ -52,15 +52,12 @@ class OrcUiApp(VolumeUiIf):
         self._nav_items = ["HOME", "NAVIGATION", "RADIO", "VEHICLE", "VISION", "LIGHTING"]
         self._screen_registry: dict[str, ScreenUiIf] = {}
         self._active_screen: ScreenUiIf | None = None
-        self._screen_back_action: Callable[[], None] | None = None
-        self._screen_status = ""
         self._content: tk.Frame
         self._volume_percent: float | None = None
         self._volume_muted: bool | None = None
         self._volume_request_handler: VolumeRequestHandlerIf | None = None
         self._theme_change_handler: Callable[[ThemeMode], None] | None = None
         self._closing = False
-        self._running = False
         self._power_dialog = PowerDialog(
             self._root,
             theme=lambda: self._theme,
@@ -143,9 +140,12 @@ class OrcUiApp(VolumeUiIf):
             else:
                 self._shell.set_breadcrumb(self._active_nav, leaf)
     def set_screen_back_action(self, action: Callable[[], None]) -> None:
-        self._screen_back_action = action
+        # Back actions are part of the reusable host contract, but orcUi's
+        # persistent chrome currently exposes destination navigation instead.
+        _ = action
     def set_screen_status(self, message: str) -> None:
-        self._screen_status = message
+        if self._shell is not None:
+            self._shell.set_status(message)
     def schedule_ui_callback(self, delay_ms: int, callback: Callable[[], None]) -> object:
         return self._root.after(delay_ms, callback)
     def cancel_ui_callback(self, callback_id: object) -> None:
@@ -154,7 +154,6 @@ class OrcUiApp(VolumeUiIf):
         self._root.protocol("WM_DELETE_WINDOW", self._on_close)
         old_signal_handler = signal.getsignal(signal.SIGINT)
         signal.signal(signal.SIGINT, self._on_sigint)
-        self._running = True
         self.navigate_to("HOME")
         try:
             self._root.mainloop()
@@ -169,7 +168,6 @@ class OrcUiApp(VolumeUiIf):
         if self._closing:
             return
         self._closing = True
-        self._running = False
         active_screen = self._active_screen
         self._active_screen = None
         if active_screen is not None:
@@ -269,8 +267,8 @@ class OrcUiApp(VolumeUiIf):
         self._active_screen = None
         if active_screen is not None:
             active_screen.hide()
-        self._screen_back_action = None
-        self._screen_status = ""
+        if self._shell is not None:
+            self._shell.set_status("")
         self._root.title("OpenRoadCode")
     def _paint_nav(self) -> None:
         if self._shell is not None:
