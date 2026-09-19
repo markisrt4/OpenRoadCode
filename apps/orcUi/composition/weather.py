@@ -10,6 +10,7 @@ from dataclasses import dataclass
 
 from apps.orcUi.frontend.tk.orc_ui_app import OrcUiApp
 from apps.orcUi.theme_runtime import theme_bundle
+from common.units import UnitSystem
 from config.service_runtime_config import ServiceRuntimeConfigParser
 from controllers.weather import (
     GpsdWeatherLocationProvider,
@@ -32,6 +33,7 @@ class WeatherComposition:
 def configure_weather(
     app: OrcUiApp,
     *,
+    unit_system: Callable[[], UnitSystem] = lambda: UnitSystem.IMPERIAL,
     on_weather_radio: Callable[[], None] | None = None,
 ) -> WeatherComposition:
     """Compose GPS-backed Open-Meteo Weather with shared display preferences."""
@@ -52,6 +54,7 @@ def configure_weather(
         app,
         controller=controller,
         theme_bundle=lambda: theme_bundle(app.theme_mode),
+        unit_system=unit_system,
         on_weather_radio=on_weather_radio,
     )
     app.register_screen("WEATHER", screen, before="VISION")
