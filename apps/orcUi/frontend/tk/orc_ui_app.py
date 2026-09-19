@@ -7,20 +7,15 @@ import signal
 import tkinter as tk
 from collections.abc import Callable
 from apps.orcUi.core_runtime import MapRuntimeIf
-from apps.orcUi.navigation_presenter import AttitudePresentationState, PositionPresentationState
 from apps.orcUi.orc_theme import ThemeMode, toggle
 from .power_dialog import PowerDialog
-from .presentation_state import OrcUiPresentationState
 from .screen_builders import (
     build_placeholder,
 )
 from .shell_metrics import TARGET_GEOMETRY, TARGET_HEIGHT, TARGET_WIDTH
 from .shell_view import OrcUiShellView
 from apps.orcUi.theme_runtime import theme_bundle
-from apps.orcUi.trip_presenter import TripPresentationState
-from apps.orcUi.vehicle_presenter import VehiclePresentationState
 from common.host_config import installed_target, orcui_fullscreen_default
-from controllers.automotive import EngineAnalysis
 from ui.screen_ui_if import ScreenUiIf
 from ui.system import SystemLifecycleRequestHandlerIf, VolumeRequestHandlerIf, VolumeUiIf
 
@@ -31,11 +26,9 @@ class OrcUiApp(VolumeUiIf):
         *,
         map_runtime: MapRuntimeIf,
         lifecycle_handler: SystemLifecycleRequestHandlerIf,
-        presentation: OrcUiPresentationState,
     ) -> None:
         self._map_runtime = map_runtime
         self._lifecycle_handler = lifecycle_handler
-        self._presentation = presentation
         self._theme_mode = ThemeMode.DARK
         self._theme = theme_bundle(self._theme_mode)
         ui = self._theme.ui
@@ -153,25 +146,6 @@ class OrcUiApp(VolumeUiIf):
         return self._root.after(delay_ms, callback)
     def cancel_ui_callback(self, callback_id: object) -> None:
         self._root.after_cancel(callback_id)
-    def apply_vehicle_state(self, state: VehiclePresentationState) -> None:
-        if not self._closing:
-            self._presentation.apply_vehicle(state)
-
-    def apply_engine_analysis(self, analysis: EngineAnalysis) -> None:
-        if not self._closing:
-            self._presentation.apply_engine_analysis(analysis)
-
-    def apply_trip_state(self, state: TripPresentationState) -> None:
-        if not self._closing:
-            self._presentation.apply_trip(state)
-
-    def apply_position_state(self, state: PositionPresentationState) -> None:
-        if not self._closing:
-            self._presentation.apply_position(state)
-
-    def apply_attitude_state(self, state: AttitudePresentationState) -> None:
-        if not self._closing:
-            self._presentation.apply_attitude(state)
     def run(self) -> None:
         self._root.protocol("WM_DELETE_WINDOW", self._on_close)
         old_signal_handler = signal.getsignal(signal.SIGINT)
