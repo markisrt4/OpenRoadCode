@@ -90,7 +90,11 @@ def create_orc_ui_composition() -> OrcUiComposition:
             app_settings = AppSettings(unit_system=value)
             settings_store.save(app_settings)
 
-        weather = configure_weather(app, unit_system=unit_system)
+        weather = configure_weather(
+            app,
+            unit_system=unit_system,
+            on_weather_radio=radio.open_weather_radio,
+        )
         def navigate_home_context(name: str) -> None:
             context_name = name.strip().upper()
             if not context_name:
