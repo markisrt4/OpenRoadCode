@@ -20,7 +20,7 @@ from services.common.service_manager_pairing import ServiceManagerPairing
 from services.termux.service_manager import RunitServiceManager, ServiceStatus
 
 DEFAULT_HOST = "127.0.0.1"
-DEFAULT_PORT = 8768
+DEFAULT_PORT = 8769
 DEFAULT_CLIENT_STORE_PATH = xdg_config_home() / "openroadcode" / "service-manager" / "clients.json"
 
 
