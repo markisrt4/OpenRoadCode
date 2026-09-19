@@ -58,6 +58,7 @@ class OrcUiApp(VolumeUiIf):
         self._volume_percent: float | None = None
         self._volume_muted: bool | None = None
         self._volume_request_handler: VolumeRequestHandlerIf | None = None
+        self._theme_change_handler: Callable[[ThemeMode], None] | None = None
         self._closing = False
         self._running = False
         self._power_dialog = PowerDialog(
@@ -74,6 +75,13 @@ class OrcUiApp(VolumeUiIf):
     @property
     def screen_parent(self) -> tk.Misc:
         return self._content
+    def set_theme_change_handler(
+        self,
+        handler: Callable[[ThemeMode], None] | None,
+    ) -> None:
+        """Connect semantic theme changes to composition-owned consumers."""
+        self._theme_change_handler = handler
+
     def set_volume_request_handler(
         self,
         handler: VolumeRequestHandlerIf | None,
@@ -244,6 +252,9 @@ class OrcUiApp(VolumeUiIf):
     def _toggle_theme(self) -> None:
         self._theme_mode = toggle(self._theme_mode)
         self._theme = theme_bundle(self._theme_mode)
+        theme_change_handler = self._theme_change_handler
+        if theme_change_handler is not None:
+            theme_change_handler(self._theme_mode)
         self._power_dialog.close()
         self._rebuild_shell_theme()
         active_screen = self._active_screen
@@ -265,7 +276,6 @@ class OrcUiApp(VolumeUiIf):
         if self._shell is not None:
             self._shell.set_active_navigation(self._active_nav)
     def _clear_content(self) -> None:
-        self._map_runtime.stop()
         for child in self._content.winfo_children():
             child.destroy()
     def _on_close(self) -> None:
