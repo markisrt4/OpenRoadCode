@@ -8,12 +8,10 @@ import tkinter as tk
 from collections.abc import Callable
 from apps.orcUi.core_runtime import MapRuntimeIf
 from apps.orcUi.navigation_presenter import AttitudePresentationState, PositionPresentationState
-from .offroad_panel import OffRoadPanel
 from apps.orcUi.orc_theme import ThemeMode, toggle
 from .power_dialog import PowerDialog
 from .presentation_state import OrcUiPresentationState
 from .screen_builders import (
-    build_offroad_screen,
     build_placeholder,
 )
 from .shell_metrics import TARGET_GEOMETRY, TARGET_HEIGHT, TARGET_WIDTH
@@ -72,7 +70,6 @@ class OrcUiApp(VolumeUiIf):
         self._screen_back_action: Callable[[], None] | None = None
         self._screen_status = ""
         self._content: tk.Frame
-        self._offroad_panel: OffRoadPanel | None = None
         self._volume_percent: float | None = None
         self._volume_muted: bool | None = None
         self._volume_request_handler: VolumeRequestHandlerIf | None = None
@@ -195,11 +192,11 @@ class OrcUiApp(VolumeUiIf):
 
     def apply_position_state(self, state: PositionPresentationState) -> None:
         if not self._closing:
-            self._presentation.apply_position(state, offroad_panel=self._offroad_panel)
+            self._presentation.apply_position(state, offroad_panel=None)
 
     def apply_attitude_state(self, state: AttitudePresentationState) -> None:
         if not self._closing:
-            self._presentation.apply_attitude(state, offroad_panel=self._offroad_panel)
+            self._presentation.apply_attitude(state, offroad_panel=None)
     def run(self) -> None:
         self._root.protocol("WM_DELETE_WINDOW", self._on_close)
         old_signal_handler = signal.getsignal(signal.SIGINT)
@@ -315,9 +312,7 @@ class OrcUiApp(VolumeUiIf):
         if callable(set_theme_mode):
             set_theme_mode(self._theme_mode)
     def _apply_theme_to_content(self) -> None:
-        bundle = self._theme
-        if self._offroad_panel is not None and self._offroad_panel.winfo_exists():
-            self._offroad_panel.set_theme(bundle.ui)
+        pass
     def _deactivate_active_screen(self) -> None:
         active_screen = self._active_screen
         self._active_screen = None
@@ -331,18 +326,8 @@ class OrcUiApp(VolumeUiIf):
             self._shell.set_active_navigation(self._active_nav)
     def _clear_content(self) -> None:
         self._map_runtime.stop()
-        self._offroad_panel = None
         for child in self._content.winfo_children():
             child.destroy()
-    def _show_offroad_panel(self) -> None:
-        self._clear_content()
-        self._offroad_panel = build_offroad_screen(
-            self._content,
-            on_back=lambda: self.navigate_to("HOME"),
-            position=self._presentation.position,
-            attitude=self._presentation.attitude,
-            theme=self._theme,
-        )
     def _on_close(self) -> None:
         self._shutdown()
     def _show_placeholder(self, name: str) -> None:
