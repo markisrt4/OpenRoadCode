@@ -48,7 +48,8 @@ class OrcUiApp(VolumeUiIf):
         self._aircraft_count = 0
         self._adsb_toggle_handler: Callable[[bool], bool] | None = None
         self._adsb_view_handler: Callable[[], None] | None = None
-        self._active_nav = "HOME"
+        self._active_nav = ""
+        self._initial_destination: str | None = None
         self._nav_items: list[str] = []
         self._screen_registry: dict[str, ScreenUiIf] = {}
         self._active_screen: ScreenUiIf | None = None
@@ -97,6 +98,13 @@ class OrcUiApp(VolumeUiIf):
         """Display system mute state in the shell."""
         self._volume_muted = muted
         self._paint_volume()
+    def set_initial_destination(self, label: str) -> None:
+        """Select the composition-owned destination shown when the shell starts."""
+        destination = label.strip().upper()
+        if not destination:
+            raise ValueError("Initial destination must not be empty")
+        self._initial_destination = destination
+
     def register_navigation_destination(self, label: str, *, before: str | None = None) -> None:
         """Add a shell navigation destination without requiring a screen."""
         nav_label = label.strip().upper()
@@ -162,7 +170,10 @@ class OrcUiApp(VolumeUiIf):
         self._root.protocol("WM_DELETE_WINDOW", self._on_close)
         old_signal_handler = signal.getsignal(signal.SIGINT)
         signal.signal(signal.SIGINT, self._on_sigint)
-        self.navigate_to("HOME")
+        initial_destination = self._initial_destination
+        if initial_destination is None:
+            raise RuntimeError("Initial navigation destination is not configured")
+        self.navigate_to(initial_destination)
         try:
             self._root.mainloop()
         except KeyboardInterrupt:
@@ -264,8 +275,8 @@ class OrcUiApp(VolumeUiIf):
         self._power_dialog.close()
         self._rebuild_shell_theme()
         active_screen = self._active_screen
-        if self._active_nav == "HOME":
-            self.navigate_to("HOME")
+        if active_screen is not None:
+            self.navigate_to(self._active_nav)
             return
         set_theme_mode = getattr(active_screen, "set_theme_mode", None)
         if callable(set_theme_mode):
