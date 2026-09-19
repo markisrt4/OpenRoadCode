@@ -10,6 +10,7 @@ import unittest
 from unittest.mock import Mock
 
 from services.common.service_manager_pairing import ServiceManagerPairing
+from services.common.service_manager_browser_pairing import ServiceManagerBrowserPairing
 from services.termux.service_manager import ServiceStatus
 from services.termux.service_manager_http import ServiceManagerHandler, ThreadingHTTPServer
 
@@ -31,6 +32,7 @@ class ServiceManagerHttpRequestTest(unittest.TestCase):
         ServiceManagerHandler.manager = self.manager
         ServiceManagerHandler.auth_token = "secret"
         ServiceManagerHandler.pairing = ServiceManagerPairing()
+        ServiceManagerHandler.browser_pairing = ServiceManagerBrowserPairing(ServiceManagerHandler.pairing)
         self.server = ThreadingHTTPServer(("127.0.0.1", 0), ServiceManagerHandler)
         self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
         self.thread.start()
@@ -84,6 +86,53 @@ class ServiceManagerHttpRequestTest(unittest.TestCase):
         self.assertEqual(payload["services"][0]["state"], "running")
         self.manager.restart.assert_called_once_with("openroadcode-navigation")
 
+
+    def test_browser_pairing_starts_without_admin_token(self) -> None:
+        status, payload = self.request(
+            "POST", "/pairing/browser/start", token=None,
+            body={"client_name": "Test Android"},
+        )
+        self.assertEqual(status, 200)
+        self.assertTrue(payload["session_id"])
+        self.assertIn("/pairing/browser/approve/", payload["approval_url"])
+
+    def test_browser_pairing_requires_admin_to_approve(self) -> None:
+        _, started = self.request(
+            "POST", "/pairing/browser/start", token=None,
+            body={"client_name": "Test Android"},
+        )
+        status, payload = self.request(
+            "POST",
+            f"/pairing/browser/approve/{started['session_id']}",
+            token=None,
+        )
+        self.assertEqual(status, 401)
+        self.assertEqual(payload, {"error": "unauthorized"})
+
+    def test_browser_pairing_issues_credentials_once_after_approval(self) -> None:
+        _, started = self.request(
+            "POST", "/pairing/browser/start", token=None,
+            body={"client_name": "Test Android"},
+        )
+        status, approved = self.request(
+            "POST", f"/pairing/browser/approve/{started['session_id']}"
+        )
+        self.assertEqual(status, 200)
+        self.assertEqual(approved, {"approved": True})
+
+        status, completed = self.request(
+            "GET", f"/pairing/browser/status/{started['session_id']}", token=None
+        )
+        self.assertEqual(status, 200)
+        self.assertEqual(completed["status"], "approved")
+        self.assertTrue(completed["client_id"])
+        self.assertTrue(completed["access_token"])
+
+        status, pending = self.request(
+            "GET", f"/pairing/browser/status/{started['session_id']}", token=None
+        )
+        self.assertEqual(status, 200)
+        self.assertEqual(pending, {"status": "pending"})
 
     def test_pairing_start_requires_authentication(self) -> None:
         status, payload = self.request("POST", "/pairing/start", token=None)
