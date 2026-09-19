@@ -97,17 +97,25 @@ class OrcUiApp(VolumeUiIf):
         """Display system mute state in the shell."""
         self._volume_muted = muted
         self._paint_volume()
-    def register_screen(self, label: str, screen: ScreenUiIf, *, before: str | None = None, show_in_navigation: bool = True) -> None:
+    def register_navigation_destination(self, label: str, *, before: str | None = None) -> None:
+        """Add a shell navigation destination without requiring a screen."""
         nav_label = label.strip().upper()
         if not nav_label:
-            raise ValueError("Screen navigation label must not be empty")
-        self._screen_registry[nav_label] = screen
-        if show_in_navigation and nav_label not in self._nav_items:
+            raise ValueError("Navigation label must not be empty")
+        if nav_label not in self._nav_items:
             if before is not None and before in self._nav_items:
                 self._nav_items.insert(self._nav_items.index(before), nav_label)
             else:
                 self._nav_items.append(nav_label)
         self._rebuild_side_nav()
+
+    def register_screen(self, label: str, screen: ScreenUiIf, *, before: str | None = None, show_in_navigation: bool = True) -> None:
+        nav_label = label.strip().upper()
+        if not nav_label:
+            raise ValueError("Screen navigation label must not be empty")
+        self._screen_registry[nav_label] = screen
+        if show_in_navigation:
+            self.register_navigation_destination(nav_label, before=before)
     def navigate_to(self, name: str) -> None:
         """Show a registered screen or built-in shell destination."""
         nav_name = name.strip().upper()
