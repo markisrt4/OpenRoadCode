@@ -6,7 +6,6 @@ import os
 import signal
 import tkinter as tk
 from collections.abc import Callable
-from apps.orcUi.core_runtime import MapRuntimeIf
 from apps.orcUi.orc_theme import ThemeMode, toggle
 from .power_dialog import PowerDialog
 from .screen_builders import (
@@ -24,10 +23,8 @@ class OrcUiApp(VolumeUiIf):
     def __init__(
         self,
         *,
-        map_runtime: MapRuntimeIf,
         lifecycle_handler: SystemLifecycleRequestHandlerIf,
     ) -> None:
-        self._map_runtime = map_runtime
         self._lifecycle_handler = lifecycle_handler
         self._theme_mode = ThemeMode.DARK
         self._theme = theme_bundle(self._theme_mode)
@@ -70,7 +67,6 @@ class OrcUiApp(VolumeUiIf):
             on_restart=self._restart_ui,
             on_shutdown=self._shutdown_system,
         )
-        self._map_runtime.set_theme(self._theme_mode)
         self._build_shell()
     @property
     def theme_mode(self) -> ThemeMode:
@@ -170,7 +166,6 @@ class OrcUiApp(VolumeUiIf):
         self._active_screen = None
         if active_screen is not None:
             active_screen.hide()
-        self._map_runtime.stop()
         if self._shell is not None:
             self._shell.close()
         try:
@@ -249,7 +244,6 @@ class OrcUiApp(VolumeUiIf):
     def _toggle_theme(self) -> None:
         self._theme_mode = toggle(self._theme_mode)
         self._theme = theme_bundle(self._theme_mode)
-        self._map_runtime.set_theme(self._theme_mode)
         self._power_dialog.close()
         self._rebuild_shell_theme()
         active_screen = self._active_screen
