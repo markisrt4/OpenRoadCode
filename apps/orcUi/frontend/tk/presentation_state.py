@@ -115,37 +115,27 @@ class OrcUiPresentationState:
         """Subscribe to future engine-analysis presentation updates."""
         self._engine_analysis_observers.append(observer)
 
-    def apply_vehicle(self, state: VehiclePresentationState, *, vehicle_panel) -> None:
+    def apply_vehicle(self, state: VehiclePresentationState) -> None:
         self.vehicle = state
-        if vehicle_panel is not None and vehicle_panel.winfo_exists():
-            vehicle_panel.update_state(state)
         for observer in tuple(self._vehicle_observers):
             observer(state)
 
-    def apply_trip(self, state: TripPresentationState, *, vehicle_panel) -> None:
+    def apply_trip(self, state: TripPresentationState) -> None:
         self.trip = state
-        if vehicle_panel is not None and vehicle_panel.winfo_exists():
-            vehicle_panel.update_trip_state(state)
         for observer in tuple(self._trip_observers):
             observer(state)
 
-    def apply_position(self, state: PositionPresentationState, *, offroad_panel) -> None:
+    def apply_position(self, state: PositionPresentationState) -> None:
         self.position = state
-        if offroad_panel is not None and offroad_panel.winfo_exists():
-            offroad_panel.update_position(state)
         for observer in tuple(self._position_observers):
             observer(state)
 
-    def apply_attitude(self, state: AttitudePresentationState, *, offroad_panel) -> None:
+    def apply_attitude(self, state: AttitudePresentationState) -> None:
         self.attitude = state
-        if offroad_panel is not None and offroad_panel.winfo_exists():
-            offroad_panel.update_attitude(state)
         for observer in tuple(self._attitude_observers):
             observer(state)
 
-    def apply_engine_analysis(self, analysis: EngineAnalysis, *, vehicle_panel) -> None:
+    def apply_engine_analysis(self, analysis: EngineAnalysis) -> None:
         self.engine_analysis = analysis
-        if vehicle_panel is not None and vehicle_panel.winfo_exists():
-            vehicle_panel.update_engine_analysis(analysis)
         for observer in tuple(self._engine_analysis_observers):
             observer(analysis)
