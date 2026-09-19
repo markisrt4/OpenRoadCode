@@ -86,19 +86,26 @@ class SystemdServiceManagerHttpRequestTest(unittest.TestCase):
         path: str,
         token: str | None = "secret",
         payload: dict[str, object] | None = None,
+        form: dict[str, str] | None = None,
     ):
         headers = {}
         if token is not None:
             headers["Authorization"] = f"Bearer {token}"
         body = None
-        if payload is not None:
+        if form is not None:
+            from urllib.parse import urlencode
+            body = urlencode(form)
+            headers["Content-Type"] = "application/x-www-form-urlencoded"
+        elif payload is not None:
             body = json.dumps(payload)
             headers["Content-Type"] = "application/json"
         connection = HTTPConnection(self.host, self.port, timeout=2.0)
         try:
             connection.request(method, path, body=body, headers=headers)
             response = connection.getresponse()
-            response_payload = json.loads(response.read().decode("utf-8"))
+            raw = response.read().decode("utf-8")
+            content_type = response.getheader("Content-Type", "")
+            response_payload = json.loads(raw) if "application/json" in content_type else raw
             return response.status, response_payload
         finally:
             connection.close()
@@ -107,7 +114,7 @@ class SystemdServiceManagerHttpRequestTest(unittest.TestCase):
         status, payload = self.request("GET", "/services", token=None)
 
         self.assertEqual(status, 401)
-        self.assertEqual(payload, {"error": "unauthorized"})
+        self.assertIn("Administrator token was not accepted", payload)
         self.manager.all_status.assert_not_called()
 
     def test_wrong_token_is_rejected(self) -> None:
@@ -174,10 +181,13 @@ class SystemdServiceManagerHttpRequestTest(unittest.TestCase):
             payload={"client_name": "Test Android"},
         )
         status, approved = self.request(
-            "POST", f"/pairing/browser/approve/{started['session_id']}"
+            "POST",
+            f"/pairing/browser/approve/{started['session_id']}",
+            token=None,
+            form={"admin_token": "secret"},
         )
         self.assertEqual(status, 200)
-        self.assertEqual(approved, {"approved": True})
+        self.assertIn("Device approved", approved)
 
         status, completed = self.request(
             "GET", f"/pairing/browser/status/{started['session_id']}", token=None
