@@ -76,7 +76,7 @@ class OrcWeatherPanel(tk.Frame, WeatherUiIf):
         ui = theme_bundle().ui
         super().__init__(parent, bg=ui.background)
         self.grid_columnconfigure(0, weight=1)
-        self.grid_rowconfigure(2, weight=1)
+        self.grid_rowconfigure(2, weight=1, minsize=280)
 
         self._header = tk.Frame(self, bg=ui.background)
         self._header.grid(row=0, column=0, sticky="ew", padx=22, pady=(12, 7))
@@ -110,19 +110,19 @@ class OrcWeatherPanel(tk.Frame, WeatherUiIf):
 
         self._hero = tk.Frame(self, bd=0, highlightthickness=1)
         self._hero.grid(row=1, column=0, sticky="ew", padx=22, pady=(0, 12))
-        self._hero.grid_columnconfigure(2, weight=1)
+        self._hero.grid_columnconfigure(2, weight=1, minsize=210)
 
         self._symbol = tk.Label(
-            self._hero, text="◌", width=3, font=("Sans", 58), anchor="center"
+            self._hero, text="◌", width=2, font=("Sans", 48), anchor="center"
         )
-        self._symbol.grid(row=0, column=0, rowspan=2, padx=(16, 4), pady=10)
+        self._symbol.grid(row=0, column=0, rowspan=2, padx=(14, 2), pady=8)
         self._temperature = tk.Label(
-            self._hero, text="--°", font=("Sans", 56, "bold"), anchor="w"
+            self._hero, text="--°", font=("Sans", 48, "bold"), anchor="w"
         )
-        self._temperature.grid(row=0, column=1, rowspan=2, sticky="w", padx=(0, 20), pady=8)
+        self._temperature.grid(row=0, column=1, rowspan=2, sticky="w", padx=(0, 14), pady=6)
 
         self._condition = tk.Label(
-            self._hero, text="Weather unavailable", font=("Sans", 22, "bold"), anchor="w"
+            self._hero, text="Weather unavailable", font=("Sans", 18, "bold"), anchor="w"
         )
         self._condition.grid(row=0, column=2, sticky="sw", pady=(12, 1))
         self._summary = tk.Label(
@@ -146,16 +146,16 @@ class OrcWeatherPanel(tk.Frame, WeatherUiIf):
         self._forecast_area = tk.Frame(self)
         self._forecast_area.grid(row=2, column=0, sticky="nsew", padx=22, pady=(0, 10))
         self._forecast_area.grid_columnconfigure(0, weight=1)
-        self._forecast_area.grid_rowconfigure(1, weight=1)
-        self._forecast_area.grid_rowconfigure(3, weight=1)
+        self._forecast_area.grid_rowconfigure(1, weight=1, uniform="forecast_row")
+        self._forecast_area.grid_rowconfigure(3, weight=1, uniform="forecast_row")
 
         self._hourly_title = self._section_title(self._forecast_area, "HOURLY")
-        self._hourly_title.grid(row=0, column=0, sticky="ew", pady=(0, 4))
+        self._hourly_title.grid(row=0, column=0, sticky="ew", pady=(0, 2))
         self._hourly = tk.Frame(self._forecast_area)
         self._hourly.grid(row=1, column=0, sticky="nsew")
 
         self._daily_title = self._section_title(self._forecast_area, "6-DAY FORECAST")
-        self._daily_title.grid(row=2, column=0, sticky="ew", pady=(9, 4))
+        self._daily_title.grid(row=2, column=0, sticky="ew", pady=(5, 2))
         self._daily = tk.Frame(self._forecast_area)
         self._daily.grid(row=3, column=0, sticky="nsew")
 
@@ -342,10 +342,10 @@ class OrcWeatherPanel(tk.Frame, WeatherUiIf):
             cell, text=heading, bg=ui.surface, fg=ui.text_muted, font=("Sans", 9, "bold")
         ).pack(pady=(6, 0))
         tk.Label(
-            cell, text=symbol, bg=ui.surface, fg=accent, font=("Sans", 28)
+            cell, text=symbol, bg=ui.surface, fg=accent, font=("Sans", 23)
         ).pack(pady=(0, 0))
         tk.Label(
-            cell, text=value, bg=ui.surface, fg=ui.text, font=("Sans", 15, "bold")
+            cell, text=value, bg=ui.surface, fg=ui.text, font=("Sans", 13, "bold")
         ).pack()
         tk.Label(
             cell,
@@ -353,12 +353,12 @@ class OrcWeatherPanel(tk.Frame, WeatherUiIf):
             bg=ui.surface,
             fg=ui.text_muted,
             font=("Sans", 8),
-            wraplength=120,
-            height=2,
-        ).pack(padx=3, pady=(1, 0))
+            wraplength=135,
+            height=1,
+        ).pack(padx=3)
         tk.Label(
-            cell, text=footer, bg=ui.surface, fg=accent, font=("Sans", 9, "bold")
-        ).pack(pady=(1, 6))
+            cell, text=footer, bg=ui.surface, fg=accent, font=("Sans", 8, "bold")
+        ).pack(pady=(0, 4))
 
     @staticmethod
     def _local_timestamp(value: datetime) -> datetime:
