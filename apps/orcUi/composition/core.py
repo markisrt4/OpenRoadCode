@@ -95,7 +95,6 @@ def create_core_composition() -> CoreComposition:
         app = OrcUiApp(
             map_runtime=map_runtime,
             lifecycle_handler=lifecycle,
-            presentation=presentation,
         )
     except Exception:
         telemetry_profile_publisher.close()
@@ -109,11 +108,11 @@ def create_core_composition() -> CoreComposition:
     app.set_volume_request_handler(volume)
     state_ingress = StateIngressRuntime(
         schedule_ui=app.schedule_ui_callback,
-        apply_vehicle_state=app.apply_vehicle_state,
-        apply_engine_analysis=app.apply_engine_analysis,
-        apply_trip_state=app.apply_trip_state,
-        apply_position_state=app.apply_position_state,
-        apply_attitude_state=app.apply_attitude_state,
+        apply_vehicle_state=presentation.apply_vehicle,
+        apply_engine_analysis=presentation.apply_engine_analysis,
+        apply_trip_state=presentation.apply_trip,
+        apply_position_state=presentation.apply_position,
+        apply_attitude_state=presentation.apply_attitude,
         vehicle_configuration=vehicle_configuration.configuration,
     )
     vehicle_configuration.observe(state_ingress.set_vehicle_configuration)
