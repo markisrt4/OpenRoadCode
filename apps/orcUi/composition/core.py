@@ -94,10 +94,8 @@ def create_core_composition() -> CoreComposition:
     try:
         app = OrcUiApp(
             map_runtime=map_runtime,
-            map_request_handler=map_camera.request_handler,
             lifecycle_handler=lifecycle,
             presentation=presentation,
-            telemetry_profile_request=telemetry_profile_request,
         )
     except Exception:
         telemetry_profile_publisher.close()
