@@ -69,6 +69,7 @@ def create_orc_ui_composition() -> OrcUiComposition:
     try:
         core = create_core_composition()
         app = core.app
+        app.set_theme_change_handler(core.map_runtime.set_theme)
         radio = configure_radio(app, runtime)
         games = configure_games(app)
         media = configure_media(app, runtime)
