@@ -177,26 +177,23 @@ class OrcUiApp(VolumeUiIf):
         self._root.after_cancel(callback_id)
     def apply_vehicle_state(self, state: VehiclePresentationState) -> None:
         if not self._closing:
-            self._presentation.apply_vehicle(state, vehicle_panel=None)
+            self._presentation.apply_vehicle(state)
 
     def apply_engine_analysis(self, analysis: EngineAnalysis) -> None:
         if not self._closing:
-            self._presentation.apply_engine_analysis(
-                analysis,
-                vehicle_panel=None,
-            )
+            self._presentation.apply_engine_analysis(analysis)
 
     def apply_trip_state(self, state: TripPresentationState) -> None:
         if not self._closing:
-            self._presentation.apply_trip(state, vehicle_panel=None)
+            self._presentation.apply_trip(state)
 
     def apply_position_state(self, state: PositionPresentationState) -> None:
         if not self._closing:
-            self._presentation.apply_position(state, offroad_panel=None)
+            self._presentation.apply_position(state)
 
     def apply_attitude_state(self, state: AttitudePresentationState) -> None:
         if not self._closing:
-            self._presentation.apply_attitude(state, offroad_panel=None)
+            self._presentation.apply_attitude(state)
     def run(self) -> None:
         self._root.protocol("WM_DELETE_WINDOW", self._on_close)
         old_signal_handler = signal.getsignal(signal.SIGINT)
