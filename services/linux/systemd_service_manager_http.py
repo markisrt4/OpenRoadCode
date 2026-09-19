@@ -215,7 +215,8 @@ def main() -> int:
         client_store=ServiceManagerClientStore(client_store_path)
     )
 
-    SystemdServiceManagerHandler.browser_pairing = ServiceManagerBrowserPairing(SystemdServiceManagerHandler.pairing)    server = ThreadingHTTPServer((args.host, args.port), SystemdServiceManagerHandler)
+    SystemdServiceManagerHandler.browser_pairing = ServiceManagerBrowserPairing(SystemdServiceManagerHandler.pairing)
+    server = ThreadingHTTPServer((args.host, args.port), SystemdServiceManagerHandler)
     auth_mode = "bearer token" if token else "localhost only"
     print(
         f"OpenRoadCode systemd service manager listening on {args.host}:{args.port} "
