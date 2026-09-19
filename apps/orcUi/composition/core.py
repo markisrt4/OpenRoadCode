@@ -114,6 +114,7 @@ def create_core_composition() -> CoreComposition:
         apply_trip_state=presentation.apply_trip,
         apply_position_state=presentation.apply_position,
         apply_attitude_state=presentation.apply_attitude,
+        apply_weather_alert=presentation.apply_weather_alert,
         vehicle_configuration=vehicle_configuration.configuration,
     )
     vehicle_configuration.observe(state_ingress.set_vehicle_configuration)
