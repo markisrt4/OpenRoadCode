@@ -49,10 +49,16 @@ def weather_accent(condition: str, theme: ThemeBundle) -> str:
         return ui.accent_danger
     if "rain" in text or "drizzle" in text or "shower" in text:
         return ui.accent_primary
-    if "snow" in text or "sleet" in text or "fog" in text or "mist" in text:
+    if "snow" in text or "sleet" in text:
         return ui.text
-    if "clear" in text or "sun" in text or "partly" in text:
-        return ui.accent_success
+    if "fog" in text or "mist" in text:
+        return ui.text_muted
+    if "clear" in text or "sun" in text:
+        return "#e5a100"
+    if "partly" in text:
+        return "#d39a20"
+    if "cloud" in text or "overcast" in text:
+        return "#70869a"
     return ui.text_muted
 
 
@@ -242,7 +248,11 @@ class OrcWeatherPanel(tk.Frame, WeatherUiIf):
             fg=weather_accent(current.condition_label, self._theme_bundle()),
         )
         self._temperature.configure(text=self._temperature_text(current.temperature_k))
-        self._condition.configure(text=current.condition_label or "Unknown")
+        accent = weather_accent(current.condition_label, self._theme_bundle())
+        self._condition.configure(
+            text=current.condition_label or "Unknown",
+            fg=accent,
+        )
         self._summary.configure(
             text=(
                 f"Feels like {self._temperature_text(current.apparent_temperature_k)}"
