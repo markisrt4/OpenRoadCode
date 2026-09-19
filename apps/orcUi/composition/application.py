@@ -141,6 +141,8 @@ def create_orc_ui_composition() -> OrcUiComposition:
         app.register_screen("VEHICLE", vehicle)
         app.register_screen("OFF-ROAD", offroad, show_in_navigation=False)
         app.register_screen("SETTINGS", settings, show_in_navigation=False)
+        for placeholder in ("VISION", "LIGHTING"):
+            app.register_navigation_destination(placeholder)
     except Exception:
         if core is not None:
             core.close()
