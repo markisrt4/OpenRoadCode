@@ -20,8 +20,7 @@ from apps.orcUi.theme_runtime import theme_bundle
 from apps.orcUi.trip_presenter import TripPresentationState
 from apps.orcUi.vehicle_presenter import VehiclePresentationState
 from common.host_config import installed_target, orcui_fullscreen_default
-from controllers.automotive import AutomotiveTelemetryProfile, EngineAnalysis
-from ui.navigation import MapRequestHandlerIf
+from controllers.automotive import EngineAnalysis
 from ui.screen_ui_if import ScreenUiIf
 from ui.system import SystemLifecycleRequestHandlerIf, VolumeRequestHandlerIf, VolumeUiIf
 
@@ -31,15 +30,11 @@ class OrcUiApp(VolumeUiIf):
         self,
         *,
         map_runtime: MapRuntimeIf,
-        map_request_handler: MapRequestHandlerIf,
         lifecycle_handler: SystemLifecycleRequestHandlerIf,
         presentation: OrcUiPresentationState,
-        telemetry_profile_request: Callable[[AutomotiveTelemetryProfile], None] | None = None,
     ) -> None:
         self._map_runtime = map_runtime
-        self._map_request_handler = map_request_handler
         self._lifecycle_handler = lifecycle_handler
-        self._telemetry_profile_request = telemetry_profile_request
         self._presentation = presentation
         self._theme_mode = ThemeMode.DARK
         self._theme = theme_bundle(self._theme_mode)
@@ -286,13 +281,11 @@ class OrcUiApp(VolumeUiIf):
         if self._active_nav == "HOME":
             self.navigate_to("HOME")
         else:
-            self._apply_theme_to_content()
+            pass
         active_screen = self._active_screen
         set_theme_mode = getattr(active_screen, "set_theme_mode", None)
         if callable(set_theme_mode):
             set_theme_mode(self._theme_mode)
-    def _apply_theme_to_content(self) -> None:
-        pass
     def _deactivate_active_screen(self) -> None:
         active_screen = self._active_screen
         self._active_screen = None
