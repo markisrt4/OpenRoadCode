@@ -50,7 +50,7 @@ def test_normalizes_active_nws_alert():
 
     assert len(alerts) == 1
     alert = alerts[0]
-    assert alert.alert_id == "https://api.weather.gov/alerts/test"
+    assert alert.identifier == "https://api.weather.gov/alerts/test"
     assert alert.event == "Severe Thunderstorm Warning"
     assert alert.severity is WeatherAlertSeverity.SEVERE
     assert alert.urgency is WeatherAlertUrgency.IMMEDIATE
