@@ -7,42 +7,21 @@ from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
 
-
 class WeatherAlertSeverity(StrEnum):
-    """CAP-compatible severity of a weather alert."""
-
-    EXTREME = "extreme"
-    SEVERE = "severe"
-    MODERATE = "moderate"
-    MINOR = "minor"
-    UNKNOWN = "unknown"
-
-
+    EXTREME="extreme"; SEVERE="severe"; MODERATE="moderate"; MINOR="minor"; UNKNOWN="unknown"
 class WeatherAlertUrgency(StrEnum):
-    """CAP-compatible urgency of a weather alert."""
-
-    IMMEDIATE = "immediate"
-    EXPECTED = "expected"
-    FUTURE = "future"
-    PAST = "past"
-    UNKNOWN = "unknown"
-
-
+    IMMEDIATE="immediate"; EXPECTED="expected"; FUTURE="future"; PAST="past"; UNKNOWN="unknown"
 class WeatherAlertCertainty(StrEnum):
-    """CAP-compatible certainty of a weather alert."""
-
-    OBSERVED = "observed"
-    LIKELY = "likely"
-    POSSIBLE = "possible"
-    UNLIKELY = "unlikely"
-    UNKNOWN = "unknown"
-
+    OBSERVED="observed"; LIKELY="likely"; POSSIBLE="possible"; UNLIKELY="unlikely"; UNKNOWN="unknown"
+class WeatherAlertOperation(StrEnum):
+    ACTIVE="active"; CLEARED="cleared"
+class WeatherAlertClearReason(StrEnum):
+    EXPIRED="expired"; CANCELLED="cancelled"; WITHDRAWN="withdrawn"
 
 @dataclass(frozen=True, slots=True)
 class WeatherAlert:
-    """Normalized alert independent of the upstream weather provider."""
-
-    alert_id: str
+    """Normalized provider alert with opaque provider identity."""
+    identifier: str
     event: str
     headline: str
     description: str
@@ -55,3 +34,11 @@ class WeatherAlert:
     expires_at: datetime | None
     sender: str
     source: str
+
+@dataclass(frozen=True, slots=True)
+class WeatherAlertEvent:
+    """One ORC lifecycle event for a normalized provider alert."""
+    alert: WeatherAlert
+    correlation_id: str
+    operation: WeatherAlertOperation
+    clear_reason: WeatherAlertClearReason | None = None
