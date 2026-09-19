@@ -220,6 +220,11 @@ class OrcUiApp(VolumeUiIf):
         )
         self._content = self._shell.content
 
+    def set_weather_status(self, text: str) -> None:
+        """Display current Weather summary in persistent shell chrome."""
+        if self._shell is not None:
+            self._shell.set_weather_status(text)
+
     def present_weather_alert(self, alert: WeatherAlertUiEvent | None) -> None:
         """Forward shell-level Weather alert state to persistent chrome."""
         if self._shell is not None:
