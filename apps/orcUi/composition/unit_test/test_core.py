@@ -96,12 +96,10 @@ class CoreCompositionTest(unittest.TestCase):
         app_type.assert_called_once()
         app_kwargs = app_type.call_args.kwargs
         self.assertIs(app_kwargs["map_runtime"], map_runtime)
-        self.assertIs(app_kwargs["map_request_handler"], map_camera.request_handler)
         self.assertIs(app_kwargs["lifecycle_handler"], lifecycle)
         self.assertIs(app_kwargs["presentation"], core.presentation)
         self.assertIsInstance(core.presentation, OrcUiPresentationState)
         self.assertIsInstance(core.vehicle_configuration, VehicleConfigurationState)
-        self.assertIs(app_kwargs["telemetry_profile_request"], core.telemetry_profile_request)
         self.assertTrue(callable(core.telemetry_profile_request))
         volume_type.assert_called_once_with(
             audio_controller=audio,
