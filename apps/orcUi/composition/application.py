@@ -72,6 +72,18 @@ def create_orc_ui_composition() -> OrcUiComposition:
         radio = configure_radio(app, runtime)
         games = configure_games(app)
         media = configure_media(app, runtime)
+        def navigate_home_context(name: str) -> None:
+            context_name = name.strip().upper()
+            if not context_name:
+                raise ValueError("Context destination must not be empty")
+            if context_name == "TRIP":
+                app.navigate_to("VEHICLE")
+                vehicle.show_trip_view()
+            elif context_name in {"VEHICLE", "OFF-ROAD"}:
+                app.navigate_to(context_name)
+            else:
+                app.navigate_to(context_name)
+
         home = HomeScreen(
             app,
             map_runtime=core.map_runtime,
@@ -79,7 +91,7 @@ def create_orc_ui_composition() -> OrcUiComposition:
             theme_bundle=lambda: theme_bundle(app.theme_mode),
             presentation=core.presentation,
             telemetry_profile_request=core.telemetry_profile_request,
-            on_expand_context=app.navigate_to_context,
+            on_expand_context=navigate_home_context,
         )
         navigation = NavigationScreen(
             app,
