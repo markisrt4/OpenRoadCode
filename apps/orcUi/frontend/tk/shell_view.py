@@ -55,6 +55,8 @@ class OrcUiShellView:
         self._bottom_bar: OrcUiBottomBar | None = None
         self._clock_label: tk.Label | None = None
         self._breadcrumb_label: tk.Label | None = None
+        self._status_label: tk.Label | None = None
+        self._status_text = ""
         self._breadcrumb = active_nav
         self._clock_after_id: str | None = None
 
@@ -113,6 +115,11 @@ class OrcUiShellView:
             except tk.TclError:
                 pass
             self._clock_after_id = None
+
+    def set_status(self, text: str) -> None:
+        self._status_text = text
+        if self._status_label is not None and self._status_label.winfo_exists():
+            self._status_label.configure(text=text)
 
     def set_volume_text(self, text: str) -> None:
         self._volume_text = text
@@ -195,5 +202,6 @@ class OrcUiShellView:
             enabled=self._adsb_enabled,
             aircraft_count=self._aircraft_count,
         )
-        self._breadcrumb_label, _status_label = build_footer(self._root, theme=self._theme)
+        self._breadcrumb_label, self._status_label = build_footer(self._root, theme=self._theme)
         self._breadcrumb_label.configure(text=self._breadcrumb)
+        self._status_label.configure(text=self._status_text)
