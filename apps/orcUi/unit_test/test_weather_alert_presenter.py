@@ -9,7 +9,7 @@ from messaging.contracts.weather import WeatherAlertData
 
 def test_presenter_maps_wire_alert_to_typed_presentation_state() -> None:
     data = WeatherAlertData(
-        alert_id="urn:example:alert:1",
+        identifier="urn:example:alert:1",\n        correlation_id="correlation-1",\n        operation="active",\n        clear_reason=None,
         event="Severe Thunderstorm Warning",
         headline="Severe Thunderstorm Warning issued",
         description="Storms are moving through the area.",
@@ -25,8 +25,8 @@ def test_presenter_maps_wire_alert_to_typed_presentation_state() -> None:
 
     state = WeatherAlertPresenter.present(data)
 
-    assert state.alert_id == "urn:example:alert:1"
-    assert state.event == "Severe Thunderstorm Warning"
+    assert state.identifier == "urn:example:alert:1"
+    assert state.correlation_id == "correlation-1"\n    assert state.operation == "active"\n    assert state.event == "Severe Thunderstorm Warning"
     assert state.severity == "severe"
     assert state.urgency == "immediate"
     assert state.certainty == "observed"
