@@ -80,8 +80,6 @@ def create_orc_ui_composition() -> OrcUiComposition:
             if context_name == "TRIP":
                 app.navigate_to("VEHICLE")
                 vehicle.show_trip_view()
-            elif context_name in {"VEHICLE", "OFF-ROAD"}:
-                app.navigate_to(context_name)
             else:
                 app.navigate_to(context_name)
 
