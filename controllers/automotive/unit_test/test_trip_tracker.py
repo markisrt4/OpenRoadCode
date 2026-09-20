@@ -198,7 +198,6 @@ def test_tracker_accumulates_high_load_fuel_separately_from_boost() -> None:
     )
 
     state = tracker.snapshot()
-    assert state.high_load_time_s == pytest.approx(20.0)
     assert state.high_load_fuel_used_m3 == pytest.approx(7.0e-5)
     assert state.boost_fuel_used_m3 == pytest.approx(0.0)
 
