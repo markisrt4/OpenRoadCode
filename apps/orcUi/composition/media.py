@@ -84,18 +84,6 @@ def configure_media(app: OrcUiApp, runtime) -> MediaComposition:
             show_netflix=lambda: netflix_screen.show(),
         )
 
-    spotify_screen = SpotifyScreen(
-        app, theme=lambda: spotify_theme(app), back_action=lambda: media_screen.show(),
-        image_cache=image_cache, lyrics_client=lyrics, music_video_controller=music_video_controller,
-        music_video_presentation=music_video, service=media.spotify,
-        local_player=media.spotify_local_player, media_navigation_factory=media_navigation,
-    )
-    spotify_screen.set_playback_request_handler(media.spotify)
-    spotify_screen.set_track_request_handler(media.spotify)
-    spotify_screen.set_seek_request_handler(media.spotify)
-    spotify_screen.set_volume_request_handler(media.spotify)
-    spotify_screen.set_state_loader(media.spotify.latest_state)
-
     browser_color_scheme = lambda: "dark" if app.theme_mode is ThemeMode.DARK else "light"
     youtube_player = ManagedBrowserMediaPlayer(
         runtime.manager, "youtube", resolve_target=YouTubePlayer.resolve_target,
@@ -154,6 +142,23 @@ def configure_media(app: OrcUiApp, runtime) -> MediaComposition:
     def disconnect_spotify() -> str:
         spotify_tokens.clear()
         return "Spotify account disconnected"
+
+    spotify_screen = SpotifyScreen(
+        app, theme=lambda: spotify_theme(app), back_action=lambda: media_screen.show(),
+        image_cache=image_cache, lyrics_client=lyrics, music_video_controller=music_video_controller,
+        music_video_presentation=music_video, service=media.spotify,
+        local_player=media.spotify_local_player, media_navigation_factory=media_navigation,
+        spotify_configured=lambda: spotify_client_id() is not None,
+        spotify_account_connected=spotify_account_connected,
+        configure_spotify=lambda: media_screen.show_spotify_configuration(),
+        connect_spotify=lambda: media_screen.run_spotify_account_action(False),
+        disconnect_spotify=lambda: media_screen.run_spotify_account_action(True),
+    )
+    spotify_screen.set_playback_request_handler(media.spotify)
+    spotify_screen.set_track_request_handler(media.spotify)
+    spotify_screen.set_seek_request_handler(media.spotify)
+    spotify_screen.set_volume_request_handler(media.spotify)
+    spotify_screen.set_state_loader(media.spotify.latest_state)
 
     media_screen = MediaScreen(
         app, theme_bundle=lambda: theme_bundle(app.theme_mode),
