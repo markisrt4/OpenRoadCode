@@ -76,7 +76,7 @@ void setWeatherRadar(
         style.removeSource(kWeatherRadarSourceId);
     }
 
-    mbgl::style::Tileset tileset;
+    mbgl::Tileset tileset;
     tileset.tiles = {command.tileUrl};
     auto source = std::make_unique<mbgl::style::RasterSource>(
         kWeatherRadarSourceId,
