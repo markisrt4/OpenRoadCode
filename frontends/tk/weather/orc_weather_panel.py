@@ -85,7 +85,7 @@ class OrcWeatherPanel(tk.Frame, WeatherUiIf):
         self.grid_rowconfigure(2, weight=1, minsize=280)
 
         self._header = tk.Frame(self, bg=ui.background)
-        self._header.grid(row=0, column=0, sticky="ew", padx=22, pady=(12, 7))
+        self._header.grid(row=0, column=0, sticky="ew", padx=14, pady=(12, 7))
         self._header.grid_columnconfigure(0, weight=1)
         self._location = tk.Label(
             self._header, text="WEATHER", anchor="w", font=("Sans", 16, "bold")
@@ -115,7 +115,7 @@ class OrcWeatherPanel(tk.Frame, WeatherUiIf):
         self._refresh.grid(row=0, column=2, rowspan=2)
 
         self._hero = tk.Frame(self, bd=0, highlightthickness=1)
-        self._hero.grid(row=1, column=0, sticky="ew", padx=22, pady=(0, 12))
+        self._hero.grid(row=1, column=0, sticky="ew", padx=14, pady=(0, 12))
         self._hero.grid_columnconfigure(2, weight=1, minsize=200)
         self._hero.grid_columnconfigure(3, weight=0)
 
@@ -151,7 +151,7 @@ class OrcWeatherPanel(tk.Frame, WeatherUiIf):
             self._metric_cards.append((card, title, value))
 
         self._forecast_area = tk.Frame(self)
-        self._forecast_area.grid(row=2, column=0, sticky="nsew", padx=22, pady=(0, 10))
+        self._forecast_area.grid(row=2, column=0, sticky="nsew", padx=14, pady=(0, 10))
         self._forecast_area.grid_columnconfigure(0, weight=1)
         self._forecast_area.grid_rowconfigure(1, weight=1, uniform="forecast_row")
         self._forecast_area.grid_rowconfigure(3, weight=1, uniform="forecast_row")
@@ -356,7 +356,7 @@ class OrcWeatherPanel(tk.Frame, WeatherUiIf):
             row=0,
             column=column,
             sticky="nsew",
-            padx=(0 if column == 0 else 3, 3),
+            padx=(0 if column == 0 else 2, 2),
         )
         parent.grid_columnconfigure(column, weight=1, uniform="forecast")
         parent.grid_rowconfigure(0, weight=1)
@@ -401,7 +401,7 @@ class OrcWeatherPanel(tk.Frame, WeatherUiIf):
             bg=ui.surface,
             fg=ui.text_muted,
             font=("Sans", 8),
-            wraplength=135,
+            wraplength=150,
             height=1,
         ).pack(padx=3)
         tk.Label(
