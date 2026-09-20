@@ -6,6 +6,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import hashlib
+import hmac
 import secrets
 import time
 
@@ -17,6 +19,7 @@ class BrowserPairingSession:
     session_id: str
     client_name: str
     expires_at: float
+    poll_token_hash: str
     approved: bool = False
     consumed: bool = False
 
@@ -33,17 +36,19 @@ class ServiceManagerBrowserPairing:
         self._ttl_seconds = ttl_seconds
         self._sessions: dict[str, BrowserPairingSession] = {}
 
-    def begin(self, client_name: str) -> BrowserPairingSession:
+    def begin(self, client_name: str) -> tuple[BrowserPairingSession, str]:
         name = client_name.strip()
         if not name:
             raise ValueError("client_name is required")
+        poll_token = secrets.token_urlsafe(32)
         session = BrowserPairingSession(
             session_id=secrets.token_urlsafe(24),
             client_name=name,
             expires_at=time.time() + self._ttl_seconds,
+            poll_token_hash=hashlib.sha256(poll_token.encode("utf-8")).hexdigest(),
         )
         self._sessions[session.session_id] = session
-        return session
+        return session, poll_token
 
     def get(self, session_id: str) -> BrowserPairingSession | None:
         session = self._sessions.get(session_id)
@@ -61,9 +66,16 @@ class ServiceManagerBrowserPairing:
         session.approved = True
         return True
 
-    def complete(self, session_id: str) -> tuple[str, str] | None:
+    def complete(self, session_id: str, poll_token: str) -> tuple[str, str] | None:
         session = self.get(session_id)
-        if session is None or not session.approved or session.consumed:
+        if session is None or not self.poll_authorized(session, poll_token):
+            raise PermissionError("invalid browser pairing poll token")
+        if not session.approved or session.consumed:
             return None
         session.consumed = True
         return self._pairing.issue_client(session.client_name)
+
+    @staticmethod
+    def poll_authorized(session: BrowserPairingSession, poll_token: str) -> bool:
+        supplied_hash = hashlib.sha256(poll_token.encode("utf-8")).hexdigest()
+        return hmac.compare_digest(supplied_hash, session.poll_token_hash)
