@@ -15,8 +15,10 @@ from config.service_runtime_config import ServiceRuntimeConfigParser
 from controllers.weather import (
     GpsdWeatherLocationProvider,
     OpenMeteoWeatherProvider,
+    RainViewerRadarProvider,
     WeatherController,
     WeatherLocation,
+    WeatherRadarController,
 )
 from frontends.tk.weather import WeatherScreen
 from services.navigation.navigation_service_cli import DEFAULT_RUNTIME_CONFIG
@@ -28,6 +30,7 @@ class WeatherComposition:
 
     screen: WeatherScreen
     controller: WeatherController
+    radar: WeatherRadarController
 
 
 def configure_weather(
@@ -36,6 +39,7 @@ def configure_weather(
     unit_system: Callable[[], UnitSystem] = lambda: UnitSystem.IMPERIAL,
     on_weather_radio: Callable[[], None] | None = None,
     on_weather_status: Callable[[str], None] | None = None,
+    map_renderer=None,
 ) -> WeatherComposition:
     """Compose GPS-backed Open-Meteo Weather with shared display preferences."""
     runtime_config = ServiceRuntimeConfigParser(DEFAULT_RUNTIME_CONFIG).load()
@@ -65,6 +69,10 @@ def configure_weather(
         symbol = "⚡" if "thunder" in condition else "❄" if "snow" in condition else "☂" if "rain" in condition else "☀" if "clear" in condition else "☁"
         on_weather_status(f"{symbol}  {temperature}")
 
+    if map_renderer is None:
+        raise ValueError("map_renderer is required for weather radar")
+    radar = WeatherRadarController(RainViewerRadarProvider(), map_renderer)
+
     screen = WeatherScreen(
         app,
         controller=controller,
@@ -74,4 +82,4 @@ def configure_weather(
         on_weather_state=publish_weather_status,
     )
     app.register_screen("WEATHER", screen, before="VISION")
-    return WeatherComposition(screen=screen, controller=controller)
+    return WeatherComposition(screen=screen, controller=controller, radar=radar)
