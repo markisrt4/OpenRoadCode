@@ -25,6 +25,10 @@ class WeatherRadarController:
         return self._enabled
 
     @property
+    def frame_time(self) -> int | None:
+        return self._frame.timestamp if self._frame is not None else None
+
+    @property
     def opacity(self) -> float:
         return self._opacity
 
