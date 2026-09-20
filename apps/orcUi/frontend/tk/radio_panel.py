@@ -337,7 +337,7 @@ class RadioPanel(tk.Frame):
         tk.Label(header, text="RADIO CONTROLS", bg=ui.surface_alt, fg=ui.text, font=("Sans", 11, "bold"), padx=12, pady=10).pack(side=tk.LEFT)
         tk.Button(header, text="✕", command=self._toggle_drawer, bg=ui.surface_alt, fg=ui.text_muted, activebackground=ui.control_background, activeforeground=ui.text, relief=tk.FLAT, bd=0, padx=12, pady=10).pack(side=tk.RIGHT)
         for key, label, action in (("waterfall", "WATERFALL", self._toggle_waterfall), ("bandplan", "BANDPLAN", self._toggle_bandplan), ("fft_hold", "PEAK HOLD", self._toggle_fft_hold)):
-            button = tk.Button(self._drawer, text=label, command=action, anchor="w", bg=ui.surface, fg=ui.text_muted, activebackground=ui.control_background, activeforeground=ui.accent_success, relief=tk.FLAT, bd=0, font=("Sans", FONT_BODY, "bold"), padx=16, pady=11)
+            button = tk.Button(self._drawer, text=label, command=action, anchor="w", bg=ui.surface, fg=ui.text_muted, activebackground=ui.control_background, activeforeground=ui.accent_success, relief=tk.FLAT, bd=0, font=("Sans", FONT_CONTROL, "bold"), padx=16, pady=11)
             button.pack(fill=tk.X)
             self._display_buttons[key] = button
         tk.Frame(self._drawer, bg=ui.border, height=1).pack(fill=tk.X, padx=12, pady=4)
