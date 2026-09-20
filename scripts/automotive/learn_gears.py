@@ -41,6 +41,18 @@ def _parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--gears", type=int, default=6, help="number of forward gears")
     parser.add_argument(
+        "--mode",
+        choices=("automatic", "guided"),
+        default="automatic",
+        help="automatic clustering or guided per-gear calibration",
+    )
+    parser.add_argument(
+        "--samples-per-gear",
+        type=int,
+        default=12,
+        help="stable samples required for each gear in guided mode",
+    )
+    parser.add_argument(
         "--output",
         type=Path,
         default=Path("vehicle_gears.learned.toml"),
@@ -167,15 +179,95 @@ def _print_summary(groups: list[list[float]]) -> None:
         )
 
 
+def _read_sample(subscriber: ZeroMqSubscriber, args: argparse.Namespace, history: deque[float]) -> Sample | None:
+    topic, payload = subscriber.receive()
+    if topic != VEHICLE_STATE_TOPIC:
+        return None
+    message = decode_vehicle_state(payload)
+    engine_speed = message.data.engine_speed_rad_s
+    vehicle_speed = message.data.vehicle_speed_m_s
+    if engine_speed is None or vehicle_speed is None:
+        history.clear()
+        return None
+    rpm = engine_speed * RPM_PER_RAD_S
+    speed_mph = vehicle_speed * MPH_PER_MPS
+    if rpm < args.min_rpm or speed_mph < args.min_speed_mph:
+        history.clear()
+        return None
+    ratio = rpm / speed_mph
+    history.append(ratio)
+    if not _stable_ratio(history, args.max_window_spread):
+        return None
+    return Sample(rpm=rpm, speed_mph=speed_mph, rpm_per_mph=ratio)
+
+
+def _guided_learn(subscriber: ZeroMqSubscriber, args: argparse.Namespace) -> int:
+    groups: list[list[float]] = []
+    print("Guided manual-transmission calibration")
+    print(f"Collecting {args.samples_per_gear} stable samples per gear.")
+    print("For safety, start each gear from a stop/passenger interaction; do not type while driving.\n")
+
+    for gear in range(1, args.gears + 1):
+        input(f"Gear {gear}: when safely ready, press Enter to arm sampling...")
+        history: deque[float] = deque(maxlen=args.window)
+        values: list[float] = []
+        last_status = 0.0
+        while len(values) < args.samples_per_gear:
+            sample = _read_sample(subscriber, args, history)
+            if sample is None:
+                continue
+            values.append(sample.rpm_per_mph)
+            now = time.monotonic()
+            if now - last_status >= 0.25 or len(values) == args.samples_per_gear:
+                print(
+                    f"\rGear {gear}: {sample.rpm:5.0f} rpm  {sample.speed_mph:5.1f} mph  "
+                    f"{sample.rpm_per_mph:7.2f} rpm/mph  "
+                    f"accepted={len(values):2d}/{args.samples_per_gear}",
+                    end="",
+                    flush=True,
+                )
+                last_status = now
+        print()
+        groups.append(values)
+        print(
+            f"Gear {gear} captured: median={statistics.median(values):.2f} rpm/mph, "
+            f"sigma={statistics.pstdev(values) if len(values) > 1 else 0.0:.2f}\n"
+        )
+
+    centers = [statistics.median(group) for group in groups]
+    if any(a <= b for a, b in zip(centers, centers[1:])):
+        print(
+            "Calibration rejected: learned ratios must decrease from 1st through the highest gear.",
+            file=sys.stderr,
+        )
+        return 2
+
+    _print_summary(groups)
+    _write_profile(args.output, groups, sum(len(group) for group in groups))
+    print(f"\nWrote learned profile: {args.output}")
+    return 0
+
+
 def main() -> int:
     args = _parse_args()
     if args.gears < 1:
         raise SystemExit("--gears must be at least 1")
     if args.window < 2:
         raise SystemExit("--window must be at least 2")
+    if args.samples_per_gear < 1:
+        raise SystemExit("--samples-per-gear must be at least 1")
 
     subscriber = ZeroMqSubscriber(args.endpoint)
     subscriber.subscribe(VEHICLE_STATE_TOPIC)
+
+    if args.mode == "guided":
+        try:
+            return _guided_learn(subscriber, args)
+        except KeyboardInterrupt:
+            print("\nCalibration cancelled; no profile was written.")
+            return 130
+        finally:
+            subscriber.close()
 
     ratio_history: deque[float] = deque(maxlen=args.window)
     samples: list[Sample] = []
