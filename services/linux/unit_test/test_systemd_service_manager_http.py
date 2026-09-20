@@ -95,10 +95,13 @@ class SystemdServiceManagerHttpRequestTest(unittest.TestCase):
         token: str | None = "secret",
         payload: dict[str, object] | None = None,
         form: dict[str, str] | None = None,
+        pairing_token: str | None = None,
     ):
         headers = {}
         if token is not None:
             headers["Authorization"] = f"Bearer {token}"
+        if pairing_token is not None:
+            headers["X-OpenRoadCode-Pairing-Token"] = pairing_token
         body = None
         if form is not None:
             from urllib.parse import urlencode
@@ -168,6 +171,8 @@ class SystemdServiceManagerHttpRequestTest(unittest.TestCase):
         )
         self.assertEqual(status, 200)
         self.assertTrue(payload["session_id"])
+        self.assertTrue(payload["poll_token"])
+        self.assertNotIn(payload["poll_token"], payload["approval_url"])
         self.assertIn("/pairing/browser/approve/", payload["approval_url"])
 
     def test_same_device_browser_pairing_does_not_require_admin_token(self) -> None:
@@ -182,6 +187,17 @@ class SystemdServiceManagerHttpRequestTest(unittest.TestCase):
         )
         self.assertEqual(status, 200)
         self.assertIn("Device approved", approved)
+
+    def test_browser_pairing_status_requires_poll_token(self) -> None:
+        _, started = self.request(
+            "POST", "/pairing/browser/start", token=None,
+            payload={"client_name": "Test Android"},
+        )
+        status, response = self.request(
+            "GET", f"/pairing/browser/status/{started['session_id']}", token=None
+        )
+        self.assertEqual(status, 401)
+        self.assertEqual(response, {"error": "unauthorized"})
 
     def test_browser_pairing_issues_credentials_once_after_approval(self) -> None:
         _, started = self.request(
@@ -198,7 +214,8 @@ class SystemdServiceManagerHttpRequestTest(unittest.TestCase):
         self.assertIn("Device approved", approved)
 
         status, completed = self.request(
-            "GET", f"/pairing/browser/status/{started['session_id']}", token=None
+            "GET", f"/pairing/browser/status/{started['session_id']}", token=None,
+            pairing_token=started["poll_token"],
         )
         self.assertEqual(status, 200)
         self.assertEqual(completed["status"], "approved")
@@ -206,7 +223,8 @@ class SystemdServiceManagerHttpRequestTest(unittest.TestCase):
         self.assertTrue(completed["access_token"])
 
         status, pending = self.request(
-            "GET", f"/pairing/browser/status/{started['session_id']}", token=None
+            "GET", f"/pairing/browser/status/{started['session_id']}", token=None,
+            pairing_token=started["poll_token"],
         )
         self.assertEqual(status, 200)
         self.assertEqual(pending, {"status": "pending"})
