@@ -14,6 +14,10 @@ import time
 from services.common.service_manager_pairing import ServiceManagerPairing
 
 
+class BrowserPairingConsumedError(RuntimeError):
+    """Raised when credentials have already been issued for a browser session."""
+
+
 @dataclass
 class BrowserPairingSession:
     session_id: str
@@ -37,6 +41,7 @@ class ServiceManagerBrowserPairing:
         self._sessions: dict[str, BrowserPairingSession] = {}
 
     def begin(self, client_name: str) -> tuple[BrowserPairingSession, str]:
+        self._prune_expired()
         name = client_name.strip()
         if not name:
             raise ValueError("client_name is required")
@@ -70,10 +75,22 @@ class ServiceManagerBrowserPairing:
         session = self.get(session_id)
         if session is None or not self.poll_authorized(session, poll_token):
             raise PermissionError("invalid browser pairing poll token")
-        if not session.approved or session.consumed:
+        if session.consumed:
+            raise BrowserPairingConsumedError("browser pairing session already consumed")
+        if not session.approved:
             return None
         session.consumed = True
         return self._pairing.issue_client(session.client_name)
+
+    def _prune_expired(self) -> None:
+        now = time.time()
+        expired = [
+            session_id
+            for session_id, session in self._sessions.items()
+            if now > session.expires_at
+        ]
+        for session_id in expired:
+            self._sessions.pop(session_id, None)
 
     @staticmethod
     def poll_authorized(session: BrowserPairingSession, poll_token: str) -> bool:
