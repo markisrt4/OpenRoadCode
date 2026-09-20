@@ -188,7 +188,12 @@ class SpotifyScreen(TkScreen, MediaUiIf):
         configured = self._spotify_configured()
         connected = self._spotify_account_connected()
         colors = self._theme["colors"]
-        row = tk.Frame(parent, bg=colors["card_background"])
+        surface = colors.get("card_background", colors["background"])
+        text = colors.get("title", "#FFFFFF")
+        muted = colors.get("subtitle", text)
+        button_bg = colors.get("button_background", surface)
+        button_fg = colors.get("button_foreground", text)
+        row = tk.Frame(parent, bg=surface)
         row.pack(fill=tk.X, padx=4, pady=(2, 4))
 
         if not configured:
@@ -199,15 +204,15 @@ class SpotifyScreen(TkScreen, MediaUiIf):
             status = "Spotify connected"
 
         tk.Label(
-            row, text=status.upper(), bg=colors["card_background"],
-            fg=SPOTIFY_GREEN if configured and connected else colors["subtitle"],
+            row, text=status.upper(), bg=surface,
+            fg=SPOTIFY_GREEN if configured and connected else muted,
             font=("Sans", 9, "bold"),
         ).pack(side=tk.LEFT, padx=10, pady=8)
 
         if self._configure_spotify is not None:
             tk.Button(
                 row, text="CONFIGURE", command=self._configure_spotify,
-                bg=colors["button_background"], fg=colors["button_foreground"],
+                bg=button_bg, fg=button_fg,
                 relief=tk.FLAT, bd=0, font=("Sans", 8, "bold"), padx=10, pady=5,
             ).pack(side=tk.RIGHT, padx=(4, 8), pady=5)
 
@@ -216,8 +221,8 @@ class SpotifyScreen(TkScreen, MediaUiIf):
             tk.Button(
                 row, text="DISCONNECT" if connected else "CONNECT SPOTIFY",
                 command=account_action,
-                bg=colors["button_background"] if connected else SPOTIFY_GREEN,
-                fg=colors["button_foreground"] if connected else "#000000",
+                bg=button_bg if connected else SPOTIFY_GREEN,
+                fg=button_fg if connected else "#000000",
                 relief=tk.FLAT, bd=0, font=("Sans", 8, "bold"), padx=10, pady=5,
             ).pack(side=tk.RIGHT, padx=4, pady=5)
 
