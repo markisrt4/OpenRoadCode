@@ -109,6 +109,17 @@ class EnvironmentVariableSecretManagerTest(unittest.TestCase):
                 manager.get_secret("SPOTIFY_CLIENT_ID"),
             )
 
+    def test_set_secret_round_trips_shell_sensitive_characters(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            secrets_file = Path(directory) / "secrets.env"
+            with patch.dict("os.environ", {}, clear=True):
+                manager = EnvironmentVariableSecretManager(secrets_file=secrets_file)
+                value = "client id with spaces and an apostrophe: it\'s-safe"
+                manager.set_secret("SPECIAL_SECRET", value)
+
+                reloaded = EnvironmentVariableSecretManager(secrets_file=secrets_file)
+                self.assertEqual(value, reloaded.get_secret("SPECIAL_SECRET"))
+
     def test_set_secret_persists_and_preserves_existing_values(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             secrets_file = Path(directory) / "secrets.env"
