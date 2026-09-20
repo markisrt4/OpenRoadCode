@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 import os
-import shlex
 from collections.abc import Mapping
 from pathlib import Path
 
@@ -104,7 +103,7 @@ class EnvironmentVariableSecretManager(SecretManagerIf):
     def _quote_value(value: str) -> str:
         if all(character.isalnum() or character in "._-:/@" for character in value):
             return value
-        return "'" + value.replace("'", "'\\''") + "'"
+        return '"' + value.replace("\\", "\\\\").replace('"', '\\"') + '"'
 
     def get_secret(self, name: str) -> str | None:
         if not name or not name.strip():
