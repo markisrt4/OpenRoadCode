@@ -69,6 +69,9 @@ class TripPanel(tk.Frame):
             "boost_fuel": f"{state.boost_fuel_gallons:.2f}",
             "boost_share": "--" if state.boost_fuel_percent is None else f"{state.boost_fuel_percent:.0f}",
             "peak_boost": "--" if state.peak_boost_psi is None else f"{state.peak_boost_psi:.1f}",
+            "high_load_time": self._format_duration(state.high_load_time_s),
+            "high_load_fuel": f"{state.high_load_fuel_gallons:.2f}",
+            "high_load_share": "--" if state.high_load_fuel_percent is None else f"{state.high_load_fuel_percent:.0f}",
         }
         for key, text in boost_values.items():
             label = self._boost_labels.get(key)
@@ -172,7 +175,7 @@ class TripPanel(tk.Frame):
         boost_band.grid(row=2, column=0, sticky="ew", padx=4, pady=(6, 2))
         tk.Label(
             boost_band,
-            text="BOOST METRICS",
+            text="BOOST / LOAD METRICS",
             fg=ui.text_muted,
             bg=ui.surface_alt,
             font=("Sans", FONT_SMALL, "bold"),
@@ -184,6 +187,9 @@ class TripPanel(tk.Frame):
             ("boost_fuel", "FUEL", "gal"),
             ("boost_share", "FUEL SHARE", "%"),
             ("peak_boost", "PEAK", "psi"),
+            ("high_load_time", "HIGH LOAD", ""),
+            ("high_load_fuel", "LOAD FUEL", "gal"),
+            ("high_load_share", "LOAD SHARE", "%"),
         )
         for column, (key, title, unit) in enumerate(boost_specs, start=1):
             cell = tk.Frame(boost_band, bg=ui.surface_alt)
