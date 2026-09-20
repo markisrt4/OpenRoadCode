@@ -59,6 +59,20 @@ std::optional<MapCommand> MapCommandServer::parseCommand(const std::string& payl
             ? document["enabled"].GetBool() : !command.category.empty();
         return command;
     }
+    if (command.command == "set_weather_radar") {
+        if (!document.HasMember("enabled") || !document["enabled"].IsBool()) return std::nullopt;
+        command.enabled = document["enabled"].GetBool();
+        if (document.HasMember("tile_url")) {
+            if (!document["tile_url"].IsString()) return std::nullopt;
+            command.tileUrl = document["tile_url"].GetString();
+        }
+        if (command.enabled && command.tileUrl.empty()) return std::nullopt;
+        if (document.HasMember("frame_time") && !document["frame_time"].IsNull()) {
+            if (!document["frame_time"].IsInt64()) return std::nullopt;
+            command.frameTime = document["frame_time"].GetInt64();
+        }
+        return command;
+    }
     if (command.command == "set_center" || command.command == "set_position") {
         if (!document.HasMember("latitude") || !document["latitude"].IsNumber() ||
             !document.HasMember("longitude") || !document["longitude"].IsNumber()) return std::nullopt;
