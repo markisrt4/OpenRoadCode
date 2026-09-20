@@ -19,6 +19,8 @@ from controllers.lyrics import LrclibLyricsClient
 from controllers.video import MusicVideoController, NetflixPlayer, YouTubeMusicVideo, YouTubePlayer
 from frontends.tk.media import BrowserMediaScreen, MediaNavigationBar, MediaScreen, SpotifyNowPlaying, SpotifyScreen
 from ui.theme import ThemeMode
+from protocols.spotify import SPOTIFY_CLIENT_ID_SECRET_NAME
+from security.environment_variable_secret_manager import EnvironmentVariableSecretManager
 
 MUSIC_VIDEO_PORT = 8770
 MUSIC_VIDEO_WINDOW_CLASS = "OpenRoadCodeMusicVideo"
@@ -120,11 +122,24 @@ def configure_media(app: OrcUiApp, runtime) -> MediaComposition:
         media.spotify_local_player.request_player()
         spotify_screen.show()
 
+    spotify_secrets = EnvironmentVariableSecretManager()
+
+    def spotify_client_id() -> str | None:
+        return EnvironmentVariableSecretManager().get_secret(SPOTIFY_CLIENT_ID_SECRET_NAME)
+
+    def configure_spotify_client(client_id: str) -> str:
+        if not client_id:
+            raise ValueError("Spotify Client ID is required")
+        spotify_secrets.set_secret(SPOTIFY_CLIENT_ID_SECRET_NAME, client_id)
+        return "Spotify application saved. Restart ORC to activate it."
+
     media_screen = MediaScreen(
         app, theme_bundle=lambda: theme_bundle(app.theme_mode),
         show_spotify=spotify_screen.show, show_youtube=youtube_screen.show, show_netflix=netflix_screen.show,
         show_spotify_remote=show_spotify_remote, show_spotify_local=show_spotify_local,
         spotify_local_available=lambda: media.spotify_local_player.state().available,
+        configure_spotify=configure_spotify_client,
+        spotify_client_id=spotify_client_id,
     )
     app.register_screen("MEDIA", media_screen)
     app.set_home_media_factory(
