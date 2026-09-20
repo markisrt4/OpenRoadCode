@@ -58,12 +58,52 @@ class EnvironmentVariableSecretManager(SecretManagerIf):
                 if secrets_file is None
                 else Path(secrets_file)
             )
+            self._secrets_file = resolved_secrets_file
             loaded_environment = self._load_file(resolved_secrets_file)
             loaded_environment.update(os.environ)
             self._environment: Mapping[str, str] = loaded_environment
         else:
+            self._secrets_file = None
             self._environment = environment
         self._prefix = prefix
+
+    @property
+    def secrets_file(self) -> Path | None:
+        """Return the backing environment file, when this manager owns one."""
+        return getattr(self, "_secrets_file", None)
+
+    def set_secret(self, name: str, value: str) -> None:
+        """Persist one secret in the backing environment file.
+
+        Process-environment-only managers are intentionally read-only.
+        """
+        if not name or not name.strip() or not name.isidentifier():
+            raise ValueError("Secret name must be a valid environment variable name")
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("Secret value cannot be empty")
+        path = self.secrets_file
+        if path is None:
+            raise RuntimeError("Secret manager has no writable backing file")
+
+        path.parent.mkdir(parents=True, exist_ok=True)
+        existing = self._load_file(path)
+        existing[name] = normalized
+        lines = [
+            "# OpenRoadCode secrets",
+            *[f"{key}={self._quote_value(item)}" for key, item in sorted(existing.items())],
+            "",
+        ]
+        temporary = path.with_suffix(path.suffix + ".tmp")
+        temporary.write_text("\n".join(lines), encoding="utf-8")
+        temporary.chmod(0o600)
+        temporary.replace(path)
+
+    @staticmethod
+    def _quote_value(value: str) -> str:
+        if all(character.isalnum() or character in "._-:/@" for character in value):
+            return value
+        return "'" + value.replace("'", "'\\''") + "'"
 
     def get_secret(self, name: str) -> str | None:
         if not name or not name.strip():
