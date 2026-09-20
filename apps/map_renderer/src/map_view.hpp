@@ -68,6 +68,16 @@ public:
     /** @brief Receive notification that MapLibre will render a frame. */
     void onWillStartRenderingFrame() override;
 
+    /** @brief Report MapLibre map/resource loading failures. */
+    void onDidFailLoadingMap(mbgl::MapLoadError error, const std::string& message) override;
+
+    /** @brief Trace radar tile network activity without flooding normal map logs. */
+    void onTileAction(
+        mbgl::TileOperation operation,
+        const mbgl::OverscaledTileID& tileId,
+        const std::string& sourceId
+    ) override;
+
     /**
      * @brief Set work to execute on every event-loop tick.
      * @param callback Callback used to poll external map commands.
