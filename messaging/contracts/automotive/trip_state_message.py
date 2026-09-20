@@ -33,7 +33,6 @@ class TripStateData:
     current_longitude_deg: float | None
     end_latitude_deg: float | None
     end_longitude_deg: float | None
-    high_load_time_s: float = 0.0
     high_load_fuel_used_m3: float = 0.0
 
 
