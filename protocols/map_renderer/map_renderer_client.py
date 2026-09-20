@@ -83,13 +83,17 @@ class MapRendererClient:
         *,
         enabled: bool = True,
         frame_time: int | None = None,
+        opacity: float = 0.65,
     ) -> None:
         """Show, update, or hide the weather-radar raster overlay."""
+        if not 0.0 <= opacity <= 1.0:
+            raise ValueError("weather radar opacity must be between 0.0 and 1.0")
         self._send_command({
             "command": MapRendererCommand.SET_WEATHER_RADAR,
             "tile_url": tile_url or "",
             "enabled": enabled and bool(tile_url),
             "frame_time": frame_time,
+            "opacity": opacity,
         })
 
     def fit_bounds(self, south: float, west: float, north: float, east: float,
