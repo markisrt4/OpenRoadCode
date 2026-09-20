@@ -60,6 +60,7 @@ class RainViewerRadarProvider(RadarProviderIf):
                         f"{host.rstrip('/')}/{path.lstrip('/')}/{self._tile_size}"
                         "/{z}/{x}/{y}/2/1_1.png"
                     ),
+                    max_zoom=7,
                 )
             )
 
