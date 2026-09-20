@@ -32,6 +32,7 @@ def build_navigation_screen(
     on_back: Callable[[], None],
     theme: ThemeBundle,
     radar_enabled: bool = False,
+    radar_frame_time: int | None = None,
     on_radar_toggle: Callable[[bool], None] | None = None,
 ) -> NavigationPanel:
     screen = NavigationPanel(
@@ -40,6 +41,7 @@ def build_navigation_screen(
         on_back=on_back,
         theme_bundle=theme,
         radar_enabled=radar_enabled,
+        radar_frame_time=radar_frame_time,
         on_radar_toggle=on_radar_toggle,
     )
     screen.pack(fill=tk.BOTH, expand=True)
