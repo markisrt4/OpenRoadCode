@@ -17,7 +17,7 @@ import subprocess
 from common.xdg_paths import xdg_config_home
 from services.common.service_manager_auth import TOKEN_ENV, authorized, binding_allowed, same_device_request
 from services.common.service_manager_client_store import ServiceManagerClientStore
-from services.common.service_manager_browser_pairing import ServiceManagerBrowserPairing
+from services.common.service_manager_browser_pairing import (BrowserPairingConsumedError, ServiceManagerBrowserPairing)
 from services.common.service_manager_pairing import ServiceManagerPairing
 from services.termux.service_manager import RunitServiceManager, ServiceStatus
 
@@ -117,6 +117,9 @@ class ServiceManagerHandler(BaseHTTPRequestHandler):
             credentials = self.browser_pairing.complete(session_id, poll_token)
         except PermissionError:
             self._json(HTTPStatus.UNAUTHORIZED, {"error": "unauthorized"})
+            return
+        except BrowserPairingConsumedError:
+            self._json(HTTPStatus.GONE, {"error": "pairing session already consumed"})
             return
         if credentials is None:
             self._json(HTTPStatus.OK, {"status": "pending"})
