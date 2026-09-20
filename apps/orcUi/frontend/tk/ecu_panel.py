@@ -109,7 +109,7 @@ class EcuPanel(tk.Frame):
         )
         self._engine_mode.grid(row=0, column=0, sticky="ew", padx=5, pady=(5, 2))
         self._engine_canvas = tk.Canvas(
-            center, bg=ui.surface, highlightthickness=1,
+            center, width=1, height=1, bg=ui.surface, highlightthickness=1,
             highlightbackground=ui.border, bd=0,
         )
         self._engine_canvas.grid(row=1, column=0, sticky="nsew", padx=5, pady=2)
@@ -128,38 +128,38 @@ class EcuPanel(tk.Frame):
         card.grid(row=row, column=col, sticky="nsew", padx=5, pady=5)
         tk.Frame(card, bg=accent, width=3).grid(row=0, column=0, rowspan=3, sticky="nsw")
         card.grid_columnconfigure(1, weight=1)
-        tk.Label(card, text=icon, fg=accent, bg=ui.surface, font=("Sans", 23, "bold")).grid(
-            row=0, column=0, rowspan=2, sticky="n", padx=(14, 10), pady=(9, 0)
+        tk.Label(card, text=icon, fg=accent, bg=ui.surface, font=("Sans", 18, "bold")).grid(
+            row=0, column=0, rowspan=2, sticky="n", padx=(9, 6), pady=(7, 0)
         )
-        tk.Label(card, text=title, fg=accent, bg=ui.surface, font=("Sans", 16, "bold"), anchor="w").grid(
-            row=0, column=1, sticky="ew", pady=(8, 0)
+        tk.Label(card, text=title, fg=accent, bg=ui.surface, font=("Sans", 13, "bold"), anchor="w").grid(
+            row=0, column=1, sticky="ew", pady=(6, 0)
         )
         tk.Label(card, text=subtitle, fg=ui.text_muted, bg=ui.surface, font=("Sans", FONT_SMALL), anchor="w").grid(
             row=1, column=1, sticky="ew", pady=(0, 5)
         )
         body = tk.Frame(card, bg=ui.surface)
-        body.grid(row=2, column=0, columnspan=2, sticky="nsew", padx=14, pady=(2, 8))
+        body.grid(row=2, column=0, columnspan=2, sticky="nsew", padx=9, pady=(1, 5))
         card.grid_rowconfigure(2, weight=1)
-        body.grid_columnconfigure(0, minsize=145)
-        body.grid_columnconfigure(1, minsize=90)
-        body.grid_columnconfigure(2, weight=1)
+        body.grid_columnconfigure(0, weight=1)
+        body.grid_columnconfigure(1, weight=0)
+        body.grid_columnconfigure(2, weight=2)
         return body
 
     def _value(self, parent: tk.Misc, row: int, key: str, label: str, *, status: bool = False) -> None:
         ui = self._theme.ui
         tk.Label(parent, text=label, fg=ui.text, bg=ui.surface, font=("Sans", FONT_SMALL), anchor="w").grid(
-            row=row, column=0, sticky="w", pady=4
+            row=row, column=0, sticky="w", pady=2
         )
         value = tk.Label(
             parent, text="--", fg=ui.accent_primary if not status else ui.accent_success,
             bg=ui.surface, font=("Sans", FONT_BODY, "bold"), anchor="e",
         )
-        value.grid(row=row, column=1, sticky="e", padx=(4, 12), pady=4)
+        value.grid(row=row, column=1, sticky="e", padx=(3, 6), pady=2)
         self._labels[key] = value
 
     def _bar(self, parent: tk.Misc, row: int, key: str, *, height: int = 24) -> None:
         ui = self._theme.ui
-        canvas = tk.Canvas(parent, height=max(height, 34), bg=ui.surface, highlightthickness=0, bd=0)
+        canvas = tk.Canvas(parent, width=1, height=max(height, 30), bg=ui.surface, highlightthickness=0, bd=0)
         canvas.grid(row=row, column=2, sticky="ew", pady=3)
         canvas.bind("<Configure>", lambda _e: self._paint_bars())
         self._bars[key] = canvas
@@ -377,7 +377,7 @@ class EcuPanel(tk.Frame):
     ) -> None:
         ui = self._theme.ui
         canvas.delete("all")
-        width = max(180, canvas.winfo_width())
+        width = max(60, canvas.winfo_width())
         x1, x2, y = 4.0, width - 4.0, 9.0
         segments, gap = 14, 2
         sw = ((x2 - x1) - gap * (segments - 1)) / segments
