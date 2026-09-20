@@ -15,6 +15,9 @@ HOST_INSTALLER = PROJECT_ROOT / "scripts" / "installers" / "host_setup.sh"
 SYSTEM_PACKAGES = (
     PROJECT_ROOT / "scripts" / "installers" / "install_system_packages.sh"
 )
+TERMUX_NAV_BUILDER = (
+    PROJECT_ROOT / "development" / "termux" / "build_navigation_stack.sh"
+)
 
 
 class NavigationInstallerContractTests(unittest.TestCase):
@@ -23,6 +26,7 @@ class NavigationInstallerContractTests(unittest.TestCase):
         cls.navigation = NAV_INSTALLER.read_text(encoding="utf-8")
         cls.host_setup = HOST_INSTALLER.read_text(encoding="utf-8")
         cls.system_packages = SYSTEM_PACKAGES.read_text(encoding="utf-8")
+        cls.termux_navigation = TERMUX_NAV_BUILDER.read_text(encoding="utf-8")
 
     def test_host_setup_invokes_navigation_without_recursive_host_setup(self) -> None:
         self.assertIn(
@@ -65,6 +69,27 @@ class NavigationInstallerContractTests(unittest.TestCase):
         self.assertIn("trap restore_container_engine_state EXIT", self.navigation)
         self.assertIn("CONTAINER_ENGINE_STARTED_BY_ORC=1", self.navigation)
         self.assertIn("sudo systemctl stop docker", self.navigation)
+
+    def test_linux_navigation_installs_built_map_renderer(self) -> None:
+        self.assertIn(
+            'sudo install -m 0755 "$renderer" '
+            '"$INSTALL_ROOT/bin/openroadcode-map-renderer"',
+            self.navigation,
+        )
+
+    def test_termux_navigation_always_rebuilds_and_installs_orc_renderer(self) -> None:
+        self.assertIn(
+            'cmake --build "$PROJECT_ROOT/apps/map_renderer/build-termux"',
+            self.termux_navigation,
+        )
+        self.assertIn(
+            'install -Dm755 "$MAP_RENDERER_BUILT" "$MAP_RENDERER_INSTALLED"',
+            self.termux_navigation,
+        )
+        self.assertNotIn(
+            'if should_build "$MAP_RENDERER_INSTALLED"; then',
+            self.termux_navigation,
+        )
 
     def test_sdrpp_feature_uses_orc_source_build_installer(self) -> None:
         self.assertIn(
