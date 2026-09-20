@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+import threading
 
 from apps.orcUi.core_runtime import MapRuntimeIf
 from controllers.automotive import AutomotiveTelemetryProfile
@@ -35,6 +36,7 @@ class NavigationScreen(TkScreen):
             Callable[[AutomotiveTelemetryProfile], None] | None
         ),
         on_back: Callable[[], None],
+        radar_controller=None,
     ) -> None:
         super().__init__(self.SCREEN_ID)
         self._host = host
@@ -43,6 +45,7 @@ class NavigationScreen(TkScreen):
         self._theme_bundle = theme_bundle
         self._telemetry_profile_request = telemetry_profile_request
         self._on_back = on_back
+        self._radar_controller = radar_controller
         self._panel: NavigationPanel | None = None
 
     def show(self) -> None:
@@ -56,6 +59,8 @@ class NavigationScreen(TkScreen):
             map_request_handler=self._map_request_handler,
             on_back=self._on_back,
             theme=self._theme_bundle(),
+            radar_enabled=(self._radar_controller.enabled if self._radar_controller is not None else False),
+            on_radar_toggle=self._toggle_radar if self._radar_controller is not None else None,
         )
 
         if self._telemetry_profile_request is not None:
@@ -63,6 +68,9 @@ class NavigationScreen(TkScreen):
 
         self._host.screen_parent.update_idletasks()
         self._start_map_renderer()
+        if self._radar_controller is not None and self._radar_controller.enabled:
+            for delay_ms in (300, 700, 1200):
+                self._host.schedule_ui_callback(delay_ms, self._radar_controller.refresh_renderer_state)
 
     def hide(self) -> None:
         """Stop transient navigation resources when navigating away."""
@@ -81,3 +89,19 @@ class NavigationScreen(TkScreen):
                 "WARNING: map renderer: "
                 f"{type(error).__name__}: {error}"
             )
+
+    def _toggle_radar(self, enabled: bool) -> None:
+        controller = self._radar_controller
+        if controller is None:
+            return
+        if not enabled:
+            controller.hide()
+            return
+
+        def load_latest() -> None:
+            try:
+                controller.show_latest()
+            except Exception as error:
+                print(f"WARNING: weather radar: {type(error).__name__}: {error}")
+
+        threading.Thread(target=load_latest, name="weather-radar-refresh", daemon=True).start()
