@@ -13,7 +13,7 @@
 #include <mbgl/style/style.hpp>
 #include <mbgl/style/sources/geojson_source.hpp>
 #include <mbgl/style/sources/raster_source.hpp>
-#include <mbgl/style/tileset.hpp>
+#include <mbgl/style/sources/tile_source.hpp>
 #include <mapbox/geojson.hpp>
 
 #include <cstdlib>
