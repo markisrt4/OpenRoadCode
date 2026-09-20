@@ -71,6 +71,11 @@ class MapCameraRuntime:
         self._closed = False
 
     @property
+    def renderer_client(self) -> MapRendererClient:
+        """Return the long-lived renderer client shared by map features."""
+        return self._renderer_client
+
+    @property
     def request_handler(self) -> MapRequestHandlerIf:
         """Return the semantic camera request interface."""
         return self._handler
