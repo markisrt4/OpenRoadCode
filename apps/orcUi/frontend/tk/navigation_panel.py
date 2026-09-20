@@ -26,6 +26,7 @@ class NavigationPanel(tk.Frame):
         on_back: Callable[[], None] | None = None,
         theme_bundle: ThemeBundle | None = None,
         radar_enabled: bool = False,
+        radar_frame_time: int | None = None,
         on_radar_toggle: Callable[[bool], None] | None = None,
     ) -> None:
         self._theme_bundle = theme_bundle or packaged_theme_bundle(ThemeMode.DARK)
@@ -34,6 +35,7 @@ class NavigationPanel(tk.Frame):
 
         self._request_handler = map_request_handler
         self._radar_enabled = radar_enabled
+        self._radar_frame_time = radar_frame_time
         self._on_radar_toggle = on_radar_toggle
         self._zoom_level = float(getattr(self._request_handler, "zoom_level", 16.5))
         self._pitch_rad = float(
@@ -140,7 +142,7 @@ class NavigationPanel(tk.Frame):
                 highlightthickness=1,
                 highlightbackground=ui.border,
                 font=("Sans", FONT_CONTROL, "bold"),
-                width=7,
+                width=17,
                 height=1,
                 padx=3,
                 pady=1,
@@ -296,14 +298,30 @@ class NavigationPanel(tk.Frame):
         if self._on_radar_toggle is not None:
             self._on_radar_toggle(self._radar_enabled)
 
+    def set_radar_frame_time(self, frame_time: int | None) -> None:
+        """Show the timestamp of the radar frame currently on the map."""
+        self._radar_frame_time = frame_time
+        self._render_radar_state()
+
     def _render_radar_state(self) -> None:
         if self._radar_button is None:
             return
         ui = self._theme_bundle.ui
         self._radar_button.configure(
-            text="RADAR" if self._radar_enabled else "RADAR OFF",
+            text=self._radar_button_text(),
             fg=ui.accent_success if self._radar_enabled else ui.text,
         )
+
+    def _radar_button_text(self) -> str:
+        if not self._radar_enabled:
+            return "RADAR"
+        if self._radar_frame_time is None:
+            return "RADAR • …"
+
+        from datetime import datetime
+
+        frame = datetime.fromtimestamp(self._radar_frame_time).astimezone()
+        return f"RADAR • {frame.strftime('%-I:%M %p')}"
 
     def _toggle_follow(self) -> None:
         enabled = not self._follow_enabled
