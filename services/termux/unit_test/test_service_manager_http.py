@@ -44,10 +44,12 @@ class ServiceManagerHttpRequestTest(unittest.TestCase):
         self.thread.join(timeout=2.0)
         ServiceManagerHandler.auth_token = None
 
-    def request(self, method: str, path: str, token: str | None = "secret", body=None, form=None):
+    def request(self, method: str, path: str, token: str | None = "secret", body=None, form=None, pairing_token=None):
         headers = {}
         if token is not None:
             headers["Authorization"] = f"Bearer {token}"
+        if pairing_token is not None:
+            headers["X-OpenRoadCode-Pairing-Token"] = pairing_token
         connection = HTTPConnection(self.host, self.port, timeout=2.0)
         try:
             encoded = None
@@ -100,6 +102,8 @@ class ServiceManagerHttpRequestTest(unittest.TestCase):
         )
         self.assertEqual(status, 200)
         self.assertTrue(payload["session_id"])
+        self.assertTrue(payload["poll_token"])
+        self.assertNotIn(payload["poll_token"], payload["approval_url"])
         self.assertIn("/pairing/browser/approve/", payload["approval_url"])
 
     def test_same_device_browser_pairing_does_not_require_admin_token(self) -> None:
@@ -114,6 +118,17 @@ class ServiceManagerHttpRequestTest(unittest.TestCase):
         )
         self.assertEqual(status, 200)
         self.assertIn("Device approved", approved)
+
+    def test_browser_pairing_status_requires_poll_token(self) -> None:
+        _, started = self.request(
+            "POST", "/pairing/browser/start", token=None,
+            body={"client_name": "Test Android"},
+        )
+        status, response = self.request(
+            "GET", f"/pairing/browser/status/{started['session_id']}", token=None
+        )
+        self.assertEqual(status, 401)
+        self.assertEqual(response, {"error": "unauthorized"})
 
     def test_browser_pairing_issues_credentials_once_after_approval(self) -> None:
         _, started = self.request(
@@ -130,7 +145,8 @@ class ServiceManagerHttpRequestTest(unittest.TestCase):
         self.assertIn("Device approved", approved)
 
         status, completed = self.request(
-            "GET", f"/pairing/browser/status/{started['session_id']}", token=None
+            "GET", f"/pairing/browser/status/{started['session_id']}", token=None,
+            pairing_token=started["poll_token"],
         )
         self.assertEqual(status, 200)
         self.assertEqual(completed["status"], "approved")
@@ -138,7 +154,8 @@ class ServiceManagerHttpRequestTest(unittest.TestCase):
         self.assertTrue(completed["access_token"])
 
         status, pending = self.request(
-            "GET", f"/pairing/browser/status/{started['session_id']}", token=None
+            "GET", f"/pairing/browser/status/{started['session_id']}", token=None,
+            pairing_token=started["poll_token"],
         )
         self.assertEqual(status, 200)
         self.assertEqual(pending, {"status": "pending"})
