@@ -58,7 +58,7 @@ class RainViewerRadarProvider(RadarProviderIf):
                     timestamp=timestamp,
                     tile_url=(
                         f"{host.rstrip('/')}/{path.lstrip('/')}/{self._tile_size}"
-                        "/{z}/{x}/{y}/2/1_1.png"
+                        "/{z}/{x}/{y}/2/1_0.png"
                     ),
                     max_zoom=7,
                 )
