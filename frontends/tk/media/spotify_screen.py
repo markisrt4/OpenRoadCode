@@ -24,6 +24,8 @@ from ui.screen_ui_if import ScreenId
 
 MediaNavigationFactory = Callable[[tk.Misc, str], tk.Widget]
 
+SPOTIFY_GREEN = "#1DB954"
+
 
 class _ThreadSafeSpotifyPlaybackPanel(SpotifyPlaybackPanel):
     """Route worker-thread callbacks through a Python-only callback queue."""
