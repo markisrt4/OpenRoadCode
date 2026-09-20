@@ -153,12 +153,12 @@ class ServiceManagerHttpRequestTest(unittest.TestCase):
         self.assertTrue(completed["client_id"])
         self.assertTrue(completed["access_token"])
 
-        status, pending = self.request(
+        status, consumed = self.request(
             "GET", f"/pairing/browser/status/{started['session_id']}", token=None,
             pairing_token=started["poll_token"],
         )
-        self.assertEqual(status, 200)
-        self.assertEqual(pending, {"status": "pending"})
+        self.assertEqual(status, 410)
+        self.assertEqual(consumed, {"error": "pairing session already consumed"})
 
     def test_pairing_start_requires_authentication(self) -> None:
         status, payload = self.request("POST", "/pairing/start", token=None)
