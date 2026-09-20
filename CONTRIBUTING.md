@@ -102,7 +102,11 @@ and presentation.
 
 Commands and requested behavior use controller or request-handler interfaces:
 
+<div class="orc-diagram-legend" aria-label="Architecture diagram legend">
+
 **Diagram key:** App / UI · Service / runtime · Controller / domain · Messaging / contract · Protocol / hardware · External / input
+
+</div>
 
 ```mermaid
 flowchart TD
