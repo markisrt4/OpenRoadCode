@@ -23,6 +23,8 @@ struct MapCommand {
     double padding = 40.0;
     std::string geojson;
     std::string category;
+    std::string tileUrl;
+    long long frameTime = 0;
     bool enabled = false;
 };
 
