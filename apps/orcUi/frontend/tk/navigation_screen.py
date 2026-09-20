@@ -60,6 +60,7 @@ class NavigationScreen(TkScreen):
             on_back=self._on_back,
             theme=self._theme_bundle(),
             radar_enabled=(self._radar_controller.enabled if self._radar_controller is not None else False),
+            radar_frame_time=(self._radar_controller.frame_time if self._radar_controller is not None else None),
             on_radar_toggle=self._toggle_radar if self._radar_controller is not None else None,
         )
 
@@ -100,7 +101,13 @@ class NavigationScreen(TkScreen):
 
         def load_latest() -> None:
             try:
-                controller.show_latest()
+                frame = controller.show_latest()
+                panel = self._panel
+                if panel is not None:
+                    self._host.schedule_ui_callback(
+                        0,
+                        lambda: panel.set_radar_frame_time(frame.timestamp),
+                    )
             except Exception as error:
                 print(f"WARNING: weather radar: {type(error).__name__}: {error}")
 
