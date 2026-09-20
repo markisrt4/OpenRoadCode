@@ -62,6 +62,11 @@ std::optional<MapCommand> MapCommandServer::parseCommand(const std::string& payl
     if (command.command == "set_weather_radar") {
         if (!document.HasMember("enabled") || !document["enabled"].IsBool()) return std::nullopt;
         command.enabled = document["enabled"].GetBool();
+        if (document.HasMember("opacity")) {
+            if (!document["opacity"].IsNumber()) return std::nullopt;
+            command.opacity = document["opacity"].GetDouble();
+            if (command.opacity < 0.0 || command.opacity > 1.0) return std::nullopt;
+        }
         if (document.HasMember("tile_url")) {
             if (!document["tile_url"].IsString()) return std::nullopt;
             command.tileUrl = document["tile_url"].GetString();
