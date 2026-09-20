@@ -132,6 +132,18 @@ python -m controllers.weather.component_test.open_meteo_provider_cli
 
 It performs a real provider request and therefore requires network access.
 
+Radar has two focused component tests:
+
+```bash
+python -m controllers.weather.component_test.rainviewer_radar_provider_cli
+python -m controllers.weather.component_test.radar_map_overlay_cli --seconds 15
+```
+
+The first validates live radar metadata and the XYZ tile template. The second
+requires the ORC broker and native map renderer; it publishes the newest radar
+frame, leaves it visible briefly, then hides the overlay without discarding the
+runtime radar source.
+
 ## Focused tests
 
 From the repository root:
