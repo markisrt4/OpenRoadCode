@@ -16,8 +16,8 @@ class WeatherProviderIf(ABC):
     @property
     @abstractmethod
     def provider_id(self) -> str:
-        """Return the stable provider identifier."""
+        """Return the stable provider identifier.\n\n        @return Stable provider identifier.\n        """
 
     @abstractmethod
     def refresh(self, location: WeatherLocation) -> WeatherState:
-        """Fetch and return a fresh normalized weather state."""
+        """Fetch and return a fresh normalized weather state.\n\n        @param location Location for which weather should be fetched.\n        @return Fresh provider-independent weather state.\n        """
