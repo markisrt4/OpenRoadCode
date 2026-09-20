@@ -25,12 +25,16 @@ class NavigationPanel(tk.Frame):
         map_request_handler: MapRequestHandlerIf,
         on_back: Callable[[], None] | None = None,
         theme_bundle: ThemeBundle | None = None,
+        radar_enabled: bool = False,
+        on_radar_toggle: Callable[[bool], None] | None = None,
     ) -> None:
         self._theme_bundle = theme_bundle or packaged_theme_bundle(ThemeMode.DARK)
         super().__init__(parent, bg=self._theme_bundle.ui.background)
         del on_back
 
         self._request_handler = map_request_handler
+        self._radar_enabled = radar_enabled
+        self._on_radar_toggle = on_radar_toggle
         self._zoom_level = float(getattr(self._request_handler, "zoom_level", 16.5))
         self._pitch_rad = float(
             getattr(self._request_handler, "pitch_rad", math.radians(45.0))
@@ -42,6 +46,7 @@ class NavigationPanel(tk.Frame):
         self._shortcut_status = tk.StringVar(value=self._focus_status())
         self._map_host: tk.Frame
         self._follow_button: tk.Button
+        self._radar_button: tk.Button | None = None
         self._build()
         self._schedule_renderer_refresh()
 
@@ -154,6 +159,16 @@ class NavigationPanel(tk.Frame):
         self._follow_button.pack(fill=tk.X, padx=5, pady=(7, 5))
         self.set_follow_enabled(self._follow_enabled)
 
+        if self._on_radar_toggle is not None:
+            self._radar_button = self._control(
+                controls,
+                "RAD",
+                self._toggle_radar,
+                ui.accent_primary,
+            )
+            self._radar_button.pack(fill=tk.X, padx=5, pady=(0, 5))
+            self._render_radar_state()
+
         pan = tk.Frame(controls, bg=ui.surface_alt)
         pan.pack(pady=2)
         for row, column, label, up, right in (
@@ -263,6 +278,21 @@ class NavigationPanel(tk.Frame):
         }
         self._shortcut_status.set(messages[shortcut])
         self.after(2500, lambda: self._shortcut_status.set(""))
+
+    def _toggle_radar(self) -> None:
+        self._radar_enabled = not self._radar_enabled
+        self._render_radar_state()
+        if self._on_radar_toggle is not None:
+            self._on_radar_toggle(self._radar_enabled)
+
+    def _render_radar_state(self) -> None:
+        if self._radar_button is None:
+            return
+        ui = self._theme_bundle.ui
+        self._radar_button.configure(
+            text="RAD" if self._radar_enabled else "RAD̸",
+            fg=ui.accent_success if self._radar_enabled else ui.text,
+        )
 
     def _toggle_follow(self) -> None:
         enabled = not self._follow_enabled
