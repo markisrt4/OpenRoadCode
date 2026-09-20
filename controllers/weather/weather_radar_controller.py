@@ -59,4 +59,5 @@ class WeatherRadarController:
             enabled=True,
             frame_time=frame.timestamp,
             opacity=self._opacity,
+            max_zoom=frame.max_zoom,
         )
