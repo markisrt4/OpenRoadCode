@@ -96,6 +96,7 @@ def create_orc_ui_composition() -> OrcUiComposition:
             unit_system=unit_system,
             on_weather_radio=radio.open_weather_radio,
             on_weather_status=app.set_weather_status,
+            map_renderer=core.map_camera.renderer_client,
         )
         def navigate_home_context(name: str) -> None:
             context_name = name.strip().upper()
@@ -123,6 +124,7 @@ def create_orc_ui_composition() -> OrcUiComposition:
             theme_bundle=lambda: theme_bundle(app.theme_mode),
             telemetry_profile_request=core.telemetry_profile_request,
             on_back=lambda: app.navigate_to("HOME"),
+            radar_controller=weather.radar,
         )
         vehicle = VehicleScreen(
             app,
