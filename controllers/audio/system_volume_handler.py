@@ -40,7 +40,7 @@ class SystemVolumeHandler(VolumeRequestHandlerIf):
         except (OSError, RuntimeError) as error:
             self._volume_ui.set_volume(None)
             self._volume_ui.set_muted(None)
-            self._set_status(f"Volume unavailable: {error}")
+            self._set_status("Volume unavailable")
 
     def request_volume(self, volume_percent: float) -> None:
         """Apply an absolute normalized system-volume request."""
@@ -49,21 +49,21 @@ class SystemVolumeHandler(VolumeRequestHandlerIf):
         try:
             self._publish_level(self._audio_controller.set_volume_level(level))
         except (OSError, RuntimeError) as error:
-            self._set_status(f"Volume change failed: {error}")
+            self._set_status("Volume change failed")
 
     def request_volume_up(self) -> None:
         """Increase system volume by one backend-defined step."""
         try:
             self._publish_level(self._audio_controller.volume_up())
         except (OSError, RuntimeError) as error:
-            self._set_status(f"Volume up failed: {error}")
+            self._set_status("Volume up failed")
 
     def request_volume_down(self) -> None:
         """Decrease system volume by one backend-defined step."""
         try:
             self._publish_level(self._audio_controller.volume_down())
         except (OSError, RuntimeError) as error:
-            self._set_status(f"Volume down failed: {error}")
+            self._set_status("Volume down failed")
 
     def request_mute(self, muted: bool) -> None:
         """Apply an explicit system mute state."""
@@ -76,7 +76,7 @@ class SystemVolumeHandler(VolumeRequestHandlerIf):
             )
             self._volume_ui.set_muted(resulting)
         except (OSError, RuntimeError) as error:
-            self._set_status(f"Mute request failed: {error}")
+            self._set_status("Mute request failed")
 
     def _publish_level(self, level: int) -> None:
         maximum = self._audio_controller.maximum_level
