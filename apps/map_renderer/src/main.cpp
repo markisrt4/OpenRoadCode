@@ -87,6 +87,7 @@ void setWeatherRadar(
 
     mbgl::Tileset tileset;
     tileset.tiles = {command.tileUrl};
+    tileset.zoomRange = {0, static_cast<uint8_t>(command.maxZoom)};
     auto source = std::make_unique<mbgl::style::RasterSource>(
         kWeatherRadarSourceId,
         std::move(tileset),
