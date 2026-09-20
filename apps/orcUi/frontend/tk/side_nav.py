@@ -16,7 +16,7 @@ _NAV_LABELS = {"NAVIGATION": "NAV"}
 
 
 def _blend(first: str, second: str, amount: float) -> str:
-    """Blend two #RRGGBB colors for lightweight Tk gradients."""
+    """Blend two six-digit hexadecimal colors for lightweight Tk gradients."""
     amount = max(0.0, min(1.0, amount))
     a = tuple(int(first[index:index + 2], 16) for index in (1, 3, 5))
     b = tuple(int(second[index:index + 2], 16) for index in (1, 3, 5))
