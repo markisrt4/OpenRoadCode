@@ -19,7 +19,12 @@ from controllers.lyrics import LrclibLyricsClient
 from controllers.video import MusicVideoController, NetflixPlayer, YouTubeMusicVideo, YouTubePlayer
 from frontends.tk.media import BrowserMediaScreen, MediaNavigationBar, MediaScreen, SpotifyNowPlaying, SpotifyScreen
 from ui.theme import ThemeMode
-from protocols.spotify import SPOTIFY_CLIENT_ID_SECRET_NAME
+from protocols.spotify import (
+    SPOTIFY_CLIENT_ID_SECRET_NAME,
+    SpotifyAuth,
+    SpotifyTokenStore,
+    load_spotify_config_from_secrets,
+)
 from security.environment_variable_secret_manager import EnvironmentVariableSecretManager
 
 MUSIC_VIDEO_PORT = 8770
@@ -133,6 +138,23 @@ def configure_media(app: OrcUiApp, runtime) -> MediaComposition:
         spotify_secrets.set_secret(SPOTIFY_CLIENT_ID_SECRET_NAME, client_id)
         return "Spotify application saved. Restart ORC to activate it."
 
+    spotify_tokens = SpotifyTokenStore()
+
+    def spotify_account_connected() -> bool:
+        return spotify_tokens.load() is not None
+
+    def connect_spotify() -> str:
+        config = load_spotify_config_from_secrets(EnvironmentVariableSecretManager())
+        if config is None:
+            raise RuntimeError("Configure the Spotify Client ID first")
+        SpotifyAuth(config=config, token_store=spotify_tokens).login()
+        media.spotify.request_refresh()
+        return "Spotify account connected"
+
+    def disconnect_spotify() -> str:
+        spotify_tokens.clear()
+        return "Spotify account disconnected"
+
     media_screen = MediaScreen(
         app, theme_bundle=lambda: theme_bundle(app.theme_mode),
         show_spotify=spotify_screen.show, show_youtube=youtube_screen.show, show_netflix=netflix_screen.show,
@@ -140,6 +162,9 @@ def configure_media(app: OrcUiApp, runtime) -> MediaComposition:
         spotify_local_available=lambda: media.spotify_local_player.state().available,
         configure_spotify=configure_spotify_client,
         spotify_client_id=spotify_client_id,
+        spotify_account_connected=spotify_account_connected,
+        connect_spotify=connect_spotify,
+        disconnect_spotify=disconnect_spotify,
     )
     app.register_screen("MEDIA", media_screen)
     app.set_home_media_factory(
