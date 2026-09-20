@@ -19,6 +19,7 @@ from frontends.tk.radio.persistent_streaming_radio_panel import PersistentStream
 from frontends.x11 import X11WindowEmbedder
 from ui.theme import ThemeBundle
 from .shell_metrics import FONT_BODY, FONT_CONTROL, FONT_SMALL
+from .radio_source_icon import draw_source_icon
 
 
 class LaunchAwareRadioPanel(RadioPanel):
@@ -230,7 +231,7 @@ class RadioEntryPanel(tk.Frame):
             bd=0,
         )
         icon.grid(row=0, column=0, rowspan=2, sticky="w", padx=(0, 12))
-        self._draw_source_icon(icon, icon_kind=icon_kind, accent=accent)
+        draw_source_icon(icon, icon_kind=icon_kind, accent=accent, theme=self._theme)
         tk.Label(
             heading,
             text=eyebrow,
