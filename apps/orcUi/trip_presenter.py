@@ -34,6 +34,9 @@ class TripPresentationState:
     boost_fuel_gallons: float = 0.0
     boost_fuel_percent: float | None = None
     peak_boost_psi: float | None = None
+    high_load_time_s: float = 0.0
+    high_load_fuel_gallons: float = 0.0
+    high_load_fuel_percent: float | None = None
 
 
 class TripPresenter:
@@ -68,8 +71,10 @@ class TripPresenter:
                 instantaneous_economy_mpg = 1.0 / gallons_per_mile
 
         boost_fuel_percent = None
+        high_load_fuel_percent = None
         if state.fuel_used_m3 is not None and state.fuel_used_m3 > 0.0:
             boost_fuel_percent = state.boost_fuel_used_m3 / state.fuel_used_m3 * 100.0
+            high_load_fuel_percent = state.high_load_fuel_used_m3 / state.fuel_used_m3 * 100.0
 
         return TripPresentationState(
             status=state.status,
@@ -103,6 +108,9 @@ class TripPresenter:
             boost_distance_miles=state.boost_distance_m * MILES_PER_METRE,
             boost_fuel_gallons=state.boost_fuel_used_m3 * GALLONS_PER_CUBIC_METRE,
             boost_fuel_percent=boost_fuel_percent,
+            high_load_time_s=state.high_load_time_s,
+            high_load_fuel_gallons=state.high_load_fuel_used_m3 * GALLONS_PER_CUBIC_METRE,
+            high_load_fuel_percent=high_load_fuel_percent,
             peak_boost_psi=(
                 None
                 if state.peak_boost_pa is None
