@@ -9,7 +9,10 @@ from apps.launchers.app_launcher_if import StatusCallback
 from apps.launchers.browser_launcher import BrowserKioskLauncher
 from apps.launchers.streamlit_launcher import StreamlitLauncher
 from common.logging.logging_paths import logging_file_path
-from controllers.weather import DEFAULT_WEATHER_CACHE_DIRECTORY
+from common.xdg_paths import openroadcode_cache_dir
+
+
+DEFAULT_WEATHER_CACHE_DIRECTORY = openroadcode_cache_dir("weather")
 
 
 class WeatherDashLauncher(StreamlitLauncher):
