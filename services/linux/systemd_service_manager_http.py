@@ -104,7 +104,7 @@ class SystemdServiceManagerHandler(BaseHTTPRequestHandler):
         try:
             length = int(self.headers.get("Content-Length", "0"))
             payload = json.loads(self.rfile.read(length) or b"{}")
-            session = self.browser_pairing.begin(str(payload.get("client_name", "")))
+            session, poll_token = self.browser_pairing.begin(str(payload.get("client_name", "")))
         except (ValueError, json.JSONDecodeError) as exc:
             self._json(HTTPStatus.BAD_REQUEST, {"error": str(exc)})
             return
@@ -112,6 +112,7 @@ class SystemdServiceManagerHandler(BaseHTTPRequestHandler):
         approval_url = f"http://{host}/pairing/browser/approve/{session.session_id}"
         self._json(HTTPStatus.OK, {
             "session_id": session.session_id,
+            "poll_token": poll_token,
             "approval_url": approval_url,
             "expires_at": session.expires_at,
         })
@@ -121,7 +122,12 @@ class SystemdServiceManagerHandler(BaseHTTPRequestHandler):
         if session is None:
             self._json(HTTPStatus.NOT_FOUND, {"error": "pairing session not found or expired"})
             return
-        credentials = self.browser_pairing.complete(session_id)
+        poll_token = self.headers.get("X-OpenRoadCode-Pairing-Token", "")
+        try:
+            credentials = self.browser_pairing.complete(session_id, poll_token)
+        except PermissionError:
+            self._json(HTTPStatus.UNAUTHORIZED, {"error": "unauthorized"})
+            return
         if credentials is None:
             self._json(HTTPStatus.OK, {"status": "pending"})
             return
