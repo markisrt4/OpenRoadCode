@@ -116,7 +116,7 @@ class OrcWeatherPanel(tk.Frame, WeatherUiIf):
 
         self._hero = tk.Frame(self, bd=0, highlightthickness=1)
         self._hero.grid(row=1, column=0, sticky="ew", padx=22, pady=(0, 12))
-        self._hero.grid_columnconfigure(2, weight=1, minsize=230)
+        self._hero.grid_columnconfigure(2, weight=1, minsize=200)
         self._hero.grid_columnconfigure(3, weight=0)
 
         self._symbol = tk.Label(
@@ -138,16 +138,16 @@ class OrcWeatherPanel(tk.Frame, WeatherUiIf):
         self._summary.grid(row=1, column=2, sticky="nw", pady=(1, 12))
 
         self._metrics = tk.Frame(self._hero)
-        self._metrics.grid(row=0, column=3, rowspan=2, sticky="e", padx=(4, 8), pady=10)
+        self._metrics.grid(row=0, column=3, rowspan=2, sticky="e", padx=(4, 6), pady=10)
         self._metric_cards: list[tuple[tk.Frame, tk.Label, tk.Label]] = []
         for column, heading in enumerate(("HUMIDITY", "WIND", "PRESSURE")):
             card = tk.Frame(self._metrics, bd=0, highlightthickness=0)
             card.grid(row=0, column=column, sticky="nsew", padx=(0 if column == 0 else 4, 0))
             self._metrics.grid_columnconfigure(column, weight=1, uniform="metric")
             title = tk.Label(card, text=heading, font=("Sans", 9, "bold"))
-            title.pack(padx=7, pady=(7, 1))
+            title.pack(padx=5, pady=(7, 1))
             value = tk.Label(card, text="--", font=("Sans", 13, "bold"))
-            value.pack(padx=7, pady=(0, 7))
+            value.pack(padx=5, pady=(0, 7))
             self._metric_cards.append((card, title, value))
 
         self._forecast_area = tk.Frame(self)
@@ -271,7 +271,6 @@ class OrcWeatherPanel(tk.Frame, WeatherUiIf):
             text=(
                 f"Feels {self._temperature_text(current.apparent_temperature_k)}"
                 f"  •  Gust {self._speed_text(current.wind_gust_m_s)}"
-                f"  •  {self._direction_text(current.wind_direction_deg)}"
             )
         )
         self._metric_cards[0][2].configure(text=self._percent(current.relative_humidity))
@@ -364,8 +363,8 @@ class OrcWeatherPanel(tk.Frame, WeatherUiIf):
 
         tk.Label(
             cell, text=heading, bg=ui.surface, fg=ui.text_muted, font=("Sans", 9, "bold")
-        ).pack(pady=(5, 0))
-        icon_slot = tk.Frame(cell, bg=ui.surface, height=34)
+        ).pack(pady=(4, 2))
+        icon_slot = tk.Frame(cell, bg=ui.surface, height=30)
         icon_slot.pack(fill=tk.X)
         icon_slot.pack_propagate(False)
         tk.Label(
@@ -386,11 +385,11 @@ class OrcWeatherPanel(tk.Frame, WeatherUiIf):
             legend.pack(pady=(0, 0))
             tk.Label(
                 legend, text="● LOW", bg=ui.surface, fg="#2878b8",
-                font=("Sans", 7, "bold"),
+                font=("Sans", 8, "bold"),
             ).pack(side=tk.LEFT, padx=(0, 6))
             tk.Label(
                 legend, text="● HIGH", bg=ui.surface, fg="#c84b45",
-                font=("Sans", 7, "bold"),
+                font=("Sans", 8, "bold"),
             ).pack(side=tk.LEFT, padx=(6, 0))
         else:
             tk.Label(
@@ -401,13 +400,13 @@ class OrcWeatherPanel(tk.Frame, WeatherUiIf):
             text=detail,
             bg=ui.surface,
             fg=ui.text_muted,
-            font=("Sans", 7),
+            font=("Sans", 8),
             wraplength=135,
             height=1,
         ).pack(padx=3)
         tk.Label(
-            cell, text=footer, bg=ui.surface, fg=accent, font=("Sans", 7, "bold")
-        ).pack(pady=(0, 2))
+            cell, text=footer, bg=ui.surface, fg=accent, font=("Sans", 8, "bold")
+        ).pack(pady=(1, 4))
 
     @staticmethod
     def _local_timestamp(value: datetime) -> datetime:
