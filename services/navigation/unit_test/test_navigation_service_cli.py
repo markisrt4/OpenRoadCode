@@ -76,30 +76,30 @@ def test_build_controller_supports_device_imu_with_simulated_gps(monkeypatch) ->
 
 
 
-def test_resolve_runtime_profile_defaults_to_target(monkeypatch) -> None:
+def test_resolve_runtime_profile_defaults_to_local(monkeypatch) -> None:
     monkeypatch.delenv("OPENROADCODE_RUNTIME_PROFILE", raising=False)
 
     profile, path = navigation_service_cli.resolve_runtime_profile()
 
-    assert profile == "target"
-    assert path.name == "target.toml"
+    assert profile == "local"
+    assert path.name == "local.toml"
 
 
 def test_resolve_runtime_profile_uses_environment(monkeypatch) -> None:
-    monkeypatch.setenv("OPENROADCODE_RUNTIME_PROFILE", "phone")
+    monkeypatch.setenv("OPENROADCODE_RUNTIME_PROFILE", "remote")
 
     profile, path = navigation_service_cli.resolve_runtime_profile()
 
-    assert profile == "phone"
-    assert path.name == "phone.toml"
+    assert profile == "remote"
+    assert path.name == "remote.toml"
 
 
 def test_navigation_profiles_parse_against_base_runtime() -> None:
     from config.service_runtime_config import ServiceRuntimeConfigParser
 
     expected = {
-        "phone": ("device", "android", "device", "android"),
-        "target": ("device", "mpu6050", "device", "gpsd"),
+        "local": ("device", "android", "device", "android"),
+        "remote": ("device", "mpu6050", "device", "gpsd"),
         "simulated": ("simulation", "mpu6050", "simulation", "gpsd"),
     }
 
