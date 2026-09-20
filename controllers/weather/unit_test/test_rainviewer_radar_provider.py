@@ -37,7 +37,7 @@ def test_frames_are_normalized_and_sorted():
 
     assert [frame.timestamp for frame in frames] == [100, 200]
     assert frames[-1].tile_url == (
-        "https://tilecache.rainviewer.com/v2/radar/200/256/{z}/{x}/{y}/2/1_1.png"
+        "https://tilecache.rainviewer.com/v2/radar/200/256/{z}/{x}/{y}/2/1_0.png"
     )
     assert frames[-1].max_zoom == 7
     assert session.args == (RainViewerRadarProvider.URL,)
