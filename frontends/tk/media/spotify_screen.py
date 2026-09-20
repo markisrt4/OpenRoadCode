@@ -51,6 +51,11 @@ class SpotifyScreen(TkScreen, MediaUiIf):
         lyrics_client: LyricsProviderIf, music_video_controller: MusicVideoRequestHandlerIf,
         music_video_presentation: MusicVideoPresentationIf, service: SpotifyStateService | None = None,
         local_player: SpotifyLocalPlayer | None = None, media_navigation_factory: MediaNavigationFactory | None = None,
+        spotify_configured: Callable[[], bool] | None = None,
+        spotify_account_connected: Callable[[], bool] | None = None,
+        configure_spotify: Callable[[], None] | None = None,
+        connect_spotify: Callable[[], None] | None = None,
+        disconnect_spotify: Callable[[], None] | None = None,
     ) -> None:
         super().__init__(ScreenId("spotify"))
         self._host = host
@@ -64,6 +69,11 @@ class SpotifyScreen(TkScreen, MediaUiIf):
         self._service = service
         self._local_player = local_player
         self._media_navigation_factory = media_navigation_factory
+        self._spotify_configured = spotify_configured or (lambda: True)
+        self._spotify_account_connected = spotify_account_connected or (lambda: True)
+        self._configure_spotify = configure_spotify
+        self._connect_spotify = connect_spotify
+        self._disconnect_spotify = disconnect_spotify
         self._state: MediaState | None = None
         self._playback_handler: PlaybackRequestHandlerIf | None = None
         self._track_handler: TrackRequestHandlerIf | None = None
@@ -173,6 +183,44 @@ class SpotifyScreen(TkScreen, MediaUiIf):
         if self._media_navigation_factory is not None:
             self._media_navigation_factory(parent, "spotify").pack(fill=tk.X, padx=4, pady=(4, 2))
 
+    def _build_setup_banner(self, parent: tk.Misc) -> None:
+        """Keep Spotify setup visible, and prominent when configuration is missing."""
+        configured = self._spotify_configured()
+        connected = self._spotify_account_connected()
+        colors = self._theme["colors"]
+        row = tk.Frame(parent, bg=colors["card_background"])
+        row.pack(fill=tk.X, padx=4, pady=(2, 4))
+
+        if not configured:
+            status = "Spotify setup required"
+        elif not connected:
+            status = "Spotify account not connected"
+        else:
+            status = "Spotify connected"
+
+        tk.Label(
+            row, text=status.upper(), bg=colors["card_background"],
+            fg=SPOTIFY_GREEN if configured and connected else colors["subtitle"],
+            font=("Sans", 9, "bold"),
+        ).pack(side=tk.LEFT, padx=10, pady=8)
+
+        if self._configure_spotify is not None:
+            tk.Button(
+                row, text="CONFIGURE", command=self._configure_spotify,
+                bg=colors["button_background"], fg=colors["button_foreground"],
+                relief=tk.FLAT, bd=0, font=("Sans", 8, "bold"), padx=10, pady=5,
+            ).pack(side=tk.RIGHT, padx=(4, 8), pady=5)
+
+        account_action = self._disconnect_spotify if connected else self._connect_spotify
+        if configured and account_action is not None:
+            tk.Button(
+                row, text="DISCONNECT" if connected else "CONNECT SPOTIFY",
+                command=account_action,
+                bg=colors["button_background"] if connected else SPOTIFY_GREEN,
+                fg=colors["button_foreground"] if connected else "#000000",
+                relief=tk.FLAT, bd=0, font=("Sans", 8, "bold"), padx=10, pady=5,
+            ).pack(side=tk.RIGHT, padx=4, pady=5)
+
     def _browse_panel(self, parent: tk.Misc) -> SpotifyBrowsePanel:
         if self._service is None or self._local_player is None:
             raise RuntimeError("Spotify browse services are unavailable")
@@ -189,6 +237,7 @@ class SpotifyScreen(TkScreen, MediaUiIf):
         root = tk.Frame(self._host.screen_parent, bg=self._theme["colors"]["background"])
         root.pack(fill=tk.BOTH, expand=True)
         self._build_media_navigation(root)
+        self._build_setup_banner(root)
         if self._service is not None and self._local_player is not None:
             controls = self._browse_panel(root)
             controls.pack(fill=tk.X)
