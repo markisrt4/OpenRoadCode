@@ -23,7 +23,7 @@ V2_DATA_FIELDS = V1_DATA_FIELDS | {
     "boost_time_s", "boost_distance_m", "boost_fuel_used_m3", "peak_boost_pa",
 }
 DATA_FIELDS = V2_DATA_FIELDS | {
-    "high_load_time_s", "high_load_fuel_used_m3",
+    "high_load_fuel_used_m3",
 }
 OPTIONAL_NUMERIC_FIELDS = DATA_FIELDS - {
     "status", "started_at", "ended_at", "elapsed_s", "moving_s", "stopped_s", "distance_m"
@@ -75,7 +75,7 @@ def validate_trip_state(payload: Mapping[str, Any]) -> None:
             "instantaneous_fuel_consumption_m3_per_m",
             "average_fuel_consumption_m3_per_m", "estimated_range_m",
             "boost_time_s", "boost_distance_m", "boost_fuel_used_m3",
-            "peak_boost_pa", "high_load_time_s", "high_load_fuel_used_m3",
+            "peak_boost_pa", "high_load_fuel_used_m3",
         }
         & expected_fields
     ):
