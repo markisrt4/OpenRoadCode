@@ -31,12 +31,16 @@ def build_navigation_screen(
     map_request_handler: MapRequestHandlerIf,
     on_back: Callable[[], None],
     theme: ThemeBundle,
+    radar_enabled: bool = False,
+    on_radar_toggle: Callable[[bool], None] | None = None,
 ) -> NavigationPanel:
     screen = NavigationPanel(
         parent,
         map_request_handler=map_request_handler,
         on_back=on_back,
         theme_bundle=theme,
+        radar_enabled=radar_enabled,
+        on_radar_toggle=on_radar_toggle,
     )
     screen.pack(fill=tk.BOTH, expand=True)
     return screen
