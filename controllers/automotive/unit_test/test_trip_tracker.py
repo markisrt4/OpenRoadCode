@@ -23,6 +23,7 @@ def vehicle(
     fuel_rate_m3_s: float | None = None,
     maf_kg_s: float | None = None,
     boost_pa: float | None = None,
+    engine_load: float | None = None,
 ) -> VehicleState:
     return VehicleState(
         timestamp=BASE + timedelta(seconds=seconds),
@@ -30,6 +31,7 @@ def vehicle(
         engine_fuel_rate_m3_s=fuel_rate_m3_s,
         mass_air_flow_kg_s=maf_kg_s,
         boost_pressure_pa=boost_pa,
+        engine_load=engine_load,
     )
 
 
@@ -181,6 +183,25 @@ def test_tracker_ignores_small_positive_pressure_below_boost_threshold() -> None
     assert state.boost_distance_m == pytest.approx(0.0)
     assert state.boost_fuel_used_m3 == pytest.approx(0.0)
     assert state.peak_boost_pa == pytest.approx(3000.0)
+
+def test_tracker_accumulates_high_load_fuel_separately_from_boost() -> None:
+    tracker = TripTracker(high_load_threshold=0.75)
+
+    tracker.observe_vehicle_state(
+        vehicle(0, 10.0, fuel_rate_m3_s=2.0e-6, boost_pa=0.0, engine_load=0.40)
+    )
+    tracker.observe_vehicle_state(
+        vehicle(10, 10.0, fuel_rate_m3_s=4.0e-6, boost_pa=0.0, engine_load=0.80)
+    )
+    tracker.observe_vehicle_state(
+        vehicle(20, 10.0, fuel_rate_m3_s=4.0e-6, boost_pa=0.0, engine_load=0.90)
+    )
+
+    state = tracker.snapshot()
+    assert state.high_load_time_s == pytest.approx(20.0)
+    assert state.high_load_fuel_used_m3 == pytest.approx(7.0e-5)
+    assert state.boost_fuel_used_m3 == pytest.approx(0.0)
+
 
 def test_tracker_captures_start_current_and_end_position() -> None:
     tracker = TripTracker()
