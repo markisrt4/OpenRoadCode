@@ -19,8 +19,11 @@ V1_DATA_FIELDS = {
     "current_latitude_deg", "current_longitude_deg", "end_latitude_deg",
     "end_longitude_deg",
 }
-DATA_FIELDS = V1_DATA_FIELDS | {
+V2_DATA_FIELDS = V1_DATA_FIELDS | {
     "boost_time_s", "boost_distance_m", "boost_fuel_used_m3", "peak_boost_pa",
+}
+DATA_FIELDS = V2_DATA_FIELDS | {
+    "high_load_time_s", "high_load_fuel_used_m3",
 }
 OPTIONAL_NUMERIC_FIELDS = DATA_FIELDS - {
     "status", "started_at", "ended_at", "elapsed_s", "moving_s", "stopped_s", "distance_m"
@@ -40,7 +43,7 @@ def validate_trip_state(payload: Mapping[str, Any]) -> None:
     if not isinstance(payload, Mapping) or set(payload) != TOP_LEVEL_FIELDS:
         raise ValueError("trip state envelope contains missing or unknown fields")
     version = payload["version"]
-    if isinstance(version, bool) or version not in {1, SCHEMA_VERSION}:
+    if isinstance(version, bool) or version not in {1, 2, SCHEMA_VERSION}:
         raise ValueError(f"unsupported trip state version: {version}")
     if not isinstance(payload["timestamp"], Mapping):
         raise ValueError("trip state timestamp must be an object")
@@ -49,7 +52,7 @@ def validate_trip_state(payload: Mapping[str, Any]) -> None:
         raise ValueError("trip state source must be a non-empty string")
 
     data = payload["data"]
-    expected_fields = V1_DATA_FIELDS if version == 1 else DATA_FIELDS
+    expected_fields = V1_DATA_FIELDS if version == 1 else V2_DATA_FIELDS if version == 2 else DATA_FIELDS
     if not isinstance(data, Mapping) or set(data) != expected_fields:
         raise ValueError("trip state data contains missing or unknown fields")
     if data["status"] not in VALID_STATUSES:
@@ -72,7 +75,7 @@ def validate_trip_state(payload: Mapping[str, Any]) -> None:
             "instantaneous_fuel_consumption_m3_per_m",
             "average_fuel_consumption_m3_per_m", "estimated_range_m",
             "boost_time_s", "boost_distance_m", "boost_fuel_used_m3",
-            "peak_boost_pa",
+            "peak_boost_pa", "high_load_time_s", "high_load_fuel_used_m3",
         }
         & expected_fields
     ):
