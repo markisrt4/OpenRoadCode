@@ -9,8 +9,11 @@
 #include <mbgl/map/map.hpp>
 #include <mbgl/renderer/renderer.hpp>
 #include <mbgl/style/layer.hpp>
+#include <mbgl/style/layers/raster_layer.hpp>
 #include <mbgl/style/style.hpp>
 #include <mbgl/style/sources/geojson_source.hpp>
+#include <mbgl/style/sources/raster_source.hpp>
+#include <mbgl/style/tileset.hpp>
 #include <mapbox/geojson.hpp>
 
 #include <cstdlib>
@@ -29,6 +32,9 @@ constexpr auto kCameraAnimationDuration = mbgl::Milliseconds(450);
 constexpr const char* kDefaultBrokerSubscriberEndpoint = "tcp://127.0.0.1:5557";
 constexpr const char* kDataRootToken = "__OPENROADCODE_DATA_ROOT__";
 constexpr const char* kLegacyDataRoot = "/srv/openroadcode";
+constexpr const char* kWeatherRadarSourceId = "weather-radar";
+constexpr const char* kWeatherRadarLayerId = "weather-radar";
+constexpr uint16_t kWeatherRadarTileSize = 256;
 
 std::string environmentOrDefault(const char* name, const char* fallback) {
     const auto* configured = std::getenv(name);
@@ -49,6 +55,50 @@ std::string loadStyleJson(const NavigationConfig& config) {
     if (config.dataRoot != kLegacyDataRoot) replaceAll(style, kLegacyDataRoot, config.dataRoot);
     return style;
 }
+void setWeatherRadar(
+    mbgl::style::Style& style,
+    const MapCommand& command
+) {
+    auto* existingLayer = style.getLayer(kWeatherRadarLayerId);
+    if (!command.enabled) {
+        if (existingLayer != nullptr) {
+            existingLayer->setVisibility(mbgl::style::VisibilityType::None);
+        }
+        return;
+    }
+
+    // Recreate the transient source when the frame URL changes. Radar belongs
+    // to runtime state rather than the map-builder-owned base style.
+    if (existingLayer != nullptr) {
+        style.removeLayer(kWeatherRadarLayerId);
+    }
+    if (style.getSource(kWeatherRadarSourceId) != nullptr) {
+        style.removeSource(kWeatherRadarSourceId);
+    }
+
+    mbgl::style::Tileset tileset;
+    tileset.tiles = {command.tileUrl};
+    auto source = std::make_unique<mbgl::style::RasterSource>(
+        kWeatherRadarSourceId,
+        std::move(tileset),
+        kWeatherRadarTileSize
+    );
+    style.addSource(std::move(source));
+
+    auto layer = std::make_unique<mbgl::style::RasterLayer>(
+        kWeatherRadarLayerId,
+        kWeatherRadarSourceId
+    );
+    layer->setRasterOpacity(command.opacity);
+
+    // Keep navigation overlays readable. The route source is part of the
+    // canonical ORC style, so placing radar immediately below its first layer
+    // leaves route/vehicle rendering above precipitation.
+    const auto* routeLayer = style.getLayer("route-casing");
+    style.addLayer(std::move(layer), routeLayer ? std::optional<std::string>{"route-casing"}
+                                                 : std::nullopt);
+}
+
 void setLayerVisible(mbgl::style::Style& style, const char* id, bool visible) {
     auto* layer = style.getLayer(id);
     if (layer != nullptr) {
@@ -114,6 +164,20 @@ int main() {
             view.invalidate();
             std::cout << "[map_renderer] POI focus: " << command->category
                       << " -> " << (command->enabled ? "on" : "off") << '\n'; return;
+        }
+        if (command->command == "set_weather_radar") {
+            try {
+                setWeatherRadar(map.getStyle(), *command);
+                view.invalidate();
+                std::cout << "[map_renderer] weather radar: "
+                          << (command->enabled ? "on" : "off")
+                          << " opacity=" << command->opacity
+                          << " frame=" << command->frameTime << '\n';
+            } catch (const std::exception& exception) {
+                std::cerr << "[map_renderer] failed to update weather radar: "
+                          << exception.what() << '\n';
+            }
+            return;
         }
         if (command->command == "set_route") {
             auto* source = map.getStyle().getSource("route"); if (!source) return;
