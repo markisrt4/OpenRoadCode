@@ -75,6 +75,11 @@ std::optional<MapCommand> MapCommandServer::parseCommand(const std::string& payl
             if (!document["frame_time"].IsInt64()) return std::nullopt;
             command.frameTime = document["frame_time"].GetInt64();
         }
+        if (document.HasMember("max_zoom")) {
+            if (!document["max_zoom"].IsInt()) return std::nullopt;
+            command.maxZoom = document["max_zoom"].GetInt();
+            if (command.maxZoom < 0 || command.maxZoom > 22) return std::nullopt;
+        }
         return command;
     }
     if (command.command == "set_center" || command.command == "set_position") {
