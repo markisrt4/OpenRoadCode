@@ -6,125 +6,61 @@ import os
 import signal
 import tkinter as tk
 from collections.abc import Callable
-from datetime import datetime
-from .bottom_bar import OrcUiBottomBar
-from .context_rail import ContextRail
-from apps.orcUi.core_runtime import MapRuntimeIf
-from .home_map_panel import HomeMapPanel
-from .navigation_panel import NavigationPanel
-from apps.orcUi.navigation_presenter import AttitudePresentationState, PositionPresentationState
-from .offroad_panel import OffRoadPanel
-from apps.orcUi.orc_theme import ThemeMode, toggle, toggle_label
+from apps.orcUi.orc_theme import ThemeMode, toggle
 from .power_dialog import PowerDialog
-from .settings_panel import SettingsPanel
-from .shell_chrome import build_footer, build_top_bar
-from .shell_content import add_summary, panel
-from .side_nav import OrcUiSideNav
+from .screen_builders import (
+    build_placeholder,
+)
+from .shell_metrics import TARGET_GEOMETRY, TARGET_HEIGHT, TARGET_WIDTH
+from .shell_view import OrcUiShellView
 from apps.orcUi.theme_runtime import theme_bundle
-from apps.orcUi.trip_presenter import TripPresentationState
-from .vehicle_panel import VehiclePanel
-from apps.orcUi.vehicle_presenter import VehiclePresentationState
-from common.host_config import orcui_fullscreen_default
-from controllers.automotive import (
-    AutomotiveTelemetryProfile,
-    EngineAnalysis,
-    EngineLoadLevel,
-    EngineOperatingMode,
-    FuelControlMode,
-    FuelCorrectionStatus,
-    MixtureMode,
-    TrackingQuality,
-    VehicleConfiguration,
-)
-from ui.navigation import MapRequestHandlerIf
+from common.host_config import installed_target, orcui_fullscreen_default
 from ui.screen_ui_if import ScreenUiIf
-from ui.system import (
-    SystemLifecycleRequestHandlerIf,
-    VolumeRequestHandlerIf,
-    VolumeUiIf,
-)
+from ui.system import SystemLifecycleRequestHandlerIf, VolumeRequestHandlerIf, VolumeUiIf
+from ui.weather import WeatherAlertUiEvent
 
 class OrcUiApp(VolumeUiIf):
-    """Own the integrated Tk shell and presentation state."""
+    """Own the integrated Tk application shell."""
     def __init__(
         self,
         *,
-        map_runtime: MapRuntimeIf,
-        map_request_handler: MapRequestHandlerIf,
         lifecycle_handler: SystemLifecycleRequestHandlerIf,
-        telemetry_profile_request: Callable[[AutomotiveTelemetryProfile], None] | None = None,
-        vehicle_configuration: VehicleConfiguration = VehicleConfiguration(),
-        save_vehicle_configuration: Callable[[VehicleConfiguration], None] | None = None,
     ) -> None:
-        self._map_runtime = map_runtime
-        self._map_request_handler = map_request_handler
         self._lifecycle_handler = lifecycle_handler
-        self._telemetry_profile_request = telemetry_profile_request
-        self._vehicle_configuration = vehicle_configuration
-        self._save_vehicle_configuration = save_vehicle_configuration
-        self._vehicle_configuration_observer: Callable[[VehicleConfiguration], None] | None = None
-        self._engine_analysis = EngineAnalysis(
-            operating_mode=EngineOperatingMode.UNKNOWN,
-            fuel_control_mode=FuelControlMode.UNKNOWN,
-            mixture_mode=MixtureMode.UNKNOWN,
-            mixture_tracking=TrackingQuality.UNKNOWN,
-            throttle_tracking=TrackingQuality.UNKNOWN,
-            fuel_correction_status=FuelCorrectionStatus.UNKNOWN,
-            load_level=EngineLoadLevel.UNKNOWN,
-            engine_running=None,
-            warmed_up=None,
-            enrichment_active=None,
-            high_load=None,
-            forced_induction_active=None,
-            fuel_trim_total=None,
-            mixture_tracking_error=None,
-            throttle_tracking_error=None,
-        )
         self._theme_mode = ThemeMode.DARK
         self._theme = theme_bundle(self._theme_mode)
         ui = self._theme.ui
         self._root = tk.Tk()
         self._root.title("OpenRoadCode")
+        target = installed_target()
         fullscreen = orcui_fullscreen_default()
-        geometry = os.environ.get("ORCUI_GEOMETRY", "1024x600")
+        default_geometry = "1024x600" if target == "termux" else TARGET_GEOMETRY
+        geometry = os.environ.get("ORCUI_GEOMETRY", default_geometry)
         if fullscreen:
             self._root.attributes("-fullscreen", True)
         else:
             self._root.geometry(geometry)
-            self._root.minsize(1024, 600)
+            self._root.resizable(True, True)
+            if target != "termux":
+                self._root.minsize(TARGET_WIDTH, TARGET_HEIGHT)
         self._root.configure(bg=ui.background)
-        self._bottom_bar: OrcUiBottomBar | None = None
+        self._shell: OrcUiShellView | None = None
         self._adsb_enabled = False
         self._aircraft_count = 0
         self._adsb_toggle_handler: Callable[[bool], bool] | None = None
         self._adsb_view_handler: Callable[[], None] | None = None
-        self._active_nav = "HOME"
-        self._nav_items = ["HOME", "NAVIGATION", "RADIO", "VEHICLE", "LIGHTING", "CONTROLS"]
-        self._side_nav: OrcUiSideNav | None = None
+        self._active_nav = ""
+        self._initial_destination: str | None = None
+        self._nav_items: list[str] = []
         self._screen_registry: dict[str, ScreenUiIf] = {}
         self._active_screen: ScreenUiIf | None = None
-        self._screen_back_action: Callable[[], None] | None = None
-        self._screen_status = ""
-        self._home_radio_factory: Callable[[tk.Misc], tk.Widget] | None = None
-        self._home_media_factory: Callable[[tk.Misc], tk.Widget] | None = None
-        self._clock_label: tk.Label
-        self._clock_after_id: str | None = None
         self._content: tk.Frame
-        self._context_rail: ContextRail | None = None
-        self._home_map_panel: HomeMapPanel | None = None
-        self._navigation_panel: NavigationPanel | None = None
-        self._vehicle_panel: VehiclePanel | None = None
-        self._offroad_panel: OffRoadPanel | None = None
-        self._settings_panel: SettingsPanel | None = None
-        self._vehicle_state = VehiclePresentationState()
-        self._trip_state = TripPresentationState()
-        self._position_state = PositionPresentationState()
-        self._attitude_state = AttitudePresentationState()
         self._volume_percent: float | None = None
         self._volume_muted: bool | None = None
         self._volume_request_handler: VolumeRequestHandlerIf | None = None
+        self._theme_change_handler: Callable[[ThemeMode], None] | None = None
+        self._settings_action: Callable[[], None] | None = None
         self._closing = False
-        self._running = False
         self._power_dialog = PowerDialog(
             self._root,
             theme=lambda: self._theme,
@@ -132,30 +68,23 @@ class OrcUiApp(VolumeUiIf):
             on_restart=self._restart_ui,
             on_shutdown=self._shutdown_system,
         )
-        self._map_runtime.set_theme(self._theme_mode)
         self._build_shell()
-        self._update_clock()
     @property
     def theme_mode(self) -> ThemeMode:
         return self._theme_mode
     @property
     def screen_parent(self) -> tk.Misc:
         return self._content
-    def set_home_radio_factory(self, factory: Callable[[tk.Misc], tk.Widget] | None) -> None:
-        """Install a radio-owned Home summary without coupling the shell to radio."""
-        self._home_radio_factory = factory
-        if self._running and self._active_nav == "HOME":
-            self._show_home()
-    def set_home_media_factory(self, factory: Callable[[tk.Misc], tk.Widget] | None) -> None:
-        """Install a media-owned Home summary without coupling the shell to Spotify."""
-        self._home_media_factory = factory
-        if self._running and self._active_nav == "HOME":
-            self._show_home()
-    def set_vehicle_configuration_observer(
+    def set_theme_change_handler(
         self,
-        observer: Callable[[VehicleConfiguration], None] | None,
+        handler: Callable[[ThemeMode], None] | None,
     ) -> None:
-        self._vehicle_configuration_observer = observer
+        """Connect semantic theme changes to composition-owned consumers."""
+        self._theme_change_handler = handler
+
+    def set_settings_action(self, action: Callable[[], None]) -> None:
+        """Connect the shell settings control to composition-owned navigation."""
+        self._settings_action = action
 
     def set_volume_request_handler(
         self,
@@ -175,17 +104,32 @@ class OrcUiApp(VolumeUiIf):
         """Display system mute state in the shell."""
         self._volume_muted = muted
         self._paint_volume()
-    def register_screen(self, label: str, screen: ScreenUiIf, *, before: str | None = "CONTROLS") -> None:
+    def set_initial_destination(self, label: str) -> None:
+        """Select the composition-owned destination shown when the shell starts."""
+        destination = label.strip().upper()
+        if not destination:
+            raise ValueError("Initial destination must not be empty")
+        self._initial_destination = destination
+
+    def register_navigation_destination(self, label: str, *, before: str | None = None) -> None:
+        """Add a shell navigation destination without requiring a screen."""
         nav_label = label.strip().upper()
         if not nav_label:
-            raise ValueError("Screen navigation label must not be empty")
-        self._screen_registry[nav_label] = screen
+            raise ValueError("Navigation label must not be empty")
         if nav_label not in self._nav_items:
             if before is not None and before in self._nav_items:
                 self._nav_items.insert(self._nav_items.index(before), nav_label)
             else:
                 self._nav_items.append(nav_label)
         self._rebuild_side_nav()
+
+    def register_screen(self, label: str, screen: ScreenUiIf, *, before: str | None = None, show_in_navigation: bool = True) -> None:
+        nav_label = label.strip().upper()
+        if not nav_label:
+            raise ValueError("Screen navigation label must not be empty")
+        self._screen_registry[nav_label] = screen
+        if show_in_navigation:
+            self.register_navigation_destination(nav_label, before=before)
     def navigate_to(self, name: str) -> None:
         """Show a registered screen or built-in shell destination."""
         nav_name = name.strip().upper()
@@ -198,13 +142,7 @@ class OrcUiApp(VolumeUiIf):
             screen.show()
             return
         self._deactivate_active_screen()
-        handler = {
-            "HOME": self._show_home,
-            "NAVIGATION": self._show_navigation_panel,
-            "VEHICLE": self._show_vehicle_panel,
-            "SETTINGS": self._show_settings_panel,
-        }.get(nav_name)
-        self._show_placeholder(nav_name) if handler is None else handler()
+        self._show_placeholder(nav_name)
     def activate_screen(self, screen: ScreenUiIf) -> None:
         previous = self._active_screen
         if previous is screen:
@@ -217,67 +155,31 @@ class OrcUiApp(VolumeUiIf):
     def set_screen_title(self, title: str) -> None:
         title = title.strip()
         self._root.title("OpenRoadCode" if not title else f"OpenRoadCode | {title}")
+        if self._shell is not None:
+            leaf = title.upper()
+            if not leaf or leaf == self._active_nav:
+                self._shell.set_breadcrumb(self._active_nav)
+            else:
+                self._shell.set_breadcrumb(self._active_nav, leaf)
     def set_screen_back_action(self, action: Callable[[], None]) -> None:
-        self._screen_back_action = action
+        # Back actions are part of the reusable host contract, but orcUi's
+        # persistent chrome currently exposes destination navigation instead.
+        _ = action
     def set_screen_status(self, message: str) -> None:
-        self._screen_status = message
+        if self._shell is not None:
+            self._shell.set_status(message)
     def schedule_ui_callback(self, delay_ms: int, callback: Callable[[], None]) -> object:
         return self._root.after(delay_ms, callback)
     def cancel_ui_callback(self, callback_id: object) -> None:
         self._root.after_cancel(callback_id)
-    def apply_vehicle_state(self, state: VehiclePresentationState) -> None:
-        """Apply already-presented vehicle state to mounted shell widgets."""
-        if self._closing:
-            return
-        self._vehicle_state = state
-        if self._context_rail is not None and self._context_rail.winfo_exists():
-            self._context_rail.update_vehicle_state(state)
-        if self._vehicle_panel is not None and self._vehicle_panel.winfo_exists():
-            self._vehicle_panel.update_state(state)
-    def apply_engine_analysis(self, analysis: EngineAnalysis) -> None:
-        if self._closing:
-            return
-        self._engine_analysis = analysis
-        if self._vehicle_panel is not None and self._vehicle_panel.winfo_exists():
-            self._vehicle_panel.update_engine_analysis(analysis)
-
-    def apply_trip_state(self, state: TripPresentationState) -> None:
-        """Apply already-presented trip state to mounted shell widgets."""
-        if self._closing:
-            return
-        self._trip_state = state
-        if self._context_rail is not None and self._context_rail.winfo_exists():
-            self._context_rail.update_trip_state(state)
-        if self._vehicle_panel is not None and self._vehicle_panel.winfo_exists():
-            self._vehicle_panel.update_trip_state(state)
-    def apply_position_state(self, state: PositionPresentationState) -> None:
-        """Apply already-presented position state to mounted shell widgets."""
-        if self._closing:
-            return
-        self._position_state = state
-        if self._context_rail is not None and self._context_rail.winfo_exists():
-            self._context_rail.update_position_state(state)
-        if self._offroad_panel is not None and self._offroad_panel.winfo_exists():
-            self._offroad_panel.update_position(state)
-        if self._vehicle_panel is not None and self._vehicle_panel.winfo_exists():
-            self._vehicle_panel.update_position(state)
-    def apply_attitude_state(self, state: AttitudePresentationState) -> None:
-        """Apply already-presented attitude state to mounted shell widgets."""
-        if self._closing:
-            return
-        self._attitude_state = state
-        if self._context_rail is not None and self._context_rail.winfo_exists():
-            self._context_rail.update_attitude_state(state)
-        if self._offroad_panel is not None and self._offroad_panel.winfo_exists():
-            self._offroad_panel.update_attitude(state)
-        if self._vehicle_panel is not None and self._vehicle_panel.winfo_exists():
-            self._vehicle_panel.update_attitude(state)
     def run(self) -> None:
         self._root.protocol("WM_DELETE_WINDOW", self._on_close)
         old_signal_handler = signal.getsignal(signal.SIGINT)
         signal.signal(signal.SIGINT, self._on_sigint)
-        self._running = True
-        self._show_home()
+        initial_destination = self._initial_destination
+        if initial_destination is None:
+            raise RuntimeError("Initial navigation destination is not configured")
+        self.navigate_to(initial_destination)
         try:
             self._root.mainloop()
         except KeyboardInterrupt:
@@ -291,113 +193,79 @@ class OrcUiApp(VolumeUiIf):
         if self._closing:
             return
         self._closing = True
-        self._running = False
         active_screen = self._active_screen
         self._active_screen = None
         if active_screen is not None:
             active_screen.hide()
-        self._map_runtime.stop()
+        if self._shell is not None:
+            self._shell.close()
         try:
             self._root.destroy()
         except tk.TclError:
             pass
     def _build_shell(self) -> None:
-        ui = self._theme.ui
-        self._root.grid_rowconfigure(1, weight=1)
-        self._root.grid_columnconfigure(1, weight=1)
-        self._build_top_bar()
-        self._build_side_nav()
-        self._content = tk.Frame(self._root, bg=ui.background)
-        self._content.grid(row=1, column=1, sticky="nsew", padx=(6, 8), pady=6)
-        self._build_bottom_bar()
-        self._build_footer()
-    def _build_top_bar(self) -> None:
-        self._clock_label = build_top_bar(
+        self._shell = OrcUiShellView(
             self._root,
             theme=self._theme,
-            on_power=self._power_dialog.show,
-        )
-    def _build_side_nav(self) -> None:
-        self._side_nav = OrcUiSideNav(
-            self._root,
-            theme=self._theme,
-            items=self._nav_items,
-            active=self._active_nav,
+            theme_mode=self._theme_mode,
+            nav_items=self._nav_items,
+            active_nav=self._active_nav,
             on_navigate=self.navigate_to,
-        )
-        self._side_nav.grid(row=1, column=0, sticky="ns", padx=(8, 0), pady=6)
-        self._side_nav.grid_propagate(False)
-
-    def _rebuild_side_nav(self) -> None:
-        if self._side_nav is not None and self._side_nav.winfo_exists():
-            self._side_nav.rebuild(
-                theme=self._theme,
-                items=self._nav_items,
-                active=self._active_nav,
-            )
-    def _build_bottom_bar(self) -> None:
-        self._bottom_bar = OrcUiBottomBar(
-            self._root,
-            theme=self._theme,
-            volume_text=self._volume_text(),
-            theme_label=toggle_label(self._theme_mode),
+            on_power=self._power_dialog.show,
+            on_theme_toggle=self._toggle_theme,
+            on_settings=self._open_settings,
             on_volume_down=self._request_volume_down,
             on_volume_up=self._request_volume_up,
-            on_settings=lambda: self.navigate_to("SETTINGS"),
-            on_theme_toggle=self._toggle_theme,
+            volume_text=self._volume_text(),
         )
-        self._bottom_bar.grid(
-            row=2,
-            column=0,
-            columnspan=2,
-            sticky="ew",
-            padx=8,
-            pady=(0, 5),
-        )
-        if self._adsb_toggle_handler is not None and self._adsb_view_handler is not None:
-            self._bottom_bar.set_adsb_handlers(
-                on_toggle=self._adsb_toggle_handler,
-                on_view=self._adsb_view_handler,
-            )
-        self._bottom_bar.set_adsb_state(
-            enabled=self._adsb_enabled,
-            aircraft_count=self._aircraft_count,
-        )
+        self._content = self._shell.content
+
+    def set_weather_status(self, text: str) -> None:
+        """Display current Weather summary in persistent shell chrome."""
+        if self._shell is not None:
+            self._shell.set_weather_status(text)
+
+    def present_weather_alert(self, alert: WeatherAlertUiEvent | None) -> None:
+        """Forward shell-level Weather alert state to persistent chrome."""
+        if self._shell is not None:
+            self._shell.show_weather_alert(alert)
+
+    def set_breadcrumb(self, *parts: str) -> None:
+        if self._shell is not None:
+            self._shell.set_breadcrumb(*parts)
+
+    def _rebuild_side_nav(self) -> None:
+        if self._shell is not None:
+            self._shell.rebuild_navigation()
+
     def set_adsb_handlers(
         self,
         *,
         on_toggle: Callable[[bool], bool],
         on_view: Callable[[], None],
     ) -> None:
-        """Bind shell ADS-B controls without coupling Tk to launcher details."""
         self._adsb_toggle_handler = on_toggle
         self._adsb_view_handler = on_view
-        if self._bottom_bar is not None and self._bottom_bar.winfo_exists():
-            self._bottom_bar.set_adsb_handlers(on_toggle=on_toggle, on_view=on_view)
+        if self._shell is not None:
+            self._shell.set_adsb_handlers(on_toggle=on_toggle, on_view=on_view)
 
     def set_adsb_state(self, *, enabled: bool, aircraft_count: int = 0) -> None:
         self._adsb_enabled = bool(enabled)
         self._aircraft_count = max(0, int(aircraft_count))
-        if self._bottom_bar is not None and self._bottom_bar.winfo_exists():
-            self._bottom_bar.set_adsb_state(
+        if self._shell is not None:
+            self._shell.set_adsb_state(
                 enabled=self._adsb_enabled,
                 aircraft_count=self._aircraft_count,
             )
 
-    def _build_footer(self) -> None:
-        build_footer(self._root, theme=self._theme)
     def _rebuild_shell_theme(self) -> None:
-        for child in self._root.winfo_children():
-            if child is self._content:
-                continue
-            child.destroy()
-        self._root.configure(bg=self._theme.ui.background)
-        self._content.configure(bg=self._theme.ui.background)
-        self._build_top_bar()
-        self._build_side_nav()
-        self._build_bottom_bar()
-        self._build_footer()
-        self._paint_clock()
+        if self._shell is not None:
+            self._shell.rebuild(theme=self._theme, theme_mode=self._theme_mode)
+    def _open_settings(self) -> None:
+        action = self._settings_action
+        if action is not None:
+            action()
+
     def _request_volume_up(self) -> None:
         handler = self._volume_request_handler
         if handler is not None:
@@ -412,8 +280,8 @@ class OrcUiApp(VolumeUiIf):
             return f"{icon} --"
         return f"{icon} {round(self._volume_percent)}%"
     def _paint_volume(self) -> None:
-        if self._bottom_bar is not None and self._bottom_bar.winfo_exists():
-            self._bottom_bar.set_volume_text(self._volume_text())
+        if self._shell is not None:
+            self._shell.set_volume_text(self._volume_text())
     def _restart_ui(self) -> None:
         self._lifecycle_handler.request_restart_ui()
         self._shutdown()
@@ -423,194 +291,33 @@ class OrcUiApp(VolumeUiIf):
     def _toggle_theme(self) -> None:
         self._theme_mode = toggle(self._theme_mode)
         self._theme = theme_bundle(self._theme_mode)
-        self._map_runtime.set_theme(self._theme_mode)
+        theme_change_handler = self._theme_change_handler
+        if theme_change_handler is not None:
+            theme_change_handler(self._theme_mode)
         self._power_dialog.close()
         self._rebuild_shell_theme()
-        if self._active_nav == "HOME":
-            self._show_home()
-        else:
-            self._apply_theme_to_content()
         active_screen = self._active_screen
         set_theme_mode = getattr(active_screen, "set_theme_mode", None)
         if callable(set_theme_mode):
             set_theme_mode(self._theme_mode)
-        if self._active_nav != "HOME":
-            self._reload_active_map()
-    def _apply_theme_to_content(self) -> None:
-        bundle = self._theme
-        if self._home_map_panel is not None and self._home_map_panel.winfo_exists():
-            self._home_map_panel.set_theme_bundle(bundle)
-        if self._context_rail is not None and self._context_rail.winfo_exists():
-            self._context_rail.set_theme_bundle(bundle)
-        if self._navigation_panel is not None and self._navigation_panel.winfo_exists():
-            self._navigation_panel.set_theme_bundle(bundle)
-        if self._vehicle_panel is not None and self._vehicle_panel.winfo_exists():
-            self._vehicle_panel.set_theme_bundle(bundle)
-        if self._offroad_panel is not None and self._offroad_panel.winfo_exists():
-            self._offroad_panel.set_theme(bundle.ui)
-    def _reload_active_map(self) -> None:
-        if self._home_map_panel is not None and self._home_map_panel.winfo_exists():
-            parent_window_id = self._home_map_panel.map_host_window_id
-        elif self._navigation_panel is not None and self._navigation_panel.winfo_exists():
-            parent_window_id = self._navigation_panel.map_host_window_id
-        else:
-            return
-        self._map_runtime.stop()
-        self._root.after(100, lambda: self._start_map_renderer(parent_window_id))
+        elif active_screen is not None:
+            self.navigate_to(self._active_nav)
     def _deactivate_active_screen(self) -> None:
         active_screen = self._active_screen
         self._active_screen = None
         if active_screen is not None:
             active_screen.hide()
-        self._screen_back_action = None
-        self._screen_status = ""
+        if self._shell is not None:
+            self._shell.set_status("")
         self._root.title("OpenRoadCode")
     def _paint_nav(self) -> None:
-        if self._side_nav is not None and self._side_nav.winfo_exists():
-            self._side_nav.set_active(active=self._active_nav, theme=self._theme)
+        if self._shell is not None:
+            self._shell.set_active_navigation(self._active_nav)
     def _clear_content(self) -> None:
-        self._map_runtime.stop()
-        if self._vehicle_panel is not None and self._vehicle_panel.winfo_exists():
-            self._vehicle_panel.release_telemetry_profile()
-        self._context_rail = None
-        self._home_map_panel = None
-        self._navigation_panel = None
-        self._vehicle_panel = None
-        self._offroad_panel = None
-        self._settings_panel = None
         for child in self._content.winfo_children():
             child.destroy()
-    def _show_home(self) -> None:
-        self._clear_content()
-        self._active_nav = "HOME"
-        self._paint_nav()
-        ui = self._theme.ui
-        self._content.grid_columnconfigure(0, weight=1)
-        self._content.grid_columnconfigure(1, weight=0, minsize=ContextRail.WIDTH)
-        self._content.grid_rowconfigure(0, weight=3)
-        self._content.grid_rowconfigure(1, weight=2)
-        self._home_map_panel = HomeMapPanel(self._content, map_request_handler=self._map_request_handler, theme=self._theme)
-        self._home_map_panel.grid(row=0, column=0, sticky="nsew", padx=(0, 5), pady=(0, 5))
-        self._context_rail = ContextRail(self._content, on_expand=self._show_context_full_panel, theme=self._theme)
-        self._context_rail.update_vehicle_state(self._vehicle_state)
-        self._context_rail.update_trip_state(self._trip_state)
-        self._context_rail.update_position_state(self._position_state)
-        self._context_rail.update_attitude_state(self._attitude_state)
-        self._context_rail.grid(row=0, column=1, rowspan=2, sticky="nsew", padx=(5, 0))
-        lower = tk.Frame(self._content, bg=ui.background)
-        lower.grid(row=1, column=0, sticky="nsew", padx=(0, 5), pady=(5, 0))
-        lower.grid_columnconfigure(0, weight=4)
-        lower.grid_columnconfigure(1, weight=1)
-        lower.grid_rowconfigure(0, weight=1)
-        radio = panel(lower, "RADIO", ui.accent_warning, theme=self._theme)
-        radio.grid(row=0, column=0, sticky="nsew", padx=(0, 5))
-        if self._home_radio_factory is None:
-            add_summary(radio, "No radio active", "Choose RF or streaming", theme=self._theme)
-        else:
-            self._home_radio_factory(radio).pack(fill=tk.BOTH, expand=True)
-        media = panel(lower, "MEDIA", ui.accent_primary, theme=self._theme)
-        media.grid(row=0, column=1, sticky="nsew", padx=(5, 0))
-        if self._home_media_factory is None:
-            add_summary(media, "No media", "Playback service", theme=self._theme)
-        else:
-            self._home_media_factory(media).pack(fill=tk.BOTH, expand=True)
-        if self._telemetry_profile_request is not None:
-            self._telemetry_profile_request(AutomotiveTelemetryProfile.HOME)
-        self._root.update_idletasks()
-        self._start_map_renderer(self._home_map_panel.map_host_window_id)
-    def _show_navigation_panel(self) -> None:
-        self._clear_content()
-        if self._telemetry_profile_request is not None:
-            self._telemetry_profile_request(AutomotiveTelemetryProfile.BACKGROUND)
-        self._active_nav = "NAVIGATION"
-        self._paint_nav()
-        self._navigation_panel = NavigationPanel(self._content, map_request_handler=self._map_request_handler, on_back=self._show_home, theme_bundle=self._theme)
-        self._navigation_panel.pack(fill=tk.BOTH, expand=True)
-        self._root.update_idletasks()
-        self._start_map_renderer(self._navigation_panel.map_host_window_id)
-    def _start_map_renderer(self, parent_window_id: int) -> None:
-        try:
-            self._map_runtime.launch(parent_window_id)
-        except (OSError, RuntimeError) as error:
-            print(f"WARNING: map renderer: {type(error).__name__}: {error}")
-    def _show_vehicle_panel(self) -> None:
-        self._clear_content()
-        self._active_nav = "VEHICLE"
-        self._paint_nav()
-        self._vehicle_panel = VehiclePanel(
-            self._content,
-            on_back=self._show_home,
-            on_telemetry_profile=self._telemetry_profile_request,
-            state=self._vehicle_state,
-            trip_state=self._trip_state,
-            position=self._position_state,
-            attitude=self._attitude_state,
-            theme_bundle=self._theme,
-            vehicle_configuration=self._vehicle_configuration,
-            engine_analysis=self._engine_analysis,
-        )
-        self._vehicle_panel.pack(fill=tk.BOTH, expand=True)
-    def _show_settings_panel(self) -> None:
-        self._clear_content()
-        if self._telemetry_profile_request is not None:
-            self._telemetry_profile_request(AutomotiveTelemetryProfile.BACKGROUND)
-        self._active_nav = "SETTINGS"
-        self._paint_nav()
-        self._settings_panel = SettingsPanel(
-            self._content,
-            vehicle_configuration=self._vehicle_configuration,
-            on_vehicle_configuration_changed=self._apply_vehicle_configuration,
-            on_back=self._show_home,
-            theme_bundle=self._theme,
-        )
-        self._settings_panel.pack(fill=tk.BOTH, expand=True)
-
-    def _apply_vehicle_configuration(
-        self,
-        configuration: VehicleConfiguration,
-    ) -> None:
-        self._vehicle_configuration = configuration
-        if self._save_vehicle_configuration is not None:
-            self._save_vehicle_configuration(configuration)
-        if self._vehicle_configuration_observer is not None:
-            self._vehicle_configuration_observer(configuration)
-        if self._vehicle_panel is not None and self._vehicle_panel.winfo_exists():
-            self._vehicle_panel.set_vehicle_configuration(configuration)
-
-    def _show_offroad_panel(self) -> None:
-        self._clear_content()
-        self._offroad_panel = OffRoadPanel(self._content, on_back=self._show_home, position=self._position_state, attitude=self._attitude_state, theme=self._theme.ui)
-        self._offroad_panel.pack(fill=tk.BOTH, expand=True)
     def _on_close(self) -> None:
         self._shutdown()
-    def _show_context_full_panel(self, name: str) -> None:
-        if name == "VEHICLE" or name == "TRIP":
-            self._show_vehicle_panel()
-            if name == "TRIP" and self._vehicle_panel is not None:
-                self._vehicle_panel.show_trip_view()
-        elif name == "OFF-ROAD":
-            self._show_offroad_panel()
-        else:
-            self._show_placeholder(name)
     def _show_placeholder(self, name: str) -> None:
         self._clear_content()
-        ui = self._theme.ui
-        panel = tk.Frame(
-            self._content,
-            bg=ui.surface,
-            highlightthickness=1,
-            highlightbackground=ui.border,
-        )
-        panel.pack(fill=tk.BOTH, expand=True)
-        tk.Label(panel, text=f"{name}\nCOMING NEXT", fg=ui.text, bg=ui.surface, font=("Sans", 24, "bold")).place(relx=0.5, rely=0.5, anchor="center")
-    def _paint_clock(self) -> None:
-        if self._closing:
-            return
-        text = datetime.now().strftime("%I:%M %p     %a, %b %d").lstrip("0")
-        self._clock_label.configure(text=text)
-    def _update_clock(self) -> None:
-        if self._closing:
-            return
-        self._clock_after_id = None
-        self._paint_clock()
-        self._clock_after_id = self._root.after(1000, self._update_clock)
+        build_placeholder(self._content, name, theme=self._theme)

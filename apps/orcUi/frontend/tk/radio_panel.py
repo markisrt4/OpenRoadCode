@@ -19,6 +19,7 @@ from controllers.sdr.sdr_telemetry_worker import SDRTelemetryWorker
 from controllers.sdr.sdrpp_control import SDRPPControl
 from frontends.x11 import X11WindowEmbedder
 from ui.theme import ThemeBundle, ThemeMode
+from .shell_metrics import FONT_CONTROL, FONT_SMALL
 
 MAIN_GROUPS = (("FM", "♫ FM ▾"), ("WEATHER", "☁ WEATHER ▾"), ("AIR", "✈ AIR ▾"), ("HAM", "⌁ HAM ▾"), ("SCANNER", "⌁ SCANNER ▾"))
 RADIO_GROUPS = tuple(name for name, _ in MAIN_GROUPS)
@@ -89,7 +90,7 @@ class RadioPanel(tk.Frame):
         self._station_label.pack()
         self._frequency_label = tk.Label(center, text="--.- MHz", bg=ui.surface, fg=ui.text_muted, font=("Monospace", 9))
         self._frequency_label.pack()
-        self._metadata_label = tk.Label(center, text="", bg=ui.surface, fg=ui.accent_success, font=("Sans", 8))
+        self._metadata_label = tk.Label(center, text="", bg=ui.surface, fg=ui.accent_success, font=("Sans", FONT_SMALL))
         self._metadata_label.pack()
         tk.Button(self._controls, text="TUNE +", command=self._tune_up, bg=ui.surface, fg=ui.text_muted, activebackground=ui.control_background, activeforeground=ui.accent_success, relief=tk.FLAT, bd=0, padx=10, pady=7).grid(row=0, column=3, rowspan=3, sticky="ns")
         tk.Button(self._controls, text="PRESET ›", command=self._next_preset, bg=ui.surface, fg=ui.text, activebackground=ui.control_background, activeforeground=ui.accent_success, relief=tk.FLAT, bd=0, padx=12, pady=7).grid(row=0, column=4, rowspan=3, sticky="ns")
@@ -140,10 +141,10 @@ class RadioPanel(tk.Frame):
         ui = self._theme.ui
         for name, label in MAIN_GROUPS:
             command = lambda group=name: self._show_group_menu(group)
-            button = tk.Button(self._groups, text=label, command=command, bg=ui.surface, fg=ui.text, activebackground=ui.control_background, activeforeground=ui.accent_success, relief=tk.FLAT, bd=0, font=("Sans", 9, "bold"), padx=9, pady=7)
+            button = tk.Button(self._groups, text=label, command=command, bg=ui.surface, fg=ui.text, activebackground=ui.control_background, activeforeground=ui.accent_success, relief=tk.FLAT, bd=0, font=("Sans", FONT_CONTROL, "bold"), padx=9, pady=7)
             button.pack(side=tk.LEFT, fill=tk.X, expand=True)
             self._group_buttons[name] = button
-        self._controls_button = tk.Button(self._groups, text="☰ CONTROLS", command=self._toggle_drawer, bg=ui.surface, fg=ui.text, activebackground=ui.control_background, activeforeground=ui.accent_success, relief=tk.FLAT, bd=0, font=("Sans", 9, "bold"), padx=12, pady=7)
+        self._controls_button = tk.Button(self._groups, text="☰ CONTROLS", command=self._toggle_drawer, bg=ui.surface, fg=ui.text, activebackground=ui.control_background, activeforeground=ui.accent_success, relief=tk.FLAT, bd=0, font=("Sans", FONT_CONTROL, "bold"), padx=12, pady=7)
         self._controls_button.pack(side=tk.RIGHT)
         self._paint_groups()
 
@@ -336,7 +337,7 @@ class RadioPanel(tk.Frame):
         tk.Label(header, text="RADIO CONTROLS", bg=ui.surface_alt, fg=ui.text, font=("Sans", 11, "bold"), padx=12, pady=10).pack(side=tk.LEFT)
         tk.Button(header, text="✕", command=self._toggle_drawer, bg=ui.surface_alt, fg=ui.text_muted, activebackground=ui.control_background, activeforeground=ui.text, relief=tk.FLAT, bd=0, padx=12, pady=10).pack(side=tk.RIGHT)
         for key, label, action in (("waterfall", "WATERFALL", self._toggle_waterfall), ("bandplan", "BANDPLAN", self._toggle_bandplan), ("fft_hold", "PEAK HOLD", self._toggle_fft_hold)):
-            button = tk.Button(self._drawer, text=label, command=action, anchor="w", bg=ui.surface, fg=ui.text_muted, activebackground=ui.control_background, activeforeground=ui.accent_success, relief=tk.FLAT, bd=0, font=("Sans", 10, "bold"), padx=16, pady=11)
+            button = tk.Button(self._drawer, text=label, command=action, anchor="w", bg=ui.surface, fg=ui.text_muted, activebackground=ui.control_background, activeforeground=ui.accent_success, relief=tk.FLAT, bd=0, font=("Sans", FONT_CONTROL, "bold"), padx=16, pady=11)
             button.pack(fill=tk.X)
             self._display_buttons[key] = button
         tk.Frame(self._drawer, bg=ui.border, height=1).pack(fill=tk.X, padx=12, pady=4)

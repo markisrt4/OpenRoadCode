@@ -9,7 +9,6 @@ import unittest
 from unittest.mock import Mock, patch
 
 from apps.orcUi.composition.radio import configure_radio
-from apps.orcUi.frontend.tk.orc_ui_app import OrcUiApp
 from ui.theme import ThemeMode
 
 
@@ -27,9 +26,8 @@ class HomeRadioCompositionTest(unittest.TestCase):
         self.assertIs(composition.directory, directory_type.return_value)
         self.assertIs(composition.favorites, favorites_type.return_value)
         app.register_screen.assert_called_once_with("RADIO", composition.screen)
-        factory = app.set_home_radio_factory.call_args.args[0]
         parent = Mock()
-        widget = factory(parent)
+        widget = composition.home_factory(parent)
         self.assertIs(widget, now_playing_type.return_value)
         kwargs = now_playing_type.call_args.kwargs
         self.assertIs(kwargs["controller"], runtime.streaming_radio)
@@ -42,18 +40,15 @@ class HomeRadioCompositionTest(unittest.TestCase):
         composition.screen.open_adsb.assert_called_once_with()
         self.assertEqual(app.navigate_to.call_count, 3)
 
-    def test_home_slot_rebuilds_only_when_home_is_active(self):
-        app = OrcUiApp.__new__(OrcUiApp)
-        app._running = True
-        app._active_nav = "RADIO"
-        app._show_home = Mock()
-        factory = Mock()
-        app.set_home_radio_factory(factory)
-        self.assertIs(app._home_radio_factory, factory)
-        app._show_home.assert_not_called()
-        app._active_nav = "HOME"
-        app.set_home_radio_factory(factory)
-        app._show_home.assert_called_once_with()
+    @patch("apps.orcUi.composition.radio.StreamingRadioNowPlaying")
+    @patch("apps.orcUi.composition.radio.RadioScreen")
+    @patch("apps.orcUi.composition.radio.StreamingRadioFavorites")
+    @patch("apps.orcUi.composition.radio.RadioBrowserDirectory")
+    def test_home_factory_stays_in_composition(self, _directory_type, _favorites_type, _screen_type, _now_playing_type):
+        app = Mock()
+        app.theme_mode = ThemeMode.DARK
+        configure_radio(app, Mock())
+        app.set_home_radio_factory.assert_not_called()
 
 
 if __name__ == "__main__":

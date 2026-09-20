@@ -23,6 +23,7 @@ from apps.orcUi.navigation_presenter import (
 )
 from apps.orcUi.trip_presenter import TripPresenter, TripPresentationState
 from apps.orcUi.vehicle_presenter import VehiclePresenter, VehiclePresentationState
+from apps.orcUi.weather_alert_presenter import WeatherAlertPresentationState, WeatherAlertPresenter
 from controllers.automotive import EngineAnalysis, EngineAnalyzer, VehicleConfiguration
 from messaging.contracts.automotive import (
     TRIP_STATE_TOPIC,
@@ -36,6 +37,7 @@ from messaging.contracts.navigation import (
     decode_attitude_state,
     decode_position_state,
 )
+from messaging.contracts.weather import WEATHER_ALERT_TOPIC, decode_weather_alert
 from messaging.message_dispatcher import MessageDispatcher
 from messaging.zeromq import ZeroMqSubscriber
 from messaging.zeromq.endpoints import LOCAL_SUBSCRIBER_ENDPOINT
@@ -87,6 +89,7 @@ class StateIngressRuntime:
         vehicle_configuration: VehicleConfiguration = VehicleConfiguration(),
         apply_position_state: Callable[[PositionPresentationState], None],
         apply_attitude_state: Callable[[AttitudePresentationState], None],
+        apply_weather_alert: Callable[[WeatherAlertPresentationState], None] = lambda _state: None,
         dispatcher: MessageDispatcher | None = None,
     ) -> None:
         self._schedule_ui = schedule_ui
@@ -96,6 +99,7 @@ class StateIngressRuntime:
         self._apply_trip_state = apply_trip_state
         self._apply_position_state = apply_position_state
         self._apply_attitude_state = apply_attitude_state
+        self._apply_weather_alert = apply_weather_alert
         self._pending_ui: SimpleQueue[Callable[[], None]] = SimpleQueue()
         self._closing = False
         self._dispatcher = dispatcher or MessageDispatcher(
@@ -121,6 +125,11 @@ class StateIngressRuntime:
             ATTITUDE_STATE_TOPIC,
             decode_attitude_state,
             self._on_attitude_message,
+        )
+        self._dispatcher.register(
+            WEATHER_ALERT_TOPIC,
+            decode_weather_alert,
+            self._on_weather_alert_message,
         )
 
     def set_vehicle_configuration(
@@ -197,6 +206,10 @@ class StateIngressRuntime:
     def _on_attitude_message(self, message) -> None:
         state = NavigationPresenter.present_attitude(message.data)
         self._schedule_state(lambda: self._apply_attitude_state(state))
+
+    def _on_weather_alert_message(self, message) -> None:
+        state = WeatherAlertPresenter.present(message.data)
+        self._schedule_state(lambda: self._apply_weather_alert(state))
 
     @staticmethod
     def _on_bus_error(topic, error: Exception) -> None:

@@ -39,10 +39,6 @@ The [project README](../README.md) remains the repository landing page. [Doxygen
 
 Generated from the canonical documentation files. Every component README and standalone guide is listed here. Run `python scripts/docs_inventory.py --write` after adding or moving documentation.
 
-### .Pytest Cache
-
-- [.Pytest Cache](../.pytest_cache/README.md)
-
 ### Apps
 
 - [Automotive Dashboard (`apps/automotive_dashboard`)](../apps/automotive_dashboard/README.md)
@@ -174,10 +170,6 @@ Generated from the canonical documentation files. Every component README and sta
 
 - [Component Test (`ui/component_test`)](../ui/component_test/README.md)
 - [Ui](../ui/README.md)
-
-### Venv Termux
-
-- [Sansio (`venv-termux/lib/python3.14/site-packages/flask/sansio`)](../venv-termux/lib/python3.14/site-packages/flask/sansio/README.md)
 
 <!-- END GENERATED DOCS INDEX -->
 

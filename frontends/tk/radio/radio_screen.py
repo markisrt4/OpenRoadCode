@@ -31,6 +31,7 @@ class RadioScreen(TkScreen):
         theme_mode: ThemeModeProvider,
         panel_factory: RadioPanelFactory,
         sync_theme: ThemeSyncHandler | None = None,
+        on_location_changed: Callable[[str], None] | None = None,
     ) -> None:
         super().__init__(ScreenId("radio"))
         self._host = host
@@ -38,6 +39,7 @@ class RadioScreen(TkScreen):
         self._theme_mode = theme_mode
         self._panel_factory = panel_factory
         self._sync_theme = sync_theme
+        self._on_location_changed = on_location_changed
         self._embedder = X11WindowEmbedder()
         self._panel: tk.Widget | None = None
 
@@ -57,14 +59,17 @@ class RadioScreen(TkScreen):
     def open_rf(self) -> None:
         """Enter RF presentation on the already mounted radio screen."""
         self._invoke_panel_action("open_rf_radio")
+        self._set_location("RF")
 
     def open_streaming(self) -> None:
         """Enter the streaming browser on the already mounted radio screen."""
         self._invoke_panel_action("open_streaming_radio")
+        self._set_location("STREAMING")
 
     def open_adsb(self) -> None:
         """Enter the ADS-B aircraft dashboard on the mounted radio screen."""
         self._invoke_panel_action("open_adsb")
+        self._set_location("AIRCRAFT")
 
     def show_rf(self) -> None:
         """Open Radio and immediately enter the RF presentation."""
@@ -106,6 +111,11 @@ class RadioScreen(TkScreen):
         if not callable(action):
             raise RuntimeError(f"Radio panel does not support {action_name}")
         action()
+
+    def _set_location(self, leaf: str) -> None:
+        handler = self._on_location_changed
+        if handler is not None:
+            handler(leaf)
 
     def _sync_external_theme(self, mode: ThemeMode) -> None:
         handler = self._sync_theme

@@ -9,6 +9,7 @@ import threading
 import tkinter as tk
 from collections.abc import Callable
 
+from apps.orcUi.adapters.adsb_control import OrcUiAdsbControl
 from apps.orcUi.radio_application_service import RadioApplicationServiceIf
 from apps.orcUi.frontend.tk.radio_panel import RadioPanel
 from controllers.radio.streaming_radio_controller import StreamingRadioController
@@ -17,6 +18,8 @@ from controllers.radio.streaming_radio_favorites import StreamingRadioFavorites
 from frontends.tk.radio.persistent_streaming_radio_panel import PersistentStreamingRadioPanel
 from frontends.x11 import X11WindowEmbedder
 from ui.theme import ThemeBundle
+from .shell_metrics import FONT_BODY, FONT_CONTROL, FONT_SMALL
+from .radio_source_icon import draw_source_icon
 
 
 class LaunchAwareRadioPanel(RadioPanel):
@@ -30,6 +33,8 @@ class LaunchAwareRadioPanel(RadioPanel):
         theme: ThemeBundle,
         rf_active: Callable[[], bool] | None = None,
         release_rf: Callable[[], None] | None = None,
+        adsb_control: OrcUiAdsbControl | None = None,
+        on_location_changed: Callable[[str], None] | None = None,
     ) -> None:
         super().__init__(
             parent,
@@ -37,6 +42,7 @@ class LaunchAwareRadioPanel(RadioPanel):
             theme=theme,
             rf_active=rf_active,
             release_rf=release_rf,
+            adsb_control=adsb_control,
         )
         self._launch_status = tk.Label(
             self._host,
@@ -76,11 +82,14 @@ class RadioEntryPanel(tk.Frame):
         favorites: StreamingRadioFavorites,
         theme: ThemeBundle,
         embedder: X11WindowEmbedder | None = None,
+        adsb_control: OrcUiAdsbControl | None = None,
+        on_location_changed: Callable[[str], None] | None = None,
     ) -> None:
         self._theme = theme
         ui = theme.ui
         super().__init__(parent, bg=ui.background)
         self._embedder = embedder or X11WindowEmbedder()
+        self._adsb_control = adsb_control or OrcUiAdsbControl()
         self._radio_application = radio_application
         self._streaming_radio = streaming_radio
         self._directory = directory
@@ -88,6 +97,7 @@ class RadioEntryPanel(tk.Frame):
         self._radio_panel: LaunchAwareRadioPanel | None = None
         self._streaming_page: PersistentStreamingRadioPanel | None = None
         self._launching = False
+        self._on_location_changed = on_location_changed
 
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(0, weight=1)
@@ -114,10 +124,12 @@ class RadioEntryPanel(tk.Frame):
     def open_streaming_radio(self) -> None:
         """Present the streaming-radio browser directly."""
         self._show_streaming_radio()
+        self._set_location("STREAMING")
 
     def open_rf_radio(self) -> None:
         """Launch and present the RF radio directly."""
         self._launch_rf_radio()
+        self._set_location("RF")
 
     def open_adsb(self) -> None:
         """Present the ADS-B aircraft dashboard without starting SDR++ first."""
@@ -131,10 +143,12 @@ class RadioEntryPanel(tk.Frame):
                 theme=self._theme,
                 rf_active=lambda: self._radio_application.presented,
                 release_rf=self._radio_application.relinquish_for_adsb,
+                adsb_control=self._adsb_control,
             )
             self._radio_panel.grid(row=0, column=0, sticky="nsew")
             self._radio_panel.hide_loading()
         self._radio_panel.show_adsb()
+        self._set_location("AIRCRAFT")
 
     def _build_choice_buttons(self) -> None:
         ui = self._theme.ui
@@ -147,7 +161,7 @@ class RadioEntryPanel(tk.Frame):
             action_text="OPEN RF RADIO  ›",
             accent=ui.accent_success,
             icon_kind="rf",
-            command=self._launch_rf_radio,
+            command=self.open_rf_radio,
         )
         rf_card.grid(row=0, column=0, sticky="nsew", padx=(12, 6), pady=(18, 12))
 
@@ -160,7 +174,7 @@ class RadioEntryPanel(tk.Frame):
             action_text="BROWSE STATIONS  ›",
             accent=ui.accent_primary,
             icon_kind="stream",
-            command=self._show_streaming_radio,
+            command=self.open_streaming_radio,
         )
         streaming_card.grid(
             row=0,
@@ -174,7 +188,7 @@ class RadioEntryPanel(tk.Frame):
             text="Choose a radio source",
             bg=ui.background,
             fg=ui.text_muted,
-            font=("Sans", 10),
+            font=("Sans", FONT_BODY),
         )
         self._status.grid(row=1, column=0, columnspan=2, pady=(0, 10))
 
@@ -217,13 +231,13 @@ class RadioEntryPanel(tk.Frame):
             bd=0,
         )
         icon.grid(row=0, column=0, rowspan=2, sticky="w", padx=(0, 12))
-        self._draw_source_icon(icon, icon_kind=icon_kind, accent=accent)
+        draw_source_icon(icon, icon_kind=icon_kind, accent=accent, theme=self._theme)
         tk.Label(
             heading,
             text=eyebrow,
             bg=ui.surface,
             fg=accent,
-            font=("Sans", 9, "bold"),
+            font=("Sans", FONT_CONTROL + 2, "bold"),
             anchor="w",
         ).grid(row=0, column=1, sticky="sw", pady=(8, 2))
         tk.Label(
@@ -231,7 +245,7 @@ class RadioEntryPanel(tk.Frame):
             text=title,
             bg=ui.surface,
             fg=ui.text,
-            font=("Sans", 18, "bold"),
+            font=("Sans", 21, "bold"),
             anchor="w",
         ).grid(row=1, column=1, sticky="nw")
 
@@ -244,7 +258,7 @@ class RadioEntryPanel(tk.Frame):
             text=description,
             bg=ui.surface,
             fg=ui.text_muted,
-            font=("Sans", 11),
+            font=("Sans", FONT_BODY + 3),
             justify=tk.LEFT,
             anchor="nw",
             wraplength=390,
@@ -254,7 +268,7 @@ class RadioEntryPanel(tk.Frame):
             text=features,
             bg=ui.surface,
             fg=ui.text,
-            font=("Sans", 9, "bold"),
+            font=("Sans", FONT_CONTROL + 2, "bold"),
             anchor="w",
         ).grid(row=1, column=0, sticky="ew", pady=(14, 8))
         button = tk.Button(
@@ -269,7 +283,7 @@ class RadioEntryPanel(tk.Frame):
             bd=0,
             highlightthickness=1,
             highlightbackground=ui.border,
-            font=("Sans", 11, "bold"),
+            font=("Sans", FONT_CONTROL + 2, "bold"),
             padx=16,
             pady=10,
             cursor="hand2",
@@ -285,72 +299,6 @@ class RadioEntryPanel(tk.Frame):
             except tk.TclError:
                 pass
         return card, button
-
-    def _draw_source_icon(self, canvas: tk.Canvas, *, icon_kind: str, accent: str) -> None:
-        ui = self._theme.ui
-        canvas.create_oval(5, 5, 59, 59, outline=accent, width=2)
-        if icon_kind == "rf":
-            canvas.create_line(32, 47, 32, 28, fill=ui.text, width=3)
-            canvas.create_oval(28, 24, 36, 32, fill=accent, outline=accent)
-            canvas.create_arc(
-                19,
-                15,
-                45,
-                41,
-                start=310,
-                extent=100,
-                style=tk.ARC,
-                outline=accent,
-                width=2,
-            )
-            canvas.create_arc(
-                12,
-                8,
-                52,
-                48,
-                start=310,
-                extent=100,
-                style=tk.ARC,
-                outline=ui.text_muted,
-                width=2,
-            )
-            canvas.create_line(23, 51, 41, 51, fill=ui.text_muted, width=2)
-            return
-
-        canvas.create_oval(27, 27, 37, 37, fill=accent, outline=accent)
-        canvas.create_arc(
-            20,
-            20,
-            44,
-            44,
-            start=315,
-            extent=90,
-            style=tk.ARC,
-            outline=accent,
-            width=2,
-        )
-        canvas.create_arc(
-            13,
-            13,
-            51,
-            51,
-            start=315,
-            extent=90,
-            style=tk.ARC,
-            outline=ui.text_muted,
-            width=2,
-        )
-        canvas.create_arc(
-            7,
-            7,
-            57,
-            57,
-            start=315,
-            extent=90,
-            style=tk.ARC,
-            outline=accent,
-            width=2,
-        )
 
     @staticmethod
     def _walk_widgets(root: tk.Misc) -> tuple[tk.Misc, ...]:
@@ -376,6 +324,12 @@ class RadioEntryPanel(tk.Frame):
         if self._streaming_page is not None and self._streaming_page.winfo_exists():
             self._streaming_page.grid_remove()
         self._chooser.grid(row=0, column=0, sticky="nsew")
+        self._set_location("RADIO")
+
+    def _set_location(self, leaf: str) -> None:
+        handler = self._on_location_changed
+        if handler is not None:
+            handler(leaf)
 
     def _launch_rf_radio(self) -> None:
         if self._launching:

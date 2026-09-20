@@ -18,6 +18,7 @@ from frontends.tk.automotive import FuelLevelGauge
 from frontends.tk.automotive.vehicle_gauge_theme import vehicle_gauge_theme_from_style_sheet
 from frontends.tk.automotive.vehicle_gauge_widgets import LinearGauge, RoundGauge
 from ui.theme import ThemeBundle, ThemeMode
+from .shell_metrics import CONTEXT_RAIL_WIDTH, FONT_BODY, FONT_CONTROL, FONT_SMALL
 
 
 @dataclass(frozen=True)
@@ -30,7 +31,7 @@ class ContextPage:
 class ContextRail(tk.Frame):
     """Compact, user-switchable secondary information panel."""
 
-    WIDTH = 300
+    WIDTH = CONTEXT_RAIL_WIDTH
 
     def __init__(
         self,
@@ -120,13 +121,26 @@ class ContextRail(tk.Frame):
         header = tk.Frame(self, bg=ui.surface)
         header.pack(fill=tk.X, padx=8, pady=(7, 3))
         header.grid_columnconfigure(1, weight=1)
-        self._title = tk.Label(header, text="", bg=ui.surface, font=("Sans", 10, "bold"))
+        self._title = tk.Label(header, text="", bg=ui.surface, font=("Sans", FONT_CONTROL + 1, "bold"))
         self._nav_button(header, "‹", self._previous_page).grid(row=0, column=0, sticky="w")
         self._title.grid(row=0, column=1)
         controls = tk.Frame(header, bg=ui.surface)
         controls.grid(row=0, column=2, sticky="e")
         if self._on_expand is not None:
-            self._nav_button(controls, "□", self._expand_page, width=2, font_size=12).pack(side=tk.LEFT)
+            tk.Button(
+                controls,
+                text="↗",
+                command=self._expand_page,
+                bg=ui.control_background,
+                fg=ui.control_text,
+                activebackground=ui.control_active,
+                activeforeground="#ffffff",
+                relief=tk.FLAT,
+                bd=0,
+                width=3,
+                font=("Sans", 15, "bold"),
+                cursor="hand2",
+            ).pack(side=tk.LEFT)
         self._nav_button(controls, "›", self._next_page).pack(side=tk.LEFT)
 
     def _nav_button(
@@ -186,7 +200,7 @@ class ContextRail(tk.Frame):
                 text="●" if index == self._page_index else "·",
                 fg=page.accent if index == self._page_index else ui.text_muted,
                 bg=ui.surface,
-                font=("Sans", 9),
+                font=("Sans", FONT_SMALL),
             ).pack(side=tk.LEFT, padx=2)
 
     def _build_vehicle(self, parent: tk.Frame) -> None:
@@ -270,7 +284,7 @@ class ContextRail(tk.Frame):
         coolant.grid(row=0, column=0, sticky="nsew", padx=(0, 4))
         gear = self._card(status)
         gear.grid(row=0, column=1, sticky="nsew", padx=(4, 0))
-        tk.Label(gear, text="GEAR", fg=ui.text_muted, bg=ui.surface, font=("Sans", 7, "bold")).pack(
+        tk.Label(gear, text="GEAR", fg=ui.text_muted, bg=ui.surface, font=("Sans", FONT_SMALL, "bold")).pack(
             padx=10, pady=(4, 0)
         )
         self._gear_value_label = tk.Label(
@@ -299,10 +313,10 @@ class ContextRail(tk.Frame):
         cell.grid(row=row, column=column, sticky="nsew", padx=padx, pady=pady)
         label = tk.Frame(cell, bg=ui.surface)
         label.pack(side=tk.BOTTOM, fill=tk.X, pady=(0, 1))
-        tk.Label(label, text=title, fg=ui.text, bg=ui.surface, font=("Sans", 8, "bold")).pack(
+        tk.Label(label, text=title, fg=ui.text, bg=ui.surface, font=("Sans", FONT_CONTROL, "bold")).pack(
             side=tk.LEFT, expand=True, anchor="e"
         )
-        tk.Label(label, text=unit, fg=ui.text_muted, bg=ui.surface, font=("Sans", 7)).pack(
+        tk.Label(label, text=unit, fg=ui.text_muted, bg=ui.surface, font=("Sans", FONT_SMALL)).pack(
             side=tk.LEFT, expand=True, anchor="w", padx=(4, 0)
         )
         return cell
@@ -398,7 +412,7 @@ class ContextRail(tk.Frame):
                 text=label,
                 fg=ui.text_muted,
                 bg=ui.surface,
-                font=("Sans", 9),
+                font=("Sans", FONT_SMALL),
                 anchor="w",
             ).grid(row=row, column=0, sticky="w", padx=(2, 4), pady=3)
             value = tk.Label(
@@ -406,7 +420,7 @@ class ContextRail(tk.Frame):
                 text="--",
                 fg=ui.text,
                 bg=ui.surface,
-                font=("Sans", 12, "bold"),
+                font=("Sans", FONT_BODY + 2, "bold"),
                 anchor="e",
             )
             value.grid(row=row, column=1, sticky="e", padx=4, pady=3)
@@ -417,6 +431,6 @@ class ContextRail(tk.Frame):
                 text=unit,
                 fg=ui.text_muted,
                 bg=ui.surface,
-                font=("Sans", 8),
+                font=("Sans", FONT_SMALL),
                 anchor="w",
             ).grid(row=row, column=2, sticky="w", padx=(0, 2), pady=3)

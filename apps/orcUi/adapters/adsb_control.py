@@ -37,6 +37,7 @@ class OrcUiAdsbControl:
     WINDOW_CLASS = "OpenRoadCodeADSB"
 
     def __init__(self, launcher: ADSBLauncher | None = None) -> None:
+        self._simulation_tracking = False
         if launcher is not None:
             self._launcher = launcher
             return
@@ -55,7 +56,7 @@ class OrcUiAdsbControl:
     def tracking(self) -> bool:
         """Return whether the ADS-B receiver service is actively tracking."""
         if self._launcher.data_source != "rtlsdr":
-            return self.running
+            return self._simulation_tracking
         systemctl = shutil.which("systemctl")
         if systemctl is None:
             return False
@@ -79,7 +80,8 @@ class OrcUiAdsbControl:
     def set_tracking(self, enabled: bool) -> bool:
         """Start or stop receiver tracking without opening the dashboard."""
         if self._launcher.data_source != "rtlsdr":
-            return bool(enabled)
+            self._simulation_tracking = bool(enabled)
+            return self._simulation_tracking
         if enabled:
             self._launcher.assert_available()
             if self._launcher.resource_manager is not None:
@@ -116,6 +118,10 @@ class OrcUiAdsbControl:
 
     def launch(self, display: str) -> None:
         self._launcher.launch(display)
+        if self._launcher.data_source != "rtlsdr":
+            self._simulation_tracking = True
 
     def stop(self, display: str) -> None:
         self._launcher.stop(display)
+        if self._launcher.data_source != "rtlsdr":
+            self._simulation_tracking = False

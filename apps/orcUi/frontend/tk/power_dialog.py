@@ -9,6 +9,7 @@ import tkinter as tk
 from collections.abc import Callable
 
 from ui.theme import ThemeBundle
+from .shell_metrics import FONT_BODY, FONT_CONTROL
 
 
 class PowerDialog:
@@ -50,7 +51,7 @@ class PowerDialog:
             text="System actions are intentionally two taps away.",
             fg=ui.text_muted,
             bg=ui.surface,
-            font=("Sans", 9),
+            font=("Sans", FONT_BODY),
         ).pack(pady=(0, 14))
         for text, command in (
             ("EXIT UI", self._on_exit),
