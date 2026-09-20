@@ -42,7 +42,6 @@ def encode_trip_state(
             "boost_distance_m": state.boost_distance_m,
             "boost_fuel_used_m3": state.boost_fuel_used_m3,
             "peak_boost_pa": state.peak_boost_pa,
-            "high_load_time_s": state.high_load_time_s,
             "high_load_fuel_used_m3": state.high_load_fuel_used_m3,
             "start_latitude_deg": state.start_latitude_deg,
             "start_longitude_deg": state.start_longitude_deg,
