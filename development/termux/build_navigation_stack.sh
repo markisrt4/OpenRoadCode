@@ -148,21 +148,23 @@ else
 fi
 
 MAP_RENDERER_INSTALLED="$INSTALL_ROOT/bin/openroadcode-map-renderer"
-if should_build "$MAP_RENDERER_INSTALLED"; then
-  echo "[*] Building OpenRoadCode map renderer"
-  cmake -S "$PROJECT_ROOT/apps/map_renderer" \
-    -B "$PROJECT_ROOT/apps/map_renderer/build-termux" -G Ninja \
-    -DCMAKE_BUILD_TYPE=Release \
-    -DCMAKE_SYSTEM_NAME=Linux \
-    -DMAPLIBRE_ROOT="$MAPLIBRE_SRC" \
-    -DMAPLIBRE_BUILD="$MAPLIBRE_SRC/build-termux-glfw"
-  cmake --build "$PROJECT_ROOT/apps/map_renderer/build-termux" -j"$BUILD_JOBS"
-  install -Dm755 \
-    "$PROJECT_ROOT/apps/map_renderer/build-termux/openroadcode-map-renderer" \
-    "$MAP_RENDERER_INSTALLED"
-else
-  echo "[*] OpenRoadCode map renderer already installed at $MAP_RENDERER_INSTALLED; skipping build"
-fi
+# The renderer is ORC-owned code and can change independently of the pinned
+# MapLibre checkout. Rebuild and reinstall it on every navigation-stack update
+# so an existing installed binary cannot mask renderer source changes.
+echo "[*] Building OpenRoadCode map renderer"
+cmake -S "$PROJECT_ROOT/apps/map_renderer" \
+  -B "$PROJECT_ROOT/apps/map_renderer/build-termux" -G Ninja \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_SYSTEM_NAME=Linux \
+  -DMAPLIBRE_ROOT="$MAPLIBRE_SRC" \
+  -DMAPLIBRE_BUILD="$MAPLIBRE_SRC/build-termux-glfw"
+cmake --build "$PROJECT_ROOT/apps/map_renderer/build-termux" -j"$BUILD_JOBS"
+MAP_RENDERER_BUILT="$PROJECT_ROOT/apps/map_renderer/build-termux/openroadcode-map-renderer"
+[[ -x "$MAP_RENDERER_BUILT" ]] || {
+  echo "OpenRoadCode map renderer build was not produced: $MAP_RENDERER_BUILT" >&2
+  exit 1
+}
+install -Dm755 "$MAP_RENDERER_BUILT" "$MAP_RENDERER_INSTALLED"
 
 NAVIGATION_CONFIG_SOURCE="$PROJECT_ROOT/config/navigation.toml"
 if [[ -f "$NAVIGATION_CONFIG_SOURCE" && ! -f "$CONFIG_ROOT/navigation.toml" ]]; then
