@@ -6,7 +6,17 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import os
+from pathlib import Path
 import subprocess
+
+
+SYSTEMCTL_BIN = os.environ.get("OPENROADCODE_SYSTEMCTL", "/usr/bin/systemctl")
+PRIVILEGED_ACTIONS = {"start", "stop", "restart"}
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+PROFILE_DIR = Path(
+    os.environ.get("OPENROADCODE_SERVICE_PROFILE_DIR", "/var/lib/openroadcode/service-profiles")
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -16,6 +26,9 @@ class ServiceStatus:
     name: str
     state: str
     detail: str
+    profile: str | None = None
+    available_profiles: tuple[str, ...] = ()
+    profile_labels: dict[str, str] | None = None
 
 
 class SystemdServiceManager:
@@ -25,8 +38,6 @@ class SystemdServiceManager:
         "openroadcode-message-broker": "openroadcode-message-broker.service",
         "openroadcode-navigation": "openroadcode-navigation.service",
         "openroadcode-automotive": "openroadcode-automotive.service",
-        # Keep the API name aligned with the Termux manager while controlling
-        # the Pi's existing ADS-B runtime unit.
         "openroadcode-adsb": "readsb.service",
     }
     SERVICES = tuple(SERVICE_UNITS)
@@ -35,6 +46,15 @@ class SystemdServiceManager:
         "openroadcode-navigation",
         "openroadcode-automotive",
     )
+    PROFILE_CONFIGS = {
+        "openroadcode-navigation": ("local", "remote", "simulated"),
+        "openroadcode-automotive": ("local", "remote", "simulated"),
+    }
+    PROFILE_LABELS = {
+        "local": "Android Bridge",
+        "remote": "Device Hardware",
+        "simulated": "Simulated",
+    }
 
     def status(self, name: str) -> ServiceStatus:
         unit = self._unit(name)
@@ -59,10 +79,57 @@ class SystemdServiceManager:
         )
         if not detail:
             detail = (active.stdout or active.stderr).strip()
-        return ServiceStatus(name=name, state=state, detail=detail)
+        return ServiceStatus(
+            name=name,
+            state=state,
+            detail=detail,
+            profile=self.profile(name),
+            available_profiles=self.available_profiles(name),
+            profile_labels=(dict(self.PROFILE_LABELS) if self.available_profiles(name) else None),
+        )
 
     def all_status(self) -> tuple[ServiceStatus, ...]:
         return tuple(self.status(name) for name in self.SERVICES)
+
+    def available_profiles(self, name: str) -> tuple[str, ...]:
+        self._unit(name)
+        return tuple(self.PROFILE_CONFIGS.get(name, ()))
+
+    def profile(self, name: str) -> str | None:
+        profiles = self.PROFILE_CONFIGS.get(name)
+        if not profiles:
+            return None
+        selected = self._profile_file(name)
+        if not selected.exists():
+            return "local"
+        content = selected.read_text(encoding="utf-8")
+        for profile in profiles:
+            if f"OPENROADCODE_RUNTIME_PROFILE={profile}" in content:
+                return profile
+            if f'OPENROADCODE_RUNTIME_PROFILE="{profile}"' in content:
+                return profile
+        return "custom"
+
+    def set_profile(self, name: str, profile: str) -> ServiceStatus:
+        profiles = self.PROFILE_CONFIGS.get(name)
+        if not profiles:
+            raise ValueError(f"Service does not support profiles: {name}")
+        if profile not in profiles:
+            raise ValueError(f"Unsupported profile for {name}: {profile}")
+
+        was_running = self.status(name).state == "running"
+        PROFILE_DIR.mkdir(parents=True, exist_ok=True)
+        profile_file = self._profile_file(name)
+        temporary = profile_file.with_suffix(".tmp")
+        temporary.write_text(
+            f'OPENROADCODE_RUNTIME_PROFILE="{profile}"\n',
+            encoding="utf-8",
+        )
+        temporary.chmod(0o644)
+        temporary.replace(profile_file)
+        if was_running:
+            self._systemctl("restart", self._unit(name))
+        return self.status(name)
 
     def start(self, name: str) -> ServiceStatus:
         unit = self._unit(name)
@@ -85,7 +152,6 @@ class SystemdServiceManager:
         return tuple(self.status(name) for name in self.CORE_STACK)
 
     def stop_core(self) -> tuple[ServiceStatus, ...]:
-        # Stop consumers before infrastructure.
         for name in reversed(self.CORE_STACK):
             self._systemctl("stop", self._unit(name))
         return tuple(self.status(name) for name in self.CORE_STACK)
@@ -98,14 +164,21 @@ class SystemdServiceManager:
             raise ValueError(f"Unsupported OpenRoadCode service: {name}") from exc
 
     @staticmethod
+    def _profile_file(name: str) -> Path:
+        return PROFILE_DIR / f"{name}.env"
+
+    @staticmethod
     def _systemctl(
         action: str,
         unit: str,
         *extra: str,
         check: bool = True,
     ) -> subprocess.CompletedProcess[str]:
+        command = [SYSTEMCTL_BIN, action, unit, *extra]
+        if action in PRIVILEGED_ACTIONS:
+            command = ["sudo", "-n", *command]
         return subprocess.run(
-            ["systemctl", action, unit, *extra],
+            command,
             check=check,
             capture_output=True,
             text=True,

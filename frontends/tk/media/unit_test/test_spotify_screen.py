@@ -52,7 +52,8 @@ class SpotifyScreenTest(unittest.TestCase):
 
         screen.show()
 
-        self.assertEqual(frame_type.call_count, 2)
+        # Root, setup/status banner, and playback content are painted before hydration.
+        self.assertEqual(frame_type.call_count, 3)
         frame_type.assert_any_call(host.screen_parent, bg=_theme()["colors"]["background"])
         panel_type.assert_called_once()
         panel.pack.assert_called_once_with(fill="both", expand=True)
