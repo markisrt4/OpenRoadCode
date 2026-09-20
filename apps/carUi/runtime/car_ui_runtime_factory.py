@@ -16,10 +16,9 @@ from apps.launchers.adsb_launcher import ADSBLauncher
 from apps.launchers.browser_app_factory import BrowserApplicationFactory
 from apps.launchers.google_earth_launcher import GoogleEarthLauncher
 from apps.launchers.sdrpp_launcher import SDRPPLauncher, SDRPPProfile
-from apps.launchers.weather_dash_launcher import WeatherDashLauncher
 from controllers.application_runtime import AppRuntimeManager
 from controllers.cache import PersistentCache
-from controllers.weather import DEFAULT_WEATHER_CACHE_DIRECTORY, GpsdWeatherLocationProvider, OpenMeteoWeatherController, WeatherSnapshotCache
+from controllers.weather import GpsdWeatherLocationProvider, OpenMeteoWeatherProvider, WeatherController
 from controllers.navigation import PositionSnapshotCache
 from controllers.navigation.google_earth_map_presentation import GoogleEarthMapPresentation
 from config.radio_config_manager import load_radio_config
@@ -72,13 +71,13 @@ def build_car_ui_runtime(config: RuntimeConfig, *, applications_config: Applicat
 
         weather_app = applications_config.app("weather")
         if weather_app.enabled:
-            weather_cache = WeatherSnapshotCache(PersistentCache(DEFAULT_WEATHER_CACHE_DIRECTORY))
             weather_location_provider = GpsdWeatherLocationProvider()
             if config.position_cache.enabled:
                 weather_location_provider = CarUiWeatherLocationProvider(weather_location_provider, PositionSnapshotCache(PersistentCache(config.position_cache.directory)), max_age_seconds=config.position_cache.max_age_seconds)
-            weather_controller = OpenMeteoWeatherController(weather_cache, location_provider=weather_location_provider)
-            weather_launcher = WeatherDashLauncher(cache_directory=DEFAULT_WEATHER_CACHE_DIRECTORY, browser=browser_factory.create("weather"))
-            app_runtime_manager.register("weather", weather_launcher)
+            weather_controller = WeatherController(
+                OpenMeteoWeatherProvider(),
+                location_provider=weather_location_provider,
+            )
 
         google_earth_app = applications_config.app("google_earth")
         if google_earth_app.enabled:

@@ -7,11 +7,14 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from common.app_settings import AppSettings, AppSettingsStore
+
 from apps.orcUi.application_runtime import OrcUiApplicationRuntime, create_orc_ui_application_runtime
 from apps.orcUi.composition.core import CoreComposition, create_core_composition
 from apps.orcUi.composition.games import configure_games
 from apps.orcUi.composition.media import MediaComposition, configure_media
 from apps.orcUi.composition.radio import RadioComposition, configure_radio
+from apps.orcUi.composition.weather import WeatherComposition, configure_weather
 from apps.orcUi.frontend.tk.home_screen import HomeScreen
 from apps.orcUi.frontend.tk.navigation_screen import NavigationScreen
 from apps.orcUi.frontend.tk.orc_ui_app import OrcUiApp
@@ -31,6 +34,7 @@ class OrcUiComposition:
     radio: RadioComposition
     media: MediaComposition
     games: GamesScreen
+    weather: WeatherComposition
     home: HomeScreen | None = None
     navigation: NavigationScreen | None = None
     vehicle: VehicleScreen | None = None
@@ -70,11 +74,29 @@ def create_orc_ui_composition() -> OrcUiComposition:
         core = create_core_composition()
         app = core.app
         app.set_theme_change_handler(core.map_runtime.set_theme)
+        core.presentation.observe_weather_alert(app.present_weather_alert)
         for destination in ("HOME", "NAVIGATION", "RADIO", "VEHICLE", "VISION", "LIGHTING", "GAMES", "MEDIA"):
             app.register_navigation_destination(destination)
         radio = configure_radio(app, runtime)
         games = configure_games(app)
         media = configure_media(app, runtime)
+        settings_store = AppSettingsStore()
+        app_settings = settings_store.load()
+
+        def unit_system():
+            return app_settings.unit_system
+
+        def set_unit_system(value):
+            nonlocal app_settings
+            app_settings = AppSettings(unit_system=value)
+            settings_store.save(app_settings)
+
+        weather = configure_weather(
+            app,
+            unit_system=unit_system,
+            on_weather_radio=radio.open_weather_radio,
+            on_weather_status=app.set_weather_status,
+        )
         def navigate_home_context(name: str) -> None:
             context_name = name.strip().upper()
             if not context_name:
@@ -122,6 +144,8 @@ def create_orc_ui_composition() -> OrcUiComposition:
             telemetry_profile_request=core.telemetry_profile_request,
             vehicle_configuration=lambda: core.vehicle_configuration.configuration,
             on_vehicle_configuration_changed=core.vehicle_configuration.update,
+            unit_system=unit_system,
+            on_unit_system_changed=set_unit_system,
             on_back=lambda: app.navigate_to("HOME"),
         )
         home.set_radio_factory(radio.home_factory)
@@ -156,6 +180,7 @@ def create_orc_ui_composition() -> OrcUiComposition:
         radio=radio,
         media=media,
         games=games,
+        weather=weather,
         home=home,
         navigation=navigation,
         vehicle=vehicle,

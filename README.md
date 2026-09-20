@@ -44,6 +44,7 @@ OpenRoadCode is designed to:
 Current and partially integrated capabilities include:
 
 * Touchscreen automotive user interface, including the evolving `orcUi` shell
+* Native Weather dashboard with current conditions, hourly and daily forecasts, GPS-backed location, persistent Imperial/Metric display units, NOAA Weather Radio access, and NWS alert presentation
 * Native Linux games browser with category filters, package discovery/installation, launch/stop lifecycle, and X11 kiosk embedding
 * Offline Valhalla route planning and native MapLibre map presentation
 * Route overlays, camera follow/recenter, manual map panning, and live vehicle position

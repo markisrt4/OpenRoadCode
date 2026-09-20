@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
+from common.units import UnitSystem
 from controllers.automotive import AutomotiveTelemetryProfile, VehicleConfiguration
 from frontends.tk.tk_screen import TkScreen
 from frontends.tk.tk_screen_host_if import TkScreenHostIf
@@ -31,6 +32,8 @@ class SettingsScreen(TkScreen):
         ),
         vehicle_configuration: Callable[[], VehicleConfiguration],
         on_vehicle_configuration_changed: Callable[[VehicleConfiguration], None],
+        unit_system: Callable[[], UnitSystem],
+        on_unit_system_changed: Callable[[UnitSystem], None],
         on_back: Callable[[], None],
     ) -> None:
         super().__init__(self.SCREEN_ID)
@@ -39,6 +42,8 @@ class SettingsScreen(TkScreen):
         self._telemetry_profile_request = telemetry_profile_request
         self._vehicle_configuration = vehicle_configuration
         self._on_vehicle_configuration_changed = on_vehicle_configuration_changed
+        self._unit_system = unit_system
+        self._on_unit_system_changed = on_unit_system_changed
         self._on_back = on_back
 
     def set_theme_mode(self, _mode: object) -> None:
@@ -57,6 +62,8 @@ class SettingsScreen(TkScreen):
             self._host.screen_parent,
             vehicle_configuration=self._vehicle_configuration(),
             on_vehicle_configuration_changed=self._on_vehicle_configuration_changed,
+            unit_system=self._unit_system(),
+            on_unit_system_changed=self._on_unit_system_changed,
             on_back=self._on_back,
             theme=self._theme_bundle(),
         )

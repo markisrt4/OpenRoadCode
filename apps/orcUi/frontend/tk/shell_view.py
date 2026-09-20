@@ -11,6 +11,9 @@ from datetime import datetime
 
 from apps.orcUi.orc_theme import ThemeMode, toggle_label
 from ui.theme import ThemeBundle
+from ui.weather import WeatherAlertUiEvent
+
+from .weather_alert_banner import WeatherAlertBanner
 
 from .bottom_bar import OrcUiBottomBar
 from .shell_chrome import build_footer, build_top_bar
@@ -56,11 +59,16 @@ class OrcUiShellView:
         self._side_nav: OrcUiSideNav | None = None
         self._bottom_bar: OrcUiBottomBar | None = None
         self._clock_label: tk.Label | None = None
+        self._weather_status_label: tk.Label | None = None
+        self._weather_status_text = "☁  --°"
         self._breadcrumb_label: tk.Label | None = None
         self._status_label: tk.Label | None = None
         self._status_text = ""
         self._breadcrumb = active_nav
         self._clock_after_id: str | None = None
+        self._weather_alert: WeatherAlertUiEvent | None = None
+        self._weather_alert_banner: WeatherAlertBanner | None = None
+        self._weather_alert_after_id: str | None = None
 
         root.grid_rowconfigure(1, weight=1)
         root.grid_columnconfigure(1, weight=1)
@@ -85,6 +93,8 @@ class OrcUiShellView:
         self._root.configure(bg=theme.ui.background)
         self.content.configure(bg=theme.ui.background)
         self._build_chrome()
+        if self._weather_alert is not None:
+            self.show_weather_alert(self._weather_alert)
 
     def rebuild_navigation(self) -> None:
         if self._side_nav is not None and self._side_nav.winfo_exists():
@@ -111,12 +121,95 @@ class OrcUiShellView:
             self._breadcrumb_label.configure(text=self._breadcrumb)
 
     def close(self) -> None:
+        self._cancel_weather_alert_timer()
         if self._clock_after_id is not None:
             try:
                 self._root.after_cancel(self._clock_after_id)
             except tk.TclError:
                 pass
             self._clock_after_id = None
+
+    def show_weather_alert(self, alert: WeatherAlertUiEvent | None) -> None:
+        """Show, replace, or clear the persistent shell Weather alert."""
+        if alert is None:
+            self.dismiss_weather_alert()
+            return
+        self._weather_alert = alert
+        banner = self._weather_alert_banner
+        if banner is None or not banner.winfo_exists():
+            banner = WeatherAlertBanner(
+                self._root,
+                theme=self._theme,
+                on_details=self._show_weather_alert_details,
+                on_dismiss=self.dismiss_weather_alert,
+            )
+            self._weather_alert_banner = banner
+        banner.set_alert(alert)
+        banner.place(relx=0.5, y=52, anchor="n", relwidth=0.78)
+        banner.lift()
+        self._schedule_weather_alert_tick()
+
+    def dismiss_weather_alert(self) -> None:
+        self._cancel_weather_alert_timer()
+        self._weather_alert = None
+        banner = self._weather_alert_banner
+        if banner is not None and banner.winfo_exists():
+            banner.place_forget()
+
+    def _schedule_weather_alert_tick(self) -> None:
+        self._cancel_weather_alert_timer()
+        alert = self._weather_alert
+        if alert is None:
+            return
+        now = datetime.now().astimezone()
+        if alert.expires_at is not None and alert.expires_at <= now:
+            self.dismiss_weather_alert()
+            return
+        banner = self._weather_alert_banner
+        if banner is not None and banner.winfo_exists():
+            banner.update_expiration(now)
+        self._weather_alert_after_id = self._root.after(1000, self._schedule_weather_alert_tick)
+
+    def _cancel_weather_alert_timer(self) -> None:
+        if self._weather_alert_after_id is None:
+            return
+        try:
+            self._root.after_cancel(self._weather_alert_after_id)
+        except tk.TclError:
+            pass
+        self._weather_alert_after_id = None
+
+    def _show_weather_alert_details(self) -> None:
+        alert = self._weather_alert
+        if alert is None:
+            return
+        detail = tk.Toplevel(self._root)
+        detail.title(alert.event)
+        detail.transient(self._root)
+        detail.configure(bg=self._theme.ui.background)
+        detail.geometry("720x420")
+        ui = self._theme.ui
+        tk.Label(detail, text=alert.event.upper(), bg=ui.background,
+                 fg=ui.accent_danger if alert.severity.lower() in {"extreme", "severe"} else ui.text,
+                 font=("Sans", 18, "bold"), anchor="w").pack(fill=tk.X, padx=18, pady=(16, 6))
+        tk.Label(detail, text=alert.headline, bg=ui.background, fg=ui.text,
+                 font=("Sans", 12, "bold"), anchor="w", justify=tk.LEFT,
+                 wraplength=680).pack(fill=tk.X, padx=18, pady=(0, 12))
+        body = alert.description
+        if alert.instruction:
+            body = f"{body}\\n\\n{alert.instruction}"
+        tk.Label(detail, text=body, bg=ui.background, fg=ui.text_muted,
+                 font=("Sans", 11), anchor="nw", justify=tk.LEFT,
+                 wraplength=680).pack(fill=tk.BOTH, expand=True, padx=18, pady=(0, 12))
+        tk.Button(detail, text="CLOSE", command=detail.destroy,
+                  bg=ui.control_background, fg=ui.control_text,
+                  activebackground=ui.control_active, activeforeground=ui.text,
+                  relief=tk.FLAT, bd=0, font=("Sans", 10, "bold")).pack(pady=(0, 16))
+
+    def set_weather_status(self, text: str) -> None:
+        self._weather_status_text = text
+        if self._weather_status_label is not None and self._weather_status_label.winfo_exists():
+            self._weather_status_label.configure(text=text)
 
     def set_status(self, text: str) -> None:
         self._status_text = text
@@ -157,11 +250,13 @@ class OrcUiShellView:
         self._clock_after_id = self._root.after(1000, self._update_clock)
 
     def _build_chrome(self) -> None:
-        self._clock_label = build_top_bar(
+        self._weather_alert_banner = None
+        self._clock_label, self._weather_status_label = build_top_bar(
             self._root,
             theme=self._theme,
             on_power=self._on_power,
         )
+        self._weather_status_label.configure(text=self._weather_status_text)
         self._side_nav = OrcUiSideNav(
             self._root,
             theme=self._theme,

@@ -114,6 +114,7 @@ class CoreCompositionTest(unittest.TestCase):
         self.assertIs(ingress_kwargs["apply_trip_state"].__self__, core.presentation)
         self.assertIs(ingress_kwargs["apply_position_state"].__self__, core.presentation)
         self.assertIs(ingress_kwargs["apply_attitude_state"].__self__, core.presentation)
+        self.assertIs(ingress_kwargs["apply_weather_alert"].__self__, core.presentation)
         self.assertIsNotNone(ingress_kwargs["vehicle_configuration"])
         self.assertIs(core.app, app)
         self.assertIs(core.map_runtime, map_runtime)
