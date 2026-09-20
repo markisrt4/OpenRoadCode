@@ -3,6 +3,7 @@
 
 """Tests for real navigation motion feeding partial vehicle state."""
 
+from datetime import datetime, timezone
 from types import SimpleNamespace
 
 from controllers.automotive.navigation_motion_vehicle_state_source import NavigationMotionVehicleStateSource
@@ -27,11 +28,15 @@ def test_navigation_motion_populates_only_real_ground_speed() -> None:
     source = NavigationMotionVehicleStateSource(subscriber)
 
     source._on_motion_state(  # noqa: SLF001 - isolate message-to-state behavior
-        SimpleNamespace(data=SimpleNamespace(ground_speed_m_s=12.5))
+        SimpleNamespace(
+            timestamp=SimpleNamespace(seconds=1_780_000_000, nanoseconds=250_000_000),
+            data=SimpleNamespace(ground_speed_m_s=12.5),
+        )
     )
     state = source.read_state()
 
     assert state.vehicle_speed_m_s == 12.5
+    assert state.timestamp == datetime.fromtimestamp(1_780_000_000.25, tz=timezone.utc)
     assert state.engine_speed_rad_s is None
     assert state.boost_pressure_pa is None
     assert state.fuel_level is None
