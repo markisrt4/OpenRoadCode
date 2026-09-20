@@ -324,8 +324,8 @@ class OrcWeatherPanel(tk.Frame, WeatherUiIf):
                 else f"PRECIP {self._percent(item.precipitation_probability)}"
             )
             temperatures = (
-                ("LOW", self._temperature_text(item.temperature_low_k), "#2878b8"),
-                ("HIGH", self._temperature_text(item.temperature_high_k), "#c84b45"),
+                self._temperature_text(item.temperature_low_k),
+                self._temperature_text(item.temperature_high_k),
             )
             self._forecast_cell(
                 self._daily,
@@ -343,7 +343,7 @@ class OrcWeatherPanel(tk.Frame, WeatherUiIf):
         column: int,
         heading: str,
         symbol: str,
-        value: str | tuple[tuple[str, str, str], tuple[str, str, str]],
+        value: str | tuple[str, str],
         detail: str,
         footer: str,
     ) -> None:
@@ -373,30 +373,41 @@ class OrcWeatherPanel(tk.Frame, WeatherUiIf):
         ).place(relx=0.5, rely=0.5, anchor="center")
         if isinstance(value, tuple):
             temperatures = tk.Frame(cell, bg=ui.surface)
-            temperatures.pack(pady=(1, 1))
-            for index, (label, temperature, color) in enumerate(value):
-                badge = tk.Frame(temperatures, bg=color, bd=0)
-                badge.pack(side=tk.LEFT, padx=(0 if index == 0 else 3, 3 if index == 0 else 0))
-                tk.Label(
-                    badge, text=f"{label} {temperature}", bg=color, fg="#ffffff",
-                    font=("Sans", 8, "bold"), padx=5, pady=2,
-                ).pack()
+            temperatures.pack(pady=(0, 0))
+            tk.Label(
+                temperatures, text=value[0], bg=ui.surface, fg=ui.text,
+                font=("Sans", 11, "bold"),
+            ).pack(side=tk.LEFT, padx=(0, 8))
+            tk.Label(
+                temperatures, text=value[1], bg=ui.surface, fg=ui.text,
+                font=("Sans", 11, "bold"),
+            ).pack(side=tk.LEFT, padx=(8, 0))
+            legend = tk.Frame(cell, bg=ui.surface)
+            legend.pack(pady=(0, 0))
+            tk.Label(
+                legend, text="● LOW", bg=ui.surface, fg="#2878b8",
+                font=("Sans", 7, "bold"),
+            ).pack(side=tk.LEFT, padx=(0, 6))
+            tk.Label(
+                legend, text="● HIGH", bg=ui.surface, fg="#c84b45",
+                font=("Sans", 7, "bold"),
+            ).pack(side=tk.LEFT, padx=(6, 0))
         else:
             tk.Label(
-                cell, text=value, bg=ui.surface, fg=ui.text, font=("Sans", 13, "bold")
-            ).pack()
+                cell, text=value, bg=ui.surface, fg=ui.text, font=("Sans", 12, "bold")
+            ).pack(pady=(0, 1))
         tk.Label(
             cell,
             text=detail,
             bg=ui.surface,
             fg=ui.text_muted,
-            font=("Sans", 8),
+            font=("Sans", 7),
             wraplength=135,
             height=1,
         ).pack(padx=3)
         tk.Label(
-            cell, text=footer, bg=ui.surface, fg=accent, font=("Sans", 8, "bold")
-        ).pack(pady=(0, 4))
+            cell, text=footer, bg=ui.surface, fg=accent, font=("Sans", 7, "bold")
+        ).pack(pady=(0, 2))
 
     @staticmethod
     def _local_timestamp(value: datetime) -> datetime:
