@@ -18,6 +18,11 @@ from dataclasses import dataclass
 from pathlib import Path
 import statistics
 import sys
+
+try:
+    import tomllib
+except ModuleNotFoundError:  # Python 3.10
+    import tomli as tomllib
 import time
 
 from messaging.contracts.automotive import VEHICLE_STATE_TOPIC, decode_vehicle_state
@@ -40,6 +45,11 @@ def _parse_args() -> argparse.Namespace:
         description="Learn vehicle forward-gear ratios from ORC telemetry."
     )
     parser.add_argument("--gears", type=int, default=6, help="number of forward gears")
+    parser.add_argument(
+        "--gear",
+        type=int,
+        help="calibrate only this physical gear and merge it into the output profile",
+    )
     parser.add_argument(
         "--mode",
         choices=("automatic", "guided"),
@@ -201,6 +211,73 @@ def _read_sample(subscriber: ZeroMqSubscriber, args: argparse.Namespace, history
     return Sample(rpm=rpm, speed_mph=speed_mph, rpm_per_mph=ratio)
 
 
+
+
+def _read_profile_groups(path: Path, gear_count: int) -> list[list[float]]:
+    """Load existing learned centers so a single gear can be replaced."""
+    groups: list[list[float]] = [[] for _ in range(gear_count)]
+    if not path.exists():
+        return groups
+    with path.open("rb") as file:
+        data = tomllib.load(file)
+    for raw in data.get("gear", []):
+        number = int(raw["number"])
+        if 1 <= number <= gear_count:
+            # Existing profiles do not retain every raw sample. Preserve the
+            # learned center as a one-sample group until that gear is recaptured.
+            groups[number - 1] = [float(raw["rpm_per_mph"])]
+    return groups
+
+
+def _single_gear_learn(subscriber: ZeroMqSubscriber, args: argparse.Namespace) -> int:
+    gear = args.gear
+    assert gear is not None
+    history: deque[float] = deque(maxlen=args.window)
+    values: list[float] = []
+    last_status = 0.0
+
+    print(f"OpenRoadCode gear {gear} calibration")
+    print(f"Collecting {args.samples_per_gear} stable samples in gear {gear}.")
+    print("Start this command while parked, then drive only in the requested gear.")
+    print("Do not interact with the terminal while driving.\n")
+
+    while len(values) < args.samples_per_gear:
+        sample = _read_sample(subscriber, args, history)
+        if sample is None:
+            continue
+        values.append(sample.rpm_per_mph)
+        now = time.monotonic()
+        if now - last_status >= 0.25 or len(values) == args.samples_per_gear:
+            print(
+                f"\rGear {gear}: {sample.rpm:5.0f} rpm  {sample.speed_mph:5.1f} mph  "
+                f"{sample.rpm_per_mph:7.2f} rpm/mph  "
+                f"accepted={len(values):2d}/{args.samples_per_gear}",
+                end="",
+                flush=True,
+            )
+            last_status = now
+    print()
+
+    groups = _read_profile_groups(args.output, args.gears)
+    groups[gear - 1] = values
+
+    learned = [(index + 1, statistics.median(group)) for index, group in enumerate(groups) if group]
+    if any(a_ratio <= b_ratio for (_a_gear, a_ratio), (_b_gear, b_ratio) in zip(learned, learned[1:])):
+        print(
+            "Calibration rejected: learned ratios must decrease as gear number increases.",
+            file=sys.stderr,
+        )
+        return 2
+
+    _write_profile(args.output, groups, sum(len(group) for group in groups))
+    print(
+        f"Gear {gear} captured: median={statistics.median(values):.2f} rpm/mph, "
+        f"sigma={statistics.pstdev(values) if len(values) > 1 else 0.0:.2f}"
+    )
+    print(f"Updated learned profile: {args.output}")
+    return 0
+
+
 def _guided_learn(subscriber: ZeroMqSubscriber, args: argparse.Namespace) -> int:
     groups: list[list[float]] = []
     print("Guided manual-transmission calibration")
@@ -252,6 +329,8 @@ def main() -> int:
     args = _parse_args()
     if args.gears < 1:
         raise SystemExit("--gears must be at least 1")
+    if args.gear is not None and not 1 <= args.gear <= args.gears:
+        raise SystemExit("--gear must be between 1 and --gears")
     if args.window < 2:
         raise SystemExit("--window must be at least 2")
     if args.samples_per_gear < 1:
@@ -259,6 +338,15 @@ def main() -> int:
 
     subscriber = ZeroMqSubscriber(args.endpoint)
     subscriber.subscribe(VEHICLE_STATE_TOPIC)
+
+    if args.gear is not None:
+        try:
+            return _single_gear_learn(subscriber, args)
+        except KeyboardInterrupt:
+            print("\nCalibration cancelled; no profile was written.")
+            return 130
+        finally:
+            subscriber.close()
 
     if args.mode == "guided":
         try:
