@@ -127,6 +127,27 @@ class NavigationPanel(tk.Frame):
             anchor="e",
         ).pack(side=tk.RIGHT, padx=7)
 
+        if self._on_radar_toggle is not None:
+            self._radar_button = tk.Button(
+                bar,
+                text="RADAR",
+                command=self._toggle_radar,
+                bg=ui.control_background,
+                fg=ui.text,
+                activebackground=ui.control_active,
+                activeforeground="#ffffff",
+                relief=tk.FLAT,
+                highlightthickness=1,
+                highlightbackground=ui.border,
+                font=("Sans", FONT_CONTROL, "bold"),
+                width=7,
+                height=1,
+                padx=3,
+                pady=1,
+            )
+            self._radar_button.pack(side=tk.RIGHT, padx=(4, 0), pady=3)
+            self._render_radar_state()
+
         body = tk.Frame(self, bg=ui.background)
         body.grid(row=1, column=0, sticky="nsew")
         body.grid_rowconfigure(0, weight=1)
@@ -158,16 +179,6 @@ class NavigationPanel(tk.Frame):
         )
         self._follow_button.pack(fill=tk.X, padx=5, pady=(7, 5))
         self.set_follow_enabled(self._follow_enabled)
-
-        if self._on_radar_toggle is not None:
-            self._radar_button = self._control(
-                controls,
-                "RAD",
-                self._toggle_radar,
-                ui.accent_primary,
-            )
-            self._radar_button.pack(fill=tk.X, padx=5, pady=(0, 5))
-            self._render_radar_state()
 
         pan = tk.Frame(controls, bg=ui.surface_alt)
         pan.pack(pady=2)
@@ -290,7 +301,7 @@ class NavigationPanel(tk.Frame):
             return
         ui = self._theme_bundle.ui
         self._radar_button.configure(
-            text="RAD" if self._radar_enabled else "RAD̸",
+            text="RADAR" if self._radar_enabled else "RADAR OFF",
             fg=ui.accent_success if self._radar_enabled else ui.text,
         )
 
