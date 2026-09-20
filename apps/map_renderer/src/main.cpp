@@ -67,8 +67,17 @@ void setWeatherRadar(
         return;
     }
 
-    // Recreate the transient source when the frame URL changes. Radar belongs
-    // to runtime state rather than the map-builder-owned base style.
+    if (command.tileUrl.empty()) {
+        if (existingLayer != nullptr) {
+            auto* radarLayer = static_cast<mbgl::style::RasterLayer*>(existingLayer);
+            radarLayer->setRasterOpacity(command.opacity);
+            radarLayer->setVisibility(mbgl::style::VisibilityType::Visible);
+        }
+        return;
+    }
+
+    // A supplied URL selects a new frame. Recreate only for frame changes;
+    // visibility-only commands preserve the existing source and tile cache.
     if (existingLayer != nullptr) {
         style.removeLayer(kWeatherRadarLayerId);
     }
