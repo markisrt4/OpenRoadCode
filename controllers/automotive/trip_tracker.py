@@ -25,6 +25,7 @@ class TripTracker(TripIf):
         pause_after_s: float = 3.0,
         fuel_model: FuelModel | None = None,
         boost_threshold_pa: float = 5000.0,
+        high_load_threshold: float = 0.75,
     ) -> None:
         if moving_threshold_m_s < 0.0:
             raise ValueError("moving_threshold_m_s must not be negative")
@@ -32,10 +33,13 @@ class TripTracker(TripIf):
             raise ValueError("pause_after_s must not be negative")
         if boost_threshold_pa < 0.0:
             raise ValueError("boost_threshold_pa must not be negative")
+        if not 0.0 <= high_load_threshold <= 1.0:
+            raise ValueError("high_load_threshold must be between 0 and 1")
         self._moving_threshold_m_s = moving_threshold_m_s
         self._pause_after_s = pause_after_s
         self._fuel_model = fuel_model or FuelModel()
         self._boost_threshold_pa = boost_threshold_pa
+        self._high_load_threshold = high_load_threshold
         self.reset()
 
     def observe_vehicle_state(self, state: VehicleState) -> None:
@@ -51,6 +55,7 @@ class TripTracker(TripIf):
             state.timestamp,
             self._fuel_model.fuel_flow_m3_s(state),
             state.vehicle_speed_m_s,
+            self._is_high_load(state),
         )
 
     def observe_position_state(self, state: PositionState) -> None:
@@ -111,6 +116,7 @@ class TripTracker(TripIf):
         self._last_fuel_sample_at: datetime | None = None
         self._last_fuel_flow_m3_s: float | None = None
         self._last_fuel_boost_active: bool | None = None
+        self._last_fuel_high_load_active: bool | None = None
         self._last_boost_sample_at: datetime | None = None
         self._last_boost_speed_m_s: float | None = None
         self._last_boost_active: bool | None = None
@@ -223,12 +229,15 @@ class TripTracker(TripIf):
         timestamp: datetime,
         fuel_flow_m3_s: float | None,
         speed_m_s: float | None,
+        high_load_active: bool,
     ) -> None:
         if fuel_flow_m3_s is None or self._state.status is TripStatus.IDLE:
             return
         flow = max(0.0, fuel_flow_m3_s)
         fuel_used = self._state.fuel_used_m3 or 0.0
         boost_fuel_used = self._state.boost_fuel_used_m3
+        high_load_fuel_used = self._state.high_load_fuel_used_m3
+        high_load_time_s = self._state.high_load_time_s
         boost_active = bool(self._last_boost_active)
 
         if self._last_fuel_sample_at is not None and self._last_fuel_flow_m3_s is not None:
@@ -238,6 +247,9 @@ class TripTracker(TripIf):
                 fuel_used += interval_fuel
                 if self._last_fuel_boost_active or boost_active:
                     boost_fuel_used += interval_fuel
+                if self._last_fuel_high_load_active or high_load_active:
+                    high_load_fuel_used += interval_fuel
+                    high_load_time_s += dt_s
 
         instantaneous = None
         if speed_m_s is not None and speed_m_s > self._moving_threshold_m_s and flow > 0.0:
@@ -253,10 +265,17 @@ class TripTracker(TripIf):
             instantaneous_fuel_consumption_m3_per_m=instantaneous,
             average_fuel_consumption_m3_per_m=average,
             boost_fuel_used_m3=boost_fuel_used,
+            high_load_time_s=high_load_time_s,
+            high_load_fuel_used_m3=high_load_fuel_used,
         )
         self._last_fuel_sample_at = timestamp
         self._last_fuel_flow_m3_s = flow
         self._last_fuel_boost_active = boost_active
+        self._last_fuel_high_load_active = high_load_active
+
+    def _is_high_load(self, state: VehicleState) -> bool:
+        load = state.absolute_engine_load if state.absolute_engine_load is not None else state.engine_load
+        return load is not None and load >= self._high_load_threshold
 
     def _start(self, timestamp: datetime) -> None:
         latitude = longitude = None
