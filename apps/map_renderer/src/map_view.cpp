@@ -23,6 +23,7 @@
 #include <cstdlib>
 #include <iostream>
 #include <string>
+#include <mbgl/util/tile_coordinate.hpp>
 
 namespace {
 
@@ -362,4 +363,38 @@ void MapView::onWillStartRenderingFrame()
 void MapView::setUpdateCallback(std::function<void()> callback)
 {
     updateCallback = std::move(callback);
+}
+
+void MapView::onDidFailLoadingMap(mbgl::MapLoadError, const std::string& message)
+{
+    std::cerr << "[map_renderer] MapLibre load error: " << message << '\n';
+}
+
+void MapView::onTileAction(
+    mbgl::TileOperation operation,
+    const mbgl::OverscaledTileID& tileId,
+    const std::string& sourceId
+)
+{
+    if (sourceId != "weather-radar") {
+        return;
+    }
+
+    const char* action = nullptr;
+    switch (operation) {
+        case mbgl::TileOperation::RequestedFromCache: action = "cache-request"; break;
+        case mbgl::TileOperation::RequestedFromNetwork: action = "network-request"; break;
+        case mbgl::TileOperation::LoadFromNetwork: action = "network-loaded"; break;
+        case mbgl::TileOperation::LoadFromCache: action = "cache-loaded"; break;
+        case mbgl::TileOperation::Error: action = "error"; break;
+        case mbgl::TileOperation::Cancelled: action = "cancelled"; break;
+        default: return;
+    }
+
+    std::cout << "[map_renderer] radar tile " << action
+              << " canonical=" << static_cast<int>(tileId.canonical.z)
+              << '/' << tileId.canonical.x
+              << '/' << tileId.canonical.y
+              << " display_z=" << static_cast<int>(tileId.overscaledZ)
+              << '\n';
 }
