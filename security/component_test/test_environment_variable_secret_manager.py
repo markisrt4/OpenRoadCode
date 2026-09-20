@@ -109,6 +109,19 @@ class EnvironmentVariableSecretManagerTest(unittest.TestCase):
                 manager.get_secret("SPOTIFY_CLIENT_ID"),
             )
 
+    def test_set_secret_persists_and_preserves_existing_values(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            secrets_file = Path(directory) / "secrets.env"
+            secrets_file.write_text("YOUTUBE_API_KEY=existing\n", encoding="utf-8")
+            with patch.dict("os.environ", {}, clear=True):
+                manager = EnvironmentVariableSecretManager(secrets_file=secrets_file)
+                manager.set_secret("SPOTIFY_CLIENT_ID", "spotify-client")
+
+                reloaded = EnvironmentVariableSecretManager(secrets_file=secrets_file)
+                self.assertEqual("spotify-client", reloaded.get_secret("SPOTIFY_CLIENT_ID"))
+                self.assertEqual("existing", reloaded.get_secret("YOUTUBE_API_KEY"))
+                self.assertEqual(0o600, secrets_file.stat().st_mode & 0o777)
+
 
 if __name__ == "__main__":
     unittest.main()
