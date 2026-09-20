@@ -37,6 +37,8 @@ def decode_trip_state(payload: Mapping[str, Any]) -> TripStateMessage:
             boost_distance_m=data.get("boost_distance_m", 0.0),
             boost_fuel_used_m3=data.get("boost_fuel_used_m3", 0.0),
             peak_boost_pa=data.get("peak_boost_pa"),
+            high_load_time_s=data.get("high_load_time_s", 0.0),
+            high_load_fuel_used_m3=data.get("high_load_fuel_used_m3", 0.0),
             start_latitude_deg=data["start_latitude_deg"],
             start_longitude_deg=data["start_longitude_deg"],
             current_latitude_deg=data["current_latitude_deg"],
