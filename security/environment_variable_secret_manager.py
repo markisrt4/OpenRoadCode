@@ -144,11 +144,21 @@ class EnvironmentVariableSecretManager(SecretManagerIf):
                     f"at line {line_number}"
                 )
             value = value.strip()
-            if (
-                len(value) >= 2
-                and value[0] == value[-1]
-                and value[0] in {"'", '"'}
-            ):
+            if len(value) >= 2 and value[0] == value[-1] == '"':
+                escaped = value[1:-1]
+                decoded: list[str] = []
+                index = 0
+                while index < len(escaped):
+                    if escaped[index] == "\\" and index + 1 < len(escaped):
+                        following = escaped[index + 1]
+                        if following in {'"', "\\"}:
+                            decoded.append(following)
+                            index += 2
+                            continue
+                    decoded.append(escaped[index])
+                    index += 1
+                value = "".join(decoded)
+            elif len(value) >= 2 and value[0] == value[-1] == "'":
                 value = value[1:-1]
             values[name] = value
 
