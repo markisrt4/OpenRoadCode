@@ -51,6 +51,9 @@ class TripState:
     boost_fuel_used_m3: float = 0.0
     peak_boost_pa: float | None = None
 
+    high_load_time_s: float = 0.0
+    high_load_fuel_used_m3: float = 0.0
+
     start_latitude_deg: float | None = None
     start_longitude_deg: float | None = None
     current_latitude_deg: float | None = None
