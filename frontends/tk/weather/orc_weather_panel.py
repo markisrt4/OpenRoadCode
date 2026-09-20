@@ -116,7 +116,7 @@ class OrcWeatherPanel(tk.Frame, WeatherUiIf):
 
         self._hero = tk.Frame(self, bd=0, highlightthickness=1)
         self._hero.grid(row=1, column=0, sticky="ew", padx=22, pady=(0, 12))
-        self._hero.grid_columnconfigure(2, weight=1, minsize=170)
+        self._hero.grid_columnconfigure(2, weight=1, minsize=230)
         self._hero.grid_columnconfigure(3, weight=0)
 
         self._symbol = tk.Label(
@@ -133,12 +133,12 @@ class OrcWeatherPanel(tk.Frame, WeatherUiIf):
         )
         self._condition.grid(row=0, column=2, sticky="sw", pady=(12, 1))
         self._summary = tk.Label(
-            self._hero, text="Waiting for location and forecast", font=("Sans", 11), anchor="w"
+            self._hero, text="Waiting for location and forecast", font=("Sans", 10), anchor="w"
         )
         self._summary.grid(row=1, column=2, sticky="nw", pady=(1, 12))
 
         self._metrics = tk.Frame(self._hero)
-        self._metrics.grid(row=0, column=3, rowspan=2, sticky="e", padx=(8, 10), pady=10)
+        self._metrics.grid(row=0, column=3, rowspan=2, sticky="e", padx=(4, 8), pady=10)
         self._metric_cards: list[tuple[tk.Frame, tk.Label, tk.Label]] = []
         for column, heading in enumerate(("HUMIDITY", "WIND", "PRESSURE")):
             card = tk.Frame(self._metrics, bd=0, highlightthickness=0)
@@ -269,9 +269,9 @@ class OrcWeatherPanel(tk.Frame, WeatherUiIf):
         )
         self._summary.configure(
             text=(
-                f"Feels like {self._temperature_text(current.apparent_temperature_k)}"
-                f"   •   Gusts {self._speed_text(current.wind_gust_m_s)}"
-                f"   •   {self._direction_text(current.wind_direction_deg)}"
+                f"Feels {self._temperature_text(current.apparent_temperature_k)}"
+                f"  •  Gust {self._speed_text(current.wind_gust_m_s)}"
+                f"  •  {self._direction_text(current.wind_direction_deg)}"
             )
         )
         self._metric_cards[0][2].configure(text=self._percent(current.relative_humidity))
