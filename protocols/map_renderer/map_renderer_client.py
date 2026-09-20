@@ -77,6 +77,21 @@ class MapRendererClient:
         self._send_command({"command": MapRendererCommand.SET_POI_FOCUS,
             "category": category or "", "enabled": enabled if category else False})
 
+    def set_weather_radar(
+        self,
+        tile_url: str | None,
+        *,
+        enabled: bool = True,
+        frame_time: int | None = None,
+    ) -> None:
+        """Show, update, or hide the weather-radar raster overlay."""
+        self._send_command({
+            "command": MapRendererCommand.SET_WEATHER_RADAR,
+            "tile_url": tile_url or "",
+            "enabled": enabled and bool(tile_url),
+            "frame_time": frame_time,
+        })
+
     def fit_bounds(self, south: float, west: float, north: float, east: float,
                    padding: float = 40.0) -> None:
         self._send_command({"command": MapRendererCommand.FIT_BOUNDS,
