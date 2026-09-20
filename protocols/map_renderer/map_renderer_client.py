@@ -91,7 +91,7 @@ class MapRendererClient:
         self._send_command({
             "command": MapRendererCommand.SET_WEATHER_RADAR,
             "tile_url": tile_url or "",
-            "enabled": enabled and bool(tile_url),
+            "enabled": enabled,
             "frame_time": frame_time,
             "opacity": opacity,
         })
