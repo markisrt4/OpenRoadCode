@@ -21,6 +21,7 @@ struct MapCommand {
     double north = 0.0;
     double east = 0.0;
     double padding = 40.0;
+    double opacity = 0.65;
     std::string geojson;
     std::string category;
     std::string tileUrl;
