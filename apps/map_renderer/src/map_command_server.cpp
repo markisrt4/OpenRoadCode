@@ -71,7 +71,6 @@ std::optional<MapCommand> MapCommandServer::parseCommand(const std::string& payl
             if (!document["tile_url"].IsString()) return std::nullopt;
             command.tileUrl = document["tile_url"].GetString();
         }
-        if (command.enabled && command.tileUrl.empty()) return std::nullopt;
         if (document.HasMember("frame_time") && !document["frame_time"].IsNull()) {
             if (!document["frame_time"].IsInt64()) return std::nullopt;
             command.frameTime = document["frame_time"].GetInt64();
