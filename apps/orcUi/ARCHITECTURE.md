@@ -69,6 +69,7 @@ flowchart TD
     appComposition --> radio["composition/radio.py"]
     appComposition --> games["composition/games.py"]
     appComposition --> media["composition/media.py"]
+    appComposition --> weather["composition/weather.py"]
 
     core --> map["MapRuntime"]
     core --> lifecycle["SystemLifecycleController"]
@@ -84,6 +85,8 @@ flowchart TD
 
     media --> reusableMedia["Reusable Tk media presentation"]
     media --> browser["apps/orcUi/adapters/browser lifecycle"]
+    weather --> weatherController["WeatherController / Open-Meteo"]
+    weather --> weatherTk["Reusable Tk Weather presentation"]
 
     classDef orcApp fill:#dbeafe,stroke:#2563eb,color:#172554;
     classDef orcService fill:#ede9fe,stroke:#7c3aed,color:#2e1065;
@@ -92,9 +95,9 @@ flowchart TD
     classDef orcAdapter fill:#fee2e2,stroke:#dc2626,color:#7f1d1d;
     classDef orcExternal fill:#f3f4f6,stroke:#6b7280,color:#1f2937;
 
-    class main,appComposition,app,radioShell,reusableRadio,reusableGames,reusableMedia orcApp;
+    class main,appComposition,app,radioShell,reusableRadio,reusableGames,reusableMedia,weatherTk orcApp;
     class runtime,core,ingress orcService;
-    class map,lifecycle,volume orcController;
+    class map,lifecycle,volume,weatherController orcController;
     class adsb,browser orcAdapter;
 ```
 
@@ -170,6 +173,8 @@ Restart and poweroff requests flow through `SystemLifecycleRequestHandlerIf`. `S
 `composition/media.py` wires shared Spotify services, local-player behavior, image/lyrics/video dependencies, and reusable Tk media screens. Spotify synchronization and local-player behavior remain under `controllers/spotify`; ORC-selected browser and Web Playback hosts live under `apps/orcUi/adapters`.
 
 `composition/games.py` registers the reusable Tk games frontend. Environment-specific launching and compatibility remain backend concerns.
+
+`composition/weather.py` wires the provider-independent Weather controller to the reusable Tk Weather screen. The current composition selects Open-Meteo, resolves location through GPSD with the configured navigation fallback, supplies the shared global unit preference, and connects the semantic NOAA Weather Radio action to the existing radio composition. Forecast domain state remains SI; display conversion stays at presentation boundaries. Weather alert ingress is independent of forecast refresh: `StateIngressRuntime` decodes `weather.alert` messages, `WeatherAlertPresenter` updates `OrcUiPresentationState`, and the shell observes that state to render persistent alert chrome without moving Weather feature ownership into `OrcUiApp`.
 
 New features should follow the same sequence: define semantic contracts, implement reusable behavior, implement reusable presentation per frontend where appropriate, add application-specific presentation or host adapters only when necessary, then assemble concrete choices at the application composition edge.
 
