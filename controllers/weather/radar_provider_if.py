@@ -15,6 +15,7 @@ class RadarFrame:
 
     timestamp: int
     tile_url: str
+    max_zoom: int = 22
 
 
 class RadarProviderIf(ABC):
