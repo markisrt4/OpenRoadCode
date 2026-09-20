@@ -237,7 +237,6 @@ class TripTracker(TripIf):
         fuel_used = self._state.fuel_used_m3 or 0.0
         boost_fuel_used = self._state.boost_fuel_used_m3
         high_load_fuel_used = self._state.high_load_fuel_used_m3
-        high_load_time_s = self._state.high_load_time_s
         boost_active = bool(self._last_boost_active)
 
         if self._last_fuel_sample_at is not None and self._last_fuel_flow_m3_s is not None:
@@ -249,7 +248,6 @@ class TripTracker(TripIf):
                     boost_fuel_used += interval_fuel
                 if self._last_fuel_high_load_active or high_load_active:
                     high_load_fuel_used += interval_fuel
-                    high_load_time_s += dt_s
 
         instantaneous = None
         if speed_m_s is not None and speed_m_s > self._moving_threshold_m_s and flow > 0.0:
@@ -265,7 +263,6 @@ class TripTracker(TripIf):
             instantaneous_fuel_consumption_m3_per_m=instantaneous,
             average_fuel_consumption_m3_per_m=average,
             boost_fuel_used_m3=boost_fuel_used,
-            high_load_time_s=high_load_time_s,
             high_load_fuel_used_m3=high_load_fuel_used,
         )
         self._last_fuel_sample_at = timestamp
