@@ -18,3 +18,4 @@ class MapRendererCommand(StrEnum):
     FIT_BOUNDS = "fit_bounds"
     SET_POSITION = "set_position"
     SET_POI_FOCUS = "set_poi_focus"
+    SET_WEATHER_RADAR = "set_weather_radar"
