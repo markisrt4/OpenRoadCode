@@ -17,7 +17,7 @@ import subprocess
 
 from services.common.service_manager_auth import TOKEN_ENV, authorized as _authorized, binding_allowed as _binding_allowed, same_device_request
 from services.common.service_manager_client_store import ServiceManagerClientStore
-from services.common.service_manager_browser_pairing import ServiceManagerBrowserPairing
+from services.common.service_manager_browser_pairing import (BrowserPairingConsumedError, ServiceManagerBrowserPairing)
 from services.common.service_manager_pairing import ServiceManagerPairing
 from services.linux.systemd_service_manager import ServiceStatus, SystemdServiceManager
 
@@ -127,6 +127,9 @@ class SystemdServiceManagerHandler(BaseHTTPRequestHandler):
             credentials = self.browser_pairing.complete(session_id, poll_token)
         except PermissionError:
             self._json(HTTPStatus.UNAUTHORIZED, {"error": "unauthorized"})
+            return
+        except BrowserPairingConsumedError:
+            self._json(HTTPStatus.GONE, {"error": "pairing session already consumed"})
             return
         if credentials is None:
             self._json(HTTPStatus.OK, {"status": "pending"})
