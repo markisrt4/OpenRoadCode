@@ -282,6 +282,29 @@ class MediaScreen(TkScreen):
             font=("Sans", 9, "bold"),
         ).pack(side=tk.LEFT)
 
+    def show_spotify_configuration(self) -> None:
+        """Open the shared Spotify application configuration dialog."""
+        self._show_spotify_configuration_dialog()
+
+    def run_spotify_account_action(self, disconnect: bool) -> None:
+        """Run the shared Spotify account action from any media surface."""
+        action = self._disconnect_spotify if disconnect else self._connect_spotify
+        if action is None:
+            return
+        self._host.set_screen_status(
+            "Disconnecting Spotify…" if disconnect else "Opening Spotify authorization…"
+        )
+
+        def worker() -> None:
+            try:
+                message = action()
+            except Exception as exc:
+                message = f"Spotify: {exc}"
+            self._host.schedule_ui_callback(0, lambda: self._spotify_action_complete(message))
+
+        import threading
+        threading.Thread(target=worker, name="spotify-authorization", daemon=True).start()
+
     def _spotify_account_actions(self, card: tk.Frame) -> None:
         """Show Spotify account authorization state and browser OAuth action."""
         theme = self._theme_bundle().ui
@@ -297,28 +320,10 @@ class MediaScreen(TkScreen):
             font=("Sans", 8, "bold"),
         ).pack(side=tk.LEFT)
 
-        def run_action() -> None:
-            action = self._disconnect_spotify if connected else self._connect_spotify
-            if action is None:
-                return
-            self._host.set_screen_status(
-                "Opening Spotify authorization…" if not connected else "Disconnecting Spotify…"
-            )
-
-            def worker() -> None:
-                try:
-                    message = action()
-                except Exception as exc:
-                    message = f"Spotify: {exc}"
-                self._host.schedule_ui_callback(0, lambda: self._spotify_action_complete(message))
-
-            import threading
-            threading.Thread(target=worker, name="spotify-authorization", daemon=True).start()
-
         tk.Button(
             row,
             text="DISCONNECT" if connected else "CONNECT SPOTIFY",
-            command=run_action,
+            command=lambda: self.run_spotify_account_action(connected),
             bg=theme.control_background if connected else SPOTIFY_GREEN,
             fg=theme.control_text if connected else "#000000",
             activebackground=theme.control_active if connected else SPOTIFY_GREEN,
