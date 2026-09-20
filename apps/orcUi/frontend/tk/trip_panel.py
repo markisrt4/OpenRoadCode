@@ -69,7 +69,6 @@ class TripPanel(tk.Frame):
             "boost_fuel": f"{state.boost_fuel_gallons:.2f}",
             "boost_share": "--" if state.boost_fuel_percent is None else f"{state.boost_fuel_percent:.0f}",
             "peak_boost": "--" if state.peak_boost_psi is None else f"{state.peak_boost_psi:.1f}",
-            "high_load_time": self._format_duration(state.high_load_time_s),
             "high_load_fuel": f"{state.high_load_fuel_gallons:.2f}",
             "high_load_share": "--" if state.high_load_fuel_percent is None else f"{state.high_load_fuel_percent:.0f}",
         }
@@ -187,7 +186,6 @@ class TripPanel(tk.Frame):
             ("boost_fuel", "FUEL", "gal"),
             ("boost_share", "FUEL SHARE", "%"),
             ("peak_boost", "PEAK", "psi"),
-            ("high_load_time", "HIGH LOAD", ""),
             ("high_load_fuel", "LOAD FUEL", "gal"),
             ("high_load_share", "LOAD SHARE", "%"),
         )
