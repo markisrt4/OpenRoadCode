@@ -19,6 +19,7 @@ MAP_COMMAND_TOPIC = "map.command"
 POI_SELECTED_TOPIC = "map.poi.selected"
 POI_SEARCH_RESULT_TOPIC = "map.poi.search_result"
 MAP_CLICK_TOPIC = "map.click"
+MAP_CAMERA_MANUAL_TOPIC = "map.camera.manual"
 
 
 @dataclass(frozen=True, slots=True)
@@ -58,9 +59,11 @@ class MapPoiSource:
         self._subscriber.subscribe(POI_SELECTED_TOPIC)
         self._subscriber.subscribe(POI_SEARCH_RESULT_TOPIC)
         self._subscriber.subscribe(MAP_CLICK_TOPIC)
+        self._subscriber.subscribe(MAP_CAMERA_MANUAL_TOPIC)
         self._queue: SimpleQueue[RawMapPoi] = SimpleQueue()
         self._search_queue: SimpleQueue[RawPoiSearchResult] = SimpleQueue()
         self._click_queue: SimpleQueue[RawMapClick] = SimpleQueue()
+        self._camera_queue: SimpleQueue[bool] = SimpleQueue()
         self._thread = Thread(target=self._receive, name="map-poi-source", daemon=True)
         self._thread.start()
 
@@ -75,6 +78,13 @@ class MapPoiSource:
             return self._click_queue.get_nowait()
         except Empty:
             return None
+
+    def poll_camera_interaction(self) -> bool:
+        try:
+            self._camera_queue.get_nowait()
+            return True
+        except Empty:
+            return False
 
     def poll_search_result(self) -> RawPoiSearchResult | None:
         try:
@@ -120,6 +130,8 @@ class MapPoiSource:
                     self._click_queue.put(click)
                 else:
                     print(f"[map-poi] rejected click payload: {payload!r}")
+            elif topic == MAP_CAMERA_MANUAL_TOPIC:
+                self._camera_queue.put(True)
             elif topic == POI_SEARCH_RESULT_TOPIC:
                 result = self._decode_search_result(payload)
                 if result is not None:
