@@ -251,10 +251,7 @@ class NavigationPanel(tk.Frame):
 
         tk.Label(
             controls,
-            text="ZOOM
-TILT
-NORTH
-CENTER",
+            text="ZOOM\\nTILT\\nNORTH\\nCENTER",
             bg=ui.surface_alt,
             fg=ui.text_muted,
             font=("Sans", FONT_TINY),
