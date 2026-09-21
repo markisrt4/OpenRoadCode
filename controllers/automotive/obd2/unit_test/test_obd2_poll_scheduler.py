@@ -13,20 +13,23 @@ from protocols.obd2.obd_pids import (
     IntakeManifoldPressurePid,
     ShortTermFuelTrimBank1Pid,
     ThrottlePositionPid,
+    VehicleSpeedPid,
 )
 
 
 def _scheduler() -> Obd2PollScheduler:
     rpm = EngineRpmPid()
+    vehicle_speed = VehicleSpeedPid()
     map_pid = IntakeManifoldPressurePid()
     throttle = ThrottlePositionPid()
     load = EngineLoadPid()
     coolant = CoolantTempPid()
     timing = IgnitionTimingAdvancePid()
     trim = ShortTermFuelTrimBank1Pid()
-    supported = {p.pid for p in (rpm, map_pid, throttle, load, coolant, timing, trim)}
+    supported = {\n        p.pid\n        for p in (rpm, vehicle_speed, map_pid, throttle, load, coolant, timing, trim)\n    }
     return Obd2PollScheduler(
         rpm=rpm,
+        vehicle_speed=vehicle_speed,
         manifold_pressure=map_pid,
         standard=(throttle, load),
         slow=(coolant,),
@@ -85,6 +88,7 @@ def test_unsupported_pids_are_never_returned() -> None:
     rpm = EngineRpmPid()
     scheduler = Obd2PollScheduler(
         rpm=rpm,
+        vehicle_speed=VehicleSpeedPid(),
         manifold_pressure=IntakeManifoldPressurePid(),
         standard=(ThrottlePositionPid(),),
         slow=(),
