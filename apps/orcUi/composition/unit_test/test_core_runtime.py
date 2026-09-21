@@ -28,6 +28,21 @@ class MapRuntimeTest(unittest.TestCase):
 
         renderer.launch.assert_called_once_with(display=":9", parent_window_id=1234)
 
+    @patch("apps.orcUi.core_runtime.install_map_style")
+    def test_set_theme_restarts_running_renderer(self, install_map_style: Mock) -> None:
+        renderer = Mock()
+        renderer.is_running.return_value = True
+        runtime = MapRuntime(renderer)
+        runtime.launch(1234)
+        renderer.reset_mock()
+        renderer.is_running.return_value = True
+
+        runtime.set_theme(ThemeMode.LIGHT)
+
+        install_map_style.assert_called_once_with(ThemeMode.LIGHT)
+        renderer.stop.assert_called_once_with()
+        renderer.launch.assert_called_once_with(display=":1", parent_window_id=1234)
+
     def test_stop_delegates_to_renderer(self) -> None:
         renderer = Mock()
         runtime = MapRuntime(renderer)
