@@ -24,6 +24,7 @@ class BrowserPairingSession:
     client_name: str
     expires_at: float
     poll_token_hash: str
+    approval_pin_hash: str
     approved: bool = False
     consumed: bool = False
 
@@ -40,20 +41,22 @@ class ServiceManagerBrowserPairing:
         self._ttl_seconds = ttl_seconds
         self._sessions: dict[str, BrowserPairingSession] = {}
 
-    def begin(self, client_name: str) -> tuple[BrowserPairingSession, str]:
+    def begin(self, client_name: str) -> tuple[BrowserPairingSession, str, str]:
         self._prune_expired()
         name = client_name.strip()
         if not name:
             raise ValueError("client_name is required")
         poll_token = secrets.token_urlsafe(32)
+        approval_pin = f"{secrets.randbelow(1_000_000):06d}"
         session = BrowserPairingSession(
             session_id=secrets.token_urlsafe(24),
             client_name=name,
             expires_at=time.time() + self._ttl_seconds,
             poll_token_hash=hashlib.sha256(poll_token.encode("utf-8")).hexdigest(),
+            approval_pin_hash=hashlib.sha256(approval_pin.encode("utf-8")).hexdigest(),
         )
         self._sessions[session.session_id] = session
-        return session, poll_token
+        return session, poll_token, approval_pin
 
     def get(self, session_id: str) -> BrowserPairingSession | None:
         session = self._sessions.get(session_id)
@@ -64,10 +67,14 @@ class ServiceManagerBrowserPairing:
             return None
         return session
 
-    def approve(self, session_id: str) -> bool:
+    def approve(self, session_id: str, approval_pin: str | None = None) -> bool:
         session = self.get(session_id)
         if session is None or session.consumed:
             return False
+        if approval_pin is not None:
+            supplied_hash = hashlib.sha256(approval_pin.encode("utf-8")).hexdigest()
+            if not hmac.compare_digest(supplied_hash, session.approval_pin_hash):
+                raise PermissionError("invalid browser pairing approval PIN")
         session.approved = True
         return True
 
