@@ -140,8 +140,7 @@ def create_orc_ui_composition() -> OrcUiComposition:
             theme_bundle=lambda: theme_bundle(app.theme_mode),
             telemetry_profile_request=core.telemetry_profile_request,
             on_back=lambda: app.navigate_to("HOME"),
-            radar_controller=weather.radar,
-            on_radar_palette_changed=set_radar_palette,
+            radar_controller=weather.radar,\n            radar_injection_controller=weather.radar_injection,\n            on_radar_palette_changed=set_radar_palette,
         )
         vehicle = VehicleScreen(
             app,
