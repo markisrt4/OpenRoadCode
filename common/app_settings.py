@@ -25,6 +25,7 @@ class AppSettings:
     """Contain user preferences that apply across ORC applications."""
 
     unit_system: UnitSystem = UnitSystem.IMPERIAL
+    radar_palette: str = "universal"
 
 
 class AppSettingsStore:
@@ -51,10 +52,15 @@ class AppSettingsStore:
             with self._path.open("rb") as file:
                 data = tomllib.load(file)
             display = data.get("display", {})
+            weather = data.get("weather", {})
+            radar_palette = weather.get("radar_palette", self._default.radar_palette)
+            if radar_palette not in ("universal", "classic"):
+                raise ValueError("invalid radar palette")
             return AppSettings(
                 unit_system=UnitSystem(
                     display.get("unit_system", self._default.unit_system.value)
-                )
+                ),
+                radar_palette=radar_palette,
             )
         except (OSError, ValueError, TypeError, tomllib.TOMLDecodeError):
             return self._default
@@ -64,6 +70,8 @@ class AppSettingsStore:
         self._path.parent.mkdir(parents=True, exist_ok=True)
         self._path.write_text(
             "[display]\n"
-            f'unit_system = "{settings.unit_system.value}"\n',
+            f'unit_system = "{settings.unit_system.value}"\n'
+            "\n[weather]\n"
+            f'radar_palette = "{settings.radar_palette}"\n',
             encoding="utf-8",
         )
