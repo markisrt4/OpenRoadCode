@@ -8,7 +8,7 @@ import json
 import subprocess
 import threading
 import unittest
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 from services.common.service_manager_pairing import ServiceManagerPairing
 from services.common.service_manager_browser_pairing import ServiceManagerBrowserPairing
@@ -187,6 +187,42 @@ class SystemdServiceManagerHttpRequestTest(unittest.TestCase):
         )
         self.assertEqual(status, 200)
         self.assertIn("Device approved", approved)
+
+    def test_remote_browser_pairing_uses_short_lived_pin_not_admin_token(self) -> None:
+        with patch(
+            "services.common.service_manager_browser_pairing.secrets.randbelow",
+            return_value=123456,
+        ), patch.object(
+            SystemdServiceManagerHandler, "_same_device_request", return_value=False
+        ):
+            _, started = self.request(
+                "POST", "/pairing/browser/start", token=None,
+                payload={"client_name": "Test Android"},
+            )
+            status, page = self.request(
+                "GET", f"/pairing/browser/approve/{started['session_id']}", token=None
+            )
+            self.assertEqual(status, 200)
+            self.assertIn("short-lived pairing PIN", page)
+            self.assertNotIn("administrator token", page)
+
+            status, rejected = self.request(
+                "POST",
+                f"/pairing/browser/approve/{started['session_id']}",
+                token=None,
+                form={"approval_pin": "000000"},
+            )
+            self.assertEqual(status, 401)
+            self.assertIn("Pairing PIN was not accepted", rejected)
+
+            status, approved = self.request(
+                "POST",
+                f"/pairing/browser/approve/{started['session_id']}",
+                token=None,
+                form={"approval_pin": "123456"},
+            )
+            self.assertEqual(status, 200)
+            self.assertIn("Device approved", approved)
 
     def test_browser_pairing_status_requires_poll_token(self) -> None:
         _, started = self.request(
