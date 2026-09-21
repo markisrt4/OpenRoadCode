@@ -71,6 +71,7 @@ class NavigationPanel(tk.Frame):
         self._guidance_instruction = tk.StringVar(value="")
         self._guidance_detail = tk.StringVar(value="")
         self._active_poi_render_category = ""
+        self._active_poi_search: tuple[PoiCategory, TransitMode] | None = None
         self._route_active = False
         self._simulation_active = False
         self._map_host: tk.Frame
@@ -365,6 +366,7 @@ class NavigationPanel(tk.Frame):
         self._poi_controller.clear()
         self._request_handler.request_poi_focus(None)
         self._active_poi_render_category = ""
+        self._active_poi_search = None
         self._request_handler.request_poi_results((), "")
         favorite = self._map_favorites.home if shortcut == "home" else self._map_favorites.work
         if favorite is None:
@@ -398,6 +400,7 @@ class NavigationPanel(tk.Frame):
         self._poi_controller.clear()
         self._request_handler.request_poi_focus(None)
         self._active_poi_render_category = ""
+        self._active_poi_search = None
         self._request_handler.request_poi_results((), "")
         self._shortcut_status.set("")
 
@@ -421,6 +424,7 @@ class NavigationPanel(tk.Frame):
         self._poi_controller.clear()
         self._request_handler.request_poi_focus(None)
         self._active_poi_render_category = _poi_render_category(category, transit_mode)
+        self._active_poi_search = (category, transit_mode)
         self._request_handler.request_poi_results((), self._active_poi_render_category)
         detail = (
             transit_mode.name.replace("_", " ").casefold()
@@ -428,6 +432,20 @@ class NavigationPanel(tk.Frame):
             else category_name
         )
         self._shortcut_status.set(f"Loading nearby {detail}…")
+        self._poi_search_after_id = self.after(
+            _POI_SEARCH_SETTLE_MS, lambda: self._issue_poi_search(category, transit_mode)
+        )
+
+    def _schedule_active_poi_refresh(self) -> None:
+        """Debounce a viewport refresh while a POI category remains active."""
+        if self._active_poi_search is None:
+            return
+        if self._poi_search_after_id is not None:
+            try:
+                self.after_cancel(self._poi_search_after_id)
+            except tk.TclError:
+                pass
+        category, transit_mode = self._active_poi_search
         self._poi_search_after_id = self.after(
             _POI_SEARCH_SETTLE_MS, lambda: self._issue_poi_search(category, transit_mode)
         )
@@ -445,6 +463,8 @@ class NavigationPanel(tk.Frame):
         self._poi_controller.search(category, transit_mode)
 
     def _poll_poi_events(self) -> None:
+        if self._poi_controller.poll_camera_interaction():
+            self._schedule_active_poi_refresh()
         result = self._poi_controller.poll_search_result()
         if result is not None:
             markers = tuple(
@@ -690,11 +710,13 @@ class NavigationPanel(tk.Frame):
             right_px=right * max(48, self._map_host.winfo_width() * 0.25),
             up_px=up * max(48, self._map_host.winfo_height() * 0.25),
         )
+        self._schedule_active_poi_refresh()
 
     def _change_zoom(self, delta: float) -> None:
         self._zoom_level = max(1, min(22, self._zoom_level + delta))
         self._zoom_text.set(f"{self._zoom_level:.1f}")
         self._request_handler.request_zoom(self._zoom_level)
+        self._schedule_active_poi_refresh()
 
     def _change_pitch(self, delta_deg: float) -> None:
         pitch_deg = max(0, min(60, math.degrees(self._pitch_rad) + delta_deg))
