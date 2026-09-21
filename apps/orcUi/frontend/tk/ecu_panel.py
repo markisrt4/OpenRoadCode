@@ -76,26 +76,33 @@ class EcuPanel(tk.Frame):
 
         cockpit = tk.Frame(self, bg=ui.background)
         cockpit.grid(row=0, column=0, sticky="nsew")
-        # Let the engine-management story dominate the page. Side cards remain
-        # glanceable, but the live flow schematic is now the visual anchor.
-        cockpit.grid_columnconfigure(0, weight=27, uniform="ecu-side")
-        cockpit.grid_columnconfigure(1, weight=46)
-        cockpit.grid_columnconfigure(2, weight=27, uniform="ecu-side")
+        # Grid weights distribute only *extra* space after each child has
+        # requested its natural width. Dynamic labels therefore made the
+        # center column breathe as telemetry text changed. Give all three
+        # columns the same zero-width basis and let weights alone establish
+        # the fixed 27/46/27 split.
+        cockpit.grid_columnconfigure(0, weight=27, minsize=0)
+        cockpit.grid_columnconfigure(1, weight=46, minsize=0)
+        cockpit.grid_columnconfigure(2, weight=27, minsize=0)
+        cockpit.grid_propagate(False)
         cockpit.grid_rowconfigure(0, weight=1)
 
-        left = tk.Frame(cockpit, bg=ui.background)
+        left = tk.Frame(cockpit, bg=ui.background, width=1)
         left.grid(row=0, column=0, sticky="nsew")
+        left.grid_propagate(False)
         left.grid_columnconfigure(0, weight=1)
         left.grid_rowconfigure(0, weight=1)
         left.grid_rowconfigure(1, weight=1)
 
-        center = tk.Frame(cockpit, bg=ui.background)
+        center = tk.Frame(cockpit, bg=ui.background, width=1)
         center.grid(row=0, column=1, sticky="nsew", padx=4)
+        center.grid_propagate(False)
         center.grid_columnconfigure(0, weight=1)
         center.grid_rowconfigure(1, weight=1)
 
-        right = tk.Frame(cockpit, bg=ui.background)
+        right = tk.Frame(cockpit, bg=ui.background, width=1)
         right.grid(row=0, column=2, sticky="nsew")
+        right.grid_propagate(False)
         right.grid_columnconfigure(0, weight=1)
         right.grid_rowconfigure(0, weight=1)
         right.grid_rowconfigure(1, weight=1)
