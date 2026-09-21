@@ -34,6 +34,9 @@ class NavigationPanel(tk.Frame):
         radar_palette: RadarPalette = RadarPalette.UNIVERSAL,
         on_radar_palette_changed: Callable[[RadarPalette], None] | None = None,
         on_radar_toggle: Callable[[bool], None] | None = None,
+        on_radar_previous: Callable[[], None] | None = None,
+        on_radar_next: Callable[[], None] | None = None,
+        on_radar_live: Callable[[], None] | None = None,
     ) -> None:
         self._theme_bundle = theme_bundle or packaged_theme_bundle(ThemeMode.DARK)
         super().__init__(parent, bg=self._theme_bundle.ui.background)
@@ -46,6 +49,9 @@ class NavigationPanel(tk.Frame):
         self._radar_palette = radar_palette
         self._on_radar_palette_changed = on_radar_palette_changed
         self._on_radar_toggle = on_radar_toggle
+        self._on_radar_previous = on_radar_previous
+        self._on_radar_next = on_radar_next
+        self._on_radar_live = on_radar_live
         self._zoom_level = float(getattr(self._request_handler, "zoom_level", 16.5))
         self._pitch_rad = float(
             getattr(self._request_handler, "pitch_rad", math.radians(45.0))
@@ -158,6 +164,28 @@ class NavigationPanel(tk.Frame):
             )
             self._radar_button.pack(side=tk.RIGHT, padx=(4, 0), pady=3)
             self._render_radar_state()
+
+            for label, callback in (
+                ("LIVE", self._on_radar_live),
+                ("▶", self._on_radar_next),
+                ("◀", self._on_radar_previous),
+            ):
+                if callback is not None:
+                    tk.Button(
+                        bar,
+                        text=label,
+                        command=callback,
+                        bg=ui.control_background,
+                        fg=ui.text,
+                        activebackground=ui.control_active,
+                        activeforeground="#ffffff",
+                        relief=tk.FLAT,
+                        highlightthickness=1,
+                        highlightbackground=ui.border,
+                        font=("Sans", FONT_CONTROL, "bold"),
+                        padx=5,
+                        pady=1,
+                    ).pack(side=tk.RIGHT, padx=(4, 0), pady=3)
 
             self._classic_radar_var = tk.BooleanVar(
                 value=self._radar_palette is RadarPalette.CLASSIC
