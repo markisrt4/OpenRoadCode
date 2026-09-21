@@ -74,54 +74,91 @@ class EcuPanel(tk.Frame):
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(0, weight=1)
 
+        # One composition surface lets the four cards frame the powertrain
+        # instead of forcing the engine into a narrow middle column.
         cockpit = tk.Frame(self, bg=ui.background)
         cockpit.grid(row=0, column=0, sticky="nsew")
-        # Grid weights distribute only *extra* space after each child has
-        # requested its natural width. Dynamic labels therefore made the
-        # center column breathe as telemetry text changed. Give all three
-        # columns the same zero-width basis and let weights alone establish
-        # the fixed 27/46/27 split.
-        # Give every column the same uniform group so requested child widths
-        # cannot change the split. Tk then allocates grid units strictly by
-        # weight: 27 / 46 / 27, while normal propagation remains enabled.
-        cockpit.grid_columnconfigure(0, weight=27, uniform="ecu-cockpit")
-        cockpit.grid_columnconfigure(1, weight=46, uniform="ecu-cockpit")
-        cockpit.grid_columnconfigure(2, weight=27, uniform="ecu-cockpit")
-        cockpit.grid_rowconfigure(0, weight=1)
 
-        left = tk.Frame(cockpit, bg=ui.background)
-        left.grid(row=0, column=0, sticky="nsew")
-        left.grid_columnconfigure(0, weight=1)
-        left.grid_rowconfigure(0, weight=1)
-        left.grid_rowconfigure(1, weight=1)
-
-        center = tk.Frame(cockpit, bg=ui.background)
-        center.grid(row=0, column=1, sticky="nsew", padx=4)
-        center.grid_columnconfigure(0, weight=1)
-        center.grid_rowconfigure(1, weight=1)
-
-        right = tk.Frame(cockpit, bg=ui.background)
-        right.grid(row=0, column=2, sticky="nsew")
-        right.grid_columnconfigure(0, weight=1)
-        right.grid_rowconfigure(0, weight=1)
-        right.grid_rowconfigure(1, weight=1)
-
-        self._build_fuel(self._card(left, 0, 0, "⛽", "FUEL CONTROL", "Feedback and fuel correction", "#D6A800"))
-        self._build_load(self._card(left, 1, 0, "◆", "ENGINE LOAD", "Demand, throttle and boost", "#D96A2B"))
-        self._build_mixture(self._card(right, 0, 0, "λ", "MIXTURE", "Commanded vs. measured lambda", ui.accent_primary))
-        self._build_ignition(self._card(right, 1, 0, "ϟ", "IGNITION", "Spark timing reported by ECU", ui.accent_success))
+        engine = tk.Frame(cockpit, bg=ui.background)
+        engine.place(relx=0.5, rely=0.5, relwidth=0.48, relheight=0.96, anchor="center")
+        engine.grid_columnconfigure(0, weight=1)
+        engine.grid_rowconfigure(0, weight=1)
 
         self._engine_canvas = tk.Canvas(
-            center, width=1, height=1, bg=ui.surface, highlightthickness=1,
+            engine, width=1, height=1, bg=ui.surface, highlightthickness=1,
             highlightbackground=ui.border, bd=0,
         )
-        self._engine_canvas.grid(row=0, column=0, rowspan=2, sticky="nsew", padx=2, pady=(5, 2))
+        self._engine_canvas.grid(row=0, column=0, sticky="nsew", padx=2, pady=(5, 2))
         self._engine_canvas.bind("<Configure>", lambda _e: self._paint_engine())
         self._engine_summary = tk.Label(
-            center, text="--", fg=ui.text_muted, bg=ui.surface,
+            engine, text="--", fg=ui.text_muted, bg=ui.surface,
             font=("Sans", FONT_CONTROL, "bold"), pady=7,
         )
-        self._engine_summary.grid(row=2, column=0, sticky="ew", padx=5, pady=(2, 5))
+        self._engine_summary.grid(row=1, column=0, sticky="ew", padx=5, pady=(2, 5))
+
+        # Cards intentionally overlap the outer edges of the engine surface.
+        # This creates the surrounding composition from the concept while
+        # keeping each card a normal Tk widget with its existing telemetry.
+        fuel = self._floating_card(
+            cockpit, relx=0.005, rely=0.01, relwidth=0.335, relheight=0.475,
+            icon="⛽", title="FUEL CONTROL", subtitle="Feedback and fuel correction", accent="#D6A800",
+        )
+        load = self._floating_card(
+            cockpit, relx=0.005, rely=0.515, relwidth=0.335, relheight=0.475,
+            icon="◆", title="ENGINE LOAD", subtitle="Demand, throttle and boost", accent="#D96A2B",
+        )
+        mixture = self._floating_card(
+            cockpit, relx=0.66, rely=0.01, relwidth=0.335, relheight=0.475,
+            icon="λ", title="MIXTURE", subtitle="Commanded vs. measured lambda", accent=ui.accent_primary,
+        )
+        ignition = self._floating_card(
+            cockpit, relx=0.66, rely=0.515, relwidth=0.335, relheight=0.475,
+            icon="ϟ", title="IGNITION", subtitle="Spark timing reported by ECU", accent=ui.accent_success,
+        )
+        self._build_fuel(fuel)
+        self._build_load(load)
+        self._build_mixture(mixture)
+        self._build_ignition(ignition)
+
+        # Engine is created first, cards second, so their edges remain crisp
+        # where the composition overlaps.
+        for card in (fuel.master, load.master, mixture.master, ignition.master):
+            card.lift()
+
+    def _floating_card(
+        self,
+        parent: tk.Misc,
+        *,
+        relx: float,
+        rely: float,
+        relwidth: float,
+        relheight: float,
+        icon: str,
+        title: str,
+        subtitle: str,
+        accent: str,
+    ) -> tk.Frame:
+        ui = self._theme.ui
+        card = tk.Frame(parent, bg=ui.surface, highlightthickness=1, highlightbackground=accent)
+        card.place(relx=relx, rely=rely, relwidth=relwidth, relheight=relheight)
+        tk.Frame(card, bg=accent, width=3).grid(row=0, column=0, rowspan=3, sticky="nsw")
+        card.grid_columnconfigure(1, weight=1)
+        card.grid_rowconfigure(2, weight=1)
+        tk.Label(card, text=icon, fg=accent, bg=ui.surface, font=("Sans", 18, "bold")).grid(
+            row=0, column=0, rowspan=2, sticky="n", padx=(9, 6), pady=(7, 0)
+        )
+        tk.Label(card, text=title, fg=accent, bg=ui.surface, font=("Sans", 13, "bold"), anchor="w").grid(
+            row=0, column=1, sticky="ew", pady=(6, 0)
+        )
+        tk.Label(card, text=subtitle, fg=ui.text_muted, bg=ui.surface, font=("Sans", FONT_SMALL), anchor="w").grid(
+            row=1, column=1, sticky="ew", pady=(0, 5)
+        )
+        body = tk.Frame(card, bg=ui.surface)
+        body.grid(row=2, column=0, columnspan=2, sticky="nsew", padx=9, pady=(1, 5))
+        body.grid_columnconfigure(0, weight=1)
+        body.grid_columnconfigure(1, weight=0)
+        body.grid_columnconfigure(2, weight=2)
+        return body
 
     def _card(
         self, parent: tk.Misc, row: int, col: int, icon: str, title: str, subtitle: str, accent: str
