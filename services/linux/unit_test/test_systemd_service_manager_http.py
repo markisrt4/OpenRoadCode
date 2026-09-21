@@ -175,15 +175,18 @@ class SystemdServiceManagerHttpRequestTest(unittest.TestCase):
         self.assertNotIn(payload["poll_token"], payload["approval_url"])
         self.assertIn("/pairing/browser/approve/", payload["approval_url"])
 
-    def test_same_device_browser_pairing_does_not_require_admin_token(self) -> None:
+    def test_browser_pairing_approval_requires_session_capability(self) -> None:
         _, started = self.request(
             "POST", "/pairing/browser/start", token=None,
             payload={"client_name": "Test Android"},
         )
+        from urllib.parse import parse_qs, urlsplit
+        approval_token = parse_qs(urlsplit(started["approval_url"]).query)["token"][0]
         status, approved = self.request(
             "POST",
             f"/pairing/browser/approve/{started['session_id']}",
             token=None,
+            form={"approval_token": approval_token},
         )
         self.assertEqual(status, 200)
         self.assertIn("Device approved", approved)
