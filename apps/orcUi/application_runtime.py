@@ -59,6 +59,7 @@ def create_orc_ui_application_runtime() -> OrcUiApplicationRuntime:
         profile=_default_sdrpp_profile(),
         fullscreen=sdrpp_app.fullscreen,
         embedded=not sdrpp_app.fullscreen,
+        sdr_source=config.sdr,
     )
     manager.register("sdrpp", sdrpp)
 
