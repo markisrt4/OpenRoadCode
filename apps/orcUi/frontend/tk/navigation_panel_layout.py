@@ -5,7 +5,7 @@
 
 import tkinter as tk
 
-from controllers.poi import PoiCategory, TransitMode
+from controllers.poi import PoiActionKind, PoiCategory, TransitMode
 
 
 def build_navigation_panel(panel) -> None:
@@ -15,7 +15,7 @@ def build_navigation_panel(panel) -> None:
     panel.grid_rowconfigure(2, weight=0)
     panel.grid_columnconfigure(0, weight=1)
     bar = tk.Frame(
-        self, bg=ui.surface_alt, height=38, highlightthickness=1, highlightbackground=ui.border
+        panel, bg=ui.surface_alt, height=38, highlightthickness=1, highlightbackground=ui.border
     )
     bar.grid(row=0, column=0, sticky="ew", pady=(0, 4))
     bar.grid_propagate(False)
@@ -84,7 +84,7 @@ def build_navigation_panel(panel) -> None:
     ).pack(side=tk.RIGHT, padx=7)
 
     guidance = tk.Frame(
-        self, bg=ui.surface, highlightthickness=1, highlightbackground=ui.border
+        panel, bg=ui.surface, highlightthickness=1, highlightbackground=ui.border
     )
     guidance.grid(row=2, column=0, sticky="ew", pady=(4, 0))
     tk.Label(
@@ -149,7 +149,7 @@ def build_navigation_panel(panel) -> None:
         anchor="e",
     ).pack(side=tk.RIGHT, padx=(6, 4), pady=4)
 
-    body = tk.Frame(self, bg=ui.background)
+    body = tk.Frame(panel, bg=ui.background)
     body.grid(row=1, column=0, sticky="nsew")
     body.grid_rowconfigure(0, weight=1)
     body.grid_columnconfigure(0, weight=1)
@@ -227,7 +227,7 @@ def show_poi_card(panel, poi) -> None:
     if panel._poi_card is not None and panel._poi_card.winfo_exists():
         panel._poi_card.destroy()
 
-    popup = tk.Toplevel(self)
+    popup = tk.Toplevel(panel)
     popup.title(poi.name)
     popup.configure(bg=ui.surface_alt)
     popup.transient(panel.winfo_toplevel())
