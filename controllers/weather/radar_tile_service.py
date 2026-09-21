@@ -70,7 +70,7 @@ def recolor_classic(source: bytes) -> bytes:
     with Image.open(BytesIO(source)) as image:
         rgba = image.convert("RGBA")
         pixels = []
-        for red, green, blue, alpha in rgba.getdata():
+        for red, green, blue, alpha in rgba.get_flattened_data():
             if alpha == 0:
                 pixels.append((red, green, blue, alpha))
             else:
