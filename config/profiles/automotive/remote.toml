@@ -1,0 +1,7 @@
+# Automotive input supplied by a remote OpenRoadCode bridge.
+# Transport endpoint is platform/deployment configuration; this profile selects the origin.
+[services.automotive.input]
+source = "device"
+
+[services.automotive.publish]
+source = "automotive-service-remote"

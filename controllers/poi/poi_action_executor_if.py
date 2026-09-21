@@ -15,4 +15,9 @@ class PoiActionExecutorIf(ABC):
 
     @abstractmethod
     def execute(self, poi: PointOfInterest, action: PoiAction) -> str:
-        """Execute an action and return a short user-facing status description."""
+        """Execute an action and return a short user-facing status description.
+
+        @param poi Point of interest on which to perform the action.
+        @param action Semantic action to execute.
+        @return Short user-facing status description.
+        """

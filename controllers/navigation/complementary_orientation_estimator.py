@@ -50,17 +50,22 @@ class ComplementaryOrientationEstimator(OrientationEstimatorIf):
         acceleration_pitch_deg, acceleration_roll_deg = (
             self._tilt_from_acceleration(acceleration_mps2)
         )
-        gyro_roll_deg = self._roll_deg + math.degrees(
-            angular_velocity_rad_s.x * elapsed_s
+        gyro_roll_deg = self._normalize_signed_angle(
+            self._roll_deg
+            + math.degrees(angular_velocity_rad_s.x * elapsed_s)
         )
         gyro_pitch_deg = self._pitch_deg + math.degrees(
             angular_velocity_rad_s.y * elapsed_s
         )
         filter_weight = self._filter_weight(elapsed_s)
 
-        self._roll_deg = (
-            filter_weight * gyro_roll_deg
-            + (1.0 - filter_weight) * acceleration_roll_deg
+        # Roll is circular. Correct toward the accelerometer using the shortest
+        # signed angular distance so values near +180/-180 remain neighbors.
+        roll_error_deg = self._normalize_signed_angle(
+            acceleration_roll_deg - gyro_roll_deg
+        )
+        self._roll_deg = self._normalize_signed_angle(
+            gyro_roll_deg + (1.0 - filter_weight) * roll_error_deg
         )
         blended_pitch_deg = (
             filter_weight * gyro_pitch_deg
@@ -91,6 +96,14 @@ class ComplementaryOrientationEstimator(OrientationEstimatorIf):
         return self._filter_time_constant_s / (
             self._filter_time_constant_s + elapsed_s
         )
+
+    @staticmethod
+    def _normalize_signed_angle(angle_deg: float) -> float:
+        """Normalize an angle to the telemetry roll domain [-180, 180]."""
+        normalized = (angle_deg + 180.0) % 360.0 - 180.0
+        if normalized == -180.0 and angle_deg > 0.0:
+            return 180.0
+        return normalized
 
     @staticmethod
     def _tilt_from_acceleration(

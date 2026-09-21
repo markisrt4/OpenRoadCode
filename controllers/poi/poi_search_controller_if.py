@@ -13,17 +13,27 @@ class PoiSearchControllerIf(ABC):
 
     @abstractmethod
     def search(self, category: PoiCategory, transit_mode: TransitMode = TransitMode.ALL) -> None:
-        """Request discovery of nearby places, optionally filtering public transit."""
+        """Request discovery of nearby places, optionally filtering public transit.
+
+        @param category POI category to discover.
+        @param transit_mode Transit subtype filter for transit searches.
+        """
         ...
 
     @abstractmethod
     def poll_selected(self) -> PointOfInterest | None:
-        """Return the latest selected POI, if one is available."""
+        """Return the latest selected POI, if one is available.
+
+        @return Latest selected POI, or None when no selection is pending.
+        """
         ...
 
     @abstractmethod
     def poll_search_result(self) -> PoiSearchResult | None:
-        """Return the latest completed POI search result, if available."""
+        """Return the latest completed POI search result, if available.
+
+        @return Latest completed search result, or None when none is pending.
+        """
         ...
 
     @abstractmethod

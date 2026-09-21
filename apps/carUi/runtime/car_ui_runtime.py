@@ -6,13 +6,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 import logging
 from pathlib import Path
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 from apps.launchers.app_launcher_if import AppLauncherIf, StatusCallback
 from controllers.application_runtime import AppRuntimeManager
 from controllers.navigation.map_presentation_if import MapPresentationIf
 from controllers.radio.radio_controller_if import RadioControllerIf
-from controllers.weather import OpenMeteoWeatherController
+from controllers.weather import WeatherController
 from config.runtime_config import (
     AudioConfig,
     ImageCacheConfig,
@@ -46,7 +46,7 @@ class CarUiRuntime:
     auxiliary_display: str
     rotary_encoders: RotaryEncoderConfig
     radios: "RadioRuntimeRegistry"
-    weather_controller: Optional[OpenMeteoWeatherController]
+    weather_controller: WeatherController | None
     sdr_resource_manager: object
     app_runtime_manager: AppRuntimeManager | None = None
     map_presentation: MapPresentationIf | None = None

@@ -14,7 +14,12 @@ class GeocoderIf(Protocol):
     """Resolve a human-readable location query into ranked candidates."""
 
     def geocode(self, query: str, *, limit: int = 5) -> tuple[GeocodeResult, ...]:
-        """Return ranked candidates for the query."""
+        """Return ranked candidates for the query.
+
+        @param query Human-readable location query to resolve.
+        @param limit Maximum number of ranked candidates to return.
+        @return Ranked geocoding candidates.
+        """
         ...
 
     def close(self) -> None:

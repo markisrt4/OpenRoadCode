@@ -8,14 +8,20 @@ import unittest
 from unittest.mock import Mock, patch
 
 from apps.orcUi.composition.core import CoreComposition, create_core_composition
+from apps.orcUi.frontend.tk.presentation_state import OrcUiPresentationState
+from apps.orcUi.vehicle_configuration_state import VehicleConfigurationState
+from controllers.automotive import VehicleConfiguration
 
 
 class CoreCompositionTest(unittest.TestCase):
     def test_lifecycle_refreshes_volume_starts_ingress_and_closes_map(self) -> None:
         app = Mock()
+        presentation = Mock(spec=OrcUiPresentationState)
+        vehicle_configuration = VehicleConfigurationState(VehicleConfiguration())
         map_runtime = Mock()
         map_camera = Mock()
         route_handler = Mock()
+        telemetry_profile_request = Mock()
         ingress = Mock()
         trip_runtime = Mock()
         trip_publisher = Mock()
@@ -24,9 +30,12 @@ class CoreCompositionTest(unittest.TestCase):
         volume = Mock()
         core = CoreComposition(
             app=app,
+            presentation=presentation,
+            vehicle_configuration=vehicle_configuration,
             map_runtime=map_runtime,
             map_camera=map_camera,
             route_request_handler=route_handler,
+            telemetry_profile_request=telemetry_profile_request,
             state_ingress=ingress,
             trip_runtime=trip_runtime,
             trip_publisher=trip_publisher,
@@ -79,12 +88,12 @@ class CoreCompositionTest(unittest.TestCase):
     ) -> None:
         map_runtime = map_runtime_type.return_value
         map_camera = map_camera_type.return_value
-        command_client = command_client_type.return_value
-        route_handler = route_handler_type.return_value
         lifecycle = lifecycle_type.return_value
         audio = audio_type.return_value
         volume = volume_type.return_value
         app = app_type.return_value
+        command_client = command_client_type.return_value
+        route_handler = route_handler_type.return_value
 
         core = create_core_composition()
 
@@ -95,17 +104,13 @@ class CoreCompositionTest(unittest.TestCase):
         )
         command_client_type.assert_called_once_with()
         route_handler_type.assert_called_once_with(command_client)
-
         app_type.assert_called_once()
         app_kwargs = app_type.call_args.kwargs
-        self.assertIs(app_kwargs["map_runtime"], map_runtime)
-        self.assertIs(app_kwargs["map_request_handler"], map_camera.request_handler)
-        self.assertIs(app_kwargs["route_request_handler"], route_handler)
-        self.assertIs(app_kwargs["route_simulation_handler"], route_handler)
         self.assertIs(app_kwargs["lifecycle_handler"], lifecycle)
-        self.assertTrue(callable(app_kwargs["telemetry_profile_request"]))
-        self.assertIsNotNone(app_kwargs["vehicle_configuration"])
-        self.assertTrue(callable(app_kwargs["save_vehicle_configuration"]))
+        map_runtime.set_theme.assert_called_once()
+        self.assertIsInstance(core.presentation, OrcUiPresentationState)
+        self.assertIsInstance(core.vehicle_configuration, VehicleConfigurationState)
+        self.assertTrue(callable(core.telemetry_profile_request))
         volume_type.assert_called_once_with(
             audio_controller=audio,
             volume_ui=app,
@@ -115,19 +120,14 @@ class CoreCompositionTest(unittest.TestCase):
         ingress_type.assert_called_once()
         ingress_kwargs = ingress_type.call_args.kwargs
         self.assertIs(ingress_kwargs["schedule_ui"], app.schedule_ui_callback)
-        self.assertIs(ingress_kwargs["apply_vehicle_state"], app.apply_vehicle_state)
-        self.assertIs(ingress_kwargs["apply_engine_analysis"], app.apply_engine_analysis)
-        self.assertIs(ingress_kwargs["apply_trip_state"], app.apply_trip_state)
-        self.assertIs(ingress_kwargs["apply_position_state"], app.apply_position_state)
-        self.assertIs(ingress_kwargs["apply_attitude_state"], app.apply_attitude_state)
-        self.assertIs(
-            ingress_kwargs["apply_route_guidance_state"],
-            app.apply_route_guidance_state,
-        )
+        self.assertIs(ingress_kwargs["apply_vehicle_state"].__self__, core.presentation)
+        self.assertIs(ingress_kwargs["apply_engine_analysis"].__self__, core.presentation)
+        self.assertIs(ingress_kwargs["apply_trip_state"].__self__, core.presentation)
+        self.assertIs(ingress_kwargs["apply_position_state"].__self__, core.presentation)
+        self.assertIs(ingress_kwargs["apply_attitude_state"].__self__, core.presentation)
+        self.assertIs(ingress_kwargs["apply_route_guidance_state"].__self__, core.presentation)
+        self.assertIs(ingress_kwargs["apply_weather_alert"].__self__, core.presentation)
         self.assertIsNotNone(ingress_kwargs["vehicle_configuration"])
-        app.set_vehicle_configuration_observer.assert_called_once_with(
-            ingress_type.return_value.set_vehicle_configuration
-        )
         self.assertIs(core.app, app)
         self.assertIs(core.map_runtime, map_runtime)
         self.assertIs(core.map_camera, map_camera)

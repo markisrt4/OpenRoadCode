@@ -8,18 +8,18 @@ from __future__ import annotations
 import os
 from collections.abc import Callable
 import tkinter as tk
-from tkinter import simpledialog
 
 from apps.orcUi.adapters.adsb_control import OrcUiAdsbControl
 from apps.orcUi.theme_runtime import theme_bundle
 from controllers.radio.radio_profile_controller import RadioProfileController, RadioProfileState
-from controllers.radio.radio_profiles import RadioProfile, RadioProfilePreset
 from controllers.sdr.sdr_telemetry_monitor import SDRTelemetryMonitor
 from controllers.sdr.sdr_telemetry_worker import SDRTelemetryWorker
 from controllers.sdr.sdrpp_control import SDRPPControl
 from frontends.x11 import X11WindowEmbedder
 from ui.theme import ThemeBundle, ThemeMode
 from .shell_metrics import FONT_BODY, FONT_CONTROL, FONT_SMALL
+from .radio_display_controls import RadioDisplayControlsMixin
+from .radio_group_menu import MAIN_GROUPS, RadioGroupMenuMixin
 
 MAIN_GROUPS = (
     ("FM", "♫ FM ▾"),
@@ -31,7 +31,7 @@ MAIN_GROUPS = (
 RADIO_GROUPS = tuple(name for name, _ in MAIN_GROUPS)
 
 
-class RadioPanel(tk.Frame):
+class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin, tk.Frame):
     """Automotive controls wrapped around embedded SDR++ and ADS-B views."""
 
     def __init__(
@@ -231,133 +231,11 @@ class RadioPanel(tk.Frame):
         )
         self._paint_groups()
 
-    def _build_group_bar(self) -> None:
-        ui = self._theme.ui
-        for name, label in MAIN_GROUPS:
-            command = lambda group=name: self._show_group_menu(group)
-            button = tk.Button(
-                self._groups,
-                text=label,
-                command=command,
-                bg=ui.surface,
-                fg=ui.text,
-                activebackground=ui.control_background,
-                activeforeground=ui.accent_success,
-                relief=tk.FLAT,
-                bd=0,
-                font=("Sans", FONT_CONTROL, "bold"),
-                padx=9,
-                pady=7,
-            )
-            button.pack(side=tk.LEFT, fill=tk.X, expand=True)
-            self._group_buttons[name] = button
-        self._controls_button = tk.Button(
-            self._groups,
-            text="☰ CONTROLS",
-            command=self._toggle_drawer,
-            bg=ui.surface,
-            fg=ui.text,
-            activebackground=ui.control_background,
-            activeforeground=ui.accent_success,
-            relief=tk.FLAT,
-            bd=0,
-            font=("Sans", FONT_CONTROL, "bold"),
-            padx=12,
-            pady=7,
-        )
-        self._controls_button.pack(side=tk.RIGHT)
-        self._paint_groups()
 
-    def _show_group_menu(self, group: str) -> None:
-        self._active_group = group
-        self._paint_groups()
-        button = self._group_buttons[group]
-        ui = self._theme.ui
-        menu = tk.Menu(
-            self,
-            tearoff=False,
-            bg=ui.surface,
-            fg=ui.text,
-            activebackground=ui.control_background,
-            activeforeground=ui.accent_success,
-            bd=1,
-            relief=tk.FLAT,
-            font=("Sans", 11),
-        )
-        profiles = self._radio.catalog.profiles_for_group(group)
-        for profile in profiles:
-            if len(profiles) == 1:
-                self._add_profile_presets(menu, profile)
-            else:
-                submenu = tk.Menu(
-                    menu,
-                    tearoff=False,
-                    bg=ui.surface,
-                    fg=ui.text,
-                    activebackground=ui.control_background,
-                    activeforeground=ui.accent_success,
-                    font=("Sans", 11),
-                )
-                self._add_profile_presets(submenu, profile)
-                menu.add_cascade(label=profile.label, menu=submenu)
-        if group == "AIR":
-            if profiles:
-                menu.add_separator()
-            menu.add_command(label="✈ ADS-B Aircraft Map", command=self._show_adsb)
-        if profiles:
-            menu.add_separator()
-            menu.add_command(
-                label="＋ Add Current Preset", command=lambda: self._add_current_preset(group)
-            )
-        self._popup_menu(menu, button)
 
-    def _add_profile_presets(self, menu: tk.Menu, profile: RadioProfile) -> None:
-        if not profile.presets:
-            menu.add_command(
-                label=profile.label, command=lambda key=profile.key: self._select_profile(key)
-            )
-            return
-        for preset in profile.presets:
-            marker = "★ " if preset.user_defined else ""
-            menu.add_command(
-                label=f"{marker}{preset.label}",
-                command=lambda p=profile, item=preset: self._select_preset(p, item),
-            )
 
-    def _select_profile(self, profile_key: str) -> None:
-        self._leave_adsb()
-        self._run_radio_action(lambda: self._radio.select_profile(profile_key))
 
-    def _select_preset(self, profile: RadioProfile, preset: RadioProfilePreset) -> None:
-        self._leave_adsb()
-        try:
-            if self._radio.active_profile_key != profile.key:
-                self._radio.select_profile(profile.key)
-            self._apply_radio_state(self._radio.tune_preset(preset))
-            self._active_group = profile.group
-            self._paint_groups()
-        except (OSError, RuntimeError, ValueError) as error:
-            self._frequency_label.configure(
-                text=f"RIGCTL: {error}", fg=self._theme.ui.accent_danger
-            )
 
-    def _add_current_preset(self, group: str) -> None:
-        profiles = self._radio.catalog.profiles_for_group(group)
-        if not profiles:
-            return
-        profile = (
-            self._radio.catalog.profile(self._radio.active_profile_key)
-            if self._radio.active_profile_key in {p.key for p in profiles}
-            else profiles[0]
-        )
-        state = self._radio.state
-        label = simpledialog.askstring(
-            "Add radio preset", "Preset name:", initialvalue=state.label, parent=self
-        )
-        if label:
-            self._radio.catalog.add_user_preset(
-                profile.key, label=label, frequency_hz=state.frequency_hz
-            )
 
     def show_adsb(self) -> None:
         """Present ADS-B without allowing it to preempt an active RF receiver."""
@@ -419,13 +297,6 @@ class RadioPanel(tk.Frame):
         self._telemetry_worker.set_include_rds(self._radio.active_profile_key == "fm_radio")
 
     @staticmethod
-    def _popup_menu(menu: tk.Menu, button: tk.Button) -> None:
-        x = button.winfo_rootx()
-        y = button.winfo_rooty() + button.winfo_height()
-        try:
-            menu.tk_popup(x, y)
-        finally:
-            menu.grab_release()
 
     @property
     def host_window_id(self) -> int:
@@ -479,169 +350,15 @@ class RadioPanel(tk.Frame):
     def clear_embedding(self) -> None:
         self._embedder.clear()
 
-    def _toggle_drawer(self) -> None:
-        ui = self._theme.ui
-        if self._drawer_open:
-            if self._drawer is not None:
-                self._drawer.place_forget()
-            self._drawer_open = False
-            self._controls_button.configure(fg=ui.text, bg=ui.surface)
-            return
-        if self._drawer is None:
-            self._build_drawer()
-        self._drawer.place(relx=1.0, rely=0.0, relheight=1.0, width=250, anchor="ne")
-        self._drawer.lift()
-        self._drawer_open = True
-        self._controls_button.configure(fg=ui.accent_success, bg=ui.surface_alt)
-        self._refresh_display_controls()
 
-    def _build_drawer(self) -> None:
-        ui = self._theme.ui
-        self._drawer = tk.Frame(
-            self._body, bg=ui.surface, highlightthickness=1, highlightbackground=ui.border
-        )
-        header = tk.Frame(self._drawer, bg=ui.surface_alt)
-        header.pack(fill=tk.X)
-        tk.Label(
-            header,
-            text="RADIO CONTROLS",
-            bg=ui.surface_alt,
-            fg=ui.text,
-            font=("Sans", 11, "bold"),
-            padx=12,
-            pady=10,
-        ).pack(side=tk.LEFT)
-        tk.Button(
-            header,
-            text="✕",
-            command=self._toggle_drawer,
-            bg=ui.surface_alt,
-            fg=ui.text_muted,
-            activebackground=ui.control_background,
-            activeforeground=ui.text,
-            relief=tk.FLAT,
-            bd=0,
-            padx=12,
-            pady=10,
-        ).pack(side=tk.RIGHT)
-        for key, label, action in (
-            ("waterfall", "WATERFALL", self._toggle_waterfall),
-            ("bandplan", "BANDPLAN", self._toggle_bandplan),
-            ("fft_hold", "PEAK HOLD", self._toggle_fft_hold),
-        ):
-            button = tk.Button(
-                self._drawer,
-                text=label,
-                command=action,
-                anchor="w",
-                bg=ui.surface,
-                fg=ui.text_muted,
-                activebackground=ui.control_background,
-                activeforeground=ui.accent_success,
-                relief=tk.FLAT,
-                bd=0,
-                font=("Sans", FONT_BODY, "bold"),
-                padx=16,
-                pady=11,
-            )
-            button.pack(fill=tk.X)
-            self._display_buttons[key] = button
-        tk.Frame(self._drawer, bg=ui.border, height=1).pack(fill=tk.X, padx=12, pady=4)
-        tk.Button(
-            self._drawer,
-            text="AUTO RANGE",
-            command=self._auto_range,
-            anchor="w",
-            bg=ui.surface,
-            fg=ui.text,
-            activebackground=ui.control_background,
-            activeforeground=ui.text,
-            relief=tk.FLAT,
-            bd=0,
-            padx=16,
-            pady=11,
-        ).pack(fill=tk.X)
-        tk.Button(
-            self._drawer,
-            text="THEME…",
-            command=self._choose_theme,
-            anchor="w",
-            bg=ui.surface,
-            fg=ui.text,
-            activebackground=ui.control_background,
-            activeforeground=ui.text,
-            relief=tk.FLAT,
-            bd=0,
-            padx=16,
-            pady=11,
-        ).pack(fill=tk.X)
 
-    def _choose_theme(self) -> None:
-        try:
-            themes = self._sdrpp.themes()
-        except (OSError, RuntimeError, ValueError):
-            return
-        if not themes:
-            return
-        ui = self._theme.ui
-        menu = tk.Menu(
-            self,
-            tearoff=False,
-            bg=ui.surface,
-            fg=ui.text,
-            activebackground=ui.control_background,
-            activeforeground=ui.text,
-        )
-        for theme in themes:
-            menu.add_command(label=theme, command=lambda value=theme: self._sdrpp.set_theme(value))
-        try:
-            menu.tk_popup(self.winfo_pointerx(), self.winfo_pointery())
-        finally:
-            menu.grab_release()
 
-    def _paint_toggle(self, key: str, label: str, enabled: bool) -> None:
-        ui = self._theme.ui
-        self._display_buttons[key].configure(
-            text=f"{label}     {'ON' if enabled else 'OFF'}",
-            fg=ui.accent_success if enabled else ui.text_muted,
-            bg=ui.surface_alt if enabled else ui.surface,
-        )
 
-    def _remote_toggle(self, key: str, label: str, action) -> None:
-        try:
-            self._paint_toggle(key, label, action())
-        except (OSError, RuntimeError, ValueError) as error:
-            self._display_buttons[key].configure(
-                text=f"{label}     !", fg=self._theme.ui.accent_danger
-            )
-            print(f"WARNING: SDR++ remote control: {type(error).__name__}: {error}")
 
-    def _toggle_waterfall(self) -> None:
-        self._remote_toggle("waterfall", "WATERFALL", self._sdrpp.toggle_waterfall)
 
-    def _toggle_bandplan(self) -> None:
-        self._remote_toggle("bandplan", "BANDPLAN", self._sdrpp.toggle_bandplan)
 
-    def _toggle_fft_hold(self) -> None:
-        self._remote_toggle("fft_hold", "PEAK HOLD", self._sdrpp.toggle_fft_hold)
 
-    def _auto_range(self) -> None:
-        try:
-            self._sdrpp.auto_range()
-        except (OSError, RuntimeError, ValueError) as error:
-            print(f"WARNING: SDR++ auto range: {type(error).__name__}: {error}")
 
-    def _refresh_display_controls(self) -> None:
-        ui = self._theme.ui
-        for key, label, getter in (
-            ("waterfall", "WATERFALL", self._sdrpp.waterfall_visible),
-            ("bandplan", "BANDPLAN", self._sdrpp.bandplan_visible),
-            ("fft_hold", "PEAK HOLD", self._sdrpp.fft_hold_enabled),
-        ):
-            try:
-                self._paint_toggle(key, label, getter())
-            except (OSError, RuntimeError, ValueError):
-                self._display_buttons[key].configure(text=label, fg=ui.text_muted, bg=ui.surface)
 
     def _previous_preset(self) -> None:
         self._run_radio_action(self._radio.previous_preset)
@@ -687,15 +404,3 @@ class RadioPanel(tk.Frame):
 
     def _on_host_resize(self, event: tk.Event) -> None:
         self._embedder.resize(event.width, event.height)
-
-    def _paint_groups(self) -> None:
-        ui = self._theme.ui
-        parent_active = self._active_group.split(":", 1)[0]
-        for name, button in self._group_buttons.items():
-            active = name == parent_active
-            button.configure(
-                fg=ui.accent_success if active else ui.text,
-                bg=ui.surface_alt if active else ui.surface,
-                activebackground=ui.control_background,
-                activeforeground=ui.accent_success,
-            )

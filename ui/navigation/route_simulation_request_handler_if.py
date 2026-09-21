@@ -11,7 +11,10 @@ class RouteSimulationRequestHandlerIf(ABC):
 
     @abstractmethod
     def request_start_route_simulation(self, *, time_scale: float = 60.0) -> None:
-        """Start simulated movement along the active route."""
+        """Start simulated movement along the active route.
+
+        @param time_scale Simulation speed multiplier relative to real time.
+        """
         ...
 
     @abstractmethod

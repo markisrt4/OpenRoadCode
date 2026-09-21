@@ -67,3 +67,27 @@ def radians_per_second_to_rpm(value: float | None) -> float | None:
 def kilograms_per_second_to_grams_per_second(value: float | None) -> float | None:
     """Convert kilograms per second to grams per second."""
     return None if value is None else value * 1000.0
+
+def celsius_to_kelvin(value: float | None) -> float | None:
+    """Convert degrees Celsius to absolute temperature in kelvin."""
+    return None if value is None else value + 273.15
+
+
+def kilometers_per_hour_to_meters_per_second(value: float | None) -> float | None:
+    """Convert kilometers per hour to meters per second."""
+    return None if value is None else value / 3.6
+
+
+def millimeters_to_meters(value: float | None) -> float | None:
+    """Convert millimeters to meters."""
+    return None if value is None else value * 0.001
+
+
+def hectopascals_to_pascals(value: float | None) -> float | None:
+    """Convert hectopascals to pascals."""
+    return None if value is None else value * 100.0
+
+
+def percent_to_ratio(value: float | None) -> float | None:
+    """Convert a percentage to a unitless ratio."""
+    return None if value is None else value * 0.01

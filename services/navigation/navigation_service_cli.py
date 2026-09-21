@@ -7,14 +7,13 @@ from __future__ import annotations
 
 import argparse
 import os
-from dataclasses import replace
 from pathlib import Path
 
+from controllers.geocoding.sqlite_geocoder import SqliteGeocoder
 from config.service_runtime_config import (
     NavigationServiceRuntimeConfig,
     ServiceRuntimeConfigParser,
 )
-from controllers.geocoding.sqlite_geocoder import SqliteGeocoder
 from controllers.navigation import (
     AndroidNavigationSensor,
     GpsdNavigationAdapter,
@@ -24,17 +23,27 @@ from controllers.navigation import (
 from controllers.navigation.android_position_source import AndroidPositionSource
 from controllers.navigation.browser_position_source import BrowserPositionSource
 from controllers.navigation.route_simulation_if import RouteSimulationIf
-from controllers.navigation.simulated_ground_motion_source import SimulatedGroundMotionSource
-from controllers.navigation.simulated_navigation_sensor import SimulatedNavigationSensor
+from controllers.navigation.simulated_ground_motion_source import (
+    SimulatedGroundMotionSource,
+)
+from controllers.navigation.simulated_navigation_sensor import (
+    SimulatedNavigationSensor,
+)
 from controllers.navigation.simulated_position_source import SimulatedPositionSource
-from controllers.route_planning.valhalla_route_planning_controller import ValhallaRoutePlanningController
+from controllers.route_planning.valhalla_route_planning_controller import (
+    ValhallaRoutePlanningController,
+)
 from hardware_io.android import AndroidImu, AndroidSensorBridgeClient
 from hardware_io.imu import Mpu6050Imu
 from messaging.zeromq import ZeroMqPublisher
 from protocols.valhalla.valhalla_http_client import ValhallaHttpClient
 from services.navigation.navigation_runtime import NavigationRuntime
 
-DEFAULT_RUNTIME_CONFIG = Path(__file__).resolve().parents[2] / "config" / "runtime.toml"
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+DEFAULT_RUNTIME_CONFIG = PROJECT_ROOT / "config" / "runtime.toml"
+NAVIGATION_PROFILE_DIR = PROJECT_ROOT / "config" / "profiles" / "navigation"
+NAVIGATION_PROFILES = ("local", "remote", "simulated")
+DEFAULT_RUNTIME_PROFILE = "local"
 
 
 def _default_search_database() -> Path:
@@ -52,6 +61,15 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--config", default=str(DEFAULT_RUNTIME_CONFIG))
     parser.add_argument(
+        "--profile",
+        choices=NAVIGATION_PROFILES,
+        default=None,
+        help=(
+            "Navigation input profile. Defaults to OPENROADCODE_RUNTIME_PROFILE "
+            f"or {DEFAULT_RUNTIME_PROFILE!r}."
+        ),
+    )
+    parser.add_argument(
         "--search-database",
         default=str(_default_search_database()),
         help="Offline OpenRoadCode search database used for destination geocoding.",
@@ -59,30 +77,15 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def _apply_input_source_overrides(
-    config: NavigationServiceRuntimeConfig,
-) -> NavigationServiceRuntimeConfig:
-    """Apply deployment-level input selection without mutating shared TOML."""
-    imu_source = os.environ.get("OPENROADCODE_NAV_IMU_SOURCE")
-    gps_source = os.environ.get("OPENROADCODE_NAV_GPS_SOURCE")
-
-    if imu_source is not None:
-        imu_source = imu_source.strip().lower()
-        if imu_source not in {"device", "simulation"}:
-            raise ValueError(
-                "OPENROADCODE_NAV_IMU_SOURCE must be 'device' or 'simulation'"
-            )
-        config = replace(config, imu=replace(config.imu, source=imu_source))
-
-    if gps_source is not None:
-        gps_source = gps_source.strip().lower()
-        if gps_source not in {"device", "simulation", "browser"}:
-            raise ValueError(
-                "OPENROADCODE_NAV_GPS_SOURCE must be 'device', 'simulation', or 'browser'"
-            )
-        config = replace(config, gps=replace(config.gps, source=gps_source))
-
-    return config
+def resolve_runtime_profile(requested: str | None = None) -> tuple[str, Path]:
+    """Resolve the semantic navigation input profile to its TOML overlay."""
+    profile = requested or os.environ.get(
+        "OPENROADCODE_RUNTIME_PROFILE",
+        DEFAULT_RUNTIME_PROFILE,
+    )
+    if profile not in NAVIGATION_PROFILES:
+        raise ValueError(f"Unsupported navigation runtime profile: {profile}")
+    return profile, NAVIGATION_PROFILE_DIR / f"{profile}.toml"
 
 
 def _create_gps_reader(host: str, port: str):
@@ -94,14 +97,20 @@ def _create_gps_reader(host: str, port: str):
 
 def _build_motion_sensor(config: NavigationServiceRuntimeConfig):
     if config.imu.source == "simulation":
-        return SimulatedNavigationSensor(profile=config.imu.simulation.profile)
+        return SimulatedNavigationSensor(
+            profile=config.imu.simulation.profile
+        )
 
     if config.imu.device == "android":
-        client = AndroidSensorBridgeClient(base_url=config.imu.bridge_url)
+        client = AndroidSensorBridgeClient(
+            base_url=config.imu.bridge_url
+        )
         return AndroidNavigationSensor(AndroidImu(client))
 
     if config.imu.device == "mpu6050":
-        return Mpu6050NavigationAdapter(Mpu6050Imu(address=config.imu.address))
+        return Mpu6050NavigationAdapter(
+            Mpu6050Imu(address=config.imu.address)
+        )
 
     raise ValueError(f"Unsupported IMU device: {config.imu.device}")
 
@@ -123,10 +132,14 @@ def _build_position_source(config: NavigationServiceRuntimeConfig):
         return BrowserPositionSource(host=host, port=port)
 
     if config.gps.device == "android":
-        return AndroidPositionSource(AndroidSensorBridgeClient(base_url=config.gps.bridge_url))
+        return AndroidPositionSource(
+            AndroidSensorBridgeClient(base_url=config.gps.bridge_url)
+        )
 
     if config.gps.device == "gpsd":
-        return GpsdNavigationAdapter(_create_gps_reader(config.gps.host, config.gps.port))
+        return GpsdNavigationAdapter(
+            _create_gps_reader(config.gps.host, config.gps.port)
+        )
 
     raise ValueError(f"Unsupported GPS device: {config.gps.device}")
 
@@ -156,13 +169,17 @@ def build_controller(config: NavigationServiceRuntimeConfig, *, position_source=
 
     return NavigationController(
         sensor=_build_motion_sensor(config),
-        filter_time_constant_s=config.solution.complementary_filter.time_constant_s,
+        filter_time_constant_s=(
+            config.solution.complementary_filter.time_constant_s
+        ),
         gps_source=position_source,
         ground_motion_source=_build_ground_motion_source(config),
     )
 
 
-def build_route_planning_controller(config: NavigationServiceRuntimeConfig):
+def build_route_planning_controller(
+    config: NavigationServiceRuntimeConfig,
+):
     """Build the configured optional route-planning capability."""
     route_config = config.route_planning
 
@@ -170,7 +187,9 @@ def build_route_planning_controller(config: NavigationServiceRuntimeConfig):
         return None
 
     if route_config.backend != "valhalla":
-        raise ValueError(f"Unsupported route-planning backend: {route_config.backend}")
+        raise ValueError(
+            f"Unsupported route-planning backend: {route_config.backend}"
+        )
 
     client = ValhallaHttpClient(
         route_config.base_url,
@@ -189,8 +208,12 @@ def build_geocoder(database: str | Path):
 
 def main() -> int:
     args = parse_args()
-    system = ServiceRuntimeConfigParser(args.config).load()
-    config = _apply_input_source_overrides(system.navigation)
+    profile, profile_path = resolve_runtime_profile(args.profile)
+    system = ServiceRuntimeConfigParser(
+        args.config,
+        overlays=(profile_path,),
+    ).load()
+    config = system.navigation
 
     if not config.enabled:
         print("Navigation service disabled by runtime configuration")
@@ -219,6 +242,7 @@ def main() -> int:
     )
 
     print("OpenRoadCode navigation service")
+    print(f"  input profile:     {profile}")
     print(f"  IMU source:        {config.imu.source}/{config.imu.device}")
     print(f"  GPS source:        {config.gps.source}/{config.gps.device}")
     print(f"  solution:          {config.solution.algorithm}")

@@ -7,12 +7,21 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from common.app_settings import AppSettings, AppSettingsStore
+
 from apps.orcUi.application_runtime import OrcUiApplicationRuntime, create_orc_ui_application_runtime
 from apps.orcUi.composition.core import CoreComposition, create_core_composition
 from apps.orcUi.composition.games import configure_games
 from apps.orcUi.composition.media import MediaComposition, configure_media
 from apps.orcUi.composition.radio import RadioComposition, configure_radio
+from apps.orcUi.composition.weather import WeatherComposition, configure_weather
+from apps.orcUi.frontend.tk.home_screen import HomeScreen
+from apps.orcUi.frontend.tk.navigation_screen import NavigationScreen
 from apps.orcUi.frontend.tk.orc_ui_app import OrcUiApp
+from apps.orcUi.frontend.tk.offroad_screen import OffRoadScreen
+from apps.orcUi.frontend.tk.settings_screen import SettingsScreen
+from apps.orcUi.frontend.tk.vehicle_screen import VehicleScreen
+from apps.orcUi.theme_runtime import theme_bundle
 from frontends.tk.games import GamesScreen
 
 
@@ -25,6 +34,12 @@ class OrcUiComposition:
     radio: RadioComposition
     media: MediaComposition
     games: GamesScreen
+    weather: WeatherComposition
+    home: HomeScreen | None = None
+    navigation: NavigationScreen | None = None
+    vehicle: VehicleScreen | None = None
+    offroad: OffRoadScreen | None = None
+    settings: SettingsScreen | None = None
 
     @property
     def app(self) -> OrcUiApp:
@@ -58,9 +73,104 @@ def create_orc_ui_composition() -> OrcUiComposition:
     try:
         core = create_core_composition()
         app = core.app
+        app.set_theme_change_handler(core.map_runtime.set_theme)
+        core.presentation.observe_weather_alert(app.present_weather_alert)
+        for destination in ("HOME", "NAVIGATION", "RADIO", "VEHICLE", "VISION", "LIGHTING", "GAMES", "MEDIA"):
+            app.register_navigation_destination(destination)
         radio = configure_radio(app, runtime)
         games = configure_games(app)
         media = configure_media(app, runtime)
+        settings_store = AppSettingsStore()
+        app_settings = settings_store.load()
+
+        def unit_system():
+            return app_settings.unit_system
+
+        def set_unit_system(value):
+            nonlocal app_settings
+            app_settings = AppSettings(unit_system=value)
+            settings_store.save(app_settings)
+
+        weather = configure_weather(
+            app,
+            unit_system=unit_system,
+            on_weather_radio=radio.open_weather_radio,
+            on_weather_status=app.set_weather_status,
+        )
+        def navigate_home_context(name: str) -> None:
+            context_name = name.strip().upper()
+            if not context_name:
+                raise ValueError("Context destination must not be empty")
+            if context_name == "TRIP":
+                app.navigate_to("VEHICLE")
+                vehicle.show_trip_view()
+            else:
+                app.navigate_to(context_name)
+
+        home = HomeScreen(
+            app,
+            map_runtime=core.map_runtime,
+            map_request_handler=core.map_camera.request_handler,
+            theme_bundle=lambda: theme_bundle(app.theme_mode),
+            presentation=core.presentation,
+            telemetry_profile_request=core.telemetry_profile_request,
+            on_expand_context=navigate_home_context,
+        )
+        navigation = NavigationScreen(
+            app,
+            map_runtime=core.map_runtime,
+            map_request_handler=core.map_camera.request_handler,
+            route_request_handler=core.route_request_handler,
+            route_simulation_handler=core.route_request_handler,
+            theme_bundle=lambda: theme_bundle(app.theme_mode),
+            telemetry_profile_request=core.telemetry_profile_request,
+            on_back=lambda: app.navigate_to("HOME"),
+        )
+        vehicle = VehicleScreen(
+            app,
+            theme_bundle=lambda: theme_bundle(app.theme_mode),
+            presentation=core.presentation,
+            telemetry_profile_request=core.telemetry_profile_request,
+            vehicle_configuration=lambda: core.vehicle_configuration.configuration,
+            on_back=lambda: app.navigate_to("HOME"),
+        )
+        offroad = OffRoadScreen(
+            app,
+            theme_bundle=lambda: theme_bundle(app.theme_mode),
+            presentation=core.presentation,
+            on_back=lambda: app.navigate_to("HOME"),
+        )
+        settings = SettingsScreen(
+            app,
+            theme_bundle=lambda: theme_bundle(app.theme_mode),
+            telemetry_profile_request=core.telemetry_profile_request,
+            vehicle_configuration=lambda: core.vehicle_configuration.configuration,
+            on_vehicle_configuration_changed=core.vehicle_configuration.update,
+            unit_system=unit_system,
+            on_unit_system_changed=set_unit_system,
+            on_back=lambda: app.navigate_to("HOME"),
+        )
+        home.set_radio_factory(radio.home_factory)
+        home.set_media_factory(media.home_factory)
+        core.presentation.observe_vehicle(home.apply_vehicle_state)
+        core.presentation.observe_trip(home.apply_trip_state)
+        core.presentation.observe_position(home.apply_position_state)
+        core.presentation.observe_attitude(home.apply_attitude_state)
+        core.presentation.observe_vehicle(vehicle.apply_vehicle_state)
+        core.presentation.observe_trip(vehicle.apply_trip_state)
+        core.presentation.observe_engine_analysis(vehicle.apply_engine_analysis)
+        core.presentation.observe_position(vehicle.apply_position_state)
+        core.presentation.observe_attitude(vehicle.apply_attitude_state)
+        core.presentation.observe_position(offroad.apply_position_state)
+        core.presentation.observe_attitude(offroad.apply_attitude_state)
+        core.vehicle_configuration.observe(vehicle.set_vehicle_configuration)
+        app.register_screen("HOME", home)
+        app.register_screen("NAVIGATION", navigation)
+        app.register_screen("VEHICLE", vehicle)
+        app.register_screen("OFF-ROAD", offroad, show_in_navigation=False)
+        app.register_screen("SETTINGS", settings, show_in_navigation=False)
+        app.set_initial_destination("HOME")
+        app.set_settings_action(lambda: app.navigate_to("SETTINGS"))
     except Exception:
         if core is not None:
             core.close()
@@ -72,4 +182,10 @@ def create_orc_ui_composition() -> OrcUiComposition:
         radio=radio,
         media=media,
         games=games,
+        weather=weather,
+        home=home,
+        navigation=navigation,
+        vehicle=vehicle,
+        offroad=offroad,
+        settings=settings,
     )

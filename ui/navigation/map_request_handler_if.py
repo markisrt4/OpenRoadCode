@@ -84,7 +84,11 @@ class MapRequestHandlerIf(ABC):
 
     @abstractmethod
     def request_poi_results(self, markers: tuple[MapMarker, ...], category: str) -> None:
-        """Replace the dynamic nearby-POI marker set without changing the camera."""
+        """Replace the dynamic nearby-POI marker set without changing the camera.
+
+        @param markers Dynamic POI markers to present.
+        @param category Semantic POI category represented by the markers.
+        """
         ...
 
     @abstractmethod

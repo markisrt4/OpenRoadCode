@@ -50,7 +50,11 @@ class PoiSearchSourceIf(ABC):
 
     @abstractmethod
     def search(self, query: PoiSearchQuery) -> tuple[PointOfInterest, ...]:
-        """Return POIs matching ``query`` within its geographic bounds."""
+        """Return POIs matching ``query`` within its geographic bounds.
+
+        @param query Deterministic POI search request.
+        @return Matching points of interest.
+        """
         ...
 
     def close(self) -> None:

@@ -15,7 +15,11 @@ class RouteSimulationIf(Protocol):
     """Allow a navigation input source to follow an already-calculated route."""
 
     def follow_route(self, route: RouteResult, *, time_scale: float = 60.0) -> None:
-        """Begin following ``route`` at an accelerated simulation rate."""
+        """Begin following ``route`` at an accelerated simulation rate.
+
+        @param route Calculated route to traverse.
+        @param time_scale Simulation speed multiplier relative to real time.
+        """
         ...
 
     def stop_route(self) -> None:
