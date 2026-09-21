@@ -101,6 +101,10 @@ class PoiSearchController(PoiSearchControllerIf):
         print(f"[poi-controller] selected {nearest.name!r} " f"distance_m={nearest_distance_m:.1f}")
         return enrich_poi(nearest)
 
+    def poll_camera_interaction(self) -> bool:
+        poll_camera = getattr(self._source, "poll_camera_interaction", None)
+        return bool(poll_camera is not None and poll_camera())
+
     def poll_search_result(self) -> PoiSearchResult | None:
         poll_viewport = getattr(self._source, "poll_search_result", None)
         if poll_viewport is not None:
