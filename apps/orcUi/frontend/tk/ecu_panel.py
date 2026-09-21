@@ -107,7 +107,7 @@ class EcuPanel(tk.Frame):
 
         self._engine_mode = tk.Label(
             center, text="--", fg=ui.text, bg=ui.surface,
-            font=("Sans", 19, "bold"), pady=7,
+            font=("Sans", 15, "bold"), pady=7,
         )
         self._engine_mode.grid(row=0, column=0, sticky="ew", padx=5, pady=(5, 2))
         self._engine_canvas = tk.Canvas(
@@ -287,7 +287,9 @@ class EcuPanel(tk.Frame):
         canvas, analysis, state, ui = self._engine_canvas, self._analysis, self._vehicle_state, self._theme.ui
         canvas.delete("all")
         w, h = max(260, canvas.winfo_width()), max(260, canvas.winfo_height())
-        sx, sy = w / 400.0, h / 430.0
+        # The original drawing occupied only the upper half of the available
+        # canvas. Scale the useful 360-unit schematic to the live viewport.
+        sx, sy = w / 400.0, h / 360.0
         def box(x1, y1, x2, y2, *, fill, outline=None, width=2):
             canvas.create_rectangle(x1*sx, y1*sy, x2*sx, y2*sy, fill=fill, outline=outline or ui.border, width=width)
         def line(points, *, fill, width=5):
@@ -308,10 +310,16 @@ class EcuPanel(tk.Frame):
         canvas.create_text(123*sx, 92*sy, text="TURBO", fill=turbo, font=("Sans", 8, "bold"))
         line((146, 127, 180, 145), fill=intake, width=7)
 
-        # Engine block and head.
-        box(150, 135, 330, 285, fill=ui.surface_alt, outline=ui.border, width=2)
-        box(165, 115, 315, 155, fill=ui.surface_alt, outline=intake, width=2)
-        canvas.create_text(240*sx, 133*sy, text="ENGINE", fill=ui.text, font=("Sans", 13, "bold"))
+        # Engine block and head. A broad valve cover, lower crankcase and four
+        # chambers make this read as an engine rather than a wiring diagram.
+        box(145, 130, 335, 285, fill=ui.surface_alt, outline=ui.border, width=2)
+        box(160, 112, 320, 158, fill=ui.surface_alt, outline=intake, width=2)
+        canvas.create_polygon(
+            158*sx, 158*sy, 322*sx, 158*sy, 335*sx, 205*sy,
+            325*sx, 285*sy, 155*sx, 285*sy, 145*sx, 205*sy,
+            fill=ui.surface_alt, outline=ui.border, width=2,
+        )
+        canvas.create_text(240*sx, 134*sy, text="ENGINE", fill=ui.text, font=("Sans", 14, "bold"))
 
         # Fuel rail and injectors.
         line((170, 165, 310, 165), fill=fuel, width=5)
@@ -320,19 +328,21 @@ class EcuPanel(tk.Frame):
             canvas.create_polygon((x-5)*sx, 188*sy, (x+5)*sx, 188*sy, x*sx, 199*sy, fill=fuel, outline="")
         canvas.create_text(240*sx, 177*sy, text="FUEL RAIL / INJECTORS", fill=fuel, font=("Sans", 7, "bold"))
 
-        # Four combustion chambers.
+        # Four combustion chambers with simple piston/cylinder cues.
         load = state.engine_load_percent if state.engine_load_percent is not None else state.absolute_engine_load_percent
         chamber_fill = combustion if analysis.engine_running else ui.surface
-        for x in (177, 217, 257, 297):
-            canvas.create_oval((x-14)*sx, 205*sy, (x+14)*sx, 250*sy, fill=chamber_fill, outline=ui.border, width=2)
-        canvas.create_text(240*sx, 267*sy, text="COMBUSTION", fill=combustion, font=("Sans", 8, "bold"))
+        for x in (177, 219, 261, 303):
+            canvas.create_rectangle((x-15)*sx, 194*sy, (x+15)*sx, 252*sy, fill=ui.surface, outline=ui.border, width=2)
+            canvas.create_oval((x-12)*sx, 205*sy, (x+12)*sx, 241*sy, fill=chamber_fill, outline=combustion, width=2)
+            canvas.create_line(x*sx, 241*sy, x*sx, 260*sy, fill=ui.text_muted, width=2)
+        canvas.create_text(240*sx, 275*sy, text="COMBUSTION", fill=combustion, font=("Sans", 8, "bold"))
 
         # Exhaust path and oxygen feedback loop.
-        line((330, 230, 360, 250, 382, 250), fill=exhaust, width=8)
-        canvas.create_text(380*sx, 270*sy, text="EXHAUST", anchor="e", fill=ui.text_muted, font=("Sans", 8, "bold"))
+        line((335, 224, 356, 238, 382, 238), fill=exhaust, width=8)
+        canvas.create_text(382*sx, 258*sy, text="EXHAUST", anchor="e", fill=ui.text_muted, font=("Sans", 8, "bold"))
         if analysis.fuel_control_mode is FuelControlMode.CLOSED_LOOP:
-            canvas.create_oval(350*sx, 218*sy, 362*sx, 230*sy, fill=active, outline="")
-            canvas.create_text(356*sx, 207*sy, text="O₂", fill=active, font=("Sans", 8, "bold"))
+            canvas.create_oval(348*sx, 207*sy, 362*sx, 221*sy, fill=active, outline="")
+            canvas.create_text(355*sx, 195*sy, text="O₂", fill=active, font=("Sans", 8, "bold"))
 
         # Semantic state badges beneath the schematic.
         badges = []
@@ -348,8 +358,8 @@ class EcuPanel(tk.Frame):
             badges.append(("RUNNING", active))
         x = 200 - (len(badges) * 68) / 2
         for label, color in badges:
-            canvas.create_rectangle(x*sx, 310*sy, (x+62)*sx, 334*sy, outline=color, width=2)
-            canvas.create_text((x+31)*sx, 322*sy, text=label, fill=color, font=("Sans", 7, "bold"))
+            canvas.create_rectangle(x*sx, 304*sy, (x+62)*sx, 330*sy, outline=color, width=2)
+            canvas.create_text((x+31)*sx, 317*sy, text=label, fill=color, font=("Sans", 7, "bold"))
             x += 68
 
         mode = {
