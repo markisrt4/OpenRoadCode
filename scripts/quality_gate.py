@@ -59,12 +59,8 @@ def main() -> int:
             [sys.executable, "scripts/check_mermaid_legends.py"],
         ),
         _run(
-            "Unit tests",
-            [sys.executable, "scripts/run_tests.py", "unit"],
-        ),
-        _run(
-            "Integration tests",
-            [sys.executable, "scripts/run_tests.py", "integration"],
+            "Unit + integration tests",
+            [sys.executable, "scripts/run_tests.py", "all"],
         ),
     )
     return 0 if all(checks) else 1
