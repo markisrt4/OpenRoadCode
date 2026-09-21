@@ -12,7 +12,7 @@ from threading import Thread
 from urllib.parse import urlparse
 
 import requests
-from PIL import Image
+from PIL import Image, ImageDraw
 
 from common.xdg_paths import openroadcode_cache_dir
 from controllers.weather.radar_palette import RadarPalette
@@ -150,7 +150,11 @@ class RadarTileService:
             raise ValueError("unknown radar frame")
 
         source_path = self._cache_root / str(timestamp) / "source" / str(z) / str(x) / f"{y}.png"
-        source = self._read_or_fetch(source_path, template.format(z=z, x=x, y=y))
+        source_url = template.format(z=z, x=x, y=y)
+        if source_url.startswith("orc-injected://"):
+            source = self._synthetic_tile(source_url, z, x, y)
+        else:
+            source = self._read_or_fetch(source_path, source_url)
         if palette is RadarPalette.UNIVERSAL:
             return source
 
@@ -160,6 +164,39 @@ class RadarTileService:
         derived = recolor_classic(source)
         self._write_cache(derived_path, derived)
         return derived
+
+    @staticmethod
+    def _synthetic_tile(url: str, z: int, x: int, y: int) -> bytes:
+        """Render a deterministic transparent radar tile for an injected scenario."""
+        parsed = urlparse(url)
+        scenario = parsed.netloc
+        try:
+            frame_index = int(parsed.path.strip("/").split("/")[0])
+        except (ValueError, IndexError) as exc:
+            raise ValueError("invalid injected radar tile URL") from exc
+
+        image = Image.new("RGBA", (256, 256), (0, 0, 0, 0))
+        if scenario != "clear":
+            draw = ImageDraw.Draw(image, "RGBA")
+            seed = (x * 37 + y * 53 + z * 19 + frame_index * 31) % 256
+            center_x = (72 + seed + frame_index * 18) % 320 - 32
+            center_y = (96 + (seed * 3) % 128) % 256
+            rings = (
+                (82, (0, 145, 0, 150)),
+                (58, (255, 255, 0, 180)),
+                (36, (255, 0, 0, 205)),
+            )
+            if scenario == "severe":
+                rings += ((19, (255, 0, 255, 230)),)
+            for radius, color in rings:
+                draw.ellipse(
+                    (center_x - radius, center_y - radius,
+                     center_x + radius, center_y + radius),
+                    fill=color,
+                )
+        output = BytesIO()
+        image.save(output, format="PNG", optimize=True)
+        return output.getvalue()
 
     def _read_or_fetch(self, path: Path, url: str) -> bytes:
         if path.is_file():
