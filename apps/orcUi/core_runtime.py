@@ -59,14 +59,24 @@ class MapRuntime:
 
     def __init__(self, renderer: MapRendererLauncher | None = None) -> None:
         self._renderer = renderer or MapRendererLauncher()
+        self._display = os.environ.get("DISPLAY", ":1")
+        self._parent_window_id: int | None = None
 
     def set_theme(self, mode: ThemeMode) -> None:
         """Install map presentation assets for the requested ORC theme."""
         install_map_style(mode)
+        if self._parent_window_id is not None and self._renderer.is_running():
+            self._renderer.stop()
+            self._renderer.launch(
+                display=self._display,
+                parent_window_id=self._parent_window_id,
+            )
 
     def launch(self, parent_window_id: int) -> None:
+        self._display = os.environ.get("DISPLAY", ":1")
+        self._parent_window_id = parent_window_id
         self._renderer.launch(
-            display=os.environ.get("DISPLAY", ":1"),
+            display=self._display,
             parent_window_id=parent_window_id,
         )
 
