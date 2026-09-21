@@ -76,9 +76,11 @@ class EcuPanel(tk.Frame):
 
         cockpit = tk.Frame(self, bg=ui.background)
         cockpit.grid(row=0, column=0, sticky="nsew")
-        cockpit.grid_columnconfigure(0, weight=3, uniform="ecu-side")
-        cockpit.grid_columnconfigure(1, weight=4)
-        cockpit.grid_columnconfigure(2, weight=3, uniform="ecu-side")
+        # Let the engine-management story dominate the page. Side cards remain
+        # glanceable, but the live flow schematic is now the visual anchor.
+        cockpit.grid_columnconfigure(0, weight=27, uniform="ecu-side")
+        cockpit.grid_columnconfigure(1, weight=46)
+        cockpit.grid_columnconfigure(2, weight=27, uniform="ecu-side")
         cockpit.grid_rowconfigure(0, weight=1)
 
         left = tk.Frame(cockpit, bg=ui.background)
@@ -105,18 +107,18 @@ class EcuPanel(tk.Frame):
 
         self._engine_mode = tk.Label(
             center, text="--", fg=ui.text, bg=ui.surface,
-            font=("Sans", 17, "bold"), pady=6,
+            font=("Sans", 19, "bold"), pady=7,
         )
         self._engine_mode.grid(row=0, column=0, sticky="ew", padx=5, pady=(5, 2))
         self._engine_canvas = tk.Canvas(
             center, width=1, height=1, bg=ui.surface, highlightthickness=1,
             highlightbackground=ui.border, bd=0,
         )
-        self._engine_canvas.grid(row=1, column=0, sticky="nsew", padx=5, pady=2)
+        self._engine_canvas.grid(row=1, column=0, sticky="nsew", padx=2, pady=2)
         self._engine_canvas.bind("<Configure>", lambda _e: self._paint_engine())
         self._engine_summary = tk.Label(
             center, text="--", fg=ui.text_muted, bg=ui.surface,
-            font=("Sans", FONT_CONTROL, "bold"), pady=6,
+            font=("Sans", FONT_CONTROL, "bold"), pady=7,
         )
         self._engine_summary.grid(row=2, column=0, sticky="ew", padx=5, pady=(2, 5))
 
@@ -166,8 +168,8 @@ class EcuPanel(tk.Frame):
 
     def _build_fuel(self, body: tk.Frame) -> None:
         ui = self._theme.ui
-        mode = tk.Label(body, text="--", fg=ui.text, bg=ui.surface, font=("Sans", FONT_BODY, "bold"), anchor="w")
-        mode.grid(row=0, column=0, columnspan=2, sticky="w", pady=(1, 4))
+        mode = tk.Label(body, text="--", fg=ui.text, bg=ui.surface, font=("Sans", 15, "bold"), anchor="w")
+        mode.grid(row=0, column=0, columnspan=3, sticky="ew", pady=(1, 7))
         self._labels["fuel_mode"] = mode
         self._value(body, 1, "stft", "STFT (B1)")
         self._bar(body, 1, "stft")
@@ -177,25 +179,34 @@ class EcuPanel(tk.Frame):
         self._labels["fuel_status"].grid(columnspan=2, sticky="w")
 
     def _build_mixture(self, body: tk.Frame) -> None:
-        self._value(body, 0, "commanded", "Commanded EQ Ratio")
-        self._bar(body, 0, "commanded")
-        self._value(body, 1, "measured", "O2 / Lambda")
-        self._bar(body, 1, "measured")
-        self._value(body, 2, "mixture_status", "Mixture Status", status=True)
+        mode = tk.Label(body, text="--", fg=self._theme.ui.text, bg=self._theme.ui.surface, font=("Sans", 15, "bold"), anchor="w")
+        mode.grid(row=0, column=0, columnspan=3, sticky="ew", pady=(1, 7))
+        self._labels["mixture_mode"] = mode
+        self._value(body, 1, "commanded", "Commanded λ")
+        self._bar(body, 1, "commanded")
+        self._value(body, 2, "measured", "Measured λ")
+        self._bar(body, 2, "measured")
+        self._value(body, 3, "mixture_status", "Tracking", status=True)
         self._labels["mixture_status"].grid(columnspan=2, sticky="w")
 
     def _build_load(self, body: tk.Frame) -> None:
-        self._value(body, 0, "load", "Calculated Load")
-        self._bar(body, 0, "load")
-        self._value(body, 1, "boost", "MAP (Boost)")
-        self._bar(body, 1, "boost")
-        self._value(body, 2, "throttle", "Throttle Position")
-        self._bar(body, 2, "throttle")
+        mode = tk.Label(body, text="--", fg=self._theme.ui.text, bg=self._theme.ui.surface, font=("Sans", 15, "bold"), anchor="w")
+        mode.grid(row=0, column=0, columnspan=3, sticky="ew", pady=(1, 7))
+        self._labels["load_mode"] = mode
+        self._value(body, 1, "load", "Engine Load")
+        self._bar(body, 1, "load")
+        self._value(body, 2, "boost", "Boost Pressure")
+        self._bar(body, 2, "boost")
+        self._value(body, 3, "throttle", "Throttle")
+        self._bar(body, 3, "throttle")
 
     def _build_ignition(self, body: tk.Frame) -> None:
-        self._value(body, 0, "timing", "Timing Advance")
-        self._bar(body, 0, "timing")
-        self._value(body, 1, "ignition_status", "Timing Data", status=True)
+        mode = tk.Label(body, text="--", fg=self._theme.ui.text, bg=self._theme.ui.surface, font=("Sans", 15, "bold"), anchor="w")
+        mode.grid(row=0, column=0, columnspan=3, sticky="ew", pady=(1, 7))
+        self._labels["ignition_mode"] = mode
+        self._value(body, 1, "timing", "Timing Advance")
+        self._bar(body, 1, "timing")
+        self._value(body, 2, "ignition_status", "Timing Data", status=True)
         self._labels["ignition_status"].grid(columnspan=2, sticky="w")
 
     @staticmethod
@@ -227,13 +238,26 @@ class EcuPanel(tk.Frame):
             MixtureMode.UNKNOWN: "--",
         }[analysis.mixture_mode]
         values = {
-            "fuel_mode": fuel_mode,
+            "fuel_mode": fuel_mode.upper(),
+            "mixture_mode": mixture.upper(),
+            "load_mode": {
+                EngineLoadLevel.LOW: "LOW LOAD",
+                EngineLoadLevel.MODERATE: "MODERATE LOAD",
+                EngineLoadLevel.HIGH: "HIGH LOAD",
+                EngineLoadLevel.UNKNOWN: "--",
+            }[analysis.load_level],
+            "ignition_mode": "TIMING AVAILABLE" if state.ignition_timing_advance_deg is not None else "TIMING UNAVAILABLE",
             "stft": self._pct(state.short_term_fuel_trim_percent, True),
             "ltft": self._pct(state.long_term_fuel_trim_percent, True),
             "fuel_status": correction,
             "commanded": "--" if state.commanded_equivalence_ratio is None else f"{state.commanded_equivalence_ratio:.3f}",
             "measured": "--" if state.measured_equivalence_ratio is None else f"{state.measured_equivalence_ratio:.3f} λ",
-            "mixture_status": mixture,
+            "mixture_status": {
+                TrackingQuality.GOOD: "Tracking Good",
+                TrackingQuality.MODERATE: "Tracking Moderate",
+                TrackingQuality.POOR: "Tracking Poor",
+                TrackingQuality.UNKNOWN: "--",
+            }[analysis.mixture_tracking],
             "load": self._pct(state.engine_load_percent if state.engine_load_percent is not None else state.absolute_engine_load_percent),
             "boost": "--" if state.boost_psi is None else f"{state.boost_psi:.1f} PSI",
             "throttle": self._pct(state.throttle_percent),
@@ -245,8 +269,14 @@ class EcuPanel(tk.Frame):
         self._labels["fuel_mode"].configure(
             fg=ui.accent_success if analysis.fuel_control_mode is FuelControlMode.CLOSED_LOOP else ui.text
         )
-        self._labels["mixture_status"].configure(
+        self._labels["mixture_mode"].configure(
             fg=ui.accent_success if analysis.mixture_mode is MixtureMode.STOICHIOMETRIC else ui.accent_primary
+        )
+        self._labels["load_mode"].configure(
+            fg=ui.accent_success if analysis.load_level is EngineLoadLevel.LOW else "#D96A2B"
+        )
+        self._labels["ignition_mode"].configure(
+            fg=ui.accent_success if state.ignition_timing_advance_deg is not None else ui.text_muted
         )
         self._paint_bars()
         self._paint_engine()
