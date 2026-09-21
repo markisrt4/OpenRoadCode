@@ -67,6 +67,14 @@ class ServiceManagerBrowserPairing:
             return None
         return session
 
+    def authorize_approval(self, session_id: str, approval_token: str) -> None:
+        session = self.get(session_id)
+        if session is None:
+            raise PermissionError("invalid browser pairing approval token")
+        supplied_hash = hashlib.sha256(approval_token.encode("utf-8")).hexdigest()
+        if not hmac.compare_digest(supplied_hash, session.approval_token_hash):
+            raise PermissionError("invalid browser pairing approval token")
+
     def approve(self, session_id: str, approval_token: str) -> bool:
         session = self.get(session_id)
         if session is None or session.consumed:
