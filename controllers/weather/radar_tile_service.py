@@ -110,7 +110,11 @@ class RadarTileService:
                 self.send_header("Cache-Control", "public, max-age=3600")
                 self.send_header("Content-Length", str(len(data)))
                 self.end_headers()
-                self.wfile.write(data)
+                try:
+                    self.wfile.write(data)
+                except (BrokenPipeError, ConnectionResetError):
+                    # MapLibre can cancel in-flight tiles after pan/zoom/style changes.
+                    return
 
             def log_message(self, format: str, *args) -> None:
                 del format, args
