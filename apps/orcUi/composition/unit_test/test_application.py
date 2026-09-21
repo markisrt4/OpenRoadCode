@@ -35,6 +35,7 @@ class OrcUiCompositionTest(unittest.TestCase):
         app.run.assert_called_once_with()
         games.shutdown.assert_called_once_with()
         media.close.assert_called_once_with()
+        weather.close.assert_called_once_with()
         core.close.assert_called_once_with()
         runtime.close.assert_called_once_with()
         core.lifecycle.execute_requested_action.assert_called_once_with()
@@ -51,6 +52,7 @@ class OrcUiCompositionTest(unittest.TestCase):
         weather = Mock()
         games.shutdown.side_effect = lambda: events("games")
         media.close.side_effect = lambda: events("media")
+        weather.close.side_effect = lambda: events("weather")
         core.close.side_effect = lambda: events("core")
         runtime.close.side_effect = lambda: events("runtime")
         core.lifecycle.execute_requested_action.side_effect = lambda: events("lifecycle")
@@ -69,6 +71,7 @@ class OrcUiCompositionTest(unittest.TestCase):
             [
                 call("games"),
                 call("media"),
+                call("weather"),
                 call("core"),
                 call("runtime"),
                 call("lifecycle"),
@@ -166,6 +169,7 @@ class OrcUiCompositionTest(unittest.TestCase):
         self.assertIs(composition.media, media)
         self.assertIs(composition.weather, weather)
         app.set_theme_change_handler.assert_called_once_with(core.map_runtime.set_theme)
+        core.map_runtime.set_theme.assert_called_once_with(app.theme_mode)
         core.presentation.observe_weather_alert.assert_called_once_with(app.present_weather_alert)
         configure_radio.assert_called_once_with(app, runtime)
         configure_games.assert_called_once_with(app)
