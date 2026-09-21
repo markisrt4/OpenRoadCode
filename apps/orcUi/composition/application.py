@@ -8,6 +8,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from common.app_settings import AppSettings, AppSettingsStore
+from controllers.weather.radar_palette import RadarPalette
 
 from apps.orcUi.application_runtime import OrcUiApplicationRuntime, create_orc_ui_application_runtime
 from apps.orcUi.composition.core import CoreComposition, create_core_composition
@@ -91,16 +92,27 @@ def create_orc_ui_composition() -> OrcUiComposition:
 
         def set_unit_system(value):
             nonlocal app_settings
-            app_settings = AppSettings(unit_system=value)
+            app_settings = AppSettings(
+                unit_system=value, radar_palette=app_settings.radar_palette
+            )
             settings_store.save(app_settings)
 
         weather = configure_weather(
             app,
             unit_system=unit_system,
+            radar_palette=RadarPalette(app_settings.radar_palette),
             on_weather_radio=radio.open_weather_radio,
             on_weather_status=app.set_weather_status,
             map_renderer=core.map_camera.renderer_client,
         )
+        def set_radar_palette(value: RadarPalette) -> None:
+            nonlocal app_settings
+            app_settings = AppSettings(
+                unit_system=app_settings.unit_system,
+                radar_palette=value.value,
+            )
+            settings_store.save(app_settings)
+
         def navigate_home_context(name: str) -> None:
             context_name = name.strip().upper()
             if not context_name:
@@ -128,6 +140,7 @@ def create_orc_ui_composition() -> OrcUiComposition:
             telemetry_profile_request=core.telemetry_profile_request,
             on_back=lambda: app.navigate_to("HOME"),
             radar_controller=weather.radar,
+            on_radar_palette_changed=set_radar_palette,
         )
         vehicle = VehicleScreen(
             app,
