@@ -26,6 +26,7 @@ class NavigationPanelControlTest(unittest.TestCase):
         panel._poi_controller = Mock()
         panel._shortcut_status = Mock()
         panel._active_poi_render_category = ""
+        panel._active_poi_search = None
         panel._route_request_handler = Mock()
         panel._route_simulation_handler = Mock()
         panel._route_active = False
