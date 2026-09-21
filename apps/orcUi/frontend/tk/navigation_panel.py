@@ -10,6 +10,7 @@ import tkinter as tk
 from collections.abc import Callable
 
 from apps.orcUi.theme_runtime import theme_bundle as packaged_theme_bundle
+from controllers.weather.radar_palette import RadarPalette
 from ui.navigation import MapRequestHandlerIf
 from ui.theme import ThemeBundle, ThemeMode
 from .shell_metrics import FONT_CONTROL, FONT_SMALL, FONT_TINY
@@ -30,6 +31,8 @@ class NavigationPanel(tk.Frame):
         theme_bundle: ThemeBundle | None = None,
         radar_enabled: bool = False,
         radar_frame_time: int | None = None,
+        radar_palette: RadarPalette = RadarPalette.UNIVERSAL,
+        on_radar_palette_changed: Callable[[RadarPalette], None] | None = None,
         on_radar_toggle: Callable[[bool], None] | None = None,
     ) -> None:
         self._theme_bundle = theme_bundle or packaged_theme_bundle(ThemeMode.DARK)
@@ -40,6 +43,8 @@ class NavigationPanel(tk.Frame):
         self._radar_enabled = radar_enabled
         self._pre_radar_zoom: float | None = None
         self._radar_frame_time = radar_frame_time
+        self._radar_palette = radar_palette
+        self._on_radar_palette_changed = on_radar_palette_changed
         self._on_radar_toggle = on_radar_toggle
         self._zoom_level = float(getattr(self._request_handler, "zoom_level", 16.5))
         self._pitch_rad = float(
@@ -154,6 +159,24 @@ class NavigationPanel(tk.Frame):
             self._radar_button.pack(side=tk.RIGHT, padx=(4, 0), pady=3)
             self._render_radar_state()
 
+            self._classic_radar_var = tk.BooleanVar(
+                value=self._radar_palette is RadarPalette.CLASSIC
+            )
+            tk.Checkbutton(
+                bar,
+                text="CLASSIC",
+                variable=self._classic_radar_var,
+                command=self._toggle_radar_palette,
+                bg=ui.surface_alt,
+                fg=ui.text,
+                activebackground=ui.surface_alt,
+                activeforeground=ui.text,
+                selectcolor=ui.control_background,
+                font=("Sans", FONT_CONTROL, "bold"),
+                padx=3,
+                pady=1,
+            ).pack(side=tk.RIGHT, padx=(4, 0), pady=3)
+
         body = tk.Frame(self, bg=ui.background)
         body.grid(row=1, column=0, sticky="nsew")
         body.grid_rowconfigure(0, weight=1)
@@ -228,7 +251,10 @@ class NavigationPanel(tk.Frame):
 
         tk.Label(
             controls,
-            text="ZOOM\nTILT\nNORTH\nCENTER",
+            text="ZOOM
+TILT
+NORTH
+CENTER",
             bg=ui.surface_alt,
             fg=ui.text_muted,
             font=("Sans", FONT_TINY),
@@ -309,6 +335,14 @@ class NavigationPanel(tk.Frame):
         self._render_radar_state()
         if self._on_radar_toggle is not None:
             self._on_radar_toggle(self._radar_enabled)
+
+    def _toggle_radar_palette(self) -> None:
+        self._radar_palette = (
+            RadarPalette.CLASSIC if self._classic_radar_var.get()
+            else RadarPalette.UNIVERSAL
+        )
+        if self._on_radar_palette_changed is not None:
+            self._on_radar_palette_changed(self._radar_palette)
 
     def set_radar_frame_time(self, frame_time: int | None) -> None:
         """Show the timestamp of the radar frame currently on the map."""
