@@ -404,28 +404,20 @@ class EcuPanel(tk.Frame):
             )
             canvas.create_line(x*sx, 231*sy, x*sx, 257*sy, fill=ui.text_muted, width=2)
 
-        # Keep the exhaust schematic compact but mechanically truthful:
-        # manifold -> turbine -> short downpipe -> catalyst -> exhaust.
+        # Compact, mechanically truthful hot side. The manifold feeds the
+        # turbine above; the turbine outlet returns as a thin downpipe. The
+        # catalyst lives below the engine where the composition has room.
         collector_x, collector_y = 286, 248
         for x in cylinders:
             canvas.create_line(
                 x*sx, 247*sy, collector_x*sx, collector_y*sy,
                 fill=exhaust, width=2, smooth=True,
             )
-        # Hot-side feed rises to the turbine at the turbo.
         line((collector_x, collector_y, 296, 218, 296, 116, 224, 78), fill=exhaust, width=2)
-        # Turbine outlet gets a short, distinct downpipe before the catalyst.
-        line((226, 72, 252, 76, 268, 92, 268, 116), fill=exhaust, width=2)
-        canvas.create_text(274*sx, 111*sy, text="DOWNPIPE", anchor="w", fill=ui.text_muted, font=("Sans", 5))
-        canvas.create_polygon(
-            260*sx, 116*sy, 265*sx, 112*sy, 275*sx, 112*sy, 280*sx, 116*sy,
-            280*sx, 128*sy, 275*sx, 132*sy, 265*sx, 132*sy, 260*sx, 128*sy,
-            fill=ui.surface_alt, outline=exhaust, width=1,
-        )
-        canvas.create_text(270*sx, 122*sy, text="CAT", fill=ui.text_muted, font=("Sans", 5, "bold"))
-        line((270, 132, 284, 140), fill=exhaust, width=2)
+        line((226, 72, 252, 76, 276, 96, 276, 292), fill=exhaust, width=2)
         if analysis.fuel_control_mode is FuelControlMode.CLOSED_LOOP:
-            canvas.create_oval(264*sx, 102*sy, 272*sx, 110*sy, fill=active, outline="")
+            canvas.create_oval(272*sx, 276*sy, 280*sx, 284*sy, fill=active, outline="")
+            canvas.create_text(268*sx, 280*sy, text="O₂", anchor="e", fill=active, font=("Sans", 6, "bold"))
 
         # Compact accessory drive mounted against the bottom of the block.
         # The crank rotates smoothly with RPM while the cylinders remain still.
@@ -459,6 +451,18 @@ class EcuPanel(tk.Frame):
                 (accessory_y + math.sin(angle)*5)*sy,
                 fill=ui.text_muted, width=2,
             )
+
+        # Post-turbo catalyst and outlet occupy the otherwise open lower
+        # center without stretching the engine itself.
+        line((276, 292, 248, 306), fill=exhaust, width=2)
+        canvas.create_polygon(
+            210*sx, 299*sy, 218*sx, 294*sy, 246*sx, 294*sy, 254*sx, 299*sy,
+            254*sx, 313*sy, 246*sx, 318*sy, 218*sx, 318*sy, 210*sx, 313*sy,
+            fill=ui.surface_alt, outline=exhaust, width=1,
+        )
+        canvas.create_text(232*sx, 306*sy, text="CAT", fill=ui.text_muted, font=("Sans", 6, "bold"))
+        line((210, 306, 178, 306), fill=exhaust, width=2)
+        canvas.create_text(173*sx, 306*sy, text="EXHAUST", anchor="e", fill=ui.text_muted, font=("Sans", 6, "bold"))
 
         fuel_mode = "CLOSED LOOP" if analysis.fuel_control_mode is FuelControlMode.CLOSED_LOOP else "OPEN LOOP" if analysis.fuel_control_mode is not FuelControlMode.UNKNOWN else "--"
         mixture = {
