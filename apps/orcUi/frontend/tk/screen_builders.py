@@ -11,6 +11,7 @@ from collections.abc import Callable
 from apps.orcUi.trip_presenter import TripPresentationState
 from common.units import UnitSystem
 from apps.orcUi.vehicle_presenter import VehiclePresentationState
+from controllers.weather.radar_palette import RadarPalette
 from controllers.automotive import (
     AutomotiveTelemetryProfile,
     EngineAnalysis,
@@ -33,6 +34,8 @@ def build_navigation_screen(
     theme: ThemeBundle,
     radar_enabled: bool = False,
     radar_frame_time: int | None = None,
+    radar_palette: RadarPalette = RadarPalette.UNIVERSAL,
+    on_radar_palette_changed: Callable[[RadarPalette], None] | None = None,
     on_radar_toggle: Callable[[bool], None] | None = None,
 ) -> NavigationPanel:
     screen = NavigationPanel(
@@ -42,6 +45,8 @@ def build_navigation_screen(
         theme_bundle=theme,
         radar_enabled=radar_enabled,
         radar_frame_time=radar_frame_time,
+        radar_palette=radar_palette,
+        on_radar_palette_changed=on_radar_palette_changed,
         on_radar_toggle=on_radar_toggle,
     )
     screen.pack(fill=tk.BOTH, expand=True)
@@ -104,7 +109,8 @@ def build_placeholder(parent: tk.Misc, name: str, *, theme: ThemeBundle) -> None
     frame.pack(fill=tk.BOTH, expand=True)
     tk.Label(
         frame,
-        text=f"{name}\nCOMING NEXT",
+        text=f"{name}
+COMING NEXT",
         fg=ui.text,
         bg=ui.surface,
         font=("Sans", 24, "bold"),
