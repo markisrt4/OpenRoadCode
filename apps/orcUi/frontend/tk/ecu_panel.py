@@ -111,16 +111,11 @@ class EcuPanel(tk.Frame):
         self._build_mixture(self._card(right, 0, 0, "λ", "MIXTURE", "Commanded vs. measured lambda", ui.accent_primary))
         self._build_ignition(self._card(right, 1, 0, "ϟ", "IGNITION", "Spark timing reported by ECU", ui.accent_success))
 
-        self._engine_mode = tk.Label(
-            center, text="--", fg=ui.text, bg=ui.surface,
-            font=("Sans", 15, "bold"), pady=7,
-        )
-        self._engine_mode.grid(row=0, column=0, sticky="ew", padx=5, pady=(5, 2))
         self._engine_canvas = tk.Canvas(
             center, width=1, height=1, bg=ui.surface, highlightthickness=1,
             highlightbackground=ui.border, bd=0,
         )
-        self._engine_canvas.grid(row=1, column=0, sticky="nsew", padx=2, pady=2)
+        self._engine_canvas.grid(row=0, column=0, rowspan=2, sticky="nsew", padx=2, pady=(5, 2))
         self._engine_canvas.bind("<Configure>", lambda _e: self._paint_engine())
         self._engine_summary = tk.Label(
             center, text="--", fg=ui.text_muted, bg=ui.surface,
@@ -308,13 +303,14 @@ class EcuPanel(tk.Frame):
         exhaust = ui.accent_danger if analysis.engine_running else ui.text_muted
         turbo = ui.accent_primary if analysis.forced_induction_active else ui.text_muted
 
-        # Intake and turbo path.
-        line((18, 105, 85, 105, 115, 125), fill=intake, width=8)
-        canvas.create_text(20*sx, 84*sy, text="INTAKE", anchor="w", fill=ui.text_muted, font=("Sans", 8, "bold"))
-        canvas.create_oval(100*sx, 104*sy, 146*sx, 150*sy, outline=turbo, width=5)
-        canvas.create_arc(108*sx, 112*sy, 138*sx, 142*sy, start=20, extent=285, style="arc", outline=turbo, width=3)
-        canvas.create_text(123*sx, 92*sy, text="TURBO", fill=turbo, font=("Sans", 8, "bold"))
-        line((146, 127, 180, 145), fill=intake, width=7)
+        # Stack the intake above the turbo so the flow path uses the upper
+        # left corner instead of consuming a long strip of horizontal space.
+        canvas.create_text(88*sx, 42*sy, text="INTAKE", fill=ui.text_muted, font=("Sans", 8, "bold"))
+        line((88, 52, 88, 82, 112, 100), fill=intake, width=8)
+        canvas.create_oval(90*sx, 86*sy, 136*sx, 132*sy, outline=turbo, width=5)
+        canvas.create_arc(98*sx, 94*sy, 128*sx, 124*sy, start=20, extent=285, style="arc", outline=turbo, width=3)
+        canvas.create_text(113*sx, 76*sy, text="TURBO", fill=turbo, font=("Sans", 8, "bold"))
+        line((136, 109, 160, 128), fill=intake, width=7)
 
         # Engine block and head. A broad valve cover, lower crankcase and four
         # chambers make this read as an engine rather than a wiring diagram.
@@ -367,15 +363,6 @@ class EcuPanel(tk.Frame):
             canvas.create_rectangle(x*sx, 304*sy, (x+62)*sx, 330*sy, outline=color, width=2)
             canvas.create_text((x+31)*sx, 317*sy, text=label, fill=color, font=("Sans", 7, "bold"))
             x += 68
-
-        mode = {
-            EngineOperatingMode.OFF: "ENGINE OFF",
-            EngineOperatingMode.IDLE: "IDLE",
-            EngineOperatingMode.CRUISE: "CRUISE",
-            EngineOperatingMode.ACCELERATION: "ACCELERATION",
-            EngineOperatingMode.UNKNOWN: "ENGINE MANAGEMENT",
-        }[analysis.operating_mode]
-        self._engine_mode.configure(text=mode)
 
         fuel_mode = "CLOSED LOOP" if analysis.fuel_control_mode is FuelControlMode.CLOSED_LOOP else "OPEN LOOP" if analysis.fuel_control_mode is not FuelControlMode.UNKNOWN else "--"
         mixture = {
