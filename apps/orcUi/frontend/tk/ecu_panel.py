@@ -407,33 +407,22 @@ class EcuPanel(tk.Frame):
                 fill=fuel, outline="",
             )
 
-        # Static cylinders with a visually slowed 1-3-4-2 ignition sequence.
-        # The spark conveys combustion without turning the pistons into a toy.
+        # Keep the cylinders static. Sudden ignition flashes proved too
+        # attention-grabbing for an in-vehicle display; continuous peripheral
+        # flow animation carries engine activity without demanding a glance.
         load = state.engine_load_percent if state.engine_load_percent is not None else state.absolute_engine_load_percent
         cylinders = (178, 220, 262, 304)
-        firing_order = (0, 2, 3, 1)  # cylinders 1-3-4-2
-        firing_slot = int(self._animation_phase * 4.0) % 4
-        firing_cylinder = firing_order[firing_slot] if analysis.engine_running else -1
-        slot_phase = (self._animation_phase * 4.0) % 1.0
-        spark_visible = analysis.engine_running and slot_phase < 0.30
-        for index, x in enumerate(cylinders):
+        for x in cylinders:
             canvas.create_rectangle(
                 (x-14)*sx, 199*sy, (x+14)*sx, 249*sy,
                 fill=ui.surface, outline=ui.border, width=2,
             )
-            firing = index == firing_cylinder and spark_visible
-            glow = combustion if firing else ui.surface_alt
+            glow = combustion if analysis.engine_running else ui.surface_alt
             canvas.create_oval(
                 (x-9)*sx, 211*sy, (x+9)*sx, 231*sy,
-                fill=glow, outline=combustion if firing else ui.text_muted, width=1,
+                fill=glow, outline=ui.text_muted, width=1,
             )
-            # Tiny spark plug and flash at the chamber roof.
             canvas.create_line(x*sx, 195*sy, x*sx, 204*sy, fill=ui.text_muted, width=2)
-            if firing:
-                spark = "#FFD45A"
-                canvas.create_line((x-7)*sx, 205*sy, (x+7)*sx, 217*sy, fill=spark, width=2)
-                canvas.create_line((x+7)*sx, 205*sy, (x-7)*sx, 217*sy, fill=spark, width=2)
-                canvas.create_line(x*sx, 201*sy, x*sx, 220*sy, fill=spark, width=2)
             canvas.create_line(x*sx, 231*sy, x*sx, 257*sy, fill=ui.text_muted, width=2)
 
         # Four runners sweep down into a collector and a catalyst kept well
