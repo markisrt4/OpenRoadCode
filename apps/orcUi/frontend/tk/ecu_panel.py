@@ -404,34 +404,59 @@ class EcuPanel(tk.Frame):
             )
             canvas.create_line(x*sx, 231*sy, x*sx, 257*sy, fill=ui.text_muted, width=2)
 
-        # Exhaust runners feed the turbine side of the turbo. After the turbine,
-        # spent gas routes down through the catalyst and out of the system.
-        collector_x, collector_y = 306, 254
+        # Compact exhaust plumbing: runners feed the turbine, then a thin
+        # downpipe passes the O2 sensor and catalyst. It should explain the
+        # turbo relationship without visually wrapping the whole engine.
+        collector_x, collector_y = 286, 252
         for x in cylinders:
             canvas.create_line(
-                x*sx, 249*sy, x*sx, 255*sy, collector_x*sx, collector_y*sy,
-                fill=exhaust, width=3, smooth=True,
+                x*sx, 249*sy, x*sx, 253*sy, collector_x*sx, collector_y*sy,
+                fill=exhaust, width=2, smooth=True,
             )
-        line((collector_x, collector_y, 326, 230, 326, 116, 226, 78), fill=exhaust, width=6)
-        line((226, 70, 300, 70, 322, 92, 322, 278), fill=exhaust, width=6)
+        line((collector_x, collector_y, 304, 230, 304, 118, 224, 78), fill=exhaust, width=3)
+        line((226, 72, 282, 76, 300, 94, 300, 274), fill=exhaust, width=3)
 
-        # Catalyst remains inside the visible center corridor.
         canvas.create_polygon(
-            298*sx, 276*sy, 306*sx, 270*sy, 330*sx, 270*sy, 338*sx, 276*sy,
-            338*sx, 294*sy, 330*sx, 300*sy, 306*sx, 300*sy, 298*sx, 294*sy,
-            fill=ui.surface_alt, outline=exhaust, width=2,
+            288*sx, 272*sy, 294*sx, 268*sy, 306*sx, 268*sy, 312*sx, 272*sy,
+            312*sx, 286*sy, 306*sx, 290*sy, 294*sx, 290*sy, 288*sx, 286*sy,
+            fill=ui.surface_alt, outline=exhaust, width=1,
         )
-        canvas.create_text(318*sx, 285*sy, text="CAT", fill=ui.text, font=("Sans", 7, "bold"))
-        line((318, 300, 318, 316, 280, 316), fill=exhaust, width=6)
-        canvas.create_text(275*sx, 316*sy, text="EXHAUST", anchor="e", fill=ui.text_muted, font=("Sans", 7, "bold"))
-
-        if analysis.engine_running:
-            pulse = (self._animation_phase * 2.0) % 1.0
-            py = (92 + 220 * pulse) * sy
-            canvas.create_oval(319*sx, py-3, 325*sx, py+3, fill=exhaust, outline="")
+        canvas.create_text(300*sx, 279*sy, text="CAT", fill=ui.text, font=("Sans", 6, "bold"))
+        line((300, 290, 300, 302, 282, 302), fill=exhaust, width=3)
         if analysis.fuel_control_mode is FuelControlMode.CLOSED_LOOP:
-            canvas.create_oval(316*sx, 258*sy, 328*sx, 270*sy, fill=active, outline="")
-            canvas.create_text(322*sx, 251*sy, text="O₂", fill=active, font=("Sans", 8, "bold"))
+            canvas.create_oval(296*sx, 250*sy, 304*sx, 258*sy, fill=active, outline="")
+            canvas.create_text(300*sx, 244*sy, text="O₂", fill=active, font=("Sans", 7, "bold"))
+
+        # A crank pulley and two accessory pulleys add smooth mechanical motion
+        # without flashing or moving the cylinders. Rotation is driven by the
+        # same RPM-scaled phase as the turbo.
+        crank_x, crank_y = 200, 270
+        accessory_y = 259
+        belt = ui.text_muted
+        canvas.create_line(200*sx, 270*sy, 157*sx, accessory_y*sy, 243*sx, accessory_y*sy, 200*sx, 270*sy,
+                           fill=belt, width=2, smooth=True)
+        for px, py, radius in ((157, accessory_y, 10), (243, accessory_y, 10), (crank_x, crank_y, 16)):
+            canvas.create_oval(
+                (px-radius)*sx, (py-radius)*sy, (px+radius)*sx, (py+radius)*sy,
+                fill=ui.surface, outline=ui.border, width=2,
+            )
+        crank_phase = self._animation_phase * math.tau
+        for blade in range(4):
+            angle = crank_phase + blade * math.tau / 4.0
+            canvas.create_line(
+                crank_x*sx, crank_y*sy,
+                (crank_x + math.cos(angle)*12)*sx,
+                (crank_y + math.sin(angle)*12)*sy,
+                fill=intake if analysis.engine_running else ui.text_muted, width=2,
+            )
+        for px, direction in ((157, -1.0), (243, 1.0)):
+            angle = direction * crank_phase
+            canvas.create_line(
+                px*sx, accessory_y*sy,
+                (px + math.cos(angle)*7)*sx,
+                (accessory_y + math.sin(angle)*7)*sy,
+                fill=ui.text_muted, width=2,
+            )
 
         fuel_mode = "CLOSED LOOP" if analysis.fuel_control_mode is FuelControlMode.CLOSED_LOOP else "OPEN LOOP" if analysis.fuel_control_mode is not FuelControlMode.UNKNOWN else "--"
         mixture = {
