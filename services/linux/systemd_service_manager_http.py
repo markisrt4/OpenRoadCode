@@ -41,7 +41,8 @@ class SystemdServiceManagerHandler(BaseHTTPRequestHandler):
     browser_pairing = ServiceManagerBrowserPairing(pairing)
 
     def do_GET(self) -> None:  # noqa: N802 - BaseHTTPRequestHandler API
-        parts = [part for part in self.path.split("/") if part]
+        from urllib.parse import urlsplit
+        parts = [part for part in urlsplit(self.path).path.split("/") if part]
         if len(parts) == 4 and parts[:3] == ["pairing", "browser", "approve"]:
             self._browser_approval_page(parts[3])
             return
@@ -56,7 +57,8 @@ class SystemdServiceManagerHandler(BaseHTTPRequestHandler):
         self._json(HTTPStatus.OK, _payload(self.manager.all_status()))
 
     def do_POST(self) -> None:  # noqa: N802 - BaseHTTPRequestHandler API
-        parts = [part for part in self.path.split("/") if part]
+        from urllib.parse import urlsplit
+        parts = [part for part in urlsplit(self.path).path.split("/") if part]
         if parts == ["pair"]:
             self._pair()
             return
