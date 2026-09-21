@@ -8,7 +8,7 @@ import json
 import subprocess
 import threading
 import unittest
-from unittest.mock import Mock, patch
+from unittest.mock import Mock
 
 from services.common.service_manager_pairing import ServiceManagerPairing
 from services.common.service_manager_browser_pairing import ServiceManagerBrowserPairing
@@ -188,41 +188,25 @@ class SystemdServiceManagerHttpRequestTest(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertIn("Device approved", approved)
 
-    def test_remote_browser_pairing_uses_short_lived_pin_not_admin_token(self) -> None:
-        with patch(
-            "services.common.service_manager_browser_pairing.secrets.randbelow",
-            return_value=123456,
-        ), patch.object(
-            SystemdServiceManagerHandler, "_same_device_request", return_value=False
-        ):
-            _, started = self.request(
-                "POST", "/pairing/browser/start", token=None,
-                payload={"client_name": "Test Android"},
-            )
-            status, page = self.request(
-                "GET", f"/pairing/browser/approve/{started['session_id']}", token=None
-            )
-            self.assertEqual(status, 200)
-            self.assertIn("short-lived pairing PIN", page)
-            self.assertNotIn("administrator token", page)
+    def test_browser_approval_link_requires_opaque_capability(self) -> None:
+        _, started = self.request(
+            "POST", "/pairing/browser/start", token=None,
+            payload={"client_name": "Test Android"},
+        )
+        from urllib.parse import urlsplit
+        approval_path = urlsplit(started["approval_url"]).path
+        status, rejected = self.request("GET", approval_path, token=None)
+        self.assertEqual(status, 401)
+        self.assertIn("Invalid pairing approval link", rejected)
 
-            status, rejected = self.request(
-                "POST",
-                f"/pairing/browser/approve/{started['session_id']}",
-                token=None,
-                form={"approval_pin": "000000"},
-            )
-            self.assertEqual(status, 401)
-            self.assertIn("Pairing PIN was not accepted", rejected)
-
-            status, approved = self.request(
-                "POST",
-                f"/pairing/browser/approve/{started['session_id']}",
-                token=None,
-                form={"approval_pin": "123456"},
-            )
-            self.assertEqual(status, 200)
-            self.assertIn("Device approved", approved)
+        approval_url = urlsplit(started["approval_url"])
+        status, page = self.request(
+            "GET", approval_url.path + "?" + approval_url.query, token=None
+        )
+        self.assertEqual(status, 200)
+        self.assertIn("Approve device", page)
+        self.assertNotIn("Pairing PIN", page)
+        self.assertNotIn("Administrator token", page)
 
     def test_browser_pairing_status_requires_poll_token(self) -> None:
         _, started = self.request(
@@ -240,11 +224,13 @@ class SystemdServiceManagerHttpRequestTest(unittest.TestCase):
             "POST", "/pairing/browser/start", token=None,
             payload={"client_name": "Test Android"},
         )
+        from urllib.parse import parse_qs, urlsplit
+        approval_token = parse_qs(urlsplit(started["approval_url"]).query)["token"][0]
         status, approved = self.request(
             "POST",
             f"/pairing/browser/approve/{started['session_id']}",
             token=None,
-            form={"admin_token": "secret"},
+            form={"approval_token": approval_token},
         )
         self.assertEqual(status, 200)
         self.assertIn("Device approved", approved)
