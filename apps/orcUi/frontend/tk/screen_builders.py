@@ -109,8 +109,7 @@ def build_placeholder(parent: tk.Misc, name: str, *, theme: ThemeBundle) -> None
     frame.pack(fill=tk.BOTH, expand=True)
     tk.Label(
         frame,
-        text=f"{name}
-COMING NEXT",
+        text=f"{name}\nCOMING NEXT",
         fg=ui.text,
         bg=ui.surface,
         font=("Sans", 24, "bold"),
