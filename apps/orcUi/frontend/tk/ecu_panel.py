@@ -102,7 +102,7 @@ class EcuPanel(tk.Frame):
         cockpit.grid(row=0, column=0, sticky="nsew")
 
         engine = tk.Frame(cockpit, bg=ui.background)
-        engine.place(relx=0.5, rely=0.5, relwidth=0.48, relheight=0.96, anchor="center")
+        engine.place(relx=0.5, rely=0.5, relwidth=0.44, relheight=0.96, anchor="center")
         engine.grid_columnconfigure(0, weight=1)
         engine.grid_rowconfigure(0, weight=1)
 
@@ -122,19 +122,19 @@ class EcuPanel(tk.Frame):
         # This creates the surrounding composition from the concept while
         # keeping each card a normal Tk widget with its existing telemetry.
         fuel = self._floating_card(
-            cockpit, relx=0.005, rely=0.01, relwidth=0.335, relheight=0.475,
+            cockpit, relx=0.005, rely=0.01, relwidth=0.35, relheight=0.475,
             icon="⛽", title="FUEL CONTROL", subtitle="Feedback and fuel correction", accent="#D6A800",
         )
         load = self._floating_card(
-            cockpit, relx=0.005, rely=0.515, relwidth=0.335, relheight=0.475,
+            cockpit, relx=0.005, rely=0.515, relwidth=0.35, relheight=0.475,
             icon="◆", title="ENGINE LOAD", subtitle="Demand, throttle and boost", accent="#D96A2B",
         )
         mixture = self._floating_card(
-            cockpit, relx=0.66, rely=0.01, relwidth=0.335, relheight=0.475,
+            cockpit, relx=0.645, rely=0.01, relwidth=0.35, relheight=0.475,
             icon="λ", title="MIXTURE", subtitle="Commanded vs. measured lambda", accent=ui.accent_primary,
         )
         ignition = self._floating_card(
-            cockpit, relx=0.66, rely=0.515, relwidth=0.335, relheight=0.475,
+            cockpit, relx=0.645, rely=0.515, relwidth=0.35, relheight=0.475,
             icon="ϟ", title="IGNITION", subtitle="Spark timing reported by ECU", accent=ui.accent_success,
         )
         self._build_fuel(fuel)
@@ -329,13 +329,13 @@ class EcuPanel(tk.Frame):
         canvas, analysis, state, ui = self._engine_canvas, self._analysis, self._vehicle_state, self._theme.ui
         canvas.delete("all")
         w, h = max(260, canvas.winfo_width()), max(260, canvas.winfo_height())
-        # The original drawing occupied only the upper half of the available
-        # canvas. Scale the useful 360-unit schematic to the live viewport.
         sx, sy = w / 400.0, h / 360.0
-        def box(x1, y1, x2, y2, *, fill, outline=None, width=2):
-            canvas.create_rectangle(x1*sx, y1*sy, x2*sx, y2*sy, fill=fill, outline=outline or ui.border, width=width)
+
         def line(points, *, fill, width=5):
-            canvas.create_line(*[v * (sx if i % 2 == 0 else sy) for i, v in enumerate(points)], fill=fill, width=width, smooth=True)
+            canvas.create_line(
+                *[v * (sx if i % 2 == 0 else sy) for i, v in enumerate(points)],
+                fill=fill, width=width, smooth=True,
+            )
 
         active = ui.accent_success
         intake = ui.accent_primary if analysis.engine_running else ui.text_muted
@@ -344,122 +344,94 @@ class EcuPanel(tk.Frame):
         exhaust = ui.accent_danger if analysis.engine_running else ui.text_muted
         turbo = ui.accent_primary if analysis.forced_induction_active else ui.text_muted
 
-        # Stack the intake above the turbo so the flow path uses the upper
-        # left corner instead of consuming a long strip of horizontal space.
-        canvas.create_text(88*sx, 42*sy, text="INTAKE", fill=ui.text_muted, font=("Sans", 8, "bold"))
-        line((88, 52, 88, 82, 112, 100), fill=intake, width=8)
-        if analysis.engine_running:
-            for offset in (0.0, 0.33, 0.66):
-                travel = (self._animation_phase + offset) % 1.0
-                fy = (55 + 39 * travel) * sy
-                canvas.create_oval(84*sx, fy-3, 92*sx, fy+3, fill=intake, outline="")
-        canvas.create_oval(90*sx, 86*sy, 136*sx, 132*sy, outline=turbo, width=5)
-        cx, cy = 113*sx, 109*sy
+        # Turbo sits above the engine. Blue is the compressor/intake path;
+        # red is the exhaust/turbine path. Both meet at the shared turbo shaft.
+        turbo_x, turbo_y = 200, 70
+        canvas.create_text(200*sx, 25*sy, text="TURBO", fill=turbo, font=("Sans", 8, "bold"))
+        canvas.create_oval(174*sx, 44*sy, 226*sx, 96*sy, outline=turbo, width=5)
+        cx, cy = turbo_x*sx, turbo_y*sy
         turbo_phase = self._animation_phase * math.tau
         for blade in range(5):
             angle = turbo_phase + blade * math.tau / 5.0
-            canvas.create_line(cx, cy, cx + math.cos(angle)*14*sx, cy + math.sin(angle)*14*sy, fill=turbo, width=2)
-        canvas.create_oval(108*sx, 104*sy, 118*sx, 114*sy, fill=turbo, outline="")
-        canvas.create_text(113*sx, 76*sy, text="TURBO", fill=turbo, font=("Sans", 8, "bold"))
-        line((136, 109, 160, 128), fill=intake, width=7)
+            canvas.create_line(
+                cx, cy, cx + math.cos(angle)*16*sx, cy + math.sin(angle)*16*sy,
+                fill=turbo, width=2,
+            )
+        canvas.create_oval(194*sx, 64*sy, 206*sx, 76*sy, fill=turbo, outline="")
 
-        # Stylized powertrain: valve cover/head, tapered block, fuel rail,
-        # cylinders and exhaust manifold. Keep it graphical at dashboard scale.
+        canvas.create_text(120*sx, 50*sy, text="INTAKE", fill=ui.text_muted, font=("Sans", 7, "bold"))
+        line((112, 61, 145, 61, 174, 68), fill=intake, width=7)
+        line((200, 96, 200, 110, 164, 122), fill=intake, width=7)
+        if analysis.engine_running:
+            for offset in (0.0, 0.34, 0.68):
+                travel = (self._animation_phase + offset) % 1.0
+                px = (116 + 55 * travel) * sx
+                py = (61 + 7 * max(0.0, (travel - 0.55) / 0.45)) * sy
+                canvas.create_oval(px-3, py-3, px+3, py+3, fill=intake, outline="")
+
+        # Larger, centered engine now that the old left-side turbo no longer
+        # consumes the composition.
         canvas.create_polygon(
-            154*sx, 116*sy, 316*sx, 116*sy, 329*sx, 132*sy,
-            323*sx, 158*sy, 157*sx, 158*sy, 148*sx, 137*sy,
+            116*sx, 112*sy, 284*sx, 112*sy, 300*sx, 128*sy,
+            294*sx, 158*sy, 106*sx, 158*sy, 100*sx, 130*sy,
             fill=ui.surface_alt, outline=intake, width=2,
         )
-        canvas.create_text(238*sx, 137*sy, text="ENGINE", fill=ui.text, font=("Sans", 13, "bold"))
-        canvas.create_oval(170*sx, 123*sy, 198*sx, 151*sy, outline=ui.border, width=2)
-
-        # Cylinder head and lower block.
+        canvas.create_text(200*sx, 136*sy, text="ENGINE", fill=ui.text, font=("Sans", 14, "bold"))
         canvas.create_polygon(
-            153*sx, 158*sy, 326*sx, 158*sy, 337*sx, 199*sy,
-            327*sx, 276*sy, 160*sx, 276*sy, 145*sx, 204*sy,
+            108*sx, 158*sy, 292*sx, 158*sy, 306*sx, 205*sy,
+            292*sx, 270*sy, 108*sx, 270*sy, 94*sx, 205*sy,
             fill=ui.surface_alt, outline=ui.border, width=2,
         )
-        box(158, 160, 324, 190, fill=ui.surface, outline=ui.border, width=1)
+        canvas.create_rectangle(116*sx, 160*sy, 284*sx, 190*sy, fill=ui.surface, outline=ui.border, width=1)
 
-        # Fuel rail sits above the injectors instead of sharing their label area.
-        line((168, 170, 314, 170), fill=fuel, width=5)
-        canvas.create_text(241*sx, 164*sy, text="FUEL RAIL", fill=fuel, font=("Sans", 7, "bold"), anchor="s")
-        for x in (178, 220, 262, 304):
+        line((126, 170, 274, 170), fill=fuel, width=5)
+        canvas.create_text(200*sx, 164*sy, text="FUEL RAIL", fill=fuel, font=("Sans", 7, "bold"), anchor="s")
+        cylinders = (132, 177, 223, 268)
+        for x in cylinders:
             canvas.create_line(x*sx, 171*sy, x*sx, 195*sy, fill=fuel, width=3)
             canvas.create_polygon(
                 (x-4)*sx, 192*sy, (x+4)*sx, 192*sy, x*sx, 201*sy,
                 fill=fuel, outline="",
             )
-
-        # Keep the cylinders static. Sudden ignition flashes proved too
-        # attention-grabbing for an in-vehicle display; continuous peripheral
-        # flow animation carries engine activity without demanding a glance.
-        load = state.engine_load_percent if state.engine_load_percent is not None else state.absolute_engine_load_percent
-        cylinders = (178, 220, 262, 304)
-        for x in cylinders:
             canvas.create_rectangle(
-                (x-14)*sx, 199*sy, (x+14)*sx, 249*sy,
+                (x-15)*sx, 199*sy, (x+15)*sx, 249*sy,
                 fill=ui.surface, outline=ui.border, width=2,
             )
             glow = combustion if analysis.engine_running else ui.surface_alt
             canvas.create_oval(
-                (x-9)*sx, 211*sy, (x+9)*sx, 231*sy,
+                (x-10)*sx, 211*sy, (x+10)*sx, 231*sy,
                 fill=glow, outline=ui.text_muted, width=1,
             )
-            canvas.create_line(x*sx, 195*sy, x*sx, 204*sy, fill=ui.text_muted, width=2)
             canvas.create_line(x*sx, 231*sy, x*sx, 257*sy, fill=ui.text_muted, width=2)
 
-        # Four runners sweep down into a collector and a catalyst kept well
-        # inside the center composition so the right-side card cannot hide it.
-        manifold_y = 260
-        collector_x, collector_y = 318, 278
+        # Exhaust runners feed the turbine side of the turbo. After the turbine,
+        # spent gas routes down through the catalyst and out of the system.
+        collector_x, collector_y = 306, 254
         for x in cylinders:
             canvas.create_line(
-                x*sx, 249*sy, x*sx, 257*sy, collector_x*sx, collector_y*sy,
+                x*sx, 249*sy, x*sx, 255*sy, collector_x*sx, collector_y*sy,
                 fill=exhaust, width=3, smooth=True,
             )
-        line((collector_x, collector_y, 326, 288, 314, 296), fill=exhaust, width=7)
+        line((collector_x, collector_y, 326, 230, 326, 116, 226, 78), fill=exhaust, width=6)
+        line((226, 70, 300, 70, 322, 92, 322, 278), fill=exhaust, width=6)
+
+        # Catalyst remains inside the visible center corridor.
         canvas.create_polygon(
-            274*sx, 286*sy, 282*sx, 280*sy, 310*sx, 280*sy, 318*sx, 286*sy,
-            318*sx, 304*sy, 310*sx, 310*sy, 282*sx, 310*sy, 274*sx, 304*sy,
+            298*sx, 276*sy, 306*sx, 270*sy, 330*sx, 270*sy, 338*sx, 276*sy,
+            338*sx, 294*sy, 330*sx, 300*sy, 306*sx, 300*sy, 298*sx, 294*sy,
             fill=ui.surface_alt, outline=exhaust, width=2,
         )
-        canvas.create_text(296*sx, 295*sy, text="CAT", fill=ui.text, font=("Sans", 7, "bold"))
-        line((274, 295, 248, 295, 232, 286), fill=exhaust, width=7)
-        canvas.create_text(229*sx, 278*sy, text="EXHAUST", anchor="e", fill=ui.text_muted, font=("Sans", 7, "bold"))
-        if analysis.engine_running:
-            pulse = (self._animation_phase * 3.0) % 1.0
-            # A small pulse travels collector -> catalyst -> outlet.
-            if pulse < 0.5:
-                t = pulse / 0.5
-                px = (318 + (296 - 318) * t) * sx
-                py = (278 + (295 - 278) * t) * sy
-            else:
-                t = (pulse - 0.5) / 0.5
-                px = (296 + (236 - 296) * t) * sx
-                py = (295 + (288 - 295) * t) * sy
-            canvas.create_oval(px-3, py-3, px+3, py+3, fill=exhaust, outline="")
-        if analysis.fuel_control_mode is FuelControlMode.CLOSED_LOOP:
-            canvas.create_oval(316*sx, 270*sy, 328*sx, 282*sy, fill=active, outline="")
-            canvas.create_text(322*sx, 263*sy, text="O₂", fill=active, font=("Sans", 8, "bold"))
+        canvas.create_text(318*sx, 285*sy, text="CAT", fill=ui.text, font=("Sans", 7, "bold"))
+        line((318, 300, 318, 316, 280, 316), fill=exhaust, width=6)
+        canvas.create_text(275*sx, 316*sy, text="EXHAUST", anchor="e", fill=ui.text_muted, font=("Sans", 7, "bold"))
 
-        # Semantic state badges beneath the schematic.
-        badges = []
-        if analysis.high_load:
-            badges.append(("HIGH LOAD", "#D96A2B"))
-        if analysis.forced_induction_active:
-            badges.append(("BOOST", ui.accent_primary))
-        if analysis.enrichment_active:
-            badges.append(("ENRICHMENT", "#D6A800"))
-        if analysis.warmed_up is False:
-            badges.append(("WARM-UP", "#D6A800"))
-        if not badges and analysis.engine_running:
-            badges.append(("RUNNING", active))
-        x = 200 - (len(badges) * 68) / 2
-        for label, color in badges:
-            canvas.create_rectangle(x*sx, 304*sy, (x+62)*sx, 330*sy, outline=color, width=2)
-            canvas.create_text((x+31)*sx, 317*sy, text=label, fill=color, font=("Sans", 7, "bold"))
-            x += 68
+        if analysis.engine_running:
+            pulse = (self._animation_phase * 2.0) % 1.0
+            py = (92 + 220 * pulse) * sy
+            canvas.create_oval(319*sx, py-3, 325*sx, py+3, fill=exhaust, outline="")
+        if analysis.fuel_control_mode is FuelControlMode.CLOSED_LOOP:
+            canvas.create_oval(316*sx, 258*sy, 328*sx, 270*sy, fill=active, outline="")
+            canvas.create_text(322*sx, 251*sy, text="O₂", fill=active, font=("Sans", 8, "bold"))
 
         fuel_mode = "CLOSED LOOP" if analysis.fuel_control_mode is FuelControlMode.CLOSED_LOOP else "OPEN LOOP" if analysis.fuel_control_mode is not FuelControlMode.UNKNOWN else "--"
         mixture = {
