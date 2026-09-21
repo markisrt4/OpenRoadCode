@@ -15,7 +15,9 @@ from config.service_runtime_config import ServiceRuntimeConfigParser
 from controllers.weather import (
     GpsdWeatherLocationProvider,
     OpenMeteoWeatherProvider,
-    RadarTileService,\n    RainViewerRadarProvider,\n    WeatherController,
+    RadarTileService,
+    RainViewerRadarProvider,
+    WeatherController,
     WeatherLocation,
     WeatherRadarController,
 )
@@ -29,7 +31,12 @@ class WeatherComposition:
 
     screen: WeatherScreen
     controller: WeatherController
-    radar: WeatherRadarController\n    radar_tiles: RadarTileService\n\n    def close(self) -> None:\n        self.radar_tiles.close()\n
+    radar: WeatherRadarController
+    radar_tiles: RadarTileService
+
+    def close(self) -> None:
+        self.radar_tiles.close()
+
 
 def configure_weather(
     app: OrcUiApp,
@@ -69,7 +76,11 @@ def configure_weather(
 
     if map_renderer is None:
         raise ValueError("map_renderer is required for weather radar")
-    radar_tiles = RadarTileService()\n    radar = WeatherRadarController(\n        RainViewerRadarProvider(), map_renderer, tile_service=radar_tiles\n    )\n
+    radar_tiles = RadarTileService()
+    radar = WeatherRadarController(
+        RainViewerRadarProvider(), map_renderer, tile_service=radar_tiles
+    )
+
     screen = WeatherScreen(
         app,
         controller=controller,
@@ -79,4 +90,6 @@ def configure_weather(
         on_weather_state=publish_weather_status,
     )
     app.register_screen("WEATHER", screen, before="VISION")
-    return WeatherComposition(\n        screen=screen, controller=controller, radar=radar, radar_tiles=radar_tiles\n    )\n
+    return WeatherComposition(
+        screen=screen, controller=controller, radar=radar, radar_tiles=radar_tiles
+    )
