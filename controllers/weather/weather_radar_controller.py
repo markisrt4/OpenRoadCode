@@ -25,6 +25,8 @@ class WeatherRadarController:
         self._palette = palette
         self._tile_service = tile_service
         self._frame: RadarFrame | None = None
+        self._frames: tuple[RadarFrame, ...] = ()
+        self._frame_index: int | None = None
 
     @property
     def enabled(self) -> bool:
@@ -42,9 +44,33 @@ class WeatherRadarController:
     def opacity(self) -> float:
         return self._opacity
 
+    @property
+    def is_live(self) -> bool:
+        """Return whether the selected frame is the newest available frame."""
+        return bool(self._frames) and self._frame_index == len(self._frames) - 1
+
     def show_latest(self) -> RadarFrame:
-        """Discover the newest frame and make it the visible radar overlay."""
-        frame = self._provider.get_frames()[-1]
+        """Discover available frames and make the newest one visible."""
+        self._frames = tuple(self._provider.get_frames())
+        if not self._frames:
+            raise RuntimeError("radar provider returned no frames")
+        return self._select_frame(len(self._frames) - 1)
+
+    def previous_frame(self) -> RadarFrame:
+        """Select the preceding cached historical frame."""
+        if not self._frames or self._frame_index is None:
+            return self.show_latest()
+        return self._select_frame(max(0, self._frame_index - 1))
+
+    def next_frame(self) -> RadarFrame:
+        """Select the next cached frame, stopping at the live edge."""
+        if not self._frames or self._frame_index is None:
+            return self.show_latest()
+        return self._select_frame(min(len(self._frames) - 1, self._frame_index + 1))
+
+    def _select_frame(self, index: int) -> RadarFrame:
+        frame = self._frames[index]
+        self._frame_index = index
         self._frame = frame
         self._enabled = True
         self._publish_frame(frame)
