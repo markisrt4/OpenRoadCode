@@ -81,9 +81,12 @@ class EcuPanel(tk.Frame):
         # center column breathe as telemetry text changed. Give all three
         # columns the same zero-width basis and let weights alone establish
         # the fixed 27/46/27 split.
-        cockpit.grid_columnconfigure(0, weight=27, minsize=0)
-        cockpit.grid_columnconfigure(1, weight=46, minsize=0)
-        cockpit.grid_columnconfigure(2, weight=27, minsize=0)
+        # Give every column the same uniform group so requested child widths
+        # cannot change the split. Tk then allocates grid units strictly by
+        # weight: 27 / 46 / 27, while normal propagation remains enabled.
+        cockpit.grid_columnconfigure(0, weight=27, uniform="ecu-cockpit")
+        cockpit.grid_columnconfigure(1, weight=46, uniform="ecu-cockpit")
+        cockpit.grid_columnconfigure(2, weight=27, uniform="ecu-cockpit")
         cockpit.grid_rowconfigure(0, weight=1)
 
         left = tk.Frame(cockpit, bg=ui.background)
