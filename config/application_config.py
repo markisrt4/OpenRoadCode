@@ -33,6 +33,19 @@ class AdsbDataSource(str, Enum):
     SIMULATION = "simulation"
 
 
+class SdrSource(str, Enum):
+    RTL_SDR = "rtl_sdr"
+    RTL_TCP = "rtl_tcp"
+
+
+@dataclass(frozen=True, slots=True)
+class SdrSourceConfig:
+    source: SdrSource = SdrSource.RTL_SDR
+    serial: str | None = None
+    host: str = "127.0.0.1"
+    port: int = 1234
+
+
 class StartupPolicy(str, Enum):
     LAZY = "lazy"
     PRELOAD = "preload"
@@ -77,6 +90,7 @@ class ApplicationConfig:
 class ApplicationsConfig:
     browser: BrowserConfig
     apps: tuple[ApplicationConfig, ...]
+    sdr: SdrSourceConfig = SdrSourceConfig()
     presentation_targets: tuple[PresentationTargetConfig, ...] = ()
     default_target: str | None = None
 
@@ -120,6 +134,7 @@ class ApplicationsConfigParser:
 
         root = self._expect_table(data, "root")
         browser = self._parse_browser(root.get("browser", {}))
+        sdr = self._parse_sdr(root.get("sdr", {}))
         targets, default_target = self._parse_presentation(root.get("presentation", {}))
         apps = self._parse_apps(root.get("apps", {}))
         target_keys = {target.key for target in targets}
@@ -128,7 +143,19 @@ class ApplicationsConfigParser:
         for app in apps:
             if app.target is not None and app.target not in target_keys:
                 raise ApplicationConfigError(f"apps.{app.key}.target references unknown presentation target {app.target!r}")
-        return ApplicationsConfig(browser=browser, apps=apps, presentation_targets=targets, default_target=default_target)
+        return ApplicationsConfig(browser=browser, apps=apps, sdr=sdr, presentation_targets=targets, default_target=default_target)
+
+    def _parse_sdr(self, data: Any) -> SdrSourceConfig:
+        section = self._expect_table(data, "sdr")
+        source = self._enum_value(SdrSource, section.get("source", SdrSource.RTL_SDR.value), "sdr.source")
+        rtl_sdr = self._expect_table(section.get("rtl_sdr", {}), "sdr.rtl_sdr")
+        serial = self._optional_string(rtl_sdr, "serial", "sdr.rtl_sdr.serial")
+        rtl_tcp = self._expect_table(section.get("rtl_tcp", {}), "sdr.rtl_tcp")
+        host = self._optional_string(rtl_tcp, "host", "sdr.rtl_tcp.host") or "127.0.0.1"
+        port = rtl_tcp.get("port", 1234)
+        if not isinstance(port, int) or isinstance(port, bool) or not 1 <= port <= 65535:
+            raise ApplicationConfigError("sdr.rtl_tcp.port must be an integer between 1 and 65535")
+        return SdrSourceConfig(source=source, serial=serial, host=host, port=port)
 
     def _parse_browser(self, data: Any) -> BrowserConfig:
         section = self._expect_table(data, "browser")
