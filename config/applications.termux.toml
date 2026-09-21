@@ -4,6 +4,14 @@
 # display. SDR++ starts on Radio selection to avoid covering ORC at startup;
 # other application lifecycle policy mirrors applications.toml.
 
+[sdr]
+# Termux consumes the SDR exposed by the Android bridge over localhost.
+source = "rtl_tcp"
+
+[sdr.rtl_tcp]
+host = "127.0.0.1"
+port = 1234
+
 [browser]
 profile_root = "~/.local/share/openroadcode/browser"
 
