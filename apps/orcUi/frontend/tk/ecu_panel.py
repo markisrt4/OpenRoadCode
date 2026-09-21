@@ -372,21 +372,21 @@ class EcuPanel(tk.Frame):
         # Larger, centered engine now that the old left-side turbo no longer
         # consumes the composition.
         canvas.create_polygon(
-            116*sx, 112*sy, 284*sx, 112*sy, 300*sx, 128*sy,
-            294*sx, 158*sy, 106*sx, 158*sy, 100*sx, 130*sy,
+            105*sx, 112*sy, 265*sx, 112*sy, 280*sx, 128*sy,
+            274*sx, 158*sy, 95*sx, 158*sy, 89*sx, 130*sy,
             fill=ui.surface_alt, outline=intake, width=2,
         )
-        canvas.create_text(200*sx, 136*sy, text="ENGINE", fill=ui.text, font=("Sans", 14, "bold"))
+        canvas.create_text(185*sx, 136*sy, text="ENGINE", fill=ui.text, font=("Sans", 14, "bold"))
         canvas.create_polygon(
-            108*sx, 158*sy, 292*sx, 158*sy, 306*sx, 205*sy,
-            292*sx, 270*sy, 108*sx, 270*sy, 94*sx, 205*sy,
+            97*sx, 158*sy, 274*sx, 158*sy, 286*sx, 205*sy,
+            274*sx, 270*sy, 97*sx, 270*sy, 83*sx, 205*sy,
             fill=ui.surface_alt, outline=ui.border, width=2,
         )
-        canvas.create_rectangle(116*sx, 160*sy, 284*sx, 190*sy, fill=ui.surface, outline=ui.border, width=1)
+        canvas.create_rectangle(105*sx, 160*sy, 265*sx, 190*sy, fill=ui.surface, outline=ui.border, width=1)
 
-        line((126, 170, 274, 170), fill=fuel, width=5)
-        canvas.create_text(200*sx, 164*sy, text="FUEL RAIL", fill=fuel, font=("Sans", 7, "bold"), anchor="s")
-        cylinders = (132, 177, 223, 268)
+        line((115, 170, 255, 170), fill=fuel, width=5)
+        canvas.create_text(185*sx, 164*sy, text="FUEL RAIL", fill=fuel, font=("Sans", 7, "bold"), anchor="s")
+        cylinders = (120, 163, 207, 250)
         for x in cylinders:
             canvas.create_line(x*sx, 171*sy, x*sx, 195*sy, fill=fuel, width=3)
             canvas.create_polygon(
@@ -404,32 +404,34 @@ class EcuPanel(tk.Frame):
             )
             canvas.create_line(x*sx, 231*sy, x*sx, 257*sy, fill=ui.text_muted, width=2)
 
-        # Compact, mechanically truthful hot side. The manifold feeds the
-        # turbine above; the turbine outlet returns as a thin downpipe. The
-        # catalyst lives below the engine where the composition has room.
-        collector_x, collector_y = 286, 248
-        for x in cylinders:
+        # Keep the complete exhaust path outside the engine silhouette.
+        # Runners leave the head to a right-side collector, feed the turbine,
+        # then the turbine outlet descends through O2/catalyst to the tailpipe.
+        collector_x, collector_y = 286, 190
+        for index, x in enumerate(cylinders):
+            runner_y = 190 + index * 8
             canvas.create_line(
-                x*sx, 247*sy, collector_x*sx, collector_y*sy,
+                x*sx, 190*sy, 278*sx, runner_y*sy, collector_x*sx, collector_y*sy,
                 fill=exhaust, width=2, smooth=True,
             )
-        line((collector_x, collector_y, 296, 218, 296, 116, 224, 78), fill=exhaust, width=2)
-        line((226, 72, 252, 76, 276, 96, 276, 292), fill=exhaust, width=2)
+        line((collector_x, collector_y, 304, 164, 304, 110, 224, 78), fill=exhaust, width=2)
+        line((226, 72, 292, 76, 318, 96, 318, 282), fill=exhaust, width=3)
+        canvas.create_text(326*sx, 190*sy, text="EXHAUST", anchor="w", fill=ui.text_muted, font=("Sans", 6, "bold"))
         if analysis.fuel_control_mode is FuelControlMode.CLOSED_LOOP:
-            canvas.create_oval(272*sx, 276*sy, 280*sx, 284*sy, fill=active, outline="")
-            canvas.create_text(268*sx, 280*sy, text="O₂", anchor="e", fill=active, font=("Sans", 6, "bold"))
+            canvas.create_oval(314*sx, 248*sy, 322*sx, 256*sy, fill=active, outline="")
+            canvas.create_text(309*sx, 252*sy, text="O₂", anchor="e", fill=active, font=("Sans", 6, "bold"))
 
         # Compact accessory drive mounted against the bottom of the block.
         # The crank rotates smoothly with RPM while the cylinders remain still.
-        crank_x, crank_y = 200, 266
+        crank_x, crank_y = 185, 266
         accessory_y = 257
         belt = ui.text_muted
         canvas.create_line(
-            200*sx, crank_y*sy, 171*sx, accessory_y*sy,
-            229*sx, accessory_y*sy, 200*sx, crank_y*sy,
+            185*sx, crank_y*sy, 157*sx, accessory_y*sy,
+            213*sx, accessory_y*sy, 185*sx, crank_y*sy,
             fill=belt, width=2, smooth=True,
         )
-        for px, py, radius in ((171, accessory_y, 8), (229, accessory_y, 8), (crank_x, crank_y, 14)):
+        for px, py, radius in ((157, accessory_y, 8), (213, accessory_y, 8), (crank_x, crank_y, 14)):
             canvas.create_oval(
                 (px-radius)*sx, (py-radius)*sy, (px+radius)*sx, (py+radius)*sy,
                 fill=ui.surface, outline=ui.border, width=2,
@@ -443,7 +445,7 @@ class EcuPanel(tk.Frame):
                 (crank_y + math.sin(angle)*10)*sy,
                 fill=intake if analysis.engine_running else ui.text_muted, width=2,
             )
-        for px, direction in ((171, -1.0), (229, 1.0)):
+        for px, direction in ((157, -1.0), (213, 1.0)):
             angle = direction * crank_phase
             canvas.create_line(
                 px*sx, accessory_y*sy,
@@ -452,17 +454,15 @@ class EcuPanel(tk.Frame):
                 fill=ui.text_muted, width=2,
             )
 
-        # Post-turbo catalyst and outlet occupy the otherwise open lower
-        # center without stretching the engine itself.
-        line((276, 292, 248, 306), fill=exhaust, width=2)
+        # Catalyst stays in the dedicated exhaust corridor, never crossing
+        # the engine or accessory drive.
         canvas.create_polygon(
-            210*sx, 299*sy, 218*sx, 294*sy, 246*sx, 294*sy, 254*sx, 299*sy,
-            254*sx, 313*sy, 246*sx, 318*sy, 218*sx, 318*sy, 210*sx, 313*sy,
+            306*sx, 280*sy, 312*sx, 275*sy, 324*sx, 275*sy, 330*sx, 280*sy,
+            330*sx, 298*sy, 324*sx, 303*sy, 312*sx, 303*sy, 306*sx, 298*sy,
             fill=ui.surface_alt, outline=exhaust, width=1,
         )
-        canvas.create_text(232*sx, 306*sy, text="CAT", fill=ui.text_muted, font=("Sans", 6, "bold"))
-        line((210, 306, 178, 306), fill=exhaust, width=2)
-        canvas.create_text(173*sx, 306*sy, text="EXHAUST", anchor="e", fill=ui.text_muted, font=("Sans", 6, "bold"))
+        canvas.create_text(318*sx, 289*sy, text="CAT", fill=ui.text_muted, font=("Sans", 6, "bold"))
+        line((318, 303, 318, 318, 292, 318), fill=exhaust, width=3)
 
         fuel_mode = "CLOSED LOOP" if analysis.fuel_control_mode is FuelControlMode.CLOSED_LOOP else "OPEN LOOP" if analysis.fuel_control_mode is not FuelControlMode.UNKNOWN else "--"
         mixture = {
