@@ -12,8 +12,9 @@ PROJECT_ROOT="$(cd -- "$SCRIPT_DIR/../.." && pwd)"
 
 WRAPPER_SCRIPT="$PROJECT_ROOT/scripts/runtime/start_valhalla.sh"
 
-VALHALLA_CONFIG="${1:-/opt/valhalla/valhalla.json}"
+VALHALLA_CONFIG="${1:-/srv/openroadcode/valhalla/valhalla.json}"
 VALHALLA_WORKERS="${2:-1}"
+VALHALLA_BIN="${VALHALLA_BIN:-/opt/openroadcode/navigation/valhalla/bin/valhalla_service}"
 
 if [[ ! -f "$WRAPPER_SCRIPT" ]]; then
     echo "Wrapper script not found: $WRAPPER_SCRIPT" >&2
@@ -25,8 +26,9 @@ if [[ ! -f "$VALHALLA_CONFIG" ]]; then
     exit 1
 fi
 
-if ! command -v valhalla_service >/dev/null 2>&1; then
-    echo "valhalla_service is not available in PATH." >&2
+if [[ ! -x "$VALHALLA_BIN" ]]; then
+    echo "Valhalla service executable not found: $VALHALLA_BIN" >&2
+    echo "Run scripts/installers/install_navigation_stack.sh before installing runtime services." >&2
     exit 1
 fi
 
@@ -54,6 +56,7 @@ WorkingDirectory=$PROJECT_ROOT
 
 Environment=VALHALLA_CONFIG=$VALHALLA_CONFIG
 Environment=VALHALLA_WORKERS=$VALHALLA_WORKERS
+Environment=VALHALLA_BIN=$VALHALLA_BIN
 
 ExecStart=$WRAPPER_SCRIPT
 

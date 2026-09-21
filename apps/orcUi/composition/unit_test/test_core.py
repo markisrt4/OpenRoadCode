@@ -20,6 +20,7 @@ class CoreCompositionTest(unittest.TestCase):
         vehicle_configuration = VehicleConfigurationState(VehicleConfiguration())
         map_runtime = Mock()
         map_camera = Mock()
+        route_handler = Mock()
         telemetry_profile_request = Mock()
         ingress = Mock()
         trip_runtime = Mock()
@@ -33,6 +34,7 @@ class CoreCompositionTest(unittest.TestCase):
             vehicle_configuration=vehicle_configuration,
             map_runtime=map_runtime,
             map_camera=map_camera,
+            route_request_handler=route_handler,
             telemetry_profile_request=telemetry_profile_request,
             state_ingress=ingress,
             trip_runtime=trip_runtime,
@@ -53,6 +55,7 @@ class CoreCompositionTest(unittest.TestCase):
         ingress.close.assert_called_once_with()
         trip_publisher.close.assert_called_once_with()
         telemetry_profile_publisher.close.assert_called_once_with()
+        route_handler.close.assert_called_once_with()
         map_camera.close.assert_called_once_with()
         map_runtime.stop.assert_called_once_with()
 
@@ -63,6 +66,8 @@ class CoreCompositionTest(unittest.TestCase):
     @patch("apps.orcUi.composition.core.SystemVolumeHandler")
     @patch("apps.orcUi.composition.core.SystemLifecycleController")
     @patch("apps.orcUi.composition.core.StateIngressRuntime")
+    @patch("apps.orcUi.composition.core.NavigationRouteRequestHandler")
+    @patch("apps.orcUi.composition.core.NavigationCommandClient")
     @patch("apps.orcUi.composition.core.OrcUiApp")
     @patch("apps.orcUi.composition.core.MapCameraRuntime")
     @patch("apps.orcUi.composition.core.MapRuntime")
@@ -71,6 +76,8 @@ class CoreCompositionTest(unittest.TestCase):
         map_runtime_type: Mock,
         map_camera_type: Mock,
         app_type: Mock,
+        command_client_type: Mock,
+        route_handler_type: Mock,
         ingress_type: Mock,
         lifecycle_type: Mock,
         volume_type: Mock,
@@ -85,6 +92,8 @@ class CoreCompositionTest(unittest.TestCase):
         audio = audio_type.return_value
         volume = volume_type.return_value
         app = app_type.return_value
+        command_client = command_client_type.return_value
+        route_handler = route_handler_type.return_value
 
         core = create_core_composition()
 
@@ -93,6 +102,8 @@ class CoreCompositionTest(unittest.TestCase):
             pitch_rad=math.radians(45.0),
             follow_enabled=True,
         )
+        command_client_type.assert_called_once_with()
+        route_handler_type.assert_called_once_with(command_client)
         app_type.assert_called_once()
         app_kwargs = app_type.call_args.kwargs
         self.assertIs(app_kwargs["lifecycle_handler"], lifecycle)
@@ -114,11 +125,13 @@ class CoreCompositionTest(unittest.TestCase):
         self.assertIs(ingress_kwargs["apply_trip_state"].__self__, core.presentation)
         self.assertIs(ingress_kwargs["apply_position_state"].__self__, core.presentation)
         self.assertIs(ingress_kwargs["apply_attitude_state"].__self__, core.presentation)
+        self.assertIs(ingress_kwargs["apply_route_guidance_state"].__self__, core.presentation)
         self.assertIs(ingress_kwargs["apply_weather_alert"].__self__, core.presentation)
         self.assertIsNotNone(ingress_kwargs["vehicle_configuration"])
         self.assertIs(core.app, app)
         self.assertIs(core.map_runtime, map_runtime)
         self.assertIs(core.map_camera, map_camera)
+        self.assertIs(core.route_request_handler, route_handler)
         self.assertIs(core.state_ingress, ingress_type.return_value)
         self.assertIs(core.trip_runtime, trip_runtime_type.return_value)
         self.assertIs(core.trip_publisher, publisher_type.return_value)

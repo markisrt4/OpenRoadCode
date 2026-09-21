@@ -14,6 +14,16 @@ if ! command -v "$CONTAINER_ENGINE" >/dev/null 2>&1; then
     exit 1
 fi
 
+CONTAINER_CMD=("$CONTAINER_ENGINE")
+if ! "$CONTAINER_ENGINE" info >/dev/null 2>&1; then
+    if command -v sudo >/dev/null 2>&1 && sudo "$CONTAINER_ENGINE" info >/dev/null 2>&1; then
+        CONTAINER_CMD=(sudo "$CONTAINER_ENGINE")
+    else
+        echo "Unable to access the $CONTAINER_ENGINE daemon as the current user or through sudo." >&2
+        exit 1
+    fi
+fi
+
 resolve_base_image() {
     if [[ -n "${BASE_IMAGE:-}" ]]; then
         printf '%s\n' "$BASE_IMAGE"
@@ -54,11 +64,11 @@ resolve_base_image() {
 
 BASE_IMAGE="$(resolve_base_image)"
 
-echo "Building $IMAGE_NAME using $CONTAINER_ENGINE"
+echo "Building $IMAGE_NAME using ${CONTAINER_CMD[*]}"
 echo "  host:  $(. /etc/os-release; printf '%s %s' "${ID:-unknown}" "${VERSION_ID:-unknown}")"
 echo "  base:  $BASE_IMAGE"
 
-"$CONTAINER_ENGINE" build \
+"${CONTAINER_CMD[@]}" build \
     --build-arg "BASE_IMAGE=$BASE_IMAGE" \
     --tag "$IMAGE_NAME" \
     "$SCRIPT_DIR"

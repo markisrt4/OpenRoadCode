@@ -14,6 +14,7 @@ from apps.orcUi.navigation_presenter import (
 )
 from apps.orcUi.trip_presenter import TripPresentationState
 from apps.orcUi.vehicle_presenter import VehiclePresentationState
+from messaging.contracts.route_guidance import RouteGuidanceStateMessage
 from ui.weather import WeatherAlertUiEvent
 from controllers.automotive import (
     EngineAnalysis,
@@ -56,6 +57,7 @@ class OrcUiPresentationState:
     attitude: AttitudePresentationState = field(default_factory=AttitudePresentationState)
     engine_analysis: EngineAnalysis = field(default_factory=_empty_engine_analysis)
     weather_alert: WeatherAlertUiEvent | None = None
+    route_guidance: RouteGuidanceStateMessage | None = None
     _vehicle_observers: list[Callable[[VehiclePresentationState], None]] = field(
         default_factory=list,
         init=False,
@@ -77,6 +79,11 @@ class OrcUiPresentationState:
         repr=False,
     )
     _weather_alert_observers: list[Callable[[WeatherAlertUiEvent | None], None]] = field(
+        default_factory=list,
+        init=False,
+        repr=False,
+    )
+    _route_guidance_observers: list[Callable[[RouteGuidanceStateMessage], None]] = field(
         default_factory=list,
         init=False,
         repr=False,
@@ -122,6 +129,13 @@ class OrcUiPresentationState:
         """Subscribe to future shell-level Weather alert changes."""
         self._weather_alert_observers.append(observer)
 
+    def observe_route_guidance(
+        self,
+        observer: Callable[[RouteGuidanceStateMessage], None],
+    ) -> None:
+        """Subscribe to future route-guidance presentation updates."""
+        self._route_guidance_observers.append(observer)
+
     def observe_engine_analysis(
         self,
         observer: Callable[[EngineAnalysis], None],
@@ -163,6 +177,11 @@ class OrcUiPresentationState:
             return
         for observer in tuple(self._weather_alert_observers):
             observer(self.weather_alert)
+
+    def apply_route_guidance(self, state: RouteGuidanceStateMessage) -> None:
+        self.route_guidance = state
+        for observer in tuple(self._route_guidance_observers):
+            observer(state)
 
     def apply_engine_analysis(self, analysis: EngineAnalysis) -> None:
         self.engine_analysis = analysis

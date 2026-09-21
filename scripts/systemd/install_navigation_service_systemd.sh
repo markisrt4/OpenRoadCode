@@ -41,8 +41,8 @@ chmod +x "$WRAPPER_SCRIPT"
 cat > "$SERVICE_FILE" <<EOF
 [Unit]
 Description=OpenRoadCode Navigation Service
-After=network.target gpsd.service openroadcode-zmq.service valhalla.service
-Wants=network.target openroadcode-zmq.service
+After=network.target gpsd.service openroadcode-message-broker.service valhalla.service
+Wants=network.target openroadcode-message-broker.service
 
 [Service]
 Type=simple
@@ -50,11 +50,7 @@ User=$RUN_USER
 WorkingDirectory=$PROJECT_ROOT
 Environment=PYTHONUNBUFFERED=1
 Environment=OPENROADCODE_PYTHON=$PYTHON_BIN
-<<<<<<< ours
-Environment=OPENROADCODE_RUNTIME_CONFIG=$RUNTIME_CONFIG
-=======
 EnvironmentFile=-/var/lib/openroadcode/service-profiles/openroadcode-navigation.env
->>>>>>> theirs
 ExecStart=$WRAPPER_SCRIPT
 Restart=on-failure
 RestartSec=2

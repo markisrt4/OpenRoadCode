@@ -19,11 +19,15 @@ from controllers.automotive import AutomotiveTelemetryProfile, TripTracker
 from controllers.automotive.vehicle_settings_store import VehicleSettingsStore
 from controllers.automotive.fuel_model import FuelModel
 from controllers.map_renderer.map_camera_runtime import MapCameraRuntime
+from controllers.navigation.navigation_route_request_handler import (
+    NavigationRouteRequestHandler,
+)
 from controllers.system import SystemLifecycleController
 from messaging.contracts.automotive import AutomotiveTelemetryProfileRequestPublisher
 from messaging.zeromq import ZeroMqPublisher, ZeroMqSubscriber
 from messaging.zeromq.endpoints import LOCAL_PUBLISHER_ENDPOINT, LOCAL_SUBSCRIBER_ENDPOINT
 from services.automotive.automotive_service_cli import DEFAULT_RUNTIME_CONFIG
+from services.navigation.navigation_command_client import NavigationCommandClient
 from services.trip import TripRuntime
 from ui.theme import ThemeMode
 
@@ -37,6 +41,7 @@ class CoreComposition:
     vehicle_configuration: VehicleConfigurationState
     map_runtime: MapRuntime
     map_camera: MapCameraRuntime
+    route_request_handler: NavigationRouteRequestHandler
     telemetry_profile_request: Callable[[AutomotiveTelemetryProfile], None]
     state_ingress: StateIngressRuntime
     trip_runtime: TripRuntime
@@ -65,9 +70,12 @@ class CoreComposition:
                         self.telemetry_profile_publisher.close()
                     finally:
                         try:
-                            self.map_camera.close()
+                            self.route_request_handler.close()
                         finally:
-                            self.map_runtime.stop()
+                            try:
+                                self.map_camera.close()
+                            finally:
+                                self.map_runtime.stop()
 
 
 def create_core_composition() -> CoreComposition:
@@ -78,6 +86,7 @@ def create_core_composition() -> CoreComposition:
         pitch_rad=math.radians(45.0),
         follow_enabled=True,
     )
+    route_request_handler = NavigationRouteRequestHandler(NavigationCommandClient())
     lifecycle = SystemLifecycleController()
     presentation = OrcUiPresentationState()
     runtime_config = ServiceRuntimeConfigParser(DEFAULT_RUNTIME_CONFIG).load()
@@ -98,6 +107,7 @@ def create_core_composition() -> CoreComposition:
             lifecycle_handler=lifecycle,
         )
     except Exception:
+        route_request_handler.close()
         telemetry_profile_publisher.close()
         map_camera.close()
         raise
@@ -114,6 +124,7 @@ def create_core_composition() -> CoreComposition:
         apply_trip_state=presentation.apply_trip,
         apply_position_state=presentation.apply_position,
         apply_attitude_state=presentation.apply_attitude,
+        apply_route_guidance_state=presentation.apply_route_guidance,
         apply_weather_alert=presentation.apply_weather_alert,
         vehicle_configuration=vehicle_configuration.configuration,
     )
@@ -138,6 +149,7 @@ def create_core_composition() -> CoreComposition:
         vehicle_configuration=vehicle_configuration,
         map_runtime=map_runtime,
         map_camera=map_camera,
+        route_request_handler=route_request_handler,
         telemetry_profile_request=telemetry_profile_request,
         state_ingress=state_ingress,
         trip_runtime=trip_runtime,

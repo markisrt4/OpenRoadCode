@@ -1,0 +1,340 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
+import math
+
+from controllers.poi import (
+    PoiActionKind,
+    PoiCategory,
+    PoiSearchBounds,
+    PoiSearchController,
+    PoiSearchQuery,
+    PointOfInterest,
+)
+from protocols.map_renderer.map_poi_source import (
+    RawMapClick,
+    RawMapPoi,
+    RawPoiSearchResult,
+)
+from ui.navigation import GeoPoint
+
+
+class FakeMapPoiSource:
+    def __init__(
+        self,
+        selected: RawMapPoi | None = None,
+        click: RawMapClick | None = None,
+    ) -> None:
+        self.selected = selected
+        self.click = click
+        self.cleared = False
+        self.closed = False
+
+    def poll_selected(self) -> RawMapPoi | None:
+        selected, self.selected = self.selected, None
+        return selected
+
+    def poll_click(self) -> RawMapClick | None:
+        click, self.click = self.click, None
+        return click
+
+    def clear(self) -> None:
+        self.cleared = True
+
+    def close(self) -> None:
+        self.closed = True
+
+
+class FakeViewportMapPoiSource(FakeMapPoiSource):
+    def __init__(self) -> None:
+        super().__init__()
+        self.requested_categories: list[str] = []
+        self.search_result: RawPoiSearchResult | None = None
+
+    def request_search(self, category: str) -> None:
+        self.requested_categories.append(category)
+
+    def poll_search_result(self) -> RawPoiSearchResult | None:
+        result, self.search_result = self.search_result, None
+        return result
+
+
+class FakeSearchSource:
+    def __init__(self, results: tuple[PointOfInterest, ...] = ()) -> None:
+        self.results = results
+        self.queries: list[PoiSearchQuery] = []
+        self.closed = False
+
+    def search(self, query: PoiSearchQuery) -> tuple[PointOfInterest, ...]:
+        self.queries.append(query)
+        return self.results
+
+    def close(self) -> None:
+        self.closed = True
+
+
+def _position() -> GeoPoint:
+    return GeoPoint(math.radians(42.80), math.radians(-83.01))
+
+
+def test_search_uses_offline_source_near_current_position() -> None:
+    result_poi = PointOfInterest(
+        poi_id="fuel-1",
+        name="Fuel",
+        category=PoiCategory.FUEL,
+        position=GeoPoint(math.radians(42.81), math.radians(-83.02)),
+    )
+    map_source = FakeMapPoiSource()
+    search_source = FakeSearchSource((result_poi,))
+    controller = PoiSearchController(
+        map_source,  # type: ignore[arg-type]
+        search_source=search_source,
+        position_provider=_position,
+    )
+
+    controller.search(PoiCategory.FUEL)
+
+    assert len(search_source.queries) == 1
+    query = search_source.queries[0]
+    assert query.category is PoiCategory.FUEL
+    assert query.bounds.south < 42.80 < query.bounds.north
+    assert query.bounds.west < -83.01 < query.bounds.east
+
+    result = controller.poll_search_result()
+    assert result is not None
+    assert result.category is PoiCategory.FUEL
+    assert result.count == 1
+    assert math.isclose(result.south, 42.81)
+    assert math.isclose(result.west, -83.02)
+
+
+def test_search_without_position_returns_empty_result() -> None:
+    search_source = FakeSearchSource()
+    controller = PoiSearchController(
+        FakeMapPoiSource(),  # type: ignore[arg-type]
+        search_source=search_source,
+        position_provider=lambda: None,
+    )
+
+    controller.search(PoiCategory.FOOD)
+
+    assert search_source.queries == []
+    result = controller.poll_search_result()
+    assert result is not None
+    assert result.category is PoiCategory.FOOD
+    assert result.count == 0
+
+
+def test_nearby_search_bounds_are_reasonably_local() -> None:
+    search_source = FakeSearchSource()
+    controller = PoiSearchController(
+        FakeMapPoiSource(),  # type: ignore[arg-type]
+        search_source=search_source,
+        position_provider=_position,
+    )
+
+    controller.search(PoiCategory.GROCERY)
+
+    query = search_source.queries[0]
+    assert isinstance(query.bounds, PoiSearchBounds)
+    assert 42.6 < query.bounds.south < 42.8
+    assert 42.8 < query.bounds.north < 43.0
+    assert -83.3 < query.bounds.west < -83.01
+    assert -83.01 < query.bounds.east < -82.7
+
+
+def test_selected_restaurant_is_enriched_with_order_action() -> None:
+    source = FakeMapPoiSource(
+        RawMapPoi(
+            poi_id="poi-1",
+            name="Panera Bread",
+            position=GeoPoint(math.radians(42.8), math.radians(-83.0)),
+            source_class="restaurant",
+        )
+    )
+    controller = PoiSearchController(
+        source,  # type: ignore[arg-type]
+        search_source=FakeSearchSource(),
+        position_provider=_position,
+    )
+    poi = controller.poll_selected()
+    assert poi is not None
+    assert poi.category is PoiCategory.FOOD
+    order = next(action for action in poi.actions if action.label == "ORDER")
+    assert order.kind is PoiActionKind.ORDER
+    assert order.provider_id == "panera"
+    assert order.uri is None
+
+
+def test_map_click_marker_index_selects_exact_visible_poi() -> None:
+    panera = PointOfInterest(
+        poi_id="panera",
+        name="Panera Bread",
+        category=PoiCategory.FOOD,
+        position=GeoPoint(math.radians(42.8000), math.radians(-83.0000)),
+    )
+    other = PointOfInterest(
+        poi_id="other",
+        name="Other Cafe",
+        category=PoiCategory.FOOD,
+        position=GeoPoint(math.radians(42.8020), math.radians(-83.0020)),
+    )
+    source = FakeMapPoiSource(
+        click=RawMapClick(
+            position=GeoPoint(0.0, 0.0),
+            selection_radius_m=1.0,
+            marker_id="panera",
+            marker_index=0,
+        )
+    )
+    controller = PoiSearchController(
+        source,  # type: ignore[arg-type]
+        search_source=FakeSearchSource((panera, other)),
+        position_provider=_position,
+    )
+
+    controller.search(PoiCategory.FOOD)
+    controller.poll_search_result()
+    selected = controller.poll_selected()
+
+    assert selected is not None
+    assert selected.poi_id == "panera"
+
+
+def test_map_click_selects_nearest_visible_poi_and_enriches_business() -> None:
+    panera = PointOfInterest(
+        poi_id="panera",
+        name="Panera Bread",
+        category=PoiCategory.FOOD,
+        position=GeoPoint(math.radians(42.8000), math.radians(-83.0000)),
+    )
+    other = PointOfInterest(
+        poi_id="other",
+        name="Other Cafe",
+        category=PoiCategory.FOOD,
+        position=GeoPoint(math.radians(42.8020), math.radians(-83.0020)),
+    )
+    source = FakeMapPoiSource(
+        click=RawMapClick(
+            position=GeoPoint(math.radians(42.80005), math.radians(-83.00005)),
+            selection_radius_m=100.0,
+        )
+    )
+    controller = PoiSearchController(
+        source,  # type: ignore[arg-type]
+        search_source=FakeSearchSource((panera, other)),
+        position_provider=_position,
+    )
+
+    controller.search(PoiCategory.FOOD)
+    controller.poll_search_result()
+    selected = controller.poll_selected()
+
+    assert selected is not None
+    assert selected.poi_id == "panera"
+    order = next(action for action in selected.actions if action.label == "ORDER")
+    assert order.provider_id == "panera"
+
+
+def test_fuel_subclass_is_classified_as_fuel() -> None:
+    source = FakeMapPoiSource(
+        RawMapPoi(
+            poi_id="poi-2",
+            name="Fuel Stop",
+            position=GeoPoint(0.0, 0.0),
+            source_class="shop",
+            source_subclass="fuel",
+        )
+    )
+    controller = PoiSearchController(
+        source,  # type: ignore[arg-type]
+        search_source=FakeSearchSource(),
+        position_provider=_position,
+    )
+    poi = controller.poll_selected()
+    assert poi is not None
+    assert poi.category is PoiCategory.FUEL
+
+
+def test_search_excludes_pois_outside_true_nearby_radius() -> None:
+    outside_circle = PointOfInterest(
+        poi_id="corner",
+        name="Bounding Box Corner",
+        category=PoiCategory.FOOD,
+        position=GeoPoint(math.radians(42.97), math.radians(-82.79)),
+    )
+    search_source = FakeSearchSource((outside_circle,))
+    controller = PoiSearchController(
+        FakeMapPoiSource(),  # type: ignore[arg-type]
+        search_source=search_source,
+        position_provider=_position,
+    )
+
+    controller.search(PoiCategory.FOOD)
+
+    result = controller.poll_search_result()
+    assert result is not None
+    assert result.count == 0
+
+
+def test_renderer_viewport_bounds_drive_offline_search() -> None:
+    source = FakeViewportMapPoiSource()
+    poi = PointOfInterest(
+        poi_id="food-1",
+        name="Visible Cafe",
+        category=PoiCategory.FOOD,
+        position=GeoPoint(math.radians(42.805), math.radians(-83.005)),
+    )
+    search_source = FakeSearchSource((poi,))
+    controller = PoiSearchController(
+        source,  # type: ignore[arg-type]
+        search_source=search_source,
+        position_provider=lambda: None,
+    )
+
+    controller.search(PoiCategory.FOOD)
+    assert source.requested_categories == ["food"]
+    assert search_source.queries == []
+
+    source.search_result = RawPoiSearchResult(
+        category="food",
+        count=0,
+        south=42.79,
+        west=-83.03,
+        north=42.82,
+        east=-82.99,
+    )
+    result = controller.poll_search_result()
+
+    assert result is not None
+    assert result.count == 1
+    assert len(search_source.queries) == 1
+    assert search_source.queries[0].bounds == PoiSearchBounds(
+        south=42.79,
+        west=-83.03,
+        north=42.82,
+        east=-82.99,
+    )
+
+
+def test_clear_discards_late_renderer_viewport_reply() -> None:
+    source = FakeViewportMapPoiSource()
+    search_source = FakeSearchSource()
+    controller = PoiSearchController(
+        source,  # type: ignore[arg-type]
+        search_source=search_source,
+    )
+
+    controller.search(PoiCategory.FUEL)
+    controller.clear()
+    source.search_result = RawPoiSearchResult(
+        category="fuel",
+        count=3,
+        south=42.79,
+        west=-83.03,
+        north=42.82,
+        east=-82.99,
+    )
+
+    assert controller.poll_search_result() is None
+    assert search_source.queries == []

@@ -6,12 +6,23 @@ set -euo pipefail
 
 CONTAINER_ENGINE="${CONTAINER_ENGINE:-docker}"
 IMAGE_NAME="${IMAGE_NAME:-openroadcode-maplibre-builder}"
+CONTAINER_BUILD_NETWORK="${CONTAINER_BUILD_NETWORK:-}"
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 
 if ! command -v "$CONTAINER_ENGINE" >/dev/null 2>&1; then
     echo "Container engine not found: $CONTAINER_ENGINE" >&2
     exit 1
+fi
+
+CONTAINER_CMD=("$CONTAINER_ENGINE")
+if ! "$CONTAINER_ENGINE" info >/dev/null 2>&1; then
+    if command -v sudo >/dev/null 2>&1 && sudo "$CONTAINER_ENGINE" info >/dev/null 2>&1; then
+        CONTAINER_CMD=(sudo "$CONTAINER_ENGINE")
+    else
+        echo "Unable to access the $CONTAINER_ENGINE daemon as the current user or through sudo." >&2
+        exit 1
+    fi
 fi
 
 resolve_base_image() {
@@ -54,12 +65,20 @@ resolve_base_image() {
 }
 
 BASE_IMAGE="$(resolve_base_image)"
+BUILD_NETWORK_ARGS=()
+if [[ -n "$CONTAINER_BUILD_NETWORK" ]]; then
+    BUILD_NETWORK_ARGS+=(--network="$CONTAINER_BUILD_NETWORK")
+fi
 
-echo "Building $IMAGE_NAME using $CONTAINER_ENGINE"
+echo "Building $IMAGE_NAME using ${CONTAINER_CMD[*]}"
 echo "  host:  $(. /etc/os-release; printf '%s %s' "${ID:-unknown}" "${VERSION_ID:-unknown}")"
 echo "  base:  $BASE_IMAGE"
+if [[ -n "$CONTAINER_BUILD_NETWORK" ]]; then
+    echo "  build network: $CONTAINER_BUILD_NETWORK"
+fi
 
-"$CONTAINER_ENGINE" build \
+"${CONTAINER_CMD[@]}" build \
+    "${BUILD_NETWORK_ARGS[@]}" \
     --build-arg "BASE_IMAGE=$BASE_IMAGE" \
     --tag "$IMAGE_NAME" \
     "$SCRIPT_DIR"

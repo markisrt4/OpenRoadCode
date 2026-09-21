@@ -12,21 +12,28 @@ if [[ $EUID -ne 0 ]]; then
     exit 1
 fi
 
-VALHALLA_CONFIG="${1:-/opt/valhalla/valhalla.json}"
+# Keep the systemd installer aligned with the runtime/deployment layout.
+# Navigation data is deployed under /srv/openroadcode, while binaries live
+# under /opt/openroadcode/navigation.
+VALHALLA_CONFIG="${1:-/srv/openroadcode/valhalla/valhalla.json}"
 VALHALLA_WORKERS="${2:-1}"
+NAVIGATION_TARGET="${OPENROADCODE_NAVIGATION_TARGET:-rpi5}"
 
-"$SCRIPT_DIR/install_zeromq_systemd.sh"
+"$SCRIPT_DIR/install_message_broker_systemd.sh"
 "$SCRIPT_DIR/install_valhalla_systemd.sh" "$VALHALLA_CONFIG" "$VALHALLA_WORKERS"
-"$SCRIPT_DIR/install_navigation_service_systemd.sh"
+OPENROADCODE_NAVIGATION_TARGET="$NAVIGATION_TARGET" \
+OPENROADCODE_SEARCH_DATABASE="${OPENROADCODE_SEARCH_DATABASE:-}" \
+    "$SCRIPT_DIR/install_navigation_service_systemd.sh"
 
 systemctl daemon-reload
 
 echo
 echo "OpenRoadCode navigation runtime installed and enabled."
+echo "Target: $NAVIGATION_TARGET"
 echo "Services:"
-echo "  openroadcode-zmq.service"
+echo "  openroadcode-message-broker.service"
 echo "  valhalla.service"
 echo "  openroadcode-navigation.service"
 echo
 echo "Check with:"
-echo "  systemctl --no-pager --full status openroadcode-zmq valhalla openroadcode-navigation"
+echo "  systemctl --no-pager --full status openroadcode-message-broker valhalla openroadcode-navigation"

@@ -37,6 +37,11 @@ from messaging.contracts.navigation import (
     decode_attitude_state,
     decode_position_state,
 )
+from messaging.contracts.route_guidance import (
+    ROUTE_GUIDANCE_STATE_TOPIC,
+    RouteGuidanceStateMessage,
+    decode_route_guidance_state,
+)
 from messaging.contracts.weather import WEATHER_ALERT_TOPIC, decode_weather_alert
 from messaging.message_dispatcher import MessageDispatcher
 from messaging.zeromq import ZeroMqSubscriber
@@ -89,6 +94,7 @@ class StateIngressRuntime:
         vehicle_configuration: VehicleConfiguration = VehicleConfiguration(),
         apply_position_state: Callable[[PositionPresentationState], None],
         apply_attitude_state: Callable[[AttitudePresentationState], None],
+        apply_route_guidance_state: Callable[[RouteGuidanceStateMessage], None],
         apply_weather_alert: Callable[[WeatherAlertPresentationState], None] = lambda _state: None,
         dispatcher: MessageDispatcher | None = None,
     ) -> None:
@@ -99,6 +105,7 @@ class StateIngressRuntime:
         self._apply_trip_state = apply_trip_state
         self._apply_position_state = apply_position_state
         self._apply_attitude_state = apply_attitude_state
+        self._apply_route_guidance_state = apply_route_guidance_state
         self._apply_weather_alert = apply_weather_alert
         self._pending_ui: SimpleQueue[Callable[[], None]] = SimpleQueue()
         self._closing = False
@@ -125,6 +132,11 @@ class StateIngressRuntime:
             ATTITUDE_STATE_TOPIC,
             decode_attitude_state,
             self._on_attitude_message,
+        )
+        self._dispatcher.register(
+            ROUTE_GUIDANCE_STATE_TOPIC,
+            decode_route_guidance_state,
+            self._on_route_guidance_message,
         )
         self._dispatcher.register(
             WEATHER_ALERT_TOPIC,
@@ -206,6 +218,9 @@ class StateIngressRuntime:
     def _on_attitude_message(self, message) -> None:
         state = NavigationPresenter.present_attitude(message.data)
         self._schedule_state(lambda: self._apply_attitude_state(state))
+
+    def _on_route_guidance_message(self, message: RouteGuidanceStateMessage) -> None:
+        self._schedule_state(lambda: self._apply_route_guidance_state(message))
 
     def _on_weather_alert_message(self, message) -> None:
         state = WeatherAlertPresenter.present(message.data)

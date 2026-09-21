@@ -88,21 +88,63 @@ def print_validation_summary(result: dict, root: Path) -> None:
     print(f"  Output:                {root}")
 
 
+def reusable_build_for_regions(selected, *, root: Path, service_smoke: bool) -> dict | None:
+    """Return validation data when an existing build matches the requested regions."""
+    manifest_path = root / "build-manifest.json"
+    if not manifest_path.is_file():
+        return None
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError, TypeError):
+        return None
+
+    manifest_regions = manifest.get("regions")
+    if not isinstance(manifest_regions, list):
+        return None
+    existing_ids = sorted(
+        item.get("id") for item in manifest_regions if isinstance(item, dict) and item.get("id")
+    )
+    requested_ids = sorted(region.id for region in selected)
+    if existing_ids != requested_ids:
+        return None
+
+    try:
+        return validate_output(root, service_smoke=service_smoke)
+    except (OSError, ValueError, ValidationError, RuntimeError):
+        return None
+
+
 def run_build(selected, *, clean: bool, service_smoke: bool) -> tuple[dict, float]:
     started = time.monotonic()
     result = build_regions(selected, clean=clean, service_smoke=service_smoke)
     return result, time.monotonic() - started
 
 
+def build_or_reuse(selected, *, clean: bool, service_smoke: bool, force: bool) -> tuple[dict, float, bool]:
+    if not force:
+        result = reusable_build_for_regions(
+            selected,
+            root=OUTPUT_ROOT,
+            service_smoke=service_smoke,
+        )
+        if result is not None:
+            print("Existing validated build matches requested regions; reusing it.")
+            return result, 0.0, True
+    result, elapsed = run_build(selected, clean=clean, service_smoke=service_smoke)
+    return result, elapsed, False
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Build offline OpenRoadCode map and Valhalla data")
     parser.add_argument("--refresh-index", action="store_true", help="refresh Geofabrik's region catalog")
     sub = parser.add_subparsers(dest="command")
-    sub.add_parser("tui", help="interactive multi-region selector")
+    tui = sub.add_parser("tui", help="interactive multi-region selector")
+    tui.add_argument("--force", action="store_true", help="rebuild even when matching validated output exists")
     build = sub.add_parser("build", help="build one or more region IDs")
     build.add_argument("--regions", required=True, help="comma-separated Geofabrik IDs")
     build.add_argument("--no-clean", action="store_true", help="do not clean prior generated output")
     build.add_argument("--no-service-smoke", action="store_true", help="skip Valhalla /status smoke test")
+    build.add_argument("--force", action="store_true", help="rebuild even when matching validated output exists")
     validate = sub.add_parser("validate", help="validate existing generated output")
     validate.add_argument("--service-smoke", action="store_true")
     validate.add_argument("--json", action="store_true", help="also print raw validation JSON")
@@ -127,13 +169,17 @@ def main() -> int:
             return 0
         if command == "build":
             selected = resolve_region_ids(regions, [x.strip() for x in args.regions.split(",") if x.strip()])
-            result, elapsed = run_build(
+            result, elapsed, reused = build_or_reuse(
                 selected,
                 clean=not args.no_clean,
                 service_smoke=not args.no_service_smoke,
+                force=args.force,
             )
             print(json.dumps(result, indent=2))
-            print_build_summary(selected, elapsed)
+            if reused:
+                print_validation_summary(result, OUTPUT_ROOT)
+            else:
+                print_build_summary(selected, elapsed)
             return 0
         try:
             saved_region_ids = load_region_ids(SELECTION_PATH)
@@ -155,9 +201,17 @@ def main() -> int:
         if answer != "y":
             print("Cancelled")
             return 0
-        result, elapsed = run_build(selected, clean=True, service_smoke=True)
+        result, elapsed, reused = build_or_reuse(
+            selected,
+            clean=True,
+            service_smoke=True,
+            force=getattr(args, "force", False),
+        )
         print(json.dumps(result, indent=2))
-        print_build_summary(selected, elapsed)
+        if reused:
+            print_validation_summary(result, OUTPUT_ROOT)
+        else:
+            print_build_summary(selected, elapsed)
         return 0
     except (ValueError, ValidationError, RuntimeError) as exc:
         print("\n========================================", file=sys.stderr)

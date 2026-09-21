@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: MIT
 
 """Validate generated OpenRoadCode map artifacts."""
+
 from __future__ import annotations
 
 import gzip
@@ -130,9 +131,8 @@ def _validate_geometry(
                 y += _decode_zigzag32(values[index + 1])
                 index += 2
                 if not (min_coord <= x <= max_coord and min_coord <= y <= max_coord):
-                    identity = (
-                        f"layer={layer_name!r} feature_index={feature_index}"
-                        + (f" feature_id={feature_id}" if feature_id is not None else "")
+                    identity = f"layer={layer_name!r} feature_index={feature_index}" + (
+                        f" feature_id={feature_id}" if feature_id is not None else ""
                     )
                     raise ValueError(
                         "paths outside valid range of coordinate_type: "
@@ -207,10 +207,7 @@ def _vector_tile_rows(db, tile_count):
     if limit <= 0:
         return ()
     zooms = [
-        row[0]
-        for row in db.execute(
-            "SELECT DISTINCT zoom_level FROM tiles ORDER BY zoom_level"
-        )
+        row[0] for row in db.execute("SELECT DISTINCT zoom_level FROM tiles ORDER BY zoom_level")
     ]
     per_zoom = max(1, limit // max(1, len(zooms)))
     rows = []
@@ -235,8 +232,7 @@ def validate_vector_tiles(db, tile_count):
         except Exception as exc:
             xyz_row = (1 << zoom) - 1 - row
             raise ValidationError(
-                f"Invalid vector tile z={zoom} x={column} "
-                f"tms_y={row} xyz_y={xyz_row}: {exc}"
+                f"Invalid vector tile z={zoom} x={column} tms_y={row} xyz_y={xyz_row}: {exc}"
             ) from exc
         checked += 1
         features += decoded["features"]
@@ -262,9 +258,7 @@ def validate_mbtiles(path):
     }
     missing = {"transportation", "transportation_name"} - layers
     if missing:
-        raise ValidationError(
-            "MBTiles missing required layer(s): " + ", ".join(sorted(missing))
-        )
+        raise ValidationError("MBTiles missing required layer(s): " + ", ".join(sorted(missing)))
     return {
         "tiles": tile_count,
         "layers": sorted(item for item in layers if item),
@@ -292,9 +286,48 @@ def validate_style(path, available_layers=None):
         missing = referenced - set(available_layers)
         if missing:
             raise ValidationError(
-                "Style references unavailable MBTiles layer(s): "
-                + ", ".join(sorted(missing))
+                "Style references unavailable MBTiles layer(s): " + ", ".join(sorted(missing))
             )
+
+
+def validate_search_index(path):
+    if not path.is_file() or path.stat().st_size == 0:
+        raise ValidationError(f"Missing/empty POI search index: {path}")
+    with sqlite3.connect(path) as db:
+        integrity = db.execute("PRAGMA integrity_check").fetchone()[0]
+        if integrity != "ok":
+            raise ValidationError(f"POI search index integrity failed: {integrity}")
+        tables = {row[0] for row in db.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+        if not tables:
+            raise ValidationError("POI search index contains no tables")
+
+        if "poi" not in tables:
+            raise ValidationError("POI search index is missing required poi table")
+
+        poi_columns = {row[1] for row in db.execute("PRAGMA table_info(poi)")}
+        required_poi_columns = {
+            "id",
+            "name",
+            "brand",
+            "latitude",
+            "longitude",
+            "category",
+            "class",
+            "subclass",
+            "transit_mode",
+        }
+        missing_columns = required_poi_columns - poi_columns
+        if missing_columns:
+            raise ValidationError(
+                "POI search index is missing required column(s): "
+                + ", ".join(sorted(missing_columns))
+            )
+
+    return {
+        "bytes": path.stat().st_size,
+        "tables": sorted(tables),
+        "poi_columns": sorted(poi_columns),
+    }
 
 
 def validate_glyphs(path):
@@ -359,10 +392,12 @@ def validate_output(root, *, service_smoke=False):
     mbtiles = root / "maps/vector/openroadcode.mbtiles"
     style = root / "maps/styles/openroadcode.json"
     valhalla = root / "valhalla"
+    search_index = root / "maps/search/openroadcode-search.sqlite"
     result = {
         "source_pbfs": len(pbfs),
         "mbtiles": validate_mbtiles(mbtiles),
         "glyph_files": validate_glyphs(root / "maps/glyphs"),
+        "search_index": validate_search_index(search_index),
         "valhalla": validate_valhalla(valhalla, service_smoke=service_smoke),
     }
     validate_style(style, result["mbtiles"]["layers"])
@@ -370,5 +405,6 @@ def validate_output(root, *, service_smoke=False):
         "mbtiles": sha256(mbtiles),
         "style": sha256(style),
         "valhalla_extract": sha256(valhalla / "tiles.tar"),
+        "search_index": sha256(search_index),
     }
     return result

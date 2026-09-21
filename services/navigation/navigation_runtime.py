@@ -8,7 +8,9 @@ from __future__ import annotations
 import threading
 import time
 
+from controllers.navigation.geocoding import GeocoderIf
 from controllers.navigation.navigation_controller_if import NavigationControllerIf
+from controllers.navigation.route_simulation_if import RouteSimulationIf
 from controllers.navigation_session.navigation_session_controller import NavigationSessionController
 from controllers.route_guidance import ReroutePolicy
 from controllers.route_guidance.route_guidance_controller import RouteGuidanceController
@@ -38,6 +40,8 @@ class NavigationRuntime:
         command_endpoint: str = DEFAULT_NAVIGATION_COMMAND_ENDPOINT,
         route_planning_controller: RoutePlanningControllerIf | None = None,
         guidance_controller: RouteGuidanceController | None = None,
+        geocoder: GeocoderIf | None = None,
+        route_simulator: RouteSimulationIf | None = None,
     ) -> None:
         if rate_hz <= 0.0:
             raise ValueError("rate_hz must be greater than zero")
@@ -50,6 +54,7 @@ class NavigationRuntime:
         self._period_s = 1.0 / rate_hz
         self._route_planning_controller = route_planning_controller
         self._guidance_controller = guidance_controller
+        self._route_simulator = route_simulator
         self._session_controller: NavigationSessionController | None = None
 
         if route_planning_controller is not None and guidance_controller is not None:
@@ -63,11 +68,18 @@ class NavigationRuntime:
             NavigationCommandService(
                 controller,
                 route_planning_controller=route_planning_controller,
+                geocoder=geocoder,
                 on_route_started=(
                     self._activate_route if route_planning_controller is not None else None
                 ),
                 on_route_cancelled=(
                     self._cancel_route if route_planning_controller is not None else None
+                ),
+                on_route_simulation_started=(
+                    self._start_route_simulation if route_simulator is not None else None
+                ),
+                on_route_simulation_stopped=(
+                    self._stop_route_simulation if route_simulator is not None else None
                 ),
             ),
             command_endpoint,
@@ -136,6 +148,7 @@ class NavigationRuntime:
     def close(self) -> None:
         """Stop command handling, cancel guidance, and release the controller."""
         self._stop_event.set()
+        self._stop_route_simulation()
         self._cancel_route()
         self._command_server.close()
         thread = self._command_thread
@@ -173,18 +186,40 @@ class NavigationRuntime:
         if session is not None:
             session.cancel()
 
+    def _start_route_simulation(self, time_scale: float) -> None:
+        simulator = self._route_simulator
+        session = self._session_controller
+        if simulator is None:
+            raise RuntimeError("route simulation is not configured")
+        if session is None or session.state is None:
+            raise RuntimeError("no active route to simulate")
+        simulator.follow_route(session.state.route, time_scale=time_scale)
+
+    def _stop_route_simulation(self) -> None:
+        simulator = self._route_simulator
+        if simulator is not None:
+            simulator.stop_route()
+
     def _update_guidance(self, state) -> None:
         session = self._session_controller
         guidance_controller = self._guidance_controller
-        gps = getattr(state, "gps", None)
-        if session is None or guidance_controller is None or gps is None or not gps.has_fix:
+        position_state = getattr(state, "position", None)
+        if (
+            session is None
+            or guidance_controller is None
+            or position_state is None
+            or not position_state.has_fix
+        ):
             return
-        if gps.latitude_deg is None or gps.longitude_deg is None:
+        if (
+            position_state.latitude_deg is None
+            or position_state.longitude_deg is None
+        ):
             return
 
         position = GeoPoint(
-            latitude=gps.latitude_deg,
-            longitude=gps.longitude_deg,
+            latitude=position_state.latitude_deg,
+            longitude=position_state.longitude_deg,
         )
         guidance = guidance_controller.update(position)
         self._guidance_publisher.publish(guidance)

@@ -10,8 +10,12 @@ PRIME_SERVER_SRC="${PRIME_SERVER_SRC:-/src/prime_server}"
 BUILD_JOBS="${BUILD_JOBS:-4}"
 CLEAN_BUILD="${CLEAN_BUILD:-0}"
 
-PRIME_BUILD_DIR="${PRIME_BUILD_DIR:-build}"
-VALHALLA_BUILD_DIR="${VALHALLA_BUILD_DIR:-build}"
+# Keep OpenRoadCode's container build cache separate from any generic or
+# developer-local CMake build directory. Reusing an old build/ tree can retain
+# cached absolute paths such as /opt/valhalla-build/lib/libprime_server.so,
+# which breaks when this installer stages into a different prefix.
+PRIME_BUILD_DIR="${PRIME_BUILD_DIR:-build-openroadcode}"
+VALHALLA_BUILD_DIR="${VALHALLA_BUILD_DIR:-build-openroadcode}"
 
 INSTALL_PREFIX="${INSTALL_PREFIX:-/opt/valhalla-build}"
 

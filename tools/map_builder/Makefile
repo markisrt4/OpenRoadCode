@@ -1,7 +1,9 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 
-.PHONY: image tui validate deploy test
+REPO_ROOT := $(abspath $(dir $(lastword $(MAKEFILE_LIST)))/../..)
+
+.PHONY: image tui validate search-index deploy test
 
 image:
 	./scripts/build-image.sh
@@ -12,8 +14,11 @@ tui:
 validate:
 	./scripts/validate-host.sh
 
+search-index:
+	./scripts/rebuild-search-index.sh
+
 deploy:
 	./scripts/deploy-to-srv.sh $(if $(REMOTE),--remote $(REMOTE))
 
 test:
-	PYTHONPATH=. python3 -m unittest discover -s tests -v
+	PYTHONPATH=$(REPO_ROOT) python3 -m unittest discover -s tests -v

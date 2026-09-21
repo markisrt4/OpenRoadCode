@@ -77,15 +77,14 @@ def check_import(module: str) -> tuple[bool, str]:
 
 def check_command(alternatives: tuple[str, ...]) -> tuple[bool, str]:
     search_path = os.pathsep.join(
-        filter(
-            None,
-            (
-                os.environ.get("PATH", ""),
-                "/usr/local/sbin",
-                "/usr/sbin",
-                "/sbin",
-            ),
+        part
+        for part in (
+            os.environ.get("PATH", ""),
+            "/usr/local/sbin",
+            "/usr/sbin",
+            "/sbin",
         )
+        if part
     )
     for command in alternatives:
         path = shutil.which(command, path=search_path)

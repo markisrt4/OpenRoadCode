@@ -45,6 +45,7 @@ class StateIngressRuntimeTest(unittest.TestCase):
         self.trip_sink = Mock()
         self.position_sink = Mock()
         self.attitude_sink = Mock()
+        self.guidance_sink = Mock()
         self.dispatcher = Mock()
         self.runtime = StateIngressRuntime(
             schedule_ui=self.schedule_ui,
@@ -53,6 +54,7 @@ class StateIngressRuntimeTest(unittest.TestCase):
             apply_trip_state=self.trip_sink,
             apply_position_state=self.position_sink,
             apply_attitude_state=self.attitude_sink,
+            apply_route_guidance_state=self.guidance_sink,
             dispatcher=self.dispatcher,
         )
 
@@ -139,6 +141,13 @@ class StateIngressRuntimeTest(unittest.TestCase):
         self.schedule_ui.assert_not_called()
         self.runtime._drain_ui_queue()
         self.position_sink.assert_called_once_with(state)
+
+    def test_route_guidance_message_is_forwarded_on_ui_drain(self) -> None:
+        message = Mock()
+        self.runtime._on_route_guidance_message(message)
+        self.schedule_ui.assert_not_called()
+        self.runtime._drain_ui_queue()
+        self.guidance_sink.assert_called_once_with(message)
 
     @patch("apps.orcUi.core_runtime.NavigationPresenter.present_attitude")
     def test_attitude_message_is_presented_before_ui_drain(self, present: Mock) -> None:

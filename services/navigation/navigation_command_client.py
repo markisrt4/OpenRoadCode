@@ -14,8 +14,15 @@ from controllers.route_planning.route_planning_types import (
     RouteManeuver,
     RouteRequest,
     RouteResult,
+    TravelMode,
 )
-from services.navigation.navigation_command_service import CALCULATE_ROUTE_COMMAND
+from services.navigation.navigation_command_service import (
+    CALCULATE_ROUTE_COMMAND,
+    CANCEL_ROUTE_COMMAND,
+    SIMULATE_ROUTE_COMMAND,
+    START_ROUTE_COMMAND,
+    STOP_ROUTE_SIMULATION_COMMAND,
+)
 from services.navigation.zeromq_navigation_command_server import (
     DEFAULT_NAVIGATION_COMMAND_ENDPOINT,
 )
@@ -51,10 +58,74 @@ class NavigationCommandClient:
                 "travel_mode": request.travel_mode.name,
             },
         )
+        return self._route_from_response(response)
+
+    def calculate_route_to(
+        self,
+        destination: str,
+        *,
+        travel_mode: TravelMode = TravelMode.AUTO,
+    ) -> RouteResult:
+        """Calculate a route from the current position to a text destination."""
+        response = self._request(
+            CALCULATE_ROUTE_COMMAND,
+            {
+                "destination": destination,
+                "travel_mode": travel_mode.name,
+            },
+        )
+        return self._route_from_response(response)
+
+    def start_route(
+        self,
+        destination: GeoPoint,
+        *,
+        travel_mode: TravelMode = TravelMode.AUTO,
+    ) -> RouteResult:
+        """Start guidance to a coordinate from the current navigation position."""
+        response = self._request(
+            START_ROUTE_COMMAND,
+            {
+                "destination": self._encode_point(destination),
+                "travel_mode": travel_mode.name,
+            },
+        )
+        return self._route_from_response(response)
+
+    def cancel_route(self) -> None:
+        """Cancel the active navigation route."""
+        self._request(CANCEL_ROUTE_COMMAND, {})
+
+    def start_route_to(
+        self,
+        destination: str,
+        *,
+        travel_mode: TravelMode = TravelMode.AUTO,
+    ) -> RouteResult:
+        """Resolve a text destination and start guidance from the current position."""
+        response = self._request(
+            START_ROUTE_COMMAND,
+            {
+                "destination": destination,
+                "travel_mode": travel_mode.name,
+            },
+        )
+        return self._route_from_response(response)
+
+    def simulate_active_route(self, *, time_scale: float = 60.0) -> None:
+        """Drive configured simulated position input along the active route."""
+        self._request(SIMULATE_ROUTE_COMMAND, {"time_scale": time_scale})
+
+    def stop_route_simulation(self) -> None:
+        """Return the navigation input to its normal simulation profile."""
+        self._request(STOP_ROUTE_SIMULATION_COMMAND, {})
+
+    @classmethod
+    def _route_from_response(cls, response: dict[str, Any]) -> RouteResult:
         data = response.get("data")
         if not isinstance(data, dict):
             raise NavigationCommandError("Route response did not contain route data")
-        return self._decode_route(data)
+        return cls._decode_route(data)
 
     def _request(self, command: str, arguments: dict[str, Any]) -> dict[str, Any]:
         context = zmq.Context()

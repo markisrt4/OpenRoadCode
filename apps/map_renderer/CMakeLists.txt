@@ -18,6 +18,7 @@ add_executable(openroadcode-map-renderer
     src/map_view.cpp
     src/map_renderer_frontend.cpp
     src/map_command_server.cpp
+    src/map_event_publisher.cpp
     src/navigation_config.cpp
     ${MAPLIBRE_ROOT}/platform/glfw/glfw_gl_backend.cpp
 )
@@ -36,6 +37,7 @@ target_include_directories(openroadcode-map-renderer PRIVATE
     ${MAPLIBRE_ROOT}/vendor/maplibre-native-base/deps/variant/include
     ${MAPLIBRE_ROOT}/vendor/maplibre-native-base/deps/cheap-ruler-cpp/include
     ${MAPLIBRE_ROOT}/vendor/rapidjson/include
+    ${MAPLIBRE_ROOT}/vendor/sqlite/include
 )
 
 target_compile_definitions(openroadcode-map-renderer PRIVATE
