@@ -76,7 +76,7 @@ class EcuPanel(tk.Frame):
 
         # One composition surface lets the four cards frame the powertrain
         # instead of forcing the engine into a narrow middle column.
-        cockpit = tk.Frame(self, bg=ui.background)
+        cockpit = tk.Frame(self, bg=ui.background, width=640, height=420)
         cockpit.grid(row=0, column=0, sticky="nsew")
 
         engine = tk.Frame(cockpit, bg=ui.background)
@@ -120,10 +120,6 @@ class EcuPanel(tk.Frame):
         self._build_mixture(mixture)
         self._build_ignition(ignition)
 
-        # Engine is created first, cards second, so their edges remain crisp
-        # where the composition overlaps.
-        for card in (fuel.master, load.master, mixture.master, ignition.master):
-            card.lift()
 
     def _floating_card(
         self,
@@ -141,6 +137,7 @@ class EcuPanel(tk.Frame):
         ui = self._theme.ui
         card = tk.Frame(parent, bg=ui.surface, highlightthickness=1, highlightbackground=accent)
         card.place(relx=relx, rely=rely, relwidth=relwidth, relheight=relheight)
+        card.lift()
         tk.Frame(card, bg=accent, width=3).grid(row=0, column=0, rowspan=3, sticky="nsw")
         card.grid_columnconfigure(1, weight=1)
         card.grid_rowconfigure(2, weight=1)
