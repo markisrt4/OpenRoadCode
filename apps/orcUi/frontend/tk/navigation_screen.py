@@ -37,7 +37,9 @@ class NavigationScreen(TkScreen):
             Callable[[AutomotiveTelemetryProfile], None] | None
         ),
         on_back: Callable[[], None],
-        radar_controller=None,\n        radar_injection_controller=None,\n        on_radar_palette_changed: Callable[[RadarPalette], None] | None = None,
+        radar_controller=None,
+        radar_injection_controller=None,
+        on_radar_palette_changed: Callable[[RadarPalette], None] | None = None,
     ) -> None:
         super().__init__(self.SCREEN_ID)
         self._host = host
@@ -46,7 +48,9 @@ class NavigationScreen(TkScreen):
         self._theme_bundle = theme_bundle
         self._telemetry_profile_request = telemetry_profile_request
         self._on_back = on_back
-        self._radar_controller = radar_controller\n        self._radar_injection_controller = radar_injection_controller\n        self._on_radar_palette_changed = on_radar_palette_changed
+        self._radar_controller = radar_controller
+        self._radar_injection_controller = radar_injection_controller
+        self._on_radar_palette_changed = on_radar_palette_changed
         self._panel: NavigationPanel | None = None
 
     def show(self) -> None:
