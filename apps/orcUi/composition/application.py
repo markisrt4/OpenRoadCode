@@ -55,8 +55,18 @@ class OrcUiComposition:
             try:
                 self.games.shutdown()
             finally:
-                try:\n                    self.media.close()\n                finally:\n                    try:\n                        self.weather.close()\n                    finally:\n                        try:\n                            self.core.close()\n                    finally:
-                            self.runtime.close()\n\n        self.core.lifecycle.execute_requested_action()
+                try:
+                    self.media.close()
+                finally:
+                    try:
+                        self.weather.close()
+                    finally:
+                        try:
+                            self.core.close()
+                        finally:
+                            self.runtime.close()
+
+        self.core.lifecycle.execute_requested_action()
 
 
 def create_orc_ui_composition() -> OrcUiComposition:
