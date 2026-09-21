@@ -13,7 +13,9 @@ from controllers.weather.radar_tile_service import RadarTileService
 class WeatherRadarController:
     """Select radar frames and publish persistent overlay state to the map."""
 
-    def __init__(self, provider: RadarProviderIf, map_renderer, *, opacity: float = 0.65,\n                 palette: RadarPalette = RadarPalette.UNIVERSAL,\n                 tile_service: RadarTileService | None = None) -> None:
+    def __init__(self, provider: RadarProviderIf, map_renderer, *, opacity: float = 0.65,
+                 palette: RadarPalette = RadarPalette.UNIVERSAL,
+                 tile_service: RadarTileService | None = None) -> None:
         if not 0.0 <= opacity <= 1.0:
             raise ValueError("radar opacity must be between 0.0 and 1.0")
         self._provider = provider
