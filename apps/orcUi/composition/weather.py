@@ -15,6 +15,7 @@ from config.service_runtime_config import ServiceRuntimeConfigParser
 from controllers.weather import (
     GpsdWeatherLocationProvider,
     OpenMeteoWeatherProvider,
+    RadarPalette,
     RadarTileService,
     RainViewerRadarProvider,
     WeatherController,
@@ -42,6 +43,7 @@ def configure_weather(
     app: OrcUiApp,
     *,
     unit_system: Callable[[], UnitSystem] = lambda: UnitSystem.IMPERIAL,
+    radar_palette: RadarPalette = RadarPalette.UNIVERSAL,
     on_weather_radio: Callable[[], None] | None = None,
     on_weather_status: Callable[[str], None] | None = None,
     map_renderer=None,
@@ -78,7 +80,7 @@ def configure_weather(
         raise ValueError("map_renderer is required for weather radar")
     radar_tiles = RadarTileService()
     radar = WeatherRadarController(
-        RainViewerRadarProvider(), map_renderer, tile_service=radar_tiles
+        RainViewerRadarProvider(), map_renderer, palette=radar_palette, tile_service=radar_tiles
     )
 
     screen = WeatherScreen(
