@@ -15,6 +15,7 @@ from config.application_config import (
     ApplicationType,
     BrowserConfig,
     StartupPolicy,
+    SdrSource,
 )
 
 
@@ -51,6 +52,27 @@ enabled = false
         self.assertEqual(weather.exclusive_group, "auxiliary")
         self.assertEqual(config.preload_apps(), (weather,))
         self.assertFalse(config.app("sdrpp").enabled)
+
+    def test_sdr_source_defaults_to_native_rtl_sdr(self) -> None:
+        config = self._load("[apps]\n")
+        self.assertEqual(SdrSource.RTL_SDR, config.sdr.source)
+        self.assertIsNone(config.sdr.serial)
+        self.assertEqual("127.0.0.1", config.sdr.host)
+        self.assertEqual(1234, config.sdr.port)
+
+    def test_parses_rtl_tcp_source(self) -> None:
+        config = self._load(
+            '[sdr]\nsource = "rtl_tcp"\n\n[sdr.rtl_tcp]\nhost = "127.0.0.1"\nport = 35100\n\n[apps]\n'
+        )
+        self.assertEqual(SdrSource.RTL_TCP, config.sdr.source)
+        self.assertEqual("127.0.0.1", config.sdr.host)
+        self.assertEqual(35100, config.sdr.port)
+
+    def test_parses_native_rtl_sdr_serial(self) -> None:
+        config = self._load(
+            '[sdr]\nsource = "rtl_sdr"\n\n[sdr.rtl_sdr]\nserial = "66044186"\n\n[apps]\n'
+        )
+        self.assertEqual("66044186", config.sdr.serial)
 
     def test_browser_profile_root_defaults_to_xdg_data_home(self) -> None:
         with patch.dict(os.environ, {"XDG_DATA_HOME": "/mnt/orc-data"}):
