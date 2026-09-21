@@ -22,7 +22,9 @@ from controllers.weather import (
     WeatherLocation,
     WeatherRadarController,
 )
-from controllers.weather.environmental_radar_injection_controller import EnvironmentalRadarInjectionController\nfrom frontends.tk.weather import WeatherScreen\nfrom services.navigation.navigation_service_cli import DEFAULT_RUNTIME_CONFIG
+from controllers.weather.environmental_radar_injection_controller import EnvironmentalRadarInjectionController
+from frontends.tk.weather import WeatherScreen
+from services.navigation.navigation_service_cli import DEFAULT_RUNTIME_CONFIG
 
 
 @dataclass(slots=True)
@@ -32,7 +34,9 @@ class WeatherComposition:
     screen: WeatherScreen
     controller: WeatherController
     radar: WeatherRadarController
-    radar_tiles: RadarTileService\n    radar_injection: EnvironmentalRadarInjectionController\n
+    radar_tiles: RadarTileService
+    radar_injection: EnvironmentalRadarInjectionController
+
     def close(self) -> None:
         self.radar_tiles.close()
 
@@ -80,6 +84,8 @@ def configure_weather(
     radar = WeatherRadarController(
         RainViewerRadarProvider(), map_renderer, palette=radar_palette, tile_service=radar_tiles
     )
+    radar_injection = EnvironmentalRadarInjectionController(radar)
+    radar_injection.refresh()
 
     screen = WeatherScreen(
         app,
@@ -91,5 +97,9 @@ def configure_weather(
     )
     app.register_screen("WEATHER", screen, before="VISION")
     return WeatherComposition(
-        screen=screen, controller=controller, radar=radar, radar_tiles=radar_tiles
+        screen=screen,
+        controller=controller,
+        radar=radar,
+        radar_tiles=radar_tiles,
+        radar_injection=radar_injection,
     )
