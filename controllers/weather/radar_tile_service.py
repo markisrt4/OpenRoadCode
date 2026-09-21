@@ -135,12 +135,12 @@ class RadarTileService:
 
     def _handle_path(self, raw_path: str) -> bytes:
         parts = urlparse(raw_path).path.strip("/").split("/")
-        if len(parts) != 7 or parts[0] != "radar" or not parts[6].endswith(".png"):
+        if len(parts) != 6 or parts[0] != "radar" or not parts[5].endswith(".png"):
             raise ValueError("invalid radar tile path")
         timestamp = int(parts[1])
         palette = RadarPalette(parts[2])
         z, x = int(parts[3]), int(parts[4])
-        y = int(parts[5])
+        y = int(parts[5].removesuffix(".png"))
         template = self._frames.get(timestamp)
         if template is None:
             raise ValueError("unknown radar frame")
