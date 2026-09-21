@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 
-from controllers.weather import RadarFrame, WeatherRadarController
+from controllers.weather import RadarFrame, RadarPalette, WeatherRadarController
 
 
 class _Provider:
@@ -73,3 +73,28 @@ def test_opacity_update_does_not_refetch_frame() -> None:
     controller.set_opacity(0.4)
 
     assert renderer.commands == [(None, True, None, 0.4, 22)]
+
+
+class _TileService:
+    def tile_url(self, frame, palette):
+        return f"http://127.0.0.1/radar/{frame.timestamp}/{palette.value}/{{z}}/{{x}}/{{y}}.png"
+
+
+def test_palette_change_republishes_same_frame_through_tile_service() -> None:
+    renderer = _Renderer()
+    controller = WeatherRadarController(_Provider(), renderer, tile_service=_TileService())
+    controller.show_latest()
+    renderer.commands.clear()
+
+    controller.set_palette(RadarPalette.CLASSIC)
+
+    assert controller.palette is RadarPalette.CLASSIC
+    assert renderer.commands == [
+        (
+            "http://127.0.0.1/radar/200/classic/{z}/{x}/{y}.png",
+            True,
+            200,
+            0.65,
+            7,
+        )
+    ]
