@@ -37,6 +37,9 @@ def build_navigation_screen(
     radar_palette: RadarPalette = RadarPalette.UNIVERSAL,
     on_radar_palette_changed: Callable[[RadarPalette], None] | None = None,
     on_radar_toggle: Callable[[bool], None] | None = None,
+    on_radar_previous: Callable[[], None] | None = None,
+    on_radar_next: Callable[[], None] | None = None,
+    on_radar_live: Callable[[], None] | None = None,
 ) -> NavigationPanel:
     screen = NavigationPanel(
         parent,
@@ -48,6 +51,9 @@ def build_navigation_screen(
         radar_palette=radar_palette,
         on_radar_palette_changed=on_radar_palette_changed,
         on_radar_toggle=on_radar_toggle,
+        on_radar_previous=on_radar_previous,
+        on_radar_next=on_radar_next,
+        on_radar_live=on_radar_live,
     )
     screen.pack(fill=tk.BOTH, expand=True)
     return screen
