@@ -346,43 +346,63 @@ class EcuPanel(tk.Frame):
         canvas.create_text(113*sx, 76*sy, text="TURBO", fill=turbo, font=("Sans", 8, "bold"))
         line((136, 109, 160, 128), fill=intake, width=7)
 
-        # Engine block and head. A broad valve cover, lower crankcase and four
-        # chambers make this read as an engine rather than a wiring diagram.
-        box(145, 130, 335, 285, fill=ui.surface_alt, outline=ui.border, width=2)
-        box(160, 112, 320, 158, fill=ui.surface_alt, outline=intake, width=2)
+        # Stylized powertrain: valve cover/head, tapered block, fuel rail,
+        # cylinders and exhaust manifold. Keep it graphical at dashboard scale.
         canvas.create_polygon(
-            158*sx, 158*sy, 322*sx, 158*sy, 335*sx, 205*sy,
-            325*sx, 285*sy, 155*sx, 285*sy, 145*sx, 205*sy,
+            154*sx, 116*sy, 316*sx, 116*sy, 329*sx, 132*sy,
+            323*sx, 158*sy, 157*sx, 158*sy, 148*sx, 137*sy,
+            fill=ui.surface_alt, outline=intake, width=2,
+        )
+        canvas.create_text(238*sx, 137*sy, text="ENGINE", fill=ui.text, font=("Sans", 13, "bold"))
+        canvas.create_oval(170*sx, 123*sy, 198*sx, 151*sy, outline=ui.border, width=2)
+
+        # Cylinder head and lower block.
+        canvas.create_polygon(
+            153*sx, 158*sy, 326*sx, 158*sy, 337*sx, 199*sy,
+            327*sx, 276*sy, 160*sx, 276*sy, 145*sx, 204*sy,
             fill=ui.surface_alt, outline=ui.border, width=2,
         )
-        canvas.create_text(240*sx, 134*sy, text="ENGINE", fill=ui.text, font=("Sans", 14, "bold"))
+        box(158, 160, 324, 190, fill=ui.surface, outline=ui.border, width=1)
 
-        # Fuel rail and injectors.
-        line((170, 165, 310, 165), fill=fuel, width=5)
-        for x in (185, 220, 255, 290):
-            canvas.create_line(x*sx, 165*sy, x*sx, 190*sy, fill=fuel, width=4)
-            canvas.create_polygon((x-5)*sx, 188*sy, (x+5)*sx, 188*sy, x*sx, 199*sy, fill=fuel, outline="")
-        canvas.create_text(
-            240*sx, 169*sy, text="FUEL RAIL", fill=fuel,
-            font=("Sans", 7, "bold"), anchor="s",
-        )
+        # Fuel rail sits above the injectors instead of sharing their label area.
+        line((168, 170, 314, 170), fill=fuel, width=5)
+        canvas.create_text(241*sx, 164*sy, text="FUEL RAIL", fill=fuel, font=("Sans", 7, "bold"), anchor="s")
+        for x in (178, 220, 262, 304):
+            canvas.create_line(x*sx, 171*sy, x*sx, 195*sy, fill=fuel, width=3)
+            canvas.create_polygon(
+                (x-4)*sx, 192*sy, (x+4)*sx, 192*sy, x*sx, 201*sy,
+                fill=fuel, outline="",
+            )
 
-        # Four combustion chambers with simple piston/cylinder cues.
+        # Cylinders are deliberately subdued; combustion is indicated by a
+        # smaller glow so the block remains readable instead of becoming four
+        # orange lamps.
         load = state.engine_load_percent if state.engine_load_percent is not None else state.absolute_engine_load_percent
-        chamber_fill = combustion if analysis.engine_running else ui.surface
-        for x in (177, 219, 261, 303):
-            canvas.create_rectangle((x-15)*sx, 194*sy, (x+15)*sx, 252*sy, fill=ui.surface, outline=ui.border, width=2)
-            canvas.create_oval((x-12)*sx, 205*sy, (x+12)*sx, 241*sy, fill=chamber_fill, outline=combustion, width=2)
-            canvas.create_line(x*sx, 241*sy, x*sx, 260*sy, fill=ui.text_muted, width=2)
-        # Keep the engine core graphical. Labels across the injectors and
-        # cylinders made the centerpiece harder to parse at dashboard scale.
+        for x in (178, 220, 262, 304):
+            canvas.create_rectangle(
+                (x-14)*sx, 199*sy, (x+14)*sx, 249*sy,
+                fill=ui.surface, outline=ui.border, width=2,
+            )
+            glow = combustion if analysis.engine_running else ui.surface_alt
+            canvas.create_oval(
+                (x-9)*sx, 207*sy, (x+9)*sx, 235*sy,
+                fill=glow, outline=ui.text_muted, width=1,
+            )
+            canvas.create_line(x*sx, 235*sy, x*sx, 257*sy, fill=ui.text_muted, width=2)
 
-        # Exhaust path and oxygen feedback loop.
-        line((335, 224, 356, 238, 382, 238), fill=exhaust, width=8)
-        canvas.create_text(382*sx, 258*sy, text="EXHAUST", anchor="e", fill=ui.text_muted, font=("Sans", 8, "bold"))
+        # Four exhaust runners converge into a common collector before leaving
+        # the engine. This reads much more like a manifold than one red pipe.
+        manifold_y = 266
+        for x in (178, 220, 262, 304):
+            canvas.create_line(
+                x*sx, 249*sy, x*sx, 256*sy, 326*sx, manifold_y*sy,
+                fill=exhaust, width=3, smooth=True,
+            )
+        line((326, manifold_y, 350, 248, 382, 248), fill=exhaust, width=7)
+        canvas.create_text(382*sx, 269*sy, text="EXHAUST", anchor="e", fill=ui.text_muted, font=("Sans", 8, "bold"))
         if analysis.fuel_control_mode is FuelControlMode.CLOSED_LOOP:
-            canvas.create_oval(348*sx, 207*sy, 362*sx, 221*sy, fill=active, outline="")
-            canvas.create_text(355*sx, 195*sy, text="O₂", fill=active, font=("Sans", 8, "bold"))
+            canvas.create_oval(344*sx, 231*sy, 358*sx, 245*sy, fill=active, outline="")
+            canvas.create_text(351*sx, 219*sy, text="O₂", fill=active, font=("Sans", 8, "bold"))
 
         # Semantic state badges beneath the schematic.
         badges = []
