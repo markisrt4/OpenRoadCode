@@ -70,6 +70,14 @@ class AndroidSensorBridgeClient:
         """Read the latest Android location snapshot."""
         return _location_sample(self._get_json("/location"))
 
+    def read_environmental_injection(self) -> str:
+        """Read the active environmental radar injection scenario."""
+        payload = self._get_json("/injector/environmental")
+        scenario = payload.get("radar_scenario")
+        if not isinstance(scenario, str):
+            raise RuntimeError("Android sensor bridge returned invalid environmental injection state")
+        return scenario.upper()
+
     def stream_imu(self) -> Iterator[AndroidImuSample]:
         """Yield IMU samples from the bridge's persistent NDJSON stream."""
         try:
