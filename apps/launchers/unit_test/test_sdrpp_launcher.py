@@ -11,6 +11,8 @@ import unittest
 from pathlib import Path
 from unittest.mock import Mock, patch
 
+from config.application_config import SdrSource, SdrSourceConfig
+
 from apps.launchers.sdrpp_launcher import (
     SDRPPLauncher, SDRPPProfile, _is_termux, _sdrpp_environment,
     _stop_readsb_service, sync_sdrpp_theme,
@@ -66,6 +68,15 @@ class SDRPPLauncherTest(unittest.TestCase):
             defer.assert_called_once()
             self.assertEqual("Light", defer.call_args.args[0])
             self.assertEqual(root, defer.call_args.args[3])
+
+    def test_launcher_keeps_configured_sdr_source(self) -> None:
+        source = SdrSourceConfig(
+            source=SdrSource.RTL_TCP,
+            host="127.0.0.1",
+            port=1234,
+        )
+        launcher = SDRPPLauncher(profile=self.profile, sdr_source=source)
+        self.assertEqual(source, launcher.sdr_source)
 
     def test_launcher_rejects_unknown_theme(self) -> None:
         with self.assertRaisesRegex(ValueError, "Unsupported SDR\\+\\+ theme"):
