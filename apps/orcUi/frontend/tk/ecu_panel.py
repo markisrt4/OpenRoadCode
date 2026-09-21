@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import math
 import tkinter as tk
 
 from apps.orcUi.vehicle_presenter import VehiclePresentationState
@@ -57,9 +58,31 @@ class EcuPanel(tk.Frame):
         self._analysis = engine_analysis
         self._labels: dict[str, tk.Label] = {}
         self._bars: dict[str, tk.Canvas] = {}
+        self._animation_phase = 0.0
+        self._animation_job: str | None = None
         super().__init__(parent, bg=theme.ui.background)
         self._build()
         self._paint()
+        self._schedule_engine_animation()
+
+    def destroy(self) -> None:
+        if self._animation_job is not None:
+            try:
+                self.after_cancel(self._animation_job)
+            except tk.TclError:
+                pass
+            self._animation_job = None
+        super().destroy()
+
+    def _schedule_engine_animation(self) -> None:
+        if not self.winfo_exists():
+            return
+        if self._analysis.engine_running:
+            rpm = self._vehicle_state.engine_speed_rpm or 0.0
+            visual_hz = max(0.8, min(4.5, rpm / 900.0))
+            self._animation_phase = (self._animation_phase + visual_hz / 12.0) % 1.0
+            self._paint_engine()
+        self._animation_job = self.after(83, self._schedule_engine_animation)
 
     def update_vehicle(self, state: VehiclePresentationState) -> None:
         self._vehicle_state = state
@@ -341,8 +364,18 @@ class EcuPanel(tk.Frame):
         # left corner instead of consuming a long strip of horizontal space.
         canvas.create_text(88*sx, 42*sy, text="INTAKE", fill=ui.text_muted, font=("Sans", 8, "bold"))
         line((88, 52, 88, 82, 112, 100), fill=intake, width=8)
+        if analysis.engine_running:
+            for offset in (0.0, 0.33, 0.66):
+                travel = (self._animation_phase + offset) % 1.0
+                fy = (55 + 39 * travel) * sy
+                canvas.create_oval(84*sx, fy-3, 92*sx, fy+3, fill=intake, outline="")
         canvas.create_oval(90*sx, 86*sy, 136*sx, 132*sy, outline=turbo, width=5)
-        canvas.create_arc(98*sx, 94*sy, 128*sx, 124*sy, start=20, extent=285, style="arc", outline=turbo, width=3)
+        cx, cy = 113*sx, 109*sy
+        turbo_phase = self._animation_phase * math.tau
+        for blade in range(5):
+            angle = turbo_phase + blade * math.tau / 5.0
+            canvas.create_line(cx, cy, cx + math.cos(angle)*14*sx, cy + math.sin(angle)*14*sy, fill=turbo, width=2)
+        canvas.create_oval(108*sx, 104*sy, 118*sx, 114*sy, fill=turbo, outline="")
         canvas.create_text(113*sx, 76*sy, text="TURBO", fill=turbo, font=("Sans", 8, "bold"))
         line((136, 109, 160, 128), fill=intake, width=7)
 
@@ -378,17 +411,20 @@ class EcuPanel(tk.Frame):
         # smaller glow so the block remains readable instead of becoming four
         # orange lamps.
         load = state.engine_load_percent if state.engine_load_percent is not None else state.absolute_engine_load_percent
-        for x in (178, 220, 262, 304):
+        piston_phases = (0.0, 0.5, 0.5, 0.0)
+        for index, x in enumerate((178, 220, 262, 304)):
             canvas.create_rectangle(
                 (x-14)*sx, 199*sy, (x+14)*sx, 249*sy,
                 fill=ui.surface, outline=ui.border, width=2,
             )
+            phase = (self._animation_phase + piston_phases[index]) % 1.0
+            piston_y = 217.0 if not analysis.engine_running else 217.0 + 12.0 * math.sin(phase * math.tau)
             glow = combustion if analysis.engine_running else ui.surface_alt
             canvas.create_oval(
-                (x-9)*sx, 207*sy, (x+9)*sx, 235*sy,
+                (x-9)*sx, (piston_y-10)*sy, (x+9)*sx, (piston_y+10)*sy,
                 fill=glow, outline=ui.text_muted, width=1,
             )
-            canvas.create_line(x*sx, 235*sy, x*sx, 257*sy, fill=ui.text_muted, width=2)
+            canvas.create_line(x*sx, (piston_y+10)*sy, x*sx, 257*sy, fill=ui.text_muted, width=2)
 
         # Four exhaust runners converge into a common collector before leaving
         # the engine. This reads much more like a manifold than one red pipe.
@@ -398,11 +434,21 @@ class EcuPanel(tk.Frame):
                 x*sx, 249*sy, x*sx, 256*sy, 326*sx, manifold_y*sy,
                 fill=exhaust, width=3, smooth=True,
             )
-        line((326, manifold_y, 350, 248, 382, 248), fill=exhaust, width=7)
-        canvas.create_text(382*sx, 269*sy, text="EXHAUST", anchor="e", fill=ui.text_muted, font=("Sans", 8, "bold"))
+        line((326, manifold_y, 344, 250), fill=exhaust, width=7)
+        canvas.create_polygon(
+            344*sx, 239*sy, 350*sx, 233*sy, 374*sx, 233*sy, 382*sx, 239*sy,
+            382*sx, 257*sy, 374*sx, 263*sy, 350*sx, 263*sy, 344*sx, 257*sy,
+            fill=ui.surface_alt, outline=exhaust, width=2,
+        )
+        line((382, 248, 396, 248), fill=exhaust, width=7)
+        canvas.create_text(363*sx, 276*sy, text="CAT", fill=ui.text_muted, font=("Sans", 7, "bold"))
+        if analysis.engine_running:
+            pulse = (self._animation_phase * 3.0) % 1.0
+            px = (328 + 66 * pulse) * sx
+            canvas.create_oval(px-3, 245*sy, px+3, 251*sy, fill=exhaust, outline="")
         if analysis.fuel_control_mode is FuelControlMode.CLOSED_LOOP:
-            canvas.create_oval(344*sx, 231*sy, 358*sx, 245*sy, fill=active, outline="")
-            canvas.create_text(351*sx, 219*sy, text="O₂", fill=active, font=("Sans", 8, "bold"))
+            canvas.create_oval(337*sx, 232*sy, 349*sx, 244*sy, fill=active, outline="")
+            canvas.create_text(343*sx, 221*sy, text="O₂", fill=active, font=("Sans", 8, "bold"))
 
         # Semantic state badges beneath the schematic.
         badges = []
