@@ -18,6 +18,7 @@ from apps.launchers.app_launcher_if import AppLauncherIf, StatusCallback
 from apps.launchers.process_manager import close_matching_display_apps, is_process_running, terminate_process
 from common.logging.logging_paths import logging_file_path
 from protocols.sdrpp_remote_control import SDRPPRemoteControlClient
+from config.application_config import SdrSourceConfig
 
 DEFAULT_TERMUX_SDRPP_SOURCE = Path("/root/SDRPlusPlus")
 DEFAULT_TERMUX_PROOT_DISTRIBUTION = "debian"
@@ -43,7 +44,7 @@ class SDRPPProfile:
 class SDRPPLauncher(AppLauncherIf):
     """Launch SDR++ and expose its RF and application-control endpoints."""
 
-    def __init__(self, *, profile: SDRPPProfile, log_file: str | Path | None = None, fullscreen: bool = True, embedded: bool = False, resource_manager=None, owner_name: str = "sdrpp", rigctl_host: str = "127.0.0.1", rigctl_port: int = 4532, rigctl_timeout_seconds: float = 15.0, remote_control_host: str = DEFAULT_REMOTE_CONTROL_HOST, remote_control_port: int = DEFAULT_REMOTE_CONTROL_PORT, remote_control_timeout_seconds: float = 0.75, termux_proot_distribution: str = DEFAULT_TERMUX_PROOT_DISTRIBUTION, termux_sdrpp_source: str | Path = DEFAULT_TERMUX_SDRPP_SOURCE, theme: str | None = None) -> None:
+    def __init__(self, *, profile: SDRPPProfile, log_file: str | Path | None = None, fullscreen: bool = True, embedded: bool = False, resource_manager=None, owner_name: str = "sdrpp", rigctl_host: str = "127.0.0.1", rigctl_port: int = 4532, rigctl_timeout_seconds: float = 15.0, remote_control_host: str = DEFAULT_REMOTE_CONTROL_HOST, remote_control_port: int = DEFAULT_REMOTE_CONTROL_PORT, remote_control_timeout_seconds: float = 0.75, termux_proot_distribution: str = DEFAULT_TERMUX_PROOT_DISTRIBUTION, termux_sdrpp_source: str | Path = DEFAULT_TERMUX_SDRPP_SOURCE, theme: str | None = None, sdr_source: SdrSourceConfig | None = None) -> None:
         self.profile = profile
         self.log_file = Path(log_file or logging_file_path("openroadcode", "sdrpp.log"))
         self.fullscreen = fullscreen
@@ -57,6 +58,7 @@ class SDRPPLauncher(AppLauncherIf):
         self.termux_proot_distribution = termux_proot_distribution
         self.termux_sdrpp_source = Path(termux_sdrpp_source)
         self.theme = _normalize_theme(theme) if theme is not None else None
+        self.sdr_source = sdr_source or SdrSourceConfig()
         self._process: subprocess.Popen[str] | None = None
         self._launched_via_proot = False
 
