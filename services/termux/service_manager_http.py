@@ -94,10 +94,11 @@ class ServiceManagerHandler(BaseHTTPRequestHandler):
         try:
             length = int(self.headers.get("Content-Length", "0"))
             payload = json.loads(self.rfile.read(length) or b"{}")
-            session, poll_token = self.browser_pairing.begin(str(payload.get("client_name", "")))
+            session, poll_token, approval_pin = self.browser_pairing.begin(str(payload.get("client_name", "")))
         except (ValueError, json.JSONDecodeError) as exc:
             self._json(HTTPStatus.BAD_REQUEST, {"error": str(exc)})
             return
+        print(f"OpenRoadCode browser pairing PIN for {session.client_name}: {approval_pin}", flush=True)
         host = self.headers.get("Host", f"127.0.0.1:{self.server.server_port}")
         approval_url = f"http://{host}/pairing/browser/approve/{session.session_id}"
         self._json(HTTPStatus.OK, {
@@ -139,9 +140,9 @@ class ServiceManagerHandler(BaseHTTPRequestHandler):
         authentication = (
             "<p>This approval is being made on the OpenRoadCode device.</p>"
             if local else
-            "<p>Enter the service-manager administrator token to approve this device.</p>"
-            "<label>Administrator token<br><input type='password' name='admin_token' "
-            "autocomplete='current-password' required></label><br><br>"
+            "<p>Enter the short-lived pairing PIN shown on the OpenRoadCode host.</p>"
+            "<label>Pairing PIN<br><input type='text' name='approval_pin' "
+            "inputmode='numeric' pattern='[0-9]{6}' maxlength='6' autocomplete='one-time-code' required></label><br><br>"
         )
         body = (
             "<h1>OpenRoadCode pairing</h1>"
@@ -161,17 +162,21 @@ class ServiceManagerHandler(BaseHTTPRequestHandler):
             length = int(self.headers.get("Content-Length", "0"))
             raw = self.rfile.read(length).decode("utf-8")
             from urllib.parse import parse_qs
-            admin_token = parse_qs(raw).get("admin_token", [""])[0]
+            approval_pin = parse_qs(raw).get("approval_pin", [""])[0]
         except (ValueError, UnicodeDecodeError):
-            admin_token = ""
-        if not self._same_device_request() and not authorized(f"Bearer {admin_token}", self.auth_token):
+            approval_pin = ""
+        try:
+            approved = self.browser_pairing.approve(
+                session_id, None if self._same_device_request() else approval_pin
+            )
+        except PermissionError:
             self._html(
                 HTTPStatus.UNAUTHORIZED,
-                "<h1>OpenRoadCode pairing</h1><p>Administrator token was not accepted.</p>"
+                "<h1>OpenRoadCode pairing</h1><p>Pairing PIN was not accepted.</p>"
                 f"<p><a href='/pairing/browser/approve/{session_id}'>Try again</a></p>",
             )
             return
-        if not self.browser_pairing.approve(session_id):
+        if not approved:
             self._html(HTTPStatus.NOT_FOUND, "<h1>Pairing session expired</h1>")
             return
         self._html(
