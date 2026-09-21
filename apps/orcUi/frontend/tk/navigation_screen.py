@@ -67,6 +67,9 @@ class NavigationScreen(TkScreen):
             radar_palette=(self._radar_controller.palette if self._radar_controller is not None else RadarPalette.UNIVERSAL),
             on_radar_palette_changed=(self._change_radar_palette if self._radar_controller is not None else None),
             on_radar_toggle=self._toggle_radar if self._radar_controller is not None else None,
+            on_radar_previous=self._radar_previous if self._radar_controller is not None else None,
+            on_radar_next=self._radar_next if self._radar_controller is not None else None,
+            on_radar_live=self._radar_live if self._radar_controller is not None else None,
         )
 
         if self._telemetry_profile_request is not None:
@@ -103,6 +106,32 @@ class NavigationScreen(TkScreen):
         controller.set_palette(palette)
         if self._on_radar_palette_changed is not None:
             self._on_radar_palette_changed(palette)
+
+    def _select_radar_frame(self, selector: Callable[[], object]) -> None:
+        def select() -> None:
+            try:
+                frame = selector()
+                panel = self._panel
+                if panel is not None:
+                    self._host.schedule_ui_callback(
+                        0, lambda: panel.set_radar_frame_time(frame.timestamp)
+                    )
+            except Exception as error:
+                print(f"WARNING: weather radar history: {type(error).__name__}: {error}")
+
+        threading.Thread(target=select, name="weather-radar-history", daemon=True).start()
+
+    def _radar_previous(self) -> None:
+        if self._radar_controller is not None:
+            self._select_radar_frame(self._radar_controller.previous_frame)
+
+    def _radar_next(self) -> None:
+        if self._radar_controller is not None:
+            self._select_radar_frame(self._radar_controller.next_frame)
+
+    def _radar_live(self) -> None:
+        if self._radar_controller is not None:
+            self._select_radar_frame(self._radar_controller.show_latest)
 
     def _toggle_radar(self, enabled: bool) -> None:
         controller = self._radar_controller
