@@ -4,6 +4,14 @@
 # identifiers. This keeps application policy independent of the transport used
 # to present it and leaves room for target types such as VNC later.
 
+[sdr]
+# Direct USB RTL-SDR is the default on Linux/Raspberry Pi.
+source = "rtl_sdr"
+
+[sdr.rtl_sdr]
+# Set this when multiple receivers are attached.
+# serial = "66044186"
+
 [browser]
 profile_root = "~/.local/share/openroadcode/browser"
 
