@@ -49,6 +49,15 @@ class WeatherRadarController:
         """Return whether the selected frame is the newest available frame."""
         return bool(self._frames) and self._frame_index == len(self._frames) - 1
 
+    def set_provider(self, provider: RadarProviderIf) -> None:
+        """Switch radar source and discard frame-selection state."""
+        if provider is self._provider:
+            return
+        self._provider = provider
+        self._frames = ()
+        self._frame_index = None
+        self._frame = None
+
     def show_latest(self) -> RadarFrame:
         """Discover available frames and make the newest one visible."""
         self._frames = tuple(self._provider.get_frames())
