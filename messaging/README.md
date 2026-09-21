@@ -221,7 +221,7 @@ callbacks independent of Tk, curses, or another application package.
 
 | Topic | Contract | Purpose |
 | --- | --- | --- |
-| `openroad.vehicle.state` | automotive vehicle state | Engine, speed, pedal/load, pressures, temperatures, fuel and electrical state |
+| `openroad.vehicle.state` | automotive vehicle state | Engine, speed, gear, ECU control, pressures, temperatures, fuel and electrical state |\n| `openroad.vehicle.trip.state` | automotive Trip state | Accumulated timing, distance, speed, fuel, boost, high-load and position analytics |
 | `openroad.navigation.position` | navigation position | Geographic position, altitude, GPS fix and accuracy metadata |
 | `openroad.navigation.motion` | navigation motion | Heading, ground/vertical speed and turn rate |
 | `openroad.navigation.attitude` | navigation attitude | Heading, pitch and roll |
