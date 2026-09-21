@@ -407,48 +407,68 @@ class EcuPanel(tk.Frame):
                 fill=fuel, outline="",
             )
 
-        # Cylinders are deliberately subdued; combustion is indicated by a
-        # smaller glow so the block remains readable instead of becoming four
-        # orange lamps.
+        # Static cylinders with a visually slowed 1-3-4-2 ignition sequence.
+        # The spark conveys combustion without turning the pistons into a toy.
         load = state.engine_load_percent if state.engine_load_percent is not None else state.absolute_engine_load_percent
-        piston_phases = (0.0, 0.5, 0.5, 0.0)
-        for index, x in enumerate((178, 220, 262, 304)):
+        cylinders = (178, 220, 262, 304)
+        firing_order = (0, 2, 3, 1)  # cylinders 1-3-4-2
+        firing_slot = int(self._animation_phase * 4.0) % 4
+        firing_cylinder = firing_order[firing_slot] if analysis.engine_running else -1
+        slot_phase = (self._animation_phase * 4.0) % 1.0
+        spark_visible = analysis.engine_running and slot_phase < 0.30
+        for index, x in enumerate(cylinders):
             canvas.create_rectangle(
                 (x-14)*sx, 199*sy, (x+14)*sx, 249*sy,
                 fill=ui.surface, outline=ui.border, width=2,
             )
-            phase = (self._animation_phase + piston_phases[index]) % 1.0
-            piston_y = 217.0 if not analysis.engine_running else 217.0 + 12.0 * math.sin(phase * math.tau)
-            glow = combustion if analysis.engine_running else ui.surface_alt
+            firing = index == firing_cylinder and spark_visible
+            glow = combustion if firing else ui.surface_alt
             canvas.create_oval(
-                (x-9)*sx, (piston_y-10)*sy, (x+9)*sx, (piston_y+10)*sy,
-                fill=glow, outline=ui.text_muted, width=1,
+                (x-9)*sx, 211*sy, (x+9)*sx, 231*sy,
+                fill=glow, outline=combustion if firing else ui.text_muted, width=1,
             )
-            canvas.create_line(x*sx, (piston_y+10)*sy, x*sx, 257*sy, fill=ui.text_muted, width=2)
+            # Tiny spark plug and flash at the chamber roof.
+            canvas.create_line(x*sx, 195*sy, x*sx, 204*sy, fill=ui.text_muted, width=2)
+            if firing:
+                spark = "#FFD45A"
+                canvas.create_line((x-7)*sx, 205*sy, (x+7)*sx, 217*sy, fill=spark, width=2)
+                canvas.create_line((x+7)*sx, 205*sy, (x-7)*sx, 217*sy, fill=spark, width=2)
+                canvas.create_line(x*sx, 201*sy, x*sx, 220*sy, fill=spark, width=2)
+            canvas.create_line(x*sx, 231*sy, x*sx, 257*sy, fill=ui.text_muted, width=2)
 
-        # Four exhaust runners converge into a common collector before leaving
-        # the engine. This reads much more like a manifold than one red pipe.
-        manifold_y = 266
-        for x in (178, 220, 262, 304):
+        # Four runners sweep down into a collector and a catalyst kept well
+        # inside the center composition so the right-side card cannot hide it.
+        manifold_y = 260
+        collector_x, collector_y = 318, 278
+        for x in cylinders:
             canvas.create_line(
-                x*sx, 249*sy, x*sx, 256*sy, 326*sx, manifold_y*sy,
+                x*sx, 249*sy, x*sx, 257*sy, collector_x*sx, collector_y*sy,
                 fill=exhaust, width=3, smooth=True,
             )
-        line((326, manifold_y, 344, 250), fill=exhaust, width=7)
+        line((collector_x, collector_y, 326, 288, 314, 296), fill=exhaust, width=7)
         canvas.create_polygon(
-            344*sx, 239*sy, 350*sx, 233*sy, 374*sx, 233*sy, 382*sx, 239*sy,
-            382*sx, 257*sy, 374*sx, 263*sy, 350*sx, 263*sy, 344*sx, 257*sy,
+            274*sx, 286*sy, 282*sx, 280*sy, 310*sx, 280*sy, 318*sx, 286*sy,
+            318*sx, 304*sy, 310*sx, 310*sy, 282*sx, 310*sy, 274*sx, 304*sy,
             fill=ui.surface_alt, outline=exhaust, width=2,
         )
-        line((382, 248, 396, 248), fill=exhaust, width=7)
-        canvas.create_text(363*sx, 276*sy, text="CAT", fill=ui.text_muted, font=("Sans", 7, "bold"))
+        canvas.create_text(296*sx, 295*sy, text="CAT", fill=ui.text, font=("Sans", 7, "bold"))
+        line((274, 295, 248, 295, 232, 286), fill=exhaust, width=7)
+        canvas.create_text(229*sx, 278*sy, text="EXHAUST", anchor="e", fill=ui.text_muted, font=("Sans", 7, "bold"))
         if analysis.engine_running:
             pulse = (self._animation_phase * 3.0) % 1.0
-            px = (328 + 66 * pulse) * sx
-            canvas.create_oval(px-3, 245*sy, px+3, 251*sy, fill=exhaust, outline="")
+            # A small pulse travels collector -> catalyst -> outlet.
+            if pulse < 0.5:
+                t = pulse / 0.5
+                px = (318 + (296 - 318) * t) * sx
+                py = (278 + (295 - 278) * t) * sy
+            else:
+                t = (pulse - 0.5) / 0.5
+                px = (296 + (236 - 296) * t) * sx
+                py = (295 + (288 - 295) * t) * sy
+            canvas.create_oval(px-3, py-3, px+3, py+3, fill=exhaust, outline="")
         if analysis.fuel_control_mode is FuelControlMode.CLOSED_LOOP:
-            canvas.create_oval(337*sx, 232*sy, 349*sx, 244*sy, fill=active, outline="")
-            canvas.create_text(343*sx, 221*sy, text="O₂", fill=active, font=("Sans", 8, "bold"))
+            canvas.create_oval(316*sx, 270*sy, 328*sx, 282*sy, fill=active, outline="")
+            canvas.create_text(322*sx, 263*sy, text="O₂", fill=active, font=("Sans", 8, "bold"))
 
         # Semantic state badges beneath the schematic.
         badges = []
