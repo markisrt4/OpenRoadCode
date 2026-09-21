@@ -464,6 +464,12 @@ class NavigationPanel(tk.Frame):
 
     def _poll_poi_events(self) -> None:
         if self._poi_controller.poll_camera_interaction():
+            # Native mouse/touch gestures happen inside MapLibre, bypassing the
+            # Python request handler. Suspend GPS follow so it cannot immediately
+            # overwrite the user's manually chosen viewport before the debounced
+            # POI refresh asks the renderer for its new bounds.
+            self.set_follow_enabled(False)
+            self._request_handler.request_follow(False)
             self._schedule_active_poi_refresh()
         result = self._poi_controller.poll_search_result()
         if result is not None:
