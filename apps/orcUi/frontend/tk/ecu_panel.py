@@ -362,7 +362,10 @@ class EcuPanel(tk.Frame):
         for x in (185, 220, 255, 290):
             canvas.create_line(x*sx, 165*sy, x*sx, 190*sy, fill=fuel, width=4)
             canvas.create_polygon((x-5)*sx, 188*sy, (x+5)*sx, 188*sy, x*sx, 199*sy, fill=fuel, outline="")
-        canvas.create_text(240*sx, 177*sy, text="FUEL RAIL / INJECTORS", fill=fuel, font=("Sans", 7, "bold"))
+        canvas.create_text(
+            240*sx, 169*sy, text="FUEL RAIL", fill=fuel,
+            font=("Sans", 7, "bold"), anchor="s",
+        )
 
         # Four combustion chambers with simple piston/cylinder cues.
         load = state.engine_load_percent if state.engine_load_percent is not None else state.absolute_engine_load_percent
@@ -371,7 +374,8 @@ class EcuPanel(tk.Frame):
             canvas.create_rectangle((x-15)*sx, 194*sy, (x+15)*sx, 252*sy, fill=ui.surface, outline=ui.border, width=2)
             canvas.create_oval((x-12)*sx, 205*sy, (x+12)*sx, 241*sy, fill=chamber_fill, outline=combustion, width=2)
             canvas.create_line(x*sx, 241*sy, x*sx, 260*sy, fill=ui.text_muted, width=2)
-        canvas.create_text(240*sx, 275*sy, text="COMBUSTION", fill=combustion, font=("Sans", 8, "bold"))
+        # Keep the engine core graphical. Labels across the injectors and
+        # cylinders made the centerpiece harder to parse at dashboard scale.
 
         # Exhaust path and oxygen feedback loop.
         line((335, 224, 356, 238, 382, 238), fill=exhaust, width=8)
