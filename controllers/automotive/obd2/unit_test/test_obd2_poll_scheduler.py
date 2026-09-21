@@ -26,7 +26,19 @@ def _scheduler() -> Obd2PollScheduler:
     coolant = CoolantTempPid()
     timing = IgnitionTimingAdvancePid()
     trim = ShortTermFuelTrimBank1Pid()
-    supported = {\n        p.pid\n        for p in (rpm, vehicle_speed, map_pid, throttle, load, coolant, timing, trim)\n    }
+    supported = {
+        p.pid
+        for p in (
+            rpm,
+            vehicle_speed,
+            map_pid,
+            throttle,
+            load,
+            coolant,
+            timing,
+            trim,
+        )
+    }
     return Obd2PollScheduler(
         rpm=rpm,
         vehicle_speed=vehicle_speed,
