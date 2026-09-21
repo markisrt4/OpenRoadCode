@@ -5,7 +5,7 @@
 {"id":"parks","type":"fill","source":"openroad","source-layer":"park","minzoom":8,"paint":{"fill-color":"#d3e8ca","fill-opacity":0.85}},
 {"id":"water","type":"fill","source":"openroad","source-layer":"water","paint":{"fill-color":"#a8d4eb"}},
 {"id":"waterways","type":"line","source":"openroad","source-layer":"waterway","minzoom":8,"paint":{"line-color":"#88c5e6","line-width":2}},
-{"id":"boundaries","type":"line","source":"openroad","source-layer":"boundary","minzoom":4,"paint":{"line-color":"#aaa49d","line-width":1,"line-dasharray":[3,3]}},
+{"id":"boundaries","type":"line","source":"openroad","source-layer":"boundary","minzoom":4,"filter":["!=",["get","admin_level"],4],"paint":{"line-color":"#aaa49d","line-width":1,"line-dasharray":[3,3]}},\n{"id":"state-boundaries","type":"line","source":"openroad","source-layer":"boundary","minzoom":4,"filter":["==",["get","admin_level"],4],"paint":{"line-color":"#54b948","line-width":["interpolate",["linear"],["zoom"],4,1,8,1.6,12,2.2],"line-opacity":0.9}},
 {"id":"railways","type":"line","source":"openroad","source-layer":"transportation","minzoom":10,"filter":["in",["get","class"],["literal",["rail","transit"]]],"paint":{"line-color":"#9f9b96","line-width":1.4,"line-dasharray":[2,2]}},
 {"id":"paths","type":"line","source":"openroad","source-layer":"transportation","minzoom":14,"filter":["in",["get","class"],["literal",["path","track"]]],"paint":{"line-color":"#c9c2b7","line-width":1.2,"line-dasharray":[2,2]}},
 {"id":"service-roads-casing","type":"line","source":"openroad","source-layer":"transportation","minzoom":13,"filter":["==",["get","class"],"service"],"paint":{"line-color":"#cbc6bf","line-width":3}},
