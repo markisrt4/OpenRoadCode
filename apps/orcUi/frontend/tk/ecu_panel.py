@@ -404,38 +404,40 @@ class EcuPanel(tk.Frame):
             )
             canvas.create_line(x*sx, 231*sy, x*sx, 257*sy, fill=ui.text_muted, width=2)
 
-        # Keep exhaust visually secondary. A short manifold feeds the turbine;
-        # only a compact turbine outlet/catalyst hint is shown rather than a
-        # full-height downpipe competing with the engine.
+        # Keep the exhaust schematic compact but mechanically truthful:
+        # manifold -> turbine -> short downpipe -> catalyst -> exhaust.
         collector_x, collector_y = 286, 248
         for x in cylinders:
             canvas.create_line(
                 x*sx, 247*sy, collector_x*sx, collector_y*sy,
                 fill=exhaust, width=2, smooth=True,
             )
-        line((collector_x, collector_y, 296, 220, 296, 116, 224, 78), fill=exhaust, width=2)
-        line((226, 72, 258, 76, 270, 88), fill=exhaust, width=2)
+        # Hot-side feed rises to the turbine at the turbo.
+        line((collector_x, collector_y, 296, 218, 296, 116, 224, 78), fill=exhaust, width=2)
+        # Turbine outlet gets a short, distinct downpipe before the catalyst.
+        line((226, 72, 252, 76, 268, 92, 268, 116), fill=exhaust, width=2)
+        canvas.create_text(274*sx, 111*sy, text="DOWNPIPE", anchor="w", fill=ui.text_muted, font=("Sans", 5))
         canvas.create_polygon(
-            264*sx, 84*sy, 269*sx, 80*sy, 280*sx, 80*sy, 285*sx, 84*sy,
-            285*sx, 94*sy, 280*sx, 98*sy, 269*sx, 98*sy, 264*sx, 94*sy,
+            260*sx, 116*sy, 265*sx, 112*sy, 275*sx, 112*sy, 280*sx, 116*sy,
+            280*sx, 128*sy, 275*sx, 132*sy, 265*sx, 132*sy, 260*sx, 128*sy,
             fill=ui.surface_alt, outline=exhaust, width=1,
         )
-        canvas.create_text(275*sx, 106*sy, text="CAT", fill=ui.text_muted, font=("Sans", 6, "bold"))
+        canvas.create_text(270*sx, 122*sy, text="CAT", fill=ui.text_muted, font=("Sans", 5, "bold"))
+        line((270, 132, 284, 140), fill=exhaust, width=2)
         if analysis.fuel_control_mode is FuelControlMode.CLOSED_LOOP:
-            canvas.create_oval(291*sx, 110*sy, 299*sx, 118*sy, fill=active, outline="")
+            canvas.create_oval(264*sx, 102*sy, 272*sx, 110*sy, fill=active, outline="")
 
-        # A crank pulley and two accessory pulleys add smooth mechanical motion.
-        # Shift the accessory drive down to use the previously empty lower
-        # canvas and give the engine a taller, more complete silhouette.
-        crank_x, crank_y = 200, 302
-        accessory_y = 286
+        # Compact accessory drive mounted against the bottom of the block.
+        # The crank rotates smoothly with RPM while the cylinders remain still.
+        crank_x, crank_y = 200, 266
+        accessory_y = 257
         belt = ui.text_muted
         canvas.create_line(
-            200*sx, crank_y*sy, 150*sx, accessory_y*sy,
-            250*sx, accessory_y*sy, 200*sx, crank_y*sy,
+            200*sx, crank_y*sy, 171*sx, accessory_y*sy,
+            229*sx, accessory_y*sy, 200*sx, crank_y*sy,
             fill=belt, width=2, smooth=True,
         )
-        for px, py, radius in ((150, accessory_y, 11), (250, accessory_y, 11), (crank_x, crank_y, 18)):
+        for px, py, radius in ((171, accessory_y, 8), (229, accessory_y, 8), (crank_x, crank_y, 14)):
             canvas.create_oval(
                 (px-radius)*sx, (py-radius)*sy, (px+radius)*sx, (py+radius)*sy,
                 fill=ui.surface, outline=ui.border, width=2,
@@ -445,16 +447,16 @@ class EcuPanel(tk.Frame):
             angle = crank_phase + blade * math.tau / 4.0
             canvas.create_line(
                 crank_x*sx, crank_y*sy,
-                (crank_x + math.cos(angle)*14)*sx,
-                (crank_y + math.sin(angle)*14)*sy,
+                (crank_x + math.cos(angle)*10)*sx,
+                (crank_y + math.sin(angle)*10)*sy,
                 fill=intake if analysis.engine_running else ui.text_muted, width=2,
             )
-        for px, direction in ((150, -1.0), (250, 1.0)):
+        for px, direction in ((171, -1.0), (229, 1.0)):
             angle = direction * crank_phase
             canvas.create_line(
                 px*sx, accessory_y*sy,
-                (px + math.cos(angle)*8)*sx,
-                (accessory_y + math.sin(angle)*8)*sy,
+                (px + math.cos(angle)*5)*sx,
+                (accessory_y + math.sin(angle)*5)*sy,
                 fill=ui.text_muted, width=2,
             )
 
