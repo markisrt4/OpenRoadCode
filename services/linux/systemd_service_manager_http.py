@@ -104,13 +104,12 @@ class SystemdServiceManagerHandler(BaseHTTPRequestHandler):
         try:
             length = int(self.headers.get("Content-Length", "0"))
             payload = json.loads(self.rfile.read(length) or b"{}")
-            session, poll_token, approval_pin = self.browser_pairing.begin(str(payload.get("client_name", "")))
+            session, poll_token, approval_token = self.browser_pairing.begin(str(payload.get("client_name", "")))
         except (ValueError, json.JSONDecodeError) as exc:
             self._json(HTTPStatus.BAD_REQUEST, {"error": str(exc)})
             return
-        print(f"OpenRoadCode browser pairing PIN for {session.client_name}: {approval_pin}", flush=True)
         host = self.headers.get("Host", f"127.0.0.1:{self.server.server_port}")
-        approval_url = f"http://{host}/pairing/browser/approve/{session.session_id}"
+        approval_url = f"http://{host}/pairing/browser/approve/{session.session_id}?token={approval_token}"
         self._json(HTTPStatus.OK, {
             "session_id": session.session_id,
             "poll_token": poll_token,
@@ -141,24 +140,24 @@ class SystemdServiceManagerHandler(BaseHTTPRequestHandler):
         })
 
     def _browser_approval_page(self, session_id: str) -> None:
+        from urllib.parse import parse_qs, urlsplit
+
         session = self.browser_pairing.get(session_id)
         if session is None:
             self._html(HTTPStatus.NOT_FOUND, "<h1>Pairing session expired</h1>")
             return
+        approval_token = parse_qs(urlsplit(self.path).query).get("token", [""])[0]
+        try:
+            self.browser_pairing.authorize_approval(session_id, approval_token)
+        except PermissionError:
+            self._html(HTTPStatus.UNAUTHORIZED, "<h1>Invalid pairing approval link</h1>")
+            return
         client_name = html.escape(session.client_name)
-        local = self._same_device_request()
-        authentication = (
-            "<p>This approval is being made on the OpenRoadCode device.</p>"
-            if local else
-            "<p>Enter the short-lived pairing PIN shown on the OpenRoadCode host.</p>"
-            "<label>Pairing PIN<br><input type='text' name='approval_pin' "
-            "inputmode='numeric' pattern='[0-9]{6}' maxlength='6' autocomplete='one-time-code' required></label><br><br>"
-        )
         body = (
             "<h1>OpenRoadCode pairing</h1>"
             f"<p><strong>{client_name}</strong> wants permission to control this runtime.</p>"
-            f"{authentication}"
             f"<form method='post' action='/pairing/browser/approve/{session.session_id}'>"
+            f"<input type='hidden' name='approval_token' value='{html.escape(approval_token)}'>"
             "<button type='submit'>Approve device</button></form>"
         )
         self._html(HTTPStatus.OK, body)
@@ -172,19 +171,10 @@ class SystemdServiceManagerHandler(BaseHTTPRequestHandler):
             length = int(self.headers.get("Content-Length", "0"))
             raw = self.rfile.read(length).decode("utf-8")
             from urllib.parse import parse_qs
-            approval_pin = parse_qs(raw).get("approval_pin", [""])[0]
-        except (ValueError, UnicodeDecodeError):
-            approval_pin = ""
-        try:
-            approved = self.browser_pairing.approve(
-                session_id, None if self._same_device_request() else approval_pin
-            )
-        except PermissionError:
-            self._html(
-                HTTPStatus.UNAUTHORIZED,
-                "<h1>OpenRoadCode pairing</h1><p>Pairing PIN was not accepted.</p>"
-                f"<p><a href='/pairing/browser/approve/{session_id}'>Try again</a></p>",
-            )
+            approval_token = parse_qs(raw).get("approval_token", [""])[0]
+            approved = self.browser_pairing.approve(session_id, approval_token)
+        except (ValueError, UnicodeDecodeError, PermissionError):
+            self._html(HTTPStatus.UNAUTHORIZED, "<h1>Invalid pairing approval link</h1>")
             return
         if not approved:
             self._html(HTTPStatus.NOT_FOUND, "<h1>Pairing session expired</h1>")
