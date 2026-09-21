@@ -10,6 +10,7 @@ import threading
 
 from apps.orcUi.core_runtime import MapRuntimeIf
 from controllers.automotive import AutomotiveTelemetryProfile
+from controllers.weather.radar_palette import RadarPalette
 from frontends.tk.tk_screen import TkScreen
 from frontends.tk.tk_screen_host_if import TkScreenHostIf
 from ui.navigation import MapRequestHandlerIf
@@ -37,6 +38,7 @@ class NavigationScreen(TkScreen):
         ),
         on_back: Callable[[], None],
         radar_controller=None,
+        on_radar_palette_changed: Callable[[RadarPalette], None] | None = None,
     ) -> None:
         super().__init__(self.SCREEN_ID)
         self._host = host
@@ -46,6 +48,7 @@ class NavigationScreen(TkScreen):
         self._telemetry_profile_request = telemetry_profile_request
         self._on_back = on_back
         self._radar_controller = radar_controller
+        self._on_radar_palette_changed = on_radar_palette_changed
         self._panel: NavigationPanel | None = None
 
     def show(self) -> None:
@@ -61,8 +64,8 @@ class NavigationScreen(TkScreen):
             theme=self._theme_bundle(),
             radar_enabled=(self._radar_controller.enabled if self._radar_controller is not None else False),
             radar_frame_time=(self._radar_controller.frame_time if self._radar_controller is not None else None),
-            radar_palette=(self._radar_controller.palette if self._radar_controller is not None else None),
-            on_radar_palette_changed=(self._radar_controller.set_palette if self._radar_controller is not None else None),
+            radar_palette=(self._radar_controller.palette if self._radar_controller is not None else RadarPalette.UNIVERSAL),
+            on_radar_palette_changed=(self._change_radar_palette if self._radar_controller is not None else None),
             on_radar_toggle=self._toggle_radar if self._radar_controller is not None else None,
         )
 
@@ -92,6 +95,14 @@ class NavigationScreen(TkScreen):
                 "WARNING: map renderer: "
                 f"{type(error).__name__}: {error}"
             )
+
+    def _change_radar_palette(self, palette: RadarPalette) -> None:
+        controller = self._radar_controller
+        if controller is None:
+            return
+        controller.set_palette(palette)
+        if self._on_radar_palette_changed is not None:
+            self._on_radar_palette_changed(palette)
 
     def _toggle_radar(self, enabled: bool) -> None:
         controller = self._radar_controller
