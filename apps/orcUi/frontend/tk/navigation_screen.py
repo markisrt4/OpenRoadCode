@@ -61,6 +61,8 @@ class NavigationScreen(TkScreen):
             theme=self._theme_bundle(),
             radar_enabled=(self._radar_controller.enabled if self._radar_controller is not None else False),
             radar_frame_time=(self._radar_controller.frame_time if self._radar_controller is not None else None),
+            radar_palette=(self._radar_controller.palette if self._radar_controller is not None else None),
+            on_radar_palette_changed=(self._radar_controller.set_palette if self._radar_controller is not None else None),
             on_radar_toggle=self._toggle_radar if self._radar_controller is not None else None,
         )
 
