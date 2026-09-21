@@ -15,6 +15,9 @@ from ui.theme import ThemeBundle, ThemeMode
 from .shell_metrics import FONT_CONTROL, FONT_SMALL, FONT_TINY
 
 
+_RADAR_OVERVIEW_ZOOM = 7.5
+
+
 class NavigationPanel(tk.Frame):
     """Map host and navigation controls styled from the active ORC theme."""
 
@@ -35,6 +38,7 @@ class NavigationPanel(tk.Frame):
 
         self._request_handler = map_request_handler
         self._radar_enabled = radar_enabled
+        self._pre_radar_zoom: float | None = None
         self._radar_frame_time = radar_frame_time
         self._on_radar_toggle = on_radar_toggle
         self._zoom_level = float(getattr(self._request_handler, "zoom_level", 16.5))
@@ -294,6 +298,14 @@ class NavigationPanel(tk.Frame):
 
     def _toggle_radar(self) -> None:
         self._radar_enabled = not self._radar_enabled
+        if self._radar_enabled:
+            self._pre_radar_zoom = self._zoom_level
+            self._zoom_level = _RADAR_OVERVIEW_ZOOM
+            self._request_handler.request_zoom(self._zoom_level)
+        elif self._pre_radar_zoom is not None:
+            self._zoom_level = self._pre_radar_zoom
+            self._pre_radar_zoom = None
+            self._request_handler.request_zoom(self._zoom_level)
         self._render_radar_state()
         if self._on_radar_toggle is not None:
             self._on_radar_toggle(self._radar_enabled)
