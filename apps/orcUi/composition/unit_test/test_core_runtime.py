@@ -36,6 +36,7 @@ class MapRuntimeTest(unittest.TestCase):
         runtime.launch(1234)
         runtime.set_theme(ThemeMode.DARK)
         renderer.reset_mock()
+        install_map_style.reset_mock()
         renderer.is_running.return_value = True
 
         runtime.set_theme(ThemeMode.LIGHT)
