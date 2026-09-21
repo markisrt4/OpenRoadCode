@@ -39,7 +39,7 @@ def _number(name: str, value: Any, *, optional: bool = True) -> None:
 
 
 def validate_trip_state(payload: Mapping[str, Any]) -> None:
-    """Raise ValueError unless payload exactly satisfies trip contract version 1."""
+    """Raise ValueError unless payload exactly satisfies a supported trip contract version."""
     if not isinstance(payload, Mapping) or set(payload) != TOP_LEVEL_FIELDS:
         raise ValueError("trip state envelope contains missing or unknown fields")
     version = payload["version"]
