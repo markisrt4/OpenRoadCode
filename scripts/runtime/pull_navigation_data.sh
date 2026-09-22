@@ -85,7 +85,7 @@ echo "[*] Checking remote navigation-data manifest"
 "${rsync_ssh[@]}" "$remote_host" "cat -- '$remote_manifest_path'" > "$remote_manifest"
 [[ -s "$remote_manifest" ]] || { echo "Remote build-manifest.json is empty" >&2; exit 1; }
 
-freshness="$(
+relation="$(
 python3 - "$remote_manifest" "$DATA_ROOT/build-manifest.json" <<'PY'
 import datetime as dt
 import json
@@ -111,20 +111,25 @@ def stamp(value):
 
 remote = load_generated(remote_path, "Remote")
 local = load_generated(local_path, "Local")
-print(f"    remote: {stamp(remote)}")
-print(f"    local:  {stamp(local)}")
-if local is None:
-    relation = "newer"
-elif remote > local:
-    relation = "newer"
+print(f"    remote: {stamp(remote)}", file=sys.stderr)
+print(f"    local:  {stamp(local)}", file=sys.stderr)
+if local is None or remote > local:
+    print("newer")
 elif remote < local:
-    relation = "older"
+    print("older")
 else:
-    relation = "same-time"
-print(f"RELATION={relation}")
+    print("same-time")
 PY
 )"
-relation="${freshness##*
+
+if [[ "$relation" == "older" && "$FORCE" -ne 1 ]]; then
+  echo "Remote navigation dataset is older than the installed dataset; refusing to downgrade." >&2
+  echo "Use --force only when an intentional downgrade is required." >&2
+  exit 1
+elif [[ "$relation" == "older" ]]; then
+  echo "[!] Remote dataset is older; --force permits this intentional downgrade."
+fi
+
 if (( ! FORCE )) && [[ -f "$DATA_ROOT/build-manifest.json" ]] \
     && cmp -s "$remote_manifest" "$DATA_ROOT/build-manifest.json"     && [[ -s "$DATA_ROOT/maps/search/openroadcode-search.sqlite" ]]; then
   echo "[+] Navigation data already match the remote build manifest; refreshing software-owned map style."
