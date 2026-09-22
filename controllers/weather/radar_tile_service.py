@@ -8,7 +8,7 @@ from __future__ import annotations
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from io import BytesIO
 from pathlib import Path
-from threading import Thread
+from threading import Lock, Thread
 from urllib.parse import urlparse
 
 import requests
@@ -95,6 +95,8 @@ class RadarTileService:
         self._session = session or requests.Session()
         self._timeout_seconds = timeout_seconds
         self._frames: dict[int, str] = {}
+        self._cache_locks_guard = Lock()
+        self._cache_locks: dict[Path, Lock] = {}
 
         service = self
 
@@ -103,7 +105,10 @@ class RadarTileService:
                 try:
                     data = service._handle_path(self.path)
                 except (OSError, ValueError, requests.RequestException) as error:
-                    self.send_error(502, str(error))
+                    try:
+                        self.send_error(502, str(error))
+                    except (BrokenPipeError, ConnectionResetError):
+                        pass
                     return
                 self.send_response(200)
                 self.send_header("Content-Type", "image/png")
@@ -152,21 +157,25 @@ class RadarTileService:
         source_path = self._cache_root / str(timestamp) / "source" / str(z) / str(x) / f"{y}.png"
         source_url = template.format(z=z, x=x, y=y)
         if source_url.startswith("orc-injected://"):
-            source = self._synthetic_tile(source_url, z, x, y)
+            source = self._synthetic_tile(source_url, z, x, y, palette)
         else:
             source = self._read_or_fetch(source_path, source_url)
         if palette is RadarPalette.UNIVERSAL:
             return source
 
         derived_path = self._cache_root / str(timestamp) / palette.value / str(z) / str(x) / f"{y}.png"
-        if derived_path.is_file():
-            return derived_path.read_bytes()
-        derived = recolor_classic(source)
-        self._write_cache(derived_path, derived)
-        return derived
+        lock = self._cache_lock(derived_path)
+        with lock:
+            if derived_path.is_file():
+                return derived_path.read_bytes()
+            derived = recolor_classic(source)
+            self._write_cache(derived_path, derived)
+            return derived
 
     @staticmethod
-    def _synthetic_tile(url: str, z: int, x: int, y: int) -> bytes:
+    def _synthetic_tile(
+        url: str, z: int, x: int, y: int, palette: RadarPalette
+    ) -> bytes:
         """Render a deterministic transparent radar tile for an injected scenario."""
         parsed = urlparse(url)
         scenario = parsed.netloc
@@ -174,6 +183,8 @@ class RadarTileService:
             frame_index = int(parsed.path.strip("/").split("/")[0])
         except (ValueError, IndexError) as exc:
             raise ValueError("invalid injected radar tile URL") from exc
+        if scenario not in {"clear", "storm", "severe"}:
+            raise ValueError(f"unsupported injected radar scenario: {scenario}")
 
         image = Image.new("RGBA", (256, 256), (0, 0, 0, 0))
         if scenario != "clear":
@@ -181,22 +192,26 @@ class RadarTileService:
             seed = (x * 37 + y * 53 + z * 19 + frame_index * 31) % 256
             center_x = (72 + seed + frame_index * 18) % 320 - 32
             center_y = (96 + (seed * 3) % 128) % 256
-            rings = (
-                (82, (0, 145, 0, 150)),
-                (58, (255, 255, 0, 180)),
-                (36, (255, 0, 0, 205)),
+            colors = (
+                ((0, 145, 0, 150), (255, 255, 0, 180), (255, 0, 0, 205), (255, 0, 255, 230))
+                if palette is RadarPalette.CLASSIC
+                else ((0, 85, 136, 150), (0, 119, 170, 180), (0, 163, 224, 205), (136, 221, 238, 230))
             )
+            rings = ((82, colors[0]), (58, colors[1]), (36, colors[2]))
             if scenario == "severe":
-                rings += ((19, (255, 0, 255, 230)),)
+                rings += ((19, colors[3]),)
             for radius, color in rings:
                 draw.ellipse(
-                    (center_x - radius, center_y - radius,
-                     center_x + radius, center_y + radius),
+                    (center_x - radius, center_y - radius, center_x + radius, center_y + radius),
                     fill=color,
                 )
         output = BytesIO()
         image.save(output, format="PNG", optimize=True)
         return output.getvalue()
+
+    def _cache_lock(self, path: Path) -> Lock:
+        with self._cache_locks_guard:
+            return self._cache_locks.setdefault(path, Lock())
 
     def _read_or_fetch(self, path: Path, url: str) -> bytes:
         if path.is_file():
