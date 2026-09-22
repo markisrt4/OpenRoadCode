@@ -197,14 +197,41 @@ class RadarTileService:
                 if palette is RadarPalette.CLASSIC
                 else ((0, 85, 136, 150), (0, 119, 170, 180), (0, 163, 224, 205), (136, 221, 238, 230))
             )
-            rings = ((82, colors[0]), (58, colors[1]), (36, colors[2]))
-            if scenario == "severe":
-                rings += ((19, colors[3]),)
-            for radius, color in rings:
-                draw.ellipse(
-                    (center_x - radius, center_y - radius, center_x + radius, center_y + radius),
-                    fill=color,
+            if scenario == "storm":
+                cells = (
+                    (center_x, center_y, ((82, colors[0]), (58, colors[1]), (36, colors[2]))),
                 )
+            else:
+                # Severe weather is intentionally broader and multi-cell so it is
+                # visually distinct from the ordinary storm scenario at map scale.
+                cells = (
+                    (
+                        center_x,
+                        center_y,
+                        ((105, colors[0]), (78, colors[1]), (52, colors[2]), (27, colors[3])),
+                    ),
+                    (
+                        center_x + 92,
+                        center_y - 54,
+                        ((70, colors[0]), (48, colors[1]), (29, colors[2]), (14, colors[3])),
+                    ),
+                    (
+                        center_x - 76,
+                        center_y + 66,
+                        ((58, colors[0]), (38, colors[1]), (21, colors[2])),
+                    ),
+                )
+            for cell_x, cell_y, rings in cells:
+                for radius, color in rings:
+                    draw.ellipse(
+                        (
+                            cell_x - radius,
+                            cell_y - radius,
+                            cell_x + radius,
+                            cell_y + radius,
+                        ),
+                        fill=color,
+                    )
         output = BytesIO()
         image.save(output, format="PNG", optimize=True)
         return output.getvalue()
