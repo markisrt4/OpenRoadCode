@@ -8,7 +8,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
-from tools.map_builder.builder.build import BuildError, _download_and_verify, _merge_for_build, _parse_bbox
+from tools.map_builder.builder.build import BuildError, _download_and_verify, _merge_for_build, _parse_bbox, _prepare_output_dirs
 
 
 class BoundingBoxTests(unittest.TestCase):
@@ -30,6 +30,26 @@ class BoundingBoxTests(unittest.TestCase):
 
         with self.assertRaises(BuildError):
             _parse_bbox("10,20,-10,30")
+
+
+class OutputPreparationTests(unittest.TestCase):
+    def test_clean_build_invalidates_existing_manifest_before_artifacts(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            manifest = root / "build-manifest.json"
+            manifest.write_text('{"schema": 1}\n', encoding="utf-8")
+            (root / "maps/vector").mkdir(parents=True)
+            (root / "maps/vector/stale.mbtiles").write_bytes(b"stale")
+
+            with (
+                patch("tools.map_builder.builder.build.OUTPUT_ROOT", root),
+                patch("tools.map_builder.builder.build.SCRATCH_ROOT", root / "scratch"),
+            ):
+                _prepare_output_dirs(clean=True)
+
+            self.assertFalse(manifest.exists())
+            self.assertFalse((root / "maps/vector/stale.mbtiles").exists())
+            self.assertTrue((root / "maps/vector").is_dir())
 
 
 class MultiRegionMergeTests(unittest.TestCase):
