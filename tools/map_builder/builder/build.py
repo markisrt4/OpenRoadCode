@@ -72,6 +72,10 @@ def _download_and_verify(region:Region)->Path:
  run(["osmium","fileinfo","-e",str(cached)]); return cached
 def _prepare_output_dirs(clean:bool)->None:
  if clean and OUTPUT_ROOT.exists():
+  # A manifest certifies the complete artifact set. Invalidate it before
+  # touching generated output so a failed rebuild can never leave an old
+  # manifest beside a partially replaced dataset.
+  (OUTPUT_ROOT/"build-manifest.json").unlink(missing_ok=True)
   for relative in ("maps/vector","maps/styles","maps/glyphs","maps/source","maps/poi","maps/search","valhalla"):
    target=OUTPUT_ROOT/relative
    if target.exists(): shutil.rmtree(target)
