@@ -422,6 +422,16 @@ class NavigationPanel(tk.Frame):
         self.set_follow_enabled(False)
         self._request_handler.request_pitch(self._pitch_rad)
 
+    def _show_3d_view(self) -> None:
+        """Tilt and zoom the current viewport around its existing center."""
+        self._zoom_level = 17.0
+        self._zoom_text.set(f"{self._zoom_level:.1f}")
+        self._pitch_rad = math.radians(60.0)
+        self.set_follow_enabled(False)
+        self._request_handler.request_zoom(self._zoom_level)
+        self._request_handler.request_pitch(self._pitch_rad)
+        self._schedule_active_poi_refresh()
+
     def _north_up(self) -> None:
         self.set_follow_enabled(False)
         self._request_handler.request_bearing(0.0)
