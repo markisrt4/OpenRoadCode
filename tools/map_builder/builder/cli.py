@@ -12,7 +12,7 @@ from pathlib import Path
 import sys
 import time
 
-from .build import OUTPUT_ROOT, build_regions
+from .build import OUTPUT_ROOT, _write_manifest, build_regions
 from .geofabrik import fetch_index, resolve_region_ids
 from .selection import load_region_ids, save_region_ids
 from .tui import select_regions
@@ -148,6 +148,15 @@ def parse_args() -> argparse.Namespace:
     validate = sub.add_parser("validate", help="validate existing generated output")
     validate.add_argument("--service-smoke", action="store_true")
     validate.add_argument("--json", action="store_true", help="also print raw validation JSON")
+    validate.add_argument(
+        "--regions",
+        help="comma-separated Geofabrik IDs describing the validated output",
+    )
+    validate.add_argument(
+        "--write-manifest",
+        action="store_true",
+        help="write a fresh manifest after successful validation; requires --regions",
+    )
     sub.add_parser("list", help="list selectable Geofabrik region IDs")
     return parser.parse_args()
 
@@ -157,7 +166,30 @@ def main() -> int:
     command = args.command or "tui"
     try:
         if command == "validate":
+            if args.write_manifest and not args.regions:
+                raise ValueError("--write-manifest requires --regions")
             result = validate_output(OUTPUT_ROOT, service_smoke=args.service_smoke)
+            if args.write_manifest:
+                regions = fetch_index(INDEX_PATH, refresh=args.refresh_index)
+                selected = resolve_region_ids(
+                    regions,
+                    [x.strip() for x in args.regions.split(",") if x.strip()],
+                )
+                if len(selected) != result["source_pbfs"]:
+                    raise ValidationError(
+                        "Region count does not match validated source PBF count: "
+                        f"{len(selected)} region(s) vs {result['source_pbfs']} PBF(s)"
+                    )
+                search_counts = {}
+                existing_manifest = OUTPUT_ROOT / "build-manifest.json"
+                if existing_manifest.is_file():
+                    try:
+                        previous = json.loads(existing_manifest.read_text(encoding="utf-8"))
+                        search_counts = (previous.get("search_index") or {}).get("counts") or {}
+                    except (OSError, json.JSONDecodeError, TypeError):
+                        pass
+                _write_manifest(selected, result, search_counts)
+                print(f"Wrote validated manifest: {OUTPUT_ROOT / 'build-manifest.json'}")
             if args.json:
                 print(json.dumps(result, indent=2))
             print_validation_summary(result, OUTPUT_ROOT)
