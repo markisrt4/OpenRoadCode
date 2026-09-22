@@ -129,11 +129,10 @@ class NavigationPanel(tk.Frame):
                 highlightthickness=1,
                 highlightbackground=ui.border,
                 font=("Sans", FONT_CONTROL, "bold"),
-                width=9,
                 height=1,
-                padx=3,
+                padx=2,
                 pady=1,
-            ).pack(side=tk.LEFT, padx=(0, 4))
+            ).pack(side=tk.LEFT, padx=(0, 2))
 
         tk.Label(
             bar,
