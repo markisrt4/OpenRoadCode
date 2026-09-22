@@ -93,7 +93,16 @@ def _pbf_bbox(pbf:Path)->str:
  result=subprocess.run(["osmium","fileinfo","-e","-g","data.bbox",str(pbf)],check=True,capture_output=True,text=True); return _parse_bbox(result.stdout.strip())
 def _merge_for_build(pbfs):
  if len(pbfs)==1:return pbfs[0],None
- merged=SCRATCH_ROOT/"selected-regions.osm.pbf"; merged.unlink(missing_ok=True); run(["osmium","merge","--overwrite","-o",str(merged),*(str(p) for p in pbfs)]); return merged,_pbf_bbox(merged)
+ history=SCRATCH_ROOT/"selected-regions-history.osh.pbf"; merged=SCRATCH_ROOT/"selected-regions.osm.pbf"
+ history.unlink(missing_ok=True); merged.unlink(missing_ok=True)
+ # Adjacent Geofabrik extracts overlap at their boundaries and can contain
+ # different versions of the same OSM object. Preserve those versions while
+ # merging, then collapse the history to the newest object state before any
+ # consumer (osmium export, tilemaker, Valhalla) sees the combined dataset.
+ run(["osmium","merge","--with-history","--overwrite","-f","pbf,history=true","-o",str(history),*(str(p) for p in pbfs)])
+ run(["osmium","time-filter","--overwrite","-o",str(merged),str(history)])
+ run(["osmium","fileinfo","-e",str(merged)])
+ return merged,_pbf_bbox(merged)
 def _build_maplibre_data(tilemaker_input,bbox=None):
  output=OUTPUT_ROOT/"maps/vector/openroadcode.mbtiles"; output.unlink(missing_ok=True); store=SCRATCH_ROOT/"tilemaker-store"
  if store.exists():shutil.rmtree(store)
