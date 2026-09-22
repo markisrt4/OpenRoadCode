@@ -7,7 +7,6 @@ REMOTE="${NAV_DATA_REMOTE:-}"
 REMOTE_ROOT="${NAV_DATA_REMOTE_ROOT:-/srv/openroadcode}"
 DATA_ROOT="${NAV_DATA_ROOT:-$HOME/.local/share/openroadcode}"
 STAGING="${DATA_ROOT}.staging"
-BACKUP="${DATA_ROOT}.previous"
 FORCE=0
 
 usage() {
@@ -131,8 +130,11 @@ cmp -s "$remote_manifest" "$STAGING/build-manifest.json" || {
   exit 1
 }
 
-rm -rf "$BACKUP"
-if [[ -d "$DATA_ROOT" ]]; then mv "$DATA_ROOT" "$BACKUP"; fi
+if [[ -d "$DATA_ROOT" ]]; then
+  # Termux targets are storage-constrained. The staged dataset has already
+  # been validated, so do not retain a second multi-gigabyte map dataset.
+  rm -rf "$DATA_ROOT"
+fi
 mv "$STAGING" "$DATA_ROOT"
 echo "[+] Navigation data activated at $DATA_ROOT"
-echo "    Previous dataset: $BACKUP"
+echo "    Previous navigation dataset removed to reclaim device storage."
