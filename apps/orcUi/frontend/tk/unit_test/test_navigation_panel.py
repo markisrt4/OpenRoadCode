@@ -52,6 +52,22 @@ class NavigationPanelControlTest(unittest.TestCase):
         self.assertTrue(panel._follow_enabled)
         panel._request_handler.request_zoom.assert_called_once_with(17.5)
 
+    def test_3d_view_tilts_and_zooms_current_viewport(self) -> None:
+        panel = self._panel()
+        panel._pitch_rad = 0.0
+        panel._schedule_active_poi_refresh = Mock()
+
+        panel._show_3d_view()
+
+        self.assertEqual(panel._zoom_level, 17.0)
+        self.assertAlmostEqual(panel._pitch_rad, math.radians(60.0))
+        panel._zoom_text.set.assert_called_once_with("17.0")
+        panel.set_follow_enabled.assert_called_once_with(False)
+        panel._request_handler.request_zoom.assert_called_once_with(17.0)
+        panel._request_handler.request_pitch.assert_called_once_with(math.radians(60.0))
+        panel._request_handler.request_recenter.assert_not_called()
+        panel._schedule_active_poi_refresh.assert_called_once_with()
+
     def test_north_up_disables_follow(self) -> None:
         panel = self._panel()
         panel._north_up()
