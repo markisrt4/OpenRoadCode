@@ -54,7 +54,7 @@ echo "[*] Checking remote navigation-data manifest"
 ssh "$REMOTE" "cat -- '$REMOTE_ROOT/build-manifest.json'" > "$remote_manifest"
 [[ -s "$remote_manifest" ]] || { echo "Remote build-manifest.json is empty" >&2; exit 1; }
 
-freshness="$(
+relation="$(
 python3 - "$remote_manifest" "$DATA_ROOT/build-manifest.json" <<'PY'
 import datetime as dt
 import json
@@ -80,22 +80,16 @@ def stamp(value):
 
 remote = load_generated(remote_path, "Remote")
 local = load_generated(local_path, "Local")
-print(f"    remote: {stamp(remote)}")
-print(f"    local:  {stamp(local)}")
-if local is None:
-    relation = "newer"
-elif remote > local:
-    relation = "newer"
+print(f"    remote: {stamp(remote)}", file=sys.stderr)
+print(f"    local:  {stamp(local)}", file=sys.stderr)
+if local is None or remote > local:
+    print("newer")
 elif remote < local:
-    relation = "older"
+    print("older")
 else:
-    relation = "same-time"
-print(f"RELATION={relation}")
+    print("same-time")
 PY
 )"
-relation="${freshness##*$'\n'}"
-printf '%s\n' "${freshness%$'\n'*$relation}"
-relation="${relation#RELATION=}"
 
 if [[ "$relation" == "older" && "$FORCE" -ne 1 ]]; then
   echo "Remote navigation dataset is older than the installed dataset; refusing to downgrade." >&2
@@ -104,7 +98,6 @@ if [[ "$relation" == "older" && "$FORCE" -ne 1 ]]; then
 elif [[ "$relation" == "older" ]]; then
   echo "[!] Remote dataset is older; --force permits this intentional downgrade."
 fi
-
 
 if (( ! FORCE )) && [[ -f "$DATA_ROOT/build-manifest.json" ]] \
     && cmp -s "$remote_manifest" "$DATA_ROOT/build-manifest.json" \
