@@ -72,6 +72,18 @@ chmod 700 "$ENV_DIR"
 mkdir -p "$PROFILE_DIR"
 chown "$SERVICE_USER:$SERVICE_USER" "$PROFILE_DIR"
 chmod 755 "$PROFILE_DIR"
+
+# Materialize the runtime defaults so a fresh installation has explicit,
+# inspectable state before any dashboard client changes a profile.
+for service in openroadcode-navigation openroadcode-automotive; do
+    profile_file="$PROFILE_DIR/${service}.env"
+    if [[ ! -f "$profile_file" ]]; then
+        printf 'OPENROADCODE_RUNTIME_PROFILE="local"\n' > "$profile_file"
+        chown "$SERVICE_USER:$SERVICE_USER" "$profile_file"
+        chmod 644 "$profile_file"
+    fi
+done
+
 install -d -o "$SERVICE_USER" -g "$SERVICE_USER" -m 700 "$STATE_DIR"
 
 if [[ -z "$TOKEN" && -f "$ENV_FILE" ]]; then
