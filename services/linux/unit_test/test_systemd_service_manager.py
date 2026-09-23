@@ -4,7 +4,9 @@
 """Unit tests for the restricted Linux systemd service manager."""
 
 import subprocess
+import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
 from services.linux.systemd_service_manager import SYSTEMCTL_BIN, SystemdServiceManager
@@ -87,6 +89,38 @@ class SystemdServiceManagerTest(unittest.TestCase):
             ],
         )
         self.assertEqual([status.name for status in statuses], list(self.manager.CORE_STACK))
+
+    @patch("services.linux.systemd_service_manager.PROFILE_DIR")
+    @patch("services.linux.systemd_service_manager.subprocess.run")
+    def test_local_navigation_profile_persists_remote_android_bridge_url(
+        self, run, profile_dir
+    ) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            profile_dir.__str__ = lambda _self: temporary
+            with patch(
+                "services.linux.systemd_service_manager.PROFILE_DIR",
+                Path(temporary),
+            ):
+                run.side_effect = [
+                    subprocess.CompletedProcess([], 3, stdout="inactive\n", stderr=""),
+                    subprocess.CompletedProcess([], 0, stdout="inactive\ndead\nenabled\n", stderr=""),
+                    subprocess.CompletedProcess([], 3, stdout="inactive\n", stderr=""),
+                    subprocess.CompletedProcess([], 0, stdout="inactive\ndead\nenabled\n", stderr=""),
+                ]
+                self.manager.set_profile(
+                    "openroadcode-navigation",
+                    "local",
+                    android_bridge_url="http://192.168.1.50:8766",
+                )
+                content = (
+                    Path(temporary) / "openroadcode-navigation.env"
+                ).read_text(encoding="utf-8")
+
+        self.assertIn('OPENROADCODE_RUNTIME_PROFILE="local"', content)
+        self.assertIn(
+            'OPENROADCODE_ANDROID_BRIDGE_URL="http://192.168.1.50:8766"',
+            content,
+        )
 
     def test_rejects_service_outside_whitelist(self) -> None:
         with self.assertRaisesRegex(ValueError, "Unsupported OpenRoadCode service"):
