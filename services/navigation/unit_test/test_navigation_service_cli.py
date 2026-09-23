@@ -76,6 +76,26 @@ def test_build_controller_supports_device_imu_with_simulated_gps(monkeypatch) ->
 
 
 
+def test_android_bridge_url_defaults_to_profile_configuration(monkeypatch) -> None:
+    monkeypatch.delenv("OPENROADCODE_ANDROID_BRIDGE_URL", raising=False)
+
+    assert (
+        navigation_service_cli._android_bridge_url("http://127.0.0.1:8766")
+        == "http://127.0.0.1:8766"
+    )
+
+
+def test_android_bridge_url_uses_service_manager_override(monkeypatch) -> None:
+    monkeypatch.setenv(
+        "OPENROADCODE_ANDROID_BRIDGE_URL", "http://192.168.1.50:8766"
+    )
+
+    assert (
+        navigation_service_cli._android_bridge_url("http://127.0.0.1:8766")
+        == "http://192.168.1.50:8766"
+    )
+
+
 def test_resolve_runtime_profile_defaults_to_local(monkeypatch) -> None:
     monkeypatch.delenv("OPENROADCODE_RUNTIME_PROFILE", raising=False)
 
