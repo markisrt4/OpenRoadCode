@@ -24,9 +24,9 @@ Interface names and roles describe the capability exposed on the network. Applic
 | 8081 | `127.0.0.1:8081` | tar1090 presentation server | ADS-B aircraft web presentation | TCP | HTTP | No direct unit test located | Termux/runit default. `TAR1090_PORT` can override it. |
 | 8501 | `127.0.0.1:8501` client URL | Weather dashboard / Streamlit | Weather dashboard web application | TCP | Streamlit HTTP/WebSocket | No direct unit test located | Default in `WeatherDashLauncher` / `StreamlitLauncher`. Streamlit owns the server process. |
 | 8765 | `127.0.0.1:8765` | Browser position development source | Browser-provided geographic position ingress for development and component testing | TCP | HTTP + JSON | [browser position source](../controllers/navigation/unit_test/test_browser_position_source.py); [position source factory](../apps/carUi/unit_test/test_position_source_factory.py) | Development position-ingress endpoint. The current composition lives under `apps/carUi`, which also exposes the legacy `CARUI_BROWSER_POSITION_HOST` / `CARUI_BROWSER_POSITION_PORT` overrides; those implementation details do not make the interface CarUI-specific. |
-| 8766 | `http://127.0.0.1:8766` | OpenRoadCode Android sensor bridge | Android location/IMU/sensor bridge consumed by Termux runtime | TCP | HTTP + JSON/NDJSON | No direct unit test located | Dedicated Android sensor bridge port. |
+| 8766 | `http://127.0.0.1:8766` for same-device Termux; Android device LAN address when remote sensor access is enabled | OpenRoadCode Android sensor bridge | Android location/IMU sensor data plane consumed by an OpenRoadCode navigation runtime | TCP | HTTP + JSON/NDJSON (`/health`, `/imu`, `/location`, `/stream/imu`) | No direct unit test located | The Android device owns the listener. Same-device Termux uses loopback. A paired remote Linux runtime may consume the Android device on port 8766 when Navigation selects the Android Bridge profile. |
 | 8767 | `127.0.0.1:8767` | Navigation `BrowserMotionSource` | Browser DeviceMotion development input | TCP | HTTP + JSON | No direct unit test located | Dedicated browser-motion development/component port. |
-| 8768 | `127.0.0.1:8768` | `YouTubeMusicVideo` local player server | Serves the temporary local YouTube player page and close callback | TCP | HTTP | No direct unit test located | Dedicated transient music-video player port; listener exists only while playback is active. |
+| 8768 | `127.0.0.1:8768` | `YouTubeMusicVideo` local player server | Serves the temporary local YouTube player page and close callback | TCP | HTTP | No direct unit test located | Dedicated transient music-video player port; listener exists only while playback is active. |\n| 8769 | `0.0.0.0:8769` on remotely managed Linux runtimes | OpenRoadCode service manager | Authenticated runtime control plane for pairing, service status/lifecycle, and runtime-profile configuration | TCP | HTTP + JSON | [systemd service-manager HTTP](../services/linux/unit_test/test_systemd_service_manager_http.py) | Android Bridge is a management client. Remote binding requires the service-manager bootstrap token; paired clients receive their own bearer credential. This is control/configuration traffic, not sensor telemetry. |
 | 8888 | `127.0.0.1:8888/callback` | OpenRoadCode OAuth redirect server | Local browser OAuth callback, including Spotify authentication | TCP | HTTP / OAuth 2.0 loopback redirect | No direct unit test located | Transient authentication listener rather than a long-lived service. |
 | 35000 | `127.0.0.1:35000` | OpenRoadCode Android Bluetooth SPP bridge | Raw ELM327 stream consumed by the Termux automotive service | TCP | Raw TCP carrying ELM327 ASCII command/response data | No direct unit test located | Current Termux automotive default. Android owns the Bluetooth SPP connection; OpenRoadCode consumes the proxied stream. |
 
@@ -42,12 +42,12 @@ Loopback-only defaults should remain loopback-only unless remote access is an in
 
 ## Local application port allocation
 
-The adjacent `8765`-`8768` range is intentionally allocated by function so independently enabled components do not compete for a socket:
+The adjacent `8765`-`8769` range is intentionally allocated by function so independently enabled components do not compete for a socket:
 
 1. `8765` - browser position development source;
 2. `8766` - Android sensor bridge;
 3. `8767` - navigation browser motion source; and
-4. `8768` - YouTube music-video local player.
+4. `8768` - YouTube music-video local player; and\n5. `8769` - OpenRoadCode service-manager control plane.
 
 These defaults may still be overridden where the owning component exposes configuration, but a new component must not reuse one of these defaults simply because it happens not to be running during development. That particular form of optimism is how the original collision arrived.
 
