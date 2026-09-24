@@ -24,6 +24,7 @@ from controllers.weather import (
 )
 from controllers.weather.environmental_radar_injection_controller import EnvironmentalRadarInjectionController
 from frontends.tk.weather import WeatherScreen
+from hardware_io.android import AndroidSensorBridgeClient
 from services.navigation.navigation_service_cli import DEFAULT_RUNTIME_CONFIG
 
 
@@ -84,7 +85,12 @@ def configure_weather(
     radar = WeatherRadarController(
         RainViewerRadarProvider(), map_renderer, palette=radar_palette, tile_service=radar_tiles
     )
-    radar_injection = EnvironmentalRadarInjectionController(radar)
+    radar_injection = EnvironmentalRadarInjectionController(
+        radar,
+        bridge=AndroidSensorBridgeClient(
+            base_url=runtime_config.environmental.weather_simulation.bridge_url
+        ),
+    )
     radar_injection.refresh()
 
     screen = WeatherScreen(
