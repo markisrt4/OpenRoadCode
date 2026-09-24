@@ -124,9 +124,7 @@ class SystemdServiceManager:
         temporary.chmod(0o644)
         temporary.replace(RUNTIME_ENV_FILE)
 
-    def set_profile(
-        self, name: str, profile: str, *, android_bridge_url: str | None = None
-    ) -> ServiceStatus:
+    def set_profile(self, name: str, profile: str) -> ServiceStatus:
         profiles = self.PROFILE_CONFIGS.get(name)
         if not profiles:
             raise ValueError(f"Service does not support profiles: {name}")
@@ -138,8 +136,6 @@ class SystemdServiceManager:
         profile_file = self._profile_file(name)
         temporary = profile_file.with_suffix(".tmp")
         lines = [f'OPENROADCODE_RUNTIME_PROFILE="{profile}"']
-        if name == "openroadcode-navigation" and profile == "local" and android_bridge_url:
-            lines.append(f'OPENROADCODE_ANDROID_BRIDGE_URL="{android_bridge_url}"')
         temporary.write_text("\n".join(lines) + "\n", encoding="utf-8")
         temporary.chmod(0o644)
         temporary.replace(profile_file)
