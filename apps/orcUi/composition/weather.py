@@ -7,11 +7,11 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
-import os
 
 from apps.orcUi.frontend.tk.orc_ui_app import OrcUiApp
 from apps.orcUi.theme_runtime import theme_bundle
 from common.units import UnitSystem, kelvin_to_celsius, kelvin_to_fahrenheit
+from config.runtime_environment import android_bridge_url
 from config.service_runtime_config import ServiceRuntimeConfigParser
 from controllers.weather import (
     GpsdWeatherLocationProvider,
@@ -89,9 +89,8 @@ def configure_weather(
     radar_injection = EnvironmentalRadarInjectionController(
         radar,
         bridge=AndroidSensorBridgeClient(
-            base_url=(
-                os.environ.get("OPENROADCODE_ANDROID_BRIDGE_URL", "").strip()
-                or runtime_config.environmental.weather_simulation.bridge_url
+            base_url=android_bridge_url(
+                runtime_config.environmental.weather_simulation.bridge_url
             )
         ),
     )
