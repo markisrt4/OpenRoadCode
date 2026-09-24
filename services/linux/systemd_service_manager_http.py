@@ -77,6 +77,12 @@ class SystemdServiceManagerHandler(BaseHTTPRequestHandler):
         if not self._authenticate():
             return
         try:
+            if parts == ["runtime", "android-bridge"]:
+                self.manager.set_android_bridge_url(
+                    f"http://{self.client_address[0]}:8766"
+                )
+                self._json(HTTPStatus.OK, {"status": "configured"})
+                return
             if parts == ["stack", "core", "start"]:
                 statuses = self.manager.start_core()
             elif parts == ["stack", "core", "stop"]:
@@ -86,13 +92,8 @@ class SystemdServiceManagerHandler(BaseHTTPRequestHandler):
                 and parts[0] == "services"
                 and parts[2] == "profile"
             ):
-                bridge_url = None
-                if parts[1] == "openroadcode-navigation" and parts[3] == "local":
-                    bridge_url = f"http://{self.client_address[0]}:8766"
                 statuses = (
-                    self.manager.set_profile(
-                        parts[1], parts[3], android_bridge_url=bridge_url
-                    ),
+                    self.manager.set_profile(parts[1], parts[3]),
                 )
             elif len(parts) == 3 and parts[0] == "services" and parts[2] in {
                 "start",
