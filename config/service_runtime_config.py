@@ -135,10 +135,21 @@ class AutomotiveServiceRuntimeConfig:
 
 
 @dataclass(frozen=True, slots=True)
+class EnvironmentalWeatherSimulationConfig:
+    bridge_url: str = "http://127.0.0.1:8766"
+
+
+@dataclass(frozen=True, slots=True)
+class EnvironmentalServiceRuntimeConfig:
+    weather_simulation: EnvironmentalWeatherSimulationConfig = EnvironmentalWeatherSimulationConfig()
+
+
+@dataclass(frozen=True, slots=True)
 class ServiceRuntimeConfig:
     messaging: MessagingRuntimeConfig = MessagingRuntimeConfig()
     navigation: NavigationServiceRuntimeConfig = NavigationServiceRuntimeConfig()
     automotive: AutomotiveServiceRuntimeConfig = AutomotiveServiceRuntimeConfig()
+    environmental: EnvironmentalServiceRuntimeConfig = EnvironmentalServiceRuntimeConfig()
     vehicle: VehicleConfiguration = VehicleConfiguration()
 
 
@@ -161,12 +172,29 @@ class ServiceRuntimeConfigParser:
         services = self._table(data.get("services", {}), "services")
         navigation = self._parse_navigation(services.get("navigation", {}))
         automotive = self._parse_automotive(services.get("automotive", {}))
+        environmental = self._parse_environmental(services.get("environmental", {}))
         vehicle = self._parse_vehicle(data.get("vehicle", {}))
         return ServiceRuntimeConfig(
             messaging=messaging,
             navigation=navigation,
             automotive=automotive,
+            environmental=environmental,
             vehicle=vehicle,
+        )
+
+    def _parse_environmental(self, value) -> EnvironmentalServiceRuntimeConfig:
+        data = self._table(value, "services.environmental")
+        weather_sim = self._table(
+            data.get("weather_simulation", {}),
+            "services.environmental.weather_simulation",
+        )
+        return EnvironmentalServiceRuntimeConfig(
+            weather_simulation=EnvironmentalWeatherSimulationConfig(
+                bridge_url=self._string(
+                    weather_sim.get("bridge_url", "http://127.0.0.1:8766"),
+                    "services.environmental.weather_simulation.bridge_url",
+                )
+            )
         )
 
     def _parse_vehicle(self, value) -> VehicleConfiguration:
