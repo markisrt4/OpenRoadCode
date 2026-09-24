@@ -17,6 +17,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 PROFILE_DIR = Path(
     os.environ.get("OPENROADCODE_SERVICE_PROFILE_DIR", "/var/lib/openroadcode/service-profiles")
 )
+RUNTIME_ENV_FILE = PROFILE_DIR / "openroadcode-runtime.env"
 
 
 @dataclass(frozen=True, slots=True)
@@ -109,6 +110,19 @@ class SystemdServiceManager:
             if f'OPENROADCODE_RUNTIME_PROFILE="{profile}"' in content:
                 return profile
         return "custom"
+
+    def set_android_bridge_url(self, bridge_url: str) -> None:
+        """Persist the Android Bridge endpoint as shared runtime state."""
+        if not bridge_url.startswith(("http://", "https://")):
+            raise ValueError("Android Bridge URL must use http or https")
+        PROFILE_DIR.mkdir(parents=True, exist_ok=True)
+        temporary = RUNTIME_ENV_FILE.with_suffix(".tmp")
+        temporary.write_text(
+            f'OPENROADCODE_ANDROID_BRIDGE_URL="{bridge_url}"\n',
+            encoding="utf-8",
+        )
+        temporary.chmod(0o644)
+        temporary.replace(RUNTIME_ENV_FILE)
 
     def set_profile(
         self, name: str, profile: str, *, android_bridge_url: str | None = None
