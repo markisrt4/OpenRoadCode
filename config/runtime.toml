@@ -106,6 +106,10 @@ max_age_seconds = 604800
 host = "127.0.0.1"
 port = 4532
 
+[services.environmental.weather_simulation]
+# Android Bridge endpoint. Use the phone address here when ORC runs remotely.
+bridge_url = "http://127.0.0.1:8766"
+
 [environmental.barometric_sensor]
 driver = "bmp388"
 address = 0x77
