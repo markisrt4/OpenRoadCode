@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
+import os
 
 from apps.orcUi.frontend.tk.orc_ui_app import OrcUiApp
 from apps.orcUi.theme_runtime import theme_bundle
@@ -88,7 +89,10 @@ def configure_weather(
     radar_injection = EnvironmentalRadarInjectionController(
         radar,
         bridge=AndroidSensorBridgeClient(
-            base_url=runtime_config.environmental.weather_simulation.bridge_url
+            base_url=(
+                os.environ.get("OPENROADCODE_ANDROID_BRIDGE_URL", "").strip()
+                or runtime_config.environmental.weather_simulation.bridge_url
+            )
         ),
     )
     radar_injection.refresh()
