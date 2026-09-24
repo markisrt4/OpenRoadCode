@@ -151,16 +151,23 @@ class SystemdServiceManagerHttpRequestTest(unittest.TestCase):
         self.assertEqual(payload["services"][0]["state"], "running")
         self.manager.restart.assert_called_once_with("openroadcode-navigation")
 
-    def test_local_navigation_profile_uses_authenticated_client_as_sensor_bridge(self) -> None:
+    def test_android_bridge_registration_uses_authenticated_client_address(self) -> None:
+        status, payload = self.request("POST", "/runtime/android-bridge")
+
+        self.assertEqual(status, 200)
+        self.assertEqual(payload, {"status": "configured"})
+        self.manager.set_android_bridge_url.assert_called_once_with(
+            f"http://{self.host}:8766"
+        )
+
+    def test_navigation_profile_does_not_own_android_bridge_endpoint(self) -> None:
         status, payload = self.request(
             "POST", "/services/openroadcode-navigation/profile/local"
         )
 
         self.assertEqual(status, 200)
         self.manager.set_profile.assert_called_once_with(
-            "openroadcode-navigation",
-            "local",
-            android_bridge_url=f"http://{self.host}:8766",
+            "openroadcode-navigation", "local"
         )
 
     def test_invalid_service_name_returns_bad_request(self) -> None:
