@@ -22,6 +22,13 @@ from controllers.video import MusicVideoController, NetflixPlayer, YouTubeMusicV
 from frontends.tk.media import BrowserMediaScreen, MediaNavigationBar, MediaScreen, SpotifyNowPlaying, SpotifyScreen
 from frontends.tk.media.youtube_music_coming_soon_screen import YouTubeMusicComingSoonScreen
 from ui.theme import ThemeMode
+from protocols.spotify import (
+    SPOTIFY_CLIENT_ID_SECRET_NAME,
+    SpotifyAuth,
+    SpotifyTokenStore,
+    load_spotify_config_from_secrets,
+)
+from security.environment_variable_secret_manager import EnvironmentVariableSecretManager
 
 MUSIC_VIDEO_PORT = 8770
 MUSIC_VIDEO_WINDOW_CLASS = "OpenRoadCodeMusicVideo"
@@ -82,18 +89,6 @@ def configure_media(app: OrcUiApp, runtime) -> MediaComposition:
             show_netflix=lambda: netflix_screen.show(),
         )
 
-    spotify_screen = SpotifyScreen(
-        app, theme=lambda: spotify_theme(app), back_action=lambda: media_screen.show(),
-        image_cache=image_cache, lyrics_client=lyrics, music_video_controller=music_video_controller,
-        music_video_presentation=music_video, service=media.spotify,
-        local_player=media.spotify_local_player, media_navigation_factory=media_navigation,
-    )
-    spotify_screen.set_playback_request_handler(media.spotify)
-    spotify_screen.set_track_request_handler(media.spotify)
-    spotify_screen.set_seek_request_handler(media.spotify)
-    spotify_screen.set_volume_request_handler(media.spotify)
-    spotify_screen.set_state_loader(media.spotify.latest_state)
-
     browser_color_scheme = lambda: "dark" if app.theme_mode is ThemeMode.DARK else "light"
     youtube_player = ManagedBrowserMediaPlayer(
         runtime.manager, "youtube", resolve_target=YouTubePlayer.resolve_target,
@@ -130,12 +125,62 @@ def configure_media(app: OrcUiApp, runtime) -> MediaComposition:
         media.spotify_local_player.request_player()
         spotify_screen.show()
 
+    spotify_secrets = EnvironmentVariableSecretManager()
+
+    def spotify_client_id() -> str | None:
+        return EnvironmentVariableSecretManager().get_secret(SPOTIFY_CLIENT_ID_SECRET_NAME)
+
+    def configure_spotify_client(client_id: str) -> str:
+        if not client_id:
+            raise ValueError("Spotify Client ID is required")
+        spotify_secrets.set_secret(SPOTIFY_CLIENT_ID_SECRET_NAME, client_id)
+        return "Spotify application saved. Restart ORC to activate it."
+
+    spotify_tokens = SpotifyTokenStore()
+
+    def spotify_account_connected() -> bool:
+        return spotify_tokens.load() is not None
+
+    def connect_spotify() -> str:
+        config = load_spotify_config_from_secrets(EnvironmentVariableSecretManager())
+        if config is None:
+            raise RuntimeError("Configure the Spotify Client ID first")
+        SpotifyAuth(config=config, token_store=spotify_tokens).login()
+        media.spotify.request_refresh()
+        return "Spotify account connected"
+
+    def disconnect_spotify() -> str:
+        spotify_tokens.clear()
+        return "Spotify account disconnected"
+
+    spotify_screen = SpotifyScreen(
+        app, theme=lambda: spotify_theme(app), back_action=lambda: media_screen.show(),
+        image_cache=image_cache, lyrics_client=lyrics, music_video_controller=music_video_controller,
+        music_video_presentation=music_video, service=media.spotify,
+        local_player=media.spotify_local_player, media_navigation_factory=media_navigation,
+        spotify_configured=lambda: spotify_client_id() is not None,
+        spotify_account_connected=spotify_account_connected,
+        configure_spotify=lambda: media_screen.show_spotify_configuration(),
+        connect_spotify=lambda: media_screen.run_spotify_account_action(False),
+        disconnect_spotify=lambda: media_screen.run_spotify_account_action(True),
+    )
+    spotify_screen.set_playback_request_handler(media.spotify)
+    spotify_screen.set_track_request_handler(media.spotify)
+    spotify_screen.set_seek_request_handler(media.spotify)
+    spotify_screen.set_volume_request_handler(media.spotify)
+    spotify_screen.set_state_loader(media.spotify.latest_state)
+
     media_screen = MediaScreen(
         app, theme_bundle=lambda: theme_bundle(app.theme_mode),
         show_spotify=spotify_screen.show, show_youtube=youtube_screen.show,
         show_youtube_music=youtube_music_screen.show, show_netflix=netflix_screen.show,
         show_spotify_remote=show_spotify_remote, show_spotify_local=show_spotify_local,
         spotify_local_available=lambda: media.spotify_local_player.state().available,
+        configure_spotify=configure_spotify_client,
+        spotify_client_id=spotify_client_id,
+        spotify_account_connected=spotify_account_connected,
+        connect_spotify=connect_spotify,
+        disconnect_spotify=disconnect_spotify,
     )
     app.register_screen("MEDIA", media_screen)
 

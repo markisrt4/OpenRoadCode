@@ -34,6 +34,11 @@ class MediaScreen(TkScreen):
         show_spotify_remote: Callable[[], None] | None = None,
         show_spotify_local: Callable[[], None] | None = None,
         spotify_local_available: Callable[[], bool] | None = None,
+        configure_spotify: Callable[[str], str] | None = None,
+        spotify_client_id: Callable[[], str | None] | None = None,
+        spotify_account_connected: Callable[[], bool] | None = None,
+        connect_spotify: Callable[[], str] | None = None,
+        disconnect_spotify: Callable[[], str] | None = None,
     ) -> None:
         super().__init__(ScreenId("media"))
         self._host = host
@@ -45,6 +50,11 @@ class MediaScreen(TkScreen):
         self._show_spotify_remote = show_spotify_remote or show_spotify
         self._show_spotify_local = show_spotify_local or show_spotify
         self._spotify_local_available = spotify_local_available or (lambda: True)
+        self._configure_spotify = configure_spotify
+        self._spotify_client_id = spotify_client_id or (lambda: None)
+        self._spotify_account_connected = spotify_account_connected or (lambda: False)
+        self._connect_spotify = connect_spotify
+        self._disconnect_spotify = disconnect_spotify
 
     def set_theme_mode(self, _mode: ThemeMode) -> None:
         """Rebuild the mounted media hub from the newly active CSS theme."""
@@ -96,6 +106,10 @@ class MediaScreen(TkScreen):
         )
         spotify.grid(row=0, column=0, sticky="nsew", padx=6, pady=4)
         self._spotify_card_actions(spotify)
+        if self._configure_spotify is not None:
+            self._spotify_configuration(spotify)
+        if self._connect_spotify is not None:
+            self._spotify_account_actions(spotify)
 
         youtube = self._media_card(
             grid,
@@ -301,6 +315,140 @@ class MediaScreen(TkScreen):
             fg=theme.text_muted,
             font=("Sans", 15, "bold"),
         ).pack(side=tk.LEFT)
+
+    def show_spotify_configuration(self) -> None:
+        """Open the shared Spotify application configuration dialog."""
+        self._show_spotify_configuration_dialog()
+
+    def run_spotify_account_action(self, disconnect: bool) -> None:
+        """Run the shared Spotify account action from any media surface."""
+        action = self._disconnect_spotify if disconnect else self._connect_spotify
+        if action is None:
+            return
+        self._host.set_screen_status(
+            "Disconnecting Spotify…" if disconnect else "Opening Spotify authorization…"
+        )
+
+        def worker() -> None:
+            try:
+                message = action()
+            except Exception as exc:
+                message = f"Spotify: {exc}"
+            self._host.schedule_ui_callback(0, lambda: self._spotify_action_complete(message))
+
+        import threading
+        threading.Thread(target=worker, name="spotify-authorization", daemon=True).start()
+
+    def _spotify_account_actions(self, card: tk.Frame) -> None:
+        """Show Spotify account authorization state and browser OAuth action."""
+        theme = self._theme_bundle().ui
+        body = card.winfo_children()[-1]
+        connected = self._spotify_account_connected()
+        row = tk.Frame(body, bg=theme.surface)
+        row.pack(fill=tk.X, side=tk.BOTTOM, pady=(8, 0))
+        tk.Label(
+            row,
+            text="ACCOUNT CONNECTED" if connected else "ACCOUNT NOT CONNECTED",
+            bg=theme.surface,
+            fg=SPOTIFY_GREEN if connected else theme.text_muted,
+            font=("Sans", 8, "bold"),
+        ).pack(side=tk.LEFT)
+
+        tk.Button(
+            row,
+            text="DISCONNECT" if connected else "CONNECT SPOTIFY",
+            command=lambda: self.run_spotify_account_action(connected),
+            bg=theme.control_background if connected else SPOTIFY_GREEN,
+            fg=theme.control_text if connected else "#000000",
+            activebackground=theme.control_active if connected else SPOTIFY_GREEN,
+            activeforeground="#FFFFFF" if connected else "#000000",
+            relief=tk.FLAT,
+            bd=0,
+            font=("Sans", 8, "bold"),
+            padx=9,
+            pady=5,
+        ).pack(side=tk.RIGHT)
+
+    def _spotify_action_complete(self, message: str) -> None:
+        self._host.set_screen_status(message)
+        self.show()
+
+    def _spotify_configuration(self, card: tk.Frame) -> None:
+        """Expose Spotify application configuration without requiring a shell."""
+        theme = self._theme_bundle().ui
+        body = card.winfo_children()[-1]
+        configured = self._spotify_client_id()
+        row = tk.Frame(body, bg=theme.surface)
+        row.pack(fill=tk.X, side=tk.BOTTOM, pady=(8, 0))
+        tk.Label(
+            row,
+            text="APP CONFIGURED" if configured else "APP NOT CONFIGURED",
+            bg=theme.surface,
+            fg=SPOTIFY_GREEN if configured else theme.text_muted,
+            font=("Sans", 8, "bold"),
+        ).pack(side=tk.LEFT)
+        tk.Button(
+            row,
+            text="CONFIGURE",
+            command=self._show_spotify_configuration_dialog,
+            bg=theme.control_background,
+            fg=theme.control_text,
+            activebackground=theme.control_active,
+            activeforeground="#FFFFFF",
+            relief=tk.FLAT,
+            bd=0,
+            font=("Sans", 8, "bold"),
+            padx=9,
+            pady=5,
+        ).pack(side=tk.RIGHT)
+
+    def _show_spotify_configuration_dialog(self) -> None:
+        theme = self._theme_bundle().ui
+        dialog = tk.Toplevel(self._host.screen_parent)
+        dialog.title("Spotify configuration")
+        dialog.configure(bg=theme.background)
+        dialog.transient(self._host.screen_parent.winfo_toplevel())
+        dialog.grab_set()
+
+        tk.Label(
+            dialog, text="SPOTIFY APPLICATION", bg=theme.background, fg=theme.text,
+            font=("Sans", 14, "bold"),
+        ).pack(anchor="w", padx=18, pady=(16, 4))
+        tk.Label(
+            dialog,
+            text="Enter the Client ID from your Spotify developer application. "
+                 "OpenRoadCode uses OAuth PKCE, so no client secret is required.",
+            bg=theme.background, fg=theme.text_muted, justify=tk.LEFT, wraplength=460,
+            font=("Sans", 9),
+        ).pack(anchor="w", padx=18, pady=(0, 12))
+
+        client_id = tk.StringVar(value=self._spotify_client_id() or "")
+        entry = tk.Entry(dialog, textvariable=client_id, width=52)
+        entry.pack(fill=tk.X, padx=18)
+        entry.focus_set()
+        status = tk.StringVar(value="")
+        tk.Label(
+            dialog, textvariable=status, bg=theme.background, fg=theme.text_muted,
+            font=("Sans", 8),
+        ).pack(anchor="w", padx=18, pady=(5, 0))
+
+        def save() -> None:
+            try:
+                message = self._configure_spotify(client_id.get().strip())
+            except (ValueError, RuntimeError, OSError) as exc:
+                status.set(str(exc))
+                return
+            dialog.destroy()
+            self._host.set_screen_status(message)
+            self.show()
+
+        buttons = tk.Frame(dialog, bg=theme.background)
+        buttons.pack(fill=tk.X, padx=18, pady=16)
+        tk.Button(buttons, text="CANCEL", command=dialog.destroy).pack(side=tk.RIGHT)
+        tk.Button(
+            buttons, text="SAVE", command=save, bg=SPOTIFY_GREEN, fg="#000000",
+            relief=tk.FLAT, padx=14,
+        ).pack(side=tk.RIGHT, padx=(0, 8))
 
     def _spotify_card_actions(self, card: tk.Frame) -> None:
         theme = self._theme_bundle().ui

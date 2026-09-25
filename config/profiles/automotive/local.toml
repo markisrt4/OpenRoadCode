@@ -1,0 +1,6 @@
+# Automotive input supplied by hardware/bridge local to the runtime host.
+[services.automotive.input]
+source = "device"
+
+[services.automotive.publish]
+source = "automotive-service-local"

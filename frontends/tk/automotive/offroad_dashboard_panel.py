@@ -709,94 +709,79 @@ class OffroadDashboardPanel(
         value: float | None,
         warning_deg: float,
     ) -> None:
-        """Draw pitch with a side-profile Jeep against a level reference."""
+        """Draw a compact side-profile inclinometer with threshold bands."""
 
         height = 225
         self._canvas.create_rectangle(
-            x, y, x + width, y + height, fill=self._theme.panel, outline=self._theme.border, width=2
+            x, y, x + width, y + height,
+            fill=self._theme.panel, outline=self._theme.border, width=2,
         )
-        self._canvas.create_text(
-            x + 14,
-            y + 16,
-            anchor=tk.NW,
-            text="PITCH",
-            fill=self._theme.muted,
-            font=("TkDefaultFont", 11, "bold"),
-        )
-
-        if value is None:
-            display = "--.-°"
-            color = MUTED
-            pitch = 0.0
-            direction = "--"
-        else:
-            display = f"{abs(value):.1f}°"
-            ratio = abs(value) / warning_deg
-            color = RED if ratio >= 1 else AMBER if ratio >= 0.75 else GREEN
-            pitch = value
-            direction = "NOSE UP" if value >= 0 else "NOSE DOWN"
+        pitch = value or 0.0
+        ratio = abs(pitch) / warning_deg if value is not None else 0.0
+        color = (
+            self._theme.danger if ratio >= 1.0 else
+            self._theme.warning if ratio >= 0.75 else
+            self._theme.success
+        ) if value is not None else self._theme.muted
+        direction = "--" if value is None else ("NOSE UP" if pitch >= 0 else "NOSE DOWN")
+        display = "--.-°" if value is None else f"{abs(pitch):.1f}°"
 
         self._canvas.create_text(
-            x + width / 2,
-            y + 57,
-            text=display,
-            fill=color,
-            font=("TkFixedFont", 27, "bold"),
+            x + 14, y + 14, anchor=tk.NW, text="PITCH",
+            fill=self._theme.muted, font=("TkDefaultFont", 10, "bold"),
+        )
+        self._canvas.create_text(
+            x + width - 12, y + 14, anchor=tk.NE, text=direction,
+            fill=color, font=("TkDefaultFont", 8, "bold"),
         )
 
-        center_x = x + width / 2
-        center_y = y + 122
-        half_level = width * 0.34
+        cx, cy = x + width / 2, y + 126
+        radius = min(width * 0.38, 72.0)
+        self._canvas.create_arc(
+            cx - radius, cy - radius, cx + radius, cy + radius,
+            start=20, extent=140, style=tk.ARC,
+            outline=self._theme.border, width=2,
+        )
+        for degrees in (-30, -20, -10, 0, 10, 20, 30):
+            angle = math.radians(90 - degrees)
+            inner = radius - (12 if degrees % 20 == 0 else 8)
+            x1, y1 = cx - inner * math.cos(angle), cy - inner * math.sin(angle)
+            x2, y2 = cx - radius * math.cos(angle), cy - radius * math.sin(angle)
+            self._canvas.create_line(x1, y1, x2, y2, fill=self._theme.muted, width=2)
+            if degrees in (-30, 0, 30):
+                self._canvas.create_text(
+                    cx - (radius + 13) * math.cos(angle),
+                    cy - (radius + 13) * math.sin(angle),
+                    text=str(degrees), fill=self._theme.muted,
+                    font=("TkFixedFont", 7),
+                )
+
+        # Fixed terrain line and a vehicle silhouette that follows pitch.
         self._canvas.create_line(
-            center_x - half_level,
-            center_y + 25,
-            center_x + half_level,
-            center_y + 25,
-            fill=self._theme.warning,
-            width=2,
-            dash=(5, 4),
+            cx - radius * 0.9, cy + 23, cx + radius * 0.9, cy + 23,
+            fill=self._theme.warning, width=2, dash=(5, 4),
         )
-        self._canvas.create_text(
-            center_x + half_level,
-            center_y + 36,
-            anchor=tk.E,
-            text="LEVEL",
-            fill=self._theme.warning,
-            font=("TkDefaultFont", 7, "bold"),
-        )
-
-        # Pitch is easier to read as an incline reference than as another
-        # miniature vehicle. The center attitude gauge already owns the
-        # vehicle graphic.
-        incline_half = width * 0.27
-        incline_angle = math.radians(-pitch)
-        dx = incline_half * math.cos(incline_angle)
-        dy = incline_half * math.sin(incline_angle)
-
-        self._canvas.create_line(
-            center_x - dx,
-            center_y - dy,
-            center_x + dx,
-            center_y + dy,
-            fill=color if value is not None else self._theme.muted,
-            width=5,
-        )
-        self._canvas.create_oval(
-            center_x - 5,
-            center_y - 5,
-            center_x + 5,
-            center_y + 5,
-            fill=self._theme.warning,
-            outline="",
-        )
+        half = radius * 0.58
+        angle = math.radians(-pitch)
+        dx, dy = half * math.cos(angle), half * math.sin(angle)
+        self._canvas.create_line(cx - dx, cy - dy, cx + dx, cy + dy, fill=color, width=5)
+        # Wheels and roof turn the indicator into an unmistakable side-view vehicle.
+        for local_x in (-half * 0.55, half * 0.55):
+            wx, wy = _rotate_screen_point((local_x, 8), cx, cy, -pitch)
+            self._canvas.create_oval(wx - 6, wy - 6, wx + 6, wy + 6, fill="#111613", outline=color, width=2)
+        roof = ((-half * .35, -4), (-half * .18, -19), (half * .25, -19), (half * .42, -4))
+        points: list[float] = []
+        for point in roof:
+            points.extend(_rotate_screen_point(point, cx, cy, -pitch))
+        self._canvas.create_line(*points, fill=color, width=3)
 
         self._canvas.create_text(
-            x + width - 12,
-            y + 17,
-            anchor=tk.NE,
-            text=direction,
-            fill=color if value is not None else MUTED,
-            font=("TkDefaultFont", 9, "bold"),
+            cx, y + height - 29, text=display, fill=color,
+            font=("TkFixedFont", 24, "bold"),
+        )
+        self._canvas.create_text(
+            cx, y + height - 8, text=f"LIMIT {warning_deg:.0f}°",
+            fill=self._theme.muted, font=("TkDefaultFont", 7, "bold"),
         )
 
     def _draw_tilt_meter(
@@ -1034,38 +1019,63 @@ class OffroadDashboardPanel(
         direction: str,
         warning_deg: float,
     ) -> None:
+        """Draw a semicircular roll inclinometer instead of a numeric-only card."""
+
         height = 150
         self._canvas.create_rectangle(
-            x, y, x + width, y + height, fill=self._theme.panel, outline=self._theme.border, width=2
+            x, y, x + width, y + height,
+            fill=self._theme.panel, outline=self._theme.border, width=2,
+        )
+        angle = value or 0.0
+        ratio = abs(angle) / warning_deg if value is not None else 0.0
+        color = (
+            self._theme.danger if ratio >= 1.0 else
+            self._theme.warning if ratio >= 0.75 else
+            self._theme.success
+        ) if value is not None else self._theme.muted
+        cx, cy = x + width / 2, y + 91
+        radius = min(width * .36, 55.0)
+
+        self._canvas.create_text(
+            x + 12, y + 12, anchor=tk.NW, text=title,
+            fill=self._theme.muted, font=("TkDefaultFont", 10, "bold"),
         )
         self._canvas.create_text(
-            x + 14,
-            y + 16,
-            anchor=tk.NW,
-            text=title,
-            fill=self._theme.muted,
-            font=("TkDefaultFont", 11, "bold"),
+            x + width - 10, y + 13, anchor=tk.NE,
+            text="--" if value is None else direction,
+            fill=color, font=("TkDefaultFont", 8, "bold"),
         )
-        if value is None:
-            display = "--.-°"
-            color = MUTED
-        else:
-            display = f"{abs(value):.1f}°"
-            ratio = abs(value) / warning_deg
-            color = RED if ratio >= 1 else AMBER if ratio >= 0.75 else GREEN
+        self._canvas.create_arc(
+            cx - radius, cy - radius, cx + radius, cy + radius,
+            start=0, extent=180, style=tk.ARC, outline=self._theme.border, width=2,
+        )
+        for degrees in (-45, -30, -15, 0, 15, 30, 45):
+            theta = math.radians(90 + degrees)
+            inner = radius - (11 if degrees % 30 == 0 else 7)
+            self._canvas.create_line(
+                cx + inner * math.cos(theta), cy - inner * math.sin(theta),
+                cx + radius * math.cos(theta), cy - radius * math.sin(theta),
+                fill=self._theme.muted, width=2,
+            )
+
+        # Vehicle axle rotates while the amber ground reference remains fixed.
+        self._canvas.create_line(cx - radius*.78, cy, cx + radius*.78, cy, fill=self._theme.warning, width=2, dash=(4, 3))
+        half = radius * .62
+        theta = math.radians(angle)
+        dx, dy = half * math.cos(theta), half * math.sin(theta)
+        self._canvas.create_line(cx - dx, cy - dy, cx + dx, cy + dy, fill=color, width=5)
+        for local_x in (-half * .7, half * .7):
+            wx, wy = _rotate_screen_point((local_x, 8), cx, cy, angle)
+            self._canvas.create_oval(wx-5, wy-5, wx+5, wy+5, fill="#111613", outline=color, width=2)
+
         self._canvas.create_text(
-            x + width / 2,
-            y + 70,
-            text=display,
-            fill=color,
-            font=("TkFixedFont", 30, "bold"),
+            cx, y + 126,
+            text="--.-°" if value is None else f"{abs(angle):.1f}°",
+            fill=color, font=("TkFixedFont", 18, "bold"),
         )
         self._canvas.create_text(
-            x + width / 2,
-            y + 121,
-            text=direction if value is not None else "--",
-            fill=self._theme.text,
-            font=("TkDefaultFont", 10, "bold"),
+            cx, y + 143, text=f"LIMIT {warning_deg:.0f}°",
+            fill=self._theme.muted, font=("TkDefaultFont", 7, "bold"),
         )
 
     def _draw_bottom_cards(
