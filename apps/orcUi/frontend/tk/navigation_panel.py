@@ -9,6 +9,7 @@ import math
 import tkinter as tk
 from collections.abc import Callable
 
+from apps.launchers.android_app_launcher import AndroidAppLauncherError
 from apps.launchers.android_intent_launcher import AndroidIntentLauncherError
 from apps.orcUi.theme_runtime import theme_bundle as packaged_theme_bundle
 from controllers.navigation.map_favorites import MapFavorites
@@ -313,7 +314,7 @@ class NavigationPanel(tk.Frame):
         try:
             status = self._poi_action_executor.execute(poi, action)
             self._shortcut_status.set(status)
-        except (AndroidIntentLauncherError, ValueError) as exc:
+        except (AndroidAppLauncherError, AndroidIntentLauncherError, ValueError) as exc:
             self._shortcut_status.set(f"Launch failed: {exc}")
         if self._poi_card is not None and self._poi_card.winfo_exists():
             self._poi_card.destroy()
