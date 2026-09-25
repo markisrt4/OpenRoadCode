@@ -23,7 +23,7 @@ class AndroidAppLauncher:
     def __init__(
         self,
         *,
-        native: AndroidIntentLauncher | None = None,
+        native: AndroidHostActionClient | None = None,
         waydroid: WaydroidLauncher | None = None,
     ) -> None:
         self._native = native
@@ -35,7 +35,7 @@ class AndroidAppLauncher:
 
     def open_uri(self, uri: str) -> None:
         if self._is_native_android():
-            (self._native or AndroidIntentLauncher()).open_uri(uri)
+            (self._native or AndroidHostActionClient()).open_uri(uri)
             return
         raise AndroidAppLauncherError(
             "URI fallback is not implemented for Linux/Waydroid yet"
@@ -43,7 +43,7 @@ class AndroidAppLauncher:
 
     def open_package_or_uri(self, package: str | None, uri: str) -> str:
         if self._is_native_android():
-            return (self._native or AndroidIntentLauncher()).open_package_or_uri(
+            return (self._native or AndroidHostActionClient()).open_package_or_uri(
                 package, uri
             )
 
