@@ -31,6 +31,7 @@ from messaging.zeromq.endpoints import LOCAL_SUBSCRIBER_ENDPOINT
 
 RPM_PER_RAD_S = 60.0 / (2.0 * 3.141592653589793)
 MPH_PER_MPS = 2.2369362920544
+MAX_CAPTURE_SPREAD = 0.08
 
 
 @dataclass(frozen=True)
@@ -278,14 +279,20 @@ def _single_gear_learn(subscriber: ZeroMqSubscriber, args: argparse.Namespace) -
     return 0
 
 
-def _guided_learn(subscriber: ZeroMqSubscriber, args: argparse.Namespace) -> int:
-    groups: list[list[float]] = []
-    print("Guided manual-transmission calibration")
-    print(f"Collecting {args.samples_per_gear} stable samples per gear.")
-    print("For safety, start each gear from a stop/passenger interaction; do not type while driving.\n")
+def _capture_guided_gear(
+    subscriber: ZeroMqSubscriber,
+    args: argparse.Namespace,
+    gear: int,
+) -> list[float]:
+    """Capture one gear, rejecting a noisy sample set before advancing."""
+    while True:
+        print(f"\n{'=' * 56}")
+        print(f"READY FOR GEAR {gear}")
+        print(f"{'=' * 56}")
+        print(f"Shift into gear {gear} and establish steady driving.")
+        input(f"Press Enter once to ARM gear {gear}...")
+        print(f"ARMED: gear {gear}. Waiting for stable telemetry.", flush=True)
 
-    for gear in range(1, args.gears + 1):
-        input(f"Gear {gear}: when safely ready, press Enter to arm sampling...")
         history: deque[float] = deque(maxlen=args.window)
         values: list[float] = []
         last_status = 0.0
@@ -305,19 +312,48 @@ def _guided_learn(subscriber: ZeroMqSubscriber, args: argparse.Namespace) -> int
                 )
                 last_status = now
         print()
-        groups.append(values)
-        print(
-            f"Gear {gear} captured: median={statistics.median(values):.2f} rpm/mph, "
-            f"sigma={statistics.pstdev(values) if len(values) > 1 else 0.0:.2f}\n"
-        )
 
-    centers = [statistics.median(group) for group in groups]
-    if any(a <= b for a, b in zip(centers, centers[1:])):
+        center = statistics.median(values)
+        spread = (max(values) - min(values)) / center if center > 0.0 else float("inf")
+        sigma = statistics.pstdev(values) if len(values) > 1 else 0.0
+        if spread > MAX_CAPTURE_SPREAD:
+            print(
+                f"REJECTED GEAR {gear}: capture spread was {spread:.1%}; "
+                f"maximum is {MAX_CAPTURE_SPREAD:.1%}."
+            )
+            print("Sampling is DISARMED. Re-establish the requested gear and retry.")
+            continue
+
         print(
-            "Calibration rejected: learned ratios must decrease from 1st through the highest gear.",
-            file=sys.stderr,
+            f"CAPTURED GEAR {gear}: median={center:.2f} rpm/mph, "
+            f"sigma={sigma:.2f}"
         )
-        return 2
+        print("Sampling is DISARMED.")
+        return values
+
+
+def _guided_learn(subscriber: ZeroMqSubscriber, args: argparse.Namespace) -> int:
+    groups: list[list[float]] = []
+    print("Guided manual-transmission calibration")
+    print(f"Collecting {args.samples_per_gear} stable samples per gear.")
+    print("Each gear is explicitly armed and disarmed before advancing.")
+    print("For safety, have a passenger operate the terminal or interact only while stopped.\n")
+
+    for gear in range(1, args.gears + 1):
+        while True:
+            values = _capture_guided_gear(subscriber, args, gear)
+            center = statistics.median(values)
+            if groups:
+                previous_center = statistics.median(groups[-1])
+                if center >= previous_center:
+                    print(
+                        f"REJECTED GEAR {gear}: {center:.2f} rpm/mph is not below "
+                        f"gear {gear - 1} ({previous_center:.2f} rpm/mph)."
+                    )
+                    print("That usually means the wrong gear was armed. Recapturing.")
+                    continue
+            groups.append(values)
+            break
 
     _print_summary(groups)
     _write_profile(args.output, groups, sum(len(group) for group in groups))
