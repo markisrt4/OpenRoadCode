@@ -222,6 +222,8 @@ class SDRPPLauncher(AppLauncherIf):
             f"if [ $pulse_ready -ne 1 ]; then "
             f"cat /tmp/orc-sdrpp-pulseaudio.log >&2; exit 1; fi; "
             f"export PULSE_SERVER=unix:{shlex.quote(runtime_dir)}/pulse/native; "
+            f"export OPENROADCODE_RTL_USB_PROXY=1; "
+            f"export LD_LIBRARY_PATH=/root/.local/orcu-rtlsdr/lib:$LD_LIBRARY_PATH; "
             f"/usr/bin/pactl unload-module module-pipe-sink >/dev/null 2>&1 || true; "
             f"/usr/bin/pactl load-module module-pipe-sink "
             f"sink_name=orc_android file={shlex.quote(fifo)} "
