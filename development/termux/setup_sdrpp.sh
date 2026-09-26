@@ -72,6 +72,7 @@ export DEBIAN_FRONTEND=noninteractive
 DEBIAN_PACKAGES=(
   build-essential cmake git binutils python3 libfftw3-dev libglfw3-dev libvolk-dev
   libzstd-dev libusb-1.0-0-dev librtlsdr-dev libsoapysdr-dev librtaudio-dev libhackrf-dev
+  pulseaudio pulseaudio-utils alsa-utils
 )
 missing_debian_packages=()
 for package in "${DEBIAN_PACKAGES[@]}"; do
@@ -129,7 +130,24 @@ mkdir -p "$SDRPP_ROOT"; cp -a "$SDRPP_SRC/root/." "$SDRPP_ROOT/"
 RIGCTL_MODULE="$(find "$SDRPP_BUILD" -type f -name 'rigctl_server.so' -print -quit)"
 REMOTE_CONTROL_MODULE="$(find "$SDRPP_BUILD" -type f -name 'remote_control.so' -print -quit)"
 TELEMETRY_MODULE="$(find "$SDRPP_BUILD" -type f -name 'telemetry.so' -print -quit)"
-for pair in "Rigctl Server:$RIGCTL_MODULE" "OpenRoadCode remote control:$REMOTE_CONTROL_MODULE" "OpenRoadCode telemetry:$TELEMETRY_MODULE"; do name="${pair%%:*}"; file="${pair#*:}"; [[ -n "$file" ]] || { echo "$name module was not produced." >&2; exit 1; }; done
+RTL_TCP_MODULE="$(find "$SDRPP_BUILD/source_modules/rtl_tcp_source" -type f -name 'rtl_tcp_source.so' -print -quit)"
+RADIO_MODULE="$(find "$SDRPP_BUILD/decoder_modules/radio" -type f -name 'radio.so' -print -quit)"
+AUDIO_SINK_MODULE="$(find "$SDRPP_BUILD/sink_modules/audio_sink" -type f -name 'audio_sink.so' -print -quit)"
+FREQUENCY_MANAGER_MODULE="$(find "$SDRPP_BUILD/misc_modules/frequency_manager" -type f -name 'frequency_manager.so' -print -quit)"
+RECORDER_MODULE="$(find "$SDRPP_BUILD/misc_modules/recorder" -type f -name 'recorder.so' -print -quit)"
+for pair in \
+  "Rigctl Server:$RIGCTL_MODULE" \
+  "OpenRoadCode remote control:$REMOTE_CONTROL_MODULE" \
+  "OpenRoadCode telemetry:$TELEMETRY_MODULE" \
+  "RTL-TCP source:$RTL_TCP_MODULE" \
+  "Radio:$RADIO_MODULE" \
+  "Audio sink:$AUDIO_SINK_MODULE" \
+  "Frequency manager:$FREQUENCY_MANAGER_MODULE" \
+  "Recorder:$RECORDER_MODULE"; do
+  name="${pair%%:*}"
+  file="${pair#*:}"
+  [[ -n "$file" ]] || { echo "$name module was not produced." >&2; exit 1; }
+done
 for module in "$REMOTE_CONTROL_MODULE" "$TELEMETRY_MODULE"; do
   echo "[*] Verifying $(basename "$module") SDR++ ABI exports"
   for symbol in _INFO_ _INIT_ _CREATE_INSTANCE_ _DELETE_INSTANCE_ _END_; do nm -D "$module" 2>/dev/null | grep -Eq "[[:space:]]${symbol}$" || { echo "$(basename "$module") is missing required SDR++ symbol: $symbol" >&2; exit 1; }; done
@@ -138,6 +156,11 @@ mkdir -p "$SDRPP_ROOT/modules"; rm -f "$SDRPP_ROOT/modules/"*.so
 cp -f "$RIGCTL_MODULE" "$SDRPP_ROOT/modules/rigctl_server.so"
 cp -f "$REMOTE_CONTROL_MODULE" "$SDRPP_ROOT/modules/remote_control.so"
 cp -f "$TELEMETRY_MODULE" "$SDRPP_ROOT/modules/telemetry.so"
+cp -f "$RTL_TCP_MODULE" "$SDRPP_ROOT/modules/rtl_tcp_source.so"
+cp -f "$RADIO_MODULE" "$SDRPP_ROOT/modules/radio.so"
+cp -f "$AUDIO_SINK_MODULE" "$SDRPP_ROOT/modules/audio_sink.so"
+cp -f "$FREQUENCY_MANAGER_MODULE" "$SDRPP_ROOT/modules/frequency_manager.so"
+cp -f "$RECORDER_MODULE" "$SDRPP_ROOT/modules/recorder.so"
 
 if [[ -f "$SDRPP_ROOT/config.json" ]]; then
   echo "[*] Enabling SDR++ integration module instances"
@@ -161,7 +184,8 @@ cat <<EOF
     source:         $SDRPP_SRC
     binary:         $SDRPP_BUILD/sdrpp
     resources:      $SDRPP_ROOT
-    modules:        rigctl_server.so, remote_control.so, telemetry.so
+    modules:        rtl_tcp_source.so, radio.so, audio_sink.so, frequency_manager.so,
+                    recorder.so, rigctl_server.so, remote_control.so, telemetry.so
     rigctl:         127.0.0.1:4532
     remote control: 127.0.0.1:4533
     telemetry:      127.0.0.1:4534
