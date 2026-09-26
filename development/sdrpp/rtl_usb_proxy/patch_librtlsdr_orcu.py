@@ -122,19 +122,19 @@ text = text[:body_start] + preamble + text[init_at:]
 # failures do not collapse into rtl_test's generic open error.
 text = text.replace(
     'if (rtlsdr_write_reg(dev, USBB, USB_SYSCTL, 0x09, 1) < 0) {',
-    'fprintf(stderr, "[ORCU] first RTL2832U register write...\\\\n");\\n\\tif (rtlsdr_write_reg(dev, USBB, USB_SYSCTL, 0x09, 1) < 0) {'
+    'fprintf(stderr, "[ORCU] first RTL2832U register write...\\n");\n\tif (rtlsdr_write_reg(dev, USBB, USB_SYSCTL, 0x09, 1) < 0) {'
 )
 text = text.replace(
-    'fprintf(stderr, "Resetting device...\\\\n");\\n\\t\\tlibusb_reset_device(dev->devh);',
-    'fprintf(stderr, "[ORCU] first register write failed; resetting proxy device...\\\\n");\\n\\t\\tr = orcu_reset(dev->orcu_fd);\\n\\t\\tfprintf(stderr, "[ORCU] reset result: %d\\\\n", r);\\n\\t\\tif (r >= 0) { r = orcu_claim(dev->orcu_fd, 0, 1); fprintf(stderr, "[ORCU] reclaim result: %d\\\\n", r); }'
+    'fprintf(stderr, "Resetting device...\\n");\n\t\\tlibusb_reset_device(dev->devh);',
+    'fprintf(stderr, "[ORCU] first register write failed; resetting proxy device...\\n");\n\t\\tr = orcu_reset(dev->orcu_fd);\n\t\\tfprintf(stderr, "[ORCU] reset result: %d\\n", r);\n\t\\tif (r >= 0) { r = orcu_claim(dev->orcu_fd, 0, 1); fprintf(stderr, "[ORCU] reclaim result: %d\\n", r); }'
 )
 text = text.replace(
     '\\trtlsdr_init_baseband(dev);',
-    '\\tfprintf(stderr, "[ORCU] initializing RTL2832U baseband...\\\\n");\\n\\tr = rtlsdr_init_baseband(dev);\\n\\tfprintf(stderr, "[ORCU] baseband init result: %d\\\\n", r);'
+    '\\tfprintf(stderr, "[ORCU] initializing RTL2832U baseband...\\n");\n\tr = rtlsdr_init_baseband(dev);\n\tfprintf(stderr, "[ORCU] baseband init result: %d\\n", r);'
 )
 text = text.replace(
     '\\t/* Probe tuners */',
-    '\\tfprintf(stderr, "[ORCU] probing tuner over I2C...\\\\n");\\n\\t/* Probe tuners */'
+    '\\tfprintf(stderr, "[ORCU] probing tuner over I2C...\\n");\n\t/* Probe tuners */'
 )
 
 
