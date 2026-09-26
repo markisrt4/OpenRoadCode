@@ -199,48 +199,34 @@ class SDRPPLauncher(AppLauncherIf):
             raise RuntimeError("Could not find native SDR++ or proot-distro on Termux")
         source = str(self.termux_sdrpp_source)
         runtime_dir = DEFAULT_TERMUX_XDG_RUNTIME_DIR
-        shell_command = f"mkdir -p {shlex.quote(runtime_dir)} && chmod 700 {shlex.quote(runtime_dir)} && cd {shlex.quote(source)} && exec ./build/sdrpp -r root_dev --autostart"
-        return [proot_distro, "login", self.termux_proot_distribution, "--shared-tmp", "--", "env", f"DISPLAY={display}", f"XDG_RUNTIME_DIR={runtime_dir}", "XDG_SESSION_TYPE=x11", "GDK_BACKEND=x11", "LIBGL_ALWAYS_SOFTWARE=1", "bash", "-lc", shell_command]
-
-    def _start_termux_audio(self) -> None:
-        proot_distro = shutil.which("proot-distro")
-        if proot_distro is None:
-            raise RuntimeError("Could not start SDR++ audio without proot-distro")
-
-        runtime_dir = DEFAULT_TERMUX_XDG_RUNTIME_DIR
         fifo = DEFAULT_TERMUX_AUDIO_FIFO
-        setup = (
-            f"mkdir -p {shlex.quote(runtime_dir)} && chmod 700 {shlex.quote(runtime_dir)}; "
-            f"rm -f {shlex.quote(fifo)}; "
-            f"mkfifo {shlex.quote(fifo)} && chmod 666 {shlex.quote(fifo)}; "
+        shell_command = (
+            f"mkdir -p {shlex.quote(runtime_dir)} && chmod 700 {shlex.quote(runtime_dir)} && "
             f"if ! /usr/bin/pulseaudio --check >/dev/null 2>&1; then "
-            f"/usr/bin/pulseaudio --daemonize=yes --exit-idle-time=-1; "
-            f"fi; "
+            f"/usr/bin/pulseaudio --daemonize=yes --exit-idle-time=-1; fi && "
             f"/usr/bin/pactl unload-module module-pipe-sink >/dev/null 2>&1 || true; "
             f"/usr/bin/pactl load-module module-pipe-sink "
             f"sink_name=orc_android file={shlex.quote(fifo)} "
-            f"format=s16le rate=48000 channels=2 >/dev/null; "
-            f"/usr/bin/pactl set-default-sink orc_android"
+            f"format=s16le rate=48000 channels=2 >/dev/null && "
+            f"/usr/bin/pactl set-default-sink orc_android && "
+            f"cd {shlex.quote(source)} && exec ./build/sdrpp -r root_dev --autostart"
         )
-        result = subprocess.run(
-            [
-                proot_distro, "login", self.termux_proot_distribution, "--shared-tmp", "--",
-                "env", f"XDG_RUNTIME_DIR={runtime_dir}", "bash", "-lc", setup,
-            ],
-            check=False,
-            capture_output=True,
-            text=True,
-        )
-        if result.returncode != 0:
-            detail = result.stderr.strip() or result.stdout.strip() or "unknown PulseAudio error"
-            raise RuntimeError(f"Could not prepare SDR++ Termux audio: {detail}")
+        return [proot_distro, "login", self.termux_proot_distribution, "--shared-tmp", "--", "env", f"DISPLAY={display}", f"XDG_RUNTIME_DIR={runtime_dir}", "XDG_SESSION_TYPE=x11", "GDK_BACKEND=x11", "LIBGL_ALWAYS_SOFTWARE=1", "bash", "-lc", shell_command]
+
+    def _start_termux_audio(self) -> None:
+        fifo = Path(_termux_shared_tmp_path(Path(DEFAULT_TERMUX_AUDIO_FIFO).name))
+        try:
+            fifo.unlink(missing_ok=True)
+            os.mkfifo(fifo, mode=0o600)
+        except OSError as exc:
+            raise RuntimeError(f"Could not create SDR++ audio FIFO {fifo}: {exc}") from exc
 
         forwarder = Path(__file__).with_name("sdrpp_pcm_forwarder.py")
         self._audio_forwarder_process = subprocess.Popen(
             [
                 shutil.which("python3") or "python3",
                 str(forwarder),
-                _termux_shared_tmp_path(Path(fifo).name),
+                str(fifo),
                 "--host", DEFAULT_ANDROID_AUDIO_HOST,
                 "--port", str(DEFAULT_ANDROID_AUDIO_PORT),
             ],
