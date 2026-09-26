@@ -26,6 +26,9 @@ DEFAULT_TERMUX_XDG_RUNTIME_DIR = "/tmp/runtime-root"
 DEFAULT_NATIVE_SDRPP_ROOT = Path.home() / "SDRPlusPlus" / "root_dev"
 DEFAULT_REMOTE_CONTROL_HOST = "127.0.0.1"
 DEFAULT_REMOTE_CONTROL_PORT = 4533
+DEFAULT_TERMUX_AUDIO_FIFO = "/tmp/orc-sdrpp-audio.pcm"
+DEFAULT_ANDROID_AUDIO_HOST = "127.0.0.1"
+DEFAULT_ANDROID_AUDIO_PORT = 8771
 _VALID_THEMES = {"Dark", "Light"}
 _THEME_SYNC_LOCK = threading.Lock()
 _PENDING_THEME_SYNC: tuple[str, str, Path, Path | None] | None = None
@@ -60,6 +63,7 @@ class SDRPPLauncher(AppLauncherIf):
         self.theme = _normalize_theme(theme) if theme is not None else None
         self.sdr_source = sdr_source or SdrSourceConfig()
         self._process: subprocess.Popen[str] | None = None
+        self._audio_forwarder_process: subprocess.Popen[str] | None = None
         self._launched_via_proot = False
 
     def is_running(self) -> bool:
@@ -104,6 +108,9 @@ class SDRPPLauncher(AppLauncherIf):
         if self.theme is not None:
             self.sync_theme()
 
+        if _is_termux():
+            self._start_termux_audio()
+
         command = self._launch_command(remote_display)
         self._launched_via_proot = _is_proot_command(command)
         environment = _sdrpp_environment(remote_display)
@@ -127,6 +134,7 @@ class SDRPPLauncher(AppLauncherIf):
         if self._process is not None:
             terminate_process(self._process)
             self._process = None
+        self._stop_termux_audio()
         self._launched_via_proot = False
         close_matching_display_apps(display=remote_display, patterns=("sdrpp", "sdr\\+\\+"))
         _status(set_status, "SDR++ stopped")
@@ -193,6 +201,56 @@ class SDRPPLauncher(AppLauncherIf):
         runtime_dir = DEFAULT_TERMUX_XDG_RUNTIME_DIR
         shell_command = f"mkdir -p {shlex.quote(runtime_dir)} && chmod 700 {shlex.quote(runtime_dir)} && cd {shlex.quote(source)} && exec ./build/sdrpp -r root_dev --autostart"
         return [proot_distro, "login", self.termux_proot_distribution, "--shared-tmp", "--", "env", f"DISPLAY={display}", f"XDG_RUNTIME_DIR={runtime_dir}", "XDG_SESSION_TYPE=x11", "GDK_BACKEND=x11", "LIBGL_ALWAYS_SOFTWARE=1", "bash", "-lc", shell_command]
+
+    def _start_termux_audio(self) -> None:
+        proot_distro = shutil.which("proot-distro")
+        if proot_distro is None:
+            raise RuntimeError("Could not start SDR++ audio without proot-distro")
+
+        runtime_dir = DEFAULT_TERMUX_XDG_RUNTIME_DIR
+        fifo = DEFAULT_TERMUX_AUDIO_FIFO
+        setup = (
+            f"mkdir -p {shlex.quote(runtime_dir)} && chmod 700 {shlex.quote(runtime_dir)} && "
+            f"rm -f {shlex.quote(fifo)} && mkfifo -m 666 {shlex.quote(fifo)} && "
+            f"/usr/bin/pulseaudio --check >/dev/null 2>&1 || "
+            f"/usr/bin/pulseaudio --daemonize=yes --exit-idle-time=-1; "
+            f"/usr/bin/pactl unload-module module-pipe-sink >/dev/null 2>&1 || true; "
+            f"/usr/bin/pactl load-module module-pipe-sink "
+            f"sink_name=orc_android file={shlex.quote(fifo)} "
+            f"format=s16le rate=48000 channels=2 >/dev/null"
+        )
+        result = subprocess.run(
+            [
+                proot_distro, "login", self.termux_proot_distribution, "--shared-tmp", "--",
+                "env", f"XDG_RUNTIME_DIR={runtime_dir}", "bash", "-lc", setup,
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode != 0:
+            detail = result.stderr.strip() or result.stdout.strip() or "unknown PulseAudio error"
+            raise RuntimeError(f"Could not prepare SDR++ Termux audio: {detail}")
+
+        forwarder = Path(__file__).with_name("sdrpp_pcm_forwarder.py")
+        self._audio_forwarder_process = subprocess.Popen(
+            [
+                shutil.which("python3") or "python3",
+                str(forwarder),
+                _termux_shared_tmp_path(Path(fifo).name),
+                "--host", DEFAULT_ANDROID_AUDIO_HOST,
+                "--port", str(DEFAULT_ANDROID_AUDIO_PORT),
+            ],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            start_new_session=True,
+            text=True,
+        )
+
+    def _stop_termux_audio(self) -> None:
+        if self._audio_forwarder_process is not None:
+            terminate_process(self._audio_forwarder_process)
+            self._audio_forwarder_process = None
 
     def _request_fullscreen(self, display: str, environment: dict[str, str]) -> None:
         subprocess.Popen(["bash", "-lc", f'sleep 3; DISPLAY="{display}" wmctrl -r "SDR++" -b add,fullscreen'], env=environment, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True, text=True)
@@ -297,6 +355,13 @@ def _find_descendant_matching(root_pid: int, command_fragments: tuple[str, ...])
             return pid
         pending.extend(children.get(pid, ()))
     return None
+
+
+def _termux_shared_tmp_path(name: str) -> str:
+    tmpdir = os.getenv("TMPDIR")
+    if not tmpdir:
+        raise RuntimeError("Termux TMPDIR is not configured")
+    return str(Path(tmpdir) / name)
 
 
 def _sdrpp_environment(remote_display: str) -> dict[str, str]:
