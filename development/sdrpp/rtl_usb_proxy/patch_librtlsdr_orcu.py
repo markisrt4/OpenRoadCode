@@ -91,6 +91,7 @@ init_at = text.index(init_marker, open_start)
 body_start = text.index('{', open_start) + 1
 preamble = r'''
 	int r = 0;
+	uint8_t reg;
 	rtlsdr_dev_t *dev = NULL;
 
 	if (!getenv("OPENROADCODE_RTL_USB_PROXY") || index != 0)
@@ -162,7 +163,7 @@ new_close = r'''int rtlsdr_close(rtlsdr_dev_t *dev)
 text = text.replace(old_close, new_close, 1)
 text = text.replace(
     'return libusb_bulk_transfer(dev->devh, 0x81, buf, len, n_read, BULK_TIMEOUT);',
-    'int r = orcu_bulk_read(dev->orcu_fd, 0x81, buf, len, 1000);\n\tif (n_read) *n_read = r > 0 ? r : 0;\n\treturn r < 0 ? r : 0;'
+    'int r;\n\tr = orcu_bulk_read(dev->orcu_fd, 0x81, buf, len, 1000);\n\tif (n_read) *n_read = r > 0 ? r : 0;\n\treturn r < 0 ? r : 0;'
 )
 
 # Replace libusb async machinery with blocking proxy reads. SDR++ already runs
