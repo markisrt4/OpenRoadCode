@@ -8,6 +8,7 @@ int orcu_control(int fd, int request_type, int request, int value, int index, ui
 int orcu_bulk_read(int fd, int endpoint, uint8_t *buf, int len, int timeout_ms);
 int orcu_stream_bulk_in_start(int fd, int endpoint, int len, int timeout_ms);
 int orcu_stream_bulk_in_read(int fd, uint8_t *buf, int cap);
+int orcu_stream_bulk_in_stop(int fd);
 int orcu_reset(int fd);
 void orcu_close(int fd);
 #endif
