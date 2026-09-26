@@ -223,5 +223,15 @@ int rtlsdr_cancel_async(rtlsdr_dev_t *dev)
 '''
 text = text[:async_start] + async_code + text[async_end:]
 
+# Compile the ORCU transport into both librtlsdr shared/static targets.
+cmake_path = root / "src" / "CMakeLists.txt"
+cmake = cmake_path.read_text()
+if "orcu_usb_transport.c" not in cmake:
+    marker = "set(rtlsdr_sources\n"
+    if marker not in cmake:
+        raise SystemExit("unable to find rtlsdr_sources in src/CMakeLists.txt")
+    cmake = cmake.replace(marker, marker + "    orcu_usb_transport.c\n", 1)
+    cmake_path.write_text(cmake)
+
 path.write_text(text)
-print(f"patched {path}")
+print(f"patched {path} and {cmake_path}")
