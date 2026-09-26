@@ -223,15 +223,16 @@ int rtlsdr_read_async(rtlsdr_dev_t *dev, rtlsdr_read_async_cb_t cb, void *ctx,
 	dev->cb = cb;
 	dev->cb_ctx = ctx;
 
+	if (orcu_stream_bulk_in_start(dev->orcu_fd, 0x81, (int)buf_len, 250) < 0) {
+		free(buf);
+		dev->async_status = RTLSDR_INACTIVE;
+		return -1;
+	}
 	while (!dev->async_cancel) {
-		n = orcu_bulk_read(dev->orcu_fd, 0x81, buf, (int)buf_len, 250);
-		if (n > 0)
-			cb(buf, (uint32_t)n, ctx);
-		else if (n < 0 && !dev->async_cancel) {
-			/* Android reports a timeout as a negative bulk result. Keep
-			 * polling so cancellation remains bounded and cheap. */
-			continue;
-		}
+		n = orcu_stream_bulk_in_read(dev->orcu_fd, buf, (int)buf_len);
+		if (n <= 0)
+			break;
+		cb(buf, (uint32_t)n, ctx);
 	}
 	free(buf);
 	dev->async_status = RTLSDR_INACTIVE;
