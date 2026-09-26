@@ -209,7 +209,7 @@ class SDRPPLauncher(AppLauncherIf):
         fifo = DEFAULT_TERMUX_AUDIO_FIFO
         shell_command = (
             f"mkdir -p {shlex.quote(runtime_dir)} && chmod 700 {shlex.quote(runtime_dir)} && "
-            f"/usr/bin/pulseaudio --daemonize=no --exit-idle-time=-1 "
+            f"DISPLAY= /usr/bin/pulseaudio --daemonize=no --exit-idle-time=-1 "
             f">/tmp/orc-sdrpp-pulseaudio.log 2>&1 & "
             f"pulse_pid=$!; "
             f"pulse_ready=0; "
