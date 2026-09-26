@@ -131,6 +131,7 @@ RIGCTL_MODULE="$(find "$SDRPP_BUILD" -type f -name 'rigctl_server.so' -print -qu
 REMOTE_CONTROL_MODULE="$(find "$SDRPP_BUILD" -type f -name 'remote_control.so' -print -quit)"
 TELEMETRY_MODULE="$(find "$SDRPP_BUILD" -type f -name 'telemetry.so' -print -quit)"
 RTL_TCP_MODULE="$(find "$SDRPP_BUILD/source_modules/rtl_tcp_source" -type f -name 'rtl_tcp_source.so' -print -quit)"
+RTL_SDR_MODULE="$(find "$SDRPP_BUILD/source_modules/rtl_sdr_source" -type f -name 'rtl_sdr_source.so' -print -quit)"
 RADIO_MODULE="$(find "$SDRPP_BUILD/decoder_modules/radio" -type f -name 'radio.so' -print -quit)"
 AUDIO_SINK_MODULE="$(find "$SDRPP_BUILD/sink_modules/audio_sink" -type f -name 'audio_sink.so' -print -quit)"
 FREQUENCY_MANAGER_MODULE="$(find "$SDRPP_BUILD/misc_modules/frequency_manager" -type f -name 'frequency_manager.so' -print -quit)"
@@ -140,6 +141,7 @@ for pair in \
   "OpenRoadCode remote control:$REMOTE_CONTROL_MODULE" \
   "OpenRoadCode telemetry:$TELEMETRY_MODULE" \
   "RTL-TCP source:$RTL_TCP_MODULE" \
+  "RTL-SDR source:$RTL_SDR_MODULE" \
   "Radio:$RADIO_MODULE" \
   "Audio sink:$AUDIO_SINK_MODULE" \
   "Frequency manager:$FREQUENCY_MANAGER_MODULE" \
@@ -157,6 +159,7 @@ cp -f "$RIGCTL_MODULE" "$SDRPP_ROOT/modules/rigctl_server.so"
 cp -f "$REMOTE_CONTROL_MODULE" "$SDRPP_ROOT/modules/remote_control.so"
 cp -f "$TELEMETRY_MODULE" "$SDRPP_ROOT/modules/telemetry.so"
 cp -f "$RTL_TCP_MODULE" "$SDRPP_ROOT/modules/rtl_tcp_source.so"
+cp -f "$RTL_SDR_MODULE" "$SDRPP_ROOT/modules/rtl_sdr_source.so"
 cp -f "$RADIO_MODULE" "$SDRPP_ROOT/modules/radio.so"
 cp -f "$AUDIO_SINK_MODULE" "$SDRPP_ROOT/modules/audio_sink.so"
 cp -f "$FREQUENCY_MANAGER_MODULE" "$SDRPP_ROOT/modules/frequency_manager.so"
@@ -184,7 +187,7 @@ cat <<EOF
     source:         $SDRPP_SRC
     binary:         $SDRPP_BUILD/sdrpp
     resources:      $SDRPP_ROOT
-    modules:        rtl_tcp_source.so, radio.so, audio_sink.so, frequency_manager.so,
+    modules:        rtl_tcp_source.so, rtl_sdr_source.so, radio.so, audio_sink.so, frequency_manager.so,
                     recorder.so, rigctl_server.so, remote_control.so, telemetry.so
     rigctl:         127.0.0.1:4532
     remote control: 127.0.0.1:4533
