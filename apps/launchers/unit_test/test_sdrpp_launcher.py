@@ -143,30 +143,35 @@ class SDRPPLauncherTest(unittest.TestCase):
         )
 
     @patch("apps.launchers.sdrpp_launcher.time.sleep")
-    @patch("apps.launchers.sdrpp_launcher.subprocess.run")
-    def test_termux_rtl_tcp_provider_launches_iqsrc_without_probing_port(self, run: Mock, sleep: Mock) -> None:
-        run.return_value.returncode = 0
+    @patch("apps.launchers.sdrpp_launcher.http.client.HTTPConnection")
+    def test_termux_rtl_tcp_provider_uses_android_bridge_without_probing_port(
+        self, connection_type: Mock, sleep: Mock
+    ) -> None:
+        response = Mock()
+        response.status = 200
+        response.read.return_value = b'{"status":"launch_requested"}'
+        connection = connection_type.return_value
+        connection.getresponse.return_value = response
         source = SdrSourceConfig(source=SdrSource.RTL_TCP, host="127.0.0.1", port=1234)
         launcher = SDRPPLauncher(profile=self.profile, sdr_source=source)
 
         launcher._start_termux_rtl_tcp_provider()
 
-        command = run.call_args.args[0]
-        self.assertEqual("am", command[0])
-        self.assertIn("android.intent.action.VIEW", command)
-        self.assertIn("marto.rtl_tcp_andro", command)
-        uri = command[command.index("-d") + 1]
-        self.assertIn("iqsrc://-a 127.0.0.1 -p 1234", uri)
-        self.assertIn("-f 101100000", uri)
-        self.assertIn("-s 2400000 -T 0", uri)
+        connection_type.assert_called_once_with("127.0.0.1", 8772, timeout=2.0)
+        request = connection.request.call_args
+        self.assertEqual(("POST", "/rtl-tcp/start"), request.args[:2])
+        self.assertIn("frequency_hz=101100000", request.kwargs["body"])
+        self.assertIn("sample_rate=2400000", request.kwargs["body"])
+        self.assertIn("port=1234", request.kwargs["body"])
+        connection.close.assert_called_once_with()
         sleep.assert_called_once_with(1.0)
 
-    @patch("apps.launchers.sdrpp_launcher.subprocess.run")
-    def test_termux_rtl_tcp_provider_skips_nonlocal_server(self, run: Mock) -> None:
+    @patch("apps.launchers.sdrpp_launcher.http.client.HTTPConnection")
+    def test_termux_rtl_tcp_provider_skips_nonlocal_server(self, connection_type: Mock) -> None:
         source = SdrSourceConfig(source=SdrSource.RTL_TCP, host="192.0.2.10", port=1234)
         launcher = SDRPPLauncher(profile=self.profile, sdr_source=source)
         launcher._start_termux_rtl_tcp_provider()
-        run.assert_not_called()
+        connection_type.assert_not_called()
 
     def test_termux_shared_tmp_path_uses_tmpdir(self) -> None:
         with patch.dict(os.environ, {"TMPDIR": "/data/data/com.termux/files/usr/tmp"}, clear=True):
