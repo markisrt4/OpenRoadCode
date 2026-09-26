@@ -208,6 +208,12 @@ int rtlsdr_read_async(rtlsdr_dev_t *dev, rtlsdr_read_async_cb_t cb, void *ctx,
 		return -2;
 	if (!buf_len || buf_len % 512)
 		buf_len = DEFAULT_BUF_LENGTH;
+	/* ORCU v1 bulk reads are synchronous request/response operations. Use the
+	 * proxy's 1 MiB transfer ceiling for async streaming to reduce the USB
+	 * idle gap between requests. The librtlsdr callback accepts variable-sized
+	 * buffers, so callers keep the normal public API semantics. */
+	if (buf_len < (1024U * 1024U))
+		buf_len = 1024U * 1024U;
 	buf = malloc(buf_len);
 	if (!buf)
 		return -ENOMEM;
