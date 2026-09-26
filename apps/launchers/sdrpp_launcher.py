@@ -18,7 +18,7 @@ from apps.launchers.app_launcher_if import AppLauncherIf, StatusCallback
 from apps.launchers.process_manager import close_matching_display_apps, is_process_running, terminate_process
 from common.logging.logging_paths import logging_file_path
 from protocols.sdrpp_remote_control import SDRPPRemoteControlClient
-from config.application_config import SdrSourceConfig
+from config.application_config import SdrSource, SdrSourceConfig
 
 DEFAULT_TERMUX_SDRPP_SOURCE = Path("/root/SDRPlusPlus")
 DEFAULT_TERMUX_PROOT_DISTRIBUTION = "debian"
@@ -29,6 +29,9 @@ DEFAULT_REMOTE_CONTROL_PORT = 4533
 DEFAULT_TERMUX_AUDIO_FIFO = "/tmp/orc-sdrpp-audio.pcm"
 DEFAULT_ANDROID_AUDIO_HOST = "127.0.0.1"
 DEFAULT_ANDROID_AUDIO_PORT = 8771
+DEFAULT_ANDROID_RTL_TCP_PACKAGE = "marto.rtl_tcp_andro"
+DEFAULT_ANDROID_RTL_TCP_FREQUENCY_HZ = 104_300_000
+DEFAULT_ANDROID_RTL_TCP_SAMPLE_RATE = 2_400_000
 _VALID_THEMES = {"Dark", "Light"}
 _THEME_SYNC_LOCK = threading.Lock()
 _PENDING_THEME_SYNC: tuple[str, str, Path, Path | None] | None = None
@@ -110,6 +113,7 @@ class SDRPPLauncher(AppLauncherIf):
 
         if _is_termux():
             self._start_termux_audio()
+            self._start_termux_rtl_tcp_provider()
 
         command = self._launch_command(remote_display)
         self._launched_via_proot = _is_proot_command(command)
@@ -212,6 +216,39 @@ class SDRPPLauncher(AppLauncherIf):
             f"cd {shlex.quote(source)} && exec ./build/sdrpp -r root_dev --autostart"
         )
         return [proot_distro, "login", self.termux_proot_distribution, "--shared-tmp", "--", "env", f"DISPLAY={display}", f"XDG_RUNTIME_DIR={runtime_dir}", "XDG_SESSION_TYPE=x11", "GDK_BACKEND=x11", "LIBGL_ALWAYS_SOFTWARE=1", "bash", "-lc", shell_command]
+
+    def _start_termux_rtl_tcp_provider(self) -> None:
+        if self.sdr_source.source is not SdrSource.RTL_TCP:
+            return
+        if self.sdr_source.host not in ("127.0.0.1", "localhost"):
+            return
+        if self.sdr_source.port != 1234:
+            return
+
+        frequency_hz = self.profile.start_frequency_hz or DEFAULT_ANDROID_RTL_TCP_FREQUENCY_HZ
+        uri = (
+            f"iqsrc://-a 127.0.0.1 -p {self.sdr_source.port} "
+            f"-f {frequency_hz} -s {DEFAULT_ANDROID_RTL_TCP_SAMPLE_RATE} -T 0"
+        )
+        result = subprocess.run(
+            [
+                "am", "start",
+                "-a", "android.intent.action.VIEW",
+                "-d", uri,
+                "-p", DEFAULT_ANDROID_RTL_TCP_PACKAGE,
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode != 0:
+            detail = result.stderr.strip() or result.stdout.strip() or "Android activity launch failed"
+            raise RuntimeError(f"Could not start Android RTL-TCP provider: {detail}")
+
+        # The Android driver has no passive readiness endpoint and accepts one
+        # effective RTL-TCP client. Never probe port 1234 here because doing so
+        # would consume the session intended for SDR++.
+        time.sleep(1.0)
 
     def _start_termux_audio(self) -> None:
         fifo = Path(_termux_shared_tmp_path(Path(DEFAULT_TERMUX_AUDIO_FIFO).name))
