@@ -103,6 +103,10 @@ class SDRPPLauncherTest(unittest.TestCase):
         self.assertIn("LIBGL_ALWAYS_SOFTWARE=1", command)
         self.assertIn("mkdir -p /tmp/runtime-root", command[-1])
         self.assertIn("chmod 700 /tmp/runtime-root", command[-1])
+        self.assertIn("/usr/bin/pulseaudio --check", command[-1])
+        self.assertIn("module-pipe-sink", command[-1])
+        self.assertIn("sink_name=orc_android", command[-1])
+        self.assertIn("/usr/bin/pactl set-default-sink orc_android", command[-1])
         self.assertIn("cd /root/SDRPlusPlus", command[-1])
         self.assertIn("./build/sdrpp -r root_dev --autostart", command[-1])
 
