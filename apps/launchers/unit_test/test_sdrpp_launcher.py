@@ -109,7 +109,7 @@ class SDRPPLauncherTest(unittest.TestCase):
         self.assertLess(command.index("DISPLAY=:1"), command.index("bash"))
         self.assertIn("mkdir -p /tmp/runtime-root", command[-1])
         self.assertIn("chmod 700 /tmp/runtime-root", command[-1])
-        self.assertIn("/usr/bin/pulseaudio --daemonize=no --exit-idle-time=-1", command[-1])
+        self.assertIn("DISPLAY= /usr/bin/pulseaudio --daemonize=no --exit-idle-time=-1", command[-1])
         self.assertIn("pulse_pid=$!", command[-1])
         self.assertIn("/usr/bin/pactl info", command[-1])
         self.assertIn("kill -0 $pulse_pid", command[-1])
