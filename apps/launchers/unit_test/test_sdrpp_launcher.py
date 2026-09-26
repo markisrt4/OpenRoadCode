@@ -142,6 +142,31 @@ class SDRPPLauncherTest(unittest.TestCase):
             4242, ("./build/sdrpp", "/build/sdrpp", "SDRPlusPlus")
         )
 
+    @patch("apps.launchers.sdrpp_launcher.time.sleep")
+    @patch("apps.launchers.sdrpp_launcher.subprocess.run")
+    def test_termux_rtl_tcp_provider_launches_iqsrc_without_probing_port(self, run: Mock, sleep: Mock) -> None:
+        run.return_value.returncode = 0
+        source = SdrSourceConfig(source=SdrSource.RTL_TCP, host="127.0.0.1", port=1234)
+        launcher = SDRPPLauncher(profile=self.profile, sdr_source=source)
+
+        launcher._start_termux_rtl_tcp_provider()
+
+        command = run.call_args.args[0]
+        self.assertEqual("am", command[0])
+        self.assertIn("android.intent.action.VIEW", command)
+        self.assertIn("marto.rtl_tcp_andro", command)
+        self.assertIn("iqsrc://-a 127.0.0.1 -p 1234", command)
+        self.assertIn("-f 101100000", command)
+        self.assertIn("-s 2400000 -T 0", command)
+        sleep.assert_called_once_with(1.0)
+
+    @patch("apps.launchers.sdrpp_launcher.subprocess.run")
+    def test_termux_rtl_tcp_provider_skips_nonlocal_server(self, run: Mock) -> None:
+        source = SdrSourceConfig(source=SdrSource.RTL_TCP, host="192.0.2.10", port=1234)
+        launcher = SDRPPLauncher(profile=self.profile, sdr_source=source)
+        launcher._start_termux_rtl_tcp_provider()
+        run.assert_not_called()
+
     def test_termux_shared_tmp_path_uses_tmpdir(self) -> None:
         with patch.dict(os.environ, {"TMPDIR": "/data/data/com.termux/files/usr/tmp"}, clear=True):
             self.assertEqual(
