@@ -218,7 +218,7 @@ class SDRPPLauncher(AppLauncherIf):
             f"/usr/bin/pactl set-default-sink orc_android && "
             f"cd {shlex.quote(source)} && exec ./build/sdrpp -r root_dev --autostart"
         )
-        return [proot_distro, "login", self.termux_proot_distribution, "--shared-tmp", "--", "env", f"DISPLAY={display}", f"XDG_RUNTIME_DIR={runtime_dir}", "XDG_SESSION_TYPE=x11", "GDK_BACKEND=x11", "LIBGL_ALWAYS_SOFTWARE=1", "bash", "-lc", shell_command]
+        return [proot_distro, "login", self.termux_proot_distribution, "--shared-tmp", "--", "env", f"DISPLAY={display}", f"XDG_RUNTIME_DIR={runtime_dir}", "XDG_SESSION_TYPE=x11", "GDK_BACKEND=x11", "LIBGL_ALWAYS_SOFTWARE=1", "-u", "PULSE_SERVER", "bash", "-lc", shell_command]
 
     def _start_termux_rtl_tcp_provider(self) -> None:
         if self.sdr_source.source is not SdrSource.RTL_TCP:
