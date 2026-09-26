@@ -132,7 +132,7 @@ text = text.replace(
 )
 text = text.replace(
     '\trtlsdr_init_baseband(dev);',
-    '\tfprintf(stderr, "[ORCU] initializing RTL2832U baseband...\\n");\n\tr = rtlsdr_init_baseband(dev);\n\tfprintf(stderr, "[ORCU] baseband init result: %d\\n", r);'
+    '\tfprintf(stderr, "[ORCU] initializing RTL2832U baseband...\\n");\n\trtlsdr_init_baseband(dev);\n\tfprintf(stderr, "[ORCU] baseband initialization returned\\n");'
 )
 text = text.replace(
     '\t/* Probe tuners */',
