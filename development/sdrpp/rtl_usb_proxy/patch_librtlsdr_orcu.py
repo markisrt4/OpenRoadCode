@@ -106,37 +106,38 @@ preamble = r'''
 	dev->orcu_mode = 1;
 	dev->dev_lost = 1;
 
-	fprintf(stderr, "[ORCU] connecting to Android USB proxy...\\n");\n\tdev->orcu_fd = orcu_connect("127.0.0.1", 35100);
+	fprintf(stderr, "[ORCU] connecting to Android USB proxy...\n");
+	dev->orcu_fd = orcu_connect("127.0.0.1", 35100);
 	if (dev->orcu_fd < 0) {
+		fprintf(stderr, "[ORCU] connect failed\n");
 		r = -1;
 		goto err;
 	}
 	r = orcu_claim(dev->orcu_fd, 0, 1);
+	fprintf(stderr, "[ORCU] claim interface 0: %d\n", r);
 	if (r < 0)
 		goto err;
 
 '''
 text = text[:body_start] + preamble + text[init_at:]
 
-# Add narrow diagnostics around upstream initialization so hardware bring-up
-# failures do not collapse into rtl_test's generic open error.
+# Add narrow diagnostics around upstream initialization.
 text = text.replace(
     'if (rtlsdr_write_reg(dev, USBB, USB_SYSCTL, 0x09, 1) < 0) {',
     'fprintf(stderr, "[ORCU] first RTL2832U register write...\\n");\n\tif (rtlsdr_write_reg(dev, USBB, USB_SYSCTL, 0x09, 1) < 0) {'
 )
 text = text.replace(
-    'fprintf(stderr, "Resetting device...\\n");\n\t\\tlibusb_reset_device(dev->devh);',
-    'fprintf(stderr, "[ORCU] first register write failed; resetting proxy device...\\n");\n\t\\tr = orcu_reset(dev->orcu_fd);\n\t\\tfprintf(stderr, "[ORCU] reset result: %d\\n", r);\n\t\\tif (r >= 0) { r = orcu_claim(dev->orcu_fd, 0, 1); fprintf(stderr, "[ORCU] reclaim result: %d\\n", r); }'
+    'fprintf(stderr, "Resetting device...\\n");\n\t\tlibusb_reset_device(dev->devh);',
+    'fprintf(stderr, "[ORCU] first register write failed; resetting proxy device...\\n");\n\t\tr = orcu_reset(dev->orcu_fd);\n\t\tfprintf(stderr, "[ORCU] reset result: %d\\n", r);\n\t\tif (r >= 0) { r = orcu_claim(dev->orcu_fd, 0, 1); fprintf(stderr, "[ORCU] reclaim result: %d\\n", r); }'
 )
 text = text.replace(
-    '\\trtlsdr_init_baseband(dev);',
-    '\\tfprintf(stderr, "[ORCU] initializing RTL2832U baseband...\\n");\n\tr = rtlsdr_init_baseband(dev);\n\tfprintf(stderr, "[ORCU] baseband init result: %d\\n", r);'
+    '\trtlsdr_init_baseband(dev);',
+    '\tfprintf(stderr, "[ORCU] initializing RTL2832U baseband...\\n");\n\tr = rtlsdr_init_baseband(dev);\n\tfprintf(stderr, "[ORCU] baseband init result: %d\\n", r);'
 )
 text = text.replace(
-    '\\t/* Probe tuners */',
-    '\\tfprintf(stderr, "[ORCU] probing tuner over I2C...\\n");\n\t/* Probe tuners */'
+    '\t/* Probe tuners */',
+    '\tfprintf(stderr, "[ORCU] probing tuner over I2C...\\n");\n\t/* Probe tuners */'
 )
-
 
 # Descriptor strings are unavailable in protocol v1. Stable proxy strings are
 # enough for tuner model checks and SDR++'s selector.
