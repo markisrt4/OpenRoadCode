@@ -15,7 +15,7 @@ from config.application_config import SdrSource, SdrSourceConfig
 
 from apps.launchers.sdrpp_launcher import (
     SDRPPLauncher, SDRPPProfile, _is_termux, _sdrpp_environment,
-    _stop_readsb_service, sync_sdrpp_theme,
+    _stop_readsb_service, _termux_shared_tmp_path, sync_sdrpp_theme,
 )
 
 
@@ -137,6 +137,27 @@ class SDRPPLauncherTest(unittest.TestCase):
         find_descendant.assert_called_once_with(
             4242, ("./build/sdrpp", "/build/sdrpp", "SDRPlusPlus")
         )
+
+    def test_termux_shared_tmp_path_uses_tmpdir(self) -> None:
+        with patch.dict(os.environ, {"TMPDIR": "/data/data/com.termux/files/usr/tmp"}, clear=True):
+            self.assertEqual(
+                "/data/data/com.termux/files/usr/tmp/orc-sdrpp-audio.pcm",
+                _termux_shared_tmp_path("orc-sdrpp-audio.pcm"),
+            )
+
+    @patch("apps.launchers.sdrpp_launcher._is_termux", return_value=False)
+    @patch("apps.launchers.sdrpp_launcher.subprocess.Popen")
+    def test_native_launch_does_not_start_termux_audio(self, popen: Mock, _termux: Mock) -> None:
+        process = Mock()
+        process.poll.return_value = None
+        popen.return_value = process
+        launcher = SDRPPLauncher(profile=self.profile)
+        launcher.is_running = Mock(return_value=False)
+        launcher._launch_command = Mock(return_value=["/usr/bin/sdrpp", "--autostart"])
+        launcher.wait_for_rigctl = Mock(return_value=True)
+        launcher._start_termux_audio = Mock()
+        launcher.launch(":0")
+        launcher._start_termux_audio.assert_not_called()
 
     @patch("apps.launchers.sdrpp_launcher._is_termux", return_value=False)
     @patch("apps.launchers.sdrpp_launcher.shutil.which", return_value=None)
