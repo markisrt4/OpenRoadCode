@@ -12,7 +12,8 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ORC_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 REMOTE_CONTROL_SRC="$ORC_ROOT/development/sdrpp/remote_control"
-TELEMETRY_SRC="$ORC_ROOT/development/sdrpp/telemetry"\nORCU_RTL_SRC="$ORC_ROOT/development/sdrpp/rtl_usb_proxy"
+TELEMETRY_SRC="$ORC_ROOT/development/sdrpp/telemetry"
+ORCU_RTL_SRC="$ORC_ROOT/development/sdrpp/rtl_usb_proxy"
 
 for module_dir in "$REMOTE_CONTROL_SRC" "$TELEMETRY_SRC"; do
   [[ -f "$module_dir/CMakeLists.txt" && -f "$module_dir/src/main.cpp" ]] || {
