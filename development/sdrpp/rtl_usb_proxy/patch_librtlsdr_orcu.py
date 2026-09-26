@@ -246,7 +246,9 @@ int rtlsdr_cancel_async(rtlsdr_dev_t *dev)
 	if (RTLSDR_RUNNING != dev->async_status)
 		return -2;
 	dev->async_cancel = 1;
-	return 0;
+	/* STREAM_STOP is duplex: the control opcode wakes Android's queued USB
+	 * requests while the read thread drains frames until the zero terminator. */
+	return orcu_stream_bulk_in_stop(dev->orcu_fd);
 }
 '''
 text = text[:async_start] + async_code + text[async_end:]
