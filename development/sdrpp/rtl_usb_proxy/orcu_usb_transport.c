@@ -18,6 +18,7 @@
 #define ORCU_OP_RESET 6u
 #define ORCU_OP_CLOSE 7u
 #define ORCU_OP_STREAM_BULK_IN 8u
+#define ORCU_OP_STREAM_STOP 9u
 
 static int write_all(int fd,const void *p,size_t n){const uint8_t *b=p;while(n){ssize_t r=send(fd,b,n,0);if(r<=0)return -1;b+=r;n-=r;}return 0;}
 static int read_all(int fd,void *p,size_t n){uint8_t *b=p;while(n){ssize_t r=recv(fd,b,n,0);if(r<=0)return -1;b+=r;n-=r;}return 0;}
@@ -76,6 +77,10 @@ int orcu_stream_bulk_in_read(int fd,uint8_t *buf,int cap){
     if(cap<=0||get32(fd,&len)||len<=0||len>cap)return -1;
     if(read_all(fd,buf,(size_t)len))return -1;
     return len;
+}
+
+int orcu_stream_bulk_in_stop(int fd){
+    return request(fd,ORCU_OP_STREAM_STOP);
 }
 
 int orcu_reset(int fd){
