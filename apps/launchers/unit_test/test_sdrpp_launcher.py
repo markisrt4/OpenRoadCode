@@ -119,6 +119,25 @@ class SDRPPLauncherTest(unittest.TestCase):
         self.assertIn("/root/SDRPlusPlus/root_dev/config.json", command)
         self.assertEqual("Dark", command[-1])
 
+    @patch("apps.launchers.sdrpp_launcher._find_descendant_matching")
+    def test_window_process_id_uses_stable_process_snapshot(self, find_descendant: Mock) -> None:
+        process = Mock()
+        process.pid = 4242
+        process.poll.return_value = None
+        launcher = SDRPPLauncher(profile=self.profile)
+        launcher._process = process
+        launcher._launched_via_proot = True
+
+        def clear_launcher_process(*_args, **_kwargs):
+            launcher._process = None
+            return 4343
+
+        find_descendant.side_effect = clear_launcher_process
+        self.assertEqual(4343, launcher.window_process_id(timeout_seconds=0.1))
+        find_descendant.assert_called_once_with(
+            4242, ("./build/sdrpp", "/build/sdrpp", "SDRPlusPlus")
+        )
+
     @patch("apps.launchers.sdrpp_launcher._is_termux", return_value=False)
     @patch("apps.launchers.sdrpp_launcher.shutil.which", return_value=None)
     def test_missing_native_executable_raises_outside_termux(self, _which: Mock, _termux: Mock) -> None:
