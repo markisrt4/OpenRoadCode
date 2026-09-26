@@ -17,6 +17,7 @@
 #define ORCU_OP_BULK 5u
 #define ORCU_OP_RESET 6u
 #define ORCU_OP_CLOSE 7u
+#define ORCU_OP_STREAM_BULK_IN 8u
 
 static int write_all(int fd,const void *p,size_t n){const uint8_t *b=p;while(n){ssize_t r=send(fd,b,n,0);if(r<=0)return -1;b+=r;n-=r;}return 0;}
 static int read_all(int fd,void *p,size_t n){uint8_t *b=p;while(n){ssize_t r=recv(fd,b,n,0);if(r<=0)return -1;b+=r;n-=r;}return 0;}
@@ -62,6 +63,19 @@ int orcu_bulk_read(int fd,int endpoint,uint8_t *buf,int len,int timeout_ms){
     if(len<0)return -1;
     if(request(fd,ORCU_OP_BULK)||put32(fd,endpoint)||put32(fd,len)||put32(fd,timeout_ms))return -1;
     return result(fd,buf,(size_t)len,NULL);
+}
+
+int orcu_stream_bulk_in_start(int fd,int endpoint,int len,int timeout_ms){
+    if(len<=0)return -1;
+    if(request(fd,ORCU_OP_STREAM_BULK_IN)||put32(fd,endpoint)||put32(fd,len)||put32(fd,timeout_ms))return -1;
+    return 0;
+}
+
+int orcu_stream_bulk_in_read(int fd,uint8_t *buf,int cap){
+    int32_t len;
+    if(cap<=0||get32(fd,&len)||len<=0||len>cap)return -1;
+    if(read_all(fd,buf,(size_t)len))return -1;
+    return len;
 }
 
 int orcu_reset(int fd){
