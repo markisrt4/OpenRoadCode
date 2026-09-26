@@ -228,11 +228,12 @@ int rtlsdr_read_async(rtlsdr_dev_t *dev, rtlsdr_read_async_cb_t cb, void *ctx,
 		dev->async_status = RTLSDR_INACTIVE;
 		return -1;
 	}
-	while (!dev->async_cancel) {
+	while (1) {
 		n = orcu_stream_bulk_in_read(dev->orcu_fd, buf, (int)buf_len);
 		if (n <= 0)
 			break;
-		cb(buf, (uint32_t)n, ctx);
+		if (!dev->async_cancel)
+			cb(buf, (uint32_t)n, ctx);
 	}
 	free(buf);
 	dev->async_status = RTLSDR_INACTIVE;
