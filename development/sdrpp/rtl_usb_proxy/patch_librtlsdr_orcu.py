@@ -121,7 +121,7 @@ preamble = r'''
 '''
 text = text[:body_start] + preamble + text[init_at:]
 
-# Add narrow diagnostics around upstream initialization.
+# Preserve upstream initialization behavior. The dummy-write reset must use\n# Android transport because proxy mode has no libusb device handle.
 text = text.replace(
     'if (rtlsdr_write_reg(dev, USBB, USB_SYSCTL, 0x09, 1) < 0) {',
     'fprintf(stderr, "[ORCU] first RTL2832U register write...\\n");\n\tif (rtlsdr_write_reg(dev, USBB, USB_SYSCTL, 0x09, 1) < 0) {'
