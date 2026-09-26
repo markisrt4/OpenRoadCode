@@ -224,6 +224,7 @@ class SDRPPLauncherTest(unittest.TestCase):
         launcher._launch_command = Mock(return_value=["/usr/bin/sdrpp", "--autostart"])
         launcher.wait_for_rigctl = Mock()
         launcher._request_fullscreen = Mock()
+        launcher._start_termux_audio = Mock()
         status = Mock()
 
         launcher.launch(":1", status)
@@ -246,6 +247,7 @@ class SDRPPLauncherTest(unittest.TestCase):
         launcher._launch_command = Mock(return_value=["/usr/bin/sdrpp", "--autostart"])
         launcher.wait_for_rigctl = Mock()
         launcher._request_fullscreen = Mock()
+        launcher._start_termux_audio = Mock()
         launcher.launch(":1")
         launcher._request_fullscreen.assert_not_called()
         launcher.wait_for_rigctl.assert_called_once_with()
