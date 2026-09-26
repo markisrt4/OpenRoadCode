@@ -210,14 +210,17 @@ class SDRPPLauncher(AppLauncherIf):
         runtime_dir = DEFAULT_TERMUX_XDG_RUNTIME_DIR
         fifo = DEFAULT_TERMUX_AUDIO_FIFO
         setup = (
-            f"mkdir -p {shlex.quote(runtime_dir)} && chmod 700 {shlex.quote(runtime_dir)} && "
-            f"rm -f {shlex.quote(fifo)} && mkfifo -m 666 {shlex.quote(fifo)} && "
-            f"/usr/bin/pulseaudio --check >/dev/null 2>&1 || "
+            f"mkdir -p {shlex.quote(runtime_dir)} && chmod 700 {shlex.quote(runtime_dir)}; "
+            f"rm -f {shlex.quote(fifo)}; "
+            f"mkfifo {shlex.quote(fifo)} && chmod 666 {shlex.quote(fifo)}; "
+            f"if ! /usr/bin/pulseaudio --check >/dev/null 2>&1; then "
             f"/usr/bin/pulseaudio --daemonize=yes --exit-idle-time=-1; "
+            f"fi; "
             f"/usr/bin/pactl unload-module module-pipe-sink >/dev/null 2>&1 || true; "
             f"/usr/bin/pactl load-module module-pipe-sink "
             f"sink_name=orc_android file={shlex.quote(fifo)} "
-            f"format=s16le rate=48000 channels=2 >/dev/null"
+            f"format=s16le rate=48000 channels=2 >/dev/null; "
+            f"/usr/bin/pactl set-default-sink orc_android"
         )
         result = subprocess.run(
             [
