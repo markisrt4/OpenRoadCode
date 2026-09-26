@@ -155,9 +155,10 @@ class SDRPPLauncherTest(unittest.TestCase):
         self.assertEqual("am", command[0])
         self.assertIn("android.intent.action.VIEW", command)
         self.assertIn("marto.rtl_tcp_andro", command)
-        self.assertIn("iqsrc://-a 127.0.0.1 -p 1234", command)
-        self.assertIn("-f 101100000", command)
-        self.assertIn("-s 2400000 -T 0", command)
+        uri = command[command.index("-d") + 1]
+        self.assertIn("iqsrc://-a 127.0.0.1 -p 1234", uri)
+        self.assertIn("-f 101100000", uri)
+        self.assertIn("-s 2400000 -T 0", uri)
         sleep.assert_called_once_with(1.0)
 
     @patch("apps.launchers.sdrpp_launcher.subprocess.run")
