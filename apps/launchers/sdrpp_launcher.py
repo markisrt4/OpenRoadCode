@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import http.client
 import json
 import os
 import shlex
@@ -11,6 +12,7 @@ import socket
 import subprocess
 import threading
 import time
+import urllib.parse
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -29,7 +31,8 @@ DEFAULT_REMOTE_CONTROL_PORT = 4533
 DEFAULT_TERMUX_AUDIO_FIFO = "/tmp/orc-sdrpp-audio.pcm"
 DEFAULT_ANDROID_AUDIO_HOST = "127.0.0.1"
 DEFAULT_ANDROID_AUDIO_PORT = 8771
-DEFAULT_ANDROID_RTL_TCP_PACKAGE = "marto.rtl_tcp_andro"
+DEFAULT_ANDROID_RTL_TCP_CONTROL_HOST = "127.0.0.1"
+DEFAULT_ANDROID_RTL_TCP_CONTROL_PORT = 8772
 DEFAULT_ANDROID_RTL_TCP_FREQUENCY_HZ = 104_300_000
 DEFAULT_ANDROID_RTL_TCP_SAMPLE_RATE = 2_400_000
 _VALID_THEMES = {"Dark", "Light"}
@@ -226,24 +229,40 @@ class SDRPPLauncher(AppLauncherIf):
             return
 
         frequency_hz = self.profile.start_frequency_hz or DEFAULT_ANDROID_RTL_TCP_FREQUENCY_HZ
-        uri = (
-            f"iqsrc://-a 127.0.0.1 -p {self.sdr_source.port} "
-            f"-f {frequency_hz} -s {DEFAULT_ANDROID_RTL_TCP_SAMPLE_RATE} -T 0"
+        body = urllib.parse.urlencode(
+            {
+                "frequency_hz": frequency_hz,
+                "sample_rate": DEFAULT_ANDROID_RTL_TCP_SAMPLE_RATE,
+                "port": self.sdr_source.port,
+            }
         )
-        result = subprocess.run(
-            [
-                "am", "start",
-                "-a", "android.intent.action.VIEW",
-                "-d", uri,
-                "-p", DEFAULT_ANDROID_RTL_TCP_PACKAGE,
-            ],
-            check=False,
-            capture_output=True,
-            text=True,
+        connection = http.client.HTTPConnection(
+            DEFAULT_ANDROID_RTL_TCP_CONTROL_HOST,
+            DEFAULT_ANDROID_RTL_TCP_CONTROL_PORT,
+            timeout=2.0,
         )
-        if result.returncode != 0:
-            detail = result.stderr.strip() or result.stdout.strip() or "Android activity launch failed"
-            raise RuntimeError(f"Could not start Android RTL-TCP provider: {detail}")
+        try:
+            connection.request(
+                "POST",
+                "/rtl-tcp/start",
+                body=body,
+                headers={"Content-Type": "application/x-www-form-urlencoded"},
+            )
+            response = connection.getresponse()
+            detail = response.read().decode("utf-8", errors="replace")
+            if response.status != 200:
+                raise RuntimeError(
+                    f"Android Bridge RTL-TCP provider request failed "
+                    f"({response.status}): {detail}"
+                )
+        except OSError as exc:
+            raise RuntimeError(
+                "Could not reach Android Bridge RTL-TCP control on "
+                f"{DEFAULT_ANDROID_RTL_TCP_CONTROL_HOST}:"
+                f"{DEFAULT_ANDROID_RTL_TCP_CONTROL_PORT}: {exc}"
+            ) from exc
+        finally:
+            connection.close()
 
         # The Android driver has no passive readiness endpoint and accepts one
         # effective RTL-TCP client. Never probe port 1234 here because doing so
