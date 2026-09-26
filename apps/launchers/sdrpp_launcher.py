@@ -139,13 +139,16 @@ class SDRPPLauncher(AppLauncherIf):
         return True
 
     def window_process_id(self, timeout_seconds: float = 8.0) -> int:
-        if self._process is None or self._process.poll() is not None:
+        process = self._process
+        if process is None or process.poll() is not None:
             raise RuntimeError("SDR++ is not running under this launcher")
         if not self._launched_via_proot:
-            return self._process.pid
+            return process.pid
         deadline = time.monotonic() + timeout_seconds
         while time.monotonic() < deadline:
-            pid = _find_descendant_matching(self._process.pid, ("./build/sdrpp", "/build/sdrpp", "SDRPlusPlus"))
+            if process.poll() is not None:
+                raise RuntimeError("SDR++ exited while locating its proot child process")
+            pid = _find_descendant_matching(process.pid, ("./build/sdrpp", "/build/sdrpp", "SDRPlusPlus"))
             if pid is not None:
                 return pid
             time.sleep(0.1)
