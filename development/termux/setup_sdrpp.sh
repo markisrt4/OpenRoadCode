@@ -12,7 +12,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ORC_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 REMOTE_CONTROL_SRC="$ORC_ROOT/development/sdrpp/remote_control"
-TELEMETRY_SRC="$ORC_ROOT/development/sdrpp/telemetry"
+TELEMETRY_SRC="$ORC_ROOT/development/sdrpp/telemetry"\nORCU_RTL_SRC="$ORC_ROOT/development/sdrpp/rtl_usb_proxy"
 
 for module_dir in "$REMOTE_CONTROL_SRC" "$TELEMETRY_SRC"; do
   [[ -f "$module_dir/CMakeLists.txt" && -f "$module_dir/src/main.cpp" ]] || {
@@ -54,16 +54,17 @@ proot-distro login debian --shared-tmp -- env \
   BUILD_JOBS="$BUILD_JOBS" \
   REMOTE_CONTROL_SRC="$REMOTE_CONTROL_SRC" \
   TELEMETRY_SRC="$TELEMETRY_SRC" \
+  ORCU_RTL_SRC="$ORCU_RTL_SRC" \
   bash -s <<'DEBIAN'
 set -euo pipefail
 
 SDRPP_REF="${SDRPP_REF:-master}"
 BUILD_JOBS="${BUILD_JOBS:-4}"
 REMOTE_CONTROL_SRC="${REMOTE_CONTROL_SRC:?REMOTE_CONTROL_SRC is required}"
-TELEMETRY_SRC="${TELEMETRY_SRC:?TELEMETRY_SRC is required}"
+TELEMETRY_SRC="${TELEMETRY_SRC:?TELEMETRY_SRC is required}"\nORCU_RTL_SRC="${ORCU_RTL_SRC:?ORCU_RTL_SRC is required}"
 SDRPP_SRC="$HOME/SDRPlusPlus"
 SDRPP_BUILD="$SDRPP_SRC/build"
-SDRPP_ROOT="$SDRPP_SRC/root_dev"
+SDRPP_ROOT="$SDRPP_SRC/root_dev"\nRTLSDR_SRC="$HOME/rtl-sdr-orcu"\nRTLSDR_PREFIX="$HOME/.local/orcu-rtlsdr"
 REMOTE_CONTROL_DST="$SDRPP_SRC/misc_modules/remote_control"
 TELEMETRY_DST="$SDRPP_SRC/misc_modules/telemetry"
 
@@ -97,6 +98,26 @@ git -C "$SDRPP_SRC" checkout "$SDRPP_REF"
 if git -C "$SDRPP_SRC" show-ref --verify --quiet "refs/remotes/origin/$SDRPP_REF"; then
   git -C "$SDRPP_SRC" reset --hard "origin/$SDRPP_REF"
 fi
+
+echo "[*] Building ORCU-backed librtlsdr"
+if [[ ! -d "$RTLSDR_SRC/.git" ]]; then
+  git clone https://github.com/steve-m/librtlsdr.git "$RTLSDR_SRC"
+fi
+git -C "$RTLSDR_SRC" fetch --prune origin
+git -C "$RTLSDR_SRC" reset --hard origin/master
+git -C "$RTLSDR_SRC" clean -fdx
+cp "$ORCU_RTL_SRC/orcu_usb_transport.c" "$RTLSDR_SRC/src/"
+cp "$ORCU_RTL_SRC/orcu_usb_transport.h" "$RTLSDR_SRC/src/"
+python3 "$ORCU_RTL_SRC/patch_librtlsdr_orcu.py" "$RTLSDR_SRC"
+cmake -S "$RTLSDR_SRC" -B "$RTLSDR_SRC/build-orcu" \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_INSTALL_PREFIX="$RTLSDR_PREFIX" \
+  -DINSTALL_UDEV_RULES=OFF
+cmake --build "$RTLSDR_SRC/build-orcu" --parallel "$BUILD_JOBS"
+cmake --install "$RTLSDR_SRC/build-orcu"
+export PKG_CONFIG_PATH="$RTLSDR_PREFIX/lib/pkgconfig:$RTLSDR_PREFIX/lib64/pkgconfig:${PKG_CONFIG_PATH:-}"
+export CMAKE_PREFIX_PATH="$RTLSDR_PREFIX:${CMAKE_PREFIX_PATH:-}"
+export LD_LIBRARY_PATH="$RTLSDR_PREFIX/lib:$RTLSDR_PREFIX/lib64:${LD_LIBRARY_PATH:-}"
 
 echo "[*] Staging OpenRoadCode SDR++ modules"
 rm -rf "$REMOTE_CONTROL_DST" "$TELEMETRY_DST"
