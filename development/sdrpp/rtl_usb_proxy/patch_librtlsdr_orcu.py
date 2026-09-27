@@ -242,6 +242,18 @@ int rtlsdr_read_async(rtlsdr_dev_t *dev, rtlsdr_read_async_cb_t cb, void *ctx,
 		dev->async_status = RTLSDR_INACTIVE;
 		return -1;
 	}
+	/* The stream connection is a second ORCU client, but it shares the same
+	 * Android UsbDeviceConnection. Claim interface 0 for this client too so
+	 * its lifecycle is explicit and symmetric with the control client. */
+	if (orcu_claim(dev->orcu_stream_fd, 0, 1) < 0) {
+		fprintf(stderr, "[ORCU] stream interface claim failed\\n");
+		fflush(stderr);
+		orcu_close(dev->orcu_stream_fd);
+		dev->orcu_stream_fd = -1;
+		free(transport_buf);
+		dev->async_status = RTLSDR_INACTIVE;
+		return -1;
+	}
 	if (orcu_stream_bulk_in_start(dev->orcu_stream_fd, 0x81, stream_len, 250) < 0) {
 		fprintf(stderr, "[ORCU] stream start failed\\n");
 		fflush(stderr);
@@ -277,6 +289,7 @@ int rtlsdr_read_async(rtlsdr_dev_t *dev, rtlsdr_read_async_cb_t cb, void *ctx,
 	}
 	free(transport_buf);
 	if (dev->orcu_stream_fd >= 0) {
+		orcu_release(dev->orcu_stream_fd, 0);
 		orcu_close(dev->orcu_stream_fd);
 		dev->orcu_stream_fd = -1;
 	}
