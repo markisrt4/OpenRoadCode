@@ -54,10 +54,22 @@ int orcu_release(int fd,int iface){
 
 int orcu_control(int fd,int request_type,int req,int value,int index,uint8_t *buf,int len,int timeout_ms){
     if(len<0)return -1;
-    if(request(fd,ORCU_OP_CONTROL)||put32(fd,request_type)||put32(fd,req)||put32(fd,value)||put32(fd,index)||put32(fd,len)||put32(fd,timeout_ms))return -1;
-    if(!(request_type&0x80)&&len&&write_all(fd,buf,(size_t)len))return -1;
+    if(request(fd,ORCU_OP_CONTROL)||put32(fd,request_type)||put32(fd,req)||put32(fd,value)||put32(fd,index)||put32(fd,len)||put32(fd,timeout_ms)){
+        fprintf(stderr,"[ORCU control] request write failed: type=0x%02x req=0x%02x value=0x%04x index=0x%04x len=%d: %s\\n",
+                request_type&0xff,req&0xff,value&0xffff,index&0xffff,len,strerror(errno));
+        return -1;
+    }
+    if(!(request_type&0x80)&&len&&write_all(fd,buf,(size_t)len)){
+        fprintf(stderr,"[ORCU control] payload write failed: type=0x%02x req=0x%02x value=0x%04x index=0x%04x len=%d: %s\\n",
+                request_type&0xff,req&0xff,value&0xffff,index&0xffff,len,strerror(errno));
+        return -1;
+    }
     int got=0;int rc=result(fd,(request_type&0x80)?buf:NULL,(request_type&0x80)?(size_t)len:0,&got);
-    return rc<0?rc:rc;
+    if(rc<0){
+        fprintf(stderr,"[ORCU control] transfer failed: type=0x%02x req=0x%02x value=0x%04x index=0x%04x len=%d rc=%d errno=%d(%s)\\n",
+                request_type&0xff,req&0xff,value&0xffff,index&0xffff,len,rc,errno,strerror(errno));
+    }
+    return rc;
 }
 
 int orcu_bulk_read(int fd,int endpoint,uint8_t *buf,int len,int timeout_ms){
