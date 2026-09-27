@@ -74,8 +74,22 @@ int orcu_stream_bulk_in_start(int fd,int endpoint,int len,int timeout_ms){
 
 int orcu_stream_bulk_in_read(int fd,uint8_t *buf,int cap){
     int32_t len;
-    if(cap<=0||get32(fd,&len)||len<=0||len>cap)return -1;
-    if(read_all(fd,buf,(size_t)len))return -1;
+    if(cap<=0){
+        fprintf(stderr,"[ORCU transport] stream read invalid capacity: %d\\n",cap);
+        return -1;
+    }
+    if(get32(fd,&len)){
+        fprintf(stderr,"[ORCU transport] stream read failed reading frame length: %s\\n",strerror(errno));
+        return -1;
+    }
+    if(len<=0||len>cap){
+        fprintf(stderr,"[ORCU transport] stream frame length invalid: len=%d cap=%d\\n",(int)len,cap);
+        return -1;
+    }
+    if(read_all(fd,buf,(size_t)len)){
+        fprintf(stderr,"[ORCU transport] stream payload read failed: len=%d: %s\\n",(int)len,strerror(errno));
+        return -1;
+    }
     return len;
 }
 
