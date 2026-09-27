@@ -265,6 +265,13 @@ int rtlsdr_read_async(rtlsdr_dev_t *dev, rtlsdr_read_async_cb_t cb, void *ctx,
 	fflush(stderr);
 	{
 		unsigned int orcu_frames = 0;
+		unsigned char *callback_buf = malloc((size_t)callback_len);
+		uint32_t callback_used = 0;
+		if (!callback_buf) {
+			free(transport_buf);
+			dev->async_status = RTLSDR_INACTIVE;
+			return -ENOMEM;
+		}
 		while (1) {
 			uint32_t offset = 0;
 			n = orcu_stream_bulk_in_read(dev->orcu_stream_fd, transport_buf, stream_len);
@@ -279,13 +286,19 @@ int rtlsdr_read_async(rtlsdr_dev_t *dev, rtlsdr_read_async_cb_t cb, void *ctx,
 				fflush(stderr);
 			}
 			while (!dev->async_cancel && offset < (uint32_t)n) {
-				uint32_t chunk = (uint32_t)n - offset;
-				if (chunk > callback_len)
-					chunk = callback_len;
-				cb(transport_buf + offset, chunk, ctx);
-				offset += chunk;
+				uint32_t available = (uint32_t)n - offset;
+				uint32_t needed = callback_len - callback_used;
+				uint32_t copy_len = available < needed ? available : needed;
+				memcpy(callback_buf + callback_used, transport_buf + offset, copy_len);
+				callback_used += copy_len;
+				offset += copy_len;
+				if (callback_used == callback_len) {
+					cb(callback_buf, callback_len, ctx);
+					callback_used = 0;
+				}
 			}
 		}
+		free(callback_buf);
 	}
 	free(transport_buf);
 	if (dev->orcu_stream_fd >= 0) {
