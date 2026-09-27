@@ -293,7 +293,17 @@ int rtlsdr_read_async(rtlsdr_dev_t *dev, rtlsdr_read_async_cb_t cb, void *ctx,
 				callback_used += copy_len;
 				offset += copy_len;
 				if (callback_used == callback_len) {
+					if (orcu_frames <= 3) {
+						fprintf(stderr, "[ORCU] callback begin: frame=%u len=%u ctx=%p cb=%p\\n",
+							orcu_frames, callback_len, ctx, (void *)cb);
+						fflush(stderr);
+					}
 					cb(callback_buf, callback_len, ctx);
+					if (orcu_frames <= 3) {
+						fprintf(stderr, "[ORCU] callback returned: frame=%u len=%u\\n",
+							orcu_frames, callback_len);
+						fflush(stderr);
+					}
 					callback_used = 0;
 				}
 			}
