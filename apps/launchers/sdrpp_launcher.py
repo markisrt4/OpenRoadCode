@@ -71,6 +71,7 @@ class SDRPPLauncher(AppLauncherIf):
         self._process: subprocess.Popen[str] | None = None
         self._audio_forwarder_process: subprocess.Popen[str] | None = None
         self._launched_via_proot = False
+        self.debug_gdb = os.getenv("OPENROADCODE_SDRPP_GDB", "").strip().lower() in {"1", "true", "yes", "on"}
 
     def is_running(self) -> bool:
         if self._process is not None:
@@ -229,7 +230,8 @@ class SDRPPLauncher(AppLauncherIf):
             f"sink_name=orc_android file={shlex.quote(fifo)} "
             f"format=s16le rate=48000 channels=2 >/dev/null && "
             f"/usr/bin/pactl set-default-sink orc_android && "
-            f"cd {shlex.quote(source)} && exec ./build/sdrpp -r root_dev --autostart"
+            f"cd {shlex.quote(source)} && "
+            f"{('exec gdb -q -ex run --args ./build/sdrpp -r root_dev --autostart' if self.debug_gdb else 'exec ./build/sdrpp -r root_dev --autostart')}"
         )
         return [proot_distro, "login", self.termux_proot_distribution, "--shared-tmp", "--", "env", "-u", "PULSE_SERVER", f"DISPLAY={display}", f"XDG_RUNTIME_DIR={runtime_dir}", "XDG_SESSION_TYPE=x11", "GDK_BACKEND=x11", "LIBGL_ALWAYS_SOFTWARE=1", "bash", "-lc", shell_command]
 
