@@ -123,6 +123,32 @@ export PKG_CONFIG_PATH="$RTLSDR_PREFIX/lib/pkgconfig:$RTLSDR_PREFIX/lib64/pkgcon
 export CMAKE_PREFIX_PATH="$RTLSDR_PREFIX:${CMAKE_PREFIX_PATH:-}"
 export LD_LIBRARY_PATH="$RTLSDR_PREFIX/lib:$RTLSDR_PREFIX/lib64:${LD_LIBRARY_PATH:-}"
 
+echo "[*] Hardening SDR++ audio sink for delayed PulseAudio device discovery"
+python3 - "$SDRPP_SRC/sink_modules/audio_sink/src/main.cpp" <<'PY'
+from pathlib import Path
+import sys
+
+path = Path(sys.argv[1])
+source = path.read_text()
+old = """    void selectFirst() {
+        selectById(defaultDevId);
+    }
+"""
+new = """    void selectFirst() {
+        if (devList.empty()) {
+            flog::warn(\"AudioSinkModule No output audio devices available yet\");
+            return;
+        }
+        selectById(defaultDevId);
+    }
+"""
+if new not in source:
+    if old not in source:
+        raise SystemExit("Could not locate SDR++ AudioSink::selectFirst() for ORC hardening")
+    source = source.replace(old, new, 1)
+path.write_text(source)
+PY
+
 echo "[*] Staging OpenRoadCode SDR++ modules"
 rm -rf "$REMOTE_CONTROL_DST" "$TELEMETRY_DST"
 cp -a "$REMOTE_CONTROL_SRC" "$REMOTE_CONTROL_DST"
