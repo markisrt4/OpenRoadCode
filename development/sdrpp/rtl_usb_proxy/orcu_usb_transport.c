@@ -32,7 +32,6 @@ static int result(int fd,uint8_t *data,size_t cap,int *transferred){
     if((size_t)len>cap)return -1;
     if(len&&read_all(fd,data,(size_t)len))return -1;
     if(transferred)*transferred=len;
-    pthread_mutex_unlock(&orcu_control_lock);
     return rc;
 }
 
@@ -76,6 +75,7 @@ int orcu_control(int fd,int request_type,int req,int value,int index,uint8_t *bu
         fprintf(stderr,"[ORCU control] transfer failed: type=0x%02x req=0x%02x value=0x%04x index=0x%04x len=%d rc=%d errno=%d(%s)\\n",
                 request_type&0xff,req&0xff,value&0xffff,index&0xffff,len,rc,errno,strerror(errno));
     }
+    pthread_mutex_unlock(&orcu_control_lock);
     return rc;
 }
 
