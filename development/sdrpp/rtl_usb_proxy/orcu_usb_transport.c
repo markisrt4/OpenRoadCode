@@ -2,6 +2,7 @@
 // OpenRoadCode client for the Android Bridge RTL-SDR USB transport.
 #include <arpa/inet.h>
 #include <errno.h>
+#include <pthread.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
@@ -31,6 +32,7 @@ static int result(int fd,uint8_t *data,size_t cap,int *transferred){
     if((size_t)len>cap)return -1;
     if(len&&read_all(fd,data,(size_t)len))return -1;
     if(transferred)*transferred=len;
+    pthread_mutex_unlock(&orcu_control_lock);
     return rc;
 }
 
@@ -52,16 +54,21 @@ int orcu_release(int fd,int iface){
     return result(fd,NULL,0,NULL);
 }
 
+static pthread_mutex_t orcu_control_lock = PTHREAD_MUTEX_INITIALIZER;
+
 int orcu_control(int fd,int request_type,int req,int value,int index,uint8_t *buf,int len,int timeout_ms){
     if(len<0)return -1;
+    pthread_mutex_lock(&orcu_control_lock);
     if(request(fd,ORCU_OP_CONTROL)||put32(fd,request_type)||put32(fd,req)||put32(fd,value)||put32(fd,index)||put32(fd,len)||put32(fd,timeout_ms)){
         fprintf(stderr,"[ORCU control] request write failed: type=0x%02x req=0x%02x value=0x%04x index=0x%04x len=%d: %s\\n",
                 request_type&0xff,req&0xff,value&0xffff,index&0xffff,len,strerror(errno));
+        pthread_mutex_unlock(&orcu_control_lock);
         return -1;
     }
     if(!(request_type&0x80)&&len&&write_all(fd,buf,(size_t)len)){
         fprintf(stderr,"[ORCU control] payload write failed: type=0x%02x req=0x%02x value=0x%04x index=0x%04x len=%d: %s\\n",
                 request_type&0xff,req&0xff,value&0xffff,index&0xffff,len,strerror(errno));
+        pthread_mutex_unlock(&orcu_control_lock);
         return -1;
     }
     int got=0;int rc=result(fd,(request_type&0x80)?buf:NULL,(request_type&0x80)?(size_t)len:0,&got);
