@@ -172,11 +172,11 @@ for instance, module in (("Remote Control", "remote_control"), ("Telemetry", "te
 core_path.write_text(core)
 PY
 
-echo "[*] Building SDR++ with symbols for native crash diagnosis"
+echo "[*] Building SDR++ unoptimized with symbols for waterfall crash diagnosis"
 cmake -S "$SDRPP_SRC" -B "$SDRPP_BUILD" \
-  -DCMAKE_BUILD_TYPE=RelWithDebInfo \
-  -DCMAKE_C_FLAGS_RELWITHDEBINFO="-O2 -g -fno-omit-frame-pointer" \
-  -DCMAKE_CXX_FLAGS_RELWITHDEBINFO="-O2 -g -fno-omit-frame-pointer" \
+  -DCMAKE_BUILD_TYPE=Debug \
+  -DCMAKE_C_FLAGS_DEBUG="-O0 -g3 -fno-omit-frame-pointer" \
+  -DCMAKE_CXX_FLAGS_DEBUG="-O0 -g3 -fno-omit-frame-pointer" \
   -DOPT_BUILD_RIGCTL_SERVER=ON -DOPT_BUILD_BLADERF_SOURCE=OFF -DOPT_BUILD_PLUTOSDR_SOURCE=OFF -DOPT_BUILD_AIRSPY_SOURCE=OFF -DOPT_BUILD_AIRSPYHF_SOURCE=OFF
 cmake --build "$SDRPP_BUILD" --parallel "$BUILD_JOBS"
 [[ -x "$SDRPP_BUILD/sdrpp" ]] || { echo "SDR++ build completed but $SDRPP_BUILD/sdrpp was not found." >&2; exit 1; }
