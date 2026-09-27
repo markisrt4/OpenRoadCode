@@ -18,7 +18,7 @@ text = path.read_text()
 text = text.replace('#include <libusb.h>', '#include <libusb.h>\n#include "orcu_usb_transport.h"')
 text = text.replace(
     'struct libusb_device_handle *devh;\n',
-    'struct libusb_device_handle *devh;\n\tint orcu_fd;\n\tint orcu_mode;\n'
+    'struct libusb_device_handle *devh;\n\tint orcu_fd;\n\tint orcu_stream_fd;\n\tint orcu_mode;\n'
 )
 
 # All RTL2832U vendor control traffic uses the same libusb call shape.
@@ -173,6 +173,10 @@ new_close = r'''int rtlsdr_close(rtlsdr_dev_t *dev)
 		usleep(1000);
 	if (!dev->dev_lost)
 		rtlsdr_deinit_baseband(dev);
+	if (dev->orcu_stream_fd >= 0) {
+		orcu_close(dev->orcu_stream_fd);
+		dev->orcu_stream_fd = -1;
+	}
 	if (dev->orcu_fd >= 0) {
 		orcu_release(dev->orcu_fd, 0);
 		orcu_close(dev->orcu_fd);
@@ -227,7 +231,18 @@ int rtlsdr_read_async(rtlsdr_dev_t *dev, rtlsdr_read_async_cb_t cb, void *ctx,
 	fprintf(stderr, "[ORCU] read_async start: buf_num=%u callback_len=%u stream_len=%d\\n",
 		buf_num, callback_len, stream_len);
 	fflush(stderr);
-	if (orcu_stream_bulk_in_start(dev->orcu_fd, 0x81, stream_len, 250) < 0) {
+	/* Keep asynchronous IQ framing on its own TCP connection. The primary
+	 * ORCU connection remains available for tuner/register control transfers
+	 * while SDR++ is receiving samples, matching libusb's duplex behavior. */
+	dev->orcu_stream_fd = orcu_connect("127.0.0.1", 35100);
+	if (dev->orcu_stream_fd < 0) {
+		fprintf(stderr, "[ORCU] stream connection failed\\n");
+		fflush(stderr);
+		free(transport_buf);
+		dev->async_status = RTLSDR_INACTIVE;
+		return -1;
+	}
+	if (orcu_stream_bulk_in_start(dev->orcu_stream_fd, 0x81, stream_len, 250) < 0) {
 		fprintf(stderr, "[ORCU] stream start failed\\n");
 		fflush(stderr);
 		free(transport_buf);
@@ -240,7 +255,7 @@ int rtlsdr_read_async(rtlsdr_dev_t *dev, rtlsdr_read_async_cb_t cb, void *ctx,
 		unsigned int orcu_frames = 0;
 		while (1) {
 			uint32_t offset = 0;
-			n = orcu_stream_bulk_in_read(dev->orcu_fd, transport_buf, stream_len);
+			n = orcu_stream_bulk_in_read(dev->orcu_stream_fd, transport_buf, stream_len);
 			if (n <= 0) {
 				fprintf(stderr, "[ORCU] stream read ended: %d\\n", n);
 				fflush(stderr);
@@ -261,6 +276,10 @@ int rtlsdr_read_async(rtlsdr_dev_t *dev, rtlsdr_read_async_cb_t cb, void *ctx,
 		}
 	}
 	free(transport_buf);
+	if (dev->orcu_stream_fd >= 0) {
+		orcu_close(dev->orcu_stream_fd);
+		dev->orcu_stream_fd = -1;
+	}
 	dev->async_status = RTLSDR_INACTIVE;
 	return 0;
 }
@@ -274,7 +293,7 @@ int rtlsdr_cancel_async(rtlsdr_dev_t *dev)
 	dev->async_cancel = 1;
 	/* STREAM_STOP is duplex: the control opcode wakes Android's queued USB
 	 * requests while the read thread drains frames until the zero terminator. */
-	return orcu_stream_bulk_in_stop(dev->orcu_fd);
+	return dev->orcu_stream_fd >= 0 ? orcu_stream_bulk_in_stop(dev->orcu_stream_fd) : -1;
 }
 '''
 text = text[:async_start] + async_code + text[async_end:]
