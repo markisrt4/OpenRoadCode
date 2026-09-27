@@ -220,17 +220,34 @@ int rtlsdr_read_async(rtlsdr_dev_t *dev, rtlsdr_read_async_cb_t cb, void *ctx,
 	dev->cb = cb;
 	dev->cb_ctx = ctx;
 
+	fprintf(stderr, "[ORCU] read_async start: buf_num=%u buf_len=%u\\n", buf_num, buf_len);
+	fflush(stderr);
 	if (orcu_stream_bulk_in_start(dev->orcu_fd, 0x81, (int)buf_len, 250) < 0) {
+		fprintf(stderr, "[ORCU] stream start failed\\n");
+		fflush(stderr);
 		free(buf);
 		dev->async_status = RTLSDR_INACTIVE;
 		return -1;
 	}
-	while (1) {
-		n = orcu_stream_bulk_in_read(dev->orcu_fd, buf, (int)buf_len);
-		if (n <= 0)
-			break;
-		if (!dev->async_cancel)
-			cb(buf, (uint32_t)n, ctx);
+	fprintf(stderr, "[ORCU] stream command sent; waiting for IQ\\n");
+	fflush(stderr);
+	{
+		unsigned int orcu_callbacks = 0;
+		while (1) {
+			n = orcu_stream_bulk_in_read(dev->orcu_fd, buf, (int)buf_len);
+			if (n <= 0) {
+				fprintf(stderr, "[ORCU] stream read ended: %d\\n", n);
+				fflush(stderr);
+				break;
+			}
+			orcu_callbacks++;
+			if (orcu_callbacks <= 3) {
+				fprintf(stderr, "[ORCU] IQ callback %u: %d bytes\\n", orcu_callbacks, n);
+				fflush(stderr);
+			}
+			if (!dev->async_cancel)
+				cb(buf, (uint32_t)n, ctx);
+		}
 	}
 	free(buf);
 	dev->async_status = RTLSDR_INACTIVE;
