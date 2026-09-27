@@ -45,6 +45,18 @@ class SDRPPLauncherTest(unittest.TestCase):
         with patch.dict(os.environ, {"PREFIX": "/usr"}, clear=True):
             self.assertFalse(_is_termux())
 
+    @patch("apps.launchers.sdrpp_launcher._is_termux", return_value=True)
+    @patch("apps.launchers.sdrpp_launcher.shutil.which")
+    def test_termux_gdb_launch_preserves_normal_environment(self, which: Mock, _termux: Mock) -> None:
+        which.side_effect = lambda command: "/data/data/com.termux/files/usr/bin/proot-distro" if command == "proot-distro" else None
+        with patch.dict(os.environ, {"OPENROADCODE_SDRPP_GDB": "1"}, clear=False):
+            launcher = SDRPPLauncher(profile=self.profile)
+        command = launcher._launch_command(":1")
+        self.assertIn("module-pipe-sink", command[-1])
+        self.assertIn("sink_name=orc_android", command[-1])
+        self.assertIn("export OPENROADCODE_RTL_USB_PROXY=1", command[-1])
+        self.assertIn("exec gdb -q -ex run --args ./build/sdrpp -r root_dev --autostart", command[-1])
+
     @patch("apps.launchers.sdrpp_launcher._sdrpp_process_running", return_value=False)
     @patch("apps.launchers.sdrpp_launcher._is_termux", return_value=False)
     def test_native_theme_sync_preserves_config(self, _termux: Mock, _running: Mock) -> None:
