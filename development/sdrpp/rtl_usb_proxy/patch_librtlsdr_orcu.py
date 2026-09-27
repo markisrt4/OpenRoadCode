@@ -199,7 +199,9 @@ async_code = r'''int rtlsdr_wait_async(rtlsdr_dev_t *dev, rtlsdr_read_async_cb_t
 int rtlsdr_read_async(rtlsdr_dev_t *dev, rtlsdr_read_async_cb_t cb, void *ctx,
 			  uint32_t buf_num, uint32_t buf_len)
 {
-	unsigned char *buf;
+	unsigned char *transport_buf;
+	uint32_t callback_len;
+	int stream_len;
 	int n;
 	(void)buf_num;
 	if (!dev || !cb)
@@ -208,11 +210,13 @@ int rtlsdr_read_async(rtlsdr_dev_t *dev, rtlsdr_read_async_cb_t cb, void *ctx,
 		return -2;
 	if (!buf_len || buf_len % 512)
 		buf_len = DEFAULT_BUF_LENGTH;
-	/* Preserve librtlsdr's normal async callback buffer size. The Android
-	 * Bridge keeps multiple 256 KiB UsbRequests queued concurrently, so ORCU
-	 * no longer needs oversized 1 MiB callbacks to avoid USB idle gaps. */
-	buf = malloc(buf_len);
-	if (!buf)
+
+	callback_len = buf_len;
+	stream_len = (int)callback_len;
+	if (stream_len < DEFAULT_BUF_LENGTH)
+		stream_len = DEFAULT_BUF_LENGTH;
+	transport_buf = malloc((size_t)stream_len);
+	if (!transport_buf)
 		return -ENOMEM;
 
 	dev->async_status = RTLSDR_RUNNING;
@@ -220,46 +224,43 @@ int rtlsdr_read_async(rtlsdr_dev_t *dev, rtlsdr_read_async_cb_t cb, void *ctx,
 	dev->cb = cb;
 	dev->cb_ctx = ctx;
 
-	fprintf(stderr, "[ORCU] read_async start: buf_num=%u buf_len=%u\\n", buf_num, buf_len);
+	fprintf(stderr, "[ORCU] read_async start: buf_num=%u callback_len=%u stream_len=%d\\n",
+		buf_num, callback_len, stream_len);
 	fflush(stderr);
-	/* SDR++ may request small callback buffers (for example 11776 bytes).
-	 * Android UsbRequest streaming must stay packet-aligned for RTL2832U bulk
-	 * input, so request at least librtlsdr's normal 256 KiB transport chunk.
-	 * The callback length may be larger than SDR++ requested, which upstream
-	 * librtlsdr already permits for its default async buffering contract. */
-	{
-		int stream_len = (int)buf_len;
-		if (stream_len < DEFAULT_BUF_LENGTH)
-			stream_len = DEFAULT_BUF_LENGTH;
-		if (orcu_stream_bulk_in_start(dev->orcu_fd, 0x81, stream_len, 250) < 0) {
+	if (orcu_stream_bulk_in_start(dev->orcu_fd, 0x81, stream_len, 250) < 0) {
 		fprintf(stderr, "[ORCU] stream start failed\\n");
 		fflush(stderr);
-		free(buf);
+		free(transport_buf);
 		dev->async_status = RTLSDR_INACTIVE;
-			return -1;
-		}
+		return -1;
 	}
 	fprintf(stderr, "[ORCU] stream command sent; waiting for IQ\\n");
 	fflush(stderr);
 	{
-		unsigned int orcu_callbacks = 0;
+		unsigned int orcu_frames = 0;
 		while (1) {
-			n = orcu_stream_bulk_in_read(dev->orcu_fd, buf, (int)buf_len);
+			uint32_t offset = 0;
+			n = orcu_stream_bulk_in_read(dev->orcu_fd, transport_buf, stream_len);
 			if (n <= 0) {
 				fprintf(stderr, "[ORCU] stream read ended: %d\\n", n);
 				fflush(stderr);
 				break;
 			}
-			orcu_callbacks++;
-			if (orcu_callbacks <= 3) {
-				fprintf(stderr, "[ORCU] IQ callback %u: %d bytes\\n", orcu_callbacks, n);
+			orcu_frames++;
+			if (orcu_frames <= 3) {
+				fprintf(stderr, "[ORCU] IQ frame %u: %d bytes\\n", orcu_frames, n);
 				fflush(stderr);
 			}
-			if (!dev->async_cancel)
-				cb(buf, (uint32_t)n, ctx);
+			while (!dev->async_cancel && offset < (uint32_t)n) {
+				uint32_t chunk = (uint32_t)n - offset;
+				if (chunk > callback_len)
+					chunk = callback_len;
+				cb(transport_buf + offset, chunk, ctx);
+				offset += chunk;
+			}
 		}
 	}
-	free(buf);
+	free(transport_buf);
 	dev->async_status = RTLSDR_INACTIVE;
 	return 0;
 }
