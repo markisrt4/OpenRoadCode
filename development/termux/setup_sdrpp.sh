@@ -208,6 +208,52 @@ source = source.replace(move, move_diag, 1)
 path.write_text(source)
 PY
 
+echo "[*] Guarding SDR++ waterfall until its first valid resize"
+python3 - "$SDRPP_SRC/core/src/gui/widgets/waterfall.cpp" "$SDRPP_SRC/core/src/signal_path/iq_frontend.cpp" <<'PY'
+from pathlib import Path
+import sys
+
+waterfall = Path(sys.argv[1])
+frontend = Path(sys.argv[2])
+source = waterfall.read_text()
+
+old = '''    float* WaterFall::getFFTBuffer() {
+        if (rawFFTs == NULL) { return NULL; }
+        buf_mtx.lock();
+        if (waterfallVisible) {
+            currentFFTLine--;'''
+new = '''    float* WaterFall::getFFTBuffer() {
+        if (rawFFTs == NULL) { return NULL; }
+        buf_mtx.lock();
+        if (waterfallVisible) {
+            // IQ can arrive before the GUI has performed its first resize.
+            // Until then waterfallHeight is zero and waterfallFb is only the
+            // constructor's one-pixel placeholder.
+            if (waterfallHeight <= 0) {
+                buf_mtx.unlock();
+                return NULL;
+            }
+            currentFFTLine--;'''
+if old not in source:
+    raise SystemExit("Could not locate SDR++ WaterFall::getFFTBuffer()")
+source = source.replace(old, new, 1)
+waterfall.write_text(source)
+
+source = frontend.read_text()
+old = '''    // Release buffer
+    _this->_releaseFFTBuffer(_this->_fftCtx);'''
+new = '''    // Only release/publish an FFT buffer that was actually acquired.
+    // The waterfall can intentionally decline a buffer before its first
+    // valid GUI resize.
+    if (fftBuf) {
+        _this->_releaseFFTBuffer(_this->_fftCtx);
+    }'''
+if old not in source:
+    raise SystemExit("Could not locate SDR++ IQFrontEnd FFT release")
+source = source.replace(old, new, 1)
+frontend.write_text(source)
+PY
+
 echo "[*] Building SDR++ unoptimized with symbols for waterfall crash diagnosis"
 cmake -S "$SDRPP_SRC" -B "$SDRPP_BUILD" \
   -DCMAKE_BUILD_TYPE=Debug \
