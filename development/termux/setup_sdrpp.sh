@@ -172,6 +172,42 @@ for instance, module in (("Remote Control", "remote_control"), ("Telemetry", "te
 core_path.write_text(core)
 PY
 
+echo "[*] Instrumenting SDR++ waterfall framebuffer for native crash diagnosis"
+python3 - "$SDRPP_SRC/core/src/gui/widgets/waterfall.cpp" <<'PY'
+from pathlib import Path
+import sys
+
+path = Path(sys.argv[1])
+source = path.read_text()
+
+alloc = '''            waterfallFb = new uint32_t[dataWidth * waterfallHeight];
+            memset(waterfallFb, 0, dataWidth * waterfallHeight * sizeof(uint32_t));'''
+alloc_diag = '''            waterfallFb = new uint32_t[dataWidth * waterfallHeight];
+            fprintf(stderr, "[ORC waterfall] alloc fb=%p width=%d height=%d pixels=%zu\\n",
+                    (void*)waterfallFb, dataWidth, waterfallHeight,
+                    (size_t)dataWidth * (size_t)waterfallHeight);
+            fflush(stderr);
+            memset(waterfallFb, 0, dataWidth * waterfallHeight * sizeof(uint32_t));'''
+if alloc not in source:
+    raise SystemExit("Could not locate SDR++ waterfall framebuffer allocation")
+source = source.replace(alloc, alloc_diag, 1)
+
+move = '''            memmove(&waterfallFb[dataWidth], waterfallFb, dataWidth * (waterfallHeight - 1) * sizeof(uint32_t));'''
+move_diag = '''            fprintf(stderr, "[ORC waterfall] push fb=%p width=%d height=%d rawFFTSize=%d currentFFTLine=%d latestFFT=%p visible=%d bytes=%zu\\n",
+                    (void*)waterfallFb, dataWidth, waterfallHeight, rawFFTSize,
+                    currentFFTLine, (void*)latestFFT, waterfallVisible ? 1 : 0,
+                    (dataWidth > 0 && waterfallHeight > 1)
+                        ? (size_t)dataWidth * (size_t)(waterfallHeight - 1) * sizeof(uint32_t)
+                        : 0u);
+            fflush(stderr);
+            memmove(&waterfallFb[dataWidth], waterfallFb, dataWidth * (waterfallHeight - 1) * sizeof(uint32_t));'''
+if move not in source:
+    raise SystemExit("Could not locate SDR++ waterfall framebuffer shift")
+source = source.replace(move, move_diag, 1)
+
+path.write_text(source)
+PY
+
 echo "[*] Building SDR++ unoptimized with symbols for waterfall crash diagnosis"
 cmake -S "$SDRPP_SRC" -B "$SDRPP_BUILD" \
   -DCMAKE_BUILD_TYPE=Debug \
