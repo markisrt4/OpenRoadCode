@@ -222,12 +222,22 @@ int rtlsdr_read_async(rtlsdr_dev_t *dev, rtlsdr_read_async_cb_t cb, void *ctx,
 
 	fprintf(stderr, "[ORCU] read_async start: buf_num=%u buf_len=%u\\n", buf_num, buf_len);
 	fflush(stderr);
-	if (orcu_stream_bulk_in_start(dev->orcu_fd, 0x81, (int)buf_len, 250) < 0) {
+	/* SDR++ may request small callback buffers (for example 11776 bytes).
+	 * Android UsbRequest streaming must stay packet-aligned for RTL2832U bulk
+	 * input, so request at least librtlsdr's normal 256 KiB transport chunk.
+	 * The callback length may be larger than SDR++ requested, which upstream
+	 * librtlsdr already permits for its default async buffering contract. */
+	{
+		int stream_len = (int)buf_len;
+		if (stream_len < DEFAULT_BUF_LENGTH)
+			stream_len = DEFAULT_BUF_LENGTH;
+		if (orcu_stream_bulk_in_start(dev->orcu_fd, 0x81, stream_len, 250) < 0) {
 		fprintf(stderr, "[ORCU] stream start failed\\n");
 		fflush(stderr);
 		free(buf);
 		dev->async_status = RTLSDR_INACTIVE;
-		return -1;
+			return -1;
+		}
 	}
 	fprintf(stderr, "[ORCU] stream command sent; waiting for IQ\\n");
 	fflush(stderr);
