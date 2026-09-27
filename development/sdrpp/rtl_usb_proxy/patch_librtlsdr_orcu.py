@@ -312,8 +312,11 @@ int rtlsdr_read_async(rtlsdr_dev_t *dev, rtlsdr_read_async_cb_t cb, void *ctx,
 	}
 	free(transport_buf);
 	if (dev->orcu_stream_fd >= 0) {
-		orcu_release(dev->orcu_stream_fd, 0);
-		orcu_close(dev->orcu_stream_fd);
+		/* STREAM_STOP/zero-length frame ends the streaming session on the
+		 * Bridge. Do not send RELEASE or CLOSE protocol messages afterward:
+		 * that socket is no longer a command channel and Android may already
+		 * have closed it. Closing the TCP fd locally is sufficient. */
+		close(dev->orcu_stream_fd);
 		dev->orcu_stream_fd = -1;
 	}
 	dev->async_status = RTLSDR_INACTIVE;
