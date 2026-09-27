@@ -55,7 +55,11 @@ class SDRPPLauncherTest(unittest.TestCase):
         self.assertIn("module-pipe-sink", command[-1])
         self.assertIn("sink_name=orc_android", command[-1])
         self.assertIn("export OPENROADCODE_RTL_USB_PROXY=1", command[-1])
-        self.assertIn("exec gdb -q -ex run --args ./build/sdrpp -r root_dev --autostart", command[-1])
+        self.assertIn("exec gdb -q -batch -ex run", command[-1])
+        self.assertIn("bt full", command[-1])
+        self.assertIn("info threads", command[-1])
+        self.assertIn("thread apply all bt 12", command[-1])
+        self.assertIn("--args ./build/sdrpp -r root_dev --autostart", command[-1])
 
     @patch("apps.launchers.sdrpp_launcher._sdrpp_process_running", return_value=False)
     @patch("apps.launchers.sdrpp_launcher._is_termux", return_value=False)
