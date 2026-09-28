@@ -11,6 +11,8 @@ set -euo pipefail
 get_known_features() {
   cat <<'EOF'
 base
+development
+native-navigation-development
 desktop-ui
 web-ui
 browser
@@ -39,6 +41,8 @@ get_all_features_for_target() {
     linux-dev)
       cat <<'EOF'
 base
+development
+native-navigation-development
 desktop-ui
 web-ui
 browser
@@ -103,6 +107,22 @@ get_feature_packages() {
     base)
       echo "git curl wget ca-certificates sudo procps python3 python3-venv python3-pip"
       ;;
+    development)
+      echo "build-essential cmake ninja-build pkg-config"
+      echo "clang-format clang-tidy shellcheck"
+      ;;
+
+    native-navigation-development)
+      echo "libzmq3-dev"
+      echo "libx11-dev libxext-dev"
+      echo "libglfw3-dev"
+      echo "libegl1-mesa-dev libgles2-mesa-dev libgl-dev libglx-dev"
+      echo "libcurl4-openssl-dev"
+      echo "libjpeg-dev libpng-dev libwebp-dev zlib1g-dev"
+      echo "libuv1-dev"
+      echo "libicu-dev"
+      ;;
+
     desktop-ui)
       echo "python3-tk dbus-x11 xauth xterm x11-apps x11-utils wmctrl openbox xfce4 xfce4-goodies"
       ;;

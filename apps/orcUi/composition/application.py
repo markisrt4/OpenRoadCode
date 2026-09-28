@@ -120,6 +120,8 @@ def create_orc_ui_composition() -> OrcUiComposition:
             app,
             map_runtime=core.map_runtime,
             map_request_handler=core.map_camera.request_handler,
+            route_request_handler=core.route_request_handler,
+            route_simulation_handler=core.route_request_handler,
             theme_bundle=lambda: theme_bundle(app.theme_mode),
             telemetry_profile_request=core.telemetry_profile_request,
             on_back=lambda: app.navigate_to("HOME"),

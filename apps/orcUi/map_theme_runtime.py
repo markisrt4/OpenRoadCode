@@ -13,9 +13,9 @@ from typing import Any
 from ui.theme import ThemeMode
 
 _MAP_DARK = {
-    "background": "#0b151b", "wood": "#164a35", "grass": "#28523a", "scrub": "#314b3b", "farmland": "#51482b",
+    "background": "#0b151b", "wood": "#164a35", "grass": "#28523a", "scrub": "#314b3b", "farmland": "#2d3f35",
     "land_default": "#17262d", "residential": "#22343d", "commercial": "#493044", "industrial": "#33444a", "cemetery": "#24513b", "hospital": "#542f42", "school": "#564d29", "landuse_default": "#293940", "park": "#17613b",
-    "water": "#075078", "waterway": "#21b8ed", "boundary": "#73858e", "rail": "#718087", "path": "#7b898f", "service_casing": "#39484f", "service": "#718087", "residential_casing": "#46565d", "residential_road": "#8d9ba1", "secondary_casing": "#275e78", "secondary_road": "#73b7d8", "primary_casing": "#075d8d", "primary_road": "#31ace9", "motorway_casing": "#034c79", "motorway": "#00a9ff", "aeroway": "#75848b", "building": "#3b494f", "building_outline": "#596970", "route_casing": "#ffffff", "route": "#ff4935", "label": "#e1e9ec", "label_major": "#ffffff", "label_minor": "#c5d0d5", "label_halo": "#081116", "water_label": "#76ddff", "road_ref": "#b1e3f5", "poi": "#bfff55", "poi_food": "#ff7448", "house": "#a8b6bc",
+    "water": "#103f56", "waterway": "#4c8297", "boundary": "#73858e", "rail": "#718087", "path": "#7b898f", "service_casing": "#39484f", "service": "#718087", "residential_casing": "#46565d", "residential_road": "#8d9ba1", "secondary_casing": "#275e78", "secondary_road": "#73b7d8", "primary_casing": "#075d8d", "primary_road": "#31ace9", "motorway_casing": "#034c79", "motorway": "#00a9ff", "aeroway": "#75848b", "building": "#3b494f", "building_outline": "#596970", "route_casing": "#ffffff", "route": "#ff4935", "label": "#e1e9ec", "label_major": "#ffffff", "label_minor": "#c5d0d5", "label_halo": "#081116", "water_label": "#76ddff", "road_ref": "#b1e3f5", "poi": "#bfff55", "poi_food": "#ff7448", "house": "#a8b6bc",
 }
 _MAP_LIGHT = {
     "background": "#e7eef2", "wood": "#a9d4b8", "grass": "#c8e3b2", "scrub": "#d1e1c3", "farmland": "#dce6b4", "land_default": "#e1e8e8", "residential": "#e1e7eb", "commercial": "#eddbe7", "industrial": "#d9e2e5", "cemetery": "#c5dfcb", "hospital": "#efd7e2", "school": "#dce8df", "landuse_default": "#dee6e7", "park": "#a9dcb7", "water": "#75bee3", "waterway": "#2da6df", "boundary": "#82949e", "rail": "#8b989e", "path": "#a1acae", "service_casing": "#b9c3c7", "service": "#f2f5f6", "residential_casing": "#b1bdc3", "residential_road": "#ffffff", "secondary_casing": "#70a5bc", "secondary_road": "#c1e2f1", "primary_casing": "#277fae", "primary_road": "#62b8e2", "motorway_casing": "#146e9f", "motorway": "#269bd4", "aeroway": "#a1adb2", "building": "#c6d1d6", "building_outline": "#9eacb3", "route_casing": "#ffffff", "route": "#e33b24", "label": "#2e3d45", "label_major": "#17252c", "label_minor": "#52636c", "label_halo": "#f5f8f9", "water_label": "#146f9f", "road_ref": "#205f80", "poi": "#477f12", "poi_food": "#c54226", "house": "#697980",
@@ -61,6 +61,8 @@ def _apply_map_palette(document: dict[str, Any], colors: dict[str, str]) -> None
     _paint(layers, "primary-roads", "line-width", 4.5)
     _paint(layers, "motorways-casing", "line-width", 6.5)
     _paint(layers, "motorways", "line-width", 5)
+    _paint(layers, "waterways", "line-width", 1.35)
+    _paint(layers, "waterways", "line-opacity", 0.58)
     for layer_id, key in (("water-labels", "water_label"), ("road-refs-major", "road_ref"), ("road-labels", "label"), ("place-labels", "label_major"), ("aerodrome-labels", "label_minor"), ("mountain-peaks", "label_minor"), ("poi-labels-important", "poi"), ("poi-labels-food", "poi_food"), ("house-numbers", "house")):
         _paint_label(layers, layer_id, colors[key], colors["label_halo"])
 

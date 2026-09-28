@@ -9,6 +9,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any, Mapping
 
+from controllers.navigation.geocoding import GeocoderIf
 from controllers.navigation.navigation_controller_if import NavigationControllerIf
 from controllers.route_planning.route_planning_controller_if import RoutePlanningControllerIf
 from controllers.route_planning.route_planning_types import GeoPoint, RouteRequest, RouteResult, TravelMode
@@ -18,9 +19,13 @@ RESET_HEADING_COMMAND = "navigation.reset_heading"
 CALCULATE_ROUTE_COMMAND = "navigation.route.calculate"
 START_ROUTE_COMMAND = "navigation.route.start"
 CANCEL_ROUTE_COMMAND = "navigation.route.cancel"
+SIMULATE_ROUTE_COMMAND = "navigation.route.simulate"
+STOP_ROUTE_SIMULATION_COMMAND = "navigation.route.simulation.stop"
 
 RouteStartedCallback = Callable[[RouteRequest, RouteResult], None]
 RouteCancelledCallback = Callable[[], None]
+RouteSimulationStartedCallback = Callable[[float], None]
+RouteSimulationStoppedCallback = Callable[[], None]
 
 
 @dataclass(frozen=True, slots=True)
@@ -40,13 +45,19 @@ class NavigationCommandService:
         controller: NavigationControllerIf,
         route_planning_controller: RoutePlanningControllerIf | None = None,
         *,
+        geocoder: GeocoderIf | None = None,
         on_route_started: RouteStartedCallback | None = None,
         on_route_cancelled: RouteCancelledCallback | None = None,
+        on_route_simulation_started: RouteSimulationStartedCallback | None = None,
+        on_route_simulation_stopped: RouteSimulationStoppedCallback | None = None,
     ) -> None:
         self._controller = controller
         self._route_planning_controller = route_planning_controller
+        self._geocoder = geocoder
         self._on_route_started = on_route_started
         self._on_route_cancelled = on_route_cancelled
+        self._on_route_simulation_started = on_route_simulation_started
+        self._on_route_simulation_stopped = on_route_simulation_stopped
 
     def execute(self, command: str, arguments: Mapping[str, Any] | None = None) -> NavigationCommandResult:
         args = dict(arguments or {})
@@ -69,6 +80,22 @@ class NavigationCommandService:
             if self._on_route_cancelled is not None:
                 self._on_route_cancelled()
             return NavigationCommandResult(True, "Active route cancelled")
+
+        if command == SIMULATE_ROUTE_COMMAND:
+            if self._on_route_simulation_started is None:
+                return NavigationCommandResult(False, "Route simulation is not configured")
+            try:
+                time_scale = float(args.get("time_scale", 60.0))
+                self._on_route_simulation_started(time_scale)
+            except (TypeError, ValueError, RuntimeError) as error:
+                return NavigationCommandResult(False, str(error))
+            return NavigationCommandResult(True, f"Route simulation started at {time_scale:g}x")
+
+        if command == STOP_ROUTE_SIMULATION_COMMAND:
+            if self._on_route_simulation_stopped is None:
+                return NavigationCommandResult(False, "Route simulation is not configured")
+            self._on_route_simulation_stopped()
+            return NavigationCommandResult(True, "Route simulation stopped")
 
         return NavigationCommandResult(False, f"Unknown navigation command: {command}")
 
@@ -93,12 +120,18 @@ class NavigationCommandService:
             data=self._route_data(route),
         )
 
-    @staticmethod
-    def _parse_route_request(args: Mapping[str, Any]) -> RouteRequest:
+    def _parse_route_request(self, args: Mapping[str, Any]) -> RouteRequest:
         origin = args.get("origin")
         destination = args.get("destination")
-        if not isinstance(origin, Mapping) or not isinstance(destination, Mapping):
-            raise ValueError("origin and destination objects are required")
+        if origin is None:
+            origin = self._current_origin()
+        if not isinstance(origin, Mapping):
+            raise ValueError("origin object is required")
+
+        if isinstance(destination, str):
+            destination = self._geocode_destination(destination)
+        if not isinstance(destination, Mapping):
+            raise ValueError("destination object or address string is required")
 
         travel_mode_name = str(args.get("travel_mode", "AUTO")).upper()
         try:
@@ -111,6 +144,32 @@ class NavigationCommandService:
             destination=GeoPoint(latitude=float(destination["latitude"]), longitude=float(destination["longitude"])),
             travel_mode=travel_mode,
         )
+
+    def _current_origin(self) -> Mapping[str, float]:
+        state = self._controller.read_state()
+        position = state.position
+        if (
+            position is None
+            or not position.has_fix
+            or position.latitude_deg is None
+            or position.longitude_deg is None
+        ):
+            raise ValueError("current navigation position is unavailable")
+        return {
+            "latitude": position.latitude_deg,
+            "longitude": position.longitude_deg,
+        }
+
+    def _geocode_destination(self, destination: str) -> Mapping[str, float]:
+        if self._geocoder is None:
+            raise ValueError("text destination requires geocoding to be configured")
+        result = self._geocoder.geocode(destination)
+        if result is None:
+            raise ValueError(f"destination could not be resolved: {destination}")
+        return {
+            "latitude": result.latitude_deg,
+            "longitude": result.longitude_deg,
+        }
 
     @staticmethod
     def _route_data(route: RouteResult) -> Mapping[str, Any]:

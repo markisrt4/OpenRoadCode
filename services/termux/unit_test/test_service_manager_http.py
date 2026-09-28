@@ -135,11 +135,13 @@ class ServiceManagerHttpRequestTest(unittest.TestCase):
             "POST", "/pairing/browser/start", token=None,
             body={"client_name": "Test Android"},
         )
+        from urllib.parse import parse_qs, urlsplit
+        approval_token = parse_qs(urlsplit(started["approval_url"]).query)["token"][0]
         status, approved = self.request(
             "POST",
             f"/pairing/browser/approve/{started['session_id']}",
             token=None,
-            form={"admin_token": "secret"},
+            form={"approval_token": approval_token},
         )
         self.assertEqual(status, 200)
         self.assertIn("Device approved", approved)

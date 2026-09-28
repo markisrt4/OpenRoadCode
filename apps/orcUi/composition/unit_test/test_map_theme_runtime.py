@@ -33,10 +33,16 @@ class MapThemeRuntimeTest(unittest.TestCase):
             self.assertEqual(destination, data_root / "maps" / "styles" / "openroadcode.json")
             style = destination.read_text(encoding="utf-8")
             self.assertIn('"background-color":"#0b151b"', style)
-            self.assertIn('"farmland","#51482b"', style)
+            self.assertIn('"farmland","#2d3f35"', style)
+            self.assertIn('"fill-color":"#103f56"', style)
+            self.assertIn('"line-color":"#4c8297"', style)
             self.assertIn('"commercial","#493044"', style)
             self.assertIn('"hospital","#542f42"', style)
             self.assertIn('"school","#564d29"', style)
+            self.assertIn('"poi-results":{"type":"geojson"', style)
+            self.assertIn('"id":"poi-results-glow"', style)
+            self.assertIn('"id":"poi-results-icon"', style)
+            self.assertIn('"id":"poi-results-label"', style)
 
 
 if __name__ == "__main__":

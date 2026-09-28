@@ -86,7 +86,7 @@ echo "[*] Checking remote navigation-data manifest"
 [[ -s "$remote_manifest" ]] || { echo "Remote build-manifest.json is empty" >&2; exit 1; }
 
 if (( ! FORCE )) && [[ -f "$DATA_ROOT/build-manifest.json" ]] \
-    && cmp -s "$remote_manifest" "$DATA_ROOT/build-manifest.json"; then
+    && cmp -s "$remote_manifest" "$DATA_ROOT/build-manifest.json"     && [[ -s "$DATA_ROOT/maps/search/openroadcode-search.sqlite" ]]; then
   echo "[+] Navigation data already match the remote build manifest; refreshing software-owned map style."
   DATA_ROOT="$DATA_ROOT" bash "$PROJECT_ROOT/scripts/runtime/install_navigation_style.sh"
   exit 0
@@ -123,6 +123,16 @@ rsync -aH --delete-delay --itemize-changes \
 echo "[*] Validating staged dataset"
 test -s "$STAGING_ROOT/build-manifest.json"
 test -s "$STAGING_ROOT/valhalla/valhalla.json"
+if [[ ! -s "$STAGING_ROOT/maps/search/openroadcode-search.sqlite" ]]; then
+  if [[ -s "$STAGING_ROOT/maps/poi/openroadcode-poi.sqlite" ]]; then
+    echo "[*] Migrating legacy POI index to canonical runtime path"
+    mkdir -p "$STAGING_ROOT/maps/search"
+    install -m 0644       "$STAGING_ROOT/maps/poi/openroadcode-poi.sqlite"       "$STAGING_ROOT/maps/search/openroadcode-search.sqlite"
+  else
+    echo "Staged dataset is missing maps/search/openroadcode-search.sqlite" >&2
+    exit 1
+  fi
+fi
 cmp -s "$remote_manifest" "$STAGING_ROOT/build-manifest.json" || {
   echo "Staged manifest does not match the manifest checked before transfer" >&2
   exit 1
