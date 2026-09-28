@@ -31,8 +31,8 @@ PROFILE_SCHEDULES: dict[Obd2PollingProfile, tuple[str, ...]] = {
         "map", "rpm", "trip", "slow", "standard", "trip",
     ),
     Obd2PollingProfile.PERFORMANCE: (
-        "rpm", "map", "rpm", "map", "rpm", "performance",
-        "rpm", "map", "rpm", "performance", "map", "standard",
+        "rpm", "vehicle_speed", "rpm", "map", "rpm", "performance",
+        "vehicle_speed", "rpm", "map", "performance", "rpm", "standard",
     ),
     Obd2PollingProfile.ENGINE: (
         "rpm", "map", "engine", "rpm", "engine", "map",
@@ -56,6 +56,7 @@ class Obd2PollScheduler:
         self,
         *,
         rpm: ObdPidDecoder,
+        vehicle_speed: ObdPidDecoder,
         manifold_pressure: ObdPidDecoder,
         standard: Sequence[ObdPidDecoder],
         slow: Sequence[ObdPidDecoder],
@@ -67,6 +68,7 @@ class Obd2PollScheduler:
         profile: Obd2PollingProfile = Obd2PollingProfile.BACKGROUND,
     ) -> None:
         self._rpm = rpm
+        self._vehicle_speed = vehicle_speed
         self._map = manifold_pressure
         self._supported_pids = supported_pids
         self._queues = {
@@ -100,6 +102,8 @@ class Obd2PollScheduler:
 
             if token == "rpm":
                 decoder = self._rpm
+            elif token == "vehicle_speed":
+                decoder = self._vehicle_speed
             elif token == "map":
                 decoder = self._map
             else:
