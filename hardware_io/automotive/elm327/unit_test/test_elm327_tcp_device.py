@@ -29,6 +29,16 @@ class Elm327TcpDeviceTest(unittest.TestCase):
 
         self.assertEqual(raw, "E804410C0A82")
 
+    def test_waits_through_searching_only_prompt(self) -> None:
+        device = Elm327TcpDevice(timeout=1.0)
+        device._socket = _FakeSocket(
+            [b"SEARCHING...\r>", b"7E80641010007A000\r>"]
+        )
+
+        raw = device._read_until_prompt()
+
+        self.assertEqual(raw, "SEARCHING...\r\r7E80641010007A000\r")
+
     def test_leading_prompt_and_payload_in_same_chunk(self) -> None:
         device = Elm327TcpDevice(timeout=1.0)
         device._socket = _FakeSocket([b">E804410C0A82>"])
