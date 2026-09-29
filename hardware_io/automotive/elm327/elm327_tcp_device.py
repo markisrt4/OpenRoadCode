@@ -128,7 +128,19 @@ class Elm327TcpDevice:
             for value in chunk:
                 if value == ord(">"):
                     if saw_payload:
-                        return data.decode("ascii", errors="replace")
+                        raw = data.decode("ascii", errors="replace")
+                        lines = self._parse_lines(raw)
+                        if lines and all(
+                            line.upper() in {"SEARCHING...", "SEARCHING"}
+                            for line in lines
+                        ):
+                            # Some ELM327-compatible bridges expose an
+                            # intermediate prompt while automatic protocol
+                            # discovery is still in progress. Do not mistake
+                            # that status-only prompt for command completion.
+                            data.extend(b"\r")
+                            continue
+                        return raw
                     continue
                 data.append(value)
                 if not chr(value).isspace():
