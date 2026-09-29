@@ -112,7 +112,12 @@ def main() -> int:
         return 1
 
     try:
-        mil = _request(\n            device, adapter, Obd2Request(mode=0x01, pid=0x01), raw=args.raw\n        )
+        mil = _request(
+            device,
+            adapter,
+            Obd2Request(mode=0x01, pid=0x01),
+            raw=args.raw,
+        )
         _print_responses("Mode 01 PID 01 - monitor status since DTCs cleared", mil)
         _decode_mil(mil)
 
@@ -122,7 +127,12 @@ def main() -> int:
             (0x0A, "Mode 0A - permanent DTCs"),
         ):
             try:
-                responses = _request(\n                    device, adapter, Obd2Request(mode=mode), raw=args.raw\n                )
+                responses = _request(
+                    device,
+                    adapter,
+                    Obd2Request(mode=mode),
+                    raw=args.raw,
+                )
             except Obd2Error as exc:
                 print(f"\n{label}\n  Unsupported/error: {exc}")
                 continue
