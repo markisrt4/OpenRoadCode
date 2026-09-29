@@ -20,6 +20,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=35000)
     parser.add_argument("--timeout", type=float, default=2.0)
+    parser.add_argument(
+        "--raw",
+        action="store_true",
+        help="print the raw ELM327 response for each diagnostic request",
+    )
     return parser.parse_args()
 
 
@@ -75,6 +80,26 @@ def _decode_dtcs(responses: tuple[Obd2Response, ...]) -> tuple[str, ...]:
     return tuple(codes)
 
 
+def _request(
+    device: Elm327TcpDevice,
+    adapter: Elm327ObdAdapter,
+    request: Obd2Request,
+    *,
+    raw: bool,
+) -> tuple[Obd2Response, ...]:
+    if not raw:
+        return adapter.request(request)
+
+    command = f"{request.mode:02X}"
+    if request.pid is not None:
+        command += f"{request.pid:02X}"
+    elm_response = device.send_command(command)
+    print(f"  ELM327 raw {command}: {elm_response.raw!r}")
+    if elm_response.lines:
+        print(f"  ELM327 lines: {elm_response.lines!r}")
+    return adapter._parse_response(request, elm_response)
+
+
 def main() -> int:
     args = parse_args()
     device = Elm327TcpDevice(host=args.host, port=args.port, timeout=args.timeout)
@@ -87,7 +112,7 @@ def main() -> int:
         return 1
 
     try:
-        mil = adapter.request(Obd2Request(mode=0x01, pid=0x01))
+        mil = _request(\n            device, adapter, Obd2Request(mode=0x01, pid=0x01), raw=args.raw\n        )
         _print_responses("Mode 01 PID 01 - monitor status since DTCs cleared", mil)
         _decode_mil(mil)
 
@@ -97,7 +122,7 @@ def main() -> int:
             (0x0A, "Mode 0A - permanent DTCs"),
         ):
             try:
-                responses = adapter.request(Obd2Request(mode=mode))
+                responses = _request(\n                    device, adapter, Obd2Request(mode=mode), raw=args.raw\n                )
             except Obd2Error as exc:
                 print(f"\n{label}\n  Unsupported/error: {exc}")
                 continue
