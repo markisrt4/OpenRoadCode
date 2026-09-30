@@ -36,6 +36,7 @@ class VehicleScreen(TkScreen):
             Callable[[AutomotiveTelemetryProfile], None] | None
         ),
         vehicle_configuration: Callable[[], VehicleConfiguration],
+        scan_diagnostics: Callable[[], dict] | None,
         on_back: Callable[[], None],
     ) -> None:
         super().__init__(self.SCREEN_ID)
@@ -44,6 +45,7 @@ class VehicleScreen(TkScreen):
         self._presentation = presentation
         self._telemetry_profile_request = telemetry_profile_request
         self._vehicle_configuration = vehicle_configuration
+        self._scan_diagnostics = scan_diagnostics
         self._on_back = on_back
         self._panel: VehiclePanel | None = None
 
@@ -58,6 +60,7 @@ class VehicleScreen(TkScreen):
             on_back=self._on_back,
             on_view_changed=lambda view: self._host.set_screen_title(view),
             on_telemetry_profile=self._telemetry_profile_request,
+            on_scan_diagnostics=self._scan_diagnostics,
             state=self._presentation.vehicle,
             trip_state=self._presentation.trip,
             theme=self._theme_bundle(),
