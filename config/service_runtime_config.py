@@ -18,6 +18,7 @@ except ModuleNotFoundError:  # Python 3.10
 from config.toml_overlay import TomlOverlayError, load_toml_layers
 from messaging.zeromq.endpoints import LOCAL_PUBLISHER_ENDPOINT, LOCAL_SUBSCRIBER_ENDPOINT
 from services.navigation.zeromq_navigation_command_server import DEFAULT_NAVIGATION_COMMAND_ENDPOINT
+from services.automotive.endpoints import DEFAULT_AUTOMOTIVE_COMMAND_ENDPOINT
 
 
 class ServiceRuntimeConfigError(ValueError):
@@ -130,6 +131,7 @@ class AutomotivePublishConfig:
 class AutomotiveServiceRuntimeConfig:
     enabled: bool = True
     rate_hz: float = 10.0
+    command_endpoint: str = DEFAULT_AUTOMOTIVE_COMMAND_ENDPOINT
     input: AutomotiveInputConfig = AutomotiveInputConfig()
     fuel: AutomotiveFuelConfig = AutomotiveFuelConfig()
     publish: AutomotivePublishConfig = AutomotivePublishConfig()
@@ -236,6 +238,10 @@ class ServiceRuntimeConfigParser:
         return AutomotiveServiceRuntimeConfig(
             enabled=self._bool(data.get("enabled", True), "services.automotive.enabled"),
             rate_hz=self._positive(data.get("rate_hz", 10.0), "services.automotive.rate_hz"),
+            command_endpoint=self._string(
+                data.get("command_endpoint", DEFAULT_AUTOMOTIVE_COMMAND_ENDPOINT),
+                "services.automotive.command_endpoint",
+            ),
             input=AutomotiveInputConfig(
                 source=source,
                 device=device,
