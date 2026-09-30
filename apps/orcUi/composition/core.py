@@ -27,6 +27,7 @@ from messaging.contracts.automotive import AutomotiveTelemetryProfileRequestPubl
 from messaging.zeromq import ZeroMqPublisher, ZeroMqSubscriber
 from messaging.zeromq.endpoints import LOCAL_PUBLISHER_ENDPOINT, LOCAL_SUBSCRIBER_ENDPOINT
 from services.automotive.automotive_service_cli import DEFAULT_RUNTIME_CONFIG
+from services.automotive.automotive_command_client import AutomotiveCommandClient
 from services.navigation.navigation_command_client import NavigationCommandClient
 from services.trip import TripRuntime
 from ui.theme import ThemeMode
@@ -43,6 +44,7 @@ class CoreComposition:
     map_camera: MapCameraRuntime
     route_request_handler: NavigationRouteRequestHandler
     telemetry_profile_request: Callable[[AutomotiveTelemetryProfile], None]
+    automotive_commands: AutomotiveCommandClient
     state_ingress: StateIngressRuntime
     trip_runtime: TripRuntime
     trip_publisher: ZeroMqPublisher
@@ -70,7 +72,10 @@ class CoreComposition:
                         self.telemetry_profile_publisher.close()
                     finally:
                         try:
-                            self.route_request_handler.close()
+                            self.automotive_commands.close()
+                        finally:
+                            try:
+                                self.route_request_handler.close()
                         finally:
                             try:
                                 self.map_camera.close()
@@ -90,6 +95,9 @@ def create_core_composition() -> CoreComposition:
     lifecycle = SystemLifecycleController()
     presentation = OrcUiPresentationState()
     runtime_config = ServiceRuntimeConfigParser(DEFAULT_RUNTIME_CONFIG).load()
+    automotive_commands = AutomotiveCommandClient(
+        runtime_config.automotive.command_endpoint
+    )
     vehicle_settings = VehicleSettingsStore(default=runtime_config.vehicle)
     vehicle_configuration = VehicleConfigurationState(
         vehicle_settings.load(),
@@ -151,6 +159,7 @@ def create_core_composition() -> CoreComposition:
         map_camera=map_camera,
         route_request_handler=route_request_handler,
         telemetry_profile_request=telemetry_profile_request,
+        automotive_commands=automotive_commands,
         state_ingress=state_ingress,
         trip_runtime=trip_runtime,
         trip_publisher=trip_publisher,
