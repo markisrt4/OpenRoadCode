@@ -16,7 +16,6 @@ from frontends.tk.automotive.vehicle_gauge_panel import DEFAULT_GAUGES
 from frontends.tk.automotive.vehicle_gauge_panel import VehicleGaugePanel
 from ui.automotive import (
     VehicleConnectionUiIf,
-    VehicleDiagnosticsUiIf,
     VehicleTireUiIf,
     VehicleTripUiIf,
     VehicleUiIf,
@@ -45,10 +44,10 @@ class VehicleGaugeRedlineThemeTest(unittest.TestCase):
             VehicleConnectionUiIf,
             VehicleTripUiIf,
             VehicleTireUiIf,
-            VehicleDiagnosticsUiIf,
         ):
             self.assertTrue(issubclass(VehicleGaugePanel, contract))
         self.assertFalse(VehicleGaugePanel.__abstractmethods__)
+        self.assertNotIn("diagnostics", {item.gauge_id for item in DEFAULT_GAUGES})
 
     def test_contract_setters_convert_si_values_at_frontend_boundary(self) -> None:
         panel = VehicleGaugePanel.__new__(VehicleGaugePanel)
