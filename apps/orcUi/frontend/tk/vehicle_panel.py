@@ -44,6 +44,7 @@ class VehiclePanel(tk.Frame):
         on_back: Callable[[], None],
         on_view_changed: Callable[[str], None] | None = None,
         on_telemetry_profile: Callable[[AutomotiveTelemetryProfile], None] | None = None,
+        on_scan_diagnostics: Callable[[], dict] | None = None,
         state: VehiclePresentationState | None = None,
         trip_state: TripPresentationState | None = None,
         position: PositionPresentationState | None = None,
@@ -76,6 +77,7 @@ class VehiclePanel(tk.Frame):
         self._on_back = on_back
         self._on_view_changed = on_view_changed
         self._on_telemetry_profile = on_telemetry_profile
+        self._on_scan_diagnostics = on_scan_diagnostics
         self._state = state or VehiclePresentationState()
         self._trip_state = trip_state or TripPresentationState()
         self._position = position or PositionPresentationState()
@@ -188,6 +190,7 @@ class VehiclePanel(tk.Frame):
             self._view_host,
             theme=self._theme_bundle,
             state=self._state,
+            on_scan_diagnostics=self._on_scan_diagnostics,
         )
         panel.grid(row=0, column=0, sticky="nsew", padx=6, pady=6)
         self._engine_panel = panel
