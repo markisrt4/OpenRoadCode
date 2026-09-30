@@ -9,7 +9,7 @@ from controllers.automotive.obd2.obd2_diagnostics import (
     Obd2DiagnosticStatus,
     Obd2DiagnosticsScanner,
 )
-from protocols.obd2 import Obd2AdapterIf, Obd2Request, Obd2Response
+from protocols.obd2 import Obd2AdapterIf, Obd2Error, Obd2Request, Obd2Response
 
 
 class _Adapter(Obd2AdapterIf):
@@ -27,7 +27,10 @@ class _Adapter(Obd2AdapterIf):
         pass
 
     def request(self, request: Obd2Request) -> tuple[Obd2Response, ...]:
-        return self.responses.get((request.mode, request.pid), ())
+        response = self.responses.get((request.mode, request.pid), ())
+        if isinstance(response, Exception):
+            raise response
+        return response
 
 
 class Obd2DiagnosticsScannerTest(unittest.TestCase):
@@ -74,6 +77,27 @@ class Obd2DiagnosticsScannerTest(unittest.TestCase):
                 ("P0302", Obd2DiagnosticStatus.STORED, 0x7E8),
                 ("P0420", Obd2DiagnosticStatus.PENDING, 0x7E9),
             ],
+        )
+
+    def test_optional_service_failure_does_not_discard_other_results(self) -> None:
+        adapter = _Adapter({
+            (0x01, 0x01): (
+                Obd2Response(0x41, 0x01, bytes.fromhex("81000000"), 0x7E8),
+            ),
+            (0x03, None): (
+                Obd2Response(0x43, None, bytes.fromhex("0302"), 0x7E8),
+            ),
+            (0x07, None): (),
+            (0x0A, None): Obd2Error("service unsupported"),
+        })
+
+        snapshot = Obd2DiagnosticsScanner(adapter).scan()
+
+        self.assertTrue(snapshot.mil_on)
+        self.assertEqual(snapshot.stored_dtc_count, 1)
+        self.assertEqual(
+            [(item.code, item.status) for item in snapshot.trouble_codes],
+            [("P0302", Obd2DiagnosticStatus.STORED)],
         )
 
     def test_reports_unknown_when_monitor_status_has_no_response(self) -> None:
