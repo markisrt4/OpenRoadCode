@@ -22,6 +22,7 @@ class CoreCompositionTest(unittest.TestCase):
         map_camera = Mock()
         route_handler = Mock()
         telemetry_profile_request = Mock()
+        automotive_commands = Mock()
         ingress = Mock()
         trip_runtime = Mock()
         trip_publisher = Mock()
@@ -36,6 +37,7 @@ class CoreCompositionTest(unittest.TestCase):
             map_camera=map_camera,
             route_request_handler=route_handler,
             telemetry_profile_request=telemetry_profile_request,
+            automotive_commands=automotive_commands,
             state_ingress=ingress,
             trip_runtime=trip_runtime,
             trip_publisher=trip_publisher,
@@ -55,6 +57,7 @@ class CoreCompositionTest(unittest.TestCase):
         ingress.close.assert_called_once_with()
         trip_publisher.close.assert_called_once_with()
         telemetry_profile_publisher.close.assert_called_once_with()
+        automotive_commands.close.assert_called_once_with()
         route_handler.close.assert_called_once_with()
         map_camera.close.assert_called_once_with()
         map_runtime.stop.assert_called_once_with()
