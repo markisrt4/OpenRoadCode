@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import json
 import tkinter as tk
-from collections.abc import Sequence
 from dataclasses import asdict, dataclass
 import math
 from pathlib import Path
@@ -24,7 +23,6 @@ from frontends.tk.automotive.vehicle_gauge_theme import (
     vehicle_gauge_theme_from_style_sheet,
 )
 from frontends.tk.automotive.vehicle_gauge_widgets import (
-    DiagnosticsPanel,
     GearIndicator,
     LinearGauge,
     MetricTile,
@@ -33,13 +31,10 @@ from frontends.tk.automotive.vehicle_gauge_widgets import (
 )
 from ui.theme import StyleSheet
 from ui.automotive import (
-    DiagnosticTroubleCode,
-    DiagnosticsRequestHandlerIf,
     Gear,
     TirePosition,
     VehicleConnectionState,
     VehicleConnectionUiIf,
-    VehicleDiagnosticsUiIf,
     VehicleTireUiIf,
     VehicleTripUiIf,
     VehicleUiIf,
@@ -170,10 +165,6 @@ DEFAULT_GAUGES: tuple[GaugeDefinition, ...] = (
         "tires", "Tire Pressure", "psi", "tire_pressures_psi", 0, 60, 5,
         shape="tires",
     ),
-    GaugeDefinition(
-        "diagnostics", "Engine Diagnostics", "", "diagnostic_trouble_codes",
-        0, 1, 1, shape="diagnostics",
-    ),
 )
 
 
@@ -183,7 +174,6 @@ class VehicleGaugePanel(
     VehicleConnectionUiIf,
     VehicleTripUiIf,
     VehicleTireUiIf,
-    VehicleDiagnosticsUiIf,
 ):
     """Display vehicle state through explicit automotive UI contracts."""
 
@@ -213,11 +203,8 @@ class VehicleGaugePanel(
         self._last_state: VehicleGaugeSnapshot | None = None
         self._connected = False
         self._connection_state = VehicleConnectionState.DISCONNECTED
-        self._diagnostics_request_handler: DiagnosticsRequestHandlerIf | None = None
         self._contract_state = SimpleNamespace(
             tire_pressures_psi={},
-            diagnostic_trouble_codes=(),
-            mil_on=None,
         )
         self._style = VEHICLE_GAUGE_THEME
         self._panel_background = (
@@ -282,18 +269,9 @@ class VehicleGaugePanel(
         )
         for gauge_id, gauge in self._gauges.items():
             definition = self._definitions[gauge_id]
-            if definition.shape == "diagnostics":
-                codes = None if state is None else getattr(
-                    state, "diagnostic_trouble_codes", None
-                )
-                mil_on = None if state is None else getattr(state, "mil_on", None)
-                gauge.set_connected(connected)
-                if isinstance(gauge, DiagnosticsPanel):
-                    gauge.set_diagnostics(codes, mil_on)
-                continue
             value = None if state is None else getattr(state, definition.state_attribute, None)
             if value is not None and definition.shape not in {
-                "gear", "diagnostics", "tires"
+                "gear", "tires"
             }:
                 value = float(value) * definition.value_scale
             gauge.set_connected(connected)
@@ -567,31 +545,6 @@ class VehicleGaugePanel(
         warnings[self._tire_key(position)] = active
         self._set_contract_value("tire_warnings", warnings)
 
-    def set_malfunction_indicator(self, active: bool | None) -> None:
-        """Set the malfunction indicator state."""
-        self._set_contract_value("mil_on", active)
-
-    def set_trouble_codes(
-        self,
-        trouble_codes: Sequence[DiagnosticTroubleCode],
-    ) -> None:
-        """Replace the displayed diagnostic trouble codes."""
-        self._set_contract_value(
-            "diagnostic_trouble_codes",
-            tuple(item.code for item in trouble_codes),
-        )
-
-    def set_emissions_readiness(self, ready: bool | None) -> None:
-        """Store emissions-readiness state for diagnostics presentation."""
-        self._set_contract_value("emissions_ready", ready)
-
-    def set_diagnostics_request_handler(
-        self,
-        handler: DiagnosticsRequestHandlerIf | None,
-    ) -> None:
-        """Set the handler for future diagnostic actions."""
-        self._diagnostics_request_handler = handler
-
     def _set_contract_value(self, name: str, value: object) -> None:
         setattr(self._contract_state, name, value)
         self.update_state(
@@ -852,8 +805,6 @@ class VehicleGaugePanel(
                 )
             elif definition.shape == "tires":
                 gauge = TirePressurePanel(self._gauge_host, style=self._style)
-            elif definition.shape == "diagnostics":
-                gauge = DiagnosticsPanel(self._gauge_host, style=self._style)
             else:
                 gauge = RoundGauge(
                     self._gauge_host,
