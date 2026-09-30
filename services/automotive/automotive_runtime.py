@@ -8,11 +8,15 @@ from __future__ import annotations
 from dataclasses import replace
 import threading
 import time
+from queue import Empty, Queue
+from concurrent.futures import Future
+from typing import Any, Mapping
 
 from controllers.automotive.gear_estimator import GearEstimator
 from controllers.automotive.vehicle_state_source_if import VehicleStateSourceIf
 from messaging.contracts.automotive import VehicleStatePublisher
 from protocols.obd2 import Obd2Error
+from services.automotive.automotive_command_service import AutomotiveCommandService
 
 
 class AutomotiveRuntime:
@@ -39,6 +43,10 @@ class AutomotiveRuntime:
         self._gear_estimator = gear_estimator
         self._stop_event = threading.Event()
         self._connected = False
+        self._command_service = AutomotiveCommandService(source)
+        self._commands: Queue[
+            tuple[str, Mapping[str, Any] | None, Future[dict[str, Any]]]
+        ] = Queue()
 
     def start(self) -> None:
         """Prepare the runtime; source connection is managed by run()."""
@@ -55,6 +63,7 @@ class AutomotiveRuntime:
                         continue
 
                 started = time.monotonic()
+                self._execute_pending_commands()
                 try:
                     state = self._source.read_state()
                 except Obd2Error:
@@ -76,6 +85,29 @@ class AutomotiveRuntime:
                     self._stop_event.wait(remaining)
         finally:
             self.close()
+
+    def request_command(
+        self,
+        command: str,
+        arguments: Mapping[str, Any] | None = None,
+    ) -> Future[dict[str, Any]]:
+        """Queue a command for execution on the source-owner runtime thread."""
+        future: Future[dict[str, Any]] = Future()
+        self._commands.put((command, arguments, future))
+        return future
+
+    def _execute_pending_commands(self) -> None:
+        while True:
+            try:
+                command, arguments, future = self._commands.get_nowait()
+            except Empty:
+                return
+            if future.cancelled():
+                continue
+            try:
+                future.set_result(self._command_service.execute(command, arguments))
+            except Exception as error:
+                future.set_exception(error)
 
     def close(self) -> None:
         """Stop publishing and disconnect the owned source."""
