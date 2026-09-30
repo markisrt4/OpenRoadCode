@@ -56,6 +56,7 @@ source = "navigation-service-android"
 # ELM327 byte stream over the bridge's localhost-only TCP endpoint.
 [services.automotive]
 enabled = true
+command_endpoint = "tcp://127.0.0.1:5561"
 rate_hz = 10.0
 
 [services.automotive.input]
