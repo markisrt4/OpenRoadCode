@@ -70,6 +70,7 @@ induction = "turbocharged"
 
 [services.automotive]
 enabled = true
+command_endpoint = "tcp://127.0.0.1:5561"
 rate_hz = 10.0
 
 [services.automotive.input]
