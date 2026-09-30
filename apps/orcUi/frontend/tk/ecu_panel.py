@@ -5,14 +5,17 @@
 
 from __future__ import annotations
 
+import math
 import tkinter as tk
 
 from apps.orcUi.vehicle_presenter import VehiclePresentationState
 from controllers.automotive import (
     EngineAnalysis,
+    EngineLoadLevel,
     FuelControlMode,
     FuelCorrectionStatus,
     MixtureMode,
+    TrackingQuality,
     VehicleConfiguration,
 )
 from ui.theme import ThemeBundle
@@ -54,9 +57,31 @@ class EcuPanel(tk.Frame):
         self._analysis = engine_analysis
         self._labels: dict[str, tk.Label] = {}
         self._bars: dict[str, tk.Canvas] = {}
+        self._animation_phase = 0.0
+        self._animation_job: str | None = None
         super().__init__(parent, bg=theme.ui.background)
         self._build()
         self._paint()
+        self._schedule_engine_animation()
+
+    def destroy(self) -> None:
+        if self._animation_job is not None:
+            try:
+                self.after_cancel(self._animation_job)
+            except tk.TclError:
+                pass
+            self._animation_job = None
+        super().destroy()
+
+    def _schedule_engine_animation(self) -> None:
+        if not self.winfo_exists():
+            return
+        if self._analysis.engine_running:
+            rpm = self._vehicle_state.engine_speed_rpm or 0.0
+            visual_hz = max(0.8, min(4.5, rpm / 900.0))
+            self._animation_phase = (self._animation_phase + visual_hz / 12.0) % 1.0
+            self._paint_engine()
+        self._animation_job = self.after(83, self._schedule_engine_animation)
 
     def update_vehicle(self, state: VehiclePresentationState) -> None:
         self._vehicle_state = state
@@ -71,66 +96,112 @@ class EcuPanel(tk.Frame):
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(0, weight=1)
 
-        grid = tk.Frame(self, bg=ui.background)
-        grid.grid(row=0, column=0, sticky="nsew")
-        for col in range(2):
-            grid.grid_columnconfigure(col, weight=1, uniform="ecu")
-        for row in range(2):
-            grid.grid_rowconfigure(row, weight=1, uniform="ecu")
+        # One composition surface lets the four cards frame the powertrain
+        # instead of forcing the engine into a narrow middle column.
+        cockpit = tk.Frame(self, bg=ui.background, width=640, height=420)
+        cockpit.grid(row=0, column=0, sticky="nsew")
 
-        self._build_fuel(self._card(grid, 0, 0, "⛽", "FUEL CONTROL", "Fuel system status and trims", "#D6A800"))
-        self._build_mixture(self._card(grid, 0, 1, "λ", "MIXTURE", "Air/fuel mixture and lambda control", ui.accent_primary))
-        self._build_load(self._card(grid, 1, 0, "◆", "ENGINE LOAD", "Engine demand and operating condition", "#D96A2B"))
-        self._build_ignition(self._card(grid, 1, 1, "ϟ", "IGNITION TIMING", "Spark advance and ignition control", ui.accent_success))
+        engine = tk.Frame(cockpit, bg=ui.background)
+        engine.place(relx=0.5, rely=0.5, relwidth=0.44, relheight=0.96, anchor="center")
+        engine.grid_columnconfigure(0, weight=1)
+        engine.grid_rowconfigure(0, weight=1)
 
-    def _card(
-        self, parent: tk.Misc, row: int, col: int, icon: str, title: str, subtitle: str, accent: str
+        self._engine_canvas = tk.Canvas(
+            engine, width=1, height=1, bg=ui.surface, highlightthickness=1,
+            highlightbackground=ui.border, bd=0,
+        )
+        self._engine_canvas.grid(row=0, column=0, sticky="nsew", padx=2, pady=(5, 2))
+        self._engine_canvas.bind("<Configure>", lambda _e: self._paint_engine())
+        self._engine_summary = tk.Label(
+            engine, text="--", fg=ui.text_muted, bg=ui.surface,
+            font=("Sans", FONT_CONTROL, "bold"), pady=7,
+        )
+        self._engine_summary.grid(row=1, column=0, sticky="ew", padx=5, pady=(2, 5))
+
+        # Cards intentionally overlap the outer edges of the engine surface.
+        # This creates the surrounding composition from the concept while
+        # keeping each card a normal Tk widget with its existing telemetry.
+        fuel = self._floating_card(
+            cockpit, relx=0.005, rely=0.01, relwidth=0.35, relheight=0.475,
+            icon="⛽", title="FUEL CONTROL", subtitle="Feedback and fuel correction", accent="#D6A800",
+        )
+        load = self._floating_card(
+            cockpit, relx=0.005, rely=0.515, relwidth=0.35, relheight=0.475,
+            icon="◆", title="ENGINE LOAD", subtitle="Demand, throttle and boost", accent="#D96A2B",
+        )
+        mixture = self._floating_card(
+            cockpit, relx=0.645, rely=0.01, relwidth=0.35, relheight=0.475,
+            icon="λ", title="MIXTURE", subtitle="Commanded vs. measured lambda", accent=ui.accent_primary,
+        )
+        ignition = self._floating_card(
+            cockpit, relx=0.645, rely=0.515, relwidth=0.35, relheight=0.475,
+            icon="ϟ", title="IGNITION", subtitle="Spark timing reported by ECU", accent=ui.accent_success,
+        )
+        self._build_fuel(fuel)
+        self._build_load(load)
+        self._build_mixture(mixture)
+        self._build_ignition(ignition)
+
+
+    def _floating_card(
+        self,
+        parent: tk.Misc,
+        *,
+        relx: float,
+        rely: float,
+        relwidth: float,
+        relheight: float,
+        icon: str,
+        title: str,
+        subtitle: str,
+        accent: str,
     ) -> tk.Frame:
         ui = self._theme.ui
-        card = tk.Frame(parent, bg=ui.surface, highlightthickness=1, highlightbackground=ui.border)
-        card.grid(row=row, column=col, sticky="nsew", padx=5, pady=5)
+        card = tk.Frame(parent, bg=ui.surface, highlightthickness=1, highlightbackground=accent)
+        card.place(relx=relx, rely=rely, relwidth=relwidth, relheight=relheight)
+        card.lift()
         tk.Frame(card, bg=accent, width=3).grid(row=0, column=0, rowspan=3, sticky="nsw")
         card.grid_columnconfigure(1, weight=1)
-        tk.Label(card, text=icon, fg=accent, bg=ui.surface, font=("Sans", 23, "bold")).grid(
-            row=0, column=0, rowspan=2, sticky="n", padx=(14, 10), pady=(9, 0)
+        card.grid_rowconfigure(2, weight=1)
+        tk.Label(card, text=icon, fg=accent, bg=ui.surface, font=("Sans", 18, "bold")).grid(
+            row=0, column=0, rowspan=2, sticky="n", padx=(9, 6), pady=(7, 0)
         )
-        tk.Label(card, text=title, fg=accent, bg=ui.surface, font=("Sans", 16, "bold"), anchor="w").grid(
-            row=0, column=1, sticky="ew", pady=(8, 0)
+        tk.Label(card, text=title, fg=accent, bg=ui.surface, font=("Sans", 13, "bold"), anchor="w").grid(
+            row=0, column=1, sticky="ew", pady=(6, 0)
         )
         tk.Label(card, text=subtitle, fg=ui.text_muted, bg=ui.surface, font=("Sans", FONT_SMALL), anchor="w").grid(
             row=1, column=1, sticky="ew", pady=(0, 5)
         )
         body = tk.Frame(card, bg=ui.surface)
-        body.grid(row=2, column=0, columnspan=2, sticky="nsew", padx=14, pady=(2, 8))
-        card.grid_rowconfigure(2, weight=1)
-        body.grid_columnconfigure(0, minsize=145)
-        body.grid_columnconfigure(1, minsize=90)
-        body.grid_columnconfigure(2, weight=1)
+        body.grid(row=2, column=0, columnspan=2, sticky="nsew", padx=9, pady=(1, 5))
+        body.grid_columnconfigure(0, weight=1)
+        body.grid_columnconfigure(1, weight=0)
+        body.grid_columnconfigure(2, weight=2)
         return body
 
     def _value(self, parent: tk.Misc, row: int, key: str, label: str, *, status: bool = False) -> None:
         ui = self._theme.ui
         tk.Label(parent, text=label, fg=ui.text, bg=ui.surface, font=("Sans", FONT_SMALL), anchor="w").grid(
-            row=row, column=0, sticky="w", pady=4
+            row=row, column=0, sticky="w", pady=2
         )
         value = tk.Label(
             parent, text="--", fg=ui.accent_primary if not status else ui.accent_success,
             bg=ui.surface, font=("Sans", FONT_BODY, "bold"), anchor="e",
         )
-        value.grid(row=row, column=1, sticky="e", padx=(4, 12), pady=4)
+        value.grid(row=row, column=1, sticky="e", padx=(3, 6), pady=2)
         self._labels[key] = value
 
     def _bar(self, parent: tk.Misc, row: int, key: str, *, height: int = 24) -> None:
         ui = self._theme.ui
-        canvas = tk.Canvas(parent, height=max(height, 34), bg=ui.surface, highlightthickness=0, bd=0)
+        canvas = tk.Canvas(parent, width=1, height=max(height, 30), bg=ui.surface, highlightthickness=0, bd=0)
         canvas.grid(row=row, column=2, sticky="ew", pady=3)
         canvas.bind("<Configure>", lambda _e: self._paint_bars())
         self._bars[key] = canvas
 
     def _build_fuel(self, body: tk.Frame) -> None:
         ui = self._theme.ui
-        mode = tk.Label(body, text="--", fg=ui.text, bg=ui.surface, font=("Sans", FONT_BODY, "bold"), anchor="w")
-        mode.grid(row=0, column=0, columnspan=2, sticky="w", pady=(1, 4))
+        mode = tk.Label(body, text="--", fg=ui.text, bg=ui.surface, font=("Sans", 15, "bold"), anchor="w")
+        mode.grid(row=0, column=0, columnspan=3, sticky="ew", pady=(1, 7))
         self._labels["fuel_mode"] = mode
         self._value(body, 1, "stft", "STFT (B1)")
         self._bar(body, 1, "stft")
@@ -140,27 +211,37 @@ class EcuPanel(tk.Frame):
         self._labels["fuel_status"].grid(columnspan=2, sticky="w")
 
     def _build_mixture(self, body: tk.Frame) -> None:
-        self._value(body, 0, "commanded", "Commanded EQ Ratio")
-        self._bar(body, 0, "commanded")
-        self._value(body, 1, "measured", "O2 / Lambda")
-        self._bar(body, 1, "measured")
-        self._value(body, 2, "mixture_status", "Mixture Status", status=True)
+        mode = tk.Label(body, text="--", fg=self._theme.ui.text, bg=self._theme.ui.surface, font=("Sans", 15, "bold"), anchor="w")
+        mode.grid(row=0, column=0, columnspan=3, sticky="ew", pady=(1, 7))
+        self._labels["mixture_mode"] = mode
+        self._value(body, 1, "commanded", "Commanded λ")
+        self._bar(body, 1, "commanded")
+        self._value(body, 2, "measured", "Measured λ")
+        self._bar(body, 2, "measured")
+        self._value(body, 3, "mixture_status", "Tracking", status=True)
         self._labels["mixture_status"].grid(columnspan=2, sticky="w")
 
     def _build_load(self, body: tk.Frame) -> None:
-        self._value(body, 0, "load", "Calculated Load")
-        self._bar(body, 0, "load")
-        self._value(body, 1, "boost", "MAP (Boost)")
-        self._bar(body, 1, "boost")
-        self._value(body, 2, "throttle", "Throttle Position")
-        self._bar(body, 2, "throttle")
+        mode = tk.Label(body, text="--", fg=self._theme.ui.text, bg=self._theme.ui.surface, font=("Sans", 15, "bold"), anchor="w")
+        mode.grid(row=0, column=0, columnspan=3, sticky="ew", pady=(1, 7))
+        self._labels["load_mode"] = mode
+        self._value(
+            body, 1, "load",
+            "Calculated Load" if self._vehicle_state.engine_load_percent is not None else "Absolute Load",
+        )
+        self._bar(body, 1, "load")
+        self._value(body, 2, "boost", "Boost Pressure")
+        self._bar(body, 2, "boost")
+        self._value(body, 3, "throttle", "Throttle")
+        self._bar(body, 3, "throttle")
 
     def _build_ignition(self, body: tk.Frame) -> None:
-        self._value(body, 0, "timing", "Timing Advance")
-        self._bar(body, 0, "timing")
-        self._value(body, 1, "knock", "Knock Retard")
-        self._bar(body, 1, "knock")
-        self._value(body, 2, "ignition_status", "Ignition Status", status=True)
+        mode = tk.Label(body, text="--", fg=self._theme.ui.text, bg=self._theme.ui.surface, font=("Sans", 15, "bold"), anchor="w")
+        mode.grid(row=0, column=0, columnspan=3, sticky="ew", pady=(1, 7))
+        self._labels["ignition_mode"] = mode
+        self._value(body, 1, "timing", "Timing Advance")
+        self._bar(body, 1, "timing")
+        self._value(body, 2, "ignition_status", "Timing Data", status=True)
         self._labels["ignition_status"].grid(columnspan=2, sticky="w")
 
     @staticmethod
@@ -172,9 +253,9 @@ class EcuPanel(tk.Frame):
     def _paint(self) -> None:
         state, analysis, ui = self._vehicle_state, self._analysis, self._theme.ui
         fuel_mode = {
-            FuelControlMode.OPEN_LOOP_WARMUP: "Open Loop",
+            FuelControlMode.OPEN_LOOP_WARMUP: "Open Loop · Warm-up",
             FuelControlMode.CLOSED_LOOP: "Closed Loop",
-            FuelControlMode.OPEN_LOOP_LOAD_OR_DECEL: "Open Loop",
+            FuelControlMode.OPEN_LOOP_LOAD_OR_DECEL: "Open Loop · Load/Decel",
             FuelControlMode.OPEN_LOOP_FAULT: "Open Loop · Fault",
             FuelControlMode.CLOSED_LOOP_FAULT: "Closed Loop · Fault",
             FuelControlMode.UNKNOWN: "--",
@@ -192,29 +273,218 @@ class EcuPanel(tk.Frame):
             MixtureMode.UNKNOWN: "--",
         }[analysis.mixture_mode]
         values = {
-            "fuel_mode": fuel_mode,
+            "fuel_mode": fuel_mode.upper(),
+            "mixture_mode": f"TARGET: {mixture.upper()}" if mixture != "--" else "--",
+            "load_mode": {
+                EngineLoadLevel.LOW: "LOW LOAD",
+                EngineLoadLevel.MODERATE: "MODERATE LOAD",
+                EngineLoadLevel.HIGH: "HIGH LOAD",
+                EngineLoadLevel.UNKNOWN: "--",
+            }[analysis.load_level],
+            "ignition_mode": "TIMING AVAILABLE" if state.ignition_timing_advance_deg is not None else "TIMING UNAVAILABLE",
             "stft": self._pct(state.short_term_fuel_trim_percent, True),
             "ltft": self._pct(state.long_term_fuel_trim_percent, True),
-            "fuel_status": correction,
+            "fuel_status": (
+                f"Closed Loop · {correction}"
+                if analysis.fuel_control_mode is FuelControlMode.CLOSED_LOOP
+                else f"{fuel_mode} · {correction}" if correction != "--" else fuel_mode
+            ),
             "commanded": "--" if state.commanded_equivalence_ratio is None else f"{state.commanded_equivalence_ratio:.3f}",
             "measured": "--" if state.measured_equivalence_ratio is None else f"{state.measured_equivalence_ratio:.3f} λ",
-            "mixture_status": mixture,
+            "mixture_status": {
+                TrackingQuality.GOOD: "Tracking Good",
+                TrackingQuality.MODERATE: "Tracking Moderate",
+                TrackingQuality.POOR: "Tracking Poor",
+                TrackingQuality.UNKNOWN: "--",
+            }[analysis.mixture_tracking],
             "load": self._pct(state.engine_load_percent if state.engine_load_percent is not None else state.absolute_engine_load_percent),
             "boost": "--" if state.boost_psi is None else f"{state.boost_psi:.1f} PSI",
             "throttle": self._pct(state.throttle_percent),
             "timing": "--" if state.ignition_timing_advance_deg is None else f"{state.ignition_timing_advance_deg:.1f}° BTDC",
-            "knock": "--",
-            "ignition_status": "Normal" if state.ignition_timing_advance_deg is not None else "--",
+            "ignition_status": (
+                "Advance (+) / Retard (-)"
+                if state.ignition_timing_advance_deg is not None else "--"
+            ),
         }
         for key, value in values.items():
             self._labels[key].configure(text=value)
         self._labels["fuel_mode"].configure(
             fg=ui.accent_success if analysis.fuel_control_mode is FuelControlMode.CLOSED_LOOP else ui.text
         )
-        self._labels["mixture_status"].configure(
+        self._labels["mixture_mode"].configure(
             fg=ui.accent_success if analysis.mixture_mode is MixtureMode.STOICHIOMETRIC else ui.accent_primary
         )
+        self._labels["load_mode"].configure(
+            fg=ui.accent_success if analysis.load_level is EngineLoadLevel.LOW else "#D96A2B"
+        )
+        self._labels["ignition_mode"].configure(
+            fg=ui.accent_success if state.ignition_timing_advance_deg is not None else ui.text_muted
+        )
         self._paint_bars()
+        self._paint_engine()
+
+    def _paint_engine(self) -> None:
+        if not hasattr(self, "_engine_canvas"):
+            return
+        canvas, analysis, state, ui = self._engine_canvas, self._analysis, self._vehicle_state, self._theme.ui
+        canvas.delete("all")
+        w, h = max(260, canvas.winfo_width()), max(260, canvas.winfo_height())
+        sx, sy = w / 400.0, h / 360.0
+
+        def line(points, *, fill, width=5):
+            canvas.create_line(
+                *[v * (sx if i % 2 == 0 else sy) for i, v in enumerate(points)],
+                fill=fill, width=width, smooth=True,
+            )
+
+        active = ui.accent_success
+        intake = ui.accent_primary if analysis.engine_running else ui.text_muted
+        fuel = "#D6A800" if analysis.engine_running else ui.text_muted
+        combustion = "#D96A2B" if analysis.engine_running else ui.surface_alt
+        exhaust = ui.accent_danger if analysis.engine_running else ui.text_muted
+        turbo = ui.accent_primary if analysis.forced_induction_active else ui.text_muted
+
+        # Turbo sits above the engine. Blue is the compressor/intake path;
+        # red is the exhaust/turbine path. Both meet at the shared turbo shaft.
+        turbo_x, turbo_y = 200, 70
+        canvas.create_text(200*sx, 25*sy, text="TURBO", fill=turbo, font=("Sans", 8, "bold"))
+        canvas.create_oval(174*sx, 44*sy, 226*sx, 96*sy, outline=turbo, width=5)
+        cx, cy = turbo_x*sx, turbo_y*sy
+        turbo_phase = self._animation_phase * math.tau
+        for blade in range(5):
+            angle = turbo_phase + blade * math.tau / 5.0
+            canvas.create_line(
+                cx, cy, cx + math.cos(angle)*16*sx, cy + math.sin(angle)*16*sy,
+                fill=turbo, width=2,
+            )
+        canvas.create_oval(194*sx, 64*sy, 206*sx, 76*sy, fill=turbo, outline="")
+
+        canvas.create_text(120*sx, 50*sy, text="INTAKE", fill=ui.text_muted, font=("Sans", 7, "bold"))
+        line((112, 61, 145, 61, 174, 68), fill=intake, width=7)
+        line((200, 96, 200, 110, 164, 122), fill=intake, width=7)
+        if analysis.engine_running:
+            for offset in (0.0, 0.34, 0.68):
+                travel = (self._animation_phase + offset) % 1.0
+                px = (116 + 55 * travel) * sx
+                py = (61 + 7 * max(0.0, (travel - 0.55) / 0.45)) * sy
+                canvas.create_oval(px-3, py-3, px+3, py+3, fill=intake, outline="")
+
+        # Larger, centered engine now that the old left-side turbo no longer
+        # consumes the composition.
+        canvas.create_polygon(
+            105*sx, 112*sy, 265*sx, 112*sy, 280*sx, 128*sy,
+            274*sx, 158*sy, 95*sx, 158*sy, 89*sx, 130*sy,
+            fill=ui.surface_alt, outline=intake, width=2,
+        )
+        canvas.create_text(185*sx, 136*sy, text="ENGINE", fill=ui.text, font=("Sans", 14, "bold"))
+        canvas.create_polygon(
+            97*sx, 158*sy, 274*sx, 158*sy, 286*sx, 205*sy,
+            274*sx, 270*sy, 97*sx, 270*sy, 83*sx, 205*sy,
+            fill=ui.surface_alt, outline=ui.border, width=2,
+        )
+        canvas.create_rectangle(105*sx, 160*sy, 265*sx, 190*sy, fill=ui.surface, outline=ui.border, width=1)
+
+        line((115, 170, 255, 170), fill=fuel, width=5)
+        canvas.create_text(185*sx, 164*sy, text="FUEL RAIL", fill=fuel, font=("Sans", 7, "bold"), anchor="s")
+        cylinders = (120, 163, 207, 250)
+        for x in cylinders:
+            canvas.create_line(x*sx, 171*sy, x*sx, 195*sy, fill=fuel, width=3)
+            canvas.create_polygon(
+                (x-4)*sx, 192*sy, (x+4)*sx, 192*sy, x*sx, 201*sy,
+                fill=fuel, outline="",
+            )
+            canvas.create_rectangle(
+                (x-15)*sx, 199*sy, (x+15)*sx, 249*sy,
+                fill=ui.surface, outline=ui.border, width=2,
+            )
+            glow = combustion if analysis.engine_running else ui.surface_alt
+            canvas.create_oval(
+                (x-10)*sx, 211*sy, (x+10)*sx, 231*sy,
+                fill=glow, outline=ui.text_muted, width=1,
+            )
+            canvas.create_line(x*sx, 231*sy, x*sx, 257*sy, fill=ui.text_muted, width=2)
+
+        # Keep the complete exhaust path outside the engine silhouette.
+        # Runners leave the head to a right-side collector, feed the turbine,
+        # then the turbine outlet descends through O2/catalyst to the tailpipe.
+        collector_x, collector_y = 286, 190
+        for index, x in enumerate(cylinders):
+            runner_y = 190 + index * 8
+            canvas.create_line(
+                x*sx, 190*sy, 278*sx, runner_y*sy, collector_x*sx, collector_y*sy,
+                fill=exhaust, width=2, smooth=True,
+            )
+        line((collector_x, collector_y, 304, 164, 304, 110, 224, 78), fill=exhaust, width=2)
+        line((226, 72, 292, 76, 318, 96, 318, 282), fill=exhaust, width=3)
+        canvas.create_text(326*sx, 190*sy, text="EXHAUST", anchor="w", fill=ui.text_muted, font=("Sans", 6, "bold"))
+        if analysis.fuel_control_mode is FuelControlMode.CLOSED_LOOP:
+            canvas.create_oval(314*sx, 248*sy, 322*sx, 256*sy, fill=active, outline="")
+            canvas.create_text(309*sx, 252*sy, text="O₂", anchor="e", fill=active, font=("Sans", 6, "bold"))
+
+        # Compact accessory drive mounted against the bottom of the block.
+        # The crank rotates smoothly with RPM while the cylinders remain still.
+        crank_x, crank_y = 185, 266
+        accessory_y = 257
+        belt = ui.text_muted
+        canvas.create_line(
+            185*sx, crank_y*sy, 157*sx, accessory_y*sy,
+            213*sx, accessory_y*sy, 185*sx, crank_y*sy,
+            fill=belt, width=2, smooth=True,
+        )
+        for px, py, radius in ((157, accessory_y, 8), (213, accessory_y, 8), (crank_x, crank_y, 14)):
+            canvas.create_oval(
+                (px-radius)*sx, (py-radius)*sy, (px+radius)*sx, (py+radius)*sy,
+                fill=ui.surface, outline=ui.border, width=2,
+            )
+        crank_phase = self._animation_phase * math.tau
+        for blade in range(4):
+            angle = crank_phase + blade * math.tau / 4.0
+            canvas.create_line(
+                crank_x*sx, crank_y*sy,
+                (crank_x + math.cos(angle)*10)*sx,
+                (crank_y + math.sin(angle)*10)*sy,
+                fill=intake if analysis.engine_running else ui.text_muted, width=2,
+            )
+        for px, direction in ((157, -1.0), (213, 1.0)):
+            angle = direction * crank_phase
+            canvas.create_line(
+                px*sx, accessory_y*sy,
+                (px + math.cos(angle)*5)*sx,
+                (accessory_y + math.sin(angle)*5)*sy,
+                fill=ui.text_muted, width=2,
+            )
+
+        # Catalyst stays in the dedicated exhaust corridor, never crossing
+        # the engine or accessory drive.
+        canvas.create_polygon(
+            306*sx, 280*sy, 312*sx, 275*sy, 324*sx, 275*sy, 330*sx, 280*sy,
+            330*sx, 298*sy, 324*sx, 303*sy, 312*sx, 303*sy, 306*sx, 298*sy,
+            fill=ui.surface_alt, outline=exhaust, width=1,
+        )
+        canvas.create_text(318*sx, 289*sy, text="CAT", fill=ui.text_muted, font=("Sans", 6, "bold"))
+        line((318, 303, 318, 318, 292, 318), fill=exhaust, width=3)
+
+        fuel_mode = "CLOSED LOOP" if analysis.fuel_control_mode is FuelControlMode.CLOSED_LOOP else "OPEN LOOP" if analysis.fuel_control_mode is not FuelControlMode.UNKNOWN else "--"
+        mixture = {
+            MixtureMode.RICH: "RICH",
+            MixtureMode.STOICHIOMETRIC: "STOICH",
+            MixtureMode.LEAN: "LEAN",
+            MixtureMode.UNKNOWN: "--",
+        }[analysis.mixture_mode]
+        load_text = {
+            EngineLoadLevel.LOW: "LOW LOAD",
+            EngineLoadLevel.MODERATE: "MODERATE LOAD",
+            EngineLoadLevel.HIGH: "HIGH LOAD",
+            EngineLoadLevel.UNKNOWN: "--",
+        }[analysis.load_level]
+        tracking = {
+            TrackingQuality.GOOD: "TRACKING GOOD",
+            TrackingQuality.MODERATE: "TRACKING MODERATE",
+            TrackingQuality.POOR: "TRACKING POOR",
+            TrackingQuality.UNKNOWN: "",
+        }[analysis.mixture_tracking]
+        summary = " · ".join(part for part in (fuel_mode, mixture, load_text, tracking) if part and part != "--")
+        self._engine_summary.configure(text=summary or "--")
 
     def _paint_bars(self) -> None:
         state, ui = self._vehicle_state, self._theme.ui
@@ -227,7 +497,6 @@ class EcuPanel(tk.Frame):
             "boost": (state.boost_psi, -15.0, 30.0, ui.accent_primary, ("-15", "0", "30")),
             "throttle": (state.throttle_percent, 0.0, 100.0, ui.accent_success, ("0", "50", "100")),
             "timing": (state.ignition_timing_advance_deg, -20.0, 60.0, ui.accent_primary, ("-20", "20", "60")),
-            "knock": (None, 0.0, 15.0, ui.accent_danger, ("0", "5", "15")),
         }
         for key, (value, minimum, maximum, color, ticks) in specs.items():
             canvas = self._bars.get(key)
@@ -241,7 +510,7 @@ class EcuPanel(tk.Frame):
     ) -> None:
         ui = self._theme.ui
         canvas.delete("all")
-        width = max(180, canvas.winfo_width())
+        width = max(60, canvas.winfo_width())
         x1, x2, y = 4.0, width - 4.0, 9.0
         segments, gap = 14, 2
         sw = ((x2 - x1) - gap * (segments - 1)) / segments

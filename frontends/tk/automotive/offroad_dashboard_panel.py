@@ -409,23 +409,12 @@ class OffroadDashboardPanel(
             pitch if state is not None else None,
             self._pitch_warning_deg,
         )
-        self._draw_angle_card(
+        self._draw_heading_card(
             width - side_width - 18,
             content_top + 18,
             side_width,
-            "ROLL",
-            roll if state is not None else None,
-            "RIGHT" if roll >= 0 else "LEFT",
-            self._roll_warning_deg,
+            state,
         )
-        heading_card_y = content_top + 174
-        if heading_card_y + 164 <= content_bottom:
-            self._draw_heading_card(
-                width - side_width - 18,
-                heading_card_y,
-                side_width,
-                state,
-            )
 
         self._draw_bottom_cards(width, height, state)
 
@@ -534,7 +523,7 @@ class OffroadDashboardPanel(
     ) -> None:
         """Draw relative heading and optional GPS course from above."""
 
-        height = 164
+        height = 225
         self._canvas.create_rectangle(
             x, y, x + width, y + height, fill=self._theme.panel, outline=self._theme.border, width=2
         )
@@ -548,8 +537,8 @@ class OffroadDashboardPanel(
         )
 
         center_x = x + width / 2
-        center_y = y + 87
-        radius = min(53.0, width * 0.29)
+        center_y = y + 116
+        radius = min(72.0, width * 0.36)
         self._canvas.create_oval(
             center_x - radius,
             center_y - radius,
@@ -1007,75 +996,6 @@ class OffroadDashboardPanel(
             center_y + 6,
             fill=self._theme.warning,
             outline="",
-        )
-
-    def _draw_angle_card(
-        self,
-        x: float,
-        y: float,
-        width: float,
-        title: str,
-        value: float | None,
-        direction: str,
-        warning_deg: float,
-    ) -> None:
-        """Draw a semicircular roll inclinometer instead of a numeric-only card."""
-
-        height = 150
-        self._canvas.create_rectangle(
-            x, y, x + width, y + height,
-            fill=self._theme.panel, outline=self._theme.border, width=2,
-        )
-        angle = value or 0.0
-        ratio = abs(angle) / warning_deg if value is not None else 0.0
-        color = (
-            self._theme.danger if ratio >= 1.0 else
-            self._theme.warning if ratio >= 0.75 else
-            self._theme.success
-        ) if value is not None else self._theme.muted
-        cx, cy = x + width / 2, y + 91
-        radius = min(width * .36, 55.0)
-
-        self._canvas.create_text(
-            x + 12, y + 12, anchor=tk.NW, text=title,
-            fill=self._theme.muted, font=("TkDefaultFont", 10, "bold"),
-        )
-        self._canvas.create_text(
-            x + width - 10, y + 13, anchor=tk.NE,
-            text="--" if value is None else direction,
-            fill=color, font=("TkDefaultFont", 8, "bold"),
-        )
-        self._canvas.create_arc(
-            cx - radius, cy - radius, cx + radius, cy + radius,
-            start=0, extent=180, style=tk.ARC, outline=self._theme.border, width=2,
-        )
-        for degrees in (-45, -30, -15, 0, 15, 30, 45):
-            theta = math.radians(90 + degrees)
-            inner = radius - (11 if degrees % 30 == 0 else 7)
-            self._canvas.create_line(
-                cx + inner * math.cos(theta), cy - inner * math.sin(theta),
-                cx + radius * math.cos(theta), cy - radius * math.sin(theta),
-                fill=self._theme.muted, width=2,
-            )
-
-        # Vehicle axle rotates while the amber ground reference remains fixed.
-        self._canvas.create_line(cx - radius*.78, cy, cx + radius*.78, cy, fill=self._theme.warning, width=2, dash=(4, 3))
-        half = radius * .62
-        theta = math.radians(angle)
-        dx, dy = half * math.cos(theta), half * math.sin(theta)
-        self._canvas.create_line(cx - dx, cy - dy, cx + dx, cy + dy, fill=color, width=5)
-        for local_x in (-half * .7, half * .7):
-            wx, wy = _rotate_screen_point((local_x, 8), cx, cy, angle)
-            self._canvas.create_oval(wx-5, wy-5, wx+5, wy+5, fill="#111613", outline=color, width=2)
-
-        self._canvas.create_text(
-            cx, y + 126,
-            text="--.-°" if value is None else f"{abs(angle):.1f}°",
-            fill=color, font=("TkFixedFont", 18, "bold"),
-        )
-        self._canvas.create_text(
-            cx, y + 143, text=f"LIMIT {warning_deg:.0f}°",
-            fill=self._theme.muted, font=("TkDefaultFont", 7, "bold"),
         )
 
     def _draw_bottom_cards(

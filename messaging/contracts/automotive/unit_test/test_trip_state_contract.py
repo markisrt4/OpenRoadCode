@@ -31,6 +31,7 @@ def test_trip_state_round_trip() -> None:
         boost_distance_m=150.0,
         boost_fuel_used_m3=0.0001,
         peak_boost_pa=55000.0,
+        high_load_fuel_used_m3=0.0002,
         current_latitude_deg=42.8,
         current_longitude_deg=-83.0,
     )
@@ -39,7 +40,7 @@ def test_trip_state_round_trip() -> None:
     message = decode_trip_state(payload)
 
     assert TRIP_STATE_TOPIC == "openroad.vehicle.trip.state"
-    assert message.version == 2
+    assert message.version == 3
     assert message.source == "test"
     assert message.data.status == "active"
     assert message.data.distance_m == pytest.approx(1000.0)
@@ -48,6 +49,7 @@ def test_trip_state_round_trip() -> None:
     assert message.data.boost_distance_m == pytest.approx(150.0)
     assert message.data.boost_fuel_used_m3 == pytest.approx(0.0001)
     assert message.data.peak_boost_pa == pytest.approx(55000.0)
+    assert message.data.high_load_fuel_used_m3 == pytest.approx(0.0002)
 
 
 def test_validator_rejects_unknown_fields() -> None:
@@ -83,6 +85,7 @@ def test_decoder_accepts_legacy_v1_trip_payload() -> None:
         "boost_distance_m",
         "boost_fuel_used_m3",
         "peak_boost_pa",
+        "high_load_fuel_used_m3",
     ):
         payload["data"].pop(field)
 
@@ -93,3 +96,4 @@ def test_decoder_accepts_legacy_v1_trip_payload() -> None:
     assert message.data.boost_distance_m == pytest.approx(0.0)
     assert message.data.boost_fuel_used_m3 == pytest.approx(0.0)
     assert message.data.peak_boost_pa is None
+    assert message.data.high_load_fuel_used_m3 == pytest.approx(0.0)
