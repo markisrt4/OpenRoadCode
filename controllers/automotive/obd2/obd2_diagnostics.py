@@ -8,7 +8,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import Enum, auto
 
-from protocols.obd2 import Obd2AdapterIf, Obd2Request, Obd2Response
+from protocols.obd2 import Obd2AdapterIf, Obd2Error, Obd2Request, Obd2Response
 
 
 class Obd2DiagnosticStatus(Enum):
@@ -46,10 +46,10 @@ class Obd2DiagnosticsScanner:
         self._adapter = adapter
 
     def scan(self) -> Obd2DiagnosticsSnapshot:
-        monitor = self._adapter.request(Obd2Request(mode=0x01, pid=0x01))
-        stored = self._adapter.request(Obd2Request(mode=0x03))
-        pending = self._adapter.request(Obd2Request(mode=0x07))
-        permanent = self._adapter.request(Obd2Request(mode=0x0A))
+        monitor = self._request_optional(Obd2Request(mode=0x01, pid=0x01))
+        stored = self._request_optional(Obd2Request(mode=0x03))
+        pending = self._request_optional(Obd2Request(mode=0x07))
+        permanent = self._request_optional(Obd2Request(mode=0x0A))
 
         valid_monitor = tuple(response for response in monitor if response.data)
         ecu_ids = tuple(sorted({
@@ -89,6 +89,13 @@ class Obd2DiagnosticsScanner:
             responding_ecus=ecu_ids,
             trouble_codes=trouble_codes,
         )
+
+    def _request_optional(self, request: Obd2Request) -> tuple[Obd2Response, ...]:
+        """Treat unsupported/no-response diagnostic services as unavailable."""
+        try:
+            return self._adapter.request(request)
+        except Obd2Error:
+            return ()
 
     @staticmethod
     def _decode_readiness(response: Obd2Response) -> bool:
