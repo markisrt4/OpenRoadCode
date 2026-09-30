@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import tkinter as tk
+from collections.abc import Callable
 
 from apps.orcUi.vehicle_presenter import VehiclePresentationState
 from frontends.tk.automotive import DEFAULT_GAUGES
@@ -25,10 +26,14 @@ class EnginePanel(tk.Frame):
         *,
         theme: ThemeBundle,
         state: VehiclePresentationState,
+        on_scan_diagnostics: Callable[[], dict] | None = None,
     ) -> None:
         self._theme = theme
         self._state = state
         self._gauges: dict[str, LinearGauge] = {}
+        self._on_scan_diagnostics = on_scan_diagnostics
+        self._diagnostics_status: tk.Label | None = None
+        self._diagnostics_detail: tk.Label | None = None
         super().__init__(parent, bg=theme.ui.background)
         self._build()
         self.update_state(state)
@@ -136,20 +141,77 @@ class EnginePanel(tk.Frame):
             bg=ui.surface_alt,
             font=("Sans", 10, "bold"),
         ).pack(anchor="w", padx=12, pady=(12, 4))
-        tk.Label(
+        self._diagnostics_status = tk.Label(
             summary,
-            text="Monitoring live sensors",
+            text="Diagnostics not scanned",
             fg=ui.text,
             bg=ui.surface_alt,
             font=("Sans", 13, "bold"),
-        ).pack(anchor="w", padx=12)
-        tk.Label(
+        )
+        self._diagnostics_status.pack(anchor="w", padx=12)
+        self._diagnostics_detail = tk.Label(
             summary,
             text="Coolant · Intake · Load · Voltage",
             fg=ui.text_muted,
             bg=ui.surface_alt,
             font=("Sans", 10),
-        ).pack(anchor="w", padx=12, pady=(4, 10))
+            justify=tk.LEFT,
+            anchor="w",
+        )
+        self._diagnostics_detail.pack(anchor="w", padx=12, pady=(4, 6))
+        tk.Button(
+            summary,
+            text="SCAN NOW",
+            command=self._scan_diagnostics,
+            state=tk.NORMAL if self._on_scan_diagnostics is not None else tk.DISABLED,
+            bg=ui.control_background,
+            fg=ui.control_text,
+            activebackground=ui.control_active,
+            activeforeground="#ffffff",
+            relief=tk.FLAT,
+            bd=0,
+            font=("Sans", 9, "bold"),
+            padx=10,
+            pady=5,
+        ).pack(anchor="w", padx=12, pady=(0, 10))
+
+    def _scan_diagnostics(self) -> None:
+        if self._on_scan_diagnostics is None:
+            return
+        try:
+            result = self._on_scan_diagnostics()
+        except Exception as error:
+            if self._diagnostics_status is not None:
+                self._diagnostics_status.configure(text="Diagnostic scan failed")
+            if self._diagnostics_detail is not None:
+                self._diagnostics_detail.configure(text=str(error))
+            return
+
+        codes = result.get("trouble_codes", [])
+        mil = result.get("mil_on")
+        if codes:
+            if self._diagnostics_status is not None:
+                self._diagnostics_status.configure(
+                    text=f"{len(codes)} problem{'s' if len(codes) != 1 else ''} detected"
+                )
+            if self._diagnostics_detail is not None:
+                names = ", ".join(str(item.get("code", "?")) for item in codes[:3])
+                self._diagnostics_detail.configure(
+                    text=("Check Engine ON · " if mil else "") + names
+                )
+        else:
+            if self._diagnostics_status is not None:
+                self._diagnostics_status.configure(text="No problems detected")
+            if self._diagnostics_detail is not None:
+                readiness = result.get("emissions_ready")
+                readiness_text = (
+                    "Ready" if readiness is True
+                    else "Not ready" if readiness is False
+                    else "Unknown"
+                )
+                self._diagnostics_detail.configure(
+                    text=f"Check Engine {'ON' if mil else 'OFF'} · Emissions {readiness_text}"
+                )
 
     def _instrument_card(
         self,
