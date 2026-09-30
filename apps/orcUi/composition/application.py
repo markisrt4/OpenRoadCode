@@ -132,6 +132,7 @@ def create_orc_ui_composition() -> OrcUiComposition:
             presentation=core.presentation,
             telemetry_profile_request=core.telemetry_profile_request,
             vehicle_configuration=lambda: core.vehicle_configuration.configuration,
+            scan_diagnostics=core.automotive_commands.scan_diagnostics,
             on_back=lambda: app.navigate_to("HOME"),
         )
         offroad = OffRoadScreen(
