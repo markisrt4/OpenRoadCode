@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import threading
 from dataclasses import replace
 from pathlib import Path
 
@@ -22,6 +23,9 @@ from messaging.zeromq import ZeroMqPublisher, ZeroMqSubscriber
 from protocols.obd2.simulated_obd2_adapter import SimulatedObd2Adapter
 from services.automotive.automotive_runtime import AutomotiveRuntime
 from services.automotive.automotive_telemetry_profile_runtime import AutomotiveTelemetryProfileRuntime
+from services.automotive.zeromq_automotive_command_server import (
+    ZeroMqAutomotiveCommandServer,
+)
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_RUNTIME_CONFIG = PROJECT_ROOT / "config" / "runtime.toml"
@@ -160,6 +164,8 @@ def main() -> int:
         rate_hz=rate_hz,
         gear_estimator=gear_estimator,
     )
+    command_server = ZeroMqAutomotiveCommandServer(runtime, config.command_endpoint)
+    command_thread = threading.Thread(target=command_server.run, daemon=True)
     profile_runtime = AutomotiveTelemetryProfileRuntime(
         ZeroMqSubscriber(system.messaging.subscriber_endpoint),
         source,
@@ -181,6 +187,7 @@ def main() -> int:
         print("  device:            simulated ELM327 / ECU")
     print(f"  telemetry ingress: {system.messaging.publisher_endpoint}")
     print(f"  service cadence:   {rate_hz:g} Hz")
+    print(f"  command endpoint:  {config.command_endpoint}")
     if config.input.source in {"device", "obd_simulation"}:
         print(f"  OBD request budget:{config.input.request_rate_hz:g} req/s")
         print("  road speed:        navigation ground motion")
@@ -192,11 +199,14 @@ def main() -> int:
     )
     print("Ctrl+C to stop")
     profile_runtime.start()
+    command_thread.start()
     try:
         runtime.run()
     except KeyboardInterrupt:
         pass
     finally:
+        command_server.close()
+        command_thread.join(timeout=2.0)
         profile_runtime.close()
         runtime.close()
         publisher.close()
