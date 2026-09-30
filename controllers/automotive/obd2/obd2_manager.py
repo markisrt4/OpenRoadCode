@@ -9,6 +9,10 @@ from typing import TypeVar
 
 from controllers.automotive.automotive_telemetry_profile import AutomotiveTelemetryProfile
 from controllers.automotive.vehicle_state import VehicleState
+from controllers.automotive.obd2.obd2_diagnostics import (
+    Obd2DiagnosticsScanner,
+    Obd2DiagnosticsSnapshot,
+)
 from controllers.automotive.obd2.obd2_poll_scheduler import (
     Obd2PollingProfile,
     Obd2PollScheduler,
@@ -130,6 +134,10 @@ class Obd2Manager(VehicleStateSourceIf):
             if self._supported_pids is None
             else frozenset(self._supported_pids)
         )
+
+    def scan_diagnostics(self) -> Obd2DiagnosticsSnapshot:
+        """Run one generic SAE J1979 diagnostic scan on the owned adapter."""
+        return Obd2DiagnosticsScanner(self._adapter).scan()
 
     def read_state(self) -> VehicleState:
         """Perform at most one physical PID request and return cached state."""
