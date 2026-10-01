@@ -68,7 +68,10 @@ for package in services services/common services/linux protocols protocols/auth;
 done
 
 mkdir -p "$ENV_DIR"
-chmod 700 "$ENV_DIR"
+# Shared runtime configuration such as navigation.toml lives in this directory
+# and must remain readable by the non-root application user.  Sensitive files
+# within it retain their own restrictive modes (service-manager.env is 0600).
+chmod 755 "$ENV_DIR"
 mkdir -p "$PROFILE_DIR"
 chown "$SERVICE_USER:$SERVICE_USER" "$PROFILE_DIR"
 chmod 755 "$PROFILE_DIR"
