@@ -111,8 +111,6 @@ def _validate_geometry(
     index = 0
     x = 0
     y = 0
-    min_coord = -(1 << 15)
-    max_coord = (1 << 15) - 1
 
     while index < len(values):
         command_header = values[index]
@@ -130,14 +128,6 @@ def _validate_geometry(
                 x += _decode_zigzag32(values[index])
                 y += _decode_zigzag32(values[index + 1])
                 index += 2
-                if not (min_coord <= x <= max_coord and min_coord <= y <= max_coord):
-                    identity = f"layer={layer_name!r} feature_index={feature_index}" + (
-                        f" feature_id={feature_id}" if feature_id is not None else ""
-                    )
-                    raise ValueError(
-                        "paths outside valid range of coordinate_type: "
-                        f"{identity} coordinate=({x},{y})"
-                    )
         elif command == 7:
             continue
         else:

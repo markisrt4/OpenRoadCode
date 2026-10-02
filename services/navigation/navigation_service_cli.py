@@ -95,6 +95,11 @@ def _create_gps_reader(host: str, port: str):
     return GpsReader(host=host, port=port)
 
 
+def _android_bridge_url(configured: str) -> str:
+    """Allow the service manager to route Android input to a remote bridge."""
+    return os.environ.get("OPENROADCODE_ANDROID_BRIDGE_URL", "").strip() or configured
+
+
 def _build_motion_sensor(config: NavigationServiceRuntimeConfig):
     if config.imu.source == "simulation":
         return SimulatedNavigationSensor(
@@ -103,7 +108,7 @@ def _build_motion_sensor(config: NavigationServiceRuntimeConfig):
 
     if config.imu.device == "android":
         client = AndroidSensorBridgeClient(
-            base_url=config.imu.bridge_url
+            base_url=_android_bridge_url(config.imu.bridge_url)
         )
         return AndroidNavigationSensor(AndroidImu(client))
 
@@ -133,7 +138,7 @@ def _build_position_source(config: NavigationServiceRuntimeConfig):
 
     if config.gps.device == "android":
         return AndroidPositionSource(
-            AndroidSensorBridgeClient(base_url=config.gps.bridge_url)
+            AndroidSensorBridgeClient(base_url=_android_bridge_url(config.gps.bridge_url))
         )
 
     if config.gps.device == "gpsd":

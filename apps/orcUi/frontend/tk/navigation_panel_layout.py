@@ -204,6 +204,7 @@ def build_navigation_panel(panel) -> None:
         fill=tk.X, padx=5, pady=2
     )
     for label, command, accent in (
+        ("3D", panel._show_3d_view, ui.accent_primary),
         ("↗", lambda: panel._change_pitch(5), ui.accent_warning),
         ("↘", lambda: panel._change_pitch(-5), ui.accent_warning),
         ("N", panel._north_up, ui.text),
@@ -212,7 +213,7 @@ def build_navigation_panel(panel) -> None:
         panel._control(controls, label, command, accent).pack(fill=tk.X, padx=5, pady=2)
     tk.Label(
         controls,
-        text="ZOOM\nTILT\nNORTH\nCENTER",
+        text="ZOOM\n3D / TILT\nNORTH\nCENTER",
         bg=ui.surface_alt,
         fg=ui.text_muted,
         font=("Sans", 6),

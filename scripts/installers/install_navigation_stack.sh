@@ -348,7 +348,10 @@ if (( ! SKIP_MAPLIBRE && MAPLIBRE_BUILD_REQUIRED )); then
   # runs.  Do not let stale CMake/Ninja dependency state turn an explicitly
   # requested renderer rebuild into a no-op.
   renderer_build_dir="$PROJECT_ROOT/apps/map_renderer/build-container"
-  rm -rf "$renderer_build_dir"
+  # Container builds can leave this host-mounted directory root-owned. Remove it
+  # with elevated privileges so a later rebuild is not blocked by stale CMake/Ninja
+  # artifacts created by an earlier builder-container run.
+  sudo rm -rf "$renderer_build_dir"
   "${CONTAINER_CMD[@]}" run --rm --volume "$HOST_SRC:/src" --workdir /src -e BUILD_JOBS="${BUILD_JOBS:-4}" openroadcode-maplibre-builder /bin/bash -lc "set -euo pipefail; /src/OpenRoadCode/development/containers/maplibre/scripts/build_maplibre.sh; /src/OpenRoadCode/development/containers/maplibre/scripts/build_map_renderer.sh"
   renderer="$PROJECT_ROOT/apps/map_renderer/build-container/openroadcode-map-renderer"
   [[ -x "$renderer" ]] || { echo "Renderer build missing: $renderer" >&2; exit 1; }

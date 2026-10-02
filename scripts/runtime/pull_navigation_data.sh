@@ -28,7 +28,7 @@ to $DATA_ROOT. The previous deployed dataset is retained at $BACKUP_ROOT.
 Options:
   --source SOURCE      rsync/SSH source (or set NAVIGATION_DATA_SOURCE)
   --dry-run            show rsync changes without modifying data
-  --force              deploy even when the manifest matches the installed one
+  --force              deploy even when the remote dataset is older or already installed
   --no-restart         do not restart/start valhalla.service after promotion
   -h, --help           show this help
 
@@ -84,6 +84,51 @@ fi
 echo "[*] Checking remote navigation-data manifest"
 "${rsync_ssh[@]}" "$remote_host" "cat -- '$remote_manifest_path'" > "$remote_manifest"
 [[ -s "$remote_manifest" ]] || { echo "Remote build-manifest.json is empty" >&2; exit 1; }
+
+relation="$(
+python3 - "$remote_manifest" "$DATA_ROOT/build-manifest.json" <<'PY'
+import datetime as dt
+import json
+import pathlib
+import sys
+
+remote_path = pathlib.Path(sys.argv[1])
+local_path = pathlib.Path(sys.argv[2])
+
+def load_generated(path, label):
+    if not path.is_file():
+        return None
+    data = json.loads(path.read_text(encoding="utf-8"))
+    value = data.get("generated_unix")
+    if not isinstance(value, int):
+        raise SystemExit(f"{label} manifest has no integer generated_unix: {path}")
+    return value
+
+def stamp(value):
+    if value is None:
+        return "not installed"
+    return dt.datetime.fromtimestamp(value, dt.timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+
+remote = load_generated(remote_path, "Remote")
+local = load_generated(local_path, "Local")
+print(f"    remote: {stamp(remote)}", file=sys.stderr)
+print(f"    local:  {stamp(local)}", file=sys.stderr)
+if local is None or remote > local:
+    print("newer")
+elif remote < local:
+    print("older")
+else:
+    print("same-time")
+PY
+)"
+
+if [[ "$relation" == "older" && "$FORCE" -ne 1 ]]; then
+  echo "Remote navigation dataset is older than the installed dataset; refusing to downgrade." >&2
+  echo "Use --force only when an intentional downgrade is required." >&2
+  exit 1
+elif [[ "$relation" == "older" ]]; then
+  echo "[!] Remote dataset is older; --force permits this intentional downgrade."
+fi
 
 if (( ! FORCE )) && [[ -f "$DATA_ROOT/build-manifest.json" ]] \
     && cmp -s "$remote_manifest" "$DATA_ROOT/build-manifest.json"     && [[ -s "$DATA_ROOT/maps/search/openroadcode-search.sqlite" ]]; then
