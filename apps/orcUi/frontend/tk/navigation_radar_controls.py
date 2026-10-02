@@ -19,6 +19,7 @@ class NavigationRadarControls:
         if self._on_radar_toggle is None:
             return
         self._radar_replay_panel = None
+        self._radar_loading = False
         self._radar_button = tk.Button(
             bar, text="☰ RADAR", bg=ui.control_background, fg=ui.text,
             activebackground=ui.control_active, activeforeground=ui.control_text,
@@ -77,6 +78,11 @@ class NavigationRadarControls:
         self._radar_forecast = forecast
         self._render_radar_state()
 
+    def set_radar_loading(self, loading: bool) -> None:
+        """Show when playback is waiting for forecast tiles."""
+        self._radar_loading = loading
+        self._render_radar_state()
+
     def _toggle_radar(self) -> None:
         self._radar_enabled = not self._radar_enabled
         self._render_radar_state()
@@ -116,7 +122,7 @@ class NavigationRadarControls:
         if popup is not None:
             popup.render(self._radar_times, self._radar_index,
                          enabled=self._radar_enabled, playing=self._radar_playing,
-                         forecast=self._radar_forecast)
+                         forecast=self._radar_forecast, loading=self._radar_loading)
 
     def _radar_button_text(self) -> str:
         if not self._radar_enabled:

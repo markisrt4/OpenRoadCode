@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 import threading
+from time import monotonic
 
 from apps.orcUi.core_runtime import MapRuntimeIf
 from controllers.automotive import AutomotiveTelemetryProfile
@@ -209,6 +210,8 @@ class NavigationScreen(TkScreen):
         self._radar_playing = False
         self._radar_playback_generation = self.__dict__.get("_radar_playback_generation", 0) + 1
         self._sync_radar_timeline()
+        if self._panel is not None:
+            self._panel.set_radar_loading(False)
 
     def _radar_seek(self, index: int) -> None:
         self._pause_radar()
@@ -236,7 +239,7 @@ class NavigationScreen(TkScreen):
             if controller.is_live:
                 controller.select_frame(0)
             self._sync_radar_timeline()
-            self._schedule_radar_tick(self._radar_playback_generation)
+            self._queue_radar_frame(self._radar_playback_generation)
         except (IndexError, OSError, RuntimeError) as error:
             self._radar_load_failed(str(error))
 
@@ -244,6 +247,32 @@ class NavigationScreen(TkScreen):
         self._host.schedule_ui_callback(
             int(1500 / self._radar_playback_speed), lambda: self._radar_tick(generation),
         )
+
+    def _queue_radar_frame(self, generation: int) -> None:
+        if not self._radar_controller.is_forecast:
+            self._schedule_radar_tick(generation)
+            return
+        started = monotonic()
+        self._host.schedule_ui_callback(100, lambda: self._wait_for_radar_tiles(generation, started))
+
+    def _wait_for_radar_tiles(self, generation: int, started: float) -> None:
+        if (not self._radar_playing or generation != self._radar_playback_generation
+                or not self._radar_enabled or self._panel is None):
+            return
+        controller = self._radar_controller
+        error = controller.frame_tile_error
+        if error or monotonic() - started >= 120:
+            self._pause_radar()
+            self._host.set_screen_status(f"HRRR tile loading failed: {error or 'timed out waiting for map tiles'}")
+            return
+        ready = controller.frame_tiles_ready
+        self._panel.set_radar_loading(not ready)
+        if ready:
+            # Start the display interval after loading, rather than counting
+            # download/decode time as time spent showing the forecast.
+            self._schedule_radar_tick(generation)
+        else:
+            self._host.schedule_ui_callback(250, lambda: self._wait_for_radar_tiles(generation, started))
 
     def _radar_tick(self, generation: int) -> None:
         if (not self._radar_playing or generation != self._radar_playback_generation
@@ -257,7 +286,7 @@ class NavigationScreen(TkScreen):
                 return
             controller.select_frame(((controller.frame_index or 0) + 1) % count)
             self._sync_radar_timeline()
-            self._schedule_radar_tick(generation)
+            self._queue_radar_frame(generation)
         except (IndexError, OSError, RuntimeError) as error:
             self._radar_load_failed(str(error))
 

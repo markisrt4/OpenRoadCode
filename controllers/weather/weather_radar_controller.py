@@ -60,6 +60,18 @@ class WeatherRadarController:
         """Identify forecast imagery rather than observed radar."""
         return self._provider.provider_id == "hrrr"
 
+    @property
+    def frame_tiles_ready(self) -> bool:
+        """Report whether the selected frame has finished local tile work."""
+        return self._tile_service is None or (self._frame is not None and self._tile_service.frame_ready(self._frame))
+
+    @property
+    def frame_tile_error(self) -> str | None:
+        """Expose tile-generation failures to forecast playback."""
+        if self._tile_service is None or self._frame is None:
+            return None
+        return self._tile_service.frame_error(self._frame)
+
     def select_frame(self, index: int) -> RadarFrame:
         """Select a cached timeline frame without a network request."""
         if not 0 <= index < len(self._frames):

@@ -112,7 +112,7 @@ class RadarReplayPanel(tk.Toplevel):
         if self._times and index != self._frame_index:
             self._on_seek(index)
 
-    def render(self, times, index, *, enabled, playing, forecast=False):
+    def render(self, times, index, *, enabled, playing, forecast=False, loading=False):
         """Synchronize controls without treating playback as user scrubbing."""
         self._times = times
         self._forecast.set(forecast)
@@ -140,6 +140,8 @@ class RadarReplayPanel(tk.Toplevel):
             suffix = (f"Forecast · +{max(0, delta)} min" if forecast else
                       ("Latest" if index == len(times) - 1 else f"{max(0, -delta)} min ago"))
             label = f"{frame.strftime('%I:%M %p').lstrip('0')} · {suffix}"
+            if loading:
+                label += " · Loading…"
         self._timestamp.configure(text=label)
         if times:
             self._oldest.configure(text=datetime.fromtimestamp(times[0]).strftime("%I:%M %p").lstrip("0"))

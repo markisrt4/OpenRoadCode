@@ -98,6 +98,10 @@ class RadarTileService:
         self._timeout_seconds = timeout_seconds
         self._hrrr_tiles = HrrrTileSource(self._cache_root / "hrrr-models", self._session)
         self._frames: dict[str, str] = {}
+        self._load_lock = Lock()
+        self._pending: dict[str, int] = {}
+        self._loaded: set[str] = set()
+        self._errors: dict[str, str] = {}
         self._cache_locks_guard = Lock()
         self._cache_locks: dict[Path, Lock] = {}
 
@@ -105,14 +109,19 @@ class RadarTileService:
 
         class Handler(BaseHTTPRequestHandler):
             def do_GET(self) -> None:
+                key = urlparse(self.path).path.strip("/").split("/")[1:2]
+                key = key[0] if key else ""
+                service._begin_tile(key)
                 try:
                     data = service._handle_path(self.path)
                 except (OSError, ValueError, RuntimeError, requests.RequestException) as error:
+                    service._finish_tile(key, str(error))
                     try:
                         self.send_error(502, str(error))
                     except (BrokenPipeError, ConnectionResetError):
                         pass
                     return
+                service._finish_tile(key)
                 self.send_response(200)
                 self.send_header("Content-Type", "image/png")
                 self.send_header("Cache-Control", "public, max-age=3600")
@@ -138,13 +147,44 @@ class RadarTileService:
         self._session.close()
 
     def tile_url(self, frame: RadarFrame, palette: RadarPalette) -> str:
-        key = f"{frame.timestamp}-{sha256(frame.tile_url.encode()).hexdigest()[:16]}"
+        key = self._frame_key(frame)
         self._frames[key] = frame.tile_url
         port = self._server.server_address[1]
         return (
             f"http://127.0.0.1:{port}/radar/{key}/{palette.value}"
             "/{z}/{x}/{y}.png"
         )
+
+    @staticmethod
+    def _frame_key(frame: RadarFrame) -> str:
+        return f"{frame.timestamp}-{sha256(frame.tile_url.encode()).hexdigest()[:16]}"
+
+    def _begin_tile(self, key: str) -> None:
+        with self._load_lock:
+            if key in self._frames:
+                self._pending[key] = self._pending.get(key, 0) + 1
+
+    def _finish_tile(self, key: str, error: str | None = None) -> None:
+        with self._load_lock:
+            if key not in self._frames:
+                return
+            self._pending[key] = max(0, self._pending.get(key, 0) - 1)
+            if error is not None:
+                self._errors[key] = error
+            else:
+                self._loaded.add(key)
+                self._errors.pop(key, None)
+
+    def frame_ready(self, frame: RadarFrame) -> bool:
+        """Report at least one successful tile and no outstanding tile work."""
+        key = self._frame_key(frame)
+        with self._load_lock:
+            return key in self._loaded and not self._pending.get(key, 0)
+
+    def frame_error(self, frame: RadarFrame) -> str | None:
+        """Return the last reported tile-generation failure for a frame."""
+        with self._load_lock:
+            return self._errors.get(self._frame_key(frame))
 
     def _handle_path(self, raw_path: str) -> bytes:
         parts = urlparse(raw_path).path.strip("/").split("/")

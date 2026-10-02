@@ -147,6 +147,10 @@ RainViewer radar. HRRR is model output, not a future radar observation; coverage
 is the contiguous United States. Forecast availability depends on NOAA's public
 HRRR archive. Missing forecasts and dependencies are reported as unavailable.
 
+Forecast playback waits for outstanding local tile downloads and decoding before
+starting each frame's display interval. The panel shows Loading while waiting;
+tile failures or a two-minute timeout pause playback with an explanation.
+
 The provider reads GRIB2 indexes from
 `https://noaa-hrrr-bdp-pds.s3.amazonaws.com`. It selects one recent model run with
 all six future hourly fields and falls back to an older complete run while a new

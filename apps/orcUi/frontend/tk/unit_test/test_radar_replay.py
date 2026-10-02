@@ -106,3 +106,44 @@ def test_old_source_download_and_error_cannot_replace_new_source(screen):
     assert screen._radar_enabled
     assert screen._radar_controller.frame_time == 300
     assert screen._radar_controller._map_renderer.set_weather_radar.call_count == before
+
+
+def test_forecast_waits_for_tiles_before_starting_display_interval(screen):
+    controller = screen._radar_controller
+    controller._provider.provider_id = "hrrr"
+    controller._tile_service = Mock()
+    controller._tile_service.frame_error.return_value = None
+    controller._tile_service.frame_ready.return_value = False
+    screen._radar_play_pause()
+    screen._host.schedule_ui_callback.call_args.args[1]()
+    assert controller.frame_index == 0
+    assert screen._host.schedule_ui_callback.call_args.args[0] == 250
+    screen._panel.set_radar_loading.assert_called_with(True)
+    controller._tile_service.frame_ready.return_value = True
+    screen._host.schedule_ui_callback.call_args.args[1]()
+    assert controller.frame_index == 0
+    assert screen._host.schedule_ui_callback.call_args.args[0] == 1500
+    screen._host.schedule_ui_callback.call_args.args[1]()
+    assert controller.frame_index == 1
+    assert screen._host.schedule_ui_callback.call_args.args[0] == 100
+
+
+def test_forecast_tile_failure_pauses_with_explanation(screen):
+    controller = screen._radar_controller
+    controller._provider.provider_id = "hrrr"
+    controller._tile_service = Mock()
+    controller._tile_service.frame_error.return_value = "download failed"
+    screen._radar_play_pause()
+    screen._host.schedule_ui_callback.call_args.args[1]()
+    assert not screen._radar_playing
+    screen._host.set_screen_status.assert_called_with("HRRR tile loading failed: download failed")
+
+
+def test_paused_forecast_does_not_resume_waiting_callback(screen):
+    screen._radar_controller._provider.provider_id = "hrrr"
+    screen._radar_play_pause()
+    callback = screen._host.schedule_ui_callback.call_args.args[1]
+    screen._pause_radar()
+    calls = screen._host.schedule_ui_callback.call_count
+    callback()
+    assert screen._host.schedule_ui_callback.call_count == calls

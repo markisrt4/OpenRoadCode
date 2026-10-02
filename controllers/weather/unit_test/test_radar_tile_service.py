@@ -69,3 +69,23 @@ def test_service_caches_source_across_palettes(tmp_path) -> None:
     assert universal == session.content
     assert classic != universal
     assert session.calls == [("https://example.test/200/7/34/47.png", 10.0)]
+
+
+def test_readiness_waits_for_all_outstanding_tiles(tmp_path):
+    service = RadarTileService(cache_root=tmp_path, session=_Session(_png()))
+    frame = RadarFrame(200, "https://example.test/{z}/{x}/{y}.png")
+    try:
+        service.tile_url(frame, RadarPalette.UNIVERSAL)
+        key = service._frame_key(frame)
+        assert not service.frame_ready(frame)
+        service._begin_tile(key)
+        service._begin_tile(key)
+        service._finish_tile(key)
+        assert not service.frame_ready(frame)
+        service._finish_tile(key)
+        assert service.frame_ready(frame)
+        service._begin_tile(key)
+        service._finish_tile(key, "bad GRIB")
+        assert service.frame_error(frame) == "bad GRIB"
+    finally:
+        service.close()
