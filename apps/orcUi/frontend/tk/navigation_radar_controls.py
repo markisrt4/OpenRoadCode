@@ -42,14 +42,15 @@ class NavigationRadarControls:
         menu.add_checkbutton(label="Classic palette", variable=self._classic_radar_var,
                              command=self._toggle_radar_palette)
         self._radar_button.configure(menu=menu)
-        self._radar_button.pack(side=tk.RIGHT, padx=(4, 0), pady=3)
         self._radar_quick_toggle = tk.Button(
             bar, text="☁", command=self._toggle_radar,
             bg=ui.control_background, activebackground=ui.control_active,
             activeforeground=ui.control_text, relief=tk.FLAT,
             font=("Sans", FONT_CONTROL + 5, "bold"), padx=6, pady=0,
         )
+        # RIGHT packs the first widget at the outer edge: cloud, then menu.
         self._radar_quick_toggle.pack(side=tk.RIGHT, padx=(4, 0), pady=3)
+        self._radar_button.pack(side=tk.RIGHT, padx=(4, 0), pady=3)
         self._render_radar_state()
 
     def _toggle_radar(self) -> None:

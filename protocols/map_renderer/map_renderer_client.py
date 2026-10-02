@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from typing import Any
+from threading import Lock
 
 from messaging.publisher_if import PublisherIf
 from messaging.zeromq.publisher import ZeroMqPublisher
@@ -36,15 +37,17 @@ class MapRendererClient:
         del timeout_ms
         self._publisher = publisher or (ZeroMqPublisher(endpoint) if endpoint else ZeroMqPublisher())
         self._owns_publisher = publisher is None
+        self._publisher_lock = Lock()
         self._closed = False
         self._send_error: Exception | None = None
 
     def close(self) -> None:
-        if self._closed:
-            return
-        self._closed = True
-        if self._owns_publisher:
-            self._publisher.close()
+        with self._publisher_lock:
+            if self._closed:
+                return
+            self._closed = True
+            if self._owns_publisher:
+                self._publisher.close()
 
     def set_camera(self, latitude: float, longitude: float, zoom: float,
                    bearing: float = 0.0, pitch: float = 0.0) -> None:
@@ -119,12 +122,15 @@ class MapRendererClient:
         self._send_command({"command": MapRendererCommand.FIT_DATASET, "padding": padding})
 
     def _send_command(self, command: Mapping[str, Any]) -> None:
-        if self._closed:
-            raise MapRendererUnavailableError("map renderer client is closed")
-        if self._send_error is not None:
-            raise MapRendererUnavailableError("unable to publish map renderer command") from self._send_error
-        try:
-            self._publisher.publish(MAP_RENDERER_COMMAND_TOPIC, command)
-        except (RuntimeError, OSError) as exc:
-            self._send_error = exc
-            raise MapRendererUnavailableError("unable to publish map renderer command") from exc
+        # UI replay and navigation telemetry share one multipart socket. Hold
+        # the lock through both frames, including shutdown/error-state checks.
+        with self._publisher_lock:
+            if self._closed:
+                raise MapRendererUnavailableError("map renderer client is closed")
+            if self._send_error is not None:
+                raise MapRendererUnavailableError("unable to publish map renderer command") from self._send_error
+            try:
+                self._publisher.publish(MAP_RENDERER_COMMAND_TOPIC, command)
+            except (RuntimeError, OSError) as exc:
+                self._send_error = exc
+                raise MapRendererUnavailableError("unable to publish map renderer command") from exc
