@@ -22,7 +22,7 @@ OpenRoadCode deliberately separates semantic UI contracts, reusable behavior, re
 
 The intended direction is:
 
-<aside class="orc-diagram-legend" aria-label="Architecture diagram legend">
+<div class="orc-diagram-legend" aria-label="Architecture diagram legend">
   <strong>Diagram key</strong>
   <span><i class="orc-legend-swatch orc-legend-app"></i>App / UI</span>
   <span><i class="orc-legend-swatch orc-legend-service"></i>Service / runtime</span>
@@ -30,7 +30,7 @@ The intended direction is:
   <span><i class="orc-legend-swatch orc-legend-message"></i>Messaging / contract</span>
   <span><i class="orc-legend-swatch orc-legend-adapter"></i>Protocol / hardware</span>
   <span><i class="orc-legend-swatch orc-legend-external"></i>External / input</span>
-</aside>
+</div>
 
 ```mermaid
 flowchart BT
@@ -111,7 +111,29 @@ It must not create ZeroMQ subscribers, message decoders, audio backends, Spotify
 
 Structural orcUi widgets that are meaningful only inside that shell stay under `apps/orcUi/frontend/tk`. A widget that could reasonably be reused by another Tk application belongs in an appropriate feature package under `frontends/tk` instead.
 
-## Screen hosting and navigation\n\nThe screen boundary follows one rule: **composition owns dependencies, screens own feature behavior, and `OrcUiApp` owns the shell**. `OrcUiApp` maintains a generic screen registry and navigation list but contains no built-in feature catalog. A new feature should be addable by composition without editing `OrcUiApp`.\n\n```mermaid\nflowchart TD\n    composition["Application composition"] -->|constructs + injects dependencies| screens["ScreenUiIf implementations"]\n    composition -->|registers destinations + initial route| shell["OrcUiApp"]\n    screens -->|TkScreenHostIf| shell\n    shell --> shellView["OrcUiShellView"]\n    shellView --> chrome["Side nav / bottom bar / footer"]\n    shell --> content["Screen content host"]\n\n    classDef orcApp fill:#dbeafe,stroke:#2563eb,color:#172554;\n    classDef orcMessage fill:#ffedd5,stroke:#ea580c,color:#7c2d12;\n    class composition,screens,shell,shellView,chrome,content orcApp;\n```\n\nRegistered screens may be visible or hidden from primary navigation. Composition may also register a destination without a screen when the integrated shell should expose a generic placeholder. The shell renders that fallback generically; it does not know which feature the destination represents.\n\nReusable Tk screens depend on `TkScreenHostIf`, not `OrcUiApp`. The host contract provides a content parent, screen activation and clearing, title/status updates, UI-thread scheduling, and a back-action hook. orcUi currently relies on persistent destination navigation rather than rendering a dedicated back control, so back-action presentation remains a host capability to revisit separately rather than a reason for screens to depend on the concrete shell.\n\n## Reusing Tk for another application
+## Screen hosting and navigation
+
+The screen boundary follows one rule: **composition owns dependencies, screens own feature behavior, and `OrcUiApp` owns the shell**. `OrcUiApp` maintains a generic screen registry and navigation list but contains no built-in feature catalog. A new feature should be addable by composition without editing `OrcUiApp`.
+
+```mermaid
+flowchart TD
+    composition["Application composition"] -->|constructs + injects dependencies| screens["ScreenUiIf implementations"]
+    composition -->|registers destinations + initial route| shell["OrcUiApp"]
+    screens -->|TkScreenHostIf| shell
+    shell --> shellView["OrcUiShellView"]
+    shellView --> chrome["Side nav / bottom bar / footer"]
+    shell --> content["Screen content host"]
+
+    classDef orcApp fill:#dbeafe,stroke:#2563eb,color:#172554;
+    classDef orcMessage fill:#ffedd5,stroke:#ea580c,color:#7c2d12;
+    class composition,screens,shell,shellView,chrome,content orcApp;
+```
+
+Registered screens may be visible or hidden from primary navigation. Composition may also register a destination without a screen when the integrated shell should expose a generic placeholder. The shell renders that fallback generically; it does not know which feature the destination represents.
+
+Reusable Tk screens depend on `TkScreenHostIf`, not `OrcUiApp`. The host contract provides a content parent, screen activation and clearing, title/status updates, UI-thread scheduling, and a back-action hook. orcUi currently relies on persistent destination navigation rather than rendering a dedicated back control, so back-action presentation remains a host capability to revisit separately rather than a reason for screens to depend on the concrete shell.
+
+## Reusing Tk for another application
 
 `frontends/tk` is not uniquely tailored to orcUi. A future independent Tk application owns its shell under its own application package:
 

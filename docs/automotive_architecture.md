@@ -18,7 +18,7 @@ The automotive stack follows five rules:
 
 The most important boundary is VehicleStateSourceIf. Everything below that interface may be hardware- or protocol-specific. Everything above it consumes a normalized VehicleState.
 
-<aside class="orc-diagram-legend" aria-label="Architecture diagram legend">
+<div class="orc-diagram-legend" aria-label="Architecture diagram legend">
   <strong>Diagram key</strong>
   <span><i class="orc-legend-swatch orc-legend-app"></i>App / UI</span>
   <span><i class="orc-legend-swatch orc-legend-service"></i>Service / runtime</span>
@@ -26,7 +26,7 @@ The most important boundary is VehicleStateSourceIf. Everything below that inter
   <span><i class="orc-legend-swatch orc-legend-message"></i>Messaging / contract</span>
   <span><i class="orc-legend-swatch orc-legend-adapter"></i>Protocol / hardware</span>
   <span><i class="orc-legend-swatch orc-legend-external"></i>External / input</span>
-</aside>
+</div>
 
 ~~~mermaid
 flowchart LR
@@ -364,5 +364,6 @@ The important prohibition is the reverse dependency: applications must not reach
 - [OBD-II controller](../controllers/automotive/obd2/README.md)
 - [OBD-II protocol models](../protocols/obd2/README.md)
 - [ELM327 hardware implementation](../hardware_io/automotive/elm327/README.md)
-- [Automotive vehicle-state IDD](idd/automotive_vehicle_state.md)\n- [Automotive Trip-state IDD](idd/automotive_trip_state.md)
+- [Automotive vehicle-state IDD](idd/automotive_vehicle_state.md)
+- [Automotive Trip-state IDD](idd/automotive_trip_state.md)
 - [Messaging overview](../messaging/README.md)

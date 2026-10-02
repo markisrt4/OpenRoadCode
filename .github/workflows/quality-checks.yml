@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - master
+      - weather-radar
       - automotive
       - runtime-integration-cleanup
   workflow_dispatch:
