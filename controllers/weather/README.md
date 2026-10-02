@@ -181,6 +181,12 @@ The probe prints the selected model run and valid times, downloads one indexed
 reflectivity field, checks GRIB2 framing, runs the native decoder and reprojection,
 and saves a forecast PNG under `~/.cache/openroadcode`. NOAA's ArcGIS image-server
 catalog does not expose HRRR reflectivity and is not used by this integration.
+The probe reports model coverage, the percentage of covered pixels with visible
+reflectivity (at least 5 dBZ), and the maximum dBZ. Clear data is distinguished
+from an entirely uncovered tile, which fails the probe. It defaults to the cached
+GPS location when available; otherwise it identifies its central-US diagnostic
+area explicitly. Use `--location LATITUDE LONGITUDE` to choose an area and
+`--frame 1` through `--frame 6` to check other forecast hours.
 
 Radar has two focused component tests:
 

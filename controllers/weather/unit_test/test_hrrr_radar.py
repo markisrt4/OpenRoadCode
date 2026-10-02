@@ -12,7 +12,7 @@ from PIL import Image
 import pytest
 import requests
 
-from controllers.weather.hrrr_tiles import HrrrTileSource, color_hrrr_reflectivity, tile_bounds
+from controllers.weather.hrrr_tiles import HrrrTileSource, color_hrrr_reflectivity, tile_bounds, location_tile, reflectivity_summary
 from controllers.weather.providers.hrrr_radar_provider import HrrrRadarProvider, reflectivity_range
 from controllers.weather.radar_tile_service import _UNIVERSAL_DBZ
 from controllers.weather import RadarFrame, RadarPalette, RadarTileService, WeatherRadarController
@@ -180,6 +180,24 @@ def test_raw_reflectivity_becomes_transparent_clear_and_colored_precipitation():
     assert result.getpixel((1, 0)) == (193, 0, 0, 255)
     assert result.getpixel((2, 0))[3] == 0
     assert result.getpixel((3, 0))[3] == 0
+
+
+@pytest.mark.parametrize(("value", "covered", "visible"), [
+    (-10.0, 65536, 0), (-9999.0, 0, 0), (float("nan"), 0, 0), (20.0, 65536, 65536),
+])
+def test_summary_distinguishes_clear_weather_from_missing_coverage(value, covered, visible):
+    stream = BytesIO()
+    Image.new("F", (256, 256), value).save(stream, format="TIFF")
+    result = reflectivity_summary(stream.getvalue())
+    assert result["covered"] == covered
+    assert result["visible"] == visible
+    assert (result["max_dbz"] is None) == (covered == 0)
+
+
+def test_diagnostic_location_uses_correct_tile():
+    assert location_tile(42.8, -83.0) == (7, 34, 47)
+    with pytest.raises(ValueError):
+        location_tile(float("nan"), -83.0)
 
 
 def test_colorized_output_is_not_misread_as_dbz():
