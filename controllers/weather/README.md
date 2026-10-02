@@ -145,16 +145,30 @@ reflectivity for the next six hours. Forecasts open at the nearest future frame,
 are labeled Forecast with their lead time, and use Now to return to observed
 RainViewer radar. HRRR is model output, not a future radar observation; coverage
 is the contiguous United States. Forecast availability depends on NOAA's public
-ArcGIS image service. A missing service or forecast is reported as unavailable.
+HRRR archive. Missing forecasts and dependencies are reported as unavailable.
 
-The HRRR provider discovers the composite-reflectivity ImageServer from
-the published folders under `https://mapservices.weather.noaa.gov/raster/rest/services`, queries
-valid times, and locks exports to individual forecast rasters. The tile service
-requests only visible 256-pixel Web Mercator TIFF tiles, converts raw dBZ to
-transparent radar PNGs with Pillow, and supports both palettes. No GRIB decoder
-or new Python dependency is required. Source-specific cache keys prevent observed
-and forecast tiles at the same time from colliding; HRRR cache identities refresh
-hourly. Older source downloads cannot overwrite a newly requested source.
+The provider reads GRIB2 indexes from
+`https://noaa-hrrr-bdp-pds.s3.amazonaws.com`. It selects one recent model run with
+all six future hourly fields and falls back to an older complete run while a new
+cycle is still publishing. HTTP byte-range requests download only the REFC
+entire-atmosphere composite-reflectivity message, with a 16 MB limit; servers that
+ignore the range are rejected. GDAL decodes each field once to a cached GeoTIFF
+and reprojects visible 256-pixel tiles to Web Mercator. Pillow applies the radar
+palettes. Native work is serialized with a 64 MB GDAL cache to limit phone memory
+use; two decoded model runs are retained. Source-specific tile keys prevent
+observed and forecast data from colliding. Older source downloads cannot overwrite
+a newly requested source.
+
+HRRR requires native GDAL with the GRIB driver. Termux supplies it through:
+
+```bash
+pkg install -y gdal
+gdalinfo --formats | grep GRIB
+```
+
+Python GDAL bindings are not required, and the map renderer need not be rebuilt.
+The first tile of a new forecast takes longer while its field is downloaded and
+decoded. GRIB files and decoded model fields are cached beneath the radar cache.
 
 Probe live NOAA metadata and raw reflectivity decoding before diagnosing map
 rendering:
@@ -163,11 +177,10 @@ rendering:
 python -m controllers.weather.component_test.hrrr_radar_provider_cli
 ```
 
-The probe saves a forecast PNG under `~/.cache/openroadcode`. Use `--image-service`
-to specify an ImageServer URL when testing a changed NOAA directory layout.
-Use `--list-services` to list the actual published services. The presence of an
-HRRR composite-reflectivity ImageServer must be confirmed; a successful catalog
-request alone does not establish that this tile source is available.
+The probe prints the selected model run and valid times, downloads one indexed
+reflectivity field, checks GRIB2 framing, runs the native decoder and reprojection,
+and saves a forecast PNG under `~/.cache/openroadcode`. NOAA's ArcGIS image-server
+catalog does not expose HRRR reflectivity and is not used by this integration.
 
 Radar has two focused component tests:
 

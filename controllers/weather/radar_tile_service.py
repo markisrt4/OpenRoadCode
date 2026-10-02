@@ -18,7 +18,7 @@ from PIL import Image, ImageDraw
 from common.xdg_paths import openroadcode_cache_dir
 from controllers.weather.radar_palette import RadarPalette
 from controllers.weather.radar_provider_if import RadarFrame
-from controllers.weather.hrrr_tiles import color_hrrr_reflectivity, hrrr_export_url
+from controllers.weather.hrrr_tiles import HrrrTileSource, color_hrrr_reflectivity
 
 
 # Representative points from RainViewer's published Universal Blue dBZ table.
@@ -96,6 +96,7 @@ class RadarTileService:
         self._cache_root = Path(cache_root) if cache_root else openroadcode_cache_dir("radar")
         self._session = session or requests.Session()
         self._timeout_seconds = timeout_seconds
+        self._hrrr_tiles = HrrrTileSource(self._cache_root / "hrrr-models", self._session)
         self._frames: dict[str, str] = {}
         self._cache_locks_guard = Lock()
         self._cache_locks: dict[Path, Lock] = {}
@@ -106,7 +107,7 @@ class RadarTileService:
             def do_GET(self) -> None:
                 try:
                     data = service._handle_path(self.path)
-                except (OSError, ValueError, requests.RequestException) as error:
+                except (OSError, ValueError, RuntimeError, requests.RequestException) as error:
                     try:
                         self.send_error(502, str(error))
                     except (BrokenPipeError, ConnectionResetError):
@@ -168,10 +169,7 @@ class RadarTileService:
                 if source_path.is_file():
                     source = source_path.read_bytes()
                 else:
-                    response = self._session.get(hrrr_export_url(template, z, x, y),
-                                                 timeout=self._timeout_seconds)
-                    response.raise_for_status()
-                    source = color_hrrr_reflectivity(response.content, _UNIVERSAL_DBZ)
+                    source = color_hrrr_reflectivity(self._hrrr_tiles.tile(template, z, x, y), _UNIVERSAL_DBZ)
                     self._write_cache(source_path, source)
         else:
             source = self._read_or_fetch(source_path, source_url)
