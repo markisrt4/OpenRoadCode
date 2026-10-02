@@ -6,9 +6,9 @@ from __future__ import annotations
 
 import os
 
-from apps.launchers.android_intent_launcher import (
-    AndroidIntentLauncher,
-    AndroidIntentLauncherError,
+from apps.launchers.android_host_action_client import (
+    AndroidHostActionClient,
+    AndroidHostActionClientError,
 )
 from apps.launchers.waydroid_launcher import WaydroidLauncher, WaydroidLauncherError
 
@@ -35,7 +35,10 @@ class AndroidAppLauncher:
 
     def open_uri(self, uri: str) -> None:
         if self._is_native_android():
-            (self._native or AndroidHostActionClient()).open_uri(uri)
+            try:
+                (self._native or AndroidHostActionClient()).open_uri(uri)
+            except AndroidHostActionClientError as exc:
+                raise AndroidAppLauncherError(str(exc)) from exc
             return
         raise AndroidAppLauncherError(
             "URI fallback is not implemented for Linux/Waydroid yet"
@@ -43,9 +46,12 @@ class AndroidAppLauncher:
 
     def open_package_or_uri(self, package: str | None, uri: str) -> str:
         if self._is_native_android():
-            return (self._native or AndroidHostActionClient()).open_package_or_uri(
-                package, uri
-            )
+            try:
+                return (self._native or AndroidHostActionClient()).open_package_or_uri(
+                    package, uri
+                )
+            except AndroidHostActionClientError as exc:
+                raise AndroidAppLauncherError(str(exc)) from exc
 
         if package:
             try:

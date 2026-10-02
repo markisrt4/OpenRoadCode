@@ -19,7 +19,7 @@ def test_launch_package_posts_to_bridge(urlopen) -> None:
     AndroidHostActionClient().launch_package("com.panera.bread")
 
     request = urlopen.call_args.args[0]
-    assert request.full_url == "http://127.0.0.1:8770/launch/package"
+    assert request.full_url == "http://127.0.0.1:8772/launch/package"
     assert request.data == b"package=com.panera.bread"
 
 
