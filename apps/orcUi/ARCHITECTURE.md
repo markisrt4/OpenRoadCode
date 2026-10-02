@@ -22,7 +22,7 @@ OpenRoadCode deliberately separates semantic UI contracts, reusable behavior, re
 
 The intended direction is:
 
-<aside class="orc-diagram-legend" aria-label="Architecture diagram legend">
+<div class="orc-diagram-legend" aria-label="Architecture diagram legend">
   <strong>Diagram key</strong>
   <span><i class="orc-legend-swatch orc-legend-app"></i>App / UI</span>
   <span><i class="orc-legend-swatch orc-legend-service"></i>Service / runtime</span>
@@ -30,7 +30,7 @@ The intended direction is:
   <span><i class="orc-legend-swatch orc-legend-message"></i>Messaging / contract</span>
   <span><i class="orc-legend-swatch orc-legend-adapter"></i>Protocol / hardware</span>
   <span><i class="orc-legend-swatch orc-legend-external"></i>External / input</span>
-</aside>
+</div>
 
 ```mermaid
 flowchart BT
@@ -171,6 +171,8 @@ Restart and poweroff requests flow through `SystemLifecycleRequestHandlerIf`. `S
 `composition/radio.py` wires application-owned radio services to reusable Tk radio presentation and the ORC-specific radio shell. SDR++/ADS-B presentation details stay outside the reusable radio package. ADS-B host/config lifecycle is an ORC adapter, while managed process lifetime remains explicitly owned.
 
 `composition/media.py` wires shared Spotify services, local-player behavior, image/lyrics/video dependencies, and reusable Tk media screens. Spotify synchronization and local-player behavior remain under `controllers/spotify`; ORC-selected browser and Web Playback hosts live under `apps/orcUi/adapters`.
+
+`composition/music_visualizer.py` selects capture backends and source configuration. Media composition constructs and owns `MusicVisualizerController`, injects its `MusicVisualizerControlIf` into the reusable Tk screen, and closes the controller during application shutdown. The controller owns serialized capture/calibration work, stale-work invalidation, and bounded presentation delivery. Semantic sources and frames live under `ui/music_visualizer`; Tk rendering lives under `frontends/tk/media`. Neither the screen nor the session adapter imports application composition or chooses backend infrastructure.
 
 `composition/games.py` registers the reusable Tk games frontend. Environment-specific launching and compatibility remain backend concerns.
 

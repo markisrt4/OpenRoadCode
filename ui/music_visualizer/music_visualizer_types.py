@@ -1,3 +1,4 @@
+# SPDX-FileCopyrightText: 2026 OpenRoadCode contributors
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 
@@ -6,6 +7,7 @@
 from __future__ import annotations
 
 from enum import Enum
+from dataclasses import dataclass
 
 
 class KickMode(Enum):
@@ -26,3 +28,22 @@ class MusicVisualizationMode(Enum):
     ELECTRIC_RINGS = "electric_rings"
     NEON_RIBBON = "neon_ribbon"
     KALEIDOSCOPE = "kaleidoscope"
+
+
+class MusicVisualizerSource(str, Enum):
+    """Semantic capture source choices."""
+
+    SIMULATED = "simulated"
+    PIPEWIRE = "pipewire"
+    ANDROID_PLAYBACK = "android-playback"
+
+
+@dataclass(frozen=True, slots=True)
+class VisualizerFrame:
+    """Small frontend-facing snapshot produced by an audio-analysis source."""
+
+    level: float
+    bass: float
+    mid: float
+    treble: float
+    spectrum: tuple[float, ...]

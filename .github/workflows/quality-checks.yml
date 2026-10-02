@@ -104,6 +104,14 @@ jobs:
       - name: Run unit and integration tests
         run: venv/bin/python scripts/run_tests.py all
 
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Test browser audio lifecycle
+        run: node --test frontends/web/audio_analysis/unit_test/*.js
+
       - name: Validate shell syntax
         shell: bash
         run: |

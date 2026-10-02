@@ -18,6 +18,11 @@ from controllers.lighting.lighting_types import (
     LightingState,
     RgbColor,
 )
+from controllers.lighting.music_reactive_lighting import (
+    MusicReactiveLighting,
+    MusicReactiveLightingMapper,
+    MusicReactiveLightingState,
+)
 from controllers.lighting.unconfigured_controller_stub import (
     UnconfiguredControllerStub,
 )
@@ -33,6 +38,9 @@ __all__ = [
     "LightingControllerIf",
     "LightingControllerStub",
     "LightingState",
+    "MusicReactiveLighting",
+    "MusicReactiveLightingMapper",
+    "MusicReactiveLightingState",
     "RgbColor",
     "UnconfiguredControllerStub",
     "LedDmxBluetoothController",
