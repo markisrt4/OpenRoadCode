@@ -16,7 +16,7 @@ from controllers.weather.radar_provider_if import RadarFrame, RadarProviderIf
 class HrrrRadarProvider(RadarProviderIf):
     """Expose the next six hours of CONUS simulated composite reflectivity."""
 
-    DIRECTORY = "https://mapservices.weather.noaa.gov/raster/rest/services/reflectivity"
+    DIRECTORY = "https://mapservices.weather.noaa.gov/raster/rest/services"
 
     def __init__(self, *, session=None, timeout_seconds=20.0, image_service=None, clock=time):
         self._session = session or requests.Session()
@@ -38,15 +38,19 @@ class HrrrRadarProvider(RadarProviderIf):
 
     def get_frames(self):
         if self._service is None:
-            directory = self._json(self.DIRECTORY)
-            matches = [item for item in directory.get("services", [])
+            services = self.list_services()
+            matches = [item for item in services
                        if item.get("type") == "ImageServer"
                        and all(word in item.get("name", "").lower()
                                for word in ("hrrr", "composite", "reflectivity"))]
             if len(matches) != 1:
-                raise RuntimeError("NOAA HRRR composite reflectivity service could not be uniquely discovered")
-            root = self.DIRECTORY.rsplit("/", 1)[0]
-            self._service = f"{root}/{matches[0]['name']}/ImageServer"
+                available = [item.get("name") for item in services
+                             if "hrrr" in item.get("name", "").lower()]
+                raise RuntimeError(
+                    "NOAA catalog does not identify one HRRR composite-reflectivity ImageServer. "
+                    f"HRRR candidates: {available or 'none'}. Run the probe with --list-services."
+                )
+            self._service = f"{self.DIRECTORY}/{matches[0]['name']}/ImageServer"
         metadata = self._json(self._service)
         time_field = metadata.get("timeInfo", {}).get("startTimeField")
         id_field = metadata.get("objectIdField", "OBJECTID")
@@ -83,3 +87,21 @@ class HrrrRadarProvider(RadarProviderIf):
                       f"?service={quote(self._service, safe='')}&refresh={now // 3600}"),
             max_zoom=9,
         ) for timestamp, raster_id in sorted(by_time.items()))
+
+    def list_services(self):
+        """Read only folders published by NOAA rather than assuming their names."""
+        pending = [""]
+        visited = set()
+        services = []
+        while pending:
+            folder = pending.pop(0)
+            if folder in visited:
+                continue
+            visited.add(folder)
+            url = self.DIRECTORY + ("/" + quote(folder, safe="/") if folder else "")
+            catalog = self._json(url)
+            services.extend(item for item in catalog.get("services", []) if isinstance(item, dict))
+            for child in catalog.get("folders", []):
+                if isinstance(child, str) and child not in {"System", "Utilities"}:
+                    pending.append(f"{folder}/{child}" if folder and not child.startswith(folder + "/") else child)
+        return tuple(services)

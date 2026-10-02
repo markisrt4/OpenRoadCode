@@ -18,9 +18,14 @@ def main():
     """Discover upcoming forecasts and save a tile over the central United States."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--image-service", help="Override NOAA's discovered ArcGIS ImageServer URL")
+    parser.add_argument("--list-services", action="store_true", help="List NOAA's actual catalog services without fetching forecast tiles")
     parser.add_argument("--output", type=Path, default=Path.home() / ".cache/openroadcode/hrrr-forecast.png")
     args = parser.parse_args()
     provider = HrrrRadarProvider(image_service=args.image_service)
+    if args.list_services:
+        for service in provider.list_services():
+            print(f"{service.get('type', '?')}: {service.get('name', '?')}")
+        return
     frames = provider.get_frames()
     for frame in frames:
         print(f"Forecast valid UTC: {datetime.fromtimestamp(frame.timestamp, timezone.utc).isoformat()}")

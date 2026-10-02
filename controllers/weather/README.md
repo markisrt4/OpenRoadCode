@@ -148,7 +148,7 @@ is the contiguous United States. Forecast availability depends on NOAA's public
 ArcGIS image service. A missing service or forecast is reported as unavailable.
 
 The HRRR provider discovers the composite-reflectivity ImageServer from
-`https://mapservices.weather.noaa.gov/raster/rest/services/reflectivity`, queries
+the published folders under `https://mapservices.weather.noaa.gov/raster/rest/services`, queries
 valid times, and locks exports to individual forecast rasters. The tile service
 requests only visible 256-pixel Web Mercator TIFF tiles, converts raw dBZ to
 transparent radar PNGs with Pillow, and supports both palettes. No GRIB decoder
@@ -165,6 +165,9 @@ python -m controllers.weather.component_test.hrrr_radar_provider_cli
 
 The probe saves a forecast PNG under `~/.cache/openroadcode`. Use `--image-service`
 to specify an ImageServer URL when testing a changed NOAA directory layout.
+Use `--list-services` to list the actual published services. The presence of an
+HRRR composite-reflectivity ImageServer must be confirmed; a successful catalog
+request alone does not establish that this tile source is available.
 
 Radar has two focused component tests:
 

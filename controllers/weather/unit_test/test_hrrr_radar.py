@@ -60,6 +60,31 @@ def test_arcgis_error_is_not_treated_as_empty_weather():
         HrrrRadarProvider(session=session).get_frames()
 
 
+def test_service_discovery_reads_real_folders_from_root():
+    session = Mock()
+    session.get.side_effect = [
+        _response({"folders": ["forecast", "System"], "services": []}),
+        _response({"services": [{"name": "forecast/HRRR_Composite_Reflectivity", "type": "ImageServer"}]}),
+        _response({"timeInfo": {"startTimeField": "StdTime"}, "objectIdField": "OBJECTID"}),
+        _response({"features": [{"attributes": {"StdTime": 11000_000, "OBJECTID": 4}}]}),
+    ]
+    frames = HrrrRadarProvider(session=session, clock=lambda: 10000).get_frames()
+    assert frames[0].timestamp == 11000
+    urls = [call.args[0] for call in session.get.call_args_list]
+    assert urls[0] == HrrrRadarProvider.DIRECTORY
+    assert urls[1] == HrrrRadarProvider.DIRECTORY + "/forecast"
+    assert urls[2] == HrrrRadarProvider.DIRECTORY + "/forecast/HRRR_Composite_Reflectivity/ImageServer"
+    assert not any("/reflectivity?" in url for url in urls)
+
+
+def test_absent_hrrr_source_is_reported_instead_of_constructing_a_guessed_url():
+    session = Mock()
+    session.get.return_value = _response({"folders": [], "services": []})
+    with pytest.raises(RuntimeError, match="HRRR candidates: none"):
+        HrrrRadarProvider(session=session).get_frames()
+    session.get.assert_called_once()
+
+
 def test_forecast_opens_at_nearest_future_not_six_hour_edge():
     provider, _ = _provider([(11000_000, 2), (12000_000, 3)])
     controller = WeatherRadarController(provider, Mock())
