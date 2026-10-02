@@ -72,10 +72,12 @@ class OrcWeatherPanel(tk.Frame, WeatherUiIf):
         theme_bundle: Callable[[], ThemeBundle],
         unit_system: Callable[[], UnitSystem] = lambda: UnitSystem.IMPERIAL,
         on_weather_radio: Callable[[], None] | None = None,
+        on_radar_map: Callable[[], None] | None = None,
     ) -> None:
         self._theme_bundle = theme_bundle
         self._unit_system = unit_system
         self._on_weather_radio = on_weather_radio
+        self._on_radar_map = on_radar_map
         self._handler: WeatherRequestHandlerIf | None = None
         self._state: WeatherUiState | None = None
 
@@ -113,6 +115,12 @@ class OrcWeatherPanel(tk.Frame, WeatherUiIf):
             font=("Sans", 9, "bold"),
         )
         self._refresh.grid(row=0, column=2, rowspan=2)
+        self._radar_map = tk.Button(
+            self._header, text="RADAR MAP", command=self._request_radar_map,
+            padx=12, pady=6, font=("Sans", 9, "bold"),
+            state=tk.NORMAL if on_radar_map is not None else tk.DISABLED,
+        )
+        self._radar_map.grid(row=0, column=3, rowspan=2, padx=(6, 0))
 
         self._hero = tk.Frame(self, bd=0, highlightthickness=1)
         self._hero.grid(row=1, column=0, sticky="ew", padx=14, pady=(0, 12))
@@ -201,7 +209,7 @@ class OrcWeatherPanel(tk.Frame, WeatherUiIf):
             frame.configure(bg=ui.background)
         self._location.configure(bg=ui.background, fg=ui.text)
         self._provider.configure(bg=ui.background, fg=ui.text_muted)
-        for button in (self._refresh, self._weather_radio):
+        for button in (self._refresh, self._weather_radio, self._radar_map):
             button.configure(
                 bg=ui.control_background,
                 fg=ui.control_text,
@@ -232,6 +240,10 @@ class OrcWeatherPanel(tk.Frame, WeatherUiIf):
     def _request_refresh(self) -> None:
         if self._handler is not None:
             self._handler.request_refresh()
+
+    def _request_radar_map(self) -> None:
+        if self._on_radar_map is not None:
+            self._on_radar_map()
 
     def _request_weather_radio(self) -> None:
         if self._on_weather_radio is not None:

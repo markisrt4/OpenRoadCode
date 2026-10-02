@@ -40,6 +40,8 @@ def build_home_screen(
     on_expand_context: Callable[[str], None],
     radio_factory: Callable[[tk.Misc], tk.Widget] | None,
     media_factory: Callable[[tk.Misc], tk.Widget] | None,
+    radar_enabled: Callable[[], bool] = lambda: False,
+    on_radar_toggle: Callable[[bool], None] | None = None,
 ) -> tuple[HomeMapPanel, ContextRail]:
     """Build HOME content and return the stateful child widgets."""
     ui = theme.ui
@@ -52,6 +54,8 @@ def build_home_screen(
         parent,
         map_request_handler=map_request_handler,
         theme=theme,
+        radar_enabled=radar_enabled,
+        on_radar_toggle=on_radar_toggle,
     )
     map_panel.grid(row=0, column=0, sticky="nsew", padx=(0, 5), pady=(0, 5))
 
@@ -107,6 +111,9 @@ class HomeScreen(TkScreen):
             Callable[[AutomotiveTelemetryProfile], None] | None
         ),
         on_expand_context: Callable[[str], None],
+        radar_enabled: Callable[[], bool] = lambda: False,
+        on_radar_toggle: Callable[[bool], None] | None = None,
+        refresh_radar: Callable[[], None] | None = None,
     ) -> None:
         super().__init__(self.SCREEN_ID)
         self._host = host
@@ -116,6 +123,9 @@ class HomeScreen(TkScreen):
         self._presentation = presentation
         self._telemetry_profile_request = telemetry_profile_request
         self._on_expand_context = on_expand_context
+        self._radar_enabled = radar_enabled
+        self._on_radar_toggle = on_radar_toggle
+        self._refresh_radar = refresh_radar
 
         self._radio_factory: Callable[[tk.Misc], tk.Widget] | None = None
         self._media_factory: Callable[[tk.Misc], tk.Widget] | None = None
@@ -182,6 +192,8 @@ class HomeScreen(TkScreen):
             on_expand_context=self._on_expand_context,
             radio_factory=self._radio_factory,
             media_factory=self._media_factory,
+            radar_enabled=self._radar_enabled,
+            on_radar_toggle=self._on_radar_toggle,
         )
 
         if self._telemetry_profile_request is not None:
@@ -189,6 +201,9 @@ class HomeScreen(TkScreen):
 
         self._host.screen_parent.update_idletasks()
         self._start_map_renderer()
+        if self._refresh_radar is not None:
+            for delay_ms in (300, 700, 1200):
+                self._host.schedule_ui_callback(delay_ms, self._refresh_radar)
 
     def hide(self) -> None:
         """Stop transient HOME resources when navigating away."""

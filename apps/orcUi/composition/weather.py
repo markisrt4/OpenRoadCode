@@ -49,6 +49,7 @@ def configure_weather(
     unit_system: Callable[[], UnitSystem] = lambda: UnitSystem.IMPERIAL,
     radar_palette: RadarPalette = RadarPalette.UNIVERSAL,
     on_weather_radio: Callable[[], None] | None = None,
+    on_radar_map: Callable[[], None] | None = None,
     on_weather_status: Callable[[str], None] | None = None,
     map_renderer=None,
 ) -> WeatherComposition:
@@ -102,6 +103,7 @@ def configure_weather(
         theme_bundle=lambda: theme_bundle(app.theme_mode),
         unit_system=unit_system,
         on_weather_radio=on_weather_radio,
+        on_radar_map=on_radar_map,
         on_weather_state=publish_weather_status,
     )
     app.register_screen("WEATHER", screen, before="VISION")

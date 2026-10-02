@@ -176,6 +176,13 @@ class OrcUiCompositionTest(unittest.TestCase):
         configure_media.assert_called_once_with(app, runtime)
         configure_weather.assert_called_once()
         self.assertIs(configure_weather.call_args.args[0], app)
+        with patch.object(composition.navigation, "set_radar_enabled") as enable:
+            configure_weather.call_args.kwargs["on_radar_map"]()
+            app.navigate_to.assert_called_with("NAVIGATION")
+            enable.assert_called_once_with(True)
+            composition.home._on_radar_toggle(False)
+            enable.assert_called_with(False)
+        self.assertEqual(composition.home._radar_enabled(), composition.navigation.radar_enabled)
         unit_system = configure_weather.call_args.kwargs["unit_system"]
         self.assertTrue(callable(unit_system))
         app.set_initial_destination.assert_called_once_with("HOME")

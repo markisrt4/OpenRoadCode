@@ -57,6 +57,7 @@ class NavigationScreen(TkScreen):
         self._telemetry_profile_request = telemetry_profile_request
         self._on_back = on_back
         self._radar_controller = radar_controller
+        self._radar_enabled = bool(radar_controller and radar_controller.enabled)
         self._radar_injection_controller = radar_injection_controller
         self._on_radar_palette_changed = on_radar_palette_changed
         self._panel: NavigationPanel | None = None
@@ -74,7 +75,7 @@ class NavigationScreen(TkScreen):
             route_simulation_handler=self._route_simulation_handler,
             on_back=self._on_back,
             theme=self._theme_bundle(),
-            radar_enabled=(self._radar_controller.enabled if self._radar_controller is not None else False),
+            radar_enabled=self._radar_enabled,
             radar_frame_time=(self._radar_controller.frame_time if self._radar_controller is not None else None),
             radar_palette=(self._radar_controller.palette if self._radar_controller is not None else RadarPalette.UNIVERSAL),
             on_radar_palette_changed=(self._change_radar_palette if self._radar_controller is not None else None),
@@ -128,7 +129,7 @@ class NavigationScreen(TkScreen):
                 panel = self._panel
                 if panel is not None:
                     self._host.schedule_ui_callback(
-                        0, lambda: panel.set_radar_frame_time(frame.timestamp)
+                        0, lambda: self._update_radar_frame(panel, frame.timestamp)
                     )
             except Exception as error:
                 print(f"WARNING: weather radar history: {type(error).__name__}: {error}")
@@ -147,10 +148,28 @@ class NavigationScreen(TkScreen):
         if self._radar_controller is not None:
             self._select_radar_frame(self._radar_controller.show_latest)
 
+    def _update_radar_frame(self, panel: NavigationPanel, timestamp: int) -> None:
+        if self._panel is panel:
+            panel.set_radar_frame_time(timestamp)
+
+    @property
+    def radar_enabled(self) -> bool:
+        """Return requested radar visibility, including pending frame loading."""
+        return self._radar_enabled
+
+    def set_radar_enabled(self, enabled: bool) -> None:
+        """Set shared radar visibility from Home or Weather shortcuts."""
+        panel = self._panel
+        if panel is not None and panel._radar_enabled != enabled:
+            panel._toggle_radar()
+        else:
+            self._toggle_radar(enabled)
+
     def _toggle_radar(self, enabled: bool) -> None:
         controller = self._radar_controller
         if controller is None:
             return
+        self._radar_enabled = enabled
         if not enabled:
             controller.hide()
             return
@@ -160,11 +179,14 @@ class NavigationScreen(TkScreen):
                 if self._radar_injection_controller is not None:
                     self._radar_injection_controller.refresh()
                 frame = controller.show_latest()
+                if not self._radar_enabled:
+                    controller.hide()
+                    return
                 panel = self._panel
                 if panel is not None:
                     self._host.schedule_ui_callback(
                         0,
-                        lambda: panel.set_radar_frame_time(frame.timestamp),
+                        lambda: self._update_radar_frame(panel, frame.timestamp),
                     )
             except Exception as error:
                 print(f"WARNING: weather radar: {type(error).__name__}: {error}")

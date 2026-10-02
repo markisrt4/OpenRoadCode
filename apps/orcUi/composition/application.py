@@ -98,11 +98,16 @@ def create_orc_ui_composition() -> OrcUiComposition:
             )
             settings_store.save(app_settings)
 
+        def open_radar_map() -> None:
+            app.navigate_to("NAVIGATION")
+            navigation.set_radar_enabled(True)
+
         weather = configure_weather(
             app,
             unit_system=unit_system,
             radar_palette=RadarPalette(app_settings.radar_palette),
             on_weather_radio=radio.open_weather_radio,
+            on_radar_map=open_radar_map,
             on_weather_status=app.set_weather_status,
             map_renderer=core.map_camera.renderer_client,
         )
@@ -132,6 +137,9 @@ def create_orc_ui_composition() -> OrcUiComposition:
             presentation=core.presentation,
             telemetry_profile_request=core.telemetry_profile_request,
             on_expand_context=navigate_home_context,
+            radar_enabled=lambda: navigation.radar_enabled,
+            on_radar_toggle=lambda enabled: navigation.set_radar_enabled(enabled),
+            refresh_radar=weather.radar.refresh_renderer_state,
         )
         navigation = NavigationScreen(
             app,

@@ -17,67 +17,35 @@ class NavigationRadarControls:
     def _build_radar_controls(self, bar: tk.Frame) -> None:
         ui = self._theme_bundle.ui
         self._radar_button = None
-        if self._on_radar_toggle is not None:
-            self._radar_button = tk.Button(
-                bar,
-                text="RADAR",
-                command=self._toggle_radar,
-                bg=ui.control_background,
-                fg=ui.text,
-                activebackground=ui.control_active,
-                activeforeground="#ffffff",
-                relief=tk.FLAT,
-                highlightthickness=1,
-                highlightbackground=ui.border,
-                font=("Sans", FONT_CONTROL, "bold"),
-                width=17,
-                height=1,
-                padx=3,
-                pady=1,
-            )
-            self._radar_button.pack(side=tk.RIGHT, padx=(4, 0), pady=3)
-            self._render_radar_state()
-
-            for label, callback in (
-                ("LIVE", self._on_radar_live),
-                ("▶", self._on_radar_next),
-                ("◀", self._on_radar_previous),
-            ):
-                if callback is not None:
-                    tk.Button(
-                        bar,
-                        text=label,
-                        command=callback,
-                        bg=ui.control_background,
-                        fg=ui.text,
-                        activebackground=ui.control_active,
-                        activeforeground="#ffffff",
-                        relief=tk.FLAT,
-                        highlightthickness=1,
-                        highlightbackground=ui.border,
-                        font=("Sans", FONT_CONTROL, "bold"),
-                        padx=5,
-                        pady=1,
-                    ).pack(side=tk.RIGHT, padx=(4, 0), pady=3)
-
-            self._classic_radar_var = tk.BooleanVar(
-                value=self._radar_palette is RadarPalette.CLASSIC
-            )
-            tk.Checkbutton(
-                bar,
-                text="CLASSIC",
-                variable=self._classic_radar_var,
-                command=self._toggle_radar_palette,
-                bg=ui.surface_alt,
-                fg=ui.text,
-                activebackground=ui.surface_alt,
-                activeforeground=ui.text,
-                selectcolor=ui.control_background,
-                font=("Sans", FONT_CONTROL, "bold"),
-                padx=3,
-                pady=1,
-            ).pack(side=tk.RIGHT, padx=(4, 0), pady=3)
-
+        if self._on_radar_toggle is None:
+            return
+        self._radar_button = tk.Menubutton(
+            bar, text="☰ RADAR", bg=ui.control_background, fg=ui.text,
+            activebackground=ui.control_active, activeforeground=ui.control_text,
+            relief=tk.FLAT, font=("Sans", FONT_CONTROL, "bold"), padx=8, pady=4,
+        )
+        menu = tk.Menu(self._radar_button, tearoff=False,
+                       bg=ui.control_background, fg=ui.control_text,
+                       activebackground=ui.control_active, activeforeground=ui.control_text)
+        self._radar_menu = menu
+        self._radar_visible_var = tk.BooleanVar(value=self._radar_enabled)
+        menu.add_checkbutton(label="Show weather radar", variable=self._radar_visible_var,
+                             command=self._toggle_radar)
+        menu.add_separator()
+        for label, callback in (
+            ("Previous frame", self._on_radar_previous),
+            ("Next frame", self._on_radar_next),
+            ("Latest / live", self._on_radar_live),
+        ):
+            if callback is not None:
+                menu.add_command(label=label, command=callback)
+        menu.add_separator()
+        self._classic_radar_var = tk.BooleanVar(value=self._radar_palette is RadarPalette.CLASSIC)
+        menu.add_checkbutton(label="Classic palette", variable=self._classic_radar_var,
+                             command=self._toggle_radar_palette)
+        self._radar_button.configure(menu=menu)
+        self._radar_button.pack(side=tk.RIGHT, padx=(4, 0), pady=3)
+        self._render_radar_state()
 
     def _toggle_radar(self) -> None:
         self._radar_enabled = not self._radar_enabled
@@ -110,10 +78,19 @@ class NavigationRadarControls:
         if self._radar_button is None:
             return
         ui = self._theme_bundle.ui
+        if hasattr(self, "_radar_visible_var"):
+            self._radar_visible_var.set(self._radar_enabled)
         self._radar_button.configure(
-            text=self._radar_button_text(),
+            text="☰ RADAR ●" if self._radar_enabled else "☰ RADAR",
             fg=ui.accent_success if self._radar_enabled else ui.text,
         )
+
+        if hasattr(self, "_radar_menu"):
+            self._radar_menu.entryconfigure(0, label="Show weather radar" if not self._radar_enabled
+                                            else self._radar_button_text())
+            for index in range(2, self._radar_menu.index("end") - 1):
+                self._radar_menu.entryconfigure(index, state=tk.NORMAL if self._radar_enabled
+                                                else tk.DISABLED)
 
     def _radar_button_text(self) -> str:
         if not self._radar_enabled:
