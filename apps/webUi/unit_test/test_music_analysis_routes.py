@@ -46,3 +46,22 @@ def test_source_discovery_selection_pcm_and_calibration():
     assert client.post("/api/audio-analysis/session/stop").json["running"] is False
     assert client.get("/api/audio-analysis/session/state").json["source"] == "android-test"
     assert client.post("/api/audio-analysis/zeroize/nope").status_code == 404
+
+
+def test_late_browser_frames_and_stop_cannot_restart_or_stop_native_capture():
+    session = MusicAnalysisSession({"browser": PushAudioCapture, "native": PushAudioCapture})
+    app = Flask(__name__)
+    app.register_blueprint(create_music_analysis_routes(session))
+    client = app.test_client()
+    client.post("/api/audio-analysis/source", json={"source": "browser"})
+    assert not client.post("/api/audio-analysis/session/stop", json={"source": "browser"}).json["running"]
+    frame = struct.pack("<2048h", *([1000] * 2048))
+    assert client.post("/api/audio-analysis/session/pcm16", data=frame,
+                       headers={"X-Sample-Rate": "48000", "X-Audio-Source": "browser"}).status_code == 400
+    assert not session.state()["running"]
+    client.post("/api/audio-analysis/source", json={"source": "native"})
+    result = client.post("/api/audio-analysis/session/stop", json={"source": "browser"})
+    assert result.json["running"]
+    assert result.json["source"] == "native"
+    assert client.post("/api/audio-analysis/session/stop", json={"source": 42}).status_code == 400
+    assert not client.post("/api/audio-analysis/session/stop", json={"source": "native"}).json["running"]

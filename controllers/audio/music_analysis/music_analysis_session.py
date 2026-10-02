@@ -1,3 +1,4 @@
+# SPDX-FileCopyrightText: 2026 OpenRoadCode contributors
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 
@@ -123,10 +124,12 @@ class MusicAnalysisSession:
                 raise
             return self.state()
 
-    def stop(self) -> dict[str, object]:
-        """Stop capture, invalidating callbacks before releasing resources."""
+    def stop(self, *, source: str | None = None) -> dict[str, object]:
+        """Stop capture, optionally only when a named source is still selected."""
         with self._lifecycle:
             with self._lock:
+                if source is not None and self._source != source:
+                    return self.state()
                 self._generation += 1
                 capture = self._capture
                 if self._calibrating:

@@ -1,3 +1,5 @@
+// SPDX-FileCopyrightText: 2026 OpenRoadCode contributors
+// SPDX-License-Identifier: MIT
 (()=>{
   const root=window.OpenRoadCodeWeb=window.OpenRoadCodeWeb||{};
 
@@ -12,19 +14,31 @@
       this.running=false;
       this.inFlight=false;
       this.onState=null;
+      this.generation=0;
     }
 
     async start(callback) {
       if(this.running)return;
       if(!navigator.mediaDevices?.getUserMedia)throw Error('Microphone capture is unavailable in this browser.');
+      const generation=++this.generation;
       this.onState=callback;
-      this.stream=await navigator.mediaDevices.getUserMedia({
+      const stream=await navigator.mediaDevices.getUserMedia({
         audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false,channelCount:1},
         video:false
       });
       const AudioContext=window.AudioContext||window.webkitAudioContext;
+      if(generation!==this.generation){
+        stream.getTracks().forEach(track=>track.stop());
+        throw Error('Audio capture canceled.');
+      }
+      this.stream=stream;
       this.audioContext=new AudioContext({latencyHint:'interactive'});
-      await this.audioContext.resume();
+      const context=this.audioContext;
+      await context.resume();
+      if(generation!==this.generation){
+        if(context.state!=='closed')await context.close();
+        throw Error('Audio capture canceled.');
+      }
       this.source=this.audioContext.createMediaStreamSource(this.stream);
       this.processor=this.audioContext.createScriptProcessor(this.frameSamples,1,1);
       this.sink=this.audioContext.createGain();
@@ -39,14 +53,17 @@
     }
 
     async stop() {
+      this.generation++;
       this.running=false;
+      this.inFlight=false;
       if(this.processor)this.processor.onaudioprocess=null;
       this.source?.disconnect();
       this.processor?.disconnect();
       this.sink?.disconnect();
       this.stream?.getTracks().forEach(track=>track.stop());
-      if(this.audioContext)await this.audioContext.close();
+      const context=this.audioContext;
       this.audioContext=this.stream=this.source=this.processor=this.sink=null;
+      if(context)await context.close();
     }
 
     async recordClip(durationMs=8000) {
@@ -69,6 +86,7 @@
     }
 
     async _send(samples) {
+      const generation=this.generation;
       this.inFlight=true;
       try {
         const pcm=new Int16Array(samples.length);
@@ -76,18 +94,18 @@
           const sample=Math.max(-1,Math.min(1,samples[index]));
           pcm[index]=sample<0?sample*32768:sample*32767;
         }
-        const response=await fetch('/api/audio-analysis/browser/frame',{
+        const response=await fetch('/api/audio-analysis/session/pcm16',{
           method:'POST',
-          headers:{'Content-Type':'application/octet-stream','X-Sample-Rate':String(this.audioContext.sampleRate)},
+          headers:{'Content-Type':'application/octet-stream','X-Sample-Rate':String(this.audioContext.sampleRate),'X-Audio-Source':'browser'},
           body:pcm.buffer
         });
         const state=await response.json();
         if(!response.ok)throw Error(state.error||'Audio analysis failed');
-        this.onState?.(state);
+        if(this.running&&generation===this.generation)this.onState?.(state);
       } catch(error) {
         console.warn('OpenRoadCode browser PCM transport:',error);
       } finally {
-        this.inFlight=false;
+        if(generation===this.generation)this.inFlight=false;
       }
     }
   }

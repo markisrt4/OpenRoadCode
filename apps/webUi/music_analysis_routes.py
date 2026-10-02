@@ -1,3 +1,4 @@
+# SPDX-FileCopyrightText: 2026 OpenRoadCode contributors
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 
@@ -48,7 +49,11 @@ def create_music_analysis_routes(session: MusicAnalysisSession) -> Blueprint:
     @api.post("/api/audio-analysis/session/stop")
     def stop():
         try:
-            return jsonify(session.stop())
+            payload = request.get_json(silent=True)
+            source = payload.get("source") if isinstance(payload, dict) else None
+            if source is not None and not isinstance(source, str):
+                return jsonify(error="source must be a string"), 400
+            return jsonify(session.stop(source=source))
         except Exception as exc:
             return error(exc)
 

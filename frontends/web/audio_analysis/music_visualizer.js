@@ -1,3 +1,5 @@
+// SPDX-FileCopyrightText: 2026 OpenRoadCode contributors
+// SPDX-License-Identifier: MIT
 (()=>{
   const root=window.OpenRoadCodeWeb=window.OpenRoadCodeWeb||{};
   const byId=id=>document.getElementById(id);
@@ -7,7 +9,7 @@
   const sourceSelect=document.createElement('select');
   sourceSelect.id='music-visualizer-source';sourceSelect.className='search';sourceSelect.setAttribute('aria-label','Audio source');
   button.before(sourceSelect);linuxButton?.remove();
-  const labels={browser:'Browser Microphone','linux-pipewire':'Linux System Audio (PipeWire)'};
+  const labels={browser:'Browser Microphone','linux-pipewire':'Linux System Audio (PipeWire)','android-playback':'Android Playback'};
   const meters={bass:byId('music-bass'),mid:byId('music-mid'),treble:byId('music-treble')};
   let state={level:0,bass:0,mid:0,treble:0,spectrum:Array(24).fill(0),percussion:{},source:null,running:false,zeroized:false,calibrating:false};
   let activeSource=null,pollTimer=null,epoch=0,busy=false,available=[];
@@ -129,5 +131,15 @@
   async function refreshSongRecognition(){if(!songButton)return;try{const response=await fetch('/api/song-recognition/config'),config=await response.json();songButton.disabled=!config.configured;if(songStatus)songStatus.textContent=config.configured?`${config.provider||'Song recognition'} ready. Start the microphone, then identify.`:'No song recognition provider configured.'}catch(error){songButton.disabled=true;if(songStatus)songStatus.textContent=`Recognition status error: ${error.message}`}}
   if(lightingButton)lightingButton.onclick=async()=>{try{const current=await api('lighting'),next=await api('lighting',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({enabled:!current.enabled})});renderLighting(next)}catch(error){if(lightingStatus)lightingStatus.textContent=`Lighting control error: ${error.message}`}};
   if(songButton)songButton.onclick=async()=>{songButton.disabled=true;try{if(songStatus)songStatus.textContent='Listening for 8 seconds…';const clip=await capture.recordClip(8000);if(songStatus)songStatus.textContent='Identifying…';const response=await fetch('/api/song-recognition/identify',{method:'POST',headers:{'Content-Type':'application/octet-stream'},body:clip}),result=await response.json();if(!response.ok)throw Error(result.error||`HTTP ${response.status}`);if(!result.matched){if(songStatus)songStatus.textContent='No song match found.'}else{const song=result.song;if(songTitle)songTitle.textContent=song.title||'Unknown title';if(songArtist)songArtist.textContent=(song.artists||[]).join(', ')||'Unknown artist';if(songAlbum)songAlbum.textContent=song.album||'';if(songStatus)songStatus.textContent=`Identified by ${result.provider||'song recognition'}.`}}catch(error){if(songStatus)songStatus.textContent=`Recognition error: ${error.message}`}finally{songButton.disabled=false}};
+  window.addEventListener('pagehide',()=>{
+    cancelPoll();
+    capture.stop().catch(error=>console.warn('OpenRoadCode capture cleanup:',error));
+    if(state.source==='browser'&&state.running){
+      const body=new Blob([JSON.stringify({source:'browser'})],{type:'application/json'});
+      if(!navigator.sendBeacon('/api/audio-analysis/session/stop',body)){
+        fetch('/api/audio-analysis/session/stop',{method:'POST',body,keepalive:true}).catch(()=>{});
+      }
+    }
+  });
   root.WebGLMusicVisualizer?.install();root.PercussionDisplay?.install();render(state);refreshLighting();refreshSongRecognition();discover();
 })();
