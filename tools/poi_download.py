@@ -121,14 +121,32 @@ def cached_position() -> tuple[float, float]:
     )
     state = PositionSnapshotCache(PersistentCache(DEFAULT_POSITION_CACHE_DIRECTORY)).load()
     if state is None or not state.has_fix or state.latitude_deg is None or state.longitude_deg is None:
-        raise ValueError('No cached navigation fix; supply --lat and --lon')
+        raise ValueError('No cached navigation fix; use --bridge-position or supply --lat and --lon')
     return state.latitude_deg, state.longitude_deg
+
+
+def bridge_position() -> tuple[float, float]:
+    from hardware_io.android.sensor_bridge_client import AndroidSensorBridgeClient
+    try:
+        sample = AndroidSensorBridgeClient(timeout_seconds=3).read_location()
+    except RuntimeError as exc:
+        raise ValueError(
+            'Phone location unavailable. Open Bridge, enable Android Sensors under '
+            f'Navigation, and grant precise location permission. Details: {exc}'
+        ) from exc
+    if 'simulat' in sample.provider.casefold():
+        raise ValueError('Bridge is using simulated location; select Android Sensors')
+    if sample.age_ms < 0 or sample.age_ms > 120_000:
+        raise ValueError('Bridge location is older than two minutes; wait for a fresh fix')
+    return sample.latitude_deg, sample.longitude_deg
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--lat', type=float)
     parser.add_argument('--lon', type=float)
+    parser.add_argument('--bridge-position', action='store_true',
+                        help='Read current phone location from Android Bridge, without an ORC cache')
     parser.add_argument('--radius-km', type=float, default=10)
     parser.add_argument('--database', type=Path, default=default_database())
     parser.add_argument('--endpoint', default=ENDPOINT)
@@ -140,7 +158,12 @@ def main(argv: list[str] | None = None) -> int:
         else:
             if (args.lat is None) != (args.lon is None):
                 raise ValueError('Supply --lat and --lon together')
-            lat, lon = cached_position() if args.lat is None else (args.lat, args.lon)
+            if args.bridge_position and args.lat is not None:
+                raise ValueError('Use either --bridge-position or --lat/--lon')
+            if args.bridge_position:
+                lat, lon = bridge_position()
+            else:
+                lat, lon = cached_position() if args.lat is None else (args.lat, args.lon)
             query = build_query(lat, lon, args.radius_km)
             print(f'Downloading OSM POIs within {args.radius_km:g} km of {lat:.6f},{lon:.6f}', flush=True)
             payload = download(query, args.endpoint)
