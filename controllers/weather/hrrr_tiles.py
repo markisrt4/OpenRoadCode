@@ -38,6 +38,34 @@ def tile_bounds(z, x, y):
     return left, top - span, left + span, top
 
 
+def location_tile(latitude, longitude, zoom=7):
+    """Return the XYZ tile containing a geographic location."""
+    if not (math.isfinite(latitude) and math.isfinite(longitude)
+            and -85.05112878 <= latitude <= 85.05112878 and -180 <= longitude <= 180
+            and 0 <= zoom <= 9):
+        raise ValueError("invalid diagnostic location")
+    count = 2**zoom
+    x = min(count - 1, int((longitude + 180) / 360 * count))
+    lat = math.radians(latitude)
+    y = min(count - 1, max(0, int((1 - math.asinh(math.tan(lat)) / math.pi) / 2 * count)))
+    return zoom, x, y
+
+
+def reflectivity_summary(data):
+    """Count covered and visible-reflectivity pixels without confusing missing data with clear weather."""
+    with Image.open(BytesIO(data)) as image:
+        if image.mode not in ("F", "I", "I;16", "I;16B", "I;16L"):
+            raise ValueError("HRRR did not produce raw single-band reflectivity")
+        covered, visible, maximum = 0, 0, None
+        for value in image.get_flattened_data():
+            if math.isfinite(value) and -100 <= value <= 95:
+                covered += 1
+                visible += value >= 5
+                maximum = value if maximum is None else max(maximum, value)
+        return {"total": image.width * image.height, "covered": covered,
+                "visible": visible, "max_dbz": maximum}
+
+
 class HrrrTileSource:
     """Cache decoded fields and serialize native work to limit phone memory use."""
 
