@@ -16,7 +16,7 @@ from collections.abc import Iterable
 
 PYTHON_IMPORTS: dict[str, tuple[str, ...]] = {
     "base": ("requests", "zmq"),
-    "desktop-ui": ("tkinter", "PIL"),
+    "desktop-ui": ("tkinter", "PIL", "numpy", "flask"),
     "web-ui": ("flask",),
     "input": ("evdev",),
     "gps": ("gps", "gpsd", "geocoder"),
@@ -30,7 +30,7 @@ PYTHON_IMPORTS: dict[str, tuple[str, ...]] = {
 
 COMMANDS: dict[str, tuple[tuple[str, ...], ...]] = {
     "base": (("git",), ("curl",), ("wget",), ("sudo",), ("pgrep",)),
-    "desktop-ui": (("wmctrl",), ("xprop",)),
+    "desktop-ui": (("wmctrl",), ("xprop",), ("xdotool",)),
     "browser": (("chromium", "chromium-browser", "google-chrome"),),
     "vnc": (("tigervncserver", "vncserver"),),
     "audio": (("wpctl", "pactl"),),

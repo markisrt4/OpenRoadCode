@@ -29,7 +29,7 @@ def create_web_frontend(pages: Mapping[str, MenuPage], *, root_page: str="main",
     audio_analysis_dir=web_dir / "audio_analysis"
     app=Flask(__name__)
     if audio_session is not None:
-        from apps.webUi.music_analysis_routes import create_music_analysis_routes
+        from frontends.web.audio_analysis.music_analysis_routes import create_music_analysis_routes
         app.register_blueprint(create_music_analysis_routes(audio_session))
 
     @app.get("/")
