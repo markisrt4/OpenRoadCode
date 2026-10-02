@@ -73,3 +73,24 @@ def test_cli_uses_cached_location_and_termux_path(tmp_path, monkeypatch):
         assert main(['--radius-km', '5']) == 0
     assert 'around:5000,42.5000000,-83.0000000' in download.call_args.args[0]
     assert (tmp_path / 'maps/search/openroadcode-search.sqlite').exists()
+
+
+def test_cli_reads_bridge_without_cached_position(tmp_path, monkeypatch):
+    monkeypatch.setenv('OPENROADCODE_DATA_ROOT', str(tmp_path))
+    with patch('tools.poi_download.bridge_position', return_value=(42.5, -83.0)), \
+         patch('tools.poi_download.cached_position') as cached, \
+         patch('tools.poi_download.download', return_value={'elements': [node()]}):
+        assert main(['--bridge-position']) == 0
+    cached.assert_not_called()
+
+
+@pytest.mark.parametrize('provider,age', [('simulated_drive', 0), ('gps', 120001)])
+def test_bridge_rejects_simulated_or_stale_location(provider, age):
+    from types import SimpleNamespace
+    from tools.poi_download import bridge_position
+    with patch('hardware_io.android.sensor_bridge_client.AndroidSensorBridgeClient') as client:
+        client.return_value.read_location.return_value = SimpleNamespace(
+            provider=provider, age_ms=age, latitude_deg=42.5, longitude_deg=-83.0,
+        )
+        with pytest.raises(ValueError):
+            bridge_position()

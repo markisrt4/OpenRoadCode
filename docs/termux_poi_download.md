@@ -11,6 +11,20 @@ provider enrichment and Order action as map-builder POIs.
 
 ## Download around the last navigation fix
 
+If ORC has not cached a fix, read location directly from Android Bridge instead.
+Open Bridge, select Android Sensors under Navigation, enable the sensor service,
+and grant precise location permission. Keep Bridge running while ORC is stopped:
+
+```bash
+cd ~/src/OpenRoadCode
+git switch android-linux-food-apps
+git pull --ff-only origin android-linux-food-apps
+python -m tools.poi_download --bridge-position --radius-km 10
+```
+
+This reads port 8766 and rejects simulated fixes or fixes older than two minutes.
+It does not require ORC to have run previously.
+
 Run ORC long enough to obtain a navigation fix, then stop ORC and the renderer.
 Use your usual Termux Python environment:
 
