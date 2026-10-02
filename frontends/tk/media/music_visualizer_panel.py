@@ -360,5 +360,3 @@ class MusicVisualizerPanel(tk.Frame):
             start, end = stops[1], stops[2]
         rgb = tuple(round(a + (b - a) * amount) for a, b in zip(start, end))
         return "#" + "".join(f"{channel:02x}" for channel in rgb)
-
-
