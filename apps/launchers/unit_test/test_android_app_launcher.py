@@ -9,7 +9,7 @@ from apps.launchers.android_app_launcher import (
     AndroidAppLauncher,
     AndroidAppLauncherError,
 )
-from apps.launchers.android_host_action_client import AndroidHostActionClientError
+from apps.launchers.android_bridge_launcher import AndroidBridgeLauncherError
 
 
 @patch("apps.launchers.android_app_launcher.os.path.exists", return_value=False)
@@ -27,7 +27,7 @@ def test_linux_launches_package_through_waydroid(_exists) -> None:
 
 
 @patch("apps.launchers.android_app_launcher.os.path.exists", return_value=True)
-def test_android_delegates_to_host_action_client(_exists) -> None:
+def test_android_delegates_to_bridge_launcher(_exists) -> None:
     native = Mock()
     native.open_package_or_uri.return_value = "app"
     launcher = AndroidAppLauncher(native=native)
@@ -50,7 +50,7 @@ def test_linux_without_package_reports_clear_error(_exists) -> None:
 
 
 @patch("apps.launchers.android_app_launcher.os.path.exists", return_value=True)
-@patch("apps.launchers.android_app_launcher.AndroidHostActionClient")
+@patch("apps.launchers.android_app_launcher.AndroidBridgeLauncher")
 def test_android_creates_default_bridge_client(client_class, _exists) -> None:
     client_class.return_value.open_package_or_uri.return_value = "app"
     launcher = AndroidAppLauncher()
@@ -67,7 +67,7 @@ def test_android_creates_default_bridge_client(client_class, _exists) -> None:
 @patch("apps.launchers.android_app_launcher.os.path.exists", return_value=True)
 def test_android_bridge_errors_are_reported_as_launcher_errors(_exists, operation) -> None:
     native = Mock()
-    error = AndroidHostActionClientError("bridge unavailable")
+    error = AndroidBridgeLauncherError("bridge unavailable")
     getattr(native, operation).side_effect = error
     launcher = AndroidAppLauncher(native=native)
     args = ("https://example.com",) if operation == "open_uri" else (

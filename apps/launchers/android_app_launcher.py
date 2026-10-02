@@ -6,9 +6,9 @@ from __future__ import annotations
 
 import os
 
-from apps.launchers.android_host_action_client import (
-    AndroidHostActionClient,
-    AndroidHostActionClientError,
+from apps.launchers.android_bridge_launcher import (
+    AndroidBridgeLauncher,
+    AndroidBridgeLauncherError,
 )
 from apps.launchers.waydroid_launcher import WaydroidLauncher, WaydroidLauncherError
 
@@ -23,7 +23,7 @@ class AndroidAppLauncher:
     def __init__(
         self,
         *,
-        native: AndroidHostActionClient | None = None,
+        native: AndroidBridgeLauncher | None = None,
         waydroid: WaydroidLauncher | None = None,
     ) -> None:
         self._native = native
@@ -36,8 +36,8 @@ class AndroidAppLauncher:
     def open_uri(self, uri: str) -> None:
         if self._is_native_android():
             try:
-                (self._native or AndroidHostActionClient()).open_uri(uri)
-            except AndroidHostActionClientError as exc:
+                (self._native or AndroidBridgeLauncher()).open_uri(uri)
+            except AndroidBridgeLauncherError as exc:
                 raise AndroidAppLauncherError(str(exc)) from exc
             return
         raise AndroidAppLauncherError(
@@ -47,10 +47,10 @@ class AndroidAppLauncher:
     def open_package_or_uri(self, package: str | None, uri: str) -> str:
         if self._is_native_android():
             try:
-                return (self._native or AndroidHostActionClient()).open_package_or_uri(
+                return (self._native or AndroidBridgeLauncher()).open_package_or_uri(
                     package, uri
                 )
-            except AndroidHostActionClientError as exc:
+            except AndroidBridgeLauncherError as exc:
                 raise AndroidAppLauncherError(str(exc)) from exc
 
         if package:
