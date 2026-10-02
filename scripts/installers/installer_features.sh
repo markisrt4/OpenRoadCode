@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-FileCopyrightText: 2026 OpenRoadCode contributors
 # SPDX-License-Identifier: MIT
 
 set -euo pipefail
@@ -134,8 +135,8 @@ get_feature_packages() {
       ;;
     audio)
       case "${OPENROAD_INSTALL_TARGET:-linux-dev}" in
-        rpi4|rpi5) echo "wireplumber pipewire-pulse alsa-utils" ;;
-        linux-dev) echo "pulseaudio-utils" ;;
+        rpi4|rpi5) echo "wireplumber pipewire-pulse pipewire-bin pulseaudio-utils alsa-utils python3-numpy" ;;
+        linux-dev) echo "pipewire-bin pulseaudio-utils python3-numpy" ;;
         *) echo "" ;;
       esac
       ;;
@@ -176,10 +177,10 @@ get_feature_python_packages() {
       printf '%s\n' requests tomli pyzmq
       ;;
     desktop-ui)
-      printf '%s\n' Pillow tinycss2
+      printf '%s\n' Pillow tinycss2 numpy
       ;;
     web-ui)
-      printf '%s\n' Flask
+      printf '%s\n' Flask numpy
       ;;
     browser|vnc|adsb|audio|spotify|sdrpp|navigation)
       echo ""
@@ -229,7 +230,7 @@ Available features:
   browser       Chromium browser support
   vnc           TigerVNC server support (includes desktop-ui)
   input         Linux input/evdev support
-  audio         PipeWire/PulseAudio command-line audio control
+  audio         PipeWire/PulseAudio control, capture, and native music analysis
   gps           GPSD and Python GPS/navigation support
   rtl-sdr       RTL-SDR device and SoapySDR support
   streamlit     Streamlit dashboard support

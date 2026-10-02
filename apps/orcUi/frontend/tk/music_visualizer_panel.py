@@ -1,4 +1,5 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-FileCopyrightText: 2026 OpenRoadCode contributors
 # SPDX-License-Identifier: MIT
 
 """Music visualizer panel for the integrated OpenRoadCode UI.
@@ -70,6 +71,7 @@ class MusicVisualizerPanel(tk.Frame):
         self._on_back = on_back
         self._simulate = simulate
         self._running = True
+        self._simulation_job: str | None = None
         self._phase = 0.0
         self._mode = MusicVisualizationMode.SPECTRUM
         self._mode_name = tk.StringVar(value=_MODE_LABELS[self._mode])
@@ -81,7 +83,7 @@ class MusicVisualizerPanel(tk.Frame):
         self._particles: list[list[float]] = []
         self._build()
         if self._simulate:
-            self.after(self.FRAME_MS, self._simulation_tick)
+            self._simulation_job = self.after(self.FRAME_MS, self._simulation_tick)
 
     @property
     def visualization_mode(self) -> MusicVisualizationMode:
@@ -100,6 +102,9 @@ class MusicVisualizerPanel(tk.Frame):
 
     def close(self) -> None:
         self._running = False
+        if self._simulation_job is not None:
+            self.after_cancel(self._simulation_job)
+            self._simulation_job = None
 
     def destroy(self) -> None:
         self.close()
@@ -123,7 +128,7 @@ class MusicVisualizerPanel(tk.Frame):
         if self._on_back is not None:
             tk.Button(
                 header,
-                text="‹ HOME",
+                text="‹ MEDIA",
                 command=self._on_back,
                 bg="#101820",
                 fg=TEXT,
@@ -207,7 +212,7 @@ class MusicVisualizerPanel(tk.Frame):
             for index in range(24)
         )
         self.set_analysis_frame(VisualizerFrame(level, bass, mid, treble, spectrum))
-        self.after(self.FRAME_MS, self._simulation_tick)
+        self._simulation_job = self.after(self.FRAME_MS, self._simulation_tick)
 
     def _draw(self) -> None:
         if not hasattr(self, "_canvas"):

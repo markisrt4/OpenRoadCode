@@ -1,4 +1,5 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-FileCopyrightText: 2026 OpenRoadCode contributors
 # SPDX-License-Identifier: MIT
 
 """Top-level media navigation screen for the Tk ORC frontend."""
@@ -31,6 +32,7 @@ class MediaScreen(TkScreen):
         show_youtube: Callable[[], None],
         show_youtube_music: Callable[[], None],
         show_netflix: Callable[[], None],
+        show_visualizer: Callable[[], None] | None = None,
         show_spotify_remote: Callable[[], None] | None = None,
         show_spotify_local: Callable[[], None] | None = None,
         spotify_local_available: Callable[[], bool] | None = None,
@@ -47,6 +49,7 @@ class MediaScreen(TkScreen):
         self._show_youtube = show_youtube
         self._show_youtube_music = show_youtube_music
         self._show_netflix = show_netflix
+        self._show_visualizer = show_visualizer
         self._show_spotify_remote = show_spotify_remote or show_spotify
         self._show_spotify_local = show_spotify_local or show_spotify
         self._spotify_local_available = spotify_local_available or (lambda: True)
@@ -86,6 +89,14 @@ class MediaScreen(TkScreen):
             fg=theme.text_muted,
             font=("Sans", 15),
         ).pack(anchor="w")
+
+        if self._show_visualizer is not None:
+            tk.Button(
+                root, text="MUSIC VISUALIZER", command=self._show_visualizer,
+                bg=theme.control_background, fg=theme.text,
+                activebackground=theme.control_active, relief=tk.FLAT,
+                font=("Sans", 11, "bold"), padx=14, pady=6,
+            ).pack(anchor="e", padx=12, pady=(0, 4))
 
         grid = tk.Frame(root, bg=theme.background)
         grid.pack(fill=tk.BOTH, expand=True, padx=6, pady=(2, 8))

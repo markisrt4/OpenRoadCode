@@ -1,4 +1,5 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-FileCopyrightText: 2026 OpenRoadCode contributors
 # SPDX-License-Identifier: MIT
 
 """Compose media screens, services, and presentation resources."""
@@ -13,6 +14,7 @@ from dataclasses import dataclass
 from apps.common.uiTheme.spotify import SPOTIFY_PANEL_THEME
 from apps.orcUi.adapters.managed_browser_media_player import ManagedBrowserMediaPlayer
 from apps.orcUi.frontend.tk.orc_ui_app import OrcUiApp
+from apps.orcUi.frontend.tk.music_visualizer_screen import MusicVisualizerScreen
 from apps.orcUi.theme_runtime import theme_bundle
 from common.xdg_paths import openroadcode_cache_dir
 from config.runtime_target import RuntimeTarget, detect_runtime_target
@@ -42,9 +44,13 @@ SPOTIFY_GREEN = "#1DB954"
 class MediaComposition:
     music_video_controller: MusicVideoController
     home_factory: Callable[[tk.Misc], tk.Widget]
+    visualizer: MusicVisualizerScreen
 
     def close(self) -> None:
-        self.music_video_controller.stop_video()
+        try:
+            self.visualizer.close()
+        finally:
+            self.music_video_controller.stop_video()
 
 
 def spotify_theme(app: OrcUiApp) -> dict:
@@ -170,10 +176,16 @@ def configure_media(app: OrcUiApp, runtime) -> MediaComposition:
     spotify_screen.set_volume_request_handler(media.spotify)
     spotify_screen.set_state_loader(media.spotify.latest_state)
 
+    visualizer = MusicVisualizerScreen(
+        app, on_back=lambda: media_screen.show(),
+        theme_bundle=lambda: theme_bundle(app.theme_mode),
+    )
+    app.register_screen("VISUALIZER", visualizer, show_in_navigation=False)
     media_screen = MediaScreen(
         app, theme_bundle=lambda: theme_bundle(app.theme_mode),
         show_spotify=spotify_screen.show, show_youtube=youtube_screen.show,
         show_youtube_music=youtube_music_screen.show, show_netflix=netflix_screen.show,
+        show_visualizer=visualizer.show,
         show_spotify_remote=show_spotify_remote, show_spotify_local=show_spotify_local,
         spotify_local_available=lambda: media.spotify_local_player.state().available,
         configure_spotify=configure_spotify_client,
@@ -195,4 +207,5 @@ def configure_media(app: OrcUiApp, runtime) -> MediaComposition:
     return MediaComposition(
         music_video_controller=music_video_controller,
         home_factory=home_media_factory,
+        visualizer=visualizer,
     )
