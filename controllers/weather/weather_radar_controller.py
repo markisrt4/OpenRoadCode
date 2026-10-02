@@ -41,6 +41,11 @@ class WeatherRadarController:
         return self._palette
 
     @property
+    def has_frames(self) -> bool:
+        """Return whether historical frames are available without a network request."""
+        return bool(self._frames)
+
+    @property
     def opacity(self) -> float:
         return self._opacity
 
@@ -60,9 +65,20 @@ class WeatherRadarController:
 
     def show_latest(self) -> RadarFrame:
         """Discover available frames and make the newest one visible."""
-        self._frames = tuple(self._provider.get_frames())
-        if not self._frames:
+        return self.show_frames(self.load_frames())
+
+    def load_frames(self) -> tuple[RadarFrame, ...]:
+        """Fetch frames without mutating presentation or touching the map socket."""
+        frames = tuple(self._provider.get_frames())
+        if not frames:
             raise RuntimeError("radar provider returned no frames")
+        return frames
+
+    def show_frames(self, frames: tuple[RadarFrame, ...]) -> RadarFrame:
+        """Present previously fetched frames on the renderer-owning UI thread."""
+        if not frames:
+            raise ValueError("radar frames must not be empty")
+        self._frames = frames
         return self._select_frame(len(self._frames) - 1)
 
     def previous_frame(self) -> RadarFrame:

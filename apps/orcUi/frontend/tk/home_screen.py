@@ -202,14 +202,26 @@ class HomeScreen(TkScreen):
         self._host.screen_parent.update_idletasks()
         self._start_map_renderer()
         if self._refresh_radar is not None:
-            for delay_ms in (300, 700, 1200):
-                self._host.schedule_ui_callback(delay_ms, self._refresh_radar)
+            for delay_ms in (300, 700, 1200, 2500, 5000, 10000):
+                self._host.schedule_ui_callback(delay_ms, self._refresh_map_radar)
 
     def hide(self) -> None:
         """Stop transient HOME resources when navigating away."""
         self._map_runtime.stop()
         self._map_panel = None
         self._context_rail = None
+
+    def refresh_radar_state(self) -> None:
+        """Refresh the mounted Home toggle after shared radar-state changes."""
+        panel = self._map_panel
+        if panel is not None and panel.winfo_exists():
+            panel._render_radar_state()
+
+    def _refresh_map_radar(self) -> None:
+        panel = self._map_panel
+        if panel is not None and panel.winfo_exists() and self._refresh_radar is not None:
+            self._refresh_radar()
+            panel._radar_button.lift()
 
     def _start_map_renderer(self) -> None:
         panel = self._map_panel

@@ -1500,6 +1500,60 @@
       }
     },
     {
+      "id": "radar-position-ring-outer",
+      "type": "circle",
+      "source": "vehicle",
+      "layout": {
+        "visibility": "none"
+      },
+      "paint": {
+        "circle-radius": 108,
+        "circle-color": "#ffffff",
+        "circle-opacity": 0,
+        "circle-stroke-color": "#b8edff",
+        "circle-stroke-opacity": 0.85,
+        "circle-stroke-width": 1.5,
+        "circle-pitch-alignment": "viewport",
+        "circle-pitch-scale": "viewport"
+      }
+    },
+    {
+      "id": "radar-position-ring-middle",
+      "type": "circle",
+      "source": "vehicle",
+      "layout": {
+        "visibility": "none"
+      },
+      "paint": {
+        "circle-radius": 72,
+        "circle-color": "#ffffff",
+        "circle-opacity": 0,
+        "circle-stroke-color": "#b8edff",
+        "circle-stroke-opacity": 0.85,
+        "circle-stroke-width": 1.5,
+        "circle-pitch-alignment": "viewport",
+        "circle-pitch-scale": "viewport"
+      }
+    },
+    {
+      "id": "radar-position-ring-inner",
+      "type": "circle",
+      "source": "vehicle",
+      "layout": {
+        "visibility": "none"
+      },
+      "paint": {
+        "circle-radius": 36,
+        "circle-color": "#ffffff",
+        "circle-opacity": 0,
+        "circle-stroke-color": "#b8edff",
+        "circle-stroke-opacity": 0.85,
+        "circle-stroke-width": 1.5,
+        "circle-pitch-alignment": "viewport",
+        "circle-pitch-scale": "viewport"
+      }
+    },
+    {
       "id": "vehicle-blue-dot",
       "type": "circle",
       "source": "vehicle",

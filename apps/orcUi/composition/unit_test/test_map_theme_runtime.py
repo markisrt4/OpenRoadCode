@@ -58,6 +58,24 @@ class MapThemeRuntimeTest(unittest.TestCase):
             self.assertIn("poi-results", document["sources"])
             self.assertIn("poi-results-icon", layers)
 
+    def test_radar_locator_rings_follow_vehicle_above_radar_and_below_marker(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            (root / "maps" / "styles").mkdir(parents=True)
+            document = json.loads(install_map_style(ThemeMode.DARK, root).read_text())
+            layers = document["layers"]
+            by_id = {layer["id"]: layer for layer in layers}
+            ids = [layer["id"] for layer in layers]
+            for name, radius in (("inner", 36), ("middle", 72), ("outer", 108)):
+                layer_id = f"radar-position-ring-{name}"
+                layer = by_id[layer_id]
+                self.assertEqual(layer["source"], "vehicle")
+                self.assertEqual(layer["paint"]["circle-radius"], radius)
+                self.assertEqual(layer["paint"]["circle-opacity"], 0)
+                self.assertEqual(layer["layout"]["visibility"], "none")
+                self.assertGreater(ids.index(layer_id), ids.index("route-line-casing"))
+                self.assertLess(ids.index(layer_id), ids.index("vehicle-blue-dot"))
+
     def test_light_style_uses_distinct_school_teal(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             data_root = Path(temp_dir)

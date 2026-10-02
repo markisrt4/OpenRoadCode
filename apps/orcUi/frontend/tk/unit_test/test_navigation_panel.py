@@ -44,19 +44,20 @@ class NavigationPanelControlTest(unittest.TestCase):
         )
         return panel
 
-    def test_radar_toggle_restores_zoom_and_keeps_route_state(self) -> None:
+    def test_radar_toggle_preserves_camera_and_route_state(self) -> None:
         panel = self._panel()
         panel._radar_enabled = False
-        panel._pre_radar_zoom = None
         panel._on_radar_toggle = Mock()
         panel._render_radar_state = Mock()
         panel._route_active = True
 
         panel._toggle_radar()
-        panel._request_handler.request_zoom.assert_called_with(7.5)
+        self.assertEqual(panel._zoom_level, 16.5)
+        panel._request_handler.request_zoom.assert_not_called()
         panel._on_radar_toggle.assert_called_with(True)
         panel._toggle_radar()
-        panel._request_handler.request_zoom.assert_called_with(16.5)
+        self.assertEqual(panel._zoom_level, 16.5)
+        panel._request_handler.request_zoom.assert_not_called()
         panel._on_radar_toggle.assert_called_with(False)
         self.assertTrue(panel._route_active)
 

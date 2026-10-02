@@ -129,6 +129,10 @@ def create_orc_ui_composition() -> OrcUiComposition:
             else:
                 app.navigate_to(context_name)
 
+        def refresh_radar_map_state() -> None:
+            core.map_camera.refresh_renderer_position()
+            weather.radar.refresh_renderer_state()
+
         home = HomeScreen(
             app,
             map_runtime=core.map_runtime,
@@ -139,7 +143,7 @@ def create_orc_ui_composition() -> OrcUiComposition:
             on_expand_context=navigate_home_context,
             radar_enabled=lambda: navigation.radar_enabled,
             on_radar_toggle=lambda enabled: navigation.set_radar_enabled(enabled),
-            refresh_radar=weather.radar.refresh_renderer_state,
+            refresh_radar=refresh_radar_map_state,
         )
         navigation = NavigationScreen(
             app,
@@ -153,6 +157,8 @@ def create_orc_ui_composition() -> OrcUiComposition:
             radar_controller=weather.radar,
             radar_injection_controller=weather.radar_injection,
             on_radar_palette_changed=set_radar_palette,
+            on_radar_visibility_changed=home.refresh_radar_state,
+            refresh_radar=refresh_radar_map_state,
         )
         vehicle = VehicleScreen(
             app,

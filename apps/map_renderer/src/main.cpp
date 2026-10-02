@@ -62,8 +62,16 @@ std::string loadStyleJson(const NavigationConfig& config) {
 }
 void setWeatherRadar(
     mbgl::style::Style& style,
-    const MapCommand& command
+    const MapCommand& command,
+    std::string& currentTileUrl
 ) {
+    for (const auto* id : {"radar-position-ring-inner", "radar-position-ring-middle",
+                           "radar-position-ring-outer"}) {
+        if (auto* ring = style.getLayer(id)) {
+            ring->setVisibility(command.enabled ? mbgl::style::VisibilityType::Visible
+                                                 : mbgl::style::VisibilityType::None);
+        }
+    }
     auto* existingLayer = style.getLayer(kWeatherRadarLayerId);
     if (!command.enabled) {
         if (existingLayer != nullptr) {
@@ -72,7 +80,7 @@ void setWeatherRadar(
         return;
     }
 
-    if (command.tileUrl.empty()) {
+    if (command.tileUrl.empty() || (existingLayer != nullptr && command.tileUrl == currentTileUrl)) {
         if (existingLayer != nullptr) {
             auto* radarLayer = static_cast<mbgl::style::RasterLayer*>(existingLayer);
             radarLayer->setRasterOpacity(command.opacity);
@@ -99,6 +107,7 @@ void setWeatherRadar(
         kWeatherRadarTileSize
     );
     style.addSource(std::move(source));
+    currentTileUrl = command.tileUrl;
 
     auto layer = std::make_unique<mbgl::style::RasterLayer>(
         kWeatherRadarLayerId,
@@ -217,6 +226,7 @@ int main() {
     view.setMap(&map);
     setInitialCamera(map, config);
 
+    std::string currentRadarTileUrl;
     MapCommandServer commandServer(subscriberEndpoint);
     MapEventPublisher eventPublisher(publisherEndpoint);
     view.setManualCameraCallback(
@@ -246,7 +256,7 @@ int main() {
                 name, brand, sourceClass, sourceSubclass, latitude, longitude);
         });
 
-    view.setUpdateCallback([&map, &commandServer, &config, &view, &eventPublisher]() {
+    view.setUpdateCallback([&map, &commandServer, &config, &view, &eventPublisher, &currentRadarTileUrl]() {
         // Drain the command socket every frame instead of processing only one
         // message. Position telemetry can be much faster than UI input; leaving
         // old messages queued made camera buttons appear frozen until a renderer
@@ -369,7 +379,7 @@ int main() {
             }
             if (command->command == "set_weather_radar") {
                 try {
-                    setWeatherRadar(map.getStyle(), *command);
+                    setWeatherRadar(map.getStyle(), *command, currentRadarTileUrl);
                     view.invalidate();
                     std::cout << "[map_renderer] weather radar: "
                               << (command->enabled ? "on" : "off")

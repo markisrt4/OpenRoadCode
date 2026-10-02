@@ -68,7 +68,6 @@ class NavigationPanel(NavigationRadarControls, tk.Frame):
         del on_back
         self._request_handler = map_request_handler
         self._radar_enabled = radar_enabled
-        self._pre_radar_zoom: float | None = None
         self._radar_frame_time = radar_frame_time
         self._radar_palette = radar_palette
         self._on_radar_palette_changed = on_radar_palette_changed

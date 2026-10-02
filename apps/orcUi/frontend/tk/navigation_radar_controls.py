@@ -8,8 +8,6 @@ import tkinter as tk
 from controllers.weather.radar_palette import RadarPalette
 from .shell_metrics import FONT_CONTROL
 
-_RADAR_OVERVIEW_ZOOM = 7.5
-
 
 class NavigationRadarControls:
     """Build radar widgets and handle frame, palette, and visibility controls."""
@@ -45,18 +43,17 @@ class NavigationRadarControls:
                              command=self._toggle_radar_palette)
         self._radar_button.configure(menu=menu)
         self._radar_button.pack(side=tk.RIGHT, padx=(4, 0), pady=3)
+        self._radar_quick_toggle = tk.Button(
+            bar, text="☁", command=self._toggle_radar,
+            bg=ui.control_background, activebackground=ui.control_active,
+            activeforeground=ui.control_text, relief=tk.FLAT,
+            font=("Sans", FONT_CONTROL + 5, "bold"), padx=6, pady=0,
+        )
+        self._radar_quick_toggle.pack(side=tk.RIGHT, padx=(4, 0), pady=3)
         self._render_radar_state()
 
     def _toggle_radar(self) -> None:
         self._radar_enabled = not self._radar_enabled
-        if self._radar_enabled:
-            self._pre_radar_zoom = self._zoom_level
-            self._zoom_level = _RADAR_OVERVIEW_ZOOM
-            self._request_handler.request_zoom(self._zoom_level)
-        elif self._pre_radar_zoom is not None:
-            self._zoom_level = self._pre_radar_zoom
-            self._pre_radar_zoom = None
-            self._request_handler.request_zoom(self._zoom_level)
         self._render_radar_state()
         if self._on_radar_toggle is not None:
             self._on_radar_toggle(self._radar_enabled)
@@ -85,6 +82,11 @@ class NavigationRadarControls:
             fg=ui.accent_success if self._radar_enabled else ui.text,
         )
 
+        if hasattr(self, "_radar_quick_toggle"):
+            self._radar_quick_toggle.configure(
+                fg=ui.accent_success if self._radar_enabled else ui.text_muted,
+                relief=tk.SUNKEN if self._radar_enabled else tk.FLAT,
+            )
         if hasattr(self, "_radar_menu"):
             self._radar_menu.entryconfigure(0, label="Show weather radar" if not self._radar_enabled
                                             else self._radar_button_text())

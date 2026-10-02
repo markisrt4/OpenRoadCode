@@ -57,3 +57,24 @@ def test_angular_delta_uses_shortest_direction() -> None:
     assert math.degrees(
         MapCameraRuntime._angular_delta(math.radians(1.0), math.radians(359.0))
     ) == pytest.approx(-2.0)
+
+
+def test_renderer_restart_replays_true_vehicle_position():
+    from unittest.mock import Mock
+    from ui.navigation import GeoPoint
+
+    runtime = object.__new__(MapCameraRuntime)
+    runtime._renderer_client = Mock()
+    runtime._current_position = GeoPoint(math.radians(42.8), math.radians(-83.0))
+    runtime.refresh_renderer_position()
+    runtime._renderer_client.set_position.assert_called_once_with(latitude=42.8, longitude=-83.0)
+
+
+def test_renderer_restart_does_not_invent_missing_vehicle_position():
+    from unittest.mock import Mock
+
+    runtime = object.__new__(MapCameraRuntime)
+    runtime._renderer_client = Mock()
+    runtime._current_position = None
+    runtime.refresh_renderer_position()
+    runtime._renderer_client.set_position.assert_not_called()

@@ -98,3 +98,15 @@ def test_palette_change_republishes_same_frame_through_tile_service() -> None:
             7,
         )
     ]
+
+
+def test_loading_frames_does_not_publish_or_change_visibility():
+    renderer = _Renderer()
+    controller = WeatherRadarController(_Provider(), renderer)
+    frames = controller.load_frames()
+    assert len(frames) == 2
+    assert controller.enabled is False
+    assert renderer.commands == []
+    controller.show_frames(frames)
+    assert controller.enabled is True
+    assert renderer.commands[-1][2] == 200

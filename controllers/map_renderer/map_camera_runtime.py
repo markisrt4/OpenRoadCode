@@ -98,6 +98,15 @@ class MapCameraRuntime:
 
         return self._current_position
 
+    def refresh_renderer_position(self) -> None:
+        """Replay the real live/cached vehicle marker after renderer replacement."""
+        position = self._current_position
+        if position is not None:
+            self._renderer_client.set_position(
+                latitude=math.degrees(position.latitude_rad),
+                longitude=math.degrees(position.longitude_rad),
+            )
+
     def start(self) -> None:
         """Start receiving navigation position and motion updates."""
         self._dispatcher.start()

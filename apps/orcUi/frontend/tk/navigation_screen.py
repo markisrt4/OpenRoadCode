@@ -46,6 +46,8 @@ class NavigationScreen(TkScreen):
         radar_controller=None,
         radar_injection_controller=None,
         on_radar_palette_changed: Callable[[RadarPalette], None] | None = None,
+        refresh_radar: Callable[[], None] | None = None,
+        on_radar_visibility_changed: Callable[[], None] | None = None,
     ) -> None:
         super().__init__(self.SCREEN_ID)
         self._host = host
@@ -60,6 +62,8 @@ class NavigationScreen(TkScreen):
         self._radar_enabled = bool(radar_controller and radar_controller.enabled)
         self._radar_injection_controller = radar_injection_controller
         self._on_radar_palette_changed = on_radar_palette_changed
+        self._refresh_radar = refresh_radar
+        self._on_radar_visibility_changed = on_radar_visibility_changed
         self._panel: NavigationPanel | None = None
 
     def show(self) -> None:
@@ -91,13 +95,20 @@ class NavigationScreen(TkScreen):
         self._host.screen_parent.update_idletasks()
         self._start_map_renderer()
         if self._radar_controller is not None and self._radar_controller.enabled:
-            for delay_ms in (300, 700, 1200):
-                self._host.schedule_ui_callback(delay_ms, self._radar_controller.refresh_renderer_state)
+            for delay_ms in (300, 700, 1200, 2500, 5000, 10000):
+                self._host.schedule_ui_callback(delay_ms, self._refresh_map_radar)
 
     def hide(self) -> None:
         """Stop transient navigation resources when navigating away."""
         self._map_runtime.stop()
         self._panel = None
+
+    def _refresh_map_radar(self) -> None:
+        if self._panel is not None and self._radar_controller is not None:
+            if self._refresh_radar is not None:
+                self._refresh_radar()
+            else:
+                self._radar_controller.refresh_renderer_state()
 
     def _start_map_renderer(self) -> None:
         panel = self._panel
@@ -125,16 +136,27 @@ class NavigationScreen(TkScreen):
             try:
                 if self._radar_injection_controller is not None:
                     self._radar_injection_controller.refresh()
-                frame = selector()
-                panel = self._panel
-                if panel is not None:
-                    self._host.schedule_ui_callback(
-                        0, lambda: self._update_radar_frame(panel, frame.timestamp)
-                    )
+                frames = (None if self._radar_controller.has_frames
+                          else self._radar_controller.load_frames())
+                self._host.schedule_ui_callback(
+                    0, lambda: self._complete_radar_selection(selector, frames)
+                )
             except Exception as error:
-                print(f"WARNING: weather radar history: {type(error).__name__}: {error}")
+                detail = str(error)
+                self._host.schedule_ui_callback(0, lambda: self._radar_load_failed(detail))
 
         threading.Thread(target=select, name="weather-radar-history", daemon=True).start()
+
+    def _complete_radar_selection(self, selector, frames) -> None:
+        if not self._radar_enabled:
+            return
+        try:
+            frame = (self._radar_controller.show_frames(frames)
+                     if frames is not None else selector())
+            if self._panel is not None:
+                self._panel.set_radar_frame_time(frame.timestamp)
+        except Exception as error:
+            self._radar_load_failed(str(error))
 
     def _radar_previous(self) -> None:
         if self._radar_controller is not None:
@@ -146,7 +168,7 @@ class NavigationScreen(TkScreen):
 
     def _radar_live(self) -> None:
         if self._radar_controller is not None:
-            self._select_radar_frame(self._radar_controller.show_latest)
+            self._toggle_radar(True)
 
     def _update_radar_frame(self, panel: NavigationPanel, timestamp: int) -> None:
         if self._panel is panel:
@@ -170,6 +192,7 @@ class NavigationScreen(TkScreen):
         if controller is None:
             return
         self._radar_enabled = enabled
+        self._notify_radar_visibility()
         if not enabled:
             controller.hide()
             return
@@ -178,17 +201,48 @@ class NavigationScreen(TkScreen):
             try:
                 if self._radar_injection_controller is not None:
                     self._radar_injection_controller.refresh()
-                frame = controller.show_latest()
-                if not self._radar_enabled:
-                    controller.hide()
-                    return
-                panel = self._panel
-                if panel is not None:
-                    self._host.schedule_ui_callback(
-                        0,
-                        lambda: self._update_radar_frame(panel, frame.timestamp),
-                    )
+                frames = controller.load_frames()
+                self._host.schedule_ui_callback(0, lambda: self._show_radar_frames(frames))
             except Exception as error:
-                print(f"WARNING: weather radar: {type(error).__name__}: {error}")
+                detail = str(error)
+                self._host.schedule_ui_callback(0, lambda: self._radar_load_failed(detail))
 
         threading.Thread(target=load_latest, name="weather-radar-refresh", daemon=True).start()
+
+    def _show_radar_frames(self, frames) -> None:
+        # A completed download must not re-enable radar after the user turned it off.
+        if not self._radar_enabled:
+            return
+        try:
+            frame = self._radar_controller.show_frames(frames)
+            if self._panel is not None:
+                self._panel.set_radar_frame_time(frame.timestamp)
+            # Retry through slower native startup; identical-frame replays retain tiles.
+            for delay_ms in (300, 1200, 2500, 5000):
+                self._host.schedule_ui_callback(delay_ms, self._replay_requested_radar)
+        except Exception as error:
+            self._radar_load_failed(str(error))
+
+    def _replay_requested_radar(self) -> None:
+        if self._radar_enabled and self._radar_controller is not None:
+            if self._refresh_radar is not None:
+                self._refresh_radar()
+            else:
+                self._radar_controller.refresh_renderer_state()
+
+    def _radar_load_failed(self, detail: str) -> None:
+        self._radar_enabled = False
+        try:
+            self._radar_controller.hide()
+        except (OSError, RuntimeError):
+            pass
+        if self._panel is not None:
+            self._panel._radar_enabled = False
+            self._panel._render_radar_state()
+        self._notify_radar_visibility()
+        self._host.set_screen_status(f"Radar unavailable: {detail}")
+
+    def _notify_radar_visibility(self) -> None:
+        callback = self._on_radar_visibility_changed
+        if callback is not None:
+            callback()

@@ -55,20 +55,21 @@ class HomeMapPanel(tk.Frame):
         self._render_radar_state()
 
     def _build(self) -> None:
-        self.grid_rowconfigure(1, weight=1)
+        self.grid_rowconfigure(0, weight=1)
         self._radar_button = tk.Button(
             self, text="RADAR", command=self._toggle_radar,
             bg=self._theme.ui.control_background, fg=self._theme.ui.text,
             relief=tk.FLAT, font=("Sans", 10, "bold"), padx=10, pady=5,
             state=tk.NORMAL if self._on_radar_toggle is not None else tk.DISABLED,
         )
-        self._radar_button.grid(row=0, column=0, sticky="e", padx=6, pady=4)
+        self._radar_button.place(relx=1.0, x=-8, y=8, anchor="ne")
         self._render_radar_state()
         self.grid_columnconfigure(0, weight=1)
         # The native map renderer paints over this host. Keep the host itself
         # neutral and let MapLibre own the actual map palette.
         self._map_host = tk.Frame(self, bg=self._theme.ui.background)
-        self._map_host.grid(row=1, column=0, sticky="nsew", padx=1, pady=1)
+        self._map_host.grid(row=0, column=0, sticky="nsew", padx=1, pady=1)
+        self._radar_button.lift()
 
     def _toggle_radar(self) -> None:
         if self._on_radar_toggle is not None:
@@ -78,8 +79,9 @@ class HomeMapPanel(tk.Frame):
     def _render_radar_state(self) -> None:
         enabled = self._radar_enabled()
         self._radar_button.configure(
-            text="RADAR ON" if enabled else "RADAR OFF",
-            fg=self._theme.ui.accent_success if enabled else self._theme.ui.text,
+            text="☁ ON" if enabled else "☁ OFF",
+            fg=self._theme.ui.accent_success if enabled else self._theme.ui.text_muted,
+            relief=tk.SUNKEN if enabled else tk.FLAT,
         )
 
     def _schedule_renderer_refresh(self) -> None:
@@ -93,3 +95,4 @@ class HomeMapPanel(tk.Frame):
         refresh = getattr(self._request_handler, "refresh_renderer_state", None)
         if refresh is not None:
             refresh()
+        self._radar_button.lift()

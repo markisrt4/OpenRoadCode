@@ -29,3 +29,21 @@ The navigation-stack installer builds MapLibre Native and the OpenRoadCode rende
 Map and Valhalla data are intentionally built and deployed separately; see [Navigation deployment](https://github.com/markisrt4/OpenRoadCode/blob/master/docs/navigation_deployment.md).
 
 The container workflow is source-repeatable but not yet bit-for-bit hermetic. Its Debian base image and APT packages still float. The guide records this limitation and the remaining work needed for a stricter reproducibility guarantee.
+
+## Radar position markers
+
+Weather radar visibility also controls three concentric locator rings around
+`vehicle`, the real live or cached navigation position. The rings sit above the
+precipitation overlay and below the vehicle marker. Their radii are fixed at
+36, 72, and 108 screen pixels so the position remains easy to spot at any zoom;
+they are location indicators, not distance scales. Panning the map does not
+move the rings to the camera center. Without a known position, no rings appear.
+
+Repeated commands for the same radar tile URL update opacity/visibility while
+retaining the source and tile cache. This lets Home and Navigation replay radar
+state after a renderer restart without continuously rebuilding the overlay.
+
+After pulling changes to the renderer, rebuild/install the native executable
+as well as restarting the Python UI. On Termux, run
+`./development/termux/build_navigation_stack.sh`; it rebuilds ORC's renderer
+incrementally while retaining already built MapLibre/Valhalla dependencies.
