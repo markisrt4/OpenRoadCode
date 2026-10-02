@@ -6,10 +6,9 @@
 from __future__ import annotations
 
 import math
-import os
 from collections.abc import Callable
-from pathlib import Path
 
+from common.navigation_data import search_database_path
 from controllers.cache import PersistentCache
 from controllers.navigation.current_position import get_current_position
 from controllers.navigation.position_snapshot_cache import DEFAULT_POSITION_CACHE_DIRECTORY, PositionSnapshotCache
@@ -24,7 +23,6 @@ from ui.navigation import GeoPoint
 _EARTH_RADIUS_M = 6_378_137.0
 _NEARBY_RADIUS_M = 20_000.0
 _NEARBY_LIMIT = 50
-_DEFAULT_SEARCH_DATABASE = Path(os.environ.get("OPENROADCODE_DATA_ROOT", "/srv/openroadcode")) / "maps" / "search" / "openroadcode-search.sqlite"
 
 
 class PoiSearchController(PoiSearchControllerIf):
@@ -150,7 +148,7 @@ class PoiSearchController(PoiSearchControllerIf):
 
     def _offline_source(self) -> PoiSearchSourceIf:
         if self._search_source is None:
-            self._search_source = SqlitePoiSearchSource(_DEFAULT_SEARCH_DATABASE)
+            self._search_source = SqlitePoiSearchSource(search_database_path())
         return self._search_source
 
     @staticmethod

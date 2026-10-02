@@ -13,6 +13,7 @@ import tempfile
 import urllib.parse
 import urllib.request
 
+from common.navigation_data import search_database_path
 from tools.map_builder.builder.poi_index import _create_schema, _insert_point_feature
 from tools.map_builder.builder.validate import validate_search_index
 
@@ -20,13 +21,7 @@ ENDPOINT = 'https://overpass-api.de/api/interpreter'
 
 
 def default_database() -> Path:
-    root = os.environ.get('OPENROADCODE_DATA_ROOT')
-    if not root:
-        root = str(Path.home() / '.local/share/openroadcode') if (
-            os.environ.get('PREFIX', '').startswith('/data/data/com.termux/')
-        ) else '/srv/openroadcode'
-    return Path(root).expanduser() / 'maps/search/openroadcode-search.sqlite'
-
+    return search_database_path()
 
 def build_query(latitude: float, longitude: float, radius_km: float) -> str:
     if not math.isfinite(latitude) or not -90 <= latitude <= 90:
