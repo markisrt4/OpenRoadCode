@@ -55,12 +55,19 @@ class RadarReplayPanel(tk.Toplevel):
         for text, factor in (("0.5×", 0.5), ("1×", 1.0), ("2×", 2.0)):
             menu.add_radiobutton(label=f"Playback speed {text}", variable=speed, value=text,
                                  command=lambda f=factor: on_speed(f))
-        menu.add_separator()
-        self._classic = tk.BooleanVar(self, value=classic)
-        menu.add_checkbutton(label="Classic palette", variable=self._classic,
-                             command=lambda: on_palette(self._classic.get()))
         options.configure(menu=menu)
         options.pack(side=tk.RIGHT, padx=4)
+        palette = self._row()
+        self._classic = tk.BooleanVar(self, value=classic)
+        self._classic_toggle = tk.Checkbutton(
+            palette, text="Classic colors", variable=self._classic,
+            command=lambda: on_palette(self._classic.get()),
+            bg=ui.control_background, fg=ui.control_text,
+            activebackground=ui.control_background, activeforeground=ui.control_text,
+            selectcolor=ui.background, font=("Sans", FONT_CONTROL),
+            highlightthickness=0, pady=5,
+        )
+        self._classic_toggle.pack(anchor="w")
         self.bind("<Escape>", lambda _event: on_close())
         self.update_idletasks()
         self.reposition()

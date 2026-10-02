@@ -135,7 +135,8 @@ It performs a real provider request and therefore requires network access.
 In the integrated Tk navigation screen, the radar menu opens a collapsible
 history panel. Play/Pause loops through cached frames; dragging the timeline
 pauses playback and selects a frame directly. Live refreshes the latest frame.
-Playback speed and palette choices are in Options. Collapsing the panel keeps
+Playback speed choices are in Options; Classic colors has a separate toggle
+below the replay controls. Collapsing the panel keeps
 radar visible and allows playback to continue; turning radar off or leaving
 Navigation stops playback. The cloud button beside the menu controls visibility.
 
