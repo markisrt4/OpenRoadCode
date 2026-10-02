@@ -47,7 +47,8 @@ The adjacent `8765`-`8769` range is intentionally allocated by function so indep
 1. `8765` - browser position development source;
 2. `8766` - Android sensor bridge;
 3. `8767` - navigation browser motion source; and
-4. `8768` - YouTube music-video local player; and\n5. `8769` - OpenRoadCode service-manager control plane.
+4. `8768` - YouTube music-video local player; and
+5. `8769` - OpenRoadCode service-manager control plane.
 
 These defaults may still be overridden where the owning component exposes configuration, but a new component must not reuse one of these defaults simply because it happens not to be running during development. That particular form of optimism is how the original collision arrived.
 

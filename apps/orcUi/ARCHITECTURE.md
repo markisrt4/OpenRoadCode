@@ -22,7 +22,7 @@ OpenRoadCode deliberately separates semantic UI contracts, reusable behavior, re
 
 The intended direction is:
 
-<aside class="orc-diagram-legend" aria-label="Architecture diagram legend">
+<div class="orc-diagram-legend" aria-label="Architecture diagram legend">
   <strong>Diagram key</strong>
   <span><i class="orc-legend-swatch orc-legend-app"></i>App / UI</span>
   <span><i class="orc-legend-swatch orc-legend-service"></i>Service / runtime</span>
@@ -30,7 +30,7 @@ The intended direction is:
   <span><i class="orc-legend-swatch orc-legend-message"></i>Messaging / contract</span>
   <span><i class="orc-legend-swatch orc-legend-adapter"></i>Protocol / hardware</span>
   <span><i class="orc-legend-swatch orc-legend-external"></i>External / input</span>
-</aside>
+</div>
 
 ```mermaid
 flowchart BT

@@ -32,7 +32,7 @@ class MusicAnalysisFanout:
         """Remove the first matching consumer.
 
         @param consumer Previously registered callback.
-        @raises ValueError If the callback is not registered.
+        @exception ValueError If the callback is not registered.
         """
         self._consumers.remove(consumer)
 
