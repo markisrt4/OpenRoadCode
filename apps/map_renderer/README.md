@@ -46,4 +46,8 @@ state after a renderer restart without continuously rebuilding the overlay.
 After pulling changes to the renderer, rebuild/install the native executable
 as well as restarting the Python UI. On Termux, run
 `./development/termux/build_navigation_stack.sh`; it rebuilds ORC's renderer
-incrementally while retaining already built MapLibre/Valhalla dependencies.
+incrementally while retaining already built Valhalla dependencies. MapLibre is
+rebuilt when its pinned revision or libpng headers/version change, or when an
+older build has no dependency stamp. This prevents startup crashes after a
+Termux libpng upgrade (for example, `libpng version mismatch`). Stop the UI
+before rebuilding and restart it after installation completes.
