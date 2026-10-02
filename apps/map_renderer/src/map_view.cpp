@@ -113,7 +113,10 @@ MapView::MapView(const mbgl::ResourceOptions&, const mbgl::ClientOptions&) {
     glfwSetErrorCallback(glfwError);
 
 #if defined(__linux__) && defined(GLFW_PLATFORM_X11)
-    if (const char* parent = std::getenv("OPENROADCODE_MAP_PARENT_WINDOW"); parent && *parent) {
+    const char* parent = std::getenv("OPENROADCODE_MAP_PARENT_WINDOW");
+    const char* prefix = std::getenv("PREFIX");
+    if ((parent && *parent) ||
+        (prefix && std::string(prefix).starts_with("/data/data/com.termux/files/usr"))) {
         glfwInitHint(GLFW_PLATFORM, GLFW_PLATFORM_X11);
     }
 #endif
@@ -139,7 +142,22 @@ MapView::MapView(const mbgl::ResourceOptions&, const mbgl::ClientOptions&) {
     } else
         glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
     window = glfwCreateWindow(width, height, "OpenRoadCode Map Renderer", nullptr, nullptr);
+#if MBGL_WITH_EGL && defined(__linux__)
+    if (!window && mbgl::gfx::Backend::GetType() == mbgl::gfx::Backend::Type::OpenGL &&
+        glfwGetX11Display()) {
+        // Termux Mesa can expose a working GLX display while EGL display
+        // initialization fails. Keep the ES 3.0 and framebuffer requirements;
+        // only switch the context creation API for this second attempt.
+        std::cerr << "[map_renderer] EGL context unavailable; retrying X11 native (GLX) context\n";
+        glfwWindowHint(GLFW_CONTEXT_CREATION_API, GLFW_NATIVE_CONTEXT_API);
+        window = glfwCreateWindow(width, height, "OpenRoadCode Map Renderer", nullptr, nullptr);
+        if (window) {
+            std::cout << "[map_renderer] graphics context: X11 native (GLX), OpenGL ES 3.0\n";
+        }
+    }
+#endif
     if (!window) {
+        std::cerr << "[map_renderer] no graphics context could be created; check DISPLAY and Mesa drivers\n";
         glfwTerminate();
         std::exit(1);
     }

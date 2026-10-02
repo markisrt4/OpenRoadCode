@@ -51,3 +51,9 @@ rebuilt when its pinned revision or libpng headers/version change, or when an
 older build has no dependency stamp. This prevents startup crashes after a
 Termux libpng upgrade (for example, `libpng version mismatch`). Stop the UI
 before rebuilding and restart it after installation completes.
+
+On X11, the renderer first requests an EGL OpenGL ES 3.0 context. If EGL cannot
+create the window, it retries using X11's native GLX context API with the same
+OpenGL ES and framebuffer requirements. Termux always selects GLFW's X11
+platform, including standalone launches. The renderer logs the fallback and
+reports failure if neither context API works.
