@@ -79,6 +79,7 @@ class MapCameraRuntime:
         )
         self._course_reference: GeoPoint | None = initial_position
         self._motion_course_available = False
+        self._moving = False
         self._filtered_bearing_rad: float | None = None
         self._closed = False
 
@@ -150,9 +151,9 @@ class MapCameraRuntime:
         self._current_position = point
         set_current_position(point)
 
-        # Derive course from position only when motion telemetry is not already
-        # providing a usable course. This prevents two independent bearing
-        # sources from alternately steering the followed camera.
+        # Derive course from position only with confirmed movement and no usable
+        # motion course. Stationary GPS drift must not steer the camera, and two
+        # independent bearing sources must not alternately steer it either.
         bearing_rad: float | None = None
         reference = self._course_reference
         if reference is None:
@@ -160,7 +161,7 @@ class MapCameraRuntime:
         else:
             distance_m = self._distance_m(reference, point)
             if distance_m >= _MIN_COURSE_POSITION_DELTA_M:
-                if not self._motion_course_available:
+                if self._moving and not self._motion_course_available:
                     bearing_rad = self._filter_bearing(self._bearing_rad(reference, point))
                 self._course_reference = point
 
@@ -182,14 +183,23 @@ class MapCameraRuntime:
         """Keep a followed map course-up while the vehicle is moving."""
         data = message.data
         speed_m_s = data.ground_speed_m_s
-        if speed_m_s is None or speed_m_s < _MIN_COURSE_UP_SPEED_M_S:
+        self._moving = (
+            speed_m_s is not None
+            and not data.is_cached
+            and math.isfinite(speed_m_s)
+            and speed_m_s >= _MIN_COURSE_UP_SPEED_M_S
+        )
+        if not self._moving:
             self._motion_course_available = False
+            # GPS drift is not a usable heading while stopped. Start the next
+            # position-derived course at the latest fix rather than across a stop.
+            self._course_reference = self._current_position
             return
 
         bearing_rad = data.course_rad
         if bearing_rad is None:
             bearing_rad = data.heading_rad
-        if bearing_rad is None:
+        if bearing_rad is None or not math.isfinite(bearing_rad):
             self._motion_course_available = False
             return
 

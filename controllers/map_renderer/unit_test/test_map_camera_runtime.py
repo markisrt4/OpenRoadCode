@@ -4,10 +4,73 @@
 """Unit tests for followed-map bearing stabilization."""
 
 import math
+from types import SimpleNamespace
+from unittest.mock import Mock
 
 import pytest
 
 from controllers.map_renderer.map_camera_runtime import MapCameraRuntime
+from controllers.map_renderer.map_request_handler import MapRequestHandler
+from ui.navigation import GeoPoint
+
+
+def _camera_runtime():
+    runtime = _runtime_for_filter()
+    runtime._renderer_client = Mock()
+    runtime._current_position = GeoPoint(0.0, 0.0)
+    runtime._course_reference = runtime._current_position
+    runtime._motion_course_available = False
+    runtime._moving = False
+    runtime._handler = MapRequestHandler(
+        runtime._renderer_client, center=runtime._current_position, bearing_rad=math.pi / 2,
+    )
+    return runtime
+
+
+def _motion(speed, course=None, *, cached=False):
+    return SimpleNamespace(data=SimpleNamespace(
+        ground_speed_m_s=speed, course_rad=course, heading_rad=None, is_cached=cached,
+    ))
+
+
+def _position(latitude, longitude):
+    return SimpleNamespace(data=SimpleNamespace(
+        latitude_rad=latitude, longitude_rad=longitude, altitude_m=None,
+    ))
+
+
+@pytest.mark.parametrize("speed", [None, 0.0, 0.5, 1.49, float("nan")])
+def test_stationary_position_drift_does_not_rotate_camera(speed):
+    runtime = _camera_runtime()
+    runtime._on_motion_message(_motion(speed, math.pi))
+    # Ten metres of GPS drift exceeds the old four-metre course threshold.
+    runtime._on_position_message(_position(10 / 6_378_137, 0.0))
+    runtime._on_position_message(_position(0.0, -10 / 6_378_137))
+    assert runtime._handler.bearing_rad == pytest.approx(math.pi / 2)
+    assert runtime._renderer_client.set_position.call_count == 2
+
+
+def test_cached_motion_does_not_enable_position_heading():
+    runtime = _camera_runtime()
+    runtime._on_motion_message(_motion(10.0, math.pi, cached=True))
+    runtime._on_position_message(_position(10 / 6_378_137, 0.0))
+    assert runtime._handler.bearing_rad == pytest.approx(math.pi / 2)
+
+
+def test_moving_position_fallback_still_tracks_course():
+    runtime = _camera_runtime()
+    runtime._on_motion_message(_motion(3.0))
+    runtime._on_position_message(_position(10 / 6_378_137, 0.0))
+    assert runtime._handler.bearing_rad == pytest.approx(0.0)
+
+
+def test_stopping_holds_last_moving_bearing_despite_drift():
+    runtime = _camera_runtime()
+    runtime._on_motion_message(_motion(3.0, math.pi))
+    bearing = runtime._handler.bearing_rad
+    runtime._on_motion_message(_motion(0.0, 0.0))
+    runtime._on_position_message(_position(10 / 6_378_137, 0.0))
+    assert runtime._handler.bearing_rad == bearing
 
 
 def _runtime_for_filter() -> MapCameraRuntime:
