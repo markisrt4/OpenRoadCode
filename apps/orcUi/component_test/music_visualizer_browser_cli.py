@@ -70,6 +70,33 @@ def main() -> None:
                     page.locator('#mv-webgl-mode-button').click()
                     page.locator('#mv-webgl-mode-choices button').nth(index).click()
                     assert page.locator('#mv-webgl-mode').evaluate('(select)=>select.selectedIndex') == index
+                page.locator('#music-zeroize-start').click()
+                page.wait_for_function("document.getElementById('music-zeroize-finish').disabled===false")
+                page.wait_for_timeout(200)
+                page.locator('#music-zeroize-finish').click()
+                page.wait_for_function("document.getElementById('music-zeroize-status').textContent.includes('calibration active')")
+                capture = runtime._session._capture
+                assert runtime._session.state()['zeroized']
+                page.locator('#music-view-drums').click()
+                assert page.locator('#music-drum-kit').is_visible()
+                assert not page.locator('#mv-webgl-stage').is_visible()
+                page.locator('[data-kick-mode="double"]').click()
+                assert page.locator('#drum-kick-right').is_visible()
+                page.locator('#music-view-visualization').click()
+                page.locator('#music-view-drums').click()
+                assert page.evaluate('OpenRoadCodeWeb.KickMode.mode') == 'double'
+                page.locator('[data-kick-mode="single"]').click()
+                assert not page.locator('#drum-kick-right').is_visible()
+                assert page.locator('#mv-seg-kick .mv-segment').count() == 8
+                page.locator('#music-view-visualization').click()
+                assert page.locator('#mv-webgl-stage').is_visible()
+                assert runtime._session._capture is capture
+                assert runtime._session.state()['running'] and runtime._session.state()['zeroized']
+                page.locator('#music-zeroize-clear').click()
+                page.locator('#music-view-drums').click()
+                page.wait_for_function("""[...document.querySelectorAll('.mv-segment')].some(
+                    meter=>meter.style.background && meter.style.background!=='rgb(22, 32, 42)')""")
+                page.locator('#music-view-visualization').click()
                 page.locator('#mv-webgl-fullscreen').click()
                 page.wait_for_function('document.fullscreenElement!==null')
                 page.locator('#mv-webgl-mode-button').click()
@@ -79,7 +106,7 @@ def main() -> None:
                 app._root.update()
                 assert not runtime._session.state()['running']
                 assert not runtime.is_active()
-            print('PASS: embedded X11 viewport, PCM analysis, all preset menus, fullscreen, capture cleanup')
+            print('PASS: embedded X11 viewport, PCM analysis, all preset menus, drum views/kick controls, preserved capture/calibration, fullscreen, cleanup')
         finally:
             composition.media.close()
             composition.games.shutdown()

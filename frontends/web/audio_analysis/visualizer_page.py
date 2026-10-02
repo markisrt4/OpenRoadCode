@@ -7,7 +7,7 @@ VISUALIZER_HTML = '''<!doctype html>
 <title>Music Visualizer</title>
 <link rel="stylesheet" href="/web-assets/audio-analysis/music_visualizer.css">
 <style>
-:root{color-scheme:dark}*{box-sizing:border-box}body{margin:0;background:#05090d;color:#edf2f5;font:14px sans-serif}
+:root{color-scheme:dark}[hidden]{display:none!important}.view-switch{display:flex;gap:8px;margin:6px}.primary{border-color:#45b8ff;background:#12466b;color:#fff}*{box-sizing:border-box}body{margin:0;background:#05090d;color:#edf2f5;font:14px sans-serif}
 button,select,input{font:inherit}button,select{padding:8px;background:#182530;color:inherit;border:1px solid #344654;border-radius:6px}
 .controls{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:8px}
 .card{background:#0b1117;padding:10px;margin:6px;border-radius:8px}p{margin:4px 8px;font-size:12px;color:#aebac4}
@@ -26,10 +26,17 @@ html[data-color-scheme="light"] p{color:#435365}
 <div class="calibration"><button id="music-zeroize-start" disabled>CALIBRATE</button><button id="music-zeroize-finish" disabled>FINISH</button><button id="music-zeroize-clear" disabled>CLEAR</button></div></div>
 <p id="music-visualizer-status">Choose an audio source and press START AUDIO.</p>
 <p id="music-zeroize-status">No ambient-noise calibration.</p>
+<div class="view-switch" role="tablist" aria-label="Music visualizer view">
+<button id="music-view-visualization" type="button" role="tab" data-visualizer-view="visualization" aria-controls="mv-webgl-stage">Visualization</button>
+<button id="music-view-drums" type="button" role="tab" data-visualizer-view="drums" aria-controls="music-drum-kit">Drum Kit</button>
+</div>
 <div id="music-visualizer-anchor"></div>
 <div hidden><div id="music-bass"></div><div id="music-mid"></div><div id="music-treble"></div></div>
 <script src="/web-assets/audio-analysis/inline_select.js"></script>
 <script src="/web-assets/audio-analysis/browser_pcm_capture.js"></script>
+<script src="/web-assets/audio-analysis/kick_mode.js"></script>
+<script src="/web-assets/audio-analysis/percussion_display.js"></script>
 <script src="/web-assets/audio-analysis/webgl_music_visualizer.js"></script>
 <script src="/web-assets/audio-analysis/music_visualizer.js"></script>
+<script src="/web-assets/audio-analysis/visualizer_views.js"></script>
 </body></html>'''

@@ -14,6 +14,10 @@ WebUi process or service configuration is required.
 The renderer offers 13 presets: Frequency Tunnel, Neon Ribbon, Spectrum Field,
 Plasma Bloom, Kaleidoscope, Star Warp, Electric Rings, Dancing Planets, Star Dance,
 Neon Instruments, Electric Freeway, Explosion Field, and Prismatic Spectrum.
+The **Visualization** and **Drum Kit** buttons switch views within this screen.
+Drum Kit shows reactive kick, snare, toms, and cymbals with percussion meters and
+single/double kick controls. Switching views preserves the current audio source,
+capture, calibration, preset, and kick mode; both consume the same analyzer.
 Use the sensitivity slider to adjust response and FULL SCREEN to expand the
 visualization. Browser Microphone is always offered; Chromium requests permission
 when you press START AUDIO. Linux System Audio is offered when `pw-record` is
