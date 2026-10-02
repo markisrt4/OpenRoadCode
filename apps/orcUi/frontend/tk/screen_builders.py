@@ -17,7 +17,11 @@ from controllers.automotive import (
     EngineAnalysis,
     VehicleConfiguration,
 )
-from ui.navigation import MapRequestHandlerIf
+from ui.navigation import (
+    MapRequestHandlerIf,
+    RouteRequestHandlerIf,
+    RouteSimulationRequestHandlerIf,
+)
 from ui.theme import ThemeBundle
 
 from .navigation_panel import NavigationPanel
@@ -30,6 +34,8 @@ def build_navigation_screen(
     parent: tk.Misc,
     *,
     map_request_handler: MapRequestHandlerIf,
+    route_request_handler: RouteRequestHandlerIf,
+    route_simulation_handler: RouteSimulationRequestHandlerIf,
     on_back: Callable[[], None],
     theme: ThemeBundle,
     radar_enabled: bool = False,
@@ -44,6 +50,8 @@ def build_navigation_screen(
     screen = NavigationPanel(
         parent,
         map_request_handler=map_request_handler,
+        route_request_handler=route_request_handler,
+        route_simulation_handler=route_simulation_handler,
         on_back=on_back,
         theme_bundle=theme,
         radar_enabled=radar_enabled,

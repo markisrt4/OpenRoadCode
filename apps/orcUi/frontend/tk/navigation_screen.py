@@ -13,7 +13,11 @@ from controllers.automotive import AutomotiveTelemetryProfile
 from controllers.weather.radar_palette import RadarPalette
 from frontends.tk.tk_screen import TkScreen
 from frontends.tk.tk_screen_host_if import TkScreenHostIf
-from ui.navigation import MapRequestHandlerIf
+from ui.navigation import (
+    MapRequestHandlerIf,
+    RouteRequestHandlerIf,
+    RouteSimulationRequestHandlerIf,
+)
 from ui.screen_ui_if import ScreenId
 from ui.theme import ThemeBundle
 
@@ -32,6 +36,8 @@ class NavigationScreen(TkScreen):
         *,
         map_runtime: MapRuntimeIf,
         map_request_handler: MapRequestHandlerIf,
+        route_request_handler: RouteRequestHandlerIf,
+        route_simulation_handler: RouteSimulationRequestHandlerIf,
         theme_bundle: Callable[[], ThemeBundle],
         telemetry_profile_request: (
             Callable[[AutomotiveTelemetryProfile], None] | None
@@ -45,6 +51,8 @@ class NavigationScreen(TkScreen):
         self._host = host
         self._map_runtime = map_runtime
         self._map_request_handler = map_request_handler
+        self._route_request_handler = route_request_handler
+        self._route_simulation_handler = route_simulation_handler
         self._theme_bundle = theme_bundle
         self._telemetry_profile_request = telemetry_profile_request
         self._on_back = on_back
@@ -62,6 +70,8 @@ class NavigationScreen(TkScreen):
         self._panel = build_navigation_screen(
             self._host.screen_parent,
             map_request_handler=self._map_request_handler,
+            route_request_handler=self._route_request_handler,
+            route_simulation_handler=self._route_simulation_handler,
             on_back=self._on_back,
             theme=self._theme_bundle(),
             radar_enabled=(self._radar_controller.enabled if self._radar_controller is not None else False),

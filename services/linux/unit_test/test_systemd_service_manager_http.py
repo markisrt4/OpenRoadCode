@@ -8,7 +8,7 @@ import json
 import subprocess
 import threading
 import unittest
-from unittest.mock import Mock, patch
+from unittest.mock import Mock
 
 from services.common.service_manager_pairing import ServiceManagerPairing
 from services.common.service_manager_browser_pairing import ServiceManagerBrowserPairing
@@ -68,6 +68,9 @@ class SystemdServiceManagerHttpRequestTest(unittest.TestCase):
         )
         self.manager.restart.return_value = ServiceStatus(
             "openroadcode-navigation", "running", "active / running / enabled"
+        )
+        self.manager.set_profile.return_value = ServiceStatus(
+            "openroadcode-navigation", "running", "active / running / enabled", profile="local"
         )
         self.manager.start_core.return_value = self.manager.all_status.return_value
         self.manager.stop_core.return_value = self.manager.all_status.return_value
@@ -148,6 +151,25 @@ class SystemdServiceManagerHttpRequestTest(unittest.TestCase):
         self.assertEqual(payload["services"][0]["state"], "running")
         self.manager.restart.assert_called_once_with("openroadcode-navigation")
 
+    def test_android_bridge_registration_uses_authenticated_client_address(self) -> None:
+        status, payload = self.request("POST", "/runtime/android-bridge")
+
+        self.assertEqual(status, 200)
+        self.assertEqual(payload, {"status": "configured"})
+        self.manager.set_android_bridge_url.assert_called_once_with(
+            f"http://{self.host}:8766"
+        )
+
+    def test_navigation_profile_does_not_own_android_bridge_endpoint(self) -> None:
+        status, payload = self.request(
+            "POST", "/services/openroadcode-navigation/profile/local"
+        )
+
+        self.assertEqual(status, 200)
+        self.manager.set_profile.assert_called_once_with(
+            "openroadcode-navigation", "local"
+        )
+
     def test_invalid_service_name_returns_bad_request(self) -> None:
         self.manager.start.side_effect = ValueError("Unsupported OpenRoadCode service: ssh")
 
@@ -175,54 +197,41 @@ class SystemdServiceManagerHttpRequestTest(unittest.TestCase):
         self.assertNotIn(payload["poll_token"], payload["approval_url"])
         self.assertIn("/pairing/browser/approve/", payload["approval_url"])
 
-    def test_same_device_browser_pairing_does_not_require_admin_token(self) -> None:
+    def test_browser_pairing_approval_requires_session_capability(self) -> None:
         _, started = self.request(
             "POST", "/pairing/browser/start", token=None,
             payload={"client_name": "Test Android"},
         )
+        from urllib.parse import parse_qs, urlsplit
+        approval_token = parse_qs(urlsplit(started["approval_url"]).query)["token"][0]
         status, approved = self.request(
             "POST",
             f"/pairing/browser/approve/{started['session_id']}",
             token=None,
+            form={"approval_token": approval_token},
         )
         self.assertEqual(status, 200)
         self.assertIn("Device approved", approved)
 
-    def test_remote_browser_pairing_uses_short_lived_pin_not_admin_token(self) -> None:
-        with patch(
-            "services.common.service_manager_browser_pairing.secrets.randbelow",
-            return_value=123456,
-        ), patch.object(
-            SystemdServiceManagerHandler, "_same_device_request", return_value=False
-        ):
-            _, started = self.request(
-                "POST", "/pairing/browser/start", token=None,
-                payload={"client_name": "Test Android"},
-            )
-            status, page = self.request(
-                "GET", f"/pairing/browser/approve/{started['session_id']}", token=None
-            )
-            self.assertEqual(status, 200)
-            self.assertIn("short-lived pairing PIN", page)
-            self.assertNotIn("administrator token", page)
+    def test_browser_approval_link_requires_opaque_capability(self) -> None:
+        _, started = self.request(
+            "POST", "/pairing/browser/start", token=None,
+            payload={"client_name": "Test Android"},
+        )
+        from urllib.parse import urlsplit
+        approval_path = urlsplit(started["approval_url"]).path
+        status, rejected = self.request("GET", approval_path, token=None)
+        self.assertEqual(status, 401)
+        self.assertIn("Invalid pairing approval link", rejected)
 
-            status, rejected = self.request(
-                "POST",
-                f"/pairing/browser/approve/{started['session_id']}",
-                token=None,
-                form={"approval_pin": "000000"},
-            )
-            self.assertEqual(status, 401)
-            self.assertIn("Pairing PIN was not accepted", rejected)
-
-            status, approved = self.request(
-                "POST",
-                f"/pairing/browser/approve/{started['session_id']}",
-                token=None,
-                form={"approval_pin": "123456"},
-            )
-            self.assertEqual(status, 200)
-            self.assertIn("Device approved", approved)
+        approval_url = urlsplit(started["approval_url"])
+        status, page = self.request(
+            "GET", approval_url.path + "?" + approval_url.query, token=None
+        )
+        self.assertEqual(status, 200)
+        self.assertIn("Approve device", page)
+        self.assertNotIn("Pairing PIN", page)
+        self.assertNotIn("Administrator token", page)
 
     def test_browser_pairing_status_requires_poll_token(self) -> None:
         _, started = self.request(
@@ -240,11 +249,13 @@ class SystemdServiceManagerHttpRequestTest(unittest.TestCase):
             "POST", "/pairing/browser/start", token=None,
             payload={"client_name": "Test Android"},
         )
+        from urllib.parse import parse_qs, urlsplit
+        approval_token = parse_qs(urlsplit(started["approval_url"]).query)["token"][0]
         status, approved = self.request(
             "POST",
             f"/pairing/browser/approve/{started['session_id']}",
             token=None,
-            form={"admin_token": "secret"},
+            form={"approval_token": approval_token},
         )
         self.assertEqual(status, 200)
         self.assertIn("Device approved", approved)

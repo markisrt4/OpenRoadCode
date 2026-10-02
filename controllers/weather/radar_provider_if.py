@@ -24,8 +24,14 @@ class RadarProviderIf(ABC):
     @property
     @abstractmethod
     def provider_id(self) -> str:
-        """Return the stable provider identifier."""
+        """Return the stable provider identifier.
+
+        @return Stable identifier for this radar provider.
+        """
 
     @abstractmethod
     def get_frames(self) -> tuple[RadarFrame, ...]:
-        """Return available radar frames ordered oldest to newest."""
+        """Return available radar frames ordered oldest to newest.
+
+        @return Available frames ordered by increasing timestamp.
+        """

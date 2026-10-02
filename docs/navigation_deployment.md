@@ -16,7 +16,10 @@ OpenRoadCode deliberately separates navigation software, vehicle-local configura
 /srv/openroadcode/
     build-manifest.json
     maps/
-    └── valhalla/
+        ├── search/openroadcode-search.sqlite
+        ├── vector/openroadcode.mbtiles
+        └── styles/openroadcode.json
+    valhalla/
 ```
 
 Ownership by purpose:
@@ -152,7 +155,7 @@ The updater:
 2. skips the update when the local and remote manifests already match;
 3. downloads into `/srv/openroadcode-update`;
 4. preserves vehicle-owned `maps/routes/` data;
-5. validates the staged deployment contract;
+5. validates the staged deployment contract, including the POI search index;
 6. verifies that the staged manifest is the same manifest checked before transfer;
 7. moves the previous dataset to `/srv/openroadcode-previous`;
 8. promotes the staged dataset to `/srv/openroadcode`;
@@ -222,6 +225,7 @@ test -x /opt/openroadcode/navigation/bin/openroadcode-map-renderer
 test -s /etc/openroadcode/navigation.toml
 test -s /srv/openroadcode/build-manifest.json
 test -s /srv/openroadcode/maps/styles/openroadcode.json
+test -s /srv/openroadcode/maps/search/openroadcode-search.sqlite
 test -s /srv/openroadcode/valhalla/valhalla.json
 systemctl status valhalla.service
 ```
