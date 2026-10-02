@@ -21,7 +21,7 @@ Map generation and deployment are documented separately in `docs/navigation_depl
 ```mermaid
 flowchart TD
     startup["Vehicle startup"] --> gpsd["gpsd"]
-    startup --> broker["openroadcode-zmq.service<br/>:5556 ingress / :5557 egress"]
+    startup --> broker["openroadcode-message-broker.service<br/>:5556 ingress / :5557 egress"]
     gpsd --> valhalla["valhalla.service"]
     broker --> valhalla
     valhalla --> navService["openroadcode-navigation.service"]
@@ -47,13 +47,13 @@ flowchart TD
 
 ## Service ownership
 
-### `openroadcode-zmq.service`
+### `openroadcode-message-broker.service`
 
 Owns the process-wide ZeroMQ XPUB/XSUB broker. Producers connect to the publisher ingress endpoint and consumers connect to the subscriber egress endpoint. The broker contains no navigation policy.
 
 Runtime wrapper: `scripts/runtime/start_zeromq_broker.sh`
 
-Installer: `scripts/systemd/install_zeromq_systemd.sh`
+Installer: `scripts/systemd/install_message_broker_systemd.sh`
 
 ### `valhalla.service`
 
@@ -83,7 +83,7 @@ sudo scripts/systemd/install_navigation_runtime_systemd.sh
 
 The installer creates and enables services in dependency order:
 
-1. `openroadcode-zmq.service`
+1. `openroadcode-message-broker.service`
 2. `valhalla.service`
 3. `openroadcode-navigation.service`
 
@@ -93,7 +93,7 @@ Check the complete stack with:
 
 ```bash
 systemctl --no-pager --full status \
-    openroadcode-zmq \
+    openroadcode-message-broker \
     valhalla \
     openroadcode-navigation
 ```
@@ -101,7 +101,7 @@ systemctl --no-pager --full status \
 Logs are available through journald:
 
 ```bash
-journalctl -u openroadcode-zmq -b
+journalctl -u openroadcode-message-broker -b
 journalctl -u valhalla -b
 journalctl -u openroadcode-navigation -b
 ```
@@ -186,8 +186,8 @@ python -m pytest \
 On a Raspberry Pi deployment target, also verify the real boot boundary:
 
 ```bash
-sudo systemctl restart openroadcode-zmq valhalla openroadcode-navigation
-systemctl --no-pager --full status openroadcode-zmq valhalla openroadcode-navigation
+sudo systemctl restart openroadcode-message-broker valhalla openroadcode-navigation
+systemctl --no-pager --full status openroadcode-message-broker valhalla openroadcode-navigation
 ```
 
 A reboot test is required before treating startup changes as deployment-ready.

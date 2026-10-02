@@ -5,7 +5,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from threading import Lock
 
 from controllers.automotive.vehicle_state import VehicleState
@@ -30,6 +30,7 @@ class NavigationMotionVehicleStateSource(VehicleStateSourceIf):
     def __init__(self, subscriber: SubscriberIf) -> None:
         self._lock = Lock()
         self._speed_m_s: float | None = None
+        self._timestamp: datetime | None = None
         self._connected = False
         self._dispatcher = MessageDispatcher(subscriber)
         self._dispatcher.register(
@@ -60,11 +61,17 @@ class NavigationMotionVehicleStateSource(VehicleStateSourceIf):
         """
         with self._lock:
             speed_m_s = self._speed_m_s
+            timestamp = self._timestamp
         return VehicleState(
-            timestamp=datetime.now(),
+            timestamp=timestamp if timestamp is not None else datetime.now(timezone.utc),
             vehicle_speed_m_s=speed_m_s,
         )
 
     def _on_motion_state(self, message: MotionStateMessage) -> None:
         with self._lock:
             self._speed_m_s = message.data.ground_speed_m_s
+            self._timestamp = datetime.fromtimestamp(
+                message.timestamp.seconds
+                + message.timestamp.nanoseconds / 1_000_000_000.0,
+                tz=timezone.utc,
+            )

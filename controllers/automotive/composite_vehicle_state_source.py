@@ -48,13 +48,14 @@ class CompositeVehicleStateSource(VehicleStateSourceIf):
         motion = self._motion_source.read_state()
         return replace(
             engine,
-            # Navigation ground speed is effectively free once the navigation
-            # service is running. Prefer it without spending another ELM327
-            # request on PID 0x0D. An engine-source speed can still be used by
-            # non-composite consumers or a future explicit fallback policy.
+            # Prefer ECU road speed when the engine source provides it. RPM
+            # and PID 0x0D then share the same request path and clock, which
+            # avoids pairing fresh RPM with an older GPS sample during rapid
+            # acceleration. Navigation remains the fallback for sources that
+            # do not provide vehicle speed.
             vehicle_speed_m_s=(
-                motion.vehicle_speed_m_s
-                if motion.vehicle_speed_m_s is not None
-                else engine.vehicle_speed_m_s
+                engine.vehicle_speed_m_s
+                if engine.vehicle_speed_m_s is not None
+                else motion.vehicle_speed_m_s
             ),
         )

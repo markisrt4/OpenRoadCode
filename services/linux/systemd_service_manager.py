@@ -115,14 +115,22 @@ class SystemdServiceManager:
         """Persist the Android Bridge endpoint as shared runtime state."""
         if not bridge_url.startswith(("http://", "https://")):
             raise ValueError("Android Bridge URL must use http or https")
+        runtime_config = f'OPENROADCODE_ANDROID_BRIDGE_URL="{bridge_url}"\n'
+        if RUNTIME_ENV_FILE.exists() and RUNTIME_ENV_FILE.read_text(encoding="utf-8") == runtime_config:
+            return
+
+        navigation_service = "openroadcode-navigation"
+        restart_navigation = (
+            self.profile(navigation_service) == "local"
+            and self.status(navigation_service).state == "running"
+        )
         PROFILE_DIR.mkdir(parents=True, exist_ok=True)
         temporary = RUNTIME_ENV_FILE.with_suffix(".tmp")
-        temporary.write_text(
-            f'OPENROADCODE_ANDROID_BRIDGE_URL="{bridge_url}"\n',
-            encoding="utf-8",
-        )
+        temporary.write_text(runtime_config, encoding="utf-8")
         temporary.chmod(0o644)
         temporary.replace(RUNTIME_ENV_FILE)
+        if restart_navigation:
+            self._systemctl("restart", self._unit(navigation_service))
 
     def set_profile(self, name: str, profile: str) -> ServiceStatus:
         profiles = self.PROFILE_CONFIGS.get(name)
