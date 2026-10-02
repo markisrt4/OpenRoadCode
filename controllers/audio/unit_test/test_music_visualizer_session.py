@@ -4,7 +4,7 @@
 
 import numpy as np
 
-from apps.orcUi.music_visualizer_session import MusicVisualizerSession
+from controllers.audio.music_analysis.music_visualizer_session import MusicVisualizerSession
 from controllers.audio.music_analysis.music_analysis_session import PushAudioCapture
 
 

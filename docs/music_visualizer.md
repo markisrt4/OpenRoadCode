@@ -70,3 +70,13 @@ Hardware component checks remain separate: confirm live PipeWire monitor audio
 on Linux, Android playback consent and streaming on the phone, and browser
 microphone/WebGL behavior in the target browser. Passing synthetic-PCM tests does
 not verify those device and permission paths.
+
+## Architecture and resource ownership
+
+The ORC media composition creates the visualizer controller and injects its
+frontend-neutral control contract into the reusable Tk screen. Capture factories
+and environment configuration live in `apps/orcUi/composition/music_visualizer.py`.
+The controller and session adapter live in `controllers/audio/music_analysis` and
+consume semantic source/frame types from `ui/music_visualizer`. The screen and
+panel live in `frontends/tk/media` and consume injected state, controls, host, and
+theme. Navigation requests capture stop; media composition owns worker shutdown.

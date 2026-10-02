@@ -3,7 +3,7 @@
 
 import pytest
 
-from apps.orcUi.music_visualizer_composition import (
+from apps.orcUi.composition.music_visualizer import (
     MusicVisualizerSource,
     create_music_visualizer_session,
     selected_music_visualizer_source,
@@ -29,7 +29,7 @@ def test_invalid_visualizer_source_is_rejected(monkeypatch):
 
 
 def test_android_source_uses_shared_session_and_android_capture(monkeypatch):
-    import apps.orcUi.music_visualizer_composition as composition
+    import apps.orcUi.composition.music_visualizer as composition
     from controllers.audio.music_analysis.music_analysis_session import PushAudioCapture
     capture = PushAudioCapture()
     sizes = []

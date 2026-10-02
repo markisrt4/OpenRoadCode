@@ -2,13 +2,13 @@
 # SPDX-FileCopyrightText: 2026 OpenRoadCode contributors
 # SPDX-License-Identifier: MIT
 
-"""Session adapter between shared music analysis and the ORC visualizer panel."""
+"""Session adapter between shared music analysis and the visualizer presentation."""
 
 from __future__ import annotations
 
 from collections.abc import Callable
 
-from apps.orcUi.frontend.tk.music_visualizer_panel import VisualizerFrame
+from ui.music_visualizer import VisualizerFrame
 from controllers.audio.capture import AudioCaptureIf
 from controllers.audio.music_analysis.music_analysis_session import MusicAnalysisSession
 from controllers.audio.music_analysis.music_analysis_types import MusicAnalysisState
@@ -17,7 +17,7 @@ VisualizerFrameCallback = Callable[[VisualizerFrame], None]
 
 
 class MusicVisualizerSession:
-    """Own a music-analysis pipeline and adapt its state for the ORC frontend."""
+    """Own a music-analysis pipeline and adapt its state for the frontend."""
 
     def __init__(
         self,
@@ -60,7 +60,7 @@ class MusicVisualizerSession:
 
     @staticmethod
     def to_visualizer_frame(state: MusicAnalysisState) -> VisualizerFrame:
-        """Translate frontend-neutral analyzer state to the Tk panel snapshot."""
+        """Translate frontend-neutral analyzer state to the semantic presentation snapshot."""
         return VisualizerFrame(
             level=state.level,
             bass=state.bass,

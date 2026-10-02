@@ -8,19 +8,10 @@ from __future__ import annotations
 
 import os
 from collections.abc import Callable
-from enum import Enum
 
-from apps.orcUi.frontend.tk.music_visualizer_panel import VisualizerFrame
-from apps.orcUi.music_visualizer_session import MusicVisualizerSession
+from ui.music_visualizer import VisualizerFrame, MusicVisualizerSource
+from controllers.audio.music_analysis.music_visualizer_session import MusicVisualizerSession
 from controllers.audio.capture import AndroidPlaybackAudioCapture, PipewireAudioCapture
-
-
-class MusicVisualizerSource(str, Enum):
-    """Supported ORC music visualizer input sources."""
-
-    SIMULATED = "simulated"
-    PIPEWIRE = "pipewire"
-    ANDROID_PLAYBACK = "android-playback"
 
 
 def selected_music_visualizer_source() -> MusicVisualizerSource:

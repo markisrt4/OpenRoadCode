@@ -2,31 +2,23 @@
 # SPDX-FileCopyrightText: 2026 OpenRoadCode contributors
 # SPDX-License-Identifier: MIT
 
-"""Music visualizer panel for the integrated OpenRoadCode UI.
+"""Reusable Tk music visualizer rendering.
 
-This first ORC UI version deliberately uses a simulated analysis source.  The
-renderer therefore has no PipeWire, Spotify, song-recognition, or lighting
-runtime dependencies.  Those services can be attached later without changing
-the Tk rendering surface.
+Consumes semantic analysis frames and an injected theme. Capture, calibration,
+source configuration, and backend workers are owned outside presentation.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import math
 import random
 import tkinter as tk
 from tkinter import ttk
 from typing import Callable
 
-from ui.music_visualizer import MusicVisualizationMode
+from ui.theme import ThemeBundle
+from ui.music_visualizer import MusicVisualizationMode, VisualizerFrame
 
-BG = "#05090d"
-PANEL = "#0b1117"
-CARD = "#0d141b"
-BORDER = "#25313b"
-TEXT = "#edf2f5"
-MUTED = "#89959e"
 BLUE = "#168bd1"
 RED = "#f15a16"
 GREEN = "#84ce1f"
@@ -44,17 +36,6 @@ _MODE_LABELS = {
 _LABEL_MODES = {label: mode for mode, label in _MODE_LABELS.items()}
 
 
-@dataclass(frozen=True, slots=True)
-class VisualizerFrame:
-    """Small frontend-facing snapshot produced by an audio-analysis source."""
-
-    level: float
-    bass: float
-    mid: float
-    treble: float
-    spectrum: tuple[float, ...]
-
-
 class MusicVisualizerPanel(tk.Frame):
     """Render OpenRoadCode music visualizations inside a Tk parent."""
 
@@ -66,8 +47,12 @@ class MusicVisualizerPanel(tk.Frame):
         *,
         on_back: Callable[[], None] | None = None,
         simulate: bool = True,
+        theme_bundle: ThemeBundle,
     ) -> None:
-        super().__init__(parent, bg=BG)
+        ui = theme_bundle.ui
+        self._bg, self._panel, self._card = ui.background, ui.surface, ui.surface
+        self._border, self._text, self._muted = ui.border, ui.text, ui.text_muted
+        super().__init__(parent, bg=self._bg)
         self._on_back = on_back
         self._simulate = simulate
         self._running = True
@@ -116,9 +101,9 @@ class MusicVisualizerPanel(tk.Frame):
 
         header = tk.Frame(
             self,
-            bg=PANEL,
+            bg=self._panel,
             highlightthickness=1,
-            highlightbackground=BORDER,
+            highlightbackground=self._border,
             padx=10,
             pady=8,
         )
@@ -130,10 +115,10 @@ class MusicVisualizerPanel(tk.Frame):
                 header,
                 text="‹ MEDIA",
                 command=self._on_back,
-                bg="#101820",
-                fg=TEXT,
-                activebackground="#182530",
-                activeforeground=TEXT,
+                bg=self._card,
+                fg=self._text,
+                activebackground=self._panel,
+                activeforeground=self._text,
                 relief=tk.FLAT,
                 font=("Sans", 10, "bold"),
                 padx=12,
@@ -143,7 +128,7 @@ class MusicVisualizerPanel(tk.Frame):
         tk.Label(
             header,
             text="MUSIC VISUALIZER",
-            bg=PANEL,
+            bg=self._panel,
             fg=BLUE,
             font=("Sans", 12, "bold"),
         ).grid(row=0, column=1, sticky="w")
@@ -151,8 +136,8 @@ class MusicVisualizerPanel(tk.Frame):
         tk.Label(
             header,
             text="SIMULATED AUDIO" if self._simulate else "AUDIO INPUT",
-            bg=PANEL,
-            fg=GREEN if self._simulate else MUTED,
+            bg=self._panel,
+            fg=GREEN if self._simulate else self._muted,
             font=("Sans", 9, "bold"),
         ).grid(row=0, column=2, padx=16, sticky="e")
 
@@ -166,7 +151,7 @@ class MusicVisualizerPanel(tk.Frame):
         picker.grid(row=0, column=3, sticky="e")
         picker.bind("<<ComboboxSelected>>", self._mode_changed)
 
-        body = tk.Frame(self, bg=BG)
+        body = tk.Frame(self, bg=self._bg)
         body.grid(row=1, column=0, sticky="nsew", padx=4, pady=(0, 4))
         body.grid_columnconfigure(0, weight=1)
         body.grid_rowconfigure(0, weight=1)
@@ -175,7 +160,7 @@ class MusicVisualizerPanel(tk.Frame):
             body,
             bg="#020509",
             highlightthickness=1,
-            highlightbackground=BORDER,
+            highlightbackground=self._border,
         )
         self._canvas.grid(row=0, column=0, sticky="nsew")
         self._canvas.bind("<Configure>", lambda _event: self._draw())
@@ -377,17 +362,3 @@ class MusicVisualizerPanel(tk.Frame):
         return "#" + "".join(f"{channel:02x}" for channel in rgb)
 
 
-def main() -> None:
-    """Standalone visual checkpoint used while the real analysis source is ported."""
-    root = tk.Tk()
-    root.title("OpenRoadCode Music Visualizer")
-    root.geometry("1024x600")
-    root.configure(bg=BG)
-    panel = MusicVisualizerPanel(root, simulate=True)
-    panel.pack(fill=tk.BOTH, expand=True)
-    root.protocol("WM_DELETE_WINDOW", root.destroy)
-    root.mainloop()
-
-
-if __name__ == "__main__":
-    main()
