@@ -70,6 +70,7 @@ def test_radar_menu_opens_collapsible_timeline_and_keeps_cloud_toggle():
     panel._on_radar_seek = Mock()
     panel._on_radar_speed = Mock()
     panel._radar_speed = 1.0
+    panel._on_radar_source = Mock()
     with patch.multiple("apps.orcUi.frontend.tk.navigation_radar_controls.tk",
                         Menubutton=Mock(), Menu=Mock(), BooleanVar=Mock(), Button=Mock()):
         # Avoid a Tcl interpreter; menu contents and callback wiring are asserted below.

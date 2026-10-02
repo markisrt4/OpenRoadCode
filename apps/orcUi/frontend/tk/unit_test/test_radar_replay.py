@@ -96,3 +96,13 @@ def test_invalid_timeline_index_does_not_publish_frame(screen):
     with pytest.raises(IndexError):
         controller.select_frame(3)
     assert controller._map_renderer.set_weather_radar.call_count == before
+
+
+def test_old_source_download_and_error_cannot_replace_new_source(screen):
+    screen._radar_load_generation = 2
+    before = screen._radar_controller._map_renderer.set_weather_radar.call_count
+    screen._show_radar_frames((RadarFrame(999, "https://old-source.test/tile.png"),), 1)
+    screen._radar_load_failed("old source timed out", 1)
+    assert screen._radar_enabled
+    assert screen._radar_controller.frame_time == 300
+    assert screen._radar_controller._map_renderer.set_weather_radar.call_count == before

@@ -64,6 +64,7 @@ class NavigationPanel(NavigationRadarControls, tk.Frame):
         on_radar_play: Callable[[], None] | None = None,
         on_radar_seek: Callable[[int], None] | None = None,
         on_radar_speed: Callable[[float], None] | None = None,
+        on_radar_source: Callable[[bool], None] | None = None,
         poi_action_executor: PoiActionExecutorIf | None = None,
     ) -> None:
         self._theme_bundle = theme_bundle or packaged_theme_bundle(ThemeMode.DARK)
@@ -85,6 +86,8 @@ class NavigationPanel(NavigationRadarControls, tk.Frame):
         self._radar_index = None
         self._radar_playing = False
         self._radar_speed = 1.0
+        self._radar_forecast = False
+        self._on_radar_source = on_radar_source
         self._route_request_handler = route_request_handler or RouteRequestHandlerStub()
         self._route_simulation_handler = route_simulation_handler
         self._map_favorites = map_favorites or MapFavorites()

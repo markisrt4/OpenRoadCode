@@ -55,6 +55,11 @@ class WeatherRadarController:
         """Return the currently displayed timeline index."""
         return self._frame_index
 
+    @property
+    def is_forecast(self) -> bool:
+        """Identify forecast imagery rather than observed radar."""
+        return self._provider.provider_id == "hrrr"
+
     def select_frame(self, index: int) -> RadarFrame:
         """Select a cached timeline frame without a network request."""
         if not 0 <= index < len(self._frames):
@@ -95,7 +100,7 @@ class WeatherRadarController:
         if not frames:
             raise ValueError("radar frames must not be empty")
         self._frames = frames
-        return self._select_frame(len(self._frames) - 1)
+        return self._select_frame(0 if self.is_forecast else len(self._frames) - 1)
 
     def previous_frame(self) -> RadarFrame:
         """Select the preceding cached historical frame."""

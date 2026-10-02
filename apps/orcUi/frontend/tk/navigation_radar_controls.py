@@ -49,6 +49,7 @@ class NavigationRadarControls:
             classic=self._radar_palette is RadarPalette.CLASSIC,
             on_speed=self._set_radar_speed, speed_value=self._radar_speed,
             ui=self._theme_bundle.ui,
+            on_source=self._on_radar_source,
         )
         self._render_radar_state()
 
@@ -68,11 +69,12 @@ class NavigationRadarControls:
         if self._on_radar_speed is not None:
             self._on_radar_speed(speed)
 
-    def set_radar_timeline(self, times, index, playing: bool = False) -> None:
+    def set_radar_timeline(self, times, index, playing: bool = False, forecast: bool = False) -> None:
         """Update the timeline and its playback state from the radar controller."""
         self._radar_times = times
         self._radar_index = index
         self._radar_playing = playing
+        self._radar_forecast = forecast
         self._render_radar_state()
 
     def _toggle_radar(self) -> None:
@@ -113,7 +115,8 @@ class NavigationRadarControls:
         popup = getattr(self, "_radar_replay_panel", None)
         if popup is not None:
             popup.render(self._radar_times, self._radar_index,
-                         enabled=self._radar_enabled, playing=self._radar_playing)
+                         enabled=self._radar_enabled, playing=self._radar_playing,
+                         forecast=self._radar_forecast)
 
     def _radar_button_text(self) -> str:
         if not self._radar_enabled:

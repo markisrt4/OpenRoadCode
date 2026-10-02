@@ -21,6 +21,13 @@ class EnvironmentalRadarInjectionController:
         self._radar = radar
         self._bridge = bridge or AndroidSensorBridgeClient()
         self._scenario = "OFF"
+        self._live_provider = RainViewerRadarProvider()
+
+    def set_live_provider(self, provider) -> None:
+        """Choose the real-data source to use when environmental injection is off."""
+        self._live_provider = provider
+        if self._scenario == "OFF":
+            self._radar.set_provider(provider)
 
     @property
     def scenario(self) -> str:
@@ -39,5 +46,5 @@ class EnvironmentalRadarInjectionController:
         if scenario in {"CLEAR", "STORM", "SEVERE"}:
             self._radar.set_provider(InjectedRadarProvider(scenario))
         else:
-            self._radar.set_provider(RainViewerRadarProvider())
+            self._radar.set_provider(self._live_provider)
         return scenario

@@ -24,6 +24,7 @@ from controllers.weather import (
     WeatherRadarController,
 )
 from controllers.weather.environmental_radar_injection_controller import EnvironmentalRadarInjectionController
+from controllers.weather.providers.hrrr_radar_provider import HrrrRadarProvider
 from frontends.tk.weather import WeatherScreen
 from hardware_io.android import AndroidSensorBridgeClient
 from services.navigation.navigation_service_cli import DEFAULT_RUNTIME_CONFIG
@@ -41,6 +42,10 @@ class WeatherComposition:
 
     def close(self) -> None:
         self.radar_tiles.close()
+
+    def select_radar_source(self, forecast: bool) -> None:
+        """Select observed radar or experimental NOAA HRRR CONUS forecasts."""
+        self.radar_injection.set_live_provider(HrrrRadarProvider() if forecast else RainViewerRadarProvider())
 
 
 def configure_weather(

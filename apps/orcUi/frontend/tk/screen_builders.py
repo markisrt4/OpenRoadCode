@@ -49,6 +49,7 @@ def build_navigation_screen(
     on_radar_play: Callable[[], None] | None = None,
     on_radar_seek: Callable[[int], None] | None = None,
     on_radar_speed: Callable[[float], None] | None = None,
+    on_radar_source: Callable[[bool], None] | None = None,
 ) -> NavigationPanel:
     screen = NavigationPanel(
         parent,
@@ -68,6 +69,7 @@ def build_navigation_screen(
         on_radar_play=on_radar_play,
         on_radar_seek=on_radar_seek,
         on_radar_speed=on_radar_speed,
+        on_radar_source=on_radar_source,
     )
     screen.pack(fill=tk.BOTH, expand=True)
     return screen

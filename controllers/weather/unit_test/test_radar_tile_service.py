@@ -4,6 +4,7 @@
 """Tests for local radar tile caching and presentation."""
 
 from io import BytesIO
+from urllib.parse import urlparse
 
 from PIL import Image
 
@@ -59,9 +60,9 @@ def test_service_caches_source_across_palettes(tmp_path) -> None:
         max_zoom=7,
     )
     try:
-        service.tile_url(frame, RadarPalette.UNIVERSAL)
-        universal = service._handle_path("/radar/200/universal/7/34/47.png")
-        classic = service._handle_path("/radar/200/classic/7/34/47.png")
+        path = urlparse(service.tile_url(frame, RadarPalette.UNIVERSAL)).path.format(z=7, x=34, y=47)
+        universal = service._handle_path(path)
+        classic = service._handle_path(path.replace("/universal/", "/classic/"))
     finally:
         service.close()
 

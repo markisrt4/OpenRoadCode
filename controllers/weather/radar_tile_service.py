@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from hashlib import sha256
 from io import BytesIO
 from pathlib import Path
 from threading import Lock, Thread
@@ -17,6 +18,7 @@ from PIL import Image, ImageDraw
 from common.xdg_paths import openroadcode_cache_dir
 from controllers.weather.radar_palette import RadarPalette
 from controllers.weather.radar_provider_if import RadarFrame
+from controllers.weather.hrrr_tiles import color_hrrr_reflectivity, hrrr_export_url
 
 
 # Representative points from RainViewer's published Universal Blue dBZ table.
@@ -94,7 +96,7 @@ class RadarTileService:
         self._cache_root = Path(cache_root) if cache_root else openroadcode_cache_dir("radar")
         self._session = session or requests.Session()
         self._timeout_seconds = timeout_seconds
-        self._frames: dict[int, str] = {}
+        self._frames: dict[str, str] = {}
         self._cache_locks_guard = Lock()
         self._cache_locks: dict[Path, Lock] = {}
 
@@ -135,10 +137,11 @@ class RadarTileService:
         self._session.close()
 
     def tile_url(self, frame: RadarFrame, palette: RadarPalette) -> str:
-        self._frames[frame.timestamp] = frame.tile_url
+        key = f"{frame.timestamp}-{sha256(frame.tile_url.encode()).hexdigest()[:16]}"
+        self._frames[key] = frame.tile_url
         port = self._server.server_address[1]
         return (
-            f"http://127.0.0.1:{port}/radar/{frame.timestamp}/{palette.value}"
+            f"http://127.0.0.1:{port}/radar/{key}/{palette.value}"
             "/{z}/{x}/{y}.png"
         )
 
@@ -146,24 +149,36 @@ class RadarTileService:
         parts = urlparse(raw_path).path.strip("/").split("/")
         if len(parts) != 6 or parts[0] != "radar" or not parts[5].endswith(".png"):
             raise ValueError("invalid radar tile path")
-        timestamp = int(parts[1])
+        key = parts[1]
+        if not all(character in "0123456789abcdef-" for character in key):
+            raise ValueError("invalid radar frame key")
         palette = RadarPalette(parts[2])
         z, x = int(parts[3]), int(parts[4])
         y = int(parts[5].removesuffix(".png"))
-        template = self._frames.get(timestamp)
+        template = self._frames.get(key)
         if template is None:
             raise ValueError("unknown radar frame")
 
-        source_path = self._cache_root / str(timestamp) / "source" / str(z) / str(x) / f"{y}.png"
+        source_path = self._cache_root / key / "source" / str(z) / str(x) / f"{y}.png"
         source_url = template.format(z=z, x=x, y=y)
         if source_url.startswith("orc-injected://"):
             source = self._synthetic_tile(source_url, z, x, y, palette)
+        elif source_url.startswith("orc-hrrr://"):
+            with self._cache_lock(source_path):
+                if source_path.is_file():
+                    source = source_path.read_bytes()
+                else:
+                    response = self._session.get(hrrr_export_url(template, z, x, y),
+                                                 timeout=self._timeout_seconds)
+                    response.raise_for_status()
+                    source = color_hrrr_reflectivity(response.content, _UNIVERSAL_DBZ)
+                    self._write_cache(source_path, source)
         else:
             source = self._read_or_fetch(source_path, source_url)
         if palette is RadarPalette.UNIVERSAL:
             return source
 
-        derived_path = self._cache_root / str(timestamp) / palette.value / str(z) / str(x) / f"{y}.png"
+        derived_path = self._cache_root / key / palette.value / str(z) / str(x) / f"{y}.png"
         lock = self._cache_lock(derived_path)
         with lock:
             if derived_path.is_file():

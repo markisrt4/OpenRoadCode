@@ -158,6 +158,7 @@ def create_orc_ui_composition() -> OrcUiComposition:
             radar_injection_controller=weather.radar_injection,
             on_radar_palette_changed=set_radar_palette,
             on_radar_visibility_changed=home.refresh_radar_state,
+            on_radar_source_changed=weather.select_radar_source,
             refresh_radar=refresh_radar_map_state,
         )
         vehicle = VehicleScreen(

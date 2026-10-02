@@ -48,6 +48,7 @@ class NavigationScreen(TkScreen):
         on_radar_palette_changed: Callable[[RadarPalette], None] | None = None,
         refresh_radar: Callable[[], None] | None = None,
         on_radar_visibility_changed: Callable[[], None] | None = None,
+        on_radar_source_changed: Callable[[bool], None] | None = None,
     ) -> None:
         super().__init__(self.SCREEN_ID)
         self._host = host
@@ -64,6 +65,7 @@ class NavigationScreen(TkScreen):
         self._on_radar_palette_changed = on_radar_palette_changed
         self._refresh_radar = refresh_radar
         self._on_radar_visibility_changed = on_radar_visibility_changed
+        self._on_radar_source_changed = on_radar_source_changed
         self._panel: NavigationPanel | None = None
         self._radar_playing = False
         self._radar_playback_generation = 0
@@ -94,6 +96,7 @@ class NavigationScreen(TkScreen):
             on_radar_play=self._radar_play_pause,
             on_radar_seek=self._radar_seek,
             on_radar_speed=self._radar_set_speed,
+            on_radar_source=self._change_radar_source,
         )
         self._sync_radar_timeline()
 
@@ -180,14 +183,26 @@ class NavigationScreen(TkScreen):
 
     def _radar_live(self) -> None:
         self._pause_radar()
+        if self._radar_controller is not None and self._radar_controller.is_forecast:
+            self._change_radar_source(False)
+            return
         if self._radar_controller is not None:
             self._toggle_radar(True)
+
+    def _change_radar_source(self, forecast: bool) -> None:
+        self._pause_radar()
+        if self._on_radar_source_changed is not None:
+            self._radar_controller.hide()
+            self._on_radar_source_changed(forecast)
+            self._sync_radar_timeline()
+            self.set_radar_enabled(True)
 
     def _sync_radar_timeline(self) -> None:
         if self._panel is not None and self._radar_controller is not None:
             self._panel.set_radar_timeline(
                 self._radar_controller.frame_times, self._radar_controller.frame_index,
                 self.__dict__.get("_radar_playing", False),
+                self._radar_controller.is_forecast,
             )
 
     def _pause_radar(self) -> None:
@@ -268,6 +283,8 @@ class NavigationScreen(TkScreen):
         if controller is None:
             return
         self._radar_enabled = enabled
+        generation = self.__dict__.get("_radar_load_generation", 0) + 1
+        self._radar_load_generation = generation
         self._notify_radar_visibility()
         if not enabled:
             self._pause_radar()
@@ -279,16 +296,17 @@ class NavigationScreen(TkScreen):
                 if self._radar_injection_controller is not None:
                     self._radar_injection_controller.refresh()
                 frames = controller.load_frames()
-                self._host.schedule_ui_callback(0, lambda: self._show_radar_frames(frames))
+                self._host.schedule_ui_callback(0, lambda: self._show_radar_frames(frames, generation))
             except Exception as error:
                 detail = str(error)
-                self._host.schedule_ui_callback(0, lambda: self._radar_load_failed(detail))
+                self._host.schedule_ui_callback(0, lambda: self._radar_load_failed(detail, generation))
 
         threading.Thread(target=load_latest, name="weather-radar-refresh", daemon=True).start()
 
-    def _show_radar_frames(self, frames) -> None:
+    def _show_radar_frames(self, frames, generation=None) -> None:
         # A completed download must not re-enable radar after the user turned it off.
-        if not self._radar_enabled:
+        if (not self._radar_enabled or
+                (generation is not None and generation != self._radar_load_generation)):
             return
         try:
             frame = self._radar_controller.show_frames(frames)
@@ -308,7 +326,9 @@ class NavigationScreen(TkScreen):
             else:
                 self._radar_controller.refresh_renderer_state()
 
-    def _radar_load_failed(self, detail: str) -> None:
+    def _radar_load_failed(self, detail: str, generation=None) -> None:
+        if generation is not None and generation != self._radar_load_generation:
+            return
         self._radar_enabled = False
         self._pause_radar()
         try:

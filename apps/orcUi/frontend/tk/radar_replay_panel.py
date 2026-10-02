@@ -13,7 +13,7 @@ class RadarReplayPanel(tk.Toplevel):
     """Keep replay controls together in a collapsible floating panel."""
 
     def __init__(self, owner, anchor, *, on_play, on_seek, on_live, on_close,
-                 on_palette, classic, on_speed, speed_value, ui):
+                 on_palette, classic, on_speed, speed_value, ui, on_source=None):
         super().__init__(owner, bg=ui.control_background)
         self.withdraw()
         self.overrideredirect(True)
@@ -26,7 +26,8 @@ class RadarReplayPanel(tk.Toplevel):
         self._body = tk.Frame(self, bg=ui.control_background, padx=12, pady=8)
         self._body.pack(fill=tk.BOTH, expand=True)
         title = self._row()
-        self._label(title, "Radar history").pack(side=tk.LEFT)
+        self._title = self._label(title, "Radar history")
+        self._title.pack(side=tk.LEFT)
         self._button(title, "×", on_close).pack(side=tk.RIGHT)
         self._timestamp = self._label(self._body, "Turn radar on to load history")
         self._timestamp.pack(anchor="w", pady=(3, 0))
@@ -41,7 +42,8 @@ class RadarReplayPanel(tk.Toplevel):
         labels = self._row()
         self._oldest = self._label(labels, "Earlier")
         self._oldest.pack(side=tk.LEFT)
-        self._label(labels, "Latest").pack(side=tk.RIGHT)
+        self._edge = self._label(labels, "Latest")
+        self._edge.pack(side=tk.RIGHT)
         actions = self._row()
         self._play = self._button(actions, "▶ Play", on_play)
         self._play.pack(side=tk.LEFT, pady=6)
@@ -68,6 +70,16 @@ class RadarReplayPanel(tk.Toplevel):
             highlightthickness=0, pady=5,
         )
         self._classic_toggle.pack(anchor="w")
+        self._forecast = tk.BooleanVar(self, value=False)
+        self._forecast_toggle = tk.Checkbutton(
+            self._body, text="HRRR forecast · US (experimental)", variable=self._forecast,
+            command=lambda: on_source(self._forecast.get()),
+            bg=ui.control_background, fg=ui.control_text, selectcolor=ui.background,
+            activebackground=ui.control_background, activeforeground=ui.control_text,
+            font=("Sans", FONT_CONTROL), highlightthickness=0, pady=5,
+            state=tk.NORMAL if on_source is not None else tk.DISABLED,
+        )
+        self._forecast_toggle.pack(anchor="w")
         self.bind("<Escape>", lambda _event: on_close())
         self.update_idletasks()
         self.reposition()
@@ -100,9 +112,14 @@ class RadarReplayPanel(tk.Toplevel):
         if self._times and index != self._frame_index:
             self._on_seek(index)
 
-    def render(self, times, index, *, enabled, playing):
+    def render(self, times, index, *, enabled, playing, forecast=False):
         """Synchronize controls without treating playback as user scrubbing."""
         self._times = times
+        self._forecast.set(forecast)
+        self._title.configure(text="HRRR forecast · CONUS" if forecast else "Radar history")
+        edge = (datetime.fromtimestamp(times[-1]).strftime("%I:%M %p").lstrip("0")
+                if forecast and times else "Latest")
+        self._edge.configure(text=edge)
         self._frame_index = index
         available = enabled and bool(times)
         self._timeline.configure(to=max(1, len(times) - 1),
@@ -111,15 +128,17 @@ class RadarReplayPanel(tk.Toplevel):
             self._value.set(index)
         self._play.configure(text="Ⅱ Pause" if playing else "▶ Play",
                              state=tk.NORMAL if available and len(times) > 1 else tk.DISABLED)
-        self._live.configure(state=tk.NORMAL if enabled else tk.DISABLED)
+        self._live.configure(text="Now" if forecast else "Live",
+                             state=tk.NORMAL if enabled or forecast else tk.DISABLED)
         if not enabled:
             label = "Turn radar on to load history"
         elif not times or index is None:
             label = "Loading radar history…"
         else:
             frame = datetime.fromtimestamp(times[index]).astimezone()
-            minutes = max(0, int((datetime.now().timestamp() - times[index]) / 60))
-            suffix = "Latest" if index == len(times) - 1 else f"{minutes} min ago"
+            delta = int((times[index] - datetime.now().timestamp()) / 60)
+            suffix = (f"Forecast · +{max(0, delta)} min" if forecast else
+                      ("Latest" if index == len(times) - 1 else f"{max(0, -delta)} min ago"))
             label = f"{frame.strftime('%I:%M %p').lstrip('0')} · {suffix}"
         self._timestamp.configure(text=label)
         if times:

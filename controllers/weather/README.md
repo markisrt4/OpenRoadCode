@@ -140,6 +140,32 @@ below the replay controls. Collapsing the panel keeps
 radar visible and allows playback to continue; turning radar off or leaving
 Navigation stops playback. The cloud button beside the menu controls visibility.
 
+The experimental HRRR forecast toggle selects NOAA's CONUS simulated composite
+reflectivity for the next six hours. Forecasts open at the nearest future frame,
+are labeled Forecast with their lead time, and use Now to return to observed
+RainViewer radar. HRRR is model output, not a future radar observation; coverage
+is the contiguous United States. Forecast availability depends on NOAA's public
+ArcGIS image service. A missing service or forecast is reported as unavailable.
+
+The HRRR provider discovers the composite-reflectivity ImageServer from
+`https://mapservices.weather.noaa.gov/raster/rest/services/reflectivity`, queries
+valid times, and locks exports to individual forecast rasters. The tile service
+requests only visible 256-pixel Web Mercator TIFF tiles, converts raw dBZ to
+transparent radar PNGs with Pillow, and supports both palettes. No GRIB decoder
+or new Python dependency is required. Source-specific cache keys prevent observed
+and forecast tiles at the same time from colliding; HRRR cache identities refresh
+hourly. Older source downloads cannot overwrite a newly requested source.
+
+Probe live NOAA metadata and raw reflectivity decoding before diagnosing map
+rendering:
+
+```bash
+python -m controllers.weather.component_test.hrrr_radar_provider_cli
+```
+
+The probe saves a forecast PNG under `~/.cache/openroadcode`. Use `--image-service`
+to specify an ImageServer URL when testing a changed NOAA directory layout.
+
 Radar has two focused component tests:
 
 ```bash
