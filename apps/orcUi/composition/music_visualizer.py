@@ -83,6 +83,8 @@ def create_browser_visualizer(app):
         sources["android-playback"] = lambda: AndroidPlaybackAudioCapture(block_size=size)
     session = MusicAnalysisSession(sources)
     selected = selected_music_visualizer_source()
+    if "OPENROAD_MUSIC_VISUALIZER_SOURCE" not in os.environ and "android-playback" in sources:
+        selected = MusicVisualizerSource.ANDROID_PLAYBACK
     name = {MusicVisualizerSource.PIPEWIRE: "linux-pipewire",
             MusicVisualizerSource.ANDROID_PLAYBACK: "android-playback"}.get(selected)
     if name in sources:

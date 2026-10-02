@@ -1,3 +1,4 @@
+# SPDX-FileCopyrightText: 2026 OpenRoadCode contributors
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 
@@ -53,3 +54,32 @@ def test_real_capture_rejects_incomplete_fft_blocks(monkeypatch):
     monkeypatch.setenv('OPENROAD_MUSIC_VISUALIZER_BLOCK_SIZE', '512')
     with pytest.raises(ValueError, match='>= 2048'):
         create_music_visualizer_session(lambda frame: None, source=MusicVisualizerSource.PIPEWIRE)
+
+
+def test_termux_browser_defaults_to_android_playback_without_starting_capture(monkeypatch):
+    from unittest.mock import Mock
+    from apps.orcUi.composition.music_visualizer import create_browser_visualizer
+    from ui.theme import ThemeMode
+    monkeypatch.delenv('OPENROAD_MUSIC_VISUALIZER_SOURCE', raising=False)
+    monkeypatch.setenv('TERMUX_VERSION', 'test')
+    monkeypatch.setattr('apps.launchers.browser_launcher.BrowserKioskLauncher', Mock)
+    host = create_browser_visualizer(Mock(theme_mode=ThemeMode.DARK))
+    try:
+        assert host._session.state()['source'] == 'android-playback'
+        assert not host._session.state()['running']
+    finally:
+        host.close()
+
+
+def test_explicit_browser_source_choice_is_preserved_on_termux(monkeypatch):
+    from unittest.mock import Mock
+    from apps.orcUi.composition.music_visualizer import create_browser_visualizer
+    from ui.theme import ThemeMode
+    monkeypatch.setenv('OPENROAD_MUSIC_VISUALIZER_SOURCE', 'simulated')
+    monkeypatch.setenv('TERMUX_VERSION', 'test')
+    monkeypatch.setattr('apps.launchers.browser_launcher.BrowserKioskLauncher', Mock)
+    host = create_browser_visualizer(Mock(theme_mode=ThemeMode.DARK))
+    try:
+        assert host._session.state()['source'] is None
+    finally:
+        host.close()

@@ -23,10 +23,21 @@ the bridge app first. Capture-restricted applications may not provide audio.
 
 For PipeWire playback monitoring, set
 `OPENROAD_MUSIC_VISUALIZER_PIPEWIRE_TARGET` to the appropriate monitor node.
-`OPENROAD_MUSIC_VISUALIZER_SOURCE=pipewire` or `android-playback` preselects an
-available input. Capture begins only when START AUDIO is pressed. STOP and leaving
+Termux/Android defaults to Android Playback. Start **Android Bridge → Android
+Playback Audio → START PLAYBACK CAPTURE**, grant audio permission, and approve
+Android's capture prompt, then press **START AUDIO** in ORC.
+`OPENROAD_MUSIC_VISUALIZER_SOURCE=pipewire` or `android-playback` overrides the
+initial input. Capture begins only when START AUDIO is pressed. STOP and leaving
 the screen release capture; ORC shutdown closes Chromium and the local server.
 CALIBRATE, FINISH, and CLEAR manage the shared ambient-noise profile.
+
+Both input and preset menus render inside the browser page, avoiding native
+Chromium popup windows that can fail when reparented into Termux/X11. Silence is
+reported separately from a failed stream. If Android Playback connects but stays
+silent, clear calibration and try a capture-permitted audio app. Inspect native
+capture with `curl -s http://127.0.0.1:8768/status`; connection refused means the
+bridge playback service is not running. The bridge supports one stream client,
+so stop another WebUi/visualizer consumer before retrying.
 `OPENROAD_MUSIC_VISUALIZER_BLOCK_SIZE` defaults to 2048 and must be at least 2048.
 
 Chromium, `xdotool`, Flask, and NumPy are included in the updated desktop/Termux
@@ -67,6 +78,18 @@ Run the automated unit and integration suites from the repository root:
 ```bash
 python scripts/run_tests.py all
 ```
+
+A repeatable embedded X11/browser check is available with the optional Python
+`playwright` package installed:
+
+```bash
+python -m apps.orcUi.component_test.music_visualizer_browser_cli
+```
+
+It uses a synthetic microphone and clicks all 13 page-rendered preset choices,
+including fullscreen, then verifies capture cleanup on navigation. An isolated
+headless X11 test host may use `--software-rendering`; normal ORC does not force
+software rendering.
 
 Hardware component checks remain separate: confirm live PipeWire monitor audio
 on Linux, Android playback consent and streaming on the phone, and browser

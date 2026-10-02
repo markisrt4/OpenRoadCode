@@ -1,3 +1,4 @@
+# SPDX-FileCopyrightText: 2026 OpenRoadCode contributors
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 
@@ -14,6 +15,7 @@ import struct
 import threading
 from urllib.parse import urlsplit
 from urllib.request import urlopen
+from urllib.error import HTTPError, URLError
 
 import numpy as np
 
@@ -55,7 +57,15 @@ class AndroidPlaybackAudioCapture(AudioCaptureIf):
         with self._lock:
             if self._running:
                 raise RuntimeError("Android playback capture is already running")
-        response = urlopen(self.url, timeout=3)
+        try:
+            response = urlopen(self.url, timeout=3)
+        except HTTPError as exc:
+            exc.close()
+            if exc.code == 409:
+                raise RuntimeError("Android playback is already in use. Stop the other visualizer or PCM client and retry.") from exc
+            raise RuntimeError(f"Android playback bridge returned HTTP {exc.code}") from exc
+        except URLError as exc:
+            raise RuntimeError("Android playback bridge is unavailable. Open Android Bridge, press START PLAYBACK CAPTURE, approve Android consent, then retry START AUDIO.") from exc
         try:
             header = self._read_exact(response, 12)
             if len(header) != 12:

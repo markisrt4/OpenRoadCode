@@ -28,6 +28,7 @@ html[data-color-scheme="light"] p{color:#435365}
 <p id="music-zeroize-status">No ambient-noise calibration.</p>
 <div id="music-visualizer-anchor"></div>
 <div hidden><div id="music-bass"></div><div id="music-mid"></div><div id="music-treble"></div></div>
+<script src="/web-assets/audio-analysis/inline_select.js"></script>
 <script src="/web-assets/audio-analysis/browser_pcm_capture.js"></script>
 <script src="/web-assets/audio-analysis/webgl_music_visualizer.js"></script>
 <script src="/web-assets/audio-analysis/music_visualizer.js"></script>
