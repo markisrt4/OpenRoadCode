@@ -7,6 +7,7 @@ import tkinter as tk
 
 from controllers.weather.radar_palette import RadarPalette
 from .shell_metrics import FONT_CONTROL
+from .radar_replay_panel import RadarReplayPanel
 
 
 class NavigationRadarControls:
@@ -17,31 +18,14 @@ class NavigationRadarControls:
         self._radar_button = None
         if self._on_radar_toggle is None:
             return
-        self._radar_button = tk.Menubutton(
+        self._radar_replay_panel = None
+        self._radar_button = tk.Button(
             bar, text="☰ RADAR", bg=ui.control_background, fg=ui.text,
             activebackground=ui.control_active, activeforeground=ui.control_text,
             relief=tk.FLAT, font=("Sans", FONT_CONTROL, "bold"), padx=8, pady=4,
+            command=self._toggle_radar_menu,
         )
-        menu = tk.Menu(self._radar_button, tearoff=False,
-                       bg=ui.control_background, fg=ui.control_text,
-                       activebackground=ui.control_active, activeforeground=ui.control_text)
-        self._radar_menu = menu
-        self._radar_visible_var = tk.BooleanVar(value=self._radar_enabled)
-        menu.add_checkbutton(label="Show weather radar", variable=self._radar_visible_var,
-                             command=self._toggle_radar)
-        menu.add_separator()
-        for label, callback in (
-            ("Previous frame", self._on_radar_previous),
-            ("Next frame", self._on_radar_next),
-            ("Latest / live", self._on_radar_live),
-        ):
-            if callback is not None:
-                menu.add_command(label=label, command=callback)
-        menu.add_separator()
         self._classic_radar_var = tk.BooleanVar(value=self._radar_palette is RadarPalette.CLASSIC)
-        menu.add_checkbutton(label="Classic palette", variable=self._classic_radar_var,
-                             command=self._toggle_radar_palette)
-        self._radar_button.configure(menu=menu)
         self._radar_quick_toggle = tk.Button(
             bar, text="☁", command=self._toggle_radar,
             bg=ui.control_background, activebackground=ui.control_active,
@@ -51,6 +35,44 @@ class NavigationRadarControls:
         # RIGHT packs the first widget at the outer edge: cloud, then menu.
         self._radar_quick_toggle.pack(side=tk.RIGHT, padx=(4, 0), pady=3)
         self._radar_button.pack(side=tk.RIGHT, padx=(4, 0), pady=3)
+        self._render_radar_state()
+
+    def _toggle_radar_menu(self) -> None:
+        if self._radar_replay_panel is not None:
+            self.close_radar_menu()
+            return
+        self._radar_replay_panel = RadarReplayPanel(
+            self, self._radar_button,
+            on_play=self._on_radar_play, on_seek=self._on_radar_seek,
+            on_live=self._on_radar_live, on_close=self.close_radar_menu,
+            on_palette=self._set_classic_palette,
+            classic=self._radar_palette is RadarPalette.CLASSIC,
+            on_speed=self._set_radar_speed, speed_value=self._radar_speed,
+            ui=self._theme_bundle.ui,
+        )
+        self._render_radar_state()
+
+    def close_radar_menu(self) -> None:
+        """Dismiss the timeline without changing radar visibility."""
+        popup = getattr(self, "_radar_replay_panel", None)
+        if popup is not None:
+            popup.destroy()
+            self._radar_replay_panel = None
+
+    def _set_classic_palette(self, classic: bool) -> None:
+        self._classic_radar_var.set(classic)
+        self._toggle_radar_palette()
+
+    def _set_radar_speed(self, speed: float) -> None:
+        self._radar_speed = speed
+        if self._on_radar_speed is not None:
+            self._on_radar_speed(speed)
+
+    def set_radar_timeline(self, times, index, playing: bool = False) -> None:
+        """Update the timeline and its playback state from the radar controller."""
+        self._radar_times = times
+        self._radar_index = index
+        self._radar_playing = playing
         self._render_radar_state()
 
     def _toggle_radar(self) -> None:
@@ -88,12 +110,10 @@ class NavigationRadarControls:
                 fg=ui.accent_success if self._radar_enabled else ui.text_muted,
                 relief=tk.SUNKEN if self._radar_enabled else tk.FLAT,
             )
-        if hasattr(self, "_radar_menu"):
-            self._radar_menu.entryconfigure(0, label="Show weather radar" if not self._radar_enabled
-                                            else self._radar_button_text())
-            for index in range(2, self._radar_menu.index("end") - 1):
-                self._radar_menu.entryconfigure(index, state=tk.NORMAL if self._radar_enabled
-                                                else tk.DISABLED)
+        popup = getattr(self, "_radar_replay_panel", None)
+        if popup is not None:
+            popup.render(self._radar_times, self._radar_index,
+                         enabled=self._radar_enabled, playing=self._radar_playing)
 
     def _radar_button_text(self) -> str:
         if not self._radar_enabled:

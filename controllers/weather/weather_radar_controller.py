@@ -46,6 +46,22 @@ class WeatherRadarController:
         return bool(self._frames)
 
     @property
+    def frame_times(self) -> tuple[int, ...]:
+        """Return available timeline timestamps, oldest to newest."""
+        return tuple(frame.timestamp for frame in self._frames)
+
+    @property
+    def frame_index(self) -> int | None:
+        """Return the currently displayed timeline index."""
+        return self._frame_index
+
+    def select_frame(self, index: int) -> RadarFrame:
+        """Select a cached timeline frame without a network request."""
+        if not 0 <= index < len(self._frames):
+            raise IndexError("radar frame index is outside the available history")
+        return self._select_frame(index)
+
+    @property
     def opacity(self) -> float:
         return self._opacity
 

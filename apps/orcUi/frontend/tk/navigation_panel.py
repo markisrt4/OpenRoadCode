@@ -61,6 +61,9 @@ class NavigationPanel(NavigationRadarControls, tk.Frame):
         on_radar_previous: Callable[[], None] | None = None,
         on_radar_next: Callable[[], None] | None = None,
         on_radar_live: Callable[[], None] | None = None,
+        on_radar_play: Callable[[], None] | None = None,
+        on_radar_seek: Callable[[int], None] | None = None,
+        on_radar_speed: Callable[[float], None] | None = None,
         poi_action_executor: PoiActionExecutorIf | None = None,
     ) -> None:
         self._theme_bundle = theme_bundle or packaged_theme_bundle(ThemeMode.DARK)
@@ -75,6 +78,13 @@ class NavigationPanel(NavigationRadarControls, tk.Frame):
         self._on_radar_previous = on_radar_previous
         self._on_radar_next = on_radar_next
         self._on_radar_live = on_radar_live
+        self._on_radar_play = on_radar_play
+        self._on_radar_seek = on_radar_seek
+        self._on_radar_speed = on_radar_speed
+        self._radar_times = ()
+        self._radar_index = None
+        self._radar_playing = False
+        self._radar_speed = 1.0
         self._route_request_handler = route_request_handler or RouteRequestHandlerStub()
         self._route_simulation_handler = route_simulation_handler
         self._map_favorites = map_favorites or MapFavorites()
@@ -108,6 +118,7 @@ class NavigationPanel(NavigationRadarControls, tk.Frame):
         return self._map_host.winfo_id()
 
     def set_theme_bundle(self, theme_bundle: ThemeBundle) -> None:
+        self.close_radar_menu()
         self._theme_bundle = theme_bundle
         self.configure(bg=theme_bundle.ui.background)
         for child in self.winfo_children():
@@ -127,6 +138,7 @@ class NavigationPanel(NavigationRadarControls, tk.Frame):
         )
 
     def destroy(self) -> None:
+        self.close_radar_menu()
         if self._poi_search_after_id is not None:
             try:
                 self.after_cancel(self._poi_search_after_id)

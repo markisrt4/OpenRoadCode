@@ -65,12 +65,16 @@ class NavigationScreen(TkScreen):
         self._refresh_radar = refresh_radar
         self._on_radar_visibility_changed = on_radar_visibility_changed
         self._panel: NavigationPanel | None = None
+        self._radar_playing = False
+        self._radar_playback_generation = 0
+        self._radar_playback_speed = 1.0
 
     def show(self) -> None:
         """Build NAVIGATION content and start its embedded map renderer."""
         self._host.activate_screen(self)
         self._host.clear_screen_content()
         self._host.set_screen_title("NAVIGATION")
+        self._radar_playback_speed = 1.0
 
         self._panel = build_navigation_screen(
             self._host.screen_parent,
@@ -87,7 +91,11 @@ class NavigationScreen(TkScreen):
             on_radar_previous=self._radar_previous if self._radar_controller is not None else None,
             on_radar_next=self._radar_next if self._radar_controller is not None else None,
             on_radar_live=self._radar_live if self._radar_controller is not None else None,
+            on_radar_play=self._radar_play_pause,
+            on_radar_seek=self._radar_seek,
+            on_radar_speed=self._radar_set_speed,
         )
+        self._sync_radar_timeline()
 
         if self._telemetry_profile_request is not None:
             self._telemetry_profile_request(AutomotiveTelemetryProfile.BACKGROUND)
@@ -100,6 +108,9 @@ class NavigationScreen(TkScreen):
 
     def hide(self) -> None:
         """Stop transient navigation resources when navigating away."""
+        self._pause_radar()
+        if self._panel is not None:
+            self._panel.close_radar_menu()
         self._map_runtime.stop()
         self._panel = None
 
@@ -155,6 +166,7 @@ class NavigationScreen(TkScreen):
                      if frames is not None else selector())
             if self._panel is not None:
                 self._panel.set_radar_frame_time(frame.timestamp)
+            self._sync_radar_timeline()
         except Exception as error:
             self._radar_load_failed(str(error))
 
@@ -167,8 +179,72 @@ class NavigationScreen(TkScreen):
             self._select_radar_frame(self._radar_controller.next_frame)
 
     def _radar_live(self) -> None:
+        self._pause_radar()
         if self._radar_controller is not None:
             self._toggle_radar(True)
+
+    def _sync_radar_timeline(self) -> None:
+        if self._panel is not None and self._radar_controller is not None:
+            self._panel.set_radar_timeline(
+                self._radar_controller.frame_times, self._radar_controller.frame_index,
+                self.__dict__.get("_radar_playing", False),
+            )
+
+    def _pause_radar(self) -> None:
+        self._radar_playing = False
+        self._radar_playback_generation = self.__dict__.get("_radar_playback_generation", 0) + 1
+        self._sync_radar_timeline()
+
+    def _radar_seek(self, index: int) -> None:
+        self._pause_radar()
+        if self._radar_enabled and self._radar_controller is not None:
+            try:
+                self._radar_controller.select_frame(index)
+                self._sync_radar_timeline()
+            except (IndexError, OSError, RuntimeError) as error:
+                self._radar_load_failed(str(error))
+
+    def _radar_set_speed(self, speed: float) -> None:
+        self._radar_playback_speed = speed
+
+    def _radar_play_pause(self) -> None:
+        if self._radar_playing:
+            self._pause_radar()
+            return
+        controller = self._radar_controller
+        if not self._radar_enabled or controller is None or len(controller.frame_times) < 2:
+            return
+        self._radar_playing = True
+        self._radar_playback_generation += 1
+        # Starting from Live begins the history rather than waiting at its end.
+        try:
+            if controller.is_live:
+                controller.select_frame(0)
+            self._sync_radar_timeline()
+            self._schedule_radar_tick(self._radar_playback_generation)
+        except (IndexError, OSError, RuntimeError) as error:
+            self._radar_load_failed(str(error))
+
+    def _schedule_radar_tick(self, generation: int) -> None:
+        self._host.schedule_ui_callback(
+            int(1500 / self._radar_playback_speed), lambda: self._radar_tick(generation),
+        )
+
+    def _radar_tick(self, generation: int) -> None:
+        if (not self._radar_playing or generation != self._radar_playback_generation
+                or not self._radar_enabled or self._panel is None):
+            return
+        controller = self._radar_controller
+        try:
+            count = len(controller.frame_times)
+            if count < 2:
+                self._pause_radar()
+                return
+            controller.select_frame(((controller.frame_index or 0) + 1) % count)
+            self._sync_radar_timeline()
+            self._schedule_radar_tick(generation)
+        except (IndexError, OSError, RuntimeError) as error:
+            self._radar_load_failed(str(error))
 
     def _update_radar_frame(self, panel: NavigationPanel, timestamp: int) -> None:
         if self._panel is panel:
@@ -194,6 +270,7 @@ class NavigationScreen(TkScreen):
         self._radar_enabled = enabled
         self._notify_radar_visibility()
         if not enabled:
+            self._pause_radar()
             controller.hide()
             return
 
@@ -217,6 +294,7 @@ class NavigationScreen(TkScreen):
             frame = self._radar_controller.show_frames(frames)
             if self._panel is not None:
                 self._panel.set_radar_frame_time(frame.timestamp)
+            self._sync_radar_timeline()
             # Retry through slower native startup; identical-frame replays retain tiles.
             for delay_ms in (300, 1200, 2500, 5000):
                 self._host.schedule_ui_callback(delay_ms, self._replay_requested_radar)
@@ -232,6 +310,7 @@ class NavigationScreen(TkScreen):
 
     def _radar_load_failed(self, detail: str) -> None:
         self._radar_enabled = False
+        self._pause_radar()
         try:
             self._radar_controller.hide()
         except (OSError, RuntimeError):

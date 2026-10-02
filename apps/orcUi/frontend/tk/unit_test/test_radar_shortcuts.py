@@ -57,7 +57,7 @@ def test_pending_radar_can_be_disabled_before_frame_finishes_loading():
     screen._radar_controller.hide.assert_called_once_with()
 
 
-def test_radar_menu_retains_actions_in_one_dropdown():
+def test_radar_menu_opens_collapsible_timeline_and_keeps_cloud_toggle():
     panel = object.__new__(NavigationPanel)
     panel._theme_bundle = theme_bundle(ThemeMode.DARK)
     panel._radar_enabled = False
@@ -66,18 +66,27 @@ def test_radar_menu_retains_actions_in_one_dropdown():
     panel._on_radar_previous = Mock()
     panel._on_radar_next = Mock()
     panel._on_radar_live = Mock()
+    panel._on_radar_play = Mock()
+    panel._on_radar_seek = Mock()
+    panel._on_radar_speed = Mock()
+    panel._radar_speed = 1.0
     with patch.multiple("apps.orcUi.frontend.tk.navigation_radar_controls.tk",
                         Menubutton=Mock(), Menu=Mock(), BooleanVar=Mock(), Button=Mock()):
         # Avoid a Tcl interpreter; menu contents and callback wiring are asserted below.
         panel._render_radar_state = Mock()
         panel._build_radar_controls(Mock())
-    commands = panel._radar_menu.add_command.call_args_list
-    assert [call.kwargs["label"] for call in commands] == [
-        "Previous frame", "Next frame", "Latest / live"
-    ]
-    commands[0].kwargs["command"]()
-    panel._on_radar_previous.assert_called_once_with()
-    assert panel._radar_menu.add_checkbutton.call_count == 2
+    with patch("apps.orcUi.frontend.tk.navigation_radar_controls.RadarReplayPanel") as popup:
+        panel._toggle_radar_menu()
+        callbacks = popup.call_args.kwargs
+        callbacks["on_play"]()
+        callbacks["on_seek"](3)
+        callbacks["on_live"]()
+        panel._on_radar_play.assert_called_once_with()
+        panel._on_radar_seek.assert_called_once_with(3)
+        panel._on_radar_live.assert_called_once_with()
+        panel._toggle_radar_menu()
+        popup.return_value.destroy.assert_called_once_with()
+        assert panel._radar_replay_panel is None
 
 
 def test_cloud_toggle_reflects_visibility_without_changing_camera():
