@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+# SPDX-FileCopyrightText: 2026 OpenRoadCode contributors
+# SPDX-License-Identifier: MIT
+
+set -euo pipefail
+
+PROJECT_ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+cd "$PROJECT_ROOT"
+
+is_termux=false
+if [[ -n "${TERMUX_VERSION:-}" || "${PREFIX:-}" == *com.termux* ]]; then
+    is_termux=true
+    export DISPLAY=:1
+    default_venv="$PROJECT_ROOT/venv-termux"
+else
+    export DISPLAY=:0
+    default_venv="$PROJECT_ROOT/venv"
+fi
+
+# Honor an explicit interpreter or activated environment before the local venv.
+if [[ -n "${PYTHON:-}" ]]; then
+    python_bin="$PYTHON"
+elif [[ -n "${VIRTUAL_ENV:-}" && -x "$VIRTUAL_ENV/bin/python" ]]; then
+    python_bin="$VIRTUAL_ENV/bin/python"
+elif [[ -x "$default_venv/bin/python" ]]; then
+    python_bin="$default_venv/bin/python"
+else
+    python_bin=python3
+fi
+
+if ! "$is_termux"; then
+    exec "$python_bin" -m apps.orcUi "$@"
+fi
+
+"$python_bin" -m apps.orcUi "$@" &
+ui_pid=$!
+trap 'kill "$ui_pid" 2>/dev/null || true' EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
+# Start the UI first, then show the existing Termux:X11 display.
+am_bin="$(command -v am || true)"
+am_bin="${am_bin:-/system/bin/am}"
+if ! "$am_bin" start --user 0 -n com.termux.x11/com.termux.x11.MainActivity; then
+    echo "[!] Could not bring Termux:X11 to the foreground; open it manually." >&2
+fi
+
+wait "$ui_pid"
+trap - EXIT
