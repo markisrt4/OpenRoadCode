@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 
-"""Hourly city weather for a television-style map, using UTC throughout."""
+"""Hourly city weather for a city weather map, using UTC throughout."""
 
 from dataclasses import dataclass
 import math

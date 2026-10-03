@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 
-"""TV-style city weather state, asynchronous data and viewport discovery."""
+"""City weather state, asynchronous data and viewport discovery."""
 
 from datetime import datetime
 import threading

@@ -79,7 +79,7 @@ class MapRendererClient:
         self._send_command({"command": MapRendererCommand.SET_ROUTE_WEATHER, "geojson": geojson})
 
     def set_city_weather(self, geojson: dict[str, object]) -> None:
-        """Update TV-style city labels independently of radar, POIs and route markers."""
+        """Update city weather labels independently of radar, POIs and route markers."""
         self._send_command({"command": MapRendererCommand.SET_CITY_WEATHER, "geojson": geojson})
 
     def search_weather_cities(self, request_id: int) -> None:

@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 
-"""Probe one city through the same hourly data path as the TV-style map."""
+"""Probe one city through the same hourly data path as the city weather map."""
 
 import argparse
 from datetime import datetime, timezone

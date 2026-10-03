@@ -19,7 +19,7 @@ class CityWeatherControls:
         self._period = tk.StringVar(parent, value=controller.period)
         self._hours = tk.DoubleVar(parent, value=controller.hours)
         self._updating = False
-        tk.Checkbutton(parent, text="City weather · TV style", variable=self._enabled,
+        tk.Checkbutton(parent, text="City weather", variable=self._enabled,
                        command=lambda: controller.set_enabled(self._enabled.get()),
                        bg=ui.control_background, fg=ui.text, selectcolor=ui.background,
                        activebackground=ui.control_background, activeforeground=ui.text,

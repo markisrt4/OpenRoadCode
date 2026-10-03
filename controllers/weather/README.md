@@ -277,7 +277,7 @@ The model field cache shares recent-run retention with HRRR radar and downloads
 only the selected GRIB messages, not whole forecast files.
 
 
-### TV-style city weather
+### City weather
 
 Navigation → **Weather → City weather** adds large weather values and city names
 above radar and heatmaps. It remains independent of route weather and does not
