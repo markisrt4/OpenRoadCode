@@ -108,6 +108,7 @@ Generated from the canonical documentation files. Every component README and sta
 - [Navigation Runtime](navigation_runtime.md)
 - [Roadmap](roadmap.md)
 - [Streaming Radio](streaming_radio.md)
+- [System Performance](system_performance.md)
 - [Xdg Paths](xdg_paths.md)
 
 ### Frontends

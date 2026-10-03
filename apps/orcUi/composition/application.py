@@ -23,6 +23,8 @@ from apps.orcUi.frontend.tk.settings_screen import SettingsScreen
 from apps.orcUi.frontend.tk.vehicle_screen import VehicleScreen
 from apps.orcUi.theme_runtime import theme_bundle
 from frontends.tk.games import GamesScreen
+from frontends.tk.system.diagnostics_screen import DiagnosticsScreen
+from services.common.system_performance_monitor import SystemPerformanceMonitor
 
 
 @dataclass(slots=True)
@@ -40,6 +42,8 @@ class OrcUiComposition:
     vehicle: VehicleScreen | None = None
     offroad: OffRoadScreen | None = None
     settings: SettingsScreen | None = None
+    performance: SystemPerformanceMonitor | None = None
+    diagnostics: DiagnosticsScreen | None = None
 
     @property
     def app(self) -> OrcUiApp:
@@ -48,10 +52,14 @@ class OrcUiComposition:
     def run(self) -> None:
         """Run Tk, close every owned resource, then honor host lifecycle intent."""
         try:
+            if self.performance is not None:
+                self.performance.start()
             self.app.schedule_ui_callback(1500, self.runtime.start_background_apps)
             self.core.start()
             self.app.run()
         finally:
+            if self.performance is not None:
+                self.performance.close()
             try:
                 self.games.shutdown()
             finally:
@@ -150,6 +158,12 @@ def create_orc_ui_composition() -> OrcUiComposition:
             on_unit_system_changed=set_unit_system,
             on_back=lambda: app.navigate_to("HOME"),
         )
+        performance = SystemPerformanceMonitor()
+        diagnostics = DiagnosticsScreen(
+            app, provider=performance, history=performance.history,
+            theme_bundle=lambda: theme_bundle(app.theme_mode),
+            on_back=lambda: app.navigate_to("HOME"),
+        )
         home.set_radio_factory(radio.home_factory)
         home.set_media_factory(media.home_factory)
         core.presentation.observe_vehicle(home.apply_vehicle_state)
@@ -169,6 +183,7 @@ def create_orc_ui_composition() -> OrcUiComposition:
         app.register_screen("VEHICLE", vehicle)
         app.register_screen("OFF-ROAD", offroad, show_in_navigation=False)
         app.register_screen("SETTINGS", settings, show_in_navigation=False)
+        app.register_screen("DIAGNOSTICS", diagnostics, show_in_navigation=False)
         app.set_initial_destination("HOME")
         app.set_settings_action(lambda: app.navigate_to("SETTINGS"))
     except Exception:
@@ -188,4 +203,6 @@ def create_orc_ui_composition() -> OrcUiComposition:
         vehicle=vehicle,
         offroad=offroad,
         settings=settings,
+        performance=performance,
+        diagnostics=diagnostics,
     )
