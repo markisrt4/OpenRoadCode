@@ -150,3 +150,16 @@ from controllers.radio.adapters.keyboard_radio_adapter import KeyboardRadioAdapt
 ```
 
 This prevents optional transport dependencies from leaking into unrelated applications.
+
+## Logging
+
+RF controls, profile selection, Radio Browser lookup, and ORCui streaming playback
+emit structured events under `radio.*`. Start ORCui with
+`./runOrcUi --follow-logs --log-component radio` or attach with
+`python -m common.logging.viewer --component radio`.
+See [ORC logging](../../common/logging/README.md) for event names, privacy choices,
+rotation, operation IDs, and CI checks.
+
+Rigctl commands now fail on missing, malformed, or negative acknowledgements;
+failed tuning does not update the cached frequency or produce a success event.
+Successful extension responses remain supported.

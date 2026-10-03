@@ -3,10 +3,14 @@
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from typing import Optional
 
+from common.logging.structured import event
 from protocols.sdrpp_telemetry import SDRPPTelemetry, SDRPPTelemetryClient
+
+LOGGER = logging.getLogger("radio.sdr.telemetry")
 
 
 @dataclass(frozen=True)
@@ -35,6 +39,8 @@ class SDRTelemetryMonitor:
         radio_controller,
         telemetry_client: SDRPPTelemetryClient | None = None,
     ) -> None:
+        self._telemetry_available: bool | None = None
+        self._rds_available: bool | None = None
         self.radio_controller = radio_controller
         self.telemetry_client = telemetry_client or SDRPPTelemetryClient()
 
@@ -49,9 +55,23 @@ class SDRTelemetryMonitor:
 
     def _safe_read_telemetry(self) -> SDRPPTelemetry | None:
         try:
-            return self.telemetry_client.read()
-        except Exception:
+            snapshot = self.telemetry_client.read()
+        except Exception as error:
+            if self._telemetry_available is not False:
+                event(
+                    LOGGER,
+                    logging.WARNING,
+                    "telemetry.unavailable",
+                    "SDR telemetry unavailable",
+                    exception_type=type(error).__name__,
+                )
+            self._telemetry_available = False
             return None
+        if self._telemetry_available is False:
+            event(LOGGER, logging.INFO, "telemetry.recovered", "SDR telemetry recovered")
+        self._telemetry_available = True
+        event(LOGGER, logging.DEBUG, "telemetry.received", "SDR telemetry snapshot received")
+        return snapshot
 
     def _frequency(self, snapshot: SDRPPTelemetry | None) -> Optional[int]:
         if snapshot is not None and snapshot.center_frequency_hz is not None:
@@ -72,9 +92,22 @@ class SDRTelemetryMonitor:
                 method = getattr(self.radio_controller, "get_rds", None)
             if method is None:
                 return "--"
-            return self._clean_text(method())
-        except Exception:
+            text = self._clean_text(method())
+        except Exception as error:
+            if self._rds_available is not False:
+                event(
+                    LOGGER,
+                    logging.WARNING,
+                    "rds.unavailable",
+                    "Radio RDS read unavailable",
+                    exception_type=type(error).__name__,
+                )
+            self._rds_available = False
             return "--"
+        if self._rds_available is False:
+            event(LOGGER, logging.INFO, "rds.recovered", "Radio RDS read recovered")
+        self._rds_available = True
+        return text
 
     @staticmethod
     def _format_db(value: float | None) -> str:

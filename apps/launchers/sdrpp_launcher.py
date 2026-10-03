@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import shlex
 import shutil
@@ -15,9 +16,23 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from apps.launchers.app_launcher_if import AppLauncherIf, StatusCallback
-from apps.launchers.process_manager import close_matching_display_apps, is_process_running, terminate_process
-from common.logging.logging_paths import logging_file_path
+from apps.launchers.process_manager import (
+    close_matching_display_apps,
+    is_process_running,
+    terminate_process,
+)
+from common.logging.structured import (
+    JsonStore,
+    collect_native_output,
+    current_operation,
+    event,
+    log_path,
+    operation,
+)
 from protocols.sdrpp_remote_control import SDRPPRemoteControlClient
+
+LOGGER = logging.getLogger("radio.sdrpp.lifecycle")
+
 
 DEFAULT_TERMUX_SDRPP_SOURCE = Path("/root/SDRPlusPlus")
 DEFAULT_TERMUX_PROOT_DISTRIBUTION = "debian"
@@ -34,6 +49,7 @@ _THEME_SYNC_WATCHER_RUNNING = False
 @dataclass(frozen=True, slots=True)
 class SDRPPProfile:
     """Define SDR++ startup mode, tuning step, and optional frequency."""
+
     name: str
     mode: str
     step_hz: int
@@ -43,9 +59,27 @@ class SDRPPProfile:
 class SDRPPLauncher(AppLauncherIf):
     """Launch SDR++ and expose its RF and application-control endpoints."""
 
-    def __init__(self, *, profile: SDRPPProfile, log_file: str | Path | None = None, fullscreen: bool = True, embedded: bool = False, resource_manager=None, owner_name: str = "sdrpp", rigctl_host: str = "127.0.0.1", rigctl_port: int = 4532, rigctl_timeout_seconds: float = 15.0, remote_control_host: str = DEFAULT_REMOTE_CONTROL_HOST, remote_control_port: int = DEFAULT_REMOTE_CONTROL_PORT, remote_control_timeout_seconds: float = 0.75, termux_proot_distribution: str = DEFAULT_TERMUX_PROOT_DISTRIBUTION, termux_sdrpp_source: str | Path = DEFAULT_TERMUX_SDRPP_SOURCE, theme: str | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        profile: SDRPPProfile,
+        log_file: str | Path | None = None,
+        fullscreen: bool = True,
+        embedded: bool = False,
+        resource_manager=None,
+        owner_name: str = "sdrpp",
+        rigctl_host: str = "127.0.0.1",
+        rigctl_port: int = 4532,
+        rigctl_timeout_seconds: float = 15.0,
+        remote_control_host: str = DEFAULT_REMOTE_CONTROL_HOST,
+        remote_control_port: int = DEFAULT_REMOTE_CONTROL_PORT,
+        remote_control_timeout_seconds: float = 0.75,
+        termux_proot_distribution: str = DEFAULT_TERMUX_PROOT_DISTRIBUTION,
+        termux_sdrpp_source: str | Path = DEFAULT_TERMUX_SDRPP_SOURCE,
+        theme: str | None = None,
+    ) -> None:
         self.profile = profile
-        self.log_file = Path(log_file or logging_file_path("openroadcode", "sdrpp.log"))
+        self.log_file = Path(log_file) if log_file else log_path()
         self.fullscreen = fullscreen
         self.embedded = embedded
         self.resource_manager = resource_manager
@@ -53,18 +87,33 @@ class SDRPPLauncher(AppLauncherIf):
         self.rigctl_host = rigctl_host
         self.rigctl_port = rigctl_port
         self.rigctl_timeout_seconds = rigctl_timeout_seconds
-        self.remote_control = SDRPPRemoteControlClient(host=remote_control_host, port=remote_control_port, timeout=remote_control_timeout_seconds)
+        self.remote_control = SDRPPRemoteControlClient(
+            host=remote_control_host,
+            port=remote_control_port,
+            timeout=remote_control_timeout_seconds,
+        )
         self.termux_proot_distribution = termux_proot_distribution
         self.termux_sdrpp_source = Path(termux_sdrpp_source)
         self.theme = _normalize_theme(theme) if theme is not None else None
         self._process: subprocess.Popen[str] | None = None
         self._launched_via_proot = False
+        self._collector: threading.Thread | None = None
 
     def is_running(self) -> bool:
         if self._process is not None:
             if self._process.poll() is None:
                 return True
             self._process.wait()
+            if self._collector:
+                self._collector.join(timeout=2)
+            event(
+                LOGGER,
+                logging.ERROR,
+                "process.exited",
+                "SDR++ process exited",
+                child_pid=self._process.pid,
+                exit_code=self._process.returncode,
+            )
             self._process = None
         return _sdrpp_process_running()
 
@@ -81,17 +130,51 @@ class SDRPPLauncher(AppLauncherIf):
     def sync_theme(self) -> bool:
         if self.theme is None:
             return False
-        return sync_sdrpp_theme(self.theme, termux_proot_distribution=self.termux_proot_distribution, termux_sdrpp_source=self.termux_sdrpp_source, remote_control=self.remote_control)
+        return sync_sdrpp_theme(
+            self.theme,
+            termux_proot_distribution=self.termux_proot_distribution,
+            termux_sdrpp_source=self.termux_sdrpp_source,
+            remote_control=self.remote_control,
+        )
 
     def launch(self, remote_display: str, set_status: StatusCallback = None) -> None:
+        with operation(current_operation()):
+            event(
+                LOGGER,
+                logging.INFO,
+                "process.launch_requested",
+                "SDR++ launch requested",
+                profile=self.profile.name,
+                embedded=self.embedded,
+            )
+            try:
+                self._launch(remote_display, set_status)
+            except Exception as error:
+                event(
+                    LOGGER,
+                    logging.ERROR,
+                    "process.launch_failed",
+                    "SDR++ launch failed",
+                    exception_type=type(error).__name__,
+                )
+                raise
+
+    def _launch(self, remote_display: str, set_status: StatusCallback = None) -> None:
         if self.resource_manager is not None:
             self.resource_manager.acquire(self.owner_name, force=True, set_status=set_status)
         _stop_readsb_service()
 
         if self.is_running():
             if self.is_rigctl_ready():
+                event(LOGGER, logging.INFO, "process.reused", "Existing SDR++ process is ready")
                 _status(set_status, f"SDR++ already ready: {self.profile.name}")
                 return
+            event(
+                LOGGER,
+                logging.WARNING,
+                "process.restarting",
+                "Restarting SDR++ because Rigctl is unavailable",
+            )
             _status(
                 set_status,
                 f"SDR++ already running; RigCTL unavailable, restarting: {self.profile.name}",
@@ -105,28 +188,81 @@ class SDRPPLauncher(AppLauncherIf):
         command = self._launch_command(remote_display)
         self._launched_via_proot = _is_proot_command(command)
         environment = _sdrpp_environment(remote_display)
-        self.log_file.parent.mkdir(parents=True, exist_ok=True)
-        log_handle = self.log_file.open("a", encoding="utf-8")
-        try:
-            self._process = subprocess.Popen(command, env=environment, stdout=log_handle, stderr=subprocess.STDOUT, start_new_session=True, text=True)
-        finally:
-            log_handle.close()
+        store = JsonStore(self.log_file)
+        self._process = subprocess.Popen(
+            command,
+            env=environment,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            start_new_session=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+        )
+        self._collector = threading.Thread(
+            target=collect_native_output,
+            args=(self._process.stdout, store, self._process.pid),
+            kwargs={"component": "radio.sdrpp.output"},
+            name="orc-sdrpp-logs",
+            daemon=True,
+        )
+        self._collector.start()
+        event(
+            LOGGER,
+            logging.INFO,
+            "process.started",
+            "SDR++ process started",
+            child_pid=self._process.pid,
+        )
 
         if self.fullscreen and not self.embedded:
             self._request_fullscreen(remote_display, environment)
         mode = "embedded" if self.embedded else "standalone"
         _status(set_status, f"SDR++ launched ({mode}); checking RigCTL...")
         if self.wait_for_rigctl():
+            event(
+                LOGGER,
+                logging.INFO,
+                "rigctl.ready",
+                "SDR++ Rigctl is ready",
+                host=self.rigctl_host,
+                port=self.rigctl_port,
+            )
             _status(set_status, f"SDR++ ready: {self.profile.name}")
         else:
+            event(
+                LOGGER,
+                logging.WARNING,
+                "rigctl.unavailable",
+                "SDR++ Rigctl did not become ready",
+                host=self.rigctl_host,
+                port=self.rigctl_port,
+            )
             _status(set_status, f"SDR++ running; RigCTL unavailable: {self.profile.name}")
 
     def stop(self, remote_display: str, set_status: StatusCallback = None) -> None:
+        with operation(current_operation()):
+            try:
+                self._stop(remote_display, set_status)
+            except Exception as error:
+                event(
+                    LOGGER,
+                    logging.ERROR,
+                    "process.stop_failed",
+                    "SDR++ stop failed",
+                    exception_type=type(error).__name__,
+                )
+                raise
+
+    def _stop(self, remote_display: str, set_status: StatusCallback = None) -> None:
         if self._process is not None:
             terminate_process(self._process)
+            if self._collector:
+                self._collector.join(timeout=2)
             self._process = None
         self._launched_via_proot = False
         close_matching_display_apps(display=remote_display, patterns=("sdrpp", "sdr\\+\\+"))
+        event(LOGGER, logging.INFO, "process.stopped", "SDR++ stop completed")
         _status(set_status, "SDR++ stopped")
 
     def toggle(self, remote_display: str, set_status: StatusCallback = None) -> bool:
@@ -143,7 +279,9 @@ class SDRPPLauncher(AppLauncherIf):
             return self._process.pid
         deadline = time.monotonic() + timeout_seconds
         while time.monotonic() < deadline:
-            pid = _find_descendant_matching(self._process.pid, ("./build/sdrpp", "/build/sdrpp", "SDRPlusPlus"))
+            pid = _find_descendant_matching(
+                self._process.pid, ("./build/sdrpp", "/build/sdrpp", "SDRPlusPlus")
+            )
             if pid is not None:
                 return pid
             time.sleep(0.1)
@@ -165,8 +303,12 @@ class SDRPPLauncher(AppLauncherIf):
         while time.monotonic() < deadline:
             if self._process is not None and self._process.poll() is not None:
                 self._process.wait()
+                if self._collector:
+                    self._collector.join(timeout=2)
                 self._process = None
-                raise RuntimeError(f"SDR++ exited before RigCTL became ready. Check log: {self.log_file}")
+                raise RuntimeError(
+                    f"SDR++ exited before RigCTL became ready. Check log: {self.log_file}"
+                )
             try:
                 with socket.create_connection((self.rigctl_host, self.rigctl_port), timeout=0.5):
                     return True
@@ -187,13 +329,42 @@ class SDRPPLauncher(AppLauncherIf):
         source = str(self.termux_sdrpp_source)
         runtime_dir = DEFAULT_TERMUX_XDG_RUNTIME_DIR
         shell_command = f"mkdir -p {shlex.quote(runtime_dir)} && chmod 700 {shlex.quote(runtime_dir)} && cd {shlex.quote(source)} && exec ./build/sdrpp -r root_dev --autostart"
-        return [proot_distro, "login", self.termux_proot_distribution, "--shared-tmp", "--", "env", f"DISPLAY={display}", f"XDG_RUNTIME_DIR={runtime_dir}", "XDG_SESSION_TYPE=x11", "GDK_BACKEND=x11", "LIBGL_ALWAYS_SOFTWARE=1", "bash", "-lc", shell_command]
+        return [
+            proot_distro,
+            "login",
+            self.termux_proot_distribution,
+            "--shared-tmp",
+            "--",
+            "env",
+            f"DISPLAY={display}",
+            f"XDG_RUNTIME_DIR={runtime_dir}",
+            "XDG_SESSION_TYPE=x11",
+            "GDK_BACKEND=x11",
+            "LIBGL_ALWAYS_SOFTWARE=1",
+            "bash",
+            "-lc",
+            shell_command,
+        ]
 
     def _request_fullscreen(self, display: str, environment: dict[str, str]) -> None:
-        subprocess.Popen(["bash", "-lc", f'sleep 3; DISPLAY="{display}" wmctrl -r "SDR++" -b add,fullscreen'], env=environment, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True, text=True)
+        subprocess.Popen(
+            ["bash", "-lc", f'sleep 3; DISPLAY="{display}" wmctrl -r "SDR++" -b add,fullscreen'],
+            env=environment,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            start_new_session=True,
+            text=True,
+        )
 
 
-def sync_sdrpp_theme(theme: str, *, termux_proot_distribution: str = DEFAULT_TERMUX_PROOT_DISTRIBUTION, termux_sdrpp_source: str | Path = DEFAULT_TERMUX_SDRPP_SOURCE, native_root: str | Path | None = None, remote_control: SDRPPRemoteControlClient | None = None) -> bool:
+def sync_sdrpp_theme(
+    theme: str,
+    *,
+    termux_proot_distribution: str = DEFAULT_TERMUX_PROOT_DISTRIBUTION,
+    termux_sdrpp_source: str | Path = DEFAULT_TERMUX_SDRPP_SOURCE,
+    native_root: str | Path | None = None,
+    remote_control: SDRPPRemoteControlClient | None = None,
+) -> bool:
     selected = _normalize_theme(theme)
     source = Path(termux_sdrpp_source)
     root = Path(native_root) if native_root is not None else None
@@ -206,10 +377,17 @@ def sync_sdrpp_theme(theme: str, *, termux_proot_distribution: str = DEFAULT_TER
             pass
         _defer_sdrpp_theme_sync(selected, termux_proot_distribution, source, root)
         return True
-    return _write_sdrpp_theme(selected, termux_proot_distribution=termux_proot_distribution, termux_sdrpp_source=source, native_root=root)
+    return _write_sdrpp_theme(
+        selected,
+        termux_proot_distribution=termux_proot_distribution,
+        termux_sdrpp_source=source,
+        native_root=root,
+    )
 
 
-def _defer_sdrpp_theme_sync(theme: str, termux_proot_distribution: str, termux_sdrpp_source: Path, native_root: Path | None) -> None:
+def _defer_sdrpp_theme_sync(
+    theme: str, termux_proot_distribution: str, termux_sdrpp_source: Path, native_root: Path | None
+) -> None:
     global _PENDING_THEME_SYNC, _THEME_SYNC_WATCHER_RUNNING
     with _THEME_SYNC_LOCK:
         _PENDING_THEME_SYNC = (theme, termux_proot_distribution, termux_sdrpp_source, native_root)
@@ -230,17 +408,44 @@ def _theme_sync_worker() -> None:
     if pending is None:
         return
     theme, distribution, source, native_root = pending
-    _write_sdrpp_theme(theme, termux_proot_distribution=distribution, termux_sdrpp_source=source, native_root=native_root)
+    _write_sdrpp_theme(
+        theme,
+        termux_proot_distribution=distribution,
+        termux_sdrpp_source=source,
+        native_root=native_root,
+    )
 
 
-def _write_sdrpp_theme(theme: str, *, termux_proot_distribution: str, termux_sdrpp_source: Path, native_root: Path | None) -> bool:
+def _write_sdrpp_theme(
+    theme: str,
+    *,
+    termux_proot_distribution: str,
+    termux_sdrpp_source: Path,
+    native_root: Path | None,
+) -> bool:
     if _is_termux():
         proot_distro = shutil.which("proot-distro")
         if proot_distro is None:
             return False
         config_path = termux_sdrpp_source / "root_dev" / "config.json"
         script = "import json, pathlib, sys; p=pathlib.Path(sys.argv[1]); d=json.loads(p.read_text()); d['theme']=sys.argv[2]; p.write_text(json.dumps(d, indent=4)+'\\n')"
-        result = subprocess.run([proot_distro, "login", termux_proot_distribution, "--shared-tmp", "--", "python3", "-c", script, str(config_path), theme], check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        result = subprocess.run(
+            [
+                proot_distro,
+                "login",
+                termux_proot_distribution,
+                "--shared-tmp",
+                "--",
+                "python3",
+                "-c",
+                script,
+                str(config_path),
+                theme,
+            ],
+            check=False,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
         return result.returncode == 0
     root = native_root if native_root is not None else DEFAULT_NATIVE_SDRPP_ROOT
     config_path = root / "config.json"
@@ -272,7 +477,9 @@ def _is_proot_command(command: list[str]) -> bool:
 
 def _find_descendant_matching(root_pid: int, command_fragments: tuple[str, ...]) -> int | None:
     try:
-        result = subprocess.run(["ps", "-eo", "pid=,ppid=,args="], capture_output=True, text=True, check=False)
+        result = subprocess.run(
+            ["ps", "-eo", "pid=,ppid=,args="], capture_output=True, text=True, check=False
+        )
     except OSError:
         return None
     children: dict[int, list[int]] = {}
@@ -307,7 +514,9 @@ def _stop_readsb_service() -> None:
     sv = shutil.which("sv")
     if sv is None:
         return
-    subprocess.run([sv, "down", "readsb"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False)
+    subprocess.run(
+        [sv, "down", "readsb"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False
+    )
 
 
 def _is_termux() -> bool:

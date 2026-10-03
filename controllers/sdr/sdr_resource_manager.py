@@ -1,8 +1,13 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 
+import logging
 from dataclasses import dataclass
-from typing import Optional, Callable
+from typing import Callable, Optional
+
+from common.logging.structured import event
+
+LOGGER = logging.getLogger("radio.sdr.ownership")
 
 
 StatusCallback = Optional[Callable[[str], None]]
@@ -11,6 +16,7 @@ StatusCallback = Optional[Callable[[str], None]]
 @dataclass
 class SDRResourceManager:
     """Coordinate advisory ownership of a shared SDR device."""
+
     current_owner: Optional[str] = None
 
     def acquire(
@@ -28,6 +34,7 @@ class SDRResourceManager:
         """
         if self.current_owner is None:
             self.current_owner = owner
+            event(LOGGER, logging.INFO, "sdr.acquired", "SDR ownership acquired", owner=owner)
             self._status(set_status, f"SDR acquired by {owner}")
             return True
 
@@ -35,6 +42,14 @@ class SDRResourceManager:
             return True
 
         if not force:
+            event(
+                LOGGER,
+                logging.WARNING,
+                "sdr.busy",
+                "SDR ownership request denied",
+                owner=owner,
+                current_owner=self.current_owner,
+            )
             self._status(
                 set_status,
                 f"SDR already in use by {self.current_owner}",
@@ -45,7 +60,16 @@ class SDRResourceManager:
             set_status,
             f"SDR ownership changed: {self.current_owner} → {owner}",
         )
+        previous_owner = self.current_owner
         self.current_owner = owner
+        event(
+            LOGGER,
+            logging.INFO,
+            "sdr.transferred",
+            "SDR ownership transferred",
+            owner=owner,
+            previous_owner=previous_owner,
+        )
         return True
 
     def release(
@@ -56,6 +80,7 @@ class SDRResourceManager:
         """Release the SDR when it is held by ``owner``."""
         if self.current_owner == owner:
             self.current_owner = None
+            event(LOGGER, logging.INFO, "sdr.released", "SDR ownership released", owner=owner)
             self._status(set_status, f"SDR released by {owner}")
 
     def is_owned_by(self, owner: str) -> bool:

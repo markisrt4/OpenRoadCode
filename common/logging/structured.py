@@ -205,8 +205,10 @@ def validate_event(item: dict) -> None:
         raise ValueError("Operation ID must be a string")
 
 
-def collect_native_output(stream, store: JsonStore, pid: int) -> None:
-    """Drain renderer output without unbounded line allocation; retain native PID."""
+def collect_native_output(
+    stream, store: JsonStore, pid: int, *, component: str = "map_renderer.output"
+) -> None:
+    """Drain native output without unbounded line allocation; retain source PID."""
     while line := stream.readline(MAX_EVENT_BYTES):
         if not line.endswith("\n") and len(line) == MAX_EVENT_BYTES:
             while remainder := stream.readline(MAX_EVENT_BYTES):
@@ -226,7 +228,7 @@ def collect_native_output(stream, store: JsonStore, pid: int) -> None:
                 .isoformat(timespec="milliseconds")
                 .replace("+00:00", "Z"),
                 "level": "INFO",
-                "component": "map_renderer.output",
+                "component": component,
                 "event": "native.output",
                 "message": line.rstrip(),
                 "pid": pid,
