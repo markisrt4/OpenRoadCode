@@ -97,6 +97,8 @@ def install(payload: dict, destination: Path, *,
                     old.backup(db)
             else:
                 _create_schema(db)
+            if 'website' not in {row[1] for row in db.execute('PRAGMA table_info(poi)')}:
+                db.execute('ALTER TABLE poi ADD COLUMN website TEXT')
             if refresh_area is not None:
                 # All supported categories were requested. Remove old OSM records
                 # inside that circle, including places deleted or reclassified in

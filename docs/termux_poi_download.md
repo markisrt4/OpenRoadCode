@@ -7,7 +7,10 @@ the download and import.
 
 The existing map renderer reports viewport bounds; ORC queries this index and
 sends selectable result markers back to the renderer. The markers use the same
-provider enrichment and Order action as map-builder POIs.
+provider enrichment and Order action as map-builder POIs. Valid OSM `website`
+or `contact:website` tags are saved offline and add a Website button. `website`
+is preferred when valid; otherwise `contact:website` is used. Only HTTP/HTTPS
+URLs without embedded credentials are offered.
 
 ## Download around the last navigation fix
 
@@ -91,3 +94,15 @@ category queries; a restaurant-only response would omit other supported POIs.
 Area replacement requires Overpass snapshot metadata and rejects server remarks,
 missing geometry, and invalid records. A complete empty snapshot clears supported
 OSM POIs within the circle. All changes are staged and validated before activation.
+
+## Website links
+
+Refresh the area to populate website links on existing POIs. The downloader
+migrates older indexes automatically, preserving records outside the refreshed
+area. Full map builds also retain website tags. Older databases without the
+website column continue to work, but cannot offer these links until refreshed.
+The links remain saved offline; loading websites requires internet. A Website
+button appears only when OSM supplies a valid URL. Known chains can offer both
+Order and Website, using their catalog ordering destination and OSM website
+respectively. On Android, both use the existing Bridge deep-link handoff; no new
+Bridge APK is needed.

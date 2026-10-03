@@ -148,3 +148,39 @@ def test_dateline_refresh_preserves_distant_locations(tmp_path):
     install(snapshot([]), db, refresh_area=(0, 179.99, 10))
     with sqlite3.connect(db) as c:
         assert c.execute('SELECT id FROM poi').fetchall() == [('osm:node:2',)]
+
+
+@pytest.mark.parametrize('tags,expected', [
+    ({'website': 'https://local.example/menu', 'contact:website': 'https://other.example'}, 'https://local.example/menu'),
+    ({'contact:website': 'https://local.example'}, 'https://local.example'),
+    ({'website': 'javascript:alert(1)', 'contact:website': 'https://local.example'}, 'https://local.example'),
+    ({'website': 'file:///etc/passwd'}, None),
+    ({'website': 'https://user:password@example.com'}, None),
+    ({'website': 'https://example.com:bad'}, None),
+])
+def test_website_tags_become_actions_after_import(tmp_path, tags, expected):
+    db = tmp_path / 'search.sqlite'
+    item = node()
+    item['tags'].update(tags)
+    install({'elements': [item]}, db)
+    source = SqlitePoiSearchSource(db)
+    try:
+        poi = enrich_poi(source.search(PoiSearchQuery(PoiCategory.FOOD, PoiSearchBounds(42, -84, 43, -82)))[0])
+    finally:
+        source.close()
+    assert poi.website == expected
+    assert [a.uri for a in poi.actions if a.kind is PoiActionKind.OPEN_WEBSITE] == ([expected] if expected else [])
+    assert any(a.kind is PoiActionKind.ORDER for a in poi.actions)
+
+
+def test_existing_index_migrates_without_losing_old_pois(tmp_path):
+    db = tmp_path / 'search.sqlite'
+    install({'elements': [node()]}, db)
+    with sqlite3.connect(db) as c:
+        c.execute('ALTER TABLE poi DROP COLUMN website')
+    item = node(2, 'Independent Cafe')
+    item['tags']['website'] = 'https://cafe.example'
+    install({'elements': [item]}, db)
+    with sqlite3.connect(db) as c:
+        assert c.execute('SELECT count(*) FROM poi').fetchone()[0] == 2
+        assert c.execute("SELECT website FROM poi WHERE id='osm:node:2'").fetchone()[0] == 'https://cafe.example'

@@ -65,6 +65,11 @@ class PoiSearchController(PoiSearchControllerIf):
     def poll_selected(self) -> PointOfInterest | None:
         raw = self._source.poll_selected()
         if raw is not None:
+            # Result markers carry an id; keep the richer SQLite metadata when
+            # a renderer selection reports only the basic map feature fields.
+            for poi in self._visible_pois:
+                if poi.poi_id == raw.poi_id:
+                    return enrich_poi(poi)
             return enrich_poi(self._to_poi(raw))
         poll_click = getattr(self._source, "poll_click", None)
         if poll_click is None:

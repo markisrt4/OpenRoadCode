@@ -338,3 +338,14 @@ def test_clear_discards_late_renderer_viewport_reply() -> None:
 
     assert controller.poll_search_result() is None
     assert search_source.queries == []
+
+
+def test_renderer_selection_keeps_website_from_search_index():
+    poi = PointOfInterest('osm:node:1', 'Independent Cafe', PoiCategory.FOOD,
+                          GeoPoint(0, 0), website='https://cafe.example')
+    source = FakeMapPoiSource(selected=RawMapPoi(poi.poi_id, poi.name, poi.position))
+    controller = PoiSearchController(source=source, search_source=FakeSearchSource())
+    controller._visible_pois = (poi,)
+    selected = controller.poll_selected()
+    assert selected.website == 'https://cafe.example'
+    assert selected.actions[0].kind is PoiActionKind.OPEN_WEBSITE
