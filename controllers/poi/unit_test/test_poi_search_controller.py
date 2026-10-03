@@ -2,6 +2,10 @@
 # SPDX-License-Identifier: MIT
 
 import math
+import json
+import logging
+
+from common.logging.structured import JsonFormatter, validate_event
 
 from controllers.poi import (
     PoiActionKind,
@@ -277,7 +281,8 @@ def test_search_excludes_pois_outside_true_nearby_radius() -> None:
     assert result.count == 0
 
 
-def test_renderer_viewport_bounds_drive_offline_search() -> None:
+def test_renderer_viewport_bounds_drive_offline_search(caplog) -> None:
+    caplog.set_level(logging.INFO, logger="navigation.poi")
     source = FakeViewportMapPoiSource()
     poi = PointOfInterest(
         poi_id="food-1",
@@ -308,6 +313,13 @@ def test_renderer_viewport_bounds_drive_offline_search() -> None:
 
     assert result is not None
     assert result.count == 1
+    records = [record for record in caplog.records if record.name == "navigation.poi"]
+    assert len(records) == 1
+    item = json.loads(JsonFormatter().format(records[0]))
+    validate_event(item)
+    assert item["event"] == "poi.search.completed"
+    assert item["category"] == "food" and item["result_count"] == 1
+    assert "42.79" not in json.dumps(item) and "Visible Cafe" not in json.dumps(item)
     assert len(search_source.queries) == 1
     assert search_source.queries[0].bounds == PoiSearchBounds(
         south=42.79,

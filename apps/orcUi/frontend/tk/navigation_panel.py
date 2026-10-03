@@ -10,6 +10,8 @@ from controllers.connectivity.online_mode import OnlineModeController
 from queue import SimpleQueue
 
 import logging
+
+from common.logging.structured import event
 import math
 import sqlite3
 import tkinter as tk
@@ -43,7 +45,7 @@ from .navigation_poi_actions import execute_poi_action, poll_poi_launch_results
 
 _POI_SEARCH_SETTLE_MS = 750
 
-_LOG = logging.getLogger(__name__)
+_LOG = logging.getLogger("navigation.poi.ui")
 
 
 class NavigationPanel(tk.Frame):
@@ -280,7 +282,8 @@ class NavigationPanel(tk.Frame):
             self._poll_poi_events_once()
         except sqlite3.Error as exc:
             self._shortcut_status.set("POI database unavailable; see terminal for details")
-            _LOG.error("POI database unavailable: %s", exc)
+            event(_LOG, logging.ERROR, "poi.index.unavailable", "POI database unavailable",
+                  exception_type=type(exc).__name__)
         finally:
             if self.winfo_exists():
                 self.after(100, self._poll_poi_events)
@@ -314,7 +317,7 @@ class NavigationPanel(tk.Frame):
                 self._shortcut_status.set(f"No {result.category.name.casefold()} results nearby")
         poi = self._poi_controller.poll_selected()
         if poi is not None:
-            _LOG.info("Showing POI business popup for %r", poi.name)
+            event(_LOG, logging.INFO, "poi.popup.shown", "Showing POI business popup")
             self._show_poi_card(poi)
 
     def _show_poi_card(self, poi: PointOfInterest) -> None:

@@ -69,11 +69,16 @@ RF stays available. Start an internet stream online, switch offline, and confirm
 it stops. Switch online and confirm playback requires a new selection.
 
 Offline mode does not hide cached POI markers or disable Food/Fuel searches.
-POI runtime diagnostics use Python module loggers instead of unconditional
-terminal prints. INFO records index opening, result counts, and popup selection;
+POI runtime diagnostics use the shared [structured logging infrastructure](../common/logging/README.md)
+under the `navigation.poi` component prefix. ORC collects logs quietly by default.
+Run `./runOrcUi --follow-logs` to display INFO messages, or
+`./runOrcUi --follow-logs --log-level DEBUG --log-component navigation.poi`
+to inspect POI details. INFO records index opening, result counts, and popup selection;
 DEBUG records viewport bounds and detailed click/marker resolution. Malformed
 click payloads are WARNING and database failures are ERROR. The application's
-logging configuration controls which records are displayed or stored. Database
+logging configuration controls which records are displayed or stored. Routine
+records exclude coordinates and business names; malformed click warnings exclude
+the raw payload. Database
 errors also appear in the navigation status and keep the event poll alive, so
 another search can retry after the data problem is corrected.
 

@@ -6,6 +6,8 @@
 from __future__ import annotations
 
 import logging
+
+from common.logging.structured import event
 import math
 from collections.abc import Callable
 
@@ -21,7 +23,7 @@ from controllers.poi.sqlite_poi_search_source import SqlitePoiSearchSource
 from protocols.map_renderer.map_poi_source import MapPoiSource, RawMapPoi
 from ui.navigation import GeoPoint
 
-_LOG = logging.getLogger(__name__)
+_LOG = logging.getLogger("navigation.poi")
 
 _EARTH_RADIUS_M = 6_378_137.0
 _NEARBY_RADIUS_M = 20_000.0
@@ -134,7 +136,8 @@ class PoiSearchController(PoiSearchControllerIf):
                             transit_mode=transit_mode,
                         )
                     )
-                    _LOG.info("%s search returned %d POIs", category.name.casefold(), len(pois))
+                    event(_LOG, logging.INFO, "poi.search.completed", "POI search completed",
+                          category=category.name.casefold(), result_count=len(pois))
                     _LOG.debug("Search bounds=%.6f,%.6f,%.6f,%.6f",
                                viewport.west, viewport.south, viewport.east, viewport.north)
                     self._visible_pois = pois
@@ -161,7 +164,8 @@ class PoiSearchController(PoiSearchControllerIf):
     def _offline_source(self) -> PoiSearchSourceIf:
         if self._search_source is None:
             database = search_database_path()
-            _LOG.info("Opening POI search index: %s", database)
+            event(_LOG, logging.INFO, "poi.index.opening", "Opening POI search index",
+                  database_path=str(database))
             self._search_source = SqlitePoiSearchSource(database)
         return self._search_source
 

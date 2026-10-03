@@ -6,6 +6,8 @@
 from __future__ import annotations
 
 import logging
+
+from common.logging.structured import event
 import math
 from dataclasses import dataclass
 from queue import Empty, SimpleQueue
@@ -16,7 +18,7 @@ from messaging.zeromq.publisher import ZeroMqPublisher
 from messaging.zeromq.subscriber import ZeroMqSubscriber
 from ui.navigation import GeoPoint
 
-_LOG = logging.getLogger(__name__)
+_LOG = logging.getLogger("navigation.poi.map")
 
 MAP_COMMAND_TOPIC = "map.command"
 POI_SELECTED_TOPIC = "map.poi.selected"
@@ -127,7 +129,7 @@ class MapPoiSource:
                                click.selection_radius_m, click.marker_id, click.marker_index)
                     self._click_queue.put(click)
                 else:
-                    _LOG.warning("Rejected map click payload: %r", payload)
+                    event(_LOG, logging.WARNING, "poi.click.rejected", "Rejected malformed map click")
             elif topic == MAP_CAMERA_MANUAL_TOPIC:
                 self._camera_queue.put(True)
             elif topic == POI_SEARCH_RESULT_TOPIC:

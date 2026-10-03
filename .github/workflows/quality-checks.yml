@@ -73,6 +73,39 @@ jobs:
 
           test ! -s build/doxygen-warnings.log
 
+  logging:
+    name: Logging quality gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install logging test dependencies
+        run: |
+          python -m pip install pytest requests pyzmq
+          sudo apt-get update
+          sudo apt-get install --yes cmake pkg-config libspdlog-dev rapidjson-dev libzmq3-dev cppzmq-dev
+
+      - name: Verify Python logging and navigation correlation
+        env:
+          ORC_LOG_DIR: ${{ runner.temp }}/orc-logging
+        run: python -m pytest -q common/logging/unit_test
+
+      - name: Compile native logging and command receiver
+        run: |
+          cmake -S apps/map_renderer/component_test -B build/logging -DPython3_EXECUTABLE="$(command -v python)"
+          cmake --build build/logging --parallel 2
+
+      - name: Verify native logging contract
+        run: ctest --test-dir build/logging --output-on-failure
+
   validate:
     name: Quality checks
     runs-on: ubuntu-latest

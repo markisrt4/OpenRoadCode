@@ -29,3 +29,11 @@ The navigation-stack installer builds MapLibre Native and the OpenRoadCode rende
 Map and Valhalla data are intentionally built and deployed separately; see [Navigation deployment](https://github.com/markisrt4/OpenRoadCode/blob/master/docs/navigation_deployment.md).
 
 The container workflow is source-repeatable but not yet bit-for-bit hermetic. Its Debian base image and APT packages still float. The guide records this limitation and the remaining work needed for a stricter reproducibility guarantee.
+
+## Logging
+
+The renderer emits structured JSON Lines to stderr through `spdlog`. The UI
+launcher collects its output into the shared rotating ORC store. Use
+`./runOrcUi --follow-logs` for readable live output, or attach separately with
+`python -m common.logging.viewer --component map_renderer`.
+See [ORC logging](../../common/logging/README.md) for settings, storage, and CI gates.
