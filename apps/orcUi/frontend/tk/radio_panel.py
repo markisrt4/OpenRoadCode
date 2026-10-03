@@ -296,8 +296,6 @@ class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin, tk.Frame):
         self._controls_button.configure(state=tk.NORMAL, fg=self._theme.ui.text)
         self._telemetry_worker.set_include_rds(self._radio.active_profile_key == "fm_radio")
 
-    @staticmethod
-
     @property
     def host_window_id(self) -> int:
         self.update_idletasks()
