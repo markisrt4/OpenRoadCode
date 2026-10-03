@@ -73,6 +73,9 @@ class MapRuntime:
             )
 
     def launch(self, parent_window_id: int) -> None:
+        if (self._parent_window_id is not None and self._parent_window_id != parent_window_id
+                and self._renderer.is_running()):
+            self._renderer.stop()
         self._display = os.environ.get("DISPLAY", ":1")
         self._parent_window_id = parent_window_id
         self._renderer.launch(
@@ -82,6 +85,7 @@ class MapRuntime:
 
     def stop(self) -> None:
         self._renderer.stop()
+        self._parent_window_id = None
 
 
 class StateIngressRuntime:

@@ -291,13 +291,16 @@ class OrcUiApp(VolumeUiIf):
     def _toggle_theme(self) -> None:
         self._theme_mode = toggle(self._theme_mode)
         self._theme = theme_bundle(self._theme_mode)
+        active_screen = self._active_screen
+        set_theme_mode = getattr(active_screen, "set_theme_mode", None)
+        if active_screen is not None and not callable(set_theme_mode):
+            # Stop embedded renderers before their native host widgets are destroyed.
+            self._deactivate_active_screen()
         theme_change_handler = self._theme_change_handler
         if theme_change_handler is not None:
             theme_change_handler(self._theme_mode)
         self._power_dialog.close()
         self._rebuild_shell_theme()
-        active_screen = self._active_screen
-        set_theme_mode = getattr(active_screen, "set_theme_mode", None)
         if callable(set_theme_mode):
             set_theme_mode(self._theme_mode)
         elif active_screen is not None:
