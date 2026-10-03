@@ -28,14 +28,19 @@ class SystemDiagnosticsController:
         *,
         proc_root: Path | str = Path("/proc"),
         sys_root: Path | str = Path("/sys"),
-        disk_path: Path | str = Path("/"),
+        disk_path: Path | str | None = None,
         monotonic: Callable[[], float] = time.monotonic,
+        process_time: Callable[[], float] = time.process_time,
     ) -> None:
         self._proc_root = Path(proc_root)
         self._sys_root = Path(sys_root)
-        self._disk_path = Path(disk_path)
+        termux = bool(os.environ.get("TERMUX_VERSION")) or os.environ.get("PREFIX", "").startswith("/data/data/com.termux/files/usr")
+        self._disk_path = Path(disk_path) if disk_path is not None else (Path.home() if termux else Path("/"))
         self._previous_cpu: dict[str, tuple[int, int]] = {}
         self._monotonic = monotonic
+        self._process_time = process_time
+        self._previous_process_cpu: tuple[float, float] | None = None
+        self._cpu_unavailable_reason: str | None = "warming up"
         self._previous_io: dict[str, tuple[float, dict[str, tuple[int, int]]]] = {}
 
     def snapshot(self) -> SystemDiagnosticsSnapshot:
@@ -56,14 +61,14 @@ class SystemDiagnosticsController:
         if swap_total is not None and swap_free is not None:
             swap_used = swap_total - swap_free
 
-        disk_total, disk_free = self._read_disk()
+        disk_total, disk_used, disk_free = self._read_disk()
         disk_used_percent = None
-        if disk_total and disk_free is not None:
-            disk_used_percent = 100.0 * (disk_total - disk_free) / disk_total
+        if disk_total and disk_used is not None:
+            disk_used_percent = 100.0 * disk_used / disk_total
 
-        temperature_c = self._read_temperature_c()
-        thermal_limit_c = self._read_thermal_limit_c()
+        temperature_c, thermal_limit_c, thermal_zone = self._read_thermal_state()
         now = self._monotonic()
+        process_cpu_percent = self._read_process_cpu_percent(now)
         network_rx, network_tx = self._rates("network", self._read_network(), now)
         disk_read, disk_write = self._rates("disk", self._read_disk_counters(), now)
 
@@ -72,6 +77,9 @@ class SystemDiagnosticsController:
             platform=platform.system() + " " + platform.machine(),
             sampled_at_unix_s=time.time(),
             cpu_percent=cpu_percent,
+            cpu_unavailable_reason=self._cpu_unavailable_reason,
+            process_cpu_percent=process_cpu_percent,
+            process_id=os.getpid(),
             per_core_percent=per_core_percent,
             load_1m=self._read_load_1m(),
             cpu_count=os.cpu_count(),
@@ -83,10 +91,12 @@ class SystemDiagnosticsController:
             swap_used_mb=None if swap_used is None else swap_used / _MIB,
             swap_total_mb=None if swap_total is None else swap_total / _MIB,
             disk_used_percent=disk_used_percent,
+            disk_path=str(self._disk_path),
             disk_free_gb=None if disk_free is None else disk_free / _GIB,
             disk_total_gb=None if disk_total is None else disk_total / _GIB,
             temperature_c=temperature_c,
             thermal_limit_c=thermal_limit_c,
+            thermal_zone=thermal_zone,
             thermal_headroom_c=(
                 None
                 if temperature_c is None or thermal_limit_c is None
@@ -103,7 +113,13 @@ class SystemDiagnosticsController:
     def _read_cpu_percentages(self) -> tuple[float | None, tuple[float, ...]]:
         try:
             lines = (self._proc_root / "stat").read_text(encoding="utf-8").splitlines()
+        except PermissionError:
+            self._previous_cpu = {}
+            self._cpu_unavailable_reason = "blocked by operating system"
+            return None, ()
         except OSError:
+            self._previous_cpu = {}
+            self._cpu_unavailable_reason = "CPU counters unavailable"
             return None, ()
 
         current: dict[str, tuple[int, int]] = {}
@@ -130,7 +146,7 @@ class SystemDiagnosticsController:
                 continue
             total_delta = total - previous[0]
             idle_delta = idle - previous[1]
-            if total_delta <= 0:
+            if total_delta <= 0 or idle_delta < 0 or idle_delta > total_delta:
                 continue
 
             percentages[name] = max(
@@ -139,12 +155,25 @@ class SystemDiagnosticsController:
             )
 
         self._previous_cpu = current
+        self._cpu_unavailable_reason = None if "cpu" in percentages else (
+            "warming up or counters reset" if "cpu" in current else "CPU counters unavailable"
+        )
         cores = tuple(
             percentages[name]
             for name in sorted(percentages, key=lambda name: -1 if name == "cpu" else int(name[3:]))
             if name != "cpu"
         )
         return percentages.get("cpu"), cores
+
+    def _read_process_cpu_percent(self, now: float) -> float | None:
+        cpu_seconds = self._process_time()
+        previous = self._previous_process_cpu
+        self._previous_process_cpu = (now, cpu_seconds)
+        if previous is None or now <= previous[0] or cpu_seconds < previous[1]:
+            return None
+        # Like top's process accounting: 100% means one fully occupied core.
+        # Include all threads, but not child processes; never substitute for host CPU.
+        return 100.0 * (cpu_seconds - previous[1]) / (now - previous[0])
 
     def _rates(
         self, key: str, current: dict[str, tuple[int, int]] | None, now: float,
@@ -208,10 +237,10 @@ class SystemDiagnosticsController:
                 continue
         return counters or None
 
-    def _read_thermal_limit_c(self) -> float | None:
+    def _read_thermal_limit_c(self, zone: Path | None = None) -> float | None:
         limits = []
-        root = self._sys_root / "class" / "thermal"
-        for path in root.glob("thermal_zone*/trip_point_*_temp"):
+        paths = () if zone is None else zone.glob("trip_point_*_temp")
+        for path in paths:
             try:
                 kind = path.with_name(path.name.replace("_temp", "_type")).read_text().strip()
                 value = float(path.read_text().strip()) / 1000.0
@@ -251,32 +280,33 @@ class SystemDiagnosticsController:
                 pass
         return values
 
-    def _read_disk(self) -> tuple[int | None, int | None]:
+    def _read_disk(self) -> tuple[int | None, int | None, int | None]:
         try:
             usage = shutil.disk_usage(self._disk_path)
         except OSError:
-            return None, None
-        return usage.total, usage.free
+            return None, None, None
+        return usage.total, usage.used, usage.free
 
-    def _read_temperature_c(self) -> float | None:
-        temperatures: list[float] = []
+    def _read_thermal_state(self) -> tuple[float | None, float | None, str | None]:
+        temperatures: list[tuple[float, Path]] = []
         root = self._sys_root / "class" / "thermal"
         try:
             paths = tuple(root.glob("thermal_zone*/temp"))
         except OSError:
-            return None
+            return None, None, None
 
         for path in paths:
             try:
-                value = float(path.read_text(encoding="utf-8").strip())
+                value = float(path.read_text(encoding="utf-8").strip()) / 1000.0
             except (OSError, ValueError):
                 continue
-            if value > 1000.0:
-                value /= 1000.0
             if 0.0 <= value <= 150.0:
-                temperatures.append(value)
+                temperatures.append((value, path.parent))
 
-        return max(temperatures) if temperatures else None
+        if not temperatures:
+            return None, None, None
+        temperature, zone = max(temperatures, key=lambda item: item[0])
+        return temperature, self._read_thermal_limit_c(zone), zone.name
 
     def _read_cpu_frequency_mhz(self) -> float | None:
         values: list[float] = []

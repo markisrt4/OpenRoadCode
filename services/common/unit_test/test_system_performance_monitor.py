@@ -34,7 +34,7 @@ class SystemPerformanceMonitorTest(unittest.TestCase):
         self.assertIsNone(payload["snapshot"]["swap_total_bytes"])
         self.assertNotIn("memory_total_mb", payload["snapshot"])
         self.assertEqual(set(payload["history"][0]), {
-            "sampled_at_unix_s", "cpu_percent", "memory_used_percent", "temperature_c",
+            "sampled_at_unix_s", "cpu_percent", "process_cpu_percent", "memory_used_percent", "temperature_c",
         })
 
     def test_worker_recovers_from_error_and_stops_without_leaking(self):

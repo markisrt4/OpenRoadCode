@@ -18,6 +18,9 @@ class SystemDiagnosticsSnapshot:
     sampled_at_unix_s: float | None = None
 
     cpu_percent: float | None = None
+    cpu_unavailable_reason: str | None = None
+    process_cpu_percent: float | None = None
+    process_id: int | None = None
     per_core_percent: tuple[float, ...] = ()
     load_1m: float | None = None
     cpu_count: int | None = None
@@ -32,12 +35,14 @@ class SystemDiagnosticsSnapshot:
     swap_total_mb: float | None = None
 
     disk_used_percent: float | None = None
+    disk_path: str = ""
     disk_free_gb: float | None = None
     disk_total_gb: float | None = None
 
     temperature_c: float | None = None
     thermal_limit_c: float | None = None
     thermal_headroom_c: float | None = None
+    thermal_zone: str | None = None
     throttled_flags: str | None = None
     uptime_seconds: float | None = None
     network_receive_bytes_per_second: float | None = None

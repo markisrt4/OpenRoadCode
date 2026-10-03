@@ -72,6 +72,7 @@ class SystemPerformanceMonitor:
             "history": [{
                 "sampled_at_unix_s": sample.sampled_at_unix_s,
                 "cpu_percent": sample.cpu_percent,
+                "process_cpu_percent": sample.process_cpu_percent,
                 "memory_used_percent": sample.memory_used_percent,
                 "temperature_c": sample.temperature_c,
             } for sample in history],

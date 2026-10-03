@@ -13,7 +13,7 @@ from ui.theme import ThemeBundle
 
 
 class DiagnosticsPanel(tk.Frame):
-    """Display current Pi performance plus a short rolling history."""
+    """Display host and sampler-process performance with explicit measurement scope."""
 
     _HISTORY_SAMPLES = 120
 
@@ -28,6 +28,7 @@ class DiagnosticsPanel(tk.Frame):
             "cpu": deque(maxlen=self._HISTORY_SAMPLES),
             "memory": deque(maxlen=self._HISTORY_SAMPLES),
             "temperature": deque(maxlen=self._HISTORY_SAMPLES),
+            "process_cpu": deque(maxlen=self._HISTORY_SAMPLES),
         }
         self._graphs: dict[str, tk.Canvas] = {}
         self._identity = tk.Label(self, text="Computing unit", bg=ui.background, fg=ui.text_muted, anchor="w")
@@ -78,6 +79,7 @@ class DiagnosticsPanel(tk.Frame):
                 ("cpu", "CPU"),
                 ("memory", "RAM"),
                 ("temperature", "TEMP"),
+                ("process_cpu", "PROCESS"),
             ),
             start=1,
         ):
@@ -110,6 +112,8 @@ class DiagnosticsPanel(tk.Frame):
 
         self._activity = tk.Label(self, text="", bg=ui.background, fg=ui.text_muted, anchor="w")
         self._activity.grid(row=3, column=0, columnspan=4, sticky="ew", padx=5, pady=5)
+        self._process = tk.Label(self, text="", bg=ui.background, fg=ui.text_muted, anchor="w")
+        self._process.grid(row=4, column=0, columnspan=4, sticky="ew", padx=5, pady=2)
 
     def _metric(
         self,
@@ -168,6 +172,10 @@ class DiagnosticsPanel(tk.Frame):
         """Update current values and append the sample to rolling history."""
 
         self._identity.configure(text=f"{snapshot.hostname or 'Computing unit'}   {snapshot.platform}")
+        self._process.configure(text=(
+            f"This process (PID {snapshot.process_id or '--'}): "
+            f"{_percent(snapshot.process_cpu_percent)} CPU   ·   100% = one core; excludes other processes"
+        ))
         self._activity.configure(text=(
             f"Network ↓ {_rate(snapshot.network_receive_bytes_per_second)}  "
             f"↑ {_rate(snapshot.network_transmit_bytes_per_second)}     "
@@ -189,7 +197,8 @@ class DiagnosticsPanel(tk.Frame):
         )
         load = _number(snapshot.load_1m, 2)
         self._values["cpu_detail"].configure(
-            text=f"load {load}  {frequency}"
+            text=(snapshot.cpu_unavailable_reason + "\n" if snapshot.cpu_percent is None and snapshot.cpu_unavailable_reason else "")
+            + f"load {load}  {frequency}"
             + (f"\n{core_text}" if core_text else "")
         )
 
@@ -219,7 +228,7 @@ class DiagnosticsPanel(tk.Frame):
         throttle = snapshot.throttled_flags or "n/a"
         self._values["thermal_detail"].configure(
             text=(
-                f"{_number(snapshot.thermal_headroom_c, 0)}°C headroom\n"
+                f"{_number(snapshot.thermal_headroom_c, 0)}°C to trip ({snapshot.thermal_zone or '--'})\n"
                 f"throttle {throttle}"
             )
         )
@@ -230,7 +239,7 @@ class DiagnosticsPanel(tk.Frame):
         self._values["storage_detail"].configure(
             text=(
                 f"{_number(snapshot.disk_free_gb, 1)} GiB free\n"
-                f"{_number(snapshot.disk_total_gb, 1)} GiB total"
+                f"{_number(snapshot.disk_total_gb, 1)} GiB total ({snapshot.disk_path})"
             )
         )
 
@@ -238,6 +247,7 @@ class DiagnosticsPanel(tk.Frame):
             ("cpu", snapshot.cpu_percent),
             ("memory", snapshot.memory_used_percent),
             ("temperature", snapshot.temperature_c),
+            ("process_cpu", snapshot.process_cpu_percent),
         ):
             if snapshot.sampled_at_unix_s is not None and snapshot.sampled_at_unix_s != self._last_sample_time:
                 self._history[key].append((snapshot.sampled_at_unix_s, value))
@@ -255,6 +265,8 @@ class DiagnosticsPanel(tk.Frame):
         width = max(1, canvas.winfo_width())
         height = max(1, canvas.winfo_height())
         ceiling = 100.0 if key != "temperature" else 120.0
+        if key == "process_cpu":
+            ceiling = max([100.0] + [value for _, value in values if value is not None])
 
         points: list[float] = []
         end_time = values[-1][0]

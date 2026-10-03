@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import tempfile
+from collections import namedtuple
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -169,6 +170,60 @@ class SystemDiagnosticsControllerTest(unittest.TestCase):
             self.assertEqual(controller._read_thermal_limit_c(), 85)
             with patch("controllers.system.system_diagnostics_controller.subprocess.run", side_effect=FileNotFoundError):
                 self.assertIsNone(controller._read_throttled_flags())
+
+    def test_blocked_host_cpu_is_explained_and_does_not_replace_process_cpu(self):
+        controller = SystemDiagnosticsController(process_time=iter((10.0, 10.5)).__next__)
+        with patch.object(Path, "read_text", side_effect=PermissionError):
+            self.assertEqual(controller._read_cpu_percentages(), (None, ()))
+        self.assertEqual(controller._cpu_unavailable_reason, "blocked by operating system")
+        self.assertIsNone(controller._read_process_cpu_percent(1))
+        self.assertEqual(controller._read_process_cpu_percent(2), 50)
+
+    def test_process_cpu_accounts_for_multiple_threads_and_invalid_intervals(self):
+        controller = SystemDiagnosticsController(process_time=iter((10, 12, 12, 1)).__next__)
+        self.assertIsNone(controller._read_process_cpu_percent(10))
+        self.assertEqual(controller._read_process_cpu_percent(11), 200)
+        self.assertIsNone(controller._read_process_cpu_percent(11))
+        self.assertIsNone(controller._read_process_cpu_percent(12))
+
+    def test_termux_storage_defaults_to_data_filesystem_and_explicit_override_wins(self):
+        with patch.dict("os.environ", {"TERMUX_VERSION": "0.118", "PREFIX": "/data/data/com.termux/files/usr"}):
+            controller = SystemDiagnosticsController()
+            self.assertEqual(controller._disk_path, Path.home())
+            self.assertEqual(SystemDiagnosticsController(disk_path="/mnt/data")._disk_path, Path("/mnt/data"))
+        with patch.dict("os.environ", {"TERMUX_VERSION": "", "PREFIX": "/usr"}):
+            self.assertEqual(SystemDiagnosticsController()._disk_path, Path("/"))
+
+    def test_storage_usage_excludes_reserved_free_blocks(self):
+        usage = namedtuple("Usage", "total used free")(1000, 700, 250)
+        controller = SystemDiagnosticsController()
+        with patch("controllers.system.system_diagnostics_controller.shutil.disk_usage", return_value=usage):
+            self.assertEqual(controller._read_disk(), (1000, 700, 250))
+            sample = controller.snapshot()
+        self.assertEqual(sample.disk_used_percent, 70)
+
+    def test_thermal_headroom_uses_hottest_sensors_own_trip_points(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for name, temperature, limit in (("thermal_zone0", 90000, 110000), ("thermal_zone1", 40000, 50000)):
+                zone = root / "class/thermal" / name
+                zone.mkdir(parents=True)
+                (zone / "temp").write_text(str(temperature))
+                (zone / "trip_point_0_temp").write_text(str(limit))
+                (zone / "trip_point_0_type").write_text("critical")
+            controller = SystemDiagnosticsController(sys_root=root)
+            temperature, limit, zone = controller._read_thermal_state()
+            self.assertEqual((temperature, limit, zone), (90, 110, "thermal_zone0"))
+            self.assertEqual(controller.snapshot().thermal_headroom_c, 20)
+
+    def test_thermal_units_are_always_kernel_millidegrees(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            zone = root / "class/thermal/thermal_zone0"
+            zone.mkdir(parents=True)
+            (zone / "temp").write_text("500")
+            controller = SystemDiagnosticsController(sys_root=root)
+            self.assertEqual(controller._read_thermal_state(), (0.5, None, "thermal_zone0"))
 
 
 if __name__ == "__main__":

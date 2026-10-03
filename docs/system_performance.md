@@ -54,16 +54,33 @@ displayed as unavailable.
 
 - CPU utilization uses deltas from `/proc/stat`, including individual cores.
   Guest time is not counted twice. The first sample has no utilization value.
+  This is the percentage of non-idle CPU time across the host cores; iowait
+  is excluded. Modern Android commonly denies Termux access to `/proc/stat`,
+  so host CPU and per-core percentages can remain unavailable. The screen
+  explains this restriction instead of displaying a fabricated percentage.
+- **This process CPU** uses Python's monotonic process CPU clock across all
+  threads, divided by elapsed wall time. 100% means one fully occupied core;
+  values may exceed 100% with multiple busy threads. It measures only the
+  sampling process (the preview, ORC UI, or service manager), not the entire
+  phone, all Termux processes, or every ORC service. It is shown separately
+  and is never substituted for the unavailable host reading.
 - Frequency is the average of available per-core `scaling_cur_freq` readings.
   Load is the host's one-minute load average.
 - RAM utilization is `MemTotal - MemAvailable`; swap uses `SwapTotal - SwapFree`.
-- Storage capacity is measured for `/`. Disk activity sums whole physical
+- Storage capacity is measured for `/` on Linux and Termux's home/data
+  filesystem on Android. The sampled path is included in the snapshot. Used
+  space comes from filesystem-used blocks, not total minus space available
+  to an unprivileged user (which would count reserved free space as used).
+  Disk activity sums whole physical
   block-device sector counters, excluding partitions and stacked virtual disks.
   Kernel diskstat sectors are 512 bytes.
 - Network activity sums interface byte counters except loopback. Virtual
   interfaces may count the same traffic as their underlying interfaces.
 - Temperature is the hottest available thermal-zone reading. Headroom uses
-  the lowest available passive/hot/critical thermal trip point. Pi models fall
+  the lowest available passive/hot/critical trip point of that same thermal
+  zone; it never mixes thresholds from another sensor. The screen calls this
+  distance **to trip**, rather than implying a guaranteed CPU throttling
+  threshold. Pi models fall
   back to 85°C when no trip point is exposed. Other models have no assumed
   limit. These host-level thermal figures are a broad health indicator, not
   an individual CPU's guaranteed throttling threshold.
@@ -91,9 +108,11 @@ the previous snapshot with an increasing age and an error type; clients must
 check freshness before displaying it as live.
 
 The snapshot includes host identity, Unix sample time, CPU utilization and
-per-core percentages, load, CPU count, frequency in Hz, memory/swap/disk byte
+per-core percentages, a host CPU unavailability reason, sampler-process CPU
+percentage and PID, load, CPU count, frequency in Hz, memory/swap/disk byte
 counts, utilization percentages, temperatures in Celsius, uptime in seconds,
-Pi throttle flags, and network/disk rates in bytes per second. History contains
-only sample time, CPU percentage, memory percentage, and temperature to keep
+Pi throttle flags, storage path, thermal zone, and network/disk rates in bytes
+per second. History contains
+only sample time, host/process CPU percentages, memory percentage, and temperature to keep
 remote responses compact. Unavailable values are JSON null. Responses use
 `Cache-Control: no-store`.
