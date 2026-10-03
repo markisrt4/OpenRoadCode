@@ -25,7 +25,14 @@ static int write_all(int fd,const void *p,size_t n){const uint8_t *b=p;while(n){
 static int read_all(int fd,void *p,size_t n){uint8_t *b=p;while(n){ssize_t r=recv(fd,b,n,0);if(r<=0)return -1;b+=r;n-=r;}return 0;}
 static int put32(int fd,uint32_t v){v=htonl(v);return write_all(fd,&v,4);}
 static int get32(int fd,int32_t *v){uint32_t n;if(read_all(fd,&n,4))return -1;*v=(int32_t)ntohl(n);return 0;}
-static int request(int fd,uint16_t op){uint32_t m=htonl(ORCU_MAGIC);uint16_t v=htons(ORCU_VERSION),o=htons(op);return write_all(fd,&m,4)||write_all(fd,&v,2)||write_all(fd,&o,2)?-1:0;}
+static int request(int fd,uint16_t op){
+    uint32_t m=htonl(ORCU_MAGIC);uint16_t v=htons(ORCU_VERSION),o=htons(op);
+    if(op==ORCU_OP_STREAM_STOP){
+        fprintf(stderr,"[ORCU transport] writing STREAM_STOP: fd=%d op=%u\n",fd,(unsigned)op);
+        fflush(stderr);
+    }
+    return write_all(fd,&m,4)||write_all(fd,&v,2)||write_all(fd,&o,2)?-1:0;
+}
 
 static int result(int fd,uint8_t *data,size_t cap,int *transferred){
     int32_t rc,len;if(get32(fd,&rc)||get32(fd,&len)||len<0)return -1;
@@ -59,20 +66,20 @@ int orcu_control(int fd,int request_type,int req,int value,int index,uint8_t *bu
     if(len<0)return -1;
     pthread_mutex_lock(&orcu_control_lock);
     if(request(fd,ORCU_OP_CONTROL)||put32(fd,request_type)||put32(fd,req)||put32(fd,value)||put32(fd,index)||put32(fd,len)||put32(fd,timeout_ms)){
-        fprintf(stderr,"[ORCU control] request write failed: type=0x%02x req=0x%02x value=0x%04x index=0x%04x len=%d: %s\\n",
+        fprintf(stderr,"[ORCU control] request write failed: type=0x%02x req=0x%02x value=0x%04x index=0x%04x len=%d: %s\n",
                 request_type&0xff,req&0xff,value&0xffff,index&0xffff,len,strerror(errno));
         pthread_mutex_unlock(&orcu_control_lock);
         return -1;
     }
     if(!(request_type&0x80)&&len&&write_all(fd,buf,(size_t)len)){
-        fprintf(stderr,"[ORCU control] payload write failed: type=0x%02x req=0x%02x value=0x%04x index=0x%04x len=%d: %s\\n",
+        fprintf(stderr,"[ORCU control] payload write failed: type=0x%02x req=0x%02x value=0x%04x index=0x%04x len=%d: %s\n",
                 request_type&0xff,req&0xff,value&0xffff,index&0xffff,len,strerror(errno));
         pthread_mutex_unlock(&orcu_control_lock);
         return -1;
     }
     int got=0;int rc=result(fd,(request_type&0x80)?buf:NULL,(request_type&0x80)?(size_t)len:0,&got);
     if(rc<0){
-        fprintf(stderr,"[ORCU control] transfer failed: type=0x%02x req=0x%02x value=0x%04x index=0x%04x len=%d rc=%d errno=%d(%s)\\n",
+        fprintf(stderr,"[ORCU control] transfer failed: type=0x%02x req=0x%02x value=0x%04x index=0x%04x len=%d rc=%d errno=%d(%s)\n",
                 request_type&0xff,req&0xff,value&0xffff,index&0xffff,len,rc,errno,strerror(errno));
     }
     pthread_mutex_unlock(&orcu_control_lock);
@@ -94,19 +101,19 @@ int orcu_stream_bulk_in_start(int fd,int endpoint,int len,int timeout_ms){
 int orcu_stream_bulk_in_read(int fd,uint8_t *buf,int cap){
     int32_t len;
     if(cap<=0){
-        fprintf(stderr,"[ORCU transport] stream read invalid capacity: %d\\n",cap);
+        fprintf(stderr,"[ORCU transport] stream read invalid capacity: %d\n",cap);
         return -1;
     }
     if(get32(fd,&len)){
-        fprintf(stderr,"[ORCU transport] stream read failed reading frame length: %s\\n",strerror(errno));
+        fprintf(stderr,"[ORCU transport] stream read failed reading frame length: %s\n",strerror(errno));
         return -1;
     }
     if(len<=0||len>cap){
-        fprintf(stderr,"[ORCU transport] stream frame length invalid: len=%d cap=%d\\n",(int)len,cap);
+        fprintf(stderr,"[ORCU transport] stream frame length invalid: len=%d cap=%d\n",(int)len,cap);
         return -1;
     }
     if(read_all(fd,buf,(size_t)len)){
-        fprintf(stderr,"[ORCU transport] stream payload read failed: len=%d: %s\\n",(int)len,strerror(errno));
+        fprintf(stderr,"[ORCU transport] stream payload read failed: len=%d: %s\n",(int)len,strerror(errno));
         return -1;
     }
     return len;
