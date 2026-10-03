@@ -31,8 +31,10 @@ class WeatherScreen(TkScreen, WeatherRequestHandlerIf):
         unit_system: Callable[[], UnitSystem] = lambda: UnitSystem.IMPERIAL,
         on_weather_radio: Callable[[], None] | None = None,
         on_weather_state: Callable[[object], None] | None = None,
+        online_allowed: Callable[[], bool] = lambda: True,
     ) -> None:
         super().__init__(ScreenId("weather"))
+        self._online_allowed = online_allowed
         self._host = host
         self._controller = controller
         self._theme_bundle = theme_bundle
@@ -63,6 +65,7 @@ class WeatherScreen(TkScreen, WeatherRequestHandlerIf):
             self._presenter.present(latest)
         else:
             panel.set_loading(True)
+        panel.set_online(self._online_allowed())
         self.request_refresh()
 
     def hide(self) -> None:
@@ -72,7 +75,19 @@ class WeatherScreen(TkScreen, WeatherRequestHandlerIf):
         self._panel = None
         self._presenter = None
 
+    def mode_changed(self, online: bool) -> None:
+        self._generation += 1
+        if self._panel is not None:
+            self._panel.set_online(online)
+            if online:
+                self.request_refresh()
+            else:
+                self._host.set_screen_status("Offline mode: cached weather; alerts may be outdated")
+
     def request_refresh(self) -> None:
+        if not self._online_allowed():
+            self._host.set_screen_status("Offline mode: cached weather; alerts may be outdated")
+            return
         self._generation += 1
         generation = self._generation
         self._host.set_screen_status("Weather: refreshing")

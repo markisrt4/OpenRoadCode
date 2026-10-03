@@ -112,3 +112,29 @@ def test_negative_stale_age_is_rejected():
 
     with pytest.raises(ValueError):
         controller.refresh_if_stale(-1.0)
+
+
+def test_offline_returns_cached_weather_without_location_or_provider_requests():
+    online = True
+    provider = Mock()
+    provider.refresh.return_value = _state(fetched_at=100.0)
+    location = Mock()
+    controller = WeatherController(provider, location_provider=location,
+                                   network_allowed=lambda: online, clock=lambda: 10000.0)
+    cached = controller.refresh()
+    online = False
+    assert controller.refresh() is cached
+    assert controller.refresh_if_stale(0.0) is cached
+    assert provider.refresh.call_count == 1
+    assert location.get_location.call_count == 1
+    online = True
+    controller.refresh_if_stale(0.0)
+    assert provider.refresh.call_count == 2
+
+
+def test_offline_without_cache_never_requests_weather():
+    provider = Mock()
+    controller = WeatherController(provider, network_allowed=lambda: False)
+    with pytest.raises(RuntimeError, match="no cached weather"):
+        controller.refresh_if_stale(0.0)
+    provider.refresh.assert_not_called()

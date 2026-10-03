@@ -42,3 +42,8 @@ class OnlineModeController:
             if listener in self._listeners:
                 self._listeners.remove(listener)
         return unsubscribe
+
+
+def saved_online_mode(path: Path | None = None) -> bool:
+    """Read the shared preference for services running outside the UI process."""
+    return OnlineModeController(path).online

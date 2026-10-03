@@ -94,6 +94,7 @@ class OrcUiApp(VolumeUiIf):
     def _paint_online_mode(self) -> None:
         if self._shell is not None:
             self._shell.set_online_status(self.online_mode.online, self._internet_status)
+            self._shell.set_weather_online(self.online_mode.online)
 
     def _poll_internet_status(self) -> None:
         if self._closing:
