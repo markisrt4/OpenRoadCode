@@ -247,3 +247,34 @@ class NavigationPanelControlTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class OfflinePoiActionsTest(unittest.TestCase):
+    def test_offline_blocks_order_and_website_even_when_called_directly(self):
+        from controllers.connectivity.online_mode import OnlineModeController
+        import tempfile
+        from pathlib import Path
+        with tempfile.TemporaryDirectory() as directory:
+            mode = OnlineModeController(Path(directory) / 'mode.json')
+            mode.set_online(False)
+            panel = NavigationPanelControlTest()._panel()
+            panel._online_mode = mode
+            poi = PointOfInterest('p', 'Panera', PoiCategory.FOOD, GeoPoint(0, 0))
+            for kind in (PoiActionKind.ORDER, PoiActionKind.OPEN_WEBSITE):
+                panel._execute_poi_action(poi, PoiAction(kind, kind.name))
+            panel._poi_action_executor.execute.assert_not_called()
+            mode.set_online(True)
+            panel._execute_poi_action(poi, PoiAction(PoiActionKind.ORDER, 'ORDER'))
+            panel._poi_action_executor.execute.assert_called_once()
+
+    def test_open_card_buttons_follow_mode_changes(self):
+        panel = NavigationPanelControlTest()._panel()
+        panel._online_mode = Mock(online=False)
+        button = Mock()
+        button.winfo_exists.return_value = True
+        panel._poi_action_buttons = [button]
+        panel._refresh_poi_action_buttons()
+        button.configure.assert_called_with(state='disabled')
+        panel._online_mode.online = True
+        panel._refresh_poi_action_buttons()
+        button.configure.assert_called_with(state='normal')

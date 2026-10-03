@@ -5,6 +5,8 @@
 
 from __future__ import annotations
 
+from controllers.connectivity.online_mode import OnlineModeController
+
 from collections.abc import Callable
 
 from apps.orcUi.core_runtime import MapRuntimeIf
@@ -41,6 +43,7 @@ class NavigationScreen(TkScreen):
             Callable[[AutomotiveTelemetryProfile], None] | None
         ),
         on_back: Callable[[], None],
+        online_mode: OnlineModeController | None = None,
     ) -> None:
         super().__init__(self.SCREEN_ID)
         self._host = host
@@ -51,6 +54,7 @@ class NavigationScreen(TkScreen):
         self._theme_bundle = theme_bundle
         self._telemetry_profile_request = telemetry_profile_request
         self._on_back = on_back
+        self._online_mode = online_mode
         self._panel: NavigationPanel | None = None
 
     def show(self) -> None:
@@ -66,6 +70,7 @@ class NavigationScreen(TkScreen):
             route_simulation_handler=self._route_simulation_handler,
             on_back=self._on_back,
             theme=self._theme_bundle(),
+            online_mode=self._online_mode,
         )
 
         if self._telemetry_profile_request is not None:

@@ -5,6 +5,10 @@ from __future__ import annotations
 import os
 import signal
 import tkinter as tk
+from queue import SimpleQueue, Empty
+from threading import Thread
+from controllers.connectivity.online_mode import OnlineModeController
+from controllers.connectivity.internet_access import internet_reachable
 from collections.abc import Callable
 from apps.orcUi.orc_theme import ThemeMode, toggle
 from .power_dialog import PowerDialog
@@ -68,7 +72,53 @@ class OrcUiApp(VolumeUiIf):
             on_restart=self._restart_ui,
             on_shutdown=self._shutdown_system,
         )
+        self.online_mode = OnlineModeController()
+        self._internet_status: bool | None = None
+        self._internet_results = SimpleQueue()
+        self._internet_generation = 0
+        self._internet_probe_active = False
+        self._internet_next_probe = 0
         self._build_shell()
+        self._poll_internet_status()
+    def _toggle_online_mode(self) -> None:
+        try:
+            self.online_mode.set_online(not self.online_mode.online)
+        except OSError as exc:
+            self.set_screen_status(f"Could not save online mode: {exc}")
+            return
+        self._internet_generation += 1
+        self._internet_status = None
+        self._internet_next_probe = 0
+        self._paint_online_mode()
+
+    def _paint_online_mode(self) -> None:
+        if self._shell is not None:
+            self._shell.set_online_status(self.online_mode.online, self._internet_status)
+
+    def _poll_internet_status(self) -> None:
+        if self._closing:
+            return
+        while True:
+            try:
+                generation, reachable = self._internet_results.get_nowait()
+            except Empty:
+                break
+            self._internet_probe_active = False
+            if generation == self._internet_generation and self.online_mode.online:
+                self._internet_status = reachable
+        if self.online_mode.online and not self._internet_probe_active:
+            if self._internet_next_probe <= 0:
+                generation = self._internet_generation
+                self._internet_probe_active = True
+                self._internet_next_probe = 30
+                def probe() -> None:
+                    self._internet_results.put((generation, internet_reachable()))
+                Thread(target=probe, daemon=True, name="orc-internet-check").start()
+            else:
+                self._internet_next_probe -= 1
+        self._paint_online_mode()
+        self._root.after(1000, self._poll_internet_status)
+
     @property
     def theme_mode(self) -> ThemeMode:
         return self._theme_mode
@@ -212,6 +262,7 @@ class OrcUiApp(VolumeUiIf):
             active_nav=self._active_nav,
             on_navigate=self.navigate_to,
             on_power=self._power_dialog.show,
+            on_online_toggle=self._toggle_online_mode,
             on_theme_toggle=self._toggle_theme,
             on_settings=self._open_settings,
             on_volume_down=self._request_volume_down,

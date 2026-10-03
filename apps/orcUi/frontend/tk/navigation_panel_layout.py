@@ -291,11 +291,14 @@ def show_poi_card(panel, poi) -> None:
         height=2,
     ).pack(side=tk.LEFT, padx=4)
 
+    panel._poi_action_buttons = []
     for action in poi.actions:
         if action.kind in {PoiActionKind.ORDER, PoiActionKind.OPEN_WEBSITE}:
-            tk.Button(
+            button = tk.Button(
                 buttons,
                 text=action.label,
+                state=tk.NORMAL if panel.online_actions_allowed else tk.DISABLED,
+                disabledforeground=ui.text_muted,
                 command=lambda selected=action: panel._execute_poi_action(poi, selected),
                 bg=ui.control_background,
                 fg=ui.accent_primary,
@@ -307,7 +310,9 @@ def show_poi_card(panel, poi) -> None:
                 font=("Sans", 10, "bold"),
                 width=12,
                 height=2,
-            ).pack(side=tk.LEFT, padx=4)
+            )
+            button.pack(side=tk.LEFT, padx=4)
+            panel._poi_action_buttons.append(button)
 
     tk.Button(
         buttons,

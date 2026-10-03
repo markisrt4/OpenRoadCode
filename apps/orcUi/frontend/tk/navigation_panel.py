@@ -5,6 +5,8 @@
 
 from __future__ import annotations
 
+from controllers.connectivity.online_mode import OnlineModeController
+
 import math
 import tkinter as tk
 from collections.abc import Callable
@@ -53,6 +55,7 @@ class NavigationPanel(tk.Frame):
         on_back: Callable[[], None] | None = None,
         theme_bundle: ThemeBundle | None = None,
         poi_action_executor: PoiActionExecutorIf | None = None,
+        online_mode: OnlineModeController | None = None,
     ) -> None:
         self._theme_bundle = theme_bundle or packaged_theme_bundle(ThemeMode.DARK)
         super().__init__(parent, bg=self._theme_bundle.ui.background)
@@ -62,6 +65,12 @@ class NavigationPanel(tk.Frame):
         self._route_simulation_handler = route_simulation_handler
         self._map_favorites = map_favorites or MapFavorites()
         self._poi_action_executor = poi_action_executor or AndroidPoiActionExecutor()
+        self._online_mode = online_mode
+        self._poi_action_buttons: list[tk.Button] = []
+        self._unsubscribe_online_mode = (
+            online_mode.subscribe(lambda _online: self._refresh_poi_action_buttons())
+            if online_mode is not None else lambda: None
+        )
         self._poi_controller = PoiSearchController()
         self._poi_card: tk.Toplevel | None = None
         self._poi_search_after_id: str | None = None
@@ -109,6 +118,7 @@ class NavigationPanel(tk.Frame):
         )
 
     def destroy(self) -> None:
+        self._unsubscribe_online_mode()
         if self._poi_search_after_id is not None:
             try:
                 self.after_cancel(self._poi_search_after_id)
@@ -310,7 +320,20 @@ class NavigationPanel(tk.Frame):
         if self._poi_card is not None and self._poi_card.winfo_exists():
             self._poi_card.destroy()
 
+    @property
+    def online_actions_allowed(self) -> bool:
+        mode = getattr(self, "_online_mode", None)
+        return mode is None or mode.online
+
+    def _refresh_poi_action_buttons(self) -> None:
+        for button in self._poi_action_buttons:
+            if button.winfo_exists():
+                button.configure(state=tk.NORMAL if self.online_actions_allowed else tk.DISABLED)
+
     def _execute_poi_action(self, poi: PointOfInterest, action: PoiAction) -> None:
+        if not self.online_actions_allowed:
+            self._shortcut_status.set("Offline mode: go online to order or open websites")
+            return
         try:
             status = self._poi_action_executor.execute(poi, action)
             self._shortcut_status.set(status)
