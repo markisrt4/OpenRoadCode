@@ -9,7 +9,7 @@ import math
 import sqlite3
 from pathlib import Path
 
-from controllers.poi.poi_models import PoiCategory, PointOfInterest, TransitMode
+from ui.navigation.poi_models import (PoiCategory, PointOfInterest, TransitMode)
 from controllers.poi.poi_search_source_if import PoiSearchQuery, PoiSearchSourceIf
 from ui.navigation import GeoPoint
 

@@ -6,7 +6,7 @@
 import time
 
 from controllers.spotify.spotify_controller_if import SpotifyControllerIf
-from controllers.spotify.spotify_library import SpotifyLibraryTrack
+from ui.media.spotify_library import (SpotifyLibraryTrack)
 from controllers.spotify.spotify_state import SpotifyState
 
 

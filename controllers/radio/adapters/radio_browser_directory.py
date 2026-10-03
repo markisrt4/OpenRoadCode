@@ -10,7 +10,7 @@ from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
 from controllers.radio.streaming_radio_directory_if import StreamingRadioDirectoryIf
-from controllers.radio.streaming_radio_types import StreamingRadioStation
+from ui.radio.streaming_radio_types import (StreamingRadioStation)
 
 
 class RadioBrowserDirectory(StreamingRadioDirectoryIf):

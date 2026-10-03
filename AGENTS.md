@@ -35,3 +35,13 @@ Use the existing checkout in the task environment; do not create a worktree unle
 requested. Preserve unrelated user changes. Use the repository-supported setup
 and test commands. For device instructions, switch to the intended branch before
 pulling or testing.
+
+## Independently replaceable UI
+
+The `openroad-ui-contracts` distribution must contain only `ui/`, with no ORC
+runtime dependencies. Run `python scripts/check_standalone_ui.py` after changing
+contracts. New UI packages import contracts and toolkit libraries; ORC-side
+composition imports the new UI and supplies handlers/presenters. Do not require a
+new frontend to import `apps.orcUi`, concrete controllers, configuration, messaging,
+or native renderer clients. See `ui/README.md` for installation and the remaining
+legacy boundary audit.

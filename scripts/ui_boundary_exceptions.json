@@ -7,19 +7,11 @@
     "count": 1,
     "reason": "Existing composition/service factory located under screens; move wiring to a composition package when refactoring."
   },
-  "apps/carUi/screens/car_ui_screen_services.py|imports controllers.radio.radio_types.RadioPreset": {
-    "count": 1,
-    "reason": "Existing composition/service factory located under screens; move wiring to a composition package when refactoring."
-  },
   "apps/carUi/screens/netflix_screen.py|imports controllers.video.netflix_player.DEFAULT_NETFLIX_URL": {
     "count": 1,
     "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
   },
   "apps/carUi/screens/netflix_screen.py|imports controllers.video.netflix_player.NetflixPlayer": {
-    "count": 1,
-    "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
-  },
-  "apps/carUi/screens/offroad_dashboard_screen.py|imports controllers.navigation.map_presentation_if.MapPresentationIf": {
     "count": 1,
     "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
   },
@@ -51,83 +43,11 @@
     "count": 1,
     "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
   },
-  "apps/orcUi/frontend/tk/ecu_engine_visual.py|imports controllers.automotive.EngineAnalysis": {
-    "count": 1,
-    "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
-  },
-  "apps/orcUi/frontend/tk/ecu_engine_visual.py|imports controllers.automotive.EngineLoadLevel": {
-    "count": 1,
-    "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
-  },
-  "apps/orcUi/frontend/tk/ecu_engine_visual.py|imports controllers.automotive.FuelControlMode": {
-    "count": 1,
-    "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
-  },
-  "apps/orcUi/frontend/tk/ecu_engine_visual.py|imports controllers.automotive.MixtureMode": {
-    "count": 1,
-    "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
-  },
-  "apps/orcUi/frontend/tk/ecu_engine_visual.py|imports controllers.automotive.TrackingQuality": {
-    "count": 1,
-    "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
-  },
-  "apps/orcUi/frontend/tk/ecu_panel.py|imports controllers.automotive.EngineAnalysis": {
-    "count": 1,
-    "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
-  },
-  "apps/orcUi/frontend/tk/ecu_panel.py|imports controllers.automotive.EngineLoadLevel": {
-    "count": 1,
-    "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
-  },
-  "apps/orcUi/frontend/tk/ecu_panel.py|imports controllers.automotive.FuelControlMode": {
-    "count": 1,
-    "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
-  },
-  "apps/orcUi/frontend/tk/ecu_panel.py|imports controllers.automotive.FuelCorrectionStatus": {
-    "count": 1,
-    "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
-  },
-  "apps/orcUi/frontend/tk/ecu_panel.py|imports controllers.automotive.MixtureMode": {
-    "count": 1,
-    "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
-  },
-  "apps/orcUi/frontend/tk/ecu_panel.py|imports controllers.automotive.TrackingQuality": {
-    "count": 1,
-    "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
-  },
-  "apps/orcUi/frontend/tk/ecu_panel.py|imports controllers.automotive.VehicleConfiguration": {
-    "count": 1,
-    "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
-  },
-  "apps/orcUi/frontend/tk/home_screen.py|imports controllers.automotive.AutomotiveTelemetryProfile": {
-    "count": 1,
-    "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
-  },
   "apps/orcUi/frontend/tk/navigation_panel.py|imports controllers.navigation.map_favorites.MapFavorites": {
     "count": 1,
     "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
   },
-  "apps/orcUi/frontend/tk/navigation_panel.py|imports controllers.poi.PoiAction": {
-    "count": 1,
-    "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
-  },
-  "apps/orcUi/frontend/tk/navigation_panel.py|imports controllers.poi.PoiActionKind": {
-    "count": 1,
-    "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
-  },
-  "apps/orcUi/frontend/tk/navigation_panel.py|imports controllers.poi.PoiCategory": {
-    "count": 1,
-    "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
-  },
   "apps/orcUi/frontend/tk/navigation_panel.py|imports controllers.poi.PoiSearchController": {
-    "count": 1,
-    "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
-  },
-  "apps/orcUi/frontend/tk/navigation_panel.py|imports controllers.poi.PointOfInterest": {
-    "count": 1,
-    "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
-  },
-  "apps/orcUi/frontend/tk/navigation_panel.py|imports controllers.poi.TransitMode": {
     "count": 1,
     "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
   },
@@ -136,54 +56,6 @@
     "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
   },
   "apps/orcUi/frontend/tk/navigation_panel.py|imports controllers.poi.poi_action_executor_if.PoiActionExecutorIf": {
-    "count": 1,
-    "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
-  },
-  "apps/orcUi/frontend/tk/navigation_panel_layout.py|imports controllers.poi.PoiActionKind": {
-    "count": 1,
-    "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
-  },
-  "apps/orcUi/frontend/tk/navigation_panel_layout.py|imports controllers.poi.PoiCategory": {
-    "count": 1,
-    "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
-  },
-  "apps/orcUi/frontend/tk/navigation_panel_layout.py|imports controllers.poi.TransitMode": {
-    "count": 1,
-    "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
-  },
-  "apps/orcUi/frontend/tk/navigation_screen.py|imports controllers.automotive.AutomotiveTelemetryProfile": {
-    "count": 1,
-    "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
-  },
-  "apps/orcUi/frontend/tk/performance_panel.py|imports controllers.automotive.VehicleConfiguration": {
-    "count": 1,
-    "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
-  },
-  "apps/orcUi/frontend/tk/presentation_state.py|imports controllers.automotive.EngineAnalysis": {
-    "count": 1,
-    "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
-  },
-  "apps/orcUi/frontend/tk/presentation_state.py|imports controllers.automotive.EngineLoadLevel": {
-    "count": 1,
-    "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
-  },
-  "apps/orcUi/frontend/tk/presentation_state.py|imports controllers.automotive.EngineOperatingMode": {
-    "count": 1,
-    "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
-  },
-  "apps/orcUi/frontend/tk/presentation_state.py|imports controllers.automotive.FuelControlMode": {
-    "count": 1,
-    "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
-  },
-  "apps/orcUi/frontend/tk/presentation_state.py|imports controllers.automotive.FuelCorrectionStatus": {
-    "count": 1,
-    "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
-  },
-  "apps/orcUi/frontend/tk/presentation_state.py|imports controllers.automotive.MixtureMode": {
-    "count": 1,
-    "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
-  },
-  "apps/orcUi/frontend/tk/presentation_state.py|imports controllers.automotive.TrackingQuality": {
     "count": 1,
     "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
   },
@@ -203,19 +75,7 @@
     "count": 1,
     "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
   },
-  "apps/orcUi/frontend/tk/radio_group_menu.py|imports controllers.radio.radio_profiles.RadioProfile": {
-    "count": 1,
-    "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
-  },
-  "apps/orcUi/frontend/tk/radio_group_menu.py|imports controllers.radio.radio_profiles.RadioProfilePreset": {
-    "count": 1,
-    "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
-  },
   "apps/orcUi/frontend/tk/radio_panel.py|imports controllers.radio.radio_profile_controller.RadioProfileController": {
-    "count": 1,
-    "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
-  },
-  "apps/orcUi/frontend/tk/radio_panel.py|imports controllers.radio.radio_profile_controller.RadioProfileState": {
     "count": 1,
     "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
   },
@@ -228,106 +88,6 @@
     "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
   },
   "apps/orcUi/frontend/tk/radio_panel.py|imports controllers.sdr.sdrpp_control.SDRPPControl": {
-    "count": 1,
-    "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
-  },
-  "apps/orcUi/frontend/tk/screen_builders.py|imports controllers.automotive.AutomotiveTelemetryProfile": {
-    "count": 1,
-    "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
-  },
-  "apps/orcUi/frontend/tk/screen_builders.py|imports controllers.automotive.EngineAnalysis": {
-    "count": 1,
-    "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
-  },
-  "apps/orcUi/frontend/tk/screen_builders.py|imports controllers.automotive.VehicleConfiguration": {
-    "count": 1,
-    "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
-  },
-  "apps/orcUi/frontend/tk/settings_panel.py|imports controllers.automotive.EngineInductionType": {
-    "count": 1,
-    "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
-  },
-  "apps/orcUi/frontend/tk/settings_panel.py|imports controllers.automotive.VehicleConfiguration": {
-    "count": 1,
-    "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
-  },
-  "apps/orcUi/frontend/tk/settings_screen.py|imports controllers.automotive.AutomotiveTelemetryProfile": {
-    "count": 1,
-    "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
-  },
-  "apps/orcUi/frontend/tk/settings_screen.py|imports controllers.automotive.VehicleConfiguration": {
-    "count": 1,
-    "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
-  },
-  "apps/orcUi/frontend/tk/trip_panel.py|imports controllers.automotive.VehicleConfiguration": {
-    "count": 1,
-    "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
-  },
-  "apps/orcUi/frontend/tk/vehicle_panel.py|imports controllers.automotive.AutomotiveTelemetryProfile": {
-    "count": 1,
-    "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
-  },
-  "apps/orcUi/frontend/tk/vehicle_panel.py|imports controllers.automotive.EngineAnalysis": {
-    "count": 1,
-    "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
-  },
-  "apps/orcUi/frontend/tk/vehicle_panel.py|imports controllers.automotive.EngineLoadLevel": {
-    "count": 1,
-    "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
-  },
-  "apps/orcUi/frontend/tk/vehicle_panel.py|imports controllers.automotive.EngineOperatingMode": {
-    "count": 1,
-    "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
-  },
-  "apps/orcUi/frontend/tk/vehicle_panel.py|imports controllers.automotive.FuelControlMode": {
-    "count": 1,
-    "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
-  },
-  "apps/orcUi/frontend/tk/vehicle_panel.py|imports controllers.automotive.FuelCorrectionStatus": {
-    "count": 1,
-    "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
-  },
-  "apps/orcUi/frontend/tk/vehicle_panel.py|imports controllers.automotive.MixtureMode": {
-    "count": 1,
-    "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
-  },
-  "apps/orcUi/frontend/tk/vehicle_panel.py|imports controllers.automotive.TrackingQuality": {
-    "count": 1,
-    "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
-  },
-  "apps/orcUi/frontend/tk/vehicle_panel.py|imports controllers.automotive.VehicleConfiguration": {
-    "count": 1,
-    "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
-  },
-  "apps/orcUi/frontend/tk/vehicle_screen.py|imports controllers.automotive.AutomotiveTelemetryProfile": {
-    "count": 1,
-    "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
-  },
-  "apps/orcUi/frontend/tk/vehicle_screen.py|imports controllers.automotive.VehicleConfiguration": {
-    "count": 1,
-    "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
-  },
-  "controllers/application_runtime/app_runtime_manager.py|imports apps.launchers.app_launcher_if.AppLauncherIf": {
-    "count": 1,
-    "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
-  },
-  "controllers/application_runtime/app_runtime_manager.py|imports apps.launchers.app_launcher_if.BrowserDashboardLauncherIf": {
-    "count": 1,
-    "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
-  },
-  "controllers/application_runtime/app_runtime_manager.py|imports apps.launchers.app_launcher_if.HideableAppLauncherIf": {
-    "count": 1,
-    "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
-  },
-  "controllers/application_runtime/app_runtime_manager.py|imports apps.launchers.app_launcher_if.PreloadableAppLauncherIf": {
-    "count": 1,
-    "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
-  },
-  "controllers/application_runtime/app_runtime_manager.py|imports apps.launchers.app_launcher_if.StatusCallback": {
-    "count": 1,
-    "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
-  },
-  "controllers/application_runtime/app_runtime_manager.py|imports apps.launchers.app_launcher_if.WindowedAppLauncherIf": {
     "count": 1,
     "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
   },
@@ -376,14 +136,6 @@
     "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
   },
   "frontends/tk/media/media_screen.py|imports threading": {
-    "count": 1,
-    "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
-  },
-  "frontends/tk/media/spotify_browse_panel.py|imports controllers.spotify.spotify_library.SpotifyLibraryTrack": {
-    "count": 1,
-    "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
-  },
-  "frontends/tk/media/spotify_browse_panel.py|imports controllers.spotify.spotify_library.SpotifyPlaylist": {
     "count": 1,
     "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
   },
@@ -439,10 +191,6 @@
     "count": 1,
     "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
   },
-  "frontends/tk/radio/persistent_streaming_radio_panel.py|imports controllers.radio.streaming_radio_types.StreamingRadioStation": {
-    "count": 1,
-    "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
-  },
   "frontends/tk/radio/persistent_streaming_radio_panel.py|imports threading": {
     "count": 1,
     "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
@@ -460,10 +208,6 @@
     "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
   },
   "frontends/tk/radio/streaming_radio_panel.py|imports controllers.radio.streaming_radio_directory_if.StreamingRadioDirectoryIf": {
-    "count": 1,
-    "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
-  },
-  "frontends/tk/radio/streaming_radio_panel.py|imports controllers.radio.streaming_radio_types.StreamingRadioStation": {
     "count": 1,
     "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
   },

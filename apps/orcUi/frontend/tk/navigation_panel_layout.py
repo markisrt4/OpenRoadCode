@@ -5,7 +5,7 @@
 
 import tkinter as tk
 
-from controllers.poi import PoiActionKind, PoiCategory, TransitMode
+from ui.navigation.poi_models import (PoiActionKind, PoiCategory, TransitMode)
 
 
 def build_navigation_panel(panel) -> None:

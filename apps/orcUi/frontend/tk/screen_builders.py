@@ -12,11 +12,9 @@ from apps.orcUi.trip_presenter import TripPresentationState
 from common.units import UnitSystem
 from apps.orcUi.vehicle_presenter import VehiclePresentationState
 from ui.weather.radar_ui_if import RadarPalette
-from controllers.automotive import (
-    AutomotiveTelemetryProfile,
-    EngineAnalysis,
-    VehicleConfiguration,
-)
+from ui.automotive.automotive_telemetry_profile import (AutomotiveTelemetryProfile)
+from ui.automotive.engine_analysis import (EngineAnalysis)
+from ui.automotive.vehicle_configuration import (VehicleConfiguration)
 from ui.navigation import (
     MapRequestHandlerIf,
     RouteRequestHandlerIf,

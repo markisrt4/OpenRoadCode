@@ -9,13 +9,7 @@ import math
 import tkinter as tk
 
 from apps.orcUi.vehicle_presenter import VehiclePresentationState
-from controllers.automotive import (
-    EngineAnalysis,
-    EngineLoadLevel,
-    FuelControlMode,
-    MixtureMode,
-    TrackingQuality,
-)
+from ui.automotive.engine_analysis import (EngineAnalysis, EngineLoadLevel, FuelControlMode, MixtureMode, TrackingQuality)
 from ui.theme import ThemeBundle
 
 

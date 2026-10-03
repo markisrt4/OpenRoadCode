@@ -8,7 +8,7 @@ from __future__ import annotations
 from collections.abc import Callable
 
 from apps.orcUi.core_runtime import MapRuntimeIf
-from controllers.automotive import AutomotiveTelemetryProfile
+from ui.automotive.automotive_telemetry_profile import (AutomotiveTelemetryProfile)
 from ui.weather.radar_ui_if import RadarPalette, RadarUiState
 from ui.weather.radar_controls_if import RadarControlsIf
 from ui.weather.radar_request_handler_if import RadarRequestHandlerIf

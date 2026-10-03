@@ -19,7 +19,7 @@ hardware implementations.
 
 ```mermaid
 flowchart LR
-    users["Applications / controllers / frontends"] --> ui["ui contracts"] --> stdlib["Python standard library"]
+    users["Applications / controllers / frontends"] --> ui["ui contracts"] --> stdlib["Standard library / tinycss2 theme parser"]
 
     classDef orcApp fill:#dbeafe,stroke:#2563eb,color:#172554;
     classDef orcService fill:#ede9fe,stroke:#7c3aed,color:#2e1065;
@@ -106,3 +106,113 @@ forwarding. CI runs `scripts/check_weather_ui_contracts.py` to reject weather
 provider/transport/thread imports in Tk weather views, backend-cache inspection,
 and GUI imports in weather controllers. Interface documentation checks remain a
 separate check; they do not substitute for this boundary enforcement.
+
+## A UI without ORC runtime dependencies
+
+The repository builds `openroad-ui-contracts`, an independently installable wheel
+containing only `ui/`. It includes presentation values, semantic request handlers,
+UI interfaces, and stubs. It contains no apps, controllers, services, transports,
+hardware, or configuration packages. Python 3.12 is required; `tinycss2` is its only
+third-party dependency, for shared theme parsing. The wheel has not been published
+to a package registry.
+
+Build it from this checkout:
+
+```bash
+python -m pip wheel --no-deps . --wheel-dir dist
+```
+
+Install the generated wheel into your new UI's environment. Your UI implements
+`*UiIf` interfaces and accepts `*RequestHandlerIf` handlers; it imports only `ui`.
+Develop against the included stubs or a fake backend. An ORC-side composition root
+imports your UI implementation, constructs ORC controllers/presenters, and binds
+the handlers. The dependency points from composition to your UI, never from your
+UI to ORC. ORC remains necessary to supply actual vehicle/service data, but is
+not a dependency of the UI package itself.
+
+For example, a replacement weather view needs only these contracts:
+
+```python
+from ui.weather import WeatherUiIf, WeatherUiState, WeatherRequestHandlerIf
+
+class MyWeatherView(WeatherUiIf):
+    def set_weather_state(self, state: WeatherUiState | None) -> None:
+        self.state = state
+        # Render Kelvin values in the user's chosen units.
+
+    def set_weather_request_handler(self, handler: WeatherRequestHandlerIf | None) -> None:
+        self.handler = handler
+
+    def refresh_clicked(self) -> None:
+        if self.handler is not None:
+            self.handler.request_refresh()
+```
+
+On the backend side, `WeatherPresenter(view)` publishes normalized state to that
+view. The ORC composition root supplies the request handler and owns workers and
+cleanup. Do not import ORC Tk widgets, screen factories, or app presenters to build
+your replacement UI. For an out-of-process UI, a transport adapter must implement
+these same contracts; this wheel does not itself define or provide a remote API.
+
+`python scripts/check_standalone_ui.py` copies only `ui/` into an isolated Python
+process, rejects any import of an ORC package, imports all contract modules, and
+executes a replacement-view request/state round trip. Both CI and the local
+quality gate run this check. The static gate additionally restricts contract
+imports to the standard library, `ui`, and the declared theme parser dependency.
+
+The initial contract release is `0.1.0`. Preserve compatibility when adding
+optional state fields or new interfaces; change the package version and document
+migration steps when changing required methods or field semantics. The legacy
+controller paths re-export moved types so current callers keep the same enum and
+class identities; new UI code must import their canonical `ui` locations.
+
+## Remaining legacy boundary audit
+
+Moving shared automotive, POI, radio, media, map, and launcher contract types
+removed 64 of the original 122 import exceptions. The remaining 58 imports are
+listed exactly in `scripts/ui_boundary_exceptions.json`. They do not belong in
+the standalone contract package and do not prevent a new UI from using it.
+Existing frontend portability is still incomplete. Their migration order is:
+
+1. Spotify/media, streaming radio, and games: replace view-owned service calls,
+   workers, polling, installation, and process lifecycle with state/request
+   controllers; keep toolkit/native host adapters on the frontend side.
+2. Navigation and ORC radio: move default controller/service construction into
+   composition and expose POI/favorites/radio operations through narrow contracts.
+3. Car UI factories: move backend wiring out of `screens/` into composition;
+   replace concrete player/runtime annotations in screens with public contracts.
+4. Platform launch adapters: keep native/browser access in platform adapters,
+   inject their interfaces into domain controllers, and relocate backend factory
+   construction to composition.
+5. Startup/X11: distinguish loading presentation from startup worker ownership;
+   retain subprocess access only in the native X11 adapter.
+
+Each migration needs feature and lifecycle tests, and must remove its exact
+exceptions. This inventory is architectural debt, not an allowance for new UIs.
+
+| Existing module | Import exceptions | Required migration |
+| --- | ---: | --- |
+| `apps/carUi/screens/aircraft_screen.py` | 1 | Replace concrete runtime/player dependencies |
+| `apps/carUi/screens/car_ui_screen_services.py` | 1 | Move factory wiring to composition |
+| `apps/carUi/screens/netflix_screen.py` | 2 | Replace concrete runtime/player dependencies |
+| `apps/carUi/screens/tk_car_ui_screen_factory.py` | 4 | Move factory wiring to composition |
+| `apps/carUi/screens/weather_screen.py` | 1 | Replace concrete runtime/player dependencies |
+| `apps/carUi/screens/youtube_screen.py` | 2 | Replace concrete runtime/player dependencies |
+| `apps/orcUi/frontend/tk/navigation_panel.py` | 4 | Inject POI and favorites contracts from composition |
+| `apps/orcUi/frontend/tk/radio_entry_panel.py` | 4 | Radio request/state contracts and service ownership |
+| `apps/orcUi/frontend/tk/radio_panel.py` | 4 | Radio request/state contracts and service ownership |
+| `controllers/navigation/google_earth_map_presentation.py` | 1 | Inject platform launcher interfaces |
+| `controllers/poi/android_poi_action_executor.py` | 1 | Inject platform launcher interfaces |
+| `controllers/video/netflix_player.py` | 1 | Inject platform launcher interfaces |
+| `controllers/video/youtube_player.py` | 1 | Inject platform launcher interfaces |
+| `frontends/tk/games/games_screen.py` | 7 | Game requests and runtime host adapter |
+| `frontends/tk/media/media_screen.py` | 1 | Media state/request orchestration and async loading |
+| `frontends/tk/media/spotify_browse_panel.py` | 4 | Media state/request orchestration and async loading |
+| `frontends/tk/media/spotify_now_playing.py` | 3 | Media state/request orchestration and async loading |
+| `frontends/tk/media/spotify_playback_panel.py` | 1 | Media state/request orchestration and async loading |
+| `frontends/tk/media/spotify_screen.py` | 3 | Media state/request orchestration and async loading |
+| `frontends/tk/radio/persistent_streaming_radio_panel.py` | 3 | Radio request/state contracts and service ownership |
+| `frontends/tk/radio/streaming_radio_now_playing.py` | 1 | Radio request/state contracts and service ownership |
+| `frontends/tk/radio/streaming_radio_panel.py` | 6 | Radio request/state contracts and service ownership |
+| `frontends/tk/system/startup_splash.py` | 1 | Separate startup worker from loading view |
+| `frontends/x11/x11_window_embedder.py` | 1 | Retain subprocess only in explicit native adapter |

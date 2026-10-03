@@ -9,7 +9,7 @@ from unittest.mock import Mock, patch
 
 from apps.orcUi.frontend.tk.navigation_panel import NavigationPanel
 from controllers.navigation.map_favorites import MapFavorite
-from controllers.poi import PoiAction, PoiActionKind, PoiCategory, PointOfInterest, TransitMode
+from ui.navigation.poi_models import (PoiAction, PoiActionKind, PoiCategory, PointOfInterest, TransitMode)
 from ui.navigation import GeoPoint
 from ui.navigation.route_types import TravelMode
 

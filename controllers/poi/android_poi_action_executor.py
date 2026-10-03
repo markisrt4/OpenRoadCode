@@ -8,7 +8,7 @@ from __future__ import annotations
 from apps.launchers.android_intent_launcher import AndroidIntentLauncher
 from controllers.poi.business_provider_catalog import get_business_provider
 from controllers.poi.poi_action_executor_if import PoiActionExecutorIf
-from controllers.poi.poi_models import PoiAction, PoiActionKind, PointOfInterest
+from ui.navigation.poi_models import (PoiAction, PoiActionKind, PointOfInterest)
 
 
 class AndroidPoiActionExecutor(PoiActionExecutorIf):

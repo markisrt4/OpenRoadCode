@@ -15,14 +15,8 @@ from ui.weather.radar_ui_if import RadarPalette
 from controllers.navigation.map_favorites import MapFavorites
 from controllers.poi.android_poi_action_executor import AndroidPoiActionExecutor
 from controllers.poi.poi_action_executor_if import PoiActionExecutorIf
-from controllers.poi import (
-    PoiAction,
-    PoiActionKind,
-    PoiCategory,
-    PoiSearchController,
-    PointOfInterest,
-    TransitMode,
-)
+from ui.navigation.poi_models import (PoiAction, PoiActionKind, PoiCategory, PointOfInterest, TransitMode)
+from controllers.poi import (PoiSearchController)
 from ui.navigation import (
     MapMarker,
     MapMarkerKind,

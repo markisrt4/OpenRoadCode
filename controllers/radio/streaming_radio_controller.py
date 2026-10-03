@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 from controllers.audio.streaming_audio_player_if import StreamingAudioPlayerIf
-from controllers.radio.streaming_radio_types import StreamingRadioStation
+from ui.radio.streaming_radio_types import (StreamingRadioStation)
 
 
 class StreamingRadioController:

@@ -54,7 +54,10 @@ def violations(path, source):
         else:
             continue
         for module in modules:
-            if any(module == prefix or module.startswith(prefix + '.') for prefix in forbidden):
+            external_contract_dependency = contract and module.split('.')[0] not in (
+                sys.stdlib_module_names | {'ui', 'tinycss2'}
+            )
+            if external_contract_dependency or any(module == prefix or module.startswith(prefix + '.') for prefix in forbidden):
                 results.append((f'{path}|imports {module}', node.lineno))
     return results
 

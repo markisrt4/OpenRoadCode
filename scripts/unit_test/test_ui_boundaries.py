@@ -44,3 +44,9 @@ def test_existing_repository_matches_explicit_baseline():
     import json
     from scripts.check_ui_boundaries import ROOT, BASELINE
     assert not check(ROOT, json.loads(BASELINE.read_text()))[1]
+
+
+def test_contracts_cannot_depend_on_other_repository_packages():
+    for module in ('common.units', 'messaging.contracts', 'config.runtime_environment'):
+        assert violations('ui/new_feature/state.py', f'import {module}')
+    assert not violations('ui/theme/style_sheet.py', 'import tinycss2')

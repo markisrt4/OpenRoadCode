@@ -7,7 +7,7 @@ from __future__ import annotations
 from typing import Any
 from urllib.parse import quote, urlencode
 from controllers.spotify.spotify_controller_if import SpotifyControllerIf
-from controllers.spotify.spotify_library import SpotifyLibraryTrack, SpotifyPlaylist
+from ui.media.spotify_library import (SpotifyLibraryTrack, SpotifyPlaylist)
 from controllers.spotify.spotify_state import SpotifyState
 from protocols.spotify import SpotifyWebApiClient
 

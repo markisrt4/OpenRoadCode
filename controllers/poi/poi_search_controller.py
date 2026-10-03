@@ -14,7 +14,7 @@ from controllers.cache import PersistentCache
 from controllers.navigation.current_position import get_current_position
 from controllers.navigation.position_snapshot_cache import DEFAULT_POSITION_CACHE_DIRECTORY, PositionSnapshotCache
 from controllers.poi.poi_enricher import enrich_poi
-from controllers.poi.poi_models import PoiCategory, PoiSearchResult, PointOfInterest, TransitMode
+from ui.navigation.poi_models import (PoiCategory, PoiSearchResult, PointOfInterest, TransitMode)
 from controllers.poi.poi_search_controller_if import PoiSearchControllerIf
 from controllers.poi.poi_search_source_if import PoiSearchBounds, PoiSearchQuery, PoiSearchSourceIf
 from controllers.poi.sqlite_poi_search_source import SqlitePoiSearchSource

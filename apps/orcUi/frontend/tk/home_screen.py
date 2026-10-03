@@ -16,7 +16,7 @@ from apps.orcUi.navigation_presenter import (
 )
 from apps.orcUi.trip_presenter import TripPresentationState
 from apps.orcUi.vehicle_presenter import VehiclePresentationState
-from controllers.automotive import AutomotiveTelemetryProfile
+from ui.automotive.automotive_telemetry_profile import (AutomotiveTelemetryProfile)
 from frontends.tk.tk_screen import TkScreen
 from frontends.tk.tk_screen_host_if import TkScreenHostIf
 from ui.navigation import MapRequestHandlerIf

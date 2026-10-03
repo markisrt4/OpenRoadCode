@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 
-from controllers.poi.poi_models import PoiAction, PointOfInterest
+from ui.navigation.poi_models import (PoiAction, PointOfInterest)
 
 
 class PoiActionExecutorIf(ABC):

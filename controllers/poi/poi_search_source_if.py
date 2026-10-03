@@ -8,7 +8,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 
-from controllers.poi.poi_models import PoiCategory, PointOfInterest, TransitMode
+from ui.navigation.poi_models import (PoiCategory, PointOfInterest, TransitMode)
 
 
 @dataclass(frozen=True, slots=True)
