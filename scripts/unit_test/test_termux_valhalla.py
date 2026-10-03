@@ -75,3 +75,26 @@ def test_linux_explicit_config_is_passed_through_unchanged(tmp_path):
     result = subprocess.run(['bash', str(SCRIPT)], env=env, capture_output=True, text=True, check=True)
     assert result.stdout.splitlines() == [str(source), '2']
     assert source.read_text() == '{}'
+
+
+def test_termux_installer_registers_routing_service_and_log_supervisor(tmp_path):
+    prefix = tmp_path / 'usr'
+    binaries = tmp_path / 'bin'
+    binaries.mkdir()
+    sv = binaries / 'sv'
+    sv.write_text('#!/bin/sh\nexit 0\n')
+    sv.chmod(0o755)
+    for name in ('openroadcode-service-manager', 'openroadcode-message-broker',
+                 'openroadcode-valhalla', 'openroadcode-navigation',
+                 'openroadcode-automotive', 'openroadcode-adsb'):
+        supervise = prefix / 'var/service' / name / 'supervise'
+        supervise.mkdir(parents=True)
+        (supervise / 'ok').touch()
+    env = dict(os.environ, PREFIX=str(prefix), PATH=str(binaries) + ':' + os.environ['PATH'])
+    installer = SCRIPT.parents[1] / 'runit/install_termux_services.sh'
+    subprocess.run(['bash', str(installer)], env=env, capture_output=True, text=True, check=True)
+    installed = prefix / 'var/service/openroadcode-valhalla'
+    assert 'start_valhalla.sh' in (installed / 'run').read_text()
+    assert 'svlogd' in (installed / 'log/run').read_text()
+    assert os.access(installed / 'run', os.X_OK)
+    assert os.access(installed / 'log/run', os.X_OK)

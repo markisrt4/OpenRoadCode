@@ -198,14 +198,16 @@ sv down openroadcode-broker
 
 The runit definitions call the same runtime wrappers used by the Linux service installation where applicable. Termux-specific service definitions live under `scripts/runit/`. Runtime-generated `supervise/` directories are state, not source, and must never be committed to the repository.
 
-Valhalla is currently launched separately from the supervised broker/navigation services. The Termux build installs it under `$PREFIX/opt/openroadcode/navigation/valhalla/bin/valhalla_service`, while deployed routing data and the Termux-specific configuration live under `~/.local/share/openroadcode/valhalla`.
+Valhalla runs automatically as the supervised `openroadcode-valhalla` runit service. The navigation build installs its service definition along with the core services. The Termux build installs it under `$PREFIX/opt/openroadcode/navigation/valhalla/bin/valhalla_service`, while deployed routing data lives under `~/.local/share/openroadcode/valhalla`.
 
-A development launch is:
+For an existing installation, register the new service once (stop any manually launched Valhalla first):
 
 ```bash
 cd ~/src/OpenRoadCode
 git switch weather-radar
-./scripts/runtime/start_valhalla.sh
+./scripts/runit/install_termux_services.sh
+sv up openroadcode-valhalla
+sv status openroadcode-valhalla
 ```
 
 The wrapper detects Termux, reads the installed `valhalla.json`, and writes a
@@ -214,8 +216,11 @@ standard routing data, optional data paths, and Linux log paths into writable
 Termux locations. The downloaded source configuration stays unchanged. Run the
 wrapper again after pulling new routing data; no manual JSON edits are needed.
 `VALHALLA_CONFIG`, `VALHALLA_BIN`, `VALHALLA_DATA_ROOT`, and
-`VALHALLA_RUNTIME_ROOT` can override the defaults. Keep this terminal running;
-Valhalla is still launched separately from the UI.
+`VALHALLA_RUNTIME_ROOT` can override the defaults. Runit owns startup, crash restarts, and shutdown; no dedicated terminal is needed.
+Rotating logs are available at `~/.cache/openroadcode/valhalla/current`.
+The service-manager core start/stop operations include Valhalla.
+For foreground debugging only, stop the supervised service before running
+`./scripts/runtime/start_valhalla.sh`.
 
 Verify the service with:
 

@@ -42,7 +42,7 @@ cat > "$SERVICE_FILE" <<EOF
 [Unit]
 Description=OpenRoadCode Navigation Service
 After=network.target gpsd.service openroadcode-message-broker.service valhalla.service
-Wants=network.target openroadcode-message-broker.service
+Wants=network.target openroadcode-message-broker.service valhalla.service
 
 [Service]
 Type=simple

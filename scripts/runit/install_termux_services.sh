@@ -10,6 +10,7 @@ SERVICE_ROOT="${PREFIX:-/data/data/com.termux/files/usr}/var/service"
 SERVICES=(
     openroadcode-service-manager
     openroadcode-message-broker
+    openroadcode-valhalla
     openroadcode-navigation
     openroadcode-automotive
     openroadcode-adsb
@@ -62,6 +63,11 @@ for service in "${SERVICES[@]}"; do
         -e "s|^PROJECT_ROOT=.*$|PROJECT_ROOT=\"$PROJECT_ROOT\"|" \
         "$source_dir/run" > "$target/run"
     chmod +x "$target/run"
+    if [[ -f "$source_dir/log/run" ]]; then
+        mkdir -p "$target/log"
+        cp "$source_dir/log/run" "$target/log/run"
+        chmod +x "$target/log/run"
+    fi
 
     echo "Installed $service -> $target"
 done
@@ -104,6 +110,7 @@ echo "OpenRoadCode Termux services installed."
 echo "The service manager stays available as the lightweight local control plane."
 echo "Start the core stack with:"
 echo "  sv up openroadcode-message-broker"
+echo "  sv up openroadcode-valhalla"
 echo "  sv up openroadcode-navigation"
 echo "  sv up openroadcode-automotive"
 echo "Optional ADS-B:"

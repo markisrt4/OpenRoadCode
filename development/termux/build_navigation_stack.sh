@@ -59,7 +59,7 @@ prime_server_installed() {
 echo "[*] Installing Termux build dependencies"
 pkg install -y x11-repo
 pkg update
-pkg install -y \
+pkg install -y termux-services \
   git clang cmake ninja pkg-config patch python python-pillow \
   boost boost-headers protobuf libsqlite libspatialite spatialite-tools libcurl liblz4 libzmq libczmq \
   luajit libgeos libpng libjpeg-turbo libwebp libicu rapidjson \
@@ -181,6 +181,9 @@ if [[ -f "$NAVIGATION_CONFIG_SOURCE" && ! -f "$CONFIG_ROOT/navigation.toml" ]]; 
 elif [[ ! -f "$NAVIGATION_CONFIG_SOURCE" ]]; then
   echo "[*] No config/navigation.toml in this checkout; skipping optional config install"
 fi
+
+# Install routing under runit after building it; runsvdir owns its lifetime.
+bash "$PROJECT_ROOT/scripts/runit/install_termux_services.sh"
 
 cat <<EOF
 
