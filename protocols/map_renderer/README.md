@@ -1,9 +1,10 @@
 # Map Renderer Protocol
 
 This package is the Python client contract for the native C++ map renderer.
-`MapRendererClient` serializes one JSON command per Unix-domain socket
-connection and raises `MapRendererUnavailableError` when the renderer cannot
-be reached.
+`MapRendererClient` publishes asynchronous JSON commands on the ORC ZeroMQ
+message bus over TCP. A successful publication does not acknowledge renderer
+receipt or application. `MapRendererUnavailableError` reports local publication
+failures.
 
 ```python
 from protocols.map_renderer.map_renderer_client import MapRendererClient
@@ -18,8 +19,10 @@ renderer.set_camera(
 )
 ```
 
-The default socket is `/tmp/openroadcode-map-renderer.sock`; pass a different
-path to `MapRendererClient` when the renderer uses a custom socket. Route data
-is sent as a GeoJSON object with `set_route()`. `fit_bounds()` frames a route,
-and `set_position()` updates the vehicle marker. See
-`apps/map_renderer/README.md` for the native process and style requirements.
+The default publisher endpoint is `tcp://127.0.0.1:5556`; pass `endpoint=` to
+`MapRendererClient` to select another broker. The native renderer subscribes
+through `tcp://127.0.0.1:5557`. Route data is sent as a GeoJSON object with
+`set_route()`. `fit_bounds()` frames a route, and `set_position()` updates the
+vehicle marker. See [the renderer documentation](../../apps/map_renderer/README.md)
+for the native process and style requirements, and [ORC logging](../../common/logging/README.md)
+for structured logs and live viewing.

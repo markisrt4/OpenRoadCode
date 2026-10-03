@@ -54,6 +54,10 @@ Generated from the canonical documentation files. Every component README and sta
 - [Weatherdash (`apps/weatherDash`)](../apps/weatherDash/README.md)
 - [Webui (`apps/webUi`)](../apps/webUi/README.md)
 
+### Common
+
+- [Logging (`common/logging`)](../common/logging/README.md)
+
 ### Config
 
 - [Config](../config/README.md)
