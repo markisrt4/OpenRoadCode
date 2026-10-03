@@ -203,11 +203,19 @@ Valhalla is currently launched separately from the supervised broker/navigation 
 A development launch is:
 
 ```bash
-VALHALLA_CONFIG="$HOME/.local/share/openroadcode/valhalla/valhalla.termux.json" \
-VALHALLA_BIN="$PREFIX/opt/openroadcode/navigation/valhalla/bin/valhalla_service" \
-VALHALLA_WORKERS=1 \
+cd ~/src/OpenRoadCode
+git switch weather-radar
 ./scripts/runtime/start_valhalla.sh
 ```
+
+The wrapper detects Termux, reads the installed `valhalla.json`, and writes a
+prepared copy under `$PREFIX/tmp/openroadcode-valhalla`. It relocates IPC sockets,
+standard routing data, optional data paths, and Linux log paths into writable
+Termux locations. The downloaded source configuration stays unchanged. Run the
+wrapper again after pulling new routing data; no manual JSON edits are needed.
+`VALHALLA_CONFIG`, `VALHALLA_BIN`, `VALHALLA_DATA_ROOT`, and
+`VALHALLA_RUNTIME_ROOT` can override the defaults. Keep this terminal running;
+Valhalla is still launched separately from the UI.
 
 Verify the service with:
 
