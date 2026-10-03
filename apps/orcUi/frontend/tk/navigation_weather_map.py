@@ -19,7 +19,7 @@ class NavigationWeatherMap:
         self._unit_system = unit_system
         self._provider = HrrrMapLayerProvider()
         self.kind = "off"
-        self.status = "Select a model overlay · HRRR CONUS"
+        self.status = "Select a weather overlay"
         self._frame = None
         self._generation = 0
         self._revision = 0
@@ -35,7 +35,7 @@ class NavigationWeatherMap:
         self._generation += 1
         self._frame = None
         self._renderer.set_weather_field(None, enabled=False)
-        self.status = "Model overlay off" if kind == "off" else "Loading HRRR model…"
+        self.status = "Weather overlay off" if kind == "off" else "Loading weather forecast…"
         self.on_changed()
         if kind != "off":
             self.refresh()
@@ -90,7 +90,7 @@ class NavigationWeatherMap:
             return
         valid = datetime.fromtimestamp(self._frame.timestamp).astimezone().strftime('%I:%M %p').lstrip('0')
         ready = self._tiles.frame_ready(self._frame)
-        self.status = f"HRRR forecast · valid {valid} · CONUS" + ("" if ready else " · Loading tiles…")
+        self.status = f"Weather forecast · valid {valid}" + ("" if ready else " · Loading tiles…")
         self.on_changed()
         if not ready:
             self._host.schedule_ui_callback(300, lambda: self._wait(generation, started))

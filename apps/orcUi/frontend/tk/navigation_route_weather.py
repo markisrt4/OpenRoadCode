@@ -245,7 +245,7 @@ class NavigationRouteWeather:
         self._legend.pack(fill=tk.X, pady=4)
         tk.Button(map_tab, text="Refresh model overlay", command=self._refresh_map_weather,
                   bg=ui.control_active, fg=ui.text, relief=tk.FLAT, pady=4).pack(anchor="w", pady=3)
-        label("Forecast model · CONUS only", map_tab)
+        label("Contiguous United States only", map_tab)
         body = route_tab
         self._enabled_var = tk.BooleanVar(popup, value=self._enabled)
         toggle("Weather on my route", self._enabled_var, self._set_enabled)

@@ -72,7 +72,7 @@ class RadarReplayPanel(tk.Toplevel):
         self._classic_toggle.pack(anchor="w")
         self._forecast = tk.BooleanVar(self, value=False)
         self._forecast_toggle = tk.Checkbutton(
-            self._body, text="HRRR forecast · US (experimental)", variable=self._forecast,
+            self._body, text="Forecast radar (experimental)", variable=self._forecast,
             command=lambda: on_source(self._forecast.get()),
             bg=ui.control_background, fg=ui.control_text, selectcolor=ui.background,
             activebackground=ui.control_background, activeforeground=ui.control_text,
@@ -80,6 +80,10 @@ class RadarReplayPanel(tk.Toplevel):
             state=tk.NORMAL if on_source is not None else tk.DISABLED,
         )
         self._forecast_toggle.pack(anchor="w")
+        tk.Label(
+            self._body, text="Contiguous United States only",
+            bg=ui.control_background, fg=ui.control_text, font=("Sans", FONT_CONTROL),
+        ).pack(anchor="w")
         self.bind("<Escape>", lambda _event: on_close())
         self.update_idletasks()
         self.reposition()
@@ -116,7 +120,7 @@ class RadarReplayPanel(tk.Toplevel):
         """Synchronize controls without treating playback as user scrubbing."""
         self._times = times
         self._forecast.set(forecast)
-        self._title.configure(text="HRRR forecast · CONUS" if forecast else "Radar history")
+        self._title.configure(text="Forecast radar" if forecast else "Radar history")
         edge = (datetime.fromtimestamp(times[-1]).strftime("%I:%M %p").lstrip("0")
                 if forecast and times else "Latest")
         self._edge.configure(text=edge)

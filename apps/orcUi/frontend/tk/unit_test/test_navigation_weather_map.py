@@ -25,7 +25,7 @@ def test_ready_layer_publishes_independently_and_reports_forecast_time():
     frame = RadarFrame(1790946000, 'orc-hrrr-layer://fixture', max_zoom=9)
     ui._complete(0, frame, None)
     ui._renderer.set_weather_field.assert_called_once()
-    assert 'HRRR forecast' in ui.status
+    assert 'Weather forecast' in ui.status
     assert 'Loading' not in ui.status
     assert ui.legend()[0][0] == '-22°F'
 

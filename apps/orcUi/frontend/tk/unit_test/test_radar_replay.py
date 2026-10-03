@@ -136,7 +136,7 @@ def test_forecast_tile_failure_pauses_with_explanation(screen):
     screen._radar_play_pause()
     screen._host.schedule_ui_callback.call_args.args[1]()
     assert not screen._radar_playing
-    screen._host.set_screen_status.assert_called_with("HRRR tile loading failed: download failed")
+    screen._host.set_screen_status.assert_called_with("Forecast radar loading failed: download failed")
 
 
 def test_paused_forecast_does_not_resume_waiting_callback(screen):

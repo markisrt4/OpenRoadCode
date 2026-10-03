@@ -274,7 +274,7 @@ class NavigationScreen(TkScreen):
         error = controller.frame_tile_error
         if error or monotonic() - started >= 120:
             self._pause_radar()
-            self._host.set_screen_status(f"HRRR tile loading failed: {error or 'timed out waiting for map tiles'}")
+            self._host.set_screen_status(f"Forecast radar loading failed: {error or 'timed out waiting for map tiles'}")
             return
         ready = controller.frame_tiles_ready
         self._panel.set_radar_loading(not ready)
