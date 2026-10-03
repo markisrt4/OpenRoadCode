@@ -23,3 +23,9 @@ path to `MapRendererClient` when the renderer uses a custom socket. Route data
 is sent as a GeoJSON object with `set_route()`. `fit_bounds()` frames a route,
 and `set_position()` updates the vehicle marker. See
 `apps/map_renderer/README.md` for the native process and style requirements.
+
+`set_route_weather(geojson)` updates a separate `route-weather` GeoJSON source
+without changing route geometry, POI results, radar visibility, or the camera.
+Point features use a `label` string for forecast text; an empty FeatureCollection
+clears them. The native renderer adds purple circles and haloed text above the
+base style at startup. Rebuild the native renderer to use this command.

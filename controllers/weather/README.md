@@ -219,3 +219,31 @@ Repository quality gates additionally validate Doxygen contracts, generated
 documentation, Markdown links, Mermaid conventions, lint, module size, the full
 unit/integration suites, shell syntax, whitespace, and source-tree runtime
 state.
+
+In Navigation, **Layers** opens a compact route forecast panel. Start a route
+using a destination/POI, then enable **Weather on my route**. Up to six purple
+checkpoints show Open-Meteo hourly forecasts for estimated arrival times, with
+independent **Temp**, **Precip %**, and **Wind** label switches. Radar visibility
+is independent, so forecast markers can appear with or without observed/HRRR
+radar. The panel lists the checkpoint numbers, local arrival times, conditions,
+and selected values; longer trips use a scrollable list.
+
+Arrival times use calculated maneuver durations where complete, falling back to
+distance-proportional route duration. They exclude live traffic and stops.
+Refresh uses guidance progress to sample the remaining route; while Navigation
+is visible, enabled route weather refreshes every 15 minutes. Refresh manually
+after a major delay. Starting a new route, cancellation, and route completion
+clear old markers; late results cannot replace a newer route. Missing values
+appear as unavailable rather than zero. Forecast errors clear old values and
+show an explanation. Forecasts require Internet access and available hourly data;
+these layers are route checkpoint forecasts, not full-map temperature/wind grids.
+
+To check real arrival-time data independently of the UI:
+
+```bash
+python -m controllers.weather.component_test.route_weather_provider_cli --location 42.8 -83.02 --hours 2
+```
+
+The map renderer must be rebuilt for the `set_route_weather` command and marker
+layers. Existing styles gain an independent source at startup, so map data does
+not need to be downloaded again.

@@ -18,6 +18,7 @@ from apps.orcUi.composition.radio import RadioComposition, configure_radio
 from apps.orcUi.composition.weather import WeatherComposition, configure_weather
 from apps.orcUi.frontend.tk.home_screen import HomeScreen
 from apps.orcUi.frontend.tk.navigation_screen import NavigationScreen
+from apps.orcUi.frontend.tk.navigation_route_weather import NavigationRouteWeather
 from apps.orcUi.frontend.tk.orc_ui_app import OrcUiApp
 from apps.orcUi.frontend.tk.offroad_screen import OffRoadScreen
 from apps.orcUi.frontend.tk.settings_screen import SettingsScreen
@@ -54,7 +55,11 @@ class OrcUiComposition:
             self.app.run()
         finally:
             try:
-                self.games.shutdown()
+                try:
+                    if self.navigation is not None:
+                        self.navigation.close()
+                finally:
+                    self.games.shutdown()
             finally:
                 try:
                     self.media.close()
@@ -160,6 +165,10 @@ def create_orc_ui_composition() -> OrcUiComposition:
             on_radar_visibility_changed=home.refresh_radar_state,
             on_radar_source_changed=weather.select_radar_source,
             refresh_radar=refresh_radar_map_state,
+            route_weather=NavigationRouteWeather(
+                app, core.route_request_handler, core.map_camera.renderer_client,
+                lambda: theme_bundle(app.theme_mode), unit_system, core.presentation,
+            ),
         )
         vehicle = VehicleScreen(
             app,

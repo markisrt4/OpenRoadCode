@@ -5,6 +5,7 @@
 #include "map_command_server.hpp"
 #include "map_event_publisher.hpp"
 #include "navigation_config.hpp"
+#include "route_weather_style.hpp"
 #include <mbgl/map/map.hpp>
 #include <mbgl/renderer/renderer.hpp>
 #include <mbgl/style/layer.hpp>
@@ -58,7 +59,7 @@ std::string loadStyleJson(const NavigationConfig& config) {
     std::string style{std::istreambuf_iterator<char>{input}, std::istreambuf_iterator<char>{}};
     replaceAll(style, kDataRootToken, config.dataRoot);
     if (config.dataRoot != kLegacyDataRoot) replaceAll(style, kLegacyDataRoot, config.dataRoot);
-    return style;
+    return withRouteWeatherStyle(style);
 }
 void setWeatherRadar(
     mbgl::style::Style& style,
@@ -388,6 +389,18 @@ int main() {
                 } catch (const std::exception& exception) {
                     std::cerr << "[map_renderer] failed to update weather radar: "
                               << exception.what() << '\n';
+                }
+                continue;
+            }
+            if (command->command == "set_route_weather") {
+                auto* source = map.getStyle().getSource("route-weather");
+                if (!source) continue;
+                try {
+                    static_cast<mbgl::style::GeoJSONSource*>(source)->setGeoJSON(
+                        mapbox::geojson::parse(command->geojson));
+                    view.invalidate();
+                } catch (const std::exception& error) {
+                    std::cerr << "[map_renderer] invalid route weather: " << error.what() << '\n';
                 }
                 continue;
             }

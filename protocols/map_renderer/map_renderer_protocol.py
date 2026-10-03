@@ -19,6 +19,7 @@ class MapRendererCommand(StrEnum):
     SET_PITCH = "set_pitch"
     PAN_SCREEN = "pan_screen"
     SET_ROUTE = "set_route"
+    SET_ROUTE_WEATHER = "set_route_weather"
     FIT_BOUNDS = "fit_bounds"
     FIT_DATASET = "fit_dataset"
     SET_POSITION = "set_position"

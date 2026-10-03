@@ -50,8 +50,10 @@ class NavigationScreen(TkScreen):
         refresh_radar: Callable[[], None] | None = None,
         on_radar_visibility_changed: Callable[[], None] | None = None,
         on_radar_source_changed: Callable[[bool], None] | None = None,
+        route_weather=None,
     ) -> None:
         super().__init__(self.SCREEN_ID)
+        self._route_weather = route_weather
         self._host = host
         self._map_runtime = map_runtime
         self._map_request_handler = map_request_handler
@@ -100,6 +102,8 @@ class NavigationScreen(TkScreen):
             on_radar_source=self._change_radar_source,
         )
         self._sync_radar_timeline()
+        if self.__dict__.get("_route_weather") is not None:
+            self._route_weather.attach(self._panel)
 
         if self._telemetry_profile_request is not None:
             self._telemetry_profile_request(AutomotiveTelemetryProfile.BACKGROUND)
@@ -115,8 +119,15 @@ class NavigationScreen(TkScreen):
         self._pause_radar()
         if self._panel is not None:
             self._panel.close_radar_menu()
+        if self.__dict__.get("_route_weather") is not None:
+            self._route_weather.hide()
         self._map_runtime.stop()
         self._panel = None
+
+    def close(self) -> None:
+        """Release route forecast resources when the application exits."""
+        if self.__dict__.get("_route_weather") is not None:
+            self._route_weather.close()
 
     def _refresh_map_radar(self) -> None:
         if self._panel is not None and self._radar_controller is not None:
