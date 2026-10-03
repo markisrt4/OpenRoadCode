@@ -69,7 +69,7 @@ def test_query_rejects_invalid_or_unbounded_area(coordinates):
 def test_cli_uses_cached_location_and_termux_path(tmp_path, monkeypatch):
     monkeypatch.setenv('OPENROADCODE_DATA_ROOT', str(tmp_path))
     with patch('tools.poi_download.cached_position', return_value=(42.5, -83.0)), \
-         patch('tools.poi_download.download', return_value={'elements': [node()]}) as download:
+         patch('tools.poi_download.download', return_value=snapshot([node()])) as download:
         assert main(['--radius-km', '5']) == 0
     assert 'around:5000,42.5000000,-83.0000000' in download.call_args.args[0]
     assert (tmp_path / 'maps/search/openroadcode-search.sqlite').exists()
@@ -79,7 +79,7 @@ def test_cli_reads_bridge_without_cached_position(tmp_path, monkeypatch):
     monkeypatch.setenv('OPENROADCODE_DATA_ROOT', str(tmp_path))
     with patch('tools.poi_download.bridge_position', return_value=(42.5, -83.0)), \
          patch('tools.poi_download.cached_position') as cached, \
-         patch('tools.poi_download.download', return_value={'elements': [node()]}):
+         patch('tools.poi_download.download', return_value=snapshot([node()])):
         assert main(['--bridge-position']) == 0
     cached.assert_not_called()
 
@@ -94,3 +94,57 @@ def test_bridge_rejects_simulated_or_stale_location(provider, age):
         )
         with pytest.raises(ValueError):
             bridge_position()
+
+
+def snapshot(elements):
+    return {'version': 0.6, 'osm3s': {'timestamp_osm_base': '2026-10-03T00:00:00Z'},
+            'elements': elements}
+
+
+def test_refresh_removes_deleted_and_reclassified_places_preserving_outside_and_custom(tmp_path):
+    db = tmp_path / 'search.sqlite'
+    outside = {**node(3), 'lat': 43.0}
+    corner = {**node(4), 'lat': 42.58, 'lon': -82.9}
+    install({'elements': [node(1), node(2), outside, corner]}, db)
+    with sqlite3.connect(db) as c:
+        c.execute("INSERT INTO poi (id,name,latitude,longitude,category) VALUES ('custom:1','Mine',42.5,-83,'food')")
+        c.execute("INSERT INTO street (id,name,latitude,longitude) VALUES ('s','Main',42.5,-83)")
+    changed = node(2, 'Now an office')
+    changed['tags']['amenity'] = 'office'
+    install(snapshot([changed, node(5)]), db, refresh_area=(42.5, -83, 10))
+    with sqlite3.connect(db) as c:
+        ids = {r[0] for r in c.execute('SELECT id FROM poi')}
+        assert ids == {'osm:node:3', 'osm:node:4', 'osm:node:5', 'custom:1'}
+        assert c.execute('SELECT name FROM street').fetchone()[0] == 'Main'
+
+
+def test_complete_empty_snapshot_clears_only_downloaded_area(tmp_path):
+    db = tmp_path / 'search.sqlite'
+    install({'elements': [node(), {**node(2), 'lat': 43.0}]}, db)
+    install(snapshot([]), db, refresh_area=(42.5, -83, 10))
+    with sqlite3.connect(db) as c:
+        assert c.execute('SELECT id FROM poi').fetchall() == [('osm:node:2',)]
+
+
+@pytest.mark.parametrize('payload', [
+    {'elements': []}, {**snapshot([]), 'remark': 'timeout'},
+    snapshot([{'type': 'way', 'id': 2, 'tags': {'name': 'No geometry'}}]),
+    snapshot([node(2), {**node(3), 'lat': 100}]),
+])
+def test_invalid_snapshot_leaves_live_index_unchanged(tmp_path, payload):
+    db = tmp_path / 'search.sqlite'
+    install({'elements': [node()]}, db)
+    before = db.read_bytes()
+    with pytest.raises(ValueError):
+        install(payload, db, refresh_area=(42.5, -83, 10))
+    assert db.read_bytes() == before
+    assert not list(tmp_path.glob('.poi-download-*'))
+
+
+def test_dateline_refresh_preserves_distant_locations(tmp_path):
+    db = tmp_path / 'search.sqlite'
+    install({'elements': [{**node(1), 'lat': 0, 'lon': -179.99},
+                          {**node(2), 'lat': 0, 'lon': 179.5}]}, db)
+    install(snapshot([]), db, refresh_area=(0, 179.99, 10))
+    with sqlite3.connect(db) as c:
+        assert c.execute('SELECT id FROM poi').fetchall() == [('osm:node:2',)]

@@ -4,6 +4,8 @@
 from __future__ import annotations
 
 import argparse
+from contextlib import closing
+from datetime import datetime
 import json
 import math
 import os
@@ -56,26 +58,60 @@ def download(query: str, endpoint: str = ENDPOINT) -> dict:
     return json.loads(body)
 
 
-def install(payload: dict, destination: Path) -> dict[str, int]:
-    """Merge into a staged copy; failed imports leave the live index intact."""
+def _within_area(lat: float, lon: float, area: tuple[float, float, float]) -> bool:
+    center_lat, center_lon, radius_km = area
+    delta_lat = math.radians(lat - center_lat)
+    delta_lon = math.radians(lon - center_lon)
+    haversine = (math.sin(delta_lat / 2) ** 2
+                 + math.cos(math.radians(lat)) * math.cos(math.radians(center_lat))
+                 * math.sin(delta_lon / 2) ** 2)
+    return 6371 * 2 * math.asin(math.sqrt(min(1, max(0, haversine)))) <= radius_km
+
+
+def install(payload: dict, destination: Path, *,
+            refresh_area: tuple[float, float, float] | None = None) -> dict[str, int]:
+    """Replace scoped OSM POIs in a staged copy; unscoped imports only merge."""
     if not isinstance(payload, dict) or not isinstance(payload.get('elements'), list):
         raise ValueError('Expected an Overpass JSON response with elements')
     if payload.get('remark'):
         raise ValueError(f"Overpass reported an incomplete query: {payload['remark']}")
+    if refresh_area is not None:
+        build_query(*refresh_area)  # Validate the same area used for downloading.
+        metadata = payload.get('osm3s')
+        timestamp = metadata.get('timestamp_osm_base') if isinstance(metadata, dict) else None
+        if payload.get('version') != 0.6 or not isinstance(timestamp, str):
+            raise ValueError('Area refresh requires a complete Overpass snapshot with OSM timestamp')
+        parsed_timestamp = datetime.fromisoformat(timestamp.replace('Z', '+00:00'))
+        if parsed_timestamp.tzinfo is None:
+            raise ValueError('Overpass snapshot timestamp must include a timezone')
     destination = destination.expanduser().absolute()
     destination.parent.mkdir(parents=True, exist_ok=True)
     fd, name = tempfile.mkstemp(prefix='.poi-download-', suffix='.sqlite', dir=destination.parent)
     os.close(fd)
     staged = Path(name)
     try:
-        with sqlite3.connect(staged) as db:
+        with closing(sqlite3.connect(staged)) as db, db:
             if destination.exists():
                 validate_search_index(destination)
-                with sqlite3.connect(f'{destination.as_uri()}?mode=ro', uri=True) as old:
+                with closing(sqlite3.connect(f'{destination.as_uri()}?mode=ro', uri=True)) as old:
                     old.backup(db)
-                old.close()
             else:
                 _create_schema(db)
+            if refresh_area is not None:
+                # All supported categories were requested. Remove old OSM records
+                # inside that circle, including places deleted or reclassified in
+                # OSM. Reinsert the current snapshot below in this staged database.
+                center_lat, _, radius_km = refresh_area
+                latitude_delta = math.degrees(radius_km / 6371)
+                candidates = db.execute(
+                    "SELECT id,latitude,longitude FROM poi WHERE id GLOB 'osm:*' "
+                    "AND category IN ('food','fuel','grocery','transit') "
+                    "AND latitude BETWEEN ? AND ?",
+                    (center_lat - latitude_delta, center_lat + latitude_delta),
+                ).fetchall()
+                stale = [(identifier,) for identifier, lat, lon in candidates
+                         if _within_area(lat, lon, refresh_area)]
+                db.executemany('DELETE FROM poi WHERE id = ?', stale)
             for element in payload['elements']:
                 if not isinstance(element, dict):
                     raise ValueError('Malformed OSM element')
@@ -89,6 +125,8 @@ def install(payload: dict, destination: Path) -> dict[str, int]:
                     raise ValueError('OSM element has invalid tags or coordinates')
                 lat, lon = position.get('lat'), position.get('lon')
                 if lat is None or lon is None:
+                    if refresh_area is not None:
+                        raise ValueError('Incomplete OSM geometry; area refresh canceled')
                     continue
                 if not isinstance(lat, (int, float)) or not isinstance(lon, (int, float)):
                     raise ValueError('OSM coordinates must be numeric')
@@ -101,7 +139,6 @@ def install(payload: dict, destination: Path) -> dict[str, int]:
                 })
             db.commit()
             counts = dict(db.execute('SELECT category, count(*) FROM poi GROUP BY category'))
-        db.close()
         validate_search_index(staged)
         staged.replace(destination)
         return counts
@@ -148,8 +185,15 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument('--input-json', type=Path, help='Import a previously downloaded Overpass response')
     args = parser.parse_args(argv)
     try:
+        refresh_area = None
         if args.input_json:
             payload = json.loads(args.input_json.read_text())
+            if args.bridge_position:
+                raise ValueError('Saved JSON requires explicit --lat/--lon for area refresh')
+            if (args.lat is None) != (args.lon is None):
+                raise ValueError('Supply --lat and --lon together')
+            if args.lat is not None:
+                refresh_area = (args.lat, args.lon, args.radius_km)
         else:
             if (args.lat is None) != (args.lon is None):
                 raise ValueError('Supply --lat and --lon together')
@@ -162,7 +206,8 @@ def main(argv: list[str] | None = None) -> int:
             query = build_query(lat, lon, args.radius_km)
             print(f'Downloading OSM POIs within {args.radius_km:g} km of {lat:.6f},{lon:.6f}', flush=True)
             payload = download(query, args.endpoint)
-        counts = install(payload, args.database.absolute())
+            refresh_area = (lat, lon, args.radius_km)
+        counts = install(payload, args.database.absolute(), refresh_area=refresh_area)
         print(f'Installed: {args.database}')
         print('Index totals: ' + ', '.join(f'{key}={value}' for key, value in sorted(counts.items())))
         print('Restart ORC to reopen the index. Data: © OpenStreetMap contributors (ODbL).')

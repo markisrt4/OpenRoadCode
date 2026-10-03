@@ -64,11 +64,13 @@ use the Food search, then select a Panera marker and tap Order.
 
 ## Data scope
 
-The importer adds or updates named food, fuel/charging, grocery, and transit
-POIs. OSM ways/relations use their reported bounding-box centers as approximate
+The importer refreshes named food, fuel/charging, grocery, and transit
+POIs inside the requested circle. Old OSM POIs inside that circle are removed
+and current results are inserted, so deleted, unnamed, or reclassified places
+no longer remain as stale search results. OSM ways/relations use their reported bounding-box centers as approximate
 marker positions. Availability and brand tags depend on OSM coverage. It
-preserves other regions and existing address/street/place data; it does not
-remove previously indexed businesses that are now absent from OSM. It is a
+preserves POIs outside that circle, custom POIs, and existing
+address/street/place data. It is a
 local POI refresh, not a full address, map-tile, or routing update. A later full
 navigation-dataset pull replaces this index; rerun the downloader afterward if
 needed.
@@ -78,3 +80,14 @@ validation. Stop ORC before importing so it reopens the replacement cleanly.
 
 Data: © OpenStreetMap contributors, licensed under the Open Database License
 (ODbL). See https://www.openstreetmap.org/copyright.
+
+## Importing saved responses
+
+A plain `--input-json FILE` import merges records without deleting any POIs,
+because the response does not identify its query area. To refresh an area from
+a saved response, also supply `--lat`, `--lon`, and `--radius-km` matching the
+original query. Only use a complete response from the downloader's full set of
+category queries; a restaurant-only response would omit other supported POIs.
+Area replacement requires Overpass snapshot metadata and rejects server remarks,
+missing geometry, and invalid records. A complete empty snapshot clears supported
+OSM POIs within the circle. All changes are staged and validated before activation.
