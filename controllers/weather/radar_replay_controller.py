@@ -6,7 +6,8 @@
 from collections.abc import Callable
 import math
 import threading
-from time import monotonic
+from time import monotonic, time
+from controllers.weather.radar_tile_status import RadarTileStatus
 
 from ui.ui_dispatcher_if import UiDispatcherIf
 from ui.weather.radar_ui_if import RadarUiIf, RadarUiState, RadarPalette
@@ -27,6 +28,10 @@ class RadarReplayController(RadarRequestHandlerIf):
         self._radar_playback_generation = self._radar_load_generation = 0
         self._radar_playback_speed = 1.0
         self._status = ""
+        self._refreshing = False
+        self._refreshed_at = None
+        self._health_generation = 0
+        self._clock = time
         self._emit()
 
     def request_enabled(self, enabled: bool) -> None:
@@ -82,6 +87,9 @@ class RadarReplayController(RadarRequestHandlerIf):
         if self._closed:
             return
         self._visible = visible
+        self._health_generation += 1
+        if visible:
+            self._poll_radar_health(self._health_generation)
         if not visible:
             self._pause_radar()
         self._emit()
@@ -91,9 +99,10 @@ class RadarReplayController(RadarRequestHandlerIf):
 
     def close(self):
         """Invalidate outstanding callbacks without taking ownership of provider resources."""
-        self._pause_radar()
         self._closed = True
+        self._pause_radar()
         self._radar_load_generation += 1
+        self._health_generation += 1
 
     def _set_status(self, status):
         self._status = status
@@ -106,7 +115,38 @@ class RadarReplayController(RadarRequestHandlerIf):
         self._ui.set_radar_state(RadarUiState(
             self._radar_enabled, controller.frame_time, tuple(controller.frame_times), controller.frame_index,
             self._radar_playing, controller.is_forecast, self._loading, self._radar_playback_speed,
-            controller.palette, self._status))
+            controller.palette, self._status, self._data_status(), self._refreshed_at))
+
+    def _data_status(self):
+        if self._status:
+            return "Radar unavailable" if not self._radar_enabled else "Radar loading paused · imagery unavailable"
+        if not self._radar_enabled:
+            return "Radar off"
+        if self._refreshing:
+            return "Refreshing radar data…"
+        controller = self._radar_controller
+        tiles = controller.frame_tile_status
+        if not isinstance(tiles, RadarTileStatus):
+            return "Loading map imagery…"
+        if tiles.failed:
+            return "Some map imagery unavailable" if tiles.loaded else "Map imagery unavailable"
+        if tiles.pending:
+            return "Loading map imagery…"
+        if not tiles.loaded:
+            return "Waiting for map imagery…"
+        text = "Imagery loaded" if tiles.has_echoes is not False else "Loaded tiles have no visible echoes"
+        times = tuple(controller.frame_times)
+        if times and controller.is_forecast and times[-1] < self._clock():
+            text = "Forecast period has ended · " + text
+        elif not controller.is_forecast and times and self._clock() - times[-1] > 1800:
+            text = "Radar data is over 30 minutes old · " + text
+        return text
+
+    def _poll_radar_health(self, generation):
+        if self._closed or not self._visible or generation != self._health_generation:
+            return
+        self._emit()
+        self._host.schedule_ui_callback(1000, lambda: self._poll_radar_health(generation))
 
     def _change_radar_palette(self, palette: RadarPalette) -> None:
         controller = self._radar_controller
@@ -140,6 +180,9 @@ class RadarReplayController(RadarRequestHandlerIf):
         try:
             frame = (self._radar_controller.show_frames(frames)
                      if frames is not None else selector())
+            self._refreshing = False
+            if frames is not None:
+                self._refreshed_at = self._clock()
             if self._visible:
                 self._emit()
             self._sync_radar_timeline()
@@ -264,6 +307,7 @@ class RadarReplayController(RadarRequestHandlerIf):
         if controller is None:
             return
         self._radar_enabled = enabled
+        self._refreshing = enabled
         self._status = ""
         generation = self.__dict__.get("_radar_load_generation", 0) + 1
         self._radar_load_generation = generation
@@ -292,6 +336,8 @@ class RadarReplayController(RadarRequestHandlerIf):
             return
         try:
             frame = self._radar_controller.show_frames(frames)
+            self._refreshing = False
+            self._refreshed_at = self._clock()
             if self._visible:
                 self._emit()
             self._sync_radar_timeline()
@@ -312,6 +358,7 @@ class RadarReplayController(RadarRequestHandlerIf):
         if self._closed or (generation is not None and generation != self._radar_load_generation):
             return
         self._radar_enabled = False
+        self._refreshing = False
         self._pause_radar()
         try:
             self._radar_controller.hide()

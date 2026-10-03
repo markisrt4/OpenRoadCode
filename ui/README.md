@@ -187,3 +187,12 @@ another cleanup fails. All close operations are idempotent.
 `MapRuntimeIf` lives in `ui/navigation/map_runtime_if.py`; importing a map host
 contract must not load application backend infrastructure. The static gate rejects
 frontend imports from `apps.orcUi.core_runtime` as well as direct backend imports.
+
+## Weather data health
+
+`RadarUiState.data_status` carries the controller's human-readable imagery health
+and freshness label. Optional `refreshed_at` is the Unix time of the last
+successful metadata check, distinct from the selected frame's valid time.
+Frontends format that time locally. Detailed errors remain in `status`.
+Tile diagnostics, validation, retries, and freshness decisions belong to weather
+controllers and services; views do not inspect those implementations.

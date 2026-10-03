@@ -76,6 +76,9 @@ def test_opacity_update_does_not_refetch_frame() -> None:
 
 
 class _TileService:
+    def retry_frame(self, frame):
+        self.retried = frame
+
     def tile_url(self, frame, palette):
         return f"http://127.0.0.1/radar/{frame.timestamp}/{palette.value}/{{z}}/{{x}}/{{y}}.png"
 

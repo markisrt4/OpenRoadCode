@@ -45,6 +45,8 @@ class NavigationRadarControls:
         self._radar_playing, self._radar_forecast = state.playing, state.forecast
         self._radar_loading, self._radar_speed = state.loading, state.speed
         self._radar_palette = state.palette
+        self._radar_data_status = state.data_status
+        self._radar_refreshed_at = state.refreshed_at
         classic_var = getattr(self, "_classic_radar_var", None)
         if classic_var is not None:
             classic_var.set(state.palette == RadarPalette.CLASSIC)
@@ -167,7 +169,9 @@ class NavigationRadarControls:
         if popup is not None:
             popup.render(self._radar_times, self._radar_index,
                          enabled=self._radar_enabled, playing=self._radar_playing,
-                         forecast=self._radar_forecast, loading=self._radar_loading)
+                         forecast=self._radar_forecast, loading=self._radar_loading,
+                         data_status=getattr(self, "_radar_data_status", ""),
+                         refreshed_at=getattr(self, "_radar_refreshed_at", None))
 
         callback = self.__dict__.get("_on_weather_visibility_changed")
         if callback is not None:

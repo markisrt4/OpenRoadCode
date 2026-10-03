@@ -4,6 +4,7 @@
 """Own forecast refresh workers independently of frontend widgets."""
 from collections.abc import Callable
 import threading
+import time
 from controllers.weather.weather_controller import WeatherController
 from ui.ui_dispatcher_if import UiDispatcherIf
 from ui.weather.weather_ui_if import WeatherUiState
@@ -26,6 +27,10 @@ class WeatherScreenController(WeatherScreenRequestHandlerIf):
         self._generation = 0
         self._visible = False
         self._closed = False
+        self._clock = time.time
+        self._last_state = None
+        self._last_error = ""
+        self._stale_refresh = False
 
     def set_visible(self, visible: bool) -> None:
         """Update lifecycle. @param visible Whether the forecast screen is shown."""
@@ -34,6 +39,7 @@ class WeatherScreenController(WeatherScreenRequestHandlerIf):
         if self._visible:
             latest = self._controller.latest()
             if latest is not None:
+                self._last_state = latest
                 self._presenter.present(latest)
             self.request_refresh()
 
@@ -60,10 +66,30 @@ class WeatherScreenController(WeatherScreenRequestHandlerIf):
             return
         self._ui.set_loading(False)
         if state is not None:
+            self._last_state = state
             ui_state = self._presenter.present(state)
             if self._on_weather_state is not None:
                 self._on_weather_state(ui_state)
-        self._ui.set_weather_status(f"Weather: {detail}" if detail else "")
+        self._last_error = detail
+        self._stale_refresh = state is not None and self._clock() - state.fetched_at > 300
+        self._monitor_status(generation)
+
+    def _monitor_status(self, generation):
+        if self._closed or not self._visible or generation != self._generation:
+            return
+        state = self._last_state
+        age = max(1, int((self._clock() - state.fetched_at) / 60)) if state is not None else 0
+        if self._last_error and state is None:
+            status = f"Weather unavailable: {self._last_error}"
+        elif self._last_error or self._stale_refresh:
+            status = f"Weather: showing saved data ({age} min old); refresh unavailable"
+        elif state is not None and self._clock() - state.fetched_at > 300:
+            status = f"Weather: data is {age} min old; refresh to update"
+        else:
+            status = ""
+        self._ui.set_weather_status(status)
+        if state is not None:
+            self._dispatcher.schedule_ui_callback(60000, lambda: self._monitor_status(generation))
 
     def close(self):
         """Invalidate pending refresh callbacks and disconnect the view."""

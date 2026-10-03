@@ -348,3 +348,33 @@ The forecast screen also uses `WeatherScreenUiIf` and
 `WeatherScreenRequestHandlerIf`. `WeatherScreenController` owns refresh workers
 and rejects stale completions after hiding or closing the screen. Tk receives
 SI forecasts, loading state, and status through the contract.
+
+## Data reliability and status
+
+Radar replay distinguishes metadata refresh, waiting for imagery, downloads in
+progress, loaded imagery, and unavailable imagery. The last successful metadata
+check appears separately from the selected frame's valid time. A failed tile
+remains failed until that same request succeeds; another successful tile cannot
+hide the failure. Playback waits for downloads and pauses on a tile failure.
+Explicit frame selection or refresh retries a failed frame with a new renderer
+URL while retaining valid disk cache entries.
+
+Downloaded and cached PNGs are validated before use. Corrupt cache entries are
+removed and fetched again; invalid responses are not cached. Fully transparent
+images display **Loaded tiles have no visible echoes**. This describes downloaded
+tiles, not proof of dry weather, complete viewport coverage, or model coverage.
+
+Observed radar is labelled old when the newest available source frame is more
+than 30 minutes old, independently of the history frame selected. Forecast radar
+labels an ended forecast period; this does not measure model-run freshness.
+Status monitoring stops when Navigation is hidden or closed.
+
+The Weather screen retains readable saved data when a refresh fails and labels
+its age once it exceeds five minutes. Data also ages while the screen remains
+open; status checks do not initiate network requests. A first-load failure shows
+**Unavailable** and **Try Refresh** instead of a permanent loading placeholder.
+
+Unit tests cover partial tile failures, localhost HTTP responses, transparent
+and malformed PNGs, corrupt-cache recovery, retry URLs, data age, and callbacks
+after hide/close. Status crosses the UI boundary through `RadarUiState`; widgets
+perform presentation and time formatting without accessing tile services.

@@ -107,3 +107,79 @@ def test_explicit_retry_clears_failed_frame_state(tmp_path):
         assert service.frame_ready(frame)
     finally:
         service.close()
+
+
+def test_success_of_other_tile_does_not_hide_failed_request(tmp_path):
+    service = RadarTileService(cache_root=tmp_path, session=_Session(_png()))
+    frame = RadarFrame(200, 'https://example.test/{z}/{x}/{y}.png')
+    try:
+        service.tile_url(frame, RadarPalette.UNIVERSAL)
+        key = service._frame_key(frame)
+        service._begin_tile(key)
+        service._finish_tile(key, 'offline', tile_id='failed')
+        service._begin_tile(key)
+        service._finish_tile(key, tile_id='other', has_echoes=False)
+        assert service.frame_error(frame) == 'offline'
+        assert not service.frame_ready(frame)
+        status = service.frame_status(frame)
+        assert status.loaded == 1 and status.failed == 1
+        service._begin_tile(key)
+        service._finish_tile(key, tile_id='failed', has_echoes=True)
+        assert service.frame_error(frame) is None
+        assert service.frame_ready(frame)
+        assert service.frame_status(frame).has_echoes is True
+    finally:
+        service.close()
+
+
+def test_blank_png_is_loaded_but_failed_download_is_unavailable(tmp_path):
+    import requests
+    service = RadarTileService(cache_root=tmp_path, session=_Session(_png((0, 0, 0, 0))))
+    frame = RadarFrame(200, 'https://example.test/{z}/{x}/{y}.png')
+    try:
+        url = service.tile_url(frame, RadarPalette.UNIVERSAL).format(z=1, x=0, y=0)
+        response = requests.get(url, timeout=2)
+        assert response.status_code == 200
+        status = service.frame_status(frame)
+        assert status.loaded == 1 and status.failed == 0
+        assert status.has_echoes is False and service.frame_ready(frame)
+        service._session.content = b'not a PNG'
+        response = requests.get(url.replace('/0/0.png', '/1/0.png'), timeout=2)
+        assert response.status_code == 502
+        assert service.frame_status(frame).failed == 1
+        assert not service.frame_ready(frame)
+    finally:
+        service.close()
+
+
+def test_invalid_response_is_not_cached_and_corrupt_cache_recovers(tmp_path):
+    import pytest
+    service = RadarTileService(cache_root=tmp_path, session=_Session(b'<html>bad upstream</html>'))
+    path = tmp_path / 'tile.png'
+    try:
+        with pytest.raises(OSError):
+            service._read_or_fetch(path, 'https://example.test/tile.png')
+        assert not path.exists()
+        path.write_bytes(b'broken cache')
+        service._session.content = _png()
+        assert service._read_or_fetch(path, 'https://example.test/tile.png') == _png()
+        assert path.read_bytes() == _png()
+    finally:
+        service.close()
+
+
+def test_retry_changes_tile_url_and_clears_failed_state(tmp_path):
+    service = RadarTileService(cache_root=tmp_path, session=_Session(_png()))
+    frame = RadarFrame(200, 'https://example.test/{z}/{x}/{y}.png')
+    try:
+        original = service.tile_url(frame, RadarPalette.UNIVERSAL)
+        key = service._frame_key(frame)
+        service._begin_tile(key)
+        service._finish_tile(key, 'offline', tile_id='failed')
+        service.retry_frame(frame)
+        retried = service.tile_url(frame, RadarPalette.UNIVERSAL)
+        assert retried != original and 'retry=1' in retried
+        assert service.frame_status(frame).loaded == 0
+        assert service.frame_error(frame) is None
+    finally:
+        service.close()

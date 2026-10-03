@@ -8,6 +8,7 @@ from __future__ import annotations
 from controllers.weather.radar_palette import RadarPalette
 from controllers.weather.radar_provider_if import RadarFrame, RadarProviderIf
 from controllers.weather.radar_tile_service import RadarTileService
+from controllers.weather.radar_tile_status import RadarTileStatus
 
 
 class WeatherRadarController:
@@ -66,6 +67,13 @@ class WeatherRadarController:
         return self._tile_service is None or (self._frame is not None and self._tile_service.frame_ready(self._frame))
 
     @property
+    def frame_tile_status(self) -> RadarTileStatus:
+        """Report requested tile diagnostics without assuming the whole viewport is covered."""
+        if self._tile_service is None or self._frame is None:
+            return RadarTileStatus()
+        return self._tile_service.frame_status(self._frame)
+
+    @property
     def frame_tile_error(self) -> str | None:
         """Expose tile-generation failures to forecast playback."""
         if self._tile_service is None or self._frame is None:
@@ -112,7 +120,8 @@ class WeatherRadarController:
         if not frames:
             raise ValueError("radar frames must not be empty")
         self._frames = frames
-        return self._select_frame(0 if self.is_forecast else len(self._frames) - 1)
+        index = 0 if self.is_forecast else len(self._frames) - 1
+        return self._select_frame(index)
 
     def previous_frame(self) -> RadarFrame:
         """Select the preceding cached historical frame."""
@@ -131,6 +140,8 @@ class WeatherRadarController:
         self._frame_index = index
         self._frame = frame
         self._enabled = True
+        if self._tile_service is not None:
+            self._tile_service.retry_frame(frame)
         self._publish_frame(frame)
         return frame
 

@@ -31,6 +31,9 @@ class RadarReplayPanel(tk.Toplevel):
         self._button(title, "×", on_close).pack(side=tk.RIGHT)
         self._timestamp = self._label(self._body, "Turn radar on to load history")
         self._timestamp.pack(anchor="w", pady=(3, 0))
+        self._data_status = self._label(self._body, "")
+        self._data_status.configure(wraplength=270, justify=tk.LEFT)
+        self._data_status.pack(anchor="w", pady=(0, 3))
         self._value = tk.IntVar(self, value=0)
         self._timeline = tk.Scale(
             self._body, from_=0, to=1, orient=tk.HORIZONTAL, showvalue=False,
@@ -116,8 +119,14 @@ class RadarReplayPanel(tk.Toplevel):
         if self._times and index != self._frame_index:
             self._on_seek(index)
 
-    def render(self, times, index, *, enabled, playing, forecast=False, loading=False):
+    def render(self, times, index, *, enabled, playing, forecast=False, loading=False,
+               data_status="", refreshed_at=None):
         """Synchronize controls without treating playback as user scrubbing."""
+        detail = data_status
+        if refreshed_at is not None:
+            refreshed = datetime.fromtimestamp(refreshed_at).strftime("%I:%M %p").lstrip("0")
+            detail += f" · Data checked {refreshed}"
+        self._data_status.configure(text=detail)
         self._times = times
         self._forecast.set(forecast)
         self._title.configure(text="Forecast radar" if forecast else "Radar history")

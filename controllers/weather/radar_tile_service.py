@@ -17,6 +17,7 @@ from PIL import Image, ImageDraw
 
 from common.xdg_paths import openroadcode_cache_dir
 from controllers.weather.radar_palette import RadarPalette
+from controllers.weather.radar_tile_status import RadarTileStatus
 from controllers.weather.radar_provider_if import RadarFrame
 from controllers.weather.hrrr_tiles import HrrrTileSource, color_hrrr_reflectivity
 
@@ -102,6 +103,9 @@ class RadarTileService:
         self._pending: dict[str, int] = {}
         self._loaded: set[str] = set()
         self._errors: dict[str, str] = {}
+        self._tile_errors: dict[str, dict[str, str]] = {}
+        self._tile_echoes: dict[str, dict[str, bool | None]] = {}
+        self._retries: dict[str, int] = {}
         self._cache_locks_guard = Lock()
         self._cache_locks: dict[Path, Lock] = {}
 
@@ -111,17 +115,19 @@ class RadarTileService:
             def do_GET(self) -> None:
                 key = urlparse(self.path).path.strip("/").split("/")[1:2]
                 key = key[0] if key else ""
+                tile_id = urlparse(self.path).path
                 service._begin_tile(key)
                 try:
                     data = service._handle_path(self.path)
+                    echoes = service._png_has_echoes(data)
                 except (OSError, ValueError, RuntimeError, requests.RequestException) as error:
-                    service._finish_tile(key, str(error))
+                    service._finish_tile(key, str(error), tile_id=tile_id)
                     try:
                         self.send_error(502, str(error))
                     except (BrokenPipeError, ConnectionResetError):
                         pass
                     return
-                service._finish_tile(key)
+                service._finish_tile(key, tile_id=tile_id, has_echoes=echoes)
                 self.send_response(200)
                 self.send_header("Content-Type", "image/png")
                 self.send_header("Cache-Control", "public, max-age=3600")
@@ -150,10 +156,10 @@ class RadarTileService:
         key = self._frame_key(frame)
         self._frames[key] = frame.tile_url
         port = self._server.server_address[1]
-        return (
-            f"http://127.0.0.1:{port}/radar/{key}/{palette.value}"
-            "/{z}/{x}/{y}.png"
-        )
+        template = f"http://127.0.0.1:{port}/radar/{key}/{palette.value}/{{z}}/{{x}}/{{y}}.png"
+        with self._load_lock:
+            retry = self._retries.get(key, 0)
+        return template + (f"?retry={retry}" if retry else "")
 
     @staticmethod
     def _frame_key(frame: RadarFrame) -> str:
@@ -164,16 +170,42 @@ class RadarTileService:
             if key in self._frames:
                 self._pending[key] = self._pending.get(key, 0) + 1
 
-    def _finish_tile(self, key: str, error: str | None = None) -> None:
+    def _finish_tile(self, key: str, error: str | None = None, *,
+                     tile_id: str = "", has_echoes: bool | None = None) -> None:
         with self._load_lock:
             if key not in self._frames:
                 return
             self._pending[key] = max(0, self._pending.get(key, 0) - 1)
+            failures = self._tile_errors.setdefault(key, {})
+            echoes = self._tile_echoes.setdefault(key, {})
             if error is not None:
-                self._errors[key] = error
+                failures[tile_id] = error
+                echoes.pop(tile_id, None)
             else:
                 self._loaded.add(key)
+                echoes[tile_id] = has_echoes
+                failures.pop(tile_id, None)
+            if failures:
+                self._errors[key] = next(iter(failures.values()))
+            else:
                 self._errors.pop(key, None)
+
+    def frame_status(self, frame: RadarFrame) -> RadarTileStatus:
+        """Summarize successful/failed requests without treating missing data as clear weather."""
+        key = self._frame_key(frame)
+        with self._load_lock:
+            echoes = self._tile_echoes.get(key, {})
+            visible = (True if any(value is True for value in echoes.values()) else
+                       False if echoes and all(value is False for value in echoes.values()) else None)
+            return RadarTileStatus(self._pending.get(key, 0), len(echoes),
+                                   len(self._tile_errors.get(key, {})), visible)
+
+    @staticmethod
+    def _png_has_echoes(data: bytes) -> bool:
+        with Image.open(BytesIO(data)) as image:
+            if image.format != "PNG":
+                raise ValueError("radar tile is not a PNG image")
+            return image.convert("RGBA").getchannel("A").getbbox() is not None
 
     def retry_frame(self, frame: RadarFrame) -> None:
         """Clear a previous processing error before an explicit frame retry."""
@@ -181,12 +213,15 @@ class RadarTileService:
             key = self._frame_key(frame)
             if self._errors.pop(key, None) is not None:
                 self._loaded.discard(key)
+                self._tile_errors.pop(key, None)
+                self._tile_echoes.pop(key, None)
+                self._retries[key] = self._retries.get(key, 0) + 1
 
     def frame_ready(self, frame: RadarFrame) -> bool:
         """Report at least one successful tile and no outstanding tile work."""
         key = self._frame_key(frame)
         with self._load_lock:
-            return key in self._loaded and not self._pending.get(key, 0)
+            return key in self._loaded and not self._pending.get(key, 0) and key not in self._errors
 
     def frame_error(self, frame: RadarFrame) -> str | None:
         """Return the last reported tile-generation failure for a frame."""
@@ -214,8 +249,9 @@ class RadarTileService:
         elif source_url.startswith("orc-hrrr-layer://"):
             from controllers.weather.hrrr_map_layers import color_model_layer
             with self._cache_lock(source_path):
-                if source_path.is_file():
-                    return source_path.read_bytes()
+                cached = self._cached_png(source_path)
+                if cached is not None:
+                    return cached
                 params = parse_qs(urlparse(template).query)
                 kind = params.get("kind", [""])[0]
                 second = params.get("secondary", [None])[0]
@@ -225,8 +261,9 @@ class RadarTileService:
                 return source
         elif source_url.startswith("orc-hrrr://"):
             with self._cache_lock(source_path):
-                if source_path.is_file():
-                    source = source_path.read_bytes()
+                cached = self._cached_png(source_path)
+                if cached is not None:
+                    source = cached
                 else:
                     source = color_hrrr_reflectivity(self._hrrr_tiles.tile(template, z, x, y), _UNIVERSAL_DBZ)
                     self._write_cache(source_path, source)
@@ -238,8 +275,9 @@ class RadarTileService:
         derived_path = self._cache_root / key / palette.value / str(z) / str(x) / f"{y}.png"
         lock = self._cache_lock(derived_path)
         with lock:
-            if derived_path.is_file():
-                return derived_path.read_bytes()
+            cached = self._cached_png(derived_path)
+            if cached is not None:
+                return cached
             derived = recolor_classic(source)
             self._write_cache(derived_path, derived)
             return derived
@@ -313,13 +351,29 @@ class RadarTileService:
             return self._cache_locks.setdefault(path, Lock())
 
     def _read_or_fetch(self, path: Path, url: str) -> bytes:
-        if path.is_file():
-            return path.read_bytes()
-        response = self._session.get(url, timeout=self._timeout_seconds)
-        response.raise_for_status()
-        data = response.content
-        self._write_cache(path, data)
-        return data
+        # A corrupt/HTML response must never become a permanent "empty radar" cache hit.
+        with self._cache_lock(path):
+            cached = self._cached_png(path)
+            if cached is not None:
+                return cached
+            response = self._session.get(url, timeout=self._timeout_seconds)
+            response.raise_for_status()
+            data = response.content
+            self._png_has_echoes(data)
+            self._write_cache(path, data)
+            return data
+
+    @classmethod
+    def _cached_png(cls, path: Path) -> bytes | None:
+        if not path.is_file():
+            return None
+        data = path.read_bytes()
+        try:
+            cls._png_has_echoes(data)
+            return data
+        except (OSError, ValueError):
+            path.unlink(missing_ok=True)
+            return None
 
     @staticmethod
     def _write_cache(path: Path, data: bytes) -> None:

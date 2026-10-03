@@ -187,7 +187,12 @@ class OrcWeatherPanel(tk.Frame, WeatherUiIf):
 
     def set_loading(self, loading: bool) -> None:
         """Render an explicit initial-loading state without discarding cached data."""
-        if not loading or self._state is not None:
+        if self._state is not None:
+            return
+        if not loading:
+            self._provider_label.configure(text="Weather data unavailable")
+            self._condition.configure(text="Unavailable")
+            self._summary.configure(text="Try Refresh")
             return
         self._location.configure(text="WEATHER")
         self._provider_label.configure(text="Loading current conditions…")

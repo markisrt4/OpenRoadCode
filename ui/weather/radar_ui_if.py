@@ -25,6 +25,8 @@ class RadarUiState:
     speed: float = 1.0
     palette: RadarPalette = RadarPalette.UNIVERSAL
     status: str = ""
+    data_status: str = ""
+    refreshed_at: float | None = None
 
 
 class RadarUiIf(ABC):
