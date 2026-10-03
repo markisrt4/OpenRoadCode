@@ -6,7 +6,9 @@ home) and restored on startup. A failed preference write leaves the existing mod
 unchanged and displays an error in the shell status area.
 
 Offline mode disables POI Order and Website buttons, Spotify, YouTube,
-YouTube Music, Netflix, and internet radio. Streaming controls grey out, including
+YouTube Music, Netflix, and internet radio. Entire streaming-provider and internet-radio cards grey out, including logos,
+illustrations, accent bars, text, and buttons. Online mode restores their colors.
+Streaming controls grey out, including
 the home radio shortcut and Spotify account connection. Existing ORC browser
 players and internet radio stop when switching offline. Spotify polling, remote
 commands, and radio-directory requests are blocked. Switching online reenables

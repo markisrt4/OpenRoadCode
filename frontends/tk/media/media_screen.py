@@ -9,6 +9,7 @@ from __future__ import annotations
 import tkinter as tk
 from collections.abc import Callable
 
+from frontends.tk.offline_card import OfflineCardAppearance
 from frontends.tk.tk_screen import TkScreen
 from frontends.tk.tk_screen_host_if import TkScreenHostIf
 from ui.screen_ui_if import ScreenId
@@ -173,6 +174,10 @@ class MediaScreen(TkScreen):
             feature="netflix",
         )
         netflix.grid(row=1, column=1, sticky="nsew", padx=6, pady=4)
+
+        if not self._online_allowed():
+            for card in (spotify, youtube, youtube_music, netflix):
+                OfflineCardAppearance(card).set_online(False)
 
     def _media_card(
         self,

@@ -10,6 +10,7 @@ import tkinter as tk
 from collections.abc import Callable
 
 from controllers.connectivity.online_mode import OnlineModeController
+from frontends.tk.offline_card import OfflineCardAppearance
 from apps.orcUi.adapters.adsb_control import OrcUiAdsbControl
 from apps.orcUi.radio_application_service import RadioApplicationServiceIf
 from apps.orcUi.frontend.tk.radio_panel import RadioPanel
@@ -118,6 +119,7 @@ class RadioEntryPanel(tk.Frame):
         return mode is None or mode.online
 
     def _mode_changed(self, online: bool) -> None:
+        self._streaming_card_appearance.set_online(online)
         self._streaming_button.configure(state=tk.NORMAL if online else tk.DISABLED,
                                          disabledforeground=self._theme.ui.text_muted)
         if not online:
@@ -217,6 +219,7 @@ class RadioEntryPanel(tk.Frame):
             font=("Sans", FONT_BODY),
         )
         self._status.grid(row=1, column=0, columnspan=2, pady=(0, 10))
+        self._streaming_card_appearance = OfflineCardAppearance(streaming_card)
         self._mode_changed(self._online_allowed())
 
     def _build_source_card(
