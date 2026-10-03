@@ -11,7 +11,7 @@ from collections.abc import Callable
 from apps.orcUi.trip_presenter import TripPresentationState
 from common.units import UnitSystem
 from apps.orcUi.vehicle_presenter import VehiclePresentationState
-from controllers.weather.radar_palette import RadarPalette
+from ui.weather.radar_ui_if import RadarPalette
 from controllers.automotive import (
     AutomotiveTelemetryProfile,
     EngineAnalysis,

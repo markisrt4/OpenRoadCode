@@ -317,3 +317,34 @@ python -m controllers.weather.component_test.city_weather_provider_cli --kind wi
 Attribution: [Open-Meteo](https://open-meteo.com/) weather data and offline
 OpenStreetMap city names. The map overlay is a regional overview rather than
 turn-by-turn weather guidance.
+
+
+### Enforced weather UI boundary
+
+Weather overlay widgets and Navigation radar controls consume contracts from
+`ui/weather`: immutable overlay/radar state plus semantic request interfaces.
+Controllers own provider access, worker threads, cache validity, viewport
+queries, replay timers, readiness checks and periodic refresh. Composition owns
+construction and cleanup; a screen closing cannot skip controller cleanup.
+Tk views receive snapshots and emit requests. They cannot inspect provider
+caches or send renderer commands.
+
+City and route snapshots use Kelvin, metres/second, precipitation metres,
+probability fractions and geographic radians. They carry aware UTC times.
+`frontends/common` converts these values to display units/local time and adapts
+state to native GeoJSON/raster commands. The same controller snapshots can feed
+a non-Tk frontend without changing weather orchestration. Radar color choices
+are defined in `ui/weather` rather than imported from a weather backend.
+
+`python scripts/check_weather_ui_contracts.py` checks weather frontend imports,
+backend-object access and controller independence from GUI frameworks. The local
+quality gate and GitHub quality workflow both run it. ABC request/view contracts
+reject incomplete implementations, binding checks reject unrelated backend
+objects, and contract tests cover SI normalization, immutable snapshots,
+semantic actions and lifecycle behavior. This is weather-specific enforcement;
+it does not claim universal static type checking for every UI feature.
+
+The forecast screen also uses `WeatherScreenUiIf` and
+`WeatherScreenRequestHandlerIf`. `WeatherScreenController` owns refresh workers
+and rejects stale completions after hiding or closing the screen. Tk receives
+SI forecasts, loading state, and status through the contract.

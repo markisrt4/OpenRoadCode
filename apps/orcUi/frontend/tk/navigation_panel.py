@@ -11,7 +11,7 @@ from collections.abc import Callable
 
 from apps.launchers.android_intent_launcher import AndroidIntentLauncherError
 from apps.orcUi.theme_runtime import theme_bundle as packaged_theme_bundle
-from controllers.weather.radar_palette import RadarPalette
+from ui.weather.radar_ui_if import RadarPalette
 from controllers.navigation.map_favorites import MapFavorites
 from controllers.poi.android_poi_action_executor import AndroidPoiActionExecutor
 from controllers.poi.poi_action_executor_if import PoiActionExecutorIf

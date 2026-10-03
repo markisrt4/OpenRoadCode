@@ -88,3 +88,21 @@ doxygen Doxyfile
 ```
 
 Generated API documentation is written under `build/doxygen/html`.
+
+
+### Weather maps and radar replay
+
+`ui/weather/weather_overlay_state.py` defines immutable city, heatmap and route
+weather snapshots. Physical values are SI; route rain probability is a 0–1
+fraction and times are aware UTC datetimes. `WeatherOverlayUiIf` is the state
+consumer, `WeatherOverlayControlsIf` adds request binding, and
+`WeatherOverlayRequestHandlerIf` describes city/model/route intent and navigation
+visibility/replay. `RadarUiState`, `RadarControlsIf` and
+`RadarRequestHandlerIf` provide the corresponding radar replay boundary.
+
+Weather controller tests exercise asynchronous lifecycle and cache behavior
+without Tk. Frontend contract tests exercise state consumption and request
+forwarding. CI runs `scripts/check_weather_ui_contracts.py` to reject weather
+provider/transport/thread imports in Tk weather views, backend-cache inspection,
+and GUI imports in weather controllers. Interface documentation checks remain a
+separate check; they do not substitute for this boundary enforcement.

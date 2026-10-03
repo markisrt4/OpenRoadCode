@@ -7,7 +7,8 @@ from unittest.mock import Mock
 
 import pytest
 
-from apps.orcUi.frontend.tk.navigation_screen import NavigationScreen
+from controllers.weather.radar_replay_controller import RadarReplayController
+from ui.weather.radar_ui_stub import RadarUiStub
 from controllers.weather import RadarFrame, WeatherRadarController
 
 
@@ -20,16 +21,8 @@ def screen():
     )
     controller = WeatherRadarController(provider, Mock())
     controller.show_latest()
-    screen = object.__new__(NavigationScreen)
-    screen._radar_controller = controller
-    screen._radar_enabled = True
-    screen._radar_playing = False
-    screen._radar_playback_generation = 0
-    screen._radar_playback_speed = 1.0
-    screen._panel = Mock()
-    screen._host = Mock()
-    screen._map_runtime = Mock()
-    screen._on_radar_visibility_changed = None
+    screen = RadarReplayController(Mock(), RadarUiStub(), controller)
+    screen.request_navigation_visible(True)
     return screen
 
 
@@ -69,7 +62,7 @@ def test_playback_stops_on_navigation_visibility_or_live(screen, action):
     screen._radar_play_pause()
     old_tick = screen._host.schedule_ui_callback.call_args.args[1]
     if action == "hide":
-        screen.hide()
+        screen.request_navigation_visible(False)
     elif action == "off":
         screen._toggle_radar(False)
     else:
@@ -118,7 +111,7 @@ def test_forecast_waits_for_tiles_before_starting_display_interval(screen):
     screen._host.schedule_ui_callback.call_args.args[1]()
     assert controller.frame_index == 0
     assert screen._host.schedule_ui_callback.call_args.args[0] == 250
-    screen._panel.set_radar_loading.assert_called_with(True)
+    assert screen._ui.state.loading
     controller._tile_service.frame_ready.return_value = True
     screen._host.schedule_ui_callback.call_args.args[1]()
     assert controller.frame_index == 0
@@ -136,7 +129,7 @@ def test_forecast_tile_failure_pauses_with_explanation(screen):
     screen._radar_play_pause()
     screen._host.schedule_ui_callback.call_args.args[1]()
     assert not screen._radar_playing
-    screen._host.set_screen_status.assert_called_with("Forecast radar loading failed: download failed")
+    assert screen._ui.state.status == "Forecast radar loading failed: download failed"
 
 
 def test_paused_forecast_does_not_resume_waiting_callback(screen):
@@ -147,3 +140,19 @@ def test_paused_forecast_does_not_resume_waiting_callback(screen):
     calls = screen._host.schedule_ui_callback.call_count
     callback()
     assert screen._host.schedule_ui_callback.call_count == calls
+
+
+def test_old_history_completion_cannot_overwrite_new_source(screen):
+    screen._radar_load_generation = 2
+    selector = Mock()
+    before = screen._radar_controller.frame_time
+    screen._complete_radar_selection(selector, (RadarFrame(999, 'https://old.test/tile'),), 1)
+    assert screen._radar_controller.frame_time == before
+    selector.assert_not_called()
+
+
+def test_closed_replay_rejects_a_completed_download(screen):
+    screen.close()
+    before = screen._radar_controller._map_renderer.set_weather_radar.call_count
+    screen._show_radar_frames((RadarFrame(999, 'https://old.test/tile'),), screen._radar_load_generation)
+    assert screen._radar_controller._map_renderer.set_weather_radar.call_count == before

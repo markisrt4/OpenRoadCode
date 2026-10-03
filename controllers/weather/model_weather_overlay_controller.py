@@ -3,21 +3,23 @@
 
 """Asynchronous full-area HRRR model overlays independent of radar playback."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 import threading
 from time import monotonic
 
-from controllers.weather.hrrr_map_layers import HrrrMapLayerProvider, TEMPERATURE_COLORS, WIND_COLORS
+from controllers.weather.hrrr_map_layers import TEMPERATURE_COLORS, WIND_COLORS
+from ui.ui_dispatcher_if import UiDispatcherIf
+from ui.weather.weather_overlay_ui_if import WeatherOverlayUiIf
+from ui.weather.weather_overlay_state import ModelWeatherOverlayState, WeatherColorStop, WeatherRaster
 from controllers.weather.radar_palette import RadarPalette
 
 
-class NavigationWeatherMap:
+class ModelWeatherOverlayController:
     """Load one selected model heatmap and expose its legend and readiness."""
 
-    def __init__(self, host, renderer, tiles, unit_system):
-        self._host, self._renderer, self._tiles = host, renderer, tiles
-        self._unit_system = unit_system
-        self._provider = HrrrMapLayerProvider()
+    def __init__(self, dispatcher: UiDispatcherIf, tiles, provider, ui: WeatherOverlayUiIf):
+        self._host, self._tiles, self._provider, self._ui = dispatcher, tiles, provider, ui
+        self._loading = False
         self.kind = "off"
         self.status = "Select a weather overlay"
         self._frame = None
@@ -25,18 +27,18 @@ class NavigationWeatherMap:
         self._revision = 0
         self._busy = False
         self._closed = False
-        self.on_changed = lambda: None
 
     def select(self, kind):
         """Select one heatmap; radar and route forecasts keep their own state."""
         if kind not in {"off", "temperature", "wind"}:
             raise ValueError("Unknown weather overlay")
         self.kind = kind
+        self._loading = False
         self._generation += 1
         self._frame = None
-        self._renderer.set_weather_field(None, enabled=False)
+        self.publish()
         self.status = "Weather overlay off" if kind == "off" else "Loading weather forecast…"
-        self.on_changed()
+        self.publish()
         if kind != "off":
             self.refresh()
 
@@ -76,10 +78,18 @@ class NavigationWeatherMap:
         self._wait(generation, monotonic())
 
     def publish(self):
-        """Replay the selected layer when the embedded renderer restarts."""
-        if not self._closed and self._frame is not None and self.kind != "off":
-            self._renderer.set_weather_field(self._tiles.tile_url(self._frame, RadarPalette.UNIVERSAL) + f"?revision={self._revision}",
-                                             frame_time=self._frame.timestamp, max_zoom=9, opacity=0.45)
+        """Present the selected raster and SI palette through the UI contract."""
+        if self._closed:
+            return
+        frame = self._frame
+        raster = None
+        if frame is not None and self.kind != "off":
+            raster = WeatherRaster(self._tiles.tile_url(frame, RadarPalette.UNIVERSAL) + f"?revision={self._revision}", frame.timestamp)
+        palette = TEMPERATURE_COLORS if self.kind == "temperature" else WIND_COLORS if self.kind == "wind" else ()
+        legend = tuple(WeatherColorStop(value + 273.15 if self.kind == "temperature" else value, rgb) for value, rgb in palette)
+        self._ui.set_model_weather_state(ModelWeatherOverlayState(
+            self.kind, self.status, raster, legend,
+            datetime.fromtimestamp(frame.timestamp, timezone.utc) if frame else None, self._loading))
 
     def _wait(self, generation, started):
         if self._closed or generation != self._generation or self._frame is None:
@@ -88,29 +98,19 @@ class NavigationWeatherMap:
         if error or monotonic() - started >= 180:
             self._failed(error or "Timed out waiting for map tiles; check renderer build and logs")
             return
-        valid = datetime.fromtimestamp(self._frame.timestamp).astimezone().strftime('%I:%M %p').lstrip('0')
         ready = self._tiles.frame_ready(self._frame)
-        self.status = f"Weather forecast · valid {valid}" + ("" if ready else " · Loading tiles…")
-        self.on_changed()
+        self.status = "Weather forecast"
+        self._loading = not ready
+        self.publish()
         if not ready:
             self._host.schedule_ui_callback(300, lambda: self._wait(generation, started))
 
     def _failed(self, error):
+        self._loading = False
         self._frame = None
-        self._renderer.set_weather_field(None, enabled=False)
+        self.publish()
         self.status = f"Model overlay unavailable: {error}"
-        self.on_changed()
-
-    def legend(self):
-        """Return palette stops in the user's chosen temperature and speed units."""
-        imperial = self._unit_system().value == "imperial"
-        if self.kind == "temperature":
-            return tuple((f"{value * 9 / 5 + 32:.0f}°F" if imperial else f"{value:g}°C", rgb)
-                         for value, rgb in TEMPERATURE_COLORS)
-        if self.kind == "wind":
-            return tuple((f"{value * 2.236936:.0f} mph" if imperial else f"{value * 3.6:g} km/h", rgb)
-                         for value, rgb in WIND_COLORS)
-        return ()
+        self.publish()
 
     def close(self):
         """Invalidate pending workers and release model discovery connections."""

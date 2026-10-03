@@ -93,10 +93,10 @@ class OrcWeatherPanel(tk.Frame, WeatherUiIf):
             self._header, text="WEATHER", anchor="w", font=("Sans", 16, "bold")
         )
         self._location.grid(row=0, column=0, sticky="w")
-        self._provider = tk.Label(
+        self._provider_label = tk.Label(
             self._header, text="", anchor="w", font=("Sans", 10)
         )
-        self._provider.grid(row=1, column=0, sticky="w", pady=(1, 0))
+        self._provider_label.grid(row=1, column=0, sticky="w", pady=(1, 0))
         self._weather_radio = tk.Button(
             self._header,
             text="◉  NOAA",
@@ -190,7 +190,7 @@ class OrcWeatherPanel(tk.Frame, WeatherUiIf):
         if not loading or self._state is not None:
             return
         self._location.configure(text="WEATHER")
-        self._provider.configure(text="Loading current conditions…")
+        self._provider_label.configure(text="Loading current conditions…")
         self._symbol.configure(text="◌")
         self._temperature.configure(text="--°")
         self._condition.configure(text="Loading…")
@@ -208,7 +208,7 @@ class OrcWeatherPanel(tk.Frame, WeatherUiIf):
         for frame in (self._header, self._forecast_area, self._hourly, self._daily):
             frame.configure(bg=ui.background)
         self._location.configure(bg=ui.background, fg=ui.text)
-        self._provider.configure(bg=ui.background, fg=ui.text_muted)
+        self._provider_label.configure(bg=ui.background, fg=ui.text_muted)
         for button in (self._refresh, self._weather_radio, self._radar_map):
             button.configure(
                 bg=ui.control_background,
@@ -253,7 +253,7 @@ class OrcWeatherPanel(tk.Frame, WeatherUiIf):
         state = self._state
         if state is None:
             self._location.configure(text="WEATHER")
-            self._provider.configure(text="")
+            self._provider_label.configure(text="")
             self._symbol.configure(text="◌")
             self._temperature.configure(text="--°")
             self._condition.configure(text="Loading…")
@@ -268,7 +268,7 @@ class OrcWeatherPanel(tk.Frame, WeatherUiIf):
         self._location.configure(
             text="WEATHER" if not location or location.lower() == "configured fallback" else location
         )
-        self._provider.configure(text=self._provider_text(state))
+        self._provider_label.configure(text=self._provider_label_text(state))
         self._symbol.configure(
             text=weather_symbol(current.condition_label),
             fg=weather_accent(current.condition_label, self._theme_bundle()),

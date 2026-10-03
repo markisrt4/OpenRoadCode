@@ -16,11 +16,12 @@ from apps.orcUi.composition.games import configure_games
 from apps.orcUi.composition.media import MediaComposition, configure_media
 from apps.orcUi.composition.radio import RadioComposition, configure_radio
 from apps.orcUi.composition.weather import WeatherComposition, configure_weather
+from apps.orcUi.composition.weather_overlays import configure_weather_overlays
+from controllers.weather.weather_overlay_controller import WeatherOverlayController
+from controllers.weather.radar_replay_controller import RadarReplayController
 from apps.orcUi.frontend.tk.home_screen import HomeScreen
 from apps.orcUi.frontend.tk.navigation_screen import NavigationScreen
 from apps.orcUi.frontend.tk.navigation_route_weather import NavigationRouteWeather
-from apps.orcUi.frontend.tk.navigation_weather_map import NavigationWeatherMap
-from apps.orcUi.frontend.tk.navigation_city_weather import NavigationCityWeather
 from apps.orcUi.frontend.tk.orc_ui_app import OrcUiApp
 from apps.orcUi.frontend.tk.offroad_screen import OffRoadScreen
 from apps.orcUi.frontend.tk.settings_screen import SettingsScreen
@@ -44,6 +45,8 @@ class OrcUiComposition:
     vehicle: VehicleScreen | None = None
     offroad: OffRoadScreen | None = None
     settings: SettingsScreen | None = None
+    weather_overlays: WeatherOverlayController | None = None
+    radar_replay: RadarReplayController | None = None
 
     @property
     def app(self) -> OrcUiApp:
@@ -58,8 +61,16 @@ class OrcUiComposition:
         finally:
             try:
                 try:
-                    if self.navigation is not None:
-                        self.navigation.close()
+                    try:
+                        if self.navigation is not None:
+                            self.navigation.close()
+                    finally:
+                        try:
+                            if self.radar_replay is not None:
+                                self.radar_replay.close()
+                        finally:
+                            if self.weather_overlays is not None:
+                                self.weather_overlays.close()
                 finally:
                     self.games.shutdown()
             finally:
@@ -81,6 +92,8 @@ def create_orc_ui_composition() -> OrcUiComposition:
     """Create all shell, runtime, and feature dependencies in one place."""
     runtime = create_orc_ui_application_runtime()
     core: CoreComposition | None = None
+    overlays: WeatherOverlayController | None = None
+    radar_replay: RadarReplayController | None = None
     try:
         core = create_core_composition()
         app = core.app
@@ -152,6 +165,10 @@ def create_orc_ui_composition() -> OrcUiComposition:
             on_radar_toggle=lambda enabled: navigation.set_radar_enabled(enabled),
             refresh_radar=refresh_radar_map_state,
         )
+        weather_view = NavigationRouteWeather(app, lambda: theme_bundle(app.theme_mode), unit_system)
+        overlays = configure_weather_overlays(app, weather_view, core.map_camera.renderer_client,
+                                             weather.radar_tiles, unit_system, core.route_request_handler,
+                                             core.presentation)
         navigation = NavigationScreen(
             app,
             map_runtime=core.map_runtime,
@@ -161,19 +178,13 @@ def create_orc_ui_composition() -> OrcUiComposition:
             theme_bundle=lambda: theme_bundle(app.theme_mode),
             telemetry_profile_request=core.telemetry_profile_request,
             on_back=lambda: app.navigate_to("HOME"),
-            radar_controller=weather.radar,
-            radar_injection_controller=weather.radar_injection,
-            on_radar_palette_changed=set_radar_palette,
-            on_radar_visibility_changed=home.refresh_radar_state,
-            on_radar_source_changed=weather.select_radar_source,
-            refresh_radar=refresh_radar_map_state,
-            route_weather=NavigationRouteWeather(
-                app, core.route_request_handler, core.map_camera.renderer_client,
-                lambda: theme_bundle(app.theme_mode), unit_system, core.presentation,
-                map_weather=NavigationWeatherMap(app, core.map_camera.renderer_client, weather.radar_tiles, unit_system),
-                city_weather=NavigationCityWeather(app, core.map_camera.renderer_client, unit_system),
-            ),
+            route_weather=weather_view,
         )
+        radar_replay = RadarReplayController(app, navigation, weather.radar, injection=weather.radar_injection,
+                                              on_palette=set_radar_palette, on_visibility=home.refresh_radar_state,
+                                              on_source=weather.select_radar_source,
+                                              refresh_renderer=refresh_radar_map_state)
+        navigation.set_radar_request_handler(radar_replay)
         vehicle = VehicleScreen(
             app,
             theme_bundle=lambda: theme_bundle(app.theme_mode),
@@ -220,9 +231,19 @@ def create_orc_ui_composition() -> OrcUiComposition:
         app.set_initial_destination("HOME")
         app.set_settings_action(lambda: app.navigate_to("SETTINGS"))
     except Exception:
-        if core is not None:
-            core.close()
-        runtime.close()
+        try:
+            try:
+                if radar_replay is not None:
+                    radar_replay.close()
+            finally:
+                if overlays is not None:
+                    overlays.close()
+        finally:
+            try:
+                if core is not None:
+                    core.close()
+            finally:
+                runtime.close()
         raise
     return OrcUiComposition(
         core=core,
@@ -236,4 +257,6 @@ def create_orc_ui_composition() -> OrcUiComposition:
         vehicle=vehicle,
         offroad=offroad,
         settings=settings,
+        weather_overlays=overlays,
+        radar_replay=radar_replay,
     )

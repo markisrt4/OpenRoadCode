@@ -6,21 +6,24 @@
 import tkinter as tk
 
 from .shell_metrics import FONT_CONTROL
+from ui.weather.weather_overlay_request_handler_if import WeatherOverlayRequestHandlerIf
+from ui.weather.weather_overlay_state import CityWeatherOverlayState
+from frontends.common.weather_overlay_format import city_time_label
 
 
 class CityWeatherControls:
     """Display a field selector, time window and independent city playback."""
 
-    def __init__(self, parent, controller, ui):
-        self._controller = controller
+    def __init__(self, parent, handler: WeatherOverlayRequestHandlerIf, state: CityWeatherOverlayState, ui):
+        self._handler, self._state = handler, state
         self._ui = ui
-        self._enabled = tk.BooleanVar(parent, value=controller.enabled)
-        self._kind = tk.StringVar(parent, value=controller.kind)
-        self._period = tk.StringVar(parent, value=controller.period)
-        self._hours = tk.DoubleVar(parent, value=controller.hours)
+        self._enabled = tk.BooleanVar(parent, value=state.enabled)
+        self._kind = tk.StringVar(parent, value=state.kind)
+        self._period = tk.StringVar(parent, value=state.period)
+        self._hours = tk.DoubleVar(parent, value=state.hours)
         self._updating = False
         tk.Checkbutton(parent, text="City weather", variable=self._enabled,
-                       command=lambda: controller.set_enabled(self._enabled.get()),
+                       command=lambda: handler.request_city_enabled(self._enabled.get()),
                        bg=ui.control_background, fg=ui.text, selectcolor=ui.background,
                        activebackground=ui.control_background, activeforeground=ui.text,
                        font=("Sans", FONT_CONTROL)).pack(anchor="w", pady=4)
@@ -38,15 +41,15 @@ class CityWeatherControls:
         self._scale.pack(fill=tk.X, pady=3)
         self._time = self._label(parent, "")
         buttons = self._row(parent)
-        self._play = tk.Button(buttons, text="Play", command=lambda: controller.set_playing(not controller.playing),
+        self._play = tk.Button(buttons, text="Play", command=lambda: handler.request_city_playback(not self._state.playing),
                                bg=ui.control_active, fg=ui.text, relief=tk.FLAT, padx=8, pady=4)
         self._play.pack(side=tk.LEFT)
-        self._refresh = tk.Button(buttons, text="Refresh cities", command=controller.refresh,
+        self._refresh = tk.Button(buttons, text="Refresh cities", command=handler.request_city_refresh,
                                   bg=ui.control_background, fg=ui.text, relief=tk.FLAT, padx=8, pady=4)
         self._refresh.pack(side=tk.RIGHT)
         self._status = self._label(parent, "")
         self._label(parent, "Recent history = model estimates. Precip = rain + snow water equivalent.\nPan or zoom to choose cities · Data: Open-Meteo")
-        self.render()
+        self.set_state(state)
 
     def _row(self, parent):
         row = tk.Frame(parent, bg=self._ui.control_background)
@@ -66,29 +69,27 @@ class CityWeatherControls:
         return label
 
     def _select(self):
-        self._controller.set_playing(False)
-        self._controller.select(kind=self._kind.get(), period=self._period.get())
+        self._handler.request_city_selection(self._kind.get(), self._period.get(), self._state.hours)
 
     def _scrub(self, value):
         hours = int(float(value))
-        if not self._updating and hours != self._controller.hours:
-            self._controller.set_playing(False)
-            self._controller.select(hours=hours)
+        if not self._updating and hours != self._state.hours:
+            self._handler.request_city_selection(self._state.kind, self._state.period, hours)
 
-    def render(self):
+    def set_state(self, state: CityWeatherOverlayState):
         """Synchronize playback and time without turning Scale.set into a user scrub."""
         self._updating = True
         try:
-            controller = self._controller
-            self._enabled.set(controller.enabled)
-            self._kind.set(controller.kind)
-            self._period.set(controller.period)
-            self._hours.set(controller.hours)
-            self._scale.configure(state=tk.NORMAL if controller.enabled else tk.DISABLED)
-            self._time.configure(text=controller.time_label())
-            self._status.configure(text=controller.status)
-            self._play.configure(text="Pause" if controller.playing else "Play",
-                                 state=tk.NORMAL if controller.enabled and controller._weather else tk.DISABLED)
-            self._refresh.configure(state=tk.NORMAL if controller.enabled and controller._cities else tk.DISABLED)
+            self._state = state
+            self._enabled.set(state.enabled)
+            self._kind.set(state.kind)
+            self._period.set(state.period)
+            self._hours.set(state.hours)
+            self._scale.configure(state=tk.NORMAL if state.enabled else tk.DISABLED)
+            self._time.configure(text=city_time_label(state))
+            self._status.configure(text=state.status)
+            self._play.configure(text="Pause" if state.playing else "Play",
+                                 state=tk.NORMAL if state.can_play else tk.DISABLED)
+            self._refresh.configure(state=tk.NORMAL if state.can_refresh else tk.DISABLED)
         finally:
             self._updating = False

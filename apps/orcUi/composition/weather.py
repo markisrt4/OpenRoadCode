@@ -25,6 +25,7 @@ from controllers.weather import (
 )
 from controllers.weather.environmental_radar_injection_controller import EnvironmentalRadarInjectionController
 from controllers.weather.providers.hrrr_radar_provider import HrrrRadarProvider
+from controllers.weather.weather_screen_controller import WeatherScreenController
 from frontends.tk.weather import WeatherScreen
 from hardware_io.android import AndroidSensorBridgeClient
 from services.navigation.navigation_service_cli import DEFAULT_RUNTIME_CONFIG
@@ -39,8 +40,10 @@ class WeatherComposition:
     radar: WeatherRadarController
     radar_tiles: RadarTileService
     radar_injection: EnvironmentalRadarInjectionController
+    screen_controller: WeatherScreenController
 
     def close(self) -> None:
+        self.screen_controller.close()
         self.radar_tiles.close()
 
     def select_radar_source(self, forecast: bool) -> None:
@@ -104,16 +107,17 @@ def configure_weather(
 
     screen = WeatherScreen(
         app,
-        controller=controller,
         theme_bundle=lambda: theme_bundle(app.theme_mode),
         unit_system=unit_system,
         on_weather_radio=on_weather_radio,
         on_radar_map=on_radar_map,
-        on_weather_state=publish_weather_status,
     )
+    screen_controller = WeatherScreenController(app, controller, screen, publish_weather_status)
+    screen.set_weather_request_handler(screen_controller)
     app.register_screen("WEATHER", screen, before="VISION")
     return WeatherComposition(
         screen=screen,
+        screen_controller=screen_controller,
         controller=controller,
         radar=radar,
         radar_tiles=radar_tiles,

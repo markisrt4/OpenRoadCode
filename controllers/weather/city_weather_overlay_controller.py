@@ -3,21 +3,24 @@
 
 """City weather state, asynchronous data and viewport discovery."""
 
-from datetime import datetime
+from datetime import datetime, timezone
+import math
 import threading
 from time import monotonic, time
 
-from controllers.weather.city_weather import CityWeatherProvider, WeatherCity, city_label, city_value
-from protocols.map_renderer.map_weather_city_source import MapWeatherCitySource
+from controllers.weather.city_weather import WeatherCity, city_value
+from ui.navigation import GeoPoint
+from ui.ui_dispatcher_if import UiDispatcherIf
+from ui.weather.weather_overlay_ui_if import WeatherOverlayUiIf
+from ui.weather.weather_overlay_state import CityWeatherOverlayState, CityWeatherPoint
 
 
-class NavigationCityWeather:
+class CityWeatherOverlayController:
     """Keep city map labels independent of radar, heatmaps and route weather."""
 
-    def __init__(self, host, renderer, unit_system, *, provider=None, source=None, clock=time):
-        self._host, self._renderer, self._unit_system = host, renderer, unit_system
-        self._provider = provider or CityWeatherProvider()
-        self._source = source
+    def __init__(self, dispatcher: UiDispatcherIf, provider, source, query, ui: WeatherOverlayUiIf, *, clock=time):
+        self._host, self._ui, self._query_cities = dispatcher, ui, query
+        self._provider, self._source = provider, source
         self._clock = clock
         self.enabled = False
         self.kind = "temperature"
@@ -25,7 +28,6 @@ class NavigationCityWeather:
         self.hours = 1
         self.playing = False
         self.status = "Enable city weather, then pan or zoom to an area"
-        self.on_changed = lambda: None
         self._cities = ()
         self._weather = ()
         self._cache = {}
@@ -53,8 +55,6 @@ class NavigationCityWeather:
             self.status = "City weather off"
             self.publish()
         else:
-            if self._source is None:
-                self._source = MapWeatherCitySource()
             self.status = "Finding cities in this map view…"
             self._last_query = 0
             self._retry_at = 0
@@ -63,7 +63,7 @@ class NavigationCityWeather:
             self.publish()
             if self._visible:
                 self._query()
-        self.on_changed()
+        self.publish()
 
     def select(self, *, kind=None, period=None, hours=None):
         """Change the field or time without making another weather request."""
@@ -80,7 +80,6 @@ class NavigationCityWeather:
                 raise ValueError("City weather hours must be between 1 and 24")
             self.hours = hours
         self.publish()
-        self.on_changed()
 
     def show(self):
         """Poll cities only while Navigation is visible; replay labels after renderer startup."""
@@ -115,7 +114,7 @@ class NavigationCityWeather:
             return
         self._busy = True
         self.status = "Loading city weather…"
-        self.on_changed()
+        self.publish()
         generation, cities = self._generation, self._cities
 
         def load():
@@ -152,13 +151,12 @@ class NavigationCityWeather:
                     del self._cache[city]
             self.status = f"{len(weather)} cities · Open-Meteo · Model estimates"
         self.publish()
-        self.on_changed()
 
     def _query(self):
         self._request_id += 1
         self._pending_id = self._request_id
         self._last_query = monotonic()
-        self._renderer.search_weather_cities(self._pending_id)
+        self._query_cities(self._pending_id)
 
     def _poll(self, generation):
         if self._closed or not self._visible or generation != self._poll_generation:
@@ -169,7 +167,7 @@ class NavigationCityWeather:
                 self._pending_id = None
                 self._query_warning = True
                 self.status = "City query timed out · rebuild the navigation renderer and retry"
-                self.on_changed()
+                self.publish()
             if self._pending_id is None and monotonic() - self._last_query >= 4:
                 self._query()
             if self._cities and self._clock() >= self._retry_at and not self._busy:
@@ -193,7 +191,7 @@ class NavigationCityWeather:
                 if recovered or not cities:
                     self.status = (f"{len(self._weather)} cities · Open-Meteo · Model estimates" if self._weather
                                    else "No city names here · zoom out or pan to a town")
-                    self.on_changed()
+                    self.publish()
                 continue
             self._cities = cities
             self._generation += 1
@@ -209,19 +207,19 @@ class NavigationCityWeather:
                     self._anchor = int(self._clock() // 3600) * 3600
                     self.status = f"{len(cities)} cities · Open-Meteo · Model estimates"
                     self.publish()
-                    self.on_changed()
+                    self.publish()
                 else:
                     self.refresh()
             else:
                 self.set_playing(False)
                 self.status = "No city names here · zoom out or pan to a town"
-                self.on_changed()
+                self.publish()
 
     def set_playing(self, playing):
         """Animate local cached hourly data, leaving radar playback untouched."""
         self.playing = bool(playing and self.enabled and self._weather and self._visible)
         self._play_generation += 1
-        self.on_changed()
+        self.publish()
         if self.playing:
             generation = self._play_generation
             self._host.schedule_ui_callback(1500, lambda: self._advance(generation))
@@ -237,31 +235,19 @@ class NavigationCityWeather:
         self.select(hours=hours)
         self._host.schedule_ui_callback(1500, lambda: self._advance(generation))
 
-    def time_label(self):
-        """Describe exact snapshot time or rainfall window in local time."""
-        anchor = self._anchor or int(self._clock() // 3600) * 3600
-        target = anchor + self.hours * 3600 * (-1 if self.period == "past" else 1)
-
-        def stamp(timestamp):
-            return datetime.fromtimestamp(timestamp).astimezone().strftime("%a %I:%M %p %Z").replace(" 0", " ")
-
-        if self.kind == "precipitation":
-            start, end = (target, anchor) if self.period == "past" else (anchor, target)
-            return f"{self.hours}h total · {stamp(start)} → {stamp(end)}"
-        return f"{self.hours}h {'ago' if self.period == 'past' else 'ahead'} · {stamp(target)}"
-
     def publish(self):
-        """Draw big weather numbers and smaller names using a separate GeoJSON source."""
+        """Present selected city values as Kelvin, m/s or metres through the UI contract."""
         if self._closed:
             return
-        features = []
-        imperial = self._unit_system().value == "imperial"
-        if self.enabled and self._visible:
-            for weather in self._weather:
-                value = city_value(weather, self.kind, self.hours, self.period, self._anchor)
-                features.append({"type": "Feature", "geometry": {"type": "Point", "coordinates": [
-                    weather.city.longitude, weather.city.latitude]}, "properties": {
-                        "name": weather.city.name, "value": city_label(value, self.kind, imperial),
-                        "color": "#f8e58b" if self.kind == "temperature" else
-                                 "#a6edff" if self.kind == "wind" else "#a2f2c4"}})
-        self._renderer.set_city_weather({"type": "FeatureCollection", "features": features})
+        points = []
+        for weather in self._weather:
+            value = city_value(weather, self.kind, self.hours, self.period, self._anchor)
+            if value is not None:
+                value = value + 273.15 if self.kind == "temperature" else value / 3.6 if self.kind == "wind" else value / 1000
+            points.append(CityWeatherPoint(weather.city.name,
+                                          GeoPoint(math.radians(weather.city.latitude), math.radians(weather.city.longitude)), value))
+        anchor = self._anchor or int(self._clock() // 3600) * 3600
+        self._ui.set_city_weather_state(CityWeatherOverlayState(
+            self.enabled, self._visible, self.kind, self.period, self.hours, self.playing,
+            self.status, datetime.fromtimestamp(anchor, timezone.utc), tuple(points),
+            bool(self.enabled and self._cities), bool(self.enabled and self._weather and self._visible)))

@@ -80,3 +80,11 @@ doxygen Doxyfile
 ```
 
 Generated API documentation is written under `build/doxygen/html`.
+
+
+The native weather map adapter is `frontends/common/map_weather_overlay_ui.py`.
+It implements `WeatherOverlayUiIf`, converts SI weather snapshots into display
+values and renderer commands, and leaves provider/cache/timer work to controllers.
+`weather_overlay_ui_group.py` fans the same immutable snapshot out to map and
+controls. Toolkit widgets bind explicit request-handler interfaces; composition
+connects and owns the controllers.

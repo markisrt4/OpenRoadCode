@@ -5,13 +5,53 @@
 
 import tkinter as tk
 
-from controllers.weather.radar_palette import RadarPalette
+from ui.weather.radar_ui_if import RadarPalette
 from .shell_metrics import FONT_CONTROL
 from .radar_replay_panel import RadarReplayPanel
 
 
 class NavigationRadarControls:
     """Build radar widgets and handle frame, palette, and visibility controls."""
+
+    @property
+    def weather_controls_parent(self):
+        """Return the Tk container reserved for sibling weather controls."""
+        return self._radar_button.master
+
+    @property
+    def weather_caption_parent(self):
+        """Return the Tk container for captions above the native map window."""
+        return self._map_host.master
+
+    @property
+    def map_width(self):
+        """Return the map's current width for caption wrapping."""
+        return self._map_host.winfo_width()
+
+    @property
+    def radar_enabled(self):
+        """Return the radar visibility used by sibling weather controls."""
+        return self._radar_enabled
+
+    def set_radar_enabled(self, enabled):
+        """Emit the existing semantic radar visibility action when it changes."""
+        if bool(enabled) != self._radar_enabled:
+            self._toggle_radar()
+
+    def apply_radar_state(self, state):
+        """Render a radar UI snapshot without emitting request callbacks."""
+        self._radar_enabled, self._radar_frame_time = state.enabled, state.frame_time
+        self._radar_times, self._radar_index = state.times, state.index
+        self._radar_playing, self._radar_forecast = state.playing, state.forecast
+        self._radar_loading, self._radar_speed = state.loading, state.speed
+        self._radar_palette = state.palette
+        self._classic_radar_var.set(state.palette == RadarPalette.CLASSIC)
+        self._render_radar_state()
+
+    def set_weather_menu_callbacks(self, on_visibility, close_menu):
+        """Connect or disconnect sibling Tk popover synchronization."""
+        self._on_weather_visibility_changed = on_visibility
+        self._close_weather_menu = close_menu
 
     def _build_radar_controls(self, bar: tk.Frame) -> None:
         ui = self._theme_bundle.ui

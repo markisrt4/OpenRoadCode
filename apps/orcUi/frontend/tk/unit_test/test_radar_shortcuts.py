@@ -6,7 +6,6 @@
 from unittest.mock import Mock, patch
 
 from apps.orcUi.frontend.tk.home_map_panel import HomeMapPanel
-from apps.orcUi.frontend.tk.navigation_screen import NavigationScreen
 from apps.orcUi.frontend.tk.navigation_panel import NavigationPanel
 from apps.orcUi.theme_runtime import theme_bundle
 from controllers.weather.radar_palette import RadarPalette
@@ -36,25 +35,6 @@ def test_home_toggle_uses_shared_state_and_updates_label():
     assert panel._radar_button.configure.call_args.kwargs["text"] == "☁ OFF"
 
 
-def test_pending_radar_can_be_disabled_before_frame_finishes_loading():
-    screen = object.__new__(NavigationScreen)
-    screen._radar_controller = Mock()
-    screen._radar_injection_controller = None
-    screen._radar_enabled = False
-    screen._panel = None
-    screen._host = Mock()
-    screen._on_radar_visibility_changed = None
-    with patch("apps.orcUi.frontend.tk.navigation_screen.threading.Thread") as thread:
-        screen.set_radar_enabled(True)
-        assert screen.radar_enabled
-        load = thread.call_args.kwargs["target"]
-        screen.set_radar_enabled(False)
-        assert not screen.radar_enabled
-        load()
-    completed = screen._host.schedule_ui_callback.call_args.args[1]
-    completed()
-    screen._radar_controller.show_frames.assert_not_called()
-    screen._radar_controller.hide.assert_called_once_with()
 
 
 def test_radar_menu_opens_collapsible_timeline_and_keeps_cloud_toggle():
@@ -106,40 +86,3 @@ def test_cloud_toggle_reflects_visibility_without_changing_camera():
     assert off != on
     panel._request_handler.request_zoom.assert_not_called()
     panel._on_radar_toggle.assert_called_once_with(True)
-
-
-def test_failed_download_resets_both_screens_and_reports_error():
-    screen = object.__new__(NavigationScreen)
-    screen._radar_enabled = True
-    screen._radar_controller = Mock()
-    screen._panel = Mock()
-    screen._host = Mock()
-    screen._on_radar_visibility_changed = Mock()
-    screen._radar_load_failed("provider timed out")
-    assert screen.radar_enabled is False
-    assert screen._panel._radar_enabled is False
-    screen._radar_controller.hide.assert_called_once_with()
-    screen._on_radar_visibility_changed.assert_called_once_with()
-    screen._host.set_screen_status.assert_called_once_with("Radar unavailable: provider timed out")
-
-
-def test_download_presents_on_ui_thread_and_retries_slow_renderer():
-    screen = object.__new__(NavigationScreen)
-    screen._radar_enabled = False
-    screen._radar_controller = Mock()
-    screen._radar_injection_controller = None
-    screen._on_radar_visibility_changed = None
-    screen._panel = None
-    screen._host = Mock()
-    screen._refresh_radar = Mock()
-    with patch("apps.orcUi.frontend.tk.navigation_screen.threading.Thread") as thread:
-        screen.set_radar_enabled(True)
-        thread.call_args.kwargs["target"]()
-    screen._radar_controller.show_frames.assert_not_called()
-    screen._host.schedule_ui_callback.call_args.args[1]()
-    screen._radar_controller.show_frames.assert_called_once_with(
-        screen._radar_controller.load_frames.return_value)
-    replays = screen._host.schedule_ui_callback.call_args_list[1:]
-    assert [call.args[0] for call in replays] == [300, 1200, 2500, 5000]
-    replays[-1].args[1]()
-    screen._refresh_radar.assert_called_once_with()

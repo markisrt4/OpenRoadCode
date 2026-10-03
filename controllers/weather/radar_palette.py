@@ -1,13 +1,6 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 
-"""Radar presentation palettes independent of upstream providers."""
+"""Compatibility export for the toolkit-independent radar presentation palette."""
 
-from enum import Enum
-
-
-class RadarPalette(str, Enum):
-    """Presentation applied to radar tiles."""
-
-    UNIVERSAL = "universal"
-    CLASSIC = "classic"
+from ui.weather.radar_ui_if import RadarPalette as RadarPalette
