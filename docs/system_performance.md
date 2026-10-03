@@ -194,3 +194,15 @@ only sample time, host/process/ORC CPU percentages, aggregate ORC RSS bytes,
 host memory percentage, and temperature to keep
 remote responses compact. Unavailable values are JSON null. Responses use
 `Cache-Control: no-store`.
+
+### Status colors
+
+Sensor telemetry uses green for streaming, amber for stale or degraded, red for invalid,
+and muted text for unknown or unobserved streams. State labels remain visible.
+CPU capacity, RAM and storage turn amber at 80% and red at 95%; these indicate
+resource pressure, not a process failure. Thermal readings turn amber within 10°C
+of the reported trip point and red within 5°C. Unknown readings stay neutral.
+ORC workload is blue, diagnostics processes are muted, and trends use distinct colors.
+CPU totals include all threads: 200% on eight logical CPUs is 25% of capacity.
+Capacity uses the detected logical CPU count; it does not adjust for CPU affinity,
+container quotas, or differing performance between CPU types.

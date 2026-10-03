@@ -30,6 +30,8 @@ class SystemMetricsPanel(tk.Frame):
             "temperature": deque(maxlen=self._HISTORY_SAMPLES),
             "process_cpu": deque(maxlen=self._HISTORY_SAMPLES),
         }
+        self._graph_colors = {"cpu": ui.accent_primary, "memory": ui.accent_success,
+                              "temperature": ui.accent_warning, "process_cpu": ui.text_muted}
         self._graphs: dict[str, tk.Canvas] = {}
         self._identity = tk.Label(self, text="Computing unit", bg=ui.background, fg=ui.text_muted, anchor="w")
         self._identity.grid(row=0, column=0, columnspan=4, sticky="ew", padx=5, pady=4)
@@ -88,7 +90,7 @@ class SystemMetricsPanel(tk.Frame):
                 trends,
                 text=label,
                 bg=ui.surface,
-                fg=ui.text_muted,
+                fg=self._graph_colors[key],
                 font=("Sans", 9, "bold"),
                 width=6,
             ).grid(row=row, column=0, sticky="w", padx=(10, 4), pady=4)
@@ -183,6 +185,13 @@ class SystemMetricsPanel(tk.Frame):
             f"write {_rate(snapshot.disk_write_bytes_per_second)}"
         ))
 
+        ui = self._theme.ui
+        for key, percent in (("cpu", snapshot.cpu_percent), ("memory", snapshot.memory_used_percent),
+                             ("storage", snapshot.disk_used_percent)):
+            self._values[key].configure(fg=pressure_color(ui, percent))
+        headroom = snapshot.thermal_headroom_c
+        self._values["temperature"].configure(fg=(ui.text_muted if headroom is None else
+            ui.accent_danger if headroom <= 5 else ui.accent_warning if headroom <= 10 else ui.accent_success))
         self._values["cpu"].configure(text=_percent(snapshot.cpu_percent))
         core_text = ""
         if snapshot.per_core_percent:
@@ -198,7 +207,7 @@ class SystemMetricsPanel(tk.Frame):
         load = _number(snapshot.load_1m, 2)
         self._values["cpu_detail"].configure(
             text=(snapshot.cpu_unavailable_reason + "\n" if snapshot.cpu_percent is None and snapshot.cpu_unavailable_reason else "")
-            + f"load {load}  {frequency}"
+            + f"{snapshot.cpu_count or '--'} logical CPUs · load {load}  {frequency}"
             + (f"\n{core_text}" if core_text else "")
         )
 
@@ -273,7 +282,7 @@ class SystemMetricsPanel(tk.Frame):
         for timestamp, value in values:
             if value is None:
                 if len(points) >= 4:
-                    canvas.create_line(*points, fill=self._theme.ui.text, width=2)
+                    canvas.create_line(*points, fill=self._graph_colors[key], width=2)
                 points = []
                 continue
             x = max(0.0, 1.0 - (end_time - timestamp) / 120.0) * width
@@ -281,7 +290,7 @@ class SystemMetricsPanel(tk.Frame):
             points.extend((x, y))
 
         if len(points) >= 4:
-            canvas.create_line(*points, fill=self._theme.ui.text, width=2)
+            canvas.create_line(*points, fill=self._graph_colors[key], width=2)
 
 
 def _percent(value: float | None) -> str:
@@ -294,3 +303,10 @@ def _number(value: float | None, digits: int) -> str:
 
 def _rate(value: float | None) -> str:
     return "--" if value is None else f"{value / 1024:.0f} KiB/s"
+
+
+def pressure_color(ui, percent: float | None) -> str:
+    """Color normalized resource usage; missing measurements remain neutral."""
+    if percent is None:
+        return ui.text_muted
+    return ui.accent_danger if percent >= 95 else ui.accent_warning if percent >= 80 else ui.accent_success

@@ -11,7 +11,7 @@ from collections import deque
 
 from ui.system_diagnostics import SystemDiagnosticsSnapshot
 from ui.theme import ThemeBundle
-from .system_metrics_panel import SystemMetricsPanel
+from .system_metrics_panel import SystemMetricsPanel, pressure_color
 
 
 class DiagnosticsPanel(tk.Frame):
@@ -28,6 +28,8 @@ class DiagnosticsPanel(tk.Frame):
         style.configure("Diagnostics.TNotebook.Tab", padding=(16, 8))
         style.configure("Diagnostics.Treeview", background=ui.surface, fieldbackground=ui.surface,
                         foreground=ui.text, rowheight=27)
+        style.map("Diagnostics.Treeview", foreground=[("selected", ui.control_text)],
+                  background=[("selected", ui.accent_primary)])
         tabs = ttk.Notebook(self, style="Diagnostics.TNotebook")
         tabs.pack(fill=tk.BOTH, expand=True)
         workload = tk.Frame(tabs, bg=ui.background)
@@ -41,13 +43,14 @@ class DiagnosticsPanel(tk.Frame):
         self._cpu = self._label(workload, "Waiting for ORC process samples", 16)
         self._memory = self._label(workload, "", 12)
         self._visibility = self._label(workload, "", 10)
-        self._label(workload, "CPU 100% = one core. RSS counts shared pages per process; PSS apportions shared memory.", 10)
+        self._cpu_note = self._label(workload, "CPU 100% = one core. RSS counts shared pages per process; PSS apportions shared memory.", 10)
         self._process_table = self._table(workload, (
             ("name", "Process", 290), ("pid", "PID", 60), ("state", "State", 55),
             ("cpu", "CPU %", 80), ("rss", "RSS MiB", 85), ("pss", "PSS MiB", 85),
             ("threads", "Threads", 65), ("read", "Read KiB/s", 90), ("write", "Write KiB/s", 90),
         ))
         self._process_table.tag_configure("diagnostics", foreground=ui.text_muted)
+        self._process_table.tag_configure("workload", foreground=ui.accent_primary)
         self._label(workload, "ORC workload CPU • last 2 minutes • 100% = one core", 10)
         self._trend = tk.Canvas(workload, height=80, bg=ui.surface, highlightthickness=0)
         self._trend.pack(fill=tk.X, padx=6, pady=4)
@@ -60,6 +63,15 @@ class DiagnosticsPanel(tk.Frame):
             ("age", "Received age", 100), ("sample", "Advance age", 100),
             ("rate", "Rate Hz", 80), ("invalid", "Invalid count", 100),
         ))
+        for state, color in (("streaming", ui.accent_success), ("stale", ui.accent_warning),
+                             ("degraded", ui.accent_warning), ("invalid", ui.accent_danger),
+                             ("not_observed", ui.text_muted), ("unavailable", ui.text_muted)):
+            self._sensor_table.tag_configure(state, foreground=color)
+        legend = tk.Frame(sensors, bg=ui.background)
+        legend.pack(fill=tk.X, padx=6)
+        for text, color in (("Streaming", ui.accent_success), ("Stale / degraded", ui.accent_warning),
+                            ("Invalid", ui.accent_danger), ("Unknown", ui.text_muted)):
+            tk.Label(legend, text="● " + text, bg=ui.background, fg=color).pack(side=tk.LEFT, padx=(0, 16))
         self._sensor_detail = self._label(sensors, "Select a stream to see its status detail and stale threshold", 11)
         self._sensor_rows = {}
         self._sensor_table.bind("<<TreeviewSelect>>", self._show_sensor_detail)
@@ -92,6 +104,11 @@ class DiagnosticsPanel(tk.Frame):
         """Refresh tables using cached samples without sampling on the Tk thread."""
         self._system.apply_snapshot(snapshot)
         work = snapshot.workload
+        self._cpu_note.configure(text=(
+            f"100% CPU = one logical core · {snapshot.cpu_count or '--'} logical CPUs detected. "
+            "RSS counts shared pages; PSS apportions them."
+        ))
+        self._cpu.configure(fg=pressure_color(self._theme.ui, work.cpu_capacity_percent))
         self._cpu.configure(text=(
             f"ORC workload: {_format(work.cpu_percent)}% CPU · "
             f"{_format(work.cpu_capacity_percent)}% of CPU capacity · {work.process_count} processes"
@@ -102,7 +119,8 @@ class DiagnosticsPanel(tk.Frame):
             f"Disk read {_format(work.read_bytes_per_second, 1024)} KiB/s · "
             f"write {_format(work.write_bytes_per_second, 1024)} KiB/s"
         ))
-        self._visibility.configure(text=f"{work.visibility.upper()}: {work.detail}")
+        self._visibility.configure(text=f"{work.visibility.upper()}: {work.detail}",
+                                   fg=self._theme.ui.accent_warning if work.visibility == "partial" else self._theme.ui.text_muted)
         selected = self._process_table.selection()
         current = set()
         for index, process in enumerate(work.processes):
@@ -140,7 +158,7 @@ class DiagnosticsPanel(tk.Frame):
                 _format(sensor.last_received_age_seconds) + " s",
                 _format(sensor.last_sample_age_seconds) + " s",
                 _format(sensor.message_rate_hz), sensor.invalid_message_count,
-            ))
+            ), tags=(sensor.state,))
         if sensor_selection and sensor_selection[0] in self._sensor_rows:
             self._sensor_table.selection_set(sensor_selection[0])
             self._show_sensor_detail()
@@ -163,12 +181,12 @@ class DiagnosticsPanel(tk.Frame):
         for timestamp, value in self._history:
             if value is None:
                 if len(points) >= 4:
-                    canvas.create_line(*points, fill=self._theme.ui.text, width=2)
+                    canvas.create_line(*points, fill=self._theme.ui.accent_primary, width=2)
                 points = []
                 continue
             points.extend((max(0, 1 - (end - timestamp) / 120) * width, height - value / ceiling * height))
         if len(points) >= 4:
-            canvas.create_line(*points, fill=self._theme.ui.text, width=2)
+            canvas.create_line(*points, fill=self._theme.ui.accent_primary, width=2)
         canvas.create_text(5, 5, text=f"0–{ceiling:.0f}%", anchor="nw", fill=self._theme.ui.text_muted)
 
 
