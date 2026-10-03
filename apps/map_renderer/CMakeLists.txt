@@ -11,6 +11,7 @@ set(MAPLIBRE_BUILD "${MAPLIBRE_ROOT}/build-linux-opengl" CACHE PATH "Path to Map
 
 find_package(PkgConfig REQUIRED)
 find_package(X11 REQUIRED)
+find_package(spdlog REQUIRED)
 pkg_check_modules(ZMQ REQUIRED libzmq)
 
 add_executable(openroadcode-map-renderer
@@ -50,6 +51,7 @@ target_link_directories(openroadcode-map-renderer PRIVATE ${MAPLIBRE_BUILD})
 
 target_link_libraries(openroadcode-map-renderer PRIVATE
     ${ZMQ_LIBRARIES}
+    spdlog::spdlog
     ${X11_LIBRARIES}
     glfw
     ${MAPLIBRE_BUILD}/libmbgl-core.a

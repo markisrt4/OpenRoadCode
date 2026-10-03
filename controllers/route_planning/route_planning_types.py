@@ -69,4 +69,5 @@ class RouteResult:
 
     shape: tuple[GeoPoint, ...]
     maneuvers: tuple[RouteManeuver, ...]
+    operation_id: str | None = None
 

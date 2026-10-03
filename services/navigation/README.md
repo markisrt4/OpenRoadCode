@@ -180,3 +180,10 @@ Register its setters with `MessageDispatcher`, then read `snapshot()` from the U
 Portable unit and component coverage includes route planning, route/map presentation, navigation messaging, route guidance, off-route hysteresis/recovery, navigation-session lifecycle, and simulated rerouting through the real ZeroMQ command boundary.
 
 Some integration tests are intentionally platform/environment dependent. Tests involving the Python `gps` binding, real gpsd/GNSS input, a live Valhalla service, or the graphical MapLibre renderer belong on the Raspberry Pi or another host with those dependencies installed.
+
+## Logging
+
+The service writes structured JSON Lines to the shared ORC log store and stderr.
+Route requests, results, and failures carry operation IDs that reach the native
+map renderer. See [ORC logging](../../common/logging/README.md) for live viewing,
+level configuration, rotation, and CI validation.

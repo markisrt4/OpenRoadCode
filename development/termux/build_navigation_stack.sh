@@ -61,7 +61,7 @@ pkg update
 pkg install -y \
   git clang cmake ninja pkg-config patch python python-pillow \
   boost boost-headers protobuf libsqlite libspatialite spatialite-tools libcurl liblz4 libzmq libczmq \
-  luajit libgeos libpng libjpeg-turbo libwebp libicu rapidjson \
+  luajit libgeos libpng libjpeg-turbo libwebp libicu rapidjson spdlog \
   mesa mesa-dev glfw libx11 xorgproto
 
 for command in git clang cmake ninja pkg-config spatialite spatialite_tool; do
