@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import logging
 import math
 from dataclasses import dataclass
 from queue import Empty, SimpleQueue
@@ -14,6 +15,8 @@ from typing import Any
 from messaging.zeromq.publisher import ZeroMqPublisher
 from messaging.zeromq.subscriber import ZeroMqSubscriber
 from ui.navigation import GeoPoint
+
+_LOG = logging.getLogger(__name__)
 
 MAP_COMMAND_TOPIC = "map.command"
 POI_SELECTED_TOPIC = "map.poi.selected"
@@ -119,17 +122,12 @@ class MapPoiSource:
             elif topic == MAP_CLICK_TOPIC:
                 click = self._decode_click(payload)
                 if click is not None:
-                    print(
-                        "[map-poi] received click "
-                        f"lat={math.degrees(click.position.latitude_rad):.7f} "
-                        f"lon={math.degrees(click.position.longitude_rad):.7f} "
-                        f"radius_m={click.selection_radius_m:.1f} "
-                        f"marker_id={click.marker_id!r} "
-                        f"marker_index={click.marker_index!r}"
-                    )
+                    _LOG.debug("Received map click lat=%.7f lon=%.7f radius_m=%.1f marker_id=%r marker_index=%r",
+                               math.degrees(click.position.latitude_rad), math.degrees(click.position.longitude_rad),
+                               click.selection_radius_m, click.marker_id, click.marker_index)
                     self._click_queue.put(click)
                 else:
-                    print(f"[map-poi] rejected click payload: {payload!r}")
+                    _LOG.warning("Rejected map click payload: %r", payload)
             elif topic == MAP_CAMERA_MANUAL_TOPIC:
                 self._camera_queue.put(True)
             elif topic == POI_SEARCH_RESULT_TOPIC:

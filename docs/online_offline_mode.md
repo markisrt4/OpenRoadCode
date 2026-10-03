@@ -69,9 +69,13 @@ RF stays available. Start an internet stream online, switch offline, and confirm
 it stops. Switch online and confirm playback requires a new selection.
 
 Offline mode does not hide cached POI markers or disable Food/Fuel searches.
-If markers are absent, the terminal reports the index path and viewport search
-bounds/count. Database errors appear in the navigation status and keep the event
-poll alive, so another search can retry after the data problem is corrected.
+POI runtime diagnostics use Python module loggers instead of unconditional
+terminal prints. INFO records index opening, result counts, and popup selection;
+DEBUG records viewport bounds and detailed click/marker resolution. Malformed
+click payloads are WARNING and database failures are ERROR. The application's
+logging configuration controls which records are displayed or stored. Database
+errors also appear in the navigation status and keep the event poll alive, so
+another search can retry after the data problem is corrected.
 
 Weather follows the same mode: refresh is disabled offline, and the latest
 forecast fetched during this ORC session remains visible with its full update
