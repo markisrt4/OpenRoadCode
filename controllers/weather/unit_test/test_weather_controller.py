@@ -138,3 +138,19 @@ def test_offline_without_cache_never_requests_weather():
     with pytest.raises(RuntimeError, match="no cached weather"):
         controller.refresh_if_stale(0.0)
     provider.refresh.assert_not_called()
+
+
+def test_failed_gps_lookup_reuses_last_forecast_location():
+    provider = Mock()
+    provider.refresh.return_value = _state(fetched_at=100.0)
+    location = Mock()
+    location.get_location.return_value = WeatherLocation(42.8, -83.0, "GPS", "GPSD")
+    controller = WeatherController(provider, location_provider=location,
+                                   fallback_location=WeatherLocation(0.0, 0.0, "fallback", "config"))
+    previous = controller.refresh()
+    location.get_location.side_effect = TimeoutError("GPS timed out")
+    controller.refresh()
+    requested = provider.refresh.call_args.args[0]
+    assert requested.latitude == previous.latitude
+    assert requested.longitude == previous.longitude
+    assert requested.name == previous.location_name

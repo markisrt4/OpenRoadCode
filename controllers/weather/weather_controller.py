@@ -72,6 +72,11 @@ class WeatherController:
                 return self._location_provider.get_location()
             except Exception:
                 pass
+        # Reuse the last resolved position when GPS is temporarily unavailable.
+        if self._last_state is not None:
+            cached = self._last_state
+            return WeatherLocation(cached.latitude, cached.longitude,
+                                   cached.location_name, cached.location_source)
         if self._fallback_location is None:
             raise RuntimeError("No weather location is available")
         return self._fallback_location

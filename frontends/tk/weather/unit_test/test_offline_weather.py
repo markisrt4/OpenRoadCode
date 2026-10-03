@@ -39,3 +39,30 @@ def test_offline_alert_label_warns_without_mutating_alert():
     assert banner._alert.headline == "Storm warning"
     banner._online = True
     assert banner._headline_text() == "Storm warning"
+
+
+def test_online_transition_enables_panel_before_starting_forced_refresh():
+    host = Mock()
+    screen = WeatherScreen(host, controller=Mock(), theme_bundle=Mock(),
+                           online_allowed=lambda: True)
+    screen._panel = Mock()
+    calls = []
+    screen._panel.set_online.side_effect = lambda online: calls.append("enabled")
+    screen.request_refresh = Mock(side_effect=lambda **kwargs: calls.append("refresh"))
+    screen.mode_changed(True)
+    assert calls == ["enabled", "refresh"]
+    screen.request_refresh.assert_called_once_with(force=True)
+
+
+def test_forced_refresh_bypasses_cache_and_reports_error_without_clearing_forecast():
+    host = Mock()
+    host.schedule_ui_callback.side_effect = lambda delay, callback: callback()
+    controller = Mock()
+    controller.refresh.side_effect = TimeoutError("forecast timed out")
+    screen = WeatherScreen(host, controller=controller, theme_bundle=Mock())
+    screen._presenter = Mock()
+    screen._refresh(screen._generation, force=True)
+    controller.refresh.assert_called_once_with()
+    controller.refresh_if_stale.assert_not_called()
+    screen._presenter.present.assert_not_called()
+    assert "Showing cached forecast" in host.set_screen_status.call_args.args[0]

@@ -65,7 +65,12 @@ Weather follows the same mode: refresh is disabled offline, and the latest
 forecast fetched during this ORC session remains visible with its full update
 date and time and an Offline/Cached label. Starting offline without a forecast
 shows “No cached weather available”; forecast data is not yet persisted across
-ORC restarts. Switching online while Weather is open requests a refresh.
+ORC restarts. Switching online while Weather is open immediately reenables controls and
+requests fresh data, bypassing the five-minute cache reuse window. The cached
+forecast stays visible while the status reports refreshing. GPS lookup has a
+two-second deadline, falling back to the last forecast location (or configured
+location); the forecast HTTP request uses a five-second socket timeout. Failed
+forced refreshes report an error while keeping the cached forecast visible.
 
 The background NWS alert service reads the saved online preference before each
 poll, so it must run as the same user with the same XDG configuration directory

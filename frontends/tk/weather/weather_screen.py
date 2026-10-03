@@ -66,7 +66,7 @@ class WeatherScreen(TkScreen, WeatherRequestHandlerIf):
         else:
             panel.set_loading(True)
         panel.set_online(self._online_allowed())
-        self.request_refresh()
+        self.request_refresh(force=False)
 
     def hide(self) -> None:
         self._generation += 1
@@ -80,18 +80,18 @@ class WeatherScreen(TkScreen, WeatherRequestHandlerIf):
         if self._panel is not None:
             self._panel.set_online(online)
             if online:
-                self.request_refresh()
+                self.request_refresh(force=True)
             else:
                 self._host.set_screen_status("Offline mode: cached weather; alerts may be outdated")
 
-    def request_refresh(self) -> None:
+    def request_refresh(self, *, force: bool = True) -> None:
         if not self._online_allowed():
             self._host.set_screen_status("Offline mode: cached weather; alerts may be outdated")
             return
         self._generation += 1
         generation = self._generation
         self._host.set_screen_status("Weather: refreshing")
-        threading.Thread(target=self._refresh, args=(generation,), daemon=True).start()
+        threading.Thread(target=self._refresh, args=(generation, force), daemon=True).start()
 
     def set_theme_mode(self, mode: ThemeMode) -> None:
         del mode
@@ -99,9 +99,10 @@ class WeatherScreen(TkScreen, WeatherRequestHandlerIf):
         if panel is not None and panel.winfo_exists():
             panel.set_theme_bundle(self._theme_bundle())
 
-    def _refresh(self, generation: int) -> None:
+    def _refresh(self, generation: int, force: bool = False) -> None:
         try:
-            state = self._controller.refresh_if_stale(300.0)
+            state = (self._controller.refresh() if force
+                     else self._controller.refresh_if_stale(300.0))
         except Exception as error:
             detail = str(error)
             self._host.schedule_ui_callback(
@@ -125,4 +126,5 @@ class WeatherScreen(TkScreen, WeatherRequestHandlerIf):
     def _refresh_failed(self, generation: int, detail: str) -> None:
         if generation != self._generation:
             return
-        self._host.set_screen_status(f"Weather: {detail}")
+        suffix = " • Showing cached forecast" if self._controller.latest() is not None else ""
+        self._host.set_screen_status(f"Weather refresh failed: {detail}{suffix}")

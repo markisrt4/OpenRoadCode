@@ -47,7 +47,7 @@ def configure_weather(
         source="runtime-config",
     )
     controller = WeatherController(
-        OpenMeteoWeatherProvider(),
+        OpenMeteoWeatherProvider(timeout_seconds=5.0),
         network_allowed=lambda: app.online_mode.online,
         location_provider=GpsdWeatherLocationProvider(),
         fallback_location=fallback_location,
