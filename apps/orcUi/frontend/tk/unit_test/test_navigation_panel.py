@@ -34,6 +34,10 @@ class NavigationPanelControlTest(unittest.TestCase):
         panel._simulate_button = Mock()
         panel._cancel_route_button = Mock()
         panel._map_favorites = Mock()
+        from queue import SimpleQueue
+        panel._poi_launch_results = SimpleQueue()
+        panel._poi_launching = False
+        panel._poi_action_buttons = []
         panel._poi_action_executor = Mock()
         panel._poi_card = None
         panel._poi_search_after_id = None
@@ -240,6 +244,8 @@ class NavigationPanelControlTest(unittest.TestCase):
         action = PoiAction(PoiActionKind.ORDER, "ORDER", provider_id="panera")
 
         panel._execute_poi_action(poi, action)
+        panel._poi_launch_worker.join(1)
+        panel._poll_poi_launch_results()
 
         panel._poi_action_executor.execute.assert_called_once_with(poi, action)
         panel._shortcut_status.set.assert_called_with("Opening order in app")
@@ -265,6 +271,7 @@ class OfflinePoiActionsTest(unittest.TestCase):
             panel._poi_action_executor.execute.assert_not_called()
             mode.set_online(True)
             panel._execute_poi_action(poi, PoiAction(PoiActionKind.ORDER, 'ORDER'))
+            panel._poi_launch_worker.join(1)
             panel._poi_action_executor.execute.assert_called_once()
 
     def test_open_card_buttons_follow_mode_changes(self):
@@ -305,3 +312,59 @@ class PoiPollingRecoveryTest(unittest.TestCase):
         markers = panel._request_handler.request_poi_results.call_args.args[0]
         self.assertEqual(len(markers), 1)
         self.assertEqual(markers[0].label, 'Cafe')
+
+
+class PoiLaunchResponsivenessTest(unittest.TestCase):
+    def test_waiting_launcher_does_not_block_ui_or_allow_duplicate_launch(self):
+        from threading import Event
+        entered, release = Event(), Event()
+        panel = NavigationPanelControlTest()._panel()
+        panel._poi_card = Mock()
+        card = panel._poi_card
+        def execute(poi, action):
+            entered.set()
+            release.wait(2)
+            return "Opening order in browser"
+        panel._poi_action_executor.execute.side_effect = execute
+        poi = PointOfInterest('p', 'Panera', PoiCategory.FOOD, GeoPoint(0, 0))
+        action = PoiAction(PoiActionKind.ORDER, 'ORDER', provider_id='panera')
+        try:
+            panel._execute_poi_action(poi, action)
+            self.assertTrue(entered.wait(1))
+            self.assertTrue(panel._poi_launching)
+            panel._execute_poi_action(poi, action)
+            self.assertEqual(panel._poi_action_executor.execute.call_count, 1)
+            card.destroy.assert_not_called()
+            release.set()
+            panel._poi_launch_worker.join(1)
+            # The worker must leave Tk updates to the UI's poll loop.
+            card.destroy.assert_not_called()
+            panel._poll_poi_launch_results()
+            card.destroy.assert_called_once()
+            self.assertFalse(panel._poi_launching)
+        finally:
+            release.set()
+            panel._poi_launch_worker.join(1)
+
+    def test_failure_keeps_card_open_and_reenables_actions(self):
+        from apps.launchers.android_app_launcher import AndroidAppLauncherError
+        panel = NavigationPanelControlTest()._panel()
+        panel._poi_card = Mock()
+        card = panel._poi_card
+        panel._poi_action_executor.execute.side_effect = AndroidAppLauncherError('No browser')
+        poi = PointOfInterest('p', 'Cafe', PoiCategory.FOOD, GeoPoint(0, 0))
+        panel._execute_poi_action(poi, PoiAction(PoiActionKind.OPEN_WEBSITE, 'WEBSITE'))
+        panel._poi_launch_worker.join(1)
+        panel._poll_poi_launch_results()
+        card.destroy.assert_not_called()
+        self.assertFalse(panel._poi_launching)
+        panel._shortcut_status.set.assert_called_with('Launch failed: No browser')
+
+    def test_completion_does_not_close_a_newly_selected_poi_card(self):
+        panel = NavigationPanelControlTest()._panel()
+        original, current = Mock(), Mock()
+        panel._poi_card = current
+        panel._poi_launch_results.put((original, 'Opening order in browser', True))
+        panel._poll_poi_launch_results()
+        current.destroy.assert_not_called()
+        original.destroy.assert_not_called()

@@ -1,6 +1,6 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
-"""Platform-aware launcher for semantic Android application requests."""
+"""Platform-aware app-first launcher with desktop web fallbacks."""
 
 from __future__ import annotations
 
@@ -10,22 +10,26 @@ from apps.launchers.android_bridge_launcher import (
     AndroidBridgeLauncher,
     AndroidBridgeLauncherError,
 )
+from apps.launchers.desktop_browser_launcher import DesktopBrowserLauncher, DesktopBrowserLauncherError
+from tools.map_builder.builder.web_urls import valid_website
 from apps.launchers.waydroid_launcher import WaydroidLauncher, WaydroidLauncherError
 
 
 class AndroidAppLauncherError(RuntimeError):
-    """Raised when neither native Android nor Waydroid can satisfy a request."""
+    """Raised when an app or web destination cannot be requested."""
 
 
 class AndroidAppLauncher:
-    """Launch Android destinations from either Android/Termux or Linux/Waydroid."""
+    """Use Android Bridge on Termux, or Waydroid and the browser on Linux."""
 
     def __init__(
         self,
         *,
         native: AndroidBridgeLauncher | None = None,
         waydroid: WaydroidLauncher | None = None,
+        browser: DesktopBrowserLauncher | None = None,
     ) -> None:
+        self._browser = browser or DesktopBrowserLauncher()
         self._native = native
         self._waydroid = waydroid or WaydroidLauncher()
 
@@ -40,11 +44,15 @@ class AndroidAppLauncher:
             except AndroidBridgeLauncherError as exc:
                 raise AndroidAppLauncherError(str(exc)) from exc
             return
-        raise AndroidAppLauncherError(
-            "URI fallback is not implemented for Linux/Waydroid yet"
-        )
+        try:
+            self._browser.open_uri(uri)
+        except DesktopBrowserLauncherError as exc:
+            raise AndroidAppLauncherError(str(exc)) from exc
 
     def open_package_or_uri(self, package: str | None, uri: str) -> str:
+        uri = valid_website(uri)
+        if uri is None:
+            raise ValueError("POI destination must be a valid HTTP or HTTPS URL")
         if self._is_native_android():
             try:
                 return (self._native or AndroidBridgeLauncher()).open_package_or_uri(
@@ -55,11 +63,11 @@ class AndroidAppLauncher:
 
         if package:
             try:
-                self._waydroid.launch_app(package)
-                return "waydroid"
-            except WaydroidLauncherError as exc:
-                raise AndroidAppLauncherError(str(exc)) from exc
+                if any(app.package == package for app in self._waydroid.list_apps()):
+                    self._waydroid.launch_app(package)
+                    return "Waydroid"
+            except WaydroidLauncherError:
+                pass
 
-        raise AndroidAppLauncherError(
-            "No Android package is configured for this POI provider"
-        )
+        self.open_uri(uri)
+        return "browser"

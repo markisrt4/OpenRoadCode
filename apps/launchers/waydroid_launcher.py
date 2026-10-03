@@ -29,12 +29,17 @@ class WaydroidLauncher:
         if shutil.which(self._executable) is None:
             return False
 
-        result = subprocess.run(
-            [self._executable, "status"],
-            check=False,
-            capture_output=True,
-            text=True,
-        )
+        try:
+            result = subprocess.run(
+                [self._executable, "status"],
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+        except (OSError, subprocess.TimeoutExpired):
+            return False
+
         return result.returncode == 0
 
     def list_apps(self) -> tuple[AndroidApp, ...]:
@@ -69,12 +74,16 @@ class WaydroidLauncher:
                 f"Waydroid executable not found: {self._executable}"
             )
 
-        result = subprocess.run(
-            [self._executable, *arguments],
-            check=False,
-            capture_output=True,
-            text=True,
-        )
+        try:
+            result = subprocess.run(
+                [self._executable, *arguments],
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            raise WaydroidLauncherError(f"Waydroid request failed: {exc}") from exc
         if result.returncode != 0:
             detail = result.stderr.strip() or result.stdout.strip() or "unknown error"
             raise WaydroidLauncherError(
