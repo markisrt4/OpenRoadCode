@@ -84,6 +84,7 @@ class SpotifyLocalPlayer:
             raise ValueError("registration_timeout_seconds must be positive")
         if not browser_candidates:
             raise ValueError("browser_candidates must not be empty")
+        self._network_allowed: Callable[[], bool] = lambda: True
         self._spotify_service = spotify_service
         self._display = display or os.environ.get("DISPLAY", ":1")
         self._registration_timeout_seconds = registration_timeout_seconds
@@ -109,10 +110,13 @@ class SpotifyLocalPlayer:
         with self._lock:
             return self._state
 
+    def set_network_allowed(self, allowed: Callable[[], bool]) -> None:
+        self._network_allowed = allowed
+
     def request_player(self) -> None:
         """Start the local Spotify player and transfer playback to it."""
         with self._lock:
-            if self._closed:
+            if self._closed or not self._network_allowed():
                 return
             if not self._state.available:
                 self._state = SpotifyLocalPlayerState(
@@ -170,6 +174,8 @@ class SpotifyLocalPlayer:
         self._deactivate_player(generation, True)
 
     def _activate_player(self, generation: int) -> None:
+        if not self._network_allowed():
+            return
         host: SpotifyPlayerHostIf | None = None
         browser: SpotifyPlayerBrowserIf | None = None
         try:
@@ -181,8 +187,17 @@ class SpotifyLocalPlayer:
                     return
                 self._host = host
                 self._browser = browser
+            if not self._network_allowed():
+                self._stop_runtime()
+                return
             host.start()
+            if not self._network_allowed():
+                self._stop_runtime()
+                return
             browser.launch(self._display)
+            if not self._network_allowed():
+                self._stop_runtime()
+                return
             deadline = time.monotonic() + self._registration_timeout_seconds
             while time.monotonic() < deadline:
                 with self._lock:

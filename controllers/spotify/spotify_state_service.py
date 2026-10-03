@@ -30,54 +30,79 @@ class _SynchronizedSpotifyController(SpotifyControllerIf):
 
     def __init__(self, backend: SpotifyControllerIf) -> None:
         self._backend = backend
+        self.network_allowed: Callable[[], bool] = lambda: True
         self._lock = threading.RLock()
 
     def current_state(self) -> SpotifyState:
         with self._lock:
+            if not self.network_allowed():
+                raise RuntimeError("Spotify unavailable in offline mode")
             return self._backend.current_state()
 
     def play(self) -> None:
         with self._lock:
+            if not self.network_allowed():
+                raise RuntimeError("Spotify unavailable in offline mode")
             self._backend.play()
 
     def pause(self) -> None:
         with self._lock:
+            if not self.network_allowed():
+                raise RuntimeError("Spotify unavailable in offline mode")
             self._backend.pause()
 
     def play_pause(self) -> None:
         with self._lock:
+            if not self.network_allowed():
+                raise RuntimeError("Spotify unavailable in offline mode")
             self._backend.play_pause()
 
     def next_track(self) -> None:
         with self._lock:
+            if not self.network_allowed():
+                raise RuntimeError("Spotify unavailable in offline mode")
             self._backend.next_track()
 
     def previous_track(self) -> None:
         with self._lock:
+            if not self.network_allowed():
+                raise RuntimeError("Spotify unavailable in offline mode")
             self._backend.previous_track()
 
     def set_volume_percent(self, volume_percent: int) -> None:
         with self._lock:
+            if not self.network_allowed():
+                raise RuntimeError("Spotify unavailable in offline mode")
             self._backend.set_volume_percent(volume_percent)
 
     def seek_to_position_ms(self, position_ms: int) -> None:
         with self._lock:
+            if not self.network_allowed():
+                raise RuntimeError("Spotify unavailable in offline mode")
             self._backend.seek_to_position_ms(position_ms)
 
     def transfer_playback(self, device_id: str, *, play: bool = True) -> None:
         with self._lock:
+            if not self.network_allowed():
+                raise RuntimeError("Spotify unavailable in offline mode")
             self._backend.transfer_playback(device_id, play=play)
 
     def saved_tracks(self, *, limit: int = 20) -> tuple[SpotifyLibraryTrack, ...]:
         with self._lock:
+            if not self.network_allowed():
+                raise RuntimeError("Spotify unavailable in offline mode")
             return self._backend.saved_tracks(limit=limit)
 
     def recently_played(self, *, limit: int = 20) -> tuple[SpotifyLibraryTrack, ...]:
         with self._lock:
+            if not self.network_allowed():
+                raise RuntimeError("Spotify unavailable in offline mode")
             return self._backend.recently_played(limit=limit)
 
     def playlists(self, *, limit: int = 20) -> tuple[SpotifyPlaylist, ...]:
         with self._lock:
+            if not self.network_allowed():
+                raise RuntimeError("Spotify unavailable in offline mode")
             return self._backend.playlists(limit=limit)
 
     def playlist_tracks(
@@ -87,10 +112,14 @@ class _SynchronizedSpotifyController(SpotifyControllerIf):
         limit: int = 20,
     ) -> tuple[SpotifyLibraryTrack, ...]:
         with self._lock:
+            if not self.network_allowed():
+                raise RuntimeError("Spotify unavailable in offline mode")
             return self._backend.playlist_tracks(playlist_id, limit=limit)
 
     def play_track(self, track_uri: str) -> None:
         with self._lock:
+            if not self.network_allowed():
+                raise RuntimeError("Spotify unavailable in offline mode")
             self._backend.play_track(track_uri)
 
 
@@ -116,6 +145,7 @@ class SpotifyStateService(
             raise ValueError(
                 f"refresh_seconds must be at least {self.MIN_REFRESH_SECONDS} seconds"
             )
+        self._network_allowed: Callable[[], bool] = lambda: True
         self._controller = _SynchronizedSpotifyController(controller)
         self._presenter = SpotifyMediaPresenter(self._controller, MediaUiStub())
         self._refresh_seconds = refresh_seconds
@@ -134,6 +164,11 @@ class SpotifyStateService(
         self._thread: threading.Thread | None = None
         self._last_refresh_at = 0.0
         self._backoff_until = 0.0
+
+    def set_network_allowed(self, allowed: Callable[[], bool]) -> None:
+        self._network_allowed = allowed
+        self._controller.network_allowed = allowed
+        self._wake.set()
 
     @property
     def controller(self) -> SpotifyControllerIf:
@@ -270,12 +305,18 @@ class SpotifyStateService(
         return self._controller.playlist_tracks(playlist_id, limit=limit)
 
     def _enqueue(self, command: Callable[[], None]) -> None:
+        if not self._network_allowed():
+            return
         self._commands.put(command)
         self._wake.set()
 
     def _run(self) -> None:
         while not self._stop.is_set():
             command_ran = self._drain_commands()
+            if not self._network_allowed():
+                self._wake.wait(1.0)
+                self._wake.clear()
+                continue
             now = time.monotonic()
             earliest_refresh = max(
                 self._last_refresh_at + self._refresh_seconds,
@@ -297,6 +338,8 @@ class SpotifyStateService(
                 command = self._commands.get_nowait()
             except queue.Empty:
                 return command_ran
+            if not self._network_allowed():
+                continue
             command_ran = True
             try:
                 command()
@@ -307,6 +350,8 @@ class SpotifyStateService(
         return command_ran
 
     def _refresh_state(self) -> None:
+        if not self._network_allowed():
+            return
         self._last_refresh_at = time.monotonic()
         try:
             state = self._presenter.read_state()

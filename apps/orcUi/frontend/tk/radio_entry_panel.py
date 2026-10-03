@@ -9,6 +9,7 @@ import threading
 import tkinter as tk
 from collections.abc import Callable
 
+from controllers.connectivity.online_mode import OnlineModeController
 from apps.orcUi.adapters.adsb_control import OrcUiAdsbControl
 from apps.orcUi.radio_application_service import RadioApplicationServiceIf
 from apps.orcUi.frontend.tk.radio_panel import RadioPanel
@@ -84,7 +85,11 @@ class RadioEntryPanel(tk.Frame):
         embedder: X11WindowEmbedder | None = None,
         adsb_control: OrcUiAdsbControl | None = None,
         on_location_changed: Callable[[str], None] | None = None,
+        online_mode: OnlineModeController | None = None,
     ) -> None:
+        self._online_mode = online_mode
+        self._unsubscribe_online = (online_mode.subscribe(self._mode_changed)
+                                    if online_mode is not None else lambda: None)
         self._theme = theme
         ui = theme.ui
         super().__init__(parent, bg=ui.background)
@@ -108,6 +113,24 @@ class RadioEntryPanel(tk.Frame):
         self._chooser.grid_rowconfigure(0, weight=1)
         self._build_choice_buttons()
 
+    def _online_allowed(self) -> bool:
+        mode = getattr(self, "_online_mode", None)
+        return mode is None or mode.online
+
+    def _mode_changed(self, online: bool) -> None:
+        self._streaming_button.configure(state=tk.NORMAL if online else tk.DISABLED,
+                                         disabledforeground=self._theme.ui.text_muted)
+        if not online:
+            if self._streaming_page is not None and self._streaming_page.winfo_exists():
+                self._streaming_page.destroy()
+                self._streaming_page = None
+                self._show_chooser()
+            self._status.configure(text="Offline mode: RF radio remains available")
+
+    def destroy(self) -> None:
+        self._unsubscribe_online()
+        super().destroy()
+
     def set_theme_bundle(self, theme: ThemeBundle) -> None:
         """Apply a live ORC theme without restarting radio playback."""
         self._theme = theme
@@ -123,6 +146,9 @@ class RadioEntryPanel(tk.Frame):
 
     def open_streaming_radio(self) -> None:
         """Present the streaming-radio browser directly."""
+        if not self._online_allowed():
+            self._status.configure(text="Offline mode: internet radio unavailable")
+            return
         self._show_streaming_radio()
         self._set_location("STREAMING")
 
@@ -191,6 +217,7 @@ class RadioEntryPanel(tk.Frame):
             font=("Sans", FONT_BODY),
         )
         self._status.grid(row=1, column=0, columnspan=2, pady=(0, 10))
+        self._mode_changed(self._online_allowed())
 
     def _build_source_card(
         self,
@@ -308,6 +335,8 @@ class RadioEntryPanel(tk.Frame):
         return tuple(widgets)
 
     def _show_streaming_radio(self) -> None:
+        if not self._online_allowed():
+            return
         self._chooser.grid_remove()
         if self._streaming_page is None or not self._streaming_page.winfo_exists():
             self._streaming_page = PersistentStreamingRadioPanel(

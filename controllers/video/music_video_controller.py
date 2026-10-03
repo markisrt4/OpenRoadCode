@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
+
 from controllers.spotify.spotify_controller_if import SpotifyControllerIf
 from controllers.video.music_video_if import MusicVideoIf
 from controllers.video.music_video_types import MusicVideo, MusicVideoQuery
@@ -18,7 +20,9 @@ class MusicVideoController:
         self,
         spotify_controller: SpotifyControllerIf,
         music_video: MusicVideoIf,
+        *, network_allowed: Callable[[], bool] = lambda: True,
     ) -> None:
+        self._network_allowed = network_allowed
         self._spotify_controller = spotify_controller
         self._music_video = music_video
 
@@ -32,6 +36,8 @@ class MusicVideoController:
 
         @return `True` when the current track has a matching video.
         """
+        if not self._network_allowed():
+            return False
         query = self._current_query()
         if query is None:
             self._prepared_query = None
@@ -44,6 +50,8 @@ class MusicVideoController:
 
     def watch_current_track(self) -> bool:
         """Find and play a video for the current Spotify track."""
+        if not self._network_allowed():
+            return False
         state = self._spotify_controller.current_state()
         query = SpotifyMusicVideoMapper.create_query(state)
         if query is None:
