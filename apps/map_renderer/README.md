@@ -113,3 +113,7 @@ layer ordering, and idempotent style injection:
 g++ -std=c++20 -Wall -Wextra -Werror apps/map_renderer/component_test/poi_hover_cli.cpp -o /tmp/poi-hover-test
 /tmp/poi-hover-test tools/map_builder/templates/openroadcode-style.json
 ```
+
+Hover highlights use a softer point glow (30% opacity) and crisp light text
+with a dark, unblurred outline. The glow stays away from the letter shapes to
+keep both POI names and city weather values readable.

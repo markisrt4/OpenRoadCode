@@ -295,8 +295,8 @@ class OrcWeatherPanel(tk.Frame, WeatherUiIf):
         self._metric_cards[2][2].configure(text=self._pressure_text(current.pressure_pa))
         self._render_forecasts()
 
-    def _provider_text(self, state: WeatherUiState) -> str:
-        label = state.provider_label or "Weather"
+    def _provider_label_text(self, state: WeatherUiState) -> str:
+        label = f"Weather data provider: {state.provider_label}" if state.provider_label else "Weather data"
         if state.fetched_at is None:
             return label
         updated = datetime.fromtimestamp(state.fetched_at).strftime("%I:%M %p").lstrip("0")

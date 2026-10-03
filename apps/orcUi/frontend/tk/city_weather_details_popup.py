@@ -72,7 +72,7 @@ class CityWeatherDetailsPopup(tk.Toplevel):
         self._summary.configure(text=f"At {when}: {value(details.temperature_k, 'temperature')} · Wind {value(details.wind_speed_m_s, 'wind')}\n"
                                      f"Precipitation in selected {state.hours}h window: {value(details.precipitation_m, 'precipitation')}")
         stamp = details.fetched_at.astimezone().strftime('%I:%M %p').lstrip('0') if details.fetched_at else 'unknown'
-        self._source.configure(text=f"Open-Meteo · {'Forecast' if state.period == 'future' else 'Past model estimates'} · Data checked {stamp}\n— means unavailable; hourly precipitation is for the preceding hour")
+        self._source.configure(text=f"{'Weather forecast' if state.period == 'future' else 'Recent weather estimates'} · Updated {stamp}\n— means unavailable; hourly amounts cover the preceding hour\nWeather data provider: Open-Meteo")
         self._table.delete(*self._table.get_children())
         for row in details.hours:
             row_id = self._table.insert('', tk.END, values=(row.valid_at.astimezone().strftime('%a %I:%M %p').replace(' 0', ' '),

@@ -20,15 +20,15 @@ inline std::string withPoiHoverStyle(const std::string& style) {
     additions.Parse(R"({
       "source":{"type":"geojson","data":{"type":"FeatureCollection","features":[]}},
       "glow":{"id":"poi-hover-glow","type":"circle","source":"poi-hover","minzoom":7,
-        "paint":{"circle-radius":["interpolate",["linear"],["zoom"],7,15,11,20,15,23],
-                 "circle-color":"#fff3a6","circle-opacity":0.75,"circle-blur":0.8}},
+        "paint":{"circle-radius":["interpolate",["linear"],["zoom"],7,12,11,16,15,19],
+                 "circle-color":"#fff3a6","circle-opacity":0.3,"circle-blur":0.8}},
       "label":{"id":"poi-hover-label","type":"symbol","source":"poi-hover","minzoom":9,
         "layout":{"text-field":"{name}","text-font":["KlokanTech Noto Sans CJK Regular"],
                   "text-size":["interpolate",["linear"],["zoom"],9,10,13,12,16,14],
                   "text-offset":[0,1.15],"text-anchor":"top",
                   "text-allow-overlap":true,"text-ignore-placement":true},
-        "paint":{"text-color":"#fffbd9","text-halo-color":"#e6bd4d",
-                 "text-halo-width":3,"text-halo-blur":2}}
+        "paint":{"text-color":"#fffbd9","text-halo-color":"#101820",
+                 "text-halo-width":2,"text-halo-blur":0}}
     })");
     auto& allocator = document.GetAllocator();
     if (!document["sources"].HasMember("poi-hover")) {

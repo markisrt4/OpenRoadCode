@@ -32,15 +32,15 @@ inline std::string withCityWeatherStyle(const std::string& style) {
                    "text-allow-overlap":false},
          "paint":{"text-color":["get","color"],"text-halo-color":"#101820","text-halo-width":2}},
         {"id":"city-weather-hover-glow","type":"circle","source":"city-weather-hover",
-         "paint":{"circle-radius":13,"circle-color":"#fff3a6","circle-opacity":0.75,"circle-blur":0.8}},
+         "paint":{"circle-radius":10,"circle-color":"#fff3a6","circle-opacity":0.3,"circle-blur":0.8}},
         {"id":"city-weather-hover-label","type":"symbol","source":"city-weather-hover",
          "layout":{"text-field":["format",["get","value"],{"font-scale":1.8},
                     "\n",{},["get","name"],{"font-scale":0.9}],
                    "text-size":14,"text-font":["KlokanTech Noto Sans CJK Regular"],
                    "text-anchor":"bottom","text-offset":[0,-0.6],
                    "text-allow-overlap":true,"text-ignore-placement":true},
-         "paint":{"text-color":"#fffbd9","text-halo-color":"#e6bd4d",
-                  "text-halo-width":4,"text-halo-blur":2}}
+         "paint":{"text-color":"#fffbd9","text-halo-color":"#101820",
+                  "text-halo-width":2,"text-halo-blur":0}}
       ]})");
     auto& allocator = document.GetAllocator();
     for (const char* sourceId : {"city-weather", "city-weather-hover"}) {

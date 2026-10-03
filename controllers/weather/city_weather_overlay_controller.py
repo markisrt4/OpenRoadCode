@@ -158,7 +158,7 @@ class CityWeatherOverlayController:
                 oldest = sorted(self._cache, key=lambda city: self._cache[city][0])
                 for city in oldest[:-96]:
                     del self._cache[city]
-            self.status = f"{len(weather)} cities · Open-Meteo · Model estimates"
+            self.status = f"{len(weather)} cities · Forecasts and recent weather estimates"
         self.publish()
 
     def _query(self):
@@ -199,7 +199,7 @@ class CityWeatherOverlayController:
                                   key=lambda city: (city.name, city.latitude, city.longitude)))
             if cities == self._cities:
                 if recovered or not cities:
-                    self.status = (f"{len(self._weather)} cities · Open-Meteo · Model estimates" if self._weather
+                    self.status = (f"{len(self._weather)} cities · Forecasts and recent weather estimates" if self._weather
                                    else "No city names here · zoom out or pan to a town")
                     self.publish()
                 continue
@@ -216,7 +216,7 @@ class CityWeatherOverlayController:
                     self._loaded_at = min(item[0] for item in cached)
                     self._retry_at = self._loaded_at + 900
                     self._anchor = int(self._clock() // 3600) * 3600
-                    self.status = f"{len(cities)} cities · Open-Meteo · Model estimates"
+                    self.status = f"{len(cities)} cities · Forecasts and recent weather estimates"
                     self.publish()
                     self.publish()
                 else:

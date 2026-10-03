@@ -237,7 +237,7 @@ class NavigationRouteWeather(WeatherOverlayControlsIf):
             cities = self._city_state
             if cities.enabled:
                 field = {"temperature": "TEMPERATURE", "wind": "WIND SPEED", "precipitation": "PRECIPITATION"}[cities.kind]
-                period = "RECENT HISTORY · Model estimates" if cities.period == "past" else "FORECAST"
+                period = "RECENT HISTORY · Estimated weather" if cities.period == "past" else "FORECAST"
                 caption = city_time_label(cities) if cities.points else cities.status.split(":")[0]
                 self._city_banner.configure(text=f"{field} · {period}\n{caption}",
                                             wraplength=max(140, min(380, self._panel.map_width - 32)))

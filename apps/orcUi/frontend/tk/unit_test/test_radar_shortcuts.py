@@ -86,3 +86,21 @@ def test_cloud_toggle_reflects_visibility_without_changing_camera():
     assert off != on
     panel._request_handler.request_zoom.assert_not_called()
     panel._on_radar_toggle.assert_called_once_with(True)
+
+
+def test_weather_state_renders_provider_role_and_current_temperature():
+    from common.units.unit_system import UnitSystem
+    from ui.weather.weather_ui_if import WeatherCurrentUiState, WeatherUiState
+    panel = object.__new__(OrcWeatherPanel)
+    panel._theme_bundle = lambda: theme_bundle(ThemeMode.DARK)
+    panel._unit_system = lambda: UnitSystem.IMPERIAL
+    for name in ('_location', '_provider_label', '_symbol', '_temperature', '_condition', '_summary'):
+        setattr(panel, name, Mock())
+    panel._metric_cards = [(None, None, Mock()) for _ in range(3)]
+    panel._render_forecasts = Mock()
+    panel.set_weather_state(WeatherUiState(
+        location_name='Detroit', provider_label='Open-Meteo', fetched_at=1000,
+        current=WeatherCurrentUiState(temperature_k=283.15)))
+    assert panel._provider_label.configure.call_args.kwargs['text'].startswith('Weather data provider: Open-Meteo')
+    assert panel._temperature.configure.call_args.kwargs['text'] == '50°F'
+    panel._render_forecasts.assert_called_once()

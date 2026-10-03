@@ -48,7 +48,7 @@ class CityWeatherControls:
                                   bg=ui.control_background, fg=ui.text, relief=tk.FLAT, padx=8, pady=4)
         self._refresh.pack(side=tk.RIGHT)
         self._status = self._label(parent, "")
-        self._label(parent, "Recent history = model estimates. Precip = rain + snow water equivalent.\nPan or zoom to choose cities · Data: Open-Meteo")
+        self._label(parent, "Recent history shows estimated weather. Precipitation includes rain and melted snow.\nPan or zoom to choose cities · Weather data provider: Open-Meteo")
         self.set_state(state)
 
     def _row(self, parent):

@@ -415,3 +415,7 @@ pointer exit, dragging, and overlay removal. Hover checks also follow labels as
 the camera moves, and cached label refreshes update the highlighted value.
 Touch interaction continues to open details by tapping; hover requires a pointer.
 This effect requires rebuilding the native renderer after updating the branch.
+
+City controls and details distinguish **Weather forecast** from **Recent weather
+estimates** in plain language. Open-Meteo is identified explicitly as the weather
+data provider, rather than appearing as an unexplained status label.
