@@ -13,7 +13,3 @@ build-container
 
 # MapLibre runtime cache
 /maplibre.db
-
-# Standalone UI contract packaging artifacts
-*.egg-info/
-dist/

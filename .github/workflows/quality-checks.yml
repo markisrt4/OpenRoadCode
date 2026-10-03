@@ -102,9 +102,6 @@ jobs:
       - name: Check Python module size
         run: venv/bin/python scripts/check_python_module_size.py
 
-      - name: Verify standalone UI contracts
-        run: venv/bin/python scripts/check_standalone_ui.py
-
       - name: Enforce project-wide UI boundaries
         run: venv/bin/python scripts/check_ui_boundaries.py
 

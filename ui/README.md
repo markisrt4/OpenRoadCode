@@ -107,72 +107,24 @@ provider/transport/thread imports in Tk weather views, backend-cache inspection,
 and GUI imports in weather controllers. Interface documentation checks remain a
 separate check; they do not substitute for this boundary enforcement.
 
-## A UI without ORC runtime dependencies
+## Replaceable UI boundary
 
-The repository builds `openroad-ui-contracts`, an independently installable wheel
-containing only `ui/`. It includes presentation values, semantic request handlers,
-UI interfaces, and stubs. It contains no apps, controllers, services, transports,
-hardware, or configuration packages. Python 3.12 is required; `tinycss2` is its only
-third-party dependency, for shared theme parsing. The wheel has not been published
-to a package registry.
+UI contracts remain part of this repository. Frontends implement `*UiIf` and emit
+semantic requests through `*RequestHandlerIf`; composition binds concrete
+controllers and owns backend lifecycle. Frontends should consume shared state
+from `ui/` rather than importing ORC controllers or application-specific wiring.
 
-Build it from this checkout:
-
-```bash
-python -m pip wheel --no-deps . --wheel-dir dist
-```
-
-Install the generated wheel into your new UI's environment. Your UI implements
-`*UiIf` interfaces and accepts `*RequestHandlerIf` handlers; it imports only `ui`.
-Develop against the included stubs or a fake backend. An ORC-side composition root
-imports your UI implementation, constructs ORC controllers/presenters, and binds
-the handlers. The dependency points from composition to your UI, never from your
-UI to ORC. ORC remains necessary to supply actual vehicle/service data, but is
-not a dependency of the UI package itself.
-
-For example, a replacement weather view needs only these contracts:
-
-```python
-from ui.weather import WeatherUiIf, WeatherUiState, WeatherRequestHandlerIf
-
-class MyWeatherView(WeatherUiIf):
-    def set_weather_state(self, state: WeatherUiState | None) -> None:
-        self.state = state
-        # Render Kelvin values in the user's chosen units.
-
-    def set_weather_request_handler(self, handler: WeatherRequestHandlerIf | None) -> None:
-        self.handler = handler
-
-    def refresh_clicked(self) -> None:
-        if self.handler is not None:
-            self.handler.request_refresh()
-```
-
-On the backend side, `WeatherPresenter(view)` publishes normalized state to that
-view. The ORC composition root supplies the request handler and owns workers and
-cleanup. Do not import ORC Tk widgets, screen factories, or app presenters to build
-your replacement UI. For an out-of-process UI, a transport adapter must implement
-these same contracts; this wheel does not itself define or provide a remote API.
-
-`python scripts/check_standalone_ui.py` copies only `ui/` into an isolated Python
-process, rejects any import of an ORC package, imports all contract modules, and
-executes a replacement-view request/state round trip. Both CI and the local
-quality gate run this check. The static gate additionally restricts contract
-imports to the standard library, `ui`, and the declared theme parser dependency.
-
-The initial contract release is `0.1.0`. Preserve compatibility when adding
-optional state fields or new interfaces; change the package version and document
-migration steps when changing required methods or field semantics. The legacy
-controller paths re-export moved types so current callers keep the same enum and
-class identities; new UI code must import their canonical `ui` locations.
+The static boundary check restricts contract imports to the standard library,
+`ui`, and the existing `tinycss2` theme parser. Moving types into `ui/` preserves
+backend compatibility through re-exports; existing enum and class identities
+remain the same. Packaging and distribution changes require discussion with the
+user before implementation.
 
 ## Remaining legacy boundary audit
 
 Moving shared automotive, POI, radio, media, map, and launcher contract types
 removed 64 of the original 122 import exceptions. The remaining 58 imports are
-listed exactly in `scripts/ui_boundary_exceptions.json`. They do not belong in
-the standalone contract package and do not prevent a new UI from using it.
-Existing frontend portability is still incomplete. Their migration order is:
+listed exactly in `scripts/ui_boundary_exceptions.json`. Existing frontend portability is still incomplete. Their migration order is:
 
 1. Spotify/media, streaming radio, and games: replace view-owned service calls,
    workers, polling, installation, and process lifecycle with state/request
