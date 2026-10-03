@@ -13,6 +13,7 @@ from controllers.weather.radar_palette import RadarPalette
 from apps.orcUi.application_runtime import OrcUiApplicationRuntime, create_orc_ui_application_runtime
 from apps.orcUi.composition.core import CoreComposition, create_core_composition
 from apps.orcUi.composition.games import configure_games
+from apps.orcUi.composition.navigation_places import NavigationPlacesFactory
 from apps.orcUi.composition.media import MediaComposition, configure_media
 from apps.orcUi.composition.radio import RadioComposition, configure_radio
 from apps.orcUi.composition.weather import WeatherComposition, configure_weather
@@ -47,6 +48,7 @@ class OrcUiComposition:
     settings: SettingsScreen | None = None
     weather_overlays: WeatherOverlayController | None = None
     radar_replay: RadarReplayController | None = None
+    navigation_places: NavigationPlacesFactory | None = None
 
     @property
     def app(self) -> OrcUiApp:
@@ -62,8 +64,12 @@ class OrcUiComposition:
             try:
                 try:
                     try:
-                        if self.navigation is not None:
-                            self.navigation.close()
+                        try:
+                            if self.navigation is not None:
+                                self.navigation.close()
+                        finally:
+                            if self.navigation_places is not None:
+                                self.navigation_places.close()
                     finally:
                         try:
                             if self.radar_replay is not None:
@@ -94,6 +100,7 @@ def create_orc_ui_composition() -> OrcUiComposition:
     core: CoreComposition | None = None
     overlays: WeatherOverlayController | None = None
     radar_replay: RadarReplayController | None = None
+    navigation_places: NavigationPlacesFactory | None = None
     try:
         core = create_core_composition()
         app = core.app
@@ -169,9 +176,11 @@ def create_orc_ui_composition() -> OrcUiComposition:
         overlays = configure_weather_overlays(app, weather_view, core.map_camera.renderer_client,
                                              weather.radar_tiles, unit_system, core.route_request_handler,
                                              core.presentation)
+        navigation_places = NavigationPlacesFactory()
         navigation = NavigationScreen(
             app,
             map_runtime=core.map_runtime,
+            places_factory=navigation_places,
             map_request_handler=core.map_camera.request_handler,
             route_request_handler=core.route_request_handler,
             route_simulation_handler=core.route_request_handler,
@@ -233,17 +242,21 @@ def create_orc_ui_composition() -> OrcUiComposition:
     except Exception:
         try:
             try:
+                if navigation_places is not None:
+                    navigation_places.close()
+            finally:
                 if radar_replay is not None:
                     radar_replay.close()
-            finally:
-                if overlays is not None:
-                    overlays.close()
         finally:
             try:
-                if core is not None:
-                    core.close()
+                if overlays is not None:
+                    overlays.close()
             finally:
-                runtime.close()
+                try:
+                    if core is not None:
+                        core.close()
+                finally:
+                    runtime.close()
         raise
     return OrcUiComposition(
         core=core,
@@ -259,4 +272,5 @@ def create_orc_ui_composition() -> OrcUiComposition:
         settings=settings,
         weather_overlays=overlays,
         radar_replay=radar_replay,
+        navigation_places=navigation_places,
     )

@@ -331,3 +331,17 @@ the orientation estimator.
 `NavigationState`. A later GPS-aware `OrientationEstimatorIf` can use valid,
 sufficiently fast course updates for drift correction; the current default
 estimator intentionally does not fuse GPS course into heading yet.
+
+## Navigation places ownership
+
+The ORC composition layer constructs `NavigationPlacesFactory`, which shares
+`MapFavorites` and the platform action executor and creates a fresh POI search
+session for each mounted view. `NavigationPlacesController` adapts those resources
+to `ui.navigation.navigation_places_request_handler_if.NavigationPlacesRequestHandlerIf`.
+Views receive only contract values and semantic operations. They do not construct
+favorites caches, renderer subscriptions, or Android launchers.
+
+`MapFavorite` is defined under the UI contract and re-exported from the historical
+`map_favorites` module for backend compatibility. Session close invalidates results,
+clears pending selections, and releases its source exactly once. Composition also
+closes surviving sessions during application shutdown or failed initialization.

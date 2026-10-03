@@ -28,6 +28,13 @@ class PoiSearchControllerIf(ABC):
         """
         ...
 
+    def poll_camera_interaction(self) -> bool:
+        """Consume a manual map gesture when supported by the source.
+
+        @return True when a native camera gesture occurred.
+        """
+        return False
+
     @abstractmethod
     def poll_search_result(self) -> PoiSearchResult | None:
         """Return the latest completed POI search result, if available.

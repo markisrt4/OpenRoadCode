@@ -5,6 +5,7 @@
 
 from dataclasses import FrozenInstanceError
 from datetime import datetime, timezone
+from ui.navigation.navigation_places_request_handler_if import NavigationPlacesFactoryIf
 from unittest.mock import Mock
 
 import pytest
@@ -68,7 +69,7 @@ def test_weather_controls_emit_semantic_requests_and_only_store_snapshots():
 
 
 def test_radar_view_uses_requests_and_presentation_without_a_controller():
-    view = NavigationScreen(Mock(), map_runtime=Mock(), map_request_handler=Mock(),
+    view = NavigationScreen(Mock(), places_factory=Mock(spec=NavigationPlacesFactoryIf), map_runtime=Mock(), map_request_handler=Mock(),
                             route_request_handler=Mock(), route_simulation_handler=Mock(),
                             theme_bundle=Mock(), telemetry_profile_request=None, on_back=Mock())
     with pytest.raises(TypeError):

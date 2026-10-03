@@ -21,6 +21,7 @@ from ui.navigation import (
     RouteSimulationRequestHandlerIf,
 )
 from ui.theme import ThemeBundle
+from ui.navigation.navigation_places_request_handler_if import NavigationPlacesRequestHandlerIf
 
 from .navigation_panel import NavigationPanel
 from .settings_panel import SettingsPanel
@@ -32,6 +33,7 @@ def build_navigation_screen(
     parent: tk.Misc,
     *,
     map_request_handler: MapRequestHandlerIf,
+    places_handler: NavigationPlacesRequestHandlerIf,
     route_request_handler: RouteRequestHandlerIf,
     route_simulation_handler: RouteSimulationRequestHandlerIf,
     on_back: Callable[[], None],
@@ -52,6 +54,7 @@ def build_navigation_screen(
     screen = NavigationPanel(
         parent,
         map_request_handler=map_request_handler,
+        places_handler=places_handler,
         route_request_handler=route_request_handler,
         route_simulation_handler=route_simulation_handler,
         on_back=on_back,

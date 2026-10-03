@@ -210,3 +210,19 @@ class OrcUiCompositionTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def test_application_closes_places_factory_when_navigation_cleanup_fails():
+    import pytest
+    app, core, runtime, radio, media, games, weather = (Mock() for _ in range(7))
+    core.app = app
+    navigation, places = Mock(), Mock()
+    navigation.close.side_effect = RuntimeError('navigation cleanup failed')
+    composition = OrcUiComposition(core=core, runtime=runtime, radio=radio, media=media,
+                                   games=games, weather=weather, navigation=navigation,
+                                   navigation_places=places)
+    with pytest.raises(RuntimeError, match='navigation cleanup failed'):
+        composition.run()
+    places.close.assert_called_once_with()
+    core.close.assert_called_once_with()
+    runtime.close.assert_called_once_with()

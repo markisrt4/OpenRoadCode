@@ -23,7 +23,7 @@ class NavigationPanelControlTest(unittest.TestCase):
         panel._zoom_level = 16.5
         panel._zoom_text = Mock()
         panel._follow_enabled = True
-        panel._poi_controller = Mock()
+        panel._places_handler = Mock()
         panel._shortcut_status = Mock()
         panel._active_poi_render_category = ""
         panel._active_poi_search = None
@@ -33,10 +33,11 @@ class NavigationPanelControlTest(unittest.TestCase):
         panel._simulation_active = False
         panel._simulate_button = Mock()
         panel._cancel_route_button = Mock()
-        panel._map_favorites = Mock()
-        panel._poi_action_executor = Mock()
         panel._poi_card = None
         panel._poi_search_after_id = None
+        panel._places_closed = False
+        panel._closed = False
+        panel._poi_poll_after_id = None
         panel.after = Mock()
         panel.after_cancel = Mock()
         panel.set_follow_enabled = Mock(
@@ -139,7 +140,7 @@ class NavigationPanelControlTest(unittest.TestCase):
     def test_home_shortcut_starts_route_to_saved_home(self) -> None:
         panel = self._panel()
         position = GeoPoint(math.radians(42.8), math.radians(-83.0))
-        panel._map_favorites.home = MapFavorite("home", "Home", position)
+        panel._places_handler.favorite.return_value = MapFavorite("home", "Home", position)
 
         panel._destination_shortcut("home")
 
@@ -152,7 +153,7 @@ class NavigationPanelControlTest(unittest.TestCase):
 
     def test_work_shortcut_reports_unconfigured_location(self) -> None:
         panel = self._panel()
-        panel._map_favorites.work = None
+        panel._places_handler.favorite.return_value = None
 
         panel._destination_shortcut("work")
 
@@ -205,7 +206,7 @@ class NavigationPanelControlTest(unittest.TestCase):
 
         panel._clear_poi_search()
 
-        panel._poi_controller.clear.assert_called_once_with()
+        panel._places_handler.clear.assert_called_once_with()
         panel._request_handler.request_poi_focus.assert_called_once_with(None)
         panel._request_handler.request_poi_results.assert_called_once_with((), "")
         self.assertEqual("", panel._active_poi_render_category)
@@ -219,25 +220,25 @@ class NavigationPanelControlTest(unittest.TestCase):
 
         panel.after_cancel.assert_called_once_with("pending-search")
         self.assertIsNone(panel._poi_search_after_id)
-        panel._poi_controller.clear.assert_called_once_with()
+        panel._places_handler.clear.assert_called_once_with()
 
     def test_issue_poi_search_forwards_default_mode(self) -> None:
         panel = self._panel()
-        panel._poi_controller = Mock()
+        panel._places_handler = Mock()
         panel._shortcut_status = Mock()
         panel._poi_search_after_id = "pending"
         panel._issue_poi_search(PoiCategory.FUEL)
         self.assertIsNone(panel._poi_search_after_id)
-        panel._poi_controller.search.assert_called_once_with(PoiCategory.FUEL, TransitMode.ALL)
+        panel._places_handler.search.assert_called_once_with(PoiCategory.FUEL, TransitMode.ALL)
         panel._shortcut_status.set.assert_called_once_with("Searching nearby fuel…")
 
     def test_issue_poi_search_forwards_transit_mode(self) -> None:
         panel = self._panel()
-        panel._poi_controller = Mock()
+        panel._places_handler = Mock()
         panel._shortcut_status = Mock()
         panel._poi_search_after_id = "pending"
         panel._issue_poi_search(PoiCategory.TRANSIT, TransitMode.BUS)
-        panel._poi_controller.search.assert_called_once_with(PoiCategory.TRANSIT, TransitMode.BUS)
+        panel._places_handler.search.assert_called_once_with(PoiCategory.TRANSIT, TransitMode.BUS)
         panel._shortcut_status.set.assert_called_once_with("Searching nearby bus…")
 
     def test_poi_navigate_action_starts_route_to_selected_poi(self) -> None:
@@ -261,7 +262,7 @@ class NavigationPanelControlTest(unittest.TestCase):
 
     def test_poi_order_action_delegates_to_platform_executor(self) -> None:
         panel = self._panel()
-        panel._poi_action_executor.execute.return_value = "Opening order in app"
+        panel._places_handler.execute.return_value = "Opening order in app"
         poi = PointOfInterest(
             poi_id="panera",
             name="Panera Bread",
@@ -272,9 +273,25 @@ class NavigationPanelControlTest(unittest.TestCase):
 
         panel._execute_poi_action(poi, action)
 
-        panel._poi_action_executor.execute.assert_called_once_with(poi, action)
+        panel._places_handler.execute.assert_called_once_with(poi, action)
         panel._shortcut_status.set.assert_called_with("Opening order in app")
 
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def test_close_places_cancels_poll_and_debounce_and_rejects_late_callbacks():
+    panel = NavigationPanelControlTest()._panel()
+    panel._poi_poll_after_id = 'poll'
+    panel._poi_search_after_id = 'debounce'
+    panel.close_places()
+    panel.close_places()
+    assert {call.args[0] for call in panel.after_cancel.call_args_list} == {'poll', 'debounce'}
+    panel._places_handler.close.assert_called_once_with()
+    panel._places_handler.reset_mock()
+    panel._shortcut_status.reset_mock()
+    panel._issue_poi_search(PoiCategory.FOOD)
+    panel._poll_poi_events()
+    assert panel._places_handler.mock_calls == []
+    panel._shortcut_status.set.assert_not_called()

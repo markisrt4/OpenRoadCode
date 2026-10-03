@@ -43,22 +43,6 @@
     "count": 1,
     "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
   },
-  "apps/orcUi/frontend/tk/navigation_panel.py|imports controllers.navigation.map_favorites.MapFavorites": {
-    "count": 1,
-    "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
-  },
-  "apps/orcUi/frontend/tk/navigation_panel.py|imports controllers.poi.PoiSearchController": {
-    "count": 1,
-    "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
-  },
-  "apps/orcUi/frontend/tk/navigation_panel.py|imports controllers.poi.android_poi_action_executor.AndroidPoiActionExecutor": {
-    "count": 1,
-    "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
-  },
-  "apps/orcUi/frontend/tk/navigation_panel.py|imports controllers.poi.poi_action_executor_if.PoiActionExecutorIf": {
-    "count": 1,
-    "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
-  },
   "apps/orcUi/frontend/tk/radio_entry_panel.py|imports controllers.radio.streaming_radio_controller.StreamingRadioController": {
     "count": 1,
     "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."

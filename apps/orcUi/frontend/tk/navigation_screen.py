@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from apps.orcUi.core_runtime import MapRuntimeIf
+from ui.navigation.map_runtime_if import MapRuntimeIf
 from ui.automotive.automotive_telemetry_profile import (AutomotiveTelemetryProfile)
 from ui.weather.radar_ui_if import RadarPalette, RadarUiState
 from ui.weather.radar_controls_if import RadarControlsIf
@@ -20,6 +20,7 @@ from ui.navigation import (
     RouteSimulationRequestHandlerIf,
 )
 from ui.screen_ui_if import ScreenId
+from ui.navigation.navigation_places_request_handler_if import NavigationPlacesFactoryIf, NavigationPlacesRequestHandlerIf
 from ui.theme import ThemeBundle
 
 from .navigation_panel import NavigationPanel
@@ -36,6 +37,7 @@ class NavigationScreen(TkScreen, RadarControlsIf):
         host: TkScreenHostIf,
         *,
         map_runtime: MapRuntimeIf,
+        places_factory: NavigationPlacesFactoryIf,
         map_request_handler: MapRequestHandlerIf,
         route_request_handler: RouteRequestHandlerIf,
         route_simulation_handler: RouteSimulationRequestHandlerIf,
@@ -47,6 +49,10 @@ class NavigationScreen(TkScreen, RadarControlsIf):
         route_weather=None,
     ) -> None:
         super().__init__(self.SCREEN_ID)
+        if not isinstance(places_factory, NavigationPlacesFactoryIf):
+            raise TypeError("Navigation requires NavigationPlacesFactoryIf")
+        self._places_factory = places_factory
+        self._places_session = None
         self._route_weather = route_weather
         self._host = host
         self._map_runtime = map_runtime
@@ -59,6 +65,12 @@ class NavigationScreen(TkScreen, RadarControlsIf):
         self._radar_handler: RadarRequestHandlerIf | None = None
         self._radar_state = RadarUiState()
         self._panel: NavigationPanel | None = None
+
+    def _close_places_session(self) -> None:
+        session = self._places_session
+        self._places_session = None
+        if session is not None:
+            session.close()
 
     def set_radar_request_handler(self, handler: RadarRequestHandlerIf | None):
         """Bind radar actions to an explicit UI request contract."""
@@ -81,26 +93,36 @@ class NavigationScreen(TkScreen, RadarControlsIf):
         self._host.clear_screen_content()
         self._host.set_screen_title("NAVIGATION")
 
-        self._panel = build_navigation_screen(
-            self._host.screen_parent,
-            map_request_handler=self._map_request_handler,
-            route_request_handler=self._route_request_handler,
-            route_simulation_handler=self._route_simulation_handler,
-            on_back=self._on_back,
-            theme=self._theme_bundle(),
-            radar_enabled=self._radar_state.enabled,
-            radar_frame_time=self._radar_state.frame_time,
-            radar_palette=self._radar_state.palette,
-            on_radar_palette_changed=(self._change_radar_palette if self._radar_handler is not None else None),
-            on_radar_toggle=self._toggle_radar if self._radar_handler is not None else None,
-            on_radar_previous=self._radar_previous if self._radar_handler is not None else None,
-            on_radar_next=self._radar_next if self._radar_handler is not None else None,
-            on_radar_live=self._radar_live if self._radar_handler is not None else None,
-            on_radar_play=self._radar_play_pause,
-            on_radar_seek=self._radar_seek,
-            on_radar_speed=self._radar_set_speed,
-            on_radar_source=self._change_radar_source,
-        )
+        self._close_places_session()
+        session = self._places_factory.create()
+        if not isinstance(session, NavigationPlacesRequestHandlerIf):
+            raise TypeError("Navigation places require NavigationPlacesRequestHandlerIf")
+        self._places_session = session
+        try:
+            self._panel = build_navigation_screen(
+                self._host.screen_parent,
+                map_request_handler=self._map_request_handler,
+                places_handler=self._places_session,
+                route_request_handler=self._route_request_handler,
+                route_simulation_handler=self._route_simulation_handler,
+                on_back=self._on_back,
+                theme=self._theme_bundle(),
+                radar_enabled=self._radar_state.enabled,
+                radar_frame_time=self._radar_state.frame_time,
+                radar_palette=self._radar_state.palette,
+                on_radar_palette_changed=(self._change_radar_palette if self._radar_handler is not None else None),
+                on_radar_toggle=self._toggle_radar if self._radar_handler is not None else None,
+                on_radar_previous=self._radar_previous if self._radar_handler is not None else None,
+                on_radar_next=self._radar_next if self._radar_handler is not None else None,
+                on_radar_live=self._radar_live if self._radar_handler is not None else None,
+                on_radar_play=self._radar_play_pause,
+                on_radar_seek=self._radar_seek,
+                on_radar_speed=self._radar_set_speed,
+                on_radar_source=self._change_radar_source,
+            )
+        except Exception:
+            self._close_places_session()
+            raise
         self.set_radar_state(self._radar_state)
         if self._radar_handler is not None:
             self._radar_handler.request_navigation_visible(True)
@@ -122,13 +144,18 @@ class NavigationScreen(TkScreen, RadarControlsIf):
             self._radar_handler.request_navigation_visible(False)
         if self._panel is not None:
             self._panel.close_radar_menu()
+            self._panel.close_places()
         if self.__dict__.get("_route_weather") is not None:
             self._route_weather.hide()
+        self._close_places_session()
         self._map_runtime.stop()
         self._panel = None
 
     def close(self) -> None:
         """Disconnect transient weather widgets when the application exits."""
+        if self._panel is not None:
+            self._panel.close_places()
+        self._close_places_session()
         self._panel = None
         self._radar_handler = None
         if self.__dict__.get("_route_weather") is not None:

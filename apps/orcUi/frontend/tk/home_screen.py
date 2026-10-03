@@ -8,7 +8,7 @@ from __future__ import annotations
 import tkinter as tk
 from collections.abc import Callable
 
-from apps.orcUi.core_runtime import MapRuntimeIf
+from ui.navigation.map_runtime_if import MapRuntimeIf
 from apps.orcUi.frontend.tk.presentation_state import OrcUiPresentationState
 from apps.orcUi.navigation_presenter import (
     AttitudePresentationState,

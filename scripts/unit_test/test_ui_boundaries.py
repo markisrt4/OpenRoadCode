@@ -50,3 +50,10 @@ def test_contracts_cannot_depend_on_other_repository_packages():
     for module in ('common.units', 'messaging.contracts', 'config.runtime_environment'):
         assert violations('ui/new_feature/state.py', f'import {module}')
     assert not violations('ui/theme/style_sheet.py', 'import tinycss2')
+
+
+def test_frontend_cannot_hide_backend_imports_in_core_runtime_module():
+    assert violations('apps/orcUi/frontend/tk/navigation_screen.py',
+                      'from apps.orcUi.core_runtime import MapRuntimeIf')
+    assert not violations('apps/orcUi/frontend/tk/navigation_screen.py',
+                          'from ui.navigation.map_runtime_if import MapRuntimeIf')

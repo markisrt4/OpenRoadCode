@@ -13,7 +13,7 @@ ROOT = Path(__file__).resolve().parents[1]
 BASELINE = ROOT / 'scripts/ui_boundary_exceptions.json'
 UI_BACKENDS = ('controllers', 'services', 'protocols', 'hardware_io', 'requests',
                'httpx', 'urllib.request', 'threading', 'concurrent.futures', 'subprocess',
-               'apps.orcUi.composition')
+               'apps.orcUi.composition', 'apps.orcUi.core_runtime')
 GUI = ('frontends', 'apps', 'tkinter', 'PySide6', 'PyQt6', 'PyQt5')
 
 

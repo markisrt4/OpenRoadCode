@@ -123,7 +123,8 @@ user before implementation.
 ## Remaining legacy boundary audit
 
 Moving shared automotive, POI, radio, media, map, and launcher contract types
-removed 64 of the original 122 import exceptions. The remaining 58 imports are
+removed 64 of the original 122 import exceptions. Navigation/POI construction
+cleanup removed another four. The remaining 54 imports are
 listed exactly in `scripts/ui_boundary_exceptions.json`. Existing frontend portability is still incomplete. Their migration order is:
 
 1. Spotify/media, streaming radio, and games: replace view-owned service calls,
@@ -150,7 +151,6 @@ exceptions. This inventory is architectural debt, not an allowance for new UIs.
 | `apps/carUi/screens/tk_car_ui_screen_factory.py` | 4 | Move factory wiring to composition |
 | `apps/carUi/screens/weather_screen.py` | 1 | Replace concrete runtime/player dependencies |
 | `apps/carUi/screens/youtube_screen.py` | 2 | Replace concrete runtime/player dependencies |
-| `apps/orcUi/frontend/tk/navigation_panel.py` | 4 | Inject POI and favorites contracts from composition |
 | `apps/orcUi/frontend/tk/radio_entry_panel.py` | 4 | Radio request/state contracts and service ownership |
 | `apps/orcUi/frontend/tk/radio_panel.py` | 4 | Radio request/state contracts and service ownership |
 | `controllers/navigation/google_earth_map_presentation.py` | 1 | Inject platform launcher interfaces |
@@ -168,3 +168,22 @@ exceptions. This inventory is architectural debt, not an allowance for new UIs.
 | `frontends/tk/radio/streaming_radio_panel.py` | 6 | Radio request/state contracts and service ownership |
 | `frontends/tk/system/startup_splash.py` | 1 | Separate startup worker from loading view |
 | `frontends/x11/x11_window_embedder.py` | 1 | Retain subprocess only in explicit native adapter |
+
+### Navigation places contracts
+
+`NavigationPlacesRequestHandlerIf` exposes saved shortcut destinations, search,
+selection, native camera interaction notifications, and platform place actions.
+The values are immutable UI types, including `MapFavorite` and `PointOfInterest`.
+`NavigationPlacesFactoryIf` creates one mounted view's session. The panel rejects
+untyped handlers, and the screen rejects untyped factories.
+
+Composition constructs shared favorites/action adapters and a fresh POI search
+controller for each mount. `NavigationPlacesController` implements the UI contract
+and suppresses late results and requests after close. Hiding or destroying a panel
+cancels its polling/debounce callbacks; hiding or closing the screen releases its
+session. Factory shutdown closes surviving sessions, including when startup or
+another cleanup fails. All close operations are idempotent.
+
+`MapRuntimeIf` lives in `ui/navigation/map_runtime_if.py`; importing a map host
+contract must not load application backend infrastructure. The static gate rejects
+frontend imports from `apps.orcUi.core_runtime` as well as direct backend imports.

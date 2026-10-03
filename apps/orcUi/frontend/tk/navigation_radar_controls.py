@@ -45,7 +45,9 @@ class NavigationRadarControls:
         self._radar_playing, self._radar_forecast = state.playing, state.forecast
         self._radar_loading, self._radar_speed = state.loading, state.speed
         self._radar_palette = state.palette
-        self._classic_radar_var.set(state.palette == RadarPalette.CLASSIC)
+        classic_var = getattr(self, "_classic_radar_var", None)
+        if classic_var is not None:
+            classic_var.set(state.palette == RadarPalette.CLASSIC)
         self._render_radar_state()
 
     def set_weather_menu_callbacks(self, on_visibility, close_menu):

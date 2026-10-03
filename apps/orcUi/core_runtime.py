@@ -47,16 +47,7 @@ from messaging.message_dispatcher import MessageDispatcher
 from messaging.zeromq import ZeroMqSubscriber
 from messaging.zeromq.endpoints import LOCAL_SUBSCRIBER_ENDPOINT
 from ui.theme import ThemeMode
-
-
-class MapRuntimeIf(Protocol):
-    """Map-process behavior required by the Tk shell."""
-
-    def set_theme(self, mode: ThemeMode) -> None: ...
-
-    def launch(self, parent_window_id: int) -> None: ...
-
-    def stop(self) -> None: ...
+from ui.navigation.map_runtime_if import MapRuntimeIf
 
 
 class MapRuntime:
