@@ -50,6 +50,7 @@ def main() -> int:
             "orcUi module-size architecture check",
             [sys.executable, "scripts/check_python_module_size.py"],
         ),
+        _run("Project-wide UI boundaries", [sys.executable, "scripts/check_ui_boundaries.py"]),
         _run("Weather UI contract boundaries", [sys.executable, "scripts/check_weather_ui_contracts.py"]),
         _run(
             "Doxygen interface contracts",
