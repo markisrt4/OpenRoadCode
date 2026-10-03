@@ -50,6 +50,77 @@ screen is left or the app is paused. Switching target discards the previous
 unit's readings. Connection failures or samples older than three seconds are
 displayed as unavailable.
 
+## ORC workload attribution
+
+The preview opens on **ORC workload**. It shows combined CPU use and a table of
+processes sorted by CPU use, with PID, CPU percentage, resident memory (RSS),
+proportional memory (PSS), thread count, and actual disk read/write byte rates.
+The other tabs are **System** and **Sensor telemetry**. No ORC shell navigation
+shortcut is selected by this change.
+
+Recognized roots include the ORC UI/application modules, navigation, automotive,
+Android sensor, weather and trip services, the message broker, and native
+`openroadcode-map-renderer`, `sdrpp`, and `readsb` integration processes.
+Descendants are attributed using process parentage, including renderer/browser
+helpers. A known child remains attributed after reparenting until it exits.
+Arbitrary Python processes and commands merely mentioning ORC are excluded.
+Native integrations are included by executable identity; this identifies their
+resource cost, not exclusive ownership by ORC.
+
+CPU uses each process's own user/system tick deltas, including its threads but
+not cumulative child CPU. PID plus kernel start time prevents PID reuse from
+creating spikes. 100% is one fully occupied logical core. The normalized CPU
+capacity percentage divides the sum by the reported logical core count; it is
+an estimate of capacity use, not a percentage of the host's currently busy CPU.
+First observations and counter resets are unavailable until the next sample.
+The scanner measures visible live processes; short-lived processes that exit
+between samples may be missed.
+
+Dedicated preview and service-manager processes are labelled **diagnostics**
+and excluded from the workload total. Their own resource usage remains visible
+in the table. Sampling performed inside the ORC UI is part of that UI's process.
+
+RSS sums count shared pages once for each process mapping them. They are useful
+for per-process residency, but should not be interpreted as unique physical
+memory consumed by ORC. PSS apportions shared pages and is the better aggregate
+footprint estimate. PSS and disk I/O counters may be restricted by Android or by
+user permissions. Totals remain unavailable when an included process lacks a
+required metric, rather than silently treating it as zero. Partial discovery
+is explicitly labelled. A kernel that hides entire PID directories cannot
+report that hidden population to this scanner.
+
+## Sensor telemetry health
+
+The monitor subscribes to the existing local message broker; it never opens or
+competes for a sensor. It tracks GPS position, IMU, magnetometer, derived
+attitude, ambient light, and barometer streams, separately for each source.
+Each row shows state, time since receipt, time since the sample timestamp last
+advanced, recent valid-message rate, and cumulative invalid-message count.
+Select a stream for its detail and stale threshold.
+
+- **Streaming** means valid messages with advancing timestamps are arriving.
+- **Stale** means messages stopped or the sample timestamp stopped advancing.
+- **Degraded** GPS means no usable fix or a cached position.
+- **Invalid** means the latest message failed its public contract validator.
+- **Not observed** is unknown: the input may be disabled or unconfigured.
+
+Receipt and timestamp-advancement ages use the observer's monotonic clock,
+so remote wall-clock skew does not automatically make a sensor stale. Rates
+use up to the last five seconds of valid receipts. Histories and source counts
+are bounded. Default stale thresholds are GPS/barometer 10 seconds, IMU 3,
+magnetometer/attitude 5, and ambient light 30. Event-driven sensors can be quiet
+without being broken; these thresholds are telemetry policies, not self-tests.
+A producer that timestamps republished cached values as new cannot be diagnosed
+as a physical sampling failure from freshness alone.
+
+The sensor monitor requires `pyzmq` in the interpreter running the preview or
+service manager, plus a running broker and producers. Other performance
+measurements work without it, and the screen reports the missing transport.
+For a Linux service manager using system Python on Debian/Ubuntu, install
+`python3-zmq` (for example, `sudo apt install python3-zmq`), then rerun the
+service-manager installer from the updated checkout. Termux should use ORC's
+existing Python environment with `pyzmq` installed.
+
 ## Measurements and limits
 
 - CPU utilization uses deltas from `/proc/stat`, including individual cores.
@@ -90,8 +161,8 @@ displayed as unavailable.
 - Uptime comes from `/proc/uptime`. I/O rates use monotonic elapsed time and
   suppress first samples, reset counters, and newly attached devices.
 
-These are host resource measurements, not function-level tracing, frame-time
-profiling, or process-specific CPU accounting. History is bounded and is lost
+Host counters and per-process accounting do not provide function-level traces
+or rendering/frame-time profiles. History is bounded and is lost
 when the sampler process restarts.
 
 ## HTTP contract
@@ -100,6 +171,12 @@ when the sampler process restarts.
 after the same authentication used by `/services`. Remote callers need a
 valid administrative or paired-client bearer credential. The existing Termux
 loopback policy still applies.
+
+The additions preserve Version 1 compatibility. `snapshot.workload` contains
+visible per-process rows, aggregate workload totals, and visibility detail.
+`snapshot.sensors` contains per-topic/source telemetry-health rows and
+`snapshot.sensor_monitor_status` describes receiver availability. No command
+lines or process environments are exported.
 
 Version 1 returns `version`, `sample_interval_seconds`, `sample_age_seconds`,
 `error`, `snapshot`, and `history`. Before the first sample, `snapshot` and
@@ -113,6 +190,7 @@ percentage and PID, load, CPU count, frequency in Hz, memory/swap/disk byte
 counts, utilization percentages, temperatures in Celsius, uptime in seconds,
 Pi throttle flags, storage path, thermal zone, and network/disk rates in bytes
 per second. History contains
-only sample time, host/process CPU percentages, memory percentage, and temperature to keep
+only sample time, host/process/ORC CPU percentages, aggregate ORC RSS bytes,
+host memory percentage, and temperature to keep
 remote responses compact. Unavailable values are JSON null. Responses use
 `Cache-Control: no-store`.

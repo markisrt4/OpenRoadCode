@@ -5,13 +5,14 @@
 
 import threading
 import unittest
-from unittest.mock import Mock, patch
+from unittest.mock import Mock
 
 from services.common.system_performance_monitor import SystemPerformanceMonitor
 from services.common.service_manager_pairing import ServiceManagerPairing
 from services.linux.systemd_service_manager_http import SystemdServiceManagerHandler
 from services.termux.service_manager_http import ServiceManagerHandler
 from ui.system_diagnostics import SystemDiagnosticsSnapshot
+from ui.system_diagnostics import OrcWorkloadSnapshot
 
 
 class SystemPerformanceMonitorTest(unittest.TestCase):
@@ -34,13 +35,20 @@ class SystemPerformanceMonitorTest(unittest.TestCase):
         self.assertIsNone(payload["snapshot"]["swap_total_bytes"])
         self.assertNotIn("memory_total_mb", payload["snapshot"])
         self.assertEqual(set(payload["history"][0]), {
-            "sampled_at_unix_s", "cpu_percent", "process_cpu_percent", "memory_used_percent", "temperature_c",
+            "sampled_at_unix_s", "cpu_percent", "process_cpu_percent", "orc_cpu_percent",
+            "orc_rss_bytes", "memory_used_percent", "temperature_c",
         })
 
     def test_worker_recovers_from_error_and_stops_without_leaking(self):
         recovered = threading.Event()
         controller = Mock()
-        monitor = SystemPerformanceMonitor(controller, interval_seconds=0.01, history_samples=2)
+        process_sampler = Mock()
+        process_sampler.sample.return_value = OrcWorkloadSnapshot()
+        sensors = Mock()
+        sensors.status = "listening"
+        sensors.snapshots.return_value = ()
+        monitor = SystemPerformanceMonitor(controller, interval_seconds=0.01, history_samples=2,
+                                           process_sampler=process_sampler, sensor_monitor=sensors)
         calls = 0
 
         def sample():
@@ -64,6 +72,8 @@ class SystemPerformanceMonitorTest(unittest.TestCase):
         self.assertEqual([s.cpu_percent for s in monitor.history()], [3, 4])
         self.assertIsNone(monitor.payload()["error"])
         self.assertIsNotNone(monitor.payload()["sample_age_seconds"])
+        sensors.start.assert_called_once_with()
+        sensors.close.assert_called_once_with()
 
     def test_invalid_configuration_is_rejected(self):
         for kwargs in ({"interval_seconds": 0}, {"history_samples": 0}):

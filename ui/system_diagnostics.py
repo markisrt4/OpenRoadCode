@@ -5,8 +5,56 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Protocol
+
+
+@dataclass(frozen=True, slots=True)
+class OrcProcessSnapshot:
+    """One visible ORC process; CPU percent is in units of one logical core."""
+
+    pid: int
+    name: str
+    category: str
+    state: str
+    cpu_percent: float | None = None
+    rss_bytes: int | None = None
+    pss_bytes: int | None = None
+    thread_count: int | None = None
+    read_bytes_per_second: float | None = None
+    write_bytes_per_second: float | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class OrcWorkloadSnapshot:
+    """Visible workload totals, excluding dedicated diagnostics processes."""
+
+    processes: tuple[OrcProcessSnapshot, ...] = ()
+    visibility: str = "warming_up"
+    detail: str = "Waiting for process discovery"
+    process_count: int = 0
+    cpu_percent: float | None = None
+    cpu_capacity_percent: float | None = None
+    rss_bytes: int | None = None
+    pss_bytes: int | None = None
+    read_bytes_per_second: float | None = None
+    write_bytes_per_second: float | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class SensorHealthSnapshot:
+    """Observed telemetry health; not a claim of physical sensor self-test."""
+
+    name: str
+    topic: str
+    source: str | None = None
+    state: str = "not_observed"
+    detail: str = "Not observed; may be disabled or unconfigured"
+    last_received_age_seconds: float | None = None
+    last_sample_age_seconds: float | None = None
+    message_rate_hz: float | None = None
+    invalid_message_count: int = 0
+    stale_after_seconds: float = 5.0
 
 
 @dataclass(frozen=True, slots=True)
@@ -49,6 +97,9 @@ class SystemDiagnosticsSnapshot:
     network_transmit_bytes_per_second: float | None = None
     disk_read_bytes_per_second: float | None = None
     disk_write_bytes_per_second: float | None = None
+    workload: OrcWorkloadSnapshot = field(default_factory=OrcWorkloadSnapshot)
+    sensors: tuple[SensorHealthSnapshot, ...] = ()
+    sensor_monitor_status: str = "not_started"
 
 
 class SystemDiagnosticsProviderIf(Protocol):

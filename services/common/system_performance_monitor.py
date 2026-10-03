@@ -8,10 +8,12 @@ from __future__ import annotations
 import threading
 import time
 from collections import deque
-from dataclasses import asdict
+from dataclasses import asdict, replace
 
 from controllers.system.system_diagnostics_controller import SystemDiagnosticsController
-from ui.system_diagnostics import SystemDiagnosticsSnapshot
+from controllers.system.orc_process_sampler import OrcProcessSampler
+from services.common.sensor_health_monitor import SensorHealthMonitor
+from ui.system_diagnostics import SystemDiagnosticsSnapshot, OrcWorkloadSnapshot
 
 
 class SystemPerformanceMonitor:
@@ -20,10 +22,14 @@ class SystemPerformanceMonitor:
     def __init__(
         self, controller: SystemDiagnosticsController | None = None, *,
         interval_seconds: float = 1.0, history_samples: int = 120,
+        process_sampler: OrcProcessSampler | None = None,
+        sensor_monitor: SensorHealthMonitor | None = None,
     ) -> None:
         if interval_seconds <= 0 or history_samples <= 0:
             raise ValueError("Sampling interval and history size must be positive")
         self._controller = controller or SystemDiagnosticsController()
+        self._process_sampler = process_sampler or OrcProcessSampler()
+        self._sensor_monitor = sensor_monitor or SensorHealthMonitor()
         self._interval = interval_seconds
         self._history: deque[SystemDiagnosticsSnapshot] = deque(maxlen=history_samples)
         self._lock = threading.Lock()
@@ -37,6 +43,7 @@ class SystemPerformanceMonitor:
         if self._thread is not None:
             return
         self._stop.clear()
+        self._sensor_monitor.start()
         self._thread = threading.Thread(target=self._run, name="orc-performance", daemon=True)
         self._thread.start()
 
@@ -46,6 +53,7 @@ class SystemPerformanceMonitor:
         if self._thread is not None:
             self._thread.join()
             self._thread = None
+        self._sensor_monitor.close()
 
     def snapshot(self) -> SystemDiagnosticsSnapshot:
         """Return the cached sample immediately, or an empty sample during warmup."""
@@ -73,6 +81,8 @@ class SystemPerformanceMonitor:
                 "sampled_at_unix_s": sample.sampled_at_unix_s,
                 "cpu_percent": sample.cpu_percent,
                 "process_cpu_percent": sample.process_cpu_percent,
+                "orc_cpu_percent": sample.workload.cpu_percent,
+                "orc_rss_bytes": sample.workload.rss_bytes,
                 "memory_used_percent": sample.memory_used_percent,
                 "temperature_c": sample.temperature_c,
             } for sample in history],
@@ -83,6 +93,14 @@ class SystemPerformanceMonitor:
             started = time.monotonic()
             try:
                 sample = self._controller.snapshot()
+                try:
+                    workload = self._process_sampler.sample()
+                except Exception as error:
+                    workload = OrcWorkloadSnapshot(visibility="unavailable", detail=type(error).__name__)
+                sample = replace(
+                    sample, workload=workload, sensors=self._sensor_monitor.snapshots(),
+                    sensor_monitor_status=self._sensor_monitor.status,
+                )
             except Exception as error:
                 with self._lock:
                     self._error = type(error).__name__
