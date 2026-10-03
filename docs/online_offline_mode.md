@@ -97,3 +97,45 @@ automatically. Choose manual OFFLINE and confirm restoring internet leaves ORC
 offline until you toggle it. Automatic and manual states survive ORC restarts;
 background services read the effective `online` field while `requested_online`
 retains the user's preference for automatic recovery.
+
+## Faster local network detection
+
+On Termux, ORC reads Android Bridge's `/network` endpoint on loopback port 8766
+once per second. Bridge's default-network callbacks report INTERNET + VALIDATED
+capabilities; losing either disables online features on the next UI poll, usually
+within one to two seconds after Android reports the change. Install the updated
+Bridge APK on `host-actions` and keep its Sensor Bridge service enabled. An older
+APK, stopped service, or unavailable monitor returns ORC to internet-check
+fallback without declaring the whole phone disconnected merely because Bridge
+is unavailable. Local checks bypass HTTP proxies. No additional port is needed.
+
+On Linux, ORC uses `nmcli monitor` to receive NetworkManager D-Bus changes and
+queries the local STATE/CONNECTIVITY properties when an event arrives. No Python
+D-Bus dependency is needed. Missing nmcli or NetworkManager leaves periodic
+internet checks active. If the monitor exits, ORC falls back and retries the
+monitor after five seconds; it stops the child process when ORC closes.
+
+A definite local loss immediately disables features and invalidates any internet
+check from before that loss. A recovery event starts an internet check immediately
+instead of waiting for the periodic timer. An in-flight request may still take up
+to three seconds to finish before that new check starts. NetworkManager reporting
+unknown connectivity on a connected interface still requires internet checks;
+this also covers Linux tethering whose local link survives upstream mobile-data
+loss. Manual OFFLINE always retains priority.
+
+Phone update (wait for the build for the new commit to succeed, so the installer
+does not select an older successful APK):
+
+```bash
+cd ~/src/openroadcode-android-bridge
+git switch host-actions
+git pull --ff-only origin host-actions
+./development/termux/install_latest_apk.sh
+```
+
+Open Android Bridge after installing and enable Sensor Bridge. Verify
+`http://127.0.0.1:8766/network` returns JSON with `available: true`. Update ORC
+using the commands above. Turn off both Wi-Fi and mobile data and confirm a much
+faster automatic offline transition; restore internet and confirm automatic
+recovery. On Linux with NetworkManager, disconnect/reconnect Wi-Fi or Ethernet
+and confirm the same behavior.

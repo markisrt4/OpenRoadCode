@@ -9,6 +9,7 @@ from queue import SimpleQueue, Empty
 from threading import Thread
 from controllers.connectivity.online_mode import OnlineModeController
 from controllers.connectivity.internet_access import internet_reachable
+from controllers.connectivity.network_monitor import NetworkMonitor
 from collections.abc import Callable
 from apps.orcUi.orc_theme import ThemeMode, toggle
 from .power_dialog import PowerDialog
@@ -78,10 +79,16 @@ class OrcUiApp(VolumeUiIf):
         self._internet_generation = 0
         self._internet_probe_active = False
         self._internet_next_probe = 0
+        self._network_available: bool | None = None
+        self._network_results = SimpleQueue()
+        self._network_monitor = NetworkMonitor(self._network_results.put)
+        self._network_monitor.start()
         self._build_shell()
         self._poll_internet_status()
     def _toggle_online_mode(self) -> None:
         try:
+            if not self.online_mode.requested_online and self._network_available is False:
+                self.online_mode.set_reachable(False)
             self.online_mode.set_online(not self.online_mode.requested_online)
         except OSError as exc:
             self.set_screen_status(f"Could not save online mode: {exc}")
@@ -101,6 +108,20 @@ class OrcUiApp(VolumeUiIf):
             return
         while True:
             try:
+                available = self._network_results.get_nowait()
+            except Empty:
+                break
+            self._network_available = available
+            self._internet_generation += 1
+            self._internet_next_probe = 0
+            if available is False and self.online_mode.requested_online:
+                self._internet_status = False
+                try:
+                    self.online_mode.set_reachable(False)
+                except OSError as exc:
+                    self.set_screen_status(f"Could not save connection mode: {exc}")
+        while True:
+            try:
                 generation, reachable = self._internet_results.get_nowait()
             except Empty:
                 break
@@ -111,7 +132,8 @@ class OrcUiApp(VolumeUiIf):
                     self.online_mode.set_reachable(reachable)
                 except OSError as exc:
                     self.set_screen_status(f"Could not save connection mode: {exc}")
-        if self.online_mode.requested_online and not self._internet_probe_active:
+        if (self.online_mode.requested_online and self._network_available is not False
+                and not self._internet_probe_active):
             if self._internet_next_probe <= 0:
                 generation = self._internet_generation
                 self._internet_probe_active = True
@@ -248,6 +270,7 @@ class OrcUiApp(VolumeUiIf):
         if self._closing:
             return
         self._closing = True
+        self._network_monitor.close()
         active_screen = self._active_screen
         self._active_screen = None
         if active_screen is not None:
