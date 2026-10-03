@@ -89,3 +89,21 @@ def test_readiness_waits_for_all_outstanding_tiles(tmp_path):
         assert service.frame_error(frame) == "bad GRIB"
     finally:
         service.close()
+
+
+def test_explicit_retry_clears_failed_frame_state(tmp_path):
+    service = RadarTileService(cache_root=tmp_path, session=_Session(_png()))
+    frame = RadarFrame(200, "https://example.test/{z}/{x}/{y}.png")
+    try:
+        service.tile_url(frame, RadarPalette.UNIVERSAL)
+        key = service._frame_key(frame)
+        service._begin_tile(key)
+        service._finish_tile(key, "temporary service failure")
+        service.retry_frame(frame)
+        assert service.frame_error(frame) is None
+        assert not service.frame_ready(frame)
+        service._begin_tile(key)
+        service._finish_tile(key)
+        assert service.frame_ready(frame)
+    finally:
+        service.close()

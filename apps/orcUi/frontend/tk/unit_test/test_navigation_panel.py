@@ -73,7 +73,7 @@ class NavigationPanelControlTest(unittest.TestCase):
         panel._build_radar_controls.assert_called_once()
         self.assertIsNotNone(panel._simulate_button)
         self.assertIsNotNone(panel._cancel_route_button)
-        self.assertIsNotNone(panel._clear_poi_button)
+        self.assertIsNotNone(panel._places_menu)
 
     def test_zoom_preserves_follow_and_requests_zoom(self) -> None:
         panel = self._panel()

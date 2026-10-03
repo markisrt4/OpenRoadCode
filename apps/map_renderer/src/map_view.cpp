@@ -515,7 +515,7 @@ void MapView::onTileAction(
     const std::string& sourceId
 )
 {
-    if (sourceId != "weather-radar") {
+    if (sourceId != "weather-radar" && sourceId != "weather-field") {
         return;
     }
 
@@ -530,7 +530,7 @@ void MapView::onTileAction(
         default: return;
     }
 
-    std::cout << "[map_renderer] radar tile " << action
+    std::cout << "[map_renderer] " << (sourceId == "weather-field" ? "weather field" : "radar") << " tile " << action
               << " canonical=" << static_cast<int>(tileId.canonical.z)
               << '/' << tileId.canonical.x
               << '/' << tileId.canonical.y

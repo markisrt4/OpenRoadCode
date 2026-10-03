@@ -121,6 +121,12 @@ class HrrrTileSource:
         if (not re.fullmatch(r"\d{10}", parsed.netloc) or not re.fullmatch(r"f\d{2}", lead)
                 or not url.startswith("https://noaa-hrrr-bdp-pds.s3.amazonaws.com/hrrr.")):
             raise ValueError("invalid HRRR forecast field URL")
+        element = params.get("element", ["REFC"])[0]
+        fields = {"REFC": ("reflectivity", "0-EATM"), "TMP": ("temperature", "2-HTGL"),
+                  "UGRD": ("wind-u", "10-HTGL"), "VGRD": ("wind-v", "10-HTGL")}
+        if element not in fields:
+            raise ValueError("unsupported HRRR field")
+        name, short_name = fields[element]
         start = int(params.get("start", ["-1"])[0])
         end_text = params.get("end", [""])[0]
         end = int(end_text) if end_text else None
@@ -132,24 +138,30 @@ class HrrrTileSource:
                 self._checked = True
             directory = self._root / parsed.netloc / lead
             directory.mkdir(parents=True, exist_ok=True)
-            raster = directory / "reflectivity.tif"
+            raster = directory / f"{name}.tif"
             if not raster.is_file():
-                field = directory / "reflectivity.grib2"
+                field = directory / f"{name}.grib2"
                 if not field.is_file():
                     temporary = field.with_suffix(".tmp")
                     temporary.write_bytes(self._download(url, start, end))
                     temporary.replace(field)
-                metadata = json.loads(self._run(["gdalinfo", "-json", str(field)]))
+                metadata = json.loads(self._run(["gdalinfo", "--config", "GRIB_NORMALIZE_UNITS", "YES", "-json", str(field)]))
                 bands = metadata.get("bands", [])
                 attributes = bands[0].get("metadata", {}).get("", {}) if len(bands) == 1 else {}
                 run_time = int(datetime.strptime(parsed.netloc, "%Y%m%d%H").replace(tzinfo=timezone.utc).timestamp())
                 expected_time = run_time + int(lead[1:]) * 3600
-                if (attributes.get("GRIB_ELEMENT") != "REFC" or
-                        attributes.get("GRIB_SHORT_NAME") != "0-EATM" or
+                if (attributes.get("GRIB_ELEMENT") != element or
+                        attributes.get("GRIB_SHORT_NAME") != short_name or
                         int(attributes.get("GRIB_VALID_TIME", "-1")) != expected_time):
-                    raise RuntimeError("Downloaded HRRR field is not composite reflectivity at the requested forecast time")
+                    detail = ("not composite reflectivity" if element == "REFC" else "the wrong variable or level")
+                    raise RuntimeError(f"Downloaded HRRR field is {detail} at the requested forecast time")
+                if element == "TMP" and attributes.get("GRIB_UNIT") not in {"[C]", "C"}:
+                    raise RuntimeError("HRRR temperature was not decoded in Celsius")
+                if element in {"UGRD", "VGRD"} and attributes.get("GRIB_UNIT") not in {"[m/s]", "m/s"}:
+                    raise RuntimeError("HRRR wind was not decoded in meters per second")
                 temporary = raster.with_suffix(".tmp.tif")
                 self._run(["gdal_translate", "-q", "--config", "GDAL_CACHEMAX", "64",
+                           "--config", "GRIB_NORMALIZE_UNITS", "YES",
                            "-of", "GTiff", "-ot", "Float32", "-b", "1",
                            "-co", "TILED=YES", "-co", "COMPRESS=DEFLATE", str(field), str(temporary)])
                 temporary.replace(raster)

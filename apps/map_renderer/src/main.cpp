@@ -61,19 +61,24 @@ std::string loadStyleJson(const NavigationConfig& config) {
     if (config.dataRoot != kLegacyDataRoot) replaceAll(style, kLegacyDataRoot, config.dataRoot);
     return withRouteWeatherStyle(style);
 }
-void setWeatherRadar(
+void setWeatherRaster(
     mbgl::style::Style& style,
     const MapCommand& command,
-    std::string& currentTileUrl
+    std::string& currentTileUrl,
+    const char* sourceId = kWeatherRadarSourceId,
+    const char* layerId = kWeatherRadarLayerId,
+    bool locatorRings = true
 ) {
-    for (const auto* id : {"radar-position-ring-inner", "radar-position-ring-middle",
-                           "radar-position-ring-outer"}) {
-        if (auto* ring = style.getLayer(id)) {
-            ring->setVisibility(command.enabled ? mbgl::style::VisibilityType::Visible
-                                                 : mbgl::style::VisibilityType::None);
+    if (locatorRings) {
+        for (const auto* id : {"radar-position-ring-inner", "radar-position-ring-middle",
+                               "radar-position-ring-outer"}) {
+            if (auto* ring = style.getLayer(id)) {
+                ring->setVisibility(command.enabled ? mbgl::style::VisibilityType::Visible
+                                                     : mbgl::style::VisibilityType::None);
+            }
         }
     }
-    auto* existingLayer = style.getLayer(kWeatherRadarLayerId);
+    auto* existingLayer = style.getLayer(layerId);
     if (!command.enabled) {
         if (existingLayer != nullptr) {
             existingLayer->setVisibility(mbgl::style::VisibilityType::None);
@@ -93,17 +98,17 @@ void setWeatherRadar(
     // A supplied URL selects a new frame. Recreate only for frame changes;
     // visibility-only commands preserve the existing source and tile cache.
     if (existingLayer != nullptr) {
-        style.removeLayer(kWeatherRadarLayerId);
+        style.removeLayer(layerId);
     }
-    if (style.getSource(kWeatherRadarSourceId) != nullptr) {
-        style.removeSource(kWeatherRadarSourceId);
+    if (style.getSource(sourceId) != nullptr) {
+        style.removeSource(sourceId);
     }
 
     mbgl::Tileset tileset;
     tileset.tiles = {command.tileUrl};
     tileset.zoomRange = {0, static_cast<uint8_t>(command.maxZoom)};
     auto source = std::make_unique<mbgl::style::RasterSource>(
-        kWeatherRadarSourceId,
+        sourceId,
         std::move(tileset),
         kWeatherRadarTileSize
     );
@@ -111,17 +116,18 @@ void setWeatherRadar(
     currentTileUrl = command.tileUrl;
 
     auto layer = std::make_unique<mbgl::style::RasterLayer>(
-        kWeatherRadarLayerId,
-        kWeatherRadarSourceId
+        layerId,
+        sourceId
     );
     layer->setRasterOpacity(command.opacity);
 
     // Keep navigation overlays readable. The route source is part of the
     // canonical ORC style, so placing radar immediately below its first layer
     // leaves route/vehicle rendering above precipitation.
-    const auto* routeLayer = style.getLayer("route-line-casing");
-    style.addLayer(std::move(layer), routeLayer ? std::optional<std::string>{"route-line-casing"}
-                                                 : std::nullopt);
+    const std::string anchor = !locatorRings && style.getLayer(kWeatherRadarLayerId)
+        ? kWeatherRadarLayerId : "route-line-casing";
+    style.addLayer(std::move(layer), style.getLayer(anchor)
+        ? std::optional<std::string>{anchor} : std::nullopt);
 }
 
 void setLayerVisible(mbgl::style::Style& style, const char* id, bool visible) {
@@ -228,6 +234,7 @@ int main() {
     setInitialCamera(map, config);
 
     std::string currentRadarTileUrl;
+    std::string currentWeatherFieldUrl;
     MapCommandServer commandServer(subscriberEndpoint);
     MapEventPublisher eventPublisher(publisherEndpoint);
     view.setManualCameraCallback(
@@ -257,7 +264,7 @@ int main() {
                 name, brand, sourceClass, sourceSubclass, latitude, longitude);
         });
 
-    view.setUpdateCallback([&map, &commandServer, &config, &view, &eventPublisher, &currentRadarTileUrl]() {
+    view.setUpdateCallback([&map, &commandServer, &config, &view, &eventPublisher, &currentRadarTileUrl, &currentWeatherFieldUrl]() {
         // Drain the command socket every frame instead of processing only one
         // message. Position telemetry can be much faster than UI input; leaving
         // old messages queued made camera buttons appear frozen until a renderer
@@ -378,9 +385,15 @@ int main() {
                 view.invalidate();
                 continue;
             }
+            if (command->command == "set_weather_field") {
+                setWeatherRaster(map.getStyle(), *command, currentWeatherFieldUrl,
+                                 "weather-field", "weather-field", false);
+                view.invalidate();
+                continue;
+            }
             if (command->command == "set_weather_radar") {
                 try {
-                    setWeatherRadar(map.getStyle(), *command, currentRadarTileUrl);
+                    setWeatherRaster(map.getStyle(), *command, currentRadarTileUrl);
                     view.invalidate();
                     std::cout << "[map_renderer] weather radar: "
                               << (command->enabled ? "on" : "off")

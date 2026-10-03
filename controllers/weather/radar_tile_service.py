@@ -10,7 +10,7 @@ from hashlib import sha256
 from io import BytesIO
 from pathlib import Path
 from threading import Lock, Thread
-from urllib.parse import urlparse
+from urllib.parse import parse_qs, urlparse
 
 import requests
 from PIL import Image, ImageDraw
@@ -175,6 +175,13 @@ class RadarTileService:
                 self._loaded.add(key)
                 self._errors.pop(key, None)
 
+    def retry_frame(self, frame: RadarFrame) -> None:
+        """Clear a previous processing error before an explicit frame retry."""
+        with self._load_lock:
+            key = self._frame_key(frame)
+            if self._errors.pop(key, None) is not None:
+                self._loaded.discard(key)
+
     def frame_ready(self, frame: RadarFrame) -> bool:
         """Report at least one successful tile and no outstanding tile work."""
         key = self._frame_key(frame)
@@ -204,6 +211,18 @@ class RadarTileService:
         source_url = template.format(z=z, x=x, y=y)
         if source_url.startswith("orc-injected://"):
             source = self._synthetic_tile(source_url, z, x, y, palette)
+        elif source_url.startswith("orc-hrrr-layer://"):
+            from controllers.weather.hrrr_map_layers import color_model_layer
+            with self._cache_lock(source_path):
+                if source_path.is_file():
+                    return source_path.read_bytes()
+                params = parse_qs(urlparse(template).query)
+                kind = params.get("kind", [""])[0]
+                second = params.get("secondary", [None])[0]
+                source = color_model_layer(self._hrrr_tiles.tile(template, z, x, y), kind,
+                                          self._hrrr_tiles.tile(second, z, x, y) if second else None)
+                self._write_cache(source_path, source)
+                return source
         elif source_url.startswith("orc-hrrr://"):
             with self._cache_lock(source_path):
                 if source_path.is_file():

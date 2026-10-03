@@ -59,7 +59,7 @@ std::optional<MapCommand> MapCommandServer::parseCommand(const std::string& payl
             ? document["enabled"].GetBool() : !command.category.empty();
         return command;
     }
-    if (command.command == "set_weather_radar") {
+    if (command.command == "set_weather_radar" || command.command == "set_weather_field") {
         if (!document.HasMember("enabled") || !document["enabled"].IsBool()) return std::nullopt;
         command.enabled = document["enabled"].GetBool();
         if (document.HasMember("opacity")) {

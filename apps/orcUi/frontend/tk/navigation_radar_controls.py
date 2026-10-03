@@ -42,6 +42,9 @@ class NavigationRadarControls:
         if self._radar_replay_panel is not None:
             self.close_radar_menu()
             return
+        close_weather = self.__dict__.get("_close_weather_menu")
+        if close_weather is not None:
+            close_weather()
         self._radar_replay_panel = RadarReplayPanel(
             self, self._radar_button,
             on_play=self._on_radar_play, on_seek=self._on_radar_seek,
@@ -123,6 +126,10 @@ class NavigationRadarControls:
             popup.render(self._radar_times, self._radar_index,
                          enabled=self._radar_enabled, playing=self._radar_playing,
                          forecast=self._radar_forecast, loading=self._radar_loading)
+
+        callback = self.__dict__.get("_on_weather_visibility_changed")
+        if callback is not None:
+            callback()
 
     def _radar_button_text(self) -> str:
         if not self._radar_enabled:

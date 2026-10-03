@@ -29,3 +29,9 @@ without changing route geometry, POI results, radar visibility, or the camera.
 Point features use a `label` string for forecast text; an empty FeatureCollection
 clears them. The native renderer adds purple circles and haloed text above the
 base style at startup. Rebuild the native renderer to use this command.
+
+`set_weather_field(tile_url, enabled=True, frame_time=..., opacity=0.45,
+max_zoom=9)` controls one independent temperature/wind raster source. It uses the
+same validated tile URL/opacity/zoom contract as radar but leaves radar, locator
+rings, route geometry and camera state unchanged. Model heatmaps render below
+radar and navigation overlays. Disable with `tile_url=None, enabled=False`.

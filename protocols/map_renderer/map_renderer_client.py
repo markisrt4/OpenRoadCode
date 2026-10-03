@@ -112,6 +112,28 @@ class MapRendererClient:
             "opacity": opacity,
             "max_zoom": max_zoom,
         })
+    def set_weather_field(
+        self,
+        tile_url: str | None,
+        *,
+        enabled: bool = True,
+        frame_time: int | None = None,
+        opacity: float = 0.45,
+        max_zoom: int = 22,
+    ) -> None:
+        """Show, update, or hide the temperature/wind raster overlay."""
+        if not 0.0 <= opacity <= 1.0:
+            raise ValueError("weather field opacity must be between 0.0 and 1.0")
+        if not 0 <= max_zoom <= 22:
+            raise ValueError("weather field max zoom must be between 0 and 22")
+        self._send_command({
+            "command": MapRendererCommand.SET_WEATHER_FIELD,
+            "tile_url": tile_url or "",
+            "enabled": enabled,
+            "frame_time": frame_time,
+            "opacity": opacity,
+            "max_zoom": max_zoom,
+        })
     def set_poi_results(self, geojson: dict[str, object]) -> None:
         self._send_command({"command": MapRendererCommand.SET_POI_RESULTS, "geojson": geojson})
 

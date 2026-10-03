@@ -22,66 +22,39 @@ def build_navigation_panel(panel) -> None:
     shortcuts = tk.Frame(bar, bg=ui.surface_alt)
     shortcuts.pack(side=tk.LEFT, padx=4, pady=3)
     for label, accent, key in (
-        ("⌂ HOME", ui.accent_primary, "home"),
-        ("▣ WORK", ui.accent_warning, "work"),
-        ("⛽ GAS", ui.accent_danger, "gas"),
-        ("▣ GROCERY", ui.accent_success, "grocery"),
-        ("♨ FOOD", ui.accent_warning, "food"),
+        ("⌂ Home", ui.accent_primary, "home"),
+        ("▣ Work", ui.accent_warning, "work"),
     ):
-        tk.Button(
-            shortcuts,
-            text=label,
-            command=lambda selected=key: panel._destination_shortcut(selected),
-            bg=ui.control_background,
-            fg=accent,
-            activebackground=ui.control_active,
-            activeforeground="#ffffff",
-            relief=tk.FLAT,
-            highlightthickness=1,
-            highlightbackground=ui.border,
-            font=("Sans", 8, "bold"),
-            width=9,
-            height=1,
-            padx=3,
-            pady=1,
-        ).pack(side=tk.LEFT, padx=(0, 4))
-    transit = tk.Menubutton(
-        shortcuts,
-        text="▰ TRANSIT ▾",
-        bg=ui.control_background,
-        fg=ui.accent_primary,
-        activebackground=ui.control_active,
-        activeforeground="#ffffff",
-        relief=tk.FLAT,
-        highlightthickness=1,
-        highlightbackground=ui.border,
-        font=("Sans", 8, "bold"),
-        width=11,
-        height=1,
-        padx=3,
-        pady=1,
-    )
-    transit_menu = tk.Menu(transit, tearoff=False, bg=ui.control_background, fg=ui.control_text)
-    for label, mode in (
-        ("All transit", TransitMode.ALL),
-        ("Bus", TransitMode.BUS),
-        ("Rail", TransitMode.RAIL),
-        ("Tram / Subway", TransitMode.TRAM_SUBWAY),
-    ):
-        transit_menu.add_command(
-            label=label,
-            command=lambda selected=mode: panel._start_poi_search(PoiCategory.TRANSIT, selected),
-        )
-    transit.configure(menu=transit_menu)
-    transit.pack(side=tk.LEFT, padx=(0, 4))
+        tk.Button(shortcuts, text=label,
+                  command=lambda selected=key: panel._destination_shortcut(selected),
+                  bg=ui.control_background, fg=accent, activebackground=ui.control_active,
+                  activeforeground=ui.control_text, relief=tk.FLAT,
+                  font=("Sans", 9, "bold"), padx=7, pady=3).pack(side=tk.LEFT, padx=(0, 4))
+    places = tk.Menubutton(shortcuts, text="Places ▾", bg=ui.control_background,
+                           fg=ui.text, relief=tk.FLAT, font=("Sans", 9, "bold"), padx=7, pady=3)
+    places_menu = tk.Menu(places, tearoff=False, bg=ui.control_background, fg=ui.control_text)
+    for label, key in (("Gas stations", "gas"), ("Groceries", "grocery"), ("Food", "food")):
+        places_menu.add_command(label=label, command=lambda selected=key: panel._destination_shortcut(selected))
+    transit_menu = tk.Menu(places_menu, tearoff=False, bg=ui.control_background, fg=ui.control_text)
+    for label, mode in (("All transit", TransitMode.ALL), ("Bus", TransitMode.BUS),
+                        ("Rail", TransitMode.RAIL), ("Tram / Subway", TransitMode.TRAM_SUBWAY)):
+        transit_menu.add_command(label=label, command=lambda selected=mode: panel._start_poi_search(PoiCategory.TRANSIT, selected))
+    places_menu.add_cascade(label="Transit", menu=transit_menu)
+    places_menu.add_separator()
+    places_menu.add_command(label="Clear place results", command=panel._clear_poi_search)
+    panel._places_menu = places_menu
+    places.configure(menu=places_menu)
+    places.pack(side=tk.LEFT, padx=(0, 4))
     tk.Label(
         bar,
         textvariable=panel._shortcut_status,
         bg=ui.surface_alt,
         fg=ui.text_muted,
         font=("Sans", 7),
-        anchor="e",
-    ).pack(side=tk.RIGHT, padx=7)
+        anchor="w",
+        wraplength=220,
+        width=1,
+    ).pack(side=tk.LEFT, fill=tk.X, expand=True, padx=7)
 
     panel._build_radar_controls(bar)
 
@@ -89,6 +62,8 @@ def build_navigation_panel(panel) -> None:
         panel, bg=ui.surface, highlightthickness=1, highlightbackground=ui.border
     )
     guidance.grid(row=2, column=0, sticky="ew", pady=(4, 0))
+    tk.Label(guidance, text="ROUTE", bg=ui.surface, fg=ui.text_muted,
+             font=("Sans", 8, "bold")).pack(side=tk.LEFT, padx=6)
     tk.Label(
         guidance,
         textvariable=panel._guidance_instruction,
@@ -97,24 +72,9 @@ def build_navigation_panel(panel) -> None:
         font=("Sans", 10, "bold"),
         anchor="w",
     ).pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(8, 6), pady=4)
-    panel._clear_poi_button = tk.Button(
-        guidance,
-        text="CLEAR POIs",
-        command=panel._clear_poi_search,
-        bg=ui.control_background,
-        fg=ui.text_muted,
-        activebackground=ui.control_active,
-        activeforeground="#ffffff",
-        relief=tk.FLAT,
-        highlightthickness=1,
-        highlightbackground=ui.border,
-        font=("Sans", 8, "bold"),
-    )
-    panel._clear_poi_button.pack(side=tk.RIGHT, padx=(4, 8), pady=3)
-
     panel._simulate_button = tk.Button(
         guidance,
-        text="SIM DRIVE",
+        text="Simulate",
         command=panel._toggle_route_simulation,
         bg=ui.control_background,
         fg=ui.accent_warning,
@@ -129,7 +89,7 @@ def build_navigation_panel(panel) -> None:
     panel._simulate_button.pack(side=tk.RIGHT, padx=(4, 8), pady=3)
     panel._cancel_route_button = tk.Button(
         guidance,
-        text="CANCEL ROUTE",
+        text="End route",
         command=panel._cancel_route,
         bg=ui.control_background,
         fg=ui.accent_danger,

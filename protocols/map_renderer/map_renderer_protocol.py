@@ -25,4 +25,5 @@ class MapRendererCommand(StrEnum):
     SET_POSITION = "set_position"
     SET_POI_FOCUS = "set_poi_focus"
     SET_WEATHER_RADAR = "set_weather_radar"
+    SET_WEATHER_FIELD = "set_weather_field"
     SET_POI_RESULTS = "set_poi_results"

@@ -361,10 +361,10 @@ class NavigationPanel(NavigationRadarControls, tk.Frame):
         if not hasattr(self, "_simulate_button"):
             return
         if self._route_simulation_handler is None or not self._route_active:
-            self._simulate_button.configure(text="SIM DRIVE", state=tk.DISABLED)
+            self._simulate_button.configure(text="Simulate", state=tk.DISABLED)
             return
         self._simulate_button.configure(
-            text="STOP SIM" if self._simulation_active else "SIM DRIVE",
+            text="Stop simulation" if self._simulation_active else "Simulate",
             state=tk.NORMAL,
         )
 

@@ -6,6 +6,7 @@
 from datetime import datetime, timezone
 import threading
 import tkinter as tk
+from tkinter import ttk
 
 from controllers.weather.route_weather import RouteWeatherProvider, sample_route
 from .shell_metrics import FONT_CONTROL
@@ -14,7 +15,10 @@ from .shell_metrics import FONT_CONTROL
 class NavigationRouteWeather:
     """Keep route weather requests off the UI thread and reject stale results."""
 
-    def __init__(self, host, route_handler, map_renderer, theme, unit_system, presentation):
+    def __init__(self, host, route_handler, map_renderer, theme, unit_system, presentation, map_weather=None):
+        self._map_weather = map_weather
+        if map_weather is not None:
+            map_weather.on_changed = self._render
         self._host = host
         self._renderer = map_renderer
         self._theme = theme
@@ -57,8 +61,10 @@ class NavigationRouteWeather:
     def attach(self, panel):
         """Add a small layers button without taking height away from the map."""
         self._panel = panel
+        panel._on_weather_visibility_changed = self._render
+        panel._close_weather_menu = self._close_popup
         ui = self._theme().ui
-        self._button = tk.Button(panel._radar_button.master, text="Layers", command=self._toggle_popup,
+        self._button = tk.Button(panel._radar_button.master, text="Weather ▾", command=self._toggle_popup,
                                  bg=ui.control_background, fg=ui.text, relief=tk.FLAT,
                                  font=("Sans", FONT_CONTROL), padx=6)
         self._button.pack(side=tk.RIGHT, padx=4)
@@ -70,6 +76,9 @@ class NavigationRouteWeather:
     def hide(self):
         """Dismiss the menu and cancel automatic refresh while Navigation is hidden."""
         self._close_popup()
+        if self._panel is not None:
+            self._panel._on_weather_visibility_changed = None
+            self._panel._close_weather_menu = None
         self._panel = None
         self._poll_generation += 1
 
@@ -79,12 +88,16 @@ class NavigationRouteWeather:
         self._generation += 1
         self.hide()
         self._provider.close()
+        if self._map_weather is not None:
+            self._map_weather.close()
 
     def _poll(self, generation):
         if self._panel is None or generation != self._poll_generation:
             return
         if self._enabled and self._route is not None:
             self.refresh()
+        if self._map_weather is not None:
+            self._map_weather.refresh()
         self._host.schedule_ui_callback(900000, lambda: self._poll(generation))
 
     def refresh(self):
@@ -161,6 +174,8 @@ class NavigationRouteWeather:
     def _publish_if_visible(self):
         if self._panel is not None:
             self._publish()
+            if self._map_weather is not None:
+                self._map_weather.publish()
 
     def _publish(self):
         features = []
@@ -185,26 +200,53 @@ class NavigationRouteWeather:
         body = tk.Frame(popup, bg=ui.control_background, padx=12, pady=8)
         body.pack(fill=tk.BOTH, expand=True)
 
-        def label(text):
-            item = tk.Label(body, text=text, bg=ui.control_background, fg=ui.text,
+        def label(text, parent=None):
+            item = tk.Label(parent or body, text=text, bg=ui.control_background, fg=ui.text,
                             font=("Sans", FONT_CONTROL), anchor="w", justify=tk.LEFT, wraplength=330)
             item.pack(fill=tk.X, pady=2)
             return item
 
         title = tk.Frame(body, bg=ui.control_background)
         title.pack(fill=tk.X)
-        tk.Label(title, text="Weather layers", bg=ui.control_background,
+        tk.Label(title, text="Weather", bg=ui.control_background,
                  fg=ui.text, font=("Sans", FONT_CONTROL, "bold")).pack(side=tk.LEFT)
         tk.Button(title, text="×", command=self._close_popup, relief=tk.FLAT,
                   bg=ui.control_active, fg=ui.text).pack(side=tk.RIGHT)
 
-        def toggle(text, var, command, parent=None):
+        def toggle(text, var, command, parent=None, horizontal=False):
             tk.Checkbutton(parent or body, text=text, variable=var, command=command, bg=ui.control_background,
                            fg=ui.text, selectcolor=ui.background, activebackground=ui.control_background,
-                           activeforeground=ui.text, font=("Sans", FONT_CONTROL)).pack(side=tk.LEFT if parent else tk.TOP, anchor="w")
+                           activeforeground=ui.text, font=("Sans", FONT_CONTROL)).pack(side=tk.LEFT if horizontal else tk.TOP, anchor="w")
 
+        style = ttk.Style(popup)
+        style.configure("Weather.TNotebook", background=ui.control_background, borderwidth=0)
+        style.configure("Weather.TNotebook.Tab", background=ui.control_background,
+                        foreground=ui.text, font=("Sans", FONT_CONTROL), padding=(8, 5))
+        style.map("Weather.TNotebook.Tab", background=[("selected", ui.control_active)],
+                  foreground=[("selected", ui.control_text)])
+        tabs = ttk.Notebook(body, style="Weather.TNotebook")
+        tabs.pack(fill=tk.BOTH, expand=True, pady=4)
+        map_tab = tk.Frame(tabs, bg=ui.control_background)
+        route_tab = tk.Frame(tabs, bg=ui.control_background)
+        tabs.add(map_tab, text="Map overlays")
+        tabs.add(route_tab, text="Along my route")
         self._radar_var = tk.BooleanVar(popup, value=self._panel._radar_enabled)
-        toggle("Radar overlay", self._radar_var, self._toggle_radar)
+        toggle("Radar overlay", self._radar_var, self._toggle_radar, map_tab)
+        self._map_var = tk.StringVar(popup, value=self._map_weather.kind if self._map_weather else "off")
+        label("Model heatmap · one at a time", map_tab)
+        for value, text in (("off", "No model heatmap"), ("temperature", "Temperature"),
+                            ("wind", "Wind speed")):
+            tk.Radiobutton(map_tab, text=text, variable=self._map_var, value=value,
+                           command=self._select_map_weather, bg=ui.control_background, fg=ui.text,
+                           selectcolor=ui.background, activebackground=ui.control_background,
+                           font=("Sans", FONT_CONTROL), state=tk.NORMAL if self._map_weather else tk.DISABLED).pack(anchor="w")
+        self._map_status = label("", map_tab)
+        self._legend = tk.Frame(map_tab, bg=ui.control_background)
+        self._legend.pack(fill=tk.X, pady=4)
+        tk.Button(map_tab, text="Refresh model overlay", command=self._refresh_map_weather,
+                  bg=ui.control_active, fg=ui.text, relief=tk.FLAT, pady=4).pack(anchor="w", pady=3)
+        label("Forecast model · CONUS only", map_tab)
+        body = route_tab
         self._enabled_var = tk.BooleanVar(popup, value=self._enabled)
         toggle("Weather on my route", self._enabled_var, self._set_enabled)
         self._layer_vars = {}
@@ -212,7 +254,7 @@ class NavigationRouteWeather:
         layer_row.pack(fill=tk.X)
         for key, text in (("temperature", "Temp"), ("rain", "Precip %"), ("wind", "Wind")):
             var = self._layer_vars[key] = tk.BooleanVar(popup, value=key in self._layers)
-            toggle(text, var, self._set_layers, layer_row)
+            toggle(text, var, self._set_layers, layer_row, horizontal=True)
         label("Forecasts at estimated arrivals · no live traffic or stops")
         self._status_label = label(self._status)
         details = tk.Frame(body, bg=ui.control_background)
@@ -226,6 +268,7 @@ class NavigationRouteWeather:
         self._details.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         tk.Button(body, text="Refresh route forecast", command=self.refresh, relief=tk.FLAT,
                   bg=ui.control_active, fg=ui.text, pady=5).pack(anchor="w", pady=4)
+        self._tabs = tabs
         popup.bind("<Escape>", lambda _event: self._close_popup())
         self._render()
         popup.update_idletasks()
@@ -235,6 +278,14 @@ class NavigationRouteWeather:
         popup.deiconify()
         popup.lift()
 
+    def _select_map_weather(self):
+        if self._map_weather is not None:
+            self._map_weather.select(self._map_var.get())
+
+    def _refresh_map_weather(self):
+        if self._map_weather is not None:
+            self._map_weather.refresh()
+
     def _toggle_radar(self):
         if self._panel._radar_enabled != self._radar_var.get():
             self._panel._toggle_radar()
@@ -242,6 +293,14 @@ class NavigationRouteWeather:
     def _render(self):
         if self._popup is None:
             return
+        if self._map_weather is not None:
+            self._map_status.configure(text=self._map_weather.status)
+            for child in self._legend.winfo_children():
+                child.destroy()
+            for label, rgb in self._map_weather.legend():
+                tk.Label(self._legend, text=label, bg="#" + "".join(f"{v:02x}" for v in rgb),
+                         fg="#ffffff" if sum(c * w for c, w in zip(rgb, (0.299, 0.587, 0.114))) < 140 else "#101820",
+                         font=("Sans", 8), padx=2, pady=4).pack(side=tk.LEFT)
         self._status_label.configure(text=self._status)
         self._radar_var.set(self._panel._radar_enabled)
         lines = []

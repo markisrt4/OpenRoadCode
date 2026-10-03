@@ -220,7 +220,7 @@ documentation, Markdown links, Mermaid conventions, lint, module size, the full
 unit/integration suites, shell syntax, whitespace, and source-tree runtime
 state.
 
-In Navigation, **Layers** opens a compact route forecast panel. Start a route
+In Navigation, **Weather → Along my route** opens a compact route forecast panel. Start a route
 using a destination/POI, then enable **Weather on my route**. Up to six purple
 checkpoints show Open-Meteo hourly forecasts for estimated arrival times, with
 independent **Temp**, **Precip %**, and **Wind** label switches. Radar visibility
@@ -247,3 +247,31 @@ python -m controllers.weather.component_test.route_weather_provider_cli --locati
 The map renderer must be rebuilt for the `set_route_weather` command and marker
 layers. Existing styles gain an independent source at startup, so map data does
 not need to be downloaded again.
+
+Navigation's top bar groups Home/Work favorites and a **Places** search menu on
+the left, with **Weather**, radar replay, and the quick radar toggle on the right.
+**Clear place results** belongs to Places. The lower bar contains route guidance,
+**End route**, and **Simulate**; it no longer mixes POI clearing with route actions.
+
+**Weather → Map overlays** offers one full-area HRRR heatmap at a time:
+**Temperature** (2 m air temperature) or **Wind speed** (10 m horizontal speed).
+These use the nearest future hourly forecast from a recent CONUS model run and
+show a forecast-valid time and palette legend in the selected unit system.
+Wind speed is computed from both UGRD and VGRD components; these are heatmaps,
+not wind-direction arrows. Radar and route forecast markers remain independent.
+Model heatmaps refresh every 15 minutes while Navigation is visible, with manual
+refresh available. They retain the camera and render beneath radar and route
+information. GDAL and Internet access are required, as with HRRR reflectivity.
+Outside model coverage, missing data stays transparent. Source/decoding failures
+hide the model overlay and show an unavailable message.
+
+Check either real model layer independently of GPU rendering:
+
+```bash
+python -m controllers.weather.component_test.hrrr_map_layer_cli --kind temperature --location 42.8 -83.02
+python -m controllers.weather.component_test.hrrr_map_layer_cli --kind wind --location 42.8 -83.02
+```
+
+Rebuild the native navigation stack for the new `set_weather_field` command.
+The model field cache shares recent-run retention with HRRR radar and downloads
+only the selected GRIB messages, not whole forecast files.
