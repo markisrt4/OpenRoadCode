@@ -7,9 +7,12 @@ from __future__ import annotations
 
 import math
 import os
+import logging
+import sqlite3
 from collections.abc import Callable
 from pathlib import Path
 
+from common.xdg_paths import openroadcode_data_dir
 from controllers.cache import PersistentCache
 from controllers.navigation.current_position import get_current_position
 from controllers.navigation.position_snapshot_cache import DEFAULT_POSITION_CACHE_DIRECTORY, PositionSnapshotCache
@@ -24,7 +27,18 @@ from ui.navigation import GeoPoint
 _EARTH_RADIUS_M = 6_378_137.0
 _NEARBY_RADIUS_M = 20_000.0
 _NEARBY_LIMIT = 50
-_DEFAULT_SEARCH_DATABASE = Path(os.environ.get("OPENROADCODE_DATA_ROOT", "/srv/openroadcode")) / "maps" / "search" / "openroadcode-search.sqlite"
+def _default_search_database() -> Path:
+    configured = os.environ.get("OPENROADCODE_DATA_ROOT")
+    if configured:
+        root = Path(configured).expanduser()
+    elif os.environ.get("TERMUX_VERSION") or "com.termux" in os.environ.get("PREFIX", ""):
+        root = openroadcode_data_dir()
+    elif Path("/srv/openroadcode/maps/search/openroadcode-search.sqlite").is_file():
+        root = Path("/srv/openroadcode")
+    else:
+        root = openroadcode_data_dir()
+    return root / "maps" / "search" / "openroadcode-search.sqlite"
+
 
 
 class PoiSearchController(PoiSearchControllerIf):
@@ -59,7 +73,9 @@ class PoiSearchController(PoiSearchControllerIf):
         if position is None:
             self._pending_search_result = PoiSearchResult(category=category, count=0, south=0.0, west=0.0, north=0.0, east=0.0, pois=())
             return
-        pois = self._offline_source().search(PoiSearchQuery(category=category, bounds=_nearby_bounds(position, _NEARBY_RADIUS_M), limit=_NEARBY_LIMIT, transit_mode=transit_mode))
+        pois = self._search_pois(PoiSearchQuery(category=category, bounds=_nearby_bounds(position, _NEARBY_RADIUS_M), limit=_NEARBY_LIMIT, transit_mode=transit_mode))
+        if pois is None:
+            return
         pois = tuple(poi for poi in pois if _distance_m(position, poi.position) <= _NEARBY_RADIUS_M)
         self._visible_pois = pois
         self._pending_search_result = _result_for(category, pois)
@@ -114,7 +130,7 @@ class PoiSearchController(PoiSearchControllerIf):
                 if pending is not None and viewport.category == pending[0].name.casefold():
                     category, transit_mode = pending
                     self._pending_viewport_search = None
-                    pois = self._offline_source().search(
+                    pois = self._search_pois(
                         PoiSearchQuery(
                             category=category,
                             bounds=PoiSearchBounds(
@@ -127,6 +143,9 @@ class PoiSearchController(PoiSearchControllerIf):
                             transit_mode=transit_mode,
                         )
                     )
+                    if pois is None:
+                        result, self._pending_search_result = self._pending_search_result, None
+                        return result
                     self._visible_pois = pois
                     self._pending_search_result = _result_for(category, pois)
                 # Replies arriving after clear(), or from an older category, are
@@ -148,9 +167,21 @@ class PoiSearchController(PoiSearchControllerIf):
             self._search_source.close()
             self._search_source = None
 
+    def _search_pois(self, query: PoiSearchQuery) -> tuple[PointOfInterest, ...] | None:
+        try:
+            return self._offline_source().search(query)
+        except (sqlite3.Error, OSError) as error:
+            logging.getLogger(__name__).warning("POI database search failed: %s", error)
+            self._visible_pois = ()
+            self._pending_search_result = PoiSearchResult(
+                category=query.category, count=0, south=0, west=0, north=0, east=0,
+                error="POI search unavailable: check the installed offline search database",
+            )
+            return None
+
     def _offline_source(self) -> PoiSearchSourceIf:
         if self._search_source is None:
-            self._search_source = SqlitePoiSearchSource(_DEFAULT_SEARCH_DATABASE)
+            self._search_source = SqlitePoiSearchSource(_default_search_database())
         return self._search_source
 
     @staticmethod

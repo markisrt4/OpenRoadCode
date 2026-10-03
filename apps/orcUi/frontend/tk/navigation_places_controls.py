@@ -148,7 +148,9 @@ class NavigationPlacesControls:
                 for poi in result.pois
             )
             self._request_handler.request_poi_results(markers, self._active_poi_render_category)
-            if result.count > 0:
+            if result.error:
+                self._shortcut_status.set(result.error)
+            elif result.count > 0:
                 noun = result.category.name.casefold()
                 suffix = "s" if result.count != 1 else ""
                 self._shortcut_status.set(f"{result.count} {noun} result{suffix}")

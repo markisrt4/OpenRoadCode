@@ -72,3 +72,4 @@ class PoiSearchResult:
     north: float
     east: float
     pois: tuple[PointOfInterest, ...] = ()
+    error: str = ""

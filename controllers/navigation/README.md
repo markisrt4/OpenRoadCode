@@ -345,3 +345,15 @@ favorites caches, renderer subscriptions, or Android launchers.
 `map_favorites` module for backend compatibility. Session close invalidates results,
 clears pending selections, and releases its source exactly once. Composition also
 closes surviving sessions during application shutdown or failed initialization.
+
+### Offline POI search availability
+
+POI search honors `OPENROADCODE_DATA_ROOT` when set. Termux otherwise uses
+`$XDG_DATA_HOME/openroadcode` (default `~/.local/share/openroadcode`). Linux
+uses the installed `/srv/openroadcode` search database when present, then the
+XDG data directory. Resolution occurs when opening the database, rather than
+at module import. The expected file is `maps/search/openroadcode-search.sqlite`.
+A missing, unreadable, or incompatible database produces a POI search unavailable
+status through `PoiSearchResult.error`; it does not stop UI event polling or
+claim there are no nearby results. A subsequent search retries opening a missing
+database, allowing recovery after installing the data.
