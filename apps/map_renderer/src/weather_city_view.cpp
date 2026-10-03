@@ -5,6 +5,7 @@
 #include "map_renderer_frontend.hpp"
 #include "weather_city_selection.hpp"
 #include "weather_city_hit.hpp"
+#include "poi_hover_hit.hpp"
 #include <mbgl/style/style.hpp>
 #include <mbgl/style/sources/geojson_source.hpp>
 #include <mapbox/geojson.hpp>
@@ -102,16 +103,15 @@ void MapView::onCursorEnter(GLFWwindow* window, int entered) {
     auto* view = static_cast<MapView*>(glfwGetWindowUserPointer(window));
     if (!view) return;
     view->pointerInside = entered != 0;
-    if (!view->pointerInside && view->cityWeatherHover.select(""))
-        view->publishCityWeatherHover();
+    if (!view->pointerInside) view->clearMapHover();
 }
 
-void MapView::updateCityWeatherHover() {
+void MapView::updateMapHover() {
     if (!map || !rendererFrontend || !rendererFrontend->getRenderer()) return;
     const double now = glfwGetTime();
     if (now - lastHoverCheck < 0.1) return;
     lastHoverCheck = now;
-    std::string identity;
+    std::string identity, poiIdentity;
     if (pointerInside && !tracking) {
         double x = lastX, y = lastY;
 #if defined(__linux__)
@@ -133,11 +133,29 @@ void MapView::updateCityWeatherHover() {
             const auto features = rendererFrontend->getRenderer()->queryRenderedFeatures(hitPoint, {});
             for (const auto& feature : features) {
                 // The glow itself must not enlarge the clickable hover target.
-                if (feature.properties.find("weather_city_hover") != feature.properties.end()) continue;
+                if (feature.properties.find("weather_city_hover") != feature.properties.end() ||
+                    feature.properties.find("poi_hover") != feature.properties.end()) continue;
                 identity = weatherCityHitId(feature.properties);
                 if (!identity.empty()) break;
+                poiIdentity = poiHoverHitId(feature.properties, poiResults);
+                if (!poiIdentity.empty()) break;
             }
         }
     }
     if (cityWeatherHover.select(identity)) publishCityWeatherHover();
+    if (poiHover.select(poiIdentity)) publishPoiHover();
+}
+
+void MapView::publishPoiHover() {
+    if (!map) return;
+    auto* source = map->getStyle().getSource("poi-hover");
+    if (!source) return;
+    static_cast<mbgl::style::GeoJSONSource*>(source)->setGeoJSON(
+        mapbox::geojson::parse(poiHover.data()));
+    invalidate();
+}
+
+void MapView::clearMapHover() {
+    if (cityWeatherHover.select("")) publishCityWeatherHover();
+    if (poiHover.select("")) publishPoiHover();
 }

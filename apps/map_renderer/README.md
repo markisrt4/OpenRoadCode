@@ -97,3 +97,19 @@ g++ -std=c++20 -Wall -Wextra -Werror apps/map_renderer/component_test/weather_ci
 
 The check prints the generated style for optional MapLibre style validation.
 Actual pointer/glow rendering should also be checked on the rebuilt renderer.
+
+POI search-result markers and labels use the same local hover handling as city
+weather. The gold glow renders behind category badges and icons, while the
+hovered name gets a brighter halo. Only identities in the current POI search
+results can highlight. Hover clears on pointer exit, dragging, or clearing/
+replacing the results. Existing click identities and popup behavior stay intact.
+The hover layers are injected at renderer startup, so no map-data download is
+needed; rebuild the native renderer after updating.
+
+The native POI check verifies known/unknown hits, selection, switching, clearing,
+layer ordering, and idempotent style injection:
+
+```bash
+g++ -std=c++20 -Wall -Wextra -Werror apps/map_renderer/component_test/poi_hover_cli.cpp -o /tmp/poi-hover-test
+/tmp/poi-hover-test tools/map_builder/templates/openroadcode-style.json
+```

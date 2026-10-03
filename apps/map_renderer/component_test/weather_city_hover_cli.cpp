@@ -1,12 +1,12 @@
 // SPDX-FileCopyrightText: 2026 Mark G. Russell
 // SPDX-License-Identifier: MIT
-#include "../src/weather_city_hover.hpp"
+#include "../src/map_feature_hover.hpp"
 #include "../src/city_weather_style.hpp"
 #include <cassert>
 #include <iostream>
 
 int main() {
-    WeatherCityHover hover;
+    MapFeatureHover hover;
     const std::string cities = R"({"type":"FeatureCollection","features":[
       {"type":"Feature","geometry":{"type":"Point","coordinates":[-83,42]},
        "properties":{"weather_city_id":"weather-city:Detroit","name":"Detroit","value":"50°F","color":"#ffffff"}},

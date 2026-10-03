@@ -6,18 +6,24 @@
 #include <rapidjson/stringbuffer.h>
 #include <rapidjson/writer.h>
 #include <string>
+#include <utility>
 
-// Keep hover local to the renderer. The existing city identities remain the click contract.
-class WeatherCityHover {
+// Keep hover local to the renderer, using identities from the existing click contracts.
+class MapFeatureHover {
 public:
+    explicit MapFeatureHover(std::string property = "weather_city_id",
+                             std::string prefix = "weather-city:",
+                             std::string flag = "weather_city_hover")
+        : identityProperty(std::move(property)), identityPrefix(std::move(prefix)), hoverFlag(std::move(flag)) {}
+
     bool setData(const std::string& data) {
-        cities = data;
+        featuresData = data;
         return select(identity);
     }
 
     bool select(const std::string& candidate) {
         rapidjson::Document input;
-        input.Parse(cities.c_str());
+        input.Parse(featuresData.c_str());
         rapidjson::Document output;
         output.SetObject();
         auto& allocator = output.GetAllocator();
@@ -30,13 +36,13 @@ public:
                 if (!feature.IsObject() || !feature.HasMember("properties") || !feature["properties"].IsObject())
                     continue;
                 const auto& properties = feature["properties"];
-                if (!properties.HasMember("weather_city_id") || !properties["weather_city_id"].IsString() ||
-                    candidate != properties["weather_city_id"].GetString() || candidate.rfind("weather-city:", 0) != 0)
+                if (!properties.HasMember(identityProperty.c_str()) || !properties[identityProperty.c_str()].IsString() ||
+                    candidate != properties[identityProperty.c_str()].GetString() || candidate.rfind(identityPrefix, 0) != 0)
                     continue;
                 rapidjson::Value copy;
                 copy.CopyFrom(feature, allocator);
-                copy["properties"].RemoveMember("weather_city_hover");
-                copy["properties"].AddMember("weather_city_hover", true, allocator);
+                copy["properties"].RemoveMember(hoverFlag.c_str());
+                copy["properties"].AddMember(rapidjson::Value(hoverFlag.c_str(), allocator), rapidjson::Value(true), allocator);
                 features.PushBack(copy, allocator);
                 matched = candidate;
                 break;
@@ -57,7 +63,8 @@ public:
     const std::string& data() const { return geojson; }
 
 private:
-    std::string cities = R"({"type":"FeatureCollection","features":[]})";
+    std::string identityProperty, identityPrefix, hoverFlag;
+    std::string featuresData = R"({"type":"FeatureCollection","features":[]})";
     std::string identity;
     std::string geojson = R"({"type":"FeatureCollection","features":[]})";
 };

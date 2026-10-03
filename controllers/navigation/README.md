@@ -357,3 +357,10 @@ A missing, unreadable, or incompatible database produces a POI search unavailabl
 status through `PoiSearchResult.error`; it does not stop UI event polling or
 claim there are no nearby results. A subsequent search retries opening a missing
 database, allowing recovery after installing the data.
+
+POI search results show a gold hover glow with a mouse or trackpad. Category
+badges/icons keep their existing colors; the hovered place name gets a brighter
+halo. Clearing POIs, dragging, or leaving the map removes the glow. Tapping or
+clicking still opens the existing place popup. Hover is renderer presentation
+using existing marker identities, with no controller or UI contract changes.
+Rebuild the native renderer after pulling this update to enable it.

@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "weather_city_hover.hpp"
+#include "map_feature_hover.hpp"
 #include <mbgl/map/map.hpp>
 #include <mbgl/util/run_loop.hpp>
 #include <mbgl/util/timer.hpp>
@@ -110,8 +110,10 @@ private:
     static void onMouseClick(GLFWwindow* window, int button, int action, int modifiers);
     static void onMouseMove(GLFWwindow* window, double x, double y);
     static void onCursorEnter(GLFWwindow* window, int entered);
-    void updateCityWeatherHover();
+    void updateMapHover();
     void publishCityWeatherHover();
+    void publishPoiHover();
+    void clearMapHover();
     std::vector<InteractivePoiMarker> interactivePoiMarkers() const;
     void render();
 
@@ -137,7 +139,8 @@ private:
     ManualCameraCallback manualCameraCallback;
     MapClickCallback mapClickCallback;
     std::vector<CachedPoiResult> poiResults;
-    WeatherCityHover cityWeatherHover;
+    MapFeatureHover cityWeatherHover;
+    MapFeatureHover poiHover{"id", "", "poi_hover"};
     bool pointerInside = false;
     double lastHoverCheck = -1.0;
 };

@@ -227,8 +227,7 @@ void MapView::onScroll(GLFWwindow* window, double, double y) {
         return;
     if (v->manualCameraCallback)
         v->manualCameraCallback();
-    if (v->cityWeatherHover.select(""))
-        v->publishCityWeatherHover();
+    v->clearMapHover();
     const double delta = y * 40.0;
     double scale = 2.0 / (1.0 + std::exp(-std::abs(delta) / 100.0));
     if (delta < 0)
@@ -365,6 +364,8 @@ void MapView::onMouseClick(GLFWwindow* window, int button, int action, int modif
     }
 }
 void MapView::setPoiResultsJson(const std::string& geojson) {
+    poiHover.setData(geojson);
+    publishPoiHover();
     poiResults.clear();
 
     rapidjson::Document document;
@@ -462,8 +463,7 @@ void MapView::onMouseMove(GLFWwindow* window, double x, double y) {
         return;
     v->pointerInside = true;
     if (v->tracking) {
-        if (v->cityWeatherHover.select(""))
-            v->publishCityWeatherHover();
+        v->clearMapHover();
         const double dx = x - v->lastX, dy = y - v->lastY;
         if (dx != 0 || dy != 0) {
             if (!v->manualGesturePublished && v->manualCameraCallback) {
@@ -493,7 +493,7 @@ void MapView::run() {
         if (updateCallback)
             updateCallback();
         render();
-        updateCityWeatherHover();
+        updateMapHover();
 #ifndef __APPLE__
         runLoop.updateTime();
 #endif

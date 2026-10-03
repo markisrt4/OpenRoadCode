@@ -7,6 +7,7 @@
 #include "navigation_config.hpp"
 #include "route_weather_style.hpp"
 #include "city_weather_style.hpp"
+#include "poi_hover_style.hpp"
 #include <mbgl/map/map.hpp>
 #include <mbgl/renderer/renderer.hpp>
 #include <mbgl/style/layer.hpp>
@@ -60,7 +61,7 @@ std::string loadStyleJson(const NavigationConfig& config) {
     std::string style{std::istreambuf_iterator<char>{input}, std::istreambuf_iterator<char>{}};
     replaceAll(style, kDataRootToken, config.dataRoot);
     if (config.dataRoot != kLegacyDataRoot) replaceAll(style, kLegacyDataRoot, config.dataRoot);
-    return withCityWeatherStyle(withRouteWeatherStyle(style));
+    return withCityWeatherStyle(withPoiHoverStyle(withRouteWeatherStyle(style)));
 }
 void setWeatherRaster(
     mbgl::style::Style& style,
