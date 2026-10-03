@@ -63,3 +63,36 @@ def create_music_visualizer_session(
         return PipewireAudioCapture(target=target, block_size=block_size)
 
     return MusicVisualizerSession(capture_factory, callback)
+
+
+def create_browser_visualizer(app):
+    """Wire shared analysis and the ORC-selected browser host."""
+    import shutil
+    from apps.launchers.browser_launcher import BrowserKioskLauncher
+    from apps.orcUi.adapters.music_visualizer_browser import MusicVisualizerBrowser, WINDOW_CLASS
+    from common.xdg_paths import openroadcode_data_dir
+    from controllers.audio.music_analysis.music_analysis_session import MusicAnalysisSession, PushAudioCapture
+    from ui.theme import ThemeMode
+
+    sources = {"browser": PushAudioCapture}
+    size = _pipewire_block_size()
+    target = os.getenv("OPENROAD_MUSIC_VISUALIZER_PIPEWIRE_TARGET") or None
+    if shutil.which("pw-record"):
+        sources["linux-pipewire"] = lambda: PipewireAudioCapture(target=target, block_size=size)
+    if os.getenv("TERMUX_VERSION") or os.getenv("ANDROID_ROOT") or os.getenv("PREFIX", "").startswith("/data/data/com.termux/"):
+        sources["android-playback"] = lambda: AndroidPlaybackAudioCapture(block_size=size)
+    session = MusicAnalysisSession(sources)
+    selected = selected_music_visualizer_source()
+    if "OPENROAD_MUSIC_VISUALIZER_SOURCE" not in os.environ and "android-playback" in sources:
+        selected = MusicVisualizerSource.ANDROID_PLAYBACK
+    name = {MusicVisualizerSource.PIPEWIRE: "linux-pipewire",
+            MusicVisualizerSource.ANDROID_PLAYBACK: "android-playback"}.get(selected)
+    if name in sources:
+        session.select(name)
+    browser = BrowserKioskLauncher(
+        url="about:blank", process_pattern="music-visualizer-browser", kiosk=False, app_mode=True,
+        profile_path=openroadcode_data_dir("music-visualizer-browser"),
+        window_class=WINDOW_CLASS,
+    )
+    return MusicVisualizerBrowser(session, browser,
+                                  color_scheme=lambda: "dark" if app.theme_mode is ThemeMode.DARK else "light")

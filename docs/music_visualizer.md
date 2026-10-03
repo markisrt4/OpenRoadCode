@@ -4,36 +4,53 @@ The refreshed visualizer uses shared PCM capture and FFT analysis for the native
 ORC UI and WebUi. Frontends render analysis state; Android permissions and audio
 capture stay in the platform backend.
 
-## Native ORC UI
+## ORC UI
 
-Start the normal desktop or Termux:X11 session, run `./runOrcUi`, then open
-**Media → Music Visualizer**. The source selector provides:
+Run `./runOrcUi`, then open **Media → Music Visualizer**. ORC embeds the
+browser WebGL renderer inside its Media screen, retaining the shared ORC
+navigation and shell. The local HTTP host is created by composition; no separate
+WebUi process or service configuration is required.
 
-- **simulated**: animated demo frames without audio hardware or capture.
-- **pipewire**: mono audio from `pw-record` on Linux. Install the host's PipeWire
-  tools (`pipewire-bin` on Debian/Ubuntu) and run in the user's audio session.
-  To visualize playback instead of a microphone, select the appropriate monitor
-  node with `OPENROAD_MUSIC_VISUALIZER_PIPEWIRE_TARGET`.
-- **android-playback**: the Android bridge's localhost PCM stream at
-  `http://127.0.0.1:8768/stream`. Start playback capture and grant the Android
-  consent prompt in the bridge app first. Capture-restricted applications may
-  not provide audio. ORC consumes the stream; it does not request MediaProjection.
+The renderer offers 13 presets: Frequency Tunnel, Neon Ribbon, Spectrum Field,
+Plasma Bloom, Kaleidoscope, Star Warp, Electric Rings, Dancing Planets, Star Dance,
+Neon Instruments, Electric Freeway, Explosion Field, and Prismatic Spectrum.
+The **Visualization** and **Drum Kit** buttons switch views within this screen.
+Drum Kit shows reactive kick, snare, toms, and cymbals with percussion meters and
+single/double kick controls. Switching views preserves the current audio source,
+capture, calibration, preset, and kick mode; both consume the same analyzer.
+Use the sensitivity slider to adjust response and FULL SCREEN to expand the
+visualization. Browser Microphone is always offered; Chromium requests permission
+when you press START AUDIO. Linux System Audio is offered when `pw-record` is
+installed. Android Playback is offered on Termux/Android and consumes the local
+bridge stream at `http://127.0.0.1:8768/stream`; grant playback-capture consent in
+the bridge app first. Capture-restricted applications may not provide audio.
 
-Selecting a source starts it. **STOP** releases capture; **START** restarts it.
-Leaving the screen releases capture. The eight native modes are Spectrum,
-Orbiting Planets, Electric Freeway, Explosion Field, Star Dance, Electric Rings,
-Neon Ribbon, and Kaleidoscope. Rendering and widget updates stay on the Tk thread;
-capture and analysis run in the background, retaining only the latest frame.
+For PipeWire playback monitoring, set
+`OPENROAD_MUSIC_VISUALIZER_PIPEWIRE_TARGET` to the appropriate monitor node.
+Termux/Android defaults to Android Playback. Start **Android Bridge → Android
+Playback Audio → START PLAYBACK CAPTURE**, grant audio permission, and approve
+Android's capture prompt, then press **START AUDIO** in ORC.
+`OPENROAD_MUSIC_VISUALIZER_SOURCE=pipewire` or `android-playback` overrides the
+initial input. Capture begins only when START AUDIO is pressed. STOP and leaving
+the screen release capture; ORC shutdown closes Chromium and the local server.
+CALIBRATE, FINISH, and CLEAR manage the shared ambient-noise profile.
 
-The default source is simulation. Set `OPENROAD_MUSIC_VISUALIZER_SOURCE` to
-`simulated`, `pipewire`, or `android-playback` to choose the initial source.
-`OPENROAD_MUSIC_VISUALIZER_BLOCK_SIZE` defaults to 2048 samples and must be at
-least 2048. Capture errors appear on the screen; they do not silently select a
-different source.
+Both input and preset menus render inside the browser page, avoiding native
+Chromium popup windows that can fail when reparented into Termux/X11. Silence is
+reported separately from a failed stream. If Android Playback connects but stays
+silent, clear calibration and try a capture-permitted audio app. Inspect native
+capture with `curl -s http://127.0.0.1:8768/status`; connection refused means the
+bridge playback service is not running. The bridge supports one stream client,
+so stop another WebUi/visualizer consumer before retrying.
+`OPENROAD_MUSIC_VISUALIZER_BLOCK_SIZE` defaults to 2048 and must be at least 2048.
 
-To remove ambient noise, start a real input, press **CALIBRATE** while the input
-is quiet, then **FINISH**. **CLEAR** discards the noise profile. Changing source
-creates a new analysis session; calibration does not carry between sources.
+Chromium, `xdotool`, Flask, and NumPy are included in the updated desktop/Termux
+setup. Existing desktop installs can refresh Python dependencies with
+`./scripts/installers/install_python_env.sh desktop-ui` and host dependencies
+with the normal desktop/browser setup.
+
+The eight-mode Tk renderer remains an explicit fallback via
+`OPENROAD_MUSIC_VISUALIZER_RENDERER=tk`; its default input is simulation.
 
 ## WebUi
 
@@ -66,6 +83,18 @@ Run the automated unit and integration suites from the repository root:
 python scripts/run_tests.py all
 ```
 
+A repeatable embedded X11/browser check is available with the optional Python
+`playwright` package installed:
+
+```bash
+python -m apps.orcUi.component_test.music_visualizer_browser_cli
+```
+
+It uses a synthetic microphone and clicks all 13 page-rendered preset choices,
+including fullscreen, then verifies capture cleanup on navigation. An isolated
+headless X11 test host may use `--software-rendering`; normal ORC does not force
+software rendering.
+
 Hardware component checks remain separate: confirm live PipeWire monitor audio
 on Linux, Android playback consent and streaming on the phone, and browser
 microphone/WebGL behavior in the target browser. Passing synthetic-PCM tests does
@@ -73,10 +102,11 @@ not verify those device and permission paths.
 
 ## Architecture and resource ownership
 
-The ORC media composition creates the visualizer controller and injects its
-frontend-neutral control contract into the reusable Tk screen. Capture factories
-and environment configuration live in `apps/orcUi/composition/music_visualizer.py`.
-The controller and session adapter live in `controllers/audio/music_analysis` and
-consume semantic source/frame types from `ui/music_visualizer`. The screen and
-panel live in `frontends/tk/media` and consume injected state, controls, host, and
-theme. Navigation requests capture stop; media composition owns worker shutdown.
+Media composition selects presentation and owns its runtime. The default uses the
+reusable `BrowserMediaScreen`, an ORC-selected `MusicVisualizerBrowser` adapter,
+and the existing shared WebGL assets. The adapter owns only the local HTTP host
+and browser lifecycle; `MusicAnalysisSession` owns audio capture and analysis.
+HTTP routes and the embedded page live under `frontends/web/audio_analysis` and
+serve the same semantic analyzer used by WebUi. The Tk fallback still consumes
+`MusicVisualizerControlIf`, with its capture/calibration worker in the controller.
+Screens choose no backends and composition closes their resources.

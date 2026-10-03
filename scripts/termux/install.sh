@@ -55,6 +55,8 @@ pkg install -y \
   xfce4 \
   dbus \
   xorg-xrandr \
+  xdotool \
+  xorg-xprop \
   chromium
 
 echo "[*] Creating Termux Python virtual environment: $VENV_DIR"

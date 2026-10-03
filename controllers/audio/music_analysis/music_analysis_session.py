@@ -176,7 +176,8 @@ class MusicAnalysisSession:
                 data = asdict(self._latest)
                 data["spectrum"] = list(self._latest.spectrum)
             data.update(source=self._source, running=bool(self._capture and self._capture.is_running),
-                        zeroized=self._analyzer.is_zeroized, calibrating=self._calibrating)
+                        zeroized=self._analyzer.is_zeroized, calibrating=self._calibrating,
+                        capture_error=getattr(self._capture, "last_error", None))
             return data
 
     def start_zeroize(self) -> dict[str, object]:
