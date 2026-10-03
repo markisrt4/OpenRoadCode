@@ -3,11 +3,15 @@
 
 from __future__ import annotations
 
+import logging
 import shutil
 import subprocess
 from pathlib import Path
 
+from common.logging.structured import current_operation, event
 from controllers.audio.streaming_audio_player_if import StreamingAudioPlayerIf
+
+LOGGER = logging.getLogger("radio.streaming.player")
 
 
 class MpvStreamingAudioPlayer(StreamingAudioPlayerIf):
@@ -25,6 +29,7 @@ class MpvStreamingAudioPlayer(StreamingAudioPlayerIf):
         self._executable = str(executable)
         self._stop_timeout_s = float(stop_timeout_s)
         self._process: subprocess.Popen[bytes] | None = None
+        self._playback_operation_id: str | None = None
 
     @property
     def is_playing(self) -> bool:
@@ -35,6 +40,18 @@ class MpvStreamingAudioPlayer(StreamingAudioPlayerIf):
         if process.poll() is None:
             return True
 
+        fields = (
+            {"operation_id": self._playback_operation_id} if self._playback_operation_id else {}
+        )
+        event(
+            LOGGER,
+            logging.INFO if process.returncode == 0 else logging.ERROR,
+            "player.exited",
+            "Streaming player exited",
+            child_pid=process.pid,
+            exit_code=process.returncode,
+            **fields,
+        )
         self._process = None
         return False
 
@@ -43,19 +60,37 @@ class MpvStreamingAudioPlayer(StreamingAudioPlayerIf):
         if not stream_url:
             raise ValueError("stream_url must not be empty")
 
-        executable = self._resolve_executable()
-        self.stop()
-        self._process = subprocess.Popen(
-            [
-                executable,
-                "--no-video",
-                "--really-quiet",
-                "--",
-                stream_url,
-            ],
-            stdin=subprocess.DEVNULL,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
+        try:
+            executable = self._resolve_executable()
+            self.stop()
+            self._process = subprocess.Popen(
+                [
+                    executable,
+                    "--no-video",
+                    "--really-quiet",
+                    "--",
+                    stream_url,
+                ],
+                stdin=subprocess.DEVNULL,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+        except Exception as error:
+            event(
+                LOGGER,
+                logging.ERROR,
+                "player.launch_failed",
+                "Streaming player launch failed",
+                exception_type=type(error).__name__,
+            )
+            raise
+        self._playback_operation_id = current_operation()
+        event(
+            LOGGER,
+            logging.INFO,
+            "player.started",
+            "Streaming player process started",
+            child_pid=self._process.pid,
         )
 
     def stop(self) -> None:
@@ -68,8 +103,22 @@ class MpvStreamingAudioPlayer(StreamingAudioPlayerIf):
         try:
             process.wait(timeout=self._stop_timeout_s)
         except subprocess.TimeoutExpired:
+            event(
+                LOGGER,
+                logging.WARNING,
+                "player.kill_required",
+                "Streaming player did not stop in time",
+                child_pid=process.pid,
+            )
             process.kill()
             process.wait(timeout=self._stop_timeout_s)
+        event(
+            LOGGER,
+            logging.INFO,
+            "player.stopped",
+            "Streaming player process stopped",
+            child_pid=process.pid,
+        )
 
     def _resolve_executable(self) -> str:
         executable = self._executable

@@ -4,13 +4,17 @@
 from __future__ import annotations
 
 import json
+import logging
 import math
 from typing import Any
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
+from common.logging.structured import current_operation, event, operation
 from controllers.radio.streaming_radio_directory_if import StreamingRadioDirectoryIf
 from controllers.radio.streaming_radio_types import StreamingRadioStation
+
+LOGGER = logging.getLogger("radio.directory")
 
 
 class RadioBrowserDirectory(StreamingRadioDirectoryIf):
@@ -28,14 +32,18 @@ class RadioBrowserDirectory(StreamingRadioDirectoryIf):
         if not query:
             return ()
         return self._request_stations(
-            f"{self._api_base}/stations/search?{urlencode({
-                'name': query,
-                'nameExact': 'false',
-                'hidebroken': 'true',
-                'order': 'votes',
-                'reverse': 'true',
-                'limit': str(_validate_limit(limit)),
-            })}"
+            f"{self._api_base}/stations/search?{
+                urlencode(
+                    {
+                        'name': query,
+                        'nameExact': 'false',
+                        'hidebroken': 'true',
+                        'order': 'votes',
+                        'reverse': 'true',
+                        'limit': str(_validate_limit(limit)),
+                    }
+                )
+            }"
         )
 
     def stations_by_ids(
@@ -72,14 +80,18 @@ class RadioBrowserDirectory(StreamingRadioDirectoryIf):
             raise ValueError("country_code must be a two-letter code")
 
         return self._request_stations(
-            f"{self._api_base}/stations/search?{urlencode({
-                'state': state,
-                'countrycode': country_code,
-                'hidebroken': 'true',
-                'order': 'votes',
-                'reverse': 'true',
-                'limit': str(_validate_limit(limit)),
-            })}"
+            f"{self._api_base}/stations/search?{
+                urlencode(
+                    {
+                        'state': state,
+                        'countrycode': country_code,
+                        'hidebroken': 'true',
+                        'order': 'votes',
+                        'reverse': 'true',
+                        'limit': str(_validate_limit(limit)),
+                    }
+                )
+            }"
         )
 
     def stations_near(
@@ -128,16 +140,42 @@ class RadioBrowserDirectory(StreamingRadioDirectoryIf):
         return tuple(ordered[:limit])
 
     def _request_stations(self, url: str) -> tuple[StreamingRadioStation, ...]:
-        request = Request(url, headers={"User-Agent": self.USER_AGENT})
-        with urlopen(request, timeout=self._timeout_s) as response:
-            payload = json.load(response)
-        if not isinstance(payload, list):
-            raise ValueError("Radio Browser returned an unexpected response")
-        return tuple(
-            station
-            for item in payload
-            if (station := _parse_station(item)) is not None
-        )
+        with operation(current_operation()):
+            event(
+                LOGGER,
+                logging.DEBUG,
+                "directory.requested",
+                "Station directory request started",
+                provider="radio_browser",
+            )
+            try:
+                request = Request(url, headers={"User-Agent": self.USER_AGENT})
+                with urlopen(request, timeout=self._timeout_s) as response:
+                    payload = json.load(response)
+                if not isinstance(payload, list):
+                    raise ValueError("Radio Browser returned an unexpected response")
+                stations = tuple(
+                    station for item in payload if (station := _parse_station(item)) is not None
+                )
+            except Exception as error:
+                event(
+                    LOGGER,
+                    logging.ERROR,
+                    "directory.failed",
+                    "Station directory request failed",
+                    provider="radio_browser",
+                    exception_type=type(error).__name__,
+                )
+                raise
+            event(
+                LOGGER,
+                logging.INFO,
+                "directory.completed",
+                "Station directory request completed",
+                provider="radio_browser",
+                station_count=len(stations),
+            )
+            return stations
 
 
 def _parse_station(item: Any) -> StreamingRadioStation | None:

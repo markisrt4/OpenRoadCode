@@ -1,7 +1,7 @@
 # ORC logging
 
 ORC uses Python's `logging` and C++ `spdlog` with a shared JSON Lines contract.
-Navigation route planning and map rendering are the first instrumented flow.
+Navigation, map rendering, RF radio, and ORCui streaming radio use this contract.
 Logs are diagnostic records; they are independent of the ORC message broker.
 
 ## Run and view
@@ -34,7 +34,9 @@ Python processes write through a shared advisory lock. The UI launcher drains th
 renderer's stdout and stderr, preserving structured native events and wrapping
 plain third-party output as `map_renderer.output` events. Renderer output previously
 written to `~/.cache/openroadcode/map-renderer.log` now goes to this shared store.
-An explicitly supplied launcher `log_file` selects a separate rotating JSON store.
+SDR++ stdout/stderr also enter the shared store as `radio.sdrpp.output` events.
+Its previous plain `sdrpp.log` is no longer the default destination. An explicitly
+supplied launcher `log_file` selects a separate rotating JSON store.
 
 All participating processes and the viewer must run as the same user, or have
 write access to the same `ORC_LOG_DIR`. This is a local filesystem collector;
@@ -104,6 +106,52 @@ Route failures record the exception type without potentially sensitive backend
 response text. Python exception records support type, message, and stack trace;
 use that facility only where error details are appropriate to retain.
 
+## Radio events
+
+Use the `radio` component prefix to view RF and streaming activity together:
+
+```bash
+./runOrcUi --follow-logs --log-component radio
+venv/bin/python -m common.logging.viewer --component radio --from-end
+```
+
+| Component | Events |
+| --- | --- |
+| `radio.rf` | Receiver start/stop, modes, frequency tuning, presets, refresh loss/recovery |
+| `radio.profiles` | Profile selection and failures |
+| `radio.streaming` | Station playback requests, starts, stops, and failures |
+| `radio.streaming.player` | mpv process start/stop, unexpected exits, stop escalation |
+| `radio.directory` | Radio Browser results/counts and failures |
+| `radio.sdr.ownership` | SDR acquisition, transfer, release, and denied requests |
+| `radio.sdr.telemetry` | Telemetry/RDS loss and recovery; snapshots at DEBUG |
+| `radio.sdrpp.lifecycle` | SDR++ startup, reuse, restart, Rigctl readiness, and stop |
+| `radio.sdrpp.output` | Collected external SDR++ process output |
+
+A preset/profile action shares one operation ID with the RF commands it triggers.
+Streaming requests share an ID with mpv launch and later exit observations.
+Rigctl's wire protocol has no operation ID field; native SDR++ command handling
+cannot be correlated by ID without changing that external protocol.
+
+Routine frequency refreshes and telemetry snapshots stay at DEBUG. Availability
+warnings occur on loss and INFO records on recovery, rather than once per poll.
+RF context uses numeric `frequency_hz`/`bandwidth_hz` and mode/profile keys; station
+playback uses station IDs. Directory records contain counts, not queries or locations.
+Stream URLs, station/preset labels, RDS text, and backend exception text are excluded
+from ORC's structured radio events. External SDR++ output is retained as text and
+can contain details outside that policy. mpv stdout/stderr remain discarded to
+avoid retaining stream URLs or credentials; exit codes provide failure diagnostics.
+Starting a player process does not prove that the stream decoded or produced audio.
+
+The Rigctl adapter now rejects negative or malformed `RPRT` acknowledgements and
+empty replies/timeouts. Such failures raise exceptions and produce ERROR records,
+instead of updating tuning state and logging success. Negative acknowledgements
+include the numeric Hamlib `error_code`; other exception text stays excluded.
+Existing successful non-`RPRT` extension replies remain supported.
+
+Radio uses the existing shared logging implementation, so no additional install
+packages are needed. Applications other than ORCui must configure logging at their
+own entry point to collect these reusable controller events.
+
 ## Add instrumentation
 
 Configure logging once at the process entry point, then use named loggers:
@@ -126,7 +174,8 @@ The MapLibre build container and host setup include the dependency.
 
 The GitHub Actions **Logging quality gate** job tests schema types, escaping,
 rotation budgets, concurrent writers, repeated error suppression, native output
-collection, viewer rotation/filtering, and navigation operation ID propagation.
+collection, viewer rotation/filtering, and navigation/radio operation ID propagation, acknowledgement failure handling,
+radio availability transitions, and URL/query/RDS exclusion.
 It also compiles the C++ command receiver and a small logger executable, then
 validates actual native output using the same schema validator as Python.
 These checks need neither MapLibre nor a graphical display.

@@ -26,3 +26,11 @@ Keeping these interfaces separate prevents UI/display controls and telemetry fro
 Frontends should depend on `SDRPPControl` and `SDRTelemetryWorker`, not protocol clients directly. The RF radio UI may continue operating when telemetry is unavailable; telemetry is supplemental and must not make tuning fail.
 
 FM RDS is intentionally enabled only for the FM radio profile. Other RF profiles leave RDS polling and presentation disabled.
+
+## Logging
+
+Ownership events use `radio.sdr.ownership`. The telemetry monitor logs availability
+loss and recovery under `radio.sdr.telemetry`; repeated failed polls remain quiet,
+and normal snapshots are DEBUG. RDS contents are excluded from these events.
+SDR++ launch/readiness/stop events and collected native output also enter the shared
+ORC store. See [ORC logging](../../common/logging/README.md) for live viewing and settings.
