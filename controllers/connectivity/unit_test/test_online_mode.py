@@ -42,3 +42,38 @@ def test_reachability_requires_expected_response():
 def test_unreachable_network_is_not_online():
     with patch('controllers.connectivity.internet_access.urllib.request.urlopen', side_effect=TimeoutError):
         assert internet_reachable() is False
+
+
+def test_loss_and_recovery_notify_and_share_effective_state(tmp_path):
+    from controllers.connectivity.online_mode import saved_online_mode
+    path = tmp_path / 'mode.json'
+    mode = OnlineModeController(path)
+    listener = Mock()
+    mode.subscribe(listener)
+    mode.set_reachable(False)
+    assert not mode.online and mode.requested_online
+    assert not saved_online_mode(path)
+    restored = OnlineModeController(path)
+    assert not restored.online and restored.requested_online
+    mode.set_reachable(False)
+    assert listener.call_count == 1
+    mode.set_reachable(True)
+    assert mode.online and saved_online_mode(path)
+    assert listener.call_args_list == [((False,),), ((True,),)]
+
+
+def test_manual_offline_does_not_recover_automatically(tmp_path):
+    mode = OnlineModeController(tmp_path / 'mode.json')
+    mode.set_online(False)
+    mode.set_reachable(True)
+    assert not mode.online and not mode.requested_online
+    mode.set_online(True)
+    assert mode.online
+
+
+def test_legacy_offline_preference_stays_manual(tmp_path):
+    path = tmp_path / 'mode.json'
+    path.write_text('{"online":false}')
+    mode = OnlineModeController(path)
+    mode.set_reachable(True)
+    assert not mode.online and not mode.requested_online

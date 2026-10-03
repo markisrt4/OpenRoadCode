@@ -1,6 +1,9 @@
 # ORC online and offline mode
 
-Click the ONLINE/OFFLINE button in the top bar to change ORC's mode. The preference
+Click the ONLINE/OFFLINE button in the top bar to enable online features or
+choose manual offline mode. A failed internet check automatically disables
+online features; successful recovery reenables them. Manual offline mode stays
+offline until you toggle it back. The preference
 is saved in `~/.config/openroadcode/online-mode.json` (or the configured XDG config
 home) and restored on startup. A failed preference write leaves the existing mode
 unchanged and displays an error in the shell status area.
@@ -22,14 +25,16 @@ or Wi-Fi signal strength:
 
 - ONLINE with green bars: the internet check succeeded.
 - ONLINE / CHECKING: awaiting a check result.
-- ONLINE / NO NET: the check failed; online mode still permits attempts.
+- OFFLINE / NO NET: the check failed; online actions are disabled while recovery checks continue.
 - OFFLINE with empty bars: online POI and streaming actions are disabled.
 
 The check sends a bounded HTTPS HEAD request to Google's connectivity endpoint
-(`connectivitycheck.gstatic.com/generate_204`) approximately every 30 seconds,
-in a background thread. Offline mode starts no checks; a check already in flight
-may finish, and its stale result is ignored. One reachable endpoint does not
-establish that every restaurant or online provider is available.
+(`connectivitycheck.gstatic.com/generate_204`) approximately every 10 seconds,
+in a background thread. Automatic offline mode continues these checks; manual
+offline mode starts no checks. A check already in flight may finish, and results
+from before a manual toggle are ignored. Detection depends on that endpoint being reachable and returning HTTP 204;
+a captive portal or a blocked endpoint can cause offline mode even if some sites
+work. One reachable endpoint does not establish that every provider is available.
 
 This is an ORC feature preference, not the phone's airplane mode. Local
 visualizers and RF radio remain available. The standalone POI downloader is not
@@ -83,3 +88,12 @@ Weather smoke test: fetch a forecast online, switch offline, and confirm Refresh
 is disabled, the cached label includes the update date/time, and NOAA RF remains
 available. Switch online and confirm Refresh reenables. If an alert is displayed,
 confirm its offline warning appears without hiding the alert.
+
+Automatic-mode smoke test: enable online features, then disable both Wi-Fi and
+mobile data on the phone. Within the next check cycle, confirm the top bar shows
+OFFLINE / NO NET and POI/streaming/weather controls disable. Restore internet and
+confirm controls reenable without restarting ORC. Playback does not restart
+automatically. Choose manual OFFLINE and confirm restoring internet leaves ORC
+offline until you toggle it. Automatic and manual states survive ORC restarts;
+background services read the effective `online` field while `requested_online`
+retains the user's preference for automatic recovery.

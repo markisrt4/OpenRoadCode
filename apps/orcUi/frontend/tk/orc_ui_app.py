@@ -82,7 +82,7 @@ class OrcUiApp(VolumeUiIf):
         self._poll_internet_status()
     def _toggle_online_mode(self) -> None:
         try:
-            self.online_mode.set_online(not self.online_mode.online)
+            self.online_mode.set_online(not self.online_mode.requested_online)
         except OSError as exc:
             self.set_screen_status(f"Could not save online mode: {exc}")
             return
@@ -105,13 +105,17 @@ class OrcUiApp(VolumeUiIf):
             except Empty:
                 break
             self._internet_probe_active = False
-            if generation == self._internet_generation and self.online_mode.online:
+            if generation == self._internet_generation and self.online_mode.requested_online:
                 self._internet_status = reachable
-        if self.online_mode.online and not self._internet_probe_active:
+                try:
+                    self.online_mode.set_reachable(reachable)
+                except OSError as exc:
+                    self.set_screen_status(f"Could not save connection mode: {exc}")
+        if self.online_mode.requested_online and not self._internet_probe_active:
             if self._internet_next_probe <= 0:
                 generation = self._internet_generation
                 self._internet_probe_active = True
-                self._internet_next_probe = 30
+                self._internet_next_probe = 10
                 def probe() -> None:
                     self._internet_results.put((generation, internet_reachable()))
                 Thread(target=probe, daemon=True, name="orc-internet-check").start()

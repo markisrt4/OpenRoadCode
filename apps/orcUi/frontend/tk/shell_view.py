@@ -92,7 +92,7 @@ class OrcUiShellView:
         self._internet_reachable = reachable
         ui = self._theme.ui
         if not online:
-            text, color = "OFFLINE", ui.text_muted
+            text, color = ("OFFLINE · NO NET" if reachable is False else "OFFLINE"), ui.text_muted
         elif reachable is True:
             text, color = "ONLINE", ui.accent_success
         elif reachable is False:
