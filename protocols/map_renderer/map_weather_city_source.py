@@ -11,6 +11,7 @@ from threading import Thread
 from messaging.zeromq.subscriber import ZeroMqSubscriber
 
 CITY_RESULT_TOPIC = "map.weather.cities"
+CITY_CLICK_TOPIC = "map.click"
 
 
 @dataclass(frozen=True)
@@ -44,19 +45,38 @@ def decode_city_result(payload):
     return request_id, tuple(cities)
 
 
+def decode_city_click(payload):
+    """Accept only native hits on city-weather features, never ordinary map clicks."""
+    if not isinstance(payload, dict):
+        return None
+    identity = payload.get("marker_id")
+    if isinstance(identity, str) and identity.startswith("weather-city:") and len(identity) <= 256:
+        return identity
+    return None
+
+
 class MapWeatherCitySource:
     """Queue city-query replies onto the UI thread using a separate subscription."""
 
     def __init__(self, subscriber=None):
         self._subscriber = subscriber or ZeroMqSubscriber()
         self._subscriber.subscribe(CITY_RESULT_TOPIC)
+        self._subscriber.subscribe(CITY_CLICK_TOPIC)
         self._queue = SimpleQueue()
+        self._clicks = SimpleQueue()
         Thread(target=self._receive, name="map-weather-cities", daemon=True).start()
 
     def poll(self):
         """Return a pending request id and city tuple, or None."""
         try:
             return self._queue.get_nowait()
+        except Empty:
+            return None
+
+    def poll_selected_city(self):
+        """Return a clicked city identity without consuming viewport replies."""
+        try:
+            return self._clicks.get_nowait()
         except Empty:
             return None
 
@@ -76,3 +96,7 @@ class MapWeatherCitySource:
                 result = decode_city_result(payload)
                 if result is not None:
                     self._queue.put(result)
+            elif topic == CITY_CLICK_TOPIC:
+                identity = decode_city_click(payload)
+                if identity is not None:
+                    self._clicks.put(identity)

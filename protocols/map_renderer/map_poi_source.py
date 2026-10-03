@@ -175,6 +175,8 @@ class MapPoiSource:
         radius = payload.get("selection_radius_m")
         marker_id = payload.get("marker_id")
         marker_index = payload.get("marker_index")
+        if isinstance(marker_id, str) and marker_id.startswith("weather-city:"):
+            return None
         if not isinstance(latitude, (int, float)) or not isinstance(longitude, (int, float)):
             return None
         if not isinstance(radius, (int, float)) or float(radius) <= 0.0:

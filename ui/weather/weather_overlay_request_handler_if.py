@@ -41,6 +41,14 @@ class WeatherOverlayRequestHandlerIf(ABC):
         ...
 
     @abstractmethod
+    def request_city_details(self, city_id: str | None) -> None:
+        """Open a displayed city's weather details or dismiss the selection.
+
+        @param city_id Displayed city identity, or None to close details.
+        """
+        ...
+
+    @abstractmethod
     def request_model_selection(self, kind: str) -> None:
         """Choose one model heatmap or turn it off.
 

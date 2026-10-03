@@ -9,6 +9,7 @@ import threading
 from time import monotonic, time
 
 from controllers.weather.city_weather import WeatherCity, city_value
+from controllers.weather.city_weather_details import city_identity, city_details
 from ui.navigation import GeoPoint
 from ui.ui_dispatcher_if import UiDispatcherIf
 from ui.weather.weather_overlay_ui_if import WeatherOverlayUiIf
@@ -44,14 +45,17 @@ class CityWeatherOverlayController:
         self._retry_at = 0
         self._anchor = 0
         self._query_warning = False
+        self._selected_city = None
 
     def set_enabled(self, enabled):
         """Enable independent city labels or clear them without changing the map camera."""
+        self._poll_city_clicks(select=False)
         self.enabled = bool(enabled)
         self._generation += 1
         self._pending_id = None
         self.set_playing(False)
         if not self.enabled:
+            self._selected_city = None
             self.status = "City weather off"
             self.publish()
         else:
@@ -85,6 +89,7 @@ class CityWeatherOverlayController:
         """Poll cities only while Navigation is visible; replay labels after renderer startup."""
         if self._closed:
             return
+        self._poll_city_clicks(select=False)
         self._visible = True
         self._poll_generation += 1
         self._last_query = 0
@@ -95,15 +100,18 @@ class CityWeatherOverlayController:
     def hide(self):
         """Pause playback and viewport requests while Navigation is hidden."""
         self._visible = False
+        self._selected_city = None
         self._poll_generation += 1
         self.set_playing(False)
         self.publish()
 
     def close(self):
         """Invalidate late weather workers and release the independent map subscription."""
+        if self._closed:
+            return
+        self.hide()
         self._closed = True
         self._generation += 1
-        self.hide()
         if self._source is not None:
             self._source.close()
         self._provider.close()
@@ -140,6 +148,7 @@ class CityWeatherOverlayController:
         self._retry_at = self._loaded_at + (60 if error else 900)
         self._anchor = int(self._loaded_at // 3600) * 3600
         if error:
+            self._selected_city = None
             self.status = f"City weather unavailable: {error}"
             self.set_playing(False)
         else:
@@ -163,6 +172,7 @@ class CityWeatherOverlayController:
             return
         if self.enabled:
             self._drain_cities()
+            self._poll_city_clicks(select=True)
             if self._pending_id is not None and monotonic() - self._last_query >= 10:
                 self._pending_id = None
                 self._query_warning = True
@@ -193,6 +203,7 @@ class CityWeatherOverlayController:
                                    else "No city names here · zoom out or pan to a town")
                     self.publish()
                 continue
+            self._selected_city = None
             self._cities = cities
             self._generation += 1
             self._weather = ()
@@ -235,19 +246,43 @@ class CityWeatherOverlayController:
         self.select(hours=hours)
         self._host.schedule_ui_callback(1500, lambda: self._advance(generation))
 
+    def _poll_city_clicks(self, *, select):
+        poll_city = getattr(self._source, "poll_selected_city", None)
+        if poll_city is not None:
+            for _ in range(16):
+                identity = poll_city()
+                if not isinstance(identity, str):
+                    break
+                if select:
+                    self.select_details(identity)
+
+    def select_details(self, city_id):
+        """Select only a currently displayed city, or dismiss its details."""
+        if self._closed or not self._visible or not self.enabled:
+            return
+        if city_id is not None and not any(city_identity(item.city) == city_id for item in self._weather):
+            return
+        self._selected_city = city_id
+        if city_id is not None:
+            self.set_playing(False)
+        self.publish()
+
     def publish(self):
         """Present selected city values as Kelvin, m/s or metres through the UI contract."""
         if self._closed:
             return
         points = []
+        details = None
         for weather in self._weather:
+            if self._selected_city == city_identity(weather.city) and self.enabled and self._visible:
+                details = city_details(weather, self.period, self.hours, self._anchor, self._loaded_at)
             value = city_value(weather, self.kind, self.hours, self.period, self._anchor)
             if value is not None:
                 value = value + 273.15 if self.kind == "temperature" else value / 3.6 if self.kind == "wind" else value / 1000
             points.append(CityWeatherPoint(weather.city.name,
-                                          GeoPoint(math.radians(weather.city.latitude), math.radians(weather.city.longitude)), value))
+                                          GeoPoint(math.radians(weather.city.latitude), math.radians(weather.city.longitude)), value, city_identity(weather.city)))
         anchor = self._anchor or int(self._clock() // 3600) * 3600
         self._ui.set_city_weather_state(CityWeatherOverlayState(
             self.enabled, self._visible, self.kind, self.period, self.hours, self.playing,
             self.status, datetime.fromtimestamp(anchor, timezone.utc), tuple(points),
-            bool(self.enabled and self._cities), bool(self.enabled and self._weather and self._visible)))
+            bool(self.enabled and self._cities), bool(self.enabled and self._weather and self._visible), details))

@@ -196,3 +196,10 @@ successful metadata check, distinct from the selected frame's valid time.
 Frontends format that time locally. Detailed errors remain in `status`.
 Tile diagnostics, validation, retries, and freshness decisions belong to weather
 controllers and services; views do not inspect those implementations.
+
+City details are part of `CityWeatherOverlayState`: optional `details` contains
+an immutable selected-city summary and `CityWeatherHour` rows in Kelvin, m/s,
+and metres. `CityWeatherPoint.city_id` links the map feature to that selection.
+`request_city_details(city_id)` opens a currently displayed city; passing `None`
+dismisses it. Controllers own selection, cached-data lookup, playback pause and
+lifecycle invalidation; frontends own local times, units and popup layout.

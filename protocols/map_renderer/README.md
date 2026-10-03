@@ -46,3 +46,10 @@ points in the current viewport from the offline vector `openroad` source's
 `request_id` and `cities: [{name, latitude, longitude}, ...]`. The city subscriber
 is independent of POI subscriptions, and ignores replies to obsolete requests.
 Rebuild the native navigation stack before enabling this overlay.
+
+City-weather GeoJSON features may carry an opaque `weather_city_id` beginning
+with `weather-city:`. A rendered-feature hit publishes that identity through the
+existing `map.click.marker_id`, with no POI `marker_index`. Weather consumers
+resolve it against currently displayed cities; POI consumers ignore these hits.
+Ordinary clicks and POI marker behavior remain unchanged. Rebuild the native
+renderer to enable this hit testing.

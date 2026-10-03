@@ -12,6 +12,7 @@ from ui.weather.weather_overlay_state import CityWeatherOverlayState, ModelWeath
 from frontends.common.weather_overlay_format import city_time_label, model_legend, model_status, route_weather_label
 from .shell_metrics import FONT_CONTROL
 from .city_weather_controls import CityWeatherControls
+from .city_weather_details_popup import CityWeatherDetailsPopup
 
 
 class NavigationRouteWeather(WeatherOverlayControlsIf):
@@ -24,6 +25,7 @@ class NavigationRouteWeather(WeatherOverlayControlsIf):
         self._model_state = ModelWeatherOverlayState()
         self._route_state = RouteWeatherOverlayState()
         self._panel = self._popup = self._city_banner = None
+        self._city_details_popup = None
 
     def set_weather_overlay_request_handler(self, handler: WeatherOverlayRequestHandlerIf | None):
         """Connect a contract-implementing request consumer to the controls."""
@@ -34,6 +36,7 @@ class NavigationRouteWeather(WeatherOverlayControlsIf):
     def set_city_weather_state(self, state):
         self._city_state = state
         self._render()
+        self._render_city_details()
 
     def set_model_weather_state(self, state):
         self._model_state = state
@@ -57,12 +60,14 @@ class NavigationRouteWeather(WeatherOverlayControlsIf):
         if self._handler is not None:
             self._handler.request_navigation_visible(True)
         self._render()
+        self._render_city_details()
         for delay in (300, 1200, 2500, 5000, 10000):
             self._host.schedule_ui_callback(delay, self._replay_if_visible)
 
     def hide(self):
         """Dismiss transient widgets and emit navigation lifecycle intent."""
         self._close_popup()
+        self._destroy_city_details()
         if self._city_banner is not None:
             try:
                 self._city_banner.destroy()
@@ -79,6 +84,30 @@ class NavigationRouteWeather(WeatherOverlayControlsIf):
         """Disconnect the view; the application composition owns controller cleanup."""
         self.hide()
         self._handler: WeatherOverlayRequestHandlerIf | None = None
+
+    def _destroy_city_details(self):
+        if self._city_details_popup is not None:
+            self._city_details_popup.destroy()
+            self._city_details_popup = None
+
+    def _close_city_details(self):
+        if self._handler is not None:
+            self._handler.request_city_details(None)
+        self._destroy_city_details()
+
+    def _render_city_details(self):
+        state = self._city_state
+        if self._panel is None or not state.enabled or not state.visible or state.details is None:
+            self._destroy_city_details()
+            return
+        if self._city_details_popup is None:
+            self._close_popup()
+            self._panel.close_radar_menu()
+            self._city_details_popup = CityWeatherDetailsPopup(
+                self._panel, state, ui=self._theme().ui,
+                imperial=lambda: self._unit_system().value == "imperial", on_close=self._close_city_details)
+        else:
+            self._city_details_popup.render(state)
 
     def _replay_if_visible(self):
         if self._panel is not None and self._handler is not None:

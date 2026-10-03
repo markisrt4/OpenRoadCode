@@ -69,3 +69,12 @@ checks their screen positions (including tilt and bearing), prioritizes cities
 and towns, deduplicates tile copies, and spaces a maximum of twelve labels.
 Replies use `map.weather.cities` with the request id and named coordinates.
 The Python city-weather controller owns the data, time window and units.
+
+City-weather feature hits use `weather_city_hit.hpp` to select the opaque city
+identity before publishing the existing map-click event. A small native check
+covers absent, invalid-type, POI, and valid city identities:
+
+```bash
+g++ -std=c++20 -Wall -Wextra -Werror apps/map_renderer/component_test/weather_city_hit_cli.cpp -o /tmp/weather-city-hit-test
+/tmp/weather-city-hit-test
+```

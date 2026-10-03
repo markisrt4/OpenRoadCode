@@ -21,7 +21,7 @@ class MapWeatherOverlayUi(WeatherOverlayUiIf):
             for point in state.points:
                 features.append({"type": "Feature", "geometry": {"type": "Point", "coordinates": [
                     math.degrees(point.position.longitude_rad), math.degrees(point.position.latitude_rad)]},
-                    "properties": {"name": point.name,
+                    "properties": {"name": point.name, "weather_city_id": point.city_id,
                                    "value": weather_value(point.value_si, state.kind, self._unit_system().value == "imperial"),
                                    "color": "#f8e58b" if state.kind == "temperature" else
                                             "#a6edff" if state.kind == "wind" else "#a2f2c4"}})

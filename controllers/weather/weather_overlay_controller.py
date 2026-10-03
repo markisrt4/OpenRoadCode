@@ -29,6 +29,9 @@ class WeatherOverlayController(WeatherOverlayRequestHandlerIf):
     def request_city_refresh(self) -> None:
         self._city.refresh()
 
+    def request_city_details(self, city_id: str | None) -> None:
+        self._city.select_details(city_id)
+
     def request_model_selection(self, kind: str) -> None:
         self._model.select(kind)
 

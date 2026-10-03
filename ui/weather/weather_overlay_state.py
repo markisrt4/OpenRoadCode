@@ -42,6 +42,31 @@ class CityWeatherPoint:
     name: str
     position: GeoPoint
     value_si: float | None
+    city_id: str = ""
+
+
+@dataclass(frozen=True, slots=True)
+class CityWeatherHour:
+    """One hourly model estimate or forecast, normalized to SI."""
+
+    valid_at: datetime
+    temperature_k: float | None
+    wind_speed_m_s: float | None
+    precipitation_m: float | None
+
+
+@dataclass(frozen=True, slots=True)
+class CityWeatherDetails:
+    """Selected city's cached detail rows and window summary in SI."""
+
+    city_id: str
+    name: str
+    selected_at: datetime
+    temperature_k: float | None
+    wind_speed_m_s: float | None
+    precipitation_m: float | None
+    hours: tuple[CityWeatherHour, ...] = ()
+    fetched_at: datetime | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -59,6 +84,7 @@ class CityWeatherOverlayState:
     points: tuple[CityWeatherPoint, ...] = ()
     can_refresh: bool = False
     can_play: bool = False
+    details: CityWeatherDetails | None = None
 
 
 @dataclass(frozen=True, slots=True)

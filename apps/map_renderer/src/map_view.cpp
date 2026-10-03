@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Mark G. Russell
 // SPDX-License-Identifier: MIT
 #include "map_view.hpp"
+#include "weather_city_hit.hpp"
 #include "map_renderer_frontend.hpp"
 #include "glfw_backend.hpp"
 #include <mbgl/gfx/backend.hpp>
@@ -324,6 +325,11 @@ void MapView::onMouseClick(GLFWwindow* window, int button, int action, int modif
                 const auto renderedFeatures =
                     v->rendererFrontend->getRenderer()->queryRenderedFeatures(hitPoint, {});
                 for (const auto& feature : renderedFeatures) {
+                    const auto cityId = weatherCityHitId(feature.properties);
+                    if (!cityId.empty()) {
+                        markerId = cityId;
+                        break;
+                    }
                     const auto idIt = feature.properties.find("id");
                     if (idIt == feature.properties.end() || !idIt->second.is<std::string>())
                         continue;

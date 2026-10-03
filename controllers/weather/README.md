@@ -378,3 +378,31 @@ Unit tests cover partial tile failures, localhost HTTP responses, transparent
 and malformed PNGs, corrupt-cache recovery, retry URLs, data age, and callbacks
 after hide/close. Status crosses the UI boundary through `RadarUiState`; widgets
 perform presentation and time formatting without accessing tile services.
+
+## City weather details
+
+With **Weather → City weather** enabled, click a displayed city weather label or
+point to open its details. The popup shows temperature and wind at the selected
+hour, precipitation over the selected 1–24 hour window, and scrollable hourly
+values for the displayed past or forecast period. Past values are model
+estimates, not station observations. Hourly precipitation belongs to the hour
+ending at that row's timestamp; the summary is a window total. Missing values
+remain unavailable (—), rather than becoming zero.
+
+Details reuse the overlay's downloaded batch without another API request. City
+playback pauses on selection; radar playback is independent. Changing the city
+time controls or refreshing updates the selected city's details. Close dismisses
+selection. Hiding Navigation, disabling the overlay, or changing the viewport's
+city set closes details and rejects obsolete selections.
+
+`CityWeatherOverlayState.details` carries immutable SI summary/hourly values.
+`WeatherOverlayRequestHandlerIf.request_city_details` handles selection and
+closure. The native map returns a `weather-city:` identity in `map.click` only
+when hit testing finds a rendered weather feature; POI selection ignores those
+hits. The weather adapter consumes them independently of city-query replies.
+City identities include coordinates to distinguish places with the same name.
+
+Clickable city weather requires rebuilding the native map renderer after pulling
+this change; Python-only updates cannot add native feature hit testing. On
+Termux the existing `development/termux/build_navigation_stack.sh` rebuilds the
+ORC renderer while reusing unchanged native dependencies.
