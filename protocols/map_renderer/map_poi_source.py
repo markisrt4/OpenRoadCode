@@ -1,0 +1,207 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
+"""Adapter for generic POI discovery and selections from the native map renderer."""
+
+from __future__ import annotations
+
+import math
+from dataclasses import dataclass
+from queue import Empty, SimpleQueue
+from threading import Thread
+from typing import Any
+
+from messaging.zeromq.publisher import ZeroMqPublisher
+from messaging.zeromq.subscriber import ZeroMqSubscriber
+from ui.navigation import GeoPoint
+
+MAP_COMMAND_TOPIC = "map.command"
+POI_SELECTED_TOPIC = "map.poi.selected"
+POI_SEARCH_RESULT_TOPIC = "map.poi.search_result"
+MAP_CLICK_TOPIC = "map.click"
+MAP_CAMERA_MANUAL_TOPIC = "map.camera.manual"
+
+
+@dataclass(frozen=True, slots=True)
+class RawMapPoi:
+    poi_id: str
+    name: str
+    position: GeoPoint
+    brand: str | None = None
+    source_class: str | None = None
+    source_subclass: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class RawMapClick:
+    position: GeoPoint
+    selection_radius_m: float
+    marker_id: str | None = None
+    marker_index: int | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class RawPoiSearchResult:
+    category: str
+    count: int
+    south: float
+    west: float
+    north: float
+    east: float
+
+
+class MapPoiSource:
+    """Marshal native renderer POI protocol onto the controller/UI thread."""
+
+    def __init__(self) -> None:
+        self._publisher = ZeroMqPublisher()
+        self._subscriber = ZeroMqSubscriber()
+        self._subscriber.subscribe(POI_SELECTED_TOPIC)
+        self._subscriber.subscribe(POI_SEARCH_RESULT_TOPIC)
+        self._subscriber.subscribe(MAP_CLICK_TOPIC)
+        self._subscriber.subscribe(MAP_CAMERA_MANUAL_TOPIC)
+        self._queue: SimpleQueue[RawMapPoi] = SimpleQueue()
+        self._search_queue: SimpleQueue[RawPoiSearchResult] = SimpleQueue()
+        self._click_queue: SimpleQueue[RawMapClick] = SimpleQueue()
+        self._camera_queue: SimpleQueue[bool] = SimpleQueue()
+        self._thread = Thread(target=self._receive, name="map-poi-source", daemon=True)
+        self._thread.start()
+
+    def poll_selected(self) -> RawMapPoi | None:
+        try:
+            return self._queue.get_nowait()
+        except Empty:
+            return None
+
+    def poll_click(self) -> RawMapClick | None:
+        try:
+            return self._click_queue.get_nowait()
+        except Empty:
+            return None
+
+    def poll_camera_interaction(self) -> bool:
+        try:
+            self._camera_queue.get_nowait()
+            return True
+        except Empty:
+            return False
+
+    def poll_search_result(self) -> RawPoiSearchResult | None:
+        try:
+            return self._search_queue.get_nowait()
+        except Empty:
+            return None
+
+    def request_search(self, category: str) -> None:
+        self._publisher.publish(MAP_COMMAND_TOPIC, {"command": "search_pois", "category": category})
+
+    def clear(self) -> None:
+        while True:
+            try:
+                self._search_queue.get_nowait()
+            except Empty:
+                break
+
+    def close(self) -> None:
+        self._publisher.close()
+        self._subscriber.close()
+
+    def _receive(self) -> None:
+        while True:
+            try:
+                topic, payload = self._subscriber.receive()
+            except RuntimeError:
+                return
+            if topic == POI_SELECTED_TOPIC:
+                poi = self._decode(payload)
+                if poi is not None:
+                    self._queue.put(poi)
+            elif topic == MAP_CLICK_TOPIC:
+                click = self._decode_click(payload)
+                if click is not None:
+                    print(
+                        "[map-poi] received click "
+                        f"lat={math.degrees(click.position.latitude_rad):.7f} "
+                        f"lon={math.degrees(click.position.longitude_rad):.7f} "
+                        f"radius_m={click.selection_radius_m:.1f} "
+                        f"marker_id={click.marker_id!r} "
+                        f"marker_index={click.marker_index!r}"
+                    )
+                    self._click_queue.put(click)
+                else:
+                    print(f"[map-poi] rejected click payload: {payload!r}")
+            elif topic == MAP_CAMERA_MANUAL_TOPIC:
+                self._camera_queue.put(True)
+            elif topic == POI_SEARCH_RESULT_TOPIC:
+                result = self._decode_search_result(payload)
+                if result is not None:
+                    self._search_queue.put(result)
+
+    @staticmethod
+    def _decode(payload: Any) -> RawMapPoi | None:
+        if not isinstance(payload, dict):
+            return None
+        name = payload.get("name")
+        latitude = payload.get("latitude")
+        longitude = payload.get("longitude")
+        if not isinstance(name, str) or not name:
+            return None
+        if not isinstance(latitude, (int, float)) or not isinstance(longitude, (int, float)):
+            return None
+
+        def optional_string(key: str) -> str | None:
+            value = payload.get(key)
+            return value if isinstance(value, str) and value else None
+
+        poi_id = optional_string("id") or f"map:{name}:{float(latitude):.7f}:{float(longitude):.7f}"
+        return RawMapPoi(
+            poi_id=poi_id,
+            name=name,
+            position=GeoPoint(
+                latitude_rad=math.radians(float(latitude)),
+                longitude_rad=math.radians(float(longitude)),
+            ),
+            brand=optional_string("brand"),
+            source_class=optional_string("class"),
+            source_subclass=optional_string("subclass"),
+        )
+
+    @staticmethod
+    def _decode_click(payload: Any) -> RawMapClick | None:
+        if not isinstance(payload, dict):
+            return None
+        latitude = payload.get("latitude")
+        longitude = payload.get("longitude")
+        radius = payload.get("selection_radius_m")
+        marker_id = payload.get("marker_id")
+        marker_index = payload.get("marker_index")
+        if not isinstance(latitude, (int, float)) or not isinstance(longitude, (int, float)):
+            return None
+        if not isinstance(radius, (int, float)) or float(radius) <= 0.0:
+            return None
+        return RawMapClick(
+            position=GeoPoint(
+                latitude_rad=math.radians(float(latitude)),
+                longitude_rad=math.radians(float(longitude)),
+            ),
+            selection_radius_m=float(radius),
+            marker_id=marker_id if isinstance(marker_id, str) and marker_id else None,
+            marker_index=(
+                int(marker_index)
+                if isinstance(marker_index, int) and marker_index >= 0
+                else None
+            ),
+        )
+
+    @staticmethod
+    def _decode_search_result(payload: Any) -> RawPoiSearchResult | None:
+        if not isinstance(payload, dict):
+            return None
+        category = payload.get("category")
+        count = payload.get("count")
+        values = [payload.get(key) for key in ("south", "west", "north", "east")]
+        if not isinstance(category, str) or not isinstance(count, int):
+            return None
+        if not all(isinstance(value, (int, float)) for value in values):
+            return None
+        return RawPoiSearchResult(category, count, *(float(value) for value in values))

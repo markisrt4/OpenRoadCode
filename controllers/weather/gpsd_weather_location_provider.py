@@ -3,7 +3,7 @@
 
 """GPSD-backed weather location selection."""
 
-from controllers.weather.weather_snapshot import WeatherLocation
+from controllers.weather.weather_state import WeatherLocation
 
 
 class GpsdWeatherLocationProvider:

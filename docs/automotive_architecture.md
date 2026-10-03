@@ -18,7 +18,7 @@ The automotive stack follows five rules:
 
 The most important boundary is VehicleStateSourceIf. Everything below that interface may be hardware- or protocol-specific. Everything above it consumes a normalized VehicleState.
 
-<aside class="orc-diagram-legend" aria-label="Architecture diagram legend">
+<div class="orc-diagram-legend" aria-label="Architecture diagram legend">
   <strong>Diagram key</strong>
   <span><i class="orc-legend-swatch orc-legend-app"></i>App / UI</span>
   <span><i class="orc-legend-swatch orc-legend-service"></i>Service / runtime</span>
@@ -26,7 +26,7 @@ The most important boundary is VehicleStateSourceIf. Everything below that inter
   <span><i class="orc-legend-swatch orc-legend-message"></i>Messaging / contract</span>
   <span><i class="orc-legend-swatch orc-legend-adapter"></i>Protocol / hardware</span>
   <span><i class="orc-legend-swatch orc-legend-external"></i>External / input</span>
-</aside>
+</div>
 
 ~~~mermaid
 flowchart LR
@@ -277,7 +277,7 @@ Trip is the historical counterpart to the ECU screen.
 
 Trip accumulation continues even when the Trip screen is not visible. BACKGROUND is deliberately trip-biased so leaving Vehicle does not substantially degrade accumulated analytics.
 
-Advanced fuel metrics should prefer defensible measurements such as total fuel used, average fuel economy, time in boost, distance in boost, fuel consumed while boosted, share of trip fuel consumed while boosted, time enriched, high-load duration, and peak boost.
+Advanced fuel metrics should prefer defensible measurements such as total fuel used, average fuel economy, time in boost, distance in boost, fuel consumed while boosted, share of trip fuel consumed while boosted, fuel consumed while under high load, and peak boost. The Version 3 Trip wire contract publishes the measured fuel quantities; presentation derives boost/high-load shares from total fuel used.
 
 A metric claiming fuel caused by boost requires a defensible counterfactual baseline. Until such a model exists, OpenRoadCode should report measured association, such as "fuel consumed while boosted", rather than claiming an exact boost penalty.
 
@@ -364,5 +364,5 @@ The important prohibition is the reverse dependency: applications must not reach
 - [OBD-II controller](../controllers/automotive/obd2/README.md)
 - [OBD-II protocol models](../protocols/obd2/README.md)
 - [ELM327 hardware implementation](../hardware_io/automotive/elm327/README.md)
-- [Automotive vehicle-state IDD](idd/automotive_vehicle_state.md)
+- [Automotive vehicle-state IDD](idd/automotive_vehicle_state.md)\n- [Automotive Trip-state IDD](idd/automotive_trip_state.md)
 - [Messaging overview](../messaging/README.md)

@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 from dataclasses import replace
 from pathlib import Path
 
@@ -22,13 +23,23 @@ from protocols.obd2.simulated_obd2_adapter import SimulatedObd2Adapter
 from services.automotive.automotive_runtime import AutomotiveRuntime
 from services.automotive.automotive_telemetry_profile_runtime import AutomotiveTelemetryProfileRuntime
 
-DEFAULT_RUNTIME_CONFIG = Path(__file__).resolve().parents[2] / "config" / "runtime.toml"
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+DEFAULT_RUNTIME_CONFIG = PROJECT_ROOT / "config" / "runtime.toml"
+AUTOMOTIVE_PROFILE_DIR = PROJECT_ROOT / "config" / "profiles" / "automotive"
+AUTOMOTIVE_PROFILES = ("local", "remote", "simulated")
+DEFAULT_RUNTIME_PROFILE = "local"
 DEFAULT_GEAR_PROFILE = Path(__file__).resolve().parents[2] / "vehicle_gears.learned.toml"
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Publish automotive telemetry.")
     parser.add_argument("--config", default=str(DEFAULT_RUNTIME_CONFIG))
+    parser.add_argument(
+        "--profile",
+        choices=AUTOMOTIVE_PROFILES,
+        default=None,
+        help="Automotive input origin: local, remote, or simulated.",
+    )
     parser.add_argument(
         "--configured-source",
         action="store_true",
@@ -57,6 +68,17 @@ def parse_args() -> argparse.Namespace:
         help="learned RPM/speed gear profile; absent file disables gear estimation",
     )
     return parser.parse_args()
+
+
+
+def resolve_runtime_profile(requested: str | None = None) -> tuple[str, Path]:
+    profile = requested or os.environ.get(
+        "OPENROADCODE_RUNTIME_PROFILE",
+        DEFAULT_RUNTIME_PROFILE,
+    )
+    if profile not in AUTOMOTIVE_PROFILES:
+        raise ValueError(f"Unsupported automotive runtime profile: {profile}")
+    return profile, AUTOMOTIVE_PROFILE_DIR / f"{profile}.toml"
 
 
 def build_source(config: AutomotiveServiceRuntimeConfig):
@@ -94,7 +116,11 @@ def _load_gear_estimator(path: Path) -> GearEstimator | None:
 
 def main() -> int:
     args = parse_args()
-    system = ServiceRuntimeConfigParser(args.config).load()
+    profile, profile_path = resolve_runtime_profile(args.profile)
+    system = ServiceRuntimeConfigParser(
+        args.config,
+        overlays=(profile_path,),
+    ).load()
     config = system.automotive
     if args.obd_simulation:
         config = replace(
@@ -139,6 +165,7 @@ def main() -> int:
         source,
     )
     print("OpenRoadCode automotive service")
+    print(f"  input profile:     {profile}")
     print(f"  input source:      {source_description}")
     if config.input.source in {"device", "obd_simulation"}:
         print(f"  motion endpoint:   {system.messaging.subscriber_endpoint}")

@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
 
 from apps.orcUi.navigation_presenter import (
@@ -13,6 +14,8 @@ from apps.orcUi.navigation_presenter import (
 )
 from apps.orcUi.trip_presenter import TripPresentationState
 from apps.orcUi.vehicle_presenter import VehiclePresentationState
+from messaging.contracts.route_guidance import RouteGuidanceStateMessage
+from ui.weather import WeatherAlertUiEvent
 from controllers.automotive import (
     EngineAnalysis,
     EngineLoadLevel,
@@ -53,36 +56,134 @@ class OrcUiPresentationState:
     position: PositionPresentationState = field(default_factory=PositionPresentationState)
     attitude: AttitudePresentationState = field(default_factory=AttitudePresentationState)
     engine_analysis: EngineAnalysis = field(default_factory=_empty_engine_analysis)
+    weather_alert: WeatherAlertUiEvent | None = None
+    route_guidance: RouteGuidanceStateMessage | None = None
+    _vehicle_observers: list[Callable[[VehiclePresentationState], None]] = field(
+        default_factory=list,
+        init=False,
+        repr=False,
+    )
+    _trip_observers: list[Callable[[TripPresentationState], None]] = field(
+        default_factory=list,
+        init=False,
+        repr=False,
+    )
+    _position_observers: list[Callable[[PositionPresentationState], None]] = field(
+        default_factory=list,
+        init=False,
+        repr=False,
+    )
+    _attitude_observers: list[Callable[[AttitudePresentationState], None]] = field(
+        default_factory=list,
+        init=False,
+        repr=False,
+    )
+    _weather_alert_observers: list[Callable[[WeatherAlertUiEvent | None], None]] = field(
+        default_factory=list,
+        init=False,
+        repr=False,
+    )
+    _route_guidance_observers: list[Callable[[RouteGuidanceStateMessage], None]] = field(
+        default_factory=list,
+        init=False,
+        repr=False,
+    )
+    _engine_analysis_observers: list[Callable[[EngineAnalysis], None]] = field(
+        default_factory=list,
+        init=False,
+        repr=False,
+    )
 
-    def apply_vehicle(self, state: VehiclePresentationState, *, context, vehicle_panel) -> None:
+    def observe_vehicle(
+        self,
+        observer: Callable[[VehiclePresentationState], None],
+    ) -> None:
+        """Subscribe to future vehicle presentation updates."""
+        self._vehicle_observers.append(observer)
+
+    def observe_trip(
+        self,
+        observer: Callable[[TripPresentationState], None],
+    ) -> None:
+        """Subscribe to future trip presentation updates."""
+        self._trip_observers.append(observer)
+
+    def observe_position(
+        self,
+        observer: Callable[[PositionPresentationState], None],
+    ) -> None:
+        """Subscribe to future position presentation updates."""
+        self._position_observers.append(observer)
+
+    def observe_attitude(
+        self,
+        observer: Callable[[AttitudePresentationState], None],
+    ) -> None:
+        """Subscribe to future attitude presentation updates."""
+        self._attitude_observers.append(observer)
+
+    def observe_weather_alert(
+        self,
+        observer: Callable[[WeatherAlertUiEvent | None], None],
+    ) -> None:
+        """Subscribe to future shell-level Weather alert changes."""
+        self._weather_alert_observers.append(observer)
+
+    def observe_route_guidance(
+        self,
+        observer: Callable[[RouteGuidanceStateMessage], None],
+    ) -> None:
+        """Subscribe to future route-guidance presentation updates."""
+        self._route_guidance_observers.append(observer)
+
+    def observe_engine_analysis(
+        self,
+        observer: Callable[[EngineAnalysis], None],
+    ) -> None:
+        """Subscribe to future engine-analysis presentation updates."""
+        self._engine_analysis_observers.append(observer)
+
+    def apply_vehicle(self, state: VehiclePresentationState) -> None:
         self.vehicle = state
-        if context is not None and context.winfo_exists():
-            context.update_vehicle_state(state)
-        if vehicle_panel is not None and vehicle_panel.winfo_exists():
-            vehicle_panel.update_state(state)
+        for observer in tuple(self._vehicle_observers):
+            observer(state)
 
-    def apply_trip(self, state: TripPresentationState, *, context, vehicle_panel) -> None:
+    def apply_trip(self, state: TripPresentationState) -> None:
         self.trip = state
-        if context is not None and context.winfo_exists():
-            context.update_trip_state(state)
-        if vehicle_panel is not None and vehicle_panel.winfo_exists():
-            vehicle_panel.update_trip_state(state)
+        for observer in tuple(self._trip_observers):
+            observer(state)
 
-    def apply_position(self, state: PositionPresentationState, *, context, offroad_panel) -> None:
+    def apply_position(self, state: PositionPresentationState) -> None:
         self.position = state
-        if context is not None and context.winfo_exists():
-            context.update_position_state(state)
-        if offroad_panel is not None and offroad_panel.winfo_exists():
-            offroad_panel.update_position(state)
+        for observer in tuple(self._position_observers):
+            observer(state)
 
-    def apply_attitude(self, state: AttitudePresentationState, *, context, offroad_panel) -> None:
+    def apply_attitude(self, state: AttitudePresentationState) -> None:
         self.attitude = state
-        if context is not None and context.winfo_exists():
-            context.update_attitude_state(state)
-        if offroad_panel is not None and offroad_panel.winfo_exists():
-            offroad_panel.update_attitude(state)
+        for observer in tuple(self._attitude_observers):
+            observer(state)
 
-    def apply_engine_analysis(self, analysis: EngineAnalysis, *, vehicle_panel) -> None:
+    def apply_weather_alert(self, event: WeatherAlertUiEvent) -> None:
+        """Apply correlated Weather alert lifecycle semantics."""
+        if event.operation == "active":
+            self.weather_alert = event
+        elif (
+            event.operation == "cleared"
+            and self.weather_alert is not None
+            and self.weather_alert.correlation_id == event.correlation_id
+        ):
+            self.weather_alert = None
+        else:
+            return
+        for observer in tuple(self._weather_alert_observers):
+            observer(self.weather_alert)
+
+    def apply_route_guidance(self, state: RouteGuidanceStateMessage) -> None:
+        self.route_guidance = state
+        for observer in tuple(self._route_guidance_observers):
+            observer(state)
+
+    def apply_engine_analysis(self, analysis: EngineAnalysis) -> None:
         self.engine_analysis = analysis
-        if vehicle_panel is not None and vehicle_panel.winfo_exists():
-            vehicle_panel.update_engine_analysis(analysis)
+        for observer in tuple(self._engine_analysis_observers):
+            observer(analysis)

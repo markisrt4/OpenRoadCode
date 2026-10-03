@@ -7,7 +7,7 @@ The module does **not** open a USB serial device directly. `gpsd` owns the
 physical GPS device, such as `/dev/ttyACM0`, and `GpsReader` connects to the
 `gpsd` service over TCP at `127.0.0.1:2947` by default.
 
-<aside class="orc-diagram-legend" aria-label="Architecture diagram legend">
+<div class="orc-diagram-legend" aria-label="Architecture diagram legend">
   <strong>Diagram key</strong>
   <span><i class="orc-legend-swatch orc-legend-app"></i>App / UI</span>
   <span><i class="orc-legend-swatch orc-legend-service"></i>Service / runtime</span>
@@ -15,7 +15,7 @@ physical GPS device, such as `/dev/ttyACM0`, and `GpsReader` connects to the
   <span><i class="orc-legend-swatch orc-legend-message"></i>Messaging / contract</span>
   <span><i class="orc-legend-swatch orc-legend-adapter"></i>Protocol / hardware</span>
   <span><i class="orc-legend-swatch orc-legend-external"></i>External / input</span>
-</aside>
+</div>
 
 ```mermaid
 flowchart LR

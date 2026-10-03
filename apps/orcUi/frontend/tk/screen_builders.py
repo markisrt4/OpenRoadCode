@@ -8,19 +8,22 @@ from __future__ import annotations
 import tkinter as tk
 from collections.abc import Callable
 
-from apps.orcUi.navigation_presenter import AttitudePresentationState, PositionPresentationState
 from apps.orcUi.trip_presenter import TripPresentationState
+from common.units import UnitSystem
 from apps.orcUi.vehicle_presenter import VehiclePresentationState
 from controllers.automotive import (
     AutomotiveTelemetryProfile,
     EngineAnalysis,
     VehicleConfiguration,
 )
-from ui.navigation import MapRequestHandlerIf
+from ui.navigation import (
+    MapRequestHandlerIf,
+    RouteRequestHandlerIf,
+    RouteSimulationRequestHandlerIf,
+)
 from ui.theme import ThemeBundle
 
 from .navigation_panel import NavigationPanel
-from .offroad_panel import OffRoadPanel
 from .settings_panel import SettingsPanel
 from .shell_content import panel
 from .vehicle_panel import VehiclePanel
@@ -30,12 +33,16 @@ def build_navigation_screen(
     parent: tk.Misc,
     *,
     map_request_handler: MapRequestHandlerIf,
+    route_request_handler: RouteRequestHandlerIf,
+    route_simulation_handler: RouteSimulationRequestHandlerIf,
     on_back: Callable[[], None],
     theme: ThemeBundle,
 ) -> NavigationPanel:
     screen = NavigationPanel(
         parent,
         map_request_handler=map_request_handler,
+        route_request_handler=route_request_handler,
+        route_simulation_handler=route_simulation_handler,
         on_back=on_back,
         theme_bundle=theme,
     )
@@ -75,6 +82,8 @@ def build_settings_screen(
     *,
     vehicle_configuration: VehicleConfiguration,
     on_vehicle_configuration_changed: Callable[[VehicleConfiguration], None],
+    unit_system: UnitSystem,
+    on_unit_system_changed: Callable[[UnitSystem], None],
     on_back: Callable[[], None],
     theme: ThemeBundle,
 ) -> SettingsPanel:
@@ -82,27 +91,10 @@ def build_settings_screen(
         parent,
         vehicle_configuration=vehicle_configuration,
         on_vehicle_configuration_changed=on_vehicle_configuration_changed,
+        unit_system=unit_system,
+        on_unit_system_changed=on_unit_system_changed,
         on_back=on_back,
         theme_bundle=theme,
-    )
-    screen.pack(fill=tk.BOTH, expand=True)
-    return screen
-
-
-def build_offroad_screen(
-    parent: tk.Misc,
-    *,
-    on_back: Callable[[], None],
-    position: PositionPresentationState,
-    attitude: AttitudePresentationState,
-    theme: ThemeBundle,
-) -> OffRoadPanel:
-    screen = OffRoadPanel(
-        parent,
-        on_back=on_back,
-        position=position,
-        attitude=attitude,
-        theme=theme.ui,
     )
     screen.pack(fill=tk.BOTH, expand=True)
     return screen

@@ -7,128 +7,112 @@
 #include <mbgl/util/run_loop.hpp>
 #include <mbgl/util/timer.hpp>
 
-#include <memory>
+#include <cstddef>
 #include <functional>
+#include <memory>
+#include <string>
+#include <vector>
 
 struct GLFWwindow;
 class GLFWBackend;
 class MapRendererFrontend;
 
-namespace mbgl {
-namespace gfx {
-class RendererBackend;
-}
-}
+namespace mbgl { namespace gfx { class RendererBackend; } }
 
-/**
- * @brief GLFW window, input adapter, and event loop for a MapLibre map.
- *
- * The view owns the graphics backend and translates window resize, mouse,
- * scroll, and frame events into MapLibre operations.
- */
+struct CachedPoiResult {
+    std::string id;
+    std::string name;
+    std::string category;
+    std::string brand;
+    std::string sourceClass;
+    std::string sourceSubclass;
+    double latitude = 0.0;
+    double longitude = 0.0;
+};
+
+struct InteractivePoiMarker {
+    std::size_t index = 0;
+    std::string id;
+    double left = 0.0;
+    double top = 0.0;
+    double right = 0.0;
+    double bottom = 0.0;
+
+    bool contains(double x, double y) const {
+        return x >= left && x <= right && y >= top && y <= bottom;
+    }
+};
+
+struct PoiSearchResult {
+    int count = 0;
+    double south = 0.0;
+    double west = 0.0;
+    double north = 0.0;
+    double east = 0.0;
+};
+
 class MapView : public mbgl::MapObserver {
 public:
-    /**
-     * @brief Create the renderer window and graphics backend.
-     * @param resourceOptions MapLibre resource configuration.
-     * @param clientOptions MapLibre client configuration.
-     */
-    MapView(
-        const mbgl::ResourceOptions& resourceOptions,
-        const mbgl::ClientOptions& clientOptions
-    );
+    using ManualCameraCallback = std::function<void()>;
+    using MapClickCallback = std::function<void(
+        double, double, double, const std::string&, std::size_t)>;
 
-    /** @brief Destroy the window and terminate GLFW. */
+    using PoiSelectedCallback = std::function<void(
+        const std::string& name,
+        const std::string& brand,
+        const std::string& sourceClass,
+        const std::string& sourceSubclass,
+        double latitude,
+        double longitude)>;
+
+    MapView(const mbgl::ResourceOptions& resourceOptions, const mbgl::ClientOptions& clientOptions);
     ~MapView() override;
-
-    /** @brief Return the framebuffer-to-window pixel ratio. */
     float getPixelRatio() const;
-
-    /** @brief Return the current logical window size. */
     mbgl::Size getSize() const;
-
-    /** @brief Return the graphics backend used by the renderer. */
     mbgl::gfx::RendererBackend& getRendererBackend();
-
-    /** @brief Attach the MapLibre map controlled by this view. */
     void setMap(mbgl::Map* map);
-
-    /** @brief Attach the frontend that renders invalidated frames. */
     void setRendererFrontend(MapRendererFrontend* rendererFrontend);
-
-    /** @brief Run the window event loop until the window closes. */
     void run();
-
-    /** @brief Mark the view dirty and wake the event loop. */
     void invalidate();
-
-    /** @brief Request that the window and event loop close. */
+    void showWindow();
     void setShouldClose();
-
-    /** @brief Receive notification that MapLibre will render a frame. */
     void onWillStartRenderingFrame() override;
-
-    /**
-     * @brief Set work to execute on every event-loop tick.
-     * @param callback Callback used to poll external map commands.
-     */
     void setUpdateCallback(std::function<void()> callback);
+    void setPoiSelectedCallback(PoiSelectedCallback callback);
+    void setManualCameraCallback(ManualCameraCallback callback);
+    void setMapClickCallback(MapClickCallback callback);
+    void setPoiResultsJson(const std::string& geojson);
+    PoiSearchResult searchVisiblePois(const std::string& category) const;
 
 private:
-    static void onWindowResize(
-        GLFWwindow* window,
-        int width,
-        int height
-    );
-
-    static void onFramebufferResize(
-        GLFWwindow* window,
-        int width,
-        int height
-    );
-
-    static void onScroll(
-        GLFWwindow* window,
-        double xOffset,
-        double yOffset
-    );
-
-    static void onMouseClick(
-        GLFWwindow* window,
-        int button,
-        int action,
-        int modifiers
-    );
-
-    static void onMouseMove(
-        GLFWwindow* window,
-        double x,
-        double y
-    );
-
+    static void onWindowResize(GLFWwindow* window, int width, int height);
+    static void onFramebufferResize(GLFWwindow* window, int width, int height);
+    static void onScroll(GLFWwindow* window, double xOffset, double yOffset);
+    static void onMouseClick(GLFWwindow* window, int button, int action, int modifiers);
+    static void onMouseMove(GLFWwindow* window, double x, double y);
+    std::vector<InteractivePoiMarker> interactivePoiMarkers() const;
     void render();
 
     mbgl::Map* map = nullptr;
     MapRendererFrontend* rendererFrontend = nullptr;
-
     std::unique_ptr<GLFWBackend> backend;
-
     GLFWwindow* window = nullptr;
-
     int width = 1024;
     int height = 600;
-
     float pixelRatio = 1.0f;
-
     double lastX = 0.0;
     double lastY = 0.0;
+    double pressX = 0.0;
+    double pressY = 0.0;
     double lastClick = -1.0;
-
     bool tracking = false;
+    bool manualGesturePublished = false;
     bool dirty = false;
-
     mbgl::util::RunLoop runLoop;
     mbgl::util::Timer frameTick;
-    
     std::function<void()> updateCallback;
+    PoiSelectedCallback poiSelectedCallback;
+    ManualCameraCallback manualCameraCallback;
+    MapClickCallback mapClickCallback;
+    std::vector<CachedPoiResult> poiResults;
 };

@@ -18,6 +18,11 @@ from dataclasses import dataclass
 from pathlib import Path
 import statistics
 import sys
+
+try:
+    import tomllib
+except ModuleNotFoundError:  # Python 3.10
+    import tomli as tomllib
 import time
 
 from messaging.contracts.automotive import VEHICLE_STATE_TOPIC, decode_vehicle_state
@@ -26,6 +31,7 @@ from messaging.zeromq.endpoints import LOCAL_SUBSCRIBER_ENDPOINT
 
 RPM_PER_RAD_S = 60.0 / (2.0 * 3.141592653589793)
 MPH_PER_MPS = 2.2369362920544
+MAX_CAPTURE_SPREAD = 0.08
 
 
 @dataclass(frozen=True)
@@ -40,6 +46,23 @@ def _parse_args() -> argparse.Namespace:
         description="Learn vehicle forward-gear ratios from ORC telemetry."
     )
     parser.add_argument("--gears", type=int, default=6, help="number of forward gears")
+    parser.add_argument(
+        "--gear",
+        type=int,
+        help="calibrate only this physical gear and merge it into the output profile",
+    )
+    parser.add_argument(
+        "--mode",
+        choices=("automatic", "guided"),
+        default="automatic",
+        help="automatic clustering or guided per-gear calibration",
+    )
+    parser.add_argument(
+        "--samples-per-gear",
+        type=int,
+        default=12,
+        help="stable samples required for each gear in guided mode",
+    )
     parser.add_argument(
         "--output",
         type=Path,
@@ -167,15 +190,208 @@ def _print_summary(groups: list[list[float]]) -> None:
         )
 
 
+def _read_sample(subscriber: ZeroMqSubscriber, args: argparse.Namespace, history: deque[float]) -> Sample | None:
+    topic, payload = subscriber.receive()
+    if topic != VEHICLE_STATE_TOPIC:
+        return None
+    message = decode_vehicle_state(payload)
+    engine_speed = message.data.engine_speed_rad_s
+    vehicle_speed = message.data.vehicle_speed_m_s
+    if engine_speed is None or vehicle_speed is None:
+        history.clear()
+        return None
+    rpm = engine_speed * RPM_PER_RAD_S
+    speed_mph = vehicle_speed * MPH_PER_MPS
+    if rpm < args.min_rpm or speed_mph < args.min_speed_mph:
+        history.clear()
+        return None
+    ratio = rpm / speed_mph
+    history.append(ratio)
+    if not _stable_ratio(history, args.max_window_spread):
+        return None
+    return Sample(rpm=rpm, speed_mph=speed_mph, rpm_per_mph=ratio)
+
+
+
+
+def _read_profile_groups(path: Path, gear_count: int) -> list[list[float]]:
+    """Load existing learned centers so a single gear can be replaced."""
+    groups: list[list[float]] = [[] for _ in range(gear_count)]
+    if not path.exists():
+        return groups
+    with path.open("rb") as file:
+        data = tomllib.load(file)
+    for raw in data.get("gear", []):
+        number = int(raw["number"])
+        if 1 <= number <= gear_count:
+            # Existing profiles do not retain every raw sample. Preserve the
+            # learned center as a one-sample group until that gear is recaptured.
+            groups[number - 1] = [float(raw["rpm_per_mph"])]
+    return groups
+
+
+def _single_gear_learn(subscriber: ZeroMqSubscriber, args: argparse.Namespace) -> int:
+    gear = args.gear
+    assert gear is not None
+    history: deque[float] = deque(maxlen=args.window)
+    values: list[float] = []
+    last_status = 0.0
+
+    print(f"OpenRoadCode gear {gear} calibration")
+    print(f"Collecting {args.samples_per_gear} stable samples in gear {gear}.")
+    print("Start this command while parked, then drive only in the requested gear.")
+    print("Do not interact with the terminal while driving.\n")
+
+    while len(values) < args.samples_per_gear:
+        sample = _read_sample(subscriber, args, history)
+        if sample is None:
+            continue
+        values.append(sample.rpm_per_mph)
+        now = time.monotonic()
+        if now - last_status >= 0.25 or len(values) == args.samples_per_gear:
+            print(
+                f"\rGear {gear}: {sample.rpm:5.0f} rpm  {sample.speed_mph:5.1f} mph  "
+                f"{sample.rpm_per_mph:7.2f} rpm/mph  "
+                f"accepted={len(values):2d}/{args.samples_per_gear}",
+                end="",
+                flush=True,
+            )
+            last_status = now
+    print()
+
+    groups = _read_profile_groups(args.output, args.gears)
+    groups[gear - 1] = values
+
+    learned = [(index + 1, statistics.median(group)) for index, group in enumerate(groups) if group]
+    if any(a_ratio <= b_ratio for (_a_gear, a_ratio), (_b_gear, b_ratio) in zip(learned, learned[1:])):
+        print(
+            "Calibration rejected: learned ratios must decrease as gear number increases.",
+            file=sys.stderr,
+        )
+        return 2
+
+    _write_profile(args.output, groups, sum(len(group) for group in groups))
+    print(
+        f"Gear {gear} captured: median={statistics.median(values):.2f} rpm/mph, "
+        f"sigma={statistics.pstdev(values) if len(values) > 1 else 0.0:.2f}"
+    )
+    print(f"Updated learned profile: {args.output}")
+    return 0
+
+
+def _capture_guided_gear(
+    subscriber: ZeroMqSubscriber,
+    args: argparse.Namespace,
+    gear: int,
+) -> list[float]:
+    """Capture one gear, rejecting a noisy sample set before advancing."""
+    while True:
+        print(f"\n{'=' * 56}")
+        print(f"READY FOR GEAR {gear}")
+        print(f"{'=' * 56}")
+        print(f"Shift into gear {gear} and establish steady driving.")
+        input(f"Press Enter once to ARM gear {gear}...")
+        print(f"ARMED: gear {gear}. Waiting for stable telemetry.", flush=True)
+
+        history: deque[float] = deque(maxlen=args.window)
+        values: list[float] = []
+        last_status = 0.0
+        while len(values) < args.samples_per_gear:
+            sample = _read_sample(subscriber, args, history)
+            if sample is None:
+                continue
+            values.append(sample.rpm_per_mph)
+            now = time.monotonic()
+            if now - last_status >= 0.25 or len(values) == args.samples_per_gear:
+                print(
+                    f"\rGear {gear}: {sample.rpm:5.0f} rpm  {sample.speed_mph:5.1f} mph  "
+                    f"{sample.rpm_per_mph:7.2f} rpm/mph  "
+                    f"accepted={len(values):2d}/{args.samples_per_gear}",
+                    end="",
+                    flush=True,
+                )
+                last_status = now
+        print()
+
+        center = statistics.median(values)
+        spread = (max(values) - min(values)) / center if center > 0.0 else float("inf")
+        sigma = statistics.pstdev(values) if len(values) > 1 else 0.0
+        if spread > MAX_CAPTURE_SPREAD:
+            print(
+                f"REJECTED GEAR {gear}: capture spread was {spread:.1%}; "
+                f"maximum is {MAX_CAPTURE_SPREAD:.1%}."
+            )
+            print("Sampling is DISARMED. Re-establish the requested gear and retry.")
+            continue
+
+        print(
+            f"CAPTURED GEAR {gear}: median={center:.2f} rpm/mph, "
+            f"sigma={sigma:.2f}"
+        )
+        print("Sampling is DISARMED.")
+        return values
+
+
+def _guided_learn(subscriber: ZeroMqSubscriber, args: argparse.Namespace) -> int:
+    groups: list[list[float]] = []
+    print("Guided manual-transmission calibration")
+    print(f"Collecting {args.samples_per_gear} stable samples per gear.")
+    print("Each gear is explicitly armed and disarmed before advancing.")
+    print("For safety, have a passenger operate the terminal or interact only while stopped.\n")
+
+    for gear in range(1, args.gears + 1):
+        while True:
+            values = _capture_guided_gear(subscriber, args, gear)
+            center = statistics.median(values)
+            if groups:
+                previous_center = statistics.median(groups[-1])
+                if center >= previous_center:
+                    print(
+                        f"REJECTED GEAR {gear}: {center:.2f} rpm/mph is not below "
+                        f"gear {gear - 1} ({previous_center:.2f} rpm/mph)."
+                    )
+                    print("That usually means the wrong gear was armed. Recapturing.")
+                    continue
+            groups.append(values)
+            break
+
+    _print_summary(groups)
+    _write_profile(args.output, groups, sum(len(group) for group in groups))
+    print(f"\nWrote learned profile: {args.output}")
+    return 0
+
+
 def main() -> int:
     args = _parse_args()
     if args.gears < 1:
         raise SystemExit("--gears must be at least 1")
+    if args.gear is not None and not 1 <= args.gear <= args.gears:
+        raise SystemExit("--gear must be between 1 and --gears")
     if args.window < 2:
         raise SystemExit("--window must be at least 2")
+    if args.samples_per_gear < 1:
+        raise SystemExit("--samples-per-gear must be at least 1")
 
     subscriber = ZeroMqSubscriber(args.endpoint)
     subscriber.subscribe(VEHICLE_STATE_TOPIC)
+
+    if args.gear is not None:
+        try:
+            return _single_gear_learn(subscriber, args)
+        except KeyboardInterrupt:
+            print("\nCalibration cancelled; no profile was written.")
+            return 130
+        finally:
+            subscriber.close()
+
+    if args.mode == "guided":
+        try:
+            return _guided_learn(subscriber, args)
+        except KeyboardInterrupt:
+            print("\nCalibration cancelled; no profile was written.")
+            return 130
+        finally:
+            subscriber.close()
 
     ratio_history: deque[float] = deque(maxlen=args.window)
     samples: list[Sample] = []

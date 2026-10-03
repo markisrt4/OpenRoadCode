@@ -17,6 +17,7 @@ The [project README](../README.md) remains the repository landing page. [Doxygen
 - [Navigation deployment](navigation_deployment.md)
 - [XDG path policy](xdg_paths.md)
 - [Message bus interface design](messaging/message_bus_idd.md)
+- [Automotive Trip-state interface](idd/automotive_trip_state.md)
 - [Automotive vehicle-state interface](idd/automotive_vehicle_state.md)
 - [Environmental barometric-state interface](idd/environmental_barometric_state.md)
 - [Navigation command-service interface](idd/navigation_command_service.md)
@@ -38,10 +39,6 @@ The [project README](../README.md) remains the repository landing page. [Doxygen
 ## Complete documentation catalog
 
 Generated from the canonical documentation files. Every component README and standalone guide is listed here. Run `python scripts/docs_inventory.py --write` after adding or moving documentation.
-
-### .Pytest Cache
-
-- [.Pytest Cache](../.pytest_cache/README.md)
 
 ### Apps
 
@@ -97,6 +94,7 @@ Generated from the canonical documentation files. Every component README and sta
 - [Architecture](architecture.md)
 - [Automotive Architecture](automotive_architecture.md)
 - [Ethernet Idd](ethernet_idd.md)
+- [Automotive Trip State (`docs/idd`)](idd/automotive_trip_state.md)
 - [Automotive Vehicle State (`docs/idd`)](idd/automotive_vehicle_state.md)
 - [Environmental Barometric State (`docs/idd`)](idd/environmental_barometric_state.md)
 - [Navigation Command Service (`docs/idd`)](idd/navigation_command_service.md)
@@ -105,6 +103,7 @@ Generated from the canonical documentation files. Every component README and sta
 - [Navigation Position State (`docs/idd`)](idd/navigation_position_state.md)
 - [Route Guidance State (`docs/idd`)](idd/route_guidance_state.md)
 - [Message Bus Idd (`docs/messaging`)](messaging/message_bus_idd.md)
+- [Music Visualizer](music_visualizer.md)
 - [Navigation Deployment](navigation_deployment.md)
 - [Navigation Runtime](navigation_runtime.md)
 - [Roadmap](roadmap.md)
@@ -174,10 +173,6 @@ Generated from the canonical documentation files. Every component README and sta
 
 - [Component Test (`ui/component_test`)](../ui/component_test/README.md)
 - [Ui](../ui/README.md)
-
-### Venv Termux
-
-- [Sansio (`venv-termux/lib/python3.14/site-packages/flask/sansio`)](../venv-termux/lib/python3.14/site-packages/flask/sansio/README.md)
 
 <!-- END GENERATED DOCS INDEX -->
 

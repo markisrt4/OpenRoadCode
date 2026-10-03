@@ -279,6 +279,46 @@ class NavigationControllerTests(unittest.TestCase):
         controller.stop()
         self.assertFalse(gps_source.started)
 
+
+    def test_missing_imu_recovers_when_source_becomes_available(self) -> None:
+        class RecoveringNavigationSensor(FakeNavigationSensor):
+            def __init__(self) -> None:
+                super().__init__(
+                    acceleration=Vector3(1.0, 2.0, 9.0),
+                    angular_velocity=Vector3(0.1, 0.2, 0.3),
+                )
+                self.available = False
+
+            def connect(self) -> None:
+                if not self.available:
+                    raise RuntimeError("sensor bridge unavailable")
+                super().connect()
+
+        sensor = RecoveringNavigationSensor()
+        clock = FakeClock()
+        controller = NavigationController(
+            sensor,
+            monotonic_clock=clock,
+            motion_retry_interval_s=3.0,
+        )
+
+        controller.start()
+        first = controller.read_state()
+        self.assertEqual(first.acceleration_mps2, Vector3(0.0, 0.0, 0.0))
+        self.assertIn("IMU unavailable", controller.status_message or "")
+
+        sensor.available = True
+        clock.now = 2.9
+        before_retry = controller.read_state()
+        self.assertEqual(before_retry.acceleration_mps2, Vector3(0.0, 0.0, 0.0))
+
+        clock.now = 3.0
+        recovered = controller.read_state()
+        self.assertEqual(recovered.acceleration_mps2, sensor.acceleration)
+        self.assertEqual(recovered.angular_velocity_rad_s, sensor.angular_velocity)
+        self.assertIsNone(controller.status_message)
+        self.assertTrue(sensor.is_connected)
+
     def test_gps_state_can_be_updated_without_managed_source(self) -> None:
         controller = NavigationController(FakeNavigationSensor())
         gps_state = GpsState(fix_mode=2, latitude_deg=42.0)

@@ -34,32 +34,42 @@ def find_suites(kind: str) -> tuple[Path, ...]:
     return tuple(sorted(suites))
 
 
-def run_kind(kind: str) -> bool:
-    """Run every colocated suite of one kind and report whether all passed."""
-    suites = find_suites(kind)
+def find_requested_suites(kinds: Sequence[str]) -> tuple[Path, ...]:
+    """Return the unique test directories for all requested categories."""
+    suites = {
+        suite
+        for kind in kinds
+        for suite in find_suites(kind)
+    }
+    return tuple(sorted(suites))
+
+
+def run_kinds(kinds: Sequence[str]) -> bool:
+    """Run requested colocated suites together in one pytest process."""
+    suites = find_requested_suites(kinds)
     if not suites:
-        print(f"ERROR: no {kind} test suites found", file=sys.stderr)
+        requested = ", ".join(kinds)
+        print(f"ERROR: no {requested} test suites found", file=sys.stderr)
         return False
 
-    print(f"Running {len(suites)} {kind} test suite(s)", flush=True)
-    for suite in suites:
-        relative_suite = suite.relative_to(PROJECT_ROOT)
-        print(f"\n==> {relative_suite}", flush=True)
-        result = subprocess.run(
-            [
-                sys.executable,
-                "-m",
-                "pytest",
-                "-q",
-                str(relative_suite),
-            ],
-            cwd=PROJECT_ROOT,
-            check=False,
-        )
-        if result.returncode not in (0, PYTEST_NO_TESTS_COLLECTED):
-            return False
-
-    return True
+    relative_suites = tuple(suite.relative_to(PROJECT_ROOT) for suite in suites)
+    labels = " + ".join(kinds)
+    print(
+        f"Running {len(relative_suites)} {labels} test suite(s) in one pytest session",
+        flush=True,
+    )
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "pytest",
+            "-q",
+            *(str(suite) for suite in relative_suites),
+        ],
+        cwd=PROJECT_ROOT,
+        check=False,
+    )
+    return result.returncode in (0, PYTEST_NO_TESTS_COLLECTED)
 
 
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
@@ -79,12 +89,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         if args.suite == "all"
         else (args.suite,)
     )
-
-    for kind in kinds:
-        if not run_kind(kind):
-            return 1
-
-    return 0
+    return 0 if run_kinds(kinds) else 1
 
 
 if __name__ == "__main__":

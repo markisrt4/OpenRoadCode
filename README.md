@@ -44,6 +44,7 @@ OpenRoadCode is designed to:
 Current and partially integrated capabilities include:
 
 * Touchscreen automotive user interface, including the evolving `orcUi` shell
+* Native Weather dashboard with current conditions, hourly and daily forecasts, GPS-backed location, persistent Imperial/Metric display units, NOAA Weather Radio access, and NWS alert presentation
 * Native Linux games browser with category filters, package discovery/installation, launch/stop lifecycle, and X11 kiosk embedding
 * Offline Valhalla route planning and native MapLibre map presentation
 * Route overlays, camera follow/recenter, manual map panning, and live vehicle position
@@ -185,7 +186,7 @@ OpenRoadCode/
 
 Continuously changing public telemetry is distributed through producer services and the ZeroMQ message bus:
 
-<aside class="orc-diagram-legend" aria-label="Architecture diagram legend">
+<div class="orc-diagram-legend" aria-label="Architecture diagram legend">
   <strong>Diagram key</strong>
   <span><i class="orc-legend-swatch orc-legend-app"></i>App / UI</span>
   <span><i class="orc-legend-swatch orc-legend-service"></i>Service / runtime</span>
@@ -193,7 +194,7 @@ Continuously changing public telemetry is distributed through producer services 
   <span><i class="orc-legend-swatch orc-legend-message"></i>Messaging / contract</span>
   <span><i class="orc-legend-swatch orc-legend-adapter"></i>Protocol / hardware</span>
   <span><i class="orc-legend-swatch orc-legend-external"></i>External / input</span>
-</aside>
+</div>
 
 ```mermaid
 flowchart TD

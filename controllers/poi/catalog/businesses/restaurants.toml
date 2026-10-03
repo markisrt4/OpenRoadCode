@@ -1,0 +1,23 @@
+# Canonical restaurant identities and capabilities.
+# Physical store locations remain in OSM/OpenRoadCode search data.
+
+[business.panera]
+name = "Panera Bread"
+aliases = [
+  "Panera",
+  "Panera Bread",
+  "Saint Louis Bread Co",
+  "St Louis Bread Co",
+]
+categories = ["food"]
+capabilities = ["order"]
+
+[business.mcdonalds]
+name = "McDonald's"
+aliases = [
+  "McDonald's",
+  "McDonalds",
+  "Mc Donalds",
+]
+categories = ["food"]
+capabilities = ["order"]

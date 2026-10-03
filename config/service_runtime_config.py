@@ -15,6 +15,7 @@ try:
 except ModuleNotFoundError:  # Python 3.10
     import tomli as tomllib
 
+from config.toml_overlay import TomlOverlayError, load_toml_layers
 from messaging.zeromq.endpoints import LOCAL_PUBLISHER_ENDPOINT, LOCAL_SUBSCRIBER_ENDPOINT
 from services.navigation.zeromq_navigation_command_server import DEFAULT_NAVIGATION_COMMAND_ENDPOINT
 
@@ -145,17 +146,25 @@ class ServiceRuntimeConfig:
 class ServiceRuntimeConfigParser:
     """Read service ownership and processing pipelines from runtime TOML."""
 
-    def __init__(self, config_path: str | Path) -> None:
+    def __init__(
+        self,
+        config_path: str | Path,
+        *,
+        overlays: tuple[str | Path, ...] = (),
+    ) -> None:
         self._path = Path(config_path).expanduser().resolve()
+        self._overlays = tuple(Path(path).expanduser().resolve() for path in overlays)
 
     def load(self) -> ServiceRuntimeConfig:
         try:
-            with self._path.open("rb") as file:
-                data = tomllib.load(file)
-        except FileNotFoundError as exc:
-            raise ServiceRuntimeConfigError(f"Runtime config file not found: {self._path}") from exc
-        except tomllib.TOMLDecodeError as exc:
-            raise ServiceRuntimeConfigError(f"Invalid TOML in {self._path}: {exc}") from exc
+            data = load_toml_layers(self._path, *self._overlays)
+        except TomlOverlayError as exc:
+            message = str(exc)
+            if "file not found" in message:
+                raise ServiceRuntimeConfigError(
+                    message.replace("TOML configuration file", "Runtime config file")
+                ) from exc
+            raise ServiceRuntimeConfigError(message) from exc
 
         messaging = self._parse_messaging(data.get("messaging", {}))
         services = self._table(data.get("services", {}), "services")

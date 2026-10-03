@@ -33,10 +33,27 @@ class MapThemeRuntimeTest(unittest.TestCase):
             self.assertEqual(destination, data_root / "maps" / "styles" / "openroadcode.json")
             style = destination.read_text(encoding="utf-8")
             self.assertIn('"background-color":"#0b151b"', style)
-            self.assertIn('"farmland","#51482b"', style)
+            self.assertIn('"farmland","#2d3f35"', style)
+            self.assertIn('"fill-color":"#103f56"', style)
+            self.assertIn('"line-color":"#4c8297"', style)
             self.assertIn('"commercial","#493044"', style)
             self.assertIn('"hospital","#542f42"', style)
-            self.assertIn('"school","#564d29"', style)
+            self.assertIn('"school","#24525a"', style)
+            self.assertIn('"poi-results":{"type":"geojson"', style)
+            self.assertIn('"id":"poi-results-glow"', style)
+            self.assertIn('"id":"poi-results-icon"', style)
+            self.assertIn('"id":"poi-results-label"', style)
+
+    def test_light_style_uses_distinct_school_teal(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            data_root = Path(temp_dir)
+            (data_root / "maps" / "styles").mkdir(parents=True)
+
+            destination = install_map_style(ThemeMode.LIGHT, data_root)
+
+            style = destination.read_text(encoding="utf-8")
+            self.assertIn('"school","#c9e4e2"', style)
+            self.assertIn('"fill-color":"#a9dcb7"', style)
 
 
 if __name__ == "__main__":

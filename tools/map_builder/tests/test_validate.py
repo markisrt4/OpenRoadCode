@@ -52,25 +52,23 @@ class GeometryValidationTest(unittest.TestCase):
             feature_id=42,
         )
 
-    def test_rejects_maplibre_int16_coordinate_overflow(self):
+    def test_accepts_geometry_outside_nominal_tile_extent(self):
+        # MVT permits coordinates outside a layer's nominal tile extent. This
+        # covers labels and buffered geometry such as Lake Superior water_name.
         geometry = b"".join(
             _varint(value)
             for value in (
                 (1 << 3) | 1,
-                _zigzag(32768),
-                _zigzag(0),
+                _zigzag(945925),
+                _zigzag(-423657),
             )
         )
-        with self.assertRaisesRegex(
-            ValueError,
-            r"paths outside valid range of coordinate_type: .*coordinate=\(32768,0\)",
-        ):
-            _validate_geometry(
-                geometry,
-                layer_name="water",
-                feature_index=7,
-                feature_id=None,
-            )
+        _validate_geometry(
+            geometry,
+            layer_name="water_name",
+            feature_index=0,
+            feature_id=None,
+        )
 
     def test_rejects_truncated_coordinate_pair(self):
         geometry = b"".join(

@@ -25,8 +25,8 @@ def build_top_bar(
     *,
     theme: ThemeBundle,
     on_power: Callable[[], None],
-) -> tk.Label:
-    """Build the branded top bar and return its clock label."""
+) -> tuple[tk.Label, tk.Label]:
+    """Build the branded top bar and return clock and weather labels."""
     ui = theme.ui
     bar = tk.Frame(root, bg=ui.surface_alt, height=TOP_BAR_HEIGHT)
     bar.grid(row=0, column=0, columnspan=2, sticky="ew")
@@ -70,13 +70,14 @@ def build_top_bar(
 
     status = tk.Frame(bar, bg=ui.surface_alt)
     status.grid(row=0, column=2, padx=(8, 14), sticky="e")
-    tk.Label(
+    weather = tk.Label(
         status,
-        text="☁  --°F",
+        text="☁  --°",
         fg=ui.text,
         bg=ui.surface_alt,
         font=("Sans", FONT_STATUS, "bold"),
-    ).pack(side=tk.LEFT, padx=(0, 10))
+    )
+    weather.pack(side=tk.LEFT, padx=(0, 10))
     tk.Label(
         status,
         text="GPS  ▮▮▮   WiFi   BT   🚗",
@@ -98,7 +99,7 @@ def build_top_bar(
         font=("Sans", FONT_POWER, "bold"),
         cursor="hand2",
     ).pack(side=tk.LEFT)
-    return clock
+    return clock, weather
 
 
 def build_footer(root: tk.Misc, *, theme: ThemeBundle) -> tuple[tk.Label, tk.Label]:

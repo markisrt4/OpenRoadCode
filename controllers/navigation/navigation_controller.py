@@ -44,6 +44,7 @@ class NavigationController(NavigationControllerIf):
         monotonic_clock: Callable[[], float] = time.monotonic,
         wall_clock: Callable[[], datetime] = datetime.now,
         sleeper: Callable[[float], None] = time.sleep,
+        motion_retry_interval_s: float = 3.0,
     ) -> None:
         self._sensor = sensor
         self._gps_source = gps_source
@@ -57,7 +58,11 @@ class NavigationController(NavigationControllerIf):
         )
         self._monotonic_clock = monotonic_clock
         self._wall_clock = wall_clock
+        if motion_retry_interval_s < 0.0:
+            raise ValueError("motion_retry_interval_s must not be negative")
         self._sleeper = sleeper
+        self._motion_retry_interval_s = motion_retry_interval_s
+        self._next_motion_retry_time: float | None = None
         self._started = False
         self._last_sample_time: float | None = None
         self._state_lock = Lock()
@@ -99,10 +104,13 @@ class NavigationController(NavigationControllerIf):
                 motion = self._correct_motion(self._sensor.read_motion())
                 self._orientation_estimator.start(motion.acceleration_mps2)
                 self._motion_available = True
+                self._motion_status = None
+                self._next_motion_retry_time = None
             except Exception as error:
                 # Inertial sensing improves the navigation solution, but GPS,
                 # routing, and command handling remain useful without it.
                 self._motion_status = f"IMU unavailable: {error}"
+                self._next_motion_retry_time = self._monotonic_clock() + self._motion_retry_interval_s
                 try:
                     self._sensor.disconnect()
                 except Exception:
@@ -144,6 +152,7 @@ class NavigationController(NavigationControllerIf):
         self._started = False
         self._motion_available = False
         self._last_sample_time = None
+        self._next_motion_retry_time = None
 
     def reset_heading(self, heading_deg: float = 0.0) -> None:
         self._orientation_estimator.reset_heading(heading_deg)
@@ -234,6 +243,8 @@ class NavigationController(NavigationControllerIf):
             raise RuntimeError("navigation controller has not been started")
 
         sample_time = self._monotonic_clock()
+        if not self._motion_available:
+            self._retry_motion_source(sample_time)
         if self._motion_available:
             raw_motion = self._sensor.read_motion()
             motion = self._correct_motion(raw_motion)
@@ -286,6 +297,29 @@ class NavigationController(NavigationControllerIf):
             position=position_state,
             ground_motion=ground_motion_state,
         )
+
+
+    def _retry_motion_source(self, sample_time: float) -> None:
+        """Retry an unavailable inertial source without restarting navigation."""
+        retry_time = self._next_motion_retry_time
+        if retry_time is not None and sample_time < retry_time:
+            return
+        try:
+            self._sensor.connect()
+            motion = self._correct_motion(self._sensor.read_motion())
+            self._orientation_estimator.start(motion.acceleration_mps2)
+        except Exception as error:
+            self._motion_status = f"IMU unavailable: {error}"
+            self._next_motion_retry_time = sample_time + self._motion_retry_interval_s
+            try:
+                self._sensor.disconnect()
+            except Exception:
+                pass
+            return
+        self._motion_available = True
+        self._motion_status = None
+        self._next_motion_retry_time = None
+        self._last_sample_time = sample_time
 
     def _correct_motion(self, motion: MotionSample) -> MotionSample:
         calibration = self._calibration

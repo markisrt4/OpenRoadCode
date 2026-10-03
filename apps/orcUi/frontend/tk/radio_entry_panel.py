@@ -19,6 +19,7 @@ from frontends.tk.radio.persistent_streaming_radio_panel import PersistentStream
 from frontends.x11 import X11WindowEmbedder
 from ui.theme import ThemeBundle
 from .shell_metrics import FONT_BODY, FONT_CONTROL, FONT_SMALL
+from .radio_source_icon import draw_source_icon
 
 
 class LaunchAwareRadioPanel(RadioPanel):
@@ -230,7 +231,7 @@ class RadioEntryPanel(tk.Frame):
             bd=0,
         )
         icon.grid(row=0, column=0, rowspan=2, sticky="w", padx=(0, 12))
-        self._draw_source_icon(icon, icon_kind=icon_kind, accent=accent)
+        draw_source_icon(icon, icon_kind=icon_kind, accent=accent, theme=self._theme)
         tk.Label(
             heading,
             text=eyebrow,
@@ -298,72 +299,6 @@ class RadioEntryPanel(tk.Frame):
             except tk.TclError:
                 pass
         return card, button
-
-    def _draw_source_icon(self, canvas: tk.Canvas, *, icon_kind: str, accent: str) -> None:
-        ui = self._theme.ui
-        canvas.create_oval(5, 5, 59, 59, outline=accent, width=2)
-        if icon_kind == "rf":
-            canvas.create_line(32, 47, 32, 28, fill=ui.text, width=3)
-            canvas.create_oval(28, 24, 36, 32, fill=accent, outline=accent)
-            canvas.create_arc(
-                19,
-                15,
-                45,
-                41,
-                start=310,
-                extent=100,
-                style=tk.ARC,
-                outline=accent,
-                width=2,
-            )
-            canvas.create_arc(
-                12,
-                8,
-                52,
-                48,
-                start=310,
-                extent=100,
-                style=tk.ARC,
-                outline=ui.text_muted,
-                width=2,
-            )
-            canvas.create_line(23, 51, 41, 51, fill=ui.text_muted, width=2)
-            return
-
-        canvas.create_oval(27, 27, 37, 37, fill=accent, outline=accent)
-        canvas.create_arc(
-            20,
-            20,
-            44,
-            44,
-            start=315,
-            extent=90,
-            style=tk.ARC,
-            outline=accent,
-            width=2,
-        )
-        canvas.create_arc(
-            13,
-            13,
-            51,
-            51,
-            start=315,
-            extent=90,
-            style=tk.ARC,
-            outline=ui.text_muted,
-            width=2,
-        )
-        canvas.create_arc(
-            7,
-            7,
-            57,
-            57,
-            start=315,
-            extent=90,
-            style=tk.ARC,
-            outline=accent,
-            width=2,
-        )
 
     @staticmethod
     def _walk_widgets(root: tk.Misc) -> tuple[tk.Misc, ...]:

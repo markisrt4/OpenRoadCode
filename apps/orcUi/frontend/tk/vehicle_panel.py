@@ -5,7 +5,6 @@
 
 from __future__ import annotations
 
-import math
 import tkinter as tk
 from collections.abc import Callable
 
@@ -14,6 +13,7 @@ from .ecu_panel import EcuPanel
 from .trip_panel import TripPanel
 from .performance_panel import PerformancePanel
 from .engine_panel import EnginePanel
+from .offroad_dashboard_presenter import apply_offroad_dashboard_state
 from apps.orcUi.theme_runtime import theme_bundle as packaged_theme_bundle
 from apps.orcUi.trip_presenter import TripPresentationState
 from apps.orcUi.vehicle_presenter import VehiclePresentationState
@@ -29,7 +29,6 @@ from controllers.automotive import (
     VehicleConfiguration,
 )
 from frontends.tk.automotive import OffroadDashboardPanel
-from ui.navigation import HeadingReference, PositionFix
 from ui.theme import ThemeBundle, ThemeMode
 
 
@@ -322,27 +321,8 @@ class VehiclePanel(tk.Frame):
         panel = self._offroad
         if panel is None:
             return
-        attitude = self._attitude
-        panel.set_heading(
-            None if attitude.heading_deg is None else math.radians(attitude.heading_deg),
-            HeadingReference.RELATIVE,
+        apply_offroad_dashboard_state(
+            panel,
+            position=self._position,
+            attitude=self._attitude,
         )
-        panel.set_pitch(None if attitude.pitch_deg is None else math.radians(attitude.pitch_deg))
-        panel.set_roll(None if attitude.roll_deg is None else math.radians(attitude.roll_deg))
-        position = self._position
-        if position.latitude_deg is not None and position.longitude_deg is not None:
-            altitude_m = (
-                None
-                if position.altitude_ft is None
-                else position.altitude_ft / 3.280839895013123
-            )
-            panel.set_position(
-                PositionFix(
-                    latitude_rad=math.radians(position.latitude_deg),
-                    longitude_rad=math.radians(position.longitude_deg),
-                    altitude_m=altitude_m,
-                    pfom_m=position.accuracy_m,
-                )
-            )
-        else:
-            panel.set_position(None)

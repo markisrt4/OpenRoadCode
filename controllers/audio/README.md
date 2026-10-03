@@ -259,7 +259,7 @@ The Car UI reserves one configured rotary encoder for global system volume.
 The input router depends on `RotaryEncoderIf` and invokes the audio controller's
 `volume_up()` or `volume_down()` operation for each signed encoder step:
 
-<aside class="orc-diagram-legend" aria-label="Architecture diagram legend">
+<div class="orc-diagram-legend" aria-label="Architecture diagram legend">
   <strong>Diagram key</strong>
   <span><i class="orc-legend-swatch orc-legend-app"></i>App / UI</span>
   <span><i class="orc-legend-swatch orc-legend-service"></i>Service / runtime</span>
@@ -267,7 +267,7 @@ The input router depends on `RotaryEncoderIf` and invokes the audio controller's
   <span><i class="orc-legend-swatch orc-legend-message"></i>Messaging / contract</span>
   <span><i class="orc-legend-swatch orc-legend-adapter"></i>Protocol / hardware</span>
   <span><i class="orc-legend-swatch orc-legend-external"></i>External / input</span>
-</aside>
+</div>
 
 ```mermaid
 flowchart TD

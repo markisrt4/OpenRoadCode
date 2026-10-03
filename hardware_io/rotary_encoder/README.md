@@ -454,7 +454,7 @@ those actions to the active `ScreenUiIf` before applying shell-level behavior.
 Screens never receive physical encoder addresses, pins, callbacks, or device
 objects. The volume encoder remains globally mapped to volume and mute actions.
 
-<aside class="orc-diagram-legend" aria-label="Architecture diagram legend">
+<div class="orc-diagram-legend" aria-label="Architecture diagram legend">
   <strong>Diagram key</strong>
   <span><i class="orc-legend-swatch orc-legend-app"></i>App / UI</span>
   <span><i class="orc-legend-swatch orc-legend-service"></i>Service / runtime</span>
@@ -462,7 +462,7 @@ objects. The volume encoder remains globally mapped to volume and mute actions.
   <span><i class="orc-legend-swatch orc-legend-message"></i>Messaging / contract</span>
   <span><i class="orc-legend-swatch orc-legend-adapter"></i>Protocol / hardware</span>
   <span><i class="orc-legend-swatch orc-legend-external"></i>External / input</span>
-</aside>
+</div>
 
 ```mermaid
 flowchart LR

@@ -14,7 +14,7 @@ import sys
 from pathlib import Path
 from urllib.parse import quote
 
-IGNORED_DIRECTORIES = {".git", ".github", ".venv", "venv", "__pycache__", "build", "dist"}
+IGNORED_DIRECTORIES = {".git", ".github", ".pytest_cache", ".venv", "venv", "venv-termux", "__pycache__", "build", "dist"}
 CURATED_GUIDES = ("apps/orcUi/ARCHITECTURE.md",)
 BEGIN = "<!-- BEGIN GENERATED DOCS INDEX -->"
 END = "<!-- END GENERATED DOCS INDEX -->"

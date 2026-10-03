@@ -6,7 +6,7 @@ Applications such as Car TUI consume the public vehicle-state topic. They do not
 
 ## Data flow
 
-<aside class="orc-diagram-legend" aria-label="Architecture diagram legend">
+<div class="orc-diagram-legend" aria-label="Architecture diagram legend">
   <strong>Diagram key</strong>
   <span><i class="orc-legend-swatch orc-legend-app"></i>App / UI</span>
   <span><i class="orc-legend-swatch orc-legend-service"></i>Service / runtime</span>
@@ -14,7 +14,7 @@ Applications such as Car TUI consume the public vehicle-state topic. They do not
   <span><i class="orc-legend-swatch orc-legend-message"></i>Messaging / contract</span>
   <span><i class="orc-legend-swatch orc-legend-adapter"></i>Protocol / hardware</span>
   <span><i class="orc-legend-swatch orc-legend-external"></i>External / input</span>
-</aside>
+</div>
 
 ```mermaid
 flowchart TD
@@ -161,11 +161,25 @@ By default the service looks for `vehicle_gears.learned.toml`. A different
 profile can be supplied with `--gear-profile`. If the profile does not exist,
 gear estimation is safely disabled.
 
-Learn a manual-transmission profile with:
+Learn a manual-transmission profile automatically from stable samples collected across a drive:
 
 ```bash
-python -m scripts.automotive.learn_gears
+python -m scripts.automotive.learn_gears --gears 6
 ```
+
+For a deliberate per-gear calibration, use guided mode:
+
+```bash
+python -m scripts.automotive.learn_gears --mode guided --gears 6
+```
+
+A single physical gear can be recaptured without discarding the other learned centers:
+
+```bash
+python -m scripts.automotive.learn_gears --gear 3 --gears 6
+```
+
+The learner rejects unstable RPM/speed windows and validates that learned ratios decrease as gear number increases. The default output is `vehicle_gears.learned.toml`; `--output` selects another profile path. Interactive prompts must be handled while safely stopped or by a passenger, never while driving.
 
 The ratio estimator identifies forward gears only. RPM and road speed alone
 cannot reliably distinguish neutral or reverse, and the estimator intentionally
