@@ -10,12 +10,16 @@ from tkinter import ttk
 
 from controllers.weather.route_weather import RouteWeatherProvider, sample_route
 from .shell_metrics import FONT_CONTROL
+from .city_weather_controls import CityWeatherControls
 
 
 class NavigationRouteWeather:
     """Keep route weather requests off the UI thread and reject stale results."""
 
-    def __init__(self, host, route_handler, map_renderer, theme, unit_system, presentation, map_weather=None):
+    def __init__(self, host, route_handler, map_renderer, theme, unit_system, presentation, map_weather=None, city_weather=None):
+        self._city_weather = city_weather
+        if city_weather is not None:
+            city_weather.on_changed = self._render
         self._map_weather = map_weather
         if map_weather is not None:
             map_weather.on_changed = self._render
@@ -32,6 +36,7 @@ class NavigationRouteWeather:
         self._forecasts = ()
         self._status = "Start a route to see weather along the way"
         self._panel = None
+        self._city_banner = None
         self._popup = None
         self._busy = False
         self._closed = False
@@ -61,6 +66,8 @@ class NavigationRouteWeather:
     def attach(self, panel):
         """Add a small layers button without taking height away from the map."""
         self._panel = panel
+        if self._city_weather is not None:
+            self._city_weather.show()
         panel._on_weather_visibility_changed = self._render
         panel._close_weather_menu = self._close_popup
         ui = self._theme().ui
@@ -68,6 +75,10 @@ class NavigationRouteWeather:
                                  bg=ui.control_background, fg=ui.text, relief=tk.FLAT,
                                  font=("Sans", FONT_CONTROL), padx=6)
         self._button.pack(side=tk.RIGHT, padx=4)
+        if self._city_weather is not None:
+            self._city_banner = tk.Label(panel._map_host.master, bg=ui.control_background, fg=ui.text,
+                                         font=("Sans", 8), justify=tk.LEFT, anchor="w", padx=8, pady=5)
+            self._render()
         self._poll_generation += 1
         self._poll(self._poll_generation)
         for delay in (300, 1200, 2500, 5000, 10000):
@@ -76,6 +87,11 @@ class NavigationRouteWeather:
     def hide(self):
         """Dismiss the menu and cancel automatic refresh while Navigation is hidden."""
         self._close_popup()
+        if self._city_banner is not None:
+            self._city_banner.destroy()
+            self._city_banner = None
+        if self._city_weather is not None:
+            self._city_weather.hide()
         if self._panel is not None:
             self._panel._on_weather_visibility_changed = None
             self._panel._close_weather_menu = None
@@ -88,6 +104,8 @@ class NavigationRouteWeather:
         self._generation += 1
         self.hide()
         self._provider.close()
+        if self._city_weather is not None:
+            self._city_weather.close()
         if self._map_weather is not None:
             self._map_weather.close()
 
@@ -174,6 +192,8 @@ class NavigationRouteWeather:
     def _publish_if_visible(self):
         if self._panel is not None:
             self._publish()
+            if self._city_weather is not None:
+                self._city_weather.publish()
             if self._map_weather is not None:
                 self._map_weather.publish()
 
@@ -230,6 +250,11 @@ class NavigationRouteWeather:
         route_tab = tk.Frame(tabs, bg=ui.control_background)
         tabs.add(map_tab, text="Map overlays")
         tabs.add(route_tab, text="Along my route")
+        self._city_controls = None
+        if self._city_weather is not None:
+            city_tab = tk.Frame(tabs, bg=ui.control_background)
+            tabs.add(city_tab, text="City weather")
+            self._city_controls = CityWeatherControls(city_tab, self._city_weather, ui)
         self._radar_var = tk.BooleanVar(popup, value=self._panel._radar_enabled)
         toggle("Radar overlay", self._radar_var, self._toggle_radar, map_tab)
         self._map_var = tk.StringVar(popup, value=self._map_weather.kind if self._map_weather else "off")
@@ -291,8 +316,22 @@ class NavigationRouteWeather:
             self._panel._toggle_radar()
 
     def _render(self):
+        if self._city_banner is not None:
+            cities = self._city_weather
+            if cities.enabled:
+                field = {"temperature": "TEMPERATURE", "wind": "WIND SPEED", "precipitation": "PRECIPITATION"}[cities.kind]
+                period = "RECENT HISTORY · Model estimates" if cities.period == "past" else "FORECAST"
+                caption = cities.time_label() if cities._weather else cities.status.split(":")[0]
+                self._city_banner.configure(text=f"{field} · {period}\n{caption}",
+                                            wraplength=max(140, min(380, self._panel._map_host.winfo_width() - 32)))
+                self._city_banner.place(x=12, y=8)
+                self._city_banner.lift()
+            else:
+                self._city_banner.place_forget()
         if self._popup is None:
             return
+        if self._city_controls is not None:
+            self._city_controls.render()
         if self._map_weather is not None:
             self._map_status.configure(text=self._map_weather.status)
             for child in self._legend.winfo_children():

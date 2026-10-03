@@ -20,6 +20,8 @@ class MapRendererCommand(StrEnum):
     PAN_SCREEN = "pan_screen"
     SET_ROUTE = "set_route"
     SET_ROUTE_WEATHER = "set_route_weather"
+    SET_CITY_WEATHER = "set_city_weather"
+    SEARCH_WEATHER_CITIES = "search_weather_cities"
     FIT_BOUNDS = "fit_bounds"
     FIT_DATASET = "fit_dataset"
     SET_POSITION = "set_position"

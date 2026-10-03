@@ -97,6 +97,8 @@ public:
     void setManualCameraCallback(ManualCameraCallback callback);
     void setMapClickCallback(MapClickCallback callback);
     void setPoiResultsJson(const std::string& geojson);
+    /** @brief Return spaced city/town points from the current offline map viewport. */
+    std::string searchWeatherCities() const;
     PoiSearchResult searchVisiblePois(const std::string& category) const;
 
 private:

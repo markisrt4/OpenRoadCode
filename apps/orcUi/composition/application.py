@@ -20,6 +20,7 @@ from apps.orcUi.frontend.tk.home_screen import HomeScreen
 from apps.orcUi.frontend.tk.navigation_screen import NavigationScreen
 from apps.orcUi.frontend.tk.navigation_route_weather import NavigationRouteWeather
 from apps.orcUi.frontend.tk.navigation_weather_map import NavigationWeatherMap
+from apps.orcUi.frontend.tk.navigation_city_weather import NavigationCityWeather
 from apps.orcUi.frontend.tk.orc_ui_app import OrcUiApp
 from apps.orcUi.frontend.tk.offroad_screen import OffRoadScreen
 from apps.orcUi.frontend.tk.settings_screen import SettingsScreen
@@ -170,6 +171,7 @@ def create_orc_ui_composition() -> OrcUiComposition:
                 app, core.route_request_handler, core.map_camera.renderer_client,
                 lambda: theme_bundle(app.theme_mode), unit_system, core.presentation,
                 map_weather=NavigationWeatherMap(app, core.map_camera.renderer_client, weather.radar_tiles, unit_system),
+                city_weather=NavigationCityWeather(app, core.map_camera.renderer_client, unit_system),
             ),
         )
         vehicle = VehicleScreen(

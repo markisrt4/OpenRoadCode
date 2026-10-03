@@ -44,12 +44,18 @@ std::optional<MapCommand> MapCommandServer::parseCommand(const std::string& payl
     MapCommand command;
     command.command = document["command"].GetString();
 
-    if (command.command == "set_route" || command.command == "set_poi_results" || command.command == "set_route_weather") {
+    if (command.command == "set_route" || command.command == "set_poi_results" || command.command == "set_route_weather" || command.command == "set_city_weather") {
         if (!document.HasMember("geojson") || !document["geojson"].IsObject()) return std::nullopt;
         rapidjson::StringBuffer buffer;
         rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
         document["geojson"].Accept(writer);
         command.geojson = buffer.GetString();
+        return command;
+    }
+    if (command.command == "search_weather_cities") {
+        if (!document.HasMember("request_id") || !document["request_id"].IsInt64() ||
+            document["request_id"].GetInt64() < 0) return std::nullopt;
+        command.requestId = document["request_id"].GetInt64();
         return command;
     }
     if (command.command == "set_poi_focus" || command.command == "search_pois") {

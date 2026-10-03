@@ -275,3 +275,45 @@ python -m controllers.weather.component_test.hrrr_map_layer_cli --kind wind --lo
 Rebuild the native navigation stack for the new `set_weather_field` command.
 The model field cache shares recent-run retention with HRRR radar and downloads
 only the selected GRIB messages, not whole forecast files.
+
+
+### TV-style city weather
+
+Navigation → **Weather → City weather** adds large weather values and city names
+above radar and heatmaps. It remains independent of route weather and does not
+move the camera. Cities come from the current offline map viewport: pan or zoom
+to choose an area. Major cities get priority; spacing and a twelve-city limit
+keep labels from crowding the map. At street zoom there may be no named city in
+view; zoom out. The time caption stays on the map when the controls are closed.
+
+Choose **Temp**, **Wind speed**, or **Precip total**, then **Recent history** or
+**Forecast** and 1–24 hours. Temperature and wind show the selected hour before
+or after the latest full UTC hour. Precipitation is a sum over the selected
+window ending at that hour for history, or starting at that hour for forecast.
+Totals include rain and the water equivalent of snow. All hourly calculations
+use UTC; captions show local dates, times and timezone, including overnight
+windows. Missing snapshots or incomplete totals show `—`, never an invented
+zero. Fahrenheit/mph/inches or Celsius/km/h/mm follow the application's units.
+
+Open-Meteo supplies these hourly model estimates; **Recent history is not a
+weather-station observation archive**. A single batch fetch covers up to twelve
+cities with two past days and three forecast days. Switching fields, scrubbing,
+and playback reuse the downloaded hours. A bounded city cache reuses recent
+locations when panning back. Refresh is automatic every fifteen minutes while
+Navigation is visible, with a one-minute retry delay on provider errors.
+**Play** animates cached hourly values independently of radar playback; hiding
+Navigation pauses playback and viewport polling and clears city labels from the
+map. Returning restores the selected view.
+
+Rebuild the native navigation stack for city query and label commands. To check
+live data separately from the GPU/UI:
+
+```bash
+python -m controllers.weather.component_test.city_weather_provider_cli --location 42.3314 -83.0458 --name Detroit
+python -m controllers.weather.component_test.city_weather_provider_cli --kind precipitation --period past --hours 24
+python -m controllers.weather.component_test.city_weather_provider_cli --kind wind --period future --hours 6
+```
+
+Attribution: [Open-Meteo](https://open-meteo.com/) weather data and offline
+OpenStreetMap city names. The map overlay is a regional overview rather than
+turn-by-turn weather guidance.

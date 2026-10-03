@@ -6,6 +6,7 @@
 #include "map_event_publisher.hpp"
 #include "navigation_config.hpp"
 #include "route_weather_style.hpp"
+#include "city_weather_style.hpp"
 #include <mbgl/map/map.hpp>
 #include <mbgl/renderer/renderer.hpp>
 #include <mbgl/style/layer.hpp>
@@ -59,7 +60,7 @@ std::string loadStyleJson(const NavigationConfig& config) {
     std::string style{std::istreambuf_iterator<char>{input}, std::istreambuf_iterator<char>{}};
     replaceAll(style, kDataRootToken, config.dataRoot);
     if (config.dataRoot != kLegacyDataRoot) replaceAll(style, kLegacyDataRoot, config.dataRoot);
-    return withRouteWeatherStyle(style);
+    return withCityWeatherStyle(withRouteWeatherStyle(style));
 }
 void setWeatherRaster(
     mbgl::style::Style& style,
@@ -343,6 +344,10 @@ int main() {
                 map.moveBy({-command->rightPx, command->upPx});
                 continue;
             }
+            if (command->command == "search_weather_cities") {
+                eventPublisher.publishWeatherCities(command->requestId, view.searchWeatherCities());
+                continue;
+            }
             if (command->command == "search_pois") {
                 const auto result = view.searchVisiblePois(command->category);
                 eventPublisher.publishPoiSearchResult(
@@ -405,15 +410,16 @@ int main() {
                 }
                 continue;
             }
-            if (command->command == "set_route_weather") {
-                auto* source = map.getStyle().getSource("route-weather");
+            if (command->command == "set_route_weather" || command->command == "set_city_weather") {
+                auto* source = map.getStyle().getSource(
+                    command->command == "set_city_weather" ? "city-weather" : "route-weather");
                 if (!source) continue;
                 try {
                     static_cast<mbgl::style::GeoJSONSource*>(source)->setGeoJSON(
                         mapbox::geojson::parse(command->geojson));
                     view.invalidate();
                 } catch (const std::exception& error) {
-                    std::cerr << "[map_renderer] invalid route weather: " << error.what() << '\n';
+                    std::cerr << "[map_renderer] invalid weather labels: " << error.what() << '\n';
                 }
                 continue;
             }

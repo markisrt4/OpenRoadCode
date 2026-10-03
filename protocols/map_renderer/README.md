@@ -1,9 +1,9 @@
 # Map Renderer Protocol
 
 This package is the Python client contract for the native C++ map renderer.
-`MapRendererClient` serializes one JSON command per Unix-domain socket
-connection and raises `MapRendererUnavailableError` when the renderer cannot
-be reached.
+`MapRendererClient` publishes JSON commands on the `map.command` topic through
+the local ZeroMQ broker. Delivery is asynchronous; replay state after launching
+or replacing the renderer.
 
 ```python
 from protocols.map_renderer.map_renderer_client import MapRendererClient
@@ -18,11 +18,10 @@ renderer.set_camera(
 )
 ```
 
-The default socket is `/tmp/openroadcode-map-renderer.sock`; pass a different
-path to `MapRendererClient` when the renderer uses a custom socket. Route data
-is sent as a GeoJSON object with `set_route()`. `fit_bounds()` frames a route,
-and `set_position()` updates the vehicle marker. See
-`apps/map_renderer/README.md` for the native process and style requirements.
+The default publisher endpoint is `tcp://127.0.0.1:5556`. Route data is sent as a
+GeoJSON object with `set_route()`. `fit_bounds()` frames a route, and
+`set_position()` updates the vehicle marker. See `apps/map_renderer/README.md`
+for the native process and style requirements.
 
 `set_route_weather(geojson)` updates a separate `route-weather` GeoJSON source
 without changing route geometry, POI results, radar visibility, or the camera.
@@ -35,3 +34,15 @@ max_zoom=9)` controls one independent temperature/wind raster source. It uses th
 same validated tile URL/opacity/zoom contract as radar but leaves radar, locator
 rings, route geometry and camera state unchanged. Model heatmaps render below
 radar and navigation overlays. Disable with `tile_url=None, enabled=False`.
+
+`set_city_weather(geojson)` updates an independent `city-weather` source with
+large values and smaller city names. Point properties are `name`, `value` and
+`color`. An empty FeatureCollection clears this overlay. It does not change
+route weather, POI selection, heatmaps, radar, the camera or position rings.
+
+`search_weather_cities(request_id)` discovers up to twelve spaced city/town
+points in the current viewport from the offline vector `openroad` source's
+`place` layer. Replies use `map.weather.cities` with the same integer
+`request_id` and `cities: [{name, latitude, longitude}, ...]`. The city subscriber
+is independent of POI subscriptions, and ignores replies to obsolete requests.
+Rebuild the native navigation stack before enabling this overlay.

@@ -78,6 +78,14 @@ class MapRendererClient:
         """Update independent forecast markers without changing the route or camera."""
         self._send_command({"command": MapRendererCommand.SET_ROUTE_WEATHER, "geojson": geojson})
 
+    def set_city_weather(self, geojson: dict[str, object]) -> None:
+        """Update TV-style city labels independently of radar, POIs and route markers."""
+        self._send_command({"command": MapRendererCommand.SET_CITY_WEATHER, "geojson": geojson})
+
+    def search_weather_cities(self, request_id: int) -> None:
+        """Ask the native map for a spaced selection of cities in its current viewport."""
+        self._send_command({"command": MapRendererCommand.SEARCH_WEATHER_CITIES, "request_id": request_id})
+
     def set_center(self, latitude: float, longitude: float) -> None:
         self._send_command({"command": MapRendererCommand.SET_CENTER,
             "latitude": latitude, "longitude": longitude})

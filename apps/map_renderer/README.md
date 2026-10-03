@@ -57,3 +57,15 @@ create the window, it retries using X11's native GLX context API with the same
 OpenGL ES and framebuffer requirements. Termux always selects GLFW's X11
 platform, including standalone launches. The renderer logs the fallback and
 reports failure if neither context API works.
+
+
+### City weather labels
+
+The renderer adds a `city-weather` GeoJSON source and large value/smaller city
+name symbols to the configured style at startup. `set_city_weather` updates
+these points independently of `route-weather`, radar and temperature/wind
+rasters. `search_weather_cities` reads loaded offline `place` vector features,
+checks their screen positions (including tilt and bearing), prioritizes cities
+and towns, deduplicates tile copies, and spaces a maximum of twelve labels.
+Replies use `map.weather.cities` with the request id and named coordinates.
+The Python city-weather controller owns the data, time window and units.

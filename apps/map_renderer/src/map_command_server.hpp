@@ -28,6 +28,7 @@ struct MapCommand {
     std::string category;
     std::string tileUrl;
     long long frameTime = 0;
+    long long requestId = 0;
     int maxZoom = 22;
     bool enabled = false;
 };
