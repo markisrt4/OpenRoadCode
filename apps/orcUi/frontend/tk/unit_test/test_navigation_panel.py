@@ -278,3 +278,30 @@ class OfflinePoiActionsTest(unittest.TestCase):
         panel._online_mode.online = True
         panel._refresh_poi_action_buttons()
         button.configure.assert_called_with(state='normal')
+
+
+class PoiPollingRecoveryTest(unittest.TestCase):
+    def test_database_failure_keeps_polling_alive(self):
+        import sqlite3
+        panel = NavigationPanelControlTest()._panel()
+        panel._poll_poi_events_once = Mock(side_effect=sqlite3.OperationalError('missing database'))
+        panel.winfo_exists = Mock(return_value=True)
+        panel._poll_poi_events()
+        panel.after.assert_called_once_with(100, panel._poll_poi_events)
+        panel._shortcut_status.set.assert_called_once_with('POI database unavailable; see terminal for details')
+
+    def test_offline_mode_still_displays_cached_poi_results(self):
+        from controllers.poi import PoiSearchResult
+        panel = NavigationPanelControlTest()._panel()
+        panel._online_mode = Mock(online=False)
+        panel._poi_controller.poll_camera_interaction.return_value = False
+        panel._poi_controller.poll_selected.return_value = None
+        poi = PointOfInterest('p', 'Cafe', PoiCategory.FOOD, GeoPoint(0, 0))
+        panel._poi_controller.poll_search_result.return_value = PoiSearchResult(
+            PoiCategory.FOOD, 1, 0, 0, 0, 0, (poi,),
+        )
+        panel.winfo_exists = Mock(return_value=True)
+        panel._poll_poi_events()
+        markers = panel._request_handler.request_poi_results.call_args.args[0]
+        self.assertEqual(len(markers), 1)
+        self.assertEqual(markers[0].label, 'Cafe')

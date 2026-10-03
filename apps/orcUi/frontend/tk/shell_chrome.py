@@ -9,6 +9,7 @@ import tkinter as tk
 from collections.abc import Callable
 
 from ui.theme import ThemeBundle
+from .connectivity_button import ConnectivityButton
 from .shell_metrics import (
     FONT_BRAND,
     FONT_CLOCK,
@@ -26,7 +27,7 @@ def build_top_bar(
     theme: ThemeBundle,
     on_power: Callable[[], None],
     on_online_toggle: Callable[[], None] = lambda: None,
-) -> tuple[tk.Label, tk.Label, tk.Button]:
+) -> tuple[tk.Label, tk.Label, ConnectivityButton]:
     """Build the branded top bar and return clock and weather labels."""
     ui = theme.ui
     bar = tk.Frame(root, bg=ui.surface_alt, height=TOP_BAR_HEIGHT)
@@ -86,11 +87,9 @@ def build_top_bar(
         bg=ui.surface_alt,
         font=("Sans", FONT_STATUS),
     ).pack(side=tk.LEFT, padx=(0, 10))
-    online = tk.Button(
-        status, text="ONLINE · CHECKING", command=on_online_toggle,
-        bg=ui.control_background, fg=ui.text_muted,
-        activebackground=ui.control_active, relief=tk.FLAT,
-        font=("Sans", 10, "bold"), cursor="hand2",
+    online = ConnectivityButton(
+        status, command=on_online_toggle, background=ui.control_background,
+        active_background=ui.control_active, muted=ui.text_muted,
     )
     online.pack(side=tk.LEFT, padx=(0, 8))
     tk.Button(

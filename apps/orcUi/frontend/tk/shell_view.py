@@ -92,14 +92,14 @@ class OrcUiShellView:
         self._internet_reachable = reachable
         ui = self._theme.ui
         if not online:
-            text, color = "OFFLINE · ▯▯▯", ui.text_muted
+            text, color = "OFFLINE", ui.text_muted
         elif reachable is True:
-            text, color = "ONLINE · ▮▮▮", ui.accent_success
+            text, color = "ONLINE", ui.accent_success
         elif reachable is False:
             text, color = "ONLINE · NO NET", ui.accent_danger
         else:
             text, color = "ONLINE · CHECKING", ui.text_muted
-        self._online_button.configure(text=text, fg=color)
+        self._online_button.set_status(text, color, online and reachable is True)
 
     def rebuild(self, *, theme: ThemeBundle, theme_mode: ThemeMode) -> None:
         self._theme = theme

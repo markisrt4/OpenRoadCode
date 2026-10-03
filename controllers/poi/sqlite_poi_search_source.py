@@ -37,7 +37,10 @@ class SqlitePoiSearchSource(PoiSearchSourceIf):
 
     def __init__(self, database_path: str | Path) -> None:
         self._path = Path(database_path).expanduser()
-        self._connection = sqlite3.connect(f"file:{self._path}?mode=ro", uri=True)
+        try:
+            self._connection = sqlite3.connect(f"file:{self._path}?mode=ro", uri=True)
+        except sqlite3.Error as exc:
+            raise sqlite3.OperationalError(f"Cannot open POI index {self._path}: {exc}") from exc
         self._connection.row_factory = sqlite3.Row
         columns = {row[1] for row in self._connection.execute("PRAGMA table_info(poi)")}
         self._website_column = "website" if "website" in columns else "NULL AS website"

@@ -8,6 +8,7 @@ from __future__ import annotations
 from controllers.connectivity.online_mode import OnlineModeController
 
 import math
+import sqlite3
 import tkinter as tk
 from collections.abc import Callable
 
@@ -268,6 +269,16 @@ class NavigationPanel(tk.Frame):
         self._poi_controller.search(category, transit_mode)
 
     def _poll_poi_events(self) -> None:
+        try:
+            self._poll_poi_events_once()
+        except sqlite3.Error as exc:
+            self._shortcut_status.set("POI database unavailable; see terminal for details")
+            print(f"[poi-controller] database error: {exc}")
+        finally:
+            if self.winfo_exists():
+                self.after(100, self._poll_poi_events)
+
+    def _poll_poi_events_once(self) -> None:
         if self._poi_controller.poll_camera_interaction():
             # Native mouse/touch gestures happen inside MapLibre, bypassing the
             # Python request handler. Suspend GPS follow so it cannot immediately
@@ -298,8 +309,6 @@ class NavigationPanel(tk.Frame):
         if poi is not None:
             print(f"[orcUi] showing POI business popup for {poi.name!r}")
             self._show_poi_card(poi)
-        if self.winfo_exists():
-            self.after(100, self._poll_poi_events)
 
     def _show_poi_card(self, poi: PointOfInterest) -> None:
         show_poi_card(self, poi)

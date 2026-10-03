@@ -130,6 +130,11 @@ class PoiSearchController(PoiSearchControllerIf):
                             transit_mode=transit_mode,
                         )
                     )
+                    print(
+                        f"[poi-controller] {category.name.casefold()} search "
+                        f"bounds={viewport.west:.6f},{viewport.south:.6f},"
+                        f"{viewport.east:.6f},{viewport.north:.6f} results={len(pois)}"
+                    )
                     self._visible_pois = pois
                     self._pending_search_result = _result_for(category, pois)
                 # Replies arriving after clear(), or from an older category, are
@@ -153,7 +158,9 @@ class PoiSearchController(PoiSearchControllerIf):
 
     def _offline_source(self) -> PoiSearchSourceIf:
         if self._search_source is None:
-            self._search_source = SqlitePoiSearchSource(search_database_path())
+            database = search_database_path()
+            print(f"[poi-controller] opening search index: {database}")
+            self._search_source = SqlitePoiSearchSource(database)
         return self._search_source
 
     @staticmethod

@@ -10,7 +10,8 @@ An open POI card updates immediately when the mode changes. The action handler
 also checks the mode before launching an external destination. Local POI search,
 map display, and offline navigation remain available.
 
-The bars show internet reachability, not cellular or Wi-Fi signal strength:
+The four ascending Android-style bars show internet reachability, not cellular
+or Wi-Fi signal strength:
 
 - ONLINE with green bars: the internet check succeeded.
 - ONLINE / CHECKING: awaiting a check result.
@@ -41,3 +42,8 @@ git pull --ff-only origin android-linux-food-apps
 Open a POI card with Order/Website actions and switch OFFLINE in the top bar.
 Confirm those buttons grey out while Navigate remains enabled. Switch ONLINE
 and confirm they reenable. Restart ORC in offline mode and confirm it is retained.
+
+Offline mode does not hide cached POI markers or disable Food/Fuel searches.
+If markers are absent, the terminal reports the index path and viewport search
+bounds/count. Database errors appear in the navigation status and keep the event
+poll alive, so another search can retry after the data problem is corrected.
