@@ -417,6 +417,8 @@ int main() {
                 try {
                     static_cast<mbgl::style::GeoJSONSource*>(source)->setGeoJSON(
                         mapbox::geojson::parse(command->geojson));
+                    if (command->command == "set_city_weather")
+                        view.setCityWeatherJson(command->geojson);
                     view.invalidate();
                 } catch (const std::exception& error) {
                     std::cerr << "[map_renderer] invalid weather labels: " << error.what() << '\n';

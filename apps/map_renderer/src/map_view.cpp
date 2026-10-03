@@ -169,6 +169,7 @@ MapView::MapView(const mbgl::ResourceOptions&, const mbgl::ClientOptions&) {
     glfwSetWindowSizeCallback(window, onWindowResize);
     glfwSetFramebufferSizeCallback(window, onFramebufferResize);
     glfwSetCursorPosCallback(window, onMouseMove);
+    glfwSetCursorEnterCallback(window, onCursorEnter);
     glfwSetMouseButtonCallback(window, onMouseClick);
     glfwSetScrollCallback(window, onScroll);
     backend = GLFWBackend::Create(window, true);
@@ -226,6 +227,8 @@ void MapView::onScroll(GLFWwindow* window, double, double y) {
         return;
     if (v->manualCameraCallback)
         v->manualCameraCallback();
+    if (v->cityWeatherHover.select(""))
+        v->publishCityWeatherHover();
     const double delta = y * 40.0;
     double scale = 2.0 / (1.0 + std::exp(-std::abs(delta) / 100.0));
     if (delta < 0)
@@ -457,7 +460,10 @@ void MapView::onMouseMove(GLFWwindow* window, double x, double y) {
     auto* v = static_cast<MapView*>(glfwGetWindowUserPointer(window));
     if (!v || !v->map)
         return;
+    v->pointerInside = true;
     if (v->tracking) {
+        if (v->cityWeatherHover.select(""))
+            v->publishCityWeatherHover();
         const double dx = x - v->lastX, dy = y - v->lastY;
         if (dx != 0 || dy != 0) {
             if (!v->manualGesturePublished && v->manualCameraCallback) {
@@ -487,6 +493,7 @@ void MapView::run() {
         if (updateCallback)
             updateCallback();
         render();
+        updateCityWeatherHover();
 #ifndef __APPLE__
         runLoop.updateTime();
 #endif

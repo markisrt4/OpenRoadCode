@@ -4,6 +4,17 @@
 #include "map_view.hpp"
 #include "map_renderer_frontend.hpp"
 #include "weather_city_selection.hpp"
+#include "weather_city_hit.hpp"
+#include <mbgl/style/style.hpp>
+#include <mbgl/style/sources/geojson_source.hpp>
+#include <mapbox/geojson.hpp>
+#define GLFW_INCLUDE_NONE
+#define GLFW_EXPOSE_NATIVE_X11
+#include <GLFW/glfw3.h>
+#if defined(__linux__)
+#include <GLFW/glfw3native.h>
+#include <X11/Xlib.h>
+#endif
 #include <mbgl/renderer/renderer.hpp>
 #include <mbgl/renderer/query.hpp>
 #include <rapidjson/document.h>
@@ -71,4 +82,62 @@ std::string MapView::searchWeatherCities() const {
     rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
     cities.Accept(writer);
     return buffer.GetString();
+}
+
+void MapView::setCityWeatherJson(const std::string& geojson) {
+    cityWeatherHover.setData(geojson);
+    publishCityWeatherHover();
+}
+
+void MapView::publishCityWeatherHover() {
+    if (!map) return;
+    auto* source = map->getStyle().getSource("city-weather-hover");
+    if (!source) return;
+    static_cast<mbgl::style::GeoJSONSource*>(source)->setGeoJSON(
+        mapbox::geojson::parse(cityWeatherHover.data()));
+    invalidate();
+}
+
+void MapView::onCursorEnter(GLFWwindow* window, int entered) {
+    auto* view = static_cast<MapView*>(glfwGetWindowUserPointer(window));
+    if (!view) return;
+    view->pointerInside = entered != 0;
+    if (!view->pointerInside && view->cityWeatherHover.select(""))
+        view->publishCityWeatherHover();
+}
+
+void MapView::updateCityWeatherHover() {
+    if (!map || !rendererFrontend || !rendererFrontend->getRenderer()) return;
+    const double now = glfwGetTime();
+    if (now - lastHoverCheck < 0.1) return;
+    lastHoverCheck = now;
+    std::string identity;
+    if (pointerInside && !tracking) {
+        double x = lastX, y = lastY;
+#if defined(__linux__)
+        Display* display = glfwGetX11Display();
+        const Window child = glfwGetX11Window(window);
+        Window rootReturn = 0, childReturn = 0;
+        int rootX = 0, rootY = 0, winX = 0, winY = 0;
+        unsigned int mask = 0;
+        XWindowAttributes attributes{};
+        if (display && child && XQueryPointer(display, child, &rootReturn, &childReturn,
+                                              &rootX, &rootY, &winX, &winY, &mask) &&
+            XGetWindowAttributes(display, child, &attributes) && attributes.width > 0 && attributes.height > 0) {
+            x = static_cast<double>(winX) * width / attributes.width;
+            y = static_cast<double>(winY) * height / attributes.height;
+        }
+#endif
+        if (x >= 0 && y >= 0 && x < width && y < height) {
+            const mbgl::ScreenCoordinate hitPoint{x, y};
+            const auto features = rendererFrontend->getRenderer()->queryRenderedFeatures(hitPoint, {});
+            for (const auto& feature : features) {
+                // The glow itself must not enlarge the clickable hover target.
+                if (feature.properties.find("weather_city_hover") != feature.properties.end()) continue;
+                identity = weatherCityHitId(feature.properties);
+                if (!identity.empty()) break;
+            }
+        }
+    }
+    if (cityWeatherHover.select(identity)) publishCityWeatherHover();
 }

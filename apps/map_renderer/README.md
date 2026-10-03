@@ -78,3 +78,22 @@ covers absent, invalid-type, POI, and valid city identities:
 g++ -std=c++20 -Wall -Wextra -Werror apps/map_renderer/component_test/weather_city_hit_cli.cpp -o /tmp/weather-city-hit-test
 /tmp/weather-city-hit-test
 ```
+
+City hover uses an independent `city-weather-hover` GeoJSON source, a blurred
+point glow, and a brighter text halo. The highlight copies only the hovered city;
+it is excluded from hover hit testing so the glow cannot enlarge its own target.
+Pointer checks run at most ten times per second, and unchanged hover data does
+not update the source. Pointer exit, dragging, and empty city data clear it.
+Existing city styles gain the new layers without duplicating their originals.
+No new command or UI dependency is needed.
+
+The standalone native check covers selection, switching, clearing, stale cities,
+updated values, invalid input, and idempotent style upgrades:
+
+```bash
+g++ -std=c++20 -Wall -Wextra -Werror apps/map_renderer/component_test/weather_city_hover_cli.cpp -o /tmp/weather-city-hover-test
+/tmp/weather-city-hover-test
+```
+
+The check prints the generated style for optional MapLibre style validation.
+Actual pointer/glow rendering should also be checked on the rebuilt renderer.

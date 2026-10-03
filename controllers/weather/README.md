@@ -406,3 +406,12 @@ Clickable city weather requires rebuilding the native map renderer after pulling
 this change; Python-only updates cannot add native feature hit testing. On
 Termux the existing `development/termux/build_navigation_stack.sh` rebuilds the
 ORC renderer while reusing unchanged native dependencies.
+
+City weather points and labels show a soft gold glow while hovered with a mouse
+or trackpad. Hit testing uses the rendered city feature, not distance from a
+city coordinate. The glow is local presentation inside the native renderer:
+existing city identities and click contracts remain unchanged. It clears on
+pointer exit, dragging, and overlay removal. Hover checks also follow labels as
+the camera moves, and cached label refreshes update the highlighted value.
+Touch interaction continues to open details by tapping; hover requires a pointer.
+This effect requires rebuilding the native renderer after updating the branch.
