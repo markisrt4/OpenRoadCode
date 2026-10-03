@@ -106,7 +106,7 @@ website column continue to work, but cannot offer these links until refreshed.
 The links remain saved offline; loading websites requires internet. A Website
 button appears only when OSM supplies a valid URL. Known chains can offer both
 Order and Website, using their catalog ordering destination and OSM website
-respectively. On Android, both use the existing Bridge deep-link handoff; no new
-Bridge APK is needed solely for website metadata if you already have the
-`orcbridge://launch` handler (commit `ca82b7b` or newer). See
+respectively. On Android, ORDER uses the Bridge deep-link handoff (commit
+`ca82b7b` or newer); WEBSITE opens directly through `termux-open-url` and does
+not require Bridge. See
 [POI ordering](poi_ordering.md) for Linux fallbacks and login-session behavior.

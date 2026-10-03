@@ -9,7 +9,7 @@ offline; Order and Website require ORC's online mode.
 
 | Platform | ORDER | WEBSITE |
 | --- | --- | --- |
-| Termux / Android | Android Bridge opens the configured package if installed, otherwise the configured web destination | Android Bridge opens the website |
+| Termux / Android | Android Bridge opens the configured package if installed, otherwise the configured web destination | `termux-open-url` opens the website directly |
 | Linux | An installed Waydroid package is tried first; missing package, missing Waydroid, or failed launch falls back to the default desktop browser | Default desktop browser |
 
 Linux uses `gio open` when available, otherwise `xdg-open` from xdg-utils.
@@ -19,7 +19,8 @@ bounded command waits and run outside the Tk thread. ORC reports launch failures
 and leaves the POI card open for retry. An opener timeout can occur after a window
 has opened; check before retrying. No Waydroid installation is needed for the web
 path. Termux requires the Android Bridge app with its `orcbridge://launch` handler
-and `termux-open-url`. Ordering requires Bridge commit `ca82b7b` or newer;
+and `termux-open-url` for ORDER. WEBSITE uses `termux-open-url` directly and
+does not depend on Bridge. Ordering requires Bridge commit `ca82b7b` or newer;
 the fast network-state monitoring described in [Online/offline mode](online_offline_mode.md)
 requires `92c11b4` or newer.
 
