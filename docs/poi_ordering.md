@@ -19,13 +19,28 @@ bounded command waits and run outside the Tk thread. ORC reports launch failures
 and leaves the POI card open for retry. An opener timeout can occur after a window
 has opened; check before retrying. No Waydroid installation is needed for the web
 path. Termux requires the Android Bridge app with its `orcbridge://launch` handler
-and `termux-open-url`. This update does not require a new Bridge APK.
+and `termux-open-url`. Ordering requires Bridge commit `ca82b7b` or newer;
+the fast network-state monitoring described in [Online/offline mode](online_offline_mode.md)
+requires `92c11b4` or newer.
 
 An accepted launch is a handoff, not confirmation of an order. ORC does not submit
 purchases or select a restaurant location automatically: select/confirm the store,
 items, and payment in the restaurant app or site. Some providers require their
 mobile app for ordering; a fallback website cannot add ordering capabilities that
 the provider does not offer.
+
+## Login sessions
+
+ORC hands off to the restaurant app or the desktop's configured browser and does
+not store restaurant passwords, payment details, or login tokens. The destination
+keeps its own login session: Android app storage on Termux, app storage inside
+Waydroid, or cookies in the desktop/Android browser profile. Those sessions are
+separate across devices and between the app and website; providers may expire
+sessions or request verification. To sign out or clear a session, use the app or
+browser's controls. Test retention by signing in, reopening from the same POI,
+and restarting ORC before reopening again. No purchase is needed for this test.
+
+## Updating and testing
 
 Update either platform:
 

@@ -6,13 +6,15 @@ online features; successful recovery reenables them. Manual offline mode stays
 offline until you toggle it back. The preference
 is saved in `~/.config/openroadcode/online-mode.json` (or the configured XDG config
 home) and restored on startup. A failed preference write leaves the existing mode
-unchanged and displays an error in the shell status area.
+unchanged and displays an error in the shell status area. For ordering and login
+sessions, see [POI ordering](poi_ordering.md); for downloading local data, see
+[Termux POI downloads](termux_poi_download.md).
 
 Offline mode disables POI Order and Website buttons, Spotify, YouTube,
-YouTube Music, Netflix, and internet radio. Entire streaming-provider and internet-radio cards grey out, including logos,
-illustrations, accent bars, text, and buttons. Online mode restores their colors.
-Streaming controls grey out, including
-the home radio shortcut and Spotify account connection. Existing ORC browser
+YouTube Music, Netflix, and internet radio. Entire streaming-provider and
+internet-radio cards grey out, including logos, illustrations, accent bars, text,
+and buttons. Online mode restores their colors.
+Streaming controls grey out, including the home radio shortcut and Spotify account connection. Existing ORC browser
 players and internet radio stop when switching offline. Spotify polling, remote
 commands, and radio-directory requests are blocked. Switching online reenables
 controls without automatically restarting playback.
@@ -30,17 +32,22 @@ or Wi-Fi signal strength:
 
 The check sends a bounded HTTPS HEAD request to Google's connectivity endpoint
 (`connectivitycheck.gstatic.com/generate_204`) approximately every 10 seconds,
-in a background thread. Automatic offline mode continues these checks; manual
-offline mode starts no checks. A check already in flight may finish, and results
-from before a manual toggle are ignored. Detection depends on that endpoint being reachable and returning HTTP 204;
+in a background thread. Checks continue when offline was inferred from a failed
+internet request or no local monitor is available. A definite local disconnect
+suspends internet requests until the local monitor reports recovery or becomes
+unavailable. Manual offline mode starts no internet checks. A check already in flight may finish, and results
+from before a manual toggle are ignored. Detection depends on that endpoint
+being reachable and returning HTTP 204;
 a captive portal or a blocked endpoint can cause offline mode even if some sites
 work. One reachable endpoint does not establish that every provider is available.
 
 This is an ORC feature preference, not the phone's airplane mode. Local
 visualizers and RF radio remain available. The standalone POI downloader is not
-yet connected to this preference. Requests already in flight may finish. Spotify playback on another
+yet connected to this preference. Requests already in flight may finish. Spotify
+playback on another
 device is not forcibly stopped, because that requires an online API call. An
-external browser or app already opened remains under its own lifecycle. Further internet-dependent features should share the same
+external browser or app already opened remains under its own lifecycle. Further
+internet-dependent features should share the same
 `OnlineModeController` rather than maintain separate toggles.
 
 Phone smoke test:

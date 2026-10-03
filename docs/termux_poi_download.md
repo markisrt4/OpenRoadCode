@@ -52,6 +52,8 @@ Replace `LATITUDE` and `LONGITUDE` with numbers. West longitude is negative.
 The default radius is 10 km; the maximum is 25 km to keep public Overpass queries
 manageable. Query timeouts or rate limits leave the installed index unchanged;
 retry later or reduce the radius. Internet is needed for downloads, not searches.
+This standalone command does not honor ORC's online/offline toggle; run it only
+when you want to use an internet connection.
 
 On Termux, the default database is:
 
@@ -105,4 +107,6 @@ The links remain saved offline; loading websites requires internet. A Website
 button appears only when OSM supplies a valid URL. Known chains can offer both
 Order and Website, using their catalog ordering destination and OSM website
 respectively. On Android, both use the existing Bridge deep-link handoff; no new
-Bridge APK is needed.
+Bridge APK is needed solely for website metadata if you already have the
+`orcbridge://launch` handler (commit `ca82b7b` or newer). See
+[POI ordering](poi_ordering.md) for Linux fallbacks and login-session behavior.

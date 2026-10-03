@@ -7,16 +7,13 @@ from __future__ import annotations
 
 from controllers.connectivity.online_mode import OnlineModeController
 
-from queue import SimpleQueue, Empty
-from threading import Thread
+from queue import SimpleQueue
 
 import math
 import sqlite3
 import tkinter as tk
 from collections.abc import Callable
 
-from apps.launchers.android_app_launcher import AndroidAppLauncherError
-from apps.launchers.android_intent_launcher import AndroidIntentLauncherError
 from apps.orcUi.theme_runtime import theme_bundle as packaged_theme_bundle
 from controllers.navigation.map_favorites import MapFavorites
 from controllers.poi.android_poi_action_executor import AndroidPoiActionExecutor
@@ -41,6 +38,7 @@ from ui.navigation.route_types import TravelMode
 from ui.theme import ThemeBundle, ThemeMode
 from .shell_metrics import FONT_CONTROL, FONT_SMALL, FONT_TINY
 from .navigation_panel_layout import build_navigation_panel, show_poi_card
+from .navigation_poi_actions import execute_poi_action, poll_poi_launch_results
 
 _POI_SEARCH_SETTLE_MS = 750
 
@@ -346,40 +344,10 @@ class NavigationPanel(tk.Frame):
                 button.configure(state=tk.NORMAL if self.online_actions_allowed and not self._poi_launching else tk.DISABLED)
 
     def _execute_poi_action(self, poi: PointOfInterest, action: PoiAction) -> None:
-        if not self.online_actions_allowed:
-            self._shortcut_status.set("Offline mode: go online to order or open websites")
-            return
-        if self._poi_launching:
-            return
-        self._poi_launching = True
-        card = self._poi_card
-        self._refresh_poi_action_buttons()
-        self._shortcut_status.set(f"Opening {action.label.casefold()}…")
-
-        def launch() -> None:
-            try:
-                if not self.online_actions_allowed:
-                    raise ValueError("Offline mode: go online to open this destination")
-                status = self._poi_action_executor.execute(poi, action)
-            except (AndroidAppLauncherError, AndroidIntentLauncherError, ValueError) as exc:
-                self._poi_launch_results.put((card, f"Launch failed: {exc}", False))
-            else:
-                self._poi_launch_results.put((card, status, True))
-
-        self._poi_launch_worker = Thread(target=launch, name="orc-poi-launch", daemon=True)
-        self._poi_launch_worker.start()
+        execute_poi_action(self, poi, action)
 
     def _poll_poi_launch_results(self) -> None:
-        try:
-            card, status, success = self._poi_launch_results.get_nowait()
-        except Empty:
-            return
-        self._poi_launching = False
-        self._refresh_poi_action_buttons()
-        self._shortcut_status.set(status)
-        # Leave failures open for retry, and do not close a different/new POI card.
-        if success and card is self._poi_card and card is not None and card.winfo_exists():
-            card.destroy()
+        poll_poi_launch_results(self)
 
     def _update_simulation_button(self) -> None:
         if hasattr(self, "_cancel_route_button"):
