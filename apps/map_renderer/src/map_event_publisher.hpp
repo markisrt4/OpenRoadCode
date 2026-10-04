@@ -24,6 +24,7 @@ public:
     void publishWeatherCities(long long requestId, const std::string& cities);
 
     void publishManualCameraInteraction();
+    void publishCameraState(double latitude, double longitude, double zoom, double bearing, double pitch);
 
     void publishMapClick(
         double latitude,

@@ -18,6 +18,7 @@ class WeatherScreenController(WeatherScreenRequestHandlerIf):
     def __init__(
         self, dispatcher: UiDispatcherIf, controller: WeatherController,
         ui: WeatherScreenUiIf, on_weather_state: Callable[[WeatherUiState], None] | None = None,
+        *, online_allowed: Callable[[], bool] = lambda: True,
     ):
         self._dispatcher = dispatcher
         self._controller = controller
@@ -31,6 +32,8 @@ class WeatherScreenController(WeatherScreenRequestHandlerIf):
         self._last_state = None
         self._last_error = ""
         self._stale_refresh = False
+        self._online_allowed = online_allowed
+        self._unsubscribe_mode = lambda: None
 
     def set_visible(self, visible: bool) -> None:
         """Update lifecycle. @param visible Whether the forecast screen is shown."""
@@ -41,21 +44,45 @@ class WeatherScreenController(WeatherScreenRequestHandlerIf):
             if latest is not None:
                 self._last_state = latest
                 self._presenter.present(latest)
-            self.request_refresh()
+            self._ui.set_online(self._online_allowed())
+            self.request_refresh(force=False)
 
-    def request_refresh(self) -> None:
+    def bind_online_mode(self, mode) -> None:
+        """Observe backend connectivity. @param mode Connectivity mode source."""
+        self._unsubscribe_mode()
+        self._unsubscribe_mode = mode.subscribe(self.mode_changed)
+        self.mode_changed(mode.online)
+
+    def mode_changed(self, online: bool) -> None:
+        """Invalidate old work. @param online Effective connectivity."""
+        if self._closed:
+            return
+        self._generation += 1
+        self._ui.set_online(online)
+        if self._visible:
+            self._ui.set_loading(False)
+            if online:
+                self.request_refresh(force=True)
+            else:
+                self._ui.set_weather_status('Offline mode: cached weather; alerts may be outdated')
+
+    def request_refresh(self, *, force: bool = True) -> None:
         """Refresh the visible screen asynchronously."""
         if self._closed or not self._visible:
+            return
+        if not self._online_allowed():
+            self._ui.set_loading(False)
+            self._ui.set_weather_status('Offline mode: cached weather; alerts may be outdated')
             return
         self._generation += 1
         generation = self._generation
         self._ui.set_loading(True)
         self._ui.set_weather_status("Weather: refreshing")
-        threading.Thread(target=self._refresh, args=(generation,), daemon=True).start()
+        threading.Thread(target=self._refresh, args=(generation, force), daemon=True).start()
 
-    def _refresh(self, generation):
+    def _refresh(self, generation, force=False):
         try:
-            state = self._controller.refresh_if_stale(300.0)
+            state = (self._controller.refresh() if force else self._controller.refresh_if_stale(300.0))
             detail = ""
         except Exception as error:
             state, detail = None, str(error)
@@ -94,5 +121,6 @@ class WeatherScreenController(WeatherScreenRequestHandlerIf):
     def close(self):
         """Invalidate pending refresh callbacks and disconnect the view."""
         self._closed = True
+        self._unsubscribe_mode()
         self.set_visible(False)
         self._ui.set_weather_request_handler(None)

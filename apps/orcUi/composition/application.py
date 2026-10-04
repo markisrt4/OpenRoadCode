@@ -176,9 +176,12 @@ def create_orc_ui_composition() -> OrcUiComposition:
         overlays = configure_weather_overlays(app, weather_view, core.map_camera.renderer_client,
                                              weather.radar_tiles, unit_system, core.route_request_handler,
                                              core.presentation)
-        navigation_places = NavigationPlacesFactory()
+        navigation_places = NavigationPlacesFactory(
+            online_allowed=lambda: app.online_mode.online,
+            camera_observer=core.map_camera.request_handler.observe_camera)
         navigation = NavigationScreen(
             app,
+            online_mode=app.online_mode,
             map_runtime=core.map_runtime,
             places_factory=navigation_places,
             map_request_handler=core.map_camera.request_handler,

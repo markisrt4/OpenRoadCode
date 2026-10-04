@@ -22,8 +22,16 @@ class NavigationPanelControlTest(unittest.TestCase):
         panel._request_handler = Mock()
         panel._zoom_level = 16.5
         panel._zoom_text = Mock()
+        panel._dimension_text = Mock()
+        panel._pitch_rad = 0.0
         panel._follow_enabled = True
         panel._places_handler = Mock()
+        panel._online_mode = None
+        panel._poi_action_request = None
+        panel._poi_launching = False
+        panel._poi_action_buttons = []
+        panel._unsubscribe_online_mode = Mock()
+        panel._places_handler.poll_action_result.return_value = None
         panel._shortcut_status = Mock()
         panel._active_poi_render_category = ""
         panel._active_poi_search = None
@@ -84,6 +92,16 @@ class NavigationPanelControlTest(unittest.TestCase):
         self.assertTrue(panel._follow_enabled)
         panel._request_handler.request_zoom.assert_called_once_with(17.5)
 
+    def test_toolbar_zoom_continues_from_native_double_click_camera(self) -> None:
+        from ui.navigation.navigation_places_request_handler_if import NavigationCameraState
+        panel = self._panel()
+        panel._places_handler.poll_camera_state.return_value = NavigationCameraState(
+            GeoPoint(math.radians(42.81), math.radians(-83.02)), 18.5, math.radians(25), math.radians(40))
+        panel._change_zoom(1)
+        panel._request_handler.request_zoom.assert_called_once_with(19.5)
+        self.assertAlmostEqual(panel._pitch_rad, math.radians(40))
+        panel._places_handler.poll_camera_state.assert_called_once()
+
     def test_3d_view_tilts_and_zooms_current_viewport(self) -> None:
         panel = self._panel()
         panel._pitch_rad = 0.0
@@ -99,6 +117,26 @@ class NavigationPanelControlTest(unittest.TestCase):
         panel._request_handler.request_pitch.assert_called_once_with(math.radians(60.0))
         panel._request_handler.request_recenter.assert_not_called()
         panel._schedule_active_poi_refresh.assert_called_once_with()
+
+    def test_dimension_toggle_returns_to_flat_view_without_recenter_or_zoom(self) -> None:
+        panel = self._panel()
+        panel._toggle_map_dimension()
+        self.assertAlmostEqual(panel._pitch_rad, math.radians(60))
+        panel._dimension_text.set.assert_called_with("2D")
+        panel._request_handler.reset_mock()
+        panel._toggle_map_dimension()
+        self.assertEqual(panel._pitch_rad, 0.0)
+        panel._dimension_text.set.assert_called_with("3D")
+        panel._request_handler.request_pitch.assert_called_once_with(0.0)
+        panel._request_handler.request_zoom.assert_not_called()
+        panel._request_handler.request_recenter.assert_not_called()
+
+    def test_tilt_controls_update_dimension_toggle_label(self) -> None:
+        panel = self._panel()
+        panel._change_pitch(5)
+        panel._dimension_text.set.assert_called_with("2D")
+        panel._change_pitch(-5)
+        panel._dimension_text.set.assert_called_with("3D")
 
     def test_north_up_disables_follow(self) -> None:
         panel = self._panel()
@@ -262,7 +300,10 @@ class NavigationPanelControlTest(unittest.TestCase):
 
     def test_poi_order_action_delegates_to_platform_executor(self) -> None:
         panel = self._panel()
-        panel._places_handler.execute.return_value = "Opening order in app"
+        from ui.navigation.navigation_places_request_handler_if import PlaceActionResult
+        from apps.orcUi.frontend.tk.navigation_poi_actions import poll_poi_launch_results
+        panel._places_handler.request_action.return_value = 1
+        panel._places_handler.poll_action_result.return_value = PlaceActionResult(1, 'Opening order in app', True)
         poi = PointOfInterest(
             poi_id="panera",
             name="Panera Bread",
@@ -272,8 +313,9 @@ class NavigationPanelControlTest(unittest.TestCase):
         action = PoiAction(PoiActionKind.ORDER, "ORDER", provider_id="panera")
 
         panel._execute_poi_action(poi, action)
+        poll_poi_launch_results(panel)
 
-        panel._places_handler.execute.assert_called_once_with(poi, action)
+        panel._places_handler.request_action.assert_called_once_with(poi, action)
         panel._shortcut_status.set.assert_called_with("Opening order in app")
 
 

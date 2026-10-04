@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 import math
 from typing import Any
 from urllib.parse import urlencode
@@ -19,7 +20,9 @@ class RadioBrowserDirectory(StreamingRadioDirectoryIf):
     DEFAULT_API_BASE = "https://de1.api.radio-browser.info/json"
     USER_AGENT = "OpenRoadCode/streaming-radio"
 
-    def __init__(self, *, api_base: str = DEFAULT_API_BASE, timeout_s: float = 5.0) -> None:
+    def __init__(self, *, api_base: str = DEFAULT_API_BASE, timeout_s: float = 5.0,
+                 network_allowed: Callable[[], bool] = lambda: True) -> None:
+        self._network_allowed = network_allowed
         self._api_base = api_base.rstrip("/")
         self._timeout_s = timeout_s
 
@@ -128,6 +131,8 @@ class RadioBrowserDirectory(StreamingRadioDirectoryIf):
         return tuple(ordered[:limit])
 
     def _request_stations(self, url: str) -> tuple[StreamingRadioStation, ...]:
+        if not self._network_allowed():
+            raise RuntimeError("Internet radio directory unavailable in offline mode")
         request = Request(url, headers={"User-Agent": self.USER_AGENT})
         with urlopen(request, timeout=self._timeout_s) as response:
             payload = json.load(response)

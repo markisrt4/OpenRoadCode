@@ -5,6 +5,8 @@
 
 from __future__ import annotations
 
+from ui.system.online_mode_if import OnlineModeIf
+
 from collections.abc import Callable
 
 from ui.navigation.map_runtime_if import MapRuntimeIf
@@ -47,6 +49,7 @@ class NavigationScreen(TkScreen, RadarControlsIf):
         ),
         on_back: Callable[[], None],
         route_weather=None,
+        online_mode: OnlineModeIf | None = None,
     ) -> None:
         super().__init__(self.SCREEN_ID)
         if not isinstance(places_factory, NavigationPlacesFactoryIf):
@@ -54,6 +57,7 @@ class NavigationScreen(TkScreen, RadarControlsIf):
         self._places_factory = places_factory
         self._places_session = None
         self._route_weather = route_weather
+        self._online_mode = online_mode
         self._host = host
         self._map_runtime = map_runtime
         self._map_request_handler = map_request_handler
@@ -103,6 +107,7 @@ class NavigationScreen(TkScreen, RadarControlsIf):
                 self._host.screen_parent,
                 map_request_handler=self._map_request_handler,
                 places_handler=self._places_session,
+                online_mode=self._online_mode,
                 route_request_handler=self._route_request_handler,
                 route_simulation_handler=self._route_simulation_handler,
                 on_back=self._on_back,
@@ -144,6 +149,7 @@ class NavigationScreen(TkScreen, RadarControlsIf):
             self._radar_handler.request_navigation_visible(False)
         if self._panel is not None:
             self._panel.close_radar_menu()
+            self._panel._sync_renderer_camera()
             self._panel.close_places()
         if self.__dict__.get("_route_weather") is not None:
             self._route_weather.hide()
@@ -154,6 +160,7 @@ class NavigationScreen(TkScreen, RadarControlsIf):
     def close(self) -> None:
         """Disconnect transient weather widgets when the application exits."""
         if self._panel is not None:
+            self._panel._sync_renderer_camera()
             self._panel.close_places()
         self._close_places_session()
         self._panel = None

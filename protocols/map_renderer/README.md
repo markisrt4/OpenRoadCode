@@ -58,3 +58,15 @@ existing `map.click.marker_id`, with no POI `marker_index`. Weather consumers
 resolve it against currently displayed cities; POI consumers ignore these hits.
 Ordinary clicks and POI marker behavior remain unchanged. Rebuild the native
 renderer to enable this hit testing.
+
+## Camera feedback
+
+The renderer publishes `map.camera.changed` after camera changes, at most once
+per 50 milliseconds. Its numeric fields are `latitude`, `longitude`, `zoom`,
+`bearing`, and `pitch`; coordinates and angles are in degrees. Navigation drains
+the queue to the newest valid snapshot, updates its control values, and retains
+the actual camera in the shared request handler without sending a feedback
+command. Native gestures therefore update toolbar state, and returning to
+Navigation restores the last observed camera during the current ORC session.
+Camera feedback starts after an explicit UI camera command so the renderer's
+startup dataset view cannot overwrite the intended navigation camera.

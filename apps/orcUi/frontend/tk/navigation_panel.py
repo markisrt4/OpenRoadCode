@@ -5,6 +5,11 @@
 
 from __future__ import annotations
 
+from ui.system.online_mode_if import OnlineModeIf
+
+import logging
+
+from common.logging.structured import event
 import math
 import tkinter as tk
 from collections.abc import Callable
@@ -23,10 +28,13 @@ from ui.navigation.navigation_places_request_handler_if import NavigationPlacesR
 from .navigation_radar_controls import NavigationRadarControls
 from .navigation_panel_layout import build_navigation_panel
 from .navigation_places_controls import NavigationPlacesControls
+from .navigation_panel_camera import NavigationCameraControls
 
 
+_LOG = logging.getLogger("navigation.poi.ui")
 
-class NavigationPanel(NavigationPlacesControls, NavigationRadarControls, tk.Frame):
+
+class NavigationPanel(NavigationPlacesControls, NavigationRadarControls, NavigationCameraControls, tk.Frame):
     """Map host, navigation controls, and nearby POI discovery."""
 
     def __init__(
@@ -39,6 +47,7 @@ class NavigationPanel(NavigationPlacesControls, NavigationRadarControls, tk.Fram
         places_handler: NavigationPlacesRequestHandlerIf,
         on_back: Callable[[], None] | None = None,
         theme_bundle: ThemeBundle | None = None,
+        online_mode: OnlineModeIf | None = None,
         radar_enabled: bool = False,
         radar_frame_time: int | None = None,
         radar_palette: RadarPalette = RadarPalette.UNIVERSAL,
@@ -78,6 +87,13 @@ class NavigationPanel(NavigationPlacesControls, NavigationRadarControls, tk.Fram
         self._route_request_handler = route_request_handler or RouteRequestHandlerStub()
         self._route_simulation_handler = route_simulation_handler
         self._places_handler = places_handler
+        self._online_mode = online_mode
+        self._poi_action_buttons = []
+        self._poi_launching = False
+        self._poi_action_request = None
+        self._unsubscribe_online_mode = (
+            online_mode.subscribe(lambda _online: self._refresh_poi_action_buttons())
+            if online_mode is not None else lambda: None)
         self._closed = False
         self._places_closed = False
         self._poi_poll_after_id: str | None = None
@@ -86,6 +102,7 @@ class NavigationPanel(NavigationPlacesControls, NavigationRadarControls, tk.Fram
         self._zoom_level = float(getattr(self._request_handler, "zoom_level", 16.5))
         self._zoom_text = tk.StringVar(value=f"{self._zoom_level:.1f}")
         self._pitch_rad = float(getattr(self._request_handler, "pitch_rad", math.radians(45.0)))
+        self._dimension_text = tk.StringVar(value="2D" if self._pitch_rad > 0 else "3D")
         self._follow_enabled = bool(getattr(self._request_handler, "follow_enabled", True))
         self._shortcut_status = tk.StringVar(value="")
         self._guidance_instruction = tk.StringVar(value="")
@@ -133,6 +150,7 @@ class NavigationPanel(NavigationPlacesControls, NavigationRadarControls, tk.Fram
         if self._places_closed:
             return
         self._places_closed = True
+        self._unsubscribe_online_mode()
         for name in ("_poi_poll_after_id", "_poi_search_after_id"):
             callback_id = getattr(self, name)
             if callback_id is not None:
@@ -261,49 +279,6 @@ class NavigationPanel(NavigationPlacesControls, NavigationRadarControls, tk.Fram
             details.append("OFF ROUTE")
         self._guidance_detail.set("  •  ".join(details))
 
-    def _toggle_follow(self) -> None:
-        enabled = not self._follow_enabled
-        self.set_follow_enabled(enabled)
-        self._request_handler.request_follow(enabled)
-
-    def _pan(self, up: float, right: float) -> None:
-        self._map_host.update_idletasks()
-        self.set_follow_enabled(False)
-        self._request_handler.request_pan_screen(
-            right_px=right * max(48, self._map_host.winfo_width() * 0.25),
-            up_px=up * max(48, self._map_host.winfo_height() * 0.25),
-        )
-        self._schedule_active_poi_refresh()
-
-    def _change_zoom(self, delta: float) -> None:
-        self._zoom_level = max(1, min(22, self._zoom_level + delta))
-        self._zoom_text.set(f"{self._zoom_level:.1f}")
-        self._request_handler.request_zoom(self._zoom_level)
-        self._schedule_active_poi_refresh()
-
-    def _change_pitch(self, delta_deg: float) -> None:
-        pitch_deg = max(0, min(60, math.degrees(self._pitch_rad) + delta_deg))
-        self._pitch_rad = math.radians(pitch_deg)
-        self.set_follow_enabled(False)
-        self._request_handler.request_pitch(self._pitch_rad)
-
-    def _show_3d_view(self) -> None:
-        """Tilt and zoom the current viewport around its existing center."""
-        self._zoom_level = 17.0
-        self._zoom_text.set(f"{self._zoom_level:.1f}")
-        self._pitch_rad = math.radians(60.0)
-        self.set_follow_enabled(False)
-        self._request_handler.request_zoom(self._zoom_level)
-        self._request_handler.request_pitch(self._pitch_rad)
-        self._schedule_active_poi_refresh()
-
-    def _north_up(self) -> None:
-        self.set_follow_enabled(False)
-        self._request_handler.request_bearing(0.0)
-
-    def _recenter(self) -> None:
-        self.set_follow_enabled(True)
-        self._request_handler.request_recenter()
 
 
 def _format_distance(distance_m: float) -> str:

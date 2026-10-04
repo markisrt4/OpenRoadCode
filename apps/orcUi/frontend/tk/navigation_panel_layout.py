@@ -165,8 +165,10 @@ def build_navigation_panel(panel) -> None:
     panel._control(controls, "−", lambda: panel._change_zoom(-1), ui.accent_primary).pack(
         fill=tk.X, padx=5, pady=2
     )
+    dimension_button = panel._control(controls, "", panel._toggle_map_dimension, ui.accent_primary)
+    dimension_button.configure(textvariable=panel._dimension_text)
+    dimension_button.pack(fill=tk.X, padx=5, pady=2)
     for label, command, accent in (
-        ("3D", panel._show_3d_view, ui.accent_primary),
         ("↗", lambda: panel._change_pitch(5), ui.accent_warning),
         ("↘", lambda: panel._change_pitch(-5), ui.accent_warning),
         ("N", panel._north_up, ui.text),
@@ -253,11 +255,14 @@ def show_poi_card(panel, poi) -> None:
         height=2,
     ).pack(side=tk.LEFT, padx=4)
 
+    panel._poi_action_buttons = []
     for action in poi.actions:
         if action.kind in {PoiActionKind.ORDER, PoiActionKind.OPEN_WEBSITE}:
-            tk.Button(
+            button = tk.Button(
                 buttons,
                 text=action.label,
+                state=tk.NORMAL if panel.online_actions_allowed else tk.DISABLED,
+                disabledforeground=ui.text_muted,
                 command=lambda selected=action: panel._execute_poi_action(poi, selected),
                 bg=ui.control_background,
                 fg=ui.accent_primary,
@@ -269,7 +274,9 @@ def show_poi_card(panel, poi) -> None:
                 font=("Sans", 10, "bold"),
                 width=12,
                 height=2,
-            ).pack(side=tk.LEFT, padx=4)
+            )
+            button.pack(side=tk.LEFT, padx=4)
+            panel._poi_action_buttons.append(button)
 
     tk.Button(
         buttons,

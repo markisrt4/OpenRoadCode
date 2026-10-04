@@ -4,6 +4,9 @@
 from __future__ import annotations
 
 import unittest
+from unittest.mock import patch
+
+from controllers.radio.adapters.radio_browser_directory import RadioBrowserDirectory
 
 from controllers.audio.streaming_audio_player_if import StreamingAudioPlayerIf
 from controllers.radio.streaming_radio_controller import StreamingRadioController
@@ -57,6 +60,35 @@ class StreamingRadioControllerTest(unittest.TestCase):
         self.assertEqual(self.player.stop_count, 1)
         self.assertIsNone(self.controller.current_station)
         self.assertFalse(self.controller.is_playing)
+
+    def test_offline_directory_does_not_issue_http_requests(self) -> None:
+        directory = RadioBrowserDirectory(network_allowed=lambda: False)
+        with patch("controllers.radio.adapters.radio_browser_directory.urlopen") as request:
+            for action in (lambda: directory.search("Detroit"),
+                           lambda: directory.stations_by_ids(("station-1",)),
+                           lambda: directory.stations_by_region(state="Michigan")):
+                with self.assertRaisesRegex(RuntimeError, "offline"):
+                    action()
+            request.assert_not_called()
+
+    def test_offline_rejects_play_but_allows_stop(self) -> None:
+        self.controller.set_network_allowed(lambda: False)
+        with self.assertRaisesRegex(RuntimeError, "offline"):
+            self.controller.play(self.station)
+        self.assertEqual(self.player.played_urls, [])
+        self.controller.stop()
+        self.assertEqual(self.player.stop_count, 1)
+        self.controller.set_network_allowed(lambda: True)
+        self.controller.play(self.station)
+        self.assertTrue(self.controller.is_playing)
+
+    def test_switching_offline_during_play_stops_new_stream(self) -> None:
+        checks = iter((True, False))
+        self.controller.set_network_allowed(lambda: next(checks))
+        with self.assertRaisesRegex(RuntimeError, "offline"):
+            self.controller.play(self.station)
+        self.assertFalse(self.player.is_playing)
+        self.assertIsNone(self.controller.current_station)
 
     def test_failed_play_does_not_replace_current_station(self) -> None:
         self.controller.play(self.station)

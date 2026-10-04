@@ -71,7 +71,8 @@ def configure_weather(
         source="runtime-config",
     )
     controller = WeatherController(
-        OpenMeteoWeatherProvider(),
+        OpenMeteoWeatherProvider(timeout_seconds=5.0),
+        network_allowed=lambda: app.online_mode.online,
         location_provider=GpsdWeatherLocationProvider(),
         fallback_location=fallback_location,
     )
@@ -112,7 +113,9 @@ def configure_weather(
         on_weather_radio=on_weather_radio,
         on_radar_map=on_radar_map,
     )
-    screen_controller = WeatherScreenController(app, controller, screen, publish_weather_status)
+    screen_controller = WeatherScreenController(
+        app, controller, screen, publish_weather_status, online_allowed=lambda: app.online_mode.online)
+    screen_controller.bind_online_mode(app.online_mode)
     screen.set_weather_request_handler(screen_controller)
     app.register_screen("WEATHER", screen, before="VISION")
     return WeatherComposition(

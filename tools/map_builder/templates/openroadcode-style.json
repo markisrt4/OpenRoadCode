@@ -550,13 +550,44 @@
       }
     },
     {
+      "id": "buildings-flat",
+      "type": "fill",
+      "source": "openroad",
+      "source-layer": "building",
+      "minzoom": 12.5,
+      "layout": {
+        "visibility": "none"
+      },
+      "paint": {
+        "fill-color": "#cbc6c0",
+        "fill-outline-color": "#a9a39c"
+      }
+    },
+    {
       "id": "buildings",
       "type": "fill-extrusion",
       "source": "openroad",
       "source-layer": "building",
       "minzoom": 12.5,
       "paint": {
-        "fill-extrusion-color": "#cbc6c0",
+        "fill-extrusion-color": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "coalesce",
+            [
+              "get",
+              "render_height"
+            ],
+            3.66
+          ],
+          0,
+          "#cbc6c0",
+          80,
+          "#a7b1ba"
+        ],
         "fill-extrusion-height": [
           "coalesce",
           [
@@ -573,7 +604,8 @@
           ],
           0
         ],
-        "fill-extrusion-opacity": 0.86
+        "fill-extrusion-opacity": 1,
+        "fill-extrusion-vertical-gradient": true
       }
     },
     {
@@ -1297,7 +1329,7 @@
       "type": "symbol",
       "source": "openroad",
       "source-layer": "housenumber",
-      "minzoom": 15,
+      "minzoom": 17,
       "layout": {
         "text-field": "{housenumber}",
         "text-font": [
@@ -1631,5 +1663,15 @@
         "circle-stroke-width": 3
       }
     }
-  ]
+  ],
+  "light": {
+    "anchor": "map",
+    "position": [
+      1.15,
+      210,
+      35
+    ],
+    "color": "#fff4e5",
+    "intensity": 0.4
+  }
 }

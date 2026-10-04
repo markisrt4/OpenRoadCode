@@ -94,7 +94,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install --yes cmake pkg-config libspdlog-dev rapidjson-dev libzmq3-dev cppzmq-dev
 
-      - name: Verify Python logging and navigation correlation
+      - name: Verify Python logging and subsystem behavior
         env:
           ORC_LOG_DIR: ${{ runner.temp }}/orc-logging
         run: python -m pytest -q common/logging/unit_test

@@ -59,6 +59,7 @@ class PointOfInterest:
     source_class: str | None = None
     source_subclass: str | None = None
     actions: tuple[PoiAction, ...] = ()
+    website: str | None = None
 
 
 @dataclass(frozen=True, slots=True)

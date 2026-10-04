@@ -255,3 +255,42 @@ Before merging a substantial architecture change, review the complete branch dif
 - Keep shared icons semantic and frontend rendering local.
 - Keep theme values sourced from the shared theme model except deliberate provider branding.
 - Remove obsolete compatibility aliases when ownership changes instead of preserving architectural ambiguity indefinitely.
+
+## POI actions and connectivity
+
+`frontend/tk/navigation_panel.py` owns navigation state and UI polling. Its
+`navigation_poi_actions.py` helper owns asynchronous app/web handoffs, duplicate
+launch suppression, and applying queued results on the Tk thread. Failed handoffs
+leave the card open for retry; a completed launch does not close a newer card.
+Platform routing remains in `AndroidAppLauncher` and its Bridge, Waydroid, and
+desktop-browser adapters; provider metadata stays in the POI catalogs.
+
+`OnlineModeController` combines the manual preference with observed reachability
+and persists the effective mode for background services. `NetworkMonitor` reads
+Android Bridge locally on Termux and receives NetworkManager events through
+nmcli on Linux. The shell applies queued observations on the UI thread and
+invalidates older internet-check results. Feature compositions subscribe to the
+same mode to disable online actions while preserving local map, navigation, RF,
+and visualizer capabilities. See [the online/offline guide](../../docs/online_offline_mode.md)
+and [POI ordering](../../docs/poi_ordering.md) for behavior and testing.
+
+### Integration of camera feedback and connectivity
+
+The composition root owns `ShellConnectivityController`, including network
+monitoring, reachability workers and stale probe invalidation. Frontends receive
+`OnlineModeIf` for presentation and emit the shell toggle through a bound request.
+Weather mode transitions are owned by `WeatherScreenController`: going offline
+invalidates pending work while retaining cached forecast state; reconnecting
+forces a refresh.
+
+Navigation places sessions convert renderer camera events to immutable SI
+`NavigationCameraState`, notify the shared map handler without a feedback command,
+and expose snapshots through the places contract. POI action workers live in
+`NavigationPlacesController`; widgets retain a request identity and popup identity
+so a late successful handoff cannot close a replacement popup. Closed sessions
+discard completions. Canonical POI values include the validated website as well
+as missing-index error reporting. Platform launchers are injected by composition.
+
+Termux updates retain `--renderer-only` and the configurable renderer build
+directory. Full navigation updates always rebuild the ORC-owned renderer, while
+MapLibre retains its build-state checks.

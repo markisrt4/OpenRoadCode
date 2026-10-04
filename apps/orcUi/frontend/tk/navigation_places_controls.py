@@ -7,6 +7,7 @@ from ui.navigation import MapMarker, MapMarkerKind
 from ui.navigation.poi_models import PoiAction, PoiCategory, PointOfInterest, TransitMode
 from ui.navigation.route_types import TravelMode
 from .navigation_panel_layout import show_poi_card
+from .navigation_poi_actions import execute_poi_action, poll_poi_launch_results
 
 _POI_SEARCH_SETTLE_MS = 750
 
@@ -128,6 +129,8 @@ class NavigationPlacesControls:
         self._poi_poll_after_id = None
         if self._closed or self._places_closed:
             return
+        poll_poi_launch_results(self)
+        self._sync_renderer_camera()
         if self._places_handler.poll_camera_interaction():
             # Native mouse/touch gestures happen inside MapLibre, bypassing the
             # Python request handler. Suspend GPS follow so it cannot immediately
@@ -182,15 +185,17 @@ class NavigationPlacesControls:
         if self._poi_card is not None and self._poi_card.winfo_exists():
             self._poi_card.destroy()
 
+    @property
+    def online_actions_allowed(self) -> bool:
+        return self._online_mode is None or self._online_mode.online
+
+    def _refresh_poi_action_buttons(self) -> None:
+        for button in self._poi_action_buttons:
+            if button.winfo_exists():
+                button.configure(state=tk.NORMAL if self.online_actions_allowed and not self._poi_launching else tk.DISABLED)
+
     def _execute_poi_action(self, poi: PointOfInterest, action: PoiAction) -> None:
-        try:
-            status = self._places_handler.execute(poi, action)
-            self._shortcut_status.set(status)
-        except (RuntimeError, ValueError) as exc:
-            self._shortcut_status.set(f"Launch failed: {exc}")
-        if self._poi_card is not None and self._poi_card.winfo_exists():
-            self._poi_card.destroy()
-        self.after(3500, lambda: self._shortcut_status.set(""))
+        execute_poi_action(self, poi, action)
 
 
 def _poi_render_category(category: PoiCategory, transit_mode: TransitMode) -> str:

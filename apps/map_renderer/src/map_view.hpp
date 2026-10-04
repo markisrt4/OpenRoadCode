@@ -76,6 +76,7 @@ public:
     void run();
     void invalidate();
     void showWindow();
+    void finishCameraGesture();
     void setShouldClose();
     void onWillStartRenderingFrame() override;
 
@@ -107,6 +108,7 @@ private:
     static void onWindowResize(GLFWwindow* window, int width, int height);
     static void onFramebufferResize(GLFWwindow* window, int width, int height);
     static void onScroll(GLFWwindow* window, double xOffset, double yOffset);
+    static void onWindowFocus(GLFWwindow* window, int focused);
     static void onMouseClick(GLFWwindow* window, int button, int action, int modifiers);
     static void onMouseMove(GLFWwindow* window, double x, double y);
     static void onCursorEnter(GLFWwindow* window, int entered);

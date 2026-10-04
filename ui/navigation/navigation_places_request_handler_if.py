@@ -18,6 +18,25 @@ class MapFavorite:
     position: GeoPoint
 
 
+@dataclass(frozen=True, slots=True)
+class NavigationCameraState:
+    """Observed camera with position and angles in radians."""
+
+    center: GeoPoint
+    zoom: float
+    bearing_rad: float
+    pitch_rad: float
+
+
+@dataclass(frozen=True, slots=True)
+class PlaceActionResult:
+    """Completed semantic handoff, identified independently of a widget."""
+
+    request_id: int
+    status: str
+    success: bool
+
+
 class NavigationPlacesRequestHandlerIf(ABC):
     """Handle places operations for one mounted navigation view."""
 
@@ -74,6 +93,28 @@ class NavigationPlacesRequestHandlerIf(ABC):
         @throws RuntimeError When the platform action fails.
         """
         ...
+
+    def poll_camera_state(self) -> NavigationCameraState | None:
+        """Consume observed SI camera state.
+
+        @return Latest camera or None."""
+        return None
+
+    def request_action(self, poi: PointOfInterest, action: PoiAction) -> int | None:
+        """Start a handoff.
+
+        @param poi Place.
+
+        @param action Action.
+
+        @return Request ID or None when busy."""
+        return None
+
+    def poll_action_result(self) -> PlaceActionResult | None:
+        """Consume a completed handoff.
+
+        @return Completion or None."""
+        return None
 
     @abstractmethod
     def clear(self) -> None:

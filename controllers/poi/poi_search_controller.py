@@ -5,14 +5,14 @@
 
 from __future__ import annotations
 
-import math
-import os
 import logging
+
+from common.logging.structured import event
+import math
 import sqlite3
 from collections.abc import Callable
-from pathlib import Path
 
-from common.xdg_paths import openroadcode_data_dir
+from common.navigation_data import search_database_path
 from controllers.cache import PersistentCache
 from controllers.navigation.current_position import get_current_position
 from controllers.navigation.position_snapshot_cache import DEFAULT_POSITION_CACHE_DIRECTORY, PositionSnapshotCache
@@ -24,21 +24,13 @@ from controllers.poi.sqlite_poi_search_source import SqlitePoiSearchSource
 from protocols.map_renderer.map_poi_source import MapPoiSource, RawMapPoi
 from ui.navigation import GeoPoint
 
+_LOG = logging.getLogger("navigation.poi")
+
 _EARTH_RADIUS_M = 6_378_137.0
 _NEARBY_RADIUS_M = 20_000.0
 _NEARBY_LIMIT = 50
-def _default_search_database() -> Path:
-    configured = os.environ.get("OPENROADCODE_DATA_ROOT")
-    if configured:
-        root = Path(configured).expanduser()
-    elif os.environ.get("TERMUX_VERSION") or "com.termux" in os.environ.get("PREFIX", ""):
-        root = openroadcode_data_dir()
-    elif Path("/srv/openroadcode/maps/search/openroadcode-search.sqlite").is_file():
-        root = Path("/srv/openroadcode")
-    else:
-        root = openroadcode_data_dir()
-    return root / "maps" / "search" / "openroadcode-search.sqlite"
-
+def _default_search_database():
+    return search_database_path()
 
 
 class PoiSearchController(PoiSearchControllerIf):
@@ -83,6 +75,11 @@ class PoiSearchController(PoiSearchControllerIf):
     def poll_selected(self) -> PointOfInterest | None:
         raw = self._source.poll_selected()
         if raw is not None:
+            # Result markers carry an id; keep the richer SQLite metadata when
+            # a renderer selection reports only the basic map feature fields.
+            for poi in self._visible_pois:
+                if poi.poi_id == raw.poi_id:
+                    return enrich_poi(poi)
             return enrich_poi(self._to_poi(raw))
         poll_click = getattr(self._source, "poll_click", None)
         if poll_click is None:
@@ -90,20 +87,21 @@ class PoiSearchController(PoiSearchControllerIf):
         click = poll_click()
         if click is None:
             return None
-        print("[poi-controller] resolving click " f"against {len(self._visible_pois)} visible POIs " f"radius_m={click.selection_radius_m:.1f} " f"marker_id={click.marker_id!r} " f"marker_index={click.marker_index!r}")
+        _LOG.debug("Resolving click against %d POIs radius_m=%.1f marker_id=%r marker_index=%r",
+                   len(self._visible_pois), click.selection_radius_m, click.marker_id, click.marker_index)
         if click.marker_index is not None:
             if 0 <= click.marker_index < len(self._visible_pois):
                 poi = self._visible_pois[click.marker_index]
                 if click.marker_id is None or poi.poi_id == click.marker_id:
-                    print(f"[poi-controller] selected by marker index " f"{click.marker_index}: {poi.name!r}")
+                    _LOG.debug("Selected by marker index %s: %r", click.marker_index, poi.name)
                     return enrich_poi(poi)
-            print("[poi-controller] marker index mismatch " f"index={click.marker_index!r} id={click.marker_id!r}")
+            _LOG.debug("Marker index mismatch index=%r id=%r", click.marker_index, click.marker_id)
         if click.marker_id is not None:
             for poi in self._visible_pois:
                 if poi.poi_id == click.marker_id:
-                    print(f"[poi-controller] selected by marker id {poi.name!r}")
+                    _LOG.debug("Selected by marker id: %r", poi.name)
                     return enrich_poi(poi)
-            print(f"[poi-controller] marker id not found: {click.marker_id!r}")
+            _LOG.debug("Marker id not found: %r", click.marker_id)
         nearest: PointOfInterest | None = None
         nearest_distance_m = click.selection_radius_m
         for poi in self._visible_pois:
@@ -112,10 +110,14 @@ class PoiSearchController(PoiSearchControllerIf):
                 nearest = poi
                 nearest_distance_m = distance_m
         if nearest is None:
-            print("[poi-controller] click matched no visible POI")
+            _LOG.debug("Click matched no visible POI")
             return None
-        print(f"[poi-controller] selected {nearest.name!r} " f"distance_m={nearest_distance_m:.1f}")
+        _LOG.debug("Selected %r distance_m=%.1f", nearest.name, nearest_distance_m)
         return enrich_poi(nearest)
+
+    def poll_camera_state(self):
+        poll = getattr(self._source, "poll_camera_state", None)
+        return poll() if poll is not None else None
 
     def poll_camera_interaction(self) -> bool:
         poll_camera = getattr(self._source, "poll_camera_interaction", None)
@@ -146,6 +148,10 @@ class PoiSearchController(PoiSearchControllerIf):
                     if pois is None:
                         result, self._pending_search_result = self._pending_search_result, None
                         return result
+                    event(_LOG, logging.INFO, "poi.search.completed", "POI search completed",
+                          category=category.name.casefold(), result_count=len(pois))
+                    _LOG.debug("Search bounds=%.6f,%.6f,%.6f,%.6f",
+                               viewport.west, viewport.south, viewport.east, viewport.north)
                     self._visible_pois = pois
                     self._pending_search_result = _result_for(category, pois)
                 # Replies arriving after clear(), or from an older category, are
@@ -181,7 +187,10 @@ class PoiSearchController(PoiSearchControllerIf):
 
     def _offline_source(self) -> PoiSearchSourceIf:
         if self._search_source is None:
-            self._search_source = SqlitePoiSearchSource(_default_search_database())
+            database = search_database_path()
+            event(_LOG, logging.INFO, "poi.index.opening", "Opening POI search index",
+                  database_path=str(database))
+            self._search_source = SqlitePoiSearchSource(database)
         return self._search_source
 
     @staticmethod

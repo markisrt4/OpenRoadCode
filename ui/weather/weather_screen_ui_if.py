@@ -22,6 +22,12 @@ class WeatherScreenRequestHandlerIf(WeatherRequestHandlerIf):
 class WeatherScreenUiIf(WeatherUiIf):
     """Present forecast state and refresh progress."""
 
+    def set_online(self, online: bool) -> None:
+        """Present connectivity.
+
+        @param online Whether internet actions are available."""
+        ...
+
     @abstractmethod
     def set_loading(self, loading: bool) -> None:
         """Present progress.

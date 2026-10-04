@@ -79,10 +79,6 @@
     "count": 1,
     "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
   },
-  "controllers/poi/android_poi_action_executor.py|imports apps.launchers.android_intent_launcher.AndroidIntentLauncher": {
-    "count": 1,
-    "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
-  },
   "controllers/video/netflix_player.py|imports apps.launchers.browser_launcher.BrowserKioskLauncher": {
     "count": 1,
     "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."

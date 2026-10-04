@@ -73,3 +73,66 @@ def test_actions_return_status_and_wrap_platform_errors():
     with pytest.raises(RuntimeError, match='closed'):
         controller.execute(poi, action)
     actions.execute.assert_not_called()
+
+
+def test_camera_feedback_is_normalized_and_shared_with_backend_observer():
+    import math
+    from protocols.map_renderer.map_poi_source import RawMapCamera
+    search, observer = Mock(), Mock()
+    search.poll_camera_state.return_value = RawMapCamera(42, -83, 18, 25, 40)
+    controller = NavigationPlacesController(search, Mock(), Mock(), camera_observer=observer)
+    camera = controller.poll_camera_state()
+    assert camera.center == GeoPoint(math.radians(42), math.radians(-83))
+    assert camera.pitch_rad == math.radians(40)
+    observer.assert_called_once_with(camera.center, 18, math.radians(25), math.radians(40))
+    controller.close()
+    search.reset_mock()
+    assert controller.poll_camera_state() is None
+    search.poll_camera_state.assert_not_called()
+
+
+def test_async_handoff_rejects_duplicate_and_discards_completion_after_close():
+    from threading import Event
+    started, release, finished = Event(), Event(), Event()
+    actions = Mock()
+    def launch(*args):
+        started.set()
+        assert release.wait(2)
+        finished.set()
+        return 'Opened'
+    actions.execute.side_effect = launch
+    controller = NavigationPlacesController(Mock(), Mock(), actions)
+    poi = PointOfInterest('place', 'Place', PoiCategory.FOOD, GeoPoint(0, 0))
+    action = PoiAction(PoiActionKind.ORDER, 'ORDER')
+    assert controller.request_action(poi, action) == 1
+    assert started.wait(2)
+    assert controller.request_action(poi, action) is None
+    controller.close()
+    release.set()
+    assert finished.wait(2)
+    assert controller.poll_action_result() is None
+    assert controller.request_action(poi, action) is None
+    actions.execute.assert_called_once_with(poi, action)
+
+
+def test_async_offline_handoff_does_not_call_platform():
+    from threading import Event
+    checked = Event()
+    def offline():
+        checked.set()
+        return False
+    actions = Mock()
+    controller = NavigationPlacesController(Mock(), Mock(), actions, online_allowed=offline)
+    poi = PointOfInterest('place', 'Place', PoiCategory.FOOD, GeoPoint(0, 0))
+    action = PoiAction(PoiActionKind.OPEN_WEBSITE, 'WEBSITE', uri='https://example.com')
+    assert controller.request_action(poi, action) == 1
+    assert checked.wait(2)
+    # Wait on the controller lock to let completion publication finish.
+    import time
+    result = None
+    deadline = time.monotonic() + 2
+    while result is None and time.monotonic() < deadline:
+        result = controller.poll_action_result()
+    assert result is not None and not result.success and 'Offline' in result.status
+    actions.execute.assert_not_called()
+    controller.close()

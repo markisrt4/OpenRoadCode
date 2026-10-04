@@ -39,7 +39,17 @@ def configure_radio(app: OrcUiApp, runtime) -> RadioComposition:
     def sync_theme(mode: ThemeMode) -> None:
         sync_sdrpp_theme("Light" if mode is ThemeMode.LIGHT else "Dark")
 
-    directory = RadioBrowserDirectory(timeout_s=10.0)
+    network_allowed = lambda: app.online_mode.online
+    runtime.streaming_radio.set_network_allowed(network_allowed)
+    def mode_changed(online: bool) -> None:
+        if not online:
+            try:
+                runtime.streaming_radio.stop()
+            except (OSError, RuntimeError) as exc:
+                app.set_screen_status(f"Could not stop internet radio: {exc}")
+    app.online_mode.subscribe(mode_changed)
+    mode_changed(app.online_mode.online)
+    directory = RadioBrowserDirectory(timeout_s=10.0, network_allowed=network_allowed)
     favorites = StreamingRadioFavorites()
     adsb = OrcUiAdsbControl()
     screen = RadioScreen(
@@ -51,6 +61,7 @@ def configure_radio(app: OrcUiApp, runtime) -> RadioComposition:
             embedder=embedder,
             theme=theme,
             radio_application=runtime.radio,
+            online_mode=app.online_mode,
             streaming_radio=runtime.streaming_radio,
             directory=directory,
             favorites=favorites,
@@ -68,6 +79,9 @@ def configure_radio(app: OrcUiApp, runtime) -> RadioComposition:
         if source == "rf":
             screen.open_rf()
         elif source == "streaming":
+            if not network_allowed():
+                app.set_screen_status("Offline mode: internet radio unavailable")
+                return
             screen.open_streaming()
         elif source == "adsb":
             screen.open_adsb()
@@ -113,6 +127,7 @@ def configure_radio(app: OrcUiApp, runtime) -> RadioComposition:
         return StreamingRadioNowPlaying(
             parent,
             controller=runtime.streaming_radio,
+            online_allowed=network_allowed,
             theme=theme_bundle(app.theme_mode),
             on_open_rf=lambda: show_radio_source("rf"),
             on_open_streaming=lambda: show_radio_source("streaming"),

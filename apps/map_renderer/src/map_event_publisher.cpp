@@ -117,3 +117,16 @@ void MapEventPublisher::publishWeatherCities(long long requestId, const std::str
     document.AddMember("cities", values, allocator);
     publishJson("map.weather.cities", jsonString(document));
 }
+
+void MapEventPublisher::publishCameraState(double latitude, double longitude, double zoom, double bearing, double pitch)
+{
+    rapidjson::Document document;
+    document.SetObject();
+    auto& allocator = document.GetAllocator();
+    document.AddMember("latitude", latitude, allocator);
+    document.AddMember("longitude", longitude, allocator);
+    document.AddMember("zoom", zoom, allocator);
+    document.AddMember("bearing", bearing, allocator);
+    document.AddMember("pitch", pitch, allocator);
+    publishJson("map.camera.changed", jsonString(document));
+}

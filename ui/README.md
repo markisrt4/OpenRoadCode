@@ -124,7 +124,7 @@ user before implementation.
 
 Moving shared automotive, POI, radio, media, map, and launcher contract types
 removed 64 of the original 122 import exceptions. Navigation/POI construction
-cleanup removed another four. The remaining 54 imports are
+cleanup removed another four. The platform launcher injection during master integration removed one more exception. The remaining 53 imports are
 listed exactly in `scripts/ui_boundary_exceptions.json`. Existing frontend portability is still incomplete. Their migration order is:
 
 1. Spotify/media, streaming radio, and games: replace view-owned service calls,

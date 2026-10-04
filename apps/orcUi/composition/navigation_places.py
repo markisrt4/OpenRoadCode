@@ -5,6 +5,7 @@
 from collections.abc import Callable
 from weakref import WeakSet
 
+from apps.launchers.android_app_launcher import AndroidAppLauncher
 from controllers.navigation.map_favorites import MapFavorites
 from controllers.poi.android_poi_action_executor import AndroidPoiActionExecutor
 from controllers.poi.navigation_places_controller import NavigationPlacesController
@@ -19,19 +20,23 @@ class NavigationPlacesFactory(NavigationPlacesFactoryIf):
 
     def __init__(self, *, favorites: MapFavorites | None = None,
                  actions: PoiActionExecutorIf | None = None,
-                 search_factory: Callable[[], PoiSearchControllerIf] = PoiSearchController):
+                 search_factory: Callable[[], PoiSearchControllerIf] = PoiSearchController,
+                 online_allowed: Callable[[], bool] = lambda: True, camera_observer=None):
         self._favorites = favorites if favorites is not None else MapFavorites()
-        self._actions = actions if actions is not None else AndroidPoiActionExecutor()
+        self._actions = actions if actions is not None else AndroidPoiActionExecutor(AndroidAppLauncher())
         self._search_factory = search_factory
         self._sessions = WeakSet()
         self._closed = False
+        self._online_allowed = online_allowed
+        self._camera_observer = camera_observer
 
     def create(self) -> NavigationPlacesController:
         if self._closed:
             raise RuntimeError('Navigation places factory is closed')
         # Match the previous per-mount store construction: pick up saved-place edits.
         self._favorites.load()
-        session = NavigationPlacesController(self._search_factory(), self._favorites, self._actions)
+        session = NavigationPlacesController(self._search_factory(), self._favorites, self._actions,
+                                             online_allowed=self._online_allowed, camera_observer=self._camera_observer)
         self._sessions.add(session)
         return session
 

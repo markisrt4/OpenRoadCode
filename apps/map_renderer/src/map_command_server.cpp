@@ -23,13 +23,25 @@ MapCommandServer::MapCommandServer(std::string endpoint_) : endpoint(std::move(e
 
 std::optional<MapCommand> MapCommandServer::poll()
 {
-    zmq::message_t topicMessage;
-    if (!socket.recv(topicMessage, zmq::recv_flags::dontwait)) return std::nullopt;
-    zmq::message_t payloadMessage;
-    if (!socket.recv(payloadMessage, zmq::recv_flags::none)) return std::nullopt;
-    const std::string topic(static_cast<const char*>(topicMessage.data()), topicMessage.size());
+    // Read one complete multipart message without waiting for a missing frame.
+    // Concurrent/legacy publishers may send malformed framing; discard it so
+    // the render loop and later toolbar commands remain responsive.
+    zmq::message_t frame;
+    if (!socket.recv(frame, zmq::recv_flags::dontwait)) return std::nullopt;
+    const std::string topic(static_cast<const char*>(frame.data()), frame.size());
+    std::string payload;
+    std::size_t frameCount = 1;
+    while (socket.get(zmq::sockopt::rcvmore)) {
+        if (!socket.recv(frame, zmq::recv_flags::dontwait)) return std::nullopt;
+        ++frameCount;
+        if (frameCount == 2)
+            payload.assign(static_cast<const char*>(frame.data()), frame.size());
+    }
+    if (frameCount != 2) {
+        orc::log("WARNING", "map_renderer.commands", "command.framing_rejected", "Invalid map command framing");
+        return std::nullopt;
+    }
     if (topic != kMapCommandTopic) return std::nullopt;
-    const std::string payload(static_cast<const char*>(payloadMessage.data()), payloadMessage.size());
     const auto command = parseCommand(payload);
     if (!command) orc::log("WARNING", "map_renderer.commands", "command.rejected", "Invalid map command");
     else orc::log(command->command == "set_route" ? "INFO" : "DEBUG", "map_renderer.commands", "command.received", "Map command received", command->operationId, command->command);

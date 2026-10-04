@@ -31,6 +31,7 @@ class WeatherScreen(TkScreen, WeatherScreenUiIf):
         on_radar_map: Callable[[], None] | None = None,
     ) -> None:
         super().__init__(ScreenId("weather"))
+        self._online = True
         self._host = host
         self._theme_bundle = theme_bundle
         self._unit_system = unit_system
@@ -55,6 +56,7 @@ class WeatherScreen(TkScreen, WeatherScreenUiIf):
         panel.pack(fill="both", expand=True)
         panel.set_weather_request_handler(self._handler)
         self._panel = panel
+        panel.set_online(self._online)
         panel.set_weather_state(self._state)
         if self._handler is not None:
             self._handler.set_visible(True)
@@ -79,6 +81,12 @@ class WeatherScreen(TkScreen, WeatherScreenUiIf):
         self._state = state
         if self._panel is not None:
             self._panel.set_weather_state(state)
+
+    def set_online(self, online: bool) -> None:
+        """Present availability. @param online Whether internet actions are enabled."""
+        self._online = online
+        if self._panel is not None:
+            self._panel.set_online(online)
 
     def set_loading(self, loading: bool) -> None:
         """Display refresh progress. @param loading Whether refresh is pending."""

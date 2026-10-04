@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import os
+import logging
 import shutil
 import threading
 import time
@@ -14,7 +15,11 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Protocol
 
+from common.logging.structured import current_operation, event, operation
+
 from controllers.spotify.spotify_state_service import SpotifyStateService
+
+LOGGER = logging.getLogger("media.spotify.player")
 
 
 class SpotifyPlayerHostIf(Protocol):
@@ -84,6 +89,7 @@ class SpotifyLocalPlayer:
             raise ValueError("registration_timeout_seconds must be positive")
         if not browser_candidates:
             raise ValueError("browser_candidates must not be empty")
+        self._network_allowed: Callable[[], bool] = lambda: True
         self._spotify_service = spotify_service
         self._display = display or os.environ.get("DISPLAY", ":1")
         self._registration_timeout_seconds = registration_timeout_seconds
@@ -109,12 +115,21 @@ class SpotifyLocalPlayer:
         with self._lock:
             return self._state
 
+    def set_network_allowed(self, allowed: Callable[[], bool]) -> None:
+        self._network_allowed = allowed
+
     def request_player(self) -> None:
         """Start the local Spotify player and transfer playback to it."""
         with self._lock:
-            if self._closed:
+            if self._closed or not self._network_allowed():
                 return
             if not self._state.available:
+                event(
+                    LOGGER,
+                    logging.WARNING,
+                    "player.unavailable",
+                    "Local Spotify browser unavailable",
+                )
                 self._state = SpotifyLocalPlayerState(
                     mode=SpotifyPlaybackMode.REMOTE,
                     available=False,
@@ -132,12 +147,14 @@ class SpotifyLocalPlayer:
                 busy=True,
                 message="Starting OpenRoadCode Spotify player...",
             )
-        threading.Thread(
-            target=self._activate_player,
-            args=(generation,),
-            name="spotify-local-player-start",
-            daemon=True,
-        ).start()
+        with operation(current_operation()) as operation_id:
+            event(LOGGER, logging.INFO, "player.requested", "Local Spotify player requested")
+            threading.Thread(
+                target=self._activate_player,
+                args=(generation, operation_id),
+                name="spotify-local-player-start",
+                daemon=True,
+            ).start()
 
     def request_remote(self) -> None:
         """Leave PLAYER mode and release the local Spotify browser backend."""
@@ -152,12 +169,13 @@ class SpotifyLocalPlayer:
                 busy=True,
                 message="Returning to remote Spotify device control...",
             )
-        threading.Thread(
-            target=self._deactivate_player,
-            args=(generation, False),
-            name="spotify-local-player-stop",
-            daemon=True,
-        ).start()
+        with operation(current_operation()) as operation_id:
+            threading.Thread(
+                target=self._deactivate_player,
+                args=(generation, False, operation_id),
+                name="spotify-local-player-stop",
+                daemon=True,
+            ).start()
 
     def close(self) -> None:
         """Stop the browser and SDK host during application shutdown."""
@@ -169,7 +187,13 @@ class SpotifyLocalPlayer:
             generation = self._generation
         self._deactivate_player(generation, True)
 
-    def _activate_player(self, generation: int) -> None:
+    def _activate_player(self, generation: int, operation_id: str | None = None) -> None:
+        with operation(operation_id or current_operation()):
+            self._activate(generation)
+
+    def _activate(self, generation: int) -> None:
+        if not self._network_allowed():
+            return
         host: SpotifyPlayerHostIf | None = None
         browser: SpotifyPlayerBrowserIf | None = None
         try:
@@ -181,8 +205,17 @@ class SpotifyLocalPlayer:
                     return
                 self._host = host
                 self._browser = browser
+            if not self._network_allowed():
+                self._stop_runtime()
+                return
             host.start()
+            if not self._network_allowed():
+                self._stop_runtime()
+                return
             browser.launch(self._display)
+            if not self._network_allowed():
+                self._stop_runtime()
+                return
             deadline = time.monotonic() + self._registration_timeout_seconds
             while time.monotonic() < deadline:
                 with self._lock:
@@ -195,8 +228,14 @@ class SpotifyLocalPlayer:
                     self._spotify_service.request_transfer_playback(device_id, play=True)
                     try:
                         browser.hide(self._display)
-                    except (OSError, RuntimeError):
-                        pass
+                    except (OSError, RuntimeError) as error:
+                        event(
+                            LOGGER,
+                            logging.WARNING,
+                            "browser.hide_failed",
+                            "Spotify browser hide failed",
+                            exception_type=type(error).__name__,
+                        )
                     with self._lock:
                         if self._is_current(generation):
                             self._state = SpotifyLocalPlayerState(
@@ -205,10 +244,23 @@ class SpotifyLocalPlayer:
                                 busy=False,
                                 message="Playing on OpenRoadCode",
                             )
+                            event(
+                                LOGGER,
+                                logging.INFO,
+                                "player.registered",
+                                "Local Spotify player registered; transfer queued",
+                            )
                     return
                 time.sleep(0.1)
             raise TimeoutError("Spotify Web Player did not register a device in time")
         except Exception as error:
+            event(
+                LOGGER,
+                logging.ERROR,
+                "player.failed",
+                "Local Spotify player startup failed",
+                exception_type=type(error).__name__,
+            )
             self._stop_runtime()
             with self._lock:
                 if self._is_current(generation):
@@ -219,7 +271,13 @@ class SpotifyLocalPlayer:
                         message=f"PLAYER failed: {error}",
                     )
 
-    def _deactivate_player(self, generation: int, closing: bool) -> None:
+    def _deactivate_player(
+        self, generation: int, closing: bool, operation_id: str | None = None
+    ) -> None:
+        with operation(operation_id or current_operation()):
+            self._deactivate(generation, closing)
+
+    def _deactivate(self, generation: int, closing: bool) -> None:
         self._stop_runtime()
         with self._lock:
             if closing or not self._is_current(generation):
@@ -237,13 +295,35 @@ class SpotifyLocalPlayer:
             host = self._host
             self._browser = None
             self._host = None
+        stop_failed = False
         if browser is not None:
             try:
                 browser.stop(self._display)
-            except (OSError, RuntimeError):
-                pass
+            except (OSError, RuntimeError) as error:
+                stop_failed = True
+                event(
+                    LOGGER,
+                    logging.WARNING,
+                    "browser.stop_failed",
+                    "Spotify browser stop failed",
+                    exception_type=type(error).__name__,
+                )
         if host is not None:
-            host.close()
+            try:
+                host.close()
+            except Exception as error:
+                event(
+                    LOGGER,
+                    logging.ERROR,
+                    "host.stop_failed",
+                    "Spotify playback host stop failed",
+                    exception_type=type(error).__name__,
+                )
+                raise
+        if not stop_failed and (browser is not None or host is not None):
+            event(
+                LOGGER, logging.INFO, "player.released", "Local Spotify player resources released"
+            )
 
     def _is_current(self, generation: int) -> bool:
         return not self._closed and generation == self._generation

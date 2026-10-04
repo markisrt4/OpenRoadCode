@@ -79,11 +79,11 @@ class NavigationInstallerContractTests(unittest.TestCase):
 
     def test_termux_navigation_always_rebuilds_and_installs_orc_renderer(self) -> None:
         self.assertIn(
-            'cmake --build "$PROJECT_ROOT/apps/map_renderer/build-termux"',
+            'cmake --build "$RENDERER_BUILD_DIR"',
             self.termux_navigation,
         )
         self.assertIn(
-            'install -Dm755 "$MAP_RENDERER_BUILT" "$MAP_RENDERER_INSTALLED"',
+            'install -Dm755 "$RENDERER_BUILD_DIR/openroadcode-map-renderer" "$MAP_RENDERER_INSTALLED"',
             self.termux_navigation,
         )
         self.assertNotIn(
