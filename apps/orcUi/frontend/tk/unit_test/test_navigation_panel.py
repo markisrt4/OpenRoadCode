@@ -22,6 +22,8 @@ class NavigationPanelControlTest(unittest.TestCase):
         panel._request_handler = Mock()
         panel._zoom_level = 16.5
         panel._zoom_text = Mock()
+        panel._dimension_text = Mock()
+        panel._pitch_rad = 0.0
         panel._follow_enabled = True
         panel._poi_controller = Mock()
         panel._shortcut_status = Mock()
@@ -71,6 +73,26 @@ class NavigationPanelControlTest(unittest.TestCase):
         panel._request_handler.request_pitch.assert_called_once_with(math.radians(60.0))
         panel._request_handler.request_recenter.assert_not_called()
         panel._schedule_active_poi_refresh.assert_called_once_with()
+
+    def test_dimension_toggle_returns_to_flat_view_without_recenter_or_zoom(self) -> None:
+        panel = self._panel()
+        panel._toggle_map_dimension()
+        self.assertAlmostEqual(panel._pitch_rad, math.radians(60))
+        panel._dimension_text.set.assert_called_with("2D")
+        panel._request_handler.reset_mock()
+        panel._toggle_map_dimension()
+        self.assertEqual(panel._pitch_rad, 0.0)
+        panel._dimension_text.set.assert_called_with("3D")
+        panel._request_handler.request_pitch.assert_called_once_with(0.0)
+        panel._request_handler.request_zoom.assert_not_called()
+        panel._request_handler.request_recenter.assert_not_called()
+
+    def test_tilt_controls_update_dimension_toggle_label(self) -> None:
+        panel = self._panel()
+        panel._change_pitch(5)
+        panel._dimension_text.set.assert_called_with("2D")
+        panel._change_pitch(-5)
+        panel._dimension_text.set.assert_called_with("3D")
 
     def test_north_up_disables_follow(self) -> None:
         panel = self._panel()

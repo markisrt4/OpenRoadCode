@@ -41,6 +41,7 @@ from ui.navigation.route_types import TravelMode
 from ui.theme import ThemeBundle, ThemeMode
 from .shell_metrics import FONT_CONTROL, FONT_SMALL, FONT_TINY
 from .navigation_panel_layout import build_navigation_panel, show_poi_card
+from .navigation_panel_camera import NavigationCameraControls
 from .navigation_poi_actions import execute_poi_action, poll_poi_launch_results
 
 _POI_SEARCH_SETTLE_MS = 750
@@ -48,7 +49,7 @@ _POI_SEARCH_SETTLE_MS = 750
 _LOG = logging.getLogger("navigation.poi.ui")
 
 
-class NavigationPanel(tk.Frame):
+class NavigationPanel(NavigationCameraControls, tk.Frame):
     """Map host, navigation controls, and nearby POI discovery."""
 
     def __init__(
@@ -86,6 +87,7 @@ class NavigationPanel(tk.Frame):
         self._zoom_level = float(getattr(self._request_handler, "zoom_level", 16.5))
         self._zoom_text = tk.StringVar(value=f"{self._zoom_level:.1f}")
         self._pitch_rad = float(getattr(self._request_handler, "pitch_rad", math.radians(45.0)))
+        self._dimension_text = tk.StringVar(value="2D" if self._pitch_rad > 0 else "3D")
         self._follow_enabled = bool(getattr(self._request_handler, "follow_enabled", True))
         self._shortcut_status = tk.StringVar(value="")
         self._guidance_instruction = tk.StringVar(value="")
@@ -432,49 +434,6 @@ class NavigationPanel(tk.Frame):
             details.append("OFF ROUTE")
         self._guidance_detail.set("  •  ".join(details))
 
-    def _toggle_follow(self) -> None:
-        enabled = not self._follow_enabled
-        self.set_follow_enabled(enabled)
-        self._request_handler.request_follow(enabled)
-
-    def _pan(self, up: float, right: float) -> None:
-        self._map_host.update_idletasks()
-        self.set_follow_enabled(False)
-        self._request_handler.request_pan_screen(
-            right_px=right * max(48, self._map_host.winfo_width() * 0.25),
-            up_px=up * max(48, self._map_host.winfo_height() * 0.25),
-        )
-        self._schedule_active_poi_refresh()
-
-    def _change_zoom(self, delta: float) -> None:
-        self._zoom_level = max(1, min(22, self._zoom_level + delta))
-        self._zoom_text.set(f"{self._zoom_level:.1f}")
-        self._request_handler.request_zoom(self._zoom_level)
-        self._schedule_active_poi_refresh()
-
-    def _change_pitch(self, delta_deg: float) -> None:
-        pitch_deg = max(0, min(60, math.degrees(self._pitch_rad) + delta_deg))
-        self._pitch_rad = math.radians(pitch_deg)
-        self.set_follow_enabled(False)
-        self._request_handler.request_pitch(self._pitch_rad)
-
-    def _show_3d_view(self) -> None:
-        """Tilt and zoom the current viewport around its existing center."""
-        self._zoom_level = 17.0
-        self._zoom_text.set(f"{self._zoom_level:.1f}")
-        self._pitch_rad = math.radians(60.0)
-        self.set_follow_enabled(False)
-        self._request_handler.request_zoom(self._zoom_level)
-        self._request_handler.request_pitch(self._pitch_rad)
-        self._schedule_active_poi_refresh()
-
-    def _north_up(self) -> None:
-        self.set_follow_enabled(False)
-        self._request_handler.request_bearing(0.0)
-
-    def _recenter(self) -> None:
-        self.set_follow_enabled(True)
-        self._request_handler.request_recenter()
 
 
 def _poi_render_category(category: PoiCategory, transit_mode: TransitMode) -> str:

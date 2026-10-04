@@ -203,8 +203,10 @@ def build_navigation_panel(panel) -> None:
     panel._control(controls, "−", lambda: panel._change_zoom(-1), ui.accent_primary).pack(
         fill=tk.X, padx=5, pady=2
     )
+    dimension_button = panel._control(controls, "", panel._toggle_map_dimension, ui.accent_primary)
+    dimension_button.configure(textvariable=panel._dimension_text)
+    dimension_button.pack(fill=tk.X, padx=5, pady=2)
     for label, command, accent in (
-        ("3D", panel._show_3d_view, ui.accent_primary),
         ("↗", lambda: panel._change_pitch(5), ui.accent_warning),
         ("↘", lambda: panel._change_pitch(-5), ui.accent_warning),
         ("N", panel._north_up, ui.text),

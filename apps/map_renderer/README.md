@@ -40,10 +40,18 @@ See [ORC logging](../../common/logging/README.md) for settings, storage, and CI 
 
 ## Mouse and toolbar camera controls
 
+The navigation dimension button switches between 3D (tilted) and 2D (overhead);
+its label shows the view it will select. Switching to 2D preserves the current
+center and zoom. Tilt buttons update the dimension label as well.
+
 Toolbar camera commands end active mouse gestures and cancel pending camera
 animations before applying the requested view. Losing native-window focus also
 clears drag state, including when a mouse release is missed during a transition
 back to Tk controls. Position-marker and POI updates do not cancel gestures.
+
+Shared Python publishers serialize complete multipart messages so UI camera
+commands cannot interleave with navigation updates. The native command receiver
+drains and rejects malformed multipart messages without blocking the render loop.
 
 For a manual regression check, pan by dragging, zoom with the mouse wheel, and
 then try the pan arrows, zoom buttons, 3D, north-up, and recenter controls. Also
