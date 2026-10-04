@@ -298,11 +298,11 @@ Valhalla:
 cd ~/src/OpenRoadCode
 git switch android-linux-food-apps
 git pull --ff-only origin android-linux-food-apps
-./development/termux/rebuild_map_renderer.sh
+./development/termux/build_navigation_stack.sh --renderer-only
 ./runOrcUi
 ```
 
-The updater installs renderer build dependencies, including `spdlog` for
+The renderer-only option installs renderer build dependencies, including `libspdlog` for
 structured logging, before compiling. It requires the existing
 `apps/map_renderer/build-termux` directory configured by
 `build_navigation_stack.sh`. Compilation must succeed before the installed

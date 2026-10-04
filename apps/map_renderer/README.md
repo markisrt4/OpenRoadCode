@@ -32,7 +32,7 @@ The container workflow is source-repeatable but not yet bit-for-bit hermetic. It
 
 ## Logging
 
-The renderer emits structured JSON Lines to stderr through `spdlog`. The UI
+The renderer emits structured JSON Lines to stderr through `libspdlog`. The UI
 launcher collects its output into the shared rotating ORC store. Use
 `./runOrcUi --follow-logs` for readable live output, or attach separately with
 `python -m common.logging.viewer --component map_renderer`.
@@ -57,10 +57,10 @@ build can be updated without rebuilding MapLibre or Valhalla:
 ```bash
 cd ~/src/OpenRoadCode
 git switch android-linux-food-apps
-./development/termux/rebuild_map_renderer.sh
+./development/termux/build_navigation_stack.sh --renderer-only
 ```
 
-The updater installs renderer dependencies, including `spdlog`, and stops before
+The renderer-only option installs renderer dependencies, including `libspdlog`, and stops before
 installation if compilation fails. It reuses the configured MapLibre build and
 does not rebuild Valhalla or download map data.
 

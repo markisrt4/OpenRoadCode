@@ -7,6 +7,20 @@ set -euo pipefail
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd -- "$SCRIPT_DIR/../.." && pwd)"
 
+RENDERER_ONLY=0
+while (( $# )); do
+  case "$1" in
+    --renderer-only) RENDERER_ONLY=1 ;;
+    -h|--help)
+      echo "Usage: $0 [--renderer-only]"
+      echo "  --renderer-only  Install renderer dependencies and rebuild using existing MapLibre."
+      echo "Set FORCE_REBUILD=1 to rebuild all components in a full build."
+      exit 0 ;;
+    *) echo "Unknown option: $1" >&2; exit 2 ;;
+  esac
+  shift
+done
+
 [[ "${PREFIX:-}" == /data/data/com.termux/files/usr* ]] || {
   echo "This experimental builder must run inside Termux." >&2
   exit 2
@@ -21,11 +35,42 @@ MAPLIBRE_REF="${MAPLIBRE_REF:-b0388d186d582a8535aa3c03e3cc2ef98cb70dc0}"
 VALHALLA_REF="${VALHALLA_REF:-a60c7cbfc83e073f50887cd27e0109d02e6b64e5}"
 CPPZMQ_REF="${CPPZMQ_REF:-v4.11.0}"
 BUILD_JOBS="${BUILD_JOBS:-$(nproc)}"
-INSTALL_ROOT="${INSTALL_ROOT:-$PREFIX/opt/openroadcode/navigation}"
+INSTALL_ROOT="${OPENROADCODE_NAVIGATION_ROOT:-${INSTALL_ROOT:-$PREFIX/opt/openroadcode/navigation}}"
 CONFIG_ROOT="${CONFIG_ROOT:-$PREFIX/etc/openroadcode}"
 DATA_ROOT="${DATA_ROOT:-$HOME/.local/share/openroadcode}"
 FORCE_REBUILD="${FORCE_REBUILD:-0}"
 X11_DISPLAY="${X11_DISPLAY:-:1}"
+RENDERER_BUILD_DIR="${OPENROADCODE_RENDERER_BUILD_DIR:-$PROJECT_ROOT/apps/map_renderer/build-termux}"
+MAP_RENDERER_INSTALLED="$INSTALL_ROOT/bin/openroadcode-map-renderer"
+
+build_renderer() {
+  echo "[*] Building OpenRoadCode map renderer"
+  if (( ! RENDERER_ONLY )); then
+    cmake -S "$PROJECT_ROOT/apps/map_renderer" \
+      -B "$RENDERER_BUILD_DIR" -G Ninja \
+      -DCMAKE_BUILD_TYPE=Release \
+      -DCMAKE_SYSTEM_NAME=Linux \
+      -DMAPLIBRE_ROOT="$MAPLIBRE_SRC" \
+      -DMAPLIBRE_BUILD="$MAPLIBRE_SRC/build-termux-glfw"
+  fi
+  cmake --build "$RENDERER_BUILD_DIR" -j"$BUILD_JOBS"
+  install -Dm755 "$RENDERER_BUILD_DIR/openroadcode-map-renderer" "$MAP_RENDERER_INSTALLED"
+}
+
+if (( RENDERER_ONLY )); then
+  [[ -f "$RENDERER_BUILD_DIR/CMakeCache.txt" ]] || {
+    echo "Renderer build is not configured: $RENDERER_BUILD_DIR" >&2
+    echo "Run this script without --renderer-only first." >&2
+    exit 2
+  }
+  echo "[*] Installing Termux renderer dependencies"
+  pkg install -y x11-repo
+  pkg update
+  pkg install -y clang cmake ninja pkg-config rapidjson libspdlog libzmq glfw libx11 mesa-dev
+  build_renderer
+  echo "[+] Renderer updated. Restart ORC to use the new executable."
+  exit 0
+fi
 
 checkout_repo() {
   local url="$1" dir="$2" ref="$3"
@@ -61,7 +106,7 @@ pkg update
 pkg install -y \
   git clang cmake ninja pkg-config patch python python-pillow \
   boost boost-headers protobuf libsqlite libspatialite spatialite-tools libcurl liblz4 libzmq libczmq \
-  luajit libgeos libpng libjpeg-turbo libwebp libicu rapidjson spdlog \
+  luajit libgeos libpng libjpeg-turbo libwebp libicu rapidjson libspdlog \
   mesa mesa-dev glfw libx11 xorgproto
 
 for command in git clang cmake ninja pkg-config spatialite spatialite_tool; do
@@ -147,19 +192,8 @@ else
   echo "[*] MapLibre already installed at $MBGL_INSTALLED; skipping build"
 fi
 
-MAP_RENDERER_INSTALLED="$INSTALL_ROOT/bin/openroadcode-map-renderer"
 if should_build "$MAP_RENDERER_INSTALLED"; then
-  echo "[*] Building OpenRoadCode map renderer"
-  cmake -S "$PROJECT_ROOT/apps/map_renderer" \
-    -B "$PROJECT_ROOT/apps/map_renderer/build-termux" -G Ninja \
-    -DCMAKE_BUILD_TYPE=Release \
-    -DCMAKE_SYSTEM_NAME=Linux \
-    -DMAPLIBRE_ROOT="$MAPLIBRE_SRC" \
-    -DMAPLIBRE_BUILD="$MAPLIBRE_SRC/build-termux-glfw"
-  cmake --build "$PROJECT_ROOT/apps/map_renderer/build-termux" -j"$BUILD_JOBS"
-  install -Dm755 \
-    "$PROJECT_ROOT/apps/map_renderer/build-termux/openroadcode-map-renderer" \
-    "$MAP_RENDERER_INSTALLED"
+  build_renderer
 else
   echo "[*] OpenRoadCode map renderer already installed at $MAP_RENDERER_INSTALLED; skipping build"
 fi
@@ -181,6 +215,7 @@ cat <<EOF
     data:         $DATA_ROOT
 
 Set FORCE_REBUILD=1 to rebuild all native components.
+Use --renderer-only to update just the ORC renderer with existing build dependencies.
 Set X11_DISPLAY to override the Termux:X11 display (default: :1).
 
 Termux:X11 Android APK is required for graphical execution.

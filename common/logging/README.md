@@ -119,7 +119,7 @@ with operation() as operation_id:
 ```
 
 C++ uses `orc_logging.hpp` to encode JSON safely and emit through `spdlog`. Its
-build dependencies include `libspdlog-dev` on Debian/Ubuntu and `spdlog` on Termux.
+build dependencies include `libspdlog-dev` on Debian/Ubuntu and `libspdlog` on Termux.
 The MapLibre build container and host setup include the dependency.
 
 ## Quality gates
