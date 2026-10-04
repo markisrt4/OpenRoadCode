@@ -58,6 +58,14 @@ class MapRequestHandler(MapRequestHandlerIf):
     def poi_focus(self) -> frozenset[str]:
         return frozenset(self._poi_focus)
 
+    def observe_camera(self, center: GeoPoint, zoom: float, bearing_rad: float, pitch_rad: float) -> None:
+        """Retain the actual rendered camera without issuing another command."""
+        self._center = center
+        self._zoom_level = zoom
+        self._bearing_rad = bearing_rad
+        self._pitch_rad = pitch_rad
+        self._camera_initialized = True
+
     def request_recenter(self) -> None:
         self._center = self._follow_center
         self.request_follow(True)

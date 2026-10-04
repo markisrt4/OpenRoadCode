@@ -25,6 +25,7 @@ POI_SELECTED_TOPIC = "map.poi.selected"
 POI_SEARCH_RESULT_TOPIC = "map.poi.search_result"
 MAP_CLICK_TOPIC = "map.click"
 MAP_CAMERA_MANUAL_TOPIC = "map.camera.manual"
+MAP_CAMERA_CHANGED_TOPIC = "map.camera.changed"
 
 
 @dataclass(frozen=True, slots=True)
@@ -55,6 +56,27 @@ class RawPoiSearchResult:
     east: float
 
 
+@dataclass(frozen=True, slots=True)
+class RawMapCamera:
+    latitude: float
+    longitude: float
+    zoom: float
+    bearing: float
+    pitch: float
+
+    @classmethod
+    def decode(cls, payload: Any) -> RawMapCamera | None:
+        if not isinstance(payload, dict):
+            return None
+        values = [payload.get(key) for key in ("latitude", "longitude", "zoom", "bearing", "pitch")]
+        if not all(type(value) in (int, float) and math.isfinite(value) for value in values):
+            return None
+        latitude, longitude, zoom, bearing, pitch = values
+        if not (-90 <= latitude <= 90 and -180 <= longitude <= 180 and 0 <= zoom <= 22 and 0 <= pitch <= 85):
+            return None
+        return cls(*(float(value) for value in values))
+
+
 class MapPoiSource:
     """Marshal native renderer POI protocol onto the controller/UI thread."""
 
@@ -65,10 +87,12 @@ class MapPoiSource:
         self._subscriber.subscribe(POI_SEARCH_RESULT_TOPIC)
         self._subscriber.subscribe(MAP_CLICK_TOPIC)
         self._subscriber.subscribe(MAP_CAMERA_MANUAL_TOPIC)
+        self._subscriber.subscribe(MAP_CAMERA_CHANGED_TOPIC)
         self._queue: SimpleQueue[RawMapPoi] = SimpleQueue()
         self._search_queue: SimpleQueue[RawPoiSearchResult] = SimpleQueue()
         self._click_queue: SimpleQueue[RawMapClick] = SimpleQueue()
         self._camera_queue: SimpleQueue[bool] = SimpleQueue()
+        self._camera_state_queue: SimpleQueue[RawMapCamera] = SimpleQueue()
         self._thread = Thread(target=self._receive, name="map-poi-source", daemon=True)
         self._thread.start()
 
@@ -90,6 +114,14 @@ class MapPoiSource:
             return True
         except Empty:
             return False
+
+    def poll_camera_state(self) -> RawMapCamera | None:
+        latest = None
+        while True:
+            try:
+                latest = self._camera_state_queue.get_nowait()
+            except Empty:
+                return latest
 
     def poll_search_result(self) -> RawPoiSearchResult | None:
         try:
@@ -130,6 +162,10 @@ class MapPoiSource:
                     self._click_queue.put(click)
                 else:
                     event(_LOG, logging.WARNING, "poi.click.rejected", "Rejected malformed map click")
+            elif topic == MAP_CAMERA_CHANGED_TOPIC:
+                camera = RawMapCamera.decode(payload)
+                if camera is not None:
+                    self._camera_state_queue.put(camera)
             elif topic == MAP_CAMERA_MANUAL_TOPIC:
                 self._camera_queue.put(True)
             elif topic == POI_SEARCH_RESULT_TOPIC:

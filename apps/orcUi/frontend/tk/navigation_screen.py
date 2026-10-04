@@ -81,6 +81,8 @@ class NavigationScreen(TkScreen):
 
     def hide(self) -> None:
         """Stop transient navigation resources when navigating away."""
+        if self._panel is not None:
+            self._panel._sync_renderer_camera()
         self._map_runtime.stop()
         self._panel = None
 

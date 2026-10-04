@@ -58,6 +58,15 @@ class NavigationPanelControlTest(unittest.TestCase):
         self.assertTrue(panel._follow_enabled)
         panel._request_handler.request_zoom.assert_called_once_with(17.5)
 
+    def test_toolbar_zoom_continues_from_native_double_click_camera(self) -> None:
+        from protocols.map_renderer.map_poi_source import RawMapCamera
+        panel = self._panel()
+        panel._poi_controller.poll_camera_state.return_value = RawMapCamera(42.81, -83.02, 18.5, 25, 40)
+        panel._change_zoom(1)
+        panel._request_handler.request_zoom.assert_called_once_with(19.5)
+        self.assertAlmostEqual(panel._pitch_rad, math.radians(40))
+        panel._request_handler.observe_camera.assert_called_once()
+
     def test_3d_view_tilts_and_zooms_current_viewport(self) -> None:
         panel = self._panel()
         panel._pitch_rad = 0.0

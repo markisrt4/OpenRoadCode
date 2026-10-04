@@ -299,6 +299,7 @@ class NavigationPanel(NavigationCameraControls, tk.Frame):
             self.set_follow_enabled(False)
             self._request_handler.request_follow(False)
             self._schedule_active_poi_refresh()
+        self._sync_renderer_camera()
         result = self._poi_controller.poll_search_result()
         if result is not None:
             markers = tuple(

@@ -40,6 +40,10 @@ See [ORC logging](../../common/logging/README.md) for settings, storage, and CI 
 
 ## Mouse and toolbar camera controls
 
+The renderer reports camera changes back to Navigation so mouse zoom and pan
+are reflected in toolbar values. The last observed camera is retained across
+screen changes within the current ORC session.
+
 The navigation dimension button switches between 3D (tilted) and 2D (overhead);
 its label shows the view it will select. Switching to 2D preserves the current
 center and zoom and replaces extruded buildings with flat footprints. Tilt
