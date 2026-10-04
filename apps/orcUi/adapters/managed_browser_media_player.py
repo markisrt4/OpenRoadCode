@@ -26,7 +26,9 @@ class ManagedBrowserMediaPlayer:
         *,
         resolve_target: Callable[[str], str],
         preferred_color_scheme: Callable[[], str] | None = None,
+        network_allowed: Callable[[], bool] = lambda: True,
     ) -> None:
+        self._network_allowed = network_allowed
         self._manager = manager
         self._key = key
         self._resolve_target = resolve_target
@@ -69,6 +71,8 @@ class ManagedBrowserMediaPlayer:
 
     def _play(self, target: str, *, display: str, window_position=None, window_size=None) -> bool:
         del display
+        if not self._network_allowed():
+            raise RuntimeError("Online video unavailable in offline mode")
         launcher = self._manager.launcher(self._key, BrowserKioskLauncher)
         resolved_target = self._resolve_target(target)
 
@@ -84,7 +88,12 @@ class ManagedBrowserMediaPlayer:
                 size=window_size,
             )
 
+        if not self._network_allowed():
+            return False
         self._manager.show(self._key)
+        if not self._network_allowed():
+            self.stop()
+            return False
         event(
             LOGGER,
             logging.INFO,

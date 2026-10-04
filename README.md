@@ -18,7 +18,9 @@ Explore the project at https://www.openroadcode.org/ or visit the OpenRoadCode r
 
 OpenRoadCode is under active development and currently operates as an advanced experimental platform rather than a finished commercial infotainment system.
 
-Current integration work includes the `orcUi` shell, native offline MapLibre presentation, Valhalla route planning, live Android-backed positioning on Termux, integrated SDR++ RF radio, and a native ORC media hub. Spotify now shares one background state/control service across Home and Media, while experimental PLAYER mode can register ORC itself as a Spotify Connect playback device on supported Linux/Chrome systems.
+Current integration work includes [POI ordering](docs/poi_ordering.md),
+[automatic online/offline mode](docs/online_offline_mode.md),
+[local POI downloads in Termux](docs/termux_poi_download.md), the `orcUi` shell, native offline MapLibre presentation, Valhalla route planning, live Android-backed positioning on Termux, integrated SDR++ RF radio, and a native ORC media hub. Spotify now shares one background state/control service across Home and Media, while experimental PLAYER mode can register ORC itself as a Spotify Connect playback device on supported Linux/Chrome systems.
 
 Some components are functional and actively used in the reference vehicle. Others are experimental, hardware-dependent, or still being integrated. Interfaces, configuration formats, and directory structures may continue to evolve before the first stable release.
 
@@ -136,7 +138,7 @@ X11 embedding currently requires `xdotool`. Some games manage their own window g
 --- 
 ## Planned and Experimental Features
 
-Potential future work includes streaming-radio station discovery, dashcam and backup-camera integration, additional vehicle gauges, CAN/TPMS integration, steering-wheel controls, APRS, AIS, additional digital radio modes, trip recording, richer semantic POI discovery, and custom OpenRoadCode operating-system images. These are areas of interest rather than release commitments.
+Potential future work includes dashcam and backup-camera integration, additional vehicle gauges, CAN/TPMS integration, steering-wheel controls, APRS, AIS, additional digital radio modes, trip recording, richer semantic POI discovery, and custom OpenRoadCode operating-system images. These are areas of interest rather than release commitments.
 
 ---
 

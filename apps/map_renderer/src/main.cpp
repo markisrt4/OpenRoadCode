@@ -14,6 +14,8 @@
 #include <mapbox/geojson.hpp>
 #include <sqlite3.h>
 #include <cstdlib>
+#include <array>
+#include <chrono>
 #include <fstream>
 #include <iostream>
 #include <iterator>
@@ -58,7 +60,8 @@ std::string loadStyleJson(const NavigationConfig& config) {
 
 void setLayerVisible(mbgl::style::Style& style, const char* id, bool visible) {
     auto* layer = style.getLayer(id);
-    if (layer) layer->setVisibility(visible ? mbgl::style::VisibilityType::Visible : mbgl::style::VisibilityType::None);
+    const auto visibility = visible ? mbgl::style::VisibilityType::Visible : mbgl::style::VisibilityType::None;
+    if (layer && layer->getVisibility() != visibility) layer->setVisibility(visibility);
 }
 
 std::optional<mbgl::LatLngBounds> loadDatasetBounds(const std::string& dataRoot) {
@@ -188,7 +191,10 @@ int runRenderer() {
                 name, brand, sourceClass, sourceSubclass, latitude, longitude);
         });
 
-    view.setUpdateCallback([&map, &commandServer, &config, &view, &eventPublisher]() {
+    bool cameraOwnedByUi = false;
+    std::optional<std::array<double, 5>> lastCamera;
+    auto lastCameraReport = std::chrono::steady_clock::time_point{};
+    view.setUpdateCallback([&]() {
         // Drain the command socket every frame instead of processing only one
         // message. Position telemetry can be much faster than UI input; leaving
         // old messages queued made camera buttons appear frozen until a renderer
@@ -196,6 +202,16 @@ int runRenderer() {
         while (true) {
             const auto command = commandServer.poll();
             if (!command) break;
+
+            // A toolbar camera command ends direct manipulation. Telemetry and
+            // POI updates must not interrupt an active mouse gesture.
+            if (command->command == "set_center" || command->command == "set_camera" ||
+                command->command == "fit_bounds" || command->command == "fit_dataset" ||
+                command->command == "set_zoom" || command->command == "set_bearing" ||
+                command->command == "set_pitch" || command->command == "pan_screen") {
+                view.finishCameraGesture();
+                cameraOwnedByUi = true;
+            }
 
             if (command->command == "set_center") {
                 map.jumpTo(mbgl::CameraOptions().withCenter(
@@ -321,6 +337,25 @@ int runRenderer() {
                 } catch (const std::exception& error) {
                     orc::log("ERROR", "map_renderer.routes", "route.failed", "Failed to apply route GeoJSON", command->operationId);
                 }
+            }
+        }
+        // Match building geometry to the actual camera, including gesture and
+        // follow updates. Flat mode must not keep extruded roofs underneath.
+        const bool tilted = map.getCameraOptions().pitch.value_or(0.0) > 0.01;
+        setLayerVisible(map.getStyle(), "buildings", tilted);
+        setLayerVisible(map.getStyle(), "buildings-flat", !tilted);
+        setLayerVisible(map.getStyle(), "house-numbers", !tilted);
+        const auto camera = map.getCameraOptions();
+        const auto now = std::chrono::steady_clock::now();
+        if (cameraOwnedByUi && camera.center && camera.zoom && camera.bearing && camera.pitch &&
+            now - lastCameraReport >= std::chrono::milliseconds(50)) {
+            const std::array<double, 5> snapshot{
+                camera.center->latitude(), camera.center->longitude(),
+                *camera.zoom, *camera.bearing, *camera.pitch};
+            if (!lastCamera || *lastCamera != snapshot) {
+                eventPublisher.publishCameraState(snapshot[0], snapshot[1], snapshot[2], snapshot[3], snapshot[4]);
+                lastCamera = snapshot;
+                lastCameraReport = now;
             }
         }
     });

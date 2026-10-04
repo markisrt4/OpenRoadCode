@@ -39,6 +39,26 @@ class SpotifyStateServiceTest(unittest.TestCase):
         self.assertEqual(tracks, second)
         self.backend.saved_tracks.assert_called_once_with(limit=20)
 
+    def test_offline_skips_polling_and_drops_commands_without_replay(self) -> None:
+        online = True
+        self.service.set_network_allowed(lambda: online)
+        self.service.request_play()
+        online = False
+        self.service._drain_commands()
+        self.service.request_play()
+        self.service._refresh_state()
+        self.backend.play.assert_not_called()
+        self.backend.current_state.assert_not_called()
+        with self.assertRaisesRegex(RuntimeError, "offline"):
+            self.service.load_saved_tracks()
+        self.backend.saved_tracks.assert_not_called()
+        online = True
+        self.service._drain_commands()
+        self.backend.play.assert_not_called()
+        self.service.request_play()
+        self.service._drain_commands()
+        self.backend.play.assert_called_once_with()
+
     def test_refresh_interval_rejects_too_fast_polling(self) -> None:
         with self.assertRaisesRegex(ValueError, "at least 5.0 seconds"):
             SpotifyStateService(self.backend, refresh_seconds=1.0)

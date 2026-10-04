@@ -25,6 +25,16 @@ class MusicVideoControllerTest(unittest.TestCase):
             duration_ms=180_000,
         )
 
+    def test_offline_never_queries_spotify_or_video_provider(self) -> None:
+        controller = MusicVideoController(self.spotify, self.video, network_allowed=lambda: False)
+        self.assertFalse(controller.current_track_has_video())
+        self.assertFalse(controller.watch_current_track())
+        self.spotify.current_state.assert_not_called()
+        self.video.find_video.assert_not_called()
+        self.video.play_video.assert_not_called()
+        controller.stop_video()
+        self.video.stop_video.assert_called_once_with()
+
     def test_unmatched_track_is_reported_unavailable(self) -> None:
         self.video.find_video.return_value = None
 

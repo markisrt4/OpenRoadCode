@@ -26,3 +26,15 @@ through `tcp://127.0.0.1:5557`. Route data is sent as a GeoJSON object with
 vehicle marker. See [the renderer documentation](../../apps/map_renderer/README.md)
 for the native process and style requirements, and [ORC logging](../../common/logging/README.md)
 for structured logs and live viewing.
+
+## Camera feedback
+
+The renderer publishes `map.camera.changed` after camera changes, at most once
+per 50 milliseconds. Its numeric fields are `latitude`, `longitude`, `zoom`,
+`bearing`, and `pitch`; coordinates and angles are in degrees. Navigation drains
+the queue to the newest valid snapshot, updates its control values, and retains
+the actual camera in the shared request handler without sending a feedback
+command. Native gestures therefore update toolbar state, and returning to
+Navigation restores the last observed camera during the current ORC session.
+Camera feedback starts after an explicit UI camera command so the renderer's
+startup dataset view cannot overwrite the intended navigation camera.

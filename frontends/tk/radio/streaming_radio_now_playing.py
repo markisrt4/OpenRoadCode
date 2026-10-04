@@ -24,9 +24,11 @@ class StreamingRadioNowPlaying(tk.Frame):
         on_open_rf: Callable[[], None],
         on_open_streaming: Callable[[], None],
         on_open_adsb: Callable[[], None],
+        online_allowed: Callable[[], bool] = lambda: True,
     ) -> None:
         ui = theme.ui
         super().__init__(parent, bg=ui.surface)
+        self._online_allowed = online_allowed
         self._controller = controller
         self._ui = ui
         self._after_id: str | None = None
@@ -134,6 +136,9 @@ class StreamingRadioNowPlaying(tk.Frame):
     def _refresh(self) -> None:
         if not self.winfo_exists():
             return
+        online = self._online_allowed()
+        self._stream_button.configure(state=tk.NORMAL if online else tk.DISABLED,
+                                      disabledforeground=self._ui.text_muted)
         current = self._controller.current_station
         playing = current is not None and self._controller.is_playing
         if playing and current is not None:
@@ -151,6 +156,6 @@ class StreamingRadioNowPlaying(tk.Frame):
         else:
             self._status.configure(text="RADIO", fg=self._ui.accent_primary)
             self._station.configure(text="No radio active")
-            self._detail.configure(text="Choose RF or streaming")
+            self._detail.configure(text="Choose RF or streaming" if online else "Offline mode • RF available")
             self._stream_button.configure(fg=self._ui.accent_primary)
         self._after_id = self.after(750, self._refresh)
