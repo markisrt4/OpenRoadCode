@@ -315,11 +315,17 @@ int rtlsdr_read_async(rtlsdr_dev_t *dev, rtlsdr_read_async_cb_t cb, void *ctx,
 
 int rtlsdr_cancel_async(rtlsdr_dev_t *dev)
 {
-	fprintf(stderr, "[ORCU] cancel_async called: dev=%p status=%d cancel=%d stream_fd=%d\\n",\n\t\t(void *)dev, dev ? dev->async_status : -1, dev ? dev->async_cancel : -1,\n\t\tdev ? dev->orcu_stream_fd : -1);\n\tfflush(stderr);\n	if (!dev)
+	fprintf(stderr, "[ORCU] cancel_async called: dev=%p status=%d cancel=%d stream_fd=%d\\n",
+		(void *)dev, dev ? dev->async_status : -1, dev ? dev->async_cancel : -1,
+		dev ? dev->orcu_stream_fd : -1);
+	fflush(stderr);
+	if (!dev)
 		return -1;
 	if (RTLSDR_RUNNING != dev->async_status)
 		return -2;
-	dev->async_cancel = 1;\n\tfprintf(stderr, "[ORCU] cancel_async sending STREAM_STOP: stream_fd=%d\\n", dev->orcu_stream_fd);\n\tfflush(stderr);
+	dev->async_cancel = 1;
+	fprintf(stderr, "[ORCU] cancel_async sending STREAM_STOP: stream_fd=%d\\n", dev->orcu_stream_fd);
+	fflush(stderr);
 	/* STREAM_STOP is duplex: the control opcode wakes Android's queued USB
 	 * requests while the read thread drains frames until the zero terminator. */
 	return dev->orcu_stream_fd >= 0 ? orcu_stream_bulk_in_stop(dev->orcu_stream_fd) : -1;
