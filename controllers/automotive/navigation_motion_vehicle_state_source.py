@@ -7,6 +7,9 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from threading import Lock
+import logging
+
+from common.logging.structured import event
 
 from controllers.automotive.vehicle_state import VehicleState
 from controllers.automotive.vehicle_state_source_if import VehicleStateSourceIf
@@ -17,6 +20,8 @@ from messaging.contracts.navigation import (
 )
 from messaging.message_dispatcher import MessageDispatcher
 from messaging.subscriber_if import SubscriberIf
+
+LOGGER = logging.getLogger("automotive.motion")
 
 
 class NavigationMotionVehicleStateSource(VehicleStateSourceIf):
@@ -45,6 +50,7 @@ class NavigationMotionVehicleStateSource(VehicleStateSourceIf):
             return
         self._dispatcher.start()
         self._connected = True
+        event(LOGGER, logging.INFO, "motion.started", "Navigation motion subscription started")
 
     def disconnect(self) -> None:
         """Stop receiving navigation ground-motion telemetry."""
@@ -52,6 +58,7 @@ class NavigationMotionVehicleStateSource(VehicleStateSourceIf):
             return
         self._dispatcher.close()
         self._connected = False
+        event(LOGGER, logging.INFO, "motion.stopped", "Navigation motion subscription stopped")
 
     def read_state(self) -> VehicleState:
         """Return a vehicle state containing the latest real GPS ground speed.
@@ -69,9 +76,18 @@ class NavigationMotionVehicleStateSource(VehicleStateSourceIf):
 
     def _on_motion_state(self, message: MotionStateMessage) -> None:
         with self._lock:
+            previously_available = self._speed_m_s is not None
             self._speed_m_s = message.data.ground_speed_m_s
             self._timestamp = datetime.fromtimestamp(
-                message.timestamp.seconds
-                + message.timestamp.nanoseconds / 1_000_000_000.0,
+                message.timestamp.seconds + message.timestamp.nanoseconds / 1_000_000_000.0,
                 tz=timezone.utc,
             )
+            available = self._speed_m_s is not None
+            if previously_available != available:
+                event(
+                    LOGGER,
+                    logging.INFO,
+                    "motion.availability_changed",
+                    "Navigation road speed availability changed",
+                    available=available,
+                )
