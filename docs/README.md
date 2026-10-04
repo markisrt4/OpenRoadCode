@@ -54,6 +54,10 @@ Generated from the canonical documentation files. Every component README and sta
 - [Weatherdash (`apps/weatherDash`)](../apps/weatherDash/README.md)
 - [Webui (`apps/webUi`)](../apps/webUi/README.md)
 
+### Common
+
+- [Logging (`common/logging`)](../common/logging/README.md)
+
 ### Config
 
 - [Config](../config/README.md)
@@ -103,6 +107,7 @@ Generated from the canonical documentation files. Every component README and sta
 - [Navigation Position State (`docs/idd`)](idd/navigation_position_state.md)
 - [Route Guidance State (`docs/idd`)](idd/route_guidance_state.md)
 - [Message Bus Idd (`docs/messaging`)](messaging/message_bus_idd.md)
+- [Music Visualizer](music_visualizer.md)
 - [Navigation Deployment](navigation_deployment.md)
 - [Navigation Runtime](navigation_runtime.md)
 - [Roadmap](roadmap.md)

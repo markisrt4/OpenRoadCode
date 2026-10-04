@@ -364,3 +364,10 @@ halo. Clearing POIs, dragging, or leaving the map removes the glow. Tapping or
 clicking still opens the existing place popup. Hover is renderer presentation
 using existing marker identities, with no controller or UI contract changes.
 Rebuild the native renderer after pulling this update to enable it.
+
+Changing light/dark mode releases an embedded map screen before rebuilding its
+host widgets, then attaches the renderer to the new host. The map runtime also
+stops an existing renderer when its parent window changes and forgets stopped
+host IDs. This prevents a live process from remaining attached to a destroyed
+window. Returning to Navigation manually is no longer required to restore it.
+Theme/remount regression tests cover lifecycle ordering and obsolete hosts.

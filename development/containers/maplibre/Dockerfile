@@ -28,6 +28,7 @@ RUN apt-get update && apt-get install -y \
     liblua5.4-dev \
     libsqlite3-dev \
     rapidjson-dev \
+    libspdlog-dev \
     libshp-dev \
     xvfb \
     vim \

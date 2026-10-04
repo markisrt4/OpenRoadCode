@@ -117,3 +117,10 @@ g++ -std=c++20 -Wall -Wextra -Werror apps/map_renderer/component_test/poi_hover_
 Hover highlights use a softer point glow (30% opacity) and crisp light text
 with a dark, unblurred outline. The glow stays away from the letter shapes to
 keep both POI names and city weather values readable.
+## Logging
+
+The renderer emits structured JSON Lines to stderr through `spdlog`. The UI
+launcher collects its output into the shared rotating ORC store. Use
+`./runOrcUi --follow-logs` for readable live output, or attach separately with
+`python -m common.logging.viewer --component map_renderer`.
+See [ORC logging](../../common/logging/README.md) for settings, storage, and CI gates.

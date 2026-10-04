@@ -6,6 +6,8 @@
 from __future__ import annotations
 
 import logging
+from dataclasses import replace
+from common.logging.structured import event, operation
 from typing import Any
 
 from controllers.route_planning.route_planning_controller_if import (
@@ -23,12 +25,10 @@ from protocols.valhalla.valhalla_http_client import (
 )
 
 
-LOGGER = logging.getLogger(__name__)
+LOGGER = logging.getLogger("navigation.routing")
 
 
-class ValhallaRoutePlanningController(
-    RoutePlanningControllerIf
-):
+class ValhallaRoutePlanningController(RoutePlanningControllerIf):
     """Calculate routes using a Valhalla service."""
 
     def __init__(
@@ -38,9 +38,7 @@ class ValhallaRoutePlanningController(
         self._client = client
 
         self._is_available = False
-        self._status_message: str | None = (
-            "Valhalla availability has not been checked"
-        )
+        self._status_message: str | None = "Valhalla availability has not been checked"
 
         self._refresh_status()
 
@@ -58,12 +56,30 @@ class ValhallaRoutePlanningController(
     ) -> RouteResult:
         """Calculate a route using Valhalla."""
 
-        try:
-            response = self._client.route(
-                self._create_route_request(request)
-            )
+        with operation() as operation_id:
+            return self._calculate_route(request, operation_id)
 
-            route = self._parse_route(response)
+    def _calculate_route(self, request: RouteRequest, operation_id: str) -> RouteResult:
+        event(
+            LOGGER,
+            logging.INFO,
+            "route.requested",
+            "Route requested",
+            travel_mode=request.travel_mode.name,
+        )
+        try:
+            response = self._client.route(self._create_route_request(request))
+
+            route = replace(self._parse_route(response), operation_id=operation_id)
+            event(
+                LOGGER,
+                logging.INFO,
+                "route.calculated",
+                "Route calculated",
+                point_count=len(route.shape),
+                duration_seconds=route.duration_seconds,
+                distance_miles=route.distance_miles,
+            )
 
             self._is_available = True
             self._status_message = None
@@ -71,10 +87,15 @@ class ValhallaRoutePlanningController(
             return route
 
         except Exception as exc:
-            self._is_available = False
-            self._status_message = (
-                f"Valhalla route calculation failed: {exc}"
+            event(
+                LOGGER,
+                logging.ERROR,
+                "route.failed",
+                "Route calculation failed",
+                exception_type=type(exc).__name__,
             )
+            self._is_available = False
+            self._status_message = f"Valhalla route calculation failed: {exc}"
 
             raise
 
@@ -87,9 +108,7 @@ class ValhallaRoutePlanningController(
 
         except Exception as exc:
             self._is_available = False
-            self._status_message = (
-                f"Valhalla unavailable: {exc}"
-            )
+            self._status_message = f"Valhalla unavailable: {exc}"
 
             LOGGER.debug(
                 "Valhalla availability check failed",
@@ -113,10 +132,7 @@ class ValhallaRoutePlanningController(
                     "type": "break",
                 },
             ],
-            "costing": (
-                ValhallaRoutePlanningController
-                ._costing_name(request.travel_mode)
-            ),
+            "costing": (ValhallaRoutePlanningController._costing_name(request.travel_mode)),
             "units": "miles",
             "language": "en-US",
         }
@@ -142,23 +158,17 @@ class ValhallaRoutePlanningController(
         trip = response.get("trip")
 
         if not isinstance(trip, dict):
-            raise ValueError(
-                "Valhalla response does not contain a trip"
-            )
+            raise ValueError("Valhalla response does not contain a trip")
 
         summary = trip.get("summary")
 
         if not isinstance(summary, dict):
-            raise ValueError(
-                "Valhalla trip does not contain a summary"
-            )
+            raise ValueError("Valhalla trip does not contain a summary")
 
         legs = trip.get("legs")
 
         if not isinstance(legs, list) or not legs:
-            raise ValueError(
-                "Valhalla trip does not contain route legs"
-            )
+            raise ValueError("Valhalla trip does not contain route legs")
 
         route_shape: list[GeoPoint] = []
         route_maneuvers: list[RouteManeuver] = []
@@ -178,12 +188,8 @@ class ValhallaRoutePlanningController(
             )
 
         return RouteResult(
-            distance_miles=float(
-                summary.get("length", 0.0)
-            ),
-            duration_seconds=float(
-                summary.get("time", 0.0)
-            ),
+            distance_miles=float(summary.get("length", 0.0)),
+            duration_seconds=float(summary.get("time", 0.0)),
             shape=tuple(route_shape),
             maneuvers=tuple(route_maneuvers),
         )
@@ -199,9 +205,7 @@ class ValhallaRoutePlanningController(
         if not isinstance(encoded_shape, str):
             return
 
-        leg_shape = cls._decode_polyline6(
-            encoded_shape
-        )
+        leg_shape = cls._decode_polyline6(encoded_shape)
 
         # Adjacent Valhalla legs normally share their
         # endpoint/start point. Avoid duplicating it.
@@ -239,9 +243,7 @@ class ValhallaRoutePlanningController(
         if not isinstance(instruction, str):
             return None
 
-        verbal_instruction = maneuver.get(
-            "verbal_pre_transition_instruction"
-        )
+        verbal_instruction = maneuver.get("verbal_pre_transition_instruction")
 
         if not isinstance(
             verbal_instruction,
@@ -252,12 +254,8 @@ class ValhallaRoutePlanningController(
         return RouteManeuver(
             instruction=instruction,
             verbal_instruction=verbal_instruction,
-            distance_miles=float(
-                maneuver.get("length", 0.0)
-            ),
-            duration_seconds=float(
-                maneuver.get("time", 0.0)
-            ),
+            distance_miles=float(maneuver.get("length", 0.0)),
+            duration_seconds=float(maneuver.get("time", 0.0)),
             begin_shape_index=int(
                 maneuver.get(
                     "begin_shape_index",
@@ -286,18 +284,14 @@ class ValhallaRoutePlanningController(
         index = 0
 
         while index < len(encoded):
-            latitude_delta, index = (
-                cls._decode_polyline_value(
-                    encoded,
-                    index,
-                )
+            latitude_delta, index = cls._decode_polyline_value(
+                encoded,
+                index,
             )
 
-            longitude_delta, index = (
-                cls._decode_polyline_value(
-                    encoded,
-                    index,
-                )
+            longitude_delta, index = cls._decode_polyline_value(
+                encoded,
+                index,
             )
 
             latitude += latitude_delta
@@ -305,12 +299,8 @@ class ValhallaRoutePlanningController(
 
             points.append(
                 GeoPoint(
-                    latitude=(
-                        latitude / 1_000_000.0
-                    ),
-                    longitude=(
-                        longitude / 1_000_000.0
-                    ),
+                    latitude=(latitude / 1_000_000.0),
+                    longitude=(longitude / 1_000_000.0),
                 )
             )
 
@@ -326,16 +316,12 @@ class ValhallaRoutePlanningController(
 
         while True:
             if index >= len(encoded):
-                raise ValueError(
-                    "Invalid Valhalla encoded polyline"
-                )
+                raise ValueError("Invalid Valhalla encoded polyline")
 
             value = ord(encoded[index]) - 63
             index += 1
 
-            result |= (
-                value & 0x1F
-            ) << shift
+            result |= (value & 0x1F) << shift
 
             shift += 5
 
@@ -348,4 +334,3 @@ class ValhallaRoutePlanningController(
             delta = result >> 1
 
         return delta, index
-

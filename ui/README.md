@@ -203,3 +203,7 @@ and metres. `CityWeatherPoint.city_id` links the map feature to that selection.
 `request_city_details(city_id)` opens a currently displayed city; passing `None`
 dismisses it. Controllers own selection, cached-data lookup, playback pause and
 lifecycle invalidation; frontends own local times, units and popup layout.
+
+`MusicAnalysisSessionIf` describes the existing source-neutral HTTP audio-session
+controls. The HTTP routes use this narrow structural contract instead of importing
+the concrete session controller; transport paths and response behavior are unchanged.

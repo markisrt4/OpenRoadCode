@@ -174,6 +174,7 @@ class NavigationCommandService:
     @staticmethod
     def _route_data(route: RouteResult) -> Mapping[str, Any]:
         return {
+            "operation_id": route.operation_id,
             "distance_miles": route.distance_miles,
             "duration_seconds": route.duration_seconds,
             "shape": [{"latitude": point.latitude, "longitude": point.longitude} for point in route.shape],

@@ -7,6 +7,8 @@ from __future__ import annotations
 
 import argparse
 import os
+import logging
+from common.logging.structured import configure_logging, event
 from pathlib import Path
 
 from controllers.geocoding.sqlite_geocoder import SqliteGeocoder
@@ -213,6 +215,8 @@ def build_geocoder(database: str | Path):
 
 def main() -> int:
     args = parse_args()
+    configure_logging()
+    logger = logging.getLogger("navigation.lifecycle")
     profile, profile_path = resolve_runtime_profile(args.profile)
     system = ServiceRuntimeConfigParser(
         args.config,
@@ -265,11 +269,16 @@ def main() -> int:
     print(f"  publish source:    {publish_source}")
     print("Ctrl+C to stop")
 
+    event(logger, logging.INFO, "service.started", "Navigation service started", profile=profile, publisher_endpoint=system.messaging.publisher_endpoint, command_endpoint=config.command_endpoint)
     try:
         runtime.run()
     except KeyboardInterrupt:
         pass
+    except Exception:
+        logger.exception("Navigation service failed", extra={"event": "service.failed"})
+        raise
     finally:
+        event(logger, logging.INFO, "service.stopped", "Navigation service stopped")
         runtime.close()
         publisher.close()
 

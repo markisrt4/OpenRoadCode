@@ -11,6 +11,7 @@
 /** @brief Parsed command accepted by the native MapLibre renderer. */
 struct MapCommand {
     std::string command;
+    std::string operationId;
     double latitude = 0.0;
     double longitude = 0.0;
     double zoom = 0.0;

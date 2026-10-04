@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 #include "map_view.hpp"
 #include "weather_city_hit.hpp"
+#include "orc_logging.hpp"
 #include "map_renderer_frontend.hpp"
 #include "glfw_backend.hpp"
 #include <mbgl/gfx/backend.hpp>
@@ -22,7 +23,7 @@
 #include <cctype>
 #include <cmath>
 #include <cstdlib>
-#include <iostream>
+#include <sstream>
 #include <limits>
 #include <optional>
 #include <string>
@@ -70,12 +71,16 @@ void logPoiSample(const mbgl::Feature& feature, std::size_t index) {
     std::string name = stringProperty(feature, "name:latin");
     if (name.empty())
         name = stringProperty(feature, "name");
-    std::cout << "[map_renderer] POI sample " << index << " name=\"" << name << "\" class=\""
-              << stringProperty(feature, "class") << "\" subclass=\""
-              << stringProperty(feature, "subclass") << "\" amenity=\""
-              << stringProperty(feature, "amenity") << "\" shop=\""
-              << stringProperty(feature, "shop") << "\" brand=\""
-              << stringProperty(feature, "brand") << "\"\n";
+    {
+        std::ostringstream details;
+        details << "[map_renderer] POI sample " << index << " name=\"" << name << "\" class=\""
+            << stringProperty(feature, "class") << "\" subclass=\""
+            << stringProperty(feature, "subclass") << "\" amenity=\""
+            << stringProperty(feature, "amenity") << "\" shop=\""
+            << stringProperty(feature, "shop") << "\" brand=\""
+            << stringProperty(feature, "brand") << "\"";
+        orc::log("DEBUG", "map_renderer.view", "poi.sample", details.str());
+    }
 }
 #if defined(__linux__)
 void embedInX11Parent(GLFWwindow* window) {
@@ -85,18 +90,18 @@ void embedInX11Parent(GLFWwindow* window) {
     char* end = nullptr;
     const unsigned long parentId = std::strtoul(value, &end, 0);
     if (end == value || *end != '\0' || parentId == 0) {
-        std::cerr << "[map_renderer] invalid OPENROADCODE_MAP_PARENT_WINDOW=" << value << '\n';
+        orc::log("WARNING", "map_renderer.view", "window.parent_invalid", "Invalid X11 parent window configuration");
         return;
     }
     Display* display = glfwGetX11Display();
     const Window child = glfwGetX11Window(window);
     if (!display || child == 0) {
-        std::cerr << "[map_renderer] GLFW X11 native window is unavailable\n";
+        orc::log("ERROR", "map_renderer.view", "window.native_unavailable", "GLFW X11 native window unavailable");
         return;
     }
     XWindowAttributes a{};
     if (!XGetWindowAttributes(display, static_cast<Window>(parentId), &a)) {
-        std::cerr << "[map_renderer] X11 parent window " << parentId << " is unavailable\n";
+        orc::log("ERROR", "map_renderer.view", "window.parent_unavailable", "X11 parent window unavailable");
         return;
     }
     XReparentWindow(display, child, static_cast<Window>(parentId), 0, 0);
@@ -105,8 +110,12 @@ void embedInX11Parent(GLFWwindow* window) {
     XMapWindow(display, child);
     XFlush(display);
     glfwSetWindowSize(window, a.width, a.height);
-    std::cout << "[map_renderer] embedded in X11 parent " << parentId << " size=" << a.width << 'x'
-              << a.height << '\n';
+    {
+        std::ostringstream details;
+        details << "[map_renderer] embedded in X11 parent " << parentId << " size=" << a.width << 'x'
+            << a.height;
+        orc::log("INFO", "map_renderer.view", "window.embedded", details.str());
+    }
 }
 #endif
 } // namespace
@@ -281,10 +290,14 @@ void MapView::onMouseClick(GLFWwindow* window, int button, int action, int modif
             }
             clickX = static_cast<double>(winX) * scaleX;
             clickY = static_cast<double>(winY) * scaleY;
-            std::cout << "[map_renderer] pointer raw=" << winX << "," << winY
-                      << " child=" << childAttributes.width << "x" << childAttributes.height
-                      << " map=" << v->width << "x" << v->height << " scale=" << scaleX << ","
-                      << scaleY << " normalized=" << clickX << "," << clickY << '\n';
+            {
+                std::ostringstream details;
+                details << "[map_renderer] pointer raw=" << winX << "," << winY
+                    << " child=" << childAttributes.width << "x" << childAttributes.height
+                    << " map=" << v->width << "x" << v->height << " scale=" << scaleX << ","
+                    << scaleY << " normalized=" << clickX << "," << clickY;
+                orc::log("DEBUG", "map_renderer.view", "pointer.sample", details.str());
+            }
         }
     }
 #else
@@ -346,18 +359,24 @@ void MapView::onMouseClick(GLFWwindow* window, int button, int action, int modif
                     if (!markerId.empty())
                         break;
                 }
-                std::cout << "[map_renderer] rendered hit features=" << renderedFeatures.size()
-                          << '\n';
+                {
+                    std::ostringstream details;
+                    details << "[map_renderer] rendered hit features=" << renderedFeatures.size();
+                    orc::log("DEBUG", "map_renderer.view", "features.queried", details.str());
+                }
             }
-            std::cout << "[map_renderer] map click x=" << clickX << " y=" << clickY
-                      << " lat=" << click.latitude() << " lon=" << click.longitude()
-                      << " radius_m=" << radius
-                      << " marker_id=" << (markerId.empty() ? "<none>" : markerId)
-                      << " marker_index="
-                      << (markerIndex == std::numeric_limits<std::size_t>::max()
-                              ? -1
-                              : static_cast<long long>(markerIndex))
-                      << '\n';
+            {
+                std::ostringstream details;
+                details << "[map_renderer] map click x=" << clickX << " y=" << clickY
+                    << " lat=" << click.latitude() << " lon=" << click.longitude()
+                    << " radius_m=" << radius
+                    << " marker_id=" << (markerId.empty() ? "<none>" : markerId)
+                    << " marker_index="
+                    << (markerIndex == std::numeric_limits<std::size_t>::max()
+                    ? -1
+                    : static_cast<long long>(markerIndex));
+                orc::log("DEBUG", "map_renderer.view", "map.clicked", details.str());
+            }
             v->mapClickCallback(click.latitude(), click.longitude(), radius, markerId, markerIndex);
         }
         v->lastClick = now;
@@ -450,11 +469,15 @@ PoiSearchResult MapView::searchVisiblePois(const std::string& category) const {
         if (categoryMatches(feature, category))
             ++result.count;
     }
-    std::cout << "[map_renderer] POI viewport category=" << category
-              << " source_features=" << features.size() << " visible_samples=" << sampleCount
-              << " vector_matches=" << result.count
-              << " bounds=" << result.west << ',' << result.south << ',' << result.east << ','
-              << result.north << '\n';
+    {
+        std::ostringstream details;
+        details << "[map_renderer] POI viewport category=" << category
+            << " source_features=" << features.size() << " visible_samples=" << sampleCount
+            << " vector_matches=" << result.count
+            << " bounds=" << result.west << ',' << result.south << ',' << result.east << ','
+            << result.north;
+        orc::log("DEBUG", "map_renderer.view", "poi.viewport", details.str());
+    }
     return result;
 }
 void MapView::onMouseMove(GLFWwindow* window, double x, double y) {

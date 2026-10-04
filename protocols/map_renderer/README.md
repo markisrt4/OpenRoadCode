@@ -1,9 +1,11 @@
 # Map Renderer Protocol
 
 This package is the Python client contract for the native C++ map renderer.
-`MapRendererClient` publishes JSON commands on the `map.command` topic through
-the local ZeroMQ broker. Delivery is asynchronous; replay state after launching
-or replacing the renderer.
+`MapRendererClient` publishes asynchronous JSON commands on the ORC ZeroMQ
+message bus over TCP. A successful publication does not acknowledge renderer
+receipt or application. `MapRendererUnavailableError` reports local publication
+failures.
+Replay state after launching or replacing the renderer.
 
 ```python
 from protocols.map_renderer.map_renderer_client import MapRendererClient
@@ -18,10 +20,13 @@ renderer.set_camera(
 )
 ```
 
-The default publisher endpoint is `tcp://127.0.0.1:5556`. Route data is sent as a
-GeoJSON object with `set_route()`. `fit_bounds()` frames a route, and
-`set_position()` updates the vehicle marker. See `apps/map_renderer/README.md`
-for the native process and style requirements.
+The default publisher endpoint is `tcp://127.0.0.1:5556`; pass `endpoint=` to
+`MapRendererClient` to select another broker. The native renderer subscribes
+through `tcp://127.0.0.1:5557`. Route data is sent as a GeoJSON object with
+`set_route()`. `fit_bounds()` frames a route, and `set_position()` updates the
+vehicle marker. See [the renderer documentation](../../apps/map_renderer/README.md)
+for the native process and style requirements, and [ORC logging](../../common/logging/README.md)
+for structured logs and live viewing.
 
 `set_route_weather(geojson)` updates a separate `route-weather` GeoJSON source
 without changing route geometry, POI results, radar visibility, or the camera.
