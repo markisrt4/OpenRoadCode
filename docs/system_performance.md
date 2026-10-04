@@ -53,15 +53,30 @@ sudo scripts/systemd/install_service_manager_systemd.sh
 ```
 
 The installer preserves the existing administrative token and pairing store.
-On Termux, update the checkout and restart `openroadcode-service-manager` with
-the existing runit service controls.
+On Termux, update the main OpenRoadCode checkout and restart the Python service
+manager. Updating the Bridge APK alone does not update this process:
+
+```bash
+cd ~/src/OpenRoadCode
+git fetch origin computing-unit-performance
+git switch computing-unit-performance
+git merge --ff-only FETCH_HEAD
+sv restart openroadcode-service-manager
+```
+
+A 404 from `/performance` means the running server does not expose this route.
+If restarting still returns 404, reinstall the runit definitions from this checkout
+with `bash scripts/runit/install_termux_services.sh` and restart again, so the
+service uses the correct source directory.
 
 Build and install the updated Android Bridge app using that repository's build
 instructions. Pair or select the computing unit under **Configuration**, then
-open **Runtime**, select the remote runtime target, and expand **Computing Unit
-Performance**. Selecting Termux displays the local Termux runtime instead.
+open **Performance** from the Bridge subsystem dashboard, use **Computing unit**
+to select the remote unit, and view **Computing Unit Performance**. Selecting
+Local Termux displays the local Termux runtime instead. Runtime contains service
+settings and lifecycle controls, not metrics.
 The remote card uses the saved pairing credential and service-manager endpoint;
-there is no additional port or pairing flow. Polling stops when the Runtime
+there is no additional port or pairing flow. Polling stops when the Performance
 screen is left or the app is paused. Switching target discards the previous
 unit's readings. Connection failures or samples older than three seconds are
 displayed as unavailable.
