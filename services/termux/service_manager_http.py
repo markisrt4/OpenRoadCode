@@ -31,6 +31,7 @@ from services.common.service_manager_browser_pairing import (
     ServiceManagerBrowserPairing,
 )
 from services.common.service_manager_pairing import ServiceManagerPairing
+from services.common.service_manager_logs import serve_logs
 from services.termux.service_manager import RunitServiceManager, ServiceStatus
 
 DEFAULT_HOST = "127.0.0.1"
@@ -62,6 +63,9 @@ class ServiceManagerHandler(BaseHTTPRequestHandler):
             self._browser_pairing_status(parts[3])
             return
         if not self._authenticate():
+            return
+        if parts == ["logs"]:
+            serve_logs(self, scope="Shared ORC log store")
             return
         if self.path.rstrip("/") != "/services":
             self._json(HTTPStatus.NOT_FOUND, {"error": "not found"})

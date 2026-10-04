@@ -26,6 +26,42 @@ escapes control characters and displays context fields alongside readable messag
 The viewer's level filters already collected events; it cannot enable DEBUG in an
 existing process. Set logging levels before starting that process.
 
+## Android bridge live viewer
+
+The Android bridge's **Diagnostics → Logs** screen reads recent history and polls
+for new events from the selected Termux or paired remote Linux runtime. Pause
+retains displayed history and stops network activity. Leaving the screen or
+backgrounding the app also cancels polling. Severity and dotted component-prefix
+filters apply to collected events; they cannot enable DEBUG in a running process.
+Copy and share export only the bounded displayed history, including context.
+
+The service manager exposes a read-only `GET /logs` endpoint on its existing API
+port, normally `8769`. It uses the same access policy as `/services`: existing
+same-phone access for Termux, or administrator/paired bearer credentials for
+remote access. No new listener, permission, runtime dependency, or pairing flow
+is needed. Responses disable caching and accept no filesystem paths.
+
+Supported query parameters are `level` (default `INFO`), `component` (optional
+dotted prefix), and `cursor` (opaque value returned by the previous page). Omit
+the cursor when changing filters. The response contains `events`, `cursor`,
+`has_more`, `reset`, and a human-readable `scope`. Each request scans at most
+256 KiB and returns at most 200 validated events within a 256 KiB event budget.
+Initial history comes from the retained log tail. Live cursors follow retained
+rotations; expired cursors set `reset` and return recent history. Partial records
+are retried; malformed and oversized records are skipped. This is a diagnostic
+viewer, not a guaranteed event-delivery channel.
+
+Termux normally provides the shared ORC store. The restricted Linux manager
+provides its private service-manager store; navigation/media logs in another
+account's store are outside that scope. The response and screen identify the
+store rather than silently implying host-wide coverage. Log aggregation across
+accounts is a separate follow-up. Device bridge logs are also outside this feed.
+
+Update/restart the Termux manager, or rerun the Linux service-manager installer,
+before using an updated Android APK. Older managers return an update instruction
+in the viewer. Linux's minimal deployment already copies the new logger and
+service helper modules through its existing package manifest.
+
 ## Collection and storage
 
 Default storage is `$XDG_STATE_HOME/openroadcode/logs/orc.jsonl`, falling back to

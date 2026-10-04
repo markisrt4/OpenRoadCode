@@ -8,7 +8,7 @@ control it through the localhost service-manager API.
 ## Services
 
 - `openroadcode-service-manager` provides the lightweight localhost control
-  plane on `127.0.0.1:8768`.
+  plane on `127.0.0.1:8769`.
 - `openroadcode-message-broker` runs the ZeroMQ message broker.
 - `openroadcode-navigation` runs the navigation service using
   `config/runtime.termux.toml`.
@@ -95,10 +95,10 @@ small control plane while runit continues to own process lifetime and crash
 restarts.
 
 ```bash
-curl http://127.0.0.1:8768/services
-curl -X POST http://127.0.0.1:8768/stack/core/start
-curl -X POST http://127.0.0.1:8768/stack/core/stop
-curl -X POST http://127.0.0.1:8768/services/openroadcode-navigation/restart
+curl http://127.0.0.1:8769/services
+curl -X POST http://127.0.0.1:8769/stack/core/start
+curl -X POST http://127.0.0.1:8769/stack/core/stop
+curl -X POST http://127.0.0.1:8769/services/openroadcode-navigation/restart
 ```
 
 The API binds only to localhost and accepts only predefined OpenRoadCode
