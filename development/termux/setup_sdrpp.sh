@@ -281,7 +281,16 @@ old = '''    float* fftBuf = _this->_acquireFFTBuffer(_this->_fftCtx);
 
     // Convert the complex output of the FFT to dB amplitude
     if (fftBuf) {'''
-new = '''    float* fftBuf = _this->_acquireFFTBuffer(_this->_fftCtx);
+new = '''    if (orcFFTHandlers <= 4) {
+        fprintf(stderr, "[ORC FFT] handler=%llu acquiring waterfall buffer\\n", orcFFTHandlers);
+        fflush(stderr);
+    }
+    float* fftBuf = _this->_acquireFFTBuffer(_this->_fftCtx);
+    if (orcFFTHandlers <= 4) {
+        fprintf(stderr, "[ORC FFT] handler=%llu acquired waterfall buffer=%p\\n",
+                orcFFTHandlers, (void*)fftBuf);
+        fflush(stderr);
+    }
     if (!fftBuf) {
         orcFFTRejected++;
     }
