@@ -254,6 +254,52 @@ source = source.replace(old, new, 1)
 frontend.write_text(source)
 PY
 
+echo "[*] Instrumenting SDR++ FFT production for stalled-waterfall diagnosis"
+python3 - "$SDRPP_SRC/core/src/signal_path/iq_frontend.cpp" <<'PY'
+from pathlib import Path
+import sys
+
+path = Path(sys.argv[1])
+source = path.read_text()
+
+old = '''void IQFrontEnd::handler(dsp::complex_t* data, int count, void* ctx) {
+    IQFrontEnd* _this = (IQFrontEnd*)ctx;
+
+    // Apply window'''
+new = '''void IQFrontEnd::handler(dsp::complex_t* data, int count, void* ctx) {
+    IQFrontEnd* _this = (IQFrontEnd*)ctx;
+    static unsigned long long orcFFTHandlers = 0;
+    static unsigned long long orcFFTRejected = 0;
+    orcFFTHandlers++;
+
+    // Apply window'''
+if old not in source:
+    raise SystemExit("Could not locate SDR++ IQFrontEnd::handler()")
+source = source.replace(old, new, 1)
+
+old = '''    float* fftBuf = _this->_acquireFFTBuffer(_this->_fftCtx);
+
+    // Convert the complex output of the FFT to dB amplitude
+    if (fftBuf) {'''
+new = '''    float* fftBuf = _this->_acquireFFTBuffer(_this->_fftCtx);
+    if (!fftBuf) {
+        orcFFTRejected++;
+    }
+    if (orcFFTHandlers <= 3 || (orcFFTHandlers % 256) == 0 || (!fftBuf && orcFFTRejected <= 3)) {
+        fprintf(stderr,
+                "[ORC FFT] handler=%llu count=%d fftSize=%d buffer=%p rejected=%llu\\n",
+                orcFFTHandlers, count, _this->_fftSize, (void*)fftBuf, orcFFTRejected);
+        fflush(stderr);
+    }
+
+    // Convert the complex output of the FFT to dB amplitude
+    if (fftBuf) {'''
+if old not in source:
+    raise SystemExit("Could not locate SDR++ FFT buffer acquisition")
+source = source.replace(old, new, 1)
+path.write_text(source)
+PY
+
 echo "[*] Building SDR++ unoptimized with symbols for waterfall crash diagnosis"
 cmake -S "$SDRPP_SRC" -B "$SDRPP_BUILD" \
   -DCMAKE_BUILD_TYPE=Debug \
