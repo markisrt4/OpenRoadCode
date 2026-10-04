@@ -6,14 +6,19 @@
 from __future__ import annotations
 
 import argparse
+import logging
 import os
 from dataclasses import replace
 from pathlib import Path
 
+from common.logging.structured import configure_logging, event
+
 from config.service_runtime_config import AutomotiveServiceRuntimeConfig, ServiceRuntimeConfigParser
 from controllers.automotive.composite_vehicle_state_source import CompositeVehicleStateSource
 from controllers.automotive.gear_estimator import GearEstimator
-from controllers.automotive.navigation_motion_vehicle_state_source import NavigationMotionVehicleStateSource
+from controllers.automotive.navigation_motion_vehicle_state_source import (
+    NavigationMotionVehicleStateSource,
+)
 from controllers.automotive.obd2.elm327_obd_adapter import Elm327ObdAdapter
 from controllers.automotive.obd2.obd2_manager import Obd2Manager
 from controllers.automotive.simulated_vehicle_state_source import SimulatedVehicleStateSource
@@ -21,7 +26,9 @@ from hardware_io.automotive.elm327.elm327_tcp_device import Elm327TcpDevice
 from messaging.zeromq import ZeroMqPublisher, ZeroMqSubscriber
 from protocols.obd2.simulated_obd2_adapter import SimulatedObd2Adapter
 from services.automotive.automotive_runtime import AutomotiveRuntime
-from services.automotive.automotive_telemetry_profile_runtime import AutomotiveTelemetryProfileRuntime
+from services.automotive.automotive_telemetry_profile_runtime import (
+    AutomotiveTelemetryProfileRuntime,
+)
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_RUNTIME_CONFIG = PROJECT_ROOT / "config" / "runtime.toml"
@@ -29,6 +36,7 @@ AUTOMOTIVE_PROFILE_DIR = PROJECT_ROOT / "config" / "profiles" / "automotive"
 AUTOMOTIVE_PROFILES = ("local", "remote", "simulated")
 DEFAULT_RUNTIME_PROFILE = "local"
 DEFAULT_GEAR_PROFILE = Path(__file__).resolve().parents[2] / "vehicle_gears.learned.toml"
+LOGGER = logging.getLogger("automotive.service")
 
 
 def parse_args() -> argparse.Namespace:
@@ -68,7 +76,6 @@ def parse_args() -> argparse.Namespace:
         help="learned RPM/speed gear profile; absent file disables gear estimation",
     )
     return parser.parse_args()
-
 
 
 def resolve_runtime_profile(requested: str | None = None) -> tuple[str, Path]:
@@ -116,6 +123,21 @@ def _load_gear_estimator(path: Path) -> GearEstimator | None:
 
 def main() -> int:
     args = parse_args()
+    configure_logging()
+    try:
+        return _run_service(args)
+    except Exception as exc:
+        event(
+            LOGGER,
+            logging.ERROR,
+            "service.failed",
+            "Automotive service failed",
+            exception_type=type(exc).__name__,
+        )
+        raise
+
+
+def _run_service(args: argparse.Namespace) -> int:
     profile, profile_path = resolve_runtime_profile(args.profile)
     system = ServiceRuntimeConfigParser(
         args.config,
@@ -128,9 +150,11 @@ def main() -> int:
             input=replace(config.input, source="obd_simulation"),
         )
     if not config.enabled:
+        event(LOGGER, logging.INFO, "service.disabled", "Automotive service disabled")
         print("Automotive service disabled by runtime configuration")
         return 0
     if not config.publish.enabled:
+        event(LOGGER, logging.INFO, "publishing.disabled", "Automotive publishing disabled")
         print("Automotive publishing disabled by runtime configuration")
         return 0
 
@@ -152,6 +176,17 @@ def main() -> int:
         rate_hz = config.rate_hz
 
     gear_estimator = _load_gear_estimator(args.gear_profile)
+    event(
+        LOGGER,
+        logging.INFO,
+        "service.configured",
+        "Automotive service configured",
+        input_profile=profile,
+        input_source=config.input.source,
+        transport=config.input.transport if config.input.source == "device" else None,
+        rate_hz=rate_hz,
+        gear_estimation_enabled=gear_estimator is not None,
+    )
     publisher = ZeroMqPublisher(system.messaging.publisher_endpoint)
     runtime = AutomotiveRuntime(
         source,
@@ -191,8 +226,8 @@ def main() -> int:
         else "  gear estimation:  disabled (no learned profile)"
     )
     print("Ctrl+C to stop")
-    profile_runtime.start()
     try:
+        profile_runtime.start()
         runtime.run()
     except KeyboardInterrupt:
         pass

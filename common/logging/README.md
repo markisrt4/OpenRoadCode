@@ -131,6 +131,11 @@ It also compiles the C++ command receiver and a small logger executable, then
 validates actual native output using the same schema validator as Python.
 These checks need neither MapLibre nor a graphical display.
 
+Automotive coverage checks service and OBD/ELM327 lifecycle, reconnect transitions,
+profile and trip operation IDs, quiet polling, failure cleanup, and exclusion of
+raw vehicle data. See the [automotive logging guide](../../services/automotive/README.md#structured-logging)
+for events and the live viewer filter.
+
 Run the checks locally:
 
 ```bash
