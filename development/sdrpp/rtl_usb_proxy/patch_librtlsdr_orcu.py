@@ -15,7 +15,7 @@ root = Path(sys.argv[1])
 path = root / "src" / "librtlsdr.c"
 text = path.read_text()
 
-text = text.replace('#include <libusb.h>', '#include <libusb.h>\n#include "orcu_usb_transport.h"')
+text = text.replace('#include <libusb.h>', '#include <libusb.h>\n#include <fcntl.h>\n#include <time.h>\n#include "orcu_usb_transport.h"')
 text = text.replace(
     'struct libusb_device_handle *devh;\n',
     'struct libusb_device_handle *devh;\n\tint orcu_fd;\n\tint orcu_stream_fd;\n\tint orcu_mode;\n'
@@ -235,6 +235,8 @@ int rtlsdr_read_async(rtlsdr_dev_t *dev, rtlsdr_read_async_cb_t cb, void *ctx,
 	 * ORCU connection remains available for tuner/register control transfers
 	 * while SDR++ is receiving samples, matching libusb's duplex behavior. */
 	dev->orcu_stream_fd = orcu_connect("127.0.0.1", 35100);
+	fprintf(stderr, "[ORCU] stream fd created: fd=%d\\n", dev->orcu_stream_fd);
+	fflush(stderr);
 	if (dev->orcu_stream_fd < 0) {
 		fprintf(stderr, "[ORCU] stream connection failed\\n");
 		fflush(stderr);
@@ -254,6 +256,8 @@ int rtlsdr_read_async(rtlsdr_dev_t *dev, rtlsdr_read_async_cb_t cb, void *ctx,
 		dev->async_status = RTLSDR_INACTIVE;
 		return -1;
 	}
+	fprintf(stderr, "[ORCU] stream fd claimed: fd=%d\\n", dev->orcu_stream_fd);
+	fflush(stderr);
 	if (orcu_stream_bulk_in_start(dev->orcu_stream_fd, 0x81, stream_len, 250) < 0) {
 		fprintf(stderr, "[ORCU] stream start failed\\n");
 		fflush(stderr);
@@ -265,6 +269,8 @@ int rtlsdr_read_async(rtlsdr_dev_t *dev, rtlsdr_read_async_cb_t cb, void *ctx,
 	fflush(stderr);
 	{
 		unsigned int orcu_frames = 0;
+		unsigned long long orcu_bytes = 0;
+		unsigned long long callback_count = 0;
 		unsigned char *callback_buf = malloc((size_t)callback_len);
 		uint32_t callback_used = 0;
 		if (!callback_buf) {
@@ -281,8 +287,11 @@ int rtlsdr_read_async(rtlsdr_dev_t *dev, rtlsdr_read_async_cb_t cb, void *ctx,
 				break;
 			}
 			orcu_frames++;
-			if (orcu_frames <= 3) {
-				fprintf(stderr, "[ORCU] IQ frame %u: %d bytes\\n", orcu_frames, n);
+			orcu_bytes += (unsigned long long)n;
+			if (orcu_frames <= 3 || (orcu_frames % 256) == 0) {
+				fprintf(stderr, "[ORCU] IQ progress: frames=%u bytes=%llu fd=%d valid=%d\\n",
+					orcu_frames, orcu_bytes, dev->orcu_stream_fd,
+					fcntl(dev->orcu_stream_fd, F_GETFD) >= 0);
 				fflush(stderr);
 			}
 			while (!dev->async_cancel && offset < (uint32_t)n) {
@@ -293,7 +302,20 @@ int rtlsdr_read_async(rtlsdr_dev_t *dev, rtlsdr_read_async_cb_t cb, void *ctx,
 				callback_used += copy_len;
 				offset += copy_len;
 				if (callback_used == callback_len) {
+					struct timespec cb_start, cb_end;
+					long long cb_ms;
+					clock_gettime(CLOCK_MONOTONIC, &cb_start);
 					cb(callback_buf, callback_len, ctx);
+					clock_gettime(CLOCK_MONOTONIC, &cb_end);
+					callback_count++;
+					cb_ms = (cb_end.tv_sec - cb_start.tv_sec) * 1000LL
+						+ (cb_end.tv_nsec - cb_start.tv_nsec) / 1000000LL;
+					if (cb_ms >= 250 || (callback_count % 4096) == 0) {
+						fprintf(stderr, "[ORCU] callback progress: count=%llu duration_ms=%lld fd=%d valid=%d\\n",
+							callback_count, cb_ms, dev->orcu_stream_fd,
+							fcntl(dev->orcu_stream_fd, F_GETFD) >= 0);
+						fflush(stderr);
+					}
 					callback_used = 0;
 				}
 			}
@@ -302,6 +324,9 @@ int rtlsdr_read_async(rtlsdr_dev_t *dev, rtlsdr_read_async_cb_t cb, void *ctx,
 	}
 	free(transport_buf);
 	if (dev->orcu_stream_fd >= 0) {
+		fprintf(stderr, "[ORCU] closing stream fd after read loop: fd=%d valid=%d async_cancel=%d\\n",
+			dev->orcu_stream_fd, fcntl(dev->orcu_stream_fd, F_GETFD) >= 0, dev->async_cancel);
+		fflush(stderr);
 		/* STREAM_STOP/zero-length frame ends the streaming session on the
 		 * Bridge. Do not send RELEASE or CLOSE protocol messages afterward:
 		 * that socket is no longer a command channel and Android may already
