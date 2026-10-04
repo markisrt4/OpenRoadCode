@@ -136,6 +136,11 @@ profile and trip operation IDs, quiet polling, failure cleanup, and exclusion of
 raw vehicle data. See the [automotive logging guide](../../services/automotive/README.md#structured-logging)
 for events and the live viewer filter.
 
+Media coverage checks queued playback operation IDs across worker threads,
+library loads/caches, observed state transitions, Spotify SDK callbacks,
+browser/video/audio failures, cleanup, and privacy exclusions. See the
+[media logging guide](../../controllers/spotify/README.md#structured-media-logging).
+
 Run the checks locally:
 
 ```bash
