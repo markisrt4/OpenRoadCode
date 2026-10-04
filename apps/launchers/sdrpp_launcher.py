@@ -129,14 +129,20 @@ class SDRPPLauncher(AppLauncherIf):
         finally:
             log_handle.close()
 
-        if self.fullscreen and not self.embedded:
-            self._request_fullscreen(remote_display, environment)
-        mode = "embedded" if self.embedded else "standalone"
-        _status(set_status, f"SDR++ launched ({mode}); checking RigCTL...")
-        if self.wait_for_rigctl():
-            _status(set_status, f"SDR++ ready: {self.profile.name}")
-        else:
-            _status(set_status, f"SDR++ running; RigCTL unavailable: {self.profile.name}")
+        try:
+            if self.fullscreen and not self.embedded:
+                self._request_fullscreen(remote_display, environment)
+            mode = "embedded" if self.embedded else "standalone"
+            _status(set_status, f"SDR++ launched ({mode}); checking RigCTL...")
+            if self.wait_for_rigctl():
+                _status(set_status, f"SDR++ ready: {self.profile.name}")
+            else:
+                _status(set_status, f"SDR++ running; RigCTL unavailable: {self.profile.name}")
+        except Exception:
+            # A failed startup must not leave the Termux audio forwarder or
+            # any surviving SDR++ display process behind to poison retries.
+            self.stop(remote_display)
+            raise
 
     def stop(self, remote_display: str, set_status: StatusCallback = None) -> None:
         if self._process is not None:
