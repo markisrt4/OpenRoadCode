@@ -112,24 +112,31 @@ class SDRPPLauncher(AppLauncherIf):
             self.stop(remote_display, set_status)
             time.sleep(0.25)
 
-        if self.theme is not None:
-            self.sync_theme()
-
-        if _is_termux():
-            self._start_termux_audio()
-            self._start_termux_rtl_tcp_provider()
-
-        command = self._launch_command(remote_display)
-        self._launched_via_proot = _is_proot_command(command)
-        environment = _sdrpp_environment(remote_display)
-        self.log_file.parent.mkdir(parents=True, exist_ok=True)
-        log_handle = self.log_file.open("a", encoding="utf-8")
         try:
-            self._process = subprocess.Popen(command, env=environment, stdout=log_handle, stderr=subprocess.STDOUT, start_new_session=True, text=True)
-        finally:
-            log_handle.close()
+            if self.theme is not None:
+                self.sync_theme()
 
-        try:
+            if _is_termux():
+                self._start_termux_audio()
+                self._start_termux_rtl_tcp_provider()
+
+            command = self._launch_command(remote_display)
+            self._launched_via_proot = _is_proot_command(command)
+            environment = _sdrpp_environment(remote_display)
+            self.log_file.parent.mkdir(parents=True, exist_ok=True)
+            log_handle = self.log_file.open("a", encoding="utf-8")
+            try:
+                self._process = subprocess.Popen(
+                    command,
+                    env=environment,
+                    stdout=log_handle,
+                    stderr=subprocess.STDOUT,
+                    start_new_session=True,
+                    text=True,
+                )
+            finally:
+                log_handle.close()
+
             if self.fullscreen and not self.embedded:
                 self._request_fullscreen(remote_display, environment)
             mode = "embedded" if self.embedded else "standalone"
@@ -139,8 +146,8 @@ class SDRPPLauncher(AppLauncherIf):
             else:
                 _status(set_status, f"SDR++ running; RigCTL unavailable: {self.profile.name}")
         except Exception:
-            # A failed startup must not leave the Termux audio forwarder or
-            # any surviving SDR++ display process behind to poison retries.
+            # Treat launch as one transaction.  Termux helpers start before
+            # SDR++, so failures anywhere after that point must tear them down.
             self.stop(remote_display)
             raise
 
@@ -216,16 +223,21 @@ class SDRPPLauncher(AppLauncherIf):
         fifo = DEFAULT_TERMUX_AUDIO_FIFO
         shell_command = (
             f"mkdir -p {shlex.quote(runtime_dir)} && chmod 700 {shlex.quote(runtime_dir)} && "
+            f"pulse_ready=0; pulse_pid=; "
+            f"if PULSE_SERVER=unix:{shlex.quote(runtime_dir)}/pulse/native /usr/bin/pactl info >/dev/null 2>&1; then "
+            f"pulse_ready=1; "
+            f"else "
+            f"rm -f {shlex.quote(runtime_dir)}/pulse/pid {shlex.quote(runtime_dir)}/pulse/native; "
             f"DISPLAY= /usr/bin/pulseaudio --daemonize=no --exit-idle-time=-1 "
             f">/tmp/orc-sdrpp-pulseaudio.log 2>&1 & "
             f"pulse_pid=$!; "
-            f"pulse_ready=0; "
             f"for attempt in $(seq 1 100); do "
             f"if PULSE_SERVER=unix:{shlex.quote(runtime_dir)}/pulse/native /usr/bin/pactl info >/dev/null 2>&1; then pulse_ready=1; break; fi; "
             f"if ! kill -0 $pulse_pid 2>/dev/null; then "
             f"cat /tmp/orc-sdrpp-pulseaudio.log >&2; exit 1; fi; "
             f"sleep 0.1; "
             f"done; "
+            f"fi; "
             f"if [ $pulse_ready -ne 1 ]; then "
             f"cat /tmp/orc-sdrpp-pulseaudio.log >&2; exit 1; fi; "
             f"export PULSE_SERVER=unix:{shlex.quote(runtime_dir)}/pulse/native; "
