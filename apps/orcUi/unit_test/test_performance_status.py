@@ -8,7 +8,7 @@ from unittest import TestCase
 from unittest.mock import Mock
 
 from apps.orcUi.performance_status import PerformanceStatusPresenter, performance_status
-from ui.system_diagnostics import OrcWorkloadSnapshot, SensorHealthSnapshot, SystemDiagnosticsSnapshot
+from ui.system_diagnostics import OrcWorkloadSnapshot, SensorHealthSnapshot, SystemDiagnosticsSnapshot, ServiceSocketSnapshot
 
 
 def sample(**changes):
@@ -35,12 +35,18 @@ class PerformanceStatusTests(TestCase):
     def test_thermal_and_sensor_severity(self):
         for headroom, tone in ((10, "accent_warning"), (5, "accent_danger")):
             status = performance_status(sample(thermal_headroom_c=headroom))
-            self.assertEqual(status.text, "● SYS HOT")
+            self.assertEqual(status.text, "● SYS THERMAL")
             self.assertEqual(status.tone, tone)
         for state, tone in (("stale", "accent_warning"), ("degraded", "accent_warning"), ("invalid", "accent_danger")):
             self.assertEqual(performance_status(sample(sensors=(SensorHealthSnapshot(
                 "GPS", "gps", state=state),))).tone, tone)
-        self.assertEqual(performance_status(sample(cpu_percent=80, thermal_headroom_c=5)).text, "● SYS HOT")
+        self.assertEqual(performance_status(sample(cpu_percent=80, thermal_headroom_c=5)).text, "● SYS THERMAL")
+
+    def test_services_warn_only_for_observed_failures(self):
+        for state in ("dropping", "stopped"):
+            self.assertEqual(performance_status(sample(services=(ServiceSocketSnapshot("Broker", state=state),))).text,
+                             "● SYS SERVICE")
+        self.assertEqual(performance_status(sample(services=(ServiceSocketSnapshot("Optional"),))).text, "● SYS OK")
 
     def test_missing_partial_and_stale_readings_are_neutral(self):
         for value in (SystemDiagnosticsSnapshot(), sample(memory_used_percent=None),

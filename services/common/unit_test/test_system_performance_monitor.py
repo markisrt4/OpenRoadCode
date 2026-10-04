@@ -12,7 +12,7 @@ from services.common.service_manager_pairing import ServiceManagerPairing
 from services.linux.systemd_service_manager_http import SystemdServiceManagerHandler
 from services.termux.service_manager_http import ServiceManagerHandler
 from ui.system_diagnostics import SystemDiagnosticsSnapshot
-from ui.system_diagnostics import OrcWorkloadSnapshot
+from ui.system_diagnostics import OrcWorkloadSnapshot, ServiceSocketSnapshot
 
 
 class SystemPerformanceMonitorTest(unittest.TestCase):
@@ -44,11 +44,14 @@ class SystemPerformanceMonitorTest(unittest.TestCase):
         controller = Mock()
         process_sampler = Mock()
         process_sampler.sample.return_value = OrcWorkloadSnapshot()
+        services = Mock()
+        services.sample.return_value = (ServiceSocketSnapshot("Broker", state="listening", protocol="TCP"),)
+        services.status = "observed"
         sensors = Mock()
         sensors.status = "listening"
         sensors.snapshots.return_value = ()
         monitor = SystemPerformanceMonitor(controller, interval_seconds=0.01, history_samples=2,
-                                           process_sampler=process_sampler, sensor_monitor=sensors)
+                                           process_sampler=process_sampler, sensor_monitor=sensors, service_sampler=services)
         calls = 0
 
         def sample():
@@ -74,6 +77,8 @@ class SystemPerformanceMonitorTest(unittest.TestCase):
         self.assertIsNotNone(monitor.payload()["sample_age_seconds"])
         sensors.start.assert_called_once_with()
         sensors.close.assert_called_once_with()
+        self.assertEqual(monitor.payload()["snapshot"]["services"][0]["state"], "listening")
+        self.assertEqual(monitor.snapshot().service_monitor_status, "observed")
 
     def test_invalid_configuration_is_rejected(self):
         for kwargs in ({"interval_seconds": 0}, {"history_samples": 0}):

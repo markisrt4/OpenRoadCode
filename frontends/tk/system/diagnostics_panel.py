@@ -38,6 +38,8 @@ class DiagnosticsPanel(tk.Frame):
         tabs.add(workload, text="ORC workload")
         tabs.add(system, text="System")
         tabs.add(sensors, text="Sensor telemetry")
+        services = tk.Frame(tabs, bg=ui.background)
+        tabs.add(services, text="Services")
         self._system = system
 
         self._cpu = self._label(workload, "Waiting for ORC process samples", 16)
@@ -76,6 +78,27 @@ class DiagnosticsPanel(tk.Frame):
         self._sensor_rows = {}
         self._sensor_table.bind("<<TreeviewSelect>>", self._show_sensor_detail)
 
+        self._service_status = self._label(services, "Waiting for service socket samples", 12)
+        self._service_status.configure(wraplength=900)
+        self._label(services, "TCP/UDP socket health · RX/TX are payload KiB/s · queues are occupancy · -- means unavailable", 10)
+        self._service_table = self._table(services, (
+            ("name", "Service / process", 190), ("pid", "PID", 60), ("protocol", "Protocol", 65),
+            ("state", "Socket state", 100), ("local", "Local endpoint", 180), ("remote", "Peer", 180),
+            ("rx", "RX KiB/s", 90), ("tx", "TX KiB/s", 90),
+            ("rxq", "RX queue B", 90), ("txq", "TX queue B", 90), ("drops", "UDP drops", 90),
+        ))
+        for state, color in (("connected", ui.accent_success), ("listening", ui.accent_success),
+                             ("connecting", ui.accent_warning), ("closing", ui.accent_warning),
+                             ("dropping", ui.accent_danger), ("stopped", ui.accent_danger),
+                             ("bound", ui.accent_primary), ("closed", ui.text_muted),
+                             ("unknown", ui.text_muted), ("no_socket", ui.text_muted),
+                             ("not_observed", ui.text_muted), ("unavailable", ui.text_muted)):
+            self._service_table.tag_configure(state, foreground=color)
+        self._service_detail = self._label(services, "Select an endpoint for health and bandwidth details. UDP rates are unavailable without service counters.", 10)
+        self._service_detail.configure(wraplength=900)
+        self._service_rows = {}
+        self._service_table.bind("<<TreeviewSelect>>", self._show_service_detail)
+
     def _label(self, parent, text: str, size: int):
         label = tk.Label(parent, text=text, anchor="w", justify=tk.LEFT,
                          bg=self._theme.ui.background, fg=self._theme.ui.text, font=("Sans", size))
@@ -103,6 +126,21 @@ class DiagnosticsPanel(tk.Frame):
     def apply_snapshot(self, snapshot: SystemDiagnosticsSnapshot) -> None:
         """Refresh tables using cached samples without sampling on the Tk thread."""
         self._system.apply_snapshot(snapshot)
+        self._service_status.configure(text=snapshot.service_monitor_status)
+        self._service_rows = {str(index): row for index, row in enumerate(snapshot.services)}
+        service_selection = self._service_table.selection()
+        self._service_table.delete(*self._service_table.get_children())
+        for key, row in self._service_rows.items():
+            self._service_table.insert("", tk.END, iid=key, values=(
+                row.name, row.pid or "--", row.protocol, row.state.upper(), row.local_endpoint, row.remote_endpoint,
+                _format(row.receive_bytes_per_second, 1024), _format(row.transmit_bytes_per_second, 1024),
+                row.receive_queue_bytes if row.receive_queue_bytes is not None else "--",
+                row.transmit_queue_bytes if row.transmit_queue_bytes is not None else "--",
+                row.udp_drops if row.udp_drops is not None else "--",
+            ), tags=(row.state,))
+        if service_selection and service_selection[0] in self._service_rows:
+            self._service_table.selection_set(service_selection[0])
+            self._show_service_detail()
         work = snapshot.workload
         self._cpu_note.configure(text=(
             f"100% CPU = one logical core · {snapshot.cpu_count or '--'} logical CPUs detected. "
@@ -162,6 +200,13 @@ class DiagnosticsPanel(tk.Frame):
         if sensor_selection and sensor_selection[0] in self._sensor_rows:
             self._sensor_table.selection_set(sensor_selection[0])
             self._show_sensor_detail()
+
+    def _show_service_detail(self, _event=None) -> None:
+        selected = self._service_table.selection()
+        if selected and selected[0] in self._service_rows:
+            row = self._service_rows[selected[0]]
+            self._service_detail.configure(text=row.detail + (
+                f" Current drops: {_format(row.drops_per_second)}/s" if row.protocol == "UDP" else ""))
 
     def _show_sensor_detail(self, _event=None) -> None:
         selected = self._sensor_table.selection()

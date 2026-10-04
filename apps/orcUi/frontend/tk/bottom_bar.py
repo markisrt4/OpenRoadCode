@@ -9,6 +9,7 @@ import tkinter as tk
 from collections.abc import Callable
 
 from ui.theme import ThemeBundle
+from apps.orcUi.performance_status import PerformanceStatus
 from .shell_metrics import (
     BOTTOM_BAR_HEIGHT,
     CONTROL_PAD_X,
@@ -31,6 +32,7 @@ class OrcUiBottomBar(tk.Frame):
         on_volume_up: Callable[[], None],
         on_settings: Callable[[], None],
         on_theme_toggle: Callable[[], None],
+        on_diagnostics: Callable[[], None],
     ) -> None:
         ui = theme.ui
         super().__init__(parent, bg=ui.background, height=BOTTOM_BAR_HEIGHT)
@@ -101,7 +103,11 @@ class OrcUiBottomBar(tk.Frame):
         settings.grid(row=0, column=3, sticky="nsew", padx=CONTROL_PAD_X)
         theme_button = self._button(on_theme_toggle, bold=True)
         theme_button.configure(text=theme_label)
-        theme_button.grid(row=0, column=4, columnspan=2, sticky="nsew", padx=CONTROL_PAD_X)
+        self._performance_button = self._button(on_diagnostics, bold=True)
+        self._performance_button.configure(cursor="hand2")
+        self._performance_button.grid(row=0, column=4, sticky="nsew", padx=CONTROL_PAD_X)
+        self.set_performance_status(PerformanceStatus())
+        theme_button.grid(row=0, column=5, sticky="nsew", padx=CONTROL_PAD_X)
         self._paint_adsb()
 
     def _button(self, command: Callable[[], None], *, bold: bool) -> tk.Button:
@@ -119,6 +125,10 @@ class OrcUiBottomBar(tk.Frame):
             highlightbackground=ui.border,
             font=("Sans", FONT_CONTROL, weight),
         )
+
+    def set_performance_status(self, status: PerformanceStatus) -> None:
+        """Present observed computing-unit health alongside the shell controls."""
+        self._performance_button.configure(text=status.text, fg=getattr(self._theme.ui, status.tone))
 
     def set_volume_text(self, text: str) -> None:
         self._volume_label.configure(text=text)

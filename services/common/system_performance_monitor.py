@@ -12,6 +12,7 @@ from dataclasses import asdict, replace
 
 from controllers.system.system_diagnostics_controller import SystemDiagnosticsController
 from controllers.system.orc_process_sampler import OrcProcessSampler
+from controllers.system.service_socket_sampler import ServiceSocketSampler
 from services.common.sensor_health_monitor import SensorHealthMonitor
 from ui.system_diagnostics import SystemDiagnosticsSnapshot, OrcWorkloadSnapshot
 
@@ -24,11 +25,13 @@ class SystemPerformanceMonitor:
         interval_seconds: float = 1.0, history_samples: int = 120,
         process_sampler: OrcProcessSampler | None = None,
         sensor_monitor: SensorHealthMonitor | None = None,
+        service_sampler: ServiceSocketSampler | None = None,
     ) -> None:
         if interval_seconds <= 0 or history_samples <= 0:
             raise ValueError("Sampling interval and history size must be positive")
         self._controller = controller or SystemDiagnosticsController()
         self._process_sampler = process_sampler or OrcProcessSampler()
+        self._service_sampler = service_sampler or ServiceSocketSampler()
         self._sensor_monitor = sensor_monitor or SensorHealthMonitor()
         self._interval = interval_seconds
         self._history: deque[SystemDiagnosticsSnapshot] = deque(maxlen=history_samples)
@@ -97,9 +100,16 @@ class SystemPerformanceMonitor:
                     workload = self._process_sampler.sample()
                 except Exception as error:
                     workload = OrcWorkloadSnapshot(visibility="unavailable", detail=type(error).__name__)
+                try:
+                    services = self._service_sampler.sample(workload)
+                    service_status = self._service_sampler.status
+                except Exception as error:
+                    services = ()
+                    service_status = f"unavailable ({type(error).__name__})"
                 sample = replace(
                     sample, workload=workload, sensors=self._sensor_monitor.snapshots(),
                     sensor_monitor_status=self._sensor_monitor.status,
+                    services=services, service_monitor_status=service_status,
                 )
             except Exception as error:
                 with self._lock:

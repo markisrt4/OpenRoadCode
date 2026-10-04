@@ -153,7 +153,7 @@ def _classify(args: tuple[str, ...]) -> tuple[str, str] | None:
     if not args:
         return None
     executable = Path(args[0]).name
-    native = {"openroadcode-map-renderer": "Map renderer", "sdrpp": "SDR++ integration", "readsb": "ADS-B integration"}
+    native = {"openroadcode-map-renderer": "Map renderer", "sdrpp": "SDR++ integration", "readsb": "ADS-B integration", "gpsd": "GPSD integration"}
     if executable in native:
         return native[executable], "workload"
     if executable.startswith("python") and "-m" in args:

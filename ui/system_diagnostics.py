@@ -58,6 +58,25 @@ class SensorHealthSnapshot:
 
 
 @dataclass(frozen=True, slots=True)
+class ServiceSocketSnapshot:
+    """Observed TCP/UDP socket state and counters, without an application probe."""
+
+    name: str
+    pid: int | None = None
+    protocol: str = "--"
+    local_endpoint: str = "--"
+    remote_endpoint: str = "--"
+    state: str = "not_observed"
+    detail: str = "No visible process; may be disabled, unconfigured, or restricted"
+    receive_bytes_per_second: float | None = None
+    transmit_bytes_per_second: float | None = None
+    receive_queue_bytes: int | None = None
+    transmit_queue_bytes: int | None = None
+    udp_drops: int | None = None
+    drops_per_second: float | None = None
+
+
+@dataclass(frozen=True, slots=True)
 class SystemDiagnosticsSnapshot:
     """One read-only host snapshot; unavailable measurements remain None."""
 
@@ -100,6 +119,8 @@ class SystemDiagnosticsSnapshot:
     workload: OrcWorkloadSnapshot = field(default_factory=OrcWorkloadSnapshot)
     sensors: tuple[SensorHealthSnapshot, ...] = ()
     sensor_monitor_status: str = "not_started"
+    services: tuple[ServiceSocketSnapshot, ...] = ()
+    service_monitor_status: str = "not_started"
 
 
 class SystemDiagnosticsProviderIf(Protocol):

@@ -32,10 +32,12 @@ def performance_status(sample: SystemDiagnosticsSnapshot, *, stale: bool = False
             conditions.append((2 if value >= 95 else 1, name))
     headroom = sample.thermal_headroom_c
     if headroom is not None and headroom <= 10:
-        conditions.append((2 if headroom <= 5 else 1, "HOT"))
+        conditions.append((2 if headroom <= 5 else 1, "THERMAL"))
     for sensor in sample.sensors:
         if sensor.state in {"invalid", "stale", "degraded"}:
             conditions.append((2 if sensor.state == "invalid" else 1, "SENSOR"))
+    if any(service.state in {"dropping", "stopped"} for service in sample.services):
+        conditions.append((2, "SERVICE"))
     if conditions:
         # Preserve the first cause at the highest severity for stable short text.
         severity, cause = max(conditions, key=lambda condition: condition[0])

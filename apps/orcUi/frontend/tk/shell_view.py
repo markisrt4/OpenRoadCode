@@ -66,7 +66,6 @@ class OrcUiShellView:
         self._status_label: tk.Label | None = None
         self._status_text = ""
         self._performance_status = PerformanceStatus()
-        self._performance_button: tk.Button | None = None
         self._breadcrumb = active_nav
         self._clock_after_id: str | None = None
         self._weather_alert: WeatherAlertUiEvent | None = None
@@ -217,8 +216,8 @@ class OrcUiShellView:
     def set_performance_status(self, status: PerformanceStatus) -> None:
         """Retain observed health across screen changes and theme rebuilds."""
         self._performance_status = status
-        if self._performance_button is not None and self._performance_button.winfo_exists():
-            self._performance_button.configure(text=status.text, fg=getattr(self._theme.ui, status.tone))
+        if self._bottom_bar is not None and self._bottom_bar.winfo_exists():
+            self._bottom_bar.set_performance_status(status)
 
     def set_status(self, text: str) -> None:
         self._status_text = text
@@ -291,6 +290,7 @@ class OrcUiShellView:
             on_volume_up=self._on_volume_up,
             on_settings=self._on_settings,
             on_theme_toggle=self._on_theme_toggle,
+            on_diagnostics=lambda: self._on_navigate("DIAGNOSTICS"),
         )
         self._bottom_bar.grid(
             row=2,
@@ -308,8 +308,7 @@ class OrcUiShellView:
             enabled=self._adsb_enabled,
             aircraft_count=self._aircraft_count,
         )
-        self._breadcrumb_label, self._status_label, self._performance_button = build_footer(
-            self._root, theme=self._theme, on_diagnostics=lambda: self._on_navigate("DIAGNOSTICS"))
+        self._breadcrumb_label, self._status_label = build_footer(self._root, theme=self._theme)
         self.set_performance_status(self._performance_status)
         self._breadcrumb_label.configure(text=self._breadcrumb)
         self._status_label.configure(text=self._status_text)

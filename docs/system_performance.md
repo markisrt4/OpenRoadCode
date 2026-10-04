@@ -23,12 +23,12 @@ It does not need the map renderer, automotive services, or a running ORC shell.
 
 Run ORC normally with `python -m apps.orcUi` (or `venv/bin/python -m apps.orcUi`
 when using its virtual environment). Tap the small **● SYS** indicator at the
-right edge of the persistent footer to open Diagnostics on **ORC workload**.
+persistent control row beside Settings and the theme control to open Diagnostics on **ORC workload**.
 The indicator remains available on every screen. **Back** returns to the
 navigation destination that opened Diagnostics. No sidebar entry is added.
 
 The label accompanies its color: **OK** is green for normal observed readings;
-**CPU**, **RAM**, **DISK**, **HOT**, or **SENSOR** identify the most severe
+**CPU**, **RAM**, **DISK**, **THERMAL**, **SENSOR**, or **SERVICE** identify the most severe
 current condition in amber or red. **PART** means restricted process visibility;
 **—** means waiting or unavailable measurements; **OLD** means the cached sample
 has stopped advancing for over three seconds. These unknown states are muted.
@@ -71,7 +71,7 @@ displayed as unavailable.
 The preview opens on **ORC workload**. It shows combined CPU use and a table of
 processes sorted by CPU use, with PID, CPU percentage, resident memory (RSS),
 proportional memory (PSS), thread count, and actual disk read/write byte rates.
-The other tabs are **System** and **Sensor telemetry**. The persistent **● SYS**
+The other tabs are **System**, **Sensor telemetry**, and **Services**. The persistent **● SYS**
 indicator opens this screen inside ORC.
 
 Recognized roots include the ORC UI/application modules, navigation, automotive,
@@ -222,3 +222,43 @@ ORC workload is blue, diagnostics processes are muted, and trends use distinct c
 CPU totals include all threads: 200% on eight logical CPUs is 25% of capacity.
 Capacity uses the detected logical CPU count; it does not adjust for CPU affinity,
 container quotas, or differing performance between CPU types.
+
+## Services and TCP/UDP traffic
+
+The fourth Diagnostics tab, **Services**, lists TCP/UDP endpoints owned by visible
+ORC processes and integrations, including the broker, navigation, automotive,
+Android sensor service, trip/weather services, service manager, GPSD, ADS-B,
+SDR++ and the map renderer. Discovered ORC descendants are included. Optional
+integrations with no visible process are **NOT_OBSERVED**, not assumed failed.
+This is local computing-unit socket observation; services running on another
+machine appear through their visible client connections, not remote PID discovery.
+
+Each endpoint shows PID, protocol, local/peer address, socket state, receive/transmit
+payload KiB/s, receive/transmit queue occupancy in bytes, and UDP drop count.
+TCP **LISTENING** and **CONNECTED** are green observed transport states; neither
+is a successful application health probe. UDP **BOUND** is blue and does not
+prove delivery. Current UDP drops and stopped/zombie owners are red. Selecting
+a row shows the measurement detail and current UDP drops per second. The Android
+Bridge performance card presents the same cached service/socket data.
+
+TCP rates use differences in kernel TCP_INFO `bytes_received` and `bytes_sent`,
+read with `ss` from iproute2. They measure TCP payload, exclude packet headers,
+and sent bytes include retransmissions. First samples, missing counters, reset
+counters, and another network namespace have unavailable rates. Listeners may
+not have byte counters; rates belong to their connected sockets. Connections
+that open and close entirely between samples are missed. Shared socket owners
+may each show the same endpoint; rows must not be summed as unique network traffic.
+
+Linux procfs exposes UDP queues and drops but no per-socket byte counters. UDP
+RX/TX bandwidth therefore stays **--**; queue occupancy is never used as a byte
+rate. Per-service UDP bandwidth needs counters supplied by that service or
+privileged packet accounting. Restricted Android/Termux socket tables and FD
+ownership also stay unavailable. No root privileges, active TCP/UDP probes,
+service starts/stops, or packet capture are requested by this monitor.
+
+At most 256 endpoint rows are retained per sample, with an explicit truncation
+notice. `ss` has a half-second timeout and runs only on the existing background
+sampler; the UI and HTTP endpoint read cached data. To enable supported TCP
+byte counters on Linux, install iproute2 (`sudo apt install iproute2`). On Termux,
+`pkg install iproute2` may supply `ss`, but Android permissions can still prevent
+access. Rerun the Linux service-manager installer to update its installed copy.
