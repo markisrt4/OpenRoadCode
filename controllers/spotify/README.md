@@ -29,6 +29,59 @@ ORC supports two destination concepts:
 
 PLAYER mode is currently verified with Google Chrome stable on Debian/Ubuntu AMD64. Termux remains REMOTE-only because its Chromium environment does not provide the media/EME support required by the SDK.
 
+## Structured media logging
+
+ORCui configures the shared [ORC logger](../../common/logging/README.md). Media
+records use the same JSON Lines store, rotation, severity controls, and live viewer:
+
+```bash
+./runOrcUi --follow-logs --log-component media
+```
+
+| Component | Events |
+| --- | --- |
+| `media.lifecycle` | Application media services start/stop and failures |
+| `media.library` | Spotify library/history/playlist loads, item counts, and failures |
+| `media.spotify` | Queued/completed/failed commands, rate limiting, worker lifecycle, observed availability/playback/track changes |
+| `media.spotify.api` / `media.spotify.presenter` | State-read failure and recovery transitions, including errors retained as UI fallback state |
+| `media.spotify.player` | Local player requests, registration, startup/cleanup failures, and resource release |
+| `media.spotify.sdk` | SDK host lifecycle, ready/error transitions, and approved error categories |
+| `media.browser` | Managed browser show/close completion and failures |
+| `media.video` | Music-video lookup, launch, stop, return to Spotify, and failures |
+| `media.audio` | System audio availability/recovery and volume/mute failures |
+
+Library loads here are Spotify API queries, not local filesystem scans. Cache
+hits and unchanged state stay quiet at INFO. Position polling and volume/seek
+commands stay at DEBUG, including system volume/mute command completion.
+Audio availability changes are detected by the existing refresh calls; this
+does not enumerate or select output devices.
+
+Each queued Spotify action keeps its operation ID when the worker executes it.
+Local-player activation carries its ID into the startup thread, SDK callback
+threads, and queued transfer. Library/video/browser actions use local operation
+IDs without changing Spotify wire contracts. SDK error categories are restricted
+to known values; SDK messages and device IDs are not printed or logged.
+
+`command.completed` means the backend call returned successfully. Playback state
+changes are logged separately when observed. `player.registered` means the SDK
+registered a device and transfer was queued, not that playback was confirmed.
+Browser show/close events reflect the runtime manager's policy, which can reuse
+or hide a process. Browser/video launch does not prove audible playback, successful
+decoding, or DRM support.
+
+Structured media records exclude track titles/artists/albums, playlist and device
+identifiers, URLs, queries, file paths, OAuth credentials, API bodies, playback
+positions, and raw exception messages, even at DEBUG. Existing UI error messages
+and separate browser diagnostic files retain their existing behavior; browser
+output is not copied into the structured store.
+
+For standalone controller tools, configure logging at the process entry point.
+No additional install dependencies are needed. The logging quality gate tests
+schema, correlation across real worker threads, failures, privacy exclusions,
+cache retention, quiet polling, rate backoff, and resource cleanup without Spotify,
+a browser, audio hardware, or a display. Real provider/device playback remains
+an installed-system smoke test.
+
 ## Tests
 
 Run the focused controller tests from the repository root:

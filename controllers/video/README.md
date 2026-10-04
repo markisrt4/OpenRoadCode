@@ -26,4 +26,10 @@ The players accept dark-mode and software-rendering options. `orcUi` selects the
 
 ## Tests
 
+Music-video lookup and lifecycle use `media.video` structured events. Managed
+ORC media browser actions use `media.browser`; targets, search queries, track
+metadata, and exception messages are excluded. See the
+[media logging guide](../spotify/README.md#structured-media-logging) for the
+live viewer and event semantics.
+
 Unit tests live under `controllers/video/unit_test`. Browser/component tests may require an active X11 display and installed browser and should remain separate from pure unit tests.
