@@ -58,7 +58,8 @@ std::string loadStyleJson(const NavigationConfig& config) {
 
 void setLayerVisible(mbgl::style::Style& style, const char* id, bool visible) {
     auto* layer = style.getLayer(id);
-    if (layer) layer->setVisibility(visible ? mbgl::style::VisibilityType::Visible : mbgl::style::VisibilityType::None);
+    const auto visibility = visible ? mbgl::style::VisibilityType::Visible : mbgl::style::VisibilityType::None;
+    if (layer && layer->getVisibility() != visibility) layer->setVisibility(visibility);
 }
 
 std::optional<mbgl::LatLngBounds> loadDatasetBounds(const std::string& dataRoot) {
@@ -332,6 +333,12 @@ int runRenderer() {
                 }
             }
         }
+        // Match building geometry to the actual camera, including gesture and
+        // follow updates. Flat mode must not keep extruded roofs underneath.
+        const bool tilted = map.getCameraOptions().pitch.value_or(0.0) > 0.01;
+        setLayerVisible(map.getStyle(), "buildings", tilted);
+        setLayerVisible(map.getStyle(), "buildings-flat", !tilted);
+        setLayerVisible(map.getStyle(), "house-numbers", !tilted);
     });
 
     map.getStyle().loadJSON(styleJson);

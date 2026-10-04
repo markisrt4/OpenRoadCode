@@ -57,6 +57,8 @@ def _apply_map_palette(document: dict[str, Any], colors: dict[str, str]) -> None
         ("parks", "fill-color", "park"), ("water", "fill-color", "water"), ("waterways", "line-color", "waterway"), ("boundaries", "line-color", "boundary"), ("railways", "line-color", "rail"), ("paths", "line-color", "path"), ("service-roads-casing", "line-color", "service_casing"), ("service-roads", "line-color", "service"), ("residential-roads-casing", "line-color", "residential_casing"), ("residential-roads", "line-color", "residential_road"), ("secondary-roads-casing", "line-color", "secondary_casing"), ("secondary-roads", "line-color", "secondary_road"), ("primary-roads-casing", "line-color", "primary_casing"), ("primary-roads", "line-color", "primary_road"), ("motorways-casing", "line-color", "motorway_casing"), ("motorways", "line-color", "motorway"), ("aeroways", "line-color", "aeroway"), ("buildings", "fill-extrusion-color", "building"), ("route-line-casing", "line-color", "route_casing"), ("route-line", "line-color", "route"),
     ):
         _paint(layers, layer_id, property_name, colors[key])
+    _paint(layers, "buildings-flat", "fill-color", colors["building"])
+    _paint(layers, "buildings-flat", "fill-outline-color", colors["building_outline"])
     # Map-anchored light keeps building faces consistently shaded when rotating.
     document["light"] = {
         "anchor": "map", "position": [1.15, 210, 35], "intensity": 0.4,

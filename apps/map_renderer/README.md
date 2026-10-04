@@ -42,7 +42,9 @@ See [ORC logging](../../common/logging/README.md) for settings, storage, and CI 
 
 The navigation dimension button switches between 3D (tilted) and 2D (overhead);
 its label shows the view it will select. Switching to 2D preserves the current
-center and zoom. Tilt buttons update the dimension label as well.
+center and zoom and replaces extruded buildings with flat footprints. Tilt
+buttons update the dimension label as well. House-number labels are hidden in
+3D and appear in 2D from zoom 17 to reduce building clutter.
 
 Toolbar camera commands end active mouse gestures and cancel pending camera
 animations before applying the requested view. Losing native-window focus also
