@@ -56,16 +56,18 @@ install -d -o root -g root -m 755 \
     "$INSTALL_ROOT/services" \
     "$INSTALL_ROOT/services/common" \
     "$INSTALL_ROOT/services/linux" \
+    "$INSTALL_ROOT/common/logging" \
     "$INSTALL_ROOT/protocols" \
     "$INSTALL_ROOT/protocols/auth"
 
-for package in services services/common services/linux protocols protocols/auth; do
+for package in services services/common services/linux protocols protocols/auth common/logging; do
     while IFS= read -r -d '' source_file; do
         relative_path="${source_file#$PROJECT_ROOT/}"
         destination="$INSTALL_ROOT/$relative_path"
         install -D -o root -g root -m 644 "$source_file" "$destination"
     done < <(find "$PROJECT_ROOT/$package" -maxdepth 1 -type f -name '*.py' -print0)
 done
+install -D -o root -g root -m 644 "$PROJECT_ROOT/common/xdg_paths.py" "$INSTALL_ROOT/common/xdg_paths.py"
 
 mkdir -p "$ENV_DIR"
 # Shared runtime configuration such as navigation.toml lives in this directory
@@ -106,6 +108,7 @@ OPENROADCODE_SERVICE_MANAGER_TOKEN=$TOKEN
 OPENROADCODE_SYSTEMCTL=$SYSTEMCTL_BIN
 OPENROADCODE_SERVICE_PROFILE_DIR=$PROFILE_DIR
 OPENROADCODE_SERVICE_MANAGER_CLIENT_STORE=$CLIENT_STORE
+ORC_LOG_DIR=$STATE_DIR/logs
 EOF
 chmod 600 "$ENV_FILE"
 

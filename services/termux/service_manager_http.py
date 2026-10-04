@@ -13,17 +13,30 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 import os
 import subprocess
+import logging
+
+from common.logging.lifecycle import failure_fields
+from common.logging.structured import configure_logging, event
 
 from common.xdg_paths import xdg_config_home
-from services.common.service_manager_auth import TOKEN_ENV, authorized, binding_allowed, same_device_request
+from services.common.service_manager_auth import (
+    TOKEN_ENV,
+    authorized,
+    binding_allowed,
+    same_device_request,
+)
 from services.common.service_manager_client_store import ServiceManagerClientStore
-from services.common.service_manager_browser_pairing import (BrowserPairingConsumedError, ServiceManagerBrowserPairing)
+from services.common.service_manager_browser_pairing import (
+    BrowserPairingConsumedError,
+    ServiceManagerBrowserPairing,
+)
 from services.common.service_manager_pairing import ServiceManagerPairing
 from services.termux.service_manager import RunitServiceManager, ServiceStatus
 
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 8769
 DEFAULT_CLIENT_STORE_PATH = xdg_config_home() / "openroadcode" / "service-manager" / "clients.json"
+LOGGER = logging.getLogger("runtime.services.http")
 
 
 def _payload(statuses: tuple[ServiceStatus, ...] | list[ServiceStatus]) -> dict[str, object]:
@@ -40,6 +53,7 @@ class ServiceManagerHandler(BaseHTTPRequestHandler):
 
     def do_GET(self) -> None:  # noqa: N802 - BaseHTTPRequestHandler API
         from urllib.parse import urlsplit
+
         parts = [part for part in urlsplit(self.path).path.split("/") if part]
         if len(parts) == 4 and parts[:3] == ["pairing", "browser", "approve"]:
             self._browser_approval_page(parts[3])
@@ -56,6 +70,7 @@ class ServiceManagerHandler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:  # noqa: N802 - BaseHTTPRequestHandler API
         from urllib.parse import urlsplit
+
         parts = [part for part in urlsplit(self.path).path.split("/") if part]
         if parts == ["pair"]:
             self._pair()
@@ -81,7 +96,11 @@ class ServiceManagerHandler(BaseHTTPRequestHandler):
                 statuses = self.manager.stop_core()
             elif len(parts) == 4 and parts[0] == "services" and parts[2] == "profile":
                 statuses = (self.manager.set_profile(parts[1], parts[3]),)
-            elif len(parts) == 3 and parts[0] == "services" and parts[2] in {"start", "stop", "restart"}:
+            elif (
+                len(parts) == 3
+                and parts[0] == "services"
+                and parts[2] in {"start", "stop", "restart"}
+            ):
                 action = getattr(self.manager, parts[2])
                 statuses = (action(parts[1]),)
             else:
@@ -96,18 +115,25 @@ class ServiceManagerHandler(BaseHTTPRequestHandler):
         try:
             length = int(self.headers.get("Content-Length", "0"))
             payload = json.loads(self.rfile.read(length) or b"{}")
-            session, poll_token, approval_token = self.browser_pairing.begin(str(payload.get("client_name", "")))
+            session, poll_token, approval_token = self.browser_pairing.begin(
+                str(payload.get("client_name", ""))
+            )
         except (ValueError, json.JSONDecodeError) as exc:
             self._json(HTTPStatus.BAD_REQUEST, {"error": str(exc)})
             return
         host = self.headers.get("Host", f"127.0.0.1:{self.server.server_port}")
-        approval_url = f"http://{host}/pairing/browser/approve/{session.session_id}?token={approval_token}"
-        self._json(HTTPStatus.OK, {
-            "session_id": session.session_id,
-            "poll_token": poll_token,
-            "approval_url": approval_url,
-            "expires_at": session.expires_at,
-        })
+        approval_url = (
+            f"http://{host}/pairing/browser/approve/{session.session_id}?token={approval_token}"
+        )
+        self._json(
+            HTTPStatus.OK,
+            {
+                "session_id": session.session_id,
+                "poll_token": poll_token,
+                "approval_url": approval_url,
+                "expires_at": session.expires_at,
+            },
+        )
 
     def _browser_pairing_status(self, session_id: str) -> None:
         session = self.browser_pairing.get(session_id)
@@ -127,9 +153,9 @@ class ServiceManagerHandler(BaseHTTPRequestHandler):
             self._json(HTTPStatus.OK, {"status": "pending"})
             return
         client_id, token = credentials
-        self._json(HTTPStatus.OK, {
-            "status": "approved", "client_id": client_id, "access_token": token
-        })
+        self._json(
+            HTTPStatus.OK, {"status": "approved", "client_id": client_id, "access_token": token}
+        )
 
     def _browser_approval_page(self, session_id: str) -> None:
         from urllib.parse import parse_qs, urlsplit
@@ -163,6 +189,7 @@ class ServiceManagerHandler(BaseHTTPRequestHandler):
             length = int(self.headers.get("Content-Length", "0"))
             raw = self.rfile.read(length).decode("utf-8")
             from urllib.parse import parse_qs
+
             approval_token = parse_qs(raw).get("approval_token", [""])[0]
             approved = self.browser_pairing.approve(session_id, approval_token)
         except (ValueError, UnicodeDecodeError, PermissionError):
@@ -182,8 +209,10 @@ class ServiceManagerHandler(BaseHTTPRequestHandler):
         return same_device_request(self.client_address[0], self.connection.getsockname()[0])
 
     def _html(self, status: HTTPStatus, body: str) -> None:
-        encoded = ("<!doctype html><meta name='viewport' content='width=device-width'>"
-                   "<title>OpenRoadCode pairing</title>" + body).encode("utf-8")
+        encoded = (
+            "<!doctype html><meta name='viewport' content='width=device-width'>"
+            "<title>OpenRoadCode pairing</title>" + body
+        ).encode("utf-8")
         self.send_response(status.value)
         self.send_header("Content-Type", "text/html; charset=utf-8")
         self.send_header("Cache-Control", "no-store")
@@ -219,7 +248,11 @@ class ServiceManagerHandler(BaseHTTPRequestHandler):
         header = self.headers.get("Authorization")
         if authorized(header, self.auth_token):
             return True
-        if header and header.startswith("Bearer ") and self.pairing.authorized(header.removeprefix("Bearer ")):
+        if (
+            header
+            and header.startswith("Bearer ")
+            and self.pairing.authorized(header.removeprefix("Bearer "))
+        ):
             return True
         self._json(HTTPStatus.UNAUTHORIZED, {"error": "unauthorized"})
         return False
@@ -238,28 +271,66 @@ class ServiceManagerHandler(BaseHTTPRequestHandler):
 
 
 def main() -> int:
+    configure_logging()
+    try:
+        return _run_server()
+    except Exception as error:
+        event(
+            LOGGER,
+            logging.ERROR,
+            "manager.failed",
+            "Service manager server failed",
+            supervisor="runit",
+            **failure_fields(error),
+        )
+        raise
+
+
+def _run_server() -> int:
     parser = argparse.ArgumentParser(description="Control OpenRoadCode Termux runit services.")
     parser.add_argument("--host", default=DEFAULT_HOST)
     parser.add_argument("--port", type=int, default=DEFAULT_PORT)
     args = parser.parse_args()
     token = os.environ.get(TOKEN_ENV, "").strip() or None
     if not binding_allowed(args.host, token):
+        event(
+            LOGGER,
+            logging.ERROR,
+            "manager.binding_denied",
+            "Service manager binding rejected",
+            supervisor="runit",
+        )
         parser.error(f"non-loopback service manager requires {TOKEN_ENV}")
     ServiceManagerHandler.auth_token = token
     ServiceManagerHandler.pairing = ServiceManagerPairing(
         client_store=ServiceManagerClientStore(DEFAULT_CLIENT_STORE_PATH)
     )
 
-    ServiceManagerHandler.browser_pairing = ServiceManagerBrowserPairing(ServiceManagerHandler.pairing)
+    ServiceManagerHandler.browser_pairing = ServiceManagerBrowserPairing(
+        ServiceManagerHandler.pairing
+    )
     server = ThreadingHTTPServer((args.host, args.port), ServiceManagerHandler)
-    auth_mode = "bearer token" if token else "localhost only"
-    print(f"OpenRoadCode Termux service manager listening on {args.host}:{args.port} ({auth_mode})")
+    event(
+        LOGGER,
+        logging.INFO,
+        "manager.started",
+        "Service manager HTTP server started",
+        supervisor="runit",
+        token_required=token is not None,
+    )
     try:
         server.serve_forever()
     except KeyboardInterrupt:
         pass
     finally:
         server.server_close()
+        event(
+            LOGGER,
+            logging.INFO,
+            "manager.stopped",
+            "Service manager HTTP server stopped",
+            supervisor="runit",
+        )
     return 0
 
 

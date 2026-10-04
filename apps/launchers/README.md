@@ -16,6 +16,12 @@ Launchers may:
 
 Launchers must not contain panel or Tk widget logic.
 
+Managed application actions and owned browser/process lifecycle now emit
+`runtime.*` structured events. Failures retain exception types and numeric
+process context without command lines, URLs, native output, or paths. See the
+[runtime logging guide](../../common/logging/README.md#runtime-and-service-management)
+for events, live viewing, and lifecycle semantics.
+
 ## Interface
 
 Every launcher implements:

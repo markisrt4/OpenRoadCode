@@ -11,6 +11,15 @@ import json
 import subprocess
 from urllib.request import urlopen
 
+from services.common.service_logging import (
+    ServiceStatusLog,
+    observed_status,
+    service_action,
+    supervisor_command,
+)
+
+COMPONENT = "runtime.services.runit"
+
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 PROFILE_DIR = Path.home() / ".config/openroadcode/service-profiles"
@@ -54,6 +63,10 @@ class RunitServiceManager:
         "simulated": "Simulated",
     }
 
+    def __init__(self) -> None:
+        self._status_log = ServiceStatusLog()
+
+    @observed_status(COMPONENT)
     def status(self, name: str) -> ServiceStatus:
         self._validate(name)
         result = self._sv("status", name, check=False)
@@ -99,6 +112,7 @@ class RunitServiceManager:
                 return profile
         return "custom"
 
+    @service_action(COMPONENT, "set_profile")
     def set_profile(self, name: str, profile: str) -> ServiceStatus:
         self._validate(name)
         profiles = self.PROFILE_CONFIGS.get(name)
@@ -118,31 +132,35 @@ class RunitServiceManager:
             self._sv("restart", name)
         return self.status(name)
 
+    @service_action(COMPONENT, "start")
     def start(self, name: str) -> ServiceStatus:
         self._validate(name)
         self._sv("up", name)
         return self.status(name)
 
+    @service_action(COMPONENT, "stop")
     def stop(self, name: str) -> ServiceStatus:
         self._validate(name)
         self._sv("down", name)
         return self.status(name)
 
+    @service_action(COMPONENT, "restart")
     def restart(self, name: str) -> ServiceStatus:
         self._validate(name)
         self._sv("restart", name)
         return self.status(name)
 
+    @service_action(COMPONENT, "start_core")
     def start_core(self) -> tuple[ServiceStatus, ...]:
         for name in self.CORE_STACK:
             self._sv("up", name)
         return tuple(self.status(name) for name in self.CORE_STACK)
 
+    @service_action(COMPONENT, "stop_core")
     def stop_core(self) -> tuple[ServiceStatus, ...]:
         for name in reversed(self.CORE_STACK):
             self._sv("down", name)
         return tuple(self.status(name) for name in self.CORE_STACK)
-
 
     @staticmethod
     def _input_health(name: str, state: str, profile: str | None) -> tuple[str | None, str | None]:
@@ -182,6 +200,7 @@ class RunitServiceManager:
         if profile != "local":
             return None, None
         import socket
+
         try:
             with socket.create_connection(("127.0.0.1", 35000), timeout=0.5):
                 pass
@@ -200,10 +219,16 @@ class RunitServiceManager:
 
     @staticmethod
     def _sv(action: str, name: str, *, check: bool = True) -> subprocess.CompletedProcess[str]:
-        return subprocess.run(
-            ["sv", action, name],
-            check=check,
-            capture_output=True,
-            text=True,
-            timeout=5.0,
+        service = name if name in RunitServiceManager.SERVICES else None
+        return supervisor_command(
+            COMPONENT,
+            action,
+            service,
+            lambda: subprocess.run(
+                ["sv", action, name],
+                check=check,
+                capture_output=True,
+                text=True,
+                timeout=5.0,
+            ),
         )

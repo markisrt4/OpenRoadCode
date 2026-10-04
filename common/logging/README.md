@@ -122,6 +122,63 @@ C++ uses `orc_logging.hpp` to encode JSON safely and emit through `spdlog`. Its
 build dependencies include `libspdlog-dev` on Debian/Ubuntu and `libspdlog` on Termux.
 The MapLibre build container and host setup include the dependency.
 
+## Runtime and service management
+
+Runtime records use `runtime.*` components. Start ORC with
+`./runOrcUi --follow-logs --log-component runtime`, or attach independently:
+
+```bash
+venv/bin/python -m common.logging.viewer --component runtime --from-end
+```
+
+| Component | Coverage |
+| --- | --- |
+| `runtime.apps` | Managed app show/hide/close/stop/restart, background preload, running-state changes, exclusive-peer and cleanup failures |
+| `runtime.browser` | Browser spawn, startup failure, observed owned-process exit, launch/stop failures |
+| `runtime.processes` | Child-group termination, forced kill, observed exit, display-cleanup signal dispatch |
+| `runtime.host` | Deferred UI restart/poweroff request, clear, dispatch failure, unsupported action |
+| `runtime.services.systemd` / `runtime.services.runit` | Service/core-stack actions, profile/bridge configuration, supervisor commands, observed status changes and query recovery |
+| `runtime.services.http` | Service-manager HTTP startup, binding rejection, shutdown, and failures |
+
+Each lifecycle operation has a local operation ID shared with nested work.
+Background preload carries its request ID into its worker. Browser exit events
+retain the launch ID and numeric child PID/exit code where ORC owns the process.
+Exit detection occurs when existing status checks poll the process; no new watcher
+or automatic restart policy is introduced. Service status polling logs only an
+initial observation, changes, and query failure/recovery transitions at INFO or
+higher; underlying read commands stay at DEBUG.
+
+Action completion means the method returned. App close can hide or retain a
+process according to its configured policy. Cleanup and preload passes retain
+their existing continue-after-failure behavior and report failure counts.
+Supervisor command completion does not prove telemetry readiness; observed state
+is separate. Runit input health uses existing checks, and systemd's `failed` state
+is visible even though the public status remains `stopped`. Host dispatch records
+do not assert that the host powered off or a replacement UI became ready.
+
+Records exclude command lines/arguments, URLs, display addresses, native stdout/
+stderr, status detail strings, file paths, pairing identifiers/PINs/tokens,
+authentication headers, and exception messages. Only approved service names and
+normalized status/profile values are recorded. Native diagnostic files and UI/
+HTTP error responses retain their existing behavior.
+
+Termux uses the calling user's shared store. The restricted Linux service manager
+runs under its own account, so its installer includes the logger modules and sets
+`ORC_LOG_DIR=/var/lib/openroadcode/service-manager/logs`, inside its existing writable
+private state directory. Reinstall the service manager to deploy this packaging
+change. Read that separate bounded store using the service account:
+
+```bash
+sudo -u openroadcode-service-manager env PYTHONPATH=/opt/openroadcode \
+  ORC_LOG_DIR=/var/lib/openroadcode/service-manager/logs \
+  python3 -m common.logging.viewer --component runtime.services --from-end
+```
+
+Use the configured install root if it differs from `/opt/openroadcode`. No new
+external dependencies are required. Tests exercise failures and correlation with
+fake launchers/supervisors/host actions; live systemd/runit, X11 browser, and
+installed-service behavior still need platform smoke testing.
+
 ## Quality gates
 
 The GitHub Actions **Logging quality gate** job tests schema types, escaping,
