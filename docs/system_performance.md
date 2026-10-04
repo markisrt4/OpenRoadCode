@@ -281,8 +281,8 @@ access. Rerun the Linux service-manager installer to update its installed copy.
 
 ### Android thermal source selection
 
-Android/Termux summaries use identifiable CPU/SoC zones, falling back to an
-identifiable battery zone. Anonymous and virtual/policy zones are retained for
+Android/Termux thermal summaries use identifiable CPU/SoC zones. Battery
+readings are presented separately. Anonymous and virtual/policy zones are retained for
 inspection but do not supply the summary or a thermal warning. This recognizes
 source names, not calibration or physical hardware health. No recognized source
 means an unavailable temperature. Linux continues to report its hottest readable
@@ -293,3 +293,21 @@ In the System tab, click **THERMAL ▾** to inspect raw zone names, types, readi
 and trip points. The selected source type appears beneath the temperature. A
 high vendor reading cannot be interpreted as the whole phone's temperature
 without identifying its source.
+
+### Termux battery
+
+The System tab includes a separate **BATTERY** strip with temperature, charge,
+Android health, charging state and plugged state. Android Bridge Performance
+also shows this battery data from the selected computing unit. It is not the
+Bridge phone's battery unless Local Termux is selected on that phone.
+
+`termux-battery-status` is polled every 30 seconds on its own worker, with a
+three-second command timeout. API temperature is already degrees Celsius (for
+example 30.1); it is not divided by 1000. Missing packages, errors, malformed
+responses and readings older than 65 seconds remain unavailable. Linux hosts
+do not invoke Termux:API. Android-reported health faults affect the SYSTEM
+indicator; no generic CPU trip threshold is applied to battery temperature.
+
+Install the compatible Termux:API companion app and `pkg install termux-api`.
+The monitor reads battery status only and does not enable sensor streams.
+Restart ORC and the Termux service manager after updating the checkout.

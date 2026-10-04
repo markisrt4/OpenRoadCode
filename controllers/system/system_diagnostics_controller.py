@@ -321,9 +321,7 @@ class SystemDiagnosticsController:
             candidates = [row for row in physical if row.source_type.lower().startswith(
                 ("cpu", "soc", "cpuss", "ap-therm", "ap_therm"))]
             if not candidates:
-                candidates = [row for row in physical if row.source_type.lower().startswith(("battery", "batt"))]
-            if not candidates:
-                self._thermal_detail = "No identified CPU/battery sensor; inspect reported thermal sources"
+                self._thermal_detail = "No identified CPU sensor; inspect reported thermal sources"
                 return None, None, None
         if not candidates:
             return None, None, None

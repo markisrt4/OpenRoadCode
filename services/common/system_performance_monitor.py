@@ -14,6 +14,7 @@ from controllers.system.system_diagnostics_controller import SystemDiagnosticsCo
 from controllers.system.orc_process_sampler import OrcProcessSampler
 from controllers.system.service_socket_sampler import ServiceSocketSampler
 from services.common.sensor_health_monitor import SensorHealthMonitor
+from services.common.termux_battery_monitor import TermuxBatteryMonitor
 from ui.system_diagnostics import SystemDiagnosticsSnapshot, OrcWorkloadSnapshot
 
 
@@ -26,12 +27,14 @@ class SystemPerformanceMonitor:
         process_sampler: OrcProcessSampler | None = None,
         sensor_monitor: SensorHealthMonitor | None = None,
         service_sampler: ServiceSocketSampler | None = None,
+        battery_monitor: TermuxBatteryMonitor | None = None,
     ) -> None:
         if interval_seconds <= 0 or history_samples <= 0:
             raise ValueError("Sampling interval and history size must be positive")
         self._controller = controller or SystemDiagnosticsController()
         self._process_sampler = process_sampler or OrcProcessSampler()
         self._service_sampler = service_sampler or ServiceSocketSampler()
+        self._battery_monitor = battery_monitor or TermuxBatteryMonitor()
         self._sensor_monitor = sensor_monitor or SensorHealthMonitor()
         self._interval = interval_seconds
         self._history: deque[SystemDiagnosticsSnapshot] = deque(maxlen=history_samples)
@@ -47,6 +50,7 @@ class SystemPerformanceMonitor:
             return
         self._stop.clear()
         self._sensor_monitor.start()
+        self._battery_monitor.start()
         self._thread = threading.Thread(target=self._run, name="orc-performance", daemon=True)
         self._thread.start()
 
@@ -57,6 +61,7 @@ class SystemPerformanceMonitor:
             self._thread.join()
             self._thread = None
         self._sensor_monitor.close()
+        self._battery_monitor.close()
 
     def snapshot(self) -> SystemDiagnosticsSnapshot:
         """Return the cached sample immediately, or an empty sample during warmup."""
@@ -110,6 +115,7 @@ class SystemPerformanceMonitor:
                     sample, workload=workload, sensors=self._sensor_monitor.snapshots(),
                     sensor_monitor_status=self._sensor_monitor.status,
                     services=services, service_monitor_status=service_status,
+                    battery=self._battery_monitor.snapshot(),
                 )
             except Exception as error:
                 with self._lock:

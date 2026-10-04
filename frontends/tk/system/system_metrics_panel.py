@@ -117,6 +117,9 @@ class SystemMetricsPanel(tk.Frame):
         self._activity.grid(row=3, column=0, columnspan=4, sticky="ew", padx=5, pady=5)
         self._process = tk.Label(self, text="", bg=ui.background, fg=ui.text_muted, anchor="w")
         self._process.grid(row=4, column=0, columnspan=4, sticky="ew", padx=5, pady=2)
+        self._battery = tk.Label(self, text="", bg=ui.surface, fg=ui.text_muted,
+                                 anchor="w", font=("Sans", 11, "bold"), padx=10, pady=6)
+        self._battery.grid(row=5, column=0, columnspan=4, sticky="ew", padx=5, pady=4)
 
     def _metric(
         self,
@@ -179,6 +182,20 @@ class SystemMetricsPanel(tk.Frame):
         """Update current values and append the sample to rolling history."""
 
         self._last_snapshot = snapshot
+        battery = snapshot.battery
+        if battery.state == "available":
+            self._battery.configure(text=(f"BATTERY  {_number(battery.temperature_c, 1)}°C · "
+                f"{_number(battery.charge_percent, 0)}% · {battery.health} · "
+                f"{battery.charging_state} · {battery.plugged}"),
+                fg=(self._theme.ui.accent_success if battery.health == "GOOD" else
+                    self._theme.ui.accent_danger if battery.health in {"OVERHEAT", "DEAD", "OVER_VOLTAGE", "UNSPECIFIED_FAILURE"} else
+                    self._theme.ui.text_muted if battery.health == "UNKNOWN" else self._theme.ui.accent_warning))
+        else:
+            self._battery.configure(text=f"BATTERY  -- · {battery.detail}", fg=self._theme.ui.text_muted)
+        if battery.state == "not_applicable":
+            self._battery.grid_remove()
+        else:
+            self._battery.grid()
         self._identity.configure(text=f"{snapshot.hostname or 'Computing unit'}   {snapshot.platform}")
         self._process.configure(text=(
             f"This process (PID {snapshot.process_id or '--'}): "

@@ -12,7 +12,7 @@ from services.common.service_manager_pairing import ServiceManagerPairing
 from services.linux.systemd_service_manager_http import SystemdServiceManagerHandler
 from services.termux.service_manager_http import ServiceManagerHandler
 from ui.system_diagnostics import SystemDiagnosticsSnapshot
-from ui.system_diagnostics import OrcWorkloadSnapshot, ServiceSocketSnapshot
+from ui.system_diagnostics import OrcWorkloadSnapshot, ServiceSocketSnapshot, BatterySnapshot
 
 
 class SystemPerformanceMonitorTest(unittest.TestCase):
@@ -25,6 +25,7 @@ class SystemPerformanceMonitorTest(unittest.TestCase):
         sample = SystemDiagnosticsSnapshot(
             cpu_percent=42, cpu_frequency_mhz=2400, memory_total_mb=512,
             disk_free_gb=2, sampled_at_unix_s=123, temperature_c=55,
+            battery=BatterySnapshot(state="available", temperature_c=30.1, charge_percent=77, health="GOOD"),
         )
         monitor._history.append(sample)
         payload = monitor.payload()
@@ -33,6 +34,8 @@ class SystemPerformanceMonitorTest(unittest.TestCase):
         self.assertEqual(payload["snapshot"]["memory_total_bytes"], 536870912)
         self.assertEqual(payload["snapshot"]["disk_free_bytes"], 2147483648)
         self.assertIsNone(payload["snapshot"]["swap_total_bytes"])
+        self.assertEqual(payload["snapshot"]["battery"]["temperature_c"], 30.1)
+        self.assertEqual(payload["snapshot"]["battery"]["charge_percent"], 77)
         self.assertNotIn("memory_total_mb", payload["snapshot"])
         self.assertEqual(set(payload["history"][0]), {
             "sampled_at_unix_s", "cpu_percent", "process_cpu_percent", "orc_cpu_percent",

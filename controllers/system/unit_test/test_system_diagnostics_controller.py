@@ -242,7 +242,7 @@ class SystemDiagnosticsControllerTest(unittest.TestCase):
             self.assertEqual(controller._read_thermal_state(), (None, None, None))
             self.assertIn("No identified", controller._thermal_detail)
 
-    def test_android_battery_fallback_keeps_its_own_limit_and_source(self):
+    def test_android_battery_zone_is_separate_from_cpu_summary(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             zone = root / "class/thermal/thermal_zone0"
@@ -253,8 +253,8 @@ class SystemDiagnosticsControllerTest(unittest.TestCase):
             (zone / "trip_point_0_temp").write_text("60000")
             controller = SystemDiagnosticsController(sys_root=root)
             controller._android = True
-            self.assertEqual(controller._read_thermal_state(), (38, 60, "thermal_zone0"))
-            self.assertEqual(controller._thermal_source_type, "battery")
+            self.assertEqual(controller._read_thermal_state(), (None, None, None))
+            self.assertIsNone(controller._thermal_source_type)
             self.assertEqual(controller.snapshot().thermal_sources[0].temperature_c, 38)
 
 

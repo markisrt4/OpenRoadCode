@@ -87,6 +87,20 @@ class ThermalSourceSnapshot:
 
 
 @dataclass(frozen=True, slots=True)
+class BatterySnapshot:
+    """A separately identified battery reading, never a CPU temperature."""
+
+    state: str = "unavailable"
+    temperature_c: float | None = None
+    charge_percent: float | None = None
+    health: str = "UNKNOWN"
+    charging_state: str = "UNKNOWN"
+    plugged: str = "UNKNOWN"
+    sampled_at_unix_s: float | None = None
+    detail: str = "Battery reading unavailable"
+
+
+@dataclass(frozen=True, slots=True)
 class SystemDiagnosticsSnapshot:
     """One read-only host snapshot; unavailable measurements remain None."""
 
@@ -123,6 +137,7 @@ class SystemDiagnosticsSnapshot:
     thermal_source_type: str | None = None
     thermal_detail: str = ""
     thermal_sources: tuple[ThermalSourceSnapshot, ...] = ()
+    battery: BatterySnapshot = field(default_factory=BatterySnapshot)
     throttled_flags: str | None = None
     uptime_seconds: float | None = None
     network_receive_bytes_per_second: float | None = None

@@ -38,6 +38,8 @@ def performance_status(sample: SystemDiagnosticsSnapshot, *, stale: bool = False
             conditions.append(2 if sensor.state == "invalid" else 1)
     if any(service.state in {"dropping", "stopped"} for service in sample.services):
         conditions.append(2)
+    if sample.battery.state == "available" and sample.battery.health not in {"GOOD", "UNKNOWN"}:
+        conditions.append(2 if sample.battery.health in {"OVERHEAT", "DEAD", "OVER_VOLTAGE", "UNSPECIFIED_FAILURE"} else 1)
     if conditions:
         return PerformanceStatus(tone="accent_danger" if max(conditions) == 2 else "accent_warning")
     if sample.workload.visibility != "visible":

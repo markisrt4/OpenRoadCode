@@ -8,7 +8,7 @@ from unittest import TestCase
 from unittest.mock import Mock
 
 from apps.orcUi.performance_status import PerformanceStatusPresenter, performance_status
-from ui.system_diagnostics import OrcWorkloadSnapshot, SensorHealthSnapshot, SystemDiagnosticsSnapshot, ServiceSocketSnapshot
+from ui.system_diagnostics import OrcWorkloadSnapshot, SensorHealthSnapshot, SystemDiagnosticsSnapshot, ServiceSocketSnapshot, BatterySnapshot
 
 
 def sample(**changes):
@@ -47,6 +47,14 @@ class PerformanceStatusTests(TestCase):
             self.assertEqual(performance_status(sample(services=(ServiceSocketSnapshot("Broker", state=state),))).tone,
                              "accent_danger")
         self.assertEqual(performance_status(sample(services=(ServiceSocketSnapshot("Optional"),))).text, "SYSTEM")
+
+    def test_battery_health_is_separate_from_cpu_thermal_thresholds(self):
+        self.assertEqual(performance_status(sample(battery=BatterySnapshot(
+            state="available", temperature_c=30.1, health="GOOD"))).tone, "accent_success")
+        self.assertEqual(performance_status(sample(battery=BatterySnapshot(
+            state="available", health="OVERHEAT"))).tone, "accent_danger")
+        self.assertEqual(performance_status(sample(battery=BatterySnapshot(
+            state="available", health="COLD"))).tone, "accent_warning")
 
     def test_missing_partial_and_stale_readings_are_neutral(self):
         for value in (SystemDiagnosticsSnapshot(), sample(memory_used_percent=None),
