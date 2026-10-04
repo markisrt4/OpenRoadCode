@@ -254,6 +254,34 @@ source = source.replace(old, new, 1)
 frontend.write_text(source)
 PY
 
+echo "[*] Instrumenting SDR++ RTL source handoff for stalled-DSP diagnosis"
+python3 - "$SDRPP_SRC/source_modules/rtl_sdr_source/src/main.cpp" <<'PY'
+from pathlib import Path
+import sys
+
+path = Path(sys.argv[1])
+source = path.read_text()
+old = '''        if (!_this->stream.swap(sampCount)) { return; }
+    }'''
+new = '''        static unsigned long long orcCallbacks = 0;
+        static unsigned long long orcSwapFailures = 0;
+        orcCallbacks++;
+        bool swapped = _this->stream.swap(sampCount);
+        if (!swapped) { orcSwapFailures++; }
+        if (orcCallbacks <= 16 || (orcCallbacks % 4096) == 0 || (!swapped && orcSwapFailures <= 16)) {
+            fprintf(stderr,
+                    "[ORC RTL source] callback=%llu samples=%d swap=%d failures=%llu\\n",
+                    orcCallbacks, sampCount, swapped ? 1 : 0, orcSwapFailures);
+            fflush(stderr);
+        }
+        if (!swapped) { return; }
+    }'''
+if old not in source:
+    raise SystemExit("Could not locate RTLSDRSourceModule::asyncHandler stream swap")
+source = source.replace(old, new, 1)
+path.write_text(source)
+PY
+
 echo "[*] Instrumenting SDR++ FFT reshaper for stalled-waterfall diagnosis"
 python3 - "$SDRPP_SRC/core/src/dsp/buffer/reshaper.h" <<'PY'
 from pathlib import Path
