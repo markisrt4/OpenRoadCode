@@ -254,6 +254,72 @@ source = source.replace(old, new, 1)
 frontend.write_text(source)
 PY
 
+echo "[*] Instrumenting SDR++ FFT reshaper for stalled-waterfall diagnosis"
+python3 - "$SDRPP_SRC/core/src/dsp/buffer/reshaper.h" <<'PY'
+from pathlib import Path
+import sys
+
+path = Path(sys.argv[1])
+source = path.read_text()
+
+old = '''        int run() {
+            int count = _in->read();
+            if (count < 0) { return -1; }
+            ringBuf.write(_in->readBuf, count);
+            _in->flush();
+            return count;
+        }'''
+new = '''        int run() {
+            static unsigned long long orcRuns = 0;
+            int count = _in->read();
+            if (count < 0) {
+                fprintf(stderr, "[ORC reshape] input read stopped count=%d\\n", count);
+                fflush(stderr);
+                return -1;
+            }
+            orcRuns++;
+            int written = ringBuf.write(_in->readBuf, count);
+            if (orcRuns <= 3 || (orcRuns % 4096) == 0 || written < 0) {
+                fprintf(stderr, "[ORC reshape] run=%llu input=%d ringWrite=%d\\n",
+                        orcRuns, count, written);
+                fflush(stderr);
+            }
+            _in->flush();
+            return written < 0 ? -1 : count;
+        }'''
+if old not in source:
+    raise SystemExit("Could not locate SDR++ Reshaper::run()")
+source = source.replace(old, new, 1)
+
+old = '''                if (ringBuf.readAndSkip(start, readCount, skip) < 0) { break; };
+                memcpy(out.writeBuf, buf, _keep * sizeof(T));
+                if (!out.swap(_keep)) { break; }'''
+new = '''                static unsigned long long orcOutputs = 0;
+                int readResult = ringBuf.readAndSkip(start, readCount, skip);
+                if (readResult < 0) {
+                    fprintf(stderr,
+                            "[ORC reshape] worker stopped readResult=%d keep=%d readCount=%d skip=%d\\n",
+                            readResult, _keep, readCount, skip);
+                    fflush(stderr);
+                    break;
+                }
+                memcpy(out.writeBuf, buf, _keep * sizeof(T));
+                bool swapped = out.swap(_keep);
+                orcOutputs++;
+                if (orcOutputs <= 4 || (orcOutputs % 256) == 0 || !swapped) {
+                    fprintf(stderr,
+                            "[ORC reshape] output=%llu keep=%d readCount=%d skip=%d swap=%d\\n",
+                            orcOutputs, _keep, readCount, skip, swapped ? 1 : 0);
+                    fflush(stderr);
+                }
+                if (!swapped) { break; }'''
+if old not in source:
+    raise SystemExit("Could not locate SDR++ Reshaper::bufferWorker() output")
+source = source.replace(old, new, 1)
+
+path.write_text(source)
+PY
+
 echo "[*] Instrumenting SDR++ FFT production for stalled-waterfall diagnosis"
 python3 - "$SDRPP_SRC/core/src/signal_path/iq_frontend.cpp" <<'PY'
 from pathlib import Path
