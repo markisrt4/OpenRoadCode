@@ -301,6 +301,23 @@ class SDRPPLauncherTest(unittest.TestCase):
 
     @patch("apps.launchers.sdrpp_launcher._stop_readsb_service")
     @patch("apps.launchers.sdrpp_launcher.subprocess.Popen")
+    def test_failed_launch_cleans_up_owned_resources(self, popen: Mock, _stop_readsb: Mock) -> None:
+        process = Mock()
+        process.poll.return_value = None
+        popen.return_value = process
+        launcher = SDRPPLauncher(profile=self.profile)
+        launcher.is_running = Mock(return_value=False)
+        launcher._launch_command = Mock(return_value=["/usr/bin/sdrpp", "--autostart"])
+        launcher.wait_for_rigctl = Mock(side_effect=RuntimeError("startup failed"))
+        launcher.stop = Mock()
+
+        with self.assertRaisesRegex(RuntimeError, "startup failed"):
+            launcher.launch(":1")
+
+        launcher.stop.assert_called_once_with(":1")
+
+    @patch("apps.launchers.sdrpp_launcher._stop_readsb_service")
+    @patch("apps.launchers.sdrpp_launcher.subprocess.Popen")
     def test_embedded_launch_does_not_request_fullscreen(self, popen: Mock, _stop_readsb: Mock) -> None:
         process = Mock()
         process.poll.return_value = None
