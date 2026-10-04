@@ -288,6 +288,32 @@ int rtlsdr_read_async(rtlsdr_dev_t *dev, rtlsdr_read_async_cb_t cb, void *ctx,
 			}
 			orcu_frames++;
 			orcu_bytes += (unsigned long long)n;
+			if (orcu_frames <= 3) {
+				unsigned int histogram[256] = {0};
+				unsigned int unique = 0;
+				unsigned int min_sample = 255;
+				unsigned int max_sample = 0;
+				unsigned long long sum = 0;
+				int sample_index;
+				for (sample_index = 0; sample_index < n; sample_index++) {
+					unsigned int sample = transport_buf[sample_index];
+					if (histogram[sample]++ == 0)
+						unique++;
+					if (sample < min_sample)
+						min_sample = sample;
+					if (sample > max_sample)
+						max_sample = sample;
+					sum += sample;
+				}
+				fprintf(stderr,
+					"[ORCU IQ] frame=%u len=%d min=%u max=%u mean=%.2f unique=%u first16=",
+					orcu_frames, n, min_sample, max_sample,
+					n > 0 ? (double)sum / (double)n : 0.0, unique);
+				for (sample_index = 0; sample_index < n && sample_index < 16; sample_index++)
+					fprintf(stderr, "%s%02x", sample_index ? " " : "", transport_buf[sample_index]);
+				fprintf(stderr, "\\n");
+				fflush(stderr);
+			}
 			if (orcu_frames <= 3 || (orcu_frames % 256) == 0) {
 				fprintf(stderr, "[ORCU] IQ progress: frames=%u bytes=%llu fd=%d valid=%d\\n",
 					orcu_frames, orcu_bytes, dev->orcu_stream_fd,
