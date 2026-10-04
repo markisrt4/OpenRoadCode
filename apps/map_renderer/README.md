@@ -37,3 +37,30 @@ launcher collects its output into the shared rotating ORC store. Use
 `./runOrcUi --follow-logs` for readable live output, or attach separately with
 `python -m common.logging.viewer --component map_renderer`.
 See [ORC logging](../../common/logging/README.md) for settings, storage, and CI gates.
+
+## Mouse and toolbar camera controls
+
+Toolbar camera commands end active mouse gestures and cancel pending camera
+animations before applying the requested view. Losing native-window focus also
+clears drag state, including when a mouse release is missed during a transition
+back to Tk controls. Position-marker and POI updates do not cancel gestures.
+
+For a manual regression check, pan by dragging, zoom with the mouse wheel, and
+then try the pan arrows, zoom buttons, 3D, north-up, and recenter controls. Also
+start dragging and move/release outside the map before pressing a toolbar button.
+Recenter should restore position following; manual pan should suspend it.
+
+This behavior is implemented in the native renderer. A repository update alone
+does not update an already installed executable. In Termux, an existing renderer
+build can be updated without rebuilding MapLibre or Valhalla:
+
+```bash
+cd ~/src/OpenRoadCode
+git switch android-linux-food-apps
+cmake --build apps/map_renderer/build-termux --parallel 2
+install -Dm755 apps/map_renderer/build-termux/openroadcode-map-renderer \
+  "${OPENROADCODE_NAVIGATION_ROOT:-$PREFIX/opt/openroadcode/navigation}/bin/openroadcode-map-renderer"
+```
+
+Close ORC before installing the executable, then restart it. The build directory
+must have been configured by `development/termux/build_navigation_stack.sh`.

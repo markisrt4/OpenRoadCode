@@ -197,6 +197,15 @@ int runRenderer() {
             const auto command = commandServer.poll();
             if (!command) break;
 
+            // A toolbar camera command ends direct manipulation. Telemetry and
+            // POI updates must not interrupt an active mouse gesture.
+            if (command->command == "set_center" || command->command == "set_camera" ||
+                command->command == "fit_bounds" || command->command == "fit_dataset" ||
+                command->command == "set_zoom" || command->command == "set_bearing" ||
+                command->command == "set_pitch" || command->command == "pan_screen") {
+                view.finishCameraGesture();
+            }
+
             if (command->command == "set_center") {
                 map.jumpTo(mbgl::CameraOptions().withCenter(
                     mbgl::LatLng{command->latitude, command->longitude}));

@@ -160,6 +160,7 @@ MapView::MapView(const mbgl::ResourceOptions&, const mbgl::ClientOptions&) {
     glfwSetCursorPosCallback(window, onMouseMove);
     glfwSetMouseButtonCallback(window, onMouseClick);
     glfwSetScrollCallback(window, onScroll);
+    glfwSetWindowFocusCallback(window, onWindowFocus);
     backend = GLFWBackend::Create(window, true);
     glfwGetWindowSize(window, &width, &height);
     pixelRatio = static_cast<float>(backend->getSize().width) / static_cast<float>(width);
@@ -188,6 +189,23 @@ void MapView::setRendererFrontend(MapRendererFrontend* value) {
     rendererFrontend = value;
 }
 void MapView::showWindow() {
+}
+void MapView::finishCameraGesture() {
+    // A release can be lost when the pointer/focus moves into the Tk controls.
+    // Explicit camera commands take ownership from the gesture and any zoom
+    // animation, rather than leaving the map in interactive camera mode.
+    tracking = false;
+    manualGesturePublished = false;
+    lastClick = -1.0;
+    if (map) {
+        map->setGestureInProgress(false);
+        map->cancelTransitions();
+    }
+}
+void MapView::onWindowFocus(GLFWwindow* window, int focused) {
+    auto* v = static_cast<MapView*>(glfwGetWindowUserPointer(window));
+    if (v && !focused)
+        v->finishCameraGesture();
 }
 void MapView::setShouldClose() {
     glfwSetWindowShouldClose(window, GLFW_TRUE);
