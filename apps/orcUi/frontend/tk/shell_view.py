@@ -9,6 +9,7 @@ import tkinter as tk
 from collections.abc import Callable
 from datetime import datetime
 
+from apps.orcUi.performance_status import PerformanceStatus
 from apps.orcUi.orc_theme import ThemeMode, toggle_label
 from ui.theme import ThemeBundle
 from ui.weather import WeatherAlertUiEvent
@@ -64,6 +65,8 @@ class OrcUiShellView:
         self._breadcrumb_label: tk.Label | None = None
         self._status_label: tk.Label | None = None
         self._status_text = ""
+        self._performance_status = PerformanceStatus()
+        self._performance_button: tk.Button | None = None
         self._breadcrumb = active_nav
         self._clock_after_id: str | None = None
         self._weather_alert: WeatherAlertUiEvent | None = None
@@ -211,6 +214,12 @@ class OrcUiShellView:
         if self._weather_status_label is not None and self._weather_status_label.winfo_exists():
             self._weather_status_label.configure(text=text)
 
+    def set_performance_status(self, status: PerformanceStatus) -> None:
+        """Retain observed health across screen changes and theme rebuilds."""
+        self._performance_status = status
+        if self._performance_button is not None and self._performance_button.winfo_exists():
+            self._performance_button.configure(text=status.text, fg=getattr(self._theme.ui, status.tone))
+
     def set_status(self, text: str) -> None:
         self._status_text = text
         if self._status_label is not None and self._status_label.winfo_exists():
@@ -299,6 +308,8 @@ class OrcUiShellView:
             enabled=self._adsb_enabled,
             aircraft_count=self._aircraft_count,
         )
-        self._breadcrumb_label, self._status_label = build_footer(self._root, theme=self._theme)
+        self._breadcrumb_label, self._status_label, self._performance_button = build_footer(
+            self._root, theme=self._theme, on_diagnostics=lambda: self._on_navigate("DIAGNOSTICS"))
+        self.set_performance_status(self._performance_status)
         self._breadcrumb_label.configure(text=self._breadcrumb)
         self._status_label.configure(text=self._status_text)

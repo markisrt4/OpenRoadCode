@@ -6,6 +6,7 @@ import os
 import signal
 import tkinter as tk
 from collections.abc import Callable
+from apps.orcUi.performance_status import PerformanceStatus
 from apps.orcUi.orc_theme import ThemeMode, toggle
 from .power_dialog import PowerDialog
 from .screen_builders import (
@@ -50,6 +51,7 @@ class OrcUiApp(VolumeUiIf):
         self._adsb_toggle_handler: Callable[[bool], bool] | None = None
         self._adsb_view_handler: Callable[[], None] | None = None
         self._active_nav = ""
+        self._diagnostics_return = "HOME"
         self._initial_destination: str | None = None
         self._nav_items: list[str] = []
         self._screen_registry: dict[str, ScreenUiIf] = {}
@@ -135,6 +137,8 @@ class OrcUiApp(VolumeUiIf):
         nav_name = name.strip().upper()
         if not nav_name:
             raise ValueError("Navigation destination must not be empty")
+        if nav_name == "DIAGNOSTICS" and self._active_nav != "DIAGNOSTICS":
+            self._diagnostics_return = self._active_nav or "HOME"
         self._active_nav = nav_name
         self._paint_nav()
         screen = self._screen_registry.get(nav_name)
@@ -143,6 +147,15 @@ class OrcUiApp(VolumeUiIf):
             return
         self._deactivate_active_screen()
         self._show_placeholder(nav_name)
+    def close_diagnostics(self) -> None:
+        """Return to the destination that opened Diagnostics."""
+        self.navigate_to(self._diagnostics_return)
+
+    def set_performance_status(self, status: PerformanceStatus) -> None:
+        """Present computing-unit health in persistent shell chrome."""
+        if self._shell is not None:
+            self._shell.set_performance_status(status)
+
     def activate_screen(self, screen: ScreenUiIf) -> None:
         previous = self._active_screen
         if previous is screen:

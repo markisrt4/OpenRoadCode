@@ -19,9 +19,25 @@ Use `python` instead of `venv/bin/python` if ORC's dependencies are installed
 in that interpreter. The screen profiles the machine running the command.
 It does not need the map renderer, automotive services, or a running ORC shell.
 
-The integrated ORC screen is registered as `DIAGNOSTICS`, with no navigation
-shortcut. Its placement is intentionally undecided. Runtime composition can
-open it through `app.navigate_to("DIAGNOSTICS")` when an entry point is chosen.
+## View inside ORC
+
+Run ORC normally with `python -m apps.orcUi` (or `venv/bin/python -m apps.orcUi`
+when using its virtual environment). Tap the small **● SYS** indicator at the
+right edge of the persistent footer to open Diagnostics on **ORC workload**.
+The indicator remains available on every screen. **Back** returns to the
+navigation destination that opened Diagnostics. No sidebar entry is added.
+
+The label accompanies its color: **OK** is green for normal observed readings;
+**CPU**, **RAM**, **DISK**, **HOT**, or **SENSOR** identify the most severe
+current condition in amber or red. **PART** means restricted process visibility;
+**—** means waiting or unavailable measurements; **OLD** means the cached sample
+has stopped advancing for over three seconds. These unknown states are muted.
+Green summarizes available resource readings and observed sensor streams; it
+is not a hardware self-test and does not certify unobserved or disabled sensors.
+
+The indicator reads the same background sampler cache once per second; it does
+not scan processes or query firmware on the Tk thread. Theme changes retain its
+state, and application shutdown cancels the UI refresh loop.
 
 ## View from Android Bridge
 
@@ -55,8 +71,8 @@ displayed as unavailable.
 The preview opens on **ORC workload**. It shows combined CPU use and a table of
 processes sorted by CPU use, with PID, CPU percentage, resident memory (RSS),
 proportional memory (PSS), thread count, and actual disk read/write byte rates.
-The other tabs are **System** and **Sensor telemetry**. No ORC shell navigation
-shortcut is selected by this change.
+The other tabs are **System** and **Sensor telemetry**. The persistent **● SYS**
+indicator opens this screen inside ORC.
 
 Recognized roots include the ORC UI/application modules, navigation, automotive,
 Android sensor, weather and trip services, the message broker, and native

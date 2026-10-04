@@ -21,6 +21,7 @@ from apps.orcUi.frontend.tk.orc_ui_app import OrcUiApp
 from apps.orcUi.frontend.tk.offroad_screen import OffRoadScreen
 from apps.orcUi.frontend.tk.settings_screen import SettingsScreen
 from apps.orcUi.frontend.tk.vehicle_screen import VehicleScreen
+from apps.orcUi.performance_status import PerformanceStatusPresenter
 from apps.orcUi.theme_runtime import theme_bundle
 from frontends.tk.games import GamesScreen
 from frontends.tk.system.diagnostics_screen import DiagnosticsScreen
@@ -44,6 +45,7 @@ class OrcUiComposition:
     settings: SettingsScreen | None = None
     performance: SystemPerformanceMonitor | None = None
     diagnostics: DiagnosticsScreen | None = None
+    performance_status: PerformanceStatusPresenter | None = None
 
     @property
     def app(self) -> OrcUiApp:
@@ -54,10 +56,14 @@ class OrcUiComposition:
         try:
             if self.performance is not None:
                 self.performance.start()
+            if self.performance_status is not None:
+                self.performance_status.start()
             self.app.schedule_ui_callback(1500, self.runtime.start_background_apps)
             self.core.start()
             self.app.run()
         finally:
+            if self.performance_status is not None:
+                self.performance_status.close()
             if self.performance is not None:
                 self.performance.close()
             try:
@@ -162,8 +168,9 @@ def create_orc_ui_composition() -> OrcUiComposition:
         diagnostics = DiagnosticsScreen(
             app, provider=performance, history=performance.history,
             theme_bundle=lambda: theme_bundle(app.theme_mode),
-            on_back=lambda: app.navigate_to("HOME"),
+            on_back=app.close_diagnostics,
         )
+        performance_status = PerformanceStatusPresenter(app, performance, app.set_performance_status)
         home.set_radio_factory(radio.home_factory)
         home.set_media_factory(media.home_factory)
         core.presentation.observe_vehicle(home.apply_vehicle_state)
@@ -205,4 +212,5 @@ def create_orc_ui_composition() -> OrcUiComposition:
         settings=settings,
         performance=performance,
         diagnostics=diagnostics,
+        performance_status=performance_status,
     )
