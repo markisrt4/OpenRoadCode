@@ -54,7 +54,15 @@ class ManagedRadioApplicationService:
         # appears. AppRuntimeManager.show() intentionally marks/maps windowed
         # applications, which is correct for standalone mode but wrong here.
         if not self._fullscreen:
-            if not self._manager.is_running(self.APP_KEY):
+            # AppRuntimeManager can report a warm runtime from state that
+            # outlives the actual SDR++ process.  The launcher owns the process
+            # handle, so require both views to agree before treating preload as
+            # usable.
+            if (
+                not self._manager.is_running(self.APP_KEY)
+                or not self._launcher.is_running()
+                or not self._launcher.is_rigctl_ready()
+            ):
                 self._launcher.prepare(self._manager.display_for(self.APP_KEY))
             return
         self._manager.show(self.APP_KEY)
