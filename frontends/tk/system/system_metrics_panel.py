@@ -23,6 +23,7 @@ class SystemMetricsPanel(tk.Frame):
         super().__init__(parent, bg=ui.background)
 
         self._values: dict[str, tk.Label] = {}
+        self._last_snapshot = None
         self._last_sample_time: float | None = None
         self._history: dict[str, deque[tuple[float, float | None]]] = {
             "cpu": deque(maxlen=self._HISTORY_SAMPLES),
@@ -139,13 +140,17 @@ class SystemMetricsPanel(tk.Frame):
             pady=(0, 5),
         )
 
-        tk.Label(
+        title_label = tk.Label(
             card,
-            text=title,
+            text=title + (" ▾" if key == "temperature" else ""),
             bg=ui.surface,
             fg=ui.text_muted,
             font=("Sans", 9, "bold"),
-        ).pack(anchor="w", padx=12, pady=(9, 2))
+        )
+        title_label.pack(anchor="w", padx=12, pady=(9, 2))
+        if key == "temperature":
+            title_label.configure(fg=ui.accent_primary, cursor="hand2")
+            title_label.bind("<Button-1>", self._show_thermal_sources)
 
         value = tk.Label(
             card,
@@ -173,6 +178,7 @@ class SystemMetricsPanel(tk.Frame):
     def apply_snapshot(self, snapshot: SystemDiagnosticsSnapshot) -> None:
         """Update current values and append the sample to rolling history."""
 
+        self._last_snapshot = snapshot
         self._identity.configure(text=f"{snapshot.hostname or 'Computing unit'}   {snapshot.platform}")
         self._process.configure(text=(
             f"This process (PID {snapshot.process_id or '--'}): "
@@ -237,7 +243,8 @@ class SystemMetricsPanel(tk.Frame):
         throttle = snapshot.throttled_flags or "n/a"
         self._values["thermal_detail"].configure(
             text=(
-                f"{_number(snapshot.thermal_headroom_c, 0)}°C to trip ({snapshot.thermal_zone or '--'})\n"
+                f"{snapshot.thermal_source_type or snapshot.thermal_zone or 'source unidentified'}\n"
+                f"{_number(snapshot.thermal_headroom_c, 0)}°C to trip · {snapshot.thermal_zone or '--'}\n"
                 f"throttle {throttle}"
             )
         )
@@ -262,6 +269,31 @@ class SystemMetricsPanel(tk.Frame):
                 self._history[key].append((snapshot.sampled_at_unix_s, value))
             self._paint_graph(key)
         self._last_sample_time = snapshot.sampled_at_unix_s
+
+    def _show_thermal_sources(self, _event=None) -> None:
+        sample = self._last_snapshot
+        if sample is None:
+            return
+        ui = self._theme.ui
+        window = tk.Toplevel(self)
+        window.title("Reported thermal sources")
+        window.configure(bg=ui.background)
+        window.geometry("700x420")
+        tk.Label(window, text=sample.thermal_detail + "\nRaw vendor readings are not whole-phone temperatures.",
+                 bg=ui.background, fg=ui.text, justify=tk.LEFT, wraplength=660).pack(fill=tk.X, padx=12, pady=12)
+        frame = tk.Frame(window, bg=ui.background)
+        frame.pack(fill=tk.BOTH, expand=True, padx=12, pady=(0, 12))
+        text = tk.Text(frame, bg=ui.surface, fg=ui.text, insertbackground=ui.text,
+                       font=("Monospace", 10), relief=tk.FLAT, wrap=tk.NONE)
+        scroll = tk.Scrollbar(frame, command=text.yview)
+        scroll.pack(side=tk.RIGHT, fill=tk.Y)
+        text.configure(yscrollcommand=scroll.set)
+        text.pack(fill=tk.BOTH, expand=True)
+        for row in sample.thermal_sources:
+            text.insert(tk.END, f"{row.zone}  {row.source_type}  {row.temperature_c:.1f}°C  trip {_number(row.trip_c, 1)}°C\n")
+        if not sample.thermal_sources:
+            text.insert(tk.END, "No readable sources\n")
+        text.configure(state=tk.DISABLED)
 
     def _paint_graph(self, key: str) -> None:
         canvas = self._graphs[key]

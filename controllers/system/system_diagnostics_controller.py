@@ -14,7 +14,7 @@ import time
 from collections.abc import Callable
 from pathlib import Path
 
-from ui.system_diagnostics import SystemDiagnosticsSnapshot
+from ui.system_diagnostics import SystemDiagnosticsSnapshot, ThermalSourceSnapshot
 
 _MIB = 1024.0 * 1024.0
 _GIB = 1024.0 * 1024.0 * 1024.0
@@ -35,6 +35,10 @@ class SystemDiagnosticsController:
         self._proc_root = Path(proc_root)
         self._sys_root = Path(sys_root)
         termux = bool(os.environ.get("TERMUX_VERSION")) or os.environ.get("PREFIX", "").startswith("/data/data/com.termux/files/usr")
+        self._android = termux or platform.system() == "Android"
+        self._thermal_sources = ()
+        self._thermal_source_type = None
+        self._thermal_detail = ""
         self._disk_path = Path(disk_path) if disk_path is not None else (Path.home() if termux else Path("/"))
         self._previous_cpu: dict[str, tuple[int, int]] = {}
         self._monotonic = monotonic
@@ -97,6 +101,8 @@ class SystemDiagnosticsController:
             temperature_c=temperature_c,
             thermal_limit_c=thermal_limit_c,
             thermal_zone=thermal_zone,
+            thermal_source_type=self._thermal_source_type, thermal_detail=self._thermal_detail,
+            thermal_sources=self._thermal_sources,
             thermal_headroom_c=(
                 None
                 if temperature_c is None or thermal_limit_c is None
@@ -288,25 +294,43 @@ class SystemDiagnosticsController:
         return usage.total, usage.used, usage.free
 
     def _read_thermal_state(self) -> tuple[float | None, float | None, str | None]:
-        temperatures: list[tuple[float, Path]] = []
+        self._thermal_sources = ()
+        self._thermal_source_type = None
+        self._thermal_detail = "No readable thermal sensors"
         root = self._sys_root / "class" / "thermal"
-        try:
-            paths = tuple(root.glob("thermal_zone*/temp"))
-        except OSError:
-            return None, None, None
-
-        for path in paths:
+        sources = []
+        for path in root.glob("thermal_zone*/temp"):
             try:
                 value = float(path.read_text(encoding="utf-8").strip()) / 1000.0
             except (OSError, ValueError):
                 continue
+            try:
+                kind = (path.parent / "type").read_text().strip()[:96]
+            except OSError:
+                kind = "unknown"
             if 0.0 <= value <= 150.0:
-                temperatures.append((value, path.parent))
-
-        if not temperatures:
+                sources.append(ThermalSourceSnapshot(path.parent.name, kind, value,
+                                                     self._read_thermal_limit_c(path.parent)))
+        self._thermal_sources = tuple(sorted(sources, key=lambda row: row.zone)[:128])
+        candidates = sources
+        if self._android:
+            # Vendor virtual/policy zones and anonymous hottest readings are not
+            # identified CPU temperatures. Retain them for inspection instead.
+            physical = [row for row in sources if not any(word in row.source_type.lower()
+                         for word in ("virtual", "vts", "policy"))]
+            candidates = [row for row in physical if row.source_type.lower().startswith(
+                ("cpu", "soc", "cpuss", "ap-therm", "ap_therm"))]
+            if not candidates:
+                candidates = [row for row in physical if row.source_type.lower().startswith(("battery", "batt"))]
+            if not candidates:
+                self._thermal_detail = "No identified CPU/battery sensor; inspect reported thermal sources"
+                return None, None, None
+        if not candidates:
             return None, None, None
-        temperature, zone = max(temperatures, key=lambda item: item[0])
-        return temperature, self._read_thermal_limit_c(zone), zone.name
+        row = max(candidates, key=lambda row: row.temperature_c)
+        self._thermal_source_type = row.source_type
+        self._thermal_detail = "Kernel-reported sensor temperature, not whole-device temperature"
+        return row.temperature_c, row.trip_c, row.zone
 
     def _read_cpu_frequency_mhz(self) -> float | None:
         values: list[float] = []

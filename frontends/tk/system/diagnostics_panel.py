@@ -11,6 +11,7 @@ from collections import deque
 
 from ui.system_diagnostics import SystemDiagnosticsSnapshot
 from ui.theme import ThemeBundle
+from .diagnostics_tabs import DiagnosticsTabs
 from .system_metrics_panel import SystemMetricsPanel, pressure_color
 
 
@@ -24,13 +25,11 @@ class DiagnosticsPanel(tk.Frame):
         self._history = deque(maxlen=120)
         ui = theme.ui
         style = ttk.Style(self)
-        style.configure("Diagnostics.TNotebook", background=ui.background, borderwidth=0)
-        style.configure("Diagnostics.TNotebook.Tab", padding=(16, 8))
         style.configure("Diagnostics.Treeview", background=ui.surface, fieldbackground=ui.surface,
                         foreground=ui.text, rowheight=27)
         style.map("Diagnostics.Treeview", foreground=[("selected", ui.control_text)],
                   background=[("selected", ui.accent_primary)])
-        tabs = ttk.Notebook(self, style="Diagnostics.TNotebook")
+        tabs = DiagnosticsTabs(self, theme=theme)
         tabs.pack(fill=tk.BOTH, expand=True)
         workload = tk.Frame(tabs, bg=ui.background)
         system = SystemMetricsPanel(tabs, theme=theme)

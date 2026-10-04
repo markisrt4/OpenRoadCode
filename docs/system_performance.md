@@ -278,3 +278,18 @@ sampler; the UI and HTTP endpoint read cached data. To enable supported TCP
 byte counters on Linux, install iproute2 (`sudo apt install iproute2`). On Termux,
 `pkg install iproute2` may supply `ss`, but Android permissions can still prevent
 access. Rerun the Linux service-manager installer to update its installed copy.
+
+### Android thermal source selection
+
+Android/Termux summaries use identifiable CPU/SoC zones, falling back to an
+identifiable battery zone. Anonymous and virtual/policy zones are retained for
+inspection but do not supply the summary or a thermal warning. This recognizes
+source names, not calibration or physical hardware health. No recognized source
+means an unavailable temperature. Linux continues to report its hottest readable
+zone with that zone's own trip point. Temperatures are kernel millidegrees divided
+by 1000; the trip point is a separate value.
+
+In the System tab, click **THERMAL ▾** to inspect raw zone names, types, readings,
+and trip points. The selected source type appears beneath the temperature. A
+high vendor reading cannot be interpreted as the whole phone's temperature
+without identifying its source.

@@ -225,6 +225,38 @@ class SystemDiagnosticsControllerTest(unittest.TestCase):
             controller = SystemDiagnosticsController(sys_root=root)
             self.assertEqual(controller._read_thermal_state(), (0.5, None, "thermal_zone0"))
 
+    def test_android_ignores_anonymous_and_virtual_hot_zones(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for name, kind, temperature in (("thermal_zone0", "cpu-thermal", 45000),
+                                            ("thermal_zone57", "virtual-policy", 105000)):
+                zone = root / "class/thermal" / name
+                zone.mkdir(parents=True)
+                (zone / "type").write_text(kind)
+                (zone / "temp").write_text(str(temperature))
+            controller = SystemDiagnosticsController(sys_root=root)
+            controller._android = True
+            self.assertEqual(controller._read_thermal_state(), (45, None, "thermal_zone0"))
+            self.assertEqual(len(controller._thermal_sources), 2)
+            (root / "class/thermal/thermal_zone0/type").unlink()
+            self.assertEqual(controller._read_thermal_state(), (None, None, None))
+            self.assertIn("No identified", controller._thermal_detail)
+
+    def test_android_battery_fallback_keeps_its_own_limit_and_source(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            zone = root / "class/thermal/thermal_zone0"
+            zone.mkdir(parents=True)
+            (zone / "type").write_text("battery")
+            (zone / "temp").write_text("38000")
+            (zone / "trip_point_0_type").write_text("critical")
+            (zone / "trip_point_0_temp").write_text("60000")
+            controller = SystemDiagnosticsController(sys_root=root)
+            controller._android = True
+            self.assertEqual(controller._read_thermal_state(), (38, 60, "thermal_zone0"))
+            self.assertEqual(controller._thermal_source_type, "battery")
+            self.assertEqual(controller.snapshot().thermal_sources[0].temperature_c, 38)
+
 
 if __name__ == "__main__":
     unittest.main()

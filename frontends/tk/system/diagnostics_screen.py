@@ -46,8 +46,13 @@ class DiagnosticsScreen(TkScreen):
         self._host.activate_screen(self)
         self._host.clear_screen_content()
         self._host.set_screen_title("COMPUTING UNIT PERFORMANCE")
+        ui = self._theme_bundle().ui
         if self._on_back is not None:
-            tk.Button(self._host.screen_parent, text="‹ BACK", command=self._on_back).pack(anchor="w", pady=(0, 4))
+            tk.Button(self._host.screen_parent, text="‹ BACK", command=self._on_back,
+                      bg=ui.control_background, fg=ui.control_text,
+                      activebackground=ui.control_active, activeforeground=ui.control_text,
+                      relief=tk.FLAT, bd=0, highlightthickness=1, highlightbackground=ui.border,
+                      font=("Sans", 10, "bold"), padx=12, pady=7, cursor="hand2").pack(anchor="w", pady=(0, 6))
 
         panel = DiagnosticsPanel(
             self._host.screen_parent,

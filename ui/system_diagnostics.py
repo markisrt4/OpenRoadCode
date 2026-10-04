@@ -77,6 +77,16 @@ class ServiceSocketSnapshot:
 
 
 @dataclass(frozen=True, slots=True)
+class ThermalSourceSnapshot:
+    """Raw kernel reading with source identity; not a whole-device temperature."""
+
+    zone: str
+    source_type: str
+    temperature_c: float
+    trip_c: float | None = None
+
+
+@dataclass(frozen=True, slots=True)
 class SystemDiagnosticsSnapshot:
     """One read-only host snapshot; unavailable measurements remain None."""
 
@@ -110,6 +120,9 @@ class SystemDiagnosticsSnapshot:
     thermal_limit_c: float | None = None
     thermal_headroom_c: float | None = None
     thermal_zone: str | None = None
+    thermal_source_type: str | None = None
+    thermal_detail: str = ""
+    thermal_sources: tuple[ThermalSourceSnapshot, ...] = ()
     throttled_flags: str | None = None
     uptime_seconds: float | None = None
     network_receive_bytes_per_second: float | None = None
