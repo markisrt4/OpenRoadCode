@@ -21,7 +21,7 @@ def sample(**changes):
 class PerformanceStatusTests(TestCase):
     def test_multicore_workload_and_unobserved_sensor_do_not_warn(self):
         status = performance_status(sample(sensors=(SensorHealthSnapshot("GPS", "gps"),)))
-        self.assertEqual(status.text, "● SYS OK")
+        self.assertEqual(status.text, "SYSTEM")
         self.assertEqual(status.tone, "accent_success")
 
     def test_pressure_boundaries_and_host_cpu(self):
@@ -30,34 +30,34 @@ class PerformanceStatusTests(TestCase):
                 with self.subTest(value=value, key=key):
                     self.assertEqual(performance_status(sample(**{key: value})).tone, tone)
         self.assertEqual(performance_status(sample(workload=OrcWorkloadSnapshot(
-            visibility="visible", cpu_percent=640, cpu_capacity_percent=80))).text, "● SYS CPU")
+            visibility="visible", cpu_percent=640, cpu_capacity_percent=80))).tone, "accent_warning")
 
     def test_thermal_and_sensor_severity(self):
         for headroom, tone in ((10, "accent_warning"), (5, "accent_danger")):
             status = performance_status(sample(thermal_headroom_c=headroom))
-            self.assertEqual(status.text, "● SYS THERMAL")
+            self.assertEqual(status.text, "SYSTEM")
             self.assertEqual(status.tone, tone)
         for state, tone in (("stale", "accent_warning"), ("degraded", "accent_warning"), ("invalid", "accent_danger")):
             self.assertEqual(performance_status(sample(sensors=(SensorHealthSnapshot(
                 "GPS", "gps", state=state),))).tone, tone)
-        self.assertEqual(performance_status(sample(cpu_percent=80, thermal_headroom_c=5)).text, "● SYS THERMAL")
+        self.assertEqual(performance_status(sample(cpu_percent=80, thermal_headroom_c=5)).tone, "accent_danger")
 
     def test_services_warn_only_for_observed_failures(self):
         for state in ("dropping", "stopped"):
-            self.assertEqual(performance_status(sample(services=(ServiceSocketSnapshot("Broker", state=state),))).text,
-                             "● SYS SERVICE")
-        self.assertEqual(performance_status(sample(services=(ServiceSocketSnapshot("Optional"),))).text, "● SYS OK")
+            self.assertEqual(performance_status(sample(services=(ServiceSocketSnapshot("Broker", state=state),))).tone,
+                             "accent_danger")
+        self.assertEqual(performance_status(sample(services=(ServiceSocketSnapshot("Optional"),))).text, "SYSTEM")
 
     def test_missing_partial_and_stale_readings_are_neutral(self):
         for value in (SystemDiagnosticsSnapshot(), sample(memory_used_percent=None),
                       sample(workload=OrcWorkloadSnapshot(visibility="partial", cpu_capacity_percent=20))):
             self.assertEqual(performance_status(value).tone, "text_muted")
-        self.assertEqual(performance_status(sample(cpu_percent=99), stale=True).text, "● SYS OLD")
-        self.assertEqual(performance_status(sample()).text, "● SYS OK")
+        self.assertEqual(performance_status(sample(cpu_percent=99), stale=True).text, "SYSTEM")
+        self.assertEqual(performance_status(sample()).text, "SYSTEM")
 
     def test_real_pressure_is_visible_despite_missing_other_data(self):
-        self.assertEqual(performance_status(sample(workload=OrcWorkloadSnapshot(), disk_used_percent=96)).text,
-                         "● SYS DISK")
+        self.assertEqual(performance_status(sample(workload=OrcWorkloadSnapshot(), disk_used_percent=96)).tone,
+                         "accent_danger")
 
 
 class PresenterTests(TestCase):
@@ -89,10 +89,10 @@ class PresenterTests(TestCase):
         self.presenter.start()
         self.now = 4
         self.callbacks[-1]()
-        self.assertEqual(self.present.call_args.args[0].text, "● SYS OLD")
+        self.assertEqual(self.present.call_args.args[0].tone, "text_muted")
         self.provider.snapshot.return_value = sample(sampled_at_unix_s=101)
         self.callbacks[-1]()
-        self.assertEqual(self.present.call_args.args[0].text, "● SYS OK")
+        self.assertEqual(self.present.call_args.args[0].tone, "accent_success")
 
     def test_provider_failure_is_neutral_and_loop_continues(self):
         self.provider.snapshot.side_effect = RuntimeError("unavailable")

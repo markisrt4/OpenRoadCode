@@ -17,37 +17,35 @@ from ui.system_diagnostics import SystemDiagnosticsProviderIf, SystemDiagnostics
 class PerformanceStatus:
     """Short text plus a semantic color; unknown data never implies failure."""
 
-    text: str = "● SYS —"
+    text: str = "SYSTEM"
     tone: str = "text_muted"
 
 
 def performance_status(sample: SystemDiagnosticsSnapshot, *, stale: bool = False) -> PerformanceStatus:
     """Prioritize current resource pressure and observed sensor problems."""
     if stale or sample.sampled_at_unix_s is None:
-        return PerformanceStatus("● SYS OLD" if stale else "● SYS —")
+        return PerformanceStatus()
     conditions = []
-    for name, value in (("CPU", sample.cpu_percent), ("CPU", sample.workload.cpu_capacity_percent),
-                        ("RAM", sample.memory_used_percent), ("DISK", sample.disk_used_percent)):
+    for value in (sample.cpu_percent, sample.workload.cpu_capacity_percent,
+                  sample.memory_used_percent, sample.disk_used_percent):
         if value is not None and value >= 80:
-            conditions.append((2 if value >= 95 else 1, name))
+            conditions.append(2 if value >= 95 else 1)
     headroom = sample.thermal_headroom_c
     if headroom is not None and headroom <= 10:
-        conditions.append((2 if headroom <= 5 else 1, "THERMAL"))
+        conditions.append(2 if headroom <= 5 else 1)
     for sensor in sample.sensors:
         if sensor.state in {"invalid", "stale", "degraded"}:
-            conditions.append((2 if sensor.state == "invalid" else 1, "SENSOR"))
+            conditions.append(2 if sensor.state == "invalid" else 1)
     if any(service.state in {"dropping", "stopped"} for service in sample.services):
-        conditions.append((2, "SERVICE"))
+        conditions.append(2)
     if conditions:
-        # Preserve the first cause at the highest severity for stable short text.
-        severity, cause = max(conditions, key=lambda condition: condition[0])
-        return PerformanceStatus(f"● SYS {cause}", "accent_danger" if severity == 2 else "accent_warning")
+        return PerformanceStatus(tone="accent_danger" if max(conditions) == 2 else "accent_warning")
     if sample.workload.visibility != "visible":
-        return PerformanceStatus("● SYS PART" if sample.workload.visibility == "partial" else "● SYS —")
+        return PerformanceStatus()
     if any(value is None for value in (sample.workload.cpu_capacity_percent,
                                        sample.memory_used_percent, sample.disk_used_percent)):
         return PerformanceStatus()
-    return PerformanceStatus("● SYS OK", "accent_success")
+    return PerformanceStatus(tone="accent_success")
 
 
 class PerformanceStatusPresenter:

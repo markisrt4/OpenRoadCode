@@ -22,18 +22,19 @@ It does not need the map renderer, automotive services, or a running ORC shell.
 ## View inside ORC
 
 Run ORC normally with `python -m apps.orcUi` (or `venv/bin/python -m apps.orcUi`
-when using its virtual environment). Tap the small **● SYS** indicator at the
+when using its virtual environment). Tap the small **SYSTEM** indicator at the
 persistent control row beside Settings and the theme control to open Diagnostics on **ORC workload**.
 The indicator remains available on every screen. **Back** returns to the
 navigation destination that opened Diagnostics. No sidebar entry is added.
 
-The label accompanies its color: **OK** is green for normal observed readings;
-**CPU**, **RAM**, **DISK**, **THERMAL**, **SENSOR**, or **SERVICE** identify the most severe
-current condition in amber or red. **PART** means restricted process visibility;
-**—** means waiting or unavailable measurements; **OLD** means the cached sample
-has stopped advancing for over three seconds. These unknown states are muted.
-Green summarizes available resource readings and observed sensor streams; it
-is not a hardware self-test and does not certify unobserved or disabled sensors.
+The button always says **SYSTEM**. Green means normal observed readings, yellow
+means degraded status, and red means a warning. Gray means measurements are
+incomplete, unavailable, warming up, or stale. Tap the button for the underlying
+CPU, memory, storage, thermal, sensor, and service details in Diagnostics.
+Thermal colors indicate proximity to a reported trip point, not a claim that
+hardware is already overheating. Green summarizes available resource readings
+and observed sensor streams; it is not a hardware self-test and does not certify
+unobserved or disabled sensors.
 
 The indicator reads the same background sampler cache once per second; it does
 not scan processes or query firmware on the Tk thread. Theme changes retain its
@@ -86,7 +87,7 @@ displayed as unavailable.
 The preview opens on **ORC workload**. It shows combined CPU use and a table of
 processes sorted by CPU use, with PID, CPU percentage, resident memory (RSS),
 proportional memory (PSS), thread count, and actual disk read/write byte rates.
-The other tabs are **System**, **Sensor telemetry**, and **Services**. The persistent **● SYS**
+The other tabs are **System**, **Sensor telemetry**, and **Services**. The persistent **SYSTEM**
 indicator opens this screen inside ORC.
 
 Recognized roots include the ORC UI/application modules, navigation, automotive,
