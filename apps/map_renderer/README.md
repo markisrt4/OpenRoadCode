@@ -57,10 +57,12 @@ build can be updated without rebuilding MapLibre or Valhalla:
 ```bash
 cd ~/src/OpenRoadCode
 git switch android-linux-food-apps
-cmake --build apps/map_renderer/build-termux --parallel 2
-install -Dm755 apps/map_renderer/build-termux/openroadcode-map-renderer \
-  "${OPENROADCODE_NAVIGATION_ROOT:-$PREFIX/opt/openroadcode/navigation}/bin/openroadcode-map-renderer"
+./development/termux/rebuild_map_renderer.sh
 ```
 
-Close ORC before installing the executable, then restart it. The build directory
+The updater installs renderer dependencies, including `spdlog`, and stops before
+installation if compilation fails. It reuses the configured MapLibre build and
+does not rebuild Valhalla or download map data.
+
+Close ORC before updating the executable, then restart it. The build directory
 must have been configured by `development/termux/build_navigation_stack.sh`.

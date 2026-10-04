@@ -288,3 +288,22 @@ Vector-map content and routing data are generated from source datasets and shoul
 ## Test notes
 
 The broad Python suite runs under Termux with platform-specific hardware tests skipped when their Linux-only dependencies are unavailable. Component tests supplement automated tests where real hardware, native services, X11, Android integration, or game packages are required.
+
+## Updating an existing map renderer
+
+Close ORC, then update the native renderer without rebuilding MapLibre or
+Valhalla:
+
+```bash
+cd ~/src/OpenRoadCode
+git switch android-linux-food-apps
+git pull --ff-only origin android-linux-food-apps
+./development/termux/rebuild_map_renderer.sh
+./runOrcUi
+```
+
+The updater installs renderer build dependencies, including `spdlog` for
+structured logging, before compiling. It requires the existing
+`apps/map_renderer/build-termux` directory configured by
+`build_navigation_stack.sh`. Compilation must succeed before the installed
+executable is replaced. No map-data download is needed.
