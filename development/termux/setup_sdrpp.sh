@@ -439,6 +439,106 @@ s=s.replace('''        void unbindStream(stream<T>* stream) {
 splitter.write_text(s)
 PY
 
+echo "[*] Instrumenting SDR++ VFO consumer for stalled-waterfall diagnosis"
+python3 - "$SDRPP_SRC/core/src/signal_path/iq_frontend.cpp" "$SDRPP_SRC/core/src/dsp/channel/rx_vfo.h" <<'PY'
+from pathlib import Path
+import sys
+
+frontend = Path(sys.argv[1])
+vfo_header = Path(sys.argv[2])
+
+s = frontend.read_text()
+old = '''    // Register them
+    vfoStreams[name] = vfoIn;
+    vfos[name] = vfo;
+    bindIQStream(vfoIn);
+
+    // Start VFO
+    vfo->start();'''
+new = '''    // Register them
+    vfoStreams[name] = vfoIn;
+    vfos[name] = vfo;
+    fprintf(stderr,
+            "[ORC VFO identity] frontend=%p name=%s vfo=%p input=%p output=%p\\n",
+            (void*)this, name.c_str(), (void*)vfo, (void*)vfoIn, (void*)&vfo->out);
+    fflush(stderr);
+    bindIQStream(vfoIn);
+
+    // Start VFO
+    vfo->start();'''
+if old not in s:
+    raise SystemExit("Could not locate IQFrontEnd::addVFO registration")
+s = s.replace(old, new, 1)
+frontend.write_text(s)
+
+s = vfo_header.read_text()
+old = '''        int run() {
+            int count = base_type::_in->read();
+            if (count < 0) { return -1; }
+
+            int outCount = process(count, base_type::_in->readBuf, out.writeBuf);
+
+            // Swap if some data was generated
+            base_type::_in->flush();
+            if (outCount) {
+                if (!out.swap(outCount)) { return -1; }
+            }
+            return outCount;
+        }'''
+new = '''        int run() {
+            static unsigned long long orcVfoRuns = 0;
+            unsigned long long orcRun = ++orcVfoRuns;
+            fprintf(stderr,
+                    "[ORC VFO run] self=%p run=%llu input=%p output=%p before-read\\n",
+                    (void*)this, orcRun, (void*)base_type::_in, (void*)&out);
+            fflush(stderr);
+            int count = base_type::_in->read();
+            fprintf(stderr,
+                    "[ORC VFO run] self=%p run=%llu input=%p after-read count=%d\\n",
+                    (void*)this, orcRun, (void*)base_type::_in, count);
+            fflush(stderr);
+            if (count < 0) { return -1; }
+
+            fprintf(stderr,
+                    "[ORC VFO run] self=%p run=%llu before-process count=%d\\n",
+                    (void*)this, orcRun, count);
+            fflush(stderr);
+            int outCount = process(count, base_type::_in->readBuf, out.writeBuf);
+            fprintf(stderr,
+                    "[ORC VFO run] self=%p run=%llu after-process outCount=%d\\n",
+                    (void*)this, orcRun, outCount);
+            fflush(stderr);
+
+            // Swap if some data was generated
+            fprintf(stderr,
+                    "[ORC VFO run] self=%p run=%llu input=%p before-input-flush\\n",
+                    (void*)this, orcRun, (void*)base_type::_in);
+            fflush(stderr);
+            base_type::_in->flush();
+            fprintf(stderr,
+                    "[ORC VFO run] self=%p run=%llu input=%p after-input-flush\\n",
+                    (void*)this, orcRun, (void*)base_type::_in);
+            fflush(stderr);
+            if (outCount) {
+                fprintf(stderr,
+                        "[ORC VFO run] self=%p run=%llu output=%p before-output-swap outCount=%d\\n",
+                        (void*)this, orcRun, (void*)&out, outCount);
+                fflush(stderr);
+                bool orcSwap = out.swap(outCount);
+                fprintf(stderr,
+                        "[ORC VFO run] self=%p run=%llu output=%p after-output-swap swap=%d\\n",
+                        (void*)this, orcRun, (void*)&out, orcSwap ? 1 : 0);
+                fflush(stderr);
+                if (!orcSwap) { return -1; }
+            }
+            return outCount;
+        }'''
+if old not in s:
+    raise SystemExit("Could not locate RxVFO::run")
+s = s.replace(old, new, 1)
+vfo_header.write_text(s)
+PY
+
 echo "[*] Instrumenting SDR++ block lifecycle for stalled-waterfall diagnosis"
 python3 - "$SDRPP_SRC/core/src/dsp/block.h" <<'PY'
 from pathlib import Path
