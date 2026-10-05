@@ -282,145 +282,6 @@ source = source.replace(old, new, 1)
 path.write_text(source)
 PY
 
-echo "[*] Replacing SDR++ RingBuffer with synchronized SPSC implementation for FFT A/B test"
-python3 - "$SDRPP_SRC/core/src/dsp/buffer/ring_buffer.h" <<'PY'
-from pathlib import Path
-import sys
-
-path = Path(sys.argv[1])
-source = r'''#pragma once
-#include "buffer.h"
-#include <algorithm>
-#include <condition_variable>
-#include <cstring>
-#include <mutex>
-
-#define RING_BUF_SZ 1000000
-
-namespace dsp::buffer {
-    template <class T>
-    class RingBuffer {
-    public:
-        RingBuffer() {}
-        RingBuffer(int maxLatency) { init(maxLatency); }
-        ~RingBuffer() {
-            if (!_init) { return; }
-            buffer::free(_buffer);
-            _init = false;
-        }
-
-        void init(int maxLatency) {
-            std::lock_guard<std::mutex> lock(mtx);
-            size = RING_BUF_SZ;
-            this->maxLatency = maxLatency;
-            readc = writec = readable = 0;
-            _stopReader = _stopWriter = false;
-            _buffer = buffer::alloc<T>(size);
-            buffer::clear(_buffer, size);
-            _init = true;
-        }
-
-        int read(T* data, int len) { return consume(data, len, 0); }
-        int readAndSkip(T* data, int len, int skip) { return consume(data, len, skip); }
-
-        int write(T* data, int len) {
-            assert(_init);
-            int done = 0;
-            while (done < len) {
-                std::unique_lock<std::mutex> lock(mtx);
-                canWrite.wait(lock, [&]() { return _stopWriter || writableLocked() > 0; });
-                if (_stopWriter) { return -1; }
-                int n = std::min(len - done, writableLocked());
-                copyIn(&data[done], n);
-                writec = (writec + n) % size;
-                readable += n;
-                done += n;
-                lock.unlock();
-                canRead.notify_one();
-            }
-            return len;
-        }
-
-        int waitUntilReadable() {
-            assert(_init);
-            std::unique_lock<std::mutex> lock(mtx);
-            canRead.wait(lock, [&]() { return _stopReader || readable > 0; });
-            return _stopReader ? -1 : readable;
-        }
-        int getReadable(bool lock = true) {
-            assert(_init);
-            if (!lock) { return readable; }
-            std::lock_guard<std::mutex> guard(mtx);
-            return readable;
-        }
-        int waitUntilwritable() {
-            assert(_init);
-            std::unique_lock<std::mutex> lock(mtx);
-            canWrite.wait(lock, [&]() { return _stopWriter || writableLocked() > 0; });
-            return _stopWriter ? -1 : writableLocked();
-        }
-        int getWritable(bool lock = true) {
-            assert(_init);
-            if (!lock) { return writableLocked(); }
-            std::lock_guard<std::mutex> guard(mtx);
-            return writableLocked();
-        }
-        void stopReader() { std::lock_guard<std::mutex> lock(mtx); _stopReader = true; canRead.notify_all(); }
-        void stopWriter() { std::lock_guard<std::mutex> lock(mtx); _stopWriter = true; canWrite.notify_all(); }
-        bool getReadStop() { std::lock_guard<std::mutex> lock(mtx); return _stopReader; }
-        bool getWriteStop() { std::lock_guard<std::mutex> lock(mtx); return _stopWriter; }
-        void clearReadStop() { std::lock_guard<std::mutex> lock(mtx); _stopReader = false; }
-        void clearWriteStop() { std::lock_guard<std::mutex> lock(mtx); _stopWriter = false; }
-        void setMaxLatency(int value) { std::lock_guard<std::mutex> lock(mtx); maxLatency = value; canWrite.notify_all(); }
-
-    private:
-        int consume(T* data, int len, int skip) {
-            int copied = 0;
-            int discarded = 0;
-            while (copied < len || discarded < skip) {
-                std::unique_lock<std::mutex> lock(mtx);
-                canRead.wait(lock, [&]() { return _stopReader || readable > 0; });
-                if (_stopReader) { return -1; }
-                bool copying = copied < len;
-                int need = copying ? len - copied : skip - discarded;
-                int n = std::min(need, readable);
-                if (copying) {
-                    copyOut(&data[copied], n);
-                    copied += n;
-                } else {
-                    discarded += n;
-                }
-                readc = (readc + n) % size;
-                readable -= n;
-                lock.unlock();
-                canWrite.notify_one();
-            }
-            return len;
-        }
-        int writableLocked() const { return std::max(0, std::min(size - readable, maxLatency - readable)); }
-        void copyIn(const T* src, int n) {
-            int first = std::min(n, size - writec);
-            memcpy(&_buffer[writec], src, first * sizeof(T));
-            if (n > first) { memcpy(&_buffer[0], &src[first], (n - first) * sizeof(T)); }
-        }
-        void copyOut(T* dst, int n) {
-            int first = std::min(n, size - readc);
-            memcpy(dst, &_buffer[readc], first * sizeof(T));
-            if (n > first) { memcpy(&dst[first], &_buffer[0], (n - first) * sizeof(T)); }
-        }
-
-        bool _init = false;
-        T* _buffer = nullptr;
-        int size = 0, readc = 0, writec = 0, readable = 0, maxLatency = 0;
-        bool _stopReader = false, _stopWriter = false;
-        std::mutex mtx;
-        std::condition_variable canRead, canWrite;
-    };
-}
-'''
-path.write_text(source)
-PY
-
 echo "[*] Instrumenting SDR++ FFT reshaper for stalled-waterfall diagnosis"
 python3 - "$SDRPP_SRC/core/src/dsp/buffer/reshaper.h" <<'PY'
 from pathlib import Path
@@ -438,17 +299,29 @@ old = '''        int run() {
         }'''
 new = '''        int run() {
             static unsigned long long orcRuns = 0;
-            int count = _in->read();
-            if (count < 0) {
-                fprintf(stderr, "[ORC reshape] input read stopped count=%d\\n", count);
-                fflush(stderr);
-                return -1;
-            }
             orcRuns++;
+            bool orcTraceRun = orcRuns <= 64 || (orcRuns % 256) == 0;
+            if (orcTraceRun) {
+                fprintf(stderr, "[ORC reshape producer] self=%p run=%llu before-input-read\\n",
+                        (void*)this, orcRuns);
+                fflush(stderr);
+            }
+            int count = _in->read();
+            if (orcTraceRun || count < 0) {
+                fprintf(stderr, "[ORC reshape producer] self=%p run=%llu after-input-read count=%d\\n",
+                        (void*)this, orcRuns, count);
+                fflush(stderr);
+            }
+            if (count < 0) { return -1; }
+            if (orcTraceRun) {
+                fprintf(stderr, "[ORC reshape producer] self=%p run=%llu before-ring-write count=%d\\n",
+                        (void*)this, orcRuns, count);
+                fflush(stderr);
+            }
             int written = ringBuf.write(_in->readBuf, count);
-            if (orcRuns <= 3 || (orcRuns % 4096) == 0 || written < 0) {
-                fprintf(stderr, "[ORC reshape] run=%llu input=%d ringWrite=%d\\n",
-                        orcRuns, count, written);
+            if (orcTraceRun || written < 0) {
+                fprintf(stderr, "[ORC reshape producer] self=%p run=%llu after-ring-write written=%d\\n",
+                        (void*)this, orcRuns, written);
                 fflush(stderr);
             }
             _in->flush();
