@@ -566,6 +566,25 @@ s = s.replace(old, new, 1)
 path.write_text(s)
 PY
 
+echo "[*] Instrumenting SDR++ Volume block lifecycle"
+python3 - "$SDRPP_SRC/core/src/dsp/audio/volume.h" <<'PY'
+from pathlib import Path
+import sys
+path=Path(sys.argv[1]); s=path.read_text()
+old='''        virtual int run() {'''
+new='''        void start() override {
+            fprintf(stderr, "[ORC Volume lifecycle] self=%p start-dispatch\\n", (void*)this);
+            fflush(stderr);
+            base_type::start();
+            fprintf(stderr, "[ORC Volume lifecycle] self=%p start-return\\n", (void*)this);
+            fflush(stderr);
+        }
+
+        virtual int run() {'''
+if old not in s: raise SystemExit("Could not locate Volume::run declaration")
+path.write_text(s.replace(old,new,1))
+PY
+
 echo "[*] Instrumenting SDR++ audio volume handoff"
 python3 - "$SDRPP_SRC/core/src/dsp/audio/volume.h" <<'PY'
 from pathlib import Path
