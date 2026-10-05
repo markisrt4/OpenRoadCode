@@ -539,6 +539,33 @@ s = s.replace(old, new, 1)
 vfo_header.write_text(s)
 PY
 
+echo "[*] Instrumenting SDR++ radio IF-chain boundary for stalled-waterfall diagnosis"
+python3 - "$SDRPP_SRC/decoder_modules/radio/src/radio_module.h" <<'PY'
+from pathlib import Path
+import sys
+
+path = Path(sys.argv[1])
+s = path.read_text()
+old = '''        ifChainOutputChanged.ctx = this;
+        ifChainOutputChanged.handler = ifChainOutputChangeHandler;
+        ifChain.init(vfo->output);
+
+        nb.init(NULL, 500.0 / 24000.0, 10.0);'''
+new = '''        ifChainOutputChanged.ctx = this;
+        ifChainOutputChanged.handler = ifChainOutputChangeHandler;
+        fprintf(stderr,
+                "[ORC radio identity] self=%p name=%s vfo=%p vfoOut=%p ifChain=%p\\n",
+                (void*)this, name.c_str(), (void*)vfo, (void*)vfo->output, (void*)&ifChain);
+        fflush(stderr);
+        ifChain.init(vfo->output);
+
+        nb.init(NULL, 500.0 / 24000.0, 10.0);'''
+if old not in s:
+    raise SystemExit("Could not locate RadioModule IF-chain initialization")
+s = s.replace(old, new, 1)
+path.write_text(s)
+PY
+
 echo "[*] Instrumenting SDR++ block lifecycle for stalled-waterfall diagnosis"
 python3 - "$SDRPP_SRC/core/src/dsp/block.h" <<'PY'
 from pathlib import Path
