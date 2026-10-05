@@ -300,8 +300,17 @@ new = '''        int run() {
                 fflush(stderr);
             }
             int count = _in->read();'''
-if old not in s: raise SystemExit("Could not locate Reshaper::run")
-s=s.replace(old,new,1)
+if old in s:
+    s=s.replace(old,new,1)
+else:
+    producer = 'fprintf(stderr, "[ORC reshape producer] self=%p run=%llu before-input-read'
+    pos = s.find(producer)
+    if pos < 0:
+        raise SystemExit("Could not locate SDR++ Reshaper::run() or producer trace")
+    line_start = s.rfind("\n", 0, pos) + 1
+    indent = s[line_start:pos]
+    identity = indent + 'fprintf(stderr, "[ORC reshape identity] self=%p in=%p out=%p\\\\n", (void*)this, (void*)_in, (void*)&out); fflush(stderr);\\n'
+    s = s[:line_start] + identity + s[line_start:]
 reshape.write_text(s)
 
 splitter=Path(sys.argv[2]); s=splitter.read_text()
