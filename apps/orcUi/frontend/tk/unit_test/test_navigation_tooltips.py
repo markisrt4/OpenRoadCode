@@ -82,7 +82,7 @@ def test_camera_rail_fits_short_viewports_and_caps_tall_ones():
                         Frame=frame, Button=Mock(), Label=label,
                         Menubutton=Mock(), Menu=Mock()):
         build_navigation_panel(Mock())
-    controls = next(widget for widget, _args, kwargs in frames if kwargs.get("width") == 96)
+    controls = next(widget for widget, _args, kwargs in frames if kwargs.get("width") == 62)
     rail = next(widget for widget, args, _kwargs in frames if args and args[0] is controls)
     resize = controls.bind.call_args.args[1]
     for height in (200, 240, 600, 180):

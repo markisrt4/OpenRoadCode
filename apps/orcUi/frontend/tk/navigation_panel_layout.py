@@ -120,7 +120,7 @@ def build_navigation_panel(panel) -> None:
     )
     panel._map_host.grid(row=0, column=0, sticky="nsew")
     controls = tk.Frame(
-        body, bg=ui.surface_alt, width=96, highlightthickness=1, highlightbackground=ui.border
+        body, bg=ui.surface_alt, width=62, highlightthickness=1, highlightbackground=ui.border
     )
     controls.grid(row=0, column=1, sticky="ns", padx=(4, 0))
     controls.grid_propagate(False)
