@@ -566,6 +566,78 @@ s = s.replace(old, new, 1)
 path.write_text(s)
 PY
 
+echo "[*] Instrumenting SDR++ BroadcastFM handoff for stalled-waterfall diagnosis"
+python3 - "$SDRPP_SRC/core/src/dsp/demod/broadcast_fm.h" <<'PY'
+from pathlib import Path
+import sys
+
+path = Path(sys.argv[1])
+s = path.read_text()
+old = '''        int run() {
+            int count = base_type::_in->read();
+            if (count < 0) { return -1; }
+
+            int rdsOutCount = 0;
+            process(count, base_type::_in->readBuf, base_type::out.writeBuf, rdsOutCount, rdsOut.writeBuf);
+
+            base_type::_in->flush();
+            if (!base_type::out.swap(count)) { return -1; }
+            if (rdsOutCount && _rdsOut) {
+                if (!rdsOut.swap(rdsOutCount)) { return -1; }
+            }
+            return count;
+        }'''
+new = '''        int run() {
+            static unsigned long long orcRuns = 0;
+            unsigned long long orcRun = ++orcRuns;
+            fprintf(stderr, "[ORC BroadcastFM] self=%p run=%llu input=%p output=%p rdsOut=%p before-read\\n",
+                    (void*)this, orcRun, (void*)base_type::_in, (void*)&base_type::out, (void*)&rdsOut);
+            fflush(stderr);
+            int count = base_type::_in->read();
+            fprintf(stderr, "[ORC BroadcastFM] self=%p run=%llu after-read count=%d\\n",
+                    (void*)this, orcRun, count);
+            fflush(stderr);
+            if (count < 0) { return -1; }
+
+            int rdsOutCount = 0;
+            fprintf(stderr, "[ORC BroadcastFM] self=%p run=%llu before-process count=%d\\n",
+                    (void*)this, orcRun, count);
+            fflush(stderr);
+            process(count, base_type::_in->readBuf, base_type::out.writeBuf, rdsOutCount, rdsOut.writeBuf);
+            fprintf(stderr, "[ORC BroadcastFM] self=%p run=%llu after-process count=%d rdsOutCount=%d rdsEnabled=%d\\n",
+                    (void*)this, orcRun, count, rdsOutCount, (int)_rdsOut);
+            fflush(stderr);
+
+            fprintf(stderr, "[ORC BroadcastFM] self=%p run=%llu input=%p before-input-flush\\n",
+                    (void*)this, orcRun, (void*)base_type::_in);
+            fflush(stderr);
+            base_type::_in->flush();
+            fprintf(stderr, "[ORC BroadcastFM] self=%p run=%llu input=%p after-input-flush output=%p before-output-swap count=%d\\n",
+                    (void*)this, orcRun, (void*)base_type::_in, (void*)&base_type::out, count);
+            fflush(stderr);
+            bool orcOutSwap = base_type::out.swap(count);
+            fprintf(stderr, "[ORC BroadcastFM] self=%p run=%llu output=%p after-output-swap swap=%d\\n",
+                    (void*)this, orcRun, (void*)&base_type::out, (int)orcOutSwap);
+            fflush(stderr);
+            if (!orcOutSwap) { return -1; }
+            if (rdsOutCount && _rdsOut) {
+                fprintf(stderr, "[ORC BroadcastFM] self=%p run=%llu rdsOut=%p before-rds-swap count=%d\\n",
+                        (void*)this, orcRun, (void*)&rdsOut, rdsOutCount);
+                fflush(stderr);
+                bool orcRdsSwap = rdsOut.swap(rdsOutCount);
+                fprintf(stderr, "[ORC BroadcastFM] self=%p run=%llu rdsOut=%p after-rds-swap swap=%d\\n",
+                        (void*)this, orcRun, (void*)&rdsOut, (int)orcRdsSwap);
+                fflush(stderr);
+                if (!orcRdsSwap) { return -1; }
+            }
+            return count;
+        }'''
+if old not in s:
+    raise SystemExit("Could not locate BroadcastFM::run")
+s = s.replace(old, new, 1)
+path.write_text(s)
+PY
+
 echo "[*] Instrumenting SDR++ selected radio demodulator identity"
 python3 - "$SDRPP_SRC/decoder_modules/radio/src/radio_module.h" <<'PY'
 from pathlib import Path
