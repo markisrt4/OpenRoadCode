@@ -161,13 +161,32 @@ text = text[:err_at] + r'''err:
 }
 ''' + text[close_at:]
 
-# Proxy reset_buffer through the normal RTL2832U register helpers. Upstream
-# reset_buffer already uses rtlsdr_write_reg(), so no special transport path is
-# required; log it here to prove the endpoint reset actually occurs before IQ.
-text = text.replace(
-    'int rtlsdr_reset_buffer(rtlsdr_dev_t *dev)\\n{\\n\\tif (!dev)\\n\\t\\treturn -1;\\n\\n\\trtlsdr_write_reg(dev, USBB, USB_EPA_CTL, 0x1002, 2);\\n\\trtlsdr_write_reg(dev, USBB, USB_EPA_CTL, 0x0000, 2);',
-    'int rtlsdr_reset_buffer(rtlsdr_dev_t *dev)\\n{\\n\\tint r1, r2;\\n\\tif (!dev)\\n\\t\\treturn -1;\\n\\n\\tfprintf(stderr, "[ORCU] reset_buffer: USB_EPA_CTL <= 0x1002 then 0x0000\\\\n");\\n\\tfflush(stderr);\\n\\tr1 = rtlsdr_write_reg(dev, USBB, USB_EPA_CTL, 0x1002, 2);\\n\\tr2 = rtlsdr_write_reg(dev, USBB, USB_EPA_CTL, 0x0000, 2);\\n\\tfprintf(stderr, "[ORCU] reset_buffer results: first=%d second=%d\\\\n", r1, r2);\\n\\tfflush(stderr);'
-)
+# Trace the endpoint/FIFO reset that SDR++ calls immediately before
+# rtlsdr_read_async(). Fail the patch loudly if upstream changes underneath us.
+reset_buffer_old = """int rtlsdr_reset_buffer(rtlsdr_dev_t *dev)
+{
+\tif (!dev)
+\t\treturn -1;
+
+\trtlsdr_write_reg(dev, USBB, USB_EPA_CTL, 0x1002, 2);
+\trtlsdr_write_reg(dev, USBB, USB_EPA_CTL, 0x0000, 2);
+"""
+reset_buffer_new = """int rtlsdr_reset_buffer(rtlsdr_dev_t *dev)
+{
+\tint r1, r2;
+\tif (!dev)
+\t\treturn -1;
+
+\tfprintf(stderr, "[ORCU] reset_buffer: USB_EPA_CTL <= 0x1002 then 0x0000\\\\n");
+\tfflush(stderr);
+\tr1 = rtlsdr_write_reg(dev, USBB, USB_EPA_CTL, 0x1002, 2);
+\tr2 = rtlsdr_write_reg(dev, USBB, USB_EPA_CTL, 0x0000, 2);
+\tfprintf(stderr, "[ORCU] reset_buffer results: first=%d second=%d\\\\n", r1, r2);
+\tfflush(stderr);
+"""
+if reset_buffer_old not in text:
+    raise SystemExit("unable to instrument rtlsdr_reset_buffer: upstream source shape changed")
+text = text.replace(reset_buffer_old, reset_buffer_new, 1)
 
 # Close and synchronous reads.
 close_start = text.index('int rtlsdr_close(')
