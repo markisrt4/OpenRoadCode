@@ -566,6 +566,32 @@ s = s.replace(old, new, 1)
 path.write_text(s)
 PY
 
+echo "[*] Instrumenting SDR++ selected radio demodulator identity"
+python3 - "$SDRPP_SRC/decoder_modules/radio/src/radio_module.h" <<'PY'
+from pathlib import Path
+import sys
+
+path = Path(sys.argv[1])
+s = path.read_text()
+old = '''        selectedDemodID = id;
+        selectDemod(demod);
+
+        // Save config'''
+new = '''        selectedDemodID = id;
+        fprintf(stderr,
+                "[ORC radio demod] self=%p name=%s id=%d demod=%p type=%s input=%p\\n",
+                (void*)this, name.c_str(), (int)id, (void*)demod, demod->getName(),
+                (void*)ifChain.out);
+        fflush(stderr);
+        selectDemod(demod);
+
+        // Save config'''
+if old not in s:
+    raise SystemExit("Could not locate RadioModule demod selection")
+s = s.replace(old, new, 1)
+path.write_text(s)
+PY
+
 echo "[*] Instrumenting SDR++ Radio IF consumer for stalled-waterfall diagnosis"
 python3 - "$SDRPP_SRC/decoder_modules/radio/src/radio_module.h" <<'PY'
 from pathlib import Path
