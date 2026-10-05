@@ -282,6 +282,79 @@ source = source.replace(old, new, 1)
 path.write_text(source)
 PY
 
+echo "[*] Instrumenting SDR++ IQ frontend boundary for stalled-DSP diagnosis"
+python3 - "$SDRPP_SRC/core/src/signal_path/iq_frontend.cpp" "$SDRPP_SRC/core/src/dsp/buffer/frame_buffer.h" <<'PY'
+from pathlib import Path
+import sys
+
+frontend = Path(sys.argv[1])
+source = frontend.read_text()
+old = '''    split.init(preproc.out);
+
+    // TODO: Do something to avoid basically repeating this code twice'''
+new = '''    split.init(preproc.out);
+    fprintf(stderr,
+            "[ORC frontend] self=%p sourceIn=%p inBufOut=%p preprocOut=%p split=%p splitIn=%p fftIn=%p decimOut=%p dcOut=%p conjugateOut=%p\\n",
+            (void*)this, (void*)in, (void*)&inBuf.out, (void*)preproc.out,
+            (void*)&split, (void*)preproc.out, (void*)&fftIn,
+            (void*)&decim.out, (void*)&dcBlock.out, (void*)&conjugate.out);
+    fflush(stderr);
+
+    // TODO: Do something to avoid basically repeating this code twice'''
+if old not in source:
+    raise SystemExit("Could not locate IQFrontEnd split.init(preproc.out)")
+source = source.replace(old, new, 1)
+frontend.write_text(source)
+
+frame = Path(sys.argv[2])
+source = frame.read_text()
+old = '''        int run() {
+            // Wait for data
+            int count = _in->read();'''
+new = '''        int run() {
+            static unsigned long long orcFrameRuns = 0;
+            orcFrameRuns++;
+            bool orcTrace = orcFrameRuns <= 80 || (orcFrameRuns % 256) == 0;
+            if (orcTrace) {
+                fprintf(stderr, "[ORC framebuf] self=%p run=%llu in=%p out=%p bypass=%d before-read\\n",
+                        (void*)this, orcFrameRuns, (void*)_in, (void*)&out, bypass ? 1 : 0);
+                fflush(stderr);
+            }
+            // Wait for data
+            int count = _in->read();
+            if (orcTrace || count < 0) {
+                fprintf(stderr, "[ORC framebuf] self=%p run=%llu in=%p out=%p bypass=%d after-read count=%d\\n",
+                        (void*)this, orcFrameRuns, (void*)_in, (void*)&out, bypass ? 1 : 0, count);
+                fflush(stderr);
+            }'''
+if old not in source:
+    raise SystemExit("Could not locate SampleFrameBuffer::run()")
+source = source.replace(old, new, 1)
+
+old = '''                // Swap
+                if (!out.swap(count)) { break; }'''
+new = '''                // Swap
+                static unsigned long long orcFrameOutputs = 0;
+                orcFrameOutputs++;
+                bool orcTrace = orcFrameOutputs <= 80 || (orcFrameOutputs % 256) == 0;
+                if (orcTrace) {
+                    fprintf(stderr, "[ORC framebuf worker] self=%p output=%llu out=%p count=%d before-swap\\n",
+                            (void*)this, orcFrameOutputs, (void*)&out, count);
+                    fflush(stderr);
+                }
+                bool orcSwapped = out.swap(count);
+                if (orcTrace || !orcSwapped) {
+                    fprintf(stderr, "[ORC framebuf worker] self=%p output=%llu out=%p count=%d swap=%d\\n",
+                            (void*)this, orcFrameOutputs, (void*)&out, count, orcSwapped ? 1 : 0);
+                    fflush(stderr);
+                }
+                if (!orcSwapped) { break; }'''
+if old not in source:
+    raise SystemExit("Could not locate SampleFrameBuffer worker swap")
+source = source.replace(old, new, 1)
+frame.write_text(source)
+PY
+
 echo "[*] Instrumenting SDR++ FFT stream identity for stalled-waterfall diagnosis"
 python3 - "$SDRPP_SRC/core/src/dsp/buffer/reshaper.h" "$SDRPP_SRC/core/src/dsp/routing/splitter.h" <<'PY'
 from pathlib import Path
