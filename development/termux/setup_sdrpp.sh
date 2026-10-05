@@ -1606,6 +1606,9 @@ verify_marker() {
 verify_marker '[ORC Volume]'
 verify_marker '[ORC Volume lifecycle]'
 verify_marker '[ORC sink start steps]'
+verify_marker '[ORC AudioSink]'
+verify_marker '[ORC AudioSink callback]'
+verify_marker '[ORC Packer]'
 
 echo "[*] Preparing SDR++ development resources"
 mkdir -p "$SDRPP_ROOT"; cp -a "$SDRPP_SRC/root/." "$SDRPP_ROOT/"
