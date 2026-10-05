@@ -675,6 +675,95 @@ new='''        int run() {
 path.write_text(s[:start] + new + s[end:])
 PY
 
+echo "[*] Instrumenting SDR++ radio AF post-processing identity"
+python3 - "$SDRPP_SRC/decoder_modules/radio/src/radio_module.h" <<'PY'
+from pathlib import Path
+import sys
+p=Path(sys.argv[1]); s=p.read_text()
+old='''        // Start new demodulator
+        selectedDemod->start();'''
+new='''        fprintf(stderr,
+                "[ORC radio AF] self=%p postProc=%d highPassAllowed=%d highPass=%d deempAllowed=%d deempMode=%s afOut=%p resamp=%p resampOut=%p hpf=%p hpfOut=%p deemp=%p deempOut=%p sinkStream=%p\\n",
+                (void*)this, (int)postProcEnabled, (int)highPassAllowed, (int)highPass,
+                (int)deempAllowed, deempModes.key(deempId).c_str(), (void*)afChain.out,
+                (void*)&resamp, (void*)&resamp.out, (void*)&hpf, (void*)&hpf.out,
+                (void*)&deemp, (void*)&deemp.out, (void*)&stream);
+        fflush(stderr);
+
+        // Start new demodulator
+        selectedDemod->start();'''
+if old not in s: raise SystemExit("Could not locate RadioModule demod start")
+p.write_text(s.replace(old,new,1))
+PY
+
+echo "[*] Instrumenting SDR++ Deemphasis handoff"
+python3 - "$SDRPP_SRC/core/src/dsp/filter/deephasis.h" <<'PY'
+from pathlib import Path
+import sys
+p=Path(sys.argv[1]); s=p.read_text()
+start=s.index('        int run() {')
+end=s.index('\n        }',start)+len('\n        }')
+new='''        int run() {
+            static unsigned long long orcRuns = 0;
+            unsigned long long orcRun = ++orcRuns;
+            fprintf(stderr, "[ORC Deemphasis] self=%p run=%llu input=%p output=%p before-read\\n",
+                    (void*)this, orcRun, (void*)base_type::_in, (void*)&this->out);
+            fflush(stderr);
+            int count = base_type::_in->read();
+            fprintf(stderr, "[ORC Deemphasis] self=%p run=%llu after-read count=%d\\n", (void*)this, orcRun, count);
+            fflush(stderr);
+            if (count < 0) { return -1; }
+            process(count, base_type::_in->readBuf, base_type::out.writeBuf);
+            fprintf(stderr, "[ORC Deemphasis] self=%p run=%llu after-process count=%d\\n", (void*)this, orcRun, count);
+            fflush(stderr);
+            base_type::_in->flush();
+            fprintf(stderr, "[ORC Deemphasis] self=%p run=%llu input=%p after-input-flush output=%p before-output-swap count=%d\\n",
+                    (void*)this, orcRun, (void*)base_type::_in, (void*)&this->out, count);
+            fflush(stderr);
+            bool ok=base_type::out.swap(count);
+            fprintf(stderr, "[ORC Deemphasis] self=%p run=%llu output=%p after-output-swap swap=%d\\n",
+                    (void*)this, orcRun, (void*)&this->out, (int)ok);
+            fflush(stderr);
+            if (!ok) { return -1; }
+            return count;
+        }'''
+p.write_text(s[:start]+new+s[end:])
+PY
+
+echo "[*] Instrumenting SDR++ FIR handoff"
+python3 - "$SDRPP_SRC/core/src/dsp/filter/fir.h" <<'PY'
+from pathlib import Path
+import sys
+p=Path(sys.argv[1]); s=p.read_text()
+start=s.index('        virtual int run() {')
+end=s.index('\n        }',start)+len('\n        }')
+new='''        virtual int run() {
+            static unsigned long long orcRuns = 0;
+            unsigned long long orcRun = ++orcRuns;
+            fprintf(stderr, "[ORC FIR] self=%p run=%llu input=%p output=%p before-read\\n",
+                    (void*)this, orcRun, (void*)base_type::_in, (void*)&this->out);
+            fflush(stderr);
+            int count = base_type::_in->read();
+            fprintf(stderr, "[ORC FIR] self=%p run=%llu after-read count=%d\\n", (void*)this, orcRun, count);
+            fflush(stderr);
+            if (count < 0) { return -1; }
+            process(count, base_type::_in->readBuf, base_type::out.writeBuf);
+            fprintf(stderr, "[ORC FIR] self=%p run=%llu after-process count=%d\\n", (void*)this, orcRun, count);
+            fflush(stderr);
+            base_type::_in->flush();
+            fprintf(stderr, "[ORC FIR] self=%p run=%llu input=%p after-input-flush output=%p before-output-swap count=%d\\n",
+                    (void*)this, orcRun, (void*)base_type::_in, (void*)&this->out, count);
+            fflush(stderr);
+            bool ok=base_type::out.swap(count);
+            fprintf(stderr, "[ORC FIR] self=%p run=%llu output=%p after-output-swap swap=%d\\n",
+                    (void*)this, orcRun, (void*)&this->out, (int)ok);
+            fflush(stderr);
+            if (!ok) { return -1; }
+            return count;
+        }'''
+p.write_text(s[:start]+new+s[end:])
+PY
+
 echo "[*] Instrumenting SDR++ SinkManager stream boundary"
 python3 - "$SDRPP_SRC/core/src/signal_path/sink.cpp" <<'PY'
 from pathlib import Path
