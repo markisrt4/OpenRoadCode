@@ -60,7 +60,8 @@ class SystemMetricsPanel(tk.Frame):
             padx=5,
             pady=(5, 0),
         )
-        trends.grid_columnconfigure(1, weight=1)
+        trends.grid_columnconfigure((0, 1), weight=1, uniform="trend")
+        trends.grid_rowconfigure((1, 2), weight=1, uniform="trend")
 
         tk.Label(
             trends,
@@ -77,39 +78,22 @@ class SystemMetricsPanel(tk.Frame):
             pady=(8, 4),
         )
 
-        for row, (key, label) in enumerate(
-            (
-                ("cpu", "CPU"),
-                ("memory", "RAM"),
-                ("temperature", "TEMP"),
-                ("process_cpu", "PROCESS"),
-            ),
-            start=1,
+        for index, (key, label) in enumerate(
+            (("cpu", "CPU"), ("memory", "RAM"),
+             ("temperature", "TEMP"), ("process_cpu", "PROCESS CPU"))
         ):
-            trends.grid_rowconfigure(row, weight=1)
-            tk.Label(
-                trends,
-                text=label,
-                bg=ui.surface,
-                fg=self._graph_colors[key],
-                font=("Sans", 9, "bold"),
-                width=6,
-            ).grid(row=row, column=0, sticky="w", padx=(10, 4), pady=4)
-
-            canvas = tk.Canvas(
-                trends,
-                height=72,
-                bg=ui.surface_alt,
-                highlightthickness=1,
-                highlightbackground=ui.border,
-            )
-            canvas.grid(
-                row=row,
-                column=1,
-                sticky="nsew",
-                padx=(0, 10),
-                pady=4,
-            )
+            card = tk.Frame(trends, bg=ui.surface)
+            card.grid(row=1 + index // 2, column=index % 2,
+                      sticky="nsew", padx=8, pady=(0, 6))
+            card.grid_columnconfigure(0, weight=1)
+            card.grid_rowconfigure(1, weight=1)
+            tk.Label(card, text=label, bg=ui.surface,
+                     fg=self._graph_colors[key], font=("Sans", 9, "bold"),
+                     anchor="w").grid(row=0, column=0, sticky="ew", pady=(0, 3))
+            canvas = tk.Canvas(card, height=60, width=120,
+                               bg=ui.surface_alt, highlightthickness=1,
+                               highlightbackground=ui.border)
+            canvas.grid(row=1, column=0, sticky="nsew")
             self._graphs[key] = canvas
             canvas.bind("<Configure>", lambda _event, key=key: self._paint_graph(key))
 

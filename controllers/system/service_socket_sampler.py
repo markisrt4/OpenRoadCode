@@ -55,10 +55,12 @@ class ServiceSocketSampler:
             ss_text = self._tcp_reader()
             counters = parse_tcp_counters(ss_text)
             netlink_records = parse_ss_sockets(ss_text)
-        except (OSError, subprocess.SubprocessError):
+        except (OSError, subprocess.SubprocessError) as error:
             counters = {}
             netlink_records = ()
-            warnings.append("TCP byte counters unavailable; install iproute2/ss and check OS permissions")
+            reason = ((error.stderr or "").strip() if isinstance(error, subprocess.CalledProcessError)
+                      else str(error))
+            warnings.append("TCP byte counters unavailable: " + (reason[:180] or type(error).__name__))
         try:
             own_namespace = os.readlink(self._root / "self/ns/net")
         except OSError:
@@ -71,6 +73,7 @@ class ServiceSocketSampler:
             observed_names.add(name)
             directory = self._root / str(process.pid)
             inaccessible = False
+            failures = []
             inodes = set()
             process_state = "stopped" if process.state in {"Z", "T", "t", "X"} else "running"
             try:
@@ -87,24 +90,39 @@ class ServiceSocketSampler:
                             inodes.add(int(match[1]))
                     except FileNotFoundError:
                         continue
-                    except OSError:
+                    except OSError as error:
+                        failures.append(f"FD ownership: {error.strerror or type(error).__name__}")
                         inaccessible = True
-            except OSError:
+            except OSError as error:
+                failures.append(f"FD directory: {error.strerror or type(error).__name__}")
                 inaccessible = True
             if namespace not in tables:
                 records = []
                 denied = False
                 readable = 0
+                table_failures = []
                 for filename, protocol in (("tcp", "TCP"), ("tcp6", "TCP"), ("udp", "UDP"), ("udp6", "UDP")):
                     try:
                         records.extend(parse_socket_table((directory / "net" / filename).read_text(), protocol))
                         readable += 1
                     except FileNotFoundError:
                         continue  # An unsupported address family is not a permission failure.
-                    except OSError:
+                    except OSError as error:
+                        table_failures.append(f"{filename}: {error.strerror or type(error).__name__}")
                         denied = True
-                tables[namespace] = (records, denied or readable == 0)
-            records, denied = tables[namespace]
+                # Only a verified shared namespace permits using the monitor's table.
+                if readable == 0 and namespace == own_namespace:
+                    for filename, protocol in (("tcp", "TCP"), ("tcp6", "TCP"), ("udp", "UDP"), ("udp6", "UDP")):
+                        try:
+                            records.extend(parse_socket_table((self._root / "self/net" / filename).read_text(), protocol))
+                            readable += 1
+                        except OSError:
+                            continue
+                if readable == 0 and not table_failures:
+                    table_failures.append("TCP/UDP tables missing")
+                tables[namespace] = (records, denied or readable == 0, table_failures)
+            records, denied, table_failures = tables[namespace]
+            failures.extend(table_failures)
             inaccessible = inaccessible or denied
             if inaccessible:
                 warnings.append("Socket visibility restricted or process exited during discovery")
@@ -119,7 +137,7 @@ class ServiceSocketSampler:
             if not owned:
                 rows.append(ServiceSocketSnapshot(name=name, pid=process.pid, process_state=process_state,
                     state="unavailable" if inaccessible else "stopped" if process.state in {"Z", "T", "t", "X"} else "no_socket",
-                    detail="Process state is visible, but socket tables or ownership are inaccessible; Android may restrict these independently" if inaccessible else
+                    detail="Socket inspection unavailable: " + "; ".join(dict.fromkeys(failures)) + ". Android may block this even for running services." if inaccessible else
                            "Visible process has no TCP/UDP sockets; may use IPC, serial, or be starting"))
             for record in owned:
                 cookie, rx, tx = counters.get(record.inode, ("", None, None)) if namespace == own_namespace or record.inode in fallback_inodes else ("", None, None)
@@ -142,7 +160,7 @@ class ServiceSocketSampler:
                 if record.inode in fallback_inodes:
                     detail += " Endpoint recovered via ss/netlink and matched to owned socket inode."
                 if inaccessible:
-                    detail += " Socket visibility is partial."
+                    detail += " Socket visibility is partial: " + "; ".join(dict.fromkeys(failures)) + "."
                 rows.append(ServiceSocketSnapshot(
                     name=name, pid=process.pid, process_state=process_state, protocol=record.protocol,
                     local_endpoint=record.local, remote_endpoint=record.remote, state=state, detail=detail,

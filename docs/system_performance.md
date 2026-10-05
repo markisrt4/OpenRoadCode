@@ -327,3 +327,17 @@ Diagnostics now uses compact ORC-themed row lists. Process PID, thread count and
 I/O; sensor sample age and invalid counts; and service endpoints, queues and
 drops appear in the selected row's detail pane. Main values stay visible without
 horizontal scrolling. The selected tab uses a contrasting label in both themes.
+
+### Trend layout and socket access failures
+
+The System page shows CPU and RAM trends above temperature and process CPU in
+four equal charts, retaining the same two-minute history and units.
+
+If a process's socket tables are unavailable, the collector also tries the
+monitor's own procfs tables, but only after verifying a shared network namespace.
+Endpoint attribution still requires readable descriptor ownership. Selecting an
+unavailable service reports descriptor/table failures; the status line includes
+the actual `ss` error rather than assuming that the command is not installed.
+Android can deny all of these inspection routes. This fallback cannot bypass
+those restrictions, and inaccessible bandwidth remains unknown. Application
+transport counters would require separate service instrumentation.

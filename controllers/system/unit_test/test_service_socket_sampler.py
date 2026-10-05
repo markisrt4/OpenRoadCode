@@ -123,6 +123,29 @@ class SamplerTests(unittest.TestCase):
         self.assertEqual(self.live(rows)[0].state, 'unavailable')
         self.assertIn('restricted', self.sampler.status)
 
+    def test_self_table_recovers_only_verified_shared_namespace(self):
+        for filename in ('tcp', 'tcp6', 'udp', 'udp6'):
+            (self.pid / 'net' / filename).unlink()
+        (self.root / 'self/net').mkdir()
+        (self.root / 'self/net/tcp').write_text(table())
+        self.counter_text = ''
+        row = self.live(self.sampler.sample(self.work))[0]
+        self.assertEqual(row.state, 'connected')
+        self.assertEqual(row.local_endpoint, '127.0.0.1:5556')
+        (self.pid / 'ns/net').unlink()
+        (self.pid / 'ns/net').symlink_to('net:[2]')
+        row = self.live(self.sampler.sample(self.work))[0]
+        self.assertEqual(row.state, 'unavailable')
+        self.assertIn('TCP/UDP tables missing', row.detail)
+
+    def test_missing_fd_directory_reports_specific_failure(self):
+        for fd in (self.pid / 'fd').iterdir():
+            fd.unlink()
+        (self.pid / 'fd').rmdir()
+        row = self.live(self.sampler.sample(self.work))[0]
+        self.assertEqual(row.state, 'unavailable')
+        self.assertIn('FD directory:', row.detail)
+
     def test_ss_failure_preserves_socket_states_and_missing_rates(self):
         def fail():
             raise subprocess.TimeoutExpired('ss', 0.5)
