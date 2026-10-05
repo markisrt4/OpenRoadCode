@@ -635,22 +635,9 @@ python3 - "$SDRPP_SRC/core/src/dsp/routing/splitter.h" <<'PY'
 from pathlib import Path
 import sys
 path=Path(sys.argv[1]); s=path.read_text()
-old='''        int run() {
-            int count = base_type::_in->read();
-            if (count < 0) { return -1; }
-
-            for (const auto& stream : streams) {
-                memcpy(stream->writeBuf, base_type::_in->readBuf, count * sizeof(T));
-                if (!stream->swap(count)) {
-                    base_type::_in->flush();
-                    return -1;
-                }
-            }
-
-            base_type::_in->flush();
-
-            return count;
-        }'''
+start = s.index('        int run() {')
+end = s.index('\n        }', start) + len('\n        }')
+old = s[start:end]
 new='''        int run() {
             static unsigned long long orcRuns = 0;
             unsigned long long orcRun = ++orcRuns;
@@ -685,8 +672,7 @@ new='''        int run() {
 
             return count;
         }'''
-if old not in s: raise SystemExit("Could not locate pinned Splitter::run")
-path.write_text(s.replace(old,new,1))
+path.write_text(s[:start] + new + s[end:])
 PY
 
 echo "[*] Instrumenting SDR++ SinkManager stream boundary"
