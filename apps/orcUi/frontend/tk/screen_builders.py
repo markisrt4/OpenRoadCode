@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 from ui.system.online_mode_if import OnlineModeIf
+from ui.tooltip_if import TooltipFactoryIf
 
 import tkinter as tk
 from collections.abc import Callable
@@ -41,6 +42,7 @@ def build_navigation_screen(
     on_back: Callable[[], None],
     theme: ThemeBundle,
     online_mode: OnlineModeIf | None = None,
+    tooltip_factory: TooltipFactoryIf | None = None,
     radar_enabled: bool = False,
     radar_frame_time: int | None = None,
     radar_palette: RadarPalette = RadarPalette.UNIVERSAL,
@@ -63,6 +65,7 @@ def build_navigation_screen(
         on_back=on_back,
         theme_bundle=theme,
         online_mode=online_mode,
+        tooltip_factory=tooltip_factory,
         radar_enabled=radar_enabled,
         radar_frame_time=radar_frame_time,
         radar_palette=radar_palette,

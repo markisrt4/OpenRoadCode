@@ -126,6 +126,7 @@ def build_navigation_panel(panel) -> None:
     controls.grid_propagate(False)
     panel._follow_button = panel._control(controls, "F", panel._toggle_follow, ui.accent_success)
     panel._follow_button.pack(fill=tk.X, padx=5, pady=(7, 5))
+    panel._add_tooltip(panel._follow_button, "Toggle following the vehicle")
     panel.set_follow_enabled(panel._follow_enabled)
     pan = tk.Frame(controls, bg=ui.surface_alt)
     pan.pack(pady=2)
@@ -135,7 +136,7 @@ def build_navigation_panel(panel) -> None:
         (1, 2, "▶", 0, 1),
         (2, 1, "▼", -1, 0),
     ):
-        tk.Button(
+        button = tk.Button(
             pan,
             text=label,
             command=lambda u=up, r=right: panel._pan(u, r),
@@ -151,30 +152,42 @@ def build_navigation_panel(panel) -> None:
             height=1,
             padx=2,
             pady=1,
-        ).grid(row=row, column=column, padx=1, pady=1)
-    panel._control(controls, "+", lambda: panel._change_zoom(1), ui.accent_primary).pack(
+        )
+        button.grid(row=row, column=column, padx=1, pady=1)
+        direction = {(1, 0): "up", (0, -1): "left", (0, 1): "right", (-1, 0): "down"}[(up, right)]
+        panel._add_tooltip(button, f"Pan the map {direction} on screen (turns follow off)")
+    zoom_in = panel._control(controls, "+", lambda: panel._change_zoom(1), ui.accent_primary)
+    panel._add_tooltip(zoom_in, "Zoom in")
+    zoom_in.pack(
         fill=tk.X, padx=5, pady=2
     )
-    tk.Label(
+    zoom_label = tk.Label(
         controls,
         textvariable=panel._zoom_text,
         bg=ui.surface_alt,
         fg=ui.text,
         font=("Sans", 8, "bold"),
-    ).pack(fill=tk.X, padx=5, pady=0)
-    panel._control(controls, "−", lambda: panel._change_zoom(-1), ui.accent_primary).pack(
+    )
+    zoom_label.pack(fill=tk.X, padx=5, pady=0)
+    panel._add_tooltip(zoom_label, "Current map zoom level")
+    zoom_out = panel._control(controls, "−", lambda: panel._change_zoom(-1), ui.accent_primary)
+    panel._add_tooltip(zoom_out, "Zoom out")
+    zoom_out.pack(
         fill=tk.X, padx=5, pady=2
     )
     dimension_button = panel._control(controls, "", panel._toggle_map_dimension, ui.accent_primary)
     dimension_button.configure(textvariable=panel._dimension_text)
     dimension_button.pack(fill=tk.X, padx=5, pady=2)
-    for label, command, accent in (
-        ("↗", lambda: panel._change_pitch(5), ui.accent_warning),
-        ("↘", lambda: panel._change_pitch(-5), ui.accent_warning),
-        ("N", panel._north_up, ui.text),
-        ("◎", panel._recenter, ui.accent_success),
+    panel._add_tooltip(dimension_button, "Switch between overhead 2D and tilted 3D view")
+    for label, command, accent, description in (
+        ("↗", lambda: panel._change_pitch(5), ui.accent_warning, "Increase map tilt (turns follow off)"),
+        ("↘", lambda: panel._change_pitch(-5), ui.accent_warning, "Decrease map tilt (turns follow off)"),
+        ("N", panel._north_up, ui.text, "Rotate north to the top (turns follow off)"),
+        ("◎", panel._recenter, ui.accent_success, "Center on the vehicle and resume following"),
     ):
-        panel._control(controls, label, command, accent).pack(fill=tk.X, padx=5, pady=2)
+        button = panel._control(controls, label, command, accent)
+        panel._add_tooltip(button, description)
+        button.pack(fill=tk.X, padx=5, pady=2)
     tk.Label(
         controls,
         text="ZOOM\n3D / TILT\nNORTH\nCENTER",

@@ -6,6 +6,8 @@
 from __future__ import annotations
 
 from ui.system.online_mode_if import OnlineModeIf
+from ui.tooltip_if import TooltipFactoryIf
+from frontends.tk.tooltip import TkTooltip
 
 import logging
 
@@ -48,6 +50,7 @@ class NavigationPanel(NavigationPlacesControls, NavigationRadarControls, Navigat
         on_back: Callable[[], None] | None = None,
         theme_bundle: ThemeBundle | None = None,
         online_mode: OnlineModeIf | None = None,
+        tooltip_factory: TooltipFactoryIf | None = None,
         radar_enabled: bool = False,
         radar_frame_time: int | None = None,
         radar_palette: RadarPalette = RadarPalette.UNIVERSAL,
@@ -67,6 +70,8 @@ class NavigationPanel(NavigationPlacesControls, NavigationRadarControls, Navigat
         super().__init__(parent, bg=self._theme_bundle.ui.background)
         del on_back
         self._request_handler = map_request_handler
+        self._tooltip_factory = tooltip_factory
+        self._tooltips = []
         self._radar_enabled = radar_enabled
         self._radar_frame_time = radar_frame_time
         self._radar_palette = radar_palette
@@ -126,6 +131,7 @@ class NavigationPanel(NavigationPlacesControls, NavigationRadarControls, Navigat
         return self._map_host.winfo_id()
 
     def set_theme_bundle(self, theme_bundle: ThemeBundle) -> None:
+        self.close_tooltips()
         self.close_radar_menu()
         self._theme_bundle = theme_bundle
         self.configure(bg=theme_bundle.ui.background)
@@ -165,6 +171,7 @@ class NavigationPanel(NavigationPlacesControls, NavigationRadarControls, Navigat
         if self._closed:
             return
         self._closed = True
+        self.close_tooltips()
         try:
             self.close_radar_menu()
             self.close_places()
@@ -173,6 +180,20 @@ class NavigationPanel(NavigationPlacesControls, NavigationRadarControls, Navigat
 
     def _build(self) -> None:
         build_navigation_panel(self)
+
+    def _add_tooltip(self, widget: tk.Misc, text: str) -> None:
+        if self._tooltip_factory is not None:
+            ui = self._theme_bundle.ui
+            self._tooltips.append(TkTooltip(
+                widget, text, self._tooltip_factory,
+                background=ui.surface_alt, foreground=ui.text,
+            ))
+
+    def close_tooltips(self) -> None:
+        """Close mounted tooltip sessions before hiding or rebuilding widgets."""
+        for tooltip in self._tooltips:
+            tooltip.close()
+        self._tooltips.clear()
 
     def _control(
         self, parent: tk.Misc, text: str, command: Callable[[], None], foreground: str

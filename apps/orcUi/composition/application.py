@@ -14,6 +14,7 @@ from apps.orcUi.application_runtime import OrcUiApplicationRuntime, create_orc_u
 from apps.orcUi.composition.core import CoreComposition, create_core_composition
 from apps.orcUi.composition.games import configure_games
 from apps.orcUi.composition.navigation_places import NavigationPlacesFactory
+from apps.orcUi.composition.tooltips import TooltipFactory
 from apps.orcUi.composition.media import MediaComposition, configure_media
 from apps.orcUi.composition.radio import RadioComposition, configure_radio
 from apps.orcUi.composition.weather import WeatherComposition, configure_weather
@@ -184,6 +185,7 @@ def create_orc_ui_composition() -> OrcUiComposition:
             online_mode=app.online_mode,
             map_runtime=core.map_runtime,
             places_factory=navigation_places,
+            tooltip_factory=TooltipFactory(app),
             map_request_handler=core.map_camera.request_handler,
             route_request_handler=core.route_request_handler,
             route_simulation_handler=core.route_request_handler,

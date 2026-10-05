@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 from ui.system.online_mode_if import OnlineModeIf
+from ui.tooltip_if import TooltipFactoryIf
 
 from collections.abc import Callable
 
@@ -50,6 +51,7 @@ class NavigationScreen(TkScreen, RadarControlsIf):
         on_back: Callable[[], None],
         route_weather=None,
         online_mode: OnlineModeIf | None = None,
+        tooltip_factory: TooltipFactoryIf | None = None,
     ) -> None:
         super().__init__(self.SCREEN_ID)
         if not isinstance(places_factory, NavigationPlacesFactoryIf):
@@ -58,6 +60,7 @@ class NavigationScreen(TkScreen, RadarControlsIf):
         self._places_session = None
         self._route_weather = route_weather
         self._online_mode = online_mode
+        self._tooltip_factory = tooltip_factory
         self._host = host
         self._map_runtime = map_runtime
         self._map_request_handler = map_request_handler
@@ -108,6 +111,7 @@ class NavigationScreen(TkScreen, RadarControlsIf):
                 map_request_handler=self._map_request_handler,
                 places_handler=self._places_session,
                 online_mode=self._online_mode,
+                tooltip_factory=self._tooltip_factory,
                 route_request_handler=self._route_request_handler,
                 route_simulation_handler=self._route_simulation_handler,
                 on_back=self._on_back,
@@ -151,6 +155,7 @@ class NavigationScreen(TkScreen, RadarControlsIf):
             self._panel.close_radar_menu()
             self._panel._sync_renderer_camera()
             self._panel.close_places()
+            self._panel.close_tooltips()
         if self.__dict__.get("_route_weather") is not None:
             self._route_weather.hide()
         self._close_places_session()
@@ -162,6 +167,7 @@ class NavigationScreen(TkScreen, RadarControlsIf):
         if self._panel is not None:
             self._panel._sync_renderer_camera()
             self._panel.close_places()
+            self._panel.close_tooltips()
         self._close_places_session()
         self._panel = None
         self._radar_handler = None

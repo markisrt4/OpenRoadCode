@@ -107,6 +107,16 @@ provider/transport/thread imports in Tk weather views, backend-cache inspection,
 and GUI imports in weather controllers. Interface documentation checks remain a
 separate check; they do not substitute for this boundary enforcement.
 
+## Tooltips
+
+`TooltipUiIf` receives immutable `TooltipState` snapshots; hover/focus intent
+uses `TooltipRequestHandlerIf`. `TooltipFactoryIf` creates a fresh session through
+application composition. `TooltipController` owns the 500 ms delay, cancellation,
+and stale callback rejection using `UiDispatcherIf`. The Tk view renders and
+positions the popup, without importing controllers. Leaving, clicking, hiding,
+destroying, or rebuilding a control cancels pending/visible help; close is
+idempotent. The navigation right-side camera controls use this boundary.
+
 ## Replaceable UI boundary
 
 UI contracts remain part of this repository. Frontends implement `*UiIf` and emit

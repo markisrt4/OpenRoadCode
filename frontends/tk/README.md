@@ -94,3 +94,16 @@ ECU cards use restrained semantic accents to distinguish domains without turning
 ### Quality gate
 
 `scripts/quality_gate.py` is the branch-level UI quality entry point. The ORC UI also enforces a Python module-size limit through `scripts/check_python_module_size.py`; large shell or feature modules should be decomposed rather than extending the limit. Run the quality gate and ORC UI tests before merging substantial shell changes.
+
+## Navigation tooltips
+
+Navigation camera controls show short descriptions after hovering or focusing
+them with the keyboard for half a second. Clicking, leaving the control, hiding
+Navigation, or changing themes dismisses help. Tooltips cover follow, screen pan,
+zoom and zoom level, 2D/3D, tilt, north-up, and recenter. Touch-only input does not
+provide hover; a mouse/trackpad or keyboard focus can reveal the descriptions.
+
+`TkTooltip` presents `TooltipUiIf` snapshots and emits requests through
+`TooltipRequestHandlerIf`. Application composition injects `TooltipFactoryIf`;
+the view does not construct a controller or transport. No network interface or
+native renderer rebuild is needed. See [UI contracts](../../ui/README.md#tooltips).
