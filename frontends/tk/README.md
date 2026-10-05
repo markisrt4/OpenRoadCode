@@ -103,9 +103,13 @@ Navigation, or changing themes dismisses help. Tooltips cover follow, screen pan
 zoom and zoom level, 2D/3D, tilt, north-up, and recenter. Touch-only input does not
 provide hover; a mouse/trackpad or keyboard focus can reveal the descriptions.
 
-The compact right rail groups **F / N / ◎** together above the pan pad. Zoom
+The right rail groups **F / N / ◎** together above the pan pad. Zoom
 in/out and tilt up/down share rows; the zoom readout and 2D/3D control remain
-separate. This reduces the vertical space needed in short Termux/X11 windows.
+separate. Buttons use 11-point labels, with a wider rail and roughly 44-pixel
+target heights when space permits. Weighted rows fit the available viewport
+height instead of letting a packed stack extend below it; total height is capped
+so controls do not become oversized in tall windows. Very short windows allocate
+less height per row. Verify the touch targets at the device's actual font scale.
 Tooltips replace the old bottom legend. Center still recenters and resumes follow.
 
 `TkTooltip` presents `TooltipUiIf` snapshots and emits requests through

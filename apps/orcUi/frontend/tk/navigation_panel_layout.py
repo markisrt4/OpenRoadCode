@@ -120,27 +120,38 @@ def build_navigation_panel(panel) -> None:
     )
     panel._map_host.grid(row=0, column=0, sticky="nsew")
     controls = tk.Frame(
-        body, bg=ui.surface_alt, width=72, highlightthickness=1, highlightbackground=ui.border
+        body, bg=ui.surface_alt, width=144, highlightthickness=1, highlightbackground=ui.border
     )
     controls.grid(row=0, column=1, sticky="ns", padx=(4, 0))
     controls.grid_propagate(False)
-    orientation = tk.Frame(controls, bg=ui.surface_alt)
-    orientation.pack(fill=tk.X, padx=3, pady=(4, 2))
+    rail = tk.Frame(controls, bg=ui.surface_alt)
+    rail.grid_propagate(False)
+    rail.grid_columnconfigure(0, weight=1)
+    for row, weight in ((0, 1), (1, 3), (2, 1), (4, 1), (5, 1)):
+        rail.grid_rowconfigure(row, weight=weight, uniform="camera")
+    orientation = tk.Frame(rail, bg=ui.surface_alt)
+    orientation.grid(row=0, column=0, sticky="nsew", padx=3, pady=2)
+    orientation.grid_propagate(False)
+    orientation.grid_rowconfigure(0, weight=1)
     for column in range(3):
         orientation.grid_columnconfigure(column, weight=1, uniform="orientation")
     panel._follow_button = panel._control(orientation, "F", panel._toggle_follow, ui.accent_success)
-    panel._follow_button.grid(row=0, column=0, sticky="ew", padx=1)
+    panel._follow_button.grid(row=0, column=0, sticky="nsew", padx=1)
     panel._add_tooltip(panel._follow_button, "Toggle following the vehicle")
     for column, label, command, accent, description in (
         (1, "N", panel._north_up, ui.text, "Rotate north to the top (turns follow off)"),
         (2, "◎", panel._recenter, ui.accent_success, "Center on the vehicle and resume following"),
     ):
         button = panel._control(orientation, label, command, accent)
-        button.grid(row=0, column=column, sticky="ew", padx=1)
+        button.grid(row=0, column=column, sticky="nsew", padx=1)
         panel._add_tooltip(button, description)
     panel.set_follow_enabled(panel._follow_enabled)
-    pan = tk.Frame(controls, bg=ui.surface_alt)
-    pan.pack(pady=2)
+    pan = tk.Frame(rail, bg=ui.surface_alt)
+    pan.grid(row=1, column=0, sticky="nsew", padx=3, pady=2)
+    pan.grid_propagate(False)
+    for index in range(3):
+        pan.grid_rowconfigure(index, weight=1, uniform="pan")
+        pan.grid_columnconfigure(index, weight=1, uniform="pan")
     for row, column, label, up, right in (
         (0, 1, "▲", 1, 0),
         (1, 0, "◀", 0, -1),
@@ -158,41 +169,50 @@ def build_navigation_panel(panel) -> None:
             relief=tk.FLAT,
             highlightthickness=1,
             highlightbackground=ui.border,
-            font=("Sans", 9, "bold"),
+            font=("Sans", 11, "bold"),
             borderwidth=0,
             width=1,
             height=1,
-            padx=2,
-            pady=1,
+            padx=4,
+            pady=4,
         )
-        button.grid(row=row, column=column, padx=1, pady=1)
+        button.grid(row=row, column=column, sticky="nsew", padx=1, pady=1)
         direction = {(1, 0): "up", (0, -1): "left", (0, 1): "right", (-1, 0): "down"}[(up, right)]
         panel._add_tooltip(button, f"Pan the map {direction} on screen (turns follow off)")
-    zoom = tk.Frame(controls, bg=ui.surface_alt)
-    zoom.pack(fill=tk.X, padx=3, pady=(3, 1))
+    zoom = tk.Frame(rail, bg=ui.surface_alt)
+    zoom.grid(row=2, column=0, sticky="nsew", padx=3, pady=2)
+    zoom.grid_propagate(False)
+    zoom.grid_rowconfigure(0, weight=1)
     for column in range(2):
         zoom.grid_columnconfigure(column, weight=1, uniform="zoom")
     zoom_in = panel._control(zoom, "+", lambda: panel._change_zoom(1), ui.accent_primary)
     panel._add_tooltip(zoom_in, "Zoom in")
-    zoom_in.grid(row=0, column=0, sticky="ew", padx=1)
+    zoom_in.grid(row=0, column=0, sticky="nsew", padx=1)
     zoom_out = panel._control(zoom, "−", lambda: panel._change_zoom(-1), ui.accent_primary)
     panel._add_tooltip(zoom_out, "Zoom out")
-    zoom_out.grid(row=0, column=1, sticky="ew", padx=1)
+    zoom_out.grid(row=0, column=1, sticky="nsew", padx=1)
     zoom_label = tk.Label(
-        controls,
+        rail,
         textvariable=panel._zoom_text,
         bg=ui.surface_alt,
         fg=ui.text,
         font=("Sans", 8, "bold"),
     )
-    zoom_label.pack(fill=tk.X, padx=5, pady=0)
+    zoom_label.grid(row=3, column=0, sticky="ew", padx=5)
     panel._add_tooltip(zoom_label, "Current map zoom level")
-    dimension_button = panel._control(controls, "", panel._toggle_map_dimension, ui.accent_primary)
+    dimension = tk.Frame(rail, bg=ui.surface_alt)
+    dimension.grid(row=4, column=0, sticky="nsew", padx=4, pady=2)
+    dimension.grid_propagate(False)
+    dimension.grid_rowconfigure(0, weight=1)
+    dimension.grid_columnconfigure(0, weight=1)
+    dimension_button = panel._control(dimension, "", panel._toggle_map_dimension, ui.accent_primary)
     dimension_button.configure(textvariable=panel._dimension_text)
-    dimension_button.pack(fill=tk.X, padx=4, pady=(3, 1))
+    dimension_button.grid(row=0, column=0, sticky="nsew")
     panel._add_tooltip(dimension_button, "Switch between overhead 2D and tilted 3D view")
-    tilt = tk.Frame(controls, bg=ui.surface_alt)
-    tilt.pack(fill=tk.X, padx=3, pady=(1, 4))
+    tilt = tk.Frame(rail, bg=ui.surface_alt)
+    tilt.grid(row=5, column=0, sticky="nsew", padx=3, pady=2)
+    tilt.grid_propagate(False)
+    tilt.grid_rowconfigure(0, weight=1)
     for column in range(2):
         tilt.grid_columnconfigure(column, weight=1, uniform="tilt")
     for column, (label, command, accent, description) in enumerate((
@@ -201,7 +221,15 @@ def build_navigation_panel(panel) -> None:
     )):
         button = panel._control(tilt, label, command, accent)
         panel._add_tooltip(button, description)
-        button.grid(row=0, column=column, sticky="ew", padx=1)
+        button.grid(row=0, column=column, sticky="nsew", padx=1)
+
+    # Seven button rows (including three pan rows), plus readout and group gaps.
+    # Let grid divide a shorter viewport instead of packing controls off-screen.
+    preferred_height = 7 * 44 + zoom_label.winfo_reqheight() + 20
+    rail.place(x=1, y=1, relwidth=1, width=-2, height=preferred_height)
+    controls.bind("<Configure>", lambda event: rail.place_configure(
+        height=max(1, min(preferred_height, event.height - 2))
+    ), add="+")
 
 
 def show_poi_card(panel, poi) -> None:

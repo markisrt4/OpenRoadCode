@@ -4,6 +4,7 @@
 """Verify camera help coverage and lifecycle at the frontend boundary."""
 
 from unittest.mock import Mock, patch, call
+from types import SimpleNamespace
 import pytest
 
 from apps.orcUi.frontend.tk.navigation_panel import NavigationPanel
@@ -65,3 +66,28 @@ def test_navigation_screen_closes_tooltips_when_unmounted(method):
     getattr(screen, method)()
     panel.close_tooltips.assert_called_once()
     assert screen._panel is None
+
+
+def test_camera_rail_fits_short_viewports_and_caps_tall_ones():
+    frames = []
+
+    def frame(*args, **kwargs):
+        widget = Mock()
+        frames.append((widget, args, kwargs))
+        return widget
+
+    label = Mock()
+    label.return_value.winfo_reqheight.return_value = 18
+    with patch.multiple("apps.orcUi.frontend.tk.navigation_panel_layout.tk",
+                        Frame=frame, Button=Mock(), Label=label,
+                        Menubutton=Mock(), Menu=Mock()):
+        build_navigation_panel(Mock())
+    controls = next(widget for widget, _args, kwargs in frames if kwargs.get("width") == 144)
+    rail = next(widget for widget, args, _kwargs in frames if args and args[0] is controls)
+    resize = controls.bind.call_args.args[1]
+    for height in (200, 240, 600, 180):
+        resize(SimpleNamespace(height=height))
+        fitted = rail.place_configure.call_args.kwargs["height"]
+        assert 0 < fitted <= height - 2
+        if height == 600:
+            assert 300 < fitted < 400
