@@ -210,7 +210,10 @@ class NavigationPanel(NavigationPlacesControls, NavigationRadarControls, Navigat
             relief=tk.FLAT,
             highlightthickness=1,
             highlightbackground=ui.border,
-            font=("Sans", 11, "bold"),
+            font=("Sans", 9, "bold"),
+            borderwidth=0,
+            padx=0,
+            pady=1,
             height=1,
         )
 

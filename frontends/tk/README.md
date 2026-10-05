@@ -103,6 +103,11 @@ Navigation, or changing themes dismisses help. Tooltips cover follow, screen pan
 zoom and zoom level, 2D/3D, tilt, north-up, and recenter. Touch-only input does not
 provide hover; a mouse/trackpad or keyboard focus can reveal the descriptions.
 
+The compact right rail groups **F / N / ◎** together above the pan pad. Zoom
+in/out and tilt up/down share rows; the zoom readout and 2D/3D control remain
+separate. This reduces the vertical space needed in short Termux/X11 windows.
+Tooltips replace the old bottom legend. Center still recenters and resumes follow.
+
 `TkTooltip` presents `TooltipUiIf` snapshots and emits requests through
 `TooltipRequestHandlerIf`. Application composition injects `TooltipFactoryIf`;
 the view does not construct a controller or transport. No network interface or

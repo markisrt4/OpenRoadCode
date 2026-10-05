@@ -120,13 +120,24 @@ def build_navigation_panel(panel) -> None:
     )
     panel._map_host.grid(row=0, column=0, sticky="nsew")
     controls = tk.Frame(
-        body, bg=ui.surface_alt, width=62, highlightthickness=1, highlightbackground=ui.border
+        body, bg=ui.surface_alt, width=72, highlightthickness=1, highlightbackground=ui.border
     )
     controls.grid(row=0, column=1, sticky="ns", padx=(4, 0))
     controls.grid_propagate(False)
-    panel._follow_button = panel._control(controls, "F", panel._toggle_follow, ui.accent_success)
-    panel._follow_button.pack(fill=tk.X, padx=5, pady=(7, 5))
+    orientation = tk.Frame(controls, bg=ui.surface_alt)
+    orientation.pack(fill=tk.X, padx=3, pady=(4, 2))
+    for column in range(3):
+        orientation.grid_columnconfigure(column, weight=1, uniform="orientation")
+    panel._follow_button = panel._control(orientation, "F", panel._toggle_follow, ui.accent_success)
+    panel._follow_button.grid(row=0, column=0, sticky="ew", padx=1)
     panel._add_tooltip(panel._follow_button, "Toggle following the vehicle")
+    for column, label, command, accent, description in (
+        (1, "N", panel._north_up, ui.text, "Rotate north to the top (turns follow off)"),
+        (2, "◎", panel._recenter, ui.accent_success, "Center on the vehicle and resume following"),
+    ):
+        button = panel._control(orientation, label, command, accent)
+        button.grid(row=0, column=column, sticky="ew", padx=1)
+        panel._add_tooltip(button, description)
     panel.set_follow_enabled(panel._follow_enabled)
     pan = tk.Frame(controls, bg=ui.surface_alt)
     pan.pack(pady=2)
@@ -148,6 +159,7 @@ def build_navigation_panel(panel) -> None:
             highlightthickness=1,
             highlightbackground=ui.border,
             font=("Sans", 9, "bold"),
+            borderwidth=0,
             width=1,
             height=1,
             padx=2,
@@ -156,11 +168,16 @@ def build_navigation_panel(panel) -> None:
         button.grid(row=row, column=column, padx=1, pady=1)
         direction = {(1, 0): "up", (0, -1): "left", (0, 1): "right", (-1, 0): "down"}[(up, right)]
         panel._add_tooltip(button, f"Pan the map {direction} on screen (turns follow off)")
-    zoom_in = panel._control(controls, "+", lambda: panel._change_zoom(1), ui.accent_primary)
+    zoom = tk.Frame(controls, bg=ui.surface_alt)
+    zoom.pack(fill=tk.X, padx=3, pady=(3, 1))
+    for column in range(2):
+        zoom.grid_columnconfigure(column, weight=1, uniform="zoom")
+    zoom_in = panel._control(zoom, "+", lambda: panel._change_zoom(1), ui.accent_primary)
     panel._add_tooltip(zoom_in, "Zoom in")
-    zoom_in.pack(
-        fill=tk.X, padx=5, pady=2
-    )
+    zoom_in.grid(row=0, column=0, sticky="ew", padx=1)
+    zoom_out = panel._control(zoom, "−", lambda: panel._change_zoom(-1), ui.accent_primary)
+    panel._add_tooltip(zoom_out, "Zoom out")
+    zoom_out.grid(row=0, column=1, sticky="ew", padx=1)
     zoom_label = tk.Label(
         controls,
         textvariable=panel._zoom_text,
@@ -170,32 +187,21 @@ def build_navigation_panel(panel) -> None:
     )
     zoom_label.pack(fill=tk.X, padx=5, pady=0)
     panel._add_tooltip(zoom_label, "Current map zoom level")
-    zoom_out = panel._control(controls, "−", lambda: panel._change_zoom(-1), ui.accent_primary)
-    panel._add_tooltip(zoom_out, "Zoom out")
-    zoom_out.pack(
-        fill=tk.X, padx=5, pady=2
-    )
     dimension_button = panel._control(controls, "", panel._toggle_map_dimension, ui.accent_primary)
     dimension_button.configure(textvariable=panel._dimension_text)
-    dimension_button.pack(fill=tk.X, padx=5, pady=2)
+    dimension_button.pack(fill=tk.X, padx=4, pady=(3, 1))
     panel._add_tooltip(dimension_button, "Switch between overhead 2D and tilted 3D view")
-    for label, command, accent, description in (
+    tilt = tk.Frame(controls, bg=ui.surface_alt)
+    tilt.pack(fill=tk.X, padx=3, pady=(1, 4))
+    for column in range(2):
+        tilt.grid_columnconfigure(column, weight=1, uniform="tilt")
+    for column, (label, command, accent, description) in enumerate((
         ("↗", lambda: panel._change_pitch(5), ui.accent_warning, "Increase map tilt (turns follow off)"),
         ("↘", lambda: panel._change_pitch(-5), ui.accent_warning, "Decrease map tilt (turns follow off)"),
-        ("N", panel._north_up, ui.text, "Rotate north to the top (turns follow off)"),
-        ("◎", panel._recenter, ui.accent_success, "Center on the vehicle and resume following"),
-    ):
-        button = panel._control(controls, label, command, accent)
+    )):
+        button = panel._control(tilt, label, command, accent)
         panel._add_tooltip(button, description)
-        button.pack(fill=tk.X, padx=5, pady=2)
-    tk.Label(
-        controls,
-        text="ZOOM\n3D / TILT\nNORTH\nCENTER",
-        bg=ui.surface_alt,
-        fg=ui.text_muted,
-        font=("Sans", 6),
-        justify=tk.CENTER,
-    ).pack(side=tk.BOTTOM, pady=5)
+        button.grid(row=0, column=column, sticky="ew", padx=1)
 
 
 def show_poi_card(panel, poi) -> None:
