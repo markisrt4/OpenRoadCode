@@ -17,6 +17,7 @@ pkg_check_modules(ZMQ REQUIRED libzmq)
 add_executable(openroadcode-map-renderer
     src/main.cpp
     src/map_view.cpp
+    src/weather_city_view.cpp
     src/map_renderer_frontend.cpp
     src/map_command_server.cpp
     src/map_event_publisher.cpp

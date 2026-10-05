@@ -9,8 +9,7 @@ from datetime import datetime
 from typing import TypeVar
 
 from common.logging.structured import current_operation, event, operation
-
-from controllers.automotive.automotive_telemetry_profile import AutomotiveTelemetryProfile
+from ui.automotive.automotive_telemetry_profile import (AutomotiveTelemetryProfile)
 from controllers.automotive.vehicle_state import VehicleState
 from controllers.automotive.obd2.obd2_poll_scheduler import (
     Obd2PollingProfile,

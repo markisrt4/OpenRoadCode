@@ -10,9 +10,9 @@ from typing import Callable, Optional
 from frontends.tk.radio import RadioPanel, RadioPanelConfig
 from apps.carUi.radio.radio_session_config import RadioSessionConfig
 from apps.carUi.radio.radio_session_controller import RadioSessionController
-from apps.launchers.app_launcher_if import AppLauncherIf
+from ui.system.app_launcher_if import (AppLauncherIf)
 from controllers.radio.radio_controller_if import RadioControllerIf
-from controllers.radio.radio_types import RadioPreset
+from ui.radio.radio_types import (RadioPreset)
 from apps.common.uiTheme import RADIO_PANEL_THEME
 
 

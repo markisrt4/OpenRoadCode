@@ -19,6 +19,11 @@ if [[ -x "$PROJECT_ROOT/venv-termux/bin/python" ]]; then
     export OPENROADCODE_PYTHON="$PROJECT_ROOT/venv-termux/bin/python"
 fi
 
+# Valhalla has its own supervisor; bring it up for direct navigation starts too.
+if [[ -d "${PREFIX}/var/service/openroadcode-valhalla" ]]; then
+    sv up openroadcode-valhalla
+fi
+
 # Let runit restart us if the broker is not yet ready. The navigation process
 # remains independently supervised rather than trying to own the broker.
 cd "$PROJECT_ROOT"

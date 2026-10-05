@@ -117,6 +117,7 @@ chmod 600 "$ENV_FILE"
         for unit in \
             openroadcode-message-broker.service \
             openroadcode-navigation.service \
+            valhalla.service \
             openroadcode-automotive.service \
             readsb.service; do
             echo "$SERVICE_USER ALL=(root) NOPASSWD: $SYSTEMCTL_BIN $action $unit"

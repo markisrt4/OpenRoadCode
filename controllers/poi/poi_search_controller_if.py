@@ -5,7 +5,7 @@
 
 from abc import ABC, abstractmethod
 
-from controllers.poi.poi_models import PoiCategory, PoiSearchResult, PointOfInterest, TransitMode
+from ui.navigation.poi_models import (PoiCategory, PoiSearchResult, PointOfInterest, TransitMode)
 
 
 class PoiSearchControllerIf(ABC):
@@ -27,6 +27,13 @@ class PoiSearchControllerIf(ABC):
         @return Latest selected POI, or None when no selection is pending.
         """
         ...
+
+    def poll_camera_interaction(self) -> bool:
+        """Consume a manual map gesture when supported by the source.
+
+        @return True when a native camera gesture occurred.
+        """
+        return False
 
     @abstractmethod
     def poll_search_result(self) -> PoiSearchResult | None:

@@ -9,7 +9,7 @@ import tkinter as tk
 
 from apps.orcUi.trip_presenter import TripPresentationState
 from apps.orcUi.vehicle_presenter import VehiclePresentationState
-from controllers.automotive import VehicleConfiguration
+from ui.automotive.vehicle_configuration import (VehicleConfiguration)
 from frontends.tk.automotive import DEFAULT_GAUGES, ShifterGauge
 from frontends.tk.automotive.vehicle_gauge_theme import vehicle_gauge_theme_from_style_sheet
 from frontends.tk.automotive.vehicle_gauge_widgets import RoundGauge

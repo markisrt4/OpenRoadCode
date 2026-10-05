@@ -11,7 +11,8 @@ import tkinter as tk
 
 from apps.orcUi.adapters.adsb_control import OrcUiAdsbControl
 from apps.orcUi.theme_runtime import theme_bundle
-from controllers.radio.radio_profile_controller import RadioProfileController, RadioProfileState
+from controllers.radio.radio_profile_controller import RadioProfileController
+from ui.radio.radio_profile_state import RadioProfileState
 from controllers.sdr.sdr_telemetry_monitor import SDRTelemetryMonitor
 from controllers.sdr.sdr_telemetry_worker import SDRTelemetryWorker
 from controllers.sdr.sdrpp_control import SDRPPControl

@@ -10,7 +10,7 @@ import tkinter as tk
 
 from controllers.radio.streaming_radio_favorites import StreamingRadioFavorites
 from controllers.radio.streaming_radio_filters import StationFilters
-from controllers.radio.streaming_radio_types import StreamingRadioStation
+from ui.radio.streaming_radio_types import (StreamingRadioStation)
 from frontends.tk.radio.streaming_radio_panel import (
     BG,
     BLUE,

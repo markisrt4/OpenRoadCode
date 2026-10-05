@@ -364,5 +364,6 @@ The important prohibition is the reverse dependency: applications must not reach
 - [OBD-II controller](../controllers/automotive/obd2/README.md)
 - [OBD-II protocol models](../protocols/obd2/README.md)
 - [ELM327 hardware implementation](../hardware_io/automotive/elm327/README.md)
-- [Automotive vehicle-state IDD](idd/automotive_vehicle_state.md)\n- [Automotive Trip-state IDD](idd/automotive_trip_state.md)
+- [Automotive vehicle-state IDD](idd/automotive_vehicle_state.md)
+- [Automotive Trip-state IDD](idd/automotive_trip_state.md)
 - [Messaging overview](../messaging/README.md)

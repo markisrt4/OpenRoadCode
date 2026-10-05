@@ -7,7 +7,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from .style_sheet import StyleSheet
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .style_sheet import StyleSheet
 from .ui_theme import UiTheme
 
 

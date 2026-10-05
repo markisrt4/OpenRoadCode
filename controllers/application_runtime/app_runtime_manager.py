@@ -9,14 +9,7 @@ from dataclasses import dataclass
 from threading import Lock, RLock, Thread
 from typing import TypeVar
 
-from apps.launchers.app_launcher_if import (
-    AppLauncherIf,
-    BrowserDashboardLauncherIf,
-    HideableAppLauncherIf,
-    PreloadableAppLauncherIf,
-    StatusCallback,
-    WindowedAppLauncherIf,
-)
+from ui.system.app_launcher_if import (AppLauncherIf, BrowserDashboardLauncherIf, HideableAppLauncherIf, PreloadableAppLauncherIf, StatusCallback, WindowedAppLauncherIf)
 from config.application_config import ApplicationConfig, ApplicationsConfig, StartupPolicy
 
 LauncherT = TypeVar("LauncherT", bound=AppLauncherIf)

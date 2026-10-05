@@ -6,7 +6,6 @@
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
 from pathlib import Path
 
 from config.radio_config_manager import RadioConfig, load_radio_config
@@ -16,23 +15,7 @@ _RADIO_ROOT = _PROJECT_ROOT / "config" / "radio"
 _DEFAULT_USER_PRESETS = Path.home() / ".config" / "openroadcode" / "radio_presets.json"
 
 
-@dataclass(frozen=True)
-class RadioProfilePreset:
-    label: str
-    frequency_hz: int
-    mode_name: str
-    bandwidth: int
-    step_hz: int
-    user_defined: bool = False
-
-
-@dataclass(frozen=True)
-class RadioProfile:
-    key: str
-    label: str
-    group: str
-    config_path: Path
-    presets: tuple[RadioProfilePreset, ...]
+from ui.radio.radio_profiles import RadioProfilePreset, RadioProfile
 
 
 class RadioProfileCatalog:

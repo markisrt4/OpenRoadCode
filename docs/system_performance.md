@@ -50,6 +50,9 @@ checkout. The service manager runs from its installed copy, so restarting the
 old installed service alone does not copy new source files:
 
 ```bash
+cd ~/src/OpenRoadCode
+git switch weather-radar
+git pull --ff-only origin weather-radar
 sudo scripts/systemd/install_service_manager_systemd.sh
 ```
 
@@ -59,9 +62,8 @@ manager. Updating the Bridge APK alone does not update this process:
 
 ```bash
 cd ~/src/OpenRoadCode
-git fetch origin computing-unit-performance
-git switch computing-unit-performance
-git merge --ff-only FETCH_HEAD
+git switch weather-radar
+git pull --ff-only origin weather-radar
 sv restart openroadcode-service-manager
 ```
 

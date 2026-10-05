@@ -37,6 +37,7 @@ class SystemdServiceManager:
 
     SERVICE_UNITS = {
         "openroadcode-message-broker": "openroadcode-message-broker.service",
+        "openroadcode-valhalla": "valhalla.service",
         "openroadcode-navigation": "openroadcode-navigation.service",
         "openroadcode-automotive": "openroadcode-automotive.service",
         "openroadcode-adsb": "readsb.service",
@@ -44,6 +45,7 @@ class SystemdServiceManager:
     SERVICES = tuple(SERVICE_UNITS)
     CORE_STACK = (
         "openroadcode-message-broker",
+        "openroadcode-valhalla",
         "openroadcode-navigation",
         "openroadcode-automotive",
     )

@@ -10,13 +10,15 @@ control it through the localhost service-manager API.
 - `openroadcode-service-manager` provides the lightweight localhost control
   plane on `127.0.0.1:8768`.
 - `openroadcode-message-broker` runs the ZeroMQ message broker.
+- `openroadcode-valhalla` runs local routing with a prepared Termux configuration
+  and rotating logs under `~/.cache/openroadcode/valhalla`.
 - `openroadcode-navigation` runs the navigation service using
   `config/runtime.termux.toml`.
 - `openroadcode-automotive` publishes the automotive state. Navigation ground
   motion is its default road-speed source on Termux.
 - `openroadcode-adsb` runs the optional ADS-B/tar1090 stack.
 
-The normal **core stack** is broker + navigation + automotive. ADS-B is kept
+The normal **core stack** is broker + Valhalla + navigation + automotive. ADS-B is kept
 optional so radio processing is not consuming resources when it is not needed.
 The service manager is intentionally lightweight and can remain running while
 the core stack is stopped.
@@ -34,9 +36,19 @@ environment is initialized. Then, from the OpenRoadCode repository:
 
 ```bash
 cd ~/src/OpenRoadCode
-git switch automotive
+git switch weather-radar
 ./scripts/runit/install_termux_services.sh
 ```
+
+If Valhalla is running in a foreground terminal, stop that instance before
+installing its supervised service. New navigation builds register these services
+automatically. Routing data must be installed before Valhalla can serve requests.
+
+On Linux, `scripts/systemd/install_navigation_runtime_systemd.sh` installs and
+enables the broker, Valhalla, and navigation units. Navigation requests
+`valhalla.service` as a dependency. After upgrading service-manager integration,
+rerun `scripts/systemd/install_service_manager_systemd.sh` to refresh its narrow
+systemctl permissions, which now include Valhalla core start/stop/restart.
 
 The installer creates real service directories under `$PREFIX/var/service/`
 and copies the version-controlled `run` definitions into them. Mutable
@@ -65,20 +77,23 @@ unable to open supervise/ok: file does not exist
 ```bash
 sv status openroadcode-service-manager
 sv status openroadcode-message-broker
+sv status openroadcode-valhalla
 sv status openroadcode-navigation
 sv status openroadcode-automotive
 sv status openroadcode-adsb
 
 sv up openroadcode-message-broker
+sv up openroadcode-valhalla
 sv up openroadcode-navigation
 sv up openroadcode-automotive
 
 sv down openroadcode-automotive
 sv down openroadcode-navigation
+sv down openroadcode-valhalla
 sv down openroadcode-message-broker
 ```
 
-Start dependencies in the order broker -> navigation -> automotive. Stop them
+Start dependencies in the order broker -> Valhalla -> navigation -> automotive. Stop them
 in reverse order. `openroadcode-adsb` may be started and stopped independently.
 
 ## Local service-manager API

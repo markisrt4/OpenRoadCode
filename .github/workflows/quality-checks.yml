@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - master
+      - weather-radar
       - automotive
       - runtime-integration-cleanup
   workflow_dispatch:
@@ -133,6 +134,12 @@ jobs:
 
       - name: Check Python module size
         run: venv/bin/python scripts/check_python_module_size.py
+
+      - name: Enforce project-wide UI boundaries
+        run: venv/bin/python scripts/check_ui_boundaries.py
+
+      - name: Enforce weather UI contract boundaries
+        run: venv/bin/python scripts/check_weather_ui_contracts.py
 
       - name: Run unit and integration tests
         run: venv/bin/python scripts/run_tests.py all

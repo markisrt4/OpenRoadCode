@@ -17,17 +17,9 @@ from .offroad_dashboard_presenter import apply_offroad_dashboard_state
 from apps.orcUi.theme_runtime import theme_bundle as packaged_theme_bundle
 from apps.orcUi.trip_presenter import TripPresentationState
 from apps.orcUi.vehicle_presenter import VehiclePresentationState
-from controllers.automotive import (
-    AutomotiveTelemetryProfile,
-    EngineAnalysis,
-    EngineLoadLevel,
-    EngineOperatingMode,
-    FuelControlMode,
-    FuelCorrectionStatus,
-    MixtureMode,
-    TrackingQuality,
-    VehicleConfiguration,
-)
+from ui.automotive.automotive_telemetry_profile import (AutomotiveTelemetryProfile)
+from ui.automotive.engine_analysis import (EngineAnalysis, EngineLoadLevel, EngineOperatingMode, FuelControlMode, FuelCorrectionStatus, MixtureMode, TrackingQuality)
+from ui.automotive.vehicle_configuration import (VehicleConfiguration)
 from frontends.tk.automotive import OffroadDashboardPanel
 from ui.theme import ThemeBundle, ThemeMode
 

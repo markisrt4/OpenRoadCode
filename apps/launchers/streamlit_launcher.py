@@ -12,7 +12,7 @@ from pathlib import Path
 from urllib.error import URLError
 from urllib.request import urlopen
 
-from apps.launchers.app_launcher_if import AppLauncherIf, StatusCallback
+from ui.system.app_launcher_if import (AppLauncherIf, StatusCallback)
 from apps.launchers.browser_launcher import BrowserKioskLauncher
 from apps.launchers.process_manager import is_process_running, terminate_process
 from common.logging.logging_paths import logging_file_path

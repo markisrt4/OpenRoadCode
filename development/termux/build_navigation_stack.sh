@@ -40,6 +40,7 @@ CONFIG_ROOT="${CONFIG_ROOT:-$PREFIX/etc/openroadcode}"
 DATA_ROOT="${DATA_ROOT:-$HOME/.local/share/openroadcode}"
 FORCE_REBUILD="${FORCE_REBUILD:-0}"
 X11_DISPLAY="${X11_DISPLAY:-:1}"
+source "$SCRIPT_DIR/maplibre_build_state.sh"
 RENDERER_BUILD_DIR="${OPENROADCODE_RENDERER_BUILD_DIR:-$PROJECT_ROOT/apps/map_renderer/build-termux}"
 MAP_RENDERER_INSTALLED="$INSTALL_ROOT/bin/openroadcode-map-renderer"
 
@@ -103,7 +104,7 @@ prime_server_installed() {
 echo "[*] Installing Termux build dependencies"
 pkg install -y x11-repo
 pkg update
-pkg install -y \
+pkg install -y termux-services \
   git clang cmake ninja pkg-config patch python python-pillow \
   boost boost-headers protobuf libsqlite libspatialite spatialite-tools libcurl liblz4 libzmq libczmq \
   luajit libgeos libpng libjpeg-turbo libwebp libicu rapidjson libspdlog \
@@ -168,7 +169,10 @@ else
 fi
 
 MBGL_INSTALLED="$INSTALL_ROOT/bin/mbgl-glfw"
-if should_build "$MBGL_INSTALLED"; then
+MBGL_BUILD="$MAPLIBRE_SRC/build-termux-glfw"
+MBGL_STAMP="$MBGL_BUILD/.openroadcode-build-signature"
+MBGL_SIGNATURE="$(maplibre_build_signature)"
+if maplibre_needs_build "$MBGL_INSTALLED" "$MBGL_BUILD" "$MBGL_STAMP" "$MBGL_SIGNATURE"; then
   echo "[*] Building MapLibre"
   checkout_repo https://github.com/maplibre/maplibre-native.git "$MAPLIBRE_SRC" "$MAPLIBRE_REF"
   apply_patch_once "$MAPLIBRE_SRC" "$SCRIPT_DIR/patches/maplibre-android-thread-name.patch"
@@ -183,20 +187,21 @@ if should_build "$MBGL_INSTALLED"; then
     -DMLN_WITH_WERROR=OFF \
     -DX11_X11_INCLUDE_PATH="$PREFIX/include" \
     -DX11_X11_LIB="$PREFIX/lib/libX11.so"
+  # Recompile all objects, including the decoder carrying PNG_LIBPNG_VER_STRING.
+  # Remove the stamp first so an interrupted build cannot be reused as current.
+  rm -f "$MBGL_STAMP"
+  cmake --build "$MBGL_BUILD" --target clean
   cmake --build "$MAPLIBRE_SRC/build-termux-glfw" -j"$BUILD_JOBS"
 
   MBGL_GLFW="$MAPLIBRE_SRC/build-termux-glfw/platform/glfw/mbgl-glfw"
   [[ -x "$MBGL_GLFW" ]] || { echo "MapLibre GLFW executable was not produced." >&2; exit 1; }
   install -Dm755 "$MBGL_GLFW" "$MBGL_INSTALLED"
+  printf '%s\n' "$MBGL_SIGNATURE" > "$MBGL_STAMP"
 else
   echo "[*] MapLibre already installed at $MBGL_INSTALLED; skipping build"
 fi
 
-if should_build "$MAP_RENDERER_INSTALLED"; then
-  build_renderer
-else
-  echo "[*] OpenRoadCode map renderer already installed at $MAP_RENDERER_INSTALLED; skipping build"
-fi
+build_renderer
 
 NAVIGATION_CONFIG_SOURCE="$PROJECT_ROOT/config/navigation.toml"
 if [[ -f "$NAVIGATION_CONFIG_SOURCE" && ! -f "$CONFIG_ROOT/navigation.toml" ]]; then
@@ -204,6 +209,9 @@ if [[ -f "$NAVIGATION_CONFIG_SOURCE" && ! -f "$CONFIG_ROOT/navigation.toml" ]]; 
 elif [[ ! -f "$NAVIGATION_CONFIG_SOURCE" ]]; then
   echo "[*] No config/navigation.toml in this checkout; skipping optional config install"
 fi
+
+# Install routing under runit after building it; runsvdir owns its lifetime.
+bash "$PROJECT_ROOT/scripts/runit/install_termux_services.sh"
 
 cat <<EOF
 

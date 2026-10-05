@@ -8,15 +8,8 @@ from __future__ import annotations
 import tkinter as tk
 
 from apps.orcUi.vehicle_presenter import VehiclePresentationState
-from controllers.automotive import (
-    EngineAnalysis,
-    EngineLoadLevel,
-    FuelControlMode,
-    FuelCorrectionStatus,
-    MixtureMode,
-    TrackingQuality,
-    VehicleConfiguration,
-)
+from ui.automotive.engine_analysis import (EngineAnalysis, EngineLoadLevel, FuelControlMode, FuelCorrectionStatus, MixtureMode, TrackingQuality)
+from ui.automotive.vehicle_configuration import (VehicleConfiguration)
 from ui.theme import ThemeBundle
 from .ecu_engine_visual import paint_engine_visual
 from .shell_metrics import FONT_BODY, FONT_CONTROL, FONT_SMALL

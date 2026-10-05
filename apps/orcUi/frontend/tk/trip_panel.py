@@ -8,7 +8,7 @@ from __future__ import annotations
 import tkinter as tk
 
 from apps.orcUi.trip_presenter import TripPresentationState
-from controllers.automotive import VehicleConfiguration
+from ui.automotive.vehicle_configuration import (VehicleConfiguration)
 from frontends.tk.automotive.trip_metric_card import TripMetricCard
 from ui.theme import ThemeBundle
 from .shell_metrics import FONT_BODY, FONT_CONTROL, FONT_SMALL

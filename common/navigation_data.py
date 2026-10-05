@@ -11,9 +11,12 @@ def navigation_data_root() -> Path:
     configured = os.environ.get('OPENROADCODE_DATA_ROOT')
     if configured:
         return Path(configured).expanduser()
-    if os.environ.get('PREFIX', '').startswith('/data/data/com.termux/'):
-        return Path.home() / '.local/share/openroadcode'
-    return Path('/srv/openroadcode')
+    from common.xdg_paths import openroadcode_data_dir
+    if os.environ.get('TERMUX_VERSION') or 'com.termux' in os.environ.get('PREFIX', ''):
+        return openroadcode_data_dir()
+    if Path('/srv/openroadcode/maps/search/openroadcode-search.sqlite').is_file():
+        return Path('/srv/openroadcode')
+    return openroadcode_data_dir()
 
 
 def search_database_path() -> Path:

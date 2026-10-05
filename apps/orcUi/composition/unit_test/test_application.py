@@ -10,6 +10,27 @@ from apps.orcUi.composition.application import OrcUiComposition, create_orc_ui_c
 
 
 class OrcUiCompositionTest(unittest.TestCase):
+    def test_shutdown_preserves_weather_and_performance_cleanup_after_failure(self) -> None:
+        for failed in ("performance_status", "radar_replay"):
+            with self.subTest(failed=failed):
+                resources = {name: Mock() for name in (
+                    "core", "runtime", "radio", "media", "games", "weather",
+                    "navigation", "navigation_places", "weather_overlays", "radar_replay",
+                    "performance", "performance_status",
+                )}
+                resources[failed].close.side_effect = RuntimeError("cleanup failed")
+                composition = OrcUiComposition(**resources)
+                with self.assertRaisesRegex(RuntimeError, "cleanup failed"):
+                    composition.run()
+                for name, resource in resources.items():
+                    if name == "radio":
+                        continue
+                    if name == "games":
+                        resource.shutdown.assert_called_once()
+                    else:
+                        resource.close.assert_called_once()
+                resources["core"].lifecycle.execute_requested_action.assert_not_called()
+
     def test_run_starts_ingress_and_deferred_runtime_then_closes_in_reverse(self) -> None:
         app = Mock()
         core = Mock()
@@ -35,6 +56,7 @@ class OrcUiCompositionTest(unittest.TestCase):
         app.run.assert_called_once_with()
         games.shutdown.assert_called_once_with()
         media.close.assert_called_once_with()
+        weather.close.assert_called_once_with()
         core.close.assert_called_once_with()
         runtime.close.assert_called_once_with()
         core.lifecycle.execute_requested_action.assert_called_once_with()
@@ -51,6 +73,7 @@ class OrcUiCompositionTest(unittest.TestCase):
         weather = Mock()
         games.shutdown.side_effect = lambda: events("games")
         media.close.side_effect = lambda: events("media")
+        weather.close.side_effect = lambda: events("weather")
         core.close.side_effect = lambda: events("core")
         runtime.close.side_effect = lambda: events("runtime")
         core.lifecycle.execute_requested_action.side_effect = lambda: events("lifecycle")
@@ -69,6 +92,7 @@ class OrcUiCompositionTest(unittest.TestCase):
             [
                 call("games"),
                 call("media"),
+                call("weather"),
                 call("core"),
                 call("runtime"),
                 call("lifecycle"),
@@ -188,12 +212,20 @@ class OrcUiCompositionTest(unittest.TestCase):
         self.assertIs(composition.media, media)
         self.assertIs(composition.weather, weather)
         app.set_theme_change_handler.assert_called_once_with(core.map_runtime.set_theme)
+        core.map_runtime.set_theme.assert_called_once_with(app.theme_mode)
         core.presentation.observe_weather_alert.assert_called_once_with(app.present_weather_alert)
         configure_radio.assert_called_once_with(app, runtime)
         configure_games.assert_called_once_with(app)
         configure_media.assert_called_once_with(app, runtime)
         configure_weather.assert_called_once()
         self.assertIs(configure_weather.call_args.args[0], app)
+        with patch.object(composition.navigation, "set_radar_enabled") as enable:
+            configure_weather.call_args.kwargs["on_radar_map"]()
+            app.navigate_to.assert_called_with("NAVIGATION")
+            enable.assert_called_once_with(True)
+            composition.home._on_radar_toggle(False)
+            enable.assert_called_with(False)
+        self.assertEqual(composition.home._radar_enabled(), composition.navigation.radar_enabled)
         unit_system = configure_weather.call_args.kwargs["unit_system"]
         self.assertTrue(callable(unit_system))
         app.set_initial_destination.assert_called_once_with("HOME")
@@ -221,3 +253,19 @@ class OrcUiCompositionTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def test_application_closes_places_factory_when_navigation_cleanup_fails():
+    import pytest
+    app, core, runtime, radio, media, games, weather = (Mock() for _ in range(7))
+    core.app = app
+    navigation, places = Mock(), Mock()
+    navigation.close.side_effect = RuntimeError('navigation cleanup failed')
+    composition = OrcUiComposition(core=core, runtime=runtime, radio=radio, media=media,
+                                   games=games, weather=weather, navigation=navigation,
+                                   navigation_places=places)
+    with pytest.raises(RuntimeError, match='navigation cleanup failed'):
+        composition.run()
+    places.close.assert_called_once_with()
+    core.close.assert_called_once_with()
+    runtime.close.assert_called_once_with()
