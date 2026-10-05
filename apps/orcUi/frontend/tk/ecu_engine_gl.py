@@ -35,15 +35,19 @@ def point_on_path(points, fraction):
     return points[-1]
 
 
-def create_engine_gl(parent, *, theme, on_failure):
+def create_engine_gl(parent, *, theme, on_failure, on_unavailable=None):
     """Create a GL widget, or return None when the optional backend is absent."""
     if os.environ.get("OPENROAD_ECU_RENDERER", "auto").lower() == "canvas":
+        if on_unavailable is not None:
+            on_unavailable("OPENROAD_ECU_RENDERER=canvas")
         return None
     try:
         from pyopengltk import OpenGLFrame
         from OpenGL import GL as gl, GLU as glu
     except (ImportError, OSError, RuntimeError) as exc:
-        _LOG.info("ECU OpenGL unavailable; using schematic: %s", exc)
+        _LOG.warning("ECU OpenGL unavailable; using schematic: %s", exc)
+        if on_unavailable is not None:
+            on_unavailable(str(exc))
         return None
 
     class EngineGL(OpenGLFrame):
@@ -60,6 +64,8 @@ def create_engine_gl(parent, *, theme, on_failure):
             if not self.failed:
                 self.failed = True
                 _LOG.warning("ECU OpenGL failed; using schematic: %s", exc)
+                if on_unavailable is not None:
+                    on_unavailable(str(exc))
                 self.after_idle(on_failure)
 
         def tkMap(self, event):
@@ -296,4 +302,6 @@ def create_engine_gl(parent, *, theme, on_failure):
         return EngineGL()
     except (tk.TclError, OSError, RuntimeError) as exc:
         _LOG.warning("ECU OpenGL widget unavailable; using schematic: %s", exc)
+        if on_unavailable is not None:
+            on_unavailable(str(exc))
         return None

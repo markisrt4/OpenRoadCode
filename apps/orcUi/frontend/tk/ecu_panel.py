@@ -63,6 +63,7 @@ class EcuPanel(tk.Frame):
         self._animation_phase = 0.0
         self._animation_time = time.monotonic()
         self._engine_gl = None
+        self._renderer_reason = ""
         self._animation_job: str | None = None
         super().__init__(parent, bg=theme.ui.background)
         self._build()
@@ -136,6 +137,7 @@ class EcuPanel(tk.Frame):
         self._engine_canvas.bind("<Configure>", lambda _e: self._paint_engine())
         self._engine_gl = create_engine_gl(
             engine, theme=self._theme, on_failure=self._use_canvas_engine,
+            on_unavailable=self._record_renderer_reason,
         )
         if self._engine_gl is not None:
             self._engine_canvas.grid_remove()
@@ -158,6 +160,17 @@ class EcuPanel(tk.Frame):
             font=("Sans", FONT_CONTROL, "bold"), bd=0, pady=9,
         )
         self._animation_toggle.grid(row=2, column=0, sticky="ew", padx=5, pady=(0, 5))
+
+        self._renderer_status = tk.Label(
+            engine, text="", fg=ui.text_muted, bg=ui.surface,
+            font=("Sans", FONT_SMALL), pady=3,
+        )
+        self._renderer_status.grid(row=3, column=0, sticky="ew", padx=5)
+        self._renderer_status.bind(
+            "<Configure>",
+            lambda event: self._renderer_status.configure(wraplength=max(1, event.width-10)),
+        )
+        self._record_renderer_reason(self._renderer_reason)
 
         # Keep telemetry cards outside the engine viewport so the complete
         # cutaway stays visible at every dashboard size.
@@ -362,6 +375,13 @@ class EcuPanel(tk.Frame):
         )
         self._paint_bars()
         self._paint_engine()
+
+    def _record_renderer_reason(self, reason: str) -> None:
+        self._renderer_reason = reason
+        if hasattr(self, "_renderer_status"):
+            self._renderer_status.configure(
+                text=f"3D unavailable: {reason}" if reason else "",
+            )
 
     def _use_canvas_engine(self) -> None:
         renderer, self._engine_gl = self._engine_gl, None
