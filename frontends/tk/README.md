@@ -105,7 +105,7 @@ provide hover; a mouse/trackpad or keyboard focus can reveal the descriptions.
 
 The right rail groups **F / N / ◎** together above the pan pad. Zoom
 in/out and tilt up/down share rows; the zoom readout and 2D/3D control remain
-separate. Buttons use 11-point labels, with a wider rail and roughly 44-pixel
+separate. Buttons use 11-point labels, with a 96-pixel rail and roughly 44-pixel
 target heights when space permits. Weighted rows fit the available viewport
 height instead of letting a packed stack extend below it; total height is capped
 so controls do not become oversized in tall windows. Very short windows allocate
