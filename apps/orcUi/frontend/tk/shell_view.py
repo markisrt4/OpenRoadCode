@@ -40,6 +40,7 @@ class OrcUiShellView:
         on_volume_down: Callable[[], None],
         on_volume_up: Callable[[], None],
         volume_text: str,
+        on_online_toggle: Callable[[], None] = lambda: None,
     ) -> None:
         self._root = root
         self._theme = theme
@@ -48,6 +49,9 @@ class OrcUiShellView:
         self._active_nav = active_nav
         self._on_navigate = on_navigate
         self._on_power = on_power
+        self._on_online_toggle = on_online_toggle
+        self._online = True
+        self._internet_reachable: bool | None = None
         self._on_theme_toggle = on_theme_toggle
         self._on_settings = on_settings
         self._on_volume_down = on_volume_down
@@ -84,6 +88,20 @@ class OrcUiShellView:
         )
         self._build_chrome()
         self._update_clock()
+
+    def set_online_status(self, online: bool, reachable: bool | None) -> None:
+        self._online = online
+        self._internet_reachable = reachable
+        ui = self._theme.ui
+        if not online:
+            text, color = ("OFFLINE · NO NET" if reachable is False else "OFFLINE"), ui.text_muted
+        elif reachable is True:
+            text, color = "ONLINE", ui.accent_success
+        elif reachable is False:
+            text, color = "ONLINE · NO NET", ui.accent_danger
+        else:
+            text, color = "ONLINE · CHECKING", ui.text_muted
+        self._online_button.set_status(text, color, online and reachable is True)
 
     def rebuild(self, *, theme: ThemeBundle, theme_mode: ThemeMode) -> None:
         self._theme = theme
@@ -131,6 +149,11 @@ class OrcUiShellView:
                 pass
             self._clock_after_id = None
 
+    def set_weather_online(self, online: bool) -> None:
+        self._weather_online = online
+        if self._weather_alert_banner is not None:
+            self._weather_alert_banner.set_online(online)
+
     def show_weather_alert(self, alert: WeatherAlertUiEvent | None) -> None:
         """Show, replace, or clear the persistent shell Weather alert."""
         if alert is None:
@@ -146,6 +169,7 @@ class OrcUiShellView:
                 on_dismiss=self.dismiss_weather_alert,
             )
             self._weather_alert_banner = banner
+        banner.set_online(getattr(self, "_weather_online", True))
         banner.set_alert(alert)
         banner.place(relx=0.5, y=52, anchor="n", relwidth=0.78)
         banner.lift()
@@ -198,6 +222,8 @@ class OrcUiShellView:
                  font=("Sans", 12, "bold"), anchor="w", justify=tk.LEFT,
                  wraplength=680).pack(fill=tk.X, padx=18, pady=(0, 12))
         body = alert.description
+        if not getattr(self, "_weather_online", True):
+            body = "OFFLINE: cached alert; it may have changed or been withdrawn.\n\n" + body
         if alert.instruction:
             body = f"{body}\\n\\n{alert.instruction}"
         tk.Label(detail, text=body, bg=ui.background, fg=ui.text_muted,
@@ -259,11 +285,13 @@ class OrcUiShellView:
 
     def _build_chrome(self) -> None:
         self._weather_alert_banner = None
-        self._clock_label, self._weather_status_label = build_top_bar(
+        self._clock_label, self._weather_status_label, self._online_button = build_top_bar(
             self._root,
             theme=self._theme,
             on_power=self._on_power,
+            on_online_toggle=self._on_online_toggle,
         )
+        self.set_online_status(self._online, self._internet_reachable)
         self._weather_status_label.configure(text=self._weather_status_text)
         self._side_nav = OrcUiSideNav(
             self._root,

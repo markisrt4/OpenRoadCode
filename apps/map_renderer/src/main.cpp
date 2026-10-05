@@ -5,6 +5,7 @@
 #include "map_command_server.hpp"
 #include "map_event_publisher.hpp"
 #include "navigation_config.hpp"
+#include "orc_logging.hpp"
 #include <mbgl/map/map.hpp>
 #include <mbgl/renderer/renderer.hpp>
 #include <mbgl/style/layer.hpp>
@@ -13,6 +14,8 @@
 #include <mapbox/geojson.hpp>
 #include <sqlite3.h>
 #include <cstdlib>
+#include <array>
+#include <chrono>
 #include <fstream>
 #include <iostream>
 #include <iterator>
@@ -57,14 +60,15 @@ std::string loadStyleJson(const NavigationConfig& config) {
 
 void setLayerVisible(mbgl::style::Style& style, const char* id, bool visible) {
     auto* layer = style.getLayer(id);
-    if (layer) layer->setVisibility(visible ? mbgl::style::VisibilityType::Visible : mbgl::style::VisibilityType::None);
+    const auto visibility = visible ? mbgl::style::VisibilityType::Visible : mbgl::style::VisibilityType::None;
+    if (layer && layer->getVisibility() != visibility) layer->setVisibility(visibility);
 }
 
 std::optional<mbgl::LatLngBounds> loadDatasetBounds(const std::string& dataRoot) {
     const std::string path = dataRoot + "/maps/vector/openroadcode.mbtiles";
     sqlite3* database = nullptr;
     if (sqlite3_open_v2(path.c_str(), &database, SQLITE_OPEN_READONLY, nullptr) != SQLITE_OK) {
-        std::cerr << "[map_renderer] unable to read MBTiles metadata: " << path << '\n';
+        orc::log("WARNING", "map_renderer.dataset", "dataset.metadata_unavailable", "Unable to read MBTiles metadata");
         if (database) sqlite3_close(database);
         return std::nullopt;
     }
@@ -89,8 +93,7 @@ std::optional<mbgl::LatLngBounds> loadDatasetBounds(const std::string& dataRoot)
                 south < north && west < east) {
                 result = mbgl::LatLngBounds::hull(
                     mbgl::LatLng{south, west}, mbgl::LatLng{north, east});
-                std::cout << "[map_renderer] dataset bounds: "
-                          << west << ',' << south << ',' << east << ',' << north << '\n';
+                orc::log("DEBUG", "map_renderer.dataset", "dataset.bounds_loaded", "Dataset bounds loaded");
             }
         }
     }
@@ -112,14 +115,15 @@ bool fitDatasetCamera(mbgl::Map& map, const NavigationConfig& config, double pad
 
 void setInitialCamera(mbgl::Map& map, const NavigationConfig& config) {
     if (fitDatasetCamera(map, config, kDatasetBoundsPadding, false)) return;
-    std::cerr << "[map_renderer] MBTiles bounds unavailable; using generic fallback camera\n";
+    orc::log("WARNING", "map_renderer.dataset", "dataset.bounds_unavailable", "Using fallback map camera");
     map.jumpTo(mbgl::CameraOptions()
         .withCenter(mbgl::LatLng{kDefaultLatitude, kDefaultLongitude})
         .withZoom(kDefaultZoom));
 }
 }
 
-int main() {
+int runRenderer() {
+    orc::log("INFO", "map_renderer.lifecycle", "process.started", "Map renderer starting");
     const auto configPath = environmentOrDefault(
         "OPENROADCODE_NAVIGATION_CONFIG", "/etc/openroadcode/navigation.toml");
     const auto publisherEndpoint = environmentOrDefault(
@@ -131,7 +135,7 @@ int main() {
     try {
         config = loadNavigationConfig(configPath);
     } catch (const std::exception& error) {
-        std::cerr << "[map_renderer] invalid navigation config: " << error.what() << '\n';
+        orc::log("CRITICAL", "map_renderer.lifecycle", "config.invalid", "Invalid navigation configuration");
         return 1;
     }
 
@@ -139,7 +143,7 @@ int main() {
     try {
         styleJson = loadStyleJson(config);
     } catch (const std::exception& error) {
-        std::cerr << "[map_renderer] failed to load navigation style: " << error.what() << '\n';
+        orc::log("CRITICAL", "map_renderer.lifecycle", "style.failed", "Failed to load navigation style");
         return 1;
     }
 
@@ -187,7 +191,10 @@ int main() {
                 name, brand, sourceClass, sourceSubclass, latitude, longitude);
         });
 
-    view.setUpdateCallback([&map, &commandServer, &config, &view, &eventPublisher]() {
+    bool cameraOwnedByUi = false;
+    std::optional<std::array<double, 5>> lastCamera;
+    auto lastCameraReport = std::chrono::steady_clock::time_point{};
+    view.setUpdateCallback([&]() {
         // Drain the command socket every frame instead of processing only one
         // message. Position telemetry can be much faster than UI input; leaving
         // old messages queued made camera buttons appear frozen until a renderer
@@ -195,6 +202,16 @@ int main() {
         while (true) {
             const auto command = commandServer.poll();
             if (!command) break;
+
+            // A toolbar camera command ends direct manipulation. Telemetry and
+            // POI updates must not interrupt an active mouse gesture.
+            if (command->command == "set_center" || command->command == "set_camera" ||
+                command->command == "fit_bounds" || command->command == "fit_dataset" ||
+                command->command == "set_zoom" || command->command == "set_bearing" ||
+                command->command == "set_pitch" || command->command == "pan_screen") {
+                view.finishCameraGesture();
+                cameraOwnedByUi = true;
+            }
 
             if (command->command == "set_center") {
                 map.jumpTo(mbgl::CameraOptions().withCenter(
@@ -216,7 +233,7 @@ int main() {
             }
             if (command->command == "fit_dataset") {
                 if (!fitDatasetCamera(map, config, command->padding, true)) {
-                    std::cerr << "[map_renderer] unable to fit dataset bounds\n";
+                    orc::log("WARNING", "map_renderer.dataset", "dataset.fit_failed", "Unable to fit dataset bounds");
                 }
                 view.showWindow();
                 continue;
@@ -286,8 +303,7 @@ int main() {
                     view.setPoiResultsJson(command->geojson);
                     view.invalidate();
                 } catch (const std::exception& error) {
-                    std::cerr << "[map_renderer] failed to parse POI result GeoJSON: "
-                              << error.what() << '\n';
+                    orc::log("ERROR", "map_renderer.pois", "pois.failed", "Failed to apply POI GeoJSON");
                 }
                 continue;
             }
@@ -310,19 +326,52 @@ int main() {
             }
             if (command->command == "set_route") {
                 auto* source = map.getStyle().getSource("route");
-                if (!source) continue;
+                if (!source) {
+                    orc::log("ERROR", "map_renderer.routes", "route.source_missing", "Map style has no route source", command->operationId);
+                    continue;
+                }
                 auto* routeSource = static_cast<mbgl::style::GeoJSONSource*>(source);
                 try {
                     routeSource->setGeoJSON(mapbox::geojson::parse(command->geojson));
+                    orc::log("INFO", "map_renderer.routes", "route.applied", "Route applied", command->operationId);
                 } catch (const std::exception& error) {
-                    std::cerr << "[map_renderer] failed to parse route GeoJSON: "
-                              << error.what() << '\n';
+                    orc::log("ERROR", "map_renderer.routes", "route.failed", "Failed to apply route GeoJSON", command->operationId);
                 }
+            }
+        }
+        // Match building geometry to the actual camera, including gesture and
+        // follow updates. Flat mode must not keep extruded roofs underneath.
+        const bool tilted = map.getCameraOptions().pitch.value_or(0.0) > 0.01;
+        setLayerVisible(map.getStyle(), "buildings", tilted);
+        setLayerVisible(map.getStyle(), "buildings-flat", !tilted);
+        setLayerVisible(map.getStyle(), "house-numbers", !tilted);
+        const auto camera = map.getCameraOptions();
+        const auto now = std::chrono::steady_clock::now();
+        if (cameraOwnedByUi && camera.center && camera.zoom && camera.bearing && camera.pitch &&
+            now - lastCameraReport >= std::chrono::milliseconds(50)) {
+            const std::array<double, 5> snapshot{
+                camera.center->latitude(), camera.center->longitude(),
+                *camera.zoom, *camera.bearing, *camera.pitch};
+            if (!lastCamera || *lastCamera != snapshot) {
+                eventPublisher.publishCameraState(snapshot[0], snapshot[1], snapshot[2], snapshot[3], snapshot[4]);
+                lastCamera = snapshot;
+                lastCameraReport = now;
             }
         }
     });
 
     map.getStyle().loadJSON(styleJson);
     view.run();
+    orc::log("INFO", "map_renderer.lifecycle", "process.stopped", "Map renderer stopped");
     return 0;
+}
+
+
+int main() {
+    try {
+        return runRenderer();
+    } catch (const std::exception&) {
+        orc::log("CRITICAL", "map_renderer.lifecycle", "process.failed", "Map renderer failed");
+        return 1;
+    }
 }

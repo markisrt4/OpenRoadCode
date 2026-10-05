@@ -9,6 +9,7 @@ import tkinter as tk
 from collections.abc import Callable
 
 from ui.theme import ThemeBundle
+from .connectivity_button import ConnectivityButton
 from .shell_metrics import (
     FONT_BRAND,
     FONT_CLOCK,
@@ -25,7 +26,8 @@ def build_top_bar(
     *,
     theme: ThemeBundle,
     on_power: Callable[[], None],
-) -> tuple[tk.Label, tk.Label]:
+    on_online_toggle: Callable[[], None] = lambda: None,
+) -> tuple[tk.Label, tk.Label, ConnectivityButton]:
     """Build the branded top bar and return clock and weather labels."""
     ui = theme.ui
     bar = tk.Frame(root, bg=ui.surface_alt, height=TOP_BAR_HEIGHT)
@@ -80,11 +82,16 @@ def build_top_bar(
     weather.pack(side=tk.LEFT, padx=(0, 10))
     tk.Label(
         status,
-        text="GPS  ▮▮▮   WiFi   BT   🚗",
+        text="GPS   BT   🚗",
         fg=ui.text_muted,
         bg=ui.surface_alt,
         font=("Sans", FONT_STATUS),
     ).pack(side=tk.LEFT, padx=(0, 10))
+    online = ConnectivityButton(
+        status, command=on_online_toggle, background=ui.control_background,
+        active_background=ui.control_active, muted=ui.text_muted,
+    )
+    online.pack(side=tk.LEFT, padx=(0, 8))
     tk.Button(
         status,
         text="⏻",
@@ -99,7 +106,7 @@ def build_top_bar(
         font=("Sans", FONT_POWER, "bold"),
         cursor="hand2",
     ).pack(side=tk.LEFT)
-    return clock, weather
+    return clock, weather, online
 
 
 def build_footer(root: tk.Misc, *, theme: ThemeBundle) -> tuple[tk.Label, tk.Label]:

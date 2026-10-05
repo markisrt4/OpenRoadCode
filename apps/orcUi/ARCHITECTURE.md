@@ -111,7 +111,29 @@ It must not create ZeroMQ subscribers, message decoders, audio backends, Spotify
 
 Structural orcUi widgets that are meaningful only inside that shell stay under `apps/orcUi/frontend/tk`. A widget that could reasonably be reused by another Tk application belongs in an appropriate feature package under `frontends/tk` instead.
 
-## Screen hosting and navigation\n\nThe screen boundary follows one rule: **composition owns dependencies, screens own feature behavior, and `OrcUiApp` owns the shell**. `OrcUiApp` maintains a generic screen registry and navigation list but contains no built-in feature catalog. A new feature should be addable by composition without editing `OrcUiApp`.\n\n```mermaid\nflowchart TD\n    composition["Application composition"] -->|constructs + injects dependencies| screens["ScreenUiIf implementations"]\n    composition -->|registers destinations + initial route| shell["OrcUiApp"]\n    screens -->|TkScreenHostIf| shell\n    shell --> shellView["OrcUiShellView"]\n    shellView --> chrome["Side nav / bottom bar / footer"]\n    shell --> content["Screen content host"]\n\n    classDef orcApp fill:#dbeafe,stroke:#2563eb,color:#172554;\n    classDef orcMessage fill:#ffedd5,stroke:#ea580c,color:#7c2d12;\n    class composition,screens,shell,shellView,chrome,content orcApp;\n```\n\nRegistered screens may be visible or hidden from primary navigation. Composition may also register a destination without a screen when the integrated shell should expose a generic placeholder. The shell renders that fallback generically; it does not know which feature the destination represents.\n\nReusable Tk screens depend on `TkScreenHostIf`, not `OrcUiApp`. The host contract provides a content parent, screen activation and clearing, title/status updates, UI-thread scheduling, and a back-action hook. orcUi currently relies on persistent destination navigation rather than rendering a dedicated back control, so back-action presentation remains a host capability to revisit separately rather than a reason for screens to depend on the concrete shell.\n\n## Reusing Tk for another application
+## Screen hosting and navigation
+
+The screen boundary follows one rule: **composition owns dependencies, screens own feature behavior, and `OrcUiApp` owns the shell**. `OrcUiApp` maintains a generic screen registry and navigation list but contains no built-in feature catalog. A new feature should be addable by composition without editing `OrcUiApp`.
+
+```mermaid
+flowchart TD
+    composition["Application composition"] -->|constructs + injects dependencies| screens["ScreenUiIf implementations"]
+    composition -->|registers destinations + initial route| shell["OrcUiApp"]
+    screens -->|TkScreenHostIf| shell
+    shell --> shellView["OrcUiShellView"]
+    shellView --> chrome["Side nav / bottom bar / footer"]
+    shell --> content["Screen content host"]
+
+    classDef orcApp fill:#dbeafe,stroke:#2563eb,color:#172554;
+    classDef orcMessage fill:#ffedd5,stroke:#ea580c,color:#7c2d12;
+    class composition,screens,shell,shellView,chrome,content orcApp;
+```
+
+Registered screens may be visible or hidden from primary navigation. Composition may also register a destination without a screen when the integrated shell should expose a generic placeholder. The shell renders that fallback generically; it does not know which feature the destination represents.
+
+Reusable Tk screens depend on `TkScreenHostIf`, not `OrcUiApp`. The host contract provides a content parent, screen activation and clearing, title/status updates, UI-thread scheduling, and a back-action hook. orcUi currently relies on persistent destination navigation rather than rendering a dedicated back control, so back-action presentation remains a host capability to revisit separately rather than a reason for screens to depend on the concrete shell.
+
+## Reusing Tk for another application
 
 `frontends/tk` is not uniquely tailored to orcUi. A future independent Tk application owns its shell under its own application package:
 
@@ -233,3 +255,21 @@ Before merging a substantial architecture change, review the complete branch dif
 - Keep shared icons semantic and frontend rendering local.
 - Keep theme values sourced from the shared theme model except deliberate provider branding.
 - Remove obsolete compatibility aliases when ownership changes instead of preserving architectural ambiguity indefinitely.
+
+## POI actions and connectivity
+
+`frontend/tk/navigation_panel.py` owns navigation state and UI polling. Its
+`navigation_poi_actions.py` helper owns asynchronous app/web handoffs, duplicate
+launch suppression, and applying queued results on the Tk thread. Failed handoffs
+leave the card open for retry; a completed launch does not close a newer card.
+Platform routing remains in `AndroidAppLauncher` and its Bridge, Waydroid, and
+desktop-browser adapters; provider metadata stays in the POI catalogs.
+
+`OnlineModeController` combines the manual preference with observed reachability
+and persists the effective mode for background services. `NetworkMonitor` reads
+Android Bridge locally on Termux and receives NetworkManager events through
+nmcli on Linux. The shell applies queued observations on the UI thread and
+invalidates older internet-check results. Feature compositions subscribe to the
+same mode to disable online actions while preserving local map, navigation, RF,
+and visualizer capabilities. See [the online/offline guide](../../docs/online_offline_mode.md)
+and [POI ordering](../../docs/poi_ordering.md) for behavior and testing.

@@ -54,6 +54,10 @@ Generated from the canonical documentation files. Every component README and sta
 - [Weatherdash (`apps/weatherDash`)](../apps/weatherDash/README.md)
 - [Webui (`apps/webUi`)](../apps/webUi/README.md)
 
+### Common
+
+- [Logging (`common/logging`)](../common/logging/README.md)
+
 ### Config
 
 - [Config](../config/README.md)
@@ -106,9 +110,12 @@ Generated from the canonical documentation files. Every component README and sta
 - [Music Visualizer](music_visualizer.md)
 - [Navigation Deployment](navigation_deployment.md)
 - [Navigation Runtime](navigation_runtime.md)
+- [Online Offline Mode](online_offline_mode.md)
+- [Poi Ordering](poi_ordering.md)
 - [Roadmap](roadmap.md)
 - [Streaming Radio](streaming_radio.md)
 - [System Performance](system_performance.md)
+- [Termux Poi Download](termux_poi_download.md)
 - [Xdg Paths](xdg_paths.md)
 
 ### Frontends

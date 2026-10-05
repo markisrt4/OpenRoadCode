@@ -32,7 +32,9 @@ class SpotifyNowPlaying(tk.Frame):
         service: SpotifyStateService,
         on_open: Callable[[], None],
         theme_bundle: Callable[[], ThemeBundle],
+        online_allowed: Callable[[], bool] = lambda: True,
     ) -> None:
+        self._online_allowed = online_allowed
         self._theme_provider = theme_bundle
         self._theme = theme_bundle()
         ui = self._theme.ui
@@ -119,9 +121,16 @@ class SpotifyNowPlaying(tk.Frame):
         current_theme = self._theme_provider()
         if current_theme != self._theme:
             self.set_theme_bundle(current_theme)
+        self.configure(cursor="hand2" if self._online_allowed() else "arrow")
         self._apply_artwork_result()
         state = self._service.latest_state()
-        if state.playback is PlaybackState.PLAYING and state.title:
+        if not self._online_allowed():
+            self._title.set("Streaming media unavailable")
+            self._artist.set("Offline mode")
+            self._status.set("")
+            self.configure(cursor="arrow")
+            self._show_artwork_placeholder()
+        elif state.playback is PlaybackState.PLAYING and state.title:
             self._title.set(state.title)
             self._artist.set(state.artist or "")
             self._status.set("Spotify • Playing")
@@ -135,6 +144,8 @@ class SpotifyNowPlaying(tk.Frame):
         self.after(500, self._refresh)
 
     def _load_artwork(self, uri: str) -> None:
+        if not self._online_allowed():
+            return
         self._artwork_uri = uri
         self._artwork_photo = None
         self._art_label.configure(image="", text="♫", width=4, height=2)
@@ -142,7 +153,8 @@ class SpotifyNowPlaying(tk.Frame):
 
         def worker() -> None:
             try:
-                image = self._image_cache.get(uri, width=ART_SIZE, height=ART_SIZE)
+                image = (self._image_cache.get(uri, width=ART_SIZE, height=ART_SIZE)
+                         if self._online_allowed() else None)
             except Exception:
                 image = None
             self._art_results.put((uri, image))

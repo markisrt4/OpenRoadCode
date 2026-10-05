@@ -185,6 +185,7 @@ class NavigationCommandClient:
             return RouteResult(
                 distance_miles=float(data["distance_miles"]),
                 duration_seconds=float(data["duration_seconds"]),
+                operation_id=data.get("operation_id"),
                 shape=shape,
                 maneuvers=maneuvers,
             )

@@ -22,7 +22,7 @@ def weather_alert_expiration_text(alert: WeatherAlertUiEvent, now: datetime) -> 
 
 class WeatherAlertBanner(tk.Frame):
     def __init__(self,parent:tk.Misc,*,theme:ThemeBundle,on_details:Callable[[],None],on_dismiss:Callable[[],None])->None:
-        self._theme=theme;self._alert=None;self._on_details=on_details;self._on_dismiss=on_dismiss
+        self._online=True;self._theme=theme;self._alert=None;self._on_details=on_details;self._on_dismiss=on_dismiss
         super().__init__(parent,bd=0,highlightthickness=1);self.grid_columnconfigure(1,weight=1)
         self._severity=tk.Label(self,font=("Sans",10,"bold"),padx=8,pady=6);self._severity.grid(row=0,column=0,rowspan=2,sticky="nsw")
         self._event=tk.Label(self,anchor="w",font=("Sans",12,"bold"),padx=8);self._event.grid(row=0,column=1,sticky="ew",pady=(4,0))
@@ -31,10 +31,17 @@ class WeatherAlertBanner(tk.Frame):
         self._details=tk.Button(self,text="DETAILS",command=self._on_details,relief=tk.FLAT,bd=0,cursor="hand2",font=("Sans",9,"bold"));self._details.grid(row=0,column=3,rowspan=2,padx=(4,2),pady=5)
         self._dismiss=tk.Button(self,text="✕",command=self._on_dismiss,relief=tk.FLAT,bd=0,cursor="hand2",width=3,font=("Sans",11,"bold"));self._dismiss.grid(row=0,column=4,rowspan=2,padx=(2,6),pady=5)
         self.set_theme_bundle(theme)
+    def set_online(self, online: bool) -> None:
+        self._online = online
+        if self._alert is not None:
+            self._headline.configure(text=self._headline_text())
+    def _headline_text(self) -> str:
+        prefix = "OFFLINE • Cached alert, may be outdated • " if not self._online else ""
+        return prefix + self._alert.headline
     @property
     def alert(self):return self._alert
     def set_alert(self,alert):
-        self._alert=alert;self._severity.configure(text=alert.severity.upper());self._event.configure(text=alert.event.upper());self._headline.configure(text=alert.headline);self.update_expiration(datetime.now().astimezone());self.set_theme_bundle(self._theme)
+        self._alert=alert;self._severity.configure(text=alert.severity.upper());self._event.configure(text=alert.event.upper());self._headline.configure(text=self._headline_text());self.update_expiration(datetime.now().astimezone());self.set_theme_bundle(self._theme)
     def update_expiration(self,now:datetime)->None:
         if self._alert is not None:self._expiration.configure(text=weather_alert_expiration_text(self._alert,now))
     def set_theme_bundle(self,theme):

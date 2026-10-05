@@ -22,6 +22,8 @@ class NavigationPanelControlTest(unittest.TestCase):
         panel._request_handler = Mock()
         panel._zoom_level = 16.5
         panel._zoom_text = Mock()
+        panel._dimension_text = Mock()
+        panel._pitch_rad = 0.0
         panel._follow_enabled = True
         panel._poi_controller = Mock()
         panel._shortcut_status = Mock()
@@ -34,6 +36,10 @@ class NavigationPanelControlTest(unittest.TestCase):
         panel._simulate_button = Mock()
         panel._cancel_route_button = Mock()
         panel._map_favorites = Mock()
+        from queue import SimpleQueue
+        panel._poi_launch_results = SimpleQueue()
+        panel._poi_launching = False
+        panel._poi_action_buttons = []
         panel._poi_action_executor = Mock()
         panel._poi_card = None
         panel._poi_search_after_id = None
@@ -52,6 +58,15 @@ class NavigationPanelControlTest(unittest.TestCase):
         self.assertTrue(panel._follow_enabled)
         panel._request_handler.request_zoom.assert_called_once_with(17.5)
 
+    def test_toolbar_zoom_continues_from_native_double_click_camera(self) -> None:
+        from protocols.map_renderer.map_poi_source import RawMapCamera
+        panel = self._panel()
+        panel._poi_controller.poll_camera_state.return_value = RawMapCamera(42.81, -83.02, 18.5, 25, 40)
+        panel._change_zoom(1)
+        panel._request_handler.request_zoom.assert_called_once_with(19.5)
+        self.assertAlmostEqual(panel._pitch_rad, math.radians(40))
+        panel._request_handler.observe_camera.assert_called_once()
+
     def test_3d_view_tilts_and_zooms_current_viewport(self) -> None:
         panel = self._panel()
         panel._pitch_rad = 0.0
@@ -67,6 +82,26 @@ class NavigationPanelControlTest(unittest.TestCase):
         panel._request_handler.request_pitch.assert_called_once_with(math.radians(60.0))
         panel._request_handler.request_recenter.assert_not_called()
         panel._schedule_active_poi_refresh.assert_called_once_with()
+
+    def test_dimension_toggle_returns_to_flat_view_without_recenter_or_zoom(self) -> None:
+        panel = self._panel()
+        panel._toggle_map_dimension()
+        self.assertAlmostEqual(panel._pitch_rad, math.radians(60))
+        panel._dimension_text.set.assert_called_with("2D")
+        panel._request_handler.reset_mock()
+        panel._toggle_map_dimension()
+        self.assertEqual(panel._pitch_rad, 0.0)
+        panel._dimension_text.set.assert_called_with("3D")
+        panel._request_handler.request_pitch.assert_called_once_with(0.0)
+        panel._request_handler.request_zoom.assert_not_called()
+        panel._request_handler.request_recenter.assert_not_called()
+
+    def test_tilt_controls_update_dimension_toggle_label(self) -> None:
+        panel = self._panel()
+        panel._change_pitch(5)
+        panel._dimension_text.set.assert_called_with("2D")
+        panel._change_pitch(-5)
+        panel._dimension_text.set.assert_called_with("3D")
 
     def test_north_up_disables_follow(self) -> None:
         panel = self._panel()
@@ -240,6 +275,8 @@ class NavigationPanelControlTest(unittest.TestCase):
         action = PoiAction(PoiActionKind.ORDER, "ORDER", provider_id="panera")
 
         panel._execute_poi_action(poi, action)
+        panel._poi_launch_worker.join(1)
+        panel._poll_poi_launch_results()
 
         panel._poi_action_executor.execute.assert_called_once_with(poi, action)
         panel._shortcut_status.set.assert_called_with("Opening order in app")
@@ -247,3 +284,118 @@ class NavigationPanelControlTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class OfflinePoiActionsTest(unittest.TestCase):
+    def test_offline_blocks_order_and_website_even_when_called_directly(self):
+        from controllers.connectivity.online_mode import OnlineModeController
+        import tempfile
+        from pathlib import Path
+        with tempfile.TemporaryDirectory() as directory:
+            mode = OnlineModeController(Path(directory) / 'mode.json')
+            mode.set_online(False)
+            panel = NavigationPanelControlTest()._panel()
+            panel._online_mode = mode
+            poi = PointOfInterest('p', 'Panera', PoiCategory.FOOD, GeoPoint(0, 0))
+            for kind in (PoiActionKind.ORDER, PoiActionKind.OPEN_WEBSITE):
+                panel._execute_poi_action(poi, PoiAction(kind, kind.name))
+            panel._poi_action_executor.execute.assert_not_called()
+            mode.set_online(True)
+            panel._execute_poi_action(poi, PoiAction(PoiActionKind.ORDER, 'ORDER'))
+            panel._poi_launch_worker.join(1)
+            panel._poi_action_executor.execute.assert_called_once()
+
+    def test_open_card_buttons_follow_mode_changes(self):
+        panel = NavigationPanelControlTest()._panel()
+        panel._online_mode = Mock(online=False)
+        button = Mock()
+        button.winfo_exists.return_value = True
+        panel._poi_action_buttons = [button]
+        panel._refresh_poi_action_buttons()
+        button.configure.assert_called_with(state='disabled')
+        panel._online_mode.online = True
+        panel._refresh_poi_action_buttons()
+        button.configure.assert_called_with(state='normal')
+
+
+class PoiPollingRecoveryTest(unittest.TestCase):
+    def test_database_failure_keeps_polling_alive(self):
+        import sqlite3
+        panel = NavigationPanelControlTest()._panel()
+        panel._poll_poi_events_once = Mock(side_effect=sqlite3.OperationalError('missing database'))
+        panel.winfo_exists = Mock(return_value=True)
+        panel._poll_poi_events()
+        panel.after.assert_called_once_with(100, panel._poll_poi_events)
+        panel._shortcut_status.set.assert_called_once_with('POI database unavailable; see terminal for details')
+
+    def test_offline_mode_still_displays_cached_poi_results(self):
+        from controllers.poi import PoiSearchResult
+        panel = NavigationPanelControlTest()._panel()
+        panel._online_mode = Mock(online=False)
+        panel._poi_controller.poll_camera_interaction.return_value = False
+        panel._poi_controller.poll_selected.return_value = None
+        poi = PointOfInterest('p', 'Cafe', PoiCategory.FOOD, GeoPoint(0, 0))
+        panel._poi_controller.poll_search_result.return_value = PoiSearchResult(
+            PoiCategory.FOOD, 1, 0, 0, 0, 0, (poi,),
+        )
+        panel.winfo_exists = Mock(return_value=True)
+        panel._poll_poi_events()
+        markers = panel._request_handler.request_poi_results.call_args.args[0]
+        self.assertEqual(len(markers), 1)
+        self.assertEqual(markers[0].label, 'Cafe')
+
+
+class PoiLaunchResponsivenessTest(unittest.TestCase):
+    def test_waiting_launcher_does_not_block_ui_or_allow_duplicate_launch(self):
+        from threading import Event
+        entered, release = Event(), Event()
+        panel = NavigationPanelControlTest()._panel()
+        panel._poi_card = Mock()
+        card = panel._poi_card
+        def execute(poi, action):
+            entered.set()
+            release.wait(2)
+            return "Opening order in browser"
+        panel._poi_action_executor.execute.side_effect = execute
+        poi = PointOfInterest('p', 'Panera', PoiCategory.FOOD, GeoPoint(0, 0))
+        action = PoiAction(PoiActionKind.ORDER, 'ORDER', provider_id='panera')
+        try:
+            panel._execute_poi_action(poi, action)
+            self.assertTrue(entered.wait(1))
+            self.assertTrue(panel._poi_launching)
+            panel._execute_poi_action(poi, action)
+            self.assertEqual(panel._poi_action_executor.execute.call_count, 1)
+            card.destroy.assert_not_called()
+            release.set()
+            panel._poi_launch_worker.join(1)
+            # The worker must leave Tk updates to the UI's poll loop.
+            card.destroy.assert_not_called()
+            panel._poll_poi_launch_results()
+            card.destroy.assert_called_once()
+            self.assertFalse(panel._poi_launching)
+        finally:
+            release.set()
+            panel._poi_launch_worker.join(1)
+
+    def test_failure_keeps_card_open_and_reenables_actions(self):
+        from apps.launchers.android_app_launcher import AndroidAppLauncherError
+        panel = NavigationPanelControlTest()._panel()
+        panel._poi_card = Mock()
+        card = panel._poi_card
+        panel._poi_action_executor.execute.side_effect = AndroidAppLauncherError('No browser')
+        poi = PointOfInterest('p', 'Cafe', PoiCategory.FOOD, GeoPoint(0, 0))
+        panel._execute_poi_action(poi, PoiAction(PoiActionKind.OPEN_WEBSITE, 'WEBSITE'))
+        panel._poi_launch_worker.join(1)
+        panel._poll_poi_launch_results()
+        card.destroy.assert_not_called()
+        self.assertFalse(panel._poi_launching)
+        panel._shortcut_status.set.assert_called_with('Launch failed: No browser')
+
+    def test_completion_does_not_close_a_newly_selected_poi_card(self):
+        panel = NavigationPanelControlTest()._panel()
+        original, current = Mock(), Mock()
+        panel._poi_card = current
+        panel._poi_launch_results.put((original, 'Opening order in browser', True))
+        panel._poll_poi_launch_results()
+        current.destroy.assert_not_called()
+        original.destroy.assert_not_called()

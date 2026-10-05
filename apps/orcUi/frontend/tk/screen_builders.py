@@ -5,6 +5,8 @@
 
 from __future__ import annotations
 
+from controllers.connectivity.online_mode import OnlineModeController
+
 import tkinter as tk
 from collections.abc import Callable
 
@@ -37,6 +39,7 @@ def build_navigation_screen(
     route_simulation_handler: RouteSimulationRequestHandlerIf,
     on_back: Callable[[], None],
     theme: ThemeBundle,
+    online_mode: OnlineModeController | None = None,
 ) -> NavigationPanel:
     screen = NavigationPanel(
         parent,
@@ -45,6 +48,7 @@ def build_navigation_screen(
         route_simulation_handler=route_simulation_handler,
         on_back=on_back,
         theme_bundle=theme,
+        online_mode=online_mode,
     )
     screen.pack(fill=tk.BOTH, expand=True)
     return screen

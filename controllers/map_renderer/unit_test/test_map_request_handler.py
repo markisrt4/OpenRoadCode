@@ -59,6 +59,17 @@ class MapRequestHandlerTest(unittest.TestCase):
             on_follow_changed=self.follow_changes.append,
         )
 
+    def test_renderer_camera_is_retained_for_screen_reentry_without_feedback_commands(self) -> None:
+        self.handler.request_follow(False)
+        self.handler.observe_camera(GeoPoint(math.radians(42.81), math.radians(-83.02)),
+                                    18.5, math.radians(25), math.radians(40))
+        self.assertEqual(self.renderer.cameras, [])
+        self.handler.refresh_renderer_state()
+        camera = self.renderer.cameras[-1]
+        for actual, expected in zip(camera, (42.81, -83.02, 18.5, 25, 40)):
+            self.assertAlmostEqual(actual, expected)
+        self.assertFalse(self.handler.follow_enabled)
+
     def test_zoom_preserves_follow_mode(self) -> None:
         self.handler.request_zoom(14.0)
         self.assertTrue(self.handler.follow_enabled)

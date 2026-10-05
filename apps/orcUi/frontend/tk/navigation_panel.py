@@ -5,11 +5,18 @@
 
 from __future__ import annotations
 
+from controllers.connectivity.online_mode import OnlineModeController
+
+from queue import SimpleQueue
+
+import logging
+
+from common.logging.structured import event
 import math
+import sqlite3
 import tkinter as tk
 from collections.abc import Callable
 
-from apps.launchers.android_intent_launcher import AndroidIntentLauncherError
 from apps.orcUi.theme_runtime import theme_bundle as packaged_theme_bundle
 from controllers.navigation.map_favorites import MapFavorites
 from controllers.poi.android_poi_action_executor import AndroidPoiActionExecutor
@@ -34,11 +41,15 @@ from ui.navigation.route_types import TravelMode
 from ui.theme import ThemeBundle, ThemeMode
 from .shell_metrics import FONT_CONTROL, FONT_SMALL, FONT_TINY
 from .navigation_panel_layout import build_navigation_panel, show_poi_card
+from .navigation_panel_camera import NavigationCameraControls
+from .navigation_poi_actions import execute_poi_action, poll_poi_launch_results
 
 _POI_SEARCH_SETTLE_MS = 750
 
+_LOG = logging.getLogger("navigation.poi.ui")
 
-class NavigationPanel(tk.Frame):
+
+class NavigationPanel(NavigationCameraControls, tk.Frame):
     """Map host, navigation controls, and nearby POI discovery."""
 
     def __init__(
@@ -52,6 +63,7 @@ class NavigationPanel(tk.Frame):
         on_back: Callable[[], None] | None = None,
         theme_bundle: ThemeBundle | None = None,
         poi_action_executor: PoiActionExecutorIf | None = None,
+        online_mode: OnlineModeController | None = None,
     ) -> None:
         self._theme_bundle = theme_bundle or packaged_theme_bundle(ThemeMode.DARK)
         super().__init__(parent, bg=self._theme_bundle.ui.background)
@@ -61,12 +73,21 @@ class NavigationPanel(tk.Frame):
         self._route_simulation_handler = route_simulation_handler
         self._map_favorites = map_favorites or MapFavorites()
         self._poi_action_executor = poi_action_executor or AndroidPoiActionExecutor()
+        self._poi_launch_results = SimpleQueue()
+        self._poi_launching = False
+        self._online_mode = online_mode
+        self._poi_action_buttons: list[tk.Button] = []
+        self._unsubscribe_online_mode = (
+            online_mode.subscribe(lambda _online: self._refresh_poi_action_buttons())
+            if online_mode is not None else lambda: None
+        )
         self._poi_controller = PoiSearchController()
         self._poi_card: tk.Toplevel | None = None
         self._poi_search_after_id: str | None = None
         self._zoom_level = float(getattr(self._request_handler, "zoom_level", 16.5))
         self._zoom_text = tk.StringVar(value=f"{self._zoom_level:.1f}")
         self._pitch_rad = float(getattr(self._request_handler, "pitch_rad", math.radians(45.0)))
+        self._dimension_text = tk.StringVar(value="2D" if self._pitch_rad > 0 else "3D")
         self._follow_enabled = bool(getattr(self._request_handler, "follow_enabled", True))
         self._shortcut_status = tk.StringVar(value="")
         self._guidance_instruction = tk.StringVar(value="")
@@ -108,6 +129,7 @@ class NavigationPanel(tk.Frame):
         )
 
     def destroy(self) -> None:
+        self._unsubscribe_online_mode()
         if self._poi_search_after_id is not None:
             try:
                 self.after_cancel(self._poi_search_after_id)
@@ -257,6 +279,18 @@ class NavigationPanel(tk.Frame):
         self._poi_controller.search(category, transit_mode)
 
     def _poll_poi_events(self) -> None:
+        try:
+            self._poll_poi_launch_results()
+            self._poll_poi_events_once()
+        except sqlite3.Error as exc:
+            self._shortcut_status.set("POI database unavailable; see terminal for details")
+            event(_LOG, logging.ERROR, "poi.index.unavailable", "POI database unavailable",
+                  exception_type=type(exc).__name__)
+        finally:
+            if self.winfo_exists():
+                self.after(100, self._poll_poi_events)
+
+    def _poll_poi_events_once(self) -> None:
         if self._poi_controller.poll_camera_interaction():
             # Native mouse/touch gestures happen inside MapLibre, bypassing the
             # Python request handler. Suspend GPS follow so it cannot immediately
@@ -265,6 +299,7 @@ class NavigationPanel(tk.Frame):
             self.set_follow_enabled(False)
             self._request_handler.request_follow(False)
             self._schedule_active_poi_refresh()
+        self._sync_renderer_camera()
         result = self._poi_controller.poll_search_result()
         if result is not None:
             markers = tuple(
@@ -285,10 +320,8 @@ class NavigationPanel(tk.Frame):
                 self._shortcut_status.set(f"No {result.category.name.casefold()} results nearby")
         poi = self._poi_controller.poll_selected()
         if poi is not None:
-            print(f"[orcUi] showing POI business popup for {poi.name!r}")
+            event(_LOG, logging.INFO, "poi.popup.shown", "Showing POI business popup")
             self._show_poi_card(poi)
-        if self.winfo_exists():
-            self.after(100, self._poll_poi_events)
 
     def _show_poi_card(self, poi: PointOfInterest) -> None:
         show_poi_card(self, poi)
@@ -309,15 +342,21 @@ class NavigationPanel(tk.Frame):
         if self._poi_card is not None and self._poi_card.winfo_exists():
             self._poi_card.destroy()
 
+    @property
+    def online_actions_allowed(self) -> bool:
+        mode = getattr(self, "_online_mode", None)
+        return mode is None or mode.online
+
+    def _refresh_poi_action_buttons(self) -> None:
+        for button in self._poi_action_buttons:
+            if button.winfo_exists():
+                button.configure(state=tk.NORMAL if self.online_actions_allowed and not self._poi_launching else tk.DISABLED)
+
     def _execute_poi_action(self, poi: PointOfInterest, action: PoiAction) -> None:
-        try:
-            status = self._poi_action_executor.execute(poi, action)
-            self._shortcut_status.set(status)
-        except (AndroidIntentLauncherError, ValueError) as exc:
-            self._shortcut_status.set(f"Launch failed: {exc}")
-        if self._poi_card is not None and self._poi_card.winfo_exists():
-            self._poi_card.destroy()
-        self.after(3500, lambda: self._shortcut_status.set(""))
+        execute_poi_action(self, poi, action)
+
+    def _poll_poi_launch_results(self) -> None:
+        poll_poi_launch_results(self)
 
     def _update_simulation_button(self) -> None:
         if hasattr(self, "_cancel_route_button"):
@@ -396,49 +435,6 @@ class NavigationPanel(tk.Frame):
             details.append("OFF ROUTE")
         self._guidance_detail.set("  •  ".join(details))
 
-    def _toggle_follow(self) -> None:
-        enabled = not self._follow_enabled
-        self.set_follow_enabled(enabled)
-        self._request_handler.request_follow(enabled)
-
-    def _pan(self, up: float, right: float) -> None:
-        self._map_host.update_idletasks()
-        self.set_follow_enabled(False)
-        self._request_handler.request_pan_screen(
-            right_px=right * max(48, self._map_host.winfo_width() * 0.25),
-            up_px=up * max(48, self._map_host.winfo_height() * 0.25),
-        )
-        self._schedule_active_poi_refresh()
-
-    def _change_zoom(self, delta: float) -> None:
-        self._zoom_level = max(1, min(22, self._zoom_level + delta))
-        self._zoom_text.set(f"{self._zoom_level:.1f}")
-        self._request_handler.request_zoom(self._zoom_level)
-        self._schedule_active_poi_refresh()
-
-    def _change_pitch(self, delta_deg: float) -> None:
-        pitch_deg = max(0, min(60, math.degrees(self._pitch_rad) + delta_deg))
-        self._pitch_rad = math.radians(pitch_deg)
-        self.set_follow_enabled(False)
-        self._request_handler.request_pitch(self._pitch_rad)
-
-    def _show_3d_view(self) -> None:
-        """Tilt and zoom the current viewport around its existing center."""
-        self._zoom_level = 17.0
-        self._zoom_text.set(f"{self._zoom_level:.1f}")
-        self._pitch_rad = math.radians(60.0)
-        self.set_follow_enabled(False)
-        self._request_handler.request_zoom(self._zoom_level)
-        self._request_handler.request_pitch(self._pitch_rad)
-        self._schedule_active_poi_refresh()
-
-    def _north_up(self) -> None:
-        self.set_follow_enabled(False)
-        self._request_handler.request_bearing(0.0)
-
-    def _recenter(self) -> None:
-        self.set_follow_enabled(True)
-        self._request_handler.request_recenter()
 
 
 def _poi_render_category(category: PoiCategory, transit_mode: TransitMode) -> str:

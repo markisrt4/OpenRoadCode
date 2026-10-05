@@ -136,6 +136,7 @@ def create_orc_ui_composition() -> OrcUiComposition:
         )
         navigation = NavigationScreen(
             app,
+            online_mode=app.online_mode,
             map_runtime=core.map_runtime,
             map_request_handler=core.map_camera.request_handler,
             route_request_handler=core.route_request_handler,

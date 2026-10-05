@@ -27,7 +27,9 @@ class WeatherController:
         location_provider: WeatherLocationProviderIf | None = None,
         fallback_location: WeatherLocation | None = None,
         clock: Callable[[], float] = time.time,
+        network_allowed: Callable[[], bool] = lambda: True,
     ) -> None:
+        self._network_allowed = network_allowed
         self._provider = provider
         self._location_provider = location_provider
         self._fallback_location = fallback_location
@@ -42,6 +44,10 @@ class WeatherController:
         return self._last_state
 
     def refresh(self) -> WeatherState:
+        if not self._network_allowed():
+            if self._last_state is not None:
+                return self._last_state
+            raise RuntimeError("Offline mode: no cached weather available")
         location = self._resolve_location()
         state = self._provider.refresh(location)
         self._last_state = state
@@ -66,6 +72,11 @@ class WeatherController:
                 return self._location_provider.get_location()
             except Exception:
                 pass
+        # Reuse the last resolved position when GPS is temporarily unavailable.
+        if self._last_state is not None:
+            cached = self._last_state
+            return WeatherLocation(cached.latitude, cached.longitude,
+                                   cached.location_name, cached.location_source)
         if self._fallback_location is None:
             raise RuntimeError("No weather location is available")
         return self._fallback_location

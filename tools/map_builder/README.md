@@ -92,6 +92,13 @@ build-output/
 
 The canonical style name is `openroadcode.json`; runtime code should not depend on a region-specific filename.
 
+Buildings use offline vector footprints and available height attributes, with a
+3.66-metre fallback. Map-anchored directional lighting, vertical shading, and
+subtle height-based colors improve depth in the tilted 3D view. ORC applies
+light/dark building palettes when generating its runtime style. These effects
+require no textures, extra datasets, or network access; restart ORC after pulling
+style changes to regenerate the installed style.
+
 ## Validation
 
 Validation runs automatically after a build. It checks source PBFs with osmium, MBTiles SQLite integrity and required vector layers, style JSON and runtime sources, glyph presence, Valhalla databases/tiles/extract, an optional `valhalla_service /status` smoke test, and SHA-256 checksums for key artifacts.

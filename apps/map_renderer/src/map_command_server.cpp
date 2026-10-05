@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 #include "map_command_server.hpp"
+#include "orc_logging.hpp"
 
 #include <rapidjson/document.h>
 #include <rapidjson/stringbuffer.h>
@@ -17,20 +18,33 @@ MapCommandServer::MapCommandServer(std::string endpoint_) : endpoint(std::move(e
     socket.set(zmq::sockopt::linger, 0);
     socket.set(zmq::sockopt::subscribe, kMapCommandTopic);
     socket.connect(endpoint);
-    std::cout << "Map command bus: " << endpoint << " topic=" << kMapCommandTopic << '\n';
+    orc::log("INFO", "map_renderer.commands", "broker.configured", "Map command subscriber configured", "", "", endpoint);
 }
 
 std::optional<MapCommand> MapCommandServer::poll()
 {
-    zmq::message_t topicMessage;
-    if (!socket.recv(topicMessage, zmq::recv_flags::dontwait)) return std::nullopt;
-    zmq::message_t payloadMessage;
-    if (!socket.recv(payloadMessage, zmq::recv_flags::none)) return std::nullopt;
-    const std::string topic(static_cast<const char*>(topicMessage.data()), topicMessage.size());
+    // Read one complete multipart message without waiting for a missing frame.
+    // Concurrent/legacy publishers may send malformed framing; discard it so
+    // the render loop and later toolbar commands remain responsive.
+    zmq::message_t frame;
+    if (!socket.recv(frame, zmq::recv_flags::dontwait)) return std::nullopt;
+    const std::string topic(static_cast<const char*>(frame.data()), frame.size());
+    std::string payload;
+    std::size_t frameCount = 1;
+    while (socket.get(zmq::sockopt::rcvmore)) {
+        if (!socket.recv(frame, zmq::recv_flags::dontwait)) return std::nullopt;
+        ++frameCount;
+        if (frameCount == 2)
+            payload.assign(static_cast<const char*>(frame.data()), frame.size());
+    }
+    if (frameCount != 2) {
+        orc::log("WARNING", "map_renderer.commands", "command.framing_rejected", "Invalid map command framing");
+        return std::nullopt;
+    }
     if (topic != kMapCommandTopic) return std::nullopt;
-    const std::string payload(static_cast<const char*>(payloadMessage.data()), payloadMessage.size());
     const auto command = parseCommand(payload);
-    if (!command) std::cerr << "[map_renderer] invalid map.command payload\n";
+    if (!command) orc::log("WARNING", "map_renderer.commands", "command.rejected", "Invalid map command");
+    else orc::log(command->command == "set_route" ? "INFO" : "DEBUG", "map_renderer.commands", "command.received", "Map command received", command->operationId, command->command);
     return command;
 }
 
@@ -43,6 +57,8 @@ std::optional<MapCommand> MapCommandServer::parseCommand(const std::string& payl
 
     MapCommand command;
     command.command = document["command"].GetString();
+    if (document.HasMember("operation_id") && document["operation_id"].IsString())
+        command.operationId = document["operation_id"].GetString();
 
     if (command.command == "set_route" || command.command == "set_poi_results") {
         if (!document.HasMember("geojson") || !document["geojson"].IsObject()) return std::nullopt;
@@ -107,6 +123,6 @@ std::optional<MapCommand> MapCommandServer::parseCommand(const std::string& payl
         if (document.HasMember("padding") && document["padding"].IsNumber()) command.padding = document["padding"].GetDouble();
         return command;
     }
-    std::cerr << "Unknown map command: " << command.command << '\n';
+    orc::log("WARNING", "map_renderer.commands", "command.unknown", "Unknown map command", command.operationId, command.command);
     return std::nullopt;
 }

@@ -6,6 +6,9 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+import logging
+
+from common.logging.structured import event
 
 from controllers.spotify.spotify_controller_if import SpotifyControllerIf
 from controllers.spotify.spotify_state import SpotifyState
@@ -20,15 +23,25 @@ from ui.media import (
     VolumeRequestHandlerIf,
 )
 
+LOGGER = logging.getLogger("media.spotify.presenter")
 
-class SpotifyMediaPresenter(PlaybackRequestHandlerIf, TrackRequestHandlerIf, SeekRequestHandlerIf, VolumeRequestHandlerIf):
+
+class SpotifyMediaPresenter(
+    PlaybackRequestHandlerIf, TrackRequestHandlerIf, SeekRequestHandlerIf, VolumeRequestHandlerIf
+):
     """Bridge a Spotify backend to a toolkit-independent media UI."""
 
-    def __init__(self, backend: SpotifyControllerIf, media_ui: MediaUiIf, fallback_volume_handler: VolumeRequestHandlerIf | None = None) -> None:
+    def __init__(
+        self,
+        backend: SpotifyControllerIf,
+        media_ui: MediaUiIf,
+        fallback_volume_handler: VolumeRequestHandlerIf | None = None,
+    ) -> None:
         self._backend = backend
         self._media_ui = media_ui
         self._fallback_volume_handler = fallback_volume_handler
         self._latest_state: MediaState | None = None
+        self._state_read_failed = False
 
     def refresh(self) -> MediaState:
         state = self.read_state()
@@ -38,8 +51,22 @@ class SpotifyMediaPresenter(PlaybackRequestHandlerIf, TrackRequestHandlerIf, See
     def read_state(self) -> MediaState:
         try:
             state = self._to_media_state(self._backend.current_state())
+            if self._state_read_failed:
+                event(LOGGER, logging.INFO, "state.read_recovered", "Media state reading recovered")
+            self._state_read_failed = False
         except Exception as exc:
-            state = MediaState(availability=MediaAvailability.ERROR, status_message=f"Spotify error: {exc}")
+            if not self._state_read_failed:
+                event(
+                    LOGGER,
+                    logging.WARNING,
+                    "state.read_failed",
+                    "Media state reading failed",
+                    exception_type=type(exc).__name__,
+                )
+            self._state_read_failed = True
+            state = MediaState(
+                availability=MediaAvailability.ERROR, status_message=f"Spotify error: {exc}"
+            )
         self._latest_state = state
         return state
 
@@ -93,7 +120,9 @@ class SpotifyMediaPresenter(PlaybackRequestHandlerIf, TrackRequestHandlerIf, See
             raise
 
     def _publish_request_error(self, error: Exception) -> None:
-        error_state = MediaState(availability=MediaAvailability.ERROR, status_message=f"Spotify request failed: {error}")
+        error_state = MediaState(
+            availability=MediaAvailability.ERROR, status_message=f"Spotify request failed: {error}"
+        )
         self._latest_state = error_state
         self._media_ui.set_media_state(error_state)
 
