@@ -848,8 +848,27 @@ python3 - "$SDRPP_SRC/core/src/dsp/buffer/packer.h" <<'PY'
 from pathlib import Path
 import sys
 p=Path(sys.argv[1]); s=p.read_text()
-start=s.index('        int run() {')
-end=s.index('\\n        }',start)+len('\\n        }')
+class_anchor = 'class Packer : public Processor<T, T> {'
+class_start = s.find(class_anchor)
+if class_start < 0:
+    raise SystemExit("Could not locate SDR++ Packer class")
+start = s.find('int run()', class_start)
+if start < 0:
+    raise SystemExit("Could not locate SDR++ Packer::run()")
+start = s.rfind('\\n', class_start, start) + 1
+brace = s.find('{', start)
+depth = 0
+end = None
+for i in range(brace, len(s)):
+    if s[i] == '{':
+        depth += 1
+    elif s[i] == '}':
+        depth -= 1
+        if depth == 0:
+            end = i + 1
+            break
+if end is None:
+    raise SystemExit("Could not find end of SDR++ Packer::run()")
 new='''        int run() {
             static unsigned long long orcRuns = 0;
             unsigned long long orcRun = ++orcRuns;
