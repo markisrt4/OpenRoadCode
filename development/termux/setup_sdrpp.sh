@@ -764,6 +764,138 @@ new='''        virtual int run() {
 p.write_text(s[:start]+new+s[end:])
 PY
 
+echo "[*] Instrumenting SDR++ RtAudio sink handoff"
+python3 - "$SDRPP_SRC/sink_modules/audio_sink/src/main.cpp" <<'PY'
+from pathlib import Path
+import sys
+p=Path(sys.argv[1]); s=p.read_text()
+
+old='''        stereoPacker.init(_stream->sinkOut, 512);
+
+#if RTAUDIO_VERSION_MAJOR >= 6'''
+new='''        stereoPacker.init(_stream->sinkOut, 512);
+        fprintf(stderr,
+                "[ORC AudioSink] self=%p stream=%p sinkOut=%p stereoPacker=%p packerOut=%p\\\\n",
+                (void*)this, (void*)_stream, (void*)_stream->sinkOut,
+                (void*)&stereoPacker, (void*)&stereoPacker.out);
+        fflush(stderr);
+
+#if RTAUDIO_VERSION_MAJOR >= 6'''
+if old not in s: raise SystemExit("Could not locate AudioSink stereoPacker init")
+s=s.replace(old,new,1)
+
+old='''            audio.openStream(&parameters, NULL, RTAUDIO_FLOAT32, sampleRate, &bufferFrames, &callback, this, &opts);
+            stereoPacker.setSampleCount(bufferFrames);
+            audio.startStream();
+            stereoPacker.start();'''
+new='''            fprintf(stderr,
+                    "[ORC AudioSink] self=%p doStart deviceId=%u sampleRate=%u requestedFrames=%u before-open\\\\n",
+                    (void*)this, parameters.deviceId, sampleRate, bufferFrames);
+            fflush(stderr);
+            audio.openStream(&parameters, NULL, RTAUDIO_FLOAT32, sampleRate, &bufferFrames, &callback, this, &opts);
+            fprintf(stderr,
+                    "[ORC AudioSink] self=%p after-open actualFrames=%u before-packer-config\\\\n",
+                    (void*)this, bufferFrames);
+            fflush(stderr);
+            stereoPacker.setSampleCount(bufferFrames);
+            fprintf(stderr, "[ORC AudioSink] self=%p before-audio-start\\\\n", (void*)this);
+            fflush(stderr);
+            audio.startStream();
+            fprintf(stderr, "[ORC AudioSink] self=%p after-audio-start before-packer-start\\\\n", (void*)this);
+            fflush(stderr);
+            stereoPacker.start();
+            fprintf(stderr, "[ORC AudioSink] self=%p after-packer-start\\\\n", (void*)this);
+            fflush(stderr);'''
+if old not in s: raise SystemExit("Could not locate AudioSink doStart sequence")
+s=s.replace(old,new,1)
+
+old='''        AudioSink* _this = (AudioSink*)userData;
+        int count = _this->stereoPacker.out.read();
+        if (count < 0) { return 0; }
+
+        memcpy(outputBuffer, _this->stereoPacker.out.readBuf, nBufferFrames * sizeof(dsp::stereo_t));
+        _this->stereoPacker.out.flush();
+        return 0;'''
+new='''        AudioSink* _this = (AudioSink*)userData;
+        static unsigned long long orcCallbacks = 0;
+        unsigned long long orcCallback = ++orcCallbacks;
+        fprintf(stderr,
+                "[ORC AudioSink callback] self=%p callback=%llu frames=%u status=%u packerOut=%p before-read\\\\n",
+                (void*)_this, orcCallback, nBufferFrames, (unsigned int)status,
+                (void*)&_this->stereoPacker.out);
+        fflush(stderr);
+        int count = _this->stereoPacker.out.read();
+        fprintf(stderr,
+                "[ORC AudioSink callback] self=%p callback=%llu after-read count=%d\\\\n",
+                (void*)_this, orcCallback, count);
+        fflush(stderr);
+        if (count < 0) { return 0; }
+
+        memcpy(outputBuffer, _this->stereoPacker.out.readBuf, nBufferFrames * sizeof(dsp::stereo_t));
+        _this->stereoPacker.out.flush();
+        fprintf(stderr,
+                "[ORC AudioSink callback] self=%p callback=%llu after-flush\\\\n",
+                (void*)_this, orcCallback);
+        fflush(stderr);
+        return 0;'''
+if old not in s: raise SystemExit("Could not locate AudioSink callback")
+s=s.replace(old,new,1)
+p.write_text(s)
+PY
+
+echo "[*] Instrumenting SDR++ audio Packer handoff"
+python3 - "$SDRPP_SRC/core/src/dsp/buffer/packer.h" <<'PY'
+from pathlib import Path
+import sys
+p=Path(sys.argv[1]); s=p.read_text()
+start=s.index('        int run() {')
+end=s.index('\\n        }',start)+len('\\n        }')
+new='''        int run() {
+            static unsigned long long orcRuns = 0;
+            unsigned long long orcRun = ++orcRuns;
+            fprintf(stderr,
+                    "[ORC Packer] self=%p run=%llu input=%p output=%p samples=%d buffered=%d before-read\\\\n",
+                    (void*)this, orcRun, (void*)_in, (void*)&out, samples, read);
+            fflush(stderr);
+            int count = _in->read();
+            fprintf(stderr, "[ORC Packer] self=%p run=%llu after-read count=%d\\\\n",
+                    (void*)this, orcRun, count);
+            fflush(stderr);
+            if (count < 0) {
+                read = 0;
+                return -1;
+            }
+
+            for (int i = 0; i < count; i++) {
+                out.writeBuf[read++] = _in->readBuf[i];
+                if (read >= samples) {
+                    read = 0;
+                    fprintf(stderr,
+                            "[ORC Packer] self=%p run=%llu output=%p before-output-swap samples=%d\\\\n",
+                            (void*)this, orcRun, (void*)&out, samples);
+                    fflush(stderr);
+                    bool ok = out.swap(samples);
+                    fprintf(stderr,
+                            "[ORC Packer] self=%p run=%llu output=%p after-output-swap swap=%d\\\\n",
+                            (void*)this, orcRun, (void*)&out, (int)ok);
+                    fflush(stderr);
+                    if (!ok) {
+                        _in->flush();
+                        read = 0;
+                        return -1;
+                    }
+                }
+            }
+
+            _in->flush();
+            fprintf(stderr, "[ORC Packer] self=%p run=%llu input=%p after-input-flush buffered=%d\\\\n",
+                    (void*)this, orcRun, (void*)_in, read);
+            fflush(stderr);
+            return count;
+        }'''
+p.write_text(s[:start]+new+s[end:])
+PY
+
 echo "[*] Instrumenting SDR++ SinkManager stream boundary"
 python3 - "$SDRPP_SRC/core/src/signal_path/sink.cpp" <<'PY'
 from pathlib import Path
