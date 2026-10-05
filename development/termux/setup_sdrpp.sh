@@ -846,72 +846,51 @@ PY
 echo "[*] Instrumenting SDR++ audio Packer handoff"
 python3 - "$SDRPP_SRC/core/src/dsp/buffer/packer.h" <<'PY'
 from pathlib import Path
-import sys
+import re, sys
 p=Path(sys.argv[1]); s=p.read_text()
-class_anchor = 'class Packer : public Processor<T, T> {'
-class_start = s.find(class_anchor)
-if class_start < 0:
-    raise SystemExit("Could not locate SDR++ Packer class")
-start = s.find('int run()', class_start)
-if start < 0:
-    raise SystemExit("Could not locate SDR++ Packer::run()")
-start = s.rfind('\\n', class_start, start) + 1
-brace = s.find('{', start)
-depth = 0
-end = None
-for i in range(brace, len(s)):
-    if s[i] == '{':
-        depth += 1
-    elif s[i] == '}':
-        depth -= 1
-        if depth == 0:
-            end = i + 1
-            break
+m = re.search(r'(?m)^(?P<indent>[ \\t]*)int\\s+run\\s*\\(\\s*\\)\\s*\\{', s)
+if not m:
+    raise SystemExit("Could not locate SDR++ Packer run()")
+start=m.start()
+brace=s.find('{',m.start(),m.end()+1)
+depth=0; end=None
+for i in range(brace,len(s)):
+    if s[i]=='{': depth+=1
+    elif s[i]=='}':
+        depth-=1
+        if depth==0:
+            end=i+1; break
 if end is None:
-    raise SystemExit("Could not find end of SDR++ Packer::run()")
-new='''        int run() {
-            static unsigned long long orcRuns = 0;
-            unsigned long long orcRun = ++orcRuns;
-            fprintf(stderr,
-                    "[ORC Packer] self=%p run=%llu input=%p output=%p samples=%d buffered=%d before-read\\\\n",
-                    (void*)this, orcRun, (void*)_in, (void*)&out, samples, read);
+    raise SystemExit("Could not find end of SDR++ Packer run()")
+indent=m.group('indent')
+body='''int run() {
+    static unsigned long long orcRuns = 0;
+    unsigned long long orcRun = ++orcRuns;
+    fprintf(stderr, "[ORC Packer] self=%p run=%llu input=%p output=%p samples=%d buffered=%d before-read\\\\n", (void*)this, orcRun, (void*)_in, (void*)&out, samples, read);
+    fflush(stderr);
+    int count = _in->read();
+    fprintf(stderr, "[ORC Packer] self=%p run=%llu after-read count=%d\\\\n", (void*)this, orcRun, count);
+    fflush(stderr);
+    if (count < 0) { read = 0; return -1; }
+    for (int i = 0; i < count; i++) {
+        out.writeBuf[read++] = _in->readBuf[i];
+        if (read >= samples) {
+            read = 0;
+            fprintf(stderr, "[ORC Packer] self=%p run=%llu output=%p before-output-swap samples=%d\\\\n", (void*)this, orcRun, (void*)&out, samples);
             fflush(stderr);
-            int count = _in->read();
-            fprintf(stderr, "[ORC Packer] self=%p run=%llu after-read count=%d\\\\n",
-                    (void*)this, orcRun, count);
+            bool ok = out.swap(samples);
+            fprintf(stderr, "[ORC Packer] self=%p run=%llu output=%p after-output-swap swap=%d\\\\n", (void*)this, orcRun, (void*)&out, (int)ok);
             fflush(stderr);
-            if (count < 0) {
-                read = 0;
-                return -1;
-            }
-
-            for (int i = 0; i < count; i++) {
-                out.writeBuf[read++] = _in->readBuf[i];
-                if (read >= samples) {
-                    read = 0;
-                    fprintf(stderr,
-                            "[ORC Packer] self=%p run=%llu output=%p before-output-swap samples=%d\\\\n",
-                            (void*)this, orcRun, (void*)&out, samples);
-                    fflush(stderr);
-                    bool ok = out.swap(samples);
-                    fprintf(stderr,
-                            "[ORC Packer] self=%p run=%llu output=%p after-output-swap swap=%d\\\\n",
-                            (void*)this, orcRun, (void*)&out, (int)ok);
-                    fflush(stderr);
-                    if (!ok) {
-                        _in->flush();
-                        read = 0;
-                        return -1;
-                    }
-                }
-            }
-
-            _in->flush();
-            fprintf(stderr, "[ORC Packer] self=%p run=%llu input=%p after-input-flush buffered=%d\\\\n",
-                    (void*)this, orcRun, (void*)_in, read);
-            fflush(stderr);
-            return count;
-        }'''
+            if (!ok) { _in->flush(); read = 0; return -1; }
+        }
+    }
+    _in->flush();
+    fprintf(stderr, "[ORC Packer] self=%p run=%llu input=%p after-input-flush buffered=%d\\\\n", (void*)this, orcRun, (void*)_in, read);
+    fflush(stderr);
+    return count;
+}'''
+lines=body.splitlines()
+new='\\n'.join(indent+line if line else line for line in lines)
 p.write_text(s[:start]+new+s[end:])
 PY
 
