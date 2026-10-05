@@ -314,7 +314,7 @@ namespace dsp::buffer {
             size = RING_BUF_SZ;
             this->maxLatency = maxLatency;
             readc = writec = readable = 0;
-            stopReader = stopWriter = false;
+            _stopReader = _stopWriter = false;
             _buffer = buffer::alloc<T>(size);
             buffer::clear(_buffer, size);
             _init = true;
@@ -328,8 +328,8 @@ namespace dsp::buffer {
             int done = 0;
             while (done < len) {
                 std::unique_lock<std::mutex> lock(mtx);
-                canWrite.wait(lock, [&]() { return stopWriter || writableLocked() > 0; });
-                if (stopWriter) { return -1; }
+                canWrite.wait(lock, [&]() { return _stopWriter || writableLocked() > 0; });
+                if (_stopWriter) { return -1; }
                 int n = std::min(len - done, writableLocked());
                 copyIn(&data[done], n);
                 writec = (writec + n) % size;
@@ -344,8 +344,8 @@ namespace dsp::buffer {
         int waitUntilReadable() {
             assert(_init);
             std::unique_lock<std::mutex> lock(mtx);
-            canRead.wait(lock, [&]() { return stopReader || readable > 0; });
-            return stopReader ? -1 : readable;
+            canRead.wait(lock, [&]() { return _stopReader || readable > 0; });
+            return _stopReader ? -1 : readable;
         }
         int getReadable(bool lock = true) {
             assert(_init);
@@ -356,8 +356,8 @@ namespace dsp::buffer {
         int waitUntilwritable() {
             assert(_init);
             std::unique_lock<std::mutex> lock(mtx);
-            canWrite.wait(lock, [&]() { return stopWriter || writableLocked() > 0; });
-            return stopWriter ? -1 : writableLocked();
+            canWrite.wait(lock, [&]() { return _stopWriter || writableLocked() > 0; });
+            return _stopWriter ? -1 : writableLocked();
         }
         int getWritable(bool lock = true) {
             assert(_init);
@@ -365,12 +365,12 @@ namespace dsp::buffer {
             std::lock_guard<std::mutex> guard(mtx);
             return writableLocked();
         }
-        void stopReader() { std::lock_guard<std::mutex> lock(mtx); stopReader = true; canRead.notify_all(); }
-        void stopWriter() { std::lock_guard<std::mutex> lock(mtx); stopWriter = true; canWrite.notify_all(); }
-        bool getReadStop() { std::lock_guard<std::mutex> lock(mtx); return stopReader; }
-        bool getWriteStop() { std::lock_guard<std::mutex> lock(mtx); return stopWriter; }
-        void clearReadStop() { std::lock_guard<std::mutex> lock(mtx); stopReader = false; }
-        void clearWriteStop() { std::lock_guard<std::mutex> lock(mtx); stopWriter = false; }
+        void stopReader() { std::lock_guard<std::mutex> lock(mtx); _stopReader = true; canRead.notify_all(); }
+        void stopWriter() { std::lock_guard<std::mutex> lock(mtx); _stopWriter = true; canWrite.notify_all(); }
+        bool getReadStop() { std::lock_guard<std::mutex> lock(mtx); return _stopReader; }
+        bool getWriteStop() { std::lock_guard<std::mutex> lock(mtx); return _stopWriter; }
+        void clearReadStop() { std::lock_guard<std::mutex> lock(mtx); _stopReader = false; }
+        void clearWriteStop() { std::lock_guard<std::mutex> lock(mtx); _stopWriter = false; }
         void setMaxLatency(int value) { std::lock_guard<std::mutex> lock(mtx); maxLatency = value; canWrite.notify_all(); }
 
     private:
@@ -379,8 +379,8 @@ namespace dsp::buffer {
             int discarded = 0;
             while (copied < len || discarded < skip) {
                 std::unique_lock<std::mutex> lock(mtx);
-                canRead.wait(lock, [&]() { return stopReader || readable > 0; });
-                if (stopReader) { return -1; }
+                canRead.wait(lock, [&]() { return _stopReader || readable > 0; });
+                if (_stopReader) { return -1; }
                 bool copying = copied < len;
                 int need = copying ? len - copied : skip - discarded;
                 int n = std::min(need, readable);
@@ -412,7 +412,7 @@ namespace dsp::buffer {
         bool _init = false;
         T* _buffer = nullptr;
         int size = 0, readc = 0, writec = 0, readable = 0, maxLatency = 0;
-        bool stopReader = false, stopWriter = false;
+        bool _stopReader = false, _stopWriter = false;
         std::mutex mtx;
         std::condition_variable canRead, canWrite;
     };
