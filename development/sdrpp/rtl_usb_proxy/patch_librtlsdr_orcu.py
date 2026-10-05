@@ -161,6 +161,14 @@ text = text[:err_at] + r'''err:
 }
 ''' + text[close_at:]
 
+# Proxy reset_buffer through the normal RTL2832U register helpers. Upstream
+# reset_buffer already uses rtlsdr_write_reg(), so no special transport path is
+# required; log it here to prove the endpoint reset actually occurs before IQ.
+text = text.replace(
+    'int rtlsdr_reset_buffer(rtlsdr_dev_t *dev)\\n{\\n\\tif (!dev)\\n\\t\\treturn -1;\\n\\n\\trtlsdr_write_reg(dev, USBB, USB_EPA_CTL, 0x1002, 2);\\n\\trtlsdr_write_reg(dev, USBB, USB_EPA_CTL, 0x0000, 2);',
+    'int rtlsdr_reset_buffer(rtlsdr_dev_t *dev)\\n{\\n\\tint r1, r2;\\n\\tif (!dev)\\n\\t\\treturn -1;\\n\\n\\tfprintf(stderr, "[ORCU] reset_buffer: USB_EPA_CTL <= 0x1002 then 0x0000\\\\n");\\n\\tfflush(stderr);\\n\\tr1 = rtlsdr_write_reg(dev, USBB, USB_EPA_CTL, 0x1002, 2);\\n\\tr2 = rtlsdr_write_reg(dev, USBB, USB_EPA_CTL, 0x0000, 2);\\n\\tfprintf(stderr, "[ORCU] reset_buffer results: first=%d second=%d\\\\n", r1, r2);\\n\\tfflush(stderr);'
+)
+
 # Close and synchronous reads.
 close_start = text.index('int rtlsdr_close(')
 reset_start = text.index('\nint rtlsdr_reset_buffer(', close_start)
