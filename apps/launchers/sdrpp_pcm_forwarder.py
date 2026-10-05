@@ -24,17 +24,45 @@ def forward_pcm(
     chunk_bytes: int = DEFAULT_CHUNK_BYTES,
     reconnect_seconds: float = DEFAULT_RECONNECT_SECONDS,
 ) -> None:
-    """Continuously forward PCM, reconnecting when the Android sink restarts."""
+    """Drain PCM continuously and forward it whenever Android audio is available.
+
+    The FIFO is intentionally kept open for reading even while the Android
+    AudioTrack bridge is unavailable.  Audio is disposable in that state:
+    dropping PCM is preferable to backpressuring PulseAudio and stalling the
+    SDR++ DSP graph.
+    """
     fifo = Path(fifo_path)
-    while True:
-        try:
-            with socket.create_connection((host, port), timeout=3.0) as connection:
-                connection.settimeout(None)
-                with fifo.open("rb", buffering=0) as pcm:
-                    while chunk := pcm.read(chunk_bytes):
-                        connection.sendall(chunk)
-        except (ConnectionError, OSError):
-            time.sleep(reconnect_seconds)
+    connection: socket.socket | None = None
+    next_reconnect = 0.0
+
+    with fifo.open("rb", buffering=0) as pcm:
+        while True:
+            chunk = pcm.read(chunk_bytes)
+            if not chunk:
+                continue
+
+            if connection is None:
+                now = time.monotonic()
+                if now >= next_reconnect:
+                    try:
+                        connection = socket.create_connection((host, port), timeout=3.0)
+                        connection.settimeout(None)
+                    except (ConnectionError, OSError):
+                        connection = None
+                        next_reconnect = time.monotonic() + reconnect_seconds
+
+            if connection is None:
+                continue
+
+            try:
+                connection.sendall(chunk)
+            except (ConnectionError, OSError):
+                try:
+                    connection.close()
+                except OSError:
+                    pass
+                connection = None
+                next_reconnect = time.monotonic() + reconnect_seconds
 
 
 def main() -> None:
