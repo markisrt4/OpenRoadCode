@@ -126,7 +126,7 @@ get_feature_packages() {
       ;;
 
     desktop-ui)
-      echo "python3-tk dbus-x11 xauth xterm x11-apps x11-utils xdotool wmctrl openbox xfce4 xfce4-goodies"
+      echo "python3-tk libgl1 libglu1-mesa dbus-x11 xauth xterm x11-apps x11-utils xdotool wmctrl openbox xfce4 xfce4-goodies"
       ;;
     web-ui|browser|input|streamlit)
       echo ""
@@ -178,7 +178,7 @@ get_feature_python_packages() {
       printf '%s\n' requests tomli pyzmq
       ;;
     desktop-ui)
-      printf '%s\n' Pillow tinycss2 numpy Flask
+      printf '%s\n' Pillow tinycss2 numpy Flask 'PyOpenGL==3.1.10' 'pyopengltk==0.0.4'
       ;;
     web-ui)
       printf '%s\n' Flask numpy

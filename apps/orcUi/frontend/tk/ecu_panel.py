@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import tkinter as tk
+import time
 
 from apps.orcUi.vehicle_presenter import VehiclePresentationState
 from controllers.automotive import (
@@ -18,7 +19,8 @@ from controllers.automotive import (
     VehicleConfiguration,
 )
 from ui.theme import ThemeBundle
-from .ecu_engine_visual import paint_engine_visual
+from .ecu_engine_visual import paint_engine_visual, paint_engine_summary
+from .ecu_engine_gl import create_engine_gl
 from .shell_metrics import FONT_BODY, FONT_CONTROL, FONT_SMALL
 
 
@@ -57,7 +59,10 @@ class EcuPanel(tk.Frame):
         self._analysis = engine_analysis
         self._labels: dict[str, tk.Label] = {}
         self._bars: dict[str, tk.Canvas] = {}
+        self._animation_enabled = True
         self._animation_phase = 0.0
+        self._animation_time = time.monotonic()
+        self._engine_gl = None
         self._animation_job: str | None = None
         super().__init__(parent, bg=theme.ui.background)
         self._build()
@@ -73,15 +78,32 @@ class EcuPanel(tk.Frame):
             self._animation_job = None
         super().destroy()
 
-    def _schedule_engine_animation(self) -> None:
-        if not self.winfo_exists():
+    def set_engine_animation(self, enabled: bool) -> None:
+        """Pause visual motion without changing telemetry or engine status."""
+        if enabled == self._animation_enabled:
             return
-        if self._analysis.engine_running:
+        self._animation_enabled = enabled
+        self._animation_toggle.configure(text=f"Animation: {'On' if enabled else 'Off'}")
+        if self._animation_job is not None:
+            self.after_cancel(self._animation_job)
+            self._animation_job = None
+        if enabled:
+            self._animation_time = time.monotonic()
+            self._schedule_engine_animation()
+
+    def _schedule_engine_animation(self) -> None:
+        self._animation_job = None
+        if not self._animation_enabled or not self.winfo_exists():
+            return
+        now = time.monotonic()
+        elapsed = min(0.1, now - self._animation_time)
+        self._animation_time = now
+        if self.winfo_ismapped() and self._analysis.engine_running:
             rpm = self._vehicle_state.engine_speed_rpm or 0.0
             visual_hz = max(0.8, min(4.5, rpm / 900.0))
-            self._animation_phase = (self._animation_phase + visual_hz / 12.0) % 1.0
+            self._animation_phase = (self._animation_phase + visual_hz * elapsed) % 2.0
             self._paint_engine()
-        self._animation_job = self.after(83, self._schedule_engine_animation)
+        self._animation_job = self.after(33 if self._engine_gl is not None else 83, self._schedule_engine_animation)
 
     def update_vehicle(self, state: VehiclePresentationState) -> None:
         self._vehicle_state = state
@@ -102,7 +124,7 @@ class EcuPanel(tk.Frame):
         cockpit.grid(row=0, column=0, sticky="nsew")
 
         engine = tk.Frame(cockpit, bg=ui.background)
-        engine.place(relx=0.5, rely=0.5, relwidth=0.44, relheight=0.96, anchor="center")
+        engine.place(relx=0.5, rely=0.5, relwidth=0.285, relheight=0.96, anchor="center")
         engine.grid_columnconfigure(0, weight=1)
         engine.grid_rowconfigure(0, weight=1)
 
@@ -112,15 +134,33 @@ class EcuPanel(tk.Frame):
         )
         self._engine_canvas.grid(row=0, column=0, sticky="nsew", padx=2, pady=(5, 2))
         self._engine_canvas.bind("<Configure>", lambda _e: self._paint_engine())
+        self._engine_gl = create_engine_gl(
+            engine, theme=self._theme, on_failure=self._use_canvas_engine,
+        )
+        if self._engine_gl is not None:
+            self._engine_canvas.grid_remove()
+            self._engine_gl.grid(row=0, column=0, sticky="nsew", padx=2, pady=(5, 2))
         self._engine_summary = tk.Label(
             engine, text="--", fg=ui.text_muted, bg=ui.surface,
             font=("Sans", FONT_CONTROL, "bold"), pady=7,
         )
         self._engine_summary.grid(row=1, column=0, sticky="ew", padx=5, pady=(2, 5))
+        self._engine_summary.bind(
+            "<Configure>",
+            lambda event: self._engine_summary.configure(wraplength=max(1, event.width - 10)),
+        )
 
-        # Cards intentionally overlap the outer edges of the engine surface.
-        # This creates the surrounding composition from the concept while
-        # keeping each card a normal Tk widget with its existing telemetry.
+        self._animation_toggle = tk.Button(
+            engine, text="Animation: On",
+            command=lambda: self.set_engine_animation(not self._animation_enabled),
+            bg=ui.surface_alt, fg=ui.text, activebackground=ui.surface,
+            activeforeground=ui.text, highlightbackground=ui.border,
+            font=("Sans", FONT_CONTROL, "bold"), bd=0, pady=9,
+        )
+        self._animation_toggle.grid(row=2, column=0, sticky="ew", padx=5, pady=(0, 5))
+
+        # Keep telemetry cards outside the engine viewport so the complete
+        # cutaway stays visible at every dashboard size.
         fuel = self._floating_card(
             cockpit, relx=0.005, rely=0.01, relwidth=0.35, relheight=0.475,
             icon="⛽", title="FUEL CONTROL", subtitle="Feedback and fuel correction", accent="#D6A800",
@@ -323,8 +363,19 @@ class EcuPanel(tk.Frame):
         self._paint_bars()
         self._paint_engine()
 
+    def _use_canvas_engine(self) -> None:
+        renderer, self._engine_gl = self._engine_gl, None
+        if renderer is not None:
+            renderer.destroy()
+        self._engine_canvas.grid()
+        self._paint_engine()
+
     def _paint_engine(self) -> None:
         if not hasattr(self, "_engine_canvas"):
+            return
+        if self._engine_gl is not None:
+            self._engine_gl.update_engine(self._analysis, self._animation_phase)
+            paint_engine_summary(self._engine_summary, self._analysis)
             return
         paint_engine_visual(
             self._engine_canvas,

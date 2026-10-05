@@ -366,3 +366,27 @@ The important prohibition is the reverse dependency: applications must not reach
 - [ELM327 hardware implementation](../hardware_io/automotive/elm327/README.md)
 - [Automotive vehicle-state IDD](idd/automotive_vehicle_state.md)\n- [Automotive Trip-state IDD](idd/automotive_trip_state.md)
 - [Messaging overview](../messaging/README.md)
+
+### ECU engine rendering
+
+The Tk ECU screen automatically selects a native OpenGL cutaway when PyOpenGL,
+pyopengltk and a compatible desktop GL context are available. The desktop-ui
+installer includes the Python packages and Linux GL/GLU libraries. For an
+existing environment, install `PyOpenGL==3.1.10 pyopengltk==0.0.4` in its virtual
+environment and ensure the host provides GL and GLU (Debian: `libgl1 libglu1-mesa`).
+This backend uses desktop OpenGL, not WebGL or OpenGL ES; Termux:X11 systems
+without compatible GLX support use the Canvas schematic automatically.
+
+The cutaway is an illustrative inline-four, not the connected vehicle's exact
+engine geometry. Engine-running state and RPM drive a slowed animation at about
+30 frames per second; boost activates the turbo rotor. The fuel, mixture, load
+and ignition cards and interpretation summary retain their existing telemetry.
+Animation pauses when the panel is hidden. Missing dependencies or context/render
+failures select the Canvas fallback and are logged. Set
+`OPENROAD_ECU_RENDERER=canvas` to select the schematic explicitly.
+
+The ECU engine area includes an **Animation: On/Off** button. Turning animation
+off cancels the graphics timer and holds the current pose for either renderer;
+telemetry cards, engine colors, and the interpretation summary continue updating.
+Turning it back on resumes from that pose. The toggle applies while this ECU
+panel is open and defaults to on when a new panel is created.
