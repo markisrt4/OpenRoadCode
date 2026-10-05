@@ -323,23 +323,41 @@ old = '''                if (ringBuf.readAndSkip(start, readCount, skip) < 0) { 
                 memcpy(out.writeBuf, buf, _keep * sizeof(T));
                 if (!out.swap(_keep)) { break; }'''
 new = '''                static unsigned long long orcOutputs = 0;
+                static unsigned long long orcWorkerLoops = 0;
+                orcWorkerLoops++;
+                if (orcWorkerLoops <= 4 || (orcWorkerLoops % 256) == 0) {
+                    fprintf(stderr,
+                            "[ORC reshape] worker=%p loop=%llu before-read keep=%d readCount=%d skip=%d\\n",
+                            (void*)this, orcWorkerLoops, _keep, readCount, skip);
+                    fflush(stderr);
+                }
                 int readResult = ringBuf.readAndSkip(start, readCount, skip);
+                if (orcWorkerLoops <= 4 || (orcWorkerLoops % 256) == 0 || readResult < 0) {
+                    fprintf(stderr,
+                            "[ORC reshape] worker=%p loop=%llu after-read result=%d\\n",
+                            (void*)this, orcWorkerLoops, readResult);
+                    fflush(stderr);
+                }
                 if (readResult < 0) {
                     fprintf(stderr,
-                            "[ORC reshape] worker stopped readResult=%d keep=%d readCount=%d skip=%d\\n",
-                            readResult, _keep, readCount, skip);
+                            "[ORC reshape] worker=%p stopped readResult=%d keep=%d readCount=%d skip=%d\\n",
+                            (void*)this, readResult, _keep, readCount, skip);
                     fflush(stderr);
                     break;
                 }
                 memcpy(out.writeBuf, buf, _keep * sizeof(T));
-                bool swapped = out.swap(_keep);
-                orcOutputs++;
-                if (orcOutputs <= 4 || (orcOutputs % 256) == 0 || !swapped) {
+                if (orcWorkerLoops <= 4 || (orcWorkerLoops % 256) == 0) {
                     fprintf(stderr,
-                            "[ORC reshape] output=%llu keep=%d readCount=%d skip=%d swap=%d\\n",
-                            orcOutputs, _keep, readCount, skip, swapped ? 1 : 0);
+                            "[ORC reshape] worker=%p loop=%llu before-swap keep=%d\\n",
+                            (void*)this, orcWorkerLoops, _keep);
                     fflush(stderr);
                 }
+                bool swapped = out.swap(_keep);
+                orcOutputs++;
+                fprintf(stderr,
+                        "[ORC reshape] worker=%p loop=%llu output=%llu keep=%d readCount=%d skip=%d swap=%d\\n",
+                        (void*)this, orcWorkerLoops, orcOutputs, _keep, readCount, skip, swapped ? 1 : 0);
+                fflush(stderr);
                 if (!swapped) { break; }'''
 if old not in source:
     raise SystemExit("Could not locate SDR++ Reshaper::bufferWorker() output")
