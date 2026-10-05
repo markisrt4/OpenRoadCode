@@ -282,6 +282,55 @@ source = source.replace(old, new, 1)
 path.write_text(source)
 PY
 
+echo "[*] Instrumenting SDR++ FFT stream identity for stalled-waterfall diagnosis"
+python3 - "$SDRPP_SRC/core/src/dsp/buffer/reshaper.h" "$SDRPP_SRC/core/src/dsp/routing/splitter.h" <<'PY'
+from pathlib import Path
+import sys
+
+reshape = Path(sys.argv[1])
+s = reshape.read_text()
+old = '''        int run() {
+            int count = _in->read();'''
+new = '''        int run() {
+            static unsigned long long orcIdentityRuns = 0;
+            orcIdentityRuns++;
+            if (orcIdentityRuns <= 80 || (orcIdentityRuns % 256) == 0) {
+                fprintf(stderr, "[ORC reshape identity] self=%p run=%llu in=%p out=%p\\n",
+                        (void*)this, orcIdentityRuns, (void*)_in, (void*)&out);
+                fflush(stderr);
+            }
+            int count = _in->read();'''
+if old not in s: raise SystemExit("Could not locate Reshaper::run")
+s=s.replace(old,new,1)
+reshape.write_text(s)
+
+splitter=Path(sys.argv[2]); s=splitter.read_text()
+old='''            for (const auto& stream : streams) {
+                memcpy(stream->writeBuf, base_type::_in->readBuf, count * sizeof(T));
+                if (!stream->swap(count)) {'''
+new='''            static unsigned long long orcSplitRuns = 0;
+            orcSplitRuns++;
+            for (const auto& stream : streams) {
+                if (orcSplitRuns <= 80 || (orcSplitRuns % 256) == 0) {
+                    fprintf(stderr, "[ORC splitter] self=%p run=%llu in=%p dest=%p count=%d streams=%zu\\n",
+                            (void*)this, orcSplitRuns, (void*)base_type::_in, (void*)stream, count, streams.size());
+                    fflush(stderr);
+                }
+                memcpy(stream->writeBuf, base_type::_in->readBuf, count * sizeof(T));
+                if (!stream->swap(count)) {'''
+if old not in s: raise SystemExit("Could not locate Splitter::run loop")
+s=s.replace(old,new,1)
+s=s.replace('''        void bindStream(stream<T>* stream) {
+            assert(base_type::_block_init);''','''        void bindStream(stream<T>* stream) {
+            fprintf(stderr, "[ORC splitter] self=%p bind dest=%p\\n", (void*)this, (void*)stream); fflush(stderr);
+            assert(base_type::_block_init);''',1)
+s=s.replace('''        void unbindStream(stream<T>* stream) {
+            assert(base_type::_block_init);''','''        void unbindStream(stream<T>* stream) {
+            fprintf(stderr, "[ORC splitter] self=%p unbind dest=%p\\n", (void*)this, (void*)stream); fflush(stderr);
+            assert(base_type::_block_init);''',1)
+splitter.write_text(s)
+PY
+
 echo "[*] Instrumenting SDR++ block lifecycle for stalled-waterfall diagnosis"
 python3 - "$SDRPP_SRC/core/src/dsp/block.h" <<'PY'
 from pathlib import Path
