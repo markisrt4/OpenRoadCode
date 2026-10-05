@@ -282,34 +282,75 @@ source = source.replace(old, new, 1)
 path.write_text(source)
 PY
 
-echo "[*] Fixing SDR++ ring-buffer producer wakeup for Termux"
+echo "[*] Instrumenting SDR++ ring buffer for stalled-waterfall diagnosis"
 python3 - "$SDRPP_SRC/core/src/dsp/buffer/ring_buffer.h" <<'PY'
 from pathlib import Path
 import sys
 
 path = Path(sys.argv[1])
 source = path.read_text()
+old = '''        int waitUntilReadable() {
+            assert(_init);
+            if (_stopReader) { return -1; }
+            int _r = getReadable();
+            if (_r != 0) { return _r; }
+            std::unique_lock<std::mutex> lck(_readable_mtx);
+            canReadVar.wait(lck, [=]() { return ((this->getReadable(false) > 0) || this->getReadStop()); });
+            if (_stopReader) { return -1; }
+            return getReadable(false);
+        }'''
+new = '''        int waitUntilReadable() {
+            assert(_init);
+            static unsigned long long orcWaits = 0;
+            orcWaits++;
+            if (_stopReader) { return -1; }
+            int _r = getReadable();
+            if (orcWaits <= 24 || (orcWaits % 4096) == 0) {
+                fprintf(stderr,
+                        "[ORC ring] ring=%p wait=%llu pre readable=%d writable=%d readc=%d writec=%d maxLatency=%d\\n",
+                        (void*)this, orcWaits, _r, writable, readc, writec, maxLatency);
+                fflush(stderr);
+            }
+            if (_r != 0) { return _r; }
+            std::unique_lock<std::mutex> lck(_readable_mtx);
+            fprintf(stderr,
+                    "[ORC ring] ring=%p wait=%llu sleeping readable=%d writable=%d readc=%d writec=%d maxLatency=%d\\n",
+                    (void*)this, orcWaits, readable, writable, readc, writec, maxLatency);
+            fflush(stderr);
+            canReadVar.wait(lck, [=]() { return ((this->getReadable(false) > 0) || this->getReadStop()); });
+            fprintf(stderr,
+                    "[ORC ring] ring=%p wait=%llu woke readable=%d writable=%d readc=%d writec=%d stop=%d\\n",
+                    (void*)this, orcWaits, readable, writable, readc, writec, _stopReader ? 1 : 0);
+            fflush(stderr);
+            if (_stopReader) { return -1; }
+            return getReadable(false);
+        }'''
+if old not in source:
+    raise SystemExit("Could not locate SDR++ RingBuffer::waitUntilReadable()")
+source = source.replace(old, new, 1)
+
 old = '''                canReadVar.notify_one();
             }
             return len;
         }
 
         int waitUntilwritable() {'''
-new = '''                // The reader waits for readable > 0, but the producer previously
-                // notified without holding the readable mutex. That permits a lost
-                // wakeup between the reader's predicate check and wait(), which can
-                // strand Reshaper::readAndSkip() forever even while writes continue.
-                // Pair the predicate update and notification with the same mutex.
-                _readable_mtx.lock();
+new = '''                static unsigned long long orcWrites = 0;
+                orcWrites++;
+                if (orcWrites <= 24 || (orcWrites % 4096) == 0) {
+                    fprintf(stderr,
+                            "[ORC ring] ring=%p write=%llu wrote=%d readable=%d writable=%d readc=%d writec=%d maxLatency=%d\\n",
+                            (void*)this, orcWrites, toWrite, readable, writable, readc, writec, maxLatency);
+                    fflush(stderr);
+                }
                 canReadVar.notify_one();
-                _readable_mtx.unlock();
             }
             return len;
         }
 
         int waitUntilwritable() {'''
 if old not in source:
-    raise SystemExit("Could not locate SDR++ RingBuffer writer notification")
+    raise SystemExit("Could not locate SDR++ RingBuffer::write() notification")
 source = source.replace(old, new, 1)
 path.write_text(source)
 PY
