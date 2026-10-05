@@ -282,6 +282,76 @@ source = source.replace(old, new, 1)
 path.write_text(source)
 PY
 
+echo "[*] Instrumenting SDR++ stream handoff for stalled-waterfall diagnosis"
+python3 - "$SDRPP_SRC/core/src/dsp/stream.h" <<'PY'
+from pathlib import Path
+import sys
+
+path = Path(sys.argv[1])
+source = path.read_text()
+old = '''                swapCV.wait(lck, [this] { return (canSwap || writerStop); });'''
+new = '''                static unsigned long long orcSwaps = 0;
+                orcSwaps++;
+                bool orcTrace = orcSwaps <= 80 || (orcSwaps % 256) == 0;
+                if (orcTrace) {
+                    fprintf(stderr, "[ORC stream] self=%p swap=%llu pre canSwap=%d writerStop=%d dataReady=%d readerStop=%d size=%d\\n",
+                            (void*)this, orcSwaps, canSwap ? 1 : 0, writerStop ? 1 : 0,
+                            dataReady ? 1 : 0, readerStop ? 1 : 0, size);
+                    fflush(stderr);
+                }
+                swapCV.wait(lck, [this] { return (canSwap || writerStop); });
+                if (orcTrace) {
+                    fprintf(stderr, "[ORC stream] self=%p swap=%llu woke canSwap=%d writerStop=%d\\n",
+                            (void*)this, orcSwaps, canSwap ? 1 : 0, writerStop ? 1 : 0);
+                    fflush(stderr);
+                }'''
+if old not in source:
+    raise SystemExit("Could not locate dsp::stream::swap wait")
+source = source.replace(old, new, 1)
+old = '''            std::unique_lock<std::mutex> lck(rdyMtx);
+            rdyCV.wait(lck, [this] { return (dataReady || readerStop); });
+
+            return (readerStop ? -1 : dataSize);'''
+new = '''            static unsigned long long orcReads = 0;
+            orcReads++;
+            bool orcTrace = orcReads <= 80 || (orcReads % 256) == 0;
+            std::unique_lock<std::mutex> lck(rdyMtx);
+            if (orcTrace) {
+                fprintf(stderr, "[ORC stream] self=%p read=%llu pre dataReady=%d readerStop=%d dataSize=%d\\n",
+                        (void*)this, orcReads, dataReady ? 1 : 0, readerStop ? 1 : 0, dataSize);
+                fflush(stderr);
+            }
+            rdyCV.wait(lck, [this] { return (dataReady || readerStop); });
+            if (orcTrace) {
+                fprintf(stderr, "[ORC stream] self=%p read=%llu woke dataReady=%d readerStop=%d dataSize=%d\\n",
+                        (void*)this, orcReads, dataReady ? 1 : 0, readerStop ? 1 : 0, dataSize);
+                fflush(stderr);
+            }
+            return (readerStop ? -1 : dataSize);'''
+if old not in source:
+    raise SystemExit("Could not locate dsp::stream::read wait")
+source = source.replace(old, new, 1)
+old = '''            swapCV.notify_all();
+        }
+
+        virtual void stopWriter() {'''
+new = '''            static unsigned long long orcFlushes = 0;
+            orcFlushes++;
+            if (orcFlushes <= 80 || (orcFlushes % 256) == 0) {
+                fprintf(stderr, "[ORC stream] self=%p flush=%llu dataReady=%d canSwap=%d\\n",
+                        (void*)this, orcFlushes, dataReady ? 1 : 0, canSwap ? 1 : 0);
+                fflush(stderr);
+            }
+            swapCV.notify_all();
+        }
+
+        virtual void stopWriter() {'''
+if old not in source:
+    raise SystemExit("Could not locate dsp::stream::flush notify")
+source = source.replace(old, new, 1)
+path.write_text(source)
+PY
+
 echo "[*] Instrumenting SDR++ FFT reshaper for stalled-waterfall diagnosis"
 python3 - "$SDRPP_SRC/core/src/dsp/buffer/reshaper.h" <<'PY'
 from pathlib import Path
