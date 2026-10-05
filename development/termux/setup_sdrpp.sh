@@ -389,6 +389,16 @@ reshape.write_text(s)
 splitter=Path(sys.argv[2]); s=splitter.read_text()
 old='''            for (const auto& stream : streams) {
                 memcpy(stream->writeBuf, base_type::_in->readBuf, count * sizeof(T));
+                if (!stream->swap(count)) {'''
+new='''            static unsigned long long orcSplitRuns = 0;
+            orcSplitRuns++;
+            for (const auto& stream : streams) {
+                if (orcSplitRuns <= 80 || (orcSplitRuns % 256) == 0) {
+                    fprintf(stderr, "[ORC splitter] self=%p run=%llu in=%p dest=%p count=%d streams=%zu\\n",
+                            (void*)this, orcSplitRuns, (void*)base_type::_in, (void*)stream, count, streams.size());
+                    fflush(stderr);
+                }
+                memcpy(stream->writeBuf, base_type::_in->readBuf, count * sizeof(T));
                 fprintf(stderr,
                         "[ORC splitter exact] self=%p run=%llu dest=%p before-swap count=%d streams=%zu\\n",
                         (void*)this, orcSplitRuns, (void*)stream, count, streams.size());
@@ -399,16 +409,6 @@ old='''            for (const auto& stream : streams) {
                         (void*)this, orcSplitRuns, (void*)stream, orcDestSwapped ? 1 : 0);
                 fflush(stderr);
                 if (!orcDestSwapped) {'''
-new='''            static unsigned long long orcSplitRuns = 0;
-            orcSplitRuns++;
-            for (const auto& stream : streams) {
-                if (orcSplitRuns <= 80 || (orcSplitRuns % 256) == 0) {
-                    fprintf(stderr, "[ORC splitter] self=%p run=%llu in=%p dest=%p count=%d streams=%zu\\n",
-                            (void*)this, orcSplitRuns, (void*)base_type::_in, (void*)stream, count, streams.size());
-                    fflush(stderr);
-                }
-                memcpy(stream->writeBuf, base_type::_in->readBuf, count * sizeof(T));
-                if (!stream->swap(count)) {'''
 if old not in s: raise SystemExit("Could not locate Splitter::run loop")
 s=s.replace(old,new,1)
 
