@@ -114,6 +114,7 @@ Generated from the canonical documentation files. Every component README and sta
 - [Poi Ordering](poi_ordering.md)
 - [Roadmap](roadmap.md)
 - [Streaming Radio](streaming_radio.md)
+- [System Performance](system_performance.md)
 - [Termux Poi Download](termux_poi_download.md)
 - [Xdg Paths](xdg_paths.md)
 
