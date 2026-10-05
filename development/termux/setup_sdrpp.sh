@@ -566,6 +566,93 @@ s = s.replace(old, new, 1)
 path.write_text(s)
 PY
 
+echo "[*] Instrumenting SDR++ Radio AF-chain and resampler handoff"
+python3 - "$SDRPP_SRC/decoder_modules/radio/src/radio_module.h" "$SDRPP_SRC/core/src/dsp/multirate/rational_resampler.h" <<'PY'
+from pathlib import Path
+import sys
+
+radio = Path(sys.argv[1])
+s = radio.read_text()
+old = '''        // Set AF chain's input
+        afChain.setInput(selectedDemod->getOutput(), [=](dsp::stream<dsp::stereo_t>* out){ stream.setInput(out); });
+
+        // Load config'''
+new = '''        // Set AF chain's input
+        fprintf(stderr,
+                "[ORC AF identity] self=%p name=%s demod=%p demodOut=%p afChainBefore=%p resamp=%p resampOut=%p\\n",
+                (void*)this, name.c_str(), (void*)selectedDemod, (void*)selectedDemod->getOutput(),
+                (void*)afChain.out, (void*)&resamp, (void*)&resamp.out);
+        fflush(stderr);
+        afChain.setInput(selectedDemod->getOutput(), [=](dsp::stream<dsp::stereo_t>* out){ stream.setInput(out); });
+        fprintf(stderr,
+                "[ORC AF identity] self=%p name=%s demodOut=%p afChainAfter=%p resamp=%p resampOut=%p\\n",
+                (void*)this, name.c_str(), (void*)selectedDemod->getOutput(),
+                (void*)afChain.out, (void*)&resamp, (void*)&resamp.out);
+        fflush(stderr);
+
+        // Load config'''
+if old not in s:
+    raise SystemExit("Could not locate RadioModule AF-chain input binding")
+s = s.replace(old, new, 1)
+radio.write_text(s)
+
+rr = Path(sys.argv[2])
+s = rr.read_text()
+old = '''        int run() {
+            int count = base_type::_in->read();
+            if (count < 0) { return -1; }
+
+            int outCount = process(count, base_type::_in->readBuf, base_type::out.writeBuf);
+
+            // Swap if some data was generated
+            base_type::_in->flush();
+            if (outCount) {
+                if (!base_type::out.swap(outCount)) { return -1; }
+            }
+            return outCount;
+        }'''
+new = '''        int run() {
+            static unsigned long long orcRuns = 0;
+            unsigned long long orcRun = ++orcRuns;
+            fprintf(stderr, "[ORC RationalResampler] self=%p run=%llu input=%p output=%p before-read\\n",
+                    (void*)this, orcRun, (void*)base_type::_in, (void*)&this->out);
+            fflush(stderr);
+            int count = base_type::_in->read();
+            fprintf(stderr, "[ORC RationalResampler] self=%p run=%llu after-read count=%d\\n",
+                    (void*)this, orcRun, count);
+            fflush(stderr);
+            if (count < 0) { return -1; }
+
+            int outCount = process(count, base_type::_in->readBuf, base_type::out.writeBuf);
+            fprintf(stderr, "[ORC RationalResampler] self=%p run=%llu after-process inCount=%d outCount=%d\\n",
+                    (void*)this, orcRun, count, outCount);
+            fflush(stderr);
+
+            fprintf(stderr, "[ORC RationalResampler] self=%p run=%llu input=%p before-input-flush\\n",
+                    (void*)this, orcRun, (void*)base_type::_in);
+            fflush(stderr);
+            base_type::_in->flush();
+            fprintf(stderr, "[ORC RationalResampler] self=%p run=%llu input=%p after-input-flush\\n",
+                    (void*)this, orcRun, (void*)base_type::_in);
+            fflush(stderr);
+            if (outCount) {
+                fprintf(stderr, "[ORC RationalResampler] self=%p run=%llu output=%p before-output-swap count=%d\\n",
+                        (void*)this, orcRun, (void*)&this->out, outCount);
+                fflush(stderr);
+                bool orcSwap = base_type::out.swap(outCount);
+                fprintf(stderr, "[ORC RationalResampler] self=%p run=%llu output=%p after-output-swap swap=%d\\n",
+                        (void*)this, orcRun, (void*)&this->out, (int)orcSwap);
+                fflush(stderr);
+                if (!orcSwap) { return -1; }
+            }
+            return outCount;
+        }'''
+if old not in s:
+    raise SystemExit("Could not locate RationalResampler::run")
+s = s.replace(old, new, 1)
+rr.write_text(s)
+PY
+
 echo "[*] Instrumenting SDR++ BroadcastFM handoff for stalled-waterfall diagnosis"
 python3 - "$SDRPP_SRC/core/src/dsp/demod/broadcast_fm.h" <<'PY'
 from pathlib import Path
