@@ -9,6 +9,7 @@ from __future__ import annotations
 import tkinter as tk
 from collections.abc import Callable
 
+from frontends.tk.offline_card import OfflineCardAppearance
 from frontends.tk.tk_screen import TkScreen
 from frontends.tk.tk_screen_host_if import TkScreenHostIf
 from ui.screen_ui_if import ScreenId
@@ -41,23 +42,33 @@ class MediaScreen(TkScreen):
         spotify_account_connected: Callable[[], bool] | None = None,
         connect_spotify: Callable[[], str] | None = None,
         disconnect_spotify: Callable[[], str] | None = None,
+        online_allowed: Callable[[], bool] = lambda: True,
     ) -> None:
         super().__init__(ScreenId("media"))
         self._host = host
+        self._online_allowed = online_allowed
         self._theme_bundle = theme_bundle
-        self._show_spotify = show_spotify
-        self._show_youtube = show_youtube
-        self._show_youtube_music = show_youtube_music
-        self._show_netflix = show_netflix
+        self._show_spotify = self._online_action(show_spotify)
+        self._show_youtube = self._online_action(show_youtube)
+        self._show_youtube_music = self._online_action(show_youtube_music)
+        self._show_netflix = self._online_action(show_netflix)
         self._show_visualizer = show_visualizer
-        self._show_spotify_remote = show_spotify_remote or show_spotify
-        self._show_spotify_local = show_spotify_local or show_spotify
+        self._show_spotify_remote = self._online_action(show_spotify_remote or show_spotify)
+        self._show_spotify_local = self._online_action(show_spotify_local or show_spotify)
         self._spotify_local_available = spotify_local_available or (lambda: True)
         self._configure_spotify = configure_spotify
         self._spotify_client_id = spotify_client_id or (lambda: None)
         self._spotify_account_connected = spotify_account_connected or (lambda: False)
         self._connect_spotify = connect_spotify
         self._disconnect_spotify = disconnect_spotify
+
+    def _online_action(self, action: Callable[[], None]) -> Callable[[], None]:
+        def invoke() -> None:
+            if not self._online_allowed():
+                self._host.set_screen_status("Offline mode: online media unavailable")
+                return
+            action()
+        return invoke
 
     def set_theme_mode(self, _mode: ThemeMode) -> None:
         """Rebuild the mounted media hub from the newly active CSS theme."""
@@ -67,7 +78,7 @@ class MediaScreen(TkScreen):
         self._host.activate_screen(self)
         self._host.clear_screen_content()
         self._host.set_screen_title("Media")
-        self._host.set_screen_status("Choose a media source")
+        self._host.set_screen_status("Choose a media source" if self._online_allowed() else "Offline mode: streaming media unavailable")
 
         theme = self._theme_bundle().ui
         root = tk.Frame(self._host.screen_parent, bg=theme.background)
@@ -164,6 +175,10 @@ class MediaScreen(TkScreen):
         )
         netflix.grid(row=1, column=1, sticky="nsew", padx=6, pady=4)
 
+        if not self._online_allowed():
+            for card in (spotify, youtube, youtube_music, netflix):
+                OfflineCardAppearance(card).set_online(False)
+
     def _media_card(
         self,
         parent: tk.Misc,
@@ -254,6 +269,8 @@ class MediaScreen(TkScreen):
             button = tk.Button(
                 body,
                 text=f"{action}   ›",
+                state=tk.NORMAL if self._online_allowed() else tk.DISABLED,
+                disabledforeground=theme.text_muted,
                 command=command,
                 bg=accent,
                 fg="#FFFFFF",
@@ -333,6 +350,9 @@ class MediaScreen(TkScreen):
 
     def run_spotify_account_action(self, disconnect: bool) -> None:
         """Run the shared Spotify account action from any media surface."""
+        if not disconnect and not self._online_allowed():
+            self._host.set_screen_status("Offline mode: Spotify sign-in unavailable")
+            return
         action = self._disconnect_spotify if disconnect else self._connect_spotify
         if action is None:
             return
@@ -368,6 +388,8 @@ class MediaScreen(TkScreen):
         tk.Button(
             row,
             text="DISCONNECT" if connected else "CONNECT SPOTIFY",
+            state=tk.NORMAL if connected or self._online_allowed() else tk.DISABLED,
+            disabledforeground=theme.text_muted,
             command=lambda: self.run_spotify_account_action(connected),
             bg=theme.control_background if connected else SPOTIFY_GREEN,
             fg=theme.control_text if connected else "#000000",
@@ -478,6 +500,8 @@ class MediaScreen(TkScreen):
         tk.Button(
             actions,
             text="REMOTE",
+            state=tk.NORMAL if self._online_allowed() else tk.DISABLED,
+            disabledforeground=theme.text_muted,
             command=self._show_spotify_remote,
             bg=theme.control_background,
             fg=theme.control_text,
@@ -501,7 +525,7 @@ class MediaScreen(TkScreen):
             bd=0,
             font=("Sans", 15, "bold"),
             pady=9,
-            state=tk.NORMAL if self._spotify_local_available() else tk.DISABLED,
+            state=tk.NORMAL if self._spotify_local_available() and self._online_allowed() else tk.DISABLED,
         ).grid(row=0, column=1, sticky="ew", padx=(3, 0))
 
     def _provider_logo(self, parent: tk.Widget, glyph: str) -> None:

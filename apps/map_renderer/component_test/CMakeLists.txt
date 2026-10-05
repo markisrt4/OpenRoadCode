@@ -9,6 +9,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 find_package(PkgConfig REQUIRED)
+find_package(spdlog REQUIRED)
 pkg_check_modules(ZMQ REQUIRED IMPORTED_TARGET libzmq)
 
 find_path(CPPZMQ_INCLUDE_DIR zmq.hpp REQUIRED)
@@ -32,4 +33,20 @@ target_link_libraries(
     openroadcode-map-command-server-test
     PRIVATE
         PkgConfig::ZMQ
+        spdlog::spdlog
 )
+
+# This contract gate compiles without MapLibre or a graphical display.
+add_executable(openroadcode-logging-contract-test logging_contract_cli.cpp)
+target_include_directories(openroadcode-logging-contract-test PRIVATE
+    ${RAPIDJSON_INCLUDE_DIR} ../src)
+target_link_libraries(openroadcode-logging-contract-test PRIVATE spdlog::spdlog)
+
+include(CTest)
+if(BUILD_TESTING)
+    find_package(Python3 REQUIRED COMPONENTS Interpreter)
+    add_test(NAME logging-contract
+        COMMAND ${Python3_EXECUTABLE}
+            ${CMAKE_CURRENT_SOURCE_DIR}/check_logging_contract.py
+            $<TARGET_FILE:openroadcode-logging-contract-test>)
+endif()

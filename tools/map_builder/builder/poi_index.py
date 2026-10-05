@@ -9,6 +9,8 @@ import sqlite3
 import subprocess
 from pathlib import Path
 
+from .web_urls import valid_website
+
 
 def _transit_mode(tags: dict[str, str]) -> str | None:
     """Normalize OSM transit tags into the modes exposed by OpenRoadCode."""
@@ -62,7 +64,7 @@ def _classification(tags: dict[str, str]) -> tuple[str, str, str, str | None] | 
 
 def _create_schema(connection: sqlite3.Connection) -> None:
     connection.executescript("""
-        CREATE TABLE poi (id TEXT PRIMARY KEY,name TEXT NOT NULL,brand TEXT,latitude REAL NOT NULL,longitude REAL NOT NULL,category TEXT NOT NULL,class TEXT,subclass TEXT,transit_mode TEXT);
+        CREATE TABLE poi (id TEXT PRIMARY KEY,name TEXT NOT NULL,brand TEXT,latitude REAL NOT NULL,longitude REAL NOT NULL,category TEXT NOT NULL,class TEXT,subclass TEXT,transit_mode TEXT,website TEXT);
         CREATE INDEX poi_category_lat_lon ON poi(category,latitude,longitude); CREATE INDEX poi_lat_lon ON poi(latitude,longitude); CREATE INDEX poi_name ON poi(name COLLATE NOCASE); CREATE INDEX poi_transit_mode ON poi(category,transit_mode);
         CREATE TABLE address (id TEXT PRIMARY KEY,house_number TEXT,street TEXT,unit TEXT,city TEXT,state TEXT,postcode TEXT,country TEXT,latitude REAL NOT NULL,longitude REAL NOT NULL);
         CREATE INDEX address_street_house ON address(street COLLATE NOCASE,house_number); CREATE INDEX address_city ON address(city COLLATE NOCASE); CREATE INDEX address_lat_lon ON address(latitude,longitude);
@@ -114,7 +116,7 @@ def _insert_point_feature(connection: sqlite3.Connection, feature: dict) -> None
     if name and classification is not None:
         category, source_class, source_subclass, transit_mode = classification
         connection.execute(
-            "INSERT OR REPLACE INTO poi (id,name,brand,latitude,longitude,category,class,subclass,transit_mode) VALUES (?,?,?,?,?,?,?,?,?)",
+            "INSERT OR REPLACE INTO poi (id,name,brand,latitude,longitude,category,class,subclass,transit_mode,website) VALUES (?,?,?,?,?,?,?,?,?,?)",
             (
                 object_id,
                 name,
@@ -125,6 +127,7 @@ def _insert_point_feature(connection: sqlite3.Connection, feature: dict) -> None
                 source_class,
                 source_subclass,
                 transit_mode,
+                valid_website(tags.get('website')) or valid_website(tags.get('contact:website')),
             ),
         )
 

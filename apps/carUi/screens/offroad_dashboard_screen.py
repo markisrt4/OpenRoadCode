@@ -8,7 +8,7 @@ from __future__ import annotations
 import math
 import tkinter as tk
 
-from controllers.navigation.map_presentation_if import MapPresentationIf
+from ui.navigation.map_presentation_if import (MapPresentationIf)
 from frontends.tk.automotive import OffroadDashboardPanel
 from frontends.tk.tk_screen_host_if import TkScreenHostIf
 from messaging.contracts.navigation import (

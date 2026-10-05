@@ -53,4 +53,3 @@ def test_validate_search_index_rejects_legacy_poi_schema(tmp_path) -> None:
         match=r"missing required column\(s\): transit_mode",
     ):
         validate_search_index(database)
-

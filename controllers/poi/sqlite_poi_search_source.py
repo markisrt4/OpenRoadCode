@@ -9,7 +9,7 @@ import math
 import sqlite3
 from pathlib import Path
 
-from controllers.poi.poi_models import PoiCategory, PointOfInterest, TransitMode
+from ui.navigation.poi_models import (PoiCategory, PointOfInterest, TransitMode)
 from controllers.poi.poi_search_source_if import PoiSearchQuery, PoiSearchSourceIf
 from ui.navigation import GeoPoint
 
@@ -37,8 +37,13 @@ class SqlitePoiSearchSource(PoiSearchSourceIf):
 
     def __init__(self, database_path: str | Path) -> None:
         self._path = Path(database_path).expanduser()
-        self._connection = sqlite3.connect(f"file:{self._path}?mode=ro", uri=True)
+        try:
+            self._connection = sqlite3.connect(f"file:{self._path}?mode=ro", uri=True)
+        except sqlite3.Error as exc:
+            raise sqlite3.OperationalError(f"Cannot open POI index {self._path}: {exc}") from exc
         self._connection.row_factory = sqlite3.Row
+        columns = {row[1] for row in self._connection.execute("PRAGMA table_info(poi)")}
+        self._website_column = "website" if "website" in columns else "NULL AS website"
 
     def search(self, query: PoiSearchQuery) -> tuple[PointOfInterest, ...]:
         category = _CATEGORY_NAME.get(query.category)
@@ -57,8 +62,8 @@ class SqlitePoiSearchSource(PoiSearchSourceIf):
 
         fetch_limit = query.limit * 4 if query.category is PoiCategory.TRANSIT else query.limit
         rows = self._connection.execute(
-            """
-            SELECT id, name, brand, latitude, longitude, class, subclass
+            f"""
+            SELECT id, name, brand, latitude, longitude, class, subclass, {self._website_column}
               FROM poi
              WHERE category = ?
                AND latitude BETWEEN ? AND ?
@@ -108,6 +113,7 @@ class SqlitePoiSearchSource(PoiSearchSourceIf):
                 math.radians(float(row["longitude"])),
             ),
             brand=row["brand"],
+            website=row["website"],
             source_class=row["class"],
             source_subclass=row["subclass"],
         )

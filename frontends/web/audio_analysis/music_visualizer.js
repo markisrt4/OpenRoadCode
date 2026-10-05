@@ -8,7 +8,7 @@
   const capture=new root.BrowserPcmCapture();
   const sourceSelect=document.createElement('select');
   sourceSelect.id='music-visualizer-source';sourceSelect.className='search';sourceSelect.setAttribute('aria-label','Audio source');
-  button.before(sourceSelect);linuxButton?.remove();
+  button.before(sourceSelect);root.inlineSelect?.(sourceSelect);linuxButton?.remove();
   const labels={browser:'Browser Microphone','linux-pipewire':'Linux System Audio (PipeWire)','android-playback':'Android Playback'};
   const meters={bass:byId('music-bass'),mid:byId('music-mid'),treble:byId('music-treble')};
   let state={level:0,bass:0,mid:0,treble:0,spectrum:Array(24).fill(0),percussion:{},source:null,running:false,zeroized:false,calibrating:false};
@@ -64,8 +64,13 @@
       render(next);
       if(!next.running){
         if(capture.running)await capture.stop();
-        if(status)status.textContent='Audio source stopped.';
+        if(status)status.textContent=next.capture_error?`Audio source stopped: ${next.capture_error}`:'Audio source stopped. Restart playback capture in Android Bridge if needed.';
         return;
+      }
+      if(next.source==='android-playback'&&status){
+        status.textContent=next.sample_rate_hz===0?'Android playback connected — waiting for audio frames.'
+          :next.level<1e-7?'Android playback is connected but silent. Try a capture-permitted audio app; clear calibration if needed.'
+          :'Android phone playback active · shared MusicAnalyzer → WebGL';
       }
       schedulePoll(token);
     }catch(error){
@@ -102,6 +107,7 @@
       sourceSelect.replaceChildren();
       for(const source of available){const option=document.createElement('option');option.value=source;option.textContent=labels[source]||source;sourceSelect.append(option)}
       render(result.state);sourceSelect.value=available.includes(state.source)?state.source:(available[0]||'');
+      if(!state.running&&sourceSelect.value==='android-playback'&&status)status.textContent='Android Playback selected. Start playback capture in Android Bridge, approve Android consent, then press START AUDIO.';
       if(!available.length){if(status)status.textContent='No audio capture sources are available.';return}
       if(state.running){
         if(state.source==='browser'){

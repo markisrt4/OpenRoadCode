@@ -59,7 +59,9 @@ install -d -o root -g root -m 755 \
     "$INSTALL_ROOT/protocols" \
     "$INSTALL_ROOT/protocols/auth"
 
-for package in services services/common services/linux protocols protocols/auth; do
+for package in services services/common services/linux protocols protocols/auth controllers/system ui ui/system \
+    messaging messaging/contracts messaging/contracts/common messaging/contracts/navigation \
+    messaging/contracts/environmental messaging/zeromq; do
     while IFS= read -r -d '' source_file; do
         relative_path="${source_file#$PROJECT_ROOT/}"
         destination="$INSTALL_ROOT/$relative_path"
@@ -115,6 +117,7 @@ chmod 600 "$ENV_FILE"
         for unit in \
             openroadcode-message-broker.service \
             openroadcode-navigation.service \
+            valhalla.service \
             openroadcode-automotive.service \
             readsb.service; do
             echo "$SERVICE_USER ALL=(root) NOPASSWD: $SYSTEMCTL_BIN $action $unit"

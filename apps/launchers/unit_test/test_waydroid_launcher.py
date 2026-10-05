@@ -48,6 +48,7 @@ class WaydroidLauncherTest(unittest.TestCase):
             check=False,
             capture_output=True,
             text=True,
+            timeout=5,
         )
 
     @patch("apps.launchers.waydroid_launcher.shutil.which", return_value=None)

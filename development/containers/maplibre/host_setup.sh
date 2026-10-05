@@ -10,6 +10,7 @@ set -euo pipefail
 sudo apt-get update
 sudo apt-get install -y \
     libglfw3-dev \
+    libspdlog-dev \
     libshp-dev \
     libgles-dev \
     libuv1-dev \

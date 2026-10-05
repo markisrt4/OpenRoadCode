@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "map_feature_hover.hpp"
 #include <mbgl/map/map.hpp>
 #include <mbgl/util/run_loop.hpp>
 #include <mbgl/util/timer.hpp>
@@ -75,21 +76,46 @@ public:
     void run();
     void invalidate();
     void showWindow();
+    void finishCameraGesture();
     void setShouldClose();
     void onWillStartRenderingFrame() override;
+
+    /** @brief Report MapLibre map/resource loading failures. */
+    void onDidFailLoadingMap(mbgl::MapLoadError error, const std::string& message) override;
+
+    /** @brief Trace radar tile network activity without flooding normal map logs. */
+    void onTileAction(
+        mbgl::TileOperation operation,
+        const mbgl::OverscaledTileID& tileId,
+        const std::string& sourceId
+    ) override;
+
+    /**
+     * @brief Set work to execute on every event-loop tick.
+     * @param callback Callback used to poll external map commands.
+     */
     void setUpdateCallback(std::function<void()> callback);
     void setPoiSelectedCallback(PoiSelectedCallback callback);
     void setManualCameraCallback(ManualCameraCallback callback);
     void setMapClickCallback(MapClickCallback callback);
     void setPoiResultsJson(const std::string& geojson);
+    void setCityWeatherJson(const std::string& geojson);
+    /** @brief Return spaced city/town points from the current offline map viewport. */
+    std::string searchWeatherCities() const;
     PoiSearchResult searchVisiblePois(const std::string& category) const;
 
 private:
     static void onWindowResize(GLFWwindow* window, int width, int height);
     static void onFramebufferResize(GLFWwindow* window, int width, int height);
     static void onScroll(GLFWwindow* window, double xOffset, double yOffset);
+    static void onWindowFocus(GLFWwindow* window, int focused);
     static void onMouseClick(GLFWwindow* window, int button, int action, int modifiers);
     static void onMouseMove(GLFWwindow* window, double x, double y);
+    static void onCursorEnter(GLFWwindow* window, int entered);
+    void updateMapHover();
+    void publishCityWeatherHover();
+    void publishPoiHover();
+    void clearMapHover();
     std::vector<InteractivePoiMarker> interactivePoiMarkers() const;
     void render();
 
@@ -115,4 +141,8 @@ private:
     ManualCameraCallback manualCameraCallback;
     MapClickCallback mapClickCallback;
     std::vector<CachedPoiResult> poiResults;
+    MapFeatureHover cityWeatherHover;
+    MapFeatureHover poiHover{"id", "", "poi_hover"};
+    bool pointerInside = false;
+    double lastHoverCheck = -1.0;
 };

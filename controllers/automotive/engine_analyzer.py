@@ -3,16 +3,8 @@
 
 from __future__ import annotations
 
-from controllers.automotive.engine_analysis import (
-    EngineAnalysis,
-    EngineLoadLevel,
-    EngineOperatingMode,
-    FuelControlMode,
-    FuelCorrectionStatus,
-    MixtureMode,
-    TrackingQuality,
-)
-from controllers.automotive.vehicle_configuration import VehicleConfiguration
+from ui.automotive.engine_analysis import (EngineAnalysis, EngineLoadLevel, EngineOperatingMode, FuelControlMode, FuelCorrectionStatus, MixtureMode, TrackingQuality)
+from ui.automotive.vehicle_configuration import (VehicleConfiguration)
 from controllers.automotive.vehicle_state import VehicleState
 
 

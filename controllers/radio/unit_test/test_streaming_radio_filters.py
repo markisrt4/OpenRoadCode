@@ -9,7 +9,7 @@ from controllers.radio.streaming_radio_filters import (
     StationFilters, is_explicit_internet_only, station_band,
     station_genre_matches, station_quality,
 )
-from controllers.radio.streaming_radio_types import StreamingRadioStation
+from ui.radio.streaming_radio_types import (StreamingRadioStation)
 
 
 def station(name: str, *, tags=(), bitrate=None) -> StreamingRadioStation:

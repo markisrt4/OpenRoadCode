@@ -6,9 +6,10 @@
 from __future__ import annotations
 
 import math
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 
 from controllers.route_planning.route_planning_types import GeoPoint as RouteGeoPoint
+from controllers.route_planning.route_planning_types import RouteResult
 from controllers.route_planning.route_planning_types import TravelMode as RouteTravelMode
 from controllers.route_planning.route_map_presenter import present_route
 from protocols.map_renderer.map_renderer_client import MapRendererClient
@@ -27,8 +28,19 @@ class NavigationRouteRequestHandler(RouteRequestHandlerIf, RouteSimulationReques
     ) -> None:
         self._client = client or NavigationCommandClient()
         self._map_renderer = map_renderer or MapRendererClient()
+        self._active_route: RouteResult | None = None
+        self._route_observers: list[Callable[[RouteResult | None], None]] = []
         self._travel_mode = TravelMode.AUTO
         self._waypoints: tuple[GeoPoint, ...] = ()
+
+    @property
+    def active_route(self) -> RouteResult | None:
+        """Return the most recently started route, or None after cancellation."""
+        return self._active_route
+
+    def observe_route(self, observer: Callable[[RouteResult | None], None]) -> None:
+        """Receive successful route starts and cancellation events."""
+        self._route_observers.append(observer)
 
     def request_start_route(
         self,
@@ -47,9 +59,15 @@ class NavigationRouteRequestHandler(RouteRequestHandlerIf, RouteSimulationReques
             travel_mode=RouteTravelMode[travel_mode.name],
         )
         present_route(route, self._map_renderer)
+        self._active_route = route
+        for observer in tuple(self._route_observers):
+            observer(route)
 
     def request_cancel_route(self) -> None:
         self._client.cancel_route()
+        self._active_route = None
+        for observer in tuple(self._route_observers):
+            observer(None)
         self._map_renderer.set_route(
             {"type": "FeatureCollection", "features": []}
         )

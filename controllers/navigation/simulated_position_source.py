@@ -62,13 +62,13 @@ class SimulatedPositionSource(PositionSourceIf, RouteSimulationIf):
     def stop(self) -> None:
         self._stop_event.set()
         thread = self._thread
-        if thread is not None and thread.is_alive():
+        if thread is not None and thread.is_alive() and thread is not threading.current_thread():
             thread.join(timeout=max(1.0, self._period_s * 2.0))
         self._thread = None
 
     def follow_route(self, route: RouteResult, *, time_scale: float = 60.0) -> None:
         """Drive simulated position along a calculated route shape."""
-        if time_scale <= 0.0:
+        if not math.isfinite(time_scale) or time_scale <= 0.0:
             raise ValueError("time_scale must be greater than zero")
         if len(route.shape) < 2:
             raise ValueError("route shape must contain at least two points")

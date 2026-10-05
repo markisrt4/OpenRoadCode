@@ -14,6 +14,8 @@ from apps.orcUi.frontend.tk.orc_ui_app import OrcUiApp
 from apps.orcUi.frontend.tk.presentation_state import OrcUiPresentationState
 from apps.orcUi.vehicle_configuration_state import VehicleConfigurationState
 from config.service_runtime_config import ServiceRuntimeConfigParser
+from controllers.connectivity.online_mode import OnlineModeController
+from controllers.connectivity.shell_connectivity_controller import ShellConnectivityController
 from controllers.audio import PipewireAudioController, SystemVolumeHandler
 from controllers.automotive import AutomotiveTelemetryProfile, TripTracker
 from controllers.automotive.vehicle_settings_store import VehicleSettingsStore
@@ -49,14 +51,19 @@ class CoreComposition:
     telemetry_profile_publisher: ZeroMqPublisher
     lifecycle: SystemLifecycleController
     volume: SystemVolumeHandler
+    connectivity: ShellConnectivityController | None = None
 
     def start(self) -> None:
+        if self.connectivity is not None:
+            self.connectivity.start()
         self.volume.refresh()
         self.map_camera.start()
         self.state_ingress.start()
         self.trip_runtime.start()
 
     def close(self) -> None:
+        if self.connectivity is not None:
+            self.connectivity.close()
         try:
             self.trip_runtime.close()
         finally:
@@ -105,12 +112,15 @@ def create_core_composition() -> CoreComposition:
     try:
         app = OrcUiApp(
             lifecycle_handler=lifecycle,
+            online_mode=OnlineModeController(),
         )
     except Exception:
         route_request_handler.close()
         telemetry_profile_publisher.close()
         map_camera.close()
         raise
+    connectivity = ShellConnectivityController(app.online_mode, app, app.set_online_status, app.set_screen_status)
+    app.set_connectivity_handler(connectivity.toggle)
     volume = SystemVolumeHandler(
         audio_controller=PipewireAudioController(),
         volume_ui=app,
@@ -157,4 +167,5 @@ def create_core_composition() -> CoreComposition:
         telemetry_profile_publisher=telemetry_profile_publisher,
         lifecycle=lifecycle,
         volume=volume,
+        connectivity=connectivity,
     )

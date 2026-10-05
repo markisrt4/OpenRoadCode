@@ -13,6 +13,8 @@ from config.service_runtime_config import (
 from controllers.navigation import NavigationController
 from controllers.navigation.simulated_navigation_sensor import SimulatedNavigationSensor
 from controllers.navigation.simulated_position_source import SimulatedPositionSource
+from controllers.navigation.route_playback_position_source import RoutePlaybackPositionSource
+from controllers.navigation.route_simulation_if import RouteSimulationIf
 from services.navigation import navigation_service_cli
 from services.navigation.navigation_service_cli import build_controller
 
@@ -56,6 +58,18 @@ def test_build_controller_supports_simulated_imu_with_device_gps(monkeypatch) ->
 
     assert isinstance(controller._sensor, SimulatedNavigationSensor)
     assert not isinstance(controller._gps_source, SimulatedPositionSource)
+    assert isinstance(controller._gps_source, RoutePlaybackPositionSource)
+    assert isinstance(controller._gps_source, RouteSimulationIf)
+
+
+def test_android_live_position_source_supports_local_route_playback() -> None:
+    config = NavigationServiceRuntimeConfig(
+        imu=ImuInputConfig(source="simulation"),
+        gps=GpsInputConfig(source="device", device="android"),
+    )
+    source = navigation_service_cli._build_position_source(config)
+    assert isinstance(source, RoutePlaybackPositionSource)
+    assert isinstance(source, RouteSimulationIf)
 
 
 def test_build_controller_supports_device_imu_with_simulated_gps(monkeypatch) -> None:

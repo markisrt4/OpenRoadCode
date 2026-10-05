@@ -16,7 +16,7 @@ import urllib.parse
 from dataclasses import dataclass
 from pathlib import Path
 
-from apps.launchers.app_launcher_if import AppLauncherIf, StatusCallback
+from ui.system.app_launcher_if import (AppLauncherIf, StatusCallback)
 from apps.launchers.process_manager import close_matching_display_apps, is_process_running, terminate_process
 from common.logging.logging_paths import logging_file_path
 from protocols.sdrpp_remote_control import SDRPPRemoteControlClient

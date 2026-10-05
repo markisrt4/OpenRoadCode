@@ -11,7 +11,7 @@ from controllers.radio.adapters.radio_browser_directory import (
     _distance_km,
     _parse_station,
 )
-from controllers.radio.streaming_radio_types import StreamingRadioStation
+from ui.radio.streaming_radio_types import (StreamingRadioStation)
 
 
 class StreamingRadioStationTest(unittest.TestCase):

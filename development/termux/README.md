@@ -132,6 +132,15 @@ Position does not conceptually own speed or course. A physical provider may deli
 
 The current Termux navigation profile uses the Android bridge as its physical position source and keeps IMU simulation available so navigation remains usable when Android motion integration is unavailable. The map consumes the normalized navigation position contract rather than talking directly to Android.
 
+**Simulate** on an active route now generates positions inside ORC's navigation
+service. The Android bridge stays on real GPS. **Stop simulation**, **End route**,
+arrival, or a service restart restores normal position input. This Python change
+requires restarting `openroadcode-navigation`, but no renderer rebuild. After
+updating, test a short route through playback, stop, arrival, and restart; verify
+that live position returns. The full native renderer/theme-toggle test and live
+weather-provider probes still need device verification; CI does not prove GPU
+rendering. See [Weather component probes](../../controllers/weather/README.md).
+
 ## Automotive transport on Termux
 
 PySerial is intentionally **not** a Termux dependency. Android/Termux automotive hardware uses the Android bridge and TCP transport rather than opening a serial device directly from Termux.
@@ -198,16 +207,29 @@ sv down openroadcode-broker
 
 The runit definitions call the same runtime wrappers used by the Linux service installation where applicable. Termux-specific service definitions live under `scripts/runit/`. Runtime-generated `supervise/` directories are state, not source, and must never be committed to the repository.
 
-Valhalla is currently launched separately from the supervised broker/navigation services. The Termux build installs it under `$PREFIX/opt/openroadcode/navigation/valhalla/bin/valhalla_service`, while deployed routing data and the Termux-specific configuration live under `~/.local/share/openroadcode/valhalla`.
+Valhalla runs automatically as the supervised `openroadcode-valhalla` runit service. The navigation build installs its service definition along with the core services. The Termux build installs it under `$PREFIX/opt/openroadcode/navigation/valhalla/bin/valhalla_service`, while deployed routing data lives under `~/.local/share/openroadcode/valhalla`.
 
-A development launch is:
+For an existing installation, register the new service once (stop any manually launched Valhalla first):
 
 ```bash
-VALHALLA_CONFIG="$HOME/.local/share/openroadcode/valhalla/valhalla.termux.json" \
-VALHALLA_BIN="$PREFIX/opt/openroadcode/navigation/valhalla/bin/valhalla_service" \
-VALHALLA_WORKERS=1 \
-./scripts/runtime/start_valhalla.sh
+cd ~/src/OpenRoadCode
+git switch weather-radar
+./scripts/runit/install_termux_services.sh
+sv up openroadcode-valhalla
+sv status openroadcode-valhalla
 ```
+
+The wrapper detects Termux, reads the installed `valhalla.json`, and writes a
+prepared copy under `$PREFIX/tmp/openroadcode-valhalla`. It relocates IPC sockets,
+standard routing data, optional data paths, and Linux log paths into writable
+Termux locations. The downloaded source configuration stays unchanged. Run the
+wrapper again after pulling new routing data; no manual JSON edits are needed.
+`VALHALLA_CONFIG`, `VALHALLA_BIN`, `VALHALLA_DATA_ROOT`, and
+`VALHALLA_RUNTIME_ROOT` can override the defaults. Runit owns startup, crash restarts, and shutdown; no dedicated terminal is needed.
+Rotating logs are available at `~/.cache/openroadcode/valhalla/current`.
+The service-manager core start/stop operations include Valhalla.
+For foreground debugging only, stop the supervised service before running
+`./scripts/runtime/start_valhalla.sh`.
 
 Verify the service with:
 
@@ -288,3 +310,22 @@ Vector-map content and routing data are generated from source datasets and shoul
 ## Test notes
 
 The broad Python suite runs under Termux with platform-specific hardware tests skipped when their Linux-only dependencies are unavailable. Component tests supplement automated tests where real hardware, native services, X11, Android integration, or game packages are required.
+
+## Updating an existing map renderer
+
+Close ORC, then update the native renderer without rebuilding MapLibre or
+Valhalla:
+
+```bash
+cd ~/src/OpenRoadCode
+git switch android-linux-food-apps
+git pull --ff-only origin android-linux-food-apps
+./development/termux/build_navigation_stack.sh --renderer-only
+./runOrcUi
+```
+
+The renderer-only option installs renderer build dependencies, including `libspdlog` for
+structured logging, before compiling. It requires the existing
+`apps/map_renderer/build-termux` directory configured by
+`build_navigation_stack.sh`. Compilation must succeed before the installed
+executable is replaced. No map-data download is needed.

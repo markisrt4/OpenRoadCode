@@ -10,10 +10,7 @@ try:
 except ModuleNotFoundError:  # Python 3.10
     import tomli as tomllib
 
-from controllers.automotive.vehicle_configuration import (
-    EngineInductionType,
-    VehicleConfiguration,
-)
+from ui.automotive.vehicle_configuration import (EngineInductionType, VehicleConfiguration)
 
 
 DEFAULT_VEHICLE_SETTINGS_PATH = (

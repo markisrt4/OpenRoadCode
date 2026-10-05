@@ -6,8 +6,11 @@
 from __future__ import annotations
 
 import json
+import logging
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+from common.logging.structured import current_operation, event, operation
 
 from protocols.spotify import SpotifyAuth, SpotifyTokenStore, load_spotify_config_from_secrets
 from security.environment_variable_secret_manager import EnvironmentVariableSecretManager
@@ -15,6 +18,14 @@ from security.environment_variable_secret_manager import EnvironmentVariableSecr
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 8771
 PLAYER_NAME = "OpenRoadCode"
+LOGGER = logging.getLogger("media.spotify.sdk")
+SDK_ERROR_CATEGORIES = {
+    "initialization_error",
+    "authentication_error",
+    "account_error",
+    "playback_error",
+    "token_error",
+}
 
 _PLAYER_HTML = """<!doctype html>
 <html><head><meta charset="utf-8"><title>OpenRoadCode Spotify Player</title>
@@ -52,6 +63,7 @@ class SpotifyWebPlayerHost:
         self._device_id: str | None = None
         self._error: str | None = None
         self._lock = threading.Lock()
+        self._operation_id: str | None = None
 
     @property
     def url(self) -> str:
@@ -70,6 +82,8 @@ class SpotifyWebPlayerHost:
     def start(self) -> None:
         if self._server is not None:
             return
+        with operation(current_operation()) as operation_id:
+            self._operation_id = operation_id
         owner = self
 
         class Handler(BaseHTTPRequestHandler):
@@ -81,46 +95,92 @@ class SpotifyWebPlayerHost:
                     try:
                         access_token = owner._auth.get_access_token()
                     except Exception as error:
-                        owner._set_error(str(error)); self._send(500, "text/plain; charset=utf-8", str(error).encode()); return
+                        owner._set_error(str(error), category="token_error")
+                        self._send(500, "text/plain; charset=utf-8", str(error).encode())
+                        return
                     payload = json.dumps({"access_token": access_token}).encode()
                     self._send(200, "application/json", payload)
                     return
                 self._send(404, "text/plain; charset=utf-8", b"Not found")
 
             def do_POST(self) -> None:
-                length = int(self.headers.get("Content-Length", "0")); raw = self.rfile.read(length)
-                try: payload = json.loads(raw or b"{}")
-                except json.JSONDecodeError: payload = {}
+                length = int(self.headers.get("Content-Length", "0"))
+                raw = self.rfile.read(length)
+                try:
+                    payload = json.loads(raw or b"{}")
+                except json.JSONDecodeError:
+                    payload = {}
                 if self.path == "/ready":
                     device_id = payload.get("device_id")
-                    if isinstance(device_id, str) and device_id: owner._set_device_id(device_id)
-                    self._send(204, "text/plain", b""); return
+                    if isinstance(device_id, str) and device_id:
+                        owner._set_device_id(device_id)
+                    self._send(204, "text/plain", b"")
+                    return
                 if self.path == "/error":
-                    owner._set_error(f"{payload.get('name','Spotify error')}: {payload.get('message','')}")
-                    self._send(204, "text/plain", b""); return
+                    category = payload.get("name")
+                    owner._set_error(
+                        f"{category or 'Spotify error'}: {payload.get('message', '')}",
+                        category=category,
+                    )
+                    self._send(204, "text/plain", b"")
+                    return
                 self._send(404, "text/plain; charset=utf-8", b"Not found")
 
             def _send(self, status: int, content_type: str, body: bytes) -> None:
-                self.send_response(status); self.send_header("Content-Type", content_type); self.send_header("Cache-Control", "no-store"); self.send_header("Content-Length", str(len(body))); self.end_headers()
-                if body: self.wfile.write(body)
+                self.send_response(status)
+                self.send_header("Content-Type", content_type)
+                self.send_header("Cache-Control", "no-store")
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                if body:
+                    self.wfile.write(body)
 
             def log_message(self, _format: str, *_args: object) -> None:
                 return
 
         self._server = ThreadingHTTPServer((self._host, self._port), Handler)
-        self._thread = threading.Thread(target=self._server.serve_forever, name="orcui-spotify-web-player", daemon=True)
+        self._thread = threading.Thread(
+            target=self._server.serve_forever, name="orcui-spotify-web-player", daemon=True
+        )
         self._thread.start()
+        with operation(self._operation_id):
+            event(LOGGER, logging.INFO, "sdk.host_started", "Spotify SDK host started")
 
     def close(self) -> None:
-        server = self._server; self._server = None
-        if server is not None: server.shutdown(); server.server_close()
-        thread = self._thread; self._thread = None
-        if thread is not None and thread.is_alive(): thread.join(timeout=1.0)
+        server = self._server
+        self._server = None
+        if server is not None:
+            server.shutdown()
+            server.server_close()
+        thread = self._thread
+        self._thread = None
+        if thread is not None and thread.is_alive():
+            thread.join(timeout=1.0)
+        if server is not None:
+            with operation(self._operation_id):
+                event(LOGGER, logging.INFO, "sdk.host_stopped", "Spotify SDK host stopped")
 
     def _set_device_id(self, device_id: str) -> None:
-        with self._lock: self._device_id = device_id; self._error = None
-        print(f"[Spotify Player] ready device_id={device_id}")
+        with self._lock:
+            changed = self._device_id != device_id or self._error is not None
+            self._device_id = device_id
+            self._error = None
+        if changed:
+            with operation(self._operation_id):
+                event(LOGGER, logging.INFO, "sdk.ready", "Spotify SDK device ready")
 
-    def _set_error(self, message: str) -> None:
-        with self._lock: self._error = message
-        print(f"WARNING: Spotify Web Player: {message}")
+    def _set_error(self, message: str, *, category: str | None = None) -> None:
+        with self._lock:
+            failed = self._error is not None
+            self._error = message
+        if not failed:
+            with operation(self._operation_id):
+                event(
+                    LOGGER,
+                    logging.WARNING,
+                    "sdk.error",
+                    "Spotify SDK reported an error",
+                    category=category
+                    if isinstance(category, str) and category in SDK_ERROR_CATEGORIES
+                    else "unknown",
+                )

@@ -40,7 +40,7 @@ def test_navigation_service_orders_after_broker_and_valhalla() -> None:
     assert "openroadcode-zmq.service" not in installer
     assert "valhalla.service" in installer
     assert "After=" in installer
-    assert "Wants=" in installer
+    assert "Wants=network.target openroadcode-message-broker.service valhalla.service" in installer
 
 
 def test_runtime_installer_installs_stack_in_dependency_order() -> None:

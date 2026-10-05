@@ -94,3 +94,25 @@ ECU cards use restrained semantic accents to distinguish domains without turning
 ### Quality gate
 
 `scripts/quality_gate.py` is the branch-level UI quality entry point. The ORC UI also enforces a Python module-size limit through `scripts/check_python_module_size.py`; large shell or feature modules should be decomposed rather than extending the limit. Run the quality gate and ORC UI tests before merging substantial shell changes.
+
+## Navigation tooltips
+
+Navigation camera controls show short descriptions after hovering or focusing
+them with the keyboard for half a second. Clicking, leaving the control, hiding
+Navigation, or changing themes dismisses help. Tooltips cover follow, screen pan,
+zoom and zoom level, 2D/3D, tilt, north-up, and recenter. Touch-only input does not
+provide hover; a mouse/trackpad or keyboard focus can reveal the descriptions.
+
+The right rail groups **F / N / ◎** together above the pan pad. Zoom
+in/out and tilt up/down share rows; the zoom readout and 2D/3D control remain
+separate. Buttons use 11-point labels, with a 62-pixel rail and roughly 44-pixel
+target heights when space permits. Weighted rows fit the available viewport
+height instead of letting a packed stack extend below it; total height is capped
+so controls do not become oversized in tall windows. Very short windows allocate
+less height per row. Verify the touch targets at the device's actual font scale.
+Tooltips replace the old bottom legend. Center still recenters and resumes follow.
+
+`TkTooltip` presents `TooltipUiIf` snapshots and emits requests through
+`TooltipRequestHandlerIf`. Application composition injects `TooltipFactoryIf`;
+the view does not construct a controller or transport. No network interface or
+native renderer rebuild is needed. See [UI contracts](../../ui/README.md#tooltips).

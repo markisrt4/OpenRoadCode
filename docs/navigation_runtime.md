@@ -6,6 +6,18 @@ This document describes the vehicle-side navigation runtime: service ownership, 
 
 Map generation and deployment are documented separately in `docs/navigation_deployment.md`. Public message schemas are documented under `docs/idd/`.
 
+## Route simulation
+
+Start a route, then select **Simulate** to play its geometry at the selected time
+scale. Android bridge and gpsd profiles support playback inside the navigation
+service: their live receivers keep running, and the bridge continues reporting
+real GPS. Only ORC's delivered navigation positions switch to `route-simulation`.
+The UI labels playback and offers **Stop simulation**. Stopping playback, ending
+the route, or reaching its destination resumes fresh live reports. Service
+shutdown clears playback; a restart always starts with the configured live source.
+Browser and standalone simulation profiles retain their existing playback support.
+No bridge configuration change or native renderer rebuild is required.
+
 ## Runtime architecture
 
 <div class="orc-diagram-legend" aria-label="Architecture diagram legend">

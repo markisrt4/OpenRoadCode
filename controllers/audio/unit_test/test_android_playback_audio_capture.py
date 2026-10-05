@@ -1,3 +1,4 @@
+# SPDX-FileCopyrightText: 2026 OpenRoadCode contributors
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 
@@ -88,3 +89,20 @@ class AndroidPlaybackAudioCaptureTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def test_connection_failure_explains_bridge_capture_and_consent():
+    from urllib.error import URLError
+    import pytest
+    with patch('controllers.audio.capture.android_playback_audio_capture.urlopen', side_effect=URLError('refused')):
+        with pytest.raises(RuntimeError, match='START PLAYBACK CAPTURE'):
+            AndroidPlaybackAudioCapture().start(lambda *_: None)
+
+
+def test_busy_bridge_reports_other_stream_client():
+    from urllib.error import HTTPError
+    import pytest
+    with patch('controllers.audio.capture.android_playback_audio_capture.urlopen',
+               side_effect=HTTPError('http://127.0.0.1:8768/stream', 409, 'busy', {}, None)):
+        with pytest.raises(RuntimeError, match='already in use'):
+            AndroidPlaybackAudioCapture().start(lambda *_: None)

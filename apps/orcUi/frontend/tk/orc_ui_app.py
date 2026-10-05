@@ -5,7 +5,9 @@ from __future__ import annotations
 import os
 import signal
 import tkinter as tk
+from ui.system.online_mode_if import OnlineModeIf
 from collections.abc import Callable
+from apps.orcUi.performance_status import PerformanceStatus
 from apps.orcUi.orc_theme import ThemeMode, toggle
 from .power_dialog import PowerDialog
 from .screen_builders import (
@@ -25,6 +27,7 @@ class OrcUiApp(VolumeUiIf):
         self,
         *,
         lifecycle_handler: SystemLifecycleRequestHandlerIf,
+        online_mode: OnlineModeIf | None = None,
     ) -> None:
         self._lifecycle_handler = lifecycle_handler
         self._theme_mode = ThemeMode.DARK
@@ -50,6 +53,7 @@ class OrcUiApp(VolumeUiIf):
         self._adsb_toggle_handler: Callable[[bool], bool] | None = None
         self._adsb_view_handler: Callable[[], None] | None = None
         self._active_nav = ""
+        self._diagnostics_return = "HOME"
         self._initial_destination: str | None = None
         self._nav_items: list[str] = []
         self._screen_registry: dict[str, ScreenUiIf] = {}
@@ -68,7 +72,26 @@ class OrcUiApp(VolumeUiIf):
             on_restart=self._restart_ui,
             on_shutdown=self._shutdown_system,
         )
+        self.online_mode = online_mode
+        self._connectivity_toggle = None
+        self._internet_status = None
         self._build_shell()
+
+    def set_connectivity_handler(self, handler: Callable[[], None]) -> None:
+        """Bind semantic toggle. @param handler Request callback."""
+        self._connectivity_toggle = handler
+
+    def _toggle_online_mode(self) -> None:
+        if self._connectivity_toggle is not None:
+            self._connectivity_toggle()
+
+    def set_online_status(self, online: bool, reachable: bool | None) -> None:
+        """Present mode. @param online Effective mode. @param reachable Internet observation."""
+        self._internet_status = reachable
+        if self._shell is not None:
+            self._shell.set_online_status(online, reachable)
+            self._shell.set_weather_online(online)
+
     @property
     def theme_mode(self) -> ThemeMode:
         return self._theme_mode
@@ -135,6 +158,8 @@ class OrcUiApp(VolumeUiIf):
         nav_name = name.strip().upper()
         if not nav_name:
             raise ValueError("Navigation destination must not be empty")
+        if nav_name == "DIAGNOSTICS" and self._active_nav != "DIAGNOSTICS":
+            self._diagnostics_return = self._active_nav or "HOME"
         self._active_nav = nav_name
         self._paint_nav()
         screen = self._screen_registry.get(nav_name)
@@ -143,6 +168,15 @@ class OrcUiApp(VolumeUiIf):
             return
         self._deactivate_active_screen()
         self._show_placeholder(nav_name)
+    def close_diagnostics(self) -> None:
+        """Return to the destination that opened Diagnostics."""
+        self.navigate_to(self._diagnostics_return)
+
+    def set_performance_status(self, status: PerformanceStatus) -> None:
+        """Present computing-unit health in persistent shell chrome."""
+        if self._shell is not None:
+            self._shell.set_performance_status(status)
+
     def activate_screen(self, screen: ScreenUiIf) -> None:
         previous = self._active_screen
         if previous is screen:
@@ -171,7 +205,10 @@ class OrcUiApp(VolumeUiIf):
     def schedule_ui_callback(self, delay_ms: int, callback: Callable[[], None]) -> object:
         return self._root.after(delay_ms, callback)
     def cancel_ui_callback(self, callback_id: object) -> None:
-        self._root.after_cancel(callback_id)
+        try:
+            self._root.after_cancel(callback_id)
+        except tk.TclError:
+            pass
     def run(self) -> None:
         self._root.protocol("WM_DELETE_WINDOW", self._on_close)
         old_signal_handler = signal.getsignal(signal.SIGINT)
@@ -212,6 +249,7 @@ class OrcUiApp(VolumeUiIf):
             active_nav=self._active_nav,
             on_navigate=self.navigate_to,
             on_power=self._power_dialog.show,
+            on_online_toggle=self._toggle_online_mode,
             on_theme_toggle=self._toggle_theme,
             on_settings=self._open_settings,
             on_volume_down=self._request_volume_down,
@@ -219,6 +257,8 @@ class OrcUiApp(VolumeUiIf):
             volume_text=self._volume_text(),
         )
         self._content = self._shell.content
+        if self.online_mode is not None:
+            self.set_online_status(self.online_mode.online, self._internet_status)
 
     def set_weather_status(self, text: str) -> None:
         """Display current Weather summary in persistent shell chrome."""
@@ -261,6 +301,8 @@ class OrcUiApp(VolumeUiIf):
     def _rebuild_shell_theme(self) -> None:
         if self._shell is not None:
             self._shell.rebuild(theme=self._theme, theme_mode=self._theme_mode)
+            if self.online_mode is not None:
+                self.set_online_status(self.online_mode.online, self._internet_status)
     def _open_settings(self) -> None:
         action = self._settings_action
         if action is not None:
@@ -291,13 +333,16 @@ class OrcUiApp(VolumeUiIf):
     def _toggle_theme(self) -> None:
         self._theme_mode = toggle(self._theme_mode)
         self._theme = theme_bundle(self._theme_mode)
+        active_screen = self._active_screen
+        set_theme_mode = getattr(active_screen, "set_theme_mode", None)
+        if active_screen is not None and not callable(set_theme_mode):
+            # Stop embedded renderers before their native host widgets are destroyed.
+            self._deactivate_active_screen()
         theme_change_handler = self._theme_change_handler
         if theme_change_handler is not None:
             theme_change_handler(self._theme_mode)
         self._power_dialog.close()
         self._rebuild_shell_theme()
-        active_screen = self._active_screen
-        set_theme_mode = getattr(active_screen, "set_theme_mode", None)
         if callable(set_theme_mode):
             set_theme_mode(self._theme_mode)
         elif active_screen is not None:

@@ -6,14 +6,7 @@ from datetime import datetime
 import pytest
 
 from controllers.automotive import EngineInductionType, VehicleConfiguration
-from controllers.automotive.engine_analysis import (
-    EngineLoadLevel,
-    EngineOperatingMode,
-    FuelControlMode,
-    FuelCorrectionStatus,
-    MixtureMode,
-    TrackingQuality,
-)
+from ui.automotive.engine_analysis import (EngineLoadLevel, EngineOperatingMode, FuelControlMode, FuelCorrectionStatus, MixtureMode, TrackingQuality)
 from controllers.automotive.engine_analyzer import EngineAnalyzer
 from controllers.automotive.vehicle_state import VehicleState
 

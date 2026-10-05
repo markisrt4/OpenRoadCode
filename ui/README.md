@@ -19,7 +19,7 @@ hardware implementations.
 
 ```mermaid
 flowchart LR
-    users["Applications / controllers / frontends"] --> ui["ui contracts"] --> stdlib["Python standard library"]
+    users["Applications / controllers / frontends"] --> ui["ui contracts"] --> stdlib["Standard library / tinycss2 theme parser"]
 
     classDef orcApp fill:#dbeafe,stroke:#2563eb,color:#172554;
     classDef orcService fill:#ede9fe,stroke:#7c3aed,color:#2e1065;
@@ -88,3 +88,132 @@ doxygen Doxyfile
 ```
 
 Generated API documentation is written under `build/doxygen/html`.
+
+
+### Weather maps and radar replay
+
+`ui/weather/weather_overlay_state.py` defines immutable city, heatmap and route
+weather snapshots. Physical values are SI; route rain probability is a 0–1
+fraction and times are aware UTC datetimes. `WeatherOverlayUiIf` is the state
+consumer, `WeatherOverlayControlsIf` adds request binding, and
+`WeatherOverlayRequestHandlerIf` describes city/model/route intent and navigation
+visibility/replay. `RadarUiState`, `RadarControlsIf` and
+`RadarRequestHandlerIf` provide the corresponding radar replay boundary.
+
+Weather controller tests exercise asynchronous lifecycle and cache behavior
+without Tk. Frontend contract tests exercise state consumption and request
+forwarding. CI runs `scripts/check_weather_ui_contracts.py` to reject weather
+provider/transport/thread imports in Tk weather views, backend-cache inspection,
+and GUI imports in weather controllers. Interface documentation checks remain a
+separate check; they do not substitute for this boundary enforcement.
+
+## Tooltips
+
+`TooltipUiIf` receives immutable `TooltipState` snapshots; hover/focus intent
+uses `TooltipRequestHandlerIf`. `TooltipFactoryIf` creates a fresh session through
+application composition. `TooltipController` owns the 500 ms delay, cancellation,
+and stale callback rejection using `UiDispatcherIf`. The Tk view renders and
+positions the popup, without importing controllers. Leaving, clicking, hiding,
+destroying, or rebuilding a control cancels pending/visible help; close is
+idempotent. The navigation right-side camera controls use this boundary.
+
+## Replaceable UI boundary
+
+UI contracts remain part of this repository. Frontends implement `*UiIf` and emit
+semantic requests through `*RequestHandlerIf`; composition binds concrete
+controllers and owns backend lifecycle. Frontends should consume shared state
+from `ui/` rather than importing ORC controllers or application-specific wiring.
+
+The static boundary check restricts contract imports to the standard library,
+`ui`, and the existing `tinycss2` theme parser. Moving types into `ui/` preserves
+backend compatibility through re-exports; existing enum and class identities
+remain the same. Packaging and distribution changes require discussion with the
+user before implementation.
+
+## Remaining legacy boundary audit
+
+Moving shared automotive, POI, radio, media, map, and launcher contract types
+removed 64 of the original 122 import exceptions. Navigation/POI construction
+cleanup removed another four. The platform launcher injection during master integration removed one more exception. The remaining 53 imports are
+listed exactly in `scripts/ui_boundary_exceptions.json`. Existing frontend portability is still incomplete. Their migration order is:
+
+1. Spotify/media, streaming radio, and games: replace view-owned service calls,
+   workers, polling, installation, and process lifecycle with state/request
+   controllers; keep toolkit/native host adapters on the frontend side.
+2. Navigation and ORC radio: move default controller/service construction into
+   composition and expose POI/favorites/radio operations through narrow contracts.
+3. Car UI factories: move backend wiring out of `screens/` into composition;
+   replace concrete player/runtime annotations in screens with public contracts.
+4. Platform launch adapters: keep native/browser access in platform adapters,
+   inject their interfaces into domain controllers, and relocate backend factory
+   construction to composition.
+5. Startup/X11: distinguish loading presentation from startup worker ownership;
+   retain subprocess access only in the native X11 adapter.
+
+Each migration needs feature and lifecycle tests, and must remove its exact
+exceptions. This inventory is architectural debt, not an allowance for new UIs.
+
+| Existing module | Import exceptions | Required migration |
+| --- | ---: | --- |
+| `apps/carUi/screens/aircraft_screen.py` | 1 | Replace concrete runtime/player dependencies |
+| `apps/carUi/screens/car_ui_screen_services.py` | 1 | Move factory wiring to composition |
+| `apps/carUi/screens/netflix_screen.py` | 2 | Replace concrete runtime/player dependencies |
+| `apps/carUi/screens/tk_car_ui_screen_factory.py` | 4 | Move factory wiring to composition |
+| `apps/carUi/screens/weather_screen.py` | 1 | Replace concrete runtime/player dependencies |
+| `apps/carUi/screens/youtube_screen.py` | 2 | Replace concrete runtime/player dependencies |
+| `apps/orcUi/frontend/tk/radio_entry_panel.py` | 4 | Radio request/state contracts and service ownership |
+| `apps/orcUi/frontend/tk/radio_panel.py` | 4 | Radio request/state contracts and service ownership |
+| `controllers/navigation/google_earth_map_presentation.py` | 1 | Inject platform launcher interfaces |
+| `controllers/poi/android_poi_action_executor.py` | 1 | Inject platform launcher interfaces |
+| `controllers/video/netflix_player.py` | 1 | Inject platform launcher interfaces |
+| `controllers/video/youtube_player.py` | 1 | Inject platform launcher interfaces |
+| `frontends/tk/games/games_screen.py` | 7 | Game requests and runtime host adapter |
+| `frontends/tk/media/media_screen.py` | 1 | Media state/request orchestration and async loading |
+| `frontends/tk/media/spotify_browse_panel.py` | 4 | Media state/request orchestration and async loading |
+| `frontends/tk/media/spotify_now_playing.py` | 3 | Media state/request orchestration and async loading |
+| `frontends/tk/media/spotify_playback_panel.py` | 1 | Media state/request orchestration and async loading |
+| `frontends/tk/media/spotify_screen.py` | 3 | Media state/request orchestration and async loading |
+| `frontends/tk/radio/persistent_streaming_radio_panel.py` | 3 | Radio request/state contracts and service ownership |
+| `frontends/tk/radio/streaming_radio_now_playing.py` | 1 | Radio request/state contracts and service ownership |
+| `frontends/tk/radio/streaming_radio_panel.py` | 6 | Radio request/state contracts and service ownership |
+| `frontends/tk/system/startup_splash.py` | 1 | Separate startup worker from loading view |
+| `frontends/x11/x11_window_embedder.py` | 1 | Retain subprocess only in explicit native adapter |
+
+### Navigation places contracts
+
+`NavigationPlacesRequestHandlerIf` exposes saved shortcut destinations, search,
+selection, native camera interaction notifications, and platform place actions.
+The values are immutable UI types, including `MapFavorite` and `PointOfInterest`.
+`NavigationPlacesFactoryIf` creates one mounted view's session. The panel rejects
+untyped handlers, and the screen rejects untyped factories.
+
+Composition constructs shared favorites/action adapters and a fresh POI search
+controller for each mount. `NavigationPlacesController` implements the UI contract
+and suppresses late results and requests after close. Hiding or destroying a panel
+cancels its polling/debounce callbacks; hiding or closing the screen releases its
+session. Factory shutdown closes surviving sessions, including when startup or
+another cleanup fails. All close operations are idempotent.
+
+`MapRuntimeIf` lives in `ui/navigation/map_runtime_if.py`; importing a map host
+contract must not load application backend infrastructure. The static gate rejects
+frontend imports from `apps.orcUi.core_runtime` as well as direct backend imports.
+
+## Weather data health
+
+`RadarUiState.data_status` carries the controller's human-readable imagery health
+and freshness label. Optional `refreshed_at` is the Unix time of the last
+successful metadata check, distinct from the selected frame's valid time.
+Frontends format that time locally. Detailed errors remain in `status`.
+Tile diagnostics, validation, retries, and freshness decisions belong to weather
+controllers and services; views do not inspect those implementations.
+
+City details are part of `CityWeatherOverlayState`: optional `details` contains
+an immutable selected-city summary and `CityWeatherHour` rows in Kelvin, m/s,
+and metres. `CityWeatherPoint.city_id` links the map feature to that selection.
+`request_city_details(city_id)` opens a currently displayed city; passing `None`
+dismisses it. Controllers own selection, cached-data lookup, playback pause and
+lifecycle invalidation; frontends own local times, units and popup layout.
+
+`MusicAnalysisSessionIf` describes the existing source-neutral HTTP audio-session
+controls. The HTTP routes use this narrow structural contract instead of importing
+the concrete session controller; transport paths and response behavior are unchanged.

@@ -9,13 +9,7 @@ import math
 import tkinter as tk
 
 from apps.orcUi.vehicle_presenter import VehiclePresentationState
-from controllers.automotive import (
-    EngineAnalysis,
-    EngineLoadLevel,
-    FuelControlMode,
-    MixtureMode,
-    TrackingQuality,
-)
+from ui.automotive.engine_analysis import (EngineAnalysis, EngineLoadLevel, FuelControlMode, MixtureMode, TrackingQuality)
 from ui.theme import ThemeBundle
 
 
@@ -188,5 +182,3 @@ def paint_engine_visual(
     }[analysis.mixture_tracking]
     summary = " · ".join(part for part in (fuel_mode, mixture, load_text, tracking) if part and part != "--")
     summary_label.configure(text=summary or "--")
-
-

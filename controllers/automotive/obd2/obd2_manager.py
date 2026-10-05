@@ -4,10 +4,12 @@
 from __future__ import annotations
 
 import math
+import logging
 from datetime import datetime
 from typing import TypeVar
 
-from controllers.automotive.automotive_telemetry_profile import AutomotiveTelemetryProfile
+from common.logging.structured import current_operation, event, operation
+from ui.automotive.automotive_telemetry_profile import (AutomotiveTelemetryProfile)
 from controllers.automotive.vehicle_state import VehicleState
 from controllers.automotive.obd2.obd2_poll_scheduler import (
     Obd2PollingProfile,
@@ -42,6 +44,7 @@ from protocols.obd2.obd_pids import (
 )
 
 T = TypeVar("T")
+LOGGER = logging.getLogger("automotive.obd")
 
 
 class Obd2Manager(VehicleStateSourceIf):
@@ -101,9 +104,20 @@ class Obd2Manager(VehicleStateSourceIf):
         self._control_voltage: float | None = None
 
     def connect(self) -> None:
-        self._adapter.connect()
-        self._supported_pids = self._discover_supported_pids()
-        self._scheduler = self._create_scheduler()
+        with operation(current_operation()):
+            self._adapter.connect()
+            self._supported_pids = self._discover_supported_pids()
+            self._scheduler = self._create_scheduler()
+            event(
+                LOGGER,
+                logging.INFO,
+                "pids.discovered",
+                "OBD capability discovery completed",
+                discovery_available=self._supported_pids is not None,
+                supported_pid_count=(
+                    None if self._supported_pids is None else len(self._supported_pids)
+                ),
+            )
 
     def disconnect(self) -> None:
         self._adapter.disconnect()
@@ -114,9 +128,19 @@ class Obd2Manager(VehicleStateSourceIf):
 
     def set_polling_profile(self, profile: Obd2PollingProfile) -> None:
         """Apply an OBD-specific polling profile without changing request rate."""
+        previous = self._polling_profile
         self._polling_profile = profile
         if self._scheduler is not None:
             self._scheduler.set_profile(profile)
+        if previous != profile:
+            event(
+                LOGGER,
+                logging.INFO,
+                "polling.profile_changed",
+                "OBD polling profile changed",
+                previous_profile=previous.value,
+                profile=profile.value,
+            )
 
     def set_telemetry_profile(self, profile: AutomotiveTelemetryProfile) -> None:
         """Apply a domain-level telemetry-priority hint."""
@@ -125,11 +149,7 @@ class Obd2Manager(VehicleStateSourceIf):
     @property
     def supported_pids(self) -> frozenset[int] | None:
         """Return the Mode 01 PID set discovered at connect time."""
-        return (
-            None
-            if self._supported_pids is None
-            else frozenset(self._supported_pids)
-        )
+        return None if self._supported_pids is None else frozenset(self._supported_pids)
 
     def read_state(self) -> VehicleState:
         """Perform at most one physical PID request and return cached state."""
@@ -147,24 +167,14 @@ class Obd2Manager(VehicleStateSourceIf):
             engine_speed_rad_s=self._rpm_to_rad_s(self._rpm),
             vehicle_speed_m_s=self._kph_to_mps(self._vehicle_speed_kph),
             throttle_position=self._percent_to_fraction(self._throttle_pct),
-            commanded_throttle_position=self._percent_to_fraction(
-                self._commanded_throttle_pct
-            ),
-            accelerator_pedal_position=self._percent_to_fraction(
-                self._accelerator_pedal_pct
-            ),
+            commanded_throttle_position=self._percent_to_fraction(self._commanded_throttle_pct),
+            accelerator_pedal_position=self._percent_to_fraction(self._accelerator_pedal_pct),
             engine_load=self._percent_to_fraction(self._engine_load_pct),
-            absolute_engine_load=self._percent_to_fraction(
-                self._absolute_engine_load_pct
-            ),
+            absolute_engine_load=self._percent_to_fraction(self._absolute_engine_load_pct),
             fuel_system_status_1=self._fuel_system_status_1,
             fuel_system_status_2=self._fuel_system_status_2,
-            short_term_fuel_trim_bank1=self._percent_to_fraction(
-                self._short_term_fuel_trim_pct
-            ),
-            long_term_fuel_trim_bank1=self._percent_to_fraction(
-                self._long_term_fuel_trim_pct
-            ),
+            short_term_fuel_trim_bank1=self._percent_to_fraction(self._short_term_fuel_trim_pct),
+            long_term_fuel_trim_bank1=self._percent_to_fraction(self._long_term_fuel_trim_pct),
             ignition_timing_advance_deg=self._ignition_timing_advance_deg,
             intake_manifold_pressure_pa=self._kpa_to_pa(self._map_kpa),
             barometric_pressure_pa=self._kpa_to_pa(self._baro_kpa),
@@ -174,9 +184,7 @@ class Obd2Manager(VehicleStateSourceIf):
             ),
             mass_air_flow_kg_s=self._gps_to_kg_s(self._maf_gps),
             coolant_temperature_k=self._celsius_to_kelvin(self._coolant_temp_c),
-            intake_air_temperature_k=self._celsius_to_kelvin(
-                self._intake_temp_c
-            ),
+            intake_air_temperature_k=self._celsius_to_kelvin(self._intake_temp_c),
             fuel_level=self._percent_to_fraction(self._fuel_level_pct),
             fuel_rail_pressure_pa=self._kpa_to_pa(self._fuel_rail_pressure_kpa),
             commanded_equivalence_ratio=self._commanded_equivalence_ratio,
@@ -295,6 +303,13 @@ class Obd2Manager(VehicleStateSourceIf):
             return None
         responses = self._adapter.request(Obd2Request(mode=0x01, pid=pid_decoder.pid))
         if not responses:
+            event(
+                LOGGER,
+                logging.DEBUG,
+                "pid.no_response",
+                "OBD PID returned no data",
+                obd_pid=pid_decoder.pid,
+            )
             return None
         return pid_decoder.decode(responses[0].data)
 
@@ -312,13 +327,22 @@ class Obd2Manager(VehicleStateSourceIf):
                     if len(response.data) < 4:
                         continue
                     found_response = True
-                    range_pids.update(self._decode_supported_pid_bitmap(range_start, response.data[:4]))
+                    range_pids.update(
+                        self._decode_supported_pid_bitmap(range_start, response.data[:4])
+                    )
                 supported.update(range_pids)
                 next_range = range_start + 0x20
                 if next_range not in range_pids:
                     break
                 range_start = next_range
-        except Obd2Error:
+        except Obd2Error as exc:
+            event(
+                LOGGER,
+                logging.WARNING,
+                "pids.discovery_failed",
+                "OBD capability discovery unavailable; using fallback polling",
+                exception_type=type(exc).__name__,
+            )
             return None
         return supported if found_response else None
 

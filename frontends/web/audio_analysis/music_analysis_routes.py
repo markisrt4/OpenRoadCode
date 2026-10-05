@@ -7,13 +7,13 @@ from __future__ import annotations
 
 from flask import Blueprint, jsonify, request
 
-from controllers.audio.music_analysis.music_analysis_session import MusicAnalysisSession
+from ui.music_visualizer.music_analysis_session_if import MusicAnalysisSessionIf
 
 
 MAX_PCM_FRAME_BYTES = 262_144
 
 
-def create_music_analysis_routes(session: MusicAnalysisSession) -> Blueprint:
+def create_music_analysis_routes(session: MusicAnalysisSessionIf) -> Blueprint:
     """Expose source discovery, lifecycle, PCM ingress, and calibration."""
     api = Blueprint("music_analysis", __name__)
 

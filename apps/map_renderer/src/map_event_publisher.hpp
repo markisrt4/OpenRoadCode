@@ -20,7 +20,11 @@ public:
         double longitude
     );
 
+    /** @brief Reply to a weather-city query without sharing POI selection state. */
+    void publishWeatherCities(long long requestId, const std::string& cities);
+
     void publishManualCameraInteraction();
+    void publishCameraState(double latitude, double longitude, double zoom, double bearing, double pitch);
 
     void publishMapClick(
         double latitude,

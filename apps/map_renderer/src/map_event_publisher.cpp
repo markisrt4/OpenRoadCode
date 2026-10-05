@@ -102,3 +102,31 @@ void MapEventPublisher::publishPoiSearchResult(
     document.AddMember("east", east, allocator);
     publishJson(kPoiSearchResultTopic, jsonString(document));
 }
+
+void MapEventPublisher::publishWeatherCities(long long requestId, const std::string& cities)
+{
+    rapidjson::Document parsed;
+    parsed.Parse(cities.c_str());
+    if (parsed.HasParseError() || !parsed.IsArray()) return;
+    rapidjson::Document document;
+    document.SetObject();
+    auto& allocator = document.GetAllocator();
+    rapidjson::Value values;
+    values.CopyFrom(parsed, allocator);
+    document.AddMember("request_id", static_cast<int64_t>(requestId), allocator);
+    document.AddMember("cities", values, allocator);
+    publishJson("map.weather.cities", jsonString(document));
+}
+
+void MapEventPublisher::publishCameraState(double latitude, double longitude, double zoom, double bearing, double pitch)
+{
+    rapidjson::Document document;
+    document.SetObject();
+    auto& allocator = document.GetAllocator();
+    document.AddMember("latitude", latitude, allocator);
+    document.AddMember("longitude", longitude, allocator);
+    document.AddMember("zoom", zoom, allocator);
+    document.AddMember("bearing", bearing, allocator);
+    document.AddMember("pitch", pitch, allocator);
+    publishJson("map.camera.changed", jsonString(document));
+}

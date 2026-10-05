@@ -5,6 +5,8 @@
 
 from __future__ import annotations
 
+from common.logging.structured import operation
+
 from controllers.route_planning.route_geojson_mapper import (
     route_to_geojson,
 )
@@ -32,6 +34,11 @@ def present_route(
     @exception ValueError If the route has no shape points.
     """
 
+    with operation(route.operation_id):
+        _present_route(route, map_renderer, padding)
+
+
+def _present_route(route: RouteResult, map_renderer: MapRendererClient, padding: float) -> None:
     if not route.shape:
         raise ValueError(
             "Cannot present a route with an empty shape"
