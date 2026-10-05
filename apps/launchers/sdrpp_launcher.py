@@ -21,6 +21,7 @@ from apps.launchers.process_manager import close_matching_display_apps, is_proce
 from common.logging.logging_paths import logging_file_path
 from protocols.sdrpp_remote_control import SDRPPRemoteControlClient
 from config.application_config import SdrSource, SdrSourceConfig
+from controllers.games.debian_command_runner import DebianCommandRunner
 
 DEFAULT_TERMUX_SDRPP_SOURCE = Path("/root/SDRPlusPlus")
 DEFAULT_TERMUX_PROOT_DISTRIBUTION = "debian"
@@ -258,7 +259,19 @@ class SDRPPLauncher(AppLauncherIf):
                 else "exec ./build/sdrpp -r root_dev --autostart"
             )
         )
-        return [proot_distro, "login", self.termux_proot_distribution, "--shared-tmp", "--", "env", "-u", "PULSE_SERVER", f"DISPLAY={display}", f"XDG_RUNTIME_DIR={runtime_dir}", "XDG_SESSION_TYPE=x11", "GDK_BACKEND=x11", "LIBGL_ALWAYS_SOFTWARE=1", "bash", "-lc", shell_command]
+        runner = DebianCommandRunner.__new__(DebianCommandRunner)
+        runner._mode = "proot"
+        runner.DISTRO_NAME = self.termux_proot_distribution
+        return runner.graphical_command(
+            [
+                "env", "-u", "PULSE_SERVER",
+                f"XDG_RUNTIME_DIR={runtime_dir}",
+                "XDG_SESSION_TYPE=x11",
+                "GDK_BACKEND=x11",
+                "bash", "-lc", shell_command,
+            ],
+            rendering="auto",
+        )
 
     def _start_termux_rtl_tcp_provider(self) -> None:
         if self.sdr_source.source is not SdrSource.RTL_TCP:
