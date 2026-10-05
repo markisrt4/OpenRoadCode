@@ -282,6 +282,41 @@ source = source.replace(old, new, 1)
 path.write_text(source)
 PY
 
+echo "[*] Instrumenting SDR++ block lifecycle for stalled-waterfall diagnosis"
+python3 - "$SDRPP_SRC/core/src/dsp/block.h" <<'PY'
+from pathlib import Path
+import sys
+
+path = Path(sys.argv[1])
+source = path.read_text()
+source = source.replace('''        virtual void start() {
+            assert(_block_init);''', '''        virtual void start() {
+            fprintf(stderr, "[ORC block] self=%p start running=%d tempStopped=%d depth=%d inputs=%zu outputs=%zu\\n", (void*)this, running ? 1 : 0, tempStopped ? 1 : 0, tempStopDepth, inputs.size(), outputs.size()); fflush(stderr);
+            assert(_block_init);''', 1)
+source = source.replace('''        virtual void stop() {
+            assert(_block_init);''', '''        virtual void stop() {
+            fprintf(stderr, "[ORC block] self=%p stop running=%d tempStopped=%d depth=%d inputs=%zu outputs=%zu\\n", (void*)this, running ? 1 : 0, tempStopped ? 1 : 0, tempStopDepth, inputs.size(), outputs.size()); fflush(stderr);
+            assert(_block_init);''', 1)
+source = source.replace('''        void tempStart() {
+            assert(_block_init);''', '''        void tempStart() {
+            fprintf(stderr, "[ORC block] self=%p tempStart running=%d tempStopped=%d depth=%d\\n", (void*)this, running ? 1 : 0, tempStopped ? 1 : 0, tempStopDepth); fflush(stderr);
+            assert(_block_init);''', 1)
+source = source.replace('''        void tempStop() {
+            assert(_block_init);''', '''        void tempStop() {
+            fprintf(stderr, "[ORC block] self=%p tempStop running=%d tempStopped=%d depth=%d\\n", (void*)this, running ? 1 : 0, tempStopped ? 1 : 0, tempStopDepth); fflush(stderr);
+            assert(_block_init);''', 1)
+source = source.replace('''        virtual void doStop() {
+            for (auto& in : inputs) {
+                in->stopReader();
+            }''', '''        virtual void doStop() {
+            fprintf(stderr, "[ORC block] self=%p doStop inputs=%zu outputs=%zu\\n", (void*)this, inputs.size(), outputs.size()); fflush(stderr);
+            for (auto& in : inputs) {
+                fprintf(stderr, "[ORC block] self=%p stopReader stream=%p\\n", (void*)this, (void*)in); fflush(stderr);
+                in->stopReader();
+            }''', 1)
+path.write_text(source)
+PY
+
 echo "[*] Instrumenting SDR++ stream handoff for stalled-waterfall diagnosis"
 python3 - "$SDRPP_SRC/core/src/dsp/stream.h" <<'PY'
 from pathlib import Path
