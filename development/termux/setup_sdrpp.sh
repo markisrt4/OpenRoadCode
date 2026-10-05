@@ -684,9 +684,21 @@ new = '''void SinkManager::Stream::start() {
         return;
     }
 
+    fprintf(stderr, "[ORC sink start steps] self=%p before-splitter-start splitter=%p\\n",
+            (void*)this, (void*)&splitter);
+    fflush(stderr);
     splitter.start();
+    fprintf(stderr, "[ORC sink start steps] self=%p after-splitter-start before-volume-start volume=%p\\n",
+            (void*)this, (void*)&volumeAjust);
+    fflush(stderr);
     volumeAjust.start();
+    fprintf(stderr, "[ORC sink start steps] self=%p after-volume-start before-sink-start sink=%p provider=%s\\n",
+            (void*)this, (void*)sink, providerName.c_str());
+    fflush(stderr);
     sink->start();
+    fprintf(stderr, "[ORC sink start steps] self=%p after-sink-start sink=%p provider=%s\\n",
+            (void*)this, (void*)sink, providerName.c_str());
+    fflush(stderr);
     running = true;
     fprintf(stderr, "[ORC sink stream] self=%p started sink=%p provider=%s\\n",
             (void*)this, (void*)sink, providerName.c_str());
