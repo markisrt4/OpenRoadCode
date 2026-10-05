@@ -282,76 +282,142 @@ source = source.replace(old, new, 1)
 path.write_text(source)
 PY
 
-echo "[*] Instrumenting SDR++ ring buffer for stalled-waterfall diagnosis"
+echo "[*] Replacing SDR++ RingBuffer with synchronized SPSC implementation for FFT A/B test"
 python3 - "$SDRPP_SRC/core/src/dsp/buffer/ring_buffer.h" <<'PY'
 from pathlib import Path
 import sys
 
 path = Path(sys.argv[1])
-source = path.read_text()
-old = '''        int waitUntilReadable() {
-            assert(_init);
-            if (_stopReader) { return -1; }
-            int _r = getReadable();
-            if (_r != 0) { return _r; }
-            std::unique_lock<std::mutex> lck(_readable_mtx);
-            canReadVar.wait(lck, [=]() { return ((this->getReadable(false) > 0) || this->getReadStop()); });
-            if (_stopReader) { return -1; }
-            return getReadable(false);
-        }'''
-new = '''        int waitUntilReadable() {
-            assert(_init);
-            static unsigned long long orcWaits = 0;
-            orcWaits++;
-            if (_stopReader) { return -1; }
-            int _r = getReadable();
-            if (orcWaits <= 24 || (orcWaits % 4096) == 0) {
-                fprintf(stderr,
-                        "[ORC ring] ring=%p wait=%llu pre readable=%d writable=%d readc=%d writec=%d maxLatency=%d\\n",
-                        (void*)this, orcWaits, _r, writable, readc, writec, maxLatency);
-                fflush(stderr);
-            }
-            if (_r != 0) { return _r; }
-            std::unique_lock<std::mutex> lck(_readable_mtx);
-            fprintf(stderr,
-                    "[ORC ring] ring=%p wait=%llu sleeping readable=%d writable=%d readc=%d writec=%d maxLatency=%d\\n",
-                    (void*)this, orcWaits, readable, writable, readc, writec, maxLatency);
-            fflush(stderr);
-            canReadVar.wait(lck, [=]() { return ((this->getReadable(false) > 0) || this->getReadStop()); });
-            fprintf(stderr,
-                    "[ORC ring] ring=%p wait=%llu woke readable=%d writable=%d readc=%d writec=%d stop=%d\\n",
-                    (void*)this, orcWaits, readable, writable, readc, writec, _stopReader ? 1 : 0);
-            fflush(stderr);
-            if (_stopReader) { return -1; }
-            return getReadable(false);
-        }'''
-if old not in source:
-    raise SystemExit("Could not locate SDR++ RingBuffer::waitUntilReadable()")
-source = source.replace(old, new, 1)
+source = r'''#pragma once
+#include "buffer.h"
+#include <algorithm>
+#include <condition_variable>
+#include <cstring>
+#include <mutex>
 
-old = '''                canReadVar.notify_one();
+#define RING_BUF_SZ 1000000
+
+namespace dsp::buffer {
+    template <class T>
+    class RingBuffer {
+    public:
+        RingBuffer() {}
+        RingBuffer(int maxLatency) { init(maxLatency); }
+        ~RingBuffer() {
+            if (!_init) { return; }
+            buffer::free(_buffer);
+            _init = false;
+        }
+
+        void init(int maxLatency) {
+            std::lock_guard<std::mutex> lock(mtx);
+            size = RING_BUF_SZ;
+            this->maxLatency = maxLatency;
+            readc = writec = readable = 0;
+            stopReader = stopWriter = false;
+            _buffer = buffer::alloc<T>(size);
+            buffer::clear(_buffer, size);
+            _init = true;
+        }
+
+        int read(T* data, int len) { return consume(data, len, 0); }
+        int readAndSkip(T* data, int len, int skip) { return consume(data, len, skip); }
+
+        int write(T* data, int len) {
+            assert(_init);
+            int done = 0;
+            while (done < len) {
+                std::unique_lock<std::mutex> lock(mtx);
+                canWrite.wait(lock, [&]() { return stopWriter || writableLocked() > 0; });
+                if (stopWriter) { return -1; }
+                int n = std::min(len - done, writableLocked());
+                copyIn(&data[done], n);
+                writec = (writec + n) % size;
+                readable += n;
+                done += n;
+                lock.unlock();
+                canRead.notify_one();
             }
             return len;
         }
 
-        int waitUntilwritable() {'''
-new = '''                static unsigned long long orcWrites = 0;
-                orcWrites++;
-                if (orcWrites <= 24 || (orcWrites % 4096) == 0) {
-                    fprintf(stderr,
-                            "[ORC ring] ring=%p write=%llu wrote=%d readable=%d writable=%d readc=%d writec=%d maxLatency=%d\\n",
-                            (void*)this, orcWrites, toWrite, readable, writable, readc, writec, maxLatency);
-                    fflush(stderr);
+        int waitUntilReadable() {
+            assert(_init);
+            std::unique_lock<std::mutex> lock(mtx);
+            canRead.wait(lock, [&]() { return stopReader || readable > 0; });
+            return stopReader ? -1 : readable;
+        }
+        int getReadable(bool lock = true) {
+            assert(_init);
+            if (!lock) { return readable; }
+            std::lock_guard<std::mutex> guard(mtx);
+            return readable;
+        }
+        int waitUntilwritable() {
+            assert(_init);
+            std::unique_lock<std::mutex> lock(mtx);
+            canWrite.wait(lock, [&]() { return stopWriter || writableLocked() > 0; });
+            return stopWriter ? -1 : writableLocked();
+        }
+        int getWritable(bool lock = true) {
+            assert(_init);
+            if (!lock) { return writableLocked(); }
+            std::lock_guard<std::mutex> guard(mtx);
+            return writableLocked();
+        }
+        void stopReader() { std::lock_guard<std::mutex> lock(mtx); stopReader = true; canRead.notify_all(); }
+        void stopWriter() { std::lock_guard<std::mutex> lock(mtx); stopWriter = true; canWrite.notify_all(); }
+        bool getReadStop() { std::lock_guard<std::mutex> lock(mtx); return stopReader; }
+        bool getWriteStop() { std::lock_guard<std::mutex> lock(mtx); return stopWriter; }
+        void clearReadStop() { std::lock_guard<std::mutex> lock(mtx); stopReader = false; }
+        void clearWriteStop() { std::lock_guard<std::mutex> lock(mtx); stopWriter = false; }
+        void setMaxLatency(int value) { std::lock_guard<std::mutex> lock(mtx); maxLatency = value; canWrite.notify_all(); }
+
+    private:
+        int consume(T* data, int len, int skip) {
+            int copied = 0;
+            int discarded = 0;
+            while (copied < len || discarded < skip) {
+                std::unique_lock<std::mutex> lock(mtx);
+                canRead.wait(lock, [&]() { return stopReader || readable > 0; });
+                if (stopReader) { return -1; }
+                bool copying = copied < len;
+                int need = copying ? len - copied : skip - discarded;
+                int n = std::min(need, readable);
+                if (copying) {
+                    copyOut(&data[copied], n);
+                    copied += n;
+                } else {
+                    discarded += n;
                 }
-                canReadVar.notify_one();
+                readc = (readc + n) % size;
+                readable -= n;
+                lock.unlock();
+                canWrite.notify_one();
             }
             return len;
         }
+        int writableLocked() const { return std::max(0, std::min(size - readable, maxLatency - readable)); }
+        void copyIn(const T* src, int n) {
+            int first = std::min(n, size - writec);
+            memcpy(&_buffer[writec], src, first * sizeof(T));
+            if (n > first) { memcpy(&_buffer[0], &src[first], (n - first) * sizeof(T)); }
+        }
+        void copyOut(T* dst, int n) {
+            int first = std::min(n, size - readc);
+            memcpy(dst, &_buffer[readc], first * sizeof(T));
+            if (n > first) { memcpy(&dst[first], &_buffer[0], (n - first) * sizeof(T)); }
+        }
 
-        int waitUntilwritable() {'''
-if old not in source:
-    raise SystemExit("Could not locate SDR++ RingBuffer::write() notification")
-source = source.replace(old, new, 1)
+        bool _init = false;
+        T* _buffer = nullptr;
+        int size = 0, readc = 0, writec = 0, readable = 0, maxLatency = 0;
+        bool stopReader = false, stopWriter = false;
+        std::mutex mtx;
+        std::condition_variable canRead, canWrite;
+    };
+}
+'''
 path.write_text(source)
 PY
 
