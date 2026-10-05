@@ -61,33 +61,18 @@ class SystemMetricsPanel(tk.Frame):
             pady=(5, 0),
         )
         trends.grid_columnconfigure((0, 1), weight=1, uniform="trend")
-        trends.grid_rowconfigure((1, 2), weight=1, uniform="trend")
-
-        tk.Label(
-            trends,
-            text="2 MINUTE TREND",
-            bg=ui.surface,
-            fg=ui.accent_primary,
-            font=("Sans", 9, "bold"),
-        ).grid(
-            row=0,
-            column=0,
-            columnspan=2,
-            sticky="w",
-            padx=10,
-            pady=(8, 4),
-        )
+        trends.grid_rowconfigure((0, 1), weight=1, uniform="trend")
 
         for index, (key, label) in enumerate(
             (("cpu", "CPU"), ("memory", "RAM"),
              ("temperature", "TEMP"), ("process_cpu", "PROCESS CPU"))
         ):
             card = tk.Frame(trends, bg=ui.surface)
-            card.grid(row=1 + index // 2, column=index % 2,
-                      sticky="nsew", padx=8, pady=(0, 6))
+            card.grid(row=index // 2, column=index % 2,
+                      sticky="nsew", padx=8, pady=3)
             card.grid_columnconfigure(0, weight=1)
             card.grid_rowconfigure(1, weight=1)
-            tk.Label(card, text=label, bg=ui.surface,
+            tk.Label(card, text=label + " · 2 MIN", bg=ui.surface,
                      fg=self._graph_colors[key], font=("Sans", 9, "bold"),
                      anchor="w").grid(row=0, column=0, sticky="ew", pady=(0, 3))
             canvas = tk.Canvas(card, height=60, width=120,
@@ -97,13 +82,11 @@ class SystemMetricsPanel(tk.Frame):
             self._graphs[key] = canvas
             canvas.bind("<Configure>", lambda _event, key=key: self._paint_graph(key))
 
-        self._activity = tk.Label(self, text="", bg=ui.background, fg=ui.text_muted, anchor="w")
-        self._activity.grid(row=3, column=0, columnspan=4, sticky="ew", padx=5, pady=5)
         self._process = tk.Label(self, text="", bg=ui.background, fg=ui.text_muted, anchor="w")
-        self._process.grid(row=4, column=0, columnspan=4, sticky="ew", padx=5, pady=2)
+        self._process.grid(row=3, column=0, columnspan=4, sticky="ew", padx=5, pady=2)
         self._battery = tk.Label(self, text="", bg=ui.surface, fg=ui.text_muted,
                                  anchor="w", font=("Sans", 11, "bold"), padx=10, pady=6)
-        self._battery.grid(row=5, column=0, columnspan=4, sticky="ew", padx=5, pady=4)
+        self._battery.grid(row=4, column=0, columnspan=4, sticky="ew", padx=5, pady=4)
 
     def _metric(
         self,
@@ -184,12 +167,6 @@ class SystemMetricsPanel(tk.Frame):
         self._process.configure(text=(
             f"This process (PID {snapshot.process_id or '--'}): "
             f"{_percent(snapshot.process_cpu_percent)} CPU   ·   100% = one core; excludes other processes"
-        ))
-        self._activity.configure(text=(
-            f"Network ↓ {_rate(snapshot.network_receive_bytes_per_second)}  "
-            f"↑ {_rate(snapshot.network_transmit_bytes_per_second)}     "
-            f"Disk read {_rate(snapshot.disk_read_bytes_per_second)}  "
-            f"write {_rate(snapshot.disk_write_bytes_per_second)}"
         ))
 
         ui = self._theme.ui
