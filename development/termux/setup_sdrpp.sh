@@ -389,7 +389,16 @@ reshape.write_text(s)
 splitter=Path(sys.argv[2]); s=splitter.read_text()
 old='''            for (const auto& stream : streams) {
                 memcpy(stream->writeBuf, base_type::_in->readBuf, count * sizeof(T));
-                if (!stream->swap(count)) {'''
+                fprintf(stderr,
+                        "[ORC splitter exact] self=%p run=%llu dest=%p before-swap count=%d streams=%zu\\n",
+                        (void*)this, orcSplitRuns, (void*)stream, count, streams.size());
+                fflush(stderr);
+                bool orcDestSwapped = stream->swap(count);
+                fprintf(stderr,
+                        "[ORC splitter exact] self=%p run=%llu dest=%p after-swap swap=%d\\n",
+                        (void*)this, orcSplitRuns, (void*)stream, orcDestSwapped ? 1 : 0);
+                fflush(stderr);
+                if (!orcDestSwapped) {'''
 new='''            static unsigned long long orcSplitRuns = 0;
             orcSplitRuns++;
             for (const auto& stream : streams) {
@@ -402,6 +411,23 @@ new='''            static unsigned long long orcSplitRuns = 0;
                 if (!stream->swap(count)) {'''
 if old not in s: raise SystemExit("Could not locate Splitter::run loop")
 s=s.replace(old,new,1)
+
+flush_old = '''            base_type::_in->flush();
+
+            return count;'''
+flush_new = '''            fprintf(stderr,
+                    "[ORC splitter exact] self=%p run=%llu input=%p before-flush\\n",
+                    (void*)this, orcSplitRuns, (void*)base_type::_in);
+            fflush(stderr);
+            base_type::_in->flush();
+            fprintf(stderr,
+                    "[ORC splitter exact] self=%p run=%llu input=%p after-flush\\n",
+                    (void*)this, orcSplitRuns, (void*)base_type::_in);
+            fflush(stderr);
+
+            return count;'''
+if flush_old not in s: raise SystemExit("Could not locate Splitter::run input flush")
+s=s.replace(flush_old,flush_new,1)
 s=s.replace('''        void bindStream(stream<T>* stream) {
             assert(base_type::_block_init);''','''        void bindStream(stream<T>* stream) {
             fprintf(stderr, "[ORC splitter] self=%p bind dest=%p\\n", (void*)this, (void*)stream); fflush(stderr);
