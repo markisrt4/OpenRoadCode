@@ -490,9 +490,49 @@ new = '''        int run() {
             _in->flush();
             return written < 0 ? -1 : count;
         }'''
-if old not in source:
+if old in source:
+    source = source.replace(old, new, 1)
+elif "[ORC reshape identity]" in source:
+    # Identity instrumentation earlier in this script has already rewritten
+    # run(). Preserve it and layer producer tracing onto that form.
+    marker = '''            int count = _in->read();
+            if (count < 0) { return -1; }
+            ringBuf.write(_in->readBuf, count);
+            _in->flush();
+            return count;'''
+    if marker not in source:
+        raise SystemExit("Could not locate identity-instrumented SDR++ Reshaper::run()")
+    replacement = '''            static unsigned long long orcRuns = 0;
+            orcRuns++;
+            bool orcTraceRun = orcRuns <= 64 || (orcRuns % 256) == 0;
+            if (orcTraceRun) {
+                fprintf(stderr, "[ORC reshape producer] self=%p run=%llu before-input-read\\n",
+                        (void*)this, orcRuns);
+                fflush(stderr);
+            }
+            int count = _in->read();
+            if (orcTraceRun || count < 0) {
+                fprintf(stderr, "[ORC reshape producer] self=%p run=%llu after-input-read count=%d\\n",
+                        (void*)this, orcRuns, count);
+                fflush(stderr);
+            }
+            if (count < 0) { return -1; }
+            if (orcTraceRun) {
+                fprintf(stderr, "[ORC reshape producer] self=%p run=%llu before-ring-write count=%d\\n",
+                        (void*)this, orcRuns, count);
+                fflush(stderr);
+            }
+            int written = ringBuf.write(_in->readBuf, count);
+            if (orcTraceRun || written < 0) {
+                fprintf(stderr, "[ORC reshape producer] self=%p run=%llu after-ring-write written=%d\\n",
+                        (void*)this, orcRuns, written);
+                fflush(stderr);
+            }
+            _in->flush();
+            return written < 0 ? -1 : count;'''
+    source = source.replace(marker, replacement, 1)
+else:
     raise SystemExit("Could not locate SDR++ Reshaper::run()")
-source = source.replace(old, new, 1)
 
 old = '''                if (ringBuf.readAndSkip(start, readCount, skip) < 0) { break; };
                 memcpy(out.writeBuf, buf, _keep * sizeof(T));
