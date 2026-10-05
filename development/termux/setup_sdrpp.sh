@@ -566,6 +566,52 @@ s = s.replace(old, new, 1)
 path.write_text(s)
 PY
 
+echo "[*] Instrumenting SDR++ Radio IF consumer for stalled-waterfall diagnosis"
+python3 - "$SDRPP_SRC/decoder_modules/radio/src/radio_module.h" <<'PY'
+from pathlib import Path
+import sys
+
+path = Path(sys.argv[1])
+s = path.read_text()
+old = '''        // Set the demodulator's input
+        selectedDemod->setInput(ifChain.out);
+
+        // Set AF chain's input'''
+new = '''        // Set the demodulator's input
+        fprintf(stderr,
+                "[ORC radio IF] self=%p name=%s demod=%p ifChainOut=%p vfoOut=%p before-demod-setInput\\n",
+                (void*)this, name.c_str(), (void*)selectedDemod, (void*)ifChain.out,
+                vfo ? (void*)vfo->output : NULL);
+        fflush(stderr);
+        selectedDemod->setInput(ifChain.out);
+        fprintf(stderr,
+                "[ORC radio IF] self=%p name=%s demod=%p ifChainOut=%p after-demod-setInput\\n",
+                (void*)this, name.c_str(), (void*)selectedDemod, (void*)ifChain.out);
+        fflush(stderr);
+
+        // Set AF chain's input'''
+if old not in s:
+    raise SystemExit("Could not locate RadioModule demodulator input binding")
+s = s.replace(old, new, 1)
+
+old = '''        // Start new demodulator
+        selectedDemod->start();'''
+new = '''        // Start new demodulator
+        fprintf(stderr,
+                "[ORC radio IF] self=%p name=%s demod=%p ifChainOut=%p before-demod-start\\n",
+                (void*)this, name.c_str(), (void*)selectedDemod, (void*)ifChain.out);
+        fflush(stderr);
+        selectedDemod->start();
+        fprintf(stderr,
+                "[ORC radio IF] self=%p name=%s demod=%p ifChainOut=%p after-demod-start\\n",
+                (void*)this, name.c_str(), (void*)selectedDemod, (void*)ifChain.out);
+        fflush(stderr);'''
+if old not in s:
+    raise SystemExit("Could not locate RadioModule demodulator start")
+s = s.replace(old, new, 1)
+path.write_text(s)
+PY
+
 echo "[*] Instrumenting SDR++ block lifecycle for stalled-waterfall diagnosis"
 python3 - "$SDRPP_SRC/core/src/dsp/block.h" <<'PY'
 from pathlib import Path
