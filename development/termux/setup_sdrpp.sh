@@ -591,7 +591,7 @@ new = '''        int run() {
             static unsigned long long orcRuns = 0;
             unsigned long long orcRun = ++orcRuns;
             fprintf(stderr, "[ORC BroadcastFM] self=%p run=%llu input=%p output=%p rdsOut=%p before-read\\n",
-                    (void*)this, orcRun, (void*)base_type::_in, (void*)&base_type::out, (void*)&rdsOut);
+                    (void*)this, orcRun, (void*)base_type::_in, (void*)&this->out, (void*)&rdsOut);
             fflush(stderr);
             int count = base_type::_in->read();
             fprintf(stderr, "[ORC BroadcastFM] self=%p run=%llu after-read count=%d\\n",
@@ -613,11 +613,11 @@ new = '''        int run() {
             fflush(stderr);
             base_type::_in->flush();
             fprintf(stderr, "[ORC BroadcastFM] self=%p run=%llu input=%p after-input-flush output=%p before-output-swap count=%d\\n",
-                    (void*)this, orcRun, (void*)base_type::_in, (void*)&base_type::out, count);
+                    (void*)this, orcRun, (void*)base_type::_in, (void*)&this->out, count);
             fflush(stderr);
             bool orcOutSwap = base_type::out.swap(count);
             fprintf(stderr, "[ORC BroadcastFM] self=%p run=%llu output=%p after-output-swap swap=%d\\n",
-                    (void*)this, orcRun, (void*)&base_type::out, (int)orcOutSwap);
+                    (void*)this, orcRun, (void*)&this->out, (int)orcOutSwap);
             fflush(stderr);
             if (!orcOutSwap) { return -1; }
             if (rdsOutCount && _rdsOut) {
