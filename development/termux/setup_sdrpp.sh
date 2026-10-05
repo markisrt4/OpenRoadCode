@@ -566,6 +566,51 @@ s = s.replace(old, new, 1)
 path.write_text(s)
 PY
 
+echo "[*] Instrumenting SDR++ audio volume handoff"
+python3 - "$SDRPP_SRC/core/src/dsp/audio/volume.h" <<'PY'
+from pathlib import Path
+import sys
+path=Path(sys.argv[1]); s=path.read_text()
+old='''        virtual int run() {
+            int count = base_type::_in->read();
+            if (count < 0) { return -1; }
+
+            process(count, base_type::_in->readBuf, base_type::out.writeBuf);
+
+            base_type::_in->flush();
+            if (!base_type::out.swap(count)) { return -1; }
+            return count;
+        }'''
+new='''        virtual int run() {
+            static unsigned long long orcRuns = 0;
+            unsigned long long orcRun = ++orcRuns;
+            fprintf(stderr, "[ORC Volume] self=%p run=%llu input=%p output=%p before-read\\n",
+                    (void*)this, orcRun, (void*)base_type::_in, (void*)&this->out);
+            fflush(stderr);
+            int count = base_type::_in->read();
+            fprintf(stderr, "[ORC Volume] self=%p run=%llu after-read count=%d\\n", (void*)this, orcRun, count);
+            fflush(stderr);
+            if (count < 0) { return -1; }
+
+            process(count, base_type::_in->readBuf, base_type::out.writeBuf);
+            fprintf(stderr, "[ORC Volume] self=%p run=%llu after-process count=%d\\n", (void*)this, orcRun, count);
+            fflush(stderr);
+
+            base_type::_in->flush();
+            fprintf(stderr, "[ORC Volume] self=%p run=%llu input=%p after-input-flush output=%p before-output-swap count=%d\\n",
+                    (void*)this, orcRun, (void*)base_type::_in, (void*)&this->out, count);
+            fflush(stderr);
+            bool orcSwap = base_type::out.swap(count);
+            fprintf(stderr, "[ORC Volume] self=%p run=%llu output=%p after-output-swap swap=%d\\n",
+                    (void*)this, orcRun, (void*)&this->out, (int)orcSwap);
+            fflush(stderr);
+            if (!orcSwap) { return -1; }
+            return count;
+        }'''
+if old not in s: raise SystemExit("Could not locate Volume::run")
+path.write_text(s.replace(old,new,1))
+PY
+
 echo "[*] Instrumenting SDR++ SinkManager stream boundary"
 python3 - "$SDRPP_SRC/core/src/signal_path/sink.cpp" <<'PY'
 from pathlib import Path
