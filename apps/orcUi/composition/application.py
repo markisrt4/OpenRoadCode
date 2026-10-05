@@ -28,8 +28,11 @@ from apps.orcUi.frontend.tk.orc_ui_app import OrcUiApp
 from apps.orcUi.frontend.tk.offroad_screen import OffRoadScreen
 from apps.orcUi.frontend.tk.settings_screen import SettingsScreen
 from apps.orcUi.frontend.tk.vehicle_screen import VehicleScreen
+from apps.orcUi.performance_status import PerformanceStatusPresenter
 from apps.orcUi.theme_runtime import theme_bundle
 from frontends.tk.games import GamesScreen
+from frontends.tk.system.diagnostics_screen import DiagnosticsScreen
+from services.common.system_performance_monitor import SystemPerformanceMonitor
 
 
 @dataclass(slots=True)
@@ -50,6 +53,9 @@ class OrcUiComposition:
     weather_overlays: WeatherOverlayController | None = None
     radar_replay: RadarReplayController | None = None
     navigation_places: NavigationPlacesFactory | None = None
+    performance: SystemPerformanceMonitor | None = None
+    diagnostics: DiagnosticsScreen | None = None
+    performance_status: PerformanceStatusPresenter | None = None
 
     @property
     def app(self) -> OrcUiApp:
@@ -58,39 +64,51 @@ class OrcUiComposition:
     def run(self) -> None:
         """Run Tk, close every owned resource, then honor host lifecycle intent."""
         try:
+            if self.performance is not None:
+                self.performance.start()
+            if self.performance_status is not None:
+                self.performance_status.start()
             self.app.schedule_ui_callback(1500, self.runtime.start_background_apps)
             self.core.start()
             self.app.run()
         finally:
             try:
-                try:
-                    try:
-                        try:
-                            if self.navigation is not None:
-                                self.navigation.close()
-                        finally:
-                            if self.navigation_places is not None:
-                                self.navigation_places.close()
-                    finally:
-                        try:
-                            if self.radar_replay is not None:
-                                self.radar_replay.close()
-                        finally:
-                            if self.weather_overlays is not None:
-                                self.weather_overlays.close()
-                finally:
-                    self.games.shutdown()
+                if self.performance_status is not None:
+                    self.performance_status.close()
             finally:
                 try:
-                    self.media.close()
+                    if self.performance is not None:
+                        self.performance.close()
                 finally:
                     try:
-                        self.weather.close()
+                        try:
+                            try:
+                                if self.navigation is not None:
+                                    self.navigation.close()
+                            finally:
+                                if self.navigation_places is not None:
+                                    self.navigation_places.close()
+                        finally:
+                            try:
+                                if self.radar_replay is not None:
+                                    self.radar_replay.close()
+                            finally:
+                                if self.weather_overlays is not None:
+                                    self.weather_overlays.close()
                     finally:
                         try:
-                            self.core.close()
+                            self.games.shutdown()
                         finally:
-                            self.runtime.close()
+                            try:
+                                self.media.close()
+                            finally:
+                                try:
+                                    self.weather.close()
+                                finally:
+                                    try:
+                                        self.core.close()
+                                    finally:
+                                        self.runtime.close()
 
         self.core.lifecycle.execute_requested_action()
 
@@ -223,6 +241,13 @@ def create_orc_ui_composition() -> OrcUiComposition:
             on_unit_system_changed=set_unit_system,
             on_back=lambda: app.navigate_to("HOME"),
         )
+        performance = SystemPerformanceMonitor()
+        diagnostics = DiagnosticsScreen(
+            app, provider=performance, history=performance.history,
+            theme_bundle=lambda: theme_bundle(app.theme_mode),
+            on_back=app.close_diagnostics,
+        )
+        performance_status = PerformanceStatusPresenter(app, performance, app.set_performance_status)
         home.set_radio_factory(radio.home_factory)
         home.set_media_factory(media.home_factory)
         core.presentation.observe_vehicle(home.apply_vehicle_state)
@@ -242,6 +267,7 @@ def create_orc_ui_composition() -> OrcUiComposition:
         app.register_screen("VEHICLE", vehicle)
         app.register_screen("OFF-ROAD", offroad, show_in_navigation=False)
         app.register_screen("SETTINGS", settings, show_in_navigation=False)
+        app.register_screen("DIAGNOSTICS", diagnostics, show_in_navigation=False)
         app.set_initial_destination("HOME")
         app.set_settings_action(lambda: app.navigate_to("SETTINGS"))
     except Exception:
@@ -278,4 +304,7 @@ def create_orc_ui_composition() -> OrcUiComposition:
         weather_overlays=overlays,
         radar_replay=radar_replay,
         navigation_places=navigation_places,
+        performance=performance,
+        diagnostics=diagnostics,
+        performance_status=performance_status,
     )
