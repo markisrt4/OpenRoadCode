@@ -34,6 +34,6 @@ class DiagnosticsTabs(tk.Frame):
         for position, (page, button) in enumerate(self._pages):
             page.pack_forget()
             button.configure(bg=self._ui.control_active if position == index else self._ui.control_background,
-                             fg=self._ui.accent_primary if position == index else self._ui.control_text,
+                             fg="#ffffff" if position == index else self._ui.control_text,
                              highlightbackground=self._ui.accent_primary if position == index else self._ui.border)
         self._pages[index][0].pack(fill=tk.BOTH, expand=True)

@@ -63,6 +63,7 @@ class ServiceSocketSnapshot:
 
     name: str
     pid: int | None = None
+    process_state: str = "not_observed"
     protocol: str = "--"
     local_endpoint: str = "--"
     remote_endpoint: str = "--"

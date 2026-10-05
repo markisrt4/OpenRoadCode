@@ -117,7 +117,8 @@ class SamplerTests(unittest.TestCase):
         self.assertTrue(any(row.name == 'Navigation' and row.state == 'not_observed' for row in rows))
 
     def test_restricted_socket_files_leave_health_unknown(self):
-        (self.pid / 'net/tcp').unlink()
+        for name in ('tcp', 'tcp6', 'udp', 'udp6'):
+            (self.pid / 'net' / name).unlink()
         rows = self.sampler.sample(self.work)
         self.assertEqual(self.live(rows)[0].state, 'unavailable')
         self.assertIn('restricted', self.sampler.status)
@@ -130,6 +131,43 @@ class SamplerTests(unittest.TestCase):
         self.assertEqual(row.state, 'connected')
         self.assertIsNone(row.transmit_bytes_per_second)
         self.assertIn('TCP byte counters unavailable', sampler.status)
+
+    def test_namespace_lookup_failure_does_not_hide_readable_endpoints(self):
+        (self.pid / 'ns/net').unlink()
+        row = self.live(self.sampler.sample(self.work))[0]
+        self.assertEqual(row.state, 'connected')
+        self.assertEqual(row.process_state, 'running')
+        self.assertIsNone(row.receive_bytes_per_second)
+
+    def test_missing_ipv6_family_does_not_hide_ipv4(self):
+        (self.pid / 'net/tcp6').unlink()
+        (self.pid / 'net/udp6').unlink()
+        row = self.live(self.sampler.sample(self.work))[0]
+        self.assertEqual(row.state, 'connected')
+        self.assertNotIn('restricted', self.sampler.status)
+
+    def test_netlink_fallback_recovers_owned_endpoints_when_proc_tables_missing(self):
+        for filename in ('tcp', 'tcp6', 'udp', 'udp6'):
+            (self.pid / 'net' / filename).unlink()
+        (self.pid / 'ns/net').unlink()
+        self.counter_text = 'tcp ESTAB 0 0 127.0.0.1:5556 127.0.0.2:50000 ino:500 sk:a1 bytes_sent:0 bytes_received:0'
+        self.assertEqual(self.live(self.sampler.sample(self.work))[0].state, 'connected')
+        self.now = 1
+        self.counter_text = 'tcp ESTAB 0 0 127.0.0.1:5556 127.0.0.2:50000 ino:500 sk:a1 bytes_sent:200 bytes_received:100'
+        row = self.live(self.sampler.sample(self.work))[0]
+        self.assertEqual(row.receive_bytes_per_second, 100)
+        self.assertEqual(row.transmit_bytes_per_second, 200)
+        self.assertIn('recovered', row.detail)
+
+    def test_netlink_udp_fallback_keeps_byte_rates_and_drops_unknown(self):
+        for filename in ('tcp', 'tcp6', 'udp', 'udp6'):
+            (self.pid / 'net' / filename).unlink()
+        self.counter_text = 'udp UNCONN 2048 1024 127.0.0.1:5556 0.0.0.0:* ino:500 sk:a1'
+        row = self.live(self.sampler.sample(self.work))[0]
+        self.assertEqual((row.protocol, row.state), ('UDP', 'bound'))
+        self.assertEqual(row.receive_queue_bytes, 2048)
+        self.assertIsNone(row.udp_drops)
+        self.assertIsNone(row.receive_bytes_per_second)
 
     def test_endpoint_limit_and_stopped_process(self):
         sampler = ServiceSocketSampler(self.root, tcp_reader=lambda: '', max_rows=1)

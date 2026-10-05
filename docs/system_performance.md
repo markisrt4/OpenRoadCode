@@ -311,3 +311,19 @@ indicator; no generic CPU trip threshold is applied to battery temperature.
 Install the compatible Termux:API companion app and `pkg install termux-api`.
 The monitor reads battery status only and does not enable sensor streams.
 Restart ORC and the Termux service manager after updating the checkout.
+
+### Restricted socket visibility
+
+**Process** reports the observed owner's liveness separately from **Sockets**.
+A running process may have unavailable sockets because Android blocks procfs
+network tables or descriptor ownership. Optional services with no visible process
+remain **Not observed**. Namespace and descriptor checks are independent, and
+missing IPv6 tables do not invalidate readable IPv4 data. If `ss` can enumerate
+endpoints, its netlink records are used as a fallback only when the socket inode
+can be matched to an accessible process descriptor. No endpoint is attributed
+by port guessing. UDP byte rates and inaccessible counters stay unavailable.
+
+Diagnostics now uses compact ORC-themed row lists. Process PID, thread count and
+I/O; sensor sample age and invalid counts; and service endpoints, queues and
+drops appear in the selected row's detail pane. Main values stay visible without
+horizontal scrolling. The selected tab uses a contrasting label in both themes.

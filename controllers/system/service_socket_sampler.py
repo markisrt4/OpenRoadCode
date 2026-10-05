@@ -12,7 +12,7 @@ import time
 from pathlib import Path
 
 from ui.system_diagnostics import OrcWorkloadSnapshot, ServiceSocketSnapshot
-from controllers.system.service_socket_parser import parse_socket_table, parse_tcp_counters, counter_rate
+from controllers.system.service_socket_parser import parse_socket_table, parse_tcp_counters, parse_ss_sockets, counter_rate
 
 # Absent optional integrations are unknown, not failed services.
 KNOWN_SERVICES = {
@@ -52,9 +52,12 @@ class ServiceSocketSampler:
         previous, self._previous = self._previous, {}
         warnings = []
         try:
-            counters = parse_tcp_counters(self._tcp_reader())
+            ss_text = self._tcp_reader()
+            counters = parse_tcp_counters(ss_text)
+            netlink_records = parse_ss_sockets(ss_text)
         except (OSError, subprocess.SubprocessError):
             counters = {}
+            netlink_records = ()
             warnings.append("TCP byte counters unavailable; install iproute2/ss and check OS permissions")
         try:
             own_namespace = os.readlink(self._root / "self/ns/net")
@@ -69,8 +72,13 @@ class ServiceSocketSampler:
             directory = self._root / str(process.pid)
             inaccessible = False
             inodes = set()
+            process_state = "stopped" if process.state in {"Z", "T", "t", "X"} else "running"
             try:
                 namespace = os.readlink(directory / "ns/net")
+            except OSError:
+                namespace = f"unknown:{process.pid}"
+                warnings.append("Network namespace unavailable; TCP rates may be unavailable")
+            try:
                 for fd in (directory / "fd").iterdir():
                     try:
                         link = os.readlink(fd)
@@ -78,31 +86,43 @@ class ServiceSocketSampler:
                         if match:
                             inodes.add(int(match[1]))
                     except FileNotFoundError:
-                        continue  # Descriptor or process exited during discovery.
+                        continue
+                    except OSError:
+                        inaccessible = True
             except OSError:
                 inaccessible = True
-                namespace = f"unknown:{process.pid}"
             if namespace not in tables:
                 records = []
                 denied = False
+                readable = 0
                 for filename, protocol in (("tcp", "TCP"), ("tcp6", "TCP"), ("udp", "UDP"), ("udp6", "UDP")):
                     try:
                         records.extend(parse_socket_table((directory / "net" / filename).read_text(), protocol))
+                        readable += 1
+                    except FileNotFoundError:
+                        continue  # An unsupported address family is not a permission failure.
                     except OSError:
                         denied = True
-                tables[namespace] = (records, denied)
+                tables[namespace] = (records, denied or readable == 0)
             records, denied = tables[namespace]
             inaccessible = inaccessible or denied
             if inaccessible:
                 warnings.append("Socket visibility restricted or process exited during discovery")
             owned = [record for record in records if record.inode in inodes]
+            known = {record.inode for record in owned}
+            fallback_inodes = set()
+            for record in netlink_records:
+                if record.inode in inodes and record.inode not in known:
+                    owned.append(record)
+                    known.add(record.inode)
+                    fallback_inodes.add(record.inode)
             if not owned:
-                rows.append(ServiceSocketSnapshot(name=name, pid=process.pid,
+                rows.append(ServiceSocketSnapshot(name=name, pid=process.pid, process_state=process_state,
                     state="unavailable" if inaccessible else "stopped" if process.state in {"Z", "T", "t", "X"} else "no_socket",
-                    detail="Socket access restricted or process exited" if inaccessible else
+                    detail="Process state is visible, but socket tables or ownership are inaccessible; Android may restrict these independently" if inaccessible else
                            "Visible process has no TCP/UDP sockets; may use IPC, serial, or be starting"))
             for record in owned:
-                cookie, rx, tx = counters.get(record.inode, ("", None, None)) if namespace == own_namespace else ("", None, None)
+                cookie, rx, tx = counters.get(record.inode, ("", None, None)) if namespace == own_namespace or record.inode in fallback_inodes else ("", None, None)
                 key = (namespace, record.inode, cookie, record.protocol, record.local, record.remote)
                 before = previous.get(key, (now, None, None, None))
                 elapsed = now - before[0]
@@ -117,12 +137,14 @@ class ServiceSocketSampler:
                           "-- means warmup, missing counters, or reset. Includes retransmitted payload; excludes headers."
                           if record.protocol == "TCP" else
                           "UDP socket observed, not a delivery check. OS exposes queues and drops but no per-socket byte counters; bandwidth unavailable.")
-                if record.protocol == "TCP" and namespace != own_namespace:
+                if record.protocol == "TCP" and namespace != own_namespace and record.inode not in fallback_inodes:
                     detail += " TCP counters belong to another or inaccessible network namespace."
+                if record.inode in fallback_inodes:
+                    detail += " Endpoint recovered via ss/netlink and matched to owned socket inode."
                 if inaccessible:
                     detail += " Socket visibility is partial."
                 rows.append(ServiceSocketSnapshot(
-                    name=name, pid=process.pid, protocol=record.protocol,
+                    name=name, pid=process.pid, process_state=process_state, protocol=record.protocol,
                     local_endpoint=record.local, remote_endpoint=record.remote, state=state, detail=detail,
                     receive_bytes_per_second=receive, transmit_bytes_per_second=transmit,
                     receive_queue_bytes=record.rx_queue, transmit_queue_bytes=record.tx_queue,
@@ -141,6 +163,6 @@ class ServiceSocketSampler:
 
 
 def _tcp_counters() -> str:
-    result = subprocess.run(["ss", "-H", "-t", "-a", "-n", "-i", "-e", "-O"],
+    result = subprocess.run(["ss", "-H", "-t", "-u", "-a", "-n", "-i", "-e", "-O"],
                             capture_output=True, text=True, timeout=0.5, check=True)
     return result.stdout

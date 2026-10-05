@@ -78,3 +78,29 @@ def _endpoint(raw: str) -> str:
                     for index in range(0, len(address), 8))
     ip = ipaddress.ip_address(data)
     return f"[{ip}]:{int(port, 16)}" if ip.version == 6 else f"{ip}:{int(port, 16)}"
+
+
+def parse_ss_sockets(text: str) -> tuple[SocketRecord, ...]:
+    """Recover visible netlink endpoints when procfs socket tables are blocked."""
+    rows = []
+    states = {"ESTAB": "connected", "LISTEN": "listening", "SYN-SENT": "connecting",
+              "SYN-RECV": "connecting", "CLOSE-WAIT": "closing", "FIN-WAIT-1": "closing",
+              "FIN-WAIT-2": "closing", "TIME-WAIT": "closing", "LAST-ACK": "closing",
+              "CLOSING": "closing", "CLOSE": "closed"}
+    for line in text.splitlines():
+        fields = line.split()
+        inode = re.search(r"\bino:(\d+)\b", line)
+        if inode is None:
+            continue
+        try:
+            explicit = fields[0] in {"tcp", "udp"}
+            offset = 1 if explicit else 0
+            protocol = fields[0].upper() if explicit else "TCP"
+            if ":" not in fields[offset + 3] or ":" not in fields[offset + 4]:
+                continue
+            state = "bound" if protocol == "UDP" else states.get(fields[offset], "unknown")
+            rows.append(SocketRecord(int(inode[1]), protocol, fields[offset + 3], fields[offset + 4],
+                                     state, int(fields[offset + 1]), int(fields[offset + 2]), None))
+        except (ValueError, IndexError):
+            continue
+    return tuple(rows)
