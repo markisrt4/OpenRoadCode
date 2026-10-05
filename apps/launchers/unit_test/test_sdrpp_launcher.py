@@ -45,9 +45,10 @@ class SDRPPLauncherTest(unittest.TestCase):
         with patch.dict(os.environ, {"PREFIX": "/usr"}, clear=True):
             self.assertFalse(_is_termux())
 
+    @patch("apps.launchers.sdrpp_launcher.DebianCommandRunner._ensure_virgl_server", return_value=False)
     @patch("apps.launchers.sdrpp_launcher._is_termux", return_value=True)
     @patch("apps.launchers.sdrpp_launcher.shutil.which")
-    def test_termux_gdb_launch_preserves_normal_environment(self, which: Mock, _termux: Mock) -> None:
+    def test_termux_gdb_launch_preserves_normal_environment(self, which: Mock, _termux: Mock, _virgl: Mock) -> None:
         which.side_effect = lambda command: "/data/data/com.termux/files/usr/bin/proot-distro" if command == "proot-distro" else None
         with patch.dict(os.environ, {"OPENROADCODE_SDRPP_GDB": "1"}, clear=False):
             launcher = SDRPPLauncher(profile=self.profile)
@@ -104,9 +105,10 @@ class SDRPPLauncherTest(unittest.TestCase):
         launcher = SDRPPLauncher(profile=self.profile)
         self.assertEqual(["/usr/bin/sdrpp", "--autostart"], launcher._launch_command(":0"))
 
+    @patch("apps.launchers.sdrpp_launcher.DebianCommandRunner._ensure_virgl_server", return_value=True)
     @patch("apps.launchers.sdrpp_launcher._is_termux", return_value=True)
     @patch("apps.launchers.sdrpp_launcher.shutil.which")
-    def test_termux_launch_command_uses_debian_proot(self, which: Mock, _termux: Mock) -> None:
+    def test_termux_launch_command_uses_debian_proot(self, which: Mock, _termux: Mock, virgl: Mock) -> None:
         which.side_effect = lambda command: "/data/data/com.termux/files/usr/bin/proot-distro" if command == "proot-distro" else None
         launcher = SDRPPLauncher(profile=self.profile)
         command = launcher._launch_command(":1")
@@ -116,7 +118,9 @@ class SDRPPLauncherTest(unittest.TestCase):
         self.assertIn("XDG_RUNTIME_DIR=/tmp/runtime-root", command)
         self.assertIn("XDG_SESSION_TYPE=x11", command)
         self.assertIn("GDK_BACKEND=x11", command)
-        self.assertIn("LIBGL_ALWAYS_SOFTWARE=1", command)
+        self.assertIn("LIBGL_ALWAYS_SOFTWARE=true", command)
+        self.assertIn("GALLIUM_DRIVER=virpipe", command)
+        virgl.assert_called_once_with()
         self.assertIn("-u", command)
         self.assertIn("PULSE_SERVER", command)
         self.assertLess(command.index("env"), command.index("-u"))
