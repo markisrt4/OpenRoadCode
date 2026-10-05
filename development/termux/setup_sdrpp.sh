@@ -630,6 +630,65 @@ if old not in s: raise SystemExit("Could not locate Volume::run")
 path.write_text(s.replace(old,new,1))
 PY
 
+echo "[*] Instrumenting SDR++ Splitter handoff"
+python3 - "$SDRPP_SRC/core/src/dsp/routing/splitter.h" <<'PY'
+from pathlib import Path
+import sys
+path=Path(sys.argv[1]); s=path.read_text()
+old='''        int run() {
+            int count = base_type::_in->read();
+            if (count < 0) { return -1; }
+
+            for (const auto& stream : streams) {
+                memcpy(stream->writeBuf, base_type::_in->readBuf, count * sizeof(T));
+                if (!stream->swap(count)) {
+                    base_type::_in->flush();
+                    return -1;
+                }
+            }
+
+            base_type::_in->flush();
+
+            return count;
+        }'''
+new='''        int run() {
+            static unsigned long long orcRuns = 0;
+            unsigned long long orcRun = ++orcRuns;
+            fprintf(stderr, "[ORC Splitter] self=%p run=%llu input=%p outputs=%zu before-read\\n",
+                    (void*)this, orcRun, (void*)base_type::_in, streams.size());
+            fflush(stderr);
+            int count = base_type::_in->read();
+            fprintf(stderr, "[ORC Splitter] self=%p run=%llu after-read count=%d\\n",
+                    (void*)this, orcRun, count);
+            fflush(stderr);
+            if (count < 0) { return -1; }
+
+            for (const auto& stream : streams) {
+                fprintf(stderr, "[ORC Splitter] self=%p run=%llu dest=%p before-swap count=%d\\n",
+                        (void*)this, orcRun, (void*)stream, count);
+                fflush(stderr);
+                memcpy(stream->writeBuf, base_type::_in->readBuf, count * sizeof(T));
+                bool orcSwap = stream->swap(count);
+                fprintf(stderr, "[ORC Splitter] self=%p run=%llu dest=%p after-swap swap=%d\\n",
+                        (void*)this, orcRun, (void*)stream, (int)orcSwap);
+                fflush(stderr);
+                if (!orcSwap) {
+                    base_type::_in->flush();
+                    return -1;
+                }
+            }
+
+            base_type::_in->flush();
+            fprintf(stderr, "[ORC Splitter] self=%p run=%llu input=%p after-input-flush\\n",
+                    (void*)this, orcRun, (void*)base_type::_in);
+            fflush(stderr);
+
+            return count;
+        }'''
+if old not in s: raise SystemExit("Could not locate pinned Splitter::run")
+path.write_text(s.replace(old,new,1))
+PY
+
 echo "[*] Instrumenting SDR++ SinkManager stream boundary"
 python3 - "$SDRPP_SRC/core/src/signal_path/sink.cpp" <<'PY'
 from pathlib import Path
