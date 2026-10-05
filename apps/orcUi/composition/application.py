@@ -62,20 +62,24 @@ class OrcUiComposition:
             self.core.start()
             self.app.run()
         finally:
-            if self.performance_status is not None:
-                self.performance_status.close()
-            if self.performance is not None:
-                self.performance.close()
             try:
-                self.games.shutdown()
+                if self.performance_status is not None:
+                    self.performance_status.close()
             finally:
                 try:
-                    self.media.close()
+                    if self.performance is not None:
+                        self.performance.close()
                 finally:
                     try:
-                        self.core.close()
+                        self.games.shutdown()
                     finally:
-                        self.runtime.close()
+                        try:
+                            self.media.close()
+                        finally:
+                            try:
+                                self.core.close()
+                            finally:
+                                self.runtime.close()
 
         self.core.lifecycle.execute_requested_action()
 

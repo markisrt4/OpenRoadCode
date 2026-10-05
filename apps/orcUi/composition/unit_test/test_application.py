@@ -133,6 +133,28 @@ class OrcUiCompositionTest(unittest.TestCase):
         runtime.close.assert_called_once_with()
         core.lifecycle.execute_requested_action.assert_not_called()
 
+    def test_diagnostics_cleanup_failure_still_closes_every_owned_resource(self) -> None:
+        for failing_resource in ("performance_status", "performance"):
+            with self.subTest(resource=failing_resource):
+                core = Mock()
+                runtime, games, media = Mock(), Mock(), Mock()
+                performance, status = Mock(), Mock()
+                composition = OrcUiComposition(
+                    core=core, runtime=runtime, radio=Mock(), media=media,
+                    games=games, weather=Mock(), performance=performance,
+                    performance_status=status,
+                )
+                getattr(composition, failing_resource).close.side_effect = RuntimeError("cleanup failed")
+                with self.assertRaisesRegex(RuntimeError, "cleanup failed"):
+                    composition.run()
+                status.close.assert_called_once_with()
+                performance.close.assert_called_once_with()
+                games.shutdown.assert_called_once_with()
+                media.close.assert_called_once_with()
+                core.close.assert_called_once_with()
+                runtime.close.assert_called_once_with()
+                core.lifecycle.execute_requested_action.assert_not_called()
+
     @patch("apps.orcUi.composition.application.configure_weather")
     @patch("apps.orcUi.composition.application.configure_media")
     @patch("apps.orcUi.composition.application.configure_games")
