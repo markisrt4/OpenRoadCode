@@ -1295,22 +1295,51 @@ cmake -S "$SDRPP_SRC" -B "$SDRPP_BUILD" \
   -DCMAKE_C_FLAGS_DEBUG="-O0 -g3 -fno-omit-frame-pointer" \
   -DCMAKE_CXX_FLAGS_DEBUG="-O0 -g3 -fno-omit-frame-pointer" \
   -DOPT_BUILD_RIGCTL_SERVER=ON -DOPT_BUILD_BLADERF_SOURCE=OFF -DOPT_BUILD_PLUTOSDR_SOURCE=OFF -DOPT_BUILD_AIRSPY_SOURCE=OFF -DOPT_BUILD_AIRSPYHF_SOURCE=OFF
-echo "[*] Verifying SDR++ Volume diagnostic is present before build"
-grep -q '\\[ORC Volume\\]' "$SDRPP_SRC/core/src/dsp/audio/volume.h" || {
+echo "[*] Verifying SDR++ diagnostics are present before build"
+grep -Fq '[ORC Volume]' "$SDRPP_SRC/core/src/dsp/audio/volume.h" || {
   echo "Volume diagnostic was not injected into $SDRPP_SRC/core/src/dsp/audio/volume.h" >&2
   exit 1
 }
-rm -f "$SDRPP_BUILD/core/CMakeFiles/sdrpp_core.dir/src/signal_path/sink.cpp.o" 2>/dev/null || true
-find "$SDRPP_BUILD" -type f \( -name '*.o' -o -name '*.so' -o -name 'sdrpp' \) -delete
+grep -Fq '[ORC Volume lifecycle]' "$SDRPP_SRC/core/src/dsp/audio/volume.h" || {
+  echo "Volume lifecycle diagnostic was not injected into $SDRPP_SRC/core/src/dsp/audio/volume.h" >&2
+  exit 1
+}
+grep -Fq '[ORC sink start steps]' "$SDRPP_SRC/core/src/signal_path/sink.cpp" || {
+  echo "Sink startup diagnostic was not injected into $SDRPP_SRC/core/src/signal_path/sink.cpp" >&2
+  exit 1
+}
+
+echo "[*] Recreating SDR++ build tree so diagnostic headers cannot be hidden by stale dependencies"
+rm -rf "$SDRPP_BUILD"
+cmake -S "$SDRPP_SRC" -B "$SDRPP_BUILD" \
+  -DCMAKE_BUILD_TYPE=Debug \
+  -DCMAKE_C_FLAGS_DEBUG="-O0 -g3 -fno-omit-frame-pointer" \
+  -DCMAKE_CXX_FLAGS_DEBUG="-O0 -g3 -fno-omit-frame-pointer" \
+  -DOPT_BUILD_RIGCTL_SERVER=ON -DOPT_BUILD_BLADERF_SOURCE=OFF -DOPT_BUILD_PLUTOSDR_SOURCE=OFF -DOPT_BUILD_AIRSPY_SOURCE=OFF -DOPT_BUILD_AIRSPYHF_SOURCE=OFF
 
 cmake --build "$SDRPP_BUILD" --parallel "$BUILD_JOBS"
-
-echo "[*] Verifying built SDR++ contains Volume diagnostic"
-if ! grep -aFq '[ORC Volume]' "$SDRPP_BUILD/sdrpp" && ! find "$SDRPP_BUILD" -type f -name '*.so' -exec grep -aFl '[ORC Volume]' {} + | grep -q .; then
-  echo "Built SDR++ artifacts do not contain the Volume diagnostic" >&2
-  exit 1
-fi
 [[ -x "$SDRPP_BUILD/sdrpp" ]] || { echo "SDR++ build completed but $SDRPP_BUILD/sdrpp was not found." >&2; exit 1; }
+
+echo "[*] Verifying built SDR++ diagnostic artifacts"
+verify_marker() {
+  local marker="$1"
+  local matches
+  matches="$(
+    {
+      grep -aFl -- "$marker" "$SDRPP_BUILD/sdrpp" 2>/dev/null || true
+      find "$SDRPP_BUILD" -type f -name '*.so' -exec grep -aFl -- "$marker" {} + 2>/dev/null || true
+    } | sort -u
+  )"
+  if [[ -z "$matches" ]]; then
+    echo "Built SDR++ artifacts do not contain required diagnostic: $marker" >&2
+    return 1
+  fi
+  echo "[*] Diagnostic '$marker' found in:"
+  printf '    %s\\n' $matches
+}
+verify_marker '[ORC Volume]'
+verify_marker '[ORC Volume lifecycle]'
+verify_marker '[ORC sink start steps]'
 
 echo "[*] Preparing SDR++ development resources"
 mkdir -p "$SDRPP_ROOT"; cp -a "$SDRPP_SRC/root/." "$SDRPP_ROOT/"
