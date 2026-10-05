@@ -566,6 +566,119 @@ s = s.replace(old, new, 1)
 path.write_text(s)
 PY
 
+echo "[*] Instrumenting SDR++ SinkManager stream boundary"
+python3 - "$SDRPP_SRC/core/src/signal_path/sink.cpp" <<'PY'
+from pathlib import Path
+import sys
+
+path = Path(sys.argv[1])
+s = path.read_text()
+old = '''void SinkManager::Stream::init(dsp::stream<dsp::stereo_t>* in, EventHandler<float>* srChangeHandler, float sampleRate) {
+    _in = in;
+    srChange.bindHandler(srChangeHandler);
+    _sampleRate = sampleRate;
+    splitter.init(_in);
+    splitter.bindStream(&volumeInput);
+    volumeAjust.init(&volumeInput, 1.0f, false);
+    sinkOut = &volumeAjust.out;
+}'''
+new = '''void SinkManager::Stream::init(dsp::stream<dsp::stereo_t>* in, EventHandler<float>* srChangeHandler, float sampleRate) {
+    _in = in;
+    srChange.bindHandler(srChangeHandler);
+    _sampleRate = sampleRate;
+    splitter.init(_in);
+    splitter.bindStream(&volumeInput);
+    volumeAjust.init(&volumeInput, 1.0f, false);
+    sinkOut = &volumeAjust.out;
+    fprintf(stderr,
+            "[ORC sink stream] self=%p init input=%p splitter=%p volumeInput=%p volume=%p volumeOut=%p sinkOut=%p sampleRate=%.1f\\n",
+            (void*)this, (void*)_in, (void*)&splitter, (void*)&volumeInput,
+            (void*)&volumeAjust, (void*)&volumeAjust.out, (void*)sinkOut, _sampleRate);
+    fflush(stderr);
+}'''
+if old not in s:
+    raise SystemExit("Could not locate SinkManager::Stream::init")
+s = s.replace(old, new, 1)
+
+old = '''void SinkManager::Stream::start() {
+    if (running) {
+        return;
+    }
+
+    splitter.start();
+    volumeAjust.start();
+    sink->start();
+    running = true;
+}'''
+new = '''void SinkManager::Stream::start() {
+    fprintf(stderr,
+            "[ORC sink stream] self=%p start running=%d input=%p splitter=%p volumeInput=%p volumeOut=%p sinkOut=%p sink=%p provider=%s\\n",
+            (void*)this, (int)running, (void*)_in, (void*)&splitter, (void*)&volumeInput,
+            (void*)&volumeAjust.out, (void*)sinkOut, (void*)sink, providerName.c_str());
+    fflush(stderr);
+    if (running) {
+        return;
+    }
+
+    splitter.start();
+    volumeAjust.start();
+    sink->start();
+    running = true;
+    fprintf(stderr, "[ORC sink stream] self=%p started sink=%p provider=%s\\n",
+            (void*)this, (void*)sink, providerName.c_str());
+    fflush(stderr);
+}'''
+if old not in s:
+    raise SystemExit("Could not locate SinkManager::Stream::start")
+s = s.replace(old, new, 1)
+
+old = '''void SinkManager::Stream::setInput(dsp::stream<dsp::stereo_t>* in) {
+    std::lock_guard<std::mutex> lck(ctrlMtx);
+    _in = in;
+    splitter.setInput(_in);
+}'''
+new = '''void SinkManager::Stream::setInput(dsp::stream<dsp::stereo_t>* in) {
+    std::lock_guard<std::mutex> lck(ctrlMtx);
+    fprintf(stderr, "[ORC sink stream] self=%p setInput old=%p new=%p splitter=%p\\n",
+            (void*)this, (void*)_in, (void*)in, (void*)&splitter);
+    fflush(stderr);
+    _in = in;
+    splitter.setInput(_in);
+}'''
+if old not in s:
+    raise SystemExit("Could not locate SinkManager::Stream::setInput")
+s = s.replace(old, new, 1)
+
+old = '''    stream->sink = provider.create(stream, name, provider.ctx);
+    stream->providerId = std::distance(providerNames.begin(), std::find(providerNames.begin(), providerNames.end(), "None"));
+    stream->providerName = "None";'''
+new = '''    stream->sink = provider.create(stream, name, provider.ctx);
+    stream->providerId = std::distance(providerNames.begin(), std::find(providerNames.begin(), providerNames.end(), "None"));
+    stream->providerName = "None";
+    fprintf(stderr, "[ORC sink stream] self=%p register name=%s sink=%p provider=%s sinkOut=%p\\n",
+            (void*)stream, name.c_str(), (void*)stream->sink, stream->providerName.c_str(), (void*)stream->sinkOut);
+    fflush(stderr);'''
+if old not in s:
+    raise SystemExit("Could not locate SinkManager::registerStream sink creation")
+s = s.replace(old, new, 1)
+
+old = '''    SinkManager::SinkProvider prov = providers[providerName];
+    stream->sink = prov.create(stream, name, prov.ctx);
+    if (stream->running) {'''
+new = '''    SinkManager::SinkProvider prov = providers[providerName];
+    stream->sink = prov.create(stream, name, prov.ctx);
+    fprintf(stderr, "[ORC sink stream] self=%p setSink name=%s sink=%p provider=%s running=%d sinkOut=%p\\n",
+            (void*)stream, name.c_str(), (void*)stream->sink, providerName.c_str(),
+            (int)stream->running, (void*)stream->sinkOut);
+    fflush(stderr);
+    if (stream->running) {'''
+if old not in s:
+    raise SystemExit("Could not locate SinkManager::setStreamSink sink creation")
+s = s.replace(old, new, 1)
+
+path.write_text(s)
+PY
+
 echo "[*] Instrumenting SDR++ Radio AF-chain and resampler handoff"
 python3 - "$SDRPP_SRC/decoder_modules/radio/src/radio_module.h" "$SDRPP_SRC/core/src/dsp/multirate/rational_resampler.h" <<'PY'
 from pathlib import Path
