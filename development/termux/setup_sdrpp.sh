@@ -282,6 +282,38 @@ source = source.replace(old, new, 1)
 path.write_text(source)
 PY
 
+echo "[*] Fixing SDR++ ring-buffer producer wakeup for Termux"
+python3 - "$SDRPP_SRC/core/src/dsp/buffer/ring_buffer.h" <<'PY'
+from pathlib import Path
+import sys
+
+path = Path(sys.argv[1])
+source = path.read_text()
+old = '''                canReadVar.notify_one();
+            }
+            return len;
+        }
+
+        int waitUntilwritable() {'''
+new = '''                // The reader waits for readable > 0, but the producer previously
+                // notified without holding the readable mutex. That permits a lost
+                // wakeup between the reader's predicate check and wait(), which can
+                // strand Reshaper::readAndSkip() forever even while writes continue.
+                // Pair the predicate update and notification with the same mutex.
+                _readable_mtx.lock();
+                canReadVar.notify_one();
+                _readable_mtx.unlock();
+            }
+            return len;
+        }
+
+        int waitUntilwritable() {'''
+if old not in source:
+    raise SystemExit("Could not locate SDR++ RingBuffer writer notification")
+source = source.replace(old, new, 1)
+path.write_text(source)
+PY
+
 echo "[*] Instrumenting SDR++ FFT reshaper for stalled-waterfall diagnosis"
 python3 - "$SDRPP_SRC/core/src/dsp/buffer/reshaper.h" <<'PY'
 from pathlib import Path
