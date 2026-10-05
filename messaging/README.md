@@ -89,8 +89,9 @@ The service emits:
 - `openroad.navigation.imu`
 
 It also serves acknowledged navigation commands such as stationary calibration and
-heading reset. See `services/navigation/README.md` for the command interface and physical
-hardware startup options.
+heading reset, route start/cancel, and local route playback. See
+[Navigation command IDD](../docs/idd/navigation_command_service.md) for wire fields
+and failures, and `services/navigation/README.md` for runtime ownership and startup.
 
 Terminal 3 can run an existing consumer, for example:
 

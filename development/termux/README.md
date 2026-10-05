@@ -132,6 +132,15 @@ Position does not conceptually own speed or course. A physical provider may deli
 
 The current Termux navigation profile uses the Android bridge as its physical position source and keeps IMU simulation available so navigation remains usable when Android motion integration is unavailable. The map consumes the normalized navigation position contract rather than talking directly to Android.
 
+**Simulate** on an active route now generates positions inside ORC's navigation
+service. The Android bridge stays on real GPS. **Stop simulation**, **End route**,
+arrival, or a service restart restores normal position input. This Python change
+requires restarting `openroadcode-navigation`, but no renderer rebuild. After
+updating, test a short route through playback, stop, arrival, and restart; verify
+that live position returns. The full native renderer/theme-toggle test and live
+weather-provider probes still need device verification; CI does not prove GPU
+rendering. See [Weather component probes](../../controllers/weather/README.md).
+
 ## Automotive transport on Termux
 
 PySerial is intentionally **not** a Termux dependency. Android/Termux automotive hardware uses the Android bridge and TCP transport rather than opening a serial device directly from Termux.

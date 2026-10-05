@@ -87,6 +87,15 @@ frame; navigation-facing adapters own the mounting transform.
 Geolocation API through a local HTTP relay and produces the same state type.
 Position input is optional.
 
+The navigation service wraps live Android/gpsd sources with
+`RoutePlaybackPositionSource`, implementing `PositionSourceIf` and
+`RouteSimulationIf`. It keeps the receiver running and selects either live
+reports or `SimulatedPositionSource` route playback for downstream delivery.
+Stop/cancel/arrival/restart restores normal input; generation checks reject late
+reports from replaced playback or an earlier source lifecycle. This adapter
+contains no GUI or bridge simulation configuration. See the
+[service README](../../services/navigation/README.md#local-route-playback).
+
 CarUi decorates either provider with `PersistentPositionSource`. It publishes
 a recent last-known fix immediately at startup, then replaces it with live
 updates. Only valid live 2D/3D fixes are stored through `PositionSnapshotCache`
