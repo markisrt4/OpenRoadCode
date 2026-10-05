@@ -231,7 +231,8 @@ automated results; a portable subset is not a full-suite pass.
 `scripts/ui_boundary_exceptions.json` lists exact legacy dependencies, not
 permission for new violations. Do not expand or regenerate it to pass a check.
 Remove entries when their dependencies are removed; stale entries fail the gate.
-See [UI contracts and migration inventory](ui/README.md) and [AGENTS.md](AGENTS.md).
+See [UI contracts and migration inventory](ui/README.md) and the repository's
+`AGENTS.md` instructions.
 
 Update the affected READMEs and IDDs in the same change. Review renderer restart,
 theme changes, and subscription/worker cleanup on the target device when they
