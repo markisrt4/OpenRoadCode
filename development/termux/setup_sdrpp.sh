@@ -293,9 +293,25 @@ new = '''    float* WaterFall::getFFTBuffer() {
                 return NULL;
             }
             currentFFTLine--;'''
-if old not in source:
-    raise SystemExit("Could not locate SDR++ WaterFall::getFFTBuffer()")
-source = source.replace(old, new, 1)
+if new not in source:
+    if old not in source:
+        # Earlier ORC waterfall instrumentation may already have changed
+        # whitespace around this function. Anchor the guard to the unique
+        # waterfallVisible/currentFFTLine sequence instead.
+        old = """        if (waterfallVisible) {
+            currentFFTLine--;"""
+        new = """        if (waterfallVisible) {
+            // IQ can arrive before the GUI has performed its first resize.
+            // Until then waterfallHeight is zero and waterfallFb is only the
+            // constructor's one-pixel placeholder.
+            if (waterfallHeight <= 0) {
+                buf_mtx.unlock();
+                return NULL;
+            }
+            currentFFTLine--;"""
+        if source.count(old) != 1:
+            raise SystemExit(f"Expected one SDR++ waterfall FFT-buffer guard anchor, found {source.count(old)}")
+    source = source.replace(old, new, 1)
 waterfall.write_text(source)
 
 source = frontend.read_text()
