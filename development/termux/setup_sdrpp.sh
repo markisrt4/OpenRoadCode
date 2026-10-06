@@ -323,9 +323,20 @@ new = '''    // Only release/publish an FFT buffer that was actually acquired.
     if (fftBuf) {
         _this->_releaseFFTBuffer(_this->_fftCtx);
     }'''
-if old not in source:
-    raise SystemExit("Could not locate SDR++ IQFrontEnd FFT release")
-source = source.replace(old, new, 1)
+if new not in source:
+    if old not in source:
+        release = "    _this->_releaseFFTBuffer(_this->_fftCtx);"
+        if source.count(release) != 1:
+            raise SystemExit(f"Expected one SDR++ IQFrontEnd FFT release call, found {source.count(release)}")
+        guarded_release = """    // Only release/publish an FFT buffer that was actually acquired.
+    // The waterfall can intentionally decline a buffer before its first
+    // valid GUI resize.
+    if (fftBuf) {
+        _this->_releaseFFTBuffer(_this->_fftCtx);
+    }"""
+        source = source.replace(release, guarded_release, 1)
+    else:
+        source = source.replace(old, new, 1)
 frontend.write_text(source)
 PY
 
