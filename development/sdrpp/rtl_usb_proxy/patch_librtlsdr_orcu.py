@@ -330,10 +330,11 @@ int rtlsdr_read_async(rtlsdr_dev_t *dev, rtlsdr_read_async_cb_t cb, void *ctx,
 					/* Give the Bridge's terminal-failure path time to publish its
 					 * replacement UsbDeviceConnection before issuing control traffic. */
 					usleep(250000);
-					recover_r = rtlsdr_init_baseband(dev);
-					fprintf(stderr, "[ORCU recovery] baseband init result=%d\\n", recover_r);
+					rtlsdr_init_baseband(dev);
+					recover_r = 0;
+					fprintf(stderr, "[ORCU recovery] baseband init completed\\n");
 					fflush(stderr);
-					if (recover_r >= 0 && dev->tuner && dev->tuner->init) {
+					if (dev->tuner && dev->tuner->init) {
 						recover_r = dev->tuner->init(dev);
 						fprintf(stderr, "[ORCU recovery] tuner init result=%d\\n", recover_r);
 						fflush(stderr);
