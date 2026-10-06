@@ -28,7 +28,8 @@ def test_offline_refresh_starts_no_worker_and_invalidates_inflight_result():
 def test_cached_forecast_label_includes_offline_and_full_date():
     panel = OrcWeatherPanel.__new__(OrcWeatherPanel)
     panel._online = False
-    text = panel._provider_label_text(Mock(provider_label="Open-Meteo", fetched_at=100.0))
+    # January 3 UTC remains in 1970 in every supported local timezone.
+    text = panel._provider_label_text(Mock(provider_label="Open-Meteo", fetched_at=172800.0))
     assert "Offline" in text and "Cached" in text and "1970" in text
 
 

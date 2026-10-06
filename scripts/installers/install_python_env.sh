@@ -14,7 +14,7 @@ if [[ ! -f "$FEATURES_FILE" ]]; then
   echo "[!] Feature definitions not found: $FEATURES_FILE" >&2
   exit 1
 fi
-# shellcheck disable=SC1091
+# shellcheck disable=SC1090
 source "$FEATURES_FILE"
 
 detect_raspberry_pi_model() {
@@ -48,7 +48,7 @@ select_raspberry_pi_gpio_backend() {
       ;;
     *)
       case "$model" in
-        *"Raspberry Pi 5"*|*"Raspberry Pi 500"*|*"Compute Module 5"*)
+        *"Raspberry Pi 500"*|*"Raspberry Pi 5"*|*"Compute Module 5"*)
           echo "rpi-lgpio"
           ;;
         *)

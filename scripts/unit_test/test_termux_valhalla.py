@@ -96,5 +96,7 @@ def test_termux_installer_registers_routing_service_and_log_supervisor(tmp_path)
     installed = prefix / 'var/service/openroadcode-valhalla'
     assert 'start_valhalla.sh' in (installed / 'run').read_text()
     assert 'svlogd' in (installed / 'log/run').read_text()
+    assert (installed / 'down').exists()
+    assert not (prefix / 'var/service/openroadcode-service-manager/down').exists()
     assert os.access(installed / 'run', os.X_OK)
     assert os.access(installed / 'log/run', os.X_OK)

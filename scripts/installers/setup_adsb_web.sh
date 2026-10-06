@@ -4,12 +4,21 @@
 
 set -euo pipefail
 
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck disable=SC1091
+source "$SCRIPT_DIR/toolchain.lock"
+TAR1090_REF="${TAR1090_REF:-$TAR1090_COMMIT}"
+
 if ! command -v readsb >/dev/null 2>&1; then
     echo "[!] readsb is required before installing tar1090." >&2
     exit 1
 fi
 if ! command -v wget >/dev/null 2>&1; then
     echo "[!] wget is required before installing tar1090." >&2
+    exit 1
+fi
+if ! command -v git >/dev/null 2>&1; then
+    echo "[!] git is required before installing pinned tar1090 sources." >&2
     exit 1
 fi
 
@@ -34,11 +43,14 @@ else
     else
         echo "[*] Installing tar1090..."
     fi
-    installer="$(mktemp)"
-    trap 'rm -f "$installer"' EXIT
-    wget -q -O "$installer" https://github.com/wiedehopf/tar1090/raw/master/install.sh
-    sudo bash "$installer" /run/readsb
-    rm -f "$installer"
+    source_checkout="$(mktemp -d)"
+    trap 'rm -rf "$source_checkout"' EXIT
+    git -C "$source_checkout" init --quiet
+    git -C "$source_checkout" remote add origin https://github.com/wiedehopf/tar1090.git
+    git -C "$source_checkout" fetch --quiet --depth 1 origin "$TAR1090_REF"
+    git -C "$source_checkout" checkout --quiet --detach FETCH_HEAD
+    sudo bash "$source_checkout/install.sh" /run/readsb "" "" "$source_checkout"
+    rm -rf "$source_checkout"
     trap - EXIT
 fi
 

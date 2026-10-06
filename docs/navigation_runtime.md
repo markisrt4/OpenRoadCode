@@ -93,6 +93,11 @@ Install the complete runtime stack from the repository root:
 sudo scripts/systemd/install_navigation_runtime_systemd.sh
 ```
 
+This installs the routing runtime—message broker, Valhalla, and navigation.
+The separately scoped telemetry installer adds navigation and automotive
+producers but does not install Valhalla; use the navigation-runtime installer
+when route calculation is required.
+
 The installer creates and enables services in dependency order:
 
 1. `openroadcode-message-broker.service`

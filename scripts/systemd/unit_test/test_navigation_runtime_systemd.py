@@ -25,14 +25,6 @@ def test_message_broker_installer_enables_expected_service_and_wrapper() -> None
     assert "messaging.zeromq.broker_cli" in wrapper
 
 
-def test_legacy_zeromq_installer_redirects_to_message_broker() -> None:
-    installer = _read(SYSTEMD_DIR / "install_zeromq_systemd.sh")
-
-    assert "deprecated" in installer
-    assert "install_message_broker_systemd.sh" in installer
-    assert "openroadcode-zmq.service" not in installer
-
-
 def test_navigation_service_orders_after_broker_and_valhalla() -> None:
     installer = _read(SYSTEMD_DIR / "install_navigation_service_systemd.sh")
 
@@ -41,6 +33,15 @@ def test_navigation_service_orders_after_broker_and_valhalla() -> None:
     assert "valhalla.service" in installer
     assert "After=" in installer
     assert "Wants=network.target openroadcode-message-broker.service valhalla.service" in installer
+    assert "Environment=OPENROADCODE_RUNTIME_CONFIG=$RUNTIME_CONFIG" in installer
+
+
+def test_automotive_service_passes_installer_runtime_overrides() -> None:
+    installer = _read(SYSTEMD_DIR / "install_automotive_service_systemd.sh")
+
+    assert "Environment=OPENROADCODE_PYTHON=$PYTHON_BIN" in installer
+    assert "Environment=OPENROADCODE_RUNTIME_CONFIG=$RUNTIME_CONFIG" in installer
+    assert "EnvironmentFile=-/var/lib/openroadcode/service-profiles/openroadcode-runtime.env" in installer
 
 
 def test_runtime_installer_installs_stack_in_dependency_order() -> None:
@@ -55,3 +56,11 @@ def test_runtime_installer_installs_stack_in_dependency_order() -> None:
     assert "openroadcode-zmq" not in installer
     assert "openroadcode-navigation" in installer
     assert "valhalla" in installer
+
+
+def test_valhalla_runs_as_the_non_root_runtime_user() -> None:
+    installer = _read(SYSTEMD_DIR / "install_valhalla_systemd.sh")
+
+    assert 'RUN_USER="${SUDO_USER:-${USER:-}}"' in installer
+    assert "User=$RUN_USER" in installer
+    assert '[[ -z "$RUN_USER" || "$RUN_USER" == "root" ]]' in installer

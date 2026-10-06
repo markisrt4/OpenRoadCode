@@ -287,6 +287,10 @@ cd OpenRoadCode
 
 Features can be selected explicitly. Use `--all-features` to install all compatible software capabilities, `--show-plan` to inspect the resolved plan without modifying the machine, and `--with-vnc` or `--with-gpsd-service` only when those services should be configured.
 
+The `desktop-ui` and `navigation` features use the native Tk/X11 and MapLibre
+interfaces and do not install a web browser. Select `--feature browser`
+explicitly for browser-backed applications.
+
 For the integrated SDR++ RF path on Debian/Linux, run `./development/debian/setup_sdrpp.sh`. It installs the SDR++ build dependencies, ORC's SDR++ modules, and the X11 utilities used for embedding. An X11 session is required for the current embedded-window implementation.
 
 For the integrated media path on Debian/Ubuntu, run:
@@ -299,6 +303,10 @@ For the integrated media path on Debian/Ubuntu, run:
 `setup_media.sh` installs the X11 integration utility and, on AMD64, Google Chrome stable for Spotify PLAYER mode. `install_secrets.sh` configures Spotify's PKCE client ID/redirect URI and other supported media credentials without placing secrets in the repository. If Spotify credentials are already configured, the secrets installer does not need to be rerun merely to update the media runtime.
 
 Concrete devices and credentials remain separate from package installation. Run `./scripts/installers/host_setup.sh --help` for current options.
+
+Third-party SDR++ and tar1090 source installs use the reviewed revisions in
+`scripts/installers/toolchain.lock`. Their setup scripts use isolated,
+OpenRoadCode-managed checkouts and do not reset unrelated source trees.
 
 ### Android / Termux
 

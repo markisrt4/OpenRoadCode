@@ -188,12 +188,10 @@ chmod +x scripts/runit/install_termux_services.sh
 Start and inspect the supervised services with:
 
 ```bash
-sv up openroadcode-broker
-sv up openroadcode-navigation
+./scripts/runit/manage_core.sh start
 sv up openroadcode-adsb
 
-sv status openroadcode-broker
-sv status openroadcode-navigation
+./scripts/runit/manage_core.sh status
 sv status openroadcode-adsb
 ```
 
@@ -201,19 +199,20 @@ Stop them with:
 
 ```bash
 sv down openroadcode-adsb
-sv down openroadcode-navigation
-sv down openroadcode-broker
+./scripts/runit/manage_core.sh stop
 ```
 
 The runit definitions call the same runtime wrappers used by the Linux service installation where applicable. Termux-specific service definitions live under `scripts/runit/`. Runtime-generated `supervise/` directories are state, not source, and must never be committed to the repository.
 
-Valhalla runs automatically as the supervised `openroadcode-valhalla` runit service. The navigation build installs its service definition along with the core services. The Termux build installs it under `$PREFIX/opt/openroadcode/navigation/valhalla/bin/valhalla_service`, while deployed routing data lives under `~/.local/share/openroadcode/valhalla`.
+Valhalla runs as the supervised `openroadcode-valhalla` runit service when the
+core stack is requested; it remains down after installation. The navigation
+build installs its service definition along with the core services. The Termux
+build installs it under `$PREFIX/opt/openroadcode/navigation/valhalla/bin/valhalla_service`, while deployed routing data lives under `~/.local/share/openroadcode/valhalla`.
 
 For an existing installation, register the new service once (stop any manually launched Valhalla first):
 
 ```bash
 cd ~/src/OpenRoadCode
-git switch weather-radar
 ./scripts/runit/install_termux_services.sh
 sv up openroadcode-valhalla
 sv status openroadcode-valhalla
@@ -226,7 +225,8 @@ Termux locations. The downloaded source configuration stays unchanged. Run the
 wrapper again after pulling new routing data; no manual JSON edits are needed.
 `VALHALLA_CONFIG`, `VALHALLA_BIN`, `VALHALLA_DATA_ROOT`, and
 `VALHALLA_RUNTIME_ROOT` can override the defaults. Runit owns startup, crash restarts, and shutdown; no dedicated terminal is needed.
-Rotating logs are available at `~/.cache/openroadcode/valhalla/current`.
+Rotating logs for every supervised service are available under
+`~/.local/state/openroadcode/log/<service>/current`.
 The service-manager core start/stop operations include Valhalla.
 For foreground debugging only, stop the supervised service before running
 `./scripts/runtime/start_valhalla.sh`.
@@ -247,6 +247,10 @@ Install the tar1090 presentation files once:
 cd ~/src/OpenRoadCode
 ./development/termux/setup_tar1090.sh
 ```
+
+The setup uses the tar1090 revision pinned in
+`scripts/installers/toolchain.lock`; set `TAR1090_REF` only for an intentional
+test of another revision.
 
 After `scripts/runit/install_termux_services.sh` has installed the service, `openroadcode-adsb` owns the local tar1090 web server on port `8081`.
 

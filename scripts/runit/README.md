@@ -8,10 +8,9 @@ control it through the localhost service-manager API.
 ## Services
 
 - `openroadcode-service-manager` provides the lightweight localhost control
-  plane on `127.0.0.1:8768`.
+  plane on `127.0.0.1:8769`.
 - `openroadcode-message-broker` runs the ZeroMQ message broker.
-- `openroadcode-valhalla` runs local routing with a prepared Termux configuration
-  and rotating logs under `~/.cache/openroadcode/valhalla`.
+- `openroadcode-valhalla` runs local routing with a prepared Termux configuration.
 - `openroadcode-navigation` runs the navigation service using
   `config/runtime.termux.toml`.
 - `openroadcode-automotive` publishes the automotive state. Navigation ground
@@ -22,6 +21,10 @@ The normal **core stack** is broker + Valhalla + navigation + automotive. ADS-B 
 optional so radio processing is not consuming resources when it is not needed.
 The service manager is intentionally lightweight and can remain running while
 the core stack is stopped.
+
+Only the service manager starts automatically after installation. Core and
+ADS-B definitions include runit's `down` marker so opening Termux does not
+unexpectedly consume routing, radio, or sensor resources.
 
 ## Install
 
@@ -36,7 +39,6 @@ environment is initialized. Then, from the OpenRoadCode repository:
 
 ```bash
 cd ~/src/OpenRoadCode
-git switch weather-radar
 ./scripts/runit/install_termux_services.sh
 ```
 
@@ -56,7 +58,9 @@ and copies the version-controlled `run` definitions into them. Mutable
 also removes retired service names, stopping them first so a migration cannot
 leave duplicate processes bound to the same ports.
 
-The installer also verifies that `runsvdir` has adopted every service. A newly
+Every service writes rotating logs beneath
+`~/.local/state/openroadcode/log/<service>/`. The installer also verifies that
+`runsvdir` has adopted every service. A newly
 added service normally appears automatically. If Termux's existing supervisor
 does not notice it, the installer reports the affected services and asks you to
 restart the supervisor:
@@ -82,15 +86,9 @@ sv status openroadcode-navigation
 sv status openroadcode-automotive
 sv status openroadcode-adsb
 
-sv up openroadcode-message-broker
-sv up openroadcode-valhalla
-sv up openroadcode-navigation
-sv up openroadcode-automotive
-
-sv down openroadcode-automotive
-sv down openroadcode-navigation
-sv down openroadcode-valhalla
-sv down openroadcode-message-broker
+scripts/runit/manage_core.sh start
+scripts/runit/manage_core.sh status
+scripts/runit/manage_core.sh stop
 ```
 
 Start dependencies in the order broker -> Valhalla -> navigation -> automotive. Stop them
@@ -103,10 +101,10 @@ small control plane while runit continues to own process lifetime and crash
 restarts.
 
 ```bash
-curl http://127.0.0.1:8768/services
-curl -X POST http://127.0.0.1:8768/stack/core/start
-curl -X POST http://127.0.0.1:8768/stack/core/stop
-curl -X POST http://127.0.0.1:8768/services/openroadcode-navigation/restart
+curl http://127.0.0.1:8769/services
+curl -X POST http://127.0.0.1:8769/stack/core/start
+curl -X POST http://127.0.0.1:8769/stack/core/stop
+curl -X POST http://127.0.0.1:8769/services/openroadcode-navigation/restart
 ```
 
 The API binds only to localhost and accepts only predefined OpenRoadCode

@@ -1,7 +1,0 @@
-#!/data/data/com.termux/files/usr/bin/bash
-# SPDX-FileCopyrightText: 2026 Mark G. Russell
-# SPDX-License-Identifier: MIT
-set -euo pipefail
-LOG_ROOT="${XDG_CACHE_HOME:-$HOME/.cache}/openroadcode/valhalla"
-mkdir -p "$LOG_ROOT"
-exec svlogd -tt "$LOG_ROOT"

@@ -19,10 +19,14 @@ from apps.launchers.process_manager import close_matching_display_apps, is_proce
 from common.logging.logging_paths import logging_file_path
 from protocols.sdrpp_remote_control import SDRPPRemoteControlClient
 
-DEFAULT_TERMUX_SDRPP_SOURCE = Path("/root/SDRPlusPlus")
+DEFAULT_TERMUX_SDRPP_SOURCE = Path(
+    "/root/.local/state/openroadcode/build/SDRPlusPlus"
+)
 DEFAULT_TERMUX_PROOT_DISTRIBUTION = "debian"
 DEFAULT_TERMUX_XDG_RUNTIME_DIR = "/tmp/runtime-root"
-DEFAULT_NATIVE_SDRPP_ROOT = Path.home() / "SDRPlusPlus" / "root_dev"
+DEFAULT_NATIVE_SDRPP_ROOT = (
+    Path.home() / ".local/state/openroadcode/build/SDRPlusPlus/root_dev"
+)
 DEFAULT_REMOTE_CONTROL_HOST = "127.0.0.1"
 DEFAULT_REMOTE_CONTROL_PORT = 4533
 _VALID_THEMES = {"Dark", "Light"}

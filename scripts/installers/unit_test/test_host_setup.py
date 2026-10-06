@@ -21,6 +21,8 @@ PERMISSIONS = (
     / "installers"
     / "configure_user_permissions.sh"
 )
+TUI_INSTALLER = PROJECT_ROOT / "scripts" / "installers" / "host_setup_tui.sh"
+VNC_SETUP = PROJECT_ROOT / "scripts" / "installers" / "setup_vnc.sh"
 
 
 class HostSetupPlanTests(unittest.TestCase):
@@ -268,6 +270,37 @@ class HostSetupPlanTests(unittest.TestCase):
         self.assertIn("desktop-ui", dependencies)
         self.assertIn("gps", dependencies)
 
+    def test_desktop_ui_does_not_implicitly_require_browser(self) -> None:
+        result = subprocess.run(
+            [
+                "bash",
+                "-c",
+                'source "$1"; get_feature_dependencies desktop-ui',
+                "feature-test",
+                str(FEATURES),
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+        self.assertEqual(0, result.returncode, result.stderr)
+        self.assertNotIn("browser", result.stdout.split())
+
+    def test_navigation_plan_does_not_include_browser(self) -> None:
+        result = self.run_installer(
+            "--target",
+            "linux-dev",
+            "--no-default-features",
+            "--feature",
+            "navigation",
+            "--show-plan",
+        )
+
+        self.assertEqual(0, result.returncode, result.stderr)
+        self.assertIn("Features:              navigation desktop-ui gps", result.stdout)
+        self.assertNotIn("browser", result.stdout)
+
     def test_sdrpp_feature_does_not_request_distro_package(self) -> None:
         result = subprocess.run(
             [
@@ -417,6 +450,20 @@ class HostSetupPlanTests(unittest.TestCase):
             result.stdout,
         )
         self.assertIn("no user groups were changed", result.stdout)
+
+    def test_tui_exposes_navigation_stack_feature(self) -> None:
+        tui = TUI_INSTALLER.read_text(encoding="utf-8")
+
+        self.assertIn(
+            '"navigation|Native MapLibre and Valhalla navigation stack"',
+            tui,
+        )
+
+    def test_vnc_setup_resolves_project_from_its_script_location(self) -> None:
+        setup = VNC_SETUP.read_text(encoding="utf-8")
+
+        self.assertIn('SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")"', setup)
+        self.assertIn('PROJECT_DIR="${PROJECT_DIR:-$PROJECT_ROOT}"', setup)
 
 
 if __name__ == "__main__":
