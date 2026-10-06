@@ -457,7 +457,7 @@ class GamesPanel(tk.Frame, GamesUiIf):
             highlightthickness=1,
             highlightbackground=accent if actionable else ui.border,
             font=("Sans", 14, "bold"),
-            padx=12,
+            padx=11,
             pady=5,
             cursor="hand2" if actionable else "",
         )

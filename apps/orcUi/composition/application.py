@@ -19,6 +19,7 @@ from apps.orcUi.composition.media import MediaComposition, configure_media
 from apps.orcUi.composition.radio import RadioComposition, configure_radio
 from apps.orcUi.composition.weather import WeatherComposition, configure_weather
 from apps.orcUi.composition.weather_overlays import configure_weather_overlays
+from apps.orcUi.composition.vision import VisionComposition, configure_vision
 from controllers.weather.weather_overlay_controller import WeatherOverlayController
 from controllers.weather.radar_replay_controller import RadarReplayController
 from apps.orcUi.frontend.tk.home_screen import HomeScreen
@@ -45,6 +46,7 @@ class OrcUiComposition:
     media: MediaComposition
     games: GamesScreen
     weather: WeatherComposition
+    vision: VisionComposition | None = None
     home: HomeScreen | None = None
     navigation: NavigationScreen | None = None
     vehicle: VehicleScreen | None = None
@@ -97,18 +99,22 @@ class OrcUiComposition:
                                     self.weather_overlays.close()
                     finally:
                         try:
-                            self.games.shutdown()
+                            if self.vision is not None:
+                                self.vision.close()
                         finally:
                             try:
-                                self.media.close()
+                                self.games.shutdown()
                             finally:
                                 try:
-                                    self.weather.close()
+                                    self.media.close()
                                 finally:
                                     try:
-                                        self.core.close()
+                                        self.weather.close()
                                     finally:
-                                        self.runtime.close()
+                                        try:
+                                            self.core.close()
+                                        finally:
+                                            self.runtime.close()
 
         self.core.lifecycle.execute_requested_action()
 
@@ -120,16 +126,29 @@ def create_orc_ui_composition() -> OrcUiComposition:
     overlays: WeatherOverlayController | None = None
     radar_replay: RadarReplayController | None = None
     navigation_places: NavigationPlacesFactory | None = None
+    games: GamesScreen | None = None
+    vision: VisionComposition | None = None
+    media: MediaComposition | None = None
     try:
         core = create_core_composition()
         app = core.app
         app.set_theme_change_handler(core.map_runtime.set_theme)
         core.map_runtime.set_theme(app.theme_mode)
         core.presentation.observe_weather_alert(app.present_weather_alert)
-        for destination in ("HOME", "NAVIGATION", "RADIO", "VEHICLE", "VISION", "LIGHTING", "GAMES", "MEDIA"):
+        for destination in (
+            "HOME",
+            "NAVIGATION",
+            "RADIO",
+            "VEHICLE",
+            "VISION",
+            "MEDIA",
+            "GAMES",
+            "LIGHTING",
+        ):
             app.register_navigation_destination(destination)
         radio = configure_radio(app, runtime)
         games = configure_games(app)
+        vision = configure_vision(app)
         media = configure_media(app, runtime)
         settings_store = AppSettingsStore()
         app_settings = settings_store.load()
@@ -284,6 +303,12 @@ def create_orc_ui_composition() -> OrcUiComposition:
                     overlays.close()
             finally:
                 try:
+                    if vision is not None:
+                        vision.close()
+                    if games is not None:
+                        games.shutdown()
+                    if media is not None:
+                        media.close()
                     if core is not None:
                         core.close()
                 finally:
@@ -296,6 +321,7 @@ def create_orc_ui_composition() -> OrcUiComposition:
         media=media,
         games=games,
         weather=weather,
+        vision=vision,
         home=home,
         navigation=navigation,
         vehicle=vehicle,
