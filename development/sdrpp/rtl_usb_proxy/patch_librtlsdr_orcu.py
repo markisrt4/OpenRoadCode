@@ -309,8 +309,52 @@ int rtlsdr_read_async(rtlsdr_dev_t *dev, rtlsdr_read_async_cb_t cb, void *ctx,
 			uint32_t offset = 0;
 			n = orcu_stream_bulk_in_read(dev->orcu_stream_fd, transport_buf, stream_len);
 			if (n <= 0) {
-				fprintf(stderr, "[ORCU] stream read ended: %d\\n", n);
+				fprintf(stderr, "[ORCU] stream read ended: %d cancel=%d\\n", n, dev->async_cancel);
 				fflush(stderr);
+				/*
+				 * The Android Bridge replaces UsbDeviceConnection after a terminal
+				 * bulk-IN failure.  The control TCP client survives and resolves the
+				 * manager's current connection for every request, so re-running the
+				 * normal RTL2832U/tuner initialization through this dev object restores
+				 * hardware state on the fresh Android connection.  Keep this entirely
+				 * inside librtlsdr so SDR++'s read_async worker never has to stop.
+				 */
+				if (!dev->async_cancel) {
+					int recover_r;
+					fprintf(stderr, "[ORCU recovery] unexpected IQ loss; reinitializing device\\n");
+					fflush(stderr);
+					if (dev->orcu_stream_fd >= 0) {
+						close(dev->orcu_stream_fd);
+						dev->orcu_stream_fd = -1;
+					}
+					/* Give the Bridge's terminal-failure path time to publish its
+					 * replacement UsbDeviceConnection before issuing control traffic. */
+					usleep(250000);
+					recover_r = rtlsdr_init_baseband(dev);
+					fprintf(stderr, "[ORCU recovery] baseband init result=%d\\n", recover_r);
+					fflush(stderr);
+					if (recover_r >= 0 && dev->tuner && dev->tuner->init) {
+						recover_r = dev->tuner->init(dev);
+						fprintf(stderr, "[ORCU recovery] tuner init result=%d\\n", recover_r);
+						fflush(stderr);
+					}
+					if (recover_r >= 0) {
+						rtlsdr_set_sample_rate(dev, dev->rate);
+						rtlsdr_set_center_freq(dev, dev->freq);
+						rtlsdr_reset_buffer(dev);
+						dev->orcu_stream_fd = orcu_connect("127.0.0.1", 35100);
+						if (dev->orcu_stream_fd >= 0 &&
+						    orcu_claim(dev->orcu_stream_fd, 0, 1) >= 0 &&
+						    orcu_stream_bulk_in_start(dev->orcu_stream_fd, 0x81, stream_len, 250) >= 0) {
+							fprintf(stderr, "[ORCU recovery] IQ stream restarted fd=%d\\n", dev->orcu_stream_fd);
+							fflush(stderr);
+							callback_used = 0;
+							continue;
+						}
+					}
+					fprintf(stderr, "[ORCU recovery] recovery failed; ending read_async\\n");
+					fflush(stderr);
+				}
 				break;
 			}
 			orcu_frames++;
