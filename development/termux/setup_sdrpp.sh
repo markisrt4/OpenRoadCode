@@ -155,6 +155,34 @@ if new not in source:
 path.write_text(source)
 PY
 
+echo "[*] Instrumenting SDR++ active OpenGL renderer"
+python3 - "$SDRPP_SRC/core/backends/glfw/backend.cpp" <<'PY'
+from pathlib import Path
+import sys
+
+path = Path(sys.argv[1])
+source = path.read_text()
+old = """            flog::info("Using OpenGL {0}.{1}{2}", OPENGL_VERSIONS_MAJOR[i], OPENGL_VERSIONS_MINOR[i], OPENGL_VERSIONS_IS_ES[i] ? " ES" : "");
+            glfwMakeContextCurrent(window);
+            break;
+"""
+new = """            flog::info("Using OpenGL {0}.{1}{2}", OPENGL_VERSIONS_MAJOR[i], OPENGL_VERSIONS_MINOR[i], OPENGL_VERSIONS_IS_ES[i] ? " ES" : "");
+            glfwMakeContextCurrent(window);
+            const GLubyte* orcGlVendor = glGetString(GL_VENDOR);
+            const GLubyte* orcGlRenderer = glGetString(GL_RENDERER);
+            const GLubyte* orcGlVersion = glGetString(GL_VERSION);
+            flog::info("[ORC GL] vendor: {0}", orcGlVendor ? reinterpret_cast<const char*>(orcGlVendor) : "(null)");
+            flog::info("[ORC GL] renderer: {0}", orcGlRenderer ? reinterpret_cast<const char*>(orcGlRenderer) : "(null)");
+            flog::info("[ORC GL] version: {0}", orcGlVersion ? reinterpret_cast<const char*>(orcGlVersion) : "(null)");
+            break;
+"""
+if new not in source:
+    if old not in source:
+        raise SystemExit("Could not locate successful SDR++ GLFW context creation for renderer diagnostics")
+    source = source.replace(old, new, 1)
+path.write_text(source)
+PY
+
 echo "[*] Hardening SDR++ audio sink for delayed PulseAudio device discovery"
 python3 - "$SDRPP_SRC/sink_modules/audio_sink/src/main.cpp" <<'PY'
 from pathlib import Path
