@@ -188,6 +188,30 @@ if new not in source:
 path.write_text(source)
 PY
 
+echo "[*] Instrumenting SDR++ stop input source"
+python3 - "$SDRPP_SRC/core/src/gui/main_window.cpp" <<'PY'
+from pathlib import Path
+import sys
+
+path = Path(sys.argv[1])
+source = path.read_text()
+old = '''        if (ImGui::ImageButton(icons::STOP, btnSize, ImVec2(0, 0), ImVec2(1, 1), 5, ImVec4(0, 0, 0, 0), textCol) || ImGui::IsKeyPressed(ImGuiKey_End, false)) {
+            setPlayState(false);
+        }'''
+new = '''        bool orcStopButton = ImGui::ImageButton(icons::STOP, btnSize, ImVec2(0, 0), ImVec2(1, 1), 5, ImVec4(0, 0, 0, 0), textCol);
+        bool orcEndKey = ImGui::IsKeyPressed(ImGuiKey_End, false);
+        if (orcStopButton || orcEndKey) {
+            flog::warn("[ORC INPUT] SDR stop requested: button={0} endKey={1}",
+                       orcStopButton ? 1 : 0, orcEndKey ? 1 : 0);
+            setPlayState(false);
+        }'''
+if new not in source:
+    if old not in source:
+        raise SystemExit("Could not locate SDR++ stop button/End-key handler for ORC input diagnostics")
+    source = source.replace(old, new, 1)
+path.write_text(source)
+PY
+
 echo "[*] Hardening SDR++ audio sink for delayed PulseAudio device discovery"
 python3 - "$SDRPP_SRC/sink_modules/audio_sink/src/main.cpp" <<'PY'
 from pathlib import Path
