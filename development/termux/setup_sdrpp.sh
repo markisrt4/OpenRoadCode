@@ -240,17 +240,16 @@ import sys
 path = Path(sys.argv[1])
 source = path.read_text()
 
-alloc = '''            waterfallFb = new uint32_t[dataWidth * waterfallHeight];
-            memset(waterfallFb, 0, dataWidth * waterfallHeight * sizeof(uint32_t));'''
-alloc_diag = '''            waterfallFb = new uint32_t[dataWidth * waterfallHeight];
+alloc = "waterfallFb = new uint32_t[dataWidth * waterfallHeight];"
+alloc_diag = '''waterfallFb = new uint32_t[dataWidth * waterfallHeight];
             fprintf(stderr, "[ORC waterfall] alloc fb=%p width=%d height=%d pixels=%zu\\n",
                     (void*)waterfallFb, dataWidth, waterfallHeight,
                     (size_t)dataWidth * (size_t)waterfallHeight);
-            fflush(stderr);
-            memset(waterfallFb, 0, dataWidth * waterfallHeight * sizeof(uint32_t));'''
-if alloc not in source:
-    raise SystemExit("Could not locate SDR++ waterfall framebuffer allocation")
-source = source.replace(alloc, alloc_diag, 1)
+            fflush(stderr);'''
+if alloc_diag not in source:
+    if source.count(alloc) != 1:
+        raise SystemExit(f"Expected one SDR++ waterfall framebuffer allocation, found {source.count(alloc)}")
+    source = source.replace(alloc, alloc_diag, 1)
 
 move = '''            memmove(&waterfallFb[dataWidth], waterfallFb, dataWidth * (waterfallHeight - 1) * sizeof(uint32_t));'''
 move_diag = '''            fprintf(stderr, "[ORC waterfall] push fb=%p width=%d height=%d rawFFTSize=%d currentFFTLine=%d latestFFT=%p visible=%d bytes=%zu\\n",
