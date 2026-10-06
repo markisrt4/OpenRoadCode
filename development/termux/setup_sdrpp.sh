@@ -99,8 +99,13 @@ fi
 echo "[*] Updating SDR++"
 git -C "$SDRPP_SRC" fetch --tags --prune origin
 git -C "$SDRPP_SRC" checkout "$SDRPP_REF"
+# SDRPP_REF may be a pinned commit SHA rather than a remote branch. Always
+# discard source edits from a previous setup attempt before applying ORC's
+# transformations, otherwise a failed run leaves a partially patched tree.
 if git -C "$SDRPP_SRC" show-ref --verify --quiet "refs/remotes/origin/$SDRPP_REF"; then
   git -C "$SDRPP_SRC" reset --hard "origin/$SDRPP_REF"
+else
+  git -C "$SDRPP_SRC" reset --hard "$SDRPP_REF"
 fi
 
 echo "[*] Building ORCU-backed librtlsdr"
