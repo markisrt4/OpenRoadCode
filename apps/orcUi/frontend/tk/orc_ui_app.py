@@ -16,7 +16,11 @@ from .screen_builders import (
 from .shell_metrics import TARGET_GEOMETRY, TARGET_HEIGHT, TARGET_WIDTH
 from .shell_view import OrcUiShellView
 from apps.orcUi.theme_runtime import theme_bundle
-from common.host_config import installed_target, orcui_fullscreen_default
+from common.host_config import (
+    installed_target,
+    orcui_borderless_default,
+    orcui_fullscreen_default,
+)
 from ui.screen_ui_if import ScreenUiIf
 from ui.system import SystemLifecycleRequestHandlerIf, VolumeRequestHandlerIf, VolumeUiIf
 from ui.weather import WeatherAlertUiEvent
@@ -37,6 +41,7 @@ class OrcUiApp(VolumeUiIf):
         self._root.title("OpenRoadCode")
         target = installed_target()
         fullscreen = orcui_fullscreen_default()
+        self._borderless = orcui_borderless_default() and not fullscreen
         default_geometry = "1024x600" if target == "termux" else TARGET_GEOMETRY
         geometry = os.environ.get("ORCUI_GEOMETRY", default_geometry)
         if fullscreen:
@@ -46,6 +51,9 @@ class OrcUiApp(VolumeUiIf):
             self._root.resizable(True, True)
             if target != "termux":
                 self._root.minsize(TARGET_WIDTH, TARGET_HEIGHT)
+            if self._borderless:
+                self._root.overrideredirect(True)
+                self._root.bind("<Escape>", self._restore_window_decorations)
         self._root.configure(bg=ui.background)
         self._shell: OrcUiShellView | None = None
         self._adsb_enabled = False
@@ -226,6 +234,14 @@ class OrcUiApp(VolumeUiIf):
             self._shutdown()
     def _on_sigint(self, _signum, _frame) -> None:
         self._root.after_idle(self._shutdown)
+    def _restore_window_decorations(self, _event: object | None = None) -> None:
+        """Leave borderless mode without closing the ORC process."""
+        if not self._borderless:
+            return
+        self._borderless = False
+        self._root.overrideredirect(False)
+        self._root.resizable(True, True)
+        self._root.minsize(TARGET_WIDTH, TARGET_HEIGHT)
     def _shutdown(self) -> None:
         if self._closing:
             return

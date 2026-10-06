@@ -9,10 +9,25 @@ from tempfile import TemporaryDirectory
 from unittest import TestCase
 from unittest.mock import patch
 
-from common.host_config import installed_target, orcui_fullscreen_default
+from common.host_config import (
+    installed_target,
+    orcui_borderless_default,
+    orcui_fullscreen_default,
+)
 
 
 class HostConfigTest(TestCase):
+    def test_borderless_defaults_off_and_accepts_explicit_override(self) -> None:
+        with patch.dict(os.environ, {}, clear=True):
+            self.assertFalse(orcui_borderless_default())
+        with patch.dict(os.environ, {"ORCUI_BORDERLESS": "yes"}, clear=True):
+            self.assertTrue(orcui_borderless_default())
+
+    def test_borderless_rejects_invalid_override(self) -> None:
+        with patch.dict(os.environ, {"ORCUI_BORDERLESS": "sometimes"}, clear=True):
+            with self.assertRaisesRegex(ValueError, "ORCUI_BORDERLESS"):
+                orcui_borderless_default()
+
     def test_raspberry_pi_targets_default_to_fullscreen(self) -> None:
         with TemporaryDirectory() as directory:
             path = Path(directory) / "host.toml"
