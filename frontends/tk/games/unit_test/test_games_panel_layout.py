@@ -35,9 +35,9 @@ class GamesPanelLayoutTest(unittest.TestCase):
     def _check_text_fits(self) -> None:
         self.root.update()
         self.assertTrue(self.panel._next_button.winfo_ismapped())
-        for card in self.panel._body.winfo_children():
+        for card in self.panel._cards.winfo_children():
             self.assertLessEqual(card.winfo_y() + card.winfo_height(),
-                                 self.panel._body.winfo_height())
+                                 self.panel._cards.winfo_height())
             for widget in card.winfo_children():
                 if isinstance(widget, (tk.Label, tk.Button)):
                     self.assertGreaterEqual(widget.winfo_height(), widget.winfo_reqheight())
@@ -61,6 +61,14 @@ class GamesPanelLayoutTest(unittest.TestCase):
                     self.panel._change_page(1)
                     self._check_text_fits()
                 self.assertEqual({game.game_id for game in self.games if game.category == "puzzle"}, seen)
+
+    def test_short_window_keeps_six_games_on_each_full_page(self) -> None:
+        self.root.geometry("900x340")
+        self.root.update()
+        self.assertEqual(6, self.panel._page_size)
+        self.assertEqual(6, len(self.panel._cards.winfo_children()))
+        self._check_text_fits()
+        self.assertEqual("1 / 3", self.panel._page_label.cget("text"))
 
     def test_runtime_resize_and_return_restore_catalog(self) -> None:
         self.root.geometry("900x400")

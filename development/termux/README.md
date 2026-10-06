@@ -151,9 +151,10 @@ The ORC UI Games panel reads `config/games.toml`, discovers installed/available 
 
 The Games frontend requires `xdotool` for X11 embedding. When a Debian game is selected, the controller chooses the Debian backend without exposing whether Debian is native or hosted through `proot-distro` to the UI.
 
-The game browser adapts its columns and number of cards per page to the window
-size and font metrics. Narrow Termux/X11 windows show one column; short windows
-show fewer cards with **PREV/NEXT** navigation. Titles and descriptions wrap above
+The game browser adapts its columns to the window size and font metrics.
+Narrow Termux/X11 windows show one column. Each full page keeps six games;
+short windows scroll vertically instead of hiding games or stretching cards.
+Use **PREV/NEXT** to navigate between pages. Titles and descriptions wrap above
 the action button, and installation status appears below the wrapping filters.
 
 While a game is active, ORC replaces the category browser with an **EXIT GAME** control and reparents the game's X11 window into the Games content area. Closing a game through its own menu is also detected and returns the panel to the game browser. Window embedding is best effort because third-party games can create helper processes or reposition their own top-level windows; the X11 frontend searches the launched process tree and reasserts the ORC host geometry during startup.

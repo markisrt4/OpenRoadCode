@@ -199,16 +199,11 @@ class GamesPanel(tk.Frame, GamesUiIf):
             return
         # Use actual font metrics: Termux font substitution/DPI can change sizes.
         title = tkfont.Font(self, font=("Sans", 18, "bold"))
-        description = tkfont.Font(self, font=("Sans", 15))
         action = tkfont.Font(self, font=("Sans", 14, "bold"))
         minimum_width = max(340, 100 + title.measure("GNOME Sudoku"),
                             100 + 2 * action.measure("UNAVAILABLE") + 36)
         columns = 2 if event.width >= 2 * minimum_width else 1
-        minimum_height = (2 * title.metrics("linespace")
-                          + 3 * description.metrics("linespace")
-                          + action.metrics("linespace") + 50)
-        rows = max(1, min(3, event.height // minimum_height))
-        page_size = columns * rows
+        page_size = PAGE_SIZE
         if (columns, page_size) != (self._columns, self._page_size):
             first_game = self._page * self._page_size
             self._columns, self._page_size = columns, page_size
@@ -322,19 +317,30 @@ class GamesPanel(tk.Frame, GamesUiIf):
         self._page_label.configure(text=f"{self._page + 1} / {page_count}" if page_count > 1 else "")
         self._prev_button.configure(state=tk.NORMAL if self._page > 0 else tk.DISABLED)
         self._next_button.configure(state=tk.NORMAL if self._page + 1 < page_count else tk.DISABLED)
-        for column in range(2):
-            self._body.grid_columnconfigure(column, weight=1 if column < self._columns else 0, uniform="game" if column < self._columns else "")
-        rows = self._page_size // self._columns
-        for row in range(3):
-            self._body.grid_rowconfigure(row, weight=1 if row < rows else 0, uniform="game" if row < rows else "")
+        # Keep six games per page. Let cards request their natural height and
+        # scroll the content rather than hiding games or stretching one row.
+        canvas = tk.Canvas(self._body, bg=self._theme.ui.background,
+                           highlightthickness=0, width=1, height=1)
+        scrollbar = tk.Scrollbar(self._body, orient=tk.VERTICAL, command=canvas.yview)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        canvas.pack(fill=tk.BOTH, expand=True)
+        canvas.configure(yscrollcommand=scrollbar.set)
+        self._cards = tk.Frame(canvas, bg=self._theme.ui.background)
+        window = canvas.create_window(0, 0, window=self._cards, anchor="nw")
+        for column in range(self._columns):
+            self._cards.grid_columnconfigure(column, weight=1, uniform="game")
         for index, game in enumerate(page_games):
-            self._game_card(self._body, game).grid(
+            self._game_card(self._cards, game).grid(
                 row=index // self._columns,
                 column=index % self._columns,
                 sticky="nsew",
                 padx=6,
                 pady=5,
             )
+        canvas.bind("<Configure>", lambda event: canvas.itemconfigure(window, width=event.width))
+        self._cards.bind("<Configure>", lambda event: canvas.configure(scrollregion=canvas.bbox("all")))
+        canvas.bind("<Button-4>", lambda event: canvas.yview_scroll(-1, "units"))
+        canvas.bind("<Button-5>", lambda event: canvas.yview_scroll(1, "units"))
 
     def _find_icon(self, icon_name: str) -> Path | None:
         prefix = Path(os.environ.get("PREFIX", "/usr"))
