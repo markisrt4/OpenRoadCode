@@ -123,6 +123,38 @@ export PKG_CONFIG_PATH="$RTLSDR_PREFIX/lib/pkgconfig:$RTLSDR_PREFIX/lib64/pkgcon
 export CMAKE_PREFIX_PATH="$RTLSDR_PREFIX:${CMAKE_PREFIX_PATH:-}"
 export LD_LIBRARY_PATH="$RTLSDR_PREFIX/lib:$RTLSDR_PREFIX/lib64:${LD_LIBRARY_PATH:-}"
 
+echo "[*] Selecting EGL context creation for SDR++ GLFW on Android VirGL"
+python3 - "$SDRPP_SRC/core/backends/glfw/backend.cpp" <<'PY'
+from pathlib import Path
+import sys
+
+path = Path(sys.argv[1])
+source = path.read_text()
+old = """        if (!glfwInit()) {
+            return 1;
+        }
+
+    #ifdef __APPLE__
+"""
+new = """        if (!glfwInit()) {
+            return 1;
+        }
+
+        // ORC's Debian/proot graphics bridge has a working EGL/X11 path
+        // through virpipe and virgl_test_server_android --angle-vulkan.
+        // The native X11 context API selects GLX, which is not usable on
+        // this bridge, so keep GLFW on EGL for every context attempt.
+        glfwWindowHint(GLFW_CONTEXT_CREATION_API, GLFW_EGL_CONTEXT_API);
+
+    #ifdef __APPLE__
+"""
+if new not in source:
+    if old not in source:
+        raise SystemExit("Could not locate SDR++ GLFW initialization for EGL selection")
+    source = source.replace(old, new, 1)
+path.write_text(source)
+PY
+
 echo "[*] Hardening SDR++ audio sink for delayed PulseAudio device discovery"
 python3 - "$SDRPP_SRC/sink_modules/audio_sink/src/main.cpp" <<'PY'
 from pathlib import Path
