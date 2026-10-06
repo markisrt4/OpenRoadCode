@@ -362,9 +362,26 @@ new = '''        static unsigned long long orcCallbacks = 0;
         }
         if (!swapped) { return; }
     }'''
-if old not in source:
-    raise SystemExit("Could not locate RTLSDRSourceModule::asyncHandler stream swap")
-source = source.replace(old, new, 1)
+if new not in source:
+    if old not in source:
+        swap = "        if (!_this->stream.swap(sampCount)) { return; }"
+        replacement = """        static unsigned long long orcCallbacks = 0;
+        static unsigned long long orcSwapFailures = 0;
+        orcCallbacks++;
+        bool swapped = _this->stream.swap(sampCount);
+        if (!swapped) { orcSwapFailures++; }
+        if (orcCallbacks <= 16 || (orcCallbacks % 4096) == 0 || (!swapped && orcSwapFailures <= 16)) {
+            fprintf(stderr,
+                    "[ORC RTL source] callback=%llu samples=%d swap=%d failures=%llu\\n",
+                    orcCallbacks, sampCount, swapped ? 1 : 0, orcSwapFailures);
+            fflush(stderr);
+        }
+        if (!swapped) { return; }"""
+        if source.count(swap) != 1:
+            raise SystemExit(f"Expected one RTLSDRSourceModule async stream swap, found {source.count(swap)}")
+        source = source.replace(swap, replacement, 1)
+    else:
+        source = source.replace(old, new, 1)
 path.write_text(source)
 PY
 
