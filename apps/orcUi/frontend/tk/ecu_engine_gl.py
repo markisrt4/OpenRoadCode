@@ -42,8 +42,9 @@ def create_engine_gl(parent, *, theme, on_failure, on_unavailable=None):
             on_unavailable("OPENROAD_ECU_RENDERER=canvas")
         return None
     try:
-        from pyopengltk import OpenGLFrame
-        from OpenGL import GL as gl, GLU as glu
+        from .ecu_gl_backend import load_gl_backend
+
+        OpenGLFrame, gl, glu = load_gl_backend()
     except (ImportError, OSError, RuntimeError) as exc:
         _LOG.warning("ECU OpenGL unavailable; using schematic: %s", exc)
         if on_unavailable is not None:

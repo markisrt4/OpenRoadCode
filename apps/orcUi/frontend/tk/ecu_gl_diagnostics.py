@@ -11,21 +11,23 @@ import tkinter as tk
 
 from ui.theme import load_theme_bundle
 from .ecu_engine_gl import create_engine_gl
+from .ecu_gl_backend import load_gl_backend
 
 
 def main() -> int:
     print(f"Python: {sys.executable}", flush=True)
+    print(f"Platform: {sys.platform}", flush=True)
     print(f"Display: {os.environ.get('DISPLAY', '(unset)')}", flush=True)
     print(f"Renderer setting: {os.environ.get('OPENROAD_ECU_RENDERER', 'auto')}", flush=True)
     for library in ('GL', 'GLU', 'X11'):
         print(f"{library} library: {ctypes.util.find_library(library) or 'MISSING'}", flush=True)
     try:
-        from OpenGL import GL
-        import pyopengltk  # noqa: F401
+        _, GL, _ = load_gl_backend()
     except (ImportError, OSError, RuntimeError) as exc:
         print(f"OpenGL import failed: {exc}", flush=True)
-        print(f'Install into this interpreter: {sys.executable} -m pip install '
-              'PyOpenGL==3.1.10 pyopengltk==0.0.4', flush=True)
+        if isinstance(exc, ModuleNotFoundError):
+            print(f'Install into this interpreter: {sys.executable} -m pip install '
+                  'PyOpenGL==3.1.10 pyopengltk==0.0.4', flush=True)
         return 1
     try:
         root = tk.Tk()
