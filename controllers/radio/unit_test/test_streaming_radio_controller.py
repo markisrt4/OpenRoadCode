@@ -10,7 +10,7 @@ from controllers.radio.adapters.radio_browser_directory import RadioBrowserDirec
 
 from controllers.audio.streaming_audio_player_if import StreamingAudioPlayerIf
 from controllers.radio.streaming_radio_controller import StreamingRadioController
-from controllers.radio.streaming_radio_types import StreamingRadioStation
+from ui.radio.streaming_radio_types import (StreamingRadioStation)
 
 
 class _FakeStreamingAudioPlayer(StreamingAudioPlayerIf):

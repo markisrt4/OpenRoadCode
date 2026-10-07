@@ -148,7 +148,6 @@ class NavigationRuntime:
     def close(self) -> None:
         """Stop command handling, cancel guidance, and release the controller."""
         self._stop_event.set()
-        self._stop_route_simulation()
         self._cancel_route()
         self._command_server.close()
         thread = self._command_thread
@@ -169,6 +168,8 @@ class NavigationRuntime:
         if route_planner is None:
             raise RuntimeError("route planning is not configured")
 
+        self._stop_route_simulation()
+
         if self._guidance_controller is None:
             self._guidance_controller = RouteGuidanceController(route)
 
@@ -182,6 +183,7 @@ class NavigationRuntime:
         self._session_controller.start(request, route=route)
 
     def _cancel_route(self) -> None:
+        self._stop_route_simulation()
         session = self._session_controller
         if session is not None:
             session.cancel()
@@ -224,3 +226,5 @@ class NavigationRuntime:
         guidance = guidance_controller.update(position)
         self._guidance_publisher.publish(guidance)
         session.update(position, guidance)
+        if guidance.route_complete:
+            self._stop_route_simulation()

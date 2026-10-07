@@ -30,8 +30,6 @@ Timestamp uses the common OpenRoadCode timestamp contract:
     "latitude_rad": 0.74705,
     "longitude_rad": -1.44885,
     "altitude_m": 250.5,
-    "speed_m_s": 13.4,
-    "course_rad": 1.5707963267948966,
     "fix_mode": 3,
     "satellites_visible": 14,
     "satellites_used": 10,
@@ -48,8 +46,6 @@ Timestamp uses the common OpenRoadCode timestamp contract:
 | `latitude_rad` | number | rad, -pi/2..pi/2 | yes | Geodetic latitude |
 | `longitude_rad` | number | rad, -pi..pi | yes | Geodetic longitude |
 | `altitude_m` | number | m | yes | Altitude reported by the source; signed values are allowed |
-| `speed_m_s` | number | m/s, >= 0 | yes | Ground speed |
-| `course_rad` | number | rad, 0..2*pi | yes | Course over ground, clockwise from north |
 | `fix_mode` | integer | 1, 2, or 3 | yes | Source fix mode: no fix, 2D, or 3D |
 | `satellites_visible` | integer | >= 0 | yes | Satellites visible to the source |
 | `satellites_used` | integer | >= 0 | yes | Satellites used in the solution |
@@ -57,6 +53,17 @@ Timestamp uses the common OpenRoadCode timestamp contract:
 | `is_cached` | boolean | true/false | no | True when the position is a retained/cached sample rather than a fresh observation |
 
 When both satellite counts are available, `satellites_used` must not exceed `satellites_visible`.
+
+Position messages do not include speed or course. Those values belong to
+`openroad.navigation.motion`, documented in the
+[Message Bus IDD](../messaging/message_bus_idd.md#openroadnavigationmotion).
+Older position examples containing `speed_m_s` or `course_rad` do not match the
+current encoder/validator; unknown data fields are rejected.
+
+Service-local route playback uses `source = "route-simulation"` without changing
+the schema. Synthetic fix/accuracy/satellite values are development data, not
+evidence of an actual GNSS fix. The bridge continues producing real GPS while
+ORC temporarily publishes the route-generated position.
 
 ## Producer requirements
 

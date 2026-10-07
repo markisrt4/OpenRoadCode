@@ -9,7 +9,7 @@ import threading
 import tkinter as tk
 from collections.abc import Callable
 
-from controllers.connectivity.online_mode import OnlineModeController
+from ui.system.online_mode_if import OnlineModeIf
 from frontends.tk.offline_card import OfflineCardAppearance
 from apps.orcUi.adapters.adsb_control import OrcUiAdsbControl
 from apps.orcUi.radio_application_service import RadioApplicationServiceIf
@@ -86,7 +86,7 @@ class RadioEntryPanel(tk.Frame):
         embedder: X11WindowEmbedder | None = None,
         adsb_control: OrcUiAdsbControl | None = None,
         on_location_changed: Callable[[str], None] | None = None,
-        online_mode: OnlineModeController | None = None,
+        online_mode: OnlineModeIf | None = None,
     ) -> None:
         self._online_mode = online_mode
         self._unsubscribe_online = (online_mode.subscribe(self._mode_changed)

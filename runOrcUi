@@ -46,10 +46,8 @@ trap 'exit 143' TERM
 # Start the UI first, then show the existing Termux:X11 display.
 am_bin="$(command -v am || true)"
 am_bin="${am_bin:-/system/bin/am}"
-if am_output="$("$am_bin" start --user 0 -n com.termux.x11/com.termux.x11.MainActivity 2>&1)"; then
-    : # Already foregrounded is a successful launch, not an actionable warning.
-else
-    printf '%s\n' "$am_output" >&2
+if ! x11_launch_output="$("$am_bin" start --user 0 -n com.termux.x11/com.termux.x11.MainActivity 2>&1)"; then
+    printf '%s\n' "$x11_launch_output" >&2
     echo "[!] Could not bring Termux:X11 to the foreground; open it manually." >&2
 fi
 

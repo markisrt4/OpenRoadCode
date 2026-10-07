@@ -28,15 +28,19 @@ protocol and controller code without depending on ELM327 command syntax.
 
 ## Installation
 
-The default host installer includes automotive support. To request only the
-automotive and ELM327 feature bundles explicitly, run:
+Automotive and Bluetooth support are optional host features. On a Raspberry
+Pi 5, install both and configure the ELM327 RFCOMM binding with:
 
 ```bash
-scripts/host_setup.sh --feature automotive --feature elm327
+scripts/installers/host_setup.sh \
+    --target rpi5 \
+    --feature automotive \
+    --feature bluetooth \
+    --bluetooth-spp-address 12:34:5A:05:9C:54
 ```
 
-The ELM327 feature installs `pyserial`. Bluetooth ELM327 devices also require
-the separate `bluetooth` feature and an established RFCOMM connection.
+The automotive feature installs `pyserial`. The Bluetooth feature installs the
+BlueZ utilities used to establish and persist the RFCOMM connection.
 
 ## Decoded OBD-II Component Test
 

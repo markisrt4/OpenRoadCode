@@ -10,7 +10,7 @@ import subprocess
 import threading
 import time
 
-from apps.launchers.app_launcher_if import StatusCallback
+from ui.system.app_launcher_if import (StatusCallback)
 from apps.launchers.sdrpp_launcher import SDRPPLauncher
 
 

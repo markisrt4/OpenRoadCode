@@ -60,7 +60,7 @@ std::optional<MapCommand> MapCommandServer::parseCommand(const std::string& payl
     if (document.HasMember("operation_id") && document["operation_id"].IsString())
         command.operationId = document["operation_id"].GetString();
 
-    if (command.command == "set_route" || command.command == "set_poi_results") {
+    if (command.command == "set_route" || command.command == "set_poi_results" || command.command == "set_route_weather" || command.command == "set_city_weather") {
         if (!document.HasMember("geojson") || !document["geojson"].IsObject()) return std::nullopt;
         rapidjson::StringBuffer buffer;
         rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
@@ -68,11 +68,40 @@ std::optional<MapCommand> MapCommandServer::parseCommand(const std::string& payl
         command.geojson = buffer.GetString();
         return command;
     }
+    if (command.command == "search_weather_cities") {
+        if (!document.HasMember("request_id") || !document["request_id"].IsInt64() ||
+            document["request_id"].GetInt64() < 0) return std::nullopt;
+        command.requestId = document["request_id"].GetInt64();
+        return command;
+    }
     if (command.command == "set_poi_focus" || command.command == "search_pois") {
         if (!document.HasMember("category") || !document["category"].IsString()) return std::nullopt;
         command.category = document["category"].GetString();
         command.enabled = document.HasMember("enabled") && document["enabled"].IsBool()
             ? document["enabled"].GetBool() : !command.category.empty();
+        return command;
+    }
+    if (command.command == "set_weather_radar" || command.command == "set_weather_field") {
+        if (!document.HasMember("enabled") || !document["enabled"].IsBool()) return std::nullopt;
+        command.enabled = document["enabled"].GetBool();
+        if (document.HasMember("opacity")) {
+            if (!document["opacity"].IsNumber()) return std::nullopt;
+            command.opacity = document["opacity"].GetDouble();
+            if (command.opacity < 0.0 || command.opacity > 1.0) return std::nullopt;
+        }
+        if (document.HasMember("tile_url")) {
+            if (!document["tile_url"].IsString()) return std::nullopt;
+            command.tileUrl = document["tile_url"].GetString();
+        }
+        if (document.HasMember("frame_time") && !document["frame_time"].IsNull()) {
+            if (!document["frame_time"].IsInt64()) return std::nullopt;
+            command.frameTime = document["frame_time"].GetInt64();
+        }
+        if (document.HasMember("max_zoom")) {
+            if (!document["max_zoom"].IsInt()) return std::nullopt;
+            command.maxZoom = document["max_zoom"].GetInt();
+            if (command.maxZoom < 0 || command.maxZoom > 22) return std::nullopt;
+        }
         return command;
     }
     if (command.command == "set_center" || command.command == "set_position") {

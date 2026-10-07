@@ -352,6 +352,39 @@ def test_clear_discards_late_renderer_viewport_reply() -> None:
     assert search_source.queries == []
 
 
+def test_default_database_uses_termux_data_and_explicit_override(monkeypatch, tmp_path):
+    from controllers.poi.poi_search_controller import _default_search_database
+    monkeypatch.delenv('OPENROADCODE_DATA_ROOT', raising=False)
+    monkeypatch.setenv('TERMUX_VERSION', '0.118')
+    monkeypatch.setenv('XDG_DATA_HOME', str(tmp_path))
+    assert _default_search_database() == tmp_path / 'openroadcode/maps/search/openroadcode-search.sqlite'
+    monkeypatch.setenv('OPENROADCODE_DATA_ROOT', str(tmp_path / 'custom'))
+    assert _default_search_database() == tmp_path / 'custom/maps/search/openroadcode-search.sqlite'
+
+
+def test_missing_database_reports_unavailable_and_search_recovers(monkeypatch, tmp_path):
+    import sqlite3
+    monkeypatch.setenv('OPENROADCODE_DATA_ROOT', str(tmp_path))
+    source = FakeViewportMapPoiSource()
+    controller = PoiSearchController(source, position_provider=lambda: None)
+    def reply():
+        controller.search(PoiCategory.FOOD)
+        source.search_result = RawPoiSearchResult('food', 0, 42.79, -83.03, 42.82, -82.99)
+        return controller.poll_search_result()
+    result = reply()
+    assert result is not None and 'unavailable' in result.error
+    assert controller.poll_search_result() is None
+    path = tmp_path / 'maps/search/openroadcode-search.sqlite'
+    path.parent.mkdir(parents=True)
+    with sqlite3.connect(path) as connection:
+        connection.execute('CREATE TABLE poi (id TEXT, name TEXT, brand TEXT, latitude REAL, longitude REAL, class TEXT, subclass TEXT, category TEXT)')
+        connection.execute("INSERT INTO poi VALUES ('1', 'Cafe', NULL, 42.8, -83.02, 'cafe', NULL, 'food')")
+    result = reply()
+    assert result is not None and result.error == ''
+    assert result.count == 1 and result.pois[0].name == 'Cafe'
+    controller.close()
+
+
 def test_renderer_selection_keeps_website_from_search_index():
     poi = PointOfInterest('osm:node:1', 'Independent Cafe', PoiCategory.FOOD,
                           GeoPoint(0, 0), website='https://cafe.example')

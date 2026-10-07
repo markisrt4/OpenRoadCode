@@ -40,7 +40,16 @@ from ui.navigation.route_request_handler_if import RouteRequestHandlerIf
 from ui.navigation.route_request_handler_stub import RouteRequestHandlerStub
 from ui.navigation.route_simulation_request_handler_if import RouteSimulationRequestHandlerIf
 
+from ui.navigation.map_runtime_if import MapRuntimeIf
+from ui.navigation.navigation_places_request_handler_if import (
+    MapFavorite, NavigationPlacesFactoryIf, NavigationPlacesRequestHandlerIf,
+)
+
 __all__ = [
+    "MapFavorite",
+    "MapRuntimeIf",
+    "NavigationPlacesFactoryIf",
+    "NavigationPlacesRequestHandlerIf",
     "AngularVelocityUiIf",
     "AngularVelocityUiStub",
     "HeadingReference",

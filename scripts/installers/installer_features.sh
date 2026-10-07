@@ -89,7 +89,6 @@ get_feature_dependencies() {
   local feature="$1"
   local target="${OPENROAD_INSTALL_TARGET:-linux-dev}"
   case "$feature" in
-    desktop-ui) echo "browser" ;;
     vnc) echo "desktop-ui" ;;
     spotify)
       [[ "$target" == "termux" ]] && echo "" || echo "audio"

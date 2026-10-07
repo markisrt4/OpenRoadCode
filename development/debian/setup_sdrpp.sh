@@ -8,6 +8,9 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ORC_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 REMOTE_CONTROL_SRC="$ORC_ROOT/development/sdrpp/remote_control"
 TELEMETRY_SRC="$ORC_ROOT/development/sdrpp/telemetry"
+TOOLCHAIN_LOCK="$ORC_ROOT/scripts/installers/toolchain.lock"
+# shellcheck disable=SC1090
+source "$TOOLCHAIN_LOCK"
 
 for module_dir in "$REMOTE_CONTROL_SRC" "$TELEMETRY_SRC"; do
   [[ -f "$module_dir/CMakeLists.txt" && -f "$module_dir/src/main.cpp" ]] || {
@@ -16,9 +19,10 @@ for module_dir in "$REMOTE_CONTROL_SRC" "$TELEMETRY_SRC"; do
   }
 done
 
-SDRPP_REF="${SDRPP_REF:-master}"
+SDRPP_REF="${SDRPP_REF:-$SDRPP_COMMIT}"
 BUILD_JOBS="${BUILD_JOBS:-4}"
-SDRPP_SRC="${SDRPP_SRC:-$HOME/SDRPlusPlus}"
+SDRPP_SRC="${SDRPP_SRC:-${XDG_STATE_HOME:-$HOME/.local/state}/openroadcode/build/SDRPlusPlus}"
+MANAGED_MARKER="$SDRPP_SRC/.openroadcode-managed-source"
 SDRPP_BUILD="$SDRPP_SRC/build"
 SDRPP_ROOT="$SDRPP_SRC/root_dev"
 REMOTE_CONTROL_DST="$SDRPP_SRC/misc_modules/remote_control"
@@ -53,16 +57,33 @@ $SUDO apt-get install -y \
   libhackrf-dev
 
 if [[ ! -d "$SDRPP_SRC/.git" ]]; then
+  if [[ -e "$SDRPP_SRC" ]]; then
+    echo "Refusing to replace an unmanaged SDR++ path: $SDRPP_SRC" >&2
+    exit 1
+  fi
   echo "[*] Cloning SDR++"
   git clone https://github.com/AlexandreRouma/SDRPlusPlus.git "$SDRPP_SRC"
+  : > "$MANAGED_MARKER"
 fi
+[[ -f "$MANAGED_MARKER" ]] || {
+  echo "Refusing to modify an SDR++ checkout not created by OpenRoadCode: $SDRPP_SRC" >&2
+  echo "Set SDRPP_SRC to an empty path for a managed build." >&2
+  exit 1
+}
 
-echo "[*] Updating SDR++"
+echo "[*] Selecting pinned SDR++ revision $SDRPP_REF"
 git -C "$SDRPP_SRC" fetch --tags --prune origin
-git -C "$SDRPP_SRC" checkout "$SDRPP_REF"
-if git -C "$SDRPP_SRC" show-ref --verify --quiet "refs/remotes/origin/$SDRPP_REF"; then
-  git -C "$SDRPP_SRC" reset --hard "origin/$SDRPP_REF"
+unexpected_changes="$(git -C "$SDRPP_SRC" status --porcelain --untracked-files=no \
+  | awk '$2 != "CMakeLists.txt" && $2 != "core/src/core.cpp"')"
+if [[ -n "$unexpected_changes" ]]; then
+  echo "Refusing to overwrite unexpected tracked changes in $SDRPP_SRC:" >&2
+  printf '%s\n' "$unexpected_changes" >&2
+  exit 1
 fi
+git -C "$SDRPP_SRC" restore --source HEAD -- CMakeLists.txt core/src/core.cpp
+git -C "$SDRPP_SRC" checkout --detach "$SDRPP_REF"
+# These are the only upstream files modified by the ORC module integration.
+git -C "$SDRPP_SRC" restore --source "$SDRPP_REF" -- CMakeLists.txt core/src/core.cpp
 
 echo "[*] Staging OpenRoadCode SDR++ modules"
 rm -rf "$REMOTE_CONTROL_DST" "$TELEMETRY_DST"

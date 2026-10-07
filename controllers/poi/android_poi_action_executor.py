@@ -5,17 +5,18 @@
 
 from __future__ import annotations
 
-from apps.launchers.android_app_launcher import AndroidAppLauncher
 from controllers.poi.business_provider_catalog import get_business_provider
 from controllers.poi.poi_action_executor_if import PoiActionExecutorIf
-from controllers.poi.poi_models import PoiAction, PoiActionKind, PointOfInterest
+from ui.navigation.poi_models import (PoiAction, PoiActionKind, PointOfInterest)
 
 
 class AndroidPoiActionExecutor(PoiActionExecutorIf):
     """Translate semantic POI actions into Android app or web launches."""
 
-    def __init__(self, launcher: AndroidAppLauncher | None = None) -> None:
-        self._launcher = launcher or AndroidAppLauncher()
+    def __init__(self, launcher=None) -> None:
+        if launcher is None:
+            raise ValueError('A platform launcher must be injected')
+        self._launcher = launcher
 
     def execute(self, poi: PointOfInterest, action: PoiAction) -> str:
         del poi

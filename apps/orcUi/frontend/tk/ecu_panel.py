@@ -11,18 +11,12 @@ import math
 from dataclasses import replace
 
 from apps.orcUi.vehicle_presenter import VehiclePresentationState
-from controllers.automotive import (
-    EngineAnalysis,
-    EngineLoadLevel,
-    FuelControlMode,
-    FuelCorrectionStatus,
-    MixtureMode,
-    TrackingQuality,
-    VehicleConfiguration,
-)
+from ui.automotive.engine_analysis import (EngineAnalysis, EngineLoadLevel, FuelControlMode, FuelCorrectionStatus, MixtureMode, TrackingQuality)
+from ui.automotive.vehicle_configuration import (VehicleConfiguration)
 from ui.theme import ThemeBundle
 from .ecu_engine_visual import paint_engine_visual, paint_engine_summary
 from .ecu_engine_gl import create_engine_gl
+from .ecu_card_layout import fit_ecu_card
 from .shell_metrics import FONT_BODY, FONT_CONTROL, FONT_SMALL
 
 
@@ -274,34 +268,8 @@ class EcuPanel(tk.Frame):
         return body
 
     def _fit_card(self, body: tk.Frame, width: int) -> None:
-        """Keep numbers readable before spending narrow card width on bars."""
-        compact = width < 320
-        short_labels = {
-            "commanded": "Target λ", "measured": "Actual λ", "load": "Load",
-            "boost": "Boost", "throttle": "Throttle", "timing": "Advance",
-            "fuel_status": "Fuel", "mixture_status": "Tracking", "ignition_status": "Timing",
-        }
-        for key, label in self._field_labels.items():
-            if label.master is body:
-                label.configure(text=short_labels.get(key, label._full_text) if compact else label._full_text)
-        for key, value in self._labels.items():
-            if value.master is not body:
-                continue
-            if key.endswith("_mode"):
-                value.configure(font=("Sans", FONT_SMALL if compact else 15, "bold"),
-                                wraplength=max(1, width-8))
-            elif key.endswith("_status"):
-                value.configure(font=("Sans", FONT_SMALL, "bold"),
-                                wraplength=max(1, width-65))
-            else:
-                value.configure(font=("Sans", FONT_SMALL if compact else FONT_BODY, "bold"))
-        for canvas in self._bars.values():
-            if canvas.master is body:
-                if compact:
-                    canvas.grid_remove()
-                else:
-                    canvas.grid()
-        body.grid_columnconfigure(2, weight=0 if compact else 2)
+        fit_ecu_card(body, width, field_labels=self._field_labels,
+                     labels=self._labels, bars=self._bars)
 
     def _value(self, parent: tk.Misc, row: int, key: str, label: str, *, status: bool = False) -> None:
         ui = self._theme.ui

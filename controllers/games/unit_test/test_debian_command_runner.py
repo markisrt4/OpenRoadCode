@@ -53,6 +53,27 @@ class DebianCommandRunnerGraphicsTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "unsupported rendering policy"):
             runner.graphical_command(["game"], rendering="phone-specific-magic")
 
+    @patch.dict("controllers.games.debian_command_runner.os.environ", {"TMPDIR": "/tmp/termux"}, clear=False)
+    @patch("controllers.games.debian_command_runner.Path.unlink")
+    @patch("controllers.games.debian_command_runner.subprocess.Popen")
+    @patch("controllers.games.debian_command_runner.shutil.which", return_value="/usr/bin/virgl_test_server_android")
+    @patch.object(DebianCommandRunner, "_virgl_socket_accepting", side_effect=(False, True))
+    def test_virgl_server_replaces_stale_socket_and_uses_angle_vulkan(
+        self, socket_accepting, which, popen, unlink
+    ) -> None:
+        runner = self._proot_runner()
+
+        self.assertTrue(runner._ensure_virgl_server())
+
+        unlink.assert_called_once_with(missing_ok=True)
+        popen.assert_called_once()
+        command = popen.call_args.args[0]
+        self.assertEqual(command[0], "/usr/bin/virgl_test_server_android")
+        self.assertIn("--no-fork", command)
+        self.assertIn("--angle-vulkan", command)
+        self.assertIn("--socket-path", command)
+        self.assertEqual(socket_accepting.call_count, 2)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Mark G. Russell
 // SPDX-License-Identifier: MIT
 #include "map_view.hpp"
+#include "weather_city_hit.hpp"
 #include "orc_logging.hpp"
 #include "map_renderer_frontend.hpp"
 #include "glfw_backend.hpp"
@@ -22,10 +23,12 @@
 #include <cctype>
 #include <cmath>
 #include <cstdlib>
+#include <iostream>
 #include <sstream>
 #include <limits>
 #include <optional>
 #include <string>
+#include <mbgl/util/tile_coordinate.hpp>
 
 namespace {
 constexpr std::size_t kPoiSampleLimit = 15;
@@ -121,7 +124,10 @@ MapView::MapView(const mbgl::ResourceOptions&, const mbgl::ClientOptions&) {
     glfwSetErrorCallback(glfwError);
 
 #if defined(__linux__) && defined(GLFW_PLATFORM_X11)
-    if (const char* parent = std::getenv("OPENROADCODE_MAP_PARENT_WINDOW"); parent && *parent) {
+    const char* parent = std::getenv("OPENROADCODE_MAP_PARENT_WINDOW");
+    const char* prefix = std::getenv("PREFIX");
+    if ((parent && *parent) ||
+        (prefix && std::string(prefix).starts_with("/data/data/com.termux/files/usr"))) {
         glfwInitHint(GLFW_PLATFORM, GLFW_PLATFORM_X11);
     }
 #endif
@@ -147,7 +153,22 @@ MapView::MapView(const mbgl::ResourceOptions&, const mbgl::ClientOptions&) {
     } else
         glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
     window = glfwCreateWindow(width, height, "OpenRoadCode Map Renderer", nullptr, nullptr);
+#if MBGL_WITH_EGL && defined(__linux__)
+    if (!window && mbgl::gfx::Backend::GetType() == mbgl::gfx::Backend::Type::OpenGL &&
+        glfwGetX11Display()) {
+        // Termux Mesa can expose a working GLX display while EGL display
+        // initialization fails. Keep the ES 3.0 and framebuffer requirements;
+        // only switch the context creation API for this second attempt.
+        std::cerr << "[map_renderer] EGL context unavailable; retrying X11 native (GLX) context\n";
+        glfwWindowHint(GLFW_CONTEXT_CREATION_API, GLFW_NATIVE_CONTEXT_API);
+        window = glfwCreateWindow(width, height, "OpenRoadCode Map Renderer", nullptr, nullptr);
+        if (window) {
+            std::cout << "[map_renderer] graphics context: X11 native (GLX), OpenGL ES 3.0\n";
+        }
+    }
+#endif
     if (!window) {
+        std::cerr << "[map_renderer] no graphics context could be created; check DISPLAY and Mesa drivers\n";
         glfwTerminate();
         std::exit(1);
     }
@@ -158,6 +179,7 @@ MapView::MapView(const mbgl::ResourceOptions&, const mbgl::ClientOptions&) {
     glfwSetWindowSizeCallback(window, onWindowResize);
     glfwSetFramebufferSizeCallback(window, onFramebufferResize);
     glfwSetCursorPosCallback(window, onMouseMove);
+    glfwSetCursorEnterCallback(window, onCursorEnter);
     glfwSetMouseButtonCallback(window, onMouseClick);
     glfwSetScrollCallback(window, onScroll);
     glfwSetWindowFocusCallback(window, onWindowFocus);
@@ -233,6 +255,7 @@ void MapView::onScroll(GLFWwindow* window, double, double y) {
         return;
     if (v->manualCameraCallback)
         v->manualCameraCallback();
+    v->clearMapHover();
     const double delta = y * 40.0;
     double scale = 2.0 / (1.0 + std::exp(-std::abs(delta) / 100.0));
     if (delta < 0)
@@ -336,6 +359,11 @@ void MapView::onMouseClick(GLFWwindow* window, int button, int action, int modif
                 const auto renderedFeatures =
                     v->rendererFrontend->getRenderer()->queryRenderedFeatures(hitPoint, {});
                 for (const auto& feature : renderedFeatures) {
+                    const auto cityId = weatherCityHitId(feature.properties);
+                    if (!cityId.empty()) {
+                        markerId = cityId;
+                        break;
+                    }
                     const auto idIt = feature.properties.find("id");
                     if (idIt == feature.properties.end() || !idIt->second.is<std::string>())
                         continue;
@@ -374,6 +402,8 @@ void MapView::onMouseClick(GLFWwindow* window, int button, int action, int modif
     }
 }
 void MapView::setPoiResultsJson(const std::string& geojson) {
+    poiHover.setData(geojson);
+    publishPoiHover();
     poiResults.clear();
 
     rapidjson::Document document;
@@ -473,7 +503,9 @@ void MapView::onMouseMove(GLFWwindow* window, double x, double y) {
     auto* v = static_cast<MapView*>(glfwGetWindowUserPointer(window));
     if (!v || !v->map)
         return;
+    v->pointerInside = true;
     if (v->tracking) {
+        v->clearMapHover();
         const double dx = x - v->lastX, dy = y - v->lastY;
         if (dx != 0 || dy != 0) {
             if (!v->manualGesturePublished && v->manualCameraCallback) {
@@ -503,6 +535,7 @@ void MapView::run() {
         if (updateCallback)
             updateCallback();
         render();
+        updateMapHover();
 #ifndef __APPLE__
         runLoop.updateTime();
 #endif
@@ -524,6 +557,40 @@ void MapView::onWillStartRenderingFrame() {
 }
 void MapView::setUpdateCallback(std::function<void()> callback) {
     updateCallback = std::move(callback);
+}
+
+void MapView::onDidFailLoadingMap(mbgl::MapLoadError, const std::string& message)
+{
+    std::cerr << "[map_renderer] MapLibre load error: " << message << '\n';
+}
+
+void MapView::onTileAction(
+    mbgl::TileOperation operation,
+    const mbgl::OverscaledTileID& tileId,
+    const std::string& sourceId
+)
+{
+    if (sourceId != "weather-radar" && sourceId != "weather-field") {
+        return;
+    }
+
+    const char* action = nullptr;
+    switch (operation) {
+        case mbgl::TileOperation::RequestedFromCache: action = "cache-request"; break;
+        case mbgl::TileOperation::RequestedFromNetwork: action = "network-request"; break;
+        case mbgl::TileOperation::LoadFromNetwork: action = "network-loaded"; break;
+        case mbgl::TileOperation::LoadFromCache: action = "cache-loaded"; break;
+        case mbgl::TileOperation::Error: action = "error"; break;
+        case mbgl::TileOperation::Cancelled: action = "cancelled"; break;
+        default: return;
+    }
+
+    std::cout << "[map_renderer] " << (sourceId == "weather-field" ? "weather field" : "radar") << " tile " << action
+              << " canonical=" << static_cast<int>(tileId.canonical.z)
+              << '/' << tileId.canonical.x
+              << '/' << tileId.canonical.y
+              << " display_z=" << static_cast<int>(tileId.overscaledZ)
+              << '\n';
 }
 void MapView::setPoiSelectedCallback(PoiSelectedCallback callback) {
     poiSelectedCallback = std::move(callback);

@@ -72,7 +72,7 @@ From the OpenRoadCode repository root:
 ./development/debian/setup_sdrpp.sh
 ```
 
-The script installs SDR++ build dependencies plus the X11 integration utilities used by ORC (`xdotool`, `xwininfo` via `x11-utils`, and `wmctrl`), builds SDR++, stages `remote_control.so` and `telemetry.so`, enables RigCTL, and installs `/usr/local/bin/sdrpp` as a wrapper around the matching ORC `root_dev` resource tree.
+The script installs SDR++ build dependencies plus the X11 integration utilities used by ORC (`xdotool`, `xwininfo` via `x11-utils`, and `wmctrl`), builds the revision pinned in `scripts/installers/toolchain.lock`, stages `remote_control.so` and `telemetry.so`, enables RigCTL, and installs `/usr/local/bin/sdrpp` as a wrapper around the matching ORC `root_dev` resource tree. The managed checkout lives under `~/.local/state/openroadcode/build/SDRPlusPlus`; an existing `~/SDRPlusPlus` checkout is never reset or modified.
 
 Run `orcUi` from an X11 session:
 
@@ -88,7 +88,7 @@ From a normal Termux shell:
 ./development/termux/setup_sdrpp.sh
 ```
 
-The script creates/uses the Debian proot, builds SDR++ and all three integration pieces there, and prepares the `root_dev` resource tree. Start Termux:X11 and follow `development/termux/README.md` for the current application launch sequence.
+The script creates/uses the Debian proot, builds the pinned SDR++ revision and all three integration pieces there, and prepares the `root_dev` resource tree in the proot's OpenRoadCode-managed state directory. Start Termux:X11 and follow `development/termux/README.md` for the current application launch sequence.
 
 ## Runtime verification
 

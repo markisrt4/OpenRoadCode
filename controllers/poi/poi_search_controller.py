@@ -9,6 +9,7 @@ import logging
 
 from common.logging.structured import event
 import math
+import sqlite3
 from collections.abc import Callable
 
 from common.navigation_data import search_database_path
@@ -16,7 +17,7 @@ from controllers.cache import PersistentCache
 from controllers.navigation.current_position import get_current_position
 from controllers.navigation.position_snapshot_cache import DEFAULT_POSITION_CACHE_DIRECTORY, PositionSnapshotCache
 from controllers.poi.poi_enricher import enrich_poi
-from controllers.poi.poi_models import PoiCategory, PoiSearchResult, PointOfInterest, TransitMode
+from ui.navigation.poi_models import (PoiCategory, PoiSearchResult, PointOfInterest, TransitMode)
 from controllers.poi.poi_search_controller_if import PoiSearchControllerIf
 from controllers.poi.poi_search_source_if import PoiSearchBounds, PoiSearchQuery, PoiSearchSourceIf
 from controllers.poi.sqlite_poi_search_source import SqlitePoiSearchSource
@@ -28,6 +29,8 @@ _LOG = logging.getLogger("navigation.poi")
 _EARTH_RADIUS_M = 6_378_137.0
 _NEARBY_RADIUS_M = 20_000.0
 _NEARBY_LIMIT = 50
+def _default_search_database():
+    return search_database_path()
 
 
 class PoiSearchController(PoiSearchControllerIf):
@@ -62,7 +65,9 @@ class PoiSearchController(PoiSearchControllerIf):
         if position is None:
             self._pending_search_result = PoiSearchResult(category=category, count=0, south=0.0, west=0.0, north=0.0, east=0.0, pois=())
             return
-        pois = self._offline_source().search(PoiSearchQuery(category=category, bounds=_nearby_bounds(position, _NEARBY_RADIUS_M), limit=_NEARBY_LIMIT, transit_mode=transit_mode))
+        pois = self._search_pois(PoiSearchQuery(category=category, bounds=_nearby_bounds(position, _NEARBY_RADIUS_M), limit=_NEARBY_LIMIT, transit_mode=transit_mode))
+        if pois is None:
+            return
         pois = tuple(poi for poi in pois if _distance_m(position, poi.position) <= _NEARBY_RADIUS_M)
         self._visible_pois = pois
         self._pending_search_result = _result_for(category, pois)
@@ -127,7 +132,7 @@ class PoiSearchController(PoiSearchControllerIf):
                 if pending is not None and viewport.category == pending[0].name.casefold():
                     category, transit_mode = pending
                     self._pending_viewport_search = None
-                    pois = self._offline_source().search(
+                    pois = self._search_pois(
                         PoiSearchQuery(
                             category=category,
                             bounds=PoiSearchBounds(
@@ -140,6 +145,9 @@ class PoiSearchController(PoiSearchControllerIf):
                             transit_mode=transit_mode,
                         )
                     )
+                    if pois is None:
+                        result, self._pending_search_result = self._pending_search_result, None
+                        return result
                     event(_LOG, logging.INFO, "poi.search.completed", "POI search completed",
                           category=category.name.casefold(), result_count=len(pois))
                     _LOG.debug("Search bounds=%.6f,%.6f,%.6f,%.6f",
@@ -164,6 +172,18 @@ class PoiSearchController(PoiSearchControllerIf):
         if self._search_source is not None and self._owns_search_source:
             self._search_source.close()
             self._search_source = None
+
+    def _search_pois(self, query: PoiSearchQuery) -> tuple[PointOfInterest, ...] | None:
+        try:
+            return self._offline_source().search(query)
+        except (sqlite3.Error, OSError) as error:
+            logging.getLogger(__name__).warning("POI database search failed: %s", error)
+            self._visible_pois = ()
+            self._pending_search_result = PoiSearchResult(
+                category=query.category, count=0, south=0, west=0, north=0, east=0,
+                error="POI search unavailable: check the installed offline search database",
+            )
+            return None
 
     def _offline_source(self) -> PoiSearchSourceIf:
         if self._search_source is None:

@@ -47,16 +47,7 @@ from messaging.message_dispatcher import MessageDispatcher
 from messaging.zeromq import ZeroMqSubscriber
 from messaging.zeromq.endpoints import LOCAL_SUBSCRIBER_ENDPOINT
 from ui.theme import ThemeMode
-
-
-class MapRuntimeIf(Protocol):
-    """Map-process behavior required by the Tk shell."""
-
-    def set_theme(self, mode: ThemeMode) -> None: ...
-
-    def launch(self, parent_window_id: int) -> None: ...
-
-    def stop(self) -> None: ...
+from ui.navigation.map_runtime_if import MapRuntimeIf
 
 
 class MapRuntime:
@@ -64,19 +55,37 @@ class MapRuntime:
 
     def __init__(self, renderer: MapRendererLauncher | None = None) -> None:
         self._renderer = renderer or MapRendererLauncher()
+        self._display = os.environ.get("DISPLAY", ":1")
+        self._parent_window_id: int | None = None
+        self._theme_mode: ThemeMode | None = None
 
     def set_theme(self, mode: ThemeMode) -> None:
         """Install map presentation assets for the requested ORC theme."""
         install_map_style(mode)
+        if mode is self._theme_mode:
+            return
+        self._theme_mode = mode
+        if self._parent_window_id is not None and self._renderer.is_running():
+            self._renderer.stop()
+            self._renderer.launch(
+                display=self._display,
+                parent_window_id=self._parent_window_id,
+            )
 
     def launch(self, parent_window_id: int) -> None:
+        if (self._parent_window_id is not None and self._parent_window_id != parent_window_id
+                and self._renderer.is_running()):
+            self._renderer.stop()
+        self._display = os.environ.get("DISPLAY", ":1")
+        self._parent_window_id = parent_window_id
         self._renderer.launch(
-            display=os.environ.get("DISPLAY", ":1"),
+            display=self._display,
             parent_window_id=parent_window_id,
         )
 
     def stop(self) -> None:
         self._renderer.stop()
+        self._parent_window_id = None
 
 
 class StateIngressRuntime:

@@ -107,6 +107,14 @@ flowchart TD
 
 `apps/orcUi/frontend/tk/orc_ui_app.py` owns the concrete integrated Tk shell. It creates the Tk root, arranges shell chrome, hosts registered screens, manages generic navigation, and runs the Tk event loop. It does not own the feature catalog or choose feature destinations. Composition registers screens and navigation destinations, selects the initial destination, and supplies actions for shell controls such as Settings.
 
+Desktop development may select an exact client size with `ORCUI_GEOMETRY`,
+force or disable fullscreen with `ORCUI_FULLSCREEN`, and request an undecorated
+window with `ORCUI_BORDERLESS=1`. Fullscreen takes precedence over borderless.
+In borderless mode the in-shell power control remains available and Escape
+restores ordinary window-manager decorations without closing ORC. For example,
+`ORCUI_GEOMETRY=1280x720 ORCUI_FULLSCREEN=0 ORCUI_BORDERLESS=1 ./runOrcUi`
+matches the landscape Pi Touch Display 2 layout inside a VM.
+
 It must not create ZeroMQ subscribers, message decoders, audio backends, Spotify synchronization workers, browser lifecycle managers, external map renderer launchers, or host restart/poweroff implementations. Those dependencies are injected through application/runtime or UI contracts.
 
 Structural orcUi widgets that are meaningful only inside that shell stay under `apps/orcUi/frontend/tk`. A widget that could reasonably be reused by another Tk application belongs in an appropriate feature package under `frontends/tk` instead.
@@ -273,3 +281,24 @@ invalidates older internet-check results. Feature compositions subscribe to the
 same mode to disable online actions while preserving local map, navigation, RF,
 and visualizer capabilities. See [the online/offline guide](../../docs/online_offline_mode.md)
 and [POI ordering](../../docs/poi_ordering.md) for behavior and testing.
+
+### Integration of camera feedback and connectivity
+
+The composition root owns `ShellConnectivityController`, including network
+monitoring, reachability workers and stale probe invalidation. Frontends receive
+`OnlineModeIf` for presentation and emit the shell toggle through a bound request.
+Weather mode transitions are owned by `WeatherScreenController`: going offline
+invalidates pending work while retaining cached forecast state; reconnecting
+forces a refresh.
+
+Navigation places sessions convert renderer camera events to immutable SI
+`NavigationCameraState`, notify the shared map handler without a feedback command,
+and expose snapshots through the places contract. POI action workers live in
+`NavigationPlacesController`; widgets retain a request identity and popup identity
+so a late successful handoff cannot close a replacement popup. Closed sessions
+discard completions. Canonical POI values include the validated website as well
+as missing-index error reporting. Platform launchers are injected by composition.
+
+Termux updates retain `--renderer-only` and the configurable renderer build
+directory. Full navigation updates always rebuild the ORC-owned renderer, while
+MapLibre retains its build-state checks.

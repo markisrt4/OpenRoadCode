@@ -69,11 +69,15 @@ Encoders validate their own output before publication. Decoders validate before 
 
 ### `openroad.navigation.position`
 
-Owns absolute position/fix information: latitude and longitude in radians, altitude and accuracy in meters, speed in m/s, course in radians, fix/satellite metadata, source, and cache state.
+Owns absolute position/fix information: latitude and longitude in radians,
+altitude and accuracy in meters, fix/satellite metadata, source, and cache state.
+Speed and course are excluded; see the [Position IDD](../idd/navigation_position_state.md).
 
 ### `openroad.navigation.motion`
 
-Owns motion information independent of the absolute position contract: heading in radians, ground and vertical speed in m/s, turn rate in rad/s, and cache state.
+Owns motion information independent of the absolute position contract: heading
+and course in radians, ground and vertical speed in m/s, turn rate in rad/s, and
+cache state.
 
 ### `openroad.navigation.attitude`
 
