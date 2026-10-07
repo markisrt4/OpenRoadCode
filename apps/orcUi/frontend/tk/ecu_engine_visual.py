@@ -161,6 +161,11 @@ def paint_engine_visual(
     canvas.create_text(318*sx, 289*sy, text="CAT", fill=ui.text_muted, font=("Sans", 6, "bold"))
     line((318, 303, 318, 318, 292, 318), fill=exhaust, width=3)
 
+    paint_engine_summary(summary_label, analysis)
+
+
+def paint_engine_summary(summary_label: tk.Label, analysis: EngineAnalysis) -> None:
+    """Share the telemetry interpretation across Canvas and GL renderers."""
     fuel_mode = "CLOSED LOOP" if analysis.fuel_control_mode is FuelControlMode.CLOSED_LOOP else "OPEN LOOP" if analysis.fuel_control_mode is not FuelControlMode.UNKNOWN else "--"
     mixture = {
         MixtureMode.RICH: "RICH",
