@@ -7,6 +7,8 @@ from __future__ import annotations
 
 import tkinter as tk
 import time
+import math
+from dataclasses import replace
 
 from apps.orcUi.vehicle_presenter import VehiclePresentationState
 from controllers.automotive import (
@@ -22,6 +24,13 @@ from ui.theme import ThemeBundle
 from .ecu_engine_visual import paint_engine_visual, paint_engine_summary
 from .ecu_engine_gl import create_engine_gl
 from .shell_metrics import FONT_BODY, FONT_CONTROL, FONT_SMALL
+
+
+def visual_engine_running(rpm: float | None, analyzed_running: bool | None) -> bool | None:
+    """Use current RPM for motion instead of waiting for a separate analysis update."""
+    if rpm is not None and math.isfinite(rpm):
+        return rpm >= 20.0 * 60.0 / math.tau
+    return analyzed_running
 
 
 def bounded_marker_x(
@@ -93,14 +102,19 @@ class EcuPanel(tk.Frame):
             self._animation_time = time.monotonic()
             self._schedule_engine_animation()
 
+    def _visual_analysis(self) -> EngineAnalysis:
+        running = visual_engine_running(self._vehicle_state.engine_speed_rpm,
+                                        self._analysis.engine_running)
+        return replace(self._analysis, engine_running=running)
+
     def _paint_animation_status(self) -> None:
         if not hasattr(self, "_animation_toggle"):
             return
         if not self._animation_enabled:
             status = "Off"
-        elif self._analysis.engine_running is None:
+        elif self._visual_analysis().engine_running is None:
             status = "Waiting for RPM"
-        elif not self._analysis.engine_running:
+        elif not self._visual_analysis().engine_running:
             status = "Engine off"
         else:
             status = "On"
@@ -113,12 +127,23 @@ class EcuPanel(tk.Frame):
         now = time.monotonic()
         elapsed = min(0.1, now - self._animation_time)
         self._animation_time = now
-        if self.winfo_ismapped() and self._analysis.engine_running:
+        if self.winfo_ismapped() and self._visual_analysis().engine_running:
             rpm = self._vehicle_state.engine_speed_rpm or 0.0
             visual_hz = max(0.8, min(4.5, rpm / 900.0))
             self._animation_phase = (self._animation_phase + visual_hz * elapsed) % 2.0
-            self._paint_engine()
-        self._animation_job = self.after(33 if self._engine_gl is not None else 83, self._schedule_engine_animation)
+            try:
+                self._paint_engine()
+            finally:
+                # A draw callback must not permanently drop the animation timer.
+                self._queue_engine_animation()
+        else:
+            self._queue_engine_animation()
+
+    def _queue_engine_animation(self) -> None:
+        if self._animation_enabled and self.winfo_exists():
+            self._animation_job = self.after(
+                33 if self._engine_gl is not None else 83, self._schedule_engine_animation,
+            )
 
     def update_vehicle(self, state: VehiclePresentationState) -> None:
         self._vehicle_state = state
@@ -442,7 +467,7 @@ class EcuPanel(tk.Frame):
         if not hasattr(self, "_engine_canvas"):
             return
         if self._engine_gl is not None:
-            self._engine_gl.update_engine(self._analysis, self._animation_phase)
+            self._engine_gl.update_engine(self._visual_analysis(), self._animation_phase)
             paint_engine_summary(self._engine_summary, self._analysis)
             return
         paint_engine_visual(
@@ -450,7 +475,7 @@ class EcuPanel(tk.Frame):
             self._engine_summary,
             theme=self._theme,
             vehicle_state=self._vehicle_state,
-            analysis=self._analysis,
+            analysis=self._visual_analysis(),
             animation_phase=self._animation_phase,
         )
 

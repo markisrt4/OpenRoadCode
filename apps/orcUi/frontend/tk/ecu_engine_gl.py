@@ -10,6 +10,8 @@ The inline-four is illustrative, not a model of the connected vehicle.
 from __future__ import annotations
 
 import logging
+import io
+from contextlib import redirect_stdout
 import math
 import os
 import tkinter as tk
@@ -56,6 +58,7 @@ def create_engine_gl(parent, *, theme, on_failure, on_unavailable=None):
             self.phase = 0.0
             self.analysis = None
             self.failed = False
+            self._drawing = False
             self.quadric = None
             super().__init__(parent, width=1, height=1, bg=theme.ui.surface)
             # EcuPanel owns the only animation timer, including teardown.
@@ -68,6 +71,17 @@ def create_engine_gl(parent, *, theme, on_failure, on_unavailable=None):
                 if on_unavailable is not None:
                     on_unavailable(str(exc))
                 self.after_idle(on_failure)
+
+        def tkCreateContext(self):
+            # pyopengltk prints routine GLX setup directly to stdout. Keep it
+            # available at DEBUG while letting exceptions/errors report normally.
+            output = io.StringIO()
+            try:
+                with redirect_stdout(output):
+                    super().tkCreateContext()
+            finally:
+                if output.getvalue():
+                    _LOG.debug("ECU GLX setup:\n%s", output.getvalue().rstrip())
 
         def tkMap(self, event):
             try:
@@ -85,12 +99,19 @@ def create_engine_gl(parent, *, theme, on_failure, on_unavailable=None):
                 self._display()
 
         def _display(self):
-            if self.failed or not self.context_created:
+            if self.failed or not self.context_created or self._drawing:
                 return
+            self._drawing = True
             try:
-                super()._display()
+                # Rendering must not pump Tk idle events: an expose/resize can
+                # re-enter redraw and starve the panel's animation callback.
+                self.tkMakeCurrent()
+                self.redraw()
+                self.tkSwapBuffers()
             except Exception as exc:
                 self._fail(exc)
+            finally:
+                self._drawing = False
 
         def update_engine(self, analysis, phase):
             self.analysis, self.phase = analysis, phase
