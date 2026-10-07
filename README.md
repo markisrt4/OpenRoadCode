@@ -324,6 +324,12 @@ From the repository root:
 python -m apps.orcUi
 ```
 
+The foreground command reports flushed, dmesg-style cumulative startup times
+and individual stage durations while Python modules, runtime infrastructure,
+feature subsystems, and application screens are being composed. The same milestones are recorded as structured
+`app.startup.progress` events with `duration_ms` and `elapsed_ms`, so a slow
+launch remains observable both in the terminal and in ORC logs.
+
 The RADIO navigation item opens a source chooser. RF RADIO starts the SDR++ integration and embeds SDR++ into the ORC radio panel; STREAMING RADIO currently opens its Coming Soon page.
 
 The MEDIA navigation item opens the integrated Spotify, YouTube, and Netflix hub. On supported Linux systems, Spotify's **PLAYER** control makes OpenRoadCode the Spotify Connect playback destination; **REMOTE** leaves playback on external Spotify Connect devices. The local player is application-owned, so it can continue while the user navigates away from the Media page and is stopped during ORC shutdown/restart.

@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import os
 import sys
+import time
 
 
 def _require_display() -> None:
@@ -29,9 +30,15 @@ def _require_display() -> None:
 
 def _main() -> None:
     _require_display()
+    startup_started_at = time.monotonic()
+    print(
+        "[    0.000] Startup initiated",
+        file=sys.stderr,
+        flush=True,
+    )
     from apps.orcUi.main import main
 
-    main()
+    main(startup_started_at=startup_started_at)
 
 
 if __name__ == "__main__":

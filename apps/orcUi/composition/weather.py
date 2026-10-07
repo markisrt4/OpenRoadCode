@@ -104,7 +104,6 @@ def configure_weather(
             )
         ),
     )
-    radar_injection.refresh()
 
     screen = WeatherScreen(
         app,

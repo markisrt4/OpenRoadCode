@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 
 from common.app_settings import AppSettings, AppSettingsStore
@@ -58,6 +59,7 @@ class OrcUiComposition:
     performance: SystemPerformanceMonitor | None = None
     diagnostics: DiagnosticsScreen | None = None
     performance_status: PerformanceStatusPresenter | None = None
+    startup_progress: Callable[[str, str], None] | None = None
 
     @property
     def app(self) -> OrcUiApp:
@@ -66,12 +68,14 @@ class OrcUiComposition:
     def run(self) -> None:
         """Run Tk, close every owned resource, then honor host lifecycle intent."""
         try:
+            _report(self.startup_progress, "runtime_start", "Starting background runtimes…")
             if self.performance is not None:
                 self.performance.start()
             if self.performance_status is not None:
                 self.performance_status.start()
             self.app.schedule_ui_callback(1500, self.runtime.start_background_apps)
             self.core.start()
+            _report(self.startup_progress, "ready", "OpenRoadCode UI ready")
             self.app.run()
         finally:
             try:
@@ -119,9 +123,22 @@ class OrcUiComposition:
         self.core.lifecycle.execute_requested_action()
 
 
-def create_orc_ui_composition() -> OrcUiComposition:
+def _report(
+    progress: Callable[[str, str], None] | None,
+    stage: str,
+    message: str,
+) -> None:
+    if progress is not None:
+        progress(stage, message)
+
+
+def create_orc_ui_composition(
+    *,
+    progress: Callable[[str, str], None] | None = None,
+) -> OrcUiComposition:
     """Create all shell, runtime, and feature dependencies in one place."""
     runtime = create_orc_ui_application_runtime()
+    _report(progress, "application_runtime", "Application runtime loaded")
     core: CoreComposition | None = None
     overlays: WeatherOverlayController | None = None
     radar_replay: RadarReplayController | None = None
@@ -131,6 +148,7 @@ def create_orc_ui_composition() -> OrcUiComposition:
     media: MediaComposition | None = None
     try:
         core = create_core_composition()
+        _report(progress, "core", "Core UI and telemetry loaded")
         app = core.app
         app.set_theme_change_handler(core.map_runtime.set_theme)
         core.map_runtime.set_theme(app.theme_mode)
@@ -147,9 +165,13 @@ def create_orc_ui_composition() -> OrcUiComposition:
         ):
             app.register_navigation_destination(destination)
         radio = configure_radio(app, runtime)
+        _report(progress, "radio", "Radio subsystem loaded")
         games = configure_games(app)
+        _report(progress, "games", "Games subsystem loaded")
         vision = configure_vision(app)
+        _report(progress, "vision", "Vision subsystem loaded")
         media = configure_media(app, runtime)
+        _report(progress, "media", "Media subsystem loaded")
         settings_store = AppSettingsStore()
         app_settings = settings_store.load()
 
@@ -176,6 +198,7 @@ def create_orc_ui_composition() -> OrcUiComposition:
             on_weather_status=app.set_weather_status,
             map_renderer=core.map_camera.renderer_client,
         )
+        _report(progress, "weather", "Weather subsystem loaded")
         def set_radar_palette(value: RadarPalette) -> None:
             nonlocal app_settings
             app_settings = AppSettings(
@@ -289,6 +312,7 @@ def create_orc_ui_composition() -> OrcUiComposition:
         app.register_screen("DIAGNOSTICS", diagnostics, show_in_navigation=False)
         app.set_initial_destination("HOME")
         app.set_settings_action(lambda: app.navigate_to("SETTINGS"))
+        _report(progress, "screens", "Application screens loaded")
     except Exception:
         try:
             try:
@@ -333,4 +357,5 @@ def create_orc_ui_composition() -> OrcUiComposition:
         performance=performance,
         diagnostics=diagnostics,
         performance_status=performance_status,
+        startup_progress=progress,
     )

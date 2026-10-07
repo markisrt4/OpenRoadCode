@@ -6,8 +6,11 @@
 from __future__ import annotations
 
 import time
+import threading
+from collections.abc import Callable
 from typing import Any, Iterable
 
+from controllers.computer_vision.model_readiness import YoloModelReadiness
 from controllers.computer_vision.object_detector_if import (
     Detection,
     DetectionFrame,
@@ -97,3 +100,42 @@ class YoloObjectDetector(ObjectDetectorIf):
             inference_time_ms=inference_time_ms,
             detections=tuple(detections),
         )
+
+
+class LazyYoloObjectDetector(ObjectDetectorIf):
+    """Load YOLO on the first inference request instead of during UI startup."""
+
+    def __init__(
+        self,
+        readiness: YoloModelReadiness,
+        *,
+        confidence: float = 0.35,
+        image_size: int = 640,
+        detector_factory: Callable[..., ObjectDetectorIf] = YoloObjectDetector,
+    ) -> None:
+        self._readiness = readiness
+        self._confidence = confidence
+        self._image_size = image_size
+        self._detector_factory = detector_factory
+        self._detector: ObjectDetectorIf | None = None
+        self._lock = threading.Lock()
+
+    def detect(self, frame: CameraFrame) -> DetectionFrame:
+        return self.prepare().detect(frame)
+
+    def prepare(self) -> ObjectDetectorIf:
+        """Construct and retain the concrete detector on first activation."""
+        detector = self._detector
+        if detector is None:
+            with self._lock:
+                detector = self._detector
+                if detector is None:
+                    model = self._readiness.prepare()
+                    detector = self._detector_factory(
+                        self._readiness.model_name,
+                        confidence=self._confidence,
+                        image_size=self._image_size,
+                        model=model,
+                    )
+                    self._detector = detector
+        return detector

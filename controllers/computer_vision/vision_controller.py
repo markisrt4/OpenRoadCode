@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import threading
 import time
+from collections.abc import Callable
 
 from controllers.computer_vision.camera_frame_processor import CameraFrameProcessor, CameraMode
 from controllers.computer_vision.object_detector_if import DetectionFrame
@@ -40,6 +41,7 @@ class VisionController(VisionRequestHandlerIf):
         worker: PerceptionWorker,
         *,
         source_label: str,
+        prepare_model: Callable[[], object] | None = None,
     ) -> None:
         self._dispatcher = dispatcher
         self._ui = ui
@@ -48,6 +50,7 @@ class VisionController(VisionRequestHandlerIf):
         self._processor = processor
         self._worker = worker
         self._source_label = source_label
+        self._prepare_model = prepare_model
         self._lock = threading.RLock()
         self._generation = 0
         self._active = False
@@ -137,6 +140,14 @@ class VisionController(VisionRequestHandlerIf):
 
     def _run(self, generation: int) -> None:
         try:
+            if self._prepare_model is not None:
+                self._publish(
+                    generation,
+                    self._state(VisionLifecycle.STARTING, "Preparing vision model…"),
+                )
+                self._prepare_model()
+                if not self._is_current(generation):
+                    return
             self._camera.open()
             self._controls.invalidate()
             self._controls.restore_day_defaults()
