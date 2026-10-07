@@ -396,3 +396,9 @@ OpenGL redraws are coalesced and rate limited. Static engine geometry and primit
 meshes are cached in GPU display lists. Paused telemetry changes redraw the engine
 only when its visual running/boost state changes. Resuming animation queues a timer
 instead of rendering synchronously inside the button callback.
+
+Optional VISION model preparation failures do not prevent ORC or its automotive
+screens from starting. When inference dependencies or model assets are missing,
+the VISION destination displays an unavailable state and its cause; camera and
+perception resources are not started. Installing VISION dependencies is separate
+from testing the ECU OpenGL renderer.
