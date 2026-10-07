@@ -53,6 +53,8 @@ class VisionController(VisionRequestHandlerIf):
         self._active = False
         self._closed = False
         self._ai_enabled = True
+        self._supported_profiles: frozenset[CameraProfile] | None = None
+        self._hardware_status = ""
         self._thread: threading.Thread | None = None
         self._pending_delivery: tuple[int, VisionUiState] | None = None
         self._delivery_scheduled = False
@@ -72,6 +74,7 @@ class VisionController(VisionRequestHandlerIf):
             self._generation += 1
             generation = self._generation
             self._active = True
+            self._hardware_status = ""
             self._reset_metrics()
             thread = threading.Thread(
                 target=self._run,
@@ -94,11 +97,12 @@ class VisionController(VisionRequestHandlerIf):
             thread = self._thread
         self._camera.close()
         if thread is not None and thread is not threading.current_thread():
-            thread.join(timeout=2.0)
+            thread.join()
         with self._lock:
             if self._thread is thread:
                 self._thread = None
             if not self._closed:
+                self._hardware_status = ""
                 self._publish(generation, self._state(VisionLifecycle.INACTIVE))
 
     def request_camera_mode(self, mode: VisionCameraMode) -> None:
@@ -109,6 +113,12 @@ class VisionController(VisionRequestHandlerIf):
         selected = VisionCameraMode(mode)
         with self._lock:
             if self._closed:
+                return
+            if (
+                selected is not VisionCameraMode.AUTO
+                and self._supported_profiles is not None
+                and CameraProfile(selected.value) not in self._supported_profiles
+            ):
                 return
             self._processor.set_mode(CameraMode(selected.value))
             self._publish(self._generation, self._state(self._lifecycle()))
@@ -139,11 +149,26 @@ class VisionController(VisionRequestHandlerIf):
         try:
             self._camera.open()
             self._controls.invalidate()
+            self._supported_profiles = self._controls.probe_supported_profiles()
+            requested_profile = (
+                None
+                if self._processor.mode is CameraMode.AUTO
+                else CameraProfile(self._processor.mode.value)
+            )
+            if (
+                requested_profile is not None
+                and requested_profile not in self._supported_profiles
+            ):
+                self._processor.set_mode(CameraMode.AUTO)
             self._controls.restore_day_defaults()
             self._worker.start()
             with self._lock:
                 self._last_processed_count = self._worker.processed_frames
-            self._publish(generation, self._state(VisionLifecycle.RUNNING))
+            status = ""
+            if not self._supported_profiles:
+                status = "Camera hardware profiles unavailable; using device defaults"
+            self._hardware_status = status
+            self._publish(generation, self._state(VisionLifecycle.RUNNING, status))
             while self._is_current(generation):
                 frame = self._camera.read()
                 if not self._is_current(generation):
@@ -183,7 +208,8 @@ class VisionController(VisionRequestHandlerIf):
                 if effective_mode is CameraMode.LOW_LIGHT
                 else CameraProfile.DAY
             )
-            self._controls.apply(target_profile)
+            if self._supported_profiles is not None and target_profile in self._supported_profiles:
+                self._controls.apply(target_profile)
             ai_enabled = self._ai_enabled
 
         processed_frame = CameraFrame(processed, frame.timestamp_s, frame.sequence)
@@ -230,6 +256,8 @@ class VisionController(VisionRequestHandlerIf):
         inference_latency_s: float = 0.0,
     ) -> VisionUiState:
         with self._lock:
+            if not status_message:
+                status_message = self._hardware_status
             requested = VisionCameraMode(self._processor.mode.value)
             effective = VisionCameraMode(self._processor.last_effective_mode.value)
             luminance = max(0.0, min(1.0, self._processor.last_luminance / 255.0))
@@ -237,6 +265,12 @@ class VisionController(VisionRequestHandlerIf):
                 lifecycle=lifecycle,
                 requested_mode=requested,
                 effective_mode=effective,
+                available_modes=(VisionCameraMode.AUTO,) + tuple(
+                    VisionCameraMode(profile.value)
+                    for profile in (CameraProfile.DAY, CameraProfile.LOW_LIGHT)
+                    if self._supported_profiles is None
+                    or profile in self._supported_profiles
+                ),
                 ai_enabled=self._ai_enabled,
                 camera_rate_hz=self._camera_rate_hz,
                 inference_rate_hz=self._inference_rate_hz,

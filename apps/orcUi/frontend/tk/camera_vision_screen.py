@@ -36,6 +36,7 @@ class CameraVisionScreen(TkScreen, VisionUiIf):
         self._canvas: tk.Canvas | None = None
         self._status_label: tk.Label | None = None
         self._mode_label: tk.Label | None = None
+        self._mode_buttons: dict[VisionCameraMode, tk.Button] = {}
         self._ai_button: tk.Button | None = None
         self._photo: object | None = None
 
@@ -72,6 +73,7 @@ class CameraVisionScreen(TkScreen, VisionUiIf):
         self._canvas = None
         self._status_label = None
         self._mode_label = None
+        self._mode_buttons = {}
         self._ai_button = None
         self._photo = None
 
@@ -109,7 +111,7 @@ class CameraVisionScreen(TkScreen, VisionUiIf):
         self._mode_label.pack(fill=tk.X, padx=8, pady=(0, 6))
 
         for mode in (VisionCameraMode.AUTO, VisionCameraMode.DAY, VisionCameraMode.LOW_LIGHT):
-            tk.Button(
+            button = tk.Button(
                 controls,
                 text=mode.value.upper().replace("_", " "),
                 command=lambda selected=mode: self._request_mode(selected),
@@ -120,7 +122,9 @@ class CameraVisionScreen(TkScreen, VisionUiIf):
                 relief=tk.FLAT,
                 bd=0,
                 pady=7,
-            ).pack(fill=tk.X, padx=8, pady=2)
+            )
+            button.pack(fill=tk.X, padx=8, pady=2)
+            self._mode_buttons[mode] = button
 
         self._ai_button = tk.Button(
             controls,
@@ -158,6 +162,10 @@ class CameraVisionScreen(TkScreen, VisionUiIf):
         if self._mode_label is not None:
             text = requested if state.requested_mode is not VisionCameraMode.AUTO else f"AUTO → {effective}"
             self._mode_label.configure(text=f"Mode: {text}")
+        for mode, button in self._mode_buttons.items():
+            button.configure(
+                state=tk.NORMAL if mode in state.available_modes else tk.DISABLED
+            )
         if self._ai_button is not None:
             self._ai_button.configure(
                 text="Disable AI" if state.ai_enabled else "Enable AI",

@@ -102,6 +102,7 @@ class VisionUiState:
     lifecycle: VisionLifecycle = VisionLifecycle.INACTIVE
     requested_mode: VisionCameraMode = VisionCameraMode.AUTO
     effective_mode: VisionCameraMode = VisionCameraMode.DAY
+    available_modes: tuple[VisionCameraMode, ...] = (VisionCameraMode.AUTO,)
     ai_enabled: bool = True
     camera_rate_hz: float = 0.0
     inference_rate_hz: float = 0.0
@@ -113,6 +114,10 @@ class VisionUiState:
     objects: tuple[VisionObject, ...] = ()
 
     def __post_init__(self) -> None:
+        if VisionCameraMode.AUTO not in self.available_modes:
+            raise ValueError("AUTO camera mode must always be available")
+        if len(set(self.available_modes)) != len(self.available_modes):
+            raise ValueError("available_modes must not contain duplicates")
         for name, value in (
             ("camera_rate_hz", self.camera_rate_hz),
             ("inference_rate_hz", self.inference_rate_hz),

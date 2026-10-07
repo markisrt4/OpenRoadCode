@@ -76,7 +76,7 @@ class PerceptionWorker:
             self._running = False
             self._condition.notify_all()
         if self._thread is not None:
-            self._thread.join(timeout=2.0)
+            self._thread.join()
         self._thread = None
 
     def _run(self) -> None:

@@ -79,6 +79,8 @@ starts YOLO inference, and publishes immutable `VisionUiState` snapshots with
 RGB image data and normalized object overlays. Leaving the screen sends a
 deactivation request; the controller invalidates queued callbacks, stops
 inference, restores daytime camera defaults, and releases the camera.
+Shutdown waits for any in-flight capture and inference calls to finish before
+returning, so OpenCV and model resources cannot outlive application teardown.
 
 The Tk screen depends only on contracts under `ui/vision`. It renders complete
 state snapshots and emits explicit target-state requests for camera mode and AI

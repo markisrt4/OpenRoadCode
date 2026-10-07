@@ -42,6 +42,11 @@ frames through `controllers.computer_vision.ObjectDetectorIf`, allowing the
 preview, recorder, and future YOLO implementation to evolve independently.
 `CameraControlsIf` similarly exposes hardware-neutral `DAY` and `LOW_LIGHT`
 profiles. Linux-specific V4L2 commands remain in its platform adapter.
+The adapter probes the connected device at runtime. The Vision UI disables
+profiles whose required controls or exact values are not advertised, while
+AUTO capture continues with the camera's own defaults.
+OpenCV capture reads and device release are serialized because concurrent
+`VideoCapture.read()` and `VideoCapture.release()` calls are not safe.
 
 
 ## Hardware control profiles

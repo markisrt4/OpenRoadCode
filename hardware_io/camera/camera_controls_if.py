@@ -27,6 +27,14 @@ class CameraControlsIf(ABC):
         ...
 
     @abstractmethod
+    def probe_supported_profiles(self) -> frozenset[CameraProfile]:
+        """Discover profiles supported by the currently connected device.
+
+        @return Immutable set of profiles whose required controls are supported.
+        """
+        ...
+
+    @abstractmethod
     def apply(self, profile: CameraProfile) -> None:
         """Apply a hardware profile.
 

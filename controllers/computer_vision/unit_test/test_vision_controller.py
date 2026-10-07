@@ -46,11 +46,19 @@ class _Ui:
 
 
 class _Controls:
-    def __init__(self) -> None:
+    def __init__(self, supported_profiles=None) -> None:
         self.current_profile = None
+        self.supported_profiles = frozenset(
+            supported_profiles
+            if supported_profiles is not None
+            else (CameraProfile.DAY, CameraProfile.LOW_LIGHT)
+        )
         self.applied = []
         self.invalidations = 0
         self.restores = 0
+
+    def probe_supported_profiles(self):
+        return self.supported_profiles
 
     def apply(self, profile) -> None:
         self.current_profile = CameraProfile(profile)
@@ -62,7 +70,8 @@ class _Controls:
 
     def restore_day_defaults(self) -> None:
         self.restores += 1
-        self.apply(CameraProfile.DAY)
+        if CameraProfile.DAY in self.supported_profiles:
+            self.apply(CameraProfile.DAY)
 
 
 class _Camera:
@@ -139,6 +148,20 @@ def _controller(camera, worker=None):
     return controller, dispatcher, ui, controls
 
 
+def _controller_with_controls(camera, controls, worker=None):
+    dispatcher, ui = _Dispatcher(), _Ui()
+    controller = VisionController(
+        dispatcher,
+        ui,
+        camera,
+        controls,
+        CameraFrameProcessor(CameraMode.DAY),
+        worker or _Worker(),
+        source_label="test-camera",
+    )
+    return controller, dispatcher, ui
+
+
 def _wait(event: threading.Event) -> None:
     assert event.wait(1.0)
 
@@ -205,6 +228,28 @@ def test_startup_failure_is_presented_without_leaking_resources() -> None:
     assert ui.states[-1].lifecycle is VisionLifecycle.ERROR
     assert "not present" in ui.states[-1].status_message
     assert worker.stops == 1
+
+
+def test_unsupported_hardware_profiles_use_device_defaults() -> None:
+    """Keep capture alive and expose only AUTO when profile controls are absent."""
+    camera = _Camera(CameraFrame(np.zeros((1, 1, 3), dtype=np.uint8), 1.0, 1))
+    controls = _Controls(supported_profiles=())
+    controller, dispatcher, ui = _controller_with_controls(camera, controls)
+    controller.request_activate()
+    _wait(camera.read_once)
+    time.sleep(0.01)
+    dispatcher.run_all()
+
+    state = ui.states[-1]
+    assert state.lifecycle is VisionLifecycle.RUNNING
+    assert state.available_modes == (VisionCameraMode.AUTO,)
+    assert "device defaults" in state.status_message
+    assert controls.applied == []
+
+    controller.request_camera_mode(VisionCameraMode.LOW_LIGHT)
+    dispatcher.run_all()
+    assert ui.states[-1].requested_mode is VisionCameraMode.AUTO
+    controller.request_deactivate()
 
 
 def test_close_disconnects_requests_and_rejects_later_activation() -> None:
