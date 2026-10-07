@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2026 OpenRoadCode contributors
 # SPDX-License-Identifier: MIT
 
-from apps.orcUi.frontend.tk.ecu_update_rate import RateCounter
+from apps.orcUi.frontend.tk.ecu_update_rate import RateCounter, format_fps
 
 
 def test_rates_measure_elapsed_time_and_go_zero_when_stopped():
@@ -22,3 +22,7 @@ def test_rates_measure_elapsed_time_and_go_zero_when_stopped():
     assert rates.render_hz == 0
     now[0] = 4.0
     assert counter.sample().telemetry_hz == 0
+
+
+def test_fps_label_omits_the_telemetry_rate():
+    assert format_fps(19.95) == "19.9 FPS"

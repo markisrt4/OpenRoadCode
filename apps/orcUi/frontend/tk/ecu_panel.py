@@ -115,6 +115,11 @@ class EcuPanel(EcuAnimationMixin, tk.Frame):
         if self._engine_gl is not None:
             self._engine_canvas.grid_remove()
             self._engine_gl.grid(row=0, column=0, sticky="nsew", padx=2, pady=(5, 2))
+        self._fps_label = EcuRateLabel(
+            engine, counter=self._rate_counter, theme=self._theme,
+        )
+        self._fps_label.place(relx=1.0, x=-8, y=9, anchor="ne")
+        self._fps_label.lift()
         self._engine_summary = tk.Label(
             engine, text="--", fg=ui.text_muted, bg=ui.surface,
             font=("Sans", FONT_CONTROL, "bold"), pady=7,
@@ -125,6 +130,12 @@ class EcuPanel(EcuAnimationMixin, tk.Frame):
             lambda event: self._engine_summary.configure(wraplength=max(1, event.width - 10)),
         )
 
+        output = tk.Frame(engine, bg=ui.surface)
+        output.grid(row=2, column=0, sticky="ew", padx=5, pady=(0, 5))
+        output.grid_columnconfigure((0, 1), weight=1, uniform="engine-output")
+        self._engine_output_field(output, 0, "ecu_power", "HORSEPOWER")
+        self._engine_output_field(output, 1, "ecu_torque", "TORQUE")
+
         self._animation_toggle = tk.Button(
             engine, text="Animation: On",
             command=lambda: self.set_engine_animation(not self._animation_enabled),
@@ -132,21 +143,18 @@ class EcuPanel(EcuAnimationMixin, tk.Frame):
             activeforeground=ui.text, highlightbackground=ui.border,
             font=("Sans", FONT_CONTROL, "bold"), bd=0, pady=9,
         )
-        self._animation_toggle.grid(row=2, column=0, sticky="ew", padx=5, pady=(0, 5))
+        self._animation_toggle.grid(row=3, column=0, sticky="ew", padx=5, pady=(0, 5))
 
         self._renderer_status = tk.Label(
             engine, text="", fg=ui.text_muted, bg=ui.surface,
             font=("Sans", FONT_SMALL), pady=3,
         )
-        self._renderer_status.grid(row=3, column=0, sticky="ew", padx=5)
+        self._renderer_status.grid(row=4, column=0, sticky="ew", padx=5)
         self._renderer_status.bind(
             "<Configure>",
             lambda event: self._renderer_status.configure(wraplength=max(1, event.width-10)),
         )
         self._record_renderer_reason(self._renderer_reason)
-        EcuRateLabel(engine, counter=self._rate_counter, theme=self._theme).grid(
-            row=4, column=0, sticky="ew", padx=5, pady=2,
-        )
 
         # Keep telemetry cards outside the engine viewport so the complete
         # cutaway stays visible at every dashboard size.
@@ -212,6 +220,26 @@ class EcuPanel(EcuAnimationMixin, tk.Frame):
     def _fit_card(self, body: tk.Frame, width: int) -> None:
         fit_ecu_card(body, width, field_labels=self._field_labels,
                      labels=self._labels, bars=self._bars)
+
+    def _engine_output_field(
+        self, parent: tk.Misc, column: int, key: str, title: str,
+    ) -> None:
+        ui = self._theme.ui
+        field = tk.Frame(parent, bg=ui.surface_alt)
+        field.grid(
+            row=0, column=column, sticky="ew",
+            padx=(0, 2) if column == 0 else (2, 0),
+        )
+        tk.Label(
+            field, text=title, fg=ui.text_muted, bg=ui.surface_alt,
+            font=("Sans", FONT_SMALL, "bold"),
+        ).pack(fill="x", padx=4, pady=(3, 0))
+        value = tk.Label(
+            field, text="--", fg=ui.accent_primary, bg=ui.surface_alt,
+            font=("Sans", FONT_BODY, "bold"),
+        )
+        value.pack(fill="x", padx=4, pady=(0, 3))
+        self._labels[key] = value
 
     def _value(self, parent: tk.Misc, row: int, key: str, label: str, *, status: bool = False) -> None:
         ui = self._theme.ui
@@ -279,10 +307,6 @@ class EcuPanel(EcuAnimationMixin, tk.Frame):
         self._bar(body, 1, "timing")
         self._value(body, 2, "ignition_status", "Timing Data", status=True)
         self._labels["ignition_status"].grid(columnspan=2, sticky="w")
-        self._value(body, 3, "ecu_power", "ECU Power")
-        self._labels["ecu_power"].grid(columnspan=2)
-        self._value(body, 4, "ecu_torque", "ECU Torque")
-        self._labels["ecu_torque"].grid(columnspan=2)
 
     @staticmethod
     def _pct(value: float | None, signed: bool = False) -> str:

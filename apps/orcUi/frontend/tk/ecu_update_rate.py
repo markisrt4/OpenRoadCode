@@ -10,6 +10,11 @@ from ui.automotive.engine_visual_state import EngineUpdateRates
 from .shell_metrics import FONT_SMALL
 
 
+def format_fps(render_hz: float) -> str:
+    """Format the compact engine-card frame-rate indicator."""
+    return f'{render_hz:.1f} FPS'
+
+
 class RateCounter:
     """Count received vehicle updates and completed frames, not scheduled ticks."""
 
@@ -39,7 +44,7 @@ class EcuRateLabel(tk.Label):
     """Refresh once a second independently of animation's pause state."""
 
     def __init__(self, parent, *, counter, theme):
-        super().__init__(parent, text='Data -- Hz · Draw -- FPS',
+        super().__init__(parent, text='-- FPS', padx=4, pady=2,
                          bg=theme.ui.surface, fg=theme.ui.text_muted,
                          font=('Sans', FONT_SMALL))
         self._counter = counter
@@ -48,7 +53,7 @@ class EcuRateLabel(tk.Label):
 
     def _tick(self):
         rates = self._counter.sample()
-        self.configure(text=f'Data {rates.telemetry_hz:.1f} Hz · Draw {rates.render_hz:.1f} FPS')
+        self.configure(text=format_fps(rates.render_hz))
         self._job = self.after(1000, self._tick)
 
     def destroy(self):

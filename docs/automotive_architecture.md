@@ -403,11 +403,11 @@ the VISION destination displays an unavailable state and its cause; camera and
 perception resources are not started. Installing VISION dependencies is separate
 from testing the ECU OpenGL renderer.
 
-The ECU center includes a small **Data Hz / Draw FPS** label. Data counts received
-vehicle snapshots, not individual PID polls; Draw counts completed frames, not
-scheduled animation ticks. Both are measured over real elapsed seconds and the
-label refreshes once per second, including while animation is paused. No extra
-OBD requests are made to measure these rates.
+The engine card shows a compact **FPS** label in its upper-right corner. It counts
+completed frames rather than scheduled animation ticks and refreshes once per
+second, including while animation is paused. Dedicated horsepower and torque
+text fields below the engine summary show ECU-reported output when available.
+No extra OBD requests are made to measure the frame rate.
 
 The compressor housing turns green while forced induction is active, returning
 to silver otherwise. Brief white-blue spark flashes precede orange combustion
