@@ -379,7 +379,7 @@ without compatible GLX support use the Canvas schematic automatically.
 
 The cutaway is an illustrative inline-four, not the connected vehicle's exact
 engine geometry. Engine-running state and RPM drive a slowed animation at about
-30 frames per second; boost activates the turbo rotor. The fuel, mixture, load
+20 frames per second; boost activates the turbo rotor. The fuel, mixture, load
 and ignition cards and interpretation summary retain their existing telemetry.
 Animation pauses when the panel is hidden. Missing dependencies or context/render
 failures select the Canvas fallback and are logged. Set
@@ -390,3 +390,8 @@ off cancels the graphics timer and holds the current pose for either renderer;
 telemetry cards, engine colors, and the interpretation summary continue updating.
 Turning it back on resumes from that pose. The toggle applies while this ECU
 panel is open and defaults to on when a new panel is created.
+
+OpenGL redraws are coalesced and rate limited. Static engine geometry and primitive
+meshes are cached in GPU display lists. Paused telemetry changes redraw the engine
+only when its visual running/boost state changes. Resuming animation queues a timer
+instead of rendering synchronously inside the button callback.

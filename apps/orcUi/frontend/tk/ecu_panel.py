@@ -100,7 +100,7 @@ class EcuPanel(tk.Frame):
             self._animation_job = None
         if enabled:
             self._animation_time = time.monotonic()
-            self._schedule_engine_animation()
+            self._queue_engine_animation()
 
     def _visual_analysis(self) -> EngineAnalysis:
         running = visual_engine_running(self._vehicle_state.engine_speed_rpm,
@@ -140,9 +140,10 @@ class EcuPanel(tk.Frame):
             self._queue_engine_animation()
 
     def _queue_engine_animation(self) -> None:
-        if self._animation_enabled and self.winfo_exists():
+        if (self._animation_enabled and self.winfo_exists()
+                and self._animation_job is None):
             self._animation_job = self.after(
-                33 if self._engine_gl is not None else 83, self._schedule_engine_animation,
+                50 if self._engine_gl is not None else 83, self._schedule_engine_animation,
             )
 
     def update_vehicle(self, state: VehiclePresentationState) -> None:

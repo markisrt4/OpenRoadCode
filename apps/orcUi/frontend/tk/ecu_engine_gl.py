@@ -13,6 +13,7 @@ import logging
 import io
 from contextlib import redirect_stdout
 import math
+import time
 import os
 import tkinter as tk
 
@@ -59,6 +60,12 @@ def create_engine_gl(parent, *, theme, on_failure, on_unavailable=None):
             self.analysis = None
             self.failed = False
             self._drawing = False
+            self._render_job = None
+            self._last_render = 0.0
+            self._meshes = {}
+            self._scenes = {}
+            self._dynamic_pass = False
+            self._moving = False
             self.quadric = None
             super().__init__(parent, width=1, height=1, bg=theme.ui.surface)
             # EcuPanel owns the only animation timer, including teardown.
@@ -99,23 +106,35 @@ def create_engine_gl(parent, *, theme, on_failure, on_unavailable=None):
                 self._display()
 
         def _display(self):
-            if self.failed or not self.context_created or self._drawing:
+            """Coalesce expose, resize, telemetry and animation into one frame."""
+            if (self.failed or not self.context_created or self._render_job is not None
+                    or not self.winfo_ismapped()):
+                return
+            delay = max(1, math.ceil(50 - (time.monotonic()-self._last_render)*1000))
+            self._render_job = self.after(delay, self._render)
+
+        def _render(self):
+            self._render_job = None
+            if self.failed or self._drawing or not self.winfo_ismapped():
                 return
             self._drawing = True
             try:
-                # Rendering must not pump Tk idle events: an expose/resize can
-                # re-enter redraw and starve the panel's animation callback.
                 self.tkMakeCurrent()
                 self.redraw()
                 self.tkSwapBuffers()
             except Exception as exc:
                 self._fail(exc)
             finally:
+                self._last_render = time.monotonic()
                 self._drawing = False
 
         def update_engine(self, analysis, phase):
+            old_state = None if self.analysis is None else (
+                self.analysis.engine_running, self.analysis.forced_induction_active,
+            )
+            changed = old_state != (analysis.engine_running, analysis.forced_induction_active) or self.phase != phase
             self.analysis, self.phase = analysis, phase
-            if self.winfo_ismapped() and self.context_created and not self.failed:
+            if changed:
                 self._display()
 
         def initgl(self):
@@ -135,8 +154,31 @@ def create_engine_gl(parent, *, theme, on_failure, on_unavailable=None):
             gl.glMaterialf(gl.GL_FRONT_AND_BACK, gl.GL_SHININESS, 45)
             self.quadric = glu.gluNewQuadric()
             glu.gluQuadricNormals(self.quadric, glu.GLU_SMOOTH)
+            # Tessellate once per GL context; frames reuse GPU display lists.
+            for name in ("tube", "sphere"):
+                mesh = gl.glGenLists(1)
+                if not mesh:
+                    raise RuntimeError("OpenGL mesh allocation failed")
+                self._meshes[name] = mesh
+                gl.glNewList(mesh, gl.GL_COMPILE)
+                if name == "tube":
+                    glu.gluCylinder(self.quadric, 1, 1, 1, 12, 1)
+                    gl.glPushMatrix()
+                    gl.glRotatef(180, 1, 0, 0)
+                    glu.gluDisk(self.quadric, 0, 1, 12, 1)
+                    gl.glPopMatrix()
+                    gl.glPushMatrix()
+                    gl.glTranslatef(0, 0, 1)
+                    glu.gluDisk(self.quadric, 0, 1, 12, 1)
+                    gl.glPopMatrix()
+                else:
+                    glu.gluSphere(self.quadric, 1, 10, 6)
+                gl.glEndList()
+
 
         def box(self, center, size, color):
+            if self._dynamic_pass:
+                return
             gl.glPushMatrix()
             gl.glTranslatef(*center)
             gl.glScalef(*size)
@@ -157,6 +199,8 @@ def create_engine_gl(parent, *, theme, on_failure, on_unavailable=None):
             gl.glPopMatrix()
 
         def tube(self, start, end, radius, color):
+            if self._dynamic_pass != self._moving:
+                return
             delta = tuple(b-a for a, b in zip(start, end))
             length = math.sqrt(sum(v*v for v in delta))
             if length < 1e-6:
@@ -168,24 +212,25 @@ def create_engine_gl(parent, *, theme, on_failure, on_unavailable=None):
             elif delta[2] < 0:
                 gl.glRotatef(180, 1, 0, 0)
             gl.glColor3f(*color)
-            glu.gluCylinder(self.quadric, radius, radius, length, 20, 1)
-            glu.gluDisk(self.quadric, 0, radius, 20, 1)
-            gl.glTranslatef(0, 0, length)
-            glu.gluDisk(self.quadric, 0, radius, 20, 1)
+            gl.glScalef(radius, radius, length)
+            gl.glCallList(self._meshes["tube"])
             gl.glPopMatrix()
 
         def pipe(self, points, radius, color, *, flow=False):
             """Join pipe segments with round elbows."""
-            for start, end in zip(points, points[1:]):
-                self.tube(start, end, radius, color)
-            for point in points[1:-1]:
-                gl.glPushMatrix()
-                gl.glTranslatef(*point)
-                gl.glColor3f(*color)
-                glu.gluSphere(self.quadric, radius, 12, 8)
-                gl.glPopMatrix()
+            if not self._dynamic_pass:
+                for start, end in zip(points, points[1:]):
+                    self.tube(start, end, radius, color)
+                for point in points[1:-1]:
+                    gl.glPushMatrix()
+                    gl.glTranslatef(*point)
+                    gl.glColor3f(*color)
+                    gl.glScalef(radius, radius, radius)
+                    gl.glCallList(self._meshes["sphere"])
+                    gl.glPopMatrix()
 
-            if flow and self.analysis and self.analysis.engine_running:
+            if flow and self._dynamic_pass and self.analysis and self.analysis.engine_running:
+                self._moving = True
                 highlight = tuple(min(1.0, component*0.5+0.5) for component in color)
                 gl.glDisable(gl.GL_LIGHTING)
                 for pulse in range(5):
@@ -194,6 +239,7 @@ def create_engine_gl(parent, *, theme, on_failure, on_unavailable=None):
                     end = point_on_path(points, min(1, travel+0.025))
                     self.tube(start, end, radius*1.15, highlight)
                 gl.glEnable(gl.GL_LIGHTING)
+                self._moving = False
 
         def turbo_housing(self, center, color, phase):
             """Snail-shaped compressor volute with a visible impeller inlet."""
@@ -208,11 +254,14 @@ def create_engine_gl(parent, *, theme, on_failure, on_unavailable=None):
             self.pipe(points, 0.105, color)
             self.tube((x, y, z-0.16), (x, y, z+0.06), 0.25, (0.14, 0.18, 0.22))
             self.tube((x, y, z+0.07), (x, y, z+0.10), 0.075, (0.72, 0.77, 0.82))
+            self._moving = True
             for blade in range(8):
                 angle = phase + blade*math.tau/8
                 self.tube((x+0.075*math.cos(angle), y+0.075*math.sin(angle), z+0.09),
                           (x+0.22*math.cos(angle+0.3), y+0.22*math.sin(angle+0.3), z+0.09),
                           0.025, (0.72, 0.77, 0.82))
+
+            self._moving = False
 
         def redraw(self):
             w, h = max(1, self.winfo_width()), max(1, self.winfo_height())
@@ -229,6 +278,22 @@ def create_engine_gl(parent, *, theme, on_failure, on_unavailable=None):
             gl.glLightfv(gl.GL_LIGHT0, gl.GL_POSITION, (-3, 5, 6, 1))
             running = bool(self.analysis and self.analysis.engine_running)
             boosted = bool(self.analysis and self.analysis.forced_induction_active)
+            key = (running, boosted)
+            if key not in self._scenes:
+                scene = gl.glGenLists(1)
+                if not scene:
+                    raise RuntimeError("OpenGL scene allocation failed")
+                self._scenes[key] = scene
+                self._dynamic_pass = False
+                gl.glNewList(scene, gl.GL_COMPILE)
+                self._draw_scene(running, boosted)
+                gl.glEndList()
+            gl.glCallList(self._scenes[key])
+            self._dynamic_pass = True
+            self._draw_scene(running, boosted)
+
+        def _draw_scene(self, running, boosted):
+            self._moving = False
             metal, dark = (0.63, 0.70, 0.77), (0.22, 0.28, 0.34)
             blue = (0.18, 0.63, 0.94) if running else dark
             red = (0.85, 0.30, 0.16) if running else dark
@@ -242,6 +307,7 @@ def create_engine_gl(parent, *, theme, on_failure, on_unavailable=None):
                 self.box((0, y, 0.47), (2.95, 0.035, 0.06), metal)
             self.tube((-1.62, 0, 0), (1.62, 0, 0), 0.10, metal)
             for i, x in enumerate((-1.05, -0.35, 0.35, 1.05)):
+                self._moving = True
                 piston_y, pin_y, pin_z = piston_position(self.phase, i)
                 self.tube((x, pin_y, pin_z), (x, piston_y, 0), 0.045, metal)
                 self.tube((x-0.12, pin_y, pin_z), (x+0.12, pin_y, pin_z), 0.08, metal)
@@ -252,6 +318,7 @@ def create_engine_gl(parent, *, theme, on_failure, on_unavailable=None):
                 firing = (0, 0.75, 0.25, 0.5)[i]
                 if running and (self.phase / 2 - firing) % 1 < 0.10:
                     self.tube((x, 1.22, 0), (x, 1.36, 0), 0.19, (1, 0.45, 0.08))
+                self._moving = False
                 self.tube((x, 1.90, 0.3), (x, 1.60, 0.3), 0.035, gold)
                 self.tube((x, 1.48, -0.25), (x, 2.03, -0.42), 0.07, blue)
                 self.pipe(((x, 1.42, 0.25), (x, 1.18, 0.72),
@@ -310,11 +377,22 @@ def create_engine_gl(parent, *, theme, on_failure, on_unavailable=None):
             self.tube((-1.68, -0.87, 0.55), (-1.68, -0.87, 0.58), 0.066, dark)
             # Flywheel on the end of the crank.
             self.tube((-1.65, 0, 0), (-1.52, 0, 0), 0.33, dark)
+            self._moving = True
             for spoke in range(4):
                 a = self.phase*math.tau + spoke*math.tau/4
                 self.tube((-1.67, 0, 0), (-1.67, 0.27*math.cos(a), 0.27*math.sin(a)), 0.025, metal)
 
+            self._moving = False
+
         def destroy(self):
+            if self._render_job is not None:
+                self.after_cancel(self._render_job)
+                self._render_job = None
+            if self.context_created:
+                self.tkMakeCurrent()
+                for mesh in (*self._meshes.values(), *self._scenes.values()):
+                    gl.glDeleteLists(mesh, 1)
+                self._meshes.clear()
             if self.quadric is not None:
                 glu.gluDeleteQuadric(self.quadric)
                 self.quadric = None

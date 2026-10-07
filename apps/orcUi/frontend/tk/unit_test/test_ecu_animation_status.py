@@ -50,3 +50,31 @@ def test_draw_error_does_not_drop_animation_timer():
         EcuPanel._schedule_engine_animation(panel)
     assert panel._animation_phase > 0
     panel._queue_engine_animation.assert_called_once_with()
+
+
+def test_resume_queues_animation_without_drawing_inside_button_callback():
+    panel = SimpleNamespace(
+        _animation_enabled=False, _animation_job=None,
+        _paint_animation_status=Mock(), _queue_engine_animation=Mock(),
+        _schedule_engine_animation=Mock(), after_cancel=Mock(),
+    )
+    EcuPanel.set_engine_animation(panel, True)
+    assert panel._animation_enabled
+    panel._queue_engine_animation.assert_called_once_with()
+    panel._schedule_engine_animation.assert_not_called()
+    EcuPanel.set_engine_animation(panel, True)
+    panel._queue_engine_animation.assert_called_once_with()
+
+
+def test_pause_cancels_timer_and_resume_can_queue_again():
+    panel = SimpleNamespace(
+        _animation_enabled=True, _animation_job='pending',
+        _paint_animation_status=Mock(), _queue_engine_animation=Mock(),
+        after_cancel=Mock(),
+    )
+    EcuPanel.set_engine_animation(panel, False)
+    panel.after_cancel.assert_called_once_with('pending')
+    assert panel._animation_job is None
+    EcuPanel.set_engine_animation(panel, True)
+    assert panel._animation_enabled
+    panel._queue_engine_animation.assert_called_once_with()
