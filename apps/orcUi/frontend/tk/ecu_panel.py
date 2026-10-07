@@ -59,6 +59,7 @@ class EcuPanel(tk.Frame):
         self._analysis = engine_analysis
         self._labels: dict[str, tk.Label] = {}
         self._bars: dict[str, tk.Canvas] = {}
+        self._field_labels: dict[str, tk.Label] = {}
         self._animation_enabled = True
         self._animation_phase = 0.0
         self._animation_time = time.monotonic()
@@ -84,13 +85,26 @@ class EcuPanel(tk.Frame):
         if enabled == self._animation_enabled:
             return
         self._animation_enabled = enabled
-        self._animation_toggle.configure(text=f"Animation: {'On' if enabled else 'Off'}")
+        self._paint_animation_status()
         if self._animation_job is not None:
             self.after_cancel(self._animation_job)
             self._animation_job = None
         if enabled:
             self._animation_time = time.monotonic()
             self._schedule_engine_animation()
+
+    def _paint_animation_status(self) -> None:
+        if not hasattr(self, "_animation_toggle"):
+            return
+        if not self._animation_enabled:
+            status = "Off"
+        elif self._analysis.engine_running is None:
+            status = "Waiting for RPM"
+        elif not self._analysis.engine_running:
+            status = "Engine off"
+        else:
+            status = "On"
+        self._animation_toggle.configure(text=f"Animation: {status}")
 
     def _schedule_engine_animation(self) -> None:
         self._animation_job = None
@@ -230,13 +244,46 @@ class EcuPanel(tk.Frame):
         body.grid_columnconfigure(0, weight=1)
         body.grid_columnconfigure(1, weight=0)
         body.grid_columnconfigure(2, weight=2)
+        body.bind("<Configure>", lambda event: self._fit_card(body, event.width))
         return body
+
+    def _fit_card(self, body: tk.Frame, width: int) -> None:
+        """Keep numbers readable before spending narrow card width on bars."""
+        compact = width < 320
+        short_labels = {
+            "commanded": "Target λ", "measured": "Actual λ", "load": "Load",
+            "boost": "Boost", "throttle": "Throttle", "timing": "Advance",
+            "fuel_status": "Fuel", "mixture_status": "Tracking", "ignition_status": "Timing",
+        }
+        for key, label in self._field_labels.items():
+            if label.master is body:
+                label.configure(text=short_labels.get(key, label._full_text) if compact else label._full_text)
+        for key, value in self._labels.items():
+            if value.master is not body:
+                continue
+            if key.endswith("_mode"):
+                value.configure(font=("Sans", FONT_SMALL if compact else 15, "bold"),
+                                wraplength=max(1, width-8))
+            elif key.endswith("_status"):
+                value.configure(font=("Sans", FONT_SMALL, "bold"),
+                                wraplength=max(1, width-65))
+            else:
+                value.configure(font=("Sans", FONT_SMALL if compact else FONT_BODY, "bold"))
+        for canvas in self._bars.values():
+            if canvas.master is body:
+                if compact:
+                    canvas.grid_remove()
+                else:
+                    canvas.grid()
+        body.grid_columnconfigure(2, weight=0 if compact else 2)
 
     def _value(self, parent: tk.Misc, row: int, key: str, label: str, *, status: bool = False) -> None:
         ui = self._theme.ui
-        tk.Label(parent, text=label, fg=ui.text, bg=ui.surface, font=("Sans", FONT_SMALL), anchor="w").grid(
-            row=row, column=0, sticky="w", pady=2
-        )
+        field = tk.Label(parent, text=label, fg=ui.text, bg=ui.surface,
+                         font=("Sans", FONT_SMALL), anchor="w")
+        field.grid(row=row, column=0, sticky="w", pady=2)
+        field._full_text = label
+        self._field_labels[key] = field
         value = tk.Label(
             parent, text="--", fg=ui.accent_primary if not status else ui.accent_success,
             bg=ui.surface, font=("Sans", FONT_BODY, "bold"), anchor="e",
@@ -304,6 +351,7 @@ class EcuPanel(tk.Frame):
         return f"{value:+.1f} %" if signed else f"{value:.0f} %"
 
     def _paint(self) -> None:
+        self._paint_animation_status()
         state, analysis, ui = self._vehicle_state, self._analysis, self._theme.ui
         fuel_mode = {
             FuelControlMode.OPEN_LOOP_WARMUP: "Open Loop · Warm-up",
