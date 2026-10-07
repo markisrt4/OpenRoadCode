@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import math
+import time
 import logging
 from datetime import datetime
 from typing import TypeVar
@@ -20,6 +21,8 @@ from protocols.obd2 import Obd2AdapterIf, Obd2Error, Obd2Request
 from protocols.obd2.obd_pid_decoder import ObdPidDecoder
 from protocols.obd2.obd_pids import (
     AbsoluteEngineLoadPid,
+    ActualEngineTorquePid,
+    ReferenceEngineTorquePid,
     AcceleratorPedalPositionPid,
     BarometricPressurePid,
     CommandedThrottleActuatorPid,
@@ -56,6 +59,12 @@ class Obd2Manager(VehicleStateSourceIf):
         self._polling_profile = Obd2PollingProfile.BACKGROUND
         self._scheduler: Obd2PollScheduler | None = None
 
+        self._actual_torque_pid = ActualEngineTorquePid()
+        self._reference_torque_pid = ReferenceEngineTorquePid()
+        self._actual_torque_pct = None
+        self._reference_torque_nm = None
+        self._torque_sample_time = None
+        self._rpm_sample_time = None
         self._rpm_pid = EngineRpmPid()
         self._vehicle_speed_pid = VehicleSpeedPid()
         self._map_pid = IntakeManifoldPressurePid()
@@ -191,7 +200,19 @@ class Obd2Manager(VehicleStateSourceIf):
             measured_equivalence_ratio=self._measured_equivalence_ratio,
             engine_fuel_rate_m3_s=self._lph_to_m3_s(self._fuel_rate_lph),
             control_voltage_v=self._control_voltage,
+            actual_engine_torque_ratio=self._current_torque_ratio(),
+            reference_engine_torque_nm=self._reference_torque_nm,
         )
+
+    def _current_torque_ratio(self) -> float | None:
+        # Do not keep presenting an old instantaneous output after polling stalls.
+        now = time.monotonic()
+        if (self._actual_torque_pct is None or self._torque_sample_time is None
+                or self._rpm_sample_time is None
+                or now-self._torque_sample_time > 10.0
+                or now-self._rpm_sample_time > 10.0):
+            return None
+        return self._actual_torque_pct/100.0
 
     def _create_scheduler(self) -> Obd2PollScheduler:
         """Create the OBD scheduler using the currently requested profile."""
@@ -220,7 +241,8 @@ class Obd2Manager(VehicleStateSourceIf):
                 self._voltage_pid,
             ),
             ecu=(
-                self._fuel_system_status_pid,
+                self._actual_torque_pid,
+                self._reference_torque_pid,                self._fuel_system_status_pid,
                 self._short_term_fuel_trim_pid,
                 self._long_term_fuel_trim_pid,
                 self._ignition_timing_pid,
@@ -250,11 +272,19 @@ class Obd2Manager(VehicleStateSourceIf):
 
     def _update_cached_value(self, decoder: ObdPidDecoder) -> None:
         value = self._read(decoder)
+        if decoder.pid == self._actual_torque_pid.pid:
+            self._actual_torque_pct = value
+            self._torque_sample_time = time.monotonic() if value is not None else None
+            return
+        if decoder.pid == self._reference_torque_pid.pid:
+            self._reference_torque_nm = value
+            return
         if value is None:
             return
         pid = decoder.pid
         if pid == self._rpm_pid.pid:
             self._rpm = value
+            self._rpm_sample_time = time.monotonic()
         elif pid == self._vehicle_speed_pid.pid:
             self._vehicle_speed_kph = value
         elif pid == self._map_pid.pid:

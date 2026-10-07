@@ -47,3 +47,5 @@ class VehicleState:
     measured_equivalence_ratio: float | None = None
     engine_fuel_rate_m3_s: float | None = None
     control_voltage_v: float | None = None
+    actual_engine_torque_ratio: float | None = None
+    reference_engine_torque_nm: float | None = None

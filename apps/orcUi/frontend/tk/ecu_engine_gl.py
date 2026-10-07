@@ -38,7 +38,7 @@ def point_on_path(points, fraction):
     return points[-1]
 
 
-def create_engine_gl(parent, *, theme, on_failure, on_unavailable=None):
+def create_engine_gl(parent, *, theme, on_failure, on_unavailable=None, on_frame=None):
     """Create a GL widget, or return None when the optional backend is absent."""
     if os.environ.get("OPENROAD_ECU_RENDERER", "auto").lower() == "canvas":
         if on_unavailable is not None:
@@ -122,6 +122,8 @@ def create_engine_gl(parent, *, theme, on_failure, on_unavailable=None):
                 self.tkMakeCurrent()
                 self.redraw()
                 self.tkSwapBuffers()
+                if on_frame is not None:
+                    on_frame()
             except Exception as exc:
                 self._fail(exc)
             finally:
@@ -316,7 +318,15 @@ def create_engine_gl(parent, *, theme, on_failure, on_unavailable=None):
                     self.tube((x, y, 0), (x, y+0.02, 0), 0.235, dark)
                 # Firing order 1-3-4-2, one flash per 720-degree cycle.
                 firing = (0, 0.75, 0.25, 0.5)[i]
-                if running and (self.phase / 2 - firing) % 1 < 0.10:
+                cycle = (self.phase / 2 - firing) % 1
+                if running and cycle < 0.04:
+                    # A brief white/blue spark at the plug precedes the orange flame.
+                    gl.glDisable(gl.GL_LIGHTING)
+                    for dx, dy in ((-0.11, 0), (0.11, 0), (0, -0.09), (0, 0.09)):
+                        self.tube((x, 1.34, 0.86), (x+dx, 1.34+dy, 0.86),
+                                  0.015, (0.78, 0.91, 1.0))
+                    gl.glEnable(gl.GL_LIGHTING)
+                if running and 0.02 <= cycle < 0.12:
                     self.tube((x, 1.22, 0), (x, 1.36, 0), 0.19, (1, 0.45, 0.08))
                 self._moving = False
                 self.tube((x, 1.90, 0.3), (x, 1.60, 0.3), 0.035, gold)
@@ -329,7 +339,8 @@ def create_engine_gl(parent, *, theme, on_failure, on_unavailable=None):
             # Place the larger turbo above the head, clear of the piston cutaway.
             turbo_x, turbo_y = 0.72, 2.68
             rotor_phase = self.phase*math.tau*(3 if boosted else 1 if running else 0)
-            self.turbo_housing((turbo_x, turbo_y, 0.22), metal, rotor_phase)
+            self.turbo_housing((turbo_x, turbo_y, 0.22),
+                               (0.20, 0.88, 0.42) if boosted else metal, rotor_phase)
             self.turbo_housing((turbo_x, turbo_y, -0.35), red, rotor_phase)
             self.tube((turbo_x, turbo_y, -0.35), (turbo_x, turbo_y, 0.22), 0.08, metal)
             # Filtered air enters the compressor through a front-facing inlet.

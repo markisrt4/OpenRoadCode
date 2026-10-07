@@ -402,3 +402,20 @@ screens from starting. When inference dependencies or model assets are missing,
 the VISION destination displays an unavailable state and its cause; camera and
 perception resources are not started. Installing VISION dependencies is separate
 from testing the ECU OpenGL renderer.
+
+The ECU center includes a small **Data Hz / Draw FPS** label. Data counts received
+vehicle snapshots, not individual PID polls; Draw counts completed frames, not
+scheduled animation ticks. Both are measured over real elapsed seconds and the
+label refreshes once per second, including while animation is paused. No extra
+OBD requests are made to measure these rates.
+
+The compressor housing turns green while forced induction is active, returning
+to silver otherwise. Brief white-blue spark flashes precede orange combustion
+flashes in the illustrative firing sequence. These are a slowed visualization,
+not direct measurements of individual ignition events.
+
+The ignition card shows **ECU Power** in mechanical hp and **ECU Torque** in Nm.
+They use reported actual/reference torque PIDs 62/63 and current RPM. Unsupported,
+missing or stale inputs display `--`; load/MAF-based guesses are not substituted.
+On Termux with runit, restart the producer after updating with
+`sv restart openroadcode-automotive`, then relaunch ORC.

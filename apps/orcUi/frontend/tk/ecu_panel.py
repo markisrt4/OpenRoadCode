@@ -7,8 +7,6 @@ from __future__ import annotations
 
 import tkinter as tk
 import time
-import math
-from dataclasses import replace
 
 from apps.orcUi.vehicle_presenter import VehiclePresentationState
 from ui.automotive.engine_analysis import (EngineAnalysis, EngineLoadLevel, FuelControlMode, FuelCorrectionStatus, MixtureMode, TrackingQuality)
@@ -17,14 +15,9 @@ from ui.theme import ThemeBundle
 from .ecu_engine_visual import paint_engine_visual, paint_engine_summary
 from .ecu_engine_gl import create_engine_gl
 from .ecu_card_layout import fit_ecu_card
+from .ecu_animation import EcuAnimationMixin, visual_engine_running
+from .ecu_update_rate import RateCounter, EcuRateLabel
 from .shell_metrics import FONT_BODY, FONT_CONTROL, FONT_SMALL
-
-
-def visual_engine_running(rpm: float | None, analyzed_running: bool | None) -> bool | None:
-    """Use current RPM for motion instead of waiting for a separate analysis update."""
-    if rpm is not None and math.isfinite(rpm):
-        return rpm >= 20.0 * 60.0 / math.tau
-    return analyzed_running
 
 
 def bounded_marker_x(
@@ -44,7 +37,7 @@ def bounded_marker_x(
     return start + ((clamped - minimum) / (maximum - minimum)) * (end - start)
 
 
-class EcuPanel(tk.Frame):
+class EcuPanel(EcuAnimationMixin, tk.Frame):
     """Dense driver-facing ECU interpretation dashboard."""
 
     def __init__(
@@ -63,6 +56,7 @@ class EcuPanel(tk.Frame):
         self._labels: dict[str, tk.Label] = {}
         self._bars: dict[str, tk.Canvas] = {}
         self._field_labels: dict[str, tk.Label] = {}
+        self._rate_counter = RateCounter()
         self._animation_enabled = True
         self._animation_phase = 0.0
         self._animation_time = time.monotonic()
@@ -83,64 +77,8 @@ class EcuPanel(tk.Frame):
             self._animation_job = None
         super().destroy()
 
-    def set_engine_animation(self, enabled: bool) -> None:
-        """Pause visual motion without changing telemetry or engine status."""
-        if enabled == self._animation_enabled:
-            return
-        self._animation_enabled = enabled
-        self._paint_animation_status()
-        if self._animation_job is not None:
-            self.after_cancel(self._animation_job)
-            self._animation_job = None
-        if enabled:
-            self._animation_time = time.monotonic()
-            self._queue_engine_animation()
-
-    def _visual_analysis(self) -> EngineAnalysis:
-        running = visual_engine_running(self._vehicle_state.engine_speed_rpm,
-                                        self._analysis.engine_running)
-        return replace(self._analysis, engine_running=running)
-
-    def _paint_animation_status(self) -> None:
-        if not hasattr(self, "_animation_toggle"):
-            return
-        if not self._animation_enabled:
-            status = "Off"
-        elif self._visual_analysis().engine_running is None:
-            status = "Waiting for RPM"
-        elif not self._visual_analysis().engine_running:
-            status = "Engine off"
-        else:
-            status = "On"
-        self._animation_toggle.configure(text=f"Animation: {status}")
-
-    def _schedule_engine_animation(self) -> None:
-        self._animation_job = None
-        if not self._animation_enabled or not self.winfo_exists():
-            return
-        now = time.monotonic()
-        elapsed = min(0.1, now - self._animation_time)
-        self._animation_time = now
-        if self.winfo_ismapped() and self._visual_analysis().engine_running:
-            rpm = self._vehicle_state.engine_speed_rpm or 0.0
-            visual_hz = max(0.8, min(4.5, rpm / 900.0))
-            self._animation_phase = (self._animation_phase + visual_hz * elapsed) % 2.0
-            try:
-                self._paint_engine()
-            finally:
-                # A draw callback must not permanently drop the animation timer.
-                self._queue_engine_animation()
-        else:
-            self._queue_engine_animation()
-
-    def _queue_engine_animation(self) -> None:
-        if (self._animation_enabled and self.winfo_exists()
-                and self._animation_job is None):
-            self._animation_job = self.after(
-                50 if self._engine_gl is not None else 83, self._schedule_engine_animation,
-            )
-
     def update_vehicle(self, state: VehiclePresentationState) -> None:
+        self._rate_counter.record_update()
         self._vehicle_state = state
         self._paint()
 
@@ -172,6 +110,7 @@ class EcuPanel(tk.Frame):
         self._engine_gl = create_engine_gl(
             engine, theme=self._theme, on_failure=self._use_canvas_engine,
             on_unavailable=self._record_renderer_reason,
+            on_frame=self._rate_counter.record_frame,
         )
         if self._engine_gl is not None:
             self._engine_canvas.grid_remove()
@@ -205,6 +144,9 @@ class EcuPanel(tk.Frame):
             lambda event: self._renderer_status.configure(wraplength=max(1, event.width-10)),
         )
         self._record_renderer_reason(self._renderer_reason)
+        EcuRateLabel(engine, counter=self._rate_counter, theme=self._theme).grid(
+            row=4, column=0, sticky="ew", padx=5, pady=2,
+        )
 
         # Keep telemetry cards outside the engine viewport so the complete
         # cutaway stays visible at every dashboard size.
@@ -337,6 +279,10 @@ class EcuPanel(tk.Frame):
         self._bar(body, 1, "timing")
         self._value(body, 2, "ignition_status", "Timing Data", status=True)
         self._labels["ignition_status"].grid(columnspan=2, sticky="w")
+        self._value(body, 3, "ecu_power", "ECU Power")
+        self._labels["ecu_power"].grid(columnspan=2)
+        self._value(body, 4, "ecu_torque", "ECU Torque")
+        self._labels["ecu_torque"].grid(columnspan=2)
 
     @staticmethod
     def _pct(value: float | None, signed: bool = False) -> str:
@@ -368,6 +314,8 @@ class EcuPanel(tk.Frame):
             MixtureMode.UNKNOWN: "--",
         }[analysis.mixture_mode]
         values = {
+            "ecu_power": "--" if analysis.reported_power_w is None else f"{analysis.reported_power_w/745.699872:.1f} hp",
+            "ecu_torque": "--" if analysis.reported_torque_nm is None else f"{analysis.reported_torque_nm:.0f} Nm",
             "fuel_mode": fuel_mode.upper(),
             "mixture_mode": f"TARGET: {mixture.upper()}" if mixture != "--" else "--",
             "load_mode": {
@@ -447,6 +395,7 @@ class EcuPanel(tk.Frame):
             analysis=self._visual_analysis(),
             animation_phase=self._animation_phase,
         )
+        self._rate_counter.record_frame()
 
     def _paint_bars(self) -> None:
         state, ui = self._vehicle_state, self._theme.ui
