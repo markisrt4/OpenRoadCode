@@ -5,6 +5,8 @@
 
 import tkinter as tk
 
+from .navigation_earth_overlay import build_earth_overlay
+
 from ui.navigation.poi_models import (PoiActionKind, PoiCategory, TransitMode)
 
 
@@ -119,6 +121,7 @@ def build_navigation_panel(panel) -> None:
         body, bg=ui.background, highlightthickness=1, highlightbackground=ui.border
     )
     panel._map_host.grid(row=0, column=0, sticky="nsew")
+    build_earth_overlay(panel, tk)
     controls = tk.Frame(
         body, bg=ui.surface_alt, width=62, highlightthickness=1, highlightbackground=ui.border
     )
@@ -304,7 +307,8 @@ def show_poi_card(panel, poi) -> None:
 
     panel._poi_action_buttons = []
     for action in poi.actions:
-        if action.kind in {PoiActionKind.ORDER, PoiActionKind.OPEN_WEBSITE}:
+        if (action.kind in {PoiActionKind.ORDER, PoiActionKind.OPEN_WEBSITE}
+                and action.provider_id != "google-earth-explore"):
             button = tk.Button(
                 buttons,
                 text=action.label,

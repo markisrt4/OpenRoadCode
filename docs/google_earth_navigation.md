@@ -1,8 +1,9 @@
 # Google Earth destination exploration
 
 The active ORC navigation view now uses MapLibre. Select a place on the map or
-from a nearby POI search, then choose **Explore in Google Earth** in its place
-card. Earth opens the selected coordinates in a separate ordinary native Chromium
+from a nearby POI search, then press the **globe icon in the map’s upper-right corner**.
+The icon’s tooltip reads “Explore the selected place in Google Earth.”
+Without a selected place, it prompts you to select one; offline mode disables it. Earth opens the selected coordinates in a separate ordinary native Chromium
 window, with its normal browser and Earth controls. Internet access and native
 Chromium are required. Close the browser window when finished; ORC continues
 using MapLibre.

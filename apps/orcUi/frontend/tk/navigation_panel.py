@@ -94,6 +94,8 @@ class NavigationPanel(NavigationPlacesControls, NavigationRadarControls, Navigat
         self._places_handler = places_handler
         self._online_mode = online_mode
         self._poi_action_buttons = []
+        self._earth_button = None
+        self._earth_place = None
         self._poi_launching = False
         self._poi_action_request = None
         self._unsubscribe_online_mode = (

@@ -17,7 +17,7 @@ def test_right_side_controls_have_action_descriptions():
     with patch("apps.orcUi.frontend.tk.navigation_panel_layout.tk"):
         build_navigation_panel(panel)
     descriptions = [call.args[1] for call in panel._add_tooltip.call_args_list]
-    assert len(descriptions) == 13
+    assert len(descriptions) == 14
     for text in ("Toggle following the vehicle", "Zoom in", "Zoom out",
                  "Current map zoom level", "Switch between overhead 2D and tilted 3D view",
                  "Rotate north to the top (turns follow off)",
@@ -80,7 +80,7 @@ def test_camera_rail_fits_short_viewports_and_caps_tall_ones():
     label.return_value.winfo_reqheight.return_value = 18
     with patch.multiple("apps.orcUi.frontend.tk.navigation_panel_layout.tk",
                         Frame=frame, Button=Mock(), Label=label,
-                        Menubutton=Mock(), Menu=Mock()):
+                        Menubutton=Mock(), Menu=Mock(), BitmapImage=Mock()):
         build_navigation_panel(Mock())
     controls = next(widget for widget, _args, kwargs in frames if kwargs.get("width") == 62)
     rail = next(widget for widget, args, _kwargs in frames if args and args[0] is controls)
