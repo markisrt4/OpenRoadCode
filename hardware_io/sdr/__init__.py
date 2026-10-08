@@ -4,6 +4,6 @@
 """Hardware-independent software-defined radio source contracts."""
 
 from hardware_io.sdr.sdr_source_if import SdrSourceIf
-from hardware_io.sdr.sdr_types import IqBlock, SdrCapabilities
+from hardware_io.sdr.sdr_types import IqBlock, IqSampleFormat, SdrCapabilities
 
-__all__ = ["IqBlock", "SdrCapabilities", "SdrSourceIf"]
+__all__ = ["IqBlock", "IqSampleFormat", "SdrCapabilities", "SdrSourceIf"]
