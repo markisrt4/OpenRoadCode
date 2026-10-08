@@ -16,6 +16,7 @@ class GoogleEarthStandaloneTest(unittest.TestCase):
                   return_value=browser) as factory,
             patch("builtins.input", side_effect=KeyboardInterrupt),
             patch("builtins.print"),
+            patch("apps.launchers.component_test.google_earth_launcher_cli.logging_file_path", return_value="test.log"),
         ):
             with self.assertRaises(KeyboardInterrupt):
                 main()
@@ -27,3 +28,26 @@ class GoogleEarthStandaloneTest(unittest.TestCase):
         browser.launch.assert_called_once()
         browser.stop.assert_called_once()
         browser.set_url.assert_not_called()
+
+    def test_gps_uses_separate_debugger_and_closes_subscriber_before_browser(self):
+        browser, controller = Mock(), Mock()
+        controller.tick.side_effect = KeyboardInterrupt
+        lifecycle = Mock()
+        lifecycle.attach_mock(browser, "browser")
+        lifecycle.attach_mock(controller, "controller")
+        with (
+            patch("sys.argv", ["earth-test", "--orc-gps"]),
+            patch("apps.launchers.component_test.google_earth_launcher_cli.BrowserKioskLauncher",
+                  return_value=browser) as factory,
+            patch("apps.launchers.component_test.google_earth_launcher_cli.EarthNavigationController",
+                  return_value=controller),
+            patch("builtins.print"),
+            patch("apps.launchers.component_test.google_earth_launcher_cli.logging_file_path", return_value="test.log"),
+        ):
+            self.assertEqual(main(), 0)
+        self.assertIn("--remote-debugging-port=9224", factory.call_args.kwargs["extra_arguments"])
+        controller.start.assert_called_once()
+        controller.tick.assert_called_once()
+        controller.close.assert_called_once()
+        calls = [call[0] for call in lifecycle.mock_calls]
+        self.assertLess(calls.index("controller.close"), calls.index("browser.stop"))

@@ -123,3 +123,23 @@ lifecycle rather than changing the GPU backend blindly. The standalone test uses
 a temporary unique browser profile and process selector, with a default example
 location, not ORC GPS. It does not reuse or stop an existing ORC Earth instance.
 Its separate `earth-standalone.log` path is printed when the test starts.
+
+### Standalone Earth with live ORC GPS
+
+Keep the ORC broker and navigation service running with a valid Android position
+(the same feed used by MapLibre). The ORC UI may remain on MapLibre; do not open
+its embedded Earth window during this test.
+
+```bash
+python -m apps.launchers.component_test.google_earth_launcher_cli --display :1 --orc-gps
+```
+
+This uses port `9224` (separate from embedded Earth's `9223`), grants only the
+Earth origin geolocation permission through Chromium DevTools, and feeds ORC GPS
+into the page bridge. It does not ask Chromium to obtain Android location itself.
+The terminal reports page/bridge readiness, missing ORC coordinates, and Earth
+location subscription state. Wait for Earth to finish loading; Ctrl+C closes only
+the test browser and its subscriber. Run only one GPS diagnostic on that port.
+A synthetic position in the initial URL is just the starting view; it does not
+represent a live receiver fix. Device tests must confirm actual coordinates and
+follow behavior, not just a successful bridge delivery.
