@@ -120,4 +120,6 @@ Leave the terminal waiting while inspecting Earth; press Enter to stop the test.
 If standalone Earth also goes black, inspect the browser log for GPU failures.
 If standalone works but embedding fails, investigate X11 reparent/hide and surface
 lifecycle rather than changing the GPU backend blindly. The standalone test uses
-a separate diagnostic browser profile and a default example location, not ORC GPS.
+a temporary unique browser profile and process selector, with a default example
+location, not ORC GPS. It does not reuse or stop an existing ORC Earth instance.
+Its separate `earth-standalone.log` path is printed when the test starts.
