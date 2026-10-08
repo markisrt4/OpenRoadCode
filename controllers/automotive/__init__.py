@@ -6,13 +6,35 @@
 from importlib import import_module
 from typing import Any
 
+from ui.automotive.automotive_telemetry_profile import (AutomotiveTelemetryProfile)
+from ui.automotive.engine_analysis import (EngineAnalysis, EngineLoadLevel, EngineOperatingMode, FuelControlMode, FuelCorrectionStatus, MixtureMode, TrackingQuality)
+from controllers.automotive.engine_analyzer import EngineAnalyzer
+from controllers.automotive.trip_if import TripIf
+from controllers.automotive.trip_state import TripState, TripStatus
+from controllers.automotive.trip_tracker import TripTracker
+from ui.automotive.vehicle_configuration import (EngineInductionType, VehicleConfiguration)
 from controllers.automotive.vehicle_state import VehicleState
 from controllers.automotive.vehicle_state_source_if import VehicleStateSourceIf
 
 __all__ = [
+    "AutomotiveTelemetryProfile",
+    "EngineAnalysis",
+    "EngineAnalyzer",
+    "EngineLoadLevel",
+    "EngineOperatingMode",
+    "FuelControlMode",
+    "FuelCorrectionStatus",
+    "MixtureMode",
+    "TrackingQuality",
     "Elm327ObdAdapter",
+    "EngineInductionType",
     "Obd2Manager",
     "SimulatedVehicleStateSource",
+    "TripIf",
+    "TripState",
+    "TripStatus",
+    "TripTracker",
+    "VehicleConfiguration",
     "VehicleState",
     "VehicleStateSourceIf",
 ]

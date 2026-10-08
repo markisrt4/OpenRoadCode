@@ -8,6 +8,9 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ORC_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 REMOTE_CONTROL_SRC="$ORC_ROOT/development/sdrpp/remote_control"
 TELEMETRY_SRC="$ORC_ROOT/development/sdrpp/telemetry"
+TOOLCHAIN_LOCK="$ORC_ROOT/scripts/installers/toolchain.lock"
+# shellcheck disable=SC1090
+source "$TOOLCHAIN_LOCK"
 
 for module_dir in "$REMOTE_CONTROL_SRC" "$TELEMETRY_SRC"; do
   [[ -f "$module_dir/CMakeLists.txt" && -f "$module_dir/src/main.cpp" ]] || {
@@ -16,9 +19,10 @@ for module_dir in "$REMOTE_CONTROL_SRC" "$TELEMETRY_SRC"; do
   }
 done
 
-SDRPP_REF="${SDRPP_REF:-master}"
+SDRPP_REF="${SDRPP_REF:-$SDRPP_COMMIT}"
 BUILD_JOBS="${BUILD_JOBS:-4}"
-SDRPP_SRC="${SDRPP_SRC:-$HOME/SDRPlusPlus}"
+SDRPP_SRC="${SDRPP_SRC:-${XDG_STATE_HOME:-$HOME/.local/state}/openroadcode/build/SDRPlusPlus}"
+MANAGED_MARKER="$SDRPP_SRC/.openroadcode-managed-source"
 SDRPP_BUILD="$SDRPP_SRC/build"
 SDRPP_ROOT="$SDRPP_SRC/root_dev"
 REMOTE_CONTROL_DST="$SDRPP_SRC/misc_modules/remote_control"
@@ -53,16 +57,33 @@ $SUDO apt-get install -y \
   libhackrf-dev
 
 if [[ ! -d "$SDRPP_SRC/.git" ]]; then
+  if [[ -e "$SDRPP_SRC" ]]; then
+    echo "Refusing to replace an unmanaged SDR++ path: $SDRPP_SRC" >&2
+    exit 1
+  fi
   echo "[*] Cloning SDR++"
   git clone https://github.com/AlexandreRouma/SDRPlusPlus.git "$SDRPP_SRC"
+  : > "$MANAGED_MARKER"
 fi
+[[ -f "$MANAGED_MARKER" ]] || {
+  echo "Refusing to modify an SDR++ checkout not created by OpenRoadCode: $SDRPP_SRC" >&2
+  echo "Set SDRPP_SRC to an empty path for a managed build." >&2
+  exit 1
+}
 
-echo "[*] Updating SDR++"
+echo "[*] Selecting pinned SDR++ revision $SDRPP_REF"
 git -C "$SDRPP_SRC" fetch --tags --prune origin
-git -C "$SDRPP_SRC" checkout "$SDRPP_REF"
-if git -C "$SDRPP_SRC" show-ref --verify --quiet "refs/remotes/origin/$SDRPP_REF"; then
-  git -C "$SDRPP_SRC" reset --hard "origin/$SDRPP_REF"
+unexpected_changes="$(git -C "$SDRPP_SRC" status --porcelain --untracked-files=no \
+  | awk '$2 != "CMakeLists.txt" && $2 != "core/src/core.cpp"')"
+if [[ -n "$unexpected_changes" ]]; then
+  echo "Refusing to overwrite unexpected tracked changes in $SDRPP_SRC:" >&2
+  printf '%s\n' "$unexpected_changes" >&2
+  exit 1
 fi
+git -C "$SDRPP_SRC" restore --source HEAD -- CMakeLists.txt core/src/core.cpp
+git -C "$SDRPP_SRC" checkout --detach "$SDRPP_REF"
+# These are the only upstream files modified by the ORC module integration.
+git -C "$SDRPP_SRC" restore --source "$SDRPP_REF" -- CMakeLists.txt core/src/core.cpp
 
 echo "[*] Staging OpenRoadCode SDR++ modules"
 rm -rf "$REMOTE_CONTROL_DST" "$TELEMETRY_DST"
@@ -167,14 +188,19 @@ cp -f "$REMOTE_CONTROL_MODULE" "$SDRPP_ROOT/modules/remote_control.so"
 cp -f "$TELEMETRY_MODULE" "$SDRPP_ROOT/modules/telemetry.so"
 
 if [[ -f "$SDRPP_ROOT/config.json" ]]; then
-  echo "[*] Enabling SDR++ integration module instances"
-  python3 - "$SDRPP_ROOT/config.json" <<'PY'
+  echo "[*] Configuring SDR++ development root and integration modules"
+  python3 - "$SDRPP_ROOT/config.json" "$SDRPP_ROOT" <<'PY'
 import json
 import sys
 from pathlib import Path
 
 path = Path(sys.argv[1])
+root = Path(sys.argv[2]).resolve()
 data = json.loads(path.read_text())
+
+data["resourcesDirectory"] = str(root / "res")
+data["modulesDirectory"] = str(root / "modules")
+
 instances = data.setdefault("moduleInstances", {})
 instances.pop("ORC Telemetry", None)
 instances["Remote Control"] = {"module": "remote_control", "enabled": True}
@@ -182,6 +208,15 @@ instances["Telemetry"] = {"module": "telemetry", "enabled": True}
 path.write_text(json.dumps(data, indent=4) + "\n")
 PY
 fi
+
+[[ -d "$SDRPP_ROOT/res" ]] || {
+  echo "SDR++ resource directory was not prepared at $SDRPP_ROOT/res" >&2
+  exit 1
+}
+[[ -d "$SDRPP_ROOT/modules" ]] || {
+  echo "SDR++ module directory was not prepared at $SDRPP_ROOT/modules" >&2
+  exit 1
+}
 
 cat > "$SDRPP_ROOT/rigctl_server_config.json" <<'JSON'
 {
@@ -213,7 +248,8 @@ cat <<EOF
     source:         $SDRPP_SRC
     binary:         $SDRPP_BUILD/sdrpp
     launcher:       /usr/local/bin/sdrpp
-    resources:      $SDRPP_ROOT
+    resources:      $SDRPP_ROOT/res
+    module root:    $SDRPP_ROOT/modules
     modules:        rigctl_server.so, remote_control.so, telemetry.so
     rigctl:         127.0.0.1:4532
     remote control: 127.0.0.1:4533

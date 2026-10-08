@@ -3,6 +3,10 @@
 
 from __future__ import annotations
 
+import logging
+
+from common.logging.structured import current_operation, event, operation
+
 from hardware_io.automotive.elm327 import (
     Elm327CommandError,
     Elm327ConnectionError,
@@ -17,7 +21,10 @@ from protocols.obd2 import (
     Obd2ProtocolError,
     Obd2Request,
     Obd2Response,
+    Obd2Error,
 )
+
+LOGGER = logging.getLogger("automotive.elm327")
 
 
 class Elm327ObdAdapter(Obd2AdapterIf):
@@ -41,15 +48,54 @@ class Elm327ObdAdapter(Obd2AdapterIf):
         return self._device.is_connected
 
     def connect(self) -> None:
-        try:
-            self._device.connect()
-        except Elm327ConnectionError as exc:
-            raise Obd2ConnectionError(str(exc)) from exc
+        if self.is_connected:
+            return
+        with operation(current_operation()):
+            try:
+                self._device.connect()
+            except Elm327ConnectionError as exc:
+                event(
+                    LOGGER,
+                    logging.DEBUG,
+                    "adapter.connect_failed",
+                    "ELM327 connection failed",
+                    exception_type=type(exc).__name__,
+                )
+                raise Obd2ConnectionError(str(exc)) from exc
+            event(LOGGER, logging.INFO, "adapter.connected", "ELM327 adapter connected")
 
     def disconnect(self) -> None:
+        connected = self.is_connected
         self._device.disconnect()
+        if connected:
+            event(LOGGER, logging.INFO, "adapter.disconnected", "ELM327 adapter disconnected")
 
     def request(self, request: Obd2Request) -> tuple[Obd2Response, ...]:
+        try:
+            responses = self._request(request)
+        except Obd2Error as exc:
+            event(
+                LOGGER,
+                logging.DEBUG,
+                "request.failed",
+                "OBD request failed",
+                mode=request.mode,
+                obd_pid=request.pid,
+                exception_type=type(exc).__name__,
+            )
+            raise
+        event(
+            LOGGER,
+            logging.DEBUG,
+            "request.completed",
+            "OBD request completed",
+            mode=request.mode,
+            obd_pid=request.pid,
+            response_count=len(responses),
+        )
+        return responses
+
+    def _request(self, request: Obd2Request) -> tuple[Obd2Response, ...]:
         command = self._format_request(request)
         try:
             raw_response = self._device.send_command(command)
@@ -87,8 +133,7 @@ class Elm327ObdAdapter(Obd2AdapterIf):
                 continue
             if display_line.upper() in cls._ERROR_LINES:
                 raise Obd2CommandError(
-                    f"ELM327 could not complete {response.command}: "
-                    f"{display_line}"
+                    f"ELM327 could not complete {response.command}: {display_line}"
                 )
             parsed.append(cls._parse_can_frame(request, line))
 
@@ -99,9 +144,7 @@ class Elm327ObdAdapter(Obd2AdapterIf):
         try:
             can_frame = parse_compact_can_frame(frame)
         except ValueError as exc:
-            raise Obd2ProtocolError(
-                f"Malformed ELM327 CAN frame: {frame!r}"
-            ) from exc
+            raise Obd2ProtocolError(f"Malformed ELM327 CAN frame: {frame!r}") from exc
 
         return Elm327ObdAdapter._parse_obd_payload(request, can_frame)
 
@@ -116,29 +159,23 @@ class Elm327ObdAdapter(Obd2AdapterIf):
         if payload[0] == 0x7F:
             code = payload[2] if len(payload) >= 3 else None
             suffix = f" (code 0x{code:02X})" if code is not None else ""
-            raise Obd2CommandError(
-                f"ECU rejected OBD-II mode 0x{request.mode:02X}{suffix}"
-            )
+            raise Obd2CommandError(f"ECU rejected OBD-II mode 0x{request.mode:02X}{suffix}")
 
         expected_mode = (request.mode + 0x40) & 0xFF
         if payload[0] != expected_mode:
             raise Obd2ProtocolError(
-                f"Expected response mode 0x{expected_mode:02X}, "
-                f"received 0x{payload[0]:02X}"
+                f"Expected response mode 0x{expected_mode:02X}, received 0x{payload[0]:02X}"
             )
 
         data_offset = 1
         response_pid: int | None = None
         if request.pid is not None:
             if len(payload) < 2:
-                raise Obd2ProtocolError(
-                    f"Response is missing PID 0x{request.pid:02X}"
-                )
+                raise Obd2ProtocolError(f"Response is missing PID 0x{request.pid:02X}")
             response_pid = payload[1]
             if response_pid != request.pid:
                 raise Obd2ProtocolError(
-                    f"Expected PID 0x{request.pid:02X}, "
-                    f"received 0x{response_pid:02X}"
+                    f"Expected PID 0x{request.pid:02X}, received 0x{response_pid:02X}"
                 )
             data_offset = 2
 

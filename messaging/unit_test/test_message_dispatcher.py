@@ -7,6 +7,7 @@ import queue
 import threading
 import unittest
 from collections.abc import Mapping
+from concurrent.futures import Future
 from typing import Any
 
 from messaging.message_dispatcher import MessageDispatcher
@@ -134,12 +135,35 @@ class MessageDispatcherTest(unittest.TestCase):
         finally:
             dispatcher.close()
 
-    def test_close_closes_subscriber(self) -> None:
+    def test_cancelled_handler_future_is_not_reported_as_error(self) -> None:
+        subscriber = FakeSubscriber()
+        errors: list[tuple[str, str]] = []
+        dispatcher = MessageDispatcher(
+            subscriber,
+            error_handler=lambda topic, error: errors.append((topic, str(error))),
+        )
+        future: Future[None] = Future()
+        future.cancel()
+
+        dispatcher._handler_done("topic.one", future)
+
+        self.assertEqual([], errors)
+        dispatcher.close()
+
+    def test_close_closes_subscriber_and_is_idempotent(self) -> None:
         subscriber = FakeSubscriber()
         dispatcher = MessageDispatcher(subscriber)
         dispatcher.start()
         dispatcher.close()
+        dispatcher.close()
         self.assertTrue(subscriber.closed)
+
+    def test_closed_dispatcher_rejects_restart(self) -> None:
+        subscriber = FakeSubscriber()
+        dispatcher = MessageDispatcher(subscriber)
+        dispatcher.close()
+        with self.assertRaisesRegex(RuntimeError, "closed"):
+            dispatcher.start()
 
 
 if __name__ == "__main__":

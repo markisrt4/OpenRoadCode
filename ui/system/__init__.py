@@ -5,6 +5,8 @@
 
 from ui.system.diagnostics_ui_if import SystemDiagnostics, SystemDiagnosticsUiIf
 from ui.system.diagnostics_ui_stub import SystemDiagnosticsUiStub
+from ui.system.lifecycle_request_handler_if import SystemLifecycleRequestHandlerIf
+from ui.system.lifecycle_request_handler_stub import SystemLifecycleRequestHandlerStub
 from ui.system.status_ui_if import (
     StatusMessage,
     StatusSeverity,
@@ -28,6 +30,8 @@ __all__ = [
     "SystemDiagnostics",
     "SystemDiagnosticsUiIf",
     "SystemDiagnosticsUiStub",
+    "SystemLifecycleRequestHandlerIf",
+    "SystemLifecycleRequestHandlerStub",
     "TopBarUiIf",
     "TopBarUiStub",
     "VolumeRequestHandlerIf",

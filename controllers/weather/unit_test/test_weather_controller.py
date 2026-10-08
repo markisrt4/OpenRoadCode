@@ -1,102 +1,156 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 
-"""Tests for persisted Open-Meteo snapshots."""
+"""Tests for provider-independent weather orchestration."""
 
-import unittest
-from pathlib import Path
-from tempfile import TemporaryDirectory
 from unittest.mock import Mock
 
-from controllers.cache import PersistentCache
-from controllers.weather import (
-    OpenMeteoWeatherController,
-    WeatherLocation,
-    WeatherSnapshotCache,
-)
+import pytest
+
+from controllers.weather import WeatherController, WeatherLocation
+from controllers.weather.weather_state import CurrentWeather, WeatherSource, WeatherState
 
 
-class WeatherControllerTest(unittest.TestCase):
-    def test_refresh_persists_snapshot_for_another_instance(self) -> None:
-        with TemporaryDirectory() as directory:
-            response = Mock()
-            response.json.return_value = {
-                "current": {},
-                "hourly": {},
-                "daily": {},
-            }
-            session = Mock()
-            session.get.return_value = response
-            storage = PersistentCache(Path(directory))
-            cache = WeatherSnapshotCache(storage)
-            controller = OpenMeteoWeatherController(
-                cache,
-                session=session,
-                clock=lambda: 100.0,
-            )
-
-            snapshot = controller.refresh()
-            restored = WeatherSnapshotCache(
-                PersistentCache(Path(directory))
-            ).load()
-
-            self.assertEqual(100.0, snapshot.fetched_at)
-            self.assertEqual(snapshot, restored)
-            response.raise_for_status.assert_called_once_with()
-
-    def test_refresh_uses_location_provider(self) -> None:
-        response = Mock()
-        response.json.return_value = {
-            "current": {},
-            "hourly": {},
-            "daily": {},
-        }
-        session = Mock()
-        session.get.return_value = response
-        provider = Mock()
-        provider.get_location.return_value = WeatherLocation(
-            latitude=45.0,
-            longitude=-75.0,
-            name="GPS fix",
-            source="GPSD",
-        )
-        controller = OpenMeteoWeatherController(
-            WeatherSnapshotCache(Mock()),
-            session=session,
-            location_provider=provider,
-        )
-
-        snapshot = controller.refresh()
-
-        self.assertEqual(45.0, snapshot.latitude)
-        self.assertEqual(-75.0, snapshot.longitude)
-        self.assertEqual(45.0, session.get.call_args.kwargs["params"]["latitude"])
-
-    def test_stale_snapshot_is_returned_when_refresh_fails(self) -> None:
-        storage = Mock()
-        cache = WeatherSnapshotCache(storage)
-        existing = {
-            "latitude": 1.0,
-            "longitude": 2.0,
-            "location_name": "Cached",
-            "source": "cache",
-            "fetched_at": 1.0,
-            "forecast": {"current": {}, "hourly": {}, "daily": {}},
-        }
-        import json
-        storage.get.return_value = json.dumps(existing).encode()
-        session = Mock()
-        session.get.side_effect = RuntimeError("offline")
-        controller = OpenMeteoWeatherController(
-            cache,
-            session=session,
-            clock=lambda: 1000.0,
-        )
-
-        snapshot = controller.refresh_if_stale(10)
-
-        self.assertEqual("Cached", snapshot.location_name)
+def _state(*, fetched_at: float, name: str = "Romeo") -> WeatherState:
+    return WeatherState(
+        latitude=42.8028,
+        longitude=-83.0127,
+        location_name=name,
+        location_source="test",
+        source=WeatherSource("test", "Test Weather"),
+        fetched_at=fetched_at,
+        current=CurrentWeather(),
+    )
 
 
-if __name__ == "__main__":
-    unittest.main()
+def test_refresh_uses_location_provider():
+    provider = Mock()
+    provider.provider_id = "test"
+    provider.refresh.return_value = _state(fetched_at=100.0, name="GPS fix")
+    location_provider = Mock()
+    location_provider.get_location.return_value = WeatherLocation(
+        latitude=45.0,
+        longitude=-75.0,
+        name="GPS fix",
+        source="GPSD",
+    )
+    controller = WeatherController(provider, location_provider=location_provider)
+
+    result = controller.refresh()
+
+    requested = provider.refresh.call_args.args[0]
+    assert requested.latitude == 45.0
+    assert requested.longitude == -75.0
+    assert result.location_name == "GPS fix"
+    assert controller.latest() is result
+
+
+def test_refresh_uses_fallback_when_location_provider_fails():
+    provider = Mock()
+    provider.provider_id = "test"
+    provider.refresh.return_value = _state(fetched_at=100.0)
+    location_provider = Mock()
+    location_provider.get_location.side_effect = RuntimeError("no fix")
+    fallback = WeatherLocation(42.8028, -83.0127, "Fallback", "config")
+    controller = WeatherController(
+        provider,
+        location_provider=location_provider,
+        fallback_location=fallback,
+    )
+
+    controller.refresh()
+
+    assert provider.refresh.call_args.args[0] == fallback
+
+
+def test_refresh_if_stale_reuses_fresh_state():
+    provider = Mock()
+    provider.provider_id = "test"
+    provider.refresh.return_value = _state(fetched_at=100.0)
+    controller = WeatherController(
+        provider,
+        fallback_location=WeatherLocation(1.0, 2.0, "Test", "test"),
+        clock=lambda: 105.0,
+    )
+
+    first = controller.refresh()
+    second = controller.refresh_if_stale(10.0)
+
+    assert second is first
+    assert provider.refresh.call_count == 1
+
+
+def test_refresh_if_stale_returns_previous_state_when_refresh_fails():
+    provider = Mock()
+    provider.provider_id = "test"
+    provider.refresh.side_effect = [_state(fetched_at=1.0), RuntimeError("offline")]
+    controller = WeatherController(
+        provider,
+        fallback_location=WeatherLocation(1.0, 2.0, "Test", "test"),
+        clock=lambda: 1000.0,
+    )
+
+    existing = controller.refresh()
+    result = controller.refresh_if_stale(10.0)
+
+    assert result is existing
+
+
+def test_refresh_requires_a_location():
+    provider = Mock()
+    provider.provider_id = "test"
+    controller = WeatherController(provider)
+
+    with pytest.raises(RuntimeError, match="No weather location"):
+        controller.refresh()
+
+
+def test_negative_stale_age_is_rejected():
+    provider = Mock()
+    provider.provider_id = "test"
+    controller = WeatherController(provider)
+
+    with pytest.raises(ValueError):
+        controller.refresh_if_stale(-1.0)
+
+
+def test_offline_returns_cached_weather_without_location_or_provider_requests():
+    online = True
+    provider = Mock()
+    provider.refresh.return_value = _state(fetched_at=100.0)
+    location = Mock()
+    controller = WeatherController(provider, location_provider=location,
+                                   network_allowed=lambda: online, clock=lambda: 10000.0)
+    cached = controller.refresh()
+    online = False
+    assert controller.refresh() is cached
+    assert controller.refresh_if_stale(0.0) is cached
+    assert provider.refresh.call_count == 1
+    assert location.get_location.call_count == 1
+    online = True
+    controller.refresh_if_stale(0.0)
+    assert provider.refresh.call_count == 2
+
+
+def test_offline_without_cache_never_requests_weather():
+    provider = Mock()
+    controller = WeatherController(provider, network_allowed=lambda: False)
+    with pytest.raises(RuntimeError, match="no cached weather"):
+        controller.refresh_if_stale(0.0)
+    provider.refresh.assert_not_called()
+
+
+def test_failed_gps_lookup_reuses_last_forecast_location():
+    provider = Mock()
+    provider.refresh.return_value = _state(fetched_at=100.0)
+    location = Mock()
+    location.get_location.return_value = WeatherLocation(42.8, -83.0, "GPS", "GPSD")
+    controller = WeatherController(provider, location_provider=location,
+                                   fallback_location=WeatherLocation(0.0, 0.0, "fallback", "config"))
+    previous = controller.refresh()
+    location.get_location.side_effect = TimeoutError("GPS timed out")
+    controller.refresh()
+    requested = provider.refresh.call_args.args[0]
+    assert requested.latitude == previous.latitude
+    assert requested.longitude == previous.longitude
+    assert requested.name == previous.location_name

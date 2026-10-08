@@ -10,7 +10,12 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd -- "$SCRIPT_DIR/../.." && pwd)"
 WRAPPER_SCRIPT="$PROJECT_ROOT/scripts/runtime/start_message_broker.sh"
 RUN_USER="${SUDO_USER:-${USER:-}}"
+PYTHON_BIN="${OPENROADCODE_PYTHON:-$PROJECT_ROOT/venv/bin/python}"
 
+if [[ ! -x "$PYTHON_BIN" ]]; then
+    echo "OpenRoadCode Python interpreter is unavailable: $PYTHON_BIN" >&2
+    exit 1
+fi
 if [[ ! -f "$WRAPPER_SCRIPT" ]]; then
     echo "Wrapper script not found: $WRAPPER_SCRIPT" >&2
     exit 1
@@ -43,6 +48,7 @@ Type=simple
 User=$RUN_USER
 WorkingDirectory=$PROJECT_ROOT
 Environment=PYTHONUNBUFFERED=1
+Environment=OPENROADCODE_PYTHON=$PYTHON_BIN
 ExecStart=$WRAPPER_SCRIPT
 Restart=on-failure
 RestartSec=2

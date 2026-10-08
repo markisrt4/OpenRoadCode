@@ -8,7 +8,7 @@ from __future__ import annotations
 import argparse
 import json
 
-from apps.launchers.chromium_devtools_client import ChromiumDevToolsClient
+from protocols.chromium.chromium_devtools_client import ChromiumDevToolsClient
 from controllers.navigation.earth_cdp_camera_controller import EarthCdpCameraController
 
 

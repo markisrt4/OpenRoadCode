@@ -5,9 +5,10 @@ from __future__ import annotations
 
 from threading import RLock
 
-from apps.launchers.app_launcher_if import StatusCallback
+from ui.system.app_launcher_if import StatusCallback
+
 from apps.launchers.browser_launcher import BrowserKioskLauncher
-from apps.launchers.chromium_devtools_client import ChromiumDevToolsClient, DevToolsTarget
+from protocols.chromium.chromium_devtools_client import ChromiumDevToolsClient, DevToolsTarget
 
 
 class GoogleEarthLauncher:
@@ -33,6 +34,13 @@ class GoogleEarthLauncher:
                 "--remote-allow-origins=*",
             ),
         )
+        if browser is not None:
+            self._browser.window_class = self.WINDOW_CLASS
+            self._browser.extra_arguments = tuple(argument for argument in self._browser.extra_arguments
+                if not argument.startswith("--remote-debugging-")) + (
+                f"--remote-debugging-port={self.DEVTOOLS_PORT}",
+                "--remote-debugging-address=127.0.0.1",
+            )
         self._devtools = ChromiumDevToolsClient(port=self.DEVTOOLS_PORT)
 
     def prepare(self, remote_display: str, set_status: StatusCallback = None) -> None:

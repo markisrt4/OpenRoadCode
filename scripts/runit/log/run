@@ -1,0 +1,10 @@
+#!/data/data/com.termux/files/usr/bin/bash
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+
+set -euo pipefail
+
+service_name="$(basename -- "$(dirname -- "$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")")")"
+log_root="${XDG_STATE_HOME:-$HOME/.local/state}/openroadcode/log/$service_name"
+mkdir -p "$log_root"
+exec svlogd -tt "$log_root"

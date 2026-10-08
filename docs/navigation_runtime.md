@@ -6,50 +6,66 @@ This document describes the vehicle-side navigation runtime: service ownership, 
 
 Map generation and deployment are documented separately in `docs/navigation_deployment.md`. Public message schemas are documented under `docs/idd/`.
 
+## Route simulation
+
+Start a route, then select **Simulate** to play its geometry at the selected time
+scale. Android bridge and gpsd profiles support playback inside the navigation
+service: their live receivers keep running, and the bridge continues reporting
+real GPS. Only ORC's delivered navigation positions switch to `route-simulation`.
+The UI labels playback and offers **Stop simulation**. Stopping playback, ending
+the route, or reaching its destination resumes fresh live reports. Service
+shutdown clears playback; a restart always starts with the configured live source.
+Browser and standalone simulation profiles retain their existing playback support.
+No bridge configuration change or native renderer rebuild is required.
+
 ## Runtime architecture
 
-```text
-                         vehicle startup
-                               |
-             +-----------------+-----------------+
-             |                                   |
-             v                                   v
-          gpsd                         openroadcode-zmq.service
-             |                         publisher ingress :5556
-             |                         subscriber egress :5557
-             |                                   |
-             +-------------------+---------------+
-                                 |
-                         valhalla.service
-                                 |
-                                 v
-                  openroadcode-navigation.service
-                                 |
-              +------------------+------------------+
-              |                  |                  |
-              v                  v                  v
-      navigation solution   route planning    navigation session
-      position/attitude       Valhalla        route + rerouting
-              |                                     |
-              +------------------+------------------+
-                                 |
-                                 v
-                       route guidance state
-                                 |
-                                 v
-                         ZeroMQ subscribers
-                         CarUi / CarTui / logs
+<div class="orc-diagram-legend" aria-label="Architecture diagram legend">
+  <strong>Diagram key</strong>
+  <span><i class="orc-legend-swatch orc-legend-app"></i>App / UI</span>
+  <span><i class="orc-legend-swatch orc-legend-service"></i>Service / runtime</span>
+  <span><i class="orc-legend-swatch orc-legend-controller"></i>Controller / domain</span>
+  <span><i class="orc-legend-swatch orc-legend-message"></i>Messaging / contract</span>
+  <span><i class="orc-legend-swatch orc-legend-adapter"></i>Protocol / hardware</span>
+  <span><i class="orc-legend-swatch orc-legend-external"></i>External / input</span>
+</div>
+
+```mermaid
+flowchart TD
+    startup["Vehicle startup"] --> gpsd["gpsd"]
+    startup --> broker["openroadcode-message-broker.service<br/>:5556 ingress / :5557 egress"]
+    gpsd --> valhalla["valhalla.service"]
+    broker --> valhalla
+    valhalla --> navService["openroadcode-navigation.service"]
+    navService --> solution["Navigation solution<br/>position / attitude"]
+    navService --> planning["Route planning<br/>Valhalla"]
+    navService --> session["Navigation session<br/>route + rerouting"]
+    solution --> guidance["Route guidance state"]
+    session --> guidance
+    guidance --> subscribers["ZeroMQ subscribers<br/>CarUi / CarTui / logs"]
+
+    classDef orcApp fill:#dbeafe,stroke:#2563eb,color:#172554;
+    classDef orcService fill:#ede9fe,stroke:#7c3aed,color:#2e1065;
+    classDef orcController fill:#dcfce7,stroke:#16a34a,color:#14532d;
+    classDef orcMessage fill:#ffedd5,stroke:#ea580c,color:#7c2d12;
+    classDef orcAdapter fill:#fee2e2,stroke:#dc2626,color:#7f1d1d;
+    classDef orcExternal fill:#f3f4f6,stroke:#6b7280,color:#1f2937;
+    class startup,gpsd,valhalla orcExternal;
+    class broker,guidance orcMessage;
+    class navService orcService;
+    class solution,planning,session orcController;
+    class subscribers orcApp;
 ```
 
 ## Service ownership
 
-### `openroadcode-zmq.service`
+### `openroadcode-message-broker.service`
 
 Owns the process-wide ZeroMQ XPUB/XSUB broker. Producers connect to the publisher ingress endpoint and consumers connect to the subscriber egress endpoint. The broker contains no navigation policy.
 
 Runtime wrapper: `scripts/runtime/start_zeromq_broker.sh`
 
-Installer: `scripts/systemd/install_zeromq_systemd.sh`
+Installer: `scripts/systemd/install_message_broker_systemd.sh`
 
 ### `valhalla.service`
 
@@ -77,9 +93,14 @@ Install the complete runtime stack from the repository root:
 sudo scripts/systemd/install_navigation_runtime_systemd.sh
 ```
 
+This installs the routing runtime—message broker, Valhalla, and navigation.
+The separately scoped telemetry installer adds navigation and automotive
+producers but does not install Valhalla; use the navigation-runtime installer
+when route calculation is required.
+
 The installer creates and enables services in dependency order:
 
-1. `openroadcode-zmq.service`
+1. `openroadcode-message-broker.service`
 2. `valhalla.service`
 3. `openroadcode-navigation.service`
 
@@ -89,7 +110,7 @@ Check the complete stack with:
 
 ```bash
 systemctl --no-pager --full status \
-    openroadcode-zmq \
+    openroadcode-message-broker \
     valhalla \
     openroadcode-navigation
 ```
@@ -97,7 +118,7 @@ systemctl --no-pager --full status \
 Logs are available through journald:
 
 ```bash
-journalctl -u openroadcode-zmq -b
+journalctl -u openroadcode-message-broker -b
 journalctl -u valhalla -b
 journalctl -u openroadcode-navigation -b
 ```
@@ -106,30 +127,29 @@ journalctl -u openroadcode-navigation -b
 
 The intended production lifecycle is:
 
-```text
-UI/client requests destination
-          |
-          v
-navigation command service
-          |
-          v
-route planning controller -> Valhalla HTTP API
-          |
-          v
-NavigationSessionController
-  owns destination + travel mode + active route
-          |
-          v
-RouteGuidanceController
-  consumes normalized geographic position
-          |
-          +--> maneuver + distance-to-turn
-          +--> route progress
-          +--> off-route state
-          +--> arrival state
-          |
-          v
-route_guidance.state -> ZeroMQ -> presentation clients
+```mermaid
+flowchart TD
+    client["UI / client requests destination"] --> command["Navigation command service"]
+    command --> planner["Route planning controller"] --> valhalla["Valhalla HTTP API"]
+    planner --> session["NavigationSessionController<br/>destination + travel mode + active route"]
+    session --> guidance["RouteGuidanceController<br/>normalized geographic position"]
+    guidance --> maneuver["Maneuver + distance-to-turn"]
+    guidance --> progress["Route progress"]
+    guidance --> offroute["Off-route state"]
+    guidance --> arrival["Arrival state"]
+    guidance --> topic["route_guidance.state"] --> bus["ZeroMQ"] --> presentation["Presentation clients"]
+
+    classDef orcApp fill:#dbeafe,stroke:#2563eb,color:#172554;
+    classDef orcService fill:#ede9fe,stroke:#7c3aed,color:#2e1065;
+    classDef orcController fill:#dcfce7,stroke:#16a34a,color:#14532d;
+    classDef orcMessage fill:#ffedd5,stroke:#ea580c,color:#7c2d12;
+    classDef orcAdapter fill:#fee2e2,stroke:#dc2626,color:#7f1d1d;
+    classDef orcExternal fill:#f3f4f6,stroke:#6b7280,color:#1f2937;
+    class client,presentation orcApp;
+    class command orcService;
+    class planner,session,guidance orcController;
+    class valhalla orcExternal;
+    class maneuver,progress,offroute,arrival,topic,bus orcMessage;
 ```
 
 `NavigationSessionController` owns rerouting policy. `RouteGuidanceController` derives route-relative state but does not decide when a replacement route should be calculated.
@@ -183,8 +203,8 @@ python -m pytest \
 On a Raspberry Pi deployment target, also verify the real boot boundary:
 
 ```bash
-sudo systemctl restart openroadcode-zmq valhalla openroadcode-navigation
-systemctl --no-pager --full status openroadcode-zmq valhalla openroadcode-navigation
+sudo systemctl restart openroadcode-message-broker valhalla openroadcode-navigation
+systemctl --no-pager --full status openroadcode-message-broker valhalla openroadcode-navigation
 ```
 
 A reboot test is required before treating startup changes as deployment-ready.

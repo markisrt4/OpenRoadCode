@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-FileCopyrightText: 2026 OpenRoadCode contributors
 # SPDX-License-Identifier: MIT
 
 set -euo pipefail
@@ -11,6 +12,8 @@ set -euo pipefail
 get_known_features() {
   cat <<'EOF'
 base
+development
+native-navigation-development
 desktop-ui
 web-ui
 browser
@@ -27,6 +30,7 @@ imu
 environmental
 spotify
 sdrpp
+navigation
 raspberry-pi
 EOF
 }
@@ -38,6 +42,8 @@ get_all_features_for_target() {
     linux-dev)
       cat <<'EOF'
 base
+development
+native-navigation-development
 desktop-ui
 web-ui
 browser
@@ -54,6 +60,17 @@ imu
 environmental
 spotify
 sdrpp
+EOF
+      ;;
+    termux)
+      cat <<'EOF'
+base
+desktop-ui
+web-ui
+browser
+streamlit
+spotify
+navigation
 EOF
       ;;
     *) return 1 ;;
@@ -70,10 +87,16 @@ is_known_feature() {
 
 get_feature_dependencies() {
   local feature="$1"
+  local target="${OPENROAD_INSTALL_TARGET:-linux-dev}"
   case "$feature" in
     vnc) echo "desktop-ui" ;;
-    spotify) echo "audio" ;;
+    spotify)
+      [[ "$target" == "termux" ]] && echo "" || echo "audio"
+      ;;
     sdrpp) echo "rtl-sdr desktop-ui audio" ;;
+    navigation)
+      [[ "$target" == "termux" ]] && echo "desktop-ui" || echo "desktop-ui gps"
+      ;;
     adsb) echo "rtl-sdr" ;;
     *) echo "" ;;
   esac
@@ -85,8 +108,24 @@ get_feature_packages() {
     base)
       echo "git curl wget ca-certificates sudo procps python3 python3-venv python3-pip"
       ;;
+    development)
+      echo "build-essential cmake ninja-build pkg-config"
+      echo "clang-format clang-tidy shellcheck"
+      ;;
+
+    native-navigation-development)
+      echo "libzmq3-dev"
+      echo "libx11-dev libxext-dev"
+      echo "libglfw3-dev"
+      echo "libegl1-mesa-dev libgles2-mesa-dev libgl-dev libglx-dev"
+      echo "libcurl4-openssl-dev"
+      echo "libjpeg-dev libpng-dev libwebp-dev zlib1g-dev"
+      echo "libuv1-dev"
+      echo "libicu-dev"
+      ;;
+
     desktop-ui)
-      echo "python3-tk dbus-x11 xauth xterm x11-apps x11-utils wmctrl openbox xfce4 xfce4-goodies"
+      echo "python3-tk libgl1 libglu1-mesa dbus-x11 xauth xterm x11-apps x11-utils xdotool wmctrl openbox xfce4 xfce4-goodies"
       ;;
     web-ui|browser|input|streamlit)
       echo ""
@@ -96,8 +135,8 @@ get_feature_packages() {
       ;;
     audio)
       case "${OPENROAD_INSTALL_TARGET:-linux-dev}" in
-        rpi4|rpi5) echo "wireplumber pipewire-pulse alsa-utils" ;;
-        linux-dev) echo "pulseaudio-utils" ;;
+        rpi4|rpi5) echo "wireplumber pipewire-pulse pipewire-bin pulseaudio-utils alsa-utils python3-numpy" ;;
+        linux-dev) echo "pipewire-bin pulseaudio-utils python3-numpy" ;;
         *) echo "" ;;
       esac
       ;;
@@ -108,7 +147,7 @@ get_feature_packages() {
       echo "rtl-sdr soapysdr-tools soapysdr-module-rtlsdr"
       ;;
     adsb)
-      echo "readsb"
+      echo "readsb lighttpd"
       ;;
     bluetooth)
       echo "bluez libbluetooth-dev python3-bluez"
@@ -122,8 +161,8 @@ get_feature_packages() {
     spotify)
       echo ""
       ;;
-    sdrpp)
-      echo "sdrpp"
+    sdrpp|navigation)
+      echo ""
       ;;
     *)
       echo ""
@@ -138,12 +177,12 @@ get_feature_python_packages() {
       printf '%s\n' requests tomli pyzmq
       ;;
     desktop-ui)
-      printf '%s\n' Pillow tinycss2
+      printf '%s\n' Pillow tinycss2 numpy Flask 'PyOpenGL==3.1.10' 'pyopengltk==0.0.4'
       ;;
     web-ui)
-      printf '%s\n' Flask
+      printf '%s\n' Flask numpy
       ;;
-    browser|vnc|adsb|audio|spotify|sdrpp)
+    browser|vnc|adsb|audio|spotify|sdrpp|navigation)
       echo ""
       ;;
     input)
@@ -191,7 +230,7 @@ Available features:
   browser       Chromium browser support
   vnc           TigerVNC server support (includes desktop-ui)
   input         Linux input/evdev support
-  audio         PipeWire/PulseAudio command-line audio control
+  audio         PipeWire/PulseAudio control, capture, and native music analysis
   gps           GPSD and Python GPS/navigation support
   rtl-sdr       RTL-SDR device and SoapySDR support
   streamlit     Streamlit dashboard support
@@ -202,6 +241,7 @@ Available features:
   environmental BMP3XX and Adafruit Blinka I2C support
   spotify       Spotify integration extras (includes audio)
   sdrpp         SDR++ support (includes RTL-SDR, desktop-ui, and audio)
+  navigation    MapLibre renderer + Valhalla navigation stack (includes desktop-ui and gps)
   raspberry-pi  Raspberry Pi GPIO, I2C, Blinka, and Seesaw support
 EOF
 }

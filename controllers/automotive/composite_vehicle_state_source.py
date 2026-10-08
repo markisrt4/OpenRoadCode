@@ -1,56 +1,61 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 
-"""Compose engine telemetry with navigation-owned road motion."""
+"""Compose engine telemetry with navigation-owned road speed."""
 
 from __future__ import annotations
 
 from dataclasses import replace
 
+from ui.automotive.automotive_telemetry_profile import (AutomotiveTelemetryProfile)
 from controllers.automotive.vehicle_state import VehicleState
 from controllers.automotive.vehicle_state_source_if import VehicleStateSourceIf
 
 
 class CompositeVehicleStateSource(VehicleStateSourceIf):
-    """Merge a complete vehicle source with a preferred motion source.
-
-    Engine, pressure, temperature, fuel, and related vehicle telemetry come
-    from ``vehicle_source``. Navigation ground speed overrides the vehicle
-    source's speed when available, preserving navigation as the owner of road
-    motion while still allowing OBD-II speed as a fallback.
-    """
+    """Combine an automotive engine source with a road-motion source."""
 
     def __init__(
         self,
-        vehicle_source: VehicleStateSourceIf,
+        engine_source: VehicleStateSourceIf,
         motion_source: VehicleStateSourceIf,
     ) -> None:
-        self._vehicle_source = vehicle_source
+        self._engine_source = engine_source
         self._motion_source = motion_source
 
     def connect(self) -> None:
-        """Connect both underlying sources."""
-        self._vehicle_source.connect()
+        self._engine_source.connect()
         try:
             self._motion_source.connect()
         except Exception:
-            self._vehicle_source.disconnect()
+            self._engine_source.disconnect()
             raise
 
     def disconnect(self) -> None:
-        """Disconnect both underlying sources."""
         try:
             self._motion_source.disconnect()
         finally:
-            self._vehicle_source.disconnect()
+            self._engine_source.disconnect()
+
+    def set_telemetry_profile(self, profile: AutomotiveTelemetryProfile) -> None:
+        """Forward telemetry-priority hints to the engine source when supported."""
+        setter = getattr(self._engine_source, "set_telemetry_profile", None)
+        if callable(setter):
+            setter(profile)
 
     def read_state(self) -> VehicleState:
-        """Return vehicle telemetry with navigation speed when available."""
-        vehicle_state = self._vehicle_source.read_state()
-        motion_state = self._motion_source.read_state()
-        if motion_state.vehicle_speed_m_s is None:
-            return vehicle_state
+        engine = self._engine_source.read_state()
+        motion = self._motion_source.read_state()
         return replace(
-            vehicle_state,
-            vehicle_speed_m_s=motion_state.vehicle_speed_m_s,
+            engine,
+            # Prefer ECU road speed when the engine source provides it. RPM
+            # and PID 0x0D then share the same request path and clock, which
+            # avoids pairing fresh RPM with an older GPS sample during rapid
+            # acceleration. Navigation remains the fallback for sources that
+            # do not provide vehicle speed.
+            vehicle_speed_m_s=(
+                engine.vehicle_speed_m_s
+                if engine.vehicle_speed_m_s is not None
+                else motion.vehicle_speed_m_s
+            ),
         )

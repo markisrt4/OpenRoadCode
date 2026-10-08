@@ -31,6 +31,7 @@ class RadioScreen(TkScreen):
         theme_mode: ThemeModeProvider,
         panel_factory: RadioPanelFactory,
         sync_theme: ThemeSyncHandler | None = None,
+        on_location_changed: Callable[[str], None] | None = None,
     ) -> None:
         super().__init__(ScreenId("radio"))
         self._host = host
@@ -38,6 +39,7 @@ class RadioScreen(TkScreen):
         self._theme_mode = theme_mode
         self._panel_factory = panel_factory
         self._sync_theme = sync_theme
+        self._on_location_changed = on_location_changed
         self._embedder = X11WindowEmbedder()
         self._panel: tk.Widget | None = None
 
@@ -54,6 +56,31 @@ class RadioScreen(TkScreen):
         panel.pack(fill=tk.BOTH, expand=True)
         self._panel = panel
 
+    def open_rf(self) -> None:
+        """Enter RF presentation on the already mounted radio screen."""
+        self._invoke_panel_action("open_rf_radio")
+        self._set_location("RF")
+
+    def open_streaming(self) -> None:
+        """Enter the streaming browser on the already mounted radio screen."""
+        self._invoke_panel_action("open_streaming_radio")
+        self._set_location("STREAMING")
+
+    def open_adsb(self) -> None:
+        """Enter the ADS-B aircraft dashboard on the mounted radio screen."""
+        self._invoke_panel_action("open_adsb")
+        self._set_location("AIRCRAFT")
+
+    def show_rf(self) -> None:
+        """Open Radio and immediately enter the RF presentation."""
+        self.show()
+        self.open_rf()
+
+    def show_streaming(self) -> None:
+        """Open Radio and immediately enter the streaming browser."""
+        self.show()
+        self.open_streaming()
+
     def hide(self) -> None:
         """Detach any embedded SDR window before the host destroys content."""
         panel = self._panel
@@ -68,8 +95,27 @@ class RadioScreen(TkScreen):
         self._embedder.clear()
 
     def set_theme_mode(self, mode: ThemeMode) -> None:
-        """Keep external SDR presentation aligned with the application theme."""
+        """Apply live ORC and external SDR theme changes without restarting radio."""
+        panel = self._panel
+        if panel is not None and panel.winfo_exists():
+            set_theme_bundle = getattr(panel, "set_theme_bundle", None)
+            if callable(set_theme_bundle):
+                set_theme_bundle(self._theme_bundle())
         self._sync_external_theme(mode)
+
+    def _invoke_panel_action(self, action_name: str) -> None:
+        panel = self._panel
+        if panel is None:
+            return
+        action = getattr(panel, action_name, None)
+        if not callable(action):
+            raise RuntimeError(f"Radio panel does not support {action_name}")
+        action()
+
+    def _set_location(self, leaf: str) -> None:
+        handler = self._on_location_changed
+        if handler is not None:
+            handler(leaf)
 
     def _sync_external_theme(self, mode: ThemeMode) -> None:
         handler = self._sync_theme

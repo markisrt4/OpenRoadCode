@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import os
 import tkinter as tk
+import tkinter.font as tkfont
 from collections.abc import Callable, Sequence
 from pathlib import Path
 
@@ -28,11 +29,14 @@ class GamesPanel(tk.Frame, GamesUiIf):
         self._games: tuple[GameUiState, ...] = ()
         self._filter = "all"
         self._page = 0
+        self._columns = 2
+        self._page_size = PAGE_SIZE
         self._inventory_loading = True
         self._status_message = "Checking games…"
         self._filter_buttons: dict[str, tk.Button] = {}
         self._icon_cache: dict[str, tk.PhotoImage | None] = {}
         self._runtime_host: tk.Frame | None = None
+        self._runtime_exit_button: tk.Button | None = None
         self._build()
 
     def set_theme_bundle(self, theme: ThemeBundle) -> None:
@@ -47,13 +51,14 @@ class GamesPanel(tk.Frame, GamesUiIf):
                 bg=ui.background,
                 highlightbackground=ui.border,
             )
-            self._exit_button.configure(
-                bg=ui.control_background,
-                fg=ui.accent_danger,
-                activebackground=ui.control_active,
-                activeforeground="#ffffff",
-                highlightbackground=ui.accent_danger,
-            )
+            if self._runtime_exit_button is not None:
+                self._runtime_exit_button.configure(
+                    bg=ui.control_background,
+                    fg=ui.accent_danger,
+                    activebackground=ui.control_active,
+                    activeforeground="#ffffff",
+                    highlightbackground=ui.accent_danger,
+                )
             return
         for child in self.winfo_children():
             child.destroy()
@@ -75,9 +80,7 @@ class GamesPanel(tk.Frame, GamesUiIf):
 
     def show_runtime_host(self, on_resize: Callable[[int, int], None]) -> tuple[int, int, int]:
         self._clear_body()
-        self._filters.pack_forget()
-        self._status.pack_forget()
-        self._exit_button.pack(side=tk.RIGHT, padx=8)
+        self._toolbar.pack_forget()
         self._pager.pack_forget()
         ui = self._theme.ui
         host = tk.Frame(
@@ -86,18 +89,42 @@ class GamesPanel(tk.Frame, GamesUiIf):
             highlightthickness=1,
             highlightbackground=ui.border,
         )
-        host.pack(fill=tk.BOTH, expand=True, padx=4, pady=4)
+        host.pack(fill=tk.BOTH, expand=True)
+        exit_button = tk.Button(
+            host,
+            text="EXIT GAME",
+            command=self._request_exit_game,
+            bg=ui.control_background,
+            fg=ui.accent_danger,
+            activebackground=ui.control_active,
+            activeforeground="#ffffff",
+            relief=tk.FLAT,
+            highlightthickness=1,
+            highlightbackground=ui.accent_danger,
+            font=("Sans", 14, "bold"),
+            padx=22,
+            pady=6,
+            cursor="hand2",
+        )
+        exit_button.place(relx=1.0, x=-12, y=10, anchor="ne")
+        exit_button.lift()
+        self._runtime_host = host
+        self._runtime_exit_button = exit_button
         host.update_idletasks()
         host.bind("<Configure>", lambda event: on_resize(event.width, event.height))
-        self._runtime_host = host
         return host.winfo_id(), host.winfo_width(), host.winfo_height()
 
     def hide_runtime_host(self) -> None:
+        exit_button = self._runtime_exit_button
+        self._runtime_exit_button = None
+        if exit_button is not None:
+            try:
+                exit_button.destroy()
+            except tk.TclError:
+                pass
         self._runtime_host = None
-        self._exit_button.pack_forget()
-        self._filters.pack(side=tk.LEFT)
-        self._status.pack(side=tk.RIGHT, padx=8)
-        self._pager.pack(fill=tk.X, pady=(4, 1))
+        self._toolbar.pack(fill=tk.X, pady=(2, 6), before=self._body)
+        self._pager.pack(side=tk.BOTTOM, fill=tk.X, pady=(4, 1), before=self._body)
         self._refresh_cards()
 
     def _request_exit_game(self) -> None:
@@ -110,47 +137,33 @@ class GamesPanel(tk.Frame, GamesUiIf):
         self._toolbar = tk.Frame(self, bg=ui.background)
         self._toolbar.pack(fill=tk.X, pady=(2, 6))
         self._filters = tk.Frame(self._toolbar, bg=ui.background)
-        self._filters.pack(side=tk.LEFT)
+        self._filters.pack(fill=tk.X)
         for label, category in FILTERS:
             button = tk.Button(
                 self._filters,
                 text=label,
                 command=lambda selected=category: self._set_filter(selected),
                 relief=tk.FLAT,
-                font=("Sans", 9, "bold"),
-                padx=11,
-                pady=6,
+                font=("Sans", 14, "bold"),
+                padx=8,
+                pady=5,
                 cursor="hand2",
             )
-            button.pack(side=tk.LEFT, padx=(0, 5))
+            button.grid(row=0, column=len(self._filter_buttons), padx=(0, 5), sticky="w")
             self._filter_buttons[category] = button
         self._status = tk.Label(
             self._toolbar,
             text=self._status_message,
             bg=ui.background,
-            font=("Sans", 10),
+            font=("Sans", 15),
         )
-        self._status.pack(side=tk.RIGHT, padx=8)
-        self._exit_button = tk.Button(
-            self._toolbar,
-            text="EXIT GAME",
-            command=self._request_exit_game,
-            bg=ui.control_background,
-            fg=ui.accent_danger,
-            activebackground=ui.control_active,
-            activeforeground="#ffffff",
-            relief=tk.FLAT,
-            highlightthickness=1,
-            highlightbackground=ui.accent_danger,
-            font=("Sans", 10, "bold"),
-            padx=22,
-            pady=6,
-            cursor="hand2",
-        )
+        self._status.pack(fill=tk.X, padx=2)
+        self._toolbar.bind("<Configure>", self._resize_toolbar)
         self._body = tk.Frame(self, bg=ui.background)
         self._body.pack(fill=tk.BOTH, expand=True)
+        self._body.bind("<Configure>", self._resize_catalog)
         self._pager = tk.Frame(self, bg=ui.background)
-        self._pager.pack(fill=tk.X, pady=(4, 1))
+        self._pager.pack(side=tk.BOTTOM, fill=tk.X, pady=(4, 1), before=self._body)
         self._prev_button = self._pager_button("‹ PREV", lambda: self._change_page(-1))
         self._prev_button.pack(side=tk.LEFT, padx=6)
         self._next_button = self._pager_button("NEXT ›", lambda: self._change_page(1))
@@ -160,12 +173,42 @@ class GamesPanel(tk.Frame, GamesUiIf):
             text="",
             fg=ui.text_muted,
             bg=ui.background,
-            font=("Sans", 9, "bold"),
+            font=("Sans", 14, "bold"),
         )
         self._page_label.pack(expand=True)
         self._update_filter_buttons()
         self._paint_status()
         self._refresh_cards()
+
+    def _resize_toolbar(self, event: tk.Event) -> None:
+        if self._runtime_host is not None:
+            return
+        column = row = used = 0
+        for button in self._filter_buttons.values():
+            width = button.winfo_reqwidth() + 5
+            if used and used + width > event.width:
+                row += 1
+                column = used = 0
+            button.grid_configure(row=row, column=column)
+            used += width
+            column += 1
+        self._status.configure(wraplength=max(1, event.width - 4))
+
+    def _resize_catalog(self, event: tk.Event) -> None:
+        if self._runtime_host is not None:
+            return
+        # Use actual font metrics: Termux font substitution/DPI can change sizes.
+        title = tkfont.Font(self, font=("Sans", 18, "bold"))
+        action = tkfont.Font(self, font=("Sans", 14, "bold"))
+        minimum_width = max(340, 100 + title.measure("GNOME Sudoku"),
+                            100 + 2 * action.measure("UNAVAILABLE") + 36)
+        columns = 2 if event.width >= 2 * minimum_width else 1
+        page_size = PAGE_SIZE
+        if (columns, page_size) != (self._columns, self._page_size):
+            first_game = self._page * self._page_size
+            self._columns, self._page_size = columns, page_size
+            self._page = first_game // page_size
+            self._refresh_cards()
 
     def _pager_button(self, text: str, command: Callable[[], None]) -> tk.Button:
         ui = self._theme.ui
@@ -178,7 +221,7 @@ class GamesPanel(tk.Frame, GamesUiIf):
             activebackground=ui.control_active,
             activeforeground="#ffffff",
             relief=tk.FLAT,
-            font=("Sans", 9, "bold"),
+            font=("Sans", 14, "bold"),
             padx=16,
             pady=4,
         )
@@ -208,7 +251,7 @@ class GamesPanel(tk.Frame, GamesUiIf):
         if self._runtime_host is not None:
             return
         games = self._visible_games()
-        page_count = max(1, (len(games) + PAGE_SIZE - 1) // PAGE_SIZE)
+        page_count = max(1, (len(games) + self._page_size - 1) // self._page_size)
         self._page = max(0, min(page_count - 1, self._page + delta))
         self._refresh_cards()
 
@@ -267,25 +310,37 @@ class GamesPanel(tk.Frame, GamesUiIf):
                 font=("Sans", 18, "bold"),
             ).place(relx=.5, rely=.45, anchor="center")
             return
-        page_count = max(1, (len(games) + PAGE_SIZE - 1) // PAGE_SIZE)
+        page_count = max(1, (len(games) + self._page_size - 1) // self._page_size)
         self._page = min(self._page, page_count - 1)
-        start = self._page * PAGE_SIZE
-        page_games = games[start:start + PAGE_SIZE]
+        start = self._page * self._page_size
+        page_games = games[start:start + self._page_size]
         self._page_label.configure(text=f"{self._page + 1} / {page_count}" if page_count > 1 else "")
         self._prev_button.configure(state=tk.NORMAL if self._page > 0 else tk.DISABLED)
         self._next_button.configure(state=tk.NORMAL if self._page + 1 < page_count else tk.DISABLED)
-        for column in range(2):
-            self._body.grid_columnconfigure(column, weight=1, uniform="game")
-        for row in range(3):
-            self._body.grid_rowconfigure(row, weight=1, uniform="game")
+        # Keep six games per page. Let cards request their natural height and
+        # scroll the content rather than hiding games or stretching one row.
+        canvas = tk.Canvas(self._body, bg=self._theme.ui.background,
+                           highlightthickness=0, width=1, height=1)
+        scrollbar = tk.Scrollbar(self._body, orient=tk.VERTICAL, command=canvas.yview)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        canvas.pack(fill=tk.BOTH, expand=True)
+        canvas.configure(yscrollcommand=scrollbar.set)
+        self._cards = tk.Frame(canvas, bg=self._theme.ui.background)
+        window = canvas.create_window(0, 0, window=self._cards, anchor="nw")
+        for column in range(self._columns):
+            self._cards.grid_columnconfigure(column, weight=1, uniform="game")
         for index, game in enumerate(page_games):
-            self._game_card(self._body, game).grid(
-                row=index // 2,
-                column=index % 2,
+            self._game_card(self._cards, game).grid(
+                row=index // self._columns,
+                column=index % self._columns,
                 sticky="nsew",
                 padx=6,
                 pady=5,
             )
+        canvas.bind("<Configure>", lambda event: canvas.itemconfigure(window, width=event.width))
+        self._cards.bind("<Configure>", lambda event: canvas.configure(scrollregion=canvas.bbox("all")))
+        canvas.bind("<Button-4>", lambda event: canvas.yview_scroll(-1, "units"))
+        canvas.bind("<Button-5>", lambda event: canvas.yview_scroll(1, "units"))
 
     def _find_icon(self, icon_name: str) -> Path | None:
         prefix = Path(os.environ.get("PREFIX", "/usr"))
@@ -324,13 +379,22 @@ class GamesPanel(tk.Frame, GamesUiIf):
 
     def _game_card(self, parent: tk.Misc, game: GameUiState) -> tk.Frame:
         ui = self._theme.ui
-        card = tk.Frame(parent, bg=ui.surface, highlightthickness=1, highlightbackground=ui.border)
+        card = tk.Frame(
+            parent,
+            bg=ui.surface,
+            highlightthickness=1,
+            highlightbackground=ui.border,
+        )
+        card.grid_columnconfigure(0, minsize=70)
         card.grid_columnconfigure(1, weight=1)
+        card.grid_columnconfigure(2, minsize=108)
+
         label, command, accent = self._action_for(game)
         actionable = command is not None
         icon = self._icon_for(game)
-        icon_box = tk.Frame(card, bg=ui.surface, width=64, height=56)
-        icon_box.grid(row=0, column=0, rowspan=3, padx=(10, 3), pady=5)
+
+        icon_box = tk.Frame(card, bg=ui.surface, width=58, height=56)
+        icon_box.grid(row=0, column=0, rowspan=2, padx=(8, 2), pady=5)
         icon_box.grid_propagate(False)
         icon_label = tk.Label(icon_box, bg=ui.surface)
         if icon is not None:
@@ -338,30 +402,44 @@ class GamesPanel(tk.Frame, GamesUiIf):
         else:
             icon_label.configure(text="◈", fg=accent, font=("Sans", 25, "bold"))
         icon_label.place(relx=0.5, rely=0.5, anchor="center")
-        available = game.status in (GameStatus.READY, GameStatus.INSTALLING, GameStatus.RUNNING)
-        tk.Label(
+
+        available = game.status in (
+            GameStatus.READY,
+            GameStatus.INSTALLING,
+            GameStatus.RUNNING,
+        )
+        name_label = tk.Label(
             card,
             text=game.name,
             fg=ui.text if actionable or available else ui.text_muted,
             bg=ui.surface,
-            font=("Sans", 13, "bold"),
-        ).grid(row=0, column=1, sticky="sw", padx=6, pady=(5, 0))
-        tk.Label(
+            font=("Sans", 18, "bold"),
+            anchor="w",
+            justify=tk.LEFT,
+        )
+        name_label.grid(row=0, column=1, columnspan=2, sticky="ew", padx=(4, 6), pady=(5, 0))
+
+        description_label = tk.Label(
             card,
             text=game.description,
             fg=ui.text_muted,
             bg=ui.surface,
-            font=("Sans", 8),
-            anchor="w",
-        ).grid(row=1, column=1, sticky="ew", padx=6)
+            font=("Sans", 15),
+            anchor="nw",
+            justify=tk.LEFT,
+        )
+        description_label.grid(row=1, column=1, columnspan=2, sticky="nsew", padx=(4, 6))
+
         tk.Label(
             card,
             text=game.status.name,
             fg=accent,
             bg=ui.surface,
-            font=("Sans", 8, "bold"),
-        ).grid(row=2, column=1, sticky="nw", padx=6, pady=(1, 5))
-        tk.Button(
+            font=("Sans", 14, "bold"),
+            anchor="w",
+        ).grid(row=2, column=1, sticky="ew", padx=(4, 6), pady=(1, 5))
+
+        action = tk.Button(
             card,
             text=label,
             command=command,
@@ -370,26 +448,43 @@ class GamesPanel(tk.Frame, GamesUiIf):
             fg=accent,
             activebackground=ui.control_active,
             activeforeground="#ffffff",
-            disabledforeground=accent if game.status in (GameStatus.CHECKING, GameStatus.INSTALLING) else ui.text_muted,
+            disabledforeground=(
+                accent
+                if game.status in (GameStatus.CHECKING, GameStatus.INSTALLING)
+                else ui.text_muted
+            ),
             relief=tk.FLAT,
             highlightthickness=1,
             highlightbackground=accent if actionable else ui.border,
-            font=("Sans", 9, "bold"),
-            width=11,
-            padx=5,
+            font=("Sans", 14, "bold"),
+            padx=11,
             pady=5,
             cursor="hand2" if actionable else "",
-        ).grid(row=0, column=2, rowspan=3, padx=10, pady=9, sticky="e")
+        )
+        action.grid(
+            row=2,
+            column=2,
+            padx=(4, 8),
+            pady=9,
+            sticky="ew",
+        )
+
+        def wrap_text(event: tk.Event) -> None:
+            available_width = max(1, event.width - 70 - 16)
+            name_label.configure(wraplength=available_width)
+            description_label.configure(wraplength=available_width)
+
+        card.bind("<Configure>", wrap_text)
         return card
 
     def _action_for(self, game: GameUiState) -> tuple[str, Callable[[], None] | None, str]:
         ui = self._theme.ui
         if game.status is GameStatus.READY:
-            return "PLAY", lambda: self._request_handler.request_launch_game(game.key) if self._request_handler else None, ui.accent_success
+            return "PLAY", lambda: self._request_handler.request_launch_game(game.game_id) if self._request_handler else None, ui.accent_success
         if game.status is GameStatus.RUNNING:
             return "PLAYING", None, ui.accent_success
         if game.status is GameStatus.AVAILABLE:
-            return "INSTALL", lambda: self._request_handler.request_install_game(game.key) if self._request_handler else None, ui.accent_primary
+            return "INSTALL", lambda: self._request_handler.request_install_game(game.game_id) if self._request_handler else None, ui.accent_primary
         if game.status is GameStatus.INSTALLING:
             return "INSTALLING", None, ui.accent_primary
         if game.status is GameStatus.CHECKING:

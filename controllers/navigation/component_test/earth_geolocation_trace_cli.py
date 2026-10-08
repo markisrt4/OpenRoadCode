@@ -7,7 +7,7 @@ import argparse
 import json
 import time
 
-from apps.launchers.chromium_devtools_client import ChromiumDevToolsClient
+from protocols.chromium.chromium_devtools_client import ChromiumDevToolsClient
 
 _PREFIX = '[earth-trace]'
 _INSTALL = r'''(() => {

@@ -9,6 +9,17 @@ SERVICE_DIR="$(dirname -- "$SCRIPT_PATH")"
 PROJECT_ROOT="$(cd -- "$SERVICE_DIR/../../.." && pwd)"
 
 export PYTHONUNBUFFERED=1
+
+CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/openroadcode/service-manager"
+ENV_FILE="$CONFIG_DIR/env"
+if [[ -f "$ENV_FILE" ]]; then
+    # User-owned service-manager settings, including the bootstrap token.
+    # shellcheck disable=SC1090
+    source "$ENV_FILE"
+fi
+
+HOST="${OPENROADCODE_SERVICE_MANAGER_HOST:-127.0.0.1}"
+PORT="${OPENROADCODE_SERVICE_MANAGER_PORT:-8769}"
 if [[ -x "$PROJECT_ROOT/venv-termux/bin/python" ]]; then
     PYTHON="$PROJECT_ROOT/venv-termux/bin/python"
 else
@@ -16,4 +27,4 @@ else
 fi
 
 cd "$PROJECT_ROOT"
-exec "$PYTHON" -m services.termux.service_manager_http --host 127.0.0.1 --port 8768
+exec "$PYTHON" -m services.common.service_manager_http --host "$HOST" --port "$PORT"

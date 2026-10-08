@@ -6,6 +6,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+
+from controllers.automotive.vehicle_configuration import EngineInductionType, VehicleConfiguration
 from pathlib import Path
 
 try:
@@ -13,6 +15,7 @@ try:
 except ModuleNotFoundError:  # Python 3.10
     import tomli as tomllib
 
+from config.toml_overlay import TomlOverlayError, load_toml_layers
 from messaging.zeromq.endpoints import LOCAL_PUBLISHER_ENDPOINT, LOCAL_SUBSCRIBER_ENDPOINT
 from services.navigation.zeromq_navigation_command_server import DEFAULT_NAVIGATION_COMMAND_ENDPOINT
 
@@ -108,7 +111,13 @@ class AutomotiveInputConfig:
     host: str = "127.0.0.1"
     tcp_port: int = 35000
     timeout_s: float = 1.0
-    slow_poll_interval_s: float = 5.0
+    request_rate_hz: float = 6.0
+
+
+@dataclass(frozen=True, slots=True)
+class AutomotiveFuelConfig:
+    engine_displacement_l: float = 1.6
+    volumetric_efficiency: float = 0.85
 
 
 @dataclass(frozen=True, slots=True)
@@ -122,7 +131,18 @@ class AutomotiveServiceRuntimeConfig:
     enabled: bool = True
     rate_hz: float = 10.0
     input: AutomotiveInputConfig = AutomotiveInputConfig()
+    fuel: AutomotiveFuelConfig = AutomotiveFuelConfig()
     publish: AutomotivePublishConfig = AutomotivePublishConfig()
+
+
+@dataclass(frozen=True, slots=True)
+class EnvironmentalWeatherSimulationConfig:
+    bridge_url: str = "http://127.0.0.1:8766"
+
+
+@dataclass(frozen=True, slots=True)
+class EnvironmentalServiceRuntimeConfig:
+    weather_simulation: EnvironmentalWeatherSimulationConfig = EnvironmentalWeatherSimulationConfig()
 
 
 @dataclass(frozen=True, slots=True)
@@ -130,28 +150,77 @@ class ServiceRuntimeConfig:
     messaging: MessagingRuntimeConfig = MessagingRuntimeConfig()
     navigation: NavigationServiceRuntimeConfig = NavigationServiceRuntimeConfig()
     automotive: AutomotiveServiceRuntimeConfig = AutomotiveServiceRuntimeConfig()
+    environmental: EnvironmentalServiceRuntimeConfig = EnvironmentalServiceRuntimeConfig()
+    vehicle: VehicleConfiguration = VehicleConfiguration()
 
 
 class ServiceRuntimeConfigParser:
     """Read service ownership and processing pipelines from runtime TOML."""
 
-    def __init__(self, config_path: str | Path) -> None:
+    def __init__(
+        self,
+        config_path: str | Path,
+        *,
+        overlays: tuple[str | Path, ...] = (),
+    ) -> None:
         self._path = Path(config_path).expanduser().resolve()
+        self._overlays = tuple(Path(path).expanduser().resolve() for path in overlays)
 
     def load(self) -> ServiceRuntimeConfig:
         try:
-            with self._path.open("rb") as file:
-                data = tomllib.load(file)
-        except FileNotFoundError as exc:
-            raise ServiceRuntimeConfigError(f"Runtime config file not found: {self._path}") from exc
-        except tomllib.TOMLDecodeError as exc:
-            raise ServiceRuntimeConfigError(f"Invalid TOML in {self._path}: {exc}") from exc
+            data = load_toml_layers(self._path, *self._overlays)
+        except TomlOverlayError as exc:
+            message = str(exc)
+            if "file not found" in message:
+                raise ServiceRuntimeConfigError(
+                    message.replace("TOML configuration file", "Runtime config file")
+                ) from exc
+            raise ServiceRuntimeConfigError(message) from exc
 
         messaging = self._parse_messaging(data.get("messaging", {}))
         services = self._table(data.get("services", {}), "services")
         navigation = self._parse_navigation(services.get("navigation", {}))
         automotive = self._parse_automotive(services.get("automotive", {}))
-        return ServiceRuntimeConfig(messaging=messaging, navigation=navigation, automotive=automotive)
+        environmental = self._parse_environmental(services.get("environmental", {}))
+        vehicle = self._parse_vehicle(data.get("vehicle", {}))
+        return ServiceRuntimeConfig(
+            messaging=messaging,
+            navigation=navigation,
+            automotive=automotive,
+            environmental=environmental,
+            vehicle=vehicle,
+        )
+
+    def _parse_environmental(self, value) -> EnvironmentalServiceRuntimeConfig:
+        data = self._table(value, "services.environmental")
+        weather_sim = self._table(
+            data.get("weather_simulation", {}),
+            "services.environmental.weather_simulation",
+        )
+        return EnvironmentalServiceRuntimeConfig(
+            weather_simulation=EnvironmentalWeatherSimulationConfig(
+                bridge_url=self._string(
+                    weather_sim.get("bridge_url", "http://127.0.0.1:8766"),
+                    "services.environmental.weather_simulation.bridge_url",
+                )
+            )
+        )
+
+    def _parse_vehicle(self, value) -> VehicleConfiguration:
+        data = self._table(value, "vehicle")
+        engine = self._table(data.get("engine", {}), "vehicle.engine")
+        raw_induction = self._string(
+            engine.get("induction", EngineInductionType.UNKNOWN.value),
+            "vehicle.engine.induction",
+        ).lower()
+        try:
+            induction = EngineInductionType(raw_induction)
+        except ValueError as exc:
+            allowed = ", ".join(item.value for item in EngineInductionType)
+            raise ServiceRuntimeConfigError(
+                f"vehicle.engine.induction must be one of: {allowed}"
+            ) from exc
+        return VehicleConfiguration(induction=induction)
 
     def _parse_messaging(self, value) -> MessagingRuntimeConfig:
         data = self._table(value, "messaging")
@@ -177,6 +246,7 @@ class ServiceRuntimeConfigParser:
     def _parse_automotive(self, value) -> AutomotiveServiceRuntimeConfig:
         data = self._table(value, "services.automotive")
         input_data = self._table(data.get("input", {}), "services.automotive.input")
+        fuel_data = self._table(data.get("fuel", {}), "services.automotive.fuel")
         publish_data = self._table(data.get("publish", {}), "services.automotive.publish")
         source = self._source(input_data.get("source", "simulation"), "services.automotive.input.source")
         device = self._string(input_data.get("device", "elm327"), "services.automotive.input.device").lower()
@@ -203,7 +273,17 @@ class ServiceRuntimeConfigParser:
                 host=self._string(input_data.get("host", "127.0.0.1"), "services.automotive.input.host"),
                 tcp_port=tcp_port,
                 timeout_s=self._positive(input_data.get("timeout_s", 1.0), "services.automotive.input.timeout_s"),
-                slow_poll_interval_s=self._positive(input_data.get("slow_poll_interval_s", 5.0), "services.automotive.input.slow_poll_interval_s"),
+                request_rate_hz=self._positive(input_data.get("request_rate_hz", 6.0), "services.automotive.input.request_rate_hz"),
+            ),
+            fuel=AutomotiveFuelConfig(
+                engine_displacement_l=self._positive(
+                    fuel_data.get("engine_displacement_l", 1.6),
+                    "services.automotive.fuel.engine_displacement_l",
+                ),
+                volumetric_efficiency=self._positive(
+                    fuel_data.get("volumetric_efficiency", 0.85),
+                    "services.automotive.fuel.volumetric_efficiency",
+                ),
             ),
             publish=AutomotivePublishConfig(
                 enabled=self._bool(publish_data.get("enabled", True), "services.automotive.publish.enabled"),
@@ -320,6 +400,8 @@ class ServiceRuntimeConfigParser:
 
     def _source(self, value, name: str) -> str:
         source = self._string(value, name).lower()
-        if source not in {"device", "simulation"}:
-            raise ServiceRuntimeConfigError(f"{name} must be device or simulation")
+        if source not in {"device", "simulation", "obd_simulation"}:
+            raise ServiceRuntimeConfigError(
+                f"{name} must be device, simulation, or obd_simulation"
+            )
         return source

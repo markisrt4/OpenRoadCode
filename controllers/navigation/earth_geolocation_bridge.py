@@ -9,7 +9,7 @@ import json
 import os
 import time
 
-from apps.launchers.chromium_devtools_client import ChromiumDevToolsClient
+from protocols.chromium.chromium_devtools_client import ChromiumDevToolsClient
 
 
 class EarthGeolocationBridge:

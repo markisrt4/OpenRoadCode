@@ -9,6 +9,7 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
+from apps.common.spotify_controller_factory import create_spotify_controller
 from apps.launchers.browser_app_factory import BrowserApplicationFactory
 from apps.launchers.google_earth_launcher import GoogleEarthLauncher
 from apps.launchers.managed_sdrpp_launcher import ManagedSDRPPLauncher
@@ -19,6 +20,8 @@ from config.application_config import ApplicationsConfigParser
 from config.radio_config_manager import load_radio_config
 from controllers.application_runtime import AppRuntimeManager
 from controllers.radio.radio_profiles import RadioProfileCatalog
+from controllers.radio.streaming_radio_controller import StreamingRadioController
+from hardware_io.audio.mpv_streaming_audio_player import MpvStreamingAudioPlayer
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 APPLICATIONS_CONFIG_PATH = PROJECT_ROOT / "config" / "applications.toml"
@@ -31,8 +34,9 @@ class OrcUiApplicationRuntime:
 
     manager: AppRuntimeManager
     radio: ManagedRadioApplicationService
+    streaming_radio: StreamingRadioController
     media: MediaApplicationService
-    earth: GoogleEarthLauncher
+    earth: GoogleEarthLauncher | None = None
 
     def start_background_apps(self) -> None:
         """Apply configured external-app policy and start shared media work."""
@@ -40,7 +44,8 @@ class OrcUiApplicationRuntime:
         self.media.start()
 
     def close(self) -> None:
-        """Close media services before terminating managed applications."""
+        """Close feature services before terminating managed applications."""
+        self.streaming_radio.stop()
         self.media.close()
         self.manager.stop_all()
 
@@ -51,22 +56,38 @@ def create_orc_ui_application_runtime() -> OrcUiApplicationRuntime:
     fallback_display = os.environ.get("DISPLAY", ":1" if _is_termux() else ":0")
     manager = AppRuntimeManager(config, remote_display=fallback_display)
 
+    sdrpp_app = config.app("sdrpp")
     sdrpp = ManagedSDRPPLauncher(
         profile=_default_sdrpp_profile(),
-        fullscreen=False,
-        embedded=True,
+        fullscreen=sdrpp_app.fullscreen,
+        embedded=not sdrpp_app.fullscreen,
     )
     manager.register("sdrpp", sdrpp)
 
     browser_factory = BrowserApplicationFactory(config)
     manager.register("youtube", browser_factory.create("youtube"))
     manager.register("netflix", browser_factory.create("netflix"))
-    earth = GoogleEarthLauncher()
-    manager.register("google_earth", earth)
+    earth_config = config.app("google_earth")
+    earth = (GoogleEarthLauncher(browser=browser_factory.create("google_earth"))
+             if earth_config.enabled else None)
+    if earth is not None:
+        manager.register("google_earth", earth)
 
-    radio = ManagedRadioApplicationService(manager, sdrpp)
-    media = MediaApplicationService()
-    return OrcUiApplicationRuntime(manager=manager, radio=radio, media=media, earth=earth)
+    radio = ManagedRadioApplicationService(
+        manager,
+        sdrpp,
+        fullscreen=sdrpp_app.fullscreen,
+    )
+    streaming_radio = StreamingRadioController(MpvStreamingAudioPlayer())
+    media = MediaApplicationService(create_spotify_controller())
+    return OrcUiApplicationRuntime(
+        manager=manager,
+        radio=radio,
+        streaming_radio=streaming_radio,
+        media=media,
+        earth=earth,
+    )
+
 
 
 def _applications_config_path() -> Path:

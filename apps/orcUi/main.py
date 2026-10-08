@@ -1,227 +1,66 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 
-"""OpenRoadCode automotive UI composition root."""
+"""OpenRoadCode automotive UI composition entry point."""
 
 from __future__ import annotations
 
-import copy
-from pathlib import Path
-import tkinter as tk
+import argparse
+import logging
+import threading
+from common.logging.structured import configure_logging, event
+from common.logging.viewer import follow
+from apps.orcUi.composition.application import create_orc_ui_composition
 
-from apps.common.uiTheme.spotify import SPOTIFY_PANEL_THEME
-from apps.launchers.sdrpp_launcher import sync_sdrpp_theme
-from apps.orcUi.application_runtime import create_orc_ui_application_runtime
-from apps.orcUi.managed_browser_media_player import ManagedBrowserMediaPlayer
-from apps.orcUi.managed_orc_ui_app import ManagedOrcUiApp
-from apps.orcUi.orc_ui_app import OrcUiApp
-from apps.orcUi.radio_application_service import RadioApplicationServiceIf
-from apps.orcUi.radio_entry_panel import RadioEntryPanel
-from apps.orcUi.spotify_now_playing import SpotifyNowPlaying
-from apps.orcUi.theme_runtime import theme_bundle
-from config.runtime_target import RuntimeTarget, detect_runtime_target
-from controllers.image import ImageCache
-from controllers.lyrics import LrclibLyricsClient
-from controllers.video import MusicVideoController, NetflixPlayer, YouTubeMusicVideo, YouTubePlayer
-from frontends.tk.games import GamesScreen
-from frontends.tk.media import BrowserMediaScreen, MediaNavigationBar, MediaScreen, SpotifyScreen
-from frontends.tk.radio import RadioScreen
-from frontends.x11 import X11WindowEmbedder
-from ui.theme import ThemeBundle, ThemeMode
-
-__all__ = ["OrcUiApp", "main"]
-SPOTIFY_GREEN = "#1DB954"
-MUSIC_VIDEO_PORT = 8770
-MUSIC_VIDEO_WINDOW_CLASS = "OpenRoadCodeMusicVideo"
-YOUTUBE_WINDOW_CLASS = "openroadcode-youtube"
-NETFLIX_WINDOW_CLASS = "openroadcode-netflix"
-
-
-def _create_radio_panel(
-    parent: tk.Misc,
-    embedder: X11WindowEmbedder,
-    theme: ThemeBundle,
-    radio_application: RadioApplicationServiceIf,
-) -> RadioEntryPanel:
-    return RadioEntryPanel(
-        parent,
-        embedder=embedder,
-        theme=theme,
-        radio_application=radio_application,
-    )
-
-
-def _sync_radio_theme(mode: ThemeMode) -> None:
-    sync_sdrpp_theme("Light" if mode is ThemeMode.LIGHT else "Dark")
-
-
-def _spotify_theme(app: OrcUiApp) -> dict:
-    theme = copy.deepcopy(SPOTIFY_PANEL_THEME)
-    theme["colors"].update(
-        {
-            "background": "#121212",
-            "card_background": "#181818",
-            "card_border": "#303030",
-            "title": "#FFFFFF",
-            "subtitle": "#B3B3B3",
-            "detail": "#B3B3B3",
-            "status": SPOTIFY_GREEN,
-            "button_background": "#282828",
-            "button_foreground": "#FFFFFF",
-            "button_active_background": SPOTIFY_GREEN,
-            "button_active_foreground": "#000000",
-            "button_disabled_foreground": "#747474",
-            "progress_track": "#404040",
-            "progress_fill": SPOTIFY_GREEN,
-        }
-    )
-    return theme
+__all__ = ["main"]
 
 
 def main() -> None:
-    application_runtime = create_orc_ui_application_runtime()
-    media = application_runtime.media
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--follow-logs", action="store_true")
+    parser.add_argument("--log-level", choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"])
+    parser.add_argument("--log-component", help="Live viewer component prefix")
+    parser.add_argument("--check-ecu-gl", action="store_true",
+                        help="Check the ECU OpenGL renderer and exit")
+    args = parser.parse_args()
+    if args.check_ecu_gl:
+        from apps.orcUi.frontend.tk.ecu_gl_diagnostics import main as check_ecu_gl
 
-    app = ManagedOrcUiApp(earth_launcher=application_runtime.earth)
-    app.register_screen(
-        "RADIO",
-        RadioScreen(
-            app,
-            theme_bundle=lambda: theme_bundle(app.theme_mode),
-            theme_mode=lambda: app.theme_mode,
-            panel_factory=lambda parent, embedder, theme: _create_radio_panel(
-                parent,
-                embedder,
-                theme,
-                application_runtime.radio,
-            ),
-            sync_theme=_sync_radio_theme,
-        ),
-    )
-    app.register_screen(
-        "GAMES",
-        GamesScreen(
-            app,
-            theme_bundle=lambda: theme_bundle(app.theme_mode),
-            theme_mode=lambda: app.theme_mode,
-        ),
-    )
+        raise SystemExit(check_ecu_gl())
+    if args.log_level:
+        import os
 
-    runtime_target = detect_runtime_target()
-    software_rendering = runtime_target is RuntimeTarget.LINUX_DEV
-    image_cache = ImageCache(
-        max_entries=128,
-        cache_directory=Path.home() / ".cache" / "openroadcode" / "media-art",
-    )
-    lyrics = LrclibLyricsClient()
-    music_video = YouTubeMusicVideo(
-        port=MUSIC_VIDEO_PORT,
-        fullscreen=False,
-        software_rendering=software_rendering,
-        window_class=MUSIC_VIDEO_WINDOW_CLASS,
-        show_return_button=False,
-    )
-    music_video_controller = MusicVideoController(
-        spotify_controller=media.spotify.controller,
-        music_video=music_video,
-    )
-
-    def media_navigation(parent: tk.Misc, active: str) -> tk.Widget:
-        return MediaNavigationBar(
-            parent,
-            theme_bundle=lambda: theme_bundle(app.theme_mode),
-            active=active,
-            show_media=lambda: media_screen.show(),
-            show_home=lambda: app.navigate_to("HOME"),
-            show_spotify=lambda: spotify_screen.show(),
-            show_youtube=lambda: youtube_screen.show(),
-            show_netflix=lambda: netflix_screen.show(),
+        os.environ["ORC_LOG_LEVEL"] = args.log_level
+    store = configure_logging(level=args.log_level, stderr=False)
+    logger = logging.getLogger("orc.lifecycle")
+    stop = threading.Event()
+    viewer = None
+    if args.follow_logs:
+        snapshot = store.path.stat() if store.path.exists() else None
+        start_offset = (snapshot.st_ino, snapshot.st_size) if snapshot else None
+        viewer = threading.Thread(
+            target=follow,
+            kwargs={
+                "path": store.path,
+                "stop": stop,
+                "component": args.log_component,
+                "level": args.log_level or "INFO",
+                "start_offset": start_offset,
+            },
+            daemon=True,
         )
-
-    spotify_screen = SpotifyScreen(
-        app,
-        theme=_spotify_theme(app),
-        back_action=lambda: media_screen.show(),
-        image_cache=image_cache,
-        lyrics_client=lyrics,
-        music_video_controller=music_video_controller,
-        music_video_presentation=music_video,
-        service=media.spotify,
-        local_player=media.spotify_local_player,
-        media_navigation_factory=media_navigation,
-    )
-    spotify_screen.set_playback_request_handler(media.spotify)
-    spotify_screen.set_track_request_handler(media.spotify)
-    spotify_screen.set_seek_request_handler(media.spotify)
-    spotify_screen.set_volume_request_handler(media.spotify)
-    spotify_screen.set_state_loader(media.spotify.latest_state)
-
-    youtube_player = ManagedBrowserMediaPlayer(
-        application_runtime.manager,
-        "youtube",
-        resolve_target=YouTubePlayer.resolve_target,
-    )
-    netflix_player = ManagedBrowserMediaPlayer(
-        application_runtime.manager,
-        "netflix",
-        resolve_target=NetflixPlayer.validate_url,
-    )
-
-    youtube_screen = BrowserMediaScreen(
-        "youtube",
-        app,
-        title="YouTube",
-        player=youtube_player,
-        default_target="https://www.youtube.com/",
-        window_class=YOUTUBE_WINDOW_CLASS,
-        back_action=lambda: media_screen.show(),
-        media_navigation_factory=media_navigation,
-    )
-    netflix_screen = BrowserMediaScreen(
-        "netflix",
-        app,
-        title="Netflix",
-        player=netflix_player,
-        default_target="https://www.netflix.com/browse",
-        window_class=NETFLIX_WINDOW_CLASS,
-        back_action=lambda: media_screen.show(),
-        media_navigation_factory=media_navigation,
-    )
-
-    def show_spotify_remote() -> None:
-        media.spotify_local_player.request_remote()
-        media.spotify.request_refresh()
-        spotify_screen.show()
-
-    def show_spotify_local() -> None:
-        media.spotify_local_player.request_player()
-        spotify_screen.show()
-
-    media_screen = MediaScreen(
-        app,
-        theme_bundle=lambda: theme_bundle(app.theme_mode),
-        show_spotify=spotify_screen.show,
-        show_youtube=youtube_screen.show,
-        show_netflix=netflix_screen.show,
-        show_spotify_remote=show_spotify_remote,
-        show_spotify_local=show_spotify_local,
-        spotify_local_available=lambda: media.spotify_local_player.state().available,
-    )
-    app.register_screen("MEDIA", media_screen)
-    app.set_home_media_factory(
-        lambda parent: SpotifyNowPlaying(
-            parent,
-            service=media.spotify,
-            on_open=spotify_screen.show,
-        )
-    )
-
-    app.schedule_ui_callback(1500, application_runtime.start_background_apps)
+        viewer.start()
+    event(logger, logging.INFO, "app.started", "ORC UI starting")
     try:
-        app.run()
+        create_orc_ui_composition().run()
+    except Exception:
+        logger.exception("ORC UI failed", extra={"event": "app.failed"})
+        raise
     finally:
-        music_video_controller.stop_video()
-        application_runtime.close()
+        event(logger, logging.INFO, "app.stopped", "ORC UI stopped")
+        stop.set()
+        if viewer:
+            viewer.join(timeout=2)
 
 
 if __name__ == "__main__":

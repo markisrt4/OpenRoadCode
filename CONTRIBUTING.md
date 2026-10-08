@@ -102,32 +102,48 @@ and presentation.
 
 Commands and requested behavior use controller or request-handler interfaces:
 
-```text
-Application / UI
-      ↓
-Controller or request interface
-      ↓
-Concrete implementation / service command endpoint
-      ↓
-Hardware adapter / protocol / remote service
+<div class="orc-diagram-legend" aria-label="Architecture diagram legend">
+
+**Diagram key:** App / UI · Service / runtime · Controller / domain · Messaging / contract · Protocol / hardware · External / input
+
+</div>
+
+```mermaid
+flowchart TD
+    app["Application / UI"] --> iface["Controller or request interface"]
+    iface --> implementation["Concrete implementation / service command endpoint"]
+    implementation --> boundary["Hardware adapter / protocol / remote service"]
+
+    classDef orcApp fill:#dbeafe,stroke:#2563eb,color:#172554;
+    classDef orcService fill:#ede9fe,stroke:#7c3aed,color:#2e1065;
+    classDef orcController fill:#dcfce7,stroke:#16a34a,color:#14532d;
+    classDef orcMessage fill:#ffedd5,stroke:#ea580c,color:#7c2d12;
+    classDef orcAdapter fill:#fee2e2,stroke:#dc2626,color:#7f1d1d;
+    classDef orcExternal fill:#f3f4f6,stroke:#6b7280,color:#1f2937;
+    class app orcApp;
+    class iface,implementation orcController;
+    class boundary orcAdapter;
 ```
 
 Continuously changing public telemetry is distributed through producer services and the message bus:
 
-```text
-Hardware / simulator
-      ↓
-Domain producer service
-      ↓
-SI domain state
-      ↓
-Contract publisher
-      ↓
-ZeroMQ message bus
-      ↓
-Shared application telemetry state
-      ↓
-Frontend / UI
+```mermaid
+flowchart TD
+    source["Hardware / simulator"] --> service["Domain producer service"] --> state["SI domain state"]
+    state --> publisher["Contract publisher"] --> bus["ZeroMQ message bus"]
+    bus --> appstate["Shared application telemetry state"] --> frontend["Frontend / UI"]
+
+    classDef orcApp fill:#dbeafe,stroke:#2563eb,color:#172554;
+    classDef orcService fill:#ede9fe,stroke:#7c3aed,color:#2e1065;
+    classDef orcController fill:#dcfce7,stroke:#16a34a,color:#14532d;
+    classDef orcMessage fill:#ffedd5,stroke:#ea580c,color:#7c2d12;
+    classDef orcAdapter fill:#fee2e2,stroke:#dc2626,color:#7f1d1d;
+    classDef orcExternal fill:#f3f4f6,stroke:#6b7280,color:#1f2937;
+    class source orcExternal;
+    class service orcService;
+    class state orcController;
+    class publisher,bus orcMessage;
+    class appstate,frontend orcApp;
 ```
 
 In practical terms:
@@ -183,6 +199,45 @@ Architecture references:
 Avoid abstractions that do not provide a useful boundary, test seam, or
 interchangeable implementation. Software already has enough ceremonial
 ribbon-cutting.
+
+## UI contracts and lifecycle
+
+Define or extend toolkit-independent view/state and semantic request contracts
+under `ui/` before wiring new UI behavior. Use immutable snapshots and normalized
+SI values; frontends own display units and formatting. Widgets implement view
+contracts and emit requests through handler contracts. They must not construct
+or call concrete controllers, providers, service clients, or transports, or
+inspect backend private state.
+
+Controllers own workers, caching, retries, playback, and stale callback rejection.
+They must not import GUI frameworks or frontends. Composition roots construct
+dependencies, bind contracts, and own cleanup. Keep process and transport access
+inside injected adapters. Test hide/close, canceled work, and stale completions
+alongside normal behavior. UI contracts remain in this repository; do not add an
+independently installable UI distribution.
+
+Run the complete repository gate before declaring a feature complete:
+
+```bash
+python scripts/quality_gate.py
+```
+
+It runs Ruff, module size, project-wide and weather UI boundary checks, Doxygen
+contract documentation, Mermaid legends, and unit/integration tests. CI also
+checks documentation, browser audio, shell syntax, runtime state, whitespace,
+and logging. Record unavailable hardware/service validation separately from
+automated results; a portable subset is not a full-suite pass.
+
+`scripts/ui_boundary_exceptions.json` lists exact legacy dependencies, not
+permission for new violations. Do not expand or regenerate it to pass a check.
+Remove entries when their dependencies are removed; stale entries fail the gate.
+See [UI contracts and migration inventory](ui/README.md) and the repository's
+`AGENTS.md` instructions.
+
+Update the affected READMEs and IDDs in the same change. Review renderer restart,
+theme changes, and subscription/worker cleanup on the target device when they
+affect native map lifecycle. Weather provider probes require live network access;
+mocked data does not establish live provider or GPU behavior.
 
 ## Where tests belong
 
@@ -249,6 +304,8 @@ python scripts/check_doxygen_contracts.py
 
 Docstrings and comments should explain intent, constraints, or surprising
 behavior. They do not need to narrate obvious Python one line at a time.
+
+Use Mermaid for architecture, topology, dependency, sequence, and data-flow diagrams in Markdown. Use the OpenRoadCode layer palette established in `docs/architecture.md` when the nodes map to those layers. Keep literal terminal output, directory trees, filesystem paths, equations/transforms, and protocol payload examples as normal fenced text or code rather than forcing them into diagrams.
 
 When adding or changing a public message contract:
 

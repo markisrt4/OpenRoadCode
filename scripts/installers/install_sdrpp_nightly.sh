@@ -7,6 +7,9 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ORC_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 SETUP_SCRIPT="$ORC_ROOT/development/debian/setup_sdrpp.sh"
+TOOLCHAIN_LOCK="$ORC_ROOT/scripts/installers/toolchain.lock"
+# shellcheck disable=SC1090
+source "$TOOLCHAIN_LOCK"
 
 [[ -x "$SETUP_SCRIPT" ]] || {
   echo "[!] SDR++ source-build helper was not found or is not executable:" >&2
@@ -26,20 +29,57 @@ ARCH="$(dpkg --print-architecture)"
 
 echo "[*] Ubuntu/Debian codename: $CODENAME"
 echo "[*] Architecture:           $ARCH"
-echo "[*] SDR++ source ref:       ${SDRPP_REF:-master}"
+echo "[*] SDR++ source ref:       ${SDRPP_REF:-$SDRPP_COMMIT}"
 echo
 
-echo "[*] Building SDR++ from source with the OpenRoadCode modules"
-echo "    remote_control.so"
-echo "    telemetry.so"
-echo "    rigctl_server.so"
-echo
+STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/openroadcode"
+STATE_FILE="$STATE_DIR/sdrpp-build.sha256"
 
-# development/debian/setup_sdrpp.sh is the canonical Linux source-build path.
-# It stages the ORC modules into SDR++ before CMake configuration, validates
-# their exported SDR++ ABI symbols, prepares root_dev, and installs the
-# /usr/local/bin/sdrpp wrapper that launches against those resources.
-"$SETUP_SCRIPT"
+compute_build_fingerprint() {
+  {
+    printf 'SDRPP_REF=%s\n' "${SDRPP_REF:-$SDRPP_COMMIT}"
+    find "$ORC_ROOT/development/sdrpp/remote_control" \
+         "$ORC_ROOT/development/sdrpp/telemetry" \
+         -type f -print0 | sort -z | xargs -0 sha256sum
+    sha256sum "$SETUP_SCRIPT"
+  } | sha256sum | awk '{print $1}'
+}
+
+BUILD_FINGERPRINT="$(compute_build_fingerprint)"
+INSTALLED_FINGERPRINT=""
+[[ -f "$STATE_FILE" ]] && INSTALLED_FINGERPRINT="$(cat "$STATE_FILE")"
+
+SDRPP_SRC_DIR="${SDRPP_SRC:-${XDG_STATE_HOME:-$HOME/.local/state}/openroadcode/build/SDRPlusPlus}"
+SDRPP_ROOT_DIR="$SDRPP_SRC_DIR/root_dev"
+
+sdrpp_runtime_ready() {
+  command -v sdrpp >/dev/null 2>&1 \
+    && [[ -x "$SDRPP_SRC_DIR/build/sdrpp" ]] \
+    && [[ -f "$SDRPP_ROOT_DIR/config.json" ]] \
+    && [[ -d "$SDRPP_ROOT_DIR/res" ]] \
+    && [[ -d "$SDRPP_ROOT_DIR/modules" ]]
+}
+
+if [[ "${FORCE_SDRPP_REBUILD:-0}" != "1" ]] \
+   && sdrpp_runtime_ready \
+   && [[ "$INSTALLED_FINGERPRINT" == "$BUILD_FINGERPRINT" ]]; then
+  echo "[+] OpenRoadCode SDR++ build and runtime resources are current; skipping rebuild."
+else
+  if command -v sdrpp >/dev/null 2>&1 && [[ "$INSTALLED_FINGERPRINT" == "$BUILD_FINGERPRINT" ]]; then
+    echo "[!] SDR++ build fingerprint matches, but runtime resources are incomplete; repairing..."
+  fi
+  echo "[*] Building SDR++ from source with the OpenRoadCode modules"
+  echo "    remote_control.so"
+  echo "    telemetry.so"
+  echo "    rigctl_server.so"
+  echo
+
+  # development/debian/setup_sdrpp.sh is the canonical Linux source-build path.
+  "$SETUP_SCRIPT"
+
+  mkdir -p "$STATE_DIR"
+  printf '%s\n' "$BUILD_FINGERPRINT" > "$STATE_FILE"
+fi
 
 if command -v udevadm >/dev/null 2>&1; then
   if [[ "${EUID:-$(id -u)}" -ne 0 ]]; then
@@ -67,8 +107,8 @@ fi
 echo
 echo "[+] OpenRoadCode SDR++ source build installed."
 echo "    launcher: $(command -v sdrpp)"
-echo "    source:   ${SDRPP_SRC:-$HOME/SDRPlusPlus}"
-echo "    ref:      ${SDRPP_REF:-master}"
+echo "    source:   $SDRPP_SRC_DIR"
+echo "    ref:      ${SDRPP_REF:-$SDRPP_COMMIT}"
 echo
 echo "Test SDR:"
 echo "    rtl_test -t"

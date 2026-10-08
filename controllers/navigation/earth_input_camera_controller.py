@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from apps.launchers.chromium_devtools_client import ChromiumDevToolsClient
+from protocols.chromium.chromium_devtools_client import ChromiumDevToolsClient
 from controllers.navigation.earth_camera_controller_if import EarthCameraControllerIf, EarthCameraView
 
 

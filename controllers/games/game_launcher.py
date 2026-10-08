@@ -32,6 +32,13 @@ class GameLauncher(GameLauncherIf):
         command: Sequence[str] | None = None,
         on_exit: Callable[[], None] | None = None,
     ) -> None:
+        """! @brief Launch a game as a managed child process.
+
+        @param game Configured game definition to launch.
+        @param command Optional concrete command override. When omitted, use the
+            command from the game definition.
+        @param on_exit Optional callback invoked after the child process exits.
+        """
         if not game.enabled:
             raise ValueError(f"game is disabled: {game.name}")
         if self.is_running():

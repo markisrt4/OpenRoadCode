@@ -65,7 +65,7 @@ transport = "tcp"
 host = "127.0.0.1"
 tcp_port = 35000
 timeout_s = 1.0
-slow_poll_interval_s = 5.0
+request_rate_hz = 6.0
 
 [services.automotive.publish]
 enabled = true
@@ -86,6 +86,10 @@ max_age_seconds = 604800.0
 [rigctl]
 host = "127.0.0.1"
 port = 4532
+
+[services.environmental.weather_simulation]
+# Android Bridge endpoint. Use the phone address here when ORC runs remotely.
+bridge_url = "http://127.0.0.1:8766"
 
 [environmental.barometric_sensor]
 driver = "bmp388"

@@ -6,9 +6,12 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from queue import Queue
-from threading import Thread
 from typing import Any
+from threading import Lock
+import logging
+from common.logging.structured import current_operation, event
+
+LOGGER = logging.getLogger("map_renderer.client")
 
 from messaging.publisher_if import PublisherIf
 from messaging.zeromq.publisher import ZeroMqPublisher
@@ -24,93 +27,209 @@ class MapRendererCommandError(RuntimeError):
     """Retained for compatibility with callers of the former request/reply client."""
 
 
-_STOP = object()
-
-
 class MapRendererClient:
-    """Publish asynchronous map-renderer commands through the ORC broker."""
+    """Publish asynchronous map-renderer commands through the ORC broker.
 
-    def __init__(self, publisher: PublisherIf | None = None, *, endpoint: str | None = None,
-                 timeout_ms: int | None = None) -> None:
+    The publisher is created eagerly and used directly by the UI thread. ZeroMQ
+    PUB sends are non-blocking for this local in-process command path, so an
+    extra Python queue/sender thread only adds scheduling latency to interactive
+    camera controls and can accumulate stale camera commands.
+    """
+
+    def __init__(
+        self,
+        publisher: PublisherIf | None = None,
+        *,
+        endpoint: str | None = None,
+        timeout_ms: int | None = None,
+    ) -> None:
         del timeout_ms
-        self._publisher = publisher
-        self._endpoint = endpoint
+        self._publisher = publisher or (
+            ZeroMqPublisher(endpoint) if endpoint else ZeroMqPublisher()
+        )
+        self._owns_publisher = publisher is None
+        self._publisher_lock = Lock()
         self._closed = False
         self._send_error: Exception | None = None
-        self._queue: Queue[Mapping[str, Any] | object] | None = None
-        self._sender_thread: Thread | None = None
-        if publisher is None:
-            self._queue = Queue()
-            self._sender_thread = Thread(target=self._sender_loop,
-                name="map-renderer-command-publisher", daemon=True)
-            self._sender_thread.start()
 
     def close(self) -> None:
-        if self._closed:
-            return
-        self._closed = True
-        if self._queue is not None and self._sender_thread is not None:
-            self._queue.put(_STOP)
-            self._sender_thread.join(timeout=1.0)
-            return
-        if self._publisher is not None:
-            self._publisher.close()
+        with self._publisher_lock:
+            if self._closed:
+                return
+            self._closed = True
+            if self._owns_publisher:
+                self._publisher.close()
 
-    def set_camera(self, latitude: float, longitude: float, zoom: float,
-                   bearing: float = 0.0, pitch: float = 0.0) -> None:
-        self._send_command({"command": MapRendererCommand.SET_CAMERA,
-            "latitude": latitude, "longitude": longitude, "zoom": zoom,
-            "bearing": bearing, "pitch": pitch})
+    def set_camera(
+        self,
+        latitude: float,
+        longitude: float,
+        zoom: float,
+        bearing: float = 0.0,
+        pitch: float = 0.0,
+    ) -> None:
+        self._send_command(
+            {
+                "command": MapRendererCommand.SET_CAMERA,
+                "latitude": latitude,
+                "longitude": longitude,
+                "zoom": zoom,
+                "bearing": bearing,
+                "pitch": pitch,
+            }
+        )
+
+    def set_zoom(self, zoom: float) -> None:
+        self._send_command({"command": MapRendererCommand.SET_ZOOM, "zoom": zoom})
+
+    def set_bearing(self, bearing: float) -> None:
+        self._send_command({"command": MapRendererCommand.SET_BEARING, "bearing": bearing})
+
+    def set_pitch(self, pitch: float) -> None:
+        self._send_command({"command": MapRendererCommand.SET_PITCH, "pitch": pitch})
+
+    def pan_screen(self, right_px: float, up_px: float) -> None:
+        self._send_command(
+            {
+                "command": MapRendererCommand.PAN_SCREEN,
+                "right_px": right_px,
+                "up_px": up_px,
+            }
+        )
 
     def set_route(self, geojson: dict[str, object]) -> None:
         self._send_command({"command": MapRendererCommand.SET_ROUTE, "geojson": geojson})
 
+    def set_route_weather(self, geojson: dict[str, object]) -> None:
+        """Update independent forecast markers without changing the route or camera."""
+        self._send_command({"command": MapRendererCommand.SET_ROUTE_WEATHER, "geojson": geojson})
+
+    def set_city_weather(self, geojson: dict[str, object]) -> None:
+        """Update city weather labels independently of radar, POIs and route markers."""
+        self._send_command({"command": MapRendererCommand.SET_CITY_WEATHER, "geojson": geojson})
+
+    def search_weather_cities(self, request_id: int) -> None:
+        """Ask the native map for a spaced selection of cities in its current viewport."""
+        self._send_command({"command": MapRendererCommand.SEARCH_WEATHER_CITIES, "request_id": request_id})
+
     def set_center(self, latitude: float, longitude: float) -> None:
-        self._send_command({"command": MapRendererCommand.SET_CENTER,
-            "latitude": latitude, "longitude": longitude})
+        self._send_command(
+            {"command": MapRendererCommand.SET_CENTER, "latitude": latitude, "longitude": longitude}
+        )
 
     def set_position(self, latitude: float, longitude: float) -> None:
-        self._send_command({"command": MapRendererCommand.SET_POSITION,
-            "latitude": latitude, "longitude": longitude})
+        self._send_command(
+            {
+                "command": MapRendererCommand.SET_POSITION,
+                "latitude": latitude,
+                "longitude": longitude,
+            }
+        )
 
     def set_poi_focus(self, category: str | None, enabled: bool = True) -> None:
-        self._send_command({"command": MapRendererCommand.SET_POI_FOCUS,
-            "category": category or "", "enabled": enabled if category else False})
+        self._send_command(
+            {
+                "command": MapRendererCommand.SET_POI_FOCUS,
+                "category": category or "",
+                "enabled": enabled if category else False,
+            }
+        )
 
-    def fit_bounds(self, south: float, west: float, north: float, east: float,
-                   padding: float = 40.0) -> None:
-        self._send_command({"command": MapRendererCommand.FIT_BOUNDS,
-            "south": south, "west": west, "north": north, "east": east,
-            "padding": padding})
+    def set_weather_radar(
+        self,
+        tile_url: str | None,
+        *,
+        enabled: bool = True,
+        frame_time: int | None = None,
+        opacity: float = 0.65,
+        max_zoom: int = 22,
+    ) -> None:
+        """Show, update, or hide the weather-radar raster overlay."""
+        if not 0.0 <= opacity <= 1.0:
+            raise ValueError("weather radar opacity must be between 0.0 and 1.0")
+        if not 0 <= max_zoom <= 22:
+            raise ValueError("weather radar max zoom must be between 0 and 22")
+        self._send_command({
+            "command": MapRendererCommand.SET_WEATHER_RADAR,
+            "tile_url": tile_url or "",
+            "enabled": enabled,
+            "frame_time": frame_time,
+            "opacity": opacity,
+            "max_zoom": max_zoom,
+        })
+    def set_weather_field(
+        self,
+        tile_url: str | None,
+        *,
+        enabled: bool = True,
+        frame_time: int | None = None,
+        opacity: float = 0.45,
+        max_zoom: int = 22,
+    ) -> None:
+        """Show, update, or hide the temperature/wind raster overlay."""
+        if not 0.0 <= opacity <= 1.0:
+            raise ValueError("weather field opacity must be between 0.0 and 1.0")
+        if not 0 <= max_zoom <= 22:
+            raise ValueError("weather field max zoom must be between 0 and 22")
+        self._send_command({
+            "command": MapRendererCommand.SET_WEATHER_FIELD,
+            "tile_url": tile_url or "",
+            "enabled": enabled,
+            "frame_time": frame_time,
+            "opacity": opacity,
+            "max_zoom": max_zoom,
+        })
+    def set_poi_results(self, geojson: dict[str, object]) -> None:
+        self._send_command({"command": MapRendererCommand.SET_POI_RESULTS, "geojson": geojson})
 
-    def _send_command(self, command: dict[str, object]) -> None:
-        if self._closed:
-            raise MapRendererUnavailableError("map renderer client is closed")
-        if self._send_error is not None:
-            raise MapRendererUnavailableError("unable to publish map renderer command") from self._send_error
-        if self._queue is not None:
-            self._queue.put(command)
-            return
-        if self._publisher is None:
-            raise MapRendererUnavailableError("map renderer publisher is unavailable")
-        try:
-            self._publisher.publish(MAP_RENDERER_COMMAND_TOPIC, command)
-        except (RuntimeError, OSError) as exc:
-            raise MapRendererUnavailableError("unable to publish map renderer command") from exc
+    def fit_bounds(
+        self, south: float, west: float, north: float, east: float, padding: float = 40.0
+    ) -> None:
+        self._send_command(
+            {
+                "command": MapRendererCommand.FIT_BOUNDS,
+                "south": south,
+                "west": west,
+                "north": north,
+                "east": east,
+                "padding": padding,
+            }
+        )
 
-    def _sender_loop(self) -> None:
-        publisher = ZeroMqPublisher(self._endpoint) if self._endpoint else ZeroMqPublisher()
-        try:
-            assert self._queue is not None
-            while True:
-                command = self._queue.get()
-                try:
-                    if command is _STOP:
-                        return
-                    publisher.publish(MAP_RENDERER_COMMAND_TOPIC, command)
-                except Exception as exc:
-                    self._send_error = exc
-                finally:
-                    self._queue.task_done()
-        finally:
-            publisher.close()
+    def fit_dataset(self, padding: float = 24.0) -> None:
+        """Frame the installed offline map dataset."""
+        self._send_command({"command": MapRendererCommand.FIT_DATASET, "padding": padding})
+
+    def _send_command(self, command: Mapping[str, Any]) -> None:
+        with self._publisher_lock:
+            if self._closed:
+                raise MapRendererUnavailableError("map renderer client is closed")
+            if self._send_error is not None:
+                raise MapRendererUnavailableError(
+                    "unable to publish map renderer command"
+                ) from self._send_error
+            command = dict(command)
+            if current_operation():
+                command["operation_id"] = current_operation()
+            try:
+                self._publisher.publish(MAP_RENDERER_COMMAND_TOPIC, command)
+                event(
+                    LOGGER,
+                    logging.INFO
+                    if command["command"] == MapRendererCommand.SET_ROUTE
+                    else logging.DEBUG,
+                    "command.published",
+                    "Map command published",
+                    command=str(command["command"]),
+                )
+            except (RuntimeError, OSError) as exc:
+                event(
+                    LOGGER,
+                    logging.ERROR,
+                    "command.publish_failed",
+                    "Map command publication failed",
+                    command=str(command["command"]),
+                    exception_type=type(exc).__name__,
+                )
+                self._send_error = exc
+                raise MapRendererUnavailableError("unable to publish map renderer command") from exc

@@ -38,8 +38,18 @@ from ui.navigation.route_guidance_ui_if import RouteGuidanceUiIf
 from ui.navigation.route_guidance_ui_stub import RouteGuidanceUiStub
 from ui.navigation.route_request_handler_if import RouteRequestHandlerIf
 from ui.navigation.route_request_handler_stub import RouteRequestHandlerStub
+from ui.navigation.route_simulation_request_handler_if import RouteSimulationRequestHandlerIf
+
+from ui.navigation.map_runtime_if import MapRuntimeIf
+from ui.navigation.navigation_places_request_handler_if import (
+    MapFavorite, NavigationPlacesFactoryIf, NavigationPlacesRequestHandlerIf,
+)
 
 __all__ = [
+    "MapFavorite",
+    "MapRuntimeIf",
+    "NavigationPlacesFactoryIf",
+    "NavigationPlacesRequestHandlerIf",
     "AngularVelocityUiIf",
     "AngularVelocityUiStub",
     "HeadingReference",
@@ -71,6 +81,7 @@ __all__ = [
     "RouteGuidanceUiStub",
     "RouteRequestHandlerIf",
     "RouteRequestHandlerStub",
+    "RouteSimulationRequestHandlerIf",
     "TravelLane",
     "TranslationUiIf",
     "TranslationUiStub",

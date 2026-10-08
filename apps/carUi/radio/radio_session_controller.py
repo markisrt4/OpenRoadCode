@@ -8,9 +8,9 @@ from typing import Callable, Optional
 from apps.carUi.radio.radio_session_config import RadioSessionConfig
 from apps.carUi.radio.radio_session_state import RadioSessionState
 from ui.radio.radio_formatter import format_frequency
-from apps.launchers.app_launcher_if import AppLauncherIf
+from ui.system.app_launcher_if import (AppLauncherIf)
 from controllers.radio.radio_controller_if import RadioControllerIf
-from controllers.radio.radio_types import RadioPreset
+from ui.radio.radio_types import (RadioPreset)
 from controllers.sdr.sdr_telemetry_monitor import SDRTelemetryMonitor
 from ui.radio import (
     ModulationType,

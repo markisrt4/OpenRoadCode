@@ -34,6 +34,12 @@ Controls: Up/Down and PageUp/PageDown navigate, Right expands or collapses a reg
 
 The last accepted selection is stored in `.cache/selected-regions.json`. On the next run, regions that still exist in the current Geofabrik index are selected with `[x]`, and their parent groups are expanded so they are visible. Quitting with `q` leaves the previous accepted selection unchanged.
 
+Before starting an expensive build, the builder checks `build-output/build-manifest.json`. If the manifest contains the same selected Geofabrik regions and the existing generated output passes validation, the existing build is reused instead of rerunning tilemaker and Valhalla. Region order does not matter. Use `--force` when a fresh rebuild is intentional, for example to pick up newer OpenStreetMap source data.
+
+```bash
+./scripts/run-builder.sh tui --force
+```
+
 ## Non-interactive build
 
 ```bash
@@ -46,7 +52,13 @@ Multiple regions are comma separated:
 ./scripts/run-builder.sh build --regions north-america/us/michigan,north-america/us/ohio
 ```
 
-After a successful interactive or non-interactive build, the builder reports the selected region names, their combined source PBF size, total deployable output size, elapsed build time, and output path.
+Normal non-interactive builds also reuse matching validated output. Force a rebuild with:
+
+```bash
+./scripts/run-builder.sh build --regions north-america/us/michigan --force
+```
+
+After a successful interactive or non-interactive build, the builder reports the selected region names, their combined source PBF size, total deployable output size, elapsed build time, and output path. When an existing build is reused, it reports that result and prints the validation summary instead.
 
 List known Geofabrik IDs with:
 
@@ -65,6 +77,7 @@ build-output/
 │   ├── source/
 │   ├── vector/openroadcode.mbtiles
 │   ├── glyphs/
+│   ├── search/openroadcode-search.sqlite
 │   ├── styles/openroadcode.json
 │   └── routes/
 └── valhalla/
@@ -78,6 +91,13 @@ build-output/
 `maps/routes/` is runtime/debug space. Routes are sent dynamically to the native map renderer rather than generated as part of the base dataset. Vehicle-side deployment preserves this directory across dataset updates.
 
 The canonical style name is `openroadcode.json`; runtime code should not depend on a region-specific filename.
+
+Buildings use offline vector footprints and available height attributes, with a
+3.66-metre fallback. Map-anchored directional lighting, vertical shading, and
+subtle height-based colors improve depth in the tilted 3D view. ORC applies
+light/dark building palettes when generating its runtime style. These effects
+require no textures, extra datasets, or network access; restart ORC after pulling
+style changes to regenerate the installed style.
 
 ## Validation
 
@@ -99,7 +119,7 @@ The recommended vehicle-pull model publishes the latest validated dataset at `/s
 ./scripts/deploy-to-srv.sh
 ```
 
-The deployment script refuses to install an output tree without a validated `build-manifest.json`. It synchronizes generated data into `/srv/openroadcode` while preserving `maps/routes/` as runtime/debug space.
+The deployment script refuses to install an output tree without a validated `build-manifest.json`. It synchronizes generated data into `/srv/openroadcode` while preserving `maps/routes/` as runtime/debug space. The POI search index is deployed at the canonical runtime path `maps/search/openroadcode-search.sqlite`; legacy `maps/poi/openroadcode-poi.sqlite` outputs are migrated during deployment.
 
 The vehicle can then preview and pull that dataset over SSH:
 
@@ -137,7 +157,7 @@ For production vehicle updates, prefer the Pi-initiated pull workflow because it
 make test
 ```
 
-The included tests cover Geofabrik region parsing/selection rules and MapLibre style installation/validation.
+The included tests cover Geofabrik region parsing/selection rules, MapLibre style installation/validation, and reuse detection for matching validated build output.
 
 ## Attribution
 

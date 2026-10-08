@@ -10,4 +10,3 @@ sleep 1
 pkill -9 -f 'python.*-m apps\.orcUi' 2>/dev/null || true
 
 echo "ORC UI stopped."
-

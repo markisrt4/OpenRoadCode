@@ -6,7 +6,7 @@
 from importlib import import_module
 from typing import Any
 
-from apps.launchers.app_launcher_if import AppLauncherIf, StatusCallback
+from ui.system.app_launcher_if import (AppLauncherIf, StatusCallback)
 from apps.launchers.app_launcher_stub import AppLauncherStub
 
 __all__ = [

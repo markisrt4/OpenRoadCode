@@ -25,6 +25,7 @@ bash "$SCRIPT_DIR/install_automotive_service_systemd.sh"
 
 echo
 echo "[+] OpenRoadCode telemetry services installed and enabled."
+echo "    Routing:    not installed (use install_navigation_runtime_systemd.sh for Valhalla)"
 echo "    Broker:     openroadcode-message-broker.service"
 echo "    Navigation: openroadcode-navigation.service"
 echo "    Automotive: openroadcode-automotive.service"

@@ -11,41 +11,26 @@ import tkinter as tk
 from collections.abc import Callable
 from typing import Any
 
-from apps.orcUi.spotify_local_player import SpotifyLocalPlayer
-from apps.orcUi.spotify_state_service import SpotifyStateService
+from controllers.spotify.spotify_local_player import SpotifyLocalPlayer
+from controllers.spotify.spotify_state_service import SpotifyStateService
 from frontends.tk.media.spotify_browse_panel import SpotifyBrowsePanel
 from frontends.tk.media.spotify_playback_panel import SpotifyPlaybackPanel
-from frontends.tk.media.spotify_services_if import (
-    ArtworkProviderIf,
-    LyricsProviderIf,
-    MusicVideoPresentationIf,
-    MusicVideoRequestHandlerIf,
-)
+from frontends.tk.media.spotify_services_if import ArtworkProviderIf, LyricsProviderIf, MusicVideoPresentationIf, MusicVideoRequestHandlerIf
 from frontends.tk.media.spotify_video_overlay import SpotifyVideoOverlay
 from frontends.tk.tk_screen import TkScreen
 from frontends.tk.tk_screen_host_if import TkScreenHostIf
-from ui.media import (
-    MediaState,
-    MediaUiIf,
-    PlaybackRequestHandlerIf,
-    SeekRequestHandlerIf,
-    TrackRequestHandlerIf,
-    VolumeRequestHandlerIf,
-)
+from ui.media import MediaState, MediaUiIf, PlaybackRequestHandlerIf, SeekRequestHandlerIf, TrackRequestHandlerIf, VolumeRequestHandlerIf
 from ui.screen_ui_if import ScreenId
 
 MediaNavigationFactory = Callable[[tk.Misc, str], tk.Widget]
+
+SPOTIFY_GREEN = "#1DB954"
 
 
 class _ThreadSafeSpotifyPlaybackPanel(SpotifyPlaybackPanel):
     """Route worker-thread callbacks through a Python-only callback queue."""
 
-    def __init__(
-        self,
-        *args,
-        ui_dispatch: Callable[[Callable[[], None]], None],
-        **kwargs,
-    ) -> None:
+    def __init__(self, *args, ui_dispatch: Callable[[Callable[[], None]], None], **kwargs) -> None:
         self._ui_dispatch = ui_dispatch
         self._tk_thread_id = threading.get_ident()
         super().__init__(*args, **kwargs)
@@ -53,9 +38,7 @@ class _ThreadSafeSpotifyPlaybackPanel(SpotifyPlaybackPanel):
     def after(self, ms: int, func=None, *args):
         if threading.get_ident() != self._tk_thread_id:
             if func is None or ms != 0:
-                raise RuntimeError(
-                    "worker threads may only dispatch immediate UI callbacks"
-                )
+                raise RuntimeError("worker threads may only dispatch immediate UI callbacks")
             self._ui_dispatch(lambda: func(*args))
             return None
         return super().after(ms, func, *args)
@@ -65,22 +48,21 @@ class SpotifyScreen(TkScreen, MediaUiIf):
     """Present Spotify now-playing, destination selection, and library browse."""
 
     def __init__(
-        self,
-        host: TkScreenHostIf,
-        *,
-        theme: dict[str, Any],
-        back_action: Callable[[], None],
-        image_cache: ArtworkProviderIf,
-        lyrics_client: LyricsProviderIf,
-        music_video_controller: MusicVideoRequestHandlerIf,
-        music_video_presentation: MusicVideoPresentationIf,
-        service: SpotifyStateService | None = None,
-        local_player: SpotifyLocalPlayer | None = None,
-        media_navigation_factory: MediaNavigationFactory | None = None,
+        self, host: TkScreenHostIf, *, theme: dict[str, Any] | Callable[[], dict[str, Any]],
+        back_action: Callable[[], None], image_cache: ArtworkProviderIf,
+        lyrics_client: LyricsProviderIf, music_video_controller: MusicVideoRequestHandlerIf,
+        music_video_presentation: MusicVideoPresentationIf, service: SpotifyStateService | None = None,
+        local_player: SpotifyLocalPlayer | None = None, media_navigation_factory: MediaNavigationFactory | None = None,
+        spotify_configured: Callable[[], bool] | None = None,
+        spotify_account_connected: Callable[[], bool] | None = None,
+        configure_spotify: Callable[[], None] | None = None,
+        connect_spotify: Callable[[], None] | None = None,
+        disconnect_spotify: Callable[[], None] | None = None,
     ) -> None:
         super().__init__(ScreenId("spotify"))
         self._host = host
-        self._theme = theme
+        self._theme_provider = theme if callable(theme) else lambda: theme
+        self._theme = self._theme_provider()
         self._back_action = back_action
         self._image_cache = image_cache
         self._lyrics_client = lyrics_client
@@ -89,59 +71,64 @@ class SpotifyScreen(TkScreen, MediaUiIf):
         self._service = service
         self._local_player = local_player
         self._media_navigation_factory = media_navigation_factory
+        self._spotify_configured = spotify_configured or (lambda: True)
+        self._spotify_account_connected = spotify_account_connected or (lambda: True)
+        self._configure_spotify = configure_spotify
+        self._connect_spotify = connect_spotify
+        self._disconnect_spotify = disconnect_spotify
         self._state: MediaState | None = None
         self._playback_handler: PlaybackRequestHandlerIf | None = None
         self._track_handler: TrackRequestHandlerIf | None = None
         self._seek_handler: SeekRequestHandlerIf | None = None
         self._volume_handler: VolumeRequestHandlerIf | None = None
         self._state_loader: Callable[[], MediaState] | None = None
-        self._state_results: queue.SimpleQueue[tuple[int, MediaState]] = (
-            queue.SimpleQueue()
-        )
-        self._ui_callbacks: queue.SimpleQueue[
-            tuple[int, Callable[[], None]]
-        ] = queue.SimpleQueue()
+        self._state_results: queue.SimpleQueue[tuple[int, MediaState]] = queue.SimpleQueue()
+        self._ui_callbacks: queue.SimpleQueue[tuple[int, Callable[[], None]]] = queue.SimpleQueue()
         self._refresh_generation = 0
         self._refresh_job: object | None = None
         self._dispatch_job: object | None = None
         self._video_overlay: SpotifyVideoOverlay | None = None
         self.spotify_panel: SpotifyPlaybackPanel | None = None
+        self._visible = False
+        self._view = "now"
+        self._browse_action: Callable[[SpotifyBrowsePanel], None] | None = None
 
     def set_media_state(self, state: MediaState | None) -> None:
         self._state = state
         if self.spotify_panel is not None:
             self.spotify_panel.set_media_state(state)
 
-    def set_playback_request_handler(
-        self, handler: PlaybackRequestHandlerIf | None
-    ) -> None:
+    def set_playback_request_handler(self, handler: PlaybackRequestHandlerIf | None) -> None:
         self._playback_handler = handler
         if self.spotify_panel is not None:
             self.spotify_panel.set_playback_request_handler(handler)
 
-    def set_track_request_handler(
-        self, handler: TrackRequestHandlerIf | None
-    ) -> None:
+    def set_track_request_handler(self, handler: TrackRequestHandlerIf | None) -> None:
         self._track_handler = handler
         if self.spotify_panel is not None:
             self.spotify_panel.set_track_request_handler(handler)
 
-    def set_seek_request_handler(
-        self, handler: SeekRequestHandlerIf | None
-    ) -> None:
+    def set_seek_request_handler(self, handler: SeekRequestHandlerIf | None) -> None:
         self._seek_handler = handler
         if self.spotify_panel is not None:
             self.spotify_panel.set_seek_request_handler(handler)
 
-    def set_volume_request_handler(
-        self, handler: VolumeRequestHandlerIf | None
-    ) -> None:
+    def set_volume_request_handler(self, handler: VolumeRequestHandlerIf | None) -> None:
         self._volume_handler = handler
         if self.spotify_panel is not None:
             self.spotify_panel.set_volume_request_handler(handler)
 
     def set_state_loader(self, loader: Callable[[], MediaState] | None) -> None:
         self._state_loader = loader
+
+    def set_theme_mode(self, _mode: object) -> None:
+        """Rebuild the current view without changing playback or browser ownership."""
+        if not self._visible:
+            return
+        if self._view == "browse" and self._browse_action is not None:
+            self._show_browse(self._browse_action)
+        else:
+            self._show_now_playing()
 
     def _dispatch_ui(self, callback: Callable[[], None]) -> None:
         self._ui_callbacks.put((self._refresh_generation, callback))
@@ -161,11 +148,10 @@ class SpotifyScreen(TkScreen, MediaUiIf):
                 except (RuntimeError, tk.TclError):
                     pass
         self._sync_video_overlay()
-        self._dispatch_job = self._host.schedule_ui_callback(
-            25, lambda: self._poll_ui_callbacks(generation)
-        )
+        self._dispatch_job = self._host.schedule_ui_callback(25, lambda: self._poll_ui_callbacks(generation))
 
     def hide(self) -> None:
+        self._visible = False
         self._refresh_generation += 1
         if self._video_overlay is not None:
             self._video_overlay.close()
@@ -187,54 +173,87 @@ class SpotifyScreen(TkScreen, MediaUiIf):
         self.hide()
         self._host.activate_screen(self)
         self._host.clear_screen_content()
+        self._visible = True
+        self._theme = self._theme_provider()
         self._host.set_screen_title("Spotify")
         self._host.set_screen_back_action(self._back_action)
         generation = self._refresh_generation
-        self._dispatch_job = self._host.schedule_ui_callback(
-            25, lambda: self._poll_ui_callbacks(generation)
-        )
+        self._dispatch_job = self._host.schedule_ui_callback(25, lambda: self._poll_ui_callbacks(generation))
         return generation
 
     def _build_media_navigation(self, parent: tk.Misc) -> None:
         if self._media_navigation_factory is not None:
-            self._media_navigation_factory(parent, "spotify").pack(
-                fill=tk.X,
-                padx=4,
-                pady=(4, 2),
-            )
+            self._media_navigation_factory(parent, "spotify").pack(fill=tk.X, padx=4, pady=(4, 2))
+
+    def _build_setup_banner(self, parent: tk.Misc) -> None:
+        """Keep Spotify setup visible, and prominent when configuration is missing."""
+        configured = self._spotify_configured()
+        connected = self._spotify_account_connected()
+        colors = self._theme["colors"]
+        surface = colors.get("card_background", colors["background"])
+        text = colors.get("title", "#FFFFFF")
+        muted = colors.get("subtitle", text)
+        button_bg = colors.get("button_background", surface)
+        button_fg = colors.get("button_foreground", text)
+        row = tk.Frame(parent, bg=surface)
+        row.pack(fill=tk.X, padx=4, pady=(2, 4))
+
+        if not configured:
+            status = "Spotify setup required"
+        elif not connected:
+            status = "Spotify account not connected"
+        else:
+            status = "Spotify connected"
+
+        tk.Label(
+            row, text=status.upper(), bg=surface,
+            fg=SPOTIFY_GREEN if configured and connected else muted,
+            font=("Sans", 9, "bold"),
+        ).pack(side=tk.LEFT, padx=10, pady=8)
+
+        if self._configure_spotify is not None:
+            tk.Button(
+                row, text="CONFIGURE", command=self._configure_spotify,
+                bg=button_bg, fg=button_fg,
+                relief=tk.FLAT, bd=0, font=("Sans", 8, "bold"), padx=10, pady=5,
+            ).pack(side=tk.RIGHT, padx=(4, 8), pady=5)
+
+        account_action = self._disconnect_spotify if connected else self._connect_spotify
+        if configured and account_action is not None:
+            tk.Button(
+                row, text="DISCONNECT" if connected else "CONNECT SPOTIFY",
+                command=account_action,
+                bg=button_bg if connected else SPOTIFY_GREEN,
+                fg=button_fg if connected else "#000000",
+                relief=tk.FLAT, bd=0, font=("Sans", 8, "bold"), padx=10, pady=5,
+            ).pack(side=tk.RIGHT, padx=4, pady=5)
 
     def _browse_panel(self, parent: tk.Misc) -> SpotifyBrowsePanel:
         if self._service is None or self._local_player is None:
             raise RuntimeError("Spotify browse services are unavailable")
         return SpotifyBrowsePanel(
-            parent,
-            service=self._service,
-            local_player=self._local_player,
-            dispatch_ui=self._dispatch_ui,
-            show_now_playing=self._show_now_playing,
-            image_cache=self._image_cache,
+            parent, service=self._service, local_player=self._local_player,
+            dispatch_ui=self._dispatch_ui, show_now_playing=self._show_now_playing,
+            image_cache=self._image_cache, theme=self._theme,
         )
 
     def _show_now_playing(self) -> None:
         generation = self._begin_screen()
-        root = tk.Frame(self._host.screen_parent, bg="#121212")
+        self._view = "now"
+        self._browse_action = None
+        root = tk.Frame(self._host.screen_parent, bg=self._theme["colors"]["background"])
         root.pack(fill=tk.BOTH, expand=True)
         self._build_media_navigation(root)
-
+        self._build_setup_banner(root)
         if self._service is not None and self._local_player is not None:
             controls = self._browse_panel(root)
             controls.pack(fill=tk.X)
             controls.show_now_playing_header()
-
-        content = tk.Frame(root, bg="#121212")
+        content = tk.Frame(root, bg=self._theme["colors"]["background"])
         content.pack(fill=tk.BOTH, expand=True)
-
         panel = _ThreadSafeSpotifyPlaybackPanel(
-            parent=content,
-            theme=self._theme,
-            image_cache=self._image_cache,
-            lyrics_client=self._lyrics_client,
-            music_video_controller=self._music_video_controller,
+            parent=content, theme=self._theme, image_cache=self._image_cache,
+            lyrics_client=self._lyrics_client, music_video_controller=self._music_video_controller,
             ui_dispatch=self._dispatch_ui,
         )
         panel.set_playback_request_handler(self._playback_handler)
@@ -243,24 +262,20 @@ class SpotifyScreen(TkScreen, MediaUiIf):
         panel.set_volume_request_handler(self._volume_handler)
         panel.pack(fill=tk.BOTH, expand=True)
         self.spotify_panel = panel
+        if self._state is not None:
+            panel.set_media_state(self._state)
         self._video_overlay = SpotifyVideoOverlay(
-            content,
-            controller=self._music_video_controller,
-            presentation=self._music_video_presentation,
-            on_returned=self._request_spotify_refresh,
-            set_status=self._host.set_screen_status,
+            content, controller=self._music_video_controller, presentation=self._music_video_presentation,
+            on_returned=self._request_spotify_refresh, set_status=self._host.set_screen_status,
         )
         self._host.set_screen_status("Loading Spotify…")
-        self._refresh_job = self._host.schedule_ui_callback(
-            1, lambda: self._start_refresh(panel, generation)
-        )
+        self._refresh_job = self._host.schedule_ui_callback(1, lambda: self._start_refresh(panel, generation))
 
-    def _show_browse(
-        self,
-        action: Callable[[SpotifyBrowsePanel], None],
-    ) -> None:
+    def _show_browse(self, action: Callable[[SpotifyBrowsePanel], None]) -> None:
         self._begin_screen()
-        root = tk.Frame(self._host.screen_parent, bg="#121212")
+        self._view = "browse"
+        self._browse_action = action
+        root = tk.Frame(self._host.screen_parent, bg=self._theme["colors"]["background"])
         root.pack(fill=tk.BOTH, expand=True)
         self._build_media_navigation(root)
         if self._service is None or self._local_player is None:
@@ -269,45 +284,22 @@ class SpotifyScreen(TkScreen, MediaUiIf):
         panel.pack(fill=tk.BOTH, expand=True)
         action(panel)
 
-    def _start_refresh(
-        self,
-        panel: SpotifyPlaybackPanel,
-        generation: int,
-    ) -> None:
+    def _start_refresh(self, panel: SpotifyPlaybackPanel, generation: int) -> None:
         self._refresh_job = None
         loader = self._state_loader
-        if (
-            panel is not self.spotify_panel
-            or generation != self._refresh_generation
-            or loader is None
-        ):
+        if panel is not self.spotify_panel or generation != self._refresh_generation or loader is None:
             return
-        threading.Thread(
-            target=self._load_state_worker,
-            args=(loader, generation),
-            name="spotify-state",
-            daemon=True,
-        ).start()
-        self._refresh_job = self._host.schedule_ui_callback(
-            25, lambda: self._poll_state(panel, generation)
-        )
+        threading.Thread(target=self._load_state_worker, args=(loader, generation), name="spotify-state", daemon=True).start()
+        self._refresh_job = self._host.schedule_ui_callback(25, lambda: self._poll_state(panel, generation))
 
-    def _load_state_worker(
-        self,
-        loader: Callable[[], MediaState],
-        generation: int,
-    ) -> None:
+    def _load_state_worker(self, loader: Callable[[], MediaState], generation: int) -> None:
         try:
             state = loader()
         except Exception:
             return
         self._state_results.put((generation, state))
 
-    def _poll_state(
-        self,
-        panel: SpotifyPlaybackPanel,
-        generation: int,
-    ) -> None:
+    def _poll_state(self, panel: SpotifyPlaybackPanel, generation: int) -> None:
         self._refresh_job = None
         if panel is not self.spotify_panel or generation != self._refresh_generation:
             return
@@ -315,9 +307,7 @@ class SpotifyScreen(TkScreen, MediaUiIf):
             try:
                 result_generation, state = self._state_results.get_nowait()
             except queue.Empty:
-                self._refresh_job = self._host.schedule_ui_callback(
-                    25, lambda: self._poll_state(panel, generation)
-                )
+                self._refresh_job = self._host.schedule_ui_callback(25, lambda: self._poll_state(panel, generation))
                 return
             if result_generation == generation:
                 break
@@ -325,8 +315,7 @@ class SpotifyScreen(TkScreen, MediaUiIf):
         self._sync_video_overlay()
         self._host.set_screen_status("Spotify controls ready")
         self._refresh_job = self._host.schedule_ui_callback(
-            self._theme["layout"]["refresh_interval_ms"],
-            lambda: self._start_refresh(panel, generation),
+            self._theme["layout"]["refresh_interval_ms"], lambda: self._start_refresh(panel, generation),
         )
 
     def _sync_video_overlay(self) -> None:

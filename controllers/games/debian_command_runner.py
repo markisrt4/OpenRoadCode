@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import shutil
+import socket
 import subprocess
 import time
 from collections.abc import Sequence
@@ -61,14 +62,22 @@ class DebianCommandRunner:
             return command
         raise RuntimeError("No Debian environment is available")
 
-    def graphical_command(self, args: Sequence[str]) -> list[str]:
+    def graphical_command(
+        self,
+        args: Sequence[str],
+        *,
+        rendering: str = "auto",
+    ) -> list[str]:
         """Return a command suitable for launching a graphical Debian application.
 
-        Native Debian receives the command unchanged.  Under Termux/proot, ORC
-        shares the X11 socket and uses Mesa's virpipe client when the Android
-        virgl renderer is installed.  This keeps Bionic GPU libraries out of
-        the glibc process while still providing hardware-accelerated OpenGL.
+        Native Debian receives the command unchanged. Under Termux/proot, ORC
+        shares the X11 socket. ``auto`` uses an accelerated virpipe bridge only
+        when the required Termux renderer capability is present. ``software``
+        explicitly selects Mesa llvmpipe. The decision is capability based and
+        does not depend on a particular phone model or GPU.
         """
+        if rendering not in {"auto", "software"}:
+            raise ValueError(f"unsupported rendering policy: {rendering}")
         if self._mode == "native":
             return list(args)
         if self._mode != "proot":
@@ -80,7 +89,12 @@ class DebianCommandRunner:
             environment.append(f"DISPLAY={display}")
         environment.append("XDG_RUNTIME_DIR=/tmp")
 
-        if self._ensure_virgl_server():
+        if rendering == "software":
+            environment.extend((
+                "LIBGL_ALWAYS_SOFTWARE=true",
+                "GALLIUM_DRIVER=llvmpipe",
+            ))
+        elif self._ensure_virgl_server():
             environment.extend((
                 "LIBGL_ALWAYS_SOFTWARE=true",
                 "GALLIUM_DRIVER=virpipe",
@@ -89,19 +103,27 @@ class DebianCommandRunner:
         return self.command(["env", *environment, *args], shared_tmp=True)
 
     def _ensure_virgl_server(self) -> bool:
-        """Start Termux's virgl renderer when available and return success."""
+        """Start an available Termux virgl renderer and return success.
+
+        ``virgl_test_server_android`` is discovered at runtime. If it is not
+        installed on the current Android/Termux device, accelerated bridging is
+        simply unavailable and the caller continues without virpipe settings.
+        """
         server = shutil.which("virgl_test_server_android")
         tmpdir = os.environ.get("TMPDIR")
         if not server or not tmpdir:
             return False
 
         socket_path = Path(tmpdir) / self._VIRGL_SOCKET_NAME
-        if socket_path.exists():
+        if self._virgl_socket_accepting(socket_path):
             return True
+        # A dead virgl_test_server_android can leave its Unix socket behind.
+        # Remove that stale endpoint before starting a replacement.
+        socket_path.unlink(missing_ok=True)
 
         try:
             subprocess.Popen(
-                [server, "--no-fork", "--socket-path", str(socket_path)],
+                [server, "--no-fork", "--angle-vulkan", "--socket-path", str(socket_path)],
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
                 start_new_session=True,
@@ -111,10 +133,25 @@ class DebianCommandRunner:
 
         deadline = time.monotonic() + 2.0
         while time.monotonic() < deadline:
-            if socket_path.exists():
+            if self._virgl_socket_accepting(socket_path):
                 return True
             time.sleep(0.05)
         return False
+
+    @staticmethod
+    def _virgl_socket_accepting(socket_path: Path) -> bool:
+        """Return whether a VirGL Unix socket currently accepts connections."""
+        if not socket_path.exists():
+            return False
+        probe = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        probe.settimeout(0.2)
+        try:
+            probe.connect(str(socket_path))
+        except OSError:
+            return False
+        finally:
+            probe.close()
+        return True
 
     def run(self, args: Sequence[str], **kwargs: object) -> subprocess.CompletedProcess:
         """Execute *args* in Debian and return the completed process."""

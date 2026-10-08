@@ -28,15 +28,25 @@ class EarthCameraControllerIf(ABC):
     @property
     @abstractmethod
     def name(self) -> str:
-        """Return the controller's short diagnostic name."""
+        """Return the controller's short diagnostic name.
+
+        @return Short diagnostic name.
+        """
         ...
 
     @abstractmethod
     def available(self) -> bool:
-        """Return whether this control mechanism can currently be used."""
+        """Return whether this control mechanism can currently be used.
+
+        @return True if the control mechanism is available.
+        """
         ...
 
     @abstractmethod
     def set_view(self, view: EarthCameraView) -> bool:
-        """Apply the requested view and report whether it succeeded."""
+        """Apply the requested view and report whether it succeeded.
+
+        @param view Desired Earth camera state.
+        @return True if the view was applied.
+        """
         ...

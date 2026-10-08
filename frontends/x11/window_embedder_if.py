@@ -32,6 +32,7 @@ class WindowEmbedderIf(ABC):
         *,
         window_name: str | None = None,
         window_class: str | None = None,
+        relax_size_hints: bool = False,
     ) -> int:
         """Embed a matching application window into the supplied frontend host.
 
@@ -41,7 +42,28 @@ class WindowEmbedderIf(ABC):
         @param height Initial embedded-window height in pixels.
         @param window_name Optional native window-name match used during discovery.
         @param window_class Optional native window-class match used during discovery.
+        @param relax_size_hints Whether the backend may remove restrictive X11 size hints.
         @return The native identifier of the embedded application window.
+        """
+
+    @abstractmethod
+    def hide(
+        self,
+        process_id: int,
+        *,
+        window_name: str | None = None,
+        window_class: str | None = None,
+    ) -> int:
+        """Find and unmap a matching native application window.
+
+        This is useful during managed startup when the external application
+        must finish initializing before it is safe to embed, but its temporary
+        standalone top-level window should not flash onscreen.
+
+        @param process_id Process identifier of the application whose window should be hidden.
+        @param window_name Optional native window-name match used during discovery.
+        @param window_class Optional native window-class match used during discovery.
+        @return The native identifier of the hidden application window.
         """
 
     @abstractmethod

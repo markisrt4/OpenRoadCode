@@ -9,14 +9,7 @@ from dataclasses import dataclass
 from threading import Lock, RLock, Thread
 from typing import TypeVar
 
-from apps.launchers.app_launcher_if import (
-    AppLauncherIf,
-    BrowserDashboardLauncherIf,
-    HideableAppLauncherIf,
-    PreloadableAppLauncherIf,
-    StatusCallback,
-    WindowedAppLauncherIf,
-)
+from ui.system.app_launcher_if import (AppLauncherIf, BrowserDashboardLauncherIf, HideableAppLauncherIf, PreloadableAppLauncherIf, StatusCallback, WindowedAppLauncherIf)
 from config.application_config import ApplicationConfig, ApplicationsConfig, StartupPolicy
 
 LauncherT = TypeVar("LauncherT", bound=AppLauncherIf)
@@ -90,6 +83,15 @@ class AppRuntimeManager:
                 launcher.launch(display, set_status)
             with self._lock:
                 self._visible.add(key)
+
+    def stop(self, key: str, set_status: StatusCallback = None) -> None:
+        """Stop a managed application regardless of preload/persistent policy."""
+        with self._lifecycle_lock(key):
+            managed = self._managed(key)
+            display = self.display_for(key)
+            managed.launcher.stop(display, set_status)
+            with self._lock:
+                self._visible.discard(key)
 
     def restart(self, key: str, set_status: StatusCallback = None) -> None:
         with self._lifecycle_lock(key):

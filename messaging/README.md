@@ -11,24 +11,33 @@ or the producer implementation.
 
 ## Architecture
 
-```text
-hardware / simulator
-        |
-   domain state
-        |
- contract publisher
-        |
- ZeroMqPublisher
-        |
-   XSUB broker XPUB
-        |
- ZeroMqSubscriber
-        |
- MessageDispatcher
-        |
- typed message handler
-        |
- application state / UI
+<div class="orc-diagram-legend" aria-label="Architecture diagram legend">
+  <strong>Diagram key</strong>
+  <span><i class="orc-legend-swatch orc-legend-app"></i>App / UI</span>
+  <span><i class="orc-legend-swatch orc-legend-service"></i>Service / runtime</span>
+  <span><i class="orc-legend-swatch orc-legend-controller"></i>Controller / domain</span>
+  <span><i class="orc-legend-swatch orc-legend-message"></i>Messaging / contract</span>
+  <span><i class="orc-legend-swatch orc-legend-adapter"></i>Protocol / hardware</span>
+  <span><i class="orc-legend-swatch orc-legend-external"></i>External / input</span>
+</div>
+
+```mermaid
+flowchart TD
+    source["Hardware / simulator"] --> state["Domain state"] --> contract["Contract publisher"]
+    contract --> publisher["ZeroMqPublisher"] --> broker["XSUB broker XPUB"]
+    broker --> subscriber["ZeroMqSubscriber"] --> dispatcher["MessageDispatcher"]
+    dispatcher --> handler["Typed message handler"] --> app["Application state / UI"]
+
+    classDef orcApp fill:#dbeafe,stroke:#2563eb,color:#172554;
+    classDef orcService fill:#ede9fe,stroke:#7c3aed,color:#2e1065;
+    classDef orcController fill:#dcfce7,stroke:#16a34a,color:#14532d;
+    classDef orcMessage fill:#ffedd5,stroke:#ea580c,color:#7c2d12;
+    classDef orcAdapter fill:#fee2e2,stroke:#dc2626,color:#7f1d1d;
+    classDef orcExternal fill:#f3f4f6,stroke:#6b7280,color:#1f2937;
+    class source orcExternal;
+    class state,handler orcController;
+    class contract,publisher,broker,subscriber,dispatcher orcMessage;
+    class app orcApp;
 ```
 
 The broker is intentionally dumb. Topic ownership, schema validation, units, and typed
@@ -36,9 +45,21 @@ decoding belong to `messaging/contracts`.
 
 The intended boundary is:
 
-```text
-producer implementation  -> SI domain state -> public contract -> bus
-bus -> public contract decoder -> application state -> presentation units/UI
+```mermaid
+flowchart LR
+    producer["Producer implementation"] --> state["SI domain state"] --> contract["Public contract"] --> bus["Bus"]
+    bus --> decoder["Public contract decoder"] --> appstate["Application state"] --> ui["Presentation units / UI"]
+
+    classDef orcApp fill:#dbeafe,stroke:#2563eb,color:#172554;
+    classDef orcService fill:#ede9fe,stroke:#7c3aed,color:#2e1065;
+    classDef orcController fill:#dcfce7,stroke:#16a34a,color:#14532d;
+    classDef orcMessage fill:#ffedd5,stroke:#ea580c,color:#7c2d12;
+    classDef orcAdapter fill:#fee2e2,stroke:#dc2626,color:#7f1d1d;
+    classDef orcExternal fill:#f3f4f6,stroke:#6b7280,color:#1f2937;
+    class producer orcAdapter;
+    class state,decoder orcController;
+    class contract,bus orcMessage;
+    class appstate,ui orcApp;
 ```
 
 A subscriber therefore does not need to know whether a message came from physical
@@ -68,8 +89,9 @@ The service emits:
 - `openroad.navigation.imu`
 
 It also serves acknowledged navigation commands such as stationary calibration and
-heading reset. See `services/navigation/README.md` for the command interface and physical
-hardware startup options.
+heading reset, route start/cancel, and local route playback. See
+[Navigation command IDD](../docs/idd/navigation_command_service.md) for wire fields
+and failures, and `services/navigation/README.md` for runtime ownership and startup.
 
 Terminal 3 can run an existing consumer, for example:
 
@@ -200,7 +222,8 @@ callbacks independent of Tk, curses, or another application package.
 
 | Topic | Contract | Purpose |
 | --- | --- | --- |
-| `openroad.vehicle.state` | automotive vehicle state | Engine, speed, pedal/load, pressures, temperatures, fuel and electrical state |
+| `openroad.vehicle.state` | automotive vehicle state | Engine, speed, gear, ECU control, pressures, temperatures, fuel and electrical state |
+| `openroad.vehicle.trip.state` | automotive Trip state | Accumulated timing, distance, speed, fuel, boost, high-load and position analytics |
 | `openroad.navigation.position` | navigation position | Geographic position, altitude, GPS fix and accuracy metadata |
 | `openroad.navigation.motion` | navigation motion | Heading, ground/vertical speed and turn rate |
 | `openroad.navigation.attitude` | navigation attitude | Heading, pitch and roll |

@@ -7,6 +7,7 @@ import os
 from collections.abc import Mapping
 from pathlib import Path
 
+from common.xdg_paths import openroadcode_config_dir
 from .secret_manager_if import SecretManagerIf
 
 DEFAULT_SECRETS_FILE = Path("/etc/openroadcode/secrets.env")
@@ -21,10 +22,7 @@ def resolve_default_secrets_file() -> Path:
 
     prefix = os.environ.get("PREFIX", "")
     if prefix.endswith("/com.termux/files/usr"):
-        config_home = Path(
-            os.environ.get("XDG_CONFIG_HOME", str(Path.home() / ".config"))
-        ).expanduser()
-        return config_home / "openroadcode" / "secrets.env"
+        return openroadcode_config_dir("secrets.env")
 
     return DEFAULT_SECRETS_FILE
 
@@ -60,12 +58,52 @@ class EnvironmentVariableSecretManager(SecretManagerIf):
                 if secrets_file is None
                 else Path(secrets_file)
             )
+            self._secrets_file = resolved_secrets_file
             loaded_environment = self._load_file(resolved_secrets_file)
             loaded_environment.update(os.environ)
             self._environment: Mapping[str, str] = loaded_environment
         else:
+            self._secrets_file = None
             self._environment = environment
         self._prefix = prefix
+
+    @property
+    def secrets_file(self) -> Path | None:
+        """Return the backing environment file, when this manager owns one."""
+        return getattr(self, "_secrets_file", None)
+
+    def set_secret(self, name: str, value: str) -> None:
+        """Persist one secret in the backing environment file.
+
+        Process-environment-only managers are intentionally read-only.
+        """
+        if not name or not name.strip() or not name.isidentifier():
+            raise ValueError("Secret name must be a valid environment variable name")
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("Secret value cannot be empty")
+        path = self.secrets_file
+        if path is None:
+            raise RuntimeError("Secret manager has no writable backing file")
+
+        path.parent.mkdir(parents=True, exist_ok=True)
+        existing = self._load_file(path)
+        existing[name] = normalized
+        lines = [
+            "# OpenRoadCode secrets",
+            *[f"{key}={self._quote_value(item)}" for key, item in sorted(existing.items())],
+            "",
+        ]
+        temporary = path.with_suffix(path.suffix + ".tmp")
+        temporary.write_text("\n".join(lines), encoding="utf-8")
+        temporary.chmod(0o600)
+        temporary.replace(path)
+
+    @staticmethod
+    def _quote_value(value: str) -> str:
+        if all(character.isalnum() or character in "._-:/@" for character in value):
+            return value
+        return '"' + value.replace("\\", "\\\\").replace('"', '\\"') + '"'
 
     def get_secret(self, name: str) -> str | None:
         if not name or not name.strip():
@@ -106,11 +144,21 @@ class EnvironmentVariableSecretManager(SecretManagerIf):
                     f"at line {line_number}"
                 )
             value = value.strip()
-            if (
-                len(value) >= 2
-                and value[0] == value[-1]
-                and value[0] in {"'", '"'}
-            ):
+            if len(value) >= 2 and value[0] == value[-1] == '"':
+                escaped = value[1:-1]
+                decoded: list[str] = []
+                index = 0
+                while index < len(escaped):
+                    if escaped[index] == "\\" and index + 1 < len(escaped):
+                        following = escaped[index + 1]
+                        if following in {'"', "\\"}:
+                            decoded.append(following)
+                            index += 2
+                            continue
+                    decoded.append(escaped[index])
+                    index += 1
+                value = "".join(decoded)
+            elif len(value) >= 2 and value[0] == value[-1] == "'":
                 value = value[1:-1]
             values[name] = value
 

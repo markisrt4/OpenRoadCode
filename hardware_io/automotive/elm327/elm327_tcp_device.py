@@ -116,6 +116,7 @@ class Elm327TcpDevice:
             raise Elm327ConnectionError("ELM327 device is not connected")
 
         data = bytearray()
+        saw_payload = False
         deadline = time.monotonic() + self._timeout
         while time.monotonic() < deadline:
             try:
@@ -124,9 +125,14 @@ class Elm327TcpDevice:
                 continue
             if not chunk:
                 raise Elm327ConnectionError("ELM327 TCP bridge disconnected")
-            data.extend(chunk)
-            if b">" in chunk:
-                break
+            for value in chunk:
+                if value == ord(">"):
+                    if saw_payload:
+                        return data.decode("ascii", errors="replace")
+                    continue
+                data.append(value)
+                if not chr(value).isspace():
+                    saw_payload = True
         return data.decode("ascii", errors="replace")
 
     @staticmethod

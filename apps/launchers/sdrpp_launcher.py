@@ -14,15 +14,19 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 
-from apps.launchers.app_launcher_if import AppLauncherIf, StatusCallback
+from ui.system.app_launcher_if import (AppLauncherIf, StatusCallback)
 from apps.launchers.process_manager import close_matching_display_apps, is_process_running, terminate_process
 from common.logging.logging_paths import logging_file_path
 from protocols.sdrpp_remote_control import SDRPPRemoteControlClient
 
-DEFAULT_TERMUX_SDRPP_SOURCE = Path("/root/SDRPlusPlus")
+DEFAULT_TERMUX_SDRPP_SOURCE = Path(
+    "/root/.local/state/openroadcode/build/SDRPlusPlus"
+)
 DEFAULT_TERMUX_PROOT_DISTRIBUTION = "debian"
 DEFAULT_TERMUX_XDG_RUNTIME_DIR = "/tmp/runtime-root"
-DEFAULT_NATIVE_SDRPP_ROOT = Path.home() / "SDRPlusPlus" / "root_dev"
+DEFAULT_NATIVE_SDRPP_ROOT = (
+    Path.home() / ".local/state/openroadcode/build/SDRPlusPlus/root_dev"
+)
 DEFAULT_REMOTE_CONTROL_HOST = "127.0.0.1"
 DEFAULT_REMOTE_CONTROL_PORT = 4533
 _VALID_THEMES = {"Dark", "Light"}
@@ -64,6 +68,7 @@ class SDRPPLauncher(AppLauncherIf):
         if self._process is not None:
             if self._process.poll() is None:
                 return True
+            self._process.wait()
             self._process = None
         return _sdrpp_process_running()
 
@@ -91,10 +96,10 @@ class SDRPPLauncher(AppLauncherIf):
             if self.is_rigctl_ready():
                 _status(set_status, f"SDR++ already ready: {self.profile.name}")
                 return
-            # A process without the endpoint required by the radio contract is
-            # not reusable. Waiting here used to strand ORC behind a stale or
-            # half-started SDR++ process. Recover it and launch a clean instance.
-            _status(set_status, "Recovering SDR++ without RigCTL...")
+            _status(
+                set_status,
+                f"SDR++ already running; RigCTL unavailable, restarting: {self.profile.name}",
+            )
             self.stop(remote_display, set_status)
             time.sleep(0.25)
 
@@ -114,9 +119,11 @@ class SDRPPLauncher(AppLauncherIf):
         if self.fullscreen and not self.embedded:
             self._request_fullscreen(remote_display, environment)
         mode = "embedded" if self.embedded else "standalone"
-        _status(set_status, f"SDR++ launched ({mode}); waiting for RigCTL...")
-        self.wait_for_rigctl()
-        _status(set_status, f"SDR++ ready: {self.profile.name}")
+        _status(set_status, f"SDR++ launched ({mode}); checking RigCTL...")
+        if self.wait_for_rigctl():
+            _status(set_status, f"SDR++ ready: {self.profile.name}")
+        else:
+            _status(set_status, f"SDR++ running; RigCTL unavailable: {self.profile.name}")
 
     def stop(self, remote_display: str, set_status: StatusCallback = None) -> None:
         if self._process is not None:
@@ -156,19 +163,21 @@ class SDRPPLauncher(AppLauncherIf):
     def is_remote_control_ready(self) -> bool:
         return self.remote_control.ping()
 
-    def wait_for_rigctl(self) -> None:
+    def wait_for_rigctl(self) -> bool:
         deadline = time.monotonic() + self.rigctl_timeout_seconds
         last_error: OSError | None = None
         while time.monotonic() < deadline:
             if self._process is not None and self._process.poll() is not None:
+                self._process.wait()
+                self._process = None
                 raise RuntimeError(f"SDR++ exited before RigCTL became ready. Check log: {self.log_file}")
             try:
                 with socket.create_connection((self.rigctl_host, self.rigctl_port), timeout=0.5):
-                    return
+                    return True
             except OSError as exc:
                 last_error = exc
                 time.sleep(0.5)
-        raise RuntimeError(f"RigCTL did not become ready at {self.rigctl_host}:{self.rigctl_port}: {last_error}")
+        return False
 
     def _launch_command(self, display: str) -> list[str]:
         executable = shutil.which("sdrpp") or shutil.which("sdr++")

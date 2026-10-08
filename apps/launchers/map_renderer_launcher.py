@@ -8,6 +8,9 @@ from __future__ import annotations
 import os
 import shlex
 import subprocess
+import logging
+import threading
+from common.logging.structured import JsonStore, collect_native_output, event
 from pathlib import Path
 
 from apps.launchers.process_manager import find_matching_processes, terminate_process
@@ -25,11 +28,9 @@ class MapRendererLauncher:
         log_file: str | Path | None = None,
     ) -> None:
         self._command = command
-        self._log_file = Path(
-            log_file
-            or Path.home() / ".cache" / "openroadcode" / "map-renderer.log"
-        )
+        self._log_file = Path(log_file) if log_file else None
         self._process: subprocess.Popen[str] | None = None
+        self._collector: threading.Thread | None = None
 
     def is_running(self) -> bool:
         """Return whether the renderer process owned by this launcher is alive."""
@@ -38,6 +39,16 @@ class MapRendererLauncher:
             return False
         if self._process.poll() is None:
             return True
+        if self._collector:
+            self._collector.join(timeout=2)
+        event(
+            logging.getLogger("map_renderer.lifecycle"),
+            logging.ERROR,
+            "process.exited",
+            "Map renderer exited unexpectedly",
+            child_pid=self._process.pid,
+            exit_code=self._process.returncode,
+        )
         self._process = None
         return False
 
@@ -63,26 +74,48 @@ class MapRendererLauncher:
             }
         )
 
-        self._log_file.parent.mkdir(parents=True, exist_ok=True)
-        log_handle = self._log_file.open("a", encoding="utf-8")
-        try:
-            self._process = subprocess.Popen(
-                command,
-                env=environment,
-                stdout=log_handle,
-                stderr=subprocess.STDOUT,
-                start_new_session=True,
-                text=True,
-            )
-        finally:
-            log_handle.close()
+        store = JsonStore(self._log_file)
+        self._process = subprocess.Popen(
+            command,
+            env=environment,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            start_new_session=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+        )
+        self._collector = threading.Thread(
+            target=collect_native_output,
+            args=(self._process.stdout, store, self._process.pid),
+            name="orc-renderer-logs",
+            daemon=True,
+        )
+        self._collector.start()
+        event(
+            logging.getLogger("map_renderer.lifecycle"),
+            logging.INFO,
+            "process.started",
+            "Map renderer process started",
+            child_pid=self._process.pid,
+        )
 
     def stop(self) -> None:
         """Stop the renderer process owned by this launcher."""
 
         if self._process is None:
             return
+        child_pid = self._process.pid
         terminate_process(self._process)
+        if self._collector:
+            self._collector.join(timeout=2)
+        event(
+            logging.getLogger("map_renderer.lifecycle"),
+            logging.INFO,
+            "process.stopped",
+            "Map renderer process stopped",
+            child_pid=child_pid,
+        )
         self._process = None
 
     @staticmethod
@@ -105,11 +138,11 @@ def _default_command() -> list[str]:
         return shlex.split(override)
 
     repo_root = Path(__file__).resolve().parents[2]
-    termux_launcher = repo_root / "development" / "termux" / "start_map_renderer.sh"
-    if termux_launcher.is_file():
-        return ["bash", str(termux_launcher)]
+    prefix = os.environ.get("PREFIX", "")
+    if prefix.startswith("/data/data/com.termux/files/usr"):
+        return [
+            "bash",
+            str(repo_root / "development" / "termux" / "start_map_renderer.sh"),
+        ]
 
-    raise RuntimeError(
-        "No map renderer launcher is configured. Set "
-        "OPENROADCODE_MAP_RENDERER_COMMAND."
-    )
+    return ["bash", str(repo_root / "scripts" / "runtime" / "start_map_renderer.sh")]

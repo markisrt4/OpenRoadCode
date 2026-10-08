@@ -4,36 +4,54 @@ The navigation service is the single owner of the active navigation sensor pipel
 
 ## Runtime ownership
 
-```text
-configured IMU + GPS sources
-          |
-NavigationController
-          |
-          +--> NavigationStatePublisher --> ZeroMQ telemetry bus
-          |
-          +--> NavigationCommandService <-- ZeroMQ REQ/REP clients
-                                      |
-                                      +--> RoutePlanningControllerIf
+<div class="orc-diagram-legend" aria-label="Architecture diagram legend">
+  <strong>Diagram key</strong>
+  <span><i class="orc-legend-swatch orc-legend-app"></i>App / UI</span>
+  <span><i class="orc-legend-swatch orc-legend-service"></i>Service / runtime</span>
+  <span><i class="orc-legend-swatch orc-legend-controller"></i>Controller / domain</span>
+  <span><i class="orc-legend-swatch orc-legend-message"></i>Messaging / contract</span>
+  <span><i class="orc-legend-swatch orc-legend-adapter"></i>Protocol / hardware</span>
+  <span><i class="orc-legend-swatch orc-legend-external"></i>External / input</span>
+</div>
+
+```mermaid
+flowchart TD
+    sources["Configured IMU + GPS sources"] --> nav["NavigationController"]
+    nav --> publisher["NavigationStatePublisher"] --> bus["ZeroMQ telemetry bus"]
+    clients["ZeroMQ REQ/REP clients"] --> command["NavigationCommandService"] --> nav
+    command --> planner["RoutePlanningControllerIf"]
+
+    classDef orcApp fill:#dbeafe,stroke:#2563eb,color:#172554;
+    classDef orcService fill:#ede9fe,stroke:#7c3aed,color:#2e1065;
+    classDef orcController fill:#dcfce7,stroke:#16a34a,color:#14532d;
+    classDef orcMessage fill:#ffedd5,stroke:#ea580c,color:#7c2d12;
+    classDef orcAdapter fill:#fee2e2,stroke:#dc2626,color:#7f1d1d;
+    classDef orcExternal fill:#f3f4f6,stroke:#6b7280,color:#1f2937;
+    class sources,clients orcExternal;
+    class nav,planner orcController;
+    class command orcService;
+    class publisher,bus orcMessage;
 ```
 
 Applications should subscribe to public navigation topics for state and use command/request interfaces for acknowledged operations. They should not construct navigation hardware merely to display telemetry, request calibration, or calculate a route.
 
 Route following is composed separately from raw sensor ownership:
 
-```text
-openroad.navigation.position
-          |
-RouteGuidanceRuntime
-          |
-RouteGuidanceController
-          |
-route_guidance.state
-          |
-NavigationSessionController
-          |
-ReroutePolicy
-          |
-NavigationCommandClient --> navigation.route.calculate
+```mermaid
+flowchart TD
+    position["openroad.navigation.position"] --> runtime["RouteGuidanceRuntime"] --> guidance["RouteGuidanceController"]
+    guidance --> topic["route_guidance.state"] --> session["NavigationSessionController"]
+    session --> policy["ReroutePolicy"] --> client["NavigationCommandClient"] --> command["navigation.route.calculate"]
+
+    classDef orcApp fill:#dbeafe,stroke:#2563eb,color:#172554;
+    classDef orcService fill:#ede9fe,stroke:#7c3aed,color:#2e1065;
+    classDef orcController fill:#dcfce7,stroke:#16a34a,color:#14532d;
+    classDef orcMessage fill:#ffedd5,stroke:#ea580c,color:#7c2d12;
+    classDef orcAdapter fill:#fee2e2,stroke:#dc2626,color:#7f1d1d;
+    classDef orcExternal fill:#f3f4f6,stroke:#6b7280,color:#1f2937;
+    class position,topic,command orcMessage;
+    class runtime orcService;
+    class guidance,session,policy,client orcController;
 ```
 
 `NavigationSessionController` owns the active destination, travel mode, and route lifecycle. `RouteGuidanceController` owns route-relative geometry/state only. `ReroutePolicy` decides when a sustained off-route condition warrants recalculation; it does not call a route planner itself.
@@ -132,8 +150,33 @@ Supported operations include:
 - `navigation.calibrate_stationary`
 - `navigation.reset_heading`
 - `navigation.route.calculate`
+- `navigation.route.start`
+- `navigation.route.cancel`
+- `navigation.route.simulate`
+- `navigation.route.simulation.stop`
 
 `navigation.route.calculate` accepts an origin, destination, and travel mode and returns a `RouteResult` representation. `NavigationCommandClient.calculate_route()` is the normal programmatic client used by navigation-session rerouting.
+
+`navigation.route.start` also activates guidance. Origin may be omitted to use
+the current fix; destination may be coordinates or a geocoded address.
+Cancellation ends the active session and stops playback. Request fields,
+responses, units, and failures are documented in the
+[Navigation command IDD](../../docs/idd/navigation_command_service.md).
+
+## Local route playback
+
+With an active route, `navigation.route.simulate` plays its shape at a positive
+finite `time_scale` (default 60). Android and gpsd sources are wrapped by
+`RoutePlaybackPositionSource` inside service composition: the receiver keeps
+running, while ORC delivers route-generated positions tagged `route-simulation`.
+The Android bridge continues reporting real GPS and needs no simulation mode.
+
+`navigation.route.simulation.stop` resumes fresh live reports. Cancellation,
+replacement, arrival, and shutdown also stop playback; restarting starts with
+normal configured input. Late callbacks from old playback sessions are rejected.
+Browser and standalone simulation sources retain their existing route playback.
+The UI uses its existing request contracts and labels simulation explicitly.
+See [Navigation runtime](../../docs/navigation_runtime.md#route-simulation).
 
 Application code for calibration/heading operations should normally depend on the toolkit-independent `NavigationRequestHandlerIf`. Route/session orchestration should depend on a route-calculation callable or client rather than constructing the route planner directly.
 
@@ -162,3 +205,10 @@ Register its setters with `MessageDispatcher`, then read `snapshot()` from the U
 Portable unit and component coverage includes route planning, route/map presentation, navigation messaging, route guidance, off-route hysteresis/recovery, navigation-session lifecycle, and simulated rerouting through the real ZeroMQ command boundary.
 
 Some integration tests are intentionally platform/environment dependent. Tests involving the Python `gps` binding, real gpsd/GNSS input, a live Valhalla service, or the graphical MapLibre renderer belong on the Raspberry Pi or another host with those dependencies installed.
+
+## Logging
+
+The service writes structured JSON Lines to the shared ORC log store and stderr.
+Route requests, results, and failures carry operation IDs that reach the native
+map renderer. See [ORC logging](../../common/logging/README.md) for live viewing,
+level configuration, rotation, and CI validation.

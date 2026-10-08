@@ -12,6 +12,7 @@ from apps.launchers.google_earth_launcher import GoogleEarthLauncher
 class GoogleEarthPreloadTests(unittest.TestCase):
     def setUp(self) -> None:
         self.browser = Mock()
+        self.browser.extra_arguments = ()
         self.browser.is_running.return_value = False
         self.browser.hide.return_value = True
         self.launcher = GoogleEarthLauncher(browser=self.browser)

@@ -4,6 +4,11 @@
 """Reusable unit conversions for SI-normalized OpenRoadCode data."""
 
 from common.units.conversions import (
+    celsius_to_kelvin,
+    hectopascals_to_pascals,
+    kilometers_per_hour_to_meters_per_second,
+    millimeters_to_meters,
+    percent_to_ratio,
     kelvin_to_celsius,
     kelvin_to_fahrenheit,
     kilograms_per_second_to_grams_per_second,
@@ -20,6 +25,11 @@ from common.units.conversions import (
 from common.units.unit_system import UnitSystem
 
 __all__ = [
+    "celsius_to_kelvin",
+    "hectopascals_to_pascals",
+    "kilometers_per_hour_to_meters_per_second",
+    "millimeters_to_meters",
+    "percent_to_ratio",
     "UnitSystem",
     "kelvin_to_celsius",
     "kelvin_to_fahrenheit",

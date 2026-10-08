@@ -13,6 +13,7 @@ from config.service_runtime_config import (
 from controllers.navigation.navigation_controller import NavigationController
 from controllers.navigation.simulated_navigation_sensor import SimulatedNavigationSensor
 from controllers.navigation.simulated_position_source import SimulatedPositionSource
+from controllers.navigation.route_playback_position_source import RoutePlaybackPositionSource
 from services.navigation import navigation_service_cli
 
 
@@ -83,7 +84,8 @@ def test_simulated_imu_and_device_gps_can_be_composed(monkeypatch):
     )
 
     assert isinstance(controller._sensor, SimulatedNavigationSensor)
-    assert isinstance(controller._gps_source, _FakeGpsAdapter)
+    assert isinstance(controller._gps_source, RoutePlaybackPositionSource)
+    assert isinstance(controller._gps_source._live_source, _FakeGpsAdapter)
 
 
 def test_device_imu_and_simulated_gps_can_be_composed(monkeypatch):
@@ -101,7 +103,8 @@ def test_device_imu_and_device_gps_can_be_composed(monkeypatch):
     controller = navigation_service_cli.build_controller(_config("device", "device"))
 
     assert isinstance(controller._sensor, _FakeMotionAdapter)
-    assert isinstance(controller._gps_source, _FakeGpsAdapter)
+    assert isinstance(controller._gps_source, RoutePlaybackPositionSource)
+    assert isinstance(controller._gps_source._live_source, _FakeGpsAdapter)
 
 def test_simulated_gps_uses_configured_speed_and_course():
     config = _config("simulation", "simulation")

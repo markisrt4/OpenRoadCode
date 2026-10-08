@@ -77,7 +77,7 @@ def test_route_start_creates_active_session_from_planned_route():
         runtime.close()
 
 
-def test_valid_gps_fix_advances_guidance_and_session():
+def test_valid_position_fix_advances_guidance_and_session():
     route = _route()
     route_planner = Mock()
     route_planner.calculate_route.return_value = route
@@ -100,7 +100,7 @@ def test_valid_gps_fix_advances_guidance_and_session():
         assert session is not None
         session.update = Mock(wraps=session.update)
         state = SimpleNamespace(
-            gps=SimpleNamespace(
+            position=SimpleNamespace(
                 has_fix=True,
                 latitude_deg=42.0,
                 longitude_deg=-82.995,
@@ -143,5 +143,35 @@ def test_cancel_clears_active_session_state():
 
         assert runtime._session_controller is not None
         assert runtime._session_controller.state is None
+    finally:
+        runtime.close()
+
+
+@pytest.mark.parametrize("transition", ["cancel", "arrival", "replacement", "close"])
+def test_route_lifecycle_stops_playback(transition):
+    route = _route()
+    simulator = Mock()
+    runtime = NavigationRuntime(
+        Mock(), Mock(), source="test-navigation",
+        command_endpoint="inproc://navigation-runtime-playback-lifecycle",
+        route_planning_controller=Mock(), route_simulator=simulator,
+    )
+    request = RouteRequest(route.shape[0], route.shape[-1])
+    try:
+        runtime._activate_route(request, route)
+        runtime._start_route_simulation(30.0)
+        simulator.follow_route.assert_called_once_with(route, time_scale=30.0)
+        simulator.stop_route.reset_mock()
+        if transition == "cancel":
+            runtime._cancel_route()
+        elif transition == "arrival":
+            runtime._update_guidance(SimpleNamespace(position=SimpleNamespace(
+                has_fix=True, latitude_deg=42.0, longitude_deg=-82.99,
+            )))
+        elif transition == "replacement":
+            runtime._activate_route(request, route)
+        else:
+            runtime.close()
+        simulator.stop_route.assert_called_once()
     finally:
         runtime.close()

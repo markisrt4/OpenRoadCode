@@ -14,7 +14,9 @@ DEFAULT_ROOT = Path("apps/orcUi")
 EXCLUDED_PARTS = {"__pycache__", "unit_test"}
 # main.py is the legacy oversized composition module currently being dismantled.
 # This ceiling prevents regression while allowing the staged extraction to land.
-LEGACY_LIMITS = {Path("apps/orcUi/main.py"): 700}
+LEGACY_LIMITS = {
+    Path("apps/orcUi/main.py"): 700,
+}
 
 
 def python_files(root: Path):

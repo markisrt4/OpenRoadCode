@@ -10,6 +10,7 @@ SERVICE_ROOT="${PREFIX:-/data/data/com.termux/files/usr}/var/service"
 SERVICES=(
     openroadcode-service-manager
     openroadcode-message-broker
+    openroadcode-valhalla
     openroadcode-navigation
     openroadcode-automotive
     openroadcode-adsb
@@ -19,6 +20,10 @@ LEGACY_SERVICES=(openroadcode-broker)
 if ! command -v sv >/dev/null 2>&1; then
     echo "Termux runit services are not installed." >&2
     echo "Install them with: pkg install termux-services" >&2
+    exit 1
+fi
+if [[ ! -f "$SCRIPT_DIR/log/run" ]]; then
+    echo "Missing shared runit log definition: $SCRIPT_DIR/log/run" >&2
     exit 1
 fi
 
@@ -62,6 +67,14 @@ for service in "${SERVICES[@]}"; do
         -e "s|^PROJECT_ROOT=.*$|PROJECT_ROOT=\"$PROJECT_ROOT\"|" \
         "$source_dir/run" > "$target/run"
     chmod +x "$target/run"
+    if [[ -f "$source_dir/down" ]]; then
+        cp "$source_dir/down" "$target/down"
+    else
+        rm -f "$target/down"
+    fi
+    mkdir -p "$target/log"
+    cp "$SCRIPT_DIR/log/run" "$target/log/run"
+    chmod +x "$target/log/run"
 
     echo "Installed $service -> $target"
 done
@@ -103,9 +116,7 @@ echo
 echo "OpenRoadCode Termux services installed."
 echo "The service manager stays available as the lightweight local control plane."
 echo "Start the core stack with:"
-echo "  sv up openroadcode-message-broker"
-echo "  sv up openroadcode-navigation"
-echo "  sv up openroadcode-automotive"
+echo "  $SCRIPT_DIR/manage_core.sh start"
 echo "Optional ADS-B:"
 echo "  sv up openroadcode-adsb"
 echo

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import importlib
+import os
 import shutil
 import sys
 from collections.abc import Iterable
@@ -15,7 +16,7 @@ from collections.abc import Iterable
 
 PYTHON_IMPORTS: dict[str, tuple[str, ...]] = {
     "base": ("requests", "zmq"),
-    "desktop-ui": ("tkinter", "PIL"),
+    "desktop-ui": ("tkinter", "PIL", "numpy", "flask"),
     "web-ui": ("flask",),
     "input": ("evdev",),
     "gps": ("gps", "gpsd", "geocoder"),
@@ -29,7 +30,7 @@ PYTHON_IMPORTS: dict[str, tuple[str, ...]] = {
 
 COMMANDS: dict[str, tuple[tuple[str, ...], ...]] = {
     "base": (("git",), ("curl",), ("wget",), ("sudo",), ("pgrep",)),
-    "desktop-ui": (("wmctrl",), ("xprop",)),
+    "desktop-ui": (("wmctrl",), ("xprop",), ("xdotool",)),
     "browser": (("chromium", "chromium-browser", "google-chrome"),),
     "vnc": (("tigervncserver", "vncserver"),),
     "audio": (("wpctl", "pactl"),),
@@ -75,8 +76,18 @@ def check_import(module: str) -> tuple[bool, str]:
 
 
 def check_command(alternatives: tuple[str, ...]) -> tuple[bool, str]:
+    search_path = os.pathsep.join(
+        part
+        for part in (
+            os.environ.get("PATH", ""),
+            "/usr/local/sbin",
+            "/usr/sbin",
+            "/sbin",
+        )
+        if part
+    )
     for command in alternatives:
-        path = shutil.which(command)
+        path = shutil.which(command, path=search_path)
         if path:
             return True, path
     return False, " or ".join(alternatives)

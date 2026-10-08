@@ -3,10 +3,7 @@
 
 from __future__ import annotations
 
-from apps.launchers.app_launcher_if import (
-    AppLauncherIf,
-    StatusCallback,
-)
+from ui.system.app_launcher_if import (AppLauncherIf, StatusCallback)
 
 
 class AppLauncherStub(AppLauncherIf):

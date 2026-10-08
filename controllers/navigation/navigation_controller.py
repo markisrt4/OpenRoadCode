@@ -44,6 +44,7 @@ class NavigationController(NavigationControllerIf):
         monotonic_clock: Callable[[], float] = time.monotonic,
         wall_clock: Callable[[], datetime] = datetime.now,
         sleeper: Callable[[float], None] = time.sleep,
+        motion_retry_interval_s: float = 3.0,
     ) -> None:
         self._sensor = sensor
         self._gps_source = gps_source
@@ -57,13 +58,19 @@ class NavigationController(NavigationControllerIf):
         )
         self._monotonic_clock = monotonic_clock
         self._wall_clock = wall_clock
+        if motion_retry_interval_s < 0.0:
+            raise ValueError("motion_retry_interval_s must not be negative")
         self._sleeper = sleeper
+        self._motion_retry_interval_s = motion_retry_interval_s
+        self._next_motion_retry_time: float | None = None
         self._started = False
         self._last_sample_time: float | None = None
         self._state_lock = Lock()
         self._position_state: PositionState | None = None
         self._ground_motion_state: GroundMotionState | None = None
         self._calibration: MotionCalibration | None = None
+        self._motion_available = False
+        self._motion_status: str | None = None
 
     @property
     def is_started(self) -> bool:
@@ -75,7 +82,7 @@ class NavigationController(NavigationControllerIf):
 
     @property
     def status_message(self) -> str | None:
-        return None
+        return self._motion_status
 
     @property
     def calibration(self) -> MotionCalibration | None:
@@ -87,12 +94,27 @@ class NavigationController(NavigationControllerIf):
         if self._started:
             return
 
-        self._sensor.connect()
         gps_started = False
         ground_motion_started = False
+        self._motion_available = False
+        self._motion_status = None
         try:
-            motion = self._correct_motion(self._sensor.read_motion())
-            self._orientation_estimator.start(motion.acceleration_mps2)
+            try:
+                self._sensor.connect()
+                motion = self._correct_motion(self._sensor.read_motion())
+                self._orientation_estimator.start(motion.acceleration_mps2)
+                self._motion_available = True
+                self._motion_status = None
+                self._next_motion_retry_time = None
+            except Exception as error:
+                # Inertial sensing improves the navigation solution, but GPS,
+                # routing, and command handling remain useful without it.
+                self._motion_status = f"IMU unavailable: {error}"
+                self._next_motion_retry_time = self._monotonic_clock() + self._motion_retry_interval_s
+                try:
+                    self._sensor.disconnect()
+                except Exception:
+                    pass
             if self._gps_source is not None:
                 self._gps_source.start(self.update_position_state)
                 gps_started = True
@@ -105,8 +127,9 @@ class NavigationController(NavigationControllerIf):
                 self._ground_motion_source.stop()
             if gps_started and self._gps_source is not None:
                 self._gps_source.stop()
-            self._orientation_estimator.stop()
-            self._sensor.disconnect()
+            if self._motion_available:
+                self._orientation_estimator.stop()
+                self._sensor.disconnect()
             raise
 
         self._last_sample_time = sample_time
@@ -120,13 +143,16 @@ class NavigationController(NavigationControllerIf):
             if self._gps_source is not None:
                 self._gps_source.stop()
         finally:
-            try:
-                self._orientation_estimator.stop()
-            finally:
-                self._sensor.disconnect()
+            if self._motion_available:
+                try:
+                    self._orientation_estimator.stop()
+                finally:
+                    self._sensor.disconnect()
 
         self._started = False
+        self._motion_available = False
         self._last_sample_time = None
+        self._next_motion_retry_time = None
 
     def reset_heading(self, heading_deg: float = 0.0) -> None:
         self._orientation_estimator.reset_heading(heading_deg)
@@ -216,38 +242,84 @@ class NavigationController(NavigationControllerIf):
         if not self._started or self._last_sample_time is None:
             raise RuntimeError("navigation controller has not been started")
 
-        raw_motion = self._sensor.read_motion()
-        motion = self._correct_motion(raw_motion)
         sample_time = self._monotonic_clock()
-        elapsed_s = max(0.0, sample_time - self._last_sample_time)
-        orientation = self._orientation_estimator.update(
-            acceleration_mps2=motion.acceleration_mps2,
-            angular_velocity_rad_s=motion.angular_velocity_rad_s,
-            elapsed_s=elapsed_s,
-        )
+        if not self._motion_available:
+            self._retry_motion_source(sample_time)
+        if self._motion_available:
+            raw_motion = self._sensor.read_motion()
+            motion = self._correct_motion(raw_motion)
+            elapsed_s = max(0.0, sample_time - self._last_sample_time)
+            orientation = self._orientation_estimator.update(
+                acceleration_mps2=motion.acceleration_mps2,
+                angular_velocity_rad_s=motion.angular_velocity_rad_s,
+                elapsed_s=elapsed_s,
+            )
+            heading_deg = orientation.heading_deg
+            pitch_deg = orientation.pitch_deg
+            roll_deg = orientation.roll_deg
+            linear_acceleration = self._remove_gravity(
+                acceleration=motion.acceleration_mps2,
+                pitch_deg=pitch_deg,
+                roll_deg=roll_deg,
+            )
+        else:
+            zero = Vector3(0.0, 0.0, 0.0)
+            raw_motion = MotionSample(zero, zero)
+            motion = raw_motion
+            # GPS course is the best available heading-like value when the
+            # inertial source is unavailable. Pitch/roll are intentionally
+            # neutral rather than fabricated from nonexistent sensor data.
+            with self._state_lock:
+                fallback_ground_motion = self._ground_motion_state
+            heading_deg = (
+                fallback_ground_motion.course_deg
+                if fallback_ground_motion is not None
+                and fallback_ground_motion.course_deg is not None
+                else 0.0
+            )
+            pitch_deg = 0.0
+            roll_deg = 0.0
+            linear_acceleration = zero
         self._last_sample_time = sample_time
 
         with self._state_lock:
             position_state = self._position_state
             ground_motion_state = self._ground_motion_state
 
-        linear_acceleration = self._remove_gravity(
-            acceleration=motion.acceleration_mps2,
-            pitch_deg=orientation.pitch_deg,
-            roll_deg=orientation.roll_deg,
-        )
-
         return NavigationState(
             timestamp=self._wall_clock(),
-            heading_deg=orientation.heading_deg,
-            pitch_deg=orientation.pitch_deg,
-            roll_deg=orientation.roll_deg,
+            heading_deg=heading_deg,
+            pitch_deg=pitch_deg,
+            roll_deg=roll_deg,
             acceleration_mps2=raw_motion.acceleration_mps2,
             linear_acceleration_mps2=linear_acceleration,
             angular_velocity_rad_s=motion.angular_velocity_rad_s,
             position=position_state,
             ground_motion=ground_motion_state,
         )
+
+
+    def _retry_motion_source(self, sample_time: float) -> None:
+        """Retry an unavailable inertial source without restarting navigation."""
+        retry_time = self._next_motion_retry_time
+        if retry_time is not None and sample_time < retry_time:
+            return
+        try:
+            self._sensor.connect()
+            motion = self._correct_motion(self._sensor.read_motion())
+            self._orientation_estimator.start(motion.acceleration_mps2)
+        except Exception as error:
+            self._motion_status = f"IMU unavailable: {error}"
+            self._next_motion_retry_time = sample_time + self._motion_retry_interval_s
+            try:
+                self._sensor.disconnect()
+            except Exception:
+                pass
+            return
+        self._motion_available = True
+        self._motion_status = None
+        self._next_motion_retry_time = None
+        self._last_sample_time = sample_time
 
     def _correct_motion(self, motion: MotionSample) -> MotionSample:
         calibration = self._calibration

@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import math
 from collections.abc import Mapping
 from numbers import Real
 from typing import Any
@@ -32,3 +33,5 @@ def validate_magnetic_field_state(payload: Mapping[str, Any]) -> None:
         value = vector[axis]
         if isinstance(value, bool) or not isinstance(value, Real):
             raise ValueError(f"magnetic_field_ut.{axis} must be numeric")
+        if not math.isfinite(float(value)):
+            raise ValueError(f"magnetic_field_ut.{axis} must be finite")

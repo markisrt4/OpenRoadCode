@@ -7,7 +7,7 @@ import argparse
 import math
 import time
 
-from apps.launchers.chromium_devtools_client import ChromiumDevToolsClient
+from protocols.chromium.chromium_devtools_client import ChromiumDevToolsClient
 from controllers.navigation.earth_geolocation_bridge import EarthGeolocationBridge
 from messaging.contracts.navigation import (MOTION_STATE_TOPIC, POSITION_STATE_TOPIC, decode_motion_state, decode_position_state)
 from messaging.message_dispatcher import MessageDispatcher

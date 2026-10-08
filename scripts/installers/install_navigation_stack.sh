@@ -102,7 +102,10 @@ else
     if [[ -n "${BUILD_BASE_IMAGE:-}" ]]; then printf '%s\n' "$BUILD_BASE_IMAGE"; return; fi
     [[ -r /etc/os-release ]] || { echo "Cannot determine host distribution: /etc/os-release is unavailable" >&2; return 1; }
     local id version_id
+    # shellcheck disable=SC1091
     id="$(. /etc/os-release; printf '%s' "$ID")"
+    # VERSION_ID is populated by /etc/os-release.
+    # shellcheck disable=SC1091,SC2153
     version_id="$(. /etc/os-release; printf '%s' "$VERSION_ID")"
     case "$id:$version_id" in
       ubuntu:24.04) printf '%s\n' 'ubuntu:24.04' ;;
@@ -155,11 +158,148 @@ if [[ "$TARGET" == "termux" ]]; then
 fi
 
 command -v git >/dev/null 2>&1 || { echo "git is required" >&2; exit 1; }
-command -v "$CONTAINER_ENGINE" >/dev/null 2>&1 || { echo "Container engine not found: $CONTAINER_ENGINE" >&2; exit 1; }
-mkdir -p "$BUILD_ROOT" "$HOST_SRC"
+mkdir -p "$HOST_SRC"
+sudo install -d -m 0755 -o "$(id -u)" -g "$(id -g)" "$BUILD_ROOT"
+
+NAV_STATE_ROOT="${NAV_STATE_ROOT:-/var/lib/openroadcode/install-state}"
+MAPLIBRE_STATE_FILE="$NAV_STATE_ROOT/maplibre-renderer.sha256"
+VALHALLA_STATE_FILE="$NAV_STATE_ROOT/valhalla.sha256"
+
+hash_inputs() {
+  {
+    printf 'target=%s\n' "$TARGET"
+    printf 'arch=%s\n' "$(uname -m)"
+    printf 'build_image=%s\n' "$BUILD_BASE_IMAGE"
+    for path in "$@"; do
+      if [[ -f "$path" ]]; then
+        printf 'file=%s\n' "$path"
+        sha256sum "$path"
+      elif [[ -d "$path" ]]; then
+        find "$path" -type f -print0 | sort -z | xargs -0 -r sha256sum
+      fi
+    done
+  } | sha256sum | awk '{print $1}'
+}
+
+read_state_hash() {
+  local state_file="$1"
+
+  if sudo test -f "$state_file"; then
+    sudo cat "$state_file"
+  fi
+}
+
+write_state_hash() {
+  local state_file="$1" hash="$2"
+  sudo install -d "$NAV_STATE_ROOT"
+  printf '%s\n' "$hash" | sudo tee "$state_file" >/dev/null
+}
+
+MAPLIBRE_FINGERPRINT="$( {
+  printf 'maplibre_ref=%s\n' "$MAPLIBRE_REF"
+  hash_inputs \
+    "$PROJECT_ROOT/apps/map_renderer" \
+    "$PROJECT_ROOT/development/containers/maplibre" \
+    "$PROJECT_ROOT/scripts/runtime/install_navigation_style.sh"
+} | sha256sum | awk '{print $1}' )"
+
+VALHALLA_FINGERPRINT="$( {
+  printf 'valhalla_ref=%s\n' "$VALHALLA_REF"
+  printf 'prime_server_ref=%s\n' "$PRIME_SERVER_REF"
+  hash_inputs \
+    "$PROJECT_ROOT/development/containers/valhalla" \
+    "$TOOLCHAIN_LOCK"
+} | sha256sum | awk '{print $1}' )"
+
+MAPLIBRE_BUILD_REQUIRED=1
+VALHALLA_BUILD_REQUIRED=1
+
+if [[ "${FORCE_NAVIGATION_REBUILD:-0}" != "1" && "${FORCE_MAPLIBRE_REBUILD:-0}" != "1" ]] \
+   && [[ "$(read_state_hash "$MAPLIBRE_STATE_FILE")" == "$MAPLIBRE_FINGERPRINT" ]] \
+   && [[ -x "$INSTALL_ROOT/bin/openroadcode-map-renderer" ]]; then
+  MAPLIBRE_BUILD_REQUIRED=0
+fi
+
+if [[ "${FORCE_NAVIGATION_REBUILD:-0}" != "1" && "${FORCE_VALHALLA_REBUILD:-0}" != "1" ]] \
+   && [[ "$(read_state_hash "$VALHALLA_STATE_FILE")" == "$VALHALLA_FINGERPRINT" ]] \
+   && [[ -x "$INSTALL_ROOT/valhalla/bin/valhalla_service" ]]; then
+  VALHALLA_BUILD_REQUIRED=0
+fi
+
+CONTAINER_ENGINE_STARTED_BY_ORC=0
+CONTAINER_CMD=("$CONTAINER_ENGINE")
+
+restore_container_engine_state() {
+  if [[ "$CONTAINER_ENGINE" != "docker" ]]; then
+    return 0
+  fi
+
+  if (( CONTAINER_ENGINE_STARTED_BY_ORC )); then
+    echo "[*] Stopping Docker build service..."
+    sudo systemctl stop docker || true
+  fi
+}
+
+ensure_container_engine() {
+  if command -v "$CONTAINER_ENGINE" >/dev/null 2>&1; then
+    :
+  elif [[ "$CONTAINER_ENGINE" == "docker" ]]; then
+    echo "[*] Installing Docker build engine..."
+    sudo apt-get update
+    sudo apt-get install -y docker.io
+  else
+    echo "Container engine not found: $CONTAINER_ENGINE" >&2
+    exit 1
+  fi
+
+  if [[ "$CONTAINER_ENGINE" == "docker" ]]; then
+    command -v systemctl >/dev/null 2>&1 || {
+      echo "systemctl is required to manage Docker on Linux targets." >&2
+      exit 1
+    }
+
+    if ! systemctl is-active --quiet docker; then
+      echo "[*] Starting Docker for navigation build..."
+      sudo systemctl start docker
+      CONTAINER_ENGINE_STARTED_BY_ORC=1
+    fi
+  fi
+
+  if "$CONTAINER_ENGINE" info >/dev/null 2>&1; then
+    CONTAINER_CMD=("$CONTAINER_ENGINE")
+  elif command -v sudo >/dev/null 2>&1       && sudo "$CONTAINER_ENGINE" info >/dev/null 2>&1; then
+    CONTAINER_CMD=(sudo "$CONTAINER_ENGINE")
+  else
+    echo "[!] $CONTAINER_ENGINE is installed but not usable by $(id -un)." >&2
+    echo "[!] Verify daemon status and socket permissions." >&2
+    exit 1
+  fi
+
+  echo "[*] Container command: ${CONTAINER_CMD[*]}"
+}
+
+trap restore_container_engine_state EXIT
+
+if (( (! SKIP_MAPLIBRE && MAPLIBRE_BUILD_REQUIRED) || (! SKIP_VALHALLA && VALHALLA_BUILD_REQUIRED) )); then
+  ensure_container_engine
+fi
+
+ensure_user_owned_checkout() {
+  local dir="$1" label="$2"
+  [[ -e "$dir" ]] || return 0
+
+  local owner
+  owner="$(stat -c '%u' "$dir")"
+  if [[ "$owner" != "$(id -u)" ]]; then
+    echo "[!] $label checkout is not owned by $(id -un): $dir"
+    echo "[*] Repairing checkout ownership..."
+    sudo chown -R "$(id -u):$(id -g)" "$dir"
+  fi
+}
 
 checkout_repo() {
   local url="$1" dir="$2" ref="$3" label="$4"
+  ensure_user_owned_checkout "$dir" "$label"
   if [[ ! -d "$dir/.git" ]]; then git clone "$url" "$dir"; fi
   if [[ -n "$ref" ]]; then
     git -C "$dir" fetch --tags --prune origin
@@ -200,15 +340,27 @@ if [[ ! -f "$CONFIG_ROOT/navigation.toml" ]]; then
   sudo install -m 0644 "$PROJECT_ROOT/config/navigation.toml" "$CONFIG_ROOT/navigation.toml"
 fi
 
-if (( ! SKIP_MAPLIBRE )); then
+if (( ! SKIP_MAPLIBRE && MAPLIBRE_BUILD_REQUIRED )); then
+  echo "[*] MapLibre renderer inputs changed; rebuilding..."
   checkout_repo "https://github.com/maplibre/maplibre-native.git" "$MAPLIBRE_SRC" "$MAPLIBRE_REF" "MapLibre Native"
   BASE_IMAGE="$BUILD_BASE_IMAGE" bash "$PROJECT_ROOT/development/containers/maplibre/build.sh"
-  "$CONTAINER_ENGINE" run --rm --volume "$HOST_SRC:/src" --workdir /src -e BUILD_JOBS="${BUILD_JOBS:-4}" openroadcode-maplibre-builder /bin/bash -lc "set -euo pipefail; /src/OpenRoadCode/development/containers/maplibre/scripts/build_maplibre.sh; /src/OpenRoadCode/development/containers/maplibre/scripts/build_map_renderer.sh"
+  # The renderer build directory lives on the host and survives builder-container
+  # runs.  Do not let stale CMake/Ninja dependency state turn an explicitly
+  # requested renderer rebuild into a no-op.
+  renderer_build_dir="$PROJECT_ROOT/apps/map_renderer/build-container"
+  # Container builds can leave this host-mounted directory root-owned. Remove it
+  # with elevated privileges so a later rebuild is not blocked by stale CMake/Ninja
+  # artifacts created by an earlier builder-container run.
+  sudo rm -rf "$renderer_build_dir"
+  "${CONTAINER_CMD[@]}" run --rm --volume "$HOST_SRC:/src" --workdir /src -e BUILD_JOBS="${BUILD_JOBS:-4}" openroadcode-maplibre-builder /bin/bash -lc "set -euo pipefail; /src/OpenRoadCode/development/containers/maplibre/scripts/build_maplibre.sh; /src/OpenRoadCode/development/containers/maplibre/scripts/build_map_renderer.sh"
   renderer="$PROJECT_ROOT/apps/map_renderer/build-container/openroadcode-map-renderer"
   [[ -x "$renderer" ]] || { echo "Renderer build missing: $renderer" >&2; exit 1; }
   sudo install -d "$INSTALL_ROOT/bin"
   sudo install -m 0755 "$renderer" "$INSTALL_ROOT/bin/openroadcode-map-renderer"
   check_runtime_libraries "MapLibre renderer" "$INSTALL_ROOT/bin/openroadcode-map-renderer"
+  write_state_hash "$MAPLIBRE_STATE_FILE" "$MAPLIBRE_FINGERPRINT"
+elif (( ! SKIP_MAPLIBRE )); then
+  echo "[+] MapLibre renderer is current; skipping rebuild."
 fi
 
 # Map/routing geometry is deployed independently, but the visual style belongs
@@ -216,14 +368,15 @@ fi
 # so style-only improvements do not require rebuilding the MBTiles dataset.
 DATA_ROOT="$DATA_ROOT" bash "$PROJECT_ROOT/scripts/runtime/install_navigation_style.sh"
 
-if (( ! SKIP_VALHALLA )); then
+if (( ! SKIP_VALHALLA && VALHALLA_BUILD_REQUIRED )); then
+  echo "[*] Valhalla inputs changed; rebuilding..."
   checkout_repo "https://github.com/kevinkreiser/prime_server.git" "$PRIME_SERVER_SRC" "$PRIME_SERVER_REF" "prime_server"
   checkout_repo "https://github.com/valhalla/valhalla.git" "$VALHALLA_SRC" "$VALHALLA_REF" "Valhalla"
   BASE_IMAGE="$BUILD_BASE_IMAGE" bash "$PROJECT_ROOT/development/containers/valhalla/build.sh"
   valhalla_stage="$BUILD_ROOT/valhalla"
   sudo rm -rf "$valhalla_stage"
   mkdir -p "$valhalla_stage"
-  "$CONTAINER_ENGINE" run --rm --volume "$HOST_SRC:/src" --workdir /src -e BUILD_JOBS="${BUILD_JOBS:-4}" -e INSTALL_PREFIX="/src/OpenRoadCode/build/navigation-stack/valhalla" openroadcode-valhalla-builder /bin/bash -lc "/src/OpenRoadCode/development/containers/valhalla/scripts/build_valhalla.sh"
+  "${CONTAINER_CMD[@]}" run --rm --volume "$HOST_SRC:/src" --workdir /src -e BUILD_JOBS="${BUILD_JOBS:-4}" -e INSTALL_PREFIX="/src/OpenRoadCode/build/navigation-stack/valhalla" openroadcode-valhalla-builder /bin/bash -lc "/src/OpenRoadCode/development/containers/valhalla/scripts/build_valhalla.sh"
   sudo chown -R "$(id -u):$(id -g)" "$valhalla_stage"
   [[ -x "$valhalla_stage/bin/valhalla_service" ]] || { echo "Valhalla build missing: $valhalla_stage/bin/valhalla_service" >&2; exit 1; }
   sudo install -d "$INSTALL_ROOT"
@@ -232,6 +385,9 @@ if (( ! SKIP_VALHALLA )); then
   printf '%s\n' "$INSTALL_ROOT/valhalla/lib" | sudo tee /etc/ld.so.conf.d/openroadcode-navigation.conf >/dev/null
   sudo ldconfig
   check_runtime_libraries "Valhalla" "$INSTALL_ROOT/valhalla/bin/valhalla_service"
+  write_state_hash "$VALHALLA_STATE_FILE" "$VALHALLA_FINGERPRINT"
+elif (( ! SKIP_VALHALLA )); then
+  echo "[+] Valhalla is current; skipping rebuild."
 fi
 
 if (( ! SKIP_SERVICES )) && (( ! SKIP_VALHALLA )); then
@@ -248,7 +404,16 @@ if (( ! SKIP_SMOKE )); then
   (( SKIP_VALHALLA )) || test -x "$INSTALL_ROOT/valhalla/bin/valhalla_service"
   test -f "$CONFIG_ROOT/navigation.toml"
   if [[ -d "$DATA_ROOT/maps" ]]; then
-    test -s "$DATA_ROOT/maps/styles/openroadcode.json"
+    style_path="$DATA_ROOT/maps/styles/openroadcode.json"
+    test -s "$style_path"
+    test -r "$style_path" || {
+      echo "[!] Navigation style exists but is not readable by $(id -un): $style_path" >&2
+      exit 1
+    }
+    test -w "$style_path" || {
+      echo "[!] Navigation style exists but is not writable by $(id -un): $style_path" >&2
+      exit 1
+    }
   fi
 fi
 

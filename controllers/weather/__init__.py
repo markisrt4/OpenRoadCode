@@ -1,46 +1,15 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
-
-"""Toolkit-independent weather retrieval and snapshot caching."""
-
-from importlib import import_module
-from pathlib import Path
-from typing import Any
-
-from controllers.weather.weather_snapshot import WeatherLocation, WeatherSnapshot
-from controllers.weather.weather_snapshot_cache import WeatherSnapshotCache
-
-DEFAULT_WEATHER_CACHE_DIRECTORY = (
-    Path.home() / ".cache" / "openroadcode" / "weather"
-)
-
-__all__ = [
-    "OpenMeteoWeatherController",
-    "DEFAULT_WEATHER_CACHE_DIRECTORY",
-    "GpsdWeatherLocationProvider",
-    "WeatherLocation",
-    "WeatherSnapshot",
-    "WeatherSnapshotCache",
-]
-
-_LAZY_EXPORTS = {
-    "OpenMeteoWeatherController": (
-        "controllers.weather.open_meteo_weather_controller",
-        "OpenMeteoWeatherController",
-    ),
-    "GpsdWeatherLocationProvider": (
-        "controllers.weather.gpsd_weather_location_provider",
-        "GpsdWeatherLocationProvider",
-    ),
-}
-
-
-def __getattr__(name: str) -> Any:
-    """Load optional weather providers only when explicitly requested."""
-    target = _LAZY_EXPORTS.get(name)
-    if target is None:
-        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
-    module_name, attribute_name = target
-    value = getattr(import_module(module_name), attribute_name)
-    globals()[name] = value
-    return value
+"""Toolkit-independent weather domain and provider contracts."""
+from controllers.weather.gpsd_weather_location_provider import GpsdWeatherLocationProvider
+from controllers.weather.providers import InjectedRadarProvider, NwsWeatherAlertProvider, OpenMeteoWeatherProvider, RainViewerRadarProvider
+from controllers.weather.weather_alert import WeatherAlert, WeatherAlertEvent, WeatherAlertOperation, WeatherAlertClearReason, WeatherAlertCertainty, WeatherAlertSeverity, WeatherAlertUrgency
+from controllers.weather.weather_controller import WeatherController
+from controllers.weather.weather_presenter import WeatherPresenter
+from controllers.weather.weather_radar_controller import WeatherRadarController
+from controllers.weather.radar_palette import RadarPalette
+from controllers.weather.radar_tile_service import RadarTileService
+from controllers.weather.radar_provider_if import RadarFrame, RadarProviderIf
+from controllers.weather.weather_provider_if import WeatherProviderIf
+from controllers.weather.weather_state import CurrentWeather, DailyForecast, HourlyForecast, WeatherCondition, WeatherLocation, WeatherSource, WeatherState
+__all__=["CurrentWeather","InjectedRadarProvider","DailyForecast","GpsdWeatherLocationProvider","HourlyForecast","NwsWeatherAlertProvider","OpenMeteoWeatherProvider","RadarFrame","RadarPalette","RadarProviderIf","RadarTileService","RainViewerRadarProvider","WeatherAlert","WeatherAlertEvent","WeatherAlertOperation","WeatherAlertClearReason","WeatherAlertCertainty","WeatherAlertSeverity","WeatherAlertUrgency","WeatherCondition","WeatherController","WeatherLocation","WeatherPresenter","WeatherRadarController","WeatherProviderIf","WeatherSource","WeatherState"]

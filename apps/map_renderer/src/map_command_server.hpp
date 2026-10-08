@@ -11,6 +11,7 @@
 /** @brief Parsed command accepted by the native MapLibre renderer. */
 struct MapCommand {
     std::string command;
+    std::string operationId;
     double latitude = 0.0;
     double longitude = 0.0;
     double zoom = 0.0;
@@ -21,8 +22,15 @@ struct MapCommand {
     double north = 0.0;
     double east = 0.0;
     double padding = 40.0;
+    double opacity = 0.65;
+    double rightPx = 0.0;
+    double upPx = 0.0;
     std::string geojson;
     std::string category;
+    std::string tileUrl;
+    long long frameTime = 0;
+    long long requestId = 0;
+    int maxZoom = 22;
     bool enabled = false;
 };
 
