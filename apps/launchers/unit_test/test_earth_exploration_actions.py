@@ -40,3 +40,16 @@ def test_rejects_disguised_earth_link():
         with pytest.raises(ValueError, match='Invalid'):
             EarthExplorationActions(Mock()).execute(Mock(), action)
     launch.assert_not_called()
+
+
+def test_home_page_opens_without_selected_coordinates():
+    action = PoiAction(PoiActionKind.OPEN_WEBSITE, 'Open Google Earth',
+                       provider_id='google-earth-explore', uri='https://earth.google.com/web/')
+    with (
+        TemporaryDirectory() as temporary,
+        patch('apps.launchers.earth_exploration_actions.shutil.which', return_value='/usr/bin/chromium'),
+        patch('apps.launchers.earth_exploration_actions.logging_file_path', return_value=Path(temporary)/'earth.log'),
+        patch('apps.launchers.earth_exploration_actions.subprocess.Popen') as launch,
+    ):
+        assert EarthExplorationActions(Mock()).execute(Mock(), action) == 'Opened Google Earth'
+    assert launch.call_args.args[0][-1] == 'https://earth.google.com/web/'

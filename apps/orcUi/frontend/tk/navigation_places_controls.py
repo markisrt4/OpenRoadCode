@@ -3,8 +3,8 @@
 
 """Widget behavior for contract-bound POI and saved destination controls."""
 import tkinter as tk
-from ui.navigation import MapMarker, MapMarkerKind
-from ui.navigation.poi_models import PoiAction, PoiCategory, PointOfInterest, TransitMode
+from ui.navigation import GeoPoint, MapMarker, MapMarkerKind
+from ui.navigation.poi_models import PoiAction, PoiActionKind, PoiCategory, PointOfInterest, TransitMode
 from ui.navigation.route_types import TravelMode
 from .navigation_panel_layout import show_poi_card
 from .navigation_earth_overlay import sync_earth_overlay
@@ -198,7 +198,12 @@ class NavigationPlacesControls:
     def _explore_selected_place(self) -> None:
         poi = self._earth_place
         if poi is None:
-            self._shortcut_status.set("Select a place on the map, then press Earth")
+            action = PoiAction(PoiActionKind.OPEN_WEBSITE, "Open Google Earth",
+                               provider_id="google-earth-explore", uri="https://earth.google.com/web/")
+            # A generic website action needs no device or map coordinates.
+            poi = PointOfInterest("earth-home", "Google Earth", PoiCategory.OTHER,
+                                  GeoPoint(0, 0), actions=(action,))
+            self._execute_poi_action(poi, action)
             return
         action = next((a for a in poi.actions if a.provider_id == "google-earth-explore"), None)
         if action is None:
@@ -212,8 +217,7 @@ class NavigationPlacesControls:
             self._earth_button.configure(state=tk.NORMAL if enabled else tk.DISABLED)
             icon = self.__dict__.get("_earth_icon")
             if icon is not None:
-                ui = self._theme_bundle.ui
-                icon.configure(foreground=ui.accent_primary if enabled else ui.text_muted)
+                self._earth_button.configure(image=icon if enabled else self._earth_offline_icon)
         for button in self._poi_action_buttons:
             if button.winfo_exists():
                 button.configure(state=tk.NORMAL if self.online_actions_allowed and not self._poi_launching else tk.DISABLED)

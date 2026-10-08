@@ -80,7 +80,7 @@ def test_camera_rail_fits_short_viewports_and_caps_tall_ones():
     label.return_value.winfo_reqheight.return_value = 18
     with patch.multiple("apps.orcUi.frontend.tk.navigation_panel_layout.tk",
                         Frame=frame, Button=Mock(), Label=label,
-                        Menubutton=Mock(), Menu=Mock(), BitmapImage=Mock(), Toplevel=Mock()):
+                        Menubutton=Mock(), Menu=Mock(), PhotoImage=Mock(), Toplevel=Mock()):
         build_navigation_panel(Mock())
     controls = next(widget for widget, _args, kwargs in frames if kwargs.get("width") == 62)
     rail = next(widget for widget, args, _kwargs in frames if args and args[0] is controls)

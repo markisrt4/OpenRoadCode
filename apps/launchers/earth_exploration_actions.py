@@ -24,7 +24,7 @@ class EarthExplorationActions(PoiActionExecutorIf):
         parsed = urlsplit(action.uri or "")
         if (action.kind is not PoiActionKind.OPEN_WEBSITE or parsed.scheme != "https"
                 or parsed.netloc != "earth.google.com"
-                or not parsed.path.startswith("/web/search/")):
+                or not (parsed.path == "/web/" or parsed.path.startswith("/web/search/"))):
             raise ValueError("Invalid Google Earth exploration link")
         browser = next((path for name in ("chromium-browser", "chromium", "google-chrome")
                         if (path := shutil.which(name))), None)
@@ -37,4 +37,5 @@ class EarthExplorationActions(PoiActionExecutorIf):
             subprocess.Popen([browser, "--new-window", "--password-store=basic", action.uri],
                              env=environment, stdout=log, stderr=subprocess.STDOUT,
                              start_new_session=True)
-        return "Opened selected place in Google Earth"
+        return ("Opened Google Earth" if parsed.path == "/web/"
+                else "Opened selected place in Google Earth")

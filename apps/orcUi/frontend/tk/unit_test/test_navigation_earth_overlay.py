@@ -37,14 +37,17 @@ class EarthOverlayGeometryTest(unittest.TestCase):
         self.assertLessEqual(overlay.winfo_rootx()+overlay.winfo_width(),
                              panel._map_host.winfo_rootx()+panel._map_host.winfo_width())
         self.assertGreaterEqual(button.winfo_width(), 40)
+        self.assertTrue(panel._earth_shape_applied)
+        self.assertTrue(panel._earth_icon.transparency_get(0, 0))
+        self.assertFalse(panel._earth_icon.transparency_get(23, 23))
+        places.request_action.return_value = 7
         button.invoke()
-        self.assertIn("Select a place", panel._shortcut_status.get())
-        places.request_action.assert_not_called()
+        self.assertEqual(places.request_action.call_args.args[1].uri, "https://earth.google.com/web/")
+        places.request_action.reset_mock()
         panel._online_mode = Mock(online=False)
         panel._refresh_poi_action_buttons()
         self.assertEqual(str(button.cget("state")), "disabled")
-        self.assertEqual(root.tk.splitlist(panel._earth_icon["foreground"])[-1],
-                         panel._theme_bundle.ui.text_muted)
+        self.assertEqual(str(button.cget("image")), str(panel._earth_offline_icon))
         button.invoke()
         places.request_action.assert_not_called()
         panel.pack_forget()

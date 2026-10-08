@@ -80,7 +80,7 @@ class NavigationPanelControlTest(unittest.TestCase):
         label.return_value.winfo_reqheight.return_value = 18
         with patch.multiple(
             "apps.orcUi.frontend.tk.navigation_panel_layout.tk",
-            Frame=Mock(), Button=Mock(), Label=label, Menubutton=Mock(), Menu=Mock(), BitmapImage=Mock(), Toplevel=Mock(),
+            Frame=Mock(), Button=Mock(), Label=label, Menubutton=Mock(), Menu=Mock(), PhotoImage=Mock(), Toplevel=Mock(),
         ):
             build_navigation_panel(panel)
         panel._build_radar_controls.assert_called_once()
@@ -345,11 +345,22 @@ def test_close_places_cancels_poll_and_debounce_and_rejects_late_callbacks():
 
 class EarthOverlayRequestTest(unittest.TestCase):
     _panel = NavigationPanelControlTest._panel
-    def test_earth_requires_selected_place_and_does_not_use_vehicle_location(self):
+    def test_earth_without_selection_opens_home_without_vehicle_location(self):
         panel = self._panel()
+        panel._places_handler.request_action.return_value = 7
         panel._explore_selected_place()
-        panel._shortcut_status.set.assert_called_with("Select a place on the map, then press Earth")
+        poi, action = panel._places_handler.request_action.call_args.args
+        self.assertEqual(poi.poi_id, "earth-home")
+        self.assertEqual(action.uri, "https://earth.google.com/web/")
+        panel._request_handler.assert_not_called()
+        self.assertTrue(panel._poi_launching)
+
+    def test_earth_offline_cannot_launch_even_by_direct_request(self):
+        panel = self._panel()
+        panel._online_mode = Mock(online=False)
+        panel._explore_selected_place()
         panel._places_handler.request_action.assert_not_called()
+
 
     def test_earth_uses_existing_semantic_place_handoff(self):
         panel = self._panel()
