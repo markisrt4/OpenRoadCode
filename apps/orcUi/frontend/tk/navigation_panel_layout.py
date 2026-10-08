@@ -319,7 +319,7 @@ def show_poi_card(panel, poi) -> None:
                 highlightthickness=1,
                 highlightbackground=ui.border,
                 font=("Sans", 10, "bold"),
-                width=12,
+                width=max(12, min(28, len(action.label) + 2)),
                 height=2,
             )
             button.pack(side=tk.LEFT, padx=4)

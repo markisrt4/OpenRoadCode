@@ -219,17 +219,13 @@ def create_orc_ui_composition() -> OrcUiComposition:
         navigation_places = NavigationPlacesFactory(
             online_allowed=lambda: app.online_mode.online,
             camera_observer=core.map_camera.request_handler.observe_camera)
-        navigation_maps = NavigationMapRuntime(core.map_runtime, core.map_camera.request_handler,
-            runtime.earth, online_allowed=lambda: app.online_mode.online,
-            earth_enabled=runtime.earth is not None)
         navigation = NavigationScreen(
             app,
             online_mode=app.online_mode,
-            map_runtime=navigation_maps,
-            map_platform=navigation_maps,
+            map_runtime=core.map_runtime,
             places_factory=navigation_places,
             tooltip_factory=TooltipFactory(app),
-            map_request_handler=navigation_maps.requests,
+            map_request_handler=core.map_camera.request_handler,
             route_request_handler=core.route_request_handler,
             route_simulation_handler=core.route_request_handler,
             theme_bundle=lambda: theme_bundle(app.theme_mode),

@@ -136,3 +136,20 @@ def test_async_offline_handoff_does_not_call_platform():
     assert result is not None and not result.success and 'Offline' in result.status
     actions.execute.assert_not_called()
     controller.close()
+
+
+def test_selected_place_gets_one_earth_link_in_degrees_preserving_actions():
+    import math
+    controller, search, _, _ = session()
+    website = PoiAction(PoiActionKind.OPEN_WEBSITE, 'Website', uri='https://example.com')
+    poi = PointOfInterest('place', 'Place', PoiCategory.OTHER,
+                          GeoPoint(math.radians(42), math.radians(-83)), actions=(website,))
+    search.poll_selected.return_value = poi
+    selected = controller.poll_selected()
+    assert selected.actions[0] is website
+    earth = selected.actions[-1]
+    assert earth.label == 'Explore in Google Earth'
+    assert earth.uri == 'https://earth.google.com/web/search/42.0000000,-83.0000000'
+    search.poll_selected.return_value = selected
+    assert len(controller.poll_selected().actions) == 2
+    assert poi.actions == (website,)

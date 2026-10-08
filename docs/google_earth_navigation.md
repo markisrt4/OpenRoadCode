@@ -1,4 +1,36 @@
-# Google Earth navigation experiment
+# Google Earth destination exploration
+
+The active ORC navigation view now uses MapLibre. Select a place on the map or
+from a nearby POI search, then choose **Explore in Google Earth** in its place
+card. Earth opens the selected coordinates in a separate ordinary native Chromium
+window, with its normal browser and Earth controls. Internet access and native
+Chromium are required. Close the browser window when finished; ORC continues
+using MapLibre.
+
+The handoff passes only the selected place through a URL. It does not embed Earth,
+subscribe to GPS, inject location, expose DevTools, or automate the Earth camera.
+Earth controls the initial transition and subsequent exploration. This link-out
+design is an interpretation of ordinary viewing permitted by the
+[Earth terms](https://www.google.com/help/terms_maps-earth/), not an explicit
+Google approval of ORC. Google's
+[permissions guidance](https://about.google/brand-resource-center/products-and-services/geo-guidelines/)
+separately prohibits embedding Earth in apps. Keep the normal Google/provider
+attribution visible.
+
+Update the branch and restart ORC before trying it:
+
+```bash
+git switch navigation-google-earth
+git pull --ff-only origin navigation-google-earth
+```
+
+The prior embedded/GPS experiment remains in the branch history and source for
+reference, but is no longer wired into the default ORC navigation screen. The
+following notes describe that historical experiment, not the active UI workflow.
+
+---
+
+# Historical Google Earth navigation experiment
 
 The `navigation-google-earth` branch offers Google Earth Web as an alternative
 navigation map. It runs in native Chromium on Termux/X11 and uses WebGL. It does
