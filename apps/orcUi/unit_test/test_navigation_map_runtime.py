@@ -22,6 +22,7 @@ class NavigationMapRuntimeTest(unittest.TestCase):
         self.embedder.embed.side_effect = lambda *args, **kwargs: setattr(self.embedder, "window_id", 42)
         self.embedder.clear.side_effect = lambda: setattr(self.embedder, "window_id", None)
         self.controller = Mock()
+        self.controller.status = "Earth — test GPS"
         self.runtime = NavigationMapRuntime(self.native, self.requests, self.earth,
             controller=self.controller, embedder=self.embedder)
         self.addCleanup(self.runtime.close)
@@ -114,3 +115,21 @@ class NavigationMapRuntimeTest(unittest.TestCase):
         self.runtime._worker.submit(self.runtime._tick, self.runtime._generation).result(3)
         self.assertEqual(MapPlatform.MAPLIBRE, self.runtime.state.active)
         self.assertIn("exited", self.runtime.state.status)
+
+    def test_gps_ticks_do_not_reconfigure_unchanged_surface(self):
+        self.select_earth()
+        for _ in range(3):
+            self.runtime._worker.submit(self.runtime._tick, self.runtime._generation).result(3)
+        self.embedder.resize.assert_not_called()
+        self.runtime.resize(640, 360, 999)
+        for _ in range(2):
+            self.runtime._worker.submit(self.runtime._tick, self.runtime._generation).result(3)
+        self.embedder.resize.assert_called_once_with(640, 360)
+
+    def test_reembedding_applies_size_even_if_previous_host_had_same_size(self):
+        self.select_earth()
+        self.runtime.stop()
+        self.runtime.launch(200)
+        self.flush()
+        self.assertEqual(self.embedder.embed.call_count, 2)
+        self.embedder.embed.assert_called_with(0, 200, 800, 400, window_class="earth")

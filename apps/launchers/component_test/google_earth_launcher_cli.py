@@ -19,6 +19,9 @@ def main() -> int:
 
     earth = GoogleEarthLauncher()
     earth.set_location(latitude=args.latitude, longitude=args.longitude)
+    # The production launcher starts offscreen for embedding; this diagnostic
+    # must display a normal window without reparenting it into ORC.
+    earth.configure_app_window(position=(0, 0), size=(1024, 600))
 
     print(
         f"[*] Launching Google Earth on {args.display} at "

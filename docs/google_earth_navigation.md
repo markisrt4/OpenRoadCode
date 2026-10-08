@@ -99,3 +99,25 @@ hide/close behavior, camera request routing, and GPS conversion. A local headles
 Chromium fixture verifies real DevTools discovery, WebSocket commands,
 geolocation callback delivery, and keyboard/wheel input. These checks do not
 validate Google Earth's current website, touch behavior, or Android GPU drivers.
+
+## Diagnosing a black Earth viewport on Termux
+
+`VK_ERROR_SURFACE_LOST_KHR`, `swapchain killed`, and Chromium GPU-process exits
+indicate a failed rendering surface/GPU process. The accompanying missing X11
+refresh-rate extensions alone do not establish the cause. ORC applies Earth
+window resizing only when dimensions change; GPS ticks no longer issue redundant
+X11 resize/move operations. This reduces surface reconfiguration but does not
+prove that Zink survives embedding or window hide/reopen on the device.
+
+Close ORC and its Earth browser, then run a visible standalone window without ORC
+embedding:
+
+```bash
+python -m apps.launchers.component_test.google_earth_launcher_cli --display :1
+```
+
+Leave the terminal waiting while inspecting Earth; press Enter to stop the test.
+If standalone Earth also goes black, inspect the browser log for GPU failures.
+If standalone works but embedding fails, investigate X11 reparent/hide and surface
+lifecycle rather than changing the GPU backend blindly. The standalone test uses
+a separate diagnostic browser profile and a default example location, not ORC GPS.

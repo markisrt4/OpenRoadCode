@@ -31,6 +31,7 @@ class NavigationMapRuntime:
         self._host = None
         self._owner = None
         self._size = (800, 600)
+        self._embedded_size = None
         self._generation = 0
         self._closed = False
         self._worker = ThreadPoolExecutor(max_workers=1, thread_name_prefix="earth-map")
@@ -105,6 +106,7 @@ class NavigationMapRuntime:
                     self._hide_earth()
                     return
                 self._embedder.embed(0, self._host, *size, window_class=self._earth.WINDOW_CLASS)
+                self._embedded_size = size
                 if not self._current(generation):
                     self._hide_earth()
                     return
@@ -125,6 +127,7 @@ class NavigationMapRuntime:
                     self._state = MapPlatformState(status=f"Earth unavailable: {error}; returned to MapLibre")
 
     def _hide_earth(self) -> None:
+        self._embedded_size = None
         if self._earth is None:
             self._embedder.clear()
             return
@@ -162,7 +165,10 @@ class NavigationMapRuntime:
         try:
             if not self._earth.is_running():
                 raise RuntimeError("Earth browser exited")
-            self._embedder.resize(*self._size)
+            size = self._size
+            if size != self._embedded_size:
+                self._embedder.resize(*size)
+                self._embedded_size = size
             self._controller.tick()
             with self._lock:
                 if self._current(generation):
