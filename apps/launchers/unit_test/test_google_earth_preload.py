@@ -4,9 +4,7 @@
 from __future__ import annotations
 
 import unittest
-from unittest.mock import Mock, patch
-
-from apps.launchers.graphics_environment import GraphicsRuntime
+from unittest.mock import Mock
 
 from apps.launchers.google_earth_launcher import GoogleEarthLauncher
 
@@ -19,18 +17,14 @@ class GoogleEarthPreloadTests(unittest.TestCase):
         self.browser.hide.return_value = True
         self.launcher = GoogleEarthLauncher(browser=self.browser)
 
-    def test_supported_gpu_selects_angle_opengl(self) -> None:
-        with patch("apps.launchers.google_earth_launcher.detect_graphics_runtime",
-                   return_value=GraphicsRuntime("freedreno-zink", True, {})):
-            GoogleEarthLauncher(browser=self.browser)
-        self.assertIn("--use-gl=angle", self.browser.extra_arguments)
-        self.assertIn("--use-angle=gl", self.browser.extra_arguments)
+    def test_earth_keeps_chromium_default_gpu_backend(self) -> None:
+        self.assertFalse(any(argument.startswith(("--use-gl=", "--use-angle="))
+                             for argument in self.browser.extra_arguments))
 
     def test_explicit_gpu_choice_is_preserved(self) -> None:
         self.browser.extra_arguments = ("--use-angle=vulkan",)
-        with patch("apps.launchers.google_earth_launcher.detect_graphics_runtime",
-                   return_value=GraphicsRuntime("freedreno-zink", True, {})):
-            GoogleEarthLauncher(browser=self.browser)
+        GoogleEarthLauncher(browser=self.browser)
+        self.assertIn("--use-angle=vulkan", self.browser.extra_arguments)
         self.assertNotIn("--use-angle=gl", self.browser.extra_arguments)
 
     def test_prepare_starts_and_hides_browser(self) -> None:
