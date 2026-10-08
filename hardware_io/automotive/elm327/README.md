@@ -53,7 +53,7 @@ that connection as an RFCOMM serial device such as `/dev/rfcomm0`, which
 Use the setup helper with the address reported by the Bluetooth scanner:
 
 ```bash
-scripts/installers/setup_rfcomm0.sh \
+scripts/installers/setup_bluetooth_spp.sh \
     --address 12:34:5A:05:9C:54
 ```
 
@@ -71,7 +71,7 @@ The helper:
 Specify the channel only when SDP discovery fails:
 
 ```bash
-scripts/installers/setup_rfcomm0.sh \
+scripts/installers/setup_bluetooth_spp.sh \
     --address 12:34:5A:05:9C:54 \
     --channel 1
 ```
@@ -79,9 +79,11 @@ scripts/installers/setup_rfcomm0.sh \
 The host installer can install the feature and configure RFCOMM together:
 
 ```bash
-scripts/install_arm64.sh \
-    --feature elm327 \
-    --elm327-address 12:34:5A:05:9C:54
+scripts/installers/host_setup.sh \
+    --target rpi5 \
+    --feature bluetooth \
+    --feature automotive \
+    --bluetooth-spp-address 12:34:5A:05:9C:54
 ```
 
 Pairing and RFCOMM configuration are host responsibilities. `Elm327Device`

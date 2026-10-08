@@ -148,6 +148,48 @@
           3,
           3
         ]
+      },
+      "filter": [
+        "!=",
+        [
+          "get",
+          "admin_level"
+        ],
+        4
+      ]
+    },
+    {
+      "id": "state-boundaries",
+      "type": "line",
+      "source": "openroad",
+      "source-layer": "boundary",
+      "minzoom": 4,
+      "filter": [
+        "==",
+        [
+          "get",
+          "admin_level"
+        ],
+        4
+      ],
+      "paint": {
+        "line-color": "#54b948",
+        "line-width": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          4,
+          1,
+          8,
+          1.6,
+          12,
+          2.2
+        ],
+        "line-opacity": 0.9
       }
     },
     {
@@ -363,7 +405,7 @@
       "type": "line",
       "source": "openroad",
       "source-layer": "transportation",
-      "minzoom": 8,
+      "minzoom": 10,
       "filter": [
         "in",
         [
@@ -388,7 +430,7 @@
       "type": "line",
       "source": "openroad",
       "source-layer": "transportation",
-      "minzoom": 8,
+      "minzoom": 10,
       "filter": [
         "in",
         [
@@ -413,7 +455,7 @@
       "type": "line",
       "source": "openroad",
       "source-layer": "transportation",
-      "minzoom": 6,
+      "minzoom": 8,
       "filter": [
         "==",
         [
@@ -432,7 +474,7 @@
       "type": "line",
       "source": "openroad",
       "source-layer": "transportation",
-      "minzoom": 6,
+      "minzoom": 8,
       "filter": [
         "==",
         [
@@ -608,7 +650,7 @@
       "type": "symbol",
       "source": "openroad",
       "source-layer": "transportation_name",
-      "minzoom": 7,
+      "minzoom": 8,
       "filter": [
         "has",
         "ref"
@@ -824,7 +866,7 @@
       ],
       "layout": {
         "visibility": "none",
-        "text-field": "⛽ {name:latin}",
+        "text-field": "\u26fd {name:latin}",
         "text-font": [
           "KlokanTech Noto Sans CJK Regular"
         ],
@@ -957,7 +999,7 @@
       ],
       "layout": {
         "visibility": "none",
-        "text-field": "▣ {name:latin}",
+        "text-field": "\u25a3 {name:latin}",
         "text-font": [
           "KlokanTech Noto Sans CJK Regular"
         ],
@@ -1100,7 +1142,7 @@
       ],
       "layout": {
         "visibility": "none",
-        "text-field": "🍴 {name:latin}",
+        "text-field": "\ud83c\udf74 {name:latin}",
         "text-font": [
           "KlokanTech Noto Sans CJK Regular"
         ],
@@ -1253,7 +1295,7 @@
       ],
       "layout": {
         "visibility": "none",
-        "text-field": "▰ {name:latin}",
+        "text-field": "\u25b0 {name:latin}",
         "text-font": [
           "KlokanTech Noto Sans CJK Regular"
         ],
@@ -1409,20 +1451,20 @@
             "category"
           ],
           "fuel",
-          "⛽",
+          "\u26fd",
           "grocery",
-          "▣",
+          "\u25a3",
           "food",
-          "☕",
+          "\u2615",
           "bus",
-          "▰",
+          "\u25b0",
           "rail",
-          "◆",
+          "\u25c6",
           "tram-subway",
-          "◆",
+          "\u25c6",
           "transit",
-          "◆",
-          "◆"
+          "\u25c6",
+          "\u25c6"
         ],
         "text-font": [
           "KlokanTech Noto Sans CJK Regular"
@@ -1487,6 +1529,60 @@
         "text-color": "#202020",
         "text-halo-color": "#ffffff",
         "text-halo-width": 2.5
+      }
+    },
+    {
+      "id": "radar-position-ring-outer",
+      "type": "circle",
+      "source": "vehicle",
+      "layout": {
+        "visibility": "none"
+      },
+      "paint": {
+        "circle-radius": 108,
+        "circle-color": "#ffffff",
+        "circle-opacity": 0,
+        "circle-stroke-color": "#b8edff",
+        "circle-stroke-opacity": 0.85,
+        "circle-stroke-width": 1.5,
+        "circle-pitch-alignment": "viewport",
+        "circle-pitch-scale": "viewport"
+      }
+    },
+    {
+      "id": "radar-position-ring-middle",
+      "type": "circle",
+      "source": "vehicle",
+      "layout": {
+        "visibility": "none"
+      },
+      "paint": {
+        "circle-radius": 72,
+        "circle-color": "#ffffff",
+        "circle-opacity": 0,
+        "circle-stroke-color": "#b8edff",
+        "circle-stroke-opacity": 0.85,
+        "circle-stroke-width": 1.5,
+        "circle-pitch-alignment": "viewport",
+        "circle-pitch-scale": "viewport"
+      }
+    },
+    {
+      "id": "radar-position-ring-inner",
+      "type": "circle",
+      "source": "vehicle",
+      "layout": {
+        "visibility": "none"
+      },
+      "paint": {
+        "circle-radius": 36,
+        "circle-color": "#ffffff",
+        "circle-opacity": 0,
+        "circle-stroke-color": "#b8edff",
+        "circle-stroke-opacity": 0.85,
+        "circle-stroke-width": 1.5,
+        "circle-pitch-alignment": "viewport",
+        "circle-pitch-scale": "viewport"
       }
     },
     {

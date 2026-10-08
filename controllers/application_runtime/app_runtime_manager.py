@@ -13,14 +13,7 @@ import logging
 from common.logging.lifecycle import logged_action
 from common.logging.structured import current_operation, event, operation
 
-from apps.launchers.app_launcher_if import (
-    AppLauncherIf,
-    BrowserDashboardLauncherIf,
-    HideableAppLauncherIf,
-    PreloadableAppLauncherIf,
-    StatusCallback,
-    WindowedAppLauncherIf,
-)
+from ui.system.app_launcher_if import (AppLauncherIf, BrowserDashboardLauncherIf, HideableAppLauncherIf, PreloadableAppLauncherIf, StatusCallback, WindowedAppLauncherIf)
 from config.application_config import ApplicationConfig, ApplicationsConfig, StartupPolicy
 
 LauncherT = TypeVar("LauncherT", bound=AppLauncherIf)

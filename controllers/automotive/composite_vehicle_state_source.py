@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 
-from controllers.automotive.automotive_telemetry_profile import AutomotiveTelemetryProfile
+from ui.automotive.automotive_telemetry_profile import (AutomotiveTelemetryProfile)
 from controllers.automotive.vehicle_state import VehicleState
 from controllers.automotive.vehicle_state_source_if import VehicleStateSourceIf
 

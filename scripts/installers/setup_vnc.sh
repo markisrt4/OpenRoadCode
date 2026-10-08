@@ -4,7 +4,9 @@
 
 set -euo pipefail
 
-PROJECT_DIR="${PROJECT_DIR:-$PWD}"
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd -- "$SCRIPT_DIR/../.." && pwd)"
+PROJECT_DIR="${PROJECT_DIR:-$PROJECT_ROOT}"
 DISPLAY_NUM="${DISPLAY_NUM:-2}"
 GEOMETRY="${GEOMETRY:-1280x720}"
 DEPTH="${DEPTH:-24}"

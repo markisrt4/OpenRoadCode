@@ -44,12 +44,14 @@ class RunitServiceManager:
 
     SERVICES = (
         "openroadcode-message-broker",
+        "openroadcode-valhalla",
         "openroadcode-navigation",
         "openroadcode-automotive",
         "openroadcode-adsb",
     )
     CORE_STACK = (
         "openroadcode-message-broker",
+        "openroadcode-valhalla",
         "openroadcode-navigation",
         "openroadcode-automotive",
     )

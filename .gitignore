@@ -13,3 +13,6 @@ build-container
 
 # MapLibre runtime cache
 /maplibre.db
+
+# Downloaded camera perception model weights.
+yolo11n.pt

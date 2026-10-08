@@ -3,14 +3,7 @@
 
 """Renderer- and UI-independent point-of-interest domain."""
 
-from controllers.poi.poi_models import (
-    PoiAction,
-    PoiActionKind,
-    PoiCategory,
-    PoiSearchResult,
-    PointOfInterest,
-    TransitMode,
-)
+from ui.navigation.poi_models import (PoiAction, PoiActionKind, PoiCategory, PoiSearchResult, PointOfInterest, TransitMode)
 from controllers.poi.poi_search_controller import PoiSearchController
 from controllers.poi.poi_search_controller_if import PoiSearchControllerIf
 from controllers.poi.poi_search_source_if import (

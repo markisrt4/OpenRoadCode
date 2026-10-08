@@ -14,7 +14,7 @@ from collections.abc import Callable
 from common.logging.structured import current_operation, event, operation
 
 from controllers.spotify.spotify_controller_if import SpotifyControllerIf
-from controllers.spotify.spotify_library import SpotifyLibraryTrack, SpotifyPlaylist
+from ui.media.spotify_library import (SpotifyLibraryTrack, SpotifyPlaylist)
 from controllers.spotify.spotify_media_presenter import SpotifyMediaPresenter
 from controllers.spotify.spotify_state import SpotifyState
 from protocols.spotify.spotify_web_api_client import SpotifyWebApiError

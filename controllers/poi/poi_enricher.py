@@ -8,8 +8,7 @@ from __future__ import annotations
 from dataclasses import replace
 
 from tools.map_builder.builder.web_urls import valid_website
-
-from controllers.poi.poi_models import PoiAction, PoiActionKind, PoiCategory, PointOfInterest
+from ui.navigation.poi_models import (PoiAction, PoiActionKind, PoiCategory, PointOfInterest)
 from controllers.poi.business_catalog import resolve_business
 
 

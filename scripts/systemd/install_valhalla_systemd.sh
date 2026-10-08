@@ -9,6 +9,7 @@ SERVICE_FILE="/etc/systemd/system/${SERVICE_NAME}.service"
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd -- "$SCRIPT_DIR/../.." && pwd)"
+RUN_USER="${SUDO_USER:-${USER:-}}"
 
 WRAPPER_SCRIPT="$PROJECT_ROOT/scripts/runtime/start_valhalla.sh"
 
@@ -42,6 +43,11 @@ if [[ $EUID -ne 0 ]]; then
     echo "Please run: sudo $0 $VALHALLA_CONFIG $VALHALLA_WORKERS" >&2
     exit 1
 fi
+if [[ -z "$RUN_USER" || "$RUN_USER" == "root" ]]; then
+    echo "Unable to determine the non-root OpenRoadCode runtime user." >&2
+    echo "Run this installer through sudo from the intended user account." >&2
+    exit 1
+fi
 
 chmod +x "$WRAPPER_SCRIPT"
 
@@ -52,6 +58,7 @@ After=network.target
 
 [Service]
 Type=simple
+User=$RUN_USER
 WorkingDirectory=$PROJECT_ROOT
 
 Environment=VALHALLA_CONFIG=$VALHALLA_CONFIG
@@ -73,4 +80,3 @@ systemctl restart "$SERVICE_NAME.service"
 
 echo "Installed and enabled $SERVICE_FILE"
 echo "Use: sudo systemctl status $SERVICE_NAME.service"
-

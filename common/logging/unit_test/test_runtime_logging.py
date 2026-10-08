@@ -363,11 +363,11 @@ def test_core_failure_identifies_service_and_preserves_command_order(caplog):
             SystemdServiceManager().start_core()
     assert [call.args[0][-1] for call in run.call_args_list] == [
         "openroadcode-message-broker.service",
-        "openroadcode-navigation.service",
+        "valhalla.service",
     ]
     emitted = events(caplog)
     failure_event = next(item for item in emitted if item["event"] == "supervisor.command_failed")
-    assert failure_event["service"] == "openroadcode-navigation"
+    assert failure_event["service"] == "openroadcode-valhalla"
     assert not any(item["event"] == "service.action.completed" for item in emitted)
     assert len({item["operation_id"] for item in emitted}) == 1
 
@@ -453,7 +453,10 @@ def test_restricted_install_can_import_http_and_write_logs_without_checkout(tmp_
 
     root = Path(__file__).resolve().parents[3]
     script = (root / "scripts/systemd/install_service_manager_systemd.sh").read_text()
-    manifest = next(line for line in script.splitlines() if line.startswith("for package in "))
+    manifest = next(
+        line for line in script.replace("\\\n", " ").splitlines()
+        if line.startswith("for package in ")
+    )
     packages = manifest.removeprefix("for package in ").removesuffix("; do").split()
     deployed = tmp_path / "installed"
     for package in packages:

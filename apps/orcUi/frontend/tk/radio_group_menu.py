@@ -6,7 +6,7 @@
 import tkinter as tk
 from tkinter import simpledialog
 
-from controllers.radio.radio_profiles import RadioProfile, RadioProfilePreset
+from ui.radio.radio_profiles import RadioProfile, RadioProfilePreset
 from .shell_metrics import FONT_CONTROL
 
 MAIN_GROUPS = (

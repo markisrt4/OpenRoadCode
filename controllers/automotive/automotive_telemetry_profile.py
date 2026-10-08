@@ -1,15 +1,10 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 
-from enum import Enum
+"""Compatibility exports; shared contracts live in the independent UI package."""
 
+from ui.automotive.automotive_telemetry_profile import (
+    AutomotiveTelemetryProfile,
+)
 
-class AutomotiveTelemetryProfile(str, Enum):
-    """Semantic telemetry-priority hint for the automotive producer."""
-
-    BACKGROUND = "background"
-    HOME = "home"
-    PERFORMANCE = "performance"
-    ENGINE = "engine"
-    ECU = "ecu"
-    TRIP = "trip"
+__all__ = ['AutomotiveTelemetryProfile']

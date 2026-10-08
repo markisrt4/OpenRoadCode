@@ -84,6 +84,7 @@ class SystemdServiceManagerTest(unittest.TestCase):
             starts,
             [
                 ["sudo", "-n", SYSTEMCTL_BIN, "start", "openroadcode-message-broker.service"],
+                ["sudo", "-n", SYSTEMCTL_BIN, "start", "valhalla.service"],
                 ["sudo", "-n", SYSTEMCTL_BIN, "start", "openroadcode-navigation.service"],
                 ["sudo", "-n", SYSTEMCTL_BIN, "start", "openroadcode-automotive.service"],
             ],

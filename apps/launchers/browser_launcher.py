@@ -13,7 +13,7 @@ import subprocess
 import time
 from pathlib import Path
 
-from apps.launchers.app_launcher_if import AppLauncherIf, StatusCallback
+from ui.system.app_launcher_if import (AppLauncherIf, StatusCallback)
 from apps.launchers.external_window_manager import ExternalWindowManager, x11_environment
 from apps.launchers.graphics_environment import graphics_environment
 from apps.launchers.process_manager import (

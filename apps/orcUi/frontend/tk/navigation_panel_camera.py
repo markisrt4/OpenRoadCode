@@ -5,25 +5,20 @@
 
 import math
 
-from protocols.map_renderer.map_poi_source import RawMapCamera
-from ui.navigation import GeoPoint
+from ui.navigation.navigation_places_request_handler_if import NavigationCameraState
 
 
 class NavigationCameraControls:
     """Map control behavior on the navigation panel's camera state."""
 
     def _sync_renderer_camera(self) -> None:
-        camera = self._poi_controller.poll_camera_state()
-        if not isinstance(camera, RawMapCamera):
+        camera = self._places_handler.poll_camera_state()
+        if not isinstance(camera, NavigationCameraState):
             return
-        observe = getattr(self._request_handler, "observe_camera", None)
-        if observe is not None:
-            observe(GeoPoint(math.radians(camera.latitude), math.radians(camera.longitude)),
-                    camera.zoom, math.radians(camera.bearing), math.radians(camera.pitch))
         self._zoom_level = camera.zoom
-        self._pitch_rad = math.radians(camera.pitch)
+        self._pitch_rad = camera.pitch_rad
         self._zoom_text.set(f"{camera.zoom:.1f}")
-        self._dimension_text.set("2D" if camera.pitch > 0 else "3D")
+        self._dimension_text.set("2D" if camera.pitch_rad > 0 else "3D")
 
     def _toggle_follow(self) -> None:
         enabled = not self._follow_enabled

@@ -6,21 +6,12 @@
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
 from uuid import uuid4
 
 from common.xdg_paths import openroadcode_data_dir
 from controllers.cache import PersistentCache, PersistentCacheIf
 from ui.navigation import GeoPoint
-
-
-@dataclass(frozen=True, slots=True)
-class MapFavorite:
-    """A durable named geographic location."""
-
-    favorite_id: str
-    name: str
-    position: GeoPoint
+from ui.navigation.navigation_places_request_handler_if import MapFavorite
 
 
 class MapFavorites:

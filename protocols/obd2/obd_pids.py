@@ -209,3 +209,21 @@ class ControlModuleVoltagePid(_Mode01Pid):
 
     def decode(self, data: bytes) -> float | None:
         return None if len(data) < 2 else ((data[0] << 8) | data[1]) / 1000.0
+
+
+class ActualEngineTorquePid(_Mode01Pid):
+    """Decode Mode 01 PID 62 actual engine torque as percent of reference."""
+    pid = 0x62
+    unit = "%"
+
+    def decode(self, data: bytes) -> float | None:
+        return None if not data else float(data[0]-125)
+
+
+class ReferenceEngineTorquePid(_Mode01Pid):
+    """Decode Mode 01 PID 63 reference engine torque in newton metres."""
+    pid = 0x63
+    unit = "Nm"
+
+    def decode(self, data: bytes) -> float | None:
+        return None if len(data) < 2 else float(int.from_bytes(data[:2], "big"))

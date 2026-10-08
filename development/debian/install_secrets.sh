@@ -98,6 +98,8 @@ trap cleanup EXIT
 if [[ -r "$SECRETS_FILE" ]]; then
     cat -- "$SECRETS_FILE" > "$temporary_file"
 elif command -v sudo >/dev/null 2>&1 && sudo test -r "$SECRETS_FILE" 2>/dev/null; then
+    # sudo is needed for the read; the current user owns the temporary output.
+    # shellcheck disable=SC2024
     sudo cat -- "$SECRETS_FILE" > "$temporary_file"
 fi
 

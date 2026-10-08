@@ -217,6 +217,13 @@ installed-service behavior still need platform smoke testing.
 
 ## Quality gates
 
+The service-manager performance sampler uses `runtime.performance` for start,
+stop, sampling failure, and recovery events. Host, process, and service sampling
+failures are reported separately; repeated failures of the same type and routine
+samples stay quiet. Each start has an operation ID shared with worker events and
+shutdown. Records retain exception types only, excluding telemetry values,
+process details, socket addresses, and exception messages.
+
 The GitHub Actions **Logging quality gate** job tests schema types, escaping,
 rotation budgets, concurrent writers, repeated error suppression, native output
 collection, viewer rotation/filtering, and navigation operation ID propagation.

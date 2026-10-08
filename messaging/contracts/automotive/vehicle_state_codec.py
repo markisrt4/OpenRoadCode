@@ -3,7 +3,7 @@ from typing import Any
 from controllers.automotive.vehicle_state import VehicleState
 from messaging.contracts.common import encode_timestamp
 
-SCHEMA_VERSION = 4
+SCHEMA_VERSION = 5
 
 
 def encode_vehicle_state(state: VehicleState, *, source: str = "obd2") -> dict[str, Any]:
@@ -38,6 +38,8 @@ def encode_vehicle_state(state: VehicleState, *, source: str = "obd2") -> dict[s
             "measured_equivalence_ratio": state.measured_equivalence_ratio,
             "engine_fuel_rate_m3_s": state.engine_fuel_rate_m3_s,
             "control_voltage_v": state.control_voltage_v,
+            "actual_engine_torque_ratio": state.actual_engine_torque_ratio,
+            "reference_engine_torque_nm": state.reference_engine_torque_nm,
         },
     }
 

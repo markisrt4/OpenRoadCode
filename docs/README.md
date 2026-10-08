@@ -68,6 +68,7 @@ Generated from the canonical documentation files. Every component README and sta
 - [Obd2 (`controllers/automotive/obd2`)](../controllers/automotive/obd2/README.md)
 - [Automotive (`controllers/automotive`)](../controllers/automotive/README.md)
 - [Cache (`controllers/cache`)](../controllers/cache/README.md)
+- [Computer Vision (`controllers/computer_vision`)](../controllers/computer_vision/README.md)
 - [Environmental (`controllers/environmental`)](../controllers/environmental/README.md)
 - [Image (`controllers/image`)](../controllers/image/README.md)
 - [Input (`controllers/input`)](../controllers/input/README.md)
@@ -114,6 +115,7 @@ Generated from the canonical documentation files. Every component README and sta
 - [Poi Ordering](poi_ordering.md)
 - [Roadmap](roadmap.md)
 - [Streaming Radio](streaming_radio.md)
+- [System Performance](system_performance.md)
 - [Termux Poi Download](termux_poi_download.md)
 - [Xdg Paths](xdg_paths.md)
 
@@ -131,6 +133,7 @@ Generated from the canonical documentation files. Every component README and sta
 - [Elm327 (`hardware_io/automotive/elm327`)](../hardware_io/automotive/elm327/README.md)
 - [Automotive (`hardware_io/automotive`)](../hardware_io/automotive/README.md)
 - [Bluetooth (`hardware_io/bluetooth`)](../hardware_io/bluetooth/README.md)
+- [Camera (`hardware_io/camera`)](../hardware_io/camera/README.md)
 - [Environmental (`hardware_io/environmental`)](../hardware_io/environmental/README.md)
 - [Gpio (`hardware_io/gpio`)](../hardware_io/gpio/README.md)
 - [Gps (`hardware_io/gps`)](../hardware_io/gps/README.md)

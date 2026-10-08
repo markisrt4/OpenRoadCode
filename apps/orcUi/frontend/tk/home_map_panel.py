@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import tkinter as tk
+from collections.abc import Callable
 
 from apps.orcUi.theme_runtime import theme_bundle as packaged_theme_bundle
 from ui.navigation import MapRequestHandlerIf
@@ -21,6 +22,8 @@ class HomeMapPanel(tk.Frame):
         *,
         map_request_handler: MapRequestHandlerIf,
         theme: ThemeBundle | None = None,
+        radar_enabled: Callable[[], bool] = lambda: False,
+        on_radar_toggle: Callable[[bool], None] | None = None,
     ) -> None:
         self._theme = theme or packaged_theme_bundle(ThemeMode.DARK)
         ui = self._theme.ui
@@ -31,6 +34,8 @@ class HomeMapPanel(tk.Frame):
             highlightbackground=ui.border,
         )
         self._request_handler = map_request_handler
+        self._radar_enabled = radar_enabled
+        self._on_radar_toggle = on_radar_toggle
         self._map_host: tk.Frame
         self._build()
         self._schedule_renderer_refresh()
@@ -46,14 +51,38 @@ class HomeMapPanel(tk.Frame):
         ui = theme.ui
         self.configure(bg=ui.surface, highlightbackground=ui.border)
         self._map_host.configure(bg=ui.background)
+        self._radar_button.configure(bg=ui.control_background)
+        self._render_radar_state()
 
     def _build(self) -> None:
         self.grid_rowconfigure(0, weight=1)
+        self._radar_button = tk.Button(
+            self, text="RADAR", command=self._toggle_radar,
+            bg=self._theme.ui.control_background, fg=self._theme.ui.text,
+            relief=tk.FLAT, font=("Sans", 10, "bold"), padx=10, pady=5,
+            state=tk.NORMAL if self._on_radar_toggle is not None else tk.DISABLED,
+        )
+        self._radar_button.place(relx=1.0, x=-8, y=8, anchor="ne")
+        self._render_radar_state()
         self.grid_columnconfigure(0, weight=1)
         # The native map renderer paints over this host. Keep the host itself
         # neutral and let MapLibre own the actual map palette.
         self._map_host = tk.Frame(self, bg=self._theme.ui.background)
         self._map_host.grid(row=0, column=0, sticky="nsew", padx=1, pady=1)
+        self._radar_button.lift()
+
+    def _toggle_radar(self) -> None:
+        if self._on_radar_toggle is not None:
+            self._on_radar_toggle(not self._radar_enabled())
+            self._render_radar_state()
+
+    def _render_radar_state(self) -> None:
+        enabled = self._radar_enabled()
+        self._radar_button.configure(
+            text="☁ ON" if enabled else "☁ OFF",
+            fg=self._theme.ui.accent_success if enabled else self._theme.ui.text_muted,
+            relief=tk.SUNKEN if enabled else tk.FLAT,
+        )
 
     def _schedule_renderer_refresh(self) -> None:
         # PUB/SUB drops commands until the newly launched renderer has joined.
@@ -66,3 +95,4 @@ class HomeMapPanel(tk.Frame):
         refresh = getattr(self._request_handler, "refresh_renderer_state", None)
         if refresh is not None:
             refresh()
+        self._radar_button.lift()

@@ -25,6 +25,7 @@ from controllers.navigation import (
 from controllers.navigation.android_position_source import AndroidPositionSource
 from controllers.navigation.browser_position_source import BrowserPositionSource
 from controllers.navigation.route_simulation_if import RouteSimulationIf
+from controllers.navigation.route_playback_position_source import RoutePlaybackPositionSource
 from controllers.navigation.simulated_ground_motion_source import (
     SimulatedGroundMotionSource,
 )
@@ -139,13 +140,15 @@ def _build_position_source(config: NavigationServiceRuntimeConfig):
         return BrowserPositionSource(host=host, port=port)
 
     if config.gps.device == "android":
-        return AndroidPositionSource(
-            AndroidSensorBridgeClient(base_url=_android_bridge_url(config.gps.bridge_url))
+        return RoutePlaybackPositionSource(
+            AndroidPositionSource(
+                AndroidSensorBridgeClient(base_url=_android_bridge_url(config.gps.bridge_url))
+            )
         )
 
     if config.gps.device == "gpsd":
-        return GpsdNavigationAdapter(
-            _create_gps_reader(config.gps.host, config.gps.port)
+        return RoutePlaybackPositionSource(
+            GpsdNavigationAdapter(_create_gps_reader(config.gps.host, config.gps.port))
         )
 
     raise ValueError(f"Unsupported GPS device: {config.gps.device}")

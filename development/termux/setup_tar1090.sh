@@ -11,7 +11,11 @@ set -euo pipefail
 
 HOST_SRC="${HOST_SRC:-$HOME/src}"
 TAR1090_SRC="${TAR1090_SRC:-$HOST_SRC/tar1090}"
-TAR1090_REF="${TAR1090_REF:-master}"
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd -- "$SCRIPT_DIR/../.." && pwd)"
+# shellcheck disable=SC1090
+source "$PROJECT_ROOT/scripts/installers/toolchain.lock"
+TAR1090_REF="${TAR1090_REF:-$TAR1090_COMMIT}"
 TAR1090_PORT="${TAR1090_PORT:-8081}"
 DATA_DIR="$TAR1090_SRC/html/data"
 
@@ -24,8 +28,11 @@ fi
 
 echo "[*] Updating tar1090"
 git -C "$TAR1090_SRC" fetch --tags --prune origin
-git -C "$TAR1090_SRC" checkout "$TAR1090_REF"
-git -C "$TAR1090_SRC" pull --ff-only origin "$TAR1090_REF" || true
+if [[ -n "$(git -C "$TAR1090_SRC" status --porcelain --untracked-files=no)" ]]; then
+  echo "Refusing to overwrite tracked changes in $TAR1090_SRC" >&2
+  exit 1
+fi
+git -C "$TAR1090_SRC" checkout --detach "$TAR1090_REF"
 
 [[ -f "$TAR1090_SRC/html/index.html" ]] || {
   echo "tar1090 html/index.html was not found at $TAR1090_SRC/html" >&2

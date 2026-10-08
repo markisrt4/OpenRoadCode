@@ -5,12 +5,9 @@ from __future__ import annotations
 import os
 import signal
 import tkinter as tk
-from queue import SimpleQueue, Empty
-from threading import Thread
-from controllers.connectivity.online_mode import OnlineModeController
-from controllers.connectivity.internet_access import internet_reachable
-from controllers.connectivity.network_monitor import NetworkMonitor
+from ui.system.online_mode_if import OnlineModeIf
 from collections.abc import Callable
+from apps.orcUi.performance_status import PerformanceStatus
 from apps.orcUi.orc_theme import ThemeMode, toggle
 from .power_dialog import PowerDialog
 from .screen_builders import (
@@ -19,7 +16,11 @@ from .screen_builders import (
 from .shell_metrics import TARGET_GEOMETRY, TARGET_HEIGHT, TARGET_WIDTH
 from .shell_view import OrcUiShellView
 from apps.orcUi.theme_runtime import theme_bundle
-from common.host_config import installed_target, orcui_fullscreen_default
+from common.host_config import (
+    installed_target,
+    orcui_borderless_default,
+    orcui_fullscreen_default,
+)
 from ui.screen_ui_if import ScreenUiIf
 from ui.system import SystemLifecycleRequestHandlerIf, VolumeRequestHandlerIf, VolumeUiIf
 from ui.weather import WeatherAlertUiEvent
@@ -30,6 +31,7 @@ class OrcUiApp(VolumeUiIf):
         self,
         *,
         lifecycle_handler: SystemLifecycleRequestHandlerIf,
+        online_mode: OnlineModeIf | None = None,
     ) -> None:
         self._lifecycle_handler = lifecycle_handler
         self._theme_mode = ThemeMode.DARK
@@ -39,6 +41,7 @@ class OrcUiApp(VolumeUiIf):
         self._root.title("OpenRoadCode")
         target = installed_target()
         fullscreen = orcui_fullscreen_default()
+        self._borderless = orcui_borderless_default() and not fullscreen
         default_geometry = "1024x600" if target == "termux" else TARGET_GEOMETRY
         geometry = os.environ.get("ORCUI_GEOMETRY", default_geometry)
         if fullscreen:
@@ -48,6 +51,9 @@ class OrcUiApp(VolumeUiIf):
             self._root.resizable(True, True)
             if target != "termux":
                 self._root.minsize(TARGET_WIDTH, TARGET_HEIGHT)
+            if self._borderless:
+                self._root.overrideredirect(True)
+                self._root.bind("<Escape>", self._restore_window_decorations)
         self._root.configure(bg=ui.background)
         self._shell: OrcUiShellView | None = None
         self._adsb_enabled = False
@@ -55,6 +61,7 @@ class OrcUiApp(VolumeUiIf):
         self._adsb_toggle_handler: Callable[[bool], bool] | None = None
         self._adsb_view_handler: Callable[[], None] | None = None
         self._active_nav = ""
+        self._diagnostics_return = "HOME"
         self._initial_destination: str | None = None
         self._nav_items: list[str] = []
         self._screen_registry: dict[str, ScreenUiIf] = {}
@@ -73,78 +80,25 @@ class OrcUiApp(VolumeUiIf):
             on_restart=self._restart_ui,
             on_shutdown=self._shutdown_system,
         )
-        self.online_mode = OnlineModeController()
-        self._internet_status: bool | None = None
-        self._internet_results = SimpleQueue()
-        self._internet_generation = 0
-        self._internet_probe_active = False
-        self._internet_next_probe = 0
-        self._network_available: bool | None = None
-        self._network_results = SimpleQueue()
-        self._network_monitor = NetworkMonitor(self._network_results.put)
-        self._network_monitor.start()
-        self._build_shell()
-        self._poll_internet_status()
-    def _toggle_online_mode(self) -> None:
-        try:
-            if not self.online_mode.requested_online and self._network_available is False:
-                self.online_mode.set_reachable(False)
-            self.online_mode.set_online(not self.online_mode.requested_online)
-        except OSError as exc:
-            self.set_screen_status(f"Could not save online mode: {exc}")
-            return
-        self._internet_generation += 1
+        self.online_mode = online_mode
+        self._connectivity_toggle = None
         self._internet_status = None
-        self._internet_next_probe = 0
-        self._paint_online_mode()
+        self._build_shell()
 
-    def _paint_online_mode(self) -> None:
+    def set_connectivity_handler(self, handler: Callable[[], None]) -> None:
+        """Bind semantic toggle. @param handler Request callback."""
+        self._connectivity_toggle = handler
+
+    def _toggle_online_mode(self) -> None:
+        if self._connectivity_toggle is not None:
+            self._connectivity_toggle()
+
+    def set_online_status(self, online: bool, reachable: bool | None) -> None:
+        """Present mode. @param online Effective mode. @param reachable Internet observation."""
+        self._internet_status = reachable
         if self._shell is not None:
-            self._shell.set_online_status(self.online_mode.online, self._internet_status)
-            self._shell.set_weather_online(self.online_mode.online)
-
-    def _poll_internet_status(self) -> None:
-        if self._closing:
-            return
-        while True:
-            try:
-                available = self._network_results.get_nowait()
-            except Empty:
-                break
-            self._network_available = available
-            self._internet_generation += 1
-            self._internet_next_probe = 0
-            if available is False and self.online_mode.requested_online:
-                self._internet_status = False
-                try:
-                    self.online_mode.set_reachable(False)
-                except OSError as exc:
-                    self.set_screen_status(f"Could not save connection mode: {exc}")
-        while True:
-            try:
-                generation, reachable = self._internet_results.get_nowait()
-            except Empty:
-                break
-            self._internet_probe_active = False
-            if generation == self._internet_generation and self.online_mode.requested_online:
-                self._internet_status = reachable
-                try:
-                    self.online_mode.set_reachable(reachable)
-                except OSError as exc:
-                    self.set_screen_status(f"Could not save connection mode: {exc}")
-        if (self.online_mode.requested_online and self._network_available is not False
-                and not self._internet_probe_active):
-            if self._internet_next_probe <= 0:
-                generation = self._internet_generation
-                self._internet_probe_active = True
-                self._internet_next_probe = 10
-                def probe() -> None:
-                    self._internet_results.put((generation, internet_reachable()))
-                Thread(target=probe, daemon=True, name="orc-internet-check").start()
-            else:
-                self._internet_next_probe -= 1
-        self._paint_online_mode()
-        self._root.after(1000, self._poll_internet_status)
+            self._shell.set_online_status(online, reachable)
+            self._shell.set_weather_online(online)
 
     @property
     def theme_mode(self) -> ThemeMode:
@@ -212,6 +166,8 @@ class OrcUiApp(VolumeUiIf):
         nav_name = name.strip().upper()
         if not nav_name:
             raise ValueError("Navigation destination must not be empty")
+        if nav_name == "DIAGNOSTICS" and self._active_nav != "DIAGNOSTICS":
+            self._diagnostics_return = self._active_nav or "HOME"
         self._active_nav = nav_name
         self._paint_nav()
         screen = self._screen_registry.get(nav_name)
@@ -220,6 +176,15 @@ class OrcUiApp(VolumeUiIf):
             return
         self._deactivate_active_screen()
         self._show_placeholder(nav_name)
+    def close_diagnostics(self) -> None:
+        """Return to the destination that opened Diagnostics."""
+        self.navigate_to(self._diagnostics_return)
+
+    def set_performance_status(self, status: PerformanceStatus) -> None:
+        """Present computing-unit health in persistent shell chrome."""
+        if self._shell is not None:
+            self._shell.set_performance_status(status)
+
     def activate_screen(self, screen: ScreenUiIf) -> None:
         previous = self._active_screen
         if previous is screen:
@@ -248,7 +213,10 @@ class OrcUiApp(VolumeUiIf):
     def schedule_ui_callback(self, delay_ms: int, callback: Callable[[], None]) -> object:
         return self._root.after(delay_ms, callback)
     def cancel_ui_callback(self, callback_id: object) -> None:
-        self._root.after_cancel(callback_id)
+        try:
+            self._root.after_cancel(callback_id)
+        except tk.TclError:
+            pass
     def run(self) -> None:
         self._root.protocol("WM_DELETE_WINDOW", self._on_close)
         old_signal_handler = signal.getsignal(signal.SIGINT)
@@ -266,11 +234,18 @@ class OrcUiApp(VolumeUiIf):
             self._shutdown()
     def _on_sigint(self, _signum, _frame) -> None:
         self._root.after_idle(self._shutdown)
+    def _restore_window_decorations(self, _event: object | None = None) -> None:
+        """Leave borderless mode without closing the ORC process."""
+        if not self._borderless:
+            return
+        self._borderless = False
+        self._root.overrideredirect(False)
+        self._root.resizable(True, True)
+        self._root.minsize(TARGET_WIDTH, TARGET_HEIGHT)
     def _shutdown(self) -> None:
         if self._closing:
             return
         self._closing = True
-        self._network_monitor.close()
         active_screen = self._active_screen
         self._active_screen = None
         if active_screen is not None:
@@ -298,6 +273,8 @@ class OrcUiApp(VolumeUiIf):
             volume_text=self._volume_text(),
         )
         self._content = self._shell.content
+        if self.online_mode is not None:
+            self.set_online_status(self.online_mode.online, self._internet_status)
 
     def set_weather_status(self, text: str) -> None:
         """Display current Weather summary in persistent shell chrome."""
@@ -340,6 +317,8 @@ class OrcUiApp(VolumeUiIf):
     def _rebuild_shell_theme(self) -> None:
         if self._shell is not None:
             self._shell.rebuild(theme=self._theme, theme_mode=self._theme_mode)
+            if self.online_mode is not None:
+                self.set_online_status(self.online_mode.online, self._internet_status)
     def _open_settings(self) -> None:
         action = self._settings_action
         if action is not None:
@@ -370,13 +349,16 @@ class OrcUiApp(VolumeUiIf):
     def _toggle_theme(self) -> None:
         self._theme_mode = toggle(self._theme_mode)
         self._theme = theme_bundle(self._theme_mode)
+        active_screen = self._active_screen
+        set_theme_mode = getattr(active_screen, "set_theme_mode", None)
+        if active_screen is not None and not callable(set_theme_mode):
+            # Stop embedded renderers before their native host widgets are destroyed.
+            self._deactivate_active_screen()
         theme_change_handler = self._theme_change_handler
         if theme_change_handler is not None:
             theme_change_handler(self._theme_mode)
         self._power_dialog.close()
         self._rebuild_shell_theme()
-        active_screen = self._active_screen
-        set_theme_mode = getattr(active_screen, "set_theme_mode", None)
         if callable(set_theme_mode):
             set_theme_mode(self._theme_mode)
         elif active_screen is not None:

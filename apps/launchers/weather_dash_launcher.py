@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from apps.launchers.app_launcher_if import StatusCallback
+from ui.system.app_launcher_if import (StatusCallback)
 from apps.launchers.browser_launcher import BrowserKioskLauncher
 from apps.launchers.streamlit_launcher import StreamlitLauncher
 from common.logging.logging_paths import logging_file_path

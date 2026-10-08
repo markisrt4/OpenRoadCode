@@ -32,6 +32,7 @@ from services.common.service_manager_browser_pairing import (
 )
 from services.common.service_manager_pairing import ServiceManagerPairing
 from services.common.service_manager_logs import serve_logs
+from services.common.system_performance_monitor import SystemPerformanceMonitor
 from services.termux.service_manager import RunitServiceManager, ServiceStatus
 
 DEFAULT_HOST = "127.0.0.1"
@@ -47,6 +48,7 @@ def _payload(statuses: tuple[ServiceStatus, ...] | list[ServiceStatus]) -> dict[
 class ServiceManagerHandler(BaseHTTPRequestHandler):
     """Serve a deliberately small service-management API."""
 
+    performance_monitor: SystemPerformanceMonitor | None = None
     manager = RunitServiceManager()
     auth_token: str | None = None
     pairing = ServiceManagerPairing()
@@ -66,6 +68,13 @@ class ServiceManagerHandler(BaseHTTPRequestHandler):
             return
         if parts == ["logs"]:
             serve_logs(self, scope="Shared ORC log store")
+            return
+        if parts == ["performance"]:
+            monitor = self.performance_monitor
+            if monitor is None:
+                self._json(HTTPStatus.SERVICE_UNAVAILABLE, {"error": "performance sampler unavailable"})
+            else:
+                self._json(HTTPStatus.OK, monitor.payload())
             return
         if self.path.rstrip("/") != "/services":
             self._json(HTTPStatus.NOT_FOUND, {"error": "not found"})
@@ -314,6 +323,9 @@ def _run_server() -> int:
         ServiceManagerHandler.pairing
     )
     server = ThreadingHTTPServer((args.host, args.port), ServiceManagerHandler)
+    monitor = SystemPerformanceMonitor()
+    ServiceManagerHandler.performance_monitor = monitor
+    monitor.start()
     event(
         LOGGER,
         logging.INFO,
@@ -327,6 +339,8 @@ def _run_server() -> int:
     except KeyboardInterrupt:
         pass
     finally:
+        monitor.close()
+        ServiceManagerHandler.performance_monitor = None
         server.server_close()
         event(
             LOGGER,

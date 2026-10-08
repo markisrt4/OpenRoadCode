@@ -9,6 +9,7 @@ import tkinter as tk
 from collections.abc import Callable
 from datetime import datetime
 
+from apps.orcUi.performance_status import PerformanceStatus
 from apps.orcUi.orc_theme import ThemeMode, toggle_label
 from ui.theme import ThemeBundle
 from ui.weather import WeatherAlertUiEvent
@@ -68,6 +69,7 @@ class OrcUiShellView:
         self._breadcrumb_label: tk.Label | None = None
         self._status_label: tk.Label | None = None
         self._status_text = ""
+        self._performance_status = PerformanceStatus()
         self._breadcrumb = active_nav
         self._clock_after_id: str | None = None
         self._weather_alert: WeatherAlertUiEvent | None = None
@@ -237,6 +239,12 @@ class OrcUiShellView:
         if self._weather_status_label is not None and self._weather_status_label.winfo_exists():
             self._weather_status_label.configure(text=text)
 
+    def set_performance_status(self, status: PerformanceStatus) -> None:
+        """Retain observed health across screen changes and theme rebuilds."""
+        self._performance_status = status
+        if self._bottom_bar is not None and self._bottom_bar.winfo_exists():
+            self._bottom_bar.set_performance_status(status)
+
     def set_status(self, text: str) -> None:
         self._status_text = text
         if self._status_label is not None and self._status_label.winfo_exists():
@@ -310,6 +318,7 @@ class OrcUiShellView:
             on_volume_up=self._on_volume_up,
             on_settings=self._on_settings,
             on_theme_toggle=self._on_theme_toggle,
+            on_diagnostics=lambda: self._on_navigate("DIAGNOSTICS"),
         )
         self._bottom_bar.grid(
             row=2,
@@ -328,5 +337,6 @@ class OrcUiShellView:
             aircraft_count=self._aircraft_count,
         )
         self._breadcrumb_label, self._status_label = build_footer(self._root, theme=self._theme)
+        self.set_performance_status(self._performance_status)
         self._breadcrumb_label.configure(text=self._breadcrumb)
         self._status_label.configure(text=self._status_text)

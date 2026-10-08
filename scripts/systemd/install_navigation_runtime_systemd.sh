@@ -29,6 +29,7 @@ systemctl daemon-reload
 
 echo
 echo "OpenRoadCode navigation runtime installed and enabled."
+echo "This routing stack excludes the independently managed automotive producer."
 echo "Target: $NAVIGATION_TARGET"
 echo "Services:"
 echo "  openroadcode-message-broker.service"

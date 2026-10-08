@@ -77,3 +77,19 @@ def orcui_fullscreen_default(config_path: str | Path | None = None) -> bool:
         )
 
     return installed_target(config_path) in _RPI_TARGETS
+
+
+def orcui_borderless_default() -> bool:
+    """Resolve the explicit borderless-window policy for orcUi development."""
+    override = os.environ.get("ORCUI_BORDERLESS")
+    if override is None:
+        return False
+    normalized = override.strip().lower()
+    if normalized in _TRUE_VALUES:
+        return True
+    if normalized in _FALSE_VALUES:
+        return False
+    raise ValueError(
+        "ORCUI_BORDERLESS must be one of: "
+        "1/0, true/false, yes/no, or on/off"
+    )

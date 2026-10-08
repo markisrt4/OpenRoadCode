@@ -50,6 +50,9 @@ Current and partially integrated capabilities include:
 * Native Linux games browser with category filters, package discovery/installation, launch/stop lifecycle, and X11 kiosk embedding
 * Offline Valhalla route planning and native MapLibre map presentation
 * Route overlays, camera follow/recenter, manual map panning, and live vehicle position
+* Observed radar replay, experimental CONUS HRRR forecast radar, and independent temperature/wind overlays
+* Route checkpoint forecasts and clickable city weather details with past model estimates or forecasts
+* Service-local route simulation with Android/gpsd input, returning to live GPS when playback stops
 * Provider-independent positioning and navigation telemetry
 * Android bridge geographic positioning for the Termux navigation service
 * Message-bus-driven native map-renderer commands
@@ -227,6 +230,12 @@ Commands requiring acknowledgement or error reporting use request/reply messagin
 `orcUi`, `carUi`, `carTui`, and `webUi` are application front ends at different stages of development. Browser-backed utilities such as Weather, ADS-B, YouTube, and Google Earth are auxiliary applications managed according to application policy.
 
 Messaging and service documentation is available under `messaging/README.md`, `docs/messaging/message_bus_idd.md`, `docs/ethernet_idd.md`, `services/navigation/README.md`, `services/automotive/README.md`, `controllers/sdr/README.md`, `development/sdrpp/README.md`, `apps/carTui/README.md`, `development/termux/README.md`, and `CONTRIBUTING.md`.
+
+Weather controls, provider requirements, coverage limits, and component probes are
+documented in [Weather controllers](controllers/weather/README.md). Radar, model
+heatmaps, route weather, and city weather have independent visibility controls.
+The shared UI contracts and enforced dependency rules are described in
+[UI contracts](ui/README.md).
 * [Messaging overview and subscriber quick start](messaging/README.md)
 * [Message Bus Interface Design Description](docs/messaging/message_bus_idd.md)
 * [Ethernet Interface Design Description and port registry](docs/ethernet_idd.md)
@@ -278,6 +287,10 @@ cd OpenRoadCode
 
 Features can be selected explicitly. Use `--all-features` to install all compatible software capabilities, `--show-plan` to inspect the resolved plan without modifying the machine, and `--with-vnc` or `--with-gpsd-service` only when those services should be configured.
 
+The `desktop-ui` and `navigation` features use the native Tk/X11 and MapLibre
+interfaces and do not install a web browser. Select `--feature browser`
+explicitly for browser-backed applications.
+
 For the integrated SDR++ RF path on Debian/Linux, run `./development/debian/setup_sdrpp.sh`. It installs the SDR++ build dependencies, ORC's SDR++ modules, and the X11 utilities used for embedding. An X11 session is required for the current embedded-window implementation.
 
 For the integrated media path on Debian/Ubuntu, run:
@@ -290,6 +303,10 @@ For the integrated media path on Debian/Ubuntu, run:
 `setup_media.sh` installs the X11 integration utility and, on AMD64, Google Chrome stable for Spotify PLAYER mode. `install_secrets.sh` configures Spotify's PKCE client ID/redirect URI and other supported media credentials without placing secrets in the repository. If Spotify credentials are already configured, the secrets installer does not need to be rerun merely to update the media runtime.
 
 Concrete devices and credentials remain separate from package installation. Run `./scripts/installers/host_setup.sh --help` for current options.
+
+Third-party SDR++ and tar1090 source installs use the reviewed revisions in
+`scripts/installers/toolchain.lock`. Their setup scripts use isolated,
+OpenRoadCode-managed checkouts and do not reset unrelated source trees.
 
 ### Android / Termux
 
