@@ -1,4 +1,5 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-FileCopyrightText: 2026 OpenRoadCode contributors
 # SPDX-License-Identifier: MIT
 
 """Compose media screens, services, and presentation resources."""
@@ -6,6 +7,7 @@
 from __future__ import annotations
 
 import copy
+import os
 import tkinter as tk
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -13,6 +15,10 @@ from dataclasses import dataclass
 from apps.common.uiTheme.spotify import SPOTIFY_PANEL_THEME
 from apps.orcUi.adapters.managed_browser_media_player import ManagedBrowserMediaPlayer
 from apps.orcUi.frontend.tk.orc_ui_app import OrcUiApp
+from frontends.tk.media.music_visualizer_screen import MusicVisualizerScreen
+from apps.orcUi.composition.music_visualizer import create_browser_visualizer, create_music_visualizer_session, selected_music_visualizer_source
+from apps.orcUi.adapters.music_visualizer_browser import MusicVisualizerBrowser, WINDOW_CLASS
+from controllers.audio.music_analysis.music_visualizer_controller import MusicVisualizerController
 from apps.orcUi.theme_runtime import theme_bundle
 from common.xdg_paths import openroadcode_cache_dir
 from config.runtime_target import RuntimeTarget, detect_runtime_target
@@ -42,9 +48,19 @@ SPOTIFY_GREEN = "#1DB954"
 class MediaComposition:
     music_video_controller: MusicVideoController
     home_factory: Callable[[tk.Misc], tk.Widget]
+    visualizer: MusicVisualizerScreen | BrowserMediaScreen
+    visualizer_runtime: MusicVisualizerController | MusicVisualizerBrowser
+    unsubscribe_online: Callable[[], None] = lambda: None
 
     def close(self) -> None:
-        self.music_video_controller.stop_video()
+        self.unsubscribe_online()
+        try:
+            try:
+                self.visualizer.hide()
+            finally:
+                self.visualizer_runtime.close()
+        finally:
+            self.music_video_controller.stop_video()
 
 
 def spotify_theme(app: OrcUiApp) -> dict:
@@ -72,6 +88,17 @@ def spotify_theme(app: OrcUiApp) -> dict:
 
 def configure_media(app: OrcUiApp, runtime) -> MediaComposition:
     media = runtime.media
+    network_allowed = lambda: app.online_mode.online
+    media.spotify.set_network_allowed(network_allowed)
+    media.spotify_local_player.set_network_allowed(network_allowed)
+    def online_action(action):
+        def invoke():
+            if not network_allowed():
+                app.set_screen_status("Offline mode: online media unavailable")
+                return
+            return action()
+        return invoke
+
     software_rendering = detect_runtime_target() is RuntimeTarget.LINUX_DEV
     image_cache = ImageCache(max_entries=128, cache_directory=openroadcode_cache_dir("media-art"))
     lyrics = LrclibLyricsClient()
@@ -79,24 +106,26 @@ def configure_media(app: OrcUiApp, runtime) -> MediaComposition:
         port=MUSIC_VIDEO_PORT, fullscreen=False, software_rendering=software_rendering,
         window_class=MUSIC_VIDEO_WINDOW_CLASS, show_return_button=False,
     )
-    music_video_controller = MusicVideoController(spotify_controller=media.spotify.controller, music_video=music_video)
+    music_video_controller = MusicVideoController(spotify_controller=media.spotify.controller, music_video=music_video, network_allowed=network_allowed)
 
     def media_navigation(parent, active: str):
         return MediaNavigationBar(
             parent, theme_bundle=lambda: theme_bundle(app.theme_mode), active=active,
             show_media=lambda: media_screen.show(), show_home=lambda: app.navigate_to("HOME"),
-            show_spotify=lambda: spotify_screen.show(), show_youtube=lambda: youtube_screen.show(),
-            show_netflix=lambda: netflix_screen.show(),
+            show_spotify=online_action(lambda: spotify_screen.show()), show_youtube=online_action(lambda: youtube_screen.show()),
+            show_netflix=online_action(lambda: netflix_screen.show()),
         )
 
     browser_color_scheme = lambda: "dark" if app.theme_mode is ThemeMode.DARK else "light"
     youtube_player = ManagedBrowserMediaPlayer(
         runtime.manager, "youtube", resolve_target=YouTubePlayer.resolve_target,
         preferred_color_scheme=browser_color_scheme,
+        network_allowed=network_allowed,
     )
     netflix_player = ManagedBrowserMediaPlayer(
         runtime.manager, "netflix", resolve_target=NetflixPlayer.validate_url,
         preferred_color_scheme=browser_color_scheme,
+        network_allowed=network_allowed,
     )
     youtube_screen = BrowserMediaScreen(
         "youtube", app, title="YouTube", player=youtube_player,
@@ -117,11 +146,15 @@ def configure_media(app: OrcUiApp, runtime) -> MediaComposition:
     )
 
     def show_spotify_remote() -> None:
+        if not network_allowed():
+            return
         media.spotify_local_player.request_remote()
         media.spotify.request_refresh()
         spotify_screen.show()
 
     def show_spotify_local() -> None:
+        if not network_allowed():
+            return
         media.spotify_local_player.request_player()
         spotify_screen.show()
 
@@ -142,6 +175,8 @@ def configure_media(app: OrcUiApp, runtime) -> MediaComposition:
         return spotify_tokens.load() is not None
 
     def connect_spotify() -> str:
+        if not network_allowed():
+            raise RuntimeError("Offline mode: Spotify sign-in unavailable")
         config = load_spotify_config_from_secrets(EnvironmentVariableSecretManager())
         if config is None:
             raise RuntimeError("Configure the Spotify Client ID first")
@@ -170,10 +205,28 @@ def configure_media(app: OrcUiApp, runtime) -> MediaComposition:
     spotify_screen.set_volume_request_handler(media.spotify)
     spotify_screen.set_state_loader(media.spotify.latest_state)
 
+    if os.getenv("OPENROAD_MUSIC_VISUALIZER_RENDERER", "webgl").lower() == "tk":
+        visualizer_runtime = MusicVisualizerController(create_music_visualizer_session)
+        visualizer = MusicVisualizerScreen(
+            app, on_back=lambda: media_screen.show(), controller=visualizer_runtime,
+            initial_source=selected_music_visualizer_source(),
+            theme_bundle=lambda: theme_bundle(app.theme_mode),
+        )
+    else:
+        visualizer_runtime = create_browser_visualizer(app)
+        visualizer = BrowserMediaScreen(
+            "music-visualizer", app, title="Music Visualizer", player=visualizer_runtime,
+            default_target=visualizer_runtime.url, window_class=WINDOW_CLASS,
+            back_action=lambda: media_screen.show(), media_navigation_factory=media_navigation,
+            theme_bundle=lambda: theme_bundle(app.theme_mode),
+        )
+    app.register_screen("VISUALIZER", visualizer, show_in_navigation=False)
     media_screen = MediaScreen(
         app, theme_bundle=lambda: theme_bundle(app.theme_mode),
+        online_allowed=network_allowed,
         show_spotify=spotify_screen.show, show_youtube=youtube_screen.show,
         show_youtube_music=youtube_music_screen.show, show_netflix=netflix_screen.show,
+        show_visualizer=visualizer.show,
         show_spotify_remote=show_spotify_remote, show_spotify_local=show_spotify_local,
         spotify_local_available=lambda: media.spotify_local_player.state().available,
         configure_spotify=configure_spotify_client,
@@ -188,11 +241,32 @@ def configure_media(app: OrcUiApp, runtime) -> MediaComposition:
         return SpotifyNowPlaying(
             parent,
             service=media.spotify,
-            on_open=spotify_screen.show,
+            online_allowed=network_allowed,
+            on_open=online_action(spotify_screen.show),
             theme_bundle=lambda: theme_bundle(app.theme_mode),
         )
+
+    def mode_changed(online: bool) -> None:
+        if not online:
+            for stop in (music_video_controller.stop_video, youtube_player.stop,
+                         netflix_player.stop, media.spotify_local_player.request_remote):
+                try:
+                    stop()
+                except (OSError, RuntimeError) as exc:
+                    app.set_screen_status(f"Could not stop online media: {exc}")
+            if getattr(app, "_active_screen", None) in (
+                spotify_screen, youtube_screen, netflix_screen, youtube_music_screen,
+            ):
+                media_screen.show()
+        if getattr(app, "_active_screen", None) is media_screen:
+            media_screen.show()
+    unsubscribe_online = app.online_mode.subscribe(mode_changed)
+    mode_changed(app.online_mode.online)
 
     return MediaComposition(
         music_video_controller=music_video_controller,
         home_factory=home_media_factory,
+        visualizer=visualizer,
+        visualizer_runtime=visualizer_runtime,
+        unsubscribe_online=unsubscribe_online,
     )

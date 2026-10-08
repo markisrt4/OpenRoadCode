@@ -15,22 +15,43 @@ Interface names and roles describe the capability exposed on the network. Applic
 | 2947 | `127.0.0.1:2947` | `gpsd` | GNSS data service consumed by navigation and weather location providers | TCP | gpsd JSON protocol | No direct unit test located | Current Linux/Raspberry Pi runtime default. Configured by `services.navigation.inputs.gps` in `config/runtime.toml`. |
 | 4532 | `127.0.0.1:4532` | SDR++ Rigctl Server | Radio tuning/control endpoint consumed by OpenRoadCode radio controllers | TCP | Hamlib rigctl text protocol | No direct unit test located | Current runtime default in `config/runtime.toml`; SDR++ is the server. |
 | 4533 | `127.0.0.1:4533` | OpenRoadCode SDR++ remote-control module | Higher-level SDR++ UI/application control | TCP | OpenRoadCode line-oriented UTF-8 command/response protocol | No direct unit test located | Dedicated SDR++ remote-control endpoint. |
+| 4534 | `127.0.0.1:4534` | OpenRoadCode SDR++ telemetry module | Read-only signal/SNR, VFO, FFT and display telemetry | TCP | OpenRoadCode SDR++ telemetry protocol | No direct listener unit test located | Client default in `protocols/sdrpp_telemetry/client.py`; optional telemetry does not own tuning/control. |
 | 5000 | `0.0.0.0:5000` | `apps/webUi` | Main OpenRoadCode web frontend | TCP | HTTP (Flask) | No direct unit test located | Current `apps/webUi/main.py` default; override with `OPENROADCODE_WEB_HOST` / `OPENROADCODE_WEB_PORT`. |
 | 5556 | `tcp://0.0.0.0:5556` broker bind; clients normally use `tcp://127.0.0.1:5556` | OpenRoadCode ZeroMQ broker | Broker ingress for application/service publishers | TCP | ZeroMQ XSUB | No direct unit test located | Current message-bus publisher endpoint. The broker owns the listening socket; producers connect. |
 | 5557 | `tcp://0.0.0.0:5557` broker bind; clients normally use `tcp://127.0.0.1:5557` | OpenRoadCode ZeroMQ broker | Broker egress for subscribers | TCP | ZeroMQ XPUB | No direct unit test located | Current message-bus subscriber endpoint. The broker owns the listening socket; applications and the map renderer connect. |
-| 5560 | `tcp://127.0.0.1:5560` | Navigation producer service | Acknowledged navigation command endpoint | TCP | ZeroMQ request/reply | No direct unit test located | Current `services.navigation.command_endpoint` default. |
+| 5560 | `tcp://127.0.0.1:5560` | Navigation producer service | Acknowledged navigation command endpoint | TCP | ZeroMQ request/reply, JSON | [command transport](../services/navigation/unit_test/test_navigation_command_transport.py) | Current `services.navigation.command_endpoint` default; includes route start/cancel and local simulation. Wire semantics: [Navigation command IDD](idd/navigation_command_service.md). |
 | 5902 | `*:5902` for default display `:2` | VNC server launched by `scripts/runtime/start_vnc_server.sh` | Remote graphical desktop | TCP | RFB / VNC | No direct unit test located | Optional development/runtime utility. Port is `5900 + DISPLAY_NUM`; the script defaults to display `2` and explicitly permits non-localhost connections. |
 | 8002 | `http://127.0.0.1:8002` | Valhalla service | Offline route-planning API | TCP | HTTP / Valhalla JSON API | No direct unit test located | Current navigation route-planning default in `config/runtime.toml`. |
 | 8081 | `127.0.0.1:8081` | tar1090 presentation server | ADS-B aircraft web presentation | TCP | HTTP | No direct unit test located | Termux/runit default. `TAR1090_PORT` can override it. |
 | 8501 | `127.0.0.1:8501` client URL | Weather dashboard / Streamlit | Weather dashboard web application | TCP | Streamlit HTTP/WebSocket | No direct unit test located | Default in `WeatherDashLauncher` / `StreamlitLauncher`. Streamlit owns the server process. |
-| 8765 | `127.0.0.1:8765` | Browser position development source | Browser-provided geographic position ingress for development and component testing | TCP | HTTP + JSON | [browser position source](../controllers/navigation/unit_test/test_browser_position_source.py); [position source factory](../apps/carUi/unit_test/test_position_source_factory.py) | Development position-ingress endpoint. The current composition lives under `apps/carUi`, which also exposes the legacy `CARUI_BROWSER_POSITION_HOST` / `CARUI_BROWSER_POSITION_PORT` overrides; those implementation details do not make the interface CarUI-specific. |
-| 8766 | `http://127.0.0.1:8766` | OpenRoadCode Android sensor bridge | Android location/IMU/sensor bridge consumed by Termux runtime | TCP | HTTP + JSON/NDJSON | No direct unit test located | Dedicated Android sensor bridge port. |
+| 8765 | `127.0.0.1:8765` | Browser position development source | Browser-provided geographic position ingress for development and component testing | TCP | HTTP + JSON | [browser position source](../controllers/navigation/unit_test/test_browser_position_source.py); [position source factory](../apps/carUi/unit_test/test_position_source_factory.py) | Navigation service composition uses `OPENROADCODE_BROWSER_POSITION_HOST` / `OPENROADCODE_BROWSER_POSITION_PORT`; legacy CarUi composition also supports `CARUI_BROWSER_POSITION_HOST` / `CARUI_BROWSER_POSITION_PORT`. Enable one owner per endpoint. |
+| 8766 | `http://127.0.0.1:8766` for same-device Termux; Android device LAN address when remote sensor access is enabled | OpenRoadCode Android sensor bridge | Android location/IMU sensor data plane consumed by an OpenRoadCode navigation runtime | TCP | HTTP + JSON/NDJSON (`/health`, `/imu`, `/location`, `/stream/imu`) | No direct unit test located | The Android device owns the listener. Same-device Termux uses loopback. A paired remote Linux runtime may consume the Android device on port 8766 when Navigation selects the Android Bridge profile. |
 | 8767 | `127.0.0.1:8767` | Navigation `BrowserMotionSource` | Browser DeviceMotion development input | TCP | HTTP + JSON | No direct unit test located | Dedicated browser-motion development/component port. |
+| 8770 | `127.0.0.1:8770` | ORC music-video player | Music-video player UI | TCP | HTTP | — | Reserved for music video; do not use for Android host actions. |
+| 8771 | `127.0.0.1:8771` | Spotify web player | Local Spotify player UI | TCP | HTTP | — | Reserved for the Spotify web player. |
+| 8772 | `127.0.0.1:8772` | Android Bridge host actions | Launch POI apps and open websites | TCP | HTTP, form-encoded POST | `apps/launchers/unit_test/test_android_host_action_client.py` | Same-device Termux uses `/health`, `/launch/package`, and `/open/uri`. Requires the bridge `host-actions` branch with port 8772. |
 | 8768 | `127.0.0.1:8768` | `YouTubeMusicVideo` local player server | Serves the temporary local YouTube player page and close callback | TCP | HTTP | No direct unit test located | Dedicated transient music-video player port; listener exists only while playback is active. |
+| 8769 | `0.0.0.0:8769` on remotely managed Linux runtimes | OpenRoadCode service manager | Authenticated runtime control plane for pairing, service status/lifecycle, and runtime-profile configuration | TCP | HTTP + JSON | [systemd service-manager HTTP](../services/linux/unit_test/test_systemd_service_manager_http.py) | Android Bridge is a management client. Remote binding requires the service-manager bootstrap token; paired clients receive their own bearer credential. This is control/configuration traffic, not sensor telemetry. |
 | 8888 | `127.0.0.1:8888/callback` | OpenRoadCode OAuth redirect server | Local browser OAuth callback, including Spotify authentication | TCP | HTTP / OAuth 2.0 loopback redirect | No direct unit test located | Transient authentication listener rather than a long-lived service. |
 | 35000 | `127.0.0.1:35000` | OpenRoadCode Android Bluetooth SPP bridge | Raw ELM327 stream consumed by the Termux automotive service | TCP | Raw TCP carrying ELM327 ASCII command/response data | No direct unit test located | Current Termux automotive default. Android owns the Bluetooth SPP connection; OpenRoadCode consumes the proxied stream. |
 
 `No direct unit test located` means the repository audit did not identify a unit test that directly exercises that listener or port. It does not mean the owning subsystem has no unit, integration, or component-test coverage. Links in this column deliberately point only to unit tests that directly cover the documented interface rather than merely testing nearby code.
+
+## Weather tile listener and route playback
+
+`RadarTileService` binds `127.0.0.1` with port `0`: the operating system assigns an
+available ephemeral TCP port. It serves HTTP PNG tiles for observed radar, HRRR
+forecast radar, and HRRR temperature/wind fields through URLs supplied in map
+commands. There is no fixed weather tile port to reserve or expose on the LAN.
+The owning weather composition closes the listener during cleanup. Coverage:
+[radar tile service tests](../controllers/weather/unit_test/test_radar_tile_service.py).
+
+Route simulation introduces no listener or bridge endpoint. Clients use the
+existing navigation command service on 5560; ORC switches delivered positions
+inside the navigation service while Android's 8766 listener continues reporting
+real GPS. Weather provider HTTPS requests remain outbound third-party traffic,
+outside this port registry. Radar, model fields, route forecasts, and city weather
+have independent visibility controls.
 
 ## Port ownership rules
 
@@ -42,12 +63,13 @@ Loopback-only defaults should remain loopback-only unless remote access is an in
 
 ## Local application port allocation
 
-The adjacent `8765`-`8768` range is intentionally allocated by function so independently enabled components do not compete for a socket:
+The adjacent `8765`-`8769` range is intentionally allocated by function so independently enabled components do not compete for a socket:
 
 1. `8765` - browser position development source;
 2. `8766` - Android sensor bridge;
 3. `8767` - navigation browser motion source; and
-4. `8768` - YouTube music-video local player.
+4. `8768` - YouTube music-video local player; and
+5. `8769` - OpenRoadCode service-manager control plane.
 
 These defaults may still be overridden where the owning component exposes configuration, but a new component must not reuse one of these defaults simply because it happens not to be running during development. That particular form of optimism is how the original collision arrived.
 
@@ -59,6 +81,7 @@ The principal code/configuration locations behind this registry are:
 - `config/runtime.termux.toml`
 - `messaging/zeromq/endpoints.py`
 - `services/navigation/endpoints.py`
+- `services/navigation/navigation_service_cli.py`
 - `services/navigation/browser_motion_source.py`
 - `apps/carUi/runtime/browser_position_source.py`
 - `apps/webUi/main.py`
@@ -73,5 +96,7 @@ The principal code/configuration locations behind this registry are:
 - `hardware_io/automotive/elm327/elm327_tcp_device.py`
 - `controllers/video/youtube_music_video.py`
 - `protocols/sdrpp_remote_control/client.py`
+- `protocols/sdrpp_telemetry/client.py`
+- `controllers/weather/radar_tile_service.py`
 
 When code and this document disagree, treat the mismatch as a documentation defect or an undocumented interface change and reconcile both in the same pull request.

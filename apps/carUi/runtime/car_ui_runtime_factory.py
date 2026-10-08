@@ -23,7 +23,7 @@ from controllers.navigation import PositionSnapshotCache
 from controllers.navigation.google_earth_map_presentation import GoogleEarthMapPresentation
 from config.radio_config_manager import load_radio_config
 from controllers.radio.radio_controller import RadioController
-from controllers.radio.radio_types import RadioMode, RadioPreset, RadioRange
+from ui.radio.radio_types import (RadioMode, RadioPreset, RadioRange)
 from controllers.radio.adapters.rigctl_radio_backend import RigctlRadioBackend
 from controllers.sdr.sdr_resource_manager import SDRResourceManager
 from protocols.rigctl.rigctl_client import RigctlClient

@@ -2,6 +2,10 @@
 # SPDX-License-Identifier: MIT
 
 import math
+import json
+import logging
+
+from common.logging.structured import JsonFormatter, validate_event
 
 from controllers.poi import (
     PoiActionKind,
@@ -277,7 +281,8 @@ def test_search_excludes_pois_outside_true_nearby_radius() -> None:
     assert result.count == 0
 
 
-def test_renderer_viewport_bounds_drive_offline_search() -> None:
+def test_renderer_viewport_bounds_drive_offline_search(caplog) -> None:
+    caplog.set_level(logging.INFO, logger="navigation.poi")
     source = FakeViewportMapPoiSource()
     poi = PointOfInterest(
         poi_id="food-1",
@@ -308,6 +313,13 @@ def test_renderer_viewport_bounds_drive_offline_search() -> None:
 
     assert result is not None
     assert result.count == 1
+    records = [record for record in caplog.records if record.name == "navigation.poi"]
+    assert len(records) == 1
+    item = json.loads(JsonFormatter().format(records[0]))
+    validate_event(item)
+    assert item["event"] == "poi.search.completed"
+    assert item["category"] == "food" and item["result_count"] == 1
+    assert "42.79" not in json.dumps(item) and "Visible Cafe" not in json.dumps(item)
     assert len(search_source.queries) == 1
     assert search_source.queries[0].bounds == PoiSearchBounds(
         south=42.79,
@@ -338,3 +350,47 @@ def test_clear_discards_late_renderer_viewport_reply() -> None:
 
     assert controller.poll_search_result() is None
     assert search_source.queries == []
+
+
+def test_default_database_uses_termux_data_and_explicit_override(monkeypatch, tmp_path):
+    from controllers.poi.poi_search_controller import _default_search_database
+    monkeypatch.delenv('OPENROADCODE_DATA_ROOT', raising=False)
+    monkeypatch.setenv('TERMUX_VERSION', '0.118')
+    monkeypatch.setenv('XDG_DATA_HOME', str(tmp_path))
+    assert _default_search_database() == tmp_path / 'openroadcode/maps/search/openroadcode-search.sqlite'
+    monkeypatch.setenv('OPENROADCODE_DATA_ROOT', str(tmp_path / 'custom'))
+    assert _default_search_database() == tmp_path / 'custom/maps/search/openroadcode-search.sqlite'
+
+
+def test_missing_database_reports_unavailable_and_search_recovers(monkeypatch, tmp_path):
+    import sqlite3
+    monkeypatch.setenv('OPENROADCODE_DATA_ROOT', str(tmp_path))
+    source = FakeViewportMapPoiSource()
+    controller = PoiSearchController(source, position_provider=lambda: None)
+    def reply():
+        controller.search(PoiCategory.FOOD)
+        source.search_result = RawPoiSearchResult('food', 0, 42.79, -83.03, 42.82, -82.99)
+        return controller.poll_search_result()
+    result = reply()
+    assert result is not None and 'unavailable' in result.error
+    assert controller.poll_search_result() is None
+    path = tmp_path / 'maps/search/openroadcode-search.sqlite'
+    path.parent.mkdir(parents=True)
+    with sqlite3.connect(path) as connection:
+        connection.execute('CREATE TABLE poi (id TEXT, name TEXT, brand TEXT, latitude REAL, longitude REAL, class TEXT, subclass TEXT, category TEXT)')
+        connection.execute("INSERT INTO poi VALUES ('1', 'Cafe', NULL, 42.8, -83.02, 'cafe', NULL, 'food')")
+    result = reply()
+    assert result is not None and result.error == ''
+    assert result.count == 1 and result.pois[0].name == 'Cafe'
+    controller.close()
+
+
+def test_renderer_selection_keeps_website_from_search_index():
+    poi = PointOfInterest('osm:node:1', 'Independent Cafe', PoiCategory.FOOD,
+                          GeoPoint(0, 0), website='https://cafe.example')
+    source = FakeMapPoiSource(selected=RawMapPoi(poi.poi_id, poi.name, poi.position))
+    controller = PoiSearchController(source=source, search_source=FakeSearchSource())
+    controller._visible_pois = (poi,)
+    selected = controller.poll_selected()
+    assert selected.website == 'https://cafe.example'
+    assert selected.actions[0].kind is PoiActionKind.OPEN_WEBSITE

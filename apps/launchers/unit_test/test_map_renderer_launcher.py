@@ -34,3 +34,27 @@ class MapRendererLauncherCommandTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def test_native_child_output_is_collected_and_drained(tmp_path, monkeypatch):
+    """Exercise real pipe ownership without starting MapLibre or X11."""
+    import json
+    import sys
+    from apps.launchers.map_renderer_launcher import MapRendererLauncher
+
+    log_file = tmp_path / "renderer.jsonl"
+    launcher = MapRendererLauncher(
+        command=[sys.executable, "-c", "print('renderer fixture output', flush=True)"],
+        log_file=log_file,
+    )
+    monkeypatch.setattr(launcher, "_terminate_stale_renderers", lambda: None)
+    launcher.launch(display=":0", parent_window_id=1)
+    child = launcher._process
+    child.wait(timeout=5)
+    launcher.stop()
+    assert launcher._process is None
+    assert not launcher._collector.is_alive()
+    item = json.loads(log_file.read_text().splitlines()[0])
+    assert item["pid"] == child.pid
+    assert item["event"] == "native.output"
+    assert item["message"] == "renderer fixture output"

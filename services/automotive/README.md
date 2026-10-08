@@ -6,7 +6,7 @@ Applications such as Car TUI consume the public vehicle-state topic. They do not
 
 ## Data flow
 
-<aside class="orc-diagram-legend" aria-label="Architecture diagram legend">
+<div class="orc-diagram-legend" aria-label="Architecture diagram legend">
   <strong>Diagram key</strong>
   <span><i class="orc-legend-swatch orc-legend-app"></i>App / UI</span>
   <span><i class="orc-legend-swatch orc-legend-service"></i>Service / runtime</span>
@@ -14,7 +14,7 @@ Applications such as Car TUI consume the public vehicle-state topic. They do not
   <span><i class="orc-legend-swatch orc-legend-message"></i>Messaging / contract</span>
   <span><i class="orc-legend-swatch orc-legend-adapter"></i>Protocol / hardware</span>
   <span><i class="orc-legend-swatch orc-legend-external"></i>External / input</span>
-</aside>
+</div>
 
 ```mermaid
 flowchart TD
@@ -216,6 +216,57 @@ python3 -m services.automotive.automotive_service_cli \
 For a serial Bluetooth ELM327 on Linux/Raspberry Pi, `/dev/rfcomm0` must already exist and be connected before starting the service. Termux instead uses the configured Android bridge TCP endpoint.
 
 The service publishes to `[messaging].publisher_endpoint` at the configured `rate_hz`.
+
+## Structured logging
+
+The service configures the shared [ORC JSON Lines logger](../../common/logging/README.md)
+at startup. Its records use the same rotating store and live viewer as navigation
+and the UI; no extra install dependencies are required.
+
+Attach to automotive logs while ORC is running:
+
+```bash
+./runOrcUi --follow-logs --log-component automotive
+```
+
+`automotive.service` records configuration, disabled service/publishing, and
+startup failures. `automotive.runtime` records publishing lifecycle, initial
+source unavailability, connection loss, recovery, and fatal/cleanup failures.
+Repeated failed connection attempts remain quiet until recovery; each connection
+attempt gets a local operation ID shared with ELM327 initialization and PID discovery.
+
+`automotive.elm327` records adapter connection/disconnection and DEBUG request
+outcomes (mode, `obd_pid`, response count, exception type). `automotive.obd`
+records capability counts, discovery fallback, profile changes, and DEBUG
+missing responses. `pid` always identifies the logging process; `obd_pid` is the
+OBD protocol PID. A missing response retains the existing cached measurement.
+
+`automotive.profiles` correlates profile application with OBD profile changes.
+Repeated unchanged profiles stay quiet at INFO. IDs are generated inside this
+service and do not change the existing ZeroMQ profile-request or ELM327 wire
+contracts. `automotive.motion` reports subscription lifecycle and speed
+availability changes on received messages; this is not a stale-data timeout.
+
+`automotive.trip` records start, pause/resume, completion, and reset using one
+local operation ID per trip. Repeated observations and repeated finish/reset
+calls stay quiet. UI processes need logging configured at their entry point
+(ORCui already does this).
+
+Structured automotive records exclude raw ELM327/CAN/ECU payloads, VINs,
+diagnostic data, device addresses/paths, coordinates, driving measurements,
+trip summaries, and exception messages. DEBUG enables request metadata and
+publication events, without enabling payload dumps. Configure the service's
+environment and restart it to change its threshold:
+
+```bash
+export ORC_LOG_COMPONENT_LEVELS='automotive.elm327=DEBUG,automotive.obd=DEBUG'
+python3 -m services.automotive.automotive_service_cli --profile simulated
+```
+
+The Logging quality gate tests these events, schema, correlation, privacy
+exclusions, quiet polling, reconnect behavior, and failure cleanup without a
+vehicle or running broker. Real ELM327/Bluetooth behavior still needs an installed
+system smoke test.
 
 ## Consumer example
 

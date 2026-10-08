@@ -9,14 +9,35 @@ SERVICE_DIR="$(dirname -- "$SCRIPT_PATH")"
 PROJECT_ROOT="$(cd -- "$SERVICE_DIR/../../.." && pwd)"
 
 export PYTHONUNBUFFERED=1
-export OPENROADCODE_RUNTIME_CONFIG="$PROJECT_ROOT/config/runtime.termux.toml"
+if [[ -f "$PROJECT_ROOT/config/runtime.termux.local.toml" ]]; then
+    export OPENROADCODE_RUNTIME_CONFIG="$PROJECT_ROOT/config/runtime.termux.local.toml"
+else
+    export OPENROADCODE_RUNTIME_CONFIG="$PROJECT_ROOT/config/runtime.termux.toml"
+fi
+RUNTIME_PROFILE_FILE="$HOME/.config/openroadcode/service-profiles/openroadcode-runtime.env"
+if [[ -f "$RUNTIME_PROFILE_FILE" ]]; then
+    set -a
+    # shellcheck disable=SC1090
+    source "$RUNTIME_PROFILE_FILE"
+    set +a
+fi
 PROFILE_FILE="$HOME/.config/openroadcode/service-profiles/openroadcode-navigation.env"
 if [[ -f "$PROFILE_FILE" ]]; then
+    set -a
     # shellcheck disable=SC1090
     source "$PROFILE_FILE"
+    set +a
 fi
 if [[ -x "$PROJECT_ROOT/venv-termux/bin/python" ]]; then
     export OPENROADCODE_PYTHON="$PROJECT_ROOT/venv-termux/bin/python"
+fi
+
+# Dependencies have their own supervisors; bring them up for direct starts too.
+if [[ -d "${PREFIX}/var/service/openroadcode-message-broker" ]]; then
+    sv up openroadcode-message-broker
+fi
+if [[ -d "${PREFIX}/var/service/openroadcode-valhalla" ]]; then
+    sv up openroadcode-valhalla
 fi
 
 # Let runit restart us if the broker is not yet ready. The navigation process

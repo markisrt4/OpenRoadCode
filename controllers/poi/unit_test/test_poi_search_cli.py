@@ -4,7 +4,7 @@
 import argparse
 import unittest
 
-from controllers.poi.poi_models import PoiCategory
+from ui.navigation.poi_models import (PoiCategory)
 from controllers.poi.poi_search_cli import _parse_category
 
 

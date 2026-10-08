@@ -4,7 +4,7 @@ The navigation service is the single owner of the active navigation sensor pipel
 
 ## Runtime ownership
 
-<aside class="orc-diagram-legend" aria-label="Architecture diagram legend">
+<div class="orc-diagram-legend" aria-label="Architecture diagram legend">
   <strong>Diagram key</strong>
   <span><i class="orc-legend-swatch orc-legend-app"></i>App / UI</span>
   <span><i class="orc-legend-swatch orc-legend-service"></i>Service / runtime</span>
@@ -12,7 +12,7 @@ The navigation service is the single owner of the active navigation sensor pipel
   <span><i class="orc-legend-swatch orc-legend-message"></i>Messaging / contract</span>
   <span><i class="orc-legend-swatch orc-legend-adapter"></i>Protocol / hardware</span>
   <span><i class="orc-legend-swatch orc-legend-external"></i>External / input</span>
-</aside>
+</div>
 
 ```mermaid
 flowchart TD
@@ -150,8 +150,33 @@ Supported operations include:
 - `navigation.calibrate_stationary`
 - `navigation.reset_heading`
 - `navigation.route.calculate`
+- `navigation.route.start`
+- `navigation.route.cancel`
+- `navigation.route.simulate`
+- `navigation.route.simulation.stop`
 
 `navigation.route.calculate` accepts an origin, destination, and travel mode and returns a `RouteResult` representation. `NavigationCommandClient.calculate_route()` is the normal programmatic client used by navigation-session rerouting.
+
+`navigation.route.start` also activates guidance. Origin may be omitted to use
+the current fix; destination may be coordinates or a geocoded address.
+Cancellation ends the active session and stops playback. Request fields,
+responses, units, and failures are documented in the
+[Navigation command IDD](../../docs/idd/navigation_command_service.md).
+
+## Local route playback
+
+With an active route, `navigation.route.simulate` plays its shape at a positive
+finite `time_scale` (default 60). Android and gpsd sources are wrapped by
+`RoutePlaybackPositionSource` inside service composition: the receiver keeps
+running, while ORC delivers route-generated positions tagged `route-simulation`.
+The Android bridge continues reporting real GPS and needs no simulation mode.
+
+`navigation.route.simulation.stop` resumes fresh live reports. Cancellation,
+replacement, arrival, and shutdown also stop playback; restarting starts with
+normal configured input. Late callbacks from old playback sessions are rejected.
+Browser and standalone simulation sources retain their existing route playback.
+The UI uses its existing request contracts and labels simulation explicitly.
+See [Navigation runtime](../../docs/navigation_runtime.md#route-simulation).
 
 Application code for calibration/heading operations should normally depend on the toolkit-independent `NavigationRequestHandlerIf`. Route/session orchestration should depend on a route-calculation callable or client rather than constructing the route planner directly.
 
@@ -180,3 +205,10 @@ Register its setters with `MessageDispatcher`, then read `snapshot()` from the U
 Portable unit and component coverage includes route planning, route/map presentation, navigation messaging, route guidance, off-route hysteresis/recovery, navigation-session lifecycle, and simulated rerouting through the real ZeroMQ command boundary.
 
 Some integration tests are intentionally platform/environment dependent. Tests involving the Python `gps` binding, real gpsd/GNSS input, a live Valhalla service, or the graphical MapLibre renderer belong on the Raspberry Pi or another host with those dependencies installed.
+
+## Logging
+
+The service writes structured JSON Lines to the shared ORC log store and stderr.
+Route requests, results, and failures carry operation IDs that reach the native
+map renderer. See [ORC logging](../../common/logging/README.md) for live viewing,
+level configuration, rotation, and CI validation.

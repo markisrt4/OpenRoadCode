@@ -8,7 +8,7 @@ For copy/paste producer and subscriber examples, see `messaging/README.md`.
 
 ## Topology
 
-<aside class="orc-diagram-legend" aria-label="Architecture diagram legend">
+<div class="orc-diagram-legend" aria-label="Architecture diagram legend">
   <strong>Diagram key</strong>
   <span><i class="orc-legend-swatch orc-legend-app"></i>App / UI</span>
   <span><i class="orc-legend-swatch orc-legend-service"></i>Service / runtime</span>
@@ -16,7 +16,7 @@ For copy/paste producer and subscriber examples, see `messaging/README.md`.
   <span><i class="orc-legend-swatch orc-legend-message"></i>Messaging / contract</span>
   <span><i class="orc-legend-swatch orc-legend-adapter"></i>Protocol / hardware</span>
   <span><i class="orc-legend-swatch orc-legend-external"></i>External / input</span>
-</aside>
+</div>
 
 ```mermaid
 flowchart LR
@@ -69,11 +69,15 @@ Encoders validate their own output before publication. Decoders validate before 
 
 ### `openroad.navigation.position`
 
-Owns absolute position/fix information: latitude and longitude in radians, altitude and accuracy in meters, speed in m/s, course in radians, fix/satellite metadata, source, and cache state.
+Owns absolute position/fix information: latitude and longitude in radians,
+altitude and accuracy in meters, fix/satellite metadata, source, and cache state.
+Speed and course are excluded; see the [Position IDD](../idd/navigation_position_state.md).
 
 ### `openroad.navigation.motion`
 
-Owns motion information independent of the absolute position contract: heading in radians, ground and vertical speed in m/s, turn rate in rad/s, and cache state.
+Owns motion information independent of the absolute position contract: heading
+and course in radians, ground and vertical speed in m/s, turn rate in rad/s, and
+cache state.
 
 ### `openroad.navigation.attitude`
 

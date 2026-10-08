@@ -19,6 +19,7 @@ from services.common.service_manager_auth import TOKEN_ENV, authorized as _autho
 from services.common.service_manager_client_store import ServiceManagerClientStore
 from services.common.service_manager_browser_pairing import (BrowserPairingConsumedError, ServiceManagerBrowserPairing)
 from services.common.service_manager_pairing import ServiceManagerPairing
+from services.common.system_performance_monitor import SystemPerformanceMonitor
 from services.linux.systemd_service_manager import ServiceStatus, SystemdServiceManager
 
 DEFAULT_HOST = "127.0.0.1"
@@ -35,6 +36,7 @@ def _payload(statuses: tuple[ServiceStatus, ...] | list[ServiceStatus]) -> dict[
 class SystemdServiceManagerHandler(BaseHTTPRequestHandler):
     """Serve the same restricted service-management API used by Termux."""
 
+    performance_monitor: SystemPerformanceMonitor | None = None
     manager = SystemdServiceManager()
     auth_token: str | None = None
     pairing = ServiceManagerPairing()
@@ -50,6 +52,13 @@ class SystemdServiceManagerHandler(BaseHTTPRequestHandler):
             self._browser_pairing_status(parts[3])
             return
         if not self._authenticate():
+            return
+        if parts == ["performance"]:
+            monitor = self.performance_monitor
+            if monitor is None:
+                self._json(HTTPStatus.SERVICE_UNAVAILABLE, {"error": "performance sampler unavailable"})
+            else:
+                self._json(HTTPStatus.OK, monitor.payload())
             return
         if self.path.rstrip("/") != "/services":
             self._json(HTTPStatus.NOT_FOUND, {"error": "not found"})
@@ -77,6 +86,12 @@ class SystemdServiceManagerHandler(BaseHTTPRequestHandler):
         if not self._authenticate():
             return
         try:
+            if parts == ["runtime", "android-bridge"]:
+                self.manager.set_android_bridge_url(
+                    f"http://{self.client_address[0]}:8766"
+                )
+                self._json(HTTPStatus.OK, {"status": "configured"})
+                return
             if parts == ["stack", "core", "start"]:
                 statuses = self.manager.start_core()
             elif parts == ["stack", "core", "stop"]:
@@ -86,7 +101,9 @@ class SystemdServiceManagerHandler(BaseHTTPRequestHandler):
                 and parts[0] == "services"
                 and parts[2] == "profile"
             ):
-                statuses = (self.manager.set_profile(parts[1], parts[3]),)
+                statuses = (
+                    self.manager.set_profile(parts[1], parts[3]),
+                )
             elif len(parts) == 3 and parts[0] == "services" and parts[2] in {
                 "start",
                 "stop",
@@ -260,6 +277,9 @@ def main() -> int:
 
     SystemdServiceManagerHandler.browser_pairing = ServiceManagerBrowserPairing(SystemdServiceManagerHandler.pairing)
     server = ThreadingHTTPServer((args.host, args.port), SystemdServiceManagerHandler)
+    monitor = SystemPerformanceMonitor()
+    SystemdServiceManagerHandler.performance_monitor = monitor
+    monitor.start()
     auth_mode = "bearer token" if token else "localhost only"
     print(
         f"OpenRoadCode systemd service manager listening on {args.host}:{args.port} "
@@ -270,6 +290,8 @@ def main() -> int:
     except KeyboardInterrupt:
         pass
     finally:
+        monitor.close()
+        SystemdServiceManagerHandler.performance_monitor = None
         server.server_close()
     return 0
 

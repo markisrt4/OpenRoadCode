@@ -69,7 +69,8 @@ while true; do
       "audio|PipeWire/PulseAudio command-line audio control" \
       "streamlit|Streamlit dashboard support" \
       "spotify|Spotify integration" && SELECTED_STREAMING="$SELECTED_RESULT" ;;
-    navigation) choose_features "Navigation" "Select GPS support and navigation hardware:" "$SELECTED_NAVIGATION" \
+    navigation) choose_features "Navigation" "Select navigation software and positioning hardware:" "$SELECTED_NAVIGATION" \
+      "navigation|Native MapLibre and Valhalla navigation stack" \
       "gps|GPS daemon and Python support" \
       "imu|MPU-6050 inertial sensor support" && SELECTED_NAVIGATION="$SELECTED_RESULT" ;;
     environmental) choose_features "Environmental" "Select environmental capabilities:" "$SELECTED_ENVIRONMENTAL" \

@@ -5,14 +5,23 @@
 #include "map_command_server.hpp"
 #include "map_event_publisher.hpp"
 #include "navigation_config.hpp"
+#include "route_weather_style.hpp"
+#include "city_weather_style.hpp"
+#include "poi_hover_style.hpp"
+#include "orc_logging.hpp"
 #include <mbgl/map/map.hpp>
 #include <mbgl/renderer/renderer.hpp>
 #include <mbgl/style/layer.hpp>
+#include <mbgl/style/layers/raster_layer.hpp>
 #include <mbgl/style/style.hpp>
 #include <mbgl/style/sources/geojson_source.hpp>
+#include <mbgl/style/sources/raster_source.hpp>
+#include <mbgl/style/sources/tile_source.hpp>
 #include <mapbox/geojson.hpp>
 #include <sqlite3.h>
 #include <cstdlib>
+#include <array>
+#include <chrono>
 #include <fstream>
 #include <iostream>
 #include <iterator>
@@ -31,6 +40,9 @@ constexpr const char* kDefaultBrokerPublisherEndpoint = "tcp://127.0.0.1:5556";
 constexpr const char* kDefaultBrokerSubscriberEndpoint = "tcp://127.0.0.1:5557";
 constexpr const char* kDataRootToken = "__OPENROADCODE_DATA_ROOT__";
 constexpr const char* kLegacyDataRoot = "/srv/openroadcode";
+constexpr const char* kWeatherRadarSourceId = "weather-radar";
+constexpr const char* kWeatherRadarLayerId = "weather-radar";
+constexpr uint16_t kWeatherRadarTileSize = 256;
 
 std::string environmentOrDefault(const char* name, const char* fallback) {
     const auto* value = std::getenv(name);
@@ -52,19 +64,88 @@ std::string loadStyleJson(const NavigationConfig& config) {
     std::string style{std::istreambuf_iterator<char>{input}, std::istreambuf_iterator<char>{}};
     replaceAll(style, kDataRootToken, config.dataRoot);
     if (config.dataRoot != kLegacyDataRoot) replaceAll(style, kLegacyDataRoot, config.dataRoot);
-    return style;
+    return withCityWeatherStyle(withPoiHoverStyle(withRouteWeatherStyle(style)));
+}
+void setWeatherRaster(
+    mbgl::style::Style& style,
+    const MapCommand& command,
+    std::string& currentTileUrl,
+    const char* sourceId = kWeatherRadarSourceId,
+    const char* layerId = kWeatherRadarLayerId,
+    bool locatorRings = true
+) {
+    if (locatorRings) {
+        for (const auto* id : {"radar-position-ring-inner", "radar-position-ring-middle",
+                               "radar-position-ring-outer"}) {
+            if (auto* ring = style.getLayer(id)) {
+                ring->setVisibility(command.enabled ? mbgl::style::VisibilityType::Visible
+                                                     : mbgl::style::VisibilityType::None);
+            }
+        }
+    }
+    auto* existingLayer = style.getLayer(layerId);
+    if (!command.enabled) {
+        if (existingLayer != nullptr) {
+            existingLayer->setVisibility(mbgl::style::VisibilityType::None);
+        }
+        return;
+    }
+
+    if (command.tileUrl.empty() || (existingLayer != nullptr && command.tileUrl == currentTileUrl)) {
+        if (existingLayer != nullptr) {
+            auto* radarLayer = static_cast<mbgl::style::RasterLayer*>(existingLayer);
+            radarLayer->setRasterOpacity(command.opacity);
+            radarLayer->setVisibility(mbgl::style::VisibilityType::Visible);
+        }
+        return;
+    }
+
+    // A supplied URL selects a new frame. Recreate only for frame changes;
+    // visibility-only commands preserve the existing source and tile cache.
+    if (existingLayer != nullptr) {
+        style.removeLayer(layerId);
+    }
+    if (style.getSource(sourceId) != nullptr) {
+        style.removeSource(sourceId);
+    }
+
+    mbgl::Tileset tileset;
+    tileset.tiles = {command.tileUrl};
+    tileset.zoomRange = {0, static_cast<uint8_t>(command.maxZoom)};
+    auto source = std::make_unique<mbgl::style::RasterSource>(
+        sourceId,
+        std::move(tileset),
+        kWeatherRadarTileSize
+    );
+    style.addSource(std::move(source));
+    currentTileUrl = command.tileUrl;
+
+    auto layer = std::make_unique<mbgl::style::RasterLayer>(
+        layerId,
+        sourceId
+    );
+    layer->setRasterOpacity(command.opacity);
+
+    // Keep navigation overlays readable. The route source is part of the
+    // canonical ORC style, so placing radar immediately below its first layer
+    // leaves route/vehicle rendering above precipitation.
+    const std::string anchor = !locatorRings && style.getLayer(kWeatherRadarLayerId)
+        ? kWeatherRadarLayerId : "route-line-casing";
+    style.addLayer(std::move(layer), style.getLayer(anchor)
+        ? std::optional<std::string>{anchor} : std::nullopt);
 }
 
 void setLayerVisible(mbgl::style::Style& style, const char* id, bool visible) {
     auto* layer = style.getLayer(id);
-    if (layer) layer->setVisibility(visible ? mbgl::style::VisibilityType::Visible : mbgl::style::VisibilityType::None);
+    const auto visibility = visible ? mbgl::style::VisibilityType::Visible : mbgl::style::VisibilityType::None;
+    if (layer && layer->getVisibility() != visibility) layer->setVisibility(visibility);
 }
 
 std::optional<mbgl::LatLngBounds> loadDatasetBounds(const std::string& dataRoot) {
     const std::string path = dataRoot + "/maps/vector/openroadcode.mbtiles";
     sqlite3* database = nullptr;
     if (sqlite3_open_v2(path.c_str(), &database, SQLITE_OPEN_READONLY, nullptr) != SQLITE_OK) {
-        std::cerr << "[map_renderer] unable to read MBTiles metadata: " << path << '\n';
+        orc::log("WARNING", "map_renderer.dataset", "dataset.metadata_unavailable", "Unable to read MBTiles metadata");
         if (database) sqlite3_close(database);
         return std::nullopt;
     }
@@ -89,8 +170,7 @@ std::optional<mbgl::LatLngBounds> loadDatasetBounds(const std::string& dataRoot)
                 south < north && west < east) {
                 result = mbgl::LatLngBounds::hull(
                     mbgl::LatLng{south, west}, mbgl::LatLng{north, east});
-                std::cout << "[map_renderer] dataset bounds: "
-                          << west << ',' << south << ',' << east << ',' << north << '\n';
+                orc::log("DEBUG", "map_renderer.dataset", "dataset.bounds_loaded", "Dataset bounds loaded");
             }
         }
     }
@@ -112,14 +192,15 @@ bool fitDatasetCamera(mbgl::Map& map, const NavigationConfig& config, double pad
 
 void setInitialCamera(mbgl::Map& map, const NavigationConfig& config) {
     if (fitDatasetCamera(map, config, kDatasetBoundsPadding, false)) return;
-    std::cerr << "[map_renderer] MBTiles bounds unavailable; using generic fallback camera\n";
+    orc::log("WARNING", "map_renderer.dataset", "dataset.bounds_unavailable", "Using fallback map camera");
     map.jumpTo(mbgl::CameraOptions()
         .withCenter(mbgl::LatLng{kDefaultLatitude, kDefaultLongitude})
         .withZoom(kDefaultZoom));
 }
 }
 
-int main() {
+int runRenderer() {
+    orc::log("INFO", "map_renderer.lifecycle", "process.started", "Map renderer starting");
     const auto configPath = environmentOrDefault(
         "OPENROADCODE_NAVIGATION_CONFIG", "/etc/openroadcode/navigation.toml");
     const auto publisherEndpoint = environmentOrDefault(
@@ -131,7 +212,7 @@ int main() {
     try {
         config = loadNavigationConfig(configPath);
     } catch (const std::exception& error) {
-        std::cerr << "[map_renderer] invalid navigation config: " << error.what() << '\n';
+        orc::log("CRITICAL", "map_renderer.lifecycle", "config.invalid", "Invalid navigation configuration");
         return 1;
     }
 
@@ -139,7 +220,7 @@ int main() {
     try {
         styleJson = loadStyleJson(config);
     } catch (const std::exception& error) {
-        std::cerr << "[map_renderer] failed to load navigation style: " << error.what() << '\n';
+        orc::log("CRITICAL", "map_renderer.lifecycle", "style.failed", "Failed to load navigation style");
         return 1;
     }
 
@@ -158,6 +239,8 @@ int main() {
     view.setMap(&map);
     setInitialCamera(map, config);
 
+    std::string currentRadarTileUrl;
+    std::string currentWeatherFieldUrl;
     MapCommandServer commandServer(subscriberEndpoint);
     MapEventPublisher eventPublisher(publisherEndpoint);
     view.setManualCameraCallback(
@@ -187,7 +270,10 @@ int main() {
                 name, brand, sourceClass, sourceSubclass, latitude, longitude);
         });
 
-    view.setUpdateCallback([&map, &commandServer, &config, &view, &eventPublisher]() {
+    bool cameraOwnedByUi = false;
+    std::optional<std::array<double, 5>> lastCamera;
+    auto lastCameraReport = std::chrono::steady_clock::time_point{};
+    view.setUpdateCallback([&]() {
         // Drain the command socket every frame instead of processing only one
         // message. Position telemetry can be much faster than UI input; leaving
         // old messages queued made camera buttons appear frozen until a renderer
@@ -195,6 +281,16 @@ int main() {
         while (true) {
             const auto command = commandServer.poll();
             if (!command) break;
+
+            // A toolbar camera command ends direct manipulation. Telemetry and
+            // POI updates must not interrupt an active mouse gesture.
+            if (command->command == "set_center" || command->command == "set_camera" ||
+                command->command == "fit_bounds" || command->command == "fit_dataset" ||
+                command->command == "set_zoom" || command->command == "set_bearing" ||
+                command->command == "set_pitch" || command->command == "pan_screen") {
+                view.finishCameraGesture();
+                cameraOwnedByUi = true;
+            }
 
             if (command->command == "set_center") {
                 map.jumpTo(mbgl::CameraOptions().withCenter(
@@ -216,7 +312,7 @@ int main() {
             }
             if (command->command == "fit_dataset") {
                 if (!fitDatasetCamera(map, config, command->padding, true)) {
-                    std::cerr << "[map_renderer] unable to fit dataset bounds\n";
+                    orc::log("WARNING", "map_renderer.dataset", "dataset.fit_failed", "Unable to fit dataset bounds");
                 }
                 view.showWindow();
                 continue;
@@ -266,6 +362,10 @@ int main() {
                 map.moveBy({-command->rightPx, command->upPx});
                 continue;
             }
+            if (command->command == "search_weather_cities") {
+                eventPublisher.publishWeatherCities(command->requestId, view.searchWeatherCities());
+                continue;
+            }
             if (command->command == "search_pois") {
                 const auto result = view.searchVisiblePois(command->category);
                 eventPublisher.publishPoiSearchResult(
@@ -286,8 +386,7 @@ int main() {
                     view.setPoiResultsJson(command->geojson);
                     view.invalidate();
                 } catch (const std::exception& error) {
-                    std::cerr << "[map_renderer] failed to parse POI result GeoJSON: "
-                              << error.what() << '\n';
+                    orc::log("ERROR", "map_renderer.pois", "pois.failed", "Failed to apply POI GeoJSON");
                 }
                 continue;
             }
@@ -308,21 +407,89 @@ int main() {
                 view.invalidate();
                 continue;
             }
+            if (command->command == "set_weather_field") {
+                setWeatherRaster(map.getStyle(), *command, currentWeatherFieldUrl,
+                                 "weather-field", "weather-field", false);
+                view.invalidate();
+                continue;
+            }
+            if (command->command == "set_weather_radar") {
+                try {
+                    setWeatherRaster(map.getStyle(), *command, currentRadarTileUrl);
+                    view.invalidate();
+                    std::cout << "[map_renderer] weather radar: "
+                              << (command->enabled ? "on" : "off")
+                              << " opacity=" << command->opacity
+                              << " frame=" << command->frameTime << '\n';
+                } catch (const std::exception& exception) {
+                    std::cerr << "[map_renderer] failed to update weather radar: "
+                              << exception.what() << '\n';
+                }
+                continue;
+            }
+            if (command->command == "set_route_weather" || command->command == "set_city_weather") {
+                auto* source = map.getStyle().getSource(
+                    command->command == "set_city_weather" ? "city-weather" : "route-weather");
+                if (!source) continue;
+                try {
+                    static_cast<mbgl::style::GeoJSONSource*>(source)->setGeoJSON(
+                        mapbox::geojson::parse(command->geojson));
+                    if (command->command == "set_city_weather")
+                        view.setCityWeatherJson(command->geojson);
+                    view.invalidate();
+                } catch (const std::exception& error) {
+                    std::cerr << "[map_renderer] invalid weather labels: " << error.what() << '\n';
+                }
+                continue;
+            }
             if (command->command == "set_route") {
                 auto* source = map.getStyle().getSource("route");
-                if (!source) continue;
+                if (!source) {
+                    orc::log("ERROR", "map_renderer.routes", "route.source_missing", "Map style has no route source", command->operationId);
+                    continue;
+                }
                 auto* routeSource = static_cast<mbgl::style::GeoJSONSource*>(source);
                 try {
                     routeSource->setGeoJSON(mapbox::geojson::parse(command->geojson));
+                    orc::log("INFO", "map_renderer.routes", "route.applied", "Route applied", command->operationId);
                 } catch (const std::exception& error) {
-                    std::cerr << "[map_renderer] failed to parse route GeoJSON: "
-                              << error.what() << '\n';
+                    orc::log("ERROR", "map_renderer.routes", "route.failed", "Failed to apply route GeoJSON", command->operationId);
                 }
+            }
+        }
+        // Match building geometry to the actual camera, including gesture and
+        // follow updates. Flat mode must not keep extruded roofs underneath.
+        const bool tilted = map.getCameraOptions().pitch.value_or(0.0) > 0.01;
+        setLayerVisible(map.getStyle(), "buildings", tilted);
+        setLayerVisible(map.getStyle(), "buildings-flat", !tilted);
+        setLayerVisible(map.getStyle(), "house-numbers", !tilted);
+        const auto camera = map.getCameraOptions();
+        const auto now = std::chrono::steady_clock::now();
+        if (cameraOwnedByUi && camera.center && camera.zoom && camera.bearing && camera.pitch &&
+            now - lastCameraReport >= std::chrono::milliseconds(50)) {
+            const std::array<double, 5> snapshot{
+                camera.center->latitude(), camera.center->longitude(),
+                *camera.zoom, *camera.bearing, *camera.pitch};
+            if (!lastCamera || *lastCamera != snapshot) {
+                eventPublisher.publishCameraState(snapshot[0], snapshot[1], snapshot[2], snapshot[3], snapshot[4]);
+                lastCamera = snapshot;
+                lastCameraReport = now;
             }
         }
     });
 
     map.getStyle().loadJSON(styleJson);
     view.run();
+    orc::log("INFO", "map_renderer.lifecycle", "process.stopped", "Map renderer stopped");
     return 0;
+}
+
+
+int main() {
+    try {
+        return runRenderer();
+    } catch (const std::exception&) {
+        orc::log("CRITICAL", "map_renderer.lifecycle", "process.failed", "Map renderer failed");
+        return 1;
+    }
 }

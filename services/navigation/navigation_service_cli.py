@@ -7,6 +7,8 @@ from __future__ import annotations
 
 import argparse
 import os
+import logging
+from common.logging.structured import configure_logging, event
 from pathlib import Path
 
 from controllers.geocoding.sqlite_geocoder import SqliteGeocoder
@@ -23,6 +25,7 @@ from controllers.navigation import (
 from controllers.navigation.android_position_source import AndroidPositionSource
 from controllers.navigation.browser_position_source import BrowserPositionSource
 from controllers.navigation.route_simulation_if import RouteSimulationIf
+from controllers.navigation.route_playback_position_source import RoutePlaybackPositionSource
 from controllers.navigation.simulated_ground_motion_source import (
     SimulatedGroundMotionSource,
 )
@@ -95,6 +98,11 @@ def _create_gps_reader(host: str, port: str):
     return GpsReader(host=host, port=port)
 
 
+def _android_bridge_url(configured: str) -> str:
+    """Allow the service manager to route Android input to a remote bridge."""
+    return os.environ.get("OPENROADCODE_ANDROID_BRIDGE_URL", "").strip() or configured
+
+
 def _build_motion_sensor(config: NavigationServiceRuntimeConfig):
     if config.imu.source == "simulation":
         return SimulatedNavigationSensor(
@@ -103,7 +111,7 @@ def _build_motion_sensor(config: NavigationServiceRuntimeConfig):
 
     if config.imu.device == "android":
         client = AndroidSensorBridgeClient(
-            base_url=config.imu.bridge_url
+            base_url=_android_bridge_url(config.imu.bridge_url)
         )
         return AndroidNavigationSensor(AndroidImu(client))
 
@@ -132,13 +140,15 @@ def _build_position_source(config: NavigationServiceRuntimeConfig):
         return BrowserPositionSource(host=host, port=port)
 
     if config.gps.device == "android":
-        return AndroidPositionSource(
-            AndroidSensorBridgeClient(base_url=config.gps.bridge_url)
+        return RoutePlaybackPositionSource(
+            AndroidPositionSource(
+                AndroidSensorBridgeClient(base_url=_android_bridge_url(config.gps.bridge_url))
+            )
         )
 
     if config.gps.device == "gpsd":
-        return GpsdNavigationAdapter(
-            _create_gps_reader(config.gps.host, config.gps.port)
+        return RoutePlaybackPositionSource(
+            GpsdNavigationAdapter(_create_gps_reader(config.gps.host, config.gps.port))
         )
 
     raise ValueError(f"Unsupported GPS device: {config.gps.device}")
@@ -208,6 +218,8 @@ def build_geocoder(database: str | Path):
 
 def main() -> int:
     args = parse_args()
+    configure_logging()
+    logger = logging.getLogger("navigation.lifecycle")
     profile, profile_path = resolve_runtime_profile(args.profile)
     system = ServiceRuntimeConfigParser(
         args.config,
@@ -260,11 +272,16 @@ def main() -> int:
     print(f"  publish source:    {publish_source}")
     print("Ctrl+C to stop")
 
+    event(logger, logging.INFO, "service.started", "Navigation service started", profile=profile, publisher_endpoint=system.messaging.publisher_endpoint, command_endpoint=config.command_endpoint)
     try:
         runtime.run()
     except KeyboardInterrupt:
         pass
+    except Exception:
+        logger.exception("Navigation service failed", extra={"event": "service.failed"})
+        raise
     finally:
+        event(logger, logging.INFO, "service.stopped", "Navigation service stopped")
         runtime.close()
         publisher.close()
 

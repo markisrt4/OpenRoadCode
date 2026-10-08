@@ -8,7 +8,7 @@ from collections.abc import Callable
 
 from apps.orcUi.theme_runtime import theme_bundle as packaged_theme_bundle
 from common.units import UnitSystem
-from controllers.automotive import EngineInductionType, VehicleConfiguration
+from ui.automotive.vehicle_configuration import (EngineInductionType, VehicleConfiguration)
 from ui.theme import ThemeBundle, ThemeMode
 from .shell_metrics import FONT_BODY, FONT_CONTROL, FONT_SMALL
 

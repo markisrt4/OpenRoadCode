@@ -36,7 +36,7 @@ Map updates must not overwrite `/etc/openroadcode`.
 
 ## Architecture
 
-<aside class="orc-diagram-legend" aria-label="Architecture diagram legend">
+<div class="orc-diagram-legend" aria-label="Architecture diagram legend">
   <strong>Diagram key</strong>
   <span><i class="orc-legend-swatch orc-legend-app"></i>App / UI</span>
   <span><i class="orc-legend-swatch orc-legend-service"></i>Service / runtime</span>
@@ -44,7 +44,7 @@ Map updates must not overwrite `/etc/openroadcode`.
   <span><i class="orc-legend-swatch orc-legend-message"></i>Messaging / contract</span>
   <span><i class="orc-legend-swatch orc-legend-adapter"></i>Protocol / hardware</span>
   <span><i class="orc-legend-swatch orc-legend-external"></i>External / input</span>
-</aside>
+</div>
 
 ```mermaid
 flowchart LR
@@ -89,6 +89,10 @@ Preview without modifying the system:
 ```
 
 The installer builds/installs MapLibre Native integration, the OpenRoadCode native renderer, and Valhalla software beneath `/opt/openroadcode/navigation`.
+
+Chromium is not a navigation dependency. The Linux navigation installer uses
+the native MapLibre renderer; add the separate `browser` feature only for
+browser-backed OpenRoadCode applications.
 
 It does **not** build map data. Map generation belongs on the map-build machine.
 

@@ -72,10 +72,12 @@ class OrcWeatherPanel(tk.Frame, WeatherUiIf):
         theme_bundle: Callable[[], ThemeBundle],
         unit_system: Callable[[], UnitSystem] = lambda: UnitSystem.IMPERIAL,
         on_weather_radio: Callable[[], None] | None = None,
+        on_radar_map: Callable[[], None] | None = None,
     ) -> None:
         self._theme_bundle = theme_bundle
         self._unit_system = unit_system
         self._on_weather_radio = on_weather_radio
+        self._on_radar_map = on_radar_map
         self._handler: WeatherRequestHandlerIf | None = None
         self._state: WeatherUiState | None = None
 
@@ -91,10 +93,10 @@ class OrcWeatherPanel(tk.Frame, WeatherUiIf):
             self._header, text="WEATHER", anchor="w", font=("Sans", 16, "bold")
         )
         self._location.grid(row=0, column=0, sticky="w")
-        self._provider = tk.Label(
+        self._provider_label = tk.Label(
             self._header, text="", anchor="w", font=("Sans", 10)
         )
-        self._provider.grid(row=1, column=0, sticky="w", pady=(1, 0))
+        self._provider_label.grid(row=1, column=0, sticky="w", pady=(1, 0))
         self._weather_radio = tk.Button(
             self._header,
             text="◉  NOAA",
@@ -113,6 +115,12 @@ class OrcWeatherPanel(tk.Frame, WeatherUiIf):
             font=("Sans", 9, "bold"),
         )
         self._refresh.grid(row=0, column=2, rowspan=2)
+        self._radar_map = tk.Button(
+            self._header, text="RADAR MAP", command=self._request_radar_map,
+            padx=12, pady=6, font=("Sans", 9, "bold"),
+            state=tk.NORMAL if on_radar_map is not None else tk.DISABLED,
+        )
+        self._radar_map.grid(row=0, column=3, rowspan=2, padx=(6, 0))
 
         self._hero = tk.Frame(self, bd=0, highlightthickness=1)
         self._hero.grid(row=1, column=0, sticky="ew", padx=14, pady=(0, 12))
@@ -172,6 +180,12 @@ class OrcWeatherPanel(tk.Frame, WeatherUiIf):
     def _section_title(parent: tk.Misc, text: str) -> tk.Label:
         return tk.Label(parent, text=text, font=("Sans", 10, "bold"), anchor="w")
 
+    def set_online(self, online: bool) -> None:
+        self._online = online
+        self._refresh.configure(state=tk.NORMAL if online else tk.DISABLED,
+                                disabledforeground=self._theme_bundle().ui.text_muted)
+        self._render()
+
     def set_weather_request_handler(
         self, handler: WeatherRequestHandlerIf | None
     ) -> None:
@@ -179,14 +193,20 @@ class OrcWeatherPanel(tk.Frame, WeatherUiIf):
 
     def set_loading(self, loading: bool) -> None:
         """Render an explicit initial-loading state without discarding cached data."""
-        if not loading or self._state is not None:
+        if self._state is not None:
+            return
+        if not loading:
+            self._provider_label.configure(text="Weather data unavailable")
+            self._condition.configure(text="Unavailable")
+            self._summary.configure(text="Try Refresh")
             return
         self._location.configure(text="WEATHER")
-        self._provider.configure(text="Loading current conditions…")
+        self._provider_label.configure(text="Loading current conditions…")
         self._symbol.configure(text="◌")
         self._temperature.configure(text="--°")
-        self._condition.configure(text="Loading…")
-        self._summary.configure(text="Waiting for weather data")
+        self._condition.configure(text="Loading…" if getattr(self, "_online", True) else "Offline")
+        self._summary.configure(text="Waiting for weather data" if getattr(self, "_online", True)
+                                    else "No cached weather available")
         for _, _, value in self._metric_cards:
             value.configure(text="--")
 
@@ -200,8 +220,8 @@ class OrcWeatherPanel(tk.Frame, WeatherUiIf):
         for frame in (self._header, self._forecast_area, self._hourly, self._daily):
             frame.configure(bg=ui.background)
         self._location.configure(bg=ui.background, fg=ui.text)
-        self._provider.configure(bg=ui.background, fg=ui.text_muted)
-        for button in (self._refresh, self._weather_radio):
+        self._provider_label.configure(bg=ui.background, fg=ui.text_muted)
+        for button in (self._refresh, self._weather_radio, self._radar_map):
             button.configure(
                 bg=ui.control_background,
                 fg=ui.control_text,
@@ -233,6 +253,10 @@ class OrcWeatherPanel(tk.Frame, WeatherUiIf):
         if self._handler is not None:
             self._handler.request_refresh()
 
+    def _request_radar_map(self) -> None:
+        if self._on_radar_map is not None:
+            self._on_radar_map()
+
     def _request_weather_radio(self) -> None:
         if self._on_weather_radio is not None:
             self._on_weather_radio()
@@ -241,11 +265,12 @@ class OrcWeatherPanel(tk.Frame, WeatherUiIf):
         state = self._state
         if state is None:
             self._location.configure(text="WEATHER")
-            self._provider.configure(text="")
+            self._provider_label.configure(text="")
             self._symbol.configure(text="◌")
             self._temperature.configure(text="--°")
-            self._condition.configure(text="Loading…")
-            self._summary.configure(text="Waiting for weather data")
+            self._condition.configure(text="Loading…" if getattr(self, "_online", True) else "Offline")
+            self._summary.configure(text="Waiting for weather data" if getattr(self, "_online", True)
+                                    else "No cached weather available")
             for _, _, value in self._metric_cards:
                 value.configure(text="--")
             self._render_forecasts()
@@ -256,7 +281,7 @@ class OrcWeatherPanel(tk.Frame, WeatherUiIf):
         self._location.configure(
             text="WEATHER" if not location or location.lower() == "configured fallback" else location
         )
-        self._provider.configure(text=self._provider_text(state))
+        self._provider_label.configure(text=self._provider_label_text(state))
         self._symbol.configure(
             text=weather_symbol(current.condition_label),
             fg=weather_accent(current.condition_label, self._theme_bundle()),
@@ -278,12 +303,13 @@ class OrcWeatherPanel(tk.Frame, WeatherUiIf):
         self._metric_cards[2][2].configure(text=self._pressure_text(current.pressure_pa))
         self._render_forecasts()
 
-    def _provider_text(self, state: WeatherUiState) -> str:
-        label = state.provider_label or "Weather"
+    def _provider_label_text(self, state: WeatherUiState) -> str:
+        label = f"Weather data provider: {state.provider_label}" if state.provider_label else "Weather data"
         if state.fetched_at is None:
             return label
-        updated = datetime.fromtimestamp(state.fetched_at).strftime("%I:%M %p").lstrip("0")
-        return f"{label}  •  Updated {updated}"
+        updated = datetime.fromtimestamp(state.fetched_at).strftime("%b %d, %Y %I:%M %p").lstrip("0")
+        prefix = "Offline • Cached • " if not getattr(self, "_online", True) else ""
+        return f"{prefix}{label}  •  Updated {updated}"
 
     def _render_forecasts(self) -> None:
         for frame in (self._hourly, self._daily):

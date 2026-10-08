@@ -59,19 +59,36 @@ install -d -o root -g root -m 755 \
     "$INSTALL_ROOT/protocols" \
     "$INSTALL_ROOT/protocols/auth"
 
-for package in services services/common services/linux protocols protocols/auth; do
+for package in services services/common services/linux protocols protocols/auth controllers/system ui ui/system \
+    messaging messaging/contracts messaging/contracts/common messaging/contracts/navigation \
+    messaging/contracts/environmental messaging/zeromq; do
     while IFS= read -r -d '' source_file; do
-        relative_path="${source_file#$PROJECT_ROOT/}"
+        relative_path="${source_file#"$PROJECT_ROOT"/}"
         destination="$INSTALL_ROOT/$relative_path"
         install -D -o root -g root -m 644 "$source_file" "$destination"
     done < <(find "$PROJECT_ROOT/$package" -maxdepth 1 -type f -name '*.py' -print0)
 done
 
 mkdir -p "$ENV_DIR"
-chmod 700 "$ENV_DIR"
+# Shared runtime configuration such as navigation.toml lives in this directory
+# and must remain readable by the non-root application user.  Sensitive files
+# within it retain their own restrictive modes (service-manager.env is 0600).
+chmod 755 "$ENV_DIR"
 mkdir -p "$PROFILE_DIR"
 chown "$SERVICE_USER:$SERVICE_USER" "$PROFILE_DIR"
 chmod 755 "$PROFILE_DIR"
+
+# Materialize the runtime defaults so a fresh installation has explicit,
+# inspectable state before any dashboard client changes a profile.
+for service in openroadcode-navigation openroadcode-automotive; do
+    profile_file="$PROFILE_DIR/${service}.env"
+    if [[ ! -f "$profile_file" ]]; then
+        printf 'OPENROADCODE_RUNTIME_PROFILE="local"\n' > "$profile_file"
+        chown "$SERVICE_USER:$SERVICE_USER" "$profile_file"
+        chmod 644 "$profile_file"
+    fi
+done
+
 install -d -o "$SERVICE_USER" -g "$SERVICE_USER" -m 700 "$STATE_DIR"
 
 if [[ -z "$TOKEN" && -f "$ENV_FILE" ]]; then
@@ -100,6 +117,7 @@ chmod 600 "$ENV_FILE"
         for unit in \
             openroadcode-message-broker.service \
             openroadcode-navigation.service \
+            valhalla.service \
             openroadcode-automotive.service \
             readsb.service; do
             echo "$SERVICE_USER ALL=(root) NOPASSWD: $SYSTEMCTL_BIN $action $unit"

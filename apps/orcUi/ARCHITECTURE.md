@@ -22,7 +22,7 @@ OpenRoadCode deliberately separates semantic UI contracts, reusable behavior, re
 
 The intended direction is:
 
-<aside class="orc-diagram-legend" aria-label="Architecture diagram legend">
+<div class="orc-diagram-legend" aria-label="Architecture diagram legend">
   <strong>Diagram key</strong>
   <span><i class="orc-legend-swatch orc-legend-app"></i>App / UI</span>
   <span><i class="orc-legend-swatch orc-legend-service"></i>Service / runtime</span>
@@ -30,7 +30,7 @@ The intended direction is:
   <span><i class="orc-legend-swatch orc-legend-message"></i>Messaging / contract</span>
   <span><i class="orc-legend-swatch orc-legend-adapter"></i>Protocol / hardware</span>
   <span><i class="orc-legend-swatch orc-legend-external"></i>External / input</span>
-</aside>
+</div>
 
 ```mermaid
 flowchart BT
@@ -107,11 +107,41 @@ flowchart TD
 
 `apps/orcUi/frontend/tk/orc_ui_app.py` owns the concrete integrated Tk shell. It creates the Tk root, arranges shell chrome, hosts registered screens, manages generic navigation, and runs the Tk event loop. It does not own the feature catalog or choose feature destinations. Composition registers screens and navigation destinations, selects the initial destination, and supplies actions for shell controls such as Settings.
 
+Desktop development may select an exact client size with `ORCUI_GEOMETRY`,
+force or disable fullscreen with `ORCUI_FULLSCREEN`, and request an undecorated
+window with `ORCUI_BORDERLESS=1`. Fullscreen takes precedence over borderless.
+In borderless mode the in-shell power control remains available and Escape
+restores ordinary window-manager decorations without closing ORC. For example,
+`ORCUI_GEOMETRY=1280x720 ORCUI_FULLSCREEN=0 ORCUI_BORDERLESS=1 ./runOrcUi`
+matches the landscape Pi Touch Display 2 layout inside a VM.
+
 It must not create ZeroMQ subscribers, message decoders, audio backends, Spotify synchronization workers, browser lifecycle managers, external map renderer launchers, or host restart/poweroff implementations. Those dependencies are injected through application/runtime or UI contracts.
 
 Structural orcUi widgets that are meaningful only inside that shell stay under `apps/orcUi/frontend/tk`. A widget that could reasonably be reused by another Tk application belongs in an appropriate feature package under `frontends/tk` instead.
 
-## Screen hosting and navigation\n\nThe screen boundary follows one rule: **composition owns dependencies, screens own feature behavior, and `OrcUiApp` owns the shell**. `OrcUiApp` maintains a generic screen registry and navigation list but contains no built-in feature catalog. A new feature should be addable by composition without editing `OrcUiApp`.\n\n```mermaid\nflowchart TD\n    composition["Application composition"] -->|constructs + injects dependencies| screens["ScreenUiIf implementations"]\n    composition -->|registers destinations + initial route| shell["OrcUiApp"]\n    screens -->|TkScreenHostIf| shell\n    shell --> shellView["OrcUiShellView"]\n    shellView --> chrome["Side nav / bottom bar / footer"]\n    shell --> content["Screen content host"]\n\n    classDef orcApp fill:#dbeafe,stroke:#2563eb,color:#172554;\n    classDef orcMessage fill:#ffedd5,stroke:#ea580c,color:#7c2d12;\n    class composition,screens,shell,shellView,chrome,content orcApp;\n```\n\nRegistered screens may be visible or hidden from primary navigation. Composition may also register a destination without a screen when the integrated shell should expose a generic placeholder. The shell renders that fallback generically; it does not know which feature the destination represents.\n\nReusable Tk screens depend on `TkScreenHostIf`, not `OrcUiApp`. The host contract provides a content parent, screen activation and clearing, title/status updates, UI-thread scheduling, and a back-action hook. orcUi currently relies on persistent destination navigation rather than rendering a dedicated back control, so back-action presentation remains a host capability to revisit separately rather than a reason for screens to depend on the concrete shell.\n\n## Reusing Tk for another application
+## Screen hosting and navigation
+
+The screen boundary follows one rule: **composition owns dependencies, screens own feature behavior, and `OrcUiApp` owns the shell**. `OrcUiApp` maintains a generic screen registry and navigation list but contains no built-in feature catalog. A new feature should be addable by composition without editing `OrcUiApp`.
+
+```mermaid
+flowchart TD
+    composition["Application composition"] -->|constructs + injects dependencies| screens["ScreenUiIf implementations"]
+    composition -->|registers destinations + initial route| shell["OrcUiApp"]
+    screens -->|TkScreenHostIf| shell
+    shell --> shellView["OrcUiShellView"]
+    shellView --> chrome["Side nav / bottom bar / footer"]
+    shell --> content["Screen content host"]
+
+    classDef orcApp fill:#dbeafe,stroke:#2563eb,color:#172554;
+    classDef orcMessage fill:#ffedd5,stroke:#ea580c,color:#7c2d12;
+    class composition,screens,shell,shellView,chrome,content orcApp;
+```
+
+Registered screens may be visible or hidden from primary navigation. Composition may also register a destination without a screen when the integrated shell should expose a generic placeholder. The shell renders that fallback generically; it does not know which feature the destination represents.
+
+Reusable Tk screens depend on `TkScreenHostIf`, not `OrcUiApp`. The host contract provides a content parent, screen activation and clearing, title/status updates, UI-thread scheduling, and a back-action hook. orcUi currently relies on persistent destination navigation rather than rendering a dedicated back control, so back-action presentation remains a host capability to revisit separately rather than a reason for screens to depend on the concrete shell.
+
+## Reusing Tk for another application
 
 `frontends/tk` is not uniquely tailored to orcUi. A future independent Tk application owns its shell under its own application package:
 
@@ -172,6 +202,8 @@ Restart and poweroff requests flow through `SystemLifecycleRequestHandlerIf`. `S
 
 `composition/media.py` wires shared Spotify services, local-player behavior, image/lyrics/video dependencies, and reusable Tk media screens. Spotify synchronization and local-player behavior remain under `controllers/spotify`; ORC-selected browser and Web Playback hosts live under `apps/orcUi/adapters`.
 
+`composition/music_visualizer.py` selects capture backends and visualizer hosts. Media composition embeds the shared browser WebGL renderer through the reusable `BrowserMediaScreen` and the ORC-selected `MusicVisualizerBrowser` adapter. The adapter owns a loopback HTTP host and Chromium lifecycle; shared `MusicAnalysisSession` owns capture and FFT analysis. Composition owns shutdown. The optional Tk fallback injects `MusicVisualizerControlIf` into reusable Tk presentation and uses `MusicVisualizerController` for background work. Semantic sources and frames live under `ui/music_visualizer`; HTTP routes and WebGL assets live under `frontends/web/audio_analysis`. Neither frontend imports application composition or chooses capture infrastructure.
+
 `composition/games.py` registers the reusable Tk games frontend. Environment-specific launching and compatibility remain backend concerns.
 
 `composition/weather.py` wires the provider-independent Weather controller to the reusable Tk Weather screen. The current composition selects Open-Meteo, resolves location through GPSD with the configured navigation fallback, supplies the shared global unit preference, and connects the semantic NOAA Weather Radio action to the existing radio composition. Forecast domain state remains SI; display conversion stays at presentation boundaries. Weather alert ingress is independent of forecast refresh: `StateIngressRuntime` decodes `weather.alert` messages, `WeatherAlertPresenter` updates `OrcUiPresentationState`, and the shell observes that state to render persistent alert chrome without moving Weather feature ownership into `OrcUiApp`.
@@ -231,3 +263,42 @@ Before merging a substantial architecture change, review the complete branch dif
 - Keep shared icons semantic and frontend rendering local.
 - Keep theme values sourced from the shared theme model except deliberate provider branding.
 - Remove obsolete compatibility aliases when ownership changes instead of preserving architectural ambiguity indefinitely.
+
+## POI actions and connectivity
+
+`frontend/tk/navigation_panel.py` owns navigation state and UI polling. Its
+`navigation_poi_actions.py` helper owns asynchronous app/web handoffs, duplicate
+launch suppression, and applying queued results on the Tk thread. Failed handoffs
+leave the card open for retry; a completed launch does not close a newer card.
+Platform routing remains in `AndroidAppLauncher` and its Bridge, Waydroid, and
+desktop-browser adapters; provider metadata stays in the POI catalogs.
+
+`OnlineModeController` combines the manual preference with observed reachability
+and persists the effective mode for background services. `NetworkMonitor` reads
+Android Bridge locally on Termux and receives NetworkManager events through
+nmcli on Linux. The shell applies queued observations on the UI thread and
+invalidates older internet-check results. Feature compositions subscribe to the
+same mode to disable online actions while preserving local map, navigation, RF,
+and visualizer capabilities. See [the online/offline guide](../../docs/online_offline_mode.md)
+and [POI ordering](../../docs/poi_ordering.md) for behavior and testing.
+
+### Integration of camera feedback and connectivity
+
+The composition root owns `ShellConnectivityController`, including network
+monitoring, reachability workers and stale probe invalidation. Frontends receive
+`OnlineModeIf` for presentation and emit the shell toggle through a bound request.
+Weather mode transitions are owned by `WeatherScreenController`: going offline
+invalidates pending work while retaining cached forecast state; reconnecting
+forces a refresh.
+
+Navigation places sessions convert renderer camera events to immutable SI
+`NavigationCameraState`, notify the shared map handler without a feedback command,
+and expose snapshots through the places contract. POI action workers live in
+`NavigationPlacesController`; widgets retain a request identity and popup identity
+so a late successful handoff cannot close a replacement popup. Closed sessions
+discard completions. Canonical POI values include the validated website as well
+as missing-index error reporting. Platform launchers are injected by composition.
+
+Termux updates retain `--renderer-only` and the configurable renderer build
+directory. Full navigation updates always rebuild the ORC-owned renderer, while
+MapLibre retains its build-state checks.

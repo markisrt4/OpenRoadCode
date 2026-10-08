@@ -7,12 +7,18 @@ from __future__ import annotations
 
 from dataclasses import replace
 from datetime import datetime
+import logging
+from uuid import uuid4
+
+from common.logging.structured import event
 
 from controllers.automotive.fuel_model import FuelModel
 from controllers.automotive.trip_if import TripIf
 from controllers.automotive.trip_state import TripState, TripStatus
 from controllers.automotive.vehicle_state import VehicleState
 from controllers.navigation.navigation_state import GroundMotionState, PositionState
+
+LOGGER = logging.getLogger("automotive.trip")
 
 
 class TripTracker(TripIf):
@@ -104,10 +110,26 @@ class TripTracker(TripIf):
             end_latitude_deg=self._state.current_latitude_deg,
             end_longitude_deg=self._state.current_longitude_deg,
         )
+        event(
+            LOGGER,
+            logging.INFO,
+            "trip.completed",
+            "Trip completed",
+            operation_id=self._trip_operation_id,
+        )
         return self._state
 
     def reset(self) -> None:
         """Discard current trip state and return to idle."""
+        if getattr(self, "_trip_operation_id", None) is not None:
+            event(
+                LOGGER,
+                logging.INFO,
+                "trip.reset",
+                "Trip reset",
+                operation_id=self._trip_operation_id,
+            )
+        self._trip_operation_id: str | None = None
         self._state = TripState()
         self._last_sample_at: datetime | None = None
         self._last_speed_m_s: float | None = None
@@ -152,9 +174,7 @@ class TripTracker(TripIf):
                     moving_s=moving_s,
                     stopped_s=stopped_s,
                     distance_m=distance_m,
-                    average_speed_m_s=(
-                        distance_m / moving_s if moving_s > 0.0 else None
-                    ),
+                    average_speed_m_s=(distance_m / moving_s if moving_s > 0.0 else None),
                 )
 
         maximum = self._state.maximum_speed_m_s
@@ -168,21 +188,25 @@ class TripTracker(TripIf):
             if self._stationary_since is None:
                 self._stationary_since = timestamp
             stationary_s = (timestamp - self._stationary_since).total_seconds()
-            status = (
-                TripStatus.PAUSED
-                if stationary_s >= self._pause_after_s
-                else TripStatus.ACTIVE
-            )
+            status = TripStatus.PAUSED if stationary_s >= self._pause_after_s else TripStatus.ACTIVE
 
+        previous_status = self._state.status
         self._state = replace(
             self._state,
             status=status,
             maximum_speed_m_s=maximum,
         )
+        if previous_status != status:
+            event(
+                LOGGER,
+                logging.INFO,
+                "trip.status_changed",
+                "Trip motion status changed",
+                status=status.value,
+                operation_id=self._trip_operation_id,
+            )
         self._last_sample_at = timestamp
         self._last_speed_m_s = speed
-
-
 
     def _observe_boost(
         self,
@@ -271,10 +295,22 @@ class TripTracker(TripIf):
         self._last_fuel_high_load_active = high_load_active
 
     def _is_high_load(self, state: VehicleState) -> bool:
-        load = state.absolute_engine_load if state.absolute_engine_load is not None else state.engine_load
+        load = (
+            state.absolute_engine_load
+            if state.absolute_engine_load is not None
+            else state.engine_load
+        )
         return load is not None and load >= self._high_load_threshold
 
     def _start(self, timestamp: datetime) -> None:
+        self._trip_operation_id = uuid4().hex
+        event(
+            LOGGER,
+            logging.INFO,
+            "trip.started",
+            "Trip started",
+            operation_id=self._trip_operation_id,
+        )
         latitude = longitude = None
         if self._pending_position is not None:
             latitude, longitude = self._pending_position

@@ -72,3 +72,18 @@ def test_route_simulation_requests_delegate_to_navigation_client() -> None:
 
     client.simulate_active_route.assert_called_once_with(time_scale=30.0)
     client.stop_route_simulation.assert_called_once_with()
+
+
+def test_route_observers_follow_successful_start_and_cancel():
+    client, renderer, observer = Mock(), Mock(), Mock()
+    route = RouteResult(1, 60, (RouteGeoPoint(42, -83), RouteGeoPoint(43, -83)), ())
+    client.start_route.return_value = route
+    handler = NavigationRouteRequestHandler(client, renderer)
+    handler.observe_route(observer)
+    assert handler.active_route is None
+    handler.request_start_route(GeoPoint(math.radians(43), math.radians(-83)), (), TravelMode.AUTO)
+    assert handler.active_route == route
+    observer.assert_called_once_with(route)
+    handler.request_cancel_route()
+    assert handler.active_route is None
+    assert observer.call_args.args == (None,)

@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from controllers.radio.radio_types import RadioPreset
+from ui.radio.radio_types import (RadioPreset)
 
 
 @dataclass(frozen=True, slots=True)

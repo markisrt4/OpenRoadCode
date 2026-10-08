@@ -8,7 +8,7 @@ from typing import Any
 
 from controllers.navigation.complementary_orientation_estimator import ComplementaryOrientationEstimator
 from controllers.navigation.magnetometer_source_if import MagnetometerSample, MagnetometerSourceIf
-from controllers.navigation.map_presentation_if import MapPresentationIf
+from ui.navigation.map_presentation_if import (MapPresentationIf)
 from controllers.navigation.motion_calibration import MotionCalibration
 from controllers.navigation.navigation_controller import NavigationController
 from controllers.navigation.navigation_controller_if import NavigationControllerIf

@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: 2026 Mark G. Russell
 // SPDX-License-Identifier: MIT
 #include "map_view.hpp"
+#include "weather_city_hit.hpp"
+#include "orc_logging.hpp"
 #include "map_renderer_frontend.hpp"
 #include "glfw_backend.hpp"
 #include <mbgl/gfx/backend.hpp>
@@ -22,9 +24,11 @@
 #include <cmath>
 #include <cstdlib>
 #include <iostream>
+#include <sstream>
 #include <limits>
 #include <optional>
 #include <string>
+#include <mbgl/util/tile_coordinate.hpp>
 
 namespace {
 constexpr std::size_t kPoiSampleLimit = 15;
@@ -68,12 +72,16 @@ void logPoiSample(const mbgl::Feature& feature, std::size_t index) {
     std::string name = stringProperty(feature, "name:latin");
     if (name.empty())
         name = stringProperty(feature, "name");
-    std::cout << "[map_renderer] POI sample " << index << " name=\"" << name << "\" class=\""
-              << stringProperty(feature, "class") << "\" subclass=\""
-              << stringProperty(feature, "subclass") << "\" amenity=\""
-              << stringProperty(feature, "amenity") << "\" shop=\""
-              << stringProperty(feature, "shop") << "\" brand=\""
-              << stringProperty(feature, "brand") << "\"\n";
+    {
+        std::ostringstream details;
+        details << "[map_renderer] POI sample " << index << " name=\"" << name << "\" class=\""
+            << stringProperty(feature, "class") << "\" subclass=\""
+            << stringProperty(feature, "subclass") << "\" amenity=\""
+            << stringProperty(feature, "amenity") << "\" shop=\""
+            << stringProperty(feature, "shop") << "\" brand=\""
+            << stringProperty(feature, "brand") << "\"";
+        orc::log("DEBUG", "map_renderer.view", "poi.sample", details.str());
+    }
 }
 #if defined(__linux__)
 void embedInX11Parent(GLFWwindow* window) {
@@ -83,18 +91,18 @@ void embedInX11Parent(GLFWwindow* window) {
     char* end = nullptr;
     const unsigned long parentId = std::strtoul(value, &end, 0);
     if (end == value || *end != '\0' || parentId == 0) {
-        std::cerr << "[map_renderer] invalid OPENROADCODE_MAP_PARENT_WINDOW=" << value << '\n';
+        orc::log("WARNING", "map_renderer.view", "window.parent_invalid", "Invalid X11 parent window configuration");
         return;
     }
     Display* display = glfwGetX11Display();
     const Window child = glfwGetX11Window(window);
     if (!display || child == 0) {
-        std::cerr << "[map_renderer] GLFW X11 native window is unavailable\n";
+        orc::log("ERROR", "map_renderer.view", "window.native_unavailable", "GLFW X11 native window unavailable");
         return;
     }
     XWindowAttributes a{};
     if (!XGetWindowAttributes(display, static_cast<Window>(parentId), &a)) {
-        std::cerr << "[map_renderer] X11 parent window " << parentId << " is unavailable\n";
+        orc::log("ERROR", "map_renderer.view", "window.parent_unavailable", "X11 parent window unavailable");
         return;
     }
     XReparentWindow(display, child, static_cast<Window>(parentId), 0, 0);
@@ -103,8 +111,12 @@ void embedInX11Parent(GLFWwindow* window) {
     XMapWindow(display, child);
     XFlush(display);
     glfwSetWindowSize(window, a.width, a.height);
-    std::cout << "[map_renderer] embedded in X11 parent " << parentId << " size=" << a.width << 'x'
-              << a.height << '\n';
+    {
+        std::ostringstream details;
+        details << "[map_renderer] embedded in X11 parent " << parentId << " size=" << a.width << 'x'
+            << a.height;
+        orc::log("INFO", "map_renderer.view", "window.embedded", details.str());
+    }
 }
 #endif
 } // namespace
@@ -112,7 +124,10 @@ MapView::MapView(const mbgl::ResourceOptions&, const mbgl::ClientOptions&) {
     glfwSetErrorCallback(glfwError);
 
 #if defined(__linux__) && defined(GLFW_PLATFORM_X11)
-    if (const char* parent = std::getenv("OPENROADCODE_MAP_PARENT_WINDOW"); parent && *parent) {
+    const char* parent = std::getenv("OPENROADCODE_MAP_PARENT_WINDOW");
+    const char* prefix = std::getenv("PREFIX");
+    if ((parent && *parent) ||
+        (prefix && std::string(prefix).starts_with("/data/data/com.termux/files/usr"))) {
         glfwInitHint(GLFW_PLATFORM, GLFW_PLATFORM_X11);
     }
 #endif
@@ -138,7 +153,22 @@ MapView::MapView(const mbgl::ResourceOptions&, const mbgl::ClientOptions&) {
     } else
         glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
     window = glfwCreateWindow(width, height, "OpenRoadCode Map Renderer", nullptr, nullptr);
+#if MBGL_WITH_EGL && defined(__linux__)
+    if (!window && mbgl::gfx::Backend::GetType() == mbgl::gfx::Backend::Type::OpenGL &&
+        glfwGetX11Display()) {
+        // Termux Mesa can expose a working GLX display while EGL display
+        // initialization fails. Keep the ES 3.0 and framebuffer requirements;
+        // only switch the context creation API for this second attempt.
+        std::cerr << "[map_renderer] EGL context unavailable; retrying X11 native (GLX) context\n";
+        glfwWindowHint(GLFW_CONTEXT_CREATION_API, GLFW_NATIVE_CONTEXT_API);
+        window = glfwCreateWindow(width, height, "OpenRoadCode Map Renderer", nullptr, nullptr);
+        if (window) {
+            std::cout << "[map_renderer] graphics context: X11 native (GLX), OpenGL ES 3.0\n";
+        }
+    }
+#endif
     if (!window) {
+        std::cerr << "[map_renderer] no graphics context could be created; check DISPLAY and Mesa drivers\n";
         glfwTerminate();
         std::exit(1);
     }
@@ -149,8 +179,10 @@ MapView::MapView(const mbgl::ResourceOptions&, const mbgl::ClientOptions&) {
     glfwSetWindowSizeCallback(window, onWindowResize);
     glfwSetFramebufferSizeCallback(window, onFramebufferResize);
     glfwSetCursorPosCallback(window, onMouseMove);
+    glfwSetCursorEnterCallback(window, onCursorEnter);
     glfwSetMouseButtonCallback(window, onMouseClick);
     glfwSetScrollCallback(window, onScroll);
+    glfwSetWindowFocusCallback(window, onWindowFocus);
     backend = GLFWBackend::Create(window, true);
     glfwGetWindowSize(window, &width, &height);
     pixelRatio = static_cast<float>(backend->getSize().width) / static_cast<float>(width);
@@ -180,6 +212,23 @@ void MapView::setRendererFrontend(MapRendererFrontend* value) {
 }
 void MapView::showWindow() {
 }
+void MapView::finishCameraGesture() {
+    // A release can be lost when the pointer/focus moves into the Tk controls.
+    // Explicit camera commands take ownership from the gesture and any zoom
+    // animation, rather than leaving the map in interactive camera mode.
+    tracking = false;
+    manualGesturePublished = false;
+    lastClick = -1.0;
+    if (map) {
+        map->setGestureInProgress(false);
+        map->cancelTransitions();
+    }
+}
+void MapView::onWindowFocus(GLFWwindow* window, int focused) {
+    auto* v = static_cast<MapView*>(glfwGetWindowUserPointer(window));
+    if (v && !focused)
+        v->finishCameraGesture();
+}
 void MapView::setShouldClose() {
     glfwSetWindowShouldClose(window, GLFW_TRUE);
     glfwPostEmptyEvent();
@@ -206,6 +255,7 @@ void MapView::onScroll(GLFWwindow* window, double, double y) {
         return;
     if (v->manualCameraCallback)
         v->manualCameraCallback();
+    v->clearMapHover();
     const double delta = y * 40.0;
     double scale = 2.0 / (1.0 + std::exp(-std::abs(delta) / 100.0));
     if (delta < 0)
@@ -259,10 +309,14 @@ void MapView::onMouseClick(GLFWwindow* window, int button, int action, int modif
             }
             clickX = static_cast<double>(winX) * scaleX;
             clickY = static_cast<double>(winY) * scaleY;
-            std::cout << "[map_renderer] pointer raw=" << winX << "," << winY
-                      << " child=" << childAttributes.width << "x" << childAttributes.height
-                      << " map=" << v->width << "x" << v->height << " scale=" << scaleX << ","
-                      << scaleY << " normalized=" << clickX << "," << clickY << '\n';
+            {
+                std::ostringstream details;
+                details << "[map_renderer] pointer raw=" << winX << "," << winY
+                    << " child=" << childAttributes.width << "x" << childAttributes.height
+                    << " map=" << v->width << "x" << v->height << " scale=" << scaleX << ","
+                    << scaleY << " normalized=" << clickX << "," << clickY;
+                orc::log("DEBUG", "map_renderer.view", "pointer.sample", details.str());
+            }
         }
     }
 #else
@@ -305,6 +359,11 @@ void MapView::onMouseClick(GLFWwindow* window, int button, int action, int modif
                 const auto renderedFeatures =
                     v->rendererFrontend->getRenderer()->queryRenderedFeatures(hitPoint, {});
                 for (const auto& feature : renderedFeatures) {
+                    const auto cityId = weatherCityHitId(feature.properties);
+                    if (!cityId.empty()) {
+                        markerId = cityId;
+                        break;
+                    }
                     const auto idIt = feature.properties.find("id");
                     if (idIt == feature.properties.end() || !idIt->second.is<std::string>())
                         continue;
@@ -319,24 +378,32 @@ void MapView::onMouseClick(GLFWwindow* window, int button, int action, int modif
                     if (!markerId.empty())
                         break;
                 }
-                std::cout << "[map_renderer] rendered hit features=" << renderedFeatures.size()
-                          << '\n';
+                {
+                    std::ostringstream details;
+                    details << "[map_renderer] rendered hit features=" << renderedFeatures.size();
+                    orc::log("DEBUG", "map_renderer.view", "features.queried", details.str());
+                }
             }
-            std::cout << "[map_renderer] map click x=" << clickX << " y=" << clickY
-                      << " lat=" << click.latitude() << " lon=" << click.longitude()
-                      << " radius_m=" << radius
-                      << " marker_id=" << (markerId.empty() ? "<none>" : markerId)
-                      << " marker_index="
-                      << (markerIndex == std::numeric_limits<std::size_t>::max()
-                              ? -1
-                              : static_cast<long long>(markerIndex))
-                      << '\n';
+            {
+                std::ostringstream details;
+                details << "[map_renderer] map click x=" << clickX << " y=" << clickY
+                    << " lat=" << click.latitude() << " lon=" << click.longitude()
+                    << " radius_m=" << radius
+                    << " marker_id=" << (markerId.empty() ? "<none>" : markerId)
+                    << " marker_index="
+                    << (markerIndex == std::numeric_limits<std::size_t>::max()
+                    ? -1
+                    : static_cast<long long>(markerIndex));
+                orc::log("DEBUG", "map_renderer.view", "map.clicked", details.str());
+            }
             v->mapClickCallback(click.latitude(), click.longitude(), radius, markerId, markerIndex);
         }
         v->lastClick = now;
     }
 }
 void MapView::setPoiResultsJson(const std::string& geojson) {
+    poiHover.setData(geojson);
+    publishPoiHover();
     poiResults.clear();
 
     rapidjson::Document document;
@@ -421,18 +488,24 @@ PoiSearchResult MapView::searchVisiblePois(const std::string& category) const {
         if (categoryMatches(feature, category))
             ++result.count;
     }
-    std::cout << "[map_renderer] POI viewport category=" << category
-              << " source_features=" << features.size() << " visible_samples=" << sampleCount
-              << " vector_matches=" << result.count
-              << " bounds=" << result.west << ',' << result.south << ',' << result.east << ','
-              << result.north << '\n';
+    {
+        std::ostringstream details;
+        details << "[map_renderer] POI viewport category=" << category
+            << " source_features=" << features.size() << " visible_samples=" << sampleCount
+            << " vector_matches=" << result.count
+            << " bounds=" << result.west << ',' << result.south << ',' << result.east << ','
+            << result.north;
+        orc::log("DEBUG", "map_renderer.view", "poi.viewport", details.str());
+    }
     return result;
 }
 void MapView::onMouseMove(GLFWwindow* window, double x, double y) {
     auto* v = static_cast<MapView*>(glfwGetWindowUserPointer(window));
     if (!v || !v->map)
         return;
+    v->pointerInside = true;
     if (v->tracking) {
+        v->clearMapHover();
         const double dx = x - v->lastX, dy = y - v->lastY;
         if (dx != 0 || dy != 0) {
             if (!v->manualGesturePublished && v->manualCameraCallback) {
@@ -462,6 +535,7 @@ void MapView::run() {
         if (updateCallback)
             updateCallback();
         render();
+        updateMapHover();
 #ifndef __APPLE__
         runLoop.updateTime();
 #endif
@@ -483,6 +557,40 @@ void MapView::onWillStartRenderingFrame() {
 }
 void MapView::setUpdateCallback(std::function<void()> callback) {
     updateCallback = std::move(callback);
+}
+
+void MapView::onDidFailLoadingMap(mbgl::MapLoadError, const std::string& message)
+{
+    std::cerr << "[map_renderer] MapLibre load error: " << message << '\n';
+}
+
+void MapView::onTileAction(
+    mbgl::TileOperation operation,
+    const mbgl::OverscaledTileID& tileId,
+    const std::string& sourceId
+)
+{
+    if (sourceId != "weather-radar" && sourceId != "weather-field") {
+        return;
+    }
+
+    const char* action = nullptr;
+    switch (operation) {
+        case mbgl::TileOperation::RequestedFromCache: action = "cache-request"; break;
+        case mbgl::TileOperation::RequestedFromNetwork: action = "network-request"; break;
+        case mbgl::TileOperation::LoadFromNetwork: action = "network-loaded"; break;
+        case mbgl::TileOperation::LoadFromCache: action = "cache-loaded"; break;
+        case mbgl::TileOperation::Error: action = "error"; break;
+        case mbgl::TileOperation::Cancelled: action = "cancelled"; break;
+        default: return;
+    }
+
+    std::cout << "[map_renderer] " << (sourceId == "weather-field" ? "weather field" : "radar") << " tile " << action
+              << " canonical=" << static_cast<int>(tileId.canonical.z)
+              << '/' << tileId.canonical.x
+              << '/' << tileId.canonical.y
+              << " display_z=" << static_cast<int>(tileId.overscaledZ)
+              << '\n';
 }
 void MapView::setPoiSelectedCallback(PoiSelectedCallback callback) {
     poiSelectedCallback = std::move(callback);

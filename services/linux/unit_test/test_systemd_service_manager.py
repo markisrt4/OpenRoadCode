@@ -4,8 +4,10 @@
 """Unit tests for the restricted Linux systemd service manager."""
 
 import subprocess
+import tempfile
 import unittest
-from unittest.mock import patch
+from pathlib import Path
+from unittest.mock import Mock, patch
 
 from services.linux.systemd_service_manager import SYSTEMCTL_BIN, SystemdServiceManager
 
@@ -82,11 +84,84 @@ class SystemdServiceManagerTest(unittest.TestCase):
             starts,
             [
                 ["sudo", "-n", SYSTEMCTL_BIN, "start", "openroadcode-message-broker.service"],
+                ["sudo", "-n", SYSTEMCTL_BIN, "start", "valhalla.service"],
                 ["sudo", "-n", SYSTEMCTL_BIN, "start", "openroadcode-navigation.service"],
                 ["sudo", "-n", SYSTEMCTL_BIN, "start", "openroadcode-automotive.service"],
             ],
         )
         self.assertEqual([status.name for status in statuses], list(self.manager.CORE_STACK))
+
+    def test_android_bridge_endpoint_is_shared_runtime_state(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            runtime_file = Path(temporary) / "openroadcode-runtime.env"
+            with patch(
+                "services.linux.systemd_service_manager.PROFILE_DIR",
+                Path(temporary),
+            ), patch(
+                "services.linux.systemd_service_manager.RUNTIME_ENV_FILE",
+                runtime_file,
+            ), patch.object(
+                self.manager,
+                "profile",
+                return_value="simulated",
+            ):
+                self.manager.set_android_bridge_url("http://192.168.1.50:8766")
+                content = runtime_file.read_text(encoding="utf-8")
+
+        self.assertEqual(
+            content,
+            'OPENROADCODE_ANDROID_BRIDGE_URL="http://192.168.1.50:8766"\n',
+        )
+
+    def test_android_bridge_endpoint_change_restarts_running_local_navigation(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            runtime_file = Path(temporary) / "openroadcode-runtime.env"
+            runtime_file.write_text(
+                'OPENROADCODE_ANDROID_BRIDGE_URL="http://192.168.1.20:8766"\n',
+                encoding="utf-8",
+            )
+            with patch(
+                "services.linux.systemd_service_manager.PROFILE_DIR",
+                Path(temporary),
+            ), patch(
+                "services.linux.systemd_service_manager.RUNTIME_ENV_FILE",
+                runtime_file,
+            ), patch.object(
+                self.manager,
+                "profile",
+                return_value="local",
+            ), patch.object(
+                self.manager,
+                "status",
+                return_value=Mock(state="running"),
+            ), patch.object(self.manager, "_systemctl") as systemctl:
+                self.manager.set_android_bridge_url("http://192.168.1.50:8766")
+
+        systemctl.assert_called_once_with(
+            "restart",
+            "openroadcode-navigation.service",
+        )
+
+    def test_unchanged_android_bridge_endpoint_does_not_restart_navigation(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            runtime_file = Path(temporary) / "openroadcode-runtime.env"
+            runtime_file.write_text(
+                'OPENROADCODE_ANDROID_BRIDGE_URL="http://192.168.1.50:8766"\n',
+                encoding="utf-8",
+            )
+            with patch(
+                "services.linux.systemd_service_manager.RUNTIME_ENV_FILE",
+                runtime_file,
+            ), patch.object(self.manager, "profile") as profile, patch.object(
+                self.manager,
+                "status",
+            ) as status, patch.object(self.manager, "_systemctl") as systemctl:
+                self.manager.set_android_bridge_url("http://192.168.1.50:8766")
+
+        profile.assert_not_called()
+        status.assert_not_called()
+        systemctl.assert_not_called()
+
 
     def test_rejects_service_outside_whitelist(self) -> None:
         with self.assertRaisesRegex(ValueError, "Unsupported OpenRoadCode service"):

@@ -159,5 +159,4 @@ echo
 echo "Spotify configuration written to:"
 echo "  ${SECRETS_FILE}"
 echo
-echo "Restart OpenRoadCode to load it:"
-echo "  sudo systemctl restart openroadcode.service"
+echo "Restart the OpenRoadCode application to load it."

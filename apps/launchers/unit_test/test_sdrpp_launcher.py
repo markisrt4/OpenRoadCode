@@ -92,7 +92,10 @@ class SDRPPLauncherTest(unittest.TestCase):
         self.assertIn("LIBGL_ALWAYS_SOFTWARE=1", command)
         self.assertIn("mkdir -p /tmp/runtime-root", command[-1])
         self.assertIn("chmod 700 /tmp/runtime-root", command[-1])
-        self.assertIn("cd /root/SDRPlusPlus", command[-1])
+        self.assertIn(
+            "cd /root/.local/state/openroadcode/build/SDRPlusPlus",
+            command[-1],
+        )
         self.assertIn("./build/sdrpp -r root_dev --autostart", command[-1])
 
     @patch("apps.launchers.sdrpp_launcher._sdrpp_process_running", return_value=False)
@@ -105,7 +108,10 @@ class SDRPPLauncherTest(unittest.TestCase):
         command = run.call_args.args[0]
         self.assertEqual("/usr/bin/proot-distro", command[0])
         self.assertEqual(["login", "debian", "--shared-tmp", "--"], command[1:5])
-        self.assertIn("/root/SDRPlusPlus/root_dev/config.json", command)
+        self.assertIn(
+            "/root/.local/state/openroadcode/build/SDRPlusPlus/root_dev/config.json",
+            command,
+        )
         self.assertEqual("Dark", command[-1])
 
     @patch("apps.launchers.sdrpp_launcher._is_termux", return_value=False)

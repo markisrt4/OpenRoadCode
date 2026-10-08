@@ -42,7 +42,7 @@ venv/bin/python -m apps.carTui.main --demo
 `NavigationController` depends on navigation-facing interfaces rather than
 hardware drivers:
 
-<aside class="orc-diagram-legend" aria-label="Architecture diagram legend">
+<div class="orc-diagram-legend" aria-label="Architecture diagram legend">
   <strong>Diagram key</strong>
   <span><i class="orc-legend-swatch orc-legend-app"></i>App / UI</span>
   <span><i class="orc-legend-swatch orc-legend-service"></i>Service / runtime</span>
@@ -50,7 +50,7 @@ hardware drivers:
   <span><i class="orc-legend-swatch orc-legend-message"></i>Messaging / contract</span>
   <span><i class="orc-legend-swatch orc-legend-adapter"></i>Protocol / hardware</span>
   <span><i class="orc-legend-swatch orc-legend-external"></i>External / input</span>
-</aside>
+</div>
 
 ```mermaid
 flowchart LR
@@ -86,6 +86,15 @@ frame; navigation-facing adapters own the mounting transform.
 `PositionState` updates. `BrowserPositionSource` receives the browser
 Geolocation API through a local HTTP relay and produces the same state type.
 Position input is optional.
+
+The navigation service wraps live Android/gpsd sources with
+`RoutePlaybackPositionSource`, implementing `PositionSourceIf` and
+`RouteSimulationIf`. It keeps the receiver running and selects either live
+reports or `SimulatedPositionSource` route playback for downstream delivery.
+Stop/cancel/arrival/restart restores normal input; generation checks reject late
+reports from replaced playback or an earlier source lifecycle. This adapter
+contains no GUI or bridge simulation configuration. See the
+[service README](../../services/navigation/README.md#local-route-playback).
 
 CarUi decorates either provider with `PersistentPositionSource`. It publishes
 a recent last-known fix immediately at startup, then replaces it with live
@@ -331,3 +340,43 @@ the orientation estimator.
 `NavigationState`. A later GPS-aware `OrientationEstimatorIf` can use valid,
 sufficiently fast course updates for drift correction; the current default
 estimator intentionally does not fuse GPS course into heading yet.
+
+## Navigation places ownership
+
+The ORC composition layer constructs `NavigationPlacesFactory`, which shares
+`MapFavorites` and the platform action executor and creates a fresh POI search
+session for each mounted view. `NavigationPlacesController` adapts those resources
+to `ui.navigation.navigation_places_request_handler_if.NavigationPlacesRequestHandlerIf`.
+Views receive only contract values and semantic operations. They do not construct
+favorites caches, renderer subscriptions, or Android launchers.
+
+`MapFavorite` is defined under the UI contract and re-exported from the historical
+`map_favorites` module for backend compatibility. Session close invalidates results,
+clears pending selections, and releases its source exactly once. Composition also
+closes surviving sessions during application shutdown or failed initialization.
+
+### Offline POI search availability
+
+POI search honors `OPENROADCODE_DATA_ROOT` when set. Termux otherwise uses
+`$XDG_DATA_HOME/openroadcode` (default `~/.local/share/openroadcode`). Linux
+uses the installed `/srv/openroadcode` search database when present, then the
+XDG data directory. Resolution occurs when opening the database, rather than
+at module import. The expected file is `maps/search/openroadcode-search.sqlite`.
+A missing, unreadable, or incompatible database produces a POI search unavailable
+status through `PoiSearchResult.error`; it does not stop UI event polling or
+claim there are no nearby results. A subsequent search retries opening a missing
+database, allowing recovery after installing the data.
+
+POI search results show a gold hover glow with a mouse or trackpad. Category
+badges/icons keep their existing colors; the hovered place name gets a brighter
+halo. Clearing POIs, dragging, or leaving the map removes the glow. Tapping or
+clicking still opens the existing place popup. Hover is renderer presentation
+using existing marker identities, with no controller or UI contract changes.
+Rebuild the native renderer after pulling this update to enable it.
+
+Changing light/dark mode releases an embedded map screen before rebuilding its
+host widgets, then attaches the renderer to the new host. The map runtime also
+stops an existing renderer when its parent window changes and forgets stopped
+host IDs. This prevents a live process from remaining attached to a destroyed
+window. Returning to Navigation manually is no longer required to restore it.
+Theme/remount regression tests cover lifecycle ordering and obsolete hosts.

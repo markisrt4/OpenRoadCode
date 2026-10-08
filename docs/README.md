@@ -17,7 +17,8 @@ The [project README](../README.md) remains the repository landing page. [Doxygen
 - [Navigation deployment](navigation_deployment.md)
 - [XDG path policy](xdg_paths.md)
 - [Message bus interface design](messaging/message_bus_idd.md)
-- [Automotive Trip-state interface](idd/automotive_trip_state.md)\n- [Automotive vehicle-state interface](idd/automotive_vehicle_state.md)
+- [Automotive Trip-state interface](idd/automotive_trip_state.md)
+- [Automotive vehicle-state interface](idd/automotive_vehicle_state.md)
 - [Environmental barometric-state interface](idd/environmental_barometric_state.md)
 - [Navigation command-service interface](idd/navigation_command_service.md)
 - [Navigation IMU-state interface](idd/navigation_imu_state.md)
@@ -52,6 +53,10 @@ Generated from the canonical documentation files. Every component README and sta
 - [Architecture (`apps/orcUi`)](../apps/orcUi/ARCHITECTURE.md)
 - [Weatherdash (`apps/weatherDash`)](../apps/weatherDash/README.md)
 - [Webui (`apps/webUi`)](../apps/webUi/README.md)
+
+### Common
+
+- [Logging (`common/logging`)](../common/logging/README.md)
 
 ### Config
 
@@ -93,7 +98,8 @@ Generated from the canonical documentation files. Every component README and sta
 - [Architecture](architecture.md)
 - [Automotive Architecture](automotive_architecture.md)
 - [Ethernet Idd](ethernet_idd.md)
-- [Automotive Trip State (`docs/idd`)](idd/automotive_trip_state.md)\n- [Automotive Vehicle State (`docs/idd`)](idd/automotive_vehicle_state.md)
+- [Automotive Trip State (`docs/idd`)](idd/automotive_trip_state.md)
+- [Automotive Vehicle State (`docs/idd`)](idd/automotive_vehicle_state.md)
 - [Environmental Barometric State (`docs/idd`)](idd/environmental_barometric_state.md)
 - [Navigation Command Service (`docs/idd`)](idd/navigation_command_service.md)
 - [Navigation Imu State (`docs/idd`)](idd/navigation_imu_state.md)
@@ -101,10 +107,15 @@ Generated from the canonical documentation files. Every component README and sta
 - [Navigation Position State (`docs/idd`)](idd/navigation_position_state.md)
 - [Route Guidance State (`docs/idd`)](idd/route_guidance_state.md)
 - [Message Bus Idd (`docs/messaging`)](messaging/message_bus_idd.md)
+- [Music Visualizer](music_visualizer.md)
 - [Navigation Deployment](navigation_deployment.md)
 - [Navigation Runtime](navigation_runtime.md)
+- [Online Offline Mode](online_offline_mode.md)
+- [Poi Ordering](poi_ordering.md)
 - [Roadmap](roadmap.md)
 - [Streaming Radio](streaming_radio.md)
+- [System Performance](system_performance.md)
+- [Termux Poi Download](termux_poi_download.md)
 - [Xdg Paths](xdg_paths.md)
 
 ### Frontends

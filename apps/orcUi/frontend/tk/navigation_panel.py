@@ -5,40 +5,38 @@
 
 from __future__ import annotations
 
+from ui.system.online_mode_if import OnlineModeIf
+from ui.tooltip_if import TooltipFactoryIf
+from frontends.tk.tooltip import TkTooltip
+
+import logging
+
+from common.logging.structured import event
 import math
 import tkinter as tk
 from collections.abc import Callable
 
-from apps.launchers.android_intent_launcher import AndroidIntentLauncherError
 from apps.orcUi.theme_runtime import theme_bundle as packaged_theme_bundle
-from controllers.navigation.map_favorites import MapFavorites
-from controllers.poi.android_poi_action_executor import AndroidPoiActionExecutor
-from controllers.poi.poi_action_executor_if import PoiActionExecutorIf
-from controllers.poi import (
-    PoiAction,
-    PoiActionKind,
-    PoiCategory,
-    PoiSearchController,
-    PointOfInterest,
-    TransitMode,
-)
+from ui.weather.radar_ui_if import RadarPalette
+from ui.navigation.poi_models import PoiCategory, TransitMode
 from ui.navigation import (
-    MapMarker,
-    MapMarkerKind,
     MapRequestHandlerIf,
     RouteRequestHandlerIf,
     RouteRequestHandlerStub,
     RouteSimulationRequestHandlerIf,
 )
-from ui.navigation.route_types import TravelMode
 from ui.theme import ThemeBundle, ThemeMode
-from .shell_metrics import FONT_CONTROL, FONT_SMALL, FONT_TINY
-from .navigation_panel_layout import build_navigation_panel, show_poi_card
+from ui.navigation.navigation_places_request_handler_if import NavigationPlacesRequestHandlerIf
+from .navigation_radar_controls import NavigationRadarControls
+from .navigation_panel_layout import build_navigation_panel
+from .navigation_places_controls import NavigationPlacesControls
+from .navigation_panel_camera import NavigationCameraControls
 
-_POI_SEARCH_SETTLE_MS = 750
+
+_LOG = logging.getLogger("navigation.poi.ui")
 
 
-class NavigationPanel(tk.Frame):
+class NavigationPanel(NavigationPlacesControls, NavigationRadarControls, NavigationCameraControls, tk.Frame):
     """Map host, navigation controls, and nearby POI discovery."""
 
     def __init__(
@@ -48,25 +46,68 @@ class NavigationPanel(tk.Frame):
         map_request_handler: MapRequestHandlerIf,
         route_request_handler: RouteRequestHandlerIf | None = None,
         route_simulation_handler: RouteSimulationRequestHandlerIf | None = None,
-        map_favorites: MapFavorites | None = None,
+        places_handler: NavigationPlacesRequestHandlerIf,
         on_back: Callable[[], None] | None = None,
         theme_bundle: ThemeBundle | None = None,
-        poi_action_executor: PoiActionExecutorIf | None = None,
+        online_mode: OnlineModeIf | None = None,
+        tooltip_factory: TooltipFactoryIf | None = None,
+        radar_enabled: bool = False,
+        radar_frame_time: int | None = None,
+        radar_palette: RadarPalette = RadarPalette.UNIVERSAL,
+        on_radar_palette_changed: Callable[[RadarPalette], None] | None = None,
+        on_radar_toggle: Callable[[bool], None] | None = None,
+        on_radar_previous: Callable[[], None] | None = None,
+        on_radar_next: Callable[[], None] | None = None,
+        on_radar_live: Callable[[], None] | None = None,
+        on_radar_play: Callable[[], None] | None = None,
+        on_radar_seek: Callable[[int], None] | None = None,
+        on_radar_speed: Callable[[float], None] | None = None,
+        on_radar_source: Callable[[bool], None] | None = None,
     ) -> None:
+        if not isinstance(places_handler, NavigationPlacesRequestHandlerIf):
+            raise TypeError("Navigation places require NavigationPlacesRequestHandlerIf")
         self._theme_bundle = theme_bundle or packaged_theme_bundle(ThemeMode.DARK)
         super().__init__(parent, bg=self._theme_bundle.ui.background)
         del on_back
         self._request_handler = map_request_handler
+        self._tooltip_factory = tooltip_factory
+        self._tooltips = []
+        self._radar_enabled = radar_enabled
+        self._radar_frame_time = radar_frame_time
+        self._radar_palette = radar_palette
+        self._on_radar_palette_changed = on_radar_palette_changed
+        self._on_radar_toggle = on_radar_toggle
+        self._on_radar_previous = on_radar_previous
+        self._on_radar_next = on_radar_next
+        self._on_radar_live = on_radar_live
+        self._on_radar_play = on_radar_play
+        self._on_radar_seek = on_radar_seek
+        self._on_radar_speed = on_radar_speed
+        self._radar_times = ()
+        self._radar_index = None
+        self._radar_playing = False
+        self._radar_speed = 1.0
+        self._radar_forecast = False
+        self._on_radar_source = on_radar_source
         self._route_request_handler = route_request_handler or RouteRequestHandlerStub()
         self._route_simulation_handler = route_simulation_handler
-        self._map_favorites = map_favorites or MapFavorites()
-        self._poi_action_executor = poi_action_executor or AndroidPoiActionExecutor()
-        self._poi_controller = PoiSearchController()
+        self._places_handler = places_handler
+        self._online_mode = online_mode
+        self._poi_action_buttons = []
+        self._poi_launching = False
+        self._poi_action_request = None
+        self._unsubscribe_online_mode = (
+            online_mode.subscribe(lambda _online: self._refresh_poi_action_buttons())
+            if online_mode is not None else lambda: None)
+        self._closed = False
+        self._places_closed = False
+        self._poi_poll_after_id: str | None = None
         self._poi_card: tk.Toplevel | None = None
         self._poi_search_after_id: str | None = None
         self._zoom_level = float(getattr(self._request_handler, "zoom_level", 16.5))
         self._zoom_text = tk.StringVar(value=f"{self._zoom_level:.1f}")
         self._pitch_rad = float(getattr(self._request_handler, "pitch_rad", math.radians(45.0)))
+        self._dimension_text = tk.StringVar(value="2D" if self._pitch_rad > 0 else "3D")
         self._follow_enabled = bool(getattr(self._request_handler, "follow_enabled", True))
         self._shortcut_status = tk.StringVar(value="")
         self._guidance_instruction = tk.StringVar(value="")
@@ -77,11 +118,12 @@ class NavigationPanel(tk.Frame):
         self._simulation_active = False
         self._map_host: tk.Frame
         self._follow_button: tk.Button
+        self._radar_button: tk.Button | None = None
         self._simulate_button: tk.Button
         self._cancel_route_button: tk.Button
         self._build()
         self._schedule_renderer_refresh()
-        self.after(100, self._poll_poi_events)
+        self._poi_poll_after_id = self.after(100, self._poll_poi_events)
 
     @property
     def map_host_window_id(self) -> int:
@@ -89,6 +131,8 @@ class NavigationPanel(tk.Frame):
         return self._map_host.winfo_id()
 
     def set_theme_bundle(self, theme_bundle: ThemeBundle) -> None:
+        self.close_tooltips()
+        self.close_radar_menu()
         self._theme_bundle = theme_bundle
         self.configure(bg=theme_bundle.ui.background)
         for child in self.winfo_children():
@@ -107,18 +151,49 @@ class NavigationPanel(tk.Frame):
             text="F" if enabled else "F̸", fg=ui.accent_success if enabled else ui.text
         )
 
+    def close_places(self) -> None:
+        """Cancel pending view callbacks and close its places session once."""
+        if self._places_closed:
+            return
+        self._places_closed = True
+        self._unsubscribe_online_mode()
+        for name in ("_poi_poll_after_id", "_poi_search_after_id"):
+            callback_id = getattr(self, name)
+            if callback_id is not None:
+                try:
+                    self.after_cancel(callback_id)
+                except tk.TclError:
+                    pass
+                setattr(self, name, None)
+        self._places_handler.close()
+
     def destroy(self) -> None:
-        if self._poi_search_after_id is not None:
-            try:
-                self.after_cancel(self._poi_search_after_id)
-            except tk.TclError:
-                pass
-            self._poi_search_after_id = None
-        self._poi_controller.close()
-        super().destroy()
+        if self._closed:
+            return
+        self._closed = True
+        self.close_tooltips()
+        try:
+            self.close_radar_menu()
+            self.close_places()
+        finally:
+            super().destroy()
 
     def _build(self) -> None:
         build_navigation_panel(self)
+
+    def _add_tooltip(self, widget: tk.Misc, text: str) -> None:
+        if self._tooltip_factory is not None:
+            ui = self._theme_bundle.ui
+            self._tooltips.append(TkTooltip(
+                widget, text, self._tooltip_factory,
+                background=ui.surface_alt, foreground=ui.text,
+            ))
+
+    def close_tooltips(self) -> None:
+        """Close mounted tooltip sessions before hiding or rebuilding widgets."""
+        for tooltip in self._tooltips:
+            tooltip.close()
+        self._tooltips.clear()
 
     def _control(
         self, parent: tk.Misc, text: str, command: Callable[[], None], foreground: str
@@ -136,6 +211,9 @@ class NavigationPanel(tk.Frame):
             highlightthickness=1,
             highlightbackground=ui.border,
             font=("Sans", 11, "bold"),
+            borderwidth=0,
+            padx=4,
+            pady=4,
             height=1,
         )
 
@@ -148,177 +226,6 @@ class NavigationPanel(tk.Frame):
         if refresh is not None:
             refresh()
 
-    def _destination_shortcut(self, shortcut: str) -> None:
-        category = {
-            "food": PoiCategory.FOOD,
-            "gas": PoiCategory.FUEL,
-            "grocery": PoiCategory.GROCERY,
-        }.get(shortcut)
-        if category is not None:
-            self._start_poi_search(category)
-            return
-        self._poi_controller.clear()
-        self._request_handler.request_poi_focus(None)
-        self._active_poi_render_category = ""
-        self._active_poi_search = None
-        self._request_handler.request_poi_results((), "")
-        favorite = self._map_favorites.home if shortcut == "home" else self._map_favorites.work
-        if favorite is None:
-            self._shortcut_status.set(f"{shortcut.title()} location not configured")
-            self.after(2500, lambda: self._shortcut_status.set(""))
-            return
-        try:
-            self._route_request_handler.request_start_route(
-                favorite.position,
-                (),
-                TravelMode.AUTO,
-            )
-        except Exception as error:
-            self._shortcut_status.set(f"Route failed: {error}")
-            self.after(4000, lambda: self._shortcut_status.set(""))
-            return
-        self._route_active = True
-        self._simulation_active = False
-        self._update_simulation_button()
-        self._shortcut_status.set(f"Routing to {favorite.name}")
-
-    def _clear_poi_search(self) -> None:
-        """Clear the active POI search and remove its rendered markers."""
-        if self._poi_search_after_id is not None:
-            try:
-                self.after_cancel(self._poi_search_after_id)
-            except tk.TclError:
-                pass
-            self._poi_search_after_id = None
-
-        self._poi_controller.clear()
-        self._request_handler.request_poi_focus(None)
-        self._active_poi_render_category = ""
-        self._active_poi_search = None
-        self._request_handler.request_poi_results((), "")
-        self._shortcut_status.set("")
-
-        if self._poi_card is not None and self._poi_card.winfo_exists():
-            self._poi_card.destroy()
-        self._poi_card = None
-
-    def _start_poi_search(
-        self, category: PoiCategory, transit_mode: TransitMode = TransitMode.ALL
-    ) -> None:
-        if not bool(getattr(self._request_handler, "camera_initialized", False)):
-            self._shortcut_status.set("Position unavailable — nearby search needs a GPS fix")
-            return
-        if self._poi_search_after_id is not None:
-            try:
-                self.after_cancel(self._poi_search_after_id)
-            except tk.TclError:
-                pass
-            self._poi_search_after_id = None
-        category_name = category.name.casefold()
-        self._poi_controller.clear()
-        self._request_handler.request_poi_focus(None)
-        self._active_poi_render_category = _poi_render_category(category, transit_mode)
-        self._active_poi_search = (category, transit_mode)
-        self._request_handler.request_poi_results((), self._active_poi_render_category)
-        detail = (
-            transit_mode.name.replace("_", " ").casefold()
-            if category is PoiCategory.TRANSIT and transit_mode is not TransitMode.ALL
-            else category_name
-        )
-        self._shortcut_status.set(f"Loading nearby {detail}…")
-        self._poi_search_after_id = self.after(
-            _POI_SEARCH_SETTLE_MS, lambda: self._issue_poi_search(category, transit_mode)
-        )
-
-    def _schedule_active_poi_refresh(self) -> None:
-        """Debounce a viewport refresh while a POI category remains active."""
-        if self._active_poi_search is None:
-            return
-        if self._poi_search_after_id is not None:
-            try:
-                self.after_cancel(self._poi_search_after_id)
-            except tk.TclError:
-                pass
-        category, transit_mode = self._active_poi_search
-        self._poi_search_after_id = self.after(
-            _POI_SEARCH_SETTLE_MS, lambda: self._issue_poi_search(category, transit_mode)
-        )
-
-    def _issue_poi_search(
-        self, category: PoiCategory, transit_mode: TransitMode = TransitMode.ALL
-    ) -> None:
-        self._poi_search_after_id = None
-        detail = (
-            transit_mode.name.replace("_", " ").casefold()
-            if category is PoiCategory.TRANSIT and transit_mode is not TransitMode.ALL
-            else category.name.casefold()
-        )
-        self._shortcut_status.set(f"Searching nearby {detail}…")
-        self._poi_controller.search(category, transit_mode)
-
-    def _poll_poi_events(self) -> None:
-        if self._poi_controller.poll_camera_interaction():
-            # Native mouse/touch gestures happen inside MapLibre, bypassing the
-            # Python request handler. Suspend GPS follow so it cannot immediately
-            # overwrite the user's manually chosen viewport before the debounced
-            # POI refresh asks the renderer for its new bounds.
-            self.set_follow_enabled(False)
-            self._request_handler.request_follow(False)
-            self._schedule_active_poi_refresh()
-        result = self._poi_controller.poll_search_result()
-        if result is not None:
-            markers = tuple(
-                MapMarker(
-                    marker_id=poi.poi_id,
-                    position=poi.position,
-                    kind=MapMarkerKind.SEARCH_RESULT,
-                    label=poi.name,
-                )
-                for poi in result.pois
-            )
-            self._request_handler.request_poi_results(markers, self._active_poi_render_category)
-            if result.count > 0:
-                noun = result.category.name.casefold()
-                suffix = "s" if result.count != 1 else ""
-                self._shortcut_status.set(f"{result.count} {noun} result{suffix}")
-            else:
-                self._shortcut_status.set(f"No {result.category.name.casefold()} results nearby")
-        poi = self._poi_controller.poll_selected()
-        if poi is not None:
-            print(f"[orcUi] showing POI business popup for {poi.name!r}")
-            self._show_poi_card(poi)
-        if self.winfo_exists():
-            self.after(100, self._poll_poi_events)
-
-    def _show_poi_card(self, poi: PointOfInterest) -> None:
-        show_poi_card(self, poi)
-
-    def _navigate_to_poi(self, poi: PointOfInterest) -> None:
-        try:
-            self._route_request_handler.request_start_route(
-                poi.position,
-                (),
-                TravelMode.AUTO,
-            )
-            self._route_active = True
-            self._simulation_active = False
-            self._update_simulation_button()
-            self._shortcut_status.set(f"Routing to {poi.name}")
-        except Exception as exc:
-            self._shortcut_status.set(f"Route failed: {exc}")
-        if self._poi_card is not None and self._poi_card.winfo_exists():
-            self._poi_card.destroy()
-
-    def _execute_poi_action(self, poi: PointOfInterest, action: PoiAction) -> None:
-        try:
-            status = self._poi_action_executor.execute(poi, action)
-            self._shortcut_status.set(status)
-        except (AndroidIntentLauncherError, ValueError) as exc:
-            self._shortcut_status.set(f"Launch failed: {exc}")
-        if self._poi_card is not None and self._poi_card.winfo_exists():
-            self._poi_card.destroy()
-        self.after(3500, lambda: self._shortcut_status.set(""))
-
     def _update_simulation_button(self) -> None:
         if hasattr(self, "_cancel_route_button"):
             self._cancel_route_button.configure(
@@ -327,10 +234,10 @@ class NavigationPanel(tk.Frame):
         if not hasattr(self, "_simulate_button"):
             return
         if self._route_simulation_handler is None or not self._route_active:
-            self._simulate_button.configure(text="SIM DRIVE", state=tk.DISABLED)
+            self._simulate_button.configure(text="Simulate", state=tk.DISABLED)
             return
         self._simulate_button.configure(
-            text="STOP SIM" if self._simulation_active else "SIM DRIVE",
+            text="Stop simulation" if self._simulation_active else "Simulate",
             state=tk.NORMAL,
         )
 
@@ -396,51 +303,6 @@ class NavigationPanel(tk.Frame):
             details.append("OFF ROUTE")
         self._guidance_detail.set("  •  ".join(details))
 
-    def _toggle_follow(self) -> None:
-        enabled = not self._follow_enabled
-        self.set_follow_enabled(enabled)
-        self._request_handler.request_follow(enabled)
-
-    def _pan(self, up: float, right: float) -> None:
-        self._map_host.update_idletasks()
-        self.set_follow_enabled(False)
-        self._request_handler.request_pan_screen(
-            right_px=right * max(48, self._map_host.winfo_width() * 0.25),
-            up_px=up * max(48, self._map_host.winfo_height() * 0.25),
-        )
-        self._schedule_active_poi_refresh()
-
-    def _change_zoom(self, delta: float) -> None:
-        self._zoom_level = max(1, min(22, self._zoom_level + delta))
-        self._zoom_text.set(f"{self._zoom_level:.1f}")
-        self._request_handler.request_zoom(self._zoom_level)
-        self._schedule_active_poi_refresh()
-
-    def _change_pitch(self, delta_deg: float) -> None:
-        pitch_deg = max(0, min(60, math.degrees(self._pitch_rad) + delta_deg))
-        self._pitch_rad = math.radians(pitch_deg)
-        self.set_follow_enabled(False)
-        self._request_handler.request_pitch(self._pitch_rad)
-
-    def _north_up(self) -> None:
-        self.set_follow_enabled(False)
-        self._request_handler.request_bearing(0.0)
-
-    def _recenter(self) -> None:
-        self.set_follow_enabled(True)
-        self._request_handler.request_recenter()
-
-
-def _poi_render_category(category: PoiCategory, transit_mode: TransitMode) -> str:
-    if category is not PoiCategory.TRANSIT:
-        return category.name.casefold()
-    if transit_mode is TransitMode.BUS:
-        return "bus"
-    if transit_mode is TransitMode.RAIL:
-        return "rail"
-    if transit_mode is TransitMode.TRAM_SUBWAY:
-        return "tram-subway"
-    return "transit"
 
 
 def _format_distance(distance_m: float) -> str:

@@ -113,11 +113,11 @@ class NavigationCommandClient:
         return self._route_from_response(response)
 
     def simulate_active_route(self, *, time_scale: float = 60.0) -> None:
-        """Drive configured simulated position input along the active route."""
+        """Play the active route through the service's position source."""
         self._request(SIMULATE_ROUTE_COMMAND, {"time_scale": time_scale})
 
     def stop_route_simulation(self) -> None:
-        """Return the navigation input to its normal simulation profile."""
+        """Return the navigation input to its normal configured source."""
         self._request(STOP_ROUTE_SIMULATION_COMMAND, {})
 
     @classmethod
@@ -185,6 +185,7 @@ class NavigationCommandClient:
             return RouteResult(
                 distance_miles=float(data["distance_miles"]),
                 duration_seconds=float(data["duration_seconds"]),
+                operation_id=data.get("operation_id"),
                 shape=shape,
                 maneuvers=maneuvers,
             )

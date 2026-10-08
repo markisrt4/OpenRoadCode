@@ -8,7 +8,7 @@ import unittest
 from apps.carUi.radio.radio_session_controller import RadioSessionController
 from apps.carUi.radio.radio_session_config import RadioSessionConfig
 from controllers.radio.radio_controller_stub import RadioControllerStub
-from controllers.radio.radio_types import RadioPreset
+from ui.radio.radio_types import (RadioPreset)
 from ui.radio import RadioUiStub, TunedSignal
 
 

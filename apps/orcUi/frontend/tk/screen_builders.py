@@ -5,23 +5,26 @@
 
 from __future__ import annotations
 
+from ui.system.online_mode_if import OnlineModeIf
+from ui.tooltip_if import TooltipFactoryIf
+
 import tkinter as tk
 from collections.abc import Callable
 
 from apps.orcUi.trip_presenter import TripPresentationState
 from common.units import UnitSystem
 from apps.orcUi.vehicle_presenter import VehiclePresentationState
-from controllers.automotive import (
-    AutomotiveTelemetryProfile,
-    EngineAnalysis,
-    VehicleConfiguration,
-)
+from ui.weather.radar_ui_if import RadarPalette
+from ui.automotive.automotive_telemetry_profile import (AutomotiveTelemetryProfile)
+from ui.automotive.engine_analysis import (EngineAnalysis)
+from ui.automotive.vehicle_configuration import (VehicleConfiguration)
 from ui.navigation import (
     MapRequestHandlerIf,
     RouteRequestHandlerIf,
     RouteSimulationRequestHandlerIf,
 )
 from ui.theme import ThemeBundle
+from ui.navigation.navigation_places_request_handler_if import NavigationPlacesRequestHandlerIf
 
 from .navigation_panel import NavigationPanel
 from .settings_panel import SettingsPanel
@@ -33,18 +36,48 @@ def build_navigation_screen(
     parent: tk.Misc,
     *,
     map_request_handler: MapRequestHandlerIf,
+    places_handler: NavigationPlacesRequestHandlerIf,
     route_request_handler: RouteRequestHandlerIf,
     route_simulation_handler: RouteSimulationRequestHandlerIf,
     on_back: Callable[[], None],
     theme: ThemeBundle,
+    online_mode: OnlineModeIf | None = None,
+    tooltip_factory: TooltipFactoryIf | None = None,
+    radar_enabled: bool = False,
+    radar_frame_time: int | None = None,
+    radar_palette: RadarPalette = RadarPalette.UNIVERSAL,
+    on_radar_palette_changed: Callable[[RadarPalette], None] | None = None,
+    on_radar_toggle: Callable[[bool], None] | None = None,
+    on_radar_previous: Callable[[], None] | None = None,
+    on_radar_next: Callable[[], None] | None = None,
+    on_radar_live: Callable[[], None] | None = None,
+    on_radar_play: Callable[[], None] | None = None,
+    on_radar_seek: Callable[[int], None] | None = None,
+    on_radar_speed: Callable[[float], None] | None = None,
+    on_radar_source: Callable[[bool], None] | None = None,
 ) -> NavigationPanel:
     screen = NavigationPanel(
         parent,
         map_request_handler=map_request_handler,
+        places_handler=places_handler,
         route_request_handler=route_request_handler,
         route_simulation_handler=route_simulation_handler,
         on_back=on_back,
         theme_bundle=theme,
+        online_mode=online_mode,
+        tooltip_factory=tooltip_factory,
+        radar_enabled=radar_enabled,
+        radar_frame_time=radar_frame_time,
+        radar_palette=radar_palette,
+        on_radar_palette_changed=on_radar_palette_changed,
+        on_radar_toggle=on_radar_toggle,
+        on_radar_previous=on_radar_previous,
+        on_radar_next=on_radar_next,
+        on_radar_live=on_radar_live,
+        on_radar_play=on_radar_play,
+        on_radar_seek=on_radar_seek,
+        on_radar_speed=on_radar_speed,
+        on_radar_source=on_radar_source,
     )
     screen.pack(fill=tk.BOTH, expand=True)
     return screen

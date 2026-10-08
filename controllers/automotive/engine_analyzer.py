@@ -3,16 +3,8 @@
 
 from __future__ import annotations
 
-from controllers.automotive.engine_analysis import (
-    EngineAnalysis,
-    EngineLoadLevel,
-    EngineOperatingMode,
-    FuelControlMode,
-    FuelCorrectionStatus,
-    MixtureMode,
-    TrackingQuality,
-)
-from controllers.automotive.vehicle_configuration import VehicleConfiguration
+from ui.automotive.engine_analysis import (EngineAnalysis, EngineLoadLevel, EngineOperatingMode, FuelControlMode, FuelCorrectionStatus, MixtureMode, TrackingQuality)
+from ui.automotive.vehicle_configuration import (VehicleConfiguration)
 from controllers.automotive.vehicle_state import VehicleState
 
 
@@ -40,6 +32,7 @@ class EngineAnalyzer:
         self._configuration = configuration
 
     def analyze(self, state: VehicleState) -> EngineAnalysis:
+        torque, power = self._reported_output(state)
         engine_running = self._engine_running(state)
         warmed_up = self._warmed_up(state)
         high_load = self._high_load(state)
@@ -60,6 +53,8 @@ class EngineAnalyzer:
         )
 
         return EngineAnalysis(
+            reported_torque_nm=torque,
+            reported_power_w=power,
             operating_mode=self._operating_mode(
                 state,
                 engine_running=engine_running,
@@ -79,6 +74,15 @@ class EngineAnalyzer:
             mixture_tracking_error=mixture_error,
             throttle_tracking_error=throttle_error,
         )
+
+    @staticmethod
+    def _reported_output(state: VehicleState) -> tuple[float | None, float | None]:
+        ratio, reference = state.actual_engine_torque_ratio, state.reference_engine_torque_nm
+        if ratio is None or reference is None or reference <= 0:
+            return None, None
+        torque = ratio*reference
+        rpm = state.engine_speed_rad_s
+        return torque, None if rpm is None else torque*rpm
 
     @classmethod
     def _engine_running(cls, state: VehicleState) -> bool | None:

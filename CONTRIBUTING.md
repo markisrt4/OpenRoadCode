@@ -200,6 +200,45 @@ Avoid abstractions that do not provide a useful boundary, test seam, or
 interchangeable implementation. Software already has enough ceremonial
 ribbon-cutting.
 
+## UI contracts and lifecycle
+
+Define or extend toolkit-independent view/state and semantic request contracts
+under `ui/` before wiring new UI behavior. Use immutable snapshots and normalized
+SI values; frontends own display units and formatting. Widgets implement view
+contracts and emit requests through handler contracts. They must not construct
+or call concrete controllers, providers, service clients, or transports, or
+inspect backend private state.
+
+Controllers own workers, caching, retries, playback, and stale callback rejection.
+They must not import GUI frameworks or frontends. Composition roots construct
+dependencies, bind contracts, and own cleanup. Keep process and transport access
+inside injected adapters. Test hide/close, canceled work, and stale completions
+alongside normal behavior. UI contracts remain in this repository; do not add an
+independently installable UI distribution.
+
+Run the complete repository gate before declaring a feature complete:
+
+```bash
+python scripts/quality_gate.py
+```
+
+It runs Ruff, module size, project-wide and weather UI boundary checks, Doxygen
+contract documentation, Mermaid legends, and unit/integration tests. CI also
+checks documentation, browser audio, shell syntax, runtime state, whitespace,
+and logging. Record unavailable hardware/service validation separately from
+automated results; a portable subset is not a full-suite pass.
+
+`scripts/ui_boundary_exceptions.json` lists exact legacy dependencies, not
+permission for new violations. Do not expand or regenerate it to pass a check.
+Remove entries when their dependencies are removed; stale entries fail the gate.
+See [UI contracts and migration inventory](ui/README.md) and the repository's
+`AGENTS.md` instructions.
+
+Update the affected READMEs and IDDs in the same change. Review renderer restart,
+theme changes, and subscription/worker cleanup on the target device when they
+affect native map lifecycle. Weather provider probes require live network access;
+mocked data does not establish live provider or GPU behavior.
+
 ## Where tests belong
 
 Tests live beside the code they exercise. OpenRoadCode does not use one giant

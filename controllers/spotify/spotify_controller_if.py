@@ -5,7 +5,7 @@
 
 from abc import ABC, abstractmethod
 
-from controllers.spotify.spotify_library import SpotifyLibraryTrack, SpotifyPlaylist
+from ui.media.spotify_library import (SpotifyLibraryTrack, SpotifyPlaylist)
 from controllers.spotify.spotify_state import SpotifyState
 
 

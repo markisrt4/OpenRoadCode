@@ -8,9 +8,9 @@ import logging
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from apps.launchers.app_launcher_if import AppLauncherIf, StatusCallback
+from ui.system.app_launcher_if import (AppLauncherIf, StatusCallback)
 from controllers.application_runtime import AppRuntimeManager
-from controllers.navigation.map_presentation_if import MapPresentationIf
+from ui.navigation.map_presentation_if import (MapPresentationIf)
 from controllers.radio.radio_controller_if import RadioControllerIf
 from controllers.weather import WeatherController
 from config.runtime_config import (

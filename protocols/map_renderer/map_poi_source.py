@@ -5,6 +5,9 @@
 
 from __future__ import annotations
 
+import logging
+
+from common.logging.structured import event
 import math
 from dataclasses import dataclass
 from queue import Empty, SimpleQueue
@@ -15,11 +18,14 @@ from messaging.zeromq.publisher import ZeroMqPublisher
 from messaging.zeromq.subscriber import ZeroMqSubscriber
 from ui.navigation import GeoPoint
 
+_LOG = logging.getLogger("navigation.poi.map")
+
 MAP_COMMAND_TOPIC = "map.command"
 POI_SELECTED_TOPIC = "map.poi.selected"
 POI_SEARCH_RESULT_TOPIC = "map.poi.search_result"
 MAP_CLICK_TOPIC = "map.click"
 MAP_CAMERA_MANUAL_TOPIC = "map.camera.manual"
+MAP_CAMERA_CHANGED_TOPIC = "map.camera.changed"
 
 
 @dataclass(frozen=True, slots=True)
@@ -50,6 +56,27 @@ class RawPoiSearchResult:
     east: float
 
 
+@dataclass(frozen=True, slots=True)
+class RawMapCamera:
+    latitude: float
+    longitude: float
+    zoom: float
+    bearing: float
+    pitch: float
+
+    @classmethod
+    def decode(cls, payload: Any) -> RawMapCamera | None:
+        if not isinstance(payload, dict):
+            return None
+        values = [payload.get(key) for key in ("latitude", "longitude", "zoom", "bearing", "pitch")]
+        if not all(type(value) in (int, float) and math.isfinite(value) for value in values):
+            return None
+        latitude, longitude, zoom, bearing, pitch = values
+        if not (-90 <= latitude <= 90 and -180 <= longitude <= 180 and 0 <= zoom <= 22 and 0 <= pitch <= 85):
+            return None
+        return cls(*(float(value) for value in values))
+
+
 class MapPoiSource:
     """Marshal native renderer POI protocol onto the controller/UI thread."""
 
@@ -60,10 +87,12 @@ class MapPoiSource:
         self._subscriber.subscribe(POI_SEARCH_RESULT_TOPIC)
         self._subscriber.subscribe(MAP_CLICK_TOPIC)
         self._subscriber.subscribe(MAP_CAMERA_MANUAL_TOPIC)
+        self._subscriber.subscribe(MAP_CAMERA_CHANGED_TOPIC)
         self._queue: SimpleQueue[RawMapPoi] = SimpleQueue()
         self._search_queue: SimpleQueue[RawPoiSearchResult] = SimpleQueue()
         self._click_queue: SimpleQueue[RawMapClick] = SimpleQueue()
         self._camera_queue: SimpleQueue[bool] = SimpleQueue()
+        self._camera_state_queue: SimpleQueue[RawMapCamera] = SimpleQueue()
         self._thread = Thread(target=self._receive, name="map-poi-source", daemon=True)
         self._thread.start()
 
@@ -85,6 +114,14 @@ class MapPoiSource:
             return True
         except Empty:
             return False
+
+    def poll_camera_state(self) -> RawMapCamera | None:
+        latest = None
+        while True:
+            try:
+                latest = self._camera_state_queue.get_nowait()
+            except Empty:
+                return latest
 
     def poll_search_result(self) -> RawPoiSearchResult | None:
         try:
@@ -119,17 +156,16 @@ class MapPoiSource:
             elif topic == MAP_CLICK_TOPIC:
                 click = self._decode_click(payload)
                 if click is not None:
-                    print(
-                        "[map-poi] received click "
-                        f"lat={math.degrees(click.position.latitude_rad):.7f} "
-                        f"lon={math.degrees(click.position.longitude_rad):.7f} "
-                        f"radius_m={click.selection_radius_m:.1f} "
-                        f"marker_id={click.marker_id!r} "
-                        f"marker_index={click.marker_index!r}"
-                    )
+                    _LOG.debug("Received map click lat=%.7f lon=%.7f radius_m=%.1f marker_id=%r marker_index=%r",
+                               math.degrees(click.position.latitude_rad), math.degrees(click.position.longitude_rad),
+                               click.selection_radius_m, click.marker_id, click.marker_index)
                     self._click_queue.put(click)
                 else:
-                    print(f"[map-poi] rejected click payload: {payload!r}")
+                    event(_LOG, logging.WARNING, "poi.click.rejected", "Rejected malformed map click")
+            elif topic == MAP_CAMERA_CHANGED_TOPIC:
+                camera = RawMapCamera.decode(payload)
+                if camera is not None:
+                    self._camera_state_queue.put(camera)
             elif topic == MAP_CAMERA_MANUAL_TOPIC:
                 self._camera_queue.put(True)
             elif topic == POI_SEARCH_RESULT_TOPIC:
@@ -175,6 +211,8 @@ class MapPoiSource:
         radius = payload.get("selection_radius_m")
         marker_id = payload.get("marker_id")
         marker_index = payload.get("marker_index")
+        if isinstance(marker_id, str) and marker_id.startswith("weather-city:"):
+            return None
         if not isinstance(latitude, (int, float)) or not isinstance(longitude, (int, float)):
             return None
         if not isinstance(radius, (int, float)) or float(radius) <= 0.0:

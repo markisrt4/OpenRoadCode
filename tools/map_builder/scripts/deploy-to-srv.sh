@@ -60,6 +60,41 @@ else
   SEARCH_DB="$SOURCE$LEGACY_POI_DB_REL"
 fi
 
+echo "Verifying build manifest matches deployable artifacts"
+PYTHONPATH="$REPO_ROOT${PYTHONPATH:+:$PYTHONPATH}" \
+python3 - "$SOURCE" <<'PYMANIFEST'
+import json
+from pathlib import Path
+import sys
+
+from tools.map_builder.builder.validate import validate_output
+
+root = Path(sys.argv[1])
+manifest_path = root / "build-manifest.json"
+manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+if manifest.get("schema") != 2:
+    raise SystemExit(
+        f"Refusing deployment: expected manifest schema 2, got {manifest.get('schema')!r}"
+    )
+
+validation = validate_output(root, service_smoke=False)
+recorded = manifest.get("validation") or {}
+if recorded.get("source_pbfs") != validation["source_pbfs"]:
+    raise SystemExit(
+        "Refusing deployment: manifest source PBF count does not match current artifacts"
+    )
+
+recorded_checksums = recorded.get("checksums") or {}
+current_checksums = validation.get("checksums") or {}
+for name, checksum in current_checksums.items():
+    if recorded_checksums.get(name) != checksum:
+        raise SystemExit(
+            f"Refusing deployment: manifest checksum for {name} does not match current artifact"
+        )
+
+print("Manifest matches current validated artifacts")
+PYMANIFEST
+
 echo "Validating POI search database schema"
 PYTHONPATH="$REPO_ROOT${PYTHONPATH:+:$PYTHONPATH}" \
 python3 - "$SEARCH_DB" <<'PYVALIDATE'

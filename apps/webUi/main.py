@@ -1,10 +1,20 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-FileCopyrightText: 2026 OpenRoadCode contributors
 # SPDX-License-Identifier: MIT
 
 """OpenRoadCode browser application bootstrap."""
 
 import atexit
 import os
+import shutil
+
+from apps.webUi.music_analysis_source_session import WebMusicAnalysisSourceSession
+from apps.webUi.music_reactive_lighting_session import WebMusicReactiveLightingSession
+from apps.webUi.song_recognition_session import WebSongRecognitionSession
+from controllers.audio.capture import AndroidPlaybackAudioCapture, PipewireAudioCapture
+from controllers.audio.music_analysis import MusicAnalysisFanout
+from controllers.audio.music_analysis.music_analysis_session import MusicAnalysisSession, PushAudioCapture
+from controllers.lighting import DummyLightingController, MusicReactiveLighting
 
 from apps.webUi.menu_catalog import create_web_ui_menu_pages
 from apps.webUi.navigation_session import WebNavigationSession
@@ -101,19 +111,59 @@ def _create_bus_consumer() -> tuple[
     return navigation_state, vehicle_state, dispatcher
 
 
+def _create_music_analysis() -> tuple[MusicAnalysisSession, WebMusicReactiveLightingSession]:
+    """Compose one analyzer with platform-provided capture factories.
+
+    Browser capture is always available through an external PCM transport.
+    PipeWire is advertised only when its recording executable is installed.
+    Android playback is offered on Android, or explicitly for integration tests.
+    Native capture and its user-consent flow belong to the Android bridge.
+    No backend is started or selected during application construction.
+    """
+    sources = {"browser": PushAudioCapture}
+    if shutil.which("pw-record") is not None:
+        sources["linux-pipewire"] = PipewireAudioCapture
+    if os.environ.get("ANDROID_ROOT") or os.environ.get("OPENROADCODE_ANDROID_PLAYBACK", "0") == "1":
+        sources["android-playback"] = AndroidPlaybackAudioCapture
+
+    if os.environ.get("OPENROADCODE_WEB_DUMMY_LIGHTING", "0") != "1":
+        return MusicAnalysisSession(sources), WebMusicReactiveLightingSession()
+
+    controller = DummyLightingController()
+    controller.connect().result()
+    reactive_lighting = MusicReactiveLighting(controller)
+    fanout = MusicAnalysisFanout((reactive_lighting.update,))
+    return (
+        MusicAnalysisSession(sources, consumer=fanout),
+        WebMusicReactiveLightingSession(reactive_lighting),
+    )
+
+
 navigation_session, position_zmq_publisher, periodic_position_publisher = _create_navigation_session()
 navigation_ui_state, vehicle_ui_state, bus_dispatcher = _create_bus_consumer()
 spotify_session = WebSpotifySession()
+song_recognition_session = WebSongRecognitionSession()
+audio_session, music_reactive_lighting_session = _create_music_analysis()
+# Temporary HTTP adapters preserve the original endpoints without duplicating
+# capture pipelines, analyzers, or calibration state.
+music_analysis_session = WebMusicAnalysisSourceSession(audio_session, "browser")
+linux_music_analysis_session = WebMusicAnalysisSourceSession(audio_session, "linux-pipewire")
 app = create_web_frontend(
     create_web_ui_menu_pages(),
     navigation_session=navigation_session,
     navigation_ui_state=navigation_ui_state,
     vehicle_ui_state=vehicle_ui_state,
     spotify_session=spotify_session,
+    music_analysis_session=music_analysis_session,
+    linux_music_analysis_session=linux_music_analysis_session,
+    audio_session=audio_session,
+    music_reactive_lighting_session=music_reactive_lighting_session,
+    song_recognition_session=song_recognition_session,
 )
 
 
 def _close_messaging() -> None:
+    audio_session.stop()
     bus_dispatcher.close()
     if periodic_position_publisher is not None:
         periodic_position_publisher.close()

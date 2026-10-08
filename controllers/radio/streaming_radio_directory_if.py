@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 
-from controllers.radio.streaming_radio_types import StreamingRadioStation
+from ui.radio.streaming_radio_types import (StreamingRadioStation)
 
 
 class StreamingRadioDirectoryIf(ABC):

@@ -17,6 +17,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 PROFILE_DIR = Path(
     os.environ.get("OPENROADCODE_SERVICE_PROFILE_DIR", "/var/lib/openroadcode/service-profiles")
 )
+RUNTIME_ENV_FILE = PROFILE_DIR / "openroadcode-runtime.env"
 
 
 @dataclass(frozen=True, slots=True)
@@ -36,6 +37,7 @@ class SystemdServiceManager:
 
     SERVICE_UNITS = {
         "openroadcode-message-broker": "openroadcode-message-broker.service",
+        "openroadcode-valhalla": "valhalla.service",
         "openroadcode-navigation": "openroadcode-navigation.service",
         "openroadcode-automotive": "openroadcode-automotive.service",
         "openroadcode-adsb": "readsb.service",
@@ -43,6 +45,7 @@ class SystemdServiceManager:
     SERVICES = tuple(SERVICE_UNITS)
     CORE_STACK = (
         "openroadcode-message-broker",
+        "openroadcode-valhalla",
         "openroadcode-navigation",
         "openroadcode-automotive",
     )
@@ -110,6 +113,27 @@ class SystemdServiceManager:
                 return profile
         return "custom"
 
+    def set_android_bridge_url(self, bridge_url: str) -> None:
+        """Persist the Android Bridge endpoint as shared runtime state."""
+        if not bridge_url.startswith(("http://", "https://")):
+            raise ValueError("Android Bridge URL must use http or https")
+        runtime_config = f'OPENROADCODE_ANDROID_BRIDGE_URL="{bridge_url}"\n'
+        if RUNTIME_ENV_FILE.exists() and RUNTIME_ENV_FILE.read_text(encoding="utf-8") == runtime_config:
+            return
+
+        navigation_service = "openroadcode-navigation"
+        restart_navigation = (
+            self.profile(navigation_service) == "local"
+            and self.status(navigation_service).state == "running"
+        )
+        PROFILE_DIR.mkdir(parents=True, exist_ok=True)
+        temporary = RUNTIME_ENV_FILE.with_suffix(".tmp")
+        temporary.write_text(runtime_config, encoding="utf-8")
+        temporary.chmod(0o644)
+        temporary.replace(RUNTIME_ENV_FILE)
+        if restart_navigation:
+            self._systemctl("restart", self._unit(navigation_service))
+
     def set_profile(self, name: str, profile: str) -> ServiceStatus:
         profiles = self.PROFILE_CONFIGS.get(name)
         if not profiles:
@@ -121,10 +145,8 @@ class SystemdServiceManager:
         PROFILE_DIR.mkdir(parents=True, exist_ok=True)
         profile_file = self._profile_file(name)
         temporary = profile_file.with_suffix(".tmp")
-        temporary.write_text(
-            f'OPENROADCODE_RUNTIME_PROFILE="{profile}"\n',
-            encoding="utf-8",
-        )
+        lines = [f'OPENROADCODE_RUNTIME_PROFILE="{profile}"']
+        temporary.write_text("\n".join(lines) + "\n", encoding="utf-8")
         temporary.chmod(0o644)
         temporary.replace(profile_file)
         if was_running:

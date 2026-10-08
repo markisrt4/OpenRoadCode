@@ -7,6 +7,9 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ORC_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 SETUP_SCRIPT="$ORC_ROOT/development/debian/setup_sdrpp.sh"
+TOOLCHAIN_LOCK="$ORC_ROOT/scripts/installers/toolchain.lock"
+# shellcheck disable=SC1090
+source "$TOOLCHAIN_LOCK"
 
 [[ -x "$SETUP_SCRIPT" ]] || {
   echo "[!] SDR++ source-build helper was not found or is not executable:" >&2
@@ -26,7 +29,7 @@ ARCH="$(dpkg --print-architecture)"
 
 echo "[*] Ubuntu/Debian codename: $CODENAME"
 echo "[*] Architecture:           $ARCH"
-echo "[*] SDR++ source ref:       ${SDRPP_REF:-master}"
+echo "[*] SDR++ source ref:       ${SDRPP_REF:-$SDRPP_COMMIT}"
 echo
 
 STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/openroadcode"
@@ -34,7 +37,7 @@ STATE_FILE="$STATE_DIR/sdrpp-build.sha256"
 
 compute_build_fingerprint() {
   {
-    printf 'SDRPP_REF=%s\n' "${SDRPP_REF:-master}"
+    printf 'SDRPP_REF=%s\n' "${SDRPP_REF:-$SDRPP_COMMIT}"
     find "$ORC_ROOT/development/sdrpp/remote_control" \
          "$ORC_ROOT/development/sdrpp/telemetry" \
          -type f -print0 | sort -z | xargs -0 sha256sum
@@ -46,7 +49,7 @@ BUILD_FINGERPRINT="$(compute_build_fingerprint)"
 INSTALLED_FINGERPRINT=""
 [[ -f "$STATE_FILE" ]] && INSTALLED_FINGERPRINT="$(cat "$STATE_FILE")"
 
-SDRPP_SRC_DIR="${SDRPP_SRC:-$HOME/SDRPlusPlus}"
+SDRPP_SRC_DIR="${SDRPP_SRC:-${XDG_STATE_HOME:-$HOME/.local/state}/openroadcode/build/SDRPlusPlus}"
 SDRPP_ROOT_DIR="$SDRPP_SRC_DIR/root_dev"
 
 sdrpp_runtime_ready() {
@@ -104,8 +107,8 @@ fi
 echo
 echo "[+] OpenRoadCode SDR++ source build installed."
 echo "    launcher: $(command -v sdrpp)"
-echo "    source:   ${SDRPP_SRC:-$HOME/SDRPlusPlus}"
-echo "    ref:      ${SDRPP_REF:-master}"
+echo "    source:   $SDRPP_SRC_DIR"
+echo "    ref:      ${SDRPP_REF:-$SDRPP_COMMIT}"
 echo
 echo "Test SDR:"
 echo "    rtl_test -t"

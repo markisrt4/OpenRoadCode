@@ -15,7 +15,7 @@ command -v proot-distro >/dev/null 2>&1 || {
 }
 
 DISPLAY_NUMBER="${DISPLAY_NUMBER:-:1}"
-SDRPP_DIR="${SDRPP_DIR:-/root/SDRPlusPlus}"
+SDRPP_DIR="${SDRPP_DIR:-/root/.local/state/openroadcode/build/SDRPlusPlus}"
 
 echo "[*] Starting SDR++ in Debian proot on DISPLAY=$DISPLAY_NUMBER"
 

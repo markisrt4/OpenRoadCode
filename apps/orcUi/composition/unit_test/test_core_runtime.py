@@ -28,6 +28,63 @@ class MapRuntimeTest(unittest.TestCase):
 
         renderer.launch.assert_called_once_with(display=":9", parent_window_id=1234)
 
+    @patch("apps.orcUi.core_runtime.install_map_style")
+    @patch.dict("apps.orcUi.core_runtime.os.environ", {"DISPLAY": ":1"})
+    def test_set_theme_restarts_running_renderer(self, install_map_style: Mock) -> None:
+        renderer = Mock()
+        renderer.is_running.return_value = True
+        runtime = MapRuntime(renderer)
+        runtime.launch(1234)
+        runtime.set_theme(ThemeMode.DARK)
+        renderer.reset_mock()
+        install_map_style.reset_mock()
+        renderer.is_running.return_value = True
+
+        runtime.set_theme(ThemeMode.LIGHT)
+
+        install_map_style.assert_called_once_with(ThemeMode.LIGHT)
+        renderer.stop.assert_called_once_with()
+        renderer.launch.assert_called_once_with(display=":1", parent_window_id=1234)
+
+    @patch("apps.orcUi.core_runtime.install_map_style")
+    def test_same_theme_does_not_restart_renderer(self, install_map_style: Mock) -> None:
+        renderer = Mock()
+        renderer.is_running.return_value = True
+        runtime = MapRuntime(renderer)
+        runtime.launch(1234)
+        runtime.set_theme(ThemeMode.DARK)
+        renderer.reset_mock()
+        renderer.is_running.return_value = True
+
+        runtime.set_theme(ThemeMode.DARK)
+
+        install_map_style.assert_called_with(ThemeMode.DARK)
+        renderer.stop.assert_not_called()
+        renderer.launch.assert_not_called()
+
+    @patch("apps.orcUi.core_runtime.install_map_style")
+    def test_theme_after_stop_does_not_restart_obsolete_host(self, install_map_style):
+        renderer = Mock()
+        runtime = MapRuntime(renderer)
+        runtime.launch(1234)
+        runtime.stop()
+        renderer.reset_mock()
+        renderer.is_running.return_value = True
+        runtime.set_theme(ThemeMode.LIGHT)
+        renderer.launch.assert_not_called()
+        renderer.stop.assert_not_called()
+
+    @patch.dict("apps.orcUi.core_runtime.os.environ", {"DISPLAY": ":1"})
+    def test_launch_replaces_running_renderer_for_new_host(self):
+        renderer = Mock()
+        renderer.is_running.return_value = True
+        runtime = MapRuntime(renderer)
+        runtime.launch(1234)
+        renderer.reset_mock()
+        runtime.launch(5678)
+        renderer.stop.assert_called_once()
+        renderer.launch.assert_called_once_with(display=":1", parent_window_id=5678)
+
     def test_stop_delegates_to_renderer(self) -> None:
         renderer = Mock()
         runtime = MapRuntime(renderer)

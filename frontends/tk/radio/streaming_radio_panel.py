@@ -17,7 +17,7 @@ from PIL import Image, ImageOps, ImageTk
 
 from controllers.radio.streaming_radio_controller import StreamingRadioController
 from controllers.radio.streaming_radio_directory_if import StreamingRadioDirectoryIf
-from controllers.radio.streaming_radio_types import StreamingRadioStation
+from ui.radio.streaming_radio_types import (StreamingRadioStation)
 
 BG = "#05090d"
 PANEL = "#0b1117"

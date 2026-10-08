@@ -61,6 +61,8 @@ export OPENROADCODE_CACHE_ROOT="$CACHE_ROOT"
 export OPENROADCODE_BROKER_SUBSCRIBER_ENDPOINT="$BROKER_SUBSCRIBER_ENDPOINT"
 
 echo "OpenRoadCode map graphics backend: ${OPENROADCODE_GRAPHICS_BACKEND:-system}"
+echo "OpenRoadCode map display: $DISPLAY (EGL_PLATFORM=${EGL_PLATFORM:-default})"
+echo "OpenRoadCode map executable: $RENDERER"
 echo "OpenRoadCode map config: $CONFIG"
 echo "OpenRoadCode map data root: $DATA_ROOT"
 echo "OpenRoadCode map runtime dir: $XDG_RUNTIME_DIR"
