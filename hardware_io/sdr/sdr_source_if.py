@@ -57,4 +57,4 @@ class SdrSourceIf(ABC):
 
     @abstractmethod
     def read_iq(self) -> IqBlock:
-        """Return the next available block of raw IQ samples."""
+        """Block until the next IQ block is available or acquisition stops."""
