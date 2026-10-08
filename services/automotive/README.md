@@ -217,6 +217,21 @@ For a serial Bluetooth ELM327 on Linux/Raspberry Pi, `/dev/rfcomm0` must already
 
 The service publishes to `[messaging].publisher_endpoint` at the configured `rate_hz`.
 
+### Diagnostic component probe
+
+Before diagnostics are connected to the service UI path, exercise the semantic
+scanner directly against the Android bridge or another ELM327 TCP endpoint:
+
+```bash
+python -m controllers.automotive.obd2.component_test.obd2_diagnostics_cli \
+  --host 127.0.0.1 --port 35000 --request-rate-hz 6
+```
+
+Add `--raw` when transport-level response tracing is needed. The probe advances
+the scan one physical request at a time and observes the configured request-rate
+budget. The production integration must likewise enter the existing OBD polling
+scheduler; it must not operate a concurrent request loop against the adapter.
+
 ## Structured logging
 
 The service configures the shared [ORC JSON Lines logger](../../common/logging/README.md)

@@ -7,8 +7,15 @@ from __future__ import annotations
 
 import argparse
 import sys
+import time
+from collections.abc import Callable
 
-from controllers.automotive.obd2 import Elm327ObdAdapter
+from controllers.automotive.obd2 import (
+    Elm327ObdAdapter,
+    Obd2DiagnosticStatus,
+    Obd2DiagnosticsScanner,
+    Obd2DiagnosticsSnapshot,
+)
 from hardware_io.automotive.elm327 import Elm327ConnectionError, Elm327TcpDevice
 from protocols.obd2 import Obd2Error, Obd2Request, Obd2Response
 
@@ -20,6 +27,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=35000)
     parser.add_argument("--timeout", type=float, default=2.0)
+    parser.add_argument(
+        "--request-rate-hz",
+        type=float,
+        default=6.0,
+        help="maximum physical OBD request rate (default: 6)",
+    )
     parser.add_argument(
         "--raw",
         action="store_true",
@@ -46,40 +59,6 @@ def _print_responses(label: str, responses: tuple[Obd2Response, ...]) -> None:
         )
 
 
-def _decode_mil(responses: tuple[Obd2Response, ...]) -> None:
-    for response in responses:
-        if not response.data:
-            continue
-        status = response.data[0]
-        print(
-            f"  ECU 0x{response.ecu_id:X}: MIL={'ON' if status & 0x80 else 'OFF'}, "
-            f"stored emissions DTC count={status & 0x7F}"
-        )
-
-
-def _decode_dtc_word(first: int, second: int) -> str:
-    families = "PCBU"
-    return (
-        f"{families[(first >> 6) & 0x03]}"
-        f"{(first >> 4) & 0x03:X}"
-        f"{first & 0x0F:X}"
-        f"{(second >> 4) & 0x0F:X}"
-        f"{second & 0x0F:X}"
-    )
-
-
-def _decode_dtcs(responses: tuple[Obd2Response, ...]) -> tuple[str, ...]:
-    codes: list[str] = []
-    for response in responses:
-        data = response.data
-        for offset in range(0, len(data) - 1, 2):
-            first, second = data[offset], data[offset + 1]
-            if first == 0 and second == 0:
-                continue
-            codes.append(_decode_dtc_word(first, second))
-    return tuple(codes)
-
-
 def _request(
     device: Elm327TcpDevice,
     adapter: Elm327ObdAdapter,
@@ -100,8 +79,65 @@ def _request(
     return adapter._parse_response(request, elm_response)
 
 
+def run_scheduled_scan(
+    request: Callable[[Obd2Request], tuple[Obd2Response, ...]],
+    *,
+    request_rate_hz: float,
+    sleep: Callable[[float], None] = time.sleep,
+) -> Obd2DiagnosticsSnapshot:
+    """Run one semantic scan without exceeding the physical request budget."""
+    if request_rate_hz <= 0:
+        raise ValueError("request_rate_hz must be positive")
+    session = Obd2DiagnosticsScanner.create_session()
+    interval_s = 1.0 / request_rate_hz
+    first = True
+    while (next_request := session.next_request) is not None:
+        if not first:
+            sleep(interval_s)
+        first = False
+        try:
+            responses = request(next_request)
+        except Obd2Error as exc:
+            print(
+                f"  Mode {next_request.mode:02X} unsupported/error: {exc}",
+                file=sys.stderr,
+            )
+            responses = ()
+        session.accept(responses)
+    return session.snapshot()
+
+
+def _state(value: bool | None, true: str, false: str) -> str:
+    if value is None:
+        return "UNKNOWN"
+    return true if value else false
+
+
+def _print_snapshot(snapshot: Obd2DiagnosticsSnapshot) -> None:
+    print("\nSemantic diagnostic snapshot")
+    print(f"  MIL: {_state(snapshot.mil_on, 'ON', 'OFF')}")
+    count = "UNKNOWN" if snapshot.stored_dtc_count is None else snapshot.stored_dtc_count
+    print(f"  Stored DTC count: {count}")
+    print(
+        "  Emissions monitors: "
+        + _state(snapshot.emissions_ready, "READY", "NOT READY")
+    )
+    ecus = ", ".join(f"0x{ecu:X}" for ecu in snapshot.responding_ecus)
+    print(f"  Responding ECUs: {ecus or 'none'}")
+    for status in Obd2DiagnosticStatus:
+        codes = [item for item in snapshot.trouble_codes if item.status is status]
+        rendered = ", ".join(
+            f"{item.code} (ECU {'--' if item.ecu_id is None else f'0x{item.ecu_id:X}'})"
+            for item in codes
+        )
+        print(f"  {status.name.title()} DTCs: {rendered or 'none'}")
+
+
 def main() -> int:
     args = parse_args()
+    if args.request_rate_hz <= 0:
+        print("ERROR: --request-rate-hz must be positive", file=sys.stderr)
+        return 2
     device = Elm327TcpDevice(host=args.host, port=args.port, timeout=args.timeout)
     adapter = Elm327ObdAdapter(device)
 
@@ -112,33 +148,16 @@ def main() -> int:
         return 1
 
     try:
-        mil = _request(
-            device,
-            adapter,
-            Obd2Request(mode=0x01, pid=0x01),
-            raw=args.raw,
+        snapshot = run_scheduled_scan(
+            lambda request: _request(
+                device,
+                adapter,
+                request,
+                raw=args.raw,
+            ),
+            request_rate_hz=args.request_rate_hz,
         )
-        _print_responses("Mode 01 PID 01 - monitor status since DTCs cleared", mil)
-        _decode_mil(mil)
-
-        for mode, label in (
-            (0x03, "Mode 03 - stored DTCs"),
-            (0x07, "Mode 07 - pending DTCs"),
-            (0x0A, "Mode 0A - permanent DTCs"),
-        ):
-            try:
-                responses = _request(
-                    device,
-                    adapter,
-                    Obd2Request(mode=mode),
-                    raw=args.raw,
-                )
-            except Obd2Error as exc:
-                print(f"\n{label}\n  Unsupported/error: {exc}")
-                continue
-            _print_responses(label, responses)
-            codes = _decode_dtcs(responses)
-            print("  DTCs: " + (", ".join(codes) if codes else "none reported"))
+        _print_snapshot(snapshot)
     finally:
         adapter.disconnect()
 

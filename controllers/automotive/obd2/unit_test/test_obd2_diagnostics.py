@@ -7,6 +7,7 @@ import unittest
 
 from controllers.automotive.obd2.obd2_diagnostics import (
     Obd2DiagnosticStatus,
+    Obd2DiagnosticsScanSession,
     Obd2DiagnosticsScanner,
 )
 from protocols.obd2 import Obd2AdapterIf, Obd2Request, Obd2Response
@@ -31,6 +32,24 @@ class _Adapter(Obd2AdapterIf):
 
 
 class Obd2DiagnosticsScannerTest(unittest.TestCase):
+    def test_incremental_session_exposes_one_request_per_step(self) -> None:
+        session = Obd2DiagnosticsScanSession()
+        requests = []
+        while (request := session.next_request) is not None:
+            requests.append((request.mode, request.pid))
+            session.accept(())
+
+        self.assertEqual(
+            requests,
+            [(0x01, 0x01), (0x03, None), (0x07, None), (0x0A, None)],
+        )
+        self.assertTrue(session.complete)
+        self.assertIsNone(session.snapshot().mil_on)
+
+    def test_incomplete_session_cannot_publish_a_snapshot(self) -> None:
+        with self.assertRaisesRegex(RuntimeError, "not complete"):
+            Obd2DiagnosticsScanSession().snapshot()
+
     def test_scans_multi_ecu_healthy_vehicle(self) -> None:
         adapter = _Adapter({
             (0x01, 0x01): (

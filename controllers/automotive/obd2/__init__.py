@@ -7,6 +7,7 @@ from controllers.automotive.obd2.obd2_diagnostics import (
     Obd2DiagnosticStatus,
     Obd2DiagnosticTroubleCode,
     Obd2DiagnosticsScanner,
+    Obd2DiagnosticsScanSession,
     Obd2DiagnosticsSnapshot,
 )
 
@@ -15,7 +16,7 @@ __all__ = [
     "Obd2DiagnosticStatus",
     "Obd2DiagnosticTroubleCode",
     "Obd2DiagnosticsScanner",
+    "Obd2DiagnosticsScanSession",
     "Obd2DiagnosticsSnapshot",
     "Obd2Manager",
 ]
-

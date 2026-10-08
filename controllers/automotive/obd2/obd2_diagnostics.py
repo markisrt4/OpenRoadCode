@@ -39,6 +39,45 @@ class Obd2DiagnosticsSnapshot:
     trouble_codes: tuple[Obd2DiagnosticTroubleCode, ...]
 
 
+class Obd2DiagnosticsScanSession:
+    """Accumulate one diagnostic scan through single-request scheduler steps."""
+
+    REQUESTS = (
+        Obd2Request(mode=0x01, pid=0x01),
+        Obd2Request(mode=0x03),
+        Obd2Request(mode=0x07),
+        Obd2Request(mode=0x0A),
+    )
+
+    def __init__(self) -> None:
+        self._responses: list[tuple[Obd2Response, ...]] = []
+
+    @property
+    def complete(self) -> bool:
+        """Return whether every diagnostic service has been sampled."""
+        return len(self._responses) == len(self.REQUESTS)
+
+    @property
+    def next_request(self) -> Obd2Request | None:
+        """Return the next request, or None when the scan is complete."""
+        if self.complete:
+            return None
+        return self.REQUESTS[len(self._responses)]
+
+    def accept(self, responses: tuple[Obd2Response, ...]) -> None:
+        """Store responses for the current step and advance the session."""
+        if self.complete:
+            raise RuntimeError("diagnostic scan is already complete")
+        self._responses.append(tuple(responses))
+
+    def snapshot(self) -> Obd2DiagnosticsSnapshot:
+        """Build the semantic result after all scheduled steps complete."""
+        if not self.complete:
+            raise RuntimeError("diagnostic scan is not complete")
+        monitor, stored, pending, permanent = self._responses
+        return Obd2DiagnosticsScanner.decode(monitor, stored, pending, permanent)
+
+
 class Obd2DiagnosticsScanner:
     """Read generic emissions diagnostics without owning adapter lifecycle."""
 
@@ -46,11 +85,24 @@ class Obd2DiagnosticsScanner:
         self._adapter = adapter
 
     def scan(self) -> Obd2DiagnosticsSnapshot:
-        monitor = self._adapter.request(Obd2Request(mode=0x01, pid=0x01))
-        stored = self._adapter.request(Obd2Request(mode=0x03))
-        pending = self._adapter.request(Obd2Request(mode=0x07))
-        permanent = self._adapter.request(Obd2Request(mode=0x0A))
+        session = self.create_session()
+        while (request := session.next_request) is not None:
+            session.accept(self._adapter.request(request))
+        return session.snapshot()
 
+    @staticmethod
+    def create_session() -> Obd2DiagnosticsScanSession:
+        """Create a scan that a low-bandwidth scheduler can advance."""
+        return Obd2DiagnosticsScanSession()
+
+    @staticmethod
+    def decode(
+        monitor: tuple[Obd2Response, ...],
+        stored: tuple[Obd2Response, ...],
+        pending: tuple[Obd2Response, ...],
+        permanent: tuple[Obd2Response, ...],
+    ) -> Obd2DiagnosticsSnapshot:
+        """Decode four generic diagnostic-service response groups."""
         valid_monitor = tuple(response for response in monitor if response.data)
         ecu_ids = tuple(sorted({
             response.ecu_id
@@ -71,16 +123,18 @@ class Obd2DiagnosticsScanner:
         )
 
         readiness = [
-            self._decode_readiness(response)
+            Obd2DiagnosticsScanner._decode_readiness(response)
             for response in valid_monitor
             if len(response.data) >= 4
         ]
         emissions_ready = None if not readiness else all(readiness)
 
         trouble_codes = (
-            self._decode_dtcs(stored, Obd2DiagnosticStatus.STORED)
-            + self._decode_dtcs(pending, Obd2DiagnosticStatus.PENDING)
-            + self._decode_dtcs(permanent, Obd2DiagnosticStatus.PERMANENT)
+            Obd2DiagnosticsScanner._decode_dtcs(stored, Obd2DiagnosticStatus.STORED)
+            + Obd2DiagnosticsScanner._decode_dtcs(pending, Obd2DiagnosticStatus.PENDING)
+            + Obd2DiagnosticsScanner._decode_dtcs(
+                permanent, Obd2DiagnosticStatus.PERMANENT
+            )
         )
         return Obd2DiagnosticsSnapshot(
             mil_on=mil_on,
