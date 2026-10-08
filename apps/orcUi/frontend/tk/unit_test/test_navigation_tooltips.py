@@ -17,7 +17,7 @@ def test_right_side_controls_have_action_descriptions():
     with patch("apps.orcUi.frontend.tk.navigation_panel_layout.tk"):
         build_navigation_panel(panel)
     descriptions = [call.args[1] for call in panel._add_tooltip.call_args_list]
-    assert len(descriptions) == 14
+    assert len(descriptions) == 13
     for text in ("Toggle following the vehicle", "Zoom in", "Zoom out",
                  "Current map zoom level", "Switch between overhead 2D and tilted 3D view",
                  "Rotate north to the top (turns follow off)",

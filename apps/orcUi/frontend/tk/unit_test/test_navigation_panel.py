@@ -31,7 +31,6 @@ class NavigationPanelControlTest(unittest.TestCase):
         panel._poi_launching = False
         panel._poi_action_buttons = []
         panel._earth_button = None
-        panel._earth_place = None
         panel._unsubscribe_online_mode = Mock()
         panel._places_handler.poll_action_result.return_value = None
         panel._shortcut_status = Mock()
@@ -341,34 +340,3 @@ def test_close_places_cancels_poll_and_debounce_and_rejects_late_callbacks():
     panel._poll_poi_events()
     assert panel._places_handler.mock_calls == []
     panel._shortcut_status.set.assert_not_called()
-
-
-class EarthOverlayRequestTest(unittest.TestCase):
-    _panel = NavigationPanelControlTest._panel
-    def test_earth_without_selection_opens_home_without_vehicle_location(self):
-        panel = self._panel()
-        panel._places_handler.request_action.return_value = 7
-        panel._explore_selected_place()
-        poi, action = panel._places_handler.request_action.call_args.args
-        self.assertEqual(poi.poi_id, "earth-home")
-        self.assertEqual(action.uri, "https://earth.google.com/web/")
-        panel._request_handler.assert_not_called()
-        self.assertTrue(panel._poi_launching)
-
-    def test_earth_offline_cannot_launch_even_by_direct_request(self):
-        panel = self._panel()
-        panel._online_mode = Mock(online=False)
-        panel._explore_selected_place()
-        panel._places_handler.request_action.assert_not_called()
-
-
-    def test_earth_uses_existing_semantic_place_handoff(self):
-        panel = self._panel()
-        action = PoiAction(PoiActionKind.OPEN_WEBSITE, "Explore in Google Earth",
-                           provider_id="google-earth-explore", uri="https://earth.google.com/web/search/42,-83")
-        poi = PointOfInterest("place", "Place", PoiCategory.OTHER, GeoPoint(0.5, -1), actions=(action,))
-        panel._earth_place = poi
-        panel._places_handler.request_action.return_value = 7
-        panel._explore_selected_place()
-        panel._places_handler.request_action.assert_called_once_with(poi, action)
-        self.assertEqual(panel._poi_action_request[0], 7)

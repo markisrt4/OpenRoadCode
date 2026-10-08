@@ -1,13 +1,15 @@
 # Google Earth destination exploration
 
-The active ORC navigation view uses MapLibre. Press the **globe icon in the map’s
-upper-right corner** to open the ordinary Earth home page. Select a place on the
-map or from a nearby POI search first to open that destination instead. The
-colour globe has transparent corners and a circular native X11 window; offline
-mode greys it out and disables launching. Earth opens in a separate ordinary
-native Chromium window, with its normal browser and Earth controls. Internet
-access and native Chromium are required. Close the browser window when finished;
-ORC continues using MapLibre.
+The active ORC navigation view uses MapLibre. Select a POI on the map or from a
+nearby search, then press the **globe icon inside that place’s popup** to explore
+its destination in Earth. The icon sits beside the place name; the map has no
+floating Earth control. The colour PNG globe has transparent corners that blend
+into the popup; offline mode greys it out and disables launching.
+
+Earth opens the selected destination in a separate ordinary native Chromium
+window, with its normal browser and Earth controls. Internet access and native
+Chromium are required. Close the browser window when finished to return to ORC,
+which continues using MapLibre. A successful launch closes the selected POI card.
 
 The handoff passes only the selected place through a URL. It does not embed Earth,
 subscribe to GPS, inject location, expose DevTools, or automate the Earth camera.
@@ -192,7 +194,3 @@ This removes operations associated with the reported surface loss, but the actua
 Termux/Zink behavior still requires testing: select embedded Earth, verify GPS,
 switch to MapLibre and back, leave and return to Navigation, resize, then close
 ORC. A standalone success does not prove the embedded GPU path is stable.
-
-The globe uses a transient floating window so the native X11 map cannot cover it. It follows the map corner and hides with the navigation screen. Offline mode disables the control and changes the globe to grey; returning online restores it. Earth exploration requires a network connection and has no offline fallback.
-
-Clicking the globe without a selected place opens the ordinary Earth home page. With a place selected it opens that destination. The colour PNG globe has transparent corners; an X11 Shape mask clips the floating window into a circle on Termux/X11 without needing a compositor. A greyscale globe indicates offline mode.

@@ -95,7 +95,6 @@ class NavigationPanel(NavigationPlacesControls, NavigationRadarControls, Navigat
         self._online_mode = online_mode
         self._poi_action_buttons = []
         self._earth_button = None
-        self._earth_place = None
         self._poi_launching = False
         self._poi_action_request = None
         self._unsubscribe_online_mode = (
@@ -145,6 +144,7 @@ class NavigationPanel(NavigationPlacesControls, NavigationRadarControls, Navigat
         for child in self.winfo_children():
             child.destroy()
         self._poi_card = None
+        self._earth_button = None
         self._build()
 
     def set_map_request_handler(self, handler: MapRequestHandlerIf | None) -> None:
@@ -160,9 +160,9 @@ class NavigationPanel(NavigationPlacesControls, NavigationRadarControls, Navigat
 
     def close_places(self) -> None:
         """Cancel pending view callbacks and close its places session once."""
-        overlay = self.__dict__.get("_earth_overlay")
-        if overlay is not None and overlay.winfo_exists():
-            overlay.destroy()
+        card = self.__dict__.get("_poi_card")
+        if card is not None and card.winfo_exists():
+            card.destroy()
         if self._places_closed:
             return
         self._places_closed = True

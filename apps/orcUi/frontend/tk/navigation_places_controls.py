@@ -3,11 +3,10 @@
 
 """Widget behavior for contract-bound POI and saved destination controls."""
 import tkinter as tk
-from ui.navigation import GeoPoint, MapMarker, MapMarkerKind
-from ui.navigation.poi_models import PoiAction, PoiActionKind, PoiCategory, PointOfInterest, TransitMode
+from ui.navigation import MapMarker, MapMarkerKind
+from ui.navigation.poi_models import PoiAction, PoiCategory, PointOfInterest, TransitMode
 from ui.navigation.route_types import TravelMode
 from .navigation_panel_layout import show_poi_card
-from .navigation_earth_overlay import sync_earth_overlay
 from .navigation_poi_actions import execute_poi_action, poll_poi_launch_results
 
 _POI_SEARCH_SETTLE_MS = 750
@@ -25,7 +24,6 @@ class NavigationPlacesControls:
         if category is not None:
             self._start_poi_search(category)
             return
-        self._earth_place = None
         self._places_handler.clear()
         self._request_handler.request_poi_focus(None)
         self._active_poi_render_category = ""
@@ -60,7 +58,6 @@ class NavigationPlacesControls:
                 pass
             self._poi_search_after_id = None
 
-        self._earth_place = None
         self._places_handler.clear()
         self._request_handler.request_poi_focus(None)
         self._active_poi_render_category = ""
@@ -85,7 +82,6 @@ class NavigationPlacesControls:
                 pass
             self._poi_search_after_id = None
         category_name = category.name.casefold()
-        self._earth_place = None
         self._places_handler.clear()
         self._request_handler.request_poi_focus(None)
         self._active_poi_render_category = _poi_render_category(category, transit_mode)
@@ -133,7 +129,6 @@ class NavigationPlacesControls:
         self._poi_poll_after_id = None
         if self._closed or self._places_closed:
             return
-        sync_earth_overlay(self)
         poll_poi_launch_results(self)
         self._sync_renderer_camera()
         if self._places_handler.poll_camera_interaction():
@@ -172,7 +167,6 @@ class NavigationPlacesControls:
             self._poi_poll_after_id = self.after(100, self._poll_poi_events)
 
     def _show_poi_card(self, poi: PointOfInterest) -> None:
-        self._earth_place = poi
         show_poi_card(self, poi)
 
     def _navigate_to_poi(self, poi: PointOfInterest) -> None:
@@ -194,22 +188,6 @@ class NavigationPlacesControls:
     @property
     def online_actions_allowed(self) -> bool:
         return self._online_mode is None or self._online_mode.online
-
-    def _explore_selected_place(self) -> None:
-        poi = self._earth_place
-        if poi is None:
-            action = PoiAction(PoiActionKind.OPEN_WEBSITE, "Open Google Earth",
-                               provider_id="google-earth-explore", uri="https://earth.google.com/web/")
-            # A generic website action needs no device or map coordinates.
-            poi = PointOfInterest("earth-home", "Google Earth", PoiCategory.OTHER,
-                                  GeoPoint(0, 0), actions=(action,))
-            self._execute_poi_action(poi, action)
-            return
-        action = next((a for a in poi.actions if a.provider_id == "google-earth-explore"), None)
-        if action is None:
-            self._shortcut_status.set("Earth exploration is unavailable for this place")
-            return
-        self._execute_poi_action(poi, action)
 
     def _refresh_poi_action_buttons(self) -> None:
         if self._earth_button is not None and self._earth_button.winfo_exists():

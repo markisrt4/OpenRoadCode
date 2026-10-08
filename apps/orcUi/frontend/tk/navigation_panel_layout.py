@@ -5,7 +5,7 @@
 
 import tkinter as tk
 
-from .navigation_earth_overlay import build_earth_overlay
+from .navigation_earth_control import build_earth_control
 
 from ui.navigation.poi_models import (PoiActionKind, PoiCategory, TransitMode)
 
@@ -121,7 +121,6 @@ def build_navigation_panel(panel) -> None:
         body, bg=ui.background, highlightthickness=1, highlightbackground=ui.border
     )
     panel._map_host.grid(row=0, column=0, sticky="nsew")
-    build_earth_overlay(panel, tk)
     controls = tk.Frame(
         body, bg=ui.surface_alt, width=62, highlightthickness=1, highlightbackground=ui.border
     )
@@ -237,7 +236,6 @@ def build_navigation_panel(panel) -> None:
 
 def show_poi_card(panel, poi) -> None:
     """Show selected business information above the native map window."""
-    """Show selected business information above the native map window."""
     ui = panel._theme_bundle.ui
     if panel._poi_card is not None and panel._poi_card.winfo_exists():
         panel._poi_card.destroy()
@@ -265,13 +263,22 @@ def show_poi_card(panel, poi) -> None:
     )
     frame.pack(fill=tk.BOTH, expand=True)
 
+    header = tk.Frame(frame, bg=ui.surface_alt)
+    header.pack(fill=tk.X, pady=(10, 2))
+    panel._earth_button = None
+    earth_action = next((action for action in poi.actions
+                         if action.provider_id == "google-earth-explore"), None)
+    if earth_action is not None:
+        build_earth_control(panel, header, poi, earth_action, tk)
+
     tk.Label(
-        frame,
+        header,
         text=poi.name,
         bg=ui.surface_alt,
         fg=ui.text,
         font=("Sans", 15, "bold"),
-    ).pack(pady=(14, 2))
+        wraplength=350,
+    ).pack(side=tk.LEFT, fill=tk.X, expand=True, padx=12)
 
     details: list[str] = []
     if poi.brand and poi.brand.casefold() != poi.name.casefold():
@@ -344,5 +351,6 @@ def show_poi_card(panel, poi) -> None:
         width=8,
     ).pack(side=tk.LEFT, padx=4)
 
+    panel._refresh_poi_action_buttons()
     popup.lift()
     popup.focus_force()
