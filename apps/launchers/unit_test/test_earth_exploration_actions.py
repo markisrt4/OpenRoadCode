@@ -19,6 +19,10 @@ def test_opens_selected_uri_as_plain_browser_window():
         TemporaryDirectory() as temporary,
         patch('apps.launchers.earth_exploration_actions.shutil.which', return_value='/usr/bin/chromium'),
         patch('apps.launchers.earth_exploration_actions.logging_file_path', return_value=Path(temporary)/'earth.log'),
+        # Keep hardware probing out of browser-handoff unit tests: Popen is
+        # shared with subprocess.run, including Android getprop calls.
+        patch('apps.launchers.earth_exploration_actions.graphics_environment',
+              side_effect=lambda environment: dict(environment)),
         patch('apps.launchers.earth_exploration_actions.subprocess.Popen') as launch,
     ):
         assert executor.execute(Mock(), action) == 'Opened selected place in Google Earth'
@@ -49,6 +53,10 @@ def test_home_page_opens_without_selected_coordinates():
         TemporaryDirectory() as temporary,
         patch('apps.launchers.earth_exploration_actions.shutil.which', return_value='/usr/bin/chromium'),
         patch('apps.launchers.earth_exploration_actions.logging_file_path', return_value=Path(temporary)/'earth.log'),
+        # Keep hardware probing out of browser-handoff unit tests: Popen is
+        # shared with subprocess.run, including Android getprop calls.
+        patch('apps.launchers.earth_exploration_actions.graphics_environment',
+              side_effect=lambda environment: dict(environment)),
         patch('apps.launchers.earth_exploration_actions.subprocess.Popen') as launch,
     ):
         assert EarthExplorationActions(Mock()).execute(Mock(), action) == 'Opened Google Earth'
