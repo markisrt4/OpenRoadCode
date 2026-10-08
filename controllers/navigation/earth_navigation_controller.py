@@ -2,6 +2,7 @@
 
 import math
 import threading
+import time
 
 from controllers.navigation.earth_geolocation_bridge import EarthGeolocationBridge
 from controllers.navigation.earth_input_camera_controller import EarthInputCameraController
@@ -29,6 +30,9 @@ class EarthNavigationController:
         self._motion = None
         self._follow = True
         self._tracking = False
+        self._next_tracking_attempt = 0.0
+        self._location_requested = False
+        self.status = "Earth — waiting for ORC GPS"
         self._zoom = 16.5
         self._pitch = 0.0
         self._bearing = 0.0
@@ -41,6 +45,8 @@ class EarthNavigationController:
 
     def reset(self) -> None:
         self._tracking = False
+        self._next_tracking_attempt = 0.0
+        self._location_requested = False
         self._follow = True
         self._chase.set_enabled(False)
 
@@ -56,28 +62,43 @@ class EarthNavigationController:
     def tick(self) -> bool:
         """Install the bridge after page load and deliver the latest valid fix."""
         if not self._bridge.install():
+            self.status = "Earth — waiting for page and GPS bridge"
             return False
         with self._lock:
             position, motion = self._position, self._motion
         if position is None:
+            self.status = "Earth — waiting for ORC GPS coordinates"
             return False
         if not self._follow:
+            self.status = "Earth — location follow paused; use recenter"
             return True
         ok = self._bridge.push_position(
             math.degrees(position.latitude_rad), math.degrees(position.longitude_rad),
             altitude_m=position.altitude_m,
-            accuracy_m=getattr(position, "pfom_m", None) or 5.0,
+            accuracy_m=getattr(position, "accuracy_m", None) or 5.0,
             heading_deg=(math.degrees(motion.course_rad) if motion is not None
                          and motion.course_rad is not None else None),
             speed_m_s=motion.ground_speed_m_s if motion is not None else None,
         )
-        if ok and not self._tracking:
-            self._tracking = self._camera.activate_location_tracking()
-        return ok
+        if not ok:
+            self._tracking = False
+            self.status = "Earth — GPS bridge delivery failed; retrying"
+            return False
+        registrations = self._bridge.registration_count()
+        self._tracking = self._location_requested and registrations is not None and registrations > 0
+        now = time.monotonic()
+        if not self._tracking and now >= self._next_tracking_attempt:
+            self._location_requested = self._camera.activate_location_tracking()
+            self._next_tracking_attempt = now + 5.0
+        self.status = ("Earth — ORC GPS delivered" if self._tracking else
+                       "Earth — GPS delivered; waiting for Earth's location control")
+        return self._tracking
 
     def request_follow(self, enabled: bool) -> None:
         self._follow = enabled
         self._tracking = False
+        self._next_tracking_attempt = 0.0
+        self._location_requested = False
         if enabled:
             self.tick()
 

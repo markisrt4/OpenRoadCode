@@ -11,9 +11,10 @@ from controllers.navigation.earth_navigation_controller import EarthNavigationCo
 class EarthNavigationControllerTest(unittest.TestCase):
     def setUp(self):
         self.bridge, self.camera = Mock(), Mock()
+        self.bridge.registration_count.return_value = 0
         self.controller = EarthNavigationController(bridge=self.bridge, camera=self.camera, dispatcher=Mock())
         self.controller._on_position(SimpleNamespace(data=SimpleNamespace(
-            latitude_rad=math.radians(42), longitude_rad=math.radians(-83), altitude_m=200, pfom_m=6)))
+            latitude_rad=math.radians(42), longitude_rad=math.radians(-83), altitude_m=200, accuracy_m=6)))
         self.controller._on_motion(SimpleNamespace(data=SimpleNamespace(
             course_rad=math.pi / 2, ground_speed_m_s=12)))
 
@@ -41,3 +42,28 @@ class EarthNavigationControllerTest(unittest.TestCase):
         self.assertFalse(self.controller.tick())
         self.bridge.push_position.assert_not_called()
         self.camera.activate_location_tracking.assert_not_called()
+
+    def test_delivered_fix_is_not_reported_as_tracking_before_earth_subscribes(self):
+        self.assertFalse(self.controller.tick())
+        self.assertFalse(self.controller.tick())
+        self.camera.activate_location_tracking.assert_called_once()
+        self.assertIn("location control", self.controller.status)
+        self.bridge.registration_count.return_value = 1
+        self.assertTrue(self.controller.tick())
+
+    def test_location_control_is_retried_after_page_load(self):
+        from unittest.mock import patch
+        with patch("controllers.navigation.earth_navigation_controller.time.monotonic", side_effect=[0, 6]):
+            self.controller.tick()
+            self.controller.tick()
+        self.assertEqual(self.camera.activate_location_tracking.call_count, 2)
+
+    def test_no_coordinates_reports_gps_problem(self):
+        self.controller._on_position(SimpleNamespace(data=SimpleNamespace(latitude_rad=None, longitude_rad=None)))
+        self.assertFalse(self.controller.tick())
+        self.assertIn("ORC GPS coordinates", self.controller.status)
+
+    def test_recenter_clicks_location_even_when_watch_is_already_registered(self):
+        self.bridge.registration_count.return_value = 1
+        self.controller.request_recenter()
+        self.camera.activate_location_tracking.assert_called_once()

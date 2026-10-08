@@ -94,10 +94,10 @@ class EarthGeolocationBridge:
         return value is True
 
     def registration_count(self) -> int | None:
-        """Return the number of Earth watchPosition registrations observed."""
+        """Return the number of active Earth watchPosition registrations."""
         try:
             value = self._client.evaluate_earth(
-                "(() => window.__orcEarthGeoBridge?.registrations ?? null)()"
+                "(() => window.__orcEarthGeoBridge?.callbacks.size ?? null)()"
             )
         except (OSError, RuntimeError, ValueError):
             return None

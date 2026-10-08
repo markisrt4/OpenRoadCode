@@ -68,7 +68,21 @@ python -m controllers.navigation.component_test.earth_cdp_probe_cli --trace-geol
 Chromium's local DevTools endpoint uses port `9223`; do not run a second Earth
 experiment with that port simultaneously. Use the existing graphics helper's
 OpenGL/Vulkan probes and Chromium's `chrome://gpu` report to record the device
-renderer. Do not enable a vendor-specific driver on an unvalidated GPU.
+renderer. On detected Termux Freedreno/Zink hardware, the Earth launcher now
+selects Chromium's ANGLE desktop OpenGL backend (`--use-gl=angle --use-angle=gl`)
+alongside the existing Mesa environment. Explicit browser GPU flags take precedence;
+other devices retain Chromium defaults. Fully restart ORC and its Earth browser
+when changing GPU configuration; a warm browser retains its old launch settings.
+This selects a backend, but does not prove hardware acceleration or improved frame rate.
+
+If location fails, first check that MapLibre has the correct ORC position. Earth's
+status distinguishes missing ORC coordinates, bridge startup, and delivery without
+an active Earth location subscription. The location tool retries every five seconds
+until Earth subscribes, rather than treating a dispatched click as success.
+Use recenter after manually panning. Enable `ORC_EARTH_TRACE=1` before launching
+ORC to log delivered coordinates and active watchers.
+
+Do not enable a vendor-specific driver on an unvalidated GPU.
 
 ## Implementation and validation
 

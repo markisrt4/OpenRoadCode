@@ -8,6 +8,7 @@ from threading import RLock
 from ui.system.app_launcher_if import StatusCallback
 
 from apps.launchers.browser_launcher import BrowserKioskLauncher
+from apps.launchers.graphics_environment import detect_graphics_runtime
 from protocols.chromium.chromium_devtools_client import ChromiumDevToolsClient, DevToolsTarget
 
 
@@ -41,6 +42,14 @@ class GoogleEarthLauncher:
                 f"--remote-debugging-port={self.DEVTOOLS_PORT}",
                 "--remote-debugging-address=127.0.0.1",
             )
+        runtime = detect_graphics_runtime()
+        if runtime.hardware_accelerated and not any(
+            argument.startswith(("--use-gl=", "--use-angle=", "--disable-gpu"))
+            for argument in self._browser.extra_arguments
+        ):
+            # Chromium's WebGL renderer uses ANGLE; select its desktop OpenGL
+            # backend so Mesa's existing Zink/Turnip environment is used.
+            self._browser.extra_arguments += ("--use-gl=angle", "--use-angle=gl")
         self._devtools = ChromiumDevToolsClient(port=self.DEVTOOLS_PORT)
 
     def prepare(self, remote_display: str, set_status: StatusCallback = None) -> None:

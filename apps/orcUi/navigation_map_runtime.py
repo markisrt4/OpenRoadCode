@@ -163,12 +163,11 @@ class NavigationMapRuntime:
             if not self._earth.is_running():
                 raise RuntimeError("Earth browser exited")
             self._embedder.resize(*self._size)
-            ready = self._controller.tick()
+            self._controller.tick()
             with self._lock:
                 if self._current(generation):
                     self._state = replace(self._state, status=(
-                        "Earth — ORC GPS; route/POI overlays remain on MapLibre"
-                        if ready else "Earth — waiting for page/WebGL and GPS bridge"))
+                        self._controller.status + "; overlays remain on MapLibre"))
         except (OSError, RuntimeError, ValueError) as error:
             if self._current(generation):
                 self._select(MapPlatform.MAPLIBRE, generation)
