@@ -4,12 +4,14 @@ import os
 import logging
 import subprocess
 import threading
+import time
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import replace
 
 from apps.orcUi.map_platform_requests import MapPlatformRequests
 from controllers.navigation.earth_navigation_controller import EarthNavigationController
 from frontends.x11.x11_window_embedder import X11WindowEmbedder
+from protocols.chromium.chromium_devtools_client import ChromiumDevToolsClient
 from ui.navigation.map_platform_if import MapPlatform, MapPlatformState
 
 _LOG = logging.getLogger("navigation.earth")
@@ -24,6 +26,7 @@ class NavigationMapRuntime:
         self._earth = earth
         self._controller = controller or EarthNavigationController()
         self._embedder = embedder or X11WindowEmbedder()
+        self._devtools = ChromiumDevToolsClient(port=9223)
         self._online_allowed = online_allowed
         self._earth_enabled = earth_enabled
         self._lock = threading.RLock()
@@ -97,17 +100,19 @@ class NavigationMapRuntime:
                 self._native.stop()
                 display = os.environ.get("DISPLAY", ":1")
                 size = self._size
-                if not self._earth.is_running():
-                    self._earth.configure_app_window(position=(-20000, -20000), size=size)
-                    self._earth.launch(display)
-                else:
-                    self._earth.show(display)
+                # Recreate a blank shell; never reparent an active Earth canvas.
+                self._hide_earth()
+                self._earth.configure_app_window(position=(-20000, -20000), size=size)
+                self._earth.prepare(display)
                 if not self._current(generation):
                     self._hide_earth()
                     return
                 self._embedder.embed(0, self._host, *size, window_class=self._earth.WINDOW_CLASS)
                 self._embedded_size = size
                 if not self._current(generation):
+                    self._hide_earth()
+                    return
+                if not self._load_embedded_earth(generation):
                     self._hide_earth()
                     return
                 self._controller.reset()
@@ -126,25 +131,33 @@ class NavigationMapRuntime:
                 with self._lock:
                     self._state = MapPlatformState(status=f"Earth unavailable: {error}; returned to MapLibre")
 
+    def _load_embedded_earth(self, generation) -> bool:
+        deadline = time.monotonic() + 8.0
+        last_error = None
+        while self._current(generation) and time.monotonic() < deadline:
+            try:
+                target = next((target for target in self._devtools.targets()
+                               if target.url == "about:blank"), None)
+                if target is not None:
+                    result = self._devtools.command(target, "Page.navigate", {
+                        "url": "https://earth.google.com/web"})
+                    if result.get("errorText"):
+                        raise RuntimeError(result["errorText"])
+                    return True
+            except (OSError, RuntimeError, ValueError) as error:
+                last_error = error
+            time.sleep(0.05)
+        if self._current(generation):
+            raise RuntimeError(f"Earth browser shell did not become ready: {last_error or 'no blank page'}")
+        return False
+
     def _hide_earth(self) -> None:
         self._embedded_size = None
-        if self._earth is None:
-            self._embedder.clear()
-            return
         try:
-            if self._embedder.window_id is not None:
-                if self._owner is not None:
-                    self._embedder.detach(self._owner)
-                else:
-                    # Without a persistent host a warm client would be destroyed
-                    # together with the transient map frame.
-                    self._earth.stop(os.environ.get("DISPLAY", ":1"))
-            if self._earth.is_running():
-                self._earth.hide(os.environ.get("DISPLAY", ":1"))
-        except (OSError, RuntimeError, subprocess.SubprocessError) as error:
-            _LOG.warning("Earth window cleanup failed: %s", error)
-            # A retained client must not remain parented to a transient host.
-            self._earth.stop(os.environ.get("DISPLAY", ":1"))
+            if self._earth is not None and self._earth.is_running():
+                # Close while still attached, before the transient host dies.
+                # Moving/hiding a live Zink surface has failed on Termux/X11.
+                self._earth.stop(os.environ.get("DISPLAY", ":1"))
         finally:
             self._embedder.clear()
 

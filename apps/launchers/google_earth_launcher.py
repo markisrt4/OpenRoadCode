@@ -4,6 +4,9 @@
 from __future__ import annotations
 
 from threading import RLock
+from pathlib import Path
+import re
+import time
 
 from ui.system.app_launcher_if import StatusCallback
 
@@ -19,6 +22,7 @@ class GoogleEarthLauncher:
 
     def __init__(self, *, browser: BrowserKioskLauncher | None = None) -> None:
         self._lifecycle_lock = RLock()
+        self._prepared_shell = False
         self._browser = browser or BrowserKioskLauncher(
             url=self._location_url(42.3314, -83.0458),
             process_pattern="earth.google.com",
@@ -41,18 +45,26 @@ class GoogleEarthLauncher:
                 f"--remote-debugging-port={self.DEVTOOLS_PORT}",
                 "--remote-debugging-address=127.0.0.1",
             )
+        if isinstance(self._browser.profile_path, (str, Path)):
+            self._browser.process_pattern = re.escape(str(self._browser.profile_path))
         self._devtools = ChromiumDevToolsClient(port=self.DEVTOOLS_PORT)
 
     def prepare(self, remote_display: str, set_status: StatusCallback = None) -> None:
-        """Warm the browser offscreen without activating an existing window."""
+        """Prepare a blank browser shell before embedding creates Earth surfaces."""
         with self._lifecycle_lock:
             if not self._browser.is_running():
                 self._browser.set_color_scheme("dark")
-                self._browser.launch(remote_display, set_status)
+                original_url = self._browser.url
+                self._browser.url = "about:blank"
+                try:
+                    self._browser.launch(remote_display, set_status)
+                    self._prepared_shell = True
+                finally:
+                    self._browser.url = original_url
             if not self._browser.hide(remote_display, set_status):
                 raise RuntimeError("Google Earth preload could not hide its window")
             if set_status is not None:
-                set_status("Google Earth preloaded")
+                set_status("Google Earth browser shell prepared")
 
     def configure_app_window(self, *, position: tuple[int, int], size: tuple[int, int], parent_window_id: int | None = None) -> None:
         del parent_window_id
@@ -90,10 +102,31 @@ class GoogleEarthLauncher:
     def launch(self, display: str, set_status: StatusCallback = None) -> None:
         with self._lifecycle_lock:
             self._browser.launch(display, set_status)
+            self._load_prepared_shell()
 
     def show(self, display: str, set_status: StatusCallback = None) -> bool:
         with self._lifecycle_lock:
+            self._load_prepared_shell()
             return self._browser.show(display, set_status)
+
+    def _load_prepared_shell(self) -> None:
+        if not self._prepared_shell:
+            return
+        deadline = time.monotonic() + 8.0
+        while time.monotonic() < deadline:
+            targets = self._devtools.targets()
+            if any("earth.google.com" in target.url for target in targets):
+                self._prepared_shell = False
+                return
+            target = next((target for target in targets if target.url == "about:blank"), None)
+            if target is not None:
+                result = self._devtools.command(target, "Page.navigate", {"url": self._browser.url})
+                if result.get("errorText"):
+                    raise RuntimeError(result["errorText"])
+                self._prepared_shell = False
+                return
+            time.sleep(0.05)
+        raise RuntimeError("Prepared Google Earth browser did not expose its blank page")
 
     def hide(self, display: str, set_status: StatusCallback = None) -> bool:
         with self._lifecycle_lock:

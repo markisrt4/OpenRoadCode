@@ -30,3 +30,14 @@ class EarthGeolocationBridgeTest(unittest.TestCase):
         client.evaluate_earth.assert_not_called()
         self.assertTrue(bridge.install())
         self.assertEqual(client.command.call_count, 2)
+
+    def test_new_browser_session_gets_fresh_permission(self):
+        client = Mock()
+        client.version.side_effect = [
+            {"webSocketDebuggerUrl": "ws://localhost/browser/first"},
+            {"webSocketDebuggerUrl": "ws://localhost/browser/second"}]
+        client.evaluate_earth.return_value = True
+        bridge = EarthGeolocationBridge(client)
+        self.assertTrue(bridge.install())
+        self.assertTrue(bridge.install())
+        self.assertEqual(client.command.call_count, 2)

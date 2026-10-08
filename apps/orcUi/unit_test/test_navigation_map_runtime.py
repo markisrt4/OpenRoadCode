@@ -3,6 +3,7 @@
 import threading
 import unittest
 from unittest.mock import Mock
+from types import SimpleNamespace
 
 from apps.orcUi.navigation_map_runtime import NavigationMapRuntime
 from ui.navigation import MapRequestHandlerIf
@@ -16,7 +17,8 @@ class NavigationMapRuntimeTest(unittest.TestCase):
         self.earth = Mock()
         self.earth.WINDOW_CLASS = "earth"
         self.earth.is_running.return_value = False
-        self.earth.launch.side_effect = lambda display: setattr(self.earth.is_running, "return_value", True)
+        self.earth.prepare.side_effect = lambda display: setattr(self.earth.is_running, "return_value", True)
+        self.earth.stop.side_effect = lambda display: setattr(self.earth.is_running, "return_value", False)
         self.embedder = Mock()
         self.embedder.window_id = None
         self.embedder.embed.side_effect = lambda *args, **kwargs: setattr(self.embedder, "window_id", 42)
@@ -25,6 +27,9 @@ class NavigationMapRuntimeTest(unittest.TestCase):
         self.controller.status = "Earth — test GPS"
         self.runtime = NavigationMapRuntime(self.native, self.requests, self.earth,
             controller=self.controller, embedder=self.embedder)
+        self.runtime._devtools = Mock()
+        self.runtime._devtools.targets.return_value = [SimpleNamespace(url="about:blank")]
+        self.runtime._devtools.command.return_value = {}
         self.addCleanup(self.runtime.close)
         self.runtime.resize(800, 400, 999)
         self.runtime.launch(100)
@@ -36,17 +41,17 @@ class NavigationMapRuntimeTest(unittest.TestCase):
         self.runtime.request_platform(MapPlatform.EARTH)
         self.flush()
 
-    def test_switches_back_and_reuses_runtime_owned_browser(self):
+    def test_switches_back_and_recreates_browser_before_loading_earth(self):
         self.select_earth()
         self.assertEqual(MapPlatform.EARTH, self.runtime.state.active)
         self.embedder.embed.assert_called_once_with(0, 100, 800, 400, window_class="earth")
         self.runtime.request_platform(MapPlatform.MAPLIBRE)
         self.flush()
-        self.embedder.detach.assert_called_once_with(999)
-        self.earth.stop.assert_not_called()
+        self.embedder.detach.assert_not_called()
+        self.earth.stop.assert_called_once()
         self.select_earth()
-        self.earth.launch.assert_called_once()
-        self.earth.show.assert_called_once()
+        self.assertEqual(self.earth.prepare.call_count, 2)
+        self.earth.show.assert_not_called()
 
     def test_manual_camera_requests_route_to_active_platform(self):
         self.runtime.requests.request_zoom(17.5)
@@ -73,7 +78,7 @@ class NavigationMapRuntimeTest(unittest.TestCase):
             entered.set()
             release.wait(3)
             self.earth.is_running.return_value = True
-        self.earth.launch.side_effect = launch
+        self.earth.prepare.side_effect = launch
         self.runtime.request_platform(MapPlatform.EARTH)
         self.assertTrue(entered.wait(3))
         self.runtime.request_platform(MapPlatform.MAPLIBRE)
@@ -82,14 +87,15 @@ class NavigationMapRuntimeTest(unittest.TestCase):
         self.embedder.embed.assert_not_called()
         self.assertEqual(MapPlatform.MAPLIBRE, self.runtime.state.active)
 
-    def test_hide_detaches_before_transient_host_can_be_destroyed(self):
+    def test_hide_closes_before_transient_host_can_be_destroyed(self):
         self.select_earth()
         self.runtime.stop()
-        self.embedder.detach.assert_called_once_with(999)
+        self.embedder.detach.assert_not_called()
+        self.earth.stop.assert_called_once()
         self.native.stop.assert_called()
         self.runtime.launch(200)
         self.flush()
-        self.earth.launch.assert_called_once()
+        self.assertEqual(self.earth.prepare.call_count, 2)
         self.assertEqual(self.embedder.embed.call_args.args[1], 200)
 
     def test_close_rejects_pending_and_future_work(self):
@@ -106,7 +112,7 @@ class NavigationMapRuntimeTest(unittest.TestCase):
         self.runtime._online_allowed = lambda: False
         self.runtime.request_platform(MapPlatform.EARTH)
         self.flush()
-        self.earth.launch.assert_not_called()
+        self.earth.prepare.assert_not_called()
         self.assertEqual(MapPlatform.MAPLIBRE, self.runtime.state.active)
 
     def test_browser_exit_restores_native_map(self):
@@ -133,3 +139,24 @@ class NavigationMapRuntimeTest(unittest.TestCase):
         self.flush()
         self.assertEqual(self.embedder.embed.call_count, 2)
         self.embedder.embed.assert_called_with(0, 200, 800, 400, window_class="earth")
+
+    def test_page_navigation_occurs_only_after_embedding(self):
+        calls = Mock()
+        calls.attach_mock(self.embedder, "embedder")
+        calls.attach_mock(self.runtime._devtools, "devtools")
+        self.select_earth()
+        names = [call[0] for call in calls.mock_calls]
+        self.assertLess(names.index("embedder.embed"), names.index("devtools.command"))
+        self.runtime._devtools.command.assert_called_once_with(
+            self.runtime._devtools.targets.return_value[0], "Page.navigate",
+            {"url": "https://earth.google.com/web"})
+
+    def test_navigation_failure_restores_maplibre_and_closes_browser(self):
+        self.runtime._devtools.command.return_value = {"errorText": "network error"}
+        # Expire the retry window after one attempt.
+        from unittest.mock import patch
+        with patch("apps.orcUi.navigation_map_runtime.time.monotonic", side_effect=[0, 0, 9]):
+            self.select_earth()
+        self.assertEqual(self.runtime.state.active, MapPlatform.MAPLIBRE)
+        self.earth.stop.assert_called_once()
+        self.native.launch.assert_called_with(100)

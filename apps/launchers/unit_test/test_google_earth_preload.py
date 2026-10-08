@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import unittest
 from unittest.mock import Mock
+from types import SimpleNamespace
 
 from apps.launchers.google_earth_launcher import GoogleEarthLauncher
 
@@ -28,7 +29,12 @@ class GoogleEarthPreloadTests(unittest.TestCase):
         self.assertNotIn("--use-angle=gl", self.browser.extra_arguments)
 
     def test_prepare_starts_and_hides_browser(self) -> None:
+        launched_urls = []
+        self.browser.launch.side_effect = lambda *args: launched_urls.append(self.browser.url)
+        original_url = self.browser.url
         self.launcher.prepare(":1")
+        self.assertEqual(launched_urls, ["about:blank"])
+        self.assertEqual(self.browser.url, original_url)
         self.browser.launch.assert_called_once_with(":1", None)
         self.browser.hide.assert_called_once_with(":1", None)
         self.browser.stop.assert_not_called()
@@ -56,6 +62,16 @@ class GoogleEarthPreloadTests(unittest.TestCase):
         self.browser.set_url.assert_called_once_with(
             GoogleEarthLauncher._location_url(42.0, -83.0)
         )
+
+    def test_show_of_prepared_shell_loads_earth_for_nonembedded_clients(self):
+        self.launcher.prepare(":1")
+        self.launcher._devtools = Mock()
+        target = SimpleNamespace(url="about:blank")
+        self.launcher._devtools.targets.return_value = [target]
+        self.launcher._devtools.command.return_value = {}
+        self.launcher.show(":1")
+        self.launcher._devtools.command.assert_called_once_with(
+            target, "Page.navigate", {"url": self.browser.url})
 
 
 if __name__ == "__main__":

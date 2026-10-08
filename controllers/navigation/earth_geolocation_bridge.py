@@ -21,21 +21,21 @@ class EarthGeolocationBridge:
         self._client = client or ChromiumDevToolsClient(port=9223)
         self._trace_enabled = os.environ.get("ORC_EARTH_TRACE", "").strip().casefold() in {"1", "true", "yes", "on"}
         self._last_trace_at = 0.0
-        self._permission_granted = False
+        self._permission_browser = ""
 
     def install(self) -> bool:
         """Replace browser geolocation reads with an ORC-owned provider."""
         try:
-            if not self._permission_granted:
-                version = self._client.version()
-                endpoint = version.get("webSocketDebuggerUrl", "")
-                if not endpoint:
-                    return False
+            version = self._client.version()
+            endpoint = version.get("webSocketDebuggerUrl", "")
+            if not endpoint:
+                return False
+            if endpoint != self._permission_browser:
                 browser = DevToolsTarget("browser", "", "", endpoint)
                 self._client.command(browser, "Browser.grantPermissions", {
                     "origin": "https://earth.google.com", "permissions": ["geolocation"],
                 })
-                self._permission_granted = True
+                self._permission_browser = endpoint
             value = self._client.evaluate_earth(
                 r"""(() => {
                     const geo = navigator.geolocation;

@@ -42,12 +42,12 @@ continue running when Earth is selected.
    recenter. Test **Chase view** with a valid position.
 2. Compare a stationary fix and changing ORC positions. Pan manually and verify
    following pauses; recenter should resume it.
-3. Switch to MapLibre and back. Earth should reuse its browser rather than launch
-   a second process. Resize the ORC window and verify the embedded viewport fits.
+3. Switch to MapLibre and back. Earth closes on switching away and opens a fresh
+   embedded browser on return. Resize the ORC window and verify the embedded viewport fits.
 4. Navigate Home, return to Navigation, change theme, and close ORC. Verify that
    Earth never remains attached to a destroyed map host or appears as an orphan
-   window. The application runtime owns the browser; leaving Navigation hides
-   and detaches it, while application shutdown stops it.
+   window. The application runtime owns the browser; leaving Navigation closes
+   it before the map host is destroyed.
 5. Close the Earth browser externally and check that Navigation returns to
    MapLibre. With ORC offline, selecting Earth should leave MapLibre active.
 
@@ -90,11 +90,11 @@ Do not enable a vendor-specific driver on an unvalidated GPU.
 
 `MapPlatformControlIf` exposes immutable selection state and semantic requests
 to the frontend. The composition root owns `NavigationMapRuntime`, which serializes
-browser launch, camera input, resizing, and detachment on one worker. The controller
+browser launch, camera input, resizing, and shutdown on one worker. The controller
 consumes ORC position/motion messages in SI units and converts angles only at the
 browser boundary. Chromium DevTools transport lives under `protocols/chromium`.
 
-Tests cover browser reuse, failure fallback, stale startup cancellation,
+Tests cover fresh browser startup, failure fallback, stale startup cancellation,
 hide/close behavior, camera request routing, and GPS conversion. A local headless
 Chromium fixture verifies real DevTools discovery, WebSocket commands,
 geolocation callback delivery, and keyboard/wheel input. These checks do not
@@ -143,3 +143,18 @@ the test browser and its subscriber. Run only one GPS diagnostic on that port.
 A synthetic position in the initial URL is just the starting view; it does not
 represent a live receiver fix. Device tests must confirm actual coordinates and
 follow behavior, not just a successful bridge delivery.
+
+### Embedded surface startup
+
+ORC prepares an `about:blank` Chromium shell, embeds and sizes it, and then
+navigates to Earth using DevTools. Earth creates its WebGL surface after X11
+reparenting. Switching away or leaving Navigation closes the browser while its
+host still exists; it no longer reparents an active Earth surface for warm reuse.
+Returning reloads Earth. Preload prepares only the blank shell; nonembedded
+application launches still navigate to the configured Earth URL when shown.
+Permission grants are refreshed when Chromium's browser session changes.
+
+This removes operations associated with the reported surface loss, but the actual
+Termux/Zink behavior still requires testing: select embedded Earth, verify GPS,
+switch to MapLibre and back, leave and return to Navigation, resize, then close
+ORC. A standalone success does not prove the embedded GPU path is stable.
