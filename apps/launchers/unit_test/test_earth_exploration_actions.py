@@ -22,7 +22,7 @@ def test_opens_selected_uri_as_plain_browser_window():
         patch('apps.launchers.earth_exploration_actions.subprocess.Popen') as launch,
     ):
         assert executor.execute(Mock(), action) == 'Opened selected place in Google Earth'
-    assert launch.call_args.args[0] == ['/usr/bin/chromium', '--new-window', '--password-store=basic', uri]
+    assert launch.call_args.args[0] == ['/usr/bin/chromium', '--new-window', '--start-maximized', '--password-store=basic', uri]
     fallback.execute.assert_not_called()
 
 

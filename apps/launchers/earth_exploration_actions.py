@@ -34,7 +34,7 @@ class EarthExplorationActions(PoiActionExecutorIf):
         # Normal browser ownership: no embedding, GPS subscriber, DevTools,
         # injected JavaScript, or ORC camera controls.
         with logging_file_path("openroadcode", "earth-explore.log").open("a", encoding="utf-8") as log:
-            subprocess.Popen([browser, "--new-window", "--password-store=basic", action.uri],
+            subprocess.Popen([browser, "--new-window", "--start-maximized", "--password-store=basic", action.uri],
                              env=environment, stdout=log, stderr=subprocess.STDOUT,
                              start_new_session=True)
         return ("Opened Google Earth" if parsed.path == "/web/"

@@ -2,14 +2,17 @@
 
 The active ORC navigation view uses MapLibre. Select a POI on the map or from a
 nearby search, then press the **globe icon inside that place’s popup** to explore
-its destination in Earth. The icon sits beside the place name; the map has no
-floating Earth control. The colour PNG globe has transparent corners that blend
-into the popup; offline mode greys it out and disables launching.
+its destination in Earth. The popup action row contains Navigate, Earth, and Close,
+each with an icon above its text label; the map has no floating Earth control.
+The colour PNG globe has transparent corners that blend into the popup; offline
+mode greys it out and disables launching.
 
-Earth opens the selected destination in a separate ordinary native Chromium
+Earth opens the selected destination in a separate maximized native Chromium
 window, with its normal browser and Earth controls. Internet access and native
-Chromium are required. Close the browser window when finished to return to ORC,
+Chromium are required. Tap the window title bar’s X when finished to return to ORC,
 which continues using MapLibre. A successful launch closes the selected POI card.
+Maximizing fills the X11 desktop while keeping the title bar available for touch-based exit. If you use
+F11 for borderless fullscreen, press F11 again to restore the title bar, then X.
 
 The handoff passes only the selected place through a URL. It does not embed Earth,
 subscribe to GPS, inject location, expose DevTools, or automate the Earth camera.
