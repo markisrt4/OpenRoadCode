@@ -4,6 +4,13 @@
 """Common types for software-defined radio IQ sources."""
 
 from dataclasses import dataclass
+from enum import Enum
+
+
+class IqSampleFormat(str, Enum):
+    """Describe the byte-level representation of IQ samples."""
+
+    U8_INTERLEAVED = "u8_interleaved"
 
 
 @dataclass(frozen=True)
@@ -20,9 +27,13 @@ class SdrCapabilities:
 
 @dataclass(frozen=True)
 class IqBlock:
-    """A block of interleaved raw I/Q sample bytes plus capture metadata."""
+    """A raw IQ block and the RF configuration that produced it.
+
+    timestamp_ns is a monotonic timestamp for the beginning of the block.
+    """
 
     samples: bytes
     center_frequency_hz: int
     sample_rate_hz: int
     timestamp_ns: int
+    sample_format: IqSampleFormat = IqSampleFormat.U8_INTERLEAVED
