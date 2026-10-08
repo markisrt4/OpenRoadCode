@@ -160,6 +160,9 @@ class NavigationPanel(NavigationPlacesControls, NavigationRadarControls, Navigat
 
     def close_places(self) -> None:
         """Cancel pending view callbacks and close its places session once."""
+        overlay = self.__dict__.get("_earth_overlay")
+        if overlay is not None and overlay.winfo_exists():
+            overlay.destroy()
         if self._places_closed:
             return
         self._places_closed = True

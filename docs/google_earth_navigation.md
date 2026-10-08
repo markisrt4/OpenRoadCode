@@ -191,3 +191,5 @@ This removes operations associated with the reported surface loss, but the actua
 Termux/Zink behavior still requires testing: select embedded Earth, verify GPS,
 switch to MapLibre and back, leave and return to Navigation, resize, then close
 ORC. A standalone success does not prove the embedded GPU path is stable.
+
+The globe uses a transient floating window so the native X11 map cannot cover it. It follows the map corner and hides with the navigation screen. Offline mode disables the control and changes the globe to grey; returning online restores it. Earth exploration requires a network connection and has no offline fallback.

@@ -80,7 +80,7 @@ class NavigationPanelControlTest(unittest.TestCase):
         label.return_value.winfo_reqheight.return_value = 18
         with patch.multiple(
             "apps.orcUi.frontend.tk.navigation_panel_layout.tk",
-            Frame=Mock(), Button=Mock(), Label=label, Menubutton=Mock(), Menu=Mock(), BitmapImage=Mock(),
+            Frame=Mock(), Button=Mock(), Label=label, Menubutton=Mock(), Menu=Mock(), BitmapImage=Mock(), Toplevel=Mock(),
         ):
             build_navigation_panel(panel)
         panel._build_radar_controls.assert_called_once()

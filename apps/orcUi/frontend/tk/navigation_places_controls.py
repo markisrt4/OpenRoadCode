@@ -7,6 +7,7 @@ from ui.navigation import MapMarker, MapMarkerKind
 from ui.navigation.poi_models import PoiAction, PoiCategory, PointOfInterest, TransitMode
 from ui.navigation.route_types import TravelMode
 from .navigation_panel_layout import show_poi_card
+from .navigation_earth_overlay import sync_earth_overlay
 from .navigation_poi_actions import execute_poi_action, poll_poi_launch_results
 
 _POI_SEARCH_SETTLE_MS = 750
@@ -132,8 +133,7 @@ class NavigationPlacesControls:
         self._poi_poll_after_id = None
         if self._closed or self._places_closed:
             return
-        if self._earth_button is not None and self._earth_button.winfo_exists():
-            self._earth_button.lift()
+        sync_earth_overlay(self)
         poll_poi_launch_results(self)
         self._sync_renderer_camera()
         if self._places_handler.poll_camera_interaction():
@@ -208,8 +208,12 @@ class NavigationPlacesControls:
 
     def _refresh_poi_action_buttons(self) -> None:
         if self._earth_button is not None and self._earth_button.winfo_exists():
-            self._earth_button.configure(state=tk.NORMAL if self.online_actions_allowed
-                                         and not self._poi_launching else tk.DISABLED)
+            enabled = self.online_actions_allowed and not self._poi_launching
+            self._earth_button.configure(state=tk.NORMAL if enabled else tk.DISABLED)
+            icon = self.__dict__.get("_earth_icon")
+            if icon is not None:
+                ui = self._theme_bundle.ui
+                icon.configure(foreground=ui.accent_primary if enabled else ui.text_muted)
         for button in self._poi_action_buttons:
             if button.winfo_exists():
                 button.configure(state=tk.NORMAL if self.online_actions_allowed and not self._poi_launching else tk.DISABLED)

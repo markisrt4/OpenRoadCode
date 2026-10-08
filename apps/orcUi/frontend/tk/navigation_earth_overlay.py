@@ -5,13 +5,43 @@ _GLOBE_XBM = '#define globe_width 24\n#define globe_height 24\nstatic unsigned c
 
 def build_earth_overlay(panel, toolkit) -> None:
     ui = panel._theme_bundle.ui
-    panel._earth_icon = toolkit.BitmapImage(master=panel._map_host, data=_GLOBE_XBM,
+    overlay = toolkit.Toplevel(panel, bg=ui.control_background)
+    overlay.withdraw()
+    overlay.overrideredirect(True)
+    overlay.transient(panel.winfo_toplevel())
+    panel._earth_overlay = overlay
+    panel._earth_icon = toolkit.BitmapImage(master=overlay, data=_GLOBE_XBM,
                                             foreground=ui.accent_primary)
     panel._earth_button = toolkit.Button(
-        panel._map_host, image=panel._earth_icon, command=panel._explore_selected_place,
+        overlay, image=panel._earth_icon, command=panel._explore_selected_place,
         bg=ui.control_background, activebackground=ui.control_active,
         relief=toolkit.FLAT, highlightthickness=1, highlightbackground=ui.border,
         width=40, height=40, takefocus=True)
-    panel._earth_button.place(relx=1, x=-8, y=8, anchor="ne")
+    panel._earth_button.pack(fill="both", expand=True)
+    panel._map_host.bind("<Configure>", lambda event: sync_earth_overlay(panel), add="+")
+    panel._map_host.bind("<Map>", lambda event: sync_earth_overlay(panel), add="+")
+    panel._map_host.bind("<Unmap>", lambda event: hide_earth_overlay(panel), add="+")
     panel._add_tooltip(panel._earth_button, "Explore the selected place in Google Earth (separate window)")
     panel._refresh_poi_action_buttons()
+
+
+def sync_earth_overlay(panel) -> None:
+    """Keep a separate X11 window above the renderer without global topmost."""
+    overlay = panel.__dict__.get("_earth_overlay")
+    if overlay is None or not overlay.winfo_exists():
+        return
+    host = panel._map_host
+    if not host.winfo_viewable() or host.winfo_width() < 60:
+        overlay.withdraw()
+        return
+    x = host.winfo_rootx() + host.winfo_width() - 54
+    y = host.winfo_rooty() + 8
+    overlay.geometry(f"46x46+{x}+{y}")
+    overlay.deiconify()
+    overlay.lift(panel.winfo_toplevel())
+
+
+def hide_earth_overlay(panel) -> None:
+    overlay = panel.__dict__.get("_earth_overlay")
+    if overlay is not None and overlay.winfo_exists():
+        overlay.withdraw()
