@@ -5,6 +5,8 @@
 
 from __future__ import annotations
 
+from common.logging.diagnostics import ComponentLog, diagnostic_action
+
 import time
 from typing import Any
 
@@ -46,6 +48,7 @@ class Bmp3xx(BarometricSensorIf):
                 f"I2C address must be between 0x00 and 0x7F: {address:#x}"
             )
 
+        self._diagnostics = ComponentLog("environmental.bmp3xx", "sensor")
         self._address = address
         self._provided_i2c = i2c
 
@@ -63,6 +66,7 @@ class Bmp3xx(BarometricSensorIf):
         """Return the configured I2C address."""
         return self._address
 
+    @diagnostic_action("start")
     def start(self) -> None:
         """Initialize the I2C bus and BMP3XX sensor."""
         if self.is_started:
@@ -101,17 +105,23 @@ class Bmp3xx(BarometricSensorIf):
             self._release_i2c()
             raise
 
+        self._diagnostics.changed("lifecycle", "started")
+
+    @diagnostic_action("stop")
     def stop(self) -> None:
         """Release resources owned by the sensor."""
         self._sensor = None
         self._release_i2c()
+        self._diagnostics.changed("lifecycle", "stopped")
 
+    @diagnostic_action("pressure")
     def get_pressure_pa(self) -> float:
         """Return atmospheric pressure in pascals."""
         sensor = self._require_sensor()
         pressure_hpa = float(sensor.pressure)
         return pressure_hpa * self._PASCALS_PER_HECTOPASCAL
 
+    @diagnostic_action("temperature")
     def get_temperature_c(self) -> float:
         """Return sensor temperature in degrees Celsius."""
         sensor = self._require_sensor()

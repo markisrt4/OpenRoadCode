@@ -5,8 +5,12 @@
 
 from __future__ import annotations
 
+import logging
 import threading
 import time
+
+from common.logging.diagnostics import ComponentLog, diagnostic_action
+from common.logging.structured import current_operation, operation
 
 from controllers.computer_vision.camera_frame_processor import CameraFrameProcessor, CameraMode
 from controllers.computer_vision.object_detector_if import DetectionFrame
@@ -41,6 +45,8 @@ class VisionController(VisionRequestHandlerIf):
         *,
         source_label: str,
     ) -> None:
+        self._diagnostics = ComponentLog("vision.session", "vision")
+        self._operation_id = None
         self._dispatcher = dispatcher
         self._ui = ui
         self._camera = camera
@@ -54,7 +60,7 @@ class VisionController(VisionRequestHandlerIf):
         self._closed = False
         self._ai_enabled = True
         self._thread: threading.Thread | None = None
-        self._pending_delivery: tuple[int, VisionUiState] | None = None
+        self._pending_delivery: tuple[int, VisionUiState, str | None] | None = None
         self._delivery_scheduled = False
         self._camera_rate_hz = 0.0
         self._inference_rate_hz = 0.0
@@ -64,25 +70,38 @@ class VisionController(VisionRequestHandlerIf):
         self._ui.set_vision_request_handler(self)
         self._ui.set_vision_state(self._state(VisionLifecycle.INACTIVE))
 
+    @diagnostic_action("activate")
     def request_activate(self) -> None:
         """Start a new camera session when one is not already active."""
         with self._lock:
             if self._closed or self._active:
                 return
+            if self._thread is not None and self._thread.is_alive():
+                raise RuntimeError("Previous camera session is still stopping")
             self._generation += 1
             generation = self._generation
+            self._operation_id = current_operation()
             self._active = True
             self._reset_metrics()
             thread = threading.Thread(
                 target=self._run,
-                args=(generation,),
+                args=(generation, self._operation_id),
                 name="VisionController",
                 daemon=True,
             )
             self._thread = thread
             self._publish(generation, self._state(VisionLifecycle.STARTING, "Starting camera…"))
-            thread.start()
+            try:
+                thread.start()
+            except Exception as error:
+                self._active = False
+                self._thread = None
+                self._publish(generation, self._state(VisionLifecycle.ERROR, f"Camera unavailable: {error}"))
+                self._diagnostics.changed("lifecycle", "error", self._operation_id)
+                raise
+            self._diagnostics.changed("lifecycle", "starting", self._operation_id)
 
+    @diagnostic_action("deactivate")
     def request_deactivate(self) -> None:
         """Stop the current session and invalidate all queued frame deliveries."""
         with self._lock:
@@ -96,10 +115,14 @@ class VisionController(VisionRequestHandlerIf):
         if thread is not None and thread is not threading.current_thread():
             thread.join(timeout=2.0)
         with self._lock:
-            if self._thread is thread:
+            if thread is not None and thread.is_alive():
+                self._diagnostics.failed("stop", operation_id=self._operation_id, reason="timeout")
+            elif self._thread is thread:
                 self._thread = None
+                self._diagnostics.succeeded("stop", self._operation_id)
             if not self._closed:
                 self._publish(generation, self._state(VisionLifecycle.INACTIVE))
+            self._diagnostics.changed("lifecycle", "inactive", self._operation_id)
 
     def request_camera_mode(self, mode: VisionCameraMode) -> None:
         """Apply a semantic processing mode to the current or next session.
@@ -111,6 +134,7 @@ class VisionController(VisionRequestHandlerIf):
             if self._closed:
                 return
             self._processor.set_mode(CameraMode(selected.value))
+            self._diagnostics.changed("camera_mode", selected.value, self._operation_id)
             self._publish(self._generation, self._state(self._lifecycle()))
 
     def request_ai_enabled(self, enabled: bool) -> None:
@@ -122,6 +146,7 @@ class VisionController(VisionRequestHandlerIf):
             if self._closed:
                 return
             self._ai_enabled = bool(enabled)
+            self._diagnostics.changed("ai_enabled", self._ai_enabled, self._operation_id)
             self._publish(self._generation, self._state(self._lifecycle()))
 
     def close(self) -> None:
@@ -133,16 +158,26 @@ class VisionController(VisionRequestHandlerIf):
             self._closed = True
             self._generation += 1
             self._pending_delivery = None
+        self._diagnostics.changed("lifecycle", "closed", self._operation_id)
         self._ui.set_vision_request_handler(None)
 
-    def _run(self, generation: int) -> None:
+    def _run(self, generation: int, operation_id: str) -> None:
+        with operation(operation_id):
+            self._capture_session(generation)
+
+    def _capture_session(self, generation: int) -> None:
         try:
             self._camera.open()
+            if not self._is_current(generation):
+                self._diagnostics.emit(logging.DEBUG, "result_discarded")
+                return
             self._controls.invalidate()
             self._controls.restore_day_defaults()
             self._worker.start()
             with self._lock:
                 self._last_processed_count = self._worker.processed_frames
+            self._diagnostics.succeeded("capture_session")
+            self._diagnostics.changed("lifecycle", "running")
             self._publish(generation, self._state(VisionLifecycle.RUNNING))
             while self._is_current(generation):
                 frame = self._camera.read()
@@ -151,6 +186,8 @@ class VisionController(VisionRequestHandlerIf):
                 self._capture_frame(generation, frame)
         except Exception as exc:
             if self._is_current(generation):
+                self._diagnostics.failed("capture_session", exc)
+                self._diagnostics.changed("lifecycle", "error")
                 with self._lock:
                     self._active = False
                 self._publish(
@@ -158,13 +195,18 @@ class VisionController(VisionRequestHandlerIf):
                     self._state(VisionLifecycle.ERROR, f"Camera unavailable: {exc}"),
                 )
         finally:
-            self._worker.stop()
-            try:
-                self._controls.restore_day_defaults()
-            except RuntimeError:
-                pass
-            self._camera.close()
+            for stage, cleanup in (("worker_stop", self._worker.stop),
+                                   ("restore_profile", self._controls.restore_day_defaults),
+                                   ("camera_close", self._camera.close)):
+                try:
+                    with self._diagnostics.action(stage):
+                        cleanup()
+                except Exception:
+                    # Record failures while still releasing the other resources.
+                    pass
             with self._lock:
+                if generation == self._generation:
+                    self._active = False
                 if self._thread is threading.current_thread():
                     self._thread = None
 
@@ -184,6 +226,7 @@ class VisionController(VisionRequestHandlerIf):
                 else CameraProfile.DAY
             )
             self._controls.apply(target_profile)
+            self._diagnostics.changed("effective_profile", target_profile.value)
             ai_enabled = self._ai_enabled
 
         processed_frame = CameraFrame(processed, frame.timestamp_s, frame.sequence)
@@ -251,14 +294,17 @@ class VisionController(VisionRequestHandlerIf):
     def _publish(self, generation: int, state: VisionUiState) -> None:
         with self._lock:
             if self._closed or generation != self._generation:
+                self._diagnostics.emit(logging.DEBUG, "result_discarded")
                 return
-            self._pending_delivery = (generation, state)
+            self._pending_delivery = (generation, state, current_operation() or self._operation_id)
             if self._delivery_scheduled:
                 return
             self._delivery_scheduled = True
         try:
             self._dispatcher.schedule_ui_callback(0, self._deliver_pending)
-        except Exception:
+            self._diagnostics.succeeded("dispatch")
+        except Exception as error:
+            self._diagnostics.failed("dispatch", error)
             with self._lock:
                 self._delivery_scheduled = False
             raise
@@ -270,10 +316,12 @@ class VisionController(VisionRequestHandlerIf):
             self._delivery_scheduled = False
             if pending is None:
                 return
-            generation, state = pending
+            generation, state, operation_id = pending
             if self._closed or generation != self._generation:
+                self._diagnostics.emit(logging.DEBUG, "result_discarded", operation_id)
                 return
-        self._ui.set_vision_state(state)
+        with self._diagnostics.action("delivery", operation_id):
+            self._ui.set_vision_state(state)
 
     def _is_current(self, generation: int) -> bool:
         with self._lock:

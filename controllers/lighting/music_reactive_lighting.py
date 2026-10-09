@@ -6,6 +6,9 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+
+from common.logging.diagnostics import ComponentLog, diagnostic_action
+from common.logging.structured import current_operation
 from concurrent.futures import Future
 from dataclasses import dataclass
 from time import monotonic
@@ -63,6 +66,7 @@ class MusicReactiveLighting:
         if update_interval_seconds < 0.0:
             raise ValueError("update_interval_seconds must be non-negative")
 
+        self._diagnostics = ComponentLog("lighting.reactive", "lighting")
         self._controller = controller
         self._mapper = mapper or MusicReactiveLightingMapper()
         self._update_interval_seconds = update_interval_seconds
@@ -87,8 +91,10 @@ class MusicReactiveLighting:
         if enabled == self._enabled:
             return
         self._enabled = enabled
+        self._diagnostics.changed("enabled", enabled)
         self.reset()
 
+    @diagnostic_action("update")
     def update(
         self,
         analysis: MusicAnalysisState,
@@ -118,9 +124,22 @@ class MusicReactiveLighting:
                 self._controller.set_brightness(derived.brightness_percent)
             )
 
+        operation_id = current_operation()
+        for command in commands:
+            command.add_done_callback(
+                lambda completed: self._command_completed(completed, operation_id)
+            )
         self._last_update_time = now
         self._last_state = derived
         return tuple(commands)
+
+    def _command_completed(self, future, operation_id):
+        try:
+            future.result()
+        except Exception as error:
+            self._diagnostics.failed("output", error, operation_id)
+        else:
+            self._diagnostics.succeeded("output", operation_id)
 
     def reset(self) -> None:
         """Forget rate-limit and last-output state."""

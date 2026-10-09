@@ -5,6 +5,8 @@
 
 from __future__ import annotations
 
+from common.logging.diagnostics import ComponentLog, diagnostic_action
+
 from datetime import datetime, timezone
 import math
 
@@ -18,6 +20,7 @@ class AmbientLightController(AmbientLightControllerIf):
     """Provide validated ambient illuminance from a configured sensor."""
 
     def __init__(self, sensor: AmbientLightSensorIf) -> None:
+        self._diagnostics = ComponentLog("environmental.ambient_light", "sensor")
         self._sensor = sensor
         self._latest_state: AmbientLightState | None = None
 
@@ -37,12 +40,17 @@ class AmbientLightController(AmbientLightControllerIf):
     def latest_state(self) -> AmbientLightState | None:
         return self._latest_state
 
+    @diagnostic_action("start")
     def start(self) -> None:
         self._sensor.start()
+        self._diagnostics.changed("lifecycle", "started")
 
+    @diagnostic_action("stop")
     def stop(self) -> None:
         self._sensor.stop()
+        self._diagnostics.changed("lifecycle", "stopped")
 
+    @diagnostic_action("read")
     def read_state(self) -> AmbientLightState:
         if not self.is_started:
             raise RuntimeError("Ambient light controller is not started")

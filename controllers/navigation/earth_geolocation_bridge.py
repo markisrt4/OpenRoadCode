@@ -6,6 +6,9 @@
 from __future__ import annotations
 
 import json
+import logging
+
+from common.logging.diagnostics import ComponentLog
 import os
 import time
 
@@ -18,6 +21,7 @@ class EarthGeolocationBridge:
     """Provide Google Earth with a synthetic geolocation API backed by ORC."""
 
     def __init__(self, client: ChromiumDevToolsClient | None = None) -> None:
+        self._diagnostics = ComponentLog("navigation.earth.bridge", "earth")
         self._client = client or ChromiumDevToolsClient(port=9223)
         self._trace_enabled = os.environ.get("ORC_EARTH_TRACE", "").strip().casefold() in {"1", "true", "yes", "on"}
         self._last_trace_at = 0.0
@@ -29,6 +33,7 @@ class EarthGeolocationBridge:
             version = self._client.version()
             endpoint = version.get("webSocketDebuggerUrl", "")
             if not endpoint:
+                self._diagnostics.failed("install", reason="unavailable")
                 return False
             if endpoint != self._permission_browser:
                 browser = DevToolsTarget("browser", "", "", endpoint)
@@ -102,8 +107,14 @@ class EarthGeolocationBridge:
                     return true;
                 })()"""
             )
-        except (OSError, RuntimeError, ValueError):
+        except (OSError, RuntimeError, ValueError) as error:
+            self._diagnostics.failed("install", error)
             return False
+        if value is True:
+            self._diagnostics.succeeded("install")
+            self._diagnostics.changed("bridge", "ready")
+        else:
+            self._diagnostics.failed("install", reason="unavailable")
         return value is True
 
     def registration_count(self) -> int | None:
@@ -112,10 +123,12 @@ class EarthGeolocationBridge:
             value = self._client.evaluate_earth(
                 "(() => window.__orcEarthGeoBridge?.callbacks.size ?? null)()"
             )
-        except (OSError, RuntimeError, ValueError):
+        except (OSError, RuntimeError, ValueError) as error:
+            self._diagnostics.failed("registrations", error)
             return None
         if isinstance(value, bool) or not isinstance(value, (int, float)):
             return None
+        self._diagnostics.succeeded("registrations")
         return int(value)
 
     def push_position(
@@ -161,18 +174,19 @@ class EarthGeolocationBridge:
         }})()"""
         try:
             ok = self._client.evaluate_earth(expression) is True
-        except (OSError, RuntimeError, ValueError):
+        except (OSError, RuntimeError, ValueError) as error:
+            self._diagnostics.failed("delivery", error)
             ok = False
+        else:
+            if ok:
+                self._diagnostics.succeeded("delivery")
+            else:
+                self._diagnostics.failed("delivery", reason="unavailable")
         if self._trace_enabled:
             now = time.monotonic()
             if not ok or now - self._last_trace_at >= 1.0:
                 self._last_trace_at = now
                 watchers = self.registration_count()
-                print(
-                    "[earth-bridge] "
-                    f"push={'ok' if ok else 'FAIL'} "
-                    f"lat={payload['latitude']:.6f} lon={payload['longitude']:.6f} "
-                    f"heading={payload['heading']} speed={payload['speed']} watchers={watchers}",
-                    flush=True,
-                )
+                self._diagnostics.emit(logging.DEBUG, "bridge_sample",
+                                       delivered=ok, watcher_count=watchers)
         return ok

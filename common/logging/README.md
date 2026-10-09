@@ -261,3 +261,20 @@ Python tests also run through the existing `scripts/run_tests.py all` gate.
 Repository administrators must add **Logging quality gate** to required branch
 checks if merge blocking is desired; editing a workflow does not change branch
 protection settings.
+
+## Remaining device and exploration coverage
+
+Vision/camera, environmental sensors (including BMP3XX and MPU6050), lighting and
+Earth/POI/GPS adapters use private stage diagnostics. Successful high-frequency
+work stays DEBUG; lifecycle/state changes and recovery are INFO; a new failure
+signature is WARNING. Failures are remembered by fixed stage until recovery or a
+different reason/exception type, independently of the general rate limiter.
+
+The logging CI job discovers device/session/lighting/places/adapter tests under
+`common/logging/unit_test`. Synthetic providers and drivers test privacy, operation
+IDs, recovery, stale completions and cleanup without optional hardware packages
+or socket services. No runtime/installation dependency was added.
+
+Implementation coverage is ready for review; full local quality-gate and installed
+hardware/Android validation remain pending. Follow the
+[device validation checklist](DEVICE_VALIDATION.md) for the final acceptance pass.
