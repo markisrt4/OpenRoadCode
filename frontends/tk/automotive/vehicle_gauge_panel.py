@@ -15,7 +15,7 @@ from tkinter import ttk
 from types import SimpleNamespace
 from typing import Callable, Protocol
 
-from apps.common.uiTheme import (
+from ui.theme.vehicle_gauges import (
     VEHICLE_GAUGE_REDLINE_THEME,
     VEHICLE_GAUGE_THEME,
     VehicleGaugeRedlineTheme,
@@ -44,6 +44,7 @@ from ui.automotive import (
     VehicleTripUiIf,
     VehicleUiIf,
 )
+from ui.ui_widget import UiWidget
 
 class VehicleGaugeSnapshot(Protocol):
     """Minimum telemetry shape consumed directly by the gauge panel."""
@@ -183,7 +184,7 @@ class VehicleGaugePanel(
     VehicleConnectionUiIf,
     VehicleTripUiIf,
     VehicleTireUiIf,
-    VehicleDiagnosticsUiIf,
+    VehicleDiagnosticsUiIf, UiWidget,
 ):
     """Display vehicle state through explicit automotive UI contracts."""
 

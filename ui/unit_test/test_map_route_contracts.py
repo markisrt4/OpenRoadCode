@@ -95,14 +95,9 @@ class MapRouteContractTest(unittest.TestCase):
         self.assertEqual(
             RouteRequestHandlerIf.__abstractmethods__,
             {
+                "supported_travel_modes",
                 "request_start_route",
                 "request_cancel_route",
-                "request_add_waypoint",
-                "request_remove_waypoint",
-                "request_select_alternative",
-                "request_recalculate_route",
-                "request_travel_mode",
-                "request_voice_guidance_muted",
             },
         )
         self.assertIsInstance(MapRequestHandlerStub(), MapRequestHandlerIf)

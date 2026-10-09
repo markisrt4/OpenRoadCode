@@ -7,7 +7,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import Mock
 
-from apps.common.uiTheme import (
+from ui.theme.vehicle_gauges import (
     VEHICLE_GAUGE_REDLINE_THEME,
     VEHICLE_GAUGE_THEME,
     VehicleGaugeRedlineTheme,
@@ -24,7 +24,7 @@ from ui.automotive import (
 
 
 class VehicleGaugeRedlineThemeTest(unittest.TestCase):
-    def test_default_themes_live_in_common_ui_theme(self) -> None:
+    def test_default_themes_preserve_shared_palette(self) -> None:
         self.assertEqual(VEHICLE_GAUGE_THEME.background_color, "#090a0b")
         self.assertEqual(VEHICLE_GAUGE_REDLINE_THEME.danger_color, "#e10d1c")
 

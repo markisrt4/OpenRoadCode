@@ -24,7 +24,7 @@ def test_pending_radar_can_be_disabled_before_frame_finishes_loading():
         screen.request_enabled(False)
         assert not screen._ui.state.enabled
         load()
-    completed = screen._host.schedule_ui_callback.call_args.args[1]
+    completed = screen._host.dispatch_ui.call_args.args[0]
     completed()
     screen._radar_controller.show_frames.assert_not_called()
     screen._radar_controller.hide.assert_called_once_with()
@@ -47,10 +47,10 @@ def test_download_presents_on_ui_thread_and_retries_slow_renderer():
         screen.request_enabled(True)
         thread.call_args.kwargs["target"]()
     screen._radar_controller.show_frames.assert_not_called()
-    screen._host.schedule_ui_callback.call_args.args[1]()
+    screen._host.dispatch_ui.call_args.args[0]()
     screen._radar_controller.show_frames.assert_called_once_with(
         screen._radar_controller.load_frames.return_value)
-    replays = screen._host.schedule_ui_callback.call_args_list[1:]
+    replays = screen._host.schedule_ui_callback.call_args_list
     assert [call.args[0] for call in replays] == [300, 1200, 2500, 5000]
     replays[-1].args[1]()
     screen._refresh_radar.assert_called_once_with()

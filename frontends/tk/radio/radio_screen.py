@@ -10,11 +10,11 @@ from collections.abc import Callable
 
 from frontends.tk.tk_screen import TkScreen
 from frontends.tk.tk_screen_host_if import TkScreenHostIf
-from frontends.x11.x11_window_embedder import X11WindowEmbedder
+from frontends.x11.window_embedder_if import WindowEmbedderIf
 from ui.screen_ui_if import ScreenId
 from ui.theme import ThemeBundle, ThemeMode
 
-RadioPanelFactory = Callable[[tk.Misc, X11WindowEmbedder, ThemeBundle], tk.Widget]
+RadioPanelFactory = Callable[[tk.Misc, WindowEmbedderIf, ThemeBundle], tk.Widget]
 ThemeBundleProvider = Callable[[], ThemeBundle]
 ThemeModeProvider = Callable[[], ThemeMode]
 ThemeSyncHandler = Callable[[ThemeMode], None]
@@ -30,6 +30,7 @@ class RadioScreen(TkScreen):
         theme_bundle: ThemeBundleProvider,
         theme_mode: ThemeModeProvider,
         panel_factory: RadioPanelFactory,
+        embedder: WindowEmbedderIf,
         sync_theme: ThemeSyncHandler | None = None,
         on_location_changed: Callable[[str], None] | None = None,
     ) -> None:
@@ -40,7 +41,7 @@ class RadioScreen(TkScreen):
         self._panel_factory = panel_factory
         self._sync_theme = sync_theme
         self._on_location_changed = on_location_changed
-        self._embedder = X11WindowEmbedder()
+        self._embedder = embedder
         self._panel: tk.Widget | None = None
 
     def show(self) -> None:
@@ -86,6 +87,9 @@ class RadioScreen(TkScreen):
         panel = self._panel
         self._panel = None
         if panel is not None and panel.winfo_exists():
+            deactivate = getattr(panel, "deactivate", None)
+            if callable(deactivate):
+                deactivate()
             detach = getattr(panel, "detach_sdrpp", None)
             if callable(detach):
                 try:

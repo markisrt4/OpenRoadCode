@@ -9,6 +9,7 @@ from dataclasses import dataclass
 import tkinter as tk
 
 from ui.theme import StyleSheet
+from ui.ui_widget import UiWidget
 
 
 @dataclass(frozen=True, slots=True)
@@ -38,7 +39,7 @@ class ShifterTheme:
         )
 
 
-class ShifterGauge(tk.Canvas):
+class ShifterGauge(tk.Canvas, UiWidget):
     """Show the current gear beside a compact Veloster six-speed pattern."""
 
     VALID_GEARS = {"R", "N", "1", "2", "3", "4", "5", "6"}

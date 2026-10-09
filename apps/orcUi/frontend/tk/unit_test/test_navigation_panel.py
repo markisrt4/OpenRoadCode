@@ -186,7 +186,6 @@ class NavigationPanelControlTest(unittest.TestCase):
 
         panel._route_request_handler.request_start_route.assert_called_once_with(
             position,
-            (),
             TravelMode.AUTO,
         )
         panel._shortcut_status.set.assert_called_with("Routing to Home")
@@ -295,7 +294,6 @@ class NavigationPanelControlTest(unittest.TestCase):
 
         panel._route_request_handler.request_start_route.assert_called_once_with(
             poi.position,
-            (),
             TravelMode.AUTO,
         )
         panel._shortcut_status.set.assert_called_with("Routing to Panera Bread")

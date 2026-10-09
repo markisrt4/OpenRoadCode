@@ -7,6 +7,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 
 from ui.ui_action import UiAction
+from ui.ui_widget import UiWidget
 
 
 @dataclass(frozen=True, slots=True)
@@ -28,7 +29,7 @@ class ScreenId:
         return self.value
 
 
-class ScreenUiIf(ABC):
+class ScreenUiIf(ABC, UiWidget):
     """Lifecycle and action contract for one navigable screen.
 
     Implementations may use any UI toolkit. A screen is a navigation

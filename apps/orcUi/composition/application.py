@@ -5,7 +5,9 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+
+from common.resource_cleanup import ResourceCleanup, close_resources
 
 from common.app_settings import AppSettings, AppSettingsStore
 from controllers.weather.radar_palette import RadarPalette
@@ -57,13 +59,16 @@ class OrcUiComposition:
     diagnostics: DiagnosticsScreen | None = None
     performance_status: PerformanceStatusPresenter | None = None
 
+    _closed: bool = field(default=False, init=False)
+
     @property
     def app(self) -> OrcUiApp:
         return self.core.app
 
     def run(self) -> None:
         """Run Tk, close every owned resource, then honor host lifecycle intent."""
-        try:
+        with ResourceCleanup() as cleanup:
+            cleanup.callback(self.close)
             if self.performance is not None:
                 self.performance.start()
             if self.performance_status is not None:
@@ -71,57 +76,36 @@ class OrcUiComposition:
             self.app.schedule_ui_callback(1500, self.runtime.start_background_apps)
             self.core.start()
             self.app.run()
-        finally:
-            try:
-                if self.performance_status is not None:
-                    self.performance_status.close()
-            finally:
-                try:
-                    if self.performance is not None:
-                        self.performance.close()
-                finally:
-                    try:
-                        try:
-                            try:
-                                if self.navigation is not None:
-                                    self.navigation.close()
-                            finally:
-                                if self.navigation_places is not None:
-                                    self.navigation_places.close()
-                        finally:
-                            try:
-                                if self.radar_replay is not None:
-                                    self.radar_replay.close()
-                            finally:
-                                if self.weather_overlays is not None:
-                                    self.weather_overlays.close()
-                    finally:
-                        try:
-                            self.games.shutdown()
-                        finally:
-                            try:
-                                self.media.close()
-                            finally:
-                                try:
-                                    self.weather.close()
-                                finally:
-                                    try:
-                                        self.core.close()
-                                    finally:
-                                        self.runtime.close()
 
         self.core.lifecycle.execute_requested_action()
+
+    def close(self) -> None:
+        """Attempt all owned cleanup once, including before the UI loop starts."""
+        if self._closed:
+            return
+        self._closed = True
+        close_resources(
+            self.app.shutdown,
+            *(resource.close for resource in (
+                self.performance_status, self.performance, self.navigation,
+                self.navigation_places, self.radar_replay, self.weather_overlays,
+            ) if resource is not None),
+            self.radio.close,
+            self.games.shutdown,
+            self.media.close,
+            self.weather.close,
+            self.core.close,
+            self.runtime.close,
+        )
 
 
 def create_orc_ui_composition() -> OrcUiComposition:
     """Create all shell, runtime, and feature dependencies in one place."""
-    runtime = create_orc_ui_application_runtime()
-    core: CoreComposition | None = None
-    overlays: WeatherOverlayController | None = None
-    radar_replay: RadarReplayController | None = None
-    navigation_places: NavigationPlacesFactory | None = None
-    try:
+    with ResourceCleanup() as cleanup:
+        runtime = create_orc_ui_application_runtime()
+        cleanup.callback(runtime.close)
         core = create_core_composition()
+        cleanup.callback(core.close)
         app = core.app
         app.set_theme_change_handler(core.map_runtime.set_theme)
         core.map_runtime.set_theme(app.theme_mode)
@@ -129,8 +113,11 @@ def create_orc_ui_composition() -> OrcUiComposition:
         for destination in ("HOME", "NAVIGATION", "RADIO", "VEHICLE", "VISION", "LIGHTING", "GAMES", "MEDIA"):
             app.register_navigation_destination(destination)
         radio = configure_radio(app, runtime)
+        cleanup.callback(radio.close)
         games = configure_games(app)
+        cleanup.callback(games.shutdown)
         media = configure_media(app, runtime)
+        cleanup.callback(media.close)
         settings_store = AppSettingsStore()
         app_settings = settings_store.load()
 
@@ -157,6 +144,7 @@ def create_orc_ui_composition() -> OrcUiComposition:
             on_weather_status=app.set_weather_status,
             map_renderer=core.map_camera.renderer_client,
         )
+        cleanup.callback(weather.close)
         def set_radar_palette(value: RadarPalette) -> None:
             nonlocal app_settings
             app_settings = AppSettings(
@@ -195,9 +183,11 @@ def create_orc_ui_composition() -> OrcUiComposition:
         overlays = configure_weather_overlays(app, weather_view, core.map_camera.renderer_client,
                                              weather.radar_tiles, unit_system, core.route_request_handler,
                                              core.presentation)
+        cleanup.callback(overlays.close)
         navigation_places = NavigationPlacesFactory(
             online_allowed=lambda: app.online_mode.online,
             camera_observer=core.map_camera.request_handler.observe_camera)
+        cleanup.callback(navigation_places.close)
         navigation = NavigationScreen(
             app,
             online_mode=app.online_mode,
@@ -212,10 +202,12 @@ def create_orc_ui_composition() -> OrcUiComposition:
             on_back=lambda: app.navigate_to("HOME"),
             route_weather=weather_view,
         )
+        cleanup.callback(navigation.close)
         radar_replay = RadarReplayController(app, navigation, weather.radar, injection=weather.radar_injection,
                                               on_palette=set_radar_palette, on_visibility=home.refresh_radar_state,
                                               on_source=weather.select_radar_source,
                                               refresh_renderer=refresh_radar_map_state)
+        cleanup.callback(radar_replay.close)
         navigation.set_radar_request_handler(radar_replay)
         vehicle = VehicleScreen(
             app,
@@ -242,12 +234,14 @@ def create_orc_ui_composition() -> OrcUiComposition:
             on_back=lambda: app.navigate_to("HOME"),
         )
         performance = SystemPerformanceMonitor()
+        cleanup.callback(performance.close)
         diagnostics = DiagnosticsScreen(
             app, provider=performance, history=performance.history,
             theme_bundle=lambda: theme_bundle(app.theme_mode),
             on_back=app.close_diagnostics,
         )
         performance_status = PerformanceStatusPresenter(app, performance, app.set_performance_status)
+        cleanup.callback(performance_status.close)
         home.set_radio_factory(radio.home_factory)
         home.set_media_factory(media.home_factory)
         core.presentation.observe_vehicle(home.apply_vehicle_state)
@@ -270,41 +264,24 @@ def create_orc_ui_composition() -> OrcUiComposition:
         app.register_screen("DIAGNOSTICS", diagnostics, show_in_navigation=False)
         app.set_initial_destination("HOME")
         app.set_settings_action(lambda: app.navigate_to("SETTINGS"))
-    except Exception:
-        try:
-            try:
-                if navigation_places is not None:
-                    navigation_places.close()
-            finally:
-                if radar_replay is not None:
-                    radar_replay.close()
-        finally:
-            try:
-                if overlays is not None:
-                    overlays.close()
-            finally:
-                try:
-                    if core is not None:
-                        core.close()
-                finally:
-                    runtime.close()
-        raise
-    return OrcUiComposition(
-        core=core,
-        runtime=runtime,
-        radio=radio,
-        media=media,
-        games=games,
-        weather=weather,
-        home=home,
-        navigation=navigation,
-        vehicle=vehicle,
-        offroad=offroad,
-        settings=settings,
-        weather_overlays=overlays,
-        radar_replay=radar_replay,
-        navigation_places=navigation_places,
-        performance=performance,
-        diagnostics=diagnostics,
-        performance_status=performance_status,
-    )
+        composition = OrcUiComposition(
+            core=core,
+            runtime=runtime,
+            radio=radio,
+            media=media,
+            games=games,
+            weather=weather,
+            home=home,
+            navigation=navigation,
+            vehicle=vehicle,
+            offroad=offroad,
+            settings=settings,
+            weather_overlays=overlays,
+            radar_replay=radar_replay,
+            navigation_places=navigation_places,
+            performance=performance,
+            diagnostics=diagnostics,
+            performance_status=performance_status,
+        )
+        cleanup.release()
+        return composition

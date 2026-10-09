@@ -12,9 +12,10 @@ from ui.automotive.vehicle_configuration import (VehicleConfiguration)
 from frontends.tk.automotive.trip_metric_card import TripMetricCard
 from ui.theme import ThemeBundle
 from .shell_metrics import FONT_BODY, FONT_CONTROL, FONT_SMALL
+from ui.ui_widget import UiWidget
 
 
-class TripPanel(tk.Frame):
+class TripPanel(tk.Frame, UiWidget):
     """Render and update trip telemetry independently of VehiclePanel."""
 
     def __init__(

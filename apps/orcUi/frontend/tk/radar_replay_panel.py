@@ -7,9 +7,10 @@ from datetime import datetime
 import tkinter as tk
 
 from .shell_metrics import FONT_CONTROL
+from ui.ui_widget import UiWidget
 
 
-class RadarReplayPanel(tk.Toplevel):
+class RadarReplayPanel(tk.Toplevel, UiWidget):
     """Keep replay controls together in a collapsible floating panel."""
 
     def __init__(self, owner, anchor, *, on_play, on_seek, on_live, on_close,

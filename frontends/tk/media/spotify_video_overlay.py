@@ -13,12 +13,13 @@ from frontends.tk.media.spotify_services_if import (
     MusicVideoRequestHandlerIf,
 )
 from frontends.x11 import X11WindowEmbedder
+from ui.ui_widget import UiWidget
 
 SPOTIFY_GREEN = "#1DB954"
 MUSIC_VIDEO_WINDOW_CLASS = "OpenRoadCodeMusicVideo"
 
 
-class SpotifyVideoOverlay:
+class SpotifyVideoOverlay(UiWidget):
     """Embed the active music-video browser over the Spotify content area."""
 
     def __init__(

@@ -5,6 +5,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import tkinter as tk
+from ui.ui_widget import UiWidget
 
 
 @dataclass(frozen=True, slots=True)
@@ -22,7 +23,7 @@ class VolumeIndicatorStyle:
     side: str
 
 
-class VolumeIndicator(tk.Frame):
+class VolumeIndicator(tk.Frame, UiWidget):
     """Render volume level and mute state as a vertical bar graph."""
     def __init__(
         self,

@@ -10,6 +10,7 @@ from collections.abc import Callable
 
 from ui.theme import ThemeBundle
 from .shell_metrics import FONT_CONTROL, SIDE_NAV_WIDTH
+from ui.ui_widget import UiWidget
 
 
 _NAV_LABELS = {"NAVIGATION": "NAV"}
@@ -24,7 +25,7 @@ def _blend(first: str, second: str, amount: float) -> str:
     return "#{:02x}{:02x}{:02x}".format(*rgb)
 
 
-class _NavTile(tk.Canvas):
+class _NavTile(tk.Canvas, UiWidget):
     """Compact navigation tile with drawn iconography and active styling."""
 
     HEIGHT = 50
@@ -204,7 +205,7 @@ class _NavTile(tk.Canvas):
         self.create_polygon(x - 5, y - 8, x + 8, y, x - 5, y + 8, fill=color, outline=color)
 
 
-class OrcUiSideNav(tk.Frame):
+class OrcUiSideNav(tk.Frame, UiWidget):
     """Render a fixed-size viewport over the shell's navigation destinations."""
 
     WIDTH = SIDE_NAV_WIDTH

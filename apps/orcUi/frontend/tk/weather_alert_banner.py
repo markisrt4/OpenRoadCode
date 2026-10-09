@@ -7,6 +7,7 @@ from collections.abc import Callable
 from datetime import datetime
 from ui.theme import ThemeBundle
 from ui.weather import WeatherAlertUiEvent
+from ui.ui_widget import UiWidget
 
 def weather_alert_expiration_text(alert: WeatherAlertUiEvent, now: datetime) -> str:
     if alert.expires_at is None:
@@ -20,7 +21,7 @@ def weather_alert_expiration_text(alert: WeatherAlertUiEvent, now: datetime) -> 
     hours,remaining=divmod(minutes,60)
     return f"Expires in {hours}h {remaining}m" if remaining else f"Expires in {hours}h"
 
-class WeatherAlertBanner(tk.Frame):
+class WeatherAlertBanner(tk.Frame, UiWidget):
     def __init__(self,parent:tk.Misc,*,theme:ThemeBundle,on_details:Callable[[],None],on_dismiss:Callable[[],None])->None:
         self._online=True;self._theme=theme;self._alert=None;self._on_details=on_details;self._on_dismiss=on_dismiss
         super().__init__(parent,bd=0,highlightthickness=1);self.grid_columnconfigure(1,weight=1)

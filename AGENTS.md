@@ -8,6 +8,12 @@
 - Widgets implement presentation contracts and emit requests through handler
   contracts. Do not call concrete controllers, providers, service clients, or
   transports from widgets. Do not inspect their private state.
+- New presentation widgets inherit `ui.UiWidget`, directly or through
+  `ScreenUiIf`/`TkScreen`. This toolkit-independent marker signals the same policy;
+  it adds no lifecycle or dependency injection machinery. Widgets consume supplied
+  contracts; composition constructs and wires concrete dependencies. Concrete
+  rendering may use its frontend toolkit, while shared state and request contracts
+  remain toolkit-independent.
 - Controllers own business logic, workers, caching, retry, playback, and stale
   callback handling. Controllers must not import GUI frameworks or frontends.
 - Composition roots construct dependencies, bind contracts, and own cleanup.

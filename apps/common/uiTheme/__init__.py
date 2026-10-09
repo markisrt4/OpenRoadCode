@@ -18,12 +18,7 @@ from .lighting import LIGHTING_PANEL_THEME
 from .radio import RADIO_PANEL_THEME
 from .spotify import SPOTIFY_PANEL_THEME
 from .weather import WEATHER_PANEL_THEME
-from .vehicle_gauges import (
-    VEHICLE_GAUGE_REDLINE_THEME,
-    VEHICLE_GAUGE_THEME,
-    VehicleGaugeRedlineTheme,
-    VehicleGaugeTheme,
-)
+
 
 __all__ = [
     "COLORS",
@@ -38,8 +33,4 @@ __all__ = [
     "RADIO_PANEL_THEME",
     "SPOTIFY_PANEL_THEME",
     "WEATHER_PANEL_THEME",
-    "VEHICLE_GAUGE_REDLINE_THEME",
-    "VEHICLE_GAUGE_THEME",
-    "VehicleGaugeRedlineTheme",
-    "VehicleGaugeTheme",
 ]

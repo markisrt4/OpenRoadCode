@@ -2,9 +2,10 @@
 # SPDX-License-Identifier: MIT
 """Online-mode button with Android-style ascending signal bars."""
 import tkinter as tk
+from ui.ui_widget import UiWidget
 
 
-class ConnectivityButton(tk.Button):
+class ConnectivityButton(tk.Button, UiWidget):
     def __init__(self, parent, *, command, background, active_background, muted):
         self._muted = muted
         self._last_status = None

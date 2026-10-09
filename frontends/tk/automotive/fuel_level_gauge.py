@@ -8,10 +8,11 @@ from __future__ import annotations
 import math
 import tkinter as tk
 
-from apps.common.uiTheme import VEHICLE_GAUGE_THEME, VehicleGaugeTheme
+from ui.theme.vehicle_gauges import VEHICLE_GAUGE_THEME, VehicleGaugeTheme
+from ui.ui_widget import UiWidget
 
 
-class FuelLevelGauge(tk.Canvas):
+class FuelLevelGauge(tk.Canvas, UiWidget):
     """Compact analog fuel gauge with a needle and graduated level scale."""
 
     SEGMENT_COUNT = 12

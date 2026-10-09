@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 import math
-from collections.abc import Callable, Sequence
+from collections.abc import Callable
 
 from controllers.route_planning.route_planning_types import GeoPoint as RouteGeoPoint
 from controllers.route_planning.route_planning_types import RouteResult
@@ -30,8 +30,11 @@ class NavigationRouteRequestHandler(RouteRequestHandlerIf, RouteSimulationReques
         self._map_renderer = map_renderer or MapRendererClient()
         self._active_route: RouteResult | None = None
         self._route_observers: list[Callable[[RouteResult | None], None]] = []
-        self._travel_mode = TravelMode.AUTO
-        self._waypoints: tuple[GeoPoint, ...] = ()
+
+    @property
+    def supported_travel_modes(self) -> frozenset[TravelMode]:
+        """Expose only modes understood by the navigation command service."""
+        return frozenset((TravelMode.AUTO, TravelMode.BICYCLE, TravelMode.PEDESTRIAN))
 
     @property
     def active_route(self) -> RouteResult | None:
@@ -45,12 +48,10 @@ class NavigationRouteRequestHandler(RouteRequestHandlerIf, RouteSimulationReques
     def request_start_route(
         self,
         destination: GeoPoint,
-        waypoints: Sequence[GeoPoint],
         travel_mode: TravelMode,
     ) -> None:
-        if waypoints:
-            raise NotImplementedError("navigation command service does not yet support waypoints")
-        self._travel_mode = travel_mode
+        if travel_mode not in self.supported_travel_modes:
+            raise ValueError(f"Unsupported route travel mode: {travel_mode.name}")
         route = self._client.start_route(
             RouteGeoPoint(
                 latitude=math.degrees(destination.latitude_rad),
@@ -80,25 +81,3 @@ class NavigationRouteRequestHandler(RouteRequestHandlerIf, RouteSimulationReques
 
     def close(self) -> None:
         self._map_renderer.close()
-
-    def request_add_waypoint(self, waypoint: GeoPoint) -> None:
-        self._waypoints = (*self._waypoints, waypoint)
-
-    def request_remove_waypoint(self, waypoint_index: int) -> None:
-        if not 0 <= waypoint_index < len(self._waypoints):
-            raise IndexError("waypoint_index out of range")
-        self._waypoints = tuple(
-            point for index, point in enumerate(self._waypoints) if index != waypoint_index
-        )
-
-    def request_select_alternative(self, alternative_index: int) -> None:
-        raise NotImplementedError("route alternatives are not yet supported")
-
-    def request_recalculate_route(self) -> None:
-        raise NotImplementedError("explicit route recalculation is owned by the navigation session")
-
-    def request_travel_mode(self, travel_mode: TravelMode) -> None:
-        self._travel_mode = travel_mode
-
-    def request_voice_guidance_muted(self, muted: bool) -> None:
-        del muted

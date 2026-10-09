@@ -13,6 +13,7 @@ from ui.automotive.vehicle_configuration import (VehicleConfiguration)
 from ui.theme import ThemeBundle
 from .ecu_engine_visual import paint_engine_visual
 from .shell_metrics import FONT_BODY, FONT_CONTROL, FONT_SMALL
+from ui.ui_widget import UiWidget
 
 
 def bounded_marker_x(
@@ -32,7 +33,7 @@ def bounded_marker_x(
     return start + ((clamped - minimum) / (maximum - minimum)) * (end - start)
 
 
-class EcuPanel(tk.Frame):
+class EcuPanel(tk.Frame, UiWidget):
     """Dense driver-facing ECU interpretation dashboard."""
 
     def __init__(

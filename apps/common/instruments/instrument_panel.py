@@ -7,9 +7,10 @@ from collections.abc import Mapping
 from apps.common.instruments.gauge_config import GaugeConfig
 from apps.common.instruments.gauge_style  import GaugeStyle
 from apps.common.instruments.gauge_widget import GaugeWidget
+from ui.ui_widget import UiWidget
 
 
-class InstrumentPanel(tk.Frame):
+class InstrumentPanel(tk.Frame, UiWidget):
     """Arrange and update a named collection of telemetry gauges."""
     def __init__(
         self,

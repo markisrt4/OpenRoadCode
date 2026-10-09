@@ -7,8 +7,18 @@ from .theme_bundle import ThemeBundle
 from .theme_mode import ThemeMode
 from .theme_ui_if import ThemeUiIf
 from .ui_theme import Color, UiTheme
+from .vehicle_gauges import (
+    VEHICLE_GAUGE_REDLINE_THEME,
+    VEHICLE_GAUGE_THEME,
+    VehicleGaugeRedlineTheme,
+    VehicleGaugeTheme,
+)
 
 __all__ = [
+    "VEHICLE_GAUGE_REDLINE_THEME",
+    "VEHICLE_GAUGE_THEME",
+    "VehicleGaugeRedlineTheme",
+    "VehicleGaugeTheme",
     "Color",
     "StyleSheet",
     "ThemeBundle",

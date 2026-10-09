@@ -9,16 +9,18 @@ import os
 import tkinter as tk
 from collections.abc import Callable, Sequence
 from pathlib import Path
+from functools import partial
 
 from ui.games import GameStatus, GameUiState, GamesRequestHandlerIf, GamesUiIf
 from ui.theme import ThemeBundle
+from ui.ui_widget import UiWidget
 
 PAGE_SIZE = 6
 FILTERS = (("ALL", "all"), ("CASUAL", "casual"), ("PUZZLE", "puzzle"), ("CARD / BOARD", "card_board"), ("ACTION", "action"))
 _ICON_SIZES = (128, 96, 64, 48, 32, 256)
 
 
-class GamesPanel(tk.Frame, GamesUiIf):
+class GamesPanel(tk.Frame, GamesUiIf, UiWidget):
     """Touch-friendly Tk view that renders game state and emits requests."""
 
     def __init__(self, parent: tk.Misc, *, theme: ThemeBundle) -> None:
@@ -139,7 +141,7 @@ class GamesPanel(tk.Frame, GamesUiIf):
             button = tk.Button(
                 self._filters,
                 text=label,
-                command=lambda selected=category: self._set_filter(selected),
+                command=partial(self._set_filter, category),
                 relief=tk.FLAT,
                 font=("Sans", 14, "bold"),
                 padx=8,
@@ -394,7 +396,7 @@ class GamesPanel(tk.Frame, GamesUiIf):
         action = tk.Button(
             card,
             text=label,
-            command=command,
+            command=command if command is not None else "",
             state=tk.NORMAL if actionable else tk.DISABLED,
             bg=ui.control_background,
             fg=accent,

@@ -16,13 +16,14 @@ from ui.media.spotify_library import (SpotifyLibraryTrack, SpotifyPlaylist)
 from controllers.spotify.spotify_local_player import SpotifyLocalPlayer, SpotifyPlaybackMode
 from controllers.spotify.spotify_state_service import SpotifyStateService
 from frontends.tk.media.spotify_services_if import ArtworkProviderIf
+from ui.ui_widget import UiWidget
 
 ART_SIZE = 56
 LIBRARY_LIMIT = 18
 LIBRARY_COLUMNS = 3
 
 
-class SpotifyBrowsePanel(tk.Frame):
+class SpotifyBrowsePanel(tk.Frame, UiWidget):
     """Spotify playback destination and library browser for the integrated UI."""
 
     def __init__(

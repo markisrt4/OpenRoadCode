@@ -57,7 +57,7 @@ def test_online_transition_enables_panel_before_starting_forced_refresh():
 
 def test_forced_refresh_bypasses_cache_and_reports_error_without_clearing_forecast():
     host = Mock()
-    host.schedule_ui_callback.side_effect = lambda delay, callback: callback() if delay == 0 else None
+    host.dispatch_ui.side_effect = lambda callback: callback()
     controller = Mock()
     controller.refresh.side_effect = TimeoutError("forecast timed out")
     from controllers.weather.weather_state import WeatherState, WeatherSource, CurrentWeather

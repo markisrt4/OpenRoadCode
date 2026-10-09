@@ -165,12 +165,12 @@ class RadarReplayController(RadarRequestHandlerIf):
                     self._radar_injection_controller.refresh()
                 frames = (None if self._radar_controller.has_frames
                           else self._radar_controller.load_frames())
-                self._host.schedule_ui_callback(
-                    0, lambda: self._complete_radar_selection(selector, frames, generation)
+                self._host.dispatch_ui(
+                    lambda: self._complete_radar_selection(selector, frames, generation)
                 )
             except Exception as error:
                 detail = str(error)
-                self._host.schedule_ui_callback(0, lambda: self._radar_load_failed(detail, generation))
+                self._host.dispatch_ui(lambda: self._radar_load_failed(detail, generation))
 
         threading.Thread(target=select, name="weather-radar-history", daemon=True).start()
 
@@ -322,10 +322,10 @@ class RadarReplayController(RadarRequestHandlerIf):
                 if self._radar_injection_controller is not None:
                     self._radar_injection_controller.refresh()
                 frames = controller.load_frames()
-                self._host.schedule_ui_callback(0, lambda: self._show_radar_frames(frames, generation))
+                self._host.dispatch_ui(lambda: self._show_radar_frames(frames, generation))
             except Exception as error:
                 detail = str(error)
-                self._host.schedule_ui_callback(0, lambda: self._radar_load_failed(detail, generation))
+                self._host.dispatch_ui(lambda: self._radar_load_failed(detail, generation))
 
         threading.Thread(target=load_latest, name="weather-radar-refresh", daemon=True).start()
 

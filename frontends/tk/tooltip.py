@@ -6,9 +6,10 @@
 import tkinter as tk
 
 from ui.tooltip_if import TooltipFactoryIf, TooltipRequestHandlerIf, TooltipState, TooltipUiIf
+from ui.ui_widget import UiWidget
 
 
-class TkTooltip(TooltipUiIf):
+class TkTooltip(TooltipUiIf, UiWidget):
     """Translate hover/focus events into requests and render a nearby popup."""
 
     def __init__(self, target: tk.Misc, text: str, factory: TooltipFactoryIf,

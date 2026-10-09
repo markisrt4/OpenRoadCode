@@ -150,3 +150,23 @@ from controllers.radio.adapters.keyboard_radio_adapter import KeyboardRadioAdapt
 ```
 
 This prevents optional transport dependencies from leaking into unrelated applications.
+
+## Streaming Radio
+
+`StreamingRadioBrowser` handles asynchronous directory discovery, stable favorite
+identifiers, playback requests, artwork downloads, and stale completion rejection.
+Frontends bind through `ui.radio.StreamingRadioUiIf`, render immutable browser
+state, and emit semantic station-ID requests. Composition supplies the directory,
+playback backend, favorites storage, worker schedulers, and frontend dispatcher.
+Artwork uses a separate bounded worker pool so logos cannot delay playback.
+
+`StreamingRadioController` owns serialized audio operations and immutable
+playback snapshots. `StreamingRadioStateSourceIf` is the read-only Home contract;
+reading a snapshot does not wait for native startup or shutdown. Hiding a browser
+retires its callbacks and unstarted requests while existing audio continues.
+Application shutdown uses terminal `close()` to stop audio and reject late starts.
+
+Filter values and classification helpers live in `ui/radio/station_filters.py`.
+`controllers.radio.streaming_radio_filters` retains compatibility reexports.
+The migrated streaming path is covered by the strict UI type gate and import
+boundary checks. RF profile/telemetry presentation remains a separate migration.

@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 
-from apps.common.uiTheme import VEHICLE_GAUGE_THEME, VehicleGaugeTheme
+from ui.theme.vehicle_gauges import VEHICLE_GAUGE_THEME, VehicleGaugeTheme
 from ui.theme import StyleSheet
 
 

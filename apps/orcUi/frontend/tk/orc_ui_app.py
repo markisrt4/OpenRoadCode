@@ -5,10 +5,13 @@ from __future__ import annotations
 import os
 import signal
 import tkinter as tk
+from common.resource_cleanup import ResourceCleanup, close_resources
+from frontends.common.ui_callback_queue import UiCallbackQueue
 from ui.system.online_mode_if import OnlineModeIf
 from collections.abc import Callable
 from apps.orcUi.performance_status import PerformanceStatus
-from apps.orcUi.orc_theme import ThemeMode, toggle
+from apps.orcUi.orc_theme import toggle
+from ui.theme import ThemeMode
 from .power_dialog import PowerDialog
 from .screen_builders import (
     build_placeholder,
@@ -20,8 +23,9 @@ from common.host_config import installed_target, orcui_fullscreen_default
 from ui.screen_ui_if import ScreenUiIf
 from ui.system import SystemLifecycleRequestHandlerIf, VolumeRequestHandlerIf, VolumeUiIf
 from ui.weather import WeatherAlertUiEvent
+from ui.ui_widget import UiWidget
 
-class OrcUiApp(VolumeUiIf):
+class OrcUiApp(VolumeUiIf, UiWidget):
     """Own the integrated Tk application shell."""
     def __init__(
         self,
@@ -33,49 +37,56 @@ class OrcUiApp(VolumeUiIf):
         self._theme_mode = ThemeMode.DARK
         self._theme = theme_bundle(self._theme_mode)
         ui = self._theme.ui
-        self._root = tk.Tk()
-        self._root.title("OpenRoadCode")
-        target = installed_target()
-        fullscreen = orcui_fullscreen_default()
-        default_geometry = "1024x600" if target == "termux" else TARGET_GEOMETRY
-        geometry = os.environ.get("ORCUI_GEOMETRY", default_geometry)
-        if fullscreen:
-            self._root.attributes("-fullscreen", True)
-        else:
-            self._root.geometry(geometry)
-            self._root.resizable(True, True)
-            if target != "termux":
-                self._root.minsize(TARGET_WIDTH, TARGET_HEIGHT)
-        self._root.configure(bg=ui.background)
-        self._shell: OrcUiShellView | None = None
-        self._adsb_enabled = False
-        self._aircraft_count = 0
-        self._adsb_toggle_handler: Callable[[bool], bool] | None = None
-        self._adsb_view_handler: Callable[[], None] | None = None
-        self._active_nav = ""
-        self._diagnostics_return = "HOME"
-        self._initial_destination: str | None = None
-        self._nav_items: list[str] = []
-        self._screen_registry: dict[str, ScreenUiIf] = {}
-        self._active_screen: ScreenUiIf | None = None
-        self._content: tk.Frame
-        self._volume_percent: float | None = None
-        self._volume_muted: bool | None = None
-        self._volume_request_handler: VolumeRequestHandlerIf | None = None
-        self._theme_change_handler: Callable[[ThemeMode], None] | None = None
-        self._settings_action: Callable[[], None] | None = None
         self._closing = False
-        self._power_dialog = PowerDialog(
-            self._root,
-            theme=lambda: self._theme,
-            on_exit=self._on_close,
-            on_restart=self._restart_ui,
-            on_shutdown=self._shutdown_system,
-        )
-        self.online_mode = online_mode
-        self._connectivity_toggle = None
-        self._internet_status = None
-        self._build_shell()
+        self._callback_queue = UiCallbackQueue()
+        self._ui_callbacks: set[str] = set()
+        self._active_screen: ScreenUiIf | None = None
+        self._shell: OrcUiShellView | None = None
+        self._power_dialog: PowerDialog | None = None
+        self._root = tk.Tk()
+        with ResourceCleanup() as cleanup:
+            cleanup.callback(self.shutdown)
+            self._root.title("OpenRoadCode")
+            target = installed_target()
+            fullscreen = orcui_fullscreen_default()
+            default_geometry = "1024x600" if target == "termux" else TARGET_GEOMETRY
+            geometry = os.environ.get("ORCUI_GEOMETRY", default_geometry)
+            if fullscreen:
+                self._root.attributes("-fullscreen", True)
+            else:
+                self._root.geometry(geometry)
+                self._root.resizable(True, True)
+                if target != "termux":
+                    self._root.minsize(TARGET_WIDTH, TARGET_HEIGHT)
+            self._root.configure(bg=ui.background)
+            self._adsb_enabled = False
+            self._aircraft_count = 0
+            self._adsb_toggle_handler: Callable[[bool], bool] | None = None
+            self._adsb_view_handler: Callable[[], None] | None = None
+            self._active_nav = ""
+            self._diagnostics_return = "HOME"
+            self._initial_destination: str | None = None
+            self._nav_items: list[str] = []
+            self._screen_registry: dict[str, ScreenUiIf] = {}
+            self._content: tk.Frame
+            self._volume_percent: float | None = None
+            self._volume_muted: bool | None = None
+            self._volume_request_handler: VolumeRequestHandlerIf | None = None
+            self._theme_change_handler: Callable[[ThemeMode], None] | None = None
+            self._settings_action: Callable[[], None] | None = None
+            self._power_dialog = PowerDialog(
+                self._root,
+                theme=lambda: self._theme,
+                on_exit=self._on_close,
+                on_restart=self._restart_ui,
+                on_shutdown=self._shutdown_system,
+            )
+            self.online_mode = online_mode
+            self._connectivity_toggle: Callable[[], None] | None = None
+            self._internet_status: bool | None = None
+            self._build_shell()
+            self.schedule_ui_callback(16, self._drain_ui_callbacks)
+            cleanup.release()
 
     def set_connectivity_handler(self, handler: Callable[[], None]) -> None:
         """Bind semantic toggle. @param handler Request callback."""
@@ -160,6 +171,8 @@ class OrcUiApp(VolumeUiIf):
             raise ValueError("Navigation destination must not be empty")
         if nav_name == "DIAGNOSTICS" and self._active_nav != "DIAGNOSTICS":
             self._diagnostics_return = self._active_nav or "HOME"
+        if self._shell is not None:
+            self._shell.set_back_action(None)
         self._active_nav = nav_name
         self._paint_nav()
         screen = self._screen_registry.get(nav_name)
@@ -183,6 +196,8 @@ class OrcUiApp(VolumeUiIf):
             return
         if previous is not None:
             previous.hide()
+        if self._shell is not None:
+            self._shell.set_back_action(None)
         self._active_screen = screen
     def clear_screen_content(self) -> None:
         self._clear_content()
@@ -196,51 +211,97 @@ class OrcUiApp(VolumeUiIf):
             else:
                 self._shell.set_breadcrumb(self._active_nav, leaf)
     def set_screen_back_action(self, action: Callable[[], None]) -> None:
-        # Back actions are part of the reusable host contract, but orcUi's
-        # persistent chrome currently exposes destination navigation instead.
-        _ = action
+        """Show the active screen's semantic back action in persistent chrome."""
+        if self._shell is not None:
+            self._shell.set_back_action(action)
     def set_screen_status(self, message: str) -> None:
         if self._shell is not None:
             self._shell.set_status(message)
+    def dispatch_ui(self, callback: Callable[[], None]) -> None:
+        """Queue work from any thread without calling Tk; discard it after shutdown."""
+        self._callback_queue.dispatch_ui(callback)
+
+    def _drain_ui_callbacks(self) -> None:
+        try:
+            self._callback_queue.dispatch_pending()
+        finally:
+            if not self._closing:
+                self.schedule_ui_callback(16, self._drain_ui_callbacks)
+
     def schedule_ui_callback(self, delay_ms: int, callback: Callable[[], None]) -> object:
-        return self._root.after(delay_ms, callback)
+        """Schedule a timer from the frontend thread only; closed timers are inert."""
+        if self._closing:
+            return None
+
+        def invoke() -> None:
+            self._ui_callbacks.discard(token)
+            if not self._closing:
+                callback()
+
+        token = self._root.after(delay_ms, invoke)
+        self._ui_callbacks.add(token)
+        return token
+
     def cancel_ui_callback(self, callback_id: object) -> None:
+        """Cancel a timer on the frontend thread, tolerating destroyed Tk resources."""
+        if not isinstance(callback_id, str):
+            return
+        self._ui_callbacks.discard(callback_id)
         try:
             self._root.after_cancel(callback_id)
         except tk.TclError:
             pass
+
     def run(self) -> None:
-        self._root.protocol("WM_DELETE_WINDOW", self._on_close)
         old_signal_handler = signal.getsignal(signal.SIGINT)
-        signal.signal(signal.SIGINT, self._on_sigint)
-        initial_destination = self._initial_destination
-        if initial_destination is None:
-            raise RuntimeError("Initial navigation destination is not configured")
-        self.navigate_to(initial_destination)
-        try:
-            self._root.mainloop()
-        except KeyboardInterrupt:
-            self._shutdown()
-        finally:
+
+        def restore_signal_handler() -> None:
             signal.signal(signal.SIGINT, old_signal_handler)
-            self._shutdown()
-    def _on_sigint(self, _signum, _frame) -> None:
+
+        with ResourceCleanup() as cleanup:
+            cleanup.callback(self.shutdown)
+            cleanup.callback(restore_signal_handler)
+            try:
+                self._root.protocol("WM_DELETE_WINDOW", self._on_close)
+                signal.signal(signal.SIGINT, self._on_sigint)
+                initial_destination = self._initial_destination
+                if initial_destination is None:
+                    raise RuntimeError("Initial navigation destination is not configured")
+                self.navigate_to(initial_destination)
+                self._root.mainloop()
+            except KeyboardInterrupt:
+                pass
+
+    def _on_sigint(self, _signum: int, _frame: object) -> None:
         self._root.after_idle(self._shutdown)
     def _shutdown(self) -> None:
+        self.shutdown()
+
+    def shutdown(self) -> None:
+        """Reject queued work and attempt all frontend cleanup once on its thread."""
         if self._closing:
             return
         self._closing = True
-        active_screen = self._active_screen
-        self._active_screen = None
-        if active_screen is not None:
-            active_screen.hide()
-        if self._shell is not None:
-            self._shell.close()
+        self._callback_queue.close()
+        active_screen, self._active_screen = self._active_screen, None
+        callbacks = tuple(self._ui_callbacks)
+        close_resources(
+            *(lambda token=token: self.cancel_ui_callback(token) for token in callbacks),
+            *([active_screen.hide] if active_screen is not None else []),
+            *([self._power_dialog.close] if self._power_dialog is not None else []),
+            *([self._shell.close] if self._shell is not None else []),
+            self._destroy_root,
+        )
+
+    def _destroy_root(self) -> None:
         try:
             self._root.destroy()
         except tk.TclError:
             pass
+
     def _build_shell(self) -> None:
+        if self._power_dialog is None:
+            raise RuntimeError("Power dialog must be initialized before shell construction")
         self._shell = OrcUiShellView(
             self._root,
             theme=self._theme,
@@ -341,7 +402,8 @@ class OrcUiApp(VolumeUiIf):
         theme_change_handler = self._theme_change_handler
         if theme_change_handler is not None:
             theme_change_handler(self._theme_mode)
-        self._power_dialog.close()
+        if self._power_dialog is not None:
+            self._power_dialog.close()
         self._rebuild_shell_theme()
         if callable(set_theme_mode):
             set_theme_mode(self._theme_mode)
@@ -353,6 +415,7 @@ class OrcUiApp(VolumeUiIf):
         if active_screen is not None:
             active_screen.hide()
         if self._shell is not None:
+            self._shell.set_back_action(None)
             self._shell.set_status("")
         self._root.title("OpenRoadCode")
     def _paint_nav(self) -> None:

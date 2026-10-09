@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: MIT
 
 """Own forecast refresh workers independently of frontend widgets."""
+from common.resource_cleanup import close_resources
 from collections.abc import Callable
 import threading
 import time
@@ -86,7 +87,7 @@ class WeatherScreenController(WeatherScreenRequestHandlerIf):
             detail = ""
         except Exception as error:
             state, detail = None, str(error)
-        self._dispatcher.schedule_ui_callback(0, lambda: self._complete(generation, state, detail))
+        self._dispatcher.dispatch_ui(lambda: self._complete(generation, state, detail))
 
     def _complete(self, generation, state, detail):
         if self._closed or not self._visible or generation != self._generation:
@@ -120,7 +121,8 @@ class WeatherScreenController(WeatherScreenRequestHandlerIf):
 
     def close(self):
         """Invalidate pending refresh callbacks and disconnect the view."""
+        if self._closed:
+            return
         self._closed = True
-        self._unsubscribe_mode()
-        self.set_visible(False)
-        self._ui.set_weather_request_handler(None)
+        close_resources(self._unsubscribe_mode, lambda: self.set_visible(False),
+                        lambda: self._ui.set_weather_request_handler(None))

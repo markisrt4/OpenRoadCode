@@ -10,7 +10,9 @@ import copy
 import os
 import tkinter as tk
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+
+from common.resource_cleanup import ResourceCleanup, close_resources
 
 from apps.common.uiTheme.spotify import SPOTIFY_PANEL_THEME
 from apps.orcUi.adapters.managed_browser_media_player import ManagedBrowserMediaPlayer
@@ -52,15 +54,14 @@ class MediaComposition:
     visualizer_runtime: MusicVisualizerController | MusicVisualizerBrowser
     unsubscribe_online: Callable[[], None] = lambda: None
 
+    _closed: bool = field(default=False, init=False)
+
     def close(self) -> None:
-        self.unsubscribe_online()
-        try:
-            try:
-                self.visualizer.hide()
-            finally:
-                self.visualizer_runtime.close()
-        finally:
-            self.music_video_controller.stop_video()
+        if self._closed:
+            return
+        self._closed = True
+        close_resources(self.unsubscribe_online, self.visualizer.hide,
+                        self.visualizer_runtime.close, self.music_video_controller.stop_video)
 
 
 def spotify_theme(app: OrcUiApp) -> dict:
@@ -87,6 +88,13 @@ def spotify_theme(app: OrcUiApp) -> dict:
 
 
 def configure_media(app: OrcUiApp, runtime) -> MediaComposition:
+    with ResourceCleanup() as cleanup:
+        composition = _configure_media(app, runtime, cleanup)
+        cleanup.release()
+        return composition
+
+
+def _configure_media(app: OrcUiApp, runtime, cleanup: ResourceCleanup) -> MediaComposition:
     media = runtime.media
     network_allowed = lambda: app.online_mode.online
     media.spotify.set_network_allowed(network_allowed)
@@ -107,6 +115,8 @@ def configure_media(app: OrcUiApp, runtime) -> MediaComposition:
         window_class=MUSIC_VIDEO_WINDOW_CLASS, show_return_button=False,
     )
     music_video_controller = MusicVideoController(spotify_controller=media.spotify.controller, music_video=music_video, network_allowed=network_allowed)
+
+    cleanup.callback(music_video_controller.stop_video)
 
     def media_navigation(parent, active: str):
         return MediaNavigationBar(
@@ -207,6 +217,7 @@ def configure_media(app: OrcUiApp, runtime) -> MediaComposition:
 
     if os.getenv("OPENROAD_MUSIC_VISUALIZER_RENDERER", "webgl").lower() == "tk":
         visualizer_runtime = MusicVisualizerController(create_music_visualizer_session)
+        cleanup.callback(visualizer_runtime.close)
         visualizer = MusicVisualizerScreen(
             app, on_back=lambda: media_screen.show(), controller=visualizer_runtime,
             initial_source=selected_music_visualizer_source(),
@@ -214,12 +225,14 @@ def configure_media(app: OrcUiApp, runtime) -> MediaComposition:
         )
     else:
         visualizer_runtime = create_browser_visualizer(app)
+        cleanup.callback(visualizer_runtime.close)
         visualizer = BrowserMediaScreen(
             "music-visualizer", app, title="Music Visualizer", player=visualizer_runtime,
             default_target=visualizer_runtime.url, window_class=WINDOW_CLASS,
             back_action=lambda: media_screen.show(), media_navigation_factory=media_navigation,
             theme_bundle=lambda: theme_bundle(app.theme_mode),
         )
+    cleanup.callback(visualizer.hide)
     app.register_screen("VISUALIZER", visualizer, show_in_navigation=False)
     media_screen = MediaScreen(
         app, theme_bundle=lambda: theme_bundle(app.theme_mode),
@@ -261,6 +274,7 @@ def configure_media(app: OrcUiApp, runtime) -> MediaComposition:
         if getattr(app, "_active_screen", None) is media_screen:
             media_screen.show()
     unsubscribe_online = app.online_mode.subscribe(mode_changed)
+    cleanup.callback(unsubscribe_online)
     mode_changed(app.online_mode.online)
 
     return MediaComposition(

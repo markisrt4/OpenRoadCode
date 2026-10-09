@@ -74,7 +74,7 @@ conversion such as raw RPM to thousands, and `icon` supports the built-in
 `"coolant"` and `"voltage"` dashboard symbols.
 
 Shared colors and redline geometry belong to
-`apps/common/uiTheme/vehicle_gauges.py`. Frontend renderers consume
+`ui/theme/vehicle_gauges.py`. Frontend renderers consume
 `VEHICLE_GAUGE_THEME` and `VEHICLE_GAUGE_REDLINE_THEME`; application code can
 provide immutable `VehicleGaugeTheme` and `VehicleGaugeRedlineTheme` variants
 without embedding visual constants in screens or controllers.
@@ -86,11 +86,11 @@ unless explicitly opted in.
 
 Thresholds remain part of each `GaugeDefinition` through `caution_high` and
 `danger_high`. The intense appearance is independently configurable with an
-immutable `VehicleGaugeRedlineTheme` from `apps/common/uiTheme`:
+immutable `VehicleGaugeRedlineTheme` from `ui/theme`:
 
 ```python
 from dataclasses import replace
-from apps.common.uiTheme import VehicleGaugeRedlineTheme
+from ui.theme.vehicle_gauges import VehicleGaugeRedlineTheme
 from frontends.tk.automotive.vehicle_gauge_panel import DEFAULT_GAUGES
 
 hot_redline = VehicleGaugeRedlineTheme(

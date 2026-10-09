@@ -9,9 +9,10 @@ import tkinter as tk
 from collections.abc import Callable
 
 from ui.theme import ThemeBundle
+from ui.ui_widget import UiWidget
 
 
-class MediaNavigationBar(tk.Frame):
+class MediaNavigationBar(tk.Frame, UiWidget):
     """Return to the media hub or Home without duplicating provider controls."""
 
     def __init__(

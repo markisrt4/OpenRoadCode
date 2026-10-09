@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import os
+from common.resource_cleanup import ResourceCleanup
 from collections.abc import Callable
 
 from ui.music_visualizer import VisualizerFrame, MusicVisualizerSource
@@ -81,18 +82,22 @@ def create_browser_visualizer(app):
         sources["linux-pipewire"] = lambda: PipewireAudioCapture(target=target, block_size=size)
     if os.getenv("TERMUX_VERSION") or os.getenv("ANDROID_ROOT") or os.getenv("PREFIX", "").startswith("/data/data/com.termux/"):
         sources["android-playback"] = lambda: AndroidPlaybackAudioCapture(block_size=size)
-    session = MusicAnalysisSession(sources)
-    selected = selected_music_visualizer_source()
-    if "OPENROAD_MUSIC_VISUALIZER_SOURCE" not in os.environ and "android-playback" in sources:
-        selected = MusicVisualizerSource.ANDROID_PLAYBACK
-    name = {MusicVisualizerSource.PIPEWIRE: "linux-pipewire",
-            MusicVisualizerSource.ANDROID_PLAYBACK: "android-playback"}.get(selected)
-    if name in sources:
-        session.select(name)
-    browser = BrowserKioskLauncher(
-        url="about:blank", process_pattern="music-visualizer-browser", kiosk=False, app_mode=True,
-        profile_path=openroadcode_data_dir("music-visualizer-browser"),
-        window_class=WINDOW_CLASS,
-    )
-    return MusicVisualizerBrowser(session, browser,
-                                  color_scheme=lambda: "dark" if app.theme_mode is ThemeMode.DARK else "light")
+    with ResourceCleanup() as cleanup:
+        session = MusicAnalysisSession(sources)
+        cleanup.callback(session.close)
+        selected = selected_music_visualizer_source()
+        if "OPENROAD_MUSIC_VISUALIZER_SOURCE" not in os.environ and "android-playback" in sources:
+            selected = MusicVisualizerSource.ANDROID_PLAYBACK
+        name = {MusicVisualizerSource.PIPEWIRE: "linux-pipewire",
+                MusicVisualizerSource.ANDROID_PLAYBACK: "android-playback"}.get(selected)
+        if name in sources:
+            session.select(name)
+        browser = BrowserKioskLauncher(
+            url="about:blank", process_pattern="music-visualizer-browser", kiosk=False, app_mode=True,
+            profile_path=openroadcode_data_dir("music-visualizer-browser"),
+            window_class=WINDOW_CLASS,
+        )
+        host = MusicVisualizerBrowser(session, browser,
+                                      color_scheme=lambda: "dark" if app.theme_mode is ThemeMode.DARK else "light")
+        cleanup.release()
+        return host

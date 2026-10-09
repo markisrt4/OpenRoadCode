@@ -12,6 +12,7 @@ from __future__ import annotations
 import logging
 
 from common.logging.structured import event
+from common.resource_cleanup import ResourceCleanup
 
 from apps.orcUi.adapters.spotify_local_player_factory import create_spotify_local_player
 from controllers.spotify.spotify_controller_if import SpotifyControllerIf
@@ -25,8 +26,11 @@ class MediaApplicationService:
     """Own long-lived media services shared by ORC UI screens."""
 
     def __init__(self, spotify_controller: SpotifyControllerIf) -> None:
-        self._spotify = SpotifyStateService(spotify_controller)
-        self._spotify_local_player = create_spotify_local_player(self._spotify)
+        with ResourceCleanup() as cleanup:
+            self._spotify = SpotifyStateService(spotify_controller)
+            cleanup.callback(self._spotify.close)
+            self._spotify_local_player = create_spotify_local_player(self._spotify)
+            cleanup.release()
         self._started = False
 
     @property

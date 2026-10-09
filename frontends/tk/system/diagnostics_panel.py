@@ -13,9 +13,10 @@ from ui.theme import ThemeBundle
 from .diagnostics_tabs import DiagnosticsTabs
 from .diagnostics_table import DiagnosticsTable
 from .system_metrics_panel import SystemMetricsPanel, pressure_color
+from ui.ui_widget import UiWidget
 
 
-class DiagnosticsPanel(tk.Frame):
+class DiagnosticsPanel(tk.Frame, UiWidget):
     """Show workload attribution first; keep host and telemetry health separate."""
 
     def __init__(self, parent: tk.Misc, *, theme: ThemeBundle) -> None:

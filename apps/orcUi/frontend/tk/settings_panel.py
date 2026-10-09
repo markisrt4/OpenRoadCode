@@ -11,9 +11,10 @@ from common.units import UnitSystem
 from ui.automotive.vehicle_configuration import (EngineInductionType, VehicleConfiguration)
 from ui.theme import ThemeBundle, ThemeMode
 from .shell_metrics import FONT_BODY, FONT_CONTROL, FONT_SMALL
+from ui.ui_widget import UiWidget
 
 
-class SettingsPanel(tk.Frame):
+class SettingsPanel(tk.Frame, UiWidget):
     """Top-level OpenRoadCode settings surface."""
 
     def __init__(

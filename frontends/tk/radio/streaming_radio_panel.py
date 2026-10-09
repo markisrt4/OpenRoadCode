@@ -5,19 +5,24 @@
 
 from __future__ import annotations
 
-import re
-import threading
 import tkinter as tk
 from collections.abc import Callable
-from concurrent.futures import ThreadPoolExecutor
 from io import BytesIO
-from urllib.request import Request, urlopen
+from functools import partial
 
 from PIL import Image, ImageOps, ImageTk
 
-from controllers.radio.streaming_radio_controller import StreamingRadioController
-from controllers.radio.streaming_radio_directory_if import StreamingRadioDirectoryIf
-from ui.radio.streaming_radio_types import (StreamingRadioStation)
+from ui.radio.streaming_radio_types import StreamingRadioStation
+from ui.radio.streaming_radio_session_if import (
+    StreamingRadioSessionIf, StreamingRadioRequestHandlerIf,
+)
+from ui.radio.streaming_radio_state import (
+    StreamingRadioBrowserState, StreamingRadioBrowseMode, StreamingRadioPlaybackState,
+)
+from ui.radio.station_filters import (
+    GENRE_FILTERS, QUALITY_FILTERS, BAND_FILTERS, StationFilters, is_explicit_internet_only,
+)
+from ui.ui_widget import UiWidget
 
 BG = "#05090d"
 PANEL = "#0b1117"
@@ -30,54 +35,30 @@ GREEN = "#84ce1f"
 BLUE = "#168bd1"
 DANGER = "#f15a16"
 
-DETROIT_LATITUDE = 42.3314
-DETROIT_LONGITUDE = -83.0458
-DETROIT_RADIUS_KM = 80.0
 ARTWORK_SIZE = 64
-ARTWORK_TIMEOUT_S = 5.0
-ARTWORK_USER_AGENT = "OpenRoadCode/streaming-radio"
 CARD_COLUMNS = 2
-
-GENRE_FILTERS = (
-    "All", "Rock", "Country", "Pop", "News/Talk", "Sports", "Jazz",
-    "Classical", "Christian", "Hip-Hop/R&B", "Electronic", "Variety",
-)
-QUALITY_FILTERS = ("All", "Low", "Mid", "High")
-BAND_FILTERS = ("All", "FM", "AM", "DAB", "Internet-only", "Unknown")
-
-_GENRE_TAGS = {
-    "Rock": {"rock", "classic rock", "alternative rock", "indie rock", "hard rock"},
-    "Country": {"country", "americana", "bluegrass"},
-    "Pop": {"pop", "top 40", "top40", "adult contemporary", "hot ac"},
-    "News/Talk": {"news", "talk", "talk radio", "public radio", "politics"},
-    "Sports": {"sports", "sport", "sports talk"},
-    "Jazz": {"jazz", "smooth jazz"},
-    "Classical": {"classical", "opera"},
-    "Christian": {"christian", "christian contemporary", "gospel", "religious", "worship"},
-    "Hip-Hop/R&B": {"hip hop", "hip-hop", "rap", "r&b", "rnb", "urban"},
-    "Electronic": {"electronic", "edm", "dance", "house", "techno", "trance"},
-    "Variety": {"variety", "eclectic", "mixed", "community"},
-}
 
 BackHandler = Callable[[], None]
 StationHandler = Callable[[StreamingRadioStation], None]
 
 
-class StreamingRadioPanel(tk.Frame):
+class StreamingRadioPanel(tk.Frame, UiWidget):
     """Browse and play local/regional streaming radio stations."""
 
     def __init__(
         self,
         parent: tk.Misc,
         *,
-        directory: StreamingRadioDirectoryIf,
-        controller: StreamingRadioController,
+        session: StreamingRadioSessionIf,
         on_back: BackHandler,
         on_station_selected: StationHandler | None = None,
     ) -> None:
         super().__init__(parent, bg=BG)
-        self._directory = directory
-        self._controller = controller
+        self._session = session
+        self._request_handler: StreamingRadioRequestHandlerIf | None = None
+        self._playback = StreamingRadioPlaybackState()
+        self._active = True
+        self._destroyed = False
         self._on_back = on_back
         self._on_station_selected = on_station_selected
         self._mode = "local"
@@ -85,7 +66,6 @@ class StreamingRadioPanel(tk.Frame):
         self._favorites: set[str] = set()
         self._stations: tuple[StreamingRadioStation, ...] = ()
         self._selected_station: StreamingRadioStation | None = None
-        self._load_generation = 0
         self._playback_busy = False
         self._genre_filter = "All"
         self._quality_filter = "All"
@@ -93,9 +73,9 @@ class StreamingRadioPanel(tk.Frame):
         self._filter_drawer_open = False
         self._filter_drawer: tk.Frame | None = None
         self._filter_value_labels: dict[str, tk.Label] = {}
-        self._artwork_executor = ThreadPoolExecutor(max_workers=4, thread_name_prefix="orcui-radio-artwork")
         self._artwork_images: dict[str, ImageTk.PhotoImage] = {}
-        self._artwork_pending: set[str] = set()
+        self._artwork_urls: dict[str, str | None] = {}
+        self._artwork_labels: dict[str, tk.Label] = {}
 
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(2, weight=1)
@@ -103,7 +83,7 @@ class StreamingRadioPanel(tk.Frame):
         self._build_filters()
         self._build_station_list()
         self._build_footer()
-        self.after_idle(self._reload)
+        self._session.activate(self)
 
     @property
     def mode(self) -> str:
@@ -126,8 +106,51 @@ class StreamingRadioPanel(tk.Frame):
         return self._selected_station
 
     def destroy(self) -> None:
-        self._artwork_executor.shutdown(wait=False, cancel_futures=True)
-        super().destroy()
+        if self._destroyed:
+            return
+        self._destroyed = True
+        try:
+            self._session.close()
+        finally:
+            super().destroy()
+
+    def activate(self) -> None:
+        """Resume controller delivery when this browser becomes visible."""
+        if not self._destroyed and not self._active:
+            self._active = True
+            self._session.activate(self)
+
+    def deactivate(self) -> None:
+        """Retire controller delivery while preserving application-owned audio."""
+        self._active = False
+        self._session.deactivate()
+
+    def set_streaming_request_handler(self, handler: StreamingRadioRequestHandlerIf | None) -> None:
+        self._request_handler = handler
+
+    def set_streaming_state(self, state: StreamingRadioBrowserState) -> None:
+        """Render a controller snapshot without consulting any backend."""
+        self._mode = state.mode.value
+        for station in state.stations:
+            if self._artwork_urls.get(station.station_id) != station.artwork_url:
+                self._artwork_images.pop(station.station_id, None)
+            self._artwork_urls[station.station_id] = station.artwork_url
+        self._stations = state.stations
+        self._favorites = set(state.favorite_station_ids)
+        self._playback = state.playback
+        self._playback_busy = state.playback_busy
+        self._paint_filters()
+        if state.loading:
+            messages = {"local": "Loading local stations…", "regional": "Loading Michigan stations…",
+                        "favorites": "Loading favorite stations…"}
+            self._show_status(messages[self._mode])
+        elif state.error and not state.stations:
+            self._show_status(state.message, danger=True)
+        else:
+            self._render_stations()
+        self._paint_playback_status()
+        if state.message:
+            self._selection_label.configure(text=state.message, fg=DANGER if state.error else BLUE)
 
     def _build_header(self) -> None:
         header = tk.Frame(self, bg=BG)
@@ -143,7 +166,7 @@ class StreamingRadioPanel(tk.Frame):
             filters.grid_columnconfigure(column, weight=1)
         self._mode_buttons: dict[str, tk.Button] = {}
         for column, (mode, label) in enumerate((("local", "LOCAL"), ("regional", "REGIONAL"), ("favorites", "★ FAVORITES"))):
-            button = tk.Button(filters, text=label, command=lambda selected=mode: self._set_mode(selected), bg=PANEL, fg=TEXT, activebackground=CARD_SELECTED, activeforeground=GREEN, relief=tk.FLAT, bd=0, font=("Sans", 14, "bold"), padx=10, pady=8)
+            button = tk.Button(filters, text=label, command=partial(self._set_mode, mode), bg=PANEL, fg=TEXT, activebackground=CARD_SELECTED, activeforeground=GREEN, relief=tk.FLAT, bd=0, font=("Sans", 14, "bold"), padx=10, pady=8)
             button.grid(row=0, column=column, sticky="ew")
             self._mode_buttons[mode] = button
         self._filters_button = tk.Button(filters, text="☰ FILTERS", command=self._toggle_filter_drawer, bg=PANEL, fg=TEXT, activebackground=CARD_SELECTED, activeforeground=GREEN, relief=tk.FLAT, bd=0, font=("Sans", 15, "bold"), padx=8, pady=8)
@@ -174,7 +197,7 @@ class StreamingRadioPanel(tk.Frame):
         footer.grid_columnconfigure(0, weight=1)
         self._selection_label = tk.Label(footer, text="Select a station", bg=PANEL, fg=MUTED, font=("Sans", 14, "bold"), anchor="w", padx=12, pady=8)
         self._selection_label.grid(row=0, column=0, sticky="ew")
-        self._stop_button = tk.Button(footer, text="■ STOP", command=self._request_stop, state=tk.NORMAL if self._controller.is_playing else tk.DISABLED, bg=PANEL, fg=TEXT, activebackground=CARD_SELECTED, activeforeground=DANGER, disabledforeground=MUTED, relief=tk.FLAT, bd=0, font=("Sans", 14, "bold"), padx=14, pady=8)
+        self._stop_button = tk.Button(footer, text="■ STOP", command=self._request_stop, state=tk.NORMAL if self._playback.is_playing else tk.DISABLED, bg=PANEL, fg=TEXT, activebackground=CARD_SELECTED, activeforeground=DANGER, disabledforeground=MUTED, relief=tk.FLAT, bd=0, font=("Sans", 14, "bold"), padx=14, pady=8)
         self._stop_button.grid(row=0, column=1, sticky="e")
         self._paint_playback_status()
 
@@ -183,7 +206,7 @@ class StreamingRadioPanel(tk.Frame):
             return
         self._mode = mode
         self._paint_filters()
-        self._render_stations() if mode == "favorites" else self._reload()
+        self._reload()
 
     def _toggle_internet_only(self) -> None:
         self._internet_only = not self._internet_only
@@ -208,8 +231,11 @@ class StreamingRadioPanel(tk.Frame):
             return
         if self._filter_drawer is None or not self._filter_drawer.winfo_exists():
             self._build_filter_drawer()
-        self._filter_drawer.place(relx=1.0, rely=0.0, relheight=1.0, width=500, anchor="ne")
-        self._filter_drawer.lift()
+        drawer = self._filter_drawer
+        if drawer is None:
+            return
+        drawer.place(relx=1.0, rely=0.0, relheight=1.0, width=500, anchor="ne")
+        drawer.lift()
         self._filter_drawer_open = True
         self._paint_filters()
 
@@ -252,7 +278,7 @@ class StreamingRadioPanel(tk.Frame):
         for choice_column in range(columns):
             choices.grid_columnconfigure(choice_column, weight=1)
         for index, value in enumerate(values):
-            tk.Button(choices, text=value.upper(), command=lambda selected=value, filter_key=key: self._set_station_filter(filter_key, selected), bg=CARD, fg=TEXT, activebackground=CARD_SELECTED, activeforeground=GREEN, relief=tk.FLAT, bd=0, font=("Sans", 14, "bold"), padx=5, pady=6).grid(row=index // columns, column=index % columns, sticky="ew", padx=2, pady=2)
+            tk.Button(choices, text=value.upper(), command=partial(self._set_station_filter, key, value), bg=CARD, fg=TEXT, activebackground=CARD_SELECTED, activeforeground=GREEN, relief=tk.FLAT, bd=0, font=("Sans", 14, "bold"), padx=5, pady=6).grid(row=index // columns, column=index % columns, sticky="ew", padx=2, pady=2)
         if helper:
             tk.Label(group, text=helper, bg=PANEL, fg=MUTED, font=("Sans", 14), anchor="w", justify=tk.LEFT, wraplength=220).grid(row=2, column=0, columnspan=2, sticky="ew", pady=(4, 0))
 
@@ -283,43 +309,12 @@ class StreamingRadioPanel(tk.Frame):
         self._render_stations()
 
     def _reload(self) -> None:
-        if self._mode == "favorites":
-            self._render_stations()
-            return
-        self._load_generation += 1
-        generation = self._load_generation
-        self._show_status("Loading local stations…" if self._mode == "local" else "Loading Michigan stations…")
-        threading.Thread(target=self._load_worker, args=(generation, self._mode), name="orcui-streaming-radio-directory", daemon=True).start()
-
-    def _load_worker(self, generation: int, mode: str) -> None:
-        try:
-            if mode == "local":
-                stations = self._directory.stations_near(latitude=DETROIT_LATITUDE, longitude=DETROIT_LONGITUDE, radius_km=DETROIT_RADIUS_KM, state="Michigan", country_code="US", limit=50)
-            else:
-                stations = self._directory.stations_by_region(state="Michigan", country_code="US", limit=100)
-        except Exception as error:
-            self.after(
-                0,
-                lambda captured_error=error: self._finish_load(
-                    generation,
-                    (),
-                    captured_error,
-                ),
-            )
-            return
-        self.after(0, lambda: self._finish_load(generation, stations, None))
-
-    def _finish_load(self, generation: int, stations: tuple[StreamingRadioStation, ...], error: Exception | None) -> None:
-        if generation != self._load_generation or not self.winfo_exists():
-            return
-        if error is not None:
-            self._stations = ()
-            self._show_status(f"Unable to load stations: {type(error).__name__}: {error}", danger=True)
-            return
-        self._stations = stations
-        self._render_stations()
+        handler = self._request_handler
+        if handler is not None:
+            handler.request_mode(StreamingRadioBrowseMode(self._mode))
 
     def _render_stations(self) -> None:
+        self._artwork_labels.clear()
         for child in self._list.winfo_children():
             child.destroy()
         stations = self._visible_stations()
@@ -338,23 +333,15 @@ class StreamingRadioPanel(tk.Frame):
     def _visible_stations(self) -> tuple[StreamingRadioStation, ...]:
         stations = self._stations
         if self._mode == "favorites":
-            stations = tuple(station for station in stations if station.station_id in self._favorites)
-        if self._band_filter == "Internet-only":
-            stations = tuple(station for station in stations if is_explicit_internet_only(station))
-        else:
-            stations = tuple(station for station in stations if not is_explicit_internet_only(station))
-        if self._genre_filter != "All":
-            stations = tuple(station for station in stations if station_genre_matches(station, self._genre_filter))
-        if self._quality_filter != "All":
-            stations = tuple(station for station in stations if station_quality(station) == self._quality_filter)
-        if self._band_filter not in {"All", "Internet-only"}:
-            stations = tuple(station for station in stations if station_band(station) == self._band_filter)
-        return stations
+            stations = tuple(s for s in stations if s.station_id in self._favorites)
+        return StationFilters(
+            genre=self._genre_filter, quality=self._quality_filter, band=self._band_filter,
+        ).apply(stations)
 
     def _build_station_card(self, station: StreamingRadioStation, *, row: int, column: int) -> None:
         selected = self._selected_station is not None and station.station_id == self._selected_station.station_id
-        current = self._controller.current_station
-        playing = current is not None and current.station_id == station.station_id and self._controller.is_playing
+        current = self._playback.station
+        playing = current is not None and current.station_id == station.station_id and self._playback.is_playing
         card_bg = "#142619" if playing else CARD_SELECTED if selected else CARD
         border = GREEN if playing else BLUE if selected else BORDER
         thickness = 3 if playing else 1
@@ -379,57 +366,30 @@ class StreamingRadioPanel(tk.Frame):
         detail_label = tk.Label(card, text=details, bg=card_bg, fg=BLUE if is_explicit_internet_only(station) else MUTED, font=("Sans", 14), anchor="w", justify=tk.LEFT, wraplength=245)
         detail_label.grid(row=content_row + 1, column=1, columnspan=2, sticky="ew", padx=(0, 6), pady=(0, 4))
         favorite = station.station_id in self._favorites
-        favorite_button = tk.Button(card, text="★" if favorite else "☆", command=lambda item=station: self._toggle_station_favorite(item), bg=card_bg, fg=GREEN if favorite else MUTED, activebackground=card_bg, activeforeground=GREEN, relief=tk.FLAT, bd=0, font=("Sans", 15), padx=5, pady=2)
+        favorite_button = tk.Button(card, text="★" if favorite else "☆", command=partial(self._toggle_station_favorite, station), bg=card_bg, fg=GREEN if favorite else MUTED, activebackground=card_bg, activeforeground=GREEN, relief=tk.FLAT, bd=0, font=("Sans", 15), padx=5, pady=2)
         favorite_button.grid(row=content_row + 2, column=1, sticky="w", pady=(0, 6))
-        play_button = tk.Button(card, text="■  STOP" if playing else "▶ PLAY", command=self._request_stop if playing else lambda item=station: self._request_play(item), state=tk.DISABLED if self._playback_busy else tk.NORMAL, bg=GREEN if playing else PANEL, fg="#071006" if playing else TEXT, activebackground="#9bdc45" if playing else CARD_SELECTED, activeforeground="#071006" if playing else GREEN, disabledforeground=MUTED, relief=tk.FLAT, bd=0, font=("Sans", 11 if playing else 9, "bold"), padx=14, pady=7 if playing else 5)
+        play_button = tk.Button(card, text="■  STOP" if playing else "▶ PLAY", command=self._request_stop if playing else partial(self._request_play, station), state=tk.DISABLED if self._playback_busy else tk.NORMAL, bg=GREEN if playing else PANEL, fg="#071006" if playing else TEXT, activebackground="#9bdc45" if playing else CARD_SELECTED, activeforeground="#071006" if playing else GREEN, disabledforeground=MUTED, relief=tk.FLAT, bd=0, font=("Sans", 11 if playing else 9, "bold"), padx=14, pady=7 if playing else 5)
         play_button.grid(row=content_row + 2, column=2, sticky="e", padx=(4, 7), pady=(0, 6))
         clickable = [card, artwork, name, detail_label]
         if banner is not None:
             clickable.append(banner)
         for widget in clickable:
-            widget.bind("<Button-1>", lambda _event, item=station: self._select_station(item))
+            widget.bind("<Button-1>", lambda _event: self._select_station(station))
 
     def _request_play(self, station: StreamingRadioStation) -> None:
-        if self._playback_busy:
-            return
         self._select_station(station)
-        self._playback_busy = True
-        self._selection_label.configure(text=f"Connecting to {station.name}…", fg=BLUE)
-        self._render_stations()
-        threading.Thread(target=self._playback_worker, args=(station,), name="orcui-streaming-radio-playback", daemon=True).start()
+        handler = self._request_handler
+        if handler is not None:
+            handler.request_play(station.station_id)
 
     def _request_stop(self) -> None:
-        if self._playback_busy:
-            return
-        self._playback_busy = True
-        self._selection_label.configure(text="Stopping stream…", fg=MUTED)
-        self._render_stations()
-        threading.Thread(target=self._playback_worker, args=(None,), name="orcui-streaming-radio-playback", daemon=True).start()
-
-    def _playback_worker(self, station: StreamingRadioStation | None) -> None:
-        try:
-            self._controller.stop() if station is None else self._controller.play(station)
-        except Exception as error:
-            self.after(
-                0,
-                lambda captured_error=error: self._finish_playback(captured_error),
-            )
-            return
-        self.after(0, lambda: self._finish_playback(None))
-
-    def _finish_playback(self, error: Exception | None) -> None:
-        if not self.winfo_exists():
-            return
-        self._playback_busy = False
-        if error is not None:
-            self._selection_label.configure(text=f"Playback failed: {type(error).__name__}: {error}", fg=DANGER)
-        else:
-            self._paint_playback_status()
-        self._render_stations()
+        handler = self._request_handler
+        if handler is not None:
+            handler.request_stop()
 
     def _paint_playback_status(self) -> None:
-        current = self._controller.current_station
-        if current is not None and self._controller.is_playing:
+        current = self._playback.station
+        if current is not None and self._playback.is_playing:
             self._selection_label.configure(text=f"● NOW PLAYING  •  {current.name}", fg=GREEN)
             self._stop_button.configure(state=tk.NORMAL, bg="#142619", fg=GREEN)
             return
@@ -440,32 +400,34 @@ class StreamingRadioPanel(tk.Frame):
         self._stop_button.configure(state=tk.DISABLED, bg=PANEL, fg=TEXT)
 
     def _apply_or_load_artwork(self, station: StreamingRadioStation, label: tk.Label) -> None:
+        self._artwork_labels[station.station_id] = label
         image = self._artwork_images.get(station.station_id)
         if image is not None:
             label.configure(image=image, text="", width=ARTWORK_SIZE, height=ARTWORK_SIZE)
             return
-        if not station.artwork_url or station.station_id in self._artwork_pending:
-            return
-        self._artwork_pending.add(station.station_id)
-        future = self._artwork_executor.submit(_download_artwork, station.artwork_url)
-        future.add_done_callback(lambda completed, item=station, target=label: self.after(0, lambda: self._finish_artwork(item, target, completed)))
+        handler = self._request_handler
+        if handler is not None and station.artwork_url:
+            handler.request_artwork(station.station_id)
 
-    def _finish_artwork(self, station: StreamingRadioStation, label: tk.Label, future: object) -> None:
-        self._artwork_pending.discard(station.station_id)
-        if not self.winfo_exists():
+    def set_station_artwork(self, station_id: str, payload: bytes) -> None:
+        """Decode display artwork and create toolkit objects on the frontend thread."""
+        if self._destroyed or not self._active:
             return
         try:
-            pil_image = future.result()  # type: ignore[attr-defined]
-        except Exception:
+            with Image.open(BytesIO(payload)) as source:
+                fitted = ImageOps.fit(source.convert("RGBA"), (ARTWORK_SIZE, ARTWORK_SIZE),
+                                      method=Image.Resampling.LANCZOS)
+                image = ImageTk.PhotoImage(fitted)
+        except (OSError, ValueError, Image.DecompressionBombError, tk.TclError):
             return
-        image = ImageTk.PhotoImage(pil_image)
-        self._artwork_images[station.station_id] = image
-        if label.winfo_exists():
+        self._artwork_images[station_id] = image
+        label = self._artwork_labels.get(station_id)
+        if label is not None and label.winfo_exists():
             label.configure(image=image, text="", width=ARTWORK_SIZE, height=ARTWORK_SIZE)
 
     def _select_station(self, station: StreamingRadioStation) -> None:
         self._selected_station = station
-        if not self._controller.is_playing:
+        if not self._playback.is_playing:
             self._selection_label.configure(text=station.name, fg=TEXT)
         self._render_stations()
         if self._on_station_selected is not None:
@@ -473,14 +435,12 @@ class StreamingRadioPanel(tk.Frame):
 
     def _toggle_station_favorite(self, station: StreamingRadioStation) -> None:
         self._selected_station = station
-        if station.station_id in self._favorites:
-            self._favorites.remove(station.station_id)
-        else:
-            self._favorites.add(station.station_id)
-        self._paint_playback_status()
-        self._render_stations()
+        handler = self._request_handler
+        if handler is not None:
+            handler.request_toggle_favorite(station.station_id)
 
     def _show_status(self, text: str, *, danger: bool = False) -> None:
+        self._artwork_labels.clear()
         for child in self._list.winfo_children():
             child.destroy()
         tk.Label(self._list, text=text, bg=PANEL, fg=DANGER if danger else MUTED, font=("Sans", 14), pady=30).grid(row=0, column=0, columnspan=CARD_COLUMNS, sticky="ew")
@@ -491,71 +451,6 @@ class StreamingRadioPanel(tk.Frame):
     def _on_canvas_configure(self, event: tk.Event[tk.Misc]) -> None:
         self._canvas.itemconfigure(self._list_window, width=event.width)
 
-
-def is_explicit_internet_only(station: StreamingRadioStation) -> bool:
-    tags = {_normalize_tag(tag) for tag in station.tags}
-    return bool(tags & {"internet", "internet only", "online only", "web radio", "webradio"})
-
-
-def station_genre_matches(station: StreamingRadioStation, genre: str) -> bool:
-    if genre == "All":
-        return True
-    accepted = _GENRE_TAGS.get(genre)
-    if accepted is None:
-        return False
-    tags = {_normalize_tag(tag) for tag in station.tags}
-    return bool(tags & {_normalize_tag(tag) for tag in accepted})
-
-
-def station_quality(station: StreamingRadioStation) -> str:
-    bitrate = station.bitrate_kbps
-    if bitrate is None or bitrate <= 0:
-        return "Unknown"
-    if bitrate < 96:
-        return "Low"
-    if bitrate < 192:
-        return "Mid"
-    return "High"
-
-
-def station_band(station: StreamingRadioStation) -> str:
-    if is_explicit_internet_only(station):
-        return "Internet-only"
-    tags = {_normalize_tag(tag) for tag in station.tags}
-    if tags & {"dab", "dab+", "digital audio broadcasting", "dabradio"}:
-        return "DAB"
-    if tags & {"fm", "fm radio", "fmradio"}:
-        return "FM"
-    if tags & {"am", "am radio", "amradio", "medium wave", "mw"}:
-        return "AM"
-    name = station.name.casefold()
-    if re.search(r"\bfm\b", name):
-        return "FM"
-    if re.search(r"\bam\b", name):
-        return "AM"
-    for match in re.finditer(r"(?<!\d)(\d{2,3}\.\d)(?!\d)", name):
-        frequency = float(match.group(1))
-        if 87.5 <= frequency <= 108.0:
-            return "FM"
-    if re.search(r"\b(?:5[3-9]\d|[6-9]\d{2}|1[0-6]\d{2}|1700|1710)\s*(?:khz|am)\b", name):
-        return "AM"
-    return "Unknown"
-
-
-def _normalize_tag(tag: str) -> str:
-    return " ".join(tag.casefold().replace("_", " ").replace("-", " ").split())
-
-
-def _download_artwork(url: str) -> Image.Image:
-    request = Request(url, headers={"User-Agent": ARTWORK_USER_AGENT})
-    with urlopen(request, timeout=ARTWORK_TIMEOUT_S) as response:
-        payload = response.read(2 * 1024 * 1024 + 1)
-    if len(payload) > 2 * 1024 * 1024:
-        raise ValueError("station artwork exceeds 2 MiB")
-    with Image.open(BytesIO(payload)) as image:
-        converted = image.convert("RGBA")
-        fitted = ImageOps.fit(converted, (ARTWORK_SIZE, ARTWORK_SIZE), method=Image.Resampling.LANCZOS)
-        return fitted.copy()
 
 
 def _station_details(station: StreamingRadioStation) -> str:

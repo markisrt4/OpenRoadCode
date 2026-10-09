@@ -6,9 +6,10 @@ from __future__ import annotations
 import tkinter as tk
 from collections.abc import Callable
 from typing import Any
+from ui.ui_widget import UiWidget
 
 
-class AircraftMenuPanel(tk.Frame):
+class AircraftMenuPanel(tk.Frame, UiWidget):
     """Aircraft feature menu containing ADS-B and Airband actions."""
 
     def __init__(

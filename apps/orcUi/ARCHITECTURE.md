@@ -131,7 +131,7 @@ flowchart TD
 
 Registered screens may be visible or hidden from primary navigation. Composition may also register a destination without a screen when the integrated shell should expose a generic placeholder. The shell renders that fallback generically; it does not know which feature the destination represents.
 
-Reusable Tk screens depend on `TkScreenHostIf`, not `OrcUiApp`. The host contract provides a content parent, screen activation and clearing, title/status updates, UI-thread scheduling, and a back-action hook. orcUi currently relies on persistent destination navigation rather than rendering a dedicated back control, so back-action presentation remains a host capability to revisit separately rather than a reason for screens to depend on the concrete shell.
+Reusable Tk screens depend on `TkScreenHostIf`, not `OrcUiApp`. The host contract provides a content parent, screen activation and clearing, title/status updates, UI-thread scheduling, and a back-action hook. orcUi renders a dedicated Back control when the active screen supplies an action. Screen and destination transitions clear the previous action; theme rebuilds preserve the current action.
 
 ## Reusing Tk for another application
 
@@ -196,7 +196,32 @@ Restart and poweroff requests flow through `SystemLifecycleRequestHandlerIf`. `S
 
 `composition/music_visualizer.py` selects capture backends and visualizer hosts. Media composition embeds the shared browser WebGL renderer through the reusable `BrowserMediaScreen` and the ORC-selected `MusicVisualizerBrowser` adapter. The adapter owns a loopback HTTP host and Chromium lifecycle; shared `MusicAnalysisSession` owns capture and FFT analysis. Composition owns shutdown. The optional Tk fallback injects `MusicVisualizerControlIf` into reusable Tk presentation and uses `MusicVisualizerController` for background work. Semantic sources and frames live under `ui/music_visualizer`; HTTP routes and WebGL assets live under `frontends/web/audio_analysis`. Neither frontend imports application composition or chooses capture infrastructure.
 
-`composition/games.py` registers the reusable Tk games frontend. Environment-specific launching and compatibility remain backend concerns.
+`composition/games.py` constructs the catalog, installers, process launcher,
+X11 adapter, and `GamesSession`, then supplies the session to `GamesScreen`.
+The screen consumes `GamesSessionIf`; inventory uses `GamesUiIf` and semantic
+`GamesRequestHandlerIf` requests. `GamesRuntimeUiIf` exposes only native host
+creation, loading presentation, and restoration of inventory. Its opaque host
+handle and pixel dimensions are platform rendering values, not vehicle SI state.
+
+`GamesSession` owns the inventory controller and worker orchestration. It consumes
+`GameLauncherIf` (including backend command overrides, process identifiers, and
+exit notifications) and the narrow `GameWindowEmbedderIf` platform contract.
+The concrete X11 adapter is supplied by composition; controllers do not import
+frontends. Native embedding, resizing, and cleanup share a lock so cleanup cannot
+clear an adapter while embedding is in flight. The frontend debounces resize
+notifications and the session performs native resizing on a worker.
+
+Hiding detaches the inventory handler, retires the view binding, and invalidates
+pending launch completions before scheduling native cleanup. Reopening creates
+a fresh inventory controller; old inventory and process callbacks cannot publish
+to it. New launches wait until native cleanup has completed. Shutdown is
+idempotent and attempts both launcher and adapter cleanup even if one fails.
+Composition rolls back the session if screen creation or registration fails.
+Native discovery remains bounded by the platform adapter timeout; hiding does
+not interrupt an already executing native command, and shutdown waits for the
+serialized operation to release its lock. Games widgets may not import backend,
+application, worker, or X11 adapter dependencies; the boundary gate locks in this
+migration with seven legacy exceptions removed.
 
 `composition/weather.py` wires the provider-independent Weather controller to the reusable Tk Weather screen. The current composition selects Open-Meteo, resolves location through GPSD with the configured navigation fallback, supplies the shared global unit preference, and connects the semantic NOAA Weather Radio action to the existing radio composition. Forecast domain state remains SI; display conversion stays at presentation boundaries. Weather alert ingress is independent of forecast refresh: `StateIngressRuntime` decodes `weather.alert` messages, `WeatherAlertPresenter` updates `OrcUiPresentationState`, and the shell observes that state to render persistent alert chrome without moving Weather feature ownership into `OrcUiApp`.
 
@@ -258,6 +283,127 @@ Before merging a substantial architecture change, review the complete branch dif
 
 ## POI actions and connectivity
 
+### Strict contract type checking
+
+`scripts/check_ui_types.py` runs pinned mypy in strict mode using the scope in
+`pyproject.toml`. The scope covers the widget marker, dispatcher and
+routing contracts, the route stub and service adapter, the callback queue,
+the ORC shell, and Games contracts, controller, launcher, session, Tk presentation,
+and composition, plus the migrated streaming-radio contracts, orchestration,
+Tk presentation, and composition. Route request interface files are selected by a
+glob so additional route capabilities enter the check automatically.
+
+`scripts/ui_type_witnesses.py` statically checks the shell against `UiDispatcherIf`
+and `TkScreenHostIf`, and Games session, runtime surface, and X11 adapter against
+their narrow contracts, as well as radio browser, playback source, and storage
+bindings, without constructing frontend or backend resources. Tests
+exercise the actual mypy configuration with invalid overrides, obsolete argument
+lists, incorrect argument types, and an incompatible structural dispatcher.
+
+Imported legacy modules retain their type information through
+`follow_imports = "silent"`, while diagnostics focus on the selected files. This
+does not yet type-check every widget or every composition caller. Expand the
+explicit scope as those features are migrated; do not use blanket missing-import
+ignores, skipped imports, or relaxed settings to conceal contract errors. Existing
+behavioral tests still verify thread delivery, late completion rejection, and
+cleanup semantics that a static checker cannot prove.
+
+Install development tools from `requirements-dev.txt`. The type check is required
+by the local quality gate and CI, and missing mypy is a failure. Runtime installers
+remain independent of development tooling.
+
+### Automotive gauge theme ownership
+
+Immutable vehicle-gauge and redline theme values, including the shared defaults,
+live under `ui/theme/vehicle_gauges.py` and are exported by `ui.theme`. Automotive
+widgets consume these values directly; CSS-to-gauge theme resolution remains in
+the reusable Tk automotive frontend. Colors, fonts, and redline geometry are
+unchanged. Application composition may supply a custom style through the existing
+widget parameters.
+
+The old `apps.common.uiTheme` gauge exports and module have been removed. Callers
+import from `ui.theme` or `ui.theme.vehicle_gauges`. The boundary gate now rejects
+all `apps` imports under `frontends/tk/automotive`, including nested new modules,
+so reusable automotive presentation cannot regain application ownership coupling.
+
+### Widget policy marker
+
+`ui.UiWidget` is a toolkit-independent, behavior-free marker for presentation
+objects. It has no constructor, lifecycle methods, dependency container, or
+registration mechanism. `ScreenUiIf` inherits it, so `TkScreen` implementations
+carry the policy automatically. Standalone panels can mix it into their existing
+toolkit class. Active shared Tk widgets, ORC panels and composite presentation
+objects, and shared instrument widgets now carry the marker. Their constructors
+and toolkit bases remain unchanged. A migration coverage test imports concrete
+toolkit classes without constructing a display and checks their inheritance;
+new direct Tk widgets in these scopes are included automatically.
+Older application frontends and deprecated UI remain outside this migration.
+The concrete rendering can use Tk;
+portable state, presentation interfaces, and semantic request interfaces stay
+under `ui/`.
+
+Marked objects receive already constructed contracts. They do not choose backend
+implementations, resolve services, or assemble dependency graphs. Those operations
+belong to composition. The marker does not prevent constructor injection of a
+request-handler interface.
+
+The project-wide boundary gate statically discovers top-level marked classes and
+their subclasses across repository source modules. Import aliases, relative
+imports, and explicit re-exports preserve discovery. Marked modules are checked
+under the existing dependency rules even outside frontend directories. Discovery
+does not import application code or initialize a GUI. Directory checks remain
+active without the marker, and the existing legacy exception counts cannot grow.
+Dynamic class factories/computed imports are outside this static discovery's
+scope. The marker adds policy coverage, not proof of runtime behavior or signature
+compatibility; those still require type checks and behavioral contract tests.
+
+### Routing capabilities
+
+`RouteRequestHandlerIf` provides single-destination start and cancel. Starting a
+route accepts `destination` and `travel_mode`; the unused `waypoints` argument
+has been removed. `RouteRequestHandlerStub` implements only this baseline.
+`NavigationRouteRequestHandler` additionally implements
+`RouteSimulationRequestHandlerIf`, matching the navigation service's commands.
+
+Advanced behavior is independently extensible through abstract interfaces under
+`ui/navigation`: `RouteWaypointRequestHandlerIf`,
+`RouteAlternativeRequestHandlerIf`, `RouteRecalculationRequestHandlerIf`,
+`RouteTravelModeRequestHandlerIf`, and `RouteVoiceGuidanceRequestHandlerIf`.
+Frontends discover support with `isinstance(handler, CapabilityIf)` before showing
+the associated controls. An adapter must inherit an optional interface only when
+it implements that behavior. The current service adapter implements none of these
+advanced capabilities; it no longer exposes unsupported operations or silent
+local settings. Initial route costing remains part of baseline start.
+The baseline exposes immutable `supported_travel_modes` for mode selectors.
+The current adapter supports auto, bicycle, and pedestrian routes; transit is
+rejected with `ValueError` before contacting the service. The UI travel-mode
+enum remains provider-neutral so a future adapter can implement transit.
+
+Waypoint-capable implementations provide `request_start_route_with_waypoints`
+alongside editing requests. Existing baseline callers migrate from
+`request_start_route(destination, (), travel_mode)` to
+`request_start_route(destination, travel_mode)`. A caller that supplies intermediate
+locations must first require `RouteWaypointRequestHandlerIf`, then call its
+dedicated start method. Simulation remains an independent existing capability.
+
+### Resource ownership and frontend dispatch
+
+Composition factories register cleanup as soon as they acquire an owned resource.
+`ResourceCleanup` rolls back partial startup in reverse acquisition order and
+preserves the startup exception, attaching any cleanup failures as notes. Successful
+factories transfer ownership to their composition. Composition shutdown is
+idempotent and attempts every owned cleanup before reporting failures. The shell
+closes its delivery queue before feature and runtime resources are released.
+
+`UiDispatcherIf.dispatch_ui` accepts worker completions through a thread-safe
+queue without calling Tk. The shell drains bounded batches on the frontend thread.
+Closing retires that queue, discarding pending and late completions. Delayed
+`schedule_ui_callback` and cancellation remain frontend-thread operations; worker
+code uses `dispatch_ui`. Weather controllers and Games use that delivery contract.
+Controller generation checks still reject stale results while the application is
+open. Shell shutdown cancels tracked timers and attempts screen, chrome, and root
+cleanup even when an earlier cleanup fails.
+
 `frontend/tk/navigation_panel.py` owns navigation state and UI polling. Its
 `navigation_poi_actions.py` helper owns asynchronous app/web handoffs, duplicate
 launch suppression, and applying queued results on the Tk thread. Failed handoffs
@@ -294,3 +440,51 @@ as missing-index error reporting. Platform launchers are injected by composition
 Termux updates retain `--renderer-only` and the configurable renderer build
 directory. Full navigation updates always rebuild the ORC-owned renderer, while
 MapLibre retains its build-state checks.
+
+### Streaming radio ownership
+
+`composition/radio.py` constructs the directory, favorites store, native embedder,
+and streaming browser sessions. `RadioEntryPanel` receives a presentation factory
+and does not receive streaming services. `RadioScreen` receives its native adapter
+from composition. Each browser consumes `StreamingRadioSessionIf` for lifecycle
+and emits `StreamingRadioRequestHandlerIf` requests using displayed station IDs.
+`StreamingRadioUiIf` accepts immutable `StreamingRadioBrowserState` plus encoded
+artwork bytes; widgets create Pillow/Tk display images on the frontend thread.
+`PersistentStreamingRadioPanel` now adds theme presentation only. Shared immutable
+filter selections and classification helpers live under `ui/radio/station_filters.py`;
+the old controller module reexports them for existing consumers.
+
+`StreamingRadioBrowser` owns directory queries, favorite persistence, playback
+requests, artwork caching, and stale-result checks. Composition owns separate
+bounded worker pools for browser operations and artwork so downloading station
+logos cannot queue playback behind a backlog of images. Workers deliver through
+`dispatch_ui`; they never call Tk scheduling or inspect widget lifetime. Local
+and regional search policy, stable favorite IDs and ordering, and presentation
+filters retain their existing behavior. Directory completion checks both the
+visible session generation and the latest requested mode. Favorite writes are
+serialized by the store, and failed persistence leaves membership unchanged.
+
+Leaving the browser retires its handler and pending deliveries. Queued playback
+that has not begun is discarded; audio already in progress remains application-owned
+and continues across navigation. Opening the browser refreshes current metadata
+and playback state. Artwork is deduplicated within a visible session and cached
+by station ID and artwork URL; URL changes invalidate older images. Missing or
+corrupt artwork retains the placeholder. Downloads retain the five-second timeout
+and two-MiB encoded payload limit. In-flight directory and artwork transport may
+finish after hide/close, but its results cannot reach the retired presentation.
+
+Home consumes `StreamingRadioStateSourceIf.snapshot()`, not a concrete playback
+service. `StreamingRadioController` serializes native play/stop operations and
+supplies a consistent immutable playback snapshot. Reading that snapshot never
+waits for a native operation. Runtime shutdown uses terminal `close()`: it retires
+new playback before waiting for native cleanup, preventing delayed workers from
+restarting audio after shutdown. Radio composition closes browser sessions,
+unsubscribes its online listener, cancels its ADS-B status timer, and retires both
+worker pools; application composition owns that cleanup and startup rollback.
+
+Strict mypy includes the streaming contracts, controller, browser, transport,
+Tk browser/theme/Home widgets, radio screen, and composition. Structural witnesses
+check actual implementations against their contracts. The migrated streaming
+frontends have no backend import exceptions; thirteen prior exceptions are removed.
+RF profile/telemetry orchestration and the chooser's SDR launch worker remain a
+separate migration and keep their existing exact legacy exceptions.

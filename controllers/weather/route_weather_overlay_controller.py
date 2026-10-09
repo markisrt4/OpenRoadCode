@@ -69,7 +69,7 @@ class RouteWeatherOverlayController:
             except Exception as failure:
                 forecasts, error = (), str(failure)
             if not self._closed:
-                self._host.schedule_ui_callback(0, lambda: self._complete(generation, forecasts, error))
+                self._host.dispatch_ui(lambda: self._complete(generation, forecasts, error))
 
         threading.Thread(target=load, name="route-weather", daemon=True).start()
 
@@ -119,6 +119,8 @@ class RouteWeatherOverlayController:
 
     def close(self):
         """Invalidate pending forecasts and close the provider connection pool."""
+        if self._closed:
+            return
         self._closed = True
         self._generation += 1
         self._provider.close()

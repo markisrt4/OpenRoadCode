@@ -13,9 +13,10 @@ from ui.lighting import (
     LightingRequestHandlerIf,
     LightingState,
 )
+from ui.ui_widget import UiWidget
 
 
-class LightingControlsPanel(tk.Frame):
+class LightingControlsPanel(tk.Frame, UiWidget):
     """Render lighting state and emit semantic lighting requests."""
 
     def __init__(

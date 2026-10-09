@@ -8,18 +8,19 @@ from __future__ import annotations
 import tkinter as tk
 from collections.abc import Callable
 
-from controllers.radio.streaming_radio_controller import StreamingRadioController
+from ui.radio.streaming_radio_state_source_if import StreamingRadioStateSourceIf
 from ui.theme import ThemeBundle
+from ui.ui_widget import UiWidget
 
 
-class StreamingRadioNowPlaying(tk.Frame):
+class StreamingRadioNowPlaying(tk.Frame, UiWidget):
     """Present neutral radio state and current streaming playback on Home."""
 
     def __init__(
         self,
         parent: tk.Misc,
         *,
-        controller: StreamingRadioController,
+        state_source: StreamingRadioStateSourceIf,
         theme: ThemeBundle,
         on_open_rf: Callable[[], None],
         on_open_streaming: Callable[[], None],
@@ -29,7 +30,7 @@ class StreamingRadioNowPlaying(tk.Frame):
         ui = theme.ui
         super().__init__(parent, bg=ui.surface)
         self._online_allowed = online_allowed
-        self._controller = controller
+        self._state_source = state_source
         self._ui = ui
         self._after_id: str | None = None
 
@@ -139,8 +140,9 @@ class StreamingRadioNowPlaying(tk.Frame):
         online = self._online_allowed()
         self._stream_button.configure(state=tk.NORMAL if online else tk.DISABLED,
                                       disabledforeground=self._ui.text_muted)
-        current = self._controller.current_station
-        playing = current is not None and self._controller.is_playing
+        state = self._state_source.snapshot()
+        current = state.station
+        playing = current is not None and state.is_playing
         if playing and current is not None:
             self._status.configure(text="● STREAMING RADIO", fg=self._ui.accent_success)
             self._station.configure(text=current.name)

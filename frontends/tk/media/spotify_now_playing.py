@@ -17,12 +17,13 @@ from controllers.image import ImageCache
 from controllers.spotify.spotify_state_service import SpotifyStateService
 from ui.media import PlaybackState
 from ui.theme import ThemeBundle
+from ui.ui_widget import UiWidget
 
 GREEN = "#1DB954"
 ART_SIZE = 64
 
 
-class SpotifyNowPlaying(tk.Frame):
+class SpotifyNowPlaying(tk.Frame, UiWidget):
     """Render shared Spotify state and cached artwork without network work in Tk."""
 
     def __init__(

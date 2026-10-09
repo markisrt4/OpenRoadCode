@@ -19,6 +19,7 @@ from common.units import (
 )
 from ui.theme import ThemeBundle
 from ui.weather import WeatherRequestHandlerIf, WeatherUiIf, WeatherUiState
+from ui.ui_widget import UiWidget
 
 
 def weather_symbol(condition: str, *, nighttime: bool = False) -> str:
@@ -62,7 +63,7 @@ def weather_accent(condition: str, theme: ThemeBundle) -> str:
     return ui.text_muted
 
 
-class OrcWeatherPanel(tk.Frame, WeatherUiIf):
+class OrcWeatherPanel(tk.Frame, WeatherUiIf, UiWidget):
     """Render weather as a glanceable, touch-friendly automotive dashboard."""
 
     def __init__(

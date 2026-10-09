@@ -6,9 +6,10 @@ import tkinter as tk
 from tkinter import ttk
 
 from frontends.common.weather_overlay_format import city_time_label, weather_value
+from ui.ui_widget import UiWidget
 
 
-class CityWeatherDetailsPopup(tk.Toplevel):
+class CityWeatherDetailsPopup(tk.Toplevel, UiWidget):
     """Show a selected city's model estimates and cached hourly values."""
 
     def __init__(self, owner, state, *, ui, imperial, on_close):

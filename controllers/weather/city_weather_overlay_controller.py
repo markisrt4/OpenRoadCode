@@ -3,6 +3,7 @@
 
 """City weather state, asynchronous data and viewport discovery."""
 
+from common.resource_cleanup import close_resources
 from datetime import datetime, timezone
 import math
 import threading
@@ -109,12 +110,17 @@ class CityWeatherOverlayController:
         """Invalidate late weather workers and release the independent map subscription."""
         if self._closed:
             return
-        self.hide()
-        self._closed = True
         self._generation += 1
-        if self._source is not None:
-            self._source.close()
-        self._provider.close()
+
+        def hide_and_invalidate():
+            try:
+                self.hide()
+            finally:
+                self._closed = True
+
+        close_resources(hide_and_invalidate,
+                        *([self._source.close] if self._source is not None else []),
+                        self._provider.close)
 
     def refresh(self):
         """Refresh the batch while reusing current city names and coordinates."""
@@ -131,7 +137,7 @@ class CityWeatherOverlayController:
             except Exception as failure:
                 weather, error = (), str(failure)
             if not self._closed:
-                self._host.schedule_ui_callback(0, lambda: self._complete(generation, weather, error))
+                self._host.dispatch_ui(lambda: self._complete(generation, weather, error))
 
         threading.Thread(target=load, name="city-weather", daemon=True).start()
 

@@ -10,9 +10,10 @@ from collections.abc import Callable
 
 from ui.theme import ThemeBundle
 from .shell_metrics import FONT_BODY, FONT_CONTROL
+from ui.ui_widget import UiWidget
 
 
-class PowerDialog:
+class PowerDialog(UiWidget):
     """Own the modal power controls without owning system power behavior."""
 
     def __init__(

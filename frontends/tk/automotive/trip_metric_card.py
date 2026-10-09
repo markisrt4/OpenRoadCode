@@ -7,9 +7,10 @@ from __future__ import annotations
 
 import math
 import tkinter as tk
+from ui.ui_widget import UiWidget
 
 
-class TripMetricCard(tk.Canvas):
+class TripMetricCard(tk.Canvas, UiWidget):
     """Dark metric card with a lightweight vector automotive icon."""
 
     def __init__(

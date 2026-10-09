@@ -14,14 +14,13 @@ from frontends.tk.offline_card import OfflineCardAppearance
 from apps.orcUi.adapters.adsb_control import OrcUiAdsbControl
 from apps.orcUi.radio_application_service import RadioApplicationServiceIf
 from apps.orcUi.frontend.tk.radio_panel import RadioPanel
-from controllers.radio.streaming_radio_controller import StreamingRadioController
-from controllers.radio.streaming_radio_directory_if import StreamingRadioDirectoryIf
-from controllers.radio.streaming_radio_favorites import StreamingRadioFavorites
 from frontends.tk.radio.persistent_streaming_radio_panel import PersistentStreamingRadioPanel
 from frontends.x11 import X11WindowEmbedder
+from frontends.x11.window_embedder_if import WindowEmbedderIf
 from ui.theme import ThemeBundle
 from .shell_metrics import FONT_BODY, FONT_CONTROL, FONT_SMALL
 from .radio_source_icon import draw_source_icon
+from ui.ui_widget import UiWidget
 
 
 class LaunchAwareRadioPanel(RadioPanel):
@@ -31,7 +30,7 @@ class LaunchAwareRadioPanel(RadioPanel):
         self,
         parent: tk.Misc,
         *,
-        embedder: X11WindowEmbedder,
+        embedder: WindowEmbedderIf,
         theme: ThemeBundle,
         rf_active: Callable[[], bool] | None = None,
         release_rf: Callable[[], None] | None = None,
@@ -71,7 +70,7 @@ class LaunchAwareRadioPanel(RadioPanel):
         self._launch_status.place_forget()
 
 
-class RadioEntryPanel(tk.Frame):
+class RadioEntryPanel(tk.Frame, UiWidget):
     """Offer RF or streaming radio and host the active radio presentation."""
 
     def __init__(
@@ -79,11 +78,11 @@ class RadioEntryPanel(tk.Frame):
         parent: tk.Misc,
         *,
         radio_application: RadioApplicationServiceIf,
-        streaming_radio: StreamingRadioController,
-        directory: StreamingRadioDirectoryIf,
-        favorites: StreamingRadioFavorites,
+        streaming_panel_factory: Callable[
+            [tk.Misc, ThemeBundle, Callable[[], None]], PersistentStreamingRadioPanel
+        ],
         theme: ThemeBundle,
-        embedder: X11WindowEmbedder | None = None,
+        embedder: WindowEmbedderIf | None = None,
         adsb_control: OrcUiAdsbControl | None = None,
         on_location_changed: Callable[[str], None] | None = None,
         online_mode: OnlineModeIf | None = None,
@@ -97,9 +96,7 @@ class RadioEntryPanel(tk.Frame):
         self._embedder = embedder or X11WindowEmbedder()
         self._adsb_control = adsb_control or OrcUiAdsbControl()
         self._radio_application = radio_application
-        self._streaming_radio = streaming_radio
-        self._directory = directory
-        self._favorites = favorites
+        self._streaming_panel_factory = streaming_panel_factory
         self._radio_panel: LaunchAwareRadioPanel | None = None
         self._streaming_page: PersistentStreamingRadioPanel | None = None
         self._launching = False
@@ -128,6 +125,11 @@ class RadioEntryPanel(tk.Frame):
                 self._streaming_page = None
                 self._show_chooser()
             self._status.configure(text="Offline mode: RF radio remains available")
+
+    def deactivate(self) -> None:
+        """Retire browser callbacks as the containing radio screen is hidden."""
+        if self._streaming_page is not None:
+            self._streaming_page.deactivate()
 
     def destroy(self) -> None:
         self._unsubscribe_online()
@@ -163,6 +165,7 @@ class RadioEntryPanel(tk.Frame):
         """Present the ADS-B aircraft dashboard without starting SDR++ first."""
         self._chooser.grid_remove()
         if self._streaming_page is not None and self._streaming_page.winfo_exists():
+            self._streaming_page.deactivate()
             self._streaming_page.grid_remove()
         if self._radio_panel is None or not self._radio_panel.winfo_exists():
             self._radio_panel = LaunchAwareRadioPanel(
@@ -342,18 +345,15 @@ class RadioEntryPanel(tk.Frame):
             return
         self._chooser.grid_remove()
         if self._streaming_page is None or not self._streaming_page.winfo_exists():
-            self._streaming_page = PersistentStreamingRadioPanel(
-                self,
-                directory=self._directory,
-                controller=self._streaming_radio,
-                favorites=self._favorites,
-                theme=self._theme,
-                on_back=self._show_chooser,
+            self._streaming_page = self._streaming_panel_factory(
+                self, self._theme, self._show_chooser,
             )
+        self._streaming_page.activate()
         self._streaming_page.grid(row=0, column=0, sticky="nsew")
 
     def _show_chooser(self) -> None:
         if self._streaming_page is not None and self._streaming_page.winfo_exists():
+            self._streaming_page.deactivate()
             self._streaming_page.grid_remove()
         self._chooser.grid(row=0, column=0, sticky="nsew")
         self._set_location("RADIO")
@@ -367,6 +367,9 @@ class RadioEntryPanel(tk.Frame):
         if self._launching:
             return
         self._launching = True
+        if self._streaming_page is not None and self._streaming_page.winfo_exists():
+            self._streaming_page.deactivate()
+            self._streaming_page.grid_remove()
         self._chooser.grid_remove()
         self._radio_panel = LaunchAwareRadioPanel(
             self,

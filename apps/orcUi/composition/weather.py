@@ -6,7 +6,9 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+
+from common.resource_cleanup import ResourceCleanup, close_resources
 
 from apps.orcUi.frontend.tk.orc_ui_app import OrcUiApp
 from apps.orcUi.theme_runtime import theme_bundle
@@ -42,9 +44,13 @@ class WeatherComposition:
     radar_injection: EnvironmentalRadarInjectionController
     screen_controller: WeatherScreenController
 
+    _closed: bool = field(default=False, init=False)
+
     def close(self) -> None:
-        self.screen_controller.close()
-        self.radar_tiles.close()
+        if self._closed:
+            return
+        self._closed = True
+        close_resources(self.screen_controller.close, self.radar_tiles.close)
 
     def select_radar_source(self, forecast: bool) -> None:
         """Select observed radar or experimental NOAA HRRR CONUS forecasts."""
@@ -62,67 +68,72 @@ def configure_weather(
     map_renderer=None,
 ) -> WeatherComposition:
     """Compose GPS-backed Open-Meteo Weather with shared display preferences."""
-    runtime_config = ServiceRuntimeConfigParser(DEFAULT_RUNTIME_CONFIG).load()
-    simulated_fix = runtime_config.navigation.gps.simulation
-    fallback_location = WeatherLocation(
-        latitude=simulated_fix.latitude_deg,
-        longitude=simulated_fix.longitude_deg,
-        name="Configured fallback",
-        source="runtime-config",
-    )
-    controller = WeatherController(
-        OpenMeteoWeatherProvider(timeout_seconds=5.0),
-        network_allowed=lambda: app.online_mode.online,
-        location_provider=GpsdWeatherLocationProvider(),
-        fallback_location=fallback_location,
-    )
-    def publish_weather_status(state) -> None:
-        if on_weather_status is None:
-            return
-        value = state.current.temperature_k
-        if value is None:
-            temperature = "--°"
-        elif unit_system() is UnitSystem.IMPERIAL:
-            temperature = f"{kelvin_to_fahrenheit(value):.0f}°F"
-        else:
-            temperature = f"{kelvin_to_celsius(value):.0f}°C"
-        condition = state.current.condition_label.lower()
-        symbol = "⚡" if "thunder" in condition else "❄" if "snow" in condition else "☂" if "rain" in condition else "☀" if "clear" in condition else "☁"
-        on_weather_status(f"{symbol}  {temperature}")
+    with ResourceCleanup() as cleanup:
+        runtime_config = ServiceRuntimeConfigParser(DEFAULT_RUNTIME_CONFIG).load()
+        simulated_fix = runtime_config.navigation.gps.simulation
+        fallback_location = WeatherLocation(
+            latitude=simulated_fix.latitude_deg,
+            longitude=simulated_fix.longitude_deg,
+            name="Configured fallback",
+            source="runtime-config",
+        )
+        controller = WeatherController(
+            OpenMeteoWeatherProvider(timeout_seconds=5.0),
+            network_allowed=lambda: app.online_mode.online,
+            location_provider=GpsdWeatherLocationProvider(),
+            fallback_location=fallback_location,
+        )
+        def publish_weather_status(state) -> None:
+            if on_weather_status is None:
+                return
+            value = state.current.temperature_k
+            if value is None:
+                temperature = "--°"
+            elif unit_system() is UnitSystem.IMPERIAL:
+                temperature = f"{kelvin_to_fahrenheit(value):.0f}°F"
+            else:
+                temperature = f"{kelvin_to_celsius(value):.0f}°C"
+            condition = state.current.condition_label.lower()
+            symbol = "⚡" if "thunder" in condition else "❄" if "snow" in condition else "☂" if "rain" in condition else "☀" if "clear" in condition else "☁"
+            on_weather_status(f"{symbol}  {temperature}")
 
-    if map_renderer is None:
-        raise ValueError("map_renderer is required for weather radar")
-    radar_tiles = RadarTileService()
-    radar = WeatherRadarController(
-        RainViewerRadarProvider(), map_renderer, palette=radar_palette, tile_service=radar_tiles
-    )
-    radar_injection = EnvironmentalRadarInjectionController(
-        radar,
-        bridge=AndroidSensorBridgeClient(
-            base_url=android_bridge_url(
-                runtime_config.environmental.weather_simulation.bridge_url
-            )
-        ),
-    )
-    radar_injection.refresh()
+        if map_renderer is None:
+            raise ValueError("map_renderer is required for weather radar")
+        radar_tiles = RadarTileService()
+        cleanup.callback(radar_tiles.close)
+        radar = WeatherRadarController(
+            RainViewerRadarProvider(), map_renderer, palette=radar_palette, tile_service=radar_tiles
+        )
+        radar_injection = EnvironmentalRadarInjectionController(
+            radar,
+            bridge=AndroidSensorBridgeClient(
+                base_url=android_bridge_url(
+                    runtime_config.environmental.weather_simulation.bridge_url
+                )
+            ),
+        )
+        radar_injection.refresh()
 
-    screen = WeatherScreen(
-        app,
-        theme_bundle=lambda: theme_bundle(app.theme_mode),
-        unit_system=unit_system,
-        on_weather_radio=on_weather_radio,
-        on_radar_map=on_radar_map,
-    )
-    screen_controller = WeatherScreenController(
-        app, controller, screen, publish_weather_status, online_allowed=lambda: app.online_mode.online)
-    screen_controller.bind_online_mode(app.online_mode)
-    screen.set_weather_request_handler(screen_controller)
-    app.register_screen("WEATHER", screen, before="VISION")
-    return WeatherComposition(
-        screen=screen,
-        screen_controller=screen_controller,
-        controller=controller,
-        radar=radar,
-        radar_tiles=radar_tiles,
-        radar_injection=radar_injection,
-    )
+        screen = WeatherScreen(
+            app,
+            theme_bundle=lambda: theme_bundle(app.theme_mode),
+            unit_system=unit_system,
+            on_weather_radio=on_weather_radio,
+            on_radar_map=on_radar_map,
+        )
+        screen_controller = WeatherScreenController(
+            app, controller, screen, publish_weather_status, online_allowed=lambda: app.online_mode.online)
+        cleanup.callback(screen_controller.close)
+        screen_controller.bind_online_mode(app.online_mode)
+        screen.set_weather_request_handler(screen_controller)
+        app.register_screen("WEATHER", screen, before="VISION")
+        composition = WeatherComposition(
+            screen=screen,
+            screen_controller=screen_controller,
+            controller=controller,
+            radar=radar,
+            radar_tiles=radar_tiles,
+            radar_injection=radar_injection,
+        )
+        cleanup.release()
+        return composition

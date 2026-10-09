@@ -17,10 +17,12 @@ from controllers.sdr.sdr_telemetry_monitor import SDRTelemetryMonitor
 from controllers.sdr.sdr_telemetry_worker import SDRTelemetryWorker
 from controllers.sdr.sdrpp_control import SDRPPControl
 from frontends.x11 import X11WindowEmbedder
+from frontends.x11.window_embedder_if import WindowEmbedderIf
 from ui.theme import ThemeBundle, ThemeMode
 from .shell_metrics import FONT_BODY, FONT_CONTROL, FONT_SMALL
 from .radio_display_controls import RadioDisplayControlsMixin
 from .radio_group_menu import MAIN_GROUPS, RadioGroupMenuMixin
+from ui.ui_widget import UiWidget
 
 MAIN_GROUPS = (
     ("FM", "♫ FM ▾"),
@@ -32,14 +34,14 @@ MAIN_GROUPS = (
 RADIO_GROUPS = tuple(name for name, _ in MAIN_GROUPS)
 
 
-class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin, tk.Frame):
+class RadioPanel(RadioGroupMenuMixin, RadioDisplayControlsMixin, tk.Frame, UiWidget):
     """Automotive controls wrapped around embedded SDR++ and ADS-B views."""
 
     def __init__(
         self,
         parent: tk.Misc,
         *,
-        embedder: X11WindowEmbedder | None = None,
+        embedder: WindowEmbedderIf | None = None,
         radio_control: RadioProfileController | None = None,
         sdrpp_control: SDRPPControl | None = None,
         adsb_control: OrcUiAdsbControl | None = None,

@@ -16,9 +16,10 @@ from .shell_metrics import (
     FONT_CONTROL,
     FONT_STATUS,
 )
+from ui.ui_widget import UiWidget
 
 
-class OrcUiBottomBar(tk.Frame):
+class OrcUiBottomBar(tk.Frame, UiWidget):
     """Own persistent volume, ADS-B, settings, and theme controls."""
 
     def __init__(

@@ -20,9 +20,10 @@ from ui.radio import (
     TunedSignal,
     TuningRequestHandlerIf,
 )
+from ui.ui_widget import UiWidget
 
 
-class RadioPanel(tk.Frame, RadioUiIf):
+class RadioPanel(tk.Frame, RadioUiIf, UiWidget):
     """Present radio state and forward semantic user requests to injected handlers."""
 
     def __init__(

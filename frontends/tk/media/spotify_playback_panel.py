@@ -27,6 +27,7 @@ from ui.media import (
     TrackRequestHandlerIf,
     VolumeRequestHandlerIf,
 )
+from ui.ui_widget import UiWidget
 
 _LANCZOS = getattr(Image, "Resampling", Image).LANCZOS
 
@@ -105,7 +106,7 @@ def format_duration_s(value: float | None) -> str:
     return f"{minutes}:{seconds:02d}"
 
 
-class SpotifyPlaybackPanel(tk.Frame):
+class SpotifyPlaybackPanel(tk.Frame, UiWidget):
     """Render rich Spotify media state and emit semantic media requests."""
 
     def __init__(

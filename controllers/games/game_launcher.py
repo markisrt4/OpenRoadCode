@@ -14,7 +14,7 @@ class GameLauncher(GameLauncherIf):
     """Launch a configured game as a child process."""
 
     def __init__(self) -> None:
-        self._process: Optional[subprocess.Popen] = None
+        self._process: Optional[subprocess.Popen[bytes]] = None
         self._lock = threading.Lock()
 
     @property
@@ -57,7 +57,7 @@ class GameLauncher(GameLauncherIf):
                 daemon=True,
             ).start()
 
-    def _wait_for_exit(self, process: subprocess.Popen, on_exit: Callable[[], None]) -> None:
+    def _wait_for_exit(self, process: subprocess.Popen[bytes], on_exit: Callable[[], None]) -> None:
         process.wait()
         with self._lock:
             if self._process is process:

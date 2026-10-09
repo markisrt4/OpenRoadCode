@@ -43,18 +43,6 @@
     "count": 1,
     "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
   },
-  "apps/orcUi/frontend/tk/radio_entry_panel.py|imports controllers.radio.streaming_radio_controller.StreamingRadioController": {
-    "count": 1,
-    "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
-  },
-  "apps/orcUi/frontend/tk/radio_entry_panel.py|imports controllers.radio.streaming_radio_directory_if.StreamingRadioDirectoryIf": {
-    "count": 1,
-    "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
-  },
-  "apps/orcUi/frontend/tk/radio_entry_panel.py|imports controllers.radio.streaming_radio_favorites.StreamingRadioFavorites": {
-    "count": 1,
-    "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
-  },
   "apps/orcUi/frontend/tk/radio_entry_panel.py|imports threading": {
     "count": 1,
     "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
@@ -84,34 +72,6 @@
     "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
   },
   "controllers/video/youtube_player.py|imports apps.launchers.browser_launcher.BrowserKioskLauncher": {
-    "count": 1,
-    "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
-  },
-  "frontends/tk/games/games_screen.py|imports controllers.games.game_catalog.load_game_catalog": {
-    "count": 1,
-    "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
-  },
-  "frontends/tk/games/games_screen.py|imports controllers.games.game_controller.GameController": {
-    "count": 1,
-    "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
-  },
-  "frontends/tk/games/games_screen.py|imports controllers.games.game_installer_factory.create_game_installers": {
-    "count": 1,
-    "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
-  },
-  "frontends/tk/games/games_screen.py|imports controllers.games.game_installer_if.GameInstallerIf": {
-    "count": 1,
-    "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
-  },
-  "frontends/tk/games/games_screen.py|imports controllers.games.game_launcher.GameLauncher": {
-    "count": 1,
-    "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
-  },
-  "frontends/tk/games/games_screen.py|imports controllers.games.game_types.GameDefinition": {
-    "count": 1,
-    "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
-  },
-  "frontends/tk/games/games_screen.py|imports threading": {
     "count": 1,
     "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
   },
@@ -160,46 +120,6 @@
     "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
   },
   "frontends/tk/media/spotify_screen.py|imports threading": {
-    "count": 1,
-    "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
-  },
-  "frontends/tk/radio/persistent_streaming_radio_panel.py|imports controllers.radio.streaming_radio_favorites.StreamingRadioFavorites": {
-    "count": 1,
-    "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
-  },
-  "frontends/tk/radio/persistent_streaming_radio_panel.py|imports controllers.radio.streaming_radio_filters.StationFilters": {
-    "count": 1,
-    "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
-  },
-  "frontends/tk/radio/persistent_streaming_radio_panel.py|imports threading": {
-    "count": 1,
-    "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
-  },
-  "frontends/tk/radio/streaming_radio_now_playing.py|imports controllers.radio.streaming_radio_controller.StreamingRadioController": {
-    "count": 1,
-    "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
-  },
-  "frontends/tk/radio/streaming_radio_panel.py|imports concurrent.futures.ThreadPoolExecutor": {
-    "count": 1,
-    "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
-  },
-  "frontends/tk/radio/streaming_radio_panel.py|imports controllers.radio.streaming_radio_controller.StreamingRadioController": {
-    "count": 1,
-    "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
-  },
-  "frontends/tk/radio/streaming_radio_panel.py|imports controllers.radio.streaming_radio_directory_if.StreamingRadioDirectoryIf": {
-    "count": 1,
-    "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
-  },
-  "frontends/tk/radio/streaming_radio_panel.py|imports threading": {
-    "count": 1,
-    "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
-  },
-  "frontends/tk/radio/streaming_radio_panel.py|imports urllib.request.Request": {
-    "count": 1,
-    "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
-  },
-  "frontends/tk/radio/streaming_radio_panel.py|imports urllib.request.urlopen": {
     "count": 1,
     "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
   },

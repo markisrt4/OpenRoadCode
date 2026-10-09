@@ -18,3 +18,45 @@ select = [
     "F7",
     "F82",
 ]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+explicit_package_bases = true
+follow_imports = "silent"
+warn_unused_configs = true
+show_error_codes = true
+pretty = false
+files = [
+    "ui/ui_widget.py",
+    "ui/ui_dispatcher_if.py",
+    "ui/navigation/route_types.py",
+    "ui/navigation/route*request_handler_if.py",
+    "ui/navigation/route_request_handler_stub.py",
+    "controllers/navigation/navigation_route_request_handler.py",
+    "frontends/common/ui_callback_queue.py",
+    "apps/orcUi/frontend/tk/orc_ui_app.py",
+    "scripts/ui_type_witnesses.py",
+    "ui/games/*.py",
+    "controllers/games/game_controller.py",
+    "controllers/games/game_launcher_if.py",
+    "controllers/games/game_launcher.py",
+    "controllers/games/games_session.py",
+    "frontends/tk/games/games_screen.py",
+    "frontends/tk/games/games_panel.py",
+    "apps/orcUi/composition/games.py",
+    "ui/radio/streaming_radio*.py",
+    "ui/radio/station_filters.py",
+    "controllers/radio/streaming_radio_controller.py",
+    "controllers/radio/streaming_radio_browser.py",
+    "controllers/radio/streaming_radio_backend_if.py",
+    "controllers/radio/streaming_radio_artwork.py",
+    "frontends/tk/radio/streaming_radio_panel.py",
+    "frontends/tk/radio/persistent_streaming_radio_panel.py",
+    "frontends/tk/radio/streaming_radio_now_playing.py",
+    "frontends/tk/radio/radio_screen.py",
+    "apps/orcUi/composition/radio.py",
+]
+
+# Imported legacy modules keep their type information but are outside the strict
+# rollout. No blanket ignore_missing_imports or skipped-import Any substitution.
