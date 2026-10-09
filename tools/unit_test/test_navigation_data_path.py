@@ -26,5 +26,6 @@ def test_data_root_override_is_resolved_when_runtime_opens_index(tmp_path, monke
 def test_linux_installed_index_uses_srv(monkeypatch):
     monkeypatch.delenv('OPENROADCODE_DATA_ROOT', raising=False)
     monkeypatch.delenv('PREFIX', raising=False)
+    monkeypatch.delenv('TERMUX_VERSION', raising=False)
     with patch('common.navigation_data.Path.is_file', return_value=True):
         assert search_database_path() == Path('/srv/openroadcode/maps/search/openroadcode-search.sqlite')
