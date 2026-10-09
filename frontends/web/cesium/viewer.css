@@ -1,0 +1,10 @@
+html,body,#map {width:100%;height:100%;margin:0;overflow:hidden;background:#07131f;color:#eaf4fa;font:16px system-ui,sans-serif}
+header,nav,footer {position:absolute;z-index:2;display:flex;align-items:center;gap:8px;background:#0b1a28ed;border:1px solid #334a59;border-radius:8px;padding:8px}
+header {top:12px;left:12px;right:12px;justify-content:space-between}
+nav {right:12px;top:84px;flex-direction:column}
+footer {bottom:28px;left:12px;right:12px;font-size:13px;justify-content:space-between;pointer-events:none}
+button {min-height:44px;min-width:44px;background:#193447;color:#eaf4fa;border:1px solid #547082;border-radius:6px;padding:8px 12px;font:inherit;cursor:pointer}
+button:hover,button:focus-visible {background:#2d536b;outline:2px solid #78c7ff}
+button:disabled {opacity:.45;cursor:default}
+.cesium-viewer-bottom {left:12px!important}
+@media(max-width:600px) {header {font-size:14px} nav {top:80px} footer {font-size:11px}}
