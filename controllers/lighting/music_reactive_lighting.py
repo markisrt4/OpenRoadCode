@@ -12,10 +12,13 @@ from common.logging.structured import current_operation
 from concurrent.futures import Future
 from dataclasses import dataclass
 from time import monotonic
+from typing import TYPE_CHECKING
 
-from controllers.audio.music_analysis.music_analysis_types import MusicAnalysisState
 from controllers.lighting.lighting_controller_if import LightingControllerIf
 from controllers.lighting.lighting_types import RgbColor
+
+if TYPE_CHECKING:
+    from controllers.audio.music_analysis.music_analysis_types import MusicAnalysisState
 
 
 @dataclass(frozen=True, slots=True)
