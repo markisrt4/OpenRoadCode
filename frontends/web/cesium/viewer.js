@@ -59,6 +59,9 @@
       viewer.entities.add({polyline:{positions:points,width:1,material:C.Color.WHITE.withAlpha(.18)}});
     }
     window.ORCCesiumReferences(viewer, snapshot, C, terrain?.heightAt);
+    const buildingLabel = snapshot.buildings
+      ? window.ORCLocalBuildings(viewer, snapshot.buildings, C, terrain?.heightAt)
+      : "buildings not installed";
     viewer.scene.postRender.addEventListener(() => {
       const height = Math.round(viewer.camera.positionCartographic.height);
       const tilt = Math.round(C.Math.toDegrees(viewer.camera.pitch)+90);
@@ -94,7 +97,7 @@
     document.querySelectorAll('nav button').forEach(button => { button.disabled = false; });
     reset();
     const terrainLabel = terrain ? 'relative relief (~100 m samples)' : 'terrain not installed';
-    status.textContent = `Offline reference globe · imagery not installed · ${terrainLabel}`;
+    status.textContent = `Offline reference globe · imagery not installed · ${terrainLabel} · ${buildingLabel}`;
     if (snapshot.imagery) {
       const layer = snapshot.imagery;
       try {
@@ -111,7 +114,7 @@
         }));
         viewer.imageryLayers.addImageryProvider(provider);
         viewer.scene.requestRender();
-        status.textContent = `Offline · ${layer.title} · ${terrainLabel} · buildings not installed`;
+        status.textContent = `Offline · ${layer.title} · ${terrainLabel} · ${buildingLabel}`;
       } catch (error) {
         if (!closing) status.textContent = 'Imagery unavailable: '+error.message+' · reference globe remains usable';
       }

@@ -173,3 +173,36 @@ cloud software-rendering probe loaded synthetic terrain and imagery together,
 exercised zoom/tilt/reset, and confirmed close-request delivery. The optional
 Node test verifies north-to-south interpolation, coverage edges, and the detail
 limit; it skips in the quality gate when Node is not installed.
+
+### Offline Detroit buildings
+
+On `navigation-cesium`, download once, then launch as usual:
+
+```sh
+python -m development.maps.download_detroit_buildings
+python -m apps.launchers.component_test.cesium_viewer_cli --display :1
+```
+
+The installed pack is auto-detected. `--no-buildings` hides it;
+`--buildings PATH` selects another pack with the same validated format.
+No network requests are made by the building renderer. The source download uses
+one bounded Overpass query and can fail if the public service is busy; retry later.
+The downloader never silently installs an incomplete server response.
+
+Coverage matches the Detroit imagery and terrain rectangle. This prototype uses
+simple closed OSM building ways wholly inside that rectangle. Multipolygon
+relations, courtyards, building parts, and boundary-crossing outlines are omitted;
+this is not a complete city model. Flat roofs and bases are a visual approximation.
+Bases use the coarse terrain's relative relief at each outline's centroid.
+
+Blue buildings use OSM `height` tags (unverified), gold uses `building:levels × 3 m`
+(an estimate), and brown uses a **9 m placeholder**, not a measured height. Unsupported
+height units fall back to floor estimates or placeholders. The status line reports
+counts for each category. No facade textures or photogrammetry are included.
+
+OSM data is licensed under ODbL 1.0, independently of CesiumJS. Visible contributor
+attribution links to https://www.openstreetmap.org/copyright. The external pack
+retains the source response and a manifest containing the download time, bounds,
+checksum, source, and license link. Keep those records with the data. Redistributing
+this derived database requires an ODbL review and compliance; it is not covered by
+the imagery's public-domain rights. Packs remain outside the code repository.

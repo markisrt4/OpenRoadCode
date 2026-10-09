@@ -18,11 +18,12 @@ _WEB = Path(__file__).resolve().parents[2] / "frontends/web/cesium"
 class CesiumViewerServer:
     """Own the local origin, immutable view state, and bounded serving lifecycle."""
 
-    def __init__(self, sdk: Path, state: CesiumViewerState, *, imagery=None, terrain=None):
+    def __init__(self, sdk: Path, state: CesiumViewerState, *, imagery=None, terrain=None, buildings=None):
         self._sdk = require_sdk(sdk)
         self._state = state
         self._imagery = imagery
         self._terrain = terrain
+        self._buildings = buildings
         self._token = secrets.token_urlsafe(32)
         self.close_requested = threading.Event()
         self._server = ThreadingHTTPServer(("127.0.0.1", 0), partial(_Handler, owner=self))
@@ -76,6 +77,8 @@ class _Handler(BaseHTTPRequestHandler):
                 document["imagery"]["url"] = "/data/imagery.jpg"
             if self.owner._terrain is not None:
                 document["terrain"] = self.owner._terrain.document()
+            if self.owner._buildings is not None:
+                document["buildings"] = self.owner._buildings.document()
             self._send(json.dumps(document).encode(), "application/json")
             return
         if path == "/data/imagery.jpg" and self.owner._imagery is not None:
