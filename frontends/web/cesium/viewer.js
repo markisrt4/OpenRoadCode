@@ -90,7 +90,28 @@
     });
     document.querySelectorAll('nav button').forEach(button => { button.disabled = false; });
     reset();
-    status.textContent = 'Offline globe · imagery, terrain and buildings not installed';
+    status.textContent = 'Offline reference globe · imagery not installed';
+    if (snapshot.imagery) {
+      const layer = snapshot.imagery;
+      try {
+        const provider = await C.SingleTileImageryProvider.fromUrl(layer.url, {
+          rectangle:C.Rectangle.fromRadians(layer.west_rad,layer.south_rad,layer.east_rad,layer.north_rad),
+          credit:layer.attribution
+        });
+        if (closing || viewer.isDestroyed()) return;
+        // A transparent global base prevents Cesium stretching the first
+        // bounded image layer across uncovered parts of the globe.
+        viewer.imageryLayers.addImageryProvider(new C.GridImageryProvider({
+          color:C.Color.TRANSPARENT, glowColor:C.Color.TRANSPARENT,
+          backgroundColor:C.Color.TRANSPARENT, cells:1
+        }));
+        viewer.imageryLayers.addImageryProvider(provider);
+        viewer.scene.requestRender();
+        status.textContent = `Offline · ${layer.title} · terrain and buildings not installed`;
+      } catch (error) {
+        if (!closing) status.textContent = 'Imagery unavailable: '+error.message+' · reference globe remains usable';
+      }
+    }
   } catch (error) {
     status.textContent = 'Unable to render: '+error.message+' — use Return to ORC or the window close button';
   }

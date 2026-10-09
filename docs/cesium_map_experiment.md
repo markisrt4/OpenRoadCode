@@ -7,9 +7,8 @@ ellipsoid globe, procedural geographic grid, and a static Detroit marker. Around
 the marker, a synthetic 250-metre checkerboard grid, 250/500/1,000-metre distance
 rings, and labelled compass directions make camera movement visible. A yellow
 ground arrow points north; the footer reports camera height, tilt, and heading.
-These reference graphics are not real streets or buildings. There
-is no aerial imagery, elevation terrain, building dataset, routing, or GPS follow
-yet. Zoom, rotation/pan gestures, north-up, tilt, and reset are available. The
+These reference graphics are not real streets or buildings. Without an installed imagery pack it has no aerial imagery. Elevation terrain,
+building datasets, routing, and GPS follow are not implemented yet. Zoom, rotation/pan gestures, north-up, tilt, and reset are available. The
 viewer is an owned, isolated Chromium app window; Return to ORC, window close, or
 Ctrl+C stops only this experiment and its local server.
 
@@ -87,3 +86,47 @@ buildings independently using [the dataset review](detroit_map_data_review.md).
 Keep data providers and coverage/license metadata outside the viewer's camera
 controls. Compare the same datasets in MapLibre before adding a permanent ORC
 launch control or replacing its navigation map.
+
+## First real imagery pack (bounded downtown Detroit)
+
+The viewer can now load a separately installed local imagery pack. The pack's
+storage/checksum adapter is independent of the immutable SI layer snapshot and
+Cesium presentation. It serves only the selected image through the local origin;
+the browser never contacts the source service. Attribution stays in Cesium's
+credit display. Missing imagery leaves the reference globe usable.
+
+From the repository root, download explicitly while online:
+
+```bash
+python -m development.maps.download_detroit_imagery
+python -m apps.launchers.component_test.cesium_viewer_cli --display :1
+```
+
+The downloader queries the USGS NAIP Plus catalog for primary Michigan records,
+selects the newest identifiable NAIP/USDA acquisition year, locks the export to
+those raster IDs, and saves a natural-colour WGS84 JPEG plus provenance. It does
+not substitute commercial imagery if no qualifying record is found. Source
+metadata is retained and the service must still describe public-domain imagery.
+USGS reference: https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPPlus/ImageServer
+
+Coverage is west/south/east/north `-83.065, 42.315, -83.025, 42.345`, approximately
+3.3 km across around downtown Detroit. The export is 2,048 × 1,536 pixels; these
+are resampled output pixels, not a native acquisition-resolution claim. The
+actual year, records, downloaded byte count, and SHA-256 are recorded in
+`manifest.json`. The JPEG is capped at 20 MB; exact size and completeness need a
+successful device download. Inspect for no-data gaps near coverage edges/river.
+A bounded image is a first data-quality test, not a citywide tiled map.
+
+Default installation:
+`$XDG_DATA_HOME/openroadcode/map-packs/detroit-imagery-v1` (or `~/.local/share`).
+The viewer automatically uses this pack if installed. Use `--no-imagery` to
+return to the reference globe, or `--imagery /path/to/pack` for an explicit pack.
+After installation the image works offline. Outside its rectangle the reference
+globe remains visible; the image is not stretched to cover the world. Terrain
+and buildings are still absent, so tilting the photo will not create 3D buildings.
+
+The cloud network policy blocked the catalog and image-download endpoints. This
+change therefore does not claim a downloaded/visually verified Detroit image,
+confirmed acquisition year, exact file size, or measured device performance.
+Device download and visual inspection remain pending. Run the full quality gate
+locally after updating: `python scripts/quality_gate.py`.
