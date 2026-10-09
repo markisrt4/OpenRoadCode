@@ -30,11 +30,11 @@ def height(tags):
     return 9.0, "placeholder"
 
 
-def prepare(reply):
+def parse_buildings(reply, bounds=BOUNDS):
     if reply.get("remark"):
         raise RuntimeError("Overpass returned an incomplete/error response: "+reply["remark"])
     buildings, skipped = [], 0
-    west, south, east, north = BOUNDS
+    west, south, east, north = bounds
     for element in reply.get("elements", []):
         tags = element.get("tags", {})
         geometry = element.get("geometry", [])
@@ -46,7 +46,12 @@ def prepare(reply):
             continue
         ring = tuple((math.radians(p["lon"]), math.radians(p["lat"])) for p in geometry)
         buildings.append(LocalBuilding(ring, *height(tags)))
-    return LocalBuildingState(tuple(buildings)), skipped
+    return tuple(buildings), skipped
+
+
+def prepare(reply):
+    buildings, skipped = parse_buildings(reply)
+    return LocalBuildingState(buildings), skipped
 
 
 def request_tile(bounds):

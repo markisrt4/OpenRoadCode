@@ -227,8 +227,8 @@ and Earth. It centers the local viewer on that POI, labeled with its name. The
 Google Earth button retains its ordinary online browser behavior. 3D Map works
 in offline mode, uses only installed SDK/data, and never downloads new coverage.
 If the selected place is outside installed imagery coverage, the viewer footer
-says so; missing data leaves the reference globe usable. Detailed data currently
-covers the downtown Detroit rectangle only. An absent SDK or invalid pack reports
+says so; missing data leaves the reference globe usable. Detailed coverage depends on the installed packs: the original downtown
+rectangle or the optional Downtown–Midtown tile pack. An absent SDK or invalid pack reports
 a launch failure in ORC; run the documented installers before using this action.
 
 **Return to ORC** or the viewer window's close button closes the local viewer. ORC
@@ -241,3 +241,56 @@ Device validation: open a downtown Detroit POI in NAV, choose 3D Map, toggle
 Buildings/Grid and return. Repeat in offline mode, then select a POI outside the
 Detroit pack to confirm the coverage warning. Close ORC while a viewer is open
 and confirm its window also closes.
+
+### Downtown–Midtown tiled pack
+
+Review the download plan first, then explicitly install:
+
+```sh
+git switch navigation-cesium
+python -m development.maps.download_detroit_map_tiles
+python -m development.maps.download_detroit_map_tiles --download
+python -m apps.launchers.component_test.cesium_viewer_cli --display :1
+```
+
+The new pack covers approximately 5 × 6.7 km, from downtown north through Midtown
+(bounds: −83.085, 42.315, −83.025, 42.375). Eight geographic tiles each contain a
+2048 × 1536 NAIP export and OSM building geometry. Export pixel count does not
+prove native source resolution, and the newest identifiable NAIP year can differ
+between tiles. NAIP remains public domain; OSM retains its separate ODbL license.
+Source responses and license references remain in the external pack.
+
+Actual size is unknown before export. Hard payload caps are 160 MiB imagery,
+160 MiB OSM source records, and 80 MiB prepared buildings, plus metadata. Most
+responses should be smaller; the installer prints the final size. Installation
+copies the completed download cache into the final pack, temporarily requiring
+roughly twice its storage. The `.download` directory remains for resume and can
+be removed manually after successful validation to reclaim duplicate storage.
+An incomplete download never replaces the original downtown packs or becomes an
+installed tile pack. Run the same command again to resume completed imagery and
+OSM requests. Transient OSM failures retry; imagery failures resume on rerun.
+
+The viewer and POI action automatically prefer a validated installed tiled pack.
+The original packs remain usable with `--no-tiles`; explicitly choosing the old
+imagery/building options also bypasses automatic tiled-pack selection. No tile
+requests go to the internet during viewing: the loopback server serves only
+manifested image/geometry files. Source records are not exposed to the browser.
+
+At most four nearby tiles are attached, with at most two tile loads in flight.
+The camera's visible rectangle selects intersecting tiles, prioritized by distance
+to its center. Camera movement unloads unwanted imagery and building entities.
+Late requests cannot attach to a closed viewer or an abandoned tile. At wide zoom
+levels this prototype deliberately limits detail to four nearby tiles; zoom in
+for full local detail. The footer reports active/installed tile counts and cyan
+outlines mark installed coverage. Buildings toggle independently; estimates and
+placeholders retain their colors. Boundary-crossing simple outlines belong to
+one tile by their mean vertex location; complex OSM relations remain omitted.
+
+This expansion does not expand terrain: the existing coarse terrain pack still
+covers downtown only, fading to flat ground outside that rectangle. Embedding,
+live tracking, and routing overlays remain later stages.
+
+Phone acceptance: pan from downtown north toward Midtown, watch active tile counts
+stay at four or fewer, and inspect newly loaded buildings/imagery. Toggle Buildings,
+zoom out, return to ORC, and repeat offline. Verify smoothness and memory use on the
+phone before considering broader coverage or embedding.

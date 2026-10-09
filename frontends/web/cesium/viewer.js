@@ -4,6 +4,7 @@
   const status = document.getElementById('status');
   let viewer;
   let snapshot;
+  let tiledMap;
   let closing = false;
   const close = document.getElementById('close');
   document.querySelectorAll('nav button').forEach(button => { button.disabled = true; });
@@ -66,6 +67,8 @@
       ? window.ORCLocalBuildings(viewer, snapshot.buildings, C, terrain?.heightAt)
       : null;
     if (buildings) buildings.source.show = snapshot.buildings_visible;
+    tiledMap = snapshot.map_tiles ? window.ORCLocalMapTiles(viewer, snapshot.map_tiles, C,
+      terrain?.heightAt, snapshot.buildings_visible) : null;
     const buildingLabel = buildings ? buildings.label : "buildings not installed";
     function bindVisibility(id, source) {
       const button = document.getElementById(id);
@@ -111,16 +114,20 @@
       status.textContent = 'Rendering stopped: '+error.message+' — return and retry';
     });
     document.querySelectorAll('nav button').forEach(button => { button.disabled = false; });
-    bindVisibility('buildings', buildings?.source);
+    bindVisibility('buildings', tiledMap || buildings?.source);
     bindVisibility('references', references);
     reset();
-    const imageCoverage = snapshot.imagery;
+    const imageCoverage = snapshot.map_tiles?.coverage || snapshot.imagery;
     const insideImagery = imageCoverage && snapshot.longitude_rad >= imageCoverage.west_rad
       && snapshot.longitude_rad <= imageCoverage.east_rad && snapshot.latitude_rad >= imageCoverage.south_rad
       && snapshot.latitude_rad <= imageCoverage.north_rad;
     const coverageLabel = imageCoverage && !insideImagery ? 'Selected place outside installed imagery coverage · ' : '';
     const terrainLabel = terrain ? 'relative relief (~100 m samples)' : 'terrain not installed';
     status.textContent = `Offline reference globe · imagery not installed · ${terrainLabel} · ${buildingLabel}`;
+    if (tiledMap) {
+      status.textContent = `Offline · ${coverageLabel}${snapshot.map_tiles.coverage.title} · ${terrainLabel} · buildings: blue tagged, gold floor estimates, brown 9 m placeholders`;
+      tiledMap.update();
+    }
     if (snapshot.imagery) {
       const layer = snapshot.imagery;
       try {
@@ -145,5 +152,5 @@
   } catch (error) {
     status.textContent = 'Unable to render: '+error.message+' — use Return to ORC or the window close button';
   }
-  window.addEventListener('pagehide', () => { if (viewer && !viewer.isDestroyed()) viewer.destroy(); });
+  window.addEventListener('pagehide', () => { tiledMap?.destroy(); if (viewer && !viewer.isDestroyed()) viewer.destroy(); });
 })();

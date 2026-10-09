@@ -26,7 +26,7 @@ def get_json(endpoint, **parameters):
     return document
 
 
-def download(destination):
+def download(destination, *, bounds=BOUNDS):
     if destination.exists():
         pack = LocalImageryPack.load(destination)
         print(f"Already installed: {pack.image} ({pack.image.stat().st_size:,} bytes)")
@@ -35,7 +35,7 @@ def download(destination):
     if "public domain" not in metadata.get("serviceDescription", "").lower():
         raise RuntimeError("USGS service no longer declares public-domain imagery; review source rights")
     catalog = get_json("/query", where="State='MI' AND Category=1",
-                       geometry=",".join(map(str, BOUNDS)), geometryType="esriGeometryEnvelope",
+                       geometry=",".join(map(str, bounds)), geometryType="esriGeometryEnvelope",
                        inSR=4326, spatialRel="esriSpatialRelIntersects", returnGeometry="false",
                        outFields="OBJECTID,Name,Year,raster_name,agency,vendor,download_url,acquisition_date,resolution_value,resolution_units")
     if catalog.get("exceededTransferLimit"):
@@ -54,14 +54,15 @@ def download(destination):
     selected = [record for record in candidates if record["Year"] == year]
     mosaic = {"mosaicMethod":"esriMosaicLockRaster", "lockRasterIds":[r["OBJECTID"] for r in selected],
               "mosaicOperation":"MT_FIRST"}
-    export = get_json("/exportImage", bbox=",".join(map(str, BOUNDS)), bboxSR=4326, imageSR=4326,
+    export = get_json("/exportImage", bbox=",".join(map(str, bounds)), bboxSR=4326, imageSR=4326,
                       size="2048,1536", format="jpg", adjustAspectRatio="false",
                       mosaicRule=json.dumps(mosaic), renderingRule=json.dumps({"rasterFunction":"NaturalColor"}))
+    requested_bounds = bounds
     extent = export["extent"]
     if extent.get("spatialReference", {}).get("wkid") != 4326:
         raise RuntimeError("USGS export is not geographic WGS84")
     bounds = [extent[k] for k in ("xmin","ymin","xmax","ymax")]
-    if any(abs(actual-requested) > .000001 for actual,requested in zip(bounds, BOUNDS)):
+    if any(abs(actual-requested) > .000001 for actual,requested in zip(bounds, requested_bounds)):
         raise RuntimeError("Export coverage differs from the requested bounded area")
     href = export["href"]
     parsed = urllib.parse.urlsplit(href)

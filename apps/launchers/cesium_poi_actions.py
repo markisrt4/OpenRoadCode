@@ -11,6 +11,7 @@ from apps.launchers.cesium_viewer_server import CesiumViewerServer
 from apps.launchers.local_imagery_pack import LocalImageryPack, detroit_pack_directory
 from apps.launchers.local_terrain_pack import load_terrain, detroit_terrain_directory
 from apps.launchers.local_building_pack import load_buildings, detroit_building_directory
+from apps.launchers.local_map_tiles_pack import LocalMapTilesPack, detroit_tiles_directory
 from common.logging.logging_paths import logging_file_path
 from controllers.poi.poi_action_executor_if import PoiActionExecutorIf
 from ui.navigation.cesium_viewer_state import CesiumViewerState
@@ -43,14 +44,16 @@ class CesiumPoiActions(PoiActionExecutorIf):
                 raise RuntimeError('Close the current 3D viewer before opening another place')
             imagery_dir, terrain_dir, building_dir = (detroit_pack_directory(),
                                                      detroit_terrain_directory(), detroit_building_directory())
-            imagery = LocalImageryPack.load(imagery_dir) if imagery_dir.exists() else None
+            tile_dir = detroit_tiles_directory()
+            tiles = LocalMapTilesPack.load(tile_dir) if tile_dir.exists() else None
+            imagery = LocalImageryPack.load(imagery_dir) if tiles is None and imagery_dir.exists() else None
             terrain = load_terrain(terrain_dir) if terrain_dir.exists() else None
-            buildings = load_buildings(building_dir) if building_dir.exists() else None
+            buildings = load_buildings(building_dir) if tiles is None and building_dir.exists() else None
             display = os.environ.get('DISPLAY', ':1')
             resources = ExitStack()
             try:
                 server = CesiumViewerServer(sdk_directory(), state, imagery=imagery,
-                                             terrain=terrain, buildings=buildings)
+                                             terrain=terrain, buildings=buildings, tiles=tiles)
                 resources.callback(server.close)
                 profile = resources.enter_context(TemporaryDirectory(prefix='orc-cesium-poi-'))
                 browser = BrowserKioskLauncher(url=server.url, profile_path=profile,
