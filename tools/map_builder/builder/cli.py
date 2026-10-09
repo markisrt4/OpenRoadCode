@@ -153,10 +153,12 @@ def parse_args() -> argparse.Namespace:
         "--regions",
         help="comma-separated Geofabrik IDs describing the validated output",
     )
+    validate.add_argument("--installed-regions", action="store_true",
+                          help="recover region IDs from installed source PBF filenames")
     validate.add_argument(
         "--write-manifest",
         action="store_true",
-        help="write a fresh manifest after successful validation; requires --regions",
+        help="write a fresh manifest after successful validation; requires --regions or --installed-regions",
     )
     map3d = sub.add_parser("3d", help="build optional 3D buildings from installed navigation sources")
     map3d.add_argument("--coverage", choices=("detroit-downtown","detroit-midtown"))
@@ -179,10 +181,11 @@ def main() -> int:
                 print("Cancelled")
                 return 0
             previous_path = OUTPUT_ROOT / "build-manifest.json"
-            previous = json.loads(previous_path.read_text())
+            previous_bytes = previous_path.read_bytes()
+            previous = json.loads(previous_bytes)
             if previous.get("schema") != 2:
                 raise ValueError("Build a validated schema-2 navigation dataset before adding 3D packs")
-            validate_output(OUTPUT_ROOT, service_smoke=False)
+            baseline = validate_output(OUTPUT_ROOT, service_smoke=False)
             print(f"Coverage: {PRESETS[coverage][0]} · {PRESETS[coverage][1]}")
             print("Layer: buildings. Uses existing OSM sources; no download. Output size is known after extraction.")
             print("Limit: 8 tiles, 10 MiB geometry each plus metadata; complex polygons are omitted.")
@@ -199,8 +202,15 @@ def main() -> int:
                 return 0
             # A complete dataset must not retain a valid old certificate while being changed.
             previous_path.unlink()
-            destination = build_pack(OUTPUT_ROOT, coverage)
-            result = validate_output(OUTPUT_ROOT, service_smoke=False)
+            try:
+                destination = build_pack(OUTPUT_ROOT, coverage)
+                result = validate_output(OUTPUT_ROOT, service_smoke=False)
+            except BaseException:
+                # Extraction only touches temporary files. Restore the certificate
+                # only after proving that the original dataset is unchanged.
+                if not existing.exists() and validate_output(OUTPUT_ROOT, service_smoke=False) == baseline:
+                    previous_path.write_bytes(previous_bytes)
+                raise
             # Preserve region/search metadata while certifying all new artifacts.
             previous['validation'] = result
             previous['map_3d'] = result['map_3d']
@@ -214,6 +224,11 @@ def main() -> int:
             print("Publish and pull using the existing navigation deployment tools.")
             return 0
         if command == "validate":
+            if args.installed_regions:
+                if args.regions:
+                    raise ValueError("Choose --regions or --installed-regions, not both")
+                args.regions = ','.join(p.name.removesuffix('.osm.pbf').replace('__','/')
+                    for p in sorted((OUTPUT_ROOT/'maps/source').glob('*.osm.pbf')))
             if args.write_manifest and not args.regions:
                 raise ValueError("--write-manifest requires --regions")
             result = validate_output(OUTPUT_ROOT, service_smoke=args.service_smoke)

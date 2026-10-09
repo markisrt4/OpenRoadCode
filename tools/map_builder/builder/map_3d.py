@@ -37,8 +37,13 @@ def normalize(feature,bounds):
         return None
     geometry = feature.get('geometry') or {}
     rings = geometry.get('coordinates') or []
-    # Courtyards and multipolygons require a richer geometry contract later.
-    if geometry.get('type') != 'Polygon' or len(rings) != 1:
+    # Osmium exports simple way areas as single-part MultiPolygons too.
+    kind = geometry.get('type')
+    if kind == 'MultiPolygon' and len(rings) == 1:
+        rings = rings[0]
+        kind = 'Polygon'
+    # Courtyards and multiple separate parts still require a richer contract.
+    if kind != 'Polygon' or len(rings) != 1:
         return None
     ring = rings[0]
     if not 4 <= len(ring) <= 2000 or ring[0] != ring[-1]:

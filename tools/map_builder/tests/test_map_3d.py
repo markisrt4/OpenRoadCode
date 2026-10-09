@@ -189,3 +189,13 @@ def test_builder_geometry_reuses_matching_cached_imagery(built,tmp_path,monkeypa
     assert all(tile.imagery_available for tile in combined.state.tiles)
     assert combined.files['r0-c0']['imagery.jpg'].is_relative_to(cached)
     assert combined.files['r0-c0']['buildings.json'].is_relative_to(path)
+
+
+def test_osmium_single_part_multipolygon_matches_polygon():
+    polygon=feature()
+    expected=map_3d.normalize(polygon,map_3d.PRESETS['detroit-midtown'][1])
+    multi=feature()
+    multi['geometry']={'type':'MultiPolygon','coordinates':[multi['geometry']['coordinates']]}
+    assert map_3d.normalize(multi,map_3d.PRESETS['detroit-midtown'][1]) == expected
+    multi['geometry']['coordinates'].append(multi['geometry']['coordinates'][0])
+    assert map_3d.normalize(multi,map_3d.PRESETS['detroit-midtown'][1]) is None

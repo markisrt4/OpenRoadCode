@@ -237,3 +237,16 @@ can be paired with builder-owned geometry without copying it into the dataset.
 Otherwise the original downtown image is retained if installed, and the viewer
 reports missing imagery coverage. The SDK still requires its separate one-time
 installation. Building data is usable offline without imagery or terrain.
+
+If an earlier failed optional build removed the navigation manifest, recover it
+without compiling maps or routing again. This validates the existing dataset and
+recovers region IDs from its source PBF filenames:
+
+```bash
+git switch navigation-cesium
+bash tools/map_builder/scripts/run-builder.sh validate --write-manifest --installed-regions
+```
+
+New optional-build failures restore the prior certificate only when revalidation
+proves the original dataset remains unchanged. Single-part Osmium MultiPolygons
+are supported as ordinary outlines; holes and multi-part geometry remain omitted.
