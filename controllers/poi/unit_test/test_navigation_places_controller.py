@@ -149,7 +149,7 @@ def test_selected_place_gets_one_earth_link_in_degrees_preserving_actions():
     assert selected.actions[0] is website
     earth = selected.actions[-1]
     assert earth.label == 'Explore in Google Earth'
-    assert earth.uri == 'https://earth.google.com/web/search/42.0000000,-83.0000000'
+    assert earth.uri == 'https://earth.google.com/web/@42.0000000,-83.0000000,0a,1000d,35y,0h,45t,0r'
     search.poll_selected.return_value = selected
     assert len(controller.poll_selected().actions) == 2
     assert poi.actions == (website,)

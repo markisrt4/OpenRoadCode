@@ -14,7 +14,8 @@ which continues using MapLibre. A successful launch closes the selected POI card
 Maximizing fills the X11 desktop while keeping the title bar available for touch-based exit. If you use
 F11 for borderless fullscreen, press F11 again to restore the title bar, then X.
 
-The handoff passes only the selected place through a URL. It does not embed Earth,
+The handoff passes the selected place and a fixed initial viewing angle through
+a URL. It does not embed Earth,
 subscribe to GPS, inject location, expose DevTools, or automate the Earth camera.
 Earth controls the initial transition and subsequent exploration. This link-out
 design is an interpretation of ordinary viewing permitted by the
@@ -23,6 +24,14 @@ Google approval of ORC. Google's
 [permissions guidance](https://about.google/brand-resource-center/products-and-services/geo-guidelines/)
 separately prohibits embedding Earth in apps. Keep the normal Google/provider
 attribution visible.
+
+Destination links now request a 45-degree tilted view, north facing, with a
+1,000-metre viewing distance using Earth’s ordinary `@...45t...` camera URL. This
+is an experiment with Earth’s share-link format, not a guaranteed API. ORC has no
+elevation for the POI, so the URL starts with zero target altitude and relies on
+Earth’s terrain handling. Verify the destination remains visible when testing.
+Earth may adjust or ignore the initial view; 3D buildings depend on its settings
+and regional coverage.
 
 Update the branch and restart ORC before trying it:
 

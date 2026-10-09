@@ -57,7 +57,8 @@ class NavigationPlacesController(NavigationPlacesRequestHandlerIf):
             return poi
         action = PoiAction(PoiActionKind.OPEN_WEBSITE, "Explore in Google Earth",
                            provider_id="google-earth-explore",
-                           uri=f"https://earth.google.com/web/search/{latitude:.7f},{longitude:.7f}")
+                           uri=(f"https://earth.google.com/web/@{latitude:.7f},{longitude:.7f},"
+                                "0a,1000d,35y,0h,45t,0r"))
         actions = tuple(a for a in poi.actions if a.provider_id != "google-earth-explore")
         return replace(poi, actions=actions + (action,))
 

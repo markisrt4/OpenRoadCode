@@ -9,10 +9,13 @@ from apps.launchers.earth_exploration_actions import EarthExplorationActions
 from ui.navigation.poi_models import PoiAction, PoiActionKind
 
 
-def test_opens_selected_uri_as_plain_browser_window():
+@pytest.mark.parametrize("uri", [
+    "https://earth.google.com/web/search/42,-83",
+    "https://earth.google.com/web/@42,-83,0a,1000d,35y,0h,45t,0r",
+])
+def test_opens_selected_uri_as_plain_browser_window(uri):
     fallback = Mock()
     executor = EarthExplorationActions(fallback)
-    uri = 'https://earth.google.com/web/search/42,-83'
     action = PoiAction(PoiActionKind.OPEN_WEBSITE, 'Explore in Google Earth',
                        provider_id='google-earth-explore', uri=uri)
     with (
