@@ -10,11 +10,10 @@ from collections.abc import Callable
 
 from frontends.tk.tk_screen import TkScreen
 from frontends.tk.tk_screen_host_if import TkScreenHostIf
-from frontends.x11.window_embedder_if import WindowEmbedderIf
 from ui.screen_ui_if import ScreenId
 from ui.theme import ThemeBundle, ThemeMode
 
-RadioPanelFactory = Callable[[tk.Misc, WindowEmbedderIf, ThemeBundle], tk.Widget]
+RadioPanelFactory = Callable[[tk.Misc, ThemeBundle], tk.Widget]
 ThemeBundleProvider = Callable[[], ThemeBundle]
 ThemeModeProvider = Callable[[], ThemeMode]
 ThemeSyncHandler = Callable[[ThemeMode], None]
@@ -30,7 +29,6 @@ class RadioScreen(TkScreen):
         theme_bundle: ThemeBundleProvider,
         theme_mode: ThemeModeProvider,
         panel_factory: RadioPanelFactory,
-        embedder: WindowEmbedderIf,
         sync_theme: ThemeSyncHandler | None = None,
         on_location_changed: Callable[[str], None] | None = None,
     ) -> None:
@@ -41,7 +39,6 @@ class RadioScreen(TkScreen):
         self._panel_factory = panel_factory
         self._sync_theme = sync_theme
         self._on_location_changed = on_location_changed
-        self._embedder = embedder
         self._panel: tk.Widget | None = None
 
     def show(self) -> None:
@@ -53,7 +50,7 @@ class RadioScreen(TkScreen):
 
         theme = self._theme_bundle()
         self._sync_external_theme(self._theme_mode())
-        panel = self._panel_factory(self._host.screen_parent, self._embedder, theme)
+        panel = self._panel_factory(self._host.screen_parent, theme)
         panel.pack(fill=tk.BOTH, expand=True)
         self._panel = panel
 
@@ -96,7 +93,6 @@ class RadioScreen(TkScreen):
                     detach(panel.winfo_toplevel().winfo_id())
                 except (RuntimeError, tk.TclError):
                     pass
-        self._embedder.clear()
 
     def set_theme_mode(self, mode: ThemeMode) -> None:
         """Apply live ORC and external SDR theme changes without restarting radio."""

@@ -50,7 +50,7 @@ class OrcUiApplicationRuntime:
         if self._closed:
             return
         object.__setattr__(self, "_closed", True)
-        close_resources(self.streaming_radio.close, self.media.close, self.manager.stop_all)
+        close_resources(self.streaming_radio.close, self.media.close, self.radio.close, self.manager.stop_all)
 
 
 def create_orc_ui_application_runtime() -> OrcUiApplicationRuntime:
@@ -78,6 +78,7 @@ def create_orc_ui_application_runtime() -> OrcUiApplicationRuntime:
             sdrpp,
             fullscreen=sdrpp_app.fullscreen,
         )
+        cleanup.callback(radio.close)
         streaming_radio = StreamingRadioController(MpvStreamingAudioPlayer())
         cleanup.callback(streaming_radio.close)
         media = MediaApplicationService(create_spotify_controller())

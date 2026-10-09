@@ -43,26 +43,6 @@
     "count": 1,
     "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
   },
-  "apps/orcUi/frontend/tk/radio_entry_panel.py|imports threading": {
-    "count": 1,
-    "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
-  },
-  "apps/orcUi/frontend/tk/radio_panel.py|imports controllers.radio.radio_profile_controller.RadioProfileController": {
-    "count": 1,
-    "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
-  },
-  "apps/orcUi/frontend/tk/radio_panel.py|imports controllers.sdr.sdr_telemetry_monitor.SDRTelemetryMonitor": {
-    "count": 1,
-    "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
-  },
-  "apps/orcUi/frontend/tk/radio_panel.py|imports controllers.sdr.sdr_telemetry_worker.SDRTelemetryWorker": {
-    "count": 1,
-    "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
-  },
-  "apps/orcUi/frontend/tk/radio_panel.py|imports controllers.sdr.sdrpp_control.SDRPPControl": {
-    "count": 1,
-    "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
-  },
   "controllers/navigation/google_earth_map_presentation.py|imports apps.launchers.google_earth_launcher.GoogleEarthLauncher": {
     "count": 1,
     "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."

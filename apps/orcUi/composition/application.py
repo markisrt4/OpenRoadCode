@@ -275,7 +275,7 @@ def create_orc_ui_composition() -> OrcUiComposition:
             media=media,
             games=games,
             weather=weather,
-        vision=vision,
+            vision=vision,
             home=home,
             navigation=navigation,
             vehicle=vehicle,

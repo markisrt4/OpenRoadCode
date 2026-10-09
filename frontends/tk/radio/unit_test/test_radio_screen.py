@@ -20,7 +20,6 @@ class RadioScreenTest(unittest.TestCase):
             theme_bundle=lambda: bundle,
             theme_mode=lambda: ThemeMode.DARK,
             panel_factory=Mock(),
-            embedder=Mock(),
             sync_theme=sync_theme,
         )
         panel = Mock()
@@ -39,7 +38,6 @@ class RadioScreenTest(unittest.TestCase):
             theme_bundle=Mock(),
             theme_mode=lambda: ThemeMode.DARK,
             panel_factory=Mock(),
-            embedder=Mock(),
             sync_theme=sync_theme,
         )
 
@@ -60,8 +58,9 @@ def test_hiding_radio_retires_streaming_panel_before_detaching_native_window():
     embedder.clear.side_effect = lambda: events.append("clear")
     screen = RadioScreen(
         Mock(), theme_bundle=Mock(), theme_mode=lambda: ThemeMode.DARK,
-        panel_factory=Mock(), embedder=embedder,
+        panel_factory=Mock(),
     )
     screen._panel = panel
     screen.hide()
-    assert events == ["deactivate", "detach", "clear"]
+    assert events == ["deactivate", "detach"]
+    embedder.clear.assert_not_called()

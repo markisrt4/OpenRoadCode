@@ -31,7 +31,8 @@ def test_close_attempts_all_resources_and_is_idempotent():
 
 def test_failed_registration_rolls_back_workers_and_listener(monkeypatch):
     executor, artwork_executor = Mock(spec=ThreadPoolExecutor), Mock(spec=ThreadPoolExecutor)
-    pools = iter((executor, artwork_executor))
+    rf_executor = Mock(spec=ThreadPoolExecutor)
+    pools = iter((executor, artwork_executor, rf_executor))
     monkeypatch.setattr("apps.orcUi.composition.radio.ThreadPoolExecutor", lambda **k: next(pools))
     monkeypatch.setattr("apps.orcUi.composition.radio.RadioBrowserDirectory", Mock())
     monkeypatch.setattr("apps.orcUi.composition.radio.StreamingRadioFavorites", Mock())
@@ -63,7 +64,7 @@ def test_panel_factory_owns_session_and_rolls_it_back_on_widget_failure(monkeypa
     app = Mock()
     app.theme_mode = ThemeMode.DARK
     composition = configure_radio(app, Mock())
-    screen_type.call_args.kwargs["panel_factory"](Mock(), Mock(), Mock())
+    screen_type.call_args.kwargs["panel_factory"](Mock(), Mock())
     factory = entry_type.call_args.kwargs["streaming_panel_factory"]
     with pytest.raises(ValueError, match="widget failed"):
         factory(Mock(), Mock(), Mock())

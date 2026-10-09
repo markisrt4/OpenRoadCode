@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import os
 import tkinter as tk
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -19,6 +20,11 @@ from apps.orcUi.frontend.tk.orc_ui_app import OrcUiApp
 from apps.orcUi.frontend.tk.radio_entry_panel import RadioEntryPanel
 from apps.orcUi.theme_runtime import theme_bundle
 from controllers.radio.adapters.radio_browser_directory import RadioBrowserDirectory
+from controllers.radio.weather_radio import play_weather_radio
+from controllers.radio.rf_radio_session import ReceiverSession
+from controllers.sdr.sdrpp_control import SDRPPControl
+from controllers.sdr.sdr_telemetry_monitor import SDRTelemetryMonitor
+from apps.orcUi.frontend.tk.radio_panel import RadioPanel
 from controllers.radio.radio_profile_controller import RadioProfileController
 from controllers.radio.streaming_radio_favorites import StreamingRadioFavorites
 from controllers.radio.streaming_radio_browser import StreamingRadioBrowser
@@ -41,6 +47,10 @@ class StreamingRadioResources:
     artwork_executor: ThreadPoolExecutor = field(default_factory=lambda: ThreadPoolExecutor(
         max_workers=4, thread_name_prefix="orcui-radio-artwork",
     ))
+    rf_executor: ThreadPoolExecutor = field(default_factory=lambda: ThreadPoolExecutor(
+        max_workers=1, thread_name_prefix="orcui-rf-radio",
+    ))
+    rf_sessions: set[ReceiverSession] = field(default_factory=set)
     sessions: set[StreamingRadioBrowser] = field(default_factory=set)
     unsubscribe: Callable[[], None] = lambda: None
     adsb_callback: object | None = None
@@ -49,6 +59,10 @@ class StreamingRadioResources:
     def run_work(self, work: Callable[[], None]) -> None:
         if not self.closed:
             self.executor.submit(work)
+
+    def run_rf(self, work: Callable[[], None]) -> None:
+        if not self.closed:
+            self.rf_executor.submit(work)
 
     def run_artwork(self, work: Callable[[], None]) -> None:
         if not self.closed:
@@ -65,6 +79,8 @@ class StreamingRadioResources:
         close_resources(
             self.unsubscribe, cancel_adsb,
             *(session.close for session in tuple(self.sessions)),
+            *(session.close for session in tuple(self.rf_sessions)),
+            lambda: self.rf_executor.shutdown(wait=False, cancel_futures=False),
             lambda: self.executor.shutdown(wait=False, cancel_futures=True),
             lambda: self.artwork_executor.shutdown(wait=False, cancel_futures=True),
         )
@@ -91,7 +107,9 @@ def configure_radio(app: OrcUiApp, runtime: OrcUiApplicationRuntime) -> RadioCom
 
     with ResourceCleanup() as cleanup:
         def sync_theme(mode: ThemeMode) -> None:
-            sync_sdrpp_theme("Light" if mode is ThemeMode.LIGHT else "Dark")
+            def work() -> None:
+                sync_sdrpp_theme("Light" if mode is ThemeMode.LIGHT else "Dark")
+            resources.run_rf(work)
 
         resources = StreamingRadioResources(app.cancel_ui_callback)
         cleanup.callback(resources.close)
@@ -140,19 +158,33 @@ def configure_radio(app: OrcUiApp, runtime: OrcUiApplicationRuntime) -> RadioCom
                 rollback.release()
             return panel
 
+        def rf_panel_factory(parent: tk.Misc, theme: ThemeBundle) -> RadioPanel:
+            if resources.closed:
+                raise RuntimeError("Radio composition is closed")
+            radio = RadioProfileController()
+            session = ReceiverSession(
+                radio, SDRPPControl(), SDRTelemetryMonitor(radio), runtime.radio,
+                adsb, X11WindowEmbedder(), display=os.environ.get("DISPLAY", ":1"),
+                run_work=resources.run_rf, run_ui=app.dispatch_ui,
+                on_close=lambda: resources.rf_sessions.discard(session),
+            )
+            with ResourceCleanup() as rollback:
+                rollback.callback(session.close)
+                resources.rf_sessions.add(session)
+                panel = RadioPanel(parent, session=session, theme=theme)
+                rollback.release()
+            return panel
+
         screen = RadioScreen(
             app,
-            embedder=X11WindowEmbedder(),
             theme_bundle=lambda: theme_bundle(app.theme_mode),
             theme_mode=lambda: app.theme_mode,
-            panel_factory=lambda parent, embedder, theme: RadioEntryPanel(
+            panel_factory=lambda parent, theme: RadioEntryPanel(
                 parent,
-                embedder=embedder,
                 theme=theme,
-                radio_application=runtime.radio,
+                rf_panel_factory=rf_panel_factory,
                 online_mode=app.online_mode,
                 streaming_panel_factory=streaming_panel_factory,
-                adsb_control=adsb,
                 on_location_changed=lambda leaf: app.set_breadcrumb("RADIO", leaf),
             ),
             sync_theme=sync_theme,
@@ -178,37 +210,17 @@ def configure_radio(app: OrcUiApp, runtime: OrcUiApplicationRuntime) -> RadioCom
         def open_weather_radio() -> None:
             """Start NOAA RF audio while leaving the requesting screen visible."""
             app.set_screen_status("RF: starting NOAA Weather Radio")
-            controller = RadioProfileController()
-            profile = controller.catalog.profile("weather_band")
-            if not profile.presets:
-                app.set_screen_status("RF: no NOAA weather presets configured")
-                return
-            preset = profile.presets[0]
-            try:
-                runtime.radio.present()
-            except (OSError, RuntimeError, ValueError) as error:
-                app.set_screen_status(f"RF: {error}")
-                return
-
-            def tune_when_ready(attempts_remaining: int = 24) -> None:
+            def work() -> None:
                 try:
-                    if controller.active_profile_key != profile.key:
-                        controller.select_profile(profile.key)
-                    state = controller.tune_preset(preset)
-                except (OSError, RuntimeError, ValueError) as error:
-                    if attempts_remaining > 0:
-                        app.schedule_ui_callback(
-                            250,
-                            lambda: tune_when_ready(attempts_remaining - 1),
-                        )
+                    state = play_weather_radio(RadioProfileController(), runtime.radio,
+                                               cancelled=lambda: resources.closed)
+                    if state is None:
                         return
-                    app.set_screen_status(f"RF: {error}")
-                    return
-                app.set_screen_status(
-                    f"RF: Playing {preset.frequency_hz / 1_000_000:.3f} MHz · {state.label}"
-                )
-
-            app.schedule_ui_callback(250, tune_when_ready)
+                    message = f"RF: Playing {state.frequency_hz / 1_000_000:.3f} MHz · {state.label}"
+                except (OSError, RuntimeError, ValueError) as error:
+                    message = f"RF: {error}"
+                app.dispatch_ui(lambda: app.set_screen_status(message) if not resources.closed else None)
+            resources.run_rf(work)
 
         def home_radio_factory(parent: tk.Misc) -> tk.Widget:
             return StreamingRadioNowPlaying(

@@ -188,3 +188,14 @@ def test_gate_rejects_radio_contract_drift(tmp_path, source, error_code):
     result = check_source(tmp_path, source)
     assert result.returncode == 1, result.stdout + result.stderr
     assert error_code in result.stdout, result.stdout + result.stderr
+
+
+def test_gate_rejects_rf_request_contract_drift(tmp_path):
+    result = check_source(tmp_path, """
+from ui.radio.rf_radio_if import RfRadioSession
+
+def tune(session: RfRadioSession) -> None:
+    session.request("tune up")
+""")
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert "[arg-type]" in result.stdout
