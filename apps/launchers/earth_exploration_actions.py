@@ -1,5 +1,7 @@
 """Open user-selected Earth destinations in an ordinary native browser window."""
 
+
+from common.logging.diagnostics import ComponentLog, diagnostic_action
 import os
 import shutil
 import subprocess
@@ -16,8 +18,10 @@ class EarthExplorationActions(PoiActionExecutorIf):
     """Route Earth links to native Chromium, retaining other platform actions."""
 
     def __init__(self, fallback):
+        self._diagnostics = ComponentLog("navigation.earth.exploration", "earth")
         self._fallback = fallback
 
+    @diagnostic_action("explore")
     def execute(self, poi, action) -> str:
         if action.provider_id != "google-earth-explore":
             return self._fallback.execute(poi, action)

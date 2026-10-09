@@ -1,5 +1,50 @@
 # Weather
 
+## Structured logging
+
+Weather uses the shared ORC JSON Lines logger and the `weather` component prefix.
+View it with `./runOrcUi --follow-logs --log-component weather`, or filter for
+`weather` in the Android bridge's Diagnostics log screen. Enable DEBUG collection
+before starting the runtime with `ORC_LOG_COMPONENT_LEVELS=weather=DEBUG`.
+See the [logging guide](../../common/logging/README.md) for storage and retention.
+
+| Component | Coverage |
+| --- | --- |
+| `weather.forecast` | Forecast requests, location fallback, saved/fresh/offline cache use, failure/recovery |
+| `weather.screen` | Screen visibility, refresh workers and discarded stale callbacks |
+| `weather.city` | Batch requests, viewport query timeout/recovery, cached cities and playback changes |
+| `weather.model` | Model selection, requests, accepted/stale results and tile errors/timeouts |
+| `weather.route` | Route forecast requests, accepted/stale results and visibility |
+| `weather.radar` | Frame discovery, source/palette/visibility changes and cached selections |
+| `weather.radar.replay` | Async requests, obsolete results, playback start/pause/close and tile waits |
+| `weather.radar.tiles` | Local server lifecycle, PNG cache hit/miss/corruption, downloads and processing failures |
+
+Routine requests, completions, cache use, frame ticks and rejected stale results
+stay at DEBUG. State changes and recovery are INFO; failures are WARNING. Repeated
+failures of the same reason/type stay quiet until a successful operation or a
+different failure occurs. A recovery record describes that operation's stage;
+one successful tile does not establish that the viewport has fully loaded.
+
+Async requests carry an operation ID through workers and completion callbacks.
+Provider completion describes a fetch, while `overlay.applied` and
+`weather.forecast_applied` describe accepted presentation results. Obsolete
+callbacks emit `weather.result_discarded` and preserve the existing invalidation
+behavior. Tile HTTP requests have independent IDs; no token or URL is added to
+the tile protocol for correlation.
+
+Records use fixed messages and counts, normalized selections, reason codes and
+exception types. They exclude location/city names, coordinates (including tile
+XYZ/frame keys), URLs, credentials, cache paths, raw forecasts/images, native
+output, and exception messages. User-facing error/status details remain available
+through their existing UI contracts. No new application dependencies or runtime
+logging service is introduced.
+
+The logging quality gate covers privacy, request correlation, quiet cache/error
+behavior, failure recovery, worker startup, replay pause and stale completions.
+Its test environment installs the application's existing Pillow dependency for
+the PNG cache checks. Real map rendering, GDAL/provider access and device smoke
+testing remain platform checks.
+
 `controllers/weather` owns provider-independent Weather domain state, location
 resolution, forecast orchestration, presentation mapping, and weather-alert
 domain models. Provider transports live below the `WeatherProviderIf` boundary;

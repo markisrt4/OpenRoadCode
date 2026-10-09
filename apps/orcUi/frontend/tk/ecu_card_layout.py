@@ -37,4 +37,3 @@ def fit_ecu_card(body: tk.Frame, width: int, *, field_labels, labels, bars) -> N
             else:
                 canvas.grid()
     body.grid_columnconfigure(2, weight=0 if compact else 2)
-

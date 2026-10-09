@@ -5,6 +5,8 @@
 
 from __future__ import annotations
 
+from common.logging.diagnostics import ComponentLog
+
 from .barometric_controller_if import BarometricControllerIf
 from .barometric_state import BarometricState
 
@@ -18,6 +20,8 @@ class UnconfiguredBarometricController(BarometricControllerIf):
         self,
         reason: str = "Barometric sensor is not configured",
     ) -> None:
+        self._diagnostics = ComponentLog("environmental.barometric", "sensor")
+        self._diagnostics.changed("availability", "unconfigured")
         self._reason = reason
 
     @property
