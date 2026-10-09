@@ -262,4 +262,3 @@ version. Check that the native renderer and message bus are running and that
 their endpoints match the UI configuration. If the installed native executable
 predates `search_weather_cities`, rebuild/install it; pulling Python source alone
 does not update `/opt/openroadcode/navigation/bin/openroadcode-map-renderer`.
-
