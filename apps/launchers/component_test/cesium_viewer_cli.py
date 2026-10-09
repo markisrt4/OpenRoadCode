@@ -11,14 +11,15 @@ from apps.launchers.browser_launcher import BrowserKioskLauncher
 from apps.launchers.cesium_sdk import sdk_directory
 from apps.launchers.local_imagery_pack import LocalImageryPack, detroit_pack_directory
 from apps.launchers.cesium_viewer_server import CesiumViewerServer
+from apps.launchers.local_terrain_pack import load_terrain, detroit_terrain_directory
 from common.logging.logging_paths import logging_file_path
 from ui.navigation import GeoPoint
 from ui.navigation.cesium_viewer_state import CesiumViewerState
 
 
-def run(state, sdk, display, *, imagery=None):
+def run(state, sdk, display, *, imagery=None, terrain=None):
     with ExitStack() as resources:
-        server = CesiumViewerServer(sdk, state, imagery=imagery)
+        server = CesiumViewerServer(sdk, state, imagery=imagery, terrain=terrain)
         resources.callback(server.close)
         profile = resources.enter_context(TemporaryDirectory(prefix="orc-cesium-"))
         browser = BrowserKioskLauncher(
@@ -49,13 +50,17 @@ def main():
     parser.add_argument("--sdk", type=Path, default=sdk_directory())
     parser.add_argument("--imagery", type=Path, help="Local imagery pack; default: installed Detroit pack")
     parser.add_argument("--no-imagery", action="store_true", help="Use the reference globe only")
+    parser.add_argument("--terrain", type=Path, help="Local sampled terrain pack")
+    parser.add_argument("--no-terrain", action="store_true", help="Use the flat ellipsoid")
     args = parser.parse_args()
     try:
         state = CesiumViewerState(GeoPoint(math.radians(args.latitude), math.radians(args.longitude)),
                                   label=args.label, distance_m=args.distance_m)
         directory = args.imagery or detroit_pack_directory()
         imagery = None if args.no_imagery or (args.imagery is None and not directory.exists()) else LocalImageryPack.load(directory)
-        return run(state, args.sdk, args.display, imagery=imagery)
+        terrain_dir = args.terrain or detroit_terrain_directory()
+        terrain = None if args.no_terrain or (args.terrain is None and not terrain_dir.exists()) else load_terrain(terrain_dir)
+        return run(state, args.sdk, args.display, imagery=imagery, terrain=terrain)
     except (ValueError, RuntimeError, OSError, KeyError, TypeError) as error:
         parser.exit(1, f"Cesium viewer: {error}\n")
 

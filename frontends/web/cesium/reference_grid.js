@@ -1,13 +1,13 @@
 /* Synthetic local reference geometry, expressed in metres in the destination's ENU frame. */
 'use strict';
-window.ORCCesiumReferences = function (viewer, snapshot, C) {
+window.ORCCesiumReferences = function (viewer, snapshot, C, heightAt=()=>0) {
   const origin = C.Cartesian3.fromRadians(snapshot.longitude_rad, snapshot.latitude_rad);
   const frame = C.Transforms.eastNorthUpToFixedFrame(origin);
   function position(east, north) {
     const point = C.Matrix4.multiplyByPoint(frame, new C.Cartesian3(east, north, 0), new C.Cartesian3());
     const ground = C.Ellipsoid.WGS84.cartesianToCartographic(point);
     // Lift reference graphics slightly above the ellipsoid to prevent depth flicker.
-    return C.Cartesian3.fromRadians(ground.longitude, ground.latitude, 3);
+    return C.Cartesian3.fromRadians(ground.longitude, ground.latitude, heightAt(ground.longitude,ground.latitude)+3);
   }
   function line(points, material, width=1) {
     viewer.entities.add({polyline:{positions:points.map(([east,north]) => position(east,north)),

@@ -7,8 +7,8 @@ ellipsoid globe, procedural geographic grid, and a static Detroit marker. Around
 the marker, a synthetic 250-metre checkerboard grid, 250/500/1,000-metre distance
 rings, and labelled compass directions make camera movement visible. A yellow
 ground arrow points north; the footer reports camera height, tilt, and heading.
-These reference graphics are not real streets or buildings. Without an installed imagery pack it has no aerial imagery. Elevation terrain,
-building datasets, routing, and GPS follow are not implemented yet. Zoom, rotation/pan gestures, north-up, tilt, and reset are available. The
+These reference graphics are not real streets or buildings. Without an installed imagery pack it has no aerial imagery. An optional coarse terrain pack adds relative relief. Building datasets, routing,
+and GPS follow are not implemented yet. Zoom, rotation/pan gestures, north-up, tilt, and reset are available. The
 viewer is an owned, isolated Chromium app window; Return to ORC, window close, or
 Ctrl+C stops only this experiment and its local server.
 
@@ -130,3 +130,46 @@ change therefore does not claim a downloaded/visually verified Detroit image,
 confirmed acquisition year, exact file size, or measured device performance.
 Device download and visual inspection remain pending. Run the full quality gate
 locally after updating: `python scripts/quality_gate.py`.
+
+## Coarse Detroit terrain / relative relief
+
+```bash
+python -m development.maps.download_detroit_terrain
+python -m apps.launchers.component_test.cesium_viewer_cli --display :1
+```
+
+The explicit downloader requests a 33 × 33 regular ground grid from USGS 3DEP's
+raw elevation service, with bilinear sampling and no hillshade rendering. Samples
+are roughly 100 metres apart over the same bounded Detroit rectangle. All 1,089
+samples must be finite and present before the pack is installed. Raw responses,
+source metadata, source datum labels when returned, checksum, and coverage are
+retained outside the repository. No GDAL, raster-codec dependency, terrain service
+subscription, or runtime network request is introduced. Source:
+https://elevation.nationalmap.gov/arcgis/rest/services/3DEPElevation/ImageServer
+3DEP data is public domain; rights reference is recorded in the manifest.
+
+The viewer automatically loads an installed pack. `--no-terrain` compares with
+the flat ellipsoid; `--terrain /path/to/pack` selects explicit local data. Terrain
+and imagery remain independently installed layers. A Cesium adapter interpolates
+the local grid into bounded-detail heightmap tiles and stops refining at level 13.
+Reference graphics follow the sampled ground. Outside the pack it remains flat;
+the outer one-sample band fades to flat to avoid a hard vertical seam.
+
+This is **relative relief**, not precise globe elevation. USGS ground elevation
+is not automatically Cesium ellipsoid height. Original source heights are retained,
+but the scene subtracts the central sample as its baseline; no silent NAVD88-to-
+ellipsoid conversion or arbitrary geoid offset is applied. Camera readout says
+"Scene height". Do not use these displayed values as navigation/altimetry readings.
+Datum conversion and production terrain tiling remain future work. The coarse
+sampling cannot reproduce buildings or fine roadside features, and Detroit's
+relief may look subtle. No exaggerated vertical scaling is applied.
+
+After updating, download while online, inspect the printed source elevation range,
+then compare a tilted view with and without terrain. Check reset, zoom, reference
+graphics, imagery draping, and Return to ORC. Run the full gate locally:
+`python scripts/quality_gate.py`. Live USGS sampling and Termux rendering remain
+pending device validation; mocked tests do not verify real service coverage. A
+cloud software-rendering probe loaded synthetic terrain and imagery together,
+exercised zoom/tilt/reset, and confirmed close-request delivery. The optional
+Node test verifies north-to-south interpolation, coverage edges, and the detail
+limit; it skips in the quality gate when Node is not installed.

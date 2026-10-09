@@ -38,8 +38,11 @@
       requestRenderMode:true, maximumRenderTimeChange:Infinity,
       contextOptions:{webgl:{powerPreference:'high-performance'}}
     });
+    const terrain = snapshot.terrain ? window.ORCLocalTerrain(snapshot.terrain,C) : null;
+    if (terrain) viewer.terrainProvider = terrain.provider;
     viewer.scene.globe.baseColor = C.Color.fromCssColorString('#174963');
-    const target = C.Cartesian3.fromRadians(snapshot.longitude_rad, snapshot.latitude_rad);
+    const groundHeight = terrain ? terrain.heightAt(snapshot.longitude_rad,snapshot.latitude_rad) : 0;
+    const target = C.Cartesian3.fromRadians(snapshot.longitude_rad, snapshot.latitude_rad,groundHeight+3);
     document.getElementById('destination').textContent = snapshot.label;
     viewer.entities.add({position:target,
       point:{pixelSize:10,color:C.Color.CYAN,outlineColor:C.Color.WHITE,outlineWidth:2},
@@ -55,12 +58,12 @@
       for (let lat = -90; lat <= 90; lat += 3) points.push(C.Cartesian3.fromDegrees(lon,lat));
       viewer.entities.add({polyline:{positions:points,width:1,material:C.Color.WHITE.withAlpha(.18)}});
     }
-    window.ORCCesiumReferences(viewer, snapshot, C);
+    window.ORCCesiumReferences(viewer, snapshot, C, terrain?.heightAt);
     viewer.scene.postRender.addEventListener(() => {
       const height = Math.round(viewer.camera.positionCartographic.height);
       const tilt = Math.round(C.Math.toDegrees(viewer.camera.pitch)+90);
       const heading = Math.round(C.Math.toDegrees(viewer.camera.heading))%360;
-      const text = `Height ${height.toLocaleString()} m · tilt ${tilt}° · heading ${heading}°`;
+      const text = `Scene height ${height.toLocaleString()} m · tilt ${tilt}° · heading ${heading}°`;
       const readout = document.getElementById('camera');
       if (readout.textContent !== text) readout.textContent = text;
     });
@@ -90,7 +93,8 @@
     });
     document.querySelectorAll('nav button').forEach(button => { button.disabled = false; });
     reset();
-    status.textContent = 'Offline reference globe · imagery not installed';
+    const terrainLabel = terrain ? 'relative relief (~100 m samples)' : 'terrain not installed';
+    status.textContent = `Offline reference globe · imagery not installed · ${terrainLabel}`;
     if (snapshot.imagery) {
       const layer = snapshot.imagery;
       try {
@@ -107,7 +111,7 @@
         }));
         viewer.imageryLayers.addImageryProvider(provider);
         viewer.scene.requestRender();
-        status.textContent = `Offline · ${layer.title} · terrain and buildings not installed`;
+        status.textContent = `Offline · ${layer.title} · ${terrainLabel} · buildings not installed`;
       } catch (error) {
         if (!closing) status.textContent = 'Imagery unavailable: '+error.message+' · reference globe remains usable';
       }
