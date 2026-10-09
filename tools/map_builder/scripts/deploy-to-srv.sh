@@ -131,6 +131,13 @@ if [[ -z "$REMOTE" ]]; then
     sudo install -m 0644 "$DEST$LEGACY_POI_DB_REL" "$DEST$SEARCH_DB_REL"
   fi
   sudo test -s "$DEST$SEARCH_DB_REL"
+  # Container-built artifacts can be root-owned. ORC applies its theme by
+  # rewriting this one software-owned file; the rest of the dataset stays read-only.
+  RUNTIME_USER="${OPENROADCODE_RUNTIME_USER:-${SUDO_USER:-$(id -un)}}"
+  RUNTIME_GROUP="$(id -gn "$RUNTIME_USER")"
+  sudo chown "$RUNTIME_USER:$RUNTIME_GROUP" "${DEST}maps/styles/openroadcode.json"
+  sudo chmod 0644 "${DEST}maps/styles/openroadcode.json"
+  sudo -u "$RUNTIME_USER" test -w "${DEST}maps/styles/openroadcode.json"
 else
   echo "Checking remote deployment prerequisites on $REMOTE"
   # Paths are intentionally expanded locally before being sent to the remote host.
@@ -146,6 +153,17 @@ else
     "$REMOTE:$DEST"
   # shellcheck disable=SC2029
   ssh "$REMOTE" "if [[ ! -s '$DEST$SEARCH_DB_REL' && -s '$DEST$LEGACY_POI_DB_REL' ]]; then sudo -n mkdir -p '$DEST/maps/search' && sudo -n install -m 0644 '$DEST$LEGACY_POI_DB_REL' '$DEST$SEARCH_DB_REL'; fi; sudo -n test -s '$DEST$SEARCH_DB_REL'"
+  # The SSH login account is the remote runtime owner, rather than the local
+  # build account. Resolve it on the destination, never by local expansion.
+  ssh "$REMOTE" bash -s <<'STYLE_PERMISSIONS'
+set -euo pipefail
+style=/srv/openroadcode/maps/styles/openroadcode.json
+runtime_user="${OPENROADCODE_RUNTIME_USER:-${SUDO_USER:-$(id -un)}}"
+runtime_group="$(id -gn "$runtime_user")"
+sudo -n chown "$runtime_user:$runtime_group" "$style"
+sudo -n chmod 0644 "$style"
+sudo -n -u "$runtime_user" test -w "$style"
+STYLE_PERMISSIONS
 fi
 
 echo "Deployment complete. Runtime routes in ${DEST}maps/routes/ were preserved."

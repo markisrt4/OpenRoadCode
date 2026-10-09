@@ -246,3 +246,20 @@ If a data promotion causes Valhalla to fail, `pull_navigation_data.sh` attempts 
 - Do not let map-data synchronization overwrite vehicle-local configuration.
 - Treat `build-manifest.json` as the deployment identity and validation boundary.
 - Preserve runtime-generated route/debug data across map updates.
+# Runtime style ownership and city-weather diagnostics
+
+The native dataset publisher repairs ownership of
+`/srv/openroadcode/maps/styles/openroadcode.json` after rsync. ORC rewrites this
+file to apply its theme, so the runtime account needs write access. Local
+publication defaults to the invoking account (or `SUDO_USER`); remote publication
+uses the SSH login account. `OPENROADCODE_RUNTIME_USER` overrides the account
+on the machine performing the repair. The remaining map dataset does not need
+to be writable by ORC.
+
+A city-weather query timeout means Python received no matching
+`map.weather.cities` reply within ten seconds. It does not detect a renderer
+version. Check that the native renderer and message bus are running and that
+their endpoints match the UI configuration. If the installed native executable
+predates `search_weather_cities`, rebuild/install it; pulling Python source alone
+does not update `/opt/openroadcode/navigation/bin/openroadcode-map-renderer`.
+
