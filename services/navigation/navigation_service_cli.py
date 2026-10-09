@@ -8,8 +8,8 @@ from __future__ import annotations
 import argparse
 import os
 import logging
+import sys
 from common.logging.structured import configure_logging, event
-from common.host_config import installed_target
 from pathlib import Path
 
 from controllers.geocoding.sqlite_geocoder import SqliteGeocoder
@@ -148,9 +148,21 @@ def _build_position_source(config: NavigationServiceRuntimeConfig):
     else:
         raise ValueError(f"Unsupported GPS device: {config.gps.device}")
 
-    if installed_target() in {None, "linux-dev"}:
+    if _host_location_fallback_available():
         live_source = FallbackPositionSource(live_source, _browser_position_source())
     return RoutePlaybackPositionSource(live_source)
+
+
+def _host_location_fallback_available() -> bool:
+    """Check the running host, not the saved deployment/build target."""
+    if (sys.platform != "linux" or os.environ.get("TERMUX_VERSION")
+            or os.environ.get("PREFIX", "").startswith("/data/data/com.termux/")):
+        return False
+    try:
+        model = Path("/proc/device-tree/model").read_text(encoding="utf-8", errors="ignore")
+    except OSError:
+        model = ""
+    return "Raspberry Pi" not in model
 
 
 def _browser_position_source() -> BrowserPositionSource:

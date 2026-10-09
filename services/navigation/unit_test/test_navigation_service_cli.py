@@ -75,7 +75,7 @@ def test_android_live_position_source_supports_local_route_playback() -> None:
 
 
 def test_desktop_android_source_offers_loopback_browser_fallback(monkeypatch) -> None:
-    monkeypatch.setattr(navigation_service_cli, "installed_target", lambda: "linux-dev")
+    monkeypatch.setattr(navigation_service_cli, "_host_location_fallback_available", lambda: True)
     monkeypatch.setenv("OPENROADCODE_BROWSER_POSITION_PORT", "9876")
     source = navigation_service_cli._build_position_source(
         NavigationServiceRuntimeConfig(gps=GpsInputConfig(device="android"))
@@ -86,11 +86,40 @@ def test_desktop_android_source_offers_loopback_browser_fallback(monkeypatch) ->
 
 def test_termux_keeps_bridge_source_without_browser_listener(monkeypatch) -> None:
     from controllers.navigation.android_position_source import AndroidPositionSource
-    monkeypatch.setattr(navigation_service_cli, "installed_target", lambda: "termux")
+    monkeypatch.setattr(navigation_service_cli, "_host_location_fallback_available", lambda: False)
     source = navigation_service_cli._build_position_source(
         NavigationServiceRuntimeConfig(gps=GpsInputConfig(device="android"))
     )
     assert isinstance(source._live_source, AndroidPositionSource)
+
+
+def test_desktop_fallback_ignores_saved_rpi_build_target(monkeypatch) -> None:
+    monkeypatch.setattr(navigation_service_cli.sys, "platform", "linux")
+    monkeypatch.delenv("TERMUX_VERSION", raising=False)
+    monkeypatch.delenv("PREFIX", raising=False)
+    monkeypatch.setenv("OPENROAD_INSTALL_TARGET", "rpi5")
+    monkeypatch.setattr(navigation_service_cli.Path, "read_text", lambda *args, **kwargs: "")
+    source = navigation_service_cli._build_position_source(
+        NavigationServiceRuntimeConfig(gps=GpsInputConfig(device="android"))
+    )
+    assert isinstance(source._live_source, FallbackPositionSource)
+
+
+def test_actual_pi_hardware_does_not_offer_desktop_listener(monkeypatch) -> None:
+    monkeypatch.setattr(navigation_service_cli.sys, "platform", "linux")
+    monkeypatch.delenv("TERMUX_VERSION", raising=False)
+    monkeypatch.delenv("PREFIX", raising=False)
+    monkeypatch.setenv("OPENROAD_INSTALL_TARGET", "linux-dev")
+    monkeypatch.setattr(navigation_service_cli.Path, "read_text",
+                        lambda *args, **kwargs: "Raspberry Pi 5 Model B Rev 1.0\0")
+    assert not navigation_service_cli._host_location_fallback_available()
+
+
+def test_actual_termux_runtime_does_not_offer_desktop_listener(monkeypatch) -> None:
+    monkeypatch.setattr(navigation_service_cli.sys, "platform", "linux")
+    monkeypatch.setenv("PREFIX", "/data/data/com.termux/files/usr")
+    monkeypatch.setenv("OPENROAD_INSTALL_TARGET", "linux-dev")
+    assert not navigation_service_cli._host_location_fallback_available()
 
 
 def test_browser_only_source_is_accepted_by_configuration_and_composition(tmp_path) -> None:

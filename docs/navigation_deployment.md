@@ -269,8 +269,10 @@ does not update `/opt/openroadcode/navigation/bin/openroadcode-map-renderer`.
 
 ## Desktop host location fallback
 
-Desktop Linux navigation services (the `linux-dev` target, or an unconfigured
-desktop target) offer browser geolocation alongside device GPS. Open
+Desktop Linux navigation services offer browser geolocation alongside device
+GPS. Eligibility checks the actual runtime and Pi hardware model, rather than
+the saved install/build target: a desktop configured to build for `rpi5` still
+offers the listener. Open
 <http://localhost:8765/> **on the computer running the navigation service**, click
 **Share host location**, and allow the browser's location permission. The page
 shows reported accuracy and must remain open. It does not request location until
@@ -304,7 +306,7 @@ bash scripts/runtime/start_navigation_service.sh --profile local
 The permission page prints its URL at startup. `OPENROADCODE_BROWSER_POSITION_PORT`
 can change the default port; the listener is bound to loopback. An occupied port
 logs a warning and does not disable working bridge/GPS input. Termux and vehicle
-Pi targets keep their existing device sources. The parser also accepts explicit
+Pi hardware keep their existing device sources. The parser also accepts explicit
 `services.navigation.inputs.gps.source = "browser"` for compositions that do not
 apply a device-source profile overlay. Route playback remains separate and
 continues to suppress both live sources until simulation ends.
