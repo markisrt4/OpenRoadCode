@@ -1,0 +1,125 @@
+# SPDX-FileCopyrightText: 2026 Mark G. Russell
+# SPDX-License-Identifier: MIT
+"""Observe Earth geolocation calls and the user's location-control click."""
+from __future__ import annotations
+
+import argparse
+import json
+import time
+
+from protocols.chromium.chromium_devtools_client import ChromiumDevToolsClient
+
+_PREFIX = '[earth-trace]'
+_INSTALL = r'''(() => {
+ const geo = navigator.geolocation;
+ if (!geo) return {error: 'Geolocation unavailable'};
+ if (window.__orcEarthGeoTrace) return {installed: true, existing: true};
+ const state = {events: [], active: new Map(), listeners: []};
+ const record = (type, detail = {}) => {
+  state.events.push({time: new Date().toISOString(), type, ...detail});
+  if (state.events.length > 500) state.events.shift();
+ };
+ const original = {
+  watchPosition: geo.watchPosition,
+  clearWatch: geo.clearWatch,
+  getCurrentPosition: geo.getCurrentPosition
+ };
+ const describeTarget = target => {
+  if (!target) return {};
+  return {
+   tag: target.tagName || null,
+   id: target.id || null,
+   className: typeof target.className === 'string' ? target.className : null,
+   ariaLabel: target.getAttribute?.('aria-label') || null,
+   title: target.getAttribute?.('title') || null
+  };
+ };
+ const inputListener = event => {
+  record('input.' + event.type, {
+   x: Number(event.clientX),
+   y: Number(event.clientY),
+   width: window.innerWidth,
+   height: window.innerHeight,
+   ...describeTarget(event.target)
+  });
+ };
+ for (const type of ['pointerdown', 'pointerup', 'mousedown', 'mouseup', 'click']) {
+  document.addEventListener(type, inputListener, true);
+  state.listeners.push([type, inputListener]);
+ }
+ const wrap = (success, error, method) => ({
+  success: p => {record(method + '.success', {latitude: p.coords.latitude, longitude: p.coords.longitude}); if (typeof success === 'function') success(p);},
+  error: e => {record(method + '.error', {code: e.code, message: e.message}); if (typeof error === 'function') error(e);}
+ });
+ Object.defineProperty(geo, 'watchPosition', {configurable: true, value: function(success, error, options) {
+  record('watchPosition', {options});
+  const cb = wrap(success, error, 'watchPosition');
+  const id = original.watchPosition.call(geo, cb.success, cb.error, options);
+  state.active.set(id, true);
+  return id;
+ }});
+ Object.defineProperty(geo, 'clearWatch', {configurable: true, value: function(id) {
+  record('clearWatch', {id}); state.active.delete(id);
+  return original.clearWatch.call(geo, id);
+ }});
+ Object.defineProperty(geo, 'getCurrentPosition', {configurable: true, value: function(success, error, options) {
+  record('getCurrentPosition', {options});
+  const cb = wrap(success, error, 'getCurrentPosition');
+  return original.getCurrentPosition.call(geo, cb.success, cb.error, options);
+ }});
+ state.snapshot = () => ({activeWatchers: state.active.size, events: state.events.slice()});
+ state.restore = () => {
+  for (const [name, fn] of Object.entries(original)) Object.defineProperty(geo, name, {configurable: true, value: fn});
+  for (const [type, listener] of state.listeners) document.removeEventListener(type, listener, true);
+  delete window.__orcEarthGeoTrace;
+ };
+ window.__orcEarthGeoTrace = state;
+ record('trace.installed', {
+  existingBridge: !!window.__orcEarthGeoBridge?.installed,
+  width: window.innerWidth,
+  height: window.innerHeight
+ });
+ return {installed: true, existingBridge: !!window.__orcEarthGeoBridge?.installed, width: window.innerWidth, height: window.innerHeight};
+})()'''
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--seconds', type=float, default=30.0)
+    args = parser.parse_args()
+    client = ChromiumDevToolsClient(port=9223)
+    try:
+        result = client.evaluate_earth(_INSTALL)
+        print(_PREFIX, json.dumps(result, sort_keys=True), flush=True)
+        if not isinstance(result, dict) or not result.get('installed'):
+            return 2
+        print(_PREFIX, 'Click the actual Earth location control once. The trace will record the click coordinates and geolocation calls.', flush=True)
+        deadline = time.monotonic() + args.seconds
+        seen = 0
+        while time.monotonic() < deadline:
+            snapshot = client.evaluate_earth('window.__orcEarthGeoTrace?.snapshot() ?? null')
+            if snapshot is None:
+                print(_PREFIX, 'Trace lost, possibly due to page navigation.', flush=True)
+                return 3
+            events = snapshot['events']
+            for event in events[seen:]:
+                print(_PREFIX, json.dumps(event, sort_keys=True), flush=True)
+            seen = len(events)
+            time.sleep(0.5)
+        print(_PREFIX, 'Observation complete. Active watchers:', snapshot['activeWatchers'], flush=True)
+        return 0
+    except (OSError, RuntimeError, ValueError) as exc:
+        print(_PREFIX, 'FAIL:', exc, flush=True)
+        return 2
+    except KeyboardInterrupt:
+        print('\n' + _PREFIX, 'Stopped.', flush=True)
+        return 0
+    finally:
+        try:
+            client.evaluate_earth('window.__orcEarthGeoTrace?.restore(); true')
+        except (OSError, RuntimeError, ValueError):
+            pass
+
+
+if __name__ == '__main__':
+    raise SystemExit(main())

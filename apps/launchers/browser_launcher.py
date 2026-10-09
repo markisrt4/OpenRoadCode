@@ -70,6 +70,7 @@ class BrowserKioskLauncher(AppLauncherIf):
         self._window_id: str | None = None
         self._hidden = False
         self._launch_operation_id: str | None = None
+        self._color_scheme: str | None = None
 
     def set_url(self, url: str) -> None:
         """Change the URL used by the next browser launch."""
@@ -79,6 +80,11 @@ class BrowserKioskLauncher(AppLauncherIf):
             raise RuntimeError("Cannot change browser URL while it is running")
         self.url = url
 
+    def set_color_scheme(self, value: str | None) -> None:
+        """Set a light/dark GTK hint for the next browser launch."""
+        if value not in (None, "light", "dark"):
+            raise ValueError("color scheme must be 'light', 'dark', or None")
+        self._color_scheme = value
     def set_preferred_color_scheme(self, scheme: str) -> None:
         """Tell Chromium which CSS/browser color scheme ORC currently uses."""
         normalized = scheme.strip().lower()
@@ -138,6 +144,29 @@ class BrowserKioskLauncher(AppLauncherIf):
         self.window_size = size
         self.startup_grace_seconds = max(self.startup_grace_seconds, 0.2)
 
+    def configure_kiosk_window(self, *, position: tuple[int, int], size: tuple[int, int]) -> None:
+        """Configure a fullscreen-style kiosk browser window."""
+        width, height = size
+        if width <= 0 or height <= 0:
+            raise ValueError("size values must be positive")
+        self.kiosk = True
+        self.app_mode = False
+        self.window_position = position
+        self.window_size = size
+        self.startup_grace_seconds = max(self.startup_grace_seconds, 0.2)
+
+    def send_key(self, remote_display: str, key: str) -> bool:
+        """Send a key chord to this browser's current X11 window."""
+        if not self.is_running():
+            return False
+        self._ensure_window_id(remote_display)
+        return self._window_manager.send_key(
+            display=remote_display,
+            window_id=self._window_id,
+            key=key,
+            window_class=self.window_class,
+        )
+
     @logged_action("runtime.browser", "browser.action", "launch")
     def launch(self, remote_display: str, set_status: StatusCallback = None) -> None:
         if self.is_running():
@@ -147,6 +176,10 @@ class BrowserKioskLauncher(AppLauncherIf):
         self._hidden = False
         browser_path = self._find_browser()
         environment = graphics_environment(x11_environment(remote_display))
+        if self._color_scheme == "dark":
+            environment["GTK_THEME"] = "Adwaita:dark"
+        elif self._color_scheme == "light":
+            environment["GTK_THEME"] = "Adwaita"
         command = [
             browser_path,
             "--noerrdialogs",

@@ -3,6 +3,7 @@
 
 """Adapt POI discovery, saved places, and platform actions to UI contracts."""
 import math
+from dataclasses import replace
 import threading
 from queue import SimpleQueue, Empty
 from collections.abc import Callable
@@ -13,7 +14,7 @@ from controllers.navigation.map_favorites import MapFavorites
 from controllers.poi.poi_search_controller_if import PoiSearchControllerIf
 from controllers.poi.poi_action_executor_if import PoiActionExecutorIf
 from ui.navigation.navigation_places_request_handler_if import MapFavorite, NavigationPlacesRequestHandlerIf, NavigationCameraState, PlaceActionResult
-from ui.navigation.poi_models import PoiAction, PoiCategory, PoiSearchResult, PointOfInterest, TransitMode
+from ui.navigation.poi_models import PoiAction, PoiActionKind, PoiCategory, PoiSearchResult, PointOfInterest, TransitMode
 
 
 class NavigationPlacesController(NavigationPlacesRequestHandlerIf):
@@ -46,7 +47,20 @@ class NavigationPlacesController(NavigationPlacesRequestHandlerIf):
         return None if self._closed else self._search.poll_search_result()
 
     def poll_selected(self) -> PointOfInterest | None:
-        return None if self._closed else self._search.poll_selected()
+        poi = None if self._closed else self._search.poll_selected()
+        if not isinstance(poi, PointOfInterest):
+            return poi
+        latitude = math.degrees(poi.position.latitude_rad)
+        longitude = math.degrees(poi.position.longitude_rad)
+        if not (math.isfinite(latitude) and math.isfinite(longitude)
+                and -90 <= latitude <= 90 and -180 <= longitude <= 180):
+            return poi
+        action = PoiAction(PoiActionKind.OPEN_WEBSITE, "Explore in Google Earth",
+                           provider_id="google-earth-explore",
+                           uri=(f"https://earth.google.com/web/@{latitude:.7f},{longitude:.7f},"
+                                "0a,1000d,35y,0h,45t,0r"))
+        actions = tuple(a for a in poi.actions if a.provider_id != "google-earth-explore")
+        return replace(poi, actions=actions + (action,))
 
     def poll_camera_interaction(self) -> bool:
         return False if self._closed else self._search.poll_camera_interaction()
