@@ -8,6 +8,7 @@ from __future__ import annotations
 import argparse
 import logging
 import os
+import threading
 from dataclasses import replace
 from pathlib import Path
 
@@ -28,6 +29,12 @@ from protocols.obd2.simulated_obd2_adapter import SimulatedObd2Adapter
 from services.automotive.automotive_runtime import AutomotiveRuntime
 from services.automotive.automotive_telemetry_profile_runtime import (
     AutomotiveTelemetryProfileRuntime,
+)
+from services.automotive.automotive_diagnostics_command_service import (
+    AutomotiveDiagnosticsCommandService,
+)
+from services.automotive.zeromq_automotive_command_server import (
+    ZeroMqAutomotiveCommandServer,
 )
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -158,8 +165,10 @@ def _run_service(args: argparse.Namespace) -> int:
         print("Automotive publishing disabled by runtime configuration")
         return 0
 
+    diagnostics_source = None
     if config.input.source in {"device", "obd_simulation"}:
         engine_source = build_source(config)
+        diagnostics_source = engine_source
         motion_source = NavigationMotionVehicleStateSource(
             ZeroMqSubscriber(system.messaging.subscriber_endpoint)
         )
@@ -199,6 +208,15 @@ def _run_service(args: argparse.Namespace) -> int:
         ZeroMqSubscriber(system.messaging.subscriber_endpoint),
         source,
     )
+    command_server = ZeroMqAutomotiveCommandServer(
+        AutomotiveDiagnosticsCommandService(diagnostics_source),
+        config.command_endpoint,
+    )
+    command_thread = threading.Thread(
+        target=command_server.run,
+        name="automotive-commands",
+        daemon=True,
+    )
     print("OpenRoadCode automotive service")
     print(f"  input profile:     {profile}")
     print(f"  input source:      {source_description}")
@@ -215,6 +233,7 @@ def _run_service(args: argparse.Namespace) -> int:
     elif config.input.source == "obd_simulation":
         print("  device:            simulated ELM327 / ECU")
     print(f"  telemetry ingress: {system.messaging.publisher_endpoint}")
+    print(f"  command endpoint:  {config.command_endpoint}")
     print(f"  service cadence:   {rate_hz:g} Hz")
     if config.input.source in {"device", "obd_simulation"}:
         print(f"  OBD request budget:{config.input.request_rate_hz:g} req/s")
@@ -227,11 +246,14 @@ def _run_service(args: argparse.Namespace) -> int:
     )
     print("Ctrl+C to stop")
     try:
+        command_thread.start()
         profile_runtime.start()
         runtime.run()
     except KeyboardInterrupt:
         pass
     finally:
+        command_server.close()
+        command_thread.join(timeout=2.0)
         profile_runtime.close()
         runtime.close()
         publisher.close()

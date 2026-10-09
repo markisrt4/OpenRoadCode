@@ -219,18 +219,19 @@ The service publishes to `[messaging].publisher_endpoint` at the configured `rat
 
 ### Diagnostic component probe
 
-Before diagnostics are connected to the service UI path, exercise the semantic
-scanner directly against the Android bridge or another ELM327 TCP endpoint:
+With the automotive service running, exercise the same service-owned semantic
+scanner and OBD request scheduler that the UI will use:
 
 ```bash
 python -m controllers.automotive.obd2.component_test.obd2_diagnostics_cli \
-  --host 127.0.0.1 --port 35000 --request-rate-hz 6
+  --endpoint tcp://127.0.0.1:5561
 ```
 
-Add `--raw` when transport-level response tracing is needed. The probe advances
-the scan one physical request at a time and observes the configured request-rate
-budget. The production integration must likewise enter the existing OBD polling
-scheduler; it must not operate a concurrent request loop against the adapter.
+The command server queues the scan into `Obd2Manager`. Each automotive service
+tick advances at most one diagnostic request instead of a normal telemetry PID,
+so the scan observes `[services.automotive.input].request_rate_hz` and cannot
+operate a concurrent request loop against the adapter. The default command
+endpoint is configured by `[services.automotive].command_endpoint`.
 
 ## Structured logging
 

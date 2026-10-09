@@ -7,7 +7,20 @@ import pytest
 
 from controllers.automotive import AutomotiveTelemetryProfile
 from controllers.automotive.obd2.obd2_manager import Obd2Manager
+from protocols.obd2 import Obd2Request
 from protocols.obd2.simulated_obd2_adapter import SimulatedObd2Adapter
+
+
+def test_simulated_adapter_supports_healthy_diagnostic_services() -> None:
+    adapter = SimulatedObd2Adapter()
+    adapter.connect()
+
+    monitor = adapter.request(Obd2Request(mode=0x01, pid=0x01))
+    stored = adapter.request(Obd2Request(mode=0x03))
+
+    assert monitor[0].data == bytes.fromhex("00000000")
+    assert stored[0].mode == 0x43
+    assert stored[0].data == b"\x00\x00"
 
 
 def test_simulated_obd_responses_produce_si_vehicle_state():

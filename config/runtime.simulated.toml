@@ -15,6 +15,7 @@ subscriber_endpoint = "tcp://127.0.0.1:5557"
 [services.automotive]
 enabled = true
 rate_hz = 10.0
+command_endpoint = "tcp://127.0.0.1:5561"
 
 [services.automotive.input]
 source = "simulation"

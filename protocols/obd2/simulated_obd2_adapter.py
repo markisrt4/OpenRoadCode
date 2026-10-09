@@ -125,7 +125,25 @@ class SimulatedObd2Adapter(Obd2AdapterIf):
         }:
             self.advance(step_radians=0.05)
         if request.mode != 0x01 or request.pid is None:
+            if request.mode in {0x03, 0x07, 0x0A} and request.pid is None:
+                return (
+                    Obd2Response(
+                        mode=request.mode + 0x40,
+                        pid=None,
+                        data=b"\x00\x00",
+                        ecu_id=0x7E8,
+                    ),
+                )
             return ()
+        if request.pid == 0x01:
+            return (
+                Obd2Response(
+                    mode=0x41,
+                    pid=0x01,
+                    data=bytes.fromhex("00000000"),
+                    ecu_id=0x7E8,
+                ),
+            )
         data = self._responses.get(request.pid)
         if data is None:
             return ()

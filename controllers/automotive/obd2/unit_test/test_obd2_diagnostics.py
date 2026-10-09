@@ -4,18 +4,22 @@
 """Tests for generic OBD-II diagnostic scanning."""
 
 import unittest
+import threading
+import time
 
 from controllers.automotive.obd2.obd2_diagnostics import (
     Obd2DiagnosticStatus,
     Obd2DiagnosticsScanSession,
     Obd2DiagnosticsScanner,
 )
+from controllers.automotive.obd2.obd2_manager import Obd2Manager
 from protocols.obd2 import Obd2AdapterIf, Obd2Request, Obd2Response
 
 
 class _Adapter(Obd2AdapterIf):
     def __init__(self, responses):
         self.responses = responses
+        self.requests = []
 
     @property
     def is_connected(self) -> bool:
@@ -28,6 +32,7 @@ class _Adapter(Obd2AdapterIf):
         pass
 
     def request(self, request: Obd2Request) -> tuple[Obd2Response, ...]:
+        self.requests.append((request.mode, request.pid))
         return self.responses.get((request.mode, request.pid), ())
 
 
@@ -103,6 +108,36 @@ class Obd2DiagnosticsScannerTest(unittest.TestCase):
         self.assertIsNone(snapshot.emissions_ready)
         self.assertEqual(snapshot.responding_ecus, ())
         self.assertEqual(snapshot.trouble_codes, ())
+
+    def test_manager_advances_scan_inside_normal_request_budget(self) -> None:
+        adapter = _Adapter({
+            (0x01, 0x01): (
+                Obd2Response(0x41, 0x01, bytes.fromhex("81000000"), 0x7E8),
+            ),
+            (0x03, None): (
+                Obd2Response(0x43, None, bytes.fromhex("0302"), 0x7E8),
+            ),
+        })
+        manager = Obd2Manager(adapter)
+        result = []
+        thread = threading.Thread(target=lambda: result.append(manager.scan_diagnostics()))
+        thread.start()
+        deadline = time.monotonic() + 1.0
+        while manager._diagnostics_session is None and time.monotonic() < deadline:
+            time.sleep(0.001)
+
+        for _ in range(4):
+            before = len(adapter.requests)
+            manager.read_state()
+            self.assertEqual(len(adapter.requests), before + 1)
+
+        thread.join(1.0)
+        self.assertFalse(thread.is_alive())
+        self.assertEqual(result[0].trouble_codes[0].code, "P0302")
+        self.assertEqual(
+            adapter.requests,
+            [(0x01, 0x01), (0x03, None), (0x07, None), (0x0A, None)],
+        )
 
 
 if __name__ == "__main__":
