@@ -5,6 +5,7 @@
 <title>ORC · 3D map experiment</title>
 <link rel="stylesheet" href="/sdk/Widgets/widgets.css"><link rel="stylesheet" href="/viewer.css">
 <script>window.CESIUM_BASE_URL = '/sdk/';</script><script src="/sdk/Cesium.js"></script>
+<script src="/reference_grid.js" defer></script>
 <script src="/viewer.js" defer></script>
 </head>
 <body>
@@ -14,5 +15,5 @@
 <button id="zoom-in" aria-label="Zoom in">＋</button><button id="zoom-out" aria-label="Zoom out">−</button>
 <button id="north">North</button><button id="tilt">2D / 3D</button><button id="reset">Reset view</button>
 </nav>
-<footer><span id="status" role="status">Loading local globe…</span></footer>
+<footer><span id="status" role="status">Loading local globe…</span><span id="camera" aria-label="Camera position"></span></footer>
 </body></html>

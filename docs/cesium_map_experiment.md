@@ -3,7 +3,11 @@
 Branch: `navigation-cesium`. Tracking: [MAR-22](https://linear.app/mark-russell/issue/MAR-22).
 
 Stage one checks the renderer without changing ORC navigation. It renders a local
-ellipsoid globe, procedural geographic grid, and a static Detroit marker. There
+ellipsoid globe, procedural geographic grid, and a static Detroit marker. Around
+the marker, a synthetic 250-metre checkerboard grid, 250/500/1,000-metre distance
+rings, and labelled compass directions make camera movement visible. A yellow
+ground arrow points north; the footer reports camera height, tilt, and heading.
+These reference graphics are not real streets or buildings. There
 is no aerial imagery, elevation terrain, building dataset, routing, or GPS follow
 yet. Zoom, rotation/pan gestures, north-up, tilt, and reset are available. The
 viewer is an owned, isolated Chromium app window; Return to ORC, window close, or
@@ -64,7 +68,7 @@ fails, the return button remains available once configuration has loaded.
 ## Device acceptance and next stages
 
 Verify the globe renders, the Detroit marker is visible, gestures/buttons work,
-reset restores the initial view, and closing/relaunching leaves no orphan browser
+reset restores the initial view (Detroit centred, north facing, tilted), and closing/relaunching leaves no orphan browser
 or server. Try a second run without internet. Inspect smoothness while rotating
 and zooming; a blank local globe is only the rendering baseline, not a benchmark
 for an imagery/terrain/building scene.
@@ -73,8 +77,10 @@ The user runs the full quality gate: `python scripts/quality_gate.py`. Focused
 state/HTTP/lifecycle tests cover invalid destinations, asset isolation, authorized
 close requests, and cleanup on browser startup failure. A cloud Chromium software-rendering probe initialized Cesium and its controls,
 exercised reset, and confirmed the Return to ORC request reached the launcher.
-Termux hardware rendering and responsiveness remain unverified until reported by
-the user.
+The user has confirmed the baseline quality gate passes and scrolling is smooth
+on Termux/X11. Reference-grid rendering and control behavior still need device
+verification. Use zoom to change ring size and camera height, tilt to switch
+between overhead and angled squares, and reset after panning to restore Detroit.
 
 Next, qualify and prepare a bounded Detroit imagery layer, then terrain and
 buildings independently using [the dataset review](detroit_map_data_review.md).

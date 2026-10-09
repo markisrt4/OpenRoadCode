@@ -55,6 +55,15 @@
       for (let lat = -90; lat <= 90; lat += 3) points.push(C.Cartesian3.fromDegrees(lon,lat));
       viewer.entities.add({polyline:{positions:points,width:1,material:C.Color.WHITE.withAlpha(.18)}});
     }
+    window.ORCCesiumReferences(viewer, snapshot, C);
+    viewer.scene.postRender.addEventListener(() => {
+      const height = Math.round(viewer.camera.positionCartographic.height);
+      const tilt = Math.round(C.Math.toDegrees(viewer.camera.pitch)+90);
+      const heading = Math.round(C.Math.toDegrees(viewer.camera.heading))%360;
+      const text = `Height ${height.toLocaleString()} m · tilt ${tilt}° · heading ${heading}°`;
+      const readout = document.getElementById('camera');
+      if (readout.textContent !== text) readout.textContent = text;
+    });
     let tilted = true;
     function reset() {
       viewer.camera.lookAt(target, new C.HeadingPitchRange(0,
