@@ -94,6 +94,7 @@ class NavigationPanel(NavigationPlacesControls, NavigationRadarControls, Navigat
         self._places_handler = places_handler
         self._online_mode = online_mode
         self._poi_action_buttons = []
+        self._earth_button = None
         self._poi_launching = False
         self._poi_action_request = None
         self._unsubscribe_online_mode = (
@@ -130,6 +131,11 @@ class NavigationPanel(NavigationPlacesControls, NavigationRadarControls, Navigat
         self.update_idletasks()
         return self._map_host.winfo_id()
 
+    @property
+    def map_host_size(self) -> tuple[int, int]:
+        """Return allocated native host dimensions in pixels."""
+        return max(1, self._map_host.winfo_width()), max(1, self._map_host.winfo_height())
+
     def set_theme_bundle(self, theme_bundle: ThemeBundle) -> None:
         self.close_tooltips()
         self.close_radar_menu()
@@ -138,6 +144,7 @@ class NavigationPanel(NavigationPlacesControls, NavigationRadarControls, Navigat
         for child in self.winfo_children():
             child.destroy()
         self._poi_card = None
+        self._earth_button = None
         self._build()
 
     def set_map_request_handler(self, handler: MapRequestHandlerIf | None) -> None:
@@ -153,6 +160,9 @@ class NavigationPanel(NavigationPlacesControls, NavigationRadarControls, Navigat
 
     def close_places(self) -> None:
         """Cancel pending view callbacks and close its places session once."""
+        card = self.__dict__.get("_poi_card")
+        if card is not None and card.winfo_exists():
+            card.destroy()
         if self._places_closed:
             return
         self._places_closed = True

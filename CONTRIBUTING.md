@@ -54,6 +54,31 @@ investing heavily in an implementation. Explain the problem, the proposed
 direction, affected hardware or services, and how the result could be tested.
 That gives everyone a chance to compare maps before the convoy sets off.
 
+## ORC's Law
+
+Before introducing a new abstraction, subsystem, or integration, search the
+repository for prior art.
+
+> **ORC's Law:** OpenRoadCode has an unusual tendency to contain part of the
+> thing you are about to build.
+
+ORC's Law does not imply that the feature is complete, correct, documented,
+connected, or even remembered by its original author. Existing work may be an
+interface, an abandoned experiment, a test utility, an implementation that was
+never wired into the application, or simply enough code to change the right
+design direction.
+
+Treat repository archaeology as part of design work. Search related interfaces,
+controllers, services, protocols, hardware adapters, tests, configuration, and
+documentation before creating a new boundary. Reuse or extend an existing
+abstraction when it already expresses the responsibility cleanly; do not preserve
+old code merely to satisfy the law.
+
+In less formal terms:
+
+> **Search first. Design second. Implement third. Discover Mark wrote half of
+> it six months ago.**
+
 ## Setting up a development environment
 
 Copy the clone URL from the GitHub repository, then enter the project

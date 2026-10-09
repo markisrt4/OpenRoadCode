@@ -3,9 +3,13 @@
 
 """Asynchronous full-area HRRR model overlays independent of radar playback."""
 
+import logging
+
 from datetime import datetime, timezone
 import threading
 from time import monotonic
+from common.logging.structured import operation
+from controllers.weather.weather_logging import WeatherLog
 
 from controllers.weather.hrrr_map_layers import TEMPERATURE_COLORS, WIND_COLORS
 from ui.ui_dispatcher_if import UiDispatcherIf
@@ -27,12 +31,16 @@ class ModelWeatherOverlayController:
         self._revision = 0
         self._busy = False
         self._closed = False
+        self._log = WeatherLog("weather.model")
 
     def select(self, kind):
         """Select one heatmap; radar and route forecasts keep their own state."""
         if kind not in {"off", "temperature", "wind"}:
             raise ValueError("Unknown weather overlay")
+        previous = self.kind
         self.kind = kind
+        if previous != kind:
+            self._log.changed("kind", kind, "overlay.selection_changed", "Model weather selection changed", kind=kind)
         self._loading = False
         self._generation += 1
         self._frame = None
@@ -48,22 +56,30 @@ class ModelWeatherOverlayController:
             return
         self._busy = True
         generation, kind = self._generation, self.kind
+        operation_id = self._log.requested()
 
         def load():
-            try:
-                frame, error = self._provider.get_frame(kind), None
-            except Exception as failure:
-                frame, error = None, str(failure)
+            with operation(operation_id):
+                try:
+                    frame, error = self._provider.get_frame(kind), None
+                    self._log.succeeded()
+                except Exception as failure:
+                    self._log.failed(failure)
+                    frame, error = None, str(failure)
             if not self._closed:
-                self._host.schedule_ui_callback(0, lambda: self._complete(generation, frame, error))
+                self._host.schedule_ui_callback(0, lambda: self._complete(generation, frame, error, operation_id))
+            else:
+                self._log.stale(operation_id)
 
-        threading.Thread(target=load, name="weather-model-overlay", daemon=True).start()
+        self._log.start(threading.Thread(target=load, name="weather-model-overlay", daemon=True), operation_id)
 
-    def _complete(self, generation, frame, error):
+    def _complete(self, generation, frame, error, operation_id=None):
         self._busy = False
         if self._closed:
+            self._log.stale(operation_id)
             return
         if generation != self._generation:
+            self._log.stale(operation_id)
             self.refresh()
             return
         if error:
@@ -73,9 +89,10 @@ class ModelWeatherOverlayController:
                 or self._tiles.frame_error(frame)):
             self._revision += 1
         self._frame = frame
+        self._log.emit(logging.DEBUG, "overlay.applied", "Model weather result applied", operation_id)
         self._tiles.retry_frame(frame)
         self.publish()
-        self._wait(generation, monotonic())
+        self._wait(generation, monotonic(), operation_id)
 
     def publish(self):
         """Present the selected raster and SI palette through the UI contract."""
@@ -91,19 +108,22 @@ class ModelWeatherOverlayController:
             self.kind, self.status, raster, legend,
             datetime.fromtimestamp(frame.timestamp, timezone.utc) if frame else None, self._loading))
 
-    def _wait(self, generation, started):
+    def _wait(self, generation, started, operation_id=None):
         if self._closed or generation != self._generation or self._frame is None:
             return
         error = self._tiles.frame_error(self._frame)
         if error or monotonic() - started >= 180:
+            self._log.failed(operation_id=operation_id, stage="tiles", reason="tile_error" if error else "timeout")
             self._failed(error or "Timed out waiting for map tiles; check renderer build and logs")
             return
         ready = self._tiles.frame_ready(self._frame)
+        if ready:
+            self._log.succeeded(operation_id, stage="tiles")
         self.status = "Weather forecast"
         self._loading = not ready
         self.publish()
         if not ready:
-            self._host.schedule_ui_callback(300, lambda: self._wait(generation, started))
+            self._host.schedule_ui_callback(300, lambda: self._wait(generation, started, operation_id))
 
     def _failed(self, error):
         self._loading = False

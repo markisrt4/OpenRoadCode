@@ -76,4 +76,3 @@ class EcuAnimationMixin:
             self._animation_job = self.after(
                 50 if self._engine_gl is not None else 83, self._schedule_engine_animation,
             )
-

@@ -56,6 +56,24 @@ class ExternalWindowManagerTest(unittest.TestCase):
         self.assertTrue(any("remove,fullscreen" in command for command in commands))
         self.assertTrue(any(command[0] == "xprop" for command in commands))
 
+    @patch("apps.launchers.external_window_manager.shutil.which", return_value="/usr/bin/tool")
+    def test_wait_for_window_id_falls_back_to_root_client_list(self, _which: Mock) -> None:
+        manager = ExternalWindowManager()
+        responses = [
+            Mock(stdout="0x00100001 0 xfce4-terminal.Xfce4-terminal host Terminal\n"),
+            Mock(stdout="_NET_CLIENT_LIST(WINDOW): window id # 0x100001, 0x200004\n"),
+            Mock(stdout='WM_CLASS(STRING) = "xfce4-terminal", "Xfce4-terminal"\n'),
+            Mock(stdout='WM_CLASS(STRING) = "earth.google.com__web_search", "openroadcode-google-earth"\n'),
+        ]
+
+        with patch("apps.launchers.external_window_manager.subprocess.run", side_effect=responses):
+            window_id = manager.wait_for_window_id(
+                display=":1",
+                window_class="openroadcode-google-earth",
+            )
+
+        self.assertEqual(window_id, "0x200004")
+
 
 if __name__ == "__main__":
     unittest.main()

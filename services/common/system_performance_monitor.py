@@ -5,10 +5,13 @@
 
 from __future__ import annotations
 
+import logging
 import threading
 import time
 from collections import deque
 from dataclasses import asdict, replace
+
+from common.logging.structured import event, operation
 
 from controllers.system.system_diagnostics_controller import SystemDiagnosticsController
 from controllers.system.orc_process_sampler import OrcProcessSampler
@@ -16,6 +19,8 @@ from controllers.system.service_socket_sampler import ServiceSocketSampler
 from services.common.sensor_health_monitor import SensorHealthMonitor
 from services.common.termux_battery_monitor import TermuxBatteryMonitor
 from ui.system_diagnostics import SystemDiagnosticsSnapshot, OrcWorkloadSnapshot
+
+LOGGER = logging.getLogger("runtime.performance")
 
 
 class SystemPerformanceMonitor:
@@ -43,25 +48,43 @@ class SystemPerformanceMonitor:
         self._thread: threading.Thread | None = None
         self._sample_monotonic: float | None = None
         self._error: str | None = None
+        self._failures: dict[str, str] = {}
+        self._operation_id: str | None = None
 
     def start(self) -> None:
         """Start sampling in a worker; never perform firmware calls on the UI thread."""
         if self._thread is not None:
             return
+        with operation() as operation_id:
+            self._operation_id = operation_id
+        self._failures.clear()
         self._stop.clear()
-        self._sensor_monitor.start()
-        self._battery_monitor.start()
-        self._thread = threading.Thread(target=self._run, name="orc-performance", daemon=True)
-        self._thread.start()
+        try:
+            self._sensor_monitor.start()
+            self._battery_monitor.start()
+            self._thread = threading.Thread(target=self._run, name="orc-performance", daemon=True)
+            self._thread.start()
+        except Exception as error:
+            self._observe_failure("worker", error)
+            self._thread = None
+            self._sensor_monitor.close()
+            self._battery_monitor.close()
+            raise
+        event(LOGGER, logging.INFO, "sampler.started", "Performance sampler started",
+              operation_id=self._operation_id)
 
     def close(self) -> None:
         """Stop the owned worker before releasing its sampler."""
         self._stop.set()
+        running = self._thread is not None
         if self._thread is not None:
             self._thread.join()
             self._thread = None
         self._sensor_monitor.close()
         self._battery_monitor.close()
+        if running:
+            event(LOGGER, logging.INFO, "sampler.stopped", "Performance sampler stopped",
+                  operation_id=self._operation_id)
 
     def snapshot(self) -> SystemDiagnosticsSnapshot:
         """Return the cached sample immediately, or an empty sample during warmup."""
@@ -104,13 +127,19 @@ class SystemPerformanceMonitor:
                 try:
                     workload = self._process_sampler.sample()
                 except Exception as error:
+                    self._observe_failure("process", error)
                     workload = OrcWorkloadSnapshot(visibility="unavailable", detail=type(error).__name__)
+                else:
+                    self._observe_failure("process")
                 try:
                     services = self._service_sampler.sample(workload)
                     service_status = self._service_sampler.status
                 except Exception as error:
+                    self._observe_failure("services", error)
                     services = ()
                     service_status = f"unavailable ({type(error).__name__})"
+                else:
+                    self._observe_failure("services")
                 sample = replace(
                     sample, workload=workload, sensors=self._sensor_monitor.snapshots(),
                     sensor_monitor_status=self._sensor_monitor.status,
@@ -118,14 +147,32 @@ class SystemPerformanceMonitor:
                     battery=self._battery_monitor.snapshot(),
                 )
             except Exception as error:
+                self._observe_failure("host", error)
                 with self._lock:
                     self._error = type(error).__name__
             else:
+                self._observe_failure("host")
                 with self._lock:
                     self._history.append(sample)
                     self._sample_monotonic = time.monotonic()
                     self._error = None
             self._stop.wait(max(0.0, self._interval - (time.monotonic() - started)))
+
+    def _observe_failure(self, sampler: str, error: Exception | None = None) -> None:
+        """Report degradation/recovery once without retaining telemetry or error text."""
+        previous = self._failures.get(sampler)
+        fields = {"operation_id": self._operation_id} if self._operation_id else {}
+        if error is None:
+            if previous is not None:
+                del self._failures[sampler]
+                event(LOGGER, logging.INFO, "sampler.recovered", "Performance sampling recovered",
+                      sampler=sampler, **fields)
+            return
+        exception_type = type(error).__name__
+        self._failures[sampler] = exception_type
+        if previous != exception_type:
+            event(LOGGER, logging.WARNING, "sampler.failed", "Performance sampling failed",
+                  sampler=sampler, exception_type=exception_type, **fields)
 
 
 def _wire_snapshot(snapshot: SystemDiagnosticsSnapshot) -> dict[str, object]:

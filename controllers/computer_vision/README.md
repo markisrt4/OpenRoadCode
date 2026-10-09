@@ -130,3 +130,20 @@ Supervision 0.28 deprecated its bundled `ByteTrack` class in favor of
 suppresses that specific warning while retaining the current tested adapter.
 Moving to the replacement requires an explicit dependency and adapter migration
 before Supervision 0.31 removes the bundled class.
+
+## Structured logging
+
+`vision.session`, `vision.perception`, `vision.model`, `vision.tracker` and
+`vision.camera` describe session/model/tracker loading, capture, profile changes,
+cleanup, inference/tracking failures and recovery. Session operation IDs propagate
+through the capture and perception threads and queued UI delivery. Normal frame
+activity and replaced/discarded frames are DEBUG; lifecycle/profile changes and
+recovery are INFO; new failure signatures are WARNING.
+
+A failed inference/tracking frame clears the previous result and leaves the worker
+available for the next frame. Stopped generations cannot publish late results.
+Restart is rejected while a previous worker/session is still stopping; shutdown
+timeouts are recorded, and cleanup attempts each resource even if another fails.
+No image bytes, detections, labels, boxes, track identities, model/device paths or
+exception messages are added to these records. See the
+[device validation guide](../../common/logging/DEVICE_VALIDATION.md).

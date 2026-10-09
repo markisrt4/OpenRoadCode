@@ -5,6 +5,8 @@
 
 from __future__ import annotations
 
+from common.logging.diagnostics import ComponentLog, diagnostic_action
+
 import time
 from typing import Any
 
@@ -34,6 +36,7 @@ class V4L2Camera(CameraIf):
         if len(pixel_format) != 4:
             raise ValueError("pixel_format must be a four-character code")
 
+        self._diagnostics = ComponentLog("vision.camera", "camera")
         self._device = device
         self._width = width
         self._height = height
@@ -51,6 +54,7 @@ class V4L2Camera(CameraIf):
     def device(self) -> str:
         return self._device
 
+    @diagnostic_action("open")
     def open(self) -> None:
         if self.is_open:
             return
@@ -77,7 +81,9 @@ class V4L2Camera(CameraIf):
         self._cv2 = cv2
         self._capture = capture
         self._sequence = 0
+        self._diagnostics.changed("lifecycle", "open")
 
+    @diagnostic_action("capture")
     def read(self) -> CameraFrame:
         if not self.is_open:
             raise RuntimeError("Camera is not open")
@@ -94,8 +100,10 @@ class V4L2Camera(CameraIf):
         self._sequence += 1
         return frame
 
+    @diagnostic_action("close")
     def close(self) -> None:
         if self._capture is not None:
             self._capture.release()
         self._capture = None
         self._cv2 = None
+        self._diagnostics.changed("lifecycle", "closed")

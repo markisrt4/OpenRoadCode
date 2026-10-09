@@ -26,6 +26,42 @@ escapes control characters and displays context fields alongside readable messag
 The viewer's level filters already collected events; it cannot enable DEBUG in an
 existing process. Set logging levels before starting that process.
 
+## Android bridge live viewer
+
+The Android bridge's **Diagnostics → Logs** screen reads recent history and polls
+for new events from the selected Termux or paired remote Linux runtime. Pause
+retains displayed history and stops network activity. Leaving the screen or
+backgrounding the app also cancels polling. Severity and dotted component-prefix
+filters apply to collected events; they cannot enable DEBUG in a running process.
+Copy and share export only the bounded displayed history, including context.
+
+The service manager exposes a read-only `GET /logs` endpoint on its existing API
+port, normally `8769`. It uses the same access policy as `/services`: existing
+same-phone access for Termux, or administrator/paired bearer credentials for
+remote access. No new listener, permission, runtime dependency, or pairing flow
+is needed. Responses disable caching and accept no filesystem paths.
+
+Supported query parameters are `level` (default `INFO`), `component` (optional
+dotted prefix), and `cursor` (opaque value returned by the previous page). Omit
+the cursor when changing filters. The response contains `events`, `cursor`,
+`has_more`, `reset`, and a human-readable `scope`. Each request scans at most
+256 KiB and returns at most 200 validated events within a 256 KiB event budget.
+Initial history comes from the retained log tail. Live cursors follow retained
+rotations; expired cursors set `reset` and return recent history. Partial records
+are retried; malformed and oversized records are skipped. This is a diagnostic
+viewer, not a guaranteed event-delivery channel.
+
+Termux normally provides the shared ORC store. The restricted Linux manager
+provides its private service-manager store; navigation/media logs in another
+account's store are outside that scope. The response and screen identify the
+store rather than silently implying host-wide coverage. Log aggregation across
+accounts is a separate follow-up. Device bridge logs are also outside this feed.
+
+Update/restart the Termux manager, or rerun the Linux service-manager installer,
+before using an updated Android APK. Older managers return an update instruction
+in the viewer. Linux's minimal deployment already copies the new logger and
+service helper modules through its existing package manifest.
+
 ## Collection and storage
 
 Default storage is `$XDG_STATE_HOME/openroadcode/logs/orc.jsonl`, falling back to
@@ -122,7 +158,77 @@ C++ uses `orc_logging.hpp` to encode JSON safely and emit through `spdlog`. Its
 build dependencies include `libspdlog-dev` on Debian/Ubuntu and `libspdlog` on Termux.
 The MapLibre build container and host setup include the dependency.
 
+## Runtime and service management
+
+Runtime records use `runtime.*` components. Start ORC with
+`./runOrcUi --follow-logs --log-component runtime`, or attach independently:
+
+```bash
+venv/bin/python -m common.logging.viewer --component runtime --from-end
+```
+
+| Component | Coverage |
+| --- | --- |
+| `runtime.apps` | Managed app show/hide/close/stop/restart, background preload, running-state changes, exclusive-peer and cleanup failures |
+| `runtime.browser` | Browser spawn, startup failure, observed owned-process exit, launch/stop failures |
+| `runtime.processes` | Child-group termination, forced kill, observed exit, display-cleanup signal dispatch |
+| `runtime.host` | Deferred UI restart/poweroff request, clear, dispatch failure, unsupported action |
+| `runtime.services.systemd` / `runtime.services.runit` | Service/core-stack actions, profile/bridge configuration, supervisor commands, observed status changes and query recovery |
+| `runtime.services.http` | Service-manager HTTP startup, binding rejection, shutdown, and failures |
+
+Each lifecycle operation has a local operation ID shared with nested work.
+Background preload carries its request ID into its worker. Browser exit events
+retain the launch ID and numeric child PID/exit code where ORC owns the process.
+Exit detection occurs when existing status checks poll the process; no new watcher
+or automatic restart policy is introduced. Service status polling logs only an
+initial observation, changes, and query failure/recovery transitions at INFO or
+higher; underlying read commands stay at DEBUG.
+
+Action completion means the method returned. App close can hide or retain a
+process according to its configured policy. Cleanup and preload passes retain
+their existing continue-after-failure behavior and report failure counts.
+Supervisor command completion does not prove telemetry readiness; observed state
+is separate. Runit input health uses existing checks, and systemd's `failed` state
+is visible even though the public status remains `stopped`. Host dispatch records
+do not assert that the host powered off or a replacement UI became ready.
+
+Records exclude command lines/arguments, URLs, display addresses, native stdout/
+stderr, status detail strings, file paths, pairing identifiers/PINs/tokens,
+authentication headers, and exception messages. Only approved service names and
+normalized status/profile values are recorded. Native diagnostic files and UI/
+HTTP error responses retain their existing behavior.
+
+Termux uses the calling user's shared store. The restricted Linux service manager
+runs under its own account, so its installer includes the logger modules and sets
+`ORC_LOG_DIR=/var/lib/openroadcode/service-manager/logs`, inside its existing writable
+private state directory. Reinstall the service manager to deploy this packaging
+change. Read that separate bounded store using the service account:
+
+```bash
+sudo -u openroadcode-service-manager env PYTHONPATH=/opt/openroadcode \
+  ORC_LOG_DIR=/var/lib/openroadcode/service-manager/logs \
+  python3 -m common.logging.viewer --component runtime.services --from-end
+```
+
+Use the configured install root if it differs from `/opt/openroadcode`. No new
+external dependencies are required. Tests exercise failures and correlation with
+fake launchers/supervisors/host actions; live systemd/runit, X11 browser, and
+installed-service behavior still need platform smoke testing.
+
 ## Quality gates
+
+Weather instrumentation uses the `weather` prefix for forecasts, city/model/route
+overlays, radar replay and tile caching. Weather logging tests exercise private
+provider failures, recovery, request IDs across workers/callbacks, quiet cache
+behavior, and stale result rejection. See the
+[weather logging guide](../../controllers/weather/README.md#structured-logging).
+
+The service-manager performance sampler uses `runtime.performance` for start,
+stop, sampling failure, and recovery events. Host, process, and service sampling
+failures are reported separately; repeated failures of the same type and routine
+samples stay quiet. Each start has an operation ID shared with worker events and
+shutdown. Records retain exception types only, excluding telemetry values,
+process details, socket addresses, and exception messages.
 
 The GitHub Actions **Logging quality gate** job tests schema types, escaping,
 rotation budgets, concurrent writers, repeated error suppression, native output
@@ -155,3 +261,20 @@ Python tests also run through the existing `scripts/run_tests.py all` gate.
 Repository administrators must add **Logging quality gate** to required branch
 checks if merge blocking is desired; editing a workflow does not change branch
 protection settings.
+
+## Remaining device and exploration coverage
+
+Vision/camera, environmental sensors (including BMP3XX and MPU6050), lighting and
+Earth/POI/GPS adapters use private stage diagnostics. Successful high-frequency
+work stays DEBUG; lifecycle/state changes and recovery are INFO; a new failure
+signature is WARNING. Failures are remembered by fixed stage until recovery or a
+different reason/exception type, independently of the general rate limiter.
+
+The logging CI job discovers device/session/lighting/places/adapter tests under
+`common/logging/unit_test`. Synthetic providers and drivers test privacy, operation
+IDs, recovery, stale completions and cleanup without optional hardware packages
+or socket services. No runtime/installation dependency was added.
+
+Implementation coverage is ready for review; full local quality-gate and installed
+hardware/Android validation remain pending. Follow the
+[device validation checklist](DEVICE_VALIDATION.md) for the final acceptance pass.
