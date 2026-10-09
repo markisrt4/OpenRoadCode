@@ -28,6 +28,11 @@ else
     python_bin=python3
 fi
 
+# Diagnose with exactly the interpreter and display used by the launcher.
+if [[ "${1:-}" == "--check-ecu-gl" ]]; then
+    exec "$python_bin" -m apps.orcUi.frontend.tk.ecu_gl_diagnostics
+fi
+
 if ! "$is_termux"; then
     exec "$python_bin" -m apps.orcUi "$@"
 fi

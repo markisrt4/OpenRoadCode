@@ -47,6 +47,23 @@ class RadioScreenTest(unittest.TestCase):
 
         sync_theme.assert_called_once_with(ThemeMode.LIGHT)
 
+    @patch("frontends.tk.radio.radio_screen.X11WindowEmbedder")
+    def test_open_airband_routes_through_panel_and_updates_location(self, _embedder: Mock) -> None:
+        location = Mock()
+        screen = RadioScreen(
+            Mock(),
+            theme_bundle=Mock(),
+            theme_mode=lambda: ThemeMode.DARK,
+            panel_factory=Mock(),
+            on_location_changed=location,
+        )
+        screen._panel = Mock()
+
+        screen.open_airband()
+
+        screen._panel.open_airband_radio.assert_called_once_with()
+        location.assert_called_once_with("AIRBAND")
+
 
 if __name__ == "__main__":
     unittest.main()

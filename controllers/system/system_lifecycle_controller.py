@@ -9,10 +9,16 @@ import os
 import shutil
 import subprocess
 import sys
+import logging
 from collections.abc import Callable
 from enum import Enum
 
+from common.logging.lifecycle import failure_fields
+from common.logging.structured import current_operation, event, operation
+
 from ui.system.lifecycle_request_handler_if import SystemLifecycleRequestHandlerIf
+
+LOGGER = logging.getLogger("runtime.host")
 
 
 class SystemLifecycleAction(str, Enum):
@@ -39,6 +45,7 @@ class SystemLifecycleController(SystemLifecycleRequestHandlerIf):
         self._execv = execv
         self._which = which
         self._popen = popen
+        self._operation_id: str | None = None
 
     @property
     def requested_action(self) -> SystemLifecycleAction:
@@ -47,15 +54,39 @@ class SystemLifecycleController(SystemLifecycleRequestHandlerIf):
 
     def request_restart_ui(self) -> None:
         """Record a UI restart request without replacing the process yet."""
-        self._action = SystemLifecycleAction.RESTART_UI
+        self._record_action(SystemLifecycleAction.RESTART_UI)
 
     def request_poweroff(self) -> None:
         """Record a host poweroff request without touching the OS yet."""
-        self._action = SystemLifecycleAction.POWEROFF
+        self._record_action(SystemLifecycleAction.POWEROFF)
+
+    def _record_action(self, action: SystemLifecycleAction) -> None:
+        if self._action == action:
+            return
+        self._action = action
+        with operation(current_operation()) as operation_id:
+            self._operation_id = operation_id
+            event(
+                LOGGER,
+                logging.INFO,
+                "host.action_requested",
+                "Deferred host action requested",
+                action=action.value,
+            )
 
     def clear(self) -> None:
         """Discard any pending lifecycle action."""
+        if self._action is not SystemLifecycleAction.NONE:
+            with operation(self._operation_id):
+                event(
+                    LOGGER,
+                    logging.INFO,
+                    "host.action_cleared",
+                    "Deferred host action cleared",
+                    action=self._action.value,
+                )
         self._action = SystemLifecycleAction.NONE
+        self._operation_id = None
 
     def execute_requested_action(self) -> bool:
         """Execute the deferred action after application-owned resources close.
@@ -67,6 +98,47 @@ class SystemLifecycleController(SystemLifecycleRequestHandlerIf):
         self._action = SystemLifecycleAction.NONE
         if action is SystemLifecycleAction.NONE:
             return False
+        operation_id = self._operation_id
+        self._operation_id = None
+        with operation(operation_id or current_operation()):
+            event(
+                LOGGER,
+                logging.INFO,
+                "host.dispatch_requested",
+                "Host action dispatch requested",
+                action=action.value,
+            )
+            try:
+                dispatched = self._dispatch_action(action)
+            except Exception as error:
+                event(
+                    LOGGER,
+                    logging.ERROR,
+                    "host.dispatch_failed",
+                    "Host action dispatch failed",
+                    action=action.value,
+                    **failure_fields(error),
+                )
+                raise
+            if dispatched:
+                event(
+                    LOGGER,
+                    logging.INFO,
+                    "host.action_dispatched",
+                    "Host action dispatched",
+                    action=action.value,
+                )
+            else:
+                event(
+                    LOGGER,
+                    logging.WARNING,
+                    "host.action_unavailable",
+                    "Host action unavailable",
+                    action=action.value,
+                )
+            return dispatched
+
+    def _dispatch_action(self, action: SystemLifecycleAction) -> bool:
         if action is SystemLifecycleAction.RESTART_UI:
             self._execv(
                 self._executable,

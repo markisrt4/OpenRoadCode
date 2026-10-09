@@ -11,6 +11,7 @@ from ui.tooltip_if import TooltipFactoryIf
 from collections.abc import Callable
 
 from ui.navigation.map_runtime_if import MapRuntimeIf
+from ui.navigation.map_platform_if import MapPlatformControlIf
 from ui.automotive.automotive_telemetry_profile import (AutomotiveTelemetryProfile)
 from ui.weather.radar_ui_if import RadarPalette, RadarUiState
 from ui.weather.radar_controls_if import RadarControlsIf
@@ -27,7 +28,9 @@ from ui.navigation.navigation_places_request_handler_if import NavigationPlacesF
 from ui.theme import ThemeBundle
 
 from .navigation_panel import NavigationPanel
+from .map_platform_bar import MapPlatformBar
 from .screen_builders import build_navigation_screen
+from controllers.navigation.map_controls_drawer_controller import MapControlsDrawerController
 
 
 class NavigationScreen(TkScreen, RadarControlsIf):
@@ -52,6 +55,7 @@ class NavigationScreen(TkScreen, RadarControlsIf):
         route_weather=None,
         online_mode: OnlineModeIf | None = None,
         tooltip_factory: TooltipFactoryIf | None = None,
+        map_platform: MapPlatformControlIf | None = None,
     ) -> None:
         super().__init__(self.SCREEN_ID)
         if not isinstance(places_factory, NavigationPlacesFactoryIf):
@@ -63,6 +67,9 @@ class NavigationScreen(TkScreen, RadarControlsIf):
         self._tooltip_factory = tooltip_factory
         self._host = host
         self._map_runtime = map_runtime
+        self._map_platform = map_platform
+        self._platform_bar = None
+        self._platform_generation = 0
         self._map_request_handler = map_request_handler
         self._route_request_handler = route_request_handler
         self._route_simulation_handler = route_simulation_handler
@@ -72,6 +79,7 @@ class NavigationScreen(TkScreen, RadarControlsIf):
         self._radar_handler: RadarRequestHandlerIf | None = None
         self._radar_state = RadarUiState()
         self._panel: NavigationPanel | None = None
+        self._drawer_controller: MapControlsDrawerController | None = None
 
     def _close_places_session(self) -> None:
         session = self._places_session
@@ -100,16 +108,25 @@ class NavigationScreen(TkScreen, RadarControlsIf):
         self._host.clear_screen_content()
         self._host.set_screen_title("NAVIGATION")
 
+        self._platform_generation += 1
+        if self._map_platform is not None:
+            self._platform_bar = MapPlatformBar(self._host.screen_parent,
+                handler=self._map_platform, theme=self._theme_bundle())
+            self._platform_bar.pack(fill="x")
+
         self._close_places_session()
         session = self._places_factory.create()
         if not isinstance(session, NavigationPlacesRequestHandlerIf):
             raise TypeError("Navigation places require NavigationPlacesRequestHandlerIf")
         self._places_session = session
+        drawer_controller = MapControlsDrawerController()
+        self._drawer_controller = drawer_controller
         try:
             self._panel = build_navigation_screen(
                 self._host.screen_parent,
                 map_request_handler=self._map_request_handler,
                 places_handler=self._places_session,
+                drawer_handler=drawer_controller,
                 online_mode=self._online_mode,
                 tooltip_factory=self._tooltip_factory,
                 route_request_handler=self._route_request_handler,
@@ -130,8 +147,10 @@ class NavigationScreen(TkScreen, RadarControlsIf):
                 on_radar_source=self._change_radar_source,
             )
         except Exception:
+            self._drawer_controller = None
             self._close_places_session()
             raise
+        drawer_controller.set_ui(self._panel)
         self.set_radar_state(self._radar_state)
         if self._radar_handler is not None:
             self._radar_handler.request_navigation_visible(True)
@@ -143,12 +162,16 @@ class NavigationScreen(TkScreen, RadarControlsIf):
 
         self._host.screen_parent.update_idletasks()
         self._start_map_renderer()
+        if self._map_platform is not None:
+            self._poll_platform(self._platform_generation)
         if self._radar_handler is not None and self._radar_state.enabled:
             for delay_ms in (300, 700, 1200, 2500, 5000, 10000):
                 self._host.schedule_ui_callback(delay_ms, self._refresh_map_radar)
 
     def hide(self) -> None:
         """Stop transient navigation resources when navigating away."""
+        self._platform_generation = self.__dict__.get("_platform_generation", 0) + 1
+        self._platform_bar = None
         if self._radar_handler is not None:
             self._radar_handler.request_navigation_visible(False)
         if self._panel is not None:
@@ -161,15 +184,27 @@ class NavigationScreen(TkScreen, RadarControlsIf):
         self._close_places_session()
         self._map_runtime.stop()
         self._panel = None
+        drawer_controller = self.__dict__.get("_drawer_controller")
+        if drawer_controller is not None:
+            drawer_controller.set_ui(None)
+        self._drawer_controller = None
 
     def close(self) -> None:
         """Disconnect transient weather widgets when the application exits."""
+        self._platform_generation = self.__dict__.get("_platform_generation", 0) + 1
+        self._platform_bar = None
+        if self.__dict__.get("_map_platform") is not None:
+            self._map_platform.close()
         if self._panel is not None:
             self._panel._sync_renderer_camera()
             self._panel.close_places()
             self._panel.close_tooltips()
         self._close_places_session()
         self._panel = None
+        drawer_controller = self.__dict__.get("_drawer_controller")
+        if drawer_controller is not None:
+            drawer_controller.set_ui(None)
+        self._drawer_controller = None
         self._radar_handler = None
         if self.__dict__.get("_route_weather") is not None:
             self._route_weather.close()
@@ -184,12 +219,23 @@ class NavigationScreen(TkScreen, RadarControlsIf):
             return
 
         try:
+            if self._map_platform is not None:
+                width, height = panel.map_host_size
+                self._map_platform.resize(width, height, panel.winfo_toplevel().winfo_id())
             self._map_runtime.launch(panel.map_host_window_id)
         except (OSError, RuntimeError) as error:
             print(
                 "WARNING: map renderer: "
                 f"{type(error).__name__}: {error}"
             )
+
+    def _poll_platform(self, generation: int) -> None:
+        if generation != self._platform_generation or self._panel is None:
+            return
+        width, height = self._panel.map_host_size
+        self._map_platform.resize(width, height, self._panel.winfo_toplevel().winfo_id())
+        self._platform_bar.set_state(self._map_platform.state)
+        self._host.schedule_ui_callback(500, lambda: self._poll_platform(generation))
 
     @property
     def radar_enabled(self) -> bool:

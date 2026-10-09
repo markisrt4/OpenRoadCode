@@ -67,7 +67,8 @@ class NavigationRadarControls:
         self._radar_button = tk.Button(
             bar, text="☰ RADAR", bg=ui.control_background, fg=ui.text,
             activebackground=ui.control_active, activeforeground=ui.control_text,
-            relief=tk.FLAT, font=("Sans", FONT_CONTROL, "bold"), padx=8, pady=4,
+            relief=tk.FLAT, bd=0, highlightthickness=0,
+            font=("Sans", FONT_CONTROL, "bold"), padx=8, pady=4,
             command=self._toggle_radar_menu,
         )
         self._classic_radar_var = tk.BooleanVar(value=self._radar_palette is RadarPalette.CLASSIC)
@@ -75,6 +76,7 @@ class NavigationRadarControls:
             bar, text="☁", command=self._toggle_radar,
             bg=ui.control_background, activebackground=ui.control_active,
             activeforeground=ui.control_text, relief=tk.FLAT,
+            bd=0, highlightthickness=0,
             font=("Sans", FONT_CONTROL + 5, "bold"), padx=6, pady=0,
         )
         # RIGHT packs the first widget at the outer edge: cloud, then menu.

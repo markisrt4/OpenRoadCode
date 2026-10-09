@@ -11,6 +11,7 @@ from apps.orcUi.frontend.tk.navigation_panel import NavigationPanel
 from controllers.navigation.map_favorites import MapFavorite
 from ui.navigation.poi_models import (PoiAction, PoiActionKind, PoiCategory, PointOfInterest, TransitMode)
 from ui.navigation import GeoPoint
+from ui.navigation import MapControlsDrawerState
 from ui.navigation.route_types import TravelMode
 
 
@@ -30,6 +31,7 @@ class NavigationPanelControlTest(unittest.TestCase):
         panel._poi_action_request = None
         panel._poi_launching = False
         panel._poi_action_buttons = []
+        panel._earth_button = None
         panel._unsubscribe_online_mode = Mock()
         panel._places_handler.poll_action_result.return_value = None
         panel._shortcut_status = Mock()
@@ -78,7 +80,7 @@ class NavigationPanelControlTest(unittest.TestCase):
         label.return_value.winfo_reqheight.return_value = 18
         with patch.multiple(
             "apps.orcUi.frontend.tk.navigation_panel_layout.tk",
-            Frame=Mock(), Button=Mock(), Label=label, Menubutton=Mock(), Menu=Mock(),
+            Frame=Mock(), Button=Mock(), Label=label, Menubutton=Mock(), Menu=Mock(), PhotoImage=Mock(), Toplevel=Mock(),
         ):
             build_navigation_panel(panel)
         panel._build_radar_controls.assert_called_once()
@@ -158,6 +160,37 @@ class NavigationPanelControlTest(unittest.TestCase):
         panel._toggle_follow()
         panel.set_follow_enabled.assert_called_once_with(False)
         panel._request_handler.request_follow.assert_called_once_with(False)
+
+    def test_collapsed_map_controls_release_rail_and_float_handle(self) -> None:
+        panel = self._panel()
+        panel._map_controls = Mock()
+        panel._map_controls_rail = Mock()
+        panel._map_controls_handle = Mock()
+        panel.after_idle = Mock()
+        panel._refresh_renderer_state = Mock()
+
+        panel.set_map_controls_drawer_state(MapControlsDrawerState(expanded=False))
+
+        panel._map_controls.grid_remove.assert_called_once_with()
+        panel._map_controls_rail.pack_forget.assert_called_once_with()
+        panel._map_controls_handle.place.assert_called_once_with(
+            relx=1.0, rely=0.5, anchor="e", width=48, height=72,
+        )
+        panel._map_controls_handle.lift.assert_called_once_with()
+
+    def test_expanded_map_controls_replace_floating_handle(self) -> None:
+        panel = self._panel()
+        panel._map_controls = Mock()
+        panel._map_controls_rail = Mock()
+        panel._map_controls_handle = Mock()
+        panel.after_idle = Mock()
+        panel._refresh_renderer_state = Mock()
+
+        panel.set_map_controls_drawer_state(MapControlsDrawerState(expanded=True))
+
+        panel._map_controls.configure.assert_called_once_with(width=210)
+        panel._map_controls.grid.assert_called_once_with()
+        panel._map_controls_handle.place_forget.assert_called_once_with()
 
     def test_gas_shortcut_starts_fuel_search(self) -> None:
         panel = self._panel()

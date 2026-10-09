@@ -54,6 +54,7 @@ class GamesScreen(TkScreen):
         self._host.activate_screen(self)
         self._host.clear_screen_content()
         self._host.set_screen_title("GAMES")
+        self._host.set_screen_status("")
 
         panel = GamesPanel(self._host.screen_parent, theme=self._theme_bundle())
         panel.pack(fill=tk.BOTH, expand=True)

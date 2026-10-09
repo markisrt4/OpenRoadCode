@@ -14,11 +14,24 @@ import json
 import os
 from pathlib import Path
 import subprocess
+import logging
 
-from services.common.service_manager_auth import TOKEN_ENV, authorized as _authorized, binding_allowed as _binding_allowed, same_device_request
+from common.logging.lifecycle import failure_fields
+from common.logging.structured import configure_logging, event
+
+from services.common.service_manager_auth import (
+    TOKEN_ENV,
+    authorized as _authorized,
+    binding_allowed as _binding_allowed,
+    same_device_request,
+)
 from services.common.service_manager_client_store import ServiceManagerClientStore
-from services.common.service_manager_browser_pairing import (BrowserPairingConsumedError, ServiceManagerBrowserPairing)
+from services.common.service_manager_browser_pairing import (
+    BrowserPairingConsumedError,
+    ServiceManagerBrowserPairing,
+)
 from services.common.service_manager_pairing import ServiceManagerPairing
+from services.common.service_manager_logs import serve_logs
 from services.common.system_performance_monitor import SystemPerformanceMonitor
 from services.linux.systemd_service_manager import ServiceStatus, SystemdServiceManager
 
@@ -27,6 +40,7 @@ DEFAULT_PORT = 8769
 CLIENT_STORE_ENV = "OPENROADCODE_SERVICE_MANAGER_CLIENT_STORE"
 DEFAULT_CLIENT_STORE = "/var/lib/openroadcode/service-manager/authorized-clients.json"
 LOOPBACK_HOSTS = {"127.0.0.1", "localhost", "::1"}
+LOGGER = logging.getLogger("runtime.services.http")
 
 
 def _payload(statuses: tuple[ServiceStatus, ...] | list[ServiceStatus]) -> dict[str, object]:
@@ -44,6 +58,7 @@ class SystemdServiceManagerHandler(BaseHTTPRequestHandler):
 
     def do_GET(self) -> None:  # noqa: N802 - BaseHTTPRequestHandler API
         from urllib.parse import urlsplit
+
         parts = [part for part in urlsplit(self.path).path.split("/") if part]
         if len(parts) == 4 and parts[:3] == ["pairing", "browser", "approve"]:
             self._browser_approval_page(parts[3])
@@ -52,6 +67,9 @@ class SystemdServiceManagerHandler(BaseHTTPRequestHandler):
             self._browser_pairing_status(parts[3])
             return
         if not self._authenticate():
+            return
+        if parts == ["logs"]:
+            serve_logs(self, scope="Linux service-manager log store")
             return
         if parts == ["performance"]:
             monitor = self.performance_monitor
@@ -67,6 +85,7 @@ class SystemdServiceManagerHandler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:  # noqa: N802 - BaseHTTPRequestHandler API
         from urllib.parse import urlsplit
+
         parts = [part for part in urlsplit(self.path).path.split("/") if part]
         if parts == ["pair"]:
             self._pair()
@@ -87,28 +106,25 @@ class SystemdServiceManagerHandler(BaseHTTPRequestHandler):
             return
         try:
             if parts == ["runtime", "android-bridge"]:
-                self.manager.set_android_bridge_url(
-                    f"http://{self.client_address[0]}:8766"
-                )
+                self.manager.set_android_bridge_url(f"http://{self.client_address[0]}:8766")
                 self._json(HTTPStatus.OK, {"status": "configured"})
                 return
             if parts == ["stack", "core", "start"]:
                 statuses = self.manager.start_core()
             elif parts == ["stack", "core", "stop"]:
                 statuses = self.manager.stop_core()
+            elif len(parts) == 4 and parts[0] == "services" and parts[2] == "profile":
+                statuses = (self.manager.set_profile(parts[1], parts[3]),)
             elif (
-                len(parts) == 4
+                len(parts) == 3
                 and parts[0] == "services"
-                and parts[2] == "profile"
+                and parts[2]
+                in {
+                    "start",
+                    "stop",
+                    "restart",
+                }
             ):
-                statuses = (
-                    self.manager.set_profile(parts[1], parts[3]),
-                )
-            elif len(parts) == 3 and parts[0] == "services" and parts[2] in {
-                "start",
-                "stop",
-                "restart",
-            }:
                 action = getattr(self.manager, parts[2])
                 statuses = (action(parts[1]),)
             else:
@@ -123,18 +139,25 @@ class SystemdServiceManagerHandler(BaseHTTPRequestHandler):
         try:
             length = int(self.headers.get("Content-Length", "0"))
             payload = json.loads(self.rfile.read(length) or b"{}")
-            session, poll_token, approval_token = self.browser_pairing.begin(str(payload.get("client_name", "")))
+            session, poll_token, approval_token = self.browser_pairing.begin(
+                str(payload.get("client_name", ""))
+            )
         except (ValueError, json.JSONDecodeError) as exc:
             self._json(HTTPStatus.BAD_REQUEST, {"error": str(exc)})
             return
         host = self.headers.get("Host", f"127.0.0.1:{self.server.server_port}")
-        approval_url = f"http://{host}/pairing/browser/approve/{session.session_id}?token={approval_token}"
-        self._json(HTTPStatus.OK, {
-            "session_id": session.session_id,
-            "poll_token": poll_token,
-            "approval_url": approval_url,
-            "expires_at": session.expires_at,
-        })
+        approval_url = (
+            f"http://{host}/pairing/browser/approve/{session.session_id}?token={approval_token}"
+        )
+        self._json(
+            HTTPStatus.OK,
+            {
+                "session_id": session.session_id,
+                "poll_token": poll_token,
+                "approval_url": approval_url,
+                "expires_at": session.expires_at,
+            },
+        )
 
     def _browser_pairing_status(self, session_id: str) -> None:
         session = self.browser_pairing.get(session_id)
@@ -154,9 +177,9 @@ class SystemdServiceManagerHandler(BaseHTTPRequestHandler):
             self._json(HTTPStatus.OK, {"status": "pending"})
             return
         client_id, token = credentials
-        self._json(HTTPStatus.OK, {
-            "status": "approved", "client_id": client_id, "access_token": token
-        })
+        self._json(
+            HTTPStatus.OK, {"status": "approved", "client_id": client_id, "access_token": token}
+        )
 
     def _browser_approval_page(self, session_id: str) -> None:
         from urllib.parse import parse_qs, urlsplit
@@ -190,6 +213,7 @@ class SystemdServiceManagerHandler(BaseHTTPRequestHandler):
             length = int(self.headers.get("Content-Length", "0"))
             raw = self.rfile.read(length).decode("utf-8")
             from urllib.parse import parse_qs
+
             approval_token = parse_qs(raw).get("approval_token", [""])[0]
             approved = self.browser_pairing.approve(session_id, approval_token)
         except (ValueError, UnicodeDecodeError, PermissionError):
@@ -209,8 +233,10 @@ class SystemdServiceManagerHandler(BaseHTTPRequestHandler):
         return same_device_request(self.client_address[0], self.connection.getsockname()[0])
 
     def _html(self, status: HTTPStatus, body: str) -> None:
-        encoded = ("<!doctype html><meta name='viewport' content='width=device-width'>"
-                   "<title>OpenRoadCode pairing</title>" + body).encode("utf-8")
+        encoded = (
+            "<!doctype html><meta name='viewport' content='width=device-width'>"
+            "<title>OpenRoadCode pairing</title>" + body
+        ).encode("utf-8")
         self.send_response(status.value)
         self.send_header("Content-Type", "text/html; charset=utf-8")
         self.send_header("Cache-Control", "no-store")
@@ -241,7 +267,11 @@ class SystemdServiceManagerHandler(BaseHTTPRequestHandler):
         header = self.headers.get("Authorization")
         if _authorized(header, self.auth_token):
             return True
-        if header and header.startswith("Bearer ") and self.pairing.authorized(header.removeprefix("Bearer ")):
+        if (
+            header
+            and header.startswith("Bearer ")
+            and self.pairing.authorized(header.removeprefix("Bearer "))
+        ):
             return True
         self._json(HTTPStatus.UNAUTHORIZED, {"error": "unauthorized"})
         return False
@@ -260,6 +290,22 @@ class SystemdServiceManagerHandler(BaseHTTPRequestHandler):
 
 
 def main() -> int:
+    configure_logging()
+    try:
+        return _run_server()
+    except Exception as error:
+        event(
+            LOGGER,
+            logging.ERROR,
+            "manager.failed",
+            "Service manager server failed",
+            supervisor="systemd",
+            **failure_fields(error),
+        )
+        raise
+
+
+def _run_server() -> int:
     parser = argparse.ArgumentParser(description="Control OpenRoadCode Linux systemd services.")
     parser.add_argument("--host", default=DEFAULT_HOST)
     parser.add_argument("--port", type=int, default=DEFAULT_PORT)
@@ -267,6 +313,13 @@ def main() -> int:
 
     token = os.environ.get(TOKEN_ENV, "").strip() or None
     if not _binding_allowed(args.host, token):
+        event(
+            LOGGER,
+            logging.ERROR,
+            "manager.binding_denied",
+            "Service manager binding rejected",
+            supervisor="systemd",
+        )
         parser.error(f"non-loopback service manager requires {TOKEN_ENV}")
 
     client_store_path = Path(os.environ.get(CLIENT_STORE_ENV, DEFAULT_CLIENT_STORE))
@@ -275,15 +328,20 @@ def main() -> int:
         client_store=ServiceManagerClientStore(client_store_path)
     )
 
-    SystemdServiceManagerHandler.browser_pairing = ServiceManagerBrowserPairing(SystemdServiceManagerHandler.pairing)
+    SystemdServiceManagerHandler.browser_pairing = ServiceManagerBrowserPairing(
+        SystemdServiceManagerHandler.pairing
+    )
     server = ThreadingHTTPServer((args.host, args.port), SystemdServiceManagerHandler)
     monitor = SystemPerformanceMonitor()
     SystemdServiceManagerHandler.performance_monitor = monitor
     monitor.start()
-    auth_mode = "bearer token" if token else "localhost only"
-    print(
-        f"OpenRoadCode systemd service manager listening on {args.host}:{args.port} "
-        f"({auth_mode})"
+    event(
+        LOGGER,
+        logging.INFO,
+        "manager.started",
+        "Service manager HTTP server started",
+        supervisor="systemd",
+        token_required=token is not None,
     )
     try:
         server.serve_forever()
@@ -293,6 +351,13 @@ def main() -> int:
         monitor.close()
         SystemdServiceManagerHandler.performance_monitor = None
         server.server_close()
+        event(
+            LOGGER,
+            logging.INFO,
+            "manager.stopped",
+            "Service manager HTTP server stopped",
+            supervisor="systemd",
+        )
     return 0
 
 

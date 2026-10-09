@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import os
 import tkinter as tk
-import tkinter.font as tkfont
 from collections.abc import Callable, Sequence
 from pathlib import Path
 
@@ -17,6 +16,11 @@ from ui.theme import ThemeBundle
 PAGE_SIZE = 6
 FILTERS = (("ALL", "all"), ("CASUAL", "casual"), ("PUZZLE", "puzzle"), ("CARD / BOARD", "card_board"), ("ACTION", "action"))
 _ICON_SIZES = (128, 96, 64, 48, 32, 256)
+
+
+def catalog_column_count(width: int) -> int:
+    """Keep the vehicle display two-up while supporting narrow test windows."""
+    return 2 if width >= 680 else 1
 
 
 class GamesPanel(tk.Frame, GamesUiIf):
@@ -144,6 +148,8 @@ class GamesPanel(tk.Frame, GamesUiIf):
                 text=label,
                 command=lambda selected=category: self._set_filter(selected),
                 relief=tk.FLAT,
+                bd=0,
+                highlightthickness=0,
                 font=("Sans", 14, "bold"),
                 padx=8,
                 pady=5,
@@ -197,12 +203,9 @@ class GamesPanel(tk.Frame, GamesUiIf):
     def _resize_catalog(self, event: tk.Event) -> None:
         if self._runtime_host is not None:
             return
-        # Use actual font metrics: Termux font substitution/DPI can change sizes.
-        title = tkfont.Font(self, font=("Sans", 18, "bold"))
-        action = tkfont.Font(self, font=("Sans", 14, "bold"))
-        minimum_width = max(340, 100 + title.measure("GNOME Sudoku"),
-                            100 + 2 * action.measure("UNAVAILABLE") + 36)
-        columns = 2 if event.width >= 2 * minimum_width else 1
+        # The 1280x720 vehicle surface is intentionally a two-card grid. Only
+        # collapse on genuinely narrow windows; card contents wrap as needed.
+        columns = catalog_column_count(event.width)
         page_size = PAGE_SIZE
         if (columns, page_size) != (self._columns, self._page_size):
             first_game = self._page * self._page_size
@@ -264,7 +267,7 @@ class GamesPanel(tk.Frame, GamesUiIf):
                 fg="#ffffff" if selected else ui.control_text,
                 activebackground=ui.control_active,
                 activeforeground="#ffffff",
-                highlightthickness=1,
+                highlightthickness=1 if selected else 0,
                 highlightbackground=ui.accent_success if selected else ui.border,
             )
 

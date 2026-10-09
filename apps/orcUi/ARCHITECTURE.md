@@ -115,6 +115,31 @@ restores ordinary window-manager decorations without closing ORC. For example,
 `ORCUI_GEOMETRY=1280x720 ORCUI_FULLSCREEN=0 ORCUI_BORDERLESS=1 ./runOrcUi`
 matches the landscape Pi Touch Display 2 layout inside a VM.
 
+The reference shell keeps the side rail at 132 pixels so map and feature
+content retain the available width. Shell labels and icon spacing must adapt
+inside that allocation. On dark themes, ordinary controls use filled surfaces
+without bright outlines; visible accent borders are reserved for selected,
+focused, or elevated controls such as the raised Settings gear. The Games
+catalog remains two cards wide at the reference display size and collapses to
+one column only for narrow windows.
+
+The persistent Aircraft control presents `AircraftMenuUiState` and emits
+`AircraftMenuRequestHandlerIf` requests. Radio composition owns the handler
+that toggles ADS-B, opens the 1090 tracker, or selects AM aviation radio; the
+bottom-bar widget does not launch processes or depend on Radio controllers.
+ADS-B service transitions and status probes run outside the Tk event thread;
+the composition drains their results on its scheduled UI callback and
+serializes transitions with polling so stale observations cannot win.
+
+Navigation's right-side map controls use `MapControlsDrawerState` and
+`MapControlsDrawerRequestHandlerIf`. A small controller owns expanded/collapsed
+state; the Tk panel renders a compact edge handle or the wider touch drawer and
+continues to emit camera actions through the existing map request contract. In
+the collapsed state, the drawer releases its layout column so the map reaches
+the right edge; its vertically centered reopen handle floats over the map. The
+native renderer tracks its exact X11 parent allocation and fits its GLFW and
+MapLibre viewport when that host changes size.
+
 It must not create ZeroMQ subscribers, message decoders, audio backends, Spotify synchronization workers, browser lifecycle managers, external map renderer launchers, or host restart/poweroff implementations. Those dependencies are injected through application/runtime or UI contracts.
 
 Structural orcUi widgets that are meaningful only inside that shell stay under `apps/orcUi/frontend/tk`. A widget that could reasonably be reused by another Tk application belongs in an appropriate feature package under `frontends/tk` instead.

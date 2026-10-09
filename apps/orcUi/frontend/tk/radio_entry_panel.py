@@ -103,6 +103,7 @@ class RadioEntryPanel(tk.Frame):
         self._radio_panel: LaunchAwareRadioPanel | None = None
         self._streaming_page: PersistentStreamingRadioPanel | None = None
         self._launching = False
+        self._pending_rf_group: str | None = None
         self._on_location_changed = on_location_changed
 
         self.grid_columnconfigure(0, weight=1)
@@ -158,6 +159,13 @@ class RadioEntryPanel(tk.Frame):
         """Launch and present the RF radio directly."""
         self._launch_rf_radio()
         self._set_location("RF")
+
+    def open_airband_radio(self) -> None:
+        """Launch RF presentation and select the AM aviation profile."""
+        self._pending_rf_group = "AIR"
+        self._launch_rf_radio()
+        self._select_pending_rf_group()
+        self._set_location("AIRBAND")
 
     def open_adsb(self) -> None:
         """Present the ADS-B aircraft dashboard without starting SDR++ first."""
@@ -311,8 +319,7 @@ class RadioEntryPanel(tk.Frame):
             activeforeground="#ffffff",
             relief=tk.FLAT,
             bd=0,
-            highlightthickness=1,
-            highlightbackground=ui.border,
+            highlightthickness=0,
             font=("Sans", FONT_CONTROL + 2, "bold"),
             padx=16,
             pady=10,
@@ -365,6 +372,12 @@ class RadioEntryPanel(tk.Frame):
 
     def _launch_rf_radio(self) -> None:
         if self._launching:
+            return
+        panel = self._radio_panel
+        if panel is not None and panel.winfo_exists():
+            panel.grid(row=0, column=0, sticky="nsew")
+            panel.lift()
+            self._select_pending_rf_group()
             return
         self._launching = True
         self._chooser.grid_remove()
@@ -445,6 +458,7 @@ class RadioEntryPanel(tk.Frame):
         self._launching = False
         if self._radio_panel is not None and self._radio_panel.winfo_exists():
             self._radio_panel.hide_loading()
+        self._select_pending_rf_group()
 
     def _attach_rf_radio(self, process_id: int) -> None:
         panel = self._radio_panel
@@ -457,11 +471,23 @@ class RadioEntryPanel(tk.Frame):
             self._show_launch_error(error)
             return
         self._launching = False
+        self._select_pending_rf_group()
+
+    def _select_pending_rf_group(self) -> None:
+        panel = self._radio_panel
+        if self._launching or self._pending_rf_group is None:
+            return
+        if panel is None or not panel.winfo_exists():
+            return
+        group = self._pending_rf_group
+        self._pending_rf_group = None
+        panel.select_group(group)
 
     def _show_launch_error(self, error: Exception) -> None:
         if not self.winfo_exists():
             return
         self._launching = False
+        self._pending_rf_group = None
         if self._radio_panel is not None and self._radio_panel.winfo_exists():
             self._radio_panel.destroy()
         self._radio_panel = None

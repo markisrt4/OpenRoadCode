@@ -3,7 +3,7 @@
 ## Status
 
 - Contract: `openroad.vehicle.state`
-- Current version: `4`
+- Current version: `5`
 - Initial transport: ZeroMQ PUB/SUB
 - Payload encoding: JSON
 
@@ -48,7 +48,7 @@ Subscribers may use the topic frame for ZeroMQ subscription filtering.
 
 ### `version`
 
-Unsigned contract version. Versions 1 through 4 are supported for decoding. Producers emit Version 4. A producer must emit the version corresponding to the payload schema it is publishing.
+Unsigned contract version. Versions 1 through 5 are supported for decoding. Producers emit Version 5. A producer must emit the version corresponding to the payload schema it is publishing.
 
 ### `timestamp`
 
@@ -141,7 +141,7 @@ Example partial producer:
 A Version 4 producer must:
 
 - publish on `openroad.vehicle.state`;
-- emit `version` equal to `4`;
+- emit `version` equal to `5`;
 - provide a valid Unix-epoch timestamp;
 - use the SI units and dimensionless ranges defined above;
 - include every Version 4 data field;
@@ -163,3 +163,24 @@ The `version` field versions the payload contract, not the ZeroMQ transport.
 Changes that alter the meaning, unit, type, required presence, or interpretation of an existing field require a new contract version. Version 4 field semantics must not be silently changed after publication.
 
 Transport implementations are intentionally separate from this IDD. A future transport may carry the same contract without changing the automotive data semantics.
+
+## Version 5: ECU torque
+
+Version 5 adds two required, nullable SI fields. Earlier versions still decode,
+with these fields set to null:
+
+| Field | Type | Unit/range | Meaning |
+| --- | --- | --- | --- |
+| `actual_engine_torque_ratio` | number or null | -1.25..1.30 | Mode 01 PID 62's percent torque divided by 100 |
+| `reference_engine_torque_nm` | number or null | nonnegative Nm | Mode 01 PID 63's reference torque |
+
+Actual torque equals ratio times reference torque. Power in watts equals torque
+in Nm times engine angular speed in rad/s. This is ECU-reported/modelled engine
+output, not a measurement of wheel power. Missing values or zero reference torque
+do not yield a derived output. Negative torque/power represent engine braking.
+The OBD source polls supported torque PIDs only in the ECU priority group; each
+read still performs at most one PID request. Instantaneous output is withheld
+after 10 seconds without a successful torque or RPM sample, or after an empty
+torque reply. Producers and consumers must be updated together; restart a
+long-running automotive service after deploying this contract. Older consumers
+that only accept versions 1–4 cannot decode version 5.

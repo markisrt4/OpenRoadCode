@@ -92,7 +92,13 @@ class OrcUiAdsbControl:
                 if not acquired:
                     return False
             from apps.launchers.adsb_launcher import _set_systemd_service_state
-            _set_systemd_service_state(self._launcher.readsb_service, "start")
+            if not _set_systemd_service_state(self._launcher.readsb_service, "start"):
+                if self._launcher.resource_manager is not None:
+                    self._launcher.resource_manager.release(self._launcher.owner_name)
+                raise RuntimeError(
+                    f"systemd unit {self._launcher.readsb_service}.service is unavailable "
+                    "or cannot be started without interactive authorization"
+                )
             return self.tracking
         from apps.launchers.adsb_launcher import _set_systemd_service_state
         _set_systemd_service_state(self._launcher.readsb_service, "stop")

@@ -119,6 +119,7 @@ class CameraVisionScreen(TkScreen, VisionUiIf):
                 activeforeground="#ffffff",
                 relief=tk.FLAT,
                 bd=0,
+                highlightthickness=0,
                 pady=7,
             ).pack(fill=tk.X, padx=8, pady=2)
 
@@ -131,6 +132,7 @@ class CameraVisionScreen(TkScreen, VisionUiIf):
             activeforeground="#ffffff",
             relief=tk.FLAT,
             bd=0,
+            highlightthickness=0,
             pady=7,
         )
         self._ai_button.pack(fill=tk.X, padx=8, pady=(12, 2))

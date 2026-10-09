@@ -54,4 +54,3 @@ def test_download_presents_on_ui_thread_and_retries_slow_renderer():
     assert [call.args[0] for call in replays] == [300, 1200, 2500, 5000]
     replays[-1].args[1]()
     screen._refresh_radar.assert_called_once_with()
-

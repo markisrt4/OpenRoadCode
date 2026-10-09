@@ -8,6 +8,7 @@ from __future__ import annotations
 import time
 import threading
 from collections.abc import Callable
+from common.logging.diagnostics import ComponentLog
 from typing import Any, Iterable
 
 from controllers.computer_vision.model_readiness import YoloModelReadiness
@@ -39,20 +40,27 @@ class YoloObjectDetector(ObjectDetectorIf):
         if image_size <= 0:
             raise ValueError("image_size must be positive")
 
+        self._diagnostics = ComponentLog("vision.model", "vision")
         if model is None:
-            try:
-                from ultralytics import YOLO
-            except ModuleNotFoundError as exc:
-                raise RuntimeError(
-                    "Ultralytics is required for YOLO detection; install it with "
-                    "'python -m pip install ultralytics'"
-                ) from exc
-            model = YOLO(model_name)
+            with self._diagnostics.action("model_load"):
+                model = self._load_model(model_name)
+            self._diagnostics.changed("model", "ready")
 
         self._model: Any = model
         self._confidence = confidence
         self._image_size = image_size
         self._labels = frozenset(labels)
+
+    @staticmethod
+    def _load_model(model_name):
+        try:
+            from ultralytics import YOLO
+        except ModuleNotFoundError as exc:
+            raise RuntimeError(
+                "Ultralytics is required for YOLO detection; install it with "
+                "'python -m pip install ultralytics'"
+            ) from exc
+        return YOLO(model_name)
 
     def detect(self, frame: CameraFrame) -> DetectionFrame:
         start = time.perf_counter()

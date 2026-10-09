@@ -229,6 +229,7 @@ class OrcWeatherPanel(tk.Frame, WeatherUiIf):
                 activeforeground=ui.text,
                 relief=tk.FLAT,
                 bd=0,
+                highlightthickness=0,
             )
 
         self._hero.configure(bg=ui.surface, highlightbackground=ui.border)

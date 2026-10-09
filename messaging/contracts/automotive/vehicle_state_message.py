@@ -35,6 +35,8 @@ class VehicleStateData:
     measured_equivalence_ratio: float | None
     engine_fuel_rate_m3_s: float | None
     control_voltage_v: float | None
+    actual_engine_torque_ratio: float | None = None
+    reference_engine_torque_nm: float | None = None
 
 
 @dataclass(frozen=True, slots=True)

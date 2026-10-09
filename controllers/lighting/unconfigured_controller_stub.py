@@ -3,6 +3,8 @@
 
 from concurrent.futures import Future
 
+from common.logging.diagnostics import ComponentLog
+
 from controllers.lighting.lighting_controller_stub import (
     LightingControllerStub,
 )
@@ -13,6 +15,8 @@ class UnconfiguredControllerStub(LightingControllerStub):
 
     def __init__(self, reason: str) -> None:
         super().__init__()
+        self._diagnostics = ComponentLog("lighting.backend", "lighting")
+        self._diagnostics.changed("availability", "unconfigured")
         self._reason = reason
 
     def _result(self) -> Future[None]:

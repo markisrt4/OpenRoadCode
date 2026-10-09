@@ -20,6 +20,7 @@
 #include <X11/Xlib.h>
 #endif
 #include <algorithm>
+#include <chrono>
 #include <cctype>
 #include <cmath>
 #include <cstdlib>
@@ -84,16 +85,40 @@ void logPoiSample(const mbgl::Feature& feature, std::size_t index) {
     }
 }
 #if defined(__linux__)
-void embedInX11Parent(GLFWwindow* window) {
+Window configuredX11Parent() {
     const char* value = std::getenv("OPENROADCODE_MAP_PARENT_WINDOW");
     if (!value || !*value)
-        return;
+        return 0;
     char* end = nullptr;
     const unsigned long parentId = std::strtoul(value, &end, 0);
-    if (end == value || *end != '\0' || parentId == 0) {
-        orc::log("WARNING", "map_renderer.view", "window.parent_invalid", "Invalid X11 parent window configuration");
+    return end != value && *end == '\0' ? static_cast<Window>(parentId) : 0;
+}
+void fitToX11Parent(GLFWwindow* window, bool force = false) {
+    const auto now = std::chrono::steady_clock::now();
+    static auto lastCheck = now - std::chrono::milliseconds(100);
+    if (!force && now - lastCheck < std::chrono::milliseconds(100))
         return;
-    }
+    lastCheck = now;
+    const Window parent = configuredX11Parent();
+    Display* display = glfwGetX11Display();
+    if (!display || parent == 0)
+        return;
+    XWindowAttributes attributes{};
+    if (!XGetWindowAttributes(display, parent, &attributes) ||
+        attributes.width < 1 || attributes.height < 1)
+        return;
+    int width = 0;
+    int height = 0;
+    glfwGetWindowSize(window, &width, &height);
+    if (width == attributes.width && height == attributes.height)
+        return;
+    glfwSetWindowSize(window, attributes.width, attributes.height);
+    XFlush(display);
+}
+void embedInX11Parent(GLFWwindow* window) {
+    const Window parentId = configuredX11Parent();
+    if (parentId == 0)
+        return;
     Display* display = glfwGetX11Display();
     const Window child = glfwGetX11Window(window);
     if (!display || child == 0) {
@@ -105,12 +130,10 @@ void embedInX11Parent(GLFWwindow* window) {
         orc::log("ERROR", "map_renderer.view", "window.parent_unavailable", "X11 parent window unavailable");
         return;
     }
-    XReparentWindow(display, child, static_cast<Window>(parentId), 0, 0);
-    XResizeWindow(
-        display, child, static_cast<unsigned int>(a.width), static_cast<unsigned int>(a.height));
+    XReparentWindow(display, child, parentId, 0, 0);
     XMapWindow(display, child);
     XFlush(display);
-    glfwSetWindowSize(window, a.width, a.height);
+    fitToX11Parent(window, true);
     {
         std::ostringstream details;
         details << "[map_renderer] embedded in X11 parent " << parentId << " size=" << a.width << 'x'
@@ -532,6 +555,9 @@ void MapView::run() {
             return;
         }
         glfwPollEvents();
+#if defined(__linux__)
+        fitToX11Parent(window);
+#endif
         if (updateCallback)
             updateCallback();
         render();

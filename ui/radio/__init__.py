@@ -26,6 +26,7 @@ from ui.radio.radio_refresh_request_handler_stub import (
 )
 from ui.radio.station_request_handler_if import StationRequestHandlerIf
 from ui.radio.tuning_request_handler_if import TuningRequestHandlerIf
+from ui.radio.aircraft_menu_ui import AircraftMenuRequestHandlerIf, AircraftMenuUiState
 from ui.radio.playback_request_handler_stub import PlaybackRequestHandlerStub
 from ui.radio.preset_request_handler_stub import PresetRequestHandlerStub
 from ui.radio.radio_ui_stub import RadioUiStub
@@ -33,6 +34,8 @@ from ui.radio.station_request_handler_stub import StationRequestHandlerStub
 from ui.radio.tuning_request_handler_stub import TuningRequestHandlerStub
 
 __all__ = [
+    "AircraftMenuRequestHandlerIf",
+    "AircraftMenuUiState",
     "ModulationType",
     "PlaybackRequestHandlerIf",
     "PlaybackRequestHandlerStub",

@@ -20,6 +20,9 @@ from apps.orcUi.theme_runtime import theme_bundle as packaged_theme_bundle
 from ui.weather.radar_ui_if import RadarPalette
 from ui.navigation.poi_models import PoiCategory, TransitMode
 from ui.navigation import (
+    MapControlsDrawerRequestHandlerIf,
+    MapControlsDrawerState,
+    MapControlsDrawerUiIf,
     MapRequestHandlerIf,
     RouteRequestHandlerIf,
     RouteRequestHandlerStub,
@@ -36,7 +39,8 @@ from .navigation_panel_camera import NavigationCameraControls
 _LOG = logging.getLogger("navigation.poi.ui")
 
 
-class NavigationPanel(NavigationPlacesControls, NavigationRadarControls, NavigationCameraControls, tk.Frame):
+class NavigationPanel(NavigationPlacesControls, NavigationRadarControls, NavigationCameraControls,
+                      MapControlsDrawerUiIf, tk.Frame):
     """Map host, navigation controls, and nearby POI discovery."""
 
     def __init__(
@@ -47,6 +51,7 @@ class NavigationPanel(NavigationPlacesControls, NavigationRadarControls, Navigat
         route_request_handler: RouteRequestHandlerIf | None = None,
         route_simulation_handler: RouteSimulationRequestHandlerIf | None = None,
         places_handler: NavigationPlacesRequestHandlerIf,
+        drawer_handler: MapControlsDrawerRequestHandlerIf,
         on_back: Callable[[], None] | None = None,
         theme_bundle: ThemeBundle | None = None,
         online_mode: OnlineModeIf | None = None,
@@ -70,6 +75,8 @@ class NavigationPanel(NavigationPlacesControls, NavigationRadarControls, Navigat
         super().__init__(parent, bg=self._theme_bundle.ui.background)
         del on_back
         self._request_handler = map_request_handler
+        self._drawer_handler = drawer_handler
+        self._drawer_state = MapControlsDrawerState()
         self._tooltip_factory = tooltip_factory
         self._tooltips = []
         self._radar_enabled = radar_enabled
@@ -94,6 +101,7 @@ class NavigationPanel(NavigationPlacesControls, NavigationRadarControls, Navigat
         self._places_handler = places_handler
         self._online_mode = online_mode
         self._poi_action_buttons = []
+        self._earth_button = None
         self._poi_launching = False
         self._poi_action_request = None
         self._unsubscribe_online_mode = (
@@ -121,6 +129,10 @@ class NavigationPanel(NavigationPlacesControls, NavigationRadarControls, Navigat
         self._radar_button: tk.Button | None = None
         self._simulate_button: tk.Button
         self._cancel_route_button: tk.Button
+        self._map_controls: tk.Frame
+        self._map_controls_rail: tk.Frame
+        self._map_controls_toggle: tk.Button
+        self._map_controls_handle: tk.Button
         self._build()
         self._schedule_renderer_refresh()
         self._poi_poll_after_id = self.after(100, self._poll_poi_events)
@@ -130,6 +142,11 @@ class NavigationPanel(NavigationPlacesControls, NavigationRadarControls, Navigat
         self.update_idletasks()
         return self._map_host.winfo_id()
 
+    @property
+    def map_host_size(self) -> tuple[int, int]:
+        """Return allocated native host dimensions in pixels."""
+        return max(1, self._map_host.winfo_width()), max(1, self._map_host.winfo_height())
+
     def set_theme_bundle(self, theme_bundle: ThemeBundle) -> None:
         self.close_tooltips()
         self.close_radar_menu()
@@ -138,6 +155,7 @@ class NavigationPanel(NavigationPlacesControls, NavigationRadarControls, Navigat
         for child in self.winfo_children():
             child.destroy()
         self._poi_card = None
+        self._earth_button = None
         self._build()
 
     def set_map_request_handler(self, handler: MapRequestHandlerIf | None) -> None:
@@ -148,11 +166,36 @@ class NavigationPanel(NavigationPlacesControls, NavigationRadarControls, Navigat
         self._follow_enabled = enabled
         ui = self._theme_bundle.ui
         self._follow_button.configure(
-            text="F" if enabled else "F̸", fg=ui.accent_success if enabled else ui.text
+            text="◉  Follow" if enabled else "○  Follow",
+            fg=ui.accent_success if enabled else ui.text,
         )
+
+    def set_map_controls_drawer_state(self, state: MapControlsDrawerState) -> None:
+        self._drawer_state = state
+        if not hasattr(self, "_map_controls"):
+            return
+        if state.expanded:
+            self._map_controls.configure(width=210)
+            self._map_controls.grid()
+            self._map_controls_handle.place_forget()
+            self._map_controls_rail.pack(fill=tk.BOTH, expand=True, padx=5, pady=(2, 5))
+        else:
+            self._map_controls_rail.pack_forget()
+            self._map_controls.grid_remove()
+            self._map_controls_handle.place(
+                relx=1.0, rely=0.5, anchor="e", width=48, height=72,
+            )
+            self._map_controls_handle.lift()
+        self.after_idle(self._refresh_renderer_state)
+
+    def _toggle_map_controls_drawer(self) -> None:
+        self._drawer_handler.request_map_controls_expanded(not self._drawer_state.expanded)
 
     def close_places(self) -> None:
         """Cancel pending view callbacks and close its places session once."""
+        card = self.__dict__.get("_poi_card")
+        if card is not None and card.winfo_exists():
+            card.destroy()
         if self._places_closed:
             return
         self._places_closed = True
@@ -208,8 +251,7 @@ class NavigationPanel(NavigationPlacesControls, NavigationRadarControls, Navigat
             activebackground=ui.control_active,
             activeforeground="#ffffff",
             relief=tk.FLAT,
-            highlightthickness=1,
-            highlightbackground=ui.border,
+            highlightthickness=0,
             font=("Sans", 11, "bold"),
             borderwidth=0,
             padx=4,

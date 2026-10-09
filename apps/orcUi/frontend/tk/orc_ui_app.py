@@ -24,6 +24,7 @@ from common.host_config import (
 from ui.screen_ui_if import ScreenUiIf
 from ui.system import SystemLifecycleRequestHandlerIf, VolumeRequestHandlerIf, VolumeUiIf
 from ui.weather import WeatherAlertUiEvent
+from ui.radio import AircraftMenuRequestHandlerIf, AircraftMenuUiState
 
 class OrcUiApp(VolumeUiIf):
     """Own the integrated Tk application shell."""
@@ -58,8 +59,7 @@ class OrcUiApp(VolumeUiIf):
         self._shell: OrcUiShellView | None = None
         self._adsb_enabled = False
         self._aircraft_count = 0
-        self._adsb_toggle_handler: Callable[[bool], bool] | None = None
-        self._adsb_view_handler: Callable[[], None] | None = None
+        self._aircraft_handler: AircraftMenuRequestHandlerIf | None = None
         self._active_nav = ""
         self._diagnostics_return = "HOME"
         self._initial_destination: str | None = None
@@ -168,6 +168,7 @@ class OrcUiApp(VolumeUiIf):
             raise ValueError("Navigation destination must not be empty")
         if nav_name == "DIAGNOSTICS" and self._active_nav != "DIAGNOSTICS":
             self._diagnostics_return = self._active_nav or "HOME"
+        self.set_screen_status("")
         self._active_nav = nav_name
         self._paint_nav()
         screen = self._screen_registry.get(nav_name)
@@ -294,25 +295,18 @@ class OrcUiApp(VolumeUiIf):
         if self._shell is not None:
             self._shell.rebuild_navigation()
 
-    def set_adsb_handlers(
-        self,
-        *,
-        on_toggle: Callable[[bool], bool],
-        on_view: Callable[[], None],
-    ) -> None:
-        self._adsb_toggle_handler = on_toggle
-        self._adsb_view_handler = on_view
+    def set_aircraft_request_handler(self, handler: AircraftMenuRequestHandlerIf | None) -> None:
+        self._aircraft_handler = handler
         if self._shell is not None:
-            self._shell.set_adsb_handlers(on_toggle=on_toggle, on_view=on_view)
+            self._shell.set_aircraft_request_handler(handler)
 
     def set_adsb_state(self, *, enabled: bool, aircraft_count: int = 0) -> None:
         self._adsb_enabled = bool(enabled)
         self._aircraft_count = max(0, int(aircraft_count))
         if self._shell is not None:
-            self._shell.set_adsb_state(
-                enabled=self._adsb_enabled,
-                aircraft_count=self._aircraft_count,
-            )
+            self._shell.set_aircraft_state(AircraftMenuUiState(
+                self._adsb_enabled, self._aircraft_count,
+            ))
 
     def _rebuild_shell_theme(self) -> None:
         if self._shell is not None:

@@ -5,6 +5,8 @@
 
 from __future__ import annotations
 
+from common.logging.diagnostics import ComponentLog, diagnostic_action
+
 from typing import Any
 
 from hardware_io.imu.imu_if import ImuIf
@@ -31,12 +33,14 @@ class Mpu6050Imu(ImuIf):
             address:
                 I2C address of the MPU-6050. The default address is 0x68.
         """
+        self._diagnostics = ComponentLog("environmental.imu", "sensor")
         self._i2c_bus = i2c_bus
         self._address = address
 
         self._owns_i2c_bus = i2c_bus is None
         self._sensor: Any | None = None
 
+    @diagnostic_action("start")
     def start(self) -> None:
         """Initialize the I2C bus and MPU-6050 sensor."""
 
@@ -80,6 +84,9 @@ class Mpu6050Imu(ImuIf):
                 f"0x{self._address:02X}: {exc}"
             ) from exc
 
+        self._diagnostics.changed("lifecycle", "started")
+
+    @diagnostic_action("stop")
     def stop(self) -> None:
         """Release resources owned by the MPU-6050 driver."""
 
@@ -88,11 +95,14 @@ class Mpu6050Imu(ImuIf):
         if self._owns_i2c_bus:
             self._release_i2c_bus()
 
+        self._diagnostics.changed("lifecycle", "stopped")
+
     def is_connected(self) -> bool:
         """Return whether the MPU-6050 has been initialized."""
 
         return self._sensor is not None
 
+    @diagnostic_action("acceleration")
     def get_acceleration_mps2(self) -> Vector3:
         """Return acceleration along each axis in meters per second squared."""
 
@@ -105,6 +115,7 @@ class Mpu6050Imu(ImuIf):
             z=float(acceleration[2]),
         )
 
+    @diagnostic_action("angular_velocity")
     def get_angular_velocity_rad_s(self) -> Vector3:
         """Return angular velocity along each axis in radians per second."""
 

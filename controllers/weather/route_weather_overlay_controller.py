@@ -3,9 +3,13 @@
 
 """Asynchronous route forecasts presented through immutable UI state."""
 
+import logging
+
 from datetime import datetime, timezone
 import math
 import threading
+from common.logging.structured import operation
+from controllers.weather.weather_logging import WeatherLog
 
 from controllers.weather.route_weather import sample_route
 from ui.navigation import GeoPoint
@@ -27,6 +31,7 @@ class RouteWeatherOverlayController:
         self._forecasts = ()
         self._status = "Start a route to see weather along the way"
         self._busy = self._closed = False
+        self._log = WeatherLog("weather.route")
         route_handler.observe_route(self._route_changed)
         presentation.observe_route_guidance(self._guidance_changed)
 
@@ -58,26 +63,34 @@ class RouteWeatherOverlayController:
         self._busy = True
         generation = self._generation
         route, progress = self._route, self._progress
+        operation_id = self._log.requested()
         self._status = "Loading route forecast…"
         self.publish()
 
         def load():
-            try:
-                points = sample_route(route, datetime.now(timezone.utc), progress)
-                forecasts = self._provider.forecast(points)
-                error = None
-            except Exception as failure:
-                forecasts, error = (), str(failure)
+            with operation(operation_id):
+                try:
+                    points = sample_route(route, datetime.now(timezone.utc), progress)
+                    forecasts = self._provider.forecast(points)
+                    error = None
+                    self._log.succeeded(item_count=len(forecasts))
+                except Exception as failure:
+                    self._log.failed(failure)
+                    forecasts, error = (), str(failure)
             if not self._closed:
-                self._host.schedule_ui_callback(0, lambda: self._complete(generation, forecasts, error))
+                self._host.schedule_ui_callback(0, lambda: self._complete(generation, forecasts, error, operation_id))
+            else:
+                self._log.stale(operation_id)
 
-        threading.Thread(target=load, name="route-weather", daemon=True).start()
+        self._log.start(threading.Thread(target=load, name="route-weather", daemon=True), operation_id)
 
-    def _complete(self, generation, forecasts, error):
+    def _complete(self, generation, forecasts, error, operation_id=None):
         self._busy = False
         if self._closed:
+            self._log.stale(operation_id)
             return
         if generation != self._generation or not self._enabled:
+            self._log.stale(operation_id)
             if self._enabled and self._route is not None:
                 self.refresh()
             return
@@ -85,13 +98,17 @@ class RouteWeatherOverlayController:
             self._forecasts = ()
             self._status = f"Forecast unavailable: {error}"
         else:
+            self._log.emit(logging.DEBUG, "overlay.applied", "Route weather result applied", operation_id, item_count=len(forecasts))
             self._forecasts = forecasts
             self._status = f"Updated {datetime.now().strftime('%I:%M %p').lstrip('0')} · Open-Meteo"
         self.publish()
 
     def set_enabled(self, enabled):
         """Enable route forecasts or clear the last route snapshot."""
+        previous = self._enabled
         self._enabled = bool(enabled)
+        if previous != self._enabled:
+            self._log.changed("enabled", self._enabled, "overlay.visibility_changed", "Route weather visibility changed", enabled=self._enabled)
         self._generation += 1
         self._forecasts = ()
         self._status = "Route weather off" if not self._enabled else "Start a route to load forecasts"

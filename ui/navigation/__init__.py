@@ -41,12 +41,20 @@ from ui.navigation.route_request_handler_stub import RouteRequestHandlerStub
 from ui.navigation.route_simulation_request_handler_if import RouteSimulationRequestHandlerIf
 
 from ui.navigation.map_runtime_if import MapRuntimeIf
+from ui.navigation.map_controls_drawer_ui import (
+    MapControlsDrawerRequestHandlerIf,
+    MapControlsDrawerState,
+    MapControlsDrawerUiIf,
+)
 from ui.navigation.navigation_places_request_handler_if import (
     MapFavorite, NavigationPlacesFactoryIf, NavigationPlacesRequestHandlerIf,
 )
 
 __all__ = [
     "MapFavorite",
+    "MapControlsDrawerRequestHandlerIf",
+    "MapControlsDrawerState",
+    "MapControlsDrawerUiIf",
     "MapRuntimeIf",
     "NavigationPlacesFactoryIf",
     "NavigationPlacesRequestHandlerIf",

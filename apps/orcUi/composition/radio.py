@@ -6,6 +6,8 @@
 from __future__ import annotations
 
 import tkinter as tk
+import threading
+from queue import Empty, SimpleQueue
 from collections.abc import Callable
 from dataclasses import dataclass
 
@@ -20,6 +22,25 @@ from controllers.radio.streaming_radio_favorites import StreamingRadioFavorites
 from frontends.tk.radio import RadioScreen
 from frontends.tk.radio.streaming_radio_now_playing import StreamingRadioNowPlaying
 from ui.theme import ThemeMode
+from ui.radio import AircraftMenuRequestHandlerIf
+
+
+@dataclass(frozen=True, slots=True)
+class AircraftMenuRequests(AircraftMenuRequestHandlerIf):
+    """Composition-owned routing for persistent Aircraft menu requests."""
+
+    toggle_adsb: Callable[[bool], None]
+    open_tracker: Callable[[], None]
+    open_airband: Callable[[], None]
+
+    def request_adsb_enabled(self, enabled: bool) -> None:
+        self.toggle_adsb(enabled)
+
+    def request_open_tracker(self) -> None:
+        self.open_tracker()
+
+    def request_open_airband(self) -> None:
+        self.open_airband()
 
 
 @dataclass(slots=True)
@@ -85,6 +106,8 @@ def configure_radio(app: OrcUiApp, runtime) -> RadioComposition:
             screen.open_streaming()
         elif source == "adsb":
             screen.open_adsb()
+        elif source == "airband":
+            screen.open_airband()
         else:
             raise ValueError(f"Unsupported radio source: {source}")
 
@@ -134,27 +157,64 @@ def configure_radio(app: OrcUiApp, runtime) -> RadioComposition:
             on_open_adsb=lambda: show_radio_source("adsb"),
         )
 
-    def toggle_adsb(enabled: bool) -> bool:
+    def toggle_adsb(enabled: bool) -> tuple[bool, str | None]:
         # An explicit ADS-B selection wins the shared SDR. Relinquish RF first.
-        if enabled and runtime.radio.presented:
-            runtime.radio.relinquish_for_adsb()
         try:
-            return adsb.set_tracking(enabled)
+            if enabled and runtime.radio.presented:
+                runtime.radio.relinquish_for_adsb()
+            return adsb.set_tracking(enabled), None
         except (OSError, RuntimeError, ValueError) as error:
-            app.set_screen_status(f"ADS-B: {error}")
-            return adsb.tracking
+            return adsb.tracking, f"ADS-B: {error}"
 
-    app.set_adsb_handlers(
-        on_toggle=toggle_adsb,
-        on_view=lambda: show_radio_source("adsb"),
-    )
-    app.set_adsb_state(enabled=adsb.tracking, aircraft_count=adsb.aircraft_count)
+    adsb_io_lock = threading.Lock()
+    adsb_results: SimpleQueue[tuple[bool, int, str | None]] = SimpleQueue()
+
+    def request_adsb(enabled: bool) -> None:
+        """Serialize service transitions away from the Tk event thread."""
+        if not adsb_io_lock.acquire(blocking=False):
+            return
+
+        def apply() -> None:
+            try:
+                effective, error = toggle_adsb(enabled)
+                adsb_results.put((effective, adsb.aircraft_count, error))
+            finally:
+                adsb_io_lock.release()
+
+        threading.Thread(target=apply, name="orcui-adsb-state", daemon=True).start()
+
+    app.set_aircraft_request_handler(AircraftMenuRequests(
+        toggle_adsb=request_adsb,
+        open_tracker=lambda: show_radio_source("adsb"),
+        open_airband=lambda: show_radio_source("airband"),
+    ))
+    app.set_adsb_state(enabled=False, aircraft_count=0)
+
+    def observe_adsb_status() -> None:
+        if not adsb_io_lock.acquire(blocking=False):
+            return
+
+        def observe() -> None:
+            try:
+                adsb_results.put((adsb.tracking, adsb.aircraft_count, None))
+            finally:
+                adsb_io_lock.release()
+
+        threading.Thread(target=observe, name="orcui-adsb-status", daemon=True).start()
 
     def refresh_adsb_status() -> None:
-        app.set_adsb_state(enabled=adsb.tracking, aircraft_count=adsb.aircraft_count)
+        while True:
+            try:
+                enabled, count, error = adsb_results.get_nowait()
+            except Empty:
+                break
+            app.set_adsb_state(enabled=enabled, aircraft_count=count)
+            if error is not None:
+                app.set_screen_status(error)
+        observe_adsb_status()
         app.schedule_ui_callback(1000, refresh_adsb_status)
 
-    app.schedule_ui_callback(1000, refresh_adsb_status)
+    refresh_adsb_status()
     return RadioComposition(
         screen=screen,
         directory=directory,

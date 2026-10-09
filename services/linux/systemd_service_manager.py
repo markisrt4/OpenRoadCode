@@ -10,6 +10,15 @@ import os
 from pathlib import Path
 import subprocess
 
+from services.common.service_logging import (
+    ServiceStatusLog,
+    observed_status,
+    service_action,
+    supervisor_command,
+)
+
+COMPONENT = "runtime.services.systemd"
+
 
 SYSTEMCTL_BIN = os.environ.get("OPENROADCODE_SYSTEMCTL", "/usr/bin/systemctl")
 PRIVILEGED_ACTIONS = {"start", "stop", "restart"}
@@ -59,6 +68,10 @@ class SystemdServiceManager:
         "simulated": "Simulated",
     }
 
+    def __init__(self) -> None:
+        self._status_log = ServiceStatusLog()
+
+    @observed_status(COMPONENT)
     def status(self, name: str) -> ServiceStatus:
         unit = self._unit(name)
         active = self._systemctl("is-active", unit, check=False)
@@ -113,12 +126,16 @@ class SystemdServiceManager:
                 return profile
         return "custom"
 
+    @service_action(COMPONENT, "configure_android_bridge")
     def set_android_bridge_url(self, bridge_url: str) -> None:
         """Persist the Android Bridge endpoint as shared runtime state."""
         if not bridge_url.startswith(("http://", "https://")):
             raise ValueError("Android Bridge URL must use http or https")
         runtime_config = f'OPENROADCODE_ANDROID_BRIDGE_URL="{bridge_url}"\n'
-        if RUNTIME_ENV_FILE.exists() and RUNTIME_ENV_FILE.read_text(encoding="utf-8") == runtime_config:
+        if (
+            RUNTIME_ENV_FILE.exists()
+            and RUNTIME_ENV_FILE.read_text(encoding="utf-8") == runtime_config
+        ):
             return
 
         navigation_service = "openroadcode-navigation"
@@ -134,6 +151,7 @@ class SystemdServiceManager:
         if restart_navigation:
             self._systemctl("restart", self._unit(navigation_service))
 
+    @service_action(COMPONENT, "set_profile")
     def set_profile(self, name: str, profile: str) -> ServiceStatus:
         profiles = self.PROFILE_CONFIGS.get(name)
         if not profiles:
@@ -153,26 +171,31 @@ class SystemdServiceManager:
             self._systemctl("restart", self._unit(name))
         return self.status(name)
 
+    @service_action(COMPONENT, "start")
     def start(self, name: str) -> ServiceStatus:
         unit = self._unit(name)
         self._systemctl("start", unit)
         return self.status(name)
 
+    @service_action(COMPONENT, "stop")
     def stop(self, name: str) -> ServiceStatus:
         unit = self._unit(name)
         self._systemctl("stop", unit)
         return self.status(name)
 
+    @service_action(COMPONENT, "restart")
     def restart(self, name: str) -> ServiceStatus:
         unit = self._unit(name)
         self._systemctl("restart", unit)
         return self.status(name)
 
+    @service_action(COMPONENT, "start_core")
     def start_core(self) -> tuple[ServiceStatus, ...]:
         for name in self.CORE_STACK:
             self._systemctl("start", self._unit(name))
         return tuple(self.status(name) for name in self.CORE_STACK)
 
+    @service_action(COMPONENT, "stop_core")
     def stop_core(self) -> tuple[ServiceStatus, ...]:
         for name in reversed(self.CORE_STACK):
             self._systemctl("stop", self._unit(name))
@@ -199,10 +222,23 @@ class SystemdServiceManager:
         command = [SYSTEMCTL_BIN, action, unit, *extra]
         if action in PRIVILEGED_ACTIONS:
             command = ["sudo", "-n", *command]
-        return subprocess.run(
-            command,
-            check=check,
-            capture_output=True,
-            text=True,
-            timeout=8.0,
+        service = next(
+            (
+                name
+                for name, candidate in SystemdServiceManager.SERVICE_UNITS.items()
+                if candidate == unit
+            ),
+            None,
+        )
+        return supervisor_command(
+            COMPONENT,
+            action,
+            service,
+            lambda: subprocess.run(
+                command,
+                check=check,
+                capture_output=True,
+                text=True,
+                timeout=8.0,
+            ),
         )

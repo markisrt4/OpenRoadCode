@@ -5,7 +5,7 @@ import unittest
 from types import SimpleNamespace
 from unittest.mock import Mock
 
-from frontends.tk.games.games_panel import GamesPanel
+from frontends.tk.games.games_panel import GamesPanel, catalog_column_count
 from ui.games import GameStatus, GameUiState
 
 
@@ -51,6 +51,14 @@ class GamesPanelActionTest(unittest.TestCase):
         action()
 
         self.handler.request_install_game.assert_called_once_with("five-in-a-row")
+
+
+class GamesPanelLayoutTest(unittest.TestCase):
+    def test_vehicle_width_uses_two_card_columns(self) -> None:
+        self.assertEqual(2, catalog_column_count(1090))
+
+    def test_narrow_window_uses_one_card_column(self) -> None:
+        self.assertEqual(1, catalog_column_count(679))
 
 
 if __name__ == "__main__":

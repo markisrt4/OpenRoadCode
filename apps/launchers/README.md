@@ -16,6 +16,12 @@ Launchers may:
 
 Launchers must not contain panel or Tk widget logic.
 
+Managed application actions and owned browser/process lifecycle now emit
+`runtime.*` structured events. Failures retain exception types and numeric
+process context without command lines, URLs, native output, or paths. See the
+[runtime logging guide](../../common/logging/README.md#runtime-and-service-management)
+for events, live viewing, and lifecycle semantics.
+
 ## Interface
 
 Every launcher implements:
@@ -101,7 +107,10 @@ worker after their primary startup path completes. `close_browser()` hides the
 dashboard without discarding that warmed server; `stop()` releases both.
 
 ADS-B launch requires a systemd-managed `readsb` service and a reachable
-tar1090 installation.
+tar1090 installation. ORC never opens an interactive privilege prompt: the
+unit must be controllable by the running user through systemd policy. A missing
+unit or unavailable non-interactive authorization fails immediately and is
+reported in the ORC status surface.
 
 On hardware-free development hosts, ADS-B may still open a reachable tar1090
 dashboard without live receiver data. Reopening a dashboard tile raises its

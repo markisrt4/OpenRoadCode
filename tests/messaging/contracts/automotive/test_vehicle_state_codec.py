@@ -94,6 +94,7 @@ class VehicleStateCodecTest(unittest.TestCase):
             "intake_air_temperature_k", "fuel_level", "fuel_rail_pressure_pa",
             "commanded_equivalence_ratio", "measured_equivalence_ratio",
             "engine_fuel_rate_m3_s", "control_voltage_v",
+            "actual_engine_torque_ratio", "reference_engine_torque_nm",
         }
         self.assertEqual(set(payload["data"]), expected_fields)
         self.assertTrue(all(value is None for value in payload["data"].values()))
@@ -102,7 +103,7 @@ class VehicleStateCodecTest(unittest.TestCase):
         payload = encode_vehicle_state(
             VehicleState(timestamp=self.timestamp), source="simulator"
         )
-        self.assertEqual(payload["version"], 4)
+        self.assertEqual(payload["version"], 5)
         self.assertEqual(payload["source"], "simulator")
         self.assertEqual(payload["timestamp"]["nanoseconds"], 123_456_000)
         self.assertIsInstance(payload["timestamp"]["seconds"], int)
@@ -116,7 +117,8 @@ class VehicleStateCodecTest(unittest.TestCase):
         )
         payload["version"] = 2
         for field in (
-            "commanded_throttle_position",
+            "actual_engine_torque_ratio",
+            "reference_engine_torque_nm",            "commanded_throttle_position",
             "absolute_engine_load",
             "fuel_system_status_1",
             "fuel_system_status_2",
@@ -143,7 +145,8 @@ class VehicleStateCodecTest(unittest.TestCase):
         )
         payload["version"] = 1
         for field in (
-            "commanded_throttle_position",
+            "actual_engine_torque_ratio",
+            "reference_engine_torque_nm",            "commanded_throttle_position",
             "absolute_engine_load",
             "fuel_system_status_1",
             "fuel_system_status_2",
@@ -172,7 +175,8 @@ class VehicleStateCodecTest(unittest.TestCase):
         )
         payload["version"] = 3
         for field in (
-            "commanded_throttle_position",
+            "actual_engine_torque_ratio",
+            "reference_engine_torque_nm",            "commanded_throttle_position",
             "absolute_engine_load",
             "fuel_system_status_1",
             "fuel_system_status_2",

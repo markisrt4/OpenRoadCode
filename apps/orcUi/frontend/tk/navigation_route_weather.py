@@ -53,6 +53,7 @@ class NavigationRouteWeather(WeatherOverlayControlsIf):
         ui = self._theme().ui
         self._button = tk.Button(panel.weather_controls_parent, text="Weather ▾", command=self._toggle_popup,
                                  bg=ui.control_background, fg=ui.text, relief=tk.FLAT,
+                                 bd=0, highlightthickness=0,
                                  font=("Sans", FONT_CONTROL), padx=6)
         self._button.pack(side=tk.RIGHT, padx=4)
         self._city_banner = tk.Label(panel.weather_caption_parent, bg=ui.control_background, fg=ui.text,

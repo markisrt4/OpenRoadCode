@@ -71,6 +71,11 @@ class RadioScreen(TkScreen):
         self._invoke_panel_action("open_adsb")
         self._set_location("AIRCRAFT")
 
+    def open_airband(self) -> None:
+        """Enter AM aviation radio on the mounted radio screen."""
+        self._invoke_panel_action("open_airband_radio")
+        self._set_location("AIRBAND")
+
     def show_rf(self) -> None:
         """Open Radio and immediately enter the RF presentation."""
         self.show()

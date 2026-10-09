@@ -39,6 +39,10 @@ class HomeRadioCompositionTest(unittest.TestCase):
         kwargs["on_open_adsb"]()
         composition.screen.open_adsb.assert_called_once_with()
         self.assertEqual(app.navigate_to.call_count, 3)
+        aircraft_handler = app.set_aircraft_request_handler.call_args.args[0]
+        aircraft_handler.request_open_airband()
+        app.navigate_to.assert_called_with("RADIO")
+        composition.screen.open_airband.assert_called_once_with()
 
     @patch("apps.orcUi.composition.radio.StreamingRadioNowPlaying")
     @patch("apps.orcUi.composition.radio.RadioScreen")

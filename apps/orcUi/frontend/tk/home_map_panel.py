@@ -60,6 +60,7 @@ class HomeMapPanel(tk.Frame):
             self, text="RADAR", command=self._toggle_radar,
             bg=self._theme.ui.control_background, fg=self._theme.ui.text,
             relief=tk.FLAT, font=("Sans", 10, "bold"), padx=10, pady=5,
+            bd=0, highlightthickness=0,
             state=tk.NORMAL if self._on_radar_toggle is not None else tk.DISABLED,
         )
         self._radar_button.place(relx=1.0, x=-8, y=8, anchor="ne")
