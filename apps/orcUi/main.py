@@ -20,7 +20,13 @@ def main() -> None:
     parser.add_argument("--follow-logs", action="store_true")
     parser.add_argument("--log-level", choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"])
     parser.add_argument("--log-component", help="Live viewer component prefix")
+    parser.add_argument("--check-ecu-gl", action="store_true",
+                        help="Check the ECU OpenGL renderer and exit")
     args = parser.parse_args()
+    if args.check_ecu_gl:
+        from apps.orcUi.frontend.tk.ecu_gl_diagnostics import main as check_ecu_gl
+
+        raise SystemExit(check_ecu_gl())
     if args.log_level:
         import os
 

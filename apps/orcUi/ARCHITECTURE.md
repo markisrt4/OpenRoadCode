@@ -107,6 +107,14 @@ flowchart TD
 
 `apps/orcUi/frontend/tk/orc_ui_app.py` owns the concrete integrated Tk shell. It creates the Tk root, arranges shell chrome, hosts registered screens, manages generic navigation, and runs the Tk event loop. It does not own the feature catalog or choose feature destinations. Composition registers screens and navigation destinations, selects the initial destination, and supplies actions for shell controls such as Settings.
 
+Desktop development may select an exact client size with `ORCUI_GEOMETRY`,
+force or disable fullscreen with `ORCUI_FULLSCREEN`, and request an undecorated
+window with `ORCUI_BORDERLESS=1`. Fullscreen takes precedence over borderless.
+In borderless mode the in-shell power control remains available and Escape
+restores ordinary window-manager decorations without closing ORC. For example,
+`ORCUI_GEOMETRY=1280x720 ORCUI_FULLSCREEN=0 ORCUI_BORDERLESS=1 ./runOrcUi`
+matches the landscape Pi Touch Display 2 layout inside a VM.
+
 It must not create ZeroMQ subscribers, message decoders, audio backends, Spotify synchronization workers, browser lifecycle managers, external map renderer launchers, or host restart/poweroff implementations. Those dependencies are injected through application/runtime or UI contracts.
 
 Structural orcUi widgets that are meaningful only inside that shell stay under `apps/orcUi/frontend/tk`. A widget that could reasonably be reused by another Tk application belongs in an appropriate feature package under `frontends/tk` instead.

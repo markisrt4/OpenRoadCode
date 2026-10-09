@@ -53,6 +53,8 @@ render `MapState`, while a Valhalla adapter may produce `RouteGeometry`,
 - `radio/` contains receiver state, presets, tuning, playback, and application
   radio requests.
 - `system/` contains diagnostics, status, top-bar, and system-volume contracts.
+- `vision/` contains immutable RGB image/object state and semantic camera-mode,
+  activation, and inference-enable requests.
 - Root modules contain cross-cutting screen, navigation, focus, action,
   dispatcher, event-handler, and frontend lifecycle contracts.
 
@@ -65,6 +67,16 @@ data contract they need, such as `MediaUiIf` or `LightingUiIf`.
 
 The contracts intentionally do not prescribe widget types, layout, threading,
 or event-loop behavior. Those decisions belong to a concrete frontend.
+
+### Camera and perception
+
+`VisionUiState` is a complete immutable snapshot containing lifecycle, requested
+and effective modes, normalized luminance and object bounds, SI timing values,
+and an optional immutable RGB888 frame. `VisionUiIf` receives snapshots while
+`VisionRequestHandlerIf` carries activation, deactivation, camera-mode, and
+explicit AI target-state requests back to a controller. Frontends may format
+seconds as milliseconds or hertz as FPS, but backend image, camera, detector,
+tracker, worker, and hardware-control types do not cross this boundary.
 
 Normalized physical-input contracts are intentionally not UI contracts. They
 live under `input_events`; `UiAction` remains here because it represents

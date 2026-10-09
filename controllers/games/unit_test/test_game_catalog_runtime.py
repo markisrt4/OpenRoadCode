@@ -10,9 +10,33 @@ from pathlib import Path
 from unittest.mock import patch
 
 from controllers.games.game_catalog import load_game_catalog
+from controllers.games.debian_command_runner import DebianCommandRunner
+from controllers.games.debian_game_installer import DebianGameInstaller
 
 
 class GameCatalogRuntimeTest(unittest.TestCase):
+    def test_gnome_catalog_games_launch_through_proot_opengl_bridge(self) -> None:
+        catalog_path = Path(__file__).resolve().parents[3] / "config" / "games.toml"
+        with patch.dict(os.environ, {"PREFIX": "/data/data/com.termux/files/usr"}, clear=True):
+            games = {game.name: game for game in load_game_catalog(catalog_path)}
+        runner = DebianCommandRunner.__new__(DebianCommandRunner)
+        runner._mode = "proot"
+        with patch("controllers.games.debian_game_installer.DebianCommandRunner", return_value=runner):
+            installer = DebianGameInstaller()
+        for name in ("GNOME 2048", "GNOME Nibbles", "GNOME Sudoku"):
+            with self.subTest(game=name):
+                game = games[name]
+                self.assertTrue(game.enabled)
+                with patch.object(runner, "_ensure_virgl_server", return_value=True) as bridge:
+                    command = installer.launch_command(game)
+                bridge.assert_called_once_with()
+                self.assertIn("--shared-tmp", command)
+                self.assertIn("GALLIUM_DRIVER=virpipe", command)
+                self.assertIn("GSK_RENDERER=gl", command)
+                self.assertNotIn("GSK_RENDERER=cairo", command)
+                self.assertNotIn("GALLIUM_DRIVER=llvmpipe", command)
+                self.assertIsNotNone(installer.window_selectors(game)[0])
+
     def test_termux_proot_runtime_settings_are_nested(self) -> None:
         config = """
 [[games]]

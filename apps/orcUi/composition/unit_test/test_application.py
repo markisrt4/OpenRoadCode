@@ -15,6 +15,7 @@ class OrcUiCompositionTest(unittest.TestCase):
             with self.subTest(failed=failed):
                 resources = {name: Mock() for name in (
                     "core", "runtime", "radio", "media", "games", "weather",
+                    "vision",
                     "navigation", "navigation_places", "weather_overlays", "radar_replay",
                     "performance", "performance_status",
                 )}
@@ -40,6 +41,7 @@ class OrcUiCompositionTest(unittest.TestCase):
         media = Mock()
         games = Mock()
         weather = Mock()
+        vision = Mock()
         composition = OrcUiComposition(
             core=core,
             runtime=runtime,
@@ -47,6 +49,7 @@ class OrcUiCompositionTest(unittest.TestCase):
             media=media,
             games=games,
             weather=weather,
+            vision=vision,
         )
 
         composition.run()
@@ -57,6 +60,7 @@ class OrcUiCompositionTest(unittest.TestCase):
         games.shutdown.assert_called_once_with()
         media.close.assert_called_once_with()
         weather.close.assert_called_once_with()
+        vision.close.assert_called_once_with()
         core.close.assert_called_once_with()
         runtime.close.assert_called_once_with()
         core.lifecycle.execute_requested_action.assert_called_once_with()
@@ -71,9 +75,11 @@ class OrcUiCompositionTest(unittest.TestCase):
         media = Mock()
         games = Mock()
         weather = Mock()
+        vision = Mock()
         games.shutdown.side_effect = lambda: events("games")
         media.close.side_effect = lambda: events("media")
         weather.close.side_effect = lambda: events("weather")
+        vision.close.side_effect = lambda: events("vision")
         core.close.side_effect = lambda: events("core")
         runtime.close.side_effect = lambda: events("runtime")
         core.lifecycle.execute_requested_action.side_effect = lambda: events("lifecycle")
@@ -84,12 +90,14 @@ class OrcUiCompositionTest(unittest.TestCase):
             media=media,
             games=games,
             weather=weather,
+            vision=vision,
         )
 
         composition.run()
 
         self.assertEqual(
             [
+                call("vision"),
                 call("games"),
                 call("media"),
                 call("weather"),
@@ -181,6 +189,7 @@ class OrcUiCompositionTest(unittest.TestCase):
 
     @patch("apps.orcUi.composition.application.configure_weather")
     @patch("apps.orcUi.composition.application.configure_media")
+    @patch("apps.orcUi.composition.application.configure_vision")
     @patch("apps.orcUi.composition.application.configure_games")
     @patch("apps.orcUi.composition.application.configure_radio")
     @patch("apps.orcUi.composition.application.create_core_composition")
@@ -191,6 +200,7 @@ class OrcUiCompositionTest(unittest.TestCase):
         create_core: Mock,
         configure_radio: Mock,
         configure_games: Mock,
+        configure_vision: Mock,
         configure_media: Mock,
         configure_weather: Mock,
     ) -> None:
@@ -199,6 +209,7 @@ class OrcUiCompositionTest(unittest.TestCase):
         app = core.app
         radio = configure_radio.return_value
         games = configure_games.return_value
+        vision = configure_vision.return_value
         media = configure_media.return_value
         weather = configure_weather.return_value
 
@@ -209,6 +220,7 @@ class OrcUiCompositionTest(unittest.TestCase):
         self.assertIs(composition.app, app)
         self.assertIs(composition.radio, radio)
         self.assertIs(composition.games, games)
+        self.assertIs(composition.vision, vision)
         self.assertIs(composition.media, media)
         self.assertIs(composition.weather, weather)
         app.set_theme_change_handler.assert_called_once_with(core.map_runtime.set_theme)
@@ -216,9 +228,23 @@ class OrcUiCompositionTest(unittest.TestCase):
         core.presentation.observe_weather_alert.assert_called_once_with(app.present_weather_alert)
         configure_radio.assert_called_once_with(app, runtime)
         configure_games.assert_called_once_with(app)
+        configure_vision.assert_called_once_with(app)
         configure_media.assert_called_once_with(app, runtime)
         configure_weather.assert_called_once()
         self.assertIs(configure_weather.call_args.args[0], app)
+        self.assertEqual(
+            app.register_navigation_destination.call_args_list[:8],
+            [
+                call("HOME"),
+                call("NAVIGATION"),
+                call("RADIO"),
+                call("VEHICLE"),
+                call("VISION"),
+                call("MEDIA"),
+                call("GAMES"),
+                call("LIGHTING"),
+            ],
+        )
         with patch.object(composition.navigation, "set_radar_enabled") as enable:
             configure_weather.call_args.kwargs["on_radar_map"]()
             app.navigate_to.assert_called_with("NAVIGATION")

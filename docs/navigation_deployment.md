@@ -90,6 +90,10 @@ Preview without modifying the system:
 
 The installer builds/installs MapLibre Native integration, the OpenRoadCode native renderer, and Valhalla software beneath `/opt/openroadcode/navigation`.
 
+Chromium is not a navigation dependency. The Linux navigation installer uses
+the native MapLibre renderer; add the separate `browser` feature only for
+browser-backed OpenRoadCode applications.
+
 It does **not** build map data. Map generation belongs on the map-build machine.
 
 The installer seeds `/etc/openroadcode/navigation.toml` from `config/navigation.toml` only when the deployed file does not already exist. Existing local configuration is preserved.

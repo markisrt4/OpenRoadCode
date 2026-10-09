@@ -30,7 +30,7 @@ V1_DATA_FIELDS = {
 }
 V2_DATA_FIELDS = V1_DATA_FIELDS | {"engine_fuel_rate_m3_s"}
 V3_DATA_FIELDS = V2_DATA_FIELDS | {"commanded_equivalence_ratio"}
-DATA_FIELDS = V3_DATA_FIELDS | {
+V4_DATA_FIELDS = V3_DATA_FIELDS | {
     "commanded_throttle_position",
     "absolute_engine_load",
     "fuel_system_status_1",
@@ -41,6 +41,7 @@ DATA_FIELDS = V3_DATA_FIELDS | {
     "fuel_rail_pressure_pa",
     "measured_equivalence_ratio",
 }
+DATA_FIELDS = V4_DATA_FIELDS | {"actual_engine_torque_ratio", "reference_engine_torque_nm"}
 RATIO_FIELDS = {
     "throttle_position",
     "accelerator_pedal_position",
@@ -58,6 +59,7 @@ NONNEGATIVE_FIELDS = {
     "control_voltage_v",
     "fuel_rail_pressure_pa",
     "absolute_engine_load",
+    "reference_engine_torque_nm",
 }
 TEMPERATURE_FIELDS = {"coolant_temperature_k", "intake_air_temperature_k"}
 VALID_GEARS = {-1, 0, 1, 2, 3, 4, 5, 6}
@@ -82,7 +84,7 @@ def validate_vehicle_state(payload: Mapping[str, Any]) -> None:
     version = payload["version"]
     if isinstance(version, bool) or not isinstance(version, int):
         raise ValueError("vehicle state version must be an integer")
-    if version not in {1, 2, 3, SCHEMA_VERSION}:
+    if version not in {1, 2, 3, 4, SCHEMA_VERSION}:
         raise ValueError(f"unsupported vehicle state version: {version}")
 
     timestamp = payload["timestamp"]
@@ -101,6 +103,7 @@ def validate_vehicle_state(payload: Mapping[str, Any]) -> None:
         V1_DATA_FIELDS if version == 1 else
         V2_DATA_FIELDS if version == 2 else
         V3_DATA_FIELDS if version == 3 else
+        V4_DATA_FIELDS if version == 4 else
         DATA_FIELDS
     )
     actual_fields = set(data)
@@ -139,6 +142,8 @@ def validate_vehicle_state(payload: Mapping[str, Any]) -> None:
         _validate_number(name, value)
         if value is None:
             continue
+        if name == "actual_engine_torque_ratio" and not -1.25 <= value <= 1.30:
+            raise ValueError("actual_engine_torque_ratio must be in range -1.25..1.30")
         if name in RATIO_FIELDS and not 0.0 <= value <= 1.0:
             raise ValueError(f"{name} must be in range 0.0..1.0")
         if name in {"commanded_equivalence_ratio", "measured_equivalence_ratio"} and not 0.0 <= value <= 2.0:

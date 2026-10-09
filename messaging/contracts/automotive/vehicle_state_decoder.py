@@ -47,5 +47,7 @@ def decode_vehicle_state(payload: Mapping[str, Any]) -> VehicleStateMessage:
             measured_equivalence_ratio=data.get("measured_equivalence_ratio"),
             engine_fuel_rate_m3_s=data.get("engine_fuel_rate_m3_s"),
             control_voltage_v=data["control_voltage_v"],
+            actual_engine_torque_ratio=data.get("actual_engine_torque_ratio"),
+            reference_engine_torque_nm=data.get("reference_engine_torque_nm"),
         ),
     )

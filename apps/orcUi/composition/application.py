@@ -21,6 +21,7 @@ from apps.orcUi.composition.media import MediaComposition, configure_media
 from apps.orcUi.composition.radio import RadioComposition, configure_radio
 from apps.orcUi.composition.weather import WeatherComposition, configure_weather
 from apps.orcUi.composition.weather_overlays import configure_weather_overlays
+from apps.orcUi.composition.vision import VisionComposition, configure_vision
 from controllers.weather.weather_overlay_controller import WeatherOverlayController
 from controllers.weather.radar_replay_controller import RadarReplayController
 from apps.orcUi.frontend.tk.home_screen import HomeScreen
@@ -47,6 +48,7 @@ class OrcUiComposition:
     media: MediaComposition
     games: GamesScreen
     weather: WeatherComposition
+    vision: VisionComposition | None = None
     home: HomeScreen | None = None
     navigation: NavigationScreen | None = None
     vehicle: VehicleScreen | None = None
@@ -87,7 +89,7 @@ class OrcUiComposition:
         close_resources(
             self.app.shutdown,
             *(resource.close for resource in (
-                self.performance_status, self.performance, self.navigation,
+                self.performance_status, self.performance, self.vision, self.navigation,
                 self.navigation_places, self.radar_replay, self.weather_overlays,
             ) if resource is not None),
             self.radio.close,
@@ -110,12 +112,14 @@ def create_orc_ui_composition() -> OrcUiComposition:
         app.set_theme_change_handler(core.map_runtime.set_theme)
         core.map_runtime.set_theme(app.theme_mode)
         core.presentation.observe_weather_alert(app.present_weather_alert)
-        for destination in ("HOME", "NAVIGATION", "RADIO", "VEHICLE", "VISION", "LIGHTING", "GAMES", "MEDIA"):
+        for destination in ("HOME", "NAVIGATION", "RADIO", "VEHICLE", "VISION", "MEDIA", "GAMES", "LIGHTING"):
             app.register_navigation_destination(destination)
         radio = configure_radio(app, runtime)
         cleanup.callback(radio.close)
         games = configure_games(app)
         cleanup.callback(games.shutdown)
+        vision = configure_vision(app)
+        cleanup.callback(vision.close)
         media = configure_media(app, runtime)
         cleanup.callback(media.close)
         settings_store = AppSettingsStore()
@@ -271,6 +275,7 @@ def create_orc_ui_composition() -> OrcUiComposition:
             media=media,
             games=games,
             weather=weather,
+        vision=vision,
             home=home,
             navigation=navigation,
             vehicle=vehicle,

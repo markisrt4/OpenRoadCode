@@ -367,3 +367,55 @@ The important prohibition is the reverse dependency: applications must not reach
 - [Automotive vehicle-state IDD](idd/automotive_vehicle_state.md)
 - [Automotive Trip-state IDD](idd/automotive_trip_state.md)
 - [Messaging overview](../messaging/README.md)
+
+### ECU engine rendering
+
+The Tk ECU screen automatically selects a native OpenGL cutaway when PyOpenGL,
+pyopengltk and a compatible desktop GL context are available. The desktop-ui
+installer includes the Python packages and Linux GL/GLU libraries. For an
+existing environment, install `PyOpenGL==3.1.10 pyopengltk==0.0.4` in its virtual
+environment and ensure the host provides GL and GLU (Debian: `libgl1 libglu1-mesa`).
+This backend uses desktop OpenGL, not WebGL or OpenGL ES; Termux:X11 systems
+without compatible GLX support use the Canvas schematic automatically.
+
+The cutaway is an illustrative inline-four, not the connected vehicle's exact
+engine geometry. Engine-running state and RPM drive a slowed animation at about
+20 frames per second; boost activates the turbo rotor. The fuel, mixture, load
+and ignition cards and interpretation summary retain their existing telemetry.
+Animation pauses when the panel is hidden. Missing dependencies or context/render
+failures select the Canvas fallback and are logged. Set
+`OPENROAD_ECU_RENDERER=canvas` to select the schematic explicitly.
+
+The ECU engine area includes an **Animation: On/Off** button. Turning animation
+off cancels the graphics timer and holds the current pose for either renderer;
+telemetry cards, engine colors, and the interpretation summary continue updating.
+Turning it back on resumes from that pose. The toggle applies while this ECU
+panel is open and defaults to on when a new panel is created.
+
+OpenGL redraws are coalesced and rate limited. Static engine geometry and primitive
+meshes are cached in GPU display lists. Paused telemetry changes redraw the engine
+only when its visual running/boost state changes. Resuming animation queues a timer
+instead of rendering synchronously inside the button callback.
+
+Optional VISION model preparation failures do not prevent ORC or its automotive
+screens from starting. When inference dependencies or model assets are missing,
+the VISION destination displays an unavailable state and its cause; camera and
+perception resources are not started. Installing VISION dependencies is separate
+from testing the ECU OpenGL renderer.
+
+The engine card shows a compact **FPS** label in its upper-right corner. It counts
+completed frames rather than scheduled animation ticks and refreshes once per
+second, including while animation is paused. Dedicated horsepower and torque
+text fields below the engine summary show ECU-reported output when available.
+No extra OBD requests are made to measure the frame rate.
+
+The compressor housing turns green while forced induction is active, returning
+to silver otherwise. Brief white-blue spark flashes precede orange combustion
+flashes in the illustrative firing sequence. These are a slowed visualization,
+not direct measurements of individual ignition events.
+
+The ignition card shows **ECU Power** in mechanical hp and **ECU Torque** in Nm.
+They use reported actual/reference torque PIDs 62/63 and current RPM. Unsupported,
+missing or stale inputs display `--`; load/MAF-based guesses are not substituted.
+On Termux with runit, restart the producer after updating with
+`sv restart openroadcode-automotive`, then relaunch ORC.

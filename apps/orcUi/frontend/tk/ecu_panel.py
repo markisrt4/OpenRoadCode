@@ -6,12 +6,17 @@
 from __future__ import annotations
 
 import tkinter as tk
+import time
 
 from apps.orcUi.vehicle_presenter import VehiclePresentationState
 from ui.automotive.engine_analysis import (EngineAnalysis, EngineLoadLevel, FuelControlMode, FuelCorrectionStatus, MixtureMode, TrackingQuality)
 from ui.automotive.vehicle_configuration import (VehicleConfiguration)
 from ui.theme import ThemeBundle
-from .ecu_engine_visual import paint_engine_visual
+from .ecu_engine_visual import paint_engine_visual, paint_engine_summary
+from .ecu_engine_gl import create_engine_gl
+from .ecu_card_layout import fit_ecu_card
+from .ecu_animation import EcuAnimationMixin, visual_engine_running
+from .ecu_update_rate import RateCounter, EcuRateLabel
 from .shell_metrics import FONT_BODY, FONT_CONTROL, FONT_SMALL
 from ui.ui_widget import UiWidget
 
@@ -33,7 +38,7 @@ def bounded_marker_x(
     return start + ((clamped - minimum) / (maximum - minimum)) * (end - start)
 
 
-class EcuPanel(tk.Frame, UiWidget):
+class EcuPanel(EcuAnimationMixin, tk.Frame, UiWidget):
     """Dense driver-facing ECU interpretation dashboard."""
 
     def __init__(
@@ -51,7 +56,13 @@ class EcuPanel(tk.Frame, UiWidget):
         self._analysis = engine_analysis
         self._labels: dict[str, tk.Label] = {}
         self._bars: dict[str, tk.Canvas] = {}
+        self._field_labels: dict[str, tk.Label] = {}
+        self._rate_counter = RateCounter()
+        self._animation_enabled = True
         self._animation_phase = 0.0
+        self._animation_time = time.monotonic()
+        self._engine_gl = None
+        self._renderer_reason = ""
         self._animation_job: str | None = None
         super().__init__(parent, bg=theme.ui.background)
         self._build()
@@ -67,17 +78,8 @@ class EcuPanel(tk.Frame, UiWidget):
             self._animation_job = None
         super().destroy()
 
-    def _schedule_engine_animation(self) -> None:
-        if not self.winfo_exists():
-            return
-        if self._analysis.engine_running:
-            rpm = self._vehicle_state.engine_speed_rpm or 0.0
-            visual_hz = max(0.8, min(4.5, rpm / 900.0))
-            self._animation_phase = (self._animation_phase + visual_hz / 12.0) % 1.0
-            self._paint_engine()
-        self._animation_job = self.after(83, self._schedule_engine_animation)
-
     def update_vehicle(self, state: VehiclePresentationState) -> None:
+        self._rate_counter.record_update()
         self._vehicle_state = state
         self._paint()
 
@@ -96,7 +98,7 @@ class EcuPanel(tk.Frame, UiWidget):
         cockpit.grid(row=0, column=0, sticky="nsew")
 
         engine = tk.Frame(cockpit, bg=ui.background)
-        engine.place(relx=0.5, rely=0.5, relwidth=0.44, relheight=0.96, anchor="center")
+        engine.place(relx=0.5, rely=0.5, relwidth=0.285, relheight=0.96, anchor="center")
         engine.grid_columnconfigure(0, weight=1)
         engine.grid_rowconfigure(0, weight=1)
 
@@ -106,15 +108,57 @@ class EcuPanel(tk.Frame, UiWidget):
         )
         self._engine_canvas.grid(row=0, column=0, sticky="nsew", padx=2, pady=(5, 2))
         self._engine_canvas.bind("<Configure>", lambda _e: self._paint_engine())
+        self._engine_gl = create_engine_gl(
+            engine, theme=self._theme, on_failure=self._use_canvas_engine,
+            on_unavailable=self._record_renderer_reason,
+            on_frame=self._rate_counter.record_frame,
+        )
+        if self._engine_gl is not None:
+            self._engine_canvas.grid_remove()
+            self._engine_gl.grid(row=0, column=0, sticky="nsew", padx=2, pady=(5, 2))
+        self._fps_label = EcuRateLabel(
+            engine, counter=self._rate_counter, theme=self._theme,
+        )
+        self._fps_label.place(relx=1.0, x=-8, y=9, anchor="ne")
+        self._fps_label.lift()
         self._engine_summary = tk.Label(
             engine, text="--", fg=ui.text_muted, bg=ui.surface,
             font=("Sans", FONT_CONTROL, "bold"), pady=7,
         )
         self._engine_summary.grid(row=1, column=0, sticky="ew", padx=5, pady=(2, 5))
+        self._engine_summary.bind(
+            "<Configure>",
+            lambda event: self._engine_summary.configure(wraplength=max(1, event.width - 10)),
+        )
 
-        # Cards intentionally overlap the outer edges of the engine surface.
-        # This creates the surrounding composition from the concept while
-        # keeping each card a normal Tk widget with its existing telemetry.
+        output = tk.Frame(engine, bg=ui.surface)
+        output.grid(row=2, column=0, sticky="ew", padx=5, pady=(0, 5))
+        output.grid_columnconfigure((0, 1), weight=1, uniform="engine-output")
+        self._engine_output_field(output, 0, "ecu_power", "HORSEPOWER")
+        self._engine_output_field(output, 1, "ecu_torque", "TORQUE")
+
+        self._animation_toggle = tk.Button(
+            engine, text="Animation: On",
+            command=lambda: self.set_engine_animation(not self._animation_enabled),
+            bg=ui.surface_alt, fg=ui.text, activebackground=ui.surface,
+            activeforeground=ui.text, highlightbackground=ui.border,
+            font=("Sans", FONT_CONTROL, "bold"), bd=0, pady=9,
+        )
+        self._animation_toggle.grid(row=3, column=0, sticky="ew", padx=5, pady=(0, 5))
+
+        self._renderer_status = tk.Label(
+            engine, text="", fg=ui.text_muted, bg=ui.surface,
+            font=("Sans", FONT_SMALL), pady=3,
+        )
+        self._renderer_status.grid(row=4, column=0, sticky="ew", padx=5)
+        self._renderer_status.bind(
+            "<Configure>",
+            lambda event: self._renderer_status.configure(wraplength=max(1, event.width-10)),
+        )
+        self._record_renderer_reason(self._renderer_reason)
+
+        # Keep telemetry cards outside the engine viewport so the complete
+        # cutaway stays visible at every dashboard size.
         fuel = self._floating_card(
             cockpit, relx=0.005, rely=0.01, relwidth=0.35, relheight=0.475,
             icon="⛽", title="FUEL CONTROL", subtitle="Feedback and fuel correction", accent="#D6A800",
@@ -171,13 +215,40 @@ class EcuPanel(tk.Frame, UiWidget):
         body.grid_columnconfigure(0, weight=1)
         body.grid_columnconfigure(1, weight=0)
         body.grid_columnconfigure(2, weight=2)
+        body.bind("<Configure>", lambda event: self._fit_card(body, event.width))
         return body
+
+    def _fit_card(self, body: tk.Frame, width: int) -> None:
+        fit_ecu_card(body, width, field_labels=self._field_labels,
+                     labels=self._labels, bars=self._bars)
+
+    def _engine_output_field(
+        self, parent: tk.Misc, column: int, key: str, title: str,
+    ) -> None:
+        ui = self._theme.ui
+        field = tk.Frame(parent, bg=ui.surface_alt)
+        field.grid(
+            row=0, column=column, sticky="ew",
+            padx=(0, 2) if column == 0 else (2, 0),
+        )
+        tk.Label(
+            field, text=title, fg=ui.text_muted, bg=ui.surface_alt,
+            font=("Sans", FONT_SMALL, "bold"),
+        ).pack(fill="x", padx=4, pady=(3, 0))
+        value = tk.Label(
+            field, text="--", fg=ui.accent_primary, bg=ui.surface_alt,
+            font=("Sans", FONT_BODY, "bold"),
+        )
+        value.pack(fill="x", padx=4, pady=(0, 3))
+        self._labels[key] = value
 
     def _value(self, parent: tk.Misc, row: int, key: str, label: str, *, status: bool = False) -> None:
         ui = self._theme.ui
-        tk.Label(parent, text=label, fg=ui.text, bg=ui.surface, font=("Sans", FONT_SMALL), anchor="w").grid(
-            row=row, column=0, sticky="w", pady=2
-        )
+        field = tk.Label(parent, text=label, fg=ui.text, bg=ui.surface,
+                         font=("Sans", FONT_SMALL), anchor="w")
+        field.grid(row=row, column=0, sticky="w", pady=2)
+        field._full_text = label
+        self._field_labels[key] = field
         value = tk.Label(
             parent, text="--", fg=ui.accent_primary if not status else ui.accent_success,
             bg=ui.surface, font=("Sans", FONT_BODY, "bold"), anchor="e",
@@ -245,6 +316,7 @@ class EcuPanel(tk.Frame, UiWidget):
         return f"{value:+.1f} %" if signed else f"{value:.0f} %"
 
     def _paint(self) -> None:
+        self._paint_animation_status()
         state, analysis, ui = self._vehicle_state, self._analysis, self._theme.ui
         fuel_mode = {
             FuelControlMode.OPEN_LOOP_WARMUP: "Open Loop · Warm-up",
@@ -267,6 +339,8 @@ class EcuPanel(tk.Frame, UiWidget):
             MixtureMode.UNKNOWN: "--",
         }[analysis.mixture_mode]
         values = {
+            "ecu_power": "--" if analysis.reported_power_w is None else f"{analysis.reported_power_w/745.699872:.1f} hp",
+            "ecu_torque": "--" if analysis.reported_torque_nm is None else f"{analysis.reported_torque_nm:.0f} Nm",
             "fuel_mode": fuel_mode.upper(),
             "mixture_mode": f"TARGET: {mixture.upper()}" if mixture != "--" else "--",
             "load_mode": {
@@ -317,17 +391,36 @@ class EcuPanel(tk.Frame, UiWidget):
         self._paint_bars()
         self._paint_engine()
 
+    def _record_renderer_reason(self, reason: str) -> None:
+        self._renderer_reason = reason
+        if hasattr(self, "_renderer_status"):
+            self._renderer_status.configure(
+                text=f"3D unavailable: {reason}" if reason else "",
+            )
+
+    def _use_canvas_engine(self) -> None:
+        renderer, self._engine_gl = self._engine_gl, None
+        if renderer is not None:
+            renderer.destroy()
+        self._engine_canvas.grid()
+        self._paint_engine()
+
     def _paint_engine(self) -> None:
         if not hasattr(self, "_engine_canvas"):
+            return
+        if self._engine_gl is not None:
+            self._engine_gl.update_engine(self._visual_analysis(), self._animation_phase)
+            paint_engine_summary(self._engine_summary, self._analysis)
             return
         paint_engine_visual(
             self._engine_canvas,
             self._engine_summary,
             theme=self._theme,
             vehicle_state=self._vehicle_state,
-            analysis=self._analysis,
+            analysis=self._visual_analysis(),
             animation_phase=self._animation_phase,
         )
+        self._rate_counter.record_frame()
 
     def _paint_bars(self) -> None:
         state, ui = self._vehicle_state, self._theme.ui

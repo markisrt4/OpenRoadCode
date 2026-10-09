@@ -71,3 +71,6 @@ class EngineAnalysis:
     fuel_trim_total: float | None
     mixture_tracking_error: float | None
     throttle_tracking_error: float | None
+
+    reported_torque_nm: float | None = None
+    reported_power_w: float | None = None

@@ -106,6 +106,41 @@ The Debian command runner starts `virgl_test_server_android` on demand when it i
 
 SuperTuxKart is configured to use its OpenGL renderer rather than Vulkan on this path. Debian Vulkan may otherwise select a software renderer even when OpenGL through VirGL is accelerated.
 
+#### Experimental GNOME game trial
+
+GNOME 2048, GNOME Nibbles, and GNOME Sudoku are enabled for a Termux/X11
+trial. Their proot configuration uses `rendering = "auto"` and
+`GSK_RENDERER=gl` to select GTK OpenGL through the same VirGL bridge. Live
+device rendering, input, embedding, and exit behavior remain unverified.
+GTK versions that do not use GSK may ignore this renderer setting.
+
+On the device, switch to the branch containing this trial before pulling or
+testing. Close ORC, run `./development/termux/install_games.sh`, then restart
+ORC in the usual Termux/X11 session. Install each game through the Games panel
+and test one at a time:
+
+1. Start a game and check that its board renders inside ORC without a blank
+   window or rendering errors.
+2. Play a few moves (2048/Sudoku) or a level (Nibbles), then resize the ORC window
+   and check drawing and input again.
+3. Use **EXIT GAME**, relaunch, and also test closing through the game's own menu.
+   Check that ORC returns to the game browser each time.
+
+To inspect the Debian OpenGL renderer after launching a game has started the
+bridge, install `mesa-utils` inside Debian if needed and run in Termux:
+
+```bash
+proot-distro login debian --shared-tmp -- env DISPLAY="$DISPLAY" \
+  XDG_RUNTIME_DIR=/tmp LIBGL_ALWAYS_SOFTWARE=true GALLIUM_DRIVER=virpipe glxinfo -B
+```
+
+Record the renderer string and any game errors. `virgl` indicates the bridge;
+`llvmpipe` or `softpipe` indicates software rendering. This probe alone does not
+prove that an individual game uses GPU rendering or performs well.
+Compare failures with the previous software configuration by setting that game's
+`rendering = "software"` and `GSK_RENDERER = "cairo"` in `config/games.toml`,
+then restarting ORC. Set `enabled = false` to hide a failing game again.
+
 ## Native games
 
 The ORC UI Games panel reads `config/games.toml`, discovers installed/available packages asynchronously, and supports both Termux packages and Debian packages. Install the Termux-side game prerequisites with:
@@ -115,6 +150,12 @@ The ORC UI Games panel reads `config/games.toml`, discovers installed/available 
 ```
 
 The Games frontend requires `xdotool` for X11 embedding. When a Debian game is selected, the controller chooses the Debian backend without exposing whether Debian is native or hosted through `proot-distro` to the UI.
+
+The game browser adapts its columns to the window size and font metrics.
+Narrow Termux/X11 windows show one column. Each full page keeps six games;
+short windows scroll vertically instead of hiding games or stretching cards.
+Use **PREV/NEXT** to navigate between pages. Titles and descriptions wrap above
+the action button, and installation status appears below the wrapping filters.
 
 While a game is active, ORC replaces the category browser with an **EXIT GAME** control and reparents the game's X11 window into the Games content area. Closing a game through its own menu is also detected and returns the panel to the game browser. Window embedding is best effort because third-party games can create helper processes or reposition their own top-level windows; the X11 frontend searches the launched process tree and reasserts the ORC host geometry during startup.
 
@@ -188,12 +229,10 @@ chmod +x scripts/runit/install_termux_services.sh
 Start and inspect the supervised services with:
 
 ```bash
-sv up openroadcode-broker
-sv up openroadcode-navigation
+./scripts/runit/manage_core.sh start
 sv up openroadcode-adsb
 
-sv status openroadcode-broker
-sv status openroadcode-navigation
+./scripts/runit/manage_core.sh status
 sv status openroadcode-adsb
 ```
 
@@ -201,19 +240,20 @@ Stop them with:
 
 ```bash
 sv down openroadcode-adsb
-sv down openroadcode-navigation
-sv down openroadcode-broker
+./scripts/runit/manage_core.sh stop
 ```
 
 The runit definitions call the same runtime wrappers used by the Linux service installation where applicable. Termux-specific service definitions live under `scripts/runit/`. Runtime-generated `supervise/` directories are state, not source, and must never be committed to the repository.
 
-Valhalla runs automatically as the supervised `openroadcode-valhalla` runit service. The navigation build installs its service definition along with the core services. The Termux build installs it under `$PREFIX/opt/openroadcode/navigation/valhalla/bin/valhalla_service`, while deployed routing data lives under `~/.local/share/openroadcode/valhalla`.
+Valhalla runs as the supervised `openroadcode-valhalla` runit service when the
+core stack is requested; it remains down after installation. The navigation
+build installs its service definition along with the core services. The Termux
+build installs it under `$PREFIX/opt/openroadcode/navigation/valhalla/bin/valhalla_service`, while deployed routing data lives under `~/.local/share/openroadcode/valhalla`.
 
 For an existing installation, register the new service once (stop any manually launched Valhalla first):
 
 ```bash
 cd ~/src/OpenRoadCode
-git switch weather-radar
 ./scripts/runit/install_termux_services.sh
 sv up openroadcode-valhalla
 sv status openroadcode-valhalla
@@ -226,7 +266,8 @@ Termux locations. The downloaded source configuration stays unchanged. Run the
 wrapper again after pulling new routing data; no manual JSON edits are needed.
 `VALHALLA_CONFIG`, `VALHALLA_BIN`, `VALHALLA_DATA_ROOT`, and
 `VALHALLA_RUNTIME_ROOT` can override the defaults. Runit owns startup, crash restarts, and shutdown; no dedicated terminal is needed.
-Rotating logs are available at `~/.cache/openroadcode/valhalla/current`.
+Rotating logs for every supervised service are available under
+`~/.local/state/openroadcode/log/<service>/current`.
 The service-manager core start/stop operations include Valhalla.
 For foreground debugging only, stop the supervised service before running
 `./scripts/runtime/start_valhalla.sh`.
@@ -247,6 +288,10 @@ Install the tar1090 presentation files once:
 cd ~/src/OpenRoadCode
 ./development/termux/setup_tar1090.sh
 ```
+
+The setup uses the tar1090 revision pinned in
+`scripts/installers/toolchain.lock`; set `TAR1090_REF` only for an intentional
+test of another revision.
 
 After `scripts/runit/install_termux_services.sh` has installed the service, `openroadcode-adsb` owns the local tar1090 web server on port `8081`.
 

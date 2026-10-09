@@ -18,6 +18,11 @@ SYSTEM_PACKAGES = (
 TERMUX_NAV_BUILDER = (
     PROJECT_ROOT / "development" / "termux" / "build_navigation_stack.sh"
 )
+INSTALLER_TOOLCHAIN = PROJECT_ROOT / "scripts" / "installers" / "toolchain.lock"
+DEBIAN_SDRPP = PROJECT_ROOT / "development" / "debian" / "setup_sdrpp.sh"
+TERMUX_SDRPP = PROJECT_ROOT / "development" / "termux" / "setup_sdrpp.sh"
+TERMUX_TAR1090 = PROJECT_ROOT / "development" / "termux" / "setup_tar1090.sh"
+LINUX_TAR1090 = PROJECT_ROOT / "scripts" / "installers" / "setup_adsb_web.sh"
 
 
 class NavigationInstallerContractTests(unittest.TestCase):
@@ -100,6 +105,28 @@ class NavigationInstallerContractTests(unittest.TestCase):
             "sudo apt install -y --no-install-recommends sdrpp",
             self.system_packages,
         )
+
+    def test_third_party_installers_use_pinned_toolchain_revisions(self) -> None:
+        lock = INSTALLER_TOOLCHAIN.read_text(encoding="utf-8")
+        self.assertRegex(lock, r"SDRPP_COMMIT=[0-9a-f]{40}")
+        self.assertRegex(lock, r"TAR1090_COMMIT=[0-9a-f]{40}")
+
+        for path in (DEBIAN_SDRPP, TERMUX_SDRPP):
+            installer = path.read_text(encoding="utf-8")
+            self.assertIn("toolchain.lock", installer)
+            self.assertNotIn("reset --hard", installer)
+            self.assertNotIn('SDRPP_REF="${SDRPP_REF:-master}"', installer)
+            self.assertIn(".openroadcode-managed-source", installer)
+
+        termux_tar1090 = TERMUX_TAR1090.read_text(encoding="utf-8")
+        linux_tar1090 = LINUX_TAR1090.read_text(encoding="utf-8")
+        self.assertIn("toolchain.lock", termux_tar1090)
+        self.assertIn("checkout --detach", termux_tar1090)
+        self.assertNotIn("pull --ff-only", termux_tar1090)
+        self.assertIn('fetch --quiet --depth 1 origin "$TAR1090_REF"', linux_tar1090)
+        self.assertIn('"$source_checkout/install.sh"', linux_tar1090)
+        self.assertIn('"$source_checkout"', linux_tar1090)
+        self.assertNotIn("raw.githubusercontent.com", linux_tar1090)
 
 
 if __name__ == "__main__":
