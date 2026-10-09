@@ -9,6 +9,7 @@ import argparse
 import os
 import logging
 from common.logging.structured import configure_logging, event
+from common.host_config import installed_target
 from pathlib import Path
 
 from controllers.geocoding.sqlite_geocoder import SqliteGeocoder
@@ -24,6 +25,7 @@ from controllers.navigation import (
 )
 from controllers.navigation.android_position_source import AndroidPositionSource
 from controllers.navigation.browser_position_source import BrowserPositionSource
+from controllers.navigation.fallback_position_source import FallbackPositionSource
 from controllers.navigation.route_simulation_if import RouteSimulationIf
 from controllers.navigation.route_playback_position_source import RoutePlaybackPositionSource
 from controllers.navigation.simulated_ground_motion_source import (
@@ -135,23 +137,27 @@ def _build_position_source(config: NavigationServiceRuntimeConfig):
         )
 
     if config.gps.source == "browser":
-        host = os.environ.get("OPENROADCODE_BROWSER_POSITION_HOST", "127.0.0.1")
-        port = int(os.environ.get("OPENROADCODE_BROWSER_POSITION_PORT", "8765"))
-        return BrowserPositionSource(host=host, port=port)
+        return _browser_position_source()
 
     if config.gps.device == "android":
-        return RoutePlaybackPositionSource(
-            AndroidPositionSource(
-                AndroidSensorBridgeClient(base_url=_android_bridge_url(config.gps.bridge_url))
-            )
+        live_source = AndroidPositionSource(
+            AndroidSensorBridgeClient(base_url=_android_bridge_url(config.gps.bridge_url))
         )
+    elif config.gps.device == "gpsd":
+        live_source = GpsdNavigationAdapter(_create_gps_reader(config.gps.host, config.gps.port))
+    else:
+        raise ValueError(f"Unsupported GPS device: {config.gps.device}")
 
-    if config.gps.device == "gpsd":
-        return RoutePlaybackPositionSource(
-            GpsdNavigationAdapter(_create_gps_reader(config.gps.host, config.gps.port))
-        )
+    if installed_target() in {None, "linux-dev"}:
+        live_source = FallbackPositionSource(live_source, _browser_position_source())
+    return RoutePlaybackPositionSource(live_source)
 
-    raise ValueError(f"Unsupported GPS device: {config.gps.device}")
+
+def _browser_position_source() -> BrowserPositionSource:
+    # Loopback is deliberate: host geolocation requires a trustworthy origin,
+    # and permission must be granted on the machine running the browser.
+    port = int(os.environ.get("OPENROADCODE_BROWSER_POSITION_PORT", "8765"))
+    return BrowserPositionSource(host="127.0.0.1", port=port)
 
 
 def _build_ground_motion_source(config: NavigationServiceRuntimeConfig):

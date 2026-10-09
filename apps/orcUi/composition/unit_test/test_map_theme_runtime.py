@@ -15,6 +15,18 @@ from ui.theme import ThemeMode
 
 
 class MapThemeRuntimeTest(unittest.TestCase):
+    def test_read_only_deployed_style_survives_a_theme_change(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            style = root / "maps/styles/openroadcode.json"
+            style.parent.mkdir(parents=True)
+            style.write_text('{"version":8}')
+            with (patch("apps.orcUi.map_theme_runtime.Path.write_text", side_effect=PermissionError),
+                  self.assertLogs("apps.orcUi.map_theme_runtime", level="WARNING") as logs):
+                self.assertEqual(install_map_style(ThemeMode.DARK, root), style)
+            self.assertEqual(style.read_text(), '{"version":8}')
+            self.assertIn("install_navigation_style.sh", logs.output[0])
+
     @patch.dict(os.environ, {"OPENROADCODE_DATA_ROOT": "/tmp/orc-map-data"}, clear=False)
     def test_explicit_data_root_environment_wins(self) -> None:
         self.assertEqual(_default_data_root(), Path("/tmp/orc-map-data"))

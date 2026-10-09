@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 from pathlib import Path
 from typing import Any
@@ -32,7 +33,15 @@ def install_map_style(mode: ThemeMode, data_root: str | Path | None = None) -> P
         return None
     document = json.loads(template.read_text(encoding="utf-8"))
     _apply_map_palette(document, _MAP_DARK if mode is ThemeMode.DARK else _MAP_LIGHT)
-    destination.write_text(json.dumps(document, separators=(",", ":")), encoding="utf-8")
+    try:
+        destination.write_text(json.dumps(document, separators=(",", ":")), encoding="utf-8")
+    except PermissionError:
+        logging.getLogger(__name__).warning(
+            "Cannot update map theme at %s; retaining the installed style. "
+            "Run bash scripts/runtime/install_navigation_style.sh as the ORC runtime user.",
+            destination,
+        )
+        return destination if destination.is_file() else None
     return destination
 
 
