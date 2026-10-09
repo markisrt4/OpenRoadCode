@@ -4,6 +4,8 @@ from datetime import datetime, timezone
 import hashlib
 import json
 import math
+import time
+import urllib.error
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import urllib.parse
@@ -47,19 +49,65 @@ def prepare(reply):
     return LocalBuildingState(tuple(buildings)), skipped
 
 
+def request_tile(bounds):
+    west, south, east, north = bounds
+    query = f'[out:json][timeout:25];way["building"]({south},{west},{north},{east});out geom;'
+    request = urllib.request.Request(SERVICE, data=urllib.parse.urlencode({"data":query}).encode(),
+                                     headers={"User-Agent":"OpenRoadCode-Detroit-prototype/1.0"})
+    for attempt in range(3):
+        try:
+            with urllib.request.urlopen(request, timeout=45) as response:
+                raw = response.read(20*1024*1024+1)
+            if len(raw) > 20*1024*1024:
+                raise ValueError("Source response exceeds 20 MB")
+            reply = json.loads(raw)
+            if reply.get("remark"):
+                raise RuntimeError("Overpass incomplete response: "+reply["remark"])
+            if not isinstance(reply.get("elements"), list):
+                raise ValueError("Missing OSM elements")
+            return raw
+        except urllib.error.HTTPError as error:
+            if error.code not in (429, 502, 503, 504) or attempt == 2:
+                raise
+        except (urllib.error.URLError, TimeoutError, RuntimeError):
+            if attempt == 2:
+                raise
+        delay = 2**(attempt+1)
+        print(f"Service busy; retry {attempt+2}/3 in {delay}s", flush=True)
+        time.sleep(delay)
+
+
 def download(destination):
     if destination.exists():
         print(f"Buildings already installed: {len(load_buildings(destination).buildings)} outlines")
         return
     west, south, east, north = BOUNDS
-    query = f'[out:json][timeout:90];way["building"]({south},{west},{north},{east});out geom;'
-    request = urllib.request.Request(SERVICE, data=urllib.parse.urlencode({"data":query}).encode(),
-                                     headers={"User-Agent":"OpenRoadCode-Detroit-prototype/1.0"})
-    with urllib.request.urlopen(request, timeout=120) as response:
-        raw = response.read(20*1024*1024+1)
-    if len(raw) > 20*1024*1024:
-        raise ValueError("Source response exceeds 20 MB")
-    state, skipped = prepare(json.loads(raw))
+    mid_lon, mid_lat = (west+east)/2, (south+north)/2
+    tiles = [(w,s,e,n) for w,e in ((west,mid_lon),(mid_lon,east))
+             for s,n in ((south,mid_lat),(mid_lat,north))]
+    # Successful tiles survive a failed request or Ctrl+C; never install a partial pack.
+    cache = destination.with_name(destination.name+".download")
+    cache.mkdir(parents=True, exist_ok=True)
+    elements, sources = {}, []
+    for index, bounds in enumerate(tiles):
+        path = cache/f"tile-{index}.json"
+        print(f"Buildings tile {index+1}/{len(tiles)}"+(" (cached)" if path.exists() else ""), flush=True)
+        if path.exists():
+            raw = path.read_bytes()
+        else:
+            raw = request_tile(bounds)
+            temporary = path.with_suffix(".tmp")
+            temporary.write_bytes(raw)
+            temporary.replace(path)
+        reply = json.loads(raw)
+        if reply.get("remark") or not isinstance(reply.get("elements"), list):
+            raise ValueError(f"Invalid cached tile; remove {path} and retry")
+        sources.append(raw)
+        for element in reply["elements"]:
+            elements[(element["type"],element["id"])] = element
+    merged = {"elements":list(elements.values())}
+    state, skipped = prepare(merged)
+    raw = json.dumps(merged).encode()
     content = json.dumps(state.document()).encode()
     if len(content) > 10*1024*1024:
         raise ValueError("Prepared building pack exceeds 10 MB")
@@ -74,6 +122,8 @@ def download(destination):
         prepared.mkdir()
         (prepared/"buildings.json").write_bytes(content)
         (prepared/"source-osm.json").write_bytes(raw)
+        for index, source in enumerate(sources):
+            (prepared/f"source-tile-{index}.json").write_bytes(source)
         (prepared/"manifest.json").write_text(json.dumps(manifest, indent=2))
         load_buildings(prepared)
         prepared.rename(destination)

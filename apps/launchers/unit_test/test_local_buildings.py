@@ -43,7 +43,7 @@ def test_pack_integrity_and_invalid_geometry(tmp_path):
 def test_download_retains_source_and_installs_validated_pack(tmp_path, monkeypatch):
     from io import BytesIO
     from development.maps import download_detroit_buildings as downloader
-    reply = {'elements':[{'type':'way', 'tags':{'building':'yes','height':'50'},
+    reply = {'elements':[{'type':'way', 'id':1, 'tags':{'building':'yes','height':'50'},
         'geometry':[{'lon':-83.05,'lat':42.33}, {'lon':-83.049,'lat':42.33},
                     {'lon':-83.049,'lat':42.331}, {'lon':-83.05,'lat':42.33}]}]}
     monkeypatch.setattr(downloader.urllib.request, 'urlopen',
@@ -53,3 +53,46 @@ def test_download_retains_source_and_installs_validated_pack(tmp_path, monkeypat
     assert load_buildings(destination).buildings[0].height_m == 50
     assert json.loads((destination/'source-osm.json').read_text()) == reply
     assert json.loads((destination/'manifest.json').read_text())['license'] == 'ODbL-1.0'
+
+
+def test_transient_gateway_timeout_retries(monkeypatch):
+    from io import BytesIO
+    from urllib.error import HTTPError
+    from development.maps import download_detroit_buildings as downloader
+    calls, delays = [], []
+
+    def respond(*args, **kwargs):
+        calls.append(1)
+        if len(calls) < 3:
+            raise HTTPError(downloader.SERVICE,504,'Gateway Timeout',{},None)
+        return BytesIO(b'{"elements":[]}')
+
+    monkeypatch.setattr(downloader.urllib.request,'urlopen',respond)
+    monkeypatch.setattr(downloader.time,'sleep',delays.append)
+    assert json.loads(downloader.request_tile(downloader.BOUNDS)) == {'elements':[]}
+    assert len(calls) == 3
+    assert delays == [2,4]
+
+
+def test_failed_tile_resumes_without_installing_partial_pack(tmp_path, monkeypatch):
+    from development.maps import download_detroit_buildings as downloader
+    calls = []
+
+    def interrupted(bounds):
+        calls.append(bounds)
+        if len(calls) == 2:
+            raise TimeoutError('busy')
+        return b'{"elements":[]}'
+
+    monkeypatch.setattr(downloader,'request_tile',interrupted)
+    destination = tmp_path/'pack'
+    with pytest.raises(TimeoutError):
+        downloader.download(destination)
+    assert not destination.exists()
+    assert (tmp_path/'pack.download/tile-0.json').exists()
+    calls.clear()
+    monkeypatch.setattr(downloader,'request_tile',lambda bounds: calls.append(bounds) or b'{"elements":[]}')
+    with pytest.raises(ValueError, match='1–10000'):
+        downloader.download(destination)  # Empty coverage must not become an installed pack.
+    assert len(calls) == 3
+    assert not destination.exists()

@@ -186,7 +186,10 @@ python -m apps.launchers.component_test.cesium_viewer_cli --display :1
 The installed pack is auto-detected. `--no-buildings` hides it;
 `--buildings PATH` selects another pack with the same validated format.
 No network requests are made by the building renderer. The source download uses
-one bounded Overpass query and can fail if the public service is busy; retry later.
+four smaller Overpass queries, with up to three attempts per tile for transient
+errors. Completed tiles are cached beside the pack in a `.download` directory, so
+rerunning resumes after a timeout. No partial pack is installed. The public
+service can still be unavailable; retry later if all attempts fail.
 The downloader never silently installs an incomplete server response.
 
 Coverage matches the Detroit imagery and terrain rectangle. This prototype uses
