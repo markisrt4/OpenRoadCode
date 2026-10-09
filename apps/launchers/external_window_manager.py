@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import os
+import re
 import shutil
 import subprocess
 import time
@@ -123,26 +124,81 @@ class ExternalWindowManager:
         return True
 
     def wait_for_window_id(self, *, display: str, window_class: str) -> str | None:
-        """Wait briefly for a window whose WM_CLASS contains window_class."""
+        """Wait briefly for a window whose WM_CLASS contains window_class.
+
+        ``wmctrl -lx`` is the normal fast path. Some Termux X11/XFCE Chromium
+        windows appear in ``_NET_CLIENT_LIST`` but are omitted from that output,
+        so fall back to querying each root client with ``xprop``.
+        """
         if not self._tools_available("wmctrl"):
             return None
         expected_class = window_class.casefold()
         environment = x11_environment(display)
         deadline = time.monotonic() + self._window_timeout_seconds
         while time.monotonic() < deadline:
-            result = subprocess.run(
-                ["wmctrl", "-lx"],
+            window_id = self._find_window_id_with_wmctrl(
+                environment=environment,
+                expected_class=expected_class,
+            )
+            if window_id is not None:
+                return window_id
+
+            if self._tools_available("xprop"):
+                window_id = self._find_window_id_from_root_clients(
+                    environment=environment,
+                    expected_class=expected_class,
+                )
+                if window_id is not None:
+                    return window_id
+
+            time.sleep(0.1)
+        return None
+
+    @staticmethod
+    def _find_window_id_with_wmctrl(
+        *,
+        environment: dict[str, str],
+        expected_class: str,
+    ) -> str | None:
+        result = subprocess.run(
+            ["wmctrl", "-lx"],
+            env=environment,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            text=True,
+            check=False,
+        )
+        for line in result.stdout.splitlines():
+            fields = line.split(maxsplit=4)
+            if len(fields) >= 3 and expected_class in fields[2].casefold():
+                return fields[0]
+        return None
+
+    @staticmethod
+    def _find_window_id_from_root_clients(
+        *,
+        environment: dict[str, str],
+        expected_class: str,
+    ) -> str | None:
+        root_clients = subprocess.run(
+            ["xprop", "-root", "_NET_CLIENT_LIST"],
+            env=environment,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            text=True,
+            check=False,
+        )
+        for window_id in re.findall(r"0x[0-9a-fA-F]+", root_clients.stdout):
+            window_class = subprocess.run(
+                ["xprop", "-id", window_id, "WM_CLASS"],
                 env=environment,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.DEVNULL,
                 text=True,
                 check=False,
             )
-            for line in result.stdout.splitlines():
-                fields = line.split(maxsplit=4)
-                if len(fields) >= 3 and expected_class in fields[2].casefold():
-                    return fields[0]
-            time.sleep(0.1)
+            if expected_class in window_class.stdout.casefold():
+                return window_id
         return None
 
     @staticmethod

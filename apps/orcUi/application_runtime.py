@@ -11,6 +11,7 @@ from pathlib import Path
 
 from apps.common.spotify_controller_factory import create_spotify_controller
 from apps.launchers.browser_app_factory import BrowserApplicationFactory
+from apps.launchers.google_earth_launcher import GoogleEarthLauncher
 from apps.launchers.managed_sdrpp_launcher import ManagedSDRPPLauncher
 from apps.launchers.sdrpp_launcher import SDRPPProfile
 from apps.orcUi.media_application_service import MediaApplicationService
@@ -35,6 +36,7 @@ class OrcUiApplicationRuntime:
     radio: ManagedRadioApplicationService
     streaming_radio: StreamingRadioController
     media: MediaApplicationService
+    earth: GoogleEarthLauncher | None = None
 
     def start_background_apps(self) -> None:
         """Apply configured external-app policy and start shared media work."""
@@ -65,6 +67,11 @@ def create_orc_ui_application_runtime() -> OrcUiApplicationRuntime:
     browser_factory = BrowserApplicationFactory(config)
     manager.register("youtube", browser_factory.create("youtube"))
     manager.register("netflix", browser_factory.create("netflix"))
+    earth_config = config.app("google_earth")
+    earth = (GoogleEarthLauncher(browser=browser_factory.create("google_earth"))
+             if earth_config.enabled else None)
+    if earth is not None:
+        manager.register("google_earth", earth)
 
     radio = ManagedRadioApplicationService(
         manager,
@@ -78,7 +85,9 @@ def create_orc_ui_application_runtime() -> OrcUiApplicationRuntime:
         radio=radio,
         streaming_radio=streaming_radio,
         media=media,
+        earth=earth,
     )
+
 
 
 def _applications_config_path() -> Path:

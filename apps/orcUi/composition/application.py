@@ -12,6 +12,7 @@ from controllers.weather.radar_palette import RadarPalette
 
 from apps.orcUi.application_runtime import OrcUiApplicationRuntime, create_orc_ui_application_runtime
 from apps.orcUi.composition.core import CoreComposition, create_core_composition
+from apps.orcUi.navigation_map_runtime import NavigationMapRuntime
 from apps.orcUi.composition.games import configure_games
 from apps.orcUi.composition.navigation_places import NavigationPlacesFactory
 from apps.orcUi.composition.tooltips import TooltipFactory
@@ -129,6 +130,7 @@ def create_orc_ui_composition() -> OrcUiComposition:
     games: GamesScreen | None = None
     vision: VisionComposition | None = None
     media: MediaComposition | None = None
+    navigation_maps: NavigationMapRuntime | None = None
     try:
         core = create_core_composition()
         app = core.app
@@ -292,11 +294,15 @@ def create_orc_ui_composition() -> OrcUiComposition:
     except Exception:
         try:
             try:
-                if navigation_places is not None:
-                    navigation_places.close()
+                if navigation_maps is not None:
+                    navigation_maps.close()
             finally:
-                if radar_replay is not None:
-                    radar_replay.close()
+                try:
+                    if navigation_places is not None:
+                        navigation_places.close()
+                finally:
+                    if radar_replay is not None:
+                        radar_replay.close()
         finally:
             try:
                 if overlays is not None:

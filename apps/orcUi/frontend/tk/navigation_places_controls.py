@@ -190,6 +190,12 @@ class NavigationPlacesControls:
         return self._online_mode is None or self._online_mode.online
 
     def _refresh_poi_action_buttons(self) -> None:
+        if self._earth_button is not None and self._earth_button.winfo_exists():
+            enabled = self.online_actions_allowed and not self._poi_launching
+            self._earth_button.configure(state=tk.NORMAL if enabled else tk.DISABLED)
+            icon = self.__dict__.get("_earth_icon")
+            if icon is not None:
+                self._earth_button.configure(image=icon if enabled else self._earth_offline_icon)
         for button in self._poi_action_buttons:
             if button.winfo_exists():
                 button.configure(state=tk.NORMAL if self.online_actions_allowed and not self._poi_launching else tk.DISABLED)
