@@ -119,3 +119,31 @@ class EarthPoiControlTest(unittest.TestCase):
     def test_place_without_earth_action_has_no_globe(self):
         poi = PointOfInterest("unavailable", "Unavailable", PoiCategory.OTHER, GeoPoint(0, 0))
         self.assertIsNone(self.show(poi))
+
+    def test_local_3d_button_remains_enabled_offline_and_launches_selected_place(self):
+        from dataclasses import replace
+        action = PoiAction(PoiActionKind.EXPLORE_3D, 'Offline 3D', provider_id='local-3d')
+        selected = replace(self.poi, actions=self.poi.actions+(action,))
+        self.panel._online_mode = Mock(online=False)
+        self.show(selected)
+        button = self.panel._local_3d_button
+        self.assertEqual(str(self.panel._earth_button.cget('state')), 'disabled')
+        self.assertEqual(str(button.cget('state')), 'normal')
+        self.assertEqual(button.cget('text'), '3D Map')
+        self.assertLessEqual(button.winfo_rootx()+button.winfo_width(),
+                             self.panel._poi_card.winfo_rootx()+self.panel._poi_card.winfo_width())
+        button.invoke()
+        self.places.request_action.assert_called_once_with(selected, action)
+        self.assertEqual(str(button.cget('state')), 'disabled')
+
+
+class Local3DOfflineRequestTest(unittest.TestCase):
+    def test_local_3d_request_does_not_require_online_mode(self):
+        from apps.orcUi.frontend.tk.navigation_poi_actions import execute_poi_action
+        panel = Mock(online_actions_allowed=False, _poi_launching=False)
+        panel._places_handler.request_action.return_value = 1
+        action = PoiAction(PoiActionKind.EXPLORE_3D,'Offline 3D',provider_id='local-3d')
+        poi = PointOfInterest('local','Place',PoiCategory.OTHER,GeoPoint(.7,-1.4))
+        execute_poi_action(panel,poi,action)
+        panel._places_handler.request_action.assert_called_once_with(poi,action)
+        self.assertTrue(panel._poi_launching)

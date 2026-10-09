@@ -6,6 +6,7 @@ from collections.abc import Callable
 from weakref import WeakSet
 
 from apps.launchers.android_app_launcher import AndroidAppLauncher
+from apps.launchers.cesium_poi_actions import CesiumPoiActions
 from apps.launchers.earth_exploration_actions import EarthExplorationActions
 from controllers.navigation.map_favorites import MapFavorites
 from controllers.poi.android_poi_action_executor import AndroidPoiActionExecutor
@@ -24,7 +25,9 @@ class NavigationPlacesFactory(NavigationPlacesFactoryIf):
                  search_factory: Callable[[], PoiSearchControllerIf] = PoiSearchController,
                  online_allowed: Callable[[], bool] = lambda: True, camera_observer=None):
         self._favorites = favorites if favorites is not None else MapFavorites()
-        self._actions = actions if actions is not None else EarthExplorationActions(AndroidPoiActionExecutor(AndroidAppLauncher()))
+        self._owned_3d = None if actions is not None else CesiumPoiActions(
+            EarthExplorationActions(AndroidPoiActionExecutor(AndroidAppLauncher())))
+        self._actions = actions if actions is not None else self._owned_3d
         self._search_factory = search_factory
         self._sessions = WeakSet()
         self._closed = False
@@ -37,7 +40,8 @@ class NavigationPlacesFactory(NavigationPlacesFactoryIf):
         # Match the previous per-mount store construction: pick up saved-place edits.
         self._favorites.load()
         session = NavigationPlacesController(self._search_factory(), self._favorites, self._actions,
-                                             online_allowed=self._online_allowed, camera_observer=self._camera_observer)
+                                             online_allowed=self._online_allowed, camera_observer=self._camera_observer,
+                                             local_3d_action=self._owned_3d.action_for if self._owned_3d is not None else None)
         self._sessions.add(session)
         return session
 
@@ -53,5 +57,10 @@ class NavigationPlacesFactory(NavigationPlacesFactoryIf):
             except Exception as caught:
                 error = error or caught
         self._sessions.clear()
+        if self._owned_3d is not None:
+            try:
+                self._owned_3d.close()
+            except Exception as caught:
+                error = error or caught
         if error is not None:
             raise error

@@ -302,6 +302,14 @@ def show_poi_card(panel, poi) -> None:
     if earth_action is not None:
         build_earth_control(panel, buttons, poi, earth_action, tk)
 
+    local_action = next((a for a in poi.actions if a.kind is PoiActionKind.EXPLORE_3D), None)
+    panel._local_3d_button = None
+    if local_action is not None:
+        panel._local_3d_button = build_poi_icon_button(
+            panel, buttons, "earth.png", "3D Map",
+            lambda: panel._execute_poi_action(poi, local_action), tk)
+        panel._add_tooltip(panel._local_3d_button, "Offline 3D exploration; detailed data covers downtown Detroit")
+
     build_poi_icon_button(panel, buttons, "close.png", "Close", popup.destroy, tk)
 
     extra_buttons = tk.Frame(frame, bg=ui.surface_alt)

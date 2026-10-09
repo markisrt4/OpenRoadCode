@@ -153,3 +153,16 @@ def test_selected_place_gets_one_earth_link_in_degrees_preserving_actions():
     search.poll_selected.return_value = selected
     assert len(controller.poll_selected().actions) == 2
     assert poi.actions == (website,)
+
+
+def test_local_3d_action_is_selected_and_allowed_offline():
+    selected = PointOfInterest('poi','Offline place',PoiCategory.OTHER,GeoPoint(.7,-1.4))
+    search, executor = Mock(), Mock()
+    search.poll_selected.return_value = selected
+    action = PoiAction(PoiActionKind.EXPLORE_3D,'Offline 3D',provider_id='local-3d')
+    controller = NavigationPlacesController(search,Mock(),executor,online_allowed=lambda:False,
+                                            local_3d_action=lambda poi:action)
+    assert action in controller.poll_selected().actions
+    assert controller.execute(selected,action) is executor.execute.return_value
+    with pytest.raises(ValueError,match='Offline mode'):
+        controller.execute(selected,PoiAction(PoiActionKind.OPEN_WEBSITE,'Website'))

@@ -114,6 +114,11 @@
     bindVisibility('buildings', buildings?.source);
     bindVisibility('references', references);
     reset();
+    const imageCoverage = snapshot.imagery;
+    const insideImagery = imageCoverage && snapshot.longitude_rad >= imageCoverage.west_rad
+      && snapshot.longitude_rad <= imageCoverage.east_rad && snapshot.latitude_rad >= imageCoverage.south_rad
+      && snapshot.latitude_rad <= imageCoverage.north_rad;
+    const coverageLabel = imageCoverage && !insideImagery ? 'Selected place outside installed imagery coverage · ' : '';
     const terrainLabel = terrain ? 'relative relief (~100 m samples)' : 'terrain not installed';
     status.textContent = `Offline reference globe · imagery not installed · ${terrainLabel} · ${buildingLabel}`;
     if (snapshot.imagery) {
@@ -132,7 +137,7 @@
         }));
         viewer.imageryLayers.addImageryProvider(provider);
         viewer.scene.requestRender();
-        status.textContent = `Offline · ${layer.title} · ${terrainLabel} · ${buildingLabel}`;
+        status.textContent = `Offline · ${coverageLabel}${layer.title} · ${terrainLabel} · ${buildingLabel}`;
       } catch (error) {
         if (!closing) status.textContent = 'Imagery unavailable: '+error.message+' · reference globe remains usable';
       }

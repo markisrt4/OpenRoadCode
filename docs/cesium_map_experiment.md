@@ -219,3 +219,25 @@ buttons indicate visible layers. Buildings is disabled when no building pack is
 installed. The attribution remains visible when buildings are hidden. Reset view
 restores the camera, preserving layer choices; `--distance-m` overrides the initial
 viewing distance. The control rail scrolls on short screens.
+
+### Launch from an ORC POI
+
+The selected-place popup now includes a separate **3D Map** icon beside Navigate
+and Earth. It centers the local viewer on that POI, labeled with its name. The
+Google Earth button retains its ordinary online browser behavior. 3D Map works
+in offline mode, uses only installed SDK/data, and never downloads new coverage.
+If the selected place is outside installed imagery coverage, the viewer footer
+says so; missing data leaves the reference globe usable. Detailed data currently
+covers the downtown Detroit rectangle only. An absent SDK or invalid pack reports
+a launch failure in ORC; run the documented installers before using this action.
+
+**Return to ORC** or the viewer window's close button closes the local viewer. ORC
+owns the isolated profile, browser and loopback server and cleans them up when the
+application exits. Only one local 3D viewer may run at a time. Close it before
+selecting another place. This stage is destination exploration, without live
+vehicle following, route overlays, or replacement of the normal MapLibre map.
+
+Device validation: open a downtown Detroit POI in NAV, choose 3D Map, toggle
+Buildings/Grid and return. Repeat in offline mode, then select a POI outside the
+Detroit pack to confirm the coverage warning. Close ORC while a viewer is open
+and confirm its window also closes.

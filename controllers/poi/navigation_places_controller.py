@@ -20,13 +20,14 @@ from ui.navigation.poi_models import PoiAction, PoiActionKind, PoiCategory, PoiS
 class NavigationPlacesController(NavigationPlacesRequestHandlerIf):
     """Own one search session while sharing durable favorites and action adapters."""
 
-    def __init__(self, search: PoiSearchControllerIf, favorites: MapFavorites, actions: PoiActionExecutorIf, *, online_allowed: Callable[[], bool] = lambda: True, camera_observer=None):
+    def __init__(self, search: PoiSearchControllerIf, favorites: MapFavorites, actions: PoiActionExecutorIf, *, online_allowed: Callable[[], bool] = lambda: True, camera_observer=None, local_3d_action=None):
         self._search = search
         self._favorites = favorites
         self._actions = actions
         self._closed = False
         self._online_allowed = online_allowed
         self._camera_observer = camera_observer
+        self._local_3d_action = local_3d_action
         self._action_results = SimpleQueue()
         self._action_lock = threading.Lock()
         self._action_pending = False
@@ -60,7 +61,12 @@ class NavigationPlacesController(NavigationPlacesRequestHandlerIf):
                            uri=(f"https://earth.google.com/web/@{latitude:.7f},{longitude:.7f},"
                                 "0a,1000d,35y,0h,45t,0r"))
         actions = tuple(a for a in poi.actions if a.provider_id != "google-earth-explore")
-        return replace(poi, actions=actions + (action,))
+        actions = actions + (action,)
+        if self._local_3d_action is not None:
+            local_action = self._local_3d_action(poi)
+            if local_action is not None:
+                actions = tuple(a for a in actions if a.kind is not PoiActionKind.EXPLORE_3D) + (local_action,)
+        return replace(poi, actions=actions)
 
     def poll_camera_interaction(self) -> bool:
         return False if self._closed else self._search.poll_camera_interaction()
@@ -68,7 +74,7 @@ class NavigationPlacesController(NavigationPlacesRequestHandlerIf):
     def execute(self, poi: PointOfInterest, action: PoiAction) -> str:
         if self._closed:
             raise RuntimeError('Navigation places session is closed')
-        if not self._online_allowed():
+        if action.kind is not PoiActionKind.EXPLORE_3D and not self._online_allowed():
             raise ValueError('Offline mode: go online to order or open websites')
         try:
             return self._actions.execute(poi, action)
