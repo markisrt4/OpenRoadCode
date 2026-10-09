@@ -5,12 +5,16 @@
 
 from __future__ import annotations
 
+import logging
+
 from collections.abc import Callable
 import time
 from typing import Protocol
 
 from controllers.weather.weather_provider_if import WeatherProviderIf
 from controllers.weather.weather_state import WeatherLocation, WeatherState
+from controllers.weather.weather_logging import WeatherLog
+from common.logging.structured import current_operation, operation
 
 
 class WeatherLocationProviderIf(Protocol):
@@ -35,6 +39,7 @@ class WeatherController:
         self._fallback_location = fallback_location
         self._clock = clock
         self._last_state: WeatherState | None = None
+        self._log = WeatherLog("weather.forecast")
 
     @property
     def provider_id(self) -> str:
@@ -44,13 +49,22 @@ class WeatherController:
         return self._last_state
 
     def refresh(self) -> WeatherState:
+        operation_id = self._log.requested()
         if not self._network_allowed():
             if self._last_state is not None:
+                self._log.emit(logging.DEBUG, "weather.cache_used", "Offline weather cache used", operation_id)
                 return self._last_state
+            self._log.failed(operation_id=operation_id, reason="offline_without_cache")
             raise RuntimeError("Offline mode: no cached weather available")
-        location = self._resolve_location()
-        state = self._provider.refresh(location)
+        with operation(operation_id):
+            try:
+                location = self._resolve_location()
+                state = self._provider.refresh(location)
+            except Exception as error:
+                self._log.failed(error, operation_id)
+                raise
         self._last_state = state
+        self._log.succeeded(operation_id)
         return state
 
     def refresh_if_stale(self, max_age_seconds: float) -> WeatherState:
@@ -58,19 +72,25 @@ class WeatherController:
             raise ValueError("max_age_seconds cannot be negative")
         cached = self._last_state
         if cached is not None and self._clock() - cached.fetched_at <= max_age_seconds:
+            self._log.emit(logging.DEBUG, "weather.cache_used", "Fresh weather cache used")
             return cached
-        try:
-            return self.refresh()
-        except Exception:
-            if cached is not None:
-                return cached
-            raise
+        with operation(current_operation()):
+            try:
+                return self.refresh()
+            except Exception:
+                if cached is not None:
+                    self._log.emit(logging.DEBUG, "weather.cache_used", "Previous weather cache used after failure")
+                    return cached
+                raise
 
     def _resolve_location(self) -> WeatherLocation:
         if self._location_provider is not None:
             try:
-                return self._location_provider.get_location()
-            except Exception:
+                location = self._location_provider.get_location()
+                self._log.succeeded(stage="location")
+                return location
+            except Exception as error:
+                self._log.failed(error, stage="location")
                 pass
         # Reuse the last resolved position when GPS is temporarily unavailable.
         if self._last_state is not None:

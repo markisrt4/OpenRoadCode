@@ -217,6 +217,12 @@ installed-service behavior still need platform smoke testing.
 
 ## Quality gates
 
+Weather instrumentation uses the `weather` prefix for forecasts, city/model/route
+overlays, radar replay and tile caching. Weather logging tests exercise private
+provider failures, recovery, request IDs across workers/callbacks, quiet cache
+behavior, and stale result rejection. See the
+[weather logging guide](../../controllers/weather/README.md#structured-logging).
+
 The service-manager performance sampler uses `runtime.performance` for start,
 stop, sampling failure, and recovery events. Host, process, and service sampling
 failures are reported separately; repeated failures of the same type and routine

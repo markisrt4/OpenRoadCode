@@ -90,7 +90,7 @@ jobs:
 
       - name: Install logging test dependencies
         run: |
-          python -m pip install pytest requests pyzmq
+          python -m pip install pytest requests pyzmq Pillow
           sudo apt-get update
           sudo apt-get install --yes cmake pkg-config libspdlog-dev rapidjson-dev libzmq3-dev cppzmq-dev
 

@@ -11,6 +11,7 @@ from io import BytesIO
 from pathlib import Path
 from threading import Lock, Thread
 from urllib.parse import parse_qs, urlparse
+import logging
 
 import requests
 from PIL import Image, ImageDraw
@@ -20,6 +21,10 @@ from controllers.weather.radar_palette import RadarPalette
 from controllers.weather.radar_tile_status import RadarTileStatus
 from controllers.weather.radar_provider_if import RadarFrame
 from controllers.weather.hrrr_tiles import HrrrTileSource, color_hrrr_reflectivity
+from controllers.weather.weather_logging import WeatherLog
+from common.logging.structured import event, operation
+
+LOGGER = logging.getLogger("weather.radar.tiles")
 
 
 # Representative points from RainViewer's published Universal Blue dBZ table.
@@ -108,6 +113,7 @@ class RadarTileService:
         self._retries: dict[str, int] = {}
         self._cache_locks_guard = Lock()
         self._cache_locks: dict[Path, Lock] = {}
+        self._log = WeatherLog("weather.radar.tiles")
 
         service = self
 
@@ -117,10 +123,14 @@ class RadarTileService:
                 key = key[0] if key else ""
                 tile_id = urlparse(self.path).path
                 service._begin_tile(key)
+                operation_id = service._log.requested()
                 try:
-                    data = service._handle_path(self.path)
-                    echoes = service._png_has_echoes(data)
+                    with operation(operation_id):
+                        data = service._handle_path(self.path)
+                        echoes = service._png_has_echoes(data)
+                        service._log.succeeded(stage="tile")
                 except (OSError, ValueError, RuntimeError, requests.RequestException) as error:
+                    service._log.failed(error, operation_id, stage="tile")
                     service._finish_tile(key, str(error), tile_id=tile_id)
                     try:
                         self.send_error(502, str(error))
@@ -145,12 +155,14 @@ class RadarTileService:
         self._server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
         self._thread = Thread(target=self._server.serve_forever, name="radar-tile-service", daemon=True)
         self._thread.start()
+        self._log.emit(logging.INFO, "tiles.started", "Local weather tile service started")
 
     def close(self) -> None:
         self._server.shutdown()
         self._server.server_close()
         self._thread.join(timeout=1.0)
         self._session.close()
+        self._log.emit(logging.INFO, "tiles.stopped", "Local weather tile service stopped")
 
     def tile_url(self, frame: RadarFrame, palette: RadarPalette) -> str:
         key = self._frame_key(frame)
@@ -356,22 +368,33 @@ class RadarTileService:
             cached = self._cached_png(path)
             if cached is not None:
                 return cached
-            response = self._session.get(url, timeout=self._timeout_seconds)
-            response.raise_for_status()
-            data = response.content
-            self._png_has_echoes(data)
-            self._write_cache(path, data)
+            operation_id = self._log.requested()
+            try:
+                response = self._session.get(url, timeout=self._timeout_seconds)
+                response.raise_for_status()
+                data = response.content
+                self._png_has_echoes(data)
+                self._write_cache(path, data)
+            except Exception as error:
+                self._log.failed(error, operation_id, stage="download")
+                raise
+            self._log.succeeded(operation_id, stage="download", byte_count=len(data))
             return data
 
     @classmethod
     def _cached_png(cls, path: Path) -> bytes | None:
         if not path.is_file():
+            event(LOGGER, logging.DEBUG, "tiles.cache_miss", "Weather tile cache miss")
             return None
         data = path.read_bytes()
         try:
             cls._png_has_echoes(data)
+            event(LOGGER, logging.DEBUG, "tiles.cache_hit", "Weather tile cache hit")
             return data
         except (OSError, ValueError):
+            # No path, XYZ coordinate, frame key, or corrupt content is retained.
+            event(LOGGER, logging.DEBUG,
+                  "tiles.cache_invalid", "Invalid weather tile cache entry discarded")
             path.unlink(missing_ok=True)
             return None
 
