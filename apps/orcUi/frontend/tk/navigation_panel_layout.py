@@ -306,7 +306,7 @@ def show_poi_card(panel, poi) -> None:
     panel._local_3d_button = None
     if local_action is not None:
         panel._local_3d_button = build_poi_icon_button(
-            panel, buttons, "earth.png", "3D Map",
+            panel, buttons, "map_3d.png", "3D Map",
             lambda: panel._execute_poi_action(poi, local_action), tk)
         panel._add_tooltip(panel._local_3d_button, "Offline 3D exploration; detailed data covers downtown Detroit")
 
