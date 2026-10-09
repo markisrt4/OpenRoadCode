@@ -14,9 +14,7 @@ def build_navigation_panel(panel) -> None:
     panel.grid_rowconfigure(1, weight=1)
     panel.grid_rowconfigure(2, weight=0)
     panel.grid_columnconfigure(0, weight=1)
-    bar = tk.Frame(
-        panel, bg=ui.surface_alt, height=38, highlightthickness=1, highlightbackground=ui.border
-    )
+    bar = tk.Frame(panel, bg=ui.surface_alt, height=38, highlightthickness=0)
     bar.grid(row=0, column=0, sticky="ew", pady=(0, 4))
     bar.grid_propagate(False)
     shortcuts = tk.Frame(bar, bg=ui.surface_alt)
@@ -29,9 +27,11 @@ def build_navigation_panel(panel) -> None:
                   command=lambda selected=key: panel._destination_shortcut(selected),
                   bg=ui.control_background, fg=accent, activebackground=ui.control_active,
                   activeforeground=ui.control_text, relief=tk.FLAT,
+                  bd=0, highlightthickness=0,
                   font=("Sans", 9, "bold"), padx=7, pady=3).pack(side=tk.LEFT, padx=(0, 4))
     places = tk.Menubutton(shortcuts, text="Places ▾", bg=ui.control_background,
-                           fg=ui.text, relief=tk.FLAT, font=("Sans", 9, "bold"), padx=7, pady=3)
+                           fg=ui.text, relief=tk.FLAT, bd=0, highlightthickness=0,
+                           font=("Sans", 9, "bold"), padx=7, pady=3)
     places_menu = tk.Menu(places, tearoff=False, bg=ui.control_background, fg=ui.control_text)
     for label, key in (("Gas stations", "gas"), ("Groceries", "grocery"), ("Food", "food")):
         places_menu.add_command(label=label, command=lambda selected=key: panel._destination_shortcut(selected))
