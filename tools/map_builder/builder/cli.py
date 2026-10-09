@@ -10,6 +10,7 @@ import json
 import os
 from pathlib import Path
 import sys
+import subprocess
 import time
 
 from .build import OUTPUT_ROOT, _write_manifest, build_regions
@@ -157,6 +158,9 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="write a fresh manifest after successful validation; requires --regions",
     )
+    map3d = sub.add_parser("3d", help="build optional 3D buildings from installed navigation sources")
+    map3d.add_argument("--coverage", choices=("detroit-downtown","detroit-midtown"))
+    map3d.add_argument("--yes", action="store_true", help="confirm non-interactive 3D build; requires --coverage")
     sub.add_parser("list", help="list selectable Geofabrik region IDs")
     return parser.parse_args()
 
@@ -165,6 +169,50 @@ def main() -> int:
     args = parse_args()
     command = args.command or "tui"
     try:
+        if command == "3d":
+            from .map_3d import PRESETS, build_pack
+            from .map_3d_menu import choose_coverage
+            if args.yes and not args.coverage:
+                raise ValueError("--yes requires --coverage")
+            coverage = args.coverage or choose_coverage()
+            if coverage is None:
+                print("Cancelled")
+                return 0
+            previous_path = OUTPUT_ROOT / "build-manifest.json"
+            previous = json.loads(previous_path.read_text())
+            if previous.get("schema") != 2:
+                raise ValueError("Build a validated schema-2 navigation dataset before adding 3D packs")
+            validate_output(OUTPUT_ROOT, service_smoke=False)
+            print(f"Coverage: {PRESETS[coverage][0]} · {PRESETS[coverage][1]}")
+            print("Layer: buildings. Uses existing OSM sources; no download. Output size is known after extraction.")
+            print("Limit: 8 tiles, 10 MiB geometry each plus metadata; complex polygons are omitted.")
+            if not args.yes and input("Build this optional pack now? [y/N] ").strip().lower() != 'y':
+                print("Cancelled")
+                return 0
+            existing = OUTPUT_ROOT/'maps/3d/packs'/coverage
+            if existing.exists():
+                from .map_3d import validate_pack
+                record = validate_pack(existing)
+                if (previous.get('map_3d') or {}).get(coverage) != record:
+                    raise ValueError('Existing 3D pack is not certified by the dataset manifest; validate it before publishing')
+                print(f"Reusing certified 3D pack: {record['buildings']} buildings, {format_size(record['bytes'])}")
+                return 0
+            # A complete dataset must not retain a valid old certificate while being changed.
+            previous_path.unlink()
+            destination = build_pack(OUTPUT_ROOT, coverage)
+            result = validate_output(OUTPUT_ROOT, service_smoke=False)
+            # Preserve region/search metadata while certifying all new artifacts.
+            previous['validation'] = result
+            previous['map_3d'] = result['map_3d']
+            previous['deployable_bytes'] = sum(p.stat().st_size for p in OUTPUT_ROOT.rglob('*') if p.is_file() and p.name != 'build-manifest.json')
+            previous['generated_unix'] = max(int(time.time()),previous.get('generated_unix',0)+1)
+            temporary = previous_path.with_suffix('.tmp')
+            temporary.write_text(json.dumps(previous,indent=2))
+            temporary.replace(previous_path)
+            record = result['map_3d'][coverage]
+            print(f"3D pack built: {record['buildings']} buildings, {format_size(record['bytes'])} at {destination}")
+            print("Publish and pull using the existing navigation deployment tools.")
+            return 0
         if command == "validate":
             if args.write_manifest and not args.regions:
                 raise ValueError("--write-manifest requires --regions")
@@ -245,12 +293,15 @@ def main() -> int:
         else:
             print_build_summary(selected, elapsed)
         return 0
-    except (ValueError, ValidationError, RuntimeError) as exc:
+    except (OSError, ValueError, ValidationError, RuntimeError, subprocess.SubprocessError) as exc:
         print("\n========================================", file=sys.stderr)
         print(" OpenRoadCode navigation data: FAIL", file=sys.stderr)
         print("========================================", file=sys.stderr)
         print(f"  Reason: {exc}", file=sys.stderr)
         return 2
+    except EOFError:
+        print("Cancelled", file=sys.stderr)
+        return 0
     except KeyboardInterrupt:
         print("\nCancelled", file=sys.stderr)
         return 130

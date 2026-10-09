@@ -1,11 +1,12 @@
 """Verified local tile mounts, with no acquisition or renderer dependencies."""
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 import hashlib
 import json
 import math
 from pathlib import Path
 import re
 
+from common.navigation_data import navigation_data_root
 from common.xdg_paths import openroadcode_data_dir
 from ui.navigation.local_imagery_state import LocalImageryState
 from ui.navigation.local_map_tiles_state import LocalMapTile, LocalMapTilesState
@@ -13,6 +14,18 @@ from ui.navigation.local_map_tiles_state import LocalMapTile, LocalMapTilesState
 
 def detroit_tiles_directory():
     return openroadcode_data_dir('map-packs','detroit-midtown-tiles-v1')
+
+
+def preferred_tiles_directory():
+    directory = navigation_data_root()/'maps/3d/packs'
+    if directory.exists():
+        packs = sorted(p for p in directory.iterdir() if p.is_dir() and not p.name.startswith('.'))
+        preferred = directory/'detroit-midtown'
+        if preferred in packs:
+            return preferred
+        if packs:
+            return packs[0]
+    return detroit_tiles_directory()
 
 
 def coverage(title, attribution, bounds):
@@ -44,7 +57,10 @@ class LocalMapTilesPack:
             if type(count) is not int or not 0 <= count <= 10000:
                 raise ValueError('Invalid tile building count')
             mounted = {}
-            for name, limit in (('imagery.jpg',20*1024*1024),('buildings.json',10*1024*1024)):
+            assets = [('buildings.json',10*1024*1024)]
+            if 'imagery.jpg' in tile['sha256']:
+                assets.append(('imagery.jpg',20*1024*1024))
+            for name, limit in assets:
                 path = (root/tile_id/name).resolve()
                 if not path.is_relative_to(root) or not path.is_file() or path.stat().st_size > limit:
                     raise ValueError('Tile asset outside pack or oversized')
@@ -54,5 +70,24 @@ class LocalMapTilesPack:
                     raise ValueError('Tile asset checksum mismatch')
                 mounted[name] = path
             files[tile_id] = mounted
-            tiles.append(LocalMapTile(tile_id,local,count))
+            tiles.append(LocalMapTile(tile_id,local,count,'imagery.jpg' in mounted))
         return cls(LocalMapTilesState(state,tuple(tiles)),files)
+
+
+def load_viewer_tiles(directory):
+    """Reuse matching previously downloaded aerial tiles with builder-owned geometry."""
+    pack = LocalMapTilesPack.load(directory)
+    cached = detroit_tiles_directory()
+    if any(t.imagery_available for t in pack.state.tiles) or not cached.exists() or cached.resolve() == Path(directory).resolve():
+        return pack
+    imagery = LocalMapTilesPack.load(cached)
+    tiles, files = [], {key:dict(value) for key,value in pack.files.items()}
+    for tile in pack.state.tiles:
+        matching = next((other for other in imagery.state.tiles if other.imagery_available
+            and all(math.isclose(getattr(tile.coverage,k),getattr(other.coverage,k),abs_tol=1e-10)
+                    for k in ('west_rad','south_rad','east_rad','north_rad'))),None)
+        if matching is not None:
+            files[tile.tile_id]['imagery.jpg'] = imagery.files[matching.tile_id]['imagery.jpg']
+            tile = replace(tile,coverage=matching.coverage,imagery_available=True)
+        tiles.append(tile)
+    return LocalMapTilesPack(replace(pack.state,tiles=tuple(tiles)),files)

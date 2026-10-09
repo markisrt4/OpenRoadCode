@@ -69,7 +69,8 @@
     if (buildings) buildings.source.show = snapshot.buildings_visible;
     tiledMap = snapshot.map_tiles ? window.ORCLocalMapTiles(viewer, snapshot.map_tiles, C,
       terrain?.heightAt, snapshot.buildings_visible) : null;
-    const buildingLabel = buildings ? buildings.label : "buildings not installed";
+    const buildingLabel = tiledMap ? "Tiled buildings: blue tagged, gold floor estimates, brown 9 m placeholders"
+      : buildings ? buildings.label : "buildings not installed";
     function bindVisibility(id, source) {
       const button = document.getElementById(id);
       button.disabled = !source;
@@ -117,15 +118,20 @@
     bindVisibility('buildings', tiledMap || buildings?.source);
     bindVisibility('references', references);
     reset();
-    const imageCoverage = snapshot.map_tiles?.coverage || snapshot.imagery;
+    const imageCoverage = snapshot.imagery || (snapshot.map_tiles?.tiles.some(t=>t.imagery_url) ? snapshot.map_tiles.coverage : null);
     const insideImagery = imageCoverage && snapshot.longitude_rad >= imageCoverage.west_rad
       && snapshot.longitude_rad <= imageCoverage.east_rad && snapshot.latitude_rad >= imageCoverage.south_rad
       && snapshot.latitude_rad <= imageCoverage.north_rad;
-    const coverageLabel = imageCoverage && !insideImagery ? 'Selected place outside installed imagery coverage · ' : '';
+    const tileCoverage = snapshot.map_tiles?.coverage;
+    const outsideTiles = tileCoverage && (snapshot.longitude_rad < tileCoverage.west_rad
+      || snapshot.longitude_rad > tileCoverage.east_rad || snapshot.latitude_rad < tileCoverage.south_rad
+      || snapshot.latitude_rad > tileCoverage.north_rad);
+    const coverageLabel = outsideTiles ? 'Selected place outside installed 3D coverage · '
+      : imageCoverage && !insideImagery ? 'Selected place outside installed imagery coverage · ' : '';
     const terrainLabel = terrain ? 'relative relief (~100 m samples)' : 'terrain not installed';
     status.textContent = `Offline reference globe · imagery not installed · ${terrainLabel} · ${buildingLabel}`;
     if (tiledMap) {
-      status.textContent = `Offline · ${coverageLabel}${snapshot.map_tiles.coverage.title} · ${terrainLabel} · buildings: blue tagged, gold floor estimates, brown 9 m placeholders`;
+      status.textContent = `Offline · ${coverageLabel}${snapshot.map_tiles.coverage.title} · ${terrainLabel} · ${buildingLabel}`;
       tiledMap.update();
     }
     if (snapshot.imagery) {

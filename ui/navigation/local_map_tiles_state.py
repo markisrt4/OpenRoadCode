@@ -9,12 +9,14 @@ class LocalMapTile:
     tile_id: str
     coverage: LocalImageryState
     buildings_count: int
+    imagery_available: bool = True
 
     def document(self):
-        return {**self.coverage.document(), 'id':self.tile_id,
-                'imagery_url':f'/data/tiles/{self.tile_id}/imagery.jpg',
+        document = {**self.coverage.document(), 'id':self.tile_id,
+                'imagery_url':f'/data/tiles/{self.tile_id}/imagery.jpg' if self.imagery_available else None,
                 'buildings_url':f'/data/tiles/{self.tile_id}/buildings.json',
                 'buildings_count':self.buildings_count}
+        return document
 
 
 @dataclass(frozen=True, slots=True)

@@ -92,6 +92,8 @@ for name, checksum in current_checksums.items():
             f"Refusing deployment: manifest checksum for {name} does not match current artifact"
         )
 
+if (manifest.get("map_3d") or {}) != validation.get("map_3d", {}):
+    raise SystemExit("Refusing deployment: optional 3D packs do not match the build manifest")
 print("Manifest matches current validated artifacts")
 PYMANIFEST
 

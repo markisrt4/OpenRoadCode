@@ -52,3 +52,30 @@ test('bounded loads discard stale completions, unload old geometry and clean up'
   assert.equal(sources.length,0);
   assert.equal(listener,null);
 });
+
+test('building-only packs attach without requesting imagery',async()=>{
+  const sources=[];
+  let images=0;
+  const C={CustomDataSource:class{constructor(){this.entities={add(){}};this.show=true;}},
+    Color:{TRANSPARENT:{},CYAN:{}},Credit:class{},
+    Rectangle:{fromRadians(){return {};},center(){return {longitude:.5,latitude:.5};}},
+    GridImageryProvider:class{constructor(){throw Error('Unexpected imagery base');}},
+    SingleTileImageryProvider:{fromUrl(){images++;}}};
+  const viewer={dataSources:{add(s){sources.push(s);},remove(s){sources.splice(sources.indexOf(s),1);}},
+    imageryLayers:{addImageryProvider(){throw Error('Unexpected imagery');}},
+    cesiumWidget:{creditDisplay:{addStaticCredit(){}}},scene:{requestRender(){}},
+    camera:{computeViewRectangle(){return {west:0,south:0,east:1,north:1};},moveEnd:{addEventListener(){return ()=>{};}}}};
+  const window={ORCLocalBuildings(){const source={show:true};viewer.dataSources.add(source);return {source};}};
+  const readout={};
+  const context={window,AbortController,setTimeout,clearTimeout,Map,Set,
+    document:{getElementById(){return readout;}},fetch:async()=>({ok:true,json:async()=>({buildings:[]})})};
+  vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../local_map_tiles.js'),'utf8'),context);
+  const map=window.ORCLocalMapTiles(viewer,{coverage:{west_rad:0,south_rad:0,east_rad:1,north_rad:1},
+    tiles:[{id:'a',west_rad:0,south_rad:0,east_rad:1,north_rad:1,imagery_url:null,buildings_url:'/b'}]},C,undefined,false);
+  map.update();await tick();
+  assert.equal(images,0);
+  assert.equal(sources[1].show,false);
+  assert.match(readout.textContent,/Tiles 1\/1 active/);
+  map.destroy();
+  assert.equal(sources.length,0);
+});

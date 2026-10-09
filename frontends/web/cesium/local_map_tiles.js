@@ -17,11 +17,11 @@ window.ORCLocalMapTiles = function(viewer, data, C, heightAt, buildingsVisible) 
   viewer.cesiumWidget.creditDisplay.addStaticCredit(new C.Credit(
     '© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a> · ODbL 1.0 · USGS / USDA NAIP',true));
   // First imagery layer must be global, to avoid stretching a bounded tile.
-  const base = viewer.imageryLayers.addImageryProvider(new C.GridImageryProvider({
-    color:C.Color.TRANSPARENT,glowColor:C.Color.TRANSPARENT,backgroundColor:C.Color.TRANSPARENT,cells:1}));
+  const base = data.tiles.some(t=>t.imagery_url) ? viewer.imageryLayers.addImageryProvider(new C.GridImageryProvider({
+    color:C.Color.TRANSPARENT,glowColor:C.Color.TRANSPARENT,backgroundColor:C.Color.TRANSPARENT,cells:1})) : null;
   function report(message) {
     if (disposed) return;
-    const attached = [...entries.values()].filter(e=>e.layer).length;
+    const attached = [...entries.values()].filter(e=>e.buildings).length;
     readout.textContent = message || `Tiles ${attached}/${wanted.size} active · ${data.tiles.length} installed`;
   }
   function remove(entry) {
@@ -37,11 +37,11 @@ window.ORCLocalMapTiles = function(viewer, data, C, heightAt, buildingsVisible) 
       if (!response.ok) throw new Error('Local building tile unavailable');
       const geometry = await response.json();
       if (disposed || !wanted.has(tile.id)) return;
-      const provider = await C.SingleTileImageryProvider.fromUrl(tile.imagery_url,{
+      const provider = tile.imagery_url ? await C.SingleTileImageryProvider.fromUrl(tile.imagery_url,{
         rectangle:C.Rectangle.fromRadians(tile.west_rad,tile.south_rad,tile.east_rad,tile.north_rad),
-        credit:tile.attribution});
+        credit:tile.attribution}) : null;
       if (disposed || !wanted.has(tile.id) || entries.get(tile.id)!==entry) return;
-      entry.layer = viewer.imageryLayers.addImageryProvider(provider);
+      if (provider) entry.layer = viewer.imageryLayers.addImageryProvider(provider);
       entry.buildings = window.ORCLocalBuildings(viewer,geometry,C,heightAt);
       entry.buildings.source.show = show;
       viewer.scene.requestRender();
@@ -102,7 +102,7 @@ window.ORCLocalMapTiles = function(viewer, data, C, heightAt, buildingsVisible) 
       unbind();
       for (const entry of entries.values()) remove(entry);
       entries.clear();
-      viewer.imageryLayers.remove(base,true);
+      if (base) viewer.imageryLayers.remove(base,true);
       viewer.dataSources.remove(coverageSource,true);
     }
   };

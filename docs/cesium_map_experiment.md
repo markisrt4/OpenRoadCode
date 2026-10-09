@@ -294,3 +294,12 @@ Phone acceptance: pan from downtown north toward Midtown, watch active tile coun
 stay at four or fewer, and inspect newly loaded buildings/imagery. Toggle Buildings,
 zoom out, return to ORC, and repeat offline. Verify smoothness and memory use on the
 phone before considering broader coverage or embedding.
+
+### Shared builder and terminal install menu
+
+The optional building stage now belongs to the existing map builder. It reuses
+navigation source PBFs rather than querying Overpass. See
+[the map-builder workflow](../tools/map_builder/README.md#optional-3d-buildings-and-interactive-installation)
+for coverage selection, publication, and `--interactive` vehicle installation.
+This first stage adds buildings only. Installed prototype aerial tiles with
+matching coverage are reused; imagery/terrain build stages are still pending.
