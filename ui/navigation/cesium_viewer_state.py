@@ -12,10 +12,14 @@ class CesiumViewerState:
 
     destination: GeoPoint
     label: str = "Detroit"
-    distance_m: float = 2500.0
+    distance_m: float = 1500.0
     tilt_rad: float = math.pi / 4
+    buildings_visible: bool = True
+    references_visible: bool = False
 
     def __post_init__(self):
+        if type(self.buildings_visible) is not bool or type(self.references_visible) is not bool:
+            raise ValueError("Layer visibility must be boolean")
         lat, lon = self.destination.latitude_rad, self.destination.longitude_rad
         if not (math.isfinite(lat) and math.isfinite(lon)
                 and -math.pi/2 <= lat <= math.pi/2 and -math.pi <= lon <= math.pi):
@@ -32,4 +36,6 @@ class CesiumViewerState:
         return {"latitude_rad": self.destination.latitude_rad,
                 "longitude_rad": self.destination.longitude_rad,
                 "label": self.label, "distance_m": self.distance_m,
-                "tilt_rad": self.tilt_rad}
+                "tilt_rad": self.tilt_rad,
+                "buildings_visible": self.buildings_visible,
+                "references_visible": self.references_visible}

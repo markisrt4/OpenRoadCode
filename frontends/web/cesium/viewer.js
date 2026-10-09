@@ -47,21 +47,37 @@
     viewer.entities.add({position:target,
       point:{pixelSize:10,color:C.Color.CYAN,outlineColor:C.Color.WHITE,outlineWidth:2},
       label:{text:snapshot.label,font:'16px sans-serif',pixelOffset:new C.Cartesian2(0,-24)}});
+    const references = new C.CustomDataSource('references');
+    references.show = snapshot.references_visible;
+    viewer.dataSources.add(references);
     // Procedural geographic grid: no imagery, terrain service, or building data.
     for (let lat = -60; lat <= 60; lat += 30) {
       const points = [];
       for (let lon = -180; lon <= 180; lon += 3) points.push(C.Cartesian3.fromDegrees(lon,lat));
-      viewer.entities.add({polyline:{positions:points,width:1,material:C.Color.WHITE.withAlpha(.18)}});
+      references.entities.add({polyline:{positions:points,width:1,material:C.Color.WHITE.withAlpha(.18)}});
     }
     for (let lon = -180; lon < 180; lon += 30) {
       const points = [];
       for (let lat = -90; lat <= 90; lat += 3) points.push(C.Cartesian3.fromDegrees(lon,lat));
-      viewer.entities.add({polyline:{positions:points,width:1,material:C.Color.WHITE.withAlpha(.18)}});
+      references.entities.add({polyline:{positions:points,width:1,material:C.Color.WHITE.withAlpha(.18)}});
     }
-    window.ORCCesiumReferences(viewer, snapshot, C, terrain?.heightAt);
-    const buildingLabel = snapshot.buildings
+    window.ORCCesiumReferences(viewer, snapshot, C, terrain?.heightAt, references.entities);
+    const buildings = snapshot.buildings
       ? window.ORCLocalBuildings(viewer, snapshot.buildings, C, terrain?.heightAt)
-      : "buildings not installed";
+      : null;
+    if (buildings) buildings.source.show = snapshot.buildings_visible;
+    const buildingLabel = buildings ? buildings.label : "buildings not installed";
+    function bindVisibility(id, source) {
+      const button = document.getElementById(id);
+      button.disabled = !source;
+      button.setAttribute('aria-pressed', String(Boolean(source?.show)));
+      if (!source) button.title = 'Building pack not installed';
+      button.onclick = () => {
+        source.show = !source.show;
+        button.setAttribute('aria-pressed', String(source.show));
+        viewer.scene.requestRender();
+      };
+    }
     viewer.scene.postRender.addEventListener(() => {
       const height = Math.round(viewer.camera.positionCartographic.height);
       const tilt = Math.round(C.Math.toDegrees(viewer.camera.pitch)+90);
@@ -95,6 +111,8 @@
       status.textContent = 'Rendering stopped: '+error.message+' — return and retry';
     });
     document.querySelectorAll('nav button').forEach(button => { button.disabled = false; });
+    bindVisibility('buildings', buildings?.source);
+    bindVisibility('references', references);
     reset();
     const terrainLabel = terrain ? 'relative relief (~100 m samples)' : 'terrain not installed';
     status.textContent = `Offline reference globe · imagery not installed · ${terrainLabel} · ${buildingLabel}`;

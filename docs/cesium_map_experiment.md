@@ -209,3 +209,13 @@ retains the source response and a manifest containing the download time, bounds,
 checksum, source, and license link. Keep those records with the data. Redistributing
 this derived database requires an ODbL review and compliance; it is not covered by
 the imagery's public-domain rights. Packs remain outside the code repository.
+
+### Layer comparison controls
+
+The viewer now opens 1,500 m from the destination, with buildings visible and the
+synthetic reference grid hidden. Buildings and Grid buttons independently toggle
+their layers without rebuilding geometry or downloading anything. Highlighted
+buttons indicate visible layers. Buildings is disabled when no building pack is
+installed. The attribution remains visible when buildings are hidden. Reset view
+restores the camera, preserving layer choices; `--distance-m` overrides the initial
+viewing distance. The control rail scrolls on short screens.

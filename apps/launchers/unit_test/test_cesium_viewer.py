@@ -102,3 +102,15 @@ def test_launcher_owns_only_isolated_browser_and_cleans_up_on_start_failure(stat
     assert not arguments["kiosk"]
     assert not Path(arguments["profile_path"]).exists()
     assert [call[0] for call in calls.mock_calls] == ["browser_stop", "server_close"]
+
+
+def test_layer_defaults_and_visibility_contract(state):
+    from dataclasses import replace
+    assert state.document()['buildings_visible'] is True
+    assert state.document()['references_visible'] is False
+    assert state.distance_m == 1500
+    changed = replace(state, buildings_visible=False, references_visible=True)
+    assert changed.document()['buildings_visible'] is False
+    assert changed.document()['references_visible'] is True
+    with pytest.raises(ValueError, match='boolean'):
+        replace(state, references_visible='yes')

@@ -47,7 +47,7 @@ def main():
     parser.add_argument("--latitude", type=float, default=42.3314)
     parser.add_argument("--longitude", type=float, default=-83.0458)
     parser.add_argument("--label", default="Detroit")
-    parser.add_argument("--distance-m", type=float, default=2500)
+    parser.add_argument("--distance-m", type=float, default=1500)
     parser.add_argument("--sdk", type=Path, default=sdk_directory())
     parser.add_argument("--imagery", type=Path, help="Local imagery pack; default: installed Detroit pack")
     parser.add_argument("--no-imagery", action="store_true", help="Use the reference globe only")

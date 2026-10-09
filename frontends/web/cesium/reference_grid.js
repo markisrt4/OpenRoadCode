@@ -1,6 +1,6 @@
 /* Synthetic local reference geometry, expressed in metres in the destination's ENU frame. */
 'use strict';
-window.ORCCesiumReferences = function (viewer, snapshot, C, heightAt=()=>0) {
+window.ORCCesiumReferences = function (viewer, snapshot, C, heightAt=()=>0, entities=viewer.entities) {
   const origin = C.Cartesian3.fromRadians(snapshot.longitude_rad, snapshot.latitude_rad);
   const frame = C.Transforms.eastNorthUpToFixedFrame(origin);
   function position(east, north) {
@@ -10,11 +10,11 @@ window.ORCCesiumReferences = function (viewer, snapshot, C, heightAt=()=>0) {
     return C.Cartesian3.fromRadians(ground.longitude, ground.latitude, heightAt(ground.longitude,ground.latitude)+3);
   }
   function line(points, material, width=1) {
-    viewer.entities.add({polyline:{positions:points.map(([east,north]) => position(east,north)),
+    entities.add({polyline:{positions:points.map(([east,north]) => position(east,north)),
       width, material}});
   }
   function label(east, north, text, color=C.Color.WHITE) {
-    viewer.entities.add({position:position(east,north),label:{text,font:'bold 15px sans-serif',
+    entities.add({position:position(east,north),label:{text,font:'bold 15px sans-serif',
       fillColor:color,showBackground:true,backgroundColor:C.Color.BLACK.withAlpha(.65),
       pixelOffset:new C.Cartesian2(0,-12),disableDepthTestDistance:Number.POSITIVE_INFINITY}});
   }
@@ -25,7 +25,7 @@ window.ORCCesiumReferences = function (viewer, snapshot, C, heightAt=()=>0) {
       if ((east/spacing+north/spacing)%2 === 0) {
         const corners = [[east,north],[east+spacing,north],
           [east+spacing,north+spacing],[east,north+spacing]];
-        viewer.entities.add({polygon:{hierarchy:new C.PolygonHierarchy(corners.map(([x,y]) => position(x,y))),
+        entities.add({polygon:{hierarchy:new C.PolygonHierarchy(corners.map(([x,y]) => position(x,y))),
           perPositionHeight:true,material:C.Color.WHITE.withAlpha(.08)}});
       }
     }
