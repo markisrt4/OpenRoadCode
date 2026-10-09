@@ -35,8 +35,10 @@
 
 Use the existing checkout in the task environment; do not create a worktree unless
 requested. Preserve unrelated user changes. Use the repository-supported setup
-and test commands. For device instructions, switch to the intended branch before
-pulling or testing.
+and test commands. Whenever providing repository command-line instructions to the
+user, always begin with `git switch <branch_name>`, replacing `<branch_name>` with
+the actual intended branch. Include this command even if the user is already on
+that branch, and place it before pulling, installing, running, or testing.
 
 ## Keep agent usage economical
 
