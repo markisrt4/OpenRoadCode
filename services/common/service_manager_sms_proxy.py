@@ -20,6 +20,7 @@ ANDROID_TOKEN_ENV = "OPENROADCODE_ANDROID_SMS_TOKEN"
 MAX_REQUEST_BYTES = 16 * 1024
 MAX_RESPONSE_BYTES = 1024 * 1024
 ALLOWED_ROUTES = {
+    ("GET", "/sms/capabilities"),
     ("GET", "/sms/conversations"),
     ("GET", "/sms/messages"),
     ("POST", "/sms/send"),
