@@ -177,7 +177,7 @@ def main() -> int:
             from .map_3d_menu import choose_coverage
             if args.yes and not args.coverage:
                 raise ValueError("--yes requires --coverage")
-            coverage = args.coverage or choose_coverage()
+            coverage = args.coverage or choose_coverage(layer=getattr(args, 'layer', 'buildings'))
             if coverage is None:
                 print("Cancelled")
                 return 0

@@ -166,6 +166,9 @@ Generated datasets are based on OpenStreetMap/Geofabrik data and use open-source
 ## Optional 3D buildings and interactive installation
 
 Terrain is also available as a separate optional pack through this workflow.
+For a direct **Termux download without Docker**, use
+`bash development/termux/install_terrain.sh` after switching to
+`navigation-cesium`; see [the device install steps](../../docs/cesium_map_experiment.md#shared-builder-and-terminal-install-menu).
 On the **map build host**, use:
 
 ```bash

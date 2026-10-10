@@ -2,10 +2,13 @@
 from .map_3d import PRESETS
 
 
-def choose_coverage():
+def choose_coverage(layer='buildings'):
     print('\nOptional offline 3D map packs')
-    print('Available: building footprints and tagged/estimated heights from installed OSM sources.')
-    print('Terrain: run 3d --layer terrain for a separate USGS 3DEP offline pack. Imagery build is not available here yet.')
+    if layer == 'terrain':
+        print('Terrain: USGS 3DEP ground samples, downloaded now for offline viewing.')
+    else:
+        print('Available: building footprints and tagged/estimated heights from installed OSM sources.')
+        print('Terrain: run 3d --layer terrain for a separate USGS 3DEP offline pack. Imagery build is not available here yet.')
     keys = list(PRESETS)
     for index,key in enumerate(keys,1):
         title,bounds = PRESETS[key]

@@ -302,6 +302,23 @@ phone before considering broader coverage or embedding.
 
 ### Shared builder and terminal install menu
 
+Terrain can also be installed **directly on Termux**, without Docker or a map
+build host. It uses the same USGS downloader and stores device-owned data outside
+the certified navigation dataset:
+
+```bash
+git switch navigation-cesium
+git pull --ff-only
+bash development/termux/install_terrain.sh
+```
+
+Choose **2 — Downtown–Midtown** and confirm. A complete pack is installed
+atomically; an existing validated pack is reused. Close and reopen the 3D viewer.
+Its footer should report `65×65 samples`. Device-installed Midtown terrain is
+preferred over the old downtown prototype; a deployed Midtown terrain pack
+takes precedence when both exist. This command downloads terrain only, reusing
+installed imagery/buildings. No navigation dataset publication or pull is needed.
+
 The optional building stage now belongs to the existing map builder. It reuses
 navigation source PBFs rather than querying Overpass. See
 [the map-builder workflow](../tools/map_builder/README.md#optional-3d-buildings-and-interactive-installation)

@@ -15,11 +15,17 @@ def detroit_terrain_directory():
     return openroadcode_data_dir("map-packs", "detroit-terrain-v1")
 
 
+def midtown_terrain_directory():
+    """Device-owned downloads survive shared navigation dataset updates."""
+    return openroadcode_data_dir("map-packs", "detroit-midtown-terrain-v1")
+
+
 def preferred_terrain_directory():
     packs = navigation_data_root()/'maps/3d/packs'
-    for key in ('detroit-midtown-terrain', 'detroit-downtown-terrain'):
-        if (packs/key/'manifest.json').is_file():
-            return packs/key
+    for directory in (packs/'detroit-midtown-terrain', midtown_terrain_directory(),
+                      packs/'detroit-downtown-terrain'):
+        if (directory/'manifest.json').is_file():
+            return directory
     return detroit_terrain_directory()
 
 

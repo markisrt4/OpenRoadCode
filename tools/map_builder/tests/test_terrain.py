@@ -93,3 +93,28 @@ def test_cli_download_failure_restores_original_dataset_certificate(tmp_path, mo
     assert cli.main() != 0
     assert certificate.read_bytes() == original
     assert not (tmp_path/'maps/3d/packs/detroit-midtown-terrain').exists()
+
+
+def test_direct_device_install_downloads_and_viewer_discovers_local_midtown(tmp_path, monkeypatch):
+    from development.maps import install_terrain
+    from apps.launchers import local_terrain_pack
+    service(monkeypatch)
+    destination = tmp_path/'device/map-packs/detroit-midtown-terrain-v1'
+    monkeypatch.setattr(install_terrain,'midtown_terrain_directory',lambda:destination)
+    monkeypatch.setattr(local_terrain_pack,'midtown_terrain_directory',lambda:destination)
+    monkeypatch.setattr(local_terrain_pack,'navigation_data_root',lambda:tmp_path/'absent-dataset')
+    monkeypatch.setattr('sys.argv',['install_terrain','--coverage','detroit-midtown','--yes'])
+    assert install_terrain.main() == 0
+    assert local_terrain_pack.preferred_terrain_directory() == destination
+    assert load_terrain(destination).width == 65
+    monkeypatch.setattr(terrain,'request',lambda *args:pytest.fail('installed pack must be reused'))
+    assert install_terrain.main() == 0
+
+
+def test_direct_install_cancellation_does_not_download_or_modify_data(tmp_path, monkeypatch):
+    from development.maps import install_terrain
+    monkeypatch.setattr('sys.argv',['install_terrain','--coverage','detroit-midtown','--output',str(tmp_path/'pack')])
+    monkeypatch.setattr('builtins.input',lambda prompt:'n')
+    monkeypatch.setattr(install_terrain,'download',lambda *args:pytest.fail('cancelled install must not download'))
+    assert install_terrain.main() == 0
+    assert not (tmp_path/'pack').exists()
