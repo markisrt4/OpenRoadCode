@@ -113,6 +113,16 @@ fi
 
 bash "$PROJECT_DIR/scripts/installers/host_setup.sh" "${ARGS[@]}"
 
+if [[ " $SELECTED_NAVIGATION " == *" navigation "* ]] || (( INSTALL_ALL_FEATURES )); then
+  if whiptail --title "Home and Work addresses" --yesno \
+    "Configure Home and Work destinations now?\n\nAddresses stay in your user configuration. You can skip this and configure them later." 12 78; then
+    SETUP_PYTHON="python3"
+    [[ -x "${VENV_DIR:-$PROJECT_DIR/venv}/bin/python" ]] && SETUP_PYTHON="${VENV_DIR:-$PROJECT_DIR/venv}/bin/python"
+    (cd "$PROJECT_DIR" && "$SETUP_PYTHON" -m scripts.installers.setup_destinations) || \
+      echo "[!] Address setup did not finish. Run it again as the ORC user."
+  fi
+fi
+
 if [[ " $SELECTED_BLUETOOTH " == *" bluetooth "* ]] || (( INSTALL_ALL_FEATURES )); then
   if whiptail --title "Post-install configuration" --yesno "Configure a Bluetooth Serial Port Profile device now?" 10 72; then
     bash "$PROJECT_DIR/scripts/installers/setup_bluetooth_spp.sh"

@@ -16,6 +16,7 @@ class MapFavorite:
     favorite_id: str
     name: str
     position: GeoPoint
+    address: str = ""
 
 
 @dataclass(frozen=True, slots=True)

@@ -24,30 +24,16 @@ class NavigationPlacesControls:
         if category is not None:
             self._start_poi_search(category)
             return
-        self._places_handler.clear()
-        self._request_handler.request_poi_focus(None)
-        self._active_poi_render_category = ""
-        self._active_poi_search = None
-        self._request_handler.request_poi_results((), "")
+        self._clear_poi_search()
         favorite = self._places_handler.favorite(shortcut)
         if favorite is None:
             self._shortcut_status.set(f"{shortcut.title()} location not configured")
             self.after(2500, lambda: self._shortcut_status.set(""))
             return
-        try:
-            self._route_request_handler.request_start_route(
-                favorite.position,
-                (),
-                TravelMode.AUTO,
-            )
-        except Exception as error:
-            self._shortcut_status.set(f"Route failed: {error}")
-            self.after(4000, lambda: self._shortcut_status.set(""))
-            return
-        self._route_active = True
-        self._simulation_active = False
-        self._update_simulation_button()
-        self._shortcut_status.set(f"Routing to {favorite.name}")
+        self._show_poi_card(PointOfInterest(
+            favorite.favorite_id, favorite.name, PoiCategory.OTHER,
+            favorite.position, source_class="saved-destination", address=favorite.address,
+        ))
 
     def _clear_poi_search(self) -> None:
         """Clear the active POI search and remove its rendered markers."""

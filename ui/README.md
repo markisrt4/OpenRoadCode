@@ -1,5 +1,10 @@
 # UI Contracts
 
+Home/Work installer state and semantic requests are defined by SavedDestination
+and DestinationSetupRequestHandlerIf. DestinationSetupUiIf describes terminal
+presentation; MapFavorite and PointOfInterest carry optional address text for
+destination popups. See [saved destinations](../docs/saved_destinations.md).
+
 `ui` defines the toolkit-independent presentation contracts and value objects
 shared by applications, controllers, and concrete frontends. Code in this
 package must not import Tkinter, Qt, application composition, controllers, or

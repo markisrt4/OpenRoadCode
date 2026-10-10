@@ -311,7 +311,12 @@ def show_poi_card(panel, poi) -> None:
     details: list[str] = []
     if poi.brand and poi.brand.casefold() != poi.name.casefold():
         details.append(poi.brand)
-    details.append(poi.category.name.replace("_", " ").title())
+    if poi.address:
+        details.append(poi.address)
+    elif poi.source_class == "saved-destination":
+        details.append("Saved destination")
+    else:
+        details.append(poi.category.name.replace("_", " ").title())
 
     tk.Label(
         frame,
@@ -319,6 +324,7 @@ def show_poi_card(panel, poi) -> None:
         bg=ui.surface_alt,
         fg=ui.text_muted,
         font=("Sans", 9),
+        wraplength=440,
     ).pack(pady=(0, 10))
 
     buttons = tk.Frame(frame, bg=ui.surface_alt)

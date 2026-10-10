@@ -1,5 +1,16 @@
 # orcUi Architecture
 
+## Saved destinations
+
+Home and Work use the existing places request contract and POI popup. A shortcut
+opens the destination card; its Navigate action emits the route request. Address
+text is carried in immutable MapFavorite and PointOfInterest values. Widgets do
+not read configuration or call geocoders. The navigation composition's default
+favorites store overlays user-owned TOML while preserving legacy JSON favorites.
+The separate installer TUI binds destination setup request/presentation contracts;
+its composition root owns the local geocoder and whiptail adapter. See
+[saved destinations](../../docs/saved_destinations.md) for storage and validation.
+
 ## Purpose
 
 `apps/orcUi` is the application assembly and runtime layer for the integrated OpenRoadCode UI. It also owns presentation that is specific to the orcUi application itself.

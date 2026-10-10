@@ -210,19 +210,21 @@ class NavigationPanelControlTest(unittest.TestCase):
         panel._destination_shortcut("food")
         panel._start_poi_search.assert_called_once_with(PoiCategory.FOOD)
 
-    def test_home_shortcut_starts_route_to_saved_home(self) -> None:
+    def test_home_shortcut_opens_popup_before_routing(self) -> None:
         panel = self._panel()
         position = GeoPoint(math.radians(42.8), math.radians(-83.0))
-        panel._places_handler.favorite.return_value = MapFavorite("home", "Home", position)
+        panel._places_handler.favorite.return_value = MapFavorite("home", "Home", position, "123 Main St")
+        panel._show_poi_card = Mock()
 
         panel._destination_shortcut("home")
 
-        panel._route_request_handler.request_start_route.assert_called_once_with(
-            position,
-            (),
-            TravelMode.AUTO,
-        )
-        panel._shortcut_status.set.assert_called_with("Routing to Home")
+        panel._route_request_handler.request_start_route.assert_not_called()
+        poi = panel._show_poi_card.call_args.args[0]
+        self.assertEqual(poi.position, position)
+        self.assertEqual(poi.name, "Home")
+        self.assertEqual(poi.address, "123 Main St")
+        panel._navigate_to_poi(poi)
+        panel._route_request_handler.request_start_route.assert_called_once_with(position, (), TravelMode.AUTO)
 
     def test_work_shortcut_reports_unconfigured_location(self) -> None:
         panel = self._panel()
