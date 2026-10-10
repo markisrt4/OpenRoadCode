@@ -146,7 +146,11 @@ fi
 
 missing_python_packages=()
 for pkg in "${unique_packages[@]}"; do
-  if python -m pip show "$pkg" >/dev/null 2>&1; then
+  package_name="${pkg%%==*}"
+  package_metadata="$(python -m pip show "$package_name" 2>/dev/null || true)"
+  installed_version="$(printf '%s\n' "$package_metadata" | awk -F': ' '$1 == "Version" { print $2; exit }')"
+  if [[ -n "$package_metadata" ]] && \
+     { [[ "$pkg" != *==* ]] || [[ "$installed_version" == "${pkg#*==}" ]]; }; then
     echo "[*] Already installed in venv: $pkg"
   else
     missing_python_packages+=("$pkg")

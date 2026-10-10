@@ -82,3 +82,19 @@ from the Termux target merge.
 - `scripts/runit/README.md` describes installation and control of the Termux
   broker and navigation services.
 - `config/runtime.termux.toml` defines the current Termux runtime composition.
+
+## Python quality tools
+
+The existing `development` feature installs pytest, Ruff, and mypy 1.19.1 through
+the shared installer package catalog, without a requirements-file step:
+
+```bash
+bash scripts/termux/install.sh development
+venv-termux/bin/python scripts/quality_gate.py
+```
+
+Run validation with the installer-managed interpreter; native `python` may not
+contain these tools. To retain an existing feature selection in a fresh install,
+include `development` alongside those features. Linux uses the same feature via
+`scripts/installers/host_setup.sh --target linux-dev --features development`.
+The full gate remains an end-of-branch, user-run check.
