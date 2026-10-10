@@ -78,6 +78,9 @@ Chromium launched under Termux:X11 should use `--password-store=basic` so it doe
 
 ### Debian/proot OpenGL for games
 
+For the native Chromium/WebGL alternative-map experiment, see
+[Google Earth navigation](../../docs/google_earth_navigation.md).
+
 Debian applications running under `proot-distro` use glibc and cannot safely load Termux/Bionic Turnip libraries directly. For graphical Debian games, OpenRoadCode instead supports Mesa `virpipe` with Termux `virglrenderer-android`:
 
 ```mermaid

@@ -7,6 +7,8 @@ from __future__ import annotations
 
 import warnings
 
+from common.logging.diagnostics import ComponentLog, diagnostic_action
+
 from controllers.computer_vision.object_detector_if import DetectionFrame
 from controllers.computer_vision.object_tracker_if import ObjectTrack, ObjectTrackerIf, TrackFrame
 
@@ -15,18 +17,23 @@ class ByteTrackObjectTracker(ObjectTrackerIf):
     """Track detections with Supervision's ByteTrack implementation."""
 
     def __init__(self, *, frame_rate: int = 30) -> None:
+        self._diagnostics = ComponentLog("vision.tracker", "vision")
         try:
             import supervision as sv
         except ModuleNotFoundError as exc:
+            self._diagnostics.failed("tracker_load", exc)
             raise RuntimeError(
                 "supervision is required for ByteTrack; run the camera perception setup script"
             ) from exc
         self._sv = sv
         self._frame_rate = frame_rate
-        self._tracker = self._new_tracker()
+        with self._diagnostics.action("tracker_load"):
+            self._tracker = self._new_tracker()
+        self._diagnostics.changed("tracker", "ready")
         self._first_seen: dict[int, float] = {}
         self._labels: dict[int, str] = {}
 
+    @diagnostic_action("reset")
     def reset(self) -> None:
         self._tracker = self._new_tracker()
         self._first_seen.clear()

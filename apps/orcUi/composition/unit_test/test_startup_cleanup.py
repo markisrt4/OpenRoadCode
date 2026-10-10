@@ -79,3 +79,42 @@ def test_runtime_closes_media_and_apps_when_streaming_close_fails():
     streaming.close.assert_called_once()
     media.close.assert_called_once()
     manager.stop_all.assert_called_once()
+
+
+@pytest.mark.parametrize("earth_enabled", [False, True])
+def test_runtime_preserves_earth_policy_and_terminal_cleanup(earth_enabled):
+    from apps.orcUi.application_runtime import create_orc_ui_application_runtime
+
+    names = ("ApplicationsConfigParser", "AppRuntimeManager", "ManagedSDRPPLauncher",
+             "BrowserApplicationFactory", "GoogleEarthLauncher", "StreamingRadioController",
+             "MpvStreamingAudioPlayer", "MediaApplicationService", "create_spotify_controller")
+    with ExitStack() as stack:
+        factories = {name: stack.enter_context(patch(f"apps.orcUi.application_runtime.{name}"))
+                     for name in names}
+        config = factories["ApplicationsConfigParser"].return_value.load.return_value
+        config.app.side_effect = lambda key: Mock(enabled=earth_enabled, fullscreen=False)
+        runtime = create_orc_ui_application_runtime()
+        manager = factories["AppRuntimeManager"].return_value
+        earth_factory = factories["GoogleEarthLauncher"]
+        if earth_enabled:
+            assert runtime.earth is earth_factory.return_value
+            manager.register.assert_any_call("google_earth", runtime.earth)
+        else:
+            assert runtime.earth is None
+            earth_factory.assert_not_called()
+        runtime.close()
+        runtime.close()
+        manager.stop_all.assert_called_once_with()
+
+
+def test_earth_construction_failure_rolls_back_application_manager():
+    from apps.orcUi.application_runtime import create_orc_ui_application_runtime
+
+    with patch("apps.orcUi.application_runtime.ApplicationsConfigParser"), patch(
+        "apps.orcUi.application_runtime.AppRuntimeManager") as manager, patch(
+        "apps.orcUi.application_runtime.ManagedSDRPPLauncher"), patch(
+        "apps.orcUi.application_runtime.BrowserApplicationFactory"), patch(
+        "apps.orcUi.application_runtime.GoogleEarthLauncher", side_effect=RuntimeError("Earth startup")):
+        with pytest.raises(RuntimeError, match="Earth startup"):
+            create_orc_ui_application_runtime()
+    manager.return_value.stop_all.assert_called_once_with()

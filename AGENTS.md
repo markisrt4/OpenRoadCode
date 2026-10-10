@@ -24,11 +24,12 @@
   Update the affected documentation in the same change.
 - During branch development, run tests and static checks relevant to the changed
   code and affected contracts. Do not rerun the full quality gate for every fix
-  or feature batch. Run `python scripts/quality_gate.py` at the end of branch
-  development, before declaring the branch ready to merge. It includes automatic
-  project-wide dependency checks and stricter weather checks; new frontend files
-  are discovered automatically. Report focused validation separately from the
-  final full-gate result.
+  or feature batch. The user runs `python scripts/quality_gate.py` locally at the
+  end of branch development, before the branch is declared ready to merge. Do not
+  run the full gate or broad test suites unless the user explicitly asks. The
+  gate includes automatic project-wide dependency checks and stricter weather
+  checks; new frontend files are discovered automatically. Report focused checks
+  separately and mark full validation pending until the user supplies results.
 - `scripts/ui_boundary_exceptions.json` records exact pre-existing dependencies,
   not permission for new ones. Do not regenerate, expand, or add exceptions merely
   to make CI pass. Fix new violations. When removing old dependencies, shrink the
@@ -45,6 +46,22 @@ Use the existing checkout in the task environment; do not create a worktree unle
 requested. Preserve unrelated user changes. Use the repository-supported setup
 and test commands. For device instructions, switch to the intended branch before
 pulling or testing.
+
+## Keep agent usage economical
+
+- Keep responses and progress updates brief. Summarize results instead of dumping
+  logs, and read only the files and output needed for the task.
+- Use focused checks when necessary to resolve a specific uncertainty or failure.
+  Avoid repeating passing checks unless subsequent changes affect their coverage.
+  For documentation-only changes, review the diff; do not run test suites.
+- Continue adding meaningful tests for behavior changes, but leave their broad
+  execution and the full quality gate to the user. Clearly distinguish checks
+  actually run from checks still pending; never claim unrun tests passed.
+- Provide the exact local validation command and any necessary device steps at
+  handoff. When diagnosing user-run failures, request the failing check and relevant
+  error excerpt rather than the entire log.
+- Resolve material UI and workflow choices before substantial implementation.
+  Apply routine fixes autonomously within the agreed scope.
 
 ## Discuss major changes before implementation
 

@@ -6,6 +6,9 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+
+from common.logging.diagnostics import ComponentLog, diagnostic_action
+from common.logging.structured import current_operation
 from concurrent.futures import Future
 
 from controllers.lighting.lighting_controller_if import LightingControllerIf
@@ -27,10 +30,12 @@ class LightingPresenter(LightingRequestHandlerIf):
         lighting_ui: LightingUiIf,
         dispatch: Callable[[Callable[[], None]], None],
     ) -> None:
+        self._diagnostics = ComponentLog("lighting.ui", "lighting")
         self._backend = backend
         self._lighting_ui = lighting_ui
         self._dispatch = dispatch
 
+    @diagnostic_action("connect")
     def connect(self) -> None:
         self._submit(self._backend.connect(), "Lighting connected")
 
@@ -49,33 +54,39 @@ class LightingPresenter(LightingRequestHandlerIf):
             music_mode=source.music_mode,
             status_message=status_message,
         )
+        self._diagnostics.changed("connection", state.connected)
         self._lighting_ui.set_lighting_state(state)
         return state
 
+    @diagnostic_action("request_power")
     def request_power(self, enabled: bool) -> None:
         self._submit(
             self._backend.set_power(enabled),
             "Lighting on" if enabled else "Lighting off",
         )
 
+    @diagnostic_action("request_color")
     def request_color(self, color: LightingColor) -> None:
         self._submit(
             self._backend.set_color(RgbColor(color.red, color.green, color.blue)),
             "Lighting color changed",
         )
 
+    @diagnostic_action("request_brightness")
     def request_brightness(self, percent: int) -> None:
         self._submit(
             self._backend.set_brightness(percent),
             f"Brightness: {percent}%",
         )
 
+    @diagnostic_action("request_pattern")
     def request_pattern(self, pattern_index: int) -> None:
         self._submit(
             self._backend.set_pattern(pattern_index),
             "Lighting effect changed",
         )
 
+    @diagnostic_action("request_music_mode")
     def request_music_mode(self, mode_index: int) -> None:
         self._submit(
             self._backend.set_music_mode(mode_index),
@@ -83,18 +94,21 @@ class LightingPresenter(LightingRequestHandlerIf):
         )
 
     def _submit(self, future: Future[None], success_message: str) -> None:
+        operation_id = current_operation()
         future.add_done_callback(
             lambda completed: self._dispatch(
-                lambda: self._complete(completed, success_message)
+                lambda: self._complete(completed, success_message, operation_id)
             )
         )
 
-    def _complete(self, future: Future[None], success_message: str) -> None:
+    def _complete(self, future: Future[None], success_message: str, operation_id=None) -> None:
         try:
             future.result()
         except Exception as exc:
+            self._diagnostics.failed("completion", exc, operation_id)
             self._lighting_ui.set_lighting_state(
                 LightingState(error_message=f"Lighting error: {exc}")
             )
         else:
+            self._diagnostics.succeeded("completion", operation_id)
             self.refresh(success_message)

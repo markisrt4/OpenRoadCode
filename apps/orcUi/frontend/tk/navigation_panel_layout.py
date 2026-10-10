@@ -5,6 +5,8 @@
 
 import tkinter as tk
 
+from .navigation_earth_control import build_earth_control, build_poi_icon_button
+
 from ui.navigation.poi_models import (PoiActionKind, PoiCategory, TransitMode)
 
 
@@ -234,7 +236,6 @@ def build_navigation_panel(panel) -> None:
 
 def show_poi_card(panel, poi) -> None:
     """Show selected business information above the native map window."""
-    """Show selected business information above the native map window."""
     ui = panel._theme_bundle.ui
     if panel._poi_card is not None and panel._poi_card.winfo_exists():
         panel._poi_card.destroy()
@@ -248,7 +249,10 @@ def show_poi_card(panel, poi) -> None:
     panel._poi_card = popup
 
     width = 480
-    height = 170
+    other_actions = tuple(action for action in poi.actions
+                          if action.kind in {PoiActionKind.ORDER, PoiActionKind.OPEN_WEBSITE}
+                          and action.provider_id != "google-earth-explore")
+    height = 260 if other_actions else 210
     panel.update_idletasks()
     x = panel.winfo_rootx() + max(0, (panel.winfo_width() - width) // 2)
     y = panel.winfo_rooty() + max(0, (panel.winfo_height() - height) // 2)
@@ -262,13 +266,20 @@ def show_poi_card(panel, poi) -> None:
     )
     frame.pack(fill=tk.BOTH, expand=True)
 
+    header = tk.Frame(frame, bg=ui.surface_alt)
+    header.pack(fill=tk.X, pady=(10, 2))
+    panel._earth_button = None
+    earth_action = next((action for action in poi.actions
+                         if action.provider_id == "google-earth-explore"), None)
+
     tk.Label(
-        frame,
+        header,
         text=poi.name,
         bg=ui.surface_alt,
         fg=ui.text,
         font=("Sans", 15, "bold"),
-    ).pack(pady=(14, 2))
+        wraplength=350,
+    ).pack(side=tk.LEFT, fill=tk.X, expand=True, padx=12)
 
     details: list[str] = []
     if poi.brand and poi.brand.casefold() != poi.name.casefold():
@@ -286,27 +297,22 @@ def show_poi_card(panel, poi) -> None:
     buttons = tk.Frame(frame, bg=ui.surface_alt)
     buttons.pack()
 
-    tk.Button(
-        buttons,
-        text="NAVIGATE",
-        command=lambda: panel._navigate_to_poi(poi),
-        bg=ui.control_background,
-        fg=ui.accent_primary,
-        activebackground=ui.control_active,
-        activeforeground="#ffffff",
-        relief=tk.FLAT,
-        highlightthickness=1,
-        highlightbackground=ui.border,
-        font=("Sans", 10, "bold"),
-        width=12,
-        height=2,
-    ).pack(side=tk.LEFT, padx=4)
+    build_poi_icon_button(panel, buttons, "navigate.png", "Navigate",
+                          lambda: panel._navigate_to_poi(poi), tk)
+    if earth_action is not None:
+        build_earth_control(panel, buttons, poi, earth_action, tk)
 
+    build_poi_icon_button(panel, buttons, "close.png", "Close", popup.destroy, tk)
+
+    extra_buttons = tk.Frame(frame, bg=ui.surface_alt)
+    if other_actions:
+        extra_buttons.pack(pady=(6, 0))
     panel._poi_action_buttons = []
-    for action in poi.actions:
-        if action.kind in {PoiActionKind.ORDER, PoiActionKind.OPEN_WEBSITE}:
+    for action in other_actions:
+        if (action.kind in {PoiActionKind.ORDER, PoiActionKind.OPEN_WEBSITE}
+                and action.provider_id != "google-earth-explore"):
             button = tk.Button(
-                buttons,
+                extra_buttons,
                 text=action.label,
                 state=tk.NORMAL if panel.online_actions_allowed else tk.DISABLED,
                 disabledforeground=ui.text_muted,
@@ -319,26 +325,12 @@ def show_poi_card(panel, poi) -> None:
                 highlightthickness=1,
                 highlightbackground=ui.border,
                 font=("Sans", 10, "bold"),
-                width=12,
+                width=max(12, min(28, len(action.label) + 2)),
                 height=2,
             )
             button.pack(side=tk.LEFT, padx=4)
             panel._poi_action_buttons.append(button)
 
-    tk.Button(
-        buttons,
-        text="CLOSE",
-        command=popup.destroy,
-        bg=ui.control_background,
-        fg=ui.text_muted,
-        activebackground=ui.control_active,
-        activeforeground="#ffffff",
-        relief=tk.FLAT,
-        highlightthickness=1,
-        highlightbackground=ui.border,
-        font=("Sans", 8, "bold"),
-        width=8,
-    ).pack(side=tk.LEFT, padx=4)
-
+    panel._refresh_poi_action_buttons()
     popup.lift()
     popup.focus_force()

@@ -5,10 +5,13 @@
 
 from __future__ import annotations
 
+import logging
+
 from controllers.weather.radar_palette import RadarPalette
 from controllers.weather.radar_provider_if import RadarFrame, RadarProviderIf
 from controllers.weather.radar_tile_service import RadarTileService
 from controllers.weather.radar_tile_status import RadarTileStatus
+from controllers.weather.weather_logging import WeatherLog
 
 
 class WeatherRadarController:
@@ -28,6 +31,7 @@ class WeatherRadarController:
         self._frame: RadarFrame | None = None
         self._frames: tuple[RadarFrame, ...] = ()
         self._frame_index: int | None = None
+        self._log = WeatherLog("weather.radar")
 
     @property
     def enabled(self) -> bool:
@@ -103,6 +107,7 @@ class WeatherRadarController:
         self._frames = ()
         self._frame_index = None
         self._frame = None
+        self._log.emit(logging.INFO, "radar.source_changed", "Radar provider changed")
 
     def show_latest(self) -> RadarFrame:
         """Discover available frames and make the newest one visible."""
@@ -110,9 +115,15 @@ class WeatherRadarController:
 
     def load_frames(self) -> tuple[RadarFrame, ...]:
         """Fetch frames without mutating presentation or touching the map socket."""
-        frames = tuple(self._provider.get_frames())
-        if not frames:
-            raise RuntimeError("radar provider returned no frames")
+        operation_id = self._log.requested()
+        try:
+            frames = tuple(self._provider.get_frames())
+            if not frames:
+                raise RuntimeError("radar provider returned no frames")
+        except Exception as error:
+            self._log.failed(error, operation_id)
+            raise
+        self._log.succeeded(operation_id, frame_count=len(frames))
         return frames
 
     def show_frames(self, frames: tuple[RadarFrame, ...]) -> RadarFrame:
@@ -136,6 +147,7 @@ class WeatherRadarController:
         return self._select_frame(min(len(self._frames) - 1, self._frame_index + 1))
 
     def _select_frame(self, index: int) -> RadarFrame:
+        previous = self._enabled
         frame = self._frames[index]
         self._frame_index = index
         self._frame = frame
@@ -143,16 +155,25 @@ class WeatherRadarController:
         if self._tile_service is not None:
             self._tile_service.retry_frame(frame)
         self._publish_frame(frame)
+        if not previous:
+            self._log.changed("enabled", True, "radar.visibility_changed", "Radar overlay visibility changed", enabled=True)
+        self._log.emit(logging.DEBUG, "radar.frame_selected", "Cached radar frame selected", frame_index=index)
         return frame
 
     def hide(self) -> None:
         """Hide radar without discarding the renderer's source/tile cache."""
+        previous = self._enabled
         self._enabled = False
         self._map_renderer.set_weather_radar(None, enabled=False, opacity=self._opacity)
+        if previous:
+            self._log.changed("enabled", False, "radar.visibility_changed", "Radar overlay visibility changed", enabled=False)
 
     def set_palette(self, palette: RadarPalette) -> None:
         """Change radar presentation without discovering or downloading a new frame."""
+        previous = self._palette
         self._palette = RadarPalette(palette)
+        if previous != self._palette:
+            self._log.changed("palette", self._palette, "radar.palette_changed", "Radar palette changed", palette=self._palette.value)
         if self._enabled and self._frame is not None:
             self._publish_frame(self._frame)
 

@@ -24,6 +24,7 @@ class SystemDiagnosticsControllerTest(unittest.TestCase):
 
             thermal = sys_root / "class" / "thermal" / "thermal_zone0"
             thermal.mkdir(parents=True)
+            (thermal / "type").write_text("cpu-thermal")
             frequency = (
                 sys_root
                 / "devices"
@@ -208,6 +209,7 @@ class SystemDiagnosticsControllerTest(unittest.TestCase):
             for name, temperature, limit in (("thermal_zone0", 90000, 110000), ("thermal_zone1", 40000, 50000)):
                 zone = root / "class/thermal" / name
                 zone.mkdir(parents=True)
+                (zone / "type").write_text("cpu-thermal")
                 (zone / "temp").write_text(str(temperature))
                 (zone / "trip_point_0_temp").write_text(str(limit))
                 (zone / "trip_point_0_type").write_text("critical")
@@ -221,6 +223,7 @@ class SystemDiagnosticsControllerTest(unittest.TestCase):
             root = Path(directory)
             zone = root / "class/thermal/thermal_zone0"
             zone.mkdir(parents=True)
+            (zone / "type").write_text("cpu-thermal")
             (zone / "temp").write_text("500")
             controller = SystemDiagnosticsController(sys_root=root)
             self.assertEqual(controller._read_thermal_state(), (0.5, None, "thermal_zone0"))

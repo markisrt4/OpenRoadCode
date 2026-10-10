@@ -4,8 +4,10 @@
 from __future__ import annotations
 
 import json
-import logging
 import threading
+
+from common.logging.diagnostics import ComponentLog, diagnostic_action
+from common.logging.structured import current_operation, operation
 
 import gps
 
@@ -15,9 +17,6 @@ except ModuleNotFoundError:
     dictwrapper = gps.dictwrapper
 
 from hardware_io.gps.gps_types import GpsCallback, GpsData
-
-
-LOGGER = logging.getLogger(__name__)
 
 
 class _Python3GpsSession(gps.gps):
@@ -54,6 +53,8 @@ class GpsReader:
         if callback is not None and not callable(callback):
             raise TypeError("callback must be callable")
 
+        self._diagnostics = ComponentLog("navigation.gps", "gps")
+        self._operation_id = None
         self._callback = callback
         self._host = host
         self._port = port
@@ -69,6 +70,7 @@ class GpsReader:
         """Return whether the background gpsd reader thread is active."""
         return self._thread is not None and self._thread.is_alive()
 
+    @diagnostic_action("open")
     def open(self) -> None:
         """Opens a connection to gpsd."""
         if self._session is not None:
@@ -80,8 +82,9 @@ class GpsReader:
             mode=gps.WATCH_ENABLE | gps.WATCH_NEWSTYLE,
         )
 
-        LOGGER.info("Connected to gpsd at %s:%s", self._host, self._port)
+        self._diagnostics.changed("connection", "connected")
 
+    @diagnostic_action("close")
     def close(self) -> None:
         """Closes the gpsd connection."""
         if self.is_running:
@@ -90,7 +93,9 @@ class GpsReader:
         if self._session is not None:
             self._session.close()
             self._session = None
+            self._diagnostics.changed("connection", "disconnected")
 
+    @diagnostic_action("start")
     def start(self, callback: GpsCallback | None = None) -> None:
         """Starts reading GPS data in a background thread."""
         if callback is not None:
@@ -107,15 +112,15 @@ class GpsReader:
         self.open()
         self._stop_event.clear()
 
+        self._operation_id = current_operation()
         self._thread = threading.Thread(
-            target=self._run,
+            target=self._run, args=(self._operation_id,),
             name="GpsReader",
             daemon=True,
         )
         self._thread.start()
 
-        LOGGER.info("GPS reader started")
-
+    @diagnostic_action("stop")
     def stop(self) -> None:
         """Stops the GPS reader."""
         self._stop_event.set()
@@ -131,10 +136,22 @@ class GpsReader:
         ):
             self._thread.join(timeout=1.0)
 
-        self._thread = None
-        LOGGER.info("GPS reader stopped")
+        if self._thread is not None and self._thread.is_alive():
+            self._diagnostics.failed("join", operation_id=self._operation_id, reason="timeout")
+        else:
+            self._thread = None
+            self._diagnostics.succeeded("join", self._operation_id)
+        self._diagnostics.changed("connection", "disconnected", self._operation_id)
 
-    def _run(self) -> None:
+    def _run(self, operation_id=None) -> None:
+        with operation(operation_id or self._operation_id):
+            self._diagnostics.changed("reader", "running")
+            try:
+                self._read_reports()
+            finally:
+                self._diagnostics.changed("reader", "stopped")
+
+    def _read_reports(self) -> None:
         try:
             if self._session is None:
                 raise RuntimeError("GPS session is not open")
@@ -165,13 +182,11 @@ class GpsReader:
                     )
                 )
 
-        except OSError:
-            if not self._stop_event.is_set():
-                LOGGER.exception("GPS connection failed")
+                self._diagnostics.succeeded("read")
 
-        except Exception:
+        except Exception as error:
             if not self._stop_event.is_set():
-                LOGGER.exception("Unexpected GPS reader failure")
+                self._diagnostics.failed("read", error)
 
     def _update_satellite_counts(self, report: gps.gpsdata) -> None:
         satellites = report.get("satellites") or []

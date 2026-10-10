@@ -2,7 +2,13 @@
 # SPDX-License-Identifier: MIT
 
 """Adapt POI discovery, saved places, and platform actions to UI contracts."""
+
+from common.logging.diagnostics import ComponentLog, diagnostic_action
+import logging
 import math
+
+from common.logging.structured import current_operation, operation
+from dataclasses import replace
 import threading
 from queue import SimpleQueue, Empty
 from collections.abc import Callable
@@ -13,13 +19,14 @@ from controllers.navigation.map_favorites import MapFavorites
 from controllers.poi.poi_search_controller_if import PoiSearchControllerIf
 from controllers.poi.poi_action_executor_if import PoiActionExecutorIf
 from ui.navigation.navigation_places_request_handler_if import MapFavorite, NavigationPlacesRequestHandlerIf, NavigationCameraState, PlaceActionResult
-from ui.navigation.poi_models import PoiAction, PoiCategory, PoiSearchResult, PointOfInterest, TransitMode
+from ui.navigation.poi_models import PoiAction, PoiActionKind, PoiCategory, PoiSearchResult, PointOfInterest, TransitMode
 
 
 class NavigationPlacesController(NavigationPlacesRequestHandlerIf):
     """Own one search session while sharing durable favorites and action adapters."""
 
     def __init__(self, search: PoiSearchControllerIf, favorites: MapFavorites, actions: PoiActionExecutorIf, *, online_allowed: Callable[[], bool] = lambda: True, camera_observer=None):
+        self._diagnostics = ComponentLog("navigation.poi.actions", "poi")
         self._search = search
         self._favorites = favorites
         self._actions = actions
@@ -46,11 +53,25 @@ class NavigationPlacesController(NavigationPlacesRequestHandlerIf):
         return None if self._closed else self._search.poll_search_result()
 
     def poll_selected(self) -> PointOfInterest | None:
-        return None if self._closed else self._search.poll_selected()
+        poi = None if self._closed else self._search.poll_selected()
+        if not isinstance(poi, PointOfInterest):
+            return poi
+        latitude = math.degrees(poi.position.latitude_rad)
+        longitude = math.degrees(poi.position.longitude_rad)
+        if not (math.isfinite(latitude) and math.isfinite(longitude)
+                and -90 <= latitude <= 90 and -180 <= longitude <= 180):
+            return poi
+        action = PoiAction(PoiActionKind.OPEN_WEBSITE, "Explore in Google Earth",
+                           provider_id="google-earth-explore",
+                           uri=(f"https://earth.google.com/web/@{latitude:.7f},{longitude:.7f},"
+                                "0a,1000d,35y,0h,45t,0r"))
+        actions = tuple(a for a in poi.actions if a.provider_id != "google-earth-explore")
+        return replace(poi, actions=actions + (action,))
 
     def poll_camera_interaction(self) -> bool:
         return False if self._closed else self._search.poll_camera_interaction()
 
+    @diagnostic_action("launch")
     def execute(self, poi: PointOfInterest, action: PoiAction) -> str:
         if self._closed:
             raise RuntimeError('Navigation places session is closed')
@@ -85,7 +106,13 @@ class NavigationPlacesController(NavigationPlacesRequestHandlerIf):
             self._action_pending = True
             self._action_id += 1
             request_id = self._action_id
+        with operation(current_operation()) as operation_id:
+            self._diagnostics.emit(logging.DEBUG, "action_requested")
         def launch():
+            with operation(operation_id):
+                complete()
+
+        def complete():
             try:
                 result = PlaceActionResult(request_id, self.execute(poi, action), True)
             except (RuntimeError, ValueError) as error:
@@ -94,7 +121,15 @@ class NavigationPlacesController(NavigationPlacesRequestHandlerIf):
                 self._action_pending = False
                 if not self._closed:
                     self._action_results.put(result)
-        threading.Thread(target=launch, name='orc-poi-launch', daemon=True).start()
+                else:
+                    self._diagnostics.emit(logging.DEBUG, "result_discarded")
+        try:
+            threading.Thread(target=launch, name='orc-poi-launch', daemon=True).start()
+        except Exception as error:
+            with self._action_lock:
+                self._action_pending = False
+            self._diagnostics.failed('worker_start', error, operation_id)
+            raise
         return request_id
 
     def poll_action_result(self) -> PlaceActionResult | None:

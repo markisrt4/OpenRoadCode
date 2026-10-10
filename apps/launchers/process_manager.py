@@ -7,9 +7,19 @@ import os
 import signal
 import subprocess
 import time
+import logging
 from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
+
+from common.logging.lifecycle import logged_action
+from common.logging.structured import event
+
+LOGGER = logging.getLogger("runtime.processes")
+
+
+def _child_context(process, *args, **kwargs):
+    return {"child_pid": process.pid if type(process.pid) is int else None}
 
 
 DEFAULT_DISPLAY_APP_PATTERNS = (
@@ -33,6 +43,7 @@ PROTECTED_PROCESS_PATTERNS = (
 @dataclass(frozen=True, slots=True)
 class ProcessInfo:
     """Describe a matching operating-system process."""
+
     pid: int
     command_line: str
     display: str | None
@@ -78,6 +89,7 @@ def is_process_running(pattern: str) -> bool:
     return bool(find_matching_processes(pattern))
 
 
+@logged_action("runtime.processes", "process.action", "terminate", context=_child_context)
 def terminate_process(
     process: subprocess.Popen[bytes] | subprocess.Popen[str],
     *,
@@ -89,19 +101,43 @@ def terminate_process(
     @param timeout_seconds Grace period before forced termination.
     """
     if process.poll() is not None:
-        process.wait()
+        code = process.wait()
+        event(
+            LOGGER,
+            logging.INFO,
+            "process.exit_observed",
+            "Child process exit observed",
+            exit_code=code if type(code) is int else None,
+            **_child_context(process),
+        )
         return
 
     try:
         os.killpg(os.getpgid(process.pid), signal.SIGTERM)
-        process.wait(timeout=timeout_seconds)
+        code = process.wait(timeout=timeout_seconds)
     except subprocess.TimeoutExpired:
+        event(
+            LOGGER,
+            logging.WARNING,
+            "process.kill_forced",
+            "Child exceeded termination grace period",
+            **_child_context(process),
+        )
         os.killpg(os.getpgid(process.pid), signal.SIGKILL)
-        process.wait(timeout=timeout_seconds)
+        code = process.wait(timeout=timeout_seconds)
     except ProcessLookupError:
-        process.wait()
+        code = process.wait()
+    event(
+        LOGGER,
+        logging.INFO,
+        "process.exit_observed",
+        "Child process exit observed",
+        exit_code=code if type(code) is int else None,
+        **_child_context(process),
+    )
 
 
+@logged_action("runtime.processes", "process.action", "close_display_apps")
 def close_display_apps(
     display: str,
     patterns: Iterable[str] = DEFAULT_DISPLAY_APP_PATTERNS,
@@ -125,6 +161,13 @@ def close_display_apps(
 
             try:
                 os.kill(process.pid, signal.SIGTERM)
+                event(
+                    LOGGER,
+                    logging.INFO,
+                    "process.signal_sent",
+                    "Display application termination requested",
+                    child_pid=process.pid,
+                )
             except ProcessLookupError:
                 pass
 
@@ -167,17 +210,11 @@ def _process_display(pid: int) -> str | None:
 def _process_command_line(pid: int) -> str:
     try:
         return (
-            Path(f"/proc/{pid}/cmdline")
-            .read_bytes()
-            .replace(b"\0", b" ")
-            .decode(errors="ignore")
+            Path(f"/proc/{pid}/cmdline").read_bytes().replace(b"\0", b" ").decode(errors="ignore")
         )
     except (OSError, PermissionError):
         return ""
 
 
 def _is_protected_process(command_line: str) -> bool:
-    return any(
-        pattern in command_line
-        for pattern in PROTECTED_PROCESS_PATTERNS
-    )
+    return any(pattern in command_line for pattern in PROTECTED_PROCESS_PATTERNS)

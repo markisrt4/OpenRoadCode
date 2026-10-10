@@ -5,6 +5,8 @@
 
 from __future__ import annotations
 
+from common.logging.diagnostics import ComponentLog, diagnostic_action
+
 from apps.launchers.google_earth_launcher import GoogleEarthLauncher
 from controllers.application_runtime import AppRuntimeManager
 from ui.navigation.map_presentation_if import (MapPresentationIf)
@@ -14,8 +16,10 @@ class GoogleEarthMapPresentation(MapPresentationIf):
     """Present geographic locations through the managed Google Earth launcher."""
 
     def __init__(self, app_runtime_manager: AppRuntimeManager) -> None:
+        self._diagnostics = ComponentLog("navigation.earth.presentation", "earth")
         self._app_runtime_manager = app_runtime_manager
 
+    @diagnostic_action("focus")
     def focus_location(
         self,
         latitude: float,

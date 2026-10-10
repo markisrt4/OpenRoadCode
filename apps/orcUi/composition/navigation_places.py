@@ -6,6 +6,7 @@ from collections.abc import Callable
 from weakref import WeakSet
 
 from apps.launchers.android_app_launcher import AndroidAppLauncher
+from apps.launchers.earth_exploration_actions import EarthExplorationActions
 from controllers.navigation.map_favorites import MapFavorites
 from controllers.poi.android_poi_action_executor import AndroidPoiActionExecutor
 from controllers.poi.navigation_places_controller import NavigationPlacesController
@@ -23,7 +24,7 @@ class NavigationPlacesFactory(NavigationPlacesFactoryIf):
                  search_factory: Callable[[], PoiSearchControllerIf] = PoiSearchController,
                  online_allowed: Callable[[], bool] = lambda: True, camera_observer=None):
         self._favorites = favorites if favorites is not None else MapFavorites()
-        self._actions = actions if actions is not None else AndroidPoiActionExecutor(AndroidAppLauncher())
+        self._actions = actions if actions is not None else EarthExplorationActions(AndroidPoiActionExecutor(AndroidAppLauncher()))
         self._search_factory = search_factory
         self._sessions = WeakSet()
         self._closed = False

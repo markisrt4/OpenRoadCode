@@ -94,3 +94,15 @@ Altitude defaults to the standard sea-level reference pressure of 101325 Pa. Use
 python3 -m controllers.environmental.component_test.barometric_cli \
     --sea-level-pressure 100800
 ```
+
+## Structured logging
+
+`environmental.ambient_light`, `environmental.barometric`, `environmental.bmp3xx`
+and `environmental.imu` record lifecycle and read/start/stop failure/recovery.
+Barometric calibration/reference/reset operations are diagnostic stages.
+An unconfigured barometer reports a fixed availability state, retaining its
+user-facing reason only in the UI. Successful polling remains DEBUG; lifecycle
+changes and recovery are INFO, and repeated identical failures stay quiet until
+recovery or a different failure. New records exclude readings, hardware addresses,
+paths and exception messages. See the
+[device validation guide](../../common/logging/DEVICE_VALIDATION.md).
