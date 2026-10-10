@@ -224,6 +224,10 @@ viewing distance. The control rail scrolls on short screens.
 
 The selected-place popup now includes a separate **3D Map** icon beside Navigate
 and Earth. It centers the local viewer on that POI, labeled with its name. The
+cyan destination point and its white-on-dark label bypass depth testing so
+buildings cannot hide them in a tilted view. Their position remains anchored to
+the selected POI at local ground height; this is a destination overlay, not a
+claim that the POI sits on a rooftop. The
 Google Earth button retains its ordinary online browser behavior. 3D Map works
 in offline mode, uses only installed SDK/data, and never downloads new coverage.
 If the selected place is outside installed imagery coverage, the viewer footer

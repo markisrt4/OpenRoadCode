@@ -46,8 +46,13 @@
     const target = C.Cartesian3.fromRadians(snapshot.longitude_rad, snapshot.latitude_rad,groundHeight+3);
     document.getElementById('destination').textContent = snapshot.label;
     viewer.entities.add({position:target,
-      point:{pixelSize:10,color:C.Color.CYAN,outlineColor:C.Color.WHITE,outlineWidth:2},
-      label:{text:snapshot.label,font:'16px sans-serif',pixelOffset:new C.Cartesian2(0,-24)}});
+      // The selected POI is an overlay at its real location: building geometry
+      // must not hide the destination while the camera remains tilted.
+      point:{pixelSize:14,color:C.Color.CYAN,outlineColor:C.Color.WHITE,outlineWidth:2,
+        disableDepthTestDistance:Number.POSITIVE_INFINITY},
+      label:{text:snapshot.label,font:'bold 16px sans-serif',pixelOffset:new C.Cartesian2(0,-26),
+        fillColor:C.Color.WHITE,showBackground:true,backgroundColor:C.Color.BLACK.withAlpha(.8),
+        backgroundPadding:new C.Cartesian2(7,5),disableDepthTestDistance:Number.POSITIVE_INFINITY}});
     const references = new C.CustomDataSource('references');
     references.show = snapshot.references_visible;
     viewer.dataSources.add(references);
