@@ -8,6 +8,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from common.app_settings import AppSettings, AppSettingsStore
+from apps.launchers.host_location_permission import HostLocationPermission
+from controllers.navigation.host_location_settings_controller import HostLocationSettingsController
 from controllers.weather.radar_palette import RadarPalette
 
 from apps.orcUi.application_runtime import OrcUiApplicationRuntime, create_orc_ui_application_runtime
@@ -59,6 +61,7 @@ class OrcUiComposition:
     performance: SystemPerformanceMonitor | None = None
     diagnostics: DiagnosticsScreen | None = None
     performance_status: PerformanceStatusPresenter | None = None
+    host_location: HostLocationSettingsController | None = None
 
     @property
     def app(self) -> OrcUiApp:
@@ -76,6 +79,8 @@ class OrcUiComposition:
             self.app.run()
         finally:
             try:
+                if self.host_location is not None:
+                    self.host_location.close()
                 if self.performance_status is not None:
                     self.performance_status.close()
             finally:
@@ -131,6 +136,7 @@ def create_orc_ui_composition() -> OrcUiComposition:
     vision: VisionComposition | None = None
     media: MediaComposition | None = None
     navigation_maps: NavigationMapRuntime | None = None
+    host_location: HostLocationSettingsController | None = None
     try:
         core = create_core_composition()
         app = core.app
@@ -262,6 +268,8 @@ def create_orc_ui_composition() -> OrcUiComposition:
             on_unit_system_changed=set_unit_system,
             on_back=lambda: app.navigate_to("HOME"),
         )
+        host_location = HostLocationSettingsController(app, settings, HostLocationPermission())
+        settings.set_host_location_request_handler(host_location)
         performance = SystemPerformanceMonitor()
         diagnostics = DiagnosticsScreen(
             app, provider=performance, history=performance.history,
@@ -292,6 +300,8 @@ def create_orc_ui_composition() -> OrcUiComposition:
         app.set_initial_destination("HOME")
         app.set_settings_action(lambda: app.navigate_to("SETTINGS"))
     except Exception:
+        if host_location is not None:
+            host_location.close()
         try:
             try:
                 if navigation_maps is not None:
@@ -339,4 +349,5 @@ def create_orc_ui_composition() -> OrcUiComposition:
         performance=performance,
         diagnostics=diagnostics,
         performance_status=performance_status,
+        host_location=host_location,
     )

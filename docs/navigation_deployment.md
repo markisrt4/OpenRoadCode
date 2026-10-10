@@ -272,7 +272,15 @@ does not update `/opt/openroadcode/navigation/bin/openroadcode-map-renderer`.
 Desktop Linux navigation services offer browser geolocation alongside device
 GPS. Eligibility checks the actual runtime and Pi hardware model, rather than
 the saved install/build target: a desktop configured to build for `rpi5` still
-offers the listener. Open
+offers the listener. In ORC, open **Settings → Share host location** to launch
+the permission page using your default browser, including Firefox. Settings
+checks the local service first and reports a stopped service or browser-launch
+failure without blocking the UI. Browser permission remains a browser prompt;
+ORC does not grant it or assume that opening the page means location is shared.
+Leaving Settings cancels pending checks and stale UI completions. The page is
+an ordinary browser tab and stays open when you return to ORC.
+
+Alternatively, open
 <http://localhost:8765/> **on the computer running the navigation service**, click
 **Share host location**, and allow the browser's location permission. The page
 shows reported accuracy and must remain open. It does not request location until

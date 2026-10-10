@@ -24,6 +24,7 @@ from ui.navigation import (
     RouteSimulationRequestHandlerIf,
 )
 from ui.theme import ThemeBundle
+from ui.navigation.host_location_ui_if import HostLocationRequestHandlerIf, HostLocationState
 from ui.navigation.navigation_places_request_handler_if import NavigationPlacesRequestHandlerIf
 
 from .navigation_panel import NavigationPanel
@@ -119,6 +120,8 @@ def build_settings_screen(
     on_unit_system_changed: Callable[[UnitSystem], None],
     on_back: Callable[[], None],
     theme: ThemeBundle,
+    host_location_handler: HostLocationRequestHandlerIf | None = None,
+    host_location_state: HostLocationState = HostLocationState(),
 ) -> SettingsPanel:
     screen = SettingsPanel(
         parent,
@@ -128,6 +131,8 @@ def build_settings_screen(
         on_unit_system_changed=on_unit_system_changed,
         on_back=on_back,
         theme_bundle=theme,
+        host_location_handler=host_location_handler,
+        host_location_state=host_location_state,
     )
     screen.pack(fill=tk.BOTH, expand=True)
     return screen
