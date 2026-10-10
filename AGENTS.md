@@ -63,3 +63,25 @@ Explain the proposed scope and consequences first, then wait for the user's
 answer. Do not treat an unanswered preference question as authorization. Routine
 fixes within an agreed scope can proceed. Apply this preference in every Codex
 session working on this repository.
+
+## Network ports and interface registry (mandatory)
+
+Before selecting or changing ANY TCP/UDP port, socket endpoint, or cross-process
+network interface:
+
+1. Read `docs/ethernet_idd.md` first. It is the project-wide port registry.
+2. Search actual code and configuration in OpenRoadCode and affected companion
+   repositories for the proposed port and interface. Do not infer availability
+   from neighboring numbers or from a port appearing closed on one device.
+3. Select a non-conflicting default, retain loopback binding unless remote
+   exposure is explicitly required, and update the IDD in the SAME change as
+   implementation and client configuration.
+4. Add focused tests for port contracts, binding failures, and client routing.
+   A persisted 'enabled' preference must never be presented as proof that a
+   listener successfully bound; expose actual runtime status separately.
+5. Verify the expected service answers on the assigned endpoint, including
+   negative/authentication cases, before declaring integration working.
+
+Do not reuse reserved ports even when their owners are temporarily stopped.
+If the IDD and implementation disagree, investigate and reconcile them rather
+than assigning another port by guesswork.
