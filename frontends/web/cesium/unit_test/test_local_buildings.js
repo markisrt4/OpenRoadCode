@@ -1,0 +1,26 @@
+'use strict';
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const vm=require('node:vm');
+const path=require('node:path');
+const test=require('node:test');
+const context={window:{}};
+vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../local_buildings.js'),'utf8'),context);
+test('building bases follow relief changes while building height remains real',()=>{
+  let ground=10;
+  const entities=[];
+  const C={CustomDataSource:class {constructor(){this.entities={add:e=>{entities.push(e);return e;}};}},
+    PolygonHierarchy:class {},Cartesian3:{fromRadians:(x,y)=>({x,y})},
+    Color:{fromCssColorString:c=>c},Credit:class {}};
+  const viewer={dataSources:{add(){}},cesiumWidget:{creditDisplay:{addStaticCredit(){}}},scene:{requestRender(){}}};
+  const data={buildings:[{ring_rad:[[0,0],[1,0],[1,1],[0,0]],height_m:20,height_source:'osm-height'}]};
+  const layer=context.window.ORCLocalBuildings(viewer,data,C,()=>ground);
+  assert.equal(entities[0].polygon.height,10);
+  ground=30;
+  layer.refreshGround();
+  assert.equal(entities[0].polygon.height,30);
+  assert.equal(entities[0].polygon.extrudedHeight,50);
+  ground=0;
+  layer.refreshGround();
+  assert.equal(entities[0].polygon.extrudedHeight,20);
+});

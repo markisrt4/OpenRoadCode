@@ -3,6 +3,7 @@
 window.ORCLocalBuildings = function (viewer, data, C, heightAt = () => 0) {
   const source = new C.CustomDataSource('buildings');
   viewer.dataSources.add(source);
+  const groundUpdates = [];
   const counts = {'osm-height':0, 'levels-estimate':0, placeholder:0};
   for (const building of data.buildings) {
     // Flat base sampled at the footprint centroid; coarse terrain is relative relief.
@@ -12,15 +13,20 @@ window.ORCLocalBuildings = function (viewer, data, C, heightAt = () => 0) {
     const base = heightAt(lon,lat);
     const color = building.height_source === 'osm-height' ? '#c4dce8'
       : building.height_source === 'levels-estimate' ? '#d7bb79' : '#bd8b66';
-    source.entities.add({polygon:{
+    const entity = source.entities.add({polygon:{
       hierarchy:new C.PolygonHierarchy(ring.map(p => C.Cartesian3.fromRadians(p[0],p[1]))),
       height:base, extrudedHeight:base+building.height_m,
       material:C.Color.fromCssColorString(color), outline:false
     }});
+    groundUpdates.push(() => {
+      const base = heightAt(lon,lat);
+      entity.polygon.height = base;
+      entity.polygon.extrudedHeight = base+building.height_m;
+    });
     counts[building.height_source]++;
   }
   viewer.cesiumWidget.creditDisplay.addStaticCredit(new C.Credit(
     '© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a> · ODbL 1.0',true));
   viewer.scene.requestRender();
-  return {source, label:`Buildings: ${counts['osm-height']} tagged (blue), ${counts['levels-estimate']} floor estimates (gold), ${counts.placeholder} 9 m placeholders (brown)`};
+  return {source, refreshGround(){groundUpdates.forEach(update=>update());}, label:`Buildings: ${counts['osm-height']} tagged (blue), ${counts['levels-estimate']} floor estimates (gold), ${counts.placeholder} 9 m placeholders (brown)`};
 };

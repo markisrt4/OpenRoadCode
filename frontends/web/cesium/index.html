@@ -17,7 +17,14 @@
 <header><strong id="destination">3D map</strong><button id="close">Return to ORC</button></header>
 <nav aria-label="Map controls">
 <button id="zoom-in" aria-label="Zoom in">＋</button><button id="zoom-out" aria-label="Zoom out">−</button>
+<div class="pan-controls" role="group" aria-label="Pan map">
+<button id="pan-up" aria-label="Pan forward in the current view">↑</button>
+<button id="pan-left" aria-label="Pan left in the current view">←</button>
+<button id="pan-right" aria-label="Pan right in the current view">→</button>
+<button id="pan-down" aria-label="Pan backward in the current view">↓</button>
+</div>
 <button id="terrain" aria-pressed="true">Terrain</button>
+<button id="terrain-scale" aria-label="Cycle terrain scale: 1, 2, or 3 times">Relief 1×</button>
 <button id="buildings" aria-pressed="true">Buildings</button>
 <button id="references" aria-pressed="false">Grid</button>
 <button id="pitch-up" aria-label="More tilt: view the destination from a lower angle">More tilt</button>

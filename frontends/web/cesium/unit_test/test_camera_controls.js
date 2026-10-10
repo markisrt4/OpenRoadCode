@@ -37,3 +37,29 @@ test('sky-centred tilt changes orientation in place without recentering',()=>{
   assert.equal(orientation.heading,.5);
   assert.ok(Math.abs(orientation.pitch+.4)<1e-10);
 });
+
+test('pan follows view heading, scales with zoom and retains orientation and range',()=>{
+  let next, pose;
+  let range=1200;
+  const camera={heading:0,pitch:-.6,positionWC:{},getPickRay:()=>({}),pickEllipsoid:()=>undefined,
+    lookAt(point,orientation){next=point;pose=orientation;},lookAtTransform(){}};
+  const C={Cartesian2:class {},Cartographic:{fromCartesian:p=>p},
+    Cartesian3:{distance:()=>range,fromRadians:(longitude,latitude,height)=>({longitude,latitude,height})},
+    HeadingPitchRange:class {constructor(heading,pitch,range){Object.assign(this,{heading,pitch,range});}},Matrix4:{IDENTITY:{}}};
+  const scene={canvas:{clientWidth:800,clientHeight:600},globe:{pick:()=>({longitude:0,latitude:0}),ellipsoid:{maximumRadius:6378137}},requestRender(){}};
+  const controls=context.window.ORCCameraControls({camera,scene},{pan_step_fraction:.15},C,()=>30);
+  controls.pan(0,1);
+  assert.ok(next.latitude>0); assert.equal(next.longitude,0);
+  assert.equal(next.height,30); assert.equal(pose.pitch,-.6); assert.equal(pose.range,1200);
+  const initialLatitude=next.latitude;
+  range=600;
+  controls.pan(0,1);
+  assert.ok(Math.abs(next.latitude-initialLatitude/2)<1e-10);
+  camera.heading=Math.PI/2;
+  controls.pan(0,1);
+  assert.ok(next.longitude>0); assert.ok(Math.abs(next.latitude)<1e-10);
+  controls.pan(1,0);
+  assert.ok(next.latitude<0);
+  scene.globe.pick=()=>undefined;
+  assert.equal(controls.pan(1,0),false);
+});

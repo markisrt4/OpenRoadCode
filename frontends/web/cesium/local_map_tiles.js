@@ -95,6 +95,7 @@ window.ORCLocalMapTiles = function(viewer, data, C, heightAt, buildingsVisible) 
       viewer.scene.requestRender();
     },
     update,
+    refreshGround() {for (const entry of entries.values()) entry.buildings?.refreshGround();},
     destroy() {
       if (disposed) return;
       disposed=true;

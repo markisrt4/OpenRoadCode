@@ -363,9 +363,8 @@ The test opens near the ski hill without Detroit imagery or buildings. Terrain
 ON/OFF switches between sampled ground and a flat ellipsoid without resetting the
 camera. With no imagery, 10 m contour lines help show the relief. The footer shows
 the sampled elevation range. Source sampling is coarse, so this is a terrain
-comparison rather than a detailed ski-trail map. Grid and building objects retain
-their original sampled heights during a flat comparison; turn those layers off
-when comparing ground shape. Rendering and live USGS downloads require device
+comparison rather than a detailed ski-trail map. Grid graphics, the destination marker and building bases follow the selected
+relief scale and flatten with terrain disabled; building heights remain unchanged. Rendering and live USGS downloads require device
 validation. After downloading, this view works offline.
 
 USGS HTTP 500, 502, 503, 504 and rate-limit failures receive up to three
@@ -420,3 +419,31 @@ the screen centre, falling back to the ellipsoid. If the centre points at sky,
 tilt changes orientation in place. Only Reset view returns to the selected POI.
 Pine Knob's test intentionally disables building layers; “buildings not installed”
 does not indicate a terrain failure. Ground relief is not vertically exaggerated.
+
+### Relief scale and pan arrows
+
+The arrow pad pans across ground relative to the camera heading, retaining tilt
+and viewing distance. Each step is 15% of the current distance to the visible
+centre, bounded to 25 m–100 km. If the centre points at sky and no ground can be
+picked, pan waits until ground is visible. Mouse pan and touch tilt still work.
+
+Relief cycles 1× / 2× / 3×; the default 1× uses actual relative elevations. The
+footer explicitly labels 2× and 3× as exaggerated. Source samples and the displayed
+sampled elevation range remain unchanged. Imagery drapes over the new terrain;
+markers, local grid graphics and loaded building bases are refreshed, while
+building heights stay real. Terrain OFF disables the relief control and returns
+these overlays to flat ground. Reset view restores destination, initial tilt,
+and 1× relief. Contour spacing refers to displayed height, so exaggeration makes
+additional contour lines visible.
+
+```bash
+git switch navigation-cesium
+git pull --ff-only
+bash development/termux/test_pine_knob.sh
+```
+
+Pan away from the destination with the arrows, change tilt, then cycle relief.
+Check that panning and scaling retain the viewed area, imagery remains aligned,
+and the marker follows the ground. Reset should restore the destination and 1×.
+No pack downloads are required. Device rendering and the user-run quality gate
+remain pending.

@@ -40,12 +40,15 @@
       contextOptions:{webgl:{powerPreference:'high-performance'}}
     });
     const terrain = snapshot.terrain ? window.ORCLocalTerrain(snapshot.terrain,C) : null;
-    if (terrain) terrain.setVisible(viewer, snapshot.terrain_visible);
+    if (terrain) {
+      terrain.setScale(viewer, snapshot.terrain_scale);
+      terrain.setVisible(viewer, snapshot.terrain_visible);
+    }
     viewer.scene.globe.baseColor = C.Color.fromCssColorString('#174963');
     const groundHeight = terrain ? terrain.heightAt(snapshot.longitude_rad,snapshot.latitude_rad) : 0;
-    const target = C.Cartesian3.fromRadians(snapshot.longitude_rad, snapshot.latitude_rad,groundHeight+3);
+    let target = C.Cartesian3.fromRadians(snapshot.longitude_rad, snapshot.latitude_rad,groundHeight+3);
     document.getElementById('destination').textContent = snapshot.label;
-    viewer.entities.add({position:target,
+    const destinationMarker = viewer.entities.add({position:target,
       // The selected POI is an overlay at its real location: building geometry
       // must not hide the destination while the camera remains tilted.
       point:{pixelSize:14,color:C.Color.CYAN,outlineColor:C.Color.WHITE,outlineWidth:2,
@@ -56,18 +59,22 @@
     const references = new C.CustomDataSource('references');
     references.show = snapshot.references_visible;
     viewer.dataSources.add(references);
-    // Procedural geographic grid: no imagery, terrain service, or building data.
-    for (let lat = -60; lat <= 60; lat += 30) {
-      const points = [];
-      for (let lon = -180; lon <= 180; lon += 3) points.push(C.Cartesian3.fromDegrees(lon,lat));
-      references.entities.add({polyline:{positions:points,width:1,material:C.Color.WHITE.withAlpha(.18)}});
+    function rebuildReferences() {
+      references.entities.removeAll();
+      // Procedural geographic grid: no imagery, terrain service, or building data.
+      for (let lat = -60; lat <= 60; lat += 30) {
+        const points = [];
+        for (let lon = -180; lon <= 180; lon += 3) points.push(C.Cartesian3.fromDegrees(lon,lat));
+        references.entities.add({polyline:{positions:points,width:1,material:C.Color.WHITE.withAlpha(.18)}});
+      }
+      for (let lon = -180; lon < 180; lon += 30) {
+        const points = [];
+        for (let lat = -90; lat <= 90; lat += 3) points.push(C.Cartesian3.fromDegrees(lon,lat));
+        references.entities.add({polyline:{positions:points,width:1,material:C.Color.WHITE.withAlpha(.18)}});
+      }
+      window.ORCCesiumReferences(viewer, snapshot, C, terrain?.heightAt, references.entities);
     }
-    for (let lon = -180; lon < 180; lon += 30) {
-      const points = [];
-      for (let lat = -90; lat <= 90; lat += 3) points.push(C.Cartesian3.fromDegrees(lon,lat));
-      references.entities.add({polyline:{positions:points,width:1,material:C.Color.WHITE.withAlpha(.18)}});
-    }
-    window.ORCCesiumReferences(viewer, snapshot, C, terrain?.heightAt, references.entities);
+    rebuildReferences();
     const buildings = snapshot.buildings
       ? window.ORCLocalBuildings(viewer, snapshot.buildings, C, terrain?.heightAt)
       : null;
@@ -95,9 +102,12 @@
       const readout = document.getElementById('camera');
       if (readout.textContent !== text) readout.textContent = text;
     });
-    const cameraControls = window.ORCCameraControls(viewer, snapshot, C);
+    const cameraControls = window.ORCCameraControls(viewer, snapshot, C, terrain?.heightAt);
     document.getElementById('pitch-up').onclick = () => { cameraControls.pitch(1); tilted=true; };
     document.getElementById('pitch-down').onclick = () => { cameraControls.pitch(-1); tilted=true; };
+    for (const [id,right,up] of [['pan-up',0,1],['pan-down',0,-1],['pan-left',-1,0],['pan-right',1,0]]) {
+      document.getElementById(id).onclick = () => cameraControls.pan(right,up);
+    }
     let tilted = true;
     function reset() {
       viewer.camera.lookAt(target, new C.HeadingPitchRange(0,
@@ -105,7 +115,11 @@
       viewer.camera.lookAtTransform(C.Matrix4.IDENTITY);
       viewer.scene.requestRender();
     }
-    document.getElementById('reset').onclick = () => { tilted=true; reset(); };
+    document.getElementById('reset').onclick = () => {
+      tilted=true;
+      if (terrain) {terrainScale=1; updateTerrain();}
+      reset();
+    };
     document.getElementById('tilt').onclick = () => { tilted=!tilted; reset(); };
     document.getElementById('north').onclick = () => {
       viewer.camera.setView({orientation:{heading:0,pitch:viewer.camera.pitch,roll:0}});
@@ -126,24 +140,38 @@
     const terrainButton = document.getElementById('terrain');
     terrainButton.disabled = !terrain;
     let terrainVisible = snapshot.terrain_visible;
+    let terrainScale = snapshot.terrain_scale;
+    const scaleButton = document.getElementById('terrain-scale');
+    scaleButton.disabled = !terrain || !terrainVisible;
     const hasImagery = snapshot.imagery || snapshot.map_tiles?.tiles.some(t=>t.imagery_url);
     const contours = terrain && !hasImagery ? C.Material.fromType('ElevationContour', {
       color:C.Color.fromCssColorString('#e6d59a'), spacing:10, width:1.5
     }) : undefined;
     function updateTerrain() {
+      terrain.setScale(viewer, terrainScale);
       terrain.setVisible(viewer, terrainVisible);
+      scaleButton.disabled = !terrainVisible;
+      scaleButton.textContent = `Relief ${terrainScale}×`;
+      scaleButton.title = terrainScale === 1 ? 'Actual elevations' : 'Exaggerated terrain; source elevations unchanged';
+      target = C.Cartesian3.fromRadians(snapshot.longitude_rad, snapshot.latitude_rad,
+        terrain.heightAt(snapshot.longitude_rad,snapshot.latitude_rad)+3);
+      destinationMarker.position = target;
+      rebuildReferences();
+      buildings?.refreshGround();
+      tiledMap?.refreshGround();
       viewer.scene.globe.material = terrainVisible ? contours : undefined;
       terrainButton.setAttribute('aria-pressed', String(terrainVisible));
       terrainButton.textContent = terrainVisible ? 'Terrain ON' : 'Terrain OFF';
       const heights = snapshot.terrain.heights_m;
       const relief = Math.max(...heights)-Math.min(...heights);
       document.getElementById('terrain-status').textContent = terrainVisible
-        ? `Terrain ON · sampled relief ${relief.toFixed(0)} m${contours ? ' · 10 m contours' : ''}`
+        ? `Terrain ON · sampled relief ${relief.toFixed(0)} m · ${terrainScale}×${terrainScale>1 ? ' exaggerated' : ' actual'}${contours ? ' · 10 m contours' : ''}`
         : 'Terrain OFF · flat comparison';
       viewer.scene.requestRender();
     }
     if (terrain) {
       terrainButton.onclick = () => { terrainVisible = !terrainVisible; updateTerrain(); };
+      scaleButton.onclick = () => {terrainScale=terrainScale%3+1; updateTerrain();};
       updateTerrain();
     }
     bindVisibility('buildings', tiledMap || buildings?.source);

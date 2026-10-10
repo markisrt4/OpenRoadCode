@@ -44,3 +44,21 @@ test('flat comparison keeps the camera and restores the sampled provider', () =>
   assert.deepEqual(viewer.camera,{heading:1,pitch:-.5});
   assert.equal(renders,2);
 });
+
+test('relief scale replaces cached meshes, keeps source elevations and flattens overlays when hidden', () => {
+  const terrain = context.window.ORCLocalTerrain(data,C);
+  const viewer = {scene:{requestRender(){}}};
+  const original = terrain.provider;
+  terrain.setScale(viewer,3);
+  assert.notEqual(viewer.terrainProvider,original);
+  assert.ok(Math.abs(terrain.heightAt(.5,2/3)-15)<1e-10);
+  assert.ok(Math.abs(terrain.heightAt(.5,1/3)+15)<1e-10);
+  assert.equal(data.heights_m[0],30);
+  assert.equal(terrain.heightAt(0,.8),0);
+  terrain.setVisible(viewer,false);
+  assert.equal(terrain.heightAt(.5,2/3),0);
+  terrain.setVisible(viewer,true);
+  terrain.setScale(viewer,1);
+  assert.ok(Math.abs(terrain.heightAt(.5,2/3)-5)<1e-10);
+  assert.throws(()=>terrain.setScale(viewer,4),/Terrain scale/);
+});

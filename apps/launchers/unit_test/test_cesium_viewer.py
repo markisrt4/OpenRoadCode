@@ -132,3 +132,15 @@ def test_pitch_control_contract_uses_finite_si_angles(state):
     for step, limit in ((0, 1), (1, math.pi/2), (float('nan'), 1)):
         with pytest.raises(ValueError, match='pitch'):
             replace(state, pitch_step_rad=step, maximum_tilt_rad=limit)
+
+
+def test_relief_and_pan_contracts_have_safe_defaults(state):
+    from dataclasses import replace
+    assert state.document()['terrain_scale'] == 1
+    assert state.document()['pan_step_fraction'] == .15
+    for value in (0, 4, True, 2.5):
+        with pytest.raises(ValueError, match='Terrain scale'):
+            replace(state, terrain_scale=value)
+    for value in (0, 2, float('nan')):
+        with pytest.raises(ValueError, match='Pan step'):
+            replace(state, pan_step_fraction=value)
