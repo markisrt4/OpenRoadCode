@@ -18,7 +18,7 @@ def native(monkeypatch, tmp_path):
     server_factory, browser_factory = Mock(return_value=server), Mock(return_value=browser)
     monkeypatch.setattr(module,'CesiumViewerServer',server_factory)
     monkeypatch.setattr(module,'BrowserKioskLauncher',browser_factory)
-    for name in ('detroit_pack_directory','preferred_terrain_directory','detroit_building_directory'):
+    for name in ('detroit_pack_directory','preferred_imagery_directory','preferred_terrain_directory','detroit_building_directory'):
         monkeypatch.setattr(module,name,lambda *args: tmp_path/'absent')
     monkeypatch.setattr(module,'logging_file_path',lambda *args: tmp_path/'viewer.log')
     adapter = module.CesiumPoiActions(Mock())

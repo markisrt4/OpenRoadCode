@@ -14,6 +14,20 @@ def detroit_pack_directory():
     return openroadcode_data_dir("map-packs", "detroit-imagery-v1")
 
 
+def pine_knob_imagery_directory():
+    return openroadcode_data_dir("map-packs", "pine-knob-imagery-v1")
+
+
+def preferred_imagery_directory(destination):
+    directory = pine_knob_imagery_directory()
+    if (directory/'manifest.json').is_file():
+        coverage = LocalImageryPack.load(directory).state
+        if (coverage.west_rad <= destination.longitude_rad <= coverage.east_rad
+                and coverage.south_rad <= destination.latitude_rad <= coverage.north_rad):
+            return directory
+    return detroit_pack_directory()
+
+
 @dataclass(frozen=True, slots=True)
 class LocalImageryPack:
     """Native storage handle paired with a toolkit-independent layer snapshot."""

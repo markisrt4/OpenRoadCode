@@ -374,3 +374,30 @@ installer switches to public EPQS; EPQS requests use the same bounded retries.
 A failure of both services leaves no incomplete pack installed. Rerun the terrain
 installer before opening the hill comparison; the local viewer URL alone does
 not indicate a successful terrain installation.
+
+### Pine Knob aerial imagery
+
+Install the optional NAIP image directly on Termux, without Docker. This uses the
+same bounds as Pine Knob terrain and a separate device-owned pack. The downloader
+locks the newest identifiable NAIP acquisition returned for that coverage and
+retains source records, public-domain evidence, attribution and a checksum.
+The image is capped at 20 MiB; the exported 2048×1536 pixels do not imply native
+source resolution. Temporary HTTP failures get three attempts, with no partial
+pack installed on failure.
+
+```bash
+git switch navigation-cesium
+git pull --ff-only
+bash development/termux/install_pine_knob_imagery.sh
+bash development/termux/test_pine_knob.sh
+```
+
+Close an existing viewer first. The Pine Knob launcher now loads its installed
+imagery over local terrain; imagery remains visible when Terrain is switched OFF.
+Contour lines are shown only when no imagery is loaded. Compare ON/OFF from the
+same camera angle, inspect coverage for no-data gaps, and reopen without internet
+to verify offline viewing. ORC's selected-POI adapter also selects this local image
+for destinations inside its bounds. No Pine Knob building pack is included.
+
+Focused checks use mocked provider replies. Actual USGS download availability,
+Termux rendering and the full quality gate require user validation.

@@ -9,7 +9,7 @@ from tempfile import TemporaryDirectory
 
 from apps.launchers.browser_launcher import BrowserKioskLauncher
 from apps.launchers.cesium_sdk import sdk_directory
-from apps.launchers.local_imagery_pack import LocalImageryPack, detroit_pack_directory
+from apps.launchers.local_imagery_pack import LocalImageryPack, preferred_imagery_directory
 from apps.launchers.cesium_viewer_server import CesiumViewerServer
 from apps.launchers.local_terrain_pack import load_terrain, preferred_terrain_directory
 from apps.launchers.local_building_pack import load_buildings, detroit_building_directory
@@ -65,7 +65,7 @@ def main():
         tile_dir = args.tiles or preferred_tiles_directory()
         legacy_requested = args.no_imagery or args.no_buildings or args.imagery is not None or args.buildings is not None
         tiles = None if args.no_tiles or (args.tiles is None and (legacy_requested or not tile_dir.exists())) else load_viewer_tiles(tile_dir)
-        directory = args.imagery or detroit_pack_directory()
+        directory = args.imagery or preferred_imagery_directory(state.destination)
         imagery = None if (tiles is not None and any(t.imagery_available for t in tiles.state.tiles)) or args.no_imagery or (args.imagery is None and not directory.exists()) else LocalImageryPack.load(directory)
         terrain_dir = args.terrain or preferred_terrain_directory(state.destination)
         terrain = None if args.no_terrain or (args.terrain is None and not terrain_dir.exists()) else load_terrain(terrain_dir)

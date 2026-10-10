@@ -5,28 +5,42 @@ from datetime import datetime, timezone
 import hashlib
 import json
 import re
+import time
+from urllib.error import HTTPError, URLError
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import urllib.parse
 import urllib.request
 
-from apps.launchers.local_imagery_pack import detroit_pack_directory, LocalImageryPack
+from apps.launchers.local_imagery_pack import detroit_pack_directory, pine_knob_imagery_directory, LocalImageryPack
+from tools.map_builder.builder.map_3d import PRESETS
 
 SERVICE = "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPPlus/ImageServer"
 BOUNDS = (-83.065, 42.315, -83.025, 42.345)
 MAX_BYTES = 20 * 1024 * 1024
 
 
+def open_source(url, *, timeout):
+    for attempt in range(3):
+        try:
+            return urllib.request.urlopen(url, timeout=timeout)
+        except (URLError, TimeoutError) as error:
+            if (isinstance(error, HTTPError) and error.code not in (429,500,502,503,504)) or attempt == 2:
+                raise
+            print(f'USGS imagery request failed; retry {attempt+1}/2: {error}', flush=True)
+            time.sleep(attempt+1)
+
+
 def get_json(endpoint, **parameters):
     url = SERVICE + endpoint + "?" + urllib.parse.urlencode({"f":"json", **parameters})
-    with urllib.request.urlopen(url, timeout=60) as response:
+    with open_source(url, timeout=60) as response:
         document = json.load(response)
     if "error" in document:
         raise RuntimeError(f"USGS service error: {document['error']}")
     return document
 
 
-def download(destination, *, bounds=BOUNDS):
+def download(destination, *, bounds=BOUNDS, title="Detroit"):
     if destination.exists():
         pack = LocalImageryPack.load(destination)
         print(f"Already installed: {pack.image} ({pack.image.stat().st_size:,} bytes)")
@@ -49,7 +63,7 @@ def download(destination, *, bounds=BOUNDS):
         return "naip" in text or "usda" in text or any(re.match(r"m_\d{7}_[ns][ew]_", name.lower()) for name in names)
     candidates = [record for record in records if naip(record) and isinstance(record.get("Year"), int)]
     if not candidates:
-        raise RuntimeError("No identifiable dated NAIP/USDA source found for Detroit; source review required")
+        raise RuntimeError("No identifiable dated NAIP/USDA source found for selected coverage; source review required")
     year = max(record["Year"] for record in candidates)
     selected = [record for record in candidates if record["Year"] == year]
     mosaic = {"mosaicMethod":"esriMosaicLockRaster", "lockRasterIds":[r["OBJECTID"] for r in selected],
@@ -69,15 +83,15 @@ def download(destination, *, bounds=BOUNDS):
     if parsed.scheme != "https" or parsed.hostname != "imagery.nationalmap.gov":
         raise RuntimeError("USGS export returned an unexpected download host")
     destination.parent.mkdir(parents=True, exist_ok=True)
-    with TemporaryDirectory(prefix="detroit-imagery-", dir=destination.parent) as temporary:
+    with TemporaryDirectory(prefix="naip-imagery-", dir=destination.parent) as temporary:
         root = Path(temporary)
-        with urllib.request.urlopen(href, timeout=90) as response:
+        with open_source(href, timeout=90) as response:
             image = response.read(MAX_BYTES+1)
         if len(image) > MAX_BYTES or not image.startswith(b"\xff\xd8"):
             raise RuntimeError("USGS export is oversized or not a JPEG image")
         (root / "imagery.jpg").write_bytes(image)
         manifest = {"schema":1, "image":"imagery.jpg", "sha256":hashlib.sha256(image).hexdigest(),
-                    "title":f"Detroit NAIP {year}", "attribution":f"USGS / USDA NAIP {year} · The National Map",
+                    "title":f"{title} NAIP {year}", "attribution":f"USGS / USDA NAIP {year} · The National Map",
                     "bounds_deg":bounds, "width":export["width"], "height":export["height"],
                     "source":SERVICE, "source_records":selected, "downloaded_at":datetime.now(timezone.utc).isoformat(),
                     "rights":"Public-domain NAIP imagery; USGS service description retained in source-service.json",
@@ -94,12 +108,16 @@ def download(destination, *, bounds=BOUNDS):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--output", type=Path, default=detroit_pack_directory())
+    parser.add_argument("--output", type=Path)
+    parser.add_argument("--coverage", choices=("detroit-downtown", "pine-knob"), default="detroit-downtown")
     args = parser.parse_args()
     try:
-        download(args.output)
+        title, bounds = PRESETS[args.coverage]
+        destination = args.output or (pine_knob_imagery_directory() if args.coverage == "pine-knob" else detroit_pack_directory())
+        print(f"Downloading {title} NAIP imagery · maximum image size 20 MiB", flush=True)
+        download(destination, bounds=bounds, title="Pine Knob" if args.coverage == "pine-knob" else "Detroit")
     except (OSError, ValueError, KeyError, RuntimeError) as error:
-        parser.exit(1, f"Detroit imagery download: {error}\n")
+        parser.exit(1, f"Imagery download: {error}\n")
 
 
 if __name__ == "__main__":
