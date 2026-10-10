@@ -31,7 +31,12 @@ def serve_sms_provision(handler: object, method: str) -> bool:
         handler._json(HTTPStatus.METHOD_NOT_ALLOWED, {"error": "method not allowed"})
         return True
 
-    # Provisioning is privileged and must never be reachable over the LAN.\n    if handler.client_address[0] not in ("127.0.0.1", "::1"):\n        handler._json(HTTPStatus.FORBIDDEN, {"error": "forbidden"})\n        return True\n\n    expected = os.environ.get(PROVISION_TOKEN_ENV, "")
+    # Provisioning is privileged and must never be reachable over the LAN.
+    if handler.client_address[0] not in ("127.0.0.1", "::1"):
+        handler._json(HTTPStatus.FORBIDDEN, {"error": "forbidden"})
+        return True
+
+    expected = os.environ.get(PROVISION_TOKEN_ENV, "")
     supplied = handler.headers.get("Authorization", "")
     if (
         len(expected) < 32
