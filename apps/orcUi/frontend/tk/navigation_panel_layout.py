@@ -121,6 +121,7 @@ def build_navigation_panel(panel) -> None:
         body, bg=ui.background, highlightthickness=1, highlightbackground=ui.border
     )
     panel._map_host.grid(row=0, column=0, sticky="nsew")
+    panel._map_host.bind("<Configure>", panel._log_map_allocation, add="+")
     panel._map_controls_handle = tk.Button(
         body,
         text="☰",

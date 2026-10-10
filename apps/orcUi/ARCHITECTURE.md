@@ -165,6 +165,10 @@ size directly. This also repairs stale sizes when GLFW resize callbacks are
 missing. The embedded-resize component check covers repeated drawer cycles and
 independent stale sizes. Native changes require rebuilding and installing the
 renderer, followed by a complete ORC restart.
+For device diagnosis, `navigation.map.layout=DEBUG` records drawer state, body
+and map-host allocation, and the host X11 ID on toggles and host size changes.
+Compare these with `map_renderer.view=DEBUG` resize events to distinguish Tk
+allocation from native viewport failures.
 
 It must not create ZeroMQ subscribers, message decoders, audio backends, Spotify synchronization workers, browser lifecycle managers, external map renderer launchers, or host restart/poweroff implementations. Those dependencies are injected through application/runtime or UI contracts.
 

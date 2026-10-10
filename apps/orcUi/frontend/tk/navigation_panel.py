@@ -187,6 +187,23 @@ class NavigationPanel(NavigationPlacesControls, NavigationRadarControls, Navigat
             )
             self._map_controls_handle.lift()
         self.after_idle(self._refresh_renderer_state)
+        self.after_idle(self._log_map_allocation)
+
+    def _log_map_allocation(self, _event=None) -> None:
+        """Trace settled Tk geometry separately from the native viewport."""
+        logger = logging.getLogger("navigation.map.layout")
+        if not logger.isEnabledFor(logging.DEBUG):
+            return
+        host = self._map_host
+        body = host.master
+        event(
+            logger, logging.DEBUG, "map.host_allocation",
+            f"expanded={self._drawer_state.expanded} "
+            f"body={body.winfo_width()}x{body.winfo_height()} "
+            f"host={host.winfo_width()}x{host.winfo_height()} "
+            f"host_id={host.winfo_id()} "
+            f"controls_manager={self._map_controls.winfo_manager() or 'hidden'}",
+        )
 
     def _toggle_map_controls_drawer(self) -> None:
         self._drawer_handler.request_map_controls_expanded(not self._drawer_state.expanded)
