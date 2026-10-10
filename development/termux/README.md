@@ -365,9 +365,8 @@ Close ORC, then update the native renderer without rebuilding MapLibre or
 Valhalla:
 
 ```bash
-cd ~/src/OpenRoadCode
-git switch android-linux-food-apps
-git pull --ff-only origin android-linux-food-apps
+git switch orc-ui-polish
+git pull --ff-only origin orc-ui-polish
 ./development/termux/build_navigation_stack.sh --renderer-only
 ./runOrcUi
 ```

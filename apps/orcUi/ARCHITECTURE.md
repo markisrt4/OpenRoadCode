@@ -159,8 +159,12 @@ state; the Tk panel renders a compact edge handle or the wider touch drawer and
 continues to emit camera actions through the existing map request contract. In
 the collapsed state, the drawer releases its layout column so the map reaches
 the right edge; its vertically centered reopen handle floats over the map. The
-native renderer tracks its exact X11 parent allocation and fits its GLFW and
-MapLibre viewport when that host changes size.
+native renderer polls its exact X11 parent allocation every 100 ms, resizes the
+actual X11 child, and reconciles both MapLibre's map size and backend framebuffer
+size directly. This also repairs stale sizes when GLFW resize callbacks are
+missing. The embedded-resize component check covers repeated drawer cycles and
+independent stale sizes. Native changes require rebuilding and installing the
+renderer, followed by a complete ORC restart.
 
 It must not create ZeroMQ subscribers, message decoders, audio backends, Spotify synchronization workers, browser lifecycle managers, external map renderer launchers, or host restart/poweroff implementations. Those dependencies are injected through application/runtime or UI contracts.
 
