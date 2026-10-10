@@ -180,3 +180,39 @@ def test_pine_knob_install_is_separate_and_selected_by_destination(tmp_path, mon
     assert (midtown/'terrain.json').read_bytes() == original
     assert local_terrain_pack.preferred_terrain_directory(GeoPoint(math.radians(42.75), math.radians(-83.38))) == pine
     assert local_terrain_pack.preferred_terrain_directory(GeoPoint(math.radians(42.34), math.radians(-83.05))) == midtown
+
+
+@pytest.mark.parametrize('code', [500, 502, 503, 504])
+def test_image_service_http_failure_uses_epqs(tmp_path, monkeypatch, code):
+    from urllib.error import HTTPError
+    def unavailable(*args):
+        raise HTTPError(terrain.SERVICE, code, 'Server error', {}, None)
+    monkeypatch.setattr(terrain, 'request', unavailable)
+    monkeypatch.setattr(terrain, '_epqs_point', lambda x,y: (200, {'value':200}))
+    destination = tmp_path/'pine'
+    terrain.download(destination, 'pine-knob', size=3)
+    assert load_terrain(destination).width == 3
+    assert json.loads((destination/'manifest.json').read_text())['source'] == terrain.EPQS
+
+
+def test_http_500_request_retries_are_bounded(monkeypatch):
+    from urllib.error import HTTPError
+    attempts = []
+    def unavailable(*args, **kwargs):
+        attempts.append(1)
+        raise HTTPError(terrain.SERVICE, 500, 'Server error', {}, None)
+    monkeypatch.setattr(terrain.urllib.request, 'urlopen', unavailable)
+    monkeypatch.setattr(terrain.time, 'sleep', lambda seconds: None)
+    with pytest.raises(HTTPError):
+        terrain._json_request(terrain.SERVICE)
+    assert len(attempts) == 3
+
+
+def test_image_service_http_404_is_not_hidden_by_fallback(tmp_path, monkeypatch):
+    from urllib.error import HTTPError
+    def missing(*args):
+        raise HTTPError(terrain.SERVICE, 404, 'Not found', {}, None)
+    monkeypatch.setattr(terrain, 'request', missing)
+    with pytest.raises(HTTPError):
+        terrain.download(tmp_path/'pine', 'pine-knob')
+    assert not (tmp_path/'pine').exists()

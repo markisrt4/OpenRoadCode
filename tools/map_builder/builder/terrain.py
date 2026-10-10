@@ -38,7 +38,7 @@ def _json_request(url, data=None):
                 result = json.load(response)
             break
         except (URLError, TimeoutError) as error:
-            if (isinstance(error, HTTPError) and error.code not in (429,502,503,504)) or attempt == 2:
+            if (isinstance(error, HTTPError) and error.code not in (429,500,502,503,504)) or attempt == 2:
                 raise
             print(f"USGS request failed; retry {attempt+1}/2: {error}")
             time.sleep(attempt+1)
@@ -50,10 +50,12 @@ def _json_request(url, data=None):
 def download(destination, preset, *, size=65):
     try:
         return _download_image_server(destination, preset, size=size)
-    except ElevationServiceError as error:
-        if error.code not in (498,499):
+    except (ElevationServiceError, URLError, TimeoutError) as error:
+        if isinstance(error, ElevationServiceError) and error.code not in (498,499,429,500,502,503,504):
             raise
-        print('USGS image service requires a token; switching to public EPQS without credentials.')
+        if isinstance(error, HTTPError) and error.code not in (498,499,429,500,502,503,504):
+            raise
+        print(f'USGS image service unavailable ({error}); switching to public EPQS without credentials.')
         print('Fallback: 33×33 ground grid, two concurrent requests. This can take several minutes.')
         return _download_epqs(destination, preset, size=min(size,33))
 

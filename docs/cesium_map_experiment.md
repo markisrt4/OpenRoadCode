@@ -367,3 +367,10 @@ comparison rather than a detailed ski-trail map. Grid and building objects retai
 their original sampled heights during a flat comparison; turn those layers off
 when comparing ground shape. Rendering and live USGS downloads require device
 validation. After downloading, this view works offline.
+
+USGS HTTP 500, 502, 503, 504 and rate-limit failures receive up to three
+attempts per request. If the image service remains unavailable, the terrain
+installer switches to public EPQS; EPQS requests use the same bounded retries.
+A failure of both services leaves no incomplete pack installed. Rerun the terrain
+installer before opening the hill comparison; the local viewer URL alone does
+not indicate a successful terrain installation.
