@@ -159,3 +159,24 @@ def test_epqs_query_requests_metres_and_validates_coordinates(monkeypatch):
     assert terrain._epqs_point(-83.05,42.33)[0] == 181.2
     with pytest.raises(RuntimeError,match='coordinates'):
         terrain._epqs_point(-83.06,42.33)
+
+
+def test_pine_knob_install_is_separate_and_selected_by_destination(tmp_path, monkeypatch):
+    import math
+    from development.maps import install_terrain
+    from apps.launchers import local_terrain_pack
+    from ui.navigation import GeoPoint
+    service(monkeypatch)
+    monkeypatch.setattr(local_terrain_pack, 'navigation_data_root', lambda: tmp_path/'shared')
+    midtown = tmp_path/'midtown'
+    pine = tmp_path/'pine'
+    terrain.download(midtown, 'detroit-midtown', size=3)
+    original = (midtown/'terrain.json').read_bytes()
+    monkeypatch.setattr(local_terrain_pack, 'midtown_terrain_directory', lambda: midtown)
+    monkeypatch.setattr(local_terrain_pack, 'pine_knob_terrain_directory', lambda: pine)
+    monkeypatch.setattr(install_terrain, 'pine_knob_terrain_directory', lambda: pine)
+    monkeypatch.setattr('sys.argv', ['install_terrain', '--coverage', 'pine-knob', '--yes'])
+    assert install_terrain.main() == 0
+    assert (midtown/'terrain.json').read_bytes() == original
+    assert local_terrain_pack.preferred_terrain_directory(GeoPoint(math.radians(42.75), math.radians(-83.38))) == pine
+    assert local_terrain_pack.preferred_terrain_directory(GeoPoint(math.radians(42.34), math.radians(-83.05))) == midtown

@@ -14,7 +14,7 @@ def choose_coverage(layer='buildings'):
         title,bounds = PRESETS[key]
         print(f'  {index}. {title} · bounds {bounds}')
     while True:
-        choice = input('Choose coverage [1/2, Enter cancels]: ').strip()
+        choice = input(f'Choose coverage [{"/".join(str(i) for i in range(1, len(keys)+1))}, Enter cancels]: ').strip()
         if not choice:
             return None
         if choice.isdigit() and 1 <= int(choice) <= len(keys):

@@ -343,3 +343,27 @@ the 3D viewer, and check that its footer says relative relief. Inspect sloping
 ground with buildings on, toggle 2D/3D, and confirm the destination remains
 visible. Repeat offline. Detroit is fairly flat, so large mountains would
 indicate bad samples rather than successful terrain rendering.
+
+### Pine Knob relief comparison (Termux)
+
+Pine Knob in Clarkston is coverage 3 in the optional terrain menu. Its separate
+pack preserves installed Detroit terrain. The viewer chooses a terrain pack
+containing the selected destination, preferring shared Midtown coverage where it
+matches. This experiment displays source elevations relative to the pack centre;
+it does not exaggerate heights or convert the source datum to ellipsoid heights.
+
+```bash
+git switch navigation-cesium
+git pull --ff-only
+bash development/termux/install_terrain.sh --coverage pine-knob
+bash development/termux/test_pine_knob.sh
+```
+
+The test opens near the ski hill without Detroit imagery or buildings. Terrain
+ON/OFF switches between sampled ground and a flat ellipsoid without resetting the
+camera. With no imagery, 10 m contour lines help show the relief. The footer shows
+the sampled elevation range. Source sampling is coarse, so this is a terrain
+comparison rather than a detailed ski-trail map. Grid and building objects retain
+their original sampled heights during a flat comparison; turn those layers off
+when comparing ground shape. Rendering and live USGS downloads require device
+validation. After downloading, this view works offline.

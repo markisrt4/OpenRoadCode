@@ -13,6 +13,7 @@ import sys
 import subprocess
 import time
 
+from .map_3d import PRESETS
 from .build import OUTPUT_ROOT, _write_manifest, build_regions
 from .geofabrik import fetch_index, resolve_region_ids
 from .selection import load_region_ids, save_region_ids
@@ -161,7 +162,7 @@ def parse_args() -> argparse.Namespace:
         help="write a fresh manifest after successful validation; requires --regions or --installed-regions",
     )
     map3d = sub.add_parser("3d", help="build optional 3D buildings from installed navigation sources")
-    map3d.add_argument("--coverage", choices=("detroit-downtown","detroit-midtown"))
+    map3d.add_argument("--coverage", choices=tuple(PRESETS))
     map3d.add_argument("--layer", choices=("buildings","terrain"), default="buildings", help="optional offline layer to build")
     map3d.add_argument("--yes", action="store_true", help="confirm non-interactive 3D build; requires --coverage")
     sub.add_parser("list", help="list selectable Geofabrik region IDs")

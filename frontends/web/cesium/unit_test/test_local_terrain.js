@@ -7,6 +7,7 @@ const test = require('node:test');
 const context = {window:{}, Float32Array};
 vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../local_terrain.js'),'utf8'),context);
 const C = {
+  EllipsoidTerrainProvider:class {},
   GeographicTilingScheme:class {},
   CustomHeightmapTerrainProvider:class {
     constructor(options) { this.options=options; }
@@ -30,4 +31,16 @@ test('outside coverage and its outer edge return flat relief', () => {
 test('renderer does not refine beyond the prototype terrain detail limit', () => {
   assert.ok(terrain.provider.getLevelMaximumGeometricError(12)>0);
   assert.equal(terrain.provider.getLevelMaximumGeometricError(13),0);
+});
+
+test('flat comparison keeps the camera and restores the sampled provider', () => {
+  let renders=0;
+  const camera={heading:1,pitch:-.5};
+  const viewer={camera,scene:{requestRender:()=>renders++}};
+  terrain.setVisible(viewer,false);
+  assert.ok(viewer.terrainProvider instanceof C.EllipsoidTerrainProvider);
+  terrain.setVisible(viewer,true);
+  assert.equal(viewer.terrainProvider,terrain.provider);
+  assert.deepEqual(viewer.camera,{heading:1,pitch:-.5});
+  assert.equal(renders,2);
 });

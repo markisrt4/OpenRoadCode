@@ -43,7 +43,7 @@ class CesiumPoiActions(PoiActionExecutorIf):
             if self._session is not None:
                 raise RuntimeError('Close the current 3D viewer before opening another place')
             imagery_dir, terrain_dir, building_dir = (detroit_pack_directory(),
-                                                     preferred_terrain_directory(), detroit_building_directory())
+                                                     preferred_terrain_directory(state.destination), detroit_building_directory())
             tile_dir = preferred_tiles_directory()
             tiles = load_viewer_tiles(tile_dir) if tile_dir.exists() else None
             imagery = LocalImageryPack.load(imagery_dir) if (tiles is None or not any(t.imagery_available for t in tiles.state.tiles)) and imagery_dir.exists() else None

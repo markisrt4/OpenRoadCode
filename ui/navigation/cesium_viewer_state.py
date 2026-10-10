@@ -16,9 +16,11 @@ class CesiumViewerState:
     tilt_rad: float = math.pi / 4
     buildings_visible: bool = True
     references_visible: bool = False
+    terrain_visible: bool = True
 
     def __post_init__(self):
-        if type(self.buildings_visible) is not bool or type(self.references_visible) is not bool:
+        if any(type(value) is not bool for value in
+               (self.buildings_visible, self.references_visible, self.terrain_visible)):
             raise ValueError("Layer visibility must be boolean")
         lat, lon = self.destination.latitude_rad, self.destination.longitude_rad
         if not (math.isfinite(lat) and math.isfinite(lon)
@@ -38,4 +40,5 @@ class CesiumViewerState:
                 "label": self.label, "distance_m": self.distance_m,
                 "tilt_rad": self.tilt_rad,
                 "buildings_visible": self.buildings_visible,
-                "references_visible": self.references_visible}
+                "references_visible": self.references_visible,
+                "terrain_visible": self.terrain_visible}

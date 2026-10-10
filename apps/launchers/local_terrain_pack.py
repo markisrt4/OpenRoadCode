@@ -20,10 +20,25 @@ def midtown_terrain_directory():
     return openroadcode_data_dir("map-packs", "detroit-midtown-terrain-v1")
 
 
-def preferred_terrain_directory():
+def pine_knob_terrain_directory():
+    return openroadcode_data_dir("map-packs", "pine-knob-terrain-v1")
+
+
+def preferred_terrain_directory(destination=None):
     packs = navigation_data_root()/'maps/3d/packs'
-    for directory in (packs/'detroit-midtown-terrain', midtown_terrain_directory(),
-                      packs/'detroit-downtown-terrain'):
+    candidates = (packs/'detroit-midtown-terrain', midtown_terrain_directory(),
+                  packs/'detroit-downtown-terrain', detroit_terrain_directory(),
+                  packs/'pine-knob-terrain', pine_knob_terrain_directory())
+    if destination is not None:
+        longitude = math.degrees(destination.longitude_rad)
+        latitude = math.degrees(destination.latitude_rad)
+        for directory in candidates:
+            if (directory/'manifest.json').is_file():
+                manifest = json.loads((directory/'manifest.json').read_text())
+                west, south, east, north = manifest['bounds_deg']
+                if west <= longitude <= east and south <= latitude <= north:
+                    return directory
+    for directory in candidates[:3]:
         if (directory/'manifest.json').is_file():
             return directory
     return detroit_terrain_directory()

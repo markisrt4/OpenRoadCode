@@ -30,5 +30,10 @@ window.ORCLocalTerrain = function (data, C) {
   const geometricError=provider.getLevelMaximumGeometricError.bind(provider);
   // Do not keep subdividing a ~100 m source grid into metre-scale meshes.
   provider.getLevelMaximumGeometricError=level => level>=13 ? 0 : geometricError(level);
-  return {provider,heightAt};
+  const flat = new C.EllipsoidTerrainProvider();
+  function setVisible(viewer, visible) {
+    viewer.terrainProvider = visible ? provider : flat;
+    viewer.scene.requestRender();
+  }
+  return {provider,heightAt,setVisible};
 };

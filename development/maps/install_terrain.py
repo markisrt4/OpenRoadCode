@@ -6,7 +6,7 @@
 import argparse
 from pathlib import Path
 
-from apps.launchers.local_terrain_pack import detroit_terrain_directory, midtown_terrain_directory, load_terrain
+from apps.launchers.local_terrain_pack import detroit_terrain_directory, midtown_terrain_directory, pine_knob_terrain_directory, load_terrain
 from tools.map_builder.builder.map_3d import PRESETS
 from tools.map_builder.builder.map_3d_menu import choose_coverage
 from tools.map_builder.builder.terrain import download
@@ -26,8 +26,10 @@ def main():
             print('Cancelled')
             return 0
         title, bounds = PRESETS[coverage]
-        destination = args.output or (midtown_terrain_directory() if coverage == 'detroit-midtown'
-                                     else detroit_terrain_directory())
+        directories = {'detroit-downtown': detroit_terrain_directory,
+                       'detroit-midtown': midtown_terrain_directory,
+                       'pine-knob': pine_knob_terrain_directory}
+        destination = args.output or directories[coverage]()
         print(f'Coverage: {title} · {bounds}')
         print('USGS 3DEP: 65×65 ground samples; 33×33 public EPQS fallback if the image service requires a token.')
         print('Internet needed for downloading; viewing works offline.')

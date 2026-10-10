@@ -40,7 +40,7 @@
       contextOptions:{webgl:{powerPreference:'high-performance'}}
     });
     const terrain = snapshot.terrain ? window.ORCLocalTerrain(snapshot.terrain,C) : null;
-    if (terrain) viewer.terrainProvider = terrain.provider;
+    if (terrain) terrain.setVisible(viewer, snapshot.terrain_visible);
     viewer.scene.globe.baseColor = C.Color.fromCssColorString('#174963');
     const groundHeight = terrain ? terrain.heightAt(snapshot.longitude_rad,snapshot.latitude_rad) : 0;
     const target = C.Cartesian3.fromRadians(snapshot.longitude_rad, snapshot.latitude_rad,groundHeight+3);
@@ -120,6 +120,29 @@
       status.textContent = 'Rendering stopped: '+error.message+' — return and retry';
     });
     document.querySelectorAll('nav button').forEach(button => { button.disabled = false; });
+    const terrainButton = document.getElementById('terrain');
+    terrainButton.disabled = !terrain;
+    let terrainVisible = snapshot.terrain_visible;
+    const hasImagery = snapshot.imagery || snapshot.map_tiles?.tiles.some(t=>t.imagery_url);
+    const contours = terrain && !hasImagery ? C.Material.fromType('ElevationContour', {
+      color:C.Color.fromCssColorString('#e6d59a'), spacing:10, width:1.5
+    }) : undefined;
+    function updateTerrain() {
+      terrain.setVisible(viewer, terrainVisible);
+      viewer.scene.globe.material = terrainVisible ? contours : undefined;
+      terrainButton.setAttribute('aria-pressed', String(terrainVisible));
+      terrainButton.textContent = terrainVisible ? 'Terrain ON' : 'Terrain OFF';
+      const heights = snapshot.terrain.heights_m;
+      const relief = Math.max(...heights)-Math.min(...heights);
+      document.getElementById('terrain-status').textContent = terrainVisible
+        ? `Terrain ON · sampled relief ${relief.toFixed(0)} m${contours ? ' · 10 m contours' : ''}`
+        : 'Terrain OFF · flat comparison';
+      viewer.scene.requestRender();
+    }
+    if (terrain) {
+      terrainButton.onclick = () => { terrainVisible = !terrainVisible; updateTerrain(); };
+      updateTerrain();
+    }
     bindVisibility('buildings', tiledMap || buildings?.source);
     bindVisibility('references', references);
     reset();

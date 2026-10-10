@@ -114,3 +114,11 @@ def test_layer_defaults_and_visibility_contract(state):
     assert changed.document()['references_visible'] is True
     with pytest.raises(ValueError, match='boolean'):
         replace(state, references_visible='yes')
+
+
+def test_terrain_visibility_is_explicit_boolean_snapshot_state(state):
+    from dataclasses import replace
+    assert state.document()['terrain_visible'] is True
+    assert replace(state, terrain_visible=False).document()['terrain_visible'] is False
+    with pytest.raises(ValueError, match='visibility'):
+        replace(state, terrain_visible='false')
