@@ -14,6 +14,7 @@ from services.common.service_manager_sms_provision import serve_sms_provision
 
 class Handler:
     path = "/sms/provision"
+    client_address = ("127.0.0.1", 12345)
 
     def __init__(self, auth=None, body=b""):
         self.headers = {"Content-Length": str(len(body))}
