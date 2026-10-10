@@ -19,12 +19,13 @@ class HostLocationPermissionIf(Protocol):
 
 class HostLocationSettingsController:
     def __init__(self, dispatcher: UiDispatcherIf, ui: HostLocationUiIf,
-                 permission: HostLocationPermissionIf) -> None:
+                 permission: HostLocationPermissionIf, *, available: bool = True) -> None:
         self._dispatcher, self._ui, self._permission = dispatcher, ui, permission
         self._generation = 0
         self._visible = False
         self._closed = False
-        self._state = HostLocationState()
+        self._state = (HostLocationState() if available else HostLocationState(
+            "Termux location uses the Android sensor bridge.", can_share=False))
 
     def show(self) -> None:
         if not self._closed:
@@ -42,7 +43,7 @@ class HostLocationSettingsController:
         self._closed = True
 
     def share_host_location(self) -> None:
-        if not self._visible or self._closed or self._state.busy:
+        if not self._visible or self._closed or self._state.busy or not self._state.can_share:
             return
         self._generation += 1
         generation = self._generation

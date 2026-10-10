@@ -11,6 +11,7 @@ from typing import Protocol
 class HostLocationState:
     status: str = "Browser permission is required. Bridge/GPS takes priority."
     busy: bool = False
+    can_share: bool = True
 
 
 class HostLocationUiIf(Protocol):

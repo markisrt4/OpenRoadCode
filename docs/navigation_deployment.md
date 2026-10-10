@@ -314,7 +314,9 @@ bash scripts/runtime/start_navigation_service.sh --profile local
 The permission page prints its URL at startup. `OPENROADCODE_BROWSER_POSITION_PORT`
 can change the default port; the listener is bound to loopback. An occupied port
 logs a warning and does not disable working bridge/GPS input. Termux and vehicle
-Pi hardware keep their existing device sources. The parser also accepts explicit
+Pi hardware keep their existing device sources. On Termux, Settings disables
+browser sharing and explains that location uses the Android sensor bridge.
+The parser also accepts explicit
 `services.navigation.inputs.gps.source = "browser"` for compositions that do not
 apply a device-source profile overlay. Route playback remains separate and
 continues to suppress both live sources until simulation ends.

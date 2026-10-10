@@ -37,3 +37,15 @@ def test_share_button_emits_only_the_semantic_request():
     panel._location_handler = Mock()
     panel._share_host_location()
     panel._location_handler.share_host_location.assert_called_once()
+
+
+def test_repeated_resize_events_do_not_reconfigure_the_same_geometry():
+    label = Mock()
+    label.cget.return_value = 200
+    SettingsPanel._update_location_wrap(label, 200)
+    label.configure.assert_not_called()
+    SettingsPanel._update_location_wrap(label, 240)
+    label.configure.assert_called_once_with(wraplength=240)
+    label.cget.return_value = 240
+    SettingsPanel._update_location_wrap(label, 240)
+    label.configure.assert_called_once()

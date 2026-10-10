@@ -268,7 +268,8 @@ def create_orc_ui_composition() -> OrcUiComposition:
             on_unit_system_changed=set_unit_system,
             on_back=lambda: app.navigate_to("HOME"),
         )
-        host_location = HostLocationSettingsController(app, settings, HostLocationPermission())
+        permission = HostLocationPermission()
+        host_location = HostLocationSettingsController(app, settings, permission, available=permission.available)
         settings.set_host_location_request_handler(host_location)
         performance = SystemPerformanceMonitor()
         diagnostics = DiagnosticsScreen(

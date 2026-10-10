@@ -67,3 +67,13 @@ def test_hide_before_service_check_cancels_the_native_launch(monkeypatch):
     assert not callbacks
     controller.show()
     assert not ui.set_host_location_state.call_args.args[0].busy
+
+
+def test_unavailable_platform_never_starts_permission_work():
+    ui, permission = Mock(), Mock()
+    controller = HostLocationSettingsController(Mock(), ui, permission, available=False)
+    controller.show()
+    assert not ui.set_host_location_state.call_args.args[0].can_share
+    assert 'Android sensor bridge' in ui.set_host_location_state.call_args.args[0].status
+    controller.share_host_location()
+    permission.open_permission_page.assert_not_called()

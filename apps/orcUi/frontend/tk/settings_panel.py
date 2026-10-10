@@ -187,9 +187,9 @@ class SettingsPanel(tk.Frame):
                  font=("Sans", 10, "bold")).grid(row=0, column=0, sticky="w", padx=14, pady=(8, 2))
         self._location_status = tk.StringVar(value=host_location_state.status)
         status = tk.Label(location, textvariable=self._location_status, bg=ui.surface, fg=ui.text_muted,
-                          font=("Sans", FONT_SMALL), justify=tk.LEFT, anchor="w")
+                          font=("Sans", FONT_SMALL), justify=tk.LEFT, anchor="w", wraplength=200)
         status.grid(row=1, column=0, sticky="ew", padx=14, pady=(0, 8))
-        status.bind("<Configure>", lambda event: status.configure(wraplength=max(80, event.width)))
+        status.bind("<Configure>", lambda event: self._update_location_wrap(status, event.width))
         self._location_handler = host_location_handler
         self._location_button = tk.Button(
             location, text="SHARE HOST LOCATION", command=self._share_host_location,
@@ -202,9 +202,18 @@ class SettingsPanel(tk.Frame):
         if self._location_handler is not None:
             self._location_handler.share_host_location()
 
+    @staticmethod
+    def _update_location_wrap(label: tk.Label, width: int) -> None:
+        wraplength = max(80, width)
+        # A wrap update can itself cause Configure events. Do not repeatedly
+        # request geometry for an unchanged width, especially on narrow X11 hosts.
+        if int(label.cget("wraplength")) != wraplength:
+            label.configure(wraplength=wraplength)
+
     def set_host_location_state(self, state: HostLocationState) -> None:
         self._location_status.set(state.status)
-        self._location_button.configure(state=tk.DISABLED if state.busy or self._location_handler is None else tk.NORMAL)
+        self._location_button.configure(state=tk.DISABLED if state.busy or not state.can_share
+                                        or self._location_handler is None else tk.NORMAL)
 
     @property
     def vehicle_configuration(self) -> VehicleConfiguration:
