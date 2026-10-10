@@ -83,3 +83,17 @@ def test_explicit_browser_source_choice_is_preserved_on_termux(monkeypatch):
         assert host._session.state()['source'] is None
     finally:
         host.close()
+
+
+def test_browser_visualizer_construction_failure_stops_analysis(monkeypatch):
+    from unittest.mock import Mock
+    import pytest
+    from apps.orcUi.composition.music_visualizer import create_browser_visualizer
+    from ui.theme import ThemeMode
+    session = Mock()
+    monkeypatch.setattr('controllers.audio.music_analysis.music_analysis_session.MusicAnalysisSession', lambda _sources: session)
+    monkeypatch.setattr('apps.launchers.browser_launcher.BrowserKioskLauncher', Mock)
+    monkeypatch.setattr('apps.orcUi.adapters.music_visualizer_browser.MusicVisualizerBrowser', Mock(side_effect=RuntimeError("host failed")))
+    with pytest.raises(RuntimeError, match="host failed"):
+        create_browser_visualizer(Mock(theme_mode=ThemeMode.DARK))
+    session.stop.assert_called_once_with()

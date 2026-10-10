@@ -29,6 +29,17 @@ show_error_codes = true
 pretty = false
 files = [
     "ui/ui_widget.py",
+    "ui/media/spotify_presentation_if.py",
+    "ui/media/spotify_browse_if.py",
+    "controllers/spotify/spotify_browser.py",
+    "frontends/tk/media/spotify_browse_panel.py",
+    "frontends/tk/media/spotify_screen.py",
+    "frontends/tk/media/spotify_video_overlay.py",
+    "apps/common/spotify_presentation_factory.py",
+    "apps/carUi/composition/spotify.py",
+    "controllers/spotify/spotify_presentation.py",
+    "frontends/tk/media/spotify_now_playing.py",
+    "frontends/tk/media/spotify_playback_panel.py",
     "ui/ui_dispatcher_if.py",
     "ui/navigation/route_types.py",
     "ui/navigation/route*request_handler_if.py",

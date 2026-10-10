@@ -4,20 +4,15 @@
 from __future__ import annotations
 
 import colorsys
-import threading
+from collections.abc import Callable, Iterable
+import io
 import tkinter as tk
 import tkinter.font as tkfont
-from tkinter import TclError
-from typing import Any
+from typing import Any, cast
 
 from PIL import Image, ImageEnhance, ImageFilter, ImageOps, ImageTk
 
-from frontends.tk.media.spotify_services_if import (
-    ArtworkProviderIf,
-    LyricsProviderIf,
-    LyricsResultIf,
-    MusicVideoRequestHandlerIf,
-)
+from ui.media.spotify_presentation_if import SpotifyPresentationState, SpotifyVideoRequests, SpotifyRequestHandler
 from ui.media import (
     MediaAvailability,
     MediaState,
@@ -62,7 +57,7 @@ def album_art_accent(image: Image.Image) -> str:
     sample = image.convert("RGB")
     sample.thumbnail((32, 32), _LANCZOS)
     ranked: list[tuple[float, tuple[int, int, int]]] = []
-    for red, green, blue in sample.getdata():
+    for red, green, blue in cast(Iterable[tuple[int, int, int]], sample.getdata()):
         _hue, saturation, value = colorsys.rgb_to_hsv(
             red / 255,
             green / 255,
@@ -87,11 +82,11 @@ def album_art_accent(image: Image.Image) -> str:
     )
     saturation = max(0.45, min(0.85, saturation))
     value = max(0.78, min(0.98, value))
-    red, green, blue = colorsys.hsv_to_rgb(hue, saturation, value)
+    red_f, green_f, blue_f = colorsys.hsv_to_rgb(hue, saturation, value)
     return (
-        f"#{round(red * 255):02X}"
-        f"{round(green * 255):02X}"
-        f"{round(blue * 255):02X}"
+        f"#{round(red_f * 255):02X}"
+        f"{round(green_f * 255):02X}"
+        f"{round(blue_f * 255):02X}"
     )
 
 
@@ -113,14 +108,12 @@ class SpotifyPlaybackPanel(tk.Frame, UiWidget):
         self,
         parent: tk.Widget,
         *,
-        music_video_controller: MusicVideoRequestHandlerIf,
-        image_cache: ArtworkProviderIf,
-        lyrics_client: LyricsProviderIf,
         theme: dict[str, Any],
     ) -> None:
-        self._music_video_controller = music_video_controller
-        self._image_cache = image_cache
-        self._lyrics_client = lyrics_client
+        self._video_handler: SpotifyVideoRequests | None = None
+        self._presentation = SpotifyPresentationState()
+        self._artwork_payload: bytes | None = None
+        self._artwork_source: Image.Image | None = None
         self._theme = theme
         self._colors = theme["colors"]
         self._layout = theme["layout"]
@@ -135,21 +128,11 @@ class SpotifyPlaybackPanel(tk.Frame, UiWidget):
         self._volume_handler: VolumeRequestHandlerIf | None = None
         self._video_operation_active = False
         self._video_available: bool | None = None
-        self._video_track_key: tuple[str, str, str] | None = None
-        self._video_availability_request = 0
         self._destroyed = False
-        self._album_art_url: str | None = None
-        self._album_art_request = 0
         self._album_art_photo: ImageTk.PhotoImage | None = None
         self._album_cover_photo: ImageTk.PhotoImage | None = None
         self._album_art_size = (0, 0)
         self._displayed_volume_percent: int | None = None
-        self._pending_volume_percent: int | None = None
-        self._volume_request = 0
-        self._volume_worker_active = False
-        self._lyrics_key: tuple[str, str, str, int] | None = None
-        self._lyrics_request = 0
-        self._lyrics_result: LyricsResultIf | None = None
         self._lyrics_current_var = tk.StringVar(value="")
         self._lyrics_next_var = tk.StringVar(value="")
         self._track_var = tk.StringVar(value=self._layout["loading_value"])
@@ -196,6 +179,10 @@ class SpotifyPlaybackPanel(tk.Frame, UiWidget):
 
     def destroy(self) -> None:
         self._destroyed = True
+        self._video_handler = None
+        if self._artwork_source is not None:
+            self._artwork_source.close()
+            self._artwork_source = None
         super().destroy()
 
     def _build_ui(self) -> None:
@@ -570,7 +557,7 @@ class SpotifyPlaybackPanel(tk.Frame, UiWidget):
         self,
         parent: tk.Widget,
         text: str,
-        command,
+        command: Callable[[], None],
         *,
         width: int,
         vertical_padding: int = 0,
@@ -615,9 +602,7 @@ class SpotifyPlaybackPanel(tk.Frame, UiWidget):
         empty = self._layout["empty_value"]
 
         if state is None:
-            self._video_track_key = None
             self._video_available = False
-            self._video_availability_request += 1
             self._status_var.set(self._layout["initial_status"])
             self._track_var.set(empty)
             self._artist_var.set(empty)
@@ -626,15 +611,11 @@ class SpotifyPlaybackPanel(tk.Frame, UiWidget):
             self._volume_var.set(self._layout["empty_volume_text"])
             self._progress_var.set(self._layout["empty_progress_text"])
             self._draw_progress(None)
-            self._update_album_art(None)
-            self._update_lyrics(None)
             self._update_video_button()
             return
 
         if state.availability is MediaAvailability.CONFIGURATION_REQUIRED:
-            self._video_track_key = None
             self._video_available = False
-            self._video_availability_request += 1
             self._status_var.set(
                 self._layout["configuration_required_status"]
             )
@@ -649,12 +630,10 @@ class SpotifyPlaybackPanel(tk.Frame, UiWidget):
             self._volume_var.set(self._layout["empty_volume_text"])
             self._progress_var.set(self._layout["empty_progress_text"])
             self._draw_progress(None)
-            self._update_album_art(None)
-            self._update_lyrics(None)
             self._update_video_button()
             return
 
-        self._status_var.set(state.status_message)
+        self._status_var.set(state.status_message or "")
         title = state.title or empty
         if title != self._track_var.get():
             self._track_var.set(title)
@@ -667,16 +646,7 @@ class SpotifyPlaybackPanel(tk.Frame, UiWidget):
             )
         )
 
-        if (
-            self._pending_volume_percent is not None
-            and state.volume_percent == self._pending_volume_percent
-        ):
-            self._pending_volume_percent = None
-        displayed_volume = (
-            self._pending_volume_percent
-            if self._pending_volume_percent is not None
-            else state.volume_percent
-        )
+        displayed_volume = state.volume_percent
         self._displayed_volume_percent = displayed_volume
         volume = empty if displayed_volume is None else str(displayed_volume)
         self._volume_var.set(
@@ -701,194 +671,39 @@ class SpotifyPlaybackPanel(tk.Frame, UiWidget):
         if state.position_s is not None and state.duration_s:
             progress_percent = state.position_s / state.duration_s * 100.0
         self._draw_progress(progress_percent)
-        self._update_album_art(state.artwork_uri)
-        self._update_lyrics(state)
-        self._update_video_availability(state)
         self._update_video_button()
 
-    def _update_video_availability(self, state: MediaState) -> None:
-        track_key = (
-            state.media_uri or "",
-            state.artist or "",
-            state.title or "",
-        )
-        if not track_key[1] or not track_key[2]:
-            self._video_track_key = None
-            self._video_available = False
-            self._video_availability_request += 1
-            return
-        if track_key == self._video_track_key:
-            return
+    def set_spotify_request_handler(self, handler: SpotifyRequestHandler | None) -> None:
+        self.set_playback_request_handler(handler)
+        self.set_track_request_handler(handler)
+        self.set_seek_request_handler(handler)
+        self.set_volume_request_handler(handler)
+        self.set_video_request_handler(handler)
 
-        self._video_track_key = track_key
-        self._video_available = None
-        self._video_availability_request += 1
-        request = self._video_availability_request
+    def set_video_request_handler(self, handler: SpotifyVideoRequests | None) -> None:
+        self._video_handler = handler
+
+    def set_spotify_state(self, state: SpotifyPresentationState) -> None:
+        self._presentation = state
+        self.set_media_state(state.media)
+        self._set_lyric_lines(state.lyric_current, state.lyric_next)
+        self._video_available = state.video_available
+        self._video_operation_active = state.video_busy
+        if state.message:
+            self._status_var.set(state.message)
+        if state.artwork != self._artwork_payload:
+            self._artwork_payload = state.artwork
+            if self._artwork_source is not None:
+                self._artwork_source.close()
+            self._artwork_source = None
+            if state.artwork:
+                try:
+                    with Image.open(io.BytesIO(state.artwork)) as image:
+                        self._artwork_source = image.convert("RGB")
+                except (OSError, ValueError):
+                    pass
+            self._render_artwork()
         self._update_video_button()
-        threading.Thread(
-            target=self._check_video_availability_worker,
-            args=(track_key, request),
-            name="spotify-video-availability",
-            daemon=True,
-        ).start()
-
-    def _check_video_availability_worker(
-        self,
-        track_key: tuple[str, str, str],
-        request: int,
-    ) -> None:
-        try:
-            available = self._music_video_controller.current_track_has_video()
-        except Exception as error:
-            print(f"[SpotifyPanel] Video lookup unavailable: {error}")
-            available = False
-        if self._destroyed:
-            return
-        try:
-            self.after(
-                0,
-                lambda: self._apply_video_availability(
-                    track_key, request, available
-                ),
-            )
-        except TclError:
-            pass
-
-    def _apply_video_availability(
-        self,
-        track_key: tuple[str, str, str],
-        request: int,
-        available: bool,
-    ) -> None:
-        if (
-            request != self._video_availability_request
-            or track_key != self._video_track_key
-        ):
-            return
-        self._video_available = available
-        self._update_video_button()
-
-    def _update_lyrics(self, state: MediaState | None) -> None:
-        if (
-            state is None
-            or not state.title
-            or not state.artist
-        ):
-            self._lyrics_key = None
-            self._lyrics_result = None
-            self._set_lyric_lines("", "")
-            return
-
-        key = (
-            state.title,
-            state.artist,
-            state.album or "",
-            int((state.duration_s or 0.0) * 1000),
-        )
-        if key != self._lyrics_key:
-            self._lyrics_key = key
-            self._lyrics_result = None
-            self._lyrics_request += 1
-            request = self._lyrics_request
-            self._set_lyric_lines("Finding lyrics…", "")
-            threading.Thread(
-                target=self._load_lyrics_worker,
-                args=(key, request),
-                name="spotify-lyrics",
-                daemon=True,
-            ).start()
-
-        self._render_lyrics(
-            progress_ms=int((state.position_s or 0.0) * 1000),
-            duration_ms=int((state.duration_s or 0.0) * 1000),
-        )
-
-    def _load_lyrics_worker(
-        self,
-        key: tuple[str, str, str, int],
-        request: int,
-    ) -> None:
-        try:
-            result = self._lyrics_client.get_lyrics(
-                track_name=key[0],
-                artist_name=key[1],
-                album_name=key[2],
-                duration_ms=key[3],
-            )
-        except Exception as error:
-            print(f"[SpotifyPanel] Lyrics unavailable: {error}")
-            result = None
-
-        if self._destroyed:
-            return
-        try:
-            self.after(
-                0,
-                lambda: self._apply_lyrics_result(
-                    key=key,
-                    request=request,
-                    result=result,
-                ),
-            )
-        except TclError:
-            return
-
-    def _apply_lyrics_result(
-        self,
-        *,
-        key: tuple[str, str, str, int],
-        request: int,
-        result: LyricsResultIf | None,
-    ) -> None:
-        if request != self._lyrics_request or key != self._lyrics_key:
-            return
-        self._lyrics_result = result
-        if result is None:
-            self._set_lyric_lines("Lyrics unavailable", "")
-            return
-        self._render_lyrics(
-            progress_ms=0,
-            duration_ms=key[3],
-        )
-
-    def _render_lyrics(
-        self,
-        *,
-        progress_ms: int,
-        duration_ms: int,
-    ) -> None:
-        result = self._lyrics_result
-        if result is None:
-            return
-        if result.synced_lines:
-            current_index = 0
-            for index, line in enumerate(result.synced_lines):
-                if line.time_ms > progress_ms:
-                    break
-                current_index = index
-            current = result.synced_lines[current_index].text
-            following = (
-                result.synced_lines[current_index + 1].text
-                if current_index + 1 < len(result.synced_lines)
-                else ""
-            )
-            self._set_lyric_lines(current, following)
-            return
-
-        lines = result.plain_lines
-        if not lines:
-            self._set_lyric_lines("Lyrics unavailable", "")
-            return
-        ratio = (
-            min(1.0, max(0.0, progress_ms / duration_ms))
-            if duration_ms > 0
-            else 0.0
-        )
-        index = min(len(lines) - 1, int(ratio * len(lines)))
-        self._set_lyric_lines(
-            lines[index],
-            lines[index + 1] if index + 1 < len(lines) else "",
-        )
 
     def _set_lyric_lines(
         self,
@@ -898,150 +713,37 @@ class SpotifyPlaybackPanel(tk.Frame, UiWidget):
         self._lyrics_current_var.set(current)
         self._lyrics_next_var.set(following)
 
-    def _update_album_art(self, url: str | None) -> None:
-        normalized_url = url.strip() if url else None
-        if normalized_url == self._album_art_url:
+    def _on_card_configure(self, event: tk.Event) -> None:
+        width, height = max(1, event.width), max(1, event.height)
+        previous_width, previous_height = self._album_art_size
+        if abs(width - previous_width) < 64 and abs(height - previous_height) < 64:
             return
+        self._album_art_size = (width, height)
+        self._render_artwork()
 
-        self._album_art_url = normalized_url
-        self._album_art_request += 1
-        request = self._album_art_request
-        self._track_label.configure(fg=self._colors["title"])
-
-        if normalized_url is None:
+    def _render_artwork(self) -> None:
+        source = self._artwork_source
+        if source is None:
             self._album_art_photo = None
             self._album_cover_photo = None
             self._album_art_label.configure(image="")
             self._album_cover_label.configure(image="")
             self._track_label.configure(fg=self._colors["title"])
             return
-
-        self.update_idletasks()
         width = max(1, self._card.winfo_width())
         height = max(1, self._card.winfo_height())
-        self._start_album_art_worker(
-            normalized_url,
-            request=request,
-            width=width,
-            height=height,
-        )
-
-    def _on_card_configure(self, event: tk.Event) -> None:
-        if self._album_art_url is None:
-            return
-        width = max(1, event.width)
-        height = max(1, event.height)
-        previous_width, previous_height = self._album_art_size
-        if (
-            abs(width - previous_width) < 64
-            and abs(height - previous_height) < 64
-        ):
-            return
-
-        self._album_art_request += 1
-        self._start_album_art_worker(
-            self._album_art_url,
-            request=self._album_art_request,
-            width=width,
-            height=height,
-        )
-
-    def _start_album_art_worker(
-        self,
-        url: str,
-        *,
-        request: int,
-        width: int,
-        height: int,
-    ) -> None:
-        self._album_art_size = (width, height)
-        cache_size = max(width, height)
-        threading.Thread(
-            target=self._load_album_art_worker,
-            args=(url, request, width, height, cache_size),
-            name="spotify-album-art",
-            daemon=True,
-        ).start()
-
-    def _load_album_art_worker(
-        self,
-        url: str,
-        request: int,
-        width: int,
-        height: int,
-        cache_size: int,
-    ) -> None:
+        background = prepare_album_background(source, width=width, height=height)
+        cover_size = self._style["cover_size"]
+        cover = ImageOps.fit(source, (cover_size, cover_size), method=_LANCZOS)
         try:
-            source = self._image_cache.get(
-                url,
-                width=cache_size,
-                height=cache_size,
-            )
-            try:
-                background = prepare_album_background(
-                    source,
-                    width=width,
-                    height=height,
-                )
-                cover_size = self._style["cover_size"]
-                cover = ImageOps.fit(
-                    source.convert("RGB"),
-                    (cover_size, cover_size),
-                    method=_LANCZOS,
-                )
-                accent = album_art_accent(source)
-            finally:
-                source.close()
-        except Exception as error:
-            print(f"[SpotifyPanel] Album artwork failed: {error}")
-            return
-
-        if self._destroyed:
+            self._album_art_photo = ImageTk.PhotoImage(background)
+            self._album_cover_photo = ImageTk.PhotoImage(cover)
+        finally:
             background.close()
             cover.close()
-            return
-        try:
-            self.after(
-                0,
-                lambda: self._apply_album_art(
-                    background,
-                    cover,
-                    accent,
-                    url=url,
-                    request=request,
-                ),
-            )
-        except TclError:
-            background.close()
-            cover.close()
-
-    def _apply_album_art(
-        self,
-        image: Image.Image,
-        cover: Image.Image,
-        accent: str,
-        *,
-        url: str,
-        request: int,
-    ) -> None:
-        if (
-            self._destroyed
-            or request != self._album_art_request
-            or url != self._album_art_url
-        ):
-            image.close()
-            cover.close()
-            return
-
-        photo = ImageTk.PhotoImage(image)
-        cover_photo = ImageTk.PhotoImage(cover)
-        image.close()
-        cover.close()
-        self._album_art_photo = photo
-        self._album_cover_photo = cover_photo
-        self._album_art_label.configure(image=photo)
-        self._album_cover_label.configure(image=cover_photo)
-        self._track_label.configure(fg=accent)
+        self._album_art_label.configure(image=self._album_art_photo)
+        self._album_cover_label.configure(image=self._album_cover_photo)
+        self._track_label.configure(fg=album_art_accent(source))
         self._album_art_label.lower()
 
     def _on_progress_click(self, event: tk.Event) -> None:
@@ -1068,88 +770,13 @@ class SpotifyPlaybackPanel(tk.Frame, UiWidget):
             )
 
     def _toggle_video(self) -> None:
-        if self._video_operation_active:
+        handler = self._video_handler
+        if handler is None:
             return
-
-        if self._music_video_controller.is_video_active():
-            self._return_to_spotify()
-            return
-
-        if not self._video_available:
-            return
-
-        self._video_operation_active = True
-        self._status_var.set(_FINDING_VIDEO_TEXT)
-        self._update_video_button()
-
-        threading.Thread(
-            target=self._watch_video_worker,
-            name="spotify-watch-video",
-            daemon=True,
-        ).start()
-
-    def _watch_video_worker(self) -> None:
-        try:
-            started = self._music_video_controller.watch_current_track()
-        except Exception as exc:
-            self._schedule_video_result(
-                started=False,
-                error=exc,
-            )
-            return
-
-        self._schedule_video_result(
-            started=started,
-            error=None,
-        )
-
-    def _schedule_video_result(
-        self,
-        *,
-        started: bool,
-        error: Exception | None,
-    ) -> None:
-        if self._destroyed:
-            return
-
-        try:
-            self.after(
-                0,
-                lambda: self._finish_video_start(
-                    started=started,
-                    error=error,
-                ),
-            )
-        except TclError:
-            return
-
-    def _finish_video_start(
-        self,
-        *,
-        started: bool,
-        error: Exception | None,
-    ) -> None:
-        self._video_operation_active = False
-
-        if error is not None:
-            self._status_var.set(f"Video failed: {error}")
-            print(f"[SpotifyPanel] Video start failed: {error}")
-        elif started:
-            self._status_var.set("Music video playing")
+        if self._presentation.video_active:
+            handler.request_return_to_spotify()
         else:
-            self._status_var.set("No suitable music video found")
-
-        self._update_video_button()
-
-    def _return_to_spotify(self) -> None:
-        try:
-            self._music_video_controller.return_to_spotify()
-            self._status_var.set("Returned to Spotify")
-        except Exception as exc:
-            self._status_var.set(f"Return to Spotify failed: {exc}")
-            print(f"[SpotifyPanel] Return to Spotify failed: {exc}")
-        finally:
-            self._update_video_button()
+            handler.request_watch_video()
 
     def _update_video_button(self) -> None:
         if not hasattr(self, "_video_button"):
@@ -1162,7 +789,7 @@ class SpotifyPlaybackPanel(tk.Frame, UiWidget):
             )
             return
 
-        if self._music_video_controller.is_video_active():
+        if self._presentation.video_active:
             self._video_button.configure(
                 text=_RETURN_TO_SPOTIFY_TEXT,
                 state=tk.NORMAL,
@@ -1217,94 +844,16 @@ class SpotifyPlaybackPanel(tk.Frame, UiWidget):
         self._adjust_volume(-self._layout["volume_step"])
 
     def _adjust_volume(self, delta: int) -> None:
-        current = (
-            self._pending_volume_percent
-            if self._pending_volume_percent is not None
-            else self._displayed_volume_percent
-        )
+        current = self._displayed_volume_percent
         if current is None:
             current = self._layout["default_volume"]
-        target = max(
-            self._layout["minimum_volume"],
-            min(
-                self._layout["maximum_volume"],
-                current + delta,
-            ),
-        )
-        self._pending_volume_percent = target
-        self._displayed_volume_percent = target
-        self._volume_var.set(
-            self._layout["volume_template"].format(volume=target)
-        )
-        self._volume_request += 1
-        if self._volume_worker_active:
-            return
-        self._volume_worker_active = True
-        self.after(0, self._set_volume_worker)
-
-    def _set_volume_worker(self) -> None:
-        while not self._destroyed:
-            target = self._pending_volume_percent
-            request = self._volume_request
-            if target is None:
-                self._volume_worker_active = False
-                return
-
-            try:
-                if self._volume_handler is None:
-                    raise RuntimeError("Spotify volume control is unavailable")
-                self._volume_handler.request_volume(target)
-            except Exception as error:
-                self._volume_worker_active = False
-                try:
-                    self.after(
-                        0,
-                        lambda error=error, request=request: (
-                            self._finish_volume_adjustment(
-                                request=request,
-                                error=error,
-                            )
-                        ),
-                    )
-                except TclError:
-                    pass
-                return
-            if request == self._volume_request:
-                self._volume_worker_active = False
-                try:
-                    self.after(
-                        1500,
-                        lambda: self._finish_volume_confirmation(
-                            request
-                        ),
-                    )
-                except TclError:
-                    pass
-                return
-
-        self._volume_worker_active = False
-
-    def _finish_volume_confirmation(self, request: int) -> None:
-        if request == self._volume_request:
-            self._pending_volume_percent = None
-
-    def _finish_volume_adjustment(
-        self,
-        *,
-        request: int,
-        error: Exception,
-    ) -> None:
-        if request != self._volume_request:
-            return
-        self._pending_volume_percent = None
-        self._status_var.set(
-            self._layout["volume_not_supported_text"]
-        )
-        print(f"[SpotifyPanel] Volume adjustment failed: {error}")
+        target = max(self._layout["minimum_volume"], min(self._layout["maximum_volume"], current + delta))
+        if self._volume_handler is not None:
+            self._volume_handler.request_volume(target)
 
     def _run_action(
         self,
-        action,
+        action: Callable[[], None],
         *,
         failure_message: str,
     ) -> None:

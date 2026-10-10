@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import copy
+from concurrent.futures import ThreadPoolExecutor
 import os
 import tkinter as tk
 from collections.abc import Callable
@@ -15,6 +16,7 @@ from dataclasses import dataclass, field
 from common.resource_cleanup import ResourceCleanup, close_resources
 
 from apps.common.uiTheme.spotify import SPOTIFY_PANEL_THEME
+from apps.common.spotify_presentation_factory import create_spotify_presentation, cached_artwork_loader
 from apps.orcUi.adapters.managed_browser_media_player import ManagedBrowserMediaPlayer
 from apps.orcUi.frontend.tk.orc_ui_app import OrcUiApp
 from frontends.tk.media.music_visualizer_screen import MusicVisualizerScreen
@@ -24,9 +26,12 @@ from controllers.audio.music_analysis.music_visualizer_controller import MusicVi
 from apps.orcUi.theme_runtime import theme_bundle
 from common.xdg_paths import openroadcode_cache_dir
 from config.runtime_target import RuntimeTarget, detect_runtime_target
+from controllers.spotify.spotify_presentation import SpotifyPresentation
+from controllers.spotify.spotify_browser import SpotifyBrowser
 from controllers.image import ImageCache
 from controllers.lyrics import LrclibLyricsClient
 from controllers.video import MusicVideoController, NetflixPlayer, YouTubeMusicVideo, YouTubePlayer
+from frontends.x11 import X11WindowEmbedder
 from frontends.tk.media import BrowserMediaScreen, MediaNavigationBar, MediaScreen, SpotifyNowPlaying, SpotifyScreen
 from frontends.tk.media.youtube_music_coming_soon_screen import YouTubeMusicComingSoonScreen
 from ui.theme import ThemeMode
@@ -53,6 +58,7 @@ class MediaComposition:
     visualizer: MusicVisualizerScreen | BrowserMediaScreen
     visualizer_runtime: MusicVisualizerController | MusicVisualizerBrowser
     unsubscribe_online: Callable[[], None] = lambda: None
+    close_spotify_presentations: Callable[[], None] = lambda: None
 
     _closed: bool = field(default=False, init=False)
 
@@ -60,7 +66,7 @@ class MediaComposition:
         if self._closed:
             return
         self._closed = True
-        close_resources(self.unsubscribe_online, self.visualizer.hide,
+        close_resources(self.unsubscribe_online, self.close_spotify_presentations, self.visualizer.hide,
                         self.visualizer_runtime.close, self.music_video_controller.stop_video)
 
 
@@ -198,22 +204,49 @@ def _configure_media(app: OrcUiApp, runtime, cleanup: ResourceCleanup) -> MediaC
         spotify_tokens.clear()
         return "Spotify account disconnected"
 
+    presentation_workers = ThreadPoolExecutor(max_workers=4, thread_name_prefix="spotify-presentation")
+    cleanup.callback(lambda: presentation_workers.shutdown(wait=False, cancel_futures=True))
+    presentations: list[SpotifyPresentation] = []
+    browsers: list[SpotifyBrowser] = []
+    retire_views: list[Callable[[], None]] = []
+
+    def create_presentation(*, rich: bool) -> SpotifyPresentation:
+        session = create_spotify_presentation(
+            media.spotify, image_cache, lyrics, music_video_controller, app,
+            presentation_workers, online=network_allowed, rich=rich,
+            process_id=lambda: music_video.browser_process_id,
+        )
+        presentations.append(session)
+        return session
+
+    def close_presentations() -> None:
+        try:
+            close_resources(*retire_views, *(session.close for session in presentations),
+                            *(browser.close for browser in browsers))
+        finally:
+            presentation_workers.shutdown(wait=False, cancel_futures=True)
+
+    cleanup.callback(close_presentations)
+    playback_session = create_presentation(rich=True)
+
+    browser_session = SpotifyBrowser(
+        media.spotify, media.spotify_local_player,
+        run_work=lambda callback: presentation_workers.submit(callback), dispatcher=app,
+        load_artwork=cached_artwork_loader(image_cache, max_size=56), online=network_allowed,
+        show_now_playing=lambda: spotify_screen.show(),
+    )
+    browsers.append(browser_session)
     spotify_screen = SpotifyScreen(
         app, theme=lambda: spotify_theme(app), back_action=lambda: media_screen.show(),
-        image_cache=image_cache, lyrics_client=lyrics, music_video_controller=music_video_controller,
-        music_video_presentation=music_video, service=media.spotify,
-        local_player=media.spotify_local_player, media_navigation_factory=media_navigation,
+        playback_session=playback_session, native_surface=X11WindowEmbedder(),
+        browse_session=browser_session, media_navigation_factory=media_navigation,
         spotify_configured=lambda: spotify_client_id() is not None,
         spotify_account_connected=spotify_account_connected,
         configure_spotify=lambda: media_screen.show_spotify_configuration(),
         connect_spotify=lambda: media_screen.run_spotify_account_action(False),
         disconnect_spotify=lambda: media_screen.run_spotify_account_action(True),
     )
-    spotify_screen.set_playback_request_handler(media.spotify)
-    spotify_screen.set_track_request_handler(media.spotify)
-    spotify_screen.set_seek_request_handler(media.spotify)
-    spotify_screen.set_volume_request_handler(media.spotify)
-    spotify_screen.set_state_loader(media.spotify.latest_state)
+    retire_views.append(spotify_screen.hide)
 
     if os.getenv("OPENROAD_MUSIC_VISUALIZER_RENDERER", "webgl").lower() == "tk":
         visualizer_runtime = MusicVisualizerController(create_music_visualizer_session)
@@ -251,13 +284,21 @@ def _configure_media(app: OrcUiApp, runtime, cleanup: ResourceCleanup) -> MediaC
     app.register_screen("MEDIA", media_screen)
 
     def home_media_factory(parent: tk.Misc) -> tk.Widget:
-        return SpotifyNowPlaying(
+        view = SpotifyNowPlaying(
             parent,
-            service=media.spotify,
             online_allowed=network_allowed,
             on_open=online_action(spotify_screen.show),
             theme_bundle=lambda: theme_bundle(app.theme_mode),
         )
+        session = create_presentation(rich=False)
+        def retire(event: tk.Event) -> None:
+            if event.widget is view:
+                session.close()
+                if session in presentations:
+                    presentations.remove(session)
+        view.bind("<Destroy>", retire, add="+")
+        session.activate(view)
+        return view
 
     def mode_changed(online: bool) -> None:
         if not online:
@@ -283,4 +324,5 @@ def _configure_media(app: OrcUiApp, runtime, cleanup: ResourceCleanup) -> MediaC
         visualizer=visualizer,
         visualizer_runtime=visualizer_runtime,
         unsubscribe_online=unsubscribe_online,
+        close_spotify_presentations=close_presentations,
     )

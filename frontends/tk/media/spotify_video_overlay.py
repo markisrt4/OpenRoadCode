@@ -8,11 +8,7 @@ from __future__ import annotations
 import tkinter as tk
 from collections.abc import Callable
 
-from frontends.tk.media.spotify_services_if import (
-    MusicVideoPresentationIf,
-    MusicVideoRequestHandlerIf,
-)
-from frontends.x11 import X11WindowEmbedder
+from ui.media.spotify_presentation_if import SpotifyNativeSurface, SpotifyPresentationState, SpotifyVideoRequests
 from ui.ui_widget import UiWidget
 
 SPOTIFY_GREEN = "#1DB954"
@@ -26,17 +22,13 @@ class SpotifyVideoOverlay(UiWidget):
         self,
         parent: tk.Misc,
         *,
-        controller: MusicVideoRequestHandlerIf,
-        presentation: MusicVideoPresentationIf,
-        on_returned: Callable[[], None],
+        native_surface: SpotifyNativeSurface,
         set_status: Callable[[str], None],
     ) -> None:
         self._parent = parent
-        self._controller = controller
-        self._presentation = presentation
-        self._on_returned = on_returned
+        self._handler: SpotifyVideoRequests | None = None
         self._set_status = set_status
-        self._embedder = X11WindowEmbedder()
+        self._embedder = native_surface
         self._overlay: tk.Frame | None = None
         self._host: tk.Frame | None = None
 
@@ -44,18 +36,21 @@ class SpotifyVideoOverlay(UiWidget):
     def visible(self) -> bool:
         return self._overlay is not None
 
-    def sync(self) -> None:
+    def set_video_request_handler(self, handler: SpotifyVideoRequests | None) -> None:
+        self._handler = handler
+
+    def sync(self, state: SpotifyPresentationState) -> None:
         """Show or remove the embedded browser to match controller state."""
-        if not self._controller.is_video_active():
+        if not state.video_active:
             self.close()
             return
         if self.visible:
             return
 
-        process_id = self._presentation.browser_process_id
+        process_id = state.video_process_id
         if process_id is None:
             return
-        if not X11WindowEmbedder.supported():
+        if not self._embedder.supported():
             self._set_status("Music video is playing externally; xdotool is unavailable")
             return
 
@@ -113,12 +108,11 @@ class SpotifyVideoOverlay(UiWidget):
         """Detach the browser and restore the saved Spotify state."""
         self.close()
         try:
-            self._controller.return_to_spotify()
+            if self._handler is not None:
+                self._handler.request_return_to_spotify()
         except Exception as error:
             self._set_status(f"Return to Spotify failed: {error}")
             return
-        self._set_status("Returned to Spotify")
-        self._on_returned()
 
     def close(self) -> None:
         """Detach and destroy the overlay without changing playback state."""

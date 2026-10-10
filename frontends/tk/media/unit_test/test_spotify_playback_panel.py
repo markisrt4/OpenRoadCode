@@ -39,28 +39,15 @@ class SpotifyPlaybackPanelTest(unittest.TestCase):
             wraplength=0,
         )
 
-    def test_deferred_volume_error_retains_exception(self) -> None:
-        expected_error = RuntimeError("volume unavailable")
+    def test_volume_click_emits_request_without_running_worker(self) -> None:
         handler = Mock()
-        handler.request_volume.side_effect = expected_error
-        callbacks = []
         panel = SimpleNamespace(
-            _destroyed=False,
-            _pending_volume_percent=45,
-            _volume_request=3,
-            _volume_worker_active=True,
-            _volume_handler=handler,
-            _finish_volume_adjustment=Mock(),
-            after=lambda _delay, callback: callbacks.append(callback),
+            _displayed_volume_percent=40, _volume_handler=handler,
+            _layout={"default_volume": 50, "minimum_volume": 0, "maximum_volume": 100},
         )
+        SpotifyPlaybackPanel._adjust_volume(panel, 5)
+        handler.request_volume.assert_called_once_with(45)
 
-        SpotifyPlaybackPanel._set_volume_worker(panel)  # type: ignore[arg-type]
-        callbacks[0]()
-
-        panel._finish_volume_adjustment.assert_called_once_with(
-            request=3,
-            error=expected_error,
-        )
 
 
 if __name__ == "__main__":

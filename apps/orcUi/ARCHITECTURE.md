@@ -496,3 +496,12 @@ check actual implementations against their contracts. The migrated streaming
 frontends have no backend import exceptions; thirteen prior exceptions are removed.
 RF profile/telemetry orchestration and the chooser's SDR launch worker remain a
 separate migration and keep their existing exact legacy exceptions.
+
+### Spotify presentation and browsing
+
+Spotify views render immutable media/library state and emit semantic requests.
+`SpotifyPresentation` and `SpotifyBrowser` own polling, workers, cache access,
+video/lyrics behavior, destination selection, and stale completion guards.
+Composition constructs and closes sessions, worker pools, and native adapters;
+Tk owns encoded artwork decoding and native host rendering. See
+[Spotify UI ownership](../../docs/spotify_ui.md) for lifecycle and device acceptance.

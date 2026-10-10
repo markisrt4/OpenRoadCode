@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 
-"""Tests for deferred Spotify screen hydration and live theme refresh."""
+"""Tests for composition session binding and live theme refresh."""
 
 import unittest
 from unittest.mock import Mock, patch
@@ -20,60 +20,26 @@ def _theme() -> dict:
 class SpotifyScreenTest(unittest.TestCase):
     @patch("frontends.tk.media.spotify_screen.SpotifyVideoOverlay")
     @patch("frontends.tk.media.spotify_screen.tk.Frame")
-    @patch("frontends.tk.media.spotify_screen.threading.Thread")
-    @patch("frontends.tk.media.spotify_screen._ThreadSafeSpotifyPlaybackPanel")
-    def test_show_paints_panel_before_loading_state(
-        self,
-        panel_type: Mock,
-        thread_type: Mock,
-        frame_type: Mock,
-        overlay_type: Mock,
-    ) -> None:
-        host = Mock()
-        scheduled: list[object] = []
-
-        def schedule(_delay_ms: int, callback: object) -> str:
-            scheduled.append(callback)
-            return "hydrate-job"
-
-        host.schedule_ui_callback.side_effect = schedule
-        panel = panel_type.return_value
-        state_loader = Mock()
+    @patch("frontends.tk.media.spotify_screen.SpotifyPlaybackPanel")
+    def test_show_binds_painted_view_and_hide_retires_session(self, panel_type, frame_type, overlay_type):
+        host, session = Mock(), Mock()
         screen = SpotifyScreen(
-            host,
-            theme=_theme(),
-            back_action=Mock(),
-            image_cache=Mock(),
-            lyrics_client=Mock(),
-            music_video_controller=Mock(),
-            music_video_presentation=Mock(),
+            host, theme=_theme(), back_action=Mock(),
+            playback_session=session, native_surface=Mock(),
         )
-        screen.set_state_loader(state_loader)
-
         screen.show()
-
-        # Root, setup/status banner, and playback content are painted before hydration.
-        self.assertEqual(frame_type.call_count, 3)
-        frame_type.assert_any_call(host.screen_parent, bg=_theme()["colors"]["background"])
-        panel_type.assert_called_once()
+        panel = panel_type.return_value
         panel.pack.assert_called_once_with(fill="both", expand=True)
-        overlay_type.assert_called_once()
-        panel.set_media_state.assert_not_called()
-        state_loader.assert_not_called()
-        self.assertEqual(len(scheduled), 2)
-
-        # The first callback polls UI dispatch; the last starts hydration.
-        scheduled[-1]()  # type: ignore[operator]
-
-        thread_type.assert_called_once()
-        thread_type.return_value.start.assert_called_once_with()
-        panel.set_media_state.assert_not_called()
-        state_loader.assert_not_called()
+        session.activate.assert_called_once_with(screen)
+        session.deactivate.reset_mock()
+        screen.hide()
+        session.deactivate.assert_called_once_with()
+        overlay_type.return_value.close.assert_called_once_with()
 
     def test_theme_change_rebuilds_visible_now_playing_view(self) -> None:
         screen = SpotifyScreen(
-            Mock(), theme=_theme(), back_action=Mock(), image_cache=Mock(),
-            lyrics_client=Mock(), music_video_controller=Mock(), music_video_presentation=Mock(),
+            Mock(), theme=_theme(), back_action=Mock(),
+            playback_session=Mock(), native_surface=Mock(),
         )
         screen._visible = True
         screen._view = "now"
@@ -85,8 +51,8 @@ class SpotifyScreenTest(unittest.TestCase):
 
     def test_theme_change_does_not_rebuild_hidden_screen(self) -> None:
         screen = SpotifyScreen(
-            Mock(), theme=_theme(), back_action=Mock(), image_cache=Mock(),
-            lyrics_client=Mock(), music_video_controller=Mock(), music_video_presentation=Mock(),
+            Mock(), theme=_theme(), back_action=Mock(),
+            playback_session=Mock(), native_surface=Mock(),
         )
 
         with patch.object(screen, "_show_now_playing") as show_now_playing:

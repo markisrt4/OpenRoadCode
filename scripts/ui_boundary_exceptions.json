@@ -15,15 +15,7 @@
     "count": 1,
     "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
   },
-  "apps/carUi/screens/tk_car_ui_screen_factory.py|imports controllers.audio.MediaVolumeHandler": {
-    "count": 1,
-    "reason": "Existing composition/service factory located under screens; move wiring to a composition package when refactoring."
-  },
   "apps/carUi/screens/tk_car_ui_screen_factory.py|imports controllers.lighting.LightingPresenter": {
-    "count": 1,
-    "reason": "Existing composition/service factory located under screens; move wiring to a composition package when refactoring."
-  },
-  "apps/carUi/screens/tk_car_ui_screen_factory.py|imports controllers.spotify.SpotifyMediaPresenter": {
     "count": 1,
     "reason": "Existing composition/service factory located under screens; move wiring to a composition package when refactoring."
   },
@@ -56,50 +48,6 @@
     "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
   },
   "frontends/tk/media/media_screen.py|imports threading": {
-    "count": 1,
-    "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
-  },
-  "frontends/tk/media/spotify_browse_panel.py|imports controllers.spotify.spotify_local_player.SpotifyLocalPlayer": {
-    "count": 1,
-    "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
-  },
-  "frontends/tk/media/spotify_browse_panel.py|imports controllers.spotify.spotify_local_player.SpotifyPlaybackMode": {
-    "count": 1,
-    "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
-  },
-  "frontends/tk/media/spotify_browse_panel.py|imports controllers.spotify.spotify_state_service.SpotifyStateService": {
-    "count": 1,
-    "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
-  },
-  "frontends/tk/media/spotify_browse_panel.py|imports threading": {
-    "count": 1,
-    "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
-  },
-  "frontends/tk/media/spotify_now_playing.py|imports controllers.image.ImageCache": {
-    "count": 1,
-    "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
-  },
-  "frontends/tk/media/spotify_now_playing.py|imports controllers.spotify.spotify_state_service.SpotifyStateService": {
-    "count": 1,
-    "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
-  },
-  "frontends/tk/media/spotify_now_playing.py|imports threading": {
-    "count": 1,
-    "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
-  },
-  "frontends/tk/media/spotify_playback_panel.py|imports threading": {
-    "count": 1,
-    "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
-  },
-  "frontends/tk/media/spotify_screen.py|imports controllers.spotify.spotify_local_player.SpotifyLocalPlayer": {
-    "count": 1,
-    "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
-  },
-  "frontends/tk/media/spotify_screen.py|imports controllers.spotify.spotify_state_service.SpotifyStateService": {
-    "count": 1,
-    "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
-  },
-  "frontends/tk/media/spotify_screen.py|imports threading": {
     "count": 1,
     "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
   },

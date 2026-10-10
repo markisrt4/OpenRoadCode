@@ -5,16 +5,13 @@
 
 from __future__ import annotations
 
-import queue
-import threading
+import io
 import tkinter as tk
 from collections.abc import Callable
-from pathlib import Path
 
-from PIL import ImageTk
+from PIL import Image, ImageOps, ImageTk
 
-from controllers.image import ImageCache
-from controllers.spotify.spotify_state_service import SpotifyStateService
+from ui.media.spotify_presentation_if import SpotifyPresentationState, SpotifyVideoRequests, SpotifyRequestHandler
 from ui.media import PlaybackState
 from ui.theme import ThemeBundle
 from ui.ui_widget import UiWidget
@@ -30,7 +27,6 @@ class SpotifyNowPlaying(tk.Frame, UiWidget):
         self,
         parent: tk.Widget,
         *,
-        service: SpotifyStateService,
         on_open: Callable[[], None],
         theme_bundle: Callable[[], ThemeBundle],
         online_allowed: Callable[[], bool] = lambda: True,
@@ -40,7 +36,6 @@ class SpotifyNowPlaying(tk.Frame, UiWidget):
         self._theme = theme_bundle()
         ui = self._theme.ui
         super().__init__(parent, bg=ui.surface, cursor="hand2")
-        self._service = service
         self._on_open = on_open
         self._closed = False
         self._title = tk.StringVar(value="Spotify • YouTube • Netflix")
@@ -48,10 +43,7 @@ class SpotifyNowPlaying(tk.Frame, UiWidget):
         self._status = tk.StringVar(value="")
         self._artwork_uri: str | None = None
         self._artwork_photo: ImageTk.PhotoImage | None = None
-        self._art_results: queue.SimpleQueue[tuple[str, object | None]] = queue.SimpleQueue()
-        cache_dir = Path.home() / ".cache" / "openroadcode" / "spotify-artwork"
-        self._image_cache = ImageCache(max_entries=16, cache_directory=cache_dir)
-
+        self._artwork_payload: bytes | None = None
         self._body = tk.Frame(self, bg=ui.surface)
         self._body.pack(fill=tk.BOTH, expand=True, padx=10, pady=(7, 8))
         self._body.grid_columnconfigure(1, weight=1)
@@ -90,7 +82,6 @@ class SpotifyNowPlaying(tk.Frame, UiWidget):
         self._status_label.grid(row=2, column=0, sticky="ew", pady=(3, 0))
 
         self._bind_open(self)
-        self._refresh()
 
     def destroy(self) -> None:
         self._closed = True
@@ -111,73 +102,58 @@ class SpotifyNowPlaying(tk.Frame, UiWidget):
         if self._artwork_photo is None:
             self._art_label.configure(bg=ui.control_active, fg=GREEN)
 
-    def _bind_open(self, widget: tk.Widget) -> None:
+    def _bind_open(self, widget: tk.Misc) -> None:
         widget.bind("<Button-1>", lambda _event: self._on_open())
         for child in widget.winfo_children():
             self._bind_open(child)
 
-    def _refresh(self) -> None:
+    def set_spotify_request_handler(self, handler: SpotifyRequestHandler | None) -> None:
+        """The home summary emits only its supplied navigation action."""
+
+    def set_video_request_handler(self, handler: SpotifyVideoRequests | None) -> None:
+        """Home summary has no video controls."""
+
+    def set_spotify_state(self, presentation: SpotifyPresentationState) -> None:
         if self._closed:
             return
         current_theme = self._theme_provider()
         if current_theme != self._theme:
             self.set_theme_bundle(current_theme)
-        self.configure(cursor="hand2" if self._online_allowed() else "arrow")
-        self._apply_artwork_result()
-        state = self._service.latest_state()
-        if not self._online_allowed():
+        state = presentation.media
+        self.configure(cursor="hand2" if presentation.online else "arrow")
+        if not presentation.online:
             self._title.set("Streaming media unavailable")
             self._artist.set("Offline mode")
             self._status.set("")
-            self.configure(cursor="arrow")
             self._show_artwork_placeholder()
         elif state.playback is PlaybackState.PLAYING and state.title:
             self._title.set(state.title)
             self._artist.set(state.artist or "")
             self._status.set("Spotify • Playing")
-            if state.artwork_uri and state.artwork_uri != self._artwork_uri:
-                self._load_artwork(state.artwork_uri)
+            self._art_loading.configure(text="LOADING" if presentation.artwork_loading else "")
+            if presentation.artwork != self._artwork_payload:
+                self._artwork_payload = presentation.artwork
+                self._artwork_photo = None
+                self._art_label.configure(image="", text="♫", width=4, height=2)
+                if presentation.artwork:
+                    try:
+                        with Image.open(io.BytesIO(presentation.artwork)) as source:
+                            image = ImageOps.fit(source, (ART_SIZE, ART_SIZE))
+                            try:
+                                self._artwork_photo = ImageTk.PhotoImage(image)
+                            finally:
+                                image.close()
+                        self._art_label.configure(image=self._artwork_photo, text="", width=ART_SIZE, height=ART_SIZE)
+                    except (OSError, ValueError):
+                        pass
         else:
             self._title.set("Spotify • YouTube • Netflix")
             self._artist.set("Media hub")
             self._status.set("")
             self._show_artwork_placeholder()
-        self.after(500, self._refresh)
-
-    def _load_artwork(self, uri: str) -> None:
-        if not self._online_allowed():
-            return
-        self._artwork_uri = uri
-        self._artwork_photo = None
-        self._art_label.configure(image="", text="♫", width=4, height=2)
-        self._art_loading.configure(text="LOADING")
-
-        def worker() -> None:
-            try:
-                image = (self._image_cache.get(uri, width=ART_SIZE, height=ART_SIZE)
-                         if self._online_allowed() else None)
-            except Exception:
-                image = None
-            self._art_results.put((uri, image))
-
-        threading.Thread(target=worker, name="orcui-home-artwork", daemon=True).start()
-
-    def _apply_artwork_result(self) -> None:
-        while True:
-            try:
-                uri, image = self._art_results.get_nowait()
-            except queue.Empty:
-                return
-            if uri != self._artwork_uri:
-                continue
-            self._art_loading.configure(text="")
-            if image is None:
-                continue
-            self._artwork_photo = ImageTk.PhotoImage(image)
-            self._art_label.configure(image=self._artwork_photo, text="", width=ART_SIZE, height=ART_SIZE)
 
     def _show_artwork_placeholder(self) -> None:
-        self._artwork_uri = None
+        self._artwork_payload = None
         self._artwork_photo = None
         self._art_loading.configure(text="")
         self._art_label.configure(image="", text="♫", width=4, height=2)

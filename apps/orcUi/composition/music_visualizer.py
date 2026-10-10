@@ -84,7 +84,7 @@ def create_browser_visualizer(app):
         sources["android-playback"] = lambda: AndroidPlaybackAudioCapture(block_size=size)
     with ResourceCleanup() as cleanup:
         session = MusicAnalysisSession(sources)
-        cleanup.callback(session.close)
+        cleanup.callback(lambda: session.stop())
         selected = selected_music_visualizer_source()
         if "OPENROAD_MUSIC_VISUALIZER_SOURCE" not in os.environ and "android-playback" in sources:
             selected = MusicVisualizerSource.ANDROID_PLAYBACK

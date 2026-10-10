@@ -65,3 +65,39 @@ if TYPE_CHECKING:
 
     def rf_surface(adapter: X11WindowEmbedder) -> RadioNativeSurface:
         return adapter
+
+    from controllers.spotify.spotify_presentation import SpotifyPresentation
+    from frontends.tk.media.spotify_now_playing import SpotifyNowPlaying
+    from frontends.tk.media.spotify_playback_panel import SpotifyPlaybackPanel
+    from ui.media.spotify_presentation_if import SpotifyPresentationSession, SpotifyPresentationUi
+    from ui.media import VolumeRequestHandlerIf
+
+    def spotify_session(session: SpotifyPresentation) -> SpotifyPresentationSession:
+        return session
+
+    def spotify_summary(view: SpotifyNowPlaying) -> SpotifyPresentationUi:
+        return view
+
+    def spotify_panel(view: SpotifyPlaybackPanel) -> SpotifyPresentationUi:
+        return view
+
+    def spotify_volume(session: SpotifyPresentation) -> VolumeRequestHandlerIf:
+        return session
+
+    from controllers.spotify.spotify_browser import SpotifyBrowser
+    from frontends.tk.media.spotify_browse_panel import SpotifyBrowsePanel
+    from frontends.tk.media.spotify_screen import SpotifyScreen
+    from ui.media.spotify_browse_if import SpotifyBrowseSession, SpotifyBrowseUi
+    from ui.media.spotify_presentation_if import SpotifyNativeSurface
+
+    def spotify_browser_session(session: SpotifyBrowser) -> SpotifyBrowseSession:
+        return session
+
+    def spotify_browser_view(view: SpotifyBrowsePanel) -> SpotifyBrowseUi:
+        return view
+
+    def spotify_screen_view(view: SpotifyScreen) -> SpotifyPresentationUi:
+        return view
+
+    def spotify_native_surface(adapter: X11WindowEmbedder) -> SpotifyNativeSurface:
+        return adapter
