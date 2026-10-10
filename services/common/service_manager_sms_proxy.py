@@ -60,7 +60,7 @@ def serve_sms(handler: object, method: str) -> bool:
     target = path
     if method == "GET" and urlsplit(handler.path).query:
         target += "?" + urlsplit(handler.path).query
-    connection = HTTPConnection("127.0.0.1", 8772, timeout=3)
+    connection = HTTPConnection("127.0.0.1", 8773, timeout=3)
     try:
         connection.request(
             method, target, body=body if method == "POST" else None,
