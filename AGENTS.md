@@ -54,6 +54,15 @@ pulling or testing.
 - Resolve material UI and workflow choices before substantial implementation.
   Apply routine fixes autonomously within the agreed scope.
 
+## Termux device commands
+
+- Begin user-facing command blocks with `git switch orc-ui-polish`.
+- Use Termux's `$TMPDIR` for temporary files; do not assume `/tmp` exists.
+- When asking the user to paste diagnostic output, provide a command that copies
+  the relevant output with `termux-clipboard-set`. Keep clipboard output focused
+  on the requested evidence. Use `termux-clipboard-get` when reading clipboard
+  content is needed.
+
 ## Discuss major changes before implementation
 
 The user requires discussion and explicit agreement before major changes, including
