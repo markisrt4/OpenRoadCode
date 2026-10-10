@@ -13,7 +13,8 @@ from .power_dialog import PowerDialog
 from .screen_builders import (
     build_placeholder,
 )
-from .shell_metrics import TARGET_GEOMETRY, TARGET_HEIGHT, TARGET_WIDTH
+from .shell_metrics import TARGET_GEOMETRY
+from .display_profiles import profile_for_geometry
 from .shell_view import OrcUiShellView
 from apps.orcUi.theme_runtime import theme_bundle
 from common.host_config import (
@@ -44,13 +45,14 @@ class OrcUiApp(VolumeUiIf):
         self._borderless = orcui_borderless_default() and not fullscreen
         default_geometry = "1024x600" if target == "termux" else TARGET_GEOMETRY
         geometry = os.environ.get("ORCUI_GEOMETRY", default_geometry)
+        self._display_profile = profile_for_geometry(geometry)
         if fullscreen:
             self._root.attributes("-fullscreen", True)
         else:
             self._root.geometry(geometry)
             self._root.resizable(True, True)
             if target != "termux":
-                self._root.minsize(TARGET_WIDTH, TARGET_HEIGHT)
+                self._root.minsize(800, 480)
             if self._borderless:
                 self._root.overrideredirect(True)
                 self._root.bind("<Escape>", self._restore_window_decorations)
@@ -241,7 +243,7 @@ class OrcUiApp(VolumeUiIf):
         self._borderless = False
         self._root.overrideredirect(False)
         self._root.resizable(True, True)
-        self._root.minsize(TARGET_WIDTH, TARGET_HEIGHT)
+        self._root.minsize(800, 480)
     def _shutdown(self) -> None:
         if self._closing:
             return
