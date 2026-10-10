@@ -9,7 +9,7 @@ from apps.launchers.browser_launcher import BrowserKioskLauncher
 from apps.launchers.cesium_sdk import sdk_directory
 from apps.launchers.cesium_viewer_server import CesiumViewerServer
 from apps.launchers.local_imagery_pack import LocalImageryPack, detroit_pack_directory
-from apps.launchers.local_terrain_pack import load_terrain, detroit_terrain_directory
+from apps.launchers.local_terrain_pack import load_terrain, preferred_terrain_directory
 from apps.launchers.local_building_pack import load_buildings, detroit_building_directory
 from apps.launchers.local_map_tiles_pack import load_viewer_tiles, preferred_tiles_directory
 from common.logging.logging_paths import logging_file_path
@@ -43,7 +43,7 @@ class CesiumPoiActions(PoiActionExecutorIf):
             if self._session is not None:
                 raise RuntimeError('Close the current 3D viewer before opening another place')
             imagery_dir, terrain_dir, building_dir = (detroit_pack_directory(),
-                                                     detroit_terrain_directory(), detroit_building_directory())
+                                                     preferred_terrain_directory(), detroit_building_directory())
             tile_dir = preferred_tiles_directory()
             tiles = load_viewer_tiles(tile_dir) if tile_dir.exists() else None
             imagery = LocalImageryPack.load(imagery_dir) if (tiles is None or not any(t.imagery_available for t in tiles.state.tiles)) and imagery_dir.exists() else None

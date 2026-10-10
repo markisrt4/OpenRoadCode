@@ -19,7 +19,8 @@ def detroit_tiles_directory():
 def preferred_tiles_directory():
     directory = navigation_data_root()/'maps/3d/packs'
     if directory.exists():
-        packs = sorted(p for p in directory.iterdir() if p.is_dir() and not p.name.startswith('.'))
+        packs = sorted(p for p in directory.iterdir() if p.is_dir() and not p.name.startswith('.')
+                       and not p.name.endswith('-terrain'))
         preferred = directory/'detroit-midtown'
         if preferred in packs:
             return preferred

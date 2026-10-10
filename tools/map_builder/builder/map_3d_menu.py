@@ -5,7 +5,7 @@ from .map_3d import PRESETS
 def choose_coverage():
     print('\nOptional offline 3D map packs')
     print('Available: building footprints and tagged/estimated heights from installed OSM sources.')
-    print('Imagery and terrain build stages are not available here yet.')
+    print('Terrain: run 3d --layer terrain for a separate USGS 3DEP offline pack. Imagery build is not available here yet.')
     keys = list(PRESETS)
     for index,key in enumerate(keys,1):
         title,bounds = PRESETS[key]

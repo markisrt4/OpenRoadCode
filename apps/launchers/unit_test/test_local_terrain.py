@@ -9,6 +9,7 @@ import pytest
 
 from apps.launchers.local_terrain_pack import load_terrain
 from development.maps import download_detroit_terrain as downloader
+from tools.map_builder.builder import terrain
 from ui.navigation.local_imagery_state import LocalImageryState
 from ui.navigation.local_terrain_state import LocalTerrainState
 
@@ -31,7 +32,7 @@ def test_download_preserves_source_grid_and_reports_relative_display(tmp_path, m
         return {"samples":[{"location":{"x":x,"y":y},"value":str(180+i),
                             "attributes":{"VerticalDatum":"NAVD88"}}
                            for i,(x,y) in enumerate(points)]}
-    monkeypatch.setattr(downloader,"request",reply)
+    monkeypatch.setattr(terrain,"request",reply)
     destination = tmp_path / "terrain"
     downloader.download(destination)
     state = load_terrain(destination)
@@ -48,7 +49,7 @@ def test_download_preserves_source_grid_and_reports_relative_display(tmp_path, m
 
 def test_incomplete_sample_reply_is_not_installed(tmp_path, monkeypatch):
     monkeypatch.setattr(downloader,"SIZE",3)
-    monkeypatch.setattr(downloader,"request",Mock(side_effect=[
+    monkeypatch.setattr(terrain,"request",Mock(side_effect=[
         {"pixelType":"F32","serviceDataType":"esriImageServiceDataTypeElevation"},
         {"samples":[]},
     ]))

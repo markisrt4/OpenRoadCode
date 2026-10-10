@@ -165,6 +165,36 @@ Generated datasets are based on OpenStreetMap/Geofabrik data and use open-source
 
 ## Optional 3D buildings and interactive installation
 
+Terrain is also available as a separate optional pack through this workflow.
+On the **map build host**, use:
+
+```bash
+git switch navigation-cesium
+git pull --ff-only
+bash tools/map_builder/scripts/run-builder.sh 3d --layer terrain
+```
+
+Choose **2** for Detroit Downtown–Midtown and confirm. The stage downloads a
+65×65 USGS 3DEP grid, preserves raw source responses and datum metadata, and
+certifies the new `detroit-midtown-terrain` pack. It does not rebuild buildings,
+map tiles or routing. A failed download leaves no partial installed pack and
+restores the original build certificate when the dataset is unchanged.
+The source elevations are in metres; rendering uses relative relief rather
+than claiming a conversion to ellipsoid heights. This is coarse ground relief,
+not a survey or topo-contour layer.
+
+Publish with the existing command:
+
+```bash
+git switch navigation-cesium
+bash tools/map_builder/scripts/deploy-to-srv.sh
+```
+
+The existing interactive pull menu lists terrain separately from buildings;
+select both to install both. The viewer prefers the deployed Downtown–Midtown
+terrain pack, falling back to the earlier downtown prototype when absent.
+
+
 After building the normal navigation dataset, reuse its installed OSM PBFs to
 create optional Cesium-compatible building packs. This does not contact Overpass
 or rebuild vector tiles/routing. The first stage offers downtown Detroit and the

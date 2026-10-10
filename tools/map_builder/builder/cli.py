@@ -162,6 +162,7 @@ def parse_args() -> argparse.Namespace:
     )
     map3d = sub.add_parser("3d", help="build optional 3D buildings from installed navigation sources")
     map3d.add_argument("--coverage", choices=("detroit-downtown","detroit-midtown"))
+    map3d.add_argument("--layer", choices=("buildings","terrain"), default="buildings", help="optional offline layer to build")
     map3d.add_argument("--yes", action="store_true", help="confirm non-interactive 3D build; requires --coverage")
     sub.add_parser("list", help="list selectable Geofabrik region IDs")
     return parser.parse_args()
@@ -186,24 +187,35 @@ def main() -> int:
             if previous.get("schema") != 2:
                 raise ValueError("Build a validated schema-2 navigation dataset before adding 3D packs")
             baseline = validate_output(OUTPUT_ROOT, service_smoke=False)
+            layer = getattr(args, 'layer', 'buildings')
+            pack_id = coverage if layer == 'buildings' else coverage+'-terrain'
             print(f"Coverage: {PRESETS[coverage][0]} · {PRESETS[coverage][1]}")
-            print("Layer: buildings. Uses existing OSM sources; no download. Output size is known after extraction.")
-            print("Limit: 8 tiles, 10 MiB geometry each plus metadata; complex polygons are omitted.")
+            if layer == 'terrain':
+                print("Layer: terrain. Downloads 65×65 USGS 3DEP samples; Internet required on the build host.")
+                print("Relative relief in metres; source datum is preserved. Terrain payload capped at 2 MiB.")
+            else:
+                print("Layer: buildings. Uses existing OSM sources; no download. Output size is known after extraction.")
+                print("Limit: 8 tiles, 10 MiB geometry each plus metadata; complex polygons are omitted.")
             if not args.yes and input("Build this optional pack now? [y/N] ").strip().lower() != 'y':
                 print("Cancelled")
                 return 0
-            existing = OUTPUT_ROOT/'maps/3d/packs'/coverage
+            existing = OUTPUT_ROOT/'maps/3d/packs'/pack_id
             if existing.exists():
                 from .map_3d import validate_pack
                 record = validate_pack(existing)
-                if (previous.get('map_3d') or {}).get(coverage) != record:
+                if (previous.get('map_3d') or {}).get(pack_id) != record:
                     raise ValueError('Existing 3D pack is not certified by the dataset manifest; validate it before publishing')
-                print(f"Reusing certified 3D pack: {record['buildings']} buildings, {format_size(record['bytes'])}")
+                print(f"Reusing certified {layer} pack: {format_size(record['bytes'])}")
                 return 0
             # A complete dataset must not retain a valid old certificate while being changed.
             previous_path.unlink()
             try:
-                destination = build_pack(OUTPUT_ROOT, coverage)
+                if layer == 'terrain':
+                    from .terrain import download
+                    download(existing, coverage)
+                    destination = existing
+                else:
+                    destination = build_pack(OUTPUT_ROOT, coverage)
                 result = validate_output(OUTPUT_ROOT, service_smoke=False)
             except BaseException:
                 # Extraction only touches temporary files. Restore the certificate
@@ -219,8 +231,8 @@ def main() -> int:
             temporary = previous_path.with_suffix('.tmp')
             temporary.write_text(json.dumps(previous,indent=2))
             temporary.replace(previous_path)
-            record = result['map_3d'][coverage]
-            print(f"3D pack built: {record['buildings']} buildings, {format_size(record['bytes'])} at {destination}")
+            record = result['map_3d'][pack_id]
+            print(f"3D {layer} pack built: {format_size(record['bytes'])} at {destination}")
             print("Publish and pull using the existing navigation deployment tools.")
             return 0
         if command == "validate":

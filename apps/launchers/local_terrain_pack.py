@@ -6,12 +6,21 @@ import math
 from pathlib import Path
 
 from common.xdg_paths import openroadcode_data_dir
+from common.navigation_data import navigation_data_root
 from ui.navigation.local_imagery_state import LocalImageryState
 from ui.navigation.local_terrain_state import LocalTerrainState
 
 
 def detroit_terrain_directory():
     return openroadcode_data_dir("map-packs", "detroit-terrain-v1")
+
+
+def preferred_terrain_directory():
+    packs = navigation_data_root()/'maps/3d/packs'
+    for key in ('detroit-midtown-terrain', 'detroit-downtown-terrain'):
+        if (packs/key/'manifest.json').is_file():
+            return packs/key
+    return detroit_terrain_directory()
 
 
 def load_terrain(directory):

@@ -290,9 +290,10 @@ outlines mark installed coverage. Buildings toggle independently; estimates and
 placeholders retain their colors. Boundary-crossing simple outlines belong to
 one tile by their mean vertex location; complex OSM relations remain omitted.
 
-This expansion does not expand terrain: the existing coarse terrain pack still
-covers downtown only, fading to flat ground outside that rectangle. Embedding,
-live tracking, and routing overlays remain later stages.
+The shared builder now offers a separate Downtown–Midtown terrain pack, described
+below. Without it, the earlier downtown terrain prototype still fades to flat
+ground outside its rectangle. Embedding, live tracking, and routing overlays
+remain later stages.
 
 Phone acceptance: pan from downtown north toward Midtown, watch active tile counts
 stay at four or fewer, and inspect newly loaded buildings/imagery. Toggle Buildings,
@@ -305,5 +306,18 @@ The optional building stage now belongs to the existing map builder. It reuses
 navigation source PBFs rather than querying Overpass. See
 [the map-builder workflow](../tools/map_builder/README.md#optional-3d-buildings-and-interactive-installation)
 for coverage selection, publication, and `--interactive` vehicle installation.
-This first stage adds buildings only. Installed prototype aerial tiles with
-matching coverage are reused; imagery/terrain build stages are still pending.
+The `3d --layer terrain` stage downloads a 65×65 USGS 3DEP elevation grid through
+the same validated publish/install workflow. Terrain installs independently of
+buildings, preserving sample responses and source datum metadata. It supplies
+relative relief, with roughly 100-metre sampling across Downtown–Midtown, not
+converted absolute ellipsoid elevations. Its payload is capped at 2 MiB; source
+provenance adds installation bytes shown in the pull menu. Empty/missing samples
+and mixed datums fail before installation; transient HTTP errors get bounded
+retries. Installed prototype aerial tiles with matching coverage are reused;
+the shared imagery build stage remains pending.
+
+Acceptance: install the terrain pack using the map-builder instructions, reopen
+the 3D viewer, and check that its footer says relative relief. Inspect sloping
+ground with buildings on, toggle 2D/3D, and confirm the destination remains
+visible. Repeat offline. Detroit is fairly flat, so large mountains would
+indicate bad samples rather than successful terrain rendering.

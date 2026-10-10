@@ -133,7 +133,7 @@
       || snapshot.latitude_rad > tileCoverage.north_rad);
     const coverageLabel = outsideTiles ? 'Selected place outside installed 3D coverage · '
       : imageCoverage && !insideImagery ? 'Selected place outside installed imagery coverage · ' : '';
-    const terrainLabel = terrain ? 'relative relief (~100 m samples)' : 'terrain not installed';
+    const terrainLabel = terrain ? `relative relief (${snapshot.terrain.width}×${snapshot.terrain.height} samples)` : 'terrain not installed';
     status.textContent = `Offline reference globe · imagery not installed · ${terrainLabel} · ${buildingLabel}`;
     if (tiledMap) {
       status.textContent = `Offline · ${coverageLabel}${snapshot.map_tiles.coverage.title} · ${terrainLabel} · ${buildingLabel}`;

@@ -137,13 +137,20 @@ def validate_pack(directory):
     root = Path(directory).resolve()
     manifest_path = root/'manifest.json'
     manifest = json.loads(manifest_path.read_text())
-    if manifest.get('schema') != 1 or not 1 <= len(manifest['tiles']) <= 32:
+    terrain_only = manifest.get('layers') == ['terrain']
+    if manifest.get('schema') != 1 or not 0 <= len(manifest['tiles']) <= 32 or (not manifest['tiles'] and not terrain_only):
         raise ValueError('Unsupported 3D pack schema')
     west,south,east,north = manifest['bounds_deg']
     if not (-180 <= west < east <= 180 and -90 <= south < north <= 90):
         raise ValueError('Invalid 3D coverage')
     seen,checksums,total = set(),{'manifest.json':digest(manifest_path)},0
-    layers = {'buildings'}
+    layers = set() if terrain_only else {'buildings'}
+    if terrain_only:
+        if manifest['tiles']:
+            raise ValueError('Terrain-only pack cannot contain building tiles')
+        from .terrain import validate_terrain
+        validate_terrain(root)
+        layers.add('terrain')
     for tile in manifest['tiles']:
         key = tile['id']
         if not re.fullmatch(r'[a-z0-9-]{1,32}',key) or key in seen:
