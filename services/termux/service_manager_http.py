@@ -33,6 +33,7 @@ from services.common.service_manager_browser_pairing import (
 from services.common.service_manager_pairing import ServiceManagerPairing
 from services.common.service_manager_logs import serve_logs
 from services.common.service_manager_sms_proxy import serve_sms
+from services.common.service_manager_sms_provision import serve_sms_provision
 from services.common.system_performance_monitor import SystemPerformanceMonitor
 from services.termux.service_manager import RunitServiceManager, ServiceStatus
 
@@ -64,6 +65,8 @@ class ServiceManagerHandler(BaseHTTPRequestHandler):
             return
         if len(parts) == 4 and parts[:3] == ["pairing", "browser", "status"]:
             self._browser_pairing_status(parts[3])
+            return
+        if serve_sms_provision(self, "GET"):
             return
         if serve_sms(self, "GET"):
             return
@@ -103,6 +106,8 @@ class ServiceManagerHandler(BaseHTTPRequestHandler):
             pin, expires_at = self.pairing.begin()
             self._json(HTTPStatus.OK, {"pin": pin, "expires_at": expires_at})
             return
+        if serve_sms_provision(self, "POST"):
+            return
         if serve_sms(self, "POST"):
             return
         if not self._authenticate():
@@ -128,6 +133,11 @@ class ServiceManagerHandler(BaseHTTPRequestHandler):
             self._json(HTTPStatus.BAD_REQUEST, {"error": str(exc)})
             return
         self._json(HTTPStatus.OK, _payload(statuses))
+
+    def do_DELETE(self) -> None:  # noqa: N802 - BaseHTTPRequestHandler API
+        if serve_sms_provision(self, "DELETE"):
+            return
+        self._json(HTTPStatus.NOT_FOUND, {"error": "not found"})
 
     def _browser_pairing_start(self) -> None:
         try:
