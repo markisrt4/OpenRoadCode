@@ -42,3 +42,20 @@ telemetry measurements, preset/tuning requests, ADS-B ownership, and cleanup fai
 Run `python scripts/quality_gate.py` and the focused receiver/X11 suites. Live SDR++,
 rigctl, telemetry sockets, ADS-B, X11 embedding, theme switching, and hardware audio
 still require a device acceptance pass. Headless tests cannot verify those behaviors.
+
+## Weather NOAA action diagnostics
+
+Weather's NOAA button keeps Weather visible and submits startup/tuning to the RF
+worker. Events under `orc.radio.noaa` distinguish button presses, missing bindings,
+queued work, worker startup, cancellation, tuning completion, and failures. Worker
+exceptions are logged with a traceback and dispatched as RF status instead of being
+lost inside a worker future. Terminal shutdown drops pending work and status delivery.
+
+To watch just these events during device acceptance:
+
+```bash
+python -m apps.orcUi --follow-logs --log-component orc.radio.noaa --log-level INFO
+```
+
+Controller state reports requested tuning. Confirm actual tuning separately with
+`RigctlClient().get_frequency()`; a success label alone is not receiver readback.

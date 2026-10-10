@@ -8,6 +8,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from datetime import datetime
 import tkinter as tk
+import logging
 
 from common.units import (
     UnitSystem,
@@ -259,8 +260,12 @@ class OrcWeatherPanel(tk.Frame, WeatherUiIf, UiWidget):
             self._on_radar_map()
 
     def _request_weather_radio(self) -> None:
+        logger = logging.getLogger("orc.radio.noaa")
+        logger.info("NOAA button pressed")
         if self._on_weather_radio is not None:
             self._on_weather_radio()
+        else:
+            logger.warning("NOAA button has no action binding")
 
     def _render(self) -> None:
         state = self._state

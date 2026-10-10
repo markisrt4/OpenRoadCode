@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import os
+import logging
 import tkinter as tk
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -209,15 +210,26 @@ def configure_radio(app: OrcUiApp, runtime: OrcUiApplicationRuntime) -> RadioCom
 
         def open_weather_radio() -> None:
             """Start NOAA RF audio while leaving the requesting screen visible."""
+            logger = logging.getLogger("orc.radio.noaa")
+            if resources.closed:
+                logger.warning("NOAA request ignored: radio composition is closed")
+                return
+            logger.info("NOAA request queued")
             app.set_screen_status("RF: starting NOAA Weather Radio")
             def work() -> None:
+                if resources.closed:
+                    return
+                logger.info("NOAA worker started")
                 try:
                     state = play_weather_radio(RadioProfileController(), runtime.radio,
                                                cancelled=lambda: resources.closed)
                     if state is None:
+                        logger.info("NOAA request cancelled")
                         return
                     message = f"RF: Playing {state.frequency_hz / 1_000_000:.3f} MHz · {state.label}"
-                except (OSError, RuntimeError, ValueError) as error:
+                    logger.info("NOAA tuned: %s", message)
+                except Exception as error:
+                    logger.exception("NOAA request failed")
                     message = f"RF: {error}"
                 app.dispatch_ui(lambda: app.set_screen_status(message) if not resources.closed else None)
             resources.run_rf(work)
