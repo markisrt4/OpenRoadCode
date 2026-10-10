@@ -118,3 +118,44 @@ def test_direct_install_cancellation_does_not_download_or_modify_data(tmp_path, 
     monkeypatch.setattr(install_terrain,'download',lambda *args:pytest.fail('cancelled install must not download'))
     assert install_terrain.main() == 0
     assert not (tmp_path/'pack').exists()
+
+
+def test_image_service_token_error_uses_public_epqs_with_coarser_grid(tmp_path, monkeypatch):
+    def rejected(*args):
+        raise terrain.ElevationServiceError({'code':498,'message':'Invalid Token'})
+    monkeypatch.setattr(terrain,'request',rejected)
+    monkeypatch.setattr(terrain,'_epqs_point',lambda x,y:(180+(y-42.315)*100,
+        {'location':{'x':x,'y':y},'value':180+(y-42.315)*100}))
+    destination = tmp_path/'terrain'
+    terrain.download(destination,'detroit-midtown')
+    state = load_terrain(destination)
+    assert state.width == state.height == 33
+    assert state.heights_m[0] > state.heights_m[-1]
+    manifest = json.loads((destination/'manifest.json').read_text())
+    assert manifest['source'] == terrain.EPQS
+    assert 'EPQS point samples' in manifest['sampling']
+    assert 'not specified' in state.vertical_datum
+    assert map_3d.validate_pack(destination)['layers'] == ['terrain']
+
+
+def test_epqs_no_data_does_not_install_partial_pack(tmp_path, monkeypatch):
+    def rejected(*args):
+        raise terrain.ElevationServiceError({'code':498})
+    def no_data(*args):
+        raise RuntimeError('EPQS returned no-data')
+    monkeypatch.setattr(terrain,'request',rejected)
+    monkeypatch.setattr(terrain,'_epqs_point',no_data)
+    with pytest.raises(RuntimeError,match='no-data'):
+        terrain.download(tmp_path/'terrain','detroit-midtown')
+    assert not (tmp_path/'terrain').exists()
+
+
+def test_epqs_query_requests_metres_and_validates_coordinates(monkeypatch):
+    from urllib.parse import urlsplit,parse_qs
+    def reply(url):
+        assert parse_qs(urlsplit(url).query)['units'] == ['Meters']
+        return {'location':{'x':-83.05,'y':42.33},'value':'181.2'}
+    monkeypatch.setattr(terrain,'_json_request',reply)
+    assert terrain._epqs_point(-83.05,42.33)[0] == 181.2
+    with pytest.raises(RuntimeError,match='coordinates'):
+        terrain._epqs_point(-83.06,42.33)

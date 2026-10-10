@@ -314,7 +314,12 @@ bash development/termux/install_terrain.sh
 
 Choose **2 — Downtown–Midtown** and confirm. A complete pack is installed
 atomically; an existing validated pack is reused. Close and reopen the 3D viewer.
-Its footer should report `65×65 samples`. Device-installed Midtown terrain is
+Its footer reports the installed sample grid. If the image service returns a
+token-required error, the installer uses public USGS EPQS with a coarser 33×33
+grid (about 200-metre spacing across Midtown). Two point queries run at a time;
+1,089 queries can take several minutes. EPQS source responses are preserved,
+and an unspecified source datum is explicitly marked rather than assumed.
+No account/token is added or obtained. Device-installed Midtown terrain is
 preferred over the old downtown prototype; a deployed Midtown terrain pack
 takes precedence when both exist. This command downloads terrain only, reusing
 installed imagery/buildings. No navigation dataset publication or pull is needed.

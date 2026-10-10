@@ -29,7 +29,8 @@ def main():
         destination = args.output or (midtown_terrain_directory() if coverage == 'detroit-midtown'
                                      else detroit_terrain_directory())
         print(f'Coverage: {title} · {bounds}')
-        print('USGS 3DEP: 65×65 ground samples. Internet needed for downloading; viewing works offline.')
+        print('USGS 3DEP: 65×65 ground samples; 33×33 public EPQS fallback if the image service requires a token.')
+        print('Internet needed for downloading; viewing works offline.')
         print('Source elevations in metres; scene displays relative relief, not converted ellipsoid heights.')
         print(f'Install directory: {destination}')
         if not args.yes and input('Download this optional terrain pack now? [y/N] ').strip().lower() != 'y':

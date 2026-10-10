@@ -185,6 +185,10 @@ restores the original build certificate when the dataset is unchanged.
 The source elevations are in metres; rendering uses relative relief rather
 than claiming a conversion to ellipsoid heights. This is coarse ground relief,
 not a survey or topo-contour layer.
+If the image service returns token errors 498/499, the stage falls back to public
+USGS EPQS with a 33×33 grid and two concurrent point queries. The installed
+manifest records the actual source, sample grid and datum availability. The
+fallback is slower; it does not require credentials.
 
 Publish with the existing command:
 
