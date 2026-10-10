@@ -374,3 +374,15 @@ structured logging, before compiling. It requires the existing
 `apps/map_renderer/build-termux` directory configured by
 `build_navigation_stack.sh`. Compilation must succeed before the installed
 executable is replaced. No map-data download is needed.
+
+### Existing SDR++ build compatibility
+
+New SDR++ installations use Debian's
+`/root/.local/state/openroadcode/build/SDRPlusPlus`. The ORC launcher, its theme
+configuration writer, and `development/termux/run_sdrpp.sh` also support older
+builds at `/root/SDRPlusPlus`: when the default managed executable is absent and
+an executable legacy build exists, they use the legacy build and its `root_dev`
+configuration. The check runs inside Debian rather than against Termux's filesystem.
+An explicitly configured non-default directory is preserved. No checkout is moved
+or rebuilt; the setup script continues creating managed installations and refuses
+to modify unmanaged source trees. A compatibility symlink remains supported.
