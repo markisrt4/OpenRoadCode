@@ -22,9 +22,13 @@
 - Add meaningful contract and behavior tests alongside the feature, including
   hide/close and stale completion behavior when asynchronous work is involved.
   Update the affected documentation in the same change.
-- Run `python scripts/quality_gate.py` before declaring a feature complete. It
-  includes automatic project-wide dependency checks and stricter weather checks.
-  New frontend files are discovered automatically.
+- During branch development, run tests and static checks relevant to the changed
+  code and affected contracts. Do not rerun the full quality gate for every fix
+  or feature batch. Run `python scripts/quality_gate.py` at the end of branch
+  development, before declaring the branch ready to merge. It includes automatic
+  project-wide dependency checks and stricter weather checks; new frontend files
+  are discovered automatically. Report focused validation separately from the
+  final full-gate result.
 - `scripts/ui_boundary_exceptions.json` records exact pre-existing dependencies,
   not permission for new ones. Do not regenerate, expand, or add exceptions merely
   to make CI pass. Fix new violations. When removing old dependencies, shrink the
