@@ -75,3 +75,11 @@ def test_imagery_retries_server_errors_without_leaving_a_partial_pack(monkeypatc
     with pytest.raises(HTTPError):
         downloader.open_source(downloader.SERVICE, timeout=60)
     assert call.call_count == 3
+
+
+def test_catalog_network_failure_identifies_stage_and_endpoint(monkeypatch):
+    from urllib.error import HTTPError
+    monkeypatch.setattr(downloader, 'open_source', Mock(side_effect=HTTPError(downloader.SERVICE,502,'Bad Gateway',{},None)))
+    with pytest.raises(RuntimeError, match='NAIP source catalog failed after retries') as error:
+        downloader.get_json('/query', where="State='MI'")
+    assert downloader.SERVICE+'/query' in str(error.value)

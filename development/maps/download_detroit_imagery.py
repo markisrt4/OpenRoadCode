@@ -32,9 +32,14 @@ def open_source(url, *, timeout):
 
 
 def get_json(endpoint, **parameters):
+    stage = {"":"service metadata", "/query":"NAIP source catalog", "/exportImage":"bounded image export"}.get(endpoint, endpoint)
+    print(f'USGS imagery: requesting {stage}…', flush=True)
     url = SERVICE + endpoint + "?" + urllib.parse.urlencode({"f":"json", **parameters})
-    with open_source(url, timeout=60) as response:
-        document = json.load(response)
+    try:
+        with open_source(url, timeout=60) as response:
+            document = json.load(response)
+    except (URLError, TimeoutError) as error:
+        raise RuntimeError(f'{stage} failed after retries: {error} · endpoint {SERVICE+endpoint}') from error
     if "error" in document:
         raise RuntimeError(f"USGS service error: {document['error']}")
     return document
@@ -85,8 +90,12 @@ def download(destination, *, bounds=BOUNDS, title="Detroit"):
     destination.parent.mkdir(parents=True, exist_ok=True)
     with TemporaryDirectory(prefix="naip-imagery-", dir=destination.parent) as temporary:
         root = Path(temporary)
-        with open_source(href, timeout=90) as response:
-            image = response.read(MAX_BYTES+1)
+        print('USGS imagery: downloading exported JPEG…', flush=True)
+        try:
+            with open_source(href, timeout=90) as response:
+                image = response.read(MAX_BYTES+1)
+        except (URLError, TimeoutError) as error:
+            raise RuntimeError(f'exported JPEG download failed after retries: {error} · endpoint {href}') from error
         if len(image) > MAX_BYTES or not image.startswith(b"\xff\xd8"):
             raise RuntimeError("USGS export is oversized or not a JPEG image")
         (root / "imagery.jpg").write_bytes(image)

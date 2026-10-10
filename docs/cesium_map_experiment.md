@@ -401,3 +401,8 @@ for destinations inside its bounds. No Pine Knob building pack is included.
 
 Focused checks use mocked provider replies. Actual USGS download availability,
 Termux rendering and the full quality gate require user validation.
+
+Imagery progress reports separate service metadata, source catalog, bounded
+export and JPEG download stages. On a network failure, the error identifies the
+stage and endpoint after bounded retries. This helps distinguish a service outage
+from an export request failure; retries cannot guarantee provider availability.
