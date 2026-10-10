@@ -28,6 +28,9 @@ from common.xdg_paths import openroadcode_cache_dir
 from config.runtime_target import RuntimeTarget, detect_runtime_target
 from controllers.spotify.spotify_presentation import SpotifyPresentation
 from controllers.spotify.spotify_browser import SpotifyBrowser
+from controllers.spotify.spotify_account import SpotifyAccountController, SpotifyAccountBinding, Current, Commit
+from controllers.spotify.guarded_token_store import GuardedTokenStore
+from frontends.tk.media.spotify_account_dialog import SpotifyAccountDialog
 from controllers.image import ImageCache
 from controllers.lyrics import LrclibLyricsClient
 from controllers.video import MusicVideoController, NetflixPlayer, YouTubeMusicVideo, YouTubePlayer
@@ -59,6 +62,7 @@ class MediaComposition:
     visualizer_runtime: MusicVisualizerController | MusicVisualizerBrowser
     unsubscribe_online: Callable[[], None] = lambda: None
     close_spotify_presentations: Callable[[], None] = lambda: None
+    close_spotify_accounts: Callable[[], None] = lambda: None
 
     _closed: bool = field(default=False, init=False)
 
@@ -66,7 +70,7 @@ class MediaComposition:
         if self._closed:
             return
         self._closed = True
-        close_resources(self.unsubscribe_online, self.close_spotify_presentations, self.visualizer.hide,
+        close_resources(self.unsubscribe_online, self.close_spotify_accounts, self.close_spotify_presentations, self.visualizer.hide,
                         self.visualizer_runtime.close, self.music_video_controller.stop_video)
 
 
@@ -179,30 +183,39 @@ def _configure_media(app: OrcUiApp, runtime, cleanup: ResourceCleanup) -> MediaC
     def spotify_client_id() -> str | None:
         return EnvironmentVariableSecretManager().get_secret(SPOTIFY_CLIENT_ID_SECRET_NAME)
 
-    def configure_spotify_client(client_id: str) -> str:
-        if not client_id:
-            raise ValueError("Spotify Client ID is required")
-        spotify_secrets.set_secret(SPOTIFY_CLIENT_ID_SECRET_NAME, client_id)
-        return "Spotify application saved. Restart ORC to activate it."
-
     spotify_tokens = SpotifyTokenStore()
+    account_workers = ThreadPoolExecutor(max_workers=2, thread_name_prefix="spotify-account")
+    cleanup.callback(lambda: account_workers.shutdown(wait=False, cancel_futures=True))
 
-    def spotify_account_connected() -> bool:
-        return spotify_tokens.load() is not None
-
-    def connect_spotify() -> str:
-        if not network_allowed():
-            raise RuntimeError("Offline mode: Spotify sign-in unavailable")
+    def connect_spotify(current: Current, commit: Commit) -> None:
         config = load_spotify_config_from_secrets(EnvironmentVariableSecretManager())
         if config is None:
             raise RuntimeError("Configure the Spotify Client ID first")
-        SpotifyAuth(config=config, token_store=spotify_tokens).login()
-        media.spotify.request_refresh()
-        return "Spotify account connected"
+        SpotifyAuth(config=config, token_store=GuardedTokenStore(spotify_tokens, commit)).login(is_current=current)
 
-    def disconnect_spotify() -> str:
-        spotify_tokens.clear()
-        return "Spotify account disconnected"
+    account_controller = SpotifyAccountController(
+        read_account=lambda: (spotify_client_id() or "", spotify_tokens.load() is not None),
+        save_client_id=lambda client_id: spotify_secrets.set_secret(SPOTIFY_CLIENT_ID_SECRET_NAME, client_id),
+        connect=connect_spotify, disconnect=spotify_tokens.clear, online=network_allowed,
+        run_work=lambda callback: account_workers.submit(callback), dispatcher=app,
+        refresh_playback=media.spotify.request_refresh,
+    )
+    cleanup.callback(account_controller.close)
+    media_account = SpotifyAccountBinding(account_controller)
+    playback_account = SpotifyAccountBinding(account_controller)
+    dialog_account = SpotifyAccountBinding(account_controller)
+    account_dialog = SpotifyAccountDialog(
+        app.screen_parent, session=dialog_account, theme_bundle=lambda: theme_bundle(app.theme_mode),
+    )
+
+    def close_accounts() -> None:
+        try:
+            close_resources(account_controller.close, account_dialog.close,
+                            media_account.close, playback_account.close, dialog_account.close)
+        finally:
+            account_workers.shutdown(wait=False, cancel_futures=True)
+
+    cleanup.callback(close_accounts)
 
     presentation_workers = ThreadPoolExecutor(max_workers=4, thread_name_prefix="spotify-presentation")
     cleanup.callback(lambda: presentation_workers.shutdown(wait=False, cancel_futures=True))
@@ -240,11 +253,9 @@ def _configure_media(app: OrcUiApp, runtime, cleanup: ResourceCleanup) -> MediaC
         app, theme=lambda: spotify_theme(app), back_action=lambda: media_screen.show(),
         playback_session=playback_session, native_surface=X11WindowEmbedder(),
         browse_session=browser_session, media_navigation_factory=media_navigation,
-        spotify_configured=lambda: spotify_client_id() is not None,
-        spotify_account_connected=spotify_account_connected,
-        configure_spotify=lambda: media_screen.show_spotify_configuration(),
-        connect_spotify=lambda: media_screen.run_spotify_account_action(False),
-        disconnect_spotify=lambda: media_screen.run_spotify_account_action(True),
+        account_session=playback_account,
+        show_account_configuration=account_dialog.show,
+        close_account_configuration=account_dialog.close,
     )
     retire_views.append(spotify_screen.hide)
 
@@ -275,11 +286,9 @@ def _configure_media(app: OrcUiApp, runtime, cleanup: ResourceCleanup) -> MediaC
         show_visualizer=visualizer.show,
         show_spotify_remote=show_spotify_remote, show_spotify_local=show_spotify_local,
         spotify_local_available=lambda: media.spotify_local_player.state().available,
-        configure_spotify=configure_spotify_client,
-        spotify_client_id=spotify_client_id,
-        spotify_account_connected=spotify_account_connected,
-        connect_spotify=connect_spotify,
-        disconnect_spotify=disconnect_spotify,
+        account_session=media_account,
+        show_account_configuration=account_dialog.show,
+        close_account_configuration=account_dialog.close,
     )
     app.register_screen("MEDIA", media_screen)
 
@@ -301,6 +310,7 @@ def _configure_media(app: OrcUiApp, runtime, cleanup: ResourceCleanup) -> MediaC
         return view
 
     def mode_changed(online: bool) -> None:
+        account_controller.network_changed()
         if not online:
             for stop in (music_video_controller.stop_video, youtube_player.stop,
                          netflix_player.stop, media.spotify_local_player.request_remote):
@@ -325,4 +335,5 @@ def _configure_media(app: OrcUiApp, runtime, cleanup: ResourceCleanup) -> MediaC
         visualizer_runtime=visualizer_runtime,
         unsubscribe_online=unsubscribe_online,
         close_spotify_presentations=close_presentations,
+        close_spotify_accounts=close_accounts,
     )

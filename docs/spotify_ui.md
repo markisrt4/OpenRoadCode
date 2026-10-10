@@ -1,9 +1,9 @@
 # Spotify UI ownership
 
 The ORC Spotify home summary, playback panel, library browser, and video overlay
-consume toolkit-independent contracts in `ui/media/spotify_presentation_if.py`
-and `ui/media/spotify_browse_if.py`. Snapshots are immutable. Playback positions
-and durations remain seconds; Tk owns time formatting, image decoding, layout,
+consume toolkit-independent contracts in `ui/media/spotify_presentation_if.py`,
+`ui/media/spotify_browse_if.py`, and `ui/media/spotify_account_if.py`. Snapshots are
+immutable. Playback positions and durations remain seconds; Tk owns time formatting, image decoding, layout,
 artwork resizing, accent colors, and toolkit image lifetimes.
 
 `SpotifyPresentation` owns presentation polling, artwork and lyric loading,
@@ -45,6 +45,24 @@ required live RF/X11 acceptance remains a prerequisite for merging this branch.
 The full integration gate may fail under sandbox restrictions, including native
 ZeroMQ socket creation; a passing portable suite does not replace device checks.
 
-`MediaScreen` account setup still owns its legacy worker and remains a separate
-boundary exception. This migration does not claim completion of every media or
-repository UI boundary. The historical master audit remains historical.
+## Account setup and cancellation
+
+`SpotifyAccountController` owns configuration reads/writes, sign-in, disconnect,
+shared immutable account state, and worker-to-frontend delivery. Media and Spotify
+screens have independent request bindings. Composition owns a separate bounded
+account worker pool, token/secret services, and the shared Tk configuration dialog.
+The dialog only collects the public client ID and renders state; no token or client
+secret enters a presentation snapshot. Configuration still requires an ORC restart.
+
+Hiding a view cancels its authorization request; closing composition invalidates
+all requests before worker shutdown. Offline transitions and disconnect also
+supersede sign-in. OAuth callback waits poll cancellation and release their local
+listener. Token persistence is serialized with request cancellation, so a token
+exchange completing after retirement cannot overwrite a subsequent disconnect.
+Results never navigate back to Media. Account contract tests cover these lifetimes,
+configuration errors, retry, multiple views, and local listener cancellation.
+Live acceptance includes navigating away during sign-in and restarting sign-in
+without a callback-port conflict.
+
+Fourteen pre-existing boundary exceptions remain across the repository. The
+historical master audit remains historical.

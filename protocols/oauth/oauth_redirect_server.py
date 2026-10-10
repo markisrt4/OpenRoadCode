@@ -4,6 +4,8 @@
 from __future__ import annotations
 
 import urllib.parse
+import time
+from collections.abc import Callable
 from http.server import (
     BaseHTTPRequestHandler,
     HTTPServer,
@@ -43,9 +45,12 @@ class OAuthRedirectServer:
         self._path = parsed.path or "/"
         self._timeout_seconds = timeout_seconds
 
-    def wait_for_callback(self) -> OAuthCallbackResult:
+    def wait_for_callback(self, *, is_current: Callable[[], bool] = lambda: True) -> OAuthCallbackResult:
         """
-        Block until a single OAuth callback is received.
+        Block until a callback, timeout, or cancellation.
+
+        @param is_current Whether the owning authorization flow is still active.
+        @return Callback fields, empty after timeout or cancellation.
         """
         callback_parameters: dict[str, str] = {}
 
@@ -56,10 +61,13 @@ class OAuthRedirectServer:
             handler,
         )
 
-        server.timeout = self._timeout_seconds
+        server.timeout = min(0.2, self._timeout_seconds)
+        deadline = time.monotonic() + self._timeout_seconds
 
         try:
-            server.handle_request()
+            while is_current() and time.monotonic() < deadline and not callback_parameters:
+                server.timeout = min(0.2, max(0.0, deadline - time.monotonic()))
+                server.handle_request()
         finally:
             server.server_close()
 

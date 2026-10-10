@@ -47,10 +47,6 @@
     "count": 1,
     "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
   },
-  "frontends/tk/media/media_screen.py|imports threading": {
-    "count": 1,
-    "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."
-  },
   "frontends/tk/system/startup_splash.py|imports threading": {
     "count": 1,
     "reason": "Legacy dependency in this existing feature; migrate wiring and orchestration to composition/controllers and UI contracts when changing it."

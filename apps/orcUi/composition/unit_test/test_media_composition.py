@@ -27,3 +27,22 @@ def test_close_unsubscribes_and_releases_visualizer_runtime_even_if_hide_fails(h
     assert [call[0] for call in calls.mock_calls] == [
         'unsubscribe', 'visualizer.hide', 'runtime.close', 'video.stop_video',
     ]
+
+
+def test_account_cleanup_precedes_presentations_and_survives_failure():
+    calls = Mock()
+    accounts = Mock(side_effect=RuntimeError("dialog unavailable"))
+    presentations, visualizer, runtime, video = Mock(), Mock(), Mock(), Mock()
+    calls.attach_mock(accounts, 'accounts')
+    calls.attach_mock(presentations, 'presentations')
+    calls.attach_mock(visualizer, 'visualizer')
+    calls.attach_mock(runtime, 'runtime')
+    calls.attach_mock(video, 'video')
+    composition = MediaComposition(video, Mock(), visualizer, runtime,
+        close_spotify_accounts=accounts, close_spotify_presentations=presentations)
+    with pytest.raises(RuntimeError, match="dialog unavailable"):
+        composition.close()
+    composition.close()
+    assert [call[0] for call in calls.mock_calls] == [
+        'accounts', 'presentations', 'visualizer.hide', 'runtime.close', 'video.stop_video',
+    ]

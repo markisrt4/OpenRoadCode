@@ -101,3 +101,21 @@ if TYPE_CHECKING:
 
     def spotify_native_surface(adapter: X11WindowEmbedder) -> SpotifyNativeSurface:
         return adapter
+
+if TYPE_CHECKING:
+    from controllers.spotify.spotify_account import SpotifyAccountBinding
+    from frontends.tk.media.media_screen import MediaScreen
+    from frontends.tk.media.spotify_account_dialog import SpotifyAccountDialog
+    from ui.media.spotify_account_if import SpotifyAccountSession, SpotifyAccountUi
+
+    def spotify_account_session(session: SpotifyAccountBinding) -> SpotifyAccountSession:
+        return session
+
+    def spotify_account_media(view: MediaScreen) -> SpotifyAccountUi:
+        return view
+
+    def spotify_account_screen(view: SpotifyScreen) -> SpotifyAccountUi:
+        return view
+
+    def spotify_account_dialog(view: SpotifyAccountDialog) -> SpotifyAccountUi:
+        return view
