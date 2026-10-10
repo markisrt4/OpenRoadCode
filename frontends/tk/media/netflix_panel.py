@@ -105,6 +105,7 @@ class NetflixPanel(tk.Frame):
             cursor="hand2",
             padx=20,
             pady=12,
+            highlightthickness=0, bd=0,
         )
 
     def _open(self) -> None:

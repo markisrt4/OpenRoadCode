@@ -71,6 +71,7 @@ class PowerDialog:
                 width=24,
                 pady=8,
                 font=("Sans", 10, "bold"),
+                highlightthickness=0, bd=0,
             ).pack(fill=tk.X, pady=3)
         self._center(dialog)
 

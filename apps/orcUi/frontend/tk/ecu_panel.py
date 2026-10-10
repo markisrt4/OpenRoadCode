@@ -142,6 +142,7 @@ class EcuPanel(EcuAnimationMixin, tk.Frame):
             bg=ui.surface_alt, fg=ui.text, activebackground=ui.surface,
             activeforeground=ui.text, highlightbackground=ui.border,
             font=("Sans", FONT_CONTROL, "bold"), bd=0, pady=9,
+                                                       highlightthickness=0, relief=tk.FLAT,
         )
         self._animation_toggle.grid(row=3, column=0, sticky="ew", padx=5, pady=(0, 5))
 

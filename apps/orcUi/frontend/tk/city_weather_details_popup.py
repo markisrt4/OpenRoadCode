@@ -24,7 +24,7 @@ class CityWeatherDetailsPopup(tk.Toplevel):
         self._title = tk.Label(header, bg=ui.control_background, fg=ui.text, font=('Sans', 12, 'bold'))
         self._title.pack(side=tk.LEFT)
         tk.Button(header, text='× Close', command=on_close, bg=ui.control_background,
-                  fg=ui.text, relief=tk.FLAT, padx=8, pady=4).pack(side=tk.RIGHT)
+                  fg=ui.text, relief=tk.FLAT, padx=8, pady=4, highlightthickness=0, bd=0).pack(side=tk.RIGHT)
         self._time = tk.Label(body, bg=ui.control_background, fg=ui.text_muted, anchor='w', justify=tk.LEFT, wraplength=440)
         self._time.pack(fill=tk.X, pady=3)
         self._summary = tk.Label(body, bg=ui.control_background, fg=ui.text, anchor='w', justify=tk.LEFT, wraplength=440)

@@ -365,6 +365,7 @@ class OffroadDashboardPanel(
             relief=tk.FLAT,
             padx=14,
             font=("TkDefaultFont", 9, "bold"),
+            highlightthickness=0, bd=0,
         )
 
     def _draw(self) -> None:

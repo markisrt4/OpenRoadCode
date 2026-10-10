@@ -107,6 +107,7 @@ class MediaScreen(TkScreen):
                 bg=theme.control_background, fg=theme.text,
                 activebackground=theme.control_active, relief=tk.FLAT,
                 font=("Sans", 11, "bold"), padx=14, pady=6,
+                                                    highlightthickness=0, bd=0,
             ).pack(anchor="e", padx=12, pady=(0, 4))
 
         grid = tk.Frame(root, bg=theme.background)
@@ -282,6 +283,7 @@ class MediaScreen(TkScreen):
                 padx=10,
                 pady=6,
                 cursor="hand2",
+                highlightthickness=0,
             )
             button.pack(fill=tk.X, side=tk.BOTTOM, pady=(14, 0))
 
@@ -400,6 +402,7 @@ class MediaScreen(TkScreen):
             font=("Sans", 8, "bold"),
             padx=9,
             pady=5,
+            highlightthickness=0,
         ).pack(side=tk.RIGHT)
 
     def _spotify_action_complete(self, message: str) -> None:
@@ -433,6 +436,7 @@ class MediaScreen(TkScreen):
             font=("Sans", 8, "bold"),
             padx=9,
             pady=5,
+            highlightthickness=0,
         ).pack(side=tk.RIGHT)
 
     def _show_spotify_configuration_dialog(self) -> None:
@@ -456,7 +460,13 @@ class MediaScreen(TkScreen):
         ).pack(anchor="w", padx=18, pady=(0, 12))
 
         client_id = tk.StringVar(value=self._spotify_client_id() or "")
-        entry = tk.Entry(dialog, textvariable=client_id, width=52)
+        entry = tk.Entry(
+            dialog, textvariable=client_id, width=52,
+            bg=theme.control_background, fg=theme.text, insertbackground=theme.text,
+            selectbackground=theme.control_active, selectforeground=theme.control_text,
+            relief=tk.FLAT, bd=0, highlightthickness=1,
+            highlightbackground=theme.control_background, highlightcolor=theme.accent_primary,
+        )
         entry.pack(fill=tk.X, padx=18)
         entry.focus_set()
         status = tk.StringVar(value="")
@@ -477,10 +487,11 @@ class MediaScreen(TkScreen):
 
         buttons = tk.Frame(dialog, bg=theme.background)
         buttons.pack(fill=tk.X, padx=18, pady=16)
-        tk.Button(buttons, text="CANCEL", command=dialog.destroy).pack(side=tk.RIGHT)
+        tk.Button(buttons, text="CANCEL", command=dialog.destroy, highlightthickness=0, bd=0, relief=tk.FLAT).pack(side=tk.RIGHT)
         tk.Button(
             buttons, text="SAVE", command=save, bg=SPOTIFY_GREEN, fg="#000000",
             relief=tk.FLAT, padx=14,
+                            highlightthickness=0, bd=0,
         ).pack(side=tk.RIGHT, padx=(0, 8))
 
     def _spotify_card_actions(self, card: tk.Frame) -> None:
@@ -511,6 +522,7 @@ class MediaScreen(TkScreen):
             bd=0,
             font=("Sans", 15, "bold"),
             pady=9,
+            highlightthickness=0,
         ).grid(row=0, column=0, sticky="ew", padx=(0, 3))
         tk.Button(
             actions,
@@ -526,6 +538,7 @@ class MediaScreen(TkScreen):
             font=("Sans", 15, "bold"),
             pady=9,
             state=tk.NORMAL if self._spotify_local_available() and self._online_allowed() else tk.DISABLED,
+            highlightthickness=0,
         ).grid(row=0, column=1, sticky="ew", padx=(3, 0))
 
     def _provider_logo(self, parent: tk.Widget, glyph: str) -> None:

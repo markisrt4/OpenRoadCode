@@ -28,8 +28,8 @@ class WeatherAlertBanner(tk.Frame):
         self._event=tk.Label(self,anchor="w",font=("Sans",12,"bold"),padx=8);self._event.grid(row=0,column=1,sticky="ew",pady=(4,0))
         self._headline=tk.Label(self,anchor="w",font=("Sans",9),padx=8);self._headline.grid(row=1,column=1,sticky="ew",pady=(0,4))
         self._expiration=tk.Label(self,anchor="e",font=("Sans",9,"bold"),padx=6);self._expiration.grid(row=0,column=2,rowspan=2,sticky="e")
-        self._details=tk.Button(self,text="DETAILS",command=self._on_details,relief=tk.FLAT,bd=0,cursor="hand2",font=("Sans",9,"bold"));self._details.grid(row=0,column=3,rowspan=2,padx=(4,2),pady=5)
-        self._dismiss=tk.Button(self,text="✕",command=self._on_dismiss,relief=tk.FLAT,bd=0,cursor="hand2",width=3,font=("Sans",11,"bold"));self._dismiss.grid(row=0,column=4,rowspan=2,padx=(2,6),pady=5)
+        self._details=tk.Button(self,text="DETAILS",command=self._on_details,relief=tk.FLAT,bd=0,cursor="hand2",font=("Sans",9,"bold"), highlightthickness=0);self._details.grid(row=0,column=3,rowspan=2,padx=(4,2),pady=5)
+        self._dismiss=tk.Button(self,text="✕",command=self._on_dismiss,relief=tk.FLAT,bd=0,cursor="hand2",width=3,font=("Sans",11,"bold"), highlightthickness=0);self._dismiss.grid(row=0,column=4,rowspan=2,padx=(2,6),pady=5)
         self.set_theme_bundle(theme)
     def set_online(self, online: bool) -> None:
         self._online = online

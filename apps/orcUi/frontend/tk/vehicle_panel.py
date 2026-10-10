@@ -100,6 +100,7 @@ class VehiclePanel(tk.Frame):
                 bd=0,
                 font=("Sans", 9, "bold"),
                 pady=5,
+                highlightthickness=0,
             )
             button.grid(row=0, column=column, sticky="ew", padx=(0, 4))
             self._view_buttons[name] = button

@@ -216,6 +216,7 @@ class SpotifyScreen(TkScreen, MediaUiIf):
                 row, text="CONFIGURE", command=self._configure_spotify,
                 bg=button_bg, fg=button_fg,
                 relief=tk.FLAT, bd=0, font=("Sans", 8, "bold"), padx=10, pady=5,
+                                                                         highlightthickness=0,
             ).pack(side=tk.RIGHT, padx=(4, 8), pady=5)
 
         account_action = self._disconnect_spotify if connected else self._connect_spotify
@@ -226,6 +227,7 @@ class SpotifyScreen(TkScreen, MediaUiIf):
                 bg=button_bg if connected else SPOTIFY_GREEN,
                 fg=button_fg if connected else "#000000",
                 relief=tk.FLAT, bd=0, font=("Sans", 8, "bold"), padx=10, pady=5,
+                                                                         highlightthickness=0,
             ).pack(side=tk.RIGHT, padx=4, pady=5)
 
     def _browse_panel(self, parent: tk.Misc) -> SpotifyBrowsePanel:

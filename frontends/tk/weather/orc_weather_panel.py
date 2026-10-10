@@ -104,6 +104,7 @@ class OrcWeatherPanel(tk.Frame, WeatherUiIf):
             padx=12,
             pady=6,
             font=("Sans", 9, "bold"),
+            highlightthickness=0, bd=0, relief=tk.FLAT,
         )
         self._weather_radio.grid(row=0, column=1, rowspan=2, padx=(8, 6))
         self._refresh = tk.Button(
@@ -113,12 +114,14 @@ class OrcWeatherPanel(tk.Frame, WeatherUiIf):
             padx=12,
             pady=6,
             font=("Sans", 9, "bold"),
+            highlightthickness=0, bd=0, relief=tk.FLAT,
         )
         self._refresh.grid(row=0, column=2, rowspan=2)
         self._radar_map = tk.Button(
             self._header, text="RADAR MAP", command=self._request_radar_map,
             padx=12, pady=6, font=("Sans", 9, "bold"),
             state=tk.NORMAL if on_radar_map is not None else tk.DISABLED,
+            highlightthickness=0, bd=0, relief=tk.FLAT,
         )
         self._radar_map.grid(row=0, column=3, rowspan=2, padx=(6, 0))
 

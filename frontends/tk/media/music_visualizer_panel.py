@@ -123,6 +123,7 @@ class MusicVisualizerPanel(tk.Frame):
                 font=("Sans", 10, "bold"),
                 padx=12,
                 pady=6,
+                highlightthickness=0, bd=0,
             ).grid(row=0, column=0, padx=(0, 10))
 
         tk.Label(

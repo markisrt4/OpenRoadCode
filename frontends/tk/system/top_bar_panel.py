@@ -250,6 +250,7 @@ class TopBarPanel(tk.Frame, TopBarUiIf):
             "activebackground": active_background,
             "activeforeground": active_foreground,
             "bd": border_width,
+            "highlightthickness": 0,
             "padx": padx,
             "pady": pady,
             "cursor": self._layout["cursor"],

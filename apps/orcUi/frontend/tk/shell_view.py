@@ -232,7 +232,7 @@ class OrcUiShellView:
         tk.Button(detail, text="CLOSE", command=detail.destroy,
                   bg=ui.control_background, fg=ui.control_text,
                   activebackground=ui.control_active, activeforeground=ui.text,
-                  relief=tk.FLAT, bd=0, font=("Sans", 10, "bold")).pack(pady=(0, 16))
+                  relief=tk.FLAT, bd=0, font=("Sans", 10, "bold"), highlightthickness=0).pack(pady=(0, 16))
 
     def set_weather_status(self, text: str) -> None:
         self._weather_status_text = text

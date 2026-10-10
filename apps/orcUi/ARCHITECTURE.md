@@ -17,6 +17,17 @@ its composition root owns the local geocoder and whiptail adapter. See
 
 OpenRoadCode deliberately separates semantic UI contracts, reusable behavior, reusable frontend rendering, application-specific presentation, host/platform adapters, and application composition so that a feature can be presented by Tk, web, Android, or another frontend without moving its controller logic into the application shell.
 
+## Tk control chrome
+
+ORC action buttons and classic check/radio/menu controls explicitly suppress Tk's
+platform-default highlight ring and beveled border. These native defaults can
+remain white under Termux:X11 even when the widget background and `bd` are set.
+Shared Tk helpers follow the same policy. Editable media fields instead use themed
+backgrounds and an explicit accent focus edge. Theme-colored card boundaries and
+selected-state accents remain deliberate presentation; no UI requests or lifecycle
+behavior change with this styling policy. The desktop window-manager frame is
+owned by the X11 desktop rather than ORC widget styling.
+
 ## Dependency boundaries
 
 `ui/` is the toolkit-independent semantic boundary. Contracts there describe user intent, presentation state, semantic identifiers, and narrow frontend-facing behavior. Code in `ui/` must not depend on Tkinter, application composition, transport implementations, controllers, or hardware implementations.

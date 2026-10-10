@@ -84,6 +84,7 @@ class SpotifyVideoOverlay:
             padx=12,
             pady=6,
             cursor="hand2",
+            highlightthickness=0,
         ).pack(side=tk.RIGHT, padx=6, pady=4)
 
         host = tk.Frame(overlay, bg="#000000")

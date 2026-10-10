@@ -32,4 +32,5 @@ class MediaNavigationBar(tk.Frame):
                 activebackground=ui.control_active, activeforeground=ui.text,
                 relief=tk.FLAT, bd=0, font=("Sans", 9, "bold"),
                 padx=12, pady=6, cursor="hand2",
+                                 highlightthickness=0,
             ).pack(side=side)

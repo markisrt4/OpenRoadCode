@@ -14,12 +14,12 @@ class MapPlatformBar(tk.Frame):
             button = tk.Button(self, text=platform.value, relief=tk.FLAT,
                                font=("Sans", 9, "bold"), bg=ui.control_background,
                                fg=ui.control_text, activebackground=ui.control_active,
-                               command=lambda selected=platform: handler.request_platform(selected))
+                               command=lambda selected=platform: handler.request_platform(selected), highlightthickness=0, bd=0)
             button.pack(side=tk.LEFT, padx=3, pady=2)
             self._buttons[platform] = button
         self._chase = tk.Button(self, text="Chase view", relief=tk.FLAT,
             font=("Sans", 9, "bold"), bg=ui.control_background, fg=ui.control_text,
-            command=handler.request_chase)
+            command=handler.request_chase, highlightthickness=0, bd=0)
         self._chase.pack(side=tk.LEFT, padx=3, pady=2)
         self._status = tk.Label(self, bg=ui.surface_alt, fg=ui.text_muted,
                                 font=("Sans", 8), anchor="w", justify=tk.LEFT)

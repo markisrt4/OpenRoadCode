@@ -589,6 +589,7 @@ class SpotifyPlaybackPanel(tk.Frame):
             bd=self._layout["zero"],
             relief=self._layout["flat_relief"],
             cursor=self._layout["cursor"],
+            highlightthickness=0,
         )
 
     def _on_content_configure(self, event: tk.Event) -> None:

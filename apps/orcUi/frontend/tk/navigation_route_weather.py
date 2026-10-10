@@ -138,12 +138,12 @@ class NavigationRouteWeather(WeatherOverlayControlsIf):
         tk.Label(title, text="Weather", bg=ui.control_background,
                  fg=ui.text, font=("Sans", FONT_CONTROL, "bold")).pack(side=tk.LEFT)
         tk.Button(title, text="×", command=self._close_popup, relief=tk.FLAT,
-                  bg=ui.control_active, fg=ui.text).pack(side=tk.RIGHT)
+                  bg=ui.control_active, fg=ui.text, highlightthickness=0, bd=0).pack(side=tk.RIGHT)
 
         def toggle(text, var, command, parent=None, horizontal=False):
             tk.Checkbutton(parent or body, text=text, variable=var, command=command, bg=ui.control_background,
                            fg=ui.text, selectcolor=ui.background, activebackground=ui.control_background,
-                           activeforeground=ui.text, font=("Sans", FONT_CONTROL)).pack(side=tk.LEFT if horizontal else tk.TOP, anchor="w")
+                           activeforeground=ui.text, font=("Sans", FONT_CONTROL), highlightthickness=0, bd=0, relief=tk.FLAT).pack(side=tk.LEFT if horizontal else tk.TOP, anchor="w")
 
         style = ttk.Style(popup)
         style.configure("Weather.TNotebook", background=ui.control_background, borderwidth=0)
@@ -171,12 +171,12 @@ class NavigationRouteWeather(WeatherOverlayControlsIf):
             tk.Radiobutton(map_tab, text=text, variable=self._map_var, value=value,
                            command=self._select_map_weather, bg=ui.control_background, fg=ui.text,
                            selectcolor=ui.background, activebackground=ui.control_background,
-                           font=("Sans", FONT_CONTROL), state=tk.NORMAL if self._handler else tk.DISABLED).pack(anchor="w")
+                           font=("Sans", FONT_CONTROL), state=tk.NORMAL if self._handler else tk.DISABLED, highlightthickness=0, bd=0, relief=tk.FLAT).pack(anchor="w")
         self._map_status = label("", map_tab)
         self._legend = tk.Frame(map_tab, bg=ui.control_background)
         self._legend.pack(fill=tk.X, pady=4)
         tk.Button(map_tab, text="Refresh model overlay", command=self._refresh_map_weather,
-                  bg=ui.control_active, fg=ui.text, relief=tk.FLAT, pady=4).pack(anchor="w", pady=3)
+                  bg=ui.control_active, fg=ui.text, relief=tk.FLAT, pady=4, highlightthickness=0, bd=0).pack(anchor="w", pady=3)
         label("Contiguous United States only", map_tab)
         body = route_tab
         self._enabled_var = tk.BooleanVar(popup, value=self._route_state.enabled)
@@ -193,13 +193,14 @@ class NavigationRouteWeather(WeatherOverlayControlsIf):
         details.pack(fill=tk.X, pady=3)
         self._details = tk.Text(details, height=6, width=42, wrap=tk.WORD,
                                 bg=ui.control_background, fg=ui.text, relief=tk.FLAT,
-                                font=("Sans", FONT_CONTROL), state=tk.DISABLED)
+                                font=("Sans", FONT_CONTROL), state=tk.DISABLED,
+                                bd=0, highlightthickness=0)
         scrollbar = tk.Scrollbar(details, command=self._details.yview)
         self._details.configure(yscrollcommand=scrollbar.set)
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
         self._details.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         tk.Button(body, text="Refresh route forecast", command=self._refresh_route_weather, relief=tk.FLAT,
-                  bg=ui.control_active, fg=ui.text, pady=5).pack(anchor="w", pady=4)
+                  bg=ui.control_active, fg=ui.text, pady=5, highlightthickness=0, bd=0).pack(anchor="w", pady=4)
         self._tabs = tabs
         popup.bind("<Escape>", lambda _event: self._close_popup())
         self._render()

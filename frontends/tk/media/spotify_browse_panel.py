@@ -55,7 +55,7 @@ class SpotifyBrowsePanel(tk.Frame):
             bg=c("button_active_background") if selected else c("button_background"),
             fg=c("button_active_foreground") if selected else c("button_foreground"),
             activebackground=c("button_active_background"), activeforeground=c("button_active_foreground"),
-            relief=tk.FLAT, bd=0, font=("Sans", 9, "bold"), padx=padx, pady=pady, cursor="hand2")
+            relief=tk.FLAT, bd=0, font=("Sans", 9, "bold"), padx=padx, pady=pady, cursor="hand2", highlightthickness=0)
 
     def show_now_playing_header(self) -> None:
         self._replace_content()
@@ -127,7 +127,7 @@ class SpotifyBrowsePanel(tk.Frame):
         tk.Label(bar, text="BROWSE", bg=c("background"), fg=c("detail"), font=("Sans", 8, "bold")).pack(side=tk.LEFT, padx=(8, 8), pady=6)
         for key, text, command in (("now", "NOW PLAYING", self._show_now_playing), ("liked", "♥  LIKED", self.show_saved), ("recent", "RECENT", self.show_recent), ("playlists", "PLAYLISTS", self.show_playlists)):
             self._button(bar, text, command, selected=key == active).pack(side=tk.LEFT, padx=2, pady=4)
-        tk.Button(bar, text="SEARCH · COMING SOON", state=tk.DISABLED, bg=c("background"), fg=c("detail"), disabledforeground=c("detail"), relief=tk.FLAT, bd=0, font=("Sans", 8, "bold"), padx=10, pady=5).pack(side=tk.LEFT, padx=(8, 2), pady=4)
+        tk.Button(bar, text="SEARCH · COMING SOON", state=tk.DISABLED, bg=c("background"), fg=c("detail"), disabledforeground=c("detail"), relief=tk.FLAT, bd=0, font=("Sans", 8, "bold"), padx=10, pady=5, highlightthickness=0).pack(side=tk.LEFT, padx=(8, 2), pady=4)
 
     def _load_collection(self, title: str, active: str, cached_loader: Callable[[], tuple[SpotifyLibraryTrack, ...] | None], network_loader: Callable[..., tuple[SpotifyLibraryTrack, ...]]) -> None:
         generation = self._begin_view()

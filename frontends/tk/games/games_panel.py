@@ -227,6 +227,7 @@ class GamesPanel(tk.Frame, GamesUiIf):
             font=("Sans", 14, "bold"),
             padx=16,
             pady=4,
+            highlightthickness=0, bd=0,
         )
 
     def _paint_status(self) -> None:
