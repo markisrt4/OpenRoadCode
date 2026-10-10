@@ -122,3 +122,13 @@ def test_terrain_visibility_is_explicit_boolean_snapshot_state(state):
     assert replace(state, terrain_visible=False).document()['terrain_visible'] is False
     with pytest.raises(ValueError, match='visibility'):
         replace(state, terrain_visible='false')
+
+
+def test_pitch_control_contract_uses_finite_si_angles(state):
+    from dataclasses import replace
+    import math
+    assert state.document()['pitch_step_rad'] == math.pi/18
+    assert 0 < state.document()['maximum_tilt_rad'] < math.pi/2
+    for step, limit in ((0, 1), (1, math.pi/2), (float('nan'), 1)):
+        with pytest.raises(ValueError, match='pitch'):
+            replace(state, pitch_step_rad=step, maximum_tilt_rad=limit)

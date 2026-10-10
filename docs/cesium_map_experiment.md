@@ -406,3 +406,11 @@ Imagery progress reports separate service metadata, source catalog, bounded
 export and JPEG download stages. On a network failure, the error identifies the
 stage and endpoint after bounded retries. This helps distinguish a service outage
 from an export request failure; retries cannot guarantee provider availability.
+
+### Touch-friendly camera pitch
+
+More tilt and Less tilt orbit the selected destination in 10-degree steps,
+preserving camera heading and distance. Tilt is limited to 0–80 degrees from
+top-down to keep the camera above ground. The footer reports the current tilt;
+Reset view restores the initial 45-degree view. These controls also work with
+terrain switched off, allowing a comparison from the same viewing angle.

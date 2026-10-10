@@ -9,6 +9,7 @@
 <script src="/reference_grid.js" defer></script>
 <script src="/local_buildings.js" defer></script>
 <script src="/local_map_tiles.js" defer></script>
+<script src="/camera_controls.js" defer></script>
 <script src="/viewer.js" defer></script>
 </head>
 <body>
@@ -19,6 +20,8 @@
 <button id="terrain" aria-pressed="true">Terrain</button>
 <button id="buildings" aria-pressed="true">Buildings</button>
 <button id="references" aria-pressed="false">Grid</button>
+<button id="pitch-up" aria-label="More tilt: view the destination from a lower angle">More tilt</button>
+<button id="pitch-down" aria-label="Less tilt: view the destination from above">Less tilt</button>
 <button id="north">North</button><button id="tilt">2D / 3D</button><button id="reset">Reset view</button>
 </nav>
 <footer><span id="status" role="status">Loading local globe…</span><span id="tiles-status" role="status"></span><span id="terrain-status" role="status"></span><span id="camera" aria-label="Camera position"></span></footer>
