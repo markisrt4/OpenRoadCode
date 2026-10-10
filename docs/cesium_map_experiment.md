@@ -409,8 +409,14 @@ from an export request failure; retries cannot guarantee provider availability.
 
 ### Touch-friendly camera pitch
 
-More tilt and Less tilt orbit the selected destination in 10-degree steps,
+More tilt and Less tilt orbit the ground at the current screen centre in 10-degree steps,
 preserving camera heading and distance. Tilt is limited to 0–80 degrees from
 top-down to keep the camera above ground. The footer reports the current tilt;
 Reset view restores the initial 45-degree view. These controls also work with
 terrain switched off, allowing a comparison from the same viewing angle.
+
+Mouse panning changes the tilt anchor: tilt controls pick the visible terrain at
+the screen centre, falling back to the ellipsoid. If the centre points at sky,
+tilt changes orientation in place. Only Reset view returns to the selected POI.
+Pine Knob's test intentionally disables building layers; “buildings not installed”
+does not indicate a terrain failure. Ground relief is not vertically exaggerated.

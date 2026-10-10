@@ -95,7 +95,7 @@
       const readout = document.getElementById('camera');
       if (readout.textContent !== text) readout.textContent = text;
     });
-    const cameraControls = window.ORCCameraControls(viewer, target, snapshot, C);
+    const cameraControls = window.ORCCameraControls(viewer, snapshot, C);
     document.getElementById('pitch-up').onclick = () => { cameraControls.pitch(1); tilted=true; };
     document.getElementById('pitch-down').onclick = () => { cameraControls.pitch(-1); tilted=true; };
     let tilted = true;
