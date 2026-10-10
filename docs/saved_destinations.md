@@ -12,8 +12,15 @@ python -m scripts.installers.setup_destinations
 Enter a full address, select the correct match from the existing offline search
 database, and confirm the address and coordinates. Setup never silently chooses
 the first result. If address data is missing or incompatible, enter latitude and
-longitude in degrees instead. No online geocoding service or new dependency is
-introduced; setup uses the existing whiptail toolkit.
+longitude in degrees instead. No online geocoding service is used. Setup prefers
+whiptail on Linux and falls back to dialog on Termux.
+Install the Termux dialog package before running setup:
+
+```bash
+git switch orc-ui-polish
+pkg install dialog
+python -m scripts.installers.setup_destinations
+```
 
 Canceling input, selection, or confirmation abandons that destination draft.
 Each confirmed destination is saved independently; leaving the outer menu keeps
@@ -61,7 +68,7 @@ Linux/Termux defaults.
 define immutable SI values and current/search/save requests.
 `DestinationSetupUiIf` describes terminal presentation. The TUI uses only these
 contracts; the controller owns search, the config module owns storage, and the
-installer composition root constructs the whiptail adapter and closes the
+installer composition root constructs the terminal dialog adapter and closes the
 geocoder. MapFavorite and PointOfInterest carry optional address text. Navigation
 uses the existing POI popup and route request contracts without reading TOML.
 

@@ -2,7 +2,7 @@
 # SPDX-FileCopyrightText: 2026 Mark G. Russell
 # SPDX-License-Identifier: MIT
 
-"""Compose the optional Home/Work installer with the existing whiptail toolkit."""
+"""Compose Home/Work setup with whiptail or Termux's dialog toolkit."""
 
 import argparse
 import os
@@ -23,9 +23,12 @@ from ui.navigation.destination_setup_ui_if import DestinationSetupUiIf
 class WhiptailDestinationDialog(DestinationSetupUiIf):
     """Terminal presentation adapter; process execution only renders dialogs."""
 
+    def __init__(self, executable="whiptail"):
+        self._executable = executable
+
     def _run(self, title, kind, prompt, arguments=()):
         result = subprocess.run(
-            ["whiptail", "--output-fd", "1", "--title", title, kind, prompt,
+            [self._executable, "--output-fd", "1", "--title", title, kind, prompt,
              "20", "90", *arguments], stdout=subprocess.PIPE, text=True, check=False,
         )
         if result.returncode not in (0, 1, 255):
@@ -58,8 +61,11 @@ def main(argv=None) -> int:
     if hasattr(os, "geteuid") and os.geteuid() == 0:
         print("Run address setup as the ORC user, without sudo.", file=sys.stderr)
         return 1
-    if shutil.which("whiptail") is None:
-        print("Address setup requires whiptail (provided by the host installer).", file=sys.stderr)
+    executable = shutil.which("whiptail") or shutil.which("dialog")
+    if executable is None:
+        termux = os.environ.get("TERMUX_VERSION") or "com.termux" in os.environ.get("PREFIX", "")
+        install = "pkg install dialog" if termux else "sudo apt install whiptail"
+        print(f"Address setup requires whiptail or dialog. Install with: {install}", file=sys.stderr)
         return 1
     database = arguments.search_db or navigation_data_root() / "maps/search/openroadcode-search.sqlite"
     geocoder = None
@@ -70,7 +76,7 @@ def main(argv=None) -> int:
             # Map data may be installed later; manual coordinates remain available.
             pass
         handler = DestinationSetupController(SavedDestinationsConfig(arguments.config), geocoder)
-        run_destination_setup(handler, WhiptailDestinationDialog())
+        run_destination_setup(handler, WhiptailDestinationDialog(executable))
     finally:
         if geocoder is not None:
             geocoder.close()
