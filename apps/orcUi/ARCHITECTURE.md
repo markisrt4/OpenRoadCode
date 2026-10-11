@@ -27,7 +27,7 @@ backgrounds and an explicit accent focus edge. Theme-colored card boundaries and
 their focus colors must both be explicit, including Home/context panels, Weather
 cards, and Vision's canvas. City-weather tables use a scoped flat ttk layout and
 a themed Tk scrollbar so desktop-theme edges do not introduce bright borders.
-selected-state accents remain deliberate presentation; no UI requests or lifecycle
+Selected-state accents remain deliberate presentation; no UI requests or lifecycle
 behavior change with this styling policy. The desktop window-manager frame is
 owned by the X11 desktop rather than ORC widget styling.
 
@@ -180,6 +180,12 @@ It must not create ZeroMQ subscribers, message decoders, audio backends, Spotify
 Structural orcUi widgets that are meaningful only inside that shell stay under `apps/orcUi/frontend/tk`. A widget that could reasonably be reused by another Tk application belongs in an appropriate feature package under `frontends/tk` instead.
 
 ## Screen hosting and navigation
+
+Persistent bottom controls meet edge to edge, with a fixed compact volume area
+and equal action sections ending beside the standalone Settings gear. The
+44-pixel row uses code-drawn gradients with mouse, Return/Space activation and
+theme-colored keyboard focus outlines. The side rail shows eight destinations
+before scrolling; no new destination or navigation contract is introduced.
 
 The Radio landing chooser uses theme-aware, code-drawn antenna/signal and
 globe/station diagrams to distinguish local RF reception from internet audio.

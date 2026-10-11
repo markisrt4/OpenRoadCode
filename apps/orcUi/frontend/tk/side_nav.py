@@ -209,7 +209,7 @@ class OrcUiSideNav(tk.Frame):
     """Render a fixed-size viewport over the shell's navigation destinations."""
 
     WIDTH = SIDE_NAV_WIDTH
-    VISIBLE_ITEMS = 7
+    VISIBLE_ITEMS = 8
     SCROLL_HEIGHT = 22
 
     def __init__(

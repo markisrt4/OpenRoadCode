@@ -11,9 +11,9 @@ from collections.abc import Callable
 from ui.theme import ThemeBundle
 from ui.radio import AircraftMenuRequestHandlerIf, AircraftMenuUiState
 from apps.orcUi.performance_status import PerformanceStatus
+from .gradient_control import GradientControl
 from .shell_metrics import (
     BOTTOM_BAR_HEIGHT,
-    CONTROL_PAD_X,
     FONT_CONTROL,
     FONT_STATUS,
 )
@@ -52,7 +52,7 @@ class OrcUiBottomBar(tk.Frame):
         on_diagnostics: Callable[[], None],
     ) -> None:
         ui = theme.ui
-        super().__init__(parent, bg=ui.background, height=BOTTOM_BAR_HEIGHT + 7)
+        super().__init__(parent, bg=ui.background, height=BOTTOM_BAR_HEIGHT)
         self._theme = theme
         self._adsb_enabled = False
         self._aircraft_count = 0
@@ -61,31 +61,23 @@ class OrcUiBottomBar(tk.Frame):
 
         self.grid_propagate(False)
         self.grid_rowconfigure(0, weight=1)
-        for column in range(5):
-            self.grid_columnconfigure(column, weight=1)
+        self.grid_columnconfigure(0, weight=0, minsize=144)
+        for column in range(1, 4):
+            self.grid_columnconfigure(column, weight=1, uniform="bottom-actions")
 
         volume = tk.Frame(
             self,
             bg=ui.surface,
             highlightthickness=0,
         )
-        volume.grid(row=0, column=0, sticky="nsew", padx=CONTROL_PAD_X, pady=(7, 0))
-        volume.grid_columnconfigure(0, minsize=42)
+        volume.grid(row=0, column=0, sticky="nsew", padx=0, pady=0)
+        volume.grid_rowconfigure(0, weight=1)
+        volume.grid_columnconfigure(0, minsize=36)
         volume.grid_columnconfigure(1, weight=1)
-        volume.grid_columnconfigure(2, minsize=42)
-        tk.Button(
-            volume,
-            text="−",
-            command=on_volume_down,
-            bg=ui.control_background,
-            fg=ui.control_text,
-            activebackground=ui.control_active,
-            activeforeground="#ffffff",
-            relief=tk.FLAT,
-            bd=0,
-            highlightthickness=0,
-            font=("Sans", FONT_STATUS + 3, "bold"),
-        ).grid(row=0, column=0, sticky="nsew", padx=(3, 2), pady=3)
+        volume.grid_columnconfigure(2, minsize=36)
+        down = self._button(on_volume_down, bold=True, parent=volume)
+        down.configure(text="−")
+        down.grid(row=0, column=0, sticky="nsew")
         self._volume_label = tk.Label(
             volume,
             text=volume_text,
@@ -93,33 +85,23 @@ class OrcUiBottomBar(tk.Frame):
             fg=ui.text,
             font=("Sans", FONT_STATUS, "bold"),
         )
-        self._volume_label.grid(row=0, column=1, sticky="nsew", pady=3)
-        tk.Button(
-            volume,
-            text="+",
-            command=on_volume_up,
-            bg=ui.control_background,
-            fg=ui.control_text,
-            activebackground=ui.control_active,
-            activeforeground="#ffffff",
-            relief=tk.FLAT,
-            bd=0,
-            highlightthickness=0,
-            font=("Sans", FONT_STATUS + 3, "bold"),
-        ).grid(row=0, column=2, sticky="nsew", padx=(2, 3), pady=3)
+        self._volume_label.grid(row=0, column=1, sticky="nsew", pady=0)
+        up = self._button(on_volume_up, bold=True, parent=volume)
+        up.configure(text="+")
+        up.grid(row=0, column=2, sticky="nsew")
 
         self._aircraft_button = self._button(self._show_aircraft_menu, bold=True)
         self._aircraft_button.grid(
             row=0, column=1, sticky="nsew",
-            padx=CONTROL_PAD_X, pady=(7, 0),
+            padx=0, pady=0,
         )
         theme_button = self._button(on_theme_toggle, bold=True)
         theme_button.configure(text=theme_label)
         self._performance_button = self._button(on_diagnostics, bold=True)
         self._performance_button.configure(cursor="hand2")
-        self._performance_button.grid(row=0, column=2, sticky="nsew", padx=CONTROL_PAD_X, pady=(7, 0))
+        self._performance_button.grid(row=0, column=2, sticky="nsew", padx=0, pady=0)
         self.set_performance_status(PerformanceStatus())
-        theme_button.grid(row=0, column=3, sticky="nsew", padx=CONTROL_PAD_X, pady=(7, 0))
+        theme_button.grid(row=0, column=3, sticky="nsew", padx=0, pady=0)
         self._paint_adsb()
 
     def _button(
@@ -128,19 +110,13 @@ class OrcUiBottomBar(tk.Frame):
         *,
         bold: bool,
         parent: tk.Misc | None = None,
-    ) -> tk.Button:
+    ) -> GradientControl:
         ui = self._theme.ui
         weight = "bold" if bold else "normal"
-        return tk.Button(
-            parent if parent is not None else self,
-            command=command,
-            bg=ui.control_background,
-            fg=ui.control_text,
-            activebackground=ui.control_active,
-            activeforeground="#ffffff",
-            relief=tk.FLAT,
-            bd=0,
-            highlightthickness=0,
+        return GradientControl(
+            parent if parent is not None else self, command=command,
+            bg=ui.control_background, fg=ui.control_text,
+            activebackground=ui.control_active, activeforeground=ui.text,
             font=("Sans", FONT_CONTROL, weight),
         )
 

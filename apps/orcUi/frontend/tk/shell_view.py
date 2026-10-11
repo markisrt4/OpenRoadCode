@@ -315,7 +315,7 @@ class OrcUiShellView:
             column=0,
             columnspan=2,
             sticky="ew",
-            padx=SHELL_PAD_X,
+            padx=(SHELL_PAD_X, SHELL_PAD_X + 78),
         )
         self._bottom_bar.set_aircraft_request_handler(self._aircraft_handler)
         self._bottom_bar.set_aircraft_state(AircraftMenuUiState(
@@ -343,7 +343,7 @@ class OrcUiShellView:
             x=-SHELL_PAD_X,
             anchor="se",
             width=78,
-            height=87,
+            height=74,
         )
         self._settings_button.lift()
         self.set_performance_status(self._performance_status)
