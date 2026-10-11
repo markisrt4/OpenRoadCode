@@ -529,3 +529,35 @@ the multi-line data diagnostics. Renderer errors remain visible, and source
 attribution stays available in Cesium's credit area. Standalone viewing retains
 the fuller controls and diagnostics. Validate this layout on Termux by switching
 Map / Terrain and opening/closing Controls at the usual ORC window size.
+
+### Regional imagery installer
+
+The device-side menu now starts with **Metro Detroit overview** and optional
+**Detroit Downtown–Midtown detail**, rather than the Pine Knob demo. Existing
+Pine Knob packs remain usable. This first regional step installs imagery only;
+base navigation/search/routing and OSM buildings still use the existing builder.
+
+```bash
+git switch navigation-cesium
+python -m development.maps.install_region
+```
+
+The overview envelope is longitude −83.75 to −82.55, latitude 42.0 to 42.9:
+a rectangular planning area around Wayne, Oakland and Macomb, not certified
+county boundaries. A 2048×1536 image provides coarse context, not detailed imagery
+throughout the region. USGS catalog/export failures or source gaps remain possible.
+The menu prints the 20 MiB image cap before confirming; metadata adds disk usage.
+Viewing requires no network. The viewer chooses the smallest installed imagery
+coverage containing the selected destination. Reopen Terrain after installing.
+
+```bash
+git switch navigation-cesium
+python -m development.maps.install_region --coverage metro-detroit --update
+```
+
+Updates fetch and validate a fresh revision before atomically switching a managed
+active link. Earlier revisions remain on disk for recovery. A failed update keeps
+the previous active pack. Imagery downloads restart after interruption; resumable
+multi-tile detail remains available through `download_detroit_map_tiles`.
+This is an initial regional imagery workflow, not yet a regional terrain/building
+installer or an automatic imagery freshness check.

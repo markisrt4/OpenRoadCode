@@ -19,13 +19,18 @@ def pine_knob_imagery_directory():
 
 
 def preferred_imagery_directory(destination):
-    directory = pine_knob_imagery_directory()
-    if (directory/'manifest.json').is_file():
+    candidates = []
+    for directory in (pine_knob_imagery_directory(), detroit_pack_directory(),
+                      openroadcode_data_dir('map-packs', 'detroit-midtown-imagery-active'),
+                      openroadcode_data_dir('map-packs', 'metro-detroit-imagery-active')):
+        if not (directory/'manifest.json').is_file():
+            continue
         coverage = LocalImageryPack.load(directory).state
         if (coverage.west_rad <= destination.longitude_rad <= coverage.east_rad
                 and coverage.south_rad <= destination.latitude_rad <= coverage.north_rad):
-            return directory
-    return detroit_pack_directory()
+            area = (coverage.east_rad-coverage.west_rad)*(coverage.north_rad-coverage.south_rad)
+            candidates.append((area, directory))
+    return min(candidates, key=lambda item: item[0])[1] if candidates else detroit_pack_directory()
 
 
 @dataclass(frozen=True, slots=True)
