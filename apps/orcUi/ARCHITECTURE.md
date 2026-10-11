@@ -157,7 +157,8 @@ Navigation's right-side map controls use `MapControlsDrawerState` and
 `MapControlsDrawerRequestHandlerIf`. A small controller owns expanded/collapsed
 state; the Tk panel renders a compact edge handle or the wider touch drawer and
 continues to emit camera actions through the existing map request contract. In
-the collapsed state, the drawer releases its layout column so the map reaches
+the collapsed state, the drawer hides and the map host explicitly spans both
+layout columns so the map reaches
 the right edge; its vertically centered reopen handle floats over the map. The
 native renderer polls its exact X11 parent allocation every 100 ms, resizes the
 actual X11 child, and reconciles both MapLibre's map size and backend framebuffer
