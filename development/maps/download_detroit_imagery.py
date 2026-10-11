@@ -81,7 +81,7 @@ def source_catalog(bounds):
             'retrieval': 'bounded object-ID batches', 'source_index': index}
 
 
-def read_image(response):
+def read_image(response, *, max_bytes=MAX_BYTES):
     """Bounded streaming read with honest progress when total size is unknown."""
     headers = getattr(response, 'headers', {})
     raw_length = headers.get('Content-Length', '')
@@ -91,8 +91,8 @@ def read_image(response):
         total = 0
     if total < 0:
         total = 0
-    if total > MAX_BYTES:
-        raise RuntimeError('USGS export exceeds the 20 MiB image limit')
+    if total > max_bytes:
+        raise RuntimeError(f'USGS export exceeds the {max_bytes/1024/1024:g} MiB image limit')
     content = bytearray()
     last_report = 0.0
 
@@ -111,12 +111,12 @@ def read_image(response):
     report()
     try:
         while True:
-            chunk = response.read(min(64*1024, MAX_BYTES+1-len(content)))
+            chunk = response.read(min(64*1024, max_bytes+1-len(content)))
             if not chunk:
                 break
             content.extend(chunk)
-            if len(content) > MAX_BYTES:
-                raise RuntimeError('USGS export exceeds the 20 MiB image limit')
+            if len(content) > max_bytes:
+                raise RuntimeError(f'USGS export exceeds the {max_bytes/1024/1024:g} MiB image limit')
             now = time.monotonic()
             if now-last_report >= .2:
                 report()
@@ -162,7 +162,7 @@ def get_json(endpoint, *, timeout=60, attempts=3, **parameters):
     return document
 
 
-def download(destination, *, bounds=BOUNDS, title="Detroit"):
+def download(destination, *, bounds=BOUNDS, title="Detroit", image_size=(2048,1536), max_bytes=MAX_BYTES):
     if destination.exists():
         pack = LocalImageryPack.load(destination)
         print(f"Already installed: {pack.image} ({pack.image.stat().st_size:,} bytes)")
@@ -186,7 +186,7 @@ def download(destination, *, bounds=BOUNDS, title="Detroit"):
     mosaic = {"mosaicMethod":"esriMosaicLockRaster", "lockRasterIds":[r["OBJECTID"] for r in selected],
               "mosaicOperation":"MT_FIRST"}
     export = get_json("/exportImage", bbox=",".join(map(str, bounds)), bboxSR=4326, imageSR=4326,
-                      size="2048,1536", format="jpg", adjustAspectRatio="false",
+                      size=','.join(map(str, image_size)), format="jpg", adjustAspectRatio="false",
                       mosaicRule=json.dumps(mosaic), renderingRule=json.dumps({"rasterFunction":"NaturalColor"}))
     requested_bounds = bounds
     extent = export["extent"]
@@ -195,6 +195,8 @@ def download(destination, *, bounds=BOUNDS, title="Detroit"):
     bounds = [extent[k] for k in ("xmin","ymin","xmax","ymax")]
     if any(abs(actual-requested) > .000001 for actual,requested in zip(bounds, requested_bounds)):
         raise RuntimeError("Export coverage differs from the requested bounded area")
+    if (export['width'], export['height']) != image_size:
+        raise RuntimeError('Export dimensions differ from the requested image size')
     href = export["href"]
     parsed = urllib.parse.urlsplit(href)
     if parsed.scheme != "https" or parsed.hostname != "imagery.nationalmap.gov":
@@ -205,7 +207,7 @@ def download(destination, *, bounds=BOUNDS, title="Detroit"):
         print('USGS imagery: downloading exported JPEG…', flush=True)
         try:
             with open_source(href, timeout=90) as response:
-                image = read_image(response)
+                image = read_image(response, max_bytes=max_bytes)
         except (URLError, TimeoutError) as error:
             raise RuntimeError(f'exported JPEG download failed after retries: {error} · endpoint {href}') from error
         if len(image) > MAX_BYTES or not image.startswith(b"\xff\xd8"):

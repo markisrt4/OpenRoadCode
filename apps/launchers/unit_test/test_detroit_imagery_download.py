@@ -140,9 +140,8 @@ def test_truncated_image_never_reports_completion(capsys):
 
 
 def test_oversized_image_stops_at_payload_cap(monkeypatch):
-    monkeypatch.setattr(downloader, 'MAX_BYTES', 8)
-    with pytest.raises(RuntimeError, match='20 MiB'):
-        downloader.read_image(io.BytesIO(b'0123456789'))
+    with pytest.raises(RuntimeError, match='image limit'):
+        downloader.read_image(io.BytesIO(b'0123456789'), max_bytes=8)
 
 
 def test_catalog_retries_timeout_during_body_read_and_closes_response(monkeypatch):

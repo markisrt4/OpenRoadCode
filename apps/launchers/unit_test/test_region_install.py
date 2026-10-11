@@ -22,15 +22,15 @@ def write_pack(destination, **kwargs):
 def test_failed_update_keeps_active_revision(tmp_path):
     active = tmp_path/'active'
     with patch.object(install_region, 'imagery_directory', return_value=active):
-        with patch.object(install_region, 'download', side_effect=write_pack):
+        with patch.object(install_region, 'download_overview', side_effect=write_pack):
             install_region.install('metro-detroit')
         original = active.resolve()
-        with patch.object(install_region, 'download', side_effect=RuntimeError('offline')):
+        with patch.object(install_region, 'download_overview', side_effect=RuntimeError('offline')):
             with pytest.raises(RuntimeError, match='offline'):
                 install_region.install('metro-detroit', update=True)
         assert active.resolve() == original
         assert LocalImageryPack.load(active).state.title == 'Metro Detroit overview'
-        with patch.object(install_region, 'download', side_effect=write_pack):
+        with patch.object(install_region, 'download_overview', side_effect=write_pack):
             install_region.install('metro-detroit', update=True)
         assert active.resolve() != original
         assert original.exists()

@@ -7,6 +7,7 @@ import uuid
 from apps.launchers.local_imagery_pack import LocalImageryPack
 from common.xdg_paths import openroadcode_data_dir
 from development.maps.download_detroit_imagery import download
+from development.maps.regional_imagery import download as download_overview
 
 # Rectangular planning envelopes, not county boundaries. No Canadian imagery promised.
 COVERAGES = {
@@ -31,7 +32,11 @@ def install(coverage, *, update=False):
     active.parent.mkdir(parents=True, exist_ok=True)
     revision = active.parent / ('.'+coverage+'-imagery-'+uuid.uuid4().hex)
     title, bounds = COVERAGES[coverage]
-    download(revision, bounds=bounds, title=title)
+    if coverage == 'metro-detroit':
+        download_overview(revision, bounds=bounds, title=title,
+                          cache_directory=active.with_name(active.name+'.download'))
+    else:
+        download(revision, bounds=bounds, title=title)
     LocalImageryPack.load(revision)
     pending = active.parent / ('.active-'+uuid.uuid4().hex)
     try:
@@ -64,6 +69,9 @@ def main():
         title, bounds = COVERAGES[coverage]
         print(f'{title}: rectangular bounds {bounds}; not exact county boundaries.')
         print('Layer: public-domain NAIP imagery, 2048×1536 pixels; 20 MiB maximum image payload plus source metadata.')
+        if coverage == 'metro-detroit':
+            print('16 smaller exports, combined locally. Completed tiles resume after interruption.')
+            print('Transfer cap: 20 MiB across tiles; cache and final image temporarily use up to 40 MiB plus metadata.')
         print('Overview is coarse, not street-level detail. Inspect coverage for source gaps after installation.')
         print('Internet required to download; viewing is offline. Updates retain the previous revision (extra disk space).')
         print('Base map, search, routing and buildings continue through existing map-builder tools; this installs imagery only.')

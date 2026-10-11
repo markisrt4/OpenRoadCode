@@ -557,8 +557,8 @@ python -m development.maps.install_region --coverage metro-detroit --update
 
 Updates fetch and validate a fresh revision before atomically switching a managed
 active link. Earlier revisions remain on disk for recovery. A failed update keeps
-the previous active pack. Imagery downloads restart after interruption; resumable
-multi-tile detail remains available through `download_detroit_map_tiles`.
+the previous active pack. Metro Detroit overview downloads resume completed, checksum-checked pieces after
+interruption. Detail downloads remain available through `download_detroit_map_tiles`.
 This is an initial regional imagery workflow, not yet a regional terrain/building
 installer or an automatic imagery freshness check.
 
@@ -577,3 +577,12 @@ Catalog record batches use a 30-second network timeout and two complete-response
 attempts before splitting into smaller requests. Retries include reading the
 response body, not only opening the connection. A failing single-record request
 stops the download and leaves any installed imagery active.
+
+The Metro Detroit overview uses 16 smaller 512×384 exports, combined locally
+into one north-first 2048×1536 JPEG using the already installed Pillow library.
+Each export queries only its own geographic footprint. Transfer is capped at
+1.25 MiB per piece (20 MiB total), with up to another 20 MiB for the final image
+during assembly, plus source metadata. Individual pieces may use different NAIP
+acquisition years; per-piece catalog/export evidence is retained. Completed
+pieces remain in the `.download` cache if another export fails. A successful
+assembly removes that cache so later updates fetch fresh acquisitions.
