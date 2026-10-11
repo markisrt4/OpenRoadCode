@@ -83,3 +83,33 @@ def test_catalog_network_failure_identifies_stage_and_endpoint(monkeypatch):
     with pytest.raises(RuntimeError, match='NAIP source catalog failed after retries') as error:
         downloader.get_json('/query', where="State='MI'")
     assert downloader.SERVICE+'/query' in str(error.value)
+
+
+def test_truncated_catalog_fetches_complete_ids_with_smaller_batches(monkeypatch):
+    service = Mock(side_effect=[
+        {'features': [], 'exceededTransferLimit': True},
+        {'objectIds': [1, 2]},
+        {'features': [{'attributes': {'OBJECTID': 1}}], 'exceededTransferLimit': True},
+        {'features': [{'attributes': {'OBJECTID': 1, 'Year': 2020}}]},
+        {'features': [{'attributes': {'OBJECTID': 2, 'Year': 2022}}]},
+    ])
+    monkeypatch.setattr(downloader, 'get_json', service)
+    catalog = downloader.source_catalog(downloader.BOUNDS)
+    assert [f['attributes']['OBJECTID'] for f in catalog['features']] == [1, 2]
+    assert service.call_args_list[1].kwargs['returnIdsOnly'] == 'true'
+    assert service.call_args_list[2].kwargs['objectIds'] == '1,2'
+    assert catalog['source_index']['objectIds'] == [1, 2]
+
+
+def test_catalog_missing_id_fails_before_export_or_install(tmp_path, monkeypatch):
+    service = Mock(side_effect=[
+        {'serviceDescription': 'public domain'},
+        {'features': [], 'exceededTransferLimit': True},
+        {'objectIds': [1, 2]},
+        {'features': [{'attributes': {'OBJECTID': 1}}]},
+    ])
+    monkeypatch.setattr(downloader, 'get_json', service)
+    with pytest.raises(RuntimeError, match='batch is incomplete'):
+        downloader.download(tmp_path/'pack')
+    assert not (tmp_path/'pack').exists()
+    assert all(call.args[0] != '/exportImage' for call in service.call_args_list)

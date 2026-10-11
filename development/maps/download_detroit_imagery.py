@@ -18,6 +18,46 @@ from tools.map_builder.builder.map_3d import PRESETS
 SERVICE = "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPPlus/ImageServer"
 BOUNDS = (-83.065, 42.315, -83.025, 42.345)
 MAX_BYTES = 20 * 1024 * 1024
+CATALOG_FIELDS = 'OBJECTID,Name,Year,raster_name,agency,vendor,download_url,acquisition_date,resolution_value,resolution_units'
+
+
+def source_catalog(bounds):
+    parameters = dict(where="State='MI' AND Category=1",
+                      geometry=','.join(map(str, bounds)), geometryType='esriGeometryEnvelope',
+                      inSR=4326, spatialRel='esriSpatialRelIntersects', returnGeometry='false')
+    catalog = get_json('/query', **parameters, outFields=CATALOG_FIELDS)
+    if not catalog.get('exceededTransferLimit'):
+        return catalog
+    # ArcGIS ID-only queries bypass the feature response limit. Fetch explicit
+    # batches rather than relying on offset pagination support on ImageServer.
+    index = get_json('/query', **parameters, returnIdsOnly='true')
+    identifiers = index.get('objectIds')
+    if (index.get('exceededTransferLimit') or not isinstance(identifiers, list)
+            or not identifiers or len(identifiers) > 10000
+            or any(type(value) is not int for value in identifiers)
+            or len(set(identifiers)) != len(identifiers)):
+        raise RuntimeError('Cannot obtain a complete bounded imagery catalog ID list')
+    print(f'USGS imagery: fetching {len(identifiers)} source records in batches…', flush=True)
+
+    def fetch(ids):
+        document = get_json('/query', objectIds=','.join(map(str, ids)),
+                            outFields=CATALOG_FIELDS, returnGeometry='false')
+        if document.get('exceededTransferLimit'):
+            if len(ids) == 1:
+                raise RuntimeError('USGS truncated a single source record')
+            middle = len(ids)//2
+            return fetch(ids[:middle]) + fetch(ids[middle:])
+        features = document.get('features', [])
+        returned = [feature.get('attributes', {}).get('OBJECTID') for feature in features]
+        if len(returned) != len(ids) or set(returned) != set(ids):
+            raise RuntimeError('USGS imagery catalog batch is incomplete; retry download')
+        return features
+
+    features = []
+    for offset in range(0, len(identifiers), 100):
+        features.extend(fetch(identifiers[offset:offset+100]))
+    return {'features': features, 'exceededTransferLimit': False,
+            'retrieval': 'bounded object-ID batches', 'source_index': index}
 
 
 def open_source(url, *, timeout):
@@ -53,12 +93,7 @@ def download(destination, *, bounds=BOUNDS, title="Detroit"):
     metadata = get_json("")
     if "public domain" not in metadata.get("serviceDescription", "").lower():
         raise RuntimeError("USGS service no longer declares public-domain imagery; review source rights")
-    catalog = get_json("/query", where="State='MI' AND Category=1",
-                       geometry=",".join(map(str, bounds)), geometryType="esriGeometryEnvelope",
-                       inSR=4326, spatialRel="esriSpatialRelIntersects", returnGeometry="false",
-                       outFields="OBJECTID,Name,Year,raster_name,agency,vendor,download_url,acquisition_date,resolution_value,resolution_units")
-    if catalog.get("exceededTransferLimit"):
-        raise RuntimeError("Catalog result is truncated; narrow the dataset query")
+    catalog = source_catalog(bounds)
     records = [feature["attributes"] for feature in catalog.get("features", [])]
     # Limit the experiment to identifiable NAIP/USDA acquisitions, not arbitrary
     # partner mosaics. Fail visibly rather than substituting another provider.

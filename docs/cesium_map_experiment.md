@@ -561,3 +561,8 @@ the previous active pack. Imagery downloads restart after interruption; resumabl
 multi-tile detail remains available through `download_detroit_map_tiles`.
 This is an initial regional imagery workflow, not yet a regional terrain/building
 installer or an automatic imagery freshness check.
+
+Large imagery catalog responses are fetched using the complete ArcGIS object-ID
+index, then checked batches of at most 100 records (subdivided if the service
+still truncates them). Missing records stop installation before image export;
+source IDs and the assembled catalog remain in pack provenance.
