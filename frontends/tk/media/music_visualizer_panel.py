@@ -18,7 +18,7 @@ from typing import Callable
 
 from ui.theme import ThemeBundle
 from ui.music_visualizer import MusicVisualizationMode, VisualizerFrame
-from ui.ui_widget import UiWidget
+from ui.music_visualizer.music_visualizer_presentation_if import MusicVisualizerPresentationIf
 
 BLUE = "#168bd1"
 RED = "#f15a16"
@@ -37,7 +37,7 @@ _MODE_LABELS = {
 _LABEL_MODES = {label: mode for mode, label in _MODE_LABELS.items()}
 
 
-class MusicVisualizerPanel(tk.Frame, UiWidget):
+class MusicVisualizerPanel(tk.Frame, MusicVisualizerPresentationIf):
     """Render OpenRoadCode music visualizations inside a Tk parent."""
 
     FRAME_MS = 33

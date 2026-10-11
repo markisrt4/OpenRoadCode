@@ -20,6 +20,7 @@ from apps.common.spotify_presentation_factory import create_spotify_presentation
 from apps.orcUi.adapters.managed_browser_media_player import ManagedBrowserMediaPlayer
 from apps.orcUi.frontend.tk.orc_ui_app import OrcUiApp
 from frontends.tk.media.music_visualizer_screen import MusicVisualizerScreen
+from ui.music_visualizer import MusicVisualizerSource
 from apps.orcUi.composition.music_visualizer import create_browser_visualizer, create_music_visualizer_session, selected_music_visualizer_source
 from apps.orcUi.adapters.music_visualizer_browser import MusicVisualizerBrowser, WINDOW_CLASS
 from controllers.audio.music_analysis.music_visualizer_controller import MusicVisualizerController
@@ -259,12 +260,24 @@ def _configure_media(app: OrcUiApp, runtime, cleanup: ResourceCleanup) -> MediaC
     )
     retire_views.append(spotify_screen.hide)
 
-    if os.getenv("OPENROAD_MUSIC_VISUALIZER_RENDERER", "webgl").lower() == "tk":
+    renderer = os.getenv("OPENROAD_MUSIC_VISUALIZER_RENDERER", "opengl").lower()
+    if renderer in {"tk", "opengl"}:
+        panel_options = {}
+        if renderer == "opengl":
+            from functools import partial
+            from frontends.tk.media.native_music_visualizer import NativeMusicVisualizerPanel
+            from apps.orcUi.frontend.tk.ecu_gl_backend import load_gl_backend
+            panel_options["panel_factory"] = partial(NativeMusicVisualizerPanel, gl_backend=load_gl_backend)
         visualizer_runtime = MusicVisualizerController(create_music_visualizer_session)
         cleanup.callback(visualizer_runtime.close)
         visualizer = MusicVisualizerScreen(
             app, on_back=lambda: media_screen.show(), controller=visualizer_runtime,
-            initial_source=selected_music_visualizer_source(),
+            initial_source=(MusicVisualizerSource.ANDROID_PLAYBACK
+                            if "OPENROAD_MUSIC_VISUALIZER_SOURCE" not in os.environ
+                            and (os.getenv("TERMUX_VERSION") or os.getenv("ANDROID_ROOT")
+                                 or os.getenv("PREFIX", "").startswith("/data/data/com.termux/"))
+                            else selected_music_visualizer_source()),
+            **panel_options,
             theme_bundle=lambda: theme_bundle(app.theme_mode),
         )
     else:

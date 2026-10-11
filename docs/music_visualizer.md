@@ -6,32 +6,43 @@ capture stay in the platform backend.
 
 ## ORC UI
 
-Run `./runOrcUi`, then open **Media → Music Visualizer**. ORC embeds the
-browser WebGL renderer inside its Media screen, retaining the shared ORC
-navigation and shell. The local HTTP host is created by composition; no separate
-WebUi process or service configuration is required.
+Run `./runOrcUi`, then open **Media → Music Visualizer**. ORC now defaults to
+native OpenGL in its Tk Media screen, using the existing GLX backend shared with
+the ECU renderer (including Termux/X11 compatibility). No browser process or local
+HTTP server is created for this renderer.
 
-The renderer offers 13 presets: Frequency Tunnel, Neon Ribbon, Spectrum Field,
-Plasma Bloom, Kaleidoscope, Star Warp, Electric Rings, Dancing Planets, Star Dance,
-Neon Instruments, Electric Freeway, Explosion Field, and Prismatic Spectrum.
-The **Visualization** and **Drum Kit** buttons switch views within this screen.
-Drum Kit shows reactive kick, snare, toms, and cymbals with percussion meters and
-single/double kick controls. Switching views preserves the current audio source,
-capture, calibration, preset, and kick mode; both consume the same analyzer.
-Use the sensitivity slider to adjust response and FULL SCREEN to expand the
-visualization. Browser Microphone is always offered; Chromium requests permission
-when you press START AUDIO. Linux System Audio is offered when `pw-record` is
-installed. Android Playback is offered on Termux/Android and consumes the local
-bridge stream at `http://127.0.0.1:8768/stream`; grant playback-capture consent in
-the bridge app first. Capture-restricted applications may not provide audio.
+The first native effect is **Frequency Tunnel**: spectrum-shaped rings travel
+through a 3D tunnel, expanding and brightening on musical onsets. **Drum Kit**
+switches the same GL surface to shaded drum shells, chrome rims, drumhead pulses,
+animated sticks, and wobbling cymbals. Single/double kick layouts share the same
+capture and calibration. The **Beat response** slider changes visual pulse strength.
+This initial native release has one visualizer effect; the remaining browser
+presets have not yet been ported.
+
+Audio analysis supplies an onset envelope based on positive spectral flux, with
+fast attack, 140 ms decay, and a 120 ms retrigger guard. Sustained tones do not
+produce a continuous full-strength beat pulse. Percussion estimates drive the
+individual drums; they are estimates from mixed audio, not isolated drum tracks.
+
+Select **android-playback** on Termux and press **START** after granting playback
+capture consent in Android Bridge. The native renderer never opens a microphone.
+**pipewire** captures the configured Linux input and **simulated** demonstrates
+the graphics without real capture. Source selection waits for START. STOP and
+leaving the screen stop capture and animation. Switching Tunnel/Drum Kit leaves
+the audio session alive.
+
+The browser renderer remains available via
+`OPENROAD_MUSIC_VISUALIZER_RENDERER=webgl`, with its 13 existing presets and browser
+microphone option. WebUi continues to use WebGL. Native GL failures display an
+explicit error; select the browser override if the device cannot create a GLX context.
 
 For PipeWire playback monitoring, set
 `OPENROAD_MUSIC_VISUALIZER_PIPEWIRE_TARGET` to the appropriate monitor node.
 Termux/Android defaults to Android Playback. Start **Android Bridge → Android
 Playback Audio → START PLAYBACK CAPTURE**, grant audio permission, and approve
-Android's capture prompt, then press **START AUDIO** in ORC.
+Android's capture prompt, then press **START** in native ORC (**START AUDIO** in the browser renderer).
 `OPENROAD_MUSIC_VISUALIZER_SOURCE=pipewire` or `android-playback` overrides the
-initial input. Capture begins only when START AUDIO is pressed. STOP and leaving
+initial input. Capture begins only when START is pressed. STOP and leaving
 the screen release capture; ORC shutdown closes Chromium and the local server.
 CALIBRATE, FINISH, and CLEAR manage the shared ambient-noise profile.
 
@@ -83,6 +94,27 @@ Run the automated unit and integration suites from the repository root:
 python scripts/run_tests.py all
 ```
 
+A native GL component check creates an X11 context, renders both scenes, checks
+nonempty frames, verifies double kick changes the image, and releases resources:
+
+```bash
+python -m apps.orcUi.component_test.native_music_visualizer_cli
+```
+
+This uses supplied analysis snapshots, without microphone access. Device validation:
+
+```bash
+git switch music-visualizer-modernization
+git pull --ff-only
+OPENROAD_MUSIC_VISUALIZER_SOURCE=android-playback ./runOrcUi
+```
+
+Start bridge capture, play a capture-permitted local MP3, press START, and check
+that tunnel pulses and individual drum activity respond. Native OpenGL uses the
+existing pinned `PyOpenGL==3.1.10` and `pyopengltk==0.0.4` dependencies. Keep the
+normal Termux/X11 graphics configuration; the cloud component check uses Mesa
+software rendering and does not establish phone GPU compatibility.
+
 A repeatable embedded X11/browser check is available with the optional Python
 `playwright` package installed:
 
@@ -102,11 +134,13 @@ not verify those device and permission paths.
 
 ## Architecture and resource ownership
 
-Media composition selects presentation and owns its runtime. The default uses the
-reusable `BrowserMediaScreen`, an ORC-selected `MusicVisualizerBrowser` adapter,
-and the existing shared WebGL assets. The adapter owns only the local HTTP host
-and browser lifecycle; `MusicAnalysisSession` owns audio capture and analysis.
-HTTP routes and the embedded page live under `frontends/web/audio_analysis` and
-serve the same semantic analyzer used by WebUi. The Tk fallback still consumes
-`MusicVisualizerControlIf`, with its capture/calibration worker in the controller.
-Screens choose no backends and composition closes their resources.
+Media composition selects presentation and owns its runtime. The native default
+receives a GL backend factory from composition and immutable `VisualizerFrame`
+snapshots through `MusicVisualizerPresentationIf`. The frontend chooses only how
+to render those snapshots. `MusicVisualizerController` owns capture workers,
+bounded latest-frame delivery, calibration, and stale completion handling. The
+renderer owns its GL geometry and animation timer and releases both on close.
+
+The browser override uses `BrowserMediaScreen` and `MusicVisualizerBrowser` for
+its local host and browser lifecycle. `MusicAnalysisSession` owns audio capture
+and analysis in both paths. WebUi retains the existing shared WebGL assets.

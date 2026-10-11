@@ -20,3 +20,17 @@ def test_hiding_screen_cancels_rendering_and_requests_capture_stop():
     # The composition owns controller shutdown; closing presentation only requests stop.
     screen.close()
     controller.close.assert_not_called()
+
+
+def test_source_selection_waits_for_explicit_start():
+    controller = Mock()
+    screen = MusicVisualizerScreen(Mock(), on_back=Mock(), theme_bundle=Mock(),
+                                   controller=controller, initial_source=MusicVisualizerSource.SIMULATED)
+    screen._source_name = Mock()
+    screen._status = Mock()
+    screen._create_panel = Mock()
+    screen._select_source('android-playback', start=False)
+    controller.stop.assert_called_once()
+    controller.start.assert_not_called()
+    screen._select_source('android-playback')
+    controller.start.assert_called_once_with(MusicVisualizerSource.ANDROID_PLAYBACK)

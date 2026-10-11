@@ -32,3 +32,4 @@ class MusicAnalysisState:
     percussion: PercussionActivity = field(default_factory=PercussionActivity)
     sample_rate_hz: int = 0
     fft_size: int = 0
+    beat: float = 0.0

@@ -47,3 +47,11 @@ class VisualizerFrame:
     mid: float
     treble: float
     spectrum: tuple[float, ...]
+
+    beat: float = 0.0
+    kick: float = 0.0
+    snare: float = 0.0
+    tom_high: float = 0.0
+    tom_mid: float = 0.0
+    tom_low: float = 0.0
+    cymbal: float = 0.0

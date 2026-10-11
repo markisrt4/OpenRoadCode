@@ -67,4 +67,11 @@ class MusicVisualizerSession:
             mid=state.mid,
             treble=state.treble,
             spectrum=state.spectrum,
+            beat=state.beat,
+            kick=state.percussion.kick,
+            snare=state.percussion.snare,
+            tom_high=state.percussion.tom_high,
+            tom_mid=state.percussion.tom_mid,
+            tom_low=state.percussion.tom_low,
+            cymbal=state.percussion.cymbal,
         )
