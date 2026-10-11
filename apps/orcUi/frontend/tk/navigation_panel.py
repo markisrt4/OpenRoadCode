@@ -176,7 +176,7 @@ class NavigationPanel(NavigationPlacesControls, NavigationRadarControls, Navigat
             return
         if state.expanded:
             self._map_controls.place(
-                relx=1.0, rely=0.0, anchor="ne", width=210, relheight=1.0,
+                relx=1.0, rely=0.0, anchor="ne", width=170, relheight=1.0,
             )
             self._map_controls.lift()
             self._map_controls_handle.place_forget()

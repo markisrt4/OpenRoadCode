@@ -158,7 +158,7 @@ Navigation's right-side map controls use `MapControlsDrawerState` and
 state; the Tk panel renders a compact edge handle or the wider touch drawer and
 continues to emit camera actions through the existing map request contract. In
 both states, the map host occupies the full body width. The expanded drawer is
-a 210-pixel overlay at the right edge and covers part of the map without resizing
+a 170-pixel overlay at the right edge and covers part of the map without resizing
 its host. When hidden, its vertically centered reopen handle floats over the map. The
 native renderer polls its exact X11 parent allocation every 100 ms, resizes the
 actual X11 child, and reconciles both MapLibre's map size and backend framebuffer
