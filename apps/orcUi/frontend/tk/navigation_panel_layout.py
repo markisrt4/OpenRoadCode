@@ -151,7 +151,7 @@ def build_navigation_panel(panel) -> None:
         bd=0,
         highlightthickness=0,
         font=("Sans", 10, "bold"),
-        padx=10,
+        padx=5,
         pady=10,
     )
     panel._map_controls_toggle.pack(fill=tk.X)
