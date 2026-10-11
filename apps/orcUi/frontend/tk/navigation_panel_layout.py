@@ -137,8 +137,7 @@ def build_navigation_panel(panel) -> None:
         cursor="hand2",
     )
     controls = tk.Frame(body, bg=ui.surface_alt, width=54, highlightthickness=0)
-    controls.grid(row=0, column=1, sticky="ns", padx=(4, 0))
-    controls.grid_propagate(False)
+    controls.pack_propagate(False)
     panel._map_controls = controls
     panel._map_controls_toggle = tk.Button(
         controls,

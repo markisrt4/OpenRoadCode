@@ -175,15 +175,15 @@ class NavigationPanel(NavigationPlacesControls, NavigationRadarControls, Navigat
         if not hasattr(self, "_map_controls"):
             return
         if state.expanded:
-            self._map_host.grid_configure(columnspan=1)
-            self._map_controls.configure(width=210)
-            self._map_controls.grid()
+            self._map_controls.place(
+                relx=1.0, rely=0.0, anchor="ne", width=210, relheight=1.0,
+            )
+            self._map_controls.lift()
             self._map_controls_handle.place_forget()
             self._map_controls_rail.pack(fill=tk.BOTH, expand=True, padx=5, pady=(2, 5))
         else:
             self._map_controls_rail.pack_forget()
-            self._map_controls.grid_remove()
-            self._map_host.grid_configure(columnspan=2)
+            self._map_controls.place_forget()
             self._map_controls_handle.place(
                 relx=1.0, rely=0.5, anchor="e", width=48, height=72,
             )

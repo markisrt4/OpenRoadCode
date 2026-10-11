@@ -172,8 +172,8 @@ class NavigationPanelControlTest(unittest.TestCase):
 
         panel.set_map_controls_drawer_state(MapControlsDrawerState(expanded=False))
 
-        panel._map_controls.grid_remove.assert_called_once_with()
-        panel._map_host.grid_configure.assert_called_once_with(columnspan=2)
+        panel._map_controls.place_forget.assert_called_once_with()
+        panel._map_host.grid_configure.assert_not_called()
         panel._map_controls_rail.pack_forget.assert_called_once_with()
         panel._map_controls_handle.place.assert_called_once_with(
             relx=1.0, rely=0.5, anchor="e", width=48, height=72,
@@ -191,9 +191,11 @@ class NavigationPanelControlTest(unittest.TestCase):
 
         panel.set_map_controls_drawer_state(MapControlsDrawerState(expanded=True))
 
-        panel._map_controls.configure.assert_called_once_with(width=210)
-        panel._map_host.grid_configure.assert_called_once_with(columnspan=1)
-        panel._map_controls.grid.assert_called_once_with()
+        panel._map_controls.place.assert_called_once_with(
+            relx=1.0, rely=0.0, anchor="ne", width=210, relheight=1.0,
+        )
+        panel._map_controls.lift.assert_called_once_with()
+        panel._map_host.grid_configure.assert_not_called()
         panel._map_controls_handle.place_forget.assert_called_once_with()
 
     def test_gas_shortcut_starts_fuel_search(self) -> None:
