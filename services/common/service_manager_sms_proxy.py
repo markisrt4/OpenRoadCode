@@ -23,6 +23,7 @@ ALLOWED_ROUTES = {
     ("GET", "/sms/capabilities"),
     ("GET", "/sms/conversations"),
     ("GET", "/sms/messages"),
+    ("GET", "/sms/send/status"),
     ("POST", "/sms/send"),
 }
 
