@@ -21,7 +21,7 @@ from frontends.tk.radio.persistent_streaming_radio_panel import PersistentStream
 from frontends.x11 import X11WindowEmbedder
 from ui.theme import ThemeBundle
 from .shell_metrics import FONT_BODY, FONT_CONTROL, FONT_SMALL
-from .radio_source_icon import draw_source_icon
+from .radio_source_icon import draw_source_icon, draw_source_scene
 
 
 class LaunchAwareRadioPanel(RadioPanel):
@@ -123,6 +123,7 @@ class RadioEntryPanel(tk.Frame):
         self._streaming_card_appearance.set_online(online)
         self._streaming_button.configure(state=tk.NORMAL if online else tk.DISABLED,
                                          disabledforeground=self._theme.ui.text_muted)
+        self._status.configure(text="" if online else "Offline mode: RF radio remains available")
         if not online:
             if self._streaming_page is not None and self._streaming_page.winfo_exists():
                 self._streaming_page.destroy()
@@ -191,8 +192,8 @@ class RadioEntryPanel(tk.Frame):
         rf_card, self._rf_button = self._build_source_card(
             parent=self._chooser,
             title="RF RADIO",
-            eyebrow="SOFTWARE DEFINED RADIO",
-            description="Tune live RF with SDR++ spectrum and waterfall controls.",
+            eyebrow="LOCAL AIRWAVES · SDR REQUIRED",
+            description="Tune nearby broadcasts with spectrum and waterfall controls. No internet needed.",
             features="FM  •  WEATHER  •  AIRBAND  •  HAM",
             action_text="OPEN RF RADIO  ›",
             accent=ui.accent_success,
@@ -204,8 +205,8 @@ class RadioEntryPanel(tk.Frame):
         streaming_card, self._streaming_button = self._build_source_card(
             parent=self._chooser,
             title="STREAMING RADIO",
-            eyebrow="INTERNET AUDIO",
-            description="Browse local and regional streams with artwork, favorites and playback.",
+            eyebrow="ONLINE STATIONS · INTERNET REQUIRED",
+            description="Explore stations near home and around the world. Save favorites and stream over the internet.",
             features="LOCAL  •  REGIONAL  •  FAVORITES",
             action_text="BROWSE STATIONS  ›",
             accent=ui.accent_primary,
@@ -221,7 +222,7 @@ class RadioEntryPanel(tk.Frame):
         )
         self._status = tk.Label(
             self._chooser,
-            text="Choose a radio source",
+            text="" if self._online_allowed() else "Offline mode: RF radio remains available",
             bg=ui.background,
             fg=ui.text_muted,
             font=("Sans", FONT_BODY),
@@ -253,12 +254,14 @@ class RadioEntryPanel(tk.Frame):
         card.grid_columnconfigure(0, weight=1)
         card.grid_rowconfigure(2, weight=1)
 
-        accent_bar = tk.Frame(card, bg=accent, height=6)
-        accent_bar.grid(row=0, column=0, sticky="ew")
-        accent_bar.grid_propagate(False)
+        scene = tk.Canvas(card, height=96, bg=ui.surface, highlightthickness=0, bd=0)
+        scene.grid(row=0, column=0, sticky="ew")
+        scene.bind("<Configure>", lambda event: draw_source_scene(
+            scene, icon_kind=icon_kind, accent=accent, theme=self._theme,
+            width=event.width, height=event.height))
 
         heading = tk.Frame(card, bg=ui.surface)
-        heading.grid(row=1, column=0, sticky="ew", padx=14, pady=(18, 10))
+        heading.grid(row=1, column=0, sticky="ew", padx=12, pady=(8, 6))
         heading.grid_columnconfigure(1, weight=1)
         icon = tk.Canvas(
             heading,
@@ -275,7 +278,7 @@ class RadioEntryPanel(tk.Frame):
             text=eyebrow,
             bg=ui.surface,
             fg=accent,
-            font=("Sans", FONT_CONTROL + 2, "bold"),
+            font=("Sans", 9, "bold"),
             anchor="w",
         ).grid(row=0, column=1, sticky="sw", pady=(8, 2))
         tk.Label(
@@ -283,30 +286,33 @@ class RadioEntryPanel(tk.Frame):
             text=title,
             bg=ui.surface,
             fg=ui.text,
-            font=("Sans", 21, "bold"),
+            font=("Sans", 18, "bold"),
             anchor="w",
         ).grid(row=1, column=1, sticky="nw")
 
         body = tk.Frame(card, bg=ui.surface)
-        body.grid(row=2, column=0, sticky="nsew", padx=26, pady=(8, 14))
+        body.grid(row=2, column=0, sticky="nsew", padx=12, pady=(4, 10))
         body.grid_columnconfigure(0, weight=1)
         body.grid_rowconfigure(0, weight=1)
-        tk.Label(
+        description_label = tk.Label(
             body,
             text=description,
             bg=ui.surface,
             fg=ui.text_muted,
-            font=("Sans", FONT_BODY + 3),
+            font=("Sans", 12),
             justify=tk.LEFT,
             anchor="nw",
             wraplength=390,
-        ).grid(row=0, column=0, sticky="new")
+        )
+        description_label.grid(row=0, column=0, sticky="new")
+        body.bind("<Configure>", lambda event: description_label.configure(
+            wraplength=max(1, event.width)))
         tk.Label(
             body,
             text=features,
             bg=ui.surface,
             fg=ui.text,
-            font=("Sans", FONT_CONTROL + 2, "bold"),
+            font=("Sans", 10, "bold"),
             anchor="w",
         ).grid(row=1, column=0, sticky="ew", pady=(14, 8))
         button = tk.Button(

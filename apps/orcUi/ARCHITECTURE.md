@@ -178,6 +178,12 @@ Structural orcUi widgets that are meaningful only inside that shell stay under `
 
 ## Screen hosting and navigation
 
+The Radio landing chooser uses theme-aware, code-drawn antenna/signal and
+globe/station diagrams to distinguish local RF reception from internet audio.
+They are static illustrations, redrawn on allocation changes, with no timers,
+device probes, or new service dependencies. Existing source actions and offline
+streaming restrictions remain in effect; descriptions wrap to the card width.
+
 The screen boundary follows one rule: **composition owns dependencies, screens own feature behavior, and `OrcUiApp` owns the shell**. `OrcUiApp` maintains a generic screen registry and navigation list but contains no built-in feature catalog. A new feature should be addable by composition without editing `OrcUiApp`.
 
 ```mermaid
