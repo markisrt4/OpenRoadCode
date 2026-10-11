@@ -10,6 +10,18 @@ from frontends.tk.media.media_screen import MediaScreen
 
 
 class MediaScreenTest(unittest.TestCase):
+    def test_visualizer_uses_existing_action_without_online_gate(self):
+        screen = object.__new__(MediaScreen)
+        screen._theme_bundle = Mock()
+        screen._online_allowed = lambda: False
+        screen._show_visualizer = Mock()
+        with patch("frontends.tk.media.media_screen.tk.Frame"), patch(
+            "frontends.tk.media.media_screen.tk.Button"
+        ) as button:
+            screen._visualizer_card(Mock())
+            button.call_args.kwargs["command"]()
+        screen._show_visualizer.assert_called_once_with()
+
     def test_spotify_secondary_actions_use_body_and_share_row(self):
         screen = object.__new__(MediaScreen)
         screen._theme_bundle = Mock()

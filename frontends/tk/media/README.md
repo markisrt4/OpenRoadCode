@@ -37,7 +37,11 @@ Termux remains REMOTE-only because its current Chromium environment does not pro
 
 The Media landing page is a four-card hub for Spotify, YouTube, YouTube Music, and Netflix. Provider identity colors are accents, not replacement theme surfaces: card backgrounds, text, and ordinary controls continue to follow the active ORC light/dark theme.
 
-The header includes a compact Visualizer shortcut alongside the title. Provider
+The left column groups music services and a compact Music Visualizer tile below
+YouTube Music; video services occupy the right column. The visualizer tile uses
+a static equalizer glyph and remains available offline. Provider brand colors
+stay in their logos, with neutral action buttons and muted Coming Soon text for
+YouTube Music. Provider
 cards use consistent compact logos, titles, descriptions that wrap to their
 allocated width, and action buttons. Spotify groups app setup and account access
 in one secondary row inside the card body, separate from Remote and Play Here.
