@@ -202,3 +202,9 @@ cymbal tilt that settles quickly; steady activity does not sustain the flash.
 The existing drum-response threshold still suppresses weak background activity.
 All response and zoom sliders retain drag adjustment and add large **− / +**
 buttons in 0.1 steps, clamped to their limits, without restarting capture.
+
+
+The SCENE page uses a five-column icon grid for visualizer selection. Each tile
+has a vector preview of its effect; the selected tile is highlighted and its full
+name appears below the grid. Tiles support touch, mouse, and keyboard activation.
+Selection preserves the current audio session and is shared with the HOME preview.

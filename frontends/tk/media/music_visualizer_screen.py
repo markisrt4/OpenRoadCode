@@ -15,6 +15,7 @@ from frontends.tk.tk_screen_host_if import TkScreenHostIf
 from ui.screen_ui_if import ScreenId
 from ui.theme import ThemeBundle, ThemeMode
 from .music_gl_scene import MODE_LABELS
+from .music_visualizer_icons import visualizer_icon
 from .music_visualizer_panel import MusicVisualizerPanel
 
 
@@ -207,10 +208,28 @@ class MusicVisualizerScreen(TkScreen):
             self._zoom = tk.DoubleVar(value=self._options.drum_zoom)
             self._scale(self._zoom, .8, 2.8, lambda value: self._set_options(drum_zoom=float(value)), 'DRUM ZOOM')
         else:
-            labels = [label for mode, label in MODE_LABELS.items()
-                      if self._native_controls or mode not in (MusicVisualizationMode.FREQUENCY_TUNNEL,
-                                                               MusicVisualizationMode.BOOMBOX)]
-            self._mode_picker = self._picker(self._mode_name, labels, self._select_visualizer)
+            self._mode_buttons = {}
+            self._mode_images = []
+            grid = tk.Frame(self._controls, bg=self._ui.surface)
+            grid.pack(fill=tk.X)
+            modes = [mode for mode in MODE_LABELS
+                     if self._native_controls or mode not in (
+                         MusicVisualizationMode.FREQUENCY_TUNNEL, MusicVisualizationMode.BOOMBOX)]
+            for column in range(5):
+                grid.columnconfigure(column, weight=1, uniform='visualizer')
+            for index, mode in enumerate(modes):
+                icon = visualizer_icon(grid, mode, self._ui.text)
+                self._mode_images.append(icon)
+                button = tk.Button(grid, image=icon, command=lambda m=mode: self._select_visualizer(MODE_LABELS[m]),
+                                   relief=tk.FLAT, bd=0, padx=2, pady=2,
+                                   highlightthickness=1, highlightbackground=self._ui.border,
+                                   highlightcolor=self._ui.accent_primary,
+                                   activebackground=self._ui.control_active, takefocus=True)
+                button.grid(row=index // 5, column=index % 5, sticky='ew', padx=1, pady=1)
+                self._mode_buttons[mode] = button
+            tk.Label(self._controls, textvariable=self._mode_name, bg=self._ui.surface,
+                     fg=self._ui.accent_primary, font=('Sans', 8, 'bold')).pack(fill=tk.X)
+            self._update_mode_buttons()
             if self._native_controls:
                 self._gain = tk.DoubleVar(value=self._options.beat_gain)
                 self._scale(self._gain, .5, 3, lambda value: self._set_options(beat_gain=float(value)), 'BEAT RESPONSE')
@@ -240,8 +259,19 @@ class MusicVisualizerScreen(TkScreen):
         if previous_view is not self._options.view and hasattr(self, '_scene_page'):
             self._build_scene_page()
         self._update_view_buttons()
+        self._update_mode_buttons()
         if self._panel is not None:
             self._panel.configure_visualizer(self._options)
+
+    def _update_mode_buttons(self):
+        if self._options.view is not MusicVisualizerView.VISUALIZER:
+            return
+        if hasattr(self, '_mode_name'):
+            self._mode_name.set(MODE_LABELS[self._options.mode])
+        for mode, button in getattr(self, '_mode_buttons', {}).items():
+            selected = mode is self._options.mode
+            button.configure(bg=self._ui.accent_primary if selected else self._ui.control_background,
+                             highlightbackground=self._ui.accent_primary if selected else self._ui.border)
 
     def _select_visualizer(self, label):
         mode = next(mode for mode, text in MODE_LABELS.items() if text == label)

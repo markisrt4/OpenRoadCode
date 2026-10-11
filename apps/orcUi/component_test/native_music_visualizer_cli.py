@@ -57,7 +57,10 @@ def main():
                                (screen._options.mode, MusicVisualizerView.DRUM_KIT, KickMode.DOUBLE)]
             for mode, view, kick_mode in configurations:
                 if view is MusicVisualizerView.VISUALIZER:
-                    screen._mode_picker['menu'].invoke(list(MODE_LABELS).index(mode))
+                    screen._mode_buttons[mode].invoke()
+                    assert screen._mode_buttons[mode].cget('bg') == screen._ui.accent_primary
+                    assert sum(button.cget('bg') == screen._ui.accent_primary
+                               for button in screen._mode_buttons.values()) == 1
                     assert screen._options.mode is mode
                     assert screen._mode_name.get() == MODE_LABELS[mode]
                 screen._set_options(mode=mode, view=view, kick_mode=kick_mode)
