@@ -53,7 +53,8 @@ class CesiumEmbeddedViewer:
             resources.callback(server.close)
             profile = resources.enter_context(TemporaryDirectory(prefix='orc-cesium-embedded-'))
             window_class = 'orc-cesium-'+uuid.uuid4().hex
-            browser = BrowserKioskLauncher(url='about:blank', profile_path=profile,
+            startup_url = server.url+'embedded-start.html'
+            browser = BrowserKioskLauncher(url=startup_url, profile_path=profile,
                 process_pattern=re.escape(profile), kiosk=False, app_mode=True,
                 window_position=(-20000,-20000), window_size=size,
                 window_class=window_class, startup_grace_seconds=.2,
@@ -88,9 +89,9 @@ class CesiumEmbeddedViewer:
             while current() and time.monotonic()<deadline:
                 try:
                     port = int(port_file.read_text().splitlines()[0])
-                    last_status = 'waiting for the blank Chromium page'
+                    last_status = 'waiting for the local Chromium startup page'
                     devtools = ChromiumDevToolsClient(port=port)
-                    target = next((item for item in devtools.targets() if item.url == 'about:blank'), None)
+                    target = next((item for item in devtools.targets() if item.url == startup_url), None)
                     if target is not None:
                         result = devtools.command(target,'Page.navigate',{'url':server.url})
                         if result.get('errorText'):

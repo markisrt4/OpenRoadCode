@@ -152,3 +152,12 @@ def test_embedded_presentation_flag_is_boolean_and_optional(state):
     assert replace(state, embedded=True).document()['embedded'] is True
     with pytest.raises(ValueError, match='visibility'):
         replace(state, embedded='true')
+
+
+def test_embedded_start_page_is_local_and_does_not_create_a_gpu_canvas(server):
+    with urllib.request.urlopen(server.url+'embedded-start.html') as response:
+        page = response.read().decode()
+    assert 'Loading 3D map' in page
+    assert '<script' not in page
+    assert '<canvas' not in page
+    assert '/sdk/' not in page

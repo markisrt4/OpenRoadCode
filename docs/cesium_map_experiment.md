@@ -510,3 +510,8 @@ to avoid first-use dialogs for its temporary profile. Blank-window attachment
 and local-page loading have separate bounded startup deadlines; a page-load
 timeout reports the last DevTools startup stage or error. Actual Termux startup
 still requires device validation.
+
+Embedded startup uses a script-free local HTTP loading page, not `--app=about:blank`.
+Some Chromium builds open a regular New Tab window for the latter. The local page
+creates a real app window without loading Cesium or creating a WebGL canvas;
+DevTools locates that exact page and navigates to Cesium only after attachment.

@@ -25,7 +25,7 @@ def native(tmp_path,monkeypatch):
     servers=Mock(return_value=server)
     monkeypatch.setattr(module,'CesiumViewerServer',servers)
     def make_browser(**kwargs):
-        assert kwargs['url']=='about:blank'
+        assert kwargs['url']==server.url+'embedded-start.html'
         assert '--no-first-run' in kwargs['extra_arguments']
         assert '--no-default-browser-check' in kwargs['extra_arguments']
         (Path(kwargs['profile_path'])/'DevToolsActivePort').write_text('54321\n/path\n')
@@ -34,7 +34,7 @@ def native(tmp_path,monkeypatch):
     browsers=Mock(side_effect=make_browser)
     monkeypatch.setattr(module,'BrowserKioskLauncher',browsers)
     devtools=Mock()
-    devtools.targets.return_value=[SimpleNamespace(url='about:blank')]
+    devtools.targets.return_value=[SimpleNamespace(url=server.url+'embedded-start.html')]
     devtools.command.side_effect=lambda *args:events.append('page.navigate') or {}
     monkeypatch.setattr(module,'ChromiumDevToolsClient',Mock(return_value=devtools))
     embedder=Mock()
