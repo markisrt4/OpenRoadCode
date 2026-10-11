@@ -75,6 +75,7 @@ class NavigationPanelControlTest(unittest.TestCase):
         from apps.orcUi.frontend.tk.navigation_panel_layout import build_navigation_panel
 
         panel = Mock()
+        panel._map_platform = None
         label = Mock()
         label.return_value.winfo_reqheight.return_value = 18
         with patch.multiple(
@@ -345,6 +346,7 @@ def test_close_places_cancels_poll_and_debounce_and_rejects_late_callbacks():
 def test_embedded_platform_hides_native_camera_rail_and_restores_it():
     from ui.navigation.map_platform_if import MapPlatform, MapPlatformState
     panel = object.__new__(NavigationPanel)
+    panel._platform_toggle = None
     panel._native_camera_controls = Mock()
     panel.apply_map_platform_state(MapPlatformState(active=MapPlatform.CESIUM))
     panel._native_camera_controls.grid_remove.assert_called_once()

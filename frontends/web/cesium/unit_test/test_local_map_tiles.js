@@ -27,7 +27,7 @@ test('bounded loads discard stale completions, unload old geometry and clean up'
     camera:{computeViewRectangle(){return rectangle;},moveEnd:{addEventListener(fn){listener=fn;return ()=>listener=null;}}}
   };
   const window={ORCLocalBuildings(){const source={show:true};viewer.dataSources.add(source);return {source};}};
-  const context={window,AbortController,setTimeout,clearTimeout,Map,Set,document:{getElementById(){return {}; }},
+  const context={window,AbortController,setTimeout,clearTimeout,Map,Set,document:{body:{classList:{contains:()=>false}},getElementById(){return {}; }},
     fetch:async()=>({ok:true,json:async()=>({buildings:[]})})};
   vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../local_map_tiles.js'),'utf8'),context);
   const data={coverage:{west_rad:0,south_rad:0,east_rad:5,north_rad:1},tiles:
@@ -68,14 +68,22 @@ test('building-only packs attach without requesting imagery',async()=>{
   const window={ORCLocalBuildings(){const source={show:true};viewer.dataSources.add(source);return {source};}};
   const readout={};
   const context={window,AbortController,setTimeout,clearTimeout,Map,Set,
-    document:{getElementById(){return readout;}},fetch:async()=>({ok:true,json:async()=>({buildings:[]})})};
+    document:{body:{classList:{contains:()=>true}},getElementById(){return readout;}},fetch:async()=>({ok:true,json:async()=>({buildings:[]})})};
   vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../local_map_tiles.js'),'utf8'),context);
-  const map=window.ORCLocalMapTiles(viewer,{coverage:{west_rad:0,south_rad:0,east_rad:1,north_rad:1},
-    tiles:[{id:'a',west_rad:0,south_rad:0,east_rad:1,north_rad:1,imagery_url:null,buildings_url:'/b'}]},C,undefined,false);
+  const data={coverage:{west_rad:0,south_rad:0,east_rad:1,north_rad:1},
+    tiles:[{id:'a',west_rad:0,south_rad:0,east_rad:1,north_rad:1,imagery_url:null,buildings_url:'/b'}]};
+  const map=window.ORCLocalMapTiles(viewer,data,C,undefined,false);
   map.update();await tick();
   assert.equal(images,0);
   assert.equal(sources[1].show,false);
   assert.match(readout.textContent,/Tiles 1\/1 active/);
+  assert.equal(readout.hidden,true,'Normal tile diagnostics do not cover an embedded map');
   map.destroy();
   assert.equal(sources.length,0);
+  context.fetch=async()=>({ok:false});
+  const failed=window.ORCLocalMapTiles(viewer,data,C,undefined,false);
+  failed.update();await tick();
+  assert.match(readout.textContent,/Tile unavailable:/);
+  assert.equal(readout.hidden,false,'Load errors stay visible in embedded mode');
+  failed.destroy();
 });

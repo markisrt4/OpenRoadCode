@@ -5,6 +5,7 @@
 
 import tkinter as tk
 
+from .map_platform_bar import MapPlatformToggle
 from .navigation_earth_control import build_earth_control, build_poi_icon_button
 
 from ui.navigation.poi_models import (PoiActionKind, PoiCategory, TransitMode)
@@ -47,6 +48,10 @@ def build_navigation_panel(panel) -> None:
     panel._places_menu = places_menu
     places.configure(menu=places_menu)
     places.pack(side=tk.LEFT, padx=(0, 4))
+    if panel._map_platform is not None:
+        panel._platform_toggle = MapPlatformToggle(shortcuts, handler=panel._map_platform, theme=panel._theme_bundle)
+        panel._platform_toggle.pack(side=tk.LEFT, padx=(0,4))
+        panel._add_tooltip(panel._platform_toggle, "Switch between the street map and 3D terrain")
     tk.Label(
         bar,
         textvariable=panel._shortcut_status,

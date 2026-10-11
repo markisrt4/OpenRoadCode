@@ -14,6 +14,7 @@ from apps.orcUi.frontend.tk.navigation_screen import NavigationScreen
 
 def test_right_side_controls_have_action_descriptions():
     panel = Mock()
+    panel._map_platform = None
     with patch("apps.orcUi.frontend.tk.navigation_panel_layout.tk"):
         build_navigation_panel(panel)
     descriptions = [call.args[1] for call in panel._add_tooltip.call_args_list]
@@ -58,6 +59,7 @@ def test_theme_rebuild_closes_tooltips_before_destroying_controls():
 def test_navigation_screen_closes_tooltips_when_unmounted(method):
     screen = object.__new__(NavigationScreen)
     panel = Mock()
+    panel._map_platform = None
     screen._panel = panel
     screen._radar_handler = None
     screen._route_weather = None
@@ -81,7 +83,9 @@ def test_camera_rail_fits_short_viewports_and_caps_tall_ones():
     with patch.multiple("apps.orcUi.frontend.tk.navigation_panel_layout.tk",
                         Frame=frame, Button=Mock(), Label=label,
                         Menubutton=Mock(), Menu=Mock(), PhotoImage=Mock(), Toplevel=Mock()):
-        build_navigation_panel(Mock())
+        panel = Mock()
+        panel._map_platform = None
+        build_navigation_panel(panel)
     controls = next(widget for widget, _args, kwargs in frames if kwargs.get("width") == 62)
     rail = next(widget for widget, args, _kwargs in frames if args and args[0] is controls)
     resize = controls.bind.call_args.args[1]

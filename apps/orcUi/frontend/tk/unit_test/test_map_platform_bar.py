@@ -56,3 +56,22 @@ class MapPlatformPollTest(unittest.TestCase):
         screen._map_platform.resize.assert_not_called()
         screen._platform_bar.set_state.assert_not_called()
         screen._host.schedule_ui_callback.assert_not_called()
+
+
+def test_inline_map_terrain_toggle_emits_semantic_requests_and_blocks_busy_clicks():
+    from apps.orcUi.frontend.tk.map_platform_bar import MapPlatformToggle
+    button = object.__new__(MapPlatformToggle)
+    button.configure = Mock()
+    button._handler = Mock()
+    button.set_state(MapPlatformState())
+    assert button.configure.call_args.kwargs['text'] == 'Map ⇄'
+    button._toggle()
+    button._handler.request_platform.assert_called_with(MapPlatform.CESIUM)
+    button.set_state(MapPlatformState(active=MapPlatform.CESIUM,requested=MapPlatform.CESIUM))
+    assert button.configure.call_args.kwargs['text'] == 'Terrain ⇄'
+    button._toggle()
+    button._handler.request_platform.assert_called_with(MapPlatform.MAPLIBRE)
+    button._handler.reset_mock()
+    button.set_state(MapPlatformState(busy=True))
+    button._toggle()
+    button._handler.request_platform.assert_not_called()

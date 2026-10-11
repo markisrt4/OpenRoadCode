@@ -450,8 +450,8 @@ remain pending.
 
 ### Embedded ORC prototype (X11)
 
-Navigation now offers MapLibre / 3D map inside ORC. MapLibre remains the default;
-Google Earth is not an embedded platform in this selector. Selecting 3D map opens
+Navigation offers a Map / Terrain toggle on its existing toolbar. MapLibre remains the default;
+Google Earth is not an embedded platform in this selector. Selecting Terrain opens
 static exploration at the last selected POI, or the current known host/bridge
 position on first use (Detroit if unknown). Selecting a POI's existing local 3D
 action opens that place inside the map area rather than a separate browser window.
@@ -468,8 +468,7 @@ shows a status. The browser and profile are recreated each time.
 
 ORC's header and navigation sidebar remain visible. While Cesium is active, the
 native camera rail hides and Cesium's pan, pitch, zoom and relief controls are
-shown in the map area. The viewer's 2D map button or ORC's MapLibre selector closes
-the browser and restores the native map. Leaving Navigation closes the session;
+shown in the map area. The Map / Terrain toggle closes the browser and restores the native map. Leaving Navigation closes the session;
 re-entering Navigation starts on MapLibre. Route, radar and live vehicle-follow
 overlays still belong to MapLibre; the prototype is destination exploration.
 
@@ -479,7 +478,7 @@ git pull --ff-only
 python -m apps.orcUi
 ```
 
-On Termux/X11, open Navigation and select 3D map, or search for Pine Knob and use
+On Termux/X11, open Navigation and toggle Map to Terrain, or search for Pine Knob and use
 its 3D action. Verify it stays inside the map area; pan, pitch and relief controls
 should respond while ORC sidebar navigation remains usable. Resize ORC, switch
 back using both return controls, then leave Navigation for Home and reopen it.
@@ -515,3 +514,18 @@ Embedded startup uses a script-free local HTTP loading page, not `--app=about:bl
 Some Chromium builds open a regular New Tab window for the latter. The local page
 creates a real app window without loading Cesium or creating a WebGL canvas;
 DevTools locates that exact page and navigates to Cesium only after attachment.
+
+### Compact embedded presentation
+
+The Map / Terrain control shares the Home / Work / Places toolbar; there is no
+separate renderer-selection row or user-facing MapLibre label. It shows the
+current view and disables clicks while opening. Normal loading and failure
+messages use ORC's existing status area.
+
+The embedded browser hides its duplicate header and starts with camera controls
+collapsed. Controls opens a compact four-column overlay for pan, zoom, pitch and
+relief; press Controls again to clear the map. A short relief/tilt readout replaces
+the multi-line data diagnostics. Renderer errors remain visible, and source
+attribution stays available in Cesium's credit area. Standalone viewing retains
+the fuller controls and diagnostics. Validate this layout on Termux by switching
+Map / Terrain and opening/closing Controls at the usual ORC window size.

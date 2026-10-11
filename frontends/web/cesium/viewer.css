@@ -19,8 +19,11 @@ nav {max-height:calc(100% - 190px);overflow-y:auto}
 #pan-right {grid-column:3;grid-row:2}
 #pan-down {grid-column:2;grid-row:3}
 
-body.embedded header {top:4px;left:4px;right:4px;padding:4px;font-size:12px}
-body.embedded nav {top:54px;right:4px;padding:4px;gap:4px;max-height:calc(100% - 104px);font-size:11px}
-body.embedded header button {min-height:32px;padding:4px 8px;font-size:11px}
-body.embedded nav button {padding:4px;min-height:36px}
-body.embedded footer {bottom:18px;left:4px;right:4px;padding:3px;font-size:10px}
+[hidden] {display:none!important}
+body.embedded header {display:none}
+#controls-toggle {position:absolute;z-index:3;top:6px;right:6px;min-height:36px;font-size:12px;padding:4px 8px}
+body.embedded nav {display:grid;grid-template-columns:repeat(4,minmax(44px,1fr));top:48px;right:6px;width:min(280px,calc(100% - 24px));padding:4px;gap:4px;max-height:calc(100% - 88px);font-size:11px}
+body.embedded .pan-controls {display:contents}
+body.embedded .pan-controls button {grid-column:auto;grid-row:auto}
+body.embedded nav button {min-width:0;min-height:36px;padding:4px}
+body.embedded footer {bottom:18px;left:4px;right:auto;max-width:calc(100% - 16px);padding:3px 6px;font-size:11px}

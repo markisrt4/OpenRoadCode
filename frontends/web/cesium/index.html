@@ -15,7 +15,8 @@
 <body>
 <div id="map" aria-label="Interactive 3D globe"></div>
 <header><strong id="destination">3D map</strong><button id="close">Return to ORC</button></header>
-<nav aria-label="Map controls">
+<button id="controls-toggle" aria-controls="map-controls" aria-expanded="false" hidden>Controls</button>
+<nav id="map-controls" aria-label="Map controls">
 <button id="zoom-in" aria-label="Zoom in">＋</button><button id="zoom-out" aria-label="Zoom out">−</button>
 <div class="pan-controls" role="group" aria-label="Pan map">
 <button id="pan-up" aria-label="Pan forward in the current view">↑</button>

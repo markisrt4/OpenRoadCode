@@ -9,6 +9,7 @@ from ui.system.online_mode_if import OnlineModeIf
 from ui.tooltip_if import TooltipFactoryIf
 
 import tkinter as tk
+from ui.navigation.map_platform_if import MapPlatformControlIf
 from collections.abc import Callable
 
 from apps.orcUi.trip_presenter import TripPresentationState
@@ -44,6 +45,7 @@ def build_navigation_screen(
     theme: ThemeBundle,
     online_mode: OnlineModeIf | None = None,
     tooltip_factory: TooltipFactoryIf | None = None,
+    map_platform: MapPlatformControlIf | None = None,
     radar_enabled: bool = False,
     radar_frame_time: int | None = None,
     radar_palette: RadarPalette = RadarPalette.UNIVERSAL,
@@ -67,6 +69,7 @@ def build_navigation_screen(
         theme_bundle=theme,
         online_mode=online_mode,
         tooltip_factory=tooltip_factory,
+        map_platform=map_platform,
         radar_enabled=radar_enabled,
         radar_frame_time=radar_frame_time,
         radar_palette=radar_palette,

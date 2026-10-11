@@ -14,7 +14,18 @@
     if (!response.ok) throw new Error('Unable to load the destination');
     snapshot = await response.json();
     document.body.classList.toggle('embedded', Boolean(snapshot.embedded));
-    if (snapshot.embedded) close.textContent = '2D map';
+    if (snapshot.embedded) {
+      const controls = document.getElementById('map-controls');
+      const toggle = document.getElementById('controls-toggle');
+      controls.hidden = true;
+      toggle.hidden = false;
+      toggle.onclick = () => {
+        controls.hidden = !controls.hidden;
+        toggle.setAttribute('aria-expanded',String(!controls.hidden));
+      };
+      // Keep long data diagnostics accessible without covering the embedded map.
+      document.getElementById('status').title = 'Local offline map';
+    }
     close.disabled = false;
     close.onclick = async () => {
       if (closing) return;
@@ -100,7 +111,7 @@
       const height = Math.round(viewer.camera.positionCartographic.height);
       const tilt = Math.round(C.Math.toDegrees(viewer.camera.pitch)+90);
       const heading = Math.round(C.Math.toDegrees(viewer.camera.heading))%360;
-      const text = `Scene height ${height.toLocaleString()} m · tilt ${tilt}° · heading ${heading}°`;
+      const text = snapshot.embedded ? `Tilt ${tilt}°` : `Scene height ${height.toLocaleString()} m · tilt ${tilt}° · heading ${heading}°`;
       const readout = document.getElementById('camera');
       if (readout.textContent !== text) readout.textContent = text;
     });
@@ -136,6 +147,7 @@
       viewer.scene.requestRender();
     };
     viewer.scene.renderError.addEventListener((_scene,error) => {
+      status.hidden = false;
       status.textContent = 'Rendering stopped: '+error.message+' — return and retry';
     });
     document.querySelectorAll('nav button').forEach(button => { button.disabled = false; });
@@ -169,6 +181,11 @@
       document.getElementById('terrain-status').textContent = terrainVisible
         ? `Terrain ON · sampled relief ${relief.toFixed(0)} m · ${terrainScale}×${terrainScale>1 ? ' exaggerated' : ' actual'}${contours ? ' · 10 m contours' : ''}`
         : 'Terrain OFF · flat comparison';
+      if (snapshot.embedded) {
+        const readout = document.getElementById('terrain-status');
+        readout.title = readout.textContent;
+        readout.textContent = terrainVisible ? `${terrainScale}× relief${terrainScale>1 ? ' · exaggerated' : ''}` : 'Flat ground';
+      }
       viewer.scene.requestRender();
     }
     if (terrain) {
@@ -218,6 +235,13 @@
     }
   } catch (error) {
     status.textContent = 'Unable to render: '+error.message+' — use Return to ORC or the window close button';
+  }
+  if (snapshot?.embedded) {
+    const statusText = document.getElementById('status');
+    document.getElementById('controls-toggle').title = statusText.textContent;
+    // Rendering errors stay visible. Normal dataset diagnostics belong in a tooltip.
+    if (!/unavailable|Unable|stopped/i.test(statusText.textContent)) statusText.hidden = true;
+    document.getElementById('tiles-status').hidden = true;
   }
   window.addEventListener('pagehide', () => { tiledMap?.destroy(); if (viewer && !viewer.isDestroyed()) viewer.destroy(); });
 })();

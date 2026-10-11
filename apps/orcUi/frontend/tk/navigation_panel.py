@@ -18,7 +18,7 @@ from collections.abc import Callable
 
 from apps.orcUi.theme_runtime import theme_bundle as packaged_theme_bundle
 from ui.weather.radar_ui_if import RadarPalette
-from ui.navigation.map_platform_if import MapPlatform, MapPlatformState
+from ui.navigation.map_platform_if import MapPlatform, MapPlatformState, MapPlatformControlIf
 from ui.navigation.poi_models import PoiCategory, TransitMode
 from ui.navigation import (
     MapRequestHandlerIf,
@@ -52,6 +52,7 @@ class NavigationPanel(NavigationPlacesControls, NavigationRadarControls, Navigat
         theme_bundle: ThemeBundle | None = None,
         online_mode: OnlineModeIf | None = None,
         tooltip_factory: TooltipFactoryIf | None = None,
+        map_platform: MapPlatformControlIf | None = None,
         radar_enabled: bool = False,
         radar_frame_time: int | None = None,
         radar_palette: RadarPalette = RadarPalette.UNIVERSAL,
@@ -71,6 +72,8 @@ class NavigationPanel(NavigationPlacesControls, NavigationRadarControls, Navigat
         super().__init__(parent, bg=self._theme_bundle.ui.background)
         del on_back
         self._request_handler = map_request_handler
+        self._map_platform = map_platform
+        self._platform_toggle = None
         self._tooltip_factory = tooltip_factory
         self._tooltips = []
         self._radar_enabled = radar_enabled
@@ -129,6 +132,8 @@ class NavigationPanel(NavigationPlacesControls, NavigationRadarControls, Navigat
 
     def apply_map_platform_state(self, state: MapPlatformState) -> None:
         """Use the embedded viewer's camera controls for local 3D exploration."""
+        if self._platform_toggle is not None:
+            self._platform_toggle.set_state(state)
         if state.active is MapPlatform.CESIUM:
             self._native_camera_controls.grid_remove()
         else:

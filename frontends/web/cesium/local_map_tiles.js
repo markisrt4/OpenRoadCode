@@ -21,6 +21,7 @@ window.ORCLocalMapTiles = function(viewer, data, C, heightAt, buildingsVisible) 
     color:C.Color.TRANSPARENT,glowColor:C.Color.TRANSPARENT,backgroundColor:C.Color.TRANSPARENT,cells:1})) : null;
   function report(message) {
     if (disposed) return;
+    readout.hidden = document.body.classList.contains('embedded') && !/^Tile unavailable:/.test(message || '');
     const attached = [...entries.values()].filter(e=>e.buildings).length;
     readout.textContent = message || `Tiles ${attached}/${wanted.size} active · ${data.tiles.length} installed`;
   }

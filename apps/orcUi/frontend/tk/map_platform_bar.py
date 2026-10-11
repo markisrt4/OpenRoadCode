@@ -1,5 +1,6 @@
 """Presentation-only platform selection for the navigation map."""
 
+from dataclasses import replace
 import tkinter as tk
 from ui.navigation.map_platform_if import MapPlatform, MapPlatformControlIf, MapPlatformState
 from ui.theme import ThemeBundle
@@ -34,3 +35,34 @@ class MapPlatformBar(tk.Frame):
             button.configure(relief=tk.SUNKEN if platform is state.requested else tk.FLAT,
                              state=tk.DISABLED if state.busy else tk.NORMAL)
         self._status.configure(text=state.status)
+
+
+class MapPlatformToggle(tk.Button):
+    """One user-facing Map/Terrain control for the existing navigation toolbar."""
+
+    def __init__(self, parent, *, handler: MapPlatformControlIf, theme: ThemeBundle):
+        self._handler = handler
+        self._state = MapPlatformState()
+        ui = theme.ui
+        super().__init__(parent, text='Map ⇄', command=self._toggle,
+            relief=tk.FLAT, font=('Sans',8,'bold'), width=8,
+            bg=ui.control_background, fg=ui.control_text,
+            activebackground=ui.control_active, padx=4, pady=3)
+        self.set_state(handler.state)
+
+    def _toggle(self):
+        if not self._state.busy:
+            target = MapPlatform.MAPLIBRE if self._state.active is MapPlatform.CESIUM else MapPlatform.CESIUM
+            previous = self._state
+            self.set_state(replace(previous,requested=target,busy=True))
+            try:
+                self._handler.request_platform(target)
+            except Exception:
+                self.set_state(previous)
+                raise
+
+    def set_state(self, state: MapPlatformState):
+        self._state = state
+        self.configure(text='Loading…' if state.busy else 'Terrain ⇄' if state.active is MapPlatform.CESIUM else 'Map ⇄',
+                       state=tk.DISABLED if state.busy else tk.NORMAL,
+                       relief=tk.SUNKEN if state.active is MapPlatform.CESIUM else tk.FLAT)

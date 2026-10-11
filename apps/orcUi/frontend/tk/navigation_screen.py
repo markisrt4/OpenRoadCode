@@ -28,7 +28,6 @@ from ui.navigation.navigation_places_request_handler_if import NavigationPlacesF
 from ui.theme import ThemeBundle
 
 from .navigation_panel import NavigationPanel
-from .map_platform_bar import MapPlatformBar
 from .screen_builders import build_navigation_screen
 
 
@@ -67,7 +66,6 @@ class NavigationScreen(TkScreen, RadarControlsIf):
         self._host = host
         self._map_runtime = map_runtime
         self._map_platform = map_platform
-        self._platform_bar = None
         self._platform_generation = 0
         self._map_request_handler = map_request_handler
         self._route_request_handler = route_request_handler
@@ -107,11 +105,7 @@ class NavigationScreen(TkScreen, RadarControlsIf):
         self._host.set_screen_title("NAVIGATION")
 
         self._platform_generation += 1
-        if self._map_platform is not None:
-            self._platform_bar = MapPlatformBar(self._host.screen_parent,
-                handler=self._map_platform, theme=self._theme_bundle(),
-                platforms=self._map_platform.state.available_platforms)
-            self._platform_bar.pack(fill="x")
+        self._platform_status = None
 
         self._close_places_session()
         session = self._places_factory.create()
@@ -125,6 +119,7 @@ class NavigationScreen(TkScreen, RadarControlsIf):
                 places_handler=self._places_session,
                 online_mode=self._online_mode,
                 tooltip_factory=self._tooltip_factory,
+                map_platform=self._map_platform,
                 route_request_handler=self._route_request_handler,
                 route_simulation_handler=self._route_simulation_handler,
                 on_back=self._on_back,
@@ -165,7 +160,6 @@ class NavigationScreen(TkScreen, RadarControlsIf):
     def hide(self) -> None:
         """Stop transient navigation resources when navigating away."""
         self._platform_generation = self.__dict__.get("_platform_generation", 0) + 1
-        self._platform_bar = None
         if self._radar_handler is not None:
             self._radar_handler.request_navigation_visible(False)
         if self._panel is not None:
@@ -182,7 +176,6 @@ class NavigationScreen(TkScreen, RadarControlsIf):
     def close(self) -> None:
         """Disconnect transient weather widgets when the application exits."""
         self._platform_generation = self.__dict__.get("_platform_generation", 0) + 1
-        self._platform_bar = None
         if self.__dict__.get("_map_platform") is not None:
             self._map_platform.close()
         if self._panel is not None:
@@ -221,8 +214,11 @@ class NavigationScreen(TkScreen, RadarControlsIf):
         width, height = self._panel.map_host_size
         self._map_platform.resize(width, height, self._panel.winfo_toplevel().winfo_id())
         state = self._map_platform.state
-        self._platform_bar.set_state(state)
         self._panel.apply_map_platform_state(state)
+        status = state.status.replace('MapLibre','Map')
+        if status != self._platform_status:
+            self._platform_status = status
+            self._host.set_screen_status(status)
         self._host.schedule_ui_callback(500, lambda: self._poll_platform(generation))
 
     @property
