@@ -447,3 +447,60 @@ Check that panning and scaling retain the viewed area, imagery remains aligned,
 and the marker follows the ground. Reset should restore the destination and 1×.
 No pack downloads are required. Device rendering and the user-run quality gate
 remain pending.
+
+### Embedded ORC prototype (X11)
+
+Navigation now offers MapLibre / 3D map inside ORC. MapLibre remains the default;
+Google Earth is not an embedded platform in this selector. Selecting 3D map opens
+static exploration at the last selected POI, or the current known host/bridge
+position on first use (Detroit if unknown). Selecting a POI's existing local 3D
+action opens that place inside the map area rather than a separate browser window.
+Local packs and the installed Cesium SDK are reused; no map downloads are required.
+
+The browser is still Chromium: this is an X11 surface-hosting experiment rather
+than a new embedded browser engine or dependency. Its blank app window is attached
+before navigating to the local Cesium page, avoiding reparenting a live WebGL
+canvas. Each session owns an isolated temporary profile, loopback origin and
+random loopback DevTools port. Startup and geometry updates run on a serialized
+worker. Generation checks cancel obsolete startup, and owned resources close
+before the transient map host is destroyed. Viewer failure restores MapLibre and
+shows a status. The browser and profile are recreated each time.
+
+ORC's header and navigation sidebar remain visible. While Cesium is active, the
+native camera rail hides and Cesium's pan, pitch, zoom and relief controls are
+shown in the map area. The viewer's 2D map button or ORC's MapLibre selector closes
+the browser and restores the native map. Leaving Navigation closes the session;
+re-entering Navigation starts on MapLibre. Route, radar and live vehicle-follow
+overlays still belong to MapLibre; the prototype is destination exploration.
+
+```bash
+git switch navigation-cesium
+git pull --ff-only
+python -m apps.orcUi
+```
+
+On Termux/X11, open Navigation and select 3D map, or search for Pine Knob and use
+its 3D action. Verify it stays inside the map area; pan, pitch and relief controls
+should respond while ORC sidebar navigation remains usable. Resize ORC, switch
+back using both return controls, then leave Navigation for Home and reopen it.
+Repeat a few times to check cleanup and resize behavior. Verify offline use after
+pack installation. If startup fails, copy the selector status and
+`${LOGGING_TMP_DIR:-${TMPDIR:-${XDG_CACHE_HOME:-$HOME/.cache}/openroadcode/tmp}}/cesium-embedded.log`.
+
+This uses existing Chromium, xdotool and xprop support. If the selector reports
+missing xdotool on Termux, install only these X11 tools:
+
+```bash
+git switch navigation-cesium
+pkg install xdotool xorg-xprop
+```
+
+Focused mocked lifecycle, stale completion, return-to-native, cleanup and contract
+checks pass. Native X11 focus/touch, Termux GPU stability and device resizing are
+pending validation; this environment has no X11 test display. The full quality
+gate remains user-run:
+
+```bash
+git switch navigation-cesium
+python scripts/quality_gate.py
+```

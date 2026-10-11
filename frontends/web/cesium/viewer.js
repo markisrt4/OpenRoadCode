@@ -13,6 +13,8 @@
     const response = await fetch('/config.json');
     if (!response.ok) throw new Error('Unable to load the destination');
     snapshot = await response.json();
+    document.body.classList.toggle('embedded', Boolean(snapshot.embedded));
+    if (snapshot.embedded) close.textContent = '2D map';
     close.disabled = false;
     close.onclick = async () => {
       if (closing) return;

@@ -18,3 +18,9 @@ nav {max-height:calc(100% - 190px);overflow-y:auto}
 #pan-left {grid-column:1;grid-row:2}
 #pan-right {grid-column:3;grid-row:2}
 #pan-down {grid-column:2;grid-row:3}
+
+body.embedded header {top:4px;left:4px;right:4px;padding:4px;font-size:12px}
+body.embedded nav {top:54px;right:4px;padding:4px;gap:4px;max-height:calc(100% - 104px);font-size:11px}
+body.embedded header button {min-height:32px;padding:4px 8px;font-size:11px}
+body.embedded nav button {padding:4px;min-height:36px}
+body.embedded footer {bottom:18px;left:4px;right:4px;padding:3px;font-size:10px}

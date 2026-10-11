@@ -144,3 +144,11 @@ def test_relief_and_pan_contracts_have_safe_defaults(state):
     for value in (0, 2, float('nan')):
         with pytest.raises(ValueError, match='Pan step'):
             replace(state, pan_step_fraction=value)
+
+
+def test_embedded_presentation_flag_is_boolean_and_optional(state):
+    from dataclasses import replace
+    assert state.document()['embedded'] is False
+    assert replace(state, embedded=True).document()['embedded'] is True
+    with pytest.raises(ValueError, match='visibility'):
+        replace(state, embedded='true')

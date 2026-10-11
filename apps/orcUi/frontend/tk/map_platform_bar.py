@@ -6,11 +6,11 @@ from ui.theme import ThemeBundle
 
 
 class MapPlatformBar(tk.Frame):
-    def __init__(self, parent, *, handler: MapPlatformControlIf, theme: ThemeBundle):
+    def __init__(self, parent, *, handler: MapPlatformControlIf, theme: ThemeBundle, platforms=(MapPlatform.MAPLIBRE, MapPlatform.EARTH)):
         ui = theme.ui
         super().__init__(parent, bg=ui.surface_alt)
         self._buttons = {}
-        for platform in MapPlatform:
+        for platform in platforms:
             button = tk.Button(self, text=platform.value, relief=tk.FLAT,
                                font=("Sans", 9, "bold"), bg=ui.control_background,
                                fg=ui.control_text, activebackground=ui.control_active,
@@ -20,7 +20,8 @@ class MapPlatformBar(tk.Frame):
         self._chase = tk.Button(self, text="Chase view", relief=tk.FLAT,
             font=("Sans", 9, "bold"), bg=ui.control_background, fg=ui.control_text,
             command=handler.request_chase)
-        self._chase.pack(side=tk.LEFT, padx=3, pady=2)
+        if MapPlatform.EARTH in platforms:
+            self._chase.pack(side=tk.LEFT, padx=3, pady=2)
         self._status = tk.Label(self, bg=ui.surface_alt, fg=ui.text_muted,
                                 font=("Sans", 8), anchor="w", justify=tk.LEFT)
         self._status.pack(fill=tk.X, expand=True, padx=4)

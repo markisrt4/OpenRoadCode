@@ -124,6 +124,7 @@ def build_navigation_panel(panel) -> None:
     controls = tk.Frame(
         body, bg=ui.surface_alt, width=62, highlightthickness=1, highlightbackground=ui.border
     )
+    panel._native_camera_controls = controls
     controls.grid(row=0, column=1, sticky="ns", padx=(4, 0))
     controls.grid_propagate(False)
     rail = tk.Frame(controls, bg=ui.surface_alt)

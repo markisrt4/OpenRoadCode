@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import math
 
 from common.app_settings import AppSettings, AppSettingsStore
 from apps.launchers.host_location_permission import HostLocationPermission
@@ -14,7 +15,11 @@ from controllers.weather.radar_palette import RadarPalette
 
 from apps.orcUi.application_runtime import OrcUiApplicationRuntime, create_orc_ui_application_runtime
 from apps.orcUi.composition.core import CoreComposition, create_core_composition
-from apps.orcUi.navigation_map_runtime import NavigationMapRuntime
+from apps.orcUi.cesium_map_runtime import CesiumMapRuntime
+from apps.launchers.cesium_embedded_viewer import CesiumEmbeddedViewer
+from controllers.navigation.current_position import get_current_position
+from ui.navigation.cesium_viewer_state import CesiumViewerState
+from ui.navigation import GeoPoint
 from apps.orcUi.composition.games import configure_games
 from apps.orcUi.composition.navigation_places import NavigationPlacesFactory
 from apps.orcUi.composition.tooltips import TooltipFactory
@@ -135,7 +140,7 @@ def create_orc_ui_composition() -> OrcUiComposition:
     games: GamesScreen | None = None
     vision: VisionComposition | None = None
     media: MediaComposition | None = None
-    navigation_maps: NavigationMapRuntime | None = None
+    navigation_maps: CesiumMapRuntime | None = None
     host_location: HostLocationSettingsController | None = None
     try:
         core = create_core_composition()
@@ -222,13 +227,18 @@ def create_orc_ui_composition() -> OrcUiComposition:
         overlays = configure_weather_overlays(app, weather_view, core.map_camera.renderer_client,
                                              weather.radar_tiles, unit_system, core.route_request_handler,
                                              core.presentation)
+        navigation_maps = CesiumMapRuntime(core.map_runtime, CesiumEmbeddedViewer(),
+            initial_view=lambda: CesiumViewerState(get_current_position() or
+                GeoPoint(math.radians(42.3314),math.radians(-83.0458)), label="Map exploration"))
         navigation_places = NavigationPlacesFactory(
             online_allowed=lambda: app.online_mode.online,
-            camera_observer=core.map_camera.request_handler.observe_camera)
+            camera_observer=core.map_camera.request_handler.observe_camera,
+            embedded_explore=navigation_maps.request_explore)
         navigation = NavigationScreen(
             app,
             online_mode=app.online_mode,
-            map_runtime=core.map_runtime,
+            map_runtime=navigation_maps,
+            map_platform=navigation_maps,
             places_factory=navigation_places,
             tooltip_factory=TooltipFactory(app),
             map_request_handler=core.map_camera.request_handler,

@@ -23,10 +23,11 @@ class NavigationPlacesFactory(NavigationPlacesFactoryIf):
     def __init__(self, *, favorites: MapFavorites | None = None,
                  actions: PoiActionExecutorIf | None = None,
                  search_factory: Callable[[], PoiSearchControllerIf] = PoiSearchController,
-                 online_allowed: Callable[[], bool] = lambda: True, camera_observer=None):
+                 online_allowed: Callable[[], bool] = lambda: True, camera_observer=None, embedded_explore=None):
         self._favorites = favorites if favorites is not None else MapFavorites()
         self._owned_3d = None if actions is not None else CesiumPoiActions(
-            EarthExplorationActions(AndroidPoiActionExecutor(AndroidAppLauncher())))
+            EarthExplorationActions(AndroidPoiActionExecutor(AndroidAppLauncher())),
+            embedded_explore=embedded_explore)
         self._actions = actions if actions is not None else self._owned_3d
         self._search_factory = search_factory
         self._sessions = WeakSet()

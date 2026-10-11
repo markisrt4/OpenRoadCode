@@ -1,6 +1,6 @@
 from threading import Event
 import time
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 import pytest
 
@@ -75,3 +75,22 @@ def test_other_actions_delegate():
     adapter = module.CesiumPoiActions(fallback)
     action = PoiAction(PoiActionKind.OPEN_WEBSITE,'Website')
     assert adapter.execute(poi(),action) is fallback.execute.return_value
+
+
+def test_embedded_action_requests_semantic_view_without_launching_a_browser(monkeypatch):
+    from ui.navigation import GeoPoint
+    from ui.navigation.poi_models import PoiAction, PoiActionKind
+    import apps.launchers.cesium_poi_actions as module
+    request = Mock()
+    fallback = Mock()
+    adapter = module.CesiumPoiActions(fallback, embedded_explore=request)
+    from types import SimpleNamespace
+    poi = SimpleNamespace(position=GeoPoint(.7,-1.4),name='Selected place')
+    action = PoiAction(PoiActionKind.EXPLORE_3D,'3D map',provider_id='local-3d')
+    with patch.object(module,'BrowserKioskLauncher') as browser:
+        assert 'embedded' in adapter.execute(poi,action)
+        browser.assert_not_called()
+    assert request.call_args.args[0].destination == poi.position
+    adapter.close()
+    with pytest.raises(RuntimeError,match='closed'):
+        adapter.execute(poi,action)

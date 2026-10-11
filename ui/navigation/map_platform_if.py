@@ -7,6 +7,7 @@ from typing import Protocol
 
 class MapPlatform(str, Enum):
     MAPLIBRE = "MapLibre"
+    CESIUM = "3D map"
     EARTH = "Google Earth"
 
 
@@ -16,6 +17,7 @@ class MapPlatformState:
     requested: MapPlatform = MapPlatform.MAPLIBRE
     busy: bool = False
     status: str = "MapLibre"
+    available_platforms: tuple[MapPlatform, ...] = (MapPlatform.MAPLIBRE, MapPlatform.EARTH)
 
 
 class MapPlatformControlIf(Protocol):

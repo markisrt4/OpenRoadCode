@@ -340,3 +340,13 @@ def test_close_places_cancels_poll_and_debounce_and_rejects_late_callbacks():
     panel._poll_poi_events()
     assert panel._places_handler.mock_calls == []
     panel._shortcut_status.set.assert_not_called()
+
+
+def test_embedded_platform_hides_native_camera_rail_and_restores_it():
+    from ui.navigation.map_platform_if import MapPlatform, MapPlatformState
+    panel = object.__new__(NavigationPanel)
+    panel._native_camera_controls = Mock()
+    panel.apply_map_platform_state(MapPlatformState(active=MapPlatform.CESIUM))
+    panel._native_camera_controls.grid_remove.assert_called_once()
+    panel.apply_map_platform_state(MapPlatformState())
+    panel._native_camera_controls.grid.assert_called_once()

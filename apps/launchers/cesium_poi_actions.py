@@ -21,8 +21,9 @@ from ui.navigation.poi_models import PoiAction, PoiActionKind
 class CesiumPoiActions(PoiActionExecutorIf):
     """Own one viewer at a time; composition closes it on application shutdown."""
 
-    def __init__(self, fallback):
+    def __init__(self, fallback, *, embedded_explore=None):
         self._fallback = fallback
+        self._embedded_explore = embedded_explore
         self._lock = threading.RLock()
         self._session = None
         self._closed = False
@@ -40,6 +41,9 @@ class CesiumPoiActions(PoiActionExecutorIf):
         with self._lock:
             if self._closed:
                 raise RuntimeError('3D viewer adapter is closed')
+            if self._embedded_explore is not None:
+                self._embedded_explore(state)
+                return 'Opening embedded 3D map; choose MapLibre to return'
             if self._session is not None:
                 raise RuntimeError('Close the current 3D viewer before opening another place')
             imagery_dir, terrain_dir, building_dir = (preferred_imagery_directory(state.destination),

@@ -109,7 +109,8 @@ class NavigationScreen(TkScreen, RadarControlsIf):
         self._platform_generation += 1
         if self._map_platform is not None:
             self._platform_bar = MapPlatformBar(self._host.screen_parent,
-                handler=self._map_platform, theme=self._theme_bundle())
+                handler=self._map_platform, theme=self._theme_bundle(),
+                platforms=self._map_platform.state.available_platforms)
             self._platform_bar.pack(fill="x")
 
         self._close_places_session()
@@ -219,7 +220,9 @@ class NavigationScreen(TkScreen, RadarControlsIf):
             return
         width, height = self._panel.map_host_size
         self._map_platform.resize(width, height, self._panel.winfo_toplevel().winfo_id())
-        self._platform_bar.set_state(self._map_platform.state)
+        state = self._map_platform.state
+        self._platform_bar.set_state(state)
+        self._panel.apply_map_platform_state(state)
         self._host.schedule_ui_callback(500, lambda: self._poll_platform(generation))
 
     @property
