@@ -45,7 +45,7 @@ class WeatherAlertBanner(tk.Frame):
     def update_expiration(self,now:datetime)->None:
         if self._alert is not None:self._expiration.configure(text=weather_alert_expiration_text(self._alert,now))
     def set_theme_bundle(self,theme):
-        self._theme=theme;ui=theme.ui;accent=self._severity_color();self.configure(bg=ui.surface_alt,highlightbackground=accent)
+        self._theme=theme;ui=theme.ui;accent=self._severity_color();self.configure(bg=ui.surface_alt,highlightcolor=accent, highlightbackground=accent)
         self._severity.configure(bg=accent,fg=ui.control_text);self._event.configure(bg=ui.surface_alt,fg=ui.text);self._headline.configure(bg=ui.surface_alt,fg=ui.text_muted);self._expiration.configure(bg=ui.surface_alt,fg=ui.text_muted)
         for button in (self._details,self._dismiss):button.configure(bg=ui.control_background,fg=ui.control_text,activebackground=ui.control_active,activeforeground=ui.text)
     def _severity_color(self):

@@ -24,6 +24,9 @@ platform-default highlight ring and beveled border. These native defaults can
 remain white under Termux:X11 even when the widget background and `bd` are set.
 Shared Tk helpers follow the same policy. Editable media fields instead use themed
 backgrounds and an explicit accent focus edge. Theme-colored card boundaries and
+their focus colors must both be explicit, including Home/context panels, Weather
+cards, and Vision's canvas. City-weather tables use a scoped flat ttk layout and
+a themed Tk scrollbar so desktop-theme edges do not introduce bright borders.
 selected-state accents remain deliberate presentation; no UI requests or lifecycle
 behavior change with this styling policy. The desktop window-manager frame is
 owned by the X11 desktop rather than ORC widget styling.

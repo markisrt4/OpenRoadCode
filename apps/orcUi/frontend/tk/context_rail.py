@@ -47,7 +47,7 @@ class ContextRail(tk.Frame):
             bg=ui.surface,
             width=self.WIDTH,
             highlightthickness=1,
-            highlightbackground=ui.border,
+            highlightcolor=ui.border, highlightbackground=ui.border,
         )
         self.pack_propagate(False)
         self._on_expand = on_expand
@@ -71,7 +71,7 @@ class ContextRail(tk.Frame):
     def set_theme_bundle(self, theme: ThemeBundle) -> None:
         """Apply a CSS-derived theme while preserving page and telemetry state."""
         self._theme = theme
-        self.configure(bg=theme.ui.surface, highlightbackground=theme.ui.border)
+        self.configure(bg=theme.ui.surface, highlightcolor=theme.ui.border, highlightbackground=theme.ui.border)
         self._rebuild()
 
     def update_vehicle_state(self, state: VehiclePresentationState) -> None:
@@ -393,7 +393,7 @@ class ContextRail(tk.Frame):
             parent,
             bg=ui.surface,
             highlightthickness=1,
-            highlightbackground=ui.border,
+            highlightcolor=ui.border, highlightbackground=ui.border,
         )
 
     def _metric_table(

@@ -91,7 +91,7 @@ class CameraVisionScreen(TkScreen, VisionUiIf):
         panel.grid_rowconfigure(0, weight=1)
         panel.grid_columnconfigure(0, weight=1)
         self._canvas = tk.Canvas(
-            panel, bg="#000000", highlightthickness=1, highlightbackground=theme.border
+            panel, bg="#000000", highlightthickness=1, highlightcolor=theme.border, highlightbackground=theme.border
         )
         self._canvas.grid(row=0, column=0, sticky="nsew", padx=(0, 6))
 

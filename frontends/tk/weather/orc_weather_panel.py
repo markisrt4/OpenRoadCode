@@ -235,7 +235,7 @@ class OrcWeatherPanel(tk.Frame, WeatherUiIf):
                 highlightthickness=0,
             )
 
-        self._hero.configure(bg=ui.surface, highlightbackground=ui.border)
+        self._hero.configure(bg=ui.surface, highlightcolor=ui.border, highlightbackground=ui.border)
         for widget in (self._symbol, self._temperature, self._condition, self._summary):
             widget.configure(bg=ui.surface)
         self._symbol.configure(fg=ui.accent_primary)
@@ -245,7 +245,7 @@ class OrcWeatherPanel(tk.Frame, WeatherUiIf):
         self._metrics.configure(bg=ui.surface)
 
         for card, title, value in self._metric_cards:
-            card.configure(bg=ui.surface_alt, highlightbackground=ui.border)
+            card.configure(bg=ui.surface_alt, highlightcolor=ui.border, highlightbackground=ui.border)
             title.configure(bg=ui.surface_alt, fg=ui.text_muted)
             value.configure(bg=ui.surface_alt, fg=ui.text)
 
@@ -380,7 +380,7 @@ class OrcWeatherPanel(tk.Frame, WeatherUiIf):
         ui = theme.ui
         accent = weather_accent(detail, theme)
         cell = tk.Frame(
-            parent, bg=ui.surface, bd=0, highlightthickness=1, highlightbackground=ui.border
+            parent, bg=ui.surface, bd=0, highlightthickness=1, highlightcolor=ui.border, highlightbackground=ui.border
         )
         cell.grid(
             row=0,

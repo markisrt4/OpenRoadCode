@@ -35,16 +35,29 @@ class CityWeatherDetailsPopup(tk.Toplevel):
         table_host.pack(fill=tk.BOTH, expand=True)
         style = ttk.Style(self)
         style.configure('CityWeather.Treeview', background=ui.control_background,
-                        fieldbackground=ui.control_background, foreground=ui.text, rowheight=24)
+                        fieldbackground=ui.control_background, foreground=ui.text, rowheight=24,
+                        borderwidth=0, relief=tk.FLAT, bordercolor=ui.border,
+                        lightcolor=ui.border, darkcolor=ui.border)
+        style.layout('CityWeather.Treeview', [('Treeview.treearea', {'sticky': 'nswe'})])
+        style.map('CityWeather.Treeview', background=[('selected', ui.control_active)],
+                  foreground=[('selected', ui.text)])
         style.configure('CityWeather.Treeview.Heading', background=ui.control_background,
-                        foreground=ui.text)
+                        foreground=ui.text, relief=tk.FLAT, borderwidth=0,
+                        bordercolor=ui.border, lightcolor=ui.border, darkcolor=ui.border)
+        style.map('CityWeather.Treeview.Heading',
+                  background=[('active', ui.control_active)], foreground=[('active', ui.text)])
         self._table = ttk.Treeview(table_host, style='CityWeather.Treeview', columns=('time', 'temp', 'wind', 'rain'), show='headings', height=6)
         for name, label, width in (('time', 'Local time', 145), ('temp', 'Temp', 75),
                                    ('wind', 'Wind', 90), ('rain', 'Rain / hour', 95)):
             self._table.heading(name, text=label)
             self._table.column(name, width=width, minwidth=55, anchor='w')
         self._table.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        scroll = ttk.Scrollbar(table_host, orient=tk.VERTICAL, command=self._table.yview)
+        scroll = tk.Scrollbar(
+            table_host, orient=tk.VERTICAL, command=self._table.yview,
+            bg=ui.control_background, activebackground=ui.control_active,
+            troughcolor=ui.surface, highlightthickness=0, bd=0,
+            relief=tk.FLAT, elementborderwidth=0,
+        )
         scroll.pack(side=tk.RIGHT, fill=tk.Y)
         self._table.configure(yscrollcommand=scroll.set)
         self.bind('<Escape>', lambda _event: on_close())
