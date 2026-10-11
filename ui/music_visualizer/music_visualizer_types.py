@@ -20,6 +20,7 @@ class KickMode(Enum):
 class MusicVisualizationMode(Enum):
     """Semantic visualization choices shared by frontend implementations."""
 
+    FREQUENCY_TUNNEL = "frequency_tunnel"
     SPECTRUM = "spectrum"
     ORBITING_PLANETS = "orbiting_planets"
     ELECTRIC_FREEWAY = "electric_freeway"
@@ -55,3 +56,22 @@ class VisualizerFrame:
     tom_mid: float = 0.0
     tom_low: float = 0.0
     cymbal: float = 0.0
+
+
+class MusicVisualizerView(Enum):
+    """Visible native scene sharing the current analysis session."""
+
+    VISUALIZER = "visualizer"
+    DRUM_KIT = "drum_kit"
+
+
+@dataclass(frozen=True, slots=True)
+class MusicVisualizerOptions:
+    """Presentation-only settings, independent of audio capture and calibration."""
+
+    mode: MusicVisualizationMode = MusicVisualizationMode.FREQUENCY_TUNNEL
+    view: MusicVisualizerView = MusicVisualizerView.VISUALIZER
+    kick_mode: KickMode = KickMode.SINGLE
+    beat_gain: float = 1.5
+    drum_zoom: float = 1.6
+    show_sticks: bool = True

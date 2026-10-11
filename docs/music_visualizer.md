@@ -11,24 +11,29 @@ native OpenGL in its Tk Media screen, using the existing GLX backend shared with
 the ECU renderer (including Termux/X11 compatibility). No browser process or local
 HTTP server is created for this renderer.
 
-The first native effect is **Frequency Tunnel**: spectrum-shaped rings travel
+The native picker offers nine distinct scenes: Frequency Tunnel, Spectrum Field,
+Orbiting Planets, Electric Freeway, Explosion Field, Star Dance, Electric Rings,
+Neon Ribbon, and Kaleidoscope. Frequency Tunnel sends spectrum-shaped rings
 through a 3D tunnel, expanding and brightening on musical onsets. **Drum Kit**
 switches the same GL surface to shaded drum shells, chrome rims, drumhead pulses,
-animated sticks, and wobbling cymbals. Single/double kick layouts share the same
-capture and calibration. The **Beat response** slider changes visual pulse strength.
-This initial native release has one visualizer effect; the remaining browser
-presets have not yet been ported.
+two optional animated sticks, and wobbling cymbals. The camera starts much closer;
+DRUM ZOOM adjusts the framing while preserving the kit on narrow surfaces.
+Single/double kick layouts share the same capture and calibration. The **Beat response** slider changes visual pulse strength.
+All capture, calibration, scene, kick, beat, zoom, and stick controls live in a
+scrollable ORC-themed rail on the left; the GL surface fills the right side.
+Selecting a scene immediately shows it without restarting capture. These native
+scenes use their own GL geometry rather than copying the browser shaders.
 
 Audio analysis supplies an onset envelope based on positive spectral flux, with
 fast attack, 140 ms decay, and a 120 ms retrigger guard. Sustained tones do not
 produce a continuous full-strength beat pulse. Percussion estimates drive the
 individual drums; they are estimates from mixed audio, not isolated drum tracks.
 
-Select **android-playback** on Termux and press **START** after granting playback
+Select **android-playback** on Termux and press **START AUDIO** after granting playback
 capture consent in Android Bridge. The native renderer never opens a microphone.
 **pipewire** captures the configured Linux input and **simulated** demonstrates
 the graphics without real capture. Source selection waits for START. STOP and
-leaving the screen stop capture and animation. Switching Tunnel/Drum Kit leaves
+leaving the screen stop capture and animation. Switching visualizer scenes or Drum Kit leaves
 the audio session alive.
 
 The browser renderer remains available via
@@ -40,13 +45,14 @@ For PipeWire playback monitoring, set
 `OPENROAD_MUSIC_VISUALIZER_PIPEWIRE_TARGET` to the appropriate monitor node.
 Termux/Android defaults to Android Playback. Start **Android Bridge → Android
 Playback Audio → START PLAYBACK CAPTURE**, grant audio permission, and approve
-Android's capture prompt, then press **START** in native ORC (**START AUDIO** in the browser renderer).
+Android's capture prompt, then press **START AUDIO** in ORC.
 `OPENROAD_MUSIC_VISUALIZER_SOURCE=pipewire` or `android-playback` overrides the
-initial input. Capture begins only when START is pressed. STOP and leaving
-the screen release capture; ORC shutdown closes Chromium and the local server.
+initial input. Capture begins only when START AUDIO is pressed. STOP and leaving
+the screen release capture. Native shutdown releases the renderer; the browser
+override closes Chromium and its local server.
 CALIBRATE, FINISH, and CLEAR manage the shared ambient-noise profile.
 
-Both input and preset menus render inside the browser page, avoiding native
+In the browser override, input and preset menus render inside the browser page, avoiding native
 Chromium popup windows that can fail when reparented into Termux/X11. Silence is
 reported separately from a failed stream. If Android Playback connects but stays
 silent, clear calibration and try a capture-permitted audio app. Inspect native
@@ -94,8 +100,9 @@ Run the automated unit and integration suites from the repository root:
 python scripts/run_tests.py all
 ```
 
-A native GL component check creates an X11 context, renders both scenes, checks
-nonempty frames, verifies double kick changes the image, and releases resources:
+A native GL component check creates an X11 context and the actual themed
+left/right screen, renders all nine scenes, checks nonempty and distinct frames,
+verifies kick/stick changes and small-window resize, and releases resources:
 
 ```bash
 python -m apps.orcUi.component_test.native_music_visualizer_cli
@@ -109,7 +116,7 @@ git pull --ff-only
 OPENROAD_MUSIC_VISUALIZER_SOURCE=android-playback ./runOrcUi
 ```
 
-Start bridge capture, play a capture-permitted local MP3, press START, and check
+Start bridge capture, play a capture-permitted local MP3, press START AUDIO, and check
 that tunnel pulses and individual drum activity respond. Native OpenGL uses the
 existing pinned `PyOpenGL==3.1.10` and `pyopengltk==0.0.4` dependencies. Keep the
 normal Termux/X11 graphics configuration; the cloud component check uses Mesa

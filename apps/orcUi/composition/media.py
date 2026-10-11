@@ -277,6 +277,7 @@ def _configure_media(app: OrcUiApp, runtime, cleanup: ResourceCleanup) -> MediaC
                             and (os.getenv("TERMUX_VERSION") or os.getenv("ANDROID_ROOT")
                                  or os.getenv("PREFIX", "").startswith("/data/data/com.termux/"))
                             else selected_music_visualizer_source()),
+            native_controls=renderer == "opengl",
             **panel_options,
             theme_bundle=lambda: theme_bundle(app.theme_mode),
         )
