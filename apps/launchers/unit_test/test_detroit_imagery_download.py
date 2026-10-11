@@ -143,3 +143,57 @@ def test_oversized_image_stops_at_payload_cap(monkeypatch):
     monkeypatch.setattr(downloader, 'MAX_BYTES', 8)
     with pytest.raises(RuntimeError, match='20 MiB'):
         downloader.read_image(io.BytesIO(b'0123456789'))
+
+
+def test_catalog_retries_timeout_during_body_read_and_closes_response(monkeypatch):
+    first = Mock()
+    first.__enter__ = Mock(return_value=first)
+    first.__exit__ = Mock(return_value=False)
+    first.read.side_effect = TimeoutError('body read timed out')
+    second = io.BytesIO(b'{"features": []}')
+    opened = Mock(side_effect=[first, second])
+    monkeypatch.setattr(downloader, 'open_source', opened)
+    monkeypatch.setattr(downloader.time, 'sleep', lambda _: None)
+    assert downloader.get_json('/query', timeout=30, attempts=2) == {'features': []}
+    assert opened.call_count == 2
+    assert opened.call_args.kwargs == {'timeout': 30, 'attempts': 1}
+    first.__exit__.assert_called_once()
+    assert second.closed
+
+
+def test_slow_catalog_batch_is_split_without_losing_records(monkeypatch):
+    failure = downloader.SourceRequestError('slow response')
+    failure.__cause__ = TimeoutError('timed out')
+    query = Mock(side_effect=[
+        {'exceededTransferLimit': True}, {'objectIds': [1, 2]}, failure,
+        {'features': [{'attributes': {'OBJECTID': 1}}]},
+        {'features': [{'attributes': {'OBJECTID': 2}}]},
+    ])
+    monkeypatch.setattr(downloader, 'get_json', query)
+    catalog = downloader.source_catalog(downloader.BOUNDS)
+    assert [feature['attributes']['OBJECTID'] for feature in catalog['features']] == [1, 2]
+    assert [call.kwargs['objectIds'] for call in query.call_args_list[2:]] == ['1,2', '1', '2']
+
+
+def test_catalog_batches_are_bounded_and_non_retryable_failure_stops(monkeypatch):
+    from urllib.error import HTTPError
+    identifiers = list(range(41))
+
+    def query(endpoint, **parameters):
+        if parameters.get('returnIdsOnly'):
+            return {'objectIds': identifiers}
+        if 'objectIds' not in parameters:
+            return {'exceededTransferLimit': True}
+        ids = list(map(int, parameters['objectIds'].split(',')))
+        assert len(ids) <= 20
+        return {'features': [{'attributes': {'OBJECTID': value}} for value in ids]}
+
+    monkeypatch.setattr(downloader, 'get_json', query)
+    assert len(downloader.source_catalog(downloader.BOUNDS)['features']) == 41
+    failure = downloader.SourceRequestError('forbidden')
+    failure.__cause__ = HTTPError(downloader.SERVICE, 403, 'forbidden', {}, None)
+    calls = Mock(side_effect=[{'exceededTransferLimit': True}, {'objectIds': [1, 2]}, failure])
+    monkeypatch.setattr(downloader, 'get_json', calls)
+    with pytest.raises(downloader.SourceRequestError, match='forbidden'):
+        downloader.source_catalog(downloader.BOUNDS)
+    assert calls.call_count == 3

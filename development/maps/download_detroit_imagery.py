@@ -3,6 +3,7 @@
 import argparse
 from datetime import datetime, timezone
 import hashlib
+from http.client import IncompleteRead
 import json
 import re
 import time
@@ -19,6 +20,15 @@ SERVICE = "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPPlus/Ima
 BOUNDS = (-83.065, 42.315, -83.025, 42.345)
 MAX_BYTES = 20 * 1024 * 1024
 CATALOG_FIELDS = 'OBJECTID,Name,Year,raster_name,agency,vendor,download_url,acquisition_date,resolution_value,resolution_units'
+CATALOG_BATCH_SIZE = 20
+
+
+class SourceRequestError(RuntimeError):
+    """A failed network response, distinct from invalid catalog/source data."""
+
+
+def retryable(error):
+    return not isinstance(error, HTTPError) or error.code in (429, 500, 502, 503, 504)
 
 
 def source_catalog(bounds):
@@ -40,8 +50,17 @@ def source_catalog(bounds):
     print(f'USGS imagery: fetching {len(identifiers)} source records in batches…', flush=True)
 
     def fetch(ids):
-        document = get_json('/query', objectIds=','.join(map(str, ids)),
-                            outFields=CATALOG_FIELDS, returnGeometry='false')
+        print(f'Catalog: requesting {len(ids)} records…', flush=True)
+        try:
+            document = get_json('/query', objectIds=','.join(map(str, ids)),
+                                outFields=CATALOG_FIELDS, returnGeometry='false',
+                                timeout=30, attempts=2)
+        except SourceRequestError as error:
+            if len(ids) == 1 or not retryable(error.__cause__):
+                raise
+            print(f'Catalog batch failed; splitting {len(ids)} records into smaller requests.', flush=True)
+            middle = len(ids)//2
+            return fetch(ids[:middle]) + fetch(ids[middle:])
         if document.get('exceededTransferLimit'):
             if len(ids) == 1:
                 raise RuntimeError('USGS truncated a single source record')
@@ -54,8 +73,8 @@ def source_catalog(bounds):
         return features
 
     features = []
-    for offset in range(0, len(identifiers), 100):
-        features.extend(fetch(identifiers[offset:offset+100]))
+    for offset in range(0, len(identifiers), CATALOG_BATCH_SIZE):
+        features.extend(fetch(identifiers[offset:offset+CATALOG_BATCH_SIZE]))
         print(f'Catalog: {len(features):,}/{len(identifiers):,} records · '
               f'{len(features)*100/len(identifiers):.0f}%', flush=True)
     return {'features': features, 'exceededTransferLimit': False,
@@ -111,26 +130,33 @@ def read_image(response):
     return bytes(content)
 
 
-def open_source(url, *, timeout):
-    for attempt in range(3):
+def open_source(url, *, timeout, attempts=3):
+    for attempt in range(attempts):
         try:
             return urllib.request.urlopen(url, timeout=timeout)
         except (URLError, TimeoutError) as error:
-            if (isinstance(error, HTTPError) and error.code not in (429,500,502,503,504)) or attempt == 2:
+            if not retryable(error) or attempt == attempts-1:
                 raise
-            print(f'USGS imagery request failed; retry {attempt+1}/2: {error}', flush=True)
+            print(f'USGS imagery request failed; retry {attempt+1}/{attempts-1}: {error}', flush=True)
             time.sleep(attempt+1)
 
 
-def get_json(endpoint, **parameters):
+def get_json(endpoint, *, timeout=60, attempts=3, **parameters):
     stage = {"":"service metadata", "/query":"NAIP source catalog", "/exportImage":"bounded image export"}.get(endpoint, endpoint)
     print(f'USGS imagery: requesting {stage}…', flush=True)
     url = SERVICE + endpoint + "?" + urllib.parse.urlencode({"f":"json", **parameters})
-    try:
-        with open_source(url, timeout=60) as response:
-            document = json.load(response)
-    except (URLError, TimeoutError) as error:
-        raise RuntimeError(f'{stage} failed after retries: {error} · endpoint {SERVICE+endpoint}') from error
+    for attempt in range(attempts):
+        try:
+            # Retry the whole response, including body reads. Do not nest the
+            # connection retry loop: each attempt gets one fresh connection.
+            with open_source(url, timeout=timeout, attempts=1) as response:
+                document = json.load(response)
+            break
+        except (URLError, TimeoutError, IncompleteRead) as error:
+            if not retryable(error) or attempt == attempts-1:
+                raise SourceRequestError(f'{stage} failed after retries: {error} · endpoint {SERVICE+endpoint}') from error
+            print(f'USGS {stage} response failed; retry {attempt+1}/{attempts-1}: {error}', flush=True)
+            time.sleep(attempt+1)
     if "error" in document:
         raise RuntimeError(f"USGS service error: {document['error']}")
     return document
