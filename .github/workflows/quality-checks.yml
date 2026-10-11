@@ -127,10 +127,13 @@ jobs:
           source scripts/installers/installer_features.sh
           mapfile -t features < <(get_all_features_for_target linux-dev)
           ./scripts/installers/install_python_env.sh "${features[@]}"
-          venv/bin/python -m pip install pytest ruff
+          venv/bin/python -m pip install -r requirements-dev.txt
 
       - name: Lint Python
         run: venv/bin/python -m ruff check .
+
+      - name: Enforce strict UI contract types
+        run: venv/bin/python scripts/check_ui_types.py
 
       - name: Check Python module size
         run: venv/bin/python scripts/check_python_module_size.py

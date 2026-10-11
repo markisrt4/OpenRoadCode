@@ -11,9 +11,10 @@ from collections.abc import Callable
 from apps.orcUi.theme_runtime import theme_bundle as packaged_theme_bundle
 from ui.navigation import MapRequestHandlerIf
 from ui.theme import ThemeBundle, ThemeMode
+from ui.ui_widget import UiWidget
 
 
-class HomeMapPanel(tk.Frame):
+class HomeMapPanel(tk.Frame, UiWidget):
     """Provide the HOME navigation card and its native renderer host."""
 
     def __init__(

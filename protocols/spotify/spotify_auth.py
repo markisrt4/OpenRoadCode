@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 import secrets
 import webbrowser
 from dataclasses import dataclass
@@ -115,8 +116,14 @@ class SpotifyAuth:
         self._token_store.save(tokens)
         return tokens
 
-    def login(self) -> OAuthTokens:
-        """Run the existing desktop-style interactive OAuth flow."""
+    def login(self, *, is_current: Callable[[], bool] = lambda: True) -> OAuthTokens:
+        """Run the desktop flow while its owner remains active.
+
+        @param is_current Whether authorization is still wanted.
+        @return Authorized tokens.
+        """
+        if not is_current():
+            raise SpotifyAuthError("Spotify authorization cancelled")
         authorization = self.begin_authorization()
 
         print("Opening Spotify authorization URL...")
@@ -128,7 +135,9 @@ class SpotifyAuth:
             self._config.redirect_uri,
             timeout_seconds=self._callback_timeout_seconds,
         )
-        callback = callback_server.wait_for_callback()
+        callback = callback_server.wait_for_callback(is_current=is_current)
+        if not is_current():
+            raise SpotifyAuthError("Spotify authorization cancelled")
 
         return self.complete_authorization(
             authorization,

@@ -23,6 +23,7 @@ from ui.navigation import (
 from frontends.tk.automotive.offroad_theme import OffroadTheme
 from ui.system import StatusMessage, StatusSeverity, StatusUiIf, StatusValue
 from ui.theme import StyleSheet
+from ui.ui_widget import UiWidget
 
 
 # ORC automotive palette.
@@ -119,6 +120,7 @@ class OffroadDashboardPanel(
     PositionUiIf,
     GroundTrackUiIf,
     StatusUiIf,
+    UiWidget,
 ):
     """Display trail-oriented navigation data through narrow UI contracts."""
 

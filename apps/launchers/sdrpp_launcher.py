@@ -22,6 +22,7 @@ from protocols.sdrpp_remote_control import SDRPPRemoteControlClient
 DEFAULT_TERMUX_SDRPP_SOURCE = Path(
     "/root/.local/state/openroadcode/build/SDRPlusPlus"
 )
+DEFAULT_TERMUX_LEGACY_SDRPP_SOURCE = Path("/root/SDRPlusPlus")
 DEFAULT_TERMUX_PROOT_DISTRIBUTION = "debian"
 DEFAULT_TERMUX_XDG_RUNTIME_DIR = "/tmp/runtime-root"
 DEFAULT_NATIVE_SDRPP_ROOT = (
@@ -190,11 +191,21 @@ class SDRPPLauncher(AppLauncherIf):
             raise RuntimeError("Could not find native SDR++ or proot-distro on Termux")
         source = str(self.termux_sdrpp_source)
         runtime_dir = DEFAULT_TERMUX_XDG_RUNTIME_DIR
-        shell_command = f"mkdir -p {shlex.quote(runtime_dir)} && chmod 700 {shlex.quote(runtime_dir)} && cd {shlex.quote(source)} && exec ./build/sdrpp -r root_dev --autostart"
+        shell_command = f"mkdir -p {shlex.quote(runtime_dir)} && chmod 700 {shlex.quote(runtime_dir)} && " + _termux_source_selection(Path(source)) + ' && cd "$sdrpp_source" && exec ./build/sdrpp -r root_dev --autostart'
         return [proot_distro, "login", self.termux_proot_distribution, "--shared-tmp", "--", "env", f"DISPLAY={display}", f"XDG_RUNTIME_DIR={runtime_dir}", "XDG_SESSION_TYPE=x11", "GDK_BACKEND=x11", "LIBGL_ALWAYS_SOFTWARE=1", "bash", "-lc", shell_command]
 
     def _request_fullscreen(self, display: str, environment: dict[str, str]) -> None:
         subprocess.Popen(["bash", "-lc", f'sleep 3; DISPLAY="{display}" wmctrl -r "SDR++" -b add,fullscreen'], env=environment, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True, text=True)
+
+
+def _termux_source_selection(source: Path) -> str:
+    """Resolve the default build inside Debian, preserving explicit paths."""
+    selection = f"sdrpp_source={shlex.quote(str(source))}"
+    if source == DEFAULT_TERMUX_SDRPP_SOURCE:
+        selection += ('; if [ ! -x "$sdrpp_source/build/sdrpp" ] '
+                      f'&& [ -x {shlex.quote(str(DEFAULT_TERMUX_LEGACY_SDRPP_SOURCE))}/build/sdrpp ]; then '
+                      f'sdrpp_source={shlex.quote(str(DEFAULT_TERMUX_LEGACY_SDRPP_SOURCE))}; fi')
+    return selection
 
 
 def sync_sdrpp_theme(theme: str, *, termux_proot_distribution: str = DEFAULT_TERMUX_PROOT_DISTRIBUTION, termux_sdrpp_source: str | Path = DEFAULT_TERMUX_SDRPP_SOURCE, native_root: str | Path | None = None, remote_control: SDRPPRemoteControlClient | None = None) -> bool:
@@ -242,9 +253,9 @@ def _write_sdrpp_theme(theme: str, *, termux_proot_distribution: str, termux_sdr
         proot_distro = shutil.which("proot-distro")
         if proot_distro is None:
             return False
-        config_path = termux_sdrpp_source / "root_dev" / "config.json"
         script = "import json, pathlib, sys; p=pathlib.Path(sys.argv[1]); d=json.loads(p.read_text()); d['theme']=sys.argv[2]; p.write_text(json.dumps(d, indent=4)+'\\n')"
-        result = subprocess.run([proot_distro, "login", termux_proot_distribution, "--shared-tmp", "--", "python3", "-c", script, str(config_path), theme], check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        shell_command = _termux_source_selection(termux_sdrpp_source) + ' && exec python3 -c ' + shlex.quote(script) + ' "$sdrpp_source/root_dev/config.json" ' + shlex.quote(theme)
+        result = subprocess.run([proot_distro, "login", termux_proot_distribution, "--shared-tmp", "--", "bash", "-lc", shell_command], check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         return result.returncode == 0
     root = native_root if native_root is not None else DEFAULT_NATIVE_SDRPP_ROOT
     config_path = root / "config.json"

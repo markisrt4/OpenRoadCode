@@ -93,7 +93,7 @@ class SDRPPLauncherTest(unittest.TestCase):
         self.assertIn("mkdir -p /tmp/runtime-root", command[-1])
         self.assertIn("chmod 700 /tmp/runtime-root", command[-1])
         self.assertIn(
-            "cd /root/.local/state/openroadcode/build/SDRPlusPlus",
+            "sdrpp_source=/root/.local/state/openroadcode/build/SDRPlusPlus",
             command[-1],
         )
         self.assertIn("./build/sdrpp -r root_dev --autostart", command[-1])
@@ -109,10 +109,10 @@ class SDRPPLauncherTest(unittest.TestCase):
         self.assertEqual("/usr/bin/proot-distro", command[0])
         self.assertEqual(["login", "debian", "--shared-tmp", "--"], command[1:5])
         self.assertIn(
-            "/root/.local/state/openroadcode/build/SDRPlusPlus/root_dev/config.json",
-            command,
+            '"$sdrpp_source/root_dev/config.json"',
+            command[-1],
         )
-        self.assertEqual("Dark", command[-1])
+        self.assertTrue(command[-1].endswith(" Dark"))
 
     @patch("apps.launchers.sdrpp_launcher._is_termux", return_value=False)
     @patch("apps.launchers.sdrpp_launcher.shutil.which", return_value=None)

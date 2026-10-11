@@ -10,9 +10,10 @@ from collections import deque
 
 from ui.system_diagnostics import SystemDiagnosticsSnapshot
 from ui.theme import ThemeBundle
+from ui.ui_widget import UiWidget
 
 
-class SystemMetricsPanel(tk.Frame):
+class SystemMetricsPanel(tk.Frame, UiWidget):
     """Display host and sampler-process performance with explicit measurement scope."""
 
     _HISTORY_SAMPLES = 120

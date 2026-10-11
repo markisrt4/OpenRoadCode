@@ -20,9 +20,10 @@ from .bottom_bar import OrcUiBottomBar
 from .shell_chrome import build_footer, build_top_bar
 from .shell_metrics import SHELL_PAD_X, SHELL_PAD_Y
 from .side_nav import OrcUiSideNav
+from ui.ui_widget import UiWidget
 
 
-class OrcUiShellView:
+class OrcUiShellView(UiWidget):
     """Own persistent shell widgets while preserving the central content host."""
 
     def __init__(
@@ -66,6 +67,8 @@ class OrcUiShellView:
         self._clock_label: tk.Label | None = None
         self._weather_status_label: tk.Label | None = None
         self._weather_status_text = "☁  --°"
+        self._back_action: Callable[[], None] | None = None
+        self._back_button: tk.Button | None = None
         self._breadcrumb_label: tk.Label | None = None
         self._status_label: tk.Label | None = None
         self._status_text = ""
@@ -129,6 +132,20 @@ class OrcUiShellView:
         self.set_breadcrumb(name)
         if self._side_nav is not None and self._side_nav.winfo_exists():
             self._side_nav.set_active(active=name, theme=self._theme)
+
+    def set_back_action(self, action: Callable[[], None] | None) -> None:
+        """Present the current screen's back action, or hide it when absent."""
+        self._back_action = action
+        if self._back_button is not None:
+            if action is None:
+                self._back_button.grid_remove()
+            else:
+                self._back_button.grid(row=0, column=2, padx=10, pady=2)
+
+    def _request_back(self) -> None:
+        action = self._back_action
+        if action is not None:
+            action()
 
     def set_breadcrumb(self, *parts: str) -> None:
         normalized = [part.strip().upper() for part in parts if part and part.strip()]
@@ -337,6 +354,14 @@ class OrcUiShellView:
             aircraft_count=self._aircraft_count,
         )
         self._breadcrumb_label, self._status_label = build_footer(self._root, theme=self._theme)
+        ui = self._theme.ui
+        self._back_button = tk.Button(
+            self._breadcrumb_label.master, text="‹ BACK", command=self._request_back,
+            bg=ui.control_background, fg=ui.control_text,
+            activebackground=ui.control_active, activeforeground=ui.text,
+            relief=tk.FLAT, bd=0, cursor="hand2",
+        )
+        self.set_back_action(self._back_action)
         self.set_performance_status(self._performance_status)
         self._breadcrumb_label.configure(text=self._breadcrumb)
         self._status_label.configure(text=self._status_text)

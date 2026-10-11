@@ -11,13 +11,12 @@ import shutil
 import threading
 import time
 from collections.abc import Callable, Sequence
-from dataclasses import dataclass
-from enum import Enum
 from typing import Protocol
 
 from common.logging.structured import current_operation, event, operation
 
 from controllers.spotify.spotify_state_service import SpotifyStateService
+from ui.media.spotify_browse_if import SpotifyPlaybackMode, SpotifyLocalPlayerState
 
 LOGGER = logging.getLogger("media.spotify.player")
 
@@ -47,23 +46,6 @@ class SpotifyPlayerBrowserIf(Protocol):
     def hide(self, display: str) -> None: ...
 
     def stop(self, display: str) -> None: ...
-
-
-class SpotifyPlaybackMode(str, Enum):
-    """User-visible Spotify playback destination mode."""
-
-    REMOTE = "REMOTE"
-    PLAYER = "PLAYER"
-
-
-@dataclass(frozen=True)
-class SpotifyLocalPlayerState:
-    """Thread-safe snapshot of the local Spotify player lifecycle."""
-
-    mode: SpotifyPlaybackMode = SpotifyPlaybackMode.REMOTE
-    available: bool = False
-    busy: bool = False
-    message: str = "Remote Spotify device control"
 
 
 HostFactory = Callable[[], SpotifyPlayerHostIf]

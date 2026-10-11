@@ -30,7 +30,7 @@ class HomeRadioCompositionTest(unittest.TestCase):
         widget = composition.home_factory(parent)
         self.assertIs(widget, now_playing_type.return_value)
         kwargs = now_playing_type.call_args.kwargs
-        self.assertIs(kwargs["controller"], runtime.streaming_radio)
+        self.assertIs(kwargs["state_source"], runtime.streaming_radio)
         kwargs["on_open_rf"]()
         app.navigate_to.assert_called_with("RADIO")
         composition.screen.open_rf.assert_called_once_with()

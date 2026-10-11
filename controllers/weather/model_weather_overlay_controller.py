@@ -67,7 +67,7 @@ class ModelWeatherOverlayController:
                     self._log.failed(failure)
                     frame, error = None, str(failure)
             if not self._closed:
-                self._host.schedule_ui_callback(0, lambda: self._complete(generation, frame, error, operation_id))
+                self._host.dispatch_ui(lambda: self._complete(generation, frame, error, operation_id))
             else:
                 self._log.stale(operation_id)
 
@@ -134,6 +134,8 @@ class ModelWeatherOverlayController:
 
     def close(self):
         """Invalidate pending workers and release model discovery connections."""
+        if self._closed:
+            return
         self._closed = True
         self._generation += 1
         self._provider.close()

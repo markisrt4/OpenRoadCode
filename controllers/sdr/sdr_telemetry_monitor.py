@@ -6,6 +6,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Optional
 
+from ui.radio.rf_radio_if import RadioTelemetry
+
 from protocols.sdrpp_telemetry import SDRPPTelemetry, SDRPPTelemetryClient
 
 
@@ -46,6 +48,17 @@ class SDRTelemetryMonitor:
         snr = self._format_db(snapshot.snr_db if snapshot else None)
         rds = self._safe_read_rds() if include_rds else "--"
         return SDRTelemetry(frequency_hz=frequency_hz, signal=signal, snr=snr, rds=rds)
+
+    def read_state(self, include_rds: bool = False) -> RadioTelemetry:
+        """Return measurements without frontend units or placeholder formatting."""
+        snapshot = self._safe_read_telemetry()
+        rds = self._safe_read_rds() if include_rds else "--"
+        return RadioTelemetry(
+            frequency_hz=self._frequency(snapshot),
+            signal_db=snapshot.signal_peak_db if snapshot else None,
+            snr_db=snapshot.snr_db if snapshot else None,
+            rds="" if rds == "--" else rds,
+        )
 
     def _safe_read_telemetry(self) -> SDRPPTelemetry | None:
         try:

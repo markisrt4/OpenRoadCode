@@ -8,6 +8,12 @@
 - Widgets implement presentation contracts and emit requests through handler
   contracts. Do not call concrete controllers, providers, service clients, or
   transports from widgets. Do not inspect their private state.
+- New presentation widgets inherit `ui.UiWidget`, directly or through
+  `ScreenUiIf`/`TkScreen`. This toolkit-independent marker signals the same policy;
+  it adds no lifecycle or dependency injection machinery. Widgets consume supplied
+  contracts; composition constructs and wires concrete dependencies. Concrete
+  rendering may use its frontend toolkit, while shared state and request contracts
+  remain toolkit-independent.
 - Controllers own business logic, workers, caching, retry, playback, and stale
   callback handling. Controllers must not import GUI frameworks or frontends.
 - Composition roots construct dependencies, bind contracts, and own cleanup.
@@ -16,11 +22,14 @@
 - Add meaningful contract and behavior tests alongside the feature, including
   hide/close and stale completion behavior when asynchronous work is involved.
   Update the affected documentation in the same change.
-- The user runs the full quality gate locally: `python scripts/quality_gate.py`.
-  It includes automatic project-wide dependency checks and stricter weather
-  checks; new frontend files are discovered automatically. Do not run the full
-  gate or broad test suites unless the user explicitly asks. Report changes as
-  awaiting user validation until the user supplies passing results.
+- During branch development, run tests and static checks relevant to the changed
+  code and affected contracts. Do not rerun the full quality gate for every fix
+  or feature batch. The user runs `python scripts/quality_gate.py` locally at the
+  end of branch development, before the branch is declared ready to merge. Do not
+  run the full gate or broad test suites unless the user explicitly asks. The
+  gate includes automatic project-wide dependency checks and stricter weather
+  checks; new frontend files are discovered automatically. Report focused checks
+  separately and mark full validation pending until the user supplies results.
 - `scripts/ui_boundary_exceptions.json` records exact pre-existing dependencies,
   not permission for new ones. Do not regenerate, expand, or add exceptions merely
   to make CI pass. Fix new violations. When removing old dependencies, shrink the

@@ -15,7 +15,7 @@ command -v proot-distro >/dev/null 2>&1 || {
 }
 
 DISPLAY_NUMBER="${DISPLAY_NUMBER:-:1}"
-SDRPP_DIR="${SDRPP_DIR:-/root/.local/state/openroadcode/build/SDRPlusPlus}"
+SDRPP_REQUESTED_DIR="${SDRPP_DIR:-/root/.local/state/openroadcode/build/SDRPlusPlus}"
 
 echo "[*] Starting SDR++ in Debian proot on DISPLAY=$DISPLAY_NUMBER"
 
@@ -32,6 +32,12 @@ exec proot-distro login debian --shared-tmp -- \
     mkdir -p "$XDG_RUNTIME_DIR"
     chmod 700 "$XDG_RUNTIME_DIR"
     unset WAYLAND_DISPLAY
-    cd "'"$SDRPP_DIR"'"
+    sdrpp_source="$1"
+    shift
+    if [[ "$sdrpp_source" == /root/.local/state/openroadcode/build/SDRPlusPlus \
+          && ! -x "$sdrpp_source/build/sdrpp" && -x /root/SDRPlusPlus/build/sdrpp ]]; then
+      sdrpp_source=/root/SDRPlusPlus
+    fi
+    cd "$sdrpp_source"
     exec ./build/sdrpp -r root_dev "$@"
-  ' bash "$@"
+  ' bash "$SDRPP_REQUESTED_DIR" "$@"

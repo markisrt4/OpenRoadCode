@@ -37,7 +37,6 @@ class NavigationPlacesControls:
         try:
             self._route_request_handler.request_start_route(
                 favorite.position,
-                (),
                 TravelMode.AUTO,
             )
         except Exception as error:
@@ -173,7 +172,6 @@ class NavigationPlacesControls:
         try:
             self._route_request_handler.request_start_route(
                 poi.position,
-                (),
                 TravelMode.AUTO,
             )
             self._route_active = True

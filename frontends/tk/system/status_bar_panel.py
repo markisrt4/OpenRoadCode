@@ -7,9 +7,10 @@ import tkinter as tk
 from typing import Any
 
 from ui.system import StatusUiIf, StatusValue
+from ui.ui_widget import UiWidget
 
 
-class StatusBarPanel(tk.Frame, StatusUiIf):
+class StatusBarPanel(tk.Frame, StatusUiIf, UiWidget):
     """Persistent bottom shell panel for application status messages."""
 
     def __init__(

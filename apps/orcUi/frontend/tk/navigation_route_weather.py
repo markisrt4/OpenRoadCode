@@ -13,9 +13,10 @@ from frontends.common.weather_overlay_format import city_time_label, model_legen
 from .shell_metrics import FONT_CONTROL
 from .city_weather_controls import CityWeatherControls
 from .city_weather_details_popup import CityWeatherDetailsPopup
+from ui.ui_widget import UiWidget
 
 
-class NavigationRouteWeather(WeatherOverlayControlsIf):
+class NavigationRouteWeather(WeatherOverlayControlsIf, UiWidget):
     """Own weather widgets only; providers, workers and map commands stay outside Tk."""
 
     def __init__(self, host, theme, unit_system):
