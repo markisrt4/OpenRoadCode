@@ -119,6 +119,8 @@ class MusicAnalyzer(MusicAnalyzerIf):
             percussion=self._percussion(gated_magnitude, frequencies),
             sample_rate_hz=sample_rate_hz,
             fft_size=self.fft_size,
+            spectrum_dbfs=tuple(float(v) for v in 20 * np.log10(np.maximum(magnitude, 1e-6))),
+            spectrum_hz=tuple(float(v) for v in frequencies),
         )
 
     def _beat(self, magnitude: np.ndarray, duration_s: float) -> float:

@@ -12,9 +12,15 @@ from ui.music_visualizer.music_visualizer_types import (
 )
 
 
+SNARE_X, SNARE_RADIUS = -1.9, .5
+KICK_RADIUS = .55
+DOUBLE_KICK_X = (-.65, .65)
+
+
 MODE_LABELS = {
     MusicVisualizationMode.FREQUENCY_TUNNEL: 'Frequency Tunnel',
     MusicVisualizationMode.SPECTRUM: 'Spectrum Field',
+    MusicVisualizationMode.BOOMBOX: 'Boombox Analyzer',
     MusicVisualizationMode.ORBITING_PLANETS: 'Orbiting Planets',
     MusicVisualizationMode.ELECTRIC_FREEWAY: 'Electric Freeway',
     MusicVisualizationMode.EXPLOSION_FIELD: 'Explosion Field',
@@ -64,7 +70,9 @@ def draw_scene(gl, glu, quadric, options: MusicVisualizerOptions, frame: Visuali
     gl.glLineWidth(2)
     spectrum = tuple(value * decay for value in frame.spectrum) or (0,) * 24
     mode = options.mode
-    if mode is MusicVisualizationMode.FREQUENCY_TUNNEL:
+    if mode is MusicVisualizationMode.BOOMBOX:
+        _boombox(gl, frame, decay)
+    elif mode is MusicVisualizationMode.FREQUENCY_TUNNEL:
         _tunnel(gl, spectrum, pulse, elapsed)
     elif mode is MusicVisualizationMode.SPECTRUM:
         _spectrum(gl, spectrum, pulse, elapsed)
@@ -257,10 +265,10 @@ def _drums(gl, glu, q, options, frame, pulse, decay, elapsed, aspect, geometry):
     drums = [(-1.15, 1.35, -.6, .6, .48, (.55, .12, .72), frame.tom_high),
              (0, 1.5, -.9, .67, .55, (.05, .65, .48), frame.tom_mid),
              (1.4, .65, -.1, .88, .9, (.08, .4, .78), frame.tom_low),
-             (-1.3, .3, 1.15, .72, .32, (.75, .38, .05), frame.snare)]
-    kicks = [-.65, .65] if options.kick_mode is KickMode.DOUBLE else [0]
+             (SNARE_X, .3, 1.15, SNARE_RADIUS, .32, (.75, .38, .05), frame.snare)]
+    kicks = DOUBLE_KICK_X if options.kick_mode is KickMode.DOUBLE else [0]
     for x in kicks:
-        _drum(gl, glu, q, x, .5, .6, .85, .85, (.65, .08, .12), activity(frame.kick), kick=True)
+        _drum(gl, glu, q, x, .4, .6, KICK_RADIUS, .65, (.65, .08, .12), activity(frame.kick), kick=True)
     for x, y, z, r, h, color, hit in drums:
         _drum(gl, glu, q, x, y, z, r, h, color, activity(hit))
     cymbals = [(-2.4, 2.05, -.2, .95), (2.45, 2.5, -1, .98), (-2.2, 1.1, 1.2, .55)]
@@ -269,7 +277,7 @@ def _drums(gl, glu, q, options, frame, pulse, decay, elapsed, aspect, geometry):
         _stand(gl, glu, q, x, y, z)
         gl.glPushMatrix()
         gl.glTranslatef(x, y, z)
-        gl.glRotatef(-90 + math.sin(elapsed * 24) * hit * 6, 1, 0, 0)
+        gl.glRotatef(-90 - hit * 32 + math.sin(elapsed * 24) * hit * 5, 1, 0, 0)
         if geometry is None:
             _cymbal(gl, glu, q, r)
         else:
@@ -393,9 +401,12 @@ def _drum(gl, glu, q, x, y, z, r, h, color, hit, *, kick=False):
     gl.glTranslatef(0, 0, h - hit * .008)
     gl.glMaterialfv(gl.GL_FRONT_AND_BACK, gl.GL_SPECULAR, (.12, .12, .12, 1))
     gl.glMaterialf(gl.GL_FRONT_AND_BACK, gl.GL_SHININESS, 10)
+    flash = max(0, (hit - .12) / .48)
+    gl.glMaterialfv(gl.GL_FRONT_AND_BACK, gl.GL_EMISSION, (flash, flash * .65, flash * .2, 1))
     head = .23 if kick else .64
     gl.glColor3f(head + hit * .15, head + hit * .13, head + hit * .1)
     glu.gluDisk(q, 0, r * .965, 64, 8)
+    gl.glMaterialfv(gl.GL_FRONT_AND_BACK, gl.GL_EMISSION, (0, 0, 0, 1))
     gl.glTranslatef(0, 0, .003)
     gl.glColor3f(.25, .27, .29)
     glu.gluDisk(q, r * .87, r * .88, 64, 1)
@@ -404,3 +415,37 @@ def _drum(gl, glu, q, x, y, z, r, h, color, hit, *, kick=False):
         gl.glColor3f(.025, .025, .025)
         glu.gluDisk(q, 0, r * .14, 32, 1)
     gl.glPopMatrix()
+
+
+def _boombox(gl, frame, decay):
+    # Fixed log frequency axis, fixed -60..0 dBFS amplitude axis; never auto-normalize.
+    gl.glMatrixMode(gl.GL_PROJECTION)
+    gl.glLoadIdentity()
+    gl.glOrtho(0, 1, 0, 1, -1, 1)
+    gl.glMatrixMode(gl.GL_MODELVIEW)
+    gl.glLoadIdentity()
+    gl.glDisable(gl.GL_DEPTH_TEST)
+    for db in (-60, -40, -20, 0):
+        gl.glColor3f(.12, .18, .22)
+        gl.glBegin(gl.GL_LINES)
+        gl.glVertex2f(.04, .08 + (db + 60) / 60 * .86)
+        gl.glVertex2f(.96, .08 + (db + 60) / 60 * .86)
+        gl.glEnd()
+    for i in range(64):
+        low = 31.25 * 512 ** (i / 64)
+        high = 31.25 * 512 ** ((i + 1) / 64)
+        values = [db for hz, db in zip(frame.spectrum_hz, frame.spectrum_dbfs)
+                  if low <= hz < high]
+        value = max(values, default=-60)
+        height = max(0, min(1, (value + 60) / 60)) * decay
+        x = .04 + .92 * i / 64
+        for segment in range(int(height * 30)):
+            t = segment / max(1, height * 30 - 1)
+            gl.glColor3f(min(1, t * 2), min(1, (1 - t) * 2), .04)
+            y = .08 + segment / 30 * .86
+            gl.glBegin(gl.GL_QUADS)
+            for px, py in ((x, y), (x + .92 / 64 * .8, y),
+                           (x + .92 / 64 * .8, y + .022), (x, y + .022)):
+                gl.glVertex2f(px, py)
+            gl.glEnd()
+    gl.glEnable(gl.GL_DEPTH_TEST)

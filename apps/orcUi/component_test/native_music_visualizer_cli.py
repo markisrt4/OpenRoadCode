@@ -62,7 +62,9 @@ def main():
                     assert screen._mode_name.get() == MODE_LABELS[mode]
                 screen._set_options(mode=mode, view=view, kick_mode=kick_mode)
                 panel.set_analysis_frame(VisualizerFrame(.7, .6, .4, .2, (.4,)*24,
-                                                       beat=1, kick=1, snare=.8, cymbal=.7))
+                                                       beat=1, kick=1, snare=.8, cymbal=.7,
+                                                       spectrum_hz=tuple(float(i * 24) for i in range(700)),
+                                                       spectrum_dbfs=tuple(-12.0 - i % 30 for i in range(700))))
                 panel._surface.tkMakeCurrent()
                 panel._draw(GL, panel._glu, panel._surface)
                 GL.glFinish()
@@ -95,7 +97,21 @@ def main():
                             for child in widget.winfo_children():
                                 assert_controls_fit(child)
                     assert_controls_fit(screen._controls)
-            print('PASS: compact controls, nine native scenes, detailed drums, softer response, double kick, 250px viewport, cleanup')
+                    if view is MusicVisualizerView.DRUM_KIT and page == 'SCENE':
+                        buttons = [child for row in screen._scene_page.winfo_children()
+                                   for child in row.winfo_children()
+                                   if isinstance(child, tk.Button) and child.cget('text') in ('+', '−')]
+                        assert len(buttons) == 4
+                        plus = next(button for button in buttons if button.cget('text') == '+')
+                        minus = next(button for button in buttons if button.cget('text') == '−')
+                        for _ in range(30):
+                            plus.invoke()
+                        assert screen._options.drum_gain == 1.2
+                        for _ in range(30):
+                            minus.invoke()
+                        assert screen._options.drum_gain == .2
+                        controller.start.assert_not_called()
+            print('PASS: compact controls, ten native scenes, detailed drums, softer response, double kick, 250px viewport, cleanup')
             print('Renderer:', GL.glGetString(GL.GL_RENDERER).decode())
         except Exception as exc:
             errors.append(exc)

@@ -22,6 +22,7 @@ class MusicVisualizationMode(Enum):
 
     FREQUENCY_TUNNEL = "frequency_tunnel"
     SPECTRUM = "spectrum"
+    BOOMBOX = "boombox"
     ORBITING_PLANETS = "orbiting_planets"
     ELECTRIC_FREEWAY = "electric_freeway"
     EXPLOSION_FIELD = "explosion_field"
@@ -50,6 +51,9 @@ class VisualizerFrame:
     spectrum: tuple[float, ...]
 
     beat: float = 0.0
+    # Hann-window FFT bin amplitudes (dBFS), paired with actual bin frequencies.
+    spectrum_dbfs: tuple[float, ...] = ()
+    spectrum_hz: tuple[float, ...] = ()
     kick: float = 0.0
     snare: float = 0.0
     tom_high: float = 0.0

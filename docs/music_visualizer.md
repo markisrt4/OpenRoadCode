@@ -183,3 +183,22 @@ renderer owns its GL geometry and animation timer and releases both on close.
 The browser override uses `BrowserMediaScreen` and `MusicVisualizerBrowser` for
 its local host and browser lifecycle. `MusicAnalysisSession` owns audio capture
 and analysis in both paths. WebUi retains the existing shared WebGL assets.
+
+
+### Boombox analyzer and drum controls
+
+The native **Boombox Analyzer** adds green-to-red segmented bars on a fixed
+31.25 Hz–16 kHz logarithmic axis. Frequency labels and bass (below 250 Hz), mid
+(250 Hz–4 kHz), and treble ranges sit below the plot. Grid lines represent
+−60, −40, −20, and 0 dBFS from bottom to top. Bars report the strongest
+Hann-window FFT bin in each displayed band, without adaptive normalization or
+noise calibration. Bands with no FFT bins stay empty; at 48 kHz with 2048 samples,
+bin spacing is 23.4375 Hz. This is a frequency/amplitude analyzer, not a calibrated
+sound-pressure meter. Off-bin tones can show Hann-window scalloping loss.
+
+Smaller kick drums and a separate snare leave clear horizontal gaps even with
+double kicks. New percussion onsets trigger short illuminated heads and a downward
+cymbal tilt that settles quickly; steady activity does not sustain the flash.
+The existing drum-response threshold still suppresses weak background activity.
+All response and zoom sliders retain drag adjustment and add large **− / +**
+buttons in 0.1 steps, clamped to their limits, without restarting capture.

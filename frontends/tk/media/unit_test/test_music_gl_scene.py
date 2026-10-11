@@ -39,3 +39,32 @@ def test_detailed_geometry_is_cached_and_released():
     geometry.close()
     geometry.close()
     gl.glDeleteLists.assert_called_once_with(42, 1)
+
+
+def test_snare_and_both_kicks_have_clear_horizontal_gaps():
+    from frontends.tk.media.music_gl_scene import (
+        DOUBLE_KICK_X, KICK_RADIUS, SNARE_RADIUS, SNARE_X,
+    )
+    assert DOUBLE_KICK_X[1] - DOUBLE_KICK_X[0] > 2 * KICK_RADIUS * 1.025
+    for x in (*DOUBLE_KICK_X, 0):
+        assert abs(x - SNARE_X) > (KICK_RADIUS + SNARE_RADIUS) * 1.025
+
+
+def test_drum_flash_retriggers_on_new_attack_not_sustained_sound():
+    from types import SimpleNamespace
+    from unittest.mock import patch
+    from frontends.tk.media.native_music_visualizer import NativeMusicVisualizerPanel
+    from ui.music_visualizer import VisualizerFrame
+    panel = SimpleNamespace(_closed=False, _frame=VisualizerFrame(0, 0, 0, 0, ()),
+                            _hits={}, _pulse=0)
+    loud = VisualizerFrame(0, 0, 0, 0, (), kick=1, cymbal=.8)
+    with patch('frontends.tk.media.native_music_visualizer.time.monotonic', return_value=1):
+        NativeMusicVisualizerPanel.set_analysis_frame(panel, loud)
+    with patch('frontends.tk.media.native_music_visualizer.time.monotonic', return_value=2):
+        NativeMusicVisualizerPanel.set_analysis_frame(panel, loud)
+    assert panel._hits['kick'] == (1, 1)
+    assert panel._hits['cymbal'] == (.8, 1)
+    NativeMusicVisualizerPanel.set_analysis_frame(panel, VisualizerFrame(0, 0, 0, 0, ()))
+    with patch('frontends.tk.media.native_music_visualizer.time.monotonic', return_value=3):
+        NativeMusicVisualizerPanel.set_analysis_frame(panel, loud)
+    assert panel._hits['kick'] == (1, 3)

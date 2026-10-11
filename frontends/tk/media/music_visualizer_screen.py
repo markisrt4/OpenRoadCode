@@ -103,14 +103,30 @@ class MusicVisualizerScreen(TkScreen):
         picker.pack(fill=tk.X, pady=1)
         return picker
 
-    def _scale(self, variable, low, high, action):
+    def _scale(self, variable, low, high, action, title):
         ui = self._ui
+        header = tk.Frame(self._controls, bg=ui.surface)
+        header.pack(fill=tk.X)
+        tk.Label(header, text=title, bg=ui.surface, fg=ui.text,
+                 font=('Sans', 7)).pack(side=tk.LEFT)
+        tk.Label(header, textvariable=variable, bg=ui.surface, fg=ui.text,
+                 font=('Sans', 7)).pack(side=tk.RIGHT)
         row = tk.Frame(self._controls, bg=ui.surface)
         row.pack(fill=tk.X)
-        tk.Label(row, textvariable=variable, width=4, bg=ui.surface, fg=ui.text,
-                 font=('Sans', 8)).pack(side=tk.RIGHT)
+
+        def step(delta):
+            value = round(max(low, min(high, variable.get() + delta)), 1)
+            variable.set(value)
+            action(str(value))
+
+        for text, delta, side in (('−', -.1, tk.LEFT), ('+', .1, tk.RIGHT)):
+            tk.Button(row, text=text, command=lambda d=delta: step(d),
+                      width=2, font=('Sans', 12, 'bold'), pady=0, bd=0,
+                      bg=ui.control_background, fg=ui.control_text,
+                      activebackground=ui.accent_primary,
+                      activeforeground=ui.control_text).pack(side=side)
         tk.Scale(row, variable=variable, from_=low, to=high, resolution=.1,
-                 orient=tk.HORIZONTAL, command=action, length=110, showvalue=False,
+                 orient=tk.HORIZONTAL, command=action, length=70, showvalue=False,
                  bg=ui.surface, fg=ui.text, troughcolor=ui.control_background,
                  activebackground=ui.accent_primary, highlightthickness=0,
                  font=('Sans', 8), sliderlength=20, bd=0).pack(side=tk.LEFT, fill=tk.X, expand=True)
@@ -185,21 +201,19 @@ class MusicVisualizerScreen(TkScreen):
             self._kick_name = tk.StringVar(value=self._options.kick_mode.value)
             self._picker(self._kick_name, ['single', 'double'],
                          lambda value: self._set_options(kick_mode=KickMode(value)))
-            self._label('DRUM RESPONSE')
             self._drum_gain = tk.DoubleVar(value=self._options.drum_gain)
             self._scale(self._drum_gain, .2, 1.2,
-                        lambda value: self._set_options(drum_gain=float(value)))
-            self._label('DRUM ZOOM')
+                        lambda value: self._set_options(drum_gain=float(value)), 'DRUM RESPONSE')
             self._zoom = tk.DoubleVar(value=self._options.drum_zoom)
-            self._scale(self._zoom, .8, 2.8, lambda value: self._set_options(drum_zoom=float(value)))
+            self._scale(self._zoom, .8, 2.8, lambda value: self._set_options(drum_zoom=float(value)), 'DRUM ZOOM')
         else:
             labels = [label for mode, label in MODE_LABELS.items()
-                      if self._native_controls or mode is not MusicVisualizationMode.FREQUENCY_TUNNEL]
+                      if self._native_controls or mode not in (MusicVisualizationMode.FREQUENCY_TUNNEL,
+                                                               MusicVisualizationMode.BOOMBOX)]
             self._mode_picker = self._picker(self._mode_name, labels, self._select_visualizer)
             if self._native_controls:
-                self._label('BEAT RESPONSE')
                 self._gain = tk.DoubleVar(value=self._options.beat_gain)
-                self._scale(self._gain, .5, 3, lambda value: self._set_options(beat_gain=float(value)))
+                self._scale(self._gain, .5, 3, lambda value: self._set_options(beat_gain=float(value)), 'BEAT RESPONSE')
         self._controls = previous
 
     def _show_page(self, page):

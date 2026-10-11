@@ -4,6 +4,7 @@
 """Native GL surface. Controls are supplied by the surrounding ORC screen."""
 from __future__ import annotations
 
+from dataclasses import replace
 import math
 import time
 import tkinter as tk
@@ -11,7 +12,7 @@ import tkinter as tk
 from ui.music_visualizer import VisualizerFrame
 from ui.ui_widget import UiWidget
 from ui.music_visualizer.music_visualizer_presentation_if import MusicVisualizerPresentationIf
-from ui.music_visualizer.music_visualizer_types import MusicVisualizerOptions, MusicVisualizerView
+from ui.music_visualizer.music_visualizer_types import MusicVisualizationMode, MusicVisualizerOptions, MusicVisualizerView
 from .music_gl_scene import MODE_LABELS, NativeSceneGeometry, draw_scene
 
 
@@ -27,9 +28,13 @@ class NativeMusicVisualizerPanel(tk.Frame, MusicVisualizerPresentationIf):
         self._frame = VisualizerFrame(0, 0, 0, 0, (0,) * 24)
         self._render_settings = MusicVisualizerOptions()
         self._received = 0.0
+        self._hits = {}
         self._started = self._last_tick = time.monotonic()
         self._pulse = 0.0
         self._status = 'Native OpenGL · Frequency Tunnel'
+        self._axis = tk.Canvas(self, height=48, bg=theme_bundle.ui.background,
+                               highlightthickness=0)
+        self._axis.bind('<Configure>', lambda _event: self._draw_axis())
         self._surface = None
         try:
             Frame, gl, glu = gl_backend()
@@ -77,9 +82,33 @@ class NativeMusicVisualizerPanel(tk.Frame, MusicVisualizerPresentationIf):
 
     def configure_visualizer(self, options: MusicVisualizerOptions) -> None:
         self._render_settings = options
+        if options.mode is MusicVisualizationMode.BOOMBOX and options.view is MusicVisualizerView.VISUALIZER:
+            self._axis.pack(side=tk.BOTTOM, fill=tk.X, before=self._surface)
+            self._draw_axis()
+        else:
+            self._axis.pack_forget()
         if not self._failed:
             label = '3D Drum Kit' if options.view is MusicVisualizerView.DRUM_KIT else MODE_LABELS[options.mode]
             self._status = f'Native OpenGL · {label}'
+
+    def _draw_axis(self):
+        canvas = self._axis
+        canvas.delete('all')
+        width = max(1, canvas.winfo_width())
+        for hz, label in ((31.25, '31'), (125, '125'), (500, '500'),
+                          (2000, '2k'), (8000, '8k'), (16000, '16k Hz')):
+            x = width * (.04 + .92 * math.log(hz / 31.25, 512))
+            canvas.create_text(x, 7, text=label, fill='#d9e7ef', font=('Sans', 7),
+                               anchor='e' if hz == 16000 else 'center')
+        for lo, hi, label, color in ((31.25, 250, 'BASS', '#48d97c'),
+                                     (250, 4000, 'MID', '#e6cf54'),
+                                     (4000, 16000, 'TREBLE', '#fa7657')):
+            x1 = width * (.04 + .92 * math.log(lo / 31.25, 512))
+            x2 = width * (.04 + .92 * math.log(hi / 31.25, 512))
+            canvas.create_line(x1, 18, x2, 18, fill=color, width=3)
+            canvas.create_text((x1 + x2) / 2, 28, text=label, fill=color, font=('Sans', 7))
+        canvas.create_text(width / 2, 42, text='−60 / −40 / −20 / 0 dBFS · FFT bin peaks',
+                           fill='#94abb8', font=('Sans', 7))
 
     def presentation_status(self) -> str:
         return self._status
@@ -94,8 +123,13 @@ class NativeMusicVisualizerPanel(tk.Frame, MusicVisualizerPresentationIf):
     def set_analysis_frame(self, frame: VisualizerFrame) -> None:
         if self._closed:
             return
+        now = time.monotonic()
+        for name in ('kick', 'snare', 'tom_high', 'tom_mid', 'tom_low', 'cymbal'):
+            value = getattr(frame, name)
+            if value > .55 and value - getattr(self._frame, name) > .12:
+                self._hits[name] = (value, now)
         self._frame = frame
-        self._received = time.monotonic()
+        self._received = now
         self._pulse = max(self._pulse, frame.beat)
 
     def _tick(self):
@@ -132,7 +166,11 @@ class NativeMusicVisualizerPanel(tk.Frame, MusicVisualizerPresentationIf):
         gl.glLoadIdentity()
         now = time.monotonic()
         decay = math.exp(-max(0, now - self._received - .15) / .15)
-        draw_scene(gl, glu, surface.quadric, self._render_settings, self._frame,
+        frame = self._frame
+        if self._render_settings.view is MusicVisualizerView.DRUM_KIT:
+            frame = replace(frame, **{name: value * math.exp(-(now - stamp) / .12)
+                                     for name, (value, stamp) in self._hits.items()})
+        draw_scene(gl, glu, surface.quadric, self._render_settings, frame,
                    min(1.5, self._pulse * self._render_settings.beat_gain), decay,
                    now - self._started, width / height, surface.geometry)
 

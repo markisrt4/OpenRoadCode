@@ -33,3 +33,6 @@ class MusicAnalysisState:
     sample_rate_hz: int = 0
     fft_size: int = 0
     beat: float = 0.0
+    # Hann-window FFT bin amplitudes (dBFS), paired with actual bin frequencies.
+    spectrum_dbfs: tuple[float, ...] = ()
+    spectrum_hz: tuple[float, ...] = ()
