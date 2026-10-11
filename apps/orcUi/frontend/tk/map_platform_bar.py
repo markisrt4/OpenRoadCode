@@ -1,11 +1,12 @@
 """Presentation-only platform selection for the navigation map."""
 
 import tkinter as tk
+from ui import UiWidget
 from ui.navigation.map_platform_if import MapPlatform, MapPlatformControlIf, MapPlatformState
 from ui.theme import ThemeBundle
 
 
-class MapPlatformBar(tk.Frame):
+class MapPlatformBar(tk.Frame, UiWidget):
     def __init__(self, parent, *, handler: MapPlatformControlIf, theme: ThemeBundle):
         ui = theme.ui
         super().__init__(parent, bg=ui.surface_alt)

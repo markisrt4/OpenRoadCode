@@ -51,7 +51,8 @@ fi
 
 if [[ -x "$VENV_DIR/bin/python" ]]; then
   if [[ " ${FEATURES[*]} " == *" development "* ]]; then
-    for quality_tool in pytest ruff mypy; do
+    echo "[*] Ruff is optional on Termux; the quality gate skips it when unavailable."
+    for quality_tool in pytest mypy; do
       if "$VENV_DIR/bin/python" -m "$quality_tool" --version; then
         echo "[+] $quality_tool available in $VENV_DIR"
       else

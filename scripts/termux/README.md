@@ -85,8 +85,11 @@ from the Termux target merge.
 
 ## Python quality tools
 
-The existing `development` feature installs pytest, Ruff, and mypy 1.19.1 through
-the shared installer package catalog, without a requirements-file step:
+The existing `development` feature installs pytest and mypy 1.19.1 through
+the shared installer package catalog, without a requirements-file step.
+Termux skips Ruff installation to avoid a Rust source build on Android. The
+quality gate skips Ruff when unavailable on Termux and runs it if already
+installed. Mypy remains mandatory. Linux installs all three tools.
 
 ```bash
 bash scripts/termux/install.sh development
